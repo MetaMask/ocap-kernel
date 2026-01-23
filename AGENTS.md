@@ -6,9 +6,11 @@ Development workflows:
 
 - Use `yarn` and `yarn workspace` to run package scripts:
   - `lint:fix` for linting
-  - `test:dev` for unit tests, `test` to include coverage
-  - e2e tests invoked separately via `test:e2e`, if available
-  - `build` from root is cached using Turborepo
+  - `test:dev:quiet` for unit tests, add `--coverage=true` to include coverage
+  - if available, integration and e2e tests invoked separately via
+    `test:integration` and `test:e2e`, respectively
+  - `build` and `test:dev` from root are cached using Turboerpo (`turbo`)
+    - No other scripts use `turbo`
 
 General conventions:
 
@@ -40,7 +42,11 @@ Object capability (ocap) patterns:
 Testing:
 
 - Use `vitest` for testing
+- Avoid introducing global state in tests
+  - If you need a mock object of type `Foo`, add a utility like `const makeFoo = () => { ... }`
 - Always use `toStrictEqual()` for deep object comparisons
+  - If testing all properties of an object, use a single `toStrictEqual()` on the entire object
+    instead of multiple `expect()` calls
 - Use `it.each()` for parameterized tests
 - Use logically nested `describe()` blocks
 - Test titles should use concise verb forms without "should" (e.g., `it('creates and starts libp2p node', ...)` not `it('should create and start libp2p node', ...)`)
@@ -48,6 +54,8 @@ Testing:
 - Mock functions with `vi.fn()` and explicit return types
 - Mock external dependencies using vitest's `vi.mock()`
 - Aim for complete unit test coverage when writing tests
+- Check the local package `@ocap/test-utils` (`packages/test-utils`) for test utilities before creating new ones
+- Use `vi.useFakeTimers()` for tests that rely on timers
 
 TypeScript:
 
