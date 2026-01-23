@@ -61,11 +61,22 @@ jobs:
   coverage-report:
     name: Coverage report
     needs: lint-build-test
-    if: github.event_name != 'merge_group'
+    if: github.event_name == 'pull_request'
     uses: ./.github/workflows/coverage-report.yml
     permissions:
-      contents: write
       pull-requests: write
+
+  publish-coverage:
+    name: Publish coverage to GitHub Pages
+    needs: lint-build-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/publish-gh-pages.yml
+    with:
+      publish_dir: ./coverage
+      destination_dir: coverage
+      artifact_name: coverage
+    permissions:
+      contents: write
 
   is-release:
     name: Determine whether this is a release merge commit

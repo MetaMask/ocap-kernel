@@ -1,0 +1,38 @@
+name: Publish to GitHub Pages
+
+on:
+  workflow_call:
+    inputs:
+      publish_dir:
+        description: 'Directory to publish'
+        required: true
+        type: string
+      destination_dir:
+        description: 'Destination directory on gh-pages branch'
+        required: true
+        type: string
+      artifact_name:
+        description: 'Name of artifact to download'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    name: Publish to GitHub Pages
+    runs-on: ubuntu-latest
+    environment: github-pages
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: ${{ inputs.artifact_name }}
+          path: ${{ inputs.publish_dir }}
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@4f9cc6602d3f66b9c108549d475ec49e8ef4d45e
+        with:
+          personal_token: ${{ secrets.PUBLISH_PAGES_TOKEN }}
+          publish_dir: ${{ inputs.publish_dir }}
+          destination_dir: ${{ inputs.destination_dir }}
