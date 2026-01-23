@@ -3371,6 +3371,7 @@ __metadata:
     "@typescript-eslint/parser": "npm:^8.29.0"
     "@typescript-eslint/utils": "npm:^8.29.0"
     "@vitest/eslint-plugin": "npm:^1.6.5"
+    acorn: "npm:^8.15.0"
     chokidar: "npm:^4.0.1"
     depcheck: "npm:^1.4.7"
     eslint: "npm:^9.23.0"
