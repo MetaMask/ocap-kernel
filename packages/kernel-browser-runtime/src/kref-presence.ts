@@ -191,6 +191,37 @@ export function makePresenceManager(
   let marshal: ReturnType<typeof makeMarshal<string>>;
 
   /**
+   * Recursively convert presence objects to kref strings.
+   *
+   * This is the inverse of convertKrefsToStandins - it converts presences
+   * back to kref strings so they can be sent to the kernel.
+   *
+   * @param value - The value to convert.
+   * @returns The value with presences converted to kref strings.
+   */
+  const convertPresencesToKrefs = (value: unknown): unknown => {
+    // Check if it's a known presence
+    if (typeof value === 'object' && value !== null) {
+      const kref = presenceToKref.get(value);
+      if (kref !== undefined) {
+        return kref;
+      }
+      // Recursively process arrays
+      if (Array.isArray(value)) {
+        return value.map(convertPresencesToKrefs);
+      }
+      // Recursively process plain objects
+      const result: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(value)) {
+        result[key] = convertPresencesToKrefs(val);
+      }
+      return result;
+    }
+    // Return primitives as-is
+    return value;
+  };
+
+  /**
    * Send a message to the kernel and deserialize the result.
    *
    * @param kref - The target kernel reference.
@@ -203,16 +234,8 @@ export function makePresenceManager(
     method: string,
     args: unknown[],
   ): Promise<unknown> => {
-    // Convert presence args to kref strings
-    const serializedArgs = args.map((arg) => {
-      if (typeof arg === 'object' && arg !== null) {
-        const argKref = presenceToKref.get(arg);
-        if (argKref) {
-          return argKref; // Pass kref string to kernel
-        }
-      }
-      return arg; // Pass primitive through
-    });
+    // Recursively convert presence args to kref strings
+    const serializedArgs = args.map(convertPresencesToKrefs);
 
     // Call kernel via existing CapTP
     const result: CapData<KRef> = await E(kernelFacade).queueMessage(

@@ -289,8 +289,127 @@ describe('makePresenceManager', () => {
     });
   });
 
-  // Note: fromCapData and E() handler tests require the full Endo runtime
-  // environment with proper SES lockdown. These behaviors are tested in
-  // captp.integration.test.ts which runs with the real Endo setup.
-  // Unit tests here focus on the kref↔presence mapping functionality.
+  describe('presence-to-kref conversion in sendToKernel', () => {
+    // These tests verify that presences are recursively converted to kref
+    // strings when passed as arguments to E() calls on presences.
+
+    beforeEach(() => {
+      // Set up queueMessage to return a valid CapData response
+      vi.mocked(mockKernelFacade.queueMessage).mockResolvedValue({
+        body: '#null',
+        slots: [],
+      });
+    });
+
+    it('converts top-level presence argument to kref string', async () => {
+      const targetPresence = presenceManager.resolveKref('ko1');
+      const argPresence = presenceManager.resolveKref('ko2');
+
+      // Call method with presence as argument
+      await (
+        targetPresence as Record<string, (...args: unknown[]) => unknown>
+      ).someMethod(argPresence);
+
+      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+        'ko1',
+        'someMethod',
+        ['ko2'],
+      );
+    });
+
+    it('converts nested presence in object argument to kref string', async () => {
+      const targetPresence = presenceManager.resolveKref('ko1');
+      const nestedPresence = presenceManager.resolveKref('ko2');
+
+      await (
+        targetPresence as Record<string, (...args: unknown[]) => unknown>
+      ).someMethod({ nested: nestedPresence });
+
+      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+        'ko1',
+        'someMethod',
+        [{ nested: 'ko2' }],
+      );
+    });
+
+    it('converts presences in array argument to kref strings', async () => {
+      const targetPresence = presenceManager.resolveKref('ko1');
+      const presence2 = presenceManager.resolveKref('ko2');
+      const presence3 = presenceManager.resolveKref('ko3');
+
+      await (
+        targetPresence as Record<string, (...args: unknown[]) => unknown>
+      ).someMethod([presence2, presence3]);
+
+      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+        'ko1',
+        'someMethod',
+        [['ko2', 'ko3']],
+      );
+    });
+
+    it('converts deeply nested presences to kref strings', async () => {
+      const targetPresence = presenceManager.resolveKref('ko1');
+      const deepPresence = presenceManager.resolveKref('ko99');
+
+      await (
+        targetPresence as Record<string, (...args: unknown[]) => unknown>
+      ).someMethod({ a: { b: { c: deepPresence } } });
+
+      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+        'ko1',
+        'someMethod',
+        [{ a: { b: { c: 'ko99' } } }],
+      );
+    });
+
+    it('handles mixed arguments with primitives and nested presences', async () => {
+      const targetPresence = presenceManager.resolveKref('ko1');
+      const presence2 = presenceManager.resolveKref('ko2');
+      const presence3 = presenceManager.resolveKref('ko3');
+
+      await (
+        targetPresence as Record<string, (...args: unknown[]) => unknown>
+      ).someMethod('primitive', { nested: presence2 }, presence3, 42);
+
+      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+        'ko1',
+        'someMethod',
+        ['primitive', { nested: 'ko2' }, 'ko3', 42],
+      );
+    });
+
+    it('preserves non-presence objects unchanged', async () => {
+      const targetPresence = presenceManager.resolveKref('ko1');
+
+      await (
+        targetPresence as Record<string, (...args: unknown[]) => unknown>
+      ).someMethod({ data: 'value', count: 123 });
+
+      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+        'ko1',
+        'someMethod',
+        [{ data: 'value', count: 123 }],
+      );
+    });
+
+    it('handles array with mixed presences and primitives', async () => {
+      const targetPresence = presenceManager.resolveKref('ko1');
+      const presence2 = presenceManager.resolveKref('ko2');
+
+      await (
+        targetPresence as Record<string, (...args: unknown[]) => unknown>
+      ).someMethod([presence2, 'string', 42, { key: presence2 }]);
+
+      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+        'ko1',
+        'someMethod',
+        [['ko2', 'string', 42, { key: 'ko2' }]],
+      );
+    });
+  });
+
+  // Note: fromCapData and full E() handler integration tests require the real
+  // Endo runtime environment with proper SES lockdown. These behaviors are
+  // tested in captp.integration.test.ts which runs with the real Endo setup.
 });
