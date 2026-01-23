@@ -1,13 +1,11 @@
+import type { VatBundle } from '@metamask/kernel-utils';
 import { build } from 'vite';
 import type { Rollup, PluginOption } from 'vite';
 
 import { exportMetadataPlugin } from './export-metadata-plugin.ts';
-import type { BundleMetadata } from './export-metadata-plugin.ts';
+import { stripCommentsPlugin } from './strip-comments-plugin.ts';
 
-export type VatBundle = BundleMetadata & {
-  moduleFormat: 'vite-iife';
-  code: string;
-};
+export type { VatBundle };
 
 /**
  * Bundle a vat source file using vite.
@@ -36,7 +34,10 @@ export async function bundleVat(sourcePath: string): Promise<VatBundle> {
           exports: 'named',
           inlineDynamicImports: true,
         },
-        plugins: [metadataPlugin as unknown as PluginOption],
+        plugins: [
+          stripCommentsPlugin() as unknown as PluginOption,
+          metadataPlugin as unknown as PluginOption,
+        ],
       },
       minify: false,
     },
@@ -51,13 +52,9 @@ export async function bundleVat(sourcePath: string): Promise<VatBundle> {
     throw new Error(`Failed to produce bundle for ${sourcePath}`);
   }
 
-  // SES rejects code containing `import(` patterns, even in comments.
-  // Replace them with a safe alternative that won't trigger detection.
-  const sanitizedCode = chunk.code.replace(/\bimport\s*\(/gu, 'IMPORT(');
-
   return {
-    moduleFormat: 'vite-iife',
-    code: sanitizedCode,
+    moduleFormat: 'iife',
+    code: chunk.code,
     ...metadataPlugin.getMetadata(),
   };
 }

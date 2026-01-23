@@ -1,6 +1,5 @@
 import '@metamask/kernel-shims/endoify';
-import { makeCounter, stringify } from '@metamask/kernel-utils';
-import { isObject, hasProperty } from '@metamask/utils';
+import { isVatBundle, makeCounter, stringify } from '@metamask/kernel-utils';
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -9,20 +8,6 @@ import { getServer } from '../../src/commands/serve.ts';
 import { defaultConfig } from '../../src/config.ts';
 import { withTimeout } from '../../src/utils.ts';
 import { makeTestBundleStage, validTestBundleNames } from '../bundles.ts';
-
-type ViteBundle = {
-  moduleFormat: 'vite-iife';
-  code: string;
-  exports: string[];
-  modules: Record<string, unknown>;
-};
-
-const isViteBundle = (value: unknown): value is ViteBundle =>
-  isObject(value) &&
-  hasProperty(value, 'moduleFormat') &&
-  value.moduleFormat === 'vite-iife' &&
-  hasProperty(value, 'code') &&
-  typeof value.code === 'string';
 
 describe('serve', async () => {
   beforeEach(() => {
@@ -87,7 +72,7 @@ describe('serve', async () => {
       try {
         const bundleData = await readFile(bundlePath);
         const expectedBundleContent = JSON.parse(bundleData.toString());
-        if (!isViteBundle(expectedBundleContent)) {
+        if (!isVatBundle(expectedBundleContent)) {
           throw new Error(
             [
               `Could not read expected bundle ${bundlePath}`,
@@ -98,7 +83,7 @@ describe('serve', async () => {
         const expectedCode = expectedBundleContent.code;
 
         const receivedBundleContent = await requestBundle(bundleName);
-        if (!isViteBundle(receivedBundleContent)) {
+        if (!isVatBundle(receivedBundleContent)) {
           throw new Error(
             `Received unexpected response from server: ${stringify(receivedBundleContent)}`,
           );
