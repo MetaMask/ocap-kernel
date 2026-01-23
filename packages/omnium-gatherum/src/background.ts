@@ -183,20 +183,18 @@ function defineGlobals(): GlobalSetters {
     id: string,
   ): Promise<{ manifest: CapletManifest; bundle: unknown }> => {
     const baseUrl = chrome.runtime.getURL('');
+    const capletBaseUrl = `${baseUrl}${id}/`;
 
     // Fetch manifest
-    const manifestUrl = `${baseUrl}${id}.manifest.json`;
+    const manifestUrl = `${capletBaseUrl}manifest.json`;
     const manifestResponse = await fetch(manifestUrl);
     if (!manifestResponse.ok) {
       throw new Error(`Failed to fetch manifest for caplet "${id}"`);
     }
-    const manifestData = (await manifestResponse.json()) as Omit<
-      CapletManifest,
-      'bundleSpec'
-    >;
+    const manifestData = (await manifestResponse.json()) as CapletManifest;
 
-    // Construct full manifest with bundleSpec
-    const bundleSpec = `${baseUrl}${id}-caplet.bundle`;
+    // Resolve bundleSpec to absolute URL
+    const bundleSpec = `${capletBaseUrl}${manifestData.bundleSpec}`;
     const manifest: CapletManifest = {
       ...manifestData,
       bundleSpec,

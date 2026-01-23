@@ -41,24 +41,24 @@ declare global {
     getKernel: () => Promise<KernelFacade>;
 
     /**
-     * Load a caplet's manifest and bundle by ID.
-     *
-     * @param id - The short caplet ID (e.g., 'echo').
-     * @returns The manifest and bundle for installation.
-     * @example
-     * ```typescript
-     * const { manifest, bundle } = await omnium.loadCaplet('echo');
-     * await omnium.caplet.install(manifest, bundle);
-     * ```
-     */
-    loadCaplet: (
-      id: string,
-    ) => Promise<{ manifest: CapletManifest; bundle: unknown }>;
-
-    /**
      * Caplet management API.
      */
-    caplet: Promisified<CapletControllerFacet>;
+    caplet: Promisified<CapletControllerFacet> & {
+      /**
+       * Load a caplet's manifest and bundle by ID.
+       *
+       * @param id - The short caplet ID (e.g., 'echo').
+       * @returns The manifest and bundle for installation.
+       * @example
+       * ```typescript
+       * const { manifest, bundle } = await omnium.caplet.load('echo');
+       * await omnium.caplet.install(manifest);
+       * ```
+       */
+      load: (
+        id: string,
+      ) => Promise<{ manifest: CapletManifest; bundle: unknown }>;
+    };
   };
 }
 

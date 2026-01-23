@@ -16,11 +16,11 @@
     "dist/"
   ],
   "scripts": {
-    "build": "yarn build:vats && yarn build:vite && yarn test:build",
+    "build": "yarn build:caplets && yarn build:vite && yarn test:build",
     "build:dev": "yarn build:vite --mode development",
     "build:watch": "yarn build:dev --watch",
     "build:browser": "OPEN_BROWSER=true yarn build:dev --watch",
-    "build:vats": "ocap bundle src/vats",
+    "build:caplets": "ocap bundle src/caplets/echo",
     "build:vite": "vite build --configLoader runner --config vite.config.ts",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/omnium-gatherum",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo",

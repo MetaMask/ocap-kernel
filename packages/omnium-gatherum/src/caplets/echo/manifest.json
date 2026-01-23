@@ -1,0 +1,6 @@
+{
+  "id": "com.example.echo",
+  "name": "Echo Caplet",
+  "version": "1.0.0",
+  "bundleSpec": "echo-caplet.bundle"
+}
