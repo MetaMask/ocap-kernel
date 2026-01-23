@@ -28,16 +28,12 @@ describe('Caplet Integration - Echo Caplet', () => {
   let mockSubclusterCounter: number;
 
   beforeEach(async () => {
-    // Reset state
     mockStorage = new Map();
     mockSubclusterCounter = 0;
 
-    // Create a mock logger
     const mockLogger = makeMockLogger();
-    // Create a mock storage adapter
     const mockAdapter = makeMockStorageAdapter(mockStorage);
 
-    // Create mock kernel functions
     const mockLaunchSubcluster = vi.fn(async () => {
       mockSubclusterCounter += 1;
       return {
@@ -63,21 +59,20 @@ describe('Caplet Integration - Echo Caplet', () => {
       getVatRoot: mockGetVatRoot,
     };
 
-    // Create the caplet controller using static make() method
     capletController = await CapletController.make(
       { logger: mockLogger },
       deps,
     );
   });
 
-  it('installs echo-caplet successfully', async () => {
+  it('installs a caplet', async () => {
     const result = await capletController.install(echoCapletManifest);
 
     expect(result.capletId).toBe('com.example.echo');
     expect(result.subclusterId).toBe('test-subcluster-1');
   });
 
-  it('retrieves installed echo-caplet', async () => {
+  it('retrieves installed a caplet', async () => {
     await capletController.install(echoCapletManifest);
 
     const caplet = capletController.get('com.example.echo');
@@ -106,20 +101,17 @@ describe('Caplet Integration - Echo Caplet', () => {
     expect(list[0]?.manifest.id).toBe('com.example.echo');
   });
 
-  it('uninstalls echo-caplet cleanly', async () => {
-    // Install
+  it('uninstalls a caplet', async () => {
     await capletController.install(echoCapletManifest);
 
     let list = capletController.list();
     expect(list).toHaveLength(1);
 
-    // Uninstall
     await capletController.uninstall('com.example.echo');
 
     list = capletController.list();
     expect(list).toHaveLength(0);
 
-    // Verify it's also gone from get()
     const caplet = capletController.get('com.example.echo');
     expect(caplet).toBeUndefined();
   });
@@ -127,7 +119,6 @@ describe('Caplet Integration - Echo Caplet', () => {
   it('prevents duplicate installations', async () => {
     await capletController.install(echoCapletManifest);
 
-    // Attempting to install again should throw
     await expect(capletController.install(echoCapletManifest)).rejects.toThrow(
       'already installed',
     );
@@ -139,13 +130,12 @@ describe('Caplet Integration - Echo Caplet', () => {
     ).rejects.toThrow('not found');
   });
 
-  it('gets caplet root object as presence', async () => {
+  it('gets caplet root object', async () => {
     await capletController.install(echoCapletManifest);
 
     const rootPresence =
       await capletController.getCapletRoot('com.example.echo');
 
-    // The presence should be the object returned by getVatRoot mock
     expect(rootPresence).toStrictEqual({ kref: 'ko1' });
   });
 
@@ -156,7 +146,6 @@ describe('Caplet Integration - Echo Caplet', () => {
   });
 
   it('persists caplet state across controller restarts', async () => {
-    // Install a caplet
     await capletController.install(echoCapletManifest);
 
     // Simulate a restart by creating a new controller with the same storage
