@@ -2,7 +2,6 @@ import {
   makeIframeVatWorker,
   PlatformServicesServer,
   createRelayQueryString,
-  setupConsoleForwarding,
 } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
@@ -31,9 +30,6 @@ async function main(): Promise<void> {
     JsonRpcMessage,
     JsonRpcMessage
   >(chrome.runtime, 'offscreen', 'background', isJsonRpcMessage);
-
-  // Set up console forwarding to background for Playwright capture
-  setupConsoleForwarding(backgroundStream);
 
   const kernelStream = await makeKernelWorker();
 

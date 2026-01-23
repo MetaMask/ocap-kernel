@@ -16,7 +16,14 @@ const config = createConfig([
   },
 
   {
-    ignores: ['**/coverage', '**/dist', '**/docs', '**/node_modules'],
+    ignores: [
+      '**/coverage',
+      '**/dist',
+      '**/docs',
+      '**/node_modules',
+      // Static JS files that run before lockdown (intentionally ES5/ES6 compatible)
+      '**/static/*.js',
+    ],
   },
 
   {
