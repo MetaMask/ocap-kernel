@@ -1,12 +1,4 @@
-type VatBundle = {
-  moduleFormat: 'iife';
-  code: string;
-  exports: string[];
-  modules: Record<
-    string,
-    { renderedExports: string[]; removedExports: string[] }
-  >;
-};
+import type { VatBundle } from '@metamask/kernel-utils';
 
 export type LoadBundleOptions = {
   endowments?: object;
@@ -14,7 +6,7 @@ export type LoadBundleOptions = {
 };
 
 /**
- * Load a vite-iife bundle and return its namespace.
+ * Load an iife bundle and return its namespace.
  *
  * @param content - The bundle content as a JSON string.
  * @param options - Options for loading the bundle.
@@ -27,10 +19,10 @@ export function loadBundle(
   const parsed = JSON.parse(content) as Record<string, unknown>;
   const { endowments = {}, inescapableGlobalProperties = {} } = options;
 
-  if (parsed.moduleFormat !== 'vite-iife') {
+  if (parsed.moduleFormat !== 'iife') {
     throw new Error(`Unknown bundle format: ${String(parsed.moduleFormat)}`);
   }
-  const bundle = parsed as unknown as ViteBundle;
+  const bundle = parsed as unknown as VatBundle;
 
   const compartment = new Compartment({
     // SES globals that may be used by bundled code
