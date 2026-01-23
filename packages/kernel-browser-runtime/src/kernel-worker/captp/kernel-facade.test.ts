@@ -24,8 +24,8 @@ describe('makeKernelFacade', () => {
   beforeEach(() => {
     mockKernel = {
       launchSubcluster: vi.fn().mockResolvedValue({
-        body: '#{"status":"ok"}',
-        slots: [],
+        subclusterId: 'sc1',
+        bootstrapRootKref: 'ko1',
       }),
       terminateSubcluster: vi.fn().mockResolvedValue(undefined),
       queueMessage: vi.fn().mockResolvedValue({
@@ -60,16 +60,24 @@ describe('makeKernelFacade', () => {
       expect(mockKernel.launchSubcluster).toHaveBeenCalledTimes(1);
     });
 
-    it('returns result from kernel', async () => {
-      const expectedResult = { body: '#{"rootObject":"ko1"}', slots: ['ko1'] };
+    it('returns result with subclusterId and rootKref from kernel', async () => {
+      const kernelResult = {
+        subclusterId: 's1',
+        bootstrapRootKref: 'ko1',
+        bootstrapResult: { body: '#null', slots: [] },
+      };
       vi.mocked(mockKernel.launchSubcluster).mockResolvedValueOnce(
-        expectedResult,
+        kernelResult,
       );
 
       const config: ClusterConfig = makeClusterConfig();
 
       const result = await facade.launchSubcluster(config);
-      expect(result).toStrictEqual(expectedResult);
+
+      expect(result).toStrictEqual({
+        subclusterId: 's1',
+        rootKref: 'ko1',
+      });
     });
 
     it('propagates errors from kernel', async () => {

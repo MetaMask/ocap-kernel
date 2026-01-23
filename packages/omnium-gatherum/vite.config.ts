@@ -38,6 +38,11 @@ const staticCopyTargets: readonly (string | Target)[] = [
   'packages/omnium-gatherum/src/manifest.json',
   // Trusted prelude-related
   'packages/kernel-shims/dist/endoify.js',
+  // Caplets (add new caplet entries here)
+  {
+    src: 'packages/omnium-gatherum/src/caplets/echo/{manifest.json,*.bundle}',
+    dest: 'echo/',
+  },
 ];
 
 const endoifyImportStatement = `import './endoify.js';`;

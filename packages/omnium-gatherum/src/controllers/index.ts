@@ -78,26 +78,18 @@ export async function initializeControllers({
       launchSubcluster: async (
         config: ClusterConfig,
       ): Promise<LaunchResult> => {
-        const statusBefore = await E(kernel).getStatus();
-        const beforeIds = new Set(
-          statusBefore.subclusters.map((subcluster) => subcluster.id),
-        );
-
-        await E(kernel).launchSubcluster(config);
-
-        const statusAfter = await E(kernel).getStatus();
-        const newSubcluster = statusAfter.subclusters.find(
-          (subcluster) => !beforeIds.has(subcluster.id),
-        );
-
-        if (!newSubcluster) {
-          throw new Error('Failed to determine subclusterId after launch');
-        }
-
-        return { subclusterId: newSubcluster.id };
+        const result = await E(kernel).launchSubcluster(config);
+        return {
+          subclusterId: result.subclusterId,
+          rootKref: result.rootKref,
+        };
       },
       terminateSubcluster: async (subclusterId: string): Promise<void> => {
         await E(kernel).terminateSubcluster(subclusterId);
+      },
+      getVatRoot: async (krefString: string): Promise<unknown> => {
+        // Convert kref string to presence via kernel facade
+        return E(kernel).getVatRoot(krefString);
       },
     },
   );

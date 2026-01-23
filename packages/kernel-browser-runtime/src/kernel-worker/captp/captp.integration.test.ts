@@ -24,8 +24,12 @@ describe('CapTP Integration', () => {
     // Create mock kernel with method implementations
     mockKernel = {
       launchSubcluster: vi.fn().mockResolvedValue({
-        body: '#{"rootKref":"ko1"}',
-        slots: ['ko1'],
+        subclusterId: 'sc1',
+        bootstrapRootKref: 'ko1',
+        bootstrapResult: {
+          body: '#{"result":"ok"}',
+          slots: [],
+        },
       }),
       terminateSubcluster: vi.fn().mockResolvedValue(undefined),
       queueMessage: vi.fn().mockResolvedValue({
@@ -113,9 +117,11 @@ describe('CapTP Integration', () => {
 
       // Call launchSubcluster via E()
       const result = await E(kernel).launchSubcluster(config);
+
+      // The kernel facade now returns LaunchResult instead of CapData
       expect(result).toStrictEqual({
-        body: '#{"rootKref":"ko1"}',
-        slots: ['ko1'],
+        subclusterId: 'sc1',
+        rootKref: 'ko1',
       });
 
       expect(mockKernel.launchSubcluster).toHaveBeenCalledWith(config);

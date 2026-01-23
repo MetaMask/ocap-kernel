@@ -270,6 +270,7 @@ const config = createConfig([
   {
     files: [
       'packages/*/src/**/vats/**/*',
+      'packages/*/src/**/caplets/**/*.js',
       'packages/*/test/**/vats/**/*',
       'packages/nodejs/test/workers/**/*',
       'packages/logger/test/workers/**/*',

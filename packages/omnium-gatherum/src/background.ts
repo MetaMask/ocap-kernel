@@ -173,6 +173,43 @@ function defineGlobals(): GlobalSetters {
   let ping: (() => Promise<void>) | undefined;
   let capletController: CapletControllerFacet;
 
+  /**
+   * Load a caplet's manifest and bundle by ID.
+   *
+   * @param id - The short caplet ID (e.g., 'echo').
+   * @returns The manifest and bundle for installation.
+   */
+  const loadCaplet = async (
+    id: string,
+  ): Promise<{ manifest: CapletManifest; bundle: unknown }> => {
+    const baseUrl = chrome.runtime.getURL('');
+    const capletBaseUrl = `${baseUrl}${id}/`;
+
+    // Fetch manifest
+    const manifestUrl = `${capletBaseUrl}manifest.json`;
+    const manifestResponse = await fetch(manifestUrl);
+    if (!manifestResponse.ok) {
+      throw new Error(`Failed to fetch manifest for caplet "${id}"`);
+    }
+    const manifestData = (await manifestResponse.json()) as CapletManifest;
+
+    // Resolve bundleSpec to absolute URL
+    const bundleSpec = `${capletBaseUrl}${manifestData.bundleSpec}`;
+    const manifest: CapletManifest = {
+      ...manifestData,
+      bundleSpec,
+    };
+
+    // Fetch bundle
+    const bundleResponse = await fetch(bundleSpec);
+    if (!bundleResponse.ok) {
+      throw new Error(`Failed to fetch bundle for caplet "${id}"`);
+    }
+    const bundle: unknown = await bundleResponse.json();
+
+    return { manifest, bundle };
+  };
+
   Object.defineProperties(globalThis.omnium, {
     ping: {
       get: () => ping,
@@ -187,7 +224,10 @@ function defineGlobals(): GlobalSetters {
         uninstall: async (capletId: string) =>
           E(capletController).uninstall(capletId),
         list: async () => E(capletController).list(),
+        load: loadCaplet,
         get: async (capletId: string) => E(capletController).get(capletId),
+        getCapletRoot: async (capletId: string) =>
+          E(capletController).getCapletRoot(capletId),
       }),
     },
   });

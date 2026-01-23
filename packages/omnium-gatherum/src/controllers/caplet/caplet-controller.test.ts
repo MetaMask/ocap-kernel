@@ -26,6 +26,7 @@ vi.useFakeTimers();
 describe('CapletController.make', () => {
   const mockLaunchSubcluster = vi.fn();
   const mockTerminateSubcluster = vi.fn();
+  const mockGetVatRoot = vi.fn();
 
   const makeMockLogger = () =>
     ({
@@ -51,7 +52,9 @@ describe('CapletController.make', () => {
     vi.clearAllMocks();
     vi.mocked(mockLaunchSubcluster).mockResolvedValue({
       subclusterId: 'subcluster-123',
+      rootKref: 'ko1',
     });
+    vi.mocked(mockGetVatRoot).mockResolvedValue({});
   });
 
   describe('install', () => {
@@ -61,6 +64,7 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       const result = await controller.install(makeManifest());
@@ -77,6 +81,7 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       const invalidManifest = { id: 'someCaplet' } as CapletManifest;
@@ -92,6 +97,7 @@ describe('CapletController.make', () => {
         'com.example.test': {
           manifest: makeManifest(),
           subclusterId: 'subcluster-123',
+          rootKref: 'ko1',
           installedAt: 1000,
         },
       });
@@ -99,6 +105,7 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       await expect(controller.install(makeManifest())).rejects.toThrow(
@@ -112,6 +119,7 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       await controller.install(makeManifest());
@@ -134,6 +142,7 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       await controller.install(makeManifest());
@@ -146,12 +155,16 @@ describe('CapletController.make', () => {
     });
 
     it('prevents concurrent installations of the same caplet', async () => {
-      let resolveFirst: (value: { subclusterId: string }) => void;
-      const firstInstallPromise = new Promise<{ subclusterId: string }>(
-        (resolve) => {
-          resolveFirst = resolve;
-        },
-      );
+      let resolveFirst: (value: {
+        subclusterId: string;
+        rootKref: string;
+      }) => void;
+      const firstInstallPromise = new Promise<{
+        subclusterId: string;
+        rootKref: string;
+      }>((resolve) => {
+        resolveFirst = resolve;
+      });
 
       const mockAdapter = makeMockStorageAdapter();
       const slowLaunchSubcluster = vi.fn().mockReturnValue(firstInstallPromise);
@@ -159,6 +172,7 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: slowLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       const firstInstall = controller.install(makeManifest());
@@ -167,7 +181,7 @@ describe('CapletController.make', () => {
         'Caplet com.example.test is already being installed',
       );
 
-      resolveFirst!({ subclusterId: 'subcluster-123' });
+      resolveFirst!({ subclusterId: 'subcluster-123', rootKref: 'ko1' });
       expect(await firstInstall).toStrictEqual({
         capletId: 'com.example.test',
         subclusterId: 'subcluster-123',
@@ -179,11 +193,15 @@ describe('CapletController.make', () => {
       const failingLaunchSubcluster = vi
         .fn()
         .mockRejectedValueOnce(new Error('Subcluster launch failed'))
-        .mockResolvedValueOnce({ subclusterId: 'subcluster-123' });
+        .mockResolvedValueOnce({
+          subclusterId: 'subcluster-123',
+          rootKref: 'ko1',
+        });
       const controller = await CapletController.make(makeConfig(), {
         adapter: mockAdapter,
         launchSubcluster: failingLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       await expect(controller.install(makeManifest())).rejects.toThrow(
@@ -212,6 +230,7 @@ describe('CapletController.make', () => {
         'com.example.test': {
           manifest: makeManifest(),
           subclusterId: 'subcluster-123',
+          rootKref: 'ko1',
           installedAt: 1000,
         },
       });
@@ -219,6 +238,7 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       await controller.uninstall('com.example.test');
@@ -232,6 +252,7 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       await expect(
@@ -245,6 +266,7 @@ describe('CapletController.make', () => {
         'com.example.test': {
           manifest: makeManifest(),
           subclusterId: 'subcluster-123',
+          rootKref: 'ko1',
           installedAt: 1000,
         },
       });
@@ -252,6 +274,7 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       await controller.uninstall('com.example.test');
@@ -266,6 +289,7 @@ describe('CapletController.make', () => {
         'com.example.test': {
           manifest: makeManifest(),
           subclusterId: 'subcluster-123',
+          rootKref: 'ko1',
           installedAt: 1000,
         },
       });
@@ -277,6 +301,7 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: slowTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       const firstUninstall = controller.uninstall('com.example.test');
@@ -296,6 +321,7 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       const result = controller.list();
@@ -314,11 +340,13 @@ describe('CapletController.make', () => {
         'com.example.test': {
           manifest: makeManifest(),
           subclusterId: 'subcluster-1',
+          rootKref: 'ko1',
           installedAt: 1000,
         },
         'com.example.test2': {
           manifest: manifest2,
           subclusterId: 'subcluster-2',
+          rootKref: 'ko2',
           installedAt: 2000,
         },
       });
@@ -326,6 +354,7 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       const result = controller.list();
@@ -334,11 +363,13 @@ describe('CapletController.make', () => {
       expect(result).toContainEqual({
         manifest: makeManifest(),
         subclusterId: 'subcluster-1',
+        rootKref: 'ko1',
         installedAt: 1000,
       });
       expect(result).toContainEqual({
         manifest: manifest2,
         subclusterId: 'subcluster-2',
+        rootKref: 'ko2',
         installedAt: 2000,
       });
     });
@@ -351,6 +382,7 @@ describe('CapletController.make', () => {
         'com.example.test': {
           manifest: makeManifest(),
           subclusterId: 'subcluster-123',
+          rootKref: 'ko1',
           installedAt: 1705320000000,
         },
       });
@@ -358,6 +390,7 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       const result = controller.get('com.example.test');
@@ -365,6 +398,7 @@ describe('CapletController.make', () => {
       expect(result).toStrictEqual({
         manifest: makeManifest(),
         subclusterId: 'subcluster-123',
+        rootKref: 'ko1',
         installedAt: 1705320000000,
       });
     });
@@ -375,11 +409,69 @@ describe('CapletController.make', () => {
         adapter: mockAdapter,
         launchSubcluster: mockLaunchSubcluster,
         terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
       });
 
       const result = controller.get('com.example.notfound');
 
       expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getCapletRoot', () => {
+    it('returns caplet root successfully', async () => {
+      const mockRoot = { greeting: vi.fn() };
+      vi.mocked(mockGetVatRoot).mockResolvedValue(mockRoot);
+
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await CapletController.make(makeConfig(), {
+        adapter: mockAdapter,
+        launchSubcluster: mockLaunchSubcluster,
+        terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
+      });
+
+      await controller.install(makeManifest());
+      const result = await controller.getCapletRoot('com.example.test');
+
+      expect(mockGetVatRoot).toHaveBeenCalledWith('ko1');
+      expect(result).toBe(mockRoot);
+    });
+
+    it('throws if caplet not found', async () => {
+      const mockAdapter = makeMockStorageAdapter();
+      const controller = await CapletController.make(makeConfig(), {
+        adapter: mockAdapter,
+        launchSubcluster: mockLaunchSubcluster,
+        terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
+      });
+
+      await expect(
+        controller.getCapletRoot('com.example.notfound'),
+      ).rejects.toThrow('Caplet com.example.notfound not found');
+    });
+
+    it('throws if caplet has no root object', async () => {
+      const mockAdapter = makeMockStorageAdapter();
+      await seedAdapter(mockAdapter, {
+        'com.example.test': {
+          manifest: makeManifest(),
+          subclusterId: 'subcluster-123',
+          rootKref: '',
+          installedAt: 1000,
+        },
+      });
+      const controller = await CapletController.make(makeConfig(), {
+        adapter: mockAdapter,
+        launchSubcluster: mockLaunchSubcluster,
+        terminateSubcluster: mockTerminateSubcluster,
+        getVatRoot: mockGetVatRoot,
+      });
+
+      await expect(
+        controller.getCapletRoot('com.example.test'),
+      ).rejects.toThrow('Caplet com.example.test has no root object');
     });
   });
 });
