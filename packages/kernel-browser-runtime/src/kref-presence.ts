@@ -10,10 +10,12 @@ import { E, HandledPromise } from '@endo/eventual-send';
 import type { EHandler } from '@endo/eventual-send';
 import { makeMarshal, Remotable } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
-import type { KRef } from '@metamask/ocap-kernel';
+import type { Kernel, KRef } from '@metamask/ocap-kernel';
 import { kslot } from '@metamask/ocap-kernel';
 
 import type { KernelFacade } from './types.ts';
+
+type Methods = Record<string, (...args: unknown[]) => unknown>;
 
 /**
  * Function type for sending messages to the kernel.
@@ -63,7 +65,7 @@ export type PresenceManagerOptions = {
    * The kernel facade remote presence from CapTP.
    * Can be a promise since E() works with promises.
    */
-  kernelFacade: KernelFacade | Promise<KernelFacade>;
+  kernelFacade: KernelFacade | Promise<KernelFacade> | Kernel | Promise<Kernel>;
 };
 
 /**
@@ -76,7 +78,7 @@ export type PresenceManager = {
    * @param kref - The kernel reference string (e.g., 'ko42', 'kp123').
    * @returns A presence that can receive E() calls.
    */
-  resolveKref: (kref: KRef) => object;
+  resolveKref: (kref: KRef) => Methods;
 
   /**
    * Extract the kref from a presence.
@@ -162,10 +164,10 @@ function makeKrefPresence(
   kref: string,
   iface: string,
   sendToKernel: SendToKernelFn,
-): object {
+): Methods {
   const kit = makeKrefRemoteKit(kref, sendToKernel);
   // Wrap the presence in Remotable for proper pass-style
-  return Remotable(iface, undefined, kit.resolveWithPresence());
+  return Remotable(iface, undefined, kit.resolveWithPresence()) as Methods;
 }
 
 /**
@@ -183,7 +185,7 @@ export function makePresenceManager(
   const { kernelFacade } = options;
 
   // State for kref↔presence mapping
-  const krefToPresence = new Map<KRef, object>();
+  const krefToPresence = new Map<KRef, Methods>();
   const presenceToKref = new WeakMap<object, KRef>();
 
   // Forward declaration for sendToKernel
@@ -234,8 +236,11 @@ export function makePresenceManager(
     method: string,
     args: unknown[],
   ): Promise<unknown> => {
-    // Recursively convert presence args to kref strings
-    const serializedArgs = args.map(convertPresencesToKrefs);
+    // Recursively convert presence args to kref strings, then to standins
+    // The kernel's queueMessage uses kser() which expects standin objects
+    const serializedArgs = args.map((arg) =>
+      convertKrefsToStandins(convertPresencesToKrefs(arg)),
+    );
 
     // Call kernel via existing CapTP
     const result: CapData<KRef> = await E(kernelFacade).queueMessage(
@@ -255,7 +260,7 @@ export function makePresenceManager(
    * @param iface - Optional interface name for the presence.
    * @returns A presence object that can receive E() calls.
    */
-  const convertSlotToVal = (kref: KRef, iface?: string): object => {
+  const convertSlotToVal = (kref: KRef, iface?: string): Methods => {
     let presence = krefToPresence.get(kref);
     if (!presence) {
       presence = makeKrefPresence(
@@ -294,7 +299,7 @@ export function makePresenceManager(
   });
 
   return harden({
-    resolveKref: (kref: KRef): object => {
+    resolveKref: (kref: KRef): Methods => {
       return convertSlotToVal(kref, 'Alleged: VatObject');
     },
 

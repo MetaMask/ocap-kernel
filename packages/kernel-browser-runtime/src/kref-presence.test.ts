@@ -1,5 +1,5 @@
 import { passStyleOf } from '@endo/marshal';
-import { krefOf as kernelKrefOf } from '@metamask/ocap-kernel';
+import { krefOf as kernelKrefOf, kslot } from '@metamask/ocap-kernel';
 import type { SlotValue } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
@@ -290,8 +290,9 @@ describe('makePresenceManager', () => {
   });
 
   describe('presence-to-kref conversion in sendToKernel', () => {
-    // These tests verify that presences are recursively converted to kref
-    // strings when passed as arguments to E() calls on presences.
+    // These tests verify that presences are recursively converted to standin
+    // objects (via kslot) when passed as arguments to E() calls on presences.
+    // The kernel's queueMessage expects standin objects, not raw kref strings.
 
     beforeEach(() => {
       // Set up queueMessage to return a valid CapData response
@@ -301,7 +302,7 @@ describe('makePresenceManager', () => {
       });
     });
 
-    it('converts top-level presence argument to kref string', async () => {
+    it('converts top-level presence argument to standin', async () => {
       const targetPresence = presenceManager.resolveKref('ko1');
       const argPresence = presenceManager.resolveKref('ko2');
 
@@ -313,11 +314,11 @@ describe('makePresenceManager', () => {
       expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
         'ko1',
         'someMethod',
-        ['ko2'],
+        [kslot('ko2')],
       );
     });
 
-    it('converts nested presence in object argument to kref string', async () => {
+    it('converts nested presence in object argument to standin', async () => {
       const targetPresence = presenceManager.resolveKref('ko1');
       const nestedPresence = presenceManager.resolveKref('ko2');
 
@@ -328,11 +329,11 @@ describe('makePresenceManager', () => {
       expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
         'ko1',
         'someMethod',
-        [{ nested: 'ko2' }],
+        [{ nested: kslot('ko2') }],
       );
     });
 
-    it('converts presences in array argument to kref strings', async () => {
+    it('converts presences in array argument to standins', async () => {
       const targetPresence = presenceManager.resolveKref('ko1');
       const presence2 = presenceManager.resolveKref('ko2');
       const presence3 = presenceManager.resolveKref('ko3');
@@ -344,11 +345,11 @@ describe('makePresenceManager', () => {
       expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
         'ko1',
         'someMethod',
-        [['ko2', 'ko3']],
+        [[kslot('ko2'), kslot('ko3')]],
       );
     });
 
-    it('converts deeply nested presences to kref strings', async () => {
+    it('converts deeply nested presences to standins', async () => {
       const targetPresence = presenceManager.resolveKref('ko1');
       const deepPresence = presenceManager.resolveKref('ko99');
 
@@ -359,7 +360,7 @@ describe('makePresenceManager', () => {
       expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
         'ko1',
         'someMethod',
-        [{ a: { b: { c: 'ko99' } } }],
+        [{ a: { b: { c: kslot('ko99') } } }],
       );
     });
 
@@ -375,7 +376,7 @@ describe('makePresenceManager', () => {
       expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
         'ko1',
         'someMethod',
-        ['primitive', { nested: 'ko2' }, 'ko3', 42],
+        ['primitive', { nested: kslot('ko2') }, kslot('ko3'), 42],
       );
     });
 
@@ -404,7 +405,7 @@ describe('makePresenceManager', () => {
       expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
         'ko1',
         'someMethod',
-        [['ko2', 'string', 42, { key: 'ko2' }]],
+        [[kslot('ko2'), 'string', 42, { key: kslot('ko2') }]],
       );
     });
   });
