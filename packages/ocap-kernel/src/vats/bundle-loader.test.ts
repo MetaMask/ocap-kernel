@@ -18,16 +18,12 @@ describe('loadBundle', () => {
       );
     });
 
-    // BUG: loadBundle does not validate code property before using it
-    // See PR #763 bugbot claim #2
-    it.fails('throws on missing code property', () => {
+    it('throws on missing code property', () => {
       const content = JSON.stringify({ moduleFormat: 'iife' });
       expect(() => loadBundle(content)).toThrow('Invalid bundle: missing code');
     });
 
-    // BUG: loadBundle does not validate code property before using it
-    // See PR #763 bugbot claim #2
-    it.fails('throws on non-string code property', () => {
+    it('throws on non-string code property', () => {
       const content = JSON.stringify({ moduleFormat: 'iife', code: 123 });
       expect(() => loadBundle(content)).toThrow(
         'Invalid bundle: code must be a string',
