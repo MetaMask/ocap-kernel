@@ -2,13 +2,15 @@ import { ResourceLimitError } from '@metamask/kernel-errors';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import {
+  DEFAULT_CONNECTION_RATE_LIMIT,
+  DEFAULT_CONNECTION_RATE_WINDOW_MS,
+  DEFAULT_MESSAGE_RATE_LIMIT,
+  DEFAULT_MESSAGE_RATE_WINDOW_MS,
+} from './constants.ts';
+import {
   SlidingWindowRateLimiter,
   makeMessageRateLimiter,
   makeConnectionRateLimiter,
-  DEFAULT_MESSAGE_RATE_LIMIT,
-  DEFAULT_MESSAGE_RATE_WINDOW_MS,
-  DEFAULT_CONNECTION_RATE_LIMIT,
-  DEFAULT_CONNECTION_RATE_WINDOW_MS,
 } from './rate-limiter.ts';
 
 describe('SlidingWindowRateLimiter', () => {

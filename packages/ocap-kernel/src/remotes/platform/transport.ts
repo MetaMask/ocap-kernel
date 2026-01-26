@@ -7,17 +7,17 @@ import { makeErrorLogger, writeWithTimeout } from './channel-utils.ts';
 import { ConnectionFactory } from './connection-factory.ts';
 import {
   DEFAULT_CLEANUP_INTERVAL_MS,
+  DEFAULT_CONNECTION_RATE_LIMIT,
   DEFAULT_MAX_CONCURRENT_CONNECTIONS,
   DEFAULT_MAX_MESSAGE_SIZE_BYTES,
+  DEFAULT_MESSAGE_RATE_LIMIT,
+  DEFAULT_MESSAGE_RATE_WINDOW_MS,
   DEFAULT_STALE_PEER_TIMEOUT_MS,
   DEFAULT_WRITE_TIMEOUT_MS,
   SCTP_USER_INITIATED_ABORT,
 } from './constants.ts';
 import { PeerStateManager } from './peer-state-manager.ts';
 import {
-  DEFAULT_CONNECTION_RATE_LIMIT,
-  DEFAULT_MESSAGE_RATE_LIMIT,
-  DEFAULT_MESSAGE_RATE_WINDOW_MS,
   makeConnectionRateLimiter,
   makeMessageRateLimiter,
 } from './rate-limiter.ts';
