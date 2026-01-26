@@ -346,7 +346,7 @@ export async function initTransport(
     validateMessageSize(message);
 
     // Check message rate limit
-    messageRateLimiter.checkAndRecord(targetPeerId, 'messages');
+    messageRateLimiter.checkAndRecord(targetPeerId, 'messageRate');
 
     const state = peerStateManager.getState(targetPeerId);
 
@@ -357,7 +357,7 @@ export async function initTransport(
       checkConnectionLimit();
 
       // Check connection attempt rate limit
-      connectionRateLimiter.checkAndRecord(targetPeerId, 'connectionAttempts');
+      connectionRateLimiter.checkAndRecord(targetPeerId, 'connectionRate');
 
       try {
         const { locationHints: hints } = state;

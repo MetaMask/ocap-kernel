@@ -80,7 +80,7 @@ describe('SlidingWindowRateLimiter', () => {
 
   describe('checkAndRecord', () => {
     it('records event when under limit', () => {
-      limiter.checkAndRecord('peer1', 'messages');
+      limiter.checkAndRecord('peer1', 'messageRate');
       expect(limiter.getCurrentCount('peer1')).toBe(1);
     });
 
@@ -89,7 +89,7 @@ describe('SlidingWindowRateLimiter', () => {
       limiter.recordEvent('peer1');
       limiter.recordEvent('peer1');
 
-      expect(() => limiter.checkAndRecord('peer1', 'messages')).toThrow(
+      expect(() => limiter.checkAndRecord('peer1', 'messageRate')).toThrow(
         ResourceLimitError,
       );
     });
@@ -101,17 +101,16 @@ describe('SlidingWindowRateLimiter', () => {
 
       let caughtError: ResourceLimitError | undefined;
       try {
-        limiter.checkAndRecord('peer1', 'messages');
+        limiter.checkAndRecord('peer1', 'messageRate');
       } catch (error) {
         caughtError = error as ResourceLimitError;
       }
 
       expect(caughtError).toBeInstanceOf(ResourceLimitError);
       expect(caughtError?.data).toStrictEqual({
-        limitType: 'messages',
+        limitType: 'messageRate',
         current: 3,
         limit: 3,
-        windowMs: 100,
       });
     });
 
@@ -121,7 +120,7 @@ describe('SlidingWindowRateLimiter', () => {
       limiter.recordEvent('peer1');
 
       try {
-        limiter.checkAndRecord('peer1', 'messages');
+        limiter.checkAndRecord('peer1', 'messageRate');
       } catch {
         // Expected
       }
@@ -206,9 +205,9 @@ describe('SlidingWindowRateLimiter', () => {
   describe('sliding window behavior', () => {
     it('allows burst followed by sustained rate', async () => {
       // Burst 3 events
-      limiter.checkAndRecord('peer1', 'test');
-      limiter.checkAndRecord('peer1', 'test');
-      limiter.checkAndRecord('peer1', 'test');
+      limiter.checkAndRecord('peer1', 'messageRate');
+      limiter.checkAndRecord('peer1', 'messageRate');
+      limiter.checkAndRecord('peer1', 'messageRate');
 
       // Should be at limit
       expect(limiter.wouldExceedLimit('peer1')).toBe(true);
@@ -218,7 +217,7 @@ describe('SlidingWindowRateLimiter', () => {
 
       // Now slots available
       expect(limiter.wouldExceedLimit('peer1')).toBe(false);
-      limiter.checkAndRecord('peer1', 'test');
+      limiter.checkAndRecord('peer1', 'messageRate');
       expect(limiter.getCurrentCount('peer1')).toBe(1);
     });
   });

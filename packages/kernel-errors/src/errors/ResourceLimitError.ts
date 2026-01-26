@@ -29,7 +29,11 @@ export class ResourceLimitError extends BaseError {
     message: string,
     options?: ErrorOptionsWithStack & {
       data?: {
-        limitType?: 'connection' | 'messageSize';
+        limitType?:
+          | 'connection'
+          | 'messageSize'
+          | 'messageRate'
+          | 'connectionRate';
         current?: number;
         limit?: number;
       };
@@ -50,7 +54,12 @@ export class ResourceLimitError extends BaseError {
     data: optional(
       object({
         limitType: optional(
-          union([literal('connection'), literal('messageSize')]),
+          union([
+            literal('connection'),
+            literal('messageSize'),
+            literal('messageRate'),
+            literal('connectionRate'),
+          ]),
         ),
         current: optional(number()),
         limit: optional(number()),
@@ -75,7 +84,11 @@ export class ResourceLimitError extends BaseError {
     const options = unmarshalErrorOptions(marshaledError);
     const data = marshaledError.data as
       | {
-          limitType?: 'connection' | 'messageSize';
+          limitType?:
+            | 'connection'
+            | 'messageSize'
+            | 'messageRate'
+            | 'connectionRate';
           current?: number;
           limit?: number;
         }
