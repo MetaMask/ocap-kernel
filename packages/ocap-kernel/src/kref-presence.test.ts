@@ -1,14 +1,13 @@
 import { passStyleOf } from '@endo/marshal';
-import { krefOf as kernelKrefOf, kslot } from '@metamask/ocap-kernel';
-import type { SlotValue } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { PresenceManager } from './kref-presence.ts';
+import type { PresenceManager, KernelLike } from './kref-presence.ts';
 import {
   convertKrefsToStandins,
   makePresenceManager,
 } from './kref-presence.ts';
-import type { KernelFacade } from './types.ts';
+import { krefOf as kernelKrefOf, kslot } from './liveslots/kernel-marshal.ts';
+import type { SlotValue } from './liveslots/kernel-marshal.ts';
 
 // EHandler type definition (copied to avoid import issues with mocking)
 type EHandler = {
@@ -231,11 +230,11 @@ describe('convertKrefsToStandins', () => {
 });
 
 describe('makePresenceManager', () => {
-  let mockKernelFacade: KernelFacade;
+  let mockKernelLike: KernelLike;
   let presenceManager: PresenceManager;
 
   beforeEach(() => {
-    mockKernelFacade = {
+    mockKernelLike = {
       ping: vi.fn(),
       launchSubcluster: vi.fn(),
       terminateSubcluster: vi.fn(),
@@ -243,10 +242,10 @@ describe('makePresenceManager', () => {
       getStatus: vi.fn(),
       pingVat: vi.fn(),
       getVatRoot: vi.fn(),
-    } as unknown as KernelFacade;
+    } as unknown as KernelLike;
 
     presenceManager = makePresenceManager({
-      kernelFacade: mockKernelFacade,
+      kernelFacade: mockKernelLike,
     });
   });
 
@@ -296,7 +295,7 @@ describe('makePresenceManager', () => {
 
     beforeEach(() => {
       // Set up queueMessage to return a valid CapData response
-      vi.mocked(mockKernelFacade.queueMessage).mockResolvedValue({
+      vi.mocked(mockKernelLike.queueMessage).mockResolvedValue({
         body: '#null',
         slots: [],
       });
@@ -311,7 +310,7 @@ describe('makePresenceManager', () => {
       // Call method with presence as argument
       await targetPresence.someMethod(argPresence);
 
-      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+      expect(mockKernelLike.queueMessage).toHaveBeenCalledWith(
         'ko1',
         'someMethod',
         [kslot('ko2')],
@@ -326,7 +325,7 @@ describe('makePresenceManager', () => {
 
       await targetPresence.someMethod({ nested: nestedPresence });
 
-      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+      expect(mockKernelLike.queueMessage).toHaveBeenCalledWith(
         'ko1',
         'someMethod',
         [{ nested: kslot('ko2') }],
@@ -342,7 +341,7 @@ describe('makePresenceManager', () => {
 
       await targetPresence.someMethod([presence2, presence3]);
 
-      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+      expect(mockKernelLike.queueMessage).toHaveBeenCalledWith(
         'ko1',
         'someMethod',
         [[kslot('ko2'), kslot('ko3')]],
@@ -357,7 +356,7 @@ describe('makePresenceManager', () => {
 
       await targetPresence.someMethod({ a: { b: { c: deepPresence } } });
 
-      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+      expect(mockKernelLike.queueMessage).toHaveBeenCalledWith(
         'ko1',
         'someMethod',
         [{ a: { b: { c: kslot('ko99') } } }],
@@ -379,7 +378,7 @@ describe('makePresenceManager', () => {
         42,
       );
 
-      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+      expect(mockKernelLike.queueMessage).toHaveBeenCalledWith(
         'ko1',
         'someMethod',
         ['primitive', { nested: kslot('ko2') }, kslot('ko3'), 42],
@@ -393,7 +392,7 @@ describe('makePresenceManager', () => {
 
       await targetPresence.someMethod({ data: 'value', count: 123 });
 
-      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+      expect(mockKernelLike.queueMessage).toHaveBeenCalledWith(
         'ko1',
         'someMethod',
         [{ data: 'value', count: 123 }],
@@ -415,7 +414,7 @@ describe('makePresenceManager', () => {
         { key: presence2 },
       ]);
 
-      expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
+      expect(mockKernelLike.queueMessage).toHaveBeenCalledWith(
         'ko1',
         'someMethod',
         [[kslot('ko2'), 'string', 42, { key: kslot('ko2') }]],

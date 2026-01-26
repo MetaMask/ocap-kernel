@@ -21,8 +21,3 @@ export {
   type BackgroundCapTPOptions,
   type CapTPMessage,
 } from './background-captp.ts';
-export {
-  makePresenceManager,
-  type PresenceManager,
-  type PresenceManagerOptions,
-} from './kref-presence.ts';

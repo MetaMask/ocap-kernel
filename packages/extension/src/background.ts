@@ -1,7 +1,6 @@
 import { E } from '@endo/eventual-send';
 import {
   makeBackgroundCapTP,
-  makePresenceManager,
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
@@ -11,6 +10,7 @@ import defaultSubcluster from '@metamask/kernel-browser-runtime/default-cluster'
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
+import { makePresenceManager } from '@metamask/ocap-kernel';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
 defineGlobals();

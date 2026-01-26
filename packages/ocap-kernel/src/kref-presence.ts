@@ -10,10 +10,10 @@ import { E, HandledPromise } from '@endo/eventual-send';
 import type { EHandler } from '@endo/eventual-send';
 import { makeMarshal, Remotable } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
-import type { Kernel, KRef } from '@metamask/ocap-kernel';
-import { kslot } from '@metamask/ocap-kernel';
 
-import type { KernelFacade } from './types.ts';
+import type { Kernel } from './Kernel.ts';
+import { kslot } from './liveslots/kernel-marshal.ts';
+import type { KRef } from './types.ts';
 
 type Methods = Record<string, (...args: unknown[]) => unknown>;
 
@@ -58,14 +58,22 @@ export function convertKrefsToStandins(value: unknown): unknown {
 harden(convertKrefsToStandins);
 
 /**
+ * Minimal interface for kernel-like objects that can queue messages.
+ * Both Kernel and KernelFacade (from kernel-browser-runtime) satisfy this.
+ */
+export type KernelLike = {
+  queueMessage: Kernel['queueMessage'];
+};
+
+/**
  * Options for creating a presence manager.
  */
 export type PresenceManagerOptions = {
   /**
-   * The kernel facade remote presence from CapTP.
+   * A kernel or kernel facade that can queue messages.
    * Can be a promise since E() works with promises.
    */
-  kernelFacade: KernelFacade | Promise<KernelFacade> | Kernel | Promise<Kernel>;
+  kernelFacade: KernelLike | Promise<KernelLike>;
 };
 
 /**

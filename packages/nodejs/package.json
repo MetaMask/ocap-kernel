@@ -53,7 +53,6 @@
     "@endo/promise-kit": "^1.1.13",
     "@libp2p/interface": "2.11.0",
     "@libp2p/webrtc": "5.2.24",
-    "@metamask/kernel-browser-runtime": "workspace:^",
     "@metamask/kernel-shims": "workspace:^",
     "@metamask/kernel-store": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",

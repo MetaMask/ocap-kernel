@@ -15,7 +15,6 @@ describe('index', () => {
       'makeBackgroundCapTP',
       'makeCapTPNotification',
       'makeIframeVatWorker',
-      'makePresenceManager',
       'parseRelayQueryString',
       'receiveInternalConnections',
       'rpcHandlers',

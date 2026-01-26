@@ -1,7 +1,5 @@
-import type {
-  PresenceManager,
-  KernelFacade,
-} from '@metamask/kernel-browser-runtime';
+import type { KernelFacade } from '@metamask/kernel-browser-runtime';
+import type { PresenceManager } from '@metamask/ocap-kernel';
 
 // Type declarations for kernel dev console API.
 declare global {

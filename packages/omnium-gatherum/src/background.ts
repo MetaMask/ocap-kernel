@@ -1,18 +1,16 @@
 import { E } from '@endo/eventual-send';
 import {
   makeBackgroundCapTP,
-  makePresenceManager,
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
 } from '@metamask/kernel-browser-runtime';
-import type {
-  CapTPMessage,
-  PresenceManager,
-} from '@metamask/kernel-browser-runtime';
+import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
+import type { PresenceManager } from '@metamask/ocap-kernel';
+import { makePresenceManager } from '@metamask/ocap-kernel';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
 import { initializeControllers } from './controllers/index.ts';

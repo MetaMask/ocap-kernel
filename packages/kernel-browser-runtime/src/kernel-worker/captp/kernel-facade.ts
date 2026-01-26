@@ -1,7 +1,7 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Kernel, ClusterConfig, KRef, VatId } from '@metamask/ocap-kernel';
+import { convertKrefsToStandins } from '@metamask/ocap-kernel';
 
-import { convertKrefsToStandins } from '../../kref-presence.ts';
 import type { KernelFacade, LaunchResult } from '../../types.ts';
 
 export type { KernelFacade } from '../../types.ts';

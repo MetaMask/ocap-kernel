@@ -14,6 +14,7 @@ describe('index', () => {
       'VatHandle',
       'VatIdStruct',
       'VatSupervisor',
+      'convertKrefsToStandins',
       'initTransport',
       'isVatConfig',
       'isVatId',
@@ -22,6 +23,7 @@ describe('index', () => {
       'kslot',
       'kunser',
       'makeKernelStore',
+      'makePresenceManager',
       'parseRef',
     ]);
   });

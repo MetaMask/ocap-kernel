@@ -1,7 +1,6 @@
 import { E } from '@endo/eventual-send';
-// TODO: Move this export
-import { makePresenceManager } from '@metamask/kernel-browser-runtime';
 import type { Kernel, ClusterConfig, KRef, VatId } from '@metamask/ocap-kernel';
+import { makePresenceManager } from '@metamask/ocap-kernel';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { makeKernel } from '../../src/kernel/make-kernel.ts';
