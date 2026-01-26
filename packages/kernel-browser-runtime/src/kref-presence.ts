@@ -193,29 +193,33 @@ export function makePresenceManager(
   let marshal: ReturnType<typeof makeMarshal<string>>;
 
   /**
-   * Recursively convert presence objects to kref strings.
+   * Recursively convert presence objects directly to kernel standins.
    *
-   * This is the inverse of convertKrefsToStandins - it converts presences
-   * back to kref strings so they can be sent to the kernel.
+   * This combines two conversions in one pass:
+   * 1. Presences → kref strings (via presenceToKref WeakMap lookup)
+   * 2. Kref strings → standins (via kslot)
+   *
+   * The kernel's queueMessage uses kser() which expects standin objects,
+   * not presences or raw kref strings.
    *
    * @param value - The value to convert.
-   * @returns The value with presences converted to kref strings.
+   * @returns The value with presences converted to standins.
    */
-  const convertPresencesToKrefs = (value: unknown): unknown => {
-    // Check if it's a known presence
+  const convertPresencesToStandins = (value: unknown): unknown => {
+    // Check if it's a known presence - convert directly to standin
     if (typeof value === 'object' && value !== null) {
       const kref = presenceToKref.get(value);
       if (kref !== undefined) {
-        return kref;
+        return kslot(kref);
       }
       // Recursively process arrays
       if (Array.isArray(value)) {
-        return value.map(convertPresencesToKrefs);
+        return value.map(convertPresencesToStandins);
       }
       // Recursively process plain objects
       const result: Record<string, unknown> = {};
       for (const [key, val] of Object.entries(value)) {
-        result[key] = convertPresencesToKrefs(val);
+        result[key] = convertPresencesToStandins(val);
       }
       return result;
     }
@@ -236,11 +240,8 @@ export function makePresenceManager(
     method: string,
     args: unknown[],
   ): Promise<unknown> => {
-    // Recursively convert presence args to kref strings, then to standins
-    // The kernel's queueMessage uses kser() which expects standin objects
-    const serializedArgs = args.map((arg) =>
-      convertKrefsToStandins(convertPresencesToKrefs(arg)),
-    );
+    // Convert presence args directly to standins for kernel serialization
+    const serializedArgs = args.map(convertPresencesToStandins);
 
     // Call kernel via existing CapTP
     const result: CapData<KRef> = await E(kernelFacade).queueMessage(

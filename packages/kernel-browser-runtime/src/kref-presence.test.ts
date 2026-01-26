@@ -289,10 +289,10 @@ describe('makePresenceManager', () => {
     });
   });
 
-  describe('presence-to-kref conversion in sendToKernel', () => {
+  describe('presence-to-standin conversion in sendToKernel', () => {
     // These tests verify that presences are recursively converted to standin
     // objects (via kslot) when passed as arguments to E() calls on presences.
-    // The kernel's queueMessage expects standin objects, not raw kref strings.
+    // The kernel's queueMessage expects standin objects, not presences.
 
     beforeEach(() => {
       // Set up queueMessage to return a valid CapData response
@@ -303,13 +303,13 @@ describe('makePresenceManager', () => {
     });
 
     it('converts top-level presence argument to standin', async () => {
-      const targetPresence = presenceManager.resolveKref('ko1');
+      const targetPresence = presenceManager.resolveKref('ko1') as {
+        someMethod: (arg: unknown) => unknown;
+      };
       const argPresence = presenceManager.resolveKref('ko2');
 
       // Call method with presence as argument
-      await (
-        targetPresence as Record<string, (...args: unknown[]) => unknown>
-      ).someMethod(argPresence);
+      await targetPresence.someMethod(argPresence);
 
       expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
         'ko1',
@@ -319,12 +319,12 @@ describe('makePresenceManager', () => {
     });
 
     it('converts nested presence in object argument to standin', async () => {
-      const targetPresence = presenceManager.resolveKref('ko1');
+      const targetPresence = presenceManager.resolveKref('ko1') as {
+        someMethod: (arg: { nested: unknown }) => unknown;
+      };
       const nestedPresence = presenceManager.resolveKref('ko2');
 
-      await (
-        targetPresence as Record<string, (...args: unknown[]) => unknown>
-      ).someMethod({ nested: nestedPresence });
+      await targetPresence.someMethod({ nested: nestedPresence });
 
       expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
         'ko1',
@@ -334,13 +334,13 @@ describe('makePresenceManager', () => {
     });
 
     it('converts presences in array argument to standins', async () => {
-      const targetPresence = presenceManager.resolveKref('ko1');
+      const targetPresence = presenceManager.resolveKref('ko1') as {
+        someMethod: (arg: unknown[]) => unknown;
+      };
       const presence2 = presenceManager.resolveKref('ko2');
       const presence3 = presenceManager.resolveKref('ko3');
 
-      await (
-        targetPresence as Record<string, (...args: unknown[]) => unknown>
-      ).someMethod([presence2, presence3]);
+      await targetPresence.someMethod([presence2, presence3]);
 
       expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
         'ko1',
@@ -350,12 +350,12 @@ describe('makePresenceManager', () => {
     });
 
     it('converts deeply nested presences to standins', async () => {
-      const targetPresence = presenceManager.resolveKref('ko1');
+      const targetPresence = presenceManager.resolveKref('ko1') as {
+        someMethod: (arg: { a: { b: { c: unknown } } }) => unknown;
+      };
       const deepPresence = presenceManager.resolveKref('ko99');
 
-      await (
-        targetPresence as Record<string, (...args: unknown[]) => unknown>
-      ).someMethod({ a: { b: { c: deepPresence } } });
+      await targetPresence.someMethod({ a: { b: { c: deepPresence } } });
 
       expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
         'ko1',
@@ -365,13 +365,19 @@ describe('makePresenceManager', () => {
     });
 
     it('handles mixed arguments with primitives and nested presences', async () => {
-      const targetPresence = presenceManager.resolveKref('ko1');
+      type Args = [string, { nested: unknown }, unknown, number];
+      const targetPresence = presenceManager.resolveKref('ko1') as {
+        someMethod: (...args: Args) => unknown;
+      };
       const presence2 = presenceManager.resolveKref('ko2');
       const presence3 = presenceManager.resolveKref('ko3');
 
-      await (
-        targetPresence as Record<string, (...args: unknown[]) => unknown>
-      ).someMethod('primitive', { nested: presence2 }, presence3, 42);
+      await targetPresence.someMethod(
+        'primitive',
+        { nested: presence2 },
+        presence3,
+        42,
+      );
 
       expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
         'ko1',
@@ -381,11 +387,11 @@ describe('makePresenceManager', () => {
     });
 
     it('preserves non-presence objects unchanged', async () => {
-      const targetPresence = presenceManager.resolveKref('ko1');
+      const targetPresence = presenceManager.resolveKref('ko1') as {
+        someMethod: (arg: { data: string; count: number }) => unknown;
+      };
 
-      await (
-        targetPresence as Record<string, (...args: unknown[]) => unknown>
-      ).someMethod({ data: 'value', count: 123 });
+      await targetPresence.someMethod({ data: 'value', count: 123 });
 
       expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
         'ko1',
@@ -395,12 +401,19 @@ describe('makePresenceManager', () => {
     });
 
     it('handles array with mixed presences and primitives', async () => {
-      const targetPresence = presenceManager.resolveKref('ko1');
+      const targetPresence = presenceManager.resolveKref('ko1') as {
+        someMethod: (
+          arg: [unknown, string, number, { key: unknown }],
+        ) => unknown;
+      };
       const presence2 = presenceManager.resolveKref('ko2');
 
-      await (
-        targetPresence as Record<string, (...args: unknown[]) => unknown>
-      ).someMethod([presence2, 'string', 42, { key: presence2 }]);
+      await targetPresence.someMethod([
+        presence2,
+        'string',
+        42,
+        { key: presence2 },
+      ]);
 
       expect(mockKernelFacade.queueMessage).toHaveBeenCalledWith(
         'ko1',
