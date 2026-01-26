@@ -11,7 +11,6 @@ import {
   DEFAULT_MAX_CONCURRENT_CONNECTIONS,
   DEFAULT_MAX_MESSAGE_SIZE_BYTES,
   DEFAULT_MESSAGE_RATE_LIMIT,
-  DEFAULT_MESSAGE_RATE_WINDOW_MS,
   DEFAULT_STALE_PEER_TIMEOUT_MS,
   DEFAULT_WRITE_TIMEOUT_MS,
   SCTP_USER_INITIATED_ABORT,
@@ -348,20 +347,11 @@ export async function initTransport(
     // Validate message size before sending
     validateMessageSize(message);
 
-    // Check message rate limit (check only, record after successful send)
-    if (messageRateLimiter.wouldExceedLimit(targetPeerId)) {
-      const currentCount = messageRateLimiter.getCurrentCount(targetPeerId);
-      throw new ResourceLimitError(
-        `Rate limit exceeded: ${currentCount}/${maxMessagesPerSecond} messageRate in ${DEFAULT_MESSAGE_RATE_WINDOW_MS}ms window`,
-        {
-          data: {
-            limitType: 'messageRate',
-            current: currentCount,
-            limit: maxMessagesPerSecond,
-          },
-        },
-      );
-    }
+    // Check and record message rate limit atomically to prevent TOCTOU race
+    // Note: This records before send completes, so failed sends consume quota.
+    // This is intentional - recording after send would allow concurrent sends
+    // to bypass the rate limit via TOCTOU attacks.
+    messageRateLimiter.checkAndRecord(targetPeerId, 'messageRate');
 
     const state = peerStateManager.getState(targetPeerId);
 
@@ -415,8 +405,6 @@ export async function initTransport(
         fromString(message),
         DEFAULT_WRITE_TIMEOUT_MS,
       );
-      // Record message rate only after successful send
-      messageRateLimiter.recordEvent(targetPeerId);
       peerStateManager.updateConnectionTime(targetPeerId);
       reconnectionManager.resetBackoff(targetPeerId);
     } catch (problem) {
