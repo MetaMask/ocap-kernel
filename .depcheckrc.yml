@@ -72,3 +72,6 @@ ignores:
   # Testing
   # This import is used in files which are meant to fail
   - 'does-not-exist'
+
+ignore-patterns:
+  - dist/
