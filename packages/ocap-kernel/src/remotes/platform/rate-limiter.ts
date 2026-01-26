@@ -1,16 +1,11 @@
 import { ResourceLimitError } from '@metamask/kernel-errors';
 
-/** Default message rate limit: 100 messages per second per peer */
-export const DEFAULT_MESSAGE_RATE_LIMIT = 100;
-
-/** Default message rate window in milliseconds (1 second) */
-export const DEFAULT_MESSAGE_RATE_WINDOW_MS = 1000;
-
-/** Default connection attempt rate limit: 10 attempts per minute per peer */
-export const DEFAULT_CONNECTION_RATE_LIMIT = 10;
-
-/** Default connection rate window in milliseconds (1 minute) */
-export const DEFAULT_CONNECTION_RATE_WINDOW_MS = 60_000;
+import {
+  DEFAULT_CONNECTION_RATE_LIMIT,
+  DEFAULT_CONNECTION_RATE_WINDOW_MS,
+  DEFAULT_MESSAGE_RATE_LIMIT,
+  DEFAULT_MESSAGE_RATE_WINDOW_MS,
+} from './constants.ts';
 
 /**
  * A sliding window rate limiter that tracks event counts per key within a time window.
