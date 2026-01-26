@@ -79,6 +79,7 @@ describe('reconnection-lifecycle', () => {
       dialPeer: vi.fn().mockResolvedValue(mockChannel),
       reuseOrReturnChannel: vi.fn().mockResolvedValue(mockChannel),
       checkConnectionLimit: vi.fn(),
+      checkConnectionRateLimit: vi.fn(),
       registerChannel: vi.fn(),
     } as unknown as ReconnectionLifecycleDeps;
   });
@@ -319,6 +320,48 @@ describe('reconnection-lifecycle', () => {
       await lifecycle.attemptReconnection('peer1');
 
       expect(deps.checkConnectionLimit).toHaveBeenCalled();
+    });
+
+    it('checks connection rate limit before dialing', async () => {
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      expect(deps.checkConnectionRateLimit).toHaveBeenCalledWith('peer1');
+    });
+
+    it('continues loop on ResourceLimitError instead of giving up', async () => {
+      const { ResourceLimitError } = kernelErrors;
+      (
+        deps.checkConnectionRateLimit as ReturnType<typeof vi.fn>
+      ).mockImplementationOnce(() => {
+        throw new ResourceLimitError('Rate limit exceeded', {
+          data: { limitType: 'connectionRate', current: 10, limit: 10 },
+        });
+      });
+
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true) // First attempt - rate limited
+        .mockReturnValueOnce(true) // Second attempt - success
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      // Should not call onRemoteGiveUp because rate limit is retryable
+      expect(deps.onRemoteGiveUp).not.toHaveBeenCalled();
+      // Should have tried twice (once rate limited, once successful)
+      expect(deps.reconnectionManager.incrementAttempt).toHaveBeenCalledTimes(
+        2,
+      );
+      expect(deps.logger.log).toHaveBeenCalledWith(
+        expect.stringContaining('rate limited'),
+      );
     });
 
     it('logs reconnection attempts', async () => {

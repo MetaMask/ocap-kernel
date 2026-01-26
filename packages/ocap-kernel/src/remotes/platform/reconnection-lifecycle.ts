@@ -1,4 +1,7 @@
-import { isRetryableNetworkError } from '@metamask/kernel-errors';
+import {
+  isRetryableNetworkError,
+  ResourceLimitError,
+} from '@metamask/kernel-errors';
 import {
   abortableDelay,
   DEFAULT_MAX_RETRY_ATTEMPTS,
@@ -27,6 +30,7 @@ export type ReconnectionLifecycleDeps = {
     dialedChannel: Channel,
   ) => Promise<Channel | null>;
   checkConnectionLimit: () => void;
+  checkConnectionRateLimit: (peerId: string) => void;
   registerChannel: (
     peerId: string,
     channel: Channel,
@@ -62,6 +66,7 @@ export function makeReconnectionLifecycle(
     dialPeer,
     reuseOrReturnChannel,
     checkConnectionLimit,
+    checkConnectionRateLimit,
     registerChannel,
   } = deps;
 
@@ -124,6 +129,14 @@ export function makeReconnectionLifecycle(
           reconnectionManager.stopReconnection(peerId);
           return;
         }
+        // Rate limit errors are temporary - skip this attempt but continue the loop
+        // The backoff delay will naturally space out attempts
+        if (problem instanceof ResourceLimitError) {
+          logger.log(
+            `${peerId}:: reconnection attempt ${nextAttempt} rate limited, will retry after backoff`,
+          );
+          continue;
+        }
         if (!isRetryableNetworkError(problem)) {
           outputError(peerId, `non-retryable failure`, problem);
           reconnectionManager.stopReconnection(peerId);
@@ -151,6 +164,9 @@ export function makeReconnectionLifecycle(
     state: PeerState,
     peerId: string,
   ): Promise<Channel | null> {
+    // Check connection rate limit before attempting dial
+    checkConnectionRateLimit(peerId);
+
     const { locationHints: hints } = state;
     const dialedChannel = await dialPeer(peerId, hints);
 
