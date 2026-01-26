@@ -3,25 +3,21 @@ import { describe, it, expect } from 'vitest';
 import { stripCommentsPlugin } from './strip-comments-plugin.ts';
 
 describe('stripCommentsPlugin', () => {
-  // BUG: sourceType 'module' may reject non-strict-mode patterns in IIFE bundles
-  // See PR #763 comment r2723046645
   describe('parsing non-strict-mode code', () => {
     const plugin = stripCommentsPlugin();
     const renderChunk = plugin.renderChunk as (code: string) => string | null;
 
-    it.fails('handles octal literals in bundled IIFE code', () => {
+    it('handles octal literals in bundled IIFE code', () => {
       // Octal literals like 010 are valid in non-strict mode (scripts)
       // but invalid in strict mode (modules). IIFE bundles are scripts.
       const iifeWithOctal = '(function() { var x = 010; /* comment */ })();';
-      // This should not throw, but with sourceType: 'module' it will
       expect(() => renderChunk(iifeWithOctal)).not.toThrow();
     });
 
-    it.fails('handles with statements in bundled IIFE code', () => {
+    it('handles with statements in bundled IIFE code', () => {
       // 'with' statements are valid in non-strict mode (scripts)
       // but invalid in strict mode (modules). IIFE bundles are scripts.
       const iifeWithWith = '(function() { with(obj) { /* comment */ x; } })();';
-      // This should not throw, but with sourceType: 'module' it will
       expect(() => renderChunk(iifeWithWith)).not.toThrow();
     });
   });

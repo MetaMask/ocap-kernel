@@ -21,7 +21,7 @@ export function stripCommentsPlugin(): Plugin {
 
       parse(code, {
         ecmaVersion: 'latest',
-        sourceType: 'module',
+        sourceType: 'script',
         onComment: comments,
       });
 
