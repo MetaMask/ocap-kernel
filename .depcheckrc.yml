@@ -50,7 +50,8 @@ ignores:
   # Used by @ocap/nodejs to build the sqlite3 bindings
   - 'node-gyp'
 
-  # Used by @metamask/kernel-shims/endoify-node for tests
+  # Peer dependency of @metamask/kernel-shims/endoify-node which should be
+  # listed as a dev or prod dependency of consuming packages
   - '@libp2p/webrtc'
 
   # These are peer dependencies of various modules we actually do

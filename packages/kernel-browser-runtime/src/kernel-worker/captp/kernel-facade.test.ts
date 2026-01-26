@@ -136,10 +136,9 @@ describe('makeKernelFacade', () => {
         .calls[0]!;
 
       // First arg should be a standin with getKref method
-      expect(processedArgs[0]).toHaveProperty('getKref');
-      expect((processedArgs[0] as { getKref: () => string }).getKref()).toBe(
-        'ko42',
-      );
+      const firstArg = processedArgs[0] as { getKref: () => string };
+      expect(firstArg).toHaveProperty('getKref');
+      expect(firstArg.getKref()).toBe('ko42');
 
       // Second arg should be an object with converted kref
       const secondArg = processedArgs[1] as {

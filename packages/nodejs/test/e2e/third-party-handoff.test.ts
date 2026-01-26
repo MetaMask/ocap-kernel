@@ -63,9 +63,7 @@ describe('third-party handoff', () => {
   });
 
   afterEach(async () => {
-    if (kernel) {
-      await kernel.clearStorage();
-    }
+    await kernel.clearStorage();
   });
 
   it('alice passes exo from Bob to Carol (vat-internal handoff)', async () => {
@@ -143,7 +141,7 @@ describe('third-party handoff', () => {
     expect(greeting).toBe('Greetings, Universe!');
   }, 30000);
 
-  it('carol stores and later uses exo from Bob', async () => {
+  it('carol stores exo from Bob in memory and later uses it', async () => {
     // Launch subcluster with Bob and Carol
     const config: ClusterConfig = {
       bootstrap: 'bob',
@@ -171,7 +169,7 @@ describe('third-party handoff', () => {
     // 1. Get exo from Bob
     const greeter = await E(bob).createGreeter('Howdy');
 
-    // 2. Carol stores the exo
+    // 2. Carol stores the exo in memory
     const storeResult = await E(carol).storeExo(greeter);
     expect(storeResult).toBe('stored');
 
