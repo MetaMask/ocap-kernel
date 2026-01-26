@@ -77,6 +77,18 @@ export type RemoteCommsOptions = {
    * `resetStorage: true` when creating the kernel to clear existing identity first.
    */
   mnemonic?: string | undefined;
+  /**
+   * Maximum messages per second per peer (default: 100).
+   * Messages exceeding this rate are rejected with ResourceLimitError.
+   * Uses a sliding 1-second window.
+   */
+  maxMessagesPerSecond?: number | undefined;
+  /**
+   * Maximum connection attempts per minute per peer (default: 10).
+   * Connection attempts exceeding this rate are rejected with ResourceLimitError.
+   * Uses a sliding 1-minute window.
+   */
+  maxConnectionAttemptsPerMinute?: number | undefined;
 };
 
 export type RemoteInfo = {

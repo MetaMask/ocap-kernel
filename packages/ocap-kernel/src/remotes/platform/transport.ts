@@ -14,6 +14,12 @@ import {
   SCTP_USER_INITIATED_ABORT,
 } from './constants.ts';
 import { PeerStateManager } from './peer-state-manager.ts';
+import {
+  DEFAULT_CONNECTION_RATE_LIMIT,
+  DEFAULT_MESSAGE_RATE_LIMIT,
+  makeConnectionRateLimiter,
+  makeMessageRateLimiter,
+} from './rate-limiter.ts';
 import { makeReconnectionLifecycle } from './reconnection-lifecycle.ts';
 import { ReconnectionManager } from './reconnection.ts';
 import {
@@ -41,6 +47,8 @@ import type {
  * @param options.maxMessageSizeBytes - Maximum message size in bytes (default: 1MB).
  * @param options.cleanupIntervalMs - Stale peer cleanup interval in milliseconds (default: 15 minutes).
  * @param options.stalePeerTimeoutMs - Stale peer timeout in milliseconds (default: 1 hour).
+ * @param options.maxMessagesPerSecond - Maximum messages per second per peer (default: 100).
+ * @param options.maxConnectionAttemptsPerMinute - Maximum connection attempts per minute per peer (default: 10).
  * @param remoteMessageHandler - Handler to be called when messages are received from elsewhere.
  * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote (after max retries or non-retryable error).
  *
@@ -65,6 +73,8 @@ export async function initTransport(
     maxMessageSizeBytes = DEFAULT_MAX_MESSAGE_SIZE_BYTES,
     cleanupIntervalMs = DEFAULT_CLEANUP_INTERVAL_MS,
     stalePeerTimeoutMs = DEFAULT_STALE_PEER_TIMEOUT_MS,
+    maxMessagesPerSecond = DEFAULT_MESSAGE_RATE_LIMIT,
+    maxConnectionAttemptsPerMinute = DEFAULT_CONNECTION_RATE_LIMIT,
   } = options;
   let cleanupWakeDetector: (() => void) | undefined;
   const stopController = new AbortController();
@@ -77,6 +87,10 @@ export async function initTransport(
   const checkConnectionLimit = makeConnectionLimitChecker(
     maxConcurrentConnections,
     () => peerStateManager.countActiveConnections(),
+  );
+  const messageRateLimiter = makeMessageRateLimiter(maxMessagesPerSecond);
+  const connectionRateLimiter = makeConnectionRateLimiter(
+    maxConnectionAttemptsPerMinute,
   );
   let cleanupIntervalId: ReturnType<typeof setInterval> | undefined;
   // Holder for handleConnectionLoss - initialized later after all dependencies are defined
@@ -109,7 +123,12 @@ export async function initTransport(
     for (const peerId of stalePeers) {
       peerStateManager.removePeer(peerId);
       reconnectionManager.stopReconnection(peerId);
+      messageRateLimiter.clearKey(peerId);
+      connectionRateLimiter.clearKey(peerId);
     }
+    // Also prune stale rate limiter entries that may not have peer state
+    messageRateLimiter.pruneStale();
+    connectionRateLimiter.pruneStale();
   }
 
   /**
@@ -326,6 +345,9 @@ export async function initTransport(
     // Validate message size before sending
     validateMessageSize(message);
 
+    // Check message rate limit
+    messageRateLimiter.checkAndRecord(targetPeerId, 'messages');
+
     const state = peerStateManager.getState(targetPeerId);
 
     // Get or establish channel
@@ -333,6 +355,9 @@ export async function initTransport(
     if (!channel) {
       // Check connection limit before attempting to dial
       checkConnectionLimit();
+
+      // Check connection attempt rate limit
+      connectionRateLimiter.checkAndRecord(targetPeerId, 'connectionAttempts');
 
       try {
         const { locationHints: hints } = state;
@@ -508,6 +533,8 @@ export async function initTransport(
     await connectionFactory.stop();
     peerStateManager.clear();
     reconnectionManager.clear();
+    messageRateLimiter.clear();
+    connectionRateLimiter.clear();
   }
 
   // Return the sender with a stop handle and connection management functions
