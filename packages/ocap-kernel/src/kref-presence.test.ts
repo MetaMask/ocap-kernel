@@ -245,7 +245,7 @@ describe('makePresenceManager', () => {
     } as unknown as KernelLike;
 
     presenceManager = makePresenceManager({
-      kernelFacade: mockKernelLike,
+      kernel: mockKernelLike,
     });
   });
 

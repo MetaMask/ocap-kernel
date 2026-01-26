@@ -109,7 +109,7 @@ async function main(): Promise<void> {
   globalThis.kernel = kernelP;
 
   // Create presence manager for E() calls on vat objects
-  const presenceManager = makePresenceManager({ kernelFacade: kernelP });
+  const presenceManager = makePresenceManager({ kernel: kernelP });
   Object.assign(globalThis.captp, presenceManager);
 
   // Handle incoming CapTP messages from the kernel

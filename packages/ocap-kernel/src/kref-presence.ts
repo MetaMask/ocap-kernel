@@ -73,7 +73,7 @@ export type PresenceManagerOptions = {
    * A kernel or kernel facade that can queue messages.
    * Can be a promise since E() works with promises.
    */
-  kernelFacade: KernelLike | Promise<KernelLike>;
+  kernel: KernelLike | Promise<KernelLike>;
 };
 
 /**
@@ -185,13 +185,12 @@ function makeKrefPresence(
  * to kernel.queueMessage() via the existing CapTP connection.
  *
  * @param options - Options including the kernel facade.
+ * @param options.kernel - The kernel instance or presence.
  * @returns The presence manager.
  */
-export function makePresenceManager(
-  options: PresenceManagerOptions,
-): PresenceManager {
-  const { kernelFacade } = options;
-
+export function makePresenceManager({
+  kernel,
+}: PresenceManagerOptions): PresenceManager {
   // State for kref↔presence mapping
   const krefToPresence = new Map<KRef, Methods>();
   const presenceToKref = new WeakMap<object, KRef>();
@@ -252,7 +251,7 @@ export function makePresenceManager(
     const serializedArgs = args.map(convertPresencesToStandins);
 
     // Call kernel via existing CapTP
-    const result: CapData<KRef> = await E(kernelFacade).queueMessage(
+    const result: CapData<KRef> = await E(kernel).queueMessage(
       kref,
       method,
       serializedArgs,

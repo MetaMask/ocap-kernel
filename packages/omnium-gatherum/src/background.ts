@@ -111,7 +111,7 @@ async function main(): Promise<void> {
   globalThis.kernel = kernelP;
 
   // Create presence manager for E() on vat objects
-  const presenceManager = makePresenceManager({ kernelFacade: kernelP });
+  const presenceManager = makePresenceManager({ kernel: kernelP });
   globals.setPresenceManager(presenceManager);
 
   try {

@@ -89,15 +89,17 @@ describe('third-party handoff', () => {
       await kernel.launchSubcluster(config);
 
     // Create presence manager for E() calls
-    const pm = makePresenceManager({ kernelFacade: kernel });
+    const presenceManager = makePresenceManager({ kernel });
 
     // Get presences for each vat root
-    const alice = pm.resolveKref(bootstrapRootKref) as Alice;
+    const alice = presenceManager.resolveKref(bootstrapRootKref) as Alice;
 
     // Get Bob and Carol krefs using the subcluster
     const vatRootKrefs = getVatRootKrefs(kernel, subclusterId);
-    const bob = pm.resolveKref(vatRootKrefs.bob as string) as Bob;
-    const carol = pm.resolveKref(vatRootKrefs.carol as string) as Carol;
+    const bob = presenceManager.resolveKref(vatRootKrefs.bob as string) as Bob;
+    const carol = presenceManager.resolveKref(
+      vatRootKrefs.carol as string,
+    ) as Carol;
 
     // Test: Alice orchestrates the third-party handoff
     // Alice calls Bob to get a greeter, then passes it to Carol
@@ -123,12 +125,14 @@ describe('third-party handoff', () => {
       await kernel.launchSubcluster(config);
 
     // Create presence manager for E() calls
-    const pm = makePresenceManager({ kernelFacade: kernel });
+    const presenceManager = makePresenceManager({ kernel });
 
     // Get presences
-    const bob = pm.resolveKref(bootstrapRootKref) as Bob;
+    const bob = presenceManager.resolveKref(bootstrapRootKref) as Bob;
     const vatRootKrefs = getVatRootKrefs(kernel, subclusterId);
-    const carol = pm.resolveKref(vatRootKrefs.carol as string) as Carol;
+    const carol = presenceManager.resolveKref(
+      vatRootKrefs.carol as string,
+    ) as Carol;
 
     // Test: External code orchestrates the handoff
     // 1. Get exo from Bob
@@ -155,12 +159,14 @@ describe('third-party handoff', () => {
 
     const { subclusterId } = await kernel.launchSubcluster(config);
 
-    const pm = makePresenceManager({ kernelFacade: kernel });
+    const presenceManager = makePresenceManager({ kernel });
 
     // Get presences using the subcluster
     const vatRootKrefs = getVatRootKrefs(kernel, subclusterId);
-    const bob = pm.resolveKref(vatRootKrefs.bob as string) as Bob;
-    const carol = pm.resolveKref(vatRootKrefs.carol as string) as Carol;
+    const bob = presenceManager.resolveKref(vatRootKrefs.bob as string) as Bob;
+    const carol = presenceManager.resolveKref(
+      vatRootKrefs.carol as string,
+    ) as Carol;
 
     // 1. Get exo from Bob
     const greeter = await E(bob).createGreeter('Howdy');
