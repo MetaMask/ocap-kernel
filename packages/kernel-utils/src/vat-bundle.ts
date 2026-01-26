@@ -27,4 +27,9 @@ export const isVatBundle = (value: unknown): value is VatBundle =>
   hasProperty(value, 'moduleFormat') &&
   value.moduleFormat === 'iife' &&
   hasProperty(value, 'code') &&
-  typeof value.code === 'string';
+  typeof value.code === 'string' &&
+  hasProperty(value, 'exports') &&
+  Array.isArray(value.exports) &&
+  hasProperty(value, 'modules') &&
+  typeof value.modules === 'object' &&
+  value.modules !== null;

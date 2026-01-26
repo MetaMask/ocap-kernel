@@ -46,9 +46,7 @@ describe('isVatBundle', () => {
       expect(isVatBundle(bundle)).toBe(false);
     });
 
-    // BUG: isVatBundle does not check for exports property
-    // See PR #763 bugbot claim #7
-    it.fails('rejects object missing exports', () => {
+    it('rejects object missing exports', () => {
       const bundle = {
         moduleFormat: 'iife',
         code: 'var __vatExports__ = {};',
@@ -57,9 +55,7 @@ describe('isVatBundle', () => {
       expect(isVatBundle(bundle)).toBe(false);
     });
 
-    // BUG: isVatBundle does not check for modules property
-    // See PR #763 bugbot claim #7
-    it.fails('rejects object missing modules', () => {
+    it('rejects object missing modules', () => {
       const bundle = {
         moduleFormat: 'iife',
         code: 'var __vatExports__ = {};',
