@@ -524,12 +524,14 @@ describe.sequential('Remote Communications E2E', () => {
     it(
       'rejects new messages when queue reaches MAX_QUEUE limit',
       async () => {
+        // Use high rate limit to avoid rate limiting interference with queue limit test
         const { aliceRef, bobURL } = await setupAliceAndBob(
           kernel1,
           kernel2,
           kernelStore1,
           kernelStore2,
           testRelays,
+          { maxMessagesPerSecond: 500 },
         );
 
         await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
