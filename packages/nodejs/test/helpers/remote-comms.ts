@@ -1,7 +1,11 @@
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { stringify } from '@metamask/kernel-utils';
 import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
-import type { ClusterConfig, KRef } from '@metamask/ocap-kernel';
+import type {
+  ClusterConfig,
+  KRef,
+  RemoteCommsOptions,
+} from '@metamask/ocap-kernel';
 
 import { makeTestKernel } from './kernel.ts';
 
@@ -181,6 +185,7 @@ export async function wait(ms: number): Promise<void> {
  * @param kernelStore1 - Kernel store for first kernel.
  * @param kernelStore2 - Kernel store for second kernel.
  * @param relays - Array of relay addresses.
+ * @param remoteCommsOptions - Optional additional options for initRemoteComms.
  * @returns Object with all setup data including URLs and references.
  */
 export async function setupAliceAndBob(
@@ -189,6 +194,7 @@ export async function setupAliceAndBob(
   kernelStore1: ReturnType<typeof makeKernelStore>,
   kernelStore2: ReturnType<typeof makeKernelStore>,
   relays: string[],
+  remoteCommsOptions?: Omit<RemoteCommsOptions, 'relays'>,
 ): Promise<{
   aliceURL: string;
   bobURL: string;
@@ -197,8 +203,8 @@ export async function setupAliceAndBob(
   peerId1: string;
   peerId2: string;
 }> {
-  await kernel1.initRemoteComms({ relays });
-  await kernel2.initRemoteComms({ relays });
+  await kernel1.initRemoteComms({ relays, ...remoteCommsOptions });
+  await kernel2.initRemoteComms({ relays, ...remoteCommsOptions });
 
   const aliceConfig = makeRemoteVatConfig('Alice');
   const bobConfig = makeRemoteVatConfig('Bob');
