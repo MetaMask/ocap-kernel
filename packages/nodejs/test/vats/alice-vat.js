@@ -29,7 +29,7 @@ export function buildRootObject({ logger }) {
       logger.log('Alice starting handoff');
 
       // Get exo from Bob
-      const greeter = await E(bob).createGreeter(greeting);
+      const greeter = await E(bob).makeGreeter(greeting);
       logger.log('Alice received greeter from Bob');
 
       // Pass to Carol and have her use it

@@ -21,7 +21,7 @@ export function buildRootObject({ logger }) {
      * @param {string} greeting - The greeting prefix to use.
      * @returns {object} A greeter exo with a greet method.
      */
-    createGreeter(greeting) {
+    makeGreeter(greeting) {
       return makeDefaultExo('greeter', {
         greet(name) {
           const message = `${greeting}, ${name}!`;
