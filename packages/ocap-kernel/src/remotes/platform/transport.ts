@@ -316,6 +316,8 @@ export async function initTransport(
       connectionFactory.dialIdempotent(peerId, hints, false),
     reuseOrReturnChannel,
     checkConnectionLimit,
+    checkConnectionRateLimit: (peerId: string) =>
+      connectionRateLimiter.checkAndRecord(peerId, 'connectionRate'),
     registerChannel,
   });
   reconnectionHolder.handleConnectionLoss =
@@ -345,8 +347,19 @@ export async function initTransport(
     // Validate message size before sending
     validateMessageSize(message);
 
-    // Check message rate limit
-    messageRateLimiter.checkAndRecord(targetPeerId, 'messageRate');
+    // Check message rate limit (check only, record after successful send)
+    if (messageRateLimiter.wouldExceedLimit(targetPeerId)) {
+      throw new ResourceLimitError(
+        `Rate limit exceeded: ${messageRateLimiter.getCurrentCount(targetPeerId)}/${maxMessagesPerSecond} messageRate in ${1000}ms window`,
+        {
+          data: {
+            limitType: 'messageRate',
+            current: messageRateLimiter.getCurrentCount(targetPeerId),
+            limit: maxMessagesPerSecond,
+          },
+        },
+      );
+    }
 
     const state = peerStateManager.getState(targetPeerId);
 
@@ -400,6 +413,8 @@ export async function initTransport(
         fromString(message),
         DEFAULT_WRITE_TIMEOUT_MS,
       );
+      // Record message rate only after successful send
+      messageRateLimiter.recordEvent(targetPeerId);
       peerStateManager.updateConnectionTime(targetPeerId);
       reconnectionManager.resetBackoff(targetPeerId);
     } catch (problem) {
