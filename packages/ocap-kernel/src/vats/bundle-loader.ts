@@ -22,6 +22,15 @@ export function loadBundle(
   if (parsed.moduleFormat !== 'iife') {
     throw new Error(`Unknown bundle format: ${String(parsed.moduleFormat)}`);
   }
+
+  if (parsed.code === undefined) {
+    throw new Error('Invalid bundle: missing code');
+  }
+
+  if (typeof parsed.code !== 'string') {
+    throw new Error('Invalid bundle: code must be a string');
+  }
+
   const bundle = parsed as unknown as VatBundle;
 
   const compartment = new Compartment({
