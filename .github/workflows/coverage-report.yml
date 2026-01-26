@@ -26,7 +26,7 @@ jobs:
             -o coverage-base/coverage-summary.json || { echo "No baseline coverage found"; exit 1; }
 
       - name: Post coverage report
-        uses: davelosert/vitest-coverage-report-action@5b6122e3a819a3be7b27fc961b7faafb3bf00e4d
+        uses: davelosert/vitest-coverage-report-action@15b5b41bb7d36796d89f4bf482b09529c53f3446
         with:
           json-summary-path: coverage/coverage-summary.json
           json-final-path: coverage/coverage-final.json
