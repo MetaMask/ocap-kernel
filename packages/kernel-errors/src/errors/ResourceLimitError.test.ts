@@ -167,7 +167,7 @@ describe('ResourceLimitError', () => {
         stack: 'stack trace',
       } as unknown as MarshaledOcapError,
       expectedError:
-        'At path: data.limitType -- Expected the value to satisfy a union of `literal | literal`, but received: "invalid"',
+        'At path: data.limitType -- Expected the value to satisfy a union of `literal | literal | literal | literal`, but received: "invalid"',
     },
     {
       name: 'invalid current type',

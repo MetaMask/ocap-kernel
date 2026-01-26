@@ -86,7 +86,10 @@ export class SlidingWindowRateLimiter {
    * @param limitType - The type of limit for error reporting.
    * @throws ResourceLimitError if the rate limit would be exceeded.
    */
-  checkAndRecord(key: string, limitType: string): void {
+  checkAndRecord(
+    key: string,
+    limitType: 'messageRate' | 'connectionRate',
+  ): void {
     if (this.wouldExceedLimit(key)) {
       const timestamps = this.#timestamps.get(key) ?? [];
       const cutoff = Date.now() - this.#windowMs;
@@ -99,7 +102,6 @@ export class SlidingWindowRateLimiter {
             limitType,
             current: currentCount,
             limit: this.#maxEvents,
-            windowMs: this.#windowMs,
           },
         },
       );
