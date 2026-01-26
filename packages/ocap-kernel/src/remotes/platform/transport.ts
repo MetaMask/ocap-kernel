@@ -17,6 +17,7 @@ import { PeerStateManager } from './peer-state-manager.ts';
 import {
   DEFAULT_CONNECTION_RATE_LIMIT,
   DEFAULT_MESSAGE_RATE_LIMIT,
+  DEFAULT_MESSAGE_RATE_WINDOW_MS,
   makeConnectionRateLimiter,
   makeMessageRateLimiter,
 } from './rate-limiter.ts';
@@ -349,12 +350,13 @@ export async function initTransport(
 
     // Check message rate limit (check only, record after successful send)
     if (messageRateLimiter.wouldExceedLimit(targetPeerId)) {
+      const currentCount = messageRateLimiter.getCurrentCount(targetPeerId);
       throw new ResourceLimitError(
-        `Rate limit exceeded: ${messageRateLimiter.getCurrentCount(targetPeerId)}/${maxMessagesPerSecond} messageRate in ${1000}ms window`,
+        `Rate limit exceeded: ${currentCount}/${maxMessagesPerSecond} messageRate in ${DEFAULT_MESSAGE_RATE_WINDOW_MS}ms window`,
         {
           data: {
             limitType: 'messageRate',
-            current: messageRateLimiter.getCurrentCount(targetPeerId),
+            current: currentCount,
             limit: maxMessagesPerSecond,
           },
         },
