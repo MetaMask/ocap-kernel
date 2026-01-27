@@ -1,6 +1,13 @@
 {
   "permissions": {
-    "allow": ["Skill(code-review)", "Skill(glossary)"],
+    "allow": [
+      "Skill(lint-build-test)",
+      "Skill(code-review)",
+      "Skill(commit)",
+      "Skill(glossary)",
+      "Skill(pr)",
+      "Skill(push)"
+    ],
     "deny": ["Read(**/.env)", "Read(**/.env.*)"]
   }
 }

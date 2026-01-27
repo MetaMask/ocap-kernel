@@ -1,24 +1,16 @@
 ---
 name: commit
 description: Optionally checks, then commits code to the current or a new feature branch.
-argument-hint: check | force
-allowed-tools:
-  - Bash(git branch*)
-  - Bash(git checkout*)
-  - Bash(git add*)
-  - Bash(git status*)
-  - Bash(git commit*)
-  - Bash(git diff*)
-  - Bash(git log*)
-  - Skill
-model: claude-haiku-4-5
 ---
 
-Arguments: $ARGUMENTS
+When asked to commit code, follow these steps:
 
-If the argument is "force", skip the check step. Otherwise (default), run the `/check` command first to lint, build, and test the code. If any of the checks fail, stop and report the errors.
+## Arguments
 
-Once ready, commit and push the code by following these steps:
+- `check` (default): Run checks first to lint, build, and test the code. Stop if any checks fail.
+- `force`: Skip the check step and commit directly.
+
+## Steps
 
 1. Run these bash commands in parallel to understand the current state:
 
