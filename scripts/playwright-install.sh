@@ -12,4 +12,9 @@ if [ "$PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD" = "1" ]; then
     exit 0
 fi
 
-yarn playwright install chromium
+# Use minimal headless browser in CI, full browser locally
+if [ "$CI" = "true" ]; then
+    yarn playwright install --with-deps --only-shell chromium
+else
+    yarn playwright install chromium
+fi
