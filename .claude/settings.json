@@ -1,6 +1,12 @@
 {
   "permissions": {
-    "allow": ["Skill(code-review)", "Skill(glossary)"],
+    "allow": [
+      "Skill(code-review)",
+      "Skill(commit)",
+      "Skill(commit-push)",
+      "Skill(commit-push-pr)",
+      "Skill(glossary)"
+    ],
     "deny": ["Read(**/.env)", "Read(**/.env.*)"]
   }
 }

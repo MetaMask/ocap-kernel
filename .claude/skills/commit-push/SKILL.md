@@ -1,18 +1,18 @@
 ---
 name: commit-push
 description: Optionally checks, then commits and pushes code to the remote repository.
-argument-hint: check | force
-allowed-tools:
-  - Bash(git branch*)
-  - Bash(git status*)
-  - Bash(git push*)
-  - Skill
-model: claude-haiku-4-5
 ---
 
-Arguments: $ARGUMENTS
+When asked to commit and push code, follow these steps:
 
-1. Run `/commit $ARGUMENTS` to commit the changes.
+## Arguments
+
+- `check` (default): Run checks before committing.
+- `force`: Skip checks and commit/push directly.
+
+## Steps
+
+1. Invoke the commit skill with the provided arguments to commit the changes.
 
 2. Push to the remote repository:
 
