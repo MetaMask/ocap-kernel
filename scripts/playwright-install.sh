@@ -1,7 +1,8 @@
 #!/bin/bash
 
-# Skip in Dependabot updater environment (not needed and causes failures)
-if [ -n "$DEPENDABOT" ]; then
+# Skip in Dependabot environments (not needed and causes failures)
+# DEPENDABOT is set in the updater environment, GITHUB_ACTOR in PR workflows
+if [ -n "$DEPENDABOT" ] || [ "$GITHUB_ACTOR" = "dependabot[bot]" ]; then
     echo "⏭️  Skipping Playwright install in Dependabot environment"
     exit 0
 fi
