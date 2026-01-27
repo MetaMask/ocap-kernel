@@ -40,4 +40,4 @@ export {
   isValidMnemonic,
   mnemonicToSeed,
   seedToMnemonic,
-} from './remotes/kernel/remote-comms.ts';
+} from './utils/bip39.ts';
