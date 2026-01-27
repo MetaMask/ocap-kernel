@@ -1,6 +1,5 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Kernel, ClusterConfig, KRef, VatId } from '@metamask/ocap-kernel';
-import { convertKrefsToStandins } from '@metamask/ocap-kernel';
 
 import type { KernelFacade, LaunchResult } from '../../types.ts';
 
@@ -27,9 +26,7 @@ export function makeKernelFacade(kernel: Kernel): KernelFacade {
     },
 
     queueMessage: async (target: KRef, method: string, args: unknown[]) => {
-      // Convert kref strings in args to standins for kernel-marshal
-      const processedArgs = convertKrefsToStandins(args) as unknown[];
-      return kernel.queueMessage(target, method, processedArgs);
+      return kernel.queueMessage(target, method, args);
     },
 
     getStatus: async () => {

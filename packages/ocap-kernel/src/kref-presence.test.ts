@@ -1,13 +1,8 @@
-import { passStyleOf } from '@endo/marshal';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { PresenceManager, KernelLike } from './kref-presence.ts';
-import {
-  convertKrefsToStandins,
-  makePresenceManager,
-} from './kref-presence.ts';
-import { krefOf as kernelKrefOf, kslot } from './liveslots/kernel-marshal.ts';
-import type { SlotValue } from './liveslots/kernel-marshal.ts';
+import { makePresenceManager } from './kref-presence.ts';
+import { kslot } from './liveslots/kernel-marshal.ts';
 
 // EHandler type definition (copied to avoid import issues with mocking)
 type EHandler = {
@@ -100,134 +95,6 @@ vi.mock('@endo/eventual-send', () => ({
   E: mockE,
   HandledPromise: MockHandledPromise,
 }));
-
-describe('convertKrefsToStandins', () => {
-  describe('kref string conversion', () => {
-    it('converts ko kref string to standin', () => {
-      const result = convertKrefsToStandins('ko123') as SlotValue;
-
-      expect(passStyleOf(result)).toBe('remotable');
-      expect(kernelKrefOf(result)).toBe('ko123');
-    });
-
-    it('converts kp kref string to standin promise', () => {
-      const result = convertKrefsToStandins('kp456');
-
-      expect(passStyleOf(result)).toBe('promise');
-      expect(kernelKrefOf(result as Promise<unknown>)).toBe('kp456');
-    });
-
-    it('does not convert non-kref strings', () => {
-      expect(convertKrefsToStandins('hello')).toBe('hello');
-      expect(convertKrefsToStandins('k123')).toBe('k123');
-      expect(convertKrefsToStandins('kox')).toBe('kox');
-      expect(convertKrefsToStandins('ko')).toBe('ko');
-      expect(convertKrefsToStandins('kp')).toBe('kp');
-      expect(convertKrefsToStandins('ko123x')).toBe('ko123x');
-    });
-  });
-
-  describe('array processing', () => {
-    it('recursively converts krefs in arrays', () => {
-      const result = convertKrefsToStandins(['ko1', 'ko2']) as unknown[];
-
-      expect(result).toHaveLength(2);
-      expect(kernelKrefOf(result[0] as SlotValue)).toBe('ko1');
-      expect(kernelKrefOf(result[1] as SlotValue)).toBe('ko2');
-    });
-
-    it('handles mixed arrays with krefs and primitives', () => {
-      const result = convertKrefsToStandins([
-        'ko1',
-        42,
-        'hello',
-        true,
-      ]) as unknown[];
-
-      expect(result).toHaveLength(4);
-      expect(kernelKrefOf(result[0] as SlotValue)).toBe('ko1');
-      expect(result[1]).toBe(42);
-      expect(result[2]).toBe('hello');
-      expect(result[3]).toBe(true);
-    });
-
-    it('handles empty arrays', () => {
-      const result = convertKrefsToStandins([]);
-      expect(result).toStrictEqual([]);
-    });
-
-    it('handles nested arrays', () => {
-      const result = convertKrefsToStandins([['ko1'], ['ko2']]) as unknown[][];
-
-      expect(kernelKrefOf(result[0]![0] as SlotValue)).toBe('ko1');
-      expect(kernelKrefOf(result[1]![0] as SlotValue)).toBe('ko2');
-    });
-  });
-
-  describe('object processing', () => {
-    it('recursively converts krefs in objects', () => {
-      const result = convertKrefsToStandins({
-        target: 'ko1',
-        promise: 'kp2',
-      }) as Record<string, unknown>;
-
-      expect(kernelKrefOf(result.target as SlotValue)).toBe('ko1');
-      expect(kernelKrefOf(result.promise as Promise<unknown>)).toBe('kp2');
-    });
-
-    it('handles nested objects', () => {
-      const result = convertKrefsToStandins({
-        outer: {
-          inner: 'ko42',
-        },
-      }) as Record<string, Record<string, unknown>>;
-
-      expect(kernelKrefOf(result.outer!.inner as SlotValue)).toBe('ko42');
-    });
-
-    it('handles empty objects', () => {
-      const result = convertKrefsToStandins({});
-      expect(result).toStrictEqual({});
-    });
-
-    it('handles objects with mixed values', () => {
-      const result = convertKrefsToStandins({
-        kref: 'ko1',
-        number: 123,
-        string: 'text',
-        boolean: false,
-        nullValue: null,
-      }) as Record<string, unknown>;
-
-      expect(kernelKrefOf(result.kref as SlotValue)).toBe('ko1');
-      expect(result.number).toBe(123);
-      expect(result.string).toBe('text');
-      expect(result.boolean).toBe(false);
-      expect(result.nullValue).toBeNull();
-    });
-  });
-
-  describe('primitive handling', () => {
-    it('passes through numbers unchanged', () => {
-      expect(convertKrefsToStandins(42)).toBe(42);
-      expect(convertKrefsToStandins(0)).toBe(0);
-      expect(convertKrefsToStandins(-1)).toBe(-1);
-    });
-
-    it('passes through booleans unchanged', () => {
-      expect(convertKrefsToStandins(true)).toBe(true);
-      expect(convertKrefsToStandins(false)).toBe(false);
-    });
-
-    it('passes through null unchanged', () => {
-      expect(convertKrefsToStandins(null)).toBeNull();
-    });
-
-    it('passes through undefined unchanged', () => {
-      expect(convertKrefsToStandins(undefined)).toBeUndefined();
-    });
-  });
-});
 
 describe('makePresenceManager', () => {
   let mockKernelLike: KernelLike;
