@@ -8,6 +8,9 @@ import {
   initRemoteComms,
   parseOcapURL,
   getKnownRelays,
+  isValidMnemonic,
+  mnemonicToSeed,
+  seedToMnemonic,
 } from './remote-comms.ts';
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
 import type { KernelStore } from '../../store/index.ts';
@@ -552,6 +555,267 @@ describe('remote-comms', () => {
       const ocapURL = await remoteComms.issueOcapURL('test-kref');
       const { hints } = parseOcapURL(ocapURL);
       expect(hints).toStrictEqual(storedRelays);
+    });
+  });
+
+  describe('BIP39 mnemonic support', () => {
+    // Valid 12-word test mnemonic
+    const VALID_12_WORD_MNEMONIC =
+      'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    // Valid 24-word test mnemonic
+    const VALID_24_WORD_MNEMONIC =
+      'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art';
+
+    describe('isValidMnemonic', () => {
+      it('returns true for valid 12-word mnemonic', () => {
+        expect(isValidMnemonic(VALID_12_WORD_MNEMONIC)).toBe(true);
+      });
+
+      it('returns true for valid 24-word mnemonic', () => {
+        expect(isValidMnemonic(VALID_24_WORD_MNEMONIC)).toBe(true);
+      });
+
+      it('returns false for invalid mnemonic (wrong words)', () => {
+        const invalidMnemonic = 'invalid words that are not in the wordlist';
+        expect(isValidMnemonic(invalidMnemonic)).toBe(false);
+      });
+
+      it('returns false for mnemonic with invalid checksum', () => {
+        // Valid words but invalid checksum
+        const invalidChecksum =
+          'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon';
+        expect(isValidMnemonic(invalidChecksum)).toBe(false);
+      });
+
+      it('returns false for empty string', () => {
+        expect(isValidMnemonic('')).toBe(false);
+      });
+
+      it('returns false for too few words', () => {
+        const tooFew = 'abandon abandon abandon';
+        expect(isValidMnemonic(tooFew)).toBe(false);
+      });
+    });
+
+    describe('mnemonicToSeed', () => {
+      it('converts valid 12-word mnemonic to 32-byte hex seed', () => {
+        const seed = mnemonicToSeed(VALID_12_WORD_MNEMONIC);
+        expect(seed).toHaveLength(64); // 32 bytes = 64 hex chars
+        expect(/^[0-9a-f]+$/u.test(seed)).toBe(true);
+      });
+
+      it('converts valid 24-word mnemonic to 32-byte hex seed', () => {
+        const seed = mnemonicToSeed(VALID_24_WORD_MNEMONIC);
+        expect(seed).toHaveLength(64);
+        expect(/^[0-9a-f]+$/u.test(seed)).toBe(true);
+      });
+
+      it('produces same seed for same 12-word mnemonic', () => {
+        const seed1 = mnemonicToSeed(VALID_12_WORD_MNEMONIC);
+        const seed2 = mnemonicToSeed(VALID_12_WORD_MNEMONIC);
+        expect(seed1).toBe(seed2);
+      });
+
+      it('produces same seed for same 24-word mnemonic', () => {
+        const seed1 = mnemonicToSeed(VALID_24_WORD_MNEMONIC);
+        const seed2 = mnemonicToSeed(VALID_24_WORD_MNEMONIC);
+        expect(seed1).toBe(seed2);
+      });
+
+      it('produces different seeds for different mnemonics', () => {
+        // Use a genuinely different mnemonic for comparison
+        const differentMnemonic =
+          'zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo zoo wrong';
+        const seed1 = mnemonicToSeed(VALID_12_WORD_MNEMONIC);
+        const seed2 = mnemonicToSeed(differentMnemonic);
+        expect(seed1).not.toBe(seed2);
+      });
+
+      it('throws for invalid mnemonic', () => {
+        expect(() => mnemonicToSeed('invalid mnemonic')).toThrow(
+          'Invalid BIP39 mnemonic',
+        );
+      });
+    });
+
+    describe('seedToMnemonic', () => {
+      it('converts 32-byte hex seed to 12-word mnemonic', () => {
+        const seedHex =
+          '0000000000000000000000000000000000000000000000000000000000000000';
+        const mnemonic = seedToMnemonic(seedHex);
+        const words = mnemonic.split(' ');
+        expect(words).toHaveLength(12);
+        expect(isValidMnemonic(mnemonic)).toBe(true);
+      });
+
+      it('produces same mnemonic for same seed', () => {
+        const seedHex =
+          'abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+        const mnemonic1 = seedToMnemonic(seedHex);
+        const mnemonic2 = seedToMnemonic(seedHex);
+        expect(mnemonic1).toBe(mnemonic2);
+      });
+
+      it('produces different mnemonics for different seeds', () => {
+        const seed1 =
+          '0000000000000000000000000000000000000000000000000000000000000000';
+        const seed2 =
+          '1111111111111111111111111111111111111111111111111111111111111111';
+        const mnemonic1 = seedToMnemonic(seed1);
+        const mnemonic2 = seedToMnemonic(seed2);
+        expect(mnemonic1).not.toBe(mnemonic2);
+      });
+
+      it('throws for seed that is not 32 bytes', () => {
+        expect(() => seedToMnemonic('abcdef')).toThrow('Seed must be 32 bytes');
+      });
+    });
+
+    describe('round-trip conversion', () => {
+      it('can recover seed from mnemonic for 12-word mnemonics', () => {
+        // Start with mnemonic, convert to seed, convert back to mnemonic
+        const originalMnemonic = VALID_12_WORD_MNEMONIC;
+        const seed = mnemonicToSeed(originalMnemonic);
+        const recoveredMnemonic = seedToMnemonic(seed);
+        // The recovered mnemonic should produce the same seed
+        const recoveredSeed = mnemonicToSeed(recoveredMnemonic);
+        expect(recoveredSeed).toBe(seed);
+      });
+    });
+
+    describe('initRemoteComms with mnemonic option', () => {
+      it('uses mnemonic to derive seed when provided', async () => {
+        const remoteComms = await initRemoteComms(
+          mockKernelStore,
+          mockPlatformServices,
+          mockRemoteMessageHandler,
+          { mnemonic: VALID_12_WORD_MNEMONIC },
+        );
+
+        const keySeed = mockKernelStore.kv.get('keySeed');
+        expect(keySeed).toBeDefined();
+        // The seed should be derived from the mnemonic
+        const expectedSeed = mnemonicToSeed(VALID_12_WORD_MNEMONIC);
+        expect(keySeed).toBe(expectedSeed);
+
+        // Verify peerId matches the derived seed
+        const peerId = remoteComms.getPeerId();
+        const keyPair = await generateKeyPairFromSeed(
+          'Ed25519',
+          fromHex(expectedSeed),
+        );
+        expect(peerId).toBe(peerIdFromPrivateKey(keyPair).toString());
+      });
+
+      it('produces same peer ID for same mnemonic', async () => {
+        // First init with mnemonic
+        const remoteComms1 = await initRemoteComms(
+          mockKernelStore,
+          mockPlatformServices,
+          mockRemoteMessageHandler,
+          { mnemonic: VALID_12_WORD_MNEMONIC },
+        );
+        const peerId1 = remoteComms1.getPeerId();
+
+        // Reset store
+        mockKernelStore.kv.delete('peerId');
+        mockKernelStore.kv.delete('keySeed');
+        mockKernelStore.kv.delete('ocapURLKey');
+
+        // Second init with same mnemonic
+        const remoteComms2 = await initRemoteComms(
+          mockKernelStore,
+          mockPlatformServices,
+          mockRemoteMessageHandler,
+          { mnemonic: VALID_12_WORD_MNEMONIC },
+        );
+        const peerId2 = remoteComms2.getPeerId();
+
+        expect(peerId1).toBe(peerId2);
+      });
+
+      it('ignores mnemonic when peer ID already exists in store', async () => {
+        // Set up existing peer ID
+        const existingPeerId = 'existing-peer-id';
+        const existingKeySeed = 'abcdef1234567890abcdef1234567890';
+        mockKernelStore.kv.set('peerId', existingPeerId);
+        mockKernelStore.kv.set('keySeed', existingKeySeed);
+
+        const remoteComms = await initRemoteComms(
+          mockKernelStore,
+          mockPlatformServices,
+          mockRemoteMessageHandler,
+          { mnemonic: VALID_12_WORD_MNEMONIC },
+        );
+
+        // Should use existing peer ID, not derive from mnemonic
+        expect(remoteComms.getPeerId()).toBe(existingPeerId);
+        expect(mockKernelStore.kv.get('keySeed')).toBe(existingKeySeed);
+      });
+
+      it('logs mnemonic usage when provided', async () => {
+        const mockLogger = {
+          log: vi.fn(),
+          error: vi.fn(),
+        };
+
+        await initRemoteComms(
+          mockKernelStore,
+          mockPlatformServices,
+          mockRemoteMessageHandler,
+          { mnemonic: VALID_12_WORD_MNEMONIC },
+          mockLogger as unknown as Logger,
+        );
+
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          'comms init: using mnemonic for seed recovery',
+        );
+      });
+
+      it('throws for invalid mnemonic', async () => {
+        await expect(
+          initRemoteComms(
+            mockKernelStore,
+            mockPlatformServices,
+            mockRemoteMessageHandler,
+            { mnemonic: 'invalid mnemonic phrase' },
+          ),
+        ).rejects.toThrow('Invalid BIP39 mnemonic');
+      });
+
+      it('works with 24-word mnemonic', async () => {
+        const remoteComms = await initRemoteComms(
+          mockKernelStore,
+          mockPlatformServices,
+          mockRemoteMessageHandler,
+          { mnemonic: VALID_24_WORD_MNEMONIC },
+        );
+
+        const keySeed = mockKernelStore.kv.get('keySeed');
+        expect(keySeed).toBeDefined();
+        const expectedSeed = mnemonicToSeed(VALID_24_WORD_MNEMONIC);
+        expect(keySeed).toBe(expectedSeed);
+        expect(remoteComms.getPeerId()).toBeDefined();
+      });
+
+      it('mnemonic option takes precedence over keySeed parameter', async () => {
+        const providedKeySeed =
+          '9999999999999999999999999999999999999999999999999999999999999999';
+
+        await initRemoteComms(
+          mockKernelStore,
+          mockPlatformServices,
+          mockRemoteMessageHandler,
+          { mnemonic: VALID_12_WORD_MNEMONIC },
+          undefined,
+          providedKeySeed, // This should be ignored in favor of mnemonic
+        );
+
+        const storedKeySeed = mockKernelStore.kv.get('keySeed');
+        const expectedSeed = mnemonicToSeed(VALID_12_WORD_MNEMONIC);
+        expect(storedKeySeed).toBe(expectedSeed);
+        expect(storedKeySeed).not.toBe(providedKeySeed);
+      });
     });
   });
 });

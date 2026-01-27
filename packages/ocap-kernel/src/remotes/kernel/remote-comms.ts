@@ -61,13 +61,14 @@ export function mnemonicToSeed(mnemonic: string): string {
  *
  * @param seedHex - The hex-encoded seed (32 bytes).
  * @returns A 12-word BIP39 mnemonic phrase.
- * @throws If the seed is not 32 bytes.
+ * @throws If the seed is not 32 bytes (64 hex characters).
  */
 export function seedToMnemonic(seedHex: string): string {
-  const seed = fromHex(seedHex);
-  if (seed.length !== 32) {
+  // Validate hex length first (32 bytes = 64 hex characters)
+  if (seedHex.length !== 64) {
     throw Error('Seed must be 32 bytes');
   }
+  const seed = fromHex(seedHex);
   // Use first 16 bytes for a 12-word mnemonic
   const entropy = seed.slice(0, 16);
   return entropyToMnemonic(entropy, wordlist);
