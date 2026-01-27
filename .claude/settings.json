@@ -3,9 +3,9 @@
     "allow": [
       "Skill(code-review)",
       "Skill(commit)",
-      "Skill(commit-push)",
-      "Skill(commit-push-pr)",
-      "Skill(glossary)"
+      "Skill(glossary)",
+      "Skill(pr)",
+      "Skill(push)"
     ],
     "deny": ["Read(**/.env)", "Read(**/.env.*)"]
   }
