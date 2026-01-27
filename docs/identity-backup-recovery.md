@@ -6,12 +6,12 @@ The OCAP Kernel supports BIP39 mnemonic phrases for backing up and recovering ke
 
 Each kernel has a unique identity derived from a cryptographic seed. This identity determines the kernel's peer ID, which is used for peer-to-peer communication. By default, the kernel generates a random seed on first initialization. With BIP39 support, you can:
 
-- **Recover an existing identity** by providing a mnemonic phrase during initialization
-- **Backup your identity** by exporting the seed as a mnemonic phrase
+- **Create a recoverable identity** by generating a mnemonic and using it during initialization
+- **Recover an existing identity** by providing the same mnemonic phrase during initialization
 
 ## BIP39 Mnemonic Phrases
 
-A BIP39 mnemonic is a human-readable sequence of words (typically 12 or 24 words) that represents a cryptographic seed. The same mnemonic will always produce the same seed, making it ideal for backup and recovery.
+A BIP39 mnemonic is a human-readable sequence of words (typically 12 or 24 words) that represents cryptographic entropy. The same mnemonic will always produce the same seed when using the standard PBKDF2 derivation, making it ideal for backup and recovery.
 
 Example 12-word mnemonic:
 ```
@@ -25,6 +25,20 @@ abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon 
 ### Utility Functions
 
 The following functions are exported from `@metamask/ocap-kernel`:
+
+#### `generateMnemonic(strength?: 128 | 256): string`
+
+Generates a new random BIP39 mnemonic phrase.
+
+```typescript
+import { generateMnemonic } from '@metamask/ocap-kernel';
+
+// Generate 12-word mnemonic (default, 128 bits of entropy)
+const mnemonic12 = generateMnemonic();
+
+// Generate 24-word mnemonic (256 bits of entropy)
+const mnemonic24 = generateMnemonic(256);
+```
 
 #### `isValidMnemonic(mnemonic: string): boolean`
 
@@ -43,7 +57,9 @@ if (isValidMnemonic(mnemonic)) {
 
 #### `mnemonicToSeed(mnemonic: string): string`
 
-Converts a BIP39 mnemonic phrase to a 32-byte hex-encoded seed.
+Converts a BIP39 mnemonic phrase to a 32-byte hex-encoded seed using standard PBKDF2 derivation.
+
+This is a **one-way operation** - you cannot reverse a seed back to its mnemonic. To enable backup/recovery, store the original mnemonic.
 
 ```typescript
 import { mnemonicToSeed } from '@metamask/ocap-kernel';
@@ -51,18 +67,6 @@ import { mnemonicToSeed } from '@metamask/ocap-kernel';
 const mnemonic = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 const seed = mnemonicToSeed(mnemonic);
 // seed is a 64-character hex string (32 bytes)
-```
-
-#### `seedToMnemonic(seedHex: string): string`
-
-Converts a 32-byte hex-encoded seed to a 12-word BIP39 mnemonic phrase. Use this to backup an existing kernel's identity.
-
-```typescript
-import { seedToMnemonic } from '@metamask/ocap-kernel';
-
-const seed = '0000000000000000000000000000000000000000000000000000000000000000';
-const mnemonic = seedToMnemonic(seed);
-// mnemonic is a 12-word phrase
 ```
 
 ### Kernel Initialization with Mnemonic
@@ -78,9 +82,35 @@ await kernel.initRemoteComms({
 
 ## Usage Scenarios
 
-### Scenario 1: First-Time Setup with Generated Identity
+### Scenario 1: Creating a Recoverable Identity (Recommended)
 
-If you don't provide a mnemonic, the kernel generates a random identity:
+For new installations where you want backup capability, generate a mnemonic first:
+
+```typescript
+import { generateMnemonic, isValidMnemonic } from '@metamask/ocap-kernel';
+
+// Generate and display mnemonic for user to backup
+const mnemonic = generateMnemonic();
+console.log('Please write down your recovery phrase:');
+console.log(mnemonic);
+
+// User confirms they've backed up the mnemonic...
+
+// Initialize kernel with the mnemonic
+const kernel = await Kernel.make(platformServices, kernelDatabase, options);
+await kernel.initRemoteComms({
+  relays,
+  mnemonic,
+});
+
+// The peer ID is now derived from the mnemonic and can be recovered
+const status = await kernel.getStatus();
+console.log('Peer ID:', status.remoteComms?.peerId);
+```
+
+### Scenario 2: Random Identity (No Backup)
+
+If you don't provide a mnemonic, the kernel generates a random identity that cannot be recovered:
 
 ```typescript
 // Initialize kernel normally
@@ -89,28 +119,12 @@ const kernel = await Kernel.make(platformServices, kernelDatabase, options);
 // Initialize remote comms without mnemonic
 await kernel.initRemoteComms({ relays });
 
-// Get the peer ID
+// Get the peer ID - this identity cannot be backed up as a mnemonic
 const status = await kernel.getStatus();
 console.log('Peer ID:', status.remoteComms?.peerId);
 ```
 
-### Scenario 2: Backup Your Identity
-
-To backup an existing kernel's identity for future recovery:
-
-```typescript
-import { seedToMnemonic } from '@metamask/ocap-kernel';
-
-// The seed is stored in the kernel's KV store under 'keySeed'
-// You would typically access this through your application's storage layer
-const keySeed = kernelStore.kv.get('keySeed');
-
-if (keySeed) {
-  const mnemonic = seedToMnemonic(keySeed);
-  console.log('Backup mnemonic:', mnemonic);
-  // Store this mnemonic securely (e.g., show to user for manual backup)
-}
-```
+> **Note**: Random seeds cannot be converted to mnemonics. If you need backup capability, use Scenario 1 and generate a mnemonic first.
 
 ### Scenario 3: Recover Identity on New Device
 
@@ -210,18 +224,28 @@ if (!isValidMnemonic(userInput)) {
 
 ### Supported Mnemonic Lengths
 
-- **12 words** (128 bits of entropy) - Standard security
-- **24 words** (256 bits of entropy) - Enhanced security
+All standard BIP39 mnemonic lengths are supported:
 
-Both are supported for recovery. When exporting a seed to mnemonic, a 12-word phrase is generated.
+- **12 words** (128 bits of entropy)
+- **15 words** (160 bits of entropy)
+- **18 words** (192 bits of entropy)
+- **21 words** (224 bits of entropy)
+- **24 words** (256 bits of entropy)
+
+When generating mnemonics with `generateMnemonic()`, you can choose between 12 words (default) or 24 words.
+
+### PBKDF2 Derivation
+
+This implementation uses standard BIP39 PBKDF2-HMAC-SHA512 derivation (2048 iterations) with an empty passphrase. This ensures compatibility with standard BIP39 test vectors and other implementations.
 
 ### Security Best Practices
 
-1. **Never log or transmit mnemonics** - Display only to the user for manual backup
-2. **Clear mnemonic from memory** - Don't store in application state longer than necessary
-3. **Use secure input methods** - Avoid clipboard operations if possible
-4. **Verify before recovery** - Confirm the mnemonic produces the expected peer ID
-5. **Store backups securely** - Recommend users write down the phrase offline
+1. **Generate mnemonic first** - If you need backup capability, always generate a mnemonic before initialization
+2. **Never log or transmit mnemonics** - Display only to the user for manual backup
+3. **Clear mnemonic from memory** - Don't store in application state longer than necessary
+4. **Use secure input methods** - Avoid clipboard operations if possible
+5. **Verify before recovery** - Confirm the mnemonic produces the expected peer ID
+6. **Store backups securely** - Recommend users write down the phrase offline
 
 ## Error Handling
 

@@ -135,7 +135,7 @@ export async function initRemoteComms(
   } else {
     // If a mnemonic is provided, derive the seed from it
     if (mnemonic) {
-      keySeed = mnemonicToSeed(mnemonic);
+      keySeed = await mnemonicToSeed(mnemonic);
       logger?.log('comms init: using mnemonic for seed recovery');
     }
     [keySeed, peerId] = await generateKeyInfo(keySeed);

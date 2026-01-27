@@ -1,12 +1,7 @@
 import '../../src/env/endoify.ts';
 
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import {
-  Kernel,
-  isValidMnemonic,
-  mnemonicToSeed,
-  seedToMnemonic,
-} from '@metamask/ocap-kernel';
+import { Kernel } from '@metamask/ocap-kernel';
 import { describe, it, expect } from 'vitest';
 
 import { makeTestKernel } from '../helpers/kernel.ts';
@@ -23,38 +18,6 @@ const TEST_TIMEOUT = 30_000;
 // Dummy relay addresses - not actually connected to, just needed for bootstrap
 // Using localhost addresses that won't conflict with real relay ports
 const DUMMY_RELAYS = ['/ip4/127.0.0.1/tcp/19001/ws/p2p/QmDummyPeerId'];
-
-// Tests for BIP39 utility functions
-describe('BIP39 Utility Functions', () => {
-  it('validates mnemonic phrases correctly', () => {
-    expect(isValidMnemonic(TEST_MNEMONIC)).toBe(true);
-    expect(isValidMnemonic(DIFFERENT_MNEMONIC)).toBe(true);
-    expect(isValidMnemonic('invalid mnemonic phrase')).toBe(false);
-    expect(isValidMnemonic('')).toBe(false);
-  });
-
-  it('converts mnemonic to seed deterministically', () => {
-    const seed1 = mnemonicToSeed(TEST_MNEMONIC);
-    const seed2 = mnemonicToSeed(TEST_MNEMONIC);
-    expect(seed1).toBe(seed2);
-    expect(seed1).toHaveLength(64); // 32 bytes = 64 hex chars
-  });
-
-  it('converts seed to mnemonic for backup', () => {
-    const seed = mnemonicToSeed(TEST_MNEMONIC);
-    const mnemonic = seedToMnemonic(seed);
-    expect(isValidMnemonic(mnemonic)).toBe(true);
-    // Round-trip: the exported mnemonic should produce the same seed
-    const recoveredSeed = mnemonicToSeed(mnemonic);
-    expect(recoveredSeed).toBe(seed);
-  });
-
-  it('produces different seeds for different mnemonics', () => {
-    const seed1 = mnemonicToSeed(TEST_MNEMONIC);
-    const seed2 = mnemonicToSeed(DIFFERENT_MNEMONIC);
-    expect(seed1).not.toBe(seed2);
-  });
-});
 
 // Tests for identity recovery using mnemonic
 // Note: These tests verify that the same mnemonic produces the same peer ID

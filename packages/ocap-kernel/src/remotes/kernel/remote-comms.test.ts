@@ -575,7 +575,7 @@ describe('remote-comms', () => {
       const keySeed = mockKernelStore.kv.get('keySeed');
       expect(keySeed).toBeDefined();
       // The seed should be derived from the mnemonic
-      const expectedSeed = mnemonicToSeed(VALID_12_WORD_MNEMONIC);
+      const expectedSeed = await mnemonicToSeed(VALID_12_WORD_MNEMONIC);
       expect(keySeed).toBe(expectedSeed);
 
       // Verify peerId matches the derived seed
@@ -673,7 +673,7 @@ describe('remote-comms', () => {
 
       const keySeed = mockKernelStore.kv.get('keySeed');
       expect(keySeed).toBeDefined();
-      const expectedSeed = mnemonicToSeed(VALID_24_WORD_MNEMONIC);
+      const expectedSeed = await mnemonicToSeed(VALID_24_WORD_MNEMONIC);
       expect(keySeed).toBe(expectedSeed);
       expect(remoteComms.getPeerId()).toBeDefined();
     });
@@ -692,7 +692,7 @@ describe('remote-comms', () => {
       );
 
       const storedKeySeed = mockKernelStore.kv.get('keySeed');
-      const expectedSeed = mnemonicToSeed(VALID_12_WORD_MNEMONIC);
+      const expectedSeed = await mnemonicToSeed(VALID_12_WORD_MNEMONIC);
       expect(storedKeySeed).toBe(expectedSeed);
       expect(storedKeySeed).not.toBe(providedKeySeed);
     });

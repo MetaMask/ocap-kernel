@@ -4,10 +4,10 @@
  * @module bip39
  */
 
-import { toHex, fromHex } from '@metamask/kernel-utils';
+import { toHex } from '@metamask/kernel-utils';
 import {
-  entropyToMnemonic,
-  mnemonicToEntropy,
+  generateMnemonic as generateMnemonicInternal,
+  mnemonicToSeed as mnemonicToSeedInternal,
   validateMnemonic,
 } from '@scure/bip39';
 import { wordlist } from '@scure/bip39/wordlists/english.js';
@@ -15,7 +15,7 @@ import { wordlist } from '@scure/bip39/wordlists/english.js';
 /**
  * Validates a BIP39 mnemonic phrase.
  *
- * @param mnemonic - The mnemonic phrase to validate (12 or 24 words).
+ * @param mnemonic - The mnemonic phrase to validate (12, 15, 18, 21, or 24 words).
  * @returns true if the mnemonic is valid, false otherwise.
  */
 export function isValidMnemonic(mnemonic: string): boolean {
@@ -23,44 +23,36 @@ export function isValidMnemonic(mnemonic: string): boolean {
 }
 
 /**
- * Converts a BIP39 mnemonic phrase to a 32-byte seed (hex string).
+ * Generates a new random BIP39 mnemonic phrase.
  *
- * @param mnemonic - The mnemonic phrase (12 or 24 words).
- * @returns The hex-encoded 32-byte seed derived from the mnemonic.
- * @throws If the mnemonic is invalid.
+ * @param strength - The entropy strength in bits. 128 = 12 words, 256 = 24 words.
+ *   Defaults to 128 (12 words).
+ * @returns A new random mnemonic phrase.
  */
-export function mnemonicToSeed(mnemonic: string): string {
-  if (!isValidMnemonic(mnemonic)) {
-    throw Error('Invalid BIP39 mnemonic');
-  }
-  // mnemonicToEntropy returns 16 bytes for 12 words, 32 bytes for 24 words
-  const entropy = mnemonicToEntropy(mnemonic, wordlist);
-  // Pad or use entropy directly depending on length
-  // 12-word mnemonic = 128 bits = 16 bytes
-  // 24-word mnemonic = 256 bits = 32 bytes
-  // For 12-word mnemonics, we double the entropy to get 32 bytes
-  const seed =
-    entropy.length === 16
-      ? new Uint8Array([...entropy, ...entropy])
-      : entropy.slice(0, 32);
-  return toHex(seed);
+export function generateMnemonic(strength: 128 | 256 = 128): string {
+  return generateMnemonicInternal(wordlist, strength);
 }
 
 /**
- * Converts a 32-byte seed (hex string) to a BIP39 mnemonic phrase.
- * Uses the first 16 bytes to generate a 12-word mnemonic.
+ * Converts a BIP39 mnemonic phrase to a 32-byte seed using standard PBKDF2 derivation.
  *
- * @param seedHex - The hex-encoded seed (32 bytes).
- * @returns A 12-word BIP39 mnemonic phrase.
- * @throws If the seed is not 32 bytes (64 hex characters).
+ * This uses the standard BIP39 key derivation with PBKDF2-HMAC-SHA512 (2048 iterations)
+ * to derive a 512-bit seed, then returns the first 32 bytes for Ed25519 key generation.
+ *
+ * Note: This is a one-way derivation. You cannot reverse a seed back to its mnemonic.
+ * To enable backup/recovery, store the original mnemonic or use {@link generateMnemonic}
+ * to create a new mnemonic before initializing the kernel.
+ *
+ * @param mnemonic - The mnemonic phrase (any valid BIP39 length: 12, 15, 18, 21, or 24 words).
+ * @returns A promise for the hex-encoded 32-byte seed derived from the mnemonic.
+ * @throws If the mnemonic is invalid.
  */
-export function seedToMnemonic(seedHex: string): string {
-  // Validate hex length first (32 bytes = 64 hex characters)
-  if (seedHex.length !== 64) {
-    throw Error('Seed must be 32 bytes');
+export async function mnemonicToSeed(mnemonic: string): Promise<string> {
+  if (!isValidMnemonic(mnemonic)) {
+    throw Error('Invalid BIP39 mnemonic');
   }
-  const seed = fromHex(seedHex);
-  // Use first 16 bytes for a 12-word mnemonic
-  const entropy = seed.slice(0, 16);
-  return entropyToMnemonic(entropy, wordlist);
+  // Standard BIP39: PBKDF2-HMAC-SHA512 with 2048 iterations produces 512-bit seed
+  const seed512 = await mnemonicToSeedInternal(mnemonic, '');
+  // Use first 32 bytes for Ed25519 key generation
+  return toHex(seed512.slice(0, 32));
 }
