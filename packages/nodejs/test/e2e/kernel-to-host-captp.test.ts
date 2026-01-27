@@ -304,52 +304,45 @@ describe('kernel promise handling', { timeout: 15_000 }, () => {
     expect(greeting).toBe('Hi, World!');
   });
 
-  // TODO: Host-side promises from E() calls should be serializable back to vats.
-  // Currently, passing a promise received from E(vat).method() to another vat
-  // results in the receiving vat getting [object Object] instead of a proper
-  // promise that it can await. This documents expected kp kref handling behavior.
-  it.todo(
-    'passes deferred promise from one vat to another (cross-vat handoff)',
-    async () => {
-      // Launch subcluster with two promise-vats
-      const config: ClusterConfig = {
-        bootstrap: 'promiser',
-        vats: {
-          promiser: {
-            bundleSpec: 'http://localhost:3000/promise-vat.bundle',
-          },
-          awaiter: {
-            bundleSpec: 'http://localhost:3000/promise-vat.bundle',
-          },
+  it('passes deferred promise from one vat to another (cross-vat handoff)', async () => {
+    // Launch subcluster with two promise-vats
+    const config: ClusterConfig = {
+      bootstrap: 'promiser',
+      vats: {
+        promiser: {
+          bundleSpec: 'http://localhost:3000/promise-vat.bundle',
         },
-      };
+        awaiter: {
+          bundleSpec: 'http://localhost:3000/promise-vat.bundle',
+        },
+      },
+    };
 
-      const { subclusterId, bootstrapRootKref } =
-        await kernel.launchSubcluster(config);
+    const { subclusterId, bootstrapRootKref } =
+      await kernel.launchSubcluster(config);
 
-      const presenceManager = makePresenceManager({ kernel });
+    const presenceManager = makePresenceManager({ kernel });
 
-      // Get presences for both vats
-      const promiser = presenceManager.resolveKref(
-        bootstrapRootKref,
-      ) as PromiseVat;
-      const vatRootKrefs = getVatRootKrefs(kernel, subclusterId);
-      const awaiter = presenceManager.resolveKref(
-        vatRootKrefs.awaiter as string,
-      ) as PromiseVat;
+    // Get presences for both vats
+    const promiser = presenceManager.resolveKref(
+      bootstrapRootKref,
+    ) as PromiseVat;
+    const vatRootKrefs = getVatRootKrefs(kernel, subclusterId);
+    const awaiter = presenceManager.resolveKref(
+      vatRootKrefs.awaiter as string,
+    ) as PromiseVat;
 
-      // 1. Get deferred promise from promiser (creates kp kref)
-      const deferredPromise = E(promiser).makeDeferredPromise();
+    // 1. Get deferred promise from promiser (creates kp kref)
+    const deferredPromise = E(promiser).makeDeferredPromise();
 
-      // 2. Pass the promise to awaiter (kernel should pass kp kref)
-      const awaiterResult = E(awaiter).awaitPromiseArg(deferredPromise);
+    // 2. Pass the promise to awaiter (kernel should pass kp kref)
+    const awaiterResult = E(awaiter).awaitPromiseArg(deferredPromise);
 
-      // 3. Resolve the deferred promise from promiser
-      await E(promiser).resolveDeferredPromise('cross-vat value');
+    // 3. Resolve the deferred promise from promiser
+    await E(promiser).resolveDeferredPromise('cross-vat value');
 
-      // 4. awaiterResult should now resolve
-      const result = await awaiterResult;
-      expect(result).toBe('received: cross-vat value');
-    },
-  );
+    // 4. awaiterResult should now resolve
+    const result = await awaiterResult;
+    expect(result).toBe('received: cross-vat value');
+  });
 });

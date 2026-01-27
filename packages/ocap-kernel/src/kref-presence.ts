@@ -81,26 +81,29 @@ export type PresenceManagerOptions = {
  */
 export type PresenceManager = {
   /**
-   * Resolve a kref string to an E()-usable presence.
+   * Resolve a kref string to an E()-usable presence or tracked promise.
+   *
+   * For object refs (ko*): Returns a presence that can receive E() calls.
+   * For promise refs (p*, kp*, rp*): Returns a tracked Promise.
    *
    * @param kref - The kernel reference string (e.g., 'ko42', 'kp123').
-   * @returns A presence that can receive E() calls.
+   * @returns A presence or tracked promise.
    */
-  resolveKref: (kref: KRef) => Methods;
+  resolveKref: (kref: KRef) => Methods | Promise<unknown>;
 
   /**
-   * Extract the kref from a presence.
+   * Extract the kref from a presence or tracked promise.
    *
-   * @param presence - A presence created by resolveKref.
-   * @returns The kref string, or undefined if not a kref presence.
+   * @param value - A presence or tracked promise created by resolveKref.
+   * @returns The kref string, or undefined if not a tracked value.
    */
-  krefOf: (presence: object) => KRef | undefined;
+  krefOf: (value: object) => KRef | undefined;
 
   /**
-   * Deserialize a CapData result into presences.
+   * Deserialize a CapData result into presences/promises.
    *
    * @param data - The CapData to deserialize.
-   * @returns The deserialized value with krefs converted to presences.
+   * @returns The deserialized value with krefs converted to presences/promises.
    */
   fromCapData: (data: CapData<KRef>) => unknown;
 };
@@ -179,6 +182,16 @@ function makeKrefPresence(
 }
 
 /**
+ * Check if a kref is a promise reference.
+ * Promise krefs can start with 'p', 'kp', or 'rp'.
+ *
+ * @param kref - The kernel reference string.
+ * @returns True if the kref is a promise reference.
+ */
+const isPromiseRef = (kref: string): boolean =>
+  kref.startsWith('p') || kref.startsWith('kp') || kref.startsWith('rp');
+
+/**
  * Create a presence manager for E() on vat objects.
  *
  * This creates presences from kernel krefs that forward method calls
@@ -191,44 +204,67 @@ function makeKrefPresence(
 export function makePresenceManager({
   kernel,
 }: PresenceManagerOptions): PresenceManager {
-  // State for kref↔presence mapping
+  // State for kref↔presence mapping (for ko* object refs)
   const krefToPresence = new Map<KRef, Methods>();
   const presenceToKref = new WeakMap<object, KRef>();
+
+  // State for kref↔promise mapping (for p*, kp*, rp* promise refs)
+  const krefToPromise = new Map<KRef, Promise<unknown>>();
+  const promiseToKref = new WeakMap<object, KRef>();
 
   // Forward declaration for sendToKernel
   // eslint-disable-next-line prefer-const
   let marshal: ReturnType<typeof makeMarshal<string>>;
 
   /**
-   * Recursively convert presence objects directly to kernel standins.
+   * Recursively convert presence/promise objects directly to kernel standins.
    *
-   * This combines two conversions in one pass:
-   * 1. Presences → kref strings (via presenceToKref WeakMap lookup)
-   * 2. Kref strings → standins (via kslot)
+   * This combines conversions in one pass:
+   * 1. Presences (ko* refs) → kref strings (via presenceToKref WeakMap lookup)
+   * 2. Tracked promises (kp* refs) → kref strings (via promiseToKref WeakMap lookup)
+   * 3. E() HandledPromises → await to get underlying tracked value
+   * 4. Kref strings → standins (via kslot)
    *
    * The kernel's queueMessage uses kser() which expects standin objects,
    * not presences or raw kref strings.
    *
    * @param value - The value to convert.
-   * @returns The value with presences converted to standins.
+   * @returns The value with presences/promises converted to standins.
    */
-  const convertPresencesToStandins = (value: unknown): unknown => {
-    // Check if it's a known presence - convert directly to standin
+  const convertPresencesToStandins = async (
+    value: unknown,
+  ): Promise<unknown> => {
+    // If it's a Promise, await it to get the tracked value
+    // E() returns HandledPromises that wrap presences/tracked promises
+    if (value instanceof Promise) {
+      const resolved = await value;
+      return convertPresencesToStandins(resolved);
+    }
+
+    // Check if it's a known presence or tracked promise - convert to standin
     if (typeof value === 'object' && value !== null) {
-      const kref = presenceToKref.get(value);
-      if (kref !== undefined) {
-        return kslot(kref);
+      // Check presence map (ko* refs)
+      const presenceKref = presenceToKref.get(value);
+      if (presenceKref !== undefined) {
+        return kslot(presenceKref);
+      }
+      // Check promise map (kp* refs)
+      const promiseKref = promiseToKref.get(value);
+      if (promiseKref !== undefined) {
+        return kslot(promiseKref);
       }
       // Recursively process arrays
       if (Array.isArray(value)) {
-        return value.map(convertPresencesToStandins);
+        return Promise.all(value.map(convertPresencesToStandins));
       }
       // Recursively process plain objects
-      const result: Record<string, unknown> = {};
-      for (const [key, val] of Object.entries(value)) {
-        result[key] = convertPresencesToStandins(val);
-      }
-      return result;
+      const entries = await Promise.all(
+        Object.entries(value).map(async ([key, val]) => [
+          key,
+          await convertPresencesToStandins(val),
+        ]),
+      );
+      return Object.fromEntries(entries);
     }
     // Return primitives as-is
     return value;
@@ -247,8 +283,11 @@ export function makePresenceManager({
     method: string,
     args: unknown[],
   ): Promise<unknown> => {
-    // Convert presence args directly to standins for kernel serialization
-    const serializedArgs = args.map(convertPresencesToStandins);
+    // Convert presence/promise args to standins for kernel serialization
+    // Also awaits E() HandledPromises to get underlying tracked values
+    const serializedArgs = await Promise.all(
+      args.map(convertPresencesToStandins),
+    );
 
     // Call kernel via existing CapTP
     const result: CapData<KRef> = await E(kernel).queueMessage(
@@ -262,13 +301,38 @@ export function makePresenceManager({
   };
 
   /**
-   * Convert a kref slot to a presence.
+   * Convert a kref slot to a presence or tracked promise.
+   *
+   * For object refs (ko*): Creates an E()-callable presence.
+   * For promise refs (p*, kp*, rp*): Creates a tracked Promise tagged with the kref.
    *
    * @param kref - The kernel reference string.
    * @param iface - Optional interface name for the presence.
-   * @returns A presence object that can receive E() calls.
+   * @returns A presence object or tracked promise.
    */
-  const convertSlotToVal = (kref: KRef, iface?: string): Methods => {
+  const convertSlotToVal = (
+    kref: KRef,
+    iface?: string,
+  ): Methods | Promise<unknown> => {
+    // Handle promise krefs (p*, kp*, rp*) - create tracked Promise
+    if (isPromiseRef(kref)) {
+      let tracked = krefToPromise.get(kref);
+      if (!tracked) {
+        // Create a standin promise tagged with the kref (like kernel-marshal does)
+        const standinP = Promise.resolve(`${kref} stand in`);
+        // eslint-disable-next-line @typescript-eslint/no-floating-promises
+        Object.defineProperty(standinP, Symbol.toStringTag, {
+          value: kref,
+          enumerable: false,
+        });
+        tracked = harden(standinP);
+        krefToPromise.set(kref, tracked);
+        promiseToKref.set(tracked, kref);
+      }
+      return tracked;
+    }
+
+    // Handle object krefs (ko*) - create presence
     let presence = krefToPresence.get(kref);
     if (!presence) {
       presence = makeKrefPresence(
@@ -283,18 +347,24 @@ export function makePresenceManager({
   };
 
   /**
-   * Convert a presence to a kref slot.
+   * Convert a presence or tracked promise to a kref slot.
    * This is called by the marshal for pass-by-presence objects.
-   * Throws if the object is not a known kref presence.
+   * Throws if the object is not a known kref presence or tracked promise.
    *
    * @param val - The value to convert to a kref.
    * @returns The kernel reference string.
    */
   const convertValToSlot = (val: unknown): KRef => {
     if (typeof val === 'object' && val !== null) {
-      const kref = presenceToKref.get(val);
-      if (kref !== undefined) {
-        return kref;
+      // Check presence map (ko* refs)
+      const presenceKref = presenceToKref.get(val);
+      if (presenceKref !== undefined) {
+        return presenceKref;
+      }
+      // Check promise map (kp* refs)
+      const promiseKref = promiseToKref.get(val);
+      if (promiseKref !== undefined) {
+        return promiseKref;
       }
     }
     throw new Error('Cannot serialize unknown remotable object');
@@ -307,12 +377,18 @@ export function makePresenceManager({
   });
 
   return harden({
-    resolveKref: (kref: KRef): Methods => {
+    resolveKref: (kref: KRef): Methods | Promise<unknown> => {
       return convertSlotToVal(kref, 'Alleged: VatObject');
     },
 
-    krefOf: (presence: object): KRef | undefined => {
-      return presenceToKref.get(presence);
+    krefOf: (value: object): KRef | undefined => {
+      // Check presence map (ko* refs)
+      const presenceKref = presenceToKref.get(value);
+      if (presenceKref !== undefined) {
+        return presenceKref;
+      }
+      // Check promise map (kp* refs)
+      return promiseToKref.get(value);
     },
 
     fromCapData: (data: CapData<KRef>): unknown => {
