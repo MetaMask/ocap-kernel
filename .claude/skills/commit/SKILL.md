@@ -7,7 +7,7 @@ When asked to commit code, follow these steps:
 
 ## Arguments
 
-- `check` (default): Run `/check` first to lint, build, and test the code. Stop if any checks fail.
+- `check` (default): Run checks first to lint, build, and test the code. Stop if any checks fail.
 - `force`: Skip the check step and commit directly.
 
 ## Steps
