@@ -85,6 +85,7 @@ export class Kernel {
    * @param options.resetStorage - If true, the storage will be cleared.
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
+   * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
@@ -94,6 +95,7 @@ export class Kernel {
       resetStorage?: boolean;
       logger?: Logger;
       keySeed?: string | undefined;
+      mnemonic?: string | undefined;
     } = {},
   ) {
     this.#platformServices = platformServices;
@@ -124,6 +126,7 @@ export class Kernel {
       kernelQueue: this.#kernelQueue,
       logger: this.#logger.subLogger({ tags: ['RemoteManager'] }),
       keySeed: options.keySeed,
+      mnemonic: options.mnemonic,
     });
 
     this.#ocapURLManager = new OcapURLManager({
@@ -179,6 +182,7 @@ export class Kernel {
    * @param options.resetStorage - If true, the storage will be cleared.
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
+   * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
    * @returns A promise for the new kernel instance.
    */
   static async make(
@@ -188,6 +192,7 @@ export class Kernel {
       resetStorage?: boolean;
       logger?: Logger;
       keySeed?: string | undefined;
+      mnemonic?: string | undefined;
     } = {},
   ): Promise<Kernel> {
     const kernel = new Kernel(platformServices, kernelDatabase, options);

@@ -71,14 +71,26 @@ const seed = mnemonicToSeed(mnemonic);
 
 ### Kernel Initialization with Mnemonic
 
-The `initRemoteComms` method accepts an optional `mnemonic` parameter in its options:
+The `mnemonic` parameter can be passed either to `Kernel.make` (recommended) or to `initRemoteComms`:
 
 ```typescript
+// Option 1: Pass mnemonic to Kernel.make (recommended)
+const kernel = await Kernel.make(platformServices, kernelDatabase, {
+  mnemonic: 'your twelve word mnemonic phrase here ...',
+});
+await kernel.initRemoteComms({
+  relays: ['/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooW...'],
+});
+
+// Option 2: Pass mnemonic to initRemoteComms
+const kernel = await Kernel.make(platformServices, kernelDatabase);
 await kernel.initRemoteComms({
   relays: ['/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooW...'],
   mnemonic: 'your twelve word mnemonic phrase here ...',
 });
 ```
+
+If mnemonic is provided in both places, the one in `initRemoteComms` takes precedence.
 
 ## Usage Scenarios
 
@@ -87,7 +99,7 @@ await kernel.initRemoteComms({
 For new installations where you want backup capability, generate a mnemonic first:
 
 ```typescript
-import { generateMnemonic, isValidMnemonic } from '@metamask/ocap-kernel';
+import { generateMnemonic } from '@metamask/ocap-kernel';
 
 // Generate and display mnemonic for user to backup
 const mnemonic = generateMnemonic();
@@ -97,11 +109,10 @@ console.log(mnemonic);
 // User confirms they've backed up the mnemonic...
 
 // Initialize kernel with the mnemonic
-const kernel = await Kernel.make(platformServices, kernelDatabase, options);
-await kernel.initRemoteComms({
-  relays,
+const kernel = await Kernel.make(platformServices, kernelDatabase, {
   mnemonic,
 });
+await kernel.initRemoteComms({ relays });
 
 // The peer ID is now derived from the mnemonic and can be recovered
 const status = await kernel.getStatus();
@@ -140,16 +151,14 @@ if (!isValidMnemonic(mnemonic)) {
   throw new Error('Invalid recovery phrase');
 }
 
-// Initialize kernel with fresh storage
+// Initialize kernel with fresh storage and the recovery mnemonic
 const kernel = await Kernel.make(platformServices, kernelDatabase, {
   resetStorage: true,
-});
-
-// Initialize remote comms with the recovery mnemonic
-await kernel.initRemoteComms({
-  relays,
   mnemonic,
 });
+
+// Initialize remote comms
+await kernel.initRemoteComms({ relays });
 
 // The kernel now has the same peer ID as before
 const status = await kernel.getStatus();
@@ -201,12 +210,10 @@ If the kernel already has a stored identity (from a previous initialization), th
 // This ensures the mnemonic is used
 const kernel = await Kernel.make(platformServices, kernelDatabase, {
   resetStorage: true, // Clears existing identity
-});
-
-await kernel.initRemoteComms({
-  relays,
   mnemonic: recoveryMnemonic,
 });
+
+await kernel.initRemoteComms({ relays });
 ```
 
 ### Mnemonic Validation
@@ -250,17 +257,17 @@ This implementation uses standard BIP39 PBKDF2-HMAC-SHA512 derivation (2048 iter
 ## Error Handling
 
 ```typescript
-import { isValidMnemonic, mnemonicToSeed } from '@metamask/ocap-kernel';
+import { isValidMnemonic } from '@metamask/ocap-kernel';
 
 try {
   if (!isValidMnemonic(mnemonic)) {
     throw new Error('Invalid mnemonic phrase');
   }
 
-  await kernel.initRemoteComms({
-    relays,
+  const kernel = await Kernel.make(platformServices, kernelDatabase, {
     mnemonic,
   });
+  await kernel.initRemoteComms({ relays });
 } catch (error) {
   if (error.message === 'Invalid BIP39 mnemonic') {
     // Handle invalid mnemonic

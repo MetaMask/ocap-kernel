@@ -19,6 +19,7 @@ type RemoteManagerConstructorProps = {
   kernelQueue: KernelQueue;
   logger?: Logger;
   keySeed?: string | undefined;
+  mnemonic?: string | undefined;
 };
 
 /**
@@ -46,6 +47,9 @@ export class RemoteManager {
   /** Optional seed string for libp2p key generation */
   readonly #keySeed: string | undefined;
 
+  /** Optional mnemonic for seed derivation */
+  readonly #mnemonic: string | undefined;
+
   /** Remote communications interface */
   #remoteComms: RemoteComms | undefined;
 
@@ -61,6 +65,7 @@ export class RemoteManager {
    * @param options.kernelQueue - The kernel's message queue for scheduling deliveries.
    * @param options.logger - Logger instance for debugging and diagnostics.
    * @param options.keySeed - Seed for generating the kernel's cryptographic key pair.
+   * @param options.mnemonic - BIP39 mnemonic for deriving the kernel's cryptographic key pair.
    */
   constructor({
     platformServices,
@@ -68,12 +73,14 @@ export class RemoteManager {
     kernelQueue,
     logger,
     keySeed,
+    mnemonic,
   }: RemoteManagerConstructorProps) {
     this.#platformServices = platformServices;
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#logger = logger;
     this.#keySeed = keySeed;
+    this.#mnemonic = mnemonic;
   }
 
   /**
@@ -132,11 +139,17 @@ export class RemoteManager {
       );
     }
 
+    // Merge mnemonic from constructor if not provided in options
+    const mergedOptions: RemoteCommsOptions = {
+      ...options,
+      mnemonic: options?.mnemonic ?? this.#mnemonic,
+    };
+
     this.#remoteComms = await initRemoteComms(
       this.#kernelStore,
       this.#platformServices,
       this.#messageHandler,
-      options ?? {},
+      mergedOptions,
       this.#logger,
       this.#keySeed,
       this.#handleRemoteGiveUp.bind(this),
