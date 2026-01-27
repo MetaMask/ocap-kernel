@@ -10,6 +10,7 @@ The OCAP Kernel is a powerful object capability-based system that enables secure
 - [Vat Bundles](#vat-bundles)
 - [Cluster Configuration](#cluster-configuration)
 - [Kernel API](#kernel-api)
+- [Identity Backup and Recovery](#identity-backup-and-recovery)
 - [Common Use Cases](#common-use-cases)
 - [Endo Integration](#endo-integration)
 - [Development Tools](#development-tools)
@@ -296,6 +297,26 @@ const status = await kernel.getStatus();
 // { isInitialized: true, peerId: '12D3KooW...' } if initialized
 // { isInitialized: false } if not initialized
 ```
+
+## Identity Backup and Recovery
+
+The kernel supports BIP39 mnemonic phrases for backing up and recovering kernel identity. This enables users to restore their kernel's peer ID on a new device.
+
+```typescript
+import { isValidMnemonic, seedToMnemonic } from '@metamask/ocap-kernel';
+
+// Recover identity using a mnemonic
+await kernel.initRemoteComms({
+  relays,
+  mnemonic: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
+});
+
+// Backup existing identity
+const keySeed = kernelStore.kv.get('keySeed');
+const backupMnemonic = seedToMnemonic(keySeed);
+```
+
+For detailed documentation on backup and recovery procedures, see the [Identity Backup and Recovery Guide](./identity-backup-recovery.md).
 
 ### State and Configuration
 
