@@ -70,7 +70,7 @@ export type RemoteCommsOptions = {
    */
   stalePeerTimeoutMs?: number | undefined;
   /**
-   * BIP39 mnemonic phrase (12 or 24 words) for seed recovery.
+   * BIP39 mnemonic phrase (12, 15, 18, 21, or 24 words) for seed recovery.
    * When provided, derives the kernel identity seed from this mnemonic instead of
    * generating a random seed. The same mnemonic will always produce the same peer ID.
    * If the kernel already has a stored identity, an error is thrown. Use
