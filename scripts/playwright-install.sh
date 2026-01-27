@@ -12,9 +12,13 @@ if [ "$PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD" = "1" ]; then
     exit 0
 fi
 
-# Install Chromium (with system deps in CI)
+# Install Chromium (with system deps in CI, headless shell only if requested)
 if [ "$CI" = "true" ]; then
-    yarn playwright install --with-deps chromium
+    if [ "$PLAYWRIGHT_ONLY_SHELL" = "1" ]; then
+        yarn playwright install --with-deps --only-shell chromium
+    else
+        yarn playwright install --with-deps chromium
+    fi
 else
     yarn playwright install chromium
 fi
