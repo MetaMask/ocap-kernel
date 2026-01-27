@@ -105,8 +105,6 @@ jobs:
         with:
           is-high-risk-environment: false
           node-version: ${{ matrix.node-version }}
-        env:
-          PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
       - run: yarn build
       - run: "yarn test --coverage=${{ matrix.node-version == '24.x' && 'true' || 'false' }}"
       - name: Upload coverage artifact
