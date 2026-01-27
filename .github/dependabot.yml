@@ -22,3 +22,6 @@ updates:
       day: 'monday'
       time: '06:00' # UTC
     open-pull-requests-limit: 10
+    allow:
+      - dependency-name: 'actions/*'
+      - dependency-name: 'MetaMask/*'
