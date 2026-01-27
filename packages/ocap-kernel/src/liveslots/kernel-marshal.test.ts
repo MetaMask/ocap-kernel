@@ -1,10 +1,30 @@
 import { passStyleOf } from '@endo/marshal';
 import { describe, it, expect } from 'vitest';
 
-import { kslot, krefOf, kser, kunser, makeError } from './kernel-marshal.ts';
+import {
+  kslot,
+  krefOf,
+  kser,
+  kunser,
+  makeError,
+  isPromiseKRef,
+} from './kernel-marshal.ts';
 import type { SlotValue } from './kernel-marshal.ts';
 
 describe('kernel-marshal', () => {
+  describe('isPromiseKRef', () => {
+    it.each([
+      ['p1', true],
+      ['kp1', true],
+      ['rp1', true],
+      ['ko1', false],
+      ['o+1', false],
+      ['o-1', false],
+    ])('returns $1 for $0', (ref, expected) => {
+      expect(isPromiseKRef(ref)).toBe(expected);
+    });
+  });
+
   describe('kslot', () => {
     it('creates promise standin for promise refs', () => {
       const promiseRefs = ['p1', 'kp1', 'rp1'];

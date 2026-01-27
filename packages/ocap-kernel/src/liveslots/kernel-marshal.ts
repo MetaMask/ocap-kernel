@@ -56,6 +56,16 @@ function getStandinPromiseTag(promise: Promise<unknown>): string {
 }
 
 /**
+ * Check if a kref is a promise reference.
+ * Promise krefs can start with 'p', 'kp', or 'rp'.
+ *
+ * @param kref - The kernel reference string.
+ * @returns True if the kref is a promise reference.
+ */
+export const isPromiseKRef = (kref: string): boolean =>
+  kref.startsWith('p') || kref.startsWith('kp') || kref.startsWith('rp');
+
+/**
  * Obtain a value serializable via `kser` for a given KRef.
  *
  * @param kref - The KRef string to get a value for.
@@ -71,7 +81,7 @@ export function kslot(kref: string, iface: string = 'undefined'): SlotValue {
     // eslint-disable-next-line no-param-reassign
     iface = iface.slice(9);
   }
-  if (kref.startsWith('p') || kref.startsWith('kp') || kref.startsWith('rp')) {
+  if (isPromiseKRef(kref)) {
     return makeStandinPromise(kref);
   }
   const standinObject = makeDefaultExo(iface, {

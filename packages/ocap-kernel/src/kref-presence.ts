@@ -12,7 +12,7 @@ import { makeMarshal, Remotable } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 
 import type { Kernel } from './Kernel.ts';
-import { kslot } from './liveslots/kernel-marshal.ts';
+import { isPromiseKRef, kslot } from './liveslots/kernel-marshal.ts';
 import type { KRef } from './types.ts';
 
 type Methods = Record<string, (...args: unknown[]) => unknown>;
@@ -151,16 +151,6 @@ function makeKrefPresence(
 }
 
 /**
- * Check if a kref is a promise reference.
- * Promise krefs can start with 'p', 'kp', or 'rp'.
- *
- * @param kref - The kernel reference string.
- * @returns True if the kref is a promise reference.
- */
-const isPromiseRef = (kref: string): boolean =>
-  kref.startsWith('p') || kref.startsWith('kp') || kref.startsWith('rp');
-
-/**
  * Create a presence manager for E() on vat objects.
  *
  * This creates presences from kernel krefs that forward method calls
@@ -284,7 +274,7 @@ export function makePresenceManager({
     iface?: string,
   ): Methods | Promise<unknown> => {
     // Handle promise krefs (p*, kp*, rp*) - create tracked Promise
-    if (isPromiseRef(kref)) {
+    if (isPromiseKRef(kref)) {
       let tracked = krefToPromise.get(kref);
       if (!tracked) {
         // Create a standin promise tagged with the kref (like kernel-marshal does)
