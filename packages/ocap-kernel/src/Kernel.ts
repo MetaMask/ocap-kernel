@@ -107,6 +107,13 @@ export class Kernel {
 
     if (options.resetStorage) {
       this.#resetKernelState();
+      // If mnemonic is provided with resetStorage, also clear identity
+      // to allow recovery with the new mnemonic
+      if (options.mnemonic) {
+        this.#kernelStore.kv.delete('keySeed');
+        this.#kernelStore.kv.delete('peerId');
+        this.#kernelStore.kv.delete('ocapURLKey');
+      }
     }
     this.#kernelQueue = new KernelQueue(
       this.#kernelStore,

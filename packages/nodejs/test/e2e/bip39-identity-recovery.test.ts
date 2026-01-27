@@ -200,4 +200,55 @@ describe('BIP39 Identity Recovery', () => {
     },
     TEST_TIMEOUT,
   );
+
+  it(
+    'allows recovery with resetStorage and mnemonic when identity exists',
+    async () => {
+      const kernelDatabase = await makeSQLKernelDatabase({
+        dbFilename: 'bip39-recovery-with-reset.db',
+      });
+      let kernel: Kernel | undefined;
+
+      try {
+        // First kernel without mnemonic - generates random identity
+        kernel = await makeTestKernel(kernelDatabase, true);
+        await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
+
+        const status1 = await kernel.getStatus();
+        const originalPeerId = status1.remoteComms?.peerId;
+        expect(originalPeerId).toBeDefined();
+
+        // Stop kernel but don't close database
+        await kernel.stop();
+        kernel = undefined;
+
+        // Create kernel with resetStorage AND mnemonic - should work
+        kernel = await makeTestKernel(kernelDatabase, true, TEST_MNEMONIC);
+        await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
+
+        const status2 = await kernel.getStatus();
+        const recoveredPeerId = status2.remoteComms?.peerId;
+
+        // Should have new identity from mnemonic, not the original random one
+        expect(recoveredPeerId).not.toBe(originalPeerId);
+        expect(recoveredPeerId).toBeDefined();
+
+        // Stop and recreate with same mnemonic - should get same peer ID
+        await kernel.stop();
+        kernel = undefined;
+
+        kernel = await makeTestKernel(kernelDatabase, true, TEST_MNEMONIC);
+        await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
+
+        const status3 = await kernel.getStatus();
+        expect(status3.remoteComms?.peerId).toBe(recoveredPeerId);
+      } finally {
+        if (kernel) {
+          await kernel.stop();
+        }
+        kernelDatabase.close();
+      }
+    },
+    TEST_TIMEOUT,
+  );
 });
