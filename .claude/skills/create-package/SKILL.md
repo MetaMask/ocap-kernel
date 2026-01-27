@@ -24,7 +24,7 @@ The `yarn create-package` command automates the creation of new monorepo package
 
 1. Ask the user for the package name and description if not provided
 2. Run `yarn create-package --name <package-name> --description "<description>"`
-3. After successful creation, remind the user to:
+3. After successful creation:
    - Add coverage thresholds to the root `vitest.config.ts` file
    - Add any additional dependencies using `yarn workspace @ocap/<package-name> add <dep>`
    - If adding monorepo packages as dependencies, update the `references` array in the package's `tsconfig.json` and `tsconfig.build.json`
@@ -39,7 +39,7 @@ This creates a new package at `packages/my-package` with the name `@ocap/my-pack
 
 ## Post-Creation Steps
 
-Always remind the user of these manual steps after package creation:
+Always perform these manual steps after package creation:
 
 1. **Add coverage thresholds** to root `vitest.config.ts`:
 
