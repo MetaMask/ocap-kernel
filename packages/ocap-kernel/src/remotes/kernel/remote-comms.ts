@@ -4,6 +4,12 @@ import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import type { KVStore } from '@metamask/kernel-store';
 import { toHex, fromHex } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
+import {
+  entropyToMnemonic,
+  mnemonicToEntropy,
+  validateMnemonic,
+} from '@scure/bip39';
+import { wordlist } from '@scure/bip39/wordlists/english.js';
 import { base58btc } from 'multiformats/bases/base58';
 
 import type { KernelStore } from '../../store/index.ts';
@@ -14,6 +20,58 @@ import type {
   OnRemoteGiveUp,
   RemoteCommsOptions,
 } from '../types.ts';
+
+/**
+ * Validates a BIP39 mnemonic phrase.
+ *
+ * @param mnemonic - The mnemonic phrase to validate (12 or 24 words).
+ * @returns true if the mnemonic is valid, false otherwise.
+ */
+export function isValidMnemonic(mnemonic: string): boolean {
+  return validateMnemonic(mnemonic, wordlist);
+}
+
+/**
+ * Converts a BIP39 mnemonic phrase to a 32-byte seed (hex string).
+ *
+ * @param mnemonic - The mnemonic phrase (12 or 24 words).
+ * @returns The hex-encoded 32-byte seed derived from the mnemonic.
+ * @throws If the mnemonic is invalid.
+ */
+export function mnemonicToSeed(mnemonic: string): string {
+  if (!isValidMnemonic(mnemonic)) {
+    throw Error('Invalid BIP39 mnemonic');
+  }
+  // mnemonicToEntropy returns 16 bytes for 12 words, 32 bytes for 24 words
+  const entropy = mnemonicToEntropy(mnemonic, wordlist);
+  // Pad or use entropy directly depending on length
+  // 12-word mnemonic = 128 bits = 16 bytes
+  // 24-word mnemonic = 256 bits = 32 bytes
+  // For 12-word mnemonics, we double the entropy to get 32 bytes
+  const seed =
+    entropy.length === 16
+      ? new Uint8Array([...entropy, ...entropy])
+      : entropy.slice(0, 32);
+  return toHex(seed);
+}
+
+/**
+ * Converts a 32-byte seed (hex string) to a BIP39 mnemonic phrase.
+ * Uses the first 16 bytes to generate a 12-word mnemonic.
+ *
+ * @param seedHex - The hex-encoded seed (32 bytes).
+ * @returns A 12-word BIP39 mnemonic phrase.
+ * @throws If the seed is not 32 bytes.
+ */
+export function seedToMnemonic(seedHex: string): string {
+  const seed = fromHex(seedHex);
+  if (seed.length !== 32) {
+    throw Error('Seed must be 32 bytes');
+  }
+  // Use first 16 bytes for a 12-word mnemonic
+  const entropy = seed.slice(0, 16);
+  return entropyToMnemonic(entropy, wordlist);
+}
 
 export type OcapURLParts = {
   oid: string;
@@ -120,7 +178,7 @@ export async function initRemoteComms(
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   const { kv } = kernelStore;
-  const { relays = [] } = options;
+  const { relays = [], mnemonic } = options;
   if (relays.length > 0) {
     kv.set('knownRelays', JSON.stringify(relays));
   }
@@ -132,9 +190,11 @@ export async function initRemoteComms(
     peerId = possiblePeerId;
     logger?.log(`comms init: existing peer id: ${peerId}`);
   } else {
-    // XXX TODO: Instead of generating a new random seed unconditionally, this
-    // function should accept an optional BIP39 keyphrase parameter for the
-    // seed, to enable a kernel to recover its identity on a new host.
+    // If a mnemonic is provided, derive the seed from it
+    if (mnemonic) {
+      keySeed = mnemonicToSeed(mnemonic);
+      logger?.log('comms init: using mnemonic for seed recovery');
+    }
     [keySeed, peerId] = await generateKeyInfo(keySeed);
     kv.set('keySeed', keySeed);
     kv.set('peerId', peerId);

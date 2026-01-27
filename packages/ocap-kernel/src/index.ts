@@ -36,3 +36,8 @@ export type { SlotValue } from './liveslots/kernel-marshal.ts';
 export { makeKernelStore } from './store/index.ts';
 export type { KernelStore } from './store/index.ts';
 export { parseRef } from './store/utils/parse-ref.ts';
+export {
+  isValidMnemonic,
+  mnemonicToSeed,
+  seedToMnemonic,
+} from './remotes/kernel/remote-comms.ts';
