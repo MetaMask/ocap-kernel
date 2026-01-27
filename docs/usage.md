@@ -303,17 +303,21 @@ const status = await kernel.getStatus();
 The kernel supports BIP39 mnemonic phrases for backing up and recovering kernel identity. This enables users to restore their kernel's peer ID on a new device.
 
 ```typescript
-import { isValidMnemonic, seedToMnemonic } from '@metamask/ocap-kernel';
+import { generateMnemonic, isValidMnemonic } from '@metamask/ocap-kernel';
 
-// Recover identity using a mnemonic
-await kernel.initRemoteComms({
-  relays,
-  mnemonic: 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
+// Generate a mnemonic for the user to back up BEFORE initializing
+const mnemonic = generateMnemonic();
+// Display mnemonic to user for secure storage...
+
+// Initialize kernel with the mnemonic
+const kernel = await Kernel.make(platformServices, db, { mnemonic });
+await kernel.initRemoteComms({ relays });
+
+// Later, recover identity on a new device using the same mnemonic
+const kernel = await Kernel.make(platformServices, db, {
+  resetStorage: true,
+  mnemonic: 'user provided recovery phrase...',
 });
-
-// Backup existing identity
-const keySeed = kernelStore.kv.get('keySeed');
-const backupMnemonic = seedToMnemonic(keySeed);
 ```
 
 For detailed documentation on backup and recovery procedures, see the [Identity Backup and Recovery Guide](./identity-backup-recovery.md).
