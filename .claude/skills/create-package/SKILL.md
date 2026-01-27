@@ -24,36 +24,28 @@ The `yarn create-package` command automates the creation of new monorepo package
 
 1. Ask the user for the package name and description if not provided
 2. Run `yarn create-package --name <package-name> --description "<description>"`
-3. After successful creation:
-   - Add any additional dependencies using `yarn workspace @ocap/<package-name> add <dep>`
-   - If adding monorepo packages as dependencies, update the `references` array in the package's `tsconfig.json` and `tsconfig.build.json`
+3. Add any additional dependencies using `yarn workspace @ocap/<package-name> add <dep>`
 
 ## Example
 
 ```bash
+# Create the package
 yarn create-package --name my-package --description "A package for handling my feature"
+
+# Add dependencies if needed
+yarn workspace @ocap/my-package add some-dependency @ocap/kernel-agents
+```
+
+When adding monorepo dependencies like `@ocap/kernel-agents`, update the TypeScript references:
+
+```jsonc
+// packages/my-package/tsconfig.json and tsconfig.build.json
+{
+  "references": [{ "path": "../kernel-agents" }],
+}
 ```
 
 This creates a new package at `packages/my-package` with the name `@ocap/my-package`.
-
-## Post-Creation Steps
-
-Always perform these manual steps after package creation:
-
-1. **Add coverage thresholds** to root `vitest.config.ts`:
-
-   - The CLI cannot modify .ts config files automatically
-   - Add appropriate coverage thresholds for the new package
-
-2. **Add dependencies** if needed:
-
-   ```bash
-   yarn workspace @ocap/<package-name> add <dependency>
-   ```
-
-3. **Update TypeScript references** if adding monorepo dependencies:
-   - Add to `references` array in `tsconfig.json`
-   - Add to `references` array in `tsconfig.build.json`
 
 ## Notes
 
