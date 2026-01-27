@@ -135,13 +135,12 @@ describe('BIP39 Identity Recovery', () => {
   );
 
   it(
-    'ignores mnemonic when identity already exists in storage',
+    'throws error when mnemonic provided but identity already exists in storage',
     async () => {
       const kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: 'bip39-existing-identity.db',
       });
       let kernel: Kernel | undefined;
-      let peerId1: string | undefined;
 
       try {
         // First kernel without mnemonic - generates random identity
@@ -149,25 +148,22 @@ describe('BIP39 Identity Recovery', () => {
         await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
 
         const status1 = await kernel.getStatus();
-        peerId1 = status1.remoteComms?.peerId;
-        expect(peerId1).toBeDefined();
+        expect(status1.remoteComms?.peerId).toBeDefined();
 
         // Stop kernel but don't close database
         await kernel.stop();
         kernel = undefined;
 
-        // Create kernel with mnemonic but using existing storage
+        // Create kernel with mnemonic but using existing storage - should throw
         kernel = await makeTestKernel(kernelDatabase, false); // resetStorage = false
-        await kernel.initRemoteComms({
-          relays: DUMMY_RELAYS,
-          mnemonic: TEST_MNEMONIC, // This should be ignored
-        });
-
-        const status2 = await kernel.getStatus();
-        const peerId2 = status2.remoteComms?.peerId;
-
-        // Should keep original identity, not derive from mnemonic
-        expect(peerId2).toBe(peerId1);
+        await expect(
+          kernel.initRemoteComms({
+            relays: DUMMY_RELAYS,
+            mnemonic: TEST_MNEMONIC,
+          }),
+        ).rejects.toThrow(
+          'Cannot use mnemonic: kernel identity already exists. Use resetStorage to clear existing identity first.',
+        );
       } finally {
         if (kernel) {
           await kernel.stop();

@@ -129,6 +129,13 @@ export async function initRemoteComms(
   /* eslint-disable no-param-reassign */
   const possiblePeerId = kv.get('peerId');
   if (possiblePeerId) {
+    // If a mnemonic is provided but identity already exists, throw an error
+    // to avoid silently using a different identity than expected
+    if (mnemonic) {
+      throw Error(
+        'Cannot use mnemonic: kernel identity already exists. Use resetStorage to clear existing identity first.',
+      );
+    }
     keySeed = kv.getRequired('keySeed');
     peerId = possiblePeerId;
     logger?.log(`comms init: existing peer id: ${peerId}`);

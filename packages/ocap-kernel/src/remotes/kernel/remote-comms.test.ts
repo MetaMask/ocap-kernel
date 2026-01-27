@@ -614,23 +614,23 @@ describe('remote-comms', () => {
       expect(peerId1).toBe(peerId2);
     });
 
-    it('ignores mnemonic when peer ID already exists in store', async () => {
+    it('throws error when mnemonic provided but peer ID already exists in store', async () => {
       // Set up existing peer ID
       const existingPeerId = 'existing-peer-id';
       const existingKeySeed = 'abcdef1234567890abcdef1234567890';
       mockKernelStore.kv.set('peerId', existingPeerId);
       mockKernelStore.kv.set('keySeed', existingKeySeed);
 
-      const remoteComms = await initRemoteComms(
-        mockKernelStore,
-        mockPlatformServices,
-        mockRemoteMessageHandler,
-        { mnemonic: VALID_12_WORD_MNEMONIC },
+      await expect(
+        initRemoteComms(
+          mockKernelStore,
+          mockPlatformServices,
+          mockRemoteMessageHandler,
+          { mnemonic: VALID_12_WORD_MNEMONIC },
+        ),
+      ).rejects.toThrow(
+        'Cannot use mnemonic: kernel identity already exists. Use resetStorage to clear existing identity first.',
       );
-
-      // Should use existing peer ID, not derive from mnemonic
-      expect(remoteComms.getPeerId()).toBe(existingPeerId);
-      expect(mockKernelStore.kv.get('keySeed')).toBe(existingKeySeed);
     });
 
     it('logs mnemonic usage when provided', async () => {

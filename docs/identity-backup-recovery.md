@@ -199,21 +199,26 @@ if (recoveredPeerId === expectedPeerId) {
 
 ## Important Considerations
 
-### Existing Identity Takes Precedence
+### Existing Identity Conflicts
 
-If the kernel already has a stored identity (from a previous initialization), the mnemonic parameter is ignored. To use a mnemonic for recovery:
+If the kernel already has a stored identity and you provide a mnemonic, an error is thrown to prevent accidentally using the wrong identity. To use a mnemonic for recovery:
 
 1. Use a fresh database, OR
 2. Initialize the kernel with `resetStorage: true`
 
 ```typescript
-// This ensures the mnemonic is used
+// This ensures the mnemonic is used by clearing existing identity
 const kernel = await Kernel.make(platformServices, kernelDatabase, {
-  resetStorage: true, // Clears existing identity
+  resetStorage: true, // Clears existing identity first
   mnemonic: recoveryMnemonic,
 });
 
 await kernel.initRemoteComms({ relays });
+```
+
+If you attempt to provide a mnemonic when an identity already exists without `resetStorage: true`, you'll get:
+```
+Error: Cannot use mnemonic: kernel identity already exists. Use resetStorage to clear existing identity first.
 ```
 
 ### Mnemonic Validation
