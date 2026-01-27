@@ -97,6 +97,7 @@
     "@metamask/utils": "^11.9.0",
     "@multiformats/multiaddr": "^12.4.4",
     "@ocap/kernel-platforms": "workspace:^",
+    "@scure/bip39": "^2.0.1",
     "it-byte-stream": "^2.0.1",
     "libp2p": "2.10.0",
     "multiformats": "^13.3.6",
