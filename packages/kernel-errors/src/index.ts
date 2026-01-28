@@ -8,7 +8,11 @@ export { VatNotFoundError } from './errors/VatNotFoundError.ts';
 export { StreamReadError } from './errors/StreamReadError.ts';
 export { SubclusterNotFoundError } from './errors/SubclusterNotFoundError.ts';
 export { AbortError } from './errors/AbortError.ts';
-export { ResourceLimitError } from './errors/ResourceLimitError.ts';
+export {
+  ResourceLimitError,
+  type ResourceLimitType,
+  type ResourceLimitErrorData,
+} from './errors/ResourceLimitError.ts';
 export {
   ErrorCode,
   ErrorSentinel,

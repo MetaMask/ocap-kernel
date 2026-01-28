@@ -2,6 +2,7 @@ import {
   isRetryableNetworkError,
   ResourceLimitError,
 } from '@metamask/kernel-errors';
+import type { ResourceLimitErrorData } from '@metamask/kernel-errors';
 import {
   abortableDelay,
   DEFAULT_MAX_RETRY_ATTEMPTS,
@@ -135,7 +136,7 @@ export function makeReconnectionLifecycle(
         // occur before any dial was performed, so don't count against retry quota
         if (
           problem instanceof ResourceLimitError &&
-          (problem.data as { limitType?: string } | undefined)?.limitType ===
+          (problem.data as ResourceLimitErrorData | undefined)?.limitType ===
             'connectionRate'
         ) {
           reconnectionManager.decrementAttempt(peerId);

@@ -12,6 +12,24 @@ import { marshaledErrorSchema, ErrorCode } from '../constants.ts';
 import type { ErrorOptionsWithStack, MarshaledOcapError } from '../types.ts';
 
 /**
+ * The type of resource limit that was exceeded.
+ */
+export type ResourceLimitType =
+  | 'connection'
+  | 'messageSize'
+  | 'messageRate'
+  | 'connectionRate';
+
+/**
+ * Data associated with a ResourceLimitError.
+ */
+export type ResourceLimitErrorData = {
+  limitType?: ResourceLimitType;
+  current?: number;
+  limit?: number;
+};
+
+/**
  * Error indicating a resource limit was exceeded.
  */
 export class ResourceLimitError extends BaseError {
@@ -28,15 +46,7 @@ export class ResourceLimitError extends BaseError {
   constructor(
     message: string,
     options?: ErrorOptionsWithStack & {
-      data?: {
-        limitType?:
-          | 'connection'
-          | 'messageSize'
-          | 'messageRate'
-          | 'connectionRate';
-        current?: number;
-        limit?: number;
-      };
+      data?: ResourceLimitErrorData;
     },
   ) {
     super(ErrorCode.ResourceLimitError, message, {
@@ -82,17 +92,7 @@ export class ResourceLimitError extends BaseError {
   ): ResourceLimitError {
     assert(marshaledError, this.struct);
     const options = unmarshalErrorOptions(marshaledError);
-    const data = marshaledError.data as
-      | {
-          limitType?:
-            | 'connection'
-            | 'messageSize'
-            | 'messageRate'
-            | 'connectionRate';
-          current?: number;
-          limit?: number;
-        }
-      | undefined;
+    const data = marshaledError.data as ResourceLimitErrorData | undefined;
     return new ResourceLimitError(marshaledError.message, {
       ...options,
       ...(data !== undefined && { data }),
