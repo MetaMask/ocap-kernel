@@ -31,6 +31,7 @@ export type ReconnectionLifecycleDeps = {
   ) => Promise<Channel | null>;
   checkConnectionLimit: () => void;
   checkConnectionRateLimit: (peerId: string) => void;
+  closeChannel: (channel: Channel, peerId: string) => Promise<void>;
   registerChannel: (
     peerId: string,
     channel: Channel,
@@ -67,6 +68,7 @@ export function makeReconnectionLifecycle(
     reuseOrReturnChannel,
     checkConnectionLimit,
     checkConnectionRateLimit,
+    closeChannel,
     registerChannel,
   } = deps;
 
@@ -129,17 +131,21 @@ export function makeReconnectionLifecycle(
           reconnectionManager.stopReconnection(peerId);
           return;
         }
-        // Rate limit errors are temporary - skip this attempt but continue the loop
-        // The backoff delay will naturally space out attempts
-        if (problem instanceof ResourceLimitError) {
-          // Don't count rate-limited attempts against the retry quota since
-          // no actual dial was performed
+        // Handle rate limit errors (connectionRate) - these are temporary and
+        // occur before any dial was performed, so don't count against retry quota
+        if (
+          problem instanceof ResourceLimitError &&
+          (problem.data as { limitType?: string } | undefined)?.limitType ===
+            'connectionRate'
+        ) {
           reconnectionManager.decrementAttempt(peerId);
           logger.log(
             `${peerId}:: reconnection attempt ${nextAttempt} rate limited, will retry after backoff`,
           );
           continue;
         }
+        // Connection limit errors (limitType: 'connection') occur after dial -
+        // the attempt counts and channel cleanup is handled in tryReconnect
         if (!isRetryableNetworkError(problem)) {
           outputError(peerId, `non-retryable failure`, problem);
           reconnectionManager.stopReconnection(peerId);
@@ -181,7 +187,13 @@ export function makeReconnectionLifecycle(
 
     // Re-check connection limit and register if this is a new channel
     if (state.channel !== channel) {
-      checkConnectionLimit();
+      try {
+        checkConnectionLimit();
+      } catch (error) {
+        // Connection limit exceeded after dial - close the channel to prevent leak
+        await closeChannel(channel, peerId);
+        throw error;
+      }
       registerChannel(peerId, channel, 'reading channel to');
     }
 

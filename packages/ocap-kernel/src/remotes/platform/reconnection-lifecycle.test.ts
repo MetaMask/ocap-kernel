@@ -81,6 +81,7 @@ describe('reconnection-lifecycle', () => {
       reuseOrReturnChannel: vi.fn().mockResolvedValue(mockChannel),
       checkConnectionLimit: vi.fn(),
       checkConnectionRateLimit: vi.fn(),
+      closeChannel: vi.fn().mockResolvedValue(undefined),
       registerChannel: vi.fn(),
     } as unknown as ReconnectionLifecycleDeps;
   });
@@ -392,6 +393,52 @@ describe('reconnection-lifecycle', () => {
       expect(deps.reconnectionManager.decrementAttempt).toHaveBeenCalledTimes(
         1,
       );
+    });
+
+    it('does not decrement attempt count for connection limit errors', async () => {
+      const { ResourceLimitError } = kernelErrors;
+      (
+        deps.checkConnectionLimit as ReturnType<typeof vi.fn>
+      ).mockImplementationOnce(() => {
+        throw new ResourceLimitError('Connection limit exceeded', {
+          data: { limitType: 'connection', current: 100, limit: 100 },
+        });
+      });
+
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true) // First attempt - connection limit
+        .mockReturnValueOnce(true) // Second attempt - success
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      // Should NOT decrement attempt count because dial was performed
+      expect(deps.reconnectionManager.decrementAttempt).not.toHaveBeenCalled();
+    });
+
+    it('closes channel when connection limit is exceeded after dial', async () => {
+      const { ResourceLimitError } = kernelErrors;
+      (
+        deps.checkConnectionLimit as ReturnType<typeof vi.fn>
+      ).mockImplementationOnce(() => {
+        throw new ResourceLimitError('Connection limit exceeded', {
+          data: { limitType: 'connection', current: 100, limit: 100 },
+        });
+      });
+
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true) // First attempt - connection limit
+        .mockReturnValueOnce(true) // Second attempt - success
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      // Should close the channel to prevent resource leak
+      expect(deps.closeChannel).toHaveBeenCalledWith(mockChannel, 'peer1');
     });
 
     it('logs reconnection attempts', async () => {
