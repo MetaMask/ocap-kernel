@@ -102,6 +102,7 @@ export class SystemSubclusterManager {
    * @returns A new system vat ID.
    */
   #allocateSystemVatId(): SystemVatId {
+    // TypeScript cannot narrow template literal types from string interpolation
     const id = `sv${this.#nextSystemVatId}`;
     this.#nextSystemVatId += 1;
     return id;
