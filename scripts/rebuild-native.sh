@@ -5,8 +5,7 @@
 # Pass --force or -f to rebuild even if build artifacts already exist.
 
 # Skip in Dependabot environments (native builds aren't needed and may fail)
-# DEPENDABOT is set in the updater environment, GITHUB_ACTOR in PR workflows
-if [ -n "$DEPENDABOT" ] || [ "$GITHUB_ACTOR" = "dependabot[bot]" ]; then
+if "$(dirname "$0")/utils/check-dependabot.sh"; then
     echo "⏭️  Skipping native rebuild in Dependabot environment"
     exit 0
 fi
