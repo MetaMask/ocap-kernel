@@ -196,6 +196,9 @@ export function makePresenceManager({
     // If it's a Promise, await it to get the tracked value
     // E() returns HandledPromises that wrap presences/tracked promises
     if (value instanceof Promise) {
+      if (promiseToKref.has(value)) {
+        return kslot(promiseToKref.get(value) as KRef);
+      }
       const resolved = await value;
       return convertPresencesToStandins(resolved);
     }
@@ -244,7 +247,7 @@ export function makePresenceManager({
   ): Promise<unknown> => {
     // Convert presence/promise args to standins for kernel serialization
     // Also awaits E() HandledPromises to get underlying tracked values
-    const serializedArgs = await Promise.all(
+    const convertedArgs = await Promise.all(
       args.map(convertPresencesToStandins),
     );
 
@@ -252,7 +255,7 @@ export function makePresenceManager({
     const result: CapData<KRef> = await E(kernel).queueMessage(
       kref,
       method,
-      serializedArgs,
+      convertedArgs,
     );
 
     // Deserialize result (krefs become presences)

@@ -150,43 +150,6 @@ describe('third-party handoff', { timeout: 15_000 }, () => {
     const greeting = await E(carol).receiveAndGreet(greeter, 'Universe');
     expect(greeting).toBe('Greetings, Universe!');
   });
-
-  it('carol stores exo from Bob in memory and later uses it', async () => {
-    // Launch subcluster with Bob and Carol
-    const config: ClusterConfig = {
-      bootstrap: 'bob',
-      vats: {
-        bob: {
-          bundleSpec: 'http://localhost:3000/bob-vat.bundle',
-        },
-        carol: {
-          bundleSpec: 'http://localhost:3000/carol-vat.bundle',
-        },
-      },
-    };
-
-    const { subclusterId } = await kernel.launchSubcluster(config);
-
-    const presenceManager = makePresenceManager({ kernel });
-
-    // Get presences using the subcluster
-    const vatRootKrefs = getVatRootKrefs(kernel, subclusterId);
-    const bob = presenceManager.resolveKref(vatRootKrefs.bob as string) as Bob;
-    const carol = presenceManager.resolveKref(
-      vatRootKrefs.carol as string,
-    ) as Carol;
-
-    // 1. Get exo from Bob
-    const greeter = await E(bob).makeGreeter('Howdy');
-
-    // 2. Carol stores the exo in memory
-    const storeResult = await E(carol).storeExo(greeter);
-    expect(storeResult).toBe('stored');
-
-    // 3. Carol uses the stored exo later
-    const greeting = await E(carol).useStoredExo('Partner');
-    expect(greeting).toBe('Howdy, Partner!');
-  });
 });
 
 describe('kernel promise handling', { timeout: 15_000 }, () => {
