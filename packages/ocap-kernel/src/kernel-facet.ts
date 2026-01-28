@@ -31,6 +31,30 @@ export type KernelFacetLaunchResult = {
 };
 
 /**
+ * The kernel facet interface.
+ *
+ * This is the interface provided as a vatpower to the bootstrap vat of a
+ * system subcluster. It enables privileged kernel operations.
+ *
+ * Derived from KernelFacetDependencies but with launchSubcluster overridden
+ * to return KernelFacetLaunchResult (root as SlotValue) instead of
+ * SubclusterLaunchResult (bootstrapRootKref as string).
+ */
+export type KernelFacet = Omit<
+  KernelFacetDependencies,
+  'logger' | 'launchSubcluster'
+> & {
+  /**
+   * Launch a dynamic subcluster.
+   * Returns root as a SlotValue (which becomes a presence when delivered).
+   *
+   * @param config - Configuration for the subcluster.
+   * @returns A promise for the launch result containing subclusterId and root presence.
+   */
+  launchSubcluster: (config: ClusterConfig) => Promise<KernelFacetLaunchResult>;
+};
+
+/**
  * Creates a kernel facet object that provides privileged kernel operations.
  *
  * The kernel facet is provided as a vatpower to the bootstrap vat of a
@@ -43,7 +67,7 @@ export type KernelFacetLaunchResult = {
  * @param deps - Dependencies for creating the kernel facet.
  * @returns The kernel facet object.
  */
-export function makeKernelFacet(deps: KernelFacetDependencies): object {
+export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
   const {
     launchSubcluster,
     terminateSubcluster,
