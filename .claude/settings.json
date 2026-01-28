@@ -4,6 +4,7 @@
       "Skill(lint-build-test)",
       "Skill(code-review)",
       "Skill(commit)",
+      "Skill(create-package)",
       "Skill(glossary)",
       "Skill(pr)",
       "Skill(push)"

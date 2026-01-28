@@ -40,7 +40,7 @@
     "why:batch": "./scripts/why-batch.sh"
   },
   "simple-git-hooks": {
-    "pre-commit": "yarn lint-staged && yarn dedupe --check",
+    "pre-commit": "./scripts/pre-commit.sh",
     "post-rewrite": "yarn lint:dependencies"
   },
   "lint-staged": {

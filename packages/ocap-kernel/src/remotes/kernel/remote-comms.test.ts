@@ -12,6 +12,7 @@ import {
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
 import type { KernelStore } from '../../store/index.ts';
 import type { PlatformServices } from '../../types.ts';
+import { mnemonicToSeed } from '../../utils/bip39.ts';
 import type { RemoteMessageHandler } from '../types.ts';
 
 describe('remote-comms', () => {
@@ -552,6 +553,148 @@ describe('remote-comms', () => {
       const ocapURL = await remoteComms.issueOcapURL('test-kref');
       const { hints } = parseOcapURL(ocapURL);
       expect(hints).toStrictEqual(storedRelays);
+    });
+  });
+
+  describe('initRemoteComms with mnemonic option', () => {
+    // Valid 12-word test mnemonic
+    const VALID_12_WORD_MNEMONIC =
+      'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+    // Valid 24-word test mnemonic
+    const VALID_24_WORD_MNEMONIC =
+      'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon art';
+
+    it('uses mnemonic to derive seed when provided', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        { mnemonic: VALID_12_WORD_MNEMONIC },
+      );
+
+      const keySeed = mockKernelStore.kv.get('keySeed');
+      expect(keySeed).toBeDefined();
+      // The seed should be derived from the mnemonic
+      const expectedSeed = await mnemonicToSeed(VALID_12_WORD_MNEMONIC);
+      expect(keySeed).toBe(expectedSeed);
+
+      // Verify peerId matches the derived seed
+      const peerId = remoteComms.getPeerId();
+      const keyPair = await generateKeyPairFromSeed(
+        'Ed25519',
+        fromHex(expectedSeed),
+      );
+      expect(peerId).toBe(peerIdFromPrivateKey(keyPair).toString());
+    });
+
+    it('produces same peer ID for same mnemonic', async () => {
+      // First init with mnemonic
+      const remoteComms1 = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        { mnemonic: VALID_12_WORD_MNEMONIC },
+      );
+      const peerId1 = remoteComms1.getPeerId();
+
+      // Reset store
+      mockKernelStore.kv.delete('peerId');
+      mockKernelStore.kv.delete('keySeed');
+      mockKernelStore.kv.delete('ocapURLKey');
+
+      // Second init with same mnemonic
+      const remoteComms2 = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        { mnemonic: VALID_12_WORD_MNEMONIC },
+      );
+      const peerId2 = remoteComms2.getPeerId();
+
+      expect(peerId1).toBe(peerId2);
+    });
+
+    it('throws error when mnemonic provided but peer ID already exists in store', async () => {
+      // Set up existing peer ID
+      const existingPeerId = 'existing-peer-id';
+      const existingKeySeed = 'abcdef1234567890abcdef1234567890';
+      mockKernelStore.kv.set('peerId', existingPeerId);
+      mockKernelStore.kv.set('keySeed', existingKeySeed);
+
+      await expect(
+        initRemoteComms(
+          mockKernelStore,
+          mockPlatformServices,
+          mockRemoteMessageHandler,
+          { mnemonic: VALID_12_WORD_MNEMONIC },
+        ),
+      ).rejects.toThrow(
+        'Cannot use mnemonic: kernel identity already exists. Use resetStorage to clear existing identity first.',
+      );
+    });
+
+    it('logs mnemonic usage when provided', async () => {
+      const mockLogger = {
+        log: vi.fn(),
+        error: vi.fn(),
+      };
+
+      await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        { mnemonic: VALID_12_WORD_MNEMONIC },
+        mockLogger as unknown as Logger,
+      );
+
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'comms init: using mnemonic for seed recovery',
+      );
+    });
+
+    it('throws for invalid mnemonic', async () => {
+      await expect(
+        initRemoteComms(
+          mockKernelStore,
+          mockPlatformServices,
+          mockRemoteMessageHandler,
+          { mnemonic: 'invalid mnemonic phrase' },
+        ),
+      ).rejects.toThrow('Invalid BIP39 mnemonic');
+    });
+
+    it('works with 24-word mnemonic', async () => {
+      const remoteComms = await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        { mnemonic: VALID_24_WORD_MNEMONIC },
+      );
+
+      const keySeed = mockKernelStore.kv.get('keySeed');
+      expect(keySeed).toBeDefined();
+      const expectedSeed = await mnemonicToSeed(VALID_24_WORD_MNEMONIC);
+      expect(keySeed).toBe(expectedSeed);
+      expect(remoteComms.getPeerId()).toBeDefined();
+    });
+
+    it('mnemonic option takes precedence over keySeed parameter', async () => {
+      const providedKeySeed =
+        '9999999999999999999999999999999999999999999999999999999999999999';
+
+      await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        { mnemonic: VALID_12_WORD_MNEMONIC },
+        undefined,
+        providedKeySeed, // This should be ignored in favor of mnemonic
+      );
+
+      const storedKeySeed = mockKernelStore.kv.get('keySeed');
+      const expectedSeed = await mnemonicToSeed(VALID_12_WORD_MNEMONIC);
+      expect(storedKeySeed).toBe(expectedSeed);
+      expect(storedKeySeed).not.toBe(providedKeySeed);
     });
   });
 });
