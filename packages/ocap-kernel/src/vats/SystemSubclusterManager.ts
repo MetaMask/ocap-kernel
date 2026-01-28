@@ -1,10 +1,10 @@
 import type { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from '../KernelQueue.ts';
+import { makeKernelFacet } from './kernel-facet.ts';
+import type { KernelFacetDependencies } from './kernel-facet.ts';
 import { kslot } from '../liveslots/kernel-marshal.ts';
 import type { SlotValue } from '../liveslots/kernel-marshal.ts';
-import { makeKernelFacetService } from '../services/KernelFacetService.ts';
-import type { KernelFacetDependencies } from '../services/KernelFacetService.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
   SystemVatId,
@@ -140,7 +140,7 @@ export class SystemSubclusterManager {
     const rootKrefs: Record<string, KRef> = {};
 
     // Create kernel facet for the bootstrap vat
-    const kernelFacet = makeKernelFacetService(this.#kernelFacetDeps);
+    const kernelFacet = makeKernelFacet(this.#kernelFacetDeps);
 
     // Launch all system vats
     for (const [vatName, vatConfig] of Object.entries(config.vats)) {
