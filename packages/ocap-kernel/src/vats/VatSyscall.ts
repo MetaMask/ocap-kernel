@@ -15,24 +15,26 @@ import type { KernelQueue } from '../KernelQueue.ts';
 import { makeError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import { coerceMessage } from '../types.ts';
-import type { Message, VatId, KRef } from '../types.ts';
+import type { Message, EndpointId, KRef } from '../types.ts';
 
 type VatSyscallProps = {
-  vatId: VatId;
+  vatId: EndpointId;
   kernelQueue: KernelQueue;
   kernelStore: KernelStore;
+  isActive: () => boolean;
+  vatLabel?: string;
   logger?: Logger | undefined;
 };
 
 /**
- * A VatSyscall is a class that handles syscalls from a vat.
+ * Handles syscalls from a vat (regular or system).
  *
  * This class is responsible for handling syscalls from a vat, including
  * sending messages, resolving promises, and dropping imports.
  */
 export class VatSyscall {
   /** The ID of the vat */
-  readonly vatId: VatId;
+  readonly vatId: EndpointId;
 
   /** The kernel's run queue */
   readonly #kernelQueue: KernelQueue;
@@ -40,11 +42,17 @@ export class VatSyscall {
   /** The kernel's store */
   readonly #kernelStore: KernelStore;
 
+  /** Function to check if the vat is still active */
+  readonly #isActive: () => boolean;
+
+  /** Label for this vat type (for error messages) */
+  readonly #vatLabel: string;
+
   /** Logger for outputting messages (such as errors) to the console */
   readonly #logger: Logger | undefined;
 
   /** The illegal syscall that was received */
-  illegalSyscall: { vatId: VatId; info: SwingSetCapData } | undefined;
+  illegalSyscall: { vatId: EndpointId; info: SwingSetCapData } | undefined;
 
   /** The error when delivery failed */
   deliveryError: string | undefined;
@@ -61,12 +69,23 @@ export class VatSyscall {
    * @param props.vatId - The ID of the vat.
    * @param props.kernelQueue - The kernel's run queue.
    * @param props.kernelStore - The kernel's store.
+   * @param props.isActive - Function to check if the vat is still active.
+   * @param props.vatLabel - Label for this vat type (for error messages).
    * @param props.logger - The logger for the VatSyscall.
    */
-  constructor({ vatId, kernelQueue, kernelStore, logger }: VatSyscallProps) {
+  constructor({
+    vatId,
+    kernelQueue,
+    kernelStore,
+    isActive,
+    vatLabel = 'vat',
+    logger,
+  }: VatSyscallProps) {
     this.vatId = vatId;
     this.#kernelQueue = kernelQueue;
     this.#kernelStore = kernelStore;
+    this.#isActive = isActive;
+    this.#vatLabel = vatLabel;
     this.#logger = logger;
   }
 
@@ -151,9 +170,9 @@ export class VatSyscall {
       this.vatRequestedTermination = undefined;
 
       // This is a safety check - this case should never happen
-      if (!this.#kernelStore.isVatActive(this.vatId)) {
-        this.#recordVatFatalSyscall('vat not found');
-        return harden(['error', 'vat not found']);
+      if (!this.#isActive()) {
+        this.#recordVatFatalSyscall(`${this.#vatLabel} not found`);
+        return harden(['error', `${this.#vatLabel} not found`]);
       }
 
       const kso: VatSyscallObject = this.#kernelStore.translateSyscallVtoK(
@@ -238,18 +257,27 @@ export class VatSyscall {
         case 'vatstoreGetNextKey':
         case 'vatstoreSet':
         case 'vatstoreDelete': {
-          this.#logger?.warn(`vat ${vatId} issued invalid syscall ${op} `, vso);
+          this.#logger?.warn(
+            `${this.#vatLabel} ${vatId} issued invalid syscall ${op} `,
+            vso,
+          );
           break;
         }
         default:
           // Compile-time exhaustiveness check
-          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          this.#logger?.warn(`vat ${vatId} issued unknown syscall ${op} `, vso);
+          this.#logger?.warn(
+            // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+            `${this.#vatLabel} ${vatId} issued unknown syscall ${op} `,
+            vso,
+          );
           break;
       }
       return harden(['ok', null]);
     } catch (error) {
-      this.#logger?.error(`Fatal syscall error in vat ${this.vatId}`, error);
+      this.#logger?.error(
+        `Fatal syscall error in ${this.#vatLabel} ${this.vatId}`,
+        error,
+      );
       this.#recordVatFatalSyscall('syscall translation error: prepare to die');
       return harden([
         'error',

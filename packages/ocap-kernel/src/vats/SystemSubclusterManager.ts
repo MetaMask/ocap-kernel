@@ -31,7 +31,8 @@ type SystemSubclusterManagerOptions = {
   kernelStore: KernelStore;
   kernelQueue: KernelQueue;
   kernelFacetDeps: KernelFacetDependencies;
-  logger?: Logger;
+  /** Logger is required for system subclusters since supervisors need it for liveslots. */
+  logger: Logger;
 };
 
 type SystemSubclusterRecord = {
@@ -62,7 +63,7 @@ export class SystemSubclusterManager {
   readonly #kernelFacetDeps: KernelFacetDependencies;
 
   /** Logger for outputting messages to the console */
-  readonly #logger: Logger | undefined;
+  readonly #logger: Logger;
 
   /** Counter for allocating system vat IDs */
   #nextSystemVatId: number = 0;
@@ -172,17 +173,11 @@ export class SystemSubclusterManager {
         kernelStore: this.#kernelStore,
         kernelQueue: this.#kernelQueue,
         deliver,
-        logger: this.#logger?.subLogger({ tags: [systemVatId] }),
+        logger: this.#logger.subLogger({ tags: [systemVatId] }),
       });
       handles.set(systemVatId, handle);
 
       // Create the supervisor (which runs liveslots)
-      const supervisorLogger = this.#logger?.subLogger({
-        tags: [systemVatId, 'supervisor'],
-      });
-      if (!supervisorLogger) {
-        throw new Error('Logger required for system vat supervisor');
-      }
       const supervisor = new SystemVatSupervisor({
         id: systemVatId,
         buildRootObject: vatConfig.buildRootObject,
@@ -190,7 +185,7 @@ export class SystemSubclusterManager {
         parameters: vatConfig.parameters,
         executeSyscall: (vso) =>
           handle.getSyscallHandler()(vso) ?? harden(['ok', null]),
-        logger: supervisorLogger,
+        logger: this.#logger.subLogger({ tags: [systemVatId, 'supervisor'] }),
       });
       supervisors.set(systemVatId, supervisor);
 
@@ -248,7 +243,7 @@ export class SystemSubclusterManager {
         if (serviceKref) {
           services[serviceName] = kslot(serviceKref);
         } else {
-          this.#logger?.warn(`Kernel service '${serviceName}' not found`);
+          this.#logger.warn(`Kernel service '${serviceName}' not found`);
         }
       }
     }

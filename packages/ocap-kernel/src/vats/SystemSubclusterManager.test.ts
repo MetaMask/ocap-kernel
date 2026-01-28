@@ -337,23 +337,4 @@ describe('SystemSubclusterManager', () => {
       expect(isActive).toBe(true);
     });
   });
-
-  describe('without logger', () => {
-    it('throws when trying to launch without logger', async () => {
-      const managerWithoutLogger = new SystemSubclusterManager({
-        kernelStore,
-        kernelQueue,
-        kernelFacetDeps,
-      });
-
-      const config: SystemSubclusterConfig = {
-        bootstrap: 'testVat',
-        vats: { testVat: { buildRootObject } },
-      };
-
-      await expect(
-        managerWithoutLogger.launchSystemSubcluster(config),
-      ).rejects.toThrow('Logger required for system vat supervisor');
-    });
-  });
 });
