@@ -1,3 +1,4 @@
+import { makeCapTP } from '@endo/captp';
 import { JsonRpcServer } from '@metamask/json-rpc-engine/v2';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
 import { isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
@@ -17,7 +18,8 @@ import {
 import type { CapTPMessage } from '../background-captp.ts';
 import { receiveInternalConnections } from '../internal-comms/internal-connections.ts';
 import { PlatformServicesClient } from '../PlatformServicesClient.ts';
-import { makeKernelCapTP } from './captp/index.ts';
+import type { KernelHostRoot } from './kernel-host-vat.ts';
+import { makeKernelHostSubclusterConfig } from './kernel-host-vat.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { makePanelMessageMiddleware } from './middleware/panel-message.ts';
 import { getRelaysFromCurrentLocation } from '../utils/relay-query-string.ts';
@@ -71,27 +73,50 @@ async function main(): Promise<void> {
 
   const kernel = await kernelP;
 
-  const kernelCapTP = makeKernelCapTP({
-    kernel,
-    send: (captpMessage: CapTPMessage) => {
-      const notification = makeCapTPNotification(captpMessage);
-      messageStream.write(notification).catch((error) => {
-        logger.error('Failed to send CapTP message:', error);
-      });
-    },
+  // Launch the kernel host subcluster to get a proper system vat for CapTP
+  let kernelHostRoot: KernelHostRoot | undefined;
+  const hostSubclusterConfig = makeKernelHostSubclusterConfig((root) => {
+    kernelHostRoot = root;
   });
+
+  try {
+    await kernel.launchSystemSubcluster(hostSubclusterConfig);
+    logger.log('Launched kernel host subcluster');
+  } catch (error) {
+    logger.error('Failed to launch kernel host subcluster:', error);
+    throw error;
+  }
+
+  if (!kernelHostRoot) {
+    throw new Error('Kernel host root was not captured during launch');
+  }
+
+  // Create CapTP with the kernel host vat root as the bootstrap
+  // This gives background proper presences for dynamic subcluster roots
+  const sendCapTPMessage = (captpMessage: CapTPMessage): void => {
+    const notification = makeCapTPNotification(captpMessage);
+    messageStream.write(notification).catch((error) => {
+      logger.error('Failed to send CapTP message:', error);
+    });
+  };
+
+  const { dispatch: dispatchCapTP, abort: abortCapTP } = makeCapTP(
+    'kernel',
+    sendCapTPMessage,
+    kernelHostRoot,
+  );
 
   messageStream
     .drain((message) => {
       if (isCapTPNotification(message)) {
         const captpMessage = message.params[0];
-        kernelCapTP.dispatch(captpMessage);
+        dispatchCapTP(captpMessage);
       } else {
         throw new Error(`Unexpected message: ${stringify(message)}`);
       }
     })
     .catch((error) => {
-      kernelCapTP.abort(error);
+      abortCapTP(error);
       logger.error('Message stream error:', error);
     });
 
