@@ -21,6 +21,42 @@ describe('SlidingWindowRateLimiter', () => {
     limiter = new SlidingWindowRateLimiter(3, 100);
   });
 
+  describe('constructor', () => {
+    it.each([
+      {
+        maxEvents: 0,
+        windowMs: 100,
+        error: 'maxEvents must be a positive number',
+      },
+      {
+        maxEvents: -1,
+        windowMs: 100,
+        error: 'maxEvents must be a positive number',
+      },
+      {
+        maxEvents: 10,
+        windowMs: 0,
+        error: 'windowMs must be a positive number',
+      },
+      {
+        maxEvents: 10,
+        windowMs: -1,
+        error: 'windowMs must be a positive number',
+      },
+    ])(
+      'throws "$error" when maxEvents=$maxEvents and windowMs=$windowMs',
+      ({ maxEvents, windowMs, error }) => {
+        expect(() => new SlidingWindowRateLimiter(maxEvents, windowMs)).toThrow(
+          error,
+        );
+      },
+    );
+
+    it('accepts valid positive values', () => {
+      expect(() => new SlidingWindowRateLimiter(1, 1)).not.toThrow();
+    });
+  });
+
   describe('wouldExceedLimit', () => {
     it('returns false when no events recorded', () => {
       expect(limiter.wouldExceedLimit('peer1')).toBe(false);
