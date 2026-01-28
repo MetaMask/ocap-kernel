@@ -14,6 +14,7 @@ describe('index', () => {
       'isCapTPNotification',
       'makeBackgroundCapTP',
       'makeCapTPNotification',
+      'makeHostSubcluster',
       'makeIframeVatWorker',
       'parseRelayQueryString',
       'receiveInternalConnections',

@@ -1,0 +1,298 @@
+import type { Logger } from '@metamask/logger';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+import type { KernelFacetDependencies } from './kernel-facet.ts';
+import { makeKernelFacet } from './kernel-facet.ts';
+import type { SlotValue } from './liveslots/kernel-marshal.ts';
+import { krefOf } from './liveslots/kernel-marshal.ts';
+import type { ClusterConfig, KernelStatus, Subcluster } from './types.ts';
+
+describe('makeKernelFacet', () => {
+  let deps: KernelFacetDependencies;
+  let logger: Logger;
+
+  beforeEach(() => {
+    logger = {
+      debug: vi.fn(),
+      error: vi.fn(),
+      log: vi.fn(),
+      warn: vi.fn(),
+      subLogger: vi.fn(() => logger),
+    } as unknown as Logger;
+
+    deps = {
+      launchSubcluster: vi.fn().mockResolvedValue({
+        subclusterId: 's1',
+        bootstrapRootKref: 'ko1',
+      }),
+      terminateSubcluster: vi.fn().mockResolvedValue(undefined),
+      reloadSubcluster: vi.fn().mockResolvedValue({
+        id: 's2',
+        config: { bootstrap: 'test', vats: {} },
+        vats: {},
+      }),
+      getSubcluster: vi.fn().mockReturnValue({
+        id: 's1',
+        config: { bootstrap: 'test', vats: {} },
+        vats: {},
+      }),
+      getSubclusters: vi
+        .fn()
+        .mockReturnValue([
+          { id: 's1', config: { bootstrap: 'test', vats: {} }, vats: {} },
+        ]),
+      getStatus: vi.fn().mockResolvedValue({
+        initialized: true,
+        cranksExecuted: 10,
+        cranksPending: 0,
+        vatCount: 2,
+        endpointCount: 3,
+      }),
+      logger,
+    };
+  });
+
+  it('creates a kernel facet object', () => {
+    const facet = makeKernelFacet(deps);
+    expect(facet).toBeDefined();
+    expect(typeof facet).toBe('object');
+  });
+
+  describe('launchSubcluster', () => {
+    it('calls the launchSubcluster dependency', async () => {
+      const facet = makeKernelFacet(deps) as {
+        launchSubcluster: (config: ClusterConfig) => Promise<unknown>;
+      };
+      const config: ClusterConfig = {
+        bootstrap: 'myVat',
+        vats: { myVat: { sourceSpec: 'test.js' } },
+      };
+
+      await facet.launchSubcluster(config);
+
+      expect(deps.launchSubcluster).toHaveBeenCalledWith(config);
+    });
+
+    it('returns subclusterId and root as slot value', async () => {
+      const facet = makeKernelFacet(deps) as {
+        launchSubcluster: (
+          config: ClusterConfig,
+        ) => Promise<{ subclusterId: string; root: SlotValue }>;
+      };
+      const config: ClusterConfig = {
+        bootstrap: 'myVat',
+        vats: { myVat: { sourceSpec: 'test.js' } },
+      };
+
+      const result = await facet.launchSubcluster(config);
+
+      expect(result.subclusterId).toBe('s1');
+      // The root is a slot value (remotable) that carries the kref
+      expect(krefOf(result.root)).toBe('ko1');
+    });
+
+    it('logs launch events', async () => {
+      const facet = makeKernelFacet(deps) as {
+        launchSubcluster: (config: ClusterConfig) => Promise<unknown>;
+      };
+      const config: ClusterConfig = {
+        bootstrap: 'myVat',
+        vats: { myVat: { sourceSpec: 'test.js' } },
+      };
+
+      await facet.launchSubcluster(config);
+
+      expect(logger.log).toHaveBeenCalledWith(
+        expect.stringContaining('launching subcluster'),
+        'myVat',
+      );
+      expect(logger.log).toHaveBeenCalledWith(
+        expect.stringContaining('launched subcluster s1'),
+      );
+    });
+  });
+
+  describe('terminateSubcluster', () => {
+    it('calls the terminateSubcluster dependency', async () => {
+      const facet = makeKernelFacet(deps) as {
+        terminateSubcluster: (id: string) => Promise<void>;
+      };
+
+      await facet.terminateSubcluster('s1');
+
+      expect(deps.terminateSubcluster).toHaveBeenCalledWith('s1');
+    });
+
+    it('logs termination events', async () => {
+      const facet = makeKernelFacet(deps) as {
+        terminateSubcluster: (id: string) => Promise<void>;
+      };
+
+      await facet.terminateSubcluster('s1');
+
+      expect(logger.log).toHaveBeenCalledWith(
+        expect.stringContaining('terminating subcluster s1'),
+      );
+      expect(logger.log).toHaveBeenCalledWith(
+        expect.stringContaining('terminated subcluster s1'),
+      );
+    });
+  });
+
+  describe('reloadSubcluster', () => {
+    it('calls the reloadSubcluster dependency', async () => {
+      const facet = makeKernelFacet(deps) as {
+        reloadSubcluster: (id: string) => Promise<Subcluster>;
+      };
+
+      await facet.reloadSubcluster('s1');
+
+      expect(deps.reloadSubcluster).toHaveBeenCalledWith('s1');
+    });
+
+    it('returns the reloaded subcluster', async () => {
+      const facet = makeKernelFacet(deps) as {
+        reloadSubcluster: (id: string) => Promise<Subcluster>;
+      };
+
+      const result = await facet.reloadSubcluster('s1');
+
+      expect(result.id).toBe('s2');
+    });
+
+    it('logs reload events', async () => {
+      const facet = makeKernelFacet(deps) as {
+        reloadSubcluster: (id: string) => Promise<Subcluster>;
+      };
+
+      await facet.reloadSubcluster('s1');
+
+      expect(logger.log).toHaveBeenCalledWith(
+        expect.stringContaining('reloading subcluster s1'),
+      );
+      expect(logger.log).toHaveBeenCalledWith(
+        expect.stringContaining('reloaded subcluster'),
+      );
+    });
+  });
+
+  describe('getSubcluster', () => {
+    it('calls the getSubcluster dependency', () => {
+      const facet = makeKernelFacet(deps) as {
+        getSubcluster: (id: string) => Subcluster | undefined;
+      };
+
+      facet.getSubcluster('s1');
+
+      expect(deps.getSubcluster).toHaveBeenCalledWith('s1');
+    });
+
+    it('returns the subcluster', () => {
+      const facet = makeKernelFacet(deps) as {
+        getSubcluster: (id: string) => Subcluster | undefined;
+      };
+
+      const result = facet.getSubcluster('s1');
+
+      expect(result?.id).toBe('s1');
+    });
+
+    it('returns undefined for unknown subcluster', () => {
+      vi.spyOn(deps, 'getSubcluster')
+        .mockImplementation()
+        .mockReturnValue(undefined);
+      const facet = makeKernelFacet(deps) as {
+        getSubcluster: (id: string) => Subcluster | undefined;
+      };
+
+      const result = facet.getSubcluster('unknown');
+
+      expect(result).toBeUndefined();
+    });
+  });
+
+  describe('getSubclusters', () => {
+    it('calls the getSubclusters dependency', () => {
+      const facet = makeKernelFacet(deps) as {
+        getSubclusters: () => Subcluster[];
+      };
+
+      facet.getSubclusters();
+
+      expect(deps.getSubclusters).toHaveBeenCalled();
+    });
+
+    it('returns all subclusters', () => {
+      const facet = makeKernelFacet(deps) as {
+        getSubclusters: () => Subcluster[];
+      };
+
+      const result = facet.getSubclusters();
+
+      expect(result).toHaveLength(1);
+      expect(result[0]?.id).toBe('s1');
+    });
+  });
+
+  describe('getStatus', () => {
+    it('calls the getStatus dependency', async () => {
+      const facet = makeKernelFacet(deps) as {
+        getStatus: () => Promise<KernelStatus>;
+      };
+
+      await facet.getStatus();
+
+      expect(deps.getStatus).toHaveBeenCalled();
+    });
+
+    it('returns kernel status', async () => {
+      const facet = makeKernelFacet(deps) as {
+        getStatus: () => Promise<KernelStatus>;
+      };
+
+      const result = await facet.getStatus();
+
+      expect(result.initialized).toBe(true);
+      expect(result.cranksExecuted).toBe(10);
+      expect(result.cranksPending).toBe(0);
+      expect(result.vatCount).toBe(2);
+      expect(result.endpointCount).toBe(3);
+    });
+  });
+
+  describe('without logger', () => {
+    it('does not throw when logger is undefined', async () => {
+      const depsWithoutLogger: KernelFacetDependencies = {
+        launchSubcluster: vi.fn().mockResolvedValue({
+          subclusterId: 's1',
+          bootstrapRootKref: 'ko1',
+        }),
+        terminateSubcluster: vi.fn().mockResolvedValue(undefined),
+        reloadSubcluster: vi.fn().mockResolvedValue({
+          id: 's2',
+          config: { bootstrap: 'test', vats: {} },
+          vats: {},
+        }),
+        getSubcluster: vi.fn().mockReturnValue(undefined),
+        getSubclusters: vi.fn().mockReturnValue([]),
+        getStatus: vi.fn().mockResolvedValue({
+          initialized: true,
+          cranksExecuted: 0,
+          cranksPending: 0,
+          vatCount: 0,
+          endpointCount: 0,
+        }),
+      };
+
+      const facet = makeKernelFacet(depsWithoutLogger) as {
+        launchSubcluster: (config: ClusterConfig) => Promise<unknown>;
+      };
+
+      const result = await facet.launchSubcluster({
+        bootstrap: 'test',
+        vats: { test: { sourceSpec: 'test.js' } },
+      });
+      expect(result).toBeDefined();
+    });
+  });
+});
