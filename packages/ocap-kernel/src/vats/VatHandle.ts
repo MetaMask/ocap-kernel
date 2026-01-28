@@ -107,6 +107,7 @@ export class VatHandle implements EndpointHandle {
       vatId,
       kernelQueue,
       kernelStore,
+      isActive: () => kernelStore.isVatActive(vatId),
       logger: this.#logger?.subLogger({ tags: ['syscall'] }),
     });
 

@@ -46,8 +46,16 @@ type SystemVatSupervisorProps = {
 
 /**
  * A non-persistent KV store for system vats.
- * System vats don't participate in kernel persistence machinery,
- * so their vatstore is ephemeral (Map-based).
+ *
+ * System vats don't participate in kernel persistence machinery, so their
+ * vatstore is ephemeral (Map-based). This store is still required because
+ * liveslots uses the vatstore internally for:
+ * - Virtual object tracking and lifecycle management
+ * - Promise resolution bookkeeping
+ * - Reference counting and garbage collection coordination
+ *
+ * The data in this store is lost when the system vat terminates, which is
+ * acceptable since system vats are not designed to persist across restarts.
  *
  * @returns An ephemeral KVStore implementation.
  */
@@ -83,11 +91,21 @@ function makeEphemeralVatKVStore(): KVStore {
       }
       return keys[index + 1];
     },
-    getKeys(_start: string, _end: string): Iterable<string> {
-      throw new Error('getKeys not supported for ephemeral store');
+    *getKeys(start: string, end: string): Iterable<string> {
+      const keys = [...data.keys()].sort();
+      for (const key of keys) {
+        if (key >= start && key < end) {
+          yield key;
+        }
+      }
     },
-    getPrefixedKeys(_prefix: string): Iterable<string> {
-      throw new Error('getPrefixedKeys not supported for ephemeral store');
+    *getPrefixedKeys(prefix: string): Iterable<string> {
+      const keys = [...data.keys()].sort();
+      for (const key of keys) {
+        if (key.startsWith(prefix)) {
+          yield key;
+        }
+      }
     },
   });
 }
@@ -173,23 +191,25 @@ export class SystemVatSupervisor {
     });
 
     // For system vats, buildVatNamespace returns the buildRootObject directly
-    // without loading a bundle via importBundle
+    // without loading a bundle via importBundle.
+    //
+    // Liveslots invokes buildVatNamespace, then calls the returned buildRootObject.
+    // VatPowers are merged in three stages:
+    // 1. External vatPowers (e.g., kernelFacet for bootstrap vat)
+    // 2. lsEndowments from liveslots (D, etc.) provided to buildVatNamespace
+    // 3. innerVatPowers from liveslots (exitVat, etc.) provided to buildRootObject
+    // Later sources override earlier ones.
     const buildVatNamespace = async (
       lsEndowments: Record<PropertyKey, unknown>,
       _inescapableGlobalProperties: object,
     ): Promise<Record<string, unknown>> => {
-      // Provide liveslots endowments as vatPowers to the buildRootObject
-      const combinedVatPowers = {
-        ...vatPowers,
-        ...lsEndowments,
-      };
-
-      // Return a namespace object with buildRootObject that wraps the provided one
-      // to inject the combined vatPowers
       return {
         buildRootObject: (innerVatPowers: Record<string, unknown>) => {
-          // Merge the inner vatPowers (from liveslots) with our combined powers
-          const finalVatPowers = { ...combinedVatPowers, ...innerVatPowers };
+          const finalVatPowers = {
+            ...vatPowers,
+            ...lsEndowments,
+            ...innerVatPowers,
+          };
           return buildRootObject(finalVatPowers, parameters);
         },
       };

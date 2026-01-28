@@ -16,7 +16,7 @@ import type {
   CrankResults,
   EndpointHandle,
 } from '../types.ts';
-import { SystemVatSyscall } from './SystemVatSyscall.ts';
+import { VatSyscall } from './VatSyscall.ts';
 
 /**
  * Delivery callback type - called by kernel to deliver messages to the system vat.
@@ -58,7 +58,7 @@ export class SystemVatHandle implements EndpointHandle {
   readonly #kernelQueue: KernelQueue;
 
   /** The system vat's syscall handler */
-  readonly #systemVatSyscall: SystemVatSyscall;
+  readonly #vatSyscall: VatSyscall;
 
   /** Callback to deliver messages to the system vat supervisor */
   readonly #deliver: SystemVatDeliverFn;
@@ -88,11 +88,12 @@ export class SystemVatHandle implements EndpointHandle {
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#deliver = deliver;
-    this.#systemVatSyscall = new SystemVatSyscall({
-      systemVatId,
+    this.#vatSyscall = new VatSyscall({
+      vatId: systemVatId,
       kernelQueue,
       kernelStore,
       isActive: () => this.#isActive,
+      vatLabel: 'system vat',
       logger: this.#logger?.subLogger({ tags: ['syscall'] }),
     });
 
@@ -106,7 +107,7 @@ export class SystemVatHandle implements EndpointHandle {
    */
   getSyscallHandler(): (syscall: VatSyscallObject) => void {
     return (syscall: VatSyscallObject) => {
-      this.#systemVatSyscall.handleSyscall(syscall);
+      this.#vatSyscall.handleSyscall(syscall);
     };
   }
 
@@ -219,21 +220,21 @@ export class SystemVatHandle implements EndpointHandle {
 
     // These conditionals express a priority order: the consequences of an
     // illegal syscall take precedence over a vat requesting termination, etc.
-    if (this.#systemVatSyscall.illegalSyscall) {
+    if (this.#vatSyscall.illegalSyscall) {
       results.abort = true;
-      const { info } = this.#systemVatSyscall.illegalSyscall;
+      const { info } = this.#vatSyscall.illegalSyscall;
       results.terminate = { vatId: this.systemVatId, reject: true, info };
     } else if (deliveryError) {
       results.abort = true;
       const info = makeError(deliveryError);
       results.terminate = { vatId: this.systemVatId, reject: true, info };
-    } else if (this.#systemVatSyscall.vatRequestedTermination) {
-      if (this.#systemVatSyscall.vatRequestedTermination.reject) {
+    } else if (this.#vatSyscall.vatRequestedTermination) {
+      if (this.#vatSyscall.vatRequestedTermination.reject) {
         results.abort = true;
       }
       results.terminate = {
         vatId: this.systemVatId,
-        ...this.#systemVatSyscall.vatRequestedTermination,
+        ...this.#vatSyscall.vatRequestedTermination,
       };
     }
 
