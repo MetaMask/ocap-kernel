@@ -5,13 +5,11 @@ import type { Rollup, PluginOption } from 'vite';
 import { exportMetadataPlugin } from './export-metadata-plugin.ts';
 import { stripCommentsPlugin } from './strip-comments-plugin.ts';
 
-export type { VatBundle };
-
 /**
  * Bundle a vat source file using vite.
  *
  * Produces an IIFE bundle that assigns exports to a `__vatExports__` global,
- * along with metadata about the bundle's exports and modules.
+ * along with metadata about the bundle's exports and external dependencies.
  *
  * @param sourcePath - Absolute path to the vat entry point.
  * @returns The bundle object containing code and metadata.
