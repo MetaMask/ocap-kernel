@@ -1,30 +1,23 @@
-import type { CapData } from '@endo/marshal';
 import { makeDefaultExo } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 
-import { kslot } from '../liveslots/kernel-marshal.ts';
-import type { SlotValue } from '../liveslots/kernel-marshal.ts';
-import type {
-  KRef,
-  ClusterConfig,
-  Subcluster,
-  KernelStatus,
-} from '../types.ts';
+import type { Kernel } from './Kernel.ts';
+import { kslot } from './liveslots/kernel-marshal.ts';
+import type { SlotValue } from './liveslots/kernel-marshal.ts';
+import type { ClusterConfig, Subcluster, KernelStatus } from './types.ts';
 
 /**
  * Dependencies required to create a kernel facet.
  */
-export type KernelFacetDependencies = {
-  launchSubcluster: (config: ClusterConfig) => Promise<{
-    subclusterId: string;
-    bootstrapRootKref: KRef;
-    bootstrapResult: CapData<KRef> | undefined;
-  }>;
-  terminateSubcluster: (subclusterId: string) => Promise<void>;
-  reloadSubcluster: (subclusterId: string) => Promise<Subcluster>;
-  getSubcluster: (subclusterId: string) => Subcluster | undefined;
-  getSubclusters: () => Subcluster[];
-  getStatus: () => Promise<KernelStatus>;
+export type KernelFacetDependencies = Pick<
+  Kernel,
+  | 'launchSubcluster'
+  | 'terminateSubcluster'
+  | 'reloadSubcluster'
+  | 'getSubcluster'
+  | 'getSubclusters'
+  | 'getStatus'
+> & {
   logger?: Logger;
 };
 
