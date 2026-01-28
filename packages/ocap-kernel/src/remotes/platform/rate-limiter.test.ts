@@ -26,22 +26,42 @@ describe('SlidingWindowRateLimiter', () => {
       {
         maxEvents: 0,
         windowMs: 100,
-        error: 'maxEvents must be a positive number',
+        error: 'maxEvents must be a positive finite number',
       },
       {
         maxEvents: -1,
         windowMs: 100,
-        error: 'maxEvents must be a positive number',
+        error: 'maxEvents must be a positive finite number',
+      },
+      {
+        maxEvents: NaN,
+        windowMs: 100,
+        error: 'maxEvents must be a positive finite number',
+      },
+      {
+        maxEvents: Infinity,
+        windowMs: 100,
+        error: 'maxEvents must be a positive finite number',
       },
       {
         maxEvents: 10,
         windowMs: 0,
-        error: 'windowMs must be a positive number',
+        error: 'windowMs must be a positive finite number',
       },
       {
         maxEvents: 10,
         windowMs: -1,
-        error: 'windowMs must be a positive number',
+        error: 'windowMs must be a positive finite number',
+      },
+      {
+        maxEvents: 10,
+        windowMs: NaN,
+        error: 'windowMs must be a positive finite number',
+      },
+      {
+        maxEvents: 10,
+        windowMs: Infinity,
+        error: 'windowMs must be a positive finite number',
       },
     ])(
       'throws "$error" when maxEvents=$maxEvents and windowMs=$windowMs',
