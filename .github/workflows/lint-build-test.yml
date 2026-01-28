@@ -156,6 +156,7 @@ jobs:
     strategy:
       matrix:
         node-version: [24.x]
+        package: [omnium-gatherum, nodejs, extension]
     steps:
       - name: Checkout and setup environment
         uses: MetaMask/action-checkout-and-setup@v2
@@ -165,13 +166,14 @@ jobs:
       - run: VITE_DB_FOLDER=e2e yarn build
       - name: Run E2E tests
         id: e2e
-        run: yarn test:e2e:ci
+        run: yarn workspace @ocap/${{ matrix.package }} test:e2e:ci
       - name: Upload test artifacts
         if: ${{ failure() && steps.e2e.conclusion == 'failure' }}
         uses: actions/upload-artifact@v6
         with:
-          name: playwright-traces
-          path: packages/extension/test-results
+          name: playwright-traces-${{ matrix.package }}
+          path: packages/${{ matrix.package }}/test-results
+          if-no-files-found: ignore
       - name: Require clean working directory
         shell: bash
         run: |
