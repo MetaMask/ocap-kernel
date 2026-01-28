@@ -1,8 +1,10 @@
 import type { Logger } from '@metamask/logger';
 
+import { makeKernelFacet } from '../kernel-facet.ts';
+import type { KernelFacetDependencies } from '../kernel-facet.ts';
 import type { KernelQueue } from '../KernelQueue.ts';
-import { makeKernelFacet } from './kernel-facet.ts';
-import type { KernelFacetDependencies } from './kernel-facet.ts';
+import type { SystemVatDeliverFn } from './SystemVatHandle.ts';
+import { SystemVatHandle } from './SystemVatHandle.ts';
 import { kslot } from '../liveslots/kernel-marshal.ts';
 import type { SlotValue } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
@@ -14,8 +16,6 @@ import type {
   KRef,
 } from '../types.ts';
 import { ROOT_OBJECT_VREF } from '../types.ts';
-import type { SystemVatDeliverFn } from './SystemVatHandle.ts';
-import { SystemVatHandle } from './SystemVatHandle.ts';
 import { SystemVatSupervisor } from './SystemVatSupervisor.ts';
 
 /**
