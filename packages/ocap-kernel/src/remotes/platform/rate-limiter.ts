@@ -23,8 +23,15 @@ export class SlidingWindowRateLimiter {
    *
    * @param maxEvents - Maximum number of events allowed within the window.
    * @param windowMs - Window size in milliseconds.
+   * @throws Error if maxEvents or windowMs is not a positive number.
    */
   constructor(maxEvents: number, windowMs: number) {
+    if (maxEvents <= 0) {
+      throw new Error('maxEvents must be a positive number');
+    }
+    if (windowMs <= 0) {
+      throw new Error('windowMs must be a positive number');
+    }
     this.#maxEvents = maxEvents;
     this.#windowMs = windowMs;
     this.#timestamps = new Map();
@@ -85,11 +92,8 @@ export class SlidingWindowRateLimiter {
     key: string,
     limitType: 'messageRate' | 'connectionRate',
   ): void {
-    if (this.wouldExceedLimit(key)) {
-      const timestamps = this.#timestamps.get(key) ?? [];
-      const cutoff = Date.now() - this.#windowMs;
-      const currentCount = timestamps.filter((ts) => ts > cutoff).length;
-
+    const currentCount = this.getCurrentCount(key);
+    if (currentCount >= this.#maxEvents) {
       throw new ResourceLimitError(
         `Rate limit exceeded: ${currentCount}/${this.#maxEvents} ${limitType} in ${this.#windowMs}ms window`,
         {
