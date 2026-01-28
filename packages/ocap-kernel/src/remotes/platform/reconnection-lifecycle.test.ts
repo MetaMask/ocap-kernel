@@ -418,6 +418,42 @@ describe('reconnection-lifecycle', () => {
       expect(deps.reconnectionManager.decrementAttempt).not.toHaveBeenCalled();
     });
 
+    it('retries connection limit errors without calling isRetryableNetworkError', async () => {
+      const { ResourceLimitError } = kernelErrors;
+      // Mock isRetryableNetworkError to return false - connection limit errors
+      // should be retried regardless via explicit handling
+      (
+        kernelErrors.isRetryableNetworkError as ReturnType<typeof vi.fn>
+      ).mockReturnValue(false);
+
+      (
+        deps.checkConnectionLimit as ReturnType<typeof vi.fn>
+      ).mockImplementationOnce(() => {
+        throw new ResourceLimitError('Connection limit exceeded', {
+          data: { limitType: 'connection', current: 100, limit: 100 },
+        });
+      });
+
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true) // First attempt - connection limit
+        .mockReturnValueOnce(true) // Second attempt - success
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      // Should NOT call onRemoteGiveUp - connection limit errors are retryable
+      expect(deps.onRemoteGiveUp).not.toHaveBeenCalled();
+      // Should have retried and succeeded
+      expect(deps.reconnectionManager.resetBackoff).toHaveBeenCalledWith(
+        'peer1',
+      );
+      expect(deps.logger.log).toHaveBeenCalledWith(
+        expect.stringContaining('hit connection limit'),
+      );
+    });
+
     it('closes channel when connection limit is exceeded after dial', async () => {
       const { ResourceLimitError } = kernelErrors;
       (
