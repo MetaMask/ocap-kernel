@@ -4,9 +4,9 @@
 # This checks if artifacts already exist to avoid unnecessary rebuilds.
 # Pass --force or -f to rebuild even if build artifacts already exist.
 
-# Skip in Dependabot PRs (native builds aren't needed and may fail)
-if [ "$GITHUB_ACTOR" = "dependabot[bot]" ]; then
-    echo "⏭️  Skipping native rebuild in Dependabot PR"
+# Skip in Dependabot environments (native builds aren't needed and may fail)
+if "$(dirname "$0")/utils/check-dependabot.sh"; then
+    echo "⏭️  Skipping native rebuild in Dependabot environment"
     exit 0
 fi
 

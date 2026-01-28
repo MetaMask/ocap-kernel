@@ -14,7 +14,9 @@ describe('index', () => {
       'VatHandle',
       'VatIdStruct',
       'VatSupervisor',
+      'generateMnemonic',
       'initTransport',
+      'isValidMnemonic',
       'isVatConfig',
       'isVatId',
       'krefOf',
@@ -22,6 +24,7 @@ describe('index', () => {
       'kslot',
       'kunser',
       'makeKernelStore',
+      'mnemonicToSeed',
       'parseRef',
     ]);
   });
