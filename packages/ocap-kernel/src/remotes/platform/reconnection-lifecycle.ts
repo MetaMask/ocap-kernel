@@ -1,8 +1,7 @@
 import {
   isRetryableNetworkError,
-  ResourceLimitError,
+  isResourceLimitError,
 } from '@metamask/kernel-errors';
-import type { ResourceLimitErrorData } from '@metamask/kernel-errors';
 import {
   abortableDelay,
   DEFAULT_MAX_RETRY_ATTEMPTS,
@@ -134,11 +133,7 @@ export function makeReconnectionLifecycle(
         }
         // Handle rate limit errors (connectionRate) - these are temporary and
         // occur before any dial was performed, so don't count against retry quota
-        if (
-          problem instanceof ResourceLimitError &&
-          (problem.data as ResourceLimitErrorData | undefined)?.limitType ===
-            'connectionRate'
-        ) {
+        if (isResourceLimitError(problem, 'connectionRate')) {
           reconnectionManager.decrementAttempt(peerId);
           logger.log(
             `${peerId}:: reconnection attempt ${nextAttempt} rate limited, will retry after backoff`,
@@ -147,11 +142,7 @@ export function makeReconnectionLifecycle(
         }
         // Connection limit errors (limitType: 'connection') occur after dial -
         // the attempt counts and channel cleanup is handled in tryReconnect
-        if (
-          problem instanceof ResourceLimitError &&
-          (problem.data as ResourceLimitErrorData | undefined)?.limitType ===
-            'connection'
-        ) {
+        if (isResourceLimitError(problem, 'connection')) {
           logger.log(
             `${peerId}:: reconnection attempt ${nextAttempt} hit connection limit, will retry after backoff`,
           );
