@@ -1,1 +1,1 @@
-{"moduleFormat":"iife","code":"var __vatExports__ = (function(exports) { exports.test = 'This is merely a test bundle!'; return exports; })({});","exports":["test"],"modules":{}}
+{"moduleFormat":"iife","code":"var __vatExports__ = (function(exports) { exports.test = 'This is merely a test bundle!'; return exports; })({});","exports":["test"],"external":[]}
