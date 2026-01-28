@@ -6,8 +6,9 @@ import type {
   ClusterConfig,
   KernelStatus,
   Subcluster,
+  KernelFacet,
+  KernelFacetLaunchResult,
 } from '@metamask/ocap-kernel';
-import type { SlotValue } from '@metamask/ocap-kernel';
 
 /**
  * The kernel host vat's root object interface.
@@ -29,9 +30,7 @@ export type KernelHostRoot = {
    * @param config - Configuration for the subcluster.
    * @returns The launch result with subcluster ID and root presence.
    */
-  launchSubcluster: (
-    config: ClusterConfig,
-  ) => Promise<{ subclusterId: string; root: SlotValue }>;
+  launchSubcluster: (config: ClusterConfig) => Promise<KernelFacetLaunchResult>;
 
   /**
    * Terminate a subcluster.
@@ -68,21 +67,6 @@ export type KernelHostRoot = {
    *
    * @returns Array of all subclusters.
    */
-  getSubclusters: () => Subcluster[];
-};
-
-/**
- * The kernel facet interface as provided to system vat bootstrap.
- * This is the vatpower passed to the kernel host vat.
- */
-type KernelFacet = {
-  launchSubcluster: (
-    config: ClusterConfig,
-  ) => Promise<{ subclusterId: string; root: SlotValue }>;
-  terminateSubcluster: (subclusterId: string) => Promise<void>;
-  getStatus: () => Promise<KernelStatus>;
-  reloadSubcluster: (subclusterId: string) => Promise<Subcluster>;
-  getSubcluster: (subclusterId: string) => Subcluster | undefined;
   getSubclusters: () => Subcluster[];
 };
 
