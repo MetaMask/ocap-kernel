@@ -23,14 +23,14 @@ export class SlidingWindowRateLimiter {
    *
    * @param maxEvents - Maximum number of events allowed within the window.
    * @param windowMs - Window size in milliseconds.
-   * @throws Error if maxEvents or windowMs is not a positive number.
+   * @throws Error if maxEvents or windowMs is not a positive finite number.
    */
   constructor(maxEvents: number, windowMs: number) {
-    if (maxEvents <= 0) {
-      throw new Error('maxEvents must be a positive number');
+    if (!Number.isFinite(maxEvents) || maxEvents <= 0) {
+      throw new Error('maxEvents must be a positive finite number');
     }
-    if (windowMs <= 0) {
-      throw new Error('windowMs must be a positive number');
+    if (!Number.isFinite(windowMs) || windowMs <= 0) {
+      throw new Error('windowMs must be a positive finite number');
     }
     this.#maxEvents = maxEvents;
     this.#windowMs = windowMs;
