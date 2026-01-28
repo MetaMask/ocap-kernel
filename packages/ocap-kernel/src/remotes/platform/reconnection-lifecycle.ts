@@ -147,6 +147,16 @@ export function makeReconnectionLifecycle(
         }
         // Connection limit errors (limitType: 'connection') occur after dial -
         // the attempt counts and channel cleanup is handled in tryReconnect
+        if (
+          problem instanceof ResourceLimitError &&
+          (problem.data as ResourceLimitErrorData | undefined)?.limitType ===
+            'connection'
+        ) {
+          logger.log(
+            `${peerId}:: reconnection attempt ${nextAttempt} hit connection limit, will retry after backoff`,
+          );
+          continue;
+        }
         if (!isRetryableNetworkError(problem)) {
           outputError(peerId, `non-retryable failure`, problem);
           reconnectionManager.stopReconnection(peerId);
