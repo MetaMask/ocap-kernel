@@ -40,8 +40,10 @@ import { Fail } from './utils/assert.ts';
 
 export type VatId = string;
 export type RemoteId = string;
-export type EndpointId = VatId | RemoteId;
+export type SystemVatId = `sv${number}`;
+export type EndpointId = VatId | RemoteId | SystemVatId;
 export type SubclusterId = string;
+export type SystemSubclusterId = string;
 
 export type KRef = string;
 export type VRef = string;
@@ -221,10 +223,13 @@ export const isRemoteId = (value: unknown): value is RemoteId =>
   value.at(0) === 'r' &&
   value.slice(1) === String(Number(value.slice(1)));
 
-export const isEndpointId = (value: unknown): value is EndpointId =>
+export const isSystemVatId = (value: unknown): value is SystemVatId =>
   typeof value === 'string' &&
-  (value.at(0) === 'v' || value.at(0) === 'r') &&
-  value.slice(1) === String(Number(value.slice(1)));
+  value.startsWith('sv') &&
+  value.slice(2) === String(Number(value.slice(2)));
+
+export const isEndpointId = (value: unknown): value is EndpointId =>
+  isVatId(value) || isRemoteId(value) || isSystemVatId(value);
 
 /**
  * Assert that a value is a valid vat id.
@@ -247,6 +252,10 @@ export function insistEndpointId(value: unknown): asserts value is EndpointId {
 }
 
 export const VatIdStruct = define<VatId>('VatId', isVatId);
+export const SystemVatIdStruct = define<SystemVatId>(
+  'SystemVatId',
+  isSystemVatId,
+);
 
 export const isSubclusterId = (value: unknown): value is SubclusterId =>
   typeof value === 'string' &&
@@ -421,6 +430,47 @@ export type ClusterConfig = Infer<typeof ClusterConfigStruct>;
 
 export const isClusterConfig = (value: unknown): value is ClusterConfig =>
   is(value, ClusterConfigStruct);
+
+/**
+ * Function signature for building the root object of a system vat.
+ * System vats don't load bundles; they provide this function directly.
+ */
+export type SystemVatBuildRootObject = (
+  vatPowers: Record<string, unknown>,
+  parameters: Record<string, Json> | undefined,
+) => object;
+
+/**
+ * Configuration for a single system vat within a system subcluster.
+ */
+export type SystemVatConfig = {
+  buildRootObject: SystemVatBuildRootObject;
+  parameters?: Record<string, Json>;
+};
+
+/**
+ * Configuration for launching a system subcluster.
+ * System subclusters contain vats that run without compartment isolation
+ * directly in the host process.
+ */
+export type SystemSubclusterConfig = {
+  /** The name of the bootstrap vat within the subcluster. */
+  bootstrap: string;
+  /** Map of vat names to their configurations. */
+  vats: Record<string, SystemVatConfig>;
+  /** Optional list of kernel service names to provide to the bootstrap vat. */
+  services?: string[];
+};
+
+/**
+ * Result of launching a system subcluster.
+ */
+export type SystemSubclusterLaunchResult = {
+  /** The ID of the launched system subcluster. */
+  systemSubclusterId: SystemSubclusterId;
+  /** Map of vat names to their system vat IDs. */
+  vatIds: Record<string, SystemVatId>;
+};
 
 export const SubclusterStruct = object({
   id: SubclusterIdStruct,
