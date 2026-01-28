@@ -4,7 +4,7 @@ import 'ses';
 import '@endo/lockdown/commit.js';
 
 import bundleSource from '@endo/bundle-source';
-import { mkdir, writeFile, readFile } from 'node:fs/promises';
+import { mkdir, writeFile, copyFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { rimraf } from 'rimraf';
@@ -30,10 +30,9 @@ await Promise.all(
 );
 
 // Copy endoify-node.js (not bundled - imports peer dependency @libp2p/webrtc)
-const endoifyNodeContent = await readFile(
+await copyFile(
   path.resolve(srcDir, 'endoify-node.js'),
-  'utf8',
+  path.resolve(distDir, 'endoify-node.js'),
 );
-await writeFile(path.resolve(distDir, 'endoify-node.js'), endoifyNodeContent);
 
 console.log('Success!');
