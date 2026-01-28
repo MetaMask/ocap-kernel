@@ -14,7 +14,7 @@ export default defineConfig((args) => {
         pool: 'forks',
         setupFiles: [
           fileURLToPath(
-            import.meta.resolve('@metamask/kernel-shims/node-endoify'),
+            import.meta.resolve('@metamask/kernel-shims/endoify-node'),
           ),
         ],
         include: ['./test/e2e/**/*.test.ts'],

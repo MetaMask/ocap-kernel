@@ -13,7 +13,7 @@ export default defineConfig((args) => {
         name: 'nodejs',
         setupFiles: [
           fileURLToPath(
-            import.meta.resolve('@metamask/kernel-shims/node-endoify'),
+            import.meta.resolve('@metamask/kernel-shims/endoify-node'),
           ),
         ],
         include: ['./src/**/*.test.ts'],
