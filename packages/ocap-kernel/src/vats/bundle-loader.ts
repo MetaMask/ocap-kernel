@@ -36,7 +36,6 @@ export function loadBundle(
   const compartment = new Compartment({
     // SES globals that may be used by bundled code
     harden: globalThis.harden,
-    assert: globalThis.assert,
     ...endowments,
     ...inescapableGlobalProperties,
   });
