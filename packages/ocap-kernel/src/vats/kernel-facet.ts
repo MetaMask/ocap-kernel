@@ -12,7 +12,7 @@ import type {
 } from '../types.ts';
 
 /**
- * Dependencies required by KernelFacetService.
+ * Dependencies required to create a kernel facet.
  */
 export type KernelFacetDependencies = {
   launchSubcluster: (config: ClusterConfig) => Promise<{
@@ -38,8 +38,7 @@ export type KernelFacetLaunchResult = {
 };
 
 /**
- * Creates a kernel facet service object that provides privileged kernel
- * operations to system subclusters.
+ * Creates a kernel facet object that provides privileged kernel operations.
  *
  * The kernel facet is provided as a vatpower to the bootstrap vat of a
  * system subcluster. It enables the bootstrap vat to:
@@ -48,10 +47,10 @@ export type KernelFacetLaunchResult = {
  * - Reload subclusters
  * - Query kernel status
  *
- * @param deps - Dependencies for the kernel facet service.
- * @returns The kernel facet service object.
+ * @param deps - Dependencies for creating the kernel facet.
+ * @returns The kernel facet object.
  */
-export function makeKernelFacetService(deps: KernelFacetDependencies): object {
+export function makeKernelFacet(deps: KernelFacetDependencies): object {
   const {
     launchSubcluster,
     terminateSubcluster,

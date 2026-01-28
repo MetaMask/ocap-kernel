@@ -14,18 +14,22 @@ import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
   VatId,
+  SystemVatId,
   EndpointId,
   KRef,
   PlatformServices,
   ClusterConfig,
+  SystemSubclusterConfig,
   VatConfig,
   KernelStatus,
   Subcluster,
   SubclusterLaunchResult,
+  SystemSubclusterLaunchResult,
   EndpointHandle,
 } from './types.ts';
-import { isVatId, isRemoteId } from './types.ts';
+import { isVatId, isRemoteId, isSystemVatId } from './types.ts';
 import { SubclusterManager } from './vats/SubclusterManager.ts';
+import { SystemSubclusterManager } from './vats/SystemSubclusterManager.ts';
 import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
 
@@ -48,6 +52,9 @@ export class Kernel {
 
   /** Manages subcluster operations */
   readonly #subclusterManager: SubclusterManager;
+
+  /** Manages system subcluster operations */
+  readonly #systemSubclusterManager: SystemSubclusterManager;
 
   /** Manages remote kernel connections */
   readonly #remoteManager: RemoteManager;
@@ -153,6 +160,21 @@ export class Kernel {
       getKernelService: (name) =>
         this.#kernelServiceManager.getKernelService(name),
       queueMessage: this.queueMessage.bind(this),
+    });
+
+    this.#systemSubclusterManager = new SystemSubclusterManager({
+      kernelStore: this.#kernelStore,
+      kernelQueue: this.#kernelQueue,
+      kernelFacetDeps: {
+        launchSubcluster: this.launchSubcluster.bind(this),
+        terminateSubcluster: this.terminateSubcluster.bind(this),
+        reloadSubcluster: this.reloadSubcluster.bind(this),
+        getSubcluster: this.getSubcluster.bind(this),
+        getSubclusters: this.getSubclusters.bind(this),
+        getStatus: this.getStatus.bind(this),
+        logger: this.#logger.subLogger({ tags: ['KernelFacet'] }),
+      },
+      logger: this.#logger.subLogger({ tags: ['SystemSubclusterManager'] }),
     });
 
     this.#kernelRouter = new KernelRouter(
@@ -306,6 +328,35 @@ export class Kernel {
   }
 
   /**
+   * Launches a system subcluster.
+   *
+   * System subclusters contain vats that run without compartment isolation
+   * directly in the host process. The bootstrap vat receives a kernel facet
+   * as a vatpower, enabling it to launch dynamic subclusters and receive
+   * E()-callable presences.
+   *
+   * @param config - Configuration for the system subcluster.
+   * @returns A promise for the launch result containing system subcluster ID and vat IDs.
+   */
+  async launchSystemSubcluster(
+    config: SystemSubclusterConfig,
+  ): Promise<SystemSubclusterLaunchResult> {
+    return this.#systemSubclusterManager.launchSystemSubcluster(config);
+  }
+
+  /**
+   * Terminates a system subcluster.
+   *
+   * @param systemSubclusterId - The ID of the system subcluster to terminate.
+   * @returns A promise that resolves when termination is complete.
+   */
+  async terminateSystemSubcluster(systemSubclusterId: string): Promise<void> {
+    return this.#systemSubclusterManager.terminateSystemSubcluster(
+      systemSubclusterId,
+    );
+  }
+
+  /**
    * Terminates a named sub-cluster of vats.
    *
    * @param subclusterId - The id of the subcluster to terminate.
@@ -401,7 +452,7 @@ export class Kernel {
    *
    * @param endpointId - The ID of the endpoint to retrieve.
    * @returns The endpoint handle for the given ID.
-   * @throws If the endpoint ID is invalid (neither a vat ID nor a remote ID).
+   * @throws If the endpoint ID is invalid (neither a vat ID, remote ID, nor system vat ID).
    */
   #getEndpoint(endpointId: EndpointId): EndpointHandle {
     if (isVatId(endpointId)) {
@@ -409,6 +460,15 @@ export class Kernel {
     }
     if (isRemoteId(endpointId)) {
       return this.#remoteManager.getRemote(endpointId);
+    }
+    if (isSystemVatId(endpointId)) {
+      const systemVatId = endpointId as SystemVatId;
+      const handle =
+        this.#systemSubclusterManager.getSystemVatHandle(systemVatId);
+      if (!handle) {
+        throw Error(`system vat ${systemVatId} not found`);
+      }
+      return handle;
     }
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
     throw Error(`invalid endpoint ID ${endpointId}`);
