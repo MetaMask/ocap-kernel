@@ -1,18 +1,14 @@
-import type { Plugin, RenderedModule } from 'rollup';
+import type { Plugin } from 'rollup';
 
-export type BundleMetadata = {
+type BundleMetadata = {
   exports: string[];
-  modules: Record<
-    string,
-    { renderedExports: string[]; removedExports: string[] }
-  >;
+  external: string[];
 };
 
 /**
  * Rollup plugin that captures export metadata from the bundle.
  *
- * Uses the `generateBundle` hook to extract the exports array and
- * per-module metadata (renderedExports and removedExports) from the
+ * Uses the `generateBundle` hook to extract the exports array from the
  * entry chunk.
  *
  * @returns A plugin with an additional `getMetadata()` method.
@@ -20,26 +16,14 @@ export type BundleMetadata = {
 export function exportMetadataPlugin(): Plugin & {
   getMetadata: () => BundleMetadata;
 } {
-  const metadata: BundleMetadata = { exports: [], modules: {} };
+  const metadata: BundleMetadata = { exports: [], external: [] };
 
   return {
     name: 'export-metadata',
     generateBundle(_, bundle) {
       for (const chunk of Object.values(bundle)) {
         if (chunk.type === 'chunk' && chunk.isEntry) {
-          const outputChunk = chunk;
-          metadata.exports = outputChunk.exports;
-          metadata.modules = Object.fromEntries(
-            Object.entries(outputChunk.modules).map(
-              ([id, info]: [string, RenderedModule]) => [
-                id,
-                {
-                  renderedExports: info.renderedExports,
-                  removedExports: info.removedExports,
-                },
-              ],
-            ),
-          );
+          metadata.exports = chunk.exports;
         }
       }
     },
