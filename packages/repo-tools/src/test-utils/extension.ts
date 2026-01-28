@@ -1,10 +1,37 @@
 import { chromium, test } from '@playwright/test';
-import type { BrowserContext, ConsoleMessage, Page } from '@playwright/test';
+import type {
+  BrowserContext,
+  CDPSession,
+  ConsoleMessage,
+  Page,
+} from '@playwright/test';
 import { appendFileSync } from 'node:fs';
 import { mkdir } from 'node:fs/promises';
 import { rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
+
+// CDP event types for Runtime domain
+// These are simplified versions of the Chrome DevTools Protocol types
+type CdpRemoteObject = {
+  type: string;
+  value?: unknown;
+  description?: string;
+};
+
+type CdpExecutionContextCreatedEvent = {
+  context: {
+    id: number;
+    origin: string;
+    auxData?: { frameId?: string };
+  };
+};
+
+type CdpConsoleAPICalledEvent = {
+  type: string;
+  args: CdpRemoteObject[];
+  executionContextId: number;
+};
 
 export const sessionPath = path.resolve(os.tmpdir(), 'ocap-test');
 
@@ -75,6 +102,22 @@ export const makeLoadExtension = async ({
     );
   };
 
+  /**
+   * Write a raw log entry (for CDP events where we don't have a ConsoleMessage).
+   *
+   * @param source - The source identifier for the log.
+   * @param type - The console method type.
+   * @param text - The log message text.
+   */
+  const writeRawLog = (source: string, type: string, text: string): void => {
+    const logTimestamp = new Date().toISOString().slice(0, -5);
+    // eslint-disable-next-line n/no-sync
+    appendFileSync(
+      logFilePath,
+      `[${logTimestamp}] [${source}] [${type}] ${text}\n`,
+    );
+  };
+
   const browserArgs = [
     `--disable-features=ExtensionDisableUnsupportedDeveloper`,
     `--disable-extensions-except=${extensionPath}`,
@@ -100,6 +143,9 @@ export const makeLoadExtension = async ({
     );
   });
 
+  // Track CDP sessions for cleanup
+  const cdpSessions: CDPSession[] = [];
+
   // Capture console logs from extension pages (offscreen document, etc.)
   // Note: Pages may start at about:blank, so we attach the listener and check URL in the handler
   browserContext.on('page', (page) => {
@@ -108,6 +154,20 @@ export const makeLoadExtension = async ({
         writeLog('offscreen', consoleMessage);
       }
     });
+
+    // Capture Web Worker console logs (e.g., kernel worker)
+    page.on('worker', (worker) => {
+      worker.on('console', (consoleMessage) => {
+        writeLog('kernel-worker', consoleMessage);
+      });
+    });
+
+    // Set up CDP to capture iframe console logs (vat iframes)
+    // We need to do this because Playwright doesn't have frame.on('console')
+    setupCdpForIframeConsoleLogs(page, writeRawLog, cdpSessions).catch(
+      // eslint-disable-next-line no-console
+      (error) => console.warn('Failed to set up CDP for iframe logs:', error),
+    );
   });
 
   // Wait for the extension to be loaded
@@ -132,3 +192,76 @@ export const makeLoadExtension = async ({
 
   return { browserContext, extensionId, popupPage, logFilePath };
 };
+
+/**
+ * Sets up Chrome DevTools Protocol (CDP) to capture console logs from iframes.
+ * Playwright doesn't provide `frame.on('console')`, so we use CDP's Runtime domain
+ * to listen for console API calls from all execution contexts including iframes.
+ *
+ * @param page - The Playwright page to set up CDP for.
+ * @param writeRawLog - Function to write raw log entries.
+ * @param cdpSessions - Array to track CDP sessions for cleanup.
+ */
+async function setupCdpForIframeConsoleLogs(
+  page: Page,
+  writeRawLog: (source: string, type: string, text: string) => void,
+  cdpSessions: CDPSession[],
+): Promise<void> {
+  // Only set up CDP for pages that might have iframes (offscreen document)
+  if (!page.url().includes('offscreen.html')) {
+    return;
+  }
+
+  const cdpSession = await page.context().newCDPSession(page);
+  cdpSessions.push(cdpSession);
+
+  // Enable Runtime domain to receive console events
+  await cdpSession.send('Runtime.enable');
+
+  // Track execution contexts to identify iframe sources
+  const executionContexts = new Map<number, string>();
+
+  // Listen for new execution contexts (iframes get their own context)
+  cdpSession.on(
+    'Runtime.executionContextCreated',
+    (event: CdpExecutionContextCreatedEvent) => {
+      const { id, origin, auxData } = event.context;
+      // auxData.frameId can help identify the iframe
+      const frameId = auxData?.frameId;
+      const source = frameId ? `iframe-${frameId.slice(0, 8)}` : `ctx-${id}`;
+      executionContexts.set(id, origin.includes('iframe') ? source : origin);
+    },
+  );
+
+  // Listen for console API calls from all contexts (including iframes)
+  cdpSession.on(
+    'Runtime.consoleAPICalled',
+    (event: CdpConsoleAPICalledEvent) => {
+      const { type, args, executionContextId } = event;
+
+      // Format args into a readable string
+      const text = args
+        .map((arg) => {
+          if (arg.value !== undefined) {
+            return typeof arg.value === 'string'
+              ? arg.value
+              : JSON.stringify(arg.value);
+          }
+          return arg.description ?? arg.type;
+        })
+        .join(' ');
+
+      // Determine the source based on execution context
+      const contextSource = executionContexts.get(executionContextId);
+      const source = contextSource?.startsWith('iframe')
+        ? contextSource
+        : `iframe-ctx-${executionContextId}`;
+
+      // Only log if it looks like an iframe context (avoid duplicating main page logs)
+      // Main page logs are already captured via page.on('console')
+      if (contextSource?.startsWith('iframe') || executionContextId > 1) {
+        writeRawLog(source, type, text);
+      }
+    },
+  );
+}
