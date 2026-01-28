@@ -12,11 +12,13 @@ import { NodejsPlatformServices } from '../../src/kernel/PlatformServices.ts';
  *
  * @param kernelDatabase - The kernel database to use.
  * @param resetStorage - Whether to reset the storage.
+ * @param mnemonic - Optional BIP39 mnemonic for identity recovery.
  * @returns The kernel.
  */
 export async function makeTestKernel(
   kernelDatabase: KernelDatabase,
   resetStorage: boolean,
+  mnemonic?: string,
 ): Promise<Kernel> {
   const logger = new Logger('test-kernel');
   const platformServices = new NodejsPlatformServices({
@@ -24,6 +26,7 @@ export async function makeTestKernel(
   });
   const kernel = await Kernel.make(platformServices, kernelDatabase, {
     resetStorage,
+    mnemonic,
     logger: logger.subLogger({ tags: ['kernel'] }),
   });
 

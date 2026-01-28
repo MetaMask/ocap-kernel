@@ -8,6 +8,7 @@ import { base58btc } from 'multiformats/bases/base58';
 
 import type { KernelStore } from '../../store/index.ts';
 import type { PlatformServices } from '../../types.ts';
+import { mnemonicToSeed } from '../../utils/bip39.ts';
 import type {
   RemoteComms,
   RemoteMessageHandler,
@@ -120,7 +121,7 @@ export async function initRemoteComms(
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   const { kv } = kernelStore;
-  const { relays = [] } = options;
+  const { relays = [], mnemonic } = options;
   if (relays.length > 0) {
     kv.set('knownRelays', JSON.stringify(relays));
   }
@@ -128,13 +129,22 @@ export async function initRemoteComms(
   /* eslint-disable no-param-reassign */
   const possiblePeerId = kv.get('peerId');
   if (possiblePeerId) {
+    // If a mnemonic is provided but identity already exists, throw an error
+    // to avoid silently using a different identity than expected
+    if (mnemonic) {
+      throw Error(
+        'Cannot use mnemonic: kernel identity already exists. Use resetStorage to clear existing identity first.',
+      );
+    }
     keySeed = kv.getRequired('keySeed');
     peerId = possiblePeerId;
     logger?.log(`comms init: existing peer id: ${peerId}`);
   } else {
-    // XXX TODO: Instead of generating a new random seed unconditionally, this
-    // function should accept an optional BIP39 keyphrase parameter for the
-    // seed, to enable a kernel to recover its identity on a new host.
+    // If a mnemonic is provided, derive the seed from it
+    if (mnemonic) {
+      keySeed = await mnemonicToSeed(mnemonic);
+      logger?.log('comms init: using mnemonic for seed recovery');
+    }
     [keySeed, peerId] = await generateKeyInfo(keySeed);
     kv.set('keySeed', keySeed);
     kv.set('peerId', peerId);
