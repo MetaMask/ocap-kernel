@@ -318,6 +318,8 @@ export async function initTransport(
     checkConnectionLimit,
     checkConnectionRateLimit: (peerId: string) =>
       connectionRateLimiter.checkAndRecord(peerId, 'connectionRate'),
+    closeChannel: async (channel, peerId) =>
+      connectionFactory.closeChannel(channel, peerId),
     registerChannel,
   });
   reconnectionHolder.handleConnectionLoss =
