@@ -22,7 +22,7 @@
     "./endoify": "./dist/endoify.js",
     "./endoify-repair": "./dist/endoify-repair.js",
     "./eventual-send": "./dist/eventual-send.js",
-    "./endoify-node": "./src/endoify-node.js",
+    "./endoify-node": "./dist/endoify-node.js",
     "./package.json": "./package.json"
   },
   "main": "./dist/endoify.js",

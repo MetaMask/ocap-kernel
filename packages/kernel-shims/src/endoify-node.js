@@ -1,7 +1,7 @@
 /* global hardenIntrinsics */
 
 // Node.js-specific endoify that imports modules which modify globals before lockdown.
-// This file is NOT bundled - it must be imported directly from src/.
+// This file is copied (not bundled) to dist/ during build.
 
 import './endoify-repair.js';
 
