@@ -23,16 +23,19 @@ describe('makeKernelHostSubclusterConfig', () => {
 
     expect(config.bootstrap).toBe('kernelHost');
     expect(config.vats.kernelHost).toBeDefined();
-    expect(config.vats.kernelHost.buildRootObject).toBeTypeOf('function');
+    expect(config.vats?.kernelHost?.buildRootObject).toBeTypeOf('function');
   });
 
   it('invokes onRootCreated callback when buildRootObject is called', () => {
     const onRootCreated = vi.fn();
     const config = makeKernelHostSubclusterConfig(onRootCreated);
 
-    const root = config.vats.kernelHost.buildRootObject({
-      kernelFacet: mockKernelFacet,
-    });
+    const root = config.vats?.kernelHost?.buildRootObject(
+      {
+        kernelFacet: mockKernelFacet,
+      },
+      {},
+    );
 
     expect(onRootCreated).toHaveBeenCalledWith(root);
   });
@@ -43,9 +46,12 @@ describe('makeKernelHostSubclusterConfig', () => {
     beforeEach(() => {
       const onRootCreated = vi.fn();
       const config = makeKernelHostSubclusterConfig(onRootCreated);
-      root = config.vats.kernelHost.buildRootObject({
-        kernelFacet: mockKernelFacet,
-      }) as KernelHostRoot;
+      root = config.vats?.kernelHost?.buildRootObject(
+        {
+          kernelFacet: mockKernelFacet,
+        },
+        {},
+      ) as KernelHostRoot;
     });
 
     it('creates root with expected methods', () => {
