@@ -4,16 +4,13 @@ import { isObject, hasProperty } from '@metamask/utils';
  * A bundle produced by the vat bundler.
  *
  * Contains the bundled code as an IIFE that assigns exports to `__vatExports__`,
- * along with metadata about the bundle's exports and modules.
+ * along with metadata about the bundle's exports and external dependencies.
  */
 export type VatBundle = {
   moduleFormat: 'iife';
   code: string;
   exports: string[];
-  modules: Record<
-    string,
-    { renderedExports: string[]; removedExports: string[] }
-  >;
+  external: string[];
 };
 
 /**
@@ -30,6 +27,5 @@ export const isVatBundle = (value: unknown): value is VatBundle =>
   typeof value.code === 'string' &&
   hasProperty(value, 'exports') &&
   Array.isArray(value.exports) &&
-  hasProperty(value, 'modules') &&
-  typeof value.modules === 'object' &&
-  value.modules !== null;
+  hasProperty(value, 'external') &&
+  Array.isArray(value.external);

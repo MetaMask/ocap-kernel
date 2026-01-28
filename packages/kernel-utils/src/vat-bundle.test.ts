@@ -9,19 +9,17 @@ describe('isVatBundle', () => {
         moduleFormat: 'iife',
         code: 'var __vatExports__ = {};',
         exports: ['foo', 'bar'],
-        modules: {
-          './module.js': { renderedExports: ['a'], removedExports: ['b'] },
-        },
+        external: [],
       };
       expect(isVatBundle(bundle)).toBe(true);
     });
 
-    it('accepts VatBundle with empty exports and modules', () => {
+    it('accepts VatBundle with empty exports and external', () => {
       const bundle = {
         moduleFormat: 'iife',
         code: 'var __vatExports__ = {};',
         exports: [],
-        modules: {},
+        external: [],
       };
       expect(isVatBundle(bundle)).toBe(true);
     });
@@ -32,7 +30,7 @@ describe('isVatBundle', () => {
       const bundle = {
         code: 'var __vatExports__ = {};',
         exports: [],
-        modules: {},
+        external: [],
       };
       expect(isVatBundle(bundle)).toBe(false);
     });
@@ -41,7 +39,7 @@ describe('isVatBundle', () => {
       const bundle = {
         moduleFormat: 'iife',
         exports: [],
-        modules: {},
+        external: [],
       };
       expect(isVatBundle(bundle)).toBe(false);
     });
@@ -50,12 +48,12 @@ describe('isVatBundle', () => {
       const bundle = {
         moduleFormat: 'iife',
         code: 'var __vatExports__ = {};',
-        modules: {},
+        external: [],
       };
       expect(isVatBundle(bundle)).toBe(false);
     });
 
-    it('rejects object missing modules', () => {
+    it('rejects object missing external', () => {
       const bundle = {
         moduleFormat: 'iife',
         code: 'var __vatExports__ = {};',
@@ -71,7 +69,7 @@ describe('isVatBundle', () => {
         moduleFormat: 'cjs',
         code: 'var __vatExports__ = {};',
         exports: [],
-        modules: {},
+        external: [],
       };
       expect(isVatBundle(bundle)).toBe(false);
     });
@@ -81,7 +79,7 @@ describe('isVatBundle', () => {
         moduleFormat: 'iife',
         code: 123,
         exports: [],
-        modules: {},
+        external: [],
       };
       expect(isVatBundle(bundle)).toBe(false);
     });
