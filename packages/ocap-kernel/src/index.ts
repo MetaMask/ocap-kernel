@@ -13,6 +13,13 @@ export type {
   Subcluster,
   SubclusterId,
   SubclusterLaunchResult,
+  // System vat types
+  SystemVatId,
+  SystemSubclusterId,
+  SystemSubclusterConfig,
+  SystemVatConfig,
+  SystemVatBuildRootObject,
+  SystemSubclusterLaunchResult,
 } from './types.ts';
 export type {
   RemoteMessageHandler,
@@ -30,6 +37,9 @@ export {
   CapDataStruct,
   KernelStatusStruct,
   SubclusterStruct,
+  // System vat exports
+  isSystemVatId,
+  SystemVatIdStruct,
 } from './types.ts';
 export { kunser, kser, kslot, krefOf } from './liveslots/kernel-marshal.ts';
 export type { SlotValue } from './liveslots/kernel-marshal.ts';
