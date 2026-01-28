@@ -23,11 +23,22 @@ export type KernelFacetDependencies = Pick<
 
 /**
  * Result of launching a subcluster via the kernel facet.
- * Contains the root object as a slot value (which will become a presence).
+ * Contains the root object as a slot value (which will become a presence)
+ * and the root kref string for storage purposes.
  */
 export type KernelFacetLaunchResult = {
+  /** The ID of the launched subcluster. */
   subclusterId: string;
+  /**
+   * The root object as a slot value (becomes a presence when marshalled).
+   * Use this directly with E() for immediate operations.
+   */
   root: SlotValue;
+  /**
+   * The root kref string for storage purposes.
+   * Store this value to restore the presence after restart using getSubclusterRoot().
+   */
+  rootKref: string;
 };
 
 /**
@@ -52,6 +63,16 @@ export type KernelFacet = Omit<
    * @returns A promise for the launch result containing subclusterId and root presence.
    */
   launchSubcluster: (config: ClusterConfig) => Promise<KernelFacetLaunchResult>;
+
+  /**
+   * Convert a kref string to a slot value (presence).
+   *
+   * Use this to restore a presence from a stored kref string after restart.
+   *
+   * @param kref - The kref string to convert.
+   * @returns The slot value that will become a presence when marshalled.
+   */
+  getVatRoot: (kref: string) => SlotValue;
 };
 
 /**
@@ -99,6 +120,7 @@ export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
       return {
         subclusterId: result.subclusterId,
         root: kslot(result.bootstrapRootKref, 'vatRoot'),
+        rootKref: result.bootstrapRootKref,
       };
     },
 
@@ -152,6 +174,18 @@ export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
      */
     async getStatus(): Promise<KernelStatus> {
       return getStatus();
+    },
+
+    /**
+     * Convert a kref string to a slot value (presence).
+     *
+     * Use this to restore a presence from a stored kref string after restart.
+     *
+     * @param kref - The kref string to convert.
+     * @returns The slot value that will become a presence when marshalled.
+     */
+    getVatRoot(kref: string): SlotValue {
+      return kslot(kref, 'vatRoot');
     },
   });
 

@@ -68,6 +68,16 @@ export type KernelHostRoot = {
    * @returns Array of all subclusters.
    */
   getSubclusters: () => Subcluster[];
+
+  /**
+   * Convert a kref string to a presence.
+   *
+   * Use this to restore a presence from a stored kref string after restart.
+   *
+   * @param kref - The kref string to convert.
+   * @returns The presence for the given kref.
+   */
+  getVatRoot: (kref: string) => unknown;
 };
 
 /**
@@ -110,6 +120,11 @@ export function makeKernelHostSubclusterConfig(
       getSubclusters: () => {
         // Synchronous method - call directly
         return kernelFacet.getSubclusters();
+      },
+
+      getVatRoot: async (kref: string) => {
+        // Convert kref to slot value, which becomes a presence via liveslots
+        return kernelFacet.getVatRoot(kref);
       },
     }) as KernelHostRoot;
 
