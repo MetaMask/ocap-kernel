@@ -132,6 +132,9 @@ export function makeReconnectionLifecycle(
         // Rate limit errors are temporary - skip this attempt but continue the loop
         // The backoff delay will naturally space out attempts
         if (problem instanceof ResourceLimitError) {
+          // Don't count rate-limited attempts against the retry quota since
+          // no actual dial was performed
+          reconnectionManager.decrementAttempt(peerId);
           logger.log(
             `${peerId}:: reconnection attempt ${nextAttempt} rate limited, will retry after backoff`,
           );

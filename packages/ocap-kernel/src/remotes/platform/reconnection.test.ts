@@ -126,6 +126,43 @@ describe('ReconnectionManager', () => {
     });
   });
 
+  describe('decrementAttempt', () => {
+    it('decrements attempt count', () => {
+      manager.incrementAttempt('peer1');
+      manager.incrementAttempt('peer1');
+      expect(manager.getAttemptCount('peer1')).toBe(2);
+
+      manager.decrementAttempt('peer1');
+      expect(manager.getAttemptCount('peer1')).toBe(1);
+
+      manager.decrementAttempt('peer1');
+      expect(manager.getAttemptCount('peer1')).toBe(0);
+    });
+
+    it('does not go below zero', () => {
+      expect(manager.getAttemptCount('peer1')).toBe(0);
+
+      manager.decrementAttempt('peer1');
+      expect(manager.getAttemptCount('peer1')).toBe(0);
+    });
+
+    it('handles decrement on new peer without prior state', () => {
+      manager.decrementAttempt('newpeer');
+      expect(manager.getAttemptCount('newpeer')).toBe(0);
+    });
+
+    it('only affects specified peer', () => {
+      manager.incrementAttempt('peer1');
+      manager.incrementAttempt('peer1');
+      manager.incrementAttempt('peer2');
+
+      manager.decrementAttempt('peer1');
+
+      expect(manager.getAttemptCount('peer1')).toBe(1);
+      expect(manager.getAttemptCount('peer2')).toBe(1);
+    });
+  });
+
   describe('resetBackoff', () => {
     it('resets attempt count to zero', () => {
       manager.incrementAttempt('peer1');

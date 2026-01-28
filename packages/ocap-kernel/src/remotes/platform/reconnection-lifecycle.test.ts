@@ -69,6 +69,7 @@ describe('reconnection-lifecycle', () => {
         isReconnecting: vi.fn().mockReturnValue(true),
         shouldRetry: vi.fn().mockReturnValue(true),
         incrementAttempt: vi.fn().mockReturnValue(1),
+        decrementAttempt: vi.fn(),
         calculateBackoff: vi.fn().mockReturnValue(100),
         startReconnection: vi.fn(),
         stopReconnection: vi.fn(),
@@ -361,6 +362,35 @@ describe('reconnection-lifecycle', () => {
       );
       expect(deps.logger.log).toHaveBeenCalledWith(
         expect.stringContaining('rate limited'),
+      );
+    });
+
+    it('decrements attempt count when rate limited to preserve retry quota', async () => {
+      const { ResourceLimitError } = kernelErrors;
+      (
+        deps.checkConnectionRateLimit as ReturnType<typeof vi.fn>
+      ).mockImplementationOnce(() => {
+        throw new ResourceLimitError('Rate limit exceeded', {
+          data: { limitType: 'connectionRate', current: 10, limit: 10 },
+        });
+      });
+
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true) // First attempt - rate limited
+        .mockReturnValueOnce(true) // Second attempt - success
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      // Should have decremented attempt count when rate limited
+      // so that rate-limited attempts don't consume retry quota
+      expect(deps.reconnectionManager.decrementAttempt).toHaveBeenCalledWith(
+        'peer1',
+      );
+      expect(deps.reconnectionManager.decrementAttempt).toHaveBeenCalledTimes(
+        1,
       );
     });
 
