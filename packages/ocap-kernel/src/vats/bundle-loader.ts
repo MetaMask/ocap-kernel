@@ -1,5 +1,3 @@
-import type { VatBundle } from '@metamask/kernel-utils';
-
 export type LoadBundleOptions = {
   endowments?: object;
   inescapableGlobalProperties?: object;
@@ -31,8 +29,6 @@ export function loadBundle(
     throw new Error('Invalid bundle: code must be a string');
   }
 
-  const bundle = parsed as unknown as VatBundle;
-
   const compartment = new Compartment({
     // SES globals that may be used by bundled code
     harden: globalThis.harden,
@@ -42,7 +38,7 @@ export function loadBundle(
   // The code declares `var __vatExports__ = (function(){...})({});`
   // We wrap it in an IIFE to capture and return the result.
   const vatExports = compartment.evaluate(
-    `(function() { ${bundle.code}; return __vatExports__; })()`,
+    `(function() { ${parsed.code}; return __vatExports__; })()`,
   );
   return vatExports as Record<string, unknown>;
 }
