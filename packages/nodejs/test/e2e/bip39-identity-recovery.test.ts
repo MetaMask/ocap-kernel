@@ -1,5 +1,3 @@
-import '../../src/env/endoify.ts';
-
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Kernel } from '@metamask/ocap-kernel';
 import { describe, it, expect } from 'vitest';
