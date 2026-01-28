@@ -1,6 +1,3 @@
-// Real endoify needed for CapTP and E() to work properly
-import '@ocap/nodejs/endoify-ts';
-
 import { E } from '@endo/eventual-send';
 import type { ClusterConfig, Kernel } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';

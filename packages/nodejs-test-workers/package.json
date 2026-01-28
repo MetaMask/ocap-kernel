@@ -81,6 +81,7 @@
     "node": "^20.11 || >=22"
   },
   "dependencies": {
+    "@metamask/kernel-shims": "workspace:^",
     "@metamask/logger": "workspace:^",
     "@metamask/ocap-kernel": "workspace:^",
     "@ocap/nodejs": "workspace:^"

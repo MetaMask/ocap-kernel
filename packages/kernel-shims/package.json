@@ -22,6 +22,7 @@
     "./endoify": "./dist/endoify.js",
     "./endoify-repair": "./dist/endoify-repair.js",
     "./eventual-send": "./dist/eventual-send.js",
+    "./endoify-node": "./dist/endoify-node.js",
     "./package.json": "./package.json"
   },
   "main": "./dist/endoify.js",
@@ -80,6 +81,9 @@
     "typescript-eslint": "^8.29.0",
     "vite": "^7.3.0",
     "vitest": "^4.0.16"
+  },
+  "peerDependencies": {
+    "@libp2p/webrtc": "5.2.24"
   },
   "engines": {
     "node": "^20.11 || >=22"

@@ -2308,7 +2308,6 @@ __metadata:
     "@metamask/superstruct": "npm:^3.2.1"
     "@metamask/utils": "npm:^11.9.0"
     "@ocap/kernel-platforms": "workspace:^"
-    "@ocap/nodejs": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"
     "@ts-bridge/shims": "npm:^0.1.1"
@@ -2457,6 +2456,8 @@ __metadata:
     typescript-eslint: "npm:^8.29.0"
     vite: "npm:^7.3.0"
     vitest: "npm:^4.0.16"
+  peerDependencies:
+    "@libp2p/webrtc": 5.2.24
   languageName: unknown
   linkType: soft
 
@@ -3734,6 +3735,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^15.0.0"
     "@metamask/eslint-config-nodejs": "npm:^15.0.0"
     "@metamask/eslint-config-typescript": "npm:^15.0.0"
+    "@metamask/kernel-shims": "workspace:^"
     "@metamask/kernel-store": "workspace:^"
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/logger": "workspace:^"
@@ -3835,6 +3837,7 @@ __metadata:
     "@metamask/eslint-config": "npm:^15.0.0"
     "@metamask/eslint-config-nodejs": "npm:^15.0.0"
     "@metamask/eslint-config-typescript": "npm:^15.0.0"
+    "@metamask/kernel-shims": "workspace:^"
     "@metamask/logger": "workspace:^"
     "@metamask/ocap-kernel": "workspace:^"
     "@ocap/nodejs": "workspace:^"

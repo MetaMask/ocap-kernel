@@ -16,24 +16,7 @@ declare global {
   var E: typeof import('@endo/eventual-send').E;
 
   // eslint-disable-next-line no-var
-  var kernel: {
-    /**
-     * Ping the kernel to verify connectivity.
-     */
-    ping: () => Promise<void>;
-
-    /**
-     * Get the kernel remote presence for use with E().
-     *
-     * @returns A promise for the kernel facade remote presence.
-     * @example
-     * ```typescript
-     * const kernel = await kernel.getKernel();
-     * const status = await E(kernel).getStatus();
-     * ```
-     */
-    getKernel: () => Promise<KernelFacade>;
-  };
+  var kernel: KernelFacade | Promise<KernelFacade>;
 }
 
 export {};
