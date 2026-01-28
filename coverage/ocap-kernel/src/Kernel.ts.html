@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.66% </span>
+                <span class="strong">91.13% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>71/75</span>
+                <span class='fraction'>72/79</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">87.5% </span>
+                <span class="strong">83.33% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>14/16</span>
+                <span class='fraction'>15/18</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">94.66% </span>
+                <span class="strong">91.13% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>71/75</span>
+                <span class='fraction'>72/79</span>
             </div>
         
             
@@ -627,7 +627,21 @@
 <a name='L562'></a><a href='#L562'>562</a>
 <a name='L563'></a><a href='#L563'>563</a>
 <a name='L564'></a><a href='#L564'>564</a>
-<a name='L565'></a><a href='#L565'>565</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L565'></a><a href='#L565'>565</a>
+<a name='L566'></a><a href='#L566'>566</a>
+<a name='L567'></a><a href='#L567'>567</a>
+<a name='L568'></a><a href='#L568'>568</a>
+<a name='L569'></a><a href='#L569'>569</a>
+<a name='L570'></a><a href='#L570'>570</a>
+<a name='L571'></a><a href='#L571'>571</a>
+<a name='L572'></a><a href='#L572'>572</a>
+<a name='L573'></a><a href='#L573'>573</a>
+<a name='L574'></a><a href='#L574'>574</a>
+<a name='L575'></a><a href='#L575'>575</a>
+<a name='L576'></a><a href='#L576'>576</a>
+<a name='L577'></a><a href='#L577'>577</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -735,6 +749,13 @@
 <span class="cline-any cline-yes">123x</span>
 <span class="cline-any cline-yes">57x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">57x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">123x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -748,6 +769,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">123x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -797,6 +819,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">123x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1278,6 +1302,7 @@ export class Kernel {
    * @param options.resetStorage - If true, the storage will be cleared.
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
+   * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
@@ -1287,6 +1312,7 @@ export class Kernel {
       resetStorage?: boolean;
       logger?: Logger;
       keySeed?: string | undefined;
+      mnemonic?: string | undefined;
     } = {},
   ) {
     this.#platformServices = platformServices;
@@ -1298,6 +1324,13 @@ export class Kernel {
 &nbsp;
     if (options.resetStorage) {
       this.#resetKernelState();
+      // If mnemonic is provided with resetStorage, also clear identity
+      // to allow recovery with the new mnemonic
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (options.mnemonic) {
+<span class="cstat-no" title="statement not covered" >        this.#kernelStore.kv.delete('keySeed');</span>
+<span class="cstat-no" title="statement not covered" >        this.#kernelStore.kv.delete('peerId');</span>
+<span class="cstat-no" title="statement not covered" >        this.#kernelStore.kv.delete('ocapURLKey');</span>
+      }
     }
     this.#kernelQueue = new KernelQueue(
       this.#kernelStore,
@@ -1317,6 +1350,7 @@ export class Kernel {
       kernelQueue: this.#kernelQueue,
       logger: this.#logger.subLogger({ tags: ['RemoteManager'] }),
       keySeed: options.keySeed,
+      mnemonic: options.mnemonic,
     });
 &nbsp;
     this.#ocapURLManager = new OcapURLManager({
@@ -1372,6 +1406,7 @@ export class Kernel {
    * @param options.resetStorage - If true, the storage will be cleared.
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
+   * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
    * @returns A promise for the new kernel instance.
    */
   static async make(
@@ -1381,6 +1416,7 @@ export class Kernel {
       resetStorage?: boolean;
       logger?: Logger;
       keySeed?: string | undefined;
+      mnemonic?: string | undefined;
     } = {},
   ): Promise&lt;Kernel&gt; {
     const kernel = new Kernel(platformServices, kernelDatabase, options);
@@ -1762,7 +1798,7 @@ harden(Kernel);
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-01-28T00:22:48.784Z
+                at 2026-01-28T09:17:56.845Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
