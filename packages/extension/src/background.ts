@@ -4,6 +4,8 @@ import {
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
+  isConsoleForwardMessage,
+  handleConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
 import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
 import defaultSubcluster from '@metamask/kernel-browser-runtime/default-cluster';
@@ -13,34 +15,6 @@ import { Logger } from '@metamask/logger';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
 defineGlobals();
-
-/**
- * Type for console-forward-prelude messages sent via chrome.runtime.sendMessage.
- */
-type ConsoleForwardPreludeMessage = {
-  type: 'console-forward-prelude';
-  method: 'log' | 'debug' | 'info' | 'warn' | 'error';
-  args: string[];
-};
-
-/**
- * Type guard for console-forward-prelude messages.
- *
- * @param value - The value to check.
- * @returns Whether the value is a ConsoleForwardPreludeMessage.
- */
-function isConsoleForwardPreludeMessage(
-  value: unknown,
-): value is ConsoleForwardPreludeMessage {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    'type' in value &&
-    (value as { type: unknown }).type === 'console-forward-prelude' &&
-    'method' in value &&
-    'args' in value
-  );
-}
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
@@ -63,19 +37,7 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 // Messages or connections can also kick us awake
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  // Handle console-forward-prelude messages from offscreen/popup
-  if (
-    isConsoleForwardPreludeMessage(message) &&
-    sender.id === chrome.runtime.id
-  ) {
-    const { method, args } = message;
-    // eslint-disable-next-line no-console
-    console[method]('[offscreen]', ...args);
-    sendResponse(true);
-    return false;
-  }
-
+chrome.runtime.onMessage.addListener((_msg, _sender, sendResponse) => {
   start();
   sendResponse(true);
   return false;
@@ -147,9 +109,11 @@ async function main(): Promise<void> {
   const kernelP = backgroundCapTP.getKernel();
   globalThis.kernel = kernelP;
 
-  // Handle incoming CapTP messages from offscreen
+  // Handle incoming messages from offscreen (CapTP and console-forward)
   const drainPromise = offscreenStream.drain((message) => {
-    if (isCapTPNotification(message)) {
+    if (isConsoleForwardMessage(message)) {
+      handleConsoleForwardMessage(message, '[offscreen]');
+    } else if (isCapTPNotification(message)) {
       const captpMessage = getCapTPMessage(message);
       backgroundCapTP.dispatch(captpMessage);
     } else {

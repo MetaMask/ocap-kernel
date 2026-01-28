@@ -36,8 +36,6 @@ const staticCopyTargets: readonly (string | Target)[] = [
   'packages/extension/src/manifest.json',
   // Trusted prelude-related
   'packages/kernel-shims/dist/endoify.js',
-  // Console forwarding prelude for Playwright log capture
-  'packages/kernel-browser-runtime/src/static/console-forwarding-prelude.js',
 ];
 
 // https://vitejs.dev/config/
@@ -93,9 +91,7 @@ export default defineConfig(({ mode }) => {
     },
     plugins: [
       react(),
-      htmlTrustedPrelude({
-        preludes: ['/console-forwarding-prelude.js'],
-      }),
+      htmlTrustedPrelude(),
       jsTrustedPrelude({ trustedPreludes }),
       viteStaticCopy({
         targets: staticCopyTargets.map((src) =>
