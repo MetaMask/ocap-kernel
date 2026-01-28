@@ -429,7 +429,16 @@ export async function initTransport(
       logger.log(
         `${channel.peerId}:: rejecting inbound connection from intentionally closed peer`,
       );
-      // Don't add to channels map and don't start reading - connection will naturally close
+      // Close the channel to release network resources and prevent leaks
+      connectionFactory
+        .closeChannel(channel, channel.peerId)
+        .catch((problem) => {
+          outputError(
+            channel.peerId,
+            'closing rejected inbound channel',
+            problem,
+          );
+        });
       return;
     }
 
@@ -441,6 +450,16 @@ export async function initTransport(
         logger.log(
           `${channel.peerId}:: rejecting inbound connection due to connection limit`,
         );
+        // Close the channel to release network resources and prevent leaks
+        connectionFactory
+          .closeChannel(channel, channel.peerId)
+          .catch((problem) => {
+            outputError(
+              channel.peerId,
+              'closing rejected inbound channel',
+              problem,
+            );
+          });
         return;
       }
       throw error;

@@ -20,6 +20,7 @@ const mockReconnectionManager = {
   stopReconnection: vi.fn(),
   shouldRetry: vi.fn().mockReturnValue(true),
   incrementAttempt: vi.fn().mockReturnValue(1),
+  decrementAttempt: vi.fn(),
   calculateBackoff: vi.fn().mockReturnValue(100),
   resetBackoff: vi.fn(),
   resetAllBackoffs: vi.fn(),
@@ -38,6 +39,8 @@ vi.mock('./reconnection.ts', () => {
     shouldRetry = mockReconnectionManager.shouldRetry;
 
     incrementAttempt = mockReconnectionManager.incrementAttempt;
+
+    decrementAttempt = mockReconnectionManager.decrementAttempt;
 
     calculateBackoff = mockReconnectionManager.calculateBackoff;
 
@@ -162,6 +165,7 @@ describe('transport.initTransport', () => {
     mockReconnectionManager.stopReconnection.mockClear();
     mockReconnectionManager.shouldRetry.mockClear();
     mockReconnectionManager.incrementAttempt.mockClear();
+    mockReconnectionManager.decrementAttempt.mockClear();
     mockReconnectionManager.calculateBackoff.mockClear();
     mockReconnectionManager.resetBackoff.mockClear();
     mockReconnectionManager.resetAllBackoffs.mockClear();
@@ -894,6 +898,11 @@ describe('transport.initTransport', () => {
         );
         // Should not start reading from this channel
         expect(mockChannel.msgStream.read).not.toHaveBeenCalled();
+        // Should close the channel to prevent resource leaks
+        expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+          mockChannel,
+          'peer-1',
+        );
       });
     });
   });
@@ -1794,6 +1803,11 @@ describe('transport.initTransport', () => {
       await vi.waitFor(() => {
         expect(mockLogger.log).toHaveBeenCalledWith(
           'peer-3:: rejecting inbound connection due to connection limit',
+        );
+        // Should close the channel to prevent resource leaks
+        expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+          inboundChannel,
+          'peer-3',
         );
       });
 
