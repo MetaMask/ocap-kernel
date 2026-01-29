@@ -17,7 +17,7 @@ vi.mock('@metamask/kernel-utils', async () => {
   };
 });
 
-// Mock kernel-errors for isRetryableNetworkError
+// Mock kernel-errors for isRetryableNetworkError and getNetworkErrorCode
 vi.mock('@metamask/kernel-errors', async () => {
   const actual = await vi.importActual<typeof kernelErrors>(
     '@metamask/kernel-errors',
@@ -25,6 +25,7 @@ vi.mock('@metamask/kernel-errors', async () => {
   return {
     ...actual,
     isRetryableNetworkError: vi.fn(),
+    getNetworkErrorCode: vi.fn().mockReturnValue('ECONNREFUSED'),
   };
 });
 
@@ -75,9 +76,11 @@ describe('reconnection-lifecycle', () => {
         incrementAttempt: vi.fn().mockReturnValue(1),
         decrementAttempt: vi.fn(),
         calculateBackoff: vi.fn().mockReturnValue(100),
-        startReconnection: vi.fn(),
+        startReconnection: vi.fn().mockReturnValue(true),
         stopReconnection: vi.fn(),
         resetBackoff: vi.fn(),
+        isPermanentlyFailed: vi.fn().mockReturnValue(false),
+        recordError: vi.fn(),
       },
       maxRetryAttempts: 3,
       onRemoteGiveUp: vi.fn(),
@@ -568,6 +571,148 @@ describe('reconnection-lifecycle', () => {
 
       // stopReconnection should be called on success
       expect(deps.reconnectionManager.stopReconnection).toHaveBeenCalled();
+    });
+
+    describe('permanent failure detection', () => {
+      it('gives up when peer is permanently failed at start of loop', async () => {
+        (
+          deps.reconnectionManager.isPermanentlyFailed as ReturnType<
+            typeof vi.fn
+          >
+        ).mockReturnValue(true);
+
+        const lifecycle = makeReconnectionLifecycle(deps);
+
+        await lifecycle.attemptReconnection('peer1');
+
+        expect(deps.reconnectionManager.stopReconnection).toHaveBeenCalledWith(
+          'peer1',
+        );
+        expect(deps.onRemoteGiveUp).toHaveBeenCalledWith('peer1');
+        expect(deps.logger.log).toHaveBeenCalledWith(
+          expect.stringContaining('permanently failed'),
+        );
+      });
+
+      it('records error after failed dial attempt', async () => {
+        const error = new Error('Connection refused');
+        (error as Error & { code: string }).code = 'ECONNREFUSED';
+        (deps.dialPeer as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+          error,
+        );
+        (
+          kernelErrors.isRetryableNetworkError as ReturnType<typeof vi.fn>
+        ).mockReturnValue(true);
+        (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+          .mockReturnValueOnce(true)
+          .mockReturnValueOnce(false);
+
+        const lifecycle = makeReconnectionLifecycle(deps);
+
+        await lifecycle.attemptReconnection('peer1');
+
+        expect(deps.reconnectionManager.recordError).toHaveBeenCalledWith(
+          'peer1',
+          'ECONNREFUSED',
+        );
+      });
+
+      it('gives up when error triggers permanent failure', async () => {
+        const error = new Error('Connection refused');
+        (deps.dialPeer as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+          error,
+        );
+        (
+          kernelErrors.isRetryableNetworkError as ReturnType<typeof vi.fn>
+        ).mockReturnValue(true);
+        (
+          deps.reconnectionManager.isPermanentlyFailed as ReturnType<
+            typeof vi.fn
+          >
+        )
+          .mockReturnValueOnce(false) // At start of loop
+          .mockReturnValueOnce(true); // After recording error
+
+        const lifecycle = makeReconnectionLifecycle(deps);
+
+        await lifecycle.attemptReconnection('peer1');
+
+        expect(deps.reconnectionManager.stopReconnection).toHaveBeenCalledWith(
+          'peer1',
+        );
+        expect(deps.onRemoteGiveUp).toHaveBeenCalledWith('peer1');
+        expect(deps.outputError).toHaveBeenCalledWith(
+          'peer1',
+          expect.stringContaining('permanent failure detected'),
+          expect.any(Error),
+        );
+      });
+
+      it('continues retrying when error does not trigger permanent failure', async () => {
+        (deps.dialPeer as ReturnType<typeof vi.fn>)
+          .mockRejectedValueOnce(new Error('Temporary failure'))
+          .mockResolvedValueOnce(mockChannel);
+        (
+          kernelErrors.isRetryableNetworkError as ReturnType<typeof vi.fn>
+        ).mockReturnValue(true);
+        (
+          deps.reconnectionManager.isPermanentlyFailed as ReturnType<
+            typeof vi.fn
+          >
+        ).mockReturnValue(false);
+        (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+          .mockReturnValueOnce(true)
+          .mockReturnValueOnce(true)
+          .mockReturnValueOnce(false);
+
+        const lifecycle = makeReconnectionLifecycle(deps);
+
+        await lifecycle.attemptReconnection('peer1');
+
+        expect(deps.dialPeer).toHaveBeenCalledTimes(2);
+        expect(deps.reconnectionManager.recordError).toHaveBeenCalled();
+      });
+    });
+  });
+
+  describe('handleConnectionLoss with permanent failure', () => {
+    it('skips reconnection and calls onRemoteGiveUp for permanently failed peer', () => {
+      (
+        deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>
+      ).mockReturnValue(false);
+      (
+        deps.reconnectionManager.startReconnection as ReturnType<typeof vi.fn>
+      ).mockReturnValue(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      lifecycle.handleConnectionLoss('peer1');
+
+      expect(deps.reconnectionManager.startReconnection).toHaveBeenCalledWith(
+        'peer1',
+      );
+      expect(deps.onRemoteGiveUp).toHaveBeenCalledWith('peer1');
+      expect(deps.logger.log).toHaveBeenCalledWith(
+        expect.stringContaining('permanently failed'),
+      );
+    });
+
+    it('proceeds with reconnection when startReconnection returns true', () => {
+      (
+        deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>
+      ).mockReturnValue(false);
+      (
+        deps.reconnectionManager.startReconnection as ReturnType<typeof vi.fn>
+      ).mockReturnValue(true);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      lifecycle.handleConnectionLoss('peer1');
+
+      expect(deps.reconnectionManager.startReconnection).toHaveBeenCalledWith(
+        'peer1',
+      );
+      expect(deps.onRemoteGiveUp).not.toHaveBeenCalled();
     });
   });
 });
