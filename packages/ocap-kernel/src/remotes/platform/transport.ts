@@ -519,12 +519,15 @@ export async function initTransport(
   ): Promise<void> {
     logger.log(`${peerId}:: manually reconnecting`);
     peerStateManager.clearIntentionallyClosed(peerId);
-    // Clear permanent failure status - user explicitly wants to reconnect
-    reconnectionManager.clearPermanentFailure(peerId);
-    // If already reconnecting, don't start another attempt
+    // If already reconnecting, don't start another attempt and don't clear error history
+    // Clearing error history while reconnection is in progress would reset progress
+    // toward permanent failure detection
     if (reconnectionManager.isReconnecting(peerId)) {
       return;
     }
+    // Clear permanent failure status - user explicitly wants to reconnect
+    // Only clear when not already reconnecting to preserve error tracking during active attempts
+    reconnectionManager.clearPermanentFailure(peerId);
     registerLocationHints(peerId, hints);
     handleConnectionLoss(peerId);
   }
