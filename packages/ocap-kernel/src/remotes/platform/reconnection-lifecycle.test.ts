@@ -321,7 +321,7 @@ describe('reconnection-lifecycle', () => {
 
       await lifecycle.attemptReconnection('peer1');
 
-      expect(deps.checkConnectionLimit).toHaveBeenCalled();
+      expect(deps.checkConnectionLimit).toHaveBeenCalledTimes(1);
     });
 
     it('checks connection rate limit before dialing', async () => {
@@ -333,6 +333,7 @@ describe('reconnection-lifecycle', () => {
 
       await lifecycle.attemptReconnection('peer1');
 
+      expect(deps.checkConnectionRateLimit).toHaveBeenCalledTimes(1);
       expect(deps.checkConnectionRateLimit).toHaveBeenCalledWith('peer1');
     });
 
