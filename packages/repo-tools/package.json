@@ -22,6 +22,7 @@
     "./test-utils/streams": "./src/test-utils/streams.ts",
     "./vite-plugins": "./src/vite-plugins/index.ts",
     "./vitest-config": "./src/vitest-config.js",
+    "./vitest-reporters/silent": "./src/vitest-reporters/silent-reporter.ts",
     "./package.json": "./package.json"
   },
   "files": [
@@ -39,7 +40,7 @@
     "test:dev": "yarn test --mode development",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts",
-    "test:dev:quiet": "yarn test:dev --reporter dot"
+    "test:dev:quiet": "yarn test:dev --reporter @ocap/repo-tools/vitest-reporters/silent"
   },
   "devDependencies": {
     "@metamask/eslint-config": "^15.0.0",
@@ -51,6 +52,7 @@
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",
     "@vitest/eslint-plugin": "^1.6.5",
+    "@vitest/runner": "4.0.16",
     "cheerio": "^1.0.0",
     "depcheck": "^1.4.7",
     "eslint": "^9.23.0",
