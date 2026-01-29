@@ -78,11 +78,16 @@ async function readWithTimeout(
     abortController.abort();
   }, timeoutMs);
 
+  // Create abort handler as named function so we can remove it in finally
+  let rejectTimeout: (error: Error) => void;
+  const abortHandler = (): void => {
+    rejectTimeout(new Error('Handshake read timed out'));
+  };
+
   // Create a promise that rejects on timeout
   const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    abortController.signal.addEventListener('abort', () => {
-      reject(new Error('Handshake read timed out'));
-    });
+    rejectTimeout = reject;
+    abortController.signal.addEventListener('abort', abortHandler);
   });
 
   const readPromise = (async () => {
@@ -97,6 +102,7 @@ async function readWithTimeout(
     return await Promise.race([readPromise, timeoutPromise]);
   } finally {
     clearTimeout(timeoutId);
+    abortController.signal.removeEventListener('abort', abortHandler);
   }
 }
 
