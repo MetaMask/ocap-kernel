@@ -1226,12 +1226,59 @@ describe('transport.initTransport', () => {
       });
     });
 
-    // TODO: This test needs to be rewritten to work with the ACK protocol
-    // The race condition being tested (inbound connection arriving during reconnection dial)
-    // interacts with the ACK protocol in complex ways that need careful analysis.
-    it.todo(
-      'reuses existing channel when inbound connection arrives during reconnection dial',
-    );
+    it('reuses existing channel when inbound connection arrives during reconnection dial', async () => {
+      // Capture inbound handler before init
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      // Create channels
+      const outboundChannel = createMockChannel('peer-1');
+      const inboundChannel = createMockChannel('peer-1');
+
+      // Control when the dial completes
+      let resolveDial: ((channel: MockChannel) => void) | undefined;
+      const dialPromise = new Promise<MockChannel>((resolve) => {
+        resolveDial = resolve;
+      });
+      mockConnectionFactory.dialIdempotent.mockReturnValue(dialPromise);
+
+      const { sendRemoteMessage } = await initTransport('0x1234', {}, vi.fn());
+
+      // Start sending a message - this will trigger the dial
+      const sendPromise = sendRemoteMessage('peer-1', makeTestMessage('hello'));
+
+      // Verify dial was initiated
+      await vi.waitFor(() => {
+        expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalled();
+      });
+
+      // While the dial is pending, an inbound connection arrives from the same peer
+      inboundHandler?.(inboundChannel);
+
+      // Now complete the dial - the outbound channel should be closed since inbound is already registered
+      resolveDial?.(outboundChannel);
+
+      // Wait for the message to be sent
+      await sendPromise;
+
+      // The outbound channel should have been closed since inbound connection was already established
+      expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+        outboundChannel,
+        'peer-1',
+      );
+
+      // Verify that messages go through the inbound channel (which was registered first)
+      // or the outbound channel that was dialed - either is acceptable
+      // The important thing is that we don't have duplicate channels
+      const totalWrites =
+        inboundChannel.msgStream.write.mock.calls.length +
+        outboundChannel.msgStream.write.mock.calls.length;
+      expect(totalWrites).toBeGreaterThanOrEqual(1);
+    });
   });
 
   describe('error handling', () => {
@@ -2046,8 +2093,44 @@ describe('transport.initTransport', () => {
       vi.restoreAllMocks();
     });
 
-    // TODO: Investigate timeout handling with the new handshake async flow
-    it.todo('times out after 10 seconds when write hangs');
+    it('times out after 10 seconds when write hangs', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      // Make write never resolve to simulate a hang
+      mockChannel.msgStream.write.mockReturnValue(
+        new Promise<void>(() => {
+          /* Never resolves */
+        }),
+      );
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      // Track all created abort signals so we can trigger abort manually
+      const mockSignals: ReturnType<typeof makeAbortSignalMock>[] = [];
+      vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+        const signal = makeAbortSignalMock(ms);
+        mockSignals.push(signal);
+        return signal;
+      });
+
+      const { sendRemoteMessage } = await initTransport('0x1234', {}, vi.fn());
+
+      const sendPromise = sendRemoteMessage(
+        'peer-1',
+        makeTestMessage('test message'),
+      );
+
+      // Wait for the write to be initiated
+      await vi.waitFor(() => {
+        expect(mockChannel.msgStream.write).toHaveBeenCalled();
+      });
+
+      // Manually trigger the abort on the signal to simulate timeout
+      for (const signal of mockSignals) {
+        signal.abort();
+      }
+
+      // sendRemoteMessage should reject with timeout error
+      await expect(sendPromise).rejects.toThrow('Message send timed out');
+    });
 
     it('does not timeout if write completes before timeout', async () => {
       const mockChannel = createMockChannel('peer-1');
@@ -2069,8 +2152,49 @@ describe('transport.initTransport', () => {
       expect(mockSignal?.aborted).toBe(false);
     });
 
-    // TODO: Investigate timeout handling with the new handshake async flow
-    it.todo('handles timeout errors and triggers connection loss handling');
+    it('handles timeout errors and triggers connection loss handling', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      // Make write never resolve to simulate a hang
+      mockChannel.msgStream.write.mockReturnValue(
+        new Promise<void>(() => {
+          /* Never resolves */
+        }),
+      );
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      // Track all created abort signals so we can trigger abort manually
+      const mockSignals: ReturnType<typeof makeAbortSignalMock>[] = [];
+      vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+        const signal = makeAbortSignalMock(ms);
+        mockSignals.push(signal);
+        return signal;
+      });
+
+      const { sendRemoteMessage } = await initTransport('0x1234', {}, vi.fn());
+
+      const sendPromise = sendRemoteMessage(
+        'peer-1',
+        makeTestMessage('test message'),
+      );
+
+      // Wait for the write to be initiated
+      await vi.waitFor(() => {
+        expect(mockChannel.msgStream.write).toHaveBeenCalled();
+      });
+
+      // Manually trigger the abort on the signal to simulate timeout
+      for (const signal of mockSignals) {
+        signal.abort();
+      }
+
+      // Wait for the promise to reject
+      await expect(sendPromise).rejects.toThrow('Message send timed out');
+
+      // Verify that connection loss handling was triggered
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+        'peer-1',
+      );
+    });
 
     it('propagates write errors that occur before timeout', async () => {
       // Ensure isReconnecting returns false so we actually call writeWithTimeout
@@ -2113,11 +2237,92 @@ describe('transport.initTransport', () => {
       expect(mockSignal?.timeoutMs).toBe(10_000);
     });
 
-    // TODO: Investigate timeout handling with the new handshake async flow
-    it.todo('error message includes correct timeout duration');
+    it('error message includes correct timeout duration', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      // Make write never resolve to simulate a hang
+      mockChannel.msgStream.write.mockReturnValue(
+        new Promise<void>(() => {
+          /* Never resolves */
+        }),
+      );
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
 
-    // TODO: Investigate timeout handling with the new handshake async flow
-    it.todo('handles multiple concurrent writes with timeout');
+      // Track all created abort signals so we can trigger abort manually
+      const mockSignals: ReturnType<typeof makeAbortSignalMock>[] = [];
+      vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+        const signal = makeAbortSignalMock(ms);
+        mockSignals.push(signal);
+        return signal;
+      });
+
+      const { sendRemoteMessage } = await initTransport('0x1234', {}, vi.fn());
+
+      const sendPromise = sendRemoteMessage(
+        'peer-1',
+        makeTestMessage('test message'),
+      );
+
+      // Wait for the write to be initiated
+      await vi.waitFor(() => {
+        expect(mockChannel.msgStream.write).toHaveBeenCalled();
+      });
+
+      // Manually trigger the abort on the signal to simulate timeout
+      for (const signal of mockSignals) {
+        signal.abort();
+      }
+
+      // Verify error message includes the correct timeout duration (10000ms)
+      await expect(sendPromise).rejects.toThrow('10000ms');
+    });
+
+    it('handles multiple concurrent writes with timeout', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      // Make write never resolve to simulate a hang
+      mockChannel.msgStream.write.mockReturnValue(
+        new Promise<void>(() => {
+          /* Never resolves */
+        }),
+      );
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      // Track all created abort signals so we can trigger abort manually
+      const mockSignals: ReturnType<typeof makeAbortSignalMock>[] = [];
+      vi.spyOn(AbortSignal, 'timeout').mockImplementation((ms: number) => {
+        const signal = makeAbortSignalMock(ms);
+        mockSignals.push(signal);
+        return signal;
+      });
+
+      const { sendRemoteMessage } = await initTransport('0x1234', {}, vi.fn());
+
+      // Send multiple messages concurrently
+      const sendPromise1 = sendRemoteMessage(
+        'peer-1',
+        makeTestMessage('message 1'),
+      );
+      const sendPromise2 = sendRemoteMessage(
+        'peer-1',
+        makeTestMessage('message 2'),
+      );
+
+      // Wait for writes to be initiated
+      await vi.waitFor(() => {
+        expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(2);
+      });
+
+      // Manually trigger the abort on all signals to simulate timeout
+      for (const signal of mockSignals) {
+        signal.abort();
+      }
+
+      // Both promises should reject with timeout error
+      await expect(sendPromise1).rejects.toThrow('Message send timed out');
+      await expect(sendPromise2).rejects.toThrow('Message send timed out');
+
+      // Verify that each write got its own timeout signal
+      expect(mockSignals.length).toBeGreaterThanOrEqual(2);
+    });
   });
 
   describe('handshake protocol', () => {
