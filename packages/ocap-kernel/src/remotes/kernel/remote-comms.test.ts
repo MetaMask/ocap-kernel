@@ -143,6 +143,7 @@ describe('remote-comms', () => {
         }),
         mockRemoteMessageHandler,
         undefined, // onRemoteGiveUp
+        undefined, // incarnationId
       );
     });
 
@@ -165,6 +166,7 @@ describe('remote-comms', () => {
         }),
         mockRemoteMessageHandler,
         undefined,
+        undefined, // incarnationId
       );
     });
 
@@ -184,6 +186,28 @@ describe('remote-comms', () => {
         expect.any(Object),
         mockRemoteMessageHandler,
         onRemoteGiveUp,
+        undefined, // incarnationId
+      );
+    });
+
+    it('passes incarnationId to platformServices', async () => {
+      const incarnationId = 'test-incarnation-id';
+      await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        {},
+        undefined, // logger
+        undefined, // keySeed
+        undefined, // onRemoteGiveUp
+        incarnationId,
+      );
+      expect(mockPlatformServices.initializeRemoteComms).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Object),
+        mockRemoteMessageHandler,
+        undefined,
+        incarnationId,
       );
     });
 
