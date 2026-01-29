@@ -81,22 +81,8 @@ describe('makeHostSubcluster', () => {
   });
 
   describe('transport', () => {
-    it('deliver throws if supervisor not initialized', async () => {
-      const { config } = makeHostSubcluster();
-
-      await expect(
-        config.vatTransports[0]?.transport.deliver({
-          type: 'message',
-          methargs: { body: '[]', slots: [] },
-          result: 'p-1',
-          target: 'o+0',
-        }),
-      ).rejects.toThrow('Supervisor not initialized');
-    });
-
-    it('deliver calls supervisor after start', async () => {
+    it('deliver waits for supervisor then calls it', async () => {
       const { config, start } = makeHostSubcluster();
-      await start();
 
       const delivery = {
         type: 'message' as const,
@@ -104,7 +90,16 @@ describe('makeHostSubcluster', () => {
         result: 'p-1',
         target: 'o+0',
       };
-      await config.vatTransports[0]?.transport.deliver(delivery);
+
+      // Start the delivery (it will wait for supervisor)
+      const deliverPromise =
+        config.vatTransports[0]?.transport.deliver(delivery);
+
+      // Start the supervisor - this should unblock the delivery
+      await start();
+
+      // Now the delivery should complete
+      await deliverPromise;
 
       expect(mockDeliver).toHaveBeenCalledWith(delivery);
     });

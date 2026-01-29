@@ -1,3 +1,4 @@
+import { makePromiseKit } from '@endo/promise-kit';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import { Logger } from '@metamask/logger';
 import type {
@@ -87,14 +88,12 @@ export function makeHostSubcluster(
     });
   };
 
-  // Create the supervisor
-  let supervisor: SystemVatSupervisor | null = null;
+  // Promise kit to signal when supervisor is ready
+  const supervisorReady = makePromiseKit<SystemVatSupervisor>();
 
-  // Create the transport
+  // Create the transport with a deliver function that waits for the supervisor
   const deliver: SystemVatDeliverFn = async (delivery) => {
-    if (!supervisor) {
-      throw new Error('Supervisor not initialized');
-    }
+    const supervisor = await supervisorReady.promise;
     return supervisor.deliver(delivery);
   };
 
@@ -121,7 +120,7 @@ export function makeHostSubcluster(
 
     start: async () => {
       // Create the supervisor
-      supervisor = new SystemVatSupervisor({
+      const supervisor = new SystemVatSupervisor({
         // The kernel assigns the actual ID via the transport
         // This placeholder is only used for logging
         id: 'sv0' as `sv${number}`,
@@ -134,6 +133,9 @@ export function makeHostSubcluster(
 
       // Start the supervisor (dispatches startVat) - throws on failure
       await supervisor.start();
+
+      // Signal that the supervisor is ready - this unblocks any pending deliveries
+      supervisorReady.resolve(supervisor);
     },
 
     getKernelFacet: () => {
