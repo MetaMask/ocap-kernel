@@ -43,11 +43,15 @@ export class ReconnectionManager {
    *
    * @param options - Configuration options.
    * @param options.consecutiveErrorThreshold - Number of consecutive identical errors
-   *   before marking a peer as permanently failed. Default is 5.
+   *   before marking a peer as permanently failed. Default is 5. Must be at least 1.
    */
   constructor(options?: { consecutiveErrorThreshold?: number }) {
-    this.#consecutiveErrorThreshold =
+    const threshold =
       options?.consecutiveErrorThreshold ?? DEFAULT_CONSECUTIVE_ERROR_THRESHOLD;
+    if (threshold < 1) {
+      throw new Error('consecutiveErrorThreshold must be at least 1');
+    }
+    this.#consecutiveErrorThreshold = threshold;
   }
 
   /**
@@ -216,6 +220,7 @@ export class ReconnectionManager {
   /**
    * Record an error that occurred during reconnection.
    * This updates the error history and checks for permanent failure patterns.
+   * Error history is capped at the consecutive error threshold to prevent unbounded growth.
    *
    * @param peerId - The peer ID that experienced the error.
    * @param errorCode - The error code (e.g., 'ECONNREFUSED', 'ETIMEDOUT').
@@ -226,6 +231,14 @@ export class ReconnectionManager {
       code: errorCode,
       timestamp: Date.now(),
     });
+
+    // Cap error history to prevent unbounded memory growth
+    // We only need the last N errors for pattern detection
+    if (state.errorHistory.length > this.#consecutiveErrorThreshold) {
+      state.errorHistory = state.errorHistory.slice(
+        -this.#consecutiveErrorThreshold,
+      );
+    }
 
     // Check for permanent failure pattern
     this.#checkPermanentFailure(peerId);

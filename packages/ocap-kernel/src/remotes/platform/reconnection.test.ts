@@ -742,6 +742,52 @@ describe('ReconnectionManager', () => {
         customManager.recordError('peer1', 'ECONNREFUSED');
         expect(customManager.isPermanentlyFailed('peer1')).toBe(true);
       });
+
+      it('throws if consecutiveErrorThreshold is less than 1', () => {
+        expect(
+          () => new ReconnectionManager({ consecutiveErrorThreshold: 0 }),
+        ).toThrow('consecutiveErrorThreshold must be at least 1');
+        expect(
+          () => new ReconnectionManager({ consecutiveErrorThreshold: -1 }),
+        ).toThrow('consecutiveErrorThreshold must be at least 1');
+      });
+    });
+
+    describe('error history capping', () => {
+      it('caps error history to consecutive error threshold', () => {
+        const customManager = new ReconnectionManager({
+          consecutiveErrorThreshold: 3,
+        });
+
+        // Record more errors than threshold
+        customManager.recordError('peer1', 'ERROR1');
+        customManager.recordError('peer1', 'ERROR2');
+        customManager.recordError('peer1', 'ERROR3');
+        customManager.recordError('peer1', 'ERROR4');
+        customManager.recordError('peer1', 'ERROR5');
+
+        const history = customManager.getErrorHistory('peer1');
+        expect(history).toHaveLength(3);
+        expect(history[0]?.code).toBe('ERROR3');
+        expect(history[1]?.code).toBe('ERROR4');
+        expect(history[2]?.code).toBe('ERROR5');
+      });
+
+      it('maintains correct permanent failure detection with capped history', () => {
+        const customManager = new ReconnectionManager({
+          consecutiveErrorThreshold: 3,
+        });
+
+        // Record mixed errors that get capped
+        customManager.recordError('peer1', 'ETIMEDOUT');
+        customManager.recordError('peer1', 'EPIPE');
+        customManager.recordError('peer1', 'ECONNREFUSED');
+        customManager.recordError('peer1', 'ECONNREFUSED');
+        customManager.recordError('peer1', 'ECONNREFUSED');
+
+        // Last 3 are all ECONNREFUSED, should be permanently failed
+        expect(customManager.isPermanentlyFailed('peer1')).toBe(true);
+      });
     });
 
     describe('clearPeer with permanent failure', () => {
