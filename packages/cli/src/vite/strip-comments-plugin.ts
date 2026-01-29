@@ -1,6 +1,6 @@
 import type { Comment } from 'acorn';
 import { parse } from 'acorn';
-import type { Plugin } from 'rollup';
+import type { Plugin } from 'vite';
 
 /**
  * Rollup plugin that strips comments from bundled code using AST parsing.

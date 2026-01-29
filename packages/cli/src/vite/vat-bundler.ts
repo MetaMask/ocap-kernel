@@ -1,6 +1,6 @@
 import type { VatBundle } from '@metamask/kernel-utils';
 import { build } from 'vite';
-import type { Rollup, PluginOption } from 'vite';
+import type { Rollup } from 'vite';
 
 import { exportMetadataPlugin } from './export-metadata-plugin.ts';
 import { stripCommentsPlugin } from './strip-comments-plugin.ts';
@@ -32,10 +32,7 @@ export async function bundleVat(sourcePath: string): Promise<VatBundle> {
           exports: 'named',
           inlineDynamicImports: true,
         },
-        plugins: [
-          stripCommentsPlugin() as unknown as PluginOption,
-          metadataPlugin as unknown as PluginOption,
-        ],
+        plugins: [stripCommentsPlugin(), metadataPlugin],
       },
       minify: false,
     },

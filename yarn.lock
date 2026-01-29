@@ -3387,7 +3387,6 @@ __metadata:
     libp2p: "npm:2.10.0"
     prettier: "npm:^3.5.3"
     rimraf: "npm:^6.0.1"
-    rollup: "npm:^4.55.3"
     serve-handler: "npm:^6.1.6"
     ses: "npm:^1.14.0"
     turbo: "npm:^2.5.6"
@@ -13221,7 +13220,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"rollup@npm:^4.43.0, rollup@npm:^4.55.3":
+"rollup@npm:^4.43.0":
   version: 4.55.3
   resolution: "rollup@npm:4.55.3"
   dependencies:
