@@ -142,7 +142,7 @@ export async function performOutboundHandshake(
 
   if (!isHandshakeMessage(parsed) || parsed.method !== 'handshakeAck') {
     throw new Error(
-      `Expected handshakeAck, got: ${parsed.method ?? 'unknown'}`,
+      `Expected handshakeAck, got: ${parsed?.method ?? 'unknown'}`,
     );
   }
 
@@ -178,7 +178,7 @@ export async function performInboundHandshake(
   const parsed = JSON.parse(message);
 
   if (!isHandshakeMessage(parsed) || parsed.method !== 'handshake') {
-    throw new Error(`Expected handshake, got: ${parsed.method ?? 'unknown'}`);
+    throw new Error(`Expected handshake, got: ${parsed?.method ?? 'unknown'}`);
   }
 
   const remoteIncarnationId = parsed.params.incarnationId;
