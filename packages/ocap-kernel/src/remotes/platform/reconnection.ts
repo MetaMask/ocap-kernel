@@ -1,16 +1,54 @@
 import { calculateReconnectionBackoff } from '@metamask/kernel-utils';
 
+/**
+ * Default threshold for consecutive identical errors before marking as permanently failed.
+ */
+export const DEFAULT_CONSECUTIVE_ERROR_THRESHOLD = 5;
+
+/**
+ * Error codes that can indicate permanent failure when occurring consecutively.
+ * These are network errors that suggest the peer is unreachable at the given address.
+ */
+export const PERMANENT_FAILURE_ERROR_CODES = new Set([
+  'ECONNREFUSED', // Connection refused - peer not listening
+  'EHOSTUNREACH', // No route to host - network path unavailable
+  'ENOTFOUND', // DNS lookup failed - hostname doesn't resolve
+  'ENETUNREACH', // Network unreachable
+]);
+
+export type ErrorRecord = {
+  code: string;
+  timestamp: number;
+};
+
 export type ReconnectionState = {
   isReconnecting: boolean;
   attemptCount: number; // completed attempts
+  errorHistory: ErrorRecord[];
+  permanentlyFailed: boolean;
 };
 
 /**
  * Reconnection state management for remote communications.
- * Handles reconnection attempts, backoff calculations, and retry logic.
+ * Handles reconnection attempts, backoff calculations, retry logic,
+ * and permanent failure detection based on error patterns.
  */
 export class ReconnectionManager {
   readonly #states = new Map<string, ReconnectionState>();
+
+  readonly #consecutiveErrorThreshold: number;
+
+  /**
+   * Creates a new ReconnectionManager.
+   *
+   * @param options - Configuration options.
+   * @param options.consecutiveErrorThreshold - Number of consecutive identical errors
+   *   before marking a peer as permanently failed. Default is 5.
+   */
+  constructor(options?: { consecutiveErrorThreshold?: number }) {
+    this.#consecutiveErrorThreshold =
+      options?.consecutiveErrorThreshold ?? DEFAULT_CONSECUTIVE_ERROR_THRESHOLD;
+  }
 
   /**
    * Get or create reconnection state for a peer.
@@ -21,7 +59,12 @@ export class ReconnectionManager {
   #getState(peerId: string): ReconnectionState {
     let state = this.#states.get(peerId);
     if (!state) {
-      state = { isReconnecting: false, attemptCount: 0 };
+      state = {
+        isReconnecting: false,
+        attemptCount: 0,
+        errorHistory: [],
+        permanentlyFailed: false,
+      };
       this.#states.set(peerId, state);
     }
     return state;
@@ -29,18 +72,27 @@ export class ReconnectionManager {
 
   /**
    * Start reconnection for a peer.
-   * Resets attempt count when starting a new reconnection session.
+   * Resets attempt count and error history when starting a new reconnection session.
    *
    * @param peerId - The peer ID to start reconnection for.
+   * @returns False if the peer is permanently failed and reconnection should not proceed.
    */
-  startReconnection(peerId: string): void {
+  startReconnection(peerId: string): boolean {
     const state = this.#getState(peerId);
-    // Reset attempt count when starting a new reconnection session
+
+    // Don't start reconnection for permanently failed peers
+    if (state.permanentlyFailed) {
+      return false;
+    }
+
+    // Reset attempt count and error history when starting a new reconnection session
     // This allows retries after max attempts were previously exhausted
     if (!state.isReconnecting) {
       state.attemptCount = 0;
+      state.errorHistory = [];
     }
     state.isReconnecting = true;
+    return true;
   }
 
   /**
@@ -159,5 +211,89 @@ export class ReconnectionManager {
    */
   clearPeer(peerId: string): void {
     this.#states.delete(peerId);
+  }
+
+  /**
+   * Record an error that occurred during reconnection.
+   * This updates the error history and checks for permanent failure patterns.
+   *
+   * @param peerId - The peer ID that experienced the error.
+   * @param errorCode - The error code (e.g., 'ECONNREFUSED', 'ETIMEDOUT').
+   */
+  recordError(peerId: string, errorCode: string): void {
+    const state = this.#getState(peerId);
+    state.errorHistory.push({
+      code: errorCode,
+      timestamp: Date.now(),
+    });
+
+    // Check for permanent failure pattern
+    this.#checkPermanentFailure(peerId);
+  }
+
+  /**
+   * Check if a peer has been marked as permanently failed.
+   *
+   * @param peerId - The peer ID to check.
+   * @returns True if the peer is permanently failed.
+   */
+  isPermanentlyFailed(peerId: string): boolean {
+    return this.#getState(peerId).permanentlyFailed;
+  }
+
+  /**
+   * Clear the permanent failure status for a peer.
+   * Call this when manually requesting reconnection to a previously failed peer.
+   *
+   * @param peerId - The peer ID to clear permanent failure for.
+   */
+  clearPermanentFailure(peerId: string): void {
+    const state = this.#getState(peerId);
+    state.permanentlyFailed = false;
+    state.errorHistory = [];
+  }
+
+  /**
+   * Get the error history for a peer.
+   *
+   * @param peerId - The peer ID to get error history for.
+   * @returns The error history array.
+   */
+  getErrorHistory(peerId: string): readonly ErrorRecord[] {
+    return this.#getState(peerId).errorHistory;
+  }
+
+  /**
+   * Check if recent errors indicate permanent failure and update state accordingly.
+   *
+   * Permanent failure is detected when:
+   * - The last N errors (where N = consecutiveErrorThreshold) have the same error code
+   * - AND that error code is in the PERMANENT_FAILURE_ERROR_CODES set
+   *
+   * @param peerId - The peer ID to check.
+   */
+  #checkPermanentFailure(peerId: string): void {
+    const state = this.#getState(peerId);
+    const { errorHistory } = state;
+
+    if (errorHistory.length < this.#consecutiveErrorThreshold) {
+      return;
+    }
+
+    // Get the last N errors
+    const recentErrors = errorHistory.slice(-this.#consecutiveErrorThreshold);
+    const firstCode = recentErrors[0]?.code;
+
+    if (!firstCode) {
+      return;
+    }
+
+    // Check if all recent errors have the same code
+    const allSameCode = recentErrors.every((error) => error.code === firstCode);
+
+    // Check if this error code indicates permanent failure
+    if (allSameCode && PERMANENT_FAILURE_ERROR_CODES.has(firstCode)) {
+      state.permanentlyFailed = true;
+    }
   }
 }
