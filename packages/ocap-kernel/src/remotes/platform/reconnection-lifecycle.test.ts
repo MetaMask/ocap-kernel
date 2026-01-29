@@ -28,6 +28,10 @@ vi.mock('@metamask/kernel-errors', async () => {
   };
 });
 
+// Helper to flush pending promises/microtasks
+const flushPromises = async (): Promise<void> =>
+  new Promise((resolve) => setImmediate(resolve));
+
 describe('reconnection-lifecycle', () => {
   let deps: ReconnectionLifecycleDeps;
   let abortController: AbortController;
@@ -122,13 +126,14 @@ describe('reconnection-lifecycle', () => {
       expect(state.channel).toBeUndefined();
     });
 
-    it('starts reconnection if not already reconnecting', () => {
+    it('starts reconnection if not already reconnecting', async () => {
       (
         deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>
       ).mockReturnValue(false);
       const lifecycle = makeReconnectionLifecycle(deps);
 
       lifecycle.handleConnectionLoss('peer1');
+      await flushPromises();
 
       expect(deps.reconnectionManager.startReconnection).toHaveBeenCalledWith(
         'peer1',
@@ -146,13 +151,14 @@ describe('reconnection-lifecycle', () => {
       expect(deps.reconnectionManager.startReconnection).not.toHaveBeenCalled();
     });
 
-    it('logs connection loss message', () => {
+    it('logs connection loss message', async () => {
       (
         deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>
       ).mockReturnValue(false);
       const lifecycle = makeReconnectionLifecycle(deps);
 
       lifecycle.handleConnectionLoss('peer1');
+      await flushPromises();
 
       expect(deps.logger.log).toHaveBeenCalledWith(
         'peer1:: connection lost, initiating reconnection',
