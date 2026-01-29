@@ -14,18 +14,24 @@ export function loadBundle(
   content: string,
   options: LoadBundleOptions = {},
 ): Record<string, unknown> {
-  const parsed = JSON.parse(content) as Record<string, unknown>;
+  const parsed: unknown = JSON.parse(content);
   const { endowments = {}, inescapableGlobalProperties = {} } = options;
 
-  if (parsed.moduleFormat !== 'iife') {
-    throw new Error(`Unknown bundle format: ${String(parsed.moduleFormat)}`);
+  if (parsed === null || typeof parsed !== 'object') {
+    throw new Error('Invalid bundle: must be an object');
   }
 
-  if (parsed.code === undefined) {
+  const bundle = parsed as Record<string, unknown>;
+
+  if (bundle.moduleFormat !== 'iife') {
+    throw new Error(`Unknown bundle format: ${String(bundle.moduleFormat)}`);
+  }
+
+  if (bundle.code === undefined) {
     throw new Error('Invalid bundle: missing code');
   }
 
-  if (typeof parsed.code !== 'string') {
+  if (typeof bundle.code !== 'string') {
     throw new Error('Invalid bundle: code must be a string');
   }
 
@@ -38,7 +44,7 @@ export function loadBundle(
   // The code declares `var __vatExports__ = (function(){...})({});`
   // We wrap it in an IIFE to capture and return the result.
   const vatExports = compartment.evaluate(
-    `(function() { ${parsed.code}; return __vatExports__; })()`,
+    `(function() { ${bundle.code}; return __vatExports__; })()`,
   );
   return vatExports as Record<string, unknown>;
 }
