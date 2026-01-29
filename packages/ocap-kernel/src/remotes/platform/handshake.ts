@@ -73,10 +73,14 @@ async function readWithTimeout(
   channel: Channel,
   timeoutMs: number,
 ): Promise<string> {
-  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  const abortController = new AbortController();
+  const timeoutId = setTimeout(() => {
+    abortController.abort();
+  }, timeoutMs);
+
   // Create a promise that rejects on timeout
   const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    timeoutSignal.addEventListener('abort', () => {
+    abortController.signal.addEventListener('abort', () => {
       reject(new Error('Handshake read timed out'));
     });
   });
@@ -89,7 +93,11 @@ async function readWithTimeout(
     return bufToString(readBuf.subarray());
   })();
 
-  return Promise.race([readPromise, timeoutPromise]);
+  try {
+    return await Promise.race([readPromise, timeoutPromise]);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 /**
