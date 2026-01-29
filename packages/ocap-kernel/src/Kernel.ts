@@ -77,14 +77,6 @@ export class Kernel {
   readonly #kernelRouter: KernelRouter;
 
   /**
-   * Unique identifier for this kernel's state.
-   * Used to detect when a remote peer has lost its state and reconnected.
-   * Persisted to storage so it survives kernel restarts - only changes when
-   * storage is cleared (i.e., when state is actually lost).
-   */
-  readonly #incarnationId: string;
-
-  /**
    * Construct a new kernel instance.
    *
    * @param platformServices - Service to do things the kernel worker can't.
@@ -119,10 +111,6 @@ export class Kernel {
       this.#resetKernelState({ resetIdentity: Boolean(options.mnemonic) });
     }
 
-    // Load or generate incarnation ID - persisted so it survives restarts
-    // but changes when storage is cleared (when state is actually lost)
-    this.#incarnationId = this.#kernelStore.getOrCreateIncarnationId();
-    this.#logger.log(`Incarnation ID: ${this.#incarnationId.slice(0, 8)}...`);
     this.#kernelQueue = new KernelQueue(
       this.#kernelStore,
       async (vatId, reason) => this.#vatManager.terminateVat(vatId, reason),
