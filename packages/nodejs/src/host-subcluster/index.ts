@@ -76,13 +76,13 @@ export function makeHostSubcluster(
   // Build root object that receives kernelFacet via bootstrap message
   const buildRootObject: SystemVatBuildRootObject = () => {
     return makeDefaultExo('KernelHostRoot', {
-      // Bootstrap is called by the kernel with kernelFacet as a presence
+      // Bootstrap is called by the kernel with roots and services.
+      // kernelFacet is always included in services.
       bootstrap: (
         _roots: Record<string, unknown>,
-        _services: Record<string, unknown>,
-        kernelFacet: KernelFacet,
+        services: { kernelFacet: KernelFacet },
       ) => {
-        capturedKernelFacet = kernelFacet;
+        capturedKernelFacet = services.kernelFacet;
       },
     });
   };

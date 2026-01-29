@@ -61,14 +61,12 @@ describe('makeHostSubcluster', () => {
       expect(mockStart).toHaveBeenCalled();
     });
 
-    it('throws if supervisor start returns error', async () => {
-      mockStart.mockResolvedValueOnce('Some error');
+    it('throws if supervisor start throws', async () => {
+      mockStart.mockRejectedValueOnce(new Error('Start failed'));
 
       const { start } = makeHostSubcluster();
 
-      await expect(start()).rejects.toThrow(
-        'Failed to start host subcluster supervisor: Some error',
-      );
+      await expect(start()).rejects.toThrow('Start failed');
     });
   });
 
