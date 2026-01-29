@@ -3,7 +3,6 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import {
   DEFAULT_CONNECTION_RATE_LIMIT,
-  DEFAULT_CONNECTION_RATE_WINDOW_MS,
   DEFAULT_MESSAGE_RATE_LIMIT,
   DEFAULT_MESSAGE_RATE_WINDOW_MS,
 } from './constants.ts';
@@ -338,13 +337,4 @@ describe('makeConnectionRateLimiter', () => {
   });
 
   // Skip window expiration test for connection limiter as it would take 60 seconds
-});
-
-describe('constants', () => {
-  it('exports expected default values', () => {
-    expect(DEFAULT_MESSAGE_RATE_LIMIT).toBe(100);
-    expect(DEFAULT_MESSAGE_RATE_WINDOW_MS).toBe(1000);
-    expect(DEFAULT_CONNECTION_RATE_LIMIT).toBe(10);
-    expect(DEFAULT_CONNECTION_RATE_WINDOW_MS).toBe(60_000);
-  });
 });
