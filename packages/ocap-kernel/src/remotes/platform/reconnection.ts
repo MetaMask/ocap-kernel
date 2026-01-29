@@ -76,6 +76,20 @@ export class ReconnectionManager {
   }
 
   /**
+   * Decrement the attempt count (minimum 0).
+   * Used to "undo" an attempt that didn't actually perform a dial
+   * (e.g., when rate-limited before the connection was attempted).
+   *
+   * @param peerId - The peer ID to decrement attempts for.
+   */
+  decrementAttempt(peerId: string): void {
+    const state = this.#getState(peerId);
+    if (state.attemptCount > 0) {
+      state.attemptCount -= 1;
+    }
+  }
+
+  /**
    * Reset the backoff counter for a peer.
    *
    * @param peerId - The peer ID to reset backoff for.

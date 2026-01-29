@@ -28,6 +28,10 @@ vi.mock('@metamask/kernel-errors', async () => {
   };
 });
 
+// Helper to flush pending promises/microtasks
+const flushPromises = async (): Promise<void> =>
+  new Promise((resolve) => setImmediate(resolve));
+
 describe('reconnection-lifecycle', () => {
   let deps: ReconnectionLifecycleDeps;
   let abortController: AbortController;
@@ -69,6 +73,7 @@ describe('reconnection-lifecycle', () => {
         isReconnecting: vi.fn().mockReturnValue(true),
         shouldRetry: vi.fn().mockReturnValue(true),
         incrementAttempt: vi.fn().mockReturnValue(1),
+        decrementAttempt: vi.fn(),
         calculateBackoff: vi.fn().mockReturnValue(100),
         startReconnection: vi.fn(),
         stopReconnection: vi.fn(),
@@ -79,6 +84,8 @@ describe('reconnection-lifecycle', () => {
       dialPeer: vi.fn().mockResolvedValue(mockChannel),
       reuseOrReturnChannel: vi.fn().mockResolvedValue(mockChannel),
       checkConnectionLimit: vi.fn(),
+      checkConnectionRateLimit: vi.fn(),
+      closeChannel: vi.fn().mockResolvedValue(undefined),
       registerChannel: vi.fn(),
     } as unknown as ReconnectionLifecycleDeps;
   });
@@ -119,13 +126,14 @@ describe('reconnection-lifecycle', () => {
       expect(state.channel).toBeUndefined();
     });
 
-    it('starts reconnection if not already reconnecting', () => {
+    it('starts reconnection if not already reconnecting', async () => {
       (
         deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>
       ).mockReturnValue(false);
       const lifecycle = makeReconnectionLifecycle(deps);
 
       lifecycle.handleConnectionLoss('peer1');
+      await flushPromises();
 
       expect(deps.reconnectionManager.startReconnection).toHaveBeenCalledWith(
         'peer1',
@@ -143,13 +151,14 @@ describe('reconnection-lifecycle', () => {
       expect(deps.reconnectionManager.startReconnection).not.toHaveBeenCalled();
     });
 
-    it('logs connection loss message', () => {
+    it('logs connection loss message', async () => {
       (
         deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>
       ).mockReturnValue(false);
       const lifecycle = makeReconnectionLifecycle(deps);
 
       lifecycle.handleConnectionLoss('peer1');
+      await flushPromises();
 
       expect(deps.logger.log).toHaveBeenCalledWith(
         'peer1:: connection lost, initiating reconnection',
@@ -318,7 +327,200 @@ describe('reconnection-lifecycle', () => {
 
       await lifecycle.attemptReconnection('peer1');
 
-      expect(deps.checkConnectionLimit).toHaveBeenCalled();
+      expect(deps.checkConnectionLimit).toHaveBeenCalledTimes(1);
+    });
+
+    it('checks connection rate limit before dialing', async () => {
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      expect(deps.checkConnectionRateLimit).toHaveBeenCalledTimes(1);
+      expect(deps.checkConnectionRateLimit).toHaveBeenCalledWith('peer1');
+    });
+
+    it('continues loop on ResourceLimitError instead of giving up', async () => {
+      const { ResourceLimitError } = kernelErrors;
+      (
+        deps.checkConnectionRateLimit as ReturnType<typeof vi.fn>
+      ).mockImplementationOnce(() => {
+        throw new ResourceLimitError('Rate limit exceeded', {
+          data: { limitType: 'connectionRate', current: 10, limit: 10 },
+        });
+      });
+
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true) // First attempt - rate limited
+        .mockReturnValueOnce(true) // Second attempt - success
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      // Should not call onRemoteGiveUp because rate limit is retryable
+      expect(deps.onRemoteGiveUp).not.toHaveBeenCalled();
+      // Should have tried twice (once rate limited, once successful)
+      expect(deps.reconnectionManager.incrementAttempt).toHaveBeenCalledTimes(
+        2,
+      );
+      expect(deps.logger.log).toHaveBeenCalledWith(
+        expect.stringContaining('rate limited'),
+      );
+    });
+
+    it('decrements attempt count when rate limited to preserve retry quota', async () => {
+      const { ResourceLimitError } = kernelErrors;
+      (
+        deps.checkConnectionRateLimit as ReturnType<typeof vi.fn>
+      ).mockImplementationOnce(() => {
+        throw new ResourceLimitError('Rate limit exceeded', {
+          data: { limitType: 'connectionRate', current: 10, limit: 10 },
+        });
+      });
+
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true) // First attempt - rate limited
+        .mockReturnValueOnce(true) // Second attempt - success
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      // Should have decremented attempt count when rate limited
+      // so that rate-limited attempts don't consume retry quota
+      expect(deps.reconnectionManager.decrementAttempt).toHaveBeenCalledWith(
+        'peer1',
+      );
+      expect(deps.reconnectionManager.decrementAttempt).toHaveBeenCalledTimes(
+        1,
+      );
+    });
+
+    it('does not decrement attempt count for connection limit errors', async () => {
+      const { ResourceLimitError } = kernelErrors;
+      (
+        deps.checkConnectionLimit as ReturnType<typeof vi.fn>
+      ).mockImplementationOnce(() => {
+        throw new ResourceLimitError('Connection limit exceeded', {
+          data: { limitType: 'connection', current: 100, limit: 100 },
+        });
+      });
+
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true) // First attempt - connection limit
+        .mockReturnValueOnce(true) // Second attempt - success
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      // Should NOT decrement attempt count because dial was performed
+      expect(deps.reconnectionManager.decrementAttempt).not.toHaveBeenCalled();
+    });
+
+    it('retries connection limit errors without calling isRetryableNetworkError', async () => {
+      const { ResourceLimitError } = kernelErrors;
+      // Mock isRetryableNetworkError to return false - connection limit errors
+      // should be retried regardless via explicit handling
+      (
+        kernelErrors.isRetryableNetworkError as ReturnType<typeof vi.fn>
+      ).mockReturnValue(false);
+
+      (
+        deps.checkConnectionLimit as ReturnType<typeof vi.fn>
+      ).mockImplementationOnce(() => {
+        throw new ResourceLimitError('Connection limit exceeded', {
+          data: { limitType: 'connection', current: 100, limit: 100 },
+        });
+      });
+
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true) // First attempt - connection limit
+        .mockReturnValueOnce(true) // Second attempt - success
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      // Should NOT call onRemoteGiveUp - connection limit errors are retryable
+      expect(deps.onRemoteGiveUp).not.toHaveBeenCalled();
+      // Should have retried and succeeded
+      expect(deps.reconnectionManager.resetBackoff).toHaveBeenCalledWith(
+        'peer1',
+      );
+      expect(deps.logger.log).toHaveBeenCalledWith(
+        expect.stringContaining('hit connection limit'),
+      );
+    });
+
+    it('closes channel when connection limit is exceeded after dial', async () => {
+      const { ResourceLimitError } = kernelErrors;
+      (
+        deps.checkConnectionLimit as ReturnType<typeof vi.fn>
+      ).mockImplementationOnce(() => {
+        throw new ResourceLimitError('Connection limit exceeded', {
+          data: { limitType: 'connection', current: 100, limit: 100 },
+        });
+      });
+
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true) // First attempt - connection limit
+        .mockReturnValueOnce(true) // Second attempt - success
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      // Should close the channel to prevent resource leak
+      expect(deps.closeChannel).toHaveBeenCalledWith(mockChannel, 'peer1');
+    });
+
+    it('propagates ResourceLimitError even when closeChannel fails', async () => {
+      const { ResourceLimitError } = kernelErrors;
+      // Mock isRetryableNetworkError to return false - we want to verify the
+      // ResourceLimitError is still correctly identified
+      (
+        kernelErrors.isRetryableNetworkError as ReturnType<typeof vi.fn>
+      ).mockReturnValue(false);
+
+      (
+        deps.checkConnectionLimit as ReturnType<typeof vi.fn>
+      ).mockImplementationOnce(() => {
+        throw new ResourceLimitError('Connection limit exceeded', {
+          data: { limitType: 'connection', current: 100, limit: 100 },
+        });
+      });
+
+      // closeChannel throws an error
+      (deps.closeChannel as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+        new Error('Channel already closed'),
+      );
+
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true) // First attempt - connection limit + close error
+        .mockReturnValueOnce(true) // Second attempt - success
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      // Should NOT call onRemoteGiveUp - the original ResourceLimitError should
+      // be preserved even though closeChannel failed
+      expect(deps.onRemoteGiveUp).not.toHaveBeenCalled();
+      // Should have retried and succeeded
+      expect(deps.reconnectionManager.resetBackoff).toHaveBeenCalledWith(
+        'peer1',
+      );
     });
 
     it('logs reconnection attempts', async () => {
