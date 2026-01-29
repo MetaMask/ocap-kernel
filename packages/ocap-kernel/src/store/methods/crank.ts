@@ -43,6 +43,7 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
    */
   function rollbackCrank(savepoint: string): void {
     ctx.inCrank || Fail`rollbackCrank outside of crank`;
+    ctx.crankBuffer.length = 0; // Discard buffered outputs
     for (const ordinal of ctx.savepoints.keys()) {
       if (ctx.savepoints[ordinal] === savepoint) {
         kdb.rollbackSavepoint(`t${ordinal}`);

@@ -71,13 +71,14 @@ export class VatSyscall {
   }
 
   /**
-   * Handle a 'send' syscall from the vat.
+   * Handle a 'send' syscall from the vat. The send is buffered and will be
+   * flushed to the run queue on successful crank completion.
    *
    * @param target - The target of the message send.
    * @param message - The message that was sent.
    */
   #handleSyscallSend(target: KRef, message: Message): void {
-    this.#kernelQueue.enqueueSend(target, message);
+    this.#kernelQueue.enqueueSend(target, message, true);
   }
 
   /**

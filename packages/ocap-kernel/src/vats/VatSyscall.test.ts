@@ -43,12 +43,12 @@ describe('VatSyscall', () => {
     vatSys = new VatSyscall({ vatId: 'v1', kernelQueue, kernelStore, logger });
   });
 
-  it('enqueues run for send syscall', async () => {
+  it('buffers send syscall for crank completion', async () => {
     const target = 'o+1';
-    const message = {} as unknown as Message;
+    const message = { methargs: { body: '', slots: [] } } as unknown as Message;
     const vso = ['send', target, message] as unknown as VatSyscallObject;
     vatSys.handleSyscall(vso);
-    expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(target, message);
+    expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(target, message, true);
   });
 
   it('calls resolvePromises for resolve syscall', async () => {
