@@ -193,7 +193,12 @@ export function makeReconnectionLifecycle(
         checkConnectionLimit();
       } catch (error) {
         // Connection limit exceeded after dial - close the channel to prevent leak
-        await closeChannel(channel, peerId);
+        // Use try-catch to ensure the original error is always re-thrown
+        try {
+          await closeChannel(channel, peerId);
+        } catch {
+          // Ignore close errors - the original ResourceLimitError takes priority
+        }
         throw error;
       }
       registerChannel(peerId, channel, 'reading channel to');
