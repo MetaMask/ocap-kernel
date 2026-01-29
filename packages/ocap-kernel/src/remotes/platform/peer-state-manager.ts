@@ -119,16 +119,6 @@ export class PeerStateManager {
   }
 
   /**
-   * Get the remote incarnation ID for a peer.
-   *
-   * @param peerId - The peer ID.
-   * @returns The remote incarnation ID, or undefined if not known.
-   */
-  getRemoteIncarnation(peerId: string): string | undefined {
-    return this.#peerStates.get(peerId)?.remoteIncarnationId;
-  }
-
-  /**
    * Set the remote incarnation ID for a peer.
    *
    * @param peerId - The peer ID.
