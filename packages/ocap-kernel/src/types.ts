@@ -2,8 +2,10 @@ import type {
   SwingSetCapData,
   Message as SwingsetMessage,
   VatSyscallObject,
+  VatSyscallResult,
   VatSyscallSend,
   VatOneResolution,
+  VatDeliveryObject,
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import type { VatCheckpoint } from '@metamask/kernel-store';
@@ -442,6 +444,7 @@ export type SystemVatBuildRootObject = (
 
 /**
  * Configuration for a single system vat within a system subcluster.
+ * Used when launching system subclusters via Kernel.launchSystemSubcluster().
  */
 export type SystemVatConfig = {
   buildRootObject: SystemVatBuildRootObject;
@@ -452,6 +455,8 @@ export type SystemVatConfig = {
  * Configuration for launching a system subcluster.
  * System subclusters contain vats that run without compartment isolation
  * directly in the host process.
+ *
+ * Used when launching system subclusters via Kernel.launchSystemSubcluster().
  */
 export type SystemSubclusterConfig = {
   /** The name of the bootstrap vat within the subcluster. */
@@ -470,6 +475,73 @@ export type SystemSubclusterLaunchResult = {
   systemSubclusterId: SystemSubclusterId;
   /** Map of vat names to their system vat IDs. */
   vatIds: Record<string, SystemVatId>;
+};
+
+// ============================================================================
+// System Vat Transport Types (for Kernel.make() static configuration)
+// ============================================================================
+
+/**
+ * Syscall handler from system vat to kernel.
+ * The kernel provides this to the transport so syscalls can be routed correctly.
+ */
+export type SystemVatSyscallHandler = (
+  syscall: VatSyscallObject,
+) => VatSyscallResult;
+
+/**
+ * Deliver function from kernel to system vat.
+ * The runtime provides this to the kernel so deliveries can be routed correctly.
+ */
+export type SystemVatDeliverFn = (
+  delivery: VatDeliveryObject,
+) => Promise<string | null>;
+
+/**
+ * Transport interface bridging kernel and system vat processes.
+ *
+ * The transport abstracts the communication channel between the kernel (which
+ * creates SystemVatHandle) and the system vat supervisor (which runs in the
+ * runtime's process). This allows:
+ * - Node.js: direct function calls (same process)
+ * - Extension: MessagePort IPC (cross-process)
+ */
+export type SystemVatTransport = {
+  /** Send deliveries from kernel to system vat. */
+  deliver: SystemVatDeliverFn;
+  /** Register syscall handler (kernel calls this to wire up). */
+  setSyscallHandler: (handler: SystemVatSyscallHandler) => void;
+};
+
+/**
+ * Configuration for a single system vat with transport (for Kernel.make).
+ * The runtime creates the supervisor and provides the transport.
+ */
+export type SystemVatConnectionConfig = {
+  /** Vat name (matches key in subcluster config). */
+  name: string;
+  /** Transport callbacks for communication. */
+  transport: SystemVatTransport;
+};
+
+/**
+ * System subcluster configuration for Kernel.make().
+ * Used to connect to pre-existing system vat supervisors at kernel creation time.
+ */
+export type KernelSystemSubclusterConfig = {
+  /** Name of the bootstrap vat. */
+  bootstrap: string;
+  /** Transport connections for each vat. */
+  vatTransports: SystemVatConnectionConfig[];
+  /** Kernel services to provide to bootstrap vat. */
+  services?: string[];
+};
+
+/**
+ * System subclusters configuration for Kernel.make().
+ */
+export type KernelSystemSubclustersConfig = {
+  subclusters: KernelSystemSubclusterConfig[];
 };
 
 export const SubclusterStruct = object({

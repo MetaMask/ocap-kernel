@@ -1,7 +1,6 @@
 import type { VatDeliveryObject } from '@agoric/swingset-liveslots';
 import { Logger } from '@metamask/logger';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { MockInstance } from 'vitest';
 
 import type { SystemVatBuildRootObject, SystemVatId } from '../types.ts';
 import type { SystemVatExecuteSyscall } from './SystemVatSupervisor.ts';
@@ -252,8 +251,7 @@ describe('SystemVatSupervisor', () => {
       expect(supervisor.id).toBe(systemVatId);
 
       // Get the syscall object passed to makeLiveSlots
-      const syscall = (makeLiveSlots as unknown as MockInstance).mock
-        .calls[0][0];
+      const syscall = vi.mocked(makeLiveSlots).mock.calls[0]?.[0];
 
       // Test the send syscall
       syscall.send('o+1', { body: '[]', slots: [] }, 'p-1');
@@ -283,8 +281,7 @@ describe('SystemVatSupervisor', () => {
       expect(supervisor.id).toBe(systemVatId);
 
       // Get the syscall object passed to makeLiveSlots
-      const syscall = (makeLiveSlots as unknown as MockInstance).mock
-        .calls[0][0];
+      const syscall = vi.mocked(makeLiveSlots).mock.calls[0]?.[0];
 
       expect(() =>
         syscall.send('o+1', { body: '[]', slots: [] }, 'p-1'),
@@ -305,8 +302,7 @@ describe('SystemVatSupervisor', () => {
       expect(supervisor.id).toBe(systemVatId);
 
       // Get the syscall object passed to makeLiveSlots
-      const syscall = (makeLiveSlots as unknown as MockInstance).mock
-        .calls[0][0];
+      const syscall = vi.mocked(makeLiveSlots).mock.calls[0]?.[0];
 
       expect(() => syscall.callNow()).toThrow(
         'callNow not supported for system vats',
@@ -329,8 +325,7 @@ describe('SystemVatSupervisor', () => {
       });
 
       // Get the syscall object passed to makeLiveSlots
-      const syscall = (makeLiveSlots as unknown as MockInstance).mock
-        .calls[0][0];
+      const syscall = vi.mocked(makeLiveSlots).mock.calls[0]?.[0];
 
       // Test vatstore operations
       expect(syscall.vatstoreGet('key')).toBeUndefined();
@@ -356,8 +351,7 @@ describe('SystemVatSupervisor', () => {
       });
 
       // Get the syscall object passed to makeLiveSlots
-      const syscall = (makeLiveSlots as unknown as MockInstance).mock
-        .calls[0][0];
+      const syscall = vi.mocked(makeLiveSlots).mock.calls[0]?.[0];
 
       syscall.vatstoreSet('a', '1');
       syscall.vatstoreSet('b', '2');
@@ -384,8 +378,7 @@ describe('SystemVatSupervisor', () => {
       });
 
       // Get the buildVatNamespace function passed to makeLiveSlots
-      const buildVatNamespace = (makeLiveSlots as unknown as MockInstance).mock
-        .calls[0][6];
+      const buildVatNamespace = vi.mocked(makeLiveSlots).mock.calls[0]?.[6];
 
       // Call buildVatNamespace to get the namespace
       const namespace = await buildVatNamespace({}, {});

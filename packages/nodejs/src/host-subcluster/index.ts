@@ -1,191 +1,154 @@
-import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import { Logger } from '@metamask/logger';
 import type {
   SystemVatBuildRootObject,
-  SystemSubclusterConfig,
-  ClusterConfig,
-  KernelStatus,
-  Subcluster,
   KernelFacet,
-  KernelFacetLaunchResult,
-  Kernel,
+  KernelSystemSubclusterConfig,
+  SystemVatTransport,
+  SystemVatSyscallHandler,
+  SystemVatDeliverFn,
 } from '@metamask/ocap-kernel';
+import {
+  SystemVatSupervisor,
+  makeSyscallHandlerHolder,
+} from '@metamask/ocap-kernel/vats';
 
 /**
- * The kernel host vat's root object interface.
- *
- * This is the interface exposed by the kernel host vat to the host application.
- */
-export type KernelHostRoot = {
-  /**
-   * Ping the kernel host.
-   *
-   * @returns 'pong' to confirm the host is responsive.
-   */
-  ping: () => Promise<'pong'>;
-
-  /**
-   * Launch a dynamic subcluster.
-   *
-   * @param config - Configuration for the subcluster.
-   * @returns The launch result with subcluster ID and root presence.
-   */
-  launchSubcluster: (config: ClusterConfig) => Promise<KernelFacetLaunchResult>;
-
-  /**
-   * Terminate a subcluster.
-   *
-   * @param subclusterId - The ID of the subcluster to terminate.
-   */
-  terminateSubcluster: (subclusterId: string) => Promise<void>;
-
-  /**
-   * Get kernel status.
-   *
-   * @returns The current kernel status.
-   */
-  getStatus: () => Promise<KernelStatus>;
-
-  /**
-   * Reload a subcluster.
-   *
-   * @param subclusterId - The ID of the subcluster to reload.
-   * @returns The reloaded subcluster.
-   */
-  reloadSubcluster: (subclusterId: string) => Promise<Subcluster>;
-
-  /**
-   * Get a subcluster by ID.
-   *
-   * @param subclusterId - The ID of the subcluster.
-   * @returns The subcluster or undefined if not found.
-   */
-  getSubcluster: (subclusterId: string) => Subcluster | undefined;
-
-  /**
-   * Get all subclusters.
-   *
-   * @returns Array of all subclusters.
-   */
-  getSubclusters: () => Subcluster[];
-
-  /**
-   * Convert a kref string to a presence.
-   *
-   * Use this to restore a presence from a stored kref string after restart.
-   *
-   * @param kref - The kref string to convert.
-   * @returns The presence for the given kref.
-   */
-  getVatRoot: (kref: string) => unknown;
-};
-
-/**
- * Create the configuration for launching the kernel host subcluster.
- *
- * @param onRootCreated - Callback invoked when the root object is created.
- * @returns The system subcluster configuration.
- */
-export function makeKernelHostSubclusterConfig(
-  onRootCreated: (root: KernelHostRoot) => void,
-): SystemSubclusterConfig {
-  const buildRootObject: SystemVatBuildRootObject = (vatPowers) => {
-    const kernelFacet = vatPowers.kernelFacet as KernelFacet;
-
-    const root = makeDefaultExo('KernelHostRoot', {
-      ping: async () => 'pong' as const,
-
-      launchSubcluster: async (config: ClusterConfig) => {
-        // Use E() to call kernel facet - this gives us proper reference handling
-        return E(kernelFacet).launchSubcluster(config);
-      },
-
-      terminateSubcluster: async (subclusterId: string) => {
-        return E(kernelFacet).terminateSubcluster(subclusterId);
-      },
-
-      getStatus: async () => {
-        return E(kernelFacet).getStatus();
-      },
-
-      reloadSubcluster: async (subclusterId: string) => {
-        return E(kernelFacet).reloadSubcluster(subclusterId);
-      },
-
-      getSubcluster: (subclusterId: string) => {
-        // Synchronous method - call directly
-        return kernelFacet.getSubcluster(subclusterId);
-      },
-
-      getSubclusters: () => {
-        // Synchronous method - call directly
-        return kernelFacet.getSubclusters();
-      },
-
-      getVatRoot: async (kref: string) => {
-        // Convert kref to slot value, which becomes a presence via liveslots
-        return kernelFacet.getVatRoot(kref);
-      },
-    }) as KernelHostRoot;
-
-    // Capture the root object for external use
-    onRootCreated(root);
-
-    return root;
-  };
-
-  return {
-    bootstrap: 'kernelHost',
-    vats: {
-      kernelHost: { buildRootObject },
-    },
-  };
-}
-harden(makeKernelHostSubclusterConfig);
-
-/**
- * Result of launching the host subcluster.
+ * Result of creating a host subcluster.
  */
 export type HostSubclusterResult = {
   /**
-   * The system subcluster ID.
+   * Configuration to pass to Kernel.make() systemSubclusters option.
    */
-  systemSubclusterId: string;
+  config: KernelSystemSubclusterConfig;
 
   /**
-   * The kernel host root object for interacting with the kernel.
+   * Start the supervisor. Call after Kernel.make() returns.
+   *
+   * @returns A promise that resolves when the supervisor is started.
    */
-  kernelHostRoot: KernelHostRoot;
+  start: () => Promise<void>;
+
+  /**
+   * Get the kernel facet (available after bootstrap is called by kernel).
+   *
+   * @returns The kernel facet presence for making E() calls.
+   */
+  getKernelFacet: () => KernelFacet;
 };
 
 /**
- * Launch the host subcluster on a kernel.
+ * Create a host subcluster for use with Kernel.make().
  *
- * This creates a system subcluster with a kernel host vat that provides
- * privileged kernel operations. The returned root object can be used directly
- * to interact with the kernel (e.g., launch subclusters, get status).
+ * This creates the supervisor and transport configuration needed to connect
+ * a host subcluster to the kernel. The supervisor is created in this process,
+ * and the transport allows the kernel to communicate with it.
  *
- * @param kernel - The kernel instance to launch the host subcluster on.
- * @returns The host subcluster result with the system subcluster ID and root object.
+ * Usage:
+ * ```typescript
+ * const hostSubcluster = makeHostSubcluster({ logger });
+ * const kernel = await Kernel.make(platformServices, db, {
+ *   systemSubclusters: { subclusters: [hostSubcluster.config] },
+ * });
+ * await hostSubcluster.start();
+ * const kernelFacet = hostSubcluster.getKernelFacet();
+ * const result = await E(kernelFacet).launchSubcluster(config);
+ * ```
+ *
+ * @param options - Options for creating the host subcluster.
+ * @param options.logger - Optional logger for the supervisor.
+ * @returns The host subcluster result with config and initialization functions.
  */
-export async function makeHostSubcluster(
-  kernel: Kernel,
-): Promise<HostSubclusterResult> {
-  let kernelHostRoot: KernelHostRoot | undefined;
+export function makeHostSubcluster(
+  options: {
+    logger?: Logger;
+  } = {},
+): HostSubclusterResult {
+  const logger = options.logger ?? new Logger('host-subcluster');
+  const vatName = 'kernelHost';
 
-  const hostSubclusterConfig = makeKernelHostSubclusterConfig((root) => {
-    kernelHostRoot = root;
-  });
+  // Captured kernel facet from bootstrap message
+  let capturedKernelFacet: KernelFacet | null = null;
 
-  const result = await kernel.launchSystemSubcluster(hostSubclusterConfig);
+  // Create syscall handler holder for deferred wiring
+  const syscallHandlerHolder = makeSyscallHandlerHolder();
 
-  if (!kernelHostRoot) {
-    throw new Error('Failed to capture kernel host root object');
-  }
+  // Build root object that receives kernelFacet via bootstrap message
+  const buildRootObject: SystemVatBuildRootObject = () => {
+    return makeDefaultExo('KernelHostRoot', {
+      // Bootstrap is called by the kernel with kernelFacet as a presence
+      bootstrap: (
+        _roots: Record<string, unknown>,
+        _services: Record<string, unknown>,
+        kernelFacet: KernelFacet,
+      ) => {
+        capturedKernelFacet = kernelFacet;
+      },
+    });
+  };
+
+  // Create the supervisor
+  let supervisor: SystemVatSupervisor | null = null;
+
+  // Create the transport
+  const deliver: SystemVatDeliverFn = async (delivery) => {
+    if (!supervisor) {
+      throw new Error('Supervisor not initialized');
+    }
+    return supervisor.deliver(delivery);
+  };
+
+  const transport: SystemVatTransport = {
+    deliver,
+    setSyscallHandler: (handler: SystemVatSyscallHandler) => {
+      syscallHandlerHolder.handler = handler;
+    },
+  };
+
+  // Config for Kernel.make()
+  const config: KernelSystemSubclusterConfig = {
+    bootstrap: vatName,
+    vatTransports: [
+      {
+        name: vatName,
+        transport,
+      },
+    ],
+  };
 
   return harden({
-    systemSubclusterId: result.systemSubclusterId,
-    kernelHostRoot,
+    config,
+
+    start: async () => {
+      // Create the supervisor
+      supervisor = new SystemVatSupervisor({
+        // The kernel assigns the actual ID via the transport
+        // This placeholder is only used for logging
+        id: 'sv0' as `sv${number}`,
+        buildRootObject,
+        vatPowers: {},
+        parameters: undefined,
+        syscallHandlerHolder,
+        logger: logger.subLogger({ tags: ['supervisor'] }),
+      });
+
+      // Start the supervisor (dispatches startVat)
+      const startError = await supervisor.start();
+      if (startError) {
+        throw new Error(
+          `Failed to start host subcluster supervisor: ${startError}`,
+        );
+      }
+    },
+
+    getKernelFacet: () => {
+      if (!capturedKernelFacet) {
+        throw new Error(
+          'Kernel facet not available. Ensure start() was called and kernel has bootstrapped.',
+        );
+      }
+      return capturedKernelFacet;
+    },
   });
 }
 harden(makeHostSubcluster);

@@ -1,152 +1,114 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { KernelHostRoot } from './index.ts';
-import { makeKernelHostSubclusterConfig, makeHostSubcluster } from './index.ts';
+import { makeHostSubcluster } from './index.ts';
 
-describe('makeKernelHostSubclusterConfig', () => {
-  const mockKernelFacet = {
-    launchSubcluster: vi.fn(),
-    terminateSubcluster: vi.fn(),
-    getStatus: vi.fn(),
-    reloadSubcluster: vi.fn(),
-    getSubcluster: vi.fn(),
-    getSubclusters: vi.fn(),
+// Mock SystemVatSupervisor
+const mockStart = vi.fn();
+const mockDeliver = vi.fn();
+
+vi.mock('@metamask/ocap-kernel/vats', () => {
+  return {
+    SystemVatSupervisor: class MockSystemVatSupervisor {
+      start = mockStart;
+
+      deliver = mockDeliver;
+    },
+    makeSyscallHandlerHolder: vi.fn(() => ({ handler: null })),
   };
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it('returns a valid system subcluster config', () => {
-    const onRootCreated = vi.fn();
-    const config = makeKernelHostSubclusterConfig(onRootCreated);
-
-    expect(config.bootstrap).toBe('kernelHost');
-    expect(config.vats.kernelHost).toBeDefined();
-    expect(config.vats?.kernelHost?.buildRootObject).toBeTypeOf('function');
-  });
-
-  it('invokes onRootCreated callback when buildRootObject is called', () => {
-    const onRootCreated = vi.fn();
-    const config = makeKernelHostSubclusterConfig(onRootCreated);
-
-    const root = config.vats?.kernelHost?.buildRootObject(
-      {
-        kernelFacet: mockKernelFacet,
-      },
-      {},
-    );
-
-    expect(onRootCreated).toHaveBeenCalledWith(root);
-  });
-
-  describe('kernel host root', () => {
-    let root: KernelHostRoot;
-
-    beforeEach(() => {
-      const onRootCreated = vi.fn();
-      const config = makeKernelHostSubclusterConfig(onRootCreated);
-      root = config.vats?.kernelHost?.buildRootObject(
-        {
-          kernelFacet: mockKernelFacet,
-        },
-        {},
-      ) as KernelHostRoot;
-    });
-
-    it('creates root with expected methods', () => {
-      expect(root.ping).toBeTypeOf('function');
-      expect(root.launchSubcluster).toBeTypeOf('function');
-      expect(root.terminateSubcluster).toBeTypeOf('function');
-      expect(root.getStatus).toBeTypeOf('function');
-      expect(root.reloadSubcluster).toBeTypeOf('function');
-      expect(root.getSubcluster).toBeTypeOf('function');
-      expect(root.getSubclusters).toBeTypeOf('function');
-    });
-
-    it('ping returns pong', async () => {
-      const result = await root.ping();
-      expect(result).toBe('pong');
-    });
-
-    // Note: launchSubcluster, terminateSubcluster, getStatus, reloadSubcluster
-    // use E() which requires endo initialization. These are integration tested
-    // via the full system tests rather than unit tests.
-
-    it('getSubcluster calls kernel facet synchronously', () => {
-      mockKernelFacet.getSubcluster.mockReturnValue({
-        id: 's1',
-        config: { bootstrap: 'test', vats: {} },
-        vats: {},
-      });
-
-      const result = root.getSubcluster('s1');
-
-      expect(mockKernelFacet.getSubcluster).toHaveBeenCalledWith('s1');
-      expect(result?.id).toBe('s1');
-    });
-
-    it('getSubclusters calls kernel facet synchronously', () => {
-      mockKernelFacet.getSubclusters.mockReturnValue([
-        { id: 's1', config: { bootstrap: 'test', vats: {} }, vats: {} },
-      ]);
-
-      const result = root.getSubclusters();
-
-      expect(mockKernelFacet.getSubclusters).toHaveBeenCalled();
-      expect(result).toHaveLength(1);
-    });
-  });
 });
 
 describe('makeHostSubcluster', () => {
-  it('launches system subcluster and returns result', async () => {
-    const mockKernel = {
-      launchSystemSubcluster: vi.fn(async (config) => {
-        // Simulate the kernel calling buildRootObject
-        const mockKernelFacet = {
-          launchSubcluster: vi.fn(),
-          terminateSubcluster: vi.fn(),
-          getStatus: vi.fn(),
-          reloadSubcluster: vi.fn(),
-          getSubcluster: vi.fn(),
-          getSubclusters: vi.fn(),
-        };
-        config.vats?.kernelHost?.buildRootObject(
-          { kernelFacet: mockKernelFacet },
-          {},
-        );
-        return { systemSubclusterId: 'ss0', vatIds: { kernelHost: 'sv0' } };
-      }),
-    };
-
-    const result = await makeHostSubcluster(mockKernel as never);
-
-    expect(mockKernel.launchSystemSubcluster).toHaveBeenCalledWith(
-      expect.objectContaining({
-        bootstrap: 'kernelHost',
-        vats: expect.objectContaining({
-          kernelHost: expect.objectContaining({
-            buildRootObject: expect.any(Function),
-          }),
-        }),
-      }),
-    );
-    expect(result.systemSubclusterId).toBe('ss0');
-    expect(result.kernelHostRoot).toBeDefined();
-    expect(result.kernelHostRoot.ping).toBeTypeOf('function');
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockStart.mockResolvedValue(null);
+    mockDeliver.mockResolvedValue(null);
   });
 
-  it('throws if root object not captured', async () => {
-    const mockKernel = {
-      launchSystemSubcluster: vi.fn(async () => ({
-        systemSubclusterId: 'ss0',
-        vatIds: { kernelHost: 'sv0' },
-      })),
-    };
+  it('returns config, start, and getKernelFacet', () => {
+    const result = makeHostSubcluster();
 
-    await expect(makeHostSubcluster(mockKernel as never)).rejects.toThrow(
-      'Failed to capture kernel host root object',
-    );
+    expect(result.config).toBeDefined();
+    expect(result.start).toBeTypeOf('function');
+    expect(result.getKernelFacet).toBeTypeOf('function');
+  });
+
+  describe('config', () => {
+    it('has kernelHost as bootstrap vat', () => {
+      const { config } = makeHostSubcluster();
+
+      expect(config.bootstrap).toBe('kernelHost');
+    });
+
+    it('has vatTransports with kernelHost transport', () => {
+      const { config } = makeHostSubcluster();
+
+      expect(config.vatTransports).toHaveLength(1);
+      expect(config.vatTransports[0]?.name).toBe('kernelHost');
+      expect(config.vatTransports[0]?.transport).toBeDefined();
+      expect(config.vatTransports[0]?.transport.deliver).toBeTypeOf('function');
+      expect(config.vatTransports[0]?.transport.setSyscallHandler).toBeTypeOf(
+        'function',
+      );
+    });
+  });
+
+  describe('start', () => {
+    it('creates and starts the supervisor', async () => {
+      const { start } = makeHostSubcluster();
+
+      await start();
+
+      expect(mockStart).toHaveBeenCalled();
+    });
+
+    it('throws if supervisor start returns error', async () => {
+      mockStart.mockResolvedValueOnce('Some error');
+
+      const { start } = makeHostSubcluster();
+
+      await expect(start()).rejects.toThrow(
+        'Failed to start host subcluster supervisor: Some error',
+      );
+    });
+  });
+
+  describe('getKernelFacet', () => {
+    it('throws if called before kernel facet is available', () => {
+      const { getKernelFacet } = makeHostSubcluster();
+
+      expect(() => getKernelFacet()).toThrow(
+        'Kernel facet not available. Ensure start() was called and kernel has bootstrapped.',
+      );
+    });
+  });
+
+  describe('transport', () => {
+    it('deliver throws if supervisor not initialized', async () => {
+      const { config } = makeHostSubcluster();
+
+      await expect(
+        config.vatTransports[0]?.transport.deliver({
+          type: 'message',
+          methargs: { body: '[]', slots: [] },
+          result: 'p-1',
+          target: 'o+0',
+        }),
+      ).rejects.toThrow('Supervisor not initialized');
+    });
+
+    it('deliver calls supervisor after start', async () => {
+      const { config, start } = makeHostSubcluster();
+      await start();
+
+      const delivery = {
+        type: 'message' as const,
+        methargs: { body: '[]', slots: [] },
+        result: 'p-1',
+        target: 'o+0',
+      };
+      await config.vatTransports[0]?.transport.deliver(delivery);
+
+      expect(mockDeliver).toHaveBeenCalledWith(delivery);
+    });
   });
 });

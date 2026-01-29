@@ -3,7 +3,6 @@ import type { Logger } from '@metamask/logger';
 import { makeKernelFacet } from '../kernel-facet.ts';
 import type { KernelFacetDependencies } from '../kernel-facet.ts';
 import type { KernelQueue } from '../KernelQueue.ts';
-import type { SystemVatDeliverFn } from './SystemVatHandle.ts';
 import { SystemVatHandle } from './SystemVatHandle.ts';
 import { kslot } from '../liveslots/kernel-marshal.ts';
 import type { SlotValue } from '../liveslots/kernel-marshal.ts';
@@ -11,46 +10,47 @@ import type { KernelStore } from '../store/index.ts';
 import type {
   SystemVatId,
   SystemSubclusterId,
-  SystemSubclusterConfig,
-  SystemSubclusterLaunchResult,
+  KernelSystemSubclusterConfig,
   KRef,
 } from '../types.ts';
 import { ROOT_OBJECT_VREF } from '../types.ts';
-import { SystemVatSupervisor } from './SystemVatSupervisor.ts';
 
 /**
- * Callback type for connecting a system vat supervisor to the kernel.
- * Called when a system vat is launched.
+ * Result of connecting a system subcluster.
  */
-export type SystemVatConnectFn = (
-  systemVatId: SystemVatId,
-  deliver: SystemVatDeliverFn,
-) => SystemVatHandle;
+export type SystemSubclusterConnectResult = {
+  /** The ID of the connected system subcluster. */
+  systemSubclusterId: SystemSubclusterId;
+  /** Map of vat names to their system vat IDs. */
+  vatIds: Record<string, SystemVatId>;
+};
 
 type SystemSubclusterManagerOptions = {
   kernelStore: KernelStore;
   kernelQueue: KernelQueue;
   kernelFacetDeps: KernelFacetDependencies;
-  /** Logger is required for system subclusters since supervisors need it for liveslots. */
   logger: Logger;
 };
 
+/**
+ * Internal record for a connected system subcluster.
+ */
 type SystemSubclusterRecord = {
   id: SystemSubclusterId;
-  config: SystemSubclusterConfig;
+  config: KernelSystemSubclusterConfig;
   vatIds: Record<string, SystemVatId>;
   handles: Map<SystemVatId, SystemVatHandle>;
-  supervisors: Map<SystemVatId, SystemVatSupervisor>;
 };
 
 /**
  * Manages system subclusters - subclusters whose vats run without compartment
- * isolation directly in the host process.
+ * isolation directly in the runtime process.
  *
  * System vats:
- * - Run without compartment isolation
+ * - Are created by the runtime (not the kernel)
+ * - Connect to the kernel via transports
+ * - Receive a kernel facet in the bootstrap message
  * - Don't participate in kernel persistence machinery
- * - The bootstrap vat receives a kernel facet as a vatpower
  */
 export class SystemSubclusterManager {
   /** Storage holding the kernel's persistent state */
@@ -74,6 +74,13 @@ export class SystemSubclusterManager {
   /** Active system subclusters */
   readonly #subclusters: Map<SystemSubclusterId, SystemSubclusterRecord> =
     new Map();
+
+  /** Singleton kernel facet (created lazily, kept alive for GC purposes) */
+  // eslint-disable-next-line no-unused-private-class-members
+  #kernelFacet: object | null = null;
+
+  /** Kref of the singleton kernel facet */
+  #kernelFacetKref: KRef | null = null;
 
   /**
    * Creates a new SystemSubclusterManager instance.
@@ -120,85 +127,68 @@ export class SystemSubclusterManager {
   }
 
   /**
-   * Launch a system subcluster.
+   * Get the singleton kernel facet kref, creating it if necessary.
    *
-   * @param config - Configuration for the system subcluster.
-   * @returns A promise for the launch result.
+   * @returns The kref for the kernel facet.
    */
-  async launchSystemSubcluster(
-    config: SystemSubclusterConfig,
-  ): Promise<SystemSubclusterLaunchResult> {
+  #getKernelFacetKref(): KRef {
+    if (!this.#kernelFacetKref) {
+      this.#kernelFacet = makeKernelFacet(this.#kernelFacetDeps);
+      this.#kernelFacetKref = this.#kernelStore.initKernelObject('kernel');
+    }
+    return this.#kernelFacetKref;
+  }
+
+  /**
+   * Connect to a system subcluster using provided transports.
+   *
+   * The runtime creates supervisors externally and provides transports for
+   * communication. The kernel creates a kernel facet and delivers it in the
+   * bootstrap message as a presence.
+   *
+   * @param config - Configuration for the system subcluster with transports.
+   * @returns A promise for the connect result.
+   */
+  async connectSystemSubcluster(
+    config: KernelSystemSubclusterConfig,
+  ): Promise<SystemSubclusterConnectResult> {
     await this.#kernelQueue.waitForCrank();
 
-    if (!config.vats[config.bootstrap]) {
+    const bootstrapTransport = config.vatTransports.find(
+      (vt) => vt.name === config.bootstrap,
+    );
+    if (!bootstrapTransport) {
       throw Error(`invalid bootstrap vat name ${config.bootstrap}`);
     }
 
     const systemSubclusterId = this.#allocateSystemSubclusterId();
     const vatIds: Record<string, SystemVatId> = {};
     const handles = new Map<SystemVatId, SystemVatHandle>();
-    const supervisors = new Map<SystemVatId, SystemVatSupervisor>();
     const rootKrefs: Record<string, KRef> = {};
 
-    // Create kernel facet for the bootstrap vat
-    const kernelFacet = makeKernelFacet(this.#kernelFacetDeps);
-
-    // Launch all system vats
-    for (const [vatName, vatConfig] of Object.entries(config.vats)) {
+    // Connect all system vats via their transports
+    for (const vatTransport of config.vatTransports) {
+      const { name: vatName, transport } = vatTransport;
       const systemVatId = this.#allocateSystemVatId();
       vatIds[vatName] = systemVatId;
 
       // Initialize the endpoint in the kernel store
       this.#kernelStore.initEndpoint(systemVatId);
 
-      // Determine vatpowers - bootstrap vat gets the kernel facet
-      const isBootstrap = vatName === config.bootstrap;
-      const vatPowers: Record<string, unknown> = isBootstrap
-        ? { kernelFacet }
-        : {};
-
-      // Create the system vat handle (kernel-side)
-      // We need the deliver function from the supervisor, so we create
-      // a deferred connection
-      let supervisorDeliver: SystemVatDeliverFn | null = null;
-      const deliver: SystemVatDeliverFn = async (delivery) => {
-        if (!supervisorDeliver) {
-          throw new Error('System vat supervisor not connected');
-        }
-        return supervisorDeliver(delivery);
-      };
-
+      // Create the system vat handle (kernel-side) with the transport's deliver function
       const handle = new SystemVatHandle({
         systemVatId,
         kernelStore: this.#kernelStore,
         kernelQueue: this.#kernelQueue,
-        deliver,
+        deliver: transport.deliver,
         logger: this.#logger.subLogger({ tags: [systemVatId] }),
       });
       handles.set(systemVatId, handle);
 
-      // Create the supervisor (which runs liveslots)
-      const supervisor = new SystemVatSupervisor({
-        id: systemVatId,
-        buildRootObject: vatConfig.buildRootObject,
-        vatPowers,
-        parameters: vatConfig.parameters,
-        executeSyscall: (vso) =>
-          handle.getSyscallHandler()(vso) ?? harden(['ok', null]),
-        logger: this.#logger.subLogger({ tags: [systemVatId, 'supervisor'] }),
-      });
-      supervisors.set(systemVatId, supervisor);
+      // Wire the syscall handler to the transport
+      transport.setSyscallHandler(handle.getSyscallHandler());
 
-      // Connect the supervisor's deliver function to the handle
-      supervisorDeliver = supervisor.deliver.bind(supervisor);
-
-      // Start the vat
-      const startError = await supervisor.start();
-      if (startError) {
-        throw new Error(`Failed to start system vat ${vatName}: ${startError}`);
-      }
-
-      // Get the root kref (the root object is exported at o+0)
+      // Get or create the root kref (the root object is exported at o+0)
       const existingRootKref = this.#kernelStore.erefToKref(
         systemVatId,
         ROOT_OBJECT_VREF,
@@ -217,13 +207,15 @@ export class SystemSubclusterManager {
       }
     }
 
+    // Get the singleton kernel facet kref
+    const kernelFacetKref = this.#getKernelFacetKref();
+
     // Store the subcluster record
     const record: SystemSubclusterRecord = {
       id: systemSubclusterId,
       config,
       vatIds,
       handles,
-      supervisors,
     };
     this.#subclusters.set(systemSubclusterId, record);
 
@@ -248,7 +240,7 @@ export class SystemSubclusterManager {
       }
     }
 
-    // Call bootstrap on the bootstrap vat's root object
+    // Call bootstrap on the bootstrap vat's root object with kernelFacet as a presence
     const bootstrapVatId = vatIds[config.bootstrap];
     if (!bootstrapVatId) {
       throw new Error(`Bootstrap vat ID not found for ${config.bootstrap}`);
@@ -257,36 +249,13 @@ export class SystemSubclusterManager {
     await this.#kernelQueue.enqueueMessage(
       rootKrefs[config.bootstrap] as KRef,
       'bootstrap',
-      [roots, services],
+      [roots, services, kslot(kernelFacetKref, 'KernelFacet')],
     );
 
     return {
       systemSubclusterId,
       vatIds,
     };
-  }
-
-  /**
-   * Terminate a system subcluster.
-   *
-   * @param systemSubclusterId - ID of the system subcluster to terminate.
-   */
-  async terminateSystemSubcluster(
-    systemSubclusterId: SystemSubclusterId,
-  ): Promise<void> {
-    await this.#kernelQueue.waitForCrank();
-
-    const record = this.#subclusters.get(systemSubclusterId);
-    if (!record) {
-      throw Error(`System subcluster ${systemSubclusterId} not found`);
-    }
-
-    // Terminate all handles
-    for (const handle of record.handles.values()) {
-      await handle.terminate(true);
-    }
-
-    this.#subclusters.delete(systemSubclusterId);
   }
 
   /**
@@ -303,29 +272,6 @@ export class SystemSubclusterManager {
       }
     }
     return undefined;
-  }
-
-  /**
-   * Get all system vat IDs.
-   *
-   * @returns Array of all system vat IDs.
-   */
-  getSystemVatIds(): SystemVatId[] {
-    const ids: SystemVatId[] = [];
-    for (const record of this.#subclusters.values()) {
-      ids.push(...record.handles.keys());
-    }
-    return ids;
-  }
-
-  /**
-   * Check if a system vat is active.
-   *
-   * @param systemVatId - The system vat ID to check.
-   * @returns True if the system vat is active.
-   */
-  isSystemVatActive(systemVatId: SystemVatId): boolean {
-    return this.getSystemVatHandle(systemVatId) !== undefined;
   }
 }
 harden(SystemSubclusterManager);

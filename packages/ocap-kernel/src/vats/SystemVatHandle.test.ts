@@ -65,7 +65,11 @@ describe('SystemVatHandle', () => {
       expect(typeof handler).toBe('function');
 
       // Test that it can handle a syscall
-      handler(['send', 'o+1', { methargs: { body: '[]', slots: [] } }]);
+      handler([
+        'send',
+        'o+1',
+        { methargs: { body: '[]', slots: [] }, result: 'p-1' },
+      ]);
       expect(kernelQueue.enqueueSend).toHaveBeenCalled();
     });
   });
@@ -174,52 +178,6 @@ describe('SystemVatHandle', () => {
     });
   });
 
-  describe('terminate', () => {
-    it('marks handle as inactive when terminating=true', async () => {
-      await systemVatHandle.terminate(true);
-
-      // Subsequent syscalls should fail because handle is inactive
-      const handler = systemVatHandle.getSyscallHandler();
-      handler(['send', 'o+1', { methargs: { body: '[]', slots: [] } }]);
-
-      // The syscall should have been rejected due to inactive status
-      expect(kernelQueue.enqueueSend).not.toHaveBeenCalled();
-    });
-
-    it('rejects promises for which this vat is decider when terminating', async () => {
-      (
-        kernelStore.getPromisesByDecider as unknown as MockInstance
-      ).mockReturnValueOnce(['kp1', 'kp2']);
-
-      await systemVatHandle.terminate(true);
-
-      expect(kernelQueue.resolvePromises).toHaveBeenCalledWith(
-        systemVatId,
-        expect.arrayContaining([
-          expect.arrayContaining(['kp1', true, expect.anything()]),
-        ]),
-      );
-      expect(kernelQueue.resolvePromises).toHaveBeenCalledWith(
-        systemVatId,
-        expect.arrayContaining([
-          expect.arrayContaining(['kp2', true, expect.anything()]),
-        ]),
-      );
-    });
-
-    it('deletes endpoint when terminating', async () => {
-      await systemVatHandle.terminate(true);
-
-      expect(kernelStore.deleteEndpoint).toHaveBeenCalledWith(systemVatId);
-    });
-
-    it('does not delete endpoint when not terminating', async () => {
-      await systemVatHandle.terminate(false);
-
-      expect(kernelStore.deleteEndpoint).not.toHaveBeenCalled();
-    });
-  });
-
   describe('crank results', () => {
     it('returns abort and terminate on delivery error', async () => {
       (deliver as unknown as MockInstance).mockResolvedValueOnce(
@@ -259,7 +217,7 @@ describe('SystemVatHandle', () => {
             handle.getSyscallHandler()([
               'send',
               'o+1',
-              { methargs: { body: '[]', slots: [] } },
+              { methargs: { body: '[]', slots: [] }, result: 'p-1' },
             ]);
           }
           return null;

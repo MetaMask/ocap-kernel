@@ -39,6 +39,16 @@
         "default": "./dist/rpc/index.cjs"
       }
     },
+    "./vats": {
+      "import": {
+        "types": "./dist/vats/index.d.mts",
+        "default": "./dist/vats/index.mjs"
+      },
+      "require": {
+        "types": "./dist/vats/index.d.cts",
+        "default": "./dist/vats/index.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",

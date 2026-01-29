@@ -2,12 +2,13 @@ import type {
   VatDeliveryObject,
   VatOneResolution,
   VatSyscallObject,
+  VatSyscallResult,
   Message as SwingSetMessage,
 } from '@agoric/swingset-liveslots';
 import type { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from '../KernelQueue.ts';
-import { kser, makeError } from '../liveslots/kernel-marshal.ts';
+import { makeError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
   Message,
@@ -28,7 +29,9 @@ export type SystemVatDeliverFn = (
 /**
  * Syscall callback type - called by system vat to send syscalls to kernel.
  */
-export type SystemVatSyscallFn = (syscall: VatSyscallObject) => void;
+export type SystemVatSyscallFn = (
+  syscall: VatSyscallObject,
+) => VatSyscallResult;
 
 type SystemVatHandleProps = {
   systemVatId: SystemVatId;
@@ -51,12 +54,6 @@ export class SystemVatHandle implements EndpointHandle {
   /** Logger for outputting messages (such as errors) to the console */
   readonly #logger: Logger | undefined;
 
-  /** Storage holding the kernel's persistent state */
-  readonly #kernelStore: KernelStore;
-
-  /** The kernel's queue */
-  readonly #kernelQueue: KernelQueue;
-
   /** The system vat's syscall handler */
   readonly #vatSyscall: VatSyscall;
 
@@ -64,7 +61,7 @@ export class SystemVatHandle implements EndpointHandle {
   readonly #deliver: SystemVatDeliverFn;
 
   /** Flag indicating if this handle is active */
-  #isActive: boolean = true;
+  readonly #isActive: boolean = true;
 
   /**
    * Construct a new SystemVatHandle instance.
@@ -85,8 +82,6 @@ export class SystemVatHandle implements EndpointHandle {
   }: SystemVatHandleProps) {
     this.systemVatId = systemVatId;
     this.#logger = logger;
-    this.#kernelStore = kernelStore;
-    this.#kernelQueue = kernelQueue;
     this.#deliver = deliver;
     this.#vatSyscall = new VatSyscall({
       vatId: systemVatId,
@@ -103,11 +98,11 @@ export class SystemVatHandle implements EndpointHandle {
   /**
    * Get a syscall handler function to pass to the system vat supervisor.
    *
-   * @returns A function that handles syscalls from the system vat.
+   * @returns A function that handles syscalls from the system vat and returns the result.
    */
-  getSyscallHandler(): (syscall: VatSyscallObject) => void {
+  getSyscallHandler(): (syscall: VatSyscallObject) => VatSyscallResult {
     return (syscall: VatSyscallObject) => {
-      this.#vatSyscall.handleSyscall(syscall);
+      return this.#vatSyscall.handleSyscall(syscall);
     };
   }
 
@@ -182,29 +177,6 @@ export class SystemVatHandle implements EndpointHandle {
   async deliverBringOutYourDead(): Promise<CrankResults> {
     const deliveryError = await this.#deliver(harden(['bringOutYourDead']));
     return this.#getDeliveryCrankResults(deliveryError);
-  }
-
-  /**
-   * Terminates the system vat handle.
-   *
-   * @param terminating - If true, the vat is being killed permanently.
-   * @param _error - The error to terminate with (unused for system vats).
-   */
-  async terminate(terminating: boolean, _error?: Error): Promise<void> {
-    this.#isActive = false;
-    if (terminating) {
-      // Reject promises exported to other vats for which this vat is the decider
-      const failure = kser(new Error('system vat terminated'));
-      for (const kpid of this.#kernelStore.getPromisesByDecider(
-        this.systemVatId,
-      )) {
-        this.#kernelQueue.resolvePromises(this.systemVatId, [
-          [kpid, true, failure],
-        ]);
-      }
-      // Note: System vats don't have a vatStore to delete
-      this.#kernelStore.deleteEndpoint(this.systemVatId);
-    }
   }
 
   /**

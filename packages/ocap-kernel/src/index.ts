@@ -16,10 +16,14 @@ export type {
   // System vat types
   SystemVatId,
   SystemSubclusterId,
-  SystemSubclusterConfig,
-  SystemVatConfig,
   SystemVatBuildRootObject,
-  SystemSubclusterLaunchResult,
+  // System vat transport types (for Kernel.make())
+  SystemVatTransport,
+  SystemVatSyscallHandler,
+  SystemVatDeliverFn,
+  SystemVatConnectionConfig,
+  KernelSystemSubclusterConfig,
+  KernelSystemSubclustersConfig,
 } from './types.ts';
 export type {
   RemoteMessageHandler,

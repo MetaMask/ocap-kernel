@@ -1,10 +1,11 @@
 import { E } from '@endo/eventual-send';
-import type { Kernel, ClusterConfig } from '@metamask/ocap-kernel';
+import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
+import { Logger } from '@metamask/logger';
+import type { Kernel, ClusterConfig, KernelFacet } from '@metamask/ocap-kernel';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { makeHostSubcluster } from '../../src/host-subcluster/index.ts';
-import type { KernelHostRoot } from '../../src/host-subcluster/index.ts';
-import { makeKernel } from '../../src/kernel/make-kernel.ts';
+import { NodejsPlatformServices } from '../../src/kernel/PlatformServices.ts';
 
 type Bob = {
   makeGreeter: (greeting: string) => Promise<Greeter>;
@@ -27,12 +28,37 @@ type PromiseVat = {
 
 describe('system subcluster e2e tests', { timeout: 30_000 }, () => {
   let kernel: Kernel;
-  let kernelHostRoot: KernelHostRoot;
+  let kernelFacet: KernelFacet;
+  let hostSubcluster: ReturnType<typeof makeHostSubcluster>;
 
   beforeEach(async () => {
-    kernel = await makeKernel({});
-    const hostResult = await makeHostSubcluster(kernel);
-    kernelHostRoot = hostResult.kernelHostRoot;
+    const logger = new Logger('test');
+
+    // Create host subcluster first
+    hostSubcluster = makeHostSubcluster({ logger });
+
+    // Create kernel with system subcluster config
+    const platformServices = new NodejsPlatformServices({
+      logger: logger.subLogger({ tags: ['platform-services'] }),
+    });
+    const kernelDatabase = await makeSQLKernelDatabase({});
+
+    // Import Kernel dynamically to avoid circular deps
+    const { Kernel: KernelClass } = await import('@metamask/ocap-kernel');
+    kernel = await KernelClass.make(platformServices, kernelDatabase, {
+      resetStorage: true,
+      logger: logger.subLogger({ tags: ['kernel'] }),
+      systemSubclusters: { subclusters: [hostSubcluster.config] },
+    });
+
+    // Start host subcluster supervisor after kernel is created
+    await hostSubcluster.start();
+
+    // Run the kernel to process bootstrap message
+    await kernel.run();
+
+    // Get the kernel facet
+    kernelFacet = hostSubcluster.getKernelFacet();
   });
 
   afterEach(async () => {
@@ -40,13 +66,8 @@ describe('system subcluster e2e tests', { timeout: 30_000 }, () => {
   });
 
   describe('basic operations', () => {
-    it('pings the kernel host', async () => {
-      const result = await kernelHostRoot.ping();
-      expect(result).toBe('pong');
-    });
-
     it('gets kernel status', async () => {
-      const status = await kernelHostRoot.getStatus();
+      const status = await E(kernelFacet).getStatus();
       expect(status).toBeDefined();
       expect(status.vats).toBeDefined();
       expect(status.subclusters).toBeDefined();
@@ -62,7 +83,7 @@ describe('system subcluster e2e tests', { timeout: 30_000 }, () => {
         },
       };
 
-      const result = await kernelHostRoot.launchSubcluster(config);
+      const result = await E(kernelFacet).launchSubcluster(config);
 
       expect(result.subclusterId).toBeDefined();
       expect(result.root).toBeDefined();
@@ -84,13 +105,13 @@ describe('system subcluster e2e tests', { timeout: 30_000 }, () => {
         },
       };
 
-      const result = await kernelHostRoot.launchSubcluster(config);
-      const subcluster = kernelHostRoot.getSubcluster(result.subclusterId);
+      const result = await E(kernelFacet).launchSubcluster(config);
+      const subcluster = kernelFacet.getSubcluster(result.subclusterId);
       expect(subcluster).toBeDefined();
 
-      await kernelHostRoot.terminateSubcluster(result.subclusterId);
+      await E(kernelFacet).terminateSubcluster(result.subclusterId);
 
-      const terminatedSubcluster = kernelHostRoot.getSubcluster(
+      const terminatedSubcluster = kernelFacet.getSubcluster(
         result.subclusterId,
       );
       expect(terminatedSubcluster).toBeUndefined();
@@ -112,20 +133,18 @@ describe('system subcluster e2e tests', { timeout: 30_000 }, () => {
         },
       };
 
-      const launchResult = await kernelHostRoot.launchSubcluster(config);
+      const launchResult = await E(kernelFacet).launchSubcluster(config);
       const bob = launchResult.root as Bob;
 
       // Get Carol's root object
-      const subcluster = kernelHostRoot.getSubcluster(
-        launchResult.subclusterId,
-      );
+      const subcluster = kernelFacet.getSubcluster(launchResult.subclusterId);
       expect(subcluster).toBeDefined();
       const carolVatId = subcluster?.vats.find(
         (vatId) => vatId !== subcluster.vats[0],
       );
       expect(carolVatId).toBeDefined();
       const carolKref = kernel.pinVatRoot(carolVatId!);
-      const carol = kernelHostRoot.getVatRoot(carolKref) as Carol;
+      const carol = kernelFacet.getVatRoot(carolKref) as Carol;
 
       // Host orchestrates: get exo from Bob, pass to Carol
       const greeter = await E(bob).makeGreeter('Greetings');
@@ -144,7 +163,7 @@ describe('system subcluster e2e tests', { timeout: 30_000 }, () => {
           },
         },
       };
-      const bobResult = await kernelHostRoot.launchSubcluster(bobConfig);
+      const bobResult = await E(kernelFacet).launchSubcluster(bobConfig);
       const bob = bobResult.root as Bob;
 
       // Launch Carol in another subcluster
@@ -156,7 +175,7 @@ describe('system subcluster e2e tests', { timeout: 30_000 }, () => {
           },
         },
       };
-      const carolResult = await kernelHostRoot.launchSubcluster(carolConfig);
+      const carolResult = await E(kernelFacet).launchSubcluster(carolConfig);
       const carol = carolResult.root as Carol;
 
       // Host orchestrates cross-subcluster handoff
@@ -178,7 +197,7 @@ describe('system subcluster e2e tests', { timeout: 30_000 }, () => {
         },
       };
 
-      const result = await kernelHostRoot.launchSubcluster(config);
+      const result = await E(kernelFacet).launchSubcluster(config);
       const promiseVat = result.root as PromiseVat;
 
       // Get a promise for an exo (without awaiting)
@@ -202,7 +221,7 @@ describe('system subcluster e2e tests', { timeout: 30_000 }, () => {
         },
       };
 
-      const result = await kernelHostRoot.launchSubcluster(config);
+      const result = await E(kernelFacet).launchSubcluster(config);
       const promiseVat = result.root as PromiseVat;
 
       // Get a deferred promise (unresolved)
@@ -226,7 +245,7 @@ describe('system subcluster e2e tests', { timeout: 30_000 }, () => {
         },
       };
 
-      const result = await kernelHostRoot.launchSubcluster(config);
+      const result = await E(kernelFacet).launchSubcluster(config);
       const promiseVat = result.root as PromiseVat;
 
       // Get a deferred promise (unresolved)
@@ -254,11 +273,11 @@ describe('system subcluster e2e tests', { timeout: 30_000 }, () => {
       };
 
       // Launch and get rootKref for storage
-      const result = await kernelHostRoot.launchSubcluster(config);
+      const result = await E(kernelFacet).launchSubcluster(config);
       const storedKref = result.rootKref;
 
       // Later: restore presence from kref
-      const restoredBob = kernelHostRoot.getVatRoot(storedKref) as Bob;
+      const restoredBob = kernelFacet.getVatRoot(storedKref) as Bob;
 
       // The restored presence should be E()-callable
       const greeter = await E(restoredBob).makeGreeter('Restored');

@@ -19,12 +19,11 @@ import type {
   KRef,
   PlatformServices,
   ClusterConfig,
-  SystemSubclusterConfig,
+  KernelSystemSubclustersConfig,
   VatConfig,
   KernelStatus,
   Subcluster,
   SubclusterLaunchResult,
-  SystemSubclusterLaunchResult,
   EndpointHandle,
 } from './types.ts';
 import { isVatId, isRemoteId, isSystemVatId } from './types.ts';
@@ -84,6 +83,12 @@ export class Kernel {
   readonly #kernelRouter: KernelRouter;
 
   /**
+   * System subclusters configuration passed to Kernel.make().
+   * Stored for connection after initialization.
+   */
+  readonly #systemSubclustersConfig: KernelSystemSubclustersConfig | undefined;
+
+  /**
    * Construct a new kernel instance.
    *
    * @param platformServices - Service to do things the kernel worker can't.
@@ -93,6 +98,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
+   * @param options.systemSubclusters - Optional system subclusters to connect at kernel creation.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
@@ -103,11 +109,13 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
+      systemSubclusters?: KernelSystemSubclustersConfig;
     } = {},
   ) {
     this.#platformServices = platformServices;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase, this.#logger);
+    this.#systemSubclustersConfig = options.systemSubclusters;
     if (!this.#kernelStore.kv.get('initialized')) {
       this.#kernelStore.kv.set('initialized', 'true');
     }
@@ -212,6 +220,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
+   * @param options.systemSubclusters - Optional system subclusters to connect at kernel creation.
    * @returns A promise for the new kernel instance.
    */
   static async make(
@@ -222,6 +231,7 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
+      systemSubclusters?: KernelSystemSubclustersConfig;
     } = {},
   ): Promise<Kernel> {
     const kernel = new Kernel(platformServices, kernelDatabase, options);
@@ -242,6 +252,16 @@ export class Kernel {
     // Start all vats that were previously running before starting the queue
     // This ensures that any messages in the queue have their target vats ready
     await this.#vatManager.initializeAllVats();
+
+    // Connect system subclusters if configured
+    if (this.#systemSubclustersConfig) {
+      const { subclusters } = this.#systemSubclustersConfig;
+      for (const subclusterConfig of subclusters) {
+        await this.#systemSubclusterManager.connectSystemSubcluster(
+          subclusterConfig,
+        );
+      }
+    }
 
     // Start the kernel queue processing (non-blocking)
     // This runs for the entire lifetime of the kernel
@@ -325,35 +345,6 @@ export class Kernel {
     config: ClusterConfig,
   ): Promise<SubclusterLaunchResult> {
     return this.#subclusterManager.launchSubcluster(config);
-  }
-
-  /**
-   * Launches a system subcluster.
-   *
-   * System subclusters contain vats that run without compartment isolation
-   * directly in the host process. The bootstrap vat receives a kernel facet
-   * as a vatpower, enabling it to launch dynamic subclusters and receive
-   * E()-callable presences.
-   *
-   * @param config - Configuration for the system subcluster.
-   * @returns A promise for the launch result containing system subcluster ID and vat IDs.
-   */
-  async launchSystemSubcluster(
-    config: SystemSubclusterConfig,
-  ): Promise<SystemSubclusterLaunchResult> {
-    return this.#systemSubclusterManager.launchSystemSubcluster(config);
-  }
-
-  /**
-   * Terminates a system subcluster.
-   *
-   * @param systemSubclusterId - The ID of the system subcluster to terminate.
-   * @returns A promise that resolves when termination is complete.
-   */
-  async terminateSystemSubcluster(systemSubclusterId: string): Promise<void> {
-    return this.#systemSubclusterManager.terminateSystemSubcluster(
-      systemSubclusterId,
-    );
   }
 
   /**
