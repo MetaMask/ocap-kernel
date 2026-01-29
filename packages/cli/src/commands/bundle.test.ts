@@ -12,7 +12,7 @@ import { fileExists } from '../file.ts';
 
 const mocks = vi.hoisted(() => {
   return {
-    endoBundleSource: vi.fn(),
+    bundleVat: vi.fn(),
     Logger: vi.fn(
       () =>
         ({
@@ -25,11 +25,9 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('@endo/bundle-source', () => ({
-  default: mocks.endoBundleSource,
+vi.mock('../vite/vat-bundler.ts', () => ({
+  bundleVat: mocks.bundleVat,
 }));
-
-vi.mock('@endo/init', () => ({}));
 
 vi.mock('@metamask/logger', () => ({
   Logger: mocks.Logger,
@@ -68,8 +66,13 @@ describe('bundle', async () => {
       async ({ source, bundle }) => {
         expect(await fileExists(bundle)).toBe(false);
 
-        const testContent = { source: 'test-content' };
-        mocks.endoBundleSource.mockImplementationOnce(() => testContent);
+        const testContent = {
+          moduleFormat: 'iife',
+          code: 'test-code',
+          exports: [],
+          external: [],
+        };
+        mocks.bundleVat.mockImplementationOnce(() => testContent);
 
         await bundleFile(source, { logger });
 
@@ -84,7 +87,7 @@ describe('bundle', async () => {
     );
 
     it('throws if bundling fails', async () => {
-      mocks.endoBundleSource.mockImplementationOnce(() => {
+      mocks.bundleVat.mockImplementationOnce(() => {
         throw new Error('test error');
       });
       await expect(
@@ -97,9 +100,12 @@ describe('bundle', async () => {
     it('bundles a directory', async () => {
       expect(await globBundles()).toStrictEqual([]);
 
-      mocks.endoBundleSource.mockImplementation(() => {
-        return 'test content';
-      });
+      mocks.bundleVat.mockImplementation(() => ({
+        moduleFormat: 'iife',
+        code: 'test content',
+        exports: [],
+        external: [],
+      }));
 
       await bundleDir(testBundleRoot, { logger });
 
@@ -111,7 +117,7 @@ describe('bundle', async () => {
     });
 
     it('throws if bundling fails', async () => {
-      mocks.endoBundleSource.mockImplementationOnce(() => {
+      mocks.bundleVat.mockImplementationOnce(() => {
         throw new Error('test error');
       });
       await expect(bundleDir(testBundleRoot, { logger })).rejects.toThrow(

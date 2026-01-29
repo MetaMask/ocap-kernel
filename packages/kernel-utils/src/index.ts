@@ -26,6 +26,8 @@ export {
 export { waitUntilQuiescent } from './wait-quiescent.ts';
 export { fromHex, toHex } from './hex.ts';
 export { mergeDisjointRecords } from './merge-disjoint-records.ts';
+export type { VatBundle } from './vat-bundle.ts';
+export { isVatBundle } from './vat-bundle.ts';
 export {
   retry,
   retryWithBackoff,
