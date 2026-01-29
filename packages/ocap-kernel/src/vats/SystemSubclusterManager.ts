@@ -4,7 +4,7 @@ import { makeKernelFacet } from '../kernel-facet.ts';
 import type { KernelFacetDependencies } from '../kernel-facet.ts';
 import type { KernelQueue } from '../KernelQueue.ts';
 import { SystemVatHandle } from './SystemVatHandle.ts';
-import { kslot } from '../liveslots/kernel-marshal.ts';
+import { kser, kslot } from '../liveslots/kernel-marshal.ts';
 import type { SlotValue } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
@@ -29,6 +29,7 @@ type SystemSubclusterManagerOptions = {
   kernelStore: KernelStore;
   kernelQueue: KernelQueue;
   kernelFacetDeps: KernelFacetDependencies;
+  registerKernelService: (name: string, service: object) => { kref: string };
   logger: Logger;
 };
 
@@ -76,11 +77,17 @@ export class SystemSubclusterManager {
     new Map();
 
   /** Singleton kernel facet (created lazily, kept alive for GC purposes) */
-  // eslint-disable-next-line no-unused-private-class-members
+
   #kernelFacet: object | null = null;
 
   /** Kref of the singleton kernel facet */
   #kernelFacetKref: KRef | null = null;
+
+  /** Function to register a kernel service */
+  readonly #registerKernelService: (
+    name: string,
+    service: object,
+  ) => { kref: string };
 
   /**
    * Creates a new SystemSubclusterManager instance.
@@ -89,17 +96,20 @@ export class SystemSubclusterManager {
    * @param options.kernelStore - The kernel's persistent state store.
    * @param options.kernelQueue - The kernel's message queue.
    * @param options.kernelFacetDeps - Dependencies for the kernel facet service.
+   * @param options.registerKernelService - Function to register kernel services.
    * @param options.logger - Logger instance for debugging and diagnostics.
    */
   constructor({
     kernelStore,
     kernelQueue,
     kernelFacetDeps,
+    registerKernelService,
     logger,
   }: SystemSubclusterManagerOptions) {
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#kernelFacetDeps = kernelFacetDeps;
+    this.#registerKernelService = registerKernelService;
     this.#logger = logger;
     harden(this);
   }
@@ -127,14 +137,19 @@ export class SystemSubclusterManager {
   }
 
   /**
-   * Get the singleton kernel facet kref, creating it if necessary.
+   * Get the singleton kernel facet kref, creating and registering it if necessary.
    *
    * @returns The kref for the kernel facet.
    */
   #getKernelFacetKref(): KRef {
     if (!this.#kernelFacetKref) {
       this.#kernelFacet = makeKernelFacet(this.#kernelFacetDeps);
-      this.#kernelFacetKref = this.#kernelStore.initKernelObject('kernel');
+      // Register the kernel facet as a kernel service so it can receive messages
+      const { kref } = this.#registerKernelService(
+        'kernelFacet',
+        this.#kernelFacet,
+      );
+      this.#kernelFacetKref = kref;
     }
     return this.#kernelFacetKref;
   }
@@ -152,8 +167,6 @@ export class SystemSubclusterManager {
   async connectSystemSubcluster(
     config: KernelSystemSubclusterConfig,
   ): Promise<SystemSubclusterConnectResult> {
-    await this.#kernelQueue.waitForCrank();
-
     const bootstrapTransport = config.vatTransports.find(
       (vt) => vt.name === config.bootstrap,
     );
@@ -225,8 +238,10 @@ export class SystemSubclusterManager {
       roots[vatName] = kslot(kref, 'vatRoot');
     }
 
-    // Build services object
-    const services: Record<string, SlotValue> = {};
+    // Build services object - always include kernelFacet
+    const services: Record<string, SlotValue> = {
+      kernelFacet: kslot(kernelFacetKref, 'KernelFacet'),
+    };
     if (config.services) {
       for (const serviceName of config.services) {
         const serviceKref = this.#kernelStore.kv.get(
@@ -240,17 +255,21 @@ export class SystemSubclusterManager {
       }
     }
 
-    // Call bootstrap on the bootstrap vat's root object with kernelFacet as a presence
+    // Call bootstrap on the bootstrap vat's root object
     const bootstrapVatId = vatIds[config.bootstrap];
     if (!bootstrapVatId) {
       throw new Error(`Bootstrap vat ID not found for ${config.bootstrap}`);
     }
 
-    await this.#kernelQueue.enqueueMessage(
-      rootKrefs[config.bootstrap] as KRef,
-      'bootstrap',
-      [roots, services, kslot(kernelFacetKref, 'KernelFacet')],
-    );
+    // Enqueue the bootstrap message without waiting for its result.
+    // We use enqueueSend (fire-and-forget) instead of enqueueMessage (which awaits result)
+    // because this is called during Kernel.make() before the run loop starts.
+    // The system vat will receive the bootstrap message once the run loop begins.
+    const bootstrapTarget = rootKrefs[config.bootstrap] as KRef;
+    const bootstrapArgs = [roots, services];
+    this.#kernelQueue.enqueueSend(bootstrapTarget, {
+      methargs: kser(['bootstrap', bootstrapArgs]),
+    });
 
     return {
       systemSubclusterId,

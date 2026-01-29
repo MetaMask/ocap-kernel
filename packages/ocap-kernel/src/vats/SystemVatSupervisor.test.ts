@@ -112,22 +112,7 @@ describe('SystemVatSupervisor', () => {
       );
     });
 
-    it('returns null on successful start', async () => {
-      const supervisor = new SystemVatSupervisor({
-        id: systemVatId,
-        buildRootObject,
-        vatPowers,
-        parameters: undefined,
-        executeSyscall,
-        logger,
-      });
-
-      const result = await supervisor.start();
-
-      expect(result).toBeNull();
-    });
-
-    it('returns error message on failed start', async () => {
+    it('throws on failed start', async () => {
       mockDispatch.mockRejectedValueOnce(new Error('start failed'));
 
       const supervisor = new SystemVatSupervisor({
@@ -139,13 +124,7 @@ describe('SystemVatSupervisor', () => {
         logger,
       });
 
-      const result = await supervisor.start();
-
-      expect(result).toBe('start failed');
-      expect(logger.error).toHaveBeenCalledWith(
-        expect.stringContaining('Start error'),
-        'start failed',
-      );
+      await expect(supervisor.start()).rejects.toThrow('start failed');
     });
   });
 

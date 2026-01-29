@@ -182,6 +182,8 @@ export class Kernel {
         getStatus: this.getStatus.bind(this),
         logger: this.#logger.subLogger({ tags: ['KernelFacet'] }),
       },
+      registerKernelService: (name, service) =>
+        this.#kernelServiceManager.registerKernelServiceObject(name, service),
       logger: this.#logger.subLogger({ tags: ['SystemSubclusterManager'] }),
     });
 

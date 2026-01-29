@@ -325,26 +325,14 @@ export class SystemVatSupervisor {
 
   /**
    * Start the system vat by dispatching the startVat delivery.
-   *
-   * @returns A promise that resolves when the vat has started, or null on error.
    */
-  async start(): Promise<string | null> {
+  async start(): Promise<void> {
     if (!this.#dispatch) {
       throw new Error('SystemVatSupervisor not initialized');
     }
 
-    let deliveryError: string | null = null;
-    try {
-      const serParam = marshal.toCapData(harden({})) as CapData<string>;
-      await this.#dispatch(harden(['startVat', serParam]));
-    } catch (error) {
-      deliveryError = error instanceof Error ? error.message : String(error);
-      this.#logger.error(
-        `Start error in system vat ${this.id}:`,
-        deliveryError,
-      );
-    }
-    return deliveryError;
+    const serParam = marshal.toCapData(harden({})) as CapData<string>;
+    await this.#dispatch(harden(['startVat', serParam]));
   }
 
   /**

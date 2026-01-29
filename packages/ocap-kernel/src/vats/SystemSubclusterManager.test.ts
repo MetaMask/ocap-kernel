@@ -84,22 +84,14 @@ describe('SystemSubclusterManager', () => {
       kernelStore,
       kernelQueue,
       kernelFacetDeps,
+      registerKernelService: vi
+        .fn()
+        .mockReturnValue({ kref: 'ko-kernelFacet' }),
       logger,
     });
   });
 
   describe('connectSystemSubcluster', () => {
-    it('waits for crank before connecting', async () => {
-      const config: KernelSystemSubclusterConfig = {
-        bootstrap: 'testVat',
-        vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
-      };
-
-      await manager.connectSystemSubcluster(config);
-
-      expect(kernelQueue.waitForCrank).toHaveBeenCalled();
-    });
-
     it('throws if bootstrap vat is not in vatTransports', async () => {
       const config: KernelSystemSubclusterConfig = {
         bootstrap: 'missing',
@@ -195,10 +187,11 @@ describe('SystemSubclusterManager', () => {
 
       await manager.connectSystemSubcluster(config);
 
-      expect(kernelQueue.enqueueMessage).toHaveBeenCalledWith(
+      expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
         'ko1',
-        'bootstrap',
-        expect.any(Array),
+        expect.objectContaining({
+          methargs: expect.any(Object),
+        }),
       );
     });
 
@@ -244,13 +237,14 @@ describe('SystemSubclusterManager', () => {
 
       await manager.connectSystemSubcluster(config);
 
-      // Should not create new kernel object for root (only for kernelFacet)
-      expect(kernelStore.initKernelObject).toHaveBeenCalledTimes(1);
-      expect(kernelStore.initKernelObject).toHaveBeenCalledWith('kernel');
-      expect(kernelQueue.enqueueMessage).toHaveBeenCalledWith(
+      // Should not create new kernel object for root
+      // (only kernel facet is created via registerKernelService which is mocked)
+      expect(kernelStore.initKernelObject).not.toHaveBeenCalled();
+      expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
         'ko-existing',
-        'bootstrap',
-        expect.any(Array),
+        expect.objectContaining({
+          methargs: expect.any(Object),
+        }),
       );
     });
 
@@ -281,18 +275,29 @@ describe('SystemSubclusterManager', () => {
 
       await manager.connectSystemSubcluster(config);
 
-      expect(kernelQueue.enqueueMessage).toHaveBeenCalledWith(
+      // Check that enqueueSend was called (service is embedded in the serialized methargs)
+      expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
         'ko1',
-        'bootstrap',
-        [
-          expect.anything(),
-          expect.objectContaining({ myService: expect.anything() }),
-          expect.anything(),
-        ],
+        expect.objectContaining({
+          methargs: expect.any(Object),
+        }),
       );
     });
 
     it('creates singleton kernel facet across multiple subclusters', async () => {
+      // Create a manager with a register function that tracks calls
+      const registerCalls: string[] = [];
+      const managerWithTracking = new SystemSubclusterManager({
+        kernelStore,
+        kernelQueue,
+        kernelFacetDeps,
+        registerKernelService: vi.fn().mockImplementation((name: string) => {
+          registerCalls.push(name);
+          return { kref: 'ko-kernelFacet' };
+        }),
+        logger,
+      });
+
       const config1: KernelSystemSubclusterConfig = {
         bootstrap: 'vat1',
         vatTransports: [{ name: 'vat1', transport: makeMockTransport() }],
@@ -302,14 +307,13 @@ describe('SystemSubclusterManager', () => {
         vatTransports: [{ name: 'vat2', transport: makeMockTransport() }],
       };
 
-      await manager.connectSystemSubcluster(config1);
-      await manager.connectSystemSubcluster(config2);
+      await managerWithTracking.connectSystemSubcluster(config1);
+      await managerWithTracking.connectSystemSubcluster(config2);
 
-      // initKernelObject for 'kernel' should only be called once (singleton)
-      const kernelCalls = (
-        kernelStore.initKernelObject as unknown as MockInstance
-      ).mock.calls.filter((call) => call[0] === 'kernel');
-      expect(kernelCalls).toHaveLength(1);
+      // registerKernelService should only be called once (singleton)
+      expect(
+        registerCalls.filter((name) => name === 'kernelFacet'),
+      ).toHaveLength(1);
     });
 
     it('includes kernelFacet in bootstrap message', async () => {
@@ -320,18 +324,16 @@ describe('SystemSubclusterManager', () => {
 
       await manager.connectSystemSubcluster(config);
 
-      // Bootstrap message should have 3 arguments: roots, services, kernelFacet
-      const callArgs = (kernelQueue.enqueueMessage as unknown as MockInstance)
-        .mock.calls[0];
-      expect(callArgs).toHaveLength(3);
-      const [kref, method, args] = callArgs as [string, string, unknown[]];
-      expect(kref).toBe('ko1');
-      expect(method).toBe('bootstrap');
-      expect(args).toHaveLength(3);
-
-      // Third arg is kernelFacet slot (an exo with getKref method)
-      const kernelFacetSlot = args[2] as { getKref?: () => string };
-      expect(typeof kernelFacetSlot.getKref).toBe('function');
+      // Verify enqueueSend was called with bootstrap message
+      expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
+        'ko1',
+        expect.objectContaining({
+          methargs: expect.objectContaining({
+            // The methargs should contain the kernelFacet kref in slots
+            slots: expect.arrayContaining(['ko-kernelFacet']),
+          }),
+        }),
+      );
     });
   });
 
