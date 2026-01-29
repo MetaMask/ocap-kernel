@@ -157,8 +157,7 @@ describe('system vat integration', { timeout: 30_000 }, () => {
   });
 
   describe('kernel facet', () => {
-    it.todo('gets kernel status via E()', async () => {
-      // TODO: Need to make getStatus stop waiting for crank
+    it('gets kernel status via E()', async () => {
       const status = await E(kernelFacet).getStatus();
 
       expect(status).toBeDefined();

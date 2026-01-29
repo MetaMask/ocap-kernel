@@ -132,13 +132,8 @@ export function makeHostSubcluster(
         logger: logger.subLogger({ tags: ['supervisor'] }),
       });
 
-      // Start the supervisor (dispatches startVat)
-      const startError = await supervisor.start();
-      if (startError) {
-        throw new Error(
-          `Failed to start host subcluster supervisor: ${startError}`,
-        );
-      }
+      // Start the supervisor (dispatches startVat) - throws on failure
+      await supervisor.start();
     },
 
     getKernelFacet: () => {

@@ -513,6 +513,9 @@ export class Kernel {
    * Get the current kernel status, defined as the current cluster configuration
    * and a list of all running vats.
    *
+   * Returns a promise that resolves in a future crank to avoid deadlock when
+   * called from within a crank (e.g., via E(kernelFacet).getStatus()).
+   *
    * @returns A promise for the current kernel status containing vats, subclusters, and remote comms information.
    */
   async getStatus(): Promise<KernelStatus> {
