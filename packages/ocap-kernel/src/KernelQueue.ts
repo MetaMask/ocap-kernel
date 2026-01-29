@@ -71,10 +71,14 @@ export class KernelQueue {
         // Rollback the kernel state to before the failed delivery attempt.
         // For active vats, this allows the message to be retried in a future crank.
         // For terminated vats, the message will just go splat.
+        // The rollback also clears the crank buffer.
         this.#kernelStore.rollbackCrank('start');
         // TODO: Currently all errors terminate the vat, but instead we could
         // restart it and terminate the vat only after a certain number of failed
         // retries. This is probably where we should implement the vat restart logic.
+      } else {
+        // Flush buffered outputs on successful delivery
+        this.#flushCrankBuffer();
       }
       // Vat termination during delivery is triggered by an illegal syscall
       // or by syscall.exit().
@@ -150,6 +154,36 @@ export class KernelQueue {
   }
 
   /**
+   * Flush the crank buffer, moving buffered items to the run queue and
+   * invoking kernel subscription callbacks for resolved promises.
+   */
+  #flushCrankBuffer(): void {
+    const items = this.#kernelStore.flushCrankBuffer();
+    for (const item of items) {
+      this.#enqueueRun(item);
+      if (item.type === 'notify') {
+        // Invoke kernel subscription callback if any, reading resolution
+        // data from the (now committed) promise state
+        this.#invokeKernelSubscription(item.kpid);
+      }
+    }
+  }
+
+  /**
+   * Invoke the kernel subscription callback for a resolved promise, if any.
+   *
+   * @param kpid - The promise ID to check for subscriptions.
+   */
+  #invokeKernelSubscription(kpid: KRef): void {
+    const subscription = this.subscriptions.get(kpid);
+    if (subscription) {
+      this.subscriptions.delete(kpid);
+      const promise = this.#kernelStore.getKernelPromise(kpid);
+      subscription(promise.value as CapData<KRef>);
+    }
+  }
+
+  /**
    * Queue a message to be delivered from the kernel to an object in an endpoint.
    *
    * @param target - The object to which the message is directed.
@@ -178,11 +212,14 @@ export class KernelQueue {
 
   /**
    * Enqueue a send message to be delivered to an endpoint.
+   * The message is buffered and will be flushed to the run queue on successful
+   * crank completion.
    *
    * @param target - The object to which the message is directed.
    * @param message - The message to be delivered.
    */
   enqueueSend(target: KRef, message: Message): void {
+    // Refcount increments happen immediately (protected by savepoint)
     this.#kernelStore.incrementRefCount(target, 'queue|target');
     if (message.result) {
       this.#kernelStore.incrementRefCount(message.result, 'queue|result');
@@ -190,26 +227,29 @@ export class KernelQueue {
     for (const slot of message.methargs.slots || []) {
       this.#kernelStore.incrementRefCount(slot, 'queue|slot');
     }
+    // Buffer instead of immediate persist
     const queueItem: RunQueueItemSend = {
       type: 'send',
       target,
       message,
     };
-    this.#enqueueRun(queueItem);
+    this.#kernelStore.bufferSend(queueItem);
   }
 
   /**
    * Enqueue for delivery a notification to an endpoint about the resolution of a
-   * promise.
+   * promise. The notification is buffered and will be flushed to the run queue
+   * on successful crank completion.
    *
    * @param endpointId - The endpoint that will be notified.
    * @param kpid - The promise of interest.
    */
   enqueueNotify(endpointId: EndpointId, kpid: KRef): void {
-    const notifyItem: RunQueueItemNotify = { type: 'notify', endpointId, kpid };
-    this.#enqueueRun(notifyItem);
-    // Increment reference count for the promise being notified about
+    // Increment reference count immediately (protected by savepoint)
     this.#kernelStore.incrementRefCount(kpid, 'notify');
+    // Buffer instead of immediate persist
+    const notifyItem: RunQueueItemNotify = { type: 'notify', endpointId, kpid };
+    this.#kernelStore.bufferNotify(notifyItem);
   }
 
   /**
@@ -225,6 +265,8 @@ export class KernelQueue {
 
   /**
    * Process a set of promise resolutions coming from an endpoint.
+   * Notifications are buffered and kernel subscription callbacks are deferred
+   * until the crank buffer is flushed on successful crank completion.
    *
    * @param endpointId - The endpoint doing the resolving, if there is one.
    * @param resolutions - One or more resolutions, to be processed as a group.
@@ -258,16 +300,25 @@ export class KernelQueue {
         throw Fail`${kpid} subscribers not set`;
       }
 
+      // Buffer notifications for each subscriber
       for (const subscriber of subscribers) {
         this.enqueueNotify(subscriber, kpid);
       }
 
-      this.#kernelStore.resolveKernelPromise(kpid, rejected, data);
-      const kernelResolve = this.subscriptions.get(kpid);
-      if (kernelResolve) {
-        this.subscriptions.delete(kpid);
-        kernelResolve(data);
+      // Update promise state (savepoint-protected) and get any queued messages
+      const queuedMessages = this.#kernelStore.resolveKernelPromise(
+        kpid,
+        rejected,
+        data,
+      );
+
+      // Buffer the queued messages (these were waiting on this promise)
+      for (const [target, message] of queuedMessages) {
+        this.enqueueSend(target, message);
       }
+
+      // Do NOT call kernel subscription callback here - it will be invoked
+      // during buffer flush on successful crank completion
     }
   }
 }

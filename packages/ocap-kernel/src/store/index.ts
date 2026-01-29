@@ -68,6 +68,7 @@ import type { KernelDatabase, KVStore, VatStore } from '@metamask/kernel-store';
 import { Logger } from '@metamask/logger';
 
 import type { KRef, VatId } from '../types.ts';
+import { CrankBuffer } from './CrankBuffer.ts';
 import { getBaseMethods } from './methods/base.ts';
 import { getCListMethods } from './methods/clist.ts';
 import { getCrankMethods } from './methods/crank.ts';
@@ -141,6 +142,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     terminatedVats: provideCachedStoredValue('vats.terminated', '[]'),
     inCrank: false,
     savepoints: [],
+    crankBuffer: new CrankBuffer(),
     // Subclusters
     subclusters: provideCachedStoredValue('subclusters', '[]'),
     nextSubclusterId: provideCachedStoredValue('nextSubclusterId', '1'),
@@ -218,6 +220,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
       '{}',
     );
     crank.releaseAllSavepoints();
+    context.crankBuffer.clear();
     preservedState?.forEach(({ key, value }) => {
       if (value) {
         context.kv.set(key, value);
@@ -230,6 +233,42 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
    */
   function clear(): void {
     kdb.clear();
+  }
+
+  // --- Crank buffer methods ---
+
+  /**
+   * Buffer a send item for later flushing.
+   *
+   * @param item - The send item to buffer.
+   */
+  function bufferSend(item: import('../types.ts').RunQueueItemSend): void {
+    context.crankBuffer.bufferSend(item);
+  }
+
+  /**
+   * Buffer a notify item for later flushing.
+   *
+   * @param item - The notify item to buffer.
+   */
+  function bufferNotify(item: import('../types.ts').RunQueueItemNotify): void {
+    context.crankBuffer.bufferNotify(item);
+  }
+
+  /**
+   * Flush the crank buffer, returning all buffered items.
+   *
+   * @returns The buffered items.
+   */
+  function flushCrankBuffer(): import('./CrankBuffer.ts').BufferedItem[] {
+    return context.crankBuffer.flush();
+  }
+
+  /**
+   * Clear the crank buffer without flushing.
+   */
+  function clearCrankBuffer(): void {
+    context.crankBuffer.clear();
   }
 
   return harden({
@@ -253,6 +292,11 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     clear,
     reset,
     kv,
+    // Crank buffer methods
+    bufferSend,
+    bufferNotify,
+    flushCrankBuffer,
+    clearCrankBuffer,
   });
 }
 

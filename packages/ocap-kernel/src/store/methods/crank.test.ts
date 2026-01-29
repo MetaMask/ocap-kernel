@@ -8,11 +8,16 @@ describe('crank methods', () => {
   let context: StoreContext;
   let kdb: KernelDatabase;
   let crankMethods: ReturnType<typeof getCrankMethods>;
+  let mockCrankBuffer: { clear: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
+    mockCrankBuffer = {
+      clear: vi.fn(),
+    };
     context = {
       inCrank: false,
       savepoints: [],
+      crankBuffer: mockCrankBuffer,
     } as unknown as StoreContext;
 
     kdb = {
@@ -103,6 +108,15 @@ describe('crank methods', () => {
       crankMethods.createCrankSavepoint('b2');
       expect(kdb.createSavepoint).toHaveBeenLastCalledWith('t1');
       expect(context.savepoints).toStrictEqual(['a', 'b2']);
+    });
+
+    it('clears the crank buffer', () => {
+      context.inCrank = true;
+      context.savepoints = ['start'];
+
+      crankMethods.rollbackCrank('start');
+
+      expect(mockCrankBuffer.clear).toHaveBeenCalledTimes(1);
     });
   });
 

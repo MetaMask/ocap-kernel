@@ -43,7 +43,7 @@ describe('KernelQueue', () => {
       initKernelPromise: vi.fn().mockReturnValue(['kp1']),
       incrementRefCount: vi.fn(),
       getKernelPromise: vi.fn(),
-      resolveKernelPromise: vi.fn(),
+      resolveKernelPromise: vi.fn().mockReturnValue([]),
       nextReapAction: vi.fn().mockReturnValue(null),
       getGCActions: vi.fn().mockReturnValue([]),
       startCrank: vi.fn(),
@@ -51,6 +51,11 @@ describe('KernelQueue', () => {
       createCrankSavepoint: vi.fn(),
       rollbackCrank: vi.fn(),
       waitForCrank: vi.fn(),
+      // Crank buffer methods
+      bufferSend: vi.fn(),
+      bufferNotify: vi.fn(),
+      flushCrankBuffer: vi.fn().mockReturnValue([]),
+      clearCrankBuffer: vi.fn(),
     } as unknown as KernelStore;
 
     kernelQueue = new KernelQueue(kernelStore, terminateVat);
@@ -175,7 +180,7 @@ describe('KernelQueue', () => {
         'kp1',
         'queue|result',
       );
-      expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
+      expect(kernelStore.bufferSend).toHaveBeenCalledWith({
         type: 'send',
         target,
         message: expect.objectContaining({
@@ -216,7 +221,7 @@ describe('KernelQueue', () => {
         'slot2',
         'queue|slot',
       );
-      expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
+      expect(kernelStore.bufferSend).toHaveBeenCalledWith({
         type: 'send',
         target,
         message,
@@ -235,7 +240,7 @@ describe('KernelQueue', () => {
         target,
         'queue|target',
       );
-      expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
+      expect(kernelStore.bufferSend).toHaveBeenCalledWith({
         type: 'send',
         target,
         message,
@@ -244,24 +249,24 @@ describe('KernelQueue', () => {
   });
 
   describe('enqueueNotify', () => {
-    it('creates a notify item and adds it to the run queue', () => {
+    it('buffers a notify item and increments refcount', () => {
       const endpointId = 'v1';
       const kpid = 'kp123';
       kernelQueue.enqueueNotify(endpointId, kpid);
-      expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
-        type: 'notify',
-        endpointId,
-        kpid,
-      });
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
         kpid,
         'notify',
       );
+      expect(kernelStore.bufferNotify).toHaveBeenCalledWith({
+        type: 'notify',
+        endpointId,
+        kpid,
+      });
     });
   });
 
   describe('resolvePromises', () => {
-    it('resolves kernel promises and notifies subscribers', () => {
+    it('resolves kernel promises and buffers notifications for subscribers', () => {
       const endpointId = 'v1';
       const kpid = 'kp123';
       const resolution: VatOneResolution = [
@@ -287,12 +292,13 @@ describe('KernelQueue', () => {
         'slot1',
         'resolve|slot',
       );
-      expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
+      // Notifications are buffered, not immediately enqueued
+      expect(kernelStore.bufferNotify).toHaveBeenCalledWith({
         type: 'notify',
         endpointId: 'v2',
         kpid,
       });
-      expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
+      expect(kernelStore.bufferNotify).toHaveBeenCalledWith({
         type: 'notify',
         endpointId: 'v3',
         kpid,
@@ -302,11 +308,10 @@ describe('KernelQueue', () => {
         false,
         { body: 'resolved value', slots: ['slot1'] },
       );
-      expect(resolveHandler).toHaveBeenCalledWith({
-        body: 'resolved value',
-        slots: ['slot1'],
-      });
-      expect(kernelQueue.subscriptions.has(kpid)).toBe(false);
+      // Kernel subscription callback is NOT called immediately - deferred to flush
+      expect(resolveHandler).not.toHaveBeenCalled();
+      // Subscription is still registered, will be invoked during flush
+      expect(kernelQueue.subscriptions.has(kpid)).toBe(true);
     });
 
     it('handles resolutions with undefined vatId (kernel decider)', () => {
@@ -336,7 +341,8 @@ describe('KernelQueue', () => {
         'slot1',
         'resolve|slot',
       );
-      expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
+      // Notification is buffered, not immediately enqueued
+      expect(kernelStore.bufferNotify).toHaveBeenCalledWith({
         type: 'notify',
         endpointId: 'v2',
         kpid,
@@ -346,8 +352,9 @@ describe('KernelQueue', () => {
         false,
         resolution[2],
       );
-      expect(resolveHandler).toHaveBeenCalledWith(resolution[2]);
-      expect(kernelQueue.subscriptions.has(kpid)).toBe(false);
+      // Kernel subscription callback is NOT called immediately - deferred to flush
+      expect(resolveHandler).not.toHaveBeenCalled();
+      expect(kernelQueue.subscriptions.has(kpid)).toBe(true);
       insistEndpointIdSpy.mockRestore();
     });
 
@@ -369,16 +376,16 @@ describe('KernelQueue', () => {
       const resolveHandler = vi.fn();
       kernelQueue.subscriptions.set(kpid, resolveHandler);
       kernelQueue.resolvePromises(endpointId, [resolution]);
-      expect(kernelStore.enqueueRun).not.toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'notify' }),
-      );
+      // No notifications buffered because no subscribers
+      expect(kernelStore.bufferNotify).not.toHaveBeenCalled();
       expect(kernelStore.resolveKernelPromise).toHaveBeenCalledWith(
         kpid,
         false,
         resolution[2],
       );
-      expect(resolveHandler).toHaveBeenCalledWith(resolution[2]);
-      expect(kernelQueue.subscriptions.has(kpid)).toBe(false);
+      // Kernel subscription callback is NOT called immediately - deferred to flush
+      expect(resolveHandler).not.toHaveBeenCalled();
+      expect(kernelQueue.subscriptions.has(kpid)).toBe(true);
     });
 
     it('throws error if a promise is already resolved', () => {
