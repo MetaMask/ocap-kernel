@@ -38,14 +38,10 @@ export const initializeRemoteCommsSpec: InitializeRemoteCommsSpec = {
   result: literal(null),
 } as InitializeRemoteCommsSpec;
 
-/**
- * Hook type for initializeRemoteComms.
- * Note: incarnationId is accepted in the RPC params but not yet passed to the hook.
- * This will be wired up in the integration PR.
- */
 export type InitializeRemoteComms = (
   keySeed: string,
   options: RemoteCommsOptions,
+  incarnationId?: string,
 ) => Promise<null>;
 
 type InitializeRemoteCommsHooks = {
@@ -73,8 +69,10 @@ export const initializeRemoteCommsHandler: InitializeRemoteCommsHandler = {
     if (params.maxQueue !== undefined) {
       options.maxQueue = params.maxQueue;
     }
-    // Note: params.incarnationId is accepted but not yet wired through.
-    // This will be integrated in a follow-up PR.
-    return await initializeRemoteComms(params.keySeed, options);
+    return await initializeRemoteComms(
+      params.keySeed,
+      options,
+      params.incarnationId,
+    );
   },
 };

@@ -20,6 +20,7 @@ type RemoteManagerConstructorProps = {
   logger?: Logger;
   keySeed?: string | undefined;
   mnemonic?: string | undefined;
+  incarnationId: string;
 };
 
 /**
@@ -50,6 +51,12 @@ export class RemoteManager {
   /** Optional mnemonic for seed derivation */
   readonly #mnemonic: string | undefined;
 
+  /**
+   * Unique identifier for this kernel instance.
+   * Used to detect when a remote peer has lost its state and reconnected.
+   */
+  readonly #incarnationId: string;
+
   /** Remote communications interface */
   #remoteComms: RemoteComms | undefined;
 
@@ -66,6 +73,7 @@ export class RemoteManager {
    * @param options.logger - Logger instance for debugging and diagnostics.
    * @param options.keySeed - Seed for generating the kernel's cryptographic key pair.
    * @param options.mnemonic - BIP39 mnemonic for deriving the kernel's cryptographic key pair.
+   * @param options.incarnationId - Unique identifier for this kernel instance.
    */
   constructor({
     platformServices,
@@ -74,6 +82,7 @@ export class RemoteManager {
     logger,
     keySeed,
     mnemonic,
+    incarnationId,
   }: RemoteManagerConstructorProps) {
     this.#platformServices = platformServices;
     this.#kernelStore = kernelStore;
@@ -81,6 +90,7 @@ export class RemoteManager {
     this.#logger = logger;
     this.#keySeed = keySeed;
     this.#mnemonic = mnemonic;
+    this.#incarnationId = incarnationId;
   }
 
   /**
@@ -153,6 +163,7 @@ export class RemoteManager {
       this.#logger,
       this.#keySeed,
       this.#handleRemoteGiveUp.bind(this),
+      this.#incarnationId,
     );
 
     // Restore all remotes that were previously established

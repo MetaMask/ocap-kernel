@@ -77,6 +77,13 @@ export class Kernel {
   readonly #kernelRouter: KernelRouter;
 
   /**
+   * Unique identifier for this kernel instance, generated fresh on each start.
+   * Used to detect when a remote peer has lost its state and reconnected.
+   * Intentionally NOT persisted - a new ID is generated each time the kernel starts.
+   */
+  readonly #incarnationId: string;
+
+  /**
    * Construct a new kernel instance.
    *
    * @param platformServices - Service to do things the kernel worker can't.
@@ -100,6 +107,8 @@ export class Kernel {
   ) {
     this.#platformServices = platformServices;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    this.#incarnationId = globalThis.crypto.randomUUID();
     this.#kernelStore = makeKernelStore(kernelDatabase, this.#logger);
     if (!this.#kernelStore.kv.get('initialized')) {
       this.#kernelStore.kv.set('initialized', 'true');
@@ -134,6 +143,7 @@ export class Kernel {
       logger: this.#logger.subLogger({ tags: ['RemoteManager'] }),
       keySeed: options.keySeed,
       mnemonic: options.mnemonic,
+      incarnationId: this.#incarnationId,
     });
 
     this.#ocapURLManager = new OcapURLManager({
