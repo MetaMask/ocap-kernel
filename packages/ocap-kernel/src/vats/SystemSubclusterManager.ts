@@ -16,10 +16,10 @@ import type {
 import { ROOT_OBJECT_VREF } from '../types.ts';
 
 /**
- * Result of connecting a system subcluster.
+ * Result of preparing a system subcluster.
  */
-export type SystemSubclusterConnectResult = {
-  /** The ID of the connected system subcluster. */
+export type SystemSubclusterPrepareResult = {
+  /** The ID of the prepared system subcluster. */
   systemSubclusterId: SystemSubclusterId;
   /** Map of vat names to their system vat IDs. */
   vatIds: Record<string, SystemVatId>;
@@ -155,18 +155,23 @@ export class SystemSubclusterManager {
   }
 
   /**
-   * Connect to a system subcluster using provided transports.
+   * Prepare a system subcluster using provided transports.
    *
    * The runtime creates supervisors externally and provides transports for
-   * communication. The kernel creates a kernel facet and delivers it in the
-   * bootstrap message as a presence.
+   * communication. This method sets up the kernel side and returns immediately.
+   * The actual connection and bootstrap happen asynchronously when the
+   * supervisor-side initiates connection via the transport's `awaitConnection()`.
+   *
+   * The kernel is passive - it sets up to receive connections and waits for
+   * the supervisor to push the connection. This push-based model supports
+   * both same-process and cross-process transports.
    *
    * @param config - Configuration for the system subcluster with transports.
-   * @returns A promise for the connect result.
+   * @returns The prepare result with IDs allocated for the subcluster.
    */
-  async connectSystemSubcluster(
+  prepareSystemSubcluster(
     config: KernelSystemSubclusterConfig,
-  ): Promise<SystemSubclusterConnectResult> {
+  ): SystemSubclusterPrepareResult {
     const bootstrapTransport = config.vatTransports.find(
       (vt) => vt.name === config.bootstrap,
     );
@@ -179,7 +184,7 @@ export class SystemSubclusterManager {
     const handles = new Map<SystemVatId, SystemVatHandle>();
     const rootKrefs: Record<string, KRef> = {};
 
-    // Connect all system vats via their transports
+    // Set up all system vats via their transports (kernel side only)
     for (const vatTransport of config.vatTransports) {
       const { name: vatName, transport } = vatTransport;
       const systemVatId = this.#allocateSystemVatId();
@@ -255,22 +260,31 @@ export class SystemSubclusterManager {
       }
     }
 
-    // Call bootstrap on the bootstrap vat's root object
-    const bootstrapVatId = vatIds[config.bootstrap];
-    if (!bootstrapVatId) {
-      throw new Error(`Bootstrap vat ID not found for ${config.bootstrap}`);
-    }
-
-    // Enqueue the bootstrap message without waiting for its result.
-    // We use enqueueSend (fire-and-forget) instead of enqueueMessage (which awaits result)
-    // because this is called during Kernel.make() before the run loop starts.
-    // The system vat will receive the bootstrap message once the run loop begins.
+    // Get bootstrap target for the bootstrap message
     const bootstrapTarget = rootKrefs[config.bootstrap] as KRef;
     const bootstrapArgs = [roots, services];
-    this.#kernelQueue.enqueueSend(bootstrapTarget, {
-      methargs: kser(['bootstrap', bootstrapArgs]),
-    });
 
+    // Set up to send bootstrap after ALL vats in the subcluster are connected.
+    // We wait for all transports' awaitConnection() to resolve before sending
+    // the bootstrap message to ensure all vats are ready.
+    const connectionPromises = config.vatTransports.map(async (vt) =>
+      vt.transport.awaitConnection(),
+    );
+    Promise.all(connectionPromises)
+      .then(() => {
+        // All supervisors have connected. Now send the bootstrap message.
+        // We use enqueueSend (fire-and-forget) because this runs asynchronously
+        // after the kernel queue has started.
+        this.#kernelQueue.enqueueSend(bootstrapTarget, {
+          methargs: kser(['bootstrap', bootstrapArgs]),
+        });
+        return undefined;
+      })
+      .catch((error) => {
+        this.#logger.error(`Failed to connect system subcluster:`, error);
+      });
+
+    // Return immediately - connection happens later when supervisor calls connect()
     return {
       systemSubclusterId,
       vatIds,

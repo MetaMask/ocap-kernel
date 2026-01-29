@@ -255,13 +255,13 @@ export class Kernel {
     // This ensures that any messages in the queue have their target vats ready
     await this.#vatManager.initializeAllVats();
 
-    // Connect system subclusters if configured
+    // Prepare system subclusters if configured (kernel side setup only).
+    // The kernel sets up to receive connections - it does NOT reach out.
+    // Actual connection happens when supervisor-side calls connect().
     if (this.#systemSubclustersConfig) {
       const { subclusters } = this.#systemSubclustersConfig;
       for (const subclusterConfig of subclusters) {
-        await this.#systemSubclusterManager.connectSystemSubcluster(
-          subclusterConfig,
-        );
+        this.#systemSubclusterManager.prepareSystemSubcluster(subclusterConfig);
       }
     }
 

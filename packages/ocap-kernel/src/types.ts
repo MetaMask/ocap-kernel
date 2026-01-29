@@ -505,12 +505,25 @@ export type SystemVatDeliverFn = (
  * runtime's process). This allows:
  * - Node.js: direct function calls (same process)
  * - Extension: MessagePort IPC (cross-process)
+ *
+ * The kernel is passive - it sets up to receive connections via the transport.
+ * The supervisor side initiates the connection by resolving `awaitConnection()`.
+ * This push-based model allows:
+ * - Same-process: supervisor calls `connect()` which resolves the promise
+ * - Cross-process: supervisor sends "connect" message over IPC
  */
 export type SystemVatTransport = {
   /** Send deliveries from kernel to system vat. */
   deliver: SystemVatDeliverFn;
   /** Register syscall handler (kernel calls this to wire up). */
   setSyscallHandler: (handler: SystemVatSyscallHandler) => void;
+  /**
+   * Returns a promise that resolves when the supervisor-side initiates
+   * connection. The kernel waits for this before sending bootstrap messages.
+   * For same-process transports, this resolves when `connect()` is called.
+   * For cross-process transports, this resolves when "connect" IPC message arrives.
+   */
+  awaitConnection: () => Promise<void>;
 };
 
 /**

@@ -21,6 +21,7 @@ describe('SystemSubclusterManager', () => {
 
   /**
    * Creates a mock transport for testing.
+   * The transport's awaitConnection() resolves immediately by default.
    *
    * @returns A mock transport with vi.fn() implementations.
    */
@@ -28,6 +29,7 @@ describe('SystemSubclusterManager', () => {
     return {
       deliver: vi.fn().mockResolvedValue(null),
       setSyscallHandler: vi.fn(),
+      awaitConnection: vi.fn().mockResolvedValue(undefined),
     };
   }
 
@@ -91,30 +93,30 @@ describe('SystemSubclusterManager', () => {
     });
   });
 
-  describe('connectSystemSubcluster', () => {
-    it('throws if bootstrap vat is not in vatTransports', async () => {
+  describe('prepareSystemSubcluster', () => {
+    it('throws if bootstrap vat is not in vatTransports', () => {
       const config: KernelSystemSubclusterConfig = {
         bootstrap: 'missing',
         vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
       };
 
-      await expect(manager.connectSystemSubcluster(config)).rejects.toThrow(
+      expect(() => manager.prepareSystemSubcluster(config)).toThrow(
         'invalid bootstrap vat name missing',
       );
     });
 
-    it('allocates system vat IDs starting from sv0', async () => {
+    it('allocates system vat IDs starting from sv0', () => {
       const config: KernelSystemSubclusterConfig = {
         bootstrap: 'testVat',
         vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
       };
 
-      const result = await manager.connectSystemSubcluster(config);
+      const result = manager.prepareSystemSubcluster(config);
 
       expect(result.vatIds.testVat).toBe('sv0');
     });
 
-    it('allocates incrementing system vat IDs', async () => {
+    it('allocates incrementing system vat IDs', () => {
       const config1: KernelSystemSubclusterConfig = {
         bootstrap: 'testVat',
         vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
@@ -124,53 +126,53 @@ describe('SystemSubclusterManager', () => {
         vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
       };
 
-      const result1 = await manager.connectSystemSubcluster(config1);
-      const result2 = await manager.connectSystemSubcluster(config2);
+      const result1 = manager.prepareSystemSubcluster(config1);
+      const result2 = manager.prepareSystemSubcluster(config2);
 
       expect(result1.vatIds.testVat).toBe('sv0');
       expect(result2.vatIds.testVat).toBe('sv1');
     });
 
-    it('allocates system subcluster IDs starting from ss0', async () => {
+    it('allocates system subcluster IDs starting from ss0', () => {
       const config: KernelSystemSubclusterConfig = {
         bootstrap: 'testVat',
         vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
       };
 
-      const result = await manager.connectSystemSubcluster(config);
+      const result = manager.prepareSystemSubcluster(config);
 
       expect(result.systemSubclusterId).toBe('ss0');
     });
 
-    it('initializes endpoints for each vat', async () => {
+    it('initializes endpoints for each vat', () => {
       const config: KernelSystemSubclusterConfig = {
         bootstrap: 'testVat',
         vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
       };
 
-      await manager.connectSystemSubcluster(config);
+      manager.prepareSystemSubcluster(config);
 
       expect(kernelStore.initEndpoint).toHaveBeenCalledWith('sv0');
     });
 
-    it('initializes kernel objects for vat roots', async () => {
+    it('initializes kernel objects for vat roots', () => {
       const config: KernelSystemSubclusterConfig = {
         bootstrap: 'testVat',
         vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
       };
 
-      await manager.connectSystemSubcluster(config);
+      manager.prepareSystemSubcluster(config);
 
       expect(kernelStore.initKernelObject).toHaveBeenCalledWith('sv0');
     });
 
-    it('adds clist entries for root objects', async () => {
+    it('adds clist entries for root objects', () => {
       const config: KernelSystemSubclusterConfig = {
         bootstrap: 'testVat',
         vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
       };
 
-      await manager.connectSystemSubcluster(config);
+      manager.prepareSystemSubcluster(config);
 
       expect(kernelStore.addCListEntry).toHaveBeenCalledWith(
         'sv0',
@@ -179,37 +181,40 @@ describe('SystemSubclusterManager', () => {
       );
     });
 
-    it('enqueues bootstrap message to root object', async () => {
+    it('enqueues bootstrap message after connection', async () => {
       const config: KernelSystemSubclusterConfig = {
         bootstrap: 'testVat',
         vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
       };
 
-      await manager.connectSystemSubcluster(config);
+      manager.prepareSystemSubcluster(config);
 
-      expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
-        'ko1',
-        expect.objectContaining({
-          methargs: expect.any(Object),
-        }),
-      );
+      // Wait for the async connection callback to fire
+      await vi.waitFor(() => {
+        expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
+          'ko1',
+          expect.objectContaining({
+            methargs: expect.any(Object),
+          }),
+        );
+      });
     });
 
-    it('wires syscall handler to transport', async () => {
+    it('wires syscall handler to transport', () => {
       const transport = makeMockTransport();
       const config: KernelSystemSubclusterConfig = {
         bootstrap: 'testVat',
         vatTransports: [{ name: 'testVat', transport }],
       };
 
-      await manager.connectSystemSubcluster(config);
+      manager.prepareSystemSubcluster(config);
 
       expect(transport.setSyscallHandler).toHaveBeenCalledWith(
         expect.any(Function),
       );
     });
 
-    it('connects multiple vats in a subcluster', async () => {
+    it('prepares multiple vats in a subcluster', () => {
       const config: KernelSystemSubclusterConfig = {
         bootstrap: 'bootstrap',
         vatTransports: [
@@ -218,7 +223,7 @@ describe('SystemSubclusterManager', () => {
         ],
       };
 
-      const result = await manager.connectSystemSubcluster(config);
+      const result = manager.prepareSystemSubcluster(config);
 
       expect(result.vatIds.bootstrap).toBe('sv0');
       expect(result.vatIds.worker).toBe('sv1');
@@ -235,27 +240,31 @@ describe('SystemSubclusterManager', () => {
         vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
       };
 
-      await manager.connectSystemSubcluster(config);
+      manager.prepareSystemSubcluster(config);
 
       // Should not create new kernel object for root
       // (only kernel facet is created via registerKernelService which is mocked)
       expect(kernelStore.initKernelObject).not.toHaveBeenCalled();
-      expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
-        'ko-existing',
-        expect.objectContaining({
-          methargs: expect.any(Object),
-        }),
-      );
+
+      // Wait for the async connection callback to fire
+      await vi.waitFor(() => {
+        expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
+          'ko-existing',
+          expect.objectContaining({
+            methargs: expect.any(Object),
+          }),
+        );
+      });
     });
 
-    it('warns if requested service is not found', async () => {
+    it('warns if requested service is not found', () => {
       const config: KernelSystemSubclusterConfig = {
         bootstrap: 'testVat',
         vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
         services: ['unknownService'],
       };
 
-      await manager.connectSystemSubcluster(config);
+      manager.prepareSystemSubcluster(config);
 
       expect(logger.warn).toHaveBeenCalledWith(
         "Kernel service 'unknownService' not found",
@@ -273,18 +282,20 @@ describe('SystemSubclusterManager', () => {
         services: ['myService'],
       };
 
-      await manager.connectSystemSubcluster(config);
+      manager.prepareSystemSubcluster(config);
 
-      // Check that enqueueSend was called (service is embedded in the serialized methargs)
-      expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
-        'ko1',
-        expect.objectContaining({
-          methargs: expect.any(Object),
-        }),
-      );
+      // Wait for the async connection callback to fire
+      await vi.waitFor(() => {
+        expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
+          'ko1',
+          expect.objectContaining({
+            methargs: expect.any(Object),
+          }),
+        );
+      });
     });
 
-    it('creates singleton kernel facet across multiple subclusters', async () => {
+    it('creates singleton kernel facet across multiple subclusters', () => {
       // Create a manager with a register function that tracks calls
       const registerCalls: string[] = [];
       const managerWithTracking = new SystemSubclusterManager({
@@ -307,8 +318,8 @@ describe('SystemSubclusterManager', () => {
         vatTransports: [{ name: 'vat2', transport: makeMockTransport() }],
       };
 
-      await managerWithTracking.connectSystemSubcluster(config1);
-      await managerWithTracking.connectSystemSubcluster(config2);
+      managerWithTracking.prepareSystemSubcluster(config1);
+      managerWithTracking.prepareSystemSubcluster(config2);
 
       // registerKernelService should only be called once (singleton)
       expect(
@@ -322,28 +333,30 @@ describe('SystemSubclusterManager', () => {
         vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
       };
 
-      await manager.connectSystemSubcluster(config);
+      manager.prepareSystemSubcluster(config);
 
-      // Verify enqueueSend was called with bootstrap message
-      expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
-        'ko1',
-        expect.objectContaining({
-          methargs: expect.objectContaining({
-            // The methargs should contain the kernelFacet kref in slots
-            slots: expect.arrayContaining(['ko-kernelFacet']),
+      // Wait for the async connection callback to fire
+      await vi.waitFor(() => {
+        expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
+          'ko1',
+          expect.objectContaining({
+            methargs: expect.objectContaining({
+              // The methargs should contain the kernelFacet kref in slots
+              slots: expect.arrayContaining(['ko-kernelFacet']),
+            }),
           }),
-        }),
-      );
+        );
+      });
     });
   });
 
   describe('getSystemVatHandle', () => {
-    it('returns handle for connected system vat', async () => {
+    it('returns handle for prepared system vat', () => {
       const config: KernelSystemSubclusterConfig = {
         bootstrap: 'testVat',
         vatTransports: [{ name: 'testVat', transport: makeMockTransport() }],
       };
-      await manager.connectSystemSubcluster(config);
+      manager.prepareSystemSubcluster(config);
 
       const handle = manager.getSystemVatHandle('sv0' as SystemVatId);
 
@@ -357,7 +370,7 @@ describe('SystemSubclusterManager', () => {
       expect(handle).toBeUndefined();
     });
 
-    it('finds handle across multiple subclusters', async () => {
+    it('finds handle across multiple subclusters', () => {
       const config1: KernelSystemSubclusterConfig = {
         bootstrap: 'vat1',
         vatTransports: [{ name: 'vat1', transport: makeMockTransport() }],
@@ -367,8 +380,8 @@ describe('SystemSubclusterManager', () => {
         vatTransports: [{ name: 'vat2', transport: makeMockTransport() }],
       };
 
-      await manager.connectSystemSubcluster(config1);
-      await manager.connectSystemSubcluster(config2);
+      manager.prepareSystemSubcluster(config1);
+      manager.prepareSystemSubcluster(config2);
 
       const handle1 = manager.getSystemVatHandle('sv0' as SystemVatId);
       const handle2 = manager.getSystemVatHandle('sv1' as SystemVatId);

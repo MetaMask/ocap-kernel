@@ -8,7 +8,7 @@ import { makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import type { KVStore } from '@metamask/kernel-store';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
-import type { Logger } from '@metamask/logger';
+import { Logger } from '@metamask/logger';
 import type { Json } from '@metamask/utils';
 
 import { makeGCAndFinalize } from '../garbage-collection/gc-finalize.ts';
@@ -138,6 +138,17 @@ function makeEphemeralVatKVStore(): KVStore {
 }
 
 /**
+ * Options for creating a system vat supervisor via the static factory method.
+ */
+export type SystemVatSupervisorMakeOptions = {
+  buildRootObject: SystemVatBuildRootObject;
+  syscallHandlerHolder: SyscallHandlerHolder;
+  vatPowers?: Record<string, unknown>;
+  parameters?: Record<string, Json>;
+  logger?: Logger;
+};
+
+/**
  * Supervises a system vat's execution.
  *
  * System vats run without compartment isolation directly in the host process.
@@ -148,6 +159,9 @@ function makeEphemeralVatKVStore(): KVStore {
  * The supervisor can be wired to the kernel in two ways:
  * 1. Direct: Pass `executeSyscall` in constructor (same-process)
  * 2. Deferred: Pass `syscallHandlerHolder` and set handler later (transport-based)
+ *
+ * For simplified usage, use the static `make()` factory method which handles
+ * waiting for the kernel to signal readiness before starting.
  */
 export class SystemVatSupervisor {
   /** The ID of the system vat being supervised */
@@ -161,6 +175,45 @@ export class SystemVatSupervisor {
 
   /** Flag indicating if the system vat has been initialized */
   #initialized: boolean = false;
+
+  /**
+   * Create a system vat supervisor that waits for kernel readiness before starting.
+   *
+   * This is the recommended way to create a supervisor when using transports.
+   * It handles all the timing coordination automatically:
+   * 1. Creates the supervisor (but doesn't start yet - syscalls not wired)
+   * 2. Waits for the kernel to signal ready (syscalls wired via onReady callback)
+   * 3. Starts the supervisor (dispatches startVat)
+   *
+   * @param options - Options for creating the supervisor.
+   * @returns A promise that resolves to the created supervisor.
+   */
+  static async make(
+    options: SystemVatSupervisorMakeOptions,
+  ): Promise<SystemVatSupervisor> {
+    const {
+      buildRootObject,
+      syscallHandlerHolder,
+      vatPowers,
+      parameters,
+      logger,
+    } = options;
+
+    // Create supervisor (but don't start yet - syscalls not wired)
+    const supervisor = new SystemVatSupervisor({
+      id: 'sv-pending' as SystemVatId,
+      buildRootObject,
+      vatPowers: vatPowers ?? {},
+      parameters,
+      syscallHandlerHolder,
+      logger: logger ?? new Logger('system-vat'),
+    });
+
+    // Now safe to start (dispatches startVat)
+    await supervisor.start();
+
+    return supervisor;
+  }
 
   /**
    * Construct a new SystemVatSupervisor instance.

@@ -22,29 +22,52 @@ import {
 import { makeMapKernelDatabase } from '../storage.ts';
 
 /**
+ * Result of creating a test system vat.
+ */
+type TestSystemVatResult = {
+  /** Transport config for kernel. */
+  transport: SystemVatTransport;
+  /** Call after Kernel.make() to initiate connection from supervisor side. */
+  connect: () => void;
+  /** Promise that resolves to kernelFacet when bootstrap completes. */
+  kernelFacetPromise: Promise<KernelFacet>;
+};
+
+/**
  * Create a system vat transport and supervisor pair for testing.
- * Uses a deferred pattern to handle the timing between kernel creation
- * and supervisor startup.
+ * Uses the push-based connection pattern where the supervisor initiates
+ * connection after the kernel is created.
  *
  * @param options - Options for creating the transport.
- * @param options.buildRootObject - Function to build the root object.
  * @param options.logger - Logger instance.
- * @returns The transport config and start function.
+ * @returns The transport config, connect function, and kernelFacetPromise.
  */
-function makeTestSystemVat(options: {
-  buildRootObject: SystemVatBuildRootObject;
-  logger: Logger;
-}): {
-  transport: SystemVatTransport;
-  start: () => Promise<void>;
-} {
-  const { buildRootObject, logger } = options;
+function makeTestSystemVat(options: { logger: Logger }): TestSystemVatResult {
+  const { logger } = options;
+
+  // Promise kit for kernel facet - resolves when bootstrap is called
+  const kernelFacetKit = makePromiseKit<KernelFacet>();
 
   // Create syscall handler holder for deferred wiring
   const syscallHandlerHolder = makeSyscallHandlerHolder();
 
+  // Build root object that captures kernelFacet from bootstrap
+  const buildRootObject: SystemVatBuildRootObject = () => {
+    return makeDefaultExo('TestRoot', {
+      bootstrap: (
+        _roots: Record<string, unknown>,
+        services: { kernelFacet: KernelFacet },
+      ) => {
+        kernelFacetKit.resolve(services.kernelFacet);
+      },
+    });
+  };
+
   // Promise kit to signal when supervisor is ready
   const supervisorReady = makePromiseKit<SystemVatSupervisor>();
+
+  // Promise kit for connection - resolved when connect() is called
+  const connectionKit = makePromiseKit<void>();
 
   // Create the transport with a deliver function that waits for the supervisor
   const deliver: SystemVatDeliverFn = async (delivery) => {
@@ -57,52 +80,39 @@ function makeTestSystemVat(options: {
     setSyscallHandler: (handler: SystemVatSyscallHandler) => {
       syscallHandlerHolder.handler = handler;
     },
+    awaitConnection: async () => connectionKit.promise,
   };
 
-  const start = async () => {
-    const supervisor = new SystemVatSupervisor({
-      id: 'sv-test' as `sv${number}`,
+  // Called after Kernel.make() to initiate connection from supervisor side
+  const connect = (): void => {
+    SystemVatSupervisor.make({
       buildRootObject,
-      vatPowers: {},
-      parameters: undefined,
       syscallHandlerHolder,
       logger: logger.subLogger({ tags: ['supervisor'] }),
-    });
-
-    await supervisor.start();
-
-    // Signal that the supervisor is ready
-    supervisorReady.resolve(supervisor);
+    })
+      .then((supervisor) => {
+        supervisorReady.resolve(supervisor);
+        connectionKit.resolve();
+        return undefined;
+      })
+      .catch((error) => {
+        connectionKit.reject(error as Error);
+        kernelFacetKit.reject(error as Error);
+      });
   };
 
-  return { transport, start };
+  return { transport, connect, kernelFacetPromise: kernelFacetKit.promise };
 }
 
 describe('system vat integration', { timeout: 30_000 }, () => {
   let kernel: Kernel;
-  let kernelFacet: KernelFacet;
+  let kernelFacet: KernelFacet | Promise<KernelFacet>;
 
   beforeEach(async () => {
     const logger = new Logger('test');
 
-    // Captured kernel facet from bootstrap
-    let capturedKernelFacet: KernelFacet | null = null;
-
-    // Build root object that captures the kernel facet from services
-    const buildRootObject: SystemVatBuildRootObject = () => {
-      return makeDefaultExo('TestRoot', {
-        bootstrap: (
-          _roots: Record<string, unknown>,
-          services: { kernelFacet: KernelFacet },
-        ) => {
-          capturedKernelFacet = services.kernelFacet;
-        },
-      });
-    };
-
-    // Create the system vat transport and supervisor
+    // Create the system vat transport
     const systemVat = makeTestSystemVat({
-      buildRootObject,
       logger: logger.subLogger({ tags: ['system-vat'] }),
     });
 
@@ -136,20 +146,11 @@ describe('system vat integration', { timeout: 30_000 }, () => {
       },
     });
 
-    // Start the supervisor - this unblocks the deliver function
-    await systemVat.start();
+    // Supervisor-side initiates connection AFTER kernel exists
+    systemVat.connect();
 
-    // Wait for the bootstrap message to be delivered and processed
-    await vi.waitFor(
-      () => {
-        if (!capturedKernelFacet) {
-          throw new Error('Waiting for kernel facet...');
-        }
-      },
-      { timeout: 5000, interval: 50 },
-    );
-
-    kernelFacet = capturedKernelFacet!;
+    // Wait for kernel facet
+    kernelFacet = await systemVat.kernelFacetPromise;
   });
 
   afterEach(async () => {

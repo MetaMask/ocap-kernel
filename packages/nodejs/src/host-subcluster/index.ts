@@ -24,26 +24,25 @@ export type HostSubclusterResult = {
   config: KernelSystemSubclusterConfig;
 
   /**
-   * Start the supervisor. Call after Kernel.make() returns.
-   *
-   * @returns A promise that resolves when the supervisor is started.
+   * Call after Kernel.make() returns to initiate connection from supervisor side.
+   * This creates and starts the supervisor, then signals the kernel that
+   * the connection is ready. The kernel will then send the bootstrap message.
    */
-  start: () => Promise<void>;
+  connect: () => void;
 
   /**
-   * Get the kernel facet (available after bootstrap is called by kernel).
-   *
-   * @returns The kernel facet presence for making E() calls.
+   * Promise that resolves to kernelFacet when bootstrap completes.
+   * No polling needed - just await this promise after calling connect().
    */
-  getKernelFacet: () => KernelFacet;
+  kernelFacetPromise: Promise<KernelFacet>;
 };
 
 /**
  * Create a host subcluster for use with Kernel.make().
  *
  * This creates the supervisor and transport configuration needed to connect
- * a host subcluster to the kernel. The supervisor is created in this process,
- * and the transport allows the kernel to communicate with it.
+ * a host subcluster to the kernel. The supervisor is created when `connect()`
+ * is called (after Kernel.make() returns).
  *
  * Usage:
  * ```typescript
@@ -51,14 +50,14 @@ export type HostSubclusterResult = {
  * const kernel = await Kernel.make(platformServices, db, {
  *   systemSubclusters: { subclusters: [hostSubcluster.config] },
  * });
- * await hostSubcluster.start();
- * const kernelFacet = hostSubcluster.getKernelFacet();
+ * hostSubcluster.connect();  // Supervisor pushes connection to kernel
+ * const kernelFacet = await hostSubcluster.kernelFacetPromise;
  * const result = await E(kernelFacet).launchSubcluster(config);
  * ```
  *
  * @param options - Options for creating the host subcluster.
  * @param options.logger - Optional logger for the supervisor.
- * @returns The host subcluster result with config and initialization functions.
+ * @returns The host subcluster result with config, connect, and kernelFacetPromise.
  */
 export function makeHostSubcluster(
   options: {
@@ -68,13 +67,13 @@ export function makeHostSubcluster(
   const logger = options.logger ?? new Logger('host-subcluster');
   const vatName = 'kernelHost';
 
-  // Captured kernel facet from bootstrap message
-  let capturedKernelFacet: KernelFacet | null = null;
+  // Promise kit for kernel facet - resolves when bootstrap is called
+  const kernelFacetKit = makePromiseKit<KernelFacet>();
 
   // Create syscall handler holder for deferred wiring
   const syscallHandlerHolder = makeSyscallHandlerHolder();
 
-  // Build root object that receives kernelFacet via bootstrap message
+  // Build root object that captures kernelFacet from bootstrap
   const buildRootObject: SystemVatBuildRootObject = () => {
     return makeDefaultExo('KernelHostRoot', {
       // Bootstrap is called by the kernel with roots and services.
@@ -83,13 +82,16 @@ export function makeHostSubcluster(
         _roots: Record<string, unknown>,
         services: { kernelFacet: KernelFacet },
       ) => {
-        capturedKernelFacet = services.kernelFacet;
+        kernelFacetKit.resolve(services.kernelFacet);
       },
     });
   };
 
-  // Promise kit to signal when supervisor is ready
+  // Promise kit to signal when supervisor is ready to receive deliveries
   const supervisorReady = makePromiseKit<SystemVatSupervisor>();
+
+  // Promise kit for connection - resolved when connect() is called and supervisor is ready
+  const connectionKit = makePromiseKit<void>();
 
   // Create the transport with a deliver function that waits for the supervisor
   const deliver: SystemVatDeliverFn = async (delivery) => {
@@ -102,6 +104,31 @@ export function makeHostSubcluster(
     setSyscallHandler: (handler: SystemVatSyscallHandler) => {
       syscallHandlerHolder.handler = handler;
     },
+    // Kernel calls this to wait for connection from supervisor side
+    awaitConnection: async () => connectionKit.promise,
+  };
+
+  /**
+   * Called after Kernel.make() returns to initiate connection from supervisor side.
+   * Creates and starts the supervisor, then resolves the connection promise.
+   */
+  const connect = (): void => {
+    // Create and start the supervisor
+    SystemVatSupervisor.make({
+      buildRootObject,
+      syscallHandlerHolder,
+      logger: logger.subLogger({ tags: ['supervisor'] }),
+    })
+      .then((supervisor) => {
+        supervisorReady.resolve(supervisor);
+        // Signal connection ready - kernel will now send bootstrap message
+        connectionKit.resolve();
+        return undefined;
+      })
+      .catch((error) => {
+        connectionKit.reject(error as Error);
+        kernelFacetKit.reject(error as Error);
+      });
   };
 
   // Config for Kernel.make()
@@ -117,35 +144,8 @@ export function makeHostSubcluster(
 
   return harden({
     config,
-
-    start: async () => {
-      // Create the supervisor
-      const supervisor = new SystemVatSupervisor({
-        // The kernel assigns the actual ID via the transport
-        // This placeholder is only used for logging
-        id: 'sv0' as `sv${number}`,
-        buildRootObject,
-        vatPowers: {},
-        parameters: undefined,
-        syscallHandlerHolder,
-        logger: logger.subLogger({ tags: ['supervisor'] }),
-      });
-
-      // Start the supervisor (dispatches startVat) - throws on failure
-      await supervisor.start();
-
-      // Signal that the supervisor is ready - this unblocks any pending deliveries
-      supervisorReady.resolve(supervisor);
-    },
-
-    getKernelFacet: () => {
-      if (!capturedKernelFacet) {
-        throw new Error(
-          'Kernel facet not available. Ensure start() was called and kernel has bootstrapped.',
-        );
-      }
-      return capturedKernelFacet;
-    },
+    connect,
+    kernelFacetPromise: kernelFacetKit.promise,
   });
 }
 harden(makeHostSubcluster);
