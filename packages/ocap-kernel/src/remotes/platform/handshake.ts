@@ -54,9 +54,12 @@ export function isHandshakeMessage(
     return false;
   }
   const candidate = parsed as Record<string, unknown>;
-  return (
-    candidate.method === 'handshake' || candidate.method === 'handshakeAck'
-  );
+  if (candidate.method !== 'handshake' && candidate.method !== 'handshakeAck') {
+    return false;
+  }
+  // Validate params.incarnationId exists and is a string
+  const params = candidate.params as Record<string, unknown> | undefined;
+  return typeof params?.incarnationId === 'string';
 }
 
 /**
