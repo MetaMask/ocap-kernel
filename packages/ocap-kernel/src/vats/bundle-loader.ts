@@ -1,4 +1,4 @@
-export type LoadBundleOptions = {
+type LoadBundleOptions = {
   endowments?: object;
   inescapableGlobalProperties?: object;
 };
