@@ -77,9 +77,10 @@ export class Kernel {
   readonly #kernelRouter: KernelRouter;
 
   /**
-   * Unique identifier for this kernel instance, generated fresh on each start.
+   * Unique identifier for this kernel's state.
    * Used to detect when a remote peer has lost its state and reconnected.
-   * Intentionally NOT persisted - a new ID is generated each time the kernel starts.
+   * Persisted to storage so it survives kernel restarts - only changes when
+   * storage is cleared (i.e., when state is actually lost).
    */
   readonly #incarnationId: string;
 
@@ -107,23 +108,21 @@ export class Kernel {
   ) {
     this.#platformServices = platformServices;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins
-    this.#incarnationId = globalThis.crypto.randomUUID();
     this.#kernelStore = makeKernelStore(kernelDatabase, this.#logger);
     if (!this.#kernelStore.kv.get('initialized')) {
       this.#kernelStore.kv.set('initialized', 'true');
     }
 
     if (options.resetStorage) {
-      this.#resetKernelState();
       // If mnemonic is provided with resetStorage, also clear identity
       // to allow recovery with the new mnemonic
-      if (options.mnemonic) {
-        this.#kernelStore.kv.delete('keySeed');
-        this.#kernelStore.kv.delete('peerId');
-        this.#kernelStore.kv.delete('ocapURLKey');
-      }
+      this.#resetKernelState({ resetIdentity: Boolean(options.mnemonic) });
     }
+
+    // Load or generate incarnation ID - persisted so it survives restarts
+    // but changes when storage is cleared (when state is actually lost)
+    this.#incarnationId = this.#kernelStore.getOrCreateIncarnationId();
+    this.#logger.log(`Incarnation ID: ${this.#incarnationId.slice(0, 8)}...`);
     this.#kernelQueue = new KernelQueue(
       this.#kernelStore,
       async (vatId, reason) => this.#vatManager.terminateVat(vatId, reason),
@@ -143,7 +142,6 @@ export class Kernel {
       logger: this.#logger.subLogger({ tags: ['RemoteManager'] }),
       keySeed: options.keySeed,
       mnemonic: options.mnemonic,
-      incarnationId: this.#incarnationId,
     });
 
     this.#ocapURLManager = new OcapURLManager({
@@ -526,12 +524,22 @@ export class Kernel {
 
   /**
    * Reset the kernel state.
+   *
+   * @param options - Options for the reset.
+   * @param options.resetIdentity - If true, also clears identity keys (keySeed, peerId, ocapURLKey, incarnationId).
    */
-  #resetKernelState(): void {
-    this.#kernelStore.reset({
-      // XXX special case hack so that network address survives restart when testing
-      except: ['keySeed', 'peerId', 'ocapURLKey'],
-    });
+  #resetKernelState({
+    resetIdentity = false,
+  }: { resetIdentity?: boolean } = {}): void {
+    if (resetIdentity) {
+      // Full reset including identity - used when recovering from mnemonic
+      this.#kernelStore.reset();
+    } else {
+      // Preserve identity keys so network address survives restart
+      this.#kernelStore.reset({
+        except: ['keySeed', 'peerId', 'ocapURLKey', 'incarnationId'],
+      });
+    }
   }
 
   /**

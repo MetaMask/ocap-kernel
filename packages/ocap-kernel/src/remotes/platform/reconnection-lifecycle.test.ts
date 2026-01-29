@@ -87,6 +87,8 @@ describe('reconnection-lifecycle', () => {
       checkConnectionRateLimit: vi.fn(),
       closeChannel: vi.fn().mockResolvedValue(undefined),
       registerChannel: vi.fn(),
+      doOutboundHandshake: vi.fn().mockResolvedValue(true),
+      closeChannel: vi.fn().mockResolvedValue(undefined),
     } as unknown as ReconnectionLifecycleDeps;
   });
 
@@ -207,7 +209,47 @@ describe('reconnection-lifecycle', () => {
         'peer1',
         mockChannel,
         'reading channel to',
-        true, // isOutbound - reconnections are outbound dials
+      );
+    });
+
+    it('performs handshake before registering channel', async () => {
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      expect(deps.doOutboundHandshake).toHaveBeenCalledWith(mockChannel);
+      // Verify handshake is called before registerChannel
+      const handshakeCallOrder = (
+        deps.doOutboundHandshake as ReturnType<typeof vi.fn>
+      ).mock.invocationCallOrder[0];
+      const registerCallOrder = (
+        deps.registerChannel as ReturnType<typeof vi.fn>
+      ).mock.invocationCallOrder[0];
+      expect(handshakeCallOrder).toBeLessThan(registerCallOrder as number);
+    });
+
+    it('closes channel and throws when handshake fails', async () => {
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false);
+      (deps.doOutboundHandshake as ReturnType<typeof vi.fn>).mockResolvedValue(
+        false,
+      );
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      expect(deps.closeChannel).toHaveBeenCalledWith(mockChannel, 'peer1');
+      expect(deps.registerChannel).not.toHaveBeenCalled();
+      expect(deps.outputError).toHaveBeenCalledWith(
+        'peer1',
+        expect.stringContaining('reconnection attempt'),
+        expect.any(Error),
       );
     });
 

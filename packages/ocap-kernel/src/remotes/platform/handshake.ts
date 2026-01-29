@@ -1,7 +1,6 @@
-import type { Logger } from '@metamask/logger';
+import { Logger } from '@metamask/logger';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
-import { writeWithTimeout } from './channel-utils.ts';
 import { DEFAULT_WRITE_TIMEOUT_MS } from './constants.ts';
 import type { Channel } from '../types.ts';
 
@@ -35,6 +34,8 @@ export type HandshakeDeps = {
   localIncarnationId: string;
   /** Logger for diagnostic output. */
   logger: Logger;
+  /** Get the previously known incarnation ID for a peer. */
+  getRemoteIncarnation: (peerId: string) => string | undefined;
   /** Set the incarnation ID for a peer. Returns true if it changed. */
   setRemoteIncarnation: (peerId: string, incarnationId: string) => boolean;
 };
@@ -52,12 +53,25 @@ export function isHandshakeMessage(
     return false;
   }
   const candidate = parsed as Record<string, unknown>;
-  if (candidate.method !== 'handshake' && candidate.method !== 'handshakeAck') {
-    return false;
-  }
-  // Validate params.incarnationId exists and is a string
-  const params = candidate.params as Record<string, unknown> | undefined;
-  return typeof params?.incarnationId === 'string';
+  return (
+    candidate.method === 'handshake' || candidate.method === 'handshakeAck'
+  );
+}
+
+/**
+ * Write a message to a channel with timeout.
+ *
+ * @param channel - The channel to write to.
+ * @param data - The data to write.
+ * @param timeoutMs - Timeout in milliseconds.
+ */
+async function writeWithTimeout(
+  channel: Channel,
+  data: Uint8Array,
+  timeoutMs: number,
+): Promise<void> {
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
+  await channel.msgStream.write(data, { signal: timeoutSignal });
 }
 
 /**
@@ -71,21 +85,12 @@ async function readWithTimeout(
   channel: Channel,
   timeoutMs: number,
 ): Promise<string> {
-  const abortController = new AbortController();
-  const timeoutId = setTimeout(() => {
-    abortController.abort();
-  }, timeoutMs);
-
-  // Create abort handler as named function so we can remove it in finally
-  let rejectTimeout: (error: Error) => void;
-  const abortHandler = (): void => {
-    rejectTimeout(new Error('Handshake read timed out'));
-  };
-
+  const timeoutSignal = AbortSignal.timeout(timeoutMs);
   // Create a promise that rejects on timeout
   const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    rejectTimeout = reject;
-    abortController.signal.addEventListener('abort', abortHandler);
+    timeoutSignal.addEventListener('abort', () => {
+      reject(new Error('Handshake read timed out'));
+    });
   });
 
   const readPromise = (async () => {
@@ -96,12 +101,7 @@ async function readWithTimeout(
     return bufToString(readBuf.subarray());
   })();
 
-  try {
-    return await Promise.race([readPromise, timeoutPromise]);
-  } finally {
-    clearTimeout(timeoutId);
-    abortController.signal.removeEventListener('abort', abortHandler);
-  }
+  return Promise.race([readPromise, timeoutPromise]);
 }
 
 /**
@@ -142,7 +142,7 @@ export async function performOutboundHandshake(
 
   if (!isHandshakeMessage(parsed) || parsed.method !== 'handshakeAck') {
     throw new Error(
-      `Expected handshakeAck, got: ${parsed?.method ?? 'unknown'}`,
+      `Expected handshakeAck, got: ${parsed.method ?? 'unknown'}`,
     );
   }
 
@@ -178,7 +178,7 @@ export async function performInboundHandshake(
   const parsed = JSON.parse(message);
 
   if (!isHandshakeMessage(parsed) || parsed.method !== 'handshake') {
-    throw new Error(`Expected handshake, got: ${parsed?.method ?? 'unknown'}`);
+    throw new Error(`Expected handshake, got: ${parsed.method ?? 'unknown'}`);
   }
 
   const remoteIncarnationId = parsed.params.incarnationId;
