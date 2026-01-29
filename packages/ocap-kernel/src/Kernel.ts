@@ -19,7 +19,7 @@ import type {
   KRef,
   PlatformServices,
   ClusterConfig,
-  KernelSystemSubclustersConfig,
+  KernelSystemVatsConfig,
   VatConfig,
   KernelStatus,
   Subcluster,
@@ -28,7 +28,7 @@ import type {
 } from './types.ts';
 import { isVatId, isRemoteId, isSystemVatId } from './types.ts';
 import { SubclusterManager } from './vats/SubclusterManager.ts';
-import { SystemSubclusterManager } from './vats/SystemSubclusterManager.ts';
+import { SystemVatManager } from './vats/SystemVatManager.ts';
 import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
 
@@ -52,8 +52,8 @@ export class Kernel {
   /** Manages subcluster operations */
   readonly #subclusterManager: SubclusterManager;
 
-  /** Manages system subcluster operations */
-  readonly #systemSubclusterManager: SystemSubclusterManager;
+  /** Manages system vat operations */
+  readonly #systemVatManager: SystemVatManager;
 
   /** Manages remote kernel connections */
   readonly #remoteManager: RemoteManager;
@@ -83,10 +83,10 @@ export class Kernel {
   readonly #kernelRouter: KernelRouter;
 
   /**
-   * System subclusters configuration passed to Kernel.make().
+   * System vats configuration passed to Kernel.make().
    * Stored for connection after initialization.
    */
-  readonly #systemSubclustersConfig: KernelSystemSubclustersConfig | undefined;
+  readonly #systemVatsConfig: KernelSystemVatsConfig | undefined;
 
   /**
    * Construct a new kernel instance.
@@ -98,7 +98,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
-   * @param options.systemSubclusters - Optional system subclusters to connect at kernel creation.
+   * @param options.systemVats - Optional system vats to connect at kernel creation.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
@@ -109,13 +109,13 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
-      systemSubclusters?: KernelSystemSubclustersConfig;
+      systemVats?: KernelSystemVatsConfig;
     } = {},
   ) {
     this.#platformServices = platformServices;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase, this.#logger);
-    this.#systemSubclustersConfig = options.systemSubclusters;
+    this.#systemVatsConfig = options.systemVats;
     if (!this.#kernelStore.kv.get('initialized')) {
       this.#kernelStore.kv.set('initialized', 'true');
     }
@@ -170,7 +170,7 @@ export class Kernel {
       queueMessage: this.queueMessage.bind(this),
     });
 
-    this.#systemSubclusterManager = new SystemSubclusterManager({
+    this.#systemVatManager = new SystemVatManager({
       kernelStore: this.#kernelStore,
       kernelQueue: this.#kernelQueue,
       kernelFacetDeps: {
@@ -184,7 +184,7 @@ export class Kernel {
       },
       registerKernelService: (name, service) =>
         this.#kernelServiceManager.registerKernelServiceObject(name, service),
-      logger: this.#logger.subLogger({ tags: ['SystemSubclusterManager'] }),
+      logger: this.#logger.subLogger({ tags: ['SystemVatManager'] }),
     });
 
     this.#kernelRouter = new KernelRouter(
@@ -222,7 +222,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
-   * @param options.systemSubclusters - Optional system subclusters to connect at kernel creation.
+   * @param options.systemVats - Optional system vats to connect at kernel creation.
    * @returns A promise for the new kernel instance.
    */
   static async make(
@@ -233,7 +233,7 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
-      systemSubclusters?: KernelSystemSubclustersConfig;
+      systemVats?: KernelSystemVatsConfig;
     } = {},
   ): Promise<Kernel> {
     const kernel = new Kernel(platformServices, kernelDatabase, options);
@@ -255,13 +255,12 @@ export class Kernel {
     // This ensures that any messages in the queue have their target vats ready
     await this.#vatManager.initializeAllVats();
 
-    // Prepare system subclusters if configured (kernel side setup only).
+    // Prepare static system vats if configured (kernel side setup only).
     // The kernel sets up to receive connections - it does NOT reach out.
     // Actual connection happens when supervisor-side calls connect().
-    if (this.#systemSubclustersConfig) {
-      const { subclusters } = this.#systemSubclustersConfig;
-      for (const subclusterConfig of subclusters) {
-        this.#systemSubclusterManager.prepareSystemSubcluster(subclusterConfig);
+    if (this.#systemVatsConfig) {
+      for (const vatConfig of this.#systemVatsConfig.vats) {
+        this.#systemVatManager.prepareStaticSystemVat(vatConfig);
       }
     }
 
@@ -456,8 +455,7 @@ export class Kernel {
     }
     if (isSystemVatId(endpointId)) {
       const systemVatId = endpointId as SystemVatId;
-      const handle =
-        this.#systemSubclusterManager.getSystemVatHandle(systemVatId);
+      const handle = this.#systemVatManager.getSystemVatHandle(systemVatId);
       if (!handle) {
         throw Error(`system vat ${systemVatId} not found`);
       }

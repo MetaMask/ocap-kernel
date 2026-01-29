@@ -4,7 +4,7 @@ import { Logger } from '@metamask/logger';
 import type {
   SystemVatBuildRootObject,
   KernelFacet,
-  KernelSystemSubclusterConfig,
+  StaticSystemVatConfig,
   SystemVatTransport,
   SystemVatSyscallHandler,
   SystemVatDeliverFn,
@@ -12,13 +12,13 @@ import type {
 import { SystemVatSupervisor } from '@metamask/ocap-kernel/vats';
 
 /**
- * Result of creating a host subcluster.
+ * Result of creating a host vat.
  */
-export type HostSubclusterResult = {
+export type HostVatResult = {
   /**
-   * Configuration to pass to Kernel.make() systemSubclusters option.
+   * Configuration to pass to Kernel.make() systemVats option.
    */
-  config: KernelSystemSubclusterConfig;
+  config: StaticSystemVatConfig;
 
   /**
    * Call after Kernel.make() returns to initiate connection from supervisor side.
@@ -35,39 +35,41 @@ export type HostSubclusterResult = {
 };
 
 /**
- * Create a host subcluster for use with Kernel.make().
+ * Create a host vat for use with Kernel.make().
  *
  * This creates the supervisor and transport configuration needed to connect
- * a host subcluster to the kernel. The supervisor is created when `connect()`
+ * a host vat to the kernel. The supervisor is created when `connect()`
  * is called (after Kernel.make() returns).
  *
  * Usage:
  * ```typescript
- * const hostSubcluster = makeHostSubcluster({ logger });
+ * const hostVat = makeHostVat({ logger });
  * const kernel = await Kernel.make(platformServices, db, {
- *   systemSubclusters: { subclusters: [hostSubcluster.config] },
+ *   systemVats: { vats: [hostVat.config] },
  * });
- * hostSubcluster.connect();  // Supervisor pushes connection to kernel
- * const kernelFacet = await hostSubcluster.kernelFacetPromise;
+ * hostVat.connect();  // Supervisor pushes connection to kernel
+ * const kernelFacet = await hostVat.kernelFacetPromise;
  * const result = await E(kernelFacet).launchSubcluster(config);
  * ```
  *
- * @param options - Options for creating the host subcluster.
+ * @param options - Options for creating the host vat.
+ * @param options.name - Optional name for the host vat (default: 'kernelHost').
  * @param options.logger - Optional logger for the supervisor.
- * @returns The host subcluster result with config, connect, and kernelFacetPromise.
+ * @returns The host vat result with config, connect, and kernelFacetPromise.
  */
-export function makeHostSubcluster(
+export function makeHostVat(
   options: {
+    name?: string;
     logger?: Logger;
   } = {},
-): HostSubclusterResult {
-  const logger = options.logger ?? new Logger('host-subcluster');
-  const vatName = 'kernelHost';
+): HostVatResult {
+  const logger = options.logger ?? new Logger('host-vat');
+  const vatName = options.name ?? 'kernelHost';
 
   // Promise kit for kernel facet - resolves when bootstrap is called
   const kernelFacetKit = makePromiseKit<KernelFacet>();
 
-  // Syscall handler - set by kernel during prepareSystemSubcluster()
+  // Syscall handler - set by kernel during prepareStaticSystemVat()
   let syscallHandler: SystemVatSyscallHandler | null = null;
 
   // Build root object that captures kernelFacet from bootstrap
@@ -134,14 +136,9 @@ export function makeHostSubcluster(
   };
 
   // Config for Kernel.make()
-  const config: KernelSystemSubclusterConfig = {
-    bootstrap: vatName,
-    vatTransports: [
-      {
-        name: vatName,
-        transport,
-      },
-    ],
+  const config: StaticSystemVatConfig = {
+    name: vatName,
+    transport,
   };
 
   return harden({
@@ -150,4 +147,4 @@ export function makeHostSubcluster(
     kernelFacetPromise: kernelFacetKit.promise,
   });
 }
-harden(makeHostSubcluster);
+harden(makeHostVat);

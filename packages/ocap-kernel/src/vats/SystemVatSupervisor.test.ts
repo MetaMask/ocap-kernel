@@ -45,7 +45,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers,
-        parameters: undefined,
+        parameters: {},
         executeSyscall,
         logger,
       });
@@ -60,7 +60,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers,
-        parameters: undefined,
+        parameters: {},
         executeSyscall,
         logger,
       });
@@ -76,7 +76,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers: { customPower: 'custom' },
-        parameters: undefined,
+        parameters: {},
         executeSyscall,
         logger,
       });
@@ -100,7 +100,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers,
-        parameters: undefined,
+        parameters: {},
         executeSyscall,
         logger,
       });
@@ -119,7 +119,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers,
-        parameters: undefined,
+        parameters: {},
         executeSyscall,
         logger,
       });
@@ -134,7 +134,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers,
-        parameters: undefined,
+        parameters: {},
         executeSyscall,
         logger,
       });
@@ -154,7 +154,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers,
-        parameters: undefined,
+        parameters: {},
         executeSyscall,
         logger,
       });
@@ -173,7 +173,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers,
-        parameters: undefined,
+        parameters: {},
         executeSyscall,
         logger,
       });
@@ -195,7 +195,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers,
-        parameters: undefined,
+        parameters: {},
         executeSyscall,
         logger,
       });
@@ -223,7 +223,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers,
-        parameters: undefined,
+        parameters: {},
         executeSyscall,
         logger,
       });
@@ -253,7 +253,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers,
-        parameters: undefined,
+        parameters: {},
         executeSyscall: failingExecuteSyscall,
         logger,
       });
@@ -274,7 +274,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers,
-        parameters: undefined,
+        parameters: {},
         executeSyscall,
         logger,
       });
@@ -298,7 +298,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers,
-        parameters: undefined,
+        parameters: {},
         executeSyscall,
         logger,
       });
@@ -324,7 +324,7 @@ describe('SystemVatSupervisor', () => {
         id: systemVatId,
         buildRootObject,
         vatPowers,
-        parameters: undefined,
+        parameters: {},
         executeSyscall,
         logger,
       });

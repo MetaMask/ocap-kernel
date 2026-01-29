@@ -217,7 +217,7 @@ export class VatHandle implements EndpointHandle {
       method: 'deliver',
       params: ['message', target, message],
     });
-    return this.#getDeliveryCrankResults();
+    return this.#getCrankResults();
   }
 
   /**
@@ -231,7 +231,7 @@ export class VatHandle implements EndpointHandle {
       method: 'deliver',
       params: ['notify', resolutions],
     });
-    return this.#getDeliveryCrankResults();
+    return this.#getCrankResults();
   }
 
   /**
@@ -245,7 +245,7 @@ export class VatHandle implements EndpointHandle {
       method: 'deliver',
       params: ['dropExports', vrefs],
     });
-    return this.#getDeliveryCrankResults();
+    return this.#getCrankResults();
   }
 
   /**
@@ -259,7 +259,7 @@ export class VatHandle implements EndpointHandle {
       method: 'deliver',
       params: ['retireExports', vrefs],
     });
-    return this.#getDeliveryCrankResults();
+    return this.#getCrankResults();
   }
 
   /**
@@ -273,7 +273,7 @@ export class VatHandle implements EndpointHandle {
       method: 'deliver',
       params: ['retireImports', vrefs],
     });
-    return this.#getDeliveryCrankResults();
+    return this.#getCrankResults();
   }
 
   /**
@@ -286,7 +286,7 @@ export class VatHandle implements EndpointHandle {
       method: 'deliver',
       params: ['bringOutYourDead'],
     });
-    return this.#getDeliveryCrankResults();
+    return this.#getCrankResults();
   }
 
   /**
@@ -342,11 +342,11 @@ export class VatHandle implements EndpointHandle {
   }
 
   /**
-   * Get the crank outcome for a given checkpoint result.
+   * Get the crank results after a delivery.
    *
-   * @returns The crank outcome.
+   * @returns The crank results.
    */
-  async #getDeliveryCrankResults(): Promise<CrankResults> {
+  #getCrankResults(): CrankResults {
     const results: CrankResults = {
       didDelivery: this.vatId,
     };
@@ -356,9 +356,6 @@ export class VatHandle implements EndpointHandle {
     if (this.#vatSyscall.illegalSyscall) {
       results.abort = true;
       const { info } = this.#vatSyscall.illegalSyscall;
-      // TODO: For now, vat errors both rewind changes and terminate the vat.
-      // Some day, they might rewind changes and retry the syscall.
-      // We should terminate the vat only after a certain # of failed retries.
       results.terminate = { vatId: this.vatId, reject: true, info };
     } else if (this.#vatSyscall.deliveryError) {
       results.abort = true;
@@ -366,7 +363,7 @@ export class VatHandle implements EndpointHandle {
       results.terminate = { vatId: this.vatId, reject: true, info };
     } else if (this.#vatSyscall.vatRequestedTermination) {
       if (this.#vatSyscall.vatRequestedTermination.reject) {
-        results.abort = true; // vatPowers.exitWithFailure wants rewind
+        results.abort = true;
       }
       results.terminate = {
         vatId: this.vatId,

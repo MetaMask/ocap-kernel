@@ -5,7 +5,7 @@ import type { ClusterConfig, KernelFacet } from '@metamask/ocap-kernel';
 import { Kernel } from '@metamask/ocap-kernel';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { makeHostSubcluster } from '../../src/host-subcluster/index.ts';
+import { makeHostVat } from '../../src/host-vat/index.ts';
 import { NodejsPlatformServices } from '../../src/kernel/PlatformServices.ts';
 
 type Bob = {
@@ -27,17 +27,17 @@ type PromiseVat = {
   awaitPromiseArg: (promiseArg: Promise<unknown>) => Promise<string>;
 };
 
-describe('system subcluster e2e tests', { timeout: 30_000 }, () => {
+describe('system vat e2e tests', { timeout: 30_000 }, () => {
   let kernel: Kernel;
   let kernelFacet: KernelFacet | Promise<KernelFacet>;
 
   beforeEach(async () => {
     const logger = new Logger('test');
 
-    // Create host subcluster first
-    const hostSubcluster = makeHostSubcluster({ logger });
+    // Create host vat first
+    const hostVat = makeHostVat({ logger });
 
-    // Create kernel with system subcluster config
+    // Create kernel with system vat config
     const platformServices = new NodejsPlatformServices({
       logger: logger.subLogger({ tags: ['platform-services'] }),
     });
@@ -47,14 +47,14 @@ describe('system subcluster e2e tests', { timeout: 30_000 }, () => {
     kernel = await Kernel.make(platformServices, kernelDatabase, {
       resetStorage: true,
       logger: logger.subLogger({ tags: ['kernel'] }),
-      systemSubclusters: { subclusters: [hostSubcluster.config] },
+      systemVats: { vats: [hostVat.config] },
     });
 
     // Supervisor-side initiates connection AFTER kernel exists
-    hostSubcluster.connect();
+    hostVat.connect();
 
     // Wait for kernel facet - resolves after bootstrap message is delivered
-    kernelFacet = await hostSubcluster.kernelFacetPromise;
+    kernelFacet = await hostVat.kernelFacetPromise;
   });
 
   afterEach(async () => {

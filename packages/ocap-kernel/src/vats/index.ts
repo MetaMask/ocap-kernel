@@ -8,3 +8,5 @@ export type {
   SystemVatDeliverFn,
   SystemVatSyscallFn,
 } from './SystemVatHandle.ts';
+export { SystemVatManager } from './SystemVatManager.ts';
+export type { StaticSystemVatPrepareResult } from './SystemVatManager.ts';

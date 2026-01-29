@@ -57,7 +57,7 @@ export class SystemVatHandle implements EndpointHandle {
   /** The system vat's syscall handler */
   readonly #vatSyscall: VatSyscall;
 
-  /** Callback to deliver messages to the system vat supervisor */
+  /** Callback to deliver messages to the system vat */
   readonly #deliver: SystemVatDeliverFn;
 
   /** Flag indicating if this handle is active */
@@ -114,7 +114,6 @@ export class SystemVatHandle implements EndpointHandle {
    * @returns The crank results.
    */
   async deliverMessage(target: VRef, message: Message): Promise<CrankResults> {
-    // Convert our Message type to SwingSet's Message type for delivery
     const swingSetMessage: SwingSetMessage = {
       methargs: message.methargs,
       result: message.result ?? null,
@@ -122,7 +121,7 @@ export class SystemVatHandle implements EndpointHandle {
     const deliveryError = await this.#deliver(
       harden(['message', target, swingSetMessage]),
     );
-    return this.#getDeliveryCrankResults(deliveryError);
+    return this.#getCrankResults(deliveryError);
   }
 
   /**
@@ -133,7 +132,7 @@ export class SystemVatHandle implements EndpointHandle {
    */
   async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResults> {
     const deliveryError = await this.#deliver(harden(['notify', resolutions]));
-    return this.#getDeliveryCrankResults(deliveryError);
+    return this.#getCrankResults(deliveryError);
   }
 
   /**
@@ -144,7 +143,7 @@ export class SystemVatHandle implements EndpointHandle {
    */
   async deliverDropExports(vrefs: VRef[]): Promise<CrankResults> {
     const deliveryError = await this.#deliver(harden(['dropExports', vrefs]));
-    return this.#getDeliveryCrankResults(deliveryError);
+    return this.#getCrankResults(deliveryError);
   }
 
   /**
@@ -155,7 +154,7 @@ export class SystemVatHandle implements EndpointHandle {
    */
   async deliverRetireExports(vrefs: VRef[]): Promise<CrankResults> {
     const deliveryError = await this.#deliver(harden(['retireExports', vrefs]));
-    return this.#getDeliveryCrankResults(deliveryError);
+    return this.#getCrankResults(deliveryError);
   }
 
   /**
@@ -166,7 +165,7 @@ export class SystemVatHandle implements EndpointHandle {
    */
   async deliverRetireImports(vrefs: VRef[]): Promise<CrankResults> {
     const deliveryError = await this.#deliver(harden(['retireImports', vrefs]));
-    return this.#getDeliveryCrankResults(deliveryError);
+    return this.#getCrankResults(deliveryError);
   }
 
   /**
@@ -176,16 +175,16 @@ export class SystemVatHandle implements EndpointHandle {
    */
   async deliverBringOutYourDead(): Promise<CrankResults> {
     const deliveryError = await this.#deliver(harden(['bringOutYourDead']));
-    return this.#getDeliveryCrankResults(deliveryError);
+    return this.#getCrankResults(deliveryError);
   }
 
   /**
-   * Get the crank outcome for a delivery.
+   * Get the crank results after a delivery.
    *
    * @param deliveryError - The error from delivery, if any.
-   * @returns The crank outcome.
+   * @returns The crank results.
    */
-  #getDeliveryCrankResults(deliveryError: string | null): CrankResults {
+  #getCrankResults(deliveryError: string | null): CrankResults {
     const results: CrankResults = {
       didDelivery: this.systemVatId,
     };

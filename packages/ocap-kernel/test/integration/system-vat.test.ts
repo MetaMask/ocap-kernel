@@ -14,6 +14,7 @@ import type {
   SystemVatTransport,
   SystemVatSyscallHandler,
   SystemVatDeliverFn,
+  StaticSystemVatConfig,
 } from '../../src/types.ts';
 import { SystemVatSupervisor } from '../../src/vats/SystemVatSupervisor.ts';
 import { makeMapKernelDatabase } from '../storage.ts';
@@ -22,8 +23,8 @@ import { makeMapKernelDatabase } from '../storage.ts';
  * Result of creating a test system vat.
  */
 type TestSystemVatResult = {
-  /** Transport config for kernel. */
-  transport: SystemVatTransport;
+  /** Config for kernel. */
+  config: StaticSystemVatConfig;
   /** Call after Kernel.make() to initiate connection from supervisor side. */
   connect: () => void;
   /** Promise that resolves to kernelFacet when bootstrap completes. */
@@ -37,15 +38,19 @@ type TestSystemVatResult = {
  *
  * @param options - Options for creating the transport.
  * @param options.logger - Logger instance.
- * @returns The transport config, connect function, and kernelFacetPromise.
+ * @param options.name - Name for the system vat.
+ * @returns The config, connect function, and kernelFacetPromise.
  */
-function makeTestSystemVat(options: { logger: Logger }): TestSystemVatResult {
-  const { logger } = options;
+function makeTestSystemVat(options: {
+  logger: Logger;
+  name?: string;
+}): TestSystemVatResult {
+  const { logger, name = 'testVat' } = options;
 
   // Promise kit for kernel facet - resolves when bootstrap is called
   const kernelFacetKit = makePromiseKit<KernelFacet>();
 
-  // Syscall handler - set by kernel during prepareSystemSubcluster()
+  // Syscall handler - set by kernel during prepareStaticSystemVat()
   let syscallHandler: SystemVatSyscallHandler | null = null;
 
   // Build root object that captures kernelFacet from bootstrap
@@ -101,7 +106,12 @@ function makeTestSystemVat(options: { logger: Logger }): TestSystemVatResult {
       });
   };
 
-  return { transport, connect, kernelFacetPromise: kernelFacetKit.promise };
+  const config: StaticSystemVatConfig = {
+    name,
+    transport,
+  };
+
+  return { config, connect, kernelFacetPromise: kernelFacetKit.promise };
 }
 
 describe('system vat integration', { timeout: 30_000 }, () => {
@@ -126,24 +136,12 @@ describe('system vat integration', { timeout: 30_000 }, () => {
       stopRemoteComms: vi.fn().mockResolvedValue(undefined),
     } as unknown as PlatformServices;
 
-    // Create kernel with system subcluster config
+    // Create kernel with system vat config
     const kernelDatabase = makeMapKernelDatabase();
     kernel = await Kernel.make(mockPlatformServices, kernelDatabase, {
       resetStorage: true,
       logger: logger.subLogger({ tags: ['kernel'] }),
-      systemSubclusters: {
-        subclusters: [
-          {
-            bootstrap: 'testVat',
-            vatTransports: [
-              {
-                name: 'testVat',
-                transport: systemVat.transport,
-              },
-            ],
-          },
-        ],
-      },
+      systemVats: { vats: [systemVat.config] },
     });
 
     // Supervisor-side initiates connection AFTER kernel exists
