@@ -4,6 +4,7 @@ import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
 import type { KRef } from '@metamask/ocap-kernel';
 import { startRelay } from '@ocap/cli/relay';
 import { delay } from '@ocap/repo-tools/test-utils';
+import { unlink } from 'node:fs/promises';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { makeTestKernel, runTestVats } from '../helpers/kernel.ts';
@@ -906,17 +907,14 @@ describe.sequential('Remote Communications E2E', () => {
 
           // Send a message - when the new kernel connects, it will have a different
           // incarnation ID than before. The handshake will detect this change
-          // and trigger promise rejection for pending work
-          const messagePromise = kernel1.queueMessage(
+          // and trigger promise rejection for pending work.
+          // The await will naturally wait for the promise to settle - either
+          // succeeding (unexpected) or failing due to incarnation change detection.
+          const result = await kernel1.queueMessage(
             aliceRef,
             'sendRemoteMessage',
             [bobURL, 'hello', ['Alice']],
           );
-
-          // Wait for handshake exchange and incarnation change detection
-          await delay(3000);
-
-          const result = await messagePromise;
           const response = kunser(result);
 
           // The message should fail because incarnation changed
@@ -924,6 +922,10 @@ describe.sequential('Remote Communications E2E', () => {
           expect(response).toBeInstanceOf(Error);
         } finally {
           freshDb.close();
+          // Clean up the fresh database file
+          await unlink('rc-e2e-test-kernel2-fresh.db').catch(() => {
+            // Ignore errors if file doesn't exist
+          });
         }
       },
       NETWORK_TIMEOUT * 3,
