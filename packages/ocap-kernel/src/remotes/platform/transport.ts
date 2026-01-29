@@ -424,6 +424,17 @@ export async function initTransport(
     reconnectionManager.resetAllBackoffs();
   }
 
+  /**
+   * Close a rejected inbound channel, logging any errors.
+   *
+   * @param channel - The channel to close.
+   */
+  function closeRejectedChannel(channel: Channel): void {
+    connectionFactory.closeChannel(channel, channel.peerId).catch((problem) => {
+      outputError(channel.peerId, 'closing rejected inbound channel', problem);
+    });
+  }
+
   // Set up inbound connection handler
   connectionFactory.onInboundConnection((channel) => {
     // Reject inbound connections from intentionally closed peers
@@ -431,16 +442,7 @@ export async function initTransport(
       logger.log(
         `${channel.peerId}:: rejecting inbound connection from intentionally closed peer`,
       );
-      // Close the channel to release network resources and prevent leaks
-      connectionFactory
-        .closeChannel(channel, channel.peerId)
-        .catch((problem) => {
-          outputError(
-            channel.peerId,
-            'closing rejected inbound channel',
-            problem,
-          );
-        });
+      closeRejectedChannel(channel);
       return;
     }
 
@@ -452,16 +454,7 @@ export async function initTransport(
         logger.log(
           `${channel.peerId}:: rejecting inbound connection due to connection limit`,
         );
-        // Close the channel to release network resources and prevent leaks
-        connectionFactory
-          .closeChannel(channel, channel.peerId)
-          .catch((problem) => {
-            outputError(
-              channel.peerId,
-              'closing rejected inbound channel',
-              problem,
-            );
-          });
+        closeRejectedChannel(channel);
         return;
       }
       throw error;
