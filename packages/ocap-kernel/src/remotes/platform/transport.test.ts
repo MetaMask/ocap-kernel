@@ -1827,6 +1827,67 @@ describe('transport.initTransport', () => {
       await sendRemoteMessage('peer-1', makeTestMessage('msg'));
       expect(mockChannel.msgStream.write).toHaveBeenCalled();
     });
+
+    it('closes channel when connection limit exceeded after dial due to race condition', async () => {
+      const maxConcurrentConnections = 1;
+      const dialedChannels: MockChannel[] = [];
+
+      // Track when dial completes so we can inject a race condition
+      let resolveFirstDial: ((channel: MockChannel) => void) | undefined;
+      const firstDialPromise = new Promise<MockChannel>((resolve) => {
+        resolveFirstDial = resolve;
+      });
+
+      mockConnectionFactory.dialIdempotent.mockImplementation(
+        async (peerId: string) => {
+          const channel = createMockChannel(peerId);
+          dialedChannels.push(channel);
+
+          if (peerId === 'peer-1') {
+            // First dial waits to be resolved manually
+            return firstDialPromise;
+          }
+          // Second dial completes immediately
+          return channel;
+        },
+      );
+
+      const { sendRemoteMessage } = await initTransport(
+        '0x1234',
+        { maxConcurrentConnections },
+        vi.fn(),
+      );
+
+      // Start first send (will wait at dial)
+      const firstSendPromise = sendRemoteMessage(
+        'peer-1',
+        makeTestMessage('msg1'),
+      );
+
+      // Wait for first dial to start
+      await vi.waitFor(() => {
+        expect(dialedChannels).toHaveLength(1);
+      });
+
+      // Start and complete second send while first is still dialing
+      // This establishes a connection, filling the limit
+      await sendRemoteMessage('peer-2', makeTestMessage('msg2'));
+
+      // Now complete the first dial - post-dial check should fail
+      // because we're now at the connection limit
+      resolveFirstDial?.(dialedChannels[0] as MockChannel);
+
+      // First send should fail with connection limit error
+      await expect(firstSendPromise).rejects.toThrow(
+        /Connection limit reached/u,
+      );
+
+      // The channel from the first dial should have been closed to prevent leak
+      expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+        dialedChannels[0],
+        'peer-1',
+      );
+    });
   });
 
   describe('stale peer cleanup', () => {

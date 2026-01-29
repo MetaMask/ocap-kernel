@@ -387,14 +387,21 @@ export async function initTransport(
 
         // Re-check connection limit after reuseOrReturnChannel to prevent race conditions
         if (state.channel !== channel) {
-          checkConnectionLimit();
+          try {
+            checkConnectionLimit();
+          } catch (error) {
+            // Connection limit exceeded after dial - close the channel to prevent leak
+            // Use try-catch to ensure the original error is always re-thrown
+            try {
+              await connectionFactory.closeChannel(channel, targetPeerId);
+            } catch {
+              // Ignore close errors - the original ResourceLimitError takes priority
+            }
+            throw error;
+          }
           registerChannel(targetPeerId, channel, 'reading channel to');
         }
       } catch (problem) {
-        // Re-throw ResourceLimitError to propagate to caller
-        if (problem instanceof ResourceLimitError) {
-          throw problem;
-        }
         outputError(targetPeerId, `opening connection`, problem);
         handleConnectionLoss(targetPeerId);
         throw problem;
