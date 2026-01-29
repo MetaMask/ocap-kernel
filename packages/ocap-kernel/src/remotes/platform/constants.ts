@@ -15,3 +15,15 @@ export const DEFAULT_WRITE_TIMEOUT_MS = 10_000;
 
 /** SCTP user initiated abort code (RFC 4960) */
 export const SCTP_USER_INITIATED_ABORT = 12;
+
+/** Default message rate limit: 100 messages per second per peer */
+export const DEFAULT_MESSAGE_RATE_LIMIT = 100;
+
+/** Default message rate window in milliseconds (1 second) */
+export const DEFAULT_MESSAGE_RATE_WINDOW_MS = 1000;
+
+/** Default connection attempt rate limit: 10 attempts per minute per peer */
+export const DEFAULT_CONNECTION_RATE_LIMIT = 10;
+
+/** Default connection rate window in milliseconds (1 minute) */
+export const DEFAULT_CONNECTION_RATE_WINDOW_MS = 60_000;
