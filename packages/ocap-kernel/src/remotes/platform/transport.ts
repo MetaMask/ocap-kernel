@@ -7,8 +7,10 @@ import { makeErrorLogger, writeWithTimeout } from './channel-utils.ts';
 import { ConnectionFactory } from './connection-factory.ts';
 import {
   DEFAULT_CLEANUP_INTERVAL_MS,
+  DEFAULT_CONNECTION_RATE_LIMIT,
   DEFAULT_MAX_CONCURRENT_CONNECTIONS,
   DEFAULT_MAX_MESSAGE_SIZE_BYTES,
+  DEFAULT_MESSAGE_RATE_LIMIT,
   DEFAULT_STALE_PEER_TIMEOUT_MS,
   DEFAULT_WRITE_TIMEOUT_MS,
   SCTP_USER_INITIATED_ABORT,
@@ -19,6 +21,10 @@ import {
 } from './handshake.ts';
 import type { HandshakeDeps } from './handshake.ts';
 import { PeerStateManager } from './peer-state-manager.ts';
+import {
+  makeConnectionRateLimiter,
+  makeMessageRateLimiter,
+} from './rate-limiter.ts';
 import { makeReconnectionLifecycle } from './reconnection-lifecycle.ts';
 import { ReconnectionManager } from './reconnection.ts';
 import {
@@ -46,6 +52,8 @@ import type {
  * @param options.maxMessageSizeBytes - Maximum message size in bytes (default: 1MB).
  * @param options.cleanupIntervalMs - Stale peer cleanup interval in milliseconds (default: 15 minutes).
  * @param options.stalePeerTimeoutMs - Stale peer timeout in milliseconds (default: 1 hour).
+ * @param options.maxMessagesPerSecond - Maximum messages per second per peer (default: 100).
+ * @param options.maxConnectionAttemptsPerMinute - Maximum connection attempts per minute per peer (default: 10).
  * @param remoteMessageHandler - Handler to be called when messages are received from elsewhere.
  * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote (after max retries or non-retryable error).
  * @param localIncarnationId - This kernel's incarnation ID for handshake protocol.
@@ -72,6 +80,8 @@ export async function initTransport(
     maxMessageSizeBytes = DEFAULT_MAX_MESSAGE_SIZE_BYTES,
     cleanupIntervalMs = DEFAULT_CLEANUP_INTERVAL_MS,
     stalePeerTimeoutMs = DEFAULT_STALE_PEER_TIMEOUT_MS,
+    maxMessagesPerSecond = DEFAULT_MESSAGE_RATE_LIMIT,
+    maxConnectionAttemptsPerMinute = DEFAULT_CONNECTION_RATE_LIMIT,
   } = options;
   let cleanupWakeDetector: (() => void) | undefined;
   const stopController = new AbortController();
@@ -84,6 +94,10 @@ export async function initTransport(
   const checkConnectionLimit = makeConnectionLimitChecker(
     maxConcurrentConnections,
     () => peerStateManager.countActiveConnections(),
+  );
+  const messageRateLimiter = makeMessageRateLimiter(maxMessagesPerSecond);
+  const connectionRateLimiter = makeConnectionRateLimiter(
+    maxConnectionAttemptsPerMinute,
   );
   let cleanupIntervalId: ReturnType<typeof setInterval> | undefined;
   // Holder for handleConnectionLoss - assigned after reconnectionLifecycle is created.
@@ -178,7 +192,12 @@ export async function initTransport(
     for (const peerId of stalePeers) {
       peerStateManager.removePeer(peerId);
       reconnectionManager.stopReconnection(peerId);
+      messageRateLimiter.clearKey(peerId);
+      connectionRateLimiter.clearKey(peerId);
     }
+    // Also prune stale rate limiter entries that may not have peer state
+    messageRateLimiter.pruneStale();
+    connectionRateLimiter.pruneStale();
   }
 
   /**
@@ -368,6 +387,8 @@ export async function initTransport(
       connectionFactory.dialIdempotent(peerId, hints, false),
     reuseOrReturnChannel,
     checkConnectionLimit,
+    checkConnectionRateLimit: (peerId: string) =>
+      connectionRateLimiter.checkAndRecord(peerId, 'connectionRate'),
     registerChannel,
     doOutboundHandshake,
     closeChannel: async (channel, peerId) =>
@@ -399,6 +420,12 @@ export async function initTransport(
     // Validate message size before sending
     validateMessageSize(message);
 
+    // Check and record message rate limit atomically to prevent TOCTOU race
+    // Note: This records before send completes, so failed sends consume quota.
+    // This is intentional - recording after send would allow concurrent sends
+    // to bypass the rate limit via TOCTOU attacks.
+    messageRateLimiter.checkAndRecord(targetPeerId, 'messageRate');
+
     const state = peerStateManager.getState(targetPeerId);
 
     // Get or establish channel
@@ -406,6 +433,9 @@ export async function initTransport(
     if (!channel) {
       // Check connection limit before attempting to dial
       checkConnectionLimit();
+
+      // Check connection attempt rate limit
+      connectionRateLimiter.checkAndRecord(targetPeerId, 'connectionRate');
 
       try {
         const { locationHints: hints } = state;
@@ -428,7 +458,18 @@ export async function initTransport(
 
         // Re-check connection limit after reuseOrReturnChannel to prevent race conditions
         if (state.channel !== channel) {
-          checkConnectionLimit();
+          try {
+            checkConnectionLimit();
+          } catch (error) {
+            // Connection limit exceeded after dial - close the channel to prevent leak
+            // Use try-catch to ensure the original error is always re-thrown
+            try {
+              await connectionFactory.closeChannel(channel, targetPeerId);
+            } catch {
+              // Ignore close errors - the original ResourceLimitError takes priority
+            }
+            throw error;
+          }
           // Perform handshake before registering the channel
           const handshakeOk = await doOutboundHandshake(channel);
           if (!handshakeOk) {
@@ -438,10 +479,6 @@ export async function initTransport(
           registerChannel(targetPeerId, channel, 'reading channel to');
         }
       } catch (problem) {
-        // Re-throw ResourceLimitError to propagate to caller
-        if (problem instanceof ResourceLimitError) {
-          throw problem;
-        }
         outputError(targetPeerId, `opening connection`, problem);
         handleConnectionLoss(targetPeerId);
         throw problem;
@@ -472,6 +509,17 @@ export async function initTransport(
   }
 
   /**
+   * Close a rejected inbound channel, logging any errors.
+   *
+   * @param channel - The channel to close.
+   */
+  function closeRejectedChannel(channel: Channel): void {
+    connectionFactory.closeChannel(channel, channel.peerId).catch((problem) => {
+      outputError(channel.peerId, 'closing rejected inbound channel', problem);
+    });
+  }
+
+  /**
    * Handle inbound connection setup including handshake.
    *
    * @param channel - The inbound channel.
@@ -482,7 +530,7 @@ export async function initTransport(
       logger.log(
         `${channel.peerId}:: rejecting inbound connection from intentionally closed peer`,
       );
-      // Don't add to channels map and don't start reading - connection will naturally close
+      closeRejectedChannel(channel);
       return;
     }
 
@@ -494,6 +542,7 @@ export async function initTransport(
         logger.log(
           `${channel.peerId}:: rejecting inbound connection due to connection limit`,
         );
+        closeRejectedChannel(channel);
         return;
       }
       throw error;
@@ -505,7 +554,7 @@ export async function initTransport(
       logger.log(
         `${channel.peerId}:: rejecting inbound connection due to handshake failure`,
       );
-      await connectionFactory.closeChannel(channel, channel.peerId);
+      closeRejectedChannel(channel);
       return;
     }
 
@@ -608,6 +657,8 @@ export async function initTransport(
     await connectionFactory.stop();
     peerStateManager.clear();
     reconnectionManager.clear();
+    messageRateLimiter.clear();
+    connectionRateLimiter.clear();
   }
 
   // Return the sender with a stop handle and connection management functions
