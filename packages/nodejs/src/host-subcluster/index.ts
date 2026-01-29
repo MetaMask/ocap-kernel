@@ -9,10 +9,7 @@ import type {
   SystemVatSyscallHandler,
   SystemVatDeliverFn,
 } from '@metamask/ocap-kernel';
-import {
-  SystemVatSupervisor,
-  makeSyscallHandlerHolder,
-} from '@metamask/ocap-kernel/vats';
+import { SystemVatSupervisor } from '@metamask/ocap-kernel/vats';
 
 /**
  * Result of creating a host subcluster.
@@ -70,8 +67,8 @@ export function makeHostSubcluster(
   // Promise kit for kernel facet - resolves when bootstrap is called
   const kernelFacetKit = makePromiseKit<KernelFacet>();
 
-  // Create syscall handler holder for deferred wiring
-  const syscallHandlerHolder = makeSyscallHandlerHolder();
+  // Syscall handler - set by kernel during prepareSystemSubcluster()
+  let syscallHandler: SystemVatSyscallHandler | null = null;
 
   // Build root object that captures kernelFacet from bootstrap
   const buildRootObject: SystemVatBuildRootObject = () => {
@@ -102,7 +99,7 @@ export function makeHostSubcluster(
   const transport: SystemVatTransport = {
     deliver,
     setSyscallHandler: (handler: SystemVatSyscallHandler) => {
-      syscallHandlerHolder.handler = handler;
+      syscallHandler = handler;
     },
     // Kernel calls this to wait for connection from supervisor side
     awaitConnection: async () => connectionKit.promise,
@@ -113,10 +110,15 @@ export function makeHostSubcluster(
    * Creates and starts the supervisor, then resolves the connection promise.
    */
   const connect = (): void => {
+    if (!syscallHandler) {
+      throw new Error(
+        'Cannot connect: syscall handler not set. Was Kernel.make() called with this config?',
+      );
+    }
     // Create and start the supervisor
     SystemVatSupervisor.make({
       buildRootObject,
-      syscallHandlerHolder,
+      executeSyscall: syscallHandler,
       logger: logger.subLogger({ tags: ['supervisor'] }),
     })
       .then((supervisor) => {

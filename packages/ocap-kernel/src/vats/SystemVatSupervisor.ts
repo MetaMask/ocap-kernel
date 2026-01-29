@@ -35,41 +35,15 @@ export type SystemVatExecuteSyscall = (
   vso: VatSyscallObject,
 ) => VatSyscallResult;
 
-/**
- * A holder for a syscall handler that can be set after construction.
- * This allows the supervisor to be created before the kernel wires up
- * the transport.
- */
-export type SyscallHandlerHolder = {
-  /** The syscall handler, set by the kernel when wiring up the transport. */
-  handler: SystemVatExecuteSyscall | null;
-};
-
-/**
- * Create a syscall handler holder for deferred wiring.
- *
- * @returns A syscall handler holder.
- */
-export function makeSyscallHandlerHolder(): SyscallHandlerHolder {
-  return { handler: null };
-}
-
 type SystemVatSupervisorProps = {
-  id: SystemVatId;
   buildRootObject: SystemVatBuildRootObject;
-  vatPowers: Record<string, unknown>;
-  parameters: Record<string, Json> | undefined;
-  logger: Logger;
-} & (
-  | {
-      /** Direct syscall executor (legacy - for same-process use). */
-      executeSyscall: SystemVatExecuteSyscall;
-    }
-  | {
-      /** Syscall handler holder for deferred wiring (transport-based). */
-      syscallHandlerHolder: SyscallHandlerHolder;
-    }
-);
+  executeSyscall: SystemVatExecuteSyscall;
+  /** ID for the system vat. Defaults to 'sv-pending'. */
+  id?: SystemVatId;
+  vatPowers?: Record<string, unknown>;
+  parameters?: Record<string, Json>;
+  logger?: Logger;
+};
 
 /**
  * A non-persistent KV store for system vats.
@@ -142,7 +116,7 @@ function makeEphemeralVatKVStore(): KVStore {
  */
 export type SystemVatSupervisorMakeOptions = {
   buildRootObject: SystemVatBuildRootObject;
-  syscallHandlerHolder: SyscallHandlerHolder;
+  executeSyscall: SystemVatExecuteSyscall;
   vatPowers?: Record<string, unknown>;
   parameters?: Record<string, Json>;
   logger?: Logger;
@@ -155,13 +129,6 @@ export type SystemVatSupervisorMakeOptions = {
  * They don't load bundles via importBundle; instead, they receive a
  * buildRootObject function directly. They use an ephemeral vatstore since
  * they don't participate in kernel persistence machinery.
- *
- * The supervisor can be wired to the kernel in two ways:
- * 1. Direct: Pass `executeSyscall` in constructor (same-process)
- * 2. Deferred: Pass `syscallHandlerHolder` and set handler later (transport-based)
- *
- * For simplified usage, use the static `make()` factory method which handles
- * waiting for the kernel to signal readiness before starting.
  */
 export class SystemVatSupervisor {
   /** The ID of the system vat being supervised */
@@ -177,41 +144,16 @@ export class SystemVatSupervisor {
   #initialized: boolean = false;
 
   /**
-   * Create a system vat supervisor that waits for kernel readiness before starting.
-   *
-   * This is the recommended way to create a supervisor when using transports.
-   * It handles all the timing coordination automatically:
-   * 1. Creates the supervisor (but doesn't start yet - syscalls not wired)
-   * 2. Waits for the kernel to signal ready (syscalls wired via onReady callback)
-   * 3. Starts the supervisor (dispatches startVat)
+   * Create and start a system vat supervisor.
    *
    * @param options - Options for creating the supervisor.
-   * @returns A promise that resolves to the created supervisor.
+   * @returns A promise that resolves to the started supervisor.
    */
   static async make(
     options: SystemVatSupervisorMakeOptions,
   ): Promise<SystemVatSupervisor> {
-    const {
-      buildRootObject,
-      syscallHandlerHolder,
-      vatPowers,
-      parameters,
-      logger,
-    } = options;
-
-    // Create supervisor (but don't start yet - syscalls not wired)
-    const supervisor = new SystemVatSupervisor({
-      id: 'sv-pending' as SystemVatId,
-      buildRootObject,
-      vatPowers: vatPowers ?? {},
-      parameters,
-      syscallHandlerHolder,
-      logger: logger ?? new Logger('system-vat'),
-    });
-
-    // Now safe to start (dispatches startVat)
+    const supervisor = new SystemVatSupervisor(options);
     await supervisor.start();
-
     return supervisor;
   }
 
@@ -219,34 +161,24 @@ export class SystemVatSupervisor {
    * Construct a new SystemVatSupervisor instance.
    *
    * @param props - Named constructor parameters.
-   * @param props.id - The ID of the system vat being supervised.
    * @param props.buildRootObject - Function to build the vat's root object.
+   * @param props.executeSyscall - Function to execute syscalls.
+   * @param props.id - ID for the system vat. Defaults to 'sv-pending'.
    * @param props.vatPowers - External capabilities for this system vat.
    * @param props.parameters - Parameters to pass to buildRootObject.
-   * @param props.executeSyscall - Function to execute syscalls (direct wiring).
-   * @param props.syscallHandlerHolder - Holder for deferred syscall handler wiring.
    * @param props.logger - The logger for this system vat.
    */
   constructor(props: SystemVatSupervisorProps) {
-    const { id, buildRootObject, vatPowers, parameters, logger } = props;
+    const {
+      buildRootObject,
+      executeSyscall,
+      id = 'sv-pending' as SystemVatId,
+      vatPowers = {},
+      parameters,
+      logger = new Logger('system-vat'),
+    } = props;
     this.id = id;
     this.#logger = logger;
-
-    // Determine the syscall executor
-    let executeSyscall: SystemVatExecuteSyscall;
-    if ('executeSyscall' in props) {
-      // Direct wiring (legacy)
-      executeSyscall = props.executeSyscall;
-    } else {
-      // Deferred wiring via holder
-      const { syscallHandlerHolder } = props;
-      executeSyscall = (vso: VatSyscallObject): VatSyscallResult => {
-        if (!syscallHandlerHolder.handler) {
-          throw new Error('Syscall handler not yet wired');
-        }
-        return syscallHandlerHolder.handler(vso);
-      };
-    }
 
     // Initialize the system vat synchronously during construction
     this.#initializeVat(buildRootObject, vatPowers, parameters, executeSyscall);

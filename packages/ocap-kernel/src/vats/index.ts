@@ -1,9 +1,7 @@
 export { SystemVatSupervisor } from './SystemVatSupervisor.ts';
-export {
-  makeSyscallHandlerHolder,
-  type SyscallHandlerHolder,
-  type SystemVatExecuteSyscall,
-  type SystemVatSupervisorMakeOptions,
+export type {
+  SystemVatExecuteSyscall,
+  SystemVatSupervisorMakeOptions,
 } from './SystemVatSupervisor.ts';
 export { SystemVatHandle } from './SystemVatHandle.ts';
 export type {

@@ -15,10 +15,7 @@ import type {
   SystemVatSyscallHandler,
   SystemVatDeliverFn,
 } from '../../src/types.ts';
-import {
-  SystemVatSupervisor,
-  makeSyscallHandlerHolder,
-} from '../../src/vats/SystemVatSupervisor.ts';
+import { SystemVatSupervisor } from '../../src/vats/SystemVatSupervisor.ts';
 import { makeMapKernelDatabase } from '../storage.ts';
 
 /**
@@ -48,8 +45,8 @@ function makeTestSystemVat(options: { logger: Logger }): TestSystemVatResult {
   // Promise kit for kernel facet - resolves when bootstrap is called
   const kernelFacetKit = makePromiseKit<KernelFacet>();
 
-  // Create syscall handler holder for deferred wiring
-  const syscallHandlerHolder = makeSyscallHandlerHolder();
+  // Syscall handler - set by kernel during prepareSystemSubcluster()
+  let syscallHandler: SystemVatSyscallHandler | null = null;
 
   // Build root object that captures kernelFacet from bootstrap
   const buildRootObject: SystemVatBuildRootObject = () => {
@@ -78,16 +75,19 @@ function makeTestSystemVat(options: { logger: Logger }): TestSystemVatResult {
   const transport: SystemVatTransport = {
     deliver,
     setSyscallHandler: (handler: SystemVatSyscallHandler) => {
-      syscallHandlerHolder.handler = handler;
+      syscallHandler = handler;
     },
     awaitConnection: async () => connectionKit.promise,
   };
 
   // Called after Kernel.make() to initiate connection from supervisor side
   const connect = (): void => {
+    if (!syscallHandler) {
+      throw new Error('Syscall handler not set');
+    }
     SystemVatSupervisor.make({
       buildRootObject,
-      syscallHandlerHolder,
+      executeSyscall: syscallHandler,
       logger: logger.subLogger({ tags: ['supervisor'] }),
     })
       .then((supervisor) => {
