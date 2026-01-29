@@ -104,6 +104,7 @@ export function getKnownRelays(kv: KVStore): string[] {
  * @param logger - The logger to use.
  * @param keySeed - Optional seed for libp2p key generation.
  * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
+ * @param incarnationId - Unique identifier for this kernel instance.
  *
  * @returns the initialized remote comms object.
  */
@@ -115,6 +116,7 @@ export async function initRemoteComms(
   logger?: Logger,
   keySeed?: string,
   onRemoteGiveUp?: OnRemoteGiveUp,
+  incarnationId?: string,
 ): Promise<RemoteComms> {
   let peerId: string;
   let ocapURLKey: Uint8Array;
@@ -167,6 +169,7 @@ export async function initRemoteComms(
     { ...options, relays: knownRelays },
     remoteMessageHandler,
     onRemoteGiveUp,
+    incarnationId,
   );
 
   /**
