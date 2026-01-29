@@ -4,6 +4,20 @@ import { loadBundle } from './bundle-loader.ts';
 
 describe('loadBundle', () => {
   describe('input validation', () => {
+    it('throws on null content', () => {
+      const content = 'null';
+      expect(() => loadBundle(content)).toThrow(
+        'Invalid bundle: must be an object',
+      );
+    });
+
+    it('throws on non-object content', () => {
+      const content = '"string"';
+      expect(() => loadBundle(content)).toThrow(
+        'Invalid bundle: must be an object',
+      );
+    });
+
     it('throws on unknown bundle format', () => {
       const content = JSON.stringify({ moduleFormat: 'unknown' });
       expect(() => loadBundle(content)).toThrow(
