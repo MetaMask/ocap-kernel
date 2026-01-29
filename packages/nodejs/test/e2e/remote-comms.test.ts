@@ -1,5 +1,3 @@
-import '../../src/env/endoify.ts';
-
 import type { Libp2p } from '@libp2p/interface';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
