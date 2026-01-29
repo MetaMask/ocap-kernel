@@ -393,8 +393,6 @@ export async function initTransport(
       connectionFactory.closeChannel(channel, peerId),
     registerChannel,
     doOutboundHandshake,
-    closeChannel: async (channel, peerId) =>
-      connectionFactory.closeChannel(channel, peerId),
   });
   connectionLossHolder.impl = reconnectionLifecycle.handleConnectionLoss;
 

@@ -39,8 +39,6 @@ export type ReconnectionLifecycleDeps = {
   ) => void;
   /** Perform outbound handshake. Returns true if successful. */
   doOutboundHandshake: (channel: Channel) => Promise<boolean>;
-  /** Close a channel. */
-  closeChannel: (channel: Channel, peerId: string) => Promise<void>;
 };
 
 /**
@@ -75,7 +73,6 @@ export function makeReconnectionLifecycle(
     closeChannel,
     registerChannel,
     doOutboundHandshake,
-    closeChannel,
   } = deps;
 
   /**

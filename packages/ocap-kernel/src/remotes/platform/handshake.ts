@@ -1,4 +1,4 @@
-import { Logger } from '@metamask/logger';
+import type { Logger } from '@metamask/logger';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
 import { writeWithTimeout } from './channel-utils.ts';

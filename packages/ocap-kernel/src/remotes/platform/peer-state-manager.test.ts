@@ -153,24 +153,6 @@ describe('PeerStateManager', () => {
   });
 
   describe('incarnation tracking', () => {
-    describe('getRemoteIncarnation', () => {
-      it('returns undefined for unknown peer', () => {
-        expect(manager.getRemoteIncarnation('peer1')).toBeUndefined();
-      });
-
-      it('returns undefined for peer with no incarnation set', () => {
-        manager.getState('peer1');
-
-        expect(manager.getRemoteIncarnation('peer1')).toBeUndefined();
-      });
-
-      it('returns incarnation after it is set', () => {
-        manager.setRemoteIncarnation('peer1', 'incarnation-1');
-
-        expect(manager.getRemoteIncarnation('peer1')).toBe('incarnation-1');
-      });
-    });
-
     describe('setRemoteIncarnation', () => {
       it('returns false for first incarnation (not a change)', () => {
         const changed = manager.setRemoteIncarnation('peer1', 'incarnation-1');
@@ -196,7 +178,9 @@ describe('PeerStateManager', () => {
         manager.setRemoteIncarnation('peer1', 'incarnation-1');
         manager.setRemoteIncarnation('peer1', 'incarnation-2');
 
-        expect(manager.getRemoteIncarnation('peer1')).toBe('incarnation-2');
+        expect(manager.getState('peer1').remoteIncarnationId).toBe(
+          'incarnation-2',
+        );
       });
 
       it('logs when first incarnation is received', () => {
@@ -221,8 +205,12 @@ describe('PeerStateManager', () => {
         manager.setRemoteIncarnation('peer1', 'incarnation-1');
         manager.setRemoteIncarnation('peer2', 'incarnation-2');
 
-        expect(manager.getRemoteIncarnation('peer1')).toBe('incarnation-1');
-        expect(manager.getRemoteIncarnation('peer2')).toBe('incarnation-2');
+        expect(manager.getState('peer1').remoteIncarnationId).toBe(
+          'incarnation-1',
+        );
+        expect(manager.getState('peer2').remoteIncarnationId).toBe(
+          'incarnation-2',
+        );
       });
     });
   });
