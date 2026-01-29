@@ -31,6 +31,7 @@ export type ReconnectionLifecycleDeps = {
     peerId: string,
     channel: Channel,
     errorContext?: string,
+    isOutbound?: boolean,
   ) => void;
 };
 
@@ -161,9 +162,10 @@ export function makeReconnectionLifecycle(
     }
 
     // Re-check connection limit and register if this is a new channel
+    // Reconnections are outbound dials, so pass isOutbound=true to trigger handshake
     if (state.channel !== channel) {
       checkConnectionLimit();
-      registerChannel(peerId, channel, 'reading channel to');
+      registerChannel(peerId, channel, 'reading channel to', true);
     }
 
     return channel;

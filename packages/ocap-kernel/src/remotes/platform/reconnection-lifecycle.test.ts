@@ -198,6 +198,7 @@ describe('reconnection-lifecycle', () => {
         'peer1',
         mockChannel,
         'reading channel to',
+        true, // isOutbound - reconnections are outbound dials
       );
     });
 
