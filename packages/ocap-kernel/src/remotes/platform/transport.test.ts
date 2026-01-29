@@ -28,6 +28,7 @@ const mockReconnectionManager = {
   clearPeer: vi.fn(),
   isPermanentlyFailed: vi.fn().mockReturnValue(false),
   recordError: vi.fn(),
+  clearPermanentFailure: vi.fn(),
 };
 
 vi.mock('./reconnection.ts', () => {
@@ -57,6 +58,8 @@ vi.mock('./reconnection.ts', () => {
     isPermanentlyFailed = mockReconnectionManager.isPermanentlyFailed;
 
     recordError = mockReconnectionManager.recordError;
+
+    clearPermanentFailure = mockReconnectionManager.clearPermanentFailure;
   }
   return {
     ReconnectionManager: MockReconnectionManager,
@@ -184,6 +187,7 @@ describe('transport.initTransport', () => {
     mockReconnectionManager.clearPeer.mockClear();
     mockReconnectionManager.isPermanentlyFailed.mockClear();
     mockReconnectionManager.recordError.mockClear();
+    mockReconnectionManager.clearPermanentFailure.mockClear();
 
     mockConnectionFactory.dialIdempotent.mockReset();
     mockConnectionFactory.onInboundConnection.mockClear();
@@ -1075,6 +1079,29 @@ describe('transport.initTransport', () => {
 
       // Should not start another reconnection
       expect(mockReconnectionManager.startReconnection).not.toHaveBeenCalled();
+    });
+
+    it('clears permanent failure status when manually reconnecting', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { closeConnection, reconnectPeer } = await initTransport(
+        '0x1234',
+        {},
+        vi.fn(),
+      );
+
+      await closeConnection('peer-1');
+      await reconnectPeer('peer-1');
+
+      // Should clear permanent failure status before attempting reconnection
+      expect(
+        mockReconnectionManager.clearPermanentFailure,
+      ).toHaveBeenCalledWith('peer-1');
+      // Then start reconnection
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+        'peer-1',
+      );
     });
 
     it('allows sending messages after reconnection', async () => {

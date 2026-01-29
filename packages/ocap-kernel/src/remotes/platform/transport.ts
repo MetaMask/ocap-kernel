@@ -506,8 +506,9 @@ export async function initTransport(
   }
 
   /**
-   * Manually reconnect to a peer after intentional close.
-   * Clears the intentional close flag and initiates reconnection.
+   * Manually reconnect to a peer after intentional close or permanent failure.
+   * Clears the intentional close flag and permanent failure status,
+   * then initiates reconnection.
    *
    * @param peerId - The peer ID to reconnect to.
    * @param hints - The hints to use for the reconnection.
@@ -516,8 +517,10 @@ export async function initTransport(
     peerId: string,
     hints: string[] = [],
   ): Promise<void> {
-    logger.log(`${peerId}:: manually reconnecting after intentional close`);
+    logger.log(`${peerId}:: manually reconnecting`);
     peerStateManager.clearIntentionallyClosed(peerId);
+    // Clear permanent failure status - user explicitly wants to reconnect
+    reconnectionManager.clearPermanentFailure(peerId);
     // If already reconnecting, don't start another attempt
     if (reconnectionManager.isReconnecting(peerId)) {
       return;
