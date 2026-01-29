@@ -1,5 +1,3 @@
-import '../env/endoify.ts';
-
 import { makeCounter } from '@metamask/kernel-utils';
 import type { VatId } from '@metamask/ocap-kernel';
 import { makePromiseKitMock } from '@ocap/repo-tools/test-utils';

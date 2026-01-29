@@ -50,6 +50,10 @@ ignores:
   # Used by @ocap/nodejs to build the sqlite3 bindings
   - 'node-gyp'
 
+  # Peer dependency of @metamask/kernel-shims due to its /endoify-node
+  # export, used by @ocap/nodejs
+  - '@libp2p/webrtc'
+
   # These are peer dependencies of various modules we actually do
   # depend on, which have been elevated to full dependencies (even
   # though we don't actually depend on them) in order to work around a
@@ -68,3 +72,6 @@ ignores:
   # Testing
   # This import is used in files which are meant to fail
   - 'does-not-exist'
+
+ignore-patterns:
+  - dist/

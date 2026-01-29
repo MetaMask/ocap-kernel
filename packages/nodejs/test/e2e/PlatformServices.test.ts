@@ -1,5 +1,3 @@
-import '../../src/env/endoify.ts';
-
 import { makeCounter } from '@metamask/kernel-utils';
 import type { VatId } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';

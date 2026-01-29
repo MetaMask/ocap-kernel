@@ -1,12 +1,11 @@
-import '@endo/init';
-import endoBundleSource from '@endo/bundle-source';
-import { Logger } from '@metamask/logger';
+import type { Logger } from '@metamask/logger';
 import { glob } from 'glob';
 import { writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 
 import { isDirectory } from '../file.ts';
 import { resolveBundlePath } from '../path.ts';
+import { bundleVat } from '../vite/vat-bundler.ts';
 
 type BundleFileOptions = {
   logger: Logger;
@@ -30,7 +29,7 @@ export async function bundleFile(
   const { logger, targetPath } = options;
   const sourceFullPath = resolve(sourcePath);
   const bundlePath = targetPath ?? resolveBundlePath(sourceFullPath);
-  const bundle = await endoBundleSource(sourceFullPath);
+  const bundle = await bundleVat(sourceFullPath);
   const bundleContent = JSON.stringify(bundle);
   await writeFile(bundlePath, bundleContent);
   logger.info(`Wrote ${bundlePath}: ${new Blob([bundleContent]).size} bytes`);

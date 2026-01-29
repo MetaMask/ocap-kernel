@@ -1,1 +1,1 @@
-{"moduleFormat":"endoZipBase64","endoZipBase64":"This is merely a test bundle!","endoZipBase64Sha512":"d0ef05812fb8a7cce57dcb8d6f6fbe5677f175e2ef966df1d81dec9868a8f56b0e89b691fdb3d43a3902962adcf37d1eee6902a113476cca85f8d76957bdf154"}
+{"moduleFormat":"iife","code":"var __vatExports__ = (function(exports) { exports.test = 'This is merely a test bundle!'; return exports; })({});","exports":["test"],"external":[]}

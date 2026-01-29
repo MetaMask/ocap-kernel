@@ -1,5 +1,3 @@
-import '../../src/env/endoify.ts';
-
 import type { Libp2p } from '@libp2p/interface';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
@@ -266,11 +264,10 @@ describe.sequential('Remote Communications E2E', () => {
       NETWORK_TIMEOUT * 2,
     );
 
-    // TODO: This test times out - needs investigation into reconnection after peer restart
-    it.todo(
+    it(
       'handles connection failure and recovery',
       async () => {
-        const { aliceURL, bobURL, aliceRef, bobRef } = await setupAliceAndBob(
+        const { bobURL, aliceRef } = await setupAliceAndBob(
           kernel1,
           kernel2,
           kernelStore1,
@@ -278,11 +275,27 @@ describe.sequential('Remote Communications E2E', () => {
           testRelays,
         );
 
-        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
-        await sendRemoteMessage(kernel2, bobRef, aliceURL, 'hello', ['Bob']);
+        // Verify initial connectivity
+        const initialMessage = await sendRemoteMessage(
+          kernel1,
+          aliceRef,
+          bobURL,
+          'hello',
+          ['Alice'],
+        );
+        expect(initialMessage).toContain('vat Bob got "hello" from Alice');
 
+        // Simulate connection failure by stopping kernel2
         await kernel2.stop();
 
+        // Queue a message while kernel2 is down - this triggers reconnection
+        const recoveryPromise = kernel1.queueMessage(
+          aliceRef,
+          'testConnection',
+          [bobURL],
+        );
+
+        // Restart kernel2 - the queued message should trigger reconnection
         const bobConfig = makeRemoteVatConfig('Bob');
         // eslint-disable-next-line require-atomic-updates
         kernel2 = (
@@ -294,22 +307,28 @@ describe.sequential('Remote Communications E2E', () => {
           )
         ).kernel;
 
-        // Wait for kernel2 to fully initialize and register with relay
-        await delay(2000);
-
-        // Send message after recovery - connection should be re-established
-        const recoveryResult = await kernel1.queueMessage(
-          aliceRef,
-          'testConnection',
-          [bobURL],
-        );
+        // Wait for the recovery message to complete
+        const recoveryResult = await recoveryPromise;
         const recoveryResponse = kunser(recoveryResult) as {
           status: string;
           result?: unknown;
           error?: string;
         };
+
+        // Verify connection was recovered
         expect(recoveryResponse).toHaveProperty('status');
         expect(recoveryResponse.status).toBe('connected');
+        expect(recoveryResponse.result).toBe('pong from Bob');
+
+        // Verify ongoing connectivity with a follow-up message
+        const followUpMessage = await sendRemoteMessage(
+          kernel1,
+          aliceRef,
+          bobURL,
+          'hello',
+          ['Alice'],
+        );
+        expect(followUpMessage).toContain('vat Bob got "hello" from Alice');
       },
       NETWORK_TIMEOUT * 2,
     );

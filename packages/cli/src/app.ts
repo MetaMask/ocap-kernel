@@ -1,5 +1,4 @@
-import '@endo/init';
-
+import '@metamask/kernel-shims/endoify';
 import { Logger } from '@metamask/logger';
 import path from 'node:path';
 import yargs from 'yargs';
