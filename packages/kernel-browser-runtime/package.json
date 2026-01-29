@@ -62,7 +62,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest --config vitest.config.ts",
-    "test:dev:quiet": "yarn test:dev --reporter dot"
+    "test:dev:quiet": "yarn test:dev --reporter @ocap/repo-tools/vitest-reporters/silent"
   },
   "dependencies": {
     "@endo/captp": "^4.4.8",
