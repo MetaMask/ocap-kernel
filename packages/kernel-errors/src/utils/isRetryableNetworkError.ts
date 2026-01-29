@@ -21,6 +21,9 @@ export function isRetryableNetworkError(error: unknown): boolean {
   }
 
   // Node.js network error codes
+  // Note: ENOTFOUND (DNS lookup failed) is included to allow permanent failure
+  // detection to work - after multiple consecutive ENOTFOUND errors, the peer
+  // will be marked as permanently failed rather than giving up immediately.
   const code = anyError?.code;
   if (
     code === 'ECONNRESET' ||
@@ -28,7 +31,8 @@ export function isRetryableNetworkError(error: unknown): boolean {
     code === 'EPIPE' ||
     code === 'ECONNREFUSED' ||
     code === 'EHOSTUNREACH' ||
-    code === 'ENETUNREACH'
+    code === 'ENETUNREACH' ||
+    code === 'ENOTFOUND'
   ) {
     return true;
   }

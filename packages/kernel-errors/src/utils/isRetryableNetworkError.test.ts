@@ -34,6 +34,7 @@ describe('isRetryableNetworkError', () => {
       { code: 'ECONNREFUSED', description: 'connection refused' },
       { code: 'EHOSTUNREACH', description: 'no route to host' },
       { code: 'ENETUNREACH', description: 'network unreachable' },
+      { code: 'ENOTFOUND', description: 'DNS lookup failed' },
     ])('returns true for $code ($description)', ({ code }) => {
       const error = new Error('Network error') as Error & { code: string };
       error.code = code;
