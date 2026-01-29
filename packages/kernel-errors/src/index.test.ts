@@ -24,6 +24,7 @@ describe('index', () => {
       'isMarshaledError',
       'isMarshaledOcapError',
       'isOcapError',
+      'isResourceLimitError',
       'isRetryableNetworkError',
       'marshalError',
       'toError',

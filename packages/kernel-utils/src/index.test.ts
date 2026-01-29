@@ -20,6 +20,7 @@ describe('index', () => {
       'isPrimitive',
       'isTypedArray',
       'isTypedObject',
+      'isVatBundle',
       'makeCounter',
       'makeDefaultExo',
       'makeDefaultInterface',

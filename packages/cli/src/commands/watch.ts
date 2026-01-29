@@ -1,4 +1,5 @@
 import { makePromiseKit } from '@endo/promise-kit';
+import type { PromiseKit } from '@endo/promise-kit';
 import { Logger } from '@metamask/logger';
 import { watch } from 'chokidar';
 import type { FSWatcher, MatchFunction } from 'chokidar';
@@ -17,8 +18,8 @@ type WatchDirReturn = {
 
 export const makeWatchEvents = (
   watcher: FSWatcher,
-  readyResolve: ReturnType<typeof makePromiseKit<CloseWatcher>>['resolve'],
-  throwError: ReturnType<typeof makePromiseKit<never>>['reject'],
+  readyResolve: PromiseKit<CloseWatcher>['resolve'],
+  throwError: PromiseKit<never>['reject'],
   logger: Logger,
 ): {
   ready: () => void;
