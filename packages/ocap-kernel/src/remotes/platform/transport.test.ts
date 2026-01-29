@@ -2290,4 +2290,265 @@ describe('transport.initTransport', () => {
       expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(2);
     });
   });
+
+  describe('handshake protocol', () => {
+    it('sends handshake on outbound connection when incarnationId provided', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const localIncarnationId = 'test-incarnation-id';
+      const { sendRemoteMessage } = await initTransport(
+        '0x1234',
+        {},
+        vi.fn(),
+        undefined, // onRemoteGiveUp
+        localIncarnationId,
+      );
+
+      // Send a message to establish outbound connection
+      await sendRemoteMessage('peer-1', makeTestMessage('hello'));
+
+      // Verify handshake was sent
+      expect(mockChannel.msgStream.write).toHaveBeenCalled();
+      // First write should be the handshake message
+      const { calls } = mockChannel.msgStream.write.mock;
+      const firstWrite = new TextDecoder().decode(calls[0][0] as Uint8Array);
+      const handshakeMsg = JSON.parse(firstWrite);
+      expect(handshakeMsg).toStrictEqual({
+        method: 'handshake',
+        params: { incarnationId: localIncarnationId },
+      });
+    });
+
+    it('does not send handshake when no incarnationId provided', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage } = await initTransport(
+        '0x1234',
+        {},
+        vi.fn(),
+        undefined, // onRemoteGiveUp
+        undefined, // no incarnationId
+      );
+
+      await sendRemoteMessage('peer-1', makeTestMessage('hello'));
+
+      // Should only have the actual message, no handshake
+      expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(1);
+      const writeCall = new TextDecoder().decode(
+        mockChannel.msgStream.write.mock.calls[0][0] as Uint8Array,
+      );
+      const parsedMsg = JSON.parse(writeCall);
+      expect(parsedMsg.method).not.toBe('handshake');
+    });
+
+    it('handles incoming handshake and replies with handshakeAck', async () => {
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler: (channel: MockChannel) => void) => {
+          inboundHandler = handler;
+        },
+      );
+
+      const remoteMessageHandler = vi.fn();
+      const localIncarnationId = 'local-incarnation';
+      await initTransport(
+        '0x1234',
+        {},
+        remoteMessageHandler,
+        undefined,
+        localIncarnationId,
+      );
+
+      // Create mock inbound channel
+      const mockInboundChannel = createMockChannel('remote-peer');
+      const handshakeMessage = JSON.stringify({
+        method: 'handshake',
+        params: { incarnationId: 'remote-incarnation' },
+      });
+      mockInboundChannel.msgStream.read.mockResolvedValueOnce(
+        new TextEncoder().encode(handshakeMessage),
+      );
+      mockInboundChannel.msgStream.read.mockReturnValue(
+        new Promise<Uint8Array | undefined>(() => {
+          /* Never resolves */
+        }),
+      );
+
+      // Trigger inbound connection
+      inboundHandler?.(mockInboundChannel);
+
+      // Wait for handshake to be processed
+      await vi.waitFor(() => {
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          expect.stringContaining('received handshake'),
+        );
+      });
+
+      // Handshake messages should NOT be passed to remoteMessageHandler
+      expect(remoteMessageHandler).not.toHaveBeenCalled();
+    });
+
+    it('handles incoming handshakeAck', async () => {
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler: (channel: MockChannel) => void) => {
+          inboundHandler = handler;
+        },
+      );
+
+      const remoteMessageHandler = vi.fn();
+      const localIncarnationId = 'local-incarnation';
+      await initTransport(
+        '0x1234',
+        {},
+        remoteMessageHandler,
+        undefined,
+        localIncarnationId,
+      );
+
+      // Create mock inbound channel
+      const mockInboundChannel = createMockChannel('remote-peer');
+      const handshakeAckMessage = JSON.stringify({
+        method: 'handshakeAck',
+        params: { incarnationId: 'remote-incarnation' },
+      });
+      mockInboundChannel.msgStream.read.mockResolvedValueOnce(
+        new TextEncoder().encode(handshakeAckMessage),
+      );
+      mockInboundChannel.msgStream.read.mockReturnValue(
+        new Promise<Uint8Array | undefined>(() => {
+          /* Never resolves */
+        }),
+      );
+
+      // Trigger inbound connection
+      inboundHandler?.(mockInboundChannel);
+
+      // Wait for handshakeAck to be processed
+      await vi.waitFor(() => {
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          expect.stringContaining('received handshakeAck'),
+        );
+      });
+
+      // HandshakeAck messages should NOT be passed to remoteMessageHandler
+      expect(remoteMessageHandler).not.toHaveBeenCalled();
+    });
+
+    it('calls onRemoteGiveUp when incarnation changes', async () => {
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler: (channel: MockChannel) => void) => {
+          inboundHandler = handler;
+        },
+      );
+
+      const onRemoteGiveUp = vi.fn();
+      const localIncarnationId = 'local-incarnation';
+      await initTransport(
+        '0x1234',
+        {},
+        vi.fn(),
+        onRemoteGiveUp,
+        localIncarnationId,
+      );
+
+      // First handshake from remote peer
+      const mockInboundChannel1 = createMockChannel('remote-peer');
+      const handshakeMessage1 = JSON.stringify({
+        method: 'handshake',
+        params: { incarnationId: 'incarnation-1' },
+      });
+      mockInboundChannel1.msgStream.read.mockResolvedValueOnce(
+        new TextEncoder().encode(handshakeMessage1),
+      );
+      mockInboundChannel1.msgStream.read.mockReturnValue(
+        new Promise<Uint8Array | undefined>(() => {
+          /* Never resolves */
+        }),
+      );
+
+      inboundHandler?.(mockInboundChannel1);
+
+      // Wait for first handshake to be processed
+      await vi.waitFor(() => {
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          expect.stringContaining('first incarnation ID received'),
+        );
+      });
+
+      // First incarnation should not trigger onRemoteGiveUp
+      expect(onRemoteGiveUp).not.toHaveBeenCalled();
+
+      // Second handshake with different incarnation (simulating peer restart)
+      const mockInboundChannel2 = createMockChannel('remote-peer');
+      const handshakeMessage2 = JSON.stringify({
+        method: 'handshake',
+        params: { incarnationId: 'incarnation-2' },
+      });
+      mockInboundChannel2.msgStream.read.mockResolvedValueOnce(
+        new TextEncoder().encode(handshakeMessage2),
+      );
+      mockInboundChannel2.msgStream.read.mockReturnValue(
+        new Promise<Uint8Array | undefined>(() => {
+          /* Never resolves */
+        }),
+      );
+
+      inboundHandler?.(mockInboundChannel2);
+
+      // Wait for second handshake to be processed
+      await vi.waitFor(() => {
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          expect.stringContaining('incarnation changed'),
+        );
+      });
+
+      // Changed incarnation should trigger onRemoteGiveUp
+      expect(onRemoteGiveUp).toHaveBeenCalledWith('remote-peer');
+    });
+
+    it('passes non-handshake messages to remoteMessageHandler', async () => {
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler: (channel: MockChannel) => void) => {
+          inboundHandler = handler;
+        },
+      );
+
+      const remoteMessageHandler = vi.fn().mockResolvedValue('');
+      const localIncarnationId = 'local-incarnation';
+      await initTransport(
+        '0x1234',
+        {},
+        remoteMessageHandler,
+        undefined,
+        localIncarnationId,
+      );
+
+      // Create mock inbound channel with regular message
+      const mockInboundChannel = createMockChannel('remote-peer');
+      const regularMessage = makeTestMessage('hello');
+      mockInboundChannel.msgStream.read.mockResolvedValueOnce(
+        new TextEncoder().encode(regularMessage),
+      );
+      mockInboundChannel.msgStream.read.mockReturnValue(
+        new Promise<Uint8Array | undefined>(() => {
+          /* Never resolves */
+        }),
+      );
+
+      inboundHandler?.(mockInboundChannel);
+
+      // Wait for message to be processed
+      await vi.waitFor(() => {
+        expect(remoteMessageHandler).toHaveBeenCalledWith(
+          'remote-peer',
+          regularMessage,
+        );
+      });
+    });
+  });
 });
