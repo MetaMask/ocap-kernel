@@ -128,6 +128,7 @@ vi.mock('@metamask/kernel-errors', () => ({
       errorWithCode?.code === 'ETIMEDOUT'
     );
   }),
+  isResourceLimitError: vi.fn().mockReturnValue(false),
 }));
 
 // Mock uint8arrays
