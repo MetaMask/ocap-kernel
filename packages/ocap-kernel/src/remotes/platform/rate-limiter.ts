@@ -45,17 +45,7 @@ export class SlidingWindowRateLimiter {
    * @returns True if the event would exceed the rate limit.
    */
   wouldExceedLimit(key: string): boolean {
-    const now = Date.now();
-    const cutoff = now - this.#windowMs;
-    const timestamps = this.#timestamps.get(key);
-
-    if (!timestamps) {
-      return false;
-    }
-
-    // Count events within the window
-    const recentCount = timestamps.filter((ts) => ts > cutoff).length;
-    return recentCount >= this.#maxEvents;
+    return this.getCurrentCount(key) >= this.#maxEvents;
   }
 
   /**
