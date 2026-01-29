@@ -146,12 +146,16 @@ export class ReconnectionManager {
   }
 
   /**
-   * Reset the backoff counter for a peer.
+   * Reset the backoff counter and error history for a peer.
+   * Called on successful communication to indicate the connection is working.
+   * Clears error history to prevent stale errors from triggering false permanent failures.
    *
    * @param peerId - The peer ID to reset backoff for.
    */
   resetBackoff(peerId: string): void {
-    this.#getState(peerId).attemptCount = 0;
+    const state = this.#getState(peerId);
+    state.attemptCount = 0;
+    state.errorHistory = [];
   }
 
   /**
@@ -191,12 +195,15 @@ export class ReconnectionManager {
   }
 
   /**
-   * Reset all backoffs (e.g., after wake from sleep).
+   * Reset all backoffs and error histories (e.g., after wake from sleep).
+   * Clears error histories because network conditions have changed and old errors
+   * are no longer relevant for permanent failure detection.
    */
   resetAllBackoffs(): void {
     for (const state of this.#states.values()) {
       if (state.isReconnecting) {
         state.attemptCount = 0;
+        state.errorHistory = [];
       }
     }
   }
