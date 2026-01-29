@@ -70,22 +70,10 @@ type RedeemURLReply = {
   params: [boolean, string, string];
 };
 
-type Handshake = {
-  method: 'handshake';
-  params: { incarnationId: string };
-};
+// Note: Handshake and HandshakeAck messages are handled at the connection level
+// in packages/ocap-kernel/src/remotes/platform/handshake.ts, not here.
 
-type HandshakeAck = {
-  method: 'handshakeAck';
-  params: { incarnationId: string };
-};
-
-export type RemoteMessageBase =
-  | Delivery
-  | RedeemURLRequest
-  | RedeemURLReply
-  | Handshake
-  | HandshakeAck;
+export type RemoteMessageBase = Delivery | RedeemURLRequest | RedeemURLReply;
 
 type RemoteCommand = {
   seq: number;
@@ -867,6 +855,7 @@ export class RemoteHandle implements EndpointHandle {
         await this.#handleRedeemURLReply(...params);
         break;
       default:
+        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
         throw Error(`unknown remote message type ${method}`);
     }
     return '';

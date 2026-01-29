@@ -47,7 +47,6 @@ describe('RemoteManager', () => {
       kernelStore,
       kernelQueue: mockKernelQueue,
       logger,
-      incarnationId: 'test-incarnation-id',
     });
 
     vi.mocked(remoteComms.initRemoteComms).mockClear();
@@ -81,7 +80,7 @@ describe('RemoteManager', () => {
         logger,
         undefined,
         expect.any(Function),
-        'test-incarnation-id',
+        kernelStore.getOrCreateIncarnationId(),
       );
     });
 
@@ -109,7 +108,7 @@ describe('RemoteManager', () => {
         logger,
         undefined,
         expect.any(Function),
-        'test-incarnation-id',
+        kernelStore.getOrCreateIncarnationId(),
       );
     });
 
@@ -121,7 +120,6 @@ describe('RemoteManager', () => {
         kernelQueue: mockKernelQueue,
         logger,
         keySeed,
-        incarnationId: 'keyseed-incarnation-id',
       });
 
       const messageHandler = vi.fn();
@@ -138,7 +136,7 @@ describe('RemoteManager', () => {
         logger,
         keySeed,
         expect.any(Function),
-        'keyseed-incarnation-id',
+        kernelStore.getOrCreateIncarnationId(),
       );
     });
 
@@ -176,7 +174,6 @@ describe('RemoteManager', () => {
         kernelStore, // Same store with persisted remotes
         kernelQueue: mockKernelQueue,
         logger,
-        incarnationId: 'new-incarnation-id',
       });
 
       // Initialize - should restore the remotes
@@ -483,7 +480,6 @@ describe('RemoteManager', () => {
         kernelStore,
         kernelQueue: mockKernelQueue,
         logger,
-        incarnationId: 'cleanup-test-incarnation-id',
       });
 
       // Should not throw

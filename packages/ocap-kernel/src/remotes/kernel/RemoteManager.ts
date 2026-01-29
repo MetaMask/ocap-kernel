@@ -20,7 +20,6 @@ type RemoteManagerConstructorProps = {
   logger?: Logger;
   keySeed?: string | undefined;
   mnemonic?: string | undefined;
-  incarnationId: string;
 };
 
 /**
@@ -73,7 +72,6 @@ export class RemoteManager {
    * @param options.logger - Logger instance for debugging and diagnostics.
    * @param options.keySeed - Seed for generating the kernel's cryptographic key pair.
    * @param options.mnemonic - BIP39 mnemonic for deriving the kernel's cryptographic key pair.
-   * @param options.incarnationId - Unique identifier for this kernel instance.
    */
   constructor({
     platformServices,
@@ -82,7 +80,6 @@ export class RemoteManager {
     logger,
     keySeed,
     mnemonic,
-    incarnationId,
   }: RemoteManagerConstructorProps) {
     this.#platformServices = platformServices;
     this.#kernelStore = kernelStore;
@@ -90,7 +87,8 @@ export class RemoteManager {
     this.#logger = logger;
     this.#keySeed = keySeed;
     this.#mnemonic = mnemonic;
-    this.#incarnationId = incarnationId;
+    // Get incarnation ID from store - it's persisted so it survives restarts
+    this.#incarnationId = kernelStore.getOrCreateIncarnationId();
   }
 
   /**

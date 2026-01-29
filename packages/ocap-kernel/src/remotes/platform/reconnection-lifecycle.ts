@@ -31,8 +31,11 @@ export type ReconnectionLifecycleDeps = {
     peerId: string,
     channel: Channel,
     errorContext?: string,
-    isOutbound?: boolean,
   ) => void;
+  /** Perform outbound handshake. Returns true if successful. */
+  doOutboundHandshake: (channel: Channel) => Promise<boolean>;
+  /** Close a channel. */
+  closeChannel: (channel: Channel, peerId: string) => Promise<void>;
 };
 
 /**
@@ -64,6 +67,8 @@ export function makeReconnectionLifecycle(
     reuseOrReturnChannel,
     checkConnectionLimit,
     registerChannel,
+    doOutboundHandshake,
+    closeChannel,
   } = deps;
 
   /**
@@ -162,10 +167,15 @@ export function makeReconnectionLifecycle(
     }
 
     // Re-check connection limit and register if this is a new channel
-    // Reconnections are outbound dials, so pass isOutbound=true to trigger handshake
     if (state.channel !== channel) {
       checkConnectionLimit();
-      registerChannel(peerId, channel, 'reading channel to', true);
+      // Perform handshake before registering the channel
+      const handshakeOk = await doOutboundHandshake(channel);
+      if (!handshakeOk) {
+        await closeChannel(channel, peerId);
+        throw new Error('Handshake failed during reconnection');
+      }
+      registerChannel(peerId, channel, 'reading channel to');
     }
 
     return channel;
