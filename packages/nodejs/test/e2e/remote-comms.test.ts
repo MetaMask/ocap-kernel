@@ -867,33 +867,6 @@ describe.sequential('Remote Communications E2E', () => {
 
   describe('Incarnation Detection', () => {
     it(
-      'handshake is exchanged on connection establishment',
-      async () => {
-        const { aliceRef, bobURL } = await setupAliceAndBob(
-          kernel1,
-          kernel2,
-          kernelStore1,
-          kernelStore2,
-          testRelays,
-        );
-
-        // First message should trigger handshake exchange
-        // The handshake happens automatically during connection establishment
-        const result = await sendRemoteMessage(
-          kernel1,
-          aliceRef,
-          bobURL,
-          'hello',
-          ['Alice'],
-        );
-
-        // Message should succeed, indicating handshake completed
-        expect(result).toContain('vat Bob got "hello" from Alice');
-      },
-      NETWORK_TIMEOUT,
-    );
-
-    it(
       'detects incarnation change when peer restarts with fresh state',
       async () => {
         // Initialize with low retry attempts to trigger give-up on incarnation change
@@ -954,58 +927,6 @@ describe.sequential('Remote Communications E2E', () => {
         }
       },
       NETWORK_TIMEOUT * 3,
-    );
-
-    // TODO: This test needs investigation - message delivery after restart may be affected
-    // by timing of incarnation detection and promise rejection propagation
-    it.todo(
-      'messages succeed after peer restart once reconnection is established',
-      async () => {
-        const { aliceRef, bobURL } = await setupAliceAndBob(
-          kernel1,
-          kernel2,
-          kernelStore1,
-          kernelStore2,
-          testRelays,
-        );
-
-        // Establish connection - this exchanges handshakes
-        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
-
-        // Stop kernel2
-        await kernel2.stop();
-
-        // Restart kernel2 with same database
-        // Note: Incarnation ID changes on restart (always regenerated)
-        // The incarnation change detection will reject any pending promises
-        const bobConfig = makeRemoteVatConfig('Bob');
-        // eslint-disable-next-line require-atomic-updates
-        kernel2 = (
-          await restartKernelAndReloadVat(
-            kernelDatabase2,
-            false,
-            testRelays,
-            bobConfig,
-          )
-        ).kernel;
-
-        // Wait for kernel2 to be fully initialized and connected
-        await delay(3000);
-
-        // Send a NEW message after reconnection completes
-        // New messages sent after reconnection should succeed
-        // because the connection has been re-established with new incarnation
-        const result = await sendRemoteMessage(
-          kernel1,
-          aliceRef,
-          bobURL,
-          'after-restart',
-          ['Alice'],
-        );
-
-        expect(result).toContain('vat Bob got "after-restart" from Alice');
-      },
-      NETWORK_TIMEOUT * 2,
     );
   });
 

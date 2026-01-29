@@ -100,17 +100,10 @@ export async function initTransport(
     maxConnectionAttemptsPerMinute,
   );
   let cleanupIntervalId: ReturnType<typeof setInterval> | undefined;
-  // Holder for handleConnectionLoss - initialized later after all dependencies are defined
-  // This breaks the circular dependency between readChannel → handleConnectionLoss → registerChannel
-  const reconnectionHolder: {
-    handleConnectionLoss: ((peerId: string) => void) | undefined;
-  } = { handleConnectionLoss: undefined };
-  const handleConnectionLoss = (peerId: string): void => {
-    if (!reconnectionHolder.handleConnectionLoss) {
-      throw new Error('handleConnectionLoss not initialized');
-    }
-    reconnectionHolder.handleConnectionLoss(peerId);
-  };
+  // Declared here, assigned after reconnectionLifecycle is created.
+  // Functions that use this are only called after initialization completes.
+  // eslint-disable-next-line prefer-const -- reassigned on line 362
+  let handleConnectionLoss!: (peerId: string) => void;
   const connectionFactory = await ConnectionFactory.make(
     keySeed,
     relays,
@@ -398,8 +391,7 @@ export async function initTransport(
     closeChannel: async (channel, peerId) =>
       connectionFactory.closeChannel(channel, peerId),
   });
-  reconnectionHolder.handleConnectionLoss =
-    reconnectionLifecycle.handleConnectionLoss;
+  handleConnectionLoss = reconnectionLifecycle.handleConnectionLoss;
 
   /**
    * Send a message string to a peer.

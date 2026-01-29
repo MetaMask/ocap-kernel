@@ -1,6 +1,7 @@
 import { Logger } from '@metamask/logger';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
+import { writeWithTimeout } from './channel-utils.ts';
 import { DEFAULT_WRITE_TIMEOUT_MS } from './constants.ts';
 import type { Channel } from '../types.ts';
 
@@ -56,22 +57,6 @@ export function isHandshakeMessage(
   return (
     candidate.method === 'handshake' || candidate.method === 'handshakeAck'
   );
-}
-
-/**
- * Write a message to a channel with timeout.
- *
- * @param channel - The channel to write to.
- * @param data - The data to write.
- * @param timeoutMs - Timeout in milliseconds.
- */
-async function writeWithTimeout(
-  channel: Channel,
-  data: Uint8Array,
-  timeoutMs: number,
-): Promise<void> {
-  const timeoutSignal = AbortSignal.timeout(timeoutMs);
-  await channel.msgStream.write(data, { signal: timeoutSignal });
 }
 
 /**

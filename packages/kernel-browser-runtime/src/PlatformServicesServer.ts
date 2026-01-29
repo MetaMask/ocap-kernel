@@ -270,14 +270,13 @@ export class PlatformServicesServer {
    *   connections from other kernels.
    * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
    * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
-   * @param _onRemoteGiveUp - Unused parameter (kept for interface compatibility).
-   *   Remote give-up notifications are sent via RPC instead.
+   * @param incarnationId - This kernel's incarnation ID for handshake protocol.
    * @returns A promise that resolves when network access has been initialized.
    */
   async #initializeRemoteComms(
     keySeed: string,
     options: RemoteCommsOptions,
-    _onRemoteGiveUp?: (peerId: string) => void,
+    incarnationId?: string,
   ): Promise<null> {
     if (this.#sendRemoteMessageFunc) {
       throw Error('remote comms already initialized');
@@ -293,6 +292,7 @@ export class PlatformServicesServer {
       options,
       this.#handleRemoteMessage.bind(this),
       this.#handleRemoteGiveUp.bind(this),
+      incarnationId,
     );
     this.#sendRemoteMessageFunc = sendRemoteMessage;
     this.#stopRemoteCommsFunc = stop;
