@@ -865,6 +865,150 @@ describe.sequential('Remote Communications E2E', () => {
     );
   });
 
+  describe('Incarnation Detection', () => {
+    it(
+      'handshake is exchanged on connection establishment',
+      async () => {
+        const { aliceRef, bobURL } = await setupAliceAndBob(
+          kernel1,
+          kernel2,
+          kernelStore1,
+          kernelStore2,
+          testRelays,
+        );
+
+        // First message should trigger handshake exchange
+        // The handshake happens automatically during connection establishment
+        const result = await sendRemoteMessage(
+          kernel1,
+          aliceRef,
+          bobURL,
+          'hello',
+          ['Alice'],
+        );
+
+        // Message should succeed, indicating handshake completed
+        expect(result).toContain('vat Bob got "hello" from Alice');
+      },
+      NETWORK_TIMEOUT,
+    );
+
+    it(
+      'detects incarnation change when peer restarts with fresh state',
+      async () => {
+        // Initialize with low retry attempts to trigger give-up on incarnation change
+        await kernel1.initRemoteComms({
+          relays: testRelays,
+          maxRetryAttempts: 2,
+        });
+        await kernel2.initRemoteComms({ relays: testRelays });
+
+        const aliceConfig = makeRemoteVatConfig('Alice');
+        const bobConfig = makeRemoteVatConfig('Bob');
+
+        await launchVatAndGetURL(kernel1, aliceConfig);
+        const bobURL = await launchVatAndGetURL(kernel2, bobConfig);
+        const aliceRef = getVatRootRef(kernel1, kernelStore1, 'Alice');
+
+        // Establish connection and exchange handshakes
+        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
+
+        // Stop kernel2
+        await kernel2.stop();
+
+        // Simulate state loss by deleting kernel2's database and creating fresh
+        kernelDatabase2.close();
+        const freshDb = await makeSQLKernelDatabase({
+          dbFilename: 'rc-e2e-test-kernel2-fresh.db',
+        });
+
+        try {
+          // Create a completely new kernel (new incarnation ID, no previous state)
+          // eslint-disable-next-line require-atomic-updates
+          kernel2 = await makeTestKernel(freshDb, true);
+          await kernel2.initRemoteComms({ relays: testRelays });
+
+          // Launch Bob again (fresh vat, no previous state)
+          await launchVatAndGetURL(kernel2, bobConfig);
+
+          // Send a message - when the new kernel connects, it will have a different
+          // incarnation ID than before. The handshake will detect this change
+          // and trigger promise rejection for pending work
+          const messagePromise = kernel1.queueMessage(
+            aliceRef,
+            'sendRemoteMessage',
+            [bobURL, 'hello', ['Alice']],
+          );
+
+          // Wait for handshake exchange and incarnation change detection
+          await delay(3000);
+
+          const result = await messagePromise;
+          const response = kunser(result);
+
+          // The message should fail because incarnation changed
+          // Either due to promise rejection or remote state being lost
+          expect(response).toBeInstanceOf(Error);
+        } finally {
+          freshDb.close();
+        }
+      },
+      NETWORK_TIMEOUT * 3,
+    );
+
+    // TODO: This test needs investigation - message delivery after restart may be affected
+    // by timing of incarnation detection and promise rejection propagation
+    it.todo(
+      'messages succeed after peer restart once reconnection is established',
+      async () => {
+        const { aliceRef, bobURL } = await setupAliceAndBob(
+          kernel1,
+          kernel2,
+          kernelStore1,
+          kernelStore2,
+          testRelays,
+        );
+
+        // Establish connection - this exchanges handshakes
+        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
+
+        // Stop kernel2
+        await kernel2.stop();
+
+        // Restart kernel2 with same database
+        // Note: Incarnation ID changes on restart (always regenerated)
+        // The incarnation change detection will reject any pending promises
+        const bobConfig = makeRemoteVatConfig('Bob');
+        // eslint-disable-next-line require-atomic-updates
+        kernel2 = (
+          await restartKernelAndReloadVat(
+            kernelDatabase2,
+            false,
+            testRelays,
+            bobConfig,
+          )
+        ).kernel;
+
+        // Wait for kernel2 to be fully initialized and connected
+        await delay(3000);
+
+        // Send a NEW message after reconnection completes
+        // New messages sent after reconnection should succeed
+        // because the connection has been re-established with new incarnation
+        const result = await sendRemoteMessage(
+          kernel1,
+          aliceRef,
+          bobURL,
+          'after-restart',
+          ['Alice'],
+        );
+
+        expect(result).toContain('vat Bob got "after-restart" from Alice');
+      },
+      NETWORK_TIMEOUT * 2,
+    );
+  });
+
   describe('Promise Rejection on Remote Give-Up', () => {
     it(
       'rejects promises when remote connection is lost after max retries',
