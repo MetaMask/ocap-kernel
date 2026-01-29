@@ -57,9 +57,10 @@ export class SilentReporter extends DotReporter {
     reason: TestRunEndReason,
   ): void {
     // Skip DotReporter's onTestRunEnd which prints dots,
-    // call grandparent's onTestRunEnd directly via prototype
+    // call grandparent's onTestRunEnd directly via prototype.
+    // Chain: this -> SilentReporter.prototype -> DotReporter.prototype -> BaseReporter.prototype
     const baseReporterProto = Object.getPrototypeOf(
-      Object.getPrototypeOf(this),
+      Object.getPrototypeOf(Object.getPrototypeOf(this)),
     ) as BaseReporter;
     baseReporterProto.onTestRunEnd.call(
       this,
