@@ -70,7 +70,7 @@ describe('bundle', async () => {
           moduleFormat: 'iife',
           code: 'test-code',
           exports: [],
-          modules: {},
+          external: [],
         };
         mocks.bundleVat.mockImplementationOnce(() => testContent);
 
@@ -104,7 +104,7 @@ describe('bundle', async () => {
         moduleFormat: 'iife',
         code: 'test content',
         exports: [],
-        modules: {},
+        external: [],
       }));
 
       await bundleDir(testBundleRoot, { logger });
