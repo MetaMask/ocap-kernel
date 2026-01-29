@@ -70,9 +70,6 @@ type RedeemURLReply = {
   params: [boolean, string, string];
 };
 
-// Note: Handshake and HandshakeAck messages are handled at the connection level
-// in packages/ocap-kernel/src/remotes/platform/handshake.ts, not here.
-
 export type RemoteMessageBase = Delivery | RedeemURLRequest | RedeemURLReply;
 
 type RemoteCommand = {
