@@ -257,7 +257,7 @@ module.exports = defineConfig({
           expectWorkspaceField(
             workspace,
             'scripts.test:dev:quiet',
-            'yarn test:dev --reporter dot',
+            'yarn test:dev --reporter @ocap/repo-tools/vitest-reporters/silent',
           );
           expectWorkspaceField(
             workspace,
