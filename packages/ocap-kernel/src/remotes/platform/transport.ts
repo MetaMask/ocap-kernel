@@ -124,8 +124,6 @@ export async function initTransport(
     ? {
         localIncarnationId,
         logger,
-        getRemoteIncarnation: (peerId: string) =>
-          peerStateManager.getRemoteIncarnation(peerId),
         setRemoteIncarnation: (peerId: string, incarnationId: string) =>
           peerStateManager.setRemoteIncarnation(peerId, incarnationId),
       }

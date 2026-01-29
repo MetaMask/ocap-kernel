@@ -35,8 +35,6 @@ export type HandshakeDeps = {
   localIncarnationId: string;
   /** Logger for diagnostic output. */
   logger: Logger;
-  /** Get the previously known incarnation ID for a peer. */
-  getRemoteIncarnation: (peerId: string) => string | undefined;
   /** Set the incarnation ID for a peer. Returns true if it changed. */
   setRemoteIncarnation: (peerId: string, incarnationId: string) => boolean;
 };
