@@ -30,6 +30,28 @@ import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
 
 /**
+ * Generate a unique incarnation ID using crypto.getRandomValues().
+ * This is more widely supported than crypto.randomUUID() which requires
+ * Chrome 92+, Firefox 95+, Safari 15.4+, or Node.js 19+.
+ *
+ * @returns A UUID v4 string.
+ */
+function generateIncarnationId(): string {
+  // eslint-disable-next-line n/no-unsupported-features/node-builtins
+  const bytes = globalThis.crypto.getRandomValues(new Uint8Array(16));
+  // Set version (4) and variant (RFC 4122) bits
+  // eslint-disable-next-line no-bitwise
+  bytes[6] = (bytes[6] & 0x0f) | 0x40; // Version 4
+  // eslint-disable-next-line no-bitwise
+  bytes[8] = (bytes[8] & 0x3f) | 0x80; // Variant RFC 4122
+  // Convert to hex string with dashes
+  const hexString = Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+  return `${hexString.slice(0, 8)}-${hexString.slice(8, 12)}-${hexString.slice(12, 16)}-${hexString.slice(16, 20)}-${hexString.slice(20)}`;
+}
+
+/**
  * The main class for the ocap kernel. It is responsible for
  * managing the lifecycle of the kernel and the vats.
  *
@@ -107,8 +129,7 @@ export class Kernel {
   ) {
     this.#platformServices = platformServices;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins
-    this.#incarnationId = globalThis.crypto.randomUUID();
+    this.#incarnationId = generateIncarnationId();
     this.#kernelStore = makeKernelStore(kernelDatabase, this.#logger);
     if (!this.#kernelStore.kv.get('initialized')) {
       this.#kernelStore.kv.set('initialized', 'true');
