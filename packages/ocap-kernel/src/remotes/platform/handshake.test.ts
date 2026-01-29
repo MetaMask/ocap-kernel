@@ -109,7 +109,6 @@ describe('handshake', () => {
       mockDeps = {
         localIncarnationId: 'local-incarnation-123',
         logger,
-        getRemoteIncarnation: vi.fn().mockReturnValue(undefined),
         setRemoteIncarnation: vi.fn().mockReturnValue(false),
       };
     });
@@ -219,7 +218,6 @@ describe('handshake', () => {
       mockDeps = {
         localIncarnationId: 'local-incarnation-123',
         logger,
-        getRemoteIncarnation: vi.fn().mockReturnValue(undefined),
         setRemoteIncarnation: vi.fn().mockReturnValue(false),
       };
     });
