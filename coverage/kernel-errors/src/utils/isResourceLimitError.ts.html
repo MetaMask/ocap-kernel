@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for kernel-browser-runtime/src/rpc-handlers/get-status.ts</title>
+    <title>Code coverage report for kernel-errors/src/utils/isResourceLimitError.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../../prettify.css" />
     <link rel="stylesheet" href="../../../base.css" />
@@ -19,20 +19,20 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">kernel-browser-runtime/src/rpc-handlers</a> get-status.ts</h1>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">kernel-errors/src/utils</a> isResourceLimitError.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>3/3</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/0</span>
+                <span class='fraction'>4/4</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>3/3</span>
+                <span class='fraction'>6/6</span>
             </div>
         
             
@@ -91,19 +91,7 @@
 <a name='L26'></a><a href='#L26'>26</a>
 <a name='L27'></a><a href='#L27'>27</a>
 <a name='L28'></a><a href='#L28'>28</a>
-<a name='L29'></a><a href='#L29'>29</a>
-<a name='L30'></a><a href='#L30'>30</a>
-<a name='L31'></a><a href='#L31'>31</a>
-<a name='L32'></a><a href='#L32'>32</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
+<a name='L29'></a><a href='#L29'>29</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -118,44 +106,47 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">29x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">20x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import { EmptyJsonArray } from '@metamask/kernel-utils';
-import { KernelStatusStruct } from '@metamask/ocap-kernel';
-import type { Kernel, KernelStatus } from '@metamask/ocap-kernel';
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-yes">17x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { ResourceLimitError } from '../errors/ResourceLimitError.ts';
+import type {
+  ResourceLimitType,
+  ResourceLimitErrorData,
+} from '../errors/ResourceLimitError.ts';
 &nbsp;
-export const getStatusSpec: MethodSpec&lt;
-  'getStatus',
-  EmptyJsonArray,
-  KernelStatus
-&gt; = {
-  method: 'getStatus',
-  params: EmptyJsonArray,
-  result: KernelStatusStruct,
-};
+/**
+ * Check if an error is a ResourceLimitError, optionally with a specific limit type.
+ *
+ * @param error - The error to check.
+ * @param limitType - Optional limit type to match against.
+ * @returns True if the error is a ResourceLimitError (with matching limitType if specified).
+ */
+export function isResourceLimitError(
+  error: unknown,
+  limitType?: ResourceLimitType,
+): error is ResourceLimitError {
+  if (!(error instanceof ResourceLimitError)) {
+    return false;
+  }
 &nbsp;
-export type GetStatusHooks = {
-  kernel: Pick&lt;Kernel, 'getStatus'&gt;;
-};
+  if (limitType === undefined) {
+    return true;
+  }
 &nbsp;
-export const getStatusHandler: Handler&lt;
-  'getStatus',
-  EmptyJsonArray,
-  Promise&lt;KernelStatus&gt;,
-  GetStatusHooks
-&gt; = {
-  ...getStatusSpec,
-  hooks: { kernel: true },
-  implementation: async ({ kernel }: GetStatusHooks): Promise&lt;KernelStatus&gt; =&gt; {
-    return await kernel.getStatus();
-  },
-};
+  const data = error.data as ResourceLimitErrorData | undefined;
+  return data?.limitType === limitType;
+}
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
