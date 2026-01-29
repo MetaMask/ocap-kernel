@@ -205,6 +205,37 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer1')).toBe(0);
       expect(manager.getAttemptCount('peer2')).toBe(1);
     });
+
+    it('clears error history to prevent false permanent failures', () => {
+      // Accumulate some errors
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      expect(manager.getErrorHistory('peer1')).toHaveLength(3);
+
+      // Successful communication - should clear error history
+      manager.resetBackoff('peer1');
+
+      expect(manager.getErrorHistory('peer1')).toStrictEqual([]);
+    });
+
+    it('prevents stale errors from triggering permanent failure after success', () => {
+      // Accumulate 4 errors (one short of threshold)
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+
+      // Successful communication
+      manager.resetBackoff('peer1');
+
+      // One more error should NOT trigger permanent failure
+      // because the history was cleared
+      manager.recordError('peer1', 'ECONNREFUSED');
+
+      expect(manager.isPermanentlyFailed('peer1')).toBe(false);
+      expect(manager.getErrorHistory('peer1')).toHaveLength(1);
+    });
   });
 
   describe('calculateBackoff', () => {
@@ -354,6 +385,43 @@ describe('ReconnectionManager', () => {
 
     it('handles empty state', () => {
       expect(() => manager.resetAllBackoffs()).not.toThrow();
+    });
+
+    it('clears error history for reconnecting peers after wake from sleep', () => {
+      // Set up peer with errors during reconnection
+      manager.startReconnection('peer1');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+
+      // peer2 not reconnecting, should not be affected
+      manager.recordError('peer2', 'ECONNREFUSED');
+      manager.recordError('peer2', 'ECONNREFUSED');
+
+      // Simulate wake from sleep
+      manager.resetAllBackoffs();
+
+      // Reconnecting peer's error history should be cleared
+      expect(manager.getErrorHistory('peer1')).toStrictEqual([]);
+      // Non-reconnecting peer's error history should remain
+      expect(manager.getErrorHistory('peer2')).toHaveLength(2);
+    });
+
+    it('prevents stale errors from triggering permanent failure after wake', () => {
+      manager.startReconnection('peer1');
+      // Accumulate 4 errors before sleep
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+
+      // Wake from sleep
+      manager.resetAllBackoffs();
+
+      // One more error should NOT trigger permanent failure
+      manager.recordError('peer1', 'ECONNREFUSED');
+
+      expect(manager.isPermanentlyFailed('peer1')).toBe(false);
     });
   });
 
