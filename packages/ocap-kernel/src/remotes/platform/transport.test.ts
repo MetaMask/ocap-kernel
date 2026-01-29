@@ -1081,6 +1081,30 @@ describe('transport.initTransport', () => {
       expect(mockReconnectionManager.startReconnection).not.toHaveBeenCalled();
     });
 
+    it('does not clear error history when reconnection is already in progress', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { closeConnection, reconnectPeer } = await initTransport(
+        '0x1234',
+        {},
+        vi.fn(),
+      );
+
+      await closeConnection('peer-1');
+
+      // Set up reconnection state - already reconnecting
+      mockReconnectionManager.isReconnecting.mockReturnValue(true);
+
+      await reconnectPeer('peer-1');
+
+      // Should not clear permanent failure status (which also clears error history)
+      // when reconnection is already in progress
+      expect(
+        mockReconnectionManager.clearPermanentFailure,
+      ).not.toHaveBeenCalled();
+    });
+
     it('clears permanent failure status when manually reconnecting', async () => {
       const mockChannel = createMockChannel('peer-1');
       mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
