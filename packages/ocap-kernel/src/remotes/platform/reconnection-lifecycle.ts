@@ -31,12 +31,15 @@ export type ReconnectionLifecycleDeps = {
   ) => Promise<Channel | null>;
   checkConnectionLimit: () => void;
   checkConnectionRateLimit: (peerId: string) => void;
-  closeChannel: (channel: Channel, peerId: string) => Promise<void>;
   registerChannel: (
     peerId: string,
     channel: Channel,
     errorContext?: string,
   ) => void;
+  /** Perform outbound handshake. Returns true if successful. */
+  doOutboundHandshake: (channel: Channel) => Promise<boolean>;
+  /** Close a channel. */
+  closeChannel: (channel: Channel, peerId: string) => Promise<void>;
 };
 
 /**
@@ -68,8 +71,9 @@ export function makeReconnectionLifecycle(
     reuseOrReturnChannel,
     checkConnectionLimit,
     checkConnectionRateLimit,
-    closeChannel,
     registerChannel,
+    doOutboundHandshake,
+    closeChannel,
   } = deps;
 
   /**
@@ -200,6 +204,12 @@ export function makeReconnectionLifecycle(
           // Ignore close errors - the original ResourceLimitError takes priority
         }
         throw error;
+      }
+      // Perform handshake before registering the channel
+      const handshakeOk = await doOutboundHandshake(channel);
+      if (!handshakeOk) {
+        await closeChannel(channel, peerId);
+        throw new Error('Handshake failed during reconnection');
       }
       registerChannel(peerId, channel, 'reading channel to');
     }

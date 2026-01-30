@@ -15,6 +15,7 @@ const initializeRemoteCommsParamsStruct = object({
   relays: optional(array(string())),
   maxRetryAttempts: optional(number()),
   maxQueue: optional(number()),
+  incarnationId: optional(string()),
 });
 
 type InitializeRemoteCommsParams = {
@@ -22,6 +23,7 @@ type InitializeRemoteCommsParams = {
   relays?: string[];
   maxRetryAttempts?: number;
   maxQueue?: number;
+  incarnationId?: string;
 };
 
 export type InitializeRemoteCommsSpec = MethodSpec<
@@ -39,6 +41,7 @@ export const initializeRemoteCommsSpec: InitializeRemoteCommsSpec = {
 export type InitializeRemoteComms = (
   keySeed: string,
   options: RemoteCommsOptions,
+  incarnationId?: string,
 ) => Promise<null>;
 
 type InitializeRemoteCommsHooks = {
@@ -66,6 +69,10 @@ export const initializeRemoteCommsHandler: InitializeRemoteCommsHandler = {
     if (params.maxQueue !== undefined) {
       options.maxQueue = params.maxQueue;
     }
-    return await initializeRemoteComms(params.keySeed, options);
+    return await initializeRemoteComms(
+      params.keySeed,
+      options,
+      params.incarnationId,
+    );
   },
 };

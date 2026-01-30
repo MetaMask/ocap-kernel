@@ -70,6 +70,15 @@ describe('initializeRemoteComms', () => {
         expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
       });
 
+      it('should accept params with incarnationId', () => {
+        const validParams = {
+          keySeed: '0x1234567890abcdef',
+          incarnationId: 'test-incarnation-id',
+        };
+
+        expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+      });
+
       it('should reject params with missing keySeed', () => {
         const invalidParams = {
           relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
@@ -245,6 +254,7 @@ describe('initializeRemoteComms', () => {
             '/dns4/relay2.example/tcp/443/wss/p2p/relay2',
           ],
         },
+        undefined,
       );
       expect(result).toBeNull();
     });
@@ -308,9 +318,13 @@ describe('initializeRemoteComms', () => {
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
 
-      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xemptyrelays', {
-        relays: [],
-      });
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+        '0xemptyrelays',
+        {
+          relays: [],
+        },
+        undefined,
+      );
     });
 
     it('should handle empty string parameters', async () => {
@@ -329,9 +343,13 @@ describe('initializeRemoteComms', () => {
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
 
-      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('', {
-        relays: [''],
-      });
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+        '',
+        {
+          relays: [''],
+        },
+        undefined,
+      );
     });
 
     it('should handle unicode characters in parameters', async () => {
@@ -353,6 +371,7 @@ describe('initializeRemoteComms', () => {
       expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
         '🔑unicode-seed🔑',
         { relays: ['🌐unicode-relay🌐'] },
+        undefined,
       );
     });
 
@@ -409,9 +428,13 @@ describe('initializeRemoteComms', () => {
           initializeRemoteCommsHandler.implementation(hooks, params),
         ).rejects.toThrow(error);
 
-        expect(mockInitializeRemoteComms).toHaveBeenCalledWith(keySeed, {
-          relays: ['test-relay'],
-        });
+        expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+          keySeed,
+          {
+            relays: ['test-relay'],
+          },
+          undefined,
+        );
       },
     );
 
@@ -436,9 +459,13 @@ describe('initializeRemoteComms', () => {
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
 
-      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xmanyrelays', {
-        relays: manyRelays,
-      });
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+        '0xmanyrelays',
+        {
+          relays: manyRelays,
+        },
+        undefined,
+      );
     });
 
     it('should handle complex initialization scenarios', async () => {
@@ -501,9 +528,13 @@ describe('initializeRemoteComms', () => {
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
 
-      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
-        maxRetryAttempts: 5,
-      });
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+        '0xtestseed',
+        {
+          maxRetryAttempts: 5,
+        },
+        undefined,
+      );
     });
 
     it('should pass maxQueue to hook when provided', async () => {
@@ -522,9 +553,13 @@ describe('initializeRemoteComms', () => {
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
 
-      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
-        maxQueue: 100,
-      });
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+        '0xtestseed',
+        {
+          maxQueue: 100,
+        },
+        undefined,
+      );
     });
 
     it('should pass all options when all are provided', async () => {
@@ -545,11 +580,15 @@ describe('initializeRemoteComms', () => {
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
 
-      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
-        relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
-        maxRetryAttempts: 5,
-        maxQueue: 100,
-      });
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+        '0xtestseed',
+        {
+          relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
+          maxRetryAttempts: 5,
+          maxQueue: 100,
+        },
+        undefined,
+      );
     });
 
     it('should pass empty options when only keySeed is provided', async () => {
@@ -567,7 +606,11 @@ describe('initializeRemoteComms', () => {
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
 
-      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {});
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+        '0xtestseed',
+        {},
+        undefined,
+      );
     });
 
     it('should not include undefined optional params in options', async () => {
@@ -637,9 +680,13 @@ describe('initializeRemoteComms', () => {
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
 
-      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
-        maxRetryAttempts: 0,
-      });
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+        '0xtestseed',
+        {
+          maxRetryAttempts: 0,
+        },
+        undefined,
+      );
     });
 
     it('should pass maxQueue set to zero to hook', async () => {
@@ -658,9 +705,36 @@ describe('initializeRemoteComms', () => {
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
 
-      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
-        maxQueue: 0,
-      });
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+        '0xtestseed',
+        {
+          maxQueue: 0,
+        },
+        undefined,
+      );
+    });
+
+    it('should pass incarnationId when provided', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        incarnationId: 'test-incarnation-id',
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+        '0xtestseed',
+        {},
+        'test-incarnation-id',
+      );
     });
   });
 });

@@ -19,6 +19,7 @@ describe('PeerStateManager', () => {
       expect(state).toStrictEqual({
         channel: undefined,
         locationHints: [],
+        remoteIncarnationId: undefined,
       });
     });
 
@@ -147,6 +148,69 @@ describe('PeerStateManager', () => {
         manager.clearIntentionallyClosed('peer1');
 
         expect(manager.isIntentionallyClosed('peer1')).toBe(false);
+      });
+    });
+  });
+
+  describe('incarnation tracking', () => {
+    describe('setRemoteIncarnation', () => {
+      it('returns false for first incarnation (not a change)', () => {
+        const changed = manager.setRemoteIncarnation('peer1', 'incarnation-1');
+
+        expect(changed).toBe(false);
+      });
+
+      it('returns false when setting same incarnation', () => {
+        manager.setRemoteIncarnation('peer1', 'incarnation-1');
+        const changed = manager.setRemoteIncarnation('peer1', 'incarnation-1');
+
+        expect(changed).toBe(false);
+      });
+
+      it('returns true when incarnation changes', () => {
+        manager.setRemoteIncarnation('peer1', 'incarnation-1');
+        const changed = manager.setRemoteIncarnation('peer1', 'incarnation-2');
+
+        expect(changed).toBe(true);
+      });
+
+      it('stores the new incarnation when changed', () => {
+        manager.setRemoteIncarnation('peer1', 'incarnation-1');
+        manager.setRemoteIncarnation('peer1', 'incarnation-2');
+
+        expect(manager.getState('peer1').remoteIncarnationId).toBe(
+          'incarnation-2',
+        );
+      });
+
+      it('logs when first incarnation is received', () => {
+        manager.setRemoteIncarnation('peer1', 'incarnation-id-12345');
+
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          expect.stringContaining('first incarnation ID received'),
+        );
+      });
+
+      it('logs when incarnation changes', () => {
+        manager.setRemoteIncarnation('peer1', 'incarnation-1');
+        mockLogger.log.mockClear();
+        manager.setRemoteIncarnation('peer1', 'incarnation-2');
+
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          expect.stringContaining('incarnation changed'),
+        );
+      });
+
+      it('does not affect other peers', () => {
+        manager.setRemoteIncarnation('peer1', 'incarnation-1');
+        manager.setRemoteIncarnation('peer2', 'incarnation-2');
+
+        expect(manager.getState('peer1').remoteIncarnationId).toBe(
+          'incarnation-1',
+        );
+        expect(manager.getState('peer2').remoteIncarnationId).toBe(
+          'incarnation-2',
+        );
       });
     });
   });
@@ -295,6 +359,7 @@ describe('PeerStateManager', () => {
       expect(states[0]).toStrictEqual({
         channel: { peerId: 'peer1' },
         locationHints: ['hint1'],
+        remoteIncarnationId: undefined,
       });
     });
   });

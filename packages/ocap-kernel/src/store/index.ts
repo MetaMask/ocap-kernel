@@ -232,6 +232,24 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     kdb.clear();
   }
 
+  /**
+   * Get or create the kernel's incarnation ID.
+   * The incarnation ID is persisted so it survives kernel restarts,
+   * but is regenerated when storage is cleared (when state is actually lost).
+   *
+   * @returns The incarnation ID (existing or newly generated).
+   */
+  function getOrCreateIncarnationId(): string {
+    const existing = context.kv.get('incarnationId');
+    if (existing) {
+      return existing;
+    }
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    const newId = globalThis.crypto.randomUUID();
+    context.kv.set('incarnationId', newId);
+    return newId;
+  }
+
   return harden({
     ...id,
     ...queue,
@@ -252,6 +270,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     deleteVat,
     clear,
     reset,
+    getOrCreateIncarnationId,
     kv,
   });
 }

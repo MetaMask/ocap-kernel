@@ -9,6 +9,8 @@ import type { Channel } from '../types.ts';
 export type PeerState = {
   channel: Channel | undefined;
   locationHints: string[];
+  /** The incarnation ID of the remote peer, if known from handshake. */
+  remoteIncarnationId: string | undefined;
 };
 
 /**
@@ -49,7 +51,11 @@ export class PeerStateManager {
   getState(peerId: string): PeerState {
     let state = this.#peerStates.get(peerId);
     if (!state) {
-      state = { channel: undefined, locationHints: [] };
+      state = {
+        channel: undefined,
+        locationHints: [],
+        remoteIncarnationId: undefined,
+      };
       this.#peerStates.set(peerId, state);
       // Initialize lastConnectionTime to enable stale peer cleanup
       // even for peers that never successfully connect
@@ -110,6 +116,40 @@ export class PeerStateManager {
    */
   clearIntentionallyClosed(peerId: string): void {
     this.#intentionallyClosed.delete(peerId);
+  }
+
+  /**
+   * Set the remote incarnation ID for a peer.
+   *
+   * @param peerId - The peer ID.
+   * @param incarnationId - The remote incarnation ID.
+   * @returns True if the incarnation changed (was different from the previous value),
+   * false if this is the first incarnation or the same as before.
+   */
+  setRemoteIncarnation(peerId: string, incarnationId: string): boolean {
+    const state = this.getState(peerId);
+    const previousIncarnation = state.remoteIncarnationId;
+
+    // If no previous incarnation, this is the first connection - not a change
+    if (previousIncarnation === undefined) {
+      state.remoteIncarnationId = incarnationId;
+      this.#logger.log(
+        `${peerId.slice(0, 8)}:: first incarnation ID received: ${incarnationId.slice(0, 8)}`,
+      );
+      return false;
+    }
+
+    // If same incarnation, no change
+    if (previousIncarnation === incarnationId) {
+      return false;
+    }
+
+    // Incarnation changed - update and return true
+    state.remoteIncarnationId = incarnationId;
+    this.#logger.log(
+      `${peerId.slice(0, 8)}:: incarnation changed from ${previousIncarnation.slice(0, 8)} to ${incarnationId.slice(0, 8)}`,
+    );
+    return true;
   }
 
   /**
