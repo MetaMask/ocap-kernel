@@ -141,6 +141,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     terminatedVats: provideCachedStoredValue('vats.terminated', '[]'),
     inCrank: false,
     savepoints: [],
+    crankBuffer: [],
     // Subclusters
     subclusters: provideCachedStoredValue('subclusters', '[]'),
     nextSubclusterId: provideCachedStoredValue('nextSubclusterId', '1'),
@@ -218,6 +219,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
       '{}',
     );
     crank.releaseAllSavepoints();
+    context.crankBuffer.length = 0;
     preservedState?.forEach(({ key, value }) => {
       if (value) {
         context.kv.set(key, value);

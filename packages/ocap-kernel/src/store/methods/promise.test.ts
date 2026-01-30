@@ -298,7 +298,7 @@ describe('promise store methods', () => {
   });
 
   describe('resolveKernelPromise', () => {
-    it('fulfills a promise and enqueues pending messages', () => {
+    it('fulfills a promise and returns queued messages', () => {
       const kpid = 'kp123';
       const value: CapData<KRef> = {
         body: 'someValue',
@@ -316,20 +316,19 @@ describe('promise store methods', () => {
         .mockReturnValueOnce(message2)
         .mockReturnValueOnce(undefined);
 
-      promiseMethods.resolveKernelPromise(kpid, false, value);
+      const queuedMessages = promiseMethods.resolveKernelPromise(
+        kpid,
+        false,
+        value,
+      );
 
       expect(mockQueue.dequeue).toHaveBeenCalledTimes(3);
-      expect(mockEnqueueRun).toHaveBeenCalledTimes(2);
-      expect(mockEnqueueRun).toHaveBeenNthCalledWith(1, {
-        type: 'send',
-        target: kpid,
-        message: message1,
-      });
-      expect(mockEnqueueRun).toHaveBeenNthCalledWith(2, {
-        type: 'send',
-        target: kpid,
-        message: message2,
-      });
+      // Now returns messages instead of calling enqueueRun
+      expect(queuedMessages).toStrictEqual([
+        [kpid, message1],
+        [kpid, message2],
+      ]);
+      expect(mockEnqueueRun).not.toHaveBeenCalled();
 
       expect(mockKV.get(`${kpid}.state`)).toBe('fulfilled');
       expect(mockKV.get(`${kpid}.value`)).toBe(JSON.stringify(value));
