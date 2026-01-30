@@ -67,12 +67,12 @@ describe.sequential('Remote Communications E2E', () => {
 
     // Create two independent kernels with separate storage
     kernelDatabase1 = await makeSQLKernelDatabase({
-      dbFilename: 'rc-e2e-test-kernel1.db',
+      dbFilename: ':memory:',
     });
     kernelStore1 = makeKernelStore(kernelDatabase1);
 
     kernelDatabase2 = await makeSQLKernelDatabase({
-      dbFilename: 'rc-e2e-test-kernel2.db',
+      dbFilename: ':memory:',
     });
     kernelStore2 = makeKernelStore(kernelDatabase2);
 
@@ -599,7 +599,7 @@ describe.sequential('Remote Communications E2E', () => {
       async () => {
         // Create a third kernel for testing multiple peers
         const kernelDatabase3 = await makeSQLKernelDatabase({
-          dbFilename: 'rc-e2e-test-kernel3.db',
+          dbFilename: ':memory:',
         });
         let kernel3: Kernel | undefined;
 

@@ -26,7 +26,7 @@ describe('BIP39 Identity Recovery', () => {
     async () => {
       // First kernel with mnemonic
       const kernelDatabase1 = await makeSQLKernelDatabase({
-        dbFilename: 'bip39-same-mnemonic-1.db',
+        dbFilename: ':memory:',
       });
       let kernel1: Kernel | undefined;
       let peerId1: string | undefined;
@@ -51,7 +51,7 @@ describe('BIP39 Identity Recovery', () => {
 
       // Create fresh database and kernel with same mnemonic
       const kernelDatabase2 = await makeSQLKernelDatabase({
-        dbFilename: 'bip39-same-mnemonic-2.db',
+        dbFilename: ':memory:',
       });
       let kernel2: Kernel | undefined;
 
@@ -82,7 +82,7 @@ describe('BIP39 Identity Recovery', () => {
     'produces different peer ID when initialized with different mnemonic',
     async () => {
       const kernelDatabase1 = await makeSQLKernelDatabase({
-        dbFilename: 'bip39-diff-mnemonic-1.db',
+        dbFilename: ':memory:',
       });
       let kernel1: Kernel | undefined;
       let peerId1: string | undefined;
@@ -106,7 +106,7 @@ describe('BIP39 Identity Recovery', () => {
 
       // Create kernel with different mnemonic
       const kernelDatabase2 = await makeSQLKernelDatabase({
-        dbFilename: 'bip39-diff-mnemonic-2.db',
+        dbFilename: ':memory:',
       });
       let kernel2: Kernel | undefined;
 
@@ -136,7 +136,7 @@ describe('BIP39 Identity Recovery', () => {
     'throws error when mnemonic provided but identity already exists in storage',
     async () => {
       const kernelDatabase = await makeSQLKernelDatabase({
-        dbFilename: 'bip39-existing-identity.db',
+        dbFilename: ':memory:',
       });
       let kernel: Kernel | undefined;
 
@@ -176,7 +176,7 @@ describe('BIP39 Identity Recovery', () => {
     'throws error for invalid mnemonic',
     async () => {
       const kernelDatabase = await makeSQLKernelDatabase({
-        dbFilename: 'bip39-invalid-mnemonic.db',
+        dbFilename: ':memory:',
       });
       let kernel: Kernel | undefined;
 
@@ -203,7 +203,7 @@ describe('BIP39 Identity Recovery', () => {
     'allows recovery with resetStorage and mnemonic when identity exists',
     async () => {
       const kernelDatabase = await makeSQLKernelDatabase({
-        dbFilename: 'bip39-recovery-with-reset.db',
+        dbFilename: ':memory:',
       });
       let kernel: Kernel | undefined;
 
