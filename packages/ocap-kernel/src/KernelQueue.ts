@@ -226,9 +226,9 @@ export class KernelQueue {
    *
    * @param target - The object to which the message is directed.
    * @param message - The message to be delivered.
-   * @param buffer - If true, buffer for crank completion instead of immediate enqueue.
+   * @param immediate - If true (the default), enqueue immediately; if false, buffer for crank completion.
    */
-  enqueueSend(target: KRef, message: Message, buffer = false): void {
+  enqueueSend(target: KRef, message: Message, immediate = true): void {
     this.#kernelStore.incrementRefCount(target, 'queue|target');
     if (message.result) {
       this.#kernelStore.incrementRefCount(message.result, 'queue|result');
@@ -237,10 +237,10 @@ export class KernelQueue {
       this.#kernelStore.incrementRefCount(slot, 'queue|slot');
     }
     const item: RunQueueItemSend = { type: 'send', target, message };
-    if (buffer) {
-      this.#kernelStore.bufferCrankOutput(item);
-    } else {
+    if (immediate) {
       this.#enqueueRun(item);
+    } else {
+      this.#kernelStore.bufferCrankOutput(item);
     }
   }
 
@@ -249,15 +249,15 @@ export class KernelQueue {
    *
    * @param endpointId - The endpoint that will be notified.
    * @param kpid - The promise of interest.
-   * @param buffer - If true, buffer for crank completion instead of immediate enqueue.
+   * @param immediate - If true (the default), enqueue immediately; if false, buffer for crank completion.
    */
-  enqueueNotify(endpointId: EndpointId, kpid: KRef, buffer = false): void {
+  enqueueNotify(endpointId: EndpointId, kpid: KRef, immediate = true): void {
     this.#kernelStore.incrementRefCount(kpid, 'notify');
     const item: RunQueueItemNotify = { type: 'notify', endpointId, kpid };
-    if (buffer) {
-      this.#kernelStore.bufferCrankOutput(item);
-    } else {
+    if (immediate) {
       this.#enqueueRun(item);
+    } else {
+      this.#kernelStore.bufferCrankOutput(item);
     }
   }
 
@@ -274,19 +274,19 @@ export class KernelQueue {
 
   /**
    * Process a set of promise resolutions coming from an endpoint.
-   * When buffering is enabled (for vat syscalls), notifications and kernel
+   * When immediate is false (for vat syscalls), notifications and kernel
    * subscription callbacks are deferred until the crank buffer is flushed on
-   * successful crank completion. When not buffering (for remote message
+   * successful crank completion. When immediate is true (for remote message
    * handling), effects are immediate.
    *
    * @param endpointId - The endpoint doing the resolving, if there is one.
    * @param resolutions - One or more resolutions, to be processed as a group.
-   * @param buffer - If true, buffer for crank completion instead of immediate enqueue.
+   * @param immediate - If true (the default), enqueue immediately; if false, buffer for crank completion.
    */
   resolvePromises(
     endpointId: EndpointId | undefined,
     resolutions: VatOneResolution[],
-    buffer = false,
+    immediate = true,
   ): void {
     if (endpointId && endpointId !== 'kernel') {
       insistEndpointId(endpointId);
@@ -313,9 +313,9 @@ export class KernelQueue {
         throw Fail`${kpid} subscribers not set`;
       }
 
-      // Enqueue notifications for each subscriber (buffer or immediate based on flag).
+      // Enqueue notifications for each subscriber (immediate or buffered based on flag).
       for (const subscriber of subscribers) {
-        this.enqueueNotify(subscriber, kpid, buffer);
+        this.enqueueNotify(subscriber, kpid, immediate);
       }
 
       // Update promise state and get any queued messages to it.
@@ -325,20 +325,18 @@ export class KernelQueue {
         data,
       );
 
-      // Enqueue the queued messages (buffer or immediate based on flag).
+      // Enqueue the queued messages (immediate or buffered based on flag).
       for (const [target, message] of queuedMessages) {
-        this.enqueueSend(target, message, buffer);
+        this.enqueueSend(target, message, immediate);
       }
 
-      // Handle kernel subscriptions based on buffer flag.
-      if (buffer) {
-        // Track resolved promises that have kernel subscriptions for invocation at flush time
-        if (this.subscriptions.has(kpid)) {
-          this.#resolvedWithKernelSubscription.push(kpid);
-        }
-      } else {
-        // Invoke kernel subscription immediately when not buffering
+      // Handle kernel subscriptions based on immediate flag.
+      if (immediate) {
+        // Invoke kernel subscription immediately
         this.#invokeKernelSubscription(kpid);
+      } else if (this.subscriptions.has(kpid)) {
+        // Track resolved promises that have kernel subscriptions for invocation at flush time
+        this.#resolvedWithKernelSubscription.push(kpid);
       }
     }
   }

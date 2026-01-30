@@ -78,7 +78,7 @@ export class VatSyscall {
    * @param message - The message that was sent.
    */
   #handleSyscallSend(target: KRef, message: Message): void {
-    this.#kernelQueue.enqueueSend(target, message, true);
+    this.#kernelQueue.enqueueSend(target, message, false);
   }
 
   /**
@@ -87,7 +87,7 @@ export class VatSyscall {
    * @param resolutions - One or more promise resolutions.
    */
   #handleSyscallResolve(resolutions: VatOneResolution[]): void {
-    this.#kernelQueue.resolvePromises(this.vatId, resolutions, true);
+    this.#kernelQueue.resolvePromises(this.vatId, resolutions, false);
   }
 
   /**
@@ -100,7 +100,7 @@ export class VatSyscall {
     if (kp.state === 'unresolved') {
       this.#kernelStore.addPromiseSubscriber(this.vatId, kpid);
     } else {
-      this.#kernelQueue.enqueueNotify(this.vatId, kpid, true);
+      this.#kernelQueue.enqueueNotify(this.vatId, kpid, false);
     }
   }
 

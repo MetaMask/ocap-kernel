@@ -281,7 +281,7 @@ describe('KernelQueue', () => {
       );
       const resolveHandler = vi.fn();
       kernelQueue.subscriptions.set(kpid, resolveHandler);
-      kernelQueue.resolvePromises(endpointId, [resolution], true);
+      kernelQueue.resolvePromises(endpointId, [resolution], false);
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
         kpid,
         'resolve|kpid',
@@ -333,7 +333,7 @@ describe('KernelQueue', () => {
       const resolveHandler = vi.fn();
       kernelQueue.subscriptions.set(kpid, resolveHandler);
       const insistEndpointIdSpy = vi.spyOn(types, 'insistEndpointId');
-      kernelQueue.resolvePromises(undefined, [resolution], true);
+      kernelQueue.resolvePromises(undefined, [resolution], false);
       expect(insistEndpointIdSpy).not.toHaveBeenCalled();
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
         kpid,
@@ -381,7 +381,7 @@ describe('KernelQueue', () => {
       );
       const resolveHandler = vi.fn();
       kernelQueue.subscriptions.set(kpid, resolveHandler);
-      kernelQueue.resolvePromises(endpointId, [resolution], true);
+      kernelQueue.resolvePromises(endpointId, [resolution], false);
       // No notifications buffered because no subscribers
       expect(kernelStore.bufferCrankOutput).not.toHaveBeenCalled();
       expect(kernelStore.resolveKernelPromise).toHaveBeenCalledWith(

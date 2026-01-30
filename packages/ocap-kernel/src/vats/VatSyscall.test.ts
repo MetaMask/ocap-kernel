@@ -48,7 +48,11 @@ describe('VatSyscall', () => {
     const message = { methargs: { body: '', slots: [] } } as unknown as Message;
     const vso = ['send', target, message] as unknown as VatSyscallObject;
     vatSys.handleSyscall(vso);
-    expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(target, message, true);
+    expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
+      target,
+      message,
+      false,
+    );
   });
 
   it('calls resolvePromises for resolve syscall', async () => {
@@ -58,7 +62,7 @@ describe('VatSyscall', () => {
     expect(kernelQueue.resolvePromises).toHaveBeenCalledWith(
       'v1',
       [resolution],
-      true,
+      false,
     );
   });
 
@@ -85,7 +89,11 @@ describe('VatSyscall', () => {
       });
       const vso = ['subscribe', 'kp1'] as unknown as VatSyscallObject;
       vatSys.handleSyscall(vso);
-      expect(kernelQueue.enqueueNotify).toHaveBeenCalledWith('v1', 'kp1', true);
+      expect(kernelQueue.enqueueNotify).toHaveBeenCalledWith(
+        'v1',
+        'kp1',
+        false,
+      );
     });
   });
 
