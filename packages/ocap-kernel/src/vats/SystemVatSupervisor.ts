@@ -20,7 +20,11 @@ import type {
   Syscall,
   SyscallResult,
 } from '../liveslots/types.ts';
-import type { SystemVatId, SystemVatBuildRootObject } from '../types.ts';
+import type {
+  SystemVatId,
+  SystemVatBuildRootObject,
+  DeliveryObject,
+} from '../types.ts';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 
@@ -300,14 +304,15 @@ export class SystemVatSupervisor {
    * @param delivery - The delivery object to dispatch.
    * @returns A promise that resolves to the delivery error (null if success).
    */
-  async deliver(delivery: VatDeliveryObject): Promise<string | null> {
+  async deliver(delivery: DeliveryObject): Promise<string | null> {
     if (!this.#dispatch) {
       throw new Error('SystemVatSupervisor not initialized');
     }
 
     let deliveryError: string | null = null;
     try {
-      await this.#dispatch(harden(delivery));
+      // Cast needed because DeliveryObject and VatDeliveryObject have minor type differences
+      await this.#dispatch(harden(delivery as VatDeliveryObject));
     } catch (error) {
       deliveryError = error instanceof Error ? error.message : String(error);
       this.#logger.error(

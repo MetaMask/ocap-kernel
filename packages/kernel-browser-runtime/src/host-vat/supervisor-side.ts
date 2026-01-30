@@ -1,5 +1,4 @@
 import type {
-  VatDeliveryObject,
   VatSyscallObject,
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
@@ -9,6 +8,7 @@ import { stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import type {
+  DeliveryObject,
   KernelFacet,
   SystemVatBuildRootObject,
 } from '@metamask/ocap-kernel';
@@ -143,7 +143,7 @@ export function makeBackgroundHostVat(options: {
         const rpcService = new RpcService(supervisorHandlers, {
           handleDelivery: async (params) => {
             const deliveryError = await createdSupervisor.deliver(
-              params as VatDeliveryObject,
+              params as DeliveryObject,
             );
             // SystemVatSupervisor returns just the error, but the spec expects
             // VatDeliveryResult which is [VatCheckpoint, error]. System vats
