@@ -3,9 +3,8 @@ import {
   PlatformServicesServer,
   createRelayQueryString,
   setupConsoleForwarding,
-  stringifyConsoleArg,
+  isConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
-import type { ConsoleForwardMessage } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -39,22 +38,8 @@ async function main(): Promise<void> {
 
   // Listen for console messages from vat iframes and forward to background
   window.addEventListener('message', (event) => {
-    if (
-      event.data !== null &&
-      typeof event.data === 'object' &&
-      event.data.type === 'console-forward'
-    ) {
-      const { source, method, args } = event.data as {
-        source: string;
-        method: 'log' | 'debug' | 'info' | 'warn' | 'error';
-        args: unknown[];
-      };
-      const message: ConsoleForwardMessage = {
-        jsonrpc: '2.0',
-        method: 'console-forward',
-        params: { source, method, args: args.map(stringifyConsoleArg) },
-      };
-      backgroundStream.write(message).catch(() => {
+    if (isConsoleForwardMessage(event.data)) {
+      backgroundStream.write(event.data).catch(() => {
         // Ignore errors if stream isn't ready
       });
     }
