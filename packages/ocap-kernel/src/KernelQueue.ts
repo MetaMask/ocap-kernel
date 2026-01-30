@@ -37,6 +37,9 @@ export class KernelQueue {
   /** Message results that the kernel itself has subscribed to */
   readonly subscriptions: Map<KRef, (value: CapData<KRef>) => void> = new Map();
 
+  /** Promises resolved during this crank that have kernel subscriptions */
+  #resolvedWithKernelSubscription: KRef[] = [];
+
   /** Thunk to signal run queue transition from empty to non-empty */
   #wakeUpTheRunQueue: (() => void) | null;
 
@@ -72,6 +75,8 @@ export class KernelQueue {
         // For active vats, this allows the message to be retried in a future crank.
         // For terminated vats, the message will just go splat.
         this.#kernelStore.rollbackCrank('start');
+        // Discard kernel subscriptions that were queued for invocation
+        this.#resolvedWithKernelSubscription = [];
         // TODO: Currently all errors terminate the vat, but instead we could
         // restart it and terminate the vat only after a certain number of failed
         // retries. This is probably where we should implement the vat restart logic.
@@ -166,6 +171,13 @@ export class KernelQueue {
         this.#invokeKernelSubscription(item.kpid);
       }
     }
+
+    // Invoke kernel subscriptions for promises resolved during this crank
+    // that don't have kernel-level subscribers (e.g., promises from enqueueMessage)
+    for (const kpid of this.#resolvedWithKernelSubscription) {
+      this.#invokeKernelSubscription(kpid);
+    }
+    this.#resolvedWithKernelSubscription = [];
   }
 
   /**
@@ -314,7 +326,10 @@ export class KernelQueue {
         this.enqueueSend(target, message, true);
       }
 
-      // Kernel subscription callback will be invoked during crank buffer flush
+      // Track resolved promises that have kernel subscriptions for invocation at flush time
+      if (this.subscriptions.has(kpid)) {
+        this.#resolvedWithKernelSubscription.push(kpid);
+      }
     }
   }
 }
