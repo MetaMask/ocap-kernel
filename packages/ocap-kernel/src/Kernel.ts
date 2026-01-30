@@ -19,7 +19,7 @@ import type {
   KRef,
   PlatformServices,
   ClusterConfig,
-  KernelSystemVatsConfig,
+  SystemVatConfig,
   VatConfig,
   KernelStatus,
   Subcluster,
@@ -83,10 +83,10 @@ export class Kernel {
   readonly #kernelRouter: KernelRouter;
 
   /**
-   * System vats configuration passed to Kernel.make().
+   * Host vat configuration passed to Kernel.make().
    * Stored for connection after initialization.
    */
-  readonly #systemVatsConfig: KernelSystemVatsConfig | undefined;
+  readonly #hostVatConfig: SystemVatConfig | undefined;
 
   /**
    * Construct a new kernel instance.
@@ -98,7 +98,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
-   * @param options.systemVats - Optional system vats to connect at kernel creation.
+   * @param options.hostVat - Optional host vat configuration to connect at kernel creation.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
@@ -109,13 +109,13 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
-      systemVats?: KernelSystemVatsConfig;
+      hostVat?: SystemVatConfig;
     } = {},
   ) {
     this.#platformServices = platformServices;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase, this.#logger);
-    this.#systemVatsConfig = options.systemVats;
+    this.#hostVatConfig = options.hostVat;
     if (!this.#kernelStore.kv.get('initialized')) {
       this.#kernelStore.kv.set('initialized', 'true');
     }
@@ -222,7 +222,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
-   * @param options.systemVats - Optional system vats to connect at kernel creation.
+   * @param options.hostVat - Optional host vat configuration to connect at kernel creation.
    * @returns A promise for the new kernel instance.
    */
   static async make(
@@ -233,7 +233,7 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
-      systemVats?: KernelSystemVatsConfig;
+      hostVat?: SystemVatConfig;
     } = {},
   ): Promise<Kernel> {
     const kernel = new Kernel(platformServices, kernelDatabase, options);
@@ -255,13 +255,18 @@ export class Kernel {
     // This ensures that any messages in the queue have their target vats ready
     await this.#vatManager.initializeAllVats();
 
-    // Prepare static system vats if configured (kernel side setup only).
-    // The kernel sets up to receive connections - it does NOT reach out.
-    // Actual connection happens when supervisor-side calls connect().
-    if (this.#systemVatsConfig) {
-      for (const vatConfig of this.#systemVatsConfig.vats) {
-        this.#systemVatManager.prepareStaticSystemVat(vatConfig);
-      }
+    // Register host vat if configured.
+    // This runs asynchronously - the registration completes when the supervisor
+    // side calls connect() via the transport's awaitConnection().
+    if (this.#hostVatConfig) {
+      this.#systemVatManager
+        .registerSystemVat(this.#hostVatConfig)
+        .catch((error) => {
+          this.#logger.error(
+            `Failed to register host vat ${this.#hostVatConfig?.name}:`,
+            error,
+          );
+        });
     }
 
     // Start the kernel queue processing (non-blocking)

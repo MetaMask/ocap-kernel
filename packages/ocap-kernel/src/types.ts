@@ -445,7 +445,7 @@ export type SystemVatBuildRootObject = (
  * Configuration for a single system vat within a system subcluster.
  * Used when launching system subclusters via Kernel.launchSystemSubcluster().
  */
-export type SystemVatConfig = {
+export type SystemSubclusterVatConfig = {
   buildRootObject: SystemVatBuildRootObject;
   parameters?: Record<string, Json>;
 };
@@ -461,7 +461,7 @@ export type SystemSubclusterConfig = {
   /** The name of the bootstrap vat within the subcluster. */
   bootstrap: string;
   /** Map of vat names to their configurations. */
-  vats: Record<string, SystemVatConfig>;
+  vats: Record<string, SystemSubclusterVatConfig>;
   /** Optional list of kernel service names to provide to the bootstrap vat. */
   services?: string[];
 };
@@ -516,10 +516,11 @@ export type SystemVatTransport = {
 };
 
 /**
- * Configuration for a static system vat (declared at kernel construction).
- * The runtime creates the supervisor and provides the transport.
+ * Configuration for a system vat using transport-based communication.
+ * Used for the host vat (configured at kernel construction) and dynamic
+ * system vats (registered at runtime via kernel facet).
  */
-export type StaticSystemVatConfig = {
+export type SystemVatConfig = {
   /** Vat name (used in bootstrap message). */
   name: string;
   /** Transport callbacks for communication. */
@@ -529,20 +530,7 @@ export type StaticSystemVatConfig = {
 };
 
 /**
- * Configuration for a dynamic system vat (registered at runtime via kernel facet).
- * Used by UIs and other components that connect after kernel initialization.
- */
-export type DynamicSystemVatConfig = {
-  /** Vat name (used in bootstrap message). */
-  name: string;
-  /** Transport callbacks for communication. */
-  transport: SystemVatTransport;
-  /** Optional kernel services to provide to the vat. */
-  services?: string[];
-};
-
-/**
- * Result of registering a dynamic system vat.
+ * Result of registering a system vat.
  */
 export type SystemVatRegistrationResult = {
   /** The allocated system vat ID. */
@@ -551,14 +539,6 @@ export type SystemVatRegistrationResult = {
   rootKref: KRef;
   /** Function to disconnect and clean up the vat. */
   disconnect: () => Promise<void>;
-};
-
-/**
- * System vats configuration for Kernel.make().
- * List of static system vats to connect at kernel creation time.
- */
-export type KernelSystemVatsConfig = {
-  vats: StaticSystemVatConfig[];
 };
 
 export const SubclusterStruct = object({

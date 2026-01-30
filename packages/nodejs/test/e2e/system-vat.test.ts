@@ -47,7 +47,7 @@ describe('system vat e2e tests', { timeout: 30_000 }, () => {
     kernel = await Kernel.make(platformServices, kernelDatabase, {
       resetStorage: true,
       logger: logger.subLogger({ tags: ['kernel'] }),
-      systemVats: { vats: [hostVat.config] },
+      hostVat: hostVat.config,
     });
 
     // Supervisor-side initiates connection AFTER kernel exists

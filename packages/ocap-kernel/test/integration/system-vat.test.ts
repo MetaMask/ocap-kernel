@@ -14,7 +14,7 @@ import type {
   SystemVatTransport,
   SystemVatSyscallHandler,
   SystemVatDeliverFn,
-  StaticSystemVatConfig,
+  SystemVatConfig,
 } from '../../src/types.ts';
 import { SystemVatSupervisor } from '../../src/vats/SystemVatSupervisor.ts';
 import { makeMapKernelDatabase } from '../storage.ts';
@@ -24,7 +24,7 @@ import { makeMapKernelDatabase } from '../storage.ts';
  */
 type TestSystemVatResult = {
   /** Config for kernel. */
-  config: StaticSystemVatConfig;
+  config: SystemVatConfig;
   /** Call after Kernel.make() to initiate connection from supervisor side. */
   connect: () => void;
   /** Promise that resolves to kernelFacet when bootstrap completes. */
@@ -50,7 +50,7 @@ function makeTestSystemVat(options: {
   // Promise kit for kernel facet - resolves when bootstrap is called
   const kernelFacetKit = makePromiseKit<KernelFacet>();
 
-  // Syscall handler - set by kernel during prepareStaticSystemVat()
+  // Syscall handler - set by kernel during registerSystemVat()
   let syscallHandler: SystemVatSyscallHandler | null = null;
 
   // Build root object that captures kernelFacet from bootstrap
@@ -106,7 +106,7 @@ function makeTestSystemVat(options: {
       });
   };
 
-  const config: StaticSystemVatConfig = {
+  const config: SystemVatConfig = {
     name,
     transport,
   };
@@ -141,7 +141,7 @@ describe('system vat integration', { timeout: 30_000 }, () => {
     kernel = await Kernel.make(mockPlatformServices, kernelDatabase, {
       resetStorage: true,
       logger: logger.subLogger({ tags: ['kernel'] }),
-      systemVats: { vats: [systemVat.config] },
+      hostVat: systemVat.config,
     });
 
     // Supervisor-side initiates connection AFTER kernel exists

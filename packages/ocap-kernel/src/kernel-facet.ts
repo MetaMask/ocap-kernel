@@ -8,7 +8,7 @@ import type {
   ClusterConfig,
   Subcluster,
   KernelStatus,
-  DynamicSystemVatConfig,
+  SystemVatConfig,
   SystemVatId,
 } from './types.ts';
 import type { SystemVatManager } from './vats/SystemVatManager.ts';
@@ -27,7 +27,7 @@ export type KernelFacetDependencies = Pick<
 > & {
   logger?: Logger;
   /** Optional system vat manager for dynamic registration. */
-  systemVatManager?: Pick<SystemVatManager, 'registerDynamicSystemVat'>;
+  systemVatManager?: Pick<SystemVatManager, 'registerSystemVat'>;
 };
 
 /**
@@ -94,14 +94,14 @@ export type KernelFacet = Omit<
   launchSubcluster: (config: ClusterConfig) => Promise<KernelFacetLaunchResult>;
 
   /**
-   * Register a dynamic system vat at runtime.
+   * Register a system vat at runtime.
    * Used by UIs and other components that connect after kernel initialization.
    *
-   * @param config - Configuration for the dynamic system vat.
+   * @param config - Configuration for the system vat.
    * @returns A promise for the registration result.
    */
   registerSystemVat: (
-    config: DynamicSystemVatConfig,
+    config: SystemVatConfig,
   ) => Promise<KernelFacetRegisterSystemVatResult>;
 
   /**
@@ -219,22 +219,22 @@ export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
     },
 
     /**
-     * Register a dynamic system vat at runtime.
+     * Register a system vat at runtime.
      * Used by UIs and other components that connect after kernel initialization.
      *
-     * @param config - Configuration for the dynamic system vat.
+     * @param config - Configuration for the system vat.
      * @returns A promise for the registration result.
      */
     async registerSystemVat(
-      config: DynamicSystemVatConfig,
+      config: SystemVatConfig,
     ): Promise<KernelFacetRegisterSystemVatResult> {
       if (!systemVatManager) {
         throw new Error(
           'Cannot register system vat: systemVatManager not provided to kernel facet',
         );
       }
-      logger?.log(`kernelFacet: registering dynamic system vat ${config.name}`);
-      const result = await systemVatManager.registerDynamicSystemVat(config);
+      logger?.log(`kernelFacet: registering system vat ${config.name}`);
+      const result = await systemVatManager.registerSystemVat(config);
       logger?.log(
         `kernelFacet: registered system vat ${result.systemVatId} with root ${result.rootKref}`,
       );

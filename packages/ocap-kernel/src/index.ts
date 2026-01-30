@@ -20,10 +20,8 @@ export type {
   SystemVatTransport,
   SystemVatSyscallHandler,
   SystemVatDeliverFn,
-  StaticSystemVatConfig,
-  DynamicSystemVatConfig,
+  SystemVatConfig,
   SystemVatRegistrationResult,
-  KernelSystemVatsConfig,
 } from './types.ts';
 export type {
   RemoteMessageHandler,

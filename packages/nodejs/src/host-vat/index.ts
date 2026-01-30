@@ -4,7 +4,7 @@ import { Logger } from '@metamask/logger';
 import type {
   SystemVatBuildRootObject,
   KernelFacet,
-  StaticSystemVatConfig,
+  SystemVatConfig,
   SystemVatTransport,
   SystemVatSyscallHandler,
   SystemVatDeliverFn,
@@ -16,9 +16,9 @@ import { SystemVatSupervisor } from '@metamask/ocap-kernel/vats';
  */
 export type HostVatResult = {
   /**
-   * Configuration to pass to Kernel.make() systemVats option.
+   * Configuration to pass to Kernel.make() hostVat option.
    */
-  config: StaticSystemVatConfig;
+  config: SystemVatConfig;
 
   /**
    * Call after Kernel.make() returns to initiate connection from supervisor side.
@@ -45,7 +45,7 @@ export type HostVatResult = {
  * ```typescript
  * const hostVat = makeHostVat({ logger });
  * const kernel = await Kernel.make(platformServices, db, {
- *   systemVats: { vats: [hostVat.config] },
+ *   hostVat: hostVat.config,
  * });
  * hostVat.connect();  // Supervisor pushes connection to kernel
  * const kernelFacet = await hostVat.kernelFacetPromise;
@@ -69,7 +69,7 @@ export function makeHostVat(
   // Promise kit for kernel facet - resolves when bootstrap is called
   const kernelFacetKit = makePromiseKit<KernelFacet>();
 
-  // Syscall handler - set by kernel during prepareStaticSystemVat()
+  // Syscall handler - set by kernel during registerSystemVat()
   let syscallHandler: SystemVatSyscallHandler | null = null;
 
   // Build root object that captures kernelFacet from bootstrap
@@ -136,7 +136,7 @@ export function makeHostVat(
   };
 
   // Config for Kernel.make()
-  const config: StaticSystemVatConfig = {
+  const config: SystemVatConfig = {
     name: vatName,
     transport,
   };

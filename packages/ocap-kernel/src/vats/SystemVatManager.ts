@@ -8,21 +8,12 @@ import type { SlotValue } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
   SystemVatId,
-  StaticSystemVatConfig,
-  DynamicSystemVatConfig,
+  SystemVatConfig,
   SystemVatRegistrationResult,
   KRef,
 } from '../types.ts';
 import { ROOT_OBJECT_VREF } from '../types.ts';
 import { SystemVatHandle } from './SystemVatHandle.ts';
-
-/**
- * Result of preparing a static system vat.
- */
-export type StaticSystemVatPrepareResult = {
-  /** The system vat ID. */
-  systemVatId: SystemVatId;
-};
 
 type SystemVatManagerOptions = {
   kernelStore: KernelStore;
@@ -40,7 +31,6 @@ type SystemVatRecord = {
   name: string;
   handle: SystemVatHandle;
   rootKref: KRef;
-  isStatic: boolean;
 };
 
 /**
@@ -53,9 +43,8 @@ type SystemVatRecord = {
  * - Receive a kernel facet in the bootstrap message
  * - Don't participate in kernel persistence machinery
  *
- * Supports both:
- * - Static system vats: Declared at kernel construction time
- * - Dynamic system vats: Registered at runtime via kernel facet
+ * The host vat (background/main vat) is configured at kernel construction time.
+ * Additional system vats can be registered dynamically via the kernel facet.
  */
 export class SystemVatManager {
   /** Storage holding the kernel's persistent state */
@@ -150,14 +139,13 @@ export class SystemVatManager {
   /**
    * Set up a system vat from a transport config.
    *
-   * @param config - The static system vat config with transport.
-   * @param isStatic - Whether this is a static (at kernel init) or dynamic vat.
+   * @param config - The system vat config with transport.
    * @returns The system vat ID and root kref.
    */
-  #setupSystemVat(
-    config: StaticSystemVatConfig,
-    isStatic: boolean,
-  ): { systemVatId: SystemVatId; rootKref: KRef } {
+  #setupSystemVat(config: SystemVatConfig): {
+    systemVatId: SystemVatId;
+    rootKref: KRef;
+  } {
     const { name, transport } = config;
     const systemVatId = this.#allocateSystemVatId();
 
@@ -190,7 +178,6 @@ export class SystemVatManager {
       name,
       handle,
       rootKref,
-      isStatic,
     };
     this.#systemVats.set(systemVatId, record);
 
@@ -198,91 +185,27 @@ export class SystemVatManager {
   }
 
   /**
-   * Prepare a static system vat using a provided transport.
+   * Register a system vat using a provided transport.
    *
    * The runtime creates the supervisor externally and provides the transport for
-   * communication. This method sets up the kernel side and returns immediately.
-   * The actual connection and bootstrap happen asynchronously when the
-   * supervisor-side initiates connection via the transport's `awaitConnection()`.
+   * communication. This method sets up the kernel side and awaits connection
+   * before sending the bootstrap message.
    *
-   * @param config - Configuration for the static system vat with transport.
-   * @returns The prepare result with the system vat ID.
+   * For the host vat (configured at kernel construction), call this during kernel
+   * init. For dynamic vats (UI instances, etc.), call via the kernel facet.
+   *
+   * @param config - Configuration for the system vat with transport.
+   * @returns A promise for the registration result with system vat ID and disconnect function.
    */
-  prepareStaticSystemVat(
-    config: StaticSystemVatConfig,
-  ): StaticSystemVatPrepareResult {
-    const { systemVatId, rootKref } = this.#setupSystemVat(config, true);
+  async registerSystemVat(
+    config: SystemVatConfig,
+  ): Promise<SystemVatRegistrationResult> {
+    const { systemVatId, rootKref } = this.#setupSystemVat(config);
 
     // Get the singleton kernel facet kref
     const kernelFacetKref = this.#getKernelFacetKref();
 
     // Build roots object for bootstrap (just this vat's root)
-    const roots: Record<string, SlotValue> = {
-      [config.name]: kslot(rootKref, 'vatRoot'),
-    };
-
-    // Build services object - always include kernelFacet
-    const services: Record<string, SlotValue> = {
-      kernelFacet: kslot(kernelFacetKref, 'KernelFacet'),
-    };
-    if (config.services) {
-      for (const serviceName of config.services) {
-        const serviceKref = this.#kernelStore.kv.get(
-          `kernelService.${serviceName}`,
-        );
-        if (serviceKref) {
-          services[serviceName] = kslot(serviceKref);
-        } else {
-          this.#logger.warn(`Kernel service '${serviceName}' not found`);
-        }
-      }
-    }
-
-    // Set up to send bootstrap after the vat is connected.
-    config.transport
-      .awaitConnection()
-      .then(() => {
-        // Supervisor has connected. Now send the bootstrap message.
-        this.#kernelQueue.enqueueSend(rootKref, {
-          methargs: kser(['bootstrap', [roots, services]]),
-        });
-        return undefined;
-      })
-      .catch((error) => {
-        this.#logger.error(
-          `Failed to connect system vat ${config.name}:`,
-          error,
-        );
-      });
-
-    return { systemVatId };
-  }
-
-  /**
-   * Register a dynamic system vat at runtime.
-   *
-   * Called via the kernel facet to register new system vats after the kernel
-   * is already running (e.g., UI instances in an extension).
-   *
-   * @param config - Configuration for the dynamic system vat.
-   * @returns A promise for the registration result with system vat ID and disconnect function.
-   */
-  async registerDynamicSystemVat(
-    config: DynamicSystemVatConfig,
-  ): Promise<SystemVatRegistrationResult> {
-    const staticConfig: StaticSystemVatConfig = {
-      name: config.name,
-      transport: config.transport,
-    };
-    if (config.services !== undefined) {
-      staticConfig.services = config.services;
-    }
-    const { systemVatId, rootKref } = this.#setupSystemVat(staticConfig, false);
-
-    // Get the singleton kernel facet kref
-    const kernelFacetKref = this.#getKernelFacetKref();
-
-    // Build roots object for bootstrap
     const roots: Record<string, SlotValue> = {
       [config.name]: kslot(rootKref, 'vatRoot'),
     };
@@ -325,6 +248,9 @@ export class SystemVatManager {
   /**
    * Disconnect and clean up a system vat.
    *
+   * This rejects any pending promises where this vat is the decider and
+   * cleans up all clist entries and endpoint state.
+   *
    * @param systemVatId - The system vat ID to disconnect.
    */
   async disconnectSystemVat(systemVatId: SystemVatId): Promise<void> {
@@ -334,12 +260,16 @@ export class SystemVatManager {
       return;
     }
 
-    // TODO: Proper cleanup:
-    // - Reject pending promises where this vat is the decider
-    // - Retire imports held by this vat
-    // - Notify other vats that references to this vat are broken
+    // Reject pending promises where this vat is the decider
+    const failure = kser(`System vat ${systemVatId} disconnected`);
+    for (const kpid of this.#kernelStore.getPromisesByDecider(systemVatId)) {
+      this.#kernelQueue.resolvePromises(systemVatId, [[kpid, true, failure]]);
+    }
 
-    // Remove the vat record
+    // Clean up clist entries and endpoint state
+    this.#kernelStore.deleteEndpoint(systemVatId);
+
+    // Remove the vat record from in-memory tracking
     this.#systemVats.delete(systemVatId);
 
     this.#logger.log(`Disconnected system vat ${systemVatId} (${record.name})`);

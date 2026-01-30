@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { KernelFacetDependencies } from '../kernel-facet.ts';
 import type { KernelQueue } from '../KernelQueue.ts';
 import type { KernelStore } from '../store/index.ts';
-import type { StaticSystemVatConfig, SystemVatTransport } from '../types.ts';
+import type { SystemVatConfig, SystemVatTransport } from '../types.ts';
 import { SystemVatManager } from './SystemVatManager.ts';
 
 describe('SystemVatManager', () => {
@@ -15,14 +15,10 @@ describe('SystemVatManager', () => {
   let mockTransport: SystemVatTransport;
 
   const makeTransport = (): SystemVatTransport => {
-    const connectionPromise = {
-      resolve: vi.fn(),
-      promise: Promise.resolve(),
-    };
     return {
       deliver: vi.fn().mockResolvedValue(null),
       setSyscallHandler: vi.fn(),
-      awaitConnection: vi.fn().mockReturnValue(connectionPromise.promise),
+      awaitConnection: vi.fn().mockResolvedValue(undefined),
     };
   };
 
@@ -34,6 +30,8 @@ describe('SystemVatManager', () => {
       erefToKref: vi.fn().mockReturnValue(null),
       initKernelObject: vi.fn().mockReturnValue('ko1'),
       addCListEntry: vi.fn(),
+      getPromisesByDecider: vi.fn().mockReturnValue([]),
+      deleteEndpoint: vi.fn(),
       kv: {
         get: vi.fn().mockReturnValue(undefined),
         set: vi.fn(),
@@ -42,6 +40,7 @@ describe('SystemVatManager', () => {
 
     mockKernelQueue = {
       enqueueSend: vi.fn(),
+      resolvePromises: vi.fn(),
     } as unknown as KernelQueue;
 
     mockKernelFacetDeps = {
@@ -65,53 +64,53 @@ describe('SystemVatManager', () => {
     });
   });
 
-  describe('prepareStaticSystemVat', () => {
-    it('allocates system vat ID starting from sv0', () => {
-      const config: StaticSystemVatConfig = {
+  describe('registerSystemVat', () => {
+    it('allocates system vat ID starting from sv0', async () => {
+      const config: SystemVatConfig = {
         name: 'testVat',
         transport: mockTransport,
       };
 
-      const result = manager.prepareStaticSystemVat(config);
+      const result = await manager.registerSystemVat(config);
 
       expect(result.systemVatId).toBe('sv0');
     });
 
-    it('allocates sequential system vat IDs', () => {
-      const config1: StaticSystemVatConfig = {
+    it('allocates sequential system vat IDs', async () => {
+      const config1: SystemVatConfig = {
         name: 'vat1',
         transport: makeTransport(),
       };
-      const config2: StaticSystemVatConfig = {
+      const config2: SystemVatConfig = {
         name: 'vat2',
         transport: makeTransport(),
       };
 
-      const result1 = manager.prepareStaticSystemVat(config1);
-      const result2 = manager.prepareStaticSystemVat(config2);
+      const result1 = await manager.registerSystemVat(config1);
+      const result2 = await manager.registerSystemVat(config2);
 
       expect(result1.systemVatId).toBe('sv0');
       expect(result2.systemVatId).toBe('sv1');
     });
 
-    it('initializes endpoint in kernel store', () => {
-      const config: StaticSystemVatConfig = {
+    it('initializes endpoint in kernel store', async () => {
+      const config: SystemVatConfig = {
         name: 'testVat',
         transport: mockTransport,
       };
 
-      manager.prepareStaticSystemVat(config);
+      await manager.registerSystemVat(config);
 
       expect(mockKernelStore.initEndpoint).toHaveBeenCalledWith('sv0');
     });
 
-    it('creates root kernel object if not exists', () => {
-      const config: StaticSystemVatConfig = {
+    it('creates root kernel object if not exists', async () => {
+      const config: SystemVatConfig = {
         name: 'testVat',
         transport: mockTransport,
       };
 
-      manager.prepareStaticSystemVat(config);
+      await manager.registerSystemVat(config);
 
       expect(mockKernelStore.initKernelObject).toHaveBeenCalledWith('sv0');
       expect(mockKernelStore.addCListEntry).toHaveBeenCalledWith(
@@ -121,33 +120,33 @@ describe('SystemVatManager', () => {
       );
     });
 
-    it('uses existing root kref if already exists', () => {
+    it('uses existing root kref if already exists', async () => {
       (mockKernelStore.erefToKref as ReturnType<typeof vi.fn>).mockReturnValue(
         'ko99',
       );
-      const config: StaticSystemVatConfig = {
+      const config: SystemVatConfig = {
         name: 'testVat',
         transport: mockTransport,
       };
 
-      manager.prepareStaticSystemVat(config);
+      await manager.registerSystemVat(config);
 
       expect(mockKernelStore.initKernelObject).not.toHaveBeenCalled();
       expect(mockKernelStore.addCListEntry).not.toHaveBeenCalled();
     });
 
-    it('sets syscall handler on transport', () => {
-      const config: StaticSystemVatConfig = {
+    it('sets syscall handler on transport', async () => {
+      const config: SystemVatConfig = {
         name: 'testVat',
         transport: mockTransport,
       };
 
-      manager.prepareStaticSystemVat(config);
+      await manager.registerSystemVat(config);
 
       expect(mockTransport.setSyscallHandler).toHaveBeenCalled();
     });
 
-    it('waits for connection before sending bootstrap', async () => {
+    it('awaits connection before sending bootstrap', async () => {
       let resolveConnection: () => void;
       const connectionPromise = new Promise<void>((resolve) => {
         resolveConnection = resolve;
@@ -158,36 +157,61 @@ describe('SystemVatManager', () => {
         awaitConnection: vi.fn().mockReturnValue(connectionPromise),
       };
 
-      const config: StaticSystemVatConfig = {
+      const config: SystemVatConfig = {
         name: 'testVat',
         transport,
       };
 
-      manager.prepareStaticSystemVat(config);
+      // Start registration (will await connection)
+      const registrationPromise = manager.registerSystemVat(config);
 
       // Bootstrap should not be sent yet
       expect(mockKernelQueue.enqueueSend).not.toHaveBeenCalled();
 
       // Resolve connection
       resolveConnection!();
-      await connectionPromise;
 
-      // Give time for async handler to run
-      await new Promise((resolve) => setTimeout(resolve, 10));
+      // Wait for registration to complete
+      await registrationPromise;
 
       // Now bootstrap should be sent
       expect(mockKernelQueue.enqueueSend).toHaveBeenCalled();
     });
-  });
 
-  describe('getSystemVatHandle', () => {
-    it('returns handle for prepared system vat', () => {
-      const config: StaticSystemVatConfig = {
+    it('returns root kref and disconnect function', async () => {
+      const config: SystemVatConfig = {
         name: 'testVat',
         transport: mockTransport,
       };
 
-      manager.prepareStaticSystemVat(config);
+      const result = await manager.registerSystemVat(config);
+
+      expect(result.rootKref).toBe('ko1');
+      expect(typeof result.disconnect).toBe('function');
+    });
+
+    it('disconnect function removes vat', async () => {
+      const config: SystemVatConfig = {
+        name: 'testVat',
+        transport: mockTransport,
+      };
+
+      const result = await manager.registerSystemVat(config);
+
+      expect(manager.getSystemVatHandle(result.systemVatId)).toBeDefined();
+      await result.disconnect();
+      expect(manager.getSystemVatHandle(result.systemVatId)).toBeUndefined();
+    });
+  });
+
+  describe('getSystemVatHandle', () => {
+    it('returns handle for registered system vat', async () => {
+      const config: SystemVatConfig = {
+        name: 'testVat',
+        transport: mockTransport,
+      };
+
+      await manager.registerSystemVat(config);
       const handle = manager.getSystemVatHandle('sv0');
 
       expect(handle).toBeDefined();
@@ -199,18 +223,18 @@ describe('SystemVatManager', () => {
       expect(handle).toBeUndefined();
     });
 
-    it('returns correct handle for multiple system vats', () => {
-      const config1: StaticSystemVatConfig = {
+    it('returns correct handle for multiple system vats', async () => {
+      const config1: SystemVatConfig = {
         name: 'vat1',
         transport: makeTransport(),
       };
-      const config2: StaticSystemVatConfig = {
+      const config2: SystemVatConfig = {
         name: 'vat2',
         transport: makeTransport(),
       };
 
-      manager.prepareStaticSystemVat(config1);
-      manager.prepareStaticSystemVat(config2);
+      await manager.registerSystemVat(config1);
+      await manager.registerSystemVat(config2);
 
       const handle1 = manager.getSystemVatHandle('sv0');
       const handle2 = manager.getSystemVatHandle('sv1');
@@ -223,12 +247,12 @@ describe('SystemVatManager', () => {
 
   describe('disconnectSystemVat', () => {
     it('removes system vat from tracking', async () => {
-      const config: StaticSystemVatConfig = {
+      const config: SystemVatConfig = {
         name: 'testVat',
         transport: mockTransport,
       };
 
-      manager.prepareStaticSystemVat(config);
+      await manager.registerSystemVat(config);
       expect(manager.getSystemVatHandle('sv0')).toBeDefined();
 
       await manager.disconnectSystemVat('sv0');
@@ -240,74 +264,34 @@ describe('SystemVatManager', () => {
       const result = await manager.disconnectSystemVat('sv999');
       expect(result).toBeUndefined();
     });
-  });
 
-  describe('registerDynamicSystemVat', () => {
-    it('allocates system vat ID', async () => {
-      const connectionKit = {
-        resolve: vi.fn(),
-        promise: Promise.resolve(),
-      };
-      const transport: SystemVatTransport = {
-        deliver: vi.fn().mockResolvedValue(null),
-        setSyscallHandler: vi.fn(),
-        awaitConnection: vi.fn().mockReturnValue(connectionKit.promise),
+    it('rejects pending promises where vat is decider', async () => {
+      (
+        mockKernelStore.getPromisesByDecider as ReturnType<typeof vi.fn>
+      ).mockReturnValue(['kp1', 'kp2']);
+
+      const config: SystemVatConfig = {
+        name: 'testVat',
+        transport: mockTransport,
       };
 
-      const result = await manager.registerDynamicSystemVat({
-        name: 'dynamicVat',
-        transport,
-      });
+      await manager.registerSystemVat(config);
+      await manager.disconnectSystemVat('sv0');
 
-      expect(result.systemVatId).toBe('sv0');
+      expect(mockKernelStore.getPromisesByDecider).toHaveBeenCalledWith('sv0');
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledTimes(2);
     });
 
-    it('returns root kref and disconnect function', async () => {
-      const transport: SystemVatTransport = {
-        deliver: vi.fn().mockResolvedValue(null),
-        setSyscallHandler: vi.fn(),
-        awaitConnection: vi.fn().mockResolvedValue(undefined),
+    it('cleans up endpoint in kernel store', async () => {
+      const config: SystemVatConfig = {
+        name: 'testVat',
+        transport: mockTransport,
       };
 
-      const result = await manager.registerDynamicSystemVat({
-        name: 'dynamicVat',
-        transport,
-      });
+      await manager.registerSystemVat(config);
+      await manager.disconnectSystemVat('sv0');
 
-      expect(result.rootKref).toBe('ko1');
-      expect(typeof result.disconnect).toBe('function');
-    });
-
-    it('sends bootstrap after awaiting connection', async () => {
-      const transport: SystemVatTransport = {
-        deliver: vi.fn().mockResolvedValue(null),
-        setSyscallHandler: vi.fn(),
-        awaitConnection: vi.fn().mockResolvedValue(undefined),
-      };
-
-      await manager.registerDynamicSystemVat({
-        name: 'dynamicVat',
-        transport,
-      });
-
-      expect(mockKernelQueue.enqueueSend).toHaveBeenCalled();
-    });
-
-    it('disconnect function removes vat', async () => {
-      const transport: SystemVatTransport = {
-        deliver: vi.fn().mockResolvedValue(null),
-        setSyscallHandler: vi.fn(),
-        awaitConnection: vi.fn().mockResolvedValue(undefined),
-      };
-
-      const result = await manager.registerDynamicSystemVat({
-        name: 'dynamicVat',
-        transport,
-      });
-
-      expect(manager.getSystemVatHandle(result.systemVatId)).toBeDefined();
-      await result.disconnect();
-      expect(manager.getSystemVatHandle(result.systemVatId)).toBeUndefined();
+      expect(mockKernelStore.deleteEndpoint).toHaveBeenCalledWith('sv0');
     });
   });
 });
