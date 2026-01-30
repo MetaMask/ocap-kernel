@@ -72,6 +72,8 @@ export function makeHostVat(
   // Syscall handler - set by kernel during registerSystemVat()
   let syscallHandler: SystemVatSyscallHandler | null = null;
 
+  const supervisor: SystemVatSupervisor | null = null;
+
   // Build root object that captures kernelFacet from bootstrap
   const buildRootObject: SystemVatBuildRootObject = () => {
     return makeDefaultExo('KernelHostRoot', {
@@ -89,13 +91,9 @@ export function makeHostVat(
   // Promise kit to signal when supervisor is ready to receive deliveries
   const supervisorReady = makePromiseKit<SystemVatSupervisor>();
 
-  // Promise kit for connection - resolved when connect() is called and supervisor is ready
-  const connectionKit = makePromiseKit<void>();
-
   // Create the transport with a deliver function that waits for the supervisor
   const deliver: SystemVatDeliverFn = async (delivery) => {
-    const supervisor = await supervisorReady.promise;
-    return supervisor.deliver(delivery);
+    return (supervisor ?? (await supervisorReady.promise)).deliver(delivery);
   };
 
   const transport: SystemVatTransport = {
@@ -104,7 +102,7 @@ export function makeHostVat(
       syscallHandler = handler;
     },
     // Kernel calls this to wait for connection from supervisor side
-    awaitConnection: async () => connectionKit.promise,
+    awaitConnection: async () => supervisorReady.promise.then(() => undefined),
   };
 
   /**
@@ -123,16 +121,8 @@ export function makeHostVat(
       executeSyscall: syscallHandler,
       logger: logger.subLogger({ tags: ['supervisor'] }),
     })
-      .then((supervisor) => {
-        supervisorReady.resolve(supervisor);
-        // Signal connection ready - kernel will now send bootstrap message
-        connectionKit.resolve();
-        return undefined;
-      })
-      .catch((error) => {
-        connectionKit.reject(error as Error);
-        kernelFacetKit.reject(error as Error);
-      });
+      .then((result) => supervisorReady.resolve(result))
+      .catch((error) => kernelFacetKit.reject(error as Error));
   };
 
   // Config for Kernel.make()

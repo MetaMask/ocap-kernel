@@ -138,10 +138,7 @@ export class SystemVatSupervisor {
   readonly #logger: Logger;
 
   /** Function to dispatch deliveries into liveslots */
-  #dispatch: DispatchFn | null = null;
-
-  /** Flag indicating if the system vat has been initialized */
-  #initialized: boolean = false;
+  readonly #dispatch: DispatchFn | null = null;
 
   /**
    * Create and start a system vat supervisor.
@@ -179,29 +176,6 @@ export class SystemVatSupervisor {
     } = props;
     this.id = id;
     this.#logger = logger;
-
-    // Initialize the system vat synchronously during construction
-    this.#initializeVat(buildRootObject, vatPowers, parameters, executeSyscall);
-  }
-
-  /**
-   * Initialize the system vat by creating liveslots with the provided buildRootObject.
-   *
-   * @param buildRootObject - Function to build the vat's root object.
-   * @param vatPowers - External capabilities for this system vat.
-   * @param parameters - Parameters to pass to buildRootObject.
-   * @param executeSyscall - Function to execute syscalls synchronously.
-   */
-  #initializeVat(
-    buildRootObject: SystemVatBuildRootObject,
-    vatPowers: Record<string, unknown>,
-    parameters: Record<string, Json> | undefined,
-    executeSyscall: SystemVatExecuteSyscall,
-  ): void {
-    if (this.#initialized) {
-      throw Error('SystemVatSupervisor already initialized');
-    }
-    this.#initialized = true;
 
     const kvStore = makeEphemeralVatKVStore();
     const syscall = this.#makeSyscall(executeSyscall, kvStore);
