@@ -189,7 +189,7 @@ function defineGlobals(): GlobalSetters {
         list: async () => E(capletController).list(),
         load: loadCaplet,
         get: async (capletId: string) => E(capletController).get(capletId),
-        getCapletRoot: async (capletId: string) =>
+        getRoot: async (capletId: string) =>
           E(capletController).getCapletRoot(capletId),
       }),
     },
