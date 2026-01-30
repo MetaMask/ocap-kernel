@@ -103,9 +103,8 @@ describe('makeBackgroundHostVat', () => {
   });
 
   describe('connect', () => {
-    it('creates supervisor with provided buildRootObject', async () => {
-      const buildRootObject = vi.fn().mockReturnValue({});
-      const result = makeBackgroundHostVat({ buildRootObject });
+    it('creates supervisor with internal buildRootObject', async () => {
+      const result = makeBackgroundHostVat();
       const { stream } = makeMockStream();
 
       result.connect(stream);
@@ -120,8 +119,7 @@ describe('makeBackgroundHostVat', () => {
     });
 
     it('sends ready notification after supervisor is created', async () => {
-      const buildRootObject = vi.fn().mockReturnValue({});
-      const result = makeBackgroundHostVat({ buildRootObject });
+      const result = makeBackgroundHostVat();
       const { stream, written } = makeMockStream();
 
       result.connect(stream);
@@ -144,8 +142,7 @@ describe('makeBackgroundHostVat', () => {
     });
 
     it('starts draining stream after sending ready', async () => {
-      const buildRootObject = vi.fn().mockReturnValue({});
-      const result = makeBackgroundHostVat({ buildRootObject });
+      const result = makeBackgroundHostVat();
       const { stream } = makeMockStream();
 
       result.connect(stream);
@@ -157,11 +154,9 @@ describe('makeBackgroundHostVat', () => {
   });
 
   describe('kernelFacetPromise', () => {
-    it('resolves when buildRootObject receives kernelFacet in vatPowers', async () => {
+    it('resolves when bootstrap is called with kernelFacet in services', async () => {
       const mockKernelFacet = { launchSubcluster: vi.fn() };
-      let capturedBuildRootObject:
-        | ((vatPowers: Record<string, unknown>) => object)
-        | null = null;
+      let capturedBuildRootObject: (() => object) | null = null;
 
       vi.mocked(SystemVatSupervisor.make).mockImplementation(
         async (options) => {
@@ -171,8 +166,7 @@ describe('makeBackgroundHostVat', () => {
         },
       );
 
-      const buildRootObject = vi.fn().mockReturnValue({});
-      const result = makeBackgroundHostVat({ buildRootObject });
+      const result = makeBackgroundHostVat();
       const { stream } = makeMockStream();
 
       result.connect(stream);
@@ -181,19 +175,22 @@ describe('makeBackgroundHostVat', () => {
         expect(capturedBuildRootObject).not.toBeNull();
       });
 
-      // Simulate liveslots calling buildRootObject with kernelFacet
-      capturedBuildRootObject?.({ kernelFacet: mockKernelFacet });
+      // Build root object (liveslots calls this)
+      const rootObject = capturedBuildRootObject?.() as {
+        bootstrap: (
+          roots: Record<string, unknown>,
+          services: Record<string, unknown>,
+        ) => void;
+      };
+
+      // Simulate kernel sending bootstrap message with kernelFacet in services
+      rootObject.bootstrap({}, { kernelFacet: mockKernelFacet });
 
       expect(await result.kernelFacetPromise).toBe(mockKernelFacet);
     });
 
-    it('calls user buildRootObject with vatPowers', async () => {
-      let capturedBuildRootObject:
-        | ((
-            vatPowers: Record<string, unknown>,
-            parameters: Record<string, unknown> | undefined,
-          ) => object)
-        | null = null;
+    it('rejects if kernelFacet is not provided in services', async () => {
+      let capturedBuildRootObject: (() => object) | null = null;
 
       vi.mocked(SystemVatSupervisor.make).mockImplementation(
         async (options) => {
@@ -203,12 +200,7 @@ describe('makeBackgroundHostVat', () => {
         },
       );
 
-      const userBuildRootObject = vi
-        .fn()
-        .mockReturnValue({ myMethod: vi.fn() });
-      const result = makeBackgroundHostVat({
-        buildRootObject: userBuildRootObject,
-      });
+      const result = makeBackgroundHostVat();
       const { stream } = makeMockStream();
 
       result.connect(stream);
@@ -217,22 +209,25 @@ describe('makeBackgroundHostVat', () => {
         expect(capturedBuildRootObject).not.toBeNull();
       });
 
-      const vatPowers = { kernelFacet: {}, otherPower: 'test' };
-      const rootObject = capturedBuildRootObject?.(vatPowers, {
-        param: 'value',
-      });
+      const rootObject = capturedBuildRootObject?.() as {
+        bootstrap: (
+          roots: Record<string, unknown>,
+          services: Record<string, unknown>,
+        ) => void;
+      };
 
-      expect(userBuildRootObject).toHaveBeenCalledWith(vatPowers, {
-        param: 'value',
-      });
-      expect(rootObject).toHaveProperty('myMethod');
+      // Bootstrap without kernelFacet
+      rootObject.bootstrap({}, {});
+
+      await expect(result.kernelFacetPromise).rejects.toThrow(
+        'kernelFacet not provided in bootstrap services',
+      );
     });
   });
 
   describe('delivery handling', () => {
     it('delivers to supervisor and sends JSON-RPC response back', async () => {
-      const buildRootObject = vi.fn().mockReturnValue({});
-      const result = makeBackgroundHostVat({ buildRootObject });
+      const result = makeBackgroundHostVat();
       const { stream, written, receiveMessage } = makeMockStream();
 
       result.connect(stream);
@@ -273,8 +268,7 @@ describe('makeBackgroundHostVat', () => {
     it('sends delivery error in response when supervisor.deliver returns error', async () => {
       mockSupervisor.deliver.mockResolvedValue('Something went wrong');
 
-      const buildRootObject = vi.fn().mockReturnValue({});
-      const result = makeBackgroundHostVat({ buildRootObject });
+      const result = makeBackgroundHostVat();
       const { stream, written, receiveMessage } = makeMockStream();
 
       result.connect(stream);
@@ -322,8 +316,7 @@ describe('makeBackgroundHostVat', () => {
         },
       );
 
-      const buildRootObject = vi.fn().mockReturnValue({});
-      const result = makeBackgroundHostVat({ buildRootObject });
+      const result = makeBackgroundHostVat();
       const { stream, written } = makeMockStream();
 
       result.connect(stream);
@@ -371,8 +364,7 @@ describe('makeBackgroundHostVat', () => {
         },
       );
 
-      const buildRootObject = vi.fn().mockReturnValue({});
-      const result = makeBackgroundHostVat({ buildRootObject });
+      const result = makeBackgroundHostVat();
       const { stream } = makeMockStream();
 
       result.connect(stream);

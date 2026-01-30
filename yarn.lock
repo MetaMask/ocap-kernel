@@ -3475,6 +3475,7 @@ __metadata:
     "@metamask/kernel-ui": "workspace:^"
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/logger": "workspace:^"
+    "@metamask/ocap-kernel": "workspace:^"
     "@metamask/streams": "workspace:^"
     "@ocap/cli": "workspace:^"
     "@ocap/kernel-test": "workspace:^"

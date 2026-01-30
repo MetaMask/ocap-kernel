@@ -4,14 +4,10 @@ import type {
 } from '@agoric/swingset-liveslots';
 import { makePromiseKit } from '@endo/promise-kit';
 import { RpcClient, RpcService } from '@metamask/kernel-rpc-methods';
-import { stringify } from '@metamask/kernel-utils';
+import { makeDefaultExo, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
-import type {
-  DeliveryObject,
-  KernelFacet,
-  SystemVatBuildRootObject,
-} from '@metamask/ocap-kernel';
+import type { DeliveryObject, KernelFacet } from '@metamask/ocap-kernel';
 import { SystemVatSupervisor } from '@metamask/ocap-kernel/vats';
 import type { DuplexStream } from '@metamask/streams';
 import { isJsonRpcRequest } from '@metamask/utils';
@@ -44,33 +40,25 @@ export type BackgroundHostVatResult = {
  * The supervisor uses an optimistic syscall model where syscalls are fire-and-forget,
  * returning ['ok', null] immediately.
  *
+ * The kernelFacet is automatically captured from the bootstrap message sent by the
+ * kernel. You can await `kernelFacetPromise` to get it after calling `connect()`.
+ *
  * Usage in background script:
  * ```typescript
- * const hostVat = makeBackgroundHostVat({
- *   buildRootObject: (vatPowers) => {
- *     const kernelFacet = vatPowers.kernelFacet as KernelFacet;
- *     return makeDefaultExo('BackgroundRoot', {
- *       // ... methods that use E(kernelFacet)
- *     });
- *   },
- *   logger,
- * });
- * const stream = await connectToKernelHostVat();
+ * const hostVat = makeBackgroundHostVat({ logger });
  * hostVat.connect(stream);
  * const kernelFacet = await hostVat.kernelFacetPromise;
  * const result = await E(kernelFacet).launchSubcluster(config);
  * ```
  *
  * @param options - Options for creating the host vat.
- * @param options.buildRootObject - Function to build the vat's root object.
  * @param options.logger - Optional logger for debugging.
  * @returns The host vat result with connect and kernelFacetPromise.
  */
-export function makeBackgroundHostVat(options: {
-  buildRootObject: SystemVatBuildRootObject;
+export function makeBackgroundHostVat(options?: {
   logger?: Logger;
 }): BackgroundHostVatResult {
-  const { buildRootObject, logger } = options;
+  const logger = options?.logger;
 
   // Promise kit for kernel facet - resolves when bootstrap is called
   const kernelFacetKit = makePromiseKit<KernelFacet>();
@@ -101,21 +89,35 @@ export function makeBackgroundHostVat(options: {
   };
 
   /**
-   * Wrap buildRootObject to capture the kernelFacet from bootstrap.
+   * Build the root object for this host vat.
    *
-   * @param vatPowers - The vat powers provided by liveslots.
-   * @param parameters - Optional parameters for the vat.
-   * @returns The root object for this vat.
+   * The root object only needs a bootstrap method to receive the kernelFacet
+   * from the kernel's bootstrap message.
+   *
+   * @returns The root object with a bootstrap method.
    */
-  const wrappedBuildRootObject: SystemVatBuildRootObject = (
-    vatPowers,
-    parameters,
-  ) => {
-    // Capture kernelFacet from vatPowers before passing to user's buildRootObject
-    if (vatPowers.kernelFacet) {
-      kernelFacetKit.resolve(vatPowers.kernelFacet as KernelFacet);
-    }
-    return buildRootObject(vatPowers, parameters);
+  const buildRootObject = (): object => {
+    return makeDefaultExo('BackgroundHostVat', {
+      /**
+       * Called by the kernel after connection with roots and services.
+       * Captures the kernelFacet from services.
+       *
+       * @param _roots - The roots object (unused).
+       * @param services - The services object containing kernelFacet.
+       */
+      bootstrap: (
+        _roots: Record<string, unknown>,
+        services: Record<string, unknown>,
+      ) => {
+        if (services.kernelFacet) {
+          kernelFacetKit.resolve(services.kernelFacet as KernelFacet);
+        } else {
+          kernelFacetKit.reject(
+            new Error('kernelFacet not provided in bootstrap services'),
+          );
+        }
+      },
+    });
   };
 
   const connect = (
@@ -132,7 +134,7 @@ export function makeBackgroundHostVat(options: {
 
     // Create and start the supervisor
     const supervisorOptions = {
-      buildRootObject: wrappedBuildRootObject,
+      buildRootObject,
       executeSyscall,
       ...(logger && { logger: logger.subLogger({ tags: ['supervisor'] }) }),
     };

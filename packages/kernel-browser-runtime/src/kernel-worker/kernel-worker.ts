@@ -58,8 +58,16 @@ async function main(): Promise<void> {
     new URLSearchParams(globalThis.location.search).get('reset-storage') ===
     'true';
 
+  // Create host vat first to get config
+  const hostVat = makeKernelHostVat({
+    name: 'kernelHost',
+    logger: logger.subLogger({ tags: ['host-vat'] }),
+  });
+
+  // Pass host vat config to kernel
   const kernel = await Kernel.make(platformServicesClient, kernelDatabase, {
     resetStorage,
+    hostVat: hostVat.config,
   });
 
   const panelRpcServer = new JsonRpcServer({
@@ -70,12 +78,7 @@ async function main(): Promise<void> {
   });
   panelHandlerKit.resolve(panelRpcServer.handle.bind(panelRpcServer));
 
-  const hostVat = makeKernelHostVat({
-    name: 'kernelHost',
-    logger: logger.subLogger({ tags: ['host-vat'] }),
-  });
-
-  // Connect host vat to the background via the message stream
+  // Connect host vat to the background via the message stream after kernel is created
   // The background will use makeBackgroundHostVat to create the supervisor side
   const hostVatStream = messageStream as unknown as Parameters<
     typeof hostVat.connect

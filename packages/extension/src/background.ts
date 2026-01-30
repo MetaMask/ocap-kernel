@@ -1,13 +1,7 @@
 import { E } from '@endo/eventual-send';
-import {
-  makeBackgroundCapTP,
-  makeCapTPNotification,
-  isCapTPNotification,
-  getCapTPMessage,
-} from '@metamask/kernel-browser-runtime';
-import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
+import { makeBackgroundHostVat } from '@metamask/kernel-browser-runtime';
 import defaultSubcluster from '@metamask/kernel-browser-runtime/default-cluster';
-import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
+import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
@@ -21,7 +15,7 @@ let bootPromise: Promise<void> | null = null;
 // With this we can click the extension action button to wake up the service worker.
 chrome.action.onClicked.addListener(() => {
   globalThis.kernel !== undefined &&
-    E(globalThis.kernel).ping().catch(logger.error);
+    E(globalThis.kernel).getStatus().catch(logger.error);
 });
 
 // Install/update
@@ -87,65 +81,38 @@ async function main(): Promise<void> {
   // Without this delay, sending messages via the chrome.runtime API can fail.
   await delay(50);
 
-  // Create stream for CapTP messages
+  // Create stream for JSON-RPC messages to kernel
   const offscreenStream = await ChromeRuntimeDuplexStream.make<
     JsonRpcMessage,
     JsonRpcMessage
   >(chrome.runtime, 'background', 'offscreen', isJsonRpcMessage);
 
-  // Set up CapTP for E() based communication with the kernel
-  const backgroundCapTP = makeBackgroundCapTP({
-    send: (captpMessage: CapTPMessage) => {
-      const notification = makeCapTPNotification(captpMessage);
-      offscreenStream.write(notification).catch((error) => {
-        logger.error('Failed to send CapTP message:', error);
-      });
-    },
-  });
+  // Create host vat - captures kernelFacet from bootstrap automatically
+  const hostVat = makeBackgroundHostVat({ logger });
 
-  // Get the kernel remote presence
-  const kernelP = backgroundCapTP.getKernel();
-  globalThis.kernel = kernelP;
+  // Connect to kernel via offscreen pipe
+  hostVat.connect(offscreenStream);
 
-  // Handle incoming CapTP messages from the kernel
-  const drainPromise = offscreenStream.drain((message) => {
-    if (isCapTPNotification(message)) {
-      const captpMessage = getCapTPMessage(message);
-      backgroundCapTP.dispatch(captpMessage);
-    } else {
-      throw new Error(`Unexpected message: ${stringify(message)}`);
-    }
-  });
-  drainPromise.catch(logger.error);
+  globalThis.kernel = hostVat.kernelFacetPromise;
 
-  try {
-    await E(kernelP).ping();
-    await startDefaultSubcluster();
-  } catch (error) {
-    offscreenStream.throw(error as Error).catch(logger.error);
-  }
-
-  try {
-    await drainPromise;
-  } catch (error) {
-    const finalError = new Error('Offscreen connection closed unexpectedly', {
-      cause: error,
-    });
-    backgroundCapTP.abort(finalError);
-    throw finalError;
-  }
+  // Verify connectivity and start default subcluster
+  await E(kernel).getStatus();
+  await startDefaultSubcluster();
 }
 
 /**
  * Idempotently starts the default subcluster.
+ * Must be called after globalThis.kernel is set.
  */
 async function startDefaultSubcluster(): Promise<void> {
-  const status = await E(globalThis.kernel).getStatus();
+  const { kernel } = globalThis;
+  if (kernel === undefined) {
+    throw new Error('Kernel not initialized');
+  }
 
+  const status = await E(kernel).getStatus();
   if (status.subclusters.length === 0) {
-    const result = await E(globalThis.kernel).launchSubcluster(
-      defaultSubcluster,
-    );
+    const result = await E(kernel).launchSubcluster(defaultSubcluster);
     logger.info(`Default subcluster launched: ${JSON.stringify(result)}`);
   } else {
     logger.info('Subclusters already exist. Not launching default subcluster.');
