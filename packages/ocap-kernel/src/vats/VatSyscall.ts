@@ -54,9 +54,6 @@ export class VatSyscall {
   /** The illegal syscall that was received */
   illegalSyscall: { vatId: EndpointId; info: SwingSetCapData } | undefined;
 
-  /** The error when delivery failed */
-  deliveryError: string | undefined;
-
   /** The termination request that was received from the vat with syscall.exit() */
   vatRequestedTermination:
     | { reject: boolean; info: SwingSetCapData }
@@ -298,24 +295,22 @@ export class VatSyscall {
   /**
    * Build crank results after a delivery.
    *
-   * @param deliveryError - Error from delivery, if any (for SystemVatHandle).
+   * @param deliveryError - Error from delivery, if any.
    * @returns The crank results.
    */
-  getCrankResults(deliveryError?: string | null): CrankResults {
+  getCrankResults(deliveryError: string | null): CrankResults {
     const results: CrankResults = {
       didDelivery: this.vatId,
     };
-
-    const errorMessage = deliveryError ?? this.deliveryError;
 
     // Priority order: illegalSyscall > deliveryError > vatRequestedTermination
     if (this.illegalSyscall) {
       results.abort = true;
       const { info } = this.illegalSyscall;
       results.terminate = { vatId: this.vatId, reject: true, info };
-    } else if (errorMessage) {
+    } else if (deliveryError) {
       results.abort = true;
-      const info = makeError(errorMessage);
+      const info = makeError(deliveryError);
       results.terminate = { vatId: this.vatId, reject: true, info };
     } else if (this.vatRequestedTermination) {
       if (this.vatRequestedTermination.reject) {

@@ -297,7 +297,7 @@ describe('VatSyscall', () => {
 
   describe('getCrankResults', () => {
     it('returns basic result when no errors or termination', () => {
-      const results = vatSys.getCrankResults();
+      const results = vatSys.getCrankResults(null);
       expect(results).toStrictEqual({
         didDelivery: 'v1',
       });
@@ -307,7 +307,7 @@ describe('VatSyscall', () => {
       vi.mocked(isActive).mockReturnValueOnce(false);
       vatSys.handleSyscall(['send', 'o+1', {}] as unknown as VatSyscallObject);
 
-      const results = vatSys.getCrankResults();
+      const results = vatSys.getCrankResults(null);
       expect(results).toStrictEqual({
         didDelivery: 'v1',
         abort: true,
@@ -321,10 +321,8 @@ describe('VatSyscall', () => {
       });
     });
 
-    it('returns termination result for deliveryError stored in instance', () => {
-      vatSys.deliveryError = 'delivery failed';
-
-      const results = vatSys.getCrankResults();
+    it('returns termination result for deliveryError', () => {
+      const results = vatSys.getCrankResults('delivery error');
       expect(results).toStrictEqual({
         didDelivery: 'v1',
         abort: true,
@@ -332,39 +330,7 @@ describe('VatSyscall', () => {
           vatId: 'v1',
           reject: true,
           info: expect.objectContaining({
-            body: expect.stringContaining('delivery failed'),
-          }),
-        },
-      });
-    });
-
-    it('returns termination result for deliveryError passed as parameter', () => {
-      const results = vatSys.getCrankResults('param delivery error');
-      expect(results).toStrictEqual({
-        didDelivery: 'v1',
-        abort: true,
-        terminate: {
-          vatId: 'v1',
-          reject: true,
-          info: expect.objectContaining({
-            body: expect.stringContaining('param delivery error'),
-          }),
-        },
-      });
-    });
-
-    it('prefers parameter deliveryError over instance deliveryError', () => {
-      vatSys.deliveryError = 'instance error';
-
-      const results = vatSys.getCrankResults('param error');
-      expect(results).toStrictEqual({
-        didDelivery: 'v1',
-        abort: true,
-        terminate: {
-          vatId: 'v1',
-          reject: true,
-          info: expect.objectContaining({
-            body: expect.stringContaining('param error'),
+            body: expect.stringContaining('delivery error'),
           }),
         },
       });
@@ -377,7 +343,7 @@ describe('VatSyscall', () => {
         { body: '"error message"', slots: [] },
       ] as unknown as VatSyscallObject);
 
-      const results = vatSys.getCrankResults();
+      const results = vatSys.getCrankResults(null);
       expect(results).toStrictEqual({
         didDelivery: 'v1',
         abort: true,
@@ -396,7 +362,7 @@ describe('VatSyscall', () => {
         { body: '"graceful exit"', slots: [] },
       ] as unknown as VatSyscallObject);
 
-      const results = vatSys.getCrankResults();
+      const results = vatSys.getCrankResults(null);
       expect(results).toStrictEqual({
         didDelivery: 'v1',
         terminate: {
@@ -410,9 +376,8 @@ describe('VatSyscall', () => {
     it('prioritizes illegalSyscall over deliveryError', () => {
       vi.mocked(isActive).mockReturnValueOnce(false);
       vatSys.handleSyscall(['send', 'o+1', {}] as unknown as VatSyscallObject);
-      vatSys.deliveryError = 'delivery error';
 
-      const results = vatSys.getCrankResults();
+      const results = vatSys.getCrankResults('delivery error');
       expect(results.terminate?.info.body).toContain('vat not found');
     });
 
@@ -424,26 +389,18 @@ describe('VatSyscall', () => {
         info: { body: '"graceful"', slots: [] },
       };
 
-      const results = vatSys.getCrankResults();
+      const results = vatSys.getCrankResults(null);
       expect(results.terminate?.info.body).toContain('vat not found');
     });
 
     it('prioritizes deliveryError over vatRequestedTermination', () => {
-      vatSys.deliveryError = 'delivery error';
       vatSys.vatRequestedTermination = {
         reject: false,
         info: { body: '"graceful"', slots: [] },
       };
 
-      const results = vatSys.getCrankResults();
+      const results = vatSys.getCrankResults('delivery error');
       expect(results.terminate?.info.body).toContain('delivery error');
-    });
-
-    it('returns null parameter as no error', () => {
-      const results = vatSys.getCrankResults(null);
-      expect(results).toStrictEqual({
-        didDelivery: 'v1',
-      });
     });
   });
 });

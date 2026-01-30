@@ -213,11 +213,11 @@ export class VatHandle implements EndpointHandle {
    * @returns The crank results.
    */
   async deliverMessage(target: VRef, message: Message): Promise<CrankResults> {
-    await this.sendVatCommand({
+    const [, deliveryError] = await this.sendVatCommand({
       method: 'deliver',
       params: ['message', target, message],
     });
-    return this.#vatSyscall.getCrankResults();
+    return this.#vatSyscall.getCrankResults(deliveryError);
   }
 
   /**
@@ -227,11 +227,11 @@ export class VatHandle implements EndpointHandle {
    * @returns The crank results.
    */
   async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResults> {
-    await this.sendVatCommand({
+    const [, deliveryError] = await this.sendVatCommand({
       method: 'deliver',
       params: ['notify', resolutions],
     });
-    return this.#vatSyscall.getCrankResults();
+    return this.#vatSyscall.getCrankResults(deliveryError);
   }
 
   /**
@@ -241,11 +241,11 @@ export class VatHandle implements EndpointHandle {
    * @returns The crank results.
    */
   async deliverDropExports(vrefs: VRef[]): Promise<CrankResults> {
-    await this.sendVatCommand({
+    const [, deliveryError] = await this.sendVatCommand({
       method: 'deliver',
       params: ['dropExports', vrefs],
     });
-    return this.#vatSyscall.getCrankResults();
+    return this.#vatSyscall.getCrankResults(deliveryError);
   }
 
   /**
@@ -255,11 +255,11 @@ export class VatHandle implements EndpointHandle {
    * @returns The crank results.
    */
   async deliverRetireExports(vrefs: VRef[]): Promise<CrankResults> {
-    await this.sendVatCommand({
+    const [, deliveryError] = await this.sendVatCommand({
       method: 'deliver',
       params: ['retireExports', vrefs],
     });
-    return this.#vatSyscall.getCrankResults();
+    return this.#vatSyscall.getCrankResults(deliveryError);
   }
 
   /**
@@ -269,11 +269,11 @@ export class VatHandle implements EndpointHandle {
    * @returns The crank results.
    */
   async deliverRetireImports(vrefs: VRef[]): Promise<CrankResults> {
-    await this.sendVatCommand({
+    const [, deliveryError] = await this.sendVatCommand({
       method: 'deliver',
       params: ['retireImports', vrefs],
     });
-    return this.#vatSyscall.getCrankResults();
+    return this.#vatSyscall.getCrankResults(deliveryError);
   }
 
   /**
@@ -282,11 +282,11 @@ export class VatHandle implements EndpointHandle {
    * @returns The crank results.
    */
   async deliverBringOutYourDead(): Promise<CrankResults> {
-    await this.sendVatCommand({
+    const [, deliveryError] = await this.sendVatCommand({
       method: 'deliver',
       params: ['bringOutYourDead'],
     });
-    return this.#vatSyscall.getCrankResults();
+    return this.#vatSyscall.getCrankResults(deliveryError);
   }
 
   /**
@@ -328,7 +328,6 @@ export class VatHandle implements EndpointHandle {
     const result = await this.#rpcClient.call(method, params);
     if (method === 'initVat' || method === 'deliver') {
       const [[sets, deletes], deliveryError] = result as VatDeliveryResult;
-      this.#vatSyscall.deliveryError = deliveryError ?? undefined;
       const noErrors = !deliveryError && !this.#vatSyscall.illegalSyscall;
       // On errors, we neither update this vat's KV data nor rollback previous changes.
       // This is safe because vats are always terminated when errors occur
