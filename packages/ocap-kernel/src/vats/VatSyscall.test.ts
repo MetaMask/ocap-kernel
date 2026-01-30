@@ -55,9 +55,11 @@ describe('VatSyscall', () => {
     const resolution = ['kp1', false, {}] as unknown as VatOneResolution;
     const vso = ['resolve', [resolution]] as unknown as VatSyscallObject;
     vatSys.handleSyscall(vso);
-    expect(kernelQueue.resolvePromises).toHaveBeenCalledWith('v1', [
-      resolution,
-    ]);
+    expect(kernelQueue.resolvePromises).toHaveBeenCalledWith(
+      'v1',
+      [resolution],
+      true,
+    );
   });
 
   describe('subscribe syscall', () => {
@@ -83,7 +85,7 @@ describe('VatSyscall', () => {
       });
       const vso = ['subscribe', 'kp1'] as unknown as VatSyscallObject;
       vatSys.handleSyscall(vso);
-      expect(kernelQueue.enqueueNotify).toHaveBeenCalledWith('v1', 'kp1');
+      expect(kernelQueue.enqueueNotify).toHaveBeenCalledWith('v1', 'kp1', true);
     });
   });
 

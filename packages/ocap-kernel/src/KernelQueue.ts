@@ -274,15 +274,19 @@ export class KernelQueue {
 
   /**
    * Process a set of promise resolutions coming from an endpoint.
-   * Notifications are buffered and kernel subscription callbacks are deferred
-   * until the crank buffer is flushed on successful crank completion.
+   * When buffering is enabled (for vat syscalls), notifications and kernel
+   * subscription callbacks are deferred until the crank buffer is flushed on
+   * successful crank completion. When not buffering (for remote message
+   * handling), effects are immediate.
    *
    * @param endpointId - The endpoint doing the resolving, if there is one.
    * @param resolutions - One or more resolutions, to be processed as a group.
+   * @param buffer - If true, buffer for crank completion instead of immediate enqueue.
    */
   resolvePromises(
     endpointId: EndpointId | undefined,
     resolutions: VatOneResolution[],
+    buffer = false,
   ): void {
     if (endpointId && endpointId !== 'kernel') {
       insistEndpointId(endpointId);
@@ -309,9 +313,9 @@ export class KernelQueue {
         throw Fail`${kpid} subscribers not set`;
       }
 
-      // Buffer notifications for each subscriber.
+      // Enqueue notifications for each subscriber (buffer or immediate based on flag).
       for (const subscriber of subscribers) {
-        this.enqueueNotify(subscriber, kpid, true);
+        this.enqueueNotify(subscriber, kpid, buffer);
       }
 
       // Update promise state and get any queued messages to it.
@@ -321,14 +325,20 @@ export class KernelQueue {
         data,
       );
 
-      // Buffer the queued messages.
+      // Enqueue the queued messages (buffer or immediate based on flag).
       for (const [target, message] of queuedMessages) {
-        this.enqueueSend(target, message, true);
+        this.enqueueSend(target, message, buffer);
       }
 
-      // Track resolved promises that have kernel subscriptions for invocation at flush time
-      if (this.subscriptions.has(kpid)) {
-        this.#resolvedWithKernelSubscription.push(kpid);
+      // Handle kernel subscriptions based on buffer flag.
+      if (buffer) {
+        // Track resolved promises that have kernel subscriptions for invocation at flush time
+        if (this.subscriptions.has(kpid)) {
+          this.#resolvedWithKernelSubscription.push(kpid);
+        }
+      } else {
+        // Invoke kernel subscription immediately when not buffering
+        this.#invokeKernelSubscription(kpid);
       }
     }
   }
