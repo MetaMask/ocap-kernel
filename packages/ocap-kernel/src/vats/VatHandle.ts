@@ -16,7 +16,7 @@ import { isJsonRpcNotification, isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcNotification, JsonRpcResponse } from '@metamask/utils';
 
 import type { KernelQueue } from '../KernelQueue.ts';
-import { kser, makeError } from '../liveslots/kernel-marshal.ts';
+import { kser } from '../liveslots/kernel-marshal.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from '../rpc/index.ts';
 import type { PingVatResult, VatMethod } from '../rpc/index.ts';
 import type { KernelStore } from '../store/index.ts';
@@ -217,7 +217,7 @@ export class VatHandle implements EndpointHandle {
       method: 'deliver',
       params: ['message', target, message],
     });
-    return this.#getCrankResults();
+    return this.#vatSyscall.getCrankResults();
   }
 
   /**
@@ -231,7 +231,7 @@ export class VatHandle implements EndpointHandle {
       method: 'deliver',
       params: ['notify', resolutions],
     });
-    return this.#getCrankResults();
+    return this.#vatSyscall.getCrankResults();
   }
 
   /**
@@ -245,7 +245,7 @@ export class VatHandle implements EndpointHandle {
       method: 'deliver',
       params: ['dropExports', vrefs],
     });
-    return this.#getCrankResults();
+    return this.#vatSyscall.getCrankResults();
   }
 
   /**
@@ -259,7 +259,7 @@ export class VatHandle implements EndpointHandle {
       method: 'deliver',
       params: ['retireExports', vrefs],
     });
-    return this.#getCrankResults();
+    return this.#vatSyscall.getCrankResults();
   }
 
   /**
@@ -273,7 +273,7 @@ export class VatHandle implements EndpointHandle {
       method: 'deliver',
       params: ['retireImports', vrefs],
     });
-    return this.#getCrankResults();
+    return this.#vatSyscall.getCrankResults();
   }
 
   /**
@@ -286,7 +286,7 @@ export class VatHandle implements EndpointHandle {
       method: 'deliver',
       params: ['bringOutYourDead'],
     });
-    return this.#getCrankResults();
+    return this.#vatSyscall.getCrankResults();
   }
 
   /**
@@ -339,38 +339,5 @@ export class VatHandle implements EndpointHandle {
       }
     }
     return result;
-  }
-
-  /**
-   * Get the crank results after a delivery.
-   *
-   * @returns The crank results.
-   */
-  #getCrankResults(): CrankResults {
-    const results: CrankResults = {
-      didDelivery: this.vatId,
-    };
-
-    // These conditionals express a priority order: the consequences of an
-    // illegal syscall take precedence over a vat requesting termination, etc.
-    if (this.#vatSyscall.illegalSyscall) {
-      results.abort = true;
-      const { info } = this.#vatSyscall.illegalSyscall;
-      results.terminate = { vatId: this.vatId, reject: true, info };
-    } else if (this.#vatSyscall.deliveryError) {
-      results.abort = true;
-      const info = makeError(this.#vatSyscall.deliveryError);
-      results.terminate = { vatId: this.vatId, reject: true, info };
-    } else if (this.#vatSyscall.vatRequestedTermination) {
-      if (this.#vatSyscall.vatRequestedTermination.reject) {
-        results.abort = true;
-      }
-      results.terminate = {
-        vatId: this.vatId,
-        ...this.#vatSyscall.vatRequestedTermination,
-      };
-    }
-
-    return harden(results);
   }
 }

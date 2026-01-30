@@ -15,7 +15,7 @@ import type { KernelQueue } from '../KernelQueue.ts';
 import { makeError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import { coerceMessage } from '../types.ts';
-import type { Message, EndpointId, KRef } from '../types.ts';
+import type { Message, EndpointId, KRef, CrankResults } from '../types.ts';
 
 type VatSyscallProps = {
   vatId: EndpointId;
@@ -293,5 +293,40 @@ export class VatSyscall {
    */
   #recordVatFatalSyscall(error: string): void {
     this.illegalSyscall = { vatId: this.vatId, info: makeError(error) };
+  }
+
+  /**
+   * Build crank results after a delivery.
+   *
+   * @param deliveryError - Error from delivery, if any (for SystemVatHandle).
+   * @returns The crank results.
+   */
+  getCrankResults(deliveryError?: string | null): CrankResults {
+    const results: CrankResults = {
+      didDelivery: this.vatId,
+    };
+
+    const errorMessage = deliveryError ?? this.deliveryError;
+
+    // Priority order: illegalSyscall > deliveryError > vatRequestedTermination
+    if (this.illegalSyscall) {
+      results.abort = true;
+      const { info } = this.illegalSyscall;
+      results.terminate = { vatId: this.vatId, reject: true, info };
+    } else if (errorMessage) {
+      results.abort = true;
+      const info = makeError(errorMessage);
+      results.terminate = { vatId: this.vatId, reject: true, info };
+    } else if (this.vatRequestedTermination) {
+      if (this.vatRequestedTermination.reject) {
+        results.abort = true;
+      }
+      results.terminate = {
+        vatId: this.vatId,
+        ...this.vatRequestedTermination,
+      };
+    }
+
+    return harden(results);
   }
 }

@@ -15,7 +15,7 @@ describe('VatSyscall', () => {
   let kernelQueue: KernelQueue;
   let kernelStore: KernelStore;
   let logger: Logger;
-  let isActive: ReturnType<typeof vi.fn<[], boolean>>;
+  let isActive: () => boolean;
   let vatSys: VatSyscall;
 
   beforeEach(() => {
@@ -219,7 +219,7 @@ describe('VatSyscall', () => {
 
   describe('error handling', () => {
     it('handles vat not found error', () => {
-      isActive.mockReturnValueOnce(false);
+      vi.mocked(isActive).mockReturnValueOnce(false);
       const vso = ['send', 'o+1', {}] as unknown as VatSyscallObject;
       const result = vatSys.handleSyscall(vso);
 
@@ -292,6 +292,158 @@ describe('VatSyscall', () => {
       const result = systemVatSyscall.handleSyscall(vso);
 
       expect(result).toStrictEqual(['error', 'system vat not found']);
+    });
+  });
+
+  describe('getCrankResults', () => {
+    it('returns basic result when no errors or termination', () => {
+      const results = vatSys.getCrankResults();
+      expect(results).toStrictEqual({
+        didDelivery: 'v1',
+      });
+    });
+
+    it('returns termination result for illegalSyscall', () => {
+      vi.mocked(isActive).mockReturnValueOnce(false);
+      vatSys.handleSyscall(['send', 'o+1', {}] as unknown as VatSyscallObject);
+
+      const results = vatSys.getCrankResults();
+      expect(results).toStrictEqual({
+        didDelivery: 'v1',
+        abort: true,
+        terminate: {
+          vatId: 'v1',
+          reject: true,
+          info: expect.objectContaining({
+            body: expect.stringContaining('vat not found'),
+          }),
+        },
+      });
+    });
+
+    it('returns termination result for deliveryError stored in instance', () => {
+      vatSys.deliveryError = 'delivery failed';
+
+      const results = vatSys.getCrankResults();
+      expect(results).toStrictEqual({
+        didDelivery: 'v1',
+        abort: true,
+        terminate: {
+          vatId: 'v1',
+          reject: true,
+          info: expect.objectContaining({
+            body: expect.stringContaining('delivery failed'),
+          }),
+        },
+      });
+    });
+
+    it('returns termination result for deliveryError passed as parameter', () => {
+      const results = vatSys.getCrankResults('param delivery error');
+      expect(results).toStrictEqual({
+        didDelivery: 'v1',
+        abort: true,
+        terminate: {
+          vatId: 'v1',
+          reject: true,
+          info: expect.objectContaining({
+            body: expect.stringContaining('param delivery error'),
+          }),
+        },
+      });
+    });
+
+    it('prefers parameter deliveryError over instance deliveryError', () => {
+      vatSys.deliveryError = 'instance error';
+
+      const results = vatSys.getCrankResults('param error');
+      expect(results).toStrictEqual({
+        didDelivery: 'v1',
+        abort: true,
+        terminate: {
+          vatId: 'v1',
+          reject: true,
+          info: expect.objectContaining({
+            body: expect.stringContaining('param error'),
+          }),
+        },
+      });
+    });
+
+    it('returns termination result for vatRequestedTermination with reject=true', () => {
+      vatSys.handleSyscall([
+        'exit',
+        true,
+        { body: '"error message"', slots: [] },
+      ] as unknown as VatSyscallObject);
+
+      const results = vatSys.getCrankResults();
+      expect(results).toStrictEqual({
+        didDelivery: 'v1',
+        abort: true,
+        terminate: {
+          vatId: 'v1',
+          reject: true,
+          info: { body: '"error message"', slots: [] },
+        },
+      });
+    });
+
+    it('returns termination result for vatRequestedTermination with reject=false', () => {
+      vatSys.handleSyscall([
+        'exit',
+        false,
+        { body: '"graceful exit"', slots: [] },
+      ] as unknown as VatSyscallObject);
+
+      const results = vatSys.getCrankResults();
+      expect(results).toStrictEqual({
+        didDelivery: 'v1',
+        terminate: {
+          vatId: 'v1',
+          reject: false,
+          info: { body: '"graceful exit"', slots: [] },
+        },
+      });
+    });
+
+    it('prioritizes illegalSyscall over deliveryError', () => {
+      vi.mocked(isActive).mockReturnValueOnce(false);
+      vatSys.handleSyscall(['send', 'o+1', {}] as unknown as VatSyscallObject);
+      vatSys.deliveryError = 'delivery error';
+
+      const results = vatSys.getCrankResults();
+      expect(results.terminate?.info.body).toContain('vat not found');
+    });
+
+    it('prioritizes illegalSyscall over vatRequestedTermination', () => {
+      vi.mocked(isActive).mockReturnValueOnce(false);
+      vatSys.handleSyscall(['send', 'o+1', {}] as unknown as VatSyscallObject);
+      vatSys.vatRequestedTermination = {
+        reject: false,
+        info: { body: '"graceful"', slots: [] },
+      };
+
+      const results = vatSys.getCrankResults();
+      expect(results.terminate?.info.body).toContain('vat not found');
+    });
+
+    it('prioritizes deliveryError over vatRequestedTermination', () => {
+      vatSys.deliveryError = 'delivery error';
+      vatSys.vatRequestedTermination = {
+        reject: false,
+        info: { body: '"graceful"', slots: [] },
+      };
+
+      const results = vatSys.getCrankResults();
+      expect(results.terminate?.info.body).toContain('delivery error');
+    });
+
+    it('returns null parameter as no error', () => {
+      const results = vatSys.getCrankResults(null);
+      expect(results).toStrictEqual({
+        didDelivery: 'v1',
+      });
     });
   });
 });

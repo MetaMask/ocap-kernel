@@ -8,7 +8,6 @@ import type {
 import type { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from '../KernelQueue.ts';
-import { makeError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
   Message,
@@ -121,7 +120,7 @@ export class SystemVatHandle implements EndpointHandle {
     const deliveryError = await this.#deliver(
       harden(['message', target, swingSetMessage]),
     );
-    return this.#getCrankResults(deliveryError);
+    return this.#vatSyscall.getCrankResults(deliveryError);
   }
 
   /**
@@ -132,7 +131,7 @@ export class SystemVatHandle implements EndpointHandle {
    */
   async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResults> {
     const deliveryError = await this.#deliver(harden(['notify', resolutions]));
-    return this.#getCrankResults(deliveryError);
+    return this.#vatSyscall.getCrankResults(deliveryError);
   }
 
   /**
@@ -143,7 +142,7 @@ export class SystemVatHandle implements EndpointHandle {
    */
   async deliverDropExports(vrefs: VRef[]): Promise<CrankResults> {
     const deliveryError = await this.#deliver(harden(['dropExports', vrefs]));
-    return this.#getCrankResults(deliveryError);
+    return this.#vatSyscall.getCrankResults(deliveryError);
   }
 
   /**
@@ -154,7 +153,7 @@ export class SystemVatHandle implements EndpointHandle {
    */
   async deliverRetireExports(vrefs: VRef[]): Promise<CrankResults> {
     const deliveryError = await this.#deliver(harden(['retireExports', vrefs]));
-    return this.#getCrankResults(deliveryError);
+    return this.#vatSyscall.getCrankResults(deliveryError);
   }
 
   /**
@@ -165,7 +164,7 @@ export class SystemVatHandle implements EndpointHandle {
    */
   async deliverRetireImports(vrefs: VRef[]): Promise<CrankResults> {
     const deliveryError = await this.#deliver(harden(['retireImports', vrefs]));
-    return this.#getCrankResults(deliveryError);
+    return this.#vatSyscall.getCrankResults(deliveryError);
   }
 
   /**
@@ -175,40 +174,6 @@ export class SystemVatHandle implements EndpointHandle {
    */
   async deliverBringOutYourDead(): Promise<CrankResults> {
     const deliveryError = await this.#deliver(harden(['bringOutYourDead']));
-    return this.#getCrankResults(deliveryError);
-  }
-
-  /**
-   * Get the crank results after a delivery.
-   *
-   * @param deliveryError - The error from delivery, if any.
-   * @returns The crank results.
-   */
-  #getCrankResults(deliveryError: string | null): CrankResults {
-    const results: CrankResults = {
-      didDelivery: this.systemVatId,
-    };
-
-    // These conditionals express a priority order: the consequences of an
-    // illegal syscall take precedence over a vat requesting termination, etc.
-    if (this.#vatSyscall.illegalSyscall) {
-      results.abort = true;
-      const { info } = this.#vatSyscall.illegalSyscall;
-      results.terminate = { vatId: this.systemVatId, reject: true, info };
-    } else if (deliveryError) {
-      results.abort = true;
-      const info = makeError(deliveryError);
-      results.terminate = { vatId: this.systemVatId, reject: true, info };
-    } else if (this.#vatSyscall.vatRequestedTermination) {
-      if (this.#vatSyscall.vatRequestedTermination.reject) {
-        results.abort = true;
-      }
-      results.terminate = {
-        vatId: this.systemVatId,
-        ...this.#vatSyscall.vatRequestedTermination,
-      };
-    }
-
-    return harden(results);
+    return this.#vatSyscall.getCrankResults(deliveryError);
   }
 }
