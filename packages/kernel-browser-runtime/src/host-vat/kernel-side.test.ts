@@ -1,29 +1,29 @@
 import type { DuplexStream } from '@metamask/streams';
+import type {
+  JsonRpcMessage,
+  JsonRpcNotification,
+  JsonRpcRequest,
+  JsonRpcResponse,
+} from '@metamask/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeKernelHostVat } from './kernel-side.ts';
-import type {
-  KernelToSupervisorMessage,
-  SupervisorToKernelMessage,
-} from './transport.ts';
 
-type TestStream = DuplexStream<
-  SupervisorToKernelMessage,
-  KernelToSupervisorMessage
->;
+type TestStream = DuplexStream<JsonRpcMessage, JsonRpcMessage>;
 
 const makeMockStream = () => {
-  const written: KernelToSupervisorMessage[] = [];
-  const messageHandlers: ((message: SupervisorToKernelMessage) => void)[] = [];
+  const written: JsonRpcMessage[] = [];
+  const messageHandlers: ((message: JsonRpcMessage) => void | Promise<void>)[] =
+    [];
   let drainResolver: (() => void) | null = null;
 
   const stream: TestStream = {
-    write: vi.fn(async (message: KernelToSupervisorMessage) => {
+    write: vi.fn(async (message: JsonRpcMessage) => {
       written.push(message);
       return { done: false, value: undefined };
     }),
     drain: vi.fn(
-      async (handler: (message: SupervisorToKernelMessage) => void) => {
+      async (handler: (message: JsonRpcMessage) => void | Promise<void>) => {
         messageHandlers.push(handler);
         // Return a promise that resolves when test calls closeDrain()
         return new Promise<void>((resolve) => {
@@ -43,15 +43,29 @@ const makeMockStream = () => {
     stream,
     written,
     // Simulate receiving a message from supervisor
-    receiveMessage: (message: SupervisorToKernelMessage) => {
+    receiveMessage: async (message: JsonRpcMessage) => {
       for (const handler of messageHandlers) {
-        handler(message);
+        await handler(message);
       }
     },
     closeDrain: () => {
       drainResolver?.();
     },
   };
+};
+
+/**
+ * Helper to check if a message is a JSON-RPC request with the given method.
+ *
+ * @param message - The message to check.
+ * @param method - The expected method name.
+ * @returns True if the message is a request with the given method.
+ */
+const isRequestWithMethod = (
+  message: JsonRpcMessage,
+  method: string,
+): message is JsonRpcRequest => {
+  return 'method' in message && message.method === method && 'id' in message;
 };
 
 describe('makeKernelHostVat', () => {
@@ -80,18 +94,6 @@ describe('makeKernelHostVat', () => {
   });
 
   describe('connect', () => {
-    it('sends connected message when stream is connected', async () => {
-      const result = makeKernelHostVat();
-      const { stream, written } = makeMockStream();
-
-      result.connect(stream);
-
-      // Allow async operations to complete
-      await vi.waitFor(() => {
-        expect(written).toContainEqual({ type: 'connected' });
-      });
-    });
-
     it('starts draining the stream for messages', async () => {
       const result = makeKernelHostVat();
       const { stream } = makeMockStream();
@@ -105,21 +107,29 @@ describe('makeKernelHostVat', () => {
   });
 
   describe('awaitConnection', () => {
-    it('resolves when ready message is received', async () => {
+    it('resolves when ready notification is received', async () => {
       const result = makeKernelHostVat();
       const { stream, receiveMessage } = makeMockStream();
 
       result.connect(stream);
 
+      // Wait for drain to be called before sending messages
+      await vi.waitFor(() => {
+        expect(stream.drain).toHaveBeenCalled();
+      });
+
       const connectionPromise = result.config.transport.awaitConnection();
 
-      // Simulate supervisor sending ready message
-      receiveMessage({ type: 'ready' });
+      // Simulate supervisor sending ready notification (JSON-RPC)
+      await receiveMessage({
+        jsonrpc: '2.0',
+        method: 'ready',
+      });
 
       expect(await connectionPromise).toBeUndefined();
     });
 
-    it('does not resolve before ready message', async () => {
+    it('does not resolve before ready notification', async () => {
       const result = makeKernelHostVat();
       const { stream } = makeMockStream();
 
@@ -139,7 +149,7 @@ describe('makeKernelHostVat', () => {
   });
 
   describe('deliver', () => {
-    it('sends delivery message over stream', async () => {
+    it('sends delivery request over stream as JSON-RPC', async () => {
       const result = makeKernelHostVat();
       const { stream, written, receiveMessage } = makeMockStream();
 
@@ -157,29 +167,35 @@ describe('makeKernelHostVat', () => {
       );
 
       await vi.waitFor(() => {
-        const deliveryMsg = written.find((item) => item.type === 'delivery');
+        const deliveryMsg = written.find((item) =>
+          isRequestWithMethod(item, 'deliver'),
+        );
         expect(deliveryMsg).toBeDefined();
       });
 
-      // Verify the delivery message format
-      const deliveryMsg = written.find(
-        (
-          item,
-        ): item is Extract<KernelToSupervisorMessage, { type: 'delivery' }> =>
-          item.type === 'delivery',
-      );
-      expect(deliveryMsg?.delivery).toStrictEqual(delivery);
-      expect(deliveryMsg?.id).toBe('0');
+      // Verify the delivery message format (JSON-RPC request)
+      const deliveryMsg = written.find((item) =>
+        isRequestWithMethod(item, 'deliver'),
+      ) as JsonRpcRequest;
+      expect(deliveryMsg.jsonrpc).toBe('2.0');
+      expect(deliveryMsg.method).toBe('deliver');
+      expect(deliveryMsg.params).toStrictEqual(delivery);
+      expect(deliveryMsg.id).toMatch(/^kernel:\d+$/u);
 
-      // Simulate supervisor responding
-      receiveMessage({ type: 'delivery-result', id: '0', error: null });
+      // Simulate supervisor responding with JSON-RPC response
+      // The deliver result is [checkpoint, deliveryError]
+      await receiveMessage({
+        jsonrpc: '2.0',
+        id: deliveryMsg.id,
+        result: [[[], []], null],
+      } as JsonRpcResponse);
 
       expect(await deliverPromise).toBeNull();
     });
 
     it('returns delivery error when supervisor reports error', async () => {
       const result = makeKernelHostVat();
-      const { stream, receiveMessage } = makeMockStream();
+      const { stream, written, receiveMessage } = makeMockStream();
 
       result.connect(stream);
 
@@ -199,12 +215,17 @@ describe('makeKernelHostVat', () => {
         expect(stream.write).toHaveBeenCalled();
       });
 
-      // Simulate supervisor responding with error
-      receiveMessage({
-        type: 'delivery-result',
-        id: '0',
-        error: 'Delivery failed',
-      });
+      // Get the request ID
+      const deliveryMsg = written.find((item) =>
+        isRequestWithMethod(item, 'deliver'),
+      ) as JsonRpcRequest;
+
+      // Simulate supervisor responding with error in result
+      await receiveMessage({
+        jsonrpc: '2.0',
+        id: deliveryMsg.id,
+        result: [[[], []], 'Delivery failed'],
+      } as JsonRpcResponse);
 
       expect(await deliverPromise).toBe('Delivery failed');
     });
@@ -229,9 +250,9 @@ describe('makeKernelHostVat', () => {
       );
 
       await vi.waitFor(() => {
-        expect(written.filter((item) => item.type === 'delivery')).toHaveLength(
-          1,
-        );
+        expect(
+          written.filter((item) => isRequestWithMethod(item, 'deliver')),
+        ).toHaveLength(1);
       });
 
       // Send second delivery
@@ -242,24 +263,33 @@ describe('makeKernelHostVat', () => {
       );
 
       await vi.waitFor(() => {
-        expect(written.filter((item) => item.type === 'delivery')).toHaveLength(
-          2,
-        );
+        expect(
+          written.filter((item) => isRequestWithMethod(item, 'deliver')),
+        ).toHaveLength(2);
       });
 
-      // Check IDs
-      const deliveryMsgs = written.filter(
-        (
-          item,
-        ): item is Extract<KernelToSupervisorMessage, { type: 'delivery' }> =>
-          item.type === 'delivery',
+      // Check IDs increment within a single host vat instance
+      const deliveryMsgs = written.filter((item) =>
+        isRequestWithMethod(item, 'deliver'),
       );
-      expect(deliveryMsgs[0]?.id).toBe('0');
-      expect(deliveryMsgs[1]?.id).toBe('1');
+      const id1 = deliveryMsgs[0]?.id as string;
+      const id2 = deliveryMsgs[1]?.id as string;
+      // IDs should be different and follow the pattern
+      expect(id1).toMatch(/^kernel:\d+$/u);
+      expect(id2).toMatch(/^kernel:\d+$/u);
+      expect(id1).not.toBe(id2);
 
       // Resolve both
-      receiveMessage({ type: 'delivery-result', id: '0', error: null });
-      receiveMessage({ type: 'delivery-result', id: '1', error: null });
+      await receiveMessage({
+        jsonrpc: '2.0',
+        id: id1,
+        result: [[[], []], null],
+      } as JsonRpcResponse);
+      await receiveMessage({
+        jsonrpc: '2.0',
+        id: id2,
+        result: [[[], []], null],
+      } as JsonRpcResponse);
 
       await Promise.all([deliver1, deliver2]);
     });
@@ -284,7 +314,7 @@ describe('makeKernelHostVat', () => {
   });
 
   describe('syscall handling', () => {
-    it('calls syscall handler when syscall message is received', async () => {
+    it('calls syscall handler when syscall notification is received', async () => {
       const result = makeKernelHostVat();
       const { stream, receiveMessage } = makeMockStream();
       const syscallHandler = vi.fn().mockReturnValue(['ok', null]);
@@ -293,9 +323,16 @@ describe('makeKernelHostVat', () => {
       result.connect(stream);
 
       const syscall = ['send', 'ko1', { methargs: { body: '', slots: [] } }];
-      receiveMessage({ type: 'syscall', syscall: syscall as never });
+      // Send as JSON-RPC notification
+      await receiveMessage({
+        jsonrpc: '2.0',
+        method: 'syscall',
+        params: syscall,
+      } as JsonRpcNotification);
 
-      expect(syscallHandler).toHaveBeenCalledWith(syscall);
+      await vi.waitFor(() => {
+        expect(syscallHandler).toHaveBeenCalledWith(syscall);
+      });
     });
 
     it('ignores syscall if handler is not set', async () => {
@@ -309,13 +346,17 @@ describe('makeKernelHostVat', () => {
       const syscall = ['send', 'ko1', { methargs: { body: '', slots: [] } }];
 
       // Should not throw
-      expect(() => {
-        receiveMessage({ type: 'syscall', syscall: syscall as never });
-      }).not.toThrow();
+      await receiveMessage({
+        jsonrpc: '2.0',
+        method: 'syscall',
+        params: syscall,
+      } as JsonRpcNotification);
 
-      expect(mockLogger.warn).toHaveBeenCalledWith(
-        'Received syscall before handler was set',
-      );
+      await vi.waitFor(() => {
+        expect(mockLogger.warn).toHaveBeenCalledWith(
+          'Received syscall before handler was set',
+        );
+      });
     });
 
     it('logs error if syscall handler throws', async () => {
@@ -332,9 +373,15 @@ describe('makeKernelHostVat', () => {
       result.connect(stream);
 
       const syscall = ['send', 'ko1', { methargs: { body: '', slots: [] } }];
-      receiveMessage({ type: 'syscall', syscall: syscall as never });
+      await receiveMessage({
+        jsonrpc: '2.0',
+        method: 'syscall',
+        params: syscall,
+      } as JsonRpcNotification);
 
-      expect(mockLogger.error).toHaveBeenCalledWith('Syscall error:', error);
+      await vi.waitFor(() => {
+        expect(mockLogger.error).toHaveBeenCalledWith('Syscall error:', error);
+      });
     });
   });
 });

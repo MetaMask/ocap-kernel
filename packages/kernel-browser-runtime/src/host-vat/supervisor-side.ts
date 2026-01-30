@@ -4,6 +4,9 @@ import type {
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
 import { makePromiseKit } from '@endo/promise-kit';
+import { RpcClient, RpcService } from '@metamask/kernel-rpc-methods';
+import { stringify } from '@metamask/kernel-utils';
+import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import type {
   KernelFacet,
@@ -11,11 +14,9 @@ import type {
 } from '@metamask/ocap-kernel';
 import { SystemVatSupervisor } from '@metamask/ocap-kernel/vats';
 import type { DuplexStream } from '@metamask/streams';
+import { isJsonRpcRequest } from '@metamask/utils';
 
-import type {
-  KernelToSupervisorMessage,
-  SupervisorToKernelMessage,
-} from './transport.ts';
+import { supervisorToKernelSpecs, supervisorHandlers } from './rpc/index.ts';
 
 /**
  * Result of creating a background-side host vat.
@@ -25,11 +26,9 @@ export type BackgroundHostVatResult = {
    * Connect and start the supervisor.
    * Call this with the stream to the kernel Worker.
    *
-   * @param stream - The duplex stream to communicate with the kernel.
+   * @param stream - The duplex stream for JSON-RPC communication with the kernel.
    */
-  connect: (
-    stream: DuplexStream<KernelToSupervisorMessage, SupervisorToKernelMessage>,
-  ) => void;
+  connect: (stream: DuplexStream<JsonRpcMessage, JsonRpcMessage>) => void;
 
   /**
    * Promise that resolves to kernelFacet when bootstrap completes.
@@ -76,30 +75,24 @@ export function makeBackgroundHostVat(options: {
   // Promise kit for kernel facet - resolves when bootstrap is called
   const kernelFacetKit = makePromiseKit<KernelFacet>();
 
-  // Stream for communication - set when connect() is called
-  let stream: DuplexStream<
-    KernelToSupervisorMessage,
-    SupervisorToKernelMessage
-  > | null = null;
-
-  // Supervisor instance - created when connect() is called
-  let supervisor: SystemVatSupervisor | null = null;
+  // RpcClient for sending syscalls to kernel - set when connect() is called
+  let rpcClient: RpcClient<typeof supervisorToKernelSpecs> | null = null;
 
   /**
-   * Execute a syscall by sending it to the kernel.
+   * Execute a syscall by sending it to the kernel via RPC notification.
    * Uses optimistic execution - returns success immediately.
    *
    * @param vso - The syscall object to execute.
    * @returns A syscall success result.
    */
   const executeSyscall = (vso: VatSyscallObject): VatSyscallResult => {
-    if (!stream) {
+    if (!rpcClient) {
       throw new Error('Stream not connected');
     }
 
-    // Send syscall notification (fire-and-forget)
-    // The syscall is sent as-is; structured clone handles serialization
-    stream.write({ type: 'syscall', syscall: vso }).catch((error) => {
+    // Send syscall as notification (fire-and-forget)
+    // Cast needed because the RPC spec uses slightly different types
+    rpcClient.notify('syscall', vso as never).catch((error) => {
       logger?.error('Failed to send syscall:', error);
     });
 
@@ -125,59 +118,17 @@ export function makeBackgroundHostVat(options: {
     return buildRootObject(vatPowers, parameters);
   };
 
-  /**
-   * Handle incoming messages from the kernel.
-   *
-   * @param message - The message from the kernel.
-   */
-  const handleMessage = async (
-    message: KernelToSupervisorMessage,
-  ): Promise<void> => {
-    switch (message.type) {
-      case 'connected':
-        // Kernel acknowledges connection - nothing to do
-        logger?.debug('Received connected message from kernel');
-        break;
-
-      case 'delivery': {
-        if (!supervisor) {
-          logger?.error('Received delivery before supervisor was created');
-          await stream?.write({
-            type: 'delivery-result',
-            id: message.id,
-            error: 'Supervisor not ready',
-          });
-          return;
-        }
-
-        // Deliver to supervisor and send result back
-        // Cast from DeliveryObject (our JSON-safe type) to VatDeliveryObject
-        const deliveryError = await supervisor.deliver(
-          message.delivery as unknown as VatDeliveryObject,
-        );
-
-        await stream?.write({
-          type: 'delivery-result',
-          id: message.id,
-          error: deliveryError,
-        });
-        break;
-      }
-
-      default:
-        logger?.warn(
-          `Unknown message type: ${(message as { type: string }).type}`,
-        );
-    }
-  };
-
   const connect = (
-    connectedStream: DuplexStream<
-      KernelToSupervisorMessage,
-      SupervisorToKernelMessage
-    >,
+    stream: DuplexStream<JsonRpcMessage, JsonRpcMessage>,
   ): void => {
-    stream = connectedStream;
+    rpcClient = new RpcClient(
+      supervisorToKernelSpecs,
+      async (message) => {
+        await stream.write(message);
+      },
+      'supervisor:',
+      logger,
+    );
 
     // Create and start the supervisor
     const supervisorOptions = {
@@ -185,16 +136,59 @@ export function makeBackgroundHostVat(options: {
       executeSyscall,
       ...(logger && { logger: logger.subLogger({ tags: ['supervisor'] }) }),
     };
+
     SystemVatSupervisor.make(supervisorOptions)
       .then(async (createdSupervisor) => {
-        supervisor = createdSupervisor;
+        // Create RpcService for handling delivery requests from kernel
+        const rpcService = new RpcService(supervisorHandlers, {
+          handleDelivery: async (params) => {
+            const deliveryError = await createdSupervisor.deliver(
+              params as VatDeliveryObject,
+            );
+            // SystemVatSupervisor returns just the error, but the spec expects
+            // VatDeliveryResult which is [VatCheckpoint, error]. System vats
+            // don't checkpoint, so we return an empty checkpoint.
+            const emptyCheckpoint: [[string, string][], string[]] = [[], []];
+            return [emptyCheckpoint, deliveryError];
+          },
+        });
 
-        // Signal to kernel that we're ready
-        return stream?.write({ type: 'ready' });
-      })
-      .then(async () => {
+        // Signal to kernel that we're ready via notification
+        await stream.write({
+          jsonrpc: '2.0' as const,
+          method: 'ready',
+        });
+
         // Start draining the stream for incoming messages
-        return stream?.drain(handleMessage);
+        return stream.drain(async (message) => {
+          if (isJsonRpcRequest(message) && message.method === 'deliver') {
+            // Request from kernel (deliver)
+            try {
+              const result = await rpcService.execute(
+                'deliver',
+                message.params,
+              );
+              await stream.write({
+                jsonrpc: '2.0',
+                id: message.id,
+                result,
+              });
+            } catch (error) {
+              await stream.write({
+                jsonrpc: '2.0',
+                id: message.id,
+                error: {
+                  code: -32603,
+                  message: (error as Error).message,
+                },
+              });
+            }
+          } else {
+            throw new Error(
+              `Unexpected host vat message from kernel: ${stringify(message)}`,
+            );
+          }
+        });
       })
       .catch((error) => {
         logger?.error('Supervisor initialization error:', error);

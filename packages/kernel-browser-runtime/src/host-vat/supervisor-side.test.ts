@@ -1,14 +1,14 @@
 import { SystemVatSupervisor } from '@metamask/ocap-kernel/vats';
 import type { DuplexStream } from '@metamask/streams';
+import type {
+  JsonRpcMessage,
+  JsonRpcNotification,
+  JsonRpcRequest,
+  JsonRpcResponse,
+} from '@metamask/utils';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeBackgroundHostVat } from './supervisor-side.ts';
-import type {
-  KernelToSupervisorMessage,
-  SupervisorToKernelMessage,
-} from './transport.ts';
-
-// Import after mock
 
 // Mock SystemVatSupervisor
 vi.mock('@metamask/ocap-kernel/vats', () => ({
@@ -17,27 +17,21 @@ vi.mock('@metamask/ocap-kernel/vats', () => ({
   },
 }));
 
-type TestStream = DuplexStream<
-  KernelToSupervisorMessage,
-  SupervisorToKernelMessage
->;
+type TestStream = DuplexStream<JsonRpcMessage, JsonRpcMessage>;
 
 const makeMockStream = () => {
-  const written: SupervisorToKernelMessage[] = [];
-  const messageHandlers: ((
-    message: KernelToSupervisorMessage,
-  ) => void | Promise<void>)[] = [];
+  const written: JsonRpcMessage[] = [];
+  const messageHandlers: ((message: JsonRpcMessage) => void | Promise<void>)[] =
+    [];
   let drainResolver: (() => void) | null = null;
 
   const stream: TestStream = {
-    write: vi.fn(async (message: SupervisorToKernelMessage) => {
+    write: vi.fn(async (message: JsonRpcMessage) => {
       written.push(message);
       return { done: false, value: undefined };
     }),
     drain: vi.fn(
-      async (
-        handler: (message: KernelToSupervisorMessage) => void | Promise<void>,
-      ) => {
+      async (handler: (message: JsonRpcMessage) => void | Promise<void>) => {
         messageHandlers.push(handler);
         // Return a promise that resolves when test calls closeDrain()
         return new Promise<void>((resolve) => {
@@ -57,7 +51,7 @@ const makeMockStream = () => {
     stream,
     written,
     // Simulate receiving a message from kernel
-    receiveMessage: async (message: KernelToSupervisorMessage) => {
+    receiveMessage: async (message: JsonRpcMessage) => {
       for (const handler of messageHandlers) {
         await handler(message);
       }
@@ -72,6 +66,30 @@ const makeMockSupervisor = () => ({
   deliver: vi.fn().mockResolvedValue(null),
   id: 'sv0' as const,
 });
+
+/**
+ * Helper to check if a message is a JSON-RPC notification with the given method.
+ *
+ * @param message - The message to check.
+ * @param method - The expected method name.
+ * @returns True if the message is a notification with the given method.
+ */
+const isNotificationWithMethod = (
+  message: JsonRpcMessage,
+  method: string,
+): message is JsonRpcNotification => {
+  return 'method' in message && message.method === method && !('id' in message);
+};
+
+/**
+ * Helper to check if a message is a JSON-RPC response.
+ *
+ * @param message - The message to check.
+ * @returns True if the message is a response.
+ */
+const isResponse = (message: JsonRpcMessage): message is JsonRpcResponse => {
+  return 'id' in message && ('result' in message || 'error' in message);
+};
 
 describe('makeBackgroundHostVat', () => {
   let mockSupervisor: ReturnType<typeof makeMockSupervisor>;
@@ -101,7 +119,7 @@ describe('makeBackgroundHostVat', () => {
       expect(makeCall?.[0]).toHaveProperty('executeSyscall');
     });
 
-    it('sends ready message after supervisor is created', async () => {
+    it('sends ready notification after supervisor is created', async () => {
       const buildRootObject = vi.fn().mockReturnValue({});
       const result = makeBackgroundHostVat({ buildRootObject });
       const { stream, written } = makeMockStream();
@@ -109,7 +127,19 @@ describe('makeBackgroundHostVat', () => {
       result.connect(stream);
 
       await vi.waitFor(() => {
-        expect(written).toContainEqual({ type: 'ready' });
+        const readyMsg = written.find((item) =>
+          isNotificationWithMethod(item, 'ready'),
+        );
+        expect(readyMsg).toBeDefined();
+      });
+
+      // Verify the ready message format (JSON-RPC notification)
+      const readyMsg = written.find((item) =>
+        isNotificationWithMethod(item, 'ready'),
+      );
+      expect(readyMsg).toStrictEqual({
+        jsonrpc: '2.0',
+        method: 'ready',
       });
     });
 
@@ -200,7 +230,7 @@ describe('makeBackgroundHostVat', () => {
   });
 
   describe('delivery handling', () => {
-    it('delivers to supervisor and sends result back', async () => {
+    it('delivers to supervisor and sends JSON-RPC response back', async () => {
       const buildRootObject = vi.fn().mockReturnValue({});
       const result = makeBackgroundHostVat({ buildRootObject });
       const { stream, written, receiveMessage } = makeMockStream();
@@ -209,7 +239,10 @@ describe('makeBackgroundHostVat', () => {
 
       // Wait for supervisor to be ready
       await vi.waitFor(() => {
-        expect(written).toContainEqual({ type: 'ready' });
+        const readyMsg = written.find((item) =>
+          isNotificationWithMethod(item, 'ready'),
+        );
+        expect(readyMsg).toBeDefined();
       });
 
       const delivery = [
@@ -218,21 +251,26 @@ describe('makeBackgroundHostVat', () => {
         { methargs: { body: '', slots: [] } },
       ];
 
+      // Send JSON-RPC request for delivery
       await receiveMessage({
-        type: 'delivery',
-        delivery: delivery as never,
-        id: '123',
-      });
+        jsonrpc: '2.0',
+        id: 'kernel:123',
+        method: 'deliver',
+        params: delivery,
+      } as JsonRpcRequest);
 
       expect(mockSupervisor.deliver).toHaveBeenCalledWith(delivery);
-      expect(written).toContainEqual({
-        type: 'delivery-result',
-        id: '123',
-        error: null,
+
+      // Check the response - VatDeliveryResult is [checkpoint, error]
+      const responseMsg = written.find((item) => isResponse(item));
+      expect(responseMsg).toStrictEqual({
+        jsonrpc: '2.0',
+        id: 'kernel:123',
+        result: [[[], []], null],
       });
     });
 
-    it('sends delivery error when supervisor.deliver returns error', async () => {
+    it('sends delivery error in response when supervisor.deliver returns error', async () => {
       mockSupervisor.deliver.mockResolvedValue('Something went wrong');
 
       const buildRootObject = vi.fn().mockReturnValue({});
@@ -242,7 +280,10 @@ describe('makeBackgroundHostVat', () => {
       result.connect(stream);
 
       await vi.waitFor(() => {
-        expect(written).toContainEqual({ type: 'ready' });
+        const readyMsg = written.find((item) =>
+          isNotificationWithMethod(item, 'ready'),
+        );
+        expect(readyMsg).toBeDefined();
       });
 
       const delivery = [
@@ -251,47 +292,26 @@ describe('makeBackgroundHostVat', () => {
         { methargs: { body: '', slots: [] } },
       ];
 
+      // Send JSON-RPC request for delivery
       await receiveMessage({
-        type: 'delivery',
-        delivery: delivery as never,
-        id: '456',
+        jsonrpc: '2.0',
+        id: 'kernel:456',
+        method: 'deliver',
+        params: delivery,
+      } as JsonRpcRequest);
+
+      // VatDeliveryResult is [checkpoint, error]
+      const responseMsg = written.find((item) => isResponse(item));
+      expect(responseMsg).toStrictEqual({
+        jsonrpc: '2.0',
+        id: 'kernel:456',
+        result: [[[], []], 'Something went wrong'],
       });
-
-      expect(written).toContainEqual({
-        type: 'delivery-result',
-        id: '456',
-        error: 'Something went wrong',
-      });
-    });
-
-    it('handles connected message from kernel', async () => {
-      const mockLogger = {
-        debug: vi.fn(),
-        subLogger: vi.fn(() => mockLogger),
-      };
-      const buildRootObject = vi.fn().mockReturnValue({});
-      const result = makeBackgroundHostVat({
-        buildRootObject,
-        logger: mockLogger as never,
-      });
-      const { stream, written, receiveMessage } = makeMockStream();
-
-      result.connect(stream);
-
-      await vi.waitFor(() => {
-        expect(written).toContainEqual({ type: 'ready' });
-      });
-
-      await receiveMessage({ type: 'connected' });
-
-      expect(mockLogger.debug).toHaveBeenCalledWith(
-        'Received connected message from kernel',
-      );
     });
   });
 
   describe('syscall execution', () => {
-    it('sends syscall over stream with coerced object', async () => {
+    it('sends syscall as JSON-RPC notification over stream', async () => {
       let capturedExecuteSyscall: ((vso: unknown) => unknown) | null = null;
 
       vi.mocked(SystemVatSupervisor.make).mockImplementation(
@@ -323,10 +343,20 @@ describe('makeBackgroundHostVat', () => {
       expect(syscallResult).toStrictEqual(['ok', null]);
 
       await vi.waitFor(() => {
-        expect(written).toContainEqual({
-          type: 'syscall',
-          syscall,
-        });
+        const syscallMsg = written.find((item) =>
+          isNotificationWithMethod(item, 'syscall'),
+        );
+        expect(syscallMsg).toBeDefined();
+      });
+
+      // Verify the syscall message format (JSON-RPC notification)
+      const syscallMsg = written.find((item) =>
+        isNotificationWithMethod(item, 'syscall'),
+      );
+      expect(syscallMsg).toStrictEqual({
+        jsonrpc: '2.0',
+        method: 'syscall',
+        params: syscall,
       });
     });
 
