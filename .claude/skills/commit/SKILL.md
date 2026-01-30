@@ -30,10 +30,6 @@ When asked to commit code, follow these steps:
 4. Stage and commit the changes:
 
    - Add relevant files using `git add`
-   - Create the commit with a message ending with:
-     ```
-     Co-Authored-By: Claude <noreply@anthropic.com>
-     ```
    - Use a plain string for the commit message (do not use HEREDOCs).
 
 5. Report the results including:
