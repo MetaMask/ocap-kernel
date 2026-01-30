@@ -1,12 +1,6 @@
 import { E } from '@endo/eventual-send';
-import {
-  makeBackgroundCapTP,
-  makeCapTPNotification,
-  isCapTPNotification,
-  getCapTPMessage,
-} from '@metamask/kernel-browser-runtime';
-import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
-import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
+import { makeBackgroundHostVat } from '@metamask/kernel-browser-runtime';
+import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
@@ -25,7 +19,7 @@ let bootPromise: Promise<void> | null = null;
 // With this we can click the extension action button to wake up the service worker.
 chrome.action.onClicked.addListener(() => {
   globalThis.kernel !== undefined &&
-    E(globalThis.kernel).ping().catch(logger.error);
+    E(globalThis.kernel).getStatus().catch(logger.error);
 });
 
 // Install/update
@@ -91,49 +85,28 @@ async function main(): Promise<void> {
   // Without this delay, sending messages via the chrome.runtime API can fail.
   await delay(50);
 
+  // Create stream for JSON-RPC messages to kernel
   const offscreenStream = await ChromeRuntimeDuplexStream.make<
     JsonRpcMessage,
     JsonRpcMessage
   >(chrome.runtime, 'background', 'offscreen', isJsonRpcMessage);
 
-  const backgroundCapTP = makeBackgroundCapTP({
-    send: (captpMessage: CapTPMessage) => {
-      const notification = makeCapTPNotification(captpMessage);
-      offscreenStream.write(notification).catch((error) => {
-        logger.error('Failed to send CapTP message:', error);
-      });
-    },
+  // Create host vat - captures kernelFacet from bootstrap automatically
+  const hostVat = makeBackgroundHostVat({ logger });
+
+  // Connect to kernel via offscreen pipe
+  hostVat.connect(offscreenStream);
+
+  // Wait for kernel facet (resolves after bootstrap)
+  const kernelFacet = await hostVat.kernelFacetPromise;
+  globalThis.kernel = kernelFacet;
+
+  // Initialize controllers with kernel facet
+  const controllers = await initializeControllers({
+    logger,
+    kernel: kernelFacet,
   });
-
-  const kernelP = backgroundCapTP.getKernel();
-  globalThis.kernel = kernelP;
-
-  try {
-    const controllers = await initializeControllers({
-      logger,
-      kernel: kernelP,
-    });
-    globals.setCapletController(controllers.caplet);
-  } catch (error) {
-    offscreenStream.throw(error as Error).catch(logger.error);
-  }
-
-  try {
-    await offscreenStream.drain((message) => {
-      if (isCapTPNotification(message)) {
-        const captpMessage = getCapTPMessage(message);
-        backgroundCapTP.dispatch(captpMessage);
-      } else {
-        throw new Error(`Unexpected message: ${stringify(message)}`);
-      }
-    });
-  } catch (error) {
-    const finalError = new Error('Offscreen connection closed unexpectedly', {
-      cause: error,
-    });
-    backgroundCapTP.abort(finalError);
-    throw finalError;
-  }
+  globals.setCapletController(controllers.caplet);
 }
 
 type GlobalSetters = {
