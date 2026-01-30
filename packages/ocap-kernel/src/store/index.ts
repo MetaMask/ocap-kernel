@@ -84,7 +84,7 @@ import { getRevocationMethods } from './methods/revocation.ts';
 import { getSubclusterMethods } from './methods/subclusters.ts';
 import { getTranslators } from './methods/translators.ts';
 import { getVatMethods } from './methods/vat.ts';
-import type { CrankBufferItem, StoreContext } from './types.ts';
+import type { StoreContext } from './types.ts';
 
 /**
  * Create a new KernelStore object wrapped around a raw kernel database. The
@@ -234,26 +234,6 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     kdb.clear();
   }
 
-  /**
-   * Buffer a vat output for delivery upon crank completion.
-   *
-   * @param item - The item to buffer.
-   */
-  function bufferCrankOutput(item: CrankBufferItem): void {
-    context.crankBuffer.push(item);
-  }
-
-  /**
-   * Flush the crank buffer, returning all buffered items.
-   *
-   * @returns The buffered items.
-   */
-  function flushCrankBuffer(): CrankBufferItem[] {
-    const items = context.crankBuffer;
-    context.crankBuffer = [];
-    return items;
-  }
-
   return harden({
     ...id,
     ...queue,
@@ -275,8 +255,6 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     clear,
     reset,
     kv,
-    bufferCrankOutput,
-    flushCrankBuffer,
   });
 }
 
