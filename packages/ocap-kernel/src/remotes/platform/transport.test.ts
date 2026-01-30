@@ -16,7 +16,7 @@ let initTransport: typeof import('./transport.ts').initTransport;
 // Mock ReconnectionManager
 const mockReconnectionManager = {
   isReconnecting: vi.fn().mockReturnValue(false),
-  startReconnection: vi.fn(),
+  startReconnection: vi.fn().mockReturnValue(true),
   stopReconnection: vi.fn(),
   shouldRetry: vi.fn().mockReturnValue(true),
   incrementAttempt: vi.fn().mockReturnValue(1),
@@ -26,6 +26,9 @@ const mockReconnectionManager = {
   resetAllBackoffs: vi.fn(),
   clear: vi.fn(),
   clearPeer: vi.fn(),
+  isPermanentlyFailed: vi.fn().mockReturnValue(false),
+  recordError: vi.fn(),
+  clearPermanentFailure: vi.fn(),
 };
 
 vi.mock('./reconnection.ts', () => {
@@ -51,6 +54,12 @@ vi.mock('./reconnection.ts', () => {
     clear = mockReconnectionManager.clear;
 
     clearPeer = mockReconnectionManager.clearPeer;
+
+    isPermanentlyFailed = mockReconnectionManager.isPermanentlyFailed;
+
+    recordError = mockReconnectionManager.recordError;
+
+    clearPermanentFailure = mockReconnectionManager.clearPermanentFailure;
   }
   return {
     ReconnectionManager: MockReconnectionManager,
@@ -128,6 +137,10 @@ vi.mock('@metamask/kernel-errors', () => ({
       errorWithCode?.code === 'ETIMEDOUT'
     );
   }),
+  getNetworkErrorCode: vi.fn().mockImplementation((error: unknown) => {
+    const errorWithCode = error as { code?: string; name?: string };
+    return errorWithCode?.code ?? errorWithCode?.name ?? 'UNKNOWN';
+  }),
   isResourceLimitError: vi.fn().mockReturnValue(false),
 }));
 
@@ -172,6 +185,9 @@ describe('transport.initTransport', () => {
     mockReconnectionManager.resetAllBackoffs.mockClear();
     mockReconnectionManager.clear.mockClear();
     mockReconnectionManager.clearPeer.mockClear();
+    mockReconnectionManager.isPermanentlyFailed.mockClear();
+    mockReconnectionManager.recordError.mockClear();
+    mockReconnectionManager.clearPermanentFailure.mockClear();
 
     mockConnectionFactory.dialIdempotent.mockReset();
     mockConnectionFactory.onInboundConnection.mockClear();
@@ -603,6 +619,7 @@ describe('transport.initTransport', () => {
       );
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
+        return true;
       });
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
@@ -963,6 +980,7 @@ describe('transport.initTransport', () => {
       );
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
+        return true;
       });
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
@@ -1011,6 +1029,7 @@ describe('transport.initTransport', () => {
       );
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
+        return true;
       });
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
@@ -1060,6 +1079,53 @@ describe('transport.initTransport', () => {
 
       // Should not start another reconnection
       expect(mockReconnectionManager.startReconnection).not.toHaveBeenCalled();
+    });
+
+    it('does not clear error history when reconnection is already in progress', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { closeConnection, reconnectPeer } = await initTransport(
+        '0x1234',
+        {},
+        vi.fn(),
+      );
+
+      await closeConnection('peer-1');
+
+      // Set up reconnection state - already reconnecting
+      mockReconnectionManager.isReconnecting.mockReturnValue(true);
+
+      await reconnectPeer('peer-1');
+
+      // Should not clear permanent failure status (which also clears error history)
+      // when reconnection is already in progress
+      expect(
+        mockReconnectionManager.clearPermanentFailure,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('clears permanent failure status when manually reconnecting', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { closeConnection, reconnectPeer } = await initTransport(
+        '0x1234',
+        {},
+        vi.fn(),
+      );
+
+      await closeConnection('peer-1');
+      await reconnectPeer('peer-1');
+
+      // Should clear permanent failure status before attempting reconnection
+      expect(
+        mockReconnectionManager.clearPermanentFailure,
+      ).toHaveBeenCalledWith('peer-1');
+      // Then start reconnection
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+        'peer-1',
+      );
     });
 
     it('allows sending messages after reconnection', async () => {
@@ -1169,6 +1235,7 @@ describe('transport.initTransport', () => {
       );
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
+        return true;
       });
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
@@ -1260,6 +1327,7 @@ describe('transport.initTransport', () => {
       );
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
+        return true;
       });
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
@@ -1305,6 +1373,7 @@ describe('transport.initTransport', () => {
       );
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
+        return true;
       });
       // First call should return true (to enter loop), then false when checking after flush failure
       mockReconnectionManager.shouldRetry
@@ -1360,6 +1429,7 @@ describe('transport.initTransport', () => {
       );
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
+        return true;
       });
       mockReconnectionManager.shouldRetry
         .mockReturnValueOnce(true)
@@ -1412,6 +1482,7 @@ describe('transport.initTransport', () => {
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
         attemptCount = 0; // Reset on start
+        return true;
       });
       mockReconnectionManager.incrementAttempt.mockImplementation(() => {
         attemptCount += 1;
@@ -1430,6 +1501,8 @@ describe('transport.initTransport', () => {
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
       });
+      mockReconnectionManager.isPermanentlyFailed.mockReturnValue(false);
+
       const { abortableDelay } = await import('@metamask/kernel-utils');
       (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
@@ -1477,6 +1550,7 @@ describe('transport.initTransport', () => {
       );
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
+        return true;
       });
       mockReconnectionManager.shouldRetry.mockReturnValue(true);
       mockReconnectionManager.incrementAttempt.mockReturnValue(1);
@@ -1484,6 +1558,7 @@ describe('transport.initTransport', () => {
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
       });
+      mockReconnectionManager.isPermanentlyFailed.mockReturnValue(false);
 
       const { abortableDelay } = await import('@metamask/kernel-utils');
       (abortableDelay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
@@ -1568,6 +1643,7 @@ describe('transport.initTransport', () => {
       );
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
+        return true;
       });
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
@@ -1622,6 +1698,7 @@ describe('transport.initTransport', () => {
       );
       mockReconnectionManager.startReconnection.mockImplementation(() => {
         reconnecting = true;
+        return true;
       });
       mockReconnectionManager.stopReconnection.mockImplementation(() => {
         reconnecting = false;
