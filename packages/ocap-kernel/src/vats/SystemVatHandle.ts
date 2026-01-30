@@ -1,6 +1,5 @@
 import type {
   VatDeliveryObject,
-  VatOneResolution,
   VatSyscallObject,
   VatSyscallResult,
   Message as SwingSetMessage,
@@ -9,13 +8,9 @@ import type { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from '../KernelQueue.ts';
 import type { KernelStore } from '../store/index.ts';
-import type {
-  Message,
-  SystemVatId,
-  VRef,
-  CrankResults,
-  EndpointHandle,
-} from '../types.ts';
+import type { SystemVatId } from '../types.ts';
+import { BaseVatHandle } from './BaseVatHandle.ts';
+import type { DeliveryObject } from './BaseVatHandle.ts';
 import { VatSyscall } from './VatSyscall.ts';
 
 /**
@@ -46,18 +41,9 @@ type SystemVatHandleProps = {
  * System vats run without compartment isolation directly in the host process.
  * They don't participate in kernel persistence machinery (no vatstore).
  */
-export class SystemVatHandle implements EndpointHandle {
+export class SystemVatHandle extends BaseVatHandle {
   /** The ID of the system vat this handles */
   readonly systemVatId: SystemVatId;
-
-  /** Logger for outputting messages (such as errors) to the console */
-  readonly #logger: Logger | undefined;
-
-  /** The system vat's syscall handler */
-  readonly #vatSyscall: VatSyscall;
-
-  /** Callback to deliver messages to the system vat */
-  readonly #deliver: SystemVatDeliverFn;
 
   /** Flag indicating if this handle is active */
   readonly #isActive: boolean = true;
@@ -79,17 +65,34 @@ export class SystemVatHandle implements EndpointHandle {
     deliver,
     logger,
   }: SystemVatHandleProps) {
-    this.systemVatId = systemVatId;
-    this.#logger = logger;
-    this.#deliver = deliver;
-    this.#vatSyscall = new VatSyscall({
+    const vatSyscall = new VatSyscall({
       vatId: systemVatId,
       kernelQueue,
       kernelStore,
       isActive: () => this.#isActive,
       vatLabel: 'system vat',
-      logger: this.#logger?.subLogger({ tags: ['syscall'] }),
+      logger: logger?.subLogger({ tags: ['syscall'] }),
     });
+
+    super(vatSyscall);
+
+    this.systemVatId = systemVatId;
+
+    // Set up deliver function that coerces Message to SwingSetMessage and hardens
+    this.deliver = async (delivery: DeliveryObject): Promise<string | null> => {
+      let coercedDelivery: VatDeliveryObject;
+      if (delivery[0] === 'message') {
+        const [, target, message] = delivery;
+        const swingSetMessage: SwingSetMessage = {
+          methargs: message.methargs,
+          result: message.result ?? null,
+        };
+        coercedDelivery = ['message', target, swingSetMessage];
+      } else {
+        coercedDelivery = delivery;
+      }
+      return deliver(harden(coercedDelivery));
+    };
 
     harden(this);
   }
@@ -101,79 +104,7 @@ export class SystemVatHandle implements EndpointHandle {
    */
   getSyscallHandler(): (syscall: VatSyscallObject) => VatSyscallResult {
     return (syscall: VatSyscallObject) => {
-      return this.#vatSyscall.handleSyscall(syscall);
+      return this.vatSyscall.handleSyscall(syscall);
     };
-  }
-
-  /**
-   * Make a 'message' delivery to the system vat.
-   *
-   * @param target - The VRef of the object to which the message is addressed.
-   * @param message - The message to deliver.
-   * @returns The crank results.
-   */
-  async deliverMessage(target: VRef, message: Message): Promise<CrankResults> {
-    const swingSetMessage: SwingSetMessage = {
-      methargs: message.methargs,
-      result: message.result ?? null,
-    };
-    const deliveryError = await this.#deliver(
-      harden(['message', target, swingSetMessage]),
-    );
-    return this.#vatSyscall.getCrankResults(deliveryError);
-  }
-
-  /**
-   * Make a 'notify' delivery to the system vat.
-   *
-   * @param resolutions - One or more promise resolutions to deliver.
-   * @returns The crank results.
-   */
-  async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResults> {
-    const deliveryError = await this.#deliver(harden(['notify', resolutions]));
-    return this.#vatSyscall.getCrankResults(deliveryError);
-  }
-
-  /**
-   * Make a 'dropExports' delivery to the system vat.
-   *
-   * @param vrefs - The VRefs of the exports to be dropped.
-   * @returns The crank results.
-   */
-  async deliverDropExports(vrefs: VRef[]): Promise<CrankResults> {
-    const deliveryError = await this.#deliver(harden(['dropExports', vrefs]));
-    return this.#vatSyscall.getCrankResults(deliveryError);
-  }
-
-  /**
-   * Make a 'retireExports' delivery to the system vat.
-   *
-   * @param vrefs - The VRefs of the exports to be retired.
-   * @returns The crank results.
-   */
-  async deliverRetireExports(vrefs: VRef[]): Promise<CrankResults> {
-    const deliveryError = await this.#deliver(harden(['retireExports', vrefs]));
-    return this.#vatSyscall.getCrankResults(deliveryError);
-  }
-
-  /**
-   * Make a 'retireImports' delivery to the system vat.
-   *
-   * @param vrefs - The VRefs of the imports to be retired.
-   * @returns The crank results.
-   */
-  async deliverRetireImports(vrefs: VRef[]): Promise<CrankResults> {
-    const deliveryError = await this.#deliver(harden(['retireImports', vrefs]));
-    return this.#vatSyscall.getCrankResults(deliveryError);
-  }
-
-  /**
-   * Make a 'bringOutYourDead' delivery to the system vat.
-   *
-   * @returns The crank results.
-   */
-  async deliverBringOutYourDead(): Promise<CrankResults> {
-    const deliveryError = await this.#deliver(harden(['bringOutYourDead']));
-    return this.#vatSyscall.getCrankResults(deliveryError);
   }
 }

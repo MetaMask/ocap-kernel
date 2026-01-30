@@ -1,7 +1,4 @@
-import type {
-  VatOneResolution,
-  VatSyscallObject,
-} from '@agoric/swingset-liveslots';
+import type { VatSyscallObject } from '@agoric/swingset-liveslots';
 import { VatDeletedError, StreamReadError } from '@metamask/kernel-errors';
 import { RpcClient, RpcService } from '@metamask/kernel-rpc-methods';
 import type {
@@ -20,15 +17,9 @@ import { kser } from '../liveslots/kernel-marshal.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from '../rpc/index.ts';
 import type { PingVatResult, VatMethod } from '../rpc/index.ts';
 import type { KernelStore } from '../store/index.ts';
-import type {
-  Message,
-  VatId,
-  VatConfig,
-  VRef,
-  CrankResults,
-  VatDeliveryResult,
-  EndpointHandle,
-} from '../types.ts';
+import type { VatId, VatConfig, VatDeliveryResult } from '../types.ts';
+import { BaseVatHandle } from './BaseVatHandle.ts';
+import type { DeliveryObject } from './BaseVatHandle.ts';
 import { VatSyscall } from './VatSyscall.ts';
 
 type MessageFromVat = JsonRpcResponse | JsonRpcNotification;
@@ -47,7 +38,7 @@ type VatConstructorProps = {
 /**
  * Handles communication with and lifecycle management of a vat.
  */
-export class VatHandle implements EndpointHandle {
+export class VatHandle extends BaseVatHandle {
   /** The ID of the vat this is the VatHandle for */
   readonly vatId: VatId;
 
@@ -65,9 +56,6 @@ export class VatHandle implements EndpointHandle {
 
   /** Storage holding this vat's persistent state */
   readonly #vatStore: VatStore;
-
-  /** The vat's syscall */
-  readonly #vatSyscall: VatSyscall;
 
   /** The kernel's queue */
   readonly #kernelQueue: KernelQueue;
@@ -96,33 +84,44 @@ export class VatHandle implements EndpointHandle {
     kernelQueue,
     logger,
   }: VatConstructorProps) {
+    const vatSyscall = new VatSyscall({
+      vatId,
+      kernelQueue,
+      kernelStore,
+      isActive: () => kernelStore.isVatActive(vatId),
+      logger: logger?.subLogger({ tags: ['syscall'] }),
+    });
+
+    super(vatSyscall);
+
     this.vatId = vatId;
     this.config = vatConfig;
     this.#logger = logger;
     this.#vatStream = vatStream;
     this.#kernelStore = kernelStore;
-    this.#vatStore = kernelStore.makeVatStore(vatId);
     this.#kernelQueue = kernelQueue;
-    this.#vatSyscall = new VatSyscall({
-      vatId,
-      kernelQueue,
-      kernelStore,
-      isActive: () => kernelStore.isVatActive(vatId),
-      logger: this.#logger?.subLogger({ tags: ['syscall'] }),
-    });
-
+    this.#vatStore = kernelStore.makeVatStore(vatId);
     this.#rpcClient = new RpcClient(
       vatMethodSpecs,
       async (request) => {
-        await this.#vatStream.write(request);
+        await vatStream.write(request);
       },
-      `${this.vatId}:`,
+      `${vatId}:`,
     );
     this.#rpcService = new RpcService(vatSyscallHandlers, {
       handleSyscall: (params) => {
-        this.#vatSyscall.handleSyscall(params as VatSyscallObject);
+        this.vatSyscall.handleSyscall(params as VatSyscallObject);
       },
     });
+
+    // Set up deliver function for BaseVatHandle
+    this.deliver = async (delivery: DeliveryObject): Promise<string | null> => {
+      const [, deliveryError] = await this.sendVatCommand({
+        method: 'deliver',
+        params: delivery,
+      });
+      return deliveryError;
+    };
   }
 
   /**
@@ -206,90 +205,6 @@ export class VatHandle implements EndpointHandle {
   }
 
   /**
-   * Make a 'message' delivery to the vat.
-   *
-   * @param target - The VRef of the object to which the message is addressed.
-   * @param message - The message to deliver.
-   * @returns The crank results.
-   */
-  async deliverMessage(target: VRef, message: Message): Promise<CrankResults> {
-    const [, deliveryError] = await this.sendVatCommand({
-      method: 'deliver',
-      params: ['message', target, message],
-    });
-    return this.#vatSyscall.getCrankResults(deliveryError);
-  }
-
-  /**
-   * Make a 'notify' delivery to the vat.
-   *
-   * @param resolutions - One or more promise resolutions to deliver.
-   * @returns The crank results.
-   */
-  async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResults> {
-    const [, deliveryError] = await this.sendVatCommand({
-      method: 'deliver',
-      params: ['notify', resolutions],
-    });
-    return this.#vatSyscall.getCrankResults(deliveryError);
-  }
-
-  /**
-   * Make a 'dropExports' delivery to the vat.
-   *
-   * @param vrefs - The VRefs of the exports to be dropped.
-   * @returns The crank results.
-   */
-  async deliverDropExports(vrefs: VRef[]): Promise<CrankResults> {
-    const [, deliveryError] = await this.sendVatCommand({
-      method: 'deliver',
-      params: ['dropExports', vrefs],
-    });
-    return this.#vatSyscall.getCrankResults(deliveryError);
-  }
-
-  /**
-   * Make a 'retireExports' delivery to the vat.
-   *
-   * @param vrefs - The VRefs of the exports to be retired.
-   * @returns The crank results.
-   */
-  async deliverRetireExports(vrefs: VRef[]): Promise<CrankResults> {
-    const [, deliveryError] = await this.sendVatCommand({
-      method: 'deliver',
-      params: ['retireExports', vrefs],
-    });
-    return this.#vatSyscall.getCrankResults(deliveryError);
-  }
-
-  /**
-   * Make a 'retireImports' delivery to the vat.
-   *
-   * @param vrefs - The VRefs of the imports to be retired.
-   * @returns The crank results.
-   */
-  async deliverRetireImports(vrefs: VRef[]): Promise<CrankResults> {
-    const [, deliveryError] = await this.sendVatCommand({
-      method: 'deliver',
-      params: ['retireImports', vrefs],
-    });
-    return this.#vatSyscall.getCrankResults(deliveryError);
-  }
-
-  /**
-   * Make a 'bringOutYourDead' delivery to the vat.
-   *
-   * @returns The crank results.
-   */
-  async deliverBringOutYourDead(): Promise<CrankResults> {
-    const [, deliveryError] = await this.sendVatCommand({
-      method: 'deliver',
-      params: ['bringOutYourDead'],
-    });
-    return this.#vatSyscall.getCrankResults(deliveryError);
-  }
-
-  /**
    * Terminates the vat.
    *
    * @param terminating - If true, the vat is being killed permanently, so clean
@@ -326,9 +241,9 @@ export class VatHandle implements EndpointHandle {
     params: ExtractParams<Method, typeof vatMethodSpecs>;
   }): Promise<ExtractResult<Method, typeof vatMethodSpecs>> {
     const result = await this.#rpcClient.call(method, params);
-    if (method === 'initVat' || method === 'deliver') {
+    if (method === 'deliver' || method === 'initVat') {
       const [[sets, deletes], deliveryError] = result as VatDeliveryResult;
-      const noErrors = !deliveryError && !this.#vatSyscall.illegalSyscall;
+      const noErrors = !deliveryError && !this.vatSyscall.illegalSyscall;
       // On errors, we neither update this vat's KV data nor rollback previous changes.
       // This is safe because vats are always terminated when errors occur
       // and they have their own databases, which are deleted when the vat is terminated.

@@ -1,3 +1,8 @@
+export {
+  BaseVatHandle,
+  type DeliverFn,
+  type DeliveryObject,
+} from './BaseVatHandle.ts';
 export { SystemVatSupervisor } from './SystemVatSupervisor.ts';
 export type {
   SystemVatExecuteSyscall,
