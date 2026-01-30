@@ -6,8 +6,7 @@ import type {
   Page,
 } from '@playwright/test';
 import { appendFileSync } from 'node:fs';
-import { mkdir } from 'node:fs/promises';
-import { rm } from 'node:fs/promises';
+import { mkdir, rm, readFile, access } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -57,7 +56,7 @@ type Options = {
  * @param options.extensionPath - The path to the extension dist folder.
  * @param options.onPageLoad - Optional callback to run after the extension is loaded. Useful for
  * e.g. waiting for components to be visible before proceeding with a test.
- * @returns The extension context, extension ID, popup page, and log file path
+ * @returns The extension context, extension ID, popup page, log file path, and cleanup function
  */
 export const makeLoadExtension = async ({
   contextId,
@@ -68,6 +67,7 @@ export const makeLoadExtension = async ({
   extensionId: string;
   popupPage: Page;
   logFilePath: string;
+  attachLogs: () => Promise<void>;
 }> => {
   const workerIndex = process.env.TEST_WORKER_INDEX ?? '0';
   // Use provided contextId or fall back to workerIndex for separate user data dirs
@@ -85,11 +85,22 @@ export const makeLoadExtension = async ({
     .replace(/[^a-zA-Z0-9-]/gu, '_'); // Make filename-safe
   const logFilePath = path.join(logsDir, `${runId}-${testTitle}.log`);
 
-  // Attach log file path to test results (viewable in Playwright HTML report)
-  await test.info().attach('console-logs', {
-    body: logFilePath,
-    contentType: 'text/plain',
-  });
+  /**
+   * Attaches the log file to test results. Call this at the end of your test
+   * to include console logs in the Playwright HTML report.
+   */
+  const attachLogs = async (): Promise<void> => {
+    try {
+      await access(logFilePath);
+      const content = await readFile(logFilePath, 'utf-8');
+      await test.info().attach('console-logs', {
+        body: content,
+        contentType: 'text/plain',
+      });
+    } catch {
+      // File doesn't exist, nothing to attach
+    }
+  };
 
   const writeLog = (source: string, consoleMessage: ConsoleMessage): void => {
     const logTimestamp = new Date().toISOString().slice(0, -5);
@@ -190,7 +201,7 @@ export const makeLoadExtension = async ({
   await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);
   await onPageLoad(popupPage);
 
-  return { browserContext, extensionId, popupPage, logFilePath };
+  return { browserContext, extensionId, popupPage, logFilePath, attachLogs };
 };
 
 /**
