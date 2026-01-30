@@ -3,7 +3,9 @@ import {
   PlatformServicesServer,
   createRelayQueryString,
   setupConsoleForwarding,
+  stringifyConsoleArg,
 } from '@metamask/kernel-browser-runtime';
+import type { ConsoleForwardMessage } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -33,7 +35,30 @@ async function main(): Promise<void> {
   >(chrome.runtime, 'offscreen', 'background', isJsonRpcMessage);
 
   // Set up console forwarding to background for Playwright capture
-  setupConsoleForwarding(backgroundStream);
+  setupConsoleForwarding(backgroundStream, 'offscreen');
+
+  // Listen for console messages from vat iframes and forward to background
+  window.addEventListener('message', (event) => {
+    if (
+      event.data !== null &&
+      typeof event.data === 'object' &&
+      event.data.type === 'console-forward'
+    ) {
+      const { source, method, args } = event.data as {
+        source: string;
+        method: 'log' | 'debug' | 'info' | 'warn' | 'error';
+        args: unknown[];
+      };
+      const message: ConsoleForwardMessage = {
+        jsonrpc: '2.0',
+        method: 'console-forward',
+        params: { source, method, args: args.map(stringifyConsoleArg) },
+      };
+      backgroundStream.write(message).catch(() => {
+        // Ignore errors if stream isn't ready
+      });
+    }
+  });
 
   const kernelStream = await makeKernelWorker();
 
