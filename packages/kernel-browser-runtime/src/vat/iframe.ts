@@ -8,7 +8,41 @@ import {
 } from '@metamask/streams/browser';
 import { makePlatform } from '@ocap/kernel-platforms/browser';
 
+import { stringifyConsoleArg } from '../utils/console-forwarding.ts';
+
 const logger = new Logger('vat-iframe');
+
+/**
+ * Sets up console forwarding from a vat iframe to the parent window (offscreen).
+ * Uses postMessage instead of streams since the iframe doesn't have a direct
+ * stream connection to offscreen.
+ *
+ * @param vatId - The vat identifier to use as the source.
+ */
+function setupIframeConsoleForwarding(vatId: string): void {
+  const originalConsole = { ...console };
+  const consoleMethods = ['log', 'debug', 'info', 'warn', 'error'] as const;
+
+  consoleMethods.forEach((consoleMethod) => {
+    // eslint-disable-next-line no-console
+    console[consoleMethod] = (...args: unknown[]) => {
+      originalConsole[consoleMethod](...args);
+
+      // Post to parent (offscreen document)
+      window.parent.postMessage(
+        {
+          type: 'console-forward',
+          source: `vat-${vatId}`,
+          method: consoleMethod,
+          args: args.map(stringifyConsoleArg),
+        },
+        '*',
+      );
+    };
+  });
+
+  harden(globalThis.console);
+}
 
 main().catch(logger.error);
 
@@ -28,6 +62,9 @@ async function main(): Promise<void> {
 
   const urlParams = new URLSearchParams(window.location.search);
   const vatId = urlParams.get('vatId') ?? 'unknown';
+
+  // Set up console forwarding to parent (offscreen) for Playwright capture
+  setupIframeConsoleForwarding(vatId);
 
   // eslint-disable-next-line no-new
   new VatSupervisor({

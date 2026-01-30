@@ -17,6 +17,7 @@ import {
 import type { CapTPMessage } from '../background-captp.ts';
 import { receiveInternalConnections } from '../internal-comms/internal-connections.ts';
 import { PlatformServicesClient } from '../PlatformServicesClient.ts';
+import { setupConsoleForwarding } from '../utils/console-forwarding.ts';
 import { makeKernelCapTP } from './captp/index.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { makePanelMessageMiddleware } from './middleware/panel-message.ts';
@@ -45,6 +46,9 @@ async function main(): Promise<void> {
       PlatformServicesClient.make(globalThis as PostMessageTarget),
       makeSQLKernelDatabase({ dbFilename: DB_FILENAME }),
     ]);
+
+  // Set up console forwarding - messages flow through offscreen to background
+  setupConsoleForwarding(messageStream, 'kernel-worker');
 
   const resetStorage =
     new URLSearchParams(globalThis.location.search).get('reset-storage') ===

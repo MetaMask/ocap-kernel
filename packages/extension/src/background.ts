@@ -112,7 +112,7 @@ async function main(): Promise<void> {
   // Handle incoming messages from offscreen (CapTP and console-forward)
   const drainPromise = offscreenStream.drain((message) => {
     if (isConsoleForwardMessage(message)) {
-      handleConsoleForwardMessage(message, '[offscreen]');
+      handleConsoleForwardMessage(message);
     } else if (isCapTPNotification(message)) {
       const captpMessage = getCapTPMessage(message);
       backgroundCapTP.dispatch(captpMessage);

@@ -9,6 +9,7 @@ import type { JsonRpcNotification } from '@metamask/utils';
 export type ConsoleForwardMessage = JsonRpcNotification & {
   method: 'console-forward';
   params: {
+    source: string;
     method: 'log' | 'debug' | 'info' | 'warn' | 'error';
     args: string[];
   };
@@ -29,6 +30,23 @@ export const isConsoleForwardMessage = (
   (value as { method: unknown }).method === 'console-forward';
 
 /**
+ * Stringifies an argument for console forwarding.
+ *
+ * @param arg - The argument to stringify.
+ * @returns The stringified argument.
+ */
+export function stringifyConsoleArg(arg: unknown): string {
+  if (typeof arg === 'string') {
+    return arg;
+  }
+  if (typeof arg === 'number' || typeof arg === 'boolean') {
+    return String(arg);
+  }
+  // Objects, arrays, null, undefined, functions, symbols, etc.
+  return JSON.stringify(arg);
+}
+
+/**
  * Wraps console methods to forward messages to background via a stream.
  * This enables capturing console output from contexts that Playwright cannot
  * directly access (like offscreen documents).
@@ -37,9 +55,11 @@ export const isConsoleForwardMessage = (
  * will be forwarded to the stream recipient where it can be replayed.
  *
  * @param stream - The stream to write console messages to.
+ * @param source - The source identifier for this context (e.g., 'offscreen', 'kernel-worker').
  */
 export function setupConsoleForwarding(
   stream: DuplexStream<JsonRpcMessage, JsonRpcMessage>,
+  source: string,
 ): void {
   const originalConsole = { ...console };
   const consoleMethods = ['log', 'debug', 'info', 'warn', 'error'] as const;
@@ -55,17 +75,9 @@ export function setupConsoleForwarding(
         jsonrpc: '2.0',
         method: 'console-forward',
         params: {
+          source,
           method: consoleMethod,
-          args: args.map((arg) => {
-            if (typeof arg === 'string') {
-              return arg;
-            }
-            if (typeof arg === 'number' || typeof arg === 'boolean') {
-              return String(arg);
-            }
-            // Objects, arrays, null, undefined, functions, symbols, etc.
-            return JSON.stringify(arg);
-          }),
+          args: args.map(stringifyConsoleArg),
         },
       };
       stream.write(message).catch(() => {
@@ -82,13 +94,11 @@ export function setupConsoleForwarding(
  * Use this in the stream handler to replay forwarded console output.
  *
  * @param message - The console-forward message to handle.
- * @param prefix - Optional prefix to add to the message (e.g., '[offscreen]').
  */
 export function handleConsoleForwardMessage(
   message: ConsoleForwardMessage,
-  prefix?: string,
 ): void {
-  const { method, args } = message.params;
+  const { source, method, args } = message.params;
   // eslint-disable-next-line no-console
-  console[method](...(prefix ? [prefix, ...args] : args));
+  console[method](`[${source}]`, ...args);
 }
