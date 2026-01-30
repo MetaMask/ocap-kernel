@@ -17,9 +17,13 @@ import { kser } from '../liveslots/kernel-marshal.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from '../rpc/index.ts';
 import type { PingVatResult, VatMethod } from '../rpc/index.ts';
 import type { KernelStore } from '../store/index.ts';
-import type { VatId, VatConfig, VatDeliveryResult } from '../types.ts';
+import type {
+  DeliveryObject,
+  VatConfig,
+  VatDeliveryResult,
+  VatId,
+} from '../types.ts';
 import { BaseVatHandle } from './BaseVatHandle.ts';
-import type { DeliveryObject } from './BaseVatHandle.ts';
 import { VatSyscall } from './VatSyscall.ts';
 
 type MessageFromVat = JsonRpcResponse | JsonRpcNotification;

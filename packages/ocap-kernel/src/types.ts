@@ -5,7 +5,6 @@ import type {
   VatSyscallResult,
   VatSyscallSend,
   VatOneResolution,
-  VatDeliveryObject,
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import type { VatCheckpoint } from '@metamask/kernel-store';
@@ -87,6 +86,21 @@ export function coerceMessage(message: SwingsetMessage): Message {
   }
   return message as Message;
 }
+
+/**
+ * Delivery object using our Message type.
+ *
+ * This is equivalent to VatDeliveryObject from swingset-liveslots for JSON
+ * serialization purposes. The only difference is Message.result typing:
+ * ours is `result?: string | null`, theirs is `result: string | null | undefined`.
+ */
+export type DeliveryObject =
+  | ['message', VRef, Message]
+  | ['notify', VatOneResolution[]]
+  | ['dropExports', VRef[]]
+  | ['retireExports', VRef[]]
+  | ['retireImports', VRef[]]
+  | ['bringOutYourDead'];
 
 type JsonVatSyscallObject =
   | Exclude<VatSyscallObject, VatSyscallSend>
@@ -483,7 +497,7 @@ export type SystemVatSyscallHandler = (
  * The runtime provides this to the kernel so deliveries can be routed correctly.
  */
 export type SystemVatDeliverFn = (
-  delivery: VatDeliveryObject,
+  delivery: DeliveryObject,
 ) => Promise<string | null>;
 
 /**

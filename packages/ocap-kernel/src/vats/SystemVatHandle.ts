@@ -1,23 +1,20 @@
 import type {
-  VatDeliveryObject,
   VatSyscallObject,
   VatSyscallResult,
-  Message as SwingSetMessage,
 } from '@agoric/swingset-liveslots';
 import type { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from '../KernelQueue.ts';
 import type { KernelStore } from '../store/index.ts';
-import type { SystemVatId } from '../types.ts';
+import type { DeliveryObject, SystemVatId } from '../types.ts';
 import { BaseVatHandle } from './BaseVatHandle.ts';
-import type { DeliveryObject } from './BaseVatHandle.ts';
 import { VatSyscall } from './VatSyscall.ts';
 
 /**
  * Delivery callback type - called by kernel to deliver messages to the system vat.
  */
 export type SystemVatDeliverFn = (
-  delivery: VatDeliveryObject,
+  delivery: DeliveryObject,
 ) => Promise<string | null>;
 
 /**
@@ -78,20 +75,8 @@ export class SystemVatHandle extends BaseVatHandle {
 
     this.systemVatId = systemVatId;
 
-    // Set up deliver function that coerces Message to SwingSetMessage and hardens
-    this.deliver = async (delivery: DeliveryObject): Promise<string | null> => {
-      let coercedDelivery: VatDeliveryObject;
-      if (delivery[0] === 'message') {
-        const [, target, message] = delivery;
-        const swingSetMessage: SwingSetMessage = {
-          methargs: message.methargs,
-          result: message.result ?? null,
-        };
-        coercedDelivery = ['message', target, swingSetMessage];
-      } else {
-        coercedDelivery = delivery;
-      }
-      return deliver(harden(coercedDelivery));
+    this.deliver = async (delivery): Promise<string | null> => {
+      return deliver(harden(delivery));
     };
 
     harden(this);

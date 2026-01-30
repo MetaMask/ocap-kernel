@@ -4,6 +4,7 @@ export { VatSupervisor } from './vats/VatSupervisor.ts';
 export { initTransport } from './remotes/platform/transport.ts';
 export type {
   ClusterConfig,
+  DeliveryObject,
   KRef,
   Message,
   VatId,

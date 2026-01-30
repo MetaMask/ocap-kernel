@@ -1,18 +1,13 @@
 import type { VatOneResolution } from '@agoric/swingset-liveslots';
 
-import type { CrankResults, Message, VRef, EndpointHandle } from '../types.ts';
+import type {
+  CrankResults,
+  DeliveryObject,
+  EndpointHandle,
+  Message,
+  VRef,
+} from '../types.ts';
 import type { VatSyscall } from './VatSyscall.ts';
-
-/**
- * Delivery object type using our Message type (with optional result).
- */
-export type DeliveryObject =
-  | ['message', VRef, Message]
-  | ['notify', VatOneResolution[]]
-  | ['dropExports', VRef[]]
-  | ['retireExports', VRef[]]
-  | ['retireImports', VRef[]]
-  | ['bringOutYourDead'];
 
 /**
  * Function type for delivering messages to a vat.

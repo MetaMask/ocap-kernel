@@ -1,14 +1,11 @@
-import type {
-  VatDeliveryObject,
-  VatOneResolution,
-} from '@agoric/swingset-liveslots';
+import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { Logger } from '@metamask/logger';
 import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelQueue } from '../KernelQueue.ts';
 import type { KernelStore } from '../store/index.ts';
-import type { Message, SystemVatId, VRef } from '../types.ts';
+import type { DeliveryObject, Message, SystemVatId, VRef } from '../types.ts';
 import type { SystemVatDeliverFn } from './SystemVatHandle.ts';
 import { SystemVatHandle } from './SystemVatHandle.ts';
 
@@ -91,7 +88,7 @@ describe('SystemVatHandle', () => {
       ]);
     });
 
-    it('converts undefined result to null', async () => {
+    it('passes message without result property as-is', async () => {
       const target: VRef = 'o+0';
       const message: Message = {
         methargs: { body: '["test"]', slots: [] },
@@ -102,7 +99,7 @@ describe('SystemVatHandle', () => {
       expect(deliver).toHaveBeenCalledWith([
         'message',
         target,
-        { methargs: message.methargs, result: null },
+        { methargs: message.methargs },
       ]);
     });
 
@@ -211,7 +208,7 @@ describe('SystemVatHandle', () => {
         systemVatId,
         kernelStore: illegalSyscallKernelStore,
         kernelQueue,
-        deliver: vi.fn().mockImplementation(async (del: VatDeliveryObject) => {
+        deliver: vi.fn().mockImplementation(async (del: DeliveryObject) => {
           // Simulate the vat making a syscall during delivery
           if (del[0] === 'message') {
             handle.getSyscallHandler()([
