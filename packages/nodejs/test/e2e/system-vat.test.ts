@@ -1,4 +1,5 @@
 import { E } from '@endo/eventual-send';
+import { makePromiseKit } from '@endo/promise-kit';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Logger } from '@metamask/logger';
 import type { ClusterConfig, KernelFacet } from '@metamask/ocap-kernel';
@@ -256,6 +257,33 @@ describe('system vat e2e tests', { timeout: 30_000 }, () => {
 
       // Rejections from vats throw errors
       await expect(deferredPromise).rejects.toThrow('error reason');
+    });
+
+    it('vat awaits promise created in host vat', async () => {
+      const config: ClusterConfig = {
+        bootstrap: 'promiseVat',
+        vats: {
+          promiseVat: {
+            bundleSpec: 'http://localhost:3000/promise-vat.bundle',
+          },
+        },
+      };
+
+      const result = await E(kernelFacet).launchSubcluster(config);
+      const promiseVat = result.root as unknown as PromiseVat;
+
+      // Create a deferred promise in the host vat (this test)
+      const { promise, resolve } = makePromiseKit<unknown>();
+
+      // Pass the unresolved promise to the vat
+      const resultPromise = E(promiseVat).awaitPromiseArg(promise);
+
+      // Resolve the deferred promise from the host vat
+      resolve('host-resolved-value');
+
+      // The vat should receive the resolved value
+      const vatResult = await resultPromise;
+      expect(vatResult).toBe('received: host-resolved-value');
     });
   });
 
