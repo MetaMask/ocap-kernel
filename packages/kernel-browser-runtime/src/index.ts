@@ -1,5 +1,5 @@
 export * from './rpc-handlers/index.ts';
-export * from './host-subcluster/index.ts';
+export * from './host-vat/index.ts';
 export {
   connectToKernel,
   receiveInternalConnections,
