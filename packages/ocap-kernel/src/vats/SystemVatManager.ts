@@ -248,8 +248,11 @@ export class SystemVatManager {
   /**
    * Disconnect and clean up a system vat.
    *
-   * This rejects any pending promises where this vat is the decider and
-   * cleans up all clist entries and endpoint state.
+   * This performs full cleanup equivalent to vat termination:
+   * - Rejects pending promises where this vat is the decider
+   * - Deletes owned kernel objects (removes owner entries)
+   * - Decrements reference counts for imported objects
+   * - Cleans up c-list entries and adds orphaned krefs to GC
    *
    * @param systemVatId - The system vat ID to disconnect.
    */
@@ -266,8 +269,11 @@ export class SystemVatManager {
       this.#kernelQueue.resolvePromises(systemVatId, [[kpid, true, failure]]);
     }
 
-    // Clean up clist entries and endpoint state
-    this.#kernelStore.deleteEndpoint(systemVatId);
+    // Clean up kernel state: exports, imports, promises, c-list entries
+    const work = this.#kernelStore.cleanupTerminatedVat(systemVatId);
+    this.#logger.debug(
+      `System vat ${systemVatId} cleanup: ${work.exports} exports, ${work.imports} imports, ${work.promises} promises`,
+    );
 
     // Remove the vat record from in-memory tracking
     this.#systemVats.delete(systemVatId);

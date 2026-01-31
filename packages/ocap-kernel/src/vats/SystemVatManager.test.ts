@@ -32,6 +32,9 @@ describe('SystemVatManager', () => {
       addCListEntry: vi.fn(),
       getPromisesByDecider: vi.fn().mockReturnValue([]),
       deleteEndpoint: vi.fn(),
+      cleanupTerminatedVat: vi
+        .fn()
+        .mockReturnValue({ exports: 0, imports: 0, promises: 0, kv: 0 }),
       kv: {
         get: vi.fn().mockReturnValue(undefined),
         set: vi.fn(),
@@ -291,7 +294,7 @@ describe('SystemVatManager', () => {
       await manager.registerSystemVat(config);
       await manager.disconnectSystemVat('sv0');
 
-      expect(mockKernelStore.deleteEndpoint).toHaveBeenCalledWith('sv0');
+      expect(mockKernelStore.cleanupTerminatedVat).toHaveBeenCalledWith('sv0');
     });
   });
 });

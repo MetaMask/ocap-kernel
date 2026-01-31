@@ -6,7 +6,7 @@ import { getObjectMethods } from './object.ts';
 import { getPromiseMethods } from './promise.ts';
 import { getReachableMethods } from './reachable.ts';
 import { getRefCountMethods } from './refcount.ts';
-import { insistEndpointId } from '../../types.ts';
+import { insistEndpointId, isSystemVatId } from '../../types.ts';
 import type { EndpointId, KRef, VatConfig, VatId, ERef } from '../../types.ts';
 import type { StoreContext, VatCleanupWork } from '../types.ts';
 import { parseRef } from '../utils/parse-ref.ts';
@@ -45,13 +45,15 @@ export function getVatMethods(ctx: StoreContext) {
   /**
    * Delete all persistent state associated with an endpoint.
    *
+   * This deletes c-list entries and endpoint counters. It does NOT handle
+   * cleaning up kernel objects, refcounts, or other state - use
+   * cleanupTerminatedVat for full cleanup.
+   *
    * @param endpointId - The endpoint whose state is to be deleted.
    */
   function deleteEndpoint(endpointId: EndpointId): void {
-    for (const key of getPrefixedKeys(`cle.${endpointId}.`)) {
-      kv.delete(key);
-    }
-    for (const key of getPrefixedKeys(`clk.${endpointId}.`)) {
+    // C-list keys use the format: {endpointId}.c.{slot}
+    for (const key of getPrefixedKeys(`${endpointId}.c.`)) {
       kv.delete(key);
     }
     kv.delete(`e.nextObjectId.${endpointId}`);
@@ -201,24 +203,37 @@ export function getVatMethods(ctx: StoreContext) {
   }
 
   /**
-   * Cleanup a terminated vat.
+   * Cleanup a terminated vat or system vat endpoint.
    *
-   * @param vatID - The ID of the vat to cleanup.
+   * This handles cleanup of:
+   * - Exported objects: deletes owner, decrements refcounts, marks for GC
+   * - Imported objects: decrements refcounts via deleteCListEntry
+   * - Promises: cleans up c-list entries and decrements decider refcounts
+   * - Vat KV entries (for regular vats only, system vats have no vatstore)
+   * - Terminated vats list (for regular vats only)
+   *
+   * For system vats (IDs starting with 'sv'), the terminated check, vat KV cleanup,
+   * and terminated list removal are automatically skipped.
+   *
+   * @param endpointId - The ID of the endpoint to cleanup.
    * @returns The work done during the cleanup.
    */
-  function cleanupTerminatedVat(vatID: VatId): VatCleanupWork {
-    const work = {
+  function cleanupTerminatedVat(endpointId: EndpointId): VatCleanupWork {
+    const isSystemVat = isSystemVatId(endpointId);
+
+    const work: VatCleanupWork = {
       exports: 0,
       imports: 0,
       promises: 0,
       kv: 0,
     };
 
-    if (!isVatTerminated(vatID)) {
+    // Check if vat is terminated (skip for system vats which aren't in the list)
+    if (!isSystemVat && !isVatTerminated(endpointId)) {
       return work;
     }
 
-    const clistPrefix = `${vatID}.c.`;
+    const clistPrefix = `${endpointId}.c.`;
     const exportPrefix = `${clistPrefix}o+`;
     const importPrefix = `${clistPrefix}o-`;
     const promisePrefix = `${clistPrefix}p`;
@@ -243,19 +258,19 @@ export function getVatMethods(ctx: StoreContext) {
       // must also delete the corresponding kernel owner entry for the object,
       // since the object will no longer be accessible.
       assert(key.startsWith(clistPrefix), key);
-      const vref = key.slice(clistPrefix.length);
-      assert(vref.startsWith('o+'), vref);
+      const eref = key.slice(clistPrefix.length);
+      assert(eref.startsWith('o+'), eref);
       const kref = ctx.kv.get(key);
       assert(kref, key);
       // deletes c-list and .owner, adds to maybeFreeKrefs
       const ownerKey = getOwnerKey(kref);
-      const ownerVat = ctx.kv.get(ownerKey);
-      ownerVat === vatID || Fail`export ${kref} not owned by old vat`;
+      const owner = ctx.kv.get(ownerKey);
+      owner === endpointId || Fail`export ${kref} not owned by ${endpointId}`;
       ctx.kv.delete(ownerKey);
-      const { vatSlot } = getReachableAndVatSlot(vatID, kref);
-      ctx.kv.delete(getSlotKey(vatID, kref));
-      ctx.kv.delete(getSlotKey(vatID, vatSlot));
-      // Decrease refcounts that belonged to the terminating vat
+      const { vatSlot } = getReachableAndVatSlot(endpointId, kref);
+      ctx.kv.delete(getSlotKey(endpointId, kref));
+      ctx.kv.delete(getSlotKey(endpointId, vatSlot));
+      // Decrease refcounts that belonged to the terminating endpoint
       decrementRefCount(kref, 'cleanup|export|baseline');
       ctx.maybeFreeKrefs.add(kref);
       work.exports += 1;
@@ -267,8 +282,8 @@ export function getVatMethods(ctx: StoreContext) {
       // drop+retire
       const kref = ctx.kv.get(key) ?? Fail`getNextKey ensures get`;
       assert(key.startsWith(clistPrefix), key);
-      const vref = key.slice(clistPrefix.length);
-      deleteCListEntry(vatID, kref, vref);
+      const eref = key.slice(clistPrefix.length);
+      deleteCListEntry(endpointId, kref, eref);
       // that will also delete both db keys
       work.imports += 1;
     }
@@ -279,31 +294,35 @@ export function getVatMethods(ctx: StoreContext) {
     for (const key of getPrefixedKeys(promisePrefix)) {
       const kref = ctx.kv.get(key) ?? Fail`getNextKey ensures get`;
       assert(key.startsWith(clistPrefix), key);
-      const vref = key.slice(clistPrefix.length);
+      const eref = key.slice(clistPrefix.length);
       // the following will also delete both db keys
-      deleteCListEntry(vatID, kref, vref);
-      // If the dead vat was still the decider, drop the decider’s refcount, too.
+      deleteCListEntry(endpointId, kref, eref);
+      // If the dead endpoint was still the decider, drop the decider's refcount, too.
       const kp = getKernelPromise(kref);
-      if (kp.decider === vatID) {
+      if (kp.decider === endpointId) {
         decrementRefCount(kref, 'cleanup|promise|decider');
       }
       work.promises += 1;
     }
 
-    // Finally, clean up any remaining KV entries for this vat
-    for (const key of getPrefixedKeys(`${vatID}.`)) {
-      ctx.kv.delete(key);
-      work.kv += 1;
+    // Clean up vat KV entries (skip for system vats which have no vatstore)
+    if (!isSystemVat) {
+      for (const key of getPrefixedKeys(`${endpointId}.`)) {
+        ctx.kv.delete(key);
+        work.kv += 1;
+      }
     }
 
-    // Clean up any remaining c-list entries and vat-specific counters
-    deleteEndpoint(vatID);
+    // Clean up any remaining c-list entries and endpoint-specific counters
+    deleteEndpoint(endpointId);
 
-    // Remove the vat from the terminated vats list
-    forgetTerminatedVat(vatID);
+    // Remove from terminated vats list (skip for system vats)
+    if (!isSystemVat) {
+      forgetTerminatedVat(endpointId);
+    }
 
     // Log the cleanup work done
-    ctx.logger?.debug(`Cleaned up terminated vat ${vatID}:`, work);
+    ctx.logger?.debug(`Cleaned up endpoint ${endpointId}:`, work);
 
     return work;
   }

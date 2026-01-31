@@ -251,6 +251,10 @@ export class Kernel {
         this.#remoteManager.handleRemoteMessage(from, message),
     );
 
+    // Clean up any orphaned system vat state from a previous session.
+    // This handles crash recovery where disconnect was never called.
+    this.#cleanupOrphanedSystemVats();
+
     // Start all vats that were previously running before starting the queue
     // This ensures that any messages in the queue have their target vats ready
     await this.#vatManager.initializeAllVats();
@@ -280,6 +284,69 @@ export class Kernel {
         );
         // Don't re-throw to avoid unhandled rejection in this long-running task
       });
+  }
+
+  /**
+   * Clean up orphaned system vat state from a previous session.
+   *
+   * System vats are ephemeral - they don't persist across restarts. However,
+   * their krefs (for owned objects) are persisted to the database. If the
+   * kernel restarts without properly disconnecting system vats (e.g., crash,
+   * browser refresh), orphaned state can remain.
+   *
+   * This method scans for system vat state and cleans it up before new
+   * system vats are registered, ensuring a clean slate.
+   */
+  #cleanupOrphanedSystemVats(): void {
+    // Scan for system vat c-list keys (sv*.c.*) to find orphaned system vats
+    const orphanedSystemVatIds = new Set<SystemVatId>();
+    const { kv } = this.#kernelStore;
+
+    // Look for c-list entries with system vat prefixes (sv0, sv1, etc.)
+    // C-list keys use the format: {endpointId}.c.{slot}
+    let key: string | undefined = 'sv';
+    while ((key = kv.getNextKey(key)) !== undefined) {
+      if (!key.startsWith('sv')) {
+        break;
+      }
+      // Extract the system vat ID from keys like "sv0.c.o+0"
+      const parts = key.split('.');
+      if (parts.length >= 2 && parts[1] === 'c') {
+        const endpointId = parts[0];
+        if (isSystemVatId(endpointId)) {
+          orphanedSystemVatIds.add(endpointId);
+        }
+      }
+    }
+
+    for (const systemVatId of orphanedSystemVatIds) {
+      this.#logger.log(
+        `Cleaning up orphaned system vat state for ${systemVatId}`,
+      );
+
+      // Reject pending promises where this vat was the decider
+      const failure = { body: '"System vat disconnected (orphan cleanup)"' };
+      for (const kpid of this.#kernelStore.getPromisesByDecider(systemVatId)) {
+        // Since there's no active vat, we directly resolve the promise
+        // in the kernel store rather than going through the queue
+        this.#kernelStore.resolveKernelPromise(kpid, true, {
+          ...failure,
+          slots: [],
+        });
+      }
+
+      // Clean up kernel state: exports, imports, promises, c-list entries
+      const work = this.#kernelStore.cleanupTerminatedVat(systemVatId);
+      this.#logger.debug(
+        `Orphaned system vat ${systemVatId} cleanup: ${work.exports} exports, ${work.imports} imports, ${work.promises} promises`,
+      );
+    }
+
+    if (orphanedSystemVatIds.size > 0) {
+      this.#logger.log(
+        `Cleaned up ${orphanedSystemVatIds.size} orphaned system vat(s)`,
+      );
+    }
   }
 
   /**
