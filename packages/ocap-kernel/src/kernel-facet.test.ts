@@ -1,4 +1,3 @@
-import type { Logger } from '@metamask/logger';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelFacetDependencies } from './kernel-facet.ts';
@@ -9,17 +8,8 @@ import type { ClusterConfig, KernelStatus, Subcluster } from './types.ts';
 
 describe('makeKernelFacet', () => {
   let deps: KernelFacetDependencies;
-  let logger: Logger;
 
   beforeEach(() => {
-    logger = {
-      debug: vi.fn(),
-      error: vi.fn(),
-      log: vi.fn(),
-      warn: vi.fn(),
-      subLogger: vi.fn(() => logger),
-    } as unknown as Logger;
-
     deps = {
       launchSubcluster: vi.fn().mockResolvedValue({
         subclusterId: 's1',
@@ -48,7 +38,6 @@ describe('makeKernelFacet', () => {
         vatCount: 2,
         endpointCount: 3,
       }),
-      logger,
     };
   });
 
@@ -90,26 +79,6 @@ describe('makeKernelFacet', () => {
       // The root is a slot value (remotable) that carries the kref
       expect(krefOf(result.root)).toBe('ko1');
     });
-
-    it('logs launch events', async () => {
-      const facet = makeKernelFacet(deps) as {
-        launchSubcluster: (config: ClusterConfig) => Promise<unknown>;
-      };
-      const config: ClusterConfig = {
-        bootstrap: 'myVat',
-        vats: { myVat: { sourceSpec: 'test.js' } },
-      };
-
-      await facet.launchSubcluster(config);
-
-      expect(logger.log).toHaveBeenCalledWith(
-        expect.stringContaining('launching subcluster'),
-        'myVat',
-      );
-      expect(logger.log).toHaveBeenCalledWith(
-        expect.stringContaining('launched subcluster s1'),
-      );
-    });
   });
 
   describe('terminateSubcluster', () => {
@@ -121,21 +90,6 @@ describe('makeKernelFacet', () => {
       await facet.terminateSubcluster('s1');
 
       expect(deps.terminateSubcluster).toHaveBeenCalledWith('s1');
-    });
-
-    it('logs termination events', async () => {
-      const facet = makeKernelFacet(deps) as {
-        terminateSubcluster: (id: string) => Promise<void>;
-      };
-
-      await facet.terminateSubcluster('s1');
-
-      expect(logger.log).toHaveBeenCalledWith(
-        expect.stringContaining('terminating subcluster s1'),
-      );
-      expect(logger.log).toHaveBeenCalledWith(
-        expect.stringContaining('terminated subcluster s1'),
-      );
     });
   });
 
@@ -158,21 +112,6 @@ describe('makeKernelFacet', () => {
       const result = await facet.reloadSubcluster('s1');
 
       expect(result.id).toBe('s2');
-    });
-
-    it('logs reload events', async () => {
-      const facet = makeKernelFacet(deps) as {
-        reloadSubcluster: (id: string) => Promise<Subcluster>;
-      };
-
-      await facet.reloadSubcluster('s1');
-
-      expect(logger.log).toHaveBeenCalledWith(
-        expect.stringContaining('reloading subcluster s1'),
-      );
-      expect(logger.log).toHaveBeenCalledWith(
-        expect.stringContaining('reloaded subcluster'),
-      );
     });
   });
 
@@ -257,42 +196,6 @@ describe('makeKernelFacet', () => {
       expect(result.cranksPending).toBe(0);
       expect(result.vatCount).toBe(2);
       expect(result.endpointCount).toBe(3);
-    });
-  });
-
-  describe('without logger', () => {
-    it('does not throw when logger is undefined', async () => {
-      const depsWithoutLogger: KernelFacetDependencies = {
-        launchSubcluster: vi.fn().mockResolvedValue({
-          subclusterId: 's1',
-          bootstrapRootKref: 'ko1',
-        }),
-        terminateSubcluster: vi.fn().mockResolvedValue(undefined),
-        reloadSubcluster: vi.fn().mockResolvedValue({
-          id: 's2',
-          config: { bootstrap: 'test', vats: {} },
-          vats: {},
-        }),
-        getSubcluster: vi.fn().mockReturnValue(undefined),
-        getSubclusters: vi.fn().mockReturnValue([]),
-        getStatus: vi.fn().mockResolvedValue({
-          initialized: true,
-          cranksExecuted: 0,
-          cranksPending: 0,
-          vatCount: 0,
-          endpointCount: 0,
-        }),
-      };
-
-      const facet = makeKernelFacet(depsWithoutLogger) as {
-        launchSubcluster: (config: ClusterConfig) => Promise<unknown>;
-      };
-
-      const result = await facet.launchSubcluster({
-        bootstrap: 'test',
-        vats: { test: { sourceSpec: 'test.js' } },
-      });
-      expect(result).toBeDefined();
     });
   });
 });

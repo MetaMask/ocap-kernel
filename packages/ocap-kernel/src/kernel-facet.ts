@@ -1,5 +1,4 @@
 import { makeDefaultExo } from '@metamask/kernel-utils';
-import type { Logger } from '@metamask/logger';
 
 import type { Kernel } from './Kernel.ts';
 import { kslot } from './liveslots/kernel-marshal.ts';
@@ -25,7 +24,6 @@ export type KernelFacetDependencies = Pick<
   | 'getSubclusters'
   | 'getStatus'
 > & {
-  logger?: Logger;
   /** Optional system vat manager for dynamic registration. */
   systemVatManager?: Pick<SystemVatManager, 'registerSystemVat'>;
 };
@@ -137,7 +135,6 @@ export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
     getSubcluster,
     getSubclusters,
     getStatus,
-    logger,
     systemVatManager,
   } = deps;
 
@@ -151,14 +148,7 @@ export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
     async launchSubcluster(
       config: ClusterConfig,
     ): Promise<KernelFacetLaunchResult> {
-      logger?.log(`kernelFacet: launching subcluster`, config.bootstrap);
       const result = await launchSubcluster(config);
-      logger?.log(
-        `kernelFacet: launched subcluster ${result.subclusterId} with root ${result.bootstrapRootKref}`,
-      );
-
-      // Convert the kref to a slot value that will become a presence
-      // when marshalled/delivered to the system vat
       return {
         subclusterId: result.subclusterId,
         root: kslot(result.bootstrapRootKref, 'vatRoot'),
@@ -172,9 +162,7 @@ export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
      * @param subclusterId - ID of the subcluster to terminate.
      */
     async terminateSubcluster(subclusterId: string): Promise<void> {
-      logger?.log(`kernelFacet: terminating subcluster ${subclusterId}`);
       await terminateSubcluster(subclusterId);
-      logger?.log(`kernelFacet: terminated subcluster ${subclusterId}`);
     },
 
     /**
@@ -184,10 +172,7 @@ export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
      * @returns The reloaded subcluster information.
      */
     async reloadSubcluster(subclusterId: string): Promise<Subcluster> {
-      logger?.log(`kernelFacet: reloading subcluster ${subclusterId}`);
-      const result = await reloadSubcluster(subclusterId);
-      logger?.log(`kernelFacet: reloaded subcluster, new id: ${result.id}`);
-      return result;
+      return reloadSubcluster(subclusterId);
     },
 
     /**
@@ -233,12 +218,7 @@ export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
           'Cannot register system vat: systemVatManager not provided to kernel facet',
         );
       }
-      logger?.log(`kernelFacet: registering system vat ${config.name}`);
       const result = await systemVatManager.registerSystemVat(config);
-      logger?.log(
-        `kernelFacet: registered system vat ${result.systemVatId} with root ${result.rootKref}`,
-      );
-
       return {
         systemVatId: result.systemVatId,
         root: kslot(result.rootKref, 'vatRoot'),

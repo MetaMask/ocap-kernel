@@ -180,7 +180,6 @@ export class Kernel {
         getSubcluster: this.getSubcluster.bind(this),
         getSubclusters: this.getSubclusters.bind(this),
         getStatus: this.getStatus.bind(this),
-        logger: this.#logger.subLogger({ tags: ['KernelFacet'] }),
       },
       registerKernelService: (name, service) =>
         this.#kernelServiceManager.registerKernelServiceObject(name, service),
