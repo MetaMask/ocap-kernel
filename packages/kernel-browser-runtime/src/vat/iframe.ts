@@ -8,6 +8,8 @@ import {
 } from '@metamask/streams/browser';
 import { makePlatform } from '@ocap/kernel-platforms/browser';
 
+import { setupPostMessageConsoleForwarding } from '../utils/console-forwarding.ts';
+
 const logger = new Logger('vat-iframe');
 
 main().catch(logger.error);
@@ -28,6 +30,9 @@ async function main(): Promise<void> {
 
   const urlParams = new URLSearchParams(window.location.search);
   const vatId = urlParams.get('vatId') ?? 'unknown';
+
+  // Set up console forwarding to parent (offscreen) for Playwright capture
+  setupPostMessageConsoleForwarding(`vat-${vatId}`);
 
   // eslint-disable-next-line no-new
   new VatSupervisor({
