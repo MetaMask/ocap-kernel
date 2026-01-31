@@ -2,7 +2,6 @@ import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
-import type { Json } from '@metamask/utils';
 import { delay } from '@ocap/repo-tools/test-utils';
 import { TestDuplexStream } from '@ocap/repo-tools/test-utils/streams';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -242,31 +241,6 @@ describe('VatHandle', () => {
     });
   });
 
-  describe('sendVatCommand', () => {
-    it('sends a message and resolves the promise', async () => {
-      const dispatch = vi.fn();
-      const { vat, stream } = await makeVat({ dispatch });
-      const mockMessage = {
-        method: 'ping' as const,
-        params: [] as Json[],
-      };
-
-      const sendVatCommandPromise = vat.sendVatCommand(mockMessage);
-      await delay(10);
-      expect(dispatch).toHaveBeenCalledWith(
-        expect.objectContaining(mockMessage),
-      );
-
-      await stream.receiveInput({
-        id: 'v0:1',
-        result: 'test-response',
-        jsonrpc: '2.0',
-      });
-
-      expect(await sendVatCommandPromise).toBe('test-response');
-    });
-  });
-
   describe('terminate', () => {
     it('terminates the vat and rejects unresolved messages', async () => {
       const { vat, stream } = await makeVat();
@@ -276,10 +250,7 @@ describe('VatHandle', () => {
       mockKernelStore.addSubclusterVat('s1', 'v0');
 
       // Create a pending message that should be rejected on terminate
-      const messagePromise = vat.sendVatCommand({
-        method: 'ping' as const,
-        params: [],
-      });
+      const messagePromise = vat.ping();
 
       await vat.terminate(true);
 

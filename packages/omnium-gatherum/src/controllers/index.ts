@@ -1,7 +1,6 @@
 import { E } from '@endo/eventual-send';
-import type { KernelFacade } from '@metamask/kernel-browser-runtime';
 import type { Logger } from '@metamask/logger';
-import type { ClusterConfig } from '@metamask/ocap-kernel';
+import type { ClusterConfig, KernelFacet } from '@metamask/ocap-kernel';
 
 import { CapletController } from './caplet/caplet-controller.ts';
 import type { CapletControllerFacet, LaunchResult } from './caplet/index.ts';
@@ -46,7 +45,7 @@ export {
 
 type InitializeControllersOptions = {
   logger: Logger;
-  kernel: KernelFacade | Promise<KernelFacade>;
+  kernel: KernelFacet;
 };
 
 /**

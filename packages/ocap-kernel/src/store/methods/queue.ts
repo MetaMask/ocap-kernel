@@ -33,6 +33,10 @@ export function getQueueMethods(ctx: StoreContext) {
    * @param message - The message to enqueue.
    */
   function enqueueRun(message: RunQueueItem): void {
+    // Ensure cache is initialized before incrementing
+    if (ctx.runQueueLengthCache < 0) {
+      ctx.runQueueLengthCache = getQueueLength('run');
+    }
     ctx.runQueueLengthCache += 1;
     ctx.runQueue.enqueue(message);
   }
@@ -44,6 +48,10 @@ export function getQueueMethods(ctx: StoreContext) {
    * empty.
    */
   function dequeueRun(): RunQueueItem | undefined {
+    // Ensure cache is initialized before decrementing
+    if (ctx.runQueueLengthCache < 0) {
+      ctx.runQueueLengthCache = getQueueLength('run');
+    }
     ctx.runQueueLengthCache -= 1;
     return ctx.runQueue.dequeue() as RunQueueItem | undefined;
   }

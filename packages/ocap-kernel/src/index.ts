@@ -4,6 +4,7 @@ export { VatSupervisor } from './vats/VatSupervisor.ts';
 export { initTransport } from './remotes/platform/transport.ts';
 export type {
   ClusterConfig,
+  DeliveryObject,
   KRef,
   Message,
   VatId,
@@ -13,6 +14,15 @@ export type {
   Subcluster,
   SubclusterId,
   SubclusterLaunchResult,
+  // System vat types
+  SystemVatId,
+  SystemVatBuildRootObject,
+  // System vat transport types (for Kernel.make())
+  SystemVatTransport,
+  SystemVatSyscallHandler,
+  SystemVatDeliverFn,
+  SystemVatConfig,
+  SystemVatRegistrationResult,
 } from './types.ts';
 export type {
   RemoteMessageHandler,
@@ -30,9 +40,17 @@ export {
   CapDataStruct,
   KernelStatusStruct,
   SubclusterStruct,
+  // System vat exports
+  isSystemVatId,
+  SystemVatIdStruct,
 } from './types.ts';
 export { kunser, kser, kslot, krefOf } from './liveslots/kernel-marshal.ts';
 export type { SlotValue } from './liveslots/kernel-marshal.ts';
+export type {
+  KernelFacet,
+  KernelFacetLaunchResult,
+  KernelFacetRegisterSystemVatResult,
+} from './kernel-facet.ts';
 export { makeKernelStore } from './store/index.ts';
 export type { KernelStore } from './store/index.ts';
 export { parseRef } from './store/utils/parse-ref.ts';
