@@ -25,6 +25,7 @@ describe('index', () => {
       'makeDefaultExo',
       'makeDefaultInterface',
       'makeDiscoverableExo',
+      'makeFacet',
       'mergeDisjointRecords',
       'retry',
       'retryWithBackoff',
