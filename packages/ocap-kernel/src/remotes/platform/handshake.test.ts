@@ -6,85 +6,85 @@ import {
   performInboundHandshake,
   performOutboundHandshake,
 } from './handshake.ts';
-import type { HandshakeDeps, HandshakeMessage } from './handshake.ts';
+import type { HandshakeDeps } from './handshake.ts';
 import type { Channel } from '../types.ts';
 
 describe('handshake', () => {
   describe('isHandshakeMessage', () => {
-    it('returns true for handshake message', () => {
-      const message: HandshakeMessage = {
-        method: 'handshake',
-        params: { incarnationId: 'test-id' },
-      };
-      expect(isHandshakeMessage(message)).toBe(true);
-    });
-
-    it('returns true for handshakeAck message', () => {
-      const message: HandshakeMessage = {
-        method: 'handshakeAck',
-        params: { incarnationId: 'test-id' },
-      };
-      expect(isHandshakeMessage(message)).toBe(true);
-    });
-
-    it('returns false for null', () => {
-      expect(isHandshakeMessage(null)).toBe(false);
-    });
-
-    it('returns false for non-object', () => {
-      expect(isHandshakeMessage('string')).toBe(false);
-      expect(isHandshakeMessage(123)).toBe(false);
-      expect(isHandshakeMessage(undefined)).toBe(false);
-    });
-
-    it('returns false for object with different method', () => {
-      expect(isHandshakeMessage({ method: 'delivery' })).toBe(false);
-      expect(isHandshakeMessage({ method: 'other' })).toBe(false);
-    });
-
-    it('returns false for object without method', () => {
-      expect(isHandshakeMessage({ params: {} })).toBe(false);
-    });
-
-    it('returns false for handshake message without params', () => {
-      expect(isHandshakeMessage({ method: 'handshake' })).toBe(false);
-      expect(isHandshakeMessage({ method: 'handshakeAck' })).toBe(false);
-    });
-
-    it('returns false for handshake message with non-object params', () => {
-      expect(isHandshakeMessage({ method: 'handshake', params: null })).toBe(
-        false,
-      );
-      expect(
-        isHandshakeMessage({ method: 'handshake', params: 'string' }),
-      ).toBe(false);
-    });
-
-    it('returns false for handshake message without incarnationId', () => {
-      expect(isHandshakeMessage({ method: 'handshake', params: {} })).toBe(
-        false,
-      );
-      expect(
-        isHandshakeMessage({
-          method: 'handshakeAck',
-          params: { other: 'data' },
-        }),
-      ).toBe(false);
-    });
-
-    it('returns false for handshake message with non-string incarnationId', () => {
-      expect(
-        isHandshakeMessage({
-          method: 'handshake',
-          params: { incarnationId: 123 },
-        }),
-      ).toBe(false);
-      expect(
-        isHandshakeMessage({
-          method: 'handshakeAck',
-          params: { incarnationId: null },
-        }),
-      ).toBe(false);
+    it.each([
+      // Valid messages
+      {
+        input: { method: 'handshake', params: { incarnationId: 'test-id' } },
+        expected: true,
+        description: 'handshake message',
+      },
+      {
+        input: { method: 'handshakeAck', params: { incarnationId: 'test-id' } },
+        expected: true,
+        description: 'handshakeAck message',
+      },
+      // Non-objects
+      { input: null, expected: false, description: 'null' },
+      { input: 'string', expected: false, description: 'string' },
+      { input: 123, expected: false, description: 'number' },
+      { input: undefined, expected: false, description: 'undefined' },
+      // Wrong method
+      {
+        input: { method: 'delivery' },
+        expected: false,
+        description: 'delivery method',
+      },
+      {
+        input: { method: 'other' },
+        expected: false,
+        description: 'other method',
+      },
+      { input: { params: {} }, expected: false, description: 'missing method' },
+      // Missing params
+      {
+        input: { method: 'handshake' },
+        expected: false,
+        description: 'handshake without params',
+      },
+      {
+        input: { method: 'handshakeAck' },
+        expected: false,
+        description: 'handshakeAck without params',
+      },
+      // Invalid params
+      {
+        input: { method: 'handshake', params: null },
+        expected: false,
+        description: 'null params',
+      },
+      {
+        input: { method: 'handshake', params: 'string' },
+        expected: false,
+        description: 'string params',
+      },
+      {
+        input: { method: 'handshake', params: {} },
+        expected: false,
+        description: 'empty params',
+      },
+      {
+        input: { method: 'handshakeAck', params: { other: 'data' } },
+        expected: false,
+        description: 'params without incarnationId',
+      },
+      // Invalid incarnationId
+      {
+        input: { method: 'handshake', params: { incarnationId: 123 } },
+        expected: false,
+        description: 'number incarnationId',
+      },
+      {
+        input: { method: 'handshakeAck', params: { incarnationId: null } },
+        expected: false,
+        description: 'null incarnationId',
+      },
+    ])('returns $expected for $description', ({ input, expected }) => {
+      expect(isHandshakeMessage(input)).toBe(expected);
     });
   });
 

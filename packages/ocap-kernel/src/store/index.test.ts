@@ -87,7 +87,6 @@ describe('kernel store', () => {
         'getNextRemoteId',
         'getNextVatId',
         'getObjectRefCount',
-        'getOrCreateIncarnationId',
         'getOwner',
         'getPendingMessage',
         'getPinnedObjects',
@@ -128,6 +127,7 @@ describe('kernel store', () => {
         'nextReapAction',
         'nextTerminatedVatCleanup',
         'pinObject',
+        'provideIncarnationId',
         'releaseAllSavepoints',
         'removeVatFromSubcluster',
         'reset',
@@ -432,7 +432,7 @@ describe('kernel store', () => {
     it('generates a new incarnation ID on first call', () => {
       const ks = makeKernelStore(mockKernelDatabase);
 
-      const incarnationId = ks.getOrCreateIncarnationId();
+      const incarnationId = ks.provideIncarnationId();
 
       expect(typeof incarnationId).toBe('string');
       expect(incarnationId).toHaveLength(36); // UUID format
@@ -442,9 +442,9 @@ describe('kernel store', () => {
     it('returns the same incarnation ID on subsequent calls', () => {
       const ks = makeKernelStore(mockKernelDatabase);
 
-      const first = ks.getOrCreateIncarnationId();
-      const second = ks.getOrCreateIncarnationId();
-      const third = ks.getOrCreateIncarnationId();
+      const first = ks.provideIncarnationId();
+      const second = ks.provideIncarnationId();
+      const third = ks.provideIncarnationId();
 
       expect(first).toBe(second);
       expect(second).toBe(third);
@@ -452,23 +452,23 @@ describe('kernel store', () => {
 
     it('preserves incarnation ID across store instances', () => {
       const ks1 = makeKernelStore(mockKernelDatabase);
-      const incarnationId = ks1.getOrCreateIncarnationId();
+      const incarnationId = ks1.provideIncarnationId();
 
       // Create a new store instance pointing to the same database
       const ks2 = makeKernelStore(mockKernelDatabase);
-      const loaded = ks2.getOrCreateIncarnationId();
+      const loaded = ks2.provideIncarnationId();
 
       expect(loaded).toBe(incarnationId);
     });
 
     it('regenerates incarnation ID after storage reset', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      const original = ks.getOrCreateIncarnationId();
+      const original = ks.provideIncarnationId();
 
       // Reset storage (clears incarnationId since it's not in except list)
       ks.reset();
 
-      const regenerated = ks.getOrCreateIncarnationId();
+      const regenerated = ks.provideIncarnationId();
 
       expect(regenerated).not.toBe(original);
       expect(regenerated).toHaveLength(36);
@@ -476,12 +476,12 @@ describe('kernel store', () => {
 
     it('preserves incarnation ID when reset with except list', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      const original = ks.getOrCreateIncarnationId();
+      const original = ks.provideIncarnationId();
 
       // Reset with incarnationId in except list
       ks.reset({ except: ['incarnationId'] });
 
-      const preserved = ks.getOrCreateIncarnationId();
+      const preserved = ks.provideIncarnationId();
 
       expect(preserved).toBe(original);
     });

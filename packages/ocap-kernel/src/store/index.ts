@@ -233,13 +233,13 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
   }
 
   /**
-   * Get or create the kernel's incarnation ID.
+   * Provide the kernel's incarnation ID.
    * The incarnation ID is persisted so it survives kernel restarts,
    * but is regenerated when storage is cleared (when state is actually lost).
    *
    * @returns The incarnation ID (existing or newly generated).
    */
-  function getOrCreateIncarnationId(): string {
+  function provideIncarnationId(): string {
     const existing = context.kv.get('incarnationId');
     if (existing) {
       return existing;
@@ -270,7 +270,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     deleteVat,
     clear,
     reset,
-    getOrCreateIncarnationId,
+    provideIncarnationId,
     kv,
   });
 }
