@@ -31,7 +31,6 @@ async function main(): Promise<void> {
   const urlParams = new URLSearchParams(window.location.search);
   const vatId = urlParams.get('vatId') ?? 'unknown';
 
-  // Set up console forwarding to parent (offscreen) for Playwright capture
   setupPostMessageConsoleForwarding(`vat-${vatId}`);
 
   // eslint-disable-next-line no-new

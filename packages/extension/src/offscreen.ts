@@ -33,15 +33,12 @@ async function main(): Promise<void> {
     JsonRpcMessage
   >(chrome.runtime, 'offscreen', 'background', isJsonRpcMessage);
 
-  // Set up console forwarding to background for Playwright capture
   setupConsoleForwarding(backgroundStream, 'offscreen');
 
   // Listen for console messages from vat iframes and forward to background
   window.addEventListener('message', (event) => {
     if (isConsoleForwardMessage(event.data)) {
-      backgroundStream.write(event.data).catch(() => {
-        // Ignore errors if stream isn't ready
-      });
+      backgroundStream.write(event.data).catch(() => undefined);
     }
   });
 
