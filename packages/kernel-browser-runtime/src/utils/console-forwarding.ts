@@ -1,19 +1,30 @@
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { DuplexStream } from '@metamask/streams';
-import type { JsonRpcNotification } from '@metamask/utils';
+import {
+  object,
+  literal,
+  string,
+  array,
+  enums,
+  is,
+} from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
+
+const ConsoleForwardMessageStruct = object({
+  jsonrpc: literal('2.0'),
+  method: literal('console-forward'),
+  params: object({
+    source: string(),
+    method: enums(['log', 'debug', 'info', 'warn', 'error']),
+    args: array(string()),
+  }),
+});
 
 /**
  * Message type for forwarding console output from one context to another.
  * Used to capture console logs from offscreen documents in Playwright tests.
  */
-export type ConsoleForwardMessage = JsonRpcNotification & {
-  method: 'console-forward';
-  params: {
-    source: string;
-    method: 'log' | 'debug' | 'info' | 'warn' | 'error';
-    args: string[];
-  };
-};
+export type ConsoleForwardMessage = Infer<typeof ConsoleForwardMessageStruct>;
 
 /**
  * Type guard for console-forward messages.
@@ -23,11 +34,7 @@ export type ConsoleForwardMessage = JsonRpcNotification & {
  */
 export const isConsoleForwardMessage = (
   value: unknown,
-): value is ConsoleForwardMessage =>
-  typeof value === 'object' &&
-  value !== null &&
-  'method' in value &&
-  (value as { method: unknown }).method === 'console-forward';
+): value is ConsoleForwardMessage => is(value, ConsoleForwardMessageStruct);
 
 /**
  * Stringifies an argument for console forwarding.

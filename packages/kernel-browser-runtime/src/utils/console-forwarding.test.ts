@@ -38,6 +38,61 @@ describe('console-forwarding', () => {
       { name: 'array', value: [] },
       { name: 'object without method', value: { jsonrpc: '2.0' } },
       { name: 'object with different method', value: { method: 'other' } },
+      {
+        name: 'missing jsonrpc',
+        value: {
+          method: 'console-forward',
+          params: { source: 'test', method: 'log', args: [] },
+        },
+      },
+      {
+        name: 'missing params',
+        value: { jsonrpc: '2.0', method: 'console-forward' },
+      },
+      {
+        name: 'null params',
+        value: { jsonrpc: '2.0', method: 'console-forward', params: null },
+      },
+      {
+        name: 'missing source in params',
+        value: {
+          jsonrpc: '2.0',
+          method: 'console-forward',
+          params: { method: 'log', args: [] },
+        },
+      },
+      {
+        name: 'missing method in params',
+        value: {
+          jsonrpc: '2.0',
+          method: 'console-forward',
+          params: { source: 'test', args: [] },
+        },
+      },
+      {
+        name: 'missing args in params',
+        value: {
+          jsonrpc: '2.0',
+          method: 'console-forward',
+          params: { source: 'test', method: 'log' },
+        },
+      },
+      {
+        name: 'non-array args',
+        value: {
+          jsonrpc: '2.0',
+          method: 'console-forward',
+          params: { source: 'test', method: 'log', args: 'not-array' },
+        },
+      },
+      {
+        name: 'invalid console method',
+        value: {
+          jsonrpc: '2.0',
+          method: 'console-forward',
+          params: { source: 'test', method: 'invalid', args: [] },
+        },
+      },
     ])('returns false for $name', ({ value }) => {
       expect(isConsoleForwardMessage(value)).toBe(false);
     });

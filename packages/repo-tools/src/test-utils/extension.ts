@@ -1,10 +1,5 @@
 import { chromium, test } from '@playwright/test';
-import type {
-  BrowserContext,
-  CDPSession,
-  ConsoleMessage,
-  Page,
-} from '@playwright/test';
+import type { BrowserContext, ConsoleMessage, Page } from '@playwright/test';
 import { appendFileSync } from 'node:fs';
 import { mkdir, rm, readFile, access } from 'node:fs/promises';
 import os from 'node:os';
@@ -154,9 +149,6 @@ export const makeLoadExtension = async ({
     );
   });
 
-  // Track CDP sessions for cleanup
-  const cdpSessions: CDPSession[] = [];
-
   // Capture console logs from extension pages (offscreen document, etc.)
   // Note: Pages may start at about:blank, so we attach the listener and check URL in the handler
   browserContext.on('page', (page) => {
@@ -175,7 +167,7 @@ export const makeLoadExtension = async ({
 
     // Set up CDP to capture iframe console logs (vat iframes)
     // We need to do this because Playwright doesn't have frame.on('console')
-    setupCdpForIframeConsoleLogs(page, writeRawLog, cdpSessions).catch(
+    setupCdpForIframeConsoleLogs(page, writeRawLog).catch(
       // eslint-disable-next-line no-console
       (error) => console.warn('Failed to set up CDP for iframe logs:', error),
     );
@@ -211,20 +203,21 @@ export const makeLoadExtension = async ({
  *
  * @param page - The Playwright page to set up CDP for.
  * @param writeRawLog - Function to write raw log entries.
- * @param cdpSessions - Array to track CDP sessions for cleanup.
  */
 async function setupCdpForIframeConsoleLogs(
   page: Page,
   writeRawLog: (source: string, type: string, text: string) => void,
-  cdpSessions: CDPSession[],
 ): Promise<void> {
+  // Pages may start at about:blank, so wait for navigation to complete
   // Only set up CDP for pages that might have iframes (offscreen document)
-  if (!page.url().includes('offscreen.html')) {
+  try {
+    await page.waitForURL('**/offscreen.html', { timeout: 5000 });
+  } catch {
+    // Page didn't navigate to offscreen.html, skip CDP setup
     return;
   }
 
   const cdpSession = await page.context().newCDPSession(page);
-  cdpSessions.push(cdpSession);
 
   // Enable Runtime domain to receive console events
   await cdpSession.send('Runtime.enable');
