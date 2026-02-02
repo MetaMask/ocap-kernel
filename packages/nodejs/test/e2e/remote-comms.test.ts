@@ -891,13 +891,14 @@ describe.sequential('Remote Communications E2E', () => {
 
         // Simulate state loss by closing kernel2's database and creating fresh in-memory db
         kernelDatabase2.close();
-        const freshDb = await makeSQLKernelDatabase({
+        // eslint-disable-next-line require-atomic-updates
+        kernelDatabase2 = await makeSQLKernelDatabase({
           dbFilename: ':memory:',
         });
 
         // Create a completely new kernel (new incarnation ID, no previous state)
         // eslint-disable-next-line require-atomic-updates
-        kernel2 = await makeTestKernel(freshDb, true);
+        kernel2 = await makeTestKernel(kernelDatabase2, true);
         await kernel2.initRemoteComms({ relays: testRelays });
 
         // Launch Bob again (fresh vat, no previous state)
