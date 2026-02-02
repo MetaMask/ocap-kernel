@@ -1,3 +1,4 @@
+import { stringify } from '@metamask/kernel-utils';
 import {
   object,
   literal,
@@ -35,26 +36,6 @@ export const isConsoleForwardMessage = (
 ): value is ConsoleForwardMessage => is(value, ConsoleForwardMessageStruct);
 
 /**
- * Stringifies an argument for console forwarding.
- *
- * @param arg - The argument to stringify.
- * @returns The stringified argument.
- */
-export function stringifyConsoleArg(arg: unknown): string {
-  if (typeof arg === 'string') {
-    return arg;
-  }
-  if (typeof arg === 'number' || typeof arg === 'boolean') {
-    return String(arg);
-  }
-  if (arg === undefined) {
-    return 'undefined';
-  }
-  // Objects, arrays, null, functions, symbols, etc.
-  return JSON.stringify(arg);
-}
-
-/**
  * Wraps console methods to forward messages via a provided callback.
  * This enables capturing console output from contexts that Playwright cannot
  * directly access (like offscreen documents, workers, or iframes).
@@ -90,7 +71,7 @@ export function setupConsoleForwarding({
         params: {
           source,
           method: consoleMethod,
-          args: args.map(stringifyConsoleArg),
+          args: args.map((arg) => stringify(arg, 0)),
         },
       };
       onMessage(message);

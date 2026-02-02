@@ -11,7 +11,6 @@ describe('index', () => {
       'isConsoleForwardMessage',
       'parseRelayQueryString',
       'setupConsoleForwarding',
-      'stringifyConsoleArg',
     ]);
   });
 });

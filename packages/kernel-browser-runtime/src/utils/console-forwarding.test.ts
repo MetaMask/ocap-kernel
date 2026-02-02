@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import {
   isConsoleForwardMessage,
-  stringifyConsoleArg,
   setupConsoleForwarding,
   handleConsoleForwardMessage,
 } from './console-forwarding.ts';
@@ -97,26 +96,6 @@ describe('console-forwarding', () => {
     });
   });
 
-  describe('stringifyConsoleArg', () => {
-    it.each([
-      { name: 'string', input: 'hello', expected: 'hello' },
-      { name: 'number', input: 42, expected: '42' },
-      { name: 'boolean true', input: true, expected: 'true' },
-      { name: 'boolean false', input: false, expected: 'false' },
-      { name: 'null', input: null, expected: 'null' },
-      { name: 'undefined', input: undefined, expected: 'undefined' },
-      { name: 'object', input: { foo: 'bar' }, expected: '{"foo":"bar"}' },
-      { name: 'array', input: [1, 2, 3], expected: '[1,2,3]' },
-      {
-        name: 'nested object',
-        input: { a: { b: 1 } },
-        expected: '{"a":{"b":1}}',
-      },
-    ])('stringifies $name correctly', ({ input, expected }) => {
-      expect(stringifyConsoleArg(input)).toBe(expected);
-    });
-  });
-
   describe('setupConsoleForwarding', () => {
     let originalConsole: typeof console;
     let mockOnMessage: ReturnType<typeof vi.fn>;
@@ -159,7 +138,7 @@ describe('console-forwarding', () => {
           params: {
             source: 'test-source',
             method,
-            args: ['test message', '123'],
+            args: ['"test message"', '123'],
           },
         });
       },
@@ -189,6 +168,46 @@ describe('console-forwarding', () => {
 
       const sentMessage = mockOnMessage.mock.calls[0][0];
       expect(isConsoleForwardMessage(sentMessage)).toBe(true);
+    });
+
+    it.each([
+      { name: 'BigInt', value: BigInt(123), expected: '123' },
+      { name: 'Symbol', value: Symbol('test'), expected: 'Symbol(test)' },
+    ])('handles $name values without throwing', ({ value, expected }) => {
+      setupConsoleForwarding({
+        source: 'test-source',
+        onMessage: mockOnMessage,
+      });
+
+      expect(() => console.log(value)).not.toThrow();
+      expect(mockOnMessage).toHaveBeenCalledWith({
+        jsonrpc: '2.0',
+        method: 'console-forward',
+        params: {
+          source: 'test-source',
+          method: 'log',
+          args: [expected],
+        },
+      });
+    });
+
+    it('handles Function values without throwing', () => {
+      setupConsoleForwarding({
+        source: 'test-source',
+        onMessage: mockOnMessage,
+      });
+
+      const testFunction = () => 'test';
+      expect(() => console.log(testFunction)).not.toThrow();
+      expect(mockOnMessage).toHaveBeenCalledWith({
+        jsonrpc: '2.0',
+        method: 'console-forward',
+        params: {
+          source: 'test-source',
+          method: 'log',
+          args: ['() => "test"'],
+        },
+      });
     });
   });
 

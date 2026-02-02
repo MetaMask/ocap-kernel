@@ -97,17 +97,6 @@ export const makeLoadExtension = async ({
     }
   };
 
-  const writeLog = (source: string, consoleMessage: ConsoleMessage): void => {
-    const logTimestamp = new Date().toISOString().slice(0, -5);
-    const text = consoleMessage.text();
-    const type = consoleMessage.type();
-    // eslint-disable-next-line n/no-sync
-    appendFileSync(
-      logFilePath,
-      `[${logTimestamp}] [${source}] [${type}] ${text}\n`,
-    );
-  };
-
   /**
    * Write a raw log entry (for CDP events where we don't have a ConsoleMessage).
    *
@@ -122,6 +111,10 @@ export const makeLoadExtension = async ({
       logFilePath,
       `[${logTimestamp}] [${source}] [${type}] ${text}\n`,
     );
+  };
+
+  const writeLog = (source: string, consoleMessage: ConsoleMessage): void => {
+    writeRawLog(source, consoleMessage.type(), consoleMessage.text());
   };
 
   const browserArgs = [
