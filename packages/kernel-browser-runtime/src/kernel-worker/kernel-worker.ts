@@ -48,7 +48,12 @@ async function main(): Promise<void> {
     ]);
 
   // Set up console forwarding - messages flow through offscreen to background
-  setupConsoleForwarding(messageStream, 'kernel-worker');
+  setupConsoleForwarding({
+    source: 'kernel-worker',
+    onMessage: (message) => {
+      messageStream.write(message).catch(() => undefined);
+    },
+  });
 
   const resetStorage =
     new URLSearchParams(globalThis.location.search).get('reset-storage') ===

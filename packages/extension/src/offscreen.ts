@@ -33,7 +33,12 @@ async function main(): Promise<void> {
     JsonRpcMessage
   >(chrome.runtime, 'offscreen', 'background', isJsonRpcMessage);
 
-  setupConsoleForwarding(backgroundStream, 'offscreen');
+  setupConsoleForwarding({
+    source: 'offscreen',
+    onMessage: (message) => {
+      backgroundStream.write(message).catch(() => undefined);
+    },
+  });
 
   // Listen for console messages from vat iframes and forward to background
   window.addEventListener('message', (event) => {

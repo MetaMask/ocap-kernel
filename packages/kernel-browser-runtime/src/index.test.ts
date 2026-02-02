@@ -22,7 +22,6 @@ describe('index', () => {
       'rpcHandlers',
       'rpcMethodSpecs',
       'setupConsoleForwarding',
-      'setupPostMessageConsoleForwarding',
       'stringifyConsoleArg',
     ]);
   });

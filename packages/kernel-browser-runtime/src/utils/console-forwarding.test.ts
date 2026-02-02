@@ -4,7 +4,6 @@ import {
   isConsoleForwardMessage,
   stringifyConsoleArg,
   setupConsoleForwarding,
-  setupPostMessageConsoleForwarding,
   handleConsoleForwardMessage,
 } from './console-forwarding.ts';
 import type { ConsoleForwardMessage } from './console-forwarding.ts';
@@ -120,15 +119,11 @@ describe('console-forwarding', () => {
 
   describe('setupConsoleForwarding', () => {
     let originalConsole: typeof console;
-    let mockStream: {
-      write: ReturnType<typeof vi.fn>;
-    };
+    let mockOnMessage: ReturnType<typeof vi.fn>;
 
     beforeEach(() => {
       originalConsole = { ...console };
-      mockStream = {
-        write: vi.fn().mockResolvedValue(undefined),
-      };
+      mockOnMessage = vi.fn();
     });
 
     afterEach(() => {
@@ -137,7 +132,10 @@ describe('console-forwarding', () => {
     });
 
     it('wraps all console methods', () => {
-      setupConsoleForwarding(mockStream as never, 'test-source');
+      setupConsoleForwarding({
+        source: 'test-source',
+        onMessage: mockOnMessage,
+      });
 
       const methods = ['log', 'debug', 'info', 'warn', 'error'] as const;
       for (const method of methods) {
@@ -146,13 +144,16 @@ describe('console-forwarding', () => {
     });
 
     it.each(['log', 'debug', 'info', 'warn', 'error'] as const)(
-      'forwards %s method to stream with source',
+      'forwards %s method via onMessage callback',
       (method) => {
-        setupConsoleForwarding(mockStream as never, 'test-source');
+        setupConsoleForwarding({
+          source: 'test-source',
+          onMessage: mockOnMessage,
+        });
 
         console[method]('test message', 123);
 
-        expect(mockStream.write).toHaveBeenCalledWith({
+        expect(mockOnMessage).toHaveBeenCalledWith({
           jsonrpc: '2.0',
           method: 'console-forward',
           params: {
@@ -167,7 +168,10 @@ describe('console-forwarding', () => {
     it('calls original console method', () => {
       // Spy on console.log BEFORE setupConsoleForwarding captures it
       const originalLog = vi.spyOn(console, 'log');
-      setupConsoleForwarding(mockStream as never, 'test-source');
+      setupConsoleForwarding({
+        source: 'test-source',
+        onMessage: mockOnMessage,
+      });
 
       console.log('test');
 
@@ -175,13 +179,16 @@ describe('console-forwarding', () => {
       originalLog.mockRestore();
     });
 
-    it('ignores stream write errors', async () => {
-      mockStream.write.mockRejectedValue(new Error('Stream not ready'));
-      setupConsoleForwarding(mockStream as never, 'test-source');
+    it('sends messages that pass isConsoleForwardMessage check', () => {
+      setupConsoleForwarding({
+        source: 'test-source',
+        onMessage: mockOnMessage,
+      });
 
-      // Should not throw
+      console.log('test');
 
-      expect(() => console.log('test')).not.toThrow();
+      const sentMessage = mockOnMessage.mock.calls[0][0];
+      expect(isConsoleForwardMessage(sentMessage)).toBe(true);
     });
   });
 
@@ -251,83 +258,6 @@ describe('console-forwarding', () => {
       handleConsoleForwardMessage(message);
 
       expect(consoleSpy).toHaveBeenCalledWith('[vat-v1]', 'vat message');
-    });
-  });
-
-  describe('setupPostMessageConsoleForwarding', () => {
-    let originalConsole: typeof console;
-    let mockPostMessage: ReturnType<typeof vi.fn>;
-
-    beforeEach(() => {
-      originalConsole = { ...console };
-      mockPostMessage = vi.fn();
-      vi.stubGlobal('window', {
-        parent: {
-          postMessage: mockPostMessage,
-        },
-      });
-    });
-
-    afterEach(() => {
-      // Restore original console methods
-      Object.assign(console, originalConsole);
-      vi.unstubAllGlobals();
-      // Re-stub harden since unstubAllGlobals removes it
-      vi.stubGlobal(
-        'harden',
-        vi.fn((obj: unknown) => obj),
-      );
-    });
-
-    it('wraps all console methods', () => {
-      setupPostMessageConsoleForwarding('vat-v1');
-
-      const methods = ['log', 'debug', 'info', 'warn', 'error'] as const;
-      for (const method of methods) {
-        expect(console[method]).not.toBe(originalConsole[method]);
-      }
-    });
-
-    it.each(['log', 'debug', 'info', 'warn', 'error'] as const)(
-      'posts %s method to parent window with standard message format',
-      (method) => {
-        setupPostMessageConsoleForwarding('vat-v1');
-
-        console[method]('test message', 123);
-
-        expect(mockPostMessage).toHaveBeenCalledWith(
-          {
-            jsonrpc: '2.0',
-            method: 'console-forward',
-            params: {
-              source: 'vat-v1',
-              method,
-              args: ['test message', '123'],
-            },
-          },
-          '*',
-        );
-      },
-    );
-
-    it('sends messages that pass isConsoleForwardMessage check', () => {
-      setupPostMessageConsoleForwarding('vat-v1');
-
-      console.log('test');
-
-      const sentMessage = mockPostMessage.mock.calls[0][0];
-      expect(isConsoleForwardMessage(sentMessage)).toBe(true);
-    });
-
-    it('calls original console method', () => {
-      // Spy on console.log BEFORE setupPostMessageConsoleForwarding captures it
-      const originalLog = vi.spyOn(console, 'log');
-      setupPostMessageConsoleForwarding('vat-v1');
-
-      console.log('test');
-
-      expect(originalLog).toHaveBeenCalledWith('test');
-      originalLog.mockRestore();
     });
   });
 });
