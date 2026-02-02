@@ -88,7 +88,7 @@ export class RemoteManager {
     this.#keySeed = keySeed;
     this.#mnemonic = mnemonic;
     // Get incarnation ID from store - it's persisted so it survives restarts
-    this.#incarnationId = kernelStore.getOrCreateIncarnationId();
+    this.#incarnationId = kernelStore.provideIncarnationId();
   }
 
   /**

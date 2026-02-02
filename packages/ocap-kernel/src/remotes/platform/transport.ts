@@ -140,19 +140,22 @@ export async function initTransport(
     if (!handshakeDeps) {
       return true; // No handshake configured, skip
     }
+    let result;
     try {
-      const result = await performOutboundHandshake(channel, handshakeDeps);
-      if (result.incarnationChanged && onRemoteGiveUp) {
-        logger.log(
-          `${channel.peerId.slice(0, 8)}:: incarnation changed during outbound handshake, triggering promise rejection`,
-        );
-        onRemoteGiveUp(channel.peerId);
-      }
-      return true;
+      result = await performOutboundHandshake(channel, handshakeDeps);
     } catch (problem) {
       outputError(channel.peerId, 'outbound handshake', problem);
       return false;
     }
+    // Handle incarnation change outside try-catch so callback errors
+    // don't incorrectly mark the handshake as failed
+    if (result.incarnationChanged && onRemoteGiveUp) {
+      logger.log(
+        `${channel.peerId.slice(0, 8)}:: incarnation changed during outbound handshake, triggering promise rejection`,
+      );
+      onRemoteGiveUp(channel.peerId);
+    }
+    return true;
   }
 
   /**
@@ -166,19 +169,22 @@ export async function initTransport(
     if (!handshakeDeps) {
       return true; // No handshake configured, skip
     }
+    let result;
     try {
-      const result = await performInboundHandshake(channel, handshakeDeps);
-      if (result.incarnationChanged && onRemoteGiveUp) {
-        logger.log(
-          `${channel.peerId.slice(0, 8)}:: incarnation changed during inbound handshake, triggering promise rejection`,
-        );
-        onRemoteGiveUp(channel.peerId);
-      }
-      return true;
+      result = await performInboundHandshake(channel, handshakeDeps);
     } catch (problem) {
       outputError(channel.peerId, 'inbound handshake', problem);
       return false;
     }
+    // Handle incarnation change outside try-catch so callback errors
+    // don't incorrectly mark the handshake as failed
+    if (result.incarnationChanged && onRemoteGiveUp) {
+      logger.log(
+        `${channel.peerId.slice(0, 8)}:: incarnation changed during inbound handshake, triggering promise rejection`,
+      );
+      onRemoteGiveUp(channel.peerId);
+    }
+    return true;
   }
 
   /**
