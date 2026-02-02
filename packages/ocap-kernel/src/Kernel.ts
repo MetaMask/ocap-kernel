@@ -14,18 +14,21 @@ import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
   VatId,
+  SystemVatId,
   EndpointId,
   KRef,
   PlatformServices,
   ClusterConfig,
+  SystemVatConfig,
   VatConfig,
   KernelStatus,
   Subcluster,
   SubclusterLaunchResult,
   EndpointHandle,
 } from './types.ts';
-import { isVatId, isRemoteId } from './types.ts';
+import { isVatId, isRemoteId, isSystemVatId } from './types.ts';
 import { SubclusterManager } from './vats/SubclusterManager.ts';
+import { SystemVatManager } from './vats/SystemVatManager.ts';
 import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
 
@@ -48,6 +51,9 @@ export class Kernel {
 
   /** Manages subcluster operations */
   readonly #subclusterManager: SubclusterManager;
+
+  /** Manages system vat operations */
+  readonly #systemVatManager: SystemVatManager;
 
   /** Manages remote kernel connections */
   readonly #remoteManager: RemoteManager;
@@ -77,6 +83,12 @@ export class Kernel {
   readonly #kernelRouter: KernelRouter;
 
   /**
+   * Host vat configuration passed to Kernel.make().
+   * Stored for connection after initialization.
+   */
+  readonly #hostVatConfig: SystemVatConfig | undefined;
+
+  /**
    * Construct a new kernel instance.
    *
    * @param platformServices - Service to do things the kernel worker can't.
@@ -86,6 +98,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
+   * @param options.hostVat - Optional host vat configuration to connect at kernel creation.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
@@ -96,11 +109,13 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
+      hostVat?: SystemVatConfig;
     } = {},
   ) {
     this.#platformServices = platformServices;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase, this.#logger);
+    this.#hostVatConfig = options.hostVat;
     if (!this.#kernelStore.kv.get('initialized')) {
       this.#kernelStore.kv.set('initialized', 'true');
     }
@@ -155,6 +170,22 @@ export class Kernel {
       queueMessage: this.queueMessage.bind(this),
     });
 
+    this.#systemVatManager = new SystemVatManager({
+      kernelStore: this.#kernelStore,
+      kernelQueue: this.#kernelQueue,
+      kernelFacetDeps: {
+        launchSubcluster: this.launchSubcluster.bind(this),
+        terminateSubcluster: this.terminateSubcluster.bind(this),
+        reloadSubcluster: this.reloadSubcluster.bind(this),
+        getSubcluster: this.getSubcluster.bind(this),
+        getSubclusters: this.getSubclusters.bind(this),
+        getStatus: this.getStatus.bind(this),
+      },
+      registerKernelService: (name, service) =>
+        this.#kernelServiceManager.registerKernelServiceObject(name, service),
+      logger: this.#logger.subLogger({ tags: ['SystemVatManager'] }),
+    });
+
     this.#kernelRouter = new KernelRouter(
       this.#kernelStore,
       this.#kernelQueue,
@@ -190,6 +221,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
+   * @param options.hostVat - Optional host vat configuration to connect at kernel creation.
    * @returns A promise for the new kernel instance.
    */
   static async make(
@@ -200,6 +232,7 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
+      hostVat?: SystemVatConfig;
     } = {},
   ): Promise<Kernel> {
     const kernel = new Kernel(platformServices, kernelDatabase, options);
@@ -217,9 +250,27 @@ export class Kernel {
         this.#remoteManager.handleRemoteMessage(from, message),
     );
 
+    // Clean up any orphaned system vat state from a previous session.
+    // This handles crash recovery where disconnect was never called.
+    this.#cleanupOrphanedSystemVats();
+
     // Start all vats that were previously running before starting the queue
     // This ensures that any messages in the queue have their target vats ready
     await this.#vatManager.initializeAllVats();
+
+    // Register host vat if configured.
+    // This runs asynchronously - the registration completes when the supervisor
+    // side calls connect() via the transport's awaitConnection().
+    if (this.#hostVatConfig) {
+      this.#systemVatManager
+        .registerSystemVat(this.#hostVatConfig)
+        .catch((error) => {
+          this.#logger.error(
+            `Failed to register host vat ${this.#hostVatConfig?.name}:`,
+            error,
+          );
+        });
+    }
 
     // Start the kernel queue processing (non-blocking)
     // This runs for the entire lifetime of the kernel
@@ -232,6 +283,69 @@ export class Kernel {
         );
         // Don't re-throw to avoid unhandled rejection in this long-running task
       });
+  }
+
+  /**
+   * Clean up orphaned system vat state from a previous session.
+   *
+   * System vats are ephemeral - they don't persist across restarts. However,
+   * their krefs (for owned objects) are persisted to the database. If the
+   * kernel restarts without properly disconnecting system vats (e.g., crash,
+   * browser refresh), orphaned state can remain.
+   *
+   * This method scans for system vat state and cleans it up before new
+   * system vats are registered, ensuring a clean slate.
+   */
+  #cleanupOrphanedSystemVats(): void {
+    // Scan for system vat c-list keys (sv*.c.*) to find orphaned system vats
+    const orphanedSystemVatIds = new Set<SystemVatId>();
+    const { kv } = this.#kernelStore;
+
+    // Look for c-list entries with system vat prefixes (sv0, sv1, etc.)
+    // C-list keys use the format: {endpointId}.c.{slot}
+    let key: string | undefined = 'sv';
+    while ((key = kv.getNextKey(key)) !== undefined) {
+      if (!key.startsWith('sv')) {
+        break;
+      }
+      // Extract the system vat ID from keys like "sv0.c.o+0"
+      const parts = key.split('.');
+      if (parts.length >= 2 && parts[1] === 'c') {
+        const endpointId = parts[0];
+        if (isSystemVatId(endpointId)) {
+          orphanedSystemVatIds.add(endpointId);
+        }
+      }
+    }
+
+    for (const systemVatId of orphanedSystemVatIds) {
+      this.#logger.log(
+        `Cleaning up orphaned system vat state for ${systemVatId}`,
+      );
+
+      // Reject pending promises where this vat was the decider
+      const failure = { body: '"System vat disconnected (orphan cleanup)"' };
+      for (const kpid of this.#kernelStore.getPromisesByDecider(systemVatId)) {
+        // Since there's no active vat, we directly resolve the promise
+        // in the kernel store rather than going through the queue
+        this.#kernelStore.resolveKernelPromise(kpid, true, {
+          ...failure,
+          slots: [],
+        });
+      }
+
+      // Clean up kernel state: exports, imports, promises, c-list entries
+      const work = this.#kernelStore.cleanupTerminatedVat(systemVatId);
+      this.#logger.debug(
+        `Orphaned system vat ${systemVatId} cleanup: ${work.exports} exports, ${work.imports} imports, ${work.promises} promises`,
+      );
+    }
+
+    if (orphanedSystemVatIds.size > 0) {
+      this.#logger.log(
+        `Cleaned up ${orphanedSystemVatIds.size} orphaned system vat(s)`,
+      );
+    }
   }
 
   /**
@@ -401,7 +515,7 @@ export class Kernel {
    *
    * @param endpointId - The ID of the endpoint to retrieve.
    * @returns The endpoint handle for the given ID.
-   * @throws If the endpoint ID is invalid (neither a vat ID nor a remote ID).
+   * @throws If the endpoint ID is invalid (neither a vat ID, remote ID, nor system vat ID).
    */
   #getEndpoint(endpointId: EndpointId): EndpointHandle {
     if (isVatId(endpointId)) {
@@ -409,6 +523,14 @@ export class Kernel {
     }
     if (isRemoteId(endpointId)) {
       return this.#remoteManager.getRemote(endpointId);
+    }
+    if (isSystemVatId(endpointId)) {
+      const systemVatId = endpointId as SystemVatId;
+      const handle = this.#systemVatManager.getSystemVatHandle(systemVatId);
+      if (!handle) {
+        throw Error(`system vat ${systemVatId} not found`);
+      }
+      return handle;
     }
     // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
     throw Error(`invalid endpoint ID ${endpointId}`);
@@ -459,6 +581,9 @@ export class Kernel {
   /**
    * Get the current kernel status, defined as the current cluster configuration
    * and a list of all running vats.
+   *
+   * Returns a promise that resolves in a future crank to avoid deadlock when
+   * called from within a crank (e.g., via E(kernelFacet).getStatus()).
    *
    * @returns A promise for the current kernel status containing vats, subclusters, and remote comms information.
    */

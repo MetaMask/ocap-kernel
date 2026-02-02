@@ -1,6 +1,7 @@
+import { makePromiseKit } from '@endo/promise-kit';
 import { JsonRpcServer } from '@metamask/json-rpc-engine/v2';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
-import { isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
+import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { Kernel } from '@metamask/ocap-kernel';
@@ -9,18 +10,18 @@ import {
   MessagePortDuplexStream,
   receiveMessagePort,
 } from '@metamask/streams/browser';
+import type { JsonRpcResponse } from '@metamask/utils';
 
-import {
-  isCapTPNotification,
-  makeCapTPNotification,
-} from '../background-captp.ts';
-import type { CapTPMessage } from '../background-captp.ts';
+import { makeKernelHostVat } from '../host-vat/kernel-side.ts';
 import { receiveInternalConnections } from '../internal-comms/internal-connections.ts';
 import { PlatformServicesClient } from '../PlatformServicesClient.ts';
-import { makeKernelCapTP } from './captp/index.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { makePanelMessageMiddleware } from './middleware/panel-message.ts';
 import { getRelaysFromCurrentLocation } from '../utils/relay-query-string.ts';
+
+type HandleInternalMessage = (
+  request: JsonRpcMessage,
+) => Promise<JsonRpcResponse | void>;
 
 const logger = new Logger('kernel-worker');
 const DB_FILENAME = 'store.db';
@@ -31,6 +32,13 @@ main().catch(logger.error);
  * Run the kernel.
  */
 async function main(): Promise<void> {
+  // Synchronously start listening for internal connections
+  const panelHandlerKit = makePromiseKit<HandleInternalMessage>();
+  receiveInternalConnections({
+    handlerPromise: panelHandlerKit.promise,
+    logger,
+  });
+
   const port = await receiveMessagePort(
     (listener) => globalThis.addEventListener('message', listener),
     (listener) => globalThis.removeEventListener('message', listener),
@@ -50,50 +58,34 @@ async function main(): Promise<void> {
     new URLSearchParams(globalThis.location.search).get('reset-storage') ===
     'true';
 
-  const kernelP = Kernel.make(platformServicesClient, kernelDatabase, {
+  // Create host vat first to get config
+  const hostVat = makeKernelHostVat({
+    name: 'kernelHost',
+    logger: logger.subLogger({ tags: ['host-vat'] }),
+  });
+
+  // Pass host vat config to kernel
+  const kernel = await Kernel.make(platformServicesClient, kernelDatabase, {
     resetStorage,
+    hostVat: hostVat.config,
   });
 
-  const handlerP = kernelP.then((kernel) => {
-    const server = new JsonRpcServer({
-      middleware: [
-        makeLoggingMiddleware(logger.subLogger('internal-rpc')),
-        makePanelMessageMiddleware(kernel, kernelDatabase),
-      ],
-    });
-    return async (request: JsonRpcMessage) => server.handle(request);
+  const panelRpcServer = new JsonRpcServer({
+    middleware: [
+      makeLoggingMiddleware(logger.subLogger('internal-rpc')),
+      makePanelMessageMiddleware(kernel, kernelDatabase),
+    ],
   });
+  panelHandlerKit.resolve(panelRpcServer.handle.bind(panelRpcServer));
 
-  receiveInternalConnections({
-    handlerPromise: handlerP,
-    logger,
-  });
+  // Connect host vat to the background via the message stream after kernel is created
+  // The background will use makeBackgroundHostVat to create the supervisor side
+  const hostVatStream = messageStream as unknown as Parameters<
+    typeof hostVat.connect
+  >[0];
+  hostVat.connect(hostVatStream);
 
-  const kernel = await kernelP;
-
-  const kernelCapTP = makeKernelCapTP({
-    kernel,
-    send: (captpMessage: CapTPMessage) => {
-      const notification = makeCapTPNotification(captpMessage);
-      messageStream.write(notification).catch((error) => {
-        logger.error('Failed to send CapTP message:', error);
-      });
-    },
-  });
-
-  messageStream
-    .drain((message) => {
-      if (isCapTPNotification(message)) {
-        const captpMessage = message.params[0];
-        kernelCapTP.dispatch(captpMessage);
-      } else {
-        throw new Error(`Unexpected message: ${stringify(message)}`);
-      }
-    })
-    .catch((error) => {
-      kernelCapTP.abort(error);
-      logger.error('Message stream error:', error);
-    });
+  logger.log('Kernel started with host vat transport');
 
   const relays = getRelaysFromCurrentLocation();
   await kernel.initRemoteComms({ relays });

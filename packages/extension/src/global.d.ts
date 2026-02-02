@@ -1,4 +1,4 @@
-import type { KernelFacade } from '@metamask/kernel-browser-runtime';
+import type { KernelFacet } from '@metamask/ocap-kernel';
 
 // Type declarations for kernel dev console API.
 declare global {
@@ -8,7 +8,6 @@ declare global {
    *
    * @example
    * ```typescript
-   * const kernel = await kernel.getKernel();
    * const status = await E(kernel).getStatus();
    * ```
    */
@@ -16,7 +15,7 @@ declare global {
   var E: typeof import('@endo/eventual-send').E;
 
   // eslint-disable-next-line no-var
-  var kernel: KernelFacade | Promise<KernelFacade>;
+  var kernel: Promise<KernelFacet> | KernelFacet;
 }
 
 export {};

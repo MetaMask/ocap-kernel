@@ -261,35 +261,35 @@ describe('vat store methods', () => {
 
   describe('deleteEndpoint', () => {
     it('deletes all keys related to the endpoint', () => {
-      const endpointId = 'e1';
+      const endpointId = 'v1';
 
-      // Setup mock data
-      mockKV.set(`cle.${endpointId}.obj1`, 'data1');
-      mockKV.set(`cle.${endpointId}.obj2`, 'data2');
-      mockKV.set(`clk.${endpointId}.prom1`, 'data3');
+      // Setup mock data - c-list keys use the format {endpointId}.c.{slot}
+      mockKV.set(`${endpointId}.c.o+0`, 'ko1');
+      mockKV.set(`${endpointId}.c.ko1`, 'R o+0');
+      mockKV.set(`${endpointId}.c.p+1`, 'kp1');
       mockKV.set(`e.nextObjectId.${endpointId}`, '10');
       mockKV.set(`e.nextPromiseId.${endpointId}`, '5');
 
       mockGetPrefixedKeys.mockImplementation((prefix: string) => {
-        if (prefix === `cle.${endpointId}.`) {
-          return [`cle.${endpointId}.obj1`, `cle.${endpointId}.obj2`];
-        }
-        if (prefix === `clk.${endpointId}.`) {
-          return [`clk.${endpointId}.prom1`];
+        if (prefix === `${endpointId}.c.`) {
+          return [
+            `${endpointId}.c.o+0`,
+            `${endpointId}.c.ko1`,
+            `${endpointId}.c.p+1`,
+          ];
         }
         return [];
       });
 
       vatMethods.deleteEndpoint(endpointId);
 
-      expect(mockKV.has(`cle.${endpointId}.obj1`)).toBe(false);
-      expect(mockKV.has(`cle.${endpointId}.obj2`)).toBe(false);
-      expect(mockKV.has(`clk.${endpointId}.prom1`)).toBe(false);
+      expect(mockKV.has(`${endpointId}.c.o+0`)).toBe(false);
+      expect(mockKV.has(`${endpointId}.c.ko1`)).toBe(false);
+      expect(mockKV.has(`${endpointId}.c.p+1`)).toBe(false);
       expect(mockKV.has(`e.nextObjectId.${endpointId}`)).toBe(false);
       expect(mockKV.has(`e.nextPromiseId.${endpointId}`)).toBe(false);
 
-      expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`cle.${endpointId}.`);
-      expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`clk.${endpointId}.`);
+      expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`${endpointId}.c.`);
     });
 
     it('does nothing if endpoint has no associated keys', () => {
@@ -299,8 +299,7 @@ describe('vat store methods', () => {
 
       expect(() => vatMethods.deleteEndpoint(endpointId)).not.toThrow();
 
-      expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`cle.${endpointId}.`);
-      expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`clk.${endpointId}.`);
+      expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`${endpointId}.c.`);
     });
   });
 
@@ -533,6 +532,221 @@ describe('vat store methods', () => {
 
       const result = vatMethods.isVatActive(vatID1);
       expect(result).toBe(false);
+    });
+  });
+
+  describe('cleanupTerminatedVat', () => {
+    describe('regular vats', () => {
+      it('returns zero counts when vat is not terminated', () => {
+        mockTerminatedVats.get.mockReturnValue('[]');
+        mockGetPrefixedKeys.mockReturnValue([]);
+
+        const work = vatMethods.cleanupTerminatedVat(vatID1);
+
+        expect(work).toStrictEqual({
+          exports: 0,
+          imports: 0,
+          promises: 0,
+          kv: 0,
+        });
+      });
+
+      it('cleans up vat KV entries for regular vats', () => {
+        mockTerminatedVats.get.mockReturnValue(JSON.stringify([vatID1]));
+
+        // Set up some vat KV entries
+        mockKV.set(`${vatID1}.someKey`, 'value');
+
+        mockGetPrefixedKeys.mockImplementation((prefix: string) => {
+          if (prefix === `${vatID1}.`) {
+            return [`${vatID1}.someKey`];
+          }
+          return [];
+        });
+
+        const work = vatMethods.cleanupTerminatedVat(vatID1);
+
+        expect(work.kv).toBe(1);
+        expect(mockKV.has(`${vatID1}.someKey`)).toBe(false);
+      });
+
+      it('removes vat from terminated list for regular vats', () => {
+        mockTerminatedVats.get.mockReturnValue(JSON.stringify([vatID1]));
+        mockGetPrefixedKeys.mockReturnValue([]);
+
+        vatMethods.cleanupTerminatedVat(vatID1);
+
+        expect(mockTerminatedVats.set).toHaveBeenCalledWith('[]');
+      });
+    });
+
+    describe('system vats', () => {
+      it('cleans up exported objects and removes owner entries', () => {
+        const systemVatId = 'sv0';
+
+        // Set up exported object c-list entry (eref->kref)
+        mockKV.set(`${systemVatId}.c.o+0`, 'ko1');
+        // Set up owner entry - use the mock owner key format
+        mockKV.set('owner.ko1', systemVatId);
+
+        mockGetPrefixedKeys.mockImplementation((prefix: string) => {
+          if (prefix === `${systemVatId}.c.o+`) {
+            return [`${systemVatId}.c.o+0`];
+          }
+          return [];
+        });
+
+        mockGetReachableAndVatSlot.mockReturnValue({ vatSlot: 'o+0' });
+
+        const work = vatMethods.cleanupTerminatedVat(systemVatId);
+
+        expect(work.exports).toBe(1);
+        expect(mockKV.has('owner.ko1')).toBe(false);
+        expect(mockDecrementRefCount).toHaveBeenCalledWith(
+          'ko1',
+          'cleanup|export|baseline',
+        );
+        expect(mockMaybeFreeKrefs.add).toHaveBeenCalledWith('ko1');
+      });
+
+      it('cleans up imported objects', () => {
+        const systemVatId = 'sv0';
+
+        // Set up imported object c-list entry (eref->kref)
+        mockKV.set(`${systemVatId}.c.o-1`, 'ko2');
+
+        mockGetPrefixedKeys.mockImplementation((prefix: string) => {
+          if (prefix === `${systemVatId}.c.o-`) {
+            return [`${systemVatId}.c.o-1`];
+          }
+          return [];
+        });
+
+        const work = vatMethods.cleanupTerminatedVat(systemVatId);
+
+        expect(work.imports).toBe(1);
+        expect(mockDeleteCListEntry).toHaveBeenCalledWith(
+          systemVatId,
+          'ko2',
+          'o-1',
+        );
+      });
+
+      it('cleans up promises and decrements decider refcount', () => {
+        const systemVatId = 'sv0';
+
+        // Set up promise c-list entry (eref->kref)
+        mockKV.set(`${systemVatId}.c.p+1`, 'kp1');
+
+        mockGetPrefixedKeys.mockImplementation((prefix: string) => {
+          if (prefix === `${systemVatId}.c.p`) {
+            return [`${systemVatId}.c.p+1`];
+          }
+          return [];
+        });
+
+        mockGetKernelPromise.mockReturnValue({ decider: systemVatId });
+
+        const work = vatMethods.cleanupTerminatedVat(systemVatId);
+
+        expect(work.promises).toBe(1);
+        expect(mockDeleteCListEntry).toHaveBeenCalledWith(
+          systemVatId,
+          'kp1',
+          'p+1',
+        );
+        expect(mockDecrementRefCount).toHaveBeenCalledWith(
+          'kp1',
+          'cleanup|promise|decider',
+        );
+      });
+
+      it('does not decrement promise refcount if endpoint is not the decider', () => {
+        const systemVatId = 'sv0';
+
+        mockKV.set(`${systemVatId}.c.p+1`, 'kp1');
+
+        mockGetPrefixedKeys.mockImplementation((prefix: string) => {
+          if (prefix === `${systemVatId}.c.p`) {
+            return [`${systemVatId}.c.p+1`];
+          }
+          return [];
+        });
+
+        // Different decider
+        mockGetKernelPromise.mockReturnValue({ decider: 'v1' });
+
+        const work = vatMethods.cleanupTerminatedVat(systemVatId);
+
+        expect(work.promises).toBe(1);
+        expect(mockDeleteCListEntry).toHaveBeenCalledWith(
+          systemVatId,
+          'kp1',
+          'p+1',
+        );
+        // Should not decrement decider refcount since this endpoint is not the decider
+        expect(mockDecrementRefCount).not.toHaveBeenCalledWith(
+          'kp1',
+          'cleanup|promise|decider',
+        );
+      });
+
+      it('returns zero counts when system vat has no state', () => {
+        const systemVatId = 'sv99';
+
+        mockGetPrefixedKeys.mockReturnValue([]);
+
+        const work = vatMethods.cleanupTerminatedVat(systemVatId);
+
+        expect(work).toStrictEqual({
+          exports: 0,
+          imports: 0,
+          promises: 0,
+          kv: 0,
+        });
+      });
+
+      it('skips vat KV cleanup for system vats', () => {
+        const systemVatId = 'sv0';
+
+        mockGetPrefixedKeys.mockReturnValue([]);
+
+        const work = vatMethods.cleanupTerminatedVat(systemVatId);
+
+        expect(work.kv).toBe(0);
+      });
+
+      it('does not remove from terminated list for system vats', () => {
+        const systemVatId = 'sv0';
+        mockGetPrefixedKeys.mockReturnValue([]);
+
+        vatMethods.cleanupTerminatedVat(systemVatId);
+
+        expect(mockTerminatedVats.set).not.toHaveBeenCalled();
+      });
+
+      it('skips terminated check for system vats', () => {
+        const systemVatId = 'sv0';
+        // System vat is not in the terminated list, but cleanup should still proceed
+        mockTerminatedVats.get.mockReturnValue('[]');
+
+        mockKV.set(`${systemVatId}.c.o+0`, 'ko1');
+        mockKV.set('owner.ko1', systemVatId);
+
+        mockGetPrefixedKeys.mockImplementation((prefix: string) => {
+          if (prefix === `${systemVatId}.c.o+`) {
+            return [`${systemVatId}.c.o+0`];
+          }
+          return [];
+        });
+
+        mockGetReachableAndVatSlot.mockReturnValue({ vatSlot: 'o+0' });
+
+        const work = vatMethods.cleanupTerminatedVat(systemVatId);
+
+        // Should still clean up even though not in terminated list
+        expect(work.exports).toBe(1);
+      });
     });
   });
 });

@@ -86,7 +86,10 @@ export function getCListMethods(ctx: StoreContext) {
    */
   function allocateErefForKref(endpointId: EndpointId, kref: KRef): ERef {
     let id;
-    const refTag = endpointId.startsWith('v') ? '' : endpointId[0];
+    // System vats (sv0, sv1) use the same vref format as regular vats (v0, v1)
+    const isVatOrSystemVat =
+      endpointId.startsWith('v') || endpointId.startsWith('sv');
+    const refTag = isVatOrSystemVat ? '' : endpointId[0];
     let refType;
     if (isPromiseRef(kref)) {
       id = ctx.kv.get(`e.nextPromiseId.${endpointId}`);

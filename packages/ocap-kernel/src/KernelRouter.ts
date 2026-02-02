@@ -45,10 +45,7 @@ export class KernelRouter {
   readonly #getEndpoint: (endpointId: EndpointId) => EndpointHandle;
 
   /** A function that invokes a method on a kernel service. */
-  readonly #invokeKernelService: (
-    target: KRef,
-    message: Message,
-  ) => Promise<void>;
+  readonly #invokeKernelService: (target: KRef, message: Message) => void;
 
   /** The logger, if any. */
   readonly #logger: Logger | undefined;
@@ -66,7 +63,7 @@ export class KernelRouter {
     kernelStore: KernelStore,
     kernelQueue: KernelQueue,
     getEndpoint: (endpointId: EndpointId) => EndpointHandle,
-    invokeKernelService: (target: KRef, message: Message) => Promise<void>,
+    invokeKernelService: (target: KRef, message: Message) => void,
     logger?: Logger,
   ) {
     this.#kernelStore = kernelStore;
@@ -266,7 +263,7 @@ export class KernelRouter {
           // Continue processing other messages - don't let one failure crash the queue
         }
       } else if (isKernelServiceMessage) {
-        crankResults = await this.#deliverKernelServiceMessage(target, message);
+        crankResults = this.#deliverKernelServiceMessage(target, message);
       } else {
         Fail`no owner for kernel object ${target}`;
       }
@@ -288,11 +285,8 @@ export class KernelRouter {
    * @param message - The message to deliver to the service.
    * @returns A promise that resolves to the crank results indicating the delivery was to the kernel.
    */
-  async #deliverKernelServiceMessage(
-    target: KRef,
-    message: Message,
-  ): Promise<CrankResults> {
-    await this.#invokeKernelService(target, message);
+  #deliverKernelServiceMessage(target: KRef, message: Message): CrankResults {
+    this.#invokeKernelService(target, message);
     return { didDelivery: 'kernel' };
   }
 

@@ -12,14 +12,9 @@ export default defineConfig((args) => {
     defaultConfig,
     defineProject({
       test: {
-        name: 'kernel-browser-runtime:integration',
-        include: ['src/**/*.integration.test.ts'],
+        name: 'kernel-integration',
+        include: ['**/test/integration/**'],
         setupFiles: [
-          fileURLToPath(
-            import.meta.resolve('@ocap/repo-tools/test-utils/fetch-mock'),
-          ),
-          // Use endoify-node which imports @libp2p/webrtc before lockdown
-          // (webrtc imports reflect-metadata which modifies globalThis.Reflect)
           fileURLToPath(
             import.meta.resolve('@metamask/kernel-shims/endoify-node'),
           ),

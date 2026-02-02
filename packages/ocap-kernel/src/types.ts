@@ -2,6 +2,7 @@ import type {
   SwingSetCapData,
   Message as SwingsetMessage,
   VatSyscallObject,
+  VatSyscallResult,
   VatSyscallSend,
   VatOneResolution,
 } from '@agoric/swingset-liveslots';
@@ -40,7 +41,8 @@ import { Fail } from './utils/assert.ts';
 
 export type VatId = string;
 export type RemoteId = string;
-export type EndpointId = VatId | RemoteId;
+export type SystemVatId = `sv${number}`;
+export type EndpointId = VatId | RemoteId | SystemVatId;
 export type SubclusterId = string;
 
 export type KRef = string;
@@ -84,6 +86,21 @@ export function coerceMessage(message: SwingsetMessage): Message {
   }
   return message as Message;
 }
+
+/**
+ * Delivery object using our Message type.
+ *
+ * This is equivalent to VatDeliveryObject from swingset-liveslots for JSON
+ * serialization purposes. The only difference is Message.result typing:
+ * ours is `result?: string | null`, theirs is `result: string | null | undefined`.
+ */
+export type DeliveryObject =
+  | ['message', VRef, Message]
+  | ['notify', VatOneResolution[]]
+  | ['dropExports', VRef[]]
+  | ['retireExports', VRef[]]
+  | ['retireImports', VRef[]]
+  | ['bringOutYourDead'];
 
 type JsonVatSyscallObject =
   | Exclude<VatSyscallObject, VatSyscallSend>
@@ -221,10 +238,13 @@ export const isRemoteId = (value: unknown): value is RemoteId =>
   value.at(0) === 'r' &&
   value.slice(1) === String(Number(value.slice(1)));
 
-export const isEndpointId = (value: unknown): value is EndpointId =>
+export const isSystemVatId = (value: unknown): value is SystemVatId =>
   typeof value === 'string' &&
-  (value.at(0) === 'v' || value.at(0) === 'r') &&
-  value.slice(1) === String(Number(value.slice(1)));
+  value.startsWith('sv') &&
+  value.slice(2) === String(Number(value.slice(2)));
+
+export const isEndpointId = (value: unknown): value is EndpointId =>
+  isVatId(value) || isRemoteId(value) || isSystemVatId(value);
 
 /**
  * Assert that a value is a valid vat id.
@@ -247,6 +267,10 @@ export function insistEndpointId(value: unknown): asserts value is EndpointId {
 }
 
 export const VatIdStruct = define<VatId>('VatId', isVatId);
+export const SystemVatIdStruct = define<SystemVatId>(
+  'SystemVatId',
+  isSystemVatId,
+);
 
 export const isSubclusterId = (value: unknown): value is SubclusterId =>
   typeof value === 'string' &&
@@ -422,6 +446,115 @@ export type ClusterConfig = Infer<typeof ClusterConfigStruct>;
 export const isClusterConfig = (value: unknown): value is ClusterConfig =>
   is(value, ClusterConfigStruct);
 
+/**
+ * Function signature for building the root object of a system vat.
+ * System vats don't load bundles; they provide this function directly.
+ */
+export type SystemVatBuildRootObject = (
+  vatPowers: Record<string, unknown>,
+  parameters: Record<string, Json> | undefined,
+) => object;
+
+/**
+ * Configuration for a single system vat within a system subcluster.
+ * Used when launching system subclusters via Kernel.launchSystemSubcluster().
+ */
+export type SystemSubclusterVatConfig = {
+  buildRootObject: SystemVatBuildRootObject;
+  parameters?: Record<string, Json>;
+};
+
+/**
+ * Configuration for launching a system subcluster.
+ * System subclusters contain vats that run without compartment isolation
+ * directly in the host process.
+ *
+ * Used when launching system subclusters via Kernel.launchSystemSubcluster().
+ */
+export type SystemSubclusterConfig = {
+  /** The name of the bootstrap vat within the subcluster. */
+  bootstrap: string;
+  /** Map of vat names to their configurations. */
+  vats: Record<string, SystemSubclusterVatConfig>;
+  /** Optional list of kernel service names to provide to the bootstrap vat. */
+  services?: string[];
+};
+
+// ============================================================================
+// System Vat Transport Types
+// ============================================================================
+
+/**
+ * Syscall handler from system vat to kernel.
+ * The kernel provides this to the transport so syscalls can be routed correctly.
+ */
+export type SystemVatSyscallHandler = (
+  syscall: VatSyscallObject,
+) => VatSyscallResult;
+
+/**
+ * Deliver function from kernel to system vat.
+ * The runtime provides this to the kernel so deliveries can be routed correctly.
+ */
+export type SystemVatDeliverFn = (
+  delivery: DeliveryObject,
+) => Promise<string | null>;
+
+/**
+ * Transport interface bridging kernel and system vat processes.
+ *
+ * The transport abstracts the communication channel between the kernel (which
+ * creates SystemVatHandle) and the system vat supervisor (which runs in the
+ * runtime's process). This allows:
+ * - Node.js: direct function calls (same process)
+ * - Extension: MessagePort IPC (cross-process)
+ *
+ * The kernel is passive - it sets up to receive connections via the transport.
+ * The supervisor side initiates the connection by resolving `awaitConnection()`.
+ * This push-based model allows:
+ * - Same-process: supervisor calls `connect()` which resolves the promise
+ * - Cross-process: supervisor sends "connect" message over IPC
+ */
+export type SystemVatTransport = {
+  /** Send deliveries from kernel to system vat. */
+  deliver: SystemVatDeliverFn;
+  /** Register syscall handler (kernel calls this to wire up). */
+  setSyscallHandler: (handler: SystemVatSyscallHandler) => void;
+  /**
+   * Returns a promise that resolves when the supervisor-side initiates
+   * connection. The kernel waits for this before sending bootstrap messages.
+   * For same-process transports, this resolves when `connect()` is called.
+   * For cross-process transports, this resolves when "connect" IPC message arrives.
+   */
+  awaitConnection: () => Promise<void>;
+};
+
+/**
+ * Configuration for a system vat using transport-based communication.
+ * Used for the host vat (configured at kernel construction) and dynamic
+ * system vats (registered at runtime via kernel facet).
+ */
+export type SystemVatConfig = {
+  /** Vat name (used in bootstrap message). */
+  name: string;
+  /** Transport callbacks for communication. */
+  transport: SystemVatTransport;
+  /** Optional kernel services to provide to the vat. */
+  services?: string[];
+};
+
+/**
+ * Result of registering a system vat.
+ */
+export type SystemVatRegistrationResult = {
+  /** The allocated system vat ID. */
+  systemVatId: SystemVatId;
+  /** The kref of the vat's root object. */
+  rootKref: KRef;
+  /** Function to disconnect and clean up the vat. */
+  disconnect: () => Promise<void>;
+};
+
 export const SubclusterStruct = object({
   id: SubclusterIdStruct,
   config: ClusterConfigStruct,
@@ -513,7 +646,7 @@ export const isGCAction = (value: unknown): value is GCAction =>
 export type CrankResults = {
   didDelivery?: EndpointId; // the endpoint to which we made a delivery
   abort?: boolean; // changes should be discarded, not committed
-  terminate?: { vatId: VatId; reject: boolean; info: SwingSetCapData };
+  terminate?: { vatId: EndpointId; reject: boolean; info: SwingSetCapData };
 };
 
 export type VatDeliveryResult = [VatCheckpoint, string | null];
