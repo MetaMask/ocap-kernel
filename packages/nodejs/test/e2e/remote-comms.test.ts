@@ -4,7 +4,6 @@ import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
 import type { KRef } from '@metamask/ocap-kernel';
 import { startRelay } from '@ocap/cli/relay';
 import { delay } from '@ocap/repo-tools/test-utils';
-import { unlink } from 'node:fs/promises';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { makeTestKernel, runTestVats } from '../helpers/kernel.ts';
@@ -890,43 +889,35 @@ describe.sequential('Remote Communications E2E', () => {
         // Stop kernel2
         await kernel2.stop();
 
-        // Simulate state loss by deleting kernel2's database and creating fresh
+        // Simulate state loss by closing kernel2's database and creating fresh in-memory db
         kernelDatabase2.close();
         const freshDb = await makeSQLKernelDatabase({
-          dbFilename: 'rc-e2e-test-kernel2-fresh.db',
+          dbFilename: ':memory:',
         });
 
-        try {
-          // Create a completely new kernel (new incarnation ID, no previous state)
-          // eslint-disable-next-line require-atomic-updates
-          kernel2 = await makeTestKernel(freshDb, true);
-          await kernel2.initRemoteComms({ relays: testRelays });
+        // Create a completely new kernel (new incarnation ID, no previous state)
+        // eslint-disable-next-line require-atomic-updates
+        kernel2 = await makeTestKernel(freshDb, true);
+        await kernel2.initRemoteComms({ relays: testRelays });
 
-          // Launch Bob again (fresh vat, no previous state)
-          await launchVatAndGetURL(kernel2, bobConfig);
+        // Launch Bob again (fresh vat, no previous state)
+        await launchVatAndGetURL(kernel2, bobConfig);
 
-          // Send a message - when the new kernel connects, it will have a different
-          // incarnation ID than before. The handshake will detect this change
-          // and trigger promise rejection for pending work.
-          // The await will naturally wait for the promise to settle - either
-          // succeeding (unexpected) or failing due to incarnation change detection.
-          const result = await kernel1.queueMessage(
-            aliceRef,
-            'sendRemoteMessage',
-            [bobURL, 'hello', ['Alice']],
-          );
-          const response = kunser(result);
+        // Send a message - when the new kernel connects, it will have a different
+        // incarnation ID than before. The handshake will detect this change
+        // and trigger promise rejection for pending work.
+        // The await will naturally wait for the promise to settle - either
+        // succeeding (unexpected) or failing due to incarnation change detection.
+        const result = await kernel1.queueMessage(
+          aliceRef,
+          'sendRemoteMessage',
+          [bobURL, 'hello', ['Alice']],
+        );
+        const response = kunser(result);
 
-          // The message should fail because incarnation changed
-          // Either due to promise rejection or remote state being lost
-          expect(response).toBeInstanceOf(Error);
-        } finally {
-          freshDb.close();
-          // Clean up the fresh database file
-          await unlink('rc-e2e-test-kernel2-fresh.db').catch(() => {
-            // Ignore errors if file doesn't exist
-          });
-        }
+        // The message should fail because incarnation changed
+        // Either due to promise rejection or remote state being lost
+        expect(response).toBeInstanceOf(Error);
       },
       NETWORK_TIMEOUT * 3,
     );
