@@ -232,13 +232,28 @@ async function setupCdpForIframeConsoleLogs(
   // Track execution contexts to identify iframe sources
   const executionContexts = new Map<number, string>();
 
+  // Track the main frame's execution context ID
+  // The first context created with the extension's origin is the main frame
+  let mainFrameContextId: number | undefined;
+
   // Listen for new execution contexts (iframes get their own context)
   cdpSession.on(
     'Runtime.executionContextCreated',
     (event: CdpExecutionContextCreatedEvent) => {
       const { id, origin, auxData } = event.context;
-      // auxData.frameId can help identify the iframe
       const frameId = auxData?.frameId;
+
+      // Track the main frame's context ID when we see it
+      // The frameId from CDP won't match Playwright's _guid directly,
+      // but the main frame context is typically the first one with the page's origin
+      if (
+        mainFrameContextId === undefined &&
+        origin.includes('chrome-extension')
+      ) {
+        mainFrameContextId = id;
+      }
+
+      // Build source identifier for iframes
       const source = frameId ? `iframe-${frameId.slice(0, 8)}` : `ctx-${id}`;
       executionContexts.set(id, origin.includes('iframe') ? source : origin);
     },
@@ -249,6 +264,11 @@ async function setupCdpForIframeConsoleLogs(
     'Runtime.consoleAPICalled',
     (event: CdpConsoleAPICalledEvent) => {
       const { type, args, executionContextId } = event;
+
+      // Skip main frame logs - they're already captured via page.on('console')
+      if (executionContextId === mainFrameContextId) {
+        return;
+      }
 
       // Format args into a readable string
       const text = args
@@ -268,11 +288,7 @@ async function setupCdpForIframeConsoleLogs(
         ? contextSource
         : `iframe-ctx-${executionContextId}`;
 
-      // Only log if it looks like an iframe context (avoid duplicating main page logs)
-      // Main page logs are already captured via page.on('console')
-      if (contextSource?.startsWith('iframe') || executionContextId > 1) {
-        writeRawLog(source, type, text);
-      }
+      writeRawLog(source, type, text);
     },
   );
 }

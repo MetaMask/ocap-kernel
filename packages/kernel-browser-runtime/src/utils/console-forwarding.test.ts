@@ -50,7 +50,7 @@ describe('console-forwarding', () => {
       { name: 'boolean true', input: true, expected: 'true' },
       { name: 'boolean false', input: false, expected: 'false' },
       { name: 'null', input: null, expected: 'null' },
-      { name: 'undefined', input: undefined, expected: undefined },
+      { name: 'undefined', input: undefined, expected: 'undefined' },
       { name: 'object', input: { foo: 'bar' }, expected: '{"foo":"bar"}' },
       { name: 'array', input: [1, 2, 3], expected: '[1,2,3]' },
       {

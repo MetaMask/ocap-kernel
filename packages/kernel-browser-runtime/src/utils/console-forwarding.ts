@@ -42,7 +42,10 @@ export function stringifyConsoleArg(arg: unknown): string {
   if (typeof arg === 'number' || typeof arg === 'boolean') {
     return String(arg);
   }
-  // Objects, arrays, null, undefined, functions, symbols, etc.
+  if (arg === undefined) {
+    return 'undefined';
+  }
+  // Objects, arrays, null, functions, symbols, etc.
   return JSON.stringify(arg);
 }
 
