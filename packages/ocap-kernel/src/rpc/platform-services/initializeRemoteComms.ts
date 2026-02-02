@@ -15,6 +15,7 @@ const initializeRemoteCommsParamsStruct = object({
   relays: optional(array(string())),
   maxRetryAttempts: optional(number()),
   maxQueue: optional(number()),
+  incarnationId: optional(string()),
 });
 
 type InitializeRemoteCommsParams = {
@@ -22,6 +23,7 @@ type InitializeRemoteCommsParams = {
   relays?: string[];
   maxRetryAttempts?: number;
   maxQueue?: number;
+  incarnationId?: string;
 };
 
 export type InitializeRemoteCommsSpec = MethodSpec<
@@ -36,6 +38,11 @@ export const initializeRemoteCommsSpec: InitializeRemoteCommsSpec = {
   result: literal(null),
 } as InitializeRemoteCommsSpec;
 
+/**
+ * Hook type for initializeRemoteComms.
+ * Note: incarnationId is accepted in the RPC params but not yet passed to the hook.
+ * This will be wired up in the integration PR.
+ */
 export type InitializeRemoteComms = (
   keySeed: string,
   options: RemoteCommsOptions,
@@ -66,6 +73,8 @@ export const initializeRemoteCommsHandler: InitializeRemoteCommsHandler = {
     if (params.maxQueue !== undefined) {
       options.maxQueue = params.maxQueue;
     }
+    // Note: params.incarnationId is accepted but not yet wired through.
+    // This will be integrated in a follow-up PR.
     return await initializeRemoteComms(params.keySeed, options);
   },
 };

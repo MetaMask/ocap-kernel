@@ -70,6 +70,15 @@ describe('initializeRemoteComms', () => {
         expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
       });
 
+      it('should accept params with incarnationId', () => {
+        const validParams = {
+          keySeed: '0x1234567890abcdef',
+          incarnationId: 'test-incarnation-id',
+        };
+
+        expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+      });
+
       it('should reject params with missing keySeed', () => {
         const invalidParams = {
           relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
@@ -661,6 +670,28 @@ describe('initializeRemoteComms', () => {
       expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {
         maxQueue: 0,
       });
+    });
+
+    it('should accept incarnationId in params (not yet wired to hook)', async () => {
+      // Note: incarnationId is accepted by the schema but not yet passed to the hook.
+      // This will be wired up in the integration PR.
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        incarnationId: 'test-incarnation-id',
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      // incarnationId is accepted but not passed through yet
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith('0xtestseed', {});
     });
   });
 });
