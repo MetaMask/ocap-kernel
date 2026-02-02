@@ -207,8 +207,13 @@ export function makeReconnectionLifecycle(
       // Perform handshake before registering the channel
       const handshakeOk = await doOutboundHandshake(channel);
       if (!handshakeOk) {
+        // Handshake failures are retryable (could be transient network issues)
+        // Return null to signal retry instead of throwing non-retryable error
+        logger.log(
+          `${peerId}:: handshake failed during reconnection, will retry`,
+        );
         await closeChannel(channel, peerId);
-        throw new Error('Handshake failed during reconnection');
+        return null;
       }
       registerChannel(peerId, channel, 'reading channel to');
     }
