@@ -1,22 +1,30 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { Baggage, VatPowers } from '@metamask/ocap-kernel';
 
 /**
  * Build function for a persistent counter vat.
  *
- * @param {unknown} vatPowers - Special powers granted to this vat.
- * @param {unknown} parameters - Initialization parameters from the vat's config object.
- * @param {unknown} baggage - Root of vat's persistent state.
- * @returns {unknown} The root object for the new vat.
+ * @param vatPowers - Special powers granted to this vat.
+ * @param vatPowers.logger - The logger for the vat.
+ * @param parameters - Initialization parameters from the vat's config object.
+ * @param parameters.name - The name of the vat.
+ * @param baggage - Root of vat's persistent state.
+ * @returns The root object for the new vat.
  */
-export function buildRootObject(vatPowers, parameters, baggage) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function buildRootObject(
+  vatPowers: VatPowers,
+  parameters: { name?: string },
+  baggage: Baggage,
+) {
   const name = parameters?.name ?? 'Counter';
   const logger = vatPowers.logger.subLogger({ tags: ['test'] });
-  const tlog = (message) => logger.log(`${name}: ${message}`);
+  const tlog = (message: string): void => logger.log(`${name}: ${message}`);
 
-  let count;
+  let count: number;
   if (baggage.has('count')) {
     // Resume from persistent state
-    count = baggage.get('count');
+    count = baggage.get('count') as number;
     tlog(`resumed with count: ${count}`);
   } else {
     // Initialize new counter

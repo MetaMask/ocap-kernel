@@ -1,59 +1,69 @@
 import { E } from '@endo/eventual-send';
 import { makePromiseKit } from '@endo/promise-kit';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { VatPowers } from '@metamask/ocap-kernel';
 
 /**
  * Build function for vats that will run various tests.
  *
- * @param {*} vatPowers - Special powers granted to this vat.
- * @param {*} parameters - Initialization parameters from the vat's config object.
- * @param {*} _baggage - Root of vat's persistent state (not used here).
- * @returns {*} The root object for the new vat.
+ * @param vatPowers - Special powers granted to this vat.
+ * @param vatPowers.logger - The logger for the vat.
+ * @param parameters - Initialization parameters from the vat's config object.
+ * @param parameters.name - The name of the vat.
+ * @param parameters.test - The test to run.
+ * @param _baggage - Root of vat's persistent state (not used here).
+ * @returns The root object for the new vat.
  */
-export function buildRootObject(vatPowers, parameters, _baggage) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function buildRootObject(
+  vatPowers: VatPowers,
+  parameters: { name?: string; test?: string } = {},
+  _baggage: unknown = null,
+) {
   const name = parameters?.name ?? 'anonymous';
   const test = parameters?.test ?? 'unspecified';
   const logger = vatPowers.logger.subLogger({ tags: ['test', name] });
-  const tlog = (...args) => logger.log(...args);
+  const tlog = (...args: unknown[]): void => logger.log(...args);
 
   /**
    * Print a message to the log.
    *
-   * @param {string} message - The message to print.
+   * @param message - The message to print.
    */
-  function log(message) {
+  function log(message: string): void {
+    // eslint-disable-next-line no-console
     console.log(`${name}: ${message}`);
   }
 
   log(`buildRootObject`);
   log(`configuration parameters: ${JSON.stringify(parameters)}`);
 
-  let bobResolve;
+  let bobResolve: ((value: unknown) => void) | undefined;
 
   return makeDefaultExo('root', {
-    async bootstrap(vats) {
+    async bootstrap(vats: { bob: unknown }) {
       log(`bootstrap start`);
       tlog(`running test ${test}`);
       const promise1 = E(vats.bob).first();
       const promise2 = E(vats.bob).second(promise1);
       const doneP = Promise.all([
         promise1.then(
-          (res) => {
-            tlog(`first result resolved to ${res}`);
+          (res: unknown) => {
+            tlog(`first result resolved to ${String(res)}`);
             return 'p1succ';
           },
-          (rej) => {
-            tlog(`first result rejected with ${rej}`);
+          (rej: unknown) => {
+            tlog(`first result rejected with ${String(rej)}`);
             return 'p1fail';
           },
         ),
         promise2.then(
-          (res) => {
-            tlog(`second result resolved to ${res}`);
+          (res: unknown) => {
+            tlog(`second result resolved to ${String(res)}`);
             return 'p2succ';
           },
-          (rej) => {
-            tlog(`second result rejected with ${rej}`);
+          (rej: unknown) => {
+            tlog(`second result rejected with ${String(rej)}`);
             return 'p2fail';
           },
         ),
@@ -70,17 +80,17 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
       return undefined;
     },
 
-    first() {
+    async first() {
       tlog(`first`);
       const { promise, resolve } = makePromiseKit();
       bobResolve = resolve;
       return promise;
     },
-    async second(promiseParam) {
+    async second(promiseParam: Promise<unknown>) {
       tlog(`second`);
-      bobResolve(`Bob answers first in second`);
+      bobResolve?.(`Bob answers first in second`);
       const param = await promiseParam;
-      tlog(`parameter to second resolved to ${param}`);
+      tlog(`parameter to second resolved to ${String(param)}`);
       return `Bob's second answer`;
     },
   });

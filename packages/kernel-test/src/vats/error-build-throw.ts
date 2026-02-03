@@ -1,11 +1,12 @@
+// eslint-disable-next-line no-console
 console.log('build throw');
 
 /**
  * Build function for vats that will throw an error during buildRootObject.
- *
- * @returns {never} Always throws an error.
+ * This function always throws and never returns.
  */
-export function buildRootObject() {
+export function buildRootObject(): never {
+  // eslint-disable-next-line no-console
   console.log('buildRootObject');
   throw new Error('from buildRootObject');
 }

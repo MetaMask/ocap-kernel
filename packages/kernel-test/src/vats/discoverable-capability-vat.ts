@@ -4,18 +4,23 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 /**
  * Build function for a vat that exports a discoverable exo capability.
  *
- * @param {*} _vatPowers - Special powers granted to this vat (not used here).
- * @param {*} _parameters - Initialization parameters from the vat's config object.
- * @param {*} _baggage - Root of vat's persistent state (not used here).
- * @returns {*} The root object for the new vat.
+ * @param _vatPowers - Special powers granted to this vat (not used here).
+ * @param _parameters - Initialization parameters from the vat's config object.
+ * @param _baggage - Root of vat's persistent state (not used here).
+ * @returns The root object for the new vat.
  */
-export function buildRootObject(_vatPowers, _parameters, _baggage) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function buildRootObject(
+  _vatPowers: unknown,
+  _parameters: unknown = {},
+  _baggage: unknown = null,
+) {
   const calculator = makeDiscoverableExo(
     'Calculator',
     {
-      add: (a, b) => a + b,
-      multiply: (a, b) => a * b,
-      greet: (name) => `Hello, ${name}!`,
+      add: (a: number, b: number) => a + b,
+      multiply: (a: number, b: number) => a * b,
+      greet: (name: string) => `Hello, ${name}!`,
     },
     {
       add: {

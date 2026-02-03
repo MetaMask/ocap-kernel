@@ -1,29 +1,37 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { VatPowers } from '@metamask/ocap-kernel';
 import { makeEventualIterator, makeExoGenerator } from '@ocap/remote-iterables';
 
 /**
  * Build function for testing async generators.
  *
- * @param {object} vatPowers - The powers of the vat.
- * @param {object} vatPowers.logger - The logger to use.
- * @param {object} parameters - The parameters of the vat.
- * @param {string} parameters.name - The name of the vat.
- * @returns {object} The root object for the vat.
+ * @param vatPowers - The powers of the vat.
+ * @param vatPowers.logger - The logger to use.
+ * @param parameters - The parameters of the vat.
+ * @param parameters.name - The name of the vat.
+ * @returns The root object for the vat.
  */
-export function buildRootObject({ logger }, { name }) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function buildRootObject(
+  { logger }: VatPowers,
+  { name }: { name: string },
+) {
   const tlogger = logger.subLogger({ tags: ['test', name] });
-  const tlog = (...args) => tlogger.log(...args);
+  const tlog = (...args: unknown[]): void => tlogger.log(...args);
 
   tlog(`${name} buildRootObject`);
 
   return makeDefaultExo('root', {
-    async bootstrap({ consumer, producer }, _services) {
+    async bootstrap(
+      { consumer, producer }: { consumer: unknown; producer: unknown },
+      _services: unknown,
+    ) {
       tlog(`${name} is bootstrap`);
       await E(consumer).iterate(producer);
     },
 
-    generate: async (stop) =>
+    generate: async (stop: number) =>
       makeExoGenerator(
         (async function* () {
           for (let i = 0; i < stop; i++) {
@@ -34,10 +42,10 @@ export function buildRootObject({ logger }, { name }) {
         })(),
       ),
 
-    iterate: async (producer) => {
+    iterate: async (producer: unknown) => {
       const remoteGenerator = await E(producer).generate(5);
       for await (const value of makeEventualIterator(remoteGenerator)) {
-        tlog(`${name} iterating ${value}`);
+        tlog(`${name} iterating ${String(value)}`);
       }
     },
   });

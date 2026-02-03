@@ -2,16 +2,28 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import { makeQueueService } from '@ocap/kernel-language-model-service/test-utils';
 import { makeExoGenerator } from '@ocap/remote-iterables';
 
+type QueueModel = {
+  getInfo: () => unknown;
+  load: () => Promise<void>;
+  unload: () => Promise<void>;
+  sample: (prompt: string) => Promise<{
+    stream: AsyncIterable<unknown>;
+    abort: () => void;
+  }>;
+  push: (text: string) => void;
+};
+
 /**
  * An envatted @ocap/kernel-language-model-service package.
  *
- * @returns {object} A QueueLanguageModelService instance.
+ * @returns A QueueLanguageModelService instance.
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject() {
   const queueService = makeQueueService();
   return makeDefaultExo('root', {
-    async makeInstance(config) {
-      const model = await queueService.makeInstance(config);
+    async makeInstance(config: unknown) {
+      const model = (await queueService.makeInstance(config)) as QueueModel;
       return makeDefaultExo('queueLanguageModel', {
         async getInfo() {
           return model.getInfo();
@@ -22,10 +34,10 @@ export function buildRootObject() {
         async unload() {
           return model.unload();
         },
-        async sample(prompt) {
+        async sample(prompt: string) {
           const result = await model.sample(prompt);
           // Convert the async iterable stream to an async generator and make it remotable
-          const streamGenerator = async function* () {
+          const streamGenerator = async function* (): AsyncGenerator<unknown> {
             for await (const chunk of result.stream) {
               yield chunk;
             }
@@ -43,7 +55,7 @@ export function buildRootObject() {
             },
           });
         },
-        push(text) {
+        push(text: string) {
           return model.push(text);
         },
       });

@@ -1,22 +1,33 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { VatPowers } from '@metamask/ocap-kernel';
 
 /**
  * Build function for vat that receives remote messages from other kernels.
  *
- * @param {unknown} vatPowers - Special powers granted to this vat.
- * @param {unknown} parameters - Initialization parameters from the vat's config object.
- * @param {unknown} _baggage - Root of vat's persistent state (not used here).
- * @returns {unknown} The root object for the new vat.
+ * @param vatPowers - Special powers granted to this vat.
+ * @param vatPowers.logger - The logger for the vat.
+ * @param parameters - Initialization parameters from the vat's config object.
+ * @param parameters.name - The name of the vat.
+ * @param _baggage - Root of vat's persistent state (not used here).
+ * @returns The root object for the new vat.
  */
-export function buildRootObject({ logger }, parameters, _baggage) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function buildRootObject(
+  { logger }: VatPowers,
+  parameters: { name?: string } = {},
+  _baggage: unknown = null,
+) {
   const name = parameters?.name ?? 'RemoteReceiver';
   logger.log(`buildRootObject "${name}"`);
 
-  let issuerService;
+  let issuerService: unknown;
 
   return makeDefaultExo('remoteReceiverRoot', {
-    async bootstrap(vats, services) {
+    async bootstrap(
+      vats: { receiver?: unknown },
+      services: { ocapURLIssuerService?: unknown },
+    ) {
       logger.log(`vat ${name} is bootstrap`);
       issuerService = services.ocapURLIssuerService;
 
@@ -29,7 +40,7 @@ export function buildRootObject({ logger }, parameters, _baggage) {
       return { message: `${name} bootstrap complete` };
     },
 
-    hello(from) {
+    hello(from: string) {
       const message = `${name} says hello back to ${from}`;
       logger.log(message);
       return message;

@@ -3,12 +3,19 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 /**
  * Build function for running a test of the vatstore.
  *
- * @param {unknown} vatPowers - Special powers granted to this vat.
- * @param {unknown} parameters - Initialization parameters from the vat's config object.
- * @param {unknown} _baggage - Root of vat's persistent state.
- * @returns {unknown} The root object for the new vat.
+ * @param vatPowers - Special powers granted to this vat.
+ * @param vatPowers.foo - Optional function to call.
+ * @param parameters - Initialization parameters from the vat's config object.
+ * @param parameters.bar - Optional bar parameter.
+ * @param _baggage - Root of vat's persistent state.
+ * @returns The root object for the new vat.
  */
-export function buildRootObject(vatPowers, parameters, _baggage) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function buildRootObject(
+  vatPowers: { foo?: (bar: unknown) => Promise<unknown> },
+  parameters: { bar?: unknown } = {},
+  _baggage: unknown = null,
+) {
   return makeDefaultExo('root', {
     async fizz() {
       return await vatPowers.foo?.(parameters.bar);

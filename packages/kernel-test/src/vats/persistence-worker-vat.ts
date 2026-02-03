@@ -1,24 +1,33 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { Baggage, VatPowers } from '@metamask/ocap-kernel';
 
 /**
  * Build function for a persistent worker vat.
  *
- * @param {unknown} vatPowers - Special powers granted to this vat.
- * @param {unknown} parameters - Initialization parameters from the vat's config object.
- * @param {unknown} baggage - Root of vat's persistent state.
- * @returns {unknown} The root object for the new vat.
+ * @param vatPowers - Special powers granted to this vat.
+ * @param vatPowers.logger - The logger for the vat.
+ * @param parameters - Initialization parameters from the vat's config object.
+ * @param parameters.name - The name of the vat.
+ * @param parameters.id - The worker ID.
+ * @param baggage - Root of vat's persistent state.
+ * @returns The root object for the new vat.
  */
-export function buildRootObject(vatPowers, parameters, baggage) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function buildRootObject(
+  vatPowers: VatPowers,
+  parameters: { name?: string; id?: number },
+  baggage: Baggage,
+) {
   const name = parameters?.name ?? 'Worker';
   const id = parameters?.id ?? 0;
   const logger = vatPowers.logger.subLogger({ tags: ['test'] });
-  const tlog = (message) => logger.log(`${name}: ${message}`);
+  const tlog = (message: string): void => logger.log(`${name}: ${message}`);
 
-  let workCount;
+  let workCount: number;
 
   if (baggage.has('workCount')) {
     // Resume from persistent state
-    workCount = baggage.get('workCount');
+    workCount = baggage.get('workCount') as number;
     tlog(`resumed with work count: ${workCount}`);
   } else {
     // Initialize new worker

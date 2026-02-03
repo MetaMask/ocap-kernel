@@ -1,28 +1,39 @@
 import { E } from '@endo/eventual-send';
 import { makePromiseKit } from '@endo/promise-kit';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { VatPowers } from '@metamask/ocap-kernel';
 
 /**
  * Build function for vats that will run various tests.
  *
- * @param {*} vatPowers - Special powers granted to this vat.
- * @param {*} parameters - Initialization parameters from the vat's config object.
- * @param {*} _baggage - Root of vat's persistent state (not used here).
- * @returns {*} The root object for the new vat.
+ * @param vatPowers - Special powers granted to this vat.
+ * @param vatPowers.logger - The logger for the vat.
+ * @param parameters - Initialization parameters from the vat's config object.
+ * @param parameters.name - The name of the vat.
+ * @param parameters.test - The test to run.
+ * @param parameters.limit - The limit for the test.
+ * @param _baggage - Root of vat's persistent state (not used here).
+ * @returns The root object for the new vat.
  */
-export function buildRootObject(vatPowers, parameters, _baggage) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function buildRootObject(
+  vatPowers: VatPowers,
+  parameters: { name?: string; test?: string; limit?: string | number } = {},
+  _baggage: unknown = null,
+) {
   const name = parameters?.name ?? 'anonymous';
   const test = parameters?.test ?? 'unspecified';
   const limit = Number(parameters?.limit ?? 3);
   const logger = vatPowers.logger.subLogger({ tags: ['test', name] });
-  const tlog = (...args) => logger.log(...args);
+  const tlog = (...args: unknown[]): void => logger.log(...args);
 
   /**
    * Print a message to the log.
    *
-   * @param {string} message - The message to print.
+   * @param message - The message to print.
    */
-  function log(message) {
+  function log(message: string): void {
+    // eslint-disable-next-line no-console
     console.log(`${name}: ${message}`);
   }
 
@@ -32,16 +43,18 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
   /**
    * Wait for the next promise in the chain.
    *
-   * @param {*} who - Who to take the next step.
-   * @param {*} prevP - Promise for the previous step.
-   *
-   * @returns {string} A string at the end.
+   * @param who - Who to take the next step.
+   * @param prevP - Promise for the previous step.
+   * @returns A string at the end.
    */
-  function waitFor(who, prevP) {
+  async function waitFor(
+    who: unknown,
+    prevP: Promise<unknown>,
+  ): Promise<string | void> {
     tlog(`waitFor start`);
     return prevP.then(
-      async (res) => {
-        const [value, nextPrevP] = res;
+      async (res: unknown) => {
+        const [value, nextPrevP] = res as [number, Promise<unknown>];
         if (value < limit) {
           tlog(`count ${value} < ${limit}, recurring...`);
           await E(who).bobGen();
@@ -50,17 +63,17 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
         tlog(`finishing chain`);
         return 'end of chain';
       },
-      (rej) => {
-        tlog(`Bob rejected, ${rej}`);
+      (rej: unknown) => {
+        tlog(`Bob rejected, ${String(rej)}`);
       },
     );
   }
 
-  let bobResolve = null;
+  let bobResolve: ((value: unknown) => void) | null = null;
   let bobValue = 0;
 
   return makeDefaultExo('root', {
-    async bootstrap(vats) {
+    async bootstrap(vats: { bob: unknown }) {
       log(`bootstrap start`);
       tlog(`running test ${test}`);
 
@@ -79,7 +92,7 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
       return undefined;
     },
 
-    bobInit() {
+    async bobInit() {
       log(`bobInit`);
       const { promise, resolve } = makePromiseKit();
       bobResolve = resolve;
@@ -91,7 +104,7 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
       const next = [bobValue, promise];
       bobValue += 1;
       tlog(`bobGen set value to ${bobValue}`);
-      bobResolve(next);
+      bobResolve?.(next);
       bobResolve = resolve;
       log(`bobGen done`);
     },

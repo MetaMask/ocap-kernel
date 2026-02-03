@@ -4,36 +4,42 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 /**
  * Build function for vats that will run various tests.
  *
- * @param {*} _vatPowers - Special powers granted to this vat (not used here).
- * @param {*} parameters - Initialization parameters from the vat's config object.
- * @param {*} _baggage - Root of vat's persistent state (not used here).
- * @returns {*} The root object for the new vat.
+ * @param _vatPowers - Special powers granted to this vat (not used here).
+ * @param parameters - Initialization parameters from the vat's config object.
+ * @param parameters.name - The name of the vat.
+ * @param _baggage - Root of vat's persistent state (not used here).
+ * @returns The root object for the new vat.
  */
-export function buildRootObject(_vatPowers, parameters, _baggage) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function buildRootObject(
+  _vatPowers: unknown,
+  parameters: { name?: string } = {},
+  _baggage: unknown = null,
+) {
   const name = parameters?.name ?? 'anonymous';
 
-  /** @type {WeakMap<object, string>} */
-  let weakMap = new WeakMap();
+  let weakMap = new WeakMap<object, string>();
 
-  /** @type {Map<string, object>} */
-  const importedObjects = new Map();
+  const importedObjects = new Map<string, object>();
 
   /**
    * Print a message to the log.
    *
-   * @param {string} message - The message to print.
+   * @param message - The message to print.
    */
-  function log(message) {
+  function log(message: string): void {
+    // eslint-disable-next-line no-console
     console.log(`${name}: ${message}`);
   }
 
   /**
    * Print a message to the log, tagged as part of the test output.
    *
-   * @param {string} message - The message to print.
-   * @param {...any} args - Additional arguments to print.
+   * @param message - The message to print.
+   * @param args - Additional arguments to print.
    */
-  function tlog(message, ...args) {
+  function tlog(message: string, ...args: unknown[]): void {
+    // eslint-disable-next-line no-console
     console.log(`::> ${name}: ${message}`, ...args);
   }
 
@@ -47,11 +53,11 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
      * Store an imported object by ID
      * keeping a strong reference and a weak map entry.
      *
-     * @param {object} obj - The imported object to store.
-     * @param {string} [id] - The ID to store the object under.
-     * @returns {string} The string 'stored'.
+     * @param obj - The imported object to store.
+     * @param id - The ID to store the object under.
+     * @returns The string 'stored'.
      */
-    storeImport(obj, id = 'default') {
+    storeImport(obj: object, id = 'default') {
       tlog(`Storing import ${id}`, obj);
       importedObjects.set(id, obj);
       weakMap.set(obj, id);
@@ -61,8 +67,8 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     /**
      * Use the imported object by ID and call its method.
      *
-     * @param {string} id - The ID of the object to use.
-     * @returns {*} The result of calling the object's method.
+     * @param id - The ID of the object to use.
+     * @returns The result of calling the object's method.
      */
     useImport(id = 'default') {
       tlog(`useImport ${id}`);
@@ -78,10 +84,10 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
      * Make the reference to an imported object weak by
      * removing the strong reference, keeping only the weak one.
      *
-     * @param {string} id - The ID of the object to make weak.
-     * @returns {boolean} True if the object was successfully made weak, false if it doesn't exist.
+     * @param id - The ID of the object to make weak.
+     * @returns True if the object was successfully made weak, false if it doesn't exist.
      */
-    makeWeak(id) {
+    makeWeak(id: string) {
       const obj = importedObjects.get(id);
       if (!obj) {
         tlog(`Cannot make weak reference to nonexistent object: ${id}`);
@@ -96,7 +102,7 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
      * Completely forget about the imported object.
      * Once all vats forget it, retireImports() should trigger.
      *
-     * @returns {boolean} True if the object was successfully forgotten, false if it doesn't exist.
+     * @returns True if the object was successfully forgotten, false if it doesn't exist.
      */
     forgetImport() {
       weakMap = new WeakMap();
@@ -106,7 +112,7 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     /**
      * List all imported objects.
      *
-     * @returns {string[]} An array of all imported object IDs.
+     * @returns An array of all imported object IDs.
      */
     listImportedObjects() {
       return Array.from(importedObjects.keys());
@@ -115,7 +121,7 @@ export function buildRootObject(_vatPowers, parameters, _baggage) {
     /**
      * No-op method.
      *
-     * @returns {string} The string 'noop'.
+     * @returns The string 'noop'.
      */
     noop() {
       return 'noop';

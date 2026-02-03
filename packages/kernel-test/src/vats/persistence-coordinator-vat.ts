@@ -1,26 +1,37 @@
 /* global harden */
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { Baggage, VatPowers } from '@metamask/ocap-kernel';
 
 /**
  * Build function for a persistent coordinator vat.
  *
- * @param {unknown} vatPowers - Special powers granted to this vat.
- * @param {unknown} parameters - Initialization parameters from the vat's config object.
- * @param {unknown} baggage - Root of vat's persistent state.
- * @returns {unknown} The root object for the new vat.
+ * @param vatPowers - Special powers granted to this vat.
+ * @param vatPowers.logger - The logger for the vat.
+ * @param parameters - Initialization parameters from the vat's config object.
+ * @param parameters.name - The name of the vat.
+ * @param baggage - Root of vat's persistent state.
+ * @returns The root object for the new vat.
  */
-export function buildRootObject(vatPowers, parameters, baggage) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function buildRootObject(
+  vatPowers: VatPowers,
+  parameters: { name?: string },
+  baggage: Baggage,
+) {
   const name = parameters?.name ?? 'Coordinator';
   const logger = vatPowers.logger.subLogger({ tags: ['test'] });
-  const tlog = (message) => logger.log(`${name}: ${message}`);
+  const tlog = (message: string): void => logger.log(`${name}: ${message}`);
 
-  let workCount;
-  let workers;
+  let workCount: number;
+  let workers: { worker1?: unknown; worker2?: unknown };
 
   if (baggage.has('workCount')) {
-    workCount = baggage.get('workCount');
-    workers = baggage.get('workers');
+    workCount = baggage.get('workCount') as number;
+    workers = baggage.get('workers') as {
+      worker1?: unknown;
+      worker2?: unknown;
+    };
     tlog(`resumed with work count: ${workCount}`);
   } else {
     workCount = 0;
@@ -30,7 +41,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
   }
 
   return makeDefaultExo('coordinator', {
-    async bootstrap(vats) {
+    async bootstrap(vats: { worker1: unknown; worker2: unknown }) {
       tlog(`bootstrap called`);
       if (!baggage.has('workers')) {
         // Store worker references for persistence
@@ -46,7 +57,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
 
     async resume() {
       tlog(`resume called`);
-      if (!workers || !workers.worker1 || !workers.worker2) {
+      if (!workers?.worker1 || !workers.worker2) {
         tlog(`no workers available`);
         return `No workers available`;
       }

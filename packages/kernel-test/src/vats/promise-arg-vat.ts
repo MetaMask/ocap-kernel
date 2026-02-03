@@ -1,26 +1,36 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { VatPowers } from '@metamask/ocap-kernel';
 
 /**
  * Build function for vats that will run various tests.
  *
- * @param {*} vatPowers - Special powers granted to this vat.
- * @param {*} parameters - Initialization parameters from the vat's config object.
- * @param {*} _baggage - Root of vat's persistent state (not used here).
- * @returns {*} The root object for the new vat.
+ * @param vatPowers - Special powers granted to this vat.
+ * @param vatPowers.logger - The logger for the vat.
+ * @param parameters - Initialization parameters from the vat's config object.
+ * @param parameters.name - The name of the vat.
+ * @param parameters.test - The test to run.
+ * @param _baggage - Root of vat's persistent state (not used here).
+ * @returns The root object for the new vat.
  */
-export function buildRootObject(vatPowers, parameters, _baggage) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function buildRootObject(
+  vatPowers: VatPowers,
+  parameters: { name?: string; test?: string } = {},
+  _baggage: unknown = null,
+) {
   const name = parameters?.name ?? 'anonymous';
   const test = parameters?.test ?? 'unspecified';
   const logger = vatPowers.logger.subLogger({ tags: ['test', name] });
-  const tlog = (...args) => logger.log(...args);
+  const tlog = (...args: unknown[]): void => logger.log(...args);
 
   /**
    * Print a message to the log.
    *
-   * @param {string} message - The message to print.
+   * @param message - The message to print.
    */
-  function log(message) {
+  function log(message: string): void {
+    // eslint-disable-next-line no-console
     console.log(`${name}: ${message}`);
   }
 
@@ -28,40 +38,40 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
   log(`configuration parameters: ${JSON.stringify(parameters)}`);
 
   return makeDefaultExo('root', {
-    async bootstrap(vats) {
+    async bootstrap(vats: { bob: unknown }) {
       log(`bootstrap start`);
       tlog(`running test ${test}`);
-      let doneP = Promise.resolve('no activity');
+      let doneP: Promise<unknown> = Promise.resolve('no activity');
       if (!['promiseArg1', 'promiseArg2', 'promiseArg3'].includes(test)) {
         throw Error(`unknown test ${test}`);
       }
-      let resolver;
+      let resolver: ((value: unknown) => void) | undefined;
       const param = new Promise((resolve, _reject) => {
         resolver = resolve;
       });
       if (test === 'promiseArg2') {
         tlog(`resolving the promise that will be sent to Bob`);
-        resolver(`${name} said hi before send`);
+        resolver?.(`${name} said hi before send`);
       }
       tlog(`sending the promise to Bob`);
       const responseFromBob = E(vats.bob).hereIsAPromise(param);
       if (test === 'promiseArg1') {
         tlog(`resolving the promise that was sent to Bob`);
-        resolver(`${name} said hi after send`);
+        resolver?.(`${name} said hi after send`);
       }
       tlog(`awaiting Bob's response`);
       doneP = responseFromBob.then(
-        (res) => {
-          const [bobDoneP, bobDoneMsg] = res;
+        async (res: unknown) => {
+          const [bobDoneP, bobDoneMsg] = res as [Promise<unknown>, string];
           tlog(`Bob's response to hereIsAPromise: '${bobDoneMsg}'`);
           if (test === 'promiseArg3') {
             tlog(`resolving the promise that was sent to Bob`);
-            resolver(`${name} said hi after Bob's reply`);
+            resolver?.(`${name} said hi after Bob's reply`);
           }
           return bobDoneP;
         },
-        (rej) => {
-          tlog(`Bob's response to hereIsAPromise rejected as '${rej}'`);
+        (rej: unknown) => {
+          tlog(`Bob's response to hereIsAPromise rejected as '${String(rej)}'`);
           return 'bobFail';
         },
       );
@@ -77,15 +87,15 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
       return undefined;
     },
 
-    async hereIsAPromise(promise) {
+    async hereIsAPromise(promise: Promise<unknown>) {
       log(`hereIsAPromise start`);
       const doneP = promise.then(
-        (res) => {
-          tlog(`the promise parameter resolved to '${res}'`);
+        (res: unknown) => {
+          tlog(`the promise parameter resolved to '${String(res)}'`);
           return 'bobPSucc';
         },
-        (rej) => {
-          tlog(`the promise parameter rejected as '${rej}'`);
+        (rej: unknown) => {
+          tlog(`the promise parameter rejected as '${String(rej)}'`);
           return 'bobPFail';
         },
       );

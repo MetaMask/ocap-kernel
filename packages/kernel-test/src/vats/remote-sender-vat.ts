@@ -1,23 +1,37 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { VatPowers } from '@metamask/ocap-kernel';
 
 /**
  * Build function for vat that sends remote messages to other kernels.
  *
- * @param {unknown} vatPowers - Special powers granted to this vat.
- * @param {unknown} parameters - Initialization parameters from the vat's config object.
- * @param {unknown} _baggage - Root of vat's persistent state (not used here).
- * @returns {unknown} The root object for the new vat.
+ * @param vatPowers - Special powers granted to this vat.
+ * @param vatPowers.logger - The logger for the vat.
+ * @param parameters - Initialization parameters from the vat's config object.
+ * @param parameters.name - The name of the vat.
+ * @param _baggage - Root of vat's persistent state (not used here).
+ * @returns The root object for the new vat.
  */
-export function buildRootObject({ logger }, parameters, _baggage) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function buildRootObject(
+  { logger }: VatPowers,
+  parameters: { name?: string } = {},
+  _baggage: unknown = null,
+) {
   const name = parameters?.name ?? 'RemoteSender';
   logger.log(`buildRootObject "${name}"`);
 
-  let issuerService;
-  let redeemerService;
+  let issuerService: unknown;
+  let redeemerService: unknown;
 
   return makeDefaultExo('remoteSenderRoot', {
-    async bootstrap(vats, services) {
+    async bootstrap(
+      vats: { receiver?: unknown },
+      services: {
+        ocapURLIssuerService?: unknown;
+        ocapURLRedemptionService?: unknown;
+      },
+    ) {
       logger.log(`vat ${name} is bootstrap`);
       issuerService = services.ocapURLIssuerService;
       redeemerService = services.ocapURLRedemptionService;
@@ -31,7 +45,7 @@ export function buildRootObject({ logger }, parameters, _baggage) {
       return { message: `${name} bootstrap complete` };
     },
 
-    async sendMessage(remoteURL, method, args = []) {
+    async sendMessage(remoteURL: string, method: string, args: unknown[] = []) {
       logger.log(`${name} attempting to redeem URL: ${remoteURL}`);
 
       if (redeemerService) {
@@ -46,7 +60,7 @@ export function buildRootObject({ logger }, parameters, _baggage) {
       throw new Error('ocapURLRedemptionService not available');
     },
 
-    hello(from) {
+    hello(from: string) {
       const message = `${name} received hello from ${from}`;
       logger.log(message);
       return message;

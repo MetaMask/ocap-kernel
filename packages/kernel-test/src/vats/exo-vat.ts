@@ -2,34 +2,43 @@ import { makeScalarMapStore, makeScalarSetStore } from '@agoric/store';
 import { makeExo, defineExoClass, defineExoClassKit } from '@endo/exo';
 import { M } from '@endo/patterns';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { Baggage, VatPowers } from '@metamask/ocap-kernel';
 
 /**
  * Build function for testing exo objects and liveslots virtual object functionality.
  *
- * @param {unknown} vatPowers - Special powers granted to this vat (not used here).
- * @param {unknown} parameters - Initialization parameters from the vat's config object.
- * @param {unknown} baggage - Root of vat's persistent state (not used here).
- * @returns {unknown} The root object for the new vat.
+ * @param vatPowers - Special powers granted to this vat.
+ * @param vatPowers.logger - The logger for the vat.
+ * @param parameters - Initialization parameters from the vat's config object.
+ * @param parameters.name - The name of the vat.
+ * @param baggage - Root of vat's persistent state.
+ * @returns The root object for the new vat.
  */
-export function buildRootObject(vatPowers, parameters, baggage) {
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export function buildRootObject(
+  vatPowers: VatPowers,
+  parameters: { name?: string },
+  baggage: Baggage,
+) {
   const vatName = parameters?.name ?? 'anonymous';
   const logger = vatPowers.logger.subLogger({ tags: ['test', vatName] });
-  const tlog = (...args) => logger.log(...args);
+  const tlog = (...args: unknown[]): void => logger.log(...args);
 
   /**
    * Print a message to the log.
    *
-   * @param {string} message - The message to print.
+   * @param message - The message to print.
    */
-  function log(message) {
+  function log(message: string): void {
+    // eslint-disable-next-line no-console
     console.log(`${vatName}: ${message}`);
   }
 
   log(`buildRootObject`);
 
   // Create stores for testing
-  const mapStore = makeScalarMapStore('testMap');
-  const setStore = makeScalarSetStore('testSet');
+  const mapStore = makeScalarMapStore<string, unknown>('testMap');
+  const setStore = makeScalarSetStore<unknown>('testSet');
 
   // Define interfaces for our Exo objects
   const CounterI = M.interface('Counter', {
@@ -81,7 +90,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
   const Person = defineExoClass(
     'Person',
     PersonI,
-    (name, age) => ({ name, age, friends: [] }),
+    (name: string, age: number) => ({ name, age, friends: [] as unknown[] }),
     {
       getName() {
         return this.state.name;
@@ -93,7 +102,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
         this.state.age += 1;
         return this.state.age;
       },
-      addFriend(friend) {
+      addFriend(friend: unknown) {
         this.state.friends.push(friend);
         return this.state.friends.length;
       },
@@ -113,7 +122,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
         getCelsius() {
           return this.state.celsius;
         },
-        setCelsius(value) {
+        setCelsius(value: number) {
           this.state.celsius = value;
           return value;
         },
@@ -122,7 +131,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
         getFahrenheit() {
           return (this.state.celsius * 9) / 5 + 32;
         },
-        setFahrenheit(value) {
+        setFahrenheit(value: number) {
           this.state.celsius = ((value - 32) * 5) / 9;
           return value;
         },
@@ -140,7 +149,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
   }
 
   // Create a counter instance stored in baggage
-  let counterValue = baggage.get('counterValue');
+  let counterValue = baggage.get('counterValue') as number;
   tlog(`counter value from baggage: ${counterValue}`);
 
   // Create a direct exo instance using makeExo
@@ -173,7 +182,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
         tlog(`ERROR: Increment with negative value should have failed`);
       } catch (error) {
         tlog(
-          `Successfully caught error on negative increment: ${error.message}`,
+          `Successfully caught error on negative increment: ${(error as Error).message}`,
         );
       }
 
@@ -194,7 +203,9 @@ export function buildRootObject(vatPowers, parameters, baggage) {
       tlog(`Added ${setStore.getSize()} entries to set store`);
 
       // Test retrieving from stores
-      const retrievedAlice = mapStore.get('alice');
+      const retrievedAlice = mapStore.get('alice') as {
+        getName: () => string;
+      };
       tlog(`Retrieved ${retrievedAlice.getName()} from map store`);
 
       // Test Temperature from defineExoClassKit
@@ -223,7 +234,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
       return counter;
     },
 
-    createPerson(name, age) {
+    createPerson(name: string, age: number) {
       const person = Person(name, age);
       tlog(`Created person ${name}, age ${age}`);
       return person;
@@ -235,7 +246,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
       return temperature;
     },
 
-    createOrUpdateInMap(key, value) {
+    createOrUpdateInMap(key: string, value: unknown) {
       if (mapStore.has(key)) {
         mapStore.set(key, value);
         tlog(`Updated ${key} in map`);
@@ -246,7 +257,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
       return mapStore.getSize();
     },
 
-    getFromMap(key) {
+    getFromMap(key: string) {
       if (mapStore.has(key)) {
         tlog(`Found ${key} in map`);
         return mapStore.get(key);
@@ -268,7 +279,7 @@ export function buildRootObject(vatPowers, parameters, baggage) {
         counter.increment('foo');
         tlog(`ERROR: Increment with string should have failed`);
       } catch (error) {
-        tlog(`Successfully caught type error: ${error.message}`);
+        tlog(`Successfully caught type error: ${(error as Error).message}`);
       }
 
       return 'exoClass-tests-complete';
@@ -288,7 +299,9 @@ export function buildRootObject(vatPowers, parameters, baggage) {
         celsius.getFahrenheit();
         tlog(`ERROR: Cross-facet access should have failed`);
       } catch (error) {
-        tlog(`Successfully caught cross-facet error: ${error.message}`);
+        tlog(
+          `Successfully caught cross-facet error: ${(error as Error).message}`,
+        );
       }
 
       return 'exoClassKit-tests-complete';
