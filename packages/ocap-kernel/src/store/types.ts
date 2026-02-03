@@ -1,7 +1,9 @@
 import type { KVStore } from '@metamask/kernel-store';
 import type { Logger } from '@metamask/logger';
 
-import type { KRef } from '../types.ts';
+import type { KRef, RunQueueItemNotify, RunQueueItemSend } from '../types.ts';
+
+export type CrankBufferItem = RunQueueItemSend | RunQueueItemNotify;
 
 export type StoreContext = {
   kv: KVStore;
@@ -19,6 +21,7 @@ export type StoreContext = {
   crankSettled?: Promise<void>;
   resolveCrank?: (() => void) | undefined;
   savepoints: string[];
+  crankBuffer: CrankBufferItem[]; // Buffer for sends and notifications during crank
   subclusters: StoredValue; // Holds Subcluster[]
   nextSubclusterId: StoredValue; // Holds string
   vatToSubclusterMap: StoredValue; // Holds Record<VatId, SubclusterId>

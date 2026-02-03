@@ -2,7 +2,7 @@ import { Fail, q } from '@endo/errors';
 import { makePromiseKit } from '@endo/promise-kit';
 import type { KernelDatabase } from '@metamask/kernel-store';
 
-import type { StoreContext } from '../types.ts';
+import type { CrankBufferItem, StoreContext } from '../types.ts';
 
 /**
  * Get the crank methods.
@@ -43,6 +43,7 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
    */
   function rollbackCrank(savepoint: string): void {
     ctx.inCrank || Fail`rollbackCrank outside of crank`;
+    ctx.crankBuffer.length = 0; // Discard buffered outputs
     for (const ordinal of ctx.savepoints.keys()) {
       if (ctx.savepoints[ordinal] === savepoint) {
         kdb.rollbackSavepoint(`t${ordinal}`);
@@ -85,6 +86,26 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
       : Promise.resolve();
   }
 
+  /**
+   * Buffer a vat output for delivery upon crank completion.
+   *
+   * @param item - The item to buffer.
+   */
+  function bufferCrankOutput(item: CrankBufferItem): void {
+    ctx.crankBuffer.push(item);
+  }
+
+  /**
+   * Flush the crank buffer, returning all buffered items.
+   *
+   * @returns The buffered items.
+   */
+  function flushCrankBuffer(): CrankBufferItem[] {
+    const items = ctx.crankBuffer;
+    ctx.crankBuffer = [];
+    return items;
+  }
+
   return {
     startCrank,
     createCrankSavepoint,
@@ -92,5 +113,7 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
     endCrank,
     releaseAllSavepoints,
     waitForCrank,
+    bufferCrankOutput,
+    flushCrankBuffer,
   };
 }

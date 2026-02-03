@@ -2,13 +2,11 @@ import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 
 import { getBaseMethods } from './base.ts';
-import { getQueueMethods } from './queue.ts';
 import type {
   KRef,
   KernelPromise,
   Message,
   PromiseState,
-  RunQueueItemSend,
   EndpointId,
 } from '../../types.ts';
 import { insistEndpointId } from '../../types.ts';
@@ -29,7 +27,6 @@ import { isPromiseRef } from '../utils/promise-ref.ts';
 export function getPromiseMethods(ctx: StoreContext) {
   const { incCounter, provideStoredQueue, getPrefixedKeys, refCountKey } =
     getBaseMethods(ctx.kv);
-  const { enqueueRun } = getQueueMethods(ctx);
   const { decrementRefCount } = getRefCountMethods(ctx);
 
   /**
@@ -145,25 +142,25 @@ export function getPromiseMethods(ctx: StoreContext) {
   }
 
   /**
-   * Record the resolution of a kernel promise.
+   * Resolve a kernel promise, updating its state and returning any queued messages.
+   * The queued messages should be buffered by the caller for eventual delivery.
    *
    * @param kpid - The ref of the promise being resolved.
    * @param rejected - True if the promise is being rejected, false if fulfilled.
    * @param value - The value the promise is being fulfilled to or rejected with.
+   * @returns An array of queued messages that were waiting on this promise,
+   *          each as a tuple of [target, message].
    */
   function resolveKernelPromise(
     kpid: KRef,
     rejected: boolean,
     value: CapData<KRef>,
-  ): void {
+  ): [KRef, Message][] {
     const queue = provideStoredQueue(kpid, false);
+    // Collect messages that were queued on this promise
+    const queuedMessages: [KRef, Message][] = [];
     for (const message of getKernelPromiseMessageQueue(kpid)) {
-      const messageItem: RunQueueItemSend = {
-        type: 'send',
-        target: kpid,
-        message,
-      };
-      enqueueRun(messageItem);
+      queuedMessages.push([kpid, message]);
     }
     ctx.kv.set(`${kpid}.state`, rejected ? 'rejected' : 'fulfilled');
     ctx.kv.set(`${kpid}.value`, JSON.stringify(value));
@@ -172,6 +169,7 @@ export function getPromiseMethods(ctx: StoreContext) {
     // Drop the baseline "decider" refcount now that the promise is settled.
     decrementRefCount(kpid, 'resolve|decider');
     queue.delete();
+    return queuedMessages;
   }
 
   /**
