@@ -227,6 +227,7 @@ export class NodejsPlatformServices implements PlatformServices {
    * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
    * @param remoteMessageHandler - A handler function to receive remote messages.
    * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
+   * @param incarnationId - This kernel's incarnation ID for handshake protocol.
    * @returns A promise that resolves once network access has been established
    *   or rejects if there is some problem doing so.
    */
@@ -235,6 +236,7 @@ export class NodejsPlatformServices implements PlatformServices {
     options: RemoteCommsOptions,
     remoteMessageHandler: (from: string, message: string) => Promise<string>,
     onRemoteGiveUp?: (peerId: string) => void,
+    incarnationId?: string,
   ): Promise<void> {
     if (this.#sendRemoteMessageFunc) {
       throw Error('remote comms already initialized');
@@ -251,6 +253,7 @@ export class NodejsPlatformServices implements PlatformServices {
       options,
       this.#handleRemoteMessage.bind(this),
       onRemoteGiveUp,
+      incarnationId,
     );
     this.#sendRemoteMessageFunc = sendRemoteMessage;
     this.#stopRemoteCommsFunc = stop;

@@ -37,6 +37,8 @@ export type ReconnectionLifecycleDeps = {
     channel: Channel,
     errorContext?: string,
   ) => void;
+  /** Perform outbound handshake. Returns true if successful. */
+  doOutboundHandshake: (channel: Channel) => Promise<boolean>;
 };
 
 /**
@@ -70,6 +72,7 @@ export function makeReconnectionLifecycle(
     checkConnectionRateLimit,
     closeChannel,
     registerChannel,
+    doOutboundHandshake,
   } = deps;
 
   /**
@@ -200,6 +203,28 @@ export function makeReconnectionLifecycle(
           // Ignore close errors - the original ResourceLimitError takes priority
         }
         throw error;
+      }
+      // Perform handshake before registering the channel
+      let handshakeOk;
+      try {
+        handshakeOk = await doOutboundHandshake(channel);
+      } catch (handshakeError) {
+        // Handshake threw (e.g., onRemoteGiveUp callback failed) - close channel to prevent leak
+        try {
+          await closeChannel(channel, peerId);
+        } catch {
+          // Ignore close errors - the original error takes priority
+        }
+        throw handshakeError;
+      }
+      if (!handshakeOk) {
+        // Handshake failures are retryable (could be transient network issues)
+        // Return null to signal retry instead of throwing non-retryable error
+        logger.log(
+          `${peerId}:: handshake failed during reconnection, will retry`,
+        );
+        await closeChannel(channel, peerId);
+        return null;
       }
       registerChannel(peerId, channel, 'reading channel to');
     }

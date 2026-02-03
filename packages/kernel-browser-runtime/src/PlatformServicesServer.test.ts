@@ -406,6 +406,7 @@ describe('PlatformServicesServer', () => {
             { relays },
             expect.any(Function),
             expect.any(Function),
+            undefined,
           );
         });
 
@@ -428,6 +429,7 @@ describe('PlatformServicesServer', () => {
             options,
             expect.any(Function),
             expect.any(Function),
+            undefined,
           );
         });
 

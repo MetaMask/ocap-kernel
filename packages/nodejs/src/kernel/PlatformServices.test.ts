@@ -249,6 +249,7 @@ describe('NodejsPlatformServices', () => {
           { relays },
           expect.any(Function),
           undefined,
+          undefined,
         );
       });
 
@@ -269,6 +270,7 @@ describe('NodejsPlatformServices', () => {
           keySeed,
           options,
           expect.any(Function),
+          undefined,
           undefined,
         );
       });
@@ -293,6 +295,33 @@ describe('NodejsPlatformServices', () => {
           { relays },
           expect.any(Function),
           giveUpHandler,
+          undefined,
+        );
+      });
+
+      it('initializes remote comms with incarnationId', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+        const keySeed = '0x1234567890abcdef';
+        const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+        const remoteHandler = vi.fn(async () => 'response');
+        const giveUpHandler = vi.fn();
+        const incarnationId = 'test-incarnation-id';
+
+        await service.initializeRemoteComms(
+          keySeed,
+          { relays },
+          remoteHandler,
+          giveUpHandler,
+          incarnationId,
+        );
+
+        const { initTransport } = await import('@metamask/ocap-kernel');
+        expect(initTransport).toHaveBeenCalledWith(
+          keySeed,
+          { relays },
+          expect.any(Function),
+          giveUpHandler,
+          incarnationId,
         );
       });
 

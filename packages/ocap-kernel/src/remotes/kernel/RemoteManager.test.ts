@@ -80,6 +80,7 @@ describe('RemoteManager', () => {
         logger,
         undefined,
         expect.any(Function),
+        kernelStore.provideIncarnationId(),
       );
     });
 
@@ -102,10 +103,12 @@ describe('RemoteManager', () => {
           relays: ['relay1', 'relay2'],
           maxRetryAttempts: 5,
           maxQueue: 100,
+          mnemonic: undefined,
         },
         logger,
         undefined,
         expect.any(Function),
+        kernelStore.provideIncarnationId(),
       );
     });
 
@@ -133,6 +136,7 @@ describe('RemoteManager', () => {
         logger,
         keySeed,
         expect.any(Function),
+        kernelStore.provideIncarnationId(),
       );
     });
 

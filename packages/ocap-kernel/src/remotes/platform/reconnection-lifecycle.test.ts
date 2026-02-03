@@ -87,6 +87,7 @@ describe('reconnection-lifecycle', () => {
       checkConnectionRateLimit: vi.fn(),
       closeChannel: vi.fn().mockResolvedValue(undefined),
       registerChannel: vi.fn(),
+      doOutboundHandshake: vi.fn().mockResolvedValue(true),
     } as unknown as ReconnectionLifecycleDeps;
   });
 
@@ -207,6 +208,52 @@ describe('reconnection-lifecycle', () => {
         'peer1',
         mockChannel,
         'reading channel to',
+      );
+    });
+
+    it('performs handshake before registering channel', async () => {
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false);
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      expect(deps.doOutboundHandshake).toHaveBeenCalledWith(mockChannel);
+      // Verify handshake is called before registerChannel
+      const handshakeCallOrder = (
+        deps.doOutboundHandshake as ReturnType<typeof vi.fn>
+      ).mock.invocationCallOrder[0];
+      const registerCallOrder = (
+        deps.registerChannel as ReturnType<typeof vi.fn>
+      ).mock.invocationCallOrder[0];
+      expect(handshakeCallOrder).toBeLessThan(registerCallOrder as number);
+    });
+
+    it('closes channel and retries when handshake fails', async () => {
+      (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(true)
+        .mockReturnValueOnce(false);
+      (deps.doOutboundHandshake as ReturnType<typeof vi.fn>).mockResolvedValue(
+        false,
+      );
+
+      const lifecycle = makeReconnectionLifecycle(deps);
+
+      await lifecycle.attemptReconnection('peer1');
+
+      // Handshake failure should close the channel and log, not throw
+      expect(deps.closeChannel).toHaveBeenCalledWith(mockChannel, 'peer1');
+      expect(deps.registerChannel).not.toHaveBeenCalled();
+      expect(deps.logger.log).toHaveBeenCalledWith(
+        'peer1:: handshake failed during reconnection, will retry',
+      );
+      // Should NOT call outputError or onRemoteGiveUp since handshake failures are retryable
+      expect(deps.outputError).not.toHaveBeenCalledWith(
+        'peer1',
+        expect.stringContaining('non-retryable'),
+        expect.any(Error),
       );
     });
 

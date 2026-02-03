@@ -50,6 +50,12 @@ export class RemoteManager {
   /** Optional mnemonic for seed derivation */
   readonly #mnemonic: string | undefined;
 
+  /**
+   * Unique identifier for this kernel instance.
+   * Used to detect when a remote peer has lost its state and reconnected.
+   */
+  readonly #incarnationId: string;
+
   /** Remote communications interface */
   #remoteComms: RemoteComms | undefined;
 
@@ -81,6 +87,8 @@ export class RemoteManager {
     this.#logger = logger;
     this.#keySeed = keySeed;
     this.#mnemonic = mnemonic;
+    // Get incarnation ID from store - it's persisted so it survives restarts
+    this.#incarnationId = kernelStore.provideIncarnationId();
   }
 
   /**
@@ -153,6 +161,7 @@ export class RemoteManager {
       this.#logger,
       this.#keySeed,
       this.#handleRemoteGiveUp.bind(this),
+      this.#incarnationId,
     );
 
     // Restore all remotes that were previously established

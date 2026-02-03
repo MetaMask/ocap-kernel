@@ -15,6 +15,11 @@ import {
   DEFAULT_WRITE_TIMEOUT_MS,
   SCTP_USER_INITIATED_ABORT,
 } from './constants.ts';
+import {
+  performOutboundHandshake,
+  performInboundHandshake,
+} from './handshake.ts';
+import type { HandshakeDeps } from './handshake.ts';
 import { PeerStateManager } from './peer-state-manager.ts';
 import {
   makeConnectionRateLimiter,
@@ -51,6 +56,7 @@ import type {
  * @param options.maxConnectionAttemptsPerMinute - Maximum connection attempts per minute per peer (default: 10).
  * @param remoteMessageHandler - Handler to be called when messages are received from elsewhere.
  * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote (after max retries or non-retryable error).
+ * @param localIncarnationId - This kernel's incarnation ID for handshake protocol.
  *
  * @returns a function to send messages **and** a `stop()` to cancel/release everything.
  */
@@ -59,6 +65,7 @@ export async function initTransport(
   options: RemoteCommsOptions,
   remoteMessageHandler: RemoteMessageHandler,
   onRemoteGiveUp?: OnRemoteGiveUp,
+  localIncarnationId?: string,
 ): Promise<{
   sendRemoteMessage: SendRemoteMessage;
   stop: StopRemoteComms;
@@ -93,16 +100,16 @@ export async function initTransport(
     maxConnectionAttemptsPerMinute,
   );
   let cleanupIntervalId: ReturnType<typeof setInterval> | undefined;
-  // Holder for handleConnectionLoss - initialized later after all dependencies are defined
-  // This breaks the circular dependency between readChannel → handleConnectionLoss → registerChannel
-  const reconnectionHolder: {
-    handleConnectionLoss: ((peerId: string) => void) | undefined;
-  } = { handleConnectionLoss: undefined };
+  // Holder for handleConnectionLoss - assigned after reconnectionLifecycle is created.
+  // The inner function is only called from callbacks after initialization completes.
+  const connectionLossHolder: {
+    impl: ((peerId: string) => void) | undefined;
+  } = { impl: undefined };
   const handleConnectionLoss = (peerId: string): void => {
-    if (!reconnectionHolder.handleConnectionLoss) {
-      throw new Error('handleConnectionLoss not initialized');
+    if (!connectionLossHolder.impl) {
+      throw new Error('handleConnectionLoss called before initialization');
     }
-    reconnectionHolder.handleConnectionLoss(peerId);
+    connectionLossHolder.impl(peerId);
   };
   const connectionFactory = await ConnectionFactory.make(
     keySeed,
@@ -111,6 +118,76 @@ export async function initTransport(
     signal,
     maxRetryAttempts,
   );
+
+  // Create handshake dependencies (only if incarnation ID is configured).
+  // The incarnation ID is optional primarily for unit tests that don't need
+  // handshake behavior. In production, the kernel always provides an incarnation ID.
+  const handshakeDeps: HandshakeDeps | undefined = localIncarnationId
+    ? {
+        localIncarnationId,
+        logger,
+        setRemoteIncarnation: (peerId: string, incarnationId: string) =>
+          peerStateManager.setRemoteIncarnation(peerId, incarnationId),
+      }
+    : undefined;
+
+  /**
+   * Perform outbound handshake and handle incarnation changes.
+   * Returns true if handshake succeeded (or was skipped), false if it failed.
+   *
+   * @param channel - The channel to perform handshake on.
+   * @returns True if handshake succeeded or was skipped.
+   */
+  async function doOutboundHandshake(channel: Channel): Promise<boolean> {
+    if (!handshakeDeps) {
+      return true; // No handshake configured, skip
+    }
+    let result;
+    try {
+      result = await performOutboundHandshake(channel, handshakeDeps);
+    } catch (problem) {
+      outputError(channel.peerId, 'outbound handshake', problem);
+      return false;
+    }
+    // Handle incarnation change outside try-catch so callback errors
+    // don't incorrectly mark the handshake as failed
+    if (result.incarnationChanged && onRemoteGiveUp) {
+      logger.log(
+        `${channel.peerId.slice(0, 8)}:: incarnation changed during outbound handshake, triggering promise rejection`,
+      );
+      onRemoteGiveUp(channel.peerId);
+    }
+    return true;
+  }
+
+  /**
+   * Perform inbound handshake and handle incarnation changes.
+   * Returns true if handshake succeeded (or was skipped), false if it failed.
+   *
+   * @param channel - The channel to perform handshake on.
+   * @returns True if handshake succeeded or was skipped.
+   */
+  async function doInboundHandshake(channel: Channel): Promise<boolean> {
+    if (!handshakeDeps) {
+      return true; // No handshake configured, skip
+    }
+    let result;
+    try {
+      result = await performInboundHandshake(channel, handshakeDeps);
+    } catch (problem) {
+      outputError(channel.peerId, 'inbound handshake', problem);
+      return false;
+    }
+    // Handle incarnation change outside try-catch so callback errors
+    // don't incorrectly mark the handshake as failed
+    if (result.incarnationChanged && onRemoteGiveUp) {
+      logger.log(
+        `${channel.peerId.slice(0, 8)}:: incarnation changed during inbound handshake, triggering promise rejection`,
+      );
+      onRemoteGiveUp(channel.peerId);
+    }
+    return true;
+  }
 
   /**
    * Clean up stale peer data for peers inactive for more than stalePeerTimeoutMs.
@@ -134,6 +211,7 @@ export async function initTransport(
   /**
    * Register a channel for a peer, closing any previous channel.
    * This ensures proper cleanup of old channels to prevent leaks.
+   * Handshake must be completed BEFORE calling this function.
    *
    * @param peerId - The peer ID.
    * @param channel - The channel to register.
@@ -228,6 +306,7 @@ export async function initTransport(
     logger.log(`${from}:: recv ${message.substring(0, 200)}`);
 
     // Pass all messages to handler (including ACK-only messages - handler handles them)
+    // Handshake messages are handled during connection establishment, not here.
     try {
       const reply = await remoteMessageHandler(from, message);
       // Send reply if non-empty (reply is already a serialized string from RemoteHandle)
@@ -321,9 +400,9 @@ export async function initTransport(
     closeChannel: async (channel, peerId) =>
       connectionFactory.closeChannel(channel, peerId),
     registerChannel,
+    doOutboundHandshake,
   });
-  reconnectionHolder.handleConnectionLoss =
-    reconnectionLifecycle.handleConnectionLoss;
+  connectionLossHolder.impl = reconnectionLifecycle.handleConnectionLoss;
 
   /**
    * Send a message string to a peer.
@@ -399,6 +478,23 @@ export async function initTransport(
             }
             throw error;
           }
+          // Perform handshake before registering the channel
+          let handshakeOk;
+          try {
+            handshakeOk = await doOutboundHandshake(channel);
+          } catch (handshakeError) {
+            // Handshake threw (e.g., onRemoteGiveUp callback failed) - close channel to prevent leak
+            try {
+              await connectionFactory.closeChannel(channel, targetPeerId);
+            } catch {
+              // Ignore close errors - the original error takes priority
+            }
+            throw handshakeError;
+          }
+          if (!handshakeOk) {
+            await connectionFactory.closeChannel(channel, targetPeerId);
+            throw Error('Handshake failed');
+          }
           registerChannel(targetPeerId, channel, 'reading channel to');
         }
       } catch (problem) {
@@ -442,8 +538,12 @@ export async function initTransport(
     });
   }
 
-  // Set up inbound connection handler
-  connectionFactory.onInboundConnection((channel) => {
+  /**
+   * Handle inbound connection setup including handshake.
+   *
+   * @param channel - The inbound channel.
+   */
+  async function handleInboundConnection(channel: Channel): Promise<void> {
     // Reject inbound connections from intentionally closed peers
     if (peerStateManager.isIntentionallyClosed(channel.peerId)) {
       logger.log(
@@ -467,7 +567,26 @@ export async function initTransport(
       throw error;
     }
 
+    // Perform handshake before registering the channel
+    const handshakeOk = await doInboundHandshake(channel);
+    if (!handshakeOk) {
+      logger.log(
+        `${channel.peerId}:: rejecting inbound connection due to handshake failure`,
+      );
+      await connectionFactory.closeChannel(channel, channel.peerId);
+      return;
+    }
+
     registerChannel(channel.peerId, channel, 'error in inbound channel read');
+  }
+
+  // Set up inbound connection handler
+  connectionFactory.onInboundConnection((channel) => {
+    handleInboundConnection(channel).catch((problem) => {
+      outputError(channel.peerId, 'inbound connection setup', problem);
+      // Close the channel to prevent resource leak if setup failed
+      closeRejectedChannel(channel);
+    });
   });
 
   // Install wake detector to reset backoff on sleep/wake

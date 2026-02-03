@@ -865,6 +865,67 @@ describe.sequential('Remote Communications E2E', () => {
     );
   });
 
+  describe('Incarnation Detection', () => {
+    it(
+      'detects incarnation change when peer restarts with fresh state',
+      async () => {
+        // Initialize with low retry attempts to trigger give-up on incarnation change
+        await kernel1.initRemoteComms({
+          relays: testRelays,
+          maxRetryAttempts: 2,
+        });
+        await kernel2.initRemoteComms({ relays: testRelays });
+
+        const aliceConfig = makeRemoteVatConfig('Alice');
+        const bobConfig = makeRemoteVatConfig('Bob');
+
+        await launchVatAndGetURL(kernel1, aliceConfig);
+        const bobURL = await launchVatAndGetURL(kernel2, bobConfig);
+        const aliceRef = getVatRootRef(kernel1, kernelStore1, 'Alice');
+
+        // Establish connection and exchange handshakes
+        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
+
+        // Stop kernel2
+        await kernel2.stop();
+
+        // Simulate state loss by closing kernel2's database and creating fresh in-memory db
+        kernelDatabase2.close();
+        // eslint-disable-next-line require-atomic-updates
+        kernelDatabase2 = await makeSQLKernelDatabase({
+          dbFilename: ':memory:',
+        });
+
+        // Create a completely new kernel (new incarnation ID, no previous state)
+        // eslint-disable-next-line require-atomic-updates
+        kernel2 = await makeTestKernel(kernelDatabase2, true);
+        await kernel2.initRemoteComms({ relays: testRelays });
+
+        // Launch Bob again (fresh vat, no previous state)
+        await launchVatAndGetURL(kernel2, bobConfig);
+
+        // Send a message - when the new kernel connects, it will have a different
+        // incarnation ID than before. The handshake will detect this change
+        // and trigger promise rejection for pending work.
+        // The await will naturally wait for the promise to settle - either
+        // succeeding (unexpected) or failing due to incarnation change detection.
+        const result = await kernel1.queueMessage(
+          aliceRef,
+          'sendRemoteMessage',
+          [bobURL, 'hello', ['Alice']],
+        );
+        const response = kunser(result);
+
+        // The message should fail because incarnation changed.
+        // The handshake detects the new incarnation and triggers onRemoteGiveUp,
+        // which rejects pending promises with a "Remote connection lost" error.
+        expect(response).toBeInstanceOf(Error);
+        expect((response as Error).message).toMatch(/Remote connection lost/u);
+      },
+      NETWORK_TIMEOUT * 3,
+    );
+  });
+
   describe('Promise Rejection on Remote Give-Up', () => {
     it(
       'rejects promises when remote connection is lost after max retries',
