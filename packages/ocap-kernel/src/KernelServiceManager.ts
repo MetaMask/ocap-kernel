@@ -112,10 +112,16 @@ export class KernelServiceManager {
   /**
    * Invoke a kernel service.
    *
+   * This method does NOT await the service method result. Instead, it uses
+   * promise chaining to resolve the kernel promise when the method eventually
+   * completes. This allows service methods to use `waitForCrank()` without
+   * causing deadlock - the crank can complete, and the resolution happens
+   * in a future turn of the event loop.
+   *
    * @param target - The target kref of the service.
    * @param message - The message to invoke the service with.
    */
-  async invokeKernelService(target: KRef, message: Message): Promise<void> {
+  invokeKernelService(target: KRef, message: Message): void {
     const kernelService = this.#kernelServicesByObject.get(target);
     if (!kernelService) {
       throw Error(`No registered service for ${target}`);
@@ -141,20 +147,40 @@ export class KernelServiceManager {
     }
     assert.typeof(methodFunction, 'function');
     assert(Array.isArray(args));
+
+    // Call the method without awaiting. This allows the crank to complete
+    // even if the method internally waits for the crank to end.
     try {
-      const resultValue = await methodFunction.apply(service, args);
+      const maybePromise = methodFunction.apply(service, args);
+      // Use Promise.resolve to normalize: if maybePromise is a Promise, it
+      // returns that Promise; if it's a value, it returns an immediately-
+      // resolved Promise.
+      Promise.resolve(maybePromise)
+        .then((resultValue) => {
+          if (result) {
+            this.#kernelQueue.resolvePromises('kernel', [
+              [result, false, kser(resultValue)],
+            ]);
+          }
+          return undefined;
+        })
+        .catch((problem: unknown) => {
+          if (result) {
+            this.#kernelQueue.resolvePromises('kernel', [
+              [result, true, kser(problem)],
+            ]);
+          } else {
+            this.#logger?.error('Error in kernel service method:', problem);
+          }
+        });
+    } catch (syncError) {
+      // Handle synchronous errors thrown before returning a Promise
       if (result) {
         this.#kernelQueue.resolvePromises('kernel', [
-          [result, false, kser(resultValue)],
-        ]);
-      }
-    } catch (problem) {
-      if (result) {
-        this.#kernelQueue.resolvePromises('kernel', [
-          [result, true, kser(problem)],
+          [result, true, kser(syncError)],
         ]);
       } else {
-        this.#logger?.error('Error in kernel service method:', problem);
+        this.#logger?.error('Error in kernel service method:', syncError);
       }
     }
   }
