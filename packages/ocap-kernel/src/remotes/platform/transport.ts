@@ -477,7 +477,18 @@ export async function initTransport(
             throw error;
           }
           // Perform handshake before registering the channel
-          const handshakeOk = await doOutboundHandshake(channel);
+          let handshakeOk;
+          try {
+            handshakeOk = await doOutboundHandshake(channel);
+          } catch (handshakeError) {
+            // Handshake threw (e.g., onRemoteGiveUp callback failed) - close channel to prevent leak
+            try {
+              await connectionFactory.closeChannel(channel, targetPeerId);
+            } catch {
+              // Ignore close errors - the original error takes priority
+            }
+            throw handshakeError;
+          }
           if (!handshakeOk) {
             await connectionFactory.closeChannel(channel, targetPeerId);
             throw Error('Handshake failed');
@@ -571,6 +582,8 @@ export async function initTransport(
   connectionFactory.onInboundConnection((channel) => {
     handleInboundConnection(channel).catch((problem) => {
       outputError(channel.peerId, 'inbound connection setup', problem);
+      // Close the channel to prevent resource leak if setup failed
+      closeRejectedChannel(channel);
     });
   });
 

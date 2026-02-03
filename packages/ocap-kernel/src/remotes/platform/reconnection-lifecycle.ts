@@ -205,7 +205,18 @@ export function makeReconnectionLifecycle(
         throw error;
       }
       // Perform handshake before registering the channel
-      const handshakeOk = await doOutboundHandshake(channel);
+      let handshakeOk;
+      try {
+        handshakeOk = await doOutboundHandshake(channel);
+      } catch (handshakeError) {
+        // Handshake threw (e.g., onRemoteGiveUp callback failed) - close channel to prevent leak
+        try {
+          await closeChannel(channel, peerId);
+        } catch {
+          // Ignore close errors - the original error takes priority
+        }
+        throw handshakeError;
+      }
       if (!handshakeOk) {
         // Handshake failures are retryable (could be transient network issues)
         // Return null to signal retry instead of throwing non-retryable error
