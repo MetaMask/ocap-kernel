@@ -1,5 +1,7 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
-import type { VatPowers } from '@metamask/ocap-kernel';
+
+import { unwrapTestLogger } from '../test-powers.ts';
+import type { TestPowers } from '../test-powers.ts';
 
 /**
  * Build a root object for a vat that uses the fetch capability.
@@ -9,11 +11,8 @@ import type { VatPowers } from '@metamask/ocap-kernel';
  * @returns The root object.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export async function buildRootObject(vatPowers: VatPowers) {
-  const logger = vatPowers.logger.subLogger({
-    tags: ['test', 'endowment-user'],
-  });
-  const tlog = (...args: unknown[]): void => logger.log(...args);
+export async function buildRootObject(vatPowers: TestPowers) {
+  const tlog = unwrapTestLogger(vatPowers, 'endowment-user');
 
   tlog('buildRootObject');
 

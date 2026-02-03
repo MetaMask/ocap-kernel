@@ -1,7 +1,10 @@
 /* global harden */
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
-import type { Baggage, VatPowers } from '@metamask/ocap-kernel';
+import type { Baggage } from '@metamask/ocap-kernel';
+
+import { unwrapTestLogger } from '../test-powers.ts';
+import type { TestPowers } from '../test-powers.ts';
 
 /**
  * Build function for generic test vat.
@@ -15,13 +18,13 @@ import type { Baggage, VatPowers } from '@metamask/ocap-kernel';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject(
-  vatPowers: VatPowers,
+  vatPowers: TestPowers,
   parameters: { name?: string },
   baggage: Baggage,
 ) {
   const name = parameters?.name ?? 'anonymous';
-  const logger = vatPowers.logger.subLogger({ tags: ['test'] });
-  const tlog = (message: string): void => logger.log(`${name}: ${message}`);
+  const logger = unwrapTestLogger(vatPowers, name);
+  const tlog = (message: string): void => logger(`${name}: ${message}`);
 
   /**
    * Print a message to the log.

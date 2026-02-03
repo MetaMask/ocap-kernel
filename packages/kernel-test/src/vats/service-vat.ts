@@ -1,6 +1,8 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
-import type { VatPowers } from '@metamask/ocap-kernel';
+
+import { unwrapTestLogger } from '../test-powers.ts';
+import type { TestPowers } from '../test-powers.ts';
 
 /**
  * Build function for running a test of kernel service objects.
@@ -13,12 +15,11 @@ import type { VatPowers } from '@metamask/ocap-kernel';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject(
-  vatPowers: VatPowers,
+  vatPowers: TestPowers,
   parameters: { name?: string } = {},
 ) {
   const name = parameters?.name ?? 'anonymous';
-  const logger = vatPowers.logger.subLogger({ tags: ['test', name] });
-  const tlog = (...args: unknown[]): void => logger.log(...args);
+  const tlog = unwrapTestLogger(vatPowers, name);
   // eslint-disable-next-line no-console
   console.log(`buildRootObject "${name}"`);
 

@@ -2,7 +2,10 @@ import { makeScalarMapStore, makeScalarSetStore } from '@agoric/store';
 import { makeExo, defineExoClass, defineExoClassKit } from '@endo/exo';
 import { M } from '@endo/patterns';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
-import type { Baggage, VatPowers } from '@metamask/ocap-kernel';
+import type { Baggage } from '@metamask/ocap-kernel';
+
+import { unwrapTestLogger } from '../test-powers.ts';
+import type { TestPowers } from '../test-powers.ts';
 
 /**
  * Build function for testing exo objects and liveslots virtual object functionality.
@@ -16,13 +19,12 @@ import type { Baggage, VatPowers } from '@metamask/ocap-kernel';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject(
-  vatPowers: VatPowers,
+  vatPowers: TestPowers,
   parameters: { name?: string },
   baggage: Baggage,
 ) {
   const vatName = parameters?.name ?? 'anonymous';
-  const logger = vatPowers.logger.subLogger({ tags: ['test', vatName] });
-  const tlog = (...args: unknown[]): void => logger.log(...args);
+  const tlog = unwrapTestLogger(vatPowers, vatName);
 
   /**
    * Print a message to the log.

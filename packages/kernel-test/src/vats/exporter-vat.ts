@@ -1,9 +1,13 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
+import { unwrapTestLogger } from '../test-powers.ts';
+import type { TestPowers } from '../test-powers.ts';
+
 /**
  * Build function for vats that will run various tests.
  *
- * @param _vatPowers - Special powers granted to this vat (not used here).
+ * @param vatPowers - Special powers granted to this vat.
+ * @param vatPowers.logger - The logger for the vat.
  * @param parameters - Initialization parameters from the vat's config object.
  * @param parameters.name - The name of the vat.
  * @param _baggage - Root of vat's persistent state (not used here).
@@ -11,11 +15,13 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject(
-  _vatPowers: unknown,
+  vatPowers: TestPowers,
   parameters: { name?: string } = {},
   _baggage: unknown = null,
 ) {
   const name = parameters?.name ?? 'anonymous';
+  const logger = unwrapTestLogger(vatPowers, name);
+  const tlog = (message: string): void => logger(`${name}: ${message}`);
 
   /**
    * Print a message to the log.
@@ -25,17 +31,6 @@ export function buildRootObject(
   function log(message: string): void {
     // eslint-disable-next-line no-console
     console.log(`${name}: ${message}`);
-  }
-
-  /**
-   * Print a message to the log, tagged as part of the test output.
-   *
-   * @param message - The message to print.
-   * @param args - Additional arguments to print.
-   */
-  function tlog(message: string, ...args: unknown[]): void {
-    // eslint-disable-next-line no-console
-    console.log(`::> ${name}: ${message}`, ...args);
   }
 
   const exportedObjects = new Map<string, unknown>();

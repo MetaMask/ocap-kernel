@@ -1,5 +1,6 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
-import type { VatPowers } from '@metamask/ocap-kernel';
+
+import type { TestPowers } from '../test-powers.ts';
 
 /**
  * Build function for vats that will run various tests.
@@ -13,7 +14,7 @@ import type { VatPowers } from '@metamask/ocap-kernel';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject(
-  vatPowers: VatPowers,
+  vatPowers: TestPowers,
   parameters: { name?: string } = {},
   _baggage: unknown = null,
 ) {

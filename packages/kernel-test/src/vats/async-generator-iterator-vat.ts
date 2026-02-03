@@ -1,7 +1,9 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
-import type { VatPowers } from '@metamask/ocap-kernel';
 import { makeEventualIterator, makeExoGenerator } from '@ocap/remote-iterables';
+
+import { unwrapTestLogger } from '../test-powers.ts';
+import type { TestPowers } from '../test-powers.ts';
 
 /**
  * Build function for testing async generators.
@@ -14,11 +16,10 @@ import { makeEventualIterator, makeExoGenerator } from '@ocap/remote-iterables';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject(
-  { logger }: VatPowers,
+  vatPowers: TestPowers,
   { name }: { name: string },
 ) {
-  const tlogger = logger.subLogger({ tags: ['test', name] });
-  const tlog = (...args: unknown[]): void => tlogger.log(...args);
+  const tlog = unwrapTestLogger(vatPowers, name);
 
   tlog(`${name} buildRootObject`);
 

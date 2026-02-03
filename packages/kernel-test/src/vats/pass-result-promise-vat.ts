@@ -1,7 +1,9 @@
 import { E } from '@endo/eventual-send';
 import { makePromiseKit } from '@endo/promise-kit';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
-import type { VatPowers } from '@metamask/ocap-kernel';
+
+import { unwrapTestLogger } from '../test-powers.ts';
+import type { TestPowers } from '../test-powers.ts';
 
 /**
  * Build function for vats that will run various tests.
@@ -16,14 +18,13 @@ import type { VatPowers } from '@metamask/ocap-kernel';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject(
-  vatPowers: VatPowers,
+  vatPowers: TestPowers,
   parameters: { name?: string; test?: string } = {},
   _baggage: unknown = null,
 ) {
   const name = parameters?.name ?? 'anonymous';
   const test = parameters?.test ?? 'unspecified';
-  const logger = vatPowers.logger.subLogger({ tags: ['test', name] });
-  const tlog = (...args: unknown[]): void => logger.log(...args);
+  const tlog = unwrapTestLogger(vatPowers, name);
 
   /**
    * Print a message to the log.

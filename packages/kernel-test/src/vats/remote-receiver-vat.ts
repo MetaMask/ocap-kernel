@@ -1,6 +1,7 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
-import type { VatPowers } from '@metamask/ocap-kernel';
+
+import type { TestPowers } from '../test-powers.ts';
 
 /**
  * Build function for vat that receives remote messages from other kernels.
@@ -14,7 +15,7 @@ import type { VatPowers } from '@metamask/ocap-kernel';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject(
-  { logger }: VatPowers,
+  { logger }: TestPowers,
   parameters: { name?: string } = {},
   _baggage: unknown = null,
 ) {
