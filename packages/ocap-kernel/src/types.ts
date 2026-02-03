@@ -375,6 +375,7 @@ export type VatConfig = UserCodeSpec & {
   creationOptions?: Record<string, Json>;
   parameters?: Record<string, Json>;
   platformConfig?: Partial<PlatformConfig>;
+  globals?: string[];
 };
 
 const UserCodeSpecStruct = union([
@@ -396,14 +397,15 @@ export const VatConfigStruct = define<VatConfig>('VatConfig', (value) => {
     return false;
   }
 
-  const { creationOptions, parameters, platformConfig, ...specOnly } =
+  const { creationOptions, parameters, platformConfig, globals, ...specOnly } =
     value as Record<string, unknown>;
 
   return (
     is(specOnly, UserCodeSpecStruct) &&
     (!creationOptions || is(creationOptions, UnsafeJsonStruct)) &&
     (!parameters || is(parameters, UnsafeJsonStruct)) &&
-    (!platformConfig || is(platformConfig, platformConfigStruct))
+    (!platformConfig || is(platformConfig, platformConfigStruct)) &&
+    (!globals || is(globals, array(string())))
   );
 });
 

@@ -293,12 +293,28 @@ export class VatSupervisor {
       meterControl: makeDummyMeterControl(),
     });
 
+    const { bundleSpec, parameters, platformConfig, globals } = vatConfig;
+
+    // Map of allowed global names to their values
+    const allowedGlobals: Record<string, unknown> = {
+      Date: globalThis.Date,
+    };
+
+    // Build additional endowments from globals list
+    const requestedGlobals: Record<string, unknown> = {};
+    if (globals) {
+      for (const name of globals) {
+        if (name in allowedGlobals) {
+          requestedGlobals[name] = allowedGlobals[name];
+        }
+      }
+    }
+
     const workerEndowments = {
       console: this.#logger.subLogger({ tags: ['console'] }),
       assert: globalThis.assert,
+      ...requestedGlobals,
     };
-
-    const { bundleSpec, parameters, platformConfig } = vatConfig;
 
     const platformEndowments = platformConfig
       ? await this.#makePlatform(platformConfig, this.#platformOptions)
