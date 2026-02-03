@@ -55,7 +55,12 @@ export function makeBaggageStorageAdapter(baggage: Baggage): StorageAdapter {
   return harden({
     async get<Value extends Json>(key: string): Promise<Value | undefined> {
       if (baggage.has(key)) {
-        return baggage.get(key) as Value;
+        const value = baggage.get(key);
+        // Return undefined for null tombstones (deleted keys)
+        if (value === null) {
+          return undefined;
+        }
+        return value as Value;
       }
       return undefined;
     },

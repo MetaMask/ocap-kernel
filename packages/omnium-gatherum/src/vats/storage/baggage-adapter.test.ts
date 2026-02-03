@@ -48,6 +48,19 @@ describe('makeBaggageStorageAdapter', () => {
       const result = await adapter.get('test-key');
       expect(result).toStrictEqual({ foo: 'bar' });
     });
+
+    it('returns undefined for deleted key (null tombstone)', async () => {
+      await adapter.set('to-delete', { data: 'test' });
+      await adapter.delete('to-delete');
+
+      // Baggage still has the key but value is null
+      expect(baggage._store.has('to-delete')).toBe(true);
+      expect(baggage._store.get('to-delete')).toBeNull();
+
+      // Adapter should return undefined, not null
+      const result = await adapter.get('to-delete');
+      expect(result).toBeUndefined();
+    });
   });
 
   describe('set', () => {

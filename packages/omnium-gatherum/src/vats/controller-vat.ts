@@ -59,12 +59,12 @@ export function buildRootObject(
   // Create baggage-backed storage adapter
   const storageAdapter = makeBaggageStorageAdapter(baggage);
 
-  // Promise kit for the caplet controller facet, resolved in bootstrap()
+  // Promise kit for the caplet controller facet, resolved/rejected in bootstrap()
   const {
     promise: capletFacetP,
     resolve: resolveCapletFacet,
-  }: PromiseKit<CapletControllerFacet> =
-    makePromiseKit<CapletControllerFacet>();
+    reject: rejectCapletFacet,
+  }: PromiseKit<CapletControllerFacet> = makePromiseKit<CapletControllerFacet>();
 
   // Define delegating methods for caplet operations
   const capletMethods = defineMethods(capletFacetP, [
@@ -88,34 +88,39 @@ export function buildRootObject(
     ): Promise<void> {
       logger?.info('Bootstrap called');
 
-      const { kernelFacet } = services;
-      if (!kernelFacet) {
-        throw new Error('kernelFacet service is required');
-      }
+      try {
+        const { kernelFacet } = services;
+        if (!kernelFacet) {
+          throw new Error('kernelFacet service is required');
+        }
 
-      // Initialize caplet controller with baggage-backed storage
-      const capletFacet = await CapletController.make(
-        { logger: vatLogger?.subLogger({ tags: ['caplet'] }) },
-        {
-          adapter: storageAdapter,
-          launchSubcluster: async (
-            config: ClusterConfig,
-          ): Promise<LaunchResult> => {
-            const result = await E(kernelFacet).launchSubcluster(config);
-            return {
-              subclusterId: result.subclusterId,
-              rootKref: result.rootKref,
-            };
+        // Initialize caplet controller with baggage-backed storage
+        const capletFacet = await CapletController.make(
+          { logger: vatLogger?.subLogger({ tags: ['caplet'] }) },
+          {
+            adapter: storageAdapter,
+            launchSubcluster: async (
+              config: ClusterConfig,
+            ): Promise<LaunchResult> => {
+              const result = await E(kernelFacet).launchSubcluster(config);
+              return {
+                subclusterId: result.subclusterId,
+                rootKref: result.rootKref,
+              };
+            },
+            terminateSubcluster: async (subclusterId: string): Promise<void> =>
+              E(kernelFacet).terminateSubcluster(subclusterId),
+            getVatRoot: async (krefString: string): Promise<unknown> =>
+              E(kernelFacet).getVatRoot(krefString),
           },
-          terminateSubcluster: async (subclusterId: string): Promise<void> =>
-            E(kernelFacet).terminateSubcluster(subclusterId),
-          getVatRoot: async (krefString: string): Promise<unknown> =>
-            E(kernelFacet).getVatRoot(krefString),
-        },
-      );
-      resolveCapletFacet(capletFacet);
+        );
+        resolveCapletFacet(capletFacet);
 
-      logger?.info('Bootstrap complete');
+        logger?.info('Bootstrap complete');
+      } catch (error) {
+        rejectCapletFacet(error);
+        throw error;
+      }
     },
 
     ...capletMethods,
