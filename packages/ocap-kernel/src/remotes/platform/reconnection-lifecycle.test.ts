@@ -672,6 +672,27 @@ describe('reconnection-lifecycle', () => {
         expect(deps.dialPeer).toHaveBeenCalledTimes(2);
         expect(deps.reconnectionManager.recordError).toHaveBeenCalled();
       });
+
+      it('does not record non-retryable errors in history', async () => {
+        const error = new Error('Auth failed');
+        (deps.dialPeer as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
+          error,
+        );
+        // Non-retryable error
+        (
+          kernelErrors.isRetryableNetworkError as ReturnType<typeof vi.fn>
+        ).mockReturnValue(false);
+
+        const lifecycle = makeReconnectionLifecycle(deps);
+
+        await lifecycle.attemptReconnection('peer1');
+
+        // Non-retryable errors should NOT be recorded - they don't contribute
+        // to permanent failure detection
+        expect(deps.reconnectionManager.recordError).not.toHaveBeenCalled();
+        // But should still give up
+        expect(deps.onRemoteGiveUp).toHaveBeenCalledWith('peer1');
+      });
     });
   });
 

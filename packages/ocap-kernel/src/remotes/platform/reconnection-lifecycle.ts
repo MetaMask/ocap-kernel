@@ -160,7 +160,16 @@ export function makeReconnectionLifecycle(
           continue;
         }
 
-        // Record the error for pattern analysis
+        // Check if retryable BEFORE recording - non-retryable errors should not
+        // contribute to permanent failure detection (they cause immediate give-up)
+        if (!isRetryableNetworkError(problem)) {
+          outputError(peerId, `non-retryable failure`, problem);
+          reconnectionManager.stopReconnection(peerId);
+          onRemoteGiveUp?.(peerId);
+          return;
+        }
+
+        // Record the error for pattern analysis (only retryable errors reach here)
         const errorCode = getNetworkErrorCode(problem);
         reconnectionManager.recordError(peerId, errorCode);
 
@@ -176,12 +185,6 @@ export function makeReconnectionLifecycle(
           return;
         }
 
-        if (!isRetryableNetworkError(problem)) {
-          outputError(peerId, `non-retryable failure`, problem);
-          reconnectionManager.stopReconnection(peerId);
-          onRemoteGiveUp?.(peerId);
-          return;
-        }
         outputError(peerId, `reconnection attempt ${nextAttempt}`, problem);
         // loop to next attempt
       }
