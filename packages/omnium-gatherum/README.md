@@ -23,11 +23,9 @@ const { manifest } = await omnium.caplet.load('echo');
 // 2. Install the caplet
 await omnium.caplet.install(manifest);
 
-// 3. List installed caplets
-await omnium.caplet.list();
-
-// 4. Get a specific caplet
-await omnium.caplet.get('echo');
+// 3. Call a method on the caplet
+await omnium.caplet.callCapletMethod('echo', 'echo', ['Hello, world!']);
+// echo: Hello, world!
 ```
 
 ## Contributing

@@ -237,6 +237,14 @@ function defineGlobals(): GlobalSetters {
     return { manifest, bundle };
   };
 
+  const getCapletRoot = async (capletId: string): Promise<string> => {
+    const { slots } = await callBootstrap<{ slots: [string] }>(
+      'getCapletRoot',
+      [capletId],
+    );
+    return slots[0]; // This is the caplet's root kref
+  };
+
   Object.defineProperties(globalThis.omnium, {
     caplet: {
       value: harden({
@@ -248,8 +256,15 @@ function defineGlobals(): GlobalSetters {
         load: loadCaplet,
         get: async (capletId: string) =>
           callBootstrap<InstalledCaplet | undefined>('get', [capletId]),
-        getCapletRoot: async (capletId: string) =>
-          callBootstrap<unknown>('getCapletRoot', [capletId]),
+        getCapletRoot,
+        callCapletMethod: async (
+          capletId: string,
+          method: string,
+          args: unknown[],
+        ) => {
+          const rootKref = await getCapletRoot(capletId);
+          return await E(kernel).queueMessage(rootKref, method, args);
+        },
       }),
     },
   });
