@@ -129,6 +129,7 @@ describe('kernel store', () => {
         'nextReapAction',
         'nextTerminatedVatCleanup',
         'pinObject',
+        'provideIncarnationId',
         'releaseAllSavepoints',
         'removeVatFromSubcluster',
         'reset',
@@ -426,6 +427,65 @@ describe('kernel store', () => {
       expect(ks.getNextVatId()).toBe('v1');
       expect(ks.getOwner(koId)).toBeUndefined();
       expect(ks.kv.get('customKey')).toBeUndefined();
+    });
+  });
+
+  describe('incarnation ID', () => {
+    it('generates a new incarnation ID on first call', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+
+      const incarnationId = ks.provideIncarnationId();
+
+      expect(typeof incarnationId).toBe('string');
+      expect(incarnationId).toHaveLength(36); // UUID format
+      expect(ks.kv.get('incarnationId')).toBe(incarnationId);
+    });
+
+    it('returns the same incarnation ID on subsequent calls', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+
+      const first = ks.provideIncarnationId();
+      const second = ks.provideIncarnationId();
+      const third = ks.provideIncarnationId();
+
+      expect(first).toBe(second);
+      expect(second).toBe(third);
+    });
+
+    it('preserves incarnation ID across store instances', () => {
+      const ks1 = makeKernelStore(mockKernelDatabase);
+      const incarnationId = ks1.provideIncarnationId();
+
+      // Create a new store instance pointing to the same database
+      const ks2 = makeKernelStore(mockKernelDatabase);
+      const loaded = ks2.provideIncarnationId();
+
+      expect(loaded).toBe(incarnationId);
+    });
+
+    it('regenerates incarnation ID after storage reset', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const original = ks.provideIncarnationId();
+
+      // Reset storage (clears incarnationId since it's not in except list)
+      ks.reset();
+
+      const regenerated = ks.provideIncarnationId();
+
+      expect(regenerated).not.toBe(original);
+      expect(regenerated).toHaveLength(36);
+    });
+
+    it('preserves incarnation ID when reset with except list', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const original = ks.provideIncarnationId();
+
+      // Reset with incarnationId in except list
+      ks.reset({ except: ['incarnationId'] });
+
+      const preserved = ks.provideIncarnationId();
+
+      expect(preserved).toBe(original);
     });
   });
 });

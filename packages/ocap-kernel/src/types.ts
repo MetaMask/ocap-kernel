@@ -324,6 +324,7 @@ export type PlatformServices = {
    * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
    * @param remoteMessageHandler - A handler function to receive remote messages.
    * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
+   * @param incarnationId - Unique identifier for this kernel instance.
    * @returns A promise that resolves once network access has been established
    *   or rejects if there is some problem doing so.
    */
@@ -332,6 +333,7 @@ export type PlatformServices = {
     options: RemoteCommsOptions,
     remoteMessageHandler: RemoteMessageHandler,
     onRemoteGiveUp?: OnRemoteGiveUp,
+    incarnationId?: string,
   ) => Promise<void>;
   /**
    * Stop network communications.
