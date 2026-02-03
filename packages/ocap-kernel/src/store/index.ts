@@ -141,6 +141,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     terminatedVats: provideCachedStoredValue('vats.terminated', '[]'),
     inCrank: false,
     savepoints: [],
+    crankBuffer: [],
     // Subclusters
     subclusters: provideCachedStoredValue('subclusters', '[]'),
     nextSubclusterId: provideCachedStoredValue('nextSubclusterId', '1'),
@@ -218,6 +219,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
       '{}',
     );
     crank.releaseAllSavepoints();
+    context.crankBuffer.length = 0;
     preservedState?.forEach(({ key, value }) => {
       if (value) {
         context.kv.set(key, value);
@@ -230,6 +232,24 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
    */
   function clear(): void {
     kdb.clear();
+  }
+
+  /**
+   * Provide the kernel's incarnation ID.
+   * The incarnation ID is persisted so it survives kernel restarts,
+   * but is regenerated when storage is cleared (when state is actually lost).
+   *
+   * @returns The incarnation ID (existing or newly generated).
+   */
+  function provideIncarnationId(): string {
+    const existing = context.kv.get('incarnationId');
+    if (existing) {
+      return existing;
+    }
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    const newId = globalThis.crypto.randomUUID();
+    context.kv.set('incarnationId', newId);
+    return newId;
   }
 
   return harden({
@@ -252,6 +272,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     deleteVat,
     clear,
     reset,
+    provideIncarnationId,
     kv,
   });
 }
