@@ -119,7 +119,9 @@ export async function initTransport(
     maxRetryAttempts,
   );
 
-  // Create handshake dependencies (only if incarnation ID is configured)
+  // Create handshake dependencies (only if incarnation ID is configured).
+  // The incarnation ID is optional primarily for unit tests that don't need
+  // handshake behavior. In production, the kernel always provides an incarnation ID.
   const handshakeDeps: HandshakeDeps | undefined = localIncarnationId
     ? {
         localIncarnationId,

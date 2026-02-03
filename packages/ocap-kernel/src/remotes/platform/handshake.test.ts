@@ -86,47 +86,6 @@ describe('handshake', () => {
     ])('returns $expected for $description', ({ input, expected }) => {
       expect(isHandshakeMessage(input)).toBe(expected);
     });
-
-    it('returns false for handshake message without params', () => {
-      expect(isHandshakeMessage({ method: 'handshake' })).toBe(false);
-      expect(isHandshakeMessage({ method: 'handshakeAck' })).toBe(false);
-    });
-
-    it('returns false for handshake message with non-object params', () => {
-      expect(isHandshakeMessage({ method: 'handshake', params: null })).toBe(
-        false,
-      );
-      expect(
-        isHandshakeMessage({ method: 'handshake', params: 'string' }),
-      ).toBe(false);
-    });
-
-    it('returns false for handshake message without incarnationId', () => {
-      expect(isHandshakeMessage({ method: 'handshake', params: {} })).toBe(
-        false,
-      );
-      expect(
-        isHandshakeMessage({
-          method: 'handshakeAck',
-          params: { other: 'data' },
-        }),
-      ).toBe(false);
-    });
-
-    it('returns false for handshake message with non-string incarnationId', () => {
-      expect(
-        isHandshakeMessage({
-          method: 'handshake',
-          params: { incarnationId: 123 },
-        }),
-      ).toBe(false);
-      expect(
-        isHandshakeMessage({
-          method: 'handshakeAck',
-          params: { incarnationId: null },
-        }),
-      ).toBe(false);
-    });
   });
 
   describe('performOutboundHandshake', () => {
