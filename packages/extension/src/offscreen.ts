@@ -2,6 +2,8 @@ import {
   makeIframeVatWorker,
   PlatformServicesServer,
   createRelayQueryString,
+  setupConsoleForwarding,
+  isConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
@@ -30,6 +32,20 @@ async function main(): Promise<void> {
     JsonRpcMessage,
     JsonRpcMessage
   >(chrome.runtime, 'offscreen', 'background', isJsonRpcMessage);
+
+  setupConsoleForwarding({
+    source: 'offscreen',
+    onMessage: (message) => {
+      backgroundStream.write(message).catch(() => undefined);
+    },
+  });
+
+  // Listen for console messages from vat iframes and forward to background
+  window.addEventListener('message', (event) => {
+    if (isConsoleForwardMessage(event.data)) {
+      backgroundStream.write(event.data).catch(() => undefined);
+    }
+  });
 
   const kernelStream = await makeKernelWorker();
 

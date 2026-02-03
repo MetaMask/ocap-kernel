@@ -8,6 +8,8 @@ import {
 } from '@metamask/streams/browser';
 import { makePlatform } from '@ocap/kernel-platforms/browser';
 
+import { setupConsoleForwarding } from '../utils/console-forwarding.ts';
+
 const logger = new Logger('vat-iframe');
 
 main().catch(logger.error);
@@ -28,6 +30,13 @@ async function main(): Promise<void> {
 
   const urlParams = new URLSearchParams(window.location.search);
   const vatId = urlParams.get('vatId') ?? 'unknown';
+
+  setupConsoleForwarding({
+    source: `vat-${vatId}`,
+    onMessage: (message) => {
+      window.parent.postMessage(message, '*');
+    },
+  });
 
   // eslint-disable-next-line no-new
   new VatSupervisor({

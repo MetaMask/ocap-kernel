@@ -11,7 +11,7 @@ const extensionPath = path.resolve(
 );
 
 export const loadExtension = async (contextId?: string) => {
-  return makeLoadExtension({
+  const result = await makeLoadExtension({
     contextId,
     extensionPath,
     onPageLoad: async (popupPage) => {
@@ -21,4 +21,13 @@ export const loadExtension = async (contextId?: string) => {
       ).toBeVisible();
     },
   });
+
+  // Wrap browserContext.close to auto-attach logs
+  const originalClose = result.browserContext.close.bind(result.browserContext);
+  result.browserContext.close = async () => {
+    await result.attachLogs();
+    return originalClose();
+  };
+
+  return result;
 };
