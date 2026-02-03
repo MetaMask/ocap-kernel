@@ -50,6 +50,10 @@ export function makeKernelFacade(kernel: Kernel): KernelFacade {
       }
       return { kref: rootKref };
     },
+
+    reset: async () => {
+      return kernel.reset();
+    },
   });
 }
 harden(makeKernelFacade);
