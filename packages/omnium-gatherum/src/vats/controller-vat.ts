@@ -75,7 +75,7 @@ export function buildRootObject(
     'getCapletRoot',
   ]);
 
-  return makeDefaultExo('omnium-bootstrap', {
+  return makeDefaultExo('omnium-controllers', {
     /**
      * Initialize the bootstrap vat with services from the kernel.
      *

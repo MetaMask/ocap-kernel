@@ -60,7 +60,7 @@ async function makeKernelWorker(): Promise<
   const systemVats = [
     {
       name: 'omnium-bootstrap',
-      bundleSpec: chrome.runtime.getURL('bootstrap-vat-bundle.json'),
+      bundleSpec: chrome.runtime.getURL('controller-vat-bundle.json'),
       services: ['kernelFacet'],
     },
   ];

@@ -38,11 +38,11 @@ const staticCopyTargets: readonly (string | Target)[] = [
   'packages/omnium-gatherum/src/manifest.json',
   // Trusted prelude-related
   'packages/kernel-shims/dist/endoify.js',
-  // Bootstrap vat bundle (system vat for kernel services)
+  // Controller vat bundle (system vat for kernel services)
   {
-    src: 'packages/omnium-gatherum/src/vats/bootstrap-vat.bundle',
+    src: 'packages/omnium-gatherum/src/vats/controller-vat.bundle',
     dest: './',
-    rename: 'bootstrap-vat-bundle.json',
+    rename: 'controller-vat-bundle.json',
   },
   // Caplets (add new caplet entries here)
   {
