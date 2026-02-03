@@ -9,7 +9,6 @@ import type {
 import type { CapData } from '@endo/marshal';
 import type { VatCheckpoint } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
-import type { Logger } from '@metamask/logger';
 import type { DuplexStream } from '@metamask/streams';
 import {
   define,
@@ -468,13 +467,10 @@ export type KernelStatus = Infer<typeof KernelStatusStruct>;
 export type UserCodeStartFn = (parameters?: Record<string, Json>) => object;
 
 /**
- * Standard capabilities provided to a vat.
- *
- * logger - A logger for the vat to use.
+ * Capabilities provided to a vat. The contents vary by vat configuration.
+ * Note: A logger is available via the `console` endowment.
  */
-export type VatPowers = {
-  logger: Logger;
-} & Record<string, unknown>;
+export type VatPowers = Record<string, unknown>;
 
 /** Persistent storage for a vat's durable state (from @agoric/swingset-liveslots). */
 export type { Baggage };
