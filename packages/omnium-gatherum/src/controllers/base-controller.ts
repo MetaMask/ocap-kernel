@@ -13,7 +13,7 @@ export type ControllerMethods = Record<string, (...args: never[]) => unknown>;
  * Configuration passed to all controllers during initialization.
  */
 export type ControllerConfig = {
-  logger: Logger;
+  logger?: Logger | undefined;
 };
 
 /**
@@ -59,19 +59,19 @@ export abstract class Controller<
 
   readonly #storage: ControllerStorage<State>;
 
-  readonly #logger: Logger;
+  readonly #logger: Logger | undefined;
 
   /**
    * Protected constructor - subclasses must call this via super().
    *
    * @param name - Controller name for debugging/logging.
    * @param storage - ControllerStorage instance for state management.
-   * @param logger - Logger instance.
+   * @param logger - Optional logger instance.
    */
   protected constructor(
     name: ControllerName,
     storage: ControllerStorage<State>,
-    logger: Logger,
+    logger?: Logger,
   ) {
     this.#name = name;
     this.#storage = storage;
@@ -101,9 +101,9 @@ export abstract class Controller<
   /**
    * Logger instance for this controller.
    *
-   * @returns The logger instance.
+   * @returns The logger instance, or undefined if not provided.
    */
-  protected get logger(): Logger {
+  protected get logger(): Logger | undefined {
     return this.#logger;
   }
 

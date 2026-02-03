@@ -6,7 +6,7 @@ import type { StorageAdapter } from '../../controllers/storage/types.ts';
  * Baggage interface from liveslots.
  * Baggage provides durable storage for vat state.
  */
-type Baggage = {
+export type Baggage = {
   has: (key: string) => boolean;
   get: (key: string) => unknown;
   init: (key: string, value: unknown) => void;

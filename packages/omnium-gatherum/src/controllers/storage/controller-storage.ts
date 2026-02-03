@@ -22,8 +22,8 @@ export type ControllerStorageConfig<State extends Record<string, Json>> = {
   adapter: StorageAdapter;
   /** Default state values - used for initialization and type inference */
   makeDefaultState: () => State;
-  /** Logger for storage operations */
-  logger: Logger;
+  /** Optional logger for storage operations */
+  logger?: Logger | undefined;
   /** Debounce delay in milliseconds (default: 100, set to 0 for tests) */
   debounceMs?: number;
 };
@@ -57,7 +57,7 @@ export class ControllerStorage<State extends Record<string, Json>> {
 
   readonly #makeDefaultState: () => State;
 
-  readonly #logger: Logger;
+  readonly #logger: Logger | undefined;
 
   readonly #debounceMs: number;
 
@@ -251,7 +251,7 @@ export class ControllerStorage<State extends Record<string, Json>> {
 
     // Persist current state values for accumulated keys
     this.#persistAccumulatedKeys(this.#state, keysToWrite).catch((error) => {
-      this.#logger.error('Failed to persist state changes:', error);
+      this.#logger?.error('Failed to persist state changes:', error);
     });
   }
 

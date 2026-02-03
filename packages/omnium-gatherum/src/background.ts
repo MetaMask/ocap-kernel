@@ -241,13 +241,13 @@ function defineGlobals(): GlobalSetters {
     caplet: {
       value: harden({
         install: async (manifest: CapletManifest) =>
-          callBootstrap<InstallResult>('installCaplet', [manifest]),
+          callBootstrap<InstallResult>('install', [manifest]),
         uninstall: async (capletId: string) =>
-          callBootstrap<void>('uninstallCaplet', [capletId]),
-        list: async () => callBootstrap<InstalledCaplet[]>('listCaplets'),
+          callBootstrap<void>('uninstall', [capletId]),
+        list: async () => callBootstrap<InstalledCaplet[]>('list'),
         load: loadCaplet,
         get: async (capletId: string) =>
-          callBootstrap<InstalledCaplet | undefined>('getCaplet', [capletId]),
+          callBootstrap<InstalledCaplet | undefined>('get', [capletId]),
         getCapletRoot: async (capletId: string) =>
           callBootstrap<unknown>('getCapletRoot', [capletId]),
       }),
