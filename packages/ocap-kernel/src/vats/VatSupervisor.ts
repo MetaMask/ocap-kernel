@@ -130,7 +130,7 @@ export class VatSupervisor {
     this.#vatPowers = vatPowers ?? {};
     this.#dispatch = null;
     const defaultFetchBlob: FetchBlob = async (bundleURL: string) =>
-      await fetch(bundleURL);
+      await fetch(bundleURL, { cache: 'no-store' });
     this.#fetchBlob = fetchBlob ?? defaultFetchBlob;
     this.#platformOptions = platformOptions ?? {};
     this.#makePlatform = makePlatform;
