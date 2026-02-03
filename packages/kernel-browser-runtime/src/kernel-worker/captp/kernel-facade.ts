@@ -42,6 +42,14 @@ export function makeKernelFacade(kernel: Kernel): KernelFacade {
       // TODO: Enable custom CapTP marshalling tables to convert this to a presence
       return { kref: krefString };
     },
+
+    getSystemVatRoot: async (name: string) => {
+      const rootKref = kernel.getSystemVatRoot(name);
+      if (!rootKref) {
+        throw new Error(`System vat "${name}" not found`);
+      }
+      return { kref: rootKref };
+    },
   });
 }
 harden(makeKernelFacade);

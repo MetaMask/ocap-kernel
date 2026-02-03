@@ -63,6 +63,9 @@ export class KernelServiceManager {
    * @returns The registered kernel service with its kref.
    */
   registerKernelServiceObject(name: string, service: object): KernelService {
+    if (this.#kernelServicesByName.has(name)) {
+      throw new Error(`Kernel service "${name}" is already registered`);
+    }
     const serviceKey = `kernelService.${name}`;
     let kref = this.#kernelStore.kv.get(serviceKey);
     if (!kref) {

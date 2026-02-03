@@ -29,4 +29,5 @@ export type KernelFacade = {
   getStatus: Kernel['getStatus'];
   pingVat: Kernel['pingVat'];
   getVatRoot: (krefString: string) => Promise<unknown>;
+  getSystemVatRoot: (name: string) => Promise<{ kref: string }>;
 };

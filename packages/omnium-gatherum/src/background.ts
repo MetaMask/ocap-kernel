@@ -5,16 +5,19 @@ import {
   isCapTPNotification,
   getCapTPMessage,
 } from '@metamask/kernel-browser-runtime';
-import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
+import type {
+  CapTPMessage,
+  KernelFacade,
+} from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
-import { initializeControllers } from './controllers/index.ts';
 import type {
-  CapletControllerFacet,
   CapletManifest,
+  InstalledCaplet,
+  InstallResult,
 } from './controllers/index.ts';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
@@ -106,17 +109,19 @@ async function main(): Promise<void> {
   });
 
   const kernelP = backgroundCapTP.getKernel();
-  globalThis.kernel = kernelP;
+  globals.setKernel(kernelP);
 
-  try {
-    const controllers = await initializeControllers({
-      logger,
-      kernel: kernelP,
+  // Set up bootstrap vat initialization (runs concurrently with stream drain)
+  E(kernelP)
+    .getSystemVatRoot('omnium-bootstrap')
+    .then(({ kref }) => {
+      globals.setBootstrapKref(kref);
+      logger.info('Bootstrap vat initialized');
+      return undefined;
+    })
+    .catch((error) => {
+      logger.error('Failed to initialize bootstrap vat:', error);
     });
-    globals.setCapletController(controllers.caplet);
-  } catch (error) {
-    offscreenStream.throw(error as Error).catch(logger.error);
-  }
 
   try {
     await offscreenStream.drain((message) => {
@@ -137,7 +142,8 @@ async function main(): Promise<void> {
 }
 
 type GlobalSetters = {
-  setCapletController: (value: CapletControllerFacet) => void;
+  setKernel: (kernel: KernelFacade | Promise<KernelFacade>) => void;
+  setBootstrapKref: (kref: string) => void;
 };
 
 /**
@@ -146,7 +152,32 @@ type GlobalSetters = {
  * @returns A device for setting the global values.
  */
 function defineGlobals(): GlobalSetters {
-  let capletController: CapletControllerFacet;
+  let bootstrapKref: string;
+
+  /**
+   * Call a method on the bootstrap vat via queueMessage.
+   *
+   * @param method - The method name to call.
+   * @param args - Arguments to pass to the method.
+   * @returns The result from the bootstrap vat.
+   */
+  const callBootstrap = async <T>(
+    method: string,
+    args: unknown[] = [],
+  ): Promise<T> => {
+    if (!kernel) {
+      throw new Error('Kernel facade not initialized');
+    }
+    if (!bootstrapKref) {
+      throw new Error('Bootstrap vat not initialized');
+    }
+
+    const capData = await E(kernel).queueMessage(bootstrapKref, method, args);
+    // CapData body is JSON-stringified; parse it to get the actual value
+    // return JSON.parse(capData.body) as T;
+    // @ts-expect-error - CapData is not assignable to T
+    return capData;
+  };
 
   Object.defineProperty(globalThis, 'E', {
     configurable: false,
@@ -210,22 +241,26 @@ function defineGlobals(): GlobalSetters {
     caplet: {
       value: harden({
         install: async (manifest: CapletManifest) =>
-          E(capletController).install(manifest),
+          callBootstrap<InstallResult>('installCaplet', [manifest]),
         uninstall: async (capletId: string) =>
-          E(capletController).uninstall(capletId),
-        list: async () => E(capletController).list(),
+          callBootstrap<void>('uninstallCaplet', [capletId]),
+        list: async () => callBootstrap<InstalledCaplet[]>('listCaplets'),
         load: loadCaplet,
-        get: async (capletId: string) => E(capletController).get(capletId),
+        get: async (capletId: string) =>
+          callBootstrap<InstalledCaplet | undefined>('getCaplet', [capletId]),
         getCapletRoot: async (capletId: string) =>
-          E(capletController).getCapletRoot(capletId),
+          callBootstrap<unknown>('getCapletRoot', [capletId]),
       }),
     },
   });
   harden(globalThis.omnium);
 
   return {
-    setCapletController: (value) => {
-      capletController = value;
+    setKernel: (kernel) => {
+      globalThis.kernel = kernel;
+    },
+    setBootstrapKref: (kref) => {
+      bootstrapKref = kref;
     },
   };
 }

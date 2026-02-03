@@ -20,6 +20,10 @@ export async function bundleVat(sourcePath: string): Promise<VatBundle> {
   const result = await build({
     configFile: false,
     logLevel: 'silent',
+    // Replace process.env references since they don't exist in SES vat environment
+    define: {
+      'process.env.NODE_ENV': JSON.stringify('production'),
+    },
     build: {
       write: false,
       lib: {

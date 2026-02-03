@@ -538,3 +538,15 @@ export type EndpointHandle = {
   deliverRetireImports: (erefs: ERef[]) => Promise<CrankResults>;
   deliverBringOutYourDead: () => Promise<CrankResults>;
 };
+
+/**
+ * Configuration for a system vat.
+ * System vats are statically declared at kernel initialization and can
+ * receive powerful kernel services not available to normal vats.
+ */
+export type SystemVatConfig = VatConfig & {
+  /** Unique name for this system vat (used for retrieval via getSystemVatRoot) */
+  name: string;
+  /** Array of kernel service names this system vat requires */
+  services?: string[];
+};

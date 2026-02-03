@@ -94,6 +94,17 @@ describe('KernelServiceManager', () => {
       expect(registered1.name).toBe('service1');
       expect(registered2.name).toBe('service2');
     });
+
+    it('throws when registering a service with a name that is already registered', () => {
+      const service1 = { method1: () => 'result1' };
+      const service2 = { method2: () => 'result2' };
+
+      serviceManager.registerKernelServiceObject('duplicateName', service1);
+
+      expect(() =>
+        serviceManager.registerKernelServiceObject('duplicateName', service2),
+      ).toThrow('Kernel service "duplicateName" is already registered');
+    });
   });
 
   describe('getKernelService', () => {

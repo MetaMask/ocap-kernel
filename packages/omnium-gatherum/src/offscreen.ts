@@ -56,6 +56,16 @@ async function makeKernelWorker(): Promise<
   const workerUrlParams = new URLSearchParams(relayQueryString);
   workerUrlParams.set('reset-storage', process.env.RESET_STORAGE ?? 'false');
 
+  // Configure system vats to launch at kernel initialization
+  const systemVats = [
+    {
+      name: 'omnium-bootstrap',
+      bundleSpec: chrome.runtime.getURL('bootstrap-vat-bundle.json'),
+      services: ['kernelFacet'],
+    },
+  ];
+  workerUrlParams.set('system-vats', JSON.stringify(systemVats));
+
   const workerUrl = new URL('kernel-worker.js', import.meta.url);
   workerUrl.search = workerUrlParams.toString();
 
