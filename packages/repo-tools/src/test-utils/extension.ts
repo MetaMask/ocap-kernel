@@ -239,9 +239,9 @@ async function setupCdpForIframeConsoleLogs(
         mainFrameContextId = id;
       }
 
-      // Build source identifier for iframes
+      // Build source identifier for iframes (contexts with a frameId)
       const source = frameId ? `iframe-${frameId.slice(0, 8)}` : `ctx-${id}`;
-      executionContexts.set(id, origin.includes('iframe') ? source : origin);
+      executionContexts.set(id, frameId ? source : origin);
     },
   );
 
