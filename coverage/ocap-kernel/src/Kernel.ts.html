@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">91.13% </span>
+                <span class="strong">93.5% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>72/79</span>
+                <span class='fraction'>72/77</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.33% </span>
+                <span class="strong">85% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>15/18</span>
+                <span class='fraction'>17/20</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">91.13% </span>
+                <span class="strong">93.5% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>72/79</span>
+                <span class='fraction'>72/77</span>
             </div>
         
             
@@ -639,7 +639,13 @@
 <a name='L574'></a><a href='#L574'>574</a>
 <a name='L575'></a><a href='#L575'>575</a>
 <a name='L576'></a><a href='#L576'>576</a>
-<a name='L577'></a><a href='#L577'>577</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L577'></a><a href='#L577'>577</a>
+<a name='L578'></a><a href='#L578'>578</a>
+<a name='L579'></a><a href='#L579'>579</a>
+<a name='L580'></a><a href='#L580'>580</a>
+<a name='L581'></a><a href='#L581'>581</a>
+<a name='L582'></a><a href='#L582'>582</a>
+<a name='L583'></a><a href='#L583'>583</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -747,13 +753,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">123x</span>
-<span class="cline-any cline-yes">57x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">57x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">123x</span>
@@ -1159,6 +1161,16 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">59x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">59x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1323,15 +1335,11 @@ export class Kernel {
     }
 &nbsp;
     if (options.resetStorage) {
-      this.#resetKernelState();
       // If mnemonic is provided with resetStorage, also clear identity
       // to allow recovery with the new mnemonic
-      <span class="missing-if-branch" title="if path not taken" >I</span>if (options.mnemonic) {
-<span class="cstat-no" title="statement not covered" >        this.#kernelStore.kv.delete('keySeed');</span>
-<span class="cstat-no" title="statement not covered" >        this.#kernelStore.kv.delete('peerId');</span>
-<span class="cstat-no" title="statement not covered" >        this.#kernelStore.kv.delete('ocapURLKey');</span>
-      }
+      this.#resetKernelState({ resetIdentity: Boolean(options.mnemonic) });
     }
+&nbsp;
     this.#kernelQueue = new KernelQueue(
       this.#kernelStore,
 <span class="fstat-no" title="function not covered" >      async (v</span>atId, reason) =&gt; <span class="cstat-no" title="statement not covered" >this.#vatManager.terminateVat(vatId, reason),</span>
@@ -1733,12 +1741,22 @@ export class Kernel {
 &nbsp;
   /**
    * Reset the kernel state.
+   *
+   * @param options - Options for the reset.
+   * @param options.resetIdentity - If true, also clears identity keys (keySeed, peerId, ocapURLKey, incarnationId).
    */
-  #resetKernelState(): void {
-    this.#kernelStore.reset({
-      // XXX special case hack so that network address survives restart when testing
-      except: ['keySeed', 'peerId', 'ocapURLKey'],
-    });
+  #resetKernelState({
+    resetIdentity = false,
+  }: { resetIdentity?: boolean } = {}): void {
+    <span class="missing-if-branch" title="if path not taken" >I</span>if (resetIdentity) {
+      // Full reset including identity - used when recovering from mnemonic
+<span class="cstat-no" title="statement not covered" >      this.#kernelStore.reset();</span>
+    } else {
+      // Preserve identity keys so network address survives restart
+      this.#kernelStore.reset({
+        except: ['keySeed', 'peerId', 'ocapURLKey', 'incarnationId'],
+      });
+    }
   }
 &nbsp;
   /**
@@ -1798,7 +1816,7 @@ harden(Kernel);
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-03T19:33:11.789Z
+                at 2026-02-03T23:39:38.302Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
