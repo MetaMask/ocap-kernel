@@ -3,10 +3,12 @@ export { VatHandle } from './vats/VatHandle.ts';
 export { VatSupervisor } from './vats/VatSupervisor.ts';
 export { initTransport } from './remotes/platform/transport.ts';
 export type {
+  Baggage,
   ClusterConfig,
   KRef,
   Message,
   VatId,
+  VatPowers,
   PlatformServices,
   VatConfig,
   KernelStatus,
