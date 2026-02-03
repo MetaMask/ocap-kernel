@@ -338,11 +338,7 @@
 <a name='L273'></a><a href='#L273'>273</a>
 <a name='L274'></a><a href='#L274'>274</a>
 <a name='L275'></a><a href='#L275'>275</a>
-<a name='L276'></a><a href='#L276'>276</a>
-<a name='L277'></a><a href='#L277'>277</a>
-<a name='L278'></a><a href='#L278'>278</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L276'></a><a href='#L276'>276</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -372,7 +368,6 @@
 <span class="cline-any cline-yes">1972x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1972x</span>
-<span class="cline-any cline-yes">1972x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -402,14 +397,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">832x</span>
-<span class="cline-any cline-yes">832x</span>
-<span class="cline-any cline-yes">832x</span>
-<span class="cline-any cline-yes">832x</span>
+<span class="cline-any cline-yes">971x</span>
+<span class="cline-any cline-yes">971x</span>
+<span class="cline-any cline-yes">971x</span>
+<span class="cline-any cline-yes">971x</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">828x</span>
-<span class="cline-any cline-yes">828x</span>
+<span class="cline-any cline-yes">967x</span>
+<span class="cline-any cline-yes">967x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">524x</span>
 <span class="cline-any cline-yes">524x</span>
@@ -421,13 +416,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">303x</span>
-<span class="cline-any cline-yes">303x</span>
+<span class="cline-any cline-yes">442x</span>
+<span class="cline-any cline-yes">442x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">827x</span>
+<span class="cline-any cline-yes">966x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -498,20 +493,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">265x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">265x</span>
 <span class="cline-any cline-yes">265x</span>
 <span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">3x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">265x</span>
 <span class="cline-any cline-yes">265x</span>
 <span class="cline-any cline-yes">265x</span>
 <span class="cline-any cline-yes">265x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">265x</span>
 <span class="cline-any cline-yes">265x</span>
 <span class="cline-any cline-yes">265x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -621,13 +617,11 @@
 import type { CapData } from '@endo/marshal';
 &nbsp;
 import { getBaseMethods } from './base.ts';
-import { getQueueMethods } from './queue.ts';
 import type {
   KRef,
   KernelPromise,
   Message,
   PromiseState,
-  RunQueueItemSend,
   EndpointId,
 } from '../../types.ts';
 import { insistEndpointId } from '../../types.ts';
@@ -648,7 +642,6 @@ import { isPromiseRef } from '../utils/promise-ref.ts';
 export function getPromiseMethods(ctx: StoreContext) {
   const { incCounter, provideStoredQueue, getPrefixedKeys, refCountKey } =
     getBaseMethods(ctx.kv);
-  const { enqueueRun } = getQueueMethods(ctx);
   const { decrementRefCount } = getRefCountMethods(ctx);
 &nbsp;
   /**
@@ -764,25 +757,25 @@ export function getPromiseMethods(ctx: StoreContext) {
   }
 &nbsp;
   /**
-   * Record the resolution of a kernel promise.
+   * Resolve a kernel promise, updating its state and returning any queued messages.
+   * The queued messages should be buffered by the caller for eventual delivery.
    *
    * @param kpid - The ref of the promise being resolved.
    * @param rejected - True if the promise is being rejected, false if fulfilled.
    * @param value - The value the promise is being fulfilled to or rejected with.
+   * @returns An array of queued messages that were waiting on this promise,
+   *          each as a tuple of [target, message].
    */
   function resolveKernelPromise(
     kpid: KRef,
     rejected: boolean,
     value: CapData&lt;KRef&gt;,
-  ): void {
+  ): [KRef, Message][] {
     const queue = provideStoredQueue(kpid, false);
+    // Collect messages that were queued on this promise
+    const queuedMessages: [KRef, Message][] = [];
     for (const message of getKernelPromiseMessageQueue(kpid)) {
-      const messageItem: RunQueueItemSend = {
-        type: 'send',
-        target: kpid,
-        message,
-      };
-      enqueueRun(messageItem);
+      queuedMessages.push([kpid, message]);
     }
     ctx.kv.set(`${kpid}.state`, rejected ? 'rejected' : 'fulfilled');
     ctx.kv.set(`${kpid}.value`, JSON.stringify(value));
@@ -791,6 +784,7 @@ export function getPromiseMethods(ctx: StoreContext) {
     // Drop the baseline "decider" refcount now that the promise is settled.
     decrementRefCount(kpid, 'resolve|decider');
     queue.delete();
+    return queuedMessages;
   }
 &nbsp;
   /**
@@ -901,7 +895,7 @@ export function getPromiseMethods(ctx: StoreContext) {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-02T15:33:44.447Z
+                at 2026-02-03T04:53:38.827Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
