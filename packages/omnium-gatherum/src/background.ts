@@ -14,11 +14,7 @@ import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
-import type {
-  CapletManifest,
-  InstalledCaplet,
-  InstallResult,
-} from './controllers/index.ts';
+import type { CapletManifest } from './controllers/index.ts';
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
@@ -161,10 +157,10 @@ function defineGlobals(): GlobalSetters {
    * @param args - Arguments to pass to the method.
    * @returns The result from the bootstrap vat.
    */
-  const callBootstrap = async <T>(
+  const callBootstrap = async (
     method: string,
     args: unknown[] = [],
-  ): Promise<T> => {
+  ): ReturnType<KernelFacade['queueMessage']> => {
     if (!kernel) {
       throw new Error('Kernel facade not initialized');
     }
@@ -172,11 +168,7 @@ function defineGlobals(): GlobalSetters {
       throw new Error('Bootstrap vat not initialized');
     }
 
-    const capData = await E(kernel).queueMessage(bootstrapKref, method, args);
-    // CapData body is JSON-stringified; parse it to get the actual value
-    // return JSON.parse(capData.body) as T;
-    // @ts-expect-error - CapData is not assignable to T
-    return capData;
+    return await E(kernel).queueMessage(bootstrapKref, method, args);
   };
 
   Object.defineProperty(globalThis, 'E', {
@@ -238,24 +230,24 @@ function defineGlobals(): GlobalSetters {
   };
 
   const getCapletRoot = async (capletId: string): Promise<string> => {
-    const { slots } = await callBootstrap<{ slots: [string] }>(
-      'getCapletRoot',
-      [capletId],
-    );
-    return slots[0]; // This is the caplet's root kref
+    const { slots } = await callBootstrap('getCapletRoot', [capletId]);
+    const rootKref = slots[0];
+    if (!rootKref) {
+      throw new Error(`Caplet "${capletId}" has no root kref`);
+    }
+    return rootKref;
   };
 
   Object.defineProperties(globalThis.omnium, {
     caplet: {
       value: harden({
         install: async (manifest: CapletManifest) =>
-          callBootstrap<InstallResult>('install', [manifest]),
+          callBootstrap('install', [manifest]),
         uninstall: async (capletId: string) =>
-          callBootstrap<void>('uninstall', [capletId]),
-        list: async () => callBootstrap<InstalledCaplet[]>('list'),
+          callBootstrap('uninstall', [capletId]),
+        list: async () => callBootstrap('list'),
         load: loadCaplet,
-        get: async (capletId: string) =>
-          callBootstrap<InstalledCaplet | undefined>('get', [capletId]),
+        get: async (capletId: string) => callBootstrap('get', [capletId]),
         getCapletRoot,
         callCapletMethod: async (
           capletId: string,
