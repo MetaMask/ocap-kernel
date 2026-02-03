@@ -195,15 +195,17 @@ export class ReconnectionManager {
   }
 
   /**
-   * Reset all backoffs and error histories (e.g., after wake from sleep).
-   * Clears error histories because network conditions have changed and old errors
-   * are no longer relevant for permanent failure detection.
+   * Reset all backoffs, error histories, and permanent failure status (e.g., after wake from sleep).
+   * Clears error histories and permanent failure flags because network conditions have changed
+   * and old errors are no longer relevant for permanent failure detection.
    */
   resetAllBackoffs(): void {
     for (const state of this.#states.values()) {
+      // Clear permanent failure for all peers - network conditions have changed
+      state.permanentlyFailed = false;
+      state.errorHistory = [];
       if (state.isReconnecting) {
         state.attemptCount = 0;
-        state.errorHistory = [];
       }
     }
   }

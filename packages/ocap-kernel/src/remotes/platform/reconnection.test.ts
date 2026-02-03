@@ -387,24 +387,23 @@ describe('ReconnectionManager', () => {
       expect(() => manager.resetAllBackoffs()).not.toThrow();
     });
 
-    it('clears error history for reconnecting peers after wake from sleep', () => {
+    it('clears error history for all peers after wake from sleep', () => {
       // Set up peer with errors during reconnection
       manager.startReconnection('peer1');
       manager.recordError('peer1', 'ECONNREFUSED');
       manager.recordError('peer1', 'ECONNREFUSED');
       manager.recordError('peer1', 'ECONNREFUSED');
 
-      // peer2 not reconnecting, should not be affected
+      // peer2 not reconnecting but has errors
       manager.recordError('peer2', 'ECONNREFUSED');
       manager.recordError('peer2', 'ECONNREFUSED');
 
       // Simulate wake from sleep
       manager.resetAllBackoffs();
 
-      // Reconnecting peer's error history should be cleared
+      // Both peers' error history should be cleared - network conditions changed
       expect(manager.getErrorHistory('peer1')).toStrictEqual([]);
-      // Non-reconnecting peer's error history should remain
-      expect(manager.getErrorHistory('peer2')).toHaveLength(2);
+      expect(manager.getErrorHistory('peer2')).toStrictEqual([]);
     });
 
     it('prevents stale errors from triggering permanent failure after wake', () => {
@@ -422,6 +421,22 @@ describe('ReconnectionManager', () => {
       manager.recordError('peer1', 'ECONNREFUSED');
 
       expect(manager.isPermanentlyFailed('peer1')).toBe(false);
+    });
+
+    it('clears permanent failure status for all peers after wake', () => {
+      // Trigger permanent failure for peer1
+      for (let i = 0; i < DEFAULT_CONSECUTIVE_ERROR_THRESHOLD; i += 1) {
+        manager.recordError('peer1', 'ECONNREFUSED');
+      }
+      expect(manager.isPermanentlyFailed('peer1')).toBe(true);
+
+      // Wake from sleep
+      manager.resetAllBackoffs();
+
+      // Permanent failure should be cleared - network conditions have changed
+      expect(manager.isPermanentlyFailed('peer1')).toBe(false);
+      // Should now be able to start reconnection
+      expect(manager.startReconnection('peer1')).toBe(true);
     });
   });
 
