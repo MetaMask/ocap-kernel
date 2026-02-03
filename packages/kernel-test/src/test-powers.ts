@@ -1,9 +1,11 @@
 import type { Logger } from '@metamask/logger';
+import type { VatPowers } from '@metamask/ocap-kernel';
 
 /**
  * Powers provided to test vats that need structured logging.
+ * Extends VatPowers to maintain type compatibility with production vat powers.
  */
-export type TestPowers = {
+export type TestPowers = VatPowers & {
   logger: Logger;
 };
 
