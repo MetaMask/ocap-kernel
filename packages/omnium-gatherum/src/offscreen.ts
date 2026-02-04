@@ -75,7 +75,7 @@ async function makeKernelWorker(): Promise<
   // Configure system vats to launch at kernel initialization
   const systemVats = [
     {
-      name: 'omnium-bootstrap',
+      name: 'omnium-controllers',
       bundleSpec: chrome.runtime.getURL('controller-vat-bundle.json'),
       services: ['kernelFacet'],
       globals: ['Date'],

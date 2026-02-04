@@ -109,16 +109,16 @@ async function main(): Promise<void> {
   const kernelP = backgroundCapTP.getKernel();
   globals.setKernel(kernelP);
 
-  // Set up bootstrap vat initialization (runs concurrently with stream drain)
+  // Set up controller vat initialization (runs concurrently with stream drain)
   E(kernelP)
-    .getSystemVatRoot('omnium-bootstrap')
+    .getSystemVatRoot('omnium-controllers')
     .then(({ kref }) => {
-      globals.setBootstrapKref(kref);
-      logger.info('Bootstrap vat initialized');
+      globals.setControllerVatKref(kref);
+      logger.info('Controller vat initialized');
       return undefined;
     })
     .catch((error) => {
-      logger.error('Failed to initialize bootstrap vat:', error);
+      logger.error('Failed to initialize controller vat:', error);
     });
 
   try {
@@ -143,7 +143,8 @@ async function main(): Promise<void> {
 
 type GlobalSetters = {
   setKernel: (kernel: KernelFacade | Promise<KernelFacade>) => void;
-  setBootstrapKref: (kref: string) => void;
+  // Not actually globally available
+  setControllerVatKref: (kref: string) => void;
 };
 
 /**
@@ -152,27 +153,27 @@ type GlobalSetters = {
  * @returns A device for setting the global values.
  */
 function defineGlobals(): GlobalSetters {
-  let bootstrapKref: string;
+  let controllerVatKref: string;
 
   /**
-   * Call a method on the bootstrap vat via queueMessage.
+   * Call a method on the controller vat via queueMessage.
    *
    * @param method - The method name to call.
    * @param args - Arguments to pass to the method.
-   * @returns The result from the bootstrap vat.
+   * @returns The result from the controller vat.
    */
-  const callBootstrap = async (
+  const callController = async (
     method: string,
     args: unknown[] = [],
   ): ReturnType<KernelFacade['queueMessage']> => {
     if (!kernel) {
       throw new Error('Kernel facade not initialized');
     }
-    if (!bootstrapKref) {
-      throw new Error('Bootstrap vat not initialized');
+    if (!controllerVatKref) {
+      throw new Error('Controller vat not initialized');
     }
 
-    return await E(kernel).queueMessage(bootstrapKref, method, args);
+    return await E(kernel).queueMessage(controllerVatKref, method, args);
   };
 
   Object.defineProperty(globalThis, 'E', {
@@ -234,7 +235,7 @@ function defineGlobals(): GlobalSetters {
   };
 
   const getCapletRoot = async (capletId: string): Promise<string> => {
-    const { slots } = await callBootstrap('getCapletRoot', [capletId]);
+    const { slots } = await callController('getCapletRoot', [capletId]);
     const rootKref = slots[0];
     if (!rootKref) {
       throw new Error(`Caplet "${capletId}" has no root kref`);
@@ -246,12 +247,12 @@ function defineGlobals(): GlobalSetters {
     caplet: {
       value: harden({
         install: async (manifest: CapletManifest) =>
-          callBootstrap('install', [manifest]),
+          callController('install', [manifest]),
         uninstall: async (capletId: string) =>
-          callBootstrap('uninstall', [capletId]),
-        list: async () => callBootstrap('list'),
+          callController('uninstall', [capletId]),
+        list: async () => callController('list'),
         load: loadCaplet,
-        get: async (capletId: string) => callBootstrap('get', [capletId]),
+        get: async (capletId: string) => callController('get', [capletId]),
         getCapletRoot,
         callCapletMethod: async (
           capletId: string,
@@ -270,8 +271,8 @@ function defineGlobals(): GlobalSetters {
     setKernel: (kernel) => {
       globalThis.kernel = kernel;
     },
-    setBootstrapKref: (kref) => {
-      bootstrapKref = kref;
+    setControllerVatKref: (kref) => {
+      controllerVatKref = kref;
     },
   };
 }

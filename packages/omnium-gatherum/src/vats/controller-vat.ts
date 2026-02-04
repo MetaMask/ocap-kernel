@@ -15,7 +15,7 @@ import type {
 } from '../controllers/caplet/index.ts';
 
 /**
- * Vat powers provided to the bootstrap vat.
+ * Vat powers provided to the controller vat.
  */
 type VatPowers = {
   logger?: Logger;
@@ -31,14 +31,14 @@ type KernelFacet = {
 };
 
 /**
- * Services provided to the bootstrap vat.
+ * Services provided to the controller vat.
  */
 type BootstrapServices = {
   kernelFacet?: KernelFacet;
 };
 
 /**
- * Bootstrap vat for Omnium system services.
+ * Controller vat for Omnium system services.
  * Hosts controllers with baggage-backed persistence.
  *
  * Methods are exposed directly on root (not nested) for queueMessage access.
@@ -77,7 +77,7 @@ export function buildRootObject(
 
   return makeDefaultExo('omnium-controllers', {
     /**
-     * Initialize the bootstrap vat with services from the kernel.
+     * Initialize the controller vat with services from the kernel.
      *
      * @param _vats - Other vats in this subcluster (unused).
      * @param services - Services provided by the kernel.
