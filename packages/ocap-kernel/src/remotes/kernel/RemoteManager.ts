@@ -136,7 +136,7 @@ export class RemoteManager {
 
   /**
    * Handle when a remote peer's incarnation changes (peer restarted).
-   * Resets the RemoteHandle state for a fresh start.
+   * Resets the RemoteHandle state and rejects kernel promises for a fresh start.
    *
    * @param peerId - The peer ID of the remote that restarted.
    */
@@ -153,7 +153,19 @@ export class RemoteManager {
     this.#logger?.log(
       `Handling incarnation change for peer ${peerId.slice(0, 8)}`,
     );
+
+    // Reset RemoteHandle state (pending messages, redemptions, seq numbers)
     remote.handlePeerRestart();
+
+    // Reject all kernel promises where this remote is the decider
+    // The restarted peer has lost its state and won't resolve these promises
+    const { remoteId } = remote;
+    const failure = kser(
+      Error(`Remote peer restarted: ${peerId} (incarnation changed)`),
+    );
+    for (const kpid of this.#kernelStore.getPromisesByDecider(remoteId)) {
+      this.#kernelQueue.resolvePromises(remoteId, [[kpid, true, failure]]);
+    }
   }
 
   /**
