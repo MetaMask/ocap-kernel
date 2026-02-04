@@ -820,24 +820,37 @@ describe('Kernel', () => {
       expect(kernel.getVatIds()).toHaveLength(0);
     });
 
-    it('clears system vat roots', async () => {
+    it('clears system subcluster roots', async () => {
       const mockDb = makeMapKernelDatabase();
       const kernel = await Kernel.make(mockPlatformServices, mockDb, {
-        systemVats: [
+        systemSubclusters: [
           {
-            name: 'testSystemVat',
-            sourceSpec: 'system-vat.js',
+            name: 'testSystemSubcluster',
+            config: {
+              bootstrap: 'testSystemSubcluster',
+              vats: {
+                testSystemSubcluster: {
+                  sourceSpec: 'system-vat.js',
+                },
+              },
+            },
           },
         ],
       });
-      // Verify system vat root was stored
-      expect(kernel.getSystemVatRoot('testSystemVat')).toBeDefined();
-      expect(kernel.getSystemVatRoot('testSystemVat')).toMatch(/^ko\d+$/u);
+      // Verify system subcluster bootstrap root was stored
+      expect(
+        kernel.getSystemSubclusterRoot('testSystemSubcluster'),
+      ).toBeDefined();
+      expect(kernel.getSystemSubclusterRoot('testSystemSubcluster')).toMatch(
+        /^ko\d+$/u,
+      );
 
       await kernel.reset();
 
-      // Verify system vat roots are cleared
-      expect(kernel.getSystemVatRoot('testSystemVat')).toBeUndefined();
+      // Verify system subcluster roots are cleared
+      expect(
+        kernel.getSystemSubclusterRoot('testSystemSubcluster'),
+      ).toBeUndefined();
     });
 
     it('logs an error if resetting the kernel state fails', async () => {

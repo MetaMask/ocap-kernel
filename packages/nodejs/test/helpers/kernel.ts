@@ -2,13 +2,16 @@ import type { KernelDatabase } from '@metamask/kernel-store';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
-import type { ClusterConfig, SystemVatConfig } from '@metamask/ocap-kernel';
+import type {
+  ClusterConfig,
+  SystemSubclusterConfig,
+} from '@metamask/ocap-kernel';
 
 import { NodejsPlatformServices } from '../../src/kernel/PlatformServices.ts';
 
 type MakeTestKernelOptions = {
   mnemonic?: string;
-  systemVats?: SystemVatConfig[];
+  systemSubclusters?: SystemSubclusterConfig[];
 };
 
 /**
@@ -37,7 +40,7 @@ export async function makeTestKernel(
   const kernel = await Kernel.make(platformServices, kernelDatabase, {
     resetStorage,
     mnemonic: options.mnemonic,
-    systemVats: options.systemVats,
+    systemSubclusters: options.systemSubclusters,
     logger: logger.subLogger({ tags: ['kernel'] }),
   });
 

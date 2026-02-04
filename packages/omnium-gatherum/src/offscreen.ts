@@ -72,16 +72,24 @@ async function makeKernelWorker(): Promise<
   const workerUrlParams = new URLSearchParams(relayQueryString);
   workerUrlParams.set('reset-storage', process.env.RESET_STORAGE ?? 'false');
 
-  // Configure system vats to launch at kernel initialization
-  const systemVats = [
+  // Configure system subclusters to launch at kernel initialization
+  const systemSubclusters = [
     {
       name: 'omnium-controllers',
-      bundleSpec: chrome.runtime.getURL('controller-vat-bundle.json'),
-      services: ['kernelFacet'],
-      globals: ['Date'],
+      config: {
+        bootstrap: 'omnium-controllers',
+        vats: {
+          'omnium-controllers': {
+            bundleSpec: chrome.runtime.getURL('controller-vat-bundle.json'),
+            parameters: {},
+            globals: ['Date'],
+          },
+        },
+        services: ['kernelFacet'],
+      },
     },
   ];
-  workerUrlParams.set('system-vats', JSON.stringify(systemVats));
+  workerUrlParams.set('system-subclusters', JSON.stringify(systemSubclusters));
 
   const workerUrl = new URL('kernel-worker.js', import.meta.url);
   workerUrl.search = workerUrlParams.toString();

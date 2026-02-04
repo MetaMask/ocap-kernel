@@ -15,7 +15,7 @@ export type {
   Subcluster,
   SubclusterId,
   SubclusterLaunchResult,
-  SystemVatConfig,
+  SystemSubclusterConfig,
 } from './types.ts';
 export type {
   RemoteMessageHandler,

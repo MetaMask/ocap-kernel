@@ -239,6 +239,59 @@ export function getSubclusterMethods(ctx: StoreContext) {
     deleteSubclusterVat(subclusterId, vatId);
   }
 
+  // System subcluster mapping methods
+
+  /**
+   * Get the subcluster ID for a system subcluster by name.
+   *
+   * @param name - The name of the system subcluster.
+   * @returns The subcluster ID, or undefined if not found.
+   */
+  function getSystemSubclusterMapping(name: string): SubclusterId | undefined {
+    return kv.get(`systemSubcluster.${name}`);
+  }
+
+  /**
+   * Set the subcluster ID for a system subcluster by name.
+   *
+   * @param name - The name of the system subcluster.
+   * @param subclusterId - The subcluster ID to associate with the name.
+   */
+  function setSystemSubclusterMapping(
+    name: string,
+    subclusterId: SubclusterId,
+  ): void {
+    kv.set(`systemSubcluster.${name}`, subclusterId);
+  }
+
+  /**
+   * Delete the mapping for a system subcluster by name.
+   *
+   * @param name - The name of the system subcluster to delete.
+   */
+  function deleteSystemSubclusterMapping(name: string): void {
+    kv.delete(`systemSubcluster.${name}`);
+  }
+
+  /**
+   * Get all system subcluster mappings.
+   *
+   * @returns A Map of system subcluster names to their subcluster IDs.
+   */
+  function getAllSystemSubclusterMappings(): Map<string, SubclusterId> {
+    const { getPrefixedKeys } = getBaseMethods(kv);
+    const prefix = 'systemSubcluster.';
+    const mappings = new Map<string, SubclusterId>();
+    for (const key of getPrefixedKeys(prefix)) {
+      const name = key.slice(prefix.length);
+      const subclusterId = kv.get(key);
+      if (subclusterId) {
+        mappings.set(name, subclusterId);
+      }
+    }
+    return mappings;
+  }
+
   return {
     addSubcluster,
     getSubcluster,
@@ -250,5 +303,9 @@ export function getSubclusterMethods(ctx: StoreContext) {
     getVatSubcluster,
     clearEmptySubclusters,
     removeVatFromSubcluster,
+    getSystemSubclusterMapping,
+    setSystemSubclusterMapping,
+    deleteSystemSubclusterMapping,
+    getAllSystemSubclusterMappings,
   };
 }

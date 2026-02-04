@@ -542,13 +542,14 @@ export type EndpointHandle = {
 };
 
 /**
- * Configuration for a system vat.
- * System vats are statically declared at kernel initialization and can
- * receive powerful kernel services not available to normal vats.
+ * Configuration for a system subcluster.
+ * System subclusters are statically declared at kernel initialization and can
+ * receive powerful kernel services not available to normal subclusters.
+ * They persist across kernel restarts, just like regular subclusters.
  */
-export type SystemVatConfig = VatConfig & {
-  /** Unique name for this system vat (used for retrieval via getSystemVatRoot) */
+export type SystemSubclusterConfig = {
+  /** Unique name for this system subcluster (used for retrieval via `getSystemSubclusterRoot`) */
   name: string;
-  /** Array of kernel service names this system vat requires */
-  services?: string[];
+  /** The cluster configuration */
+  config: ClusterConfig;
 };

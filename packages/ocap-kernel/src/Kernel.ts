@@ -24,7 +24,7 @@ import type {
   Subcluster,
   SubclusterLaunchResult,
   EndpointHandle,
-  SystemVatConfig,
+  SystemSubclusterConfig,
 } from './types.ts';
 import { isVatId, isRemoteId } from './types.ts';
 import { SubclusterManager } from './vats/SubclusterManager.ts';
@@ -51,8 +51,8 @@ export class Kernel {
   /** Manages subcluster operations */
   readonly #subclusterManager: SubclusterManager;
 
-  /** Stores root krefs of launched system vats */
-  readonly #systemVatRoots: Map<string, KRef> = new Map();
+  /** Stores bootstrap root krefs of launched system subclusters */
+  readonly #systemSubclusterRoots: Map<string, KRef> = new Map();
 
   /** Manages remote kernel connections */
   readonly #remoteManager: RemoteManager;
@@ -191,7 +191,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
-   * @param options.systemVats - Optional array of system vat configurations to launch at init.
+   * @param options.systemSubclusters - Optional array of system subcluster configurations.
    * @returns A promise for the new kernel instance.
    */
   static async make(
@@ -202,20 +202,22 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
-      systemVats?: SystemVatConfig[];
+      systemSubclusters?: SystemSubclusterConfig[];
     } = {},
   ): Promise<Kernel> {
     const kernel = new Kernel(platformServices, kernelDatabase, options);
-    await kernel.#init(options.systemVats);
+    await kernel.#init(options.systemSubclusters);
     return kernel;
   }
 
   /**
    * Start the kernel running.
    *
-   * @param systemVatConfigs - Optional array of system vat configurations to launch.
+   * @param systemSubclusterConfigs - Optional array of system subcluster configurations.
    */
-  async #init(systemVatConfigs?: SystemVatConfig[]): Promise<void> {
+  async #init(
+    systemSubclusterConfigs?: SystemSubclusterConfig[],
+  ): Promise<void> {
     // Set up the remote message handler
     this.#remoteManager.setMessageHandler(
       async (from: string, message: string) =>
@@ -228,7 +230,7 @@ export class Kernel {
 
     // Start the kernel queue processing (non-blocking)
     // This runs for the entire lifetime of the kernel
-    // Must start before launching system vats since launchSubcluster awaits bootstrap results
+    // Must start before initializing system subclusters since launchSubcluster awaits bootstrap results
     this.#kernelQueue
       .run(this.#kernelRouter.deliver.bind(this.#kernelRouter))
       .catch((error) => {
@@ -239,50 +241,79 @@ export class Kernel {
         // Don't re-throw to avoid unhandled rejection in this long-running task
       });
 
-    // Launch system vats after queue is running
-    if (systemVatConfigs && systemVatConfigs.length > 0) {
-      // Ensure kernel facet is registered before launching system vats
-      this.#registerKernelFacet();
-      await this.#launchSystemVats(systemVatConfigs);
-    }
+    // Initialize system subclusters after queue is running
+    await this.#initSystemSubclusters(systemSubclusterConfigs ?? []);
   }
 
   /**
-   * Launch system vats from their configurations.
-   * If a system vat subcluster already exists (from a previous session),
-   * it will be terminated and relaunched to ensure a clean state.
+   * Initialize system subclusters.
+   * For existing system subclusters (from a previous session), restore their
+   * root references from persistence. For new system subclusters, launch them.
    *
-   * @param configs - Array of system vat configurations.
+   * @param configs - Array of system subcluster configurations.
    */
-  async #launchSystemVats(configs: SystemVatConfig[]): Promise<void> {
-    for (const config of configs) {
-      const { name, services, ...vatConfig } = config;
+  async #initSystemSubclusters(
+    configs: SystemSubclusterConfig[],
+  ): Promise<void> {
+    // First, restore persisted system subcluster mappings to #systemSubclusterRoots
+    const persistedMappings =
+      this.#kernelStore.getAllSystemSubclusterMappings();
 
-      // Terminate any existing subcluster with the same bootstrap name
-      const existingSubcluster = this.getSubclusters().find(
-        (sc) => sc.config.bootstrap === name,
-      );
-      if (existingSubcluster) {
-        this.#logger.info(
-          `Terminating existing system vat "${name}" for relaunch`,
+    // Early return if no system subclusters to handle
+    if (persistedMappings.size === 0 && configs.length === 0) {
+      return;
+    }
+
+    // Ensure kernel facet is registered before initializing system subclusters
+    this.#registerKernelFacet();
+
+    for (const [name, subclusterId] of persistedMappings) {
+      const subcluster = this.getSubcluster(subclusterId);
+      if (subcluster) {
+        // Subcluster exists - get its bootstrap root from the already-resuscitated vats
+        const bootstrapVatId = subcluster.vats[0]; // bootstrap vat is first
+        if (bootstrapVatId) {
+          const rootKref = this.#kernelStore.getRootObject(bootstrapVatId);
+          if (rootKref) {
+            this.#systemSubclusterRoots.set(name, rootKref);
+            this.#logger.info(`Restored system subcluster "${name}"`);
+          } else {
+            this.#logger.warn(
+              `System subcluster "${name}" has no root object, will relaunch`,
+            );
+            // Clean up the stale mapping
+            this.#kernelStore.deleteSystemSubclusterMapping(name);
+          }
+        }
+      } else {
+        // Subcluster no longer exists - clean up the stale mapping
+        this.#logger.warn(
+          `System subcluster "${name}" mapping points to non-existent subcluster ${subclusterId}, cleaning up`,
         );
-        await this.terminateSubcluster(existingSubcluster.id);
+        this.#kernelStore.deleteSystemSubclusterMapping(name);
+      }
+    }
+
+    // Then, launch any NEW system subclusters not already persisted
+    for (const { name, config } of configs) {
+      if (this.#systemSubclusterRoots.has(name)) {
+        // Already restored from persistence - skip
+        continue;
       }
 
-      // Launch system vat
-      const clusterConfig: ClusterConfig = {
-        bootstrap: name,
-        vats: { [name]: vatConfig },
-        ...(services && { services }),
-      };
-      const result = await this.launchSubcluster(clusterConfig);
-      this.#systemVatRoots.set(name, result.bootstrapRootKref);
-      this.#logger.info(`System vat "${name}" launched`);
+      // New system subcluster - launch it
+      const result = await this.launchSubcluster(config);
+      this.#systemSubclusterRoots.set(name, result.bootstrapRootKref);
+
+      // Persist the mapping
+      this.#kernelStore.setSystemSubclusterMapping(name, result.subclusterId);
+
+      this.#logger.info(`Launched new system subcluster "${name}"`);
     }
   }
 
   /**
-   * Register the kernel facet as a kernel service for system vats.
+   * Register the kernel facet as a kernel service for system subclusters.
    */
   #registerKernelFacet(): void {
     const kernelFacet = makeKernelFacet({
@@ -377,6 +408,16 @@ export class Kernel {
    * @returns A promise that resolves when termination is complete.
    */
   async terminateSubcluster(subclusterId: string): Promise<void> {
+    // Check if this is a system subcluster and clean up the mapping
+    const mappings = this.#kernelStore.getAllSystemSubclusterMappings();
+    for (const [name, mappedSubclusterId] of mappings) {
+      if (mappedSubclusterId === subclusterId) {
+        this.#systemSubclusterRoots.delete(name);
+        this.#kernelStore.deleteSystemSubclusterMapping(name);
+        this.#logger.info(`Cleaned up system subcluster mapping "${name}"`);
+        break;
+      }
+    }
     return this.#subclusterManager.terminateSubcluster(subclusterId);
   }
 
@@ -412,13 +453,13 @@ export class Kernel {
   }
 
   /**
-   * Get the root kref of a system vat by name.
+   * Get the bootstrap root kref of a system subcluster by name.
    *
-   * @param name - The name of the system vat.
-   * @returns The root kref or undefined if not found.
+   * @param name - The name of the system subcluster.
+   * @returns The bootstrap root kref or undefined if not found.
    */
-  getSystemVatRoot(name: string): KRef | undefined {
-    return this.#systemVatRoots.get(name);
+  getSystemSubclusterRoot(name: string): KRef | undefined {
+    return this.#systemSubclusterRoots.get(name);
   }
 
   /**
@@ -617,7 +658,7 @@ export class Kernel {
     await this.#kernelQueue.waitForCrank();
     try {
       await this.terminateAllVats();
-      this.#systemVatRoots.clear();
+      this.#systemSubclusterRoots.clear();
       this.#resetKernelState();
     } catch (error) {
       this.#logger.error('Error resetting kernel:', error);

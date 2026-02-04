@@ -56,12 +56,14 @@ async function main(): Promise<void> {
 
   const urlParams = new URLSearchParams(globalThis.location.search);
   const resetStorage = urlParams.get('reset-storage') === 'true';
-  const systemVatsParam = urlParams.get('system-vats');
-  const systemVats = systemVatsParam ? JSON.parse(systemVatsParam) : undefined;
+  const systemSubclustersParam = urlParams.get('system-subclusters');
+  const systemSubclusters = systemSubclustersParam
+    ? JSON.parse(systemSubclustersParam)
+    : undefined;
 
   const kernelP = Kernel.make(platformServicesClient, kernelDatabase, {
     resetStorage,
-    systemVats,
+    systemSubclusters,
   });
 
   const handlerP = kernelP.then((kernel) => {

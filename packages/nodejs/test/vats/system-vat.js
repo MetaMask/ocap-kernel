@@ -2,7 +2,7 @@ import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
- * Build function for a test system vat that uses kernel services.
+ * Build function for a test vat that runs in a system subcluster and uses kernel services.
  *
  * @param {object} _ - The vat powers (unused).
  * @param {object} params - The vat parameters.
@@ -11,18 +11,25 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
  * @returns {object} The root object for the new vat.
  */
 export function buildRootObject(_, { name = 'system-vat' }, baggage) {
-  let kernelFacet;
+  // Restore kernelFacet from baggage if available (for resuscitation)
+  let kernelFacet = baggage.has('kernelFacet')
+    ? baggage.get('kernelFacet')
+    : undefined;
 
   return makeDefaultExo('root', {
     /**
-     * Bootstrap the system vat.
+     * Bootstrap the vat.
      *
      * @param {object} _vats - The vats object (unused).
      * @param {object} services - The services object.
      */
     async bootstrap(_vats, services) {
-      console.log(`system vat ${name} bootstrap`);
-      kernelFacet = services.kernelFacet;
+      console.log(`system subcluster vat ${name} bootstrap`);
+      if (!kernelFacet) {
+        kernelFacet = services.kernelFacet;
+        // Store in baggage for persistence across restarts
+        baggage.init('kernelFacet', kernelFacet);
+      }
     },
 
     /**

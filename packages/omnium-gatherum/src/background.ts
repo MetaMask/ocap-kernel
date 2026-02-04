@@ -111,7 +111,7 @@ async function main(): Promise<void> {
 
   // Set up controller vat initialization (runs concurrently with stream drain)
   E(kernelP)
-    .getSystemVatRoot('omnium-controllers')
+    .getSystemSubclusterRoot('omnium-controllers')
     .then(({ kref }) => {
       globals.setControllerVatKref(kref);
       logger.info('Controller vat initialized');

@@ -1,8 +1,11 @@
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
-import type { SystemVatConfig, ClusterConfig } from '@metamask/ocap-kernel';
+import type {
+  SystemSubclusterConfig,
+  ClusterConfig,
+} from '@metamask/ocap-kernel';
+import { delay } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, afterEach } from 'vitest';
 
 import { makeTestKernel } from '../helpers/kernel.ts';
@@ -10,18 +13,25 @@ import { makeTestKernel } from '../helpers/kernel.ts';
 const SYSTEM_VAT_BUNDLE_URL = 'http://localhost:3000/system-vat.bundle';
 const SAMPLE_VAT_BUNDLE_URL = 'http://localhost:3000/sample-vat.bundle';
 
-describe('System Vat', { timeout: 30_000 }, () => {
+describe('System Subcluster', { timeout: 30_000 }, () => {
   let kernel: Kernel | undefined;
   let kernelDatabase: KernelDatabase | undefined;
 
-  const makeSystemVatConfig = (
+  const makeSystemSubclusterConfig = (
     name: string,
     services: string[] = ['kernelFacet'],
-  ): SystemVatConfig => ({
+  ): SystemSubclusterConfig => ({
     name,
-    bundleSpec: SYSTEM_VAT_BUNDLE_URL,
-    parameters: { name },
-    services,
+    config: {
+      bootstrap: name,
+      vats: {
+        [name]: {
+          bundleSpec: SYSTEM_VAT_BUNDLE_URL,
+          parameters: { name },
+        },
+      },
+      ...(services.length > 0 && { services }),
+    },
   });
 
   afterEach(async () => {
@@ -37,41 +47,41 @@ describe('System Vat', { timeout: 30_000 }, () => {
   });
 
   describe('initialization', () => {
-    it('launches system vat at kernel initialization', async () => {
+    it('launches system subcluster at kernel initialization', async () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
       kernel = await makeTestKernel(kernelDatabase, true, {
-        systemVats: [makeSystemVatConfig('test-system')],
+        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
-      // System vat should be running (has a vat ID)
+      // System subcluster's bootstrap vat should be running
       expect(kernel.getVatIds().length).toBeGreaterThan(0);
     });
 
-    it('provides system vat root via getSystemVatRoot', async () => {
+    it('provides bootstrap root via getSystemSubclusterRoot', async () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
       kernel = await makeTestKernel(kernelDatabase, true, {
-        systemVats: [makeSystemVatConfig('test-system')],
+        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
-      const root = kernel.getSystemVatRoot('test-system');
+      const root = kernel.getSystemSubclusterRoot('test-system');
       expect(root).toBeDefined();
       expect(typeof root).toBe('string');
       expect(root).toMatch(/^ko\d+$/u);
     });
 
-    it('returns undefined for unknown system vat name', async () => {
+    it('returns undefined for unknown system subcluster name', async () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
       kernel = await makeTestKernel(kernelDatabase, true, {
-        systemVats: [makeSystemVatConfig('test-system')],
+        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
-      const root = kernel.getSystemVatRoot('unknown-vat');
+      const root = kernel.getSystemSubclusterRoot('unknown-vat');
       expect(root).toBeUndefined();
     });
   });
@@ -82,14 +92,14 @@ describe('System Vat', { timeout: 30_000 }, () => {
         dbFilename: ':memory:',
       });
       kernel = await makeTestKernel(kernelDatabase, true, {
-        systemVats: [makeSystemVatConfig('test-system')],
+        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
-      const root = kernel.getSystemVatRoot('test-system');
+      const root = kernel.getSystemSubclusterRoot('test-system');
       expect(root).toBeDefined();
 
       const result = await kernel.queueMessage(root!, 'hasKernelFacet', []);
-      await waitUntilQuiescent();
+      await delay();
 
       expect(kunser(result)).toBe(true);
     });
@@ -99,14 +109,14 @@ describe('System Vat', { timeout: 30_000 }, () => {
         dbFilename: ':memory:',
       });
       kernel = await makeTestKernel(kernelDatabase, true, {
-        systemVats: [makeSystemVatConfig('test-system')],
+        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
-      const root = kernel.getSystemVatRoot('test-system');
+      const root = kernel.getSystemSubclusterRoot('test-system');
       expect(root).toBeDefined();
 
       const result = await kernel.queueMessage(root!, 'getKernelStatus', []);
-      await waitUntilQuiescent();
+      await delay();
 
       const status = kunser(result) as {
         vats: unknown[];
@@ -124,18 +134,18 @@ describe('System Vat', { timeout: 30_000 }, () => {
         dbFilename: ':memory:',
       });
       kernel = await makeTestKernel(kernelDatabase, true, {
-        systemVats: [makeSystemVatConfig('test-system')],
+        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
-      const root = kernel.getSystemVatRoot('test-system');
+      const root = kernel.getSystemSubclusterRoot('test-system');
       expect(root).toBeDefined();
 
       const result = await kernel.queueMessage(root!, 'getSubclusters', []);
-      await waitUntilQuiescent();
+      await delay();
 
       const subclusters = kunser(result) as unknown[];
       expect(Array.isArray(subclusters)).toBe(true);
-      // At least the system vat's subcluster should exist
+      // At least the system subcluster should exist
       expect(subclusters).toHaveLength(1);
     });
   });
@@ -146,10 +156,10 @@ describe('System Vat', { timeout: 30_000 }, () => {
         dbFilename: ':memory:',
       });
       kernel = await makeTestKernel(kernelDatabase, true, {
-        systemVats: [makeSystemVatConfig('test-system')],
+        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
-      const root = kernel.getSystemVatRoot('test-system');
+      const root = kernel.getSystemSubclusterRoot('test-system');
       expect(root).toBeDefined();
 
       // Get initial subcluster count
@@ -158,11 +168,11 @@ describe('System Vat', { timeout: 30_000 }, () => {
         'getSubclusters',
         [],
       );
-      await waitUntilQuiescent();
+      await delay();
       const initialSubclusters = kunser(initialResult) as unknown[];
       expect(initialSubclusters).toHaveLength(1);
 
-      // Launch a new subcluster via the system vat
+      // Launch a new subcluster via the system subcluster's bootstrap vat
       const config: ClusterConfig = {
         bootstrap: 'child',
         vats: {
@@ -174,7 +184,7 @@ describe('System Vat', { timeout: 30_000 }, () => {
       };
 
       await kernel.queueMessage(root!, 'launchSubcluster', [config]);
-      await waitUntilQuiescent();
+      await delay();
 
       // Verify subcluster was created
       const afterResult = await kernel.queueMessage(
@@ -182,7 +192,7 @@ describe('System Vat', { timeout: 30_000 }, () => {
         'getSubclusters',
         [],
       );
-      await waitUntilQuiescent();
+      await delay();
       const afterSubclusters = kunser(afterResult) as unknown[];
 
       expect(afterSubclusters).toHaveLength(2);
@@ -193,10 +203,10 @@ describe('System Vat', { timeout: 30_000 }, () => {
         dbFilename: ':memory:',
       });
       kernel = await makeTestKernel(kernelDatabase, true, {
-        systemVats: [makeSystemVatConfig('test-system')],
+        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
-      const root = kernel.getSystemVatRoot('test-system');
+      const root = kernel.getSystemSubclusterRoot('test-system');
       expect(root).toBeDefined();
 
       // Launch a subcluster to terminate
@@ -215,7 +225,7 @@ describe('System Vat', { timeout: 30_000 }, () => {
         'launchSubcluster',
         [config],
       );
-      await waitUntilQuiescent();
+      await delay();
       const launchData = kunser(launchResult) as { subclusterId: string };
       const { subclusterId } = launchData;
 
@@ -225,13 +235,13 @@ describe('System Vat', { timeout: 30_000 }, () => {
         'getSubclusters',
         [],
       );
-      await waitUntilQuiescent();
+      await delay();
       const beforeSubclusters = kunser(beforeResult) as unknown[];
       expect(beforeSubclusters).toHaveLength(2);
 
       // Terminate the subcluster
       await kernel.queueMessage(root!, 'terminateSubcluster', [subclusterId]);
-      await waitUntilQuiescent();
+      await delay();
 
       // Verify subcluster was terminated
       const afterResult = await kernel.queueMessage(
@@ -239,27 +249,27 @@ describe('System Vat', { timeout: 30_000 }, () => {
         'getSubclusters',
         [],
       );
-      await waitUntilQuiescent();
+      await delay();
       const afterSubclusters = kunser(afterResult) as unknown[];
 
       expect(afterSubclusters).toHaveLength(1);
     });
   });
 
-  describe('system vat relaunch', () => {
-    it('terminates and relaunches existing system vat on kernel restart', async () => {
+  describe('system subcluster persistence', () => {
+    it('restores existing system subcluster on kernel restart', async () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
       kernel = await makeTestKernel(kernelDatabase, true, {
-        systemVats: [makeSystemVatConfig('test-system')],
+        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
       // Get initial subcluster info
       const initialSubclusters = kernel.getSubclusters();
       expect(initialSubclusters).toHaveLength(1);
       const initialSubclusterId = initialSubclusters[0]!.id;
-      const initialRoot = kernel.getSystemVatRoot('test-system');
+      const initialRoot = kernel.getSystemSubclusterRoot('test-system');
       expect(initialRoot).toBeDefined();
 
       // Stop kernel but keep database
@@ -267,54 +277,52 @@ describe('System Vat', { timeout: 30_000 }, () => {
       // eslint-disable-next-line require-atomic-updates
       kernel = undefined;
 
-      // Restart kernel with same system vat config (resetStorage = false)
+      // Restart kernel with same system subcluster config (resetStorage = false)
       // eslint-disable-next-line require-atomic-updates
       kernel = await makeTestKernel(kernelDatabase, false, {
-        systemVats: [makeSystemVatConfig('test-system')],
+        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
-      // System vat should be relaunched with new subcluster
+      // System subcluster should be restored (not relaunched)
       const newSubclusters = kernel.getSubclusters();
       expect(newSubclusters).toHaveLength(1);
       const newSubclusterId = newSubclusters[0]!.id;
 
-      // Subcluster ID should be different (terminated and relaunched)
-      expect(newSubclusterId).not.toBe(initialSubclusterId);
+      // Subcluster ID should be the SAME (restored from persistence)
+      expect(newSubclusterId).toBe(initialSubclusterId);
 
-      // System vat should still be accessible
-      const newRoot = kernel.getSystemVatRoot('test-system');
+      // Bootstrap root should be restored
+      const newRoot = kernel.getSystemSubclusterRoot('test-system');
       expect(newRoot).toBeDefined();
-      expect(newRoot).not.toBe(initialRoot);
+      expect(newRoot).toBe(initialRoot);
 
       const result = await kernel.queueMessage(newRoot!, 'hasKernelFacet', []);
-      await waitUntilQuiescent();
+      await delay();
       expect(kunser(result)).toBe(true);
     });
 
-    // TODO: We are terminating system vats on restart, so baggage data is not persisted.
-    // This will be fixed.
-    it.fails('persists baggage data across kernel restarts', async () => {
+    it('persists baggage data across kernel restarts', async () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
       kernel = await makeTestKernel(kernelDatabase, true, {
-        systemVats: [makeSystemVatConfig('test-system')],
+        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
-      const root = kernel.getSystemVatRoot('test-system');
+      const root = kernel.getSystemSubclusterRoot('test-system');
       expect(root).toBeDefined();
 
       // Store data in baggage during first incarnation
       const testKey = 'persistent-data';
       const testValue = 'hello from first incarnation';
       await kernel.queueMessage(root!, 'storeToBaggage', [testKey, testValue]);
-      await waitUntilQuiescent();
+      await delay();
 
       // Verify data was stored
       const storedResult = await kernel.queueMessage(root!, 'getFromBaggage', [
         testKey,
       ]);
-      await waitUntilQuiescent();
+      await delay();
       expect(kunser(storedResult)).toBe(testValue);
 
       // Stop kernel but keep database
@@ -322,15 +330,16 @@ describe('System Vat', { timeout: 30_000 }, () => {
       // eslint-disable-next-line require-atomic-updates
       kernel = undefined;
 
-      // Restart kernel with same system vat config (resetStorage = false)
+      // Restart kernel with same system subcluster config (resetStorage = false)
       // eslint-disable-next-line require-atomic-updates
       kernel = await makeTestKernel(kernelDatabase, false, {
-        systemVats: [makeSystemVatConfig('test-system')],
+        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
-      // Get new root after relaunch
-      const newRoot = kernel.getSystemVatRoot('test-system');
+      // Get restored root after restart (should be the same as before)
+      const newRoot = kernel.getSystemSubclusterRoot('test-system');
       expect(newRoot).toBeDefined();
+      expect(newRoot).toBe(root);
 
       // Verify baggage data persisted across restart
       const persistedResult = await kernel.queueMessage(
@@ -338,7 +347,7 @@ describe('System Vat', { timeout: 30_000 }, () => {
         'getFromBaggage',
         [testKey],
       );
-      await waitUntilQuiescent();
+      await delay();
       expect(kunser(persistedResult)).toBe(testValue);
 
       // Verify key exists check works
@@ -347,44 +356,44 @@ describe('System Vat', { timeout: 30_000 }, () => {
         'hasBaggageKey',
         [testKey],
       );
-      await waitUntilQuiescent();
+      await delay();
       expect(kunser(hasKeyResult)).toBe(true);
 
       // Verify non-existent key returns false
       const noKeyResult = await kernel.queueMessage(newRoot!, 'hasBaggageKey', [
         'non-existent-key',
       ]);
-      await waitUntilQuiescent();
+      await delay();
       expect(kunser(noKeyResult)).toBe(false);
     });
   });
 
-  describe('multiple system vats', () => {
-    it('launches multiple system vats at kernel initialization', async () => {
+  describe('multiple system subclusters', () => {
+    it('launches multiple system subclusters at kernel initialization', async () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
       kernel = await makeTestKernel(kernelDatabase, true, {
-        systemVats: [
-          makeSystemVatConfig('system-1'),
-          makeSystemVatConfig('system-2'),
+        systemSubclusters: [
+          makeSystemSubclusterConfig('system-1'),
+          makeSystemSubclusterConfig('system-2'),
         ],
       });
 
-      // Both system vats should have roots
-      const root1 = kernel.getSystemVatRoot('system-1');
-      const root2 = kernel.getSystemVatRoot('system-2');
+      // Both system subclusters should have bootstrap roots
+      const root1 = kernel.getSystemSubclusterRoot('system-1');
+      const root2 = kernel.getSystemSubclusterRoot('system-2');
       expect(root1).toBeDefined();
       expect(root2).toBeDefined();
       expect(root1).not.toBe(root2);
 
       // Both should have kernelFacet
       const result1 = await kernel.queueMessage(root1!, 'hasKernelFacet', []);
-      await waitUntilQuiescent();
+      await delay();
       expect(kunser(result1)).toBe(true);
 
       const result2 = await kernel.queueMessage(root2!, 'hasKernelFacet', []);
-      await waitUntilQuiescent();
+      await delay();
       expect(kunser(result2)).toBe(true);
 
       // Should have two subclusters

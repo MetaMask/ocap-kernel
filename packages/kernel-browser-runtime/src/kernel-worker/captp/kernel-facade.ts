@@ -43,10 +43,10 @@ export function makeKernelFacade(kernel: Kernel): KernelFacade {
       return { kref: krefString };
     },
 
-    getSystemVatRoot: async (name: string) => {
-      const rootKref = kernel.getSystemVatRoot(name);
+    getSystemSubclusterRoot: async (name: string) => {
+      const rootKref = kernel.getSystemSubclusterRoot(name);
       if (!rootKref) {
-        throw new Error(`System vat "${name}" not found`);
+        throw new Error(`System subcluster "${name}" not found`);
       }
       return { kref: rootKref };
     },
