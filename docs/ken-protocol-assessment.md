@@ -47,13 +47,15 @@ Key aspects:
 | Crash-safe persistence | ✓ | Write message first, then update nextSendSeq |
 | Local recovery | ✓ | Restore seq state, restart ACK timeout |
 | **Transactional turns** | ✓ | Crank buffering defers outputs until crank commit |
-| **Deferred transmission** | **Partial** | Buffered within kernel, but RemoteHandle transmits immediately on flush |
+| **Deferred transmission** | ✓ | Outputs reach RemoteHandle only after originating crank commits |
+| **Output validity** | ✓ | Crank buffering ensures outputs escape only after commit |
+| **Atomic checkpoint** | ✓ | Database savepoints make crank state changes atomic |
 
-### Recent Improvements: Crank Buffering
+### Crank Buffering (Issue #786)
 
-The crank buffering feature (issue #786) significantly improves our alignment with Ken:
+The crank buffering feature achieves Ken's core send-side properties:
 
-**Our new crank model:**
+**Our crank model:**
 ```
 crank_start(deliver one item from run queue)
   → create database savepoint
@@ -64,163 +66,146 @@ crank_end:
   → if failure: rollback to savepoint, discard buffer
 ```
 
-This achieves Ken's core property that **outputs are only externalized after successful turn completion**. Within the kernel:
+This achieves Ken's property that **outputs are only externalized after successful turn completion**:
+
 - `enqueueSend(target, message, immediate=false)` buffers sends
 - `enqueueNotify(endpoint, kpid, immediate=false)` buffers notifications
 - `resolvePromises(endpoint, resolutions, immediate=false)` buffers all resolution effects
-- On successful crank: `#flushCrankBuffer()` moves items to run queue
+- On successful crank: `#flushCrankBuffer()` moves items to persistent run queue
 - On rollback: buffer is discarded along with database changes
 
-### What We're Still Missing or Differs
+**Why output validity is achieved**: When a message destined for a remote reaches `RemoteHandle`, it arrives via the run queue. Items only reach the run queue after the originating crank commits. Therefore, by the time `RemoteHandle` persists and transmits a message, the crank that produced it has already committed. The transmitted message corresponds to committed local state.
 
-#### 1. Deferred Network Transmission (Gap)
+`RemoteHandle` persists messages to `remotePending` before transmitting for a different reason: to enable retransmission on recovery if the transmission or ACK is lost. This is part of the at-least-once delivery mechanism, not the output validity mechanism.
 
-**Ken's model:**
-```
-persist checkpoint → THEN transmit to network
-```
+### Remaining Gaps (Receive Side)
 
-**Our model:**
-```
-crank completes → flush to run queue → eventually delivered to RemoteHandle
-RemoteHandle: persist message → transmit immediately
-```
+The remaining gaps are on the **receive side** of remote messaging:
 
-While crank outputs are now buffered until crank commit, when a message reaches `RemoteHandle` for remote transmission, it is persisted and transmitted in quick succession. A crash between persist and transmit could result in the message being retransmitted on recovery (which is fine due to idempotency), but more critically, there's no coordination ensuring the kernel's crank commit happens before network transmission.
+#### 1. Done Table / Duplicate Detection (Gap)
 
-**Impact**: If RemoteHandle transmits a message and then the kernel crashes before its crank fully commits, the remote has received a message that the local kernel will "forget" on recovery. This violates output validity.
+Ken maintains a `Done` table ensuring each message is delivered to the application **at most once**. The `Done` table is updated atomically with the application state at crank commit.
 
-**Mitigation needed**: RemoteHandle should only transmit messages after the originating crank has been fully committed. This requires coordination between the kernel's crank lifecycle and RemoteHandle's transmission timing.
+We track `highestReceivedSeq` per remote, but there's a gap in how it interacts with delivery:
 
-#### 2. Done Table / Duplicate Detection (Gap)
+**Scenario A - Update on receive, before delivery:**
+1. Receive message seq=5 from remote R
+2. Update `highestReceivedSeq` to 5
+3. Add message to run queue for delivery to local vat
+4. Crash before delivery crank commits
+5. On recovery: `highestReceivedSeq=5` suggests we processed it
+6. Remote retransmits seq=5, we ignore it
+7. **Message lost** - vat never received it
 
-Ken maintains a `Done` table ensuring:
-- Each message delivered to application **at most once**
-- FIFO ordering enforced via `next_ready()` considering seq + sender ID
+**Scenario B - Update after delivery:**
+1. Receive message seq=5, add to run queue
+2. Delivery crank runs, vat processes message, crank commits
+3. Crash before `highestReceivedSeq` is updated
+4. On recovery: `highestReceivedSeq < 5`
+5. Remote retransmits seq=5, we deliver again
+6. **Duplicate delivery** - vat receives it twice
 
-We track `highestReceivedSeq` but only for ACK purposes. We don't have explicit duplicate detection for incoming messages. If the remote retransmits a message we already processed (but before we ACKed), we could deliver it twice.
+**What's needed**: A `Done` table (or equivalent) that is updated atomically with the delivery crank commit, and checked before delivering incoming messages.
 
-#### 3. Output Validity (Improved, but Partial)
+#### 2. FIFO Enforcement on Receive (Gap)
 
-Ken guarantees outputs could have resulted from failure-free execution because:
-- Outputs are buffered during a turn
-- A crash during processing loses all outputs from that turn
-- Only committed outputs escape to the outside world
+Ken enforces per-sender FIFO ordering via `next_ready()` which only delivers the next expected sequence number.
 
-**Improvement**: With crank buffering, kernel-internal outputs (sends to local vats, notifications) are now properly buffered and discarded on rollback. A crash mid-crank no longer results in partial kernel state.
+If messages arrive out of order from the network (e.g., seq 1, 3, 2):
+- We should deliver seq=1
+- Buffer seq=3 until seq=2 arrives
+- Deliver seq=2, then seq=3
 
-**Remaining gap**: For remote messages, the gap described in #1 above means network transmissions could still escape before the crank is fully committed.
+We don't currently enforce this ordering on the receive side. Out-of-order network delivery could result in out-of-order application delivery.
 
-#### 4. Atomic Checkpoint (Improved)
-
-Ken atomically checkpoints `(turn, app_state, Q_out, Done)` together at end of turn.
-
-**Improvement**: The kernel now uses database savepoints to make crank state changes atomic. The `CrankBuffer` contents are flushed atomically with the crank commit.
-
-**Remaining gap**: RemoteHandle's message persistence is separate from the kernel's crank commit. These two persistence operations are not atomic with respect to each other.
-
-#### 5. FIFO Enforcement on Receive (Gap)
-
-Hold out-of-order messages until predecessors processed:
-- Track expected next seq per sender
-- Buffer messages that arrive out of order
-- Deliver in sequence order only
-
-We don't currently enforce FIFO delivery order on the receive side.
+**What's needed**: Track expected next seq per remote sender, buffer out-of-order messages, deliver in sequence order only.
 
 ### Summary Table
 
 | Ken Property | Our System | Notes |
 |--------------|------------|-------|
-| Exactly-once delivery | **Partial** | At-least-once with no duplicate detection |
-| Output validity | **Partial** | ✓ for kernel-internal, gap for remote transmission |
 | Transactional turns | **Yes** | Crank buffering provides turn boundaries |
-| Consistent frontier | **Partial** | Kernel state atomic, but not coordinated with RemoteHandle |
+| Output validity | **Yes** | Outputs escape only after originating crank commits |
+| Deferred transmission | **Yes** | Run queue staging ensures this |
+| Atomic checkpoint | **Yes** | Database savepoints for kernel state |
+| Consistent frontier | **Yes** | Each kernel's checkpoint is independent |
 | Local recovery | **Yes** | Crashes don't affect other processes |
-| Sender-based logging | **Yes** | Messages persisted until ACKed |
-| Deferred transmission | **Partial** | ✓ within kernel, gap at network boundary |
-| FIFO ordering | **Partial** | Per-sender seq, but no enforcement on receive side |
+| Sender-based logging | **Yes** | Messages persisted in remotePending until ACKed |
+| Exactly-once delivery | **Partial** | At-least-once; missing Done table for deduplication |
+| FIFO ordering | **Partial** | Per-sender seq on send; no enforcement on receive |
 
-## What Would Be Needed to Achieve Full Ken Properties
+## What Would Be Needed for Full Ken Properties
 
-### 1. Coordinate RemoteHandle with Crank Commit (Critical)
+### 1. Add Done Table for Exactly-Once Delivery
 
-The most important remaining gap. Options:
+Track processed messages and deduplicate on receive:
 
-**Option A: Two-phase approach**
-- During crank: RemoteHandle persists message but does NOT transmit
-- After crank commit: Signal RemoteHandle to transmit persisted messages
-- Requires: Crank commit notification mechanism to RemoteHandle
+**Option A: Per-remote processed sequence tracking**
+- Store `highestProcessedSeq.${remoteId}` updated atomically with delivery crank
+- On receive: if `seq <= highestProcessedSeq`, ACK but don't deliver
+- Simple but requires in-order processing
 
-**Option B: Defer to run queue delivery**
-- RemoteHandle only transmits when it receives a "transmit" item from run queue
-- Crank buffers "transmit" items along with other outputs
-- Flush adds transmit items to run queue
-- RemoteHandle processes transmit items after crank commit
+**Option B: Explicit Done table**
+- Store `done.${remoteId}.${seq} = true` for each processed message
+- On receive: check Done table before delivering
+- Supports out-of-order processing
+- Requires garbage collection of old entries (after ACK confirms sender discarded)
 
-### 2. Add Done Table
+Either approach requires the processed-message record to be updated **atomically with the delivery crank commit**, so that crash recovery sees consistent state.
 
-Track processed message IDs, deduplicate on receive:
-- Persist `Done` table entries for processed messages
-- On receive, check if message already in `Done` before delivering
-- ACK messages in `Done` without re-delivering
+### 2. FIFO Enforcement on Receive
 
-### 3. FIFO Enforcement on Receive
+Buffer and reorder incoming messages:
 
-Hold out-of-order messages until predecessors processed:
-- Track expected next seq per sender
-- Buffer messages that arrive out of order
-- Deliver in sequence order only
+- Track `expectedNextSeq.${remoteId}` per sender
+- On receive: if `seq > expectedNextSeq`, buffer the message
+- When `expectedNextSeq` message arrives, deliver it and any buffered successors
+- Update `expectedNextSeq` as messages are delivered
 
-## Architectural Implications
+This interacts with the Done table: we need to handle the case where we've already processed some messages (from Done table) when determining what's "expected next."
 
-The crank buffering work has brought us significantly closer to Ken's model:
+## Architectural Summary
 
-**Before crank buffering:**
+**Send side (achieved with crank buffering):**
 ```
-Kernel Crank:
-  process message → syscalls immediately enqueue to run queue
-
-RemoteHandle (independent):
-  persist each outgoing message → transmit immediately
-```
-
-**After crank buffering:**
-```
-Kernel Crank:
-  process message → syscalls buffer outputs
+Vat Crank:
+  vat processes message → syscalls buffer outputs
 
 Crank Commit (atomic):
-  persist(kernel_state) + flush(buffered_outputs to run queue)
+  persist(vat_state) + flush(buffered_outputs to run queue)
 
-RemoteHandle (still independent):
-  receive from run queue → persist → transmit immediately
+Later (separate operation):
+  run queue delivers to RemoteHandle → persist to remotePending → transmit
 ```
 
-**Ken-style architecture (goal):**
+The key insight: by the time RemoteHandle sees a message, the originating crank has already committed. Output validity is achieved.
+
+**Receive side (gaps remain):**
 ```
-Kernel Crank:
-  process message → syscalls buffer outputs
+Current:
+  receive from network → add to run queue → deliver to vat
+  (no deduplication, no ordering enforcement)
 
-Crank Commit (atomic):
-  persist(kernel_state, buffered_outputs, done_table)
-
-Post-Commit:
-  signal RemoteHandle to transmit persisted messages
+Needed:
+  receive from network
+    → check Done table (skip if already processed)
+    → check sequence (buffer if out of order)
+    → add to run queue
+    → deliver to vat
+    → atomically update Done table with delivery crank commit
 ```
-
-The key remaining work is ensuring that network transmission only happens after the crank that produced the message has been fully committed.
 
 ## Progress Summary
 
-| Area | Before | After Crank Buffering |
-|------|--------|----------------------|
-| Kernel-internal output buffering | No | **Yes** |
-| Rollback discards uncommitted outputs | No | **Yes** |
-| Atomic kernel state + output queue | No | **Yes** |
-| Network transmission deferred to commit | No | No (still needed) |
-| Done table for deduplication | No | No (still needed) |
-| FIFO enforcement on receive | No | No (still needed) |
+| Area | Status |
+|------|--------|
+| Kernel-internal output buffering | **Achieved** |
+| Rollback discards uncommitted outputs | **Achieved** |
+| Atomic kernel state + output queue | **Achieved** |
+| Output validity (send side) | **Achieved** |
+| Deferred transmission (send side) | **Achieved** |
+| Done table for deduplication (receive side) | Gap |
+| FIFO enforcement (receive side) | Gap |
 
 ## References
 
