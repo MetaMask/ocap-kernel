@@ -136,21 +136,22 @@ export async function initTransport(
 
   /**
    * Perform outbound handshake and handle incarnation changes.
-   * Returns true if handshake succeeded (or was skipped), false if it failed.
    *
    * @param channel - The channel to perform handshake on.
-   * @returns True if handshake succeeded or was skipped.
+   * @returns Object with success status and whether incarnation changed.
    */
-  async function doOutboundHandshake(channel: Channel): Promise<boolean> {
+  async function doOutboundHandshake(
+    channel: Channel,
+  ): Promise<{ success: boolean; incarnationChanged: boolean }> {
     if (!handshakeDeps) {
-      return true; // No handshake configured, skip
+      return { success: true, incarnationChanged: false }; // No handshake configured, skip
     }
     let result;
     try {
       result = await performOutboundHandshake(channel, handshakeDeps);
     } catch (problem) {
       outputError(channel.peerId, 'outbound handshake', problem);
-      return false;
+      return { success: false, incarnationChanged: false };
     }
     // Handle incarnation change outside try-catch so callback errors
     // don't incorrectly mark the handshake as failed
@@ -161,7 +162,7 @@ export async function initTransport(
       // Call incarnation change callback first to reset RemoteHandle state
       onIncarnationChange?.(channel.peerId);
     }
-    return true;
+    return { success: true, incarnationChanged: result.incarnationChanged };
   }
 
   /**
@@ -493,9 +494,9 @@ export async function initTransport(
             throw error;
           }
           // Perform handshake before registering the channel
-          let handshakeOk;
+          let handshakeResult;
           try {
-            handshakeOk = await doOutboundHandshake(channel);
+            handshakeResult = await doOutboundHandshake(channel);
           } catch (handshakeError) {
             // Handshake threw (e.g., onRemoteGiveUp callback failed) - close channel to prevent leak
             try {
@@ -505,9 +506,16 @@ export async function initTransport(
             }
             throw handshakeError;
           }
-          if (!handshakeOk) {
+          if (!handshakeResult.success) {
             await connectionFactory.closeChannel(channel, targetPeerId);
             throw Error('Handshake failed');
+          }
+          if (handshakeResult.incarnationChanged) {
+            // Peer restarted - don't send stale message, let caller retry with fresh state
+            registerChannel(targetPeerId, channel, 'reading channel to');
+            throw Error(
+              'Remote peer restarted: message not sent to avoid stale delivery',
+            );
           }
           registerChannel(targetPeerId, channel, 'reading channel to');
         }

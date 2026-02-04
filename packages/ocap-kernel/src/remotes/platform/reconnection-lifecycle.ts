@@ -38,8 +38,10 @@ export type ReconnectionLifecycleDeps = {
     channel: Channel,
     errorContext?: string,
   ) => void;
-  /** Perform outbound handshake. Returns true if successful. */
-  doOutboundHandshake: (channel: Channel) => Promise<boolean>;
+  /** Perform outbound handshake. Returns success status and whether incarnation changed. */
+  doOutboundHandshake: (
+    channel: Channel,
+  ) => Promise<{ success: boolean; incarnationChanged: boolean }>;
 };
 
 /**
@@ -236,9 +238,9 @@ export function makeReconnectionLifecycle(
         throw error;
       }
       // Perform handshake before registering the channel
-      let handshakeOk;
+      let handshakeResult;
       try {
-        handshakeOk = await doOutboundHandshake(channel);
+        handshakeResult = await doOutboundHandshake(channel);
       } catch (handshakeError) {
         // Handshake threw (e.g., onRemoteGiveUp callback failed) - close channel to prevent leak
         try {
@@ -248,7 +250,7 @@ export function makeReconnectionLifecycle(
         }
         throw handshakeError;
       }
-      if (!handshakeOk) {
+      if (!handshakeResult.success) {
         // Handshake failures are retryable (could be transient network issues)
         // Return null to signal retry instead of throwing non-retryable error
         logger.log(
@@ -257,6 +259,8 @@ export function makeReconnectionLifecycle(
         await closeChannel(channel, peerId);
         return null;
       }
+      // Note: incarnationChanged is handled by the callback in doOutboundHandshake
+      // For reconnection, we still register the channel - messages will be fresh
       registerChannel(peerId, channel, 'reading channel to');
     }
 
