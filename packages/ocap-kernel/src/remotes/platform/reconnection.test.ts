@@ -1,7 +1,11 @@
 import * as kernelUtils from '@metamask/kernel-utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { ReconnectionManager } from './reconnection.ts';
+import {
+  ReconnectionManager,
+  DEFAULT_CONSECUTIVE_ERROR_THRESHOLD,
+  PERMANENT_FAILURE_ERROR_CODES,
+} from './reconnection.ts';
 
 // Mock the calculateReconnectionBackoff function
 vi.mock('@metamask/kernel-utils', async () => {
@@ -201,6 +205,37 @@ describe('ReconnectionManager', () => {
       expect(manager.getAttemptCount('peer1')).toBe(0);
       expect(manager.getAttemptCount('peer2')).toBe(1);
     });
+
+    it('clears error history to prevent false permanent failures', () => {
+      // Accumulate some errors
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      expect(manager.getErrorHistory('peer1')).toHaveLength(3);
+
+      // Successful communication - should clear error history
+      manager.resetBackoff('peer1');
+
+      expect(manager.getErrorHistory('peer1')).toStrictEqual([]);
+    });
+
+    it('prevents stale errors from triggering permanent failure after success', () => {
+      // Accumulate 4 errors (one short of threshold)
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+
+      // Successful communication
+      manager.resetBackoff('peer1');
+
+      // One more error should NOT trigger permanent failure
+      // because the history was cleared
+      manager.recordError('peer1', 'ECONNREFUSED');
+
+      expect(manager.isPermanentlyFailed('peer1')).toBe(false);
+      expect(manager.getErrorHistory('peer1')).toHaveLength(1);
+    });
   });
 
   describe('calculateBackoff', () => {
@@ -350,6 +385,58 @@ describe('ReconnectionManager', () => {
 
     it('handles empty state', () => {
       expect(() => manager.resetAllBackoffs()).not.toThrow();
+    });
+
+    it('clears error history for all peers after wake from sleep', () => {
+      // Set up peer with errors during reconnection
+      manager.startReconnection('peer1');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+
+      // peer2 not reconnecting but has errors
+      manager.recordError('peer2', 'ECONNREFUSED');
+      manager.recordError('peer2', 'ECONNREFUSED');
+
+      // Simulate wake from sleep
+      manager.resetAllBackoffs();
+
+      // Both peers' error history should be cleared - network conditions changed
+      expect(manager.getErrorHistory('peer1')).toStrictEqual([]);
+      expect(manager.getErrorHistory('peer2')).toStrictEqual([]);
+    });
+
+    it('prevents stale errors from triggering permanent failure after wake', () => {
+      manager.startReconnection('peer1');
+      // Accumulate 4 errors before sleep
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+      manager.recordError('peer1', 'ECONNREFUSED');
+
+      // Wake from sleep
+      manager.resetAllBackoffs();
+
+      // One more error should NOT trigger permanent failure
+      manager.recordError('peer1', 'ECONNREFUSED');
+
+      expect(manager.isPermanentlyFailed('peer1')).toBe(false);
+    });
+
+    it('clears permanent failure status for all peers after wake', () => {
+      // Trigger permanent failure for peer1
+      for (let i = 0; i < DEFAULT_CONSECUTIVE_ERROR_THRESHOLD; i += 1) {
+        manager.recordError('peer1', 'ECONNREFUSED');
+      }
+      expect(manager.isPermanentlyFailed('peer1')).toBe(true);
+
+      // Wake from sleep
+      manager.resetAllBackoffs();
+
+      // Permanent failure should be cleared - network conditions have changed
+      expect(manager.isPermanentlyFailed('peer1')).toBe(false);
+      // Should now be able to start reconnection
+      expect(manager.startReconnection('peer1')).toBe(true);
     });
   });
 
@@ -549,6 +636,271 @@ describe('ReconnectionManager', () => {
       manager.startReconnection(peerId);
       expect(manager.getAttemptCount(peerId)).toBe(2);
       expect(manager.isReconnecting(peerId)).toBe(true);
+    });
+  });
+
+  describe('error tracking', () => {
+    describe('recordError', () => {
+      it('records errors in history', () => {
+        manager.recordError('peer1', 'ECONNREFUSED');
+        manager.recordError('peer1', 'ETIMEDOUT');
+
+        const history = manager.getErrorHistory('peer1');
+        expect(history).toHaveLength(2);
+        expect(history[0]?.code).toBe('ECONNREFUSED');
+        expect(history[1]?.code).toBe('ETIMEDOUT');
+      });
+
+      it('records timestamps for each error', () => {
+        const beforeTime = Date.now();
+        manager.recordError('peer1', 'ECONNREFUSED');
+        const afterTime = Date.now();
+
+        const history = manager.getErrorHistory('peer1');
+        expect(history[0]?.timestamp).toBeGreaterThanOrEqual(beforeTime);
+        expect(history[0]?.timestamp).toBeLessThanOrEqual(afterTime);
+      });
+
+      it('tracks errors per peer independently', () => {
+        manager.recordError('peer1', 'ECONNREFUSED');
+        manager.recordError('peer2', 'ETIMEDOUT');
+
+        expect(manager.getErrorHistory('peer1')).toHaveLength(1);
+        expect(manager.getErrorHistory('peer2')).toHaveLength(1);
+        expect(manager.getErrorHistory('peer1')[0]?.code).toBe('ECONNREFUSED');
+        expect(manager.getErrorHistory('peer2')[0]?.code).toBe('ETIMEDOUT');
+      });
+    });
+
+    describe('getErrorHistory', () => {
+      it('returns empty array for new peer', () => {
+        expect(manager.getErrorHistory('newpeer')).toStrictEqual([]);
+      });
+
+      it('returns readonly array', () => {
+        manager.recordError('peer1', 'ECONNREFUSED');
+        const history = manager.getErrorHistory('peer1');
+        expect(Array.isArray(history)).toBe(true);
+      });
+    });
+  });
+
+  describe('permanent failure detection', () => {
+    describe('isPermanentlyFailed', () => {
+      it('returns false for new peer', () => {
+        expect(manager.isPermanentlyFailed('newpeer')).toBe(false);
+      });
+
+      it('returns false when not enough errors recorded', () => {
+        for (let i = 0; i < DEFAULT_CONSECUTIVE_ERROR_THRESHOLD - 1; i += 1) {
+          manager.recordError('peer1', 'ECONNREFUSED');
+        }
+        expect(manager.isPermanentlyFailed('peer1')).toBe(false);
+      });
+
+      it('returns true after threshold consecutive identical permanent failure errors', () => {
+        for (let i = 0; i < DEFAULT_CONSECUTIVE_ERROR_THRESHOLD; i += 1) {
+          manager.recordError('peer1', 'ECONNREFUSED');
+        }
+        expect(manager.isPermanentlyFailed('peer1')).toBe(true);
+      });
+
+      it.each([...PERMANENT_FAILURE_ERROR_CODES])(
+        'detects permanent failure for %s error code',
+        (errorCode) => {
+          for (let i = 0; i < DEFAULT_CONSECUTIVE_ERROR_THRESHOLD; i += 1) {
+            manager.recordError('peer1', errorCode);
+          }
+          expect(manager.isPermanentlyFailed('peer1')).toBe(true);
+        },
+      );
+
+      it('does not mark as permanently failed for non-permanent error codes', () => {
+        for (let i = 0; i < DEFAULT_CONSECUTIVE_ERROR_THRESHOLD; i += 1) {
+          manager.recordError('peer1', 'ETIMEDOUT');
+        }
+        expect(manager.isPermanentlyFailed('peer1')).toBe(false);
+      });
+
+      it('does not mark as permanently failed for mixed error codes', () => {
+        manager.recordError('peer1', 'ECONNREFUSED');
+        manager.recordError('peer1', 'ECONNREFUSED');
+        manager.recordError('peer1', 'ETIMEDOUT'); // breaks the streak
+        manager.recordError('peer1', 'ECONNREFUSED');
+        manager.recordError('peer1', 'ECONNREFUSED');
+        expect(manager.isPermanentlyFailed('peer1')).toBe(false);
+      });
+
+      it('detects permanent failure when streak completes at end of history', () => {
+        // Mix of errors followed by consecutive permanent failure errors
+        manager.recordError('peer1', 'ETIMEDOUT');
+        manager.recordError('peer1', 'EPIPE');
+        for (let i = 0; i < DEFAULT_CONSECUTIVE_ERROR_THRESHOLD; i += 1) {
+          manager.recordError('peer1', 'ECONNREFUSED');
+        }
+        expect(manager.isPermanentlyFailed('peer1')).toBe(true);
+      });
+    });
+
+    describe('clearPermanentFailure', () => {
+      it('clears permanent failure status', () => {
+        for (let i = 0; i < DEFAULT_CONSECUTIVE_ERROR_THRESHOLD; i += 1) {
+          manager.recordError('peer1', 'ECONNREFUSED');
+        }
+        expect(manager.isPermanentlyFailed('peer1')).toBe(true);
+
+        manager.clearPermanentFailure('peer1');
+
+        expect(manager.isPermanentlyFailed('peer1')).toBe(false);
+      });
+
+      it('clears error history', () => {
+        for (let i = 0; i < DEFAULT_CONSECUTIVE_ERROR_THRESHOLD; i += 1) {
+          manager.recordError('peer1', 'ECONNREFUSED');
+        }
+        expect(manager.getErrorHistory('peer1').length).toBeGreaterThan(0);
+
+        manager.clearPermanentFailure('peer1');
+
+        expect(manager.getErrorHistory('peer1')).toStrictEqual([]);
+      });
+
+      it('allows reconnection after clearing', () => {
+        for (let i = 0; i < DEFAULT_CONSECUTIVE_ERROR_THRESHOLD; i += 1) {
+          manager.recordError('peer1', 'ECONNREFUSED');
+        }
+        expect(manager.startReconnection('peer1')).toBe(false);
+
+        manager.clearPermanentFailure('peer1');
+
+        expect(manager.startReconnection('peer1')).toBe(true);
+      });
+
+      it('works on non-failed peer', () => {
+        expect(() => manager.clearPermanentFailure('peer1')).not.toThrow();
+        expect(manager.isPermanentlyFailed('peer1')).toBe(false);
+      });
+    });
+
+    describe('startReconnection with permanent failure', () => {
+      it('returns false for permanently failed peer', () => {
+        for (let i = 0; i < DEFAULT_CONSECUTIVE_ERROR_THRESHOLD; i += 1) {
+          manager.recordError('peer1', 'ECONNREFUSED');
+        }
+
+        const result = manager.startReconnection('peer1');
+
+        expect(result).toBe(false);
+        expect(manager.isReconnecting('peer1')).toBe(false);
+      });
+
+      it('returns true for non-failed peer', () => {
+        const result = manager.startReconnection('peer1');
+        expect(result).toBe(true);
+      });
+
+      it('resets error history when starting new reconnection session', () => {
+        manager.recordError('peer1', 'ETIMEDOUT');
+        manager.recordError('peer1', 'EPIPE');
+        expect(manager.getErrorHistory('peer1')).toHaveLength(2);
+
+        manager.startReconnection('peer1');
+
+        expect(manager.getErrorHistory('peer1')).toStrictEqual([]);
+      });
+    });
+
+    describe('custom threshold', () => {
+      it('respects custom consecutive error threshold', () => {
+        const customManager = new ReconnectionManager({
+          consecutiveErrorThreshold: 3,
+        });
+
+        // Not enough errors
+        customManager.recordError('peer1', 'ECONNREFUSED');
+        customManager.recordError('peer1', 'ECONNREFUSED');
+        expect(customManager.isPermanentlyFailed('peer1')).toBe(false);
+
+        // Exactly at threshold
+        customManager.recordError('peer1', 'ECONNREFUSED');
+        expect(customManager.isPermanentlyFailed('peer1')).toBe(true);
+      });
+
+      it('throws if consecutiveErrorThreshold is less than 1', () => {
+        expect(
+          () => new ReconnectionManager({ consecutiveErrorThreshold: 0 }),
+        ).toThrow('consecutiveErrorThreshold must be at least 1');
+        expect(
+          () => new ReconnectionManager({ consecutiveErrorThreshold: -1 }),
+        ).toThrow('consecutiveErrorThreshold must be at least 1');
+      });
+    });
+
+    describe('error history capping', () => {
+      it('caps error history to consecutive error threshold', () => {
+        const customManager = new ReconnectionManager({
+          consecutiveErrorThreshold: 3,
+        });
+
+        // Record more errors than threshold
+        customManager.recordError('peer1', 'ERROR1');
+        customManager.recordError('peer1', 'ERROR2');
+        customManager.recordError('peer1', 'ERROR3');
+        customManager.recordError('peer1', 'ERROR4');
+        customManager.recordError('peer1', 'ERROR5');
+
+        const history = customManager.getErrorHistory('peer1');
+        expect(history).toHaveLength(3);
+        expect(history[0]?.code).toBe('ERROR3');
+        expect(history[1]?.code).toBe('ERROR4');
+        expect(history[2]?.code).toBe('ERROR5');
+      });
+
+      it('maintains correct permanent failure detection with capped history', () => {
+        const customManager = new ReconnectionManager({
+          consecutiveErrorThreshold: 3,
+        });
+
+        // Record mixed errors that get capped
+        customManager.recordError('peer1', 'ETIMEDOUT');
+        customManager.recordError('peer1', 'EPIPE');
+        customManager.recordError('peer1', 'ECONNREFUSED');
+        customManager.recordError('peer1', 'ECONNREFUSED');
+        customManager.recordError('peer1', 'ECONNREFUSED');
+
+        // Last 3 are all ECONNREFUSED, should be permanently failed
+        expect(customManager.isPermanentlyFailed('peer1')).toBe(true);
+      });
+    });
+
+    describe('clearPeer with permanent failure', () => {
+      it('clears permanent failure status when clearing peer', () => {
+        for (let i = 0; i < DEFAULT_CONSECUTIVE_ERROR_THRESHOLD; i += 1) {
+          manager.recordError('peer1', 'ECONNREFUSED');
+        }
+        expect(manager.isPermanentlyFailed('peer1')).toBe(true);
+
+        manager.clearPeer('peer1');
+
+        expect(manager.isPermanentlyFailed('peer1')).toBe(false);
+        expect(manager.getErrorHistory('peer1')).toStrictEqual([]);
+      });
+    });
+
+    describe('clear with permanent failure', () => {
+      it('clears all permanent failure states', () => {
+        for (let i = 0; i < DEFAULT_CONSECUTIVE_ERROR_THRESHOLD; i += 1) {
+          manager.recordError('peer1', 'ECONNREFUSED');
+          manager.recordError('peer2', 'EHOSTUNREACH');
+        }
+        expect(manager.isPermanentlyFailed('peer1')).toBe(true);
+        expect(manager.isPermanentlyFailed('peer2')).toBe(true);
+
+        manager.clear();
+
+        expect(manager.isPermanentlyFailed('peer1')).toBe(false);
+        expect(manager.isPermanentlyFailed('peer2')).toBe(false);
+      });
     });
   });
 });

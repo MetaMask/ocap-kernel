@@ -1,5 +1,6 @@
 import {
   isRetryableNetworkError,
+  getNetworkErrorCode,
   isResourceLimitError,
 } from '@metamask/kernel-errors';
 import {
@@ -89,6 +90,16 @@ export function makeReconnectionLifecycle(
     const state = peerStateManager.getState(peerId);
 
     while (reconnectionManager.isReconnecting(peerId) && !signal.aborted) {
+      // Check for permanent failure before attempting
+      if (reconnectionManager.isPermanentlyFailed(peerId)) {
+        logger.log(
+          `${peerId}:: permanently failed due to error pattern, giving up`,
+        );
+        reconnectionManager.stopReconnection(peerId);
+        onRemoteGiveUp?.(peerId);
+        return;
+      }
+
       if (!reconnectionManager.shouldRetry(peerId, maxAttempts)) {
         logger.log(
           `${peerId}:: max reconnection attempts (${maxAttempts}) reached, giving up`,
@@ -151,12 +162,32 @@ export function makeReconnectionLifecycle(
           );
           continue;
         }
+
+        // Check if retryable BEFORE recording - non-retryable errors should not
+        // contribute to permanent failure detection (they cause immediate give-up)
         if (!isRetryableNetworkError(problem)) {
           outputError(peerId, `non-retryable failure`, problem);
           reconnectionManager.stopReconnection(peerId);
           onRemoteGiveUp?.(peerId);
           return;
         }
+
+        // Record the error for pattern analysis (only retryable errors reach here)
+        const errorCode = getNetworkErrorCode(problem);
+        reconnectionManager.recordError(peerId, errorCode);
+
+        // Check if this error triggered permanent failure
+        if (reconnectionManager.isPermanentlyFailed(peerId)) {
+          outputError(
+            peerId,
+            `permanent failure detected (${errorCode})`,
+            problem,
+          );
+          reconnectionManager.stopReconnection(peerId);
+          onRemoteGiveUp?.(peerId);
+          return;
+        }
+
         outputError(peerId, `reconnection attempt ${nextAttempt}`, problem);
         // loop to next attempt
       }
@@ -234,7 +265,7 @@ export function makeReconnectionLifecycle(
 
   /**
    * Handle connection loss for a given peer ID.
-   * Skips reconnection if the peer was intentionally closed.
+   * Skips reconnection if the peer was intentionally closed or permanently failed.
    *
    * @param peerId - The peer ID to handle the connection loss for.
    */
@@ -251,7 +282,15 @@ export function makeReconnectionLifecycle(
     state.channel = undefined;
 
     if (!reconnectionManager.isReconnecting(peerId)) {
-      reconnectionManager.startReconnection(peerId);
+      const started = reconnectionManager.startReconnection(peerId);
+      if (!started) {
+        // Peer is permanently failed, don't attempt reconnection
+        logger.log(
+          `${peerId}:: peer is permanently failed, skipping reconnection`,
+        );
+        onRemoteGiveUp?.(peerId);
+        return;
+      }
       attemptReconnection(peerId).catch((problem) => {
         outputError(peerId, 'reconnection error', problem);
         reconnectionManager.stopReconnection(peerId);

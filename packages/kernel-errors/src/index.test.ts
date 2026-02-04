@@ -20,6 +20,7 @@ describe('index', () => {
       'VatAlreadyExistsError',
       'VatDeletedError',
       'VatNotFoundError',
+      'getNetworkErrorCode',
       'isMarshaledError',
       'isMarshaledOcapError',
       'isOcapError',

@@ -27,4 +27,5 @@ export { unmarshalError } from './marshal/unmarshalError.ts';
 export { isMarshaledError } from './marshal/isMarshaledError.ts';
 export { isMarshaledOcapError } from './marshal/isMarshaledOcapError.ts';
 export { isRetryableNetworkError } from './utils/isRetryableNetworkError.ts';
+export { getNetworkErrorCode } from './utils/getNetworkErrorCode.ts';
 export { isResourceLimitError } from './utils/isResourceLimitError.ts';
