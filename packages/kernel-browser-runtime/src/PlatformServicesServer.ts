@@ -293,6 +293,7 @@ export class PlatformServicesServer {
       this.#handleRemoteMessage.bind(this),
       this.#handleRemoteGiveUp.bind(this),
       incarnationId,
+      this.#handleRemoteIncarnationChange.bind(this),
     );
     this.#sendRemoteMessageFunc = sendRemoteMessage;
     this.#stopRemoteCommsFunc = stop;
@@ -403,6 +404,23 @@ export class PlatformServicesServer {
     this.#rpcClient.call('remoteGiveUp', { peerId }).catch((error) => {
       this.#logger.error('Error notifying kernel of remote give up:', error);
     });
+  }
+
+  /**
+   * Handle when a remote peer's incarnation changes (peer restarted).
+   * Notifies the kernel worker via RPC to reset the RemoteHandle state.
+   *
+   * @param peerId - The peer ID of the remote that restarted.
+   */
+  #handleRemoteIncarnationChange(peerId: string): void {
+    this.#rpcClient
+      .call('remoteIncarnationChange', { peerId })
+      .catch((error) => {
+        this.#logger.error(
+          'Error notifying kernel of remote incarnation change:',
+          error,
+        );
+      });
   }
 }
 harden(PlatformServicesServer);

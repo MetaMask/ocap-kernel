@@ -135,6 +135,28 @@ export class RemoteManager {
   }
 
   /**
+   * Handle when a remote peer's incarnation changes (peer restarted).
+   * Resets the RemoteHandle state for a fresh start.
+   *
+   * @param peerId - The peer ID of the remote that restarted.
+   */
+  #handleIncarnationChange(peerId: string): void {
+    const remote = this.#remotesByPeer.get(peerId);
+    if (!remote) {
+      // Remote not found - might not have been established yet
+      this.#logger?.log(
+        `Incarnation change for unknown peer ${peerId.slice(0, 8)}, ignoring`,
+      );
+      return;
+    }
+
+    this.#logger?.log(
+      `Handling incarnation change for peer ${peerId.slice(0, 8)}`,
+    );
+    remote.handlePeerRestart();
+  }
+
+  /**
    * Initialize the remote comms object at kernel startup.
    *
    * @param options - Options for remote communications initialization.
@@ -162,6 +184,7 @@ export class RemoteManager {
       this.#keySeed,
       this.#handleRemoteGiveUp.bind(this),
       this.#incarnationId,
+      this.#handleIncarnationChange.bind(this),
     );
 
     // Restore all remotes that were previously established

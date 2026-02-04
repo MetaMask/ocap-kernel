@@ -144,6 +144,7 @@ describe('remote-comms', () => {
         mockRemoteMessageHandler,
         undefined, // onRemoteGiveUp
         undefined, // incarnationId
+        undefined, // onIncarnationChange
       );
     });
 
@@ -167,6 +168,7 @@ describe('remote-comms', () => {
         mockRemoteMessageHandler,
         undefined,
         undefined, // incarnationId
+        undefined, // onIncarnationChange
       );
     });
 
@@ -187,6 +189,7 @@ describe('remote-comms', () => {
         mockRemoteMessageHandler,
         onRemoteGiveUp,
         undefined, // incarnationId
+        undefined, // onIncarnationChange
       );
     });
 
@@ -208,6 +211,30 @@ describe('remote-comms', () => {
         mockRemoteMessageHandler,
         undefined,
         incarnationId,
+        undefined, // onIncarnationChange
+      );
+    });
+
+    it('passes onIncarnationChange callback to platformServices', async () => {
+      const onIncarnationChange = vi.fn();
+      await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        {},
+        undefined, // logger
+        undefined, // keySeed
+        undefined, // onRemoteGiveUp
+        undefined, // incarnationId
+        onIncarnationChange,
+      );
+      expect(mockPlatformServices.initializeRemoteComms).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Object),
+        mockRemoteMessageHandler,
+        undefined,
+        undefined, // incarnationId
+        onIncarnationChange,
       );
     });
 

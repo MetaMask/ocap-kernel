@@ -27,6 +27,13 @@ export type RemoteComms = {
 export type OnRemoteGiveUp = (peerId: string) => void;
 
 /**
+ * Callback invoked when a remote peer's incarnation ID changes (peer restarted).
+ *
+ * @param peerId - The peer ID whose incarnation changed.
+ */
+export type OnIncarnationChange = (peerId: string) => void;
+
+/**
  * Options for initializing remote communications.
  */
 export type RemoteCommsOptions = {

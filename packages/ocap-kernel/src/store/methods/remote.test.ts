@@ -341,4 +341,46 @@ describe('remote store methods', () => {
       expect(deleted).toBe(0);
     });
   });
+
+  describe('clearRemoteSeqState', () => {
+    it('deletes all seq state and pending messages', () => {
+      mockKV.set(`remoteSeq.${remoteId1}.nextSendSeq`, '10');
+      mockKV.set(`remoteSeq.${remoteId1}.highestReceivedSeq`, '5');
+      mockKV.set(`remoteSeq.${remoteId1}.startSeq`, '2');
+      mockKV.set(`remotePending.${remoteId1}.2`, '{"seq":2}');
+      mockKV.set(`remotePending.${remoteId1}.3`, '{"seq":3}');
+      mockGetPrefixedKeys.mockReturnValue([
+        `remotePending.${remoteId1}.2`,
+        `remotePending.${remoteId1}.3`,
+      ]);
+
+      remoteMethods.clearRemoteSeqState(remoteId1);
+
+      expect(mockKV.has(`remoteSeq.${remoteId1}.nextSendSeq`)).toBe(false);
+      expect(mockKV.has(`remoteSeq.${remoteId1}.highestReceivedSeq`)).toBe(
+        false,
+      );
+      expect(mockKV.has(`remoteSeq.${remoteId1}.startSeq`)).toBe(false);
+      expect(mockKV.has(`remotePending.${remoteId1}.2`)).toBe(false);
+      expect(mockKV.has(`remotePending.${remoteId1}.3`)).toBe(false);
+    });
+
+    it('does not affect remote relationship info', () => {
+      mockKV.set(`remote.${remoteId1}`, JSON.stringify(remoteInfo1));
+      mockKV.set(`remoteSeq.${remoteId1}.nextSendSeq`, '10');
+      mockGetPrefixedKeys.mockReturnValue([]);
+
+      remoteMethods.clearRemoteSeqState(remoteId1);
+
+      // Remote info should still exist
+      expect(mockKV.has(`remote.${remoteId1}`)).toBe(true);
+      // Seq state should be cleared
+      expect(mockKV.has(`remoteSeq.${remoteId1}.nextSendSeq`)).toBe(false);
+    });
+
+    it('does nothing when no state exists', () => {
+      mockGetPrefixedKeys.mockReturnValue([]);
+      expect(() => remoteMethods.clearRemoteSeqState(remoteId1)).not.toThrow();
+    });
+  });
 });

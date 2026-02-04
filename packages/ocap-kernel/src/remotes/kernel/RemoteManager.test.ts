@@ -81,6 +81,7 @@ describe('RemoteManager', () => {
         undefined,
         expect.any(Function),
         kernelStore.provideIncarnationId(),
+        expect.any(Function), // onIncarnationChange
       );
     });
 
@@ -109,6 +110,7 @@ describe('RemoteManager', () => {
         undefined,
         expect.any(Function),
         kernelStore.provideIncarnationId(),
+        expect.any(Function), // onIncarnationChange
       );
     });
 
@@ -137,6 +139,7 @@ describe('RemoteManager', () => {
         keySeed,
         expect.any(Function),
         kernelStore.provideIncarnationId(),
+        expect.any(Function), // onIncarnationChange
       );
     });
 

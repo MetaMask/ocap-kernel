@@ -8,6 +8,7 @@ import type {
   VatId,
   VatConfig,
   RemoteCommsOptions,
+  OnIncarnationChange,
 } from '@metamask/ocap-kernel';
 import {
   platformServicesMethodSpecs,
@@ -62,6 +63,8 @@ export class PlatformServicesClient implements PlatformServices {
 
   #remoteGiveUpHandler: ((peerId: string) => void) | undefined = undefined;
 
+  #remoteIncarnationChangeHandler: OnIncarnationChange | undefined = undefined;
+
   /**
    * **ATTN:** Prefer {@link PlatformServicesClient.make} over constructing
    * this class directly.
@@ -96,6 +99,7 @@ export class PlatformServicesClient implements PlatformServices {
     this.#rpcServer = new RpcService(kernelRemoteHandlers, {
       remoteDeliver: this.#remoteDeliver.bind(this),
       remoteGiveUp: this.#remoteGiveUp.bind(this),
+      remoteIncarnationChange: this.#remoteIncarnationChange.bind(this),
     });
 
     // Start draining messages immediately after construction
@@ -195,6 +199,7 @@ export class PlatformServicesClient implements PlatformServices {
    * @param remoteMessageHandler - A handler function to receive remote messages.
    * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
    * @param incarnationId - Unique identifier for this kernel instance.
+   * @param onIncarnationChange - Optional callback when a remote peer's incarnation changes.
    * @returns A promise that resolves once network access has been established
    *   or rejects if there is some problem doing so.
    */
@@ -204,9 +209,11 @@ export class PlatformServicesClient implements PlatformServices {
     remoteMessageHandler: (from: string, message: string) => Promise<string>,
     onRemoteGiveUp?: (peerId: string) => void,
     incarnationId?: string,
+    onIncarnationChange?: OnIncarnationChange,
   ): Promise<void> {
     this.#remoteMessageHandler = remoteMessageHandler;
     this.#remoteGiveUpHandler = onRemoteGiveUp;
+    this.#remoteIncarnationChangeHandler = onIncarnationChange;
     await this.#rpcClient.call('initializeRemoteComms', {
       keySeed,
       ...Object.fromEntries(
@@ -293,6 +300,19 @@ export class PlatformServicesClient implements PlatformServices {
   async #remoteGiveUp(peerId: string): Promise<null> {
     if (this.#remoteGiveUpHandler) {
       this.#remoteGiveUpHandler(peerId);
+    }
+    return null;
+  }
+
+  /**
+   * Handle a remote incarnation change notification from the server.
+   *
+   * @param peerId - The peer ID of the remote that restarted.
+   * @returns A promise that resolves when handling is complete.
+   */
+  async #remoteIncarnationChange(peerId: string): Promise<null> {
+    if (this.#remoteIncarnationChangeHandler) {
+      this.#remoteIncarnationChangeHandler(peerId);
     }
     return null;
   }

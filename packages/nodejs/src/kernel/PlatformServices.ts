@@ -9,6 +9,7 @@ import type {
   SendRemoteMessage,
   StopRemoteComms,
   RemoteCommsOptions,
+  OnIncarnationChange,
 } from '@metamask/ocap-kernel';
 import { initTransport } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
@@ -228,6 +229,7 @@ export class NodejsPlatformServices implements PlatformServices {
    * @param remoteMessageHandler - A handler function to receive remote messages.
    * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
    * @param incarnationId - This kernel's incarnation ID for handshake protocol.
+   * @param onIncarnationChange - Optional callback when a remote peer's incarnation changes.
    * @returns A promise that resolves once network access has been established
    *   or rejects if there is some problem doing so.
    */
@@ -237,6 +239,7 @@ export class NodejsPlatformServices implements PlatformServices {
     remoteMessageHandler: (from: string, message: string) => Promise<string>,
     onRemoteGiveUp?: (peerId: string) => void,
     incarnationId?: string,
+    onIncarnationChange?: OnIncarnationChange,
   ): Promise<void> {
     if (this.#sendRemoteMessageFunc) {
       throw Error('remote comms already initialized');
@@ -254,6 +257,7 @@ export class NodejsPlatformServices implements PlatformServices {
       this.#handleRemoteMessage.bind(this),
       onRemoteGiveUp,
       incarnationId,
+      onIncarnationChange,
     );
     this.#sendRemoteMessageFunc = sendRemoteMessage;
     this.#stopRemoteCommsFunc = stop;

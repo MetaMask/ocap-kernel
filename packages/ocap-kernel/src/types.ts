@@ -34,6 +34,7 @@ import type {
   SendRemoteMessage,
   StopRemoteComms,
   OnRemoteGiveUp,
+  OnIncarnationChange,
   RemoteCommsOptions,
 } from './remotes/types.ts';
 import { Fail } from './utils/assert.ts';
@@ -325,6 +326,7 @@ export type PlatformServices = {
    * @param remoteMessageHandler - A handler function to receive remote messages.
    * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
    * @param incarnationId - Unique identifier for this kernel instance.
+   * @param onIncarnationChange - Optional callback when a remote peer's incarnation changes.
    * @returns A promise that resolves once network access has been established
    *   or rejects if there is some problem doing so.
    */
@@ -334,6 +336,7 @@ export type PlatformServices = {
     remoteMessageHandler: RemoteMessageHandler,
     onRemoteGiveUp?: OnRemoteGiveUp,
     incarnationId?: string,
+    onIncarnationChange?: OnIncarnationChange,
   ) => Promise<void>;
   /**
    * Stop network communications.

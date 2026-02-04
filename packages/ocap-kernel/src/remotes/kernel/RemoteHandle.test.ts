@@ -1166,4 +1166,71 @@ describe('RemoteHandle', () => {
       expect(parsed.ack).toBeUndefined(); // No highestReceivedSeq
     });
   });
+
+  describe('handlePeerRestart', () => {
+    it('resets sequence numbers for fresh start', async () => {
+      const remote = makeRemote();
+
+      // Build up some state by sending and receiving messages
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+      await remote.deliverNotify(resolutions);
+      await remote.handleRemoteMessage(
+        JSON.stringify({
+          seq: 5,
+          method: 'deliver',
+          params: ['notify', resolutions],
+        }),
+      );
+
+      // Call handlePeerRestart
+      remote.handlePeerRestart();
+
+      // Send a new message - should start from seq=1
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mockClear();
+      await remote.deliverNotify(resolutions);
+
+      const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+        .calls[0]![1];
+      const parsed = JSON.parse(sentString);
+      expect(parsed.seq).toBe(1);
+      // ack should not be included since highestReceivedSeq was reset to 0
+      expect(parsed.ack).toBeUndefined();
+    });
+
+    it('clears persisted sequence state', async () => {
+      const remote = makeRemote();
+
+      // Build up state
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+      await remote.deliverNotify(resolutions);
+
+      // Verify state exists before restart
+      expect(mockKernelStore.getRemoteSeqState(mockRemoteId)).toBeDefined();
+
+      // Call handlePeerRestart
+      remote.handlePeerRestart();
+
+      // Verify state was cleared
+      expect(mockKernelStore.getRemoteSeqState(mockRemoteId)).toBeUndefined();
+    });
+
+    it('rejects pending URL redemptions', async () => {
+      const remote = makeRemote();
+
+      // Start a redemption but don't resolve it
+      const redeemPromise = remote.redeemOcapURL('ocap:test@peer,relay');
+
+      // Call handlePeerRestart
+      remote.handlePeerRestart();
+
+      // The pending redemption should be rejected
+      await expect(redeemPromise).rejects.toThrow('Remote peer restarted');
+    });
+  });
 });

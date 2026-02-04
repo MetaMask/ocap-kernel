@@ -37,6 +37,7 @@ import type {
   StopRemoteComms,
   Channel,
   OnRemoteGiveUp,
+  OnIncarnationChange,
   RemoteCommsOptions,
 } from '../types.ts';
 
@@ -57,6 +58,7 @@ import type {
  * @param remoteMessageHandler - Handler to be called when messages are received from elsewhere.
  * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote (after max retries or non-retryable error).
  * @param localIncarnationId - This kernel's incarnation ID for handshake protocol.
+ * @param onIncarnationChange - Optional callback when a remote peer's incarnation changes (peer restarted).
  *
  * @returns a function to send messages **and** a `stop()` to cancel/release everything.
  */
@@ -66,6 +68,7 @@ export async function initTransport(
   remoteMessageHandler: RemoteMessageHandler,
   onRemoteGiveUp?: OnRemoteGiveUp,
   localIncarnationId?: string,
+  onIncarnationChange?: OnIncarnationChange,
 ): Promise<{
   sendRemoteMessage: SendRemoteMessage;
   stop: StopRemoteComms;
@@ -151,11 +154,12 @@ export async function initTransport(
     }
     // Handle incarnation change outside try-catch so callback errors
     // don't incorrectly mark the handshake as failed
-    if (result.incarnationChanged && onRemoteGiveUp) {
+    if (result.incarnationChanged) {
       logger.log(
-        `${channel.peerId.slice(0, 8)}:: incarnation changed during outbound handshake, triggering promise rejection`,
+        `${channel.peerId.slice(0, 8)}:: incarnation changed during outbound handshake, resetting remote state`,
       );
-      onRemoteGiveUp(channel.peerId);
+      // Call incarnation change callback first to reset RemoteHandle state
+      onIncarnationChange?.(channel.peerId);
     }
     return true;
   }
@@ -180,11 +184,12 @@ export async function initTransport(
     }
     // Handle incarnation change outside try-catch so callback errors
     // don't incorrectly mark the handshake as failed
-    if (result.incarnationChanged && onRemoteGiveUp) {
+    if (result.incarnationChanged) {
       logger.log(
-        `${channel.peerId.slice(0, 8)}:: incarnation changed during inbound handshake, triggering promise rejection`,
+        `${channel.peerId.slice(0, 8)}:: incarnation changed during inbound handshake, resetting remote state`,
       );
-      onRemoteGiveUp(channel.peerId);
+      // Call incarnation change callback first to reset RemoteHandle state
+      onIncarnationChange?.(channel.peerId);
     }
     return true;
   }
@@ -439,6 +444,15 @@ export async function initTransport(
     // Get or establish channel
     let { channel } = state;
     if (!channel) {
+      // Clear permanent failure status - user is explicitly trying to communicate
+      // This allows user-initiated messages to "resurrect" a permanently-failed peer
+      if (reconnectionManager.isPermanentlyFailed(targetPeerId)) {
+        logger.log(
+          `${targetPeerId.slice(0, 8)}:: clearing permanent failure status on user-initiated send`,
+        );
+        reconnectionManager.clearPermanentFailure(targetPeerId);
+      }
+
       // Check connection limit before attempting to dial
       checkConnectionLimit();
 
