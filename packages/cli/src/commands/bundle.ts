@@ -50,7 +50,7 @@ export async function bundleDir(
   const { logger } = options;
   logger.info('Bundling directory:', sourceDir);
   await Promise.all(
-    (await glob(join(sourceDir, '*.js'))).map(
+    (await glob(join(sourceDir, '*.{js,ts}'))).map(
       async (source) => await bundleFile(source, { logger }),
     ),
   );

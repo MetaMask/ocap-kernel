@@ -1,4 +1,5 @@
 import type {
+  Baggage,
   SwingSetCapData,
   Message as SwingsetMessage,
   VatSyscallObject,
@@ -464,6 +465,15 @@ export const KernelStatusStruct = type({
 export type KernelStatus = Infer<typeof KernelStatusStruct>;
 
 export type UserCodeStartFn = (parameters?: Record<string, Json>) => object;
+
+/**
+ * Capabilities provided to a vat. The contents vary by vat configuration.
+ * Note: A logger is available via the `console` endowment.
+ */
+export type VatPowers = Record<string, unknown>;
+
+/** Persistent storage for a vat's durable state (from @agoric/swingset-liveslots). */
+export type { Baggage };
 
 /**
  * A mapping of GC action type to queue event type.
