@@ -617,6 +617,7 @@ export class Kernel {
     await this.#kernelQueue.waitForCrank();
     try {
       await this.terminateAllVats();
+      this.#systemVatRoots.clear();
       this.#resetKernelState();
     } catch (error) {
       this.#logger.error('Error resetting kernel:', error);

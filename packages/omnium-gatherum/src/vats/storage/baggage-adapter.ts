@@ -71,6 +71,9 @@ export function makeBaggageStorageAdapter(baggage: Baggage): StorageAdapter {
         baggage.set(key, harden(value));
       } else {
         baggage.init(key, harden(value));
+      }
+      // Always ensure key is tracked (handles re-adding after delete)
+      if (!keys.has(key)) {
         keys.add(key);
         saveKeys(keys);
       }

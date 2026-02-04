@@ -820,6 +820,26 @@ describe('Kernel', () => {
       expect(kernel.getVatIds()).toHaveLength(0);
     });
 
+    it('clears system vat roots', async () => {
+      const mockDb = makeMapKernelDatabase();
+      const kernel = await Kernel.make(mockPlatformServices, mockDb, {
+        systemVats: [
+          {
+            name: 'testSystemVat',
+            sourceSpec: 'system-vat.js',
+          },
+        ],
+      });
+      // Verify system vat root was stored
+      expect(kernel.getSystemVatRoot('testSystemVat')).toBeDefined();
+      expect(kernel.getSystemVatRoot('testSystemVat')).toMatch(/^ko\d+$/u);
+
+      await kernel.reset();
+
+      // Verify system vat roots are cleared
+      expect(kernel.getSystemVatRoot('testSystemVat')).toBeUndefined();
+    });
+
     it('logs an error if resetting the kernel state fails', async () => {
       const mockDb = makeMapKernelDatabase();
       const logger = new Logger('test');

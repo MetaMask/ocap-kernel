@@ -89,6 +89,22 @@ describe('makeBaggageStorageAdapter', () => {
       expect(keys).toContain('key1');
       expect(keys).toContain('key2');
     });
+
+    it('re-adds previously deleted key to tracking', async () => {
+      // Set initial value
+      await adapter.set('reused-key', { original: true });
+      expect(await adapter.keys()).toContain('reused-key');
+
+      // Delete it (creates null tombstone but removes from tracking)
+      await adapter.delete('reused-key');
+      expect(await adapter.keys()).not.toContain('reused-key');
+      expect(baggage._store.has('reused-key')).toBe(true); // tombstone exists
+
+      // Set again - should re-add to tracking
+      await adapter.set('reused-key', { restored: true });
+      expect(await adapter.keys()).toContain('reused-key');
+      expect(await adapter.get('reused-key')).toStrictEqual({ restored: true });
+    });
   });
 
   describe('delete', () => {
