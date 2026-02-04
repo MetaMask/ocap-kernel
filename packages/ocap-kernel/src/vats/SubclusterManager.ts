@@ -184,6 +184,28 @@ export class SubclusterManager {
   }
 
   /**
+   * Deletes a subcluster and its vat data from storage without terminating running vats.
+   * This is used for cleaning up orphaned subclusters before vats are started.
+   *
+   * @param subclusterId - The ID of the subcluster to delete.
+   */
+  deleteSubcluster(subclusterId: string): void {
+    const subcluster = this.#kernelStore.getSubcluster(subclusterId);
+    if (!subcluster) {
+      return;
+    }
+
+    // Delete vat configs and mark vats as terminated so their data will be cleaned up
+    for (const vatId of subcluster.vats) {
+      this.#kernelStore.deleteVatConfig(vatId);
+      this.#kernelStore.markVatAsTerminated(vatId);
+    }
+
+    // Delete the subcluster record
+    this.#kernelStore.deleteSubcluster(subclusterId);
+  }
+
+  /**
    * Launches all vats for a subcluster and sets up their bootstrap connections.
    *
    * @param subclusterId - The ID of the subcluster to launch vats for.

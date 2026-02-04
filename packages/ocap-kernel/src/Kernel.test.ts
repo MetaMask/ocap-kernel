@@ -873,6 +873,54 @@ describe('Kernel', () => {
     });
   });
 
+  describe('system subcluster cleanup', () => {
+    it('deletes orphaned system subclusters without starting their vats', async () => {
+      const db = makeMapKernelDatabase();
+      const systemSubclusterConfig = {
+        name: 'testSystemSubcluster',
+        config: {
+          bootstrap: 'testSystemSubcluster',
+          vats: {
+            testSystemSubcluster: {
+              sourceSpec: 'system-vat.js',
+            },
+          },
+        },
+      };
+
+      // Create kernel with system subcluster
+      const kernel1 = await Kernel.make(mockPlatformServices, db, {
+        systemSubclusters: [systemSubclusterConfig],
+      });
+      expect(kernel1.getSubclusters()).toHaveLength(1);
+      expect(kernel1.getVatIds()).toStrictEqual(['v1']);
+      expect(
+        kernel1.getSystemSubclusterRoot('testSystemSubcluster'),
+      ).toBeDefined();
+
+      // Stop kernel
+      await kernel1.stop();
+
+      // Clear spies to track what happens on restart
+      launchWorkerMock.mockClear();
+      makeVatHandleMock.mockClear();
+
+      // Restart kernel WITHOUT the system subcluster config
+      const kernel2 = await Kernel.make(mockPlatformServices, db, {
+        systemSubclusters: [], // No system subclusters
+      });
+
+      // The orphaned system subcluster should have been deleted without starting vats
+      expect(launchWorkerMock).not.toHaveBeenCalled();
+      expect(makeVatHandleMock).not.toHaveBeenCalled();
+      expect(kernel2.getSubclusters()).toHaveLength(0);
+      expect(kernel2.getVatIds()).toStrictEqual([]);
+      expect(
+        kernel2.getSystemSubclusterRoot('testSystemSubcluster'),
+      ).toBeUndefined();
+    });
+  });
+
   describe('revoke and isRevoked', () => {
     it('reflect when an object is revoked', async () => {
       const kernel = await Kernel.make(

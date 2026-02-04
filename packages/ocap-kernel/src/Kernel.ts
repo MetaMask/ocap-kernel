@@ -54,6 +54,9 @@ export class Kernel {
   /** Stores bootstrap root krefs of launched system subclusters */
   readonly #systemSubclusterRoots: Map<string, KRef> = new Map();
 
+  /** Whether the kernel facet has been registered */
+  #kernelFacetRegistered = false;
+
   /** Manages remote kernel connections */
   readonly #remoteManager: RemoteManager;
 
@@ -218,11 +221,18 @@ export class Kernel {
   async #init(
     systemSubclusterConfigs?: SystemSubclusterConfig[],
   ): Promise<void> {
+    const configs = systemSubclusterConfigs ?? [];
+
     // Set up the remote message handler
     this.#remoteManager.setMessageHandler(
       async (from: string, message: string) =>
         this.#remoteManager.handleRemoteMessage(from, message),
     );
+
+    // Handle persisted system subclusters before initializing vats:
+    // - Delete orphaned ones (no longer in config) so their vats aren't started
+    // - Restore mappings for existing ones (registers kernelFacet if needed)
+    this.#handlePersistedSystemSubclusters(configs);
 
     // Start all vats that were previously running before starting the queue
     // This ensures that any messages in the queue have their target vats ready
@@ -230,7 +240,6 @@ export class Kernel {
 
     // Start the kernel queue processing (non-blocking)
     // This runs for the entire lifetime of the kernel
-    // Must start before initializing system subclusters since launchSubcluster awaits bootstrap results
     this.#kernelQueue
       .run(this.#kernelRouter.deliver.bind(this.#kernelRouter))
       .catch((error) => {
@@ -241,67 +250,101 @@ export class Kernel {
         // Don't re-throw to avoid unhandled rejection in this long-running task
       });
 
-    // Initialize system subclusters after queue is running
-    await this.#initSystemSubclusters(systemSubclusterConfigs ?? []);
+    // Launch any NEW system subclusters (requires queue to be running)
+    // It's safe to do this last because messages and existing vats cannot possibly
+    // be targeting these new subclusters.
+    await this.#launchNewSystemSubclusters(configs);
   }
 
   /**
-   * Initialize system subclusters.
-   * For existing system subclusters (from a previous session), restore their
-   * root references from persistence. For new system subclusters, launch them.
+   * Handle persisted system subclusters before vat initialization.
+   * - Deletes orphaned subclusters (no longer in config) so their vats aren't started
+   * - Restores mappings for existing subclusters (registers kernelFacet if needed)
    *
    * @param configs - Array of system subcluster configurations.
    */
-  async #initSystemSubclusters(
-    configs: SystemSubclusterConfig[],
-  ): Promise<void> {
-    // First, restore persisted system subcluster mappings to #systemSubclusterRoots
+  #handlePersistedSystemSubclusters(configs: SystemSubclusterConfig[]): void {
     const persistedMappings =
       this.#kernelStore.getAllSystemSubclusterMappings();
 
-    // Early return if no system subclusters to handle
-    if (persistedMappings.size === 0 && configs.length === 0) {
+    if (persistedMappings.size === 0) {
       return;
     }
 
-    // Ensure kernel facet is registered before initializing system subclusters
-    this.#registerKernelFacet();
+    const configNames = new Set(configs.map((config) => config.name));
+
+    // Track if we have any valid persisted subclusters to restore
+    let hasValidPersistedSubclusters = false;
 
     for (const [name, subclusterId] of persistedMappings) {
+      if (!configNames.has(name)) {
+        // This system subcluster no longer has a config - delete it
+        this.#logger.info(
+          `System subcluster "${name}" no longer in config, deleting`,
+        );
+        this.#subclusterManager.deleteSubcluster(subclusterId);
+        this.#kernelStore.deleteSystemSubclusterMapping(name);
+        continue;
+      }
+
+      // Subcluster has a config - try to restore it
       const subcluster = this.getSubcluster(subclusterId);
-      if (subcluster) {
-        // Subcluster exists - get its bootstrap root from the already-resuscitated vats
-        const bootstrapVatId = subcluster.vats[0]; // bootstrap vat is first
-        if (bootstrapVatId) {
-          const rootKref = this.#kernelStore.getRootObject(bootstrapVatId);
-          if (rootKref) {
-            this.#systemSubclusterRoots.set(name, rootKref);
-            this.#logger.info(`Restored system subcluster "${name}"`);
-          } else {
-            this.#logger.warn(
-              `System subcluster "${name}" has no root object, will relaunch`,
-            );
-            // Clean up the stale mapping
-            this.#kernelStore.deleteSystemSubclusterMapping(name);
-          }
-        }
-      } else {
-        // Subcluster no longer exists - clean up the stale mapping
+      if (!subcluster) {
         this.#logger.warn(
           `System subcluster "${name}" mapping points to non-existent subcluster ${subclusterId}, cleaning up`,
         );
         this.#kernelStore.deleteSystemSubclusterMapping(name);
-      }
-    }
-
-    // Then, launch any NEW system subclusters not already persisted
-    for (const { name, config } of configs) {
-      if (this.#systemSubclusterRoots.has(name)) {
-        // Already restored from persistence - skip
         continue;
       }
 
-      // New system subcluster - launch it
+      const bootstrapVatId = subcluster.vats[0];
+      if (!bootstrapVatId) {
+        continue;
+      }
+
+      const rootKref = this.#kernelStore.getRootObject(bootstrapVatId);
+      if (!rootKref) {
+        this.#logger.warn(
+          `System subcluster "${name}" has no root object, will relaunch`,
+        );
+        this.#kernelStore.deleteSystemSubclusterMapping(name);
+        continue;
+      }
+
+      // Valid subcluster to restore - register kernelFacet on first valid one
+      if (!hasValidPersistedSubclusters) {
+        this.#ensureKernelFacetRegistered();
+        hasValidPersistedSubclusters = true;
+      }
+
+      this.#systemSubclusterRoots.set(name, rootKref);
+      this.#logger.info(`Restored system subcluster "${name}"`);
+    }
+  }
+
+  /**
+   * Launch new system subclusters that aren't already in persistence.
+   * This must be called after the kernel queue is running since launchSubcluster
+   * sends bootstrap messages.
+   *
+   * @param configs - Array of system subcluster configurations.
+   */
+  async #launchNewSystemSubclusters(
+    configs: SystemSubclusterConfig[],
+  ): Promise<void> {
+    // Filter to only configs that weren't restored from persistence
+    const newConfigs = configs.filter(
+      ({ name }) => !this.#systemSubclusterRoots.has(name),
+    );
+
+    if (newConfigs.length === 0) {
+      return;
+    }
+
+    // Ensure kernelFacet is registered for new system subclusters
+    this.#ensureKernelFacetRegistered();
+
+    for (const { name, config } of newConfigs) {
       const result = await this.launchSubcluster(config);
       this.#systemSubclusterRoots.set(name, result.bootstrapRootKref);
 
@@ -314,8 +357,13 @@ export class Kernel {
 
   /**
    * Register the kernel facet as a kernel service for system subclusters.
+   * This is idempotent - calling it multiple times has no effect after the first.
    */
-  #registerKernelFacet(): void {
+  #ensureKernelFacetRegistered(): void {
+    if (this.#kernelFacetRegistered) {
+      return;
+    }
+
     const kernelFacet = makeKernelFacet({
       launchSubcluster: this.launchSubcluster.bind(this),
       terminateSubcluster: this.terminateSubcluster.bind(this),
@@ -328,6 +376,7 @@ export class Kernel {
       'kernelFacet',
       kernelFacet,
     );
+    this.#kernelFacetRegistered = true;
   }
 
   /**
