@@ -32,11 +32,9 @@ describe('makeKernelFacet', () => {
           { id: 's1', config: { bootstrap: 'test', vats: {} }, vats: {} },
         ]),
       getStatus: vi.fn().mockResolvedValue({
-        initialized: true,
-        cranksExecuted: 10,
-        cranksPending: 0,
-        vatCount: 2,
-        endpointCount: 3,
+        vats: [],
+        subclusters: [],
+        remoteComms: { isInitialized: false },
       }),
     };
   });
@@ -137,9 +135,7 @@ describe('makeKernelFacet', () => {
     });
 
     it('returns undefined for unknown subcluster', () => {
-      vi.spyOn(deps, 'getSubcluster')
-        .mockImplementation()
-        .mockReturnValue(undefined);
+      vi.spyOn(deps, 'getSubcluster').mockImplementation(() => undefined);
       const facet = makeKernelFacet(deps) as {
         getSubcluster: (id: string) => Subcluster | undefined;
       };
@@ -191,11 +187,23 @@ describe('makeKernelFacet', () => {
 
       const result = await facet.getStatus();
 
-      expect(result.initialized).toBe(true);
-      expect(result.cranksExecuted).toBe(10);
-      expect(result.cranksPending).toBe(0);
-      expect(result.vatCount).toBe(2);
-      expect(result.endpointCount).toBe(3);
+      expect(result).toStrictEqual({
+        vats: [],
+        subclusters: [],
+        remoteComms: { isInitialized: false },
+      });
+    });
+  });
+
+  describe('getVatRoot', () => {
+    it('returns a slot value for the given kref', () => {
+      const facet = makeKernelFacet(deps) as {
+        getVatRoot: (kref: string) => SlotValue;
+      };
+
+      const result = facet.getVatRoot('ko42');
+
+      expect(krefOf(result)).toBe('ko42');
     });
   });
 });
