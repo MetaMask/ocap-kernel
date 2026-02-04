@@ -4,6 +4,8 @@ import {
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
+  isConsoleForwardMessage,
+  handleConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
 import type {
   CapTPMessage,
@@ -121,7 +123,9 @@ async function main(): Promise<void> {
 
   try {
     await offscreenStream.drain((message) => {
-      if (isCapTPNotification(message)) {
+      if (isConsoleForwardMessage(message)) {
+        handleConsoleForwardMessage(message);
+      } else if (isCapTPNotification(message)) {
         const captpMessage = getCapTPMessage(message);
         backgroundCapTP.dispatch(captpMessage);
       } else {
