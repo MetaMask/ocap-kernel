@@ -20,7 +20,9 @@ export async function bundleVat(sourcePath: string): Promise<VatBundle> {
   const result = await build({
     configFile: false,
     logLevel: 'silent',
-    // Replace process.env references since they don't exist in SES vat environment
+    // TODO: Remove this define block and add a process shim to VatSupervisor
+    // workerEndowments instead. This injects into ALL bundles but is only needed
+    // for libraries like immer that check process.env.NODE_ENV.
     define: {
       'process.env.NODE_ENV': JSON.stringify('production'),
     },
