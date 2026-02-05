@@ -3,63 +3,39 @@ import { makeDefaultExo } from '@metamask/kernel-utils';
 import type { Kernel } from './Kernel.ts';
 import { kslot } from './liveslots/kernel-marshal.ts';
 import type { SlotValue } from './liveslots/kernel-marshal.ts';
-import type { ClusterConfig, Subcluster, KernelStatus } from './types.ts';
+import type { PingVatResult } from './rpc/index.ts';
+import type { Subcluster, KernelStatus, KRef, VatId } from './types.ts';
 
 /**
  * Dependencies required to create a kernel facet.
  */
 export type KernelFacetDependencies = Pick<
   Kernel,
-  | 'launchSubcluster'
-  | 'terminateSubcluster'
-  | 'reloadSubcluster'
+  | 'getStatus'
   | 'getSubcluster'
   | 'getSubclusters'
-  | 'getStatus'
+  | 'getSystemSubclusterRoot'
+  | 'launchSubcluster'
+  | 'pingVat'
+  | 'queueMessage'
+  | 'reloadSubcluster'
+  | 'reset'
+  | 'terminateSubcluster'
 >;
-
-/**
- * Result of launching a subcluster via the kernel facet.
- * Contains the root object as a slot value (which will become a presence)
- * and the root kref string for storage purposes.
- */
-export type KernelFacetLaunchResult = {
-  /** The ID of the launched subcluster. */
-  subclusterId: string;
-  /**
-   * The root object as a slot value (becomes a presence when marshalled).
-   * Use this directly with E() for immediate operations.
-   */
-  rootObject: SlotValue;
-  /**
-   * The root kref string for storage purposes.
-   * Store this value to restore the presence after restart using getVatRoot().
-   */
-  rootKref: string;
-};
 
 /**
  * The kernel facet interface.
  *
  * This is the interface provided as a vatpower to the bootstrap vat of a
  * system vat. It enables privileged kernel operations.
- *
- * Derived from KernelFacetDependencies but with launchSubcluster overridden
- * to return KernelFacetLaunchResult (root as SlotValue) instead of
- * SubclusterLaunchResult (bootstrapRootKref as string).
  */
-export type KernelFacet = Omit<
-  KernelFacetDependencies,
-  'logger' | 'launchSubcluster'
-> & {
+export type KernelFacet = KernelFacetDependencies & {
   /**
-   * Launch a dynamic subcluster.
-   * Returns root as a SlotValue (which becomes a presence when delivered).
+   * Ping the kernel.
    *
-   * @param config - Configuration for the subcluster.
-   * @returns A promise for the launch result containing subclusterId and root presence.
+   * @returns The string 'pong'.
    */
-  launchSubcluster: (config: ClusterConfig) => Promise<KernelFacetLaunchResult>;
+  ping: () => 'pong';
 
   /**
    * Convert a kref string to a slot value (presence).
@@ -87,31 +63,66 @@ export type KernelFacet = Omit<
  */
 export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
   const {
-    launchSubcluster,
-    terminateSubcluster,
-    reloadSubcluster,
+    getStatus,
     getSubcluster,
     getSubclusters,
-    getStatus,
+    getSystemSubclusterRoot,
+    launchSubcluster,
+    pingVat,
+    queueMessage,
+    reloadSubcluster,
+    reset,
+    terminateSubcluster,
   } = deps;
 
   const kernelFacet = makeDefaultExo('kernelFacet', {
     /**
+     * Ping the kernel.
+     *
+     * @returns The string 'pong'.
+     */
+    ping(): 'pong' {
+      return 'pong';
+    },
+
+    /**
+     * Ping a vat.
+     *
+     * @param vatId - The ID of the vat to ping.
+     * @returns A promise that resolves to the ping result.
+     */
+    async pingVat(vatId: VatId): Promise<PingVatResult> {
+      return pingVat(vatId);
+    },
+
+    /**
+     * Get the bootstrap root kref of a system subcluster by name.
+     *
+     * @param name - The name of the system subcluster.
+     * @returns The bootstrap root kref.
+     * @throws If the system subcluster is not found.
+     */
+    getSystemSubclusterRoot(name: string): KRef {
+      return getSystemSubclusterRoot(name);
+    },
+
+    /**
+     * Reset the kernel state.
+     *
+     * @returns A promise that resolves when the reset is complete.
+     */
+    async reset(): Promise<void> {
+      return reset();
+    },
+
+    /**
      * Launch a dynamic subcluster.
      *
-     * @param config - Configuration for the subcluster.
-     * @returns A promise for the launch result containing subclusterId and root presence.
+     * @param args - Arguments to pass to launchSubcluster.
+     * @returns A promise for the launch result.
      */
-    async launchSubcluster(
-      config: ClusterConfig,
-    ): Promise<KernelFacetLaunchResult> {
-      const result = await launchSubcluster(config);
-      return {
-        subclusterId: result.subclusterId,
-        rootObject: kslot(result.bootstrapRootKref, 'vatRoot'),
-        rootKref: result.bootstrapRootKref,
-      };
-    },
+    launchSubcluster: async (...args: Parameters<typeof launchSubcluster>) =>
+      launchSubcluster(...args),
 
     /**
      * Terminate a subcluster.
@@ -171,7 +182,18 @@ export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
     getVatRoot(kref: string): SlotValue {
       return kslot(kref, 'vatRoot');
     },
-  });
 
-  return kernelFacet;
+    /**
+     * Send a message to a vat.
+     *
+     * @param target - The vat to send the message to.
+     * @param method - The method name to call.
+     * @param args - Arguments to pass to the method.
+     * @returns The result from the subcluster.
+     */
+    queueMessage(target: KRef, method: string, args: unknown[]): unknown {
+      return queueMessage(target, method, args);
+    },
+  });
+  return kernelFacet as KernelFacet;
 }

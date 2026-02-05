@@ -15,13 +15,13 @@ import {
  */
 type LaunchSubclusterRpcResult = {
   subclusterId: string;
-  bootstrapRootKref: string;
+  rootKref: string;
   bootstrapResult: CapData<KRef> | null;
 };
 
 const LaunchSubclusterRpcResultStruct = structType({
   subclusterId: string(),
-  bootstrapRootKref: string(),
+  rootKref: string(),
   bootstrapResult: nullable(CapDataStruct),
 });
 
@@ -55,7 +55,7 @@ export const launchSubclusterHandler: Handler<
     // Convert undefined to null for JSON compatibility
     return {
       subclusterId: result.subclusterId,
-      bootstrapRootKref: result.bootstrapRootKref,
+      rootKref: result.rootKref,
       bootstrapResult: result.bootstrapResult ?? null,
     };
   },

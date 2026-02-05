@@ -1,5 +1,5 @@
-import type { KernelFacade } from '@metamask/kernel-browser-runtime';
 import type { Promisified } from '@metamask/kernel-utils';
+import type { KernelFacet } from '@metamask/ocap-kernel';
 
 import type {
   CapletControllerFacet,
@@ -22,7 +22,7 @@ declare global {
   var E: typeof import('@endo/eventual-send').E;
 
   // eslint-disable-next-line no-var
-  var kernel: KernelFacade | Promise<KernelFacade>;
+  var kernel: KernelFacet | Promise<KernelFacet>;
 
   // eslint-disable-next-line no-var
   var omnium: {

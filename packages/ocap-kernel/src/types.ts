@@ -442,7 +442,7 @@ export type SubclusterLaunchResult = {
   /** The ID of the launched subcluster. */
   subclusterId: string;
   /** The kref of the bootstrap vat's root object. */
-  bootstrapRootKref: KRef;
+  rootKref: KRef;
   /** The CapData result of calling bootstrap() on the root object, if any. */
   bootstrapResult: CapData<KRef> | undefined;
 };

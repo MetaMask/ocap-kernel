@@ -1,11 +1,28 @@
 import type { Kernel } from '@metamask/ocap-kernel';
+import { makeKernelFacet } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeKernelCapTP } from './kernel-captp.ts';
 import type { CapTPMessage } from '../../types.ts';
 
 describe('makeKernelCapTP', () => {
-  const mockKernel: Kernel = {} as unknown as Kernel;
+  const mockKernel = {
+    getStatus: vi.fn(),
+    getSubcluster: vi.fn(),
+    getSubclusters: vi.fn(),
+    getSystemSubclusterRoot: vi.fn(),
+    launchSubcluster: vi.fn(),
+    pingVat: vi.fn(),
+    queueMessage: vi.fn(),
+    reloadSubcluster: vi.fn(),
+    reset: vi.fn(),
+    terminateSubcluster: vi.fn(),
+    provideFacet: vi.fn(),
+  } as unknown as Kernel;
+
+  vi.mocked(mockKernel.provideFacet).mockReturnValue(
+    makeKernelFacet(mockKernel),
+  );
   let sendMock: (message: CapTPMessage) => void;
 
   beforeEach(() => {

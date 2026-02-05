@@ -307,7 +307,6 @@ export class CapletController extends Controller<
       throw new Error(`Caplet ${capletId} has no root object`);
     }
 
-    // Convert the stored kref string to a presence using the kernel facade
     return this.#getVatRoot(caplet.rootKref);
   }
 }

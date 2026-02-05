@@ -92,9 +92,11 @@ export class SubclusterManager {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;
     }
     const subclusterId = this.#kernelStore.addSubcluster(config);
-    const { bootstrapRootKref, bootstrapResult } =
-      await this.#launchVatsForSubcluster(subclusterId, config);
-    return { subclusterId, bootstrapRootKref, bootstrapResult };
+    const { rootKref, bootstrapResult } = await this.#launchVatsForSubcluster(
+      subclusterId,
+      config,
+    );
+    return { subclusterId, rootKref, bootstrapResult };
   }
 
   /**
@@ -216,7 +218,7 @@ export class SubclusterManager {
     subclusterId: string,
     config: ClusterConfig,
   ): Promise<{
-    bootstrapRootKref: KRef;
+    rootKref: KRef;
     bootstrapResult: CapData<KRef> | undefined;
   }> {
     const rootIds: Record<string, KRef> = {};
@@ -238,22 +240,21 @@ export class SubclusterManager {
         }
       }
     }
-    const bootstrapRootKref = rootIds[config.bootstrap];
-    if (!bootstrapRootKref) {
+    const rootKref = rootIds[config.bootstrap];
+    if (!rootKref) {
       throw new Error(
         `Bootstrap vat "${config.bootstrap}" not found in rootIds`,
       );
     }
-    const bootstrapResult = await this.#queueMessage(
-      bootstrapRootKref,
-      'bootstrap',
-      [roots, services],
-    );
+    const bootstrapResult = await this.#queueMessage(rootKref, 'bootstrap', [
+      roots,
+      services,
+    ]);
     const unserialized = kunser(bootstrapResult);
     if (unserialized instanceof Error) {
       throw unserialized;
     }
-    return { bootstrapRootKref, bootstrapResult };
+    return { rootKref, bootstrapResult };
   }
 
   /**

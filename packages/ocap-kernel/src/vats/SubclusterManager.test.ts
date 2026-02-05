@@ -103,7 +103,7 @@ describe('SubclusterManager', () => {
       ]);
       expect(result).toStrictEqual({
         subclusterId: 's1',
-        bootstrapRootKref: 'ko1',
+        rootKref: 'ko1',
         bootstrapResult: { body: '{"result":"ok"}', slots: [] },
       });
     });
@@ -223,7 +223,7 @@ describe('SubclusterManager', () => {
       const result = await subclusterManager.launchSubcluster(config);
       expect(result).toStrictEqual({
         subclusterId: 's1',
-        bootstrapRootKref: 'ko1',
+        rootKref: 'ko1',
         bootstrapResult,
       });
     });

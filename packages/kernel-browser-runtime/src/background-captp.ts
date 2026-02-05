@@ -1,8 +1,9 @@
 import { makeCapTP } from '@endo/captp';
 import type { JsonRpcMessage, JsonRpcCall } from '@metamask/kernel-utils';
+import type { KernelFacet } from '@metamask/ocap-kernel';
 import type { JsonRpcNotification } from '@metamask/utils';
 
-import type { CapTPMessage, KernelFacade } from './types.ts';
+import type { CapTPMessage } from './types.ts';
 
 export type { CapTPMessage };
 
@@ -79,12 +80,12 @@ export type BackgroundCapTP = {
   dispatch: (message: CapTPMessage) => boolean;
 
   /**
-   * Get the remote kernel facade.
+   * Get the remote kernel facet.
    * This is how the background calls kernel methods using E().
    *
-   * @returns A promise for the kernel facade remote presence.
+   * @returns A promise for the kernel facet remote presence.
    */
-  getKernel: () => Promise<KernelFacade>;
+  getKernel: () => Promise<KernelFacet>;
 
   /**
    * Abort the CapTP connection.

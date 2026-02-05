@@ -3,6 +3,7 @@ import type { KernelDatabase } from '@metamask/kernel-store';
 import { Logger } from '@metamask/logger';
 
 import { makeKernelFacet } from './kernel-facet.ts';
+import type { KernelFacet } from './kernel-facet.ts';
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import { KernelServiceManager } from './KernelServiceManager.ts';
@@ -53,9 +54,6 @@ export class Kernel {
 
   /** Stores bootstrap root krefs of launched system subclusters */
   readonly #systemSubclusterRoots: Map<string, KRef> = new Map();
-
-  /** Whether the kernel facet has been registered */
-  #kernelFacetRegistered = false;
 
   /** Manages remote kernel connections */
   readonly #remoteManager: RemoteManager;
@@ -317,9 +315,9 @@ export class Kernel {
         );
       }
 
-      // Valid subcluster to restore - register kernelFacet on first valid one
+      // Register kernelFacet on first valid persisted subcluster
       if (!hasValidPersistedSubclusters) {
-        this.#ensureKernelFacetRegistered();
+        this.provideFacet();
         hasValidPersistedSubclusters = true;
       }
 
@@ -348,11 +346,11 @@ export class Kernel {
     }
 
     // Ensure kernelFacet is registered for new system subclusters
-    this.#ensureKernelFacetRegistered();
+    this.provideFacet();
 
     for (const { name, config } of newConfigs) {
       const result = await this.launchSubcluster(config);
-      this.#systemSubclusterRoots.set(name, result.bootstrapRootKref);
+      this.#systemSubclusterRoots.set(name, result.rootKref);
 
       // Persist the mapping
       this.#kernelStore.setSystemSubclusterMapping(name, result.subclusterId);
@@ -362,27 +360,34 @@ export class Kernel {
   }
 
   /**
-   * Register the kernel facet as a kernel service for system subclusters.
-   * This is idempotent - calling it multiple times has no effect after the first.
+   * Provide the kernel facet, creating and registering it as a kernel service
+   * if it doesn't already exist.
+   *
+   * @returns The kernel facet.
    */
-  #ensureKernelFacetRegistered(): void {
-    if (this.#kernelFacetRegistered) {
-      return;
+  provideFacet(): KernelFacet {
+    const existing = this.#kernelServiceManager.getKernelService('kernelFacet');
+    if (existing) {
+      return existing.service as KernelFacet;
     }
 
     const kernelFacet = makeKernelFacet({
-      launchSubcluster: this.launchSubcluster.bind(this),
-      terminateSubcluster: this.terminateSubcluster.bind(this),
-      reloadSubcluster: this.reloadSubcluster.bind(this),
+      getStatus: this.getStatus.bind(this),
       getSubcluster: this.getSubcluster.bind(this),
       getSubclusters: this.getSubclusters.bind(this),
-      getStatus: this.getStatus.bind(this),
+      getSystemSubclusterRoot: this.getSystemSubclusterRoot.bind(this),
+      launchSubcluster: this.launchSubcluster.bind(this),
+      pingVat: this.pingVat.bind(this),
+      queueMessage: this.queueMessage.bind(this),
+      reloadSubcluster: this.reloadSubcluster.bind(this),
+      reset: this.reset.bind(this),
+      terminateSubcluster: this.terminateSubcluster.bind(this),
     });
     this.#kernelServiceManager.registerKernelServiceObject(
       'kernelFacet',
       kernelFacet,
     );
-    this.#kernelFacetRegistered = true;
+    return kernelFacet;
   }
 
   /**
@@ -515,10 +520,15 @@ export class Kernel {
    * Get the bootstrap root kref of a system subcluster by name.
    *
    * @param name - The name of the system subcluster.
-   * @returns The bootstrap root kref or undefined if not found.
+   * @returns The bootstrap root kref.
+   * @throws If the system subcluster is not found.
    */
-  getSystemSubclusterRoot(name: string): KRef | undefined {
-    return this.#systemSubclusterRoots.get(name);
+  getSystemSubclusterRoot(name: string): KRef {
+    const kref = this.#systemSubclusterRoots.get(name);
+    if (kref === undefined) {
+      throw new Error(`System subcluster "${name}" not found`);
+    }
+    return kref;
   }
 
   /**

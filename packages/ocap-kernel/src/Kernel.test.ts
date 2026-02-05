@@ -289,7 +289,7 @@ describe('Kernel', () => {
       expect(result).toStrictEqual({
         subclusterId: 's1',
         bootstrapResult: { body: '{"result":"ok"}', slots: [] },
-        bootstrapRootKref: expect.stringMatching(/^ko\d+$/u),
+        rootKref: expect.stringMatching(/^ko\d+$/u),
       });
     });
   });
@@ -860,9 +860,9 @@ describe('Kernel', () => {
       await kernel.reset();
 
       // Verify system subcluster roots are cleared
-      expect(
+      expect(() =>
         kernel.getSystemSubclusterRoot('testSystemSubcluster'),
-      ).toBeUndefined();
+      ).toThrow('System subcluster "testSystemSubcluster" not found');
     });
 
     it('logs an error if resetting the kernel state fails', async () => {
@@ -927,9 +927,9 @@ describe('Kernel', () => {
       expect(makeVatHandleMock).not.toHaveBeenCalled();
       expect(kernel2.getSubclusters()).toHaveLength(0);
       expect(kernel2.getVatIds()).toStrictEqual([]);
-      expect(
+      expect(() =>
         kernel2.getSystemSubclusterRoot('testSystemSubcluster'),
-      ).toBeUndefined();
+      ).toThrow('System subcluster "testSystemSubcluster" not found');
     });
 
     it('throws if persisted system subcluster has no vats', async () => {

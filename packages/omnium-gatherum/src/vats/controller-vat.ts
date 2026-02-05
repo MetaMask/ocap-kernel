@@ -4,7 +4,10 @@ import { makePromiseKit } from '@endo/promise-kit';
 import type { PromiseKit } from '@endo/promise-kit';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Logger } from '@metamask/logger';
-import type { ClusterConfig } from '@metamask/ocap-kernel';
+import type {
+  ClusterConfig,
+  SubclusterLaunchResult,
+} from '@metamask/ocap-kernel';
 
 import { makeBaggageStorageAdapter } from './storage/baggage-adapter.ts';
 import type { Baggage } from './storage/baggage-adapter.ts';
@@ -26,7 +29,7 @@ type VatPowers = {
  * Kernel facet interface for system vat operations.
  */
 type KernelFacet = {
-  launchSubcluster: (config: ClusterConfig) => Promise<LaunchResult>;
+  launchSubcluster: (config: ClusterConfig) => Promise<SubclusterLaunchResult>;
   terminateSubcluster: (subclusterId: string) => Promise<void>;
   getVatRoot: (krefString: string) => Promise<unknown>;
 };

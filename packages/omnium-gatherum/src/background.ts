@@ -7,13 +7,11 @@ import {
   isConsoleForwardMessage,
   handleConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
-import type {
-  CapTPMessage,
-  KernelFacade,
-} from '@metamask/kernel-browser-runtime';
+import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
+import type { KernelFacet } from '@metamask/ocap-kernel';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
 import type { CapletManifest } from './controllers/index.ts';
@@ -112,7 +110,7 @@ async function main(): Promise<void> {
   // Set up controller vat initialization (runs concurrently with stream drain)
   E(kernelP)
     .getSystemSubclusterRoot('omnium-controllers')
-    .then(({ kref }) => {
+    .then((kref) => {
       globals.setControllerVatKref(kref);
       logger.info('Controller vat initialized');
       return undefined;
@@ -142,7 +140,7 @@ async function main(): Promise<void> {
 }
 
 type GlobalSetters = {
-  setKernel: (kernel: KernelFacade | Promise<KernelFacade>) => void;
+  setKernel: (kernel: KernelFacet | Promise<KernelFacet>) => void;
   // Not actually globally available
   setControllerVatKref: (kref: string) => void;
 };
@@ -165,9 +163,9 @@ function defineGlobals(): GlobalSetters {
   const callController = async (
     method: string,
     args: unknown[] = [],
-  ): ReturnType<KernelFacade['queueMessage']> => {
+  ): ReturnType<KernelFacet['queueMessage']> => {
     if (!kernel) {
-      throw new Error('Kernel facade not initialized');
+      throw new Error('Kernel not initialized');
     }
     if (!controllerVatKref) {
       throw new Error('Controller vat not initialized');
