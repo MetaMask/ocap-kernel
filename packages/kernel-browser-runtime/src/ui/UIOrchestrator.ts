@@ -92,6 +92,8 @@ export class UIOrchestrator {
 
   readonly #uiVats: Map<UiVatId, UiVatState> = new Map();
 
+  readonly #launchesInProgress: Set<UiVatId> = new Set();
+
   /**
    * Creates a new UIOrchestrator.
    *
@@ -128,7 +130,7 @@ export class UIOrchestrator {
   async launch(config: UiVatConfig): Promise<MessagePort> {
     const { id, uri, slot, title, visible = true } = config;
 
-    if (this.#uiVats.has(id)) {
+    if (this.#uiVats.has(id) || this.#launchesInProgress.has(id)) {
       throw new Error(`UI vat "${id}" already exists`);
     }
 
@@ -137,13 +139,23 @@ export class UIOrchestrator {
       throw new Error(`Slot "${slot}" not found`);
     }
 
+    this.#launchesInProgress.add(id);
+
     this.#logger.info(`Launching UI vat: ${id} in slot: ${slot}`);
 
     const iframe = this.#createIframe(id, uri, title, visible);
     slotElement.appendChild(iframe);
 
-    // Wait for iframe to load and establish MessageChannel
-    const port = await this.#establishConnection(iframe);
+    let port: MessagePort;
+    try {
+      // Wait for iframe to load and establish MessageChannel
+      port = await this.#establishConnection(iframe);
+    } catch (error) {
+      // Clean up iframe if connection establishment fails
+      iframe.remove();
+      this.#launchesInProgress.delete(id);
+      throw error;
+    }
 
     const state: UiVatState = {
       config,
@@ -153,6 +165,7 @@ export class UIOrchestrator {
       visible,
     };
     this.#uiVats.set(id, state);
+    this.#launchesInProgress.delete(id);
 
     this.#logger.info(`UI vat "${id}" launched successfully in slot: ${slot}`);
     return port;

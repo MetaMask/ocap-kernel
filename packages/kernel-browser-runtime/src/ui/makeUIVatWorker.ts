@@ -65,6 +65,8 @@ export const makeUIVatWorker = ({
   visible = true,
   logger,
 }: MakeUIVatWorkerOptions): VatWorker => {
+  const workerLogger = logger ?? new Logger('makeUIVatWorker');
+
   return {
     launch: async (_vatConfig: VatConfig): Promise<[MessagePort, unknown]> => {
       const port = await orchestrator.launch({
@@ -83,12 +85,8 @@ export const makeUIVatWorker = ({
     terminate: async (): Promise<null> => {
       if (orchestrator.has(id)) {
         orchestrator.terminate(id);
-      } else if (logger) {
-        logger.warn(`UI vat "${id}" not found for termination`);
       } else {
-        new Logger('makeUIVatWorker').warn(
-          `UI vat "${id}" not found for termination`,
-        );
+        workerLogger.warn(`UI vat "${id}" not found for termination`);
       }
       return null;
     },
