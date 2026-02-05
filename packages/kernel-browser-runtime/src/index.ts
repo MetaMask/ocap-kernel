@@ -21,3 +21,4 @@ export {
   type BackgroundCapTPOptions,
   type CapTPMessage,
 } from './background-captp.ts';
+export * from './ui/index.ts';
