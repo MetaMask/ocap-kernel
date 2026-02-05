@@ -145,6 +145,9 @@ const makeIframe = (): HTMLIFrameElement & {
   };
 };
 
+// Save original createElement before any mocking
+const originalCreateElement = document.createElement.bind(document);
+
 describe('UIOrchestrator', () => {
   let mainSlot: ReturnType<typeof makeContainer>;
   let orchestrator: UIOrchestrator;
@@ -163,7 +166,7 @@ describe('UIOrchestrator', () => {
           createdIframes.push(iframe);
           return iframe as unknown as HTMLElement;
         }
-        return document.createElement(tagName);
+        return originalCreateElement(tagName);
       },
     );
 

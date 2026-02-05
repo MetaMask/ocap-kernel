@@ -143,16 +143,17 @@ export class UIOrchestrator {
 
     this.#logger.info(`Launching UI vat: ${id} in slot: ${slot}`);
 
-    const iframe = this.#createIframe(id, uri, title, visible);
-    slotElement.appendChild(iframe);
-
+    let iframe: HTMLIFrameElement | undefined;
     let port: MessagePort;
     try {
+      iframe = this.#createIframe(id, uri, title, visible);
+      slotElement.appendChild(iframe);
+
       // Wait for iframe to load and establish MessageChannel
       port = await this.#establishConnection(iframe);
     } catch (error) {
-      // Clean up iframe if connection establishment fails
-      iframe.remove();
+      // Clean up iframe if it was created and appended
+      iframe?.remove();
       this.#launchesInProgress.delete(id);
       throw error;
     }
