@@ -834,6 +834,11 @@ export class RemoteHandle implements EndpointHandle {
     // Start delayed ACK timer - will send standalone ACK if no outgoing traffic
     this.#startDelayedAck();
 
+    // Validate seq value.
+    if (typeof seq !== 'number' || !Number.isInteger(seq) || seq < 1) {
+      throw Error(`invalid message seq: ${seq}`);
+    }
+
     // Duplicate detection: skip if we've already processed this sequence number
     if (seq <= this.#highestReceivedSeq) {
       this.#logger.log(
@@ -841,11 +846,6 @@ export class RemoteHandle implements EndpointHandle {
       );
       return null;
     }
-
-    // Capture previous seq high watermark for rollback, then update in-memory
-    // seq tracking early so any reply piggybacking includes correct ACK.
-    const previousHighestReceivedSeq = this.#highestReceivedSeq;
-    this.#highestReceivedSeq = seq;
 
     // Wrap message processing in a transaction for atomicity: Either both (1)
     // message processing and (2) seq update succeed together, or neither
@@ -874,9 +874,13 @@ export class RemoteHandle implements EndpointHandle {
 
       // Commit the transaction
       this.#kernelStore.releaseSavepoint(savepointName);
+
+      // Update in-memory seq state only after successful commit. This ensures any
+      // ACK piggybacked on outgoing messages doesn't acknowledge uncommitted
+      // message receipts.
+      this.#highestReceivedSeq = seq;
     } catch (error) {
-      // Rollback on any error - also revert in-memory state
-      this.#highestReceivedSeq = previousHighestReceivedSeq;
+      // Rollback on any error - in-memory state unchanged since we didn't update it yet
       this.#kernelStore.rollbackSavepoint(savepointName);
       throw error;
     }

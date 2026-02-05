@@ -480,7 +480,9 @@ describe('RemoteHandle', () => {
     expect(sentMessage.method).toBe('redeemURLReply');
     expect(sentMessage.params).toStrictEqual([true, mockReplyKey, replyRRef]);
     expect(sentMessage.seq).toBe(1); // First outgoing message gets seq 1
-    expect(sentMessage.ack).toBe(1); // Piggyback ACK for received message
+    // ACK is NOT piggybacked on replies sent during transaction - we haven't
+    // committed yet. The delayed ACK timer will send the ACK after commit.
+    expect(sentMessage.ack).toBeUndefined();
     expect(
       mockKernelStore.translateRefKtoE(remote.remoteId, replyKRef, false),
     ).toBe(replyRRef);
@@ -523,7 +525,9 @@ describe('RemoteHandle', () => {
       errorMessage,
     ]);
     expect(sentMessage.seq).toBe(1); // First outgoing message gets seq 1
-    expect(sentMessage.ack).toBe(1); // Piggyback ACK for received message
+    // ACK is NOT piggybacked on replies sent during transaction - we haven't
+    // committed yet. The delayed ACK timer will send the ACK after commit.
+    expect(sentMessage.ack).toBeUndefined();
   });
 
   it('handleRemoteMessage rejects bogus message type', async () => {

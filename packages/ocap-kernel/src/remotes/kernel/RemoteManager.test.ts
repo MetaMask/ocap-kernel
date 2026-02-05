@@ -352,6 +352,7 @@ describe('RemoteManager', () => {
 
     it('creates new remote when handling message from unknown peer', async () => {
       const message = JSON.stringify({
+        seq: 1,
         method: 'deliver',
         params: [
           'message',
