@@ -13,6 +13,7 @@
   "files": [],
   "include": [],
   "references": [
+    { "path": "./packages/caplet-sandbox-prototype" },
     { "path": "./packages/cli" },
     { "path": "./packages/create-package" },
     { "path": "./packages/extension" },

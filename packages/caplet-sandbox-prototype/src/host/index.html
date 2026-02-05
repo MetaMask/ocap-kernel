@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Caplet Sandbox Prototype - Host</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        padding: 20px;
+        background: #f5f5f5;
+      }
+
+      h1 {
+        margin-bottom: 20px;
+        color: #333;
+      }
+
+      .host-container {
+        max-width: 800px;
+        margin: 0 auto;
+      }
+
+      .host-state {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .host-state h2 {
+        color: #666;
+        font-size: 14px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+
+      .host-state pre {
+        background: #f8f8f8;
+        padding: 10px;
+        border-radius: 4px;
+        overflow-x: auto;
+      }
+
+      .iframe-container {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .iframe-container h2 {
+        color: #666;
+        font-size: 14px;
+        text-transform: uppercase;
+        margin-bottom: 10px;
+      }
+
+      iframe {
+        width: 100%;
+        height: 400px;
+        border: 2px dashed #ccc;
+        border-radius: 4px;
+      }
+
+      .sandbox-info {
+        margin-top: 10px;
+        padding: 10px;
+        background: #e8f4fd;
+        border-radius: 4px;
+        font-size: 12px;
+        color: #0066cc;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="host-container">
+      <h1>Caplet Sandbox Prototype - Nested Widgets</h1>
+
+      <div class="host-state">
+        <h2>Host State</h2>
+        <pre id="state-display">Loading...</pre>
+      </div>
+
+      <div class="iframe-container">
+        <h2>Sandboxed Caplet Iframe</h2>
+        <div id="iframe-mount"></div>
+        <div class="sandbox-info">
+          <strong>Sandbox restrictions:</strong> allow-scripts and
+          allow-same-origin (required for dev server). No forms, popups, or top
+          navigation. In production, caplets would be served from a different
+          origin without allow-same-origin for full isolation.
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="./host.ts"></script>
+  </body>
+</html>

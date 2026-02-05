@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
+    "allowJs": true,
+    "baseUrl": "./",
+    "isolatedModules": true,
+    "lib": ["DOM", "ES2022"],
+    "types": ["vitest"]
+  },
+  "references": [{ "path": "../repo-tools" }],
+  "include": [
+    "../../vitest.config.ts",
+    "./src/**/*.ts",
+    "./src/**/*.tsx",
+    "./vite.config.ts",
+    "./vitest.config.ts"
+  ]
+}
