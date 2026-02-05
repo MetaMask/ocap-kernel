@@ -299,16 +299,16 @@ export class Kernel {
 
       const bootstrapVatId = subcluster.vats[0];
       if (!bootstrapVatId) {
-        continue;
+        throw new Error(
+          `System subcluster "${name}" has no vats - database may be corrupted`,
+        );
       }
 
       const rootKref = this.#kernelStore.getRootObject(bootstrapVatId);
       if (!rootKref) {
-        this.#logger.warn(
-          `System subcluster "${name}" has no root object, will relaunch`,
+        throw new Error(
+          `System subcluster "${name}" has no root object - database may be corrupted`,
         );
-        this.#kernelStore.deleteSystemSubclusterMapping(name);
-        continue;
       }
 
       // Valid subcluster to restore - register kernelFacet on first valid one

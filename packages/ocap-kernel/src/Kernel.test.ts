@@ -919,6 +919,72 @@ describe('Kernel', () => {
         kernel2.getSystemSubclusterRoot('testSystemSubcluster'),
       ).toBeUndefined();
     });
+
+    it('throws if persisted system subcluster has no vats', async () => {
+      const db = makeMapKernelDatabase();
+      const systemSubclusterConfig = {
+        name: 'testSystemSubcluster',
+        config: {
+          bootstrap: 'testSystemSubcluster',
+          vats: {
+            testSystemSubcluster: {
+              sourceSpec: 'system-vat.js',
+            },
+          },
+        },
+      };
+
+      // Create kernel with system subcluster
+      const kernel1 = await Kernel.make(mockPlatformServices, db, {
+        systemSubclusters: [systemSubclusterConfig],
+      });
+      await kernel1.stop();
+
+      // Corrupt database: remove vats from the subcluster
+      const subclustersJson = db.kernelKVStore.get('subclusters');
+      const subclusters = JSON.parse(subclustersJson ?? '[]');
+      subclusters[0].vats = [];
+      db.kernelKVStore.set('subclusters', JSON.stringify(subclusters));
+
+      // Restart kernel - should throw
+      await expect(
+        Kernel.make(mockPlatformServices, db, {
+          systemSubclusters: [systemSubclusterConfig],
+        }),
+      ).rejects.toThrow('has no vats - database may be corrupted');
+    });
+
+    it('throws if persisted system subcluster has no root object', async () => {
+      const db = makeMapKernelDatabase();
+      const systemSubclusterConfig = {
+        name: 'testSystemSubcluster',
+        config: {
+          bootstrap: 'testSystemSubcluster',
+          vats: {
+            testSystemSubcluster: {
+              sourceSpec: 'system-vat.js',
+            },
+          },
+        },
+      };
+
+      // Create kernel with system subcluster
+      const kernel1 = await Kernel.make(mockPlatformServices, db, {
+        systemSubclusters: [systemSubclusterConfig],
+      });
+      await kernel1.stop();
+
+      // Corrupt database: delete the root object entry for the vat
+      // Root object is stored at: ${vatId}.c.o+0
+      db.kernelKVStore.delete('v1.c.o+0');
+
+      // Restart kernel - should throw
+      await expect(
+        Kernel.make(mockPlatformServices, db, {
+          systemSubclusters: [systemSubclusterConfig],
+        }),
+      ).rejects.toThrow('has no root object - database may be corrupted');
+    });
   });
 
   describe('revoke and isRevoked', () => {
