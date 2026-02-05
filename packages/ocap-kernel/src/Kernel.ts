@@ -303,10 +303,10 @@ export class Kernel {
         continue;
       }
 
-      const bootstrapVatId = subcluster.vats[0];
+      const bootstrapVatId = subcluster.vats[subcluster.config.bootstrap];
       if (!bootstrapVatId) {
         throw new Error(
-          `System subcluster "${name}" has no vats - database may be corrupted`,
+          `System subcluster "${name}" has no bootstrap vat - database may be corrupted`,
         );
       }
 

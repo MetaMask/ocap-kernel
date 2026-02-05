@@ -36,7 +36,10 @@ describe('SubclusterManager', () => {
   ): Subcluster => ({
     id,
     config,
-    vats: ['v1', 'v2'] as VatId[],
+    vats: { [`${config.bootstrap}`]: 'v1', vat2: 'v2' } as Record<
+      string,
+      VatId
+    >,
   });
 
   beforeEach(() => {
@@ -95,6 +98,7 @@ describe('SubclusterManager', () => {
       expect(mockKernelStore.addSubcluster).toHaveBeenCalledWith(config);
       expect(mockVatManager.launchVat).toHaveBeenCalledWith(
         config.vats.testVat,
+        'testVat',
         's1',
       );
       expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
@@ -125,10 +129,12 @@ describe('SubclusterManager', () => {
       expect(mockVatManager.launchVat).toHaveBeenCalledTimes(2);
       expect(mockVatManager.launchVat).toHaveBeenCalledWith(
         config.vats.alice,
+        'alice',
         's1',
       );
       expect(mockVatManager.launchVat).toHaveBeenCalledWith(
         config.vats.bob,
+        'bob',
         's1',
       );
     });

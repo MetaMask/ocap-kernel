@@ -132,7 +132,7 @@ export class SubclusterManager {
     if (!subcluster) {
       throw new SubclusterNotFoundError(subclusterId);
     }
-    for (const vatId of subcluster.vats.reverse()) {
+    for (const vatId of Object.values(subcluster.vats).reverse()) {
       await this.#vatManager.terminateVat(vatId);
       this.#vatManager.collectGarbage();
     }
@@ -198,7 +198,7 @@ export class SubclusterManager {
     }
 
     // Delete vat configs and mark vats as terminated so their data will be cleaned up
-    for (const vatId of subcluster.vats) {
+    for (const vatId of Object.values(subcluster.vats)) {
       this.#kernelStore.deleteVatConfig(vatId);
       this.#kernelStore.markVatAsTerminated(vatId);
     }
@@ -224,7 +224,11 @@ export class SubclusterManager {
     const rootIds: Record<string, KRef> = {};
     const roots: Record<string, SlotValue> = {};
     for (const [vatName, vatConfig] of Object.entries(config.vats)) {
-      const rootRef = await this.#vatManager.launchVat(vatConfig, subclusterId);
+      const rootRef = await this.#vatManager.launchVat(
+        vatConfig,
+        vatName,
+        subclusterId,
+      );
       rootIds[vatName] = rootRef;
       roots[vatName] = kslot(rootRef, 'vatRoot');
     }

@@ -74,7 +74,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
     const newSubcluster: Subcluster = {
       id: newId,
       config,
-      vats: [],
+      vats: {},
     };
     currentSubclusters.push(newSubcluster);
     saveAllSubclustersToStorage(currentSubclusters);
@@ -96,10 +96,15 @@ export function getSubclusterMethods(ctx: StoreContext) {
    * Adds a vat to the specified subcluster.
    *
    * @param subclusterId - The ID of the subcluster.
+   * @param vatName - The name of the vat within the subcluster.
    * @param vatId - The ID of the vat to add.
    * @throws If the subcluster is not found.
    */
-  function addSubclusterVat(subclusterId: SubclusterId, vatId: VatId): void {
+  function addSubclusterVat(
+    subclusterId: SubclusterId,
+    vatName: string,
+    vatId: VatId,
+  ): void {
     const currentSubclusters = getSubclusters();
     const subcluster = currentSubclusters.find((sc) => sc.id === subclusterId);
 
@@ -118,8 +123,8 @@ export function getSubclusterMethods(ctx: StoreContext) {
     }
 
     // Add vat to subcluster if not already present
-    if (!subcluster.vats.includes(vatId)) {
-      subcluster.vats.push(vatId);
+    if (subcluster.vats[vatName] !== vatId) {
+      subcluster.vats[vatName] = vatId;
     }
 
     // Update the map and save all changes
@@ -140,7 +145,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
     if (!subcluster) {
       throw new SubclusterNotFoundError(subclusterId);
     }
-    return [...subcluster.vats];
+    return Object.values(subcluster.vats);
   }
 
   /**
@@ -153,11 +158,13 @@ export function getSubclusterMethods(ctx: StoreContext) {
     const currentSubclusters = getSubclusters();
     const subcluster = currentSubclusters.find((sc) => sc.id === subclusterId);
 
-    // Remove vat from subcluster's vats array if subcluster exists
+    // Remove vat from subcluster's vats record if subcluster exists
     if (subcluster) {
-      const vatIndex = subcluster.vats.indexOf(vatId);
-      if (vatIndex > -1) {
-        subcluster.vats.splice(vatIndex, 1);
+      const entry = Object.entries(subcluster.vats).find(
+        ([, id]) => id === vatId,
+      );
+      if (entry) {
+        delete subcluster.vats[entry[0]];
         saveAllSubclustersToStorage(currentSubclusters);
       }
     }
@@ -193,7 +200,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
 
     // Remove all vats from the mapping
     const currentMap = getVatToSubclusterMap();
-    const vatsToRemove = subclusterToDelete.vats.filter(
+    const vatsToRemove = Object.values(subclusterToDelete.vats).filter(
       (vatId) => currentMap[vatId] === subclusterId,
     );
 
@@ -222,7 +229,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
   function clearEmptySubclusters(): void {
     const currentSubclusters = getSubclusters();
     const nonEmptySubclusters = currentSubclusters.filter(
-      (sc) => sc.vats.length > 0,
+      (sc) => Object.keys(sc.vats).length > 0,
     );
     if (nonEmptySubclusters.length !== currentSubclusters.length) {
       saveAllSubclustersToStorage(nonEmptySubclusters);

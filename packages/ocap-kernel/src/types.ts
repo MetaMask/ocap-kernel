@@ -430,7 +430,7 @@ export const isClusterConfig = (value: unknown): value is ClusterConfig =>
 export const SubclusterStruct = object({
   id: SubclusterIdStruct,
   config: ClusterConfigStruct,
-  vats: array(VatIdStruct),
+  vats: record(string(), VatIdStruct),
 });
 
 export type Subcluster = Infer<typeof SubclusterStruct>;

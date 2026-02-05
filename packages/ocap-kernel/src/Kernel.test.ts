@@ -932,7 +932,7 @@ describe('Kernel', () => {
       ).toThrow('System subcluster "testSystemSubcluster" not found');
     });
 
-    it('throws if persisted system subcluster has no vats', async () => {
+    it('throws if persisted system subcluster has no bootstrap vat', async () => {
       const db = makeMapKernelDatabase();
       const systemSubclusterConfig = {
         name: 'testSystemSubcluster',
@@ -955,7 +955,7 @@ describe('Kernel', () => {
       // Corrupt database: remove vats from the subcluster
       const subclustersJson = db.kernelKVStore.get('subclusters');
       const subclusters = JSON.parse(subclustersJson ?? '[]');
-      subclusters[0].vats = [];
+      subclusters[0].vats = {};
       db.kernelKVStore.set('subclusters', JSON.stringify(subclusters));
 
       // Restart kernel - should throw
@@ -963,7 +963,7 @@ describe('Kernel', () => {
         Kernel.make(mockPlatformServices, db, {
           systemSubclusters: [systemSubclusterConfig],
         }),
-      ).rejects.toThrow('has no vats - database may be corrupted');
+      ).rejects.toThrow('has no bootstrap vat - database may be corrupted');
     });
 
     it('throws if persisted system subcluster has no root object', async () => {
