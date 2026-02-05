@@ -826,34 +826,59 @@ export class RemoteHandle implements EndpointHandle {
     const remoteCommand = parsed as RemoteCommand;
     const { seq, ack, method, params } = remoteCommand;
 
-    // Track received sequence number for piggyback ACK and persist
-    if (seq > this.#highestReceivedSeq) {
-      this.#highestReceivedSeq = seq;
-      this.#kernelStore.setRemoteHighestReceivedSeq(this.remoteId, seq);
+    // Handle piggyback ACK if present (outside transaction - ACK processing is idempotent)
+    if (ack !== undefined) {
+      this.#handleAck(ack);
     }
 
     // Start delayed ACK timer - will send standalone ACK if no outgoing traffic
     this.#startDelayedAck();
 
-    // Handle piggyback ACK if present
-    if (ack !== undefined) {
-      this.#handleAck(ack);
+    // Duplicate detection: skip if we've already processed this sequence number
+    if (seq <= this.#highestReceivedSeq) {
+      this.#logger.log(
+        `${this.#peerId.slice(0, 8)}:: ignoring duplicate message seq=${seq} (highestReceived=${this.#highestReceivedSeq})`,
+      );
+      return '';
     }
 
-    switch (method) {
-      case 'deliver':
-        this.#handleRemoteDeliver(params);
-        break;
-      case 'redeemURL':
-        // Reply is sent via #sendRemoteCommand for proper seq/ack tracking
-        await this.#handleRedeemURLRequest(...params);
-        break;
-      case 'redeemURLReply':
-        await this.#handleRedeemURLReply(...params);
-        break;
-      default:
-        // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-        throw Error(`unknown remote message type ${method}`);
+    // Capture previous seq high watermark for rollback, then update in-memory
+    // seq tracking early so any reply piggybacking includes correct ACK.
+    const previousHighestReceivedSeq = this.#highestReceivedSeq;
+    this.#highestReceivedSeq = seq;
+
+    // Wrap message processing in a transaction for atomicity: Either both (1)
+    // message processing and (2) seq update succeed together, or neither
+    // happens. This ensures crash-safe exactly-once delivery.
+    const savepointName = `receive_${this.remoteId}_${seq}`;
+    this.#kernelStore.createSavepoint(savepointName);
+    try {
+      switch (method) {
+        case 'deliver':
+          this.#handleRemoteDeliver(params);
+          break;
+        case 'redeemURL':
+          // Reply is sent via #sendRemoteCommand for proper seq/ack tracking
+          await this.#handleRedeemURLRequest(...params);
+          break;
+        case 'redeemURLReply':
+          await this.#handleRedeemURLReply(...params);
+          break;
+        default:
+          // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
+          throw Error(`unknown remote message type ${method}`);
+      }
+
+      // Persist sequence tracking at the end, within the transaction
+      this.#kernelStore.setRemoteHighestReceivedSeq(this.remoteId, seq);
+
+      // Commit the transaction
+      this.#kernelStore.releaseSavepoint(savepointName);
+    } catch (error) {
+      // Rollback on any error - also revert in-memory state
+      this.#highestReceivedSeq = previousHighestReceivedSeq;
+      this.#kernelStore.rollbackSavepoint(savepointName);
+      throw error;
     }
     return '';
   }

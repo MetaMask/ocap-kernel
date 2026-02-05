@@ -1165,5 +1165,99 @@ describe('RemoteHandle', () => {
       expect(parsed.seq).toBe(1); // Fresh start
       expect(parsed.ack).toBeUndefined(); // No highestReceivedSeq
     });
+
+    it('ignores duplicate messages (seq <= highestReceivedSeq)', async () => {
+      const remote = makeRemote();
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+
+      // First message with seq=1 - should process
+      const message1 = JSON.stringify({
+        seq: 1,
+        method: 'deliver',
+        params: ['notify', resolutions],
+      });
+      await remote.handleRemoteMessage(message1);
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledTimes(1);
+
+      // Duplicate message with seq=1 - should ignore
+      const message2 = JSON.stringify({
+        seq: 1,
+        method: 'deliver',
+        params: ['notify', resolutions],
+      });
+      await remote.handleRemoteMessage(message2);
+      // Should still be 1 call, not 2
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledTimes(1);
+
+      // Message with seq=2 - should process
+      const message3 = JSON.stringify({
+        seq: 2,
+        method: 'deliver',
+        params: ['notify', resolutions],
+      });
+      await remote.handleRemoteMessage(message3);
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledTimes(2);
+    });
+
+    it('persists highestReceivedSeq atomically with message processing', async () => {
+      const remote = makeRemote();
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+
+      const message = JSON.stringify({
+        seq: 1,
+        method: 'deliver',
+        params: ['notify', resolutions],
+      });
+
+      await remote.handleRemoteMessage(message);
+
+      // Verify highestReceivedSeq was persisted
+      expect(
+        mockKernelStore.getRemoteSeqState(mockRemoteId)?.highestReceivedSeq,
+      ).toBe(1);
+    });
+
+    it('restores highestReceivedSeq on processing error', async () => {
+      const remote = makeRemote();
+
+      // First, process a valid message to set highestReceivedSeq to 1
+      const validMessage = JSON.stringify({
+        seq: 1,
+        method: 'deliver',
+        params: ['notify', [['rp+3', false, { body: '"value"', slots: [] }]]],
+      });
+      await remote.handleRemoteMessage(validMessage);
+      expect(
+        mockKernelStore.getRemoteSeqState(mockRemoteId)?.highestReceivedSeq,
+      ).toBe(1);
+
+      // Now send a message that will cause an error
+      const badMessage = JSON.stringify({
+        seq: 2,
+        method: 'deliver',
+        params: ['bogus'], // Unknown delivery method
+      });
+
+      await expect(remote.handleRemoteMessage(badMessage)).rejects.toThrow(
+        'unknown remote delivery method bogus',
+      );
+
+      // highestReceivedSeq should still be 1 (restored after rollback)
+      // Send another message with seq=2 to verify it's not considered a duplicate
+      vi.mocked(mockKernelQueue.resolvePromises).mockClear();
+      const retryMessage = JSON.stringify({
+        seq: 2,
+        method: 'deliver',
+        params: ['notify', [['rp+4', false, { body: '"value2"', slots: [] }]]],
+      });
+      await remote.handleRemoteMessage(retryMessage);
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledTimes(1);
+    });
   });
 });
