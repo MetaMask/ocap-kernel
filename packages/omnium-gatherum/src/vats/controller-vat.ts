@@ -13,6 +13,7 @@ import type {
   CapletControllerFacet,
   LaunchResult,
 } from '../controllers/caplet/index.ts';
+import type { StorageAdapter } from '../controllers/storage/types.ts';
 
 /**
  * Vat powers provided to the controller vat.
@@ -38,6 +39,52 @@ type BootstrapServices = {
 };
 
 /**
+ * Initialize the CapletController with the given kernelFacet.
+ *
+ * @param options - Initialization options.
+ * @param options.kernelFacet - The kernel facet for kernel operations.
+ * @param options.storageAdapter - The storage adapter for persistence.
+ * @param options.vatLogger - Optional logger for the vat.
+ * @param options.resolve - Function to resolve the caplet facet promise.
+ * @param options.reject - Function to reject the caplet facet promise.
+ */
+async function initializeCapletController(options: {
+  kernelFacet: KernelFacet;
+  storageAdapter: StorageAdapter;
+  vatLogger: Logger | undefined;
+  resolve: (facet: CapletControllerFacet) => void;
+  reject: (error: unknown) => void;
+}): Promise<void> {
+  const { kernelFacet, storageAdapter, vatLogger, resolve, reject } = options;
+
+  try {
+    const capletFacet = await CapletController.make(
+      { logger: vatLogger?.subLogger({ tags: ['caplet'] }) },
+      {
+        adapter: storageAdapter,
+        launchSubcluster: async (
+          config: ClusterConfig,
+        ): Promise<LaunchResult> => {
+          const result = await E(kernelFacet).launchSubcluster(config);
+          return {
+            subclusterId: result.subclusterId,
+            rootKref: result.rootKref,
+          };
+        },
+        terminateSubcluster: async (subclusterId: string): Promise<void> =>
+          E(kernelFacet).terminateSubcluster(subclusterId),
+        getVatRoot: async (krefString: string): Promise<unknown> =>
+          E(kernelFacet).getVatRoot(krefString),
+      },
+    );
+    resolve(capletFacet);
+  } catch (error) {
+    reject(error);
+    throw error;
+  }
+}
+
+/**
  * Controller vat for Omnium system services.
  * Hosts controllers with baggage-backed persistence.
  *
@@ -59,12 +106,32 @@ export function buildRootObject(
   // Create baggage-backed storage adapter
   const storageAdapter = makeBaggageStorageAdapter(baggage);
 
-  // Promise kit for the caplet controller facet, resolved/rejected in bootstrap()
+  // Promise kit for the caplet controller facet
   const {
     promise: capletFacetP,
     resolve: resolveCapletFacet,
     reject: rejectCapletFacet,
   }: PromiseKit<CapletControllerFacet> = makePromiseKit<CapletControllerFacet>();
+
+  // Restore kernelFacet from baggage if available (for resuscitation)
+  const kernelFacet: KernelFacet | undefined = baggage.has('kernelFacet')
+    ? (baggage.get('kernelFacet') as KernelFacet)
+    : undefined;
+
+  // If we have a persisted kernelFacet, initialize the controller immediately
+  if (kernelFacet) {
+    logger?.info('Restoring controller from baggage');
+    // Fire-and-forget: the promise kit will be resolved when initialization completes
+    initializeCapletController({
+      kernelFacet,
+      storageAdapter,
+      vatLogger,
+      resolve: resolveCapletFacet,
+      reject: rejectCapletFacet,
+    }).catch((error) => {
+      logger?.error('Failed to restore controller from baggage:', error);
+    });
+  }
 
   // Define delegating methods for caplet operations
   const capletMethods = defineMethods(capletFacetP, [
@@ -86,41 +153,31 @@ export function buildRootObject(
       _vats: unknown,
       services: BootstrapServices,
     ): Promise<void> {
+      // Skip if already initialized from baggage (resuscitation case)
+      if (kernelFacet) {
+        logger?.info('Bootstrap called but already restored from baggage');
+        return;
+      }
+
       logger?.info('Bootstrap called');
 
-      try {
-        const { kernelFacet } = services;
-        if (!kernelFacet) {
-          throw new Error('kernelFacet service is required');
-        }
-
-        // Initialize caplet controller with baggage-backed storage
-        const capletFacet = await CapletController.make(
-          { logger: vatLogger?.subLogger({ tags: ['caplet'] }) },
-          {
-            adapter: storageAdapter,
-            launchSubcluster: async (
-              config: ClusterConfig,
-            ): Promise<LaunchResult> => {
-              const result = await E(kernelFacet).launchSubcluster(config);
-              return {
-                subclusterId: result.subclusterId,
-                rootKref: result.rootKref,
-              };
-            },
-            terminateSubcluster: async (subclusterId: string): Promise<void> =>
-              E(kernelFacet).terminateSubcluster(subclusterId),
-            getVatRoot: async (krefString: string): Promise<unknown> =>
-              E(kernelFacet).getVatRoot(krefString),
-          },
-        );
-        resolveCapletFacet(capletFacet);
-
-        logger?.info('Bootstrap complete');
-      } catch (error) {
-        rejectCapletFacet(error);
-        throw error;
+      const { kernelFacet: newKernelFacet } = services;
+      if (!newKernelFacet) {
+        throw new Error('kernelFacet service is required');
       }
+
+      // Store in baggage for persistence across restarts
+      baggage.init('kernelFacet', newKernelFacet);
+
+      await initializeCapletController({
+        kernelFacet: newKernelFacet,
+        storageAdapter,
+        vatLogger,
+        resolve: resolveCapletFacet,
+        reject: rejectCapletFacet,
+      });
+
+      logger?.info('Bootstrap complete');
     },
 
     ...capletMethods,
