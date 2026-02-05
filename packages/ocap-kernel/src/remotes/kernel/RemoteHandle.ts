@@ -788,21 +788,55 @@ export class RemoteHandle implements EndpointHandle {
    * @param replyKey - that tag that was sent in the request being replied to.
    * @param result - if success, an object ref; if not, an error message string.
    */
-  async #handleRedeemURLReply(
+  /**
+   * Prepare to handle a redeemURLReply - validates and translates but does NOT
+   * modify in-memory state. Returns the data needed to complete the operation.
+   *
+   * @param success - Whether the redemption was successful.
+   * @param replyKey - The reply key for matching to pending redemption.
+   * @param result - Either the kref (on success) or error message (on failure).
+   * @returns Data needed to complete the operation after commit.
+   */
+  #prepareRedeemURLReply(
     success: boolean,
     replyKey: string,
     result: string,
-  ): Promise<void> {
-    const handlers = this.#pendingRedemptions.get(replyKey);
-    if (!handlers) {
+  ): { replyKey: string; success: boolean; value: string } {
+    // Validate the replyKey exists - if not, this is an error and we should throw
+    // (which will cause the savepoint to roll back)
+    if (!this.#pendingRedemptions.has(replyKey)) {
       throw Error(`unknown URL redemption reply key ${replyKey}`);
     }
-    this.#pendingRedemptions.delete(replyKey);
-    const [resolve, reject] = handlers;
-    if (success) {
-      resolve(this.#kernelStore.translateRefEtoK(this.remoteId, result));
-    } else {
-      reject(result);
+    // Translate ref inside transaction (database operation)
+    const value = success
+      ? this.#kernelStore.translateRefEtoK(this.remoteId, result)
+      : result;
+    return { replyKey, success, value };
+  }
+
+  /**
+   * Complete a redeemURLReply after transaction commits - modifies in-memory state.
+   *
+   * @param data - The data from #prepareRedeemURLReply.
+   * @param data.replyKey - The reply key for matching to pending redemption.
+   * @param data.success - Whether the redemption was successful.
+   * @param data.value - The translated kref (on success) or error message (on failure).
+   */
+  #completeRedeemURLReply(data: {
+    replyKey: string;
+    success: boolean;
+    value: string;
+  }): void {
+    const handlers = this.#pendingRedemptions.get(data.replyKey);
+    // handlers should exist since we validated in prepare, but check for safety
+    if (handlers) {
+      this.#pendingRedemptions.delete(data.replyKey);
+      const [resolve, reject] = handlers;
+      if (data.success) {
+        resolve(data.value);
+      } else {
+        reject(data.value);
+      }
     }
   }
 
@@ -852,6 +886,12 @@ export class RemoteHandle implements EndpointHandle {
     // happens. This ensures crash-safe exactly-once delivery.
     const savepointName = `receive_${this.remoteId}_${seq}`;
     this.#kernelStore.createSavepoint(savepointName);
+
+    // Deferred operations to complete after commit (for redeemURLReply)
+    let redemptionResult:
+      | { replyKey: string; success: boolean; value: string }
+      | undefined;
+
     try {
       switch (method) {
         case 'deliver':
@@ -862,7 +902,8 @@ export class RemoteHandle implements EndpointHandle {
           await this.#handleRedeemURLRequest(...params);
           break;
         case 'redeemURLReply':
-          await this.#handleRedeemURLReply(...params);
+          // Prepare but don't complete - in-memory changes deferred until after commit
+          redemptionResult = this.#prepareRedeemURLReply(...params);
           break;
         default:
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
@@ -875,10 +916,17 @@ export class RemoteHandle implements EndpointHandle {
       // Commit the transaction
       this.#kernelStore.releaseSavepoint(savepointName);
 
+      // === All in-memory state changes happen AFTER commit ===
+
       // Update in-memory seq state only after successful commit. This ensures any
       // ACK piggybacked on outgoing messages doesn't acknowledge uncommitted
       // message receipts.
       this.#highestReceivedSeq = seq;
+
+      // Complete deferred redeemURLReply (delete from map, resolve/reject promise)
+      if (redemptionResult) {
+        this.#completeRedeemURLReply(redemptionResult);
+      }
 
       // Restart delayed ACK timer. The timer was started at the beginning of
       // message processing, but if a reply was sent during the transaction (e.g.,
