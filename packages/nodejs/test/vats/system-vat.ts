@@ -86,7 +86,8 @@ export function buildRootObject(
      * @returns The kernel status.
      */
     async getKernelStatus(): Promise<KernelStatus> {
-      return E(kernelFacet).getStatus();
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      return E(kernelFacet!).getStatus();
     },
 
     /**
@@ -95,7 +96,8 @@ export function buildRootObject(
      * @returns The list of subclusters.
      */
     async getSubclusters(): Promise<Subcluster[]> {
-      return E(kernelFacet).getSubclusters();
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      return E(kernelFacet!).getSubclusters();
     },
 
     /**
@@ -107,7 +109,8 @@ export function buildRootObject(
     async launchSubcluster(
       config: ClusterConfig,
     ): Promise<SubclusterLaunchResult> {
-      return E(kernelFacet).launchSubcluster(config);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      return E(kernelFacet!).launchSubcluster(config);
     },
 
     /**
@@ -117,7 +120,8 @@ export function buildRootObject(
      * @returns A promise that resolves when the subcluster is terminated.
      */
     async terminateSubcluster(subclusterId: string): Promise<void> {
-      return E(kernelFacet).terminateSubcluster(subclusterId);
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      return E(kernelFacet!).terminateSubcluster(subclusterId);
     },
 
     /**
