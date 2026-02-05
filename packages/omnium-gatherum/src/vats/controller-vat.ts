@@ -31,7 +31,7 @@ type VatPowers = {
 type KernelFacet = {
   launchSubcluster: (config: ClusterConfig) => Promise<SubclusterLaunchResult>;
   terminateSubcluster: (subclusterId: string) => Promise<void>;
-  getVatRoot: (krefString: string) => Promise<unknown>;
+  getPresence: (kref: string, iface?: string) => Promise<unknown>;
 };
 
 /**
@@ -77,7 +77,7 @@ async function initializeCapletController(options: {
         terminateSubcluster: async (subclusterId: string): Promise<void> =>
           E(kernelFacet).terminateSubcluster(subclusterId),
         getVatRoot: async (krefString: string): Promise<unknown> =>
-          E(kernelFacet).getVatRoot(krefString),
+          E(kernelFacet).getPresence(krefString, 'vatRoot'),
       },
     );
     resolve(capletFacet);

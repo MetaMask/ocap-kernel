@@ -1,7 +1,6 @@
 import { makeDefaultExo } from '@metamask/kernel-utils';
 
 import type { Kernel } from './Kernel.ts';
-import { kslot } from './liveslots/kernel-marshal.ts';
 import type { SlotValue } from './liveslots/kernel-marshal.ts';
 import type { PingVatResult } from './rpc/index.ts';
 import type { Subcluster, KernelStatus, KRef, VatId } from './types.ts';
@@ -11,6 +10,7 @@ import type { Subcluster, KernelStatus, KRef, VatId } from './types.ts';
  */
 export type KernelFacetDependencies = Pick<
   Kernel,
+  | 'getPresence'
   | 'getStatus'
   | 'getSubcluster'
   | 'getSubclusters'
@@ -36,16 +36,6 @@ export type KernelFacet = KernelFacetDependencies & {
    * @returns The string 'pong'.
    */
   ping: () => 'pong';
-
-  /**
-   * Convert a kref string to a slot value (presence).
-   *
-   * Use this to restore a presence from a stored kref string after restart.
-   *
-   * @param kref - The kref string to convert.
-   * @returns The slot value that will become a presence when marshalled.
-   */
-  getVatRoot: (kref: string) => SlotValue;
 };
 
 /**
@@ -63,6 +53,7 @@ export type KernelFacet = KernelFacetDependencies & {
  */
 export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
   const {
+    getPresence,
     getStatus,
     getSubcluster,
     getSubclusters,
@@ -174,13 +165,12 @@ export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
     /**
      * Convert a kref string to a slot value (presence).
      *
-     * Use this to restore a presence from a stored kref string after restart.
-     *
      * @param kref - The kref string to convert.
+     * @param iface - The interface name for the slot value.
      * @returns The slot value that will become a presence when marshalled.
      */
-    getVatRoot(kref: string): SlotValue {
-      return kslot(kref, 'vatRoot');
+    getPresence(kref: string, iface: string = 'Kernel Object'): SlotValue {
+      return getPresence(kref, iface);
     },
 
     /**

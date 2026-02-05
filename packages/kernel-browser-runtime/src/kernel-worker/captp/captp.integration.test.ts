@@ -1,6 +1,6 @@
 import { E } from '@endo/eventual-send';
 import type { ClusterConfig, Kernel } from '@metamask/ocap-kernel';
-import { makeKernelFacet } from '@metamask/ocap-kernel';
+import { makeKernelFacet, kslot } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeKernelCapTP } from './kernel-captp.ts';
@@ -21,6 +21,11 @@ describe('CapTP Integration', () => {
   beforeEach(() => {
     // Create mock kernel with method implementations
     mockKernel = {
+      getPresence: vi
+        .fn()
+        .mockImplementation(async (kref: string, iface: string) =>
+          kslot(kref, iface),
+        ),
       getStatus: vi.fn().mockResolvedValue({
         vats: [{ id: 'v1', name: 'test-vat' }],
         subclusters: ['sc1'],

@@ -8,6 +8,8 @@ import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import { KernelServiceManager } from './KernelServiceManager.ts';
 import type { KernelService } from './KernelServiceManager.ts';
+import type { SlotValue } from './liveslots/kernel-marshal.ts';
+import { kslot } from './liveslots/kernel-marshal.ts';
 import { OcapURLManager } from './remotes/kernel/OcapURLManager.ts';
 import { RemoteManager } from './remotes/kernel/RemoteManager.ts';
 import type { RemoteCommsOptions } from './remotes/types.ts';
@@ -372,6 +374,7 @@ export class Kernel {
     }
 
     const kernelFacet = makeKernelFacet({
+      getPresence: this.getPresence.bind(this),
       getStatus: this.getStatus.bind(this),
       getSubcluster: this.getSubcluster.bind(this),
       getSubclusters: this.getSubclusters.bind(this),
@@ -529,6 +532,19 @@ export class Kernel {
       throw new Error(`System subcluster "${name}" not found`);
     }
     return kref;
+  }
+
+  /**
+   * Convert a kref string to a slot value (presence).
+   *
+   * Use this to restore a presence from a stored kref string after restart.
+   *
+   * @param kref - The kref string to convert.
+   * @param iface - The interface name for the slot value.
+   * @returns The slot value that will become a presence when marshalled.
+   */
+  getPresence(kref: string, iface: string = 'Kernel Object'): SlotValue {
+    return kslot(kref, iface);
   }
 
   /**

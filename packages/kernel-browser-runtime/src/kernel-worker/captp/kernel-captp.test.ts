@@ -1,5 +1,5 @@
 import type { Kernel } from '@metamask/ocap-kernel';
-import { makeKernelFacet } from '@metamask/ocap-kernel';
+import { makeKernelFacet, kslot } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeKernelCapTP } from './kernel-captp.ts';
@@ -7,6 +7,11 @@ import type { CapTPMessage } from '../../types.ts';
 
 describe('makeKernelCapTP', () => {
   const mockKernel = {
+    getPresence: vi
+      .fn()
+      .mockImplementation(async (kref: string, iface: string) =>
+        kslot(kref, iface),
+      ),
     getStatus: vi.fn(),
     getSubcluster: vi.fn(),
     getSubclusters: vi.fn(),

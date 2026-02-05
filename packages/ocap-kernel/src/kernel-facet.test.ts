@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { KernelFacetDependencies } from './kernel-facet.ts';
 import { makeKernelFacet } from './kernel-facet.ts';
 import type { SlotValue } from './liveslots/kernel-marshal.ts';
-import { krefOf } from './liveslots/kernel-marshal.ts';
+import { krefOf, kslot } from './liveslots/kernel-marshal.ts';
 import type { ClusterConfig, KernelStatus, Subcluster } from './types.ts';
 
 describe('makeKernelFacet', () => {
@@ -11,6 +11,12 @@ describe('makeKernelFacet', () => {
 
   beforeEach(() => {
     deps = {
+      getPresence: vi
+        .fn()
+        // eslint-disable-next-line @typescript-eslint/promise-function-async
+        .mockImplementation((kref: string, iface: string) =>
+          kslot(kref, iface),
+        ),
       getStatus: vi.fn().mockResolvedValue({
         vats: [],
         subclusters: [],
@@ -188,14 +194,15 @@ describe('makeKernelFacet', () => {
     });
   });
 
-  describe('getVatRoot', () => {
-    it('returns a slot value for the given kref', () => {
+  describe('getPresence', () => {
+    it('delegates to the getPresence dependency', () => {
       const facet = makeKernelFacet(deps) as {
-        getVatRoot: (kref: string) => SlotValue;
+        getPresence: (kref: string, iface?: string) => SlotValue;
       };
 
-      const result = facet.getVatRoot('ko42');
+      const result = facet.getPresence('ko42', 'vatRoot');
 
+      expect(deps.getPresence).toHaveBeenCalledWith('ko42', 'vatRoot');
       expect(krefOf(result)).toBe('ko42');
     });
   });
