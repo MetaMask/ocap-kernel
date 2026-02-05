@@ -8,6 +8,7 @@ import {
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
+import type { SystemSubclusterConfig } from '@metamask/ocap-kernel';
 import type { DuplexStream } from '@metamask/streams';
 import {
   initializeMessageChannel,
@@ -88,7 +89,7 @@ async function makeKernelWorker(): Promise<
         services: ['kernelFacet'],
       },
     },
-  ];
+  ] satisfies SystemSubclusterConfig[];
   workerUrlParams.set('system-subclusters', JSON.stringify(systemSubclusters));
 
   const workerUrl = new URL('kernel-worker.js', import.meta.url);
