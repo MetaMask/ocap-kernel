@@ -53,9 +53,21 @@ describe('CapTP Integration', () => {
       provideFacet: vi.fn(),
     } as unknown as Kernel;
 
-    // Wire up provideFacet to return a real facet backed by the mock kernel
+    // Wire up provideFacet to return a real facet backed by the mock kernel.
+    // We wrap each mock method with a delegate so that harden() inside
+    // makeKernelFacet (via makeDefaultExo) freezes the wrapper functions
+    // instead of the original vi.fn() instances, keeping call tracking intact.
     vi.mocked(mockKernel.provideFacet).mockReturnValue(
-      makeKernelFacet(mockKernel),
+      makeKernelFacet(
+        Object.fromEntries(
+          Object.entries(mockKernel)
+            .filter(
+              (entry): entry is [string, (...args: never[]) => unknown] =>
+                typeof entry[1] === 'function',
+            )
+            .map(([key, fn]) => [key, (...args: never[]) => fn(...args)]),
+        ) as unknown as Kernel,
+      ),
     );
 
     // Wire up CapTP endpoints to dispatch messages synchronously to each other
