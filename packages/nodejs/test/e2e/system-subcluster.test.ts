@@ -73,7 +73,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       expect(root).toMatch(/^ko\d+$/u);
     });
 
-    it('returns undefined for unknown system subcluster name', async () => {
+    it('throws for unknown system subcluster name', async () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
@@ -81,8 +81,9 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
-      const root = kernel.getSystemSubclusterRoot('unknown-vat');
-      expect(root).toBeUndefined();
+      expect(() => kernel!.getSystemSubclusterRoot('unknown-cluster')).toThrow(
+        'System subcluster "unknown-cluster" not found',
+      );
     });
   });
 
@@ -98,7 +99,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       const root = kernel.getSystemSubclusterRoot('test-system');
       expect(root).toBeDefined();
 
-      const result = await kernel.queueMessage(root!, 'hasKernelFacet', []);
+      const result = await kernel.queueMessage(root, 'hasKernelFacet', []);
       await delay();
 
       expect(kunser(result)).toBe(true);
@@ -115,7 +116,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       const root = kernel.getSystemSubclusterRoot('test-system');
       expect(root).toBeDefined();
 
-      const result = await kernel.queueMessage(root!, 'getKernelStatus', []);
+      const result = await kernel.queueMessage(root, 'getKernelStatus', []);
       await delay();
 
       const status = kunser(result) as {
@@ -140,7 +141,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       const root = kernel.getSystemSubclusterRoot('test-system');
       expect(root).toBeDefined();
 
-      const result = await kernel.queueMessage(root!, 'getSubclusters', []);
+      const result = await kernel.queueMessage(root, 'getSubclusters', []);
       await delay();
 
       const subclusters = kunser(result) as unknown[];
@@ -164,7 +165,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
 
       // Get initial subcluster count
       const initialResult = await kernel.queueMessage(
-        root!,
+        root,
         'getSubclusters',
         [],
       );
@@ -183,15 +184,11 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
         },
       };
 
-      await kernel.queueMessage(root!, 'launchSubcluster', [config]);
+      await kernel.queueMessage(root, 'launchSubcluster', [config]);
       await delay();
 
       // Verify subcluster was created
-      const afterResult = await kernel.queueMessage(
-        root!,
-        'getSubclusters',
-        [],
-      );
+      const afterResult = await kernel.queueMessage(root, 'getSubclusters', []);
       await delay();
       const afterSubclusters = kunser(afterResult) as unknown[];
 
@@ -220,18 +217,16 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
         },
       };
 
-      const launchResult = await kernel.queueMessage(
-        root!,
-        'launchSubcluster',
-        [config],
-      );
+      const launchResult = await kernel.queueMessage(root, 'launchSubcluster', [
+        config,
+      ]);
       await delay();
       const launchData = kunser(launchResult) as { subclusterId: string };
       const { subclusterId } = launchData;
 
       // Get count before termination
       const beforeResult = await kernel.queueMessage(
-        root!,
+        root,
         'getSubclusters',
         [],
       );
@@ -240,15 +235,11 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       expect(beforeSubclusters).toHaveLength(2);
 
       // Terminate the subcluster
-      await kernel.queueMessage(root!, 'terminateSubcluster', [subclusterId]);
+      await kernel.queueMessage(root, 'terminateSubcluster', [subclusterId]);
       await delay();
 
       // Verify subcluster was terminated
-      const afterResult = await kernel.queueMessage(
-        root!,
-        'getSubclusters',
-        [],
-      );
+      const afterResult = await kernel.queueMessage(root, 'getSubclusters', []);
       await delay();
       const afterSubclusters = kunser(afterResult) as unknown[];
 
@@ -296,7 +287,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       expect(newRoot).toBeDefined();
       expect(newRoot).toBe(initialRoot);
 
-      const result = await kernel.queueMessage(newRoot!, 'hasKernelFacet', []);
+      const result = await kernel.queueMessage(newRoot, 'hasKernelFacet', []);
       await delay();
       expect(kunser(result)).toBe(true);
     });
@@ -315,11 +306,11 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       // Store data in baggage during first incarnation
       const testKey = 'persistent-data';
       const testValue = 'hello from first incarnation';
-      await kernel.queueMessage(root!, 'storeToBaggage', [testKey, testValue]);
+      await kernel.queueMessage(root, 'storeToBaggage', [testKey, testValue]);
       await delay();
 
       // Verify data was stored
-      const storedResult = await kernel.queueMessage(root!, 'getFromBaggage', [
+      const storedResult = await kernel.queueMessage(root, 'getFromBaggage', [
         testKey,
       ]);
       await delay();
@@ -343,7 +334,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
 
       // Verify baggage data persisted across restart
       const persistedResult = await kernel.queueMessage(
-        newRoot!,
+        newRoot,
         'getFromBaggage',
         [testKey],
       );
@@ -351,16 +342,14 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       expect(kunser(persistedResult)).toBe(testValue);
 
       // Verify key exists check works
-      const hasKeyResult = await kernel.queueMessage(
-        newRoot!,
-        'hasBaggageKey',
-        [testKey],
-      );
+      const hasKeyResult = await kernel.queueMessage(newRoot, 'hasBaggageKey', [
+        testKey,
+      ]);
       await delay();
       expect(kunser(hasKeyResult)).toBe(true);
 
       // Verify non-existent key returns false
-      const noKeyResult = await kernel.queueMessage(newRoot!, 'hasBaggageKey', [
+      const noKeyResult = await kernel.queueMessage(newRoot, 'hasBaggageKey', [
         'non-existent-key',
       ]);
       await delay();
@@ -388,11 +377,11 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       expect(root1).not.toBe(root2);
 
       // Both should have kernelFacet
-      const result1 = await kernel.queueMessage(root1!, 'hasKernelFacet', []);
+      const result1 = await kernel.queueMessage(root1, 'hasKernelFacet', []);
       await delay();
       expect(kunser(result1)).toBe(true);
 
-      const result2 = await kernel.queueMessage(root2!, 'hasKernelFacet', []);
+      const result2 = await kernel.queueMessage(root2, 'hasKernelFacet', []);
       await delay();
       expect(kunser(result2)).toBe(true);
 
