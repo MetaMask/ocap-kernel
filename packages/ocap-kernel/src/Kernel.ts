@@ -26,7 +26,7 @@ import type {
   EndpointHandle,
   SystemSubclusterConfig,
 } from './types.ts';
-import { isVatId, isRemoteId } from './types.ts';
+import { isVatId, isRemoteId, isSubclusterId } from './types.ts';
 import { SubclusterManager } from './vats/SubclusterManager.ts';
 import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
@@ -222,6 +222,12 @@ export class Kernel {
     systemSubclusterConfigs?: SystemSubclusterConfig[],
   ): Promise<void> {
     const configs = systemSubclusterConfigs ?? [];
+
+    // Validate no duplicate system subcluster names
+    const names = new Set(configs.map((config) => config.name));
+    if (names.size !== configs.length) {
+      throw new Error('Duplicate system subcluster names in config');
+    }
 
     // Set up the remote message handler
     this.#remoteManager.setMessageHandler(
@@ -487,8 +493,12 @@ export class Kernel {
    *
    * @param subclusterId - The id of the subcluster.
    * @returns The subcluster, or undefined if not found.
+   * @throws If subclusterId is not a valid subcluster ID format.
    */
   getSubcluster(subclusterId: string): Subcluster | undefined {
+    if (!isSubclusterId(subclusterId)) {
+      throw new Error(`Invalid subcluster ID: ${String(subclusterId)}`);
+    }
     return this.#subclusterManager.getSubcluster(subclusterId);
   }
 

@@ -121,7 +121,7 @@ export function buildRootObject(
   // If we have a persisted kernelFacet, initialize the controller immediately
   if (kernelFacet) {
     logger?.info('Restoring controller from baggage');
-    // Fire-and-forget: the promise kit will be resolved when initialization completes
+    // Fire-and-forget: the promise kit will be resolved/rejected when initialization completes
     initializeCapletController({
       kernelFacet,
       storageAdapter,

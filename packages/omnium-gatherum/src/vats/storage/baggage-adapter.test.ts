@@ -24,6 +24,9 @@ function makeMockBaggage() {
       }
       store.set(key, value);
     }),
+    delete: vi.fn((key: string) => {
+      store.delete(key);
+    }),
     _store: store, // For test inspection
   };
 }
@@ -49,15 +52,14 @@ describe('makeBaggageStorageAdapter', () => {
       expect(result).toStrictEqual({ foo: 'bar' });
     });
 
-    it('returns undefined for deleted key (null tombstone)', async () => {
+    it('returns undefined for deleted key', async () => {
       await adapter.set('to-delete', { data: 'test' });
       await adapter.delete('to-delete');
 
-      // Baggage still has the key but value is null
-      expect(baggage._store.has('to-delete')).toBe(true);
-      expect(baggage._store.get('to-delete')).toBeNull();
+      // Baggage should no longer have the key
+      expect(baggage._store.has('to-delete')).toBe(false);
 
-      // Adapter should return undefined, not null
+      // Adapter should return undefined
       const result = await adapter.get('to-delete');
       expect(result).toBeUndefined();
     });
@@ -95,10 +97,10 @@ describe('makeBaggageStorageAdapter', () => {
       await adapter.set('reused-key', { original: true });
       expect(await adapter.keys()).toContain('reused-key');
 
-      // Delete it (creates null tombstone but removes from tracking)
+      // Delete it
       await adapter.delete('reused-key');
       expect(await adapter.keys()).not.toContain('reused-key');
-      expect(baggage._store.has('reused-key')).toBe(true); // tombstone exists
+      expect(baggage._store.has('reused-key')).toBe(false);
 
       // Set again - should re-add to tracking
       await adapter.set('reused-key', { restored: true });
@@ -108,11 +110,12 @@ describe('makeBaggageStorageAdapter', () => {
   });
 
   describe('delete', () => {
-    it('sets value to null and removes from key list', async () => {
+    it('removes key from baggage and key list', async () => {
       await adapter.set('to-delete', { data: 'test' });
       await adapter.delete('to-delete');
 
-      expect(baggage._store.get('to-delete')).toBeNull();
+      expect(baggage._store.has('to-delete')).toBe(false);
+      expect(baggage.delete).toHaveBeenCalledWith('to-delete');
       const keys = await adapter.keys();
       expect(keys).not.toContain('to-delete');
     });

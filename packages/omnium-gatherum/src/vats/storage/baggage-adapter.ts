@@ -11,6 +11,7 @@ export type Baggage = {
   get: (key: string) => unknown;
   init: (key: string, value: unknown) => void;
   set: (key: string, value: unknown) => void;
+  delete: (key: string) => void;
 };
 
 const KEYS_KEY = '__storage_keys__';
@@ -55,12 +56,7 @@ export function makeBaggageStorageAdapter(baggage: Baggage): StorageAdapter {
   return harden({
     async get<Value extends Json>(key: string): Promise<Value | undefined> {
       if (baggage.has(key)) {
-        const value = baggage.get(key);
-        // Return undefined for null tombstones (deleted keys)
-        if (value === null) {
-          return undefined;
-        }
-        return value as Value;
+        return baggage.get(key) as Value;
       }
       return undefined;
     },
@@ -80,9 +76,8 @@ export function makeBaggageStorageAdapter(baggage: Baggage): StorageAdapter {
     },
 
     async delete(key: string): Promise<void> {
-      // Baggage doesn't support true deletion, so we set to null marker
       if (baggage.has(key)) {
-        baggage.set(key, harden(null));
+        baggage.delete(key);
         const keys = getKeys();
         keys.delete(key);
         saveKeys(keys);

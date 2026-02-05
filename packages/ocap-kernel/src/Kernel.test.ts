@@ -353,7 +353,18 @@ describe('Kernel', () => {
         mockPlatformServices,
         mockKernelDatabase,
       );
-      expect(kernel.getSubcluster('non-existent')).toBeUndefined();
+      // Use valid subcluster ID format (s + number) that doesn't exist
+      expect(kernel.getSubcluster('s999')).toBeUndefined();
+    });
+
+    it('throws for invalid subcluster ID format', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      expect(() => kernel.getSubcluster('non-existent')).toThrow(
+        'Invalid subcluster ID: non-existent',
+      );
     });
   });
 
@@ -371,7 +382,8 @@ describe('Kernel', () => {
       const subclusterId = firstSubcluster?.id as string;
       expect(subclusterId).toBeDefined();
       expect(kernel.isVatInSubcluster('v1', subclusterId)).toBe(true);
-      expect(kernel.isVatInSubcluster('v1', 'other-subcluster')).toBe(false);
+      // Use valid subcluster ID format (s + number) that doesn't match
+      expect(kernel.isVatInSubcluster('v1', 's999')).toBe(false);
     });
   });
 

@@ -30,10 +30,10 @@ export type KernelFacetLaunchResult = {
    * The root object as a slot value (becomes a presence when marshalled).
    * Use this directly with E() for immediate operations.
    */
-  root: SlotValue;
+  rootObject: SlotValue;
   /**
    * The root kref string for storage purposes.
-   * Store this value to restore the presence after restart using getSubclusterRoot().
+   * Store this value to restore the presence after restart using getVatRoot().
    */
   rootKref: string;
 };
@@ -108,7 +108,7 @@ export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
       const result = await launchSubcluster(config);
       return {
         subclusterId: result.subclusterId,
-        root: kslot(result.bootstrapRootKref, 'vatRoot'),
+        rootObject: kslot(result.bootstrapRootKref, 'vatRoot'),
         rootKref: result.bootstrapRootKref,
       };
     },

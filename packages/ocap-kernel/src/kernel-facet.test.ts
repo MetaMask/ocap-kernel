@@ -60,11 +60,11 @@ describe('makeKernelFacet', () => {
       expect(deps.launchSubcluster).toHaveBeenCalledWith(config);
     });
 
-    it('returns subclusterId and root as slot value', async () => {
+    it('returns subclusterId and rootObject as slot value', async () => {
       const facet = makeKernelFacet(deps) as {
         launchSubcluster: (
           config: ClusterConfig,
-        ) => Promise<{ subclusterId: string; root: SlotValue }>;
+        ) => Promise<{ subclusterId: string; rootObject: SlotValue }>;
       };
       const config: ClusterConfig = {
         bootstrap: 'myVat',
@@ -74,8 +74,8 @@ describe('makeKernelFacet', () => {
       const result = await facet.launchSubcluster(config);
 
       expect(result.subclusterId).toBe('s1');
-      // The root is a slot value (remotable) that carries the kref
-      expect(krefOf(result.root)).toBe('ko1');
+      // The rootObject is a slot value (remotable) that carries the kref
+      expect(krefOf(result.rootObject)).toBe('ko1');
     });
   });
 
