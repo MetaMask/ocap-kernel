@@ -18,7 +18,7 @@ import type { JsonRpcNotification, JsonRpcResponse } from '@metamask/utils';
 import type { KernelQueue } from '../KernelQueue.ts';
 import { kser, makeError } from '../liveslots/kernel-marshal.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from '../rpc/index.ts';
-import type { PingVatResult, VatMethod } from '../rpc/index.ts';
+import type { EvaluateResult, PingVatResult, VatMethod } from '../rpc/index.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
   Message,
@@ -181,6 +181,19 @@ export class VatHandle implements EndpointHandle {
     return await this.sendVatCommand({
       method: 'ping',
       params: [],
+    });
+  }
+
+  /**
+   * Evaluate code in the vat's REPL compartment.
+   *
+   * @param code - The code to evaluate.
+   * @returns A promise that resolves to the evaluation result.
+   */
+  async evaluate(code: string): Promise<EvaluateResult> {
+    return await this.sendVatCommand({
+      method: 'evaluate',
+      params: { code },
     });
   }
 
