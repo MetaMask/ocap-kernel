@@ -201,7 +201,10 @@ export class PlatformServicesClient implements PlatformServices {
   async initializeRemoteComms(
     keySeed: string,
     options: RemoteCommsOptions,
-    remoteMessageHandler: (from: string, message: string) => Promise<string>,
+    remoteMessageHandler: (
+      from: string,
+      message: string,
+    ) => Promise<string | null>,
     onRemoteGiveUp?: (peerId: string) => void,
     incarnationId?: string,
   ): Promise<void> {
@@ -275,9 +278,9 @@ export class PlatformServicesClient implements PlatformServices {
    *
    * @param from - The peer ID that sent the message.
    * @param message - The message received.
-   * @returns A promise that resolves with the reply message, or an empty string if no reply is needed.
+   * @returns A promise that resolves with the reply message, or null if no reply is needed.
    */
-  async #remoteDeliver(from: string, message: string): Promise<string> {
+  async #remoteDeliver(from: string, message: string): Promise<string | null> {
     if (this.#remoteMessageHandler) {
       return await this.#remoteMessageHandler(from, message);
     }

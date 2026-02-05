@@ -262,7 +262,7 @@ describe('RemoteHandle', () => {
       params: ['message', targetRRef, message],
     });
     const reply = await remote.handleRemoteMessage(delivery);
-    expect(reply).toBe('');
+    expect(reply).toBeNull();
     expect(mockKernelQueue.enqueueSend).toHaveBeenCalledWith(targetKRef, {
       methargs: message.methargs,
       result: resultKRef,
@@ -289,7 +289,7 @@ describe('RemoteHandle', () => {
       params: ['notify', resolutions],
     });
     const reply = await remote.handleRemoteMessage(notify);
-    expect(reply).toBe('');
+    expect(reply).toBeNull();
     expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith(
       remote.remoteId,
       [[promiseKRef, false, { body: '"resolved value"', slots: [] }]],
@@ -350,7 +350,7 @@ describe('RemoteHandle', () => {
     });
     const reply = await remote.handleRemoteMessage(dropExports);
 
-    expect(reply).toBe('');
+    expect(reply).toBeNull();
     for (const kref of krefs) {
       const { isPromise } = parseRef(kref);
       if (isPromise) {
@@ -404,7 +404,7 @@ describe('RemoteHandle', () => {
     });
     const reply = await remote.handleRemoteMessage(retireExports);
 
-    expect(reply).toBe('');
+    expect(reply).toBeNull();
     expect(mockKernelStore.getObjectRefCount(kref)).toStrictEqual({
       reachable: 0,
       recognizable: 0,
@@ -431,7 +431,7 @@ describe('RemoteHandle', () => {
     });
     const reply = await remote.handleRemoteMessage(retireImports);
 
-    expect(reply).toBe('');
+    expect(reply).toBeNull();
 
     // Object should have disappeared from the clists
     expect(() =>
@@ -471,7 +471,7 @@ describe('RemoteHandle', () => {
       mockOcapURL,
     );
     // Reply is now sent via sendRemoteCommand, not returned
-    expect(reply).toBe('');
+    expect(reply).toBeNull();
     // Verify reply was sent with seq/ack via sendRemoteMessage
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalled();
     const sentMessage = JSON.parse(
@@ -510,7 +510,7 @@ describe('RemoteHandle', () => {
       mockOcapURL,
     );
     // Reply is now sent via sendRemoteCommand, not returned
-    expect(reply).toBe('');
+    expect(reply).toBeNull();
     // Verify error reply was sent with seq/ack via sendRemoteMessage
     expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalled();
     const sentMessage = JSON.parse(
@@ -890,8 +890,8 @@ describe('RemoteHandle', () => {
         JSON.stringify(deliveryMessage),
       );
 
-      // Verify message was processed (handleRemoteMessage returns empty string on success)
-      expect(result).toBe('');
+      // Verify message was processed (handleRemoteMessage returns null on success)
+      expect(result).toBeNull();
 
       // Verify kernel queue was called
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalled();
@@ -904,9 +904,9 @@ describe('RemoteHandle', () => {
       // but wants to acknowledge our messages
       const standaloneAck = JSON.stringify({ ack: 5 });
 
-      // This should not throw and should return empty string
+      // This should not throw and should return null
       const result = await remote.handleRemoteMessage(standaloneAck);
-      expect(result).toBe('');
+      expect(result).toBeNull();
     });
 
     it('assigns sequential sequence numbers to outgoing messages', async () => {

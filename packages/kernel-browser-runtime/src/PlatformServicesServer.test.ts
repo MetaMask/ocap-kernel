@@ -521,7 +521,7 @@ describe('PlatformServicesServer', () => {
             new MessageEvent('message', {
               data: {
                 id: 'vws:1',
-                result: '',
+                result: null,
                 jsonrpc: '2.0',
               },
             }),

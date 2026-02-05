@@ -812,15 +812,15 @@ export class RemoteHandle implements EndpointHandle {
    * @param message - The message that was received.
    *
    * @returns a string containing a message to send back to the original message
-   *   sender as a response. An empty string means no such message is to be sent.
+   *   sender as a response, or null if no response is to be sent.
    */
-  async handleRemoteMessage(message: string): Promise<string> {
+  async handleRemoteMessage(message: string): Promise<string | null> {
     const parsed = JSON.parse(message);
 
     // Handle standalone ACK message (no seq, no method - just ack)
     if (parsed.ack !== undefined && parsed.seq === undefined) {
       this.#handleAck(parsed.ack);
-      return '';
+      return null;
     }
 
     const remoteCommand = parsed as RemoteCommand;
@@ -839,7 +839,7 @@ export class RemoteHandle implements EndpointHandle {
       this.#logger.log(
         `${this.#peerId.slice(0, 8)}:: ignoring duplicate message seq=${seq} (highestReceived=${this.#highestReceivedSeq})`,
       );
-      return '';
+      return null;
     }
 
     // Capture previous seq high watermark for rollback, then update in-memory
@@ -880,7 +880,7 @@ export class RemoteHandle implements EndpointHandle {
       this.#kernelStore.rollbackSavepoint(savepointName);
       throw error;
     }
-    return '';
+    return null;
   }
 
   /**

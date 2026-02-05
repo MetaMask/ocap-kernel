@@ -295,9 +295,12 @@ export class RemoteManager {
    *
    * @param from - The peer ID of the sender.
    * @param message - The message content.
-   * @returns a promise for the response message.
+   * @returns a promise for the response message, or null if no response is needed.
    */
-  async handleRemoteMessage(from: string, message: string): Promise<string> {
+  async handleRemoteMessage(
+    from: string,
+    message: string,
+  ): Promise<string | null> {
     const remote = this.remoteFor(from);
     return await remote.handleRemoteMessage(message);
   }
