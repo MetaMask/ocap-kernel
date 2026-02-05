@@ -879,6 +879,13 @@ export class RemoteHandle implements EndpointHandle {
       // ACK piggybacked on outgoing messages doesn't acknowledge uncommitted
       // message receipts.
       this.#highestReceivedSeq = seq;
+
+      // Restart delayed ACK timer. The timer was started at the beginning of
+      // message processing, but if a reply was sent during the transaction (e.g.,
+      // redeemURLReply), #sendRemoteCommand cleared the timer. Since the reply
+      // couldn't piggyback the ACK (we hadn't committed yet), we need to ensure
+      // a standalone ACK is sent.
+      this.#startDelayedAck();
     } catch (error) {
       // Rollback on any error - in-memory state unchanged since we didn't update it yet
       this.#kernelStore.rollbackSavepoint(savepointName);
