@@ -50,6 +50,8 @@ Key aspects:
 | Deferred transmission | ✓ | Outputs reach RemoteHandle only after originating crank commits |
 | Output validity | ✓ | Crank buffering ensures outputs escape only after commit |
 | Atomic checkpoint | ✓ | Database savepoints make crank state changes atomic |
+| Exactly-once receive | ✓ | Transactional receive with dedup check (Issue #808) |
+| FIFO ordering | ✓ | TCP guarantees in-order; dedup handles retransmits |
 
 ### Crank Buffering (Issue #786)
 
@@ -78,48 +80,59 @@ This achieves Ken's property that **outputs are only externalized after successf
 
 `RemoteHandle` persists messages to `remotePending` before transmitting for a different reason: to enable retransmission on recovery if the transmission or ACK is lost. This is part of the at-least-once delivery mechanism, not the output validity mechanism.
 
-### Remaining Gaps (Receive Side)
+### Receive-Side Implementation (Issue #808)
 
-The remaining gaps are on the **receive side** of remote messaging. Code review of `RemoteHandle.handleRemoteMessage()` revealed specific bugs:
+The receive side of remote messaging implements Ken's exactly-once delivery guarantee through transactional message processing with duplicate detection.
 
-#### 1. No Duplicate Detection (Bug)
+#### Duplicate Detection
 
-Ken maintains a `Done` table ensuring each message is delivered to the application **at most once**.
+Ken maintains a `Done` table ensuring each message is delivered to the application **at most once**. Our implementation achieves this by checking `seq <= highestReceivedSeq` before processing:
 
-**Current code behavior** (`RemoteHandle.ts` lines 830-845):
 ```typescript
-// Track received sequence number for piggyback ACK and persist
-if (seq > this.#highestReceivedSeq) {
-  this.#highestReceivedSeq = seq;
-  this.#kernelStore.setRemoteHighestReceivedSeq(this.remoteId, seq);
+// Duplicate detection: skip if we've already processed this sequence number
+if (seq <= this.#highestReceivedSeq) {
+  this.#logger.log(`ignoring duplicate message seq=${seq}`);
+  return null;
 }
-// ... then UNCONDITIONALLY:
-switch (method) {
-  case 'deliver':
-    this.#handleRemoteDeliver(params);  // Always runs, even for duplicates!
 ```
 
-**Problem**: There is no deduplication check. Even when `seq <= highestReceivedSeq`, the message is processed. After a crash and retransmit, duplicate messages will be delivered to the vat.
+After a crash and retransmit, duplicate messages are detected and ignored.
 
-#### 2. Wrong Persistence Order (Bug)
+#### Transactional Message Processing
 
-**Current behavior**: `highestReceivedSeq` is persisted BEFORE the message is processed and added to the run queue.
+Message processing is wrapped in a database savepoint to ensure atomicity:
 
-**Crash scenario**:
-1. Receive message seq=5 from remote R
-2. Update and persist `highestReceivedSeq` to 5
-3. Crash before message is added to run queue
-4. On recovery: `highestReceivedSeq=5` suggests we received it
-5. Remote retransmits seq=5, we (correctly) ignore it due to dedup check (once fixed)
-6. **Message lost** - never reached the run queue
+```typescript
+const savepointName = `receive_${this.remoteId}_${seq}`;
+this.#kernelStore.createSavepoint(savepointName);
+try {
+  // Process message (translate refs, add to run queue, etc.)
+  switch (method) {
+    case 'deliver': ...
+    case 'redeemURL': ...
+    case 'redeemURLReply': ...
+  }
 
-**What's needed**: Process the message first (add to run queue), then persist `highestReceivedSeq`. Ideally these should be atomic.
+  // Persist sequence tracking at the end, within the transaction
+  this.#kernelStore.setRemoteHighestReceivedSeq(this.remoteId, seq);
 
-#### 3. FIFO Enforcement on Receive (Not a Gap)
+  // Commit the transaction
+  this.#kernelStore.releaseSavepoint(savepointName);
+} catch (error) {
+  // Rollback on any error - also revert in-memory state
+  this.#highestReceivedSeq = previousHighestReceivedSeq;
+  this.#kernelStore.rollbackSavepoint(savepointName);
+  throw error;
+}
+```
+
+This achieves atomicity: if a crash occurs before commit, both the run queue entry and the sequence update roll back together. The remote retransmits, and we process it correctly.
+
+#### FIFO Ordering
 
 Ken enforces per-sender FIFO ordering via `next_ready()` which only delivers the next expected sequence number.
 
-**Our situation**: We use TCP-based transports (libp2p streams) which guarantee in-order delivery during normal operation. Out-of-order arrival only occurs after a crash when the sender retransmits. With proper deduplication (fix #1 above), retransmitted messages for already-processed sequence numbers will be dropped, maintaining FIFO semantics.
+**Our situation**: We use TCP-based transports (libp2p streams) which guarantee in-order delivery during normal operation. Out-of-order arrival only occurs after a crash when the sender retransmits. With duplicate detection, retransmitted messages for already-processed sequence numbers are dropped, maintaining FIFO semantics.
 
 Therefore, explicit receive-side reordering is not required given our transport guarantees.
 
@@ -134,45 +147,12 @@ Therefore, explicit receive-side reordering is not required given our transport 
 | Consistent frontier | **Yes** | Each kernel's checkpoint is independent |
 | Local recovery | **Yes** | Crashes don't affect other processes |
 | Sender-based logging | **Yes** | Messages persisted in remotePending until ACKed |
-| Exactly-once delivery | **Bug** | Needs transactional receive with dedup check |
+| Exactly-once delivery | **Yes** | Transactional receive with dedup check |
 | FIFO ordering | **Yes** | TCP guarantees in-order; dedup handles retransmits |
-
-## Required Fix
-
-Wrap `handleRemoteMessage()` in a database transaction with dedup check:
-
-```typescript
-handleRemoteMessage(seq, method, params) {
-  // Begin transaction
-
-  // Dedup check - must be inside transaction to read committed state
-  if (seq <= this.#highestReceivedSeq) {
-    // Already received, ACK but don't process
-    return;
-  }
-
-  // Process message (translate refs, add to run queue, etc.)
-  switch (method) {
-    case 'deliver': ...
-    case 'resolve': ...
-    case 'gc': ...
-  }
-
-  // Update sequence tracking
-  this.#highestReceivedSeq = seq;
-  this.#kernelStore.setRemoteHighestReceivedSeq(this.remoteId, seq);
-
-  // Commit transaction
-}
-```
-
-This achieves atomicity without restructuring the existing message handling code. If a crash occurs before commit, both the run queue entry and the sequence update roll back together - the remote retransmits, and we process it correctly.
-
-The transaction approach is simpler than reordering because `handleRemoteMessage` handles multiple message types (`deliver`, `resolve`, `gc`) with different processing paths, and reference slots require translation before persistence.
 
 ## Architectural Summary
 
-**Send side (achieved with crank buffering):**
+**Send side (crank buffering):**
 ```
 Vat Crank:
   vat processes message → syscalls buffer outputs
@@ -186,34 +166,31 @@ Later (separate operation):
 
 The key insight: by the time RemoteHandle sees a message, the originating crank has already committed. Output validity is achieved.
 
-**Receive side (bugs to fix):**
+**Receive side (transactional processing):**
 ```
-Current (buggy):
-  receive from network
-    → persist highestReceivedSeq (WRONG: too early)
-    → process message unconditionally (WRONG: no dedup)
-    → add to run queue
+receive from network
+  → check seq <= highestReceivedSeq (skip if duplicate)
+  → begin transaction (savepoint)
+  → process message, add to run queue
+  → persist highestReceivedSeq
+  → commit transaction (release savepoint)
+```
 
-Fixed (wrap in transaction):
-  receive from network
-    → begin transaction
-    → check seq <= highestReceivedSeq (skip if duplicate)
-    → process message, add to run queue
-    → persist highestReceivedSeq
-    → commit transaction
-```
+If a crash occurs before commit, both the run queue entry and the sequence update roll back together. The remote retransmits, and we process it correctly.
 
 ## Progress Summary
 
 | Area | Status |
 |------|--------|
-| Kernel-internal output buffering | **Achieved** |
-| Rollback discards uncommitted outputs | **Achieved** |
-| Atomic kernel state + output queue | **Achieved** |
-| Output validity (send side) | **Achieved** |
-| Deferred transmission (send side) | **Achieved** |
+| Kernel-internal output buffering | **Achieved** (Issue #786) |
+| Rollback discards uncommitted outputs | **Achieved** (Issue #786) |
+| Atomic kernel state + output queue | **Achieved** (Issue #786) |
+| Output validity (send side) | **Achieved** (Issue #786) |
+| Deferred transmission (send side) | **Achieved** (Issue #786) |
 | FIFO ordering | **Achieved** (TCP transport) |
-| Exactly-once receive (dedup + atomicity) | **Bug** - needs transactional fix |
+| Exactly-once receive (dedup + atomicity) | **Achieved** (Issue #808) |
+
+All Ken protocol properties are now implemented.
 
 ## References
 
