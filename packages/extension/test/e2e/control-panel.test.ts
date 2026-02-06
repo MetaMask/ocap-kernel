@@ -191,19 +191,19 @@ test.describe('Control Panel', () => {
     const v3Values = [
       '{"key":"e.nextPromiseId.v3","value":"2"}',
       '{"key":"e.nextObjectId.v3","value":"1"}',
-      '{"key":"ko5.owner","value":"v3"}',
-      '{"key":"v3.c.ko5","value":"R o+0"}',
-      '{"key":"v3.c.o+0","value":"ko5"}',
+      '{"key":"ko6.owner","value":"v3"}',
+      '{"key":"v3.c.ko6","value":"R o+0"}',
+      '{"key":"v3.c.o+0","value":"ko6"}',
       '{"key":"v3.c.kp4","value":"R p-1"}',
       '{"key":"v3.c.p-1","value":"kp4"}',
-      '{"key":"ko5.refCount","value":"1,1"}',
+      '{"key":"ko6.refCount","value":"1,1"}',
       '{"key":"kp4.refCount","value":"2"}',
     ];
     const v1koValues = [
-      '{"key":"v1.c.ko4","value":"R o-1"}',
-      '{"key":"v1.c.o-1","value":"ko4"}',
-      '{"key":"v1.c.ko5","value":"R o-2"}',
-      '{"key":"v1.c.o-2","value":"ko5"}',
+      '{"key":"v1.c.ko5","value":"R o-1"}',
+      '{"key":"v1.c.o-1","value":"ko5"}',
+      '{"key":"v1.c.ko6","value":"R o-2"}',
+      '{"key":"v1.c.o-2","value":"ko6"}',
     ];
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
@@ -263,7 +263,7 @@ test.describe('Control Panel', () => {
         popupPage.locator('[data-testid="message-output"]'),
       ).not.toContainText(value);
     }
-    // ko3 (vat root) reference still exists for v1
+    // v2/v3 vat root references still exist for v1
     for (const value of v1koValues) {
       await expect(
         popupPage.locator('[data-testid="message-output"]'),
