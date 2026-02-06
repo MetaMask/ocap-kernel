@@ -5,6 +5,7 @@ import {
   collectGarbageHandler,
   collectGarbageSpec,
 } from './collect-garbage.ts';
+import { evaluateVatHandler, evaluateVatSpec } from './evaluate-vat.ts';
 import {
   executeDBQueryHandler,
   executeDBQuerySpec,
@@ -39,6 +40,7 @@ describe('handlers/index', () => {
   it('should export all handler functions', () => {
     expect(rpcHandlers).toStrictEqual({
       clearState: clearStateHandler,
+      evaluateVat: evaluateVatHandler,
       executeDBQuery: executeDBQueryHandler,
       getStatus: getStatusHandler,
       pingVat: pingVatHandler,
@@ -68,6 +70,7 @@ describe('handlers/index', () => {
   it('should export all method specs', () => {
     expect(rpcMethodSpecs).toStrictEqual({
       clearState: clearStateSpec,
+      evaluateVat: evaluateVatSpec,
       executeDBQuery: executeDBQuerySpec,
       getStatus: getStatusSpec,
       pingVat: pingVatSpec,

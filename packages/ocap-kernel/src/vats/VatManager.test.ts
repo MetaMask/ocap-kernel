@@ -37,6 +37,7 @@ describe('VatManager', () => {
       config,
       terminate: vi.fn(),
       ping: vi.fn().mockResolvedValue({ pong: true }),
+      evaluate: vi.fn().mockResolvedValue({ success: true, value: 42 }),
     } as unknown as Mocked<VatHandle>;
     vatHandles.push(handle);
     return handle;
@@ -330,6 +331,24 @@ describe('VatManager', () => {
 
     it('throws if vat not found', async () => {
       await expect(vatManager.pingVat('v1')).rejects.toThrow(VatNotFoundError);
+    });
+  });
+
+  describe('evaluateVat', () => {
+    it('evaluates code in a vat', async () => {
+      const config = createMockVatConfig();
+      await vatManager.runVat('v1', config);
+
+      const result = await vatManager.evaluateVat('v1', '1 + 1');
+
+      expect(vatHandles[0]?.evaluate).toHaveBeenCalledWith('1 + 1');
+      expect(result).toStrictEqual({ success: true, value: 42 });
+    });
+
+    it('throws if vat not found', async () => {
+      await expect(vatManager.evaluateVat('v1', '1 + 1')).rejects.toThrow(
+        VatNotFoundError,
+      );
     });
   });
 

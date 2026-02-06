@@ -25,6 +25,7 @@ import {
   isJsonRpcRequest,
   isJsonRpcResponse,
 } from '@metamask/utils';
+import type { Json } from '@metamask/utils';
 import type { PlatformFactory } from '@ocap/kernel-platforms';
 
 import { loadBundle } from './bundle-loader.ts';
@@ -37,6 +38,7 @@ import type {
   GCTools,
 } from '../liveslots/types.ts';
 import { vatSyscallMethodSpecs, vatHandlers } from '../rpc/index.ts';
+import type { EvaluateResult } from '../rpc/index.ts';
 import { makeVatKVStore } from '../store/vat-kv-store.ts';
 import type { VatConfig, VatDeliveryResult, VatId } from '../types.ts';
 import { isVatConfig, coerceVatSyscallObject } from '../types.ts';
@@ -105,6 +107,9 @@ export class VatSupervisor {
   /** Options to pass to the makePlatform function. */
   readonly #platformOptions: Record<string, unknown>;
 
+  /** Compartment for REPL evaluation with vat exports in scope. */
+  #evalCompartment: { evaluate: (code: string) => unknown } | null = null;
+
   /**
    * Construct a new VatSupervisor instance.
    *
@@ -151,6 +156,7 @@ export class VatSupervisor {
     this.#rpcServer = new RpcService(vatHandlers, {
       initVat: this.#initVat.bind(this),
       handleDelivery: this.#deliver.bind(this),
+      handleEvaluate: this.#evaluate.bind(this),
     });
 
     Promise.all([
@@ -248,6 +254,81 @@ export class VatSupervisor {
 
     // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
     return [this.#vatKVStore!.checkpoint(), deliveryError];
+  }
+
+  /**
+   * Evaluate code in the vat's REPL compartment.
+   *
+   * @param code - The code to evaluate.
+   * @returns The result of the evaluation.
+   */
+  #evaluate(code: string): EvaluateResult {
+    if (!this.#evalCompartment) {
+      return { success: false, error: 'Vat not initialized' };
+    }
+    try {
+      const result = this.#evalCompartment.evaluate(code);
+      const serialized = this.#serializeResult(result);
+      if (serialized === undefined) {
+        return { success: true };
+      }
+      return { success: true, value: serialized };
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  /**
+   * Serialize a value for JSON-RPC transport.
+   * Non-serializable values (functions, symbols, etc.) are converted to string representation.
+   *
+   * @param value - The value to serialize.
+   * @returns A JSON-serializable value.
+   */
+  #serializeResult(value: unknown): Json | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (value === null) {
+      return null;
+    }
+    const type = typeof value;
+    if (type === 'string') {
+      return value as string;
+    }
+    if (type === 'number') {
+      return value as number;
+    }
+    if (type === 'boolean') {
+      return value as boolean;
+    }
+    if (type === 'bigint') {
+      return `${String(value as bigint)}n`;
+    }
+    if (type === 'symbol') {
+      return (value as symbol).toString();
+    }
+    if (type === 'function') {
+      return `[Function: ${(value as { name?: string }).name ?? 'anonymous'}]`;
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => this.#serializeResult(item) ?? null) as Json[];
+    }
+    if (type === 'object') {
+      // Handle objects - try to serialize their properties
+      const result: Record<string, Json> = {};
+      for (const key of Object.keys(value as object)) {
+        result[key] =
+          this.#serializeResult((value as Record<string, unknown>)[key]) ??
+          null;
+      }
+      return result;
+    }
+    // Fallback for any other types - unlikely to reach here
+    return `[${type}]`;
   }
 
   /**
@@ -357,6 +438,14 @@ export class VatSupervisor {
         endowments,
         inescapableGlobalProperties,
       });
+
+      // Create a separate compartment for REPL evaluation.
+      // Vat exports become endowments, so they're directly in scope.
+      this.#evalCompartment = new Compartment({
+        harden: globalThis.harden,
+        ...vatNS,
+      });
+
       return vatNS;
     };
 

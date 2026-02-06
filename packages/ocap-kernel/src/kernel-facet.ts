@@ -3,6 +3,7 @@ import { makeDefaultExo } from '@metamask/kernel-utils';
 import type { Kernel } from './Kernel.ts';
 
 const kernelFacetMethodNames = [
+  'evaluateVat',
   'getPresence',
   'getStatus',
   'getSubcluster',

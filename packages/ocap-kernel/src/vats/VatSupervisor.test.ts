@@ -124,6 +124,26 @@ describe('VatSupervisor', () => {
         }),
       );
     });
+
+    it('handles "evaluate" requests before vat initialization', async () => {
+      const dispatch = vi.fn();
+      const { stream } = await makeVatSupervisor({ dispatch });
+
+      await stream.receiveInput({
+        id: 'v0:1',
+        method: 'evaluate',
+        params: { code: '1 + 1' },
+        jsonrpc: '2.0',
+      });
+      await delay(10);
+
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'v0:1',
+          result: { success: false, error: 'Vat not initialized' },
+        }),
+      );
+    });
   });
 
   describe('terminate', () => {

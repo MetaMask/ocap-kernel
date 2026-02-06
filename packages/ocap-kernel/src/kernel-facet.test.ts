@@ -5,6 +5,8 @@ import { makeKernelFacet } from './kernel-facet.ts';
 import { kslot } from './liveslots/kernel-marshal.ts';
 
 const makeMockKernel = (): KernelFacetSource => ({
+  evaluateVat: async () =>
+    Promise.resolve({ success: true as const, value: 42 }),
   getPresence: async (kref: string, iface: string = 'Kernel Object') =>
     kslot(kref, iface),
   getStatus: async () => Promise.resolve({ vats: [], subclusters: [] }),
@@ -33,6 +35,7 @@ describe('makeKernelFacet', () => {
   it('creates an exo with all dependency methods and ping', () => {
     const facet = makeKernelFacet(makeMockKernel());
 
+    expect(typeof facet.evaluateVat).toBe('function');
     expect(typeof facet.getPresence).toBe('function');
     expect(typeof facet.getStatus).toBe('function');
     expect(typeof facet.getSubcluster).toBe('function');

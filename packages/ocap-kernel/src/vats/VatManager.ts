@@ -12,7 +12,7 @@ import type { KernelStore } from '../store/index.ts';
 import type { VatId, VatConfig, KRef, PlatformServices } from '../types.ts';
 import { ROOT_OBJECT_VREF } from '../types.ts';
 import { VatHandle } from './VatHandle.ts';
-import type { PingVatResult } from '../rpc/index.ts';
+import type { PingVatResult, EvaluateResult } from '../rpc/index.ts';
 
 type VatManagerOptions = {
   platformServices: PlatformServices;
@@ -201,6 +201,18 @@ export class VatManager {
   async pingVat(vatId: VatId): Promise<PingVatResult> {
     const vat = this.getVat(vatId);
     return vat.ping();
+  }
+
+  /**
+   * Evaluate code in a vat's REPL compartment.
+   *
+   * @param vatId - The ID of the vat.
+   * @param code - The code to evaluate.
+   * @returns A promise that resolves to the result of the evaluation.
+   */
+  async evaluateVat(vatId: VatId, code: string): Promise<EvaluateResult> {
+    const vat = this.getVat(vatId);
+    return vat.evaluate(code);
   }
 
   /**

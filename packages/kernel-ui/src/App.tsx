@@ -12,6 +12,7 @@ import { MessagePanel } from './components/MessagePanel.tsx';
 import { ObjectRegistry } from './components/ObjectRegistry.tsx';
 import { RemoteComms } from './components/RemoteComms.tsx';
 import { Tabs } from './components/shared/Tabs.tsx';
+import { VatRepl } from './components/VatRepl.tsx';
 import { PanelProvider } from './context/PanelContext.tsx';
 import { useDarkMode } from './hooks/useDarkMode.ts';
 import { useStream } from './hooks/useStream.ts';
@@ -39,6 +40,11 @@ const tabs: NonEmptyArray<{
     label: 'Remote Comms',
     value: 'remote-comms',
     component: <RemoteComms />,
+  },
+  {
+    label: 'Vat REPL',
+    value: 'repl',
+    component: <VatRepl />,
   },
 ];
 
