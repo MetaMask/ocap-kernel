@@ -3,14 +3,14 @@ import { insistKernelType } from '../store/utils/kernel-slots.ts';
 import type {
   GCAction,
   GCActionType,
+  EndpointId,
   KRef,
   RunQueueItem,
-  VatId,
 } from '../types.ts';
 import {
   actionTypePriorities,
   insistGCActionType,
-  insistVatId,
+  insistEndpointId,
   queueTypeFromActionType,
 } from '../types.ts';
 import { assert } from '../utils/assert.ts';
@@ -19,43 +19,43 @@ import { assert } from '../utils/assert.ts';
  * Parsed representation of a GC action.
  */
 type ParsedGCAction = Readonly<{
-  vatId: VatId;
+  endpointId: EndpointId;
   type: GCActionType;
   kref: KRef;
 }>;
 
 /**
- * Parse a GC action string into a vat id, type, and kref.
+ * Parse a GC action string into an endpoint id, type, and kref.
  *
  * @param action - The GC action string to parse.
  * @returns The parsed GC action.
  */
 function parseAction(action: GCAction): ParsedGCAction {
-  const [vatId, type, kref] = action.split(' ');
-  insistVatId(vatId);
+  const [endpointId, type, kref] = action.split(' ');
+  insistEndpointId(endpointId);
   insistGCActionType(type);
   insistKernelType('object', kref);
-  return harden({ vatId, type, kref });
+  return harden({ endpointId, type, kref });
 }
 
 /**
  * Determines if a GC action should be processed based on current system state.
  *
  * @param storage - The kernel storage.
- * @param vatId - The vat id of the vat that owns the kref.
+ * @param endpointId - The endpoint id of the vat or remote that owns the kref.
  * @param type - The type of GC action.
  * @param kref - The kref of the object in question.
  * @returns True if the action should be processed, false otherwise.
  */
 function shouldProcessAction(
   storage: KernelStore,
-  vatId: VatId,
+  endpointId: EndpointId,
   type: GCActionType,
   kref: KRef,
 ): boolean {
-  const hasCList = storage.hasCListEntry(vatId, kref);
+  const hasCList = storage.hasCListEntry(endpointId, kref);
   const isReachable = hasCList
-    ? storage.getReachableFlag(vatId, kref)
+    ? storage.getReachableFlag(endpointId, kref)
     : undefined;
   const exists = storage.kernelRefExists(kref);
   const { reachable, recognizable } = exists
@@ -78,17 +78,17 @@ function shouldProcessAction(
 }
 
 /**
- * Filters and processes a group of GC actions for a specific vat and action type.
+ * Filters and processes a group of GC actions for a specific endpoint and action type.
  *
  * @param storage - The kernel storage.
- * @param vatId - The vat id of the vat that owns the krefs.
+ * @param endpointId - The endpoint id of the vat or remote that owns the krefs.
  * @param actions - The set of GC actions to process.
  * @param allActionsSet - The complete set of GC actions.
  * @returns Object containing the krefs to process and whether the action set was updated.
  */
 function filterActionsForProcessing(
   storage: KernelStore,
-  vatId: VatId,
+  endpointId: EndpointId,
   actions: Set<GCAction>,
   allActionsSet: Set<GCAction>,
 ): { krefs: KRef[]; actionSetUpdated: boolean } {
@@ -97,7 +97,7 @@ function filterActionsForProcessing(
 
   for (const action of actions) {
     const { type, kref } = parseAction(action);
-    if (shouldProcessAction(storage, vatId, type, kref)) {
+    if (shouldProcessAction(storage, endpointId, type, kref)) {
       krefs.push(kref);
     }
     allActionsSet.delete(action);
@@ -119,43 +119,52 @@ export function processGCActionSet(
   const allActionsSet = storage.getGCActions();
   let actionSetUpdated = false;
 
-  // Group actions by vat and type
-  const actionsByVat = new Map<VatId, Map<GCActionType, Set<GCAction>>>();
+  // Group actions by endpoint and type
+  const actionsByEndpoint = new Map<
+    EndpointId,
+    Map<GCActionType, Set<GCAction>>
+  >();
 
   for (const action of allActionsSet) {
-    const { vatId, type } = parseAction(action);
+    const { endpointId, type } = parseAction(action);
 
-    if (!actionsByVat.has(vatId)) {
-      actionsByVat.set(vatId, new Map());
+    if (!actionsByEndpoint.has(endpointId)) {
+      actionsByEndpoint.set(endpointId, new Map());
     }
 
-    const actionsForVatByType = actionsByVat.get(vatId);
-    assert(actionsForVatByType !== undefined, `No actions for vat: ${vatId}`);
+    const actionsForEndpointByType = actionsByEndpoint.get(endpointId);
+    assert(
+      actionsForEndpointByType !== undefined,
+      `No actions for endpoint: ${endpointId}`,
+    );
 
-    if (!actionsForVatByType.has(type)) {
-      actionsForVatByType.set(type, new Set());
+    if (!actionsForEndpointByType.has(type)) {
+      actionsForEndpointByType.set(type, new Set());
     }
 
-    const actions = actionsForVatByType.get(type);
+    const actions = actionsForEndpointByType.get(type);
     assert(actions !== undefined, `No actions for type: ${type}`);
     actions.add(action);
   }
 
   // Process actions in priority order
-  const vatIds = Array.from(actionsByVat.keys()).sort();
+  const endpointIds = Array.from(actionsByEndpoint.keys()).sort();
 
-  for (const vatId of vatIds) {
-    const actionsForVatByType = actionsByVat.get(vatId);
-    assert(actionsForVatByType !== undefined, `No actions for vat: ${vatId}`);
+  for (const endpointId of endpointIds) {
+    const actionsForEndpointByType = actionsByEndpoint.get(endpointId);
+    assert(
+      actionsForEndpointByType !== undefined,
+      `No actions for endpoint: ${endpointId}`,
+    );
 
-    // Find the highest-priority type of work to do within this vat
+    // Find the highest-priority type of work to do within this endpoint
     for (const type of actionTypePriorities) {
-      if (actionsForVatByType.has(type)) {
-        const actions = actionsForVatByType.get(type);
+      if (actionsForEndpointByType.has(type)) {
+        const actions = actionsForEndpointByType.get(type);
         assert(actions !== undefined, `No actions for type: ${type}`);
         const { krefs, actionSetUpdated: updated } = filterActionsForProcessing(
           storage,
-          vatId,
+          endpointId,
           actions,
           allActionsSet,
         );
@@ -172,7 +181,7 @@ export function processGCActionSet(
           const queueType = queueTypeFromActionType.get(type);
           assert(queueType !== undefined, `Unknown action type: ${type}`);
 
-          return harden({ type: queueType, endpointId: vatId, krefs });
+          return harden({ type: queueType, endpointId, krefs });
         }
       }
     }
