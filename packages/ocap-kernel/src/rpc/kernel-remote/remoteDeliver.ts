@@ -38,9 +38,7 @@ export type RemoteDeliverHandler = Handler<
 >;
 
 export const remoteDeliverHandler: RemoteDeliverHandler = {
-  method: 'remoteDeliver',
-  params: paramsStruct,
-  result: union([string(), literal(null)]) as Struct<string | null>,
+  ...remoteDeliverSpec,
   hooks: { remoteDeliver: true },
   implementation: async ({ remoteDeliver }, params) => {
     return await remoteDeliver(params.from, params.message);
