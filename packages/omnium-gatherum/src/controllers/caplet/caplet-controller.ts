@@ -121,7 +121,7 @@ export class CapletController extends Controller<
    * Private constructor - use static create() method.
    *
    * @param storage - ControllerStorage for caplet state.
-   * @param logger - Optional logger instance.
+   * @param logger - Logger instance.
    * @param launchSubcluster - Function to launch a subcluster.
    * @param terminateSubcluster - Function to terminate a subcluster.
    * @param getVatRoot - Function to get a vat's root object as a presence.
@@ -129,7 +129,7 @@ export class CapletController extends Controller<
   // eslint-disable-next-line no-restricted-syntax -- TypeScript doesn't support # for constructors
   private constructor(
     storage: ControllerStorage<CapletControllerState>,
-    logger: Logger | undefined,
+    logger: Logger,
     launchSubcluster: (
       config: ClusterConfig,
     ) => Promise<SubclusterLaunchResult>,
@@ -159,7 +159,7 @@ export class CapletController extends Controller<
       namespace: 'caplet',
       adapter: deps.adapter,
       makeDefaultState: () => ({ caplets: {} }),
-      logger: config.logger?.subLogger({ tags: ['storage'] }),
+      logger: config.logger.subLogger({ tags: ['storage'] }),
     });
 
     const controller = new CapletController(
@@ -209,7 +209,7 @@ export class CapletController extends Controller<
     _bundle?: unknown,
   ): Promise<InstallResult> {
     const { id } = manifest;
-    this.logger?.info(`Installing caplet: ${id}`);
+    this.logger.info(`Installing caplet: ${id}`);
 
     // TODO: Move this validation in front of the controller.
     if (!isCapletManifest(manifest)) {
@@ -247,7 +247,7 @@ export class CapletController extends Controller<
         };
       });
 
-      this.logger?.info(
+      this.logger.info(
         `Caplet ${id} installed with subcluster ${subclusterId}`,
       );
       return { capletId: id, subclusterId };
@@ -262,7 +262,7 @@ export class CapletController extends Controller<
    * @param capletId - The ID of the caplet to uninstall.
    */
   async #uninstall(capletId: CapletId): Promise<void> {
-    this.logger?.info(`Uninstalling caplet: ${capletId}`);
+    this.logger.info(`Uninstalling caplet: ${capletId}`);
 
     const caplet = this.state.caplets[capletId];
     if (caplet === undefined) {
@@ -275,7 +275,7 @@ export class CapletController extends Controller<
       delete draft.caplets[capletId];
     });
 
-    this.logger?.info(`Caplet ${capletId} uninstalled`);
+    this.logger.info(`Caplet ${capletId} uninstalled`);
   }
 
   /**

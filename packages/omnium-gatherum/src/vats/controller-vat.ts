@@ -3,7 +3,7 @@ import type { ERef } from '@endo/eventual-send';
 import { makePromiseKit } from '@endo/promise-kit';
 import type { PromiseKit } from '@endo/promise-kit';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
-import type { Logger } from '@metamask/logger';
+import { Logger } from '@metamask/logger';
 import type {
   Baggage,
   ClusterConfig,
@@ -44,22 +44,22 @@ type BootstrapServices = {
  * @param options - Initialization options.
  * @param options.kernelFacet - The kernel facet for kernel operations.
  * @param options.storageAdapter - The storage adapter for persistence.
- * @param options.vatLogger - Optional logger for the vat.
+ * @param options.logger - Logger for the vat.
  * @param options.resolve - Function to resolve the caplet facet promise.
  * @param options.reject - Function to reject the caplet facet promise.
  */
 async function initializeCapletController(options: {
   kernelFacet: KernelFacet;
   storageAdapter: StorageAdapter;
-  vatLogger: Logger | undefined;
+  logger: Logger;
   resolve: (facet: CapletControllerFacet) => void;
   reject: (error: unknown) => void;
 }): Promise<void> {
-  const { kernelFacet, storageAdapter, vatLogger, resolve, reject } = options;
+  const { kernelFacet, storageAdapter, logger, resolve, reject } = options;
 
   try {
     const capletFacet = await CapletController.make(
-      { logger: vatLogger?.subLogger({ tags: ['caplet'] }) },
+      { logger: logger.subLogger({ tags: ['caplet'] }) },
       {
         adapter: storageAdapter,
         launchSubcluster: async (
@@ -95,8 +95,9 @@ export function buildRootObject(
   _parameters: unknown,
   baggage: Baggage,
 ): object {
-  const vatLogger = vatPowers.logger?.subLogger({ tags: ['bootstrap'] });
-  const logger = vatLogger ?? console;
+  const logger = (vatPowers.logger ?? new Logger()).subLogger({
+    tags: ['controller-vat'],
+  });
 
   // Create baggage-backed storage adapter
   const storageAdapter = makeBaggageStorageAdapter(baggage);
@@ -117,16 +118,16 @@ export function buildRootObject(
 
   // If we have a persisted kernelFacet, initialize the controller immediately
   if (persistedKernelFacet) {
-    logger?.info('Restoring controller from baggage');
+    logger.info('Restoring controller from baggage');
     // Fire-and-forget: the promise kit will be resolved/rejected when initialization completes
     initializeCapletController({
       kernelFacet: persistedKernelFacet,
       storageAdapter,
-      vatLogger,
+      logger,
       resolve: resolveCapletFacet,
       reject: rejectCapletFacet,
     }).catch((error) => {
-      logger?.error('Failed to restore controller from baggage:', error);
+      logger.error('Failed to restore controller from baggage:', error);
     });
   }
 
@@ -150,7 +151,7 @@ export function buildRootObject(
       _vats: unknown,
       services: BootstrapServices,
     ): Promise<void> {
-      logger?.info('Bootstrap called');
+      logger.info('Bootstrap called');
 
       const { kernelFacet } = services;
       if (!kernelFacet) {
@@ -163,7 +164,7 @@ export function buildRootObject(
       await initializeCapletController({
         kernelFacet,
         storageAdapter,
-        vatLogger,
+        logger,
         resolve: resolveCapletFacet,
         reject: rejectCapletFacet,
       });
