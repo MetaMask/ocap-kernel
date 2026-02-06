@@ -10,6 +10,7 @@ import type {
 import { NodejsPlatformServices } from '../../src/kernel/PlatformServices.ts';
 
 type MakeTestKernelOptions = {
+  resetStorage?: boolean;
   mnemonic?: string;
   systemSubclusters?: SystemSubclusterConfig[];
 };
@@ -19,19 +20,17 @@ type MakeTestKernelOptions = {
  * This avoids creating the database twice.
  *
  * @param kernelDatabase - The kernel database to use.
- * @param resetStorage - Whether to reset the storage.
- * @param mnemonicOrOptions - Optional BIP39 mnemonic string or options bag.
+ * @param options - Options for the test kernel.
+ * @param options.resetStorage - Whether to reset the storage (default: true).
+ * @param options.mnemonic - Optional BIP39 mnemonic string.
+ * @param options.systemSubclusters - Optional system subcluster configurations.
  * @returns The kernel.
  */
 export async function makeTestKernel(
   kernelDatabase: KernelDatabase,
-  resetStorage: boolean,
-  mnemonicOrOptions?: string | MakeTestKernelOptions,
+  options: MakeTestKernelOptions = {},
 ): Promise<Kernel> {
-  const options: MakeTestKernelOptions =
-    typeof mnemonicOrOptions === 'string'
-      ? { mnemonic: mnemonicOrOptions }
-      : (mnemonicOrOptions ?? {});
+  const { resetStorage = true, mnemonic, systemSubclusters } = options;
 
   const logger = new Logger('test-kernel');
   const platformServices = new NodejsPlatformServices({
@@ -39,8 +38,8 @@ export async function makeTestKernel(
   });
   const kernel = await Kernel.make(platformServices, kernelDatabase, {
     resetStorage,
-    mnemonic: options.mnemonic,
-    systemSubclusters: options.systemSubclusters,
+    mnemonic,
+    systemSubclusters,
     logger: logger.subLogger({ tags: ['kernel'] }),
   });
 

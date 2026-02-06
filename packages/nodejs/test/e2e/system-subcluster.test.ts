@@ -51,7 +51,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
-      kernel = await makeTestKernel(kernelDatabase, true, {
+      kernel = await makeTestKernel(kernelDatabase, {
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -63,7 +63,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
-      kernel = await makeTestKernel(kernelDatabase, true, {
+      kernel = await makeTestKernel(kernelDatabase, {
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -77,7 +77,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
-      kernel = await makeTestKernel(kernelDatabase, true, {
+      kernel = await makeTestKernel(kernelDatabase, {
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -92,7 +92,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
-      kernel = await makeTestKernel(kernelDatabase, true, {
+      kernel = await makeTestKernel(kernelDatabase, {
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -109,7 +109,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
-      kernel = await makeTestKernel(kernelDatabase, true, {
+      kernel = await makeTestKernel(kernelDatabase, {
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -134,7 +134,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
-      kernel = await makeTestKernel(kernelDatabase, true, {
+      kernel = await makeTestKernel(kernelDatabase, {
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -156,7 +156,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
-      kernel = await makeTestKernel(kernelDatabase, true, {
+      kernel = await makeTestKernel(kernelDatabase, {
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -199,7 +199,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
-      kernel = await makeTestKernel(kernelDatabase, true, {
+      kernel = await makeTestKernel(kernelDatabase, {
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -252,7 +252,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
-      kernel = await makeTestKernel(kernelDatabase, true, {
+      kernel = await makeTestKernel(kernelDatabase, {
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -270,7 +270,8 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
 
       // Restart kernel with same system subcluster config (resetStorage = false)
       // eslint-disable-next-line require-atomic-updates
-      kernel = await makeTestKernel(kernelDatabase, false, {
+      kernel = await makeTestKernel(kernelDatabase, {
+        resetStorage: false,
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -296,7 +297,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
-      kernel = await makeTestKernel(kernelDatabase, true, {
+      kernel = await makeTestKernel(kernelDatabase, {
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -323,7 +324,8 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
 
       // Restart kernel with same system subcluster config (resetStorage = false)
       // eslint-disable-next-line require-atomic-updates
-      kernel = await makeTestKernel(kernelDatabase, false, {
+      kernel = await makeTestKernel(kernelDatabase, {
+        resetStorage: false,
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -362,7 +364,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
-      kernel = await makeTestKernel(kernelDatabase, true, {
+      kernel = await makeTestKernel(kernelDatabase, {
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -396,7 +398,8 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       kernel = undefined;
 
       // eslint-disable-next-line require-atomic-updates
-      kernel = await makeTestKernel(kernelDatabase, false, {
+      kernel = await makeTestKernel(kernelDatabase, {
+        resetStorage: false,
         systemSubclusters: [makeSystemSubclusterConfig('test-system')],
       });
 
@@ -415,7 +418,7 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       kernelDatabase = await makeSQLKernelDatabase({
         dbFilename: ':memory:',
       });
-      kernel = await makeTestKernel(kernelDatabase, true, {
+      kernel = await makeTestKernel(kernelDatabase, {
         systemSubclusters: [
           makeSystemSubclusterConfig('system-1'),
           makeSystemSubclusterConfig('system-2'),
