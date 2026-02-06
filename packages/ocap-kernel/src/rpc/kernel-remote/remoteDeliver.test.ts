@@ -11,10 +11,10 @@ describe('remoteDeliver', () => {
     });
 
     it('should have correct result type', () => {
-      // Test that result validator accepts strings
+      // Test that result validator accepts strings and null
       expect(is('test-result', remoteDeliverSpec.result)).toBe(true);
+      expect(is(null, remoteDeliverSpec.result)).toBe(true);
       expect(is(123, remoteDeliverSpec.result)).toBe(false);
-      expect(is(null, remoteDeliverSpec.result)).toBe(false);
       expect(is(undefined, remoteDeliverSpec.result)).toBe(false);
     });
 

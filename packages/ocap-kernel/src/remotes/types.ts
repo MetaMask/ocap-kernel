@@ -10,7 +10,7 @@ export type Channel = {
 export type RemoteMessageHandler = (
   from: string,
   message: string,
-) => Promise<string>;
+) => Promise<string | null>;
 
 export type SendRemoteMessage = (to: string, message: string) => Promise<void>;
 
