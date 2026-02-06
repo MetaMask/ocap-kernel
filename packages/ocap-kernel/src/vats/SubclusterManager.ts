@@ -1,5 +1,6 @@
 import type { CapData } from '@endo/marshal';
 import { SubclusterNotFoundError } from '@metamask/kernel-errors';
+import { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from '../KernelQueue.ts';
 import type { VatManager } from './VatManager.ts';
@@ -12,6 +13,7 @@ import type {
   ClusterConfig,
   Subcluster,
   SubclusterLaunchResult,
+  SystemSubclusterConfig,
 } from '../types.ts';
 import { isClusterConfig } from '../types.ts';
 import { Fail } from '../utils/assert.ts';
@@ -26,6 +28,7 @@ type SubclusterManagerOptions = {
     method: string,
     args: unknown[],
   ) => Promise<CapData<KRef>>;
+  logger?: Logger;
 };
 
 /**
@@ -51,6 +54,12 @@ export class SubclusterManager {
     args: unknown[],
   ) => Promise<CapData<KRef>>;
 
+  /** Logger for diagnostic output */
+  readonly #logger: Logger;
+
+  /** Stores bootstrap root krefs of launched system subclusters */
+  readonly #systemSubclusterRoots: Map<string, KRef> = new Map();
+
   /**
    * Creates a new SubclusterManager instance.
    *
@@ -60,6 +69,7 @@ export class SubclusterManager {
    * @param options.vatManager - Manager for creating and managing vat instances.
    * @param options.getKernelService - Function to retrieve a kernel service by its kref.
    * @param options.queueMessage - Function to queue messages for delivery to targets.
+   * @param options.logger - Optional logger for diagnostic output.
    */
   constructor({
     kernelStore,
@@ -67,12 +77,14 @@ export class SubclusterManager {
     vatManager,
     getKernelService,
     queueMessage,
+    logger,
   }: SubclusterManagerOptions) {
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#vatManager = vatManager;
     this.#getKernelService = getKernelService;
     this.#queueMessage = queueMessage;
+    this.#logger = logger ?? new Logger('SubclusterManager');
     harden(this);
   }
 
@@ -110,6 +122,18 @@ export class SubclusterManager {
     if (!this.#kernelStore.getSubcluster(subclusterId)) {
       throw new SubclusterNotFoundError(subclusterId);
     }
+
+    // Clean up system subcluster mapping if this is a system subcluster
+    const mappings = this.#kernelStore.getAllSystemSubclusterMappings();
+    for (const [name, mappedSubclusterId] of mappings) {
+      if (mappedSubclusterId === subclusterId) {
+        this.#systemSubclusterRoots.delete(name);
+        this.#kernelStore.deleteSystemSubclusterMapping(name);
+        this.#logger.info(`Cleaned up system subcluster mapping "${name}"`);
+        break;
+      }
+    }
+
     const vatIdsToTerminate = this.#kernelStore.getSubclusterVats(subclusterId);
     for (const vatId of vatIdsToTerminate.reverse()) {
       await this.#vatManager.terminateVat(vatId);
@@ -132,6 +156,19 @@ export class SubclusterManager {
     if (!subcluster) {
       throw new SubclusterNotFoundError(subclusterId);
     }
+
+    // Check if this is a system subcluster before reloading
+    let systemSubclusterName: string | undefined;
+    for (const [
+      name,
+      mappedId,
+    ] of this.#kernelStore.getAllSystemSubclusterMappings()) {
+      if (mappedId === subclusterId) {
+        systemSubclusterName = name;
+        break;
+      }
+    }
+
     for (const vatId of Object.values(subcluster.vats).reverse()) {
       await this.#vatManager.terminateVat(vatId);
       this.#vatManager.collectGarbage();
@@ -142,6 +179,31 @@ export class SubclusterManager {
     if (!newSubcluster) {
       throw new SubclusterNotFoundError(newId);
     }
+
+    // Update system subcluster mappings to point to the new subcluster ID
+    if (systemSubclusterName !== undefined) {
+      const bootstrapVatId = newSubcluster.vats[newSubcluster.config.bootstrap];
+      if (!bootstrapVatId) {
+        throw new Error(
+          `Reloaded system subcluster "${systemSubclusterName}" has no bootstrap vat`,
+        );
+      }
+      const rootKref = this.#kernelStore.getRootObject(bootstrapVatId);
+      if (!rootKref) {
+        throw new Error(
+          `Reloaded system subcluster "${systemSubclusterName}" has no root object`,
+        );
+      }
+      this.#systemSubclusterRoots.set(systemSubclusterName, rootKref);
+      this.#kernelStore.setSystemSubclusterMapping(
+        systemSubclusterName,
+        newSubcluster.id,
+      );
+      this.#logger.info(
+        `Updated system subcluster mapping "${systemSubclusterName}" to ${newSubcluster.id}`,
+      );
+    }
+
     return newSubcluster;
   }
 
@@ -259,6 +321,140 @@ export class SubclusterManager {
       throw unserialized;
     }
     return { rootKref, bootstrapResult };
+  }
+
+  /**
+   * Initialize system subclusters from persisted state.
+   * Validates no duplicate names, deletes orphaned subclusters, and restores
+   * mappings for existing ones. Must be called before vat initialization.
+   *
+   * @param configs - Array of system subcluster configurations.
+   */
+  initSystemSubclusters(configs: SystemSubclusterConfig[]): void {
+    // Validate no duplicate system subcluster names
+    const names = new Set(configs.map((config) => config.name));
+    if (names.size !== configs.length) {
+      throw new Error('Duplicate system subcluster names in config');
+    }
+
+    this.#restorePersistedSystemSubclusters(configs);
+  }
+
+  /**
+   * Launch new system subclusters that aren't already in persistence.
+   * This must be called after the kernel queue is running since launchSubcluster
+   * sends bootstrap messages.
+   *
+   * @param configs - Array of system subcluster configurations.
+   */
+  async launchNewSystemSubclusters(
+    configs: SystemSubclusterConfig[],
+  ): Promise<void> {
+    // Filter to only configs that weren't restored from persistence
+    const newConfigs = configs.filter(
+      ({ name }) => !this.#systemSubclusterRoots.has(name),
+    );
+
+    if (newConfigs.length === 0) {
+      return;
+    }
+
+    for (const { name, config } of newConfigs) {
+      const result = await this.launchSubcluster(config);
+      this.#systemSubclusterRoots.set(name, result.rootKref);
+
+      // Persist the mapping
+      this.#kernelStore.setSystemSubclusterMapping(name, result.subclusterId);
+
+      this.#logger.info(`Launched new system subcluster "${name}"`);
+    }
+  }
+
+  /**
+   * Get the bootstrap root kref of a system subcluster by name.
+   *
+   * @param name - The name of the system subcluster.
+   * @returns The bootstrap root kref.
+   * @throws If the system subcluster is not found.
+   */
+  getSystemSubclusterRoot(name: string): KRef {
+    const kref = this.#systemSubclusterRoots.get(name);
+    if (kref === undefined) {
+      throw new Error(`System subcluster "${name}" not found`);
+    }
+    return kref;
+  }
+
+  /**
+   * Clear all system subcluster root state.
+   * Called by the kernel during reset.
+   */
+  clearSystemSubclusters(): void {
+    this.#systemSubclusterRoots.clear();
+  }
+
+  /**
+   * Restore persisted system subclusters before vat initialization.
+   * - Deletes orphaned subclusters (no longer in config) so their vats aren't started
+   * - Restores mappings for existing subclusters
+   *
+   * @param configs - Array of system subcluster configurations.
+   * @returns Whether any valid persisted subclusters were restored.
+   */
+  #restorePersistedSystemSubclusters(
+    configs: SystemSubclusterConfig[],
+  ): boolean {
+    const persistedMappings =
+      this.#kernelStore.getAllSystemSubclusterMappings();
+
+    if (persistedMappings.size === 0) {
+      return false;
+    }
+
+    const configNames = new Set(configs.map((config) => config.name));
+    let hasValidPersistedSubclusters = false;
+
+    for (const [name, subclusterId] of persistedMappings) {
+      if (!configNames.has(name)) {
+        // This system subcluster no longer has a config - delete it
+        this.#logger.info(
+          `System subcluster "${name}" no longer in config, deleting`,
+        );
+        this.deleteSubcluster(subclusterId);
+        this.#kernelStore.deleteSystemSubclusterMapping(name);
+        continue;
+      }
+
+      // Subcluster has a config - try to restore it
+      const subcluster = this.getSubcluster(subclusterId);
+      if (!subcluster) {
+        this.#logger.warn(
+          `System subcluster "${name}" mapping points to non-existent subcluster ${subclusterId}, cleaning up`,
+        );
+        this.#kernelStore.deleteSystemSubclusterMapping(name);
+        continue;
+      }
+
+      const bootstrapVatId = subcluster.vats[subcluster.config.bootstrap];
+      if (!bootstrapVatId) {
+        throw new Error(
+          `System subcluster "${name}" has no bootstrap vat - database may be corrupted`,
+        );
+      }
+
+      const rootKref = this.#kernelStore.getRootObject(bootstrapVatId);
+      if (!rootKref) {
+        throw new Error(
+          `System subcluster "${name}" has no root object - database may be corrupted`,
+        );
+      }
+
+      this.#systemSubclusterRoots.set(name, rootKref);
+      hasValidPersistedSubclusters = true;
+      this.#logger.info(`Restored system subcluster "${name}"`);
+    }
+
+    return hasValidPersistedSubclusters;
   }
 
   /**
