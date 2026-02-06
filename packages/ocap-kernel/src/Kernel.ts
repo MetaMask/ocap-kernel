@@ -227,11 +227,16 @@ export class Kernel {
         this.#remoteManager.handleRemoteMessage(from, message),
     );
 
+    // Always provide the kernel facet, even when there are no system subcluster
+    // configs. The run queue may contain messages targeting the kernel facet kref
+    // from a previous incarnation's system subclusters. If the facet is not
+    // registered, invokeKernelService throws and crashes the kernel queue.
+    // Ideally, orphaned messages would be purged before the queue starts, but
+    // the run queue has no selective removal capability.
+    this.provideFacet();
+
     // Restore persisted system subclusters and delete ones that no
     // longer have a config, to ensure that orphaned vats aren't started
-    if (configs.length > 0) {
-      this.provideFacet();
-    }
     this.#subclusterManager.initSystemSubclusters(configs);
 
     // Start all vats that were previously running before starting the queue
