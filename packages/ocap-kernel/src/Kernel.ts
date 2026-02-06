@@ -493,7 +493,46 @@ export class Kernel {
    * @throws If the subcluster is not found.
    */
   async reloadSubcluster(subclusterId: string): Promise<Subcluster> {
-    return this.#subclusterManager.reloadSubcluster(subclusterId);
+    // Check if this is a system subcluster before reloading
+    let systemSubclusterName: string | undefined;
+    for (const [
+      name,
+      mappedId,
+    ] of this.#kernelStore.getAllSystemSubclusterMappings()) {
+      if (mappedId === subclusterId) {
+        systemSubclusterName = name;
+        break;
+      }
+    }
+
+    const newSubcluster =
+      await this.#subclusterManager.reloadSubcluster(subclusterId);
+
+    // Update system subcluster mappings to point to the new subcluster ID
+    if (systemSubclusterName !== undefined) {
+      const bootstrapVatId = newSubcluster.vats[newSubcluster.config.bootstrap];
+      if (!bootstrapVatId) {
+        throw new Error(
+          `Reloaded system subcluster "${systemSubclusterName}" has no bootstrap vat`,
+        );
+      }
+      const rootKref = this.#kernelStore.getRootObject(bootstrapVatId);
+      if (!rootKref) {
+        throw new Error(
+          `Reloaded system subcluster "${systemSubclusterName}" has no root object`,
+        );
+      }
+      this.#systemSubclusterRoots.set(systemSubclusterName, rootKref);
+      this.#kernelStore.setSystemSubclusterMapping(
+        systemSubclusterName,
+        newSubcluster.id,
+      );
+      this.#logger.info(
+        `Updated system subcluster mapping "${systemSubclusterName}" to ${newSubcluster.id}`,
+      );
+    }
+
+    return newSubcluster;
   }
 
   /**
