@@ -138,7 +138,7 @@ const config = createConfig([
   },
 
   {
-    files: ['**/*.test.ts', '**/*.test.tsx'],
+    files: ['**/test/**/*', '**/*.test.ts', '**/*.test.tsx'],
     extends: [metamaskVitestConfig],
     rules: {
       // It's fine to do this in tests.

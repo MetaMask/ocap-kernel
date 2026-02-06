@@ -162,9 +162,13 @@ describe('VatManager', () => {
 
     it('launches a new vat with subcluster', async () => {
       const config = createMockVatConfig();
-      const kref = await vatManager.launchVat(config, 's1');
+      const kref = await vatManager.launchVat(config, 'test', 's1');
 
-      expect(mockKernelStore.addSubclusterVat).toHaveBeenCalledWith('s1', 'v1');
+      expect(mockKernelStore.addSubclusterVat).toHaveBeenCalledWith(
+        's1',
+        'test',
+        'v1',
+      );
       expect(kref).toBe('ko1');
     });
   });

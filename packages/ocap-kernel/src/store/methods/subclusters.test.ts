@@ -112,7 +112,7 @@ describe('getSubclusterMethods', () => {
       expect(subclusters[0]).toStrictEqual({
         id: 's2',
         config: mockClusterConfig1,
-        vats: [],
+        vats: {},
       });
     });
 
@@ -132,7 +132,7 @@ describe('getSubclusterMethods', () => {
       expect(subclusters[1]).toStrictEqual({
         id: 's3',
         config: mockClusterConfig2,
-        vats: [],
+        vats: {},
       });
     });
   });
@@ -181,14 +181,14 @@ describe('getSubclusterMethods', () => {
     });
 
     it('should add a vat to an existing subcluster and update map', () => {
-      subclusterMethods.addSubclusterVat(scId, vatId1);
+      subclusterMethods.addSubclusterVat(scId, 'bob', vatId1);
 
       const subclustersRaw = mockSubclustersStorage.get();
       const subclusters = subclustersRaw
         ? (JSON.parse(subclustersRaw) as Subcluster[])
         : [];
       const targetSubcluster = subclusters.find((sc) => sc.id === scId);
-      expect(targetSubcluster?.vats).toContain(vatId1);
+      expect(Object.values(targetSubcluster?.vats ?? {})).toContain(vatId1);
 
       const mapRaw = mockVatToSubclusterMapStorage.get();
       const map = mapRaw ? JSON.parse(mapRaw) : {};
@@ -196,22 +196,24 @@ describe('getSubclusterMethods', () => {
     });
 
     it('should not add a duplicate vat to the same subcluster', () => {
-      subclusterMethods.addSubclusterVat(scId, vatId1);
-      subclusterMethods.addSubclusterVat(scId, vatId1);
+      subclusterMethods.addSubclusterVat(scId, 'bob', vatId1);
+      subclusterMethods.addSubclusterVat(scId, 'bob', vatId1);
 
       const subclustersRaw = mockSubclustersStorage.get();
       const subclusters = subclustersRaw
         ? (JSON.parse(subclustersRaw) as Subcluster[])
         : [];
       const targetSubcluster = subclusters.find((sc) => sc.id === scId);
-      expect(targetSubcluster?.vats).toStrictEqual([vatId1]);
+      expect(targetSubcluster?.vats).toStrictEqual({ bob: vatId1 });
     });
 
     it('should throw an error when trying to add a vat to a different subcluster', () => {
       const scId2 = subclusterMethods.addSubcluster(mockClusterConfig2);
-      subclusterMethods.addSubclusterVat(scId, vatId1);
+      subclusterMethods.addSubclusterVat(scId, 'bob', vatId1);
 
-      expect(() => subclusterMethods.addSubclusterVat(scId2, vatId1)).toThrow(
+      expect(() =>
+        subclusterMethods.addSubclusterVat(scId2, 'alice', vatId1),
+      ).toThrow(
         `Cannot add vat ${vatId1} to subcluster ${scId2} as it already belongs to subcluster ${scId}.`,
       );
 
@@ -223,8 +225,8 @@ describe('getSubclusterMethods', () => {
       const originalSc = subclusters.find((sc) => sc.id === scId);
       const newSc = subclusters.find((sc) => sc.id === scId2);
 
-      expect(originalSc?.vats).toContain(vatId1);
-      expect(newSc?.vats).not.toContain(vatId1);
+      expect(Object.values(originalSc?.vats ?? {})).toContain(vatId1);
+      expect(Object.values(newSc?.vats ?? {})).not.toContain(vatId1);
 
       // Verify the map hasn't changed
       const mapRaw = mockVatToSubclusterMapStorage.get();
@@ -235,7 +237,7 @@ describe('getSubclusterMethods', () => {
     it('should throw SubclusterNotFoundError if subcluster does not exist', () => {
       const nonExistentId = 'sNonExistent' as SubclusterId;
       expect(() =>
-        subclusterMethods.addSubclusterVat(nonExistentId, vatId1),
+        subclusterMethods.addSubclusterVat(nonExistentId, 'bob', vatId1),
       ).toThrow(SubclusterNotFoundError);
     });
   });
@@ -247,8 +249,8 @@ describe('getSubclusterMethods', () => {
 
     beforeEach(() => {
       scId = subclusterMethods.addSubcluster(mockClusterConfig1);
-      subclusterMethods.addSubclusterVat(scId, vatId1);
-      subclusterMethods.addSubclusterVat(scId, vatId2);
+      subclusterMethods.addSubclusterVat(scId, 'vat1', vatId1);
+      subclusterMethods.addSubclusterVat(scId, 'vat2', vatId2);
     });
 
     it('should return all vats for a given subcluster', () => {
@@ -271,7 +273,7 @@ describe('getSubclusterMethods', () => {
       );
     });
 
-    it('should return a copy of the vats array, not a reference', () => {
+    it('should return a copy of the vats, not a reference', () => {
       const vatsArray1 = subclusterMethods.getSubclusterVats(scId);
       expect(vatsArray1).toStrictEqual([vatId1, vatId2]);
       vatsArray1.push('v3-mutated' as VatId);
@@ -289,16 +291,16 @@ describe('getSubclusterMethods', () => {
 
     beforeEach(() => {
       scId1 = subclusterMethods.addSubcluster(mockClusterConfig1);
-      subclusterMethods.addSubclusterVat(scId1, vatId1);
-      subclusterMethods.addSubclusterVat(scId1, vatId2);
+      subclusterMethods.addSubclusterVat(scId1, 'vat1', vatId1);
+      subclusterMethods.addSubclusterVat(scId1, 'vat2', vatId2);
     });
 
     it('should delete a vat from a subcluster and update map', () => {
       subclusterMethods.deleteSubclusterVat(scId1, vatId2);
 
       const sc1 = subclusterMethods.getSubcluster(scId1) as Subcluster;
-      expect(sc1.vats).not.toContain(vatId2);
-      expect(sc1.vats).toContain(vatId1);
+      expect(Object.values(sc1.vats)).not.toContain(vatId2);
+      expect(Object.values(sc1.vats)).toContain(vatId1);
 
       const mapRaw = mockVatToSubclusterMapStorage.get();
       const map = mapRaw ? JSON.parse(mapRaw) : {};
@@ -325,7 +327,7 @@ describe('getSubclusterMethods', () => {
     it('should do nothing to subclusters list if vat is not in the specified subcluster', () => {
       const nonExistentVat = 'vNonExistent' as VatId;
       const sc1 = subclusterMethods.getSubcluster(scId1) as Subcluster;
-      const sc1InitialVats = sc1 ? [...sc1.vats] : [];
+      const sc1InitialVats = sc1 ? { ...sc1.vats } : {};
 
       subclusterMethods.deleteSubclusterVat(scId1, nonExistentVat);
 
@@ -353,8 +355,8 @@ describe('getSubclusterMethods', () => {
 
     beforeEach(() => {
       scId1 = subclusterMethods.addSubcluster(mockClusterConfig1);
-      subclusterMethods.addSubclusterVat(scId1, vatId1);
-      subclusterMethods.addSubclusterVat(scId1, vatId2);
+      subclusterMethods.addSubclusterVat(scId1, 'vat1', vatId1);
+      subclusterMethods.addSubclusterVat(scId1, 'vat2', vatId2);
     });
 
     it('should delete a subcluster and remove its vats from the map', () => {
@@ -390,14 +392,14 @@ describe('getSubclusterMethods', () => {
     it('should correctly update map if a vat was in multiple subclusters conceptually', () => {
       const scId2 = subclusterMethods.addSubcluster(mockClusterConfig2);
       const vatX = 'vX' as VatId;
-      subclusterMethods.addSubclusterVat(scId1, vatX);
+      subclusterMethods.addSubclusterVat(scId1, 'vatX', vatX);
 
       const subclustersRaw = mockSubclustersStorage.get();
       const subclusters = subclustersRaw
         ? (JSON.parse(subclustersRaw) as Subcluster[])
         : [];
-      const sc2obj = subclusters.find((sc) => sc.id === scId2);
-      sc2obj?.vats.push(vatX);
+      const sc2obj = subclusters.find((sc) => sc.id === scId2) as Subcluster;
+      sc2obj.vats.vatX = vatX;
       mockSubclustersStorage.set(JSON.stringify(subclusters));
 
       subclusterMethods.deleteSubcluster(scId1);
@@ -407,7 +409,7 @@ describe('getSubclusterMethods', () => {
       );
       const sc2AfterDelete = subclusterMethods.getSubcluster(scId2);
       expect(sc2AfterDelete).toBeDefined();
-      expect(sc2AfterDelete?.vats).toContain(vatX);
+      expect(Object.values(sc2AfterDelete?.vats ?? {})).toContain(vatX);
     });
   });
 
@@ -415,7 +417,7 @@ describe('getSubclusterMethods', () => {
     it('should return the subcluster ID for a given vat', () => {
       const scId = subclusterMethods.addSubcluster(mockClusterConfig1);
       const vatId: VatId = 'vTest';
-      subclusterMethods.addSubclusterVat(scId, vatId);
+      subclusterMethods.addSubclusterVat(scId, 'test', vatId);
       expect(subclusterMethods.getVatSubcluster(vatId)).toBe(scId);
     });
 
@@ -438,14 +440,14 @@ describe('getSubclusterMethods', () => {
       const scId1 = subclusterMethods.addSubcluster(mockClusterConfig1);
       subclusterMethods.addSubcluster(mockClusterConfig2);
       const vatId = 'v1' as VatId;
-      subclusterMethods.addSubclusterVat(scId1, vatId);
+      subclusterMethods.addSubclusterVat(scId1, 'bob', vatId);
 
       subclusterMethods.clearEmptySubclusters();
 
       const subclusters = subclusterMethods.getSubclusters();
       expect(subclusters).toHaveLength(1);
       expect(subclusters[0]?.id).toBe(scId1);
-      expect(subclusters[0]?.vats).toContain(vatId);
+      expect(Object.values(subclusters[0]?.vats ?? {})).toContain(vatId);
     });
 
     it('should do nothing if all subclusters have vats', () => {
@@ -453,8 +455,8 @@ describe('getSubclusterMethods', () => {
       const scId2 = subclusterMethods.addSubcluster(mockClusterConfig2);
       const vatId1 = 'v1' as VatId;
       const vatId2 = 'v2' as VatId;
-      subclusterMethods.addSubclusterVat(scId1, vatId1);
-      subclusterMethods.addSubclusterVat(scId2, vatId2);
+      subclusterMethods.addSubclusterVat(scId1, 'bob', vatId1);
+      subclusterMethods.addSubclusterVat(scId2, 'alice', vatId2);
 
       const initialSubclusters = subclusterMethods.getSubclusters();
       subclusterMethods.clearEmptySubclusters();
@@ -476,16 +478,16 @@ describe('getSubclusterMethods', () => {
 
     beforeEach(() => {
       scId = subclusterMethods.addSubcluster(mockClusterConfig1);
-      subclusterMethods.addSubclusterVat(scId, vatId1);
-      subclusterMethods.addSubclusterVat(scId, vatId2);
+      subclusterMethods.addSubclusterVat(scId, 'vat1', vatId1);
+      subclusterMethods.addSubclusterVat(scId, 'vat2', vatId2);
     });
 
     it('should remove a vat from its subcluster', () => {
       subclusterMethods.removeVatFromSubcluster(vatId1);
 
       const subcluster = subclusterMethods.getSubcluster(scId);
-      expect(subcluster?.vats).not.toContain(vatId1);
-      expect(subcluster?.vats).toContain(vatId2);
+      expect(Object.values(subcluster?.vats ?? {})).not.toContain(vatId1);
+      expect(Object.values(subcluster?.vats ?? {})).toContain(vatId2);
 
       const mapRaw = mockVatToSubclusterMapStorage.get();
       const map = mapRaw ? JSON.parse(mapRaw) : {};
@@ -505,7 +507,7 @@ describe('getSubclusterMethods', () => {
       subclusterMethods.removeVatFromSubcluster(vatId2);
 
       const subcluster = subclusterMethods.getSubcluster(scId);
-      expect(subcluster?.vats).toHaveLength(0);
+      expect(Object.keys(subcluster?.vats ?? {})).toHaveLength(0);
 
       const mapRaw = mockVatToSubclusterMapStorage.get();
       const map = mapRaw ? JSON.parse(mapRaw) : {};

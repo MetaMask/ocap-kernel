@@ -32,7 +32,7 @@ describe('BIP39 Identity Recovery', () => {
       let peerId1: string | undefined;
 
       try {
-        kernel1 = await makeTestKernel(kernelDatabase1, true);
+        kernel1 = await makeTestKernel(kernelDatabase1);
         await kernel1.initRemoteComms({
           relays: DUMMY_RELAYS,
           mnemonic: TEST_MNEMONIC,
@@ -56,7 +56,7 @@ describe('BIP39 Identity Recovery', () => {
       let kernel2: Kernel | undefined;
 
       try {
-        kernel2 = await makeTestKernel(kernelDatabase2, true);
+        kernel2 = await makeTestKernel(kernelDatabase2);
         await kernel2.initRemoteComms({
           relays: DUMMY_RELAYS,
           mnemonic: TEST_MNEMONIC,
@@ -88,7 +88,7 @@ describe('BIP39 Identity Recovery', () => {
       let peerId1: string | undefined;
 
       try {
-        kernel1 = await makeTestKernel(kernelDatabase1, true);
+        kernel1 = await makeTestKernel(kernelDatabase1);
         await kernel1.initRemoteComms({
           relays: DUMMY_RELAYS,
           mnemonic: TEST_MNEMONIC,
@@ -111,7 +111,7 @@ describe('BIP39 Identity Recovery', () => {
       let kernel2: Kernel | undefined;
 
       try {
-        kernel2 = await makeTestKernel(kernelDatabase2, true);
+        kernel2 = await makeTestKernel(kernelDatabase2);
         await kernel2.initRemoteComms({
           relays: DUMMY_RELAYS,
           mnemonic: DIFFERENT_MNEMONIC,
@@ -142,7 +142,7 @@ describe('BIP39 Identity Recovery', () => {
 
       try {
         // First kernel without mnemonic - generates random identity
-        kernel = await makeTestKernel(kernelDatabase, true);
+        kernel = await makeTestKernel(kernelDatabase);
         await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
 
         const status1 = await kernel.getStatus();
@@ -153,7 +153,7 @@ describe('BIP39 Identity Recovery', () => {
         kernel = undefined;
 
         // Create kernel with mnemonic but using existing storage - should throw
-        kernel = await makeTestKernel(kernelDatabase, false); // resetStorage = false
+        kernel = await makeTestKernel(kernelDatabase, { resetStorage: false });
         await expect(
           kernel.initRemoteComms({
             relays: DUMMY_RELAYS,
@@ -181,7 +181,7 @@ describe('BIP39 Identity Recovery', () => {
       let kernel: Kernel | undefined;
 
       try {
-        kernel = await makeTestKernel(kernelDatabase, true);
+        kernel = await makeTestKernel(kernelDatabase);
 
         await expect(
           kernel.initRemoteComms({
@@ -209,7 +209,7 @@ describe('BIP39 Identity Recovery', () => {
 
       try {
         // First kernel without mnemonic - generates random identity
-        kernel = await makeTestKernel(kernelDatabase, true);
+        kernel = await makeTestKernel(kernelDatabase);
         await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
 
         const status1 = await kernel.getStatus();
@@ -221,7 +221,9 @@ describe('BIP39 Identity Recovery', () => {
         kernel = undefined;
 
         // Create kernel with resetStorage AND mnemonic - should work
-        kernel = await makeTestKernel(kernelDatabase, true, TEST_MNEMONIC);
+        kernel = await makeTestKernel(kernelDatabase, {
+          mnemonic: TEST_MNEMONIC,
+        });
         await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
 
         const status2 = await kernel.getStatus();
@@ -235,7 +237,9 @@ describe('BIP39 Identity Recovery', () => {
         await kernel.stop();
         kernel = undefined;
 
-        kernel = await makeTestKernel(kernelDatabase, true, TEST_MNEMONIC);
+        kernel = await makeTestKernel(kernelDatabase, {
+          mnemonic: TEST_MNEMONIC,
+        });
         await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
 
         const status3 = await kernel.getStatus();

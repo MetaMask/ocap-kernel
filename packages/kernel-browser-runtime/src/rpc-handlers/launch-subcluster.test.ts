@@ -6,7 +6,7 @@ describe('launchSubclusterHandler', () => {
   it('calls kernel.launchSubcluster with the provided config', async () => {
     const mockResult = {
       subclusterId: 's1',
-      bootstrapRootKref: 'ko1',
+      rootKref: 'ko1',
       bootstrapResult: { body: '#null', slots: [] },
     };
     const mockKernel = {
@@ -28,7 +28,7 @@ describe('launchSubclusterHandler', () => {
   it('returns the result from kernel.launchSubcluster', async () => {
     const mockResult = {
       subclusterId: 's1',
-      bootstrapRootKref: 'ko1',
+      rootKref: 'ko1',
       bootstrapResult: { body: '#{"result":"ok"}', slots: [] },
     };
     const mockKernel = {
@@ -50,7 +50,7 @@ describe('launchSubclusterHandler', () => {
   it('converts undefined bootstrapResult to null for JSON compatibility', async () => {
     const mockResult = {
       subclusterId: 's1',
-      bootstrapRootKref: 'ko1',
+      rootKref: 'ko1',
       bootstrapResult: undefined,
     };
     const mockKernel = {
@@ -68,7 +68,7 @@ describe('launchSubclusterHandler', () => {
     );
     expect(result).toStrictEqual({
       subclusterId: 's1',
-      bootstrapRootKref: 'ko1',
+      rootKref: 'ko1',
       bootstrapResult: null,
     });
   });

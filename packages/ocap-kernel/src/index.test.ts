@@ -23,6 +23,7 @@ describe('index', () => {
       'kser',
       'kslot',
       'kunser',
+      'makeKernelFacet',
       'makeKernelStore',
       'mnemonicToSeed',
       'parseRef',

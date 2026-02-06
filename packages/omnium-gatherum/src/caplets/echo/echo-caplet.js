@@ -48,7 +48,7 @@ export function buildRootObject(_vatPowers, _parameters, _baggage) {
      */
     echo(message) {
       log('Echoing message:', message);
-      return `Echo: ${message}`;
+      return `echo: ${message}`;
     },
   });
 }

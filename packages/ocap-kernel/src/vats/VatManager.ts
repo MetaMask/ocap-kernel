@@ -81,10 +81,15 @@ export class VatManager {
    * Launch a new vat.
    *
    * @param vatConfig - Configuration for the new vat.
+   * @param vatName - The name of the vat within the subcluster.
    * @param subclusterId - The ID of the subcluster to launch the vat in. Optional.
    * @returns a promise for the KRef of the new vat's root object.
    */
-  async launchVat(vatConfig: VatConfig, subclusterId?: string): Promise<KRef> {
+  async launchVat(
+    vatConfig: VatConfig,
+    vatName: string,
+    subclusterId?: string,
+  ): Promise<KRef> {
     const vatId = this.#kernelStore.getNextVatId();
     await this.runVat(vatId, vatConfig);
     this.#kernelStore.initEndpoint(vatId);
@@ -94,7 +99,7 @@ export class VatManager {
     );
     this.#kernelStore.setVatConfig(vatId, vatConfig);
     if (subclusterId) {
-      this.#kernelStore.addSubclusterVat(subclusterId, vatId);
+      this.#kernelStore.addSubclusterVat(subclusterId, vatName, vatId);
     }
     return rootRef;
   }

@@ -153,6 +153,54 @@ describe('isVatConfig', () => {
   ])('rejects configs with $name', ({ config }) => {
     expect(isVatConfig(config)).toBe(false);
   });
+
+  it.each([
+    {
+      name: 'with valid globals array',
+      config: {
+        bundleSpec: 'bundle.js',
+        globals: ['Date'],
+      },
+      expected: true,
+    },
+    {
+      name: 'with empty globals array',
+      config: {
+        bundleSpec: 'bundle.js',
+        globals: [],
+      },
+      expected: true,
+    },
+    {
+      name: 'with multiple globals',
+      config: {
+        bundleSpec: 'bundle.js',
+        globals: ['Date', 'Math'],
+      },
+      expected: true,
+    },
+  ])('validates $name', ({ config, expected }) => {
+    expect(isVatConfig(config)).toBe(expected);
+  });
+
+  it.each([
+    {
+      name: 'non-array globals',
+      config: {
+        bundleSpec: 'bundle.js',
+        globals: 'Date',
+      },
+    },
+    {
+      name: 'globals array with non-string element',
+      config: {
+        bundleSpec: 'bundle.js',
+        globals: ['Date', 123],
+      },
+    },
+  ])('rejects configs with $name', ({ config }) => {
+    expect(isVatConfig(config)).toBe(false);
+  });
 });
 
 describe('insistMessage', () => {

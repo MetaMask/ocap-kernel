@@ -19,7 +19,7 @@ const ECHO_CAPLET_DIR = path.join(
  * to an absolute file:// URL for tests.
  *
  * This Caplet provides a simple "echo" service that returns
- * the input message with an "Echo: " prefix.
+ * the input message with an "echo: " prefix.
  *
  * Usage:
  * - Provides: "echo" service

@@ -99,12 +99,3 @@ export type InstallResult = {
   capletId: CapletId;
   subclusterId: string;
 };
-
-/**
- * Result of launching a subcluster.
- * This is the interface expected by CapletController's deps.
- */
-export type LaunchResult = {
-  subclusterId: string;
-  rootKref: string;
-};

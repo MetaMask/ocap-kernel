@@ -142,7 +142,7 @@ export async function restartKernel(
   resetStorage: boolean,
   relays: string[],
 ): Promise<Kernel> {
-  const kernel = await makeTestKernel(kernelDatabase, resetStorage);
+  const kernel = await makeTestKernel(kernelDatabase, { resetStorage });
   await kernel.initRemoteComms({ relays });
   return kernel;
 }

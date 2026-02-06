@@ -76,8 +76,8 @@ describe.sequential('Remote Communications E2E', () => {
     });
     kernelStore2 = makeKernelStore(kernelDatabase2);
 
-    kernel1 = await makeTestKernel(kernelDatabase1, true);
-    kernel2 = await makeTestKernel(kernelDatabase2, true);
+    kernel1 = await makeTestKernel(kernelDatabase1);
+    kernel2 = await makeTestKernel(kernelDatabase2);
   });
 
   afterEach(async () => {
@@ -231,7 +231,9 @@ describe.sequential('Remote Communications E2E', () => {
 
         // Kill the server and restart it
         await serverKernel.stop();
-        serverKernel = await makeTestKernel(kernelDatabase2, false);
+        serverKernel = await makeTestKernel(kernelDatabase2, {
+          resetStorage: false,
+        });
         await serverKernel.initRemoteComms({ relays: testRelays });
 
         // Tell the client to talk to the server a second time
@@ -247,7 +249,9 @@ describe.sequential('Remote Communications E2E', () => {
 
         // Kill the client and restart it
         await clientKernel.stop();
-        clientKernel = await makeTestKernel(kernelDatabase1, false);
+        clientKernel = await makeTestKernel(kernelDatabase1, {
+          resetStorage: false,
+        });
         await clientKernel.initRemoteComms({ relays: testRelays });
 
         // Tell the client to talk to the server a third time
@@ -524,14 +528,16 @@ describe.sequential('Remote Communications E2E', () => {
     it(
       'rejects new messages when queue reaches MAX_QUEUE limit',
       async () => {
-        // Use high rate limit to avoid rate limiting interference with queue limit test
+        // Use high rate limits to avoid rate limiting interference with queue limit test
+        // maxConnectionAttemptsPerMinute is needed because async kernel service invocations
+        // can cause multiple concurrent connection attempts when processing many messages
         const { aliceRef, bobURL } = await setupAliceAndBob(
           kernel1,
           kernel2,
           kernelStore1,
           kernelStore2,
           testRelays,
-          { maxMessagesPerSecond: 500 },
+          { maxMessagesPerSecond: 500, maxConnectionAttemptsPerMinute: 500 },
         );
 
         await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
@@ -606,7 +612,7 @@ describe.sequential('Remote Communications E2E', () => {
         try {
           await kernel1.initRemoteComms({ relays: testRelays });
           await kernel2.initRemoteComms({ relays: testRelays });
-          kernel3 = await makeTestKernel(kernelDatabase3, true);
+          kernel3 = await makeTestKernel(kernelDatabase3);
           await kernel3.initRemoteComms({ relays: testRelays });
 
           const aliceConfig = makeRemoteVatConfig('Alice');
@@ -898,7 +904,7 @@ describe.sequential('Remote Communications E2E', () => {
 
         // Create a completely new kernel (new incarnation ID, no previous state)
         // eslint-disable-next-line require-atomic-updates
-        kernel2 = await makeTestKernel(kernelDatabase2, true);
+        kernel2 = await makeTestKernel(kernelDatabase2);
         await kernel2.initRemoteComms({ relays: testRelays });
 
         // Launch Bob again (fresh vat, no previous state)

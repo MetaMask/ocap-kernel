@@ -1,7 +1,6 @@
 import { makeCapTP } from '@endo/captp';
 import type { Kernel } from '@metamask/ocap-kernel';
 
-import { makeKernelFacade } from './kernel-facade.ts';
 import type { CapTPMessage } from '../../types.ts';
 
 /**
@@ -44,7 +43,7 @@ export type KernelCapTP = {
 /**
  * Create a CapTP endpoint for the kernel.
  *
- * This sets up a CapTP connection that exposes the kernel facade as the
+ * This sets up a CapTP connection that exposes the kernel facet as the
  * bootstrap object. The background can then use `E(kernel).method()` to
  * call kernel methods.
  *
@@ -54,11 +53,8 @@ export type KernelCapTP = {
 export function makeKernelCapTP(options: KernelCapTPOptions): KernelCapTP {
   const { kernel, send } = options;
 
-  // Create the kernel facade that will be exposed to the background
-  const kernelFacade = makeKernelFacade(kernel);
-
-  // Create the CapTP endpoint
-  const { dispatch, abort } = makeCapTP('kernel', send, kernelFacade);
+  // Create the CapTP endpoint with the kernel facet as the bootstrap object
+  const { dispatch, abort } = makeCapTP('kernel', send, kernel.provideFacet());
 
   return harden({
     dispatch,
