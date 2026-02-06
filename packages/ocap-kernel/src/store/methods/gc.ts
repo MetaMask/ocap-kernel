@@ -9,11 +9,12 @@ import { getSubclusterMethods } from './subclusters.ts';
 import { getVatMethods } from './vat.ts';
 import type {
   VatId,
+  EndpointId,
   KRef,
   GCAction,
   RunQueueItemBringOutYourDead,
 } from '../../types.ts';
-import { insistGCActionType, insistVatId } from '../../types.ts';
+import { insistGCActionType, insistEndpointId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { insistKernelType, parseKernelSlot } from '../utils/kernel-slots.ts';
 
@@ -62,8 +63,8 @@ export function getGCMethods(ctx: StoreContext) {
     const actions = getGCActions();
     for (const action of newActions) {
       assert.typeof(action, 'string', 'addGCActions given bad action');
-      const [vatId, type, kref] = action.split(' ');
-      insistVatId(vatId);
+      const [endpointId, type, kref] = action.split(' ');
+      insistEndpointId(endpointId);
       insistGCActionType(type);
       insistKernelType('object', kref);
       actions.add(action);
@@ -72,14 +73,14 @@ export function getGCMethods(ctx: StoreContext) {
   }
 
   /**
-   * Schedule a vat for reaping.
+   * Schedule an endpoint for reaping.
    *
-   * @param vatId - The vat to schedule for reaping.
+   * @param endpointId - The endpoint (vat or remote) to schedule for reaping.
    */
-  function scheduleReap(vatId: VatId): void {
+  function scheduleReap(endpointId: EndpointId): void {
     const queue = JSON.parse(ctx.reapQueue.get() ?? '[]');
-    if (!queue.includes(vatId)) {
-      queue.push(vatId);
+    if (!queue.includes(endpointId)) {
+      queue.push(endpointId);
       ctx.reapQueue.set(JSON.stringify(queue));
     }
   }
