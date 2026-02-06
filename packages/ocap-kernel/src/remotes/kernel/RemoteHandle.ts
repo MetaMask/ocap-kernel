@@ -756,65 +756,83 @@ export class RemoteHandle implements EndpointHandle {
   }
 
   /**
-   * Handle an ocap URL redemption request from the remote end.
-   * Sends the reply via #sendRemoteCommand to ensure it gets seq/ack tracking.
+   * Prepare to handle an incoming redeemURL message. Validates and translates
+   * but does not send the reply. Returns data needed to complete after commit.
    *
    * @param url - The ocap URL attempting to be redeemed.
    * @param replyKey - A sender-provided tag to send with the reply.
+   * @returns Data needed to complete the operation after commit.
    */
-  async #handleRedeemURLRequest(url: string, replyKey: string): Promise<void> {
+  async #handleRedeemURLRequest(
+    url: string,
+    replyKey: string,
+  ): Promise<{ success: boolean; replyKey: string; value: string }> {
     assert.typeof(replyKey, 'string');
     let kref: string;
     try {
       kref = await this.#remoteComms.redeemLocalOcapURL(url);
     } catch (error) {
-      await this.#sendRemoteCommand({
-        method: 'redeemURLReply',
-        params: [false, replyKey, `${(error as Error).message}`],
-      });
-      return;
+      return { success: false, replyKey, value: `${(error as Error).message}` };
     }
     const eref = this.#kernelStore.translateRefKtoE(this.remoteId, kref, true);
+    return { success: true, replyKey, value: eref };
+  }
+
+  /**
+   * Complete handling of an incoming redeemURL message by sending the reply.
+   *
+   * @param data - The data from #handleRedeemURLRequest.
+   * @param data.success - Whether the redemption was successful.
+   * @param data.replyKey - The reply key from the request.
+   * @param data.value - The eref (on success) or error message (on failure).
+   */
+  async #completeHandleRedeemURLRequest(data: {
+    success: boolean;
+    replyKey: string;
+    value: string;
+  }): Promise<void> {
     await this.#sendRemoteCommand({
       method: 'redeemURLReply',
-      params: [true, replyKey, eref],
+      params: [data.success, data.replyKey, data.value],
     });
   }
 
   /**
-   * Prepare to handle a redeemURLReply - validates and translates but does not
-   * yet modify in-memory state.
+   * Prepare to handle an incoming redeemURLReply message. Validates and
+   * translates but does not modify in-memory state. Returns data needed to
+   * complete after commit.
    *
    * @param success - Whether the redemption was successful.
    * @param replyKey - The reply key for matching to pending redemption.
    * @param result - Either the kref (on success) or error message (on failure).
    * @returns Data needed to complete the operation after commit.
    */
-  #prepareRedeemURLReply(
+  #handleRedeemURLReply(
     success: boolean,
     replyKey: string,
     result: string,
-  ): { replyKey: string; success: boolean; value: string } {
+  ): { success: boolean; replyKey: string; value: string } {
     if (!this.#pendingRedemptions.has(replyKey)) {
       throw Error(`unknown URL redemption reply key ${replyKey}`);
     }
     const value = success
       ? this.#kernelStore.translateRefEtoK(this.remoteId, result)
       : result;
-    return { replyKey, success, value };
+    return { success, replyKey, value };
   }
 
   /**
-   * Complete a redeemURLReply after transaction commits - modifies in-memory state.
+   * Complete handling of an incoming redeemURLReply message by resolving the
+   * pending promise.
    *
-   * @param data - The data from #prepareRedeemURLReply.
-   * @param data.replyKey - The reply key for matching to pending redemption.
+   * @param data - The data from #handleRedeemURLReply.
    * @param data.success - Whether the redemption was successful.
+   * @param data.replyKey - The reply key for matching to pending redemption.
    * @param data.value - The translated kref (on success) or error message (on failure).
    */
-  #completeRedeemURLReply(data: {
-    replyKey: string;
+  #completeHandleRedeemURLReply(data: {
     success: boolean;
+    replyKey: string;
     value: string;
   }): void {
     const handlers = this.#pendingRedemptions.get(data.replyKey);
@@ -877,9 +895,9 @@ export class RemoteHandle implements EndpointHandle {
     const savepointName = `receive_${this.remoteId}_${seq}`;
     this.#kernelStore.createSavepoint(savepointName);
 
-    // Deferred operations to complete after commit (for redeemURLReply)
-    let redemptionResult:
-      | { replyKey: string; success: boolean; value: string }
+    // Deferred completion data - set by redeemURL and redeemURLReply handlers
+    let deferredCompletion:
+      | { success: boolean; replyKey: string; value: string }
       | undefined;
 
     try {
@@ -888,12 +906,10 @@ export class RemoteHandle implements EndpointHandle {
           this.#handleRemoteDeliver(params);
           break;
         case 'redeemURL':
-          // Reply is sent via #sendRemoteCommand for proper seq/ack tracking
-          await this.#handleRedeemURLRequest(...params);
+          deferredCompletion = await this.#handleRedeemURLRequest(...params);
           break;
         case 'redeemURLReply':
-          // Prepare but don't complete - in-memory changes deferred until after commit
-          redemptionResult = this.#prepareRedeemURLReply(...params);
+          deferredCompletion = this.#handleRedeemURLReply(...params);
           break;
         default:
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
@@ -912,9 +928,20 @@ export class RemoteHandle implements EndpointHandle {
       // on outgoing messages doesn't acknowledge uncommitted message receipts.
       this.#highestReceivedSeq = seq;
 
-      // Complete deferred redeemURLReply (delete from map, resolve/reject promise)
-      if (redemptionResult) {
-        this.#completeRedeemURLReply(redemptionResult);
+      // Complete deferred operations
+      if (deferredCompletion) {
+        switch (method) {
+          case 'redeemURL':
+            await this.#completeHandleRedeemURLRequest(deferredCompletion);
+            break;
+          case 'redeemURLReply':
+            this.#completeHandleRedeemURLReply(deferredCompletion);
+            break;
+          case 'deliver':
+          default:
+            // deliver doesn't set deferredCompletion, so this is unreachable
+            break;
+        }
       }
 
       // Restart delayed ACK timer, which may have been cleared by #sendRemoteCommand.
