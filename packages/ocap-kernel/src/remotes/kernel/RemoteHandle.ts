@@ -782,15 +782,8 @@ export class RemoteHandle implements EndpointHandle {
   }
 
   /**
-   * Handle an ocap URL redemption reply from the remote end.
-   *
-   * @param success - true if the result is a URL, false if the result is an error.
-   * @param replyKey - that tag that was sent in the request being replied to.
-   * @param result - if success, an object ref; if not, an error message string.
-   */
-  /**
-   * Prepare to handle a redeemURLReply - validates and translates but does NOT
-   * modify in-memory state. Returns the data needed to complete the operation.
+   * Prepare to handle a redeemURLReply - validates and translates but does not
+   * yet modify in-memory state.
    *
    * @param success - Whether the redemption was successful.
    * @param replyKey - The reply key for matching to pending redemption.
@@ -802,12 +795,9 @@ export class RemoteHandle implements EndpointHandle {
     replyKey: string,
     result: string,
   ): { replyKey: string; success: boolean; value: string } {
-    // Validate the replyKey exists - if not, this is an error and we should throw
-    // (which will cause the savepoint to roll back)
     if (!this.#pendingRedemptions.has(replyKey)) {
       throw Error(`unknown URL redemption reply key ${replyKey}`);
     }
-    // Translate ref inside transaction (database operation)
     const value = success
       ? this.#kernelStore.translateRefEtoK(this.remoteId, result)
       : result;
@@ -916,11 +906,10 @@ export class RemoteHandle implements EndpointHandle {
       // Commit the transaction
       this.#kernelStore.releaseSavepoint(savepointName);
 
-      // === All in-memory state changes happen AFTER commit ===
+      // All in-memory state changes happen after commit
 
-      // Update in-memory seq state only after successful commit. This ensures any
-      // ACK piggybacked on outgoing messages doesn't acknowledge uncommitted
-      // message receipts.
+      // Updating in-memory seq state after commit ensures any ACK piggybacked
+      // on outgoing messages doesn't acknowledge uncommitted message receipts.
       this.#highestReceivedSeq = seq;
 
       // Complete deferred redeemURLReply (delete from map, resolve/reject promise)
@@ -928,11 +917,7 @@ export class RemoteHandle implements EndpointHandle {
         this.#completeRedeemURLReply(redemptionResult);
       }
 
-      // Restart delayed ACK timer. The timer was started at the beginning of
-      // message processing, but if a reply was sent during the transaction (e.g.,
-      // redeemURLReply), #sendRemoteCommand cleared the timer. Since the reply
-      // couldn't piggyback the ACK (we hadn't committed yet), we need to ensure
-      // a standalone ACK is sent.
+      // Restart delayed ACK timer, which may have been cleared by #sendRemoteCommand.
       this.#startDelayedAck();
     } catch (error) {
       // Rollback on any error - in-memory state unchanged since we didn't update it yet
