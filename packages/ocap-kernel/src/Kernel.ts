@@ -227,8 +227,8 @@ export class Kernel {
         this.#remoteManager.handleRemoteMessage(from, message),
     );
 
-    // Restore persisted system subclusters before initializing vats
-    // (so orphaned vats aren't started)
+    // Restore persisted system subclusters and delete ones that no
+    // longer have a config, to ensure that orphaned vats aren't started
     if (configs.length > 0) {
       this.provideFacet();
     }
@@ -266,19 +266,7 @@ export class Kernel {
       return existing.service as KernelFacet;
     }
 
-    const kernelFacet = makeKernelFacet({
-      getPresence: this.getPresence.bind(this),
-      getStatus: this.getStatus.bind(this),
-      getSubcluster: this.getSubcluster.bind(this),
-      getSubclusters: this.getSubclusters.bind(this),
-      getSystemSubclusterRoot: this.getSystemSubclusterRoot.bind(this),
-      launchSubcluster: this.launchSubcluster.bind(this),
-      pingVat: this.pingVat.bind(this),
-      queueMessage: this.queueMessage.bind(this),
-      reloadSubcluster: this.reloadSubcluster.bind(this),
-      reset: this.reset.bind(this),
-      terminateSubcluster: this.terminateSubcluster.bind(this),
-    });
+    const kernelFacet = makeKernelFacet(this);
     this.#kernelServiceManager.registerKernelServiceObject(
       'kernelFacet',
       kernelFacet,

@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest';
 
-import type { KernelFacetDependencies } from './kernel-facet.ts';
+import type { KernelFacetSource } from './kernel-facet.ts';
 import { makeKernelFacet } from './kernel-facet.ts';
 import { kslot } from './liveslots/kernel-marshal.ts';
 
-const makeDeps = (): KernelFacetDependencies => ({
+const makeMockKernel = (): KernelFacetSource => ({
   getPresence: async (kref: string, iface: string = 'Kernel Object') =>
     kslot(kref, iface),
   getStatus: async () => Promise.resolve({ vats: [], subclusters: [] }),
@@ -23,7 +23,7 @@ const makeDeps = (): KernelFacetDependencies => ({
     Promise.resolve({
       id: 's1',
       config: { bootstrap: 'b', vats: {} },
-      vats: [],
+      vats: {},
     }),
   reset: async () => Promise.resolve(),
   terminateSubcluster: async () => Promise.resolve(),
@@ -31,7 +31,7 @@ const makeDeps = (): KernelFacetDependencies => ({
 
 describe('makeKernelFacet', () => {
   it('creates an exo with all dependency methods and ping', () => {
-    const facet = makeKernelFacet(makeDeps());
+    const facet = makeKernelFacet(makeMockKernel());
 
     expect(typeof facet.getPresence).toBe('function');
     expect(typeof facet.getStatus).toBe('function');
@@ -48,12 +48,12 @@ describe('makeKernelFacet', () => {
   });
 
   it('ping returns "pong"', () => {
-    const facet = makeKernelFacet(makeDeps());
+    const facet = makeKernelFacet(makeMockKernel());
     expect(facet.ping()).toBe('pong');
   });
 
   it('delegates dependency methods to the provided functions', async () => {
-    const facet = makeKernelFacet(makeDeps());
+    const facet = makeKernelFacet(makeMockKernel());
 
     expect(facet.getSystemSubclusterRoot('test')).toBe('ko99');
     expect(await facet.getStatus()).toStrictEqual({

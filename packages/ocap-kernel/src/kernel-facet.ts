@@ -2,22 +2,26 @@ import { makeDefaultExo } from '@metamask/kernel-utils';
 
 import type { Kernel } from './Kernel.ts';
 
+const kernelFacetMethodNames = [
+  'getPresence',
+  'getStatus',
+  'getSubcluster',
+  'getSubclusters',
+  'getSystemSubclusterRoot',
+  'launchSubcluster',
+  'pingVat',
+  'queueMessage',
+  'reloadSubcluster',
+  'reset',
+  'terminateSubcluster',
+] as const;
+
 /**
- * Dependencies required to create a kernel facet.
+ * The subset of Kernel that the kernel facet exposes.
  */
-export type KernelFacetDependencies = Pick<
+export type KernelFacetSource = Pick<
   Kernel,
-  | 'getPresence'
-  | 'getStatus'
-  | 'getSubcluster'
-  | 'getSubclusters'
-  | 'getSystemSubclusterRoot'
-  | 'launchSubcluster'
-  | 'pingVat'
-  | 'queueMessage'
-  | 'reloadSubcluster'
-  | 'reset'
-  | 'terminateSubcluster'
+  (typeof kernelFacetMethodNames)[number]
 >;
 
 /**
@@ -26,7 +30,7 @@ export type KernelFacetDependencies = Pick<
  * This is the interface provided as a vatpower to the bootstrap vat of a
  * system vat. It enables privileged kernel operations.
  */
-export type KernelFacet = KernelFacetDependencies & {
+export type KernelFacet = KernelFacetSource & {
   /**
    * Ping the kernel.
    *
@@ -38,14 +42,19 @@ export type KernelFacet = KernelFacetDependencies & {
 /**
  * Creates a kernel facet exo that provides privileged kernel operations.
  *
- * All methods except ping() are delegated directly from the kernel.
+ * Binds each delegated method to the kernel instance so that private field
+ * access works correctly when the methods are called through the exo.
  *
- * @param deps - Bound kernel methods to expose on the facet.
+ * @param kernel - The kernel instance to bind methods from.
  * @returns The kernel facet exo.
  */
-export function makeKernelFacet(deps: KernelFacetDependencies): KernelFacet {
+export function makeKernelFacet(kernel: KernelFacetSource): KernelFacet {
+  const bound: Record<string, unknown> = {};
+  for (const name of kernelFacetMethodNames) {
+    bound[name] = kernel[name].bind(kernel);
+  }
   return makeDefaultExo('kernelFacet', {
-    ...deps,
+    ...bound,
     ping: () => 'pong' as const,
   }) as KernelFacet;
 }
