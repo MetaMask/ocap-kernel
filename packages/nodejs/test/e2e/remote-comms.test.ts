@@ -917,8 +917,8 @@ describe.sequential('Remote Communications E2E', () => {
         const response = kunser(result);
 
         // The message should fail because incarnation changed.
-        // The handshake detects the new incarnation and triggers onRemoteGiveUp,
-        // which rejects pending promises with a "Remote connection lost" error.
+        // The handshake detects the new incarnation and triggers onIncarnationChange,
+        // which resets RemoteHandle state and rejects pending work.
         expect(response).toBeInstanceOf(Error);
         expect((response as Error).message).toMatch(/Remote connection lost/u);
       },

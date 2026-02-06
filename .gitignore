@@ -92,3 +92,4 @@ test-results
 
 # Claude
 .claude/settings.local.json
+.playwright-mcp/

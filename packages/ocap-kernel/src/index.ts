@@ -21,6 +21,7 @@ export type {
   SendRemoteMessage,
   StopRemoteComms,
   RemoteCommsOptions,
+  OnIncarnationChange,
 } from './remotes/types.ts';
 export type { RemoteMessageBase } from './remotes/kernel/RemoteHandle.ts';
 export {

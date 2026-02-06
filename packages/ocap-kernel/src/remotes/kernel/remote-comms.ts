@@ -13,6 +13,7 @@ import type {
   RemoteComms,
   RemoteMessageHandler,
   OnRemoteGiveUp,
+  OnIncarnationChange,
   RemoteCommsOptions,
 } from '../types.ts';
 
@@ -105,6 +106,7 @@ export function getKnownRelays(kv: KVStore): string[] {
  * @param keySeed - Optional seed for libp2p key generation.
  * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
  * @param incarnationId - Unique identifier for this kernel instance.
+ * @param onIncarnationChange - Optional callback when a remote peer's incarnation changes.
  *
  * @returns the initialized remote comms object.
  */
@@ -117,6 +119,7 @@ export async function initRemoteComms(
   keySeed?: string,
   onRemoteGiveUp?: OnRemoteGiveUp,
   incarnationId?: string,
+  onIncarnationChange?: OnIncarnationChange,
 ): Promise<RemoteComms> {
   let peerId: string;
   let ocapURLKey: Uint8Array;
@@ -170,6 +173,7 @@ export async function initRemoteComms(
     remoteMessageHandler,
     onRemoteGiveUp,
     incarnationId,
+    onIncarnationChange,
   );
 
   /**
