@@ -20,7 +20,11 @@ import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
 import type { DuplexStream } from '@metamask/streams';
-import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
+import {
+  hasProperty,
+  isJsonRpcRequest,
+  isJsonRpcResponse,
+} from '@metamask/utils';
 import type { PlatformFactory } from '@ocap/kernel-platforms';
 
 import { loadBundle } from './bundle-loader.ts';
@@ -130,7 +134,7 @@ export class VatSupervisor {
     this.#vatPowers = vatPowers ?? {};
     this.#dispatch = null;
     const defaultFetchBlob: FetchBlob = async (bundleURL: string) =>
-      await fetch(bundleURL, { cache: 'no-store' });
+      await fetch(bundleURL, { cache: 'no-store' } as RequestInit);
     this.#fetchBlob = fetchBlob ?? defaultFetchBlob;
     this.#platformOptions = platformOptions ?? {};
     this.#makePlatform = makePlatform;
@@ -304,7 +308,7 @@ export class VatSupervisor {
     const requestedGlobals: Record<string, unknown> = {};
     if (globals) {
       for (const name of globals) {
-        if (name in allowedGlobals) {
+        if (hasProperty(allowedGlobals, name)) {
           requestedGlobals[name] = allowedGlobals[name];
         }
       }
