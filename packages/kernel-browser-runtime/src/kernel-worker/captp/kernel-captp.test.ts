@@ -7,6 +7,7 @@ import type { CapTPMessage } from '../../types.ts';
 
 describe('makeKernelCapTP', () => {
   const mockKernel = {
+    evaluateVat: vi.fn(),
     getPresence: vi
       .fn()
       .mockImplementation(async (kref: string, iface: string) =>

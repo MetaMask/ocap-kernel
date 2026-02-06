@@ -3,6 +3,7 @@ import {
   collectGarbageHandler,
   collectGarbageSpec,
 } from './collect-garbage.ts';
+import { evaluateVatHandler, evaluateVatSpec } from './evaluate-vat.ts';
 import {
   executeDBQueryHandler,
   executeDBQuerySpec,
@@ -37,6 +38,7 @@ import { terminateVatHandler, terminateVatSpec } from './terminate-vat.ts';
  */
 export const rpcHandlers = {
   clearState: clearStateHandler,
+  evaluateVat: evaluateVatHandler,
   executeDBQuery: executeDBQueryHandler,
   getStatus: getStatusHandler,
   pingVat: pingVatHandler,
@@ -53,6 +55,7 @@ export const rpcHandlers = {
   terminateSubcluster: terminateSubclusterHandler,
 } as {
   clearState: typeof clearStateHandler;
+  evaluateVat: typeof evaluateVatHandler;
   executeDBQuery: typeof executeDBQueryHandler;
   getStatus: typeof getStatusHandler;
   pingVat: typeof pingVatHandler;
@@ -74,6 +77,7 @@ export const rpcHandlers = {
  */
 export const rpcMethodSpecs = {
   clearState: clearStateSpec,
+  evaluateVat: evaluateVatSpec,
   executeDBQuery: executeDBQuerySpec,
   getStatus: getStatusSpec,
   pingVat: pingVatSpec,
@@ -90,6 +94,7 @@ export const rpcMethodSpecs = {
   terminateSubcluster: terminateSubclusterSpec,
 } as {
   clearState: typeof clearStateSpec;
+  evaluateVat: typeof evaluateVatSpec;
   executeDBQuery: typeof executeDBQuerySpec;
   getStatus: typeof getStatusSpec;
   pingVat: typeof pingVatSpec;

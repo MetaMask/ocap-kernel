@@ -13,7 +13,7 @@ import { kslot } from './liveslots/kernel-marshal.ts';
 import { OcapURLManager } from './remotes/kernel/OcapURLManager.ts';
 import { RemoteManager } from './remotes/kernel/RemoteManager.ts';
 import type { RemoteCommsOptions } from './remotes/types.ts';
-import type { PingVatResult } from './rpc/index.ts';
+import type { PingVatResult, EvaluateResult } from './rpc/index.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
@@ -585,6 +585,17 @@ export class Kernel {
    */
   async pingVat(vatId: VatId): Promise<PingVatResult> {
     return this.#vatManager.pingVat(vatId);
+  }
+
+  /**
+   * Evaluate code in a vat's REPL compartment.
+   *
+   * @param vatId - The ID of the vat.
+   * @param code - The code to evaluate.
+   * @returns A promise that resolves to the result of the evaluation.
+   */
+  async evaluateVat(vatId: VatId, code: string): Promise<EvaluateResult> {
+    return this.#vatManager.evaluateVat(vatId, code);
   }
 
   /**

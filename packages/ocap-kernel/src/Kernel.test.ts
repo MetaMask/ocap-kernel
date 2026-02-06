@@ -130,6 +130,7 @@ describe('Kernel', () => {
           deliverNotify: vi.fn(),
           sendVatCommand: vi.fn(),
           ping: vi.fn(),
+          evaluate: vi.fn(),
         } as unknown as VatHandle;
         vatHandles.push(vatHandle as Mocked<VatHandle>);
         return vatHandle;
@@ -818,6 +819,46 @@ describe('Kernel', () => {
       const pingError = new Error('Ping failed');
       vatHandles[0]?.ping.mockRejectedValueOnce(pingError);
       await expect(async () => kernel.pingVat('v1')).rejects.toThrow(pingError);
+    });
+  });
+
+  describe('evaluateVat()', () => {
+    it('evaluates code in a vat', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      vatHandles[0]?.evaluate.mockResolvedValueOnce({
+        success: true,
+        value: 2,
+      });
+      const result = await kernel.evaluateVat('v1', '1 + 1');
+      expect(vatHandles[0]?.evaluate).toHaveBeenCalledWith('1 + 1');
+      expect(result).toStrictEqual({ success: true, value: 2 });
+    });
+
+    it('throws when evaluating a non-existent vat', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await expect(kernel.evaluateVat('v9', '1 + 1')).rejects.toThrow(
+        VatNotFoundError,
+      );
+    });
+
+    it('propagates errors from the vat evaluate method', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      const evalError = new Error('Evaluate failed');
+      vatHandles[0]?.evaluate.mockRejectedValueOnce(evalError);
+      await expect(kernel.evaluateVat('v1', 'bad code')).rejects.toThrow(
+        evalError,
+      );
     });
   });
 
