@@ -128,6 +128,7 @@ export function buildRootObject(
       reject: rejectCapletFacet,
     }).catch((error) => {
       logger.error('Failed to restore controller from baggage:', error);
+      rejectCapletFacet(error);
     });
   }
 
