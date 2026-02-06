@@ -16,7 +16,6 @@ export type {
   CapletManifest,
   InstalledCaplet,
   InstallResult,
-  LaunchResult,
   CapletControllerState,
   CapletControllerFacet,
   CapletControllerDeps,

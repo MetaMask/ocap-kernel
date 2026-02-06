@@ -1,13 +1,15 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Logger } from '@metamask/logger';
-import type { ClusterConfig } from '@metamask/ocap-kernel';
+import type {
+  ClusterConfig,
+  SubclusterLaunchResult,
+} from '@metamask/ocap-kernel';
 
 import type {
   CapletId,
   CapletManifest,
   InstalledCaplet,
   InstallResult,
-  LaunchResult,
 } from './types.ts';
 import { isCapletManifest } from './types.ts';
 import { Controller } from '../base-controller.ts';
@@ -85,7 +87,7 @@ export type CapletControllerDeps = {
   /** Storage adapter for creating controller storage */
   adapter: StorageAdapter;
   /** Launch a subcluster for a caplet */
-  launchSubcluster: (config: ClusterConfig) => Promise<LaunchResult>;
+  launchSubcluster: (config: ClusterConfig) => Promise<SubclusterLaunchResult>;
   /** Terminate a caplet's subcluster */
   terminateSubcluster: (subclusterId: string) => Promise<void>;
   /** Get the root object for a vat by kref string */
@@ -107,7 +109,9 @@ export class CapletController extends Controller<
 > {
   readonly #pendingInstalls: Set<CapletId> = new Set();
 
-  readonly #launchSubcluster: (config: ClusterConfig) => Promise<LaunchResult>;
+  readonly #launchSubcluster: (
+    config: ClusterConfig,
+  ) => Promise<SubclusterLaunchResult>;
 
   readonly #terminateSubcluster: (subclusterId: string) => Promise<void>;
 
@@ -126,7 +130,9 @@ export class CapletController extends Controller<
   private constructor(
     storage: ControllerStorage<CapletControllerState>,
     logger: Logger | undefined,
-    launchSubcluster: (config: ClusterConfig) => Promise<LaunchResult>,
+    launchSubcluster: (
+      config: ClusterConfig,
+    ) => Promise<SubclusterLaunchResult>,
     terminateSubcluster: (subclusterId: string) => Promise<void>,
     getVatRoot: (krefString: string) => Promise<unknown>,
   ) {

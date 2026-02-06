@@ -141,7 +141,7 @@ async function main(): Promise<void> {
 
 type GlobalSetters = {
   setKernel: (kernel: KernelFacet | Promise<KernelFacet>) => void;
-  // Not actually globally available
+  // Not globally available, but needed for other globals to work
   setControllerVatKref: (kref: string) => void;
 };
 

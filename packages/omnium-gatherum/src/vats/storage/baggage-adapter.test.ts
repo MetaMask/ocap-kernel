@@ -1,3 +1,4 @@
+import type { Baggage } from '@metamask/ocap-kernel';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { makeBaggageStorageAdapter } from './baggage-adapter.ts';
@@ -27,6 +28,7 @@ function makeMockBaggage() {
     delete: vi.fn((key: string) => {
       store.delete(key);
     }),
+    keys: vi.fn(() => store.keys()),
     _store: store, // For test inspection
   };
 }
@@ -37,7 +39,7 @@ describe('makeBaggageStorageAdapter', () => {
 
   beforeEach(() => {
     baggage = makeMockBaggage();
-    adapter = makeBaggageStorageAdapter(baggage);
+    adapter = makeBaggageStorageAdapter(baggage as unknown as Baggage);
   });
 
   describe('get', () => {
@@ -56,10 +58,8 @@ describe('makeBaggageStorageAdapter', () => {
       await adapter.set('to-delete', { data: 'test' });
       await adapter.delete('to-delete');
 
-      // Baggage should no longer have the key
       expect(baggage._store.has('to-delete')).toBe(false);
 
-      // Adapter should return undefined
       const result = await adapter.get('to-delete');
       expect(result).toBeUndefined();
     });
@@ -73,36 +73,22 @@ describe('makeBaggageStorageAdapter', () => {
     });
 
     it('updates existing key', async () => {
-      // First set
       await adapter.set('existing-key', { value: 1 });
 
-      // Second set should use baggage.set, not init
       await adapter.set('existing-key', { value: 2 });
 
       expect(baggage.set).toHaveBeenCalled();
       expect(baggage._store.get('existing-key')).toStrictEqual({ value: 2 });
     });
 
-    it('tracks keys', async () => {
-      await adapter.set('key1', 'value1');
-      await adapter.set('key2', 'value2');
-
-      const keys = await adapter.keys();
-      expect(keys).toContain('key1');
-      expect(keys).toContain('key2');
-    });
-
-    it('re-adds previously deleted key to tracking', async () => {
-      // Set initial value
+    it('re-sets previously deleted key', async () => {
       await adapter.set('reused-key', { original: true });
       expect(await adapter.keys()).toContain('reused-key');
 
-      // Delete it
       await adapter.delete('reused-key');
       expect(await adapter.keys()).not.toContain('reused-key');
       expect(baggage._store.has('reused-key')).toBe(false);
 
-      // Set again - should re-add to tracking
       await adapter.set('reused-key', { restored: true });
       expect(await adapter.keys()).toContain('reused-key');
       expect(await adapter.get('reused-key')).toStrictEqual({ restored: true });
@@ -110,7 +96,7 @@ describe('makeBaggageStorageAdapter', () => {
   });
 
   describe('delete', () => {
-    it('removes key from baggage and key list', async () => {
+    it('removes key from baggage', async () => {
       await adapter.set('to-delete', { data: 'test' });
       await adapter.delete('to-delete');
 
@@ -121,8 +107,8 @@ describe('makeBaggageStorageAdapter', () => {
     });
 
     it('does nothing for non-existent key', async () => {
-      // Should not throw and keys should remain empty
       await adapter.delete('nonexistent');
+      expect(baggage.delete).not.toHaveBeenCalled();
       const keys = await adapter.keys();
       expect(keys).toStrictEqual([]);
     });
