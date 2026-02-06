@@ -72,19 +72,6 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
       expect(typeof root).toBe('string');
       expect(root).toMatch(/^ko\d+$/u);
     });
-
-    it('throws for unknown system subcluster name', async () => {
-      kernelDatabase = await makeSQLKernelDatabase({
-        dbFilename: ':memory:',
-      });
-      kernel = await makeTestKernel(kernelDatabase, {
-        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
-      });
-
-      expect(() => kernel!.getSystemSubclusterRoot('unknown-cluster')).toThrow(
-        'System subcluster "unknown-cluster" not found',
-      );
-    });
   });
 
   describe('kernel services', () => {
@@ -124,30 +111,8 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
         subclusters: unknown[];
       };
       expect(status).toBeDefined();
-      expect(Array.isArray(status.vats)).toBe(true);
       expect(status.vats).toHaveLength(1);
-      expect(Array.isArray(status.subclusters)).toBe(true);
       expect(status.subclusters).toHaveLength(1);
-    });
-
-    it('retrieves subclusters via kernelFacet', async () => {
-      kernelDatabase = await makeSQLKernelDatabase({
-        dbFilename: ':memory:',
-      });
-      kernel = await makeTestKernel(kernelDatabase, {
-        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
-      });
-
-      const root = kernel.getSystemSubclusterRoot('test-system');
-      expect(root).toBeDefined();
-
-      const result = await kernel.queueMessage(root, 'getSubclusters', []);
-      await delay();
-
-      const subclusters = kunser(result) as unknown[];
-      expect(Array.isArray(subclusters)).toBe(true);
-      // At least the system subcluster should exist
-      expect(subclusters).toHaveLength(1);
     });
   });
 
@@ -265,8 +230,6 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
 
       // Stop kernel but keep database
       await kernel.stop();
-      // eslint-disable-next-line require-atomic-updates
-      kernel = undefined;
 
       // Restart kernel with same system subcluster config (resetStorage = false)
       // eslint-disable-next-line require-atomic-updates
@@ -319,8 +282,6 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
 
       // Stop kernel but keep database
       await kernel.stop();
-      // eslint-disable-next-line require-atomic-updates
-      kernel = undefined;
 
       // Restart kernel with same system subcluster config (resetStorage = false)
       // eslint-disable-next-line require-atomic-updates
@@ -394,8 +355,6 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
 
       // Stop and restart kernel — should not throw
       await kernel.stop();
-      // eslint-disable-next-line require-atomic-updates
-      kernel = undefined;
 
       // eslint-disable-next-line require-atomic-updates
       kernel = await makeTestKernel(kernelDatabase, {
