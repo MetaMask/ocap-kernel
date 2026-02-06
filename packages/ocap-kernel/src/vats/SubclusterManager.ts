@@ -463,11 +463,47 @@ export class SubclusterManager {
    */
   async reloadAllSubclusters(): Promise<void> {
     const subclusters = this.#kernelStore.getSubclusters();
+    // Build a reverse map of old subcluster ID -> system subcluster name
+    const systemNameBySubclusterId = new Map<string, string>();
+    for (const [
+      name,
+      mappedId,
+    ] of this.#kernelStore.getAllSystemSubclusterMappings()) {
+      systemNameBySubclusterId.set(mappedId, name);
+    }
+
     await this.#vatManager.terminateAllVats();
     for (const subcluster of subclusters) {
       await this.#kernelQueue.waitForCrank();
       const newId = this.#kernelStore.addSubcluster(subcluster.config);
       await this.#launchVatsForSubcluster(newId, subcluster.config);
+
+      // Update system subcluster mappings if this was a system subcluster
+      const systemName = systemNameBySubclusterId.get(subcluster.id);
+      if (systemName !== undefined) {
+        const newSubcluster = this.getSubcluster(newId);
+        if (!newSubcluster) {
+          throw new SubclusterNotFoundError(newId);
+        }
+        const bootstrapVatId =
+          newSubcluster.vats[newSubcluster.config.bootstrap];
+        if (!bootstrapVatId) {
+          throw new Error(
+            `Reloaded system subcluster "${systemName}" has no bootstrap vat`,
+          );
+        }
+        const rootKref = this.#kernelStore.getRootObject(bootstrapVatId);
+        if (!rootKref) {
+          throw new Error(
+            `Reloaded system subcluster "${systemName}" has no root object`,
+          );
+        }
+        this.#systemSubclusterRoots.set(systemName, rootKref);
+        this.#kernelStore.setSystemSubclusterMapping(systemName, newId);
+        this.#logger.info(
+          `Updated system subcluster mapping "${systemName}" to ${newId}`,
+        );
+      }
     }
   }
 }

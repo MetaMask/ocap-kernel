@@ -474,6 +474,28 @@ describe('SubclusterManager', () => {
       expect(mockVatManager.terminateAllVats).toHaveBeenCalledOnce();
       expect(mockKernelStore.addSubcluster).toHaveBeenCalledOnce();
     });
+
+    it('updates system subcluster mappings after reload', async () => {
+      const config = createMockClusterConfig('sys');
+      const subcluster = createMockSubcluster('s1', config);
+      const newSubcluster = { ...subcluster, id: 's3' };
+
+      mockKernelStore.getSubclusters.mockReturnValue([subcluster]);
+      mockKernelStore.getAllSystemSubclusterMappings.mockReturnValue(
+        new Map([['sys', 's1']]),
+      );
+      mockKernelStore.addSubcluster.mockReturnValue('s3');
+      mockKernelStore.getSubcluster.mockReturnValue(newSubcluster);
+      mockKernelStore.getRootObject.mockReturnValue('ko-new');
+
+      await subclusterManager.reloadAllSubclusters();
+
+      expect(mockKernelStore.setSystemSubclusterMapping).toHaveBeenCalledWith(
+        'sys',
+        's3',
+      );
+      expect(subclusterManager.getSystemSubclusterRoot('sys')).toBe('ko-new');
+    });
   });
 
   describe('initSystemSubclusters', () => {
