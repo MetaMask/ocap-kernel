@@ -1,10 +1,7 @@
-import type { Promisified } from '@metamask/kernel-utils';
 import type { KernelFacet } from '@metamask/ocap-kernel';
 
-import type {
-  CapletControllerFacet,
-  CapletManifest,
-} from './controllers/index.ts';
+import type { QueueMessageResult } from './background.ts';
+import type { CapletManifest } from './controllers/index.ts';
 
 // Type declarations for omnium dev console API.
 declare global {
@@ -28,19 +25,21 @@ declare global {
   var omnium: {
     /**
      * Caplet management API.
+     *
+     * Methods that delegate to the controller vat via queueMessage return
+     * raw CapData. Use `kunser()` to deserialize the results.
      */
-    caplet: Promisified<CapletControllerFacet> & {
-      /**
-       * Load a caplet's manifest and bundle by ID.
-       *
-       * @param id - The short caplet ID (e.g., 'echo').
-       * @returns The manifest and bundle for installation.
-       * @example
-       * ```typescript
-       * const { manifest, bundle } = await omnium.caplet.load('echo');
-       * await omnium.caplet.install(manifest);
-       * ```
-       */
+    caplet: {
+      install: (manifest: CapletManifest) => QueueMessageResult;
+      uninstall: (capletId: string) => QueueMessageResult;
+      list: () => QueueMessageResult;
+      get: (capletId: string) => QueueMessageResult;
+      getCapletRoot: (capletId: string) => Promise<string>;
+      callCapletMethod: (
+        capletId: string,
+        method: string,
+        args: unknown[],
+      ) => QueueMessageResult;
       load: (
         id: string,
       ) => Promise<{ manifest: CapletManifest; bundle: unknown }>;

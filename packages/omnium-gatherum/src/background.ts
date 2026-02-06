@@ -16,6 +16,8 @@ import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
 import type { CapletManifest } from './controllers/index.ts';
 
+export type QueueMessageResult = ReturnType<KernelFacet['queueMessage']>;
+
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
 const globals = defineGlobals();
@@ -163,7 +165,7 @@ function defineGlobals(): GlobalSetters {
   const callController = async (
     method: string,
     args: unknown[] = [],
-  ): ReturnType<KernelFacet['queueMessage']> => {
+  ): QueueMessageResult => {
     if (!kernel) {
       throw new Error('Kernel not initialized');
     }

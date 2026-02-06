@@ -56,5 +56,5 @@ export function makeKernelFacet(kernel: KernelFacetSource): KernelFacet {
   return makeDefaultExo('kernelFacet', {
     ...bound,
     ping: () => 'pong' as const,
-  }) as KernelFacet;
+  }) as unknown as KernelFacet;
 }
