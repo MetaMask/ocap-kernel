@@ -470,9 +470,13 @@ export class RemoteHandle implements EndpointHandle {
    * Adds seq and ack fields, queues for ACK tracking, and sends.
    *
    * @param messageBase - The base message to send (without seq/ack).
+   * @param exemptFromCapacityLimit - If true, bypass the pending queue capacity
+   *   check. Used for kernel initiated messages that must be sent to avoid
+   *   leaving the remote hanging.
    */
   async #sendRemoteCommand(
     messageBase: Delivery | RedeemURLRequest | RedeemURLReply,
+    exemptFromCapacityLimit = false,
   ): Promise<void> {
     if (this.#needsHinting) {
       // Hints are registered lazily because (a) transmitting to the platform
@@ -494,8 +498,11 @@ export class RemoteHandle implements EndpointHandle {
       this.#needsHinting = false;
     }
 
-    // Check queue capacity before consuming any resources (seq number, ACK timer)
-    if (this.#getPendingCount() >= MAX_PENDING_MESSAGES) {
+    // Check queue capacity before consuming any resources (seq number, ACK timer).
+    if (
+      !exemptFromCapacityLimit &&
+      this.#getPendingCount() >= MAX_PENDING_MESSAGES
+    ) {
       throw Error(
         `Message rejected: pending queue at capacity (${MAX_PENDING_MESSAGES})`,
       );
@@ -791,10 +798,13 @@ export class RemoteHandle implements EndpointHandle {
     replyKey: string;
     value: string;
   }): Promise<void> {
-    await this.#sendRemoteCommand({
-      method: 'redeemURLReply',
-      params: [data.success, data.replyKey, data.value],
-    });
+    await this.#sendRemoteCommand(
+      {
+        method: 'redeemURLReply',
+        params: [data.success, data.replyKey, data.value],
+      },
+      true, // exempt from capacity limit - this a reply that mustn't fail and is not vat-initiated
+    );
   }
 
   /**
@@ -921,36 +931,36 @@ export class RemoteHandle implements EndpointHandle {
 
       // Commit the transaction
       this.#kernelStore.releaseSavepoint(savepointName);
-
-      // All in-memory state changes happen after commit
-
-      // Updating in-memory seq state after commit ensures any ACK piggybacked
-      // on outgoing messages doesn't acknowledge uncommitted message receipts.
-      this.#highestReceivedSeq = seq;
-
-      // Complete deferred operations
-      if (deferredCompletion) {
-        switch (method) {
-          case 'redeemURL':
-            await this.#completeHandleRedeemURLRequest(deferredCompletion);
-            break;
-          case 'redeemURLReply':
-            this.#completeHandleRedeemURLReply(deferredCompletion);
-            break;
-          case 'deliver':
-          default:
-            // deliver doesn't set deferredCompletion, so this is unreachable
-            break;
-        }
-      }
-
-      // Restart delayed ACK timer, which may have been cleared by #sendRemoteCommand.
-      this.#startDelayedAck();
     } catch (error) {
       // Rollback on any error - in-memory state unchanged since we didn't update it yet
       this.#kernelStore.rollbackSavepoint(savepointName);
       throw error;
     }
+
+    // All in-memory state changes happen after commit
+
+    // Updating in-memory seq state after commit ensures any ACK piggybacked
+    // on outgoing messages doesn't acknowledge uncommitted message receipts.
+    this.#highestReceivedSeq = seq;
+
+    // Complete deferred operations
+    if (deferredCompletion) {
+      switch (method) {
+        case 'redeemURL':
+          await this.#completeHandleRedeemURLRequest(deferredCompletion);
+          break;
+        case 'redeemURLReply':
+          this.#completeHandleRedeemURLReply(deferredCompletion);
+          break;
+        case 'deliver':
+        default:
+          // deliver doesn't set deferredCompletion, so this is unreachable
+          break;
+      }
+    }
+
+    // Restart delayed ACK timer, which may have been cleared by #sendRemoteCommand.
+    this.#startDelayedAck();
     return null;
   }
 
