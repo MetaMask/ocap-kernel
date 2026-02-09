@@ -29,6 +29,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./rpc-handlers": {
+      "import": {
+        "types": "./dist/rpc-handlers/index.d.mts",
+        "default": "./dist/rpc-handlers/index.mjs"
+      },
+      "require": {
+        "types": "./dist/rpc-handlers/index.d.cts",
+        "default": "./dist/rpc-handlers/index.cjs"
+      }
+    },
     "./package.json": "./package.json",
     "./default-cluster": "./dist/default-cluster.json"
   },
