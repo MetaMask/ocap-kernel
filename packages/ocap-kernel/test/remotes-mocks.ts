@@ -155,6 +155,7 @@ export class MockRemotesFactory {
     return {
       remoteManager: {
         getRemoteComms: vi.fn().mockReturnValue(remoteComms),
+        getRemoteIdentity: vi.fn().mockReturnValue(remoteComms),
         remoteFor: vi.fn().mockReturnValue(remoteHandle),
       },
       remoteComms,

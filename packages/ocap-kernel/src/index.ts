@@ -17,6 +17,7 @@ export type {
   SubclusterLaunchResult,
 } from './types.ts';
 export type {
+  RemoteIdentity,
   RemoteMessageHandler,
   SendRemoteMessage,
   StopRemoteComms,

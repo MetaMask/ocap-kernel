@@ -100,13 +100,13 @@ describe('OcapURLManager', () => {
       expect(mockRemoteComms.issueOcapURL).toHaveBeenCalledWith(kref);
     });
 
-    it('throws if remote comms is not initialized', async () => {
-      (mockRemoteManager.getRemoteComms as Mock).mockImplementation(() => {
-        throw new Error('Remote comms not initialized');
+    it('throws if remote identity is not initialized', async () => {
+      (mockRemoteManager.getRemoteIdentity as Mock).mockImplementation(() => {
+        throw new Error('Remote identity not initialized');
       });
 
       await expect(ocapURLManager.issueOcapURL('ko123')).rejects.toThrow(
-        'Remote comms not initialized',
+        'Remote identity not initialized',
       );
     });
   });
@@ -152,14 +152,14 @@ describe('OcapURLManager', () => {
       );
     });
 
-    it('throws if remote comms is not initialized', async () => {
-      (mockRemoteManager.getRemoteComms as Mock).mockImplementation(() => {
-        throw new Error('Remote comms not initialized');
+    it('throws if remote identity is not initialized', async () => {
+      (mockRemoteManager.getRemoteIdentity as Mock).mockImplementation(() => {
+        throw new Error('Remote identity not initialized');
       });
 
       await expect(
         ocapURLManager.redeemOcapURL('ocap:abc123@local-peer-id'),
-      ).rejects.toThrow('Remote comms not initialized');
+      ).rejects.toThrow('Remote identity not initialized');
     });
   });
 

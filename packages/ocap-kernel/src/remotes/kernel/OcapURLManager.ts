@@ -98,11 +98,11 @@ export class OcapURLManager {
    *
    * @param kref - The kref of the object to issue an OCAP URL for.
    * @returns a promise for the OCAP URL.
-   * @throws if remote comms is not initialized.
+   * @throws if remote identity is not initialized.
    */
   async issueOcapURL(kref: KRef): Promise<string> {
-    const remoteComms = this.#remoteManager.getRemoteComms();
-    return remoteComms.issueOcapURL(kref);
+    const identity = this.#remoteManager.getRemoteIdentity();
+    return identity.issueOcapURL(kref);
   }
 
   /**
@@ -110,18 +110,18 @@ export class OcapURLManager {
    *
    * @param url - The OCAP URL to redeem.
    * @returns a promise for the kref of the object referenced by the OCAP URL.
-   * @throws if the URL is invalid or remote comms is not initialized.
+   * @throws if the URL is invalid or remote identity is not initialized.
    */
   async redeemOcapURL(url: string): Promise<string> {
-    const remoteComms = this.#remoteManager.getRemoteComms();
+    const identity = this.#remoteManager.getRemoteIdentity();
     const { host, hints } = parseOcapURL(url);
 
-    if (host === remoteComms.getPeerId()) {
+    if (host === identity.getPeerId()) {
       // This is a local OCAP URL
-      return remoteComms.redeemLocalOcapURL(url);
+      return identity.redeemLocalOcapURL(url);
     }
 
-    // This is a remote OCAP URL
+    // This is a remote OCAP URL — requires full remote comms
     const remote = this.#remoteManager.remoteFor(host, hints);
     return remote.redeemOcapURL(url);
   }

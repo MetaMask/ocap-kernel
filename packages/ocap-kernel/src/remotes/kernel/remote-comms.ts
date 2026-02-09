@@ -10,6 +10,7 @@ import type { KernelStore } from '../../store/index.ts';
 import type { PlatformServices } from '../../types.ts';
 import { mnemonicToSeed } from '../../utils/bip39.ts';
 import type {
+  RemoteIdentity,
   RemoteComms,
   RemoteMessageHandler,
   OnRemoteGiveUp,
@@ -95,38 +96,34 @@ export function getKnownRelays(kv: KVStore): string[] {
 // cryptography expert before being unleashed on an unsuspecting public.
 
 /**
- * Initialize remote communications for this kernel.
+ * Initialize the kernel's remote identity (peer ID, crypto keys, OCAP URL
+ * operations) without starting any network communications.
  *
  * @param kernelStore - The kernel store, for storing persistent key info.
- * @param platformServices - The platform services, for accessing network I/O
- *   operations that are not available within the web worker that the kernel runs in.
- * @param remoteMessageHandler - Handler to process received inbound communcations.
- * @param options - Options for remote communications initialization.
+ * @param options - Options for identity initialization.
+ * @param options.relays - Relay addresses to embed in issued OCAP URLs.
+ * @param options.mnemonic - BIP39 mnemonic for seed recovery.
  * @param logger - The logger to use.
- * @param keySeed - Optional seed for libp2p key generation.
- * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
- * @param incarnationId - Unique identifier for this kernel instance.
- * @param onIncarnationChange - Optional callback when a remote peer's incarnation changes.
- *
- * @returns the initialized remote comms object.
+ * @param keySeed - Optional seed for key generation.
+ * @returns the identity object, the key seed, and known relays.
  */
-export async function initRemoteComms(
+export async function initRemoteIdentity(
   kernelStore: KernelStore,
-  platformServices: PlatformServices,
-  remoteMessageHandler: RemoteMessageHandler,
-  options: RemoteCommsOptions = {},
+  options?: { relays?: string[] | undefined; mnemonic?: string | undefined },
   logger?: Logger,
   keySeed?: string,
-  onRemoteGiveUp?: OnRemoteGiveUp,
-  incarnationId?: string,
-  onIncarnationChange?: OnIncarnationChange,
-): Promise<RemoteComms> {
+): Promise<{
+  identity: RemoteIdentity;
+  keySeed: string;
+  knownRelays: string[];
+}> {
   let peerId: string;
   let ocapURLKey: Uint8Array;
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
   const { kv } = kernelStore;
-  const { relays = [], mnemonic } = options;
+  const relays = options?.relays ?? [];
+  const mnemonic = options?.mnemonic;
   if (relays.length > 0) {
     kv.set('knownRelays', JSON.stringify(relays));
   }
@@ -163,18 +160,12 @@ export async function initRemoteComms(
     ocapURLKey = globalThis.crypto.getRandomValues(new Uint8Array(32));
     kv.set('ocapURLKey', toHex(ocapURLKey));
   }
+  /* eslint-enable no-param-reassign */
   const cipher = AES_GCM.create();
 
   const knownRelays = relays.length > 0 ? relays : getKnownRelays(kv);
-  logger?.log(`relays: ${JSON.stringify(knownRelays)}`);
-  await platformServices.initializeRemoteComms(
-    keySeed,
-    { ...options, relays: knownRelays },
-    remoteMessageHandler,
-    onRemoteGiveUp,
-    incarnationId,
-    onIncarnationChange,
-  );
+
+  const KREF_MIN_LEN = 16;
 
   /**
    * Obtain this kernel's peer ID.
@@ -184,18 +175,6 @@ export async function initRemoteComms(
   function getPeerId(): string {
     return peerId;
   }
-
-  /**
-   * Transmit a message to a remote kernel.
-   *
-   * @param to - The peer ID of the intended destination.
-   * @param message - The serialized message string (with seq/ack already added by RemoteHandle).
-   */
-  async function sendRemoteMessage(to: string, message: string): Promise<void> {
-    await platformServices.sendRemoteMessage(to, message);
-  }
-
-  const KREF_MIN_LEN = 16;
 
   /**
    * Produce a URL string referencing one of the objects in this kernel.
@@ -241,10 +220,76 @@ export async function initRemoteComms(
   }
 
   return {
-    getPeerId,
+    identity: { getPeerId, issueOcapURL, redeemLocalOcapURL },
+    keySeed,
+    knownRelays,
+  };
+}
+
+/**
+ * Initialize remote communications for this kernel.
+ *
+ * @param kernelStore - The kernel store, for storing persistent key info.
+ * @param platformServices - The platform services, for accessing network I/O
+ *   operations that are not available within the web worker that the kernel runs in.
+ * @param remoteMessageHandler - Handler to process received inbound communcations.
+ * @param options - Options for remote communications initialization.
+ * @param logger - The logger to use.
+ * @param keySeed - Optional seed for libp2p key generation.
+ * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
+ * @param incarnationId - Unique identifier for this kernel instance.
+ * @param onIncarnationChange - Optional callback when a remote peer's incarnation changes.
+ *
+ * @returns the initialized remote comms object.
+ */
+export async function initRemoteComms(
+  kernelStore: KernelStore,
+  platformServices: PlatformServices,
+  remoteMessageHandler: RemoteMessageHandler,
+  options: RemoteCommsOptions = {},
+  logger?: Logger,
+  keySeed?: string,
+  onRemoteGiveUp?: OnRemoteGiveUp,
+  incarnationId?: string,
+  onIncarnationChange?: OnIncarnationChange,
+): Promise<RemoteComms> {
+  const { relays = [], mnemonic } = options;
+
+  const result = await initRemoteIdentity(
+    kernelStore,
+    {
+      relays,
+      ...(mnemonic === undefined ? {} : { mnemonic }),
+    },
+    logger,
+    keySeed,
+  );
+
+  const { identity, knownRelays } = result;
+
+  logger?.log(`relays: ${JSON.stringify(knownRelays)}`);
+  await platformServices.initializeRemoteComms(
+    result.keySeed,
+    { ...options, relays: knownRelays },
+    remoteMessageHandler,
+    onRemoteGiveUp,
+    incarnationId,
+    onIncarnationChange,
+  );
+
+  /**
+   * Transmit a message to a remote kernel.
+   *
+   * @param to - The peer ID of the intended destination.
+   * @param message - The serialized message string (with seq/ack already added by RemoteHandle).
+   */
+  async function sendRemoteMessage(to: string, message: string): Promise<void> {
+    await platformServices.sendRemoteMessage(to, message);
+  }
+
+  return {
+    ...identity,
     sendRemoteMessage,
-    issueOcapURL,
-    redeemLocalOcapURL,
     registerLocationHints:
       platformServices.registerLocationHints.bind(platformServices),
   };
