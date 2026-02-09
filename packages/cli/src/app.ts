@@ -1,5 +1,6 @@
-import '@metamask/kernel-shims/endoify';
+import '@metamask/kernel-shims/endoify-node';
 import { Logger } from '@metamask/logger';
+import type { LogEntry } from '@metamask/logger';
 import path from 'node:path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
@@ -12,9 +13,24 @@ import type { Config } from './config.ts';
 import { startRelay } from './relay.ts';
 import { withTimeout } from './utils.ts';
 
-const logger = new Logger('cli');
+/**
+ * Console transport that omits tags from output.
+ *
+ * @param entry - The log entry to write.
+ */
+function consoleTransport(entry: LogEntry): void {
+  const args = [
+    ...(entry.message ? [entry.message] : []),
+    ...(entry.data ?? []),
+  ];
+  // eslint-disable-next-line no-console
+  console[entry.level](...args);
+}
 
-await yargs(hideBin(process.argv))
+const logger = new Logger({ tags: ['cli'], transports: [consoleTransport] });
+
+const yargsInstance = yargs(hideBin(process.argv))
+  .scriptName('ocap')
   .usage('$0 <command> [options]')
   .demandCommand(1)
   .strict()
@@ -63,7 +79,7 @@ await yargs(hideBin(process.argv))
         dir: resolvedDir,
       };
       logger.info(`Starting ${appName} in ${resolvedDir} on ${url}`);
-      const server = getServer(config);
+      const server = getServer(config, logger);
       await server.listen();
     },
   )
@@ -135,12 +151,15 @@ await yargs(hideBin(process.argv))
       const closeWatcher = await watchReady;
       closeHandlers.push(closeWatcher);
 
-      const server = getServer({
-        server: {
-          port: args.port,
+      const server = getServer(
+        {
+          server: {
+            port: args.port,
+          },
+          dir: resolvedDir,
         },
-        dir: resolvedDir,
-      });
+        logger,
+      );
       const { close: closeServer, port } = await server.listen();
       closeHandlers.push(closeServer);
 
@@ -154,6 +173,6 @@ await yargs(hideBin(process.argv))
     async () => {
       await startRelay(logger);
     },
-  )
-  .help('help')
-  .parse();
+  );
+
+await yargsInstance.help('help').parse();
