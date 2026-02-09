@@ -58,15 +58,20 @@ const makeContainer = (): HTMLElement & {
 /**
  * Creates a mock iframe element that simulates loading.
  *
+ * @param options - Options for the mock iframe.
+ * @param options.readyState - The initial readyState of the iframe document.
  * @returns A mock iframe element.
  */
-const makeIframe = (): HTMLIFrameElement & {
+const makeIframe = (
+  options: { readyState?: string } = {},
+): HTMLIFrameElement & {
   loadListeners: (() => void)[];
   errorListeners: ((event: Event) => void)[];
   simulateLoad: () => void;
   simulateError: (message: string) => void;
   removed: boolean;
 } => {
+  const { readyState = 'complete' } = options;
   const loadListeners: (() => void)[] = [];
   const errorListeners: ((event: Event) => void)[] = [];
   let removed = false;
@@ -88,7 +93,7 @@ const makeIframe = (): HTMLIFrameElement & {
       postMessage: vi.fn(),
     } as unknown as Window,
     contentDocument: {
-      readyState: 'complete',
+      readyState,
     },
     loadListeners,
     errorListeners,
@@ -279,6 +284,75 @@ describe('UIOrchestrator', () => {
       await launchPromise;
 
       expect(createdIframes[0]?.title).toBe('UI Vat: test-ui-vat');
+    });
+
+    it('cleans up and allows retry after iframe load error', async () => {
+      // Use a loading iframe that won't short-circuit #waitForIframeLoad
+      vi.spyOn(document, 'createElement').mockImplementation(
+        (tagName: string) => {
+          if (tagName === 'iframe') {
+            const iframe = makeIframe({ readyState: 'loading' });
+            createdIframes.push(iframe);
+            return iframe as unknown as HTMLElement;
+          }
+          return originalCreateElement(tagName);
+        },
+      );
+
+      const config: UiVatConfig = {
+        id: 'test-ui-vat',
+        uri: 'https://example.com/ui.html',
+        slot: 'main',
+      };
+
+      const launchPromise = orchestrator.launch(config);
+      await Promise.resolve();
+      createdIframes[0]?.simulateError('Network error');
+
+      await expect(launchPromise).rejects.toThrow(
+        'Failed to load iframe: Network error',
+      );
+      expect(createdIframes[0]?.removed).toBe(true);
+      expect(orchestrator.has('test-ui-vat')).toBe(false);
+
+      // Should be able to retry after failure
+      const retryPromise = orchestrator.launch(config);
+      await Promise.resolve();
+      createdIframes[1]?.simulateLoad();
+      const retryPort = await retryPromise;
+      expect(retryPort).toBeDefined();
+    });
+
+    it('prevents concurrent launch attempts for same ID', async () => {
+      // Use a loading iframe so launch stays pending
+      vi.spyOn(document, 'createElement').mockImplementation(
+        (tagName: string) => {
+          if (tagName === 'iframe') {
+            const iframe = makeIframe({ readyState: 'loading' });
+            createdIframes.push(iframe);
+            return iframe as unknown as HTMLElement;
+          }
+          return originalCreateElement(tagName);
+        },
+      );
+
+      const config: UiVatConfig = {
+        id: 'test-ui-vat',
+        uri: 'https://example.com/ui.html',
+        slot: 'main',
+      };
+
+      const firstLaunch = orchestrator.launch(config);
+
+      // Second launch with same ID while first is in progress
+      await expect(orchestrator.launch(config)).rejects.toThrow(
+        'UI vat "test-ui-vat" already exists',
+      );
+
+      // Complete first launch
+      await Promise.resolve();
+      createdIframes[0]?.simulateLoad();
+      await firstLaunch;
     });
 
     it('creates hidden iframe when visible is false', async () => {
