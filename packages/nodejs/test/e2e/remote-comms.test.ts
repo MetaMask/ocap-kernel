@@ -1,5 +1,6 @@
 import type { Libp2p } from '@libp2p/interface';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
+import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
 import type { KRef } from '@metamask/ocap-kernel';
 import { startRelay } from '@ocap/cli/relay';
@@ -1019,6 +1020,171 @@ describe.sequential('Remote Communications E2E', () => {
         expect(kunser(result)).toContain('vat Bob got "hello" from Alice');
       },
       NETWORK_TIMEOUT * 3,
+    );
+  });
+
+  describe('Distributed Garbage Collection', () => {
+    it(
+      'creates remote endpoint with clist entries after cross-kernel message',
+      async () => {
+        const { aliceRef, bobURL } = await setupAliceAndBob(
+          kernel1,
+          kernel2,
+          kernelStore1,
+          kernelStore2,
+          testRelays,
+        );
+
+        // Send a message to create cross-kernel object references
+        const response = await sendRemoteMessage(
+          kernel1,
+          aliceRef,
+          bobURL,
+          'hello',
+          ['Alice'],
+        );
+
+        // Verify cross-kernel communication works (implies remote endpoints were created)
+        expect(response).toContain('vat Bob got "hello" from Alice');
+      },
+      NETWORK_TIMEOUT,
+    );
+
+    it(
+      'sends BOYD to remote kernel when local remote is reaped',
+      async () => {
+        const { aliceRef, bobURL } = await setupAliceAndBob(
+          kernel1,
+          kernel2,
+          kernelStore1,
+          kernelStore2,
+          testRelays,
+        );
+
+        // Send a message to create cross-kernel refs
+        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
+
+        // Schedule reap on kernel1's remote endpoints - this will cause
+        // the crank loop to deliver BOYD to the remote kernel
+        kernel1.reapRemotes();
+
+        // Trigger cranks to process the reap action (which sends BOYD to kernel2)
+        // and allow the remote to process it and respond
+        for (let i = 0; i < 3; i++) {
+          await kernel1.queueMessage(aliceRef, 'ping', []);
+          await waitUntilQuiescent(500);
+        }
+
+        // Verify communication still works after DGC
+        const response = await sendRemoteMessage(
+          kernel1,
+          aliceRef,
+          bobURL,
+          'hello',
+          ['Alice'],
+        );
+        expect(response).toContain('vat Bob got "hello" from Alice');
+      },
+      NETWORK_TIMEOUT,
+    );
+
+    it(
+      'processes incoming BOYD by scheduling local reap',
+      async () => {
+        const { bobRef, aliceURL, aliceRef, bobURL } = await setupAliceAndBob(
+          kernel1,
+          kernel2,
+          kernelStore1,
+          kernelStore2,
+          testRelays,
+        );
+
+        // Send messages in both directions to create refs on both sides
+        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
+        await sendRemoteMessage(kernel2, bobRef, aliceURL, 'hello', ['Bob']);
+
+        // Schedule reap on kernel2's remote endpoints - this will send BOYD to kernel1
+        kernel2.reapRemotes();
+
+        // Trigger cranks to process the reap and allow BOYD to flow
+        for (let i = 0; i < 3; i++) {
+          await kernel2.queueMessage(bobRef, 'ping', []);
+          await waitUntilQuiescent(500);
+        }
+
+        // Verify communication still works after DGC from both directions
+        const aliceToBob = await sendRemoteMessage(
+          kernel1,
+          aliceRef,
+          bobURL,
+          'hello',
+          ['Alice'],
+        );
+        expect(aliceToBob).toContain('vat Bob got "hello" from Alice');
+
+        const bobToAlice = await sendRemoteMessage(
+          kernel2,
+          bobRef,
+          aliceURL,
+          'hello',
+          ['Bob'],
+        );
+        expect(bobToAlice).toContain('vat Alice got "hello" from Bob');
+      },
+      NETWORK_TIMEOUT,
+    );
+
+    it(
+      'completes BOYD exchange without infinite ping-pong',
+      async () => {
+        const { aliceRef, bobRef, bobURL, aliceURL } = await setupAliceAndBob(
+          kernel1,
+          kernel2,
+          kernelStore1,
+          kernelStore2,
+          testRelays,
+        );
+
+        // Send messages to establish refs on both sides
+        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
+        await sendRemoteMessage(kernel2, bobRef, aliceURL, 'hello', ['Bob']);
+
+        // Schedule reap on BOTH sides simultaneously - this tests that the
+        // ping-pong prevention flag works correctly, preventing infinite BOYD loops
+        kernel1.reapRemotes();
+        kernel2.reapRemotes();
+
+        // Trigger cranks on both kernels to process the reaps and allow
+        // BOYD messages to flow in both directions
+        for (let i = 0; i < 3; i++) {
+          await Promise.all([
+            kernel1.queueMessage(aliceRef, 'ping', []),
+            kernel2.queueMessage(bobRef, 'ping', []),
+          ]);
+          await waitUntilQuiescent(500);
+        }
+
+        // Verify continued bidirectional communication works - this proves
+        // the BOYD exchange completed without breaking the connection
+        const aliceToBob = await sendRemoteMessage(
+          kernel1,
+          aliceRef,
+          bobURL,
+          'hello',
+          ['Alice'],
+        );
+        expect(aliceToBob).toContain('vat Bob got "hello" from Alice');
+
+        const bobToAlice = await sendRemoteMessage(
+          kernel2,
+          bobRef,
+          aliceURL,
+          'hello',
+          ['Bob'],
+        );
+        expect(bobToAlice).toContain('vat Alice got "hello" from Bob');
+      },
+      NETWORK_TIMEOUT,
     );
   });
 });

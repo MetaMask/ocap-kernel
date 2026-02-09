@@ -14,6 +14,7 @@ import { makeKernelStore } from './store/index.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
   VatId,
+  RemoteId,
   EndpointId,
   KRef,
   PlatformServices,
@@ -479,6 +480,16 @@ export class Kernel {
    */
   reapVats(filter: (vatId: VatId) => boolean = () => true): void {
     this.#vatManager.reapVats(filter);
+  }
+
+  /**
+   * Reap remotes that match the filter.
+   * This is for debugging and testing purposes only.
+   *
+   * @param filter - A function that returns true if the remote should be reaped.
+   */
+  reapRemotes(filter: (remoteId: RemoteId) => boolean = () => true): void {
+    this.#remoteManager.reapRemotes(filter);
   }
 
   /**

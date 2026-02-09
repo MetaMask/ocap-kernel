@@ -352,6 +352,20 @@ export class RemoteManager {
   }
 
   /**
+   * Schedule reap for remotes that match the filter.
+   * This is for debugging and testing purposes only.
+   *
+   * @param filter - A function that returns true if the remote should be reaped.
+   */
+  reapRemotes(filter: (remoteId: RemoteId) => boolean = () => true): void {
+    for (const remoteId of this.#remotes.keys()) {
+      if (filter(remoteId)) {
+        this.#kernelStore.scheduleReap(remoteId);
+      }
+    }
+  }
+
+  /**
    * Take note of where a peer might be.
    *
    * @param peerId - The peer ID to which this information applies.

@@ -153,12 +153,144 @@ describe('RemoteHandle', () => {
     expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
   });
 
-  it('deliverBringOutYourDead does not call sendRemoteMessage', async () => {
-    const remote = makeRemote();
+  describe('bringOutYourDead', () => {
+    it('sends BOYD delivery to remote when locally triggered', async () => {
+      const remote = makeRemote();
 
-    const crankResult = await remote.deliverBringOutYourDead();
-    expect(mockRemoteComms.sendRemoteMessage).not.toHaveBeenCalled();
-    expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
+      const crankResult = await remote.deliverBringOutYourDead();
+      expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
+        mockRemotePeerId,
+        expect.any(String),
+      );
+      const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+        .calls[0]![1];
+      const parsed = JSON.parse(sentString);
+      expect(parsed).toStrictEqual({
+        seq: 1,
+        method: 'deliver',
+        params: ['bringOutYourDead'],
+      });
+      expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
+    });
+
+    it('handles incoming BOYD by scheduling reap', async () => {
+      const remote = makeRemote();
+
+      const delivery = JSON.stringify({
+        seq: 1,
+        method: 'deliver',
+        params: ['bringOutYourDead'],
+      });
+      const reply = await remote.handleRemoteMessage(delivery);
+
+      expect(reply).toBeNull();
+      // Verify reap was scheduled by checking the reap queue
+      expect(mockKernelStore.nextReapAction()).toStrictEqual({
+        type: 'bringOutYourDead',
+        endpointId: remote.remoteId,
+      });
+    });
+
+    it('does not send BOYD back when remotely triggered (ping-pong prevention)', async () => {
+      const remote = makeRemote();
+
+      // Receive BOYD from remote
+      await remote.handleRemoteMessage(
+        JSON.stringify({
+          seq: 1,
+          method: 'deliver',
+          params: ['bringOutYourDead'],
+        }),
+      );
+
+      // Now local kernel calls deliverBringOutYourDead - should NOT send back
+      const crankResult = await remote.deliverBringOutYourDead();
+      expect(mockRemoteComms.sendRemoteMessage).not.toHaveBeenCalled();
+      expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
+    });
+
+    it('clears flag after skipping echo (next local BOYD sends normally)', async () => {
+      const remote = makeRemote();
+
+      // Receive BOYD from remote
+      await remote.handleRemoteMessage(
+        JSON.stringify({
+          seq: 1,
+          method: 'deliver',
+          params: ['bringOutYourDead'],
+        }),
+      );
+
+      // First local BOYD - suppressed
+      await remote.deliverBringOutYourDead();
+      expect(mockRemoteComms.sendRemoteMessage).not.toHaveBeenCalled();
+
+      // Second local BOYD - should send normally (flag was cleared)
+      await remote.deliverBringOutYourDead();
+      expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
+        mockRemotePeerId,
+        expect.any(String),
+      );
+      const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
+        .calls[0]![1];
+      const parsed = JSON.parse(sentString);
+      expect(parsed).toStrictEqual({
+        seq: 1,
+        ack: 1,
+        method: 'deliver',
+        params: ['bringOutYourDead'],
+      });
+    });
+
+    it('tracks correct seq/ack on BOYD messages', async () => {
+      const remote = makeRemote();
+
+      // Receive a non-BOYD message to set up ack tracking
+      const promiseRRef = 'rp+3';
+      const resolutions: VatOneResolution[] = [
+        [promiseRRef, false, { body: '"resolved value"', slots: [] }],
+      ];
+      await remote.handleRemoteMessage(
+        JSON.stringify({
+          seq: 3,
+          method: 'deliver',
+          params: ['notify', resolutions],
+        }),
+      );
+
+      // Send a non-BOYD message first to consume seq 1
+      await remote.deliverNotify([
+        ['rp+1', false, { body: '"value"', slots: [] }],
+      ]);
+
+      // Now send BOYD - should get seq 2 with ack 3
+      await remote.deliverBringOutYourDead();
+
+      const { calls } = vi.mocked(mockRemoteComms.sendRemoteMessage).mock;
+      // Second call is the BOYD (first was the notify)
+      const parsed = JSON.parse(calls[1]![1]);
+      expect(parsed).toStrictEqual({
+        seq: 2,
+        ack: 3,
+        method: 'deliver',
+        params: ['bringOutYourDead'],
+      });
+    });
+
+    it('persists BOYD message for retransmission', async () => {
+      const remote = makeRemote();
+
+      await remote.deliverBringOutYourDead();
+
+      // Verify message was persisted
+      const pendingMsgString = mockKernelStore.getPendingMessage(
+        mockRemoteId,
+        1,
+      );
+      expect(pendingMsgString).toBeDefined();
+      expect(pendingMsgString).toContain('"bringOutYourDead"');
+      expect(pendingMsgString).toContain('"seq":1');
+    });
   });
 
   it('redeemOcapURL calls sendRemoteMessage correctly and handles expected reply (success)', async () => {
