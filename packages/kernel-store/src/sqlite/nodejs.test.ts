@@ -200,6 +200,14 @@ describe('makeSQLKernelDatabase', () => {
         recursive: true,
       });
     });
+
+    it('returns absolute path as-is and ensures parent directory exists', async () => {
+      const result = await getDBFilename('/home/user/.ocap/store.db');
+      expect(result).toBe('/home/user/.ocap/store.db');
+      expect(mockMkdir).toHaveBeenCalledWith('/home/user/.ocap', {
+        recursive: true,
+      });
+    });
   });
 
   describe('savepoint functionality', () => {
