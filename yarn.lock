@@ -3375,7 +3375,6 @@ __metadata:
     "@metamask/kernel-shims": "workspace:^"
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/logger": "workspace:^"
-    "@metamask/snaps-utils": "npm:^11.7.1"
     "@metamask/utils": "npm:^11.9.0"
     "@ocap/repo-tools": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"

@@ -1,4 +1,4 @@
-import { logError } from '@metamask/snaps-utils/node';
+import type { Logger } from '@metamask/logger';
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -12,11 +12,12 @@ import type { Config } from '../config.ts';
  * Get a static server for development purposes.
  *
  * @param config - The config object.
+ * @param logger - Optional logger for output.
  * @returns An object with a `listen` method that returns a promise that
  * resolves when the server is listening.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function getServer(config: Config) {
+export function getServer(config: Config, logger?: Logger) {
   if (!config.dir) {
     throw new Error(`Config option 'dir' must be specified.`);
   }
@@ -74,7 +75,7 @@ export function getServer(config: Config) {
     getResponse(request, response).catch(
       /* istanbul ignore next */
       (error) => {
-        logError(error);
+        logger?.error(error);
         response.statusCode = 500;
         response.end();
       },
