@@ -253,7 +253,16 @@
 <a name='L188'></a><a href='#L188'>188</a>
 <a name='L189'></a><a href='#L189'>189</a>
 <a name='L190'></a><a href='#L190'>190</a>
-<a name='L191'></a><a href='#L191'>191</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L191'></a><a href='#L191'>191</a>
+<a name='L192'></a><a href='#L192'>192</a>
+<a name='L193'></a><a href='#L193'>193</a>
+<a name='L194'></a><a href='#L194'>194</a>
+<a name='L195'></a><a href='#L195'>195</a>
+<a name='L196'></a><a href='#L196'>196</a>
+<a name='L197'></a><a href='#L197'>197</a>
+<a name='L198'></a><a href='#L198'>198</a>
+<a name='L199'></a><a href='#L199'>199</a>
+<a name='L200'></a><a href='#L200'>200</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -377,6 +386,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">232x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">232x</span>
 <span class="cline-any cline-yes">19x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -387,6 +399,9 @@
 <span class="cline-any cline-yes">19x</span>
 <span class="cline-any cline-yes">19x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">19x</span>
 <span class="cline-any cline-yes">19x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -402,6 +417,9 @@
 <span class="cline-any cline-yes">232x</span>
 <span class="cline-any cline-yes">16x</span>
 <span class="cline-any cline-yes">16x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">16x</span>
@@ -448,14 +466,14 @@ import { insistKernelType } from '../store/utils/kernel-slots.ts';
 import type {
   GCAction,
   GCActionType,
+  EndpointId,
   KRef,
   RunQueueItem,
-  VatId,
 } from '../types.ts';
 import {
   actionTypePriorities,
   insistGCActionType,
-  insistVatId,
+  insistEndpointId,
   queueTypeFromActionType,
 } from '../types.ts';
 import { assert } from '../utils/assert.ts';
@@ -464,43 +482,43 @@ import { assert } from '../utils/assert.ts';
  * Parsed representation of a GC action.
  */
 type ParsedGCAction = Readonly&lt;{
-  vatId: VatId;
+  endpointId: EndpointId;
   type: GCActionType;
   kref: KRef;
 }&gt;;
 &nbsp;
 /**
- * Parse a GC action string into a vat id, type, and kref.
+ * Parse a GC action string into an endpoint id, type, and kref.
  *
  * @param action - The GC action string to parse.
  * @returns The parsed GC action.
  */
 function parseAction(action: GCAction): ParsedGCAction {
-  const [vatId, type, kref] = action.split(' ');
-  insistVatId(vatId);
+  const [endpointId, type, kref] = action.split(' ');
+  insistEndpointId(endpointId);
   insistGCActionType(type);
   insistKernelType('object', kref);
-  return harden({ vatId, type, kref });
+  return harden({ endpointId, type, kref });
 }
 &nbsp;
 /**
  * Determines if a GC action should be processed based on current system state.
  *
  * @param storage - The kernel storage.
- * @param vatId - The vat id of the vat that owns the kref.
+ * @param endpointId - The endpoint id of the vat or remote that owns the kref.
  * @param type - The type of GC action.
  * @param kref - The kref of the object in question.
  * @returns True if the action should be processed, false otherwise.
  */
 function shouldProcessAction(
   storage: KernelStore,
-  vatId: VatId,
+  endpointId: EndpointId,
   type: GCActionType,
   kref: KRef,
 ): boolean {
-  const hasCList = storage.hasCListEntry(vatId, kref);
+  const hasCList = storage.hasCListEntry(endpointId, kref);
   const isReachable = hasCList
-    ? storage.getReachableFlag(vatId, kref)
+    ? storage.getReachableFlag(endpointId, kref)
     : undefined;
   const exists = storage.kernelRefExists(kref);
   const { reachable, recognizable } = exists
@@ -523,17 +541,17 @@ function shouldProcessAction(
 }
 &nbsp;
 /**
- * Filters and processes a group of GC actions for a specific vat and action type.
+ * Filters and processes a group of GC actions for a specific endpoint and action type.
  *
  * @param storage - The kernel storage.
- * @param vatId - The vat id of the vat that owns the krefs.
+ * @param endpointId - The endpoint id of the vat or remote that owns the krefs.
  * @param actions - The set of GC actions to process.
  * @param allActionsSet - The complete set of GC actions.
  * @returns Object containing the krefs to process and whether the action set was updated.
  */
 function filterActionsForProcessing(
   storage: KernelStore,
-  vatId: VatId,
+  endpointId: EndpointId,
   actions: Set&lt;GCAction&gt;,
   allActionsSet: Set&lt;GCAction&gt;,
 ): { krefs: KRef[]; actionSetUpdated: boolean } {
@@ -542,7 +560,7 @@ function filterActionsForProcessing(
 &nbsp;
   for (const action of actions) {
     const { type, kref } = parseAction(action);
-    if (shouldProcessAction(storage, vatId, type, kref)) {
+    if (shouldProcessAction(storage, endpointId, type, kref)) {
       krefs.push(kref);
     }
     allActionsSet.delete(action);
@@ -564,43 +582,52 @@ export function processGCActionSet(
   const allActionsSet = storage.getGCActions();
   let actionSetUpdated = false;
 &nbsp;
-  // Group actions by vat and type
-  const actionsByVat = new Map&lt;VatId, Map&lt;GCActionType, Set&lt;GCAction&gt;&gt;&gt;();
+  // Group actions by endpoint and type
+  const actionsByEndpoint = new Map&lt;
+    EndpointId,
+    Map&lt;GCActionType, Set&lt;GCAction&gt;&gt;
+  &gt;();
 &nbsp;
   for (const action of allActionsSet) {
-    const { vatId, type } = parseAction(action);
+    const { endpointId, type } = parseAction(action);
 &nbsp;
-    if (!actionsByVat.has(vatId)) {
-      actionsByVat.set(vatId, new Map());
+    if (!actionsByEndpoint.has(endpointId)) {
+      actionsByEndpoint.set(endpointId, new Map());
     }
 &nbsp;
-    const actionsForVatByType = actionsByVat.get(vatId);
-    assert(actionsForVatByType !== undefined, `No actions for vat: ${vatId}`);
+    const actionsForEndpointByType = actionsByEndpoint.get(endpointId);
+    assert(
+      actionsForEndpointByType !== undefined,
+      `No actions for endpoint: ${endpointId}`,
+    );
 &nbsp;
-    <span class="missing-if-branch" title="else path not taken" >E</span>if (!actionsForVatByType.has(type)) {
-      actionsForVatByType.set(type, new Set());
+    <span class="missing-if-branch" title="else path not taken" >E</span>if (!actionsForEndpointByType.has(type)) {
+      actionsForEndpointByType.set(type, new Set());
     }
 &nbsp;
-    const actions = actionsForVatByType.get(type);
+    const actions = actionsForEndpointByType.get(type);
     assert(actions !== undefined, `No actions for type: ${type}`);
     actions.add(action);
   }
 &nbsp;
   // Process actions in priority order
-  const vatIds = Array.from(actionsByVat.keys()).sort();
+  const endpointIds = Array.from(actionsByEndpoint.keys()).sort();
 &nbsp;
-  for (const vatId of vatIds) {
-    const actionsForVatByType = actionsByVat.get(vatId);
-    assert(actionsForVatByType !== undefined, `No actions for vat: ${vatId}`);
+  for (const endpointId of endpointIds) {
+    const actionsForEndpointByType = actionsByEndpoint.get(endpointId);
+    assert(
+      actionsForEndpointByType !== undefined,
+      `No actions for endpoint: ${endpointId}`,
+    );
 &nbsp;
-    // Find the highest-priority type of work to do within this vat
+    // Find the highest-priority type of work to do within this endpoint
     for (const type of actionTypePriorities) {
-      if (actionsForVatByType.has(type)) {
-        const actions = actionsForVatByType.get(type);
+      if (actionsForEndpointByType.has(type)) {
+        const actions = actionsForEndpointByType.get(type);
         assert(actions !== undefined, `No actions for type: ${type}`);
         const { krefs, actionSetUpdated: updated } = filterActionsForProcessing(
           storage,
-          vatId,
+          endpointId,
           actions,
           allActionsSet,
         );
@@ -617,7 +644,7 @@ export function processGCActionSet(
           const queueType = queueTypeFromActionType.get(type);
           assert(queueType !== undefined, `Unknown action type: ${type}`);
 &nbsp;
-          return harden({ type: queueType, endpointId: vatId, krefs });
+          return harden({ type: queueType, endpointId, krefs });
         }
       }
     }
@@ -640,7 +667,7 @@ harden(processGCActionSet);
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-09T22:01:45.048Z
+                at 2026-02-09T22:33:33.925Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
