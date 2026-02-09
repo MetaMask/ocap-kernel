@@ -205,7 +205,7 @@ export class UIOrchestrator {
    */
   terminateAll(): void {
     this.#logger.info('Terminating all UI vats');
-    for (const id of this.#uiVats.keys()) {
+    for (const id of Array.from(this.#uiVats.keys())) {
       this.terminate(id);
     }
   }
