@@ -22,6 +22,7 @@ describe('RemoteManager', () => {
   let remoteManager: RemoteManager;
   let mockPlatformServices: PlatformServices;
   let kernelStore: ReturnType<typeof makeKernelStore>;
+  let kernelKVStore: ReturnType<typeof makeMapKernelDatabase>['kernelKVStore'];
   let mockKernelQueue: KernelQueue;
   let logger: Logger;
   let mockRemoteComms: RemoteComms;
@@ -29,6 +30,7 @@ describe('RemoteManager', () => {
 
   beforeEach(() => {
     const kernelDatabase = makeMapKernelDatabase();
+    kernelKVStore = kernelDatabase.kernelKVStore;
     kernelStore = makeKernelStore(kernelDatabase);
     logger = new Logger('test');
 
@@ -81,6 +83,7 @@ describe('RemoteManager', () => {
         undefined,
         expect.any(Function),
         kernelStore.provideIncarnationId(),
+        expect.any(Function), // onIncarnationChange
       );
     });
 
@@ -109,6 +112,7 @@ describe('RemoteManager', () => {
         undefined,
         expect.any(Function),
         kernelStore.provideIncarnationId(),
+        expect.any(Function), // onIncarnationChange
       );
     });
 
@@ -137,6 +141,7 @@ describe('RemoteManager', () => {
         keySeed,
         expect.any(Function),
         kernelStore.provideIncarnationId(),
+        expect.any(Function), // onIncarnationChange
       );
     });
 
@@ -562,6 +567,69 @@ describe('RemoteManager', () => {
       const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
       const onRemoteGiveUp = initCall?.[6] as (peerId: string) => void;
       onRemoteGiveUp(peerId);
+      expect(resolvePromisesSpy).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleIncarnationChange', () => {
+    beforeEach(async () => {
+      const messageHandler = vi.fn();
+      vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
+      remoteManager.setMessageHandler(messageHandler);
+      await remoteManager.initRemoteComms();
+    });
+
+    it('calls handlePeerRestart on remote when incarnation changes', () => {
+      const peerId = 'peer-that-restarted';
+      const remote = remoteManager.establishRemote(peerId);
+      const handlePeerRestartSpy = vi.spyOn(remote, 'handlePeerRestart');
+      // Get the onIncarnationChange callback (9th argument, index 8)
+      const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
+      const onIncarnationChange = initCall?.[8] as (peerId: string) => void;
+      onIncarnationChange(peerId);
+      expect(handlePeerRestartSpy).toHaveBeenCalled();
+    });
+
+    it('rejects kernel promises where remote is decider', () => {
+      const peerId = 'peer-with-promises';
+      const remote = remoteManager.establishRemote(peerId);
+      const { remoteId } = remote;
+
+      // Set up a promise where the remote is the decider
+      const [kpid] = kernelStore.initKernelPromise();
+      kernelStore.setPromiseDecider(kpid, remoteId);
+
+      // Set up the cle. key that getPromisesByDecider looks for
+      // The key format is cle.{decider}.{eref} = kpid
+      kernelKVStore.set(`cle.${remoteId}.p+1`, kpid);
+
+      const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');
+
+      // Trigger incarnation change
+      const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
+      const onIncarnationChange = initCall?.[8] as (peerId: string) => void;
+      onIncarnationChange(peerId);
+
+      // Should reject the promise with incarnation change error
+      expect(resolvePromisesSpy).toHaveBeenCalledWith(remoteId, [
+        [kpid, true, expect.objectContaining({ body: expect.any(String) })],
+      ]);
+    });
+
+    it('does nothing when remote does not exist', () => {
+      const peerId = 'non-existent-peer';
+      const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
+      const onIncarnationChange = initCall?.[8] as (peerId: string) => void;
+      expect(() => onIncarnationChange(peerId)).not.toThrow();
+    });
+
+    it('does not reject promises when there are none', () => {
+      const peerId = 'peer-without-promises';
+      remoteManager.establishRemote(peerId);
+      const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');
+      const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
+      const onIncarnationChange = initCall?.[8] as (peerId: string) => void;
+      onIncarnationChange(peerId);
       expect(resolvePromisesSpy).not.toHaveBeenCalled();
     });
   });

@@ -2582,7 +2582,7 @@ describe('transport.initTransport', () => {
       );
     });
 
-    it('calls onRemoteGiveUp when incarnation changes', async () => {
+    it('calls onIncarnationChange when incarnation changes', async () => {
       let inboundHandler: ((channel: MockChannel) => void) | undefined;
       mockConnectionFactory.onInboundConnection.mockImplementation(
         (handler: (channel: MockChannel) => void) => {
@@ -2590,14 +2590,15 @@ describe('transport.initTransport', () => {
         },
       );
 
-      const onRemoteGiveUp = vi.fn();
+      const onIncarnationChange = vi.fn();
       const localIncarnationId = 'local-incarnation';
       await initTransport(
         '0x1234',
         {},
         vi.fn().mockResolvedValue(''),
-        onRemoteGiveUp,
+        undefined, // onRemoteGiveUp
         localIncarnationId,
+        onIncarnationChange,
       );
 
       // First handshake from remote peer
@@ -2623,8 +2624,8 @@ describe('transport.initTransport', () => {
         );
       });
 
-      // First incarnation should not trigger onRemoteGiveUp
-      expect(onRemoteGiveUp).not.toHaveBeenCalled();
+      // First incarnation should not trigger onIncarnationChange
+      expect(onIncarnationChange).not.toHaveBeenCalled();
 
       // Second handshake with different incarnation (simulating peer restart)
       const mockInboundChannel2 = createMockChannel('remote-peer');
@@ -2649,8 +2650,8 @@ describe('transport.initTransport', () => {
         );
       });
 
-      // Changed incarnation should trigger onRemoteGiveUp
-      expect(onRemoteGiveUp).toHaveBeenCalledWith('remote-peer');
+      // Changed incarnation should trigger onIncarnationChange
+      expect(onIncarnationChange).toHaveBeenCalledWith('remote-peer');
     });
 
     it('passes regular messages to remoteMessageHandler after handshake', async () => {

@@ -230,6 +230,27 @@ export function getRemoteMethods(ctx: StoreContext) {
     return deletedCount;
   }
 
+  /**
+   * Clear all sequence state for a remote (seq counters + all pending messages).
+   * Called when a remote peer restarts (incarnation changes) to reset for fresh communication.
+   * Unlike deleteRemotePendingState, this does NOT delete the remote relationship itself.
+   *
+   * @param remoteId - The remote whose sequence state is to be cleared.
+   */
+  function clearRemoteSeqState(remoteId: RemoteId): void {
+    // Delete seq state
+    const seqPrefix = `${REMOTE_SEQ_BASE}${remoteId}.`;
+    kv.delete(`${seqPrefix}nextSendSeq`);
+    kv.delete(`${seqPrefix}highestReceivedSeq`);
+    kv.delete(`${seqPrefix}startSeq`);
+
+    // Delete all pending messages
+    const pendingPrefix = `${REMOTE_PENDING_BASE}${remoteId}.`;
+    for (const key of getPrefixedKeys(pendingPrefix)) {
+      kv.delete(key);
+    }
+  }
+
   return {
     getAllRemoteRecords,
     getRemoteInfo,
@@ -245,5 +266,6 @@ export function getRemoteMethods(ctx: StoreContext) {
     deletePendingMessage,
     deleteRemotePendingState,
     cleanupOrphanMessages,
+    clearRemoteSeqState,
   };
 }

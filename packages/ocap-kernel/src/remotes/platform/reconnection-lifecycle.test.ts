@@ -90,7 +90,9 @@ describe('reconnection-lifecycle', () => {
       checkConnectionRateLimit: vi.fn(),
       closeChannel: vi.fn().mockResolvedValue(undefined),
       registerChannel: vi.fn(),
-      doOutboundHandshake: vi.fn().mockResolvedValue(true),
+      doOutboundHandshake: vi
+        .fn()
+        .mockResolvedValue({ success: true, incarnationChanged: false }),
     } as unknown as ReconnectionLifecycleDeps;
   });
 
@@ -238,9 +240,10 @@ describe('reconnection-lifecycle', () => {
       (deps.reconnectionManager.isReconnecting as ReturnType<typeof vi.fn>)
         .mockReturnValueOnce(true)
         .mockReturnValueOnce(false);
-      (deps.doOutboundHandshake as ReturnType<typeof vi.fn>).mockResolvedValue(
-        false,
-      );
+      (deps.doOutboundHandshake as ReturnType<typeof vi.fn>).mockResolvedValue({
+        success: false,
+        incarnationChanged: false,
+      });
 
       const lifecycle = makeReconnectionLifecycle(deps);
 

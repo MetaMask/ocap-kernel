@@ -52,6 +52,7 @@ describe('kernel store', () => {
         'clear',
         'clearEmptySubclusters',
         'clearReachableFlag',
+        'clearRemoteSeqState',
         'collectGarbage',
         'createCrankSavepoint',
         'createSavepoint',

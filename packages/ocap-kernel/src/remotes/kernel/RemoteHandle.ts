@@ -1037,4 +1037,40 @@ export class RemoteHandle implements EndpointHandle {
     this.#clearDelayedAck();
     this.rejectPendingRedemptions('Remote connection cleanup');
   }
+
+  /**
+   * Handle a peer restart (incarnation change).
+   * Resets all state for a fresh start: clears timers, rejects pending messages
+   * and redemptions, resets sequence numbers, and clears persisted seq state.
+   * Called when the handshake detects that the remote peer has restarted.
+   */
+  handlePeerRestart(): void {
+    this.#logger.log(
+      `${this.#peerId.slice(0, 8)}:: handling peer restart, resetting state`,
+    );
+
+    // Clear timers
+    this.#clearAckTimeout();
+    this.#clearDelayedAck();
+
+    // Reject all pending messages - they will never be ACKed by the restarted peer
+    if (this.#hasPendingMessages()) {
+      this.#logger.log(
+        `${this.#peerId.slice(0, 8)}:: rejecting ${this.#getPendingCount()} pending messages due to peer restart`,
+      );
+      this.#rejectAllPending('Remote peer restarted');
+    }
+
+    // Reject pending URL redemptions - the remote won't have context for them
+    this.rejectPendingRedemptions('Remote peer restarted');
+
+    // Reset sequence numbers for fresh start
+    this.#nextSendSeq = 0;
+    this.#highestReceivedSeq = 0;
+    this.#startSeq = 0;
+    this.#retryCount = 0;
+
+    // Clear persisted sequence state
+    this.#kernelStore.clearRemoteSeqState(this.remoteId);
+  }
 }
