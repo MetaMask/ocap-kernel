@@ -47,13 +47,15 @@ type NotifyDelivery = ['notify', VatOneResolution[]];
 type DropExportsDelivery = ['dropExports', string[]];
 type RetireExportsDelivery = ['retireExports', string[]];
 type RetireImportsDelivery = ['retireImports', string[]];
+type BringOutYourDeadDelivery = ['bringOutYourDead'];
 
 type DeliveryParams =
   | MessageDelivery
   | NotifyDelivery
   | DropExportsDelivery
   | RetireExportsDelivery
-  | RetireImportsDelivery;
+  | RetireImportsDelivery
+  | BringOutYourDeadDelivery;
 
 type Delivery = {
   method: 'deliver';
@@ -101,6 +103,13 @@ export class RemoteHandle implements EndpointHandle {
 
   /** Flag that location hints need to be sent to remote comms object. */
   #needsHinting: boolean = true;
+
+  /**
+   * Flag indicating the current BOYD was triggered by an incoming remote
+   * request. When set, deliverBringOutYourDead will skip sending BOYD back
+   * to the remote, preventing infinite ping-pong.
+   */
+  #remoteGcRequested: boolean = false;
 
   /** Pending URL redemption requests that have not yet been responded to. */
   readonly #pendingRedemptions: Map<
@@ -635,15 +644,21 @@ export class RemoteHandle implements EndpointHandle {
   }
 
   /**
-   * Make a 'bringOutYourDead' delivery to the remote.
-   *
-   * Currently this does not actually do anything but is included to satisfy the
-   * EndpointHandle interface.
+   * Send a 'bringOutYourDead' delivery to the remote, requesting it to run
+   * its garbage collection cycle. If the current BOYD was triggered by an
+   * incoming remote request, skip sending to prevent infinite ping-pong.
    *
    * @returns the crank results.
    */
   async deliverBringOutYourDead(): Promise<CrankResults> {
-    // XXX Currently a no-op, but probably some further DGC action is warranted here
+    if (this.#remoteGcRequested) {
+      this.#remoteGcRequested = false;
+      return this.#myCrankResult;
+    }
+    await this.#sendRemoteCommand({
+      method: 'deliver',
+      params: ['bringOutYourDead'],
+    });
     return this.#myCrankResult;
   }
 
@@ -754,6 +769,10 @@ export class RemoteHandle implements EndpointHandle {
       case 'retireImports': {
         const [, erefs] = params;
         this.#retireImports(erefs);
+        break;
+      }
+      case 'bringOutYourDead': {
+        this.#kernelStore.scheduleReap(this.remoteId);
         break;
       }
       default:
@@ -943,6 +962,12 @@ export class RemoteHandle implements EndpointHandle {
     // on outgoing messages doesn't acknowledge uncommitted message receipts.
     this.#highestReceivedSeq = seq;
 
+    // Set ping-pong prevention flag after commit so it's only visible once
+    // the BOYD delivery is durably recorded.
+    if (method === 'deliver' && params[0] === 'bringOutYourDead') {
+      this.#remoteGcRequested = true;
+    }
+
     // Complete deferred operations
     if (deferredCompletion) {
       switch (method) {
@@ -1064,11 +1089,12 @@ export class RemoteHandle implements EndpointHandle {
     // Reject pending URL redemptions - the remote won't have context for them
     this.rejectPendingRedemptions('Remote peer restarted');
 
-    // Reset sequence numbers for fresh start
+    // Reset sequence numbers and flags for fresh start
     this.#nextSendSeq = 0;
     this.#highestReceivedSeq = 0;
     this.#startSeq = 0;
     this.#retryCount = 0;
+    this.#remoteGcRequested = false;
 
     // Clear persisted sequence state
     this.#kernelStore.clearRemoteSeqState(this.remoteId);

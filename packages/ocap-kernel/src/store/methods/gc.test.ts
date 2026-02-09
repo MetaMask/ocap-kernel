@@ -30,13 +30,29 @@ describe('GC methods', () => {
       expect(actions).toStrictEqual(new Set(validActions));
     });
 
+    it('manages GC actions for remote endpoints', () => {
+      const r0Object = kernelStore.initKernelObject('r0');
+      const r1Object = kernelStore.initKernelObject('r1');
+
+      const remoteActions: GCAction[] = [
+        `r0 dropExport ${r0Object}`,
+        `r1 retireExport ${r1Object}`,
+      ];
+
+      kernelStore.addGCActions(remoteActions);
+
+      const actions = kernelStore.getGCActions();
+      expect(actions.size).toBe(2);
+      expect(actions).toStrictEqual(new Set(remoteActions));
+    });
+
     it('rejects invalid GC actions', () => {
       const v1Object = kernelStore.initKernelObject('v1');
 
-      // Invalid vat ID
+      // Invalid endpoint ID
       expect(() => {
         kernelStore.addGCActions([`x1 dropExport ${v1Object}`]);
-      }).toThrow('not a valid VatId');
+      }).toThrow('not a valid EndpointId');
 
       // Invalid action type
       expect(() => {
@@ -127,6 +143,58 @@ describe('GC methods', () => {
       expect(kernelStore.nextReapAction()).toStrictEqual({
         type: 'bringOutYourDead',
         endpointId: 'v2',
+      });
+
+      expect(kernelStore.nextReapAction()).toBeUndefined();
+    });
+
+    it('schedules remote IDs for reaping', () => {
+      kernelStore.scheduleReap('r0');
+      kernelStore.scheduleReap('r1');
+
+      expect(kernelStore.nextReapAction()).toStrictEqual({
+        type: 'bringOutYourDead',
+        endpointId: 'r0',
+      });
+
+      expect(kernelStore.nextReapAction()).toStrictEqual({
+        type: 'bringOutYourDead',
+        endpointId: 'r1',
+      });
+
+      expect(kernelStore.nextReapAction()).toBeUndefined();
+    });
+
+    it('interleaves vat and remote reap scheduling', () => {
+      kernelStore.scheduleReap('v1');
+      kernelStore.scheduleReap('r0');
+      kernelStore.scheduleReap('v2');
+
+      expect(kernelStore.nextReapAction()).toStrictEqual({
+        type: 'bringOutYourDead',
+        endpointId: 'v1',
+      });
+
+      expect(kernelStore.nextReapAction()).toStrictEqual({
+        type: 'bringOutYourDead',
+        endpointId: 'r0',
+      });
+
+      expect(kernelStore.nextReapAction()).toStrictEqual({
+        type: 'bringOutYourDead',
+        endpointId: 'v2',
+      });
+
+      expect(kernelStore.nextReapAction()).toBeUndefined();
+    });
+
+    it('handles duplicate remote reap scheduling', () => {
+      kernelStore.scheduleReap('r0');
+      kernelStore.scheduleReap('r0');
+
+      expect(kernelStore.nextReapAction()).toStrictEqual({
+        type: 'bringOutYourDead',
+        endpointId: 'r0',
       });
 
       expect(kernelStore.nextReapAction()).toBeUndefined();
