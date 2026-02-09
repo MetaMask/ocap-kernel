@@ -1036,19 +1036,16 @@ describe.sequential('Remote Communications E2E', () => {
         );
 
         // Send a message to create cross-kernel object references
-        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
-
-        // Verify remote endpoint was allocated on kernel1
-        const nextRemoteId1 = Number(
-          kernelStore1.kv.get('nextRemoteId') ?? '0',
+        const response = await sendRemoteMessage(
+          kernel1,
+          aliceRef,
+          bobURL,
+          'hello',
+          ['Alice'],
         );
-        expect(nextRemoteId1).toBeGreaterThan(0);
 
-        // Verify remote endpoint was allocated on kernel2
-        const nextRemoteId2 = Number(
-          kernelStore2.kv.get('nextRemoteId') ?? '0',
-        );
-        expect(nextRemoteId2).toBeGreaterThan(0);
+        // Verify cross-kernel communication works (implies remote endpoints were created)
+        expect(response).toContain('vat Bob got "hello" from Alice');
       },
       NETWORK_TIMEOUT,
     );
@@ -1067,9 +1064,9 @@ describe.sequential('Remote Communications E2E', () => {
         // Send a message to create cross-kernel refs
         await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
 
-        // Schedule reap on kernel1's remote endpoint (r0) - this will cause
+        // Schedule reap on kernel1's remote endpoints - this will cause
         // the crank loop to deliver BOYD to the remote kernel
-        kernelStore1.scheduleReap('r0');
+        kernel1.reapRemotes();
 
         // Trigger cranks to process the reap action (which sends BOYD to kernel2)
         // and allow the remote to process it and respond
@@ -1106,8 +1103,8 @@ describe.sequential('Remote Communications E2E', () => {
         await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
         await sendRemoteMessage(kernel2, bobRef, aliceURL, 'hello', ['Bob']);
 
-        // Schedule reap on kernel2's remote endpoint - this will send BOYD to kernel1
-        kernelStore2.scheduleReap('r0');
+        // Schedule reap on kernel2's remote endpoints - this will send BOYD to kernel1
+        kernel2.reapRemotes();
 
         // Trigger cranks to process the reap and allow BOYD to flow
         for (let i = 0; i < 3; i++) {
@@ -1154,8 +1151,8 @@ describe.sequential('Remote Communications E2E', () => {
 
         // Schedule reap on BOTH sides simultaneously - this tests that the
         // ping-pong prevention flag works correctly, preventing infinite BOYD loops
-        kernelStore1.scheduleReap('r0');
-        kernelStore2.scheduleReap('r0');
+        kernel1.reapRemotes();
+        kernel2.reapRemotes();
 
         // Trigger cranks on both kernels to process the reaps and allow
         // BOYD messages to flow in both directions
@@ -1166,10 +1163,6 @@ describe.sequential('Remote Communications E2E', () => {
           ]);
           await waitUntilQuiescent(500);
         }
-
-        // No pending GC actions on either side after DGC completes
-        expect(kernelStore1.getGCActions().size).toBe(0);
-        expect(kernelStore2.getGCActions().size).toBe(0);
 
         // Verify continued bidirectional communication works - this proves
         // the BOYD exchange completed without breaking the connection

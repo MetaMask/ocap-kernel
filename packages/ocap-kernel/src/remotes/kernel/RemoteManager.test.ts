@@ -520,6 +520,53 @@ describe('RemoteManager', () => {
     });
   });
 
+  describe('reapRemotes', () => {
+    beforeEach(async () => {
+      const messageHandler = vi.fn();
+      vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
+      remoteManager.setMessageHandler(messageHandler);
+      await remoteManager.initRemoteComms();
+    });
+
+    it('schedules reap for all remotes when no filter provided', () => {
+      remoteManager.establishRemote('peer1');
+      remoteManager.establishRemote('peer2');
+      remoteManager.establishRemote('peer3');
+
+      remoteManager.reapRemotes();
+
+      // Drain the reap queue and verify all remotes were scheduled
+      const reaped: string[] = [];
+      let action = kernelStore.nextReapAction();
+      while (action) {
+        reaped.push(action.endpointId);
+        action = kernelStore.nextReapAction();
+      }
+      expect(reaped).toStrictEqual(['r1', 'r2', 'r3']);
+    });
+
+    it('schedules reap only for remotes matching the filter', () => {
+      remoteManager.establishRemote('peer1');
+      remoteManager.establishRemote('peer2');
+      remoteManager.establishRemote('peer3');
+
+      remoteManager.reapRemotes((remoteId) => remoteId === 'r2');
+
+      const action = kernelStore.nextReapAction();
+      expect(action).toStrictEqual({
+        type: 'bringOutYourDead',
+        endpointId: 'r2',
+      });
+      expect(kernelStore.nextReapAction()).toBeUndefined();
+    });
+
+    it('does nothing when no remotes exist', () => {
+      remoteManager.reapRemotes();
+
+      expect(kernelStore.nextReapAction()).toBeUndefined();
+    });
+  });
+
   describe('handleRemoteGiveUp', () => {
     beforeEach(async () => {
       const messageHandler = vi.fn();

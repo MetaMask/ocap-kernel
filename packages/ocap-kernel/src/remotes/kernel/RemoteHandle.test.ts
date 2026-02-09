@@ -1460,5 +1460,28 @@ describe('RemoteHandle', () => {
       // The pending redemption should be rejected
       await expect(redeemPromise).rejects.toThrow('Remote peer restarted');
     });
+
+    it('resets remoteGcRequested flag so BOYD is sent to new incarnation', async () => {
+      const remote = makeRemote();
+
+      // Receive BOYD from remote — sets the ping-pong prevention flag
+      await remote.handleRemoteMessage(
+        JSON.stringify({
+          seq: 1,
+          method: 'deliver',
+          params: ['bringOutYourDead'],
+        }),
+      );
+
+      // Peer restarts — flag should be cleared
+      remote.handlePeerRestart();
+
+      // Next deliverBringOutYourDead should send BOYD (not suppress it)
+      await remote.deliverBringOutYourDead();
+      expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledWith(
+        mockRemotePeerId,
+        expect.any(String),
+      );
+    });
   });
 });

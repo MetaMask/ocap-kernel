@@ -1089,11 +1089,12 @@ export class RemoteHandle implements EndpointHandle {
     // Reject pending URL redemptions - the remote won't have context for them
     this.rejectPendingRedemptions('Remote peer restarted');
 
-    // Reset sequence numbers for fresh start
+    // Reset sequence numbers and flags for fresh start
     this.#nextSendSeq = 0;
     this.#highestReceivedSeq = 0;
     this.#startSeq = 0;
     this.#retryCount = 0;
+    this.#remoteGcRequested = false;
 
     // Clear persisted sequence state
     this.#kernelStore.clearRemoteSeqState(this.remoteId);
