@@ -3,7 +3,7 @@ import type { Database as SqliteDatabase } from 'better-sqlite3';
 import Sqlite from 'better-sqlite3';
 import { mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 
 import {
   SQL_QUERIES,
@@ -332,6 +332,10 @@ export async function makeSQLKernelDatabase({
  */
 export async function getDBFilename(label: string): Promise<string> {
   if (label.startsWith(':')) {
+    return label;
+  }
+  if (isAbsolute(label)) {
+    await mkdir(dirname(label), { recursive: true });
     return label;
   }
   const dbRoot = join(tmpdir(), './ocap-sqlite', getDBFolder());
