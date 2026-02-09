@@ -17,6 +17,9 @@ ignores:
   - '@ts-bridge/cli'
   - '@ts-bridge/shims'
 
+  # yargs (type-only usage in kernel-daemon)
+  - '@types/yargs'
+
   # vitest
   - 'vite'
   - '@types/vitest'
