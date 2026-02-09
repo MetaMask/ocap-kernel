@@ -165,9 +165,11 @@ describe('RemoteHandle', () => {
       const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
         .calls[0]![1];
       const parsed = JSON.parse(sentString);
-      expect(parsed.seq).toBe(1);
-      expect(parsed.method).toBe('deliver');
-      expect(parsed.params).toStrictEqual(['bringOutYourDead']);
+      expect(parsed).toStrictEqual({
+        seq: 1,
+        method: 'deliver',
+        params: ['bringOutYourDead'],
+      });
       expect(crankResult).toStrictEqual({ didDelivery: remote.remoteId });
     });
 
@@ -181,7 +183,7 @@ describe('RemoteHandle', () => {
       });
       const reply = await remote.handleRemoteMessage(delivery);
 
-      expect(reply).toBe('');
+      expect(reply).toBeNull();
       // Verify reap was scheduled by checking the reap queue
       expect(mockKernelStore.nextReapAction()).toStrictEqual({
         type: 'bringOutYourDead',
@@ -232,9 +234,12 @@ describe('RemoteHandle', () => {
       const sentString = vi.mocked(mockRemoteComms.sendRemoteMessage).mock
         .calls[0]![1];
       const parsed = JSON.parse(sentString);
-      expect(parsed.seq).toBe(1);
-      expect(parsed.method).toBe('deliver');
-      expect(parsed.params).toStrictEqual(['bringOutYourDead']);
+      expect(parsed).toStrictEqual({
+        seq: 1,
+        ack: 1,
+        method: 'deliver',
+        params: ['bringOutYourDead'],
+      });
     });
 
     it('tracks correct seq/ack on BOYD messages', async () => {
@@ -264,10 +269,12 @@ describe('RemoteHandle', () => {
       const { calls } = vi.mocked(mockRemoteComms.sendRemoteMessage).mock;
       // Second call is the BOYD (first was the notify)
       const parsed = JSON.parse(calls[1]![1]);
-      expect(parsed.seq).toBe(2);
-      expect(parsed.ack).toBe(3);
-      expect(parsed.method).toBe('deliver');
-      expect(parsed.params).toStrictEqual(['bringOutYourDead']);
+      expect(parsed).toStrictEqual({
+        seq: 2,
+        ack: 3,
+        method: 'deliver',
+        params: ['bringOutYourDead'],
+      });
     });
 
     it('persists BOYD message for retransmission', async () => {

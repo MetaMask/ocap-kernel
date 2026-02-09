@@ -772,9 +772,6 @@ export class RemoteHandle implements EndpointHandle {
         break;
       }
       case 'bringOutYourDead': {
-        // TODO: After merging #811, move this assignment after the savepoint
-        // commit, consistent with the transactional message processing pattern.
-        this.#remoteGcRequested = true;
         this.#kernelStore.scheduleReap(this.remoteId);
         break;
       }
@@ -964,6 +961,12 @@ export class RemoteHandle implements EndpointHandle {
     // Updating in-memory seq state after commit ensures any ACK piggybacked
     // on outgoing messages doesn't acknowledge uncommitted message receipts.
     this.#highestReceivedSeq = seq;
+
+    // Set ping-pong prevention flag after commit so it's only visible once
+    // the BOYD delivery is durably recorded.
+    if (method === 'deliver' && params[0] === 'bringOutYourDead') {
+      this.#remoteGcRequested = true;
+    }
 
     // Complete deferred operations
     if (deferredCompletion) {
