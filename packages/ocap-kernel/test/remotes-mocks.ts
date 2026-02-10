@@ -61,6 +61,7 @@ export class MockRemotesFactory {
       closeConnection: vi.fn(),
       registerLocationHints: vi.fn(),
       reconnectPeer: vi.fn(),
+      resetAllBackoffs: vi.fn(),
     };
   }
 

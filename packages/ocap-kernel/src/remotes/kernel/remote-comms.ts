@@ -168,6 +168,8 @@ export async function initRemoteComms(
   const knownRelays = relays.length > 0 ? relays : getKnownRelays(kv);
   logger?.log(`relays: ${JSON.stringify(knownRelays)}`);
 
+  const wakeDetected = kernelStore.detectWake();
+
   await platformServices.initializeRemoteComms(
     keySeed,
     { ...options, relays: knownRelays },
@@ -176,6 +178,11 @@ export async function initRemoteComms(
     incarnationId,
     onIncarnationChange,
   );
+
+  if (wakeDetected) {
+    logger?.log('Cross-incarnation wake detected, resetting backoffs');
+    await platformServices.resetAllBackoffs();
+  }
 
   /**
    * Obtain this kernel's peer ID.

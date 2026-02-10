@@ -70,7 +70,7 @@ describe('kernel store', () => {
         'deleteVat',
         'deleteVatConfig',
         'dequeueRun',
-        'detectCrossIncarnationWake',
+        'detectWake',
         'endCrank',
         'enqueuePromiseMessage',
         'enqueueRun',
@@ -499,7 +499,7 @@ describe('kernel store', () => {
     it('returns false when no lastActiveTime exists', () => {
       const ks = makeKernelStore(mockKernelDatabase);
 
-      expect(ks.detectCrossIncarnationWake()).toBe(false);
+      expect(ks.detectWake()).toBe(false);
     });
 
     it('returns true when lastActiveTime gap exceeds threshold', () => {
@@ -507,7 +507,7 @@ describe('kernel store', () => {
       const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1_000;
       ks.kv.set('lastActiveTime', String(twoHoursAgo));
 
-      expect(ks.detectCrossIncarnationWake()).toBe(true);
+      expect(ks.detectWake()).toBe(true);
     });
 
     it('returns false when gap is within threshold', () => {
@@ -515,14 +515,14 @@ describe('kernel store', () => {
       const tenMinutesAgo = Date.now() - 10 * 60 * 1_000;
       ks.kv.set('lastActiveTime', String(tenMinutesAgo));
 
-      expect(ks.detectCrossIncarnationWake()).toBe(false);
+      expect(ks.detectWake()).toBe(false);
     });
 
     it('records current time as lastActiveTime', () => {
       const ks = makeKernelStore(mockKernelDatabase);
 
       const before = Date.now();
-      ks.detectCrossIncarnationWake();
+      ks.detectWake();
       const after = Date.now();
 
       const stored = ks.kv.get('lastActiveTime');

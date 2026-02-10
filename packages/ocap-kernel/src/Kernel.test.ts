@@ -699,64 +699,6 @@ describe('Kernel', () => {
     });
   });
 
-  describe('cross-incarnation wake detection', () => {
-    it('records lastActiveTime on init', async () => {
-      const before = Date.now();
-      await Kernel.make(mockPlatformServices, mockKernelDatabase);
-      const after = Date.now();
-
-      const stored = mockKernelDatabase.kernelKVStore.get('lastActiveTime');
-      expect(stored).toBeDefined();
-      const timestamp = Number(stored);
-      expect(timestamp).toBeGreaterThanOrEqual(before);
-      expect(timestamp).toBeLessThanOrEqual(after);
-    });
-
-    it('resets backoffs on initRemoteComms when wake is detected', async () => {
-      // Set lastActiveTime to 2 hours ago (exceeds 1 hour default threshold)
-      const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1_000;
-      mockKernelDatabase.kernelKVStore.set(
-        'lastActiveTime',
-        String(twoHoursAgo),
-      );
-
-      const kernel = await Kernel.make(
-        mockPlatformServices,
-        mockKernelDatabase,
-      );
-      await kernel.initRemoteComms();
-
-      expect(mockPlatformServices.resetAllBackoffs).toHaveBeenCalledOnce();
-    });
-
-    it('does not reset backoffs when no lastActiveTime exists', async () => {
-      const kernel = await Kernel.make(
-        mockPlatformServices,
-        mockKernelDatabase,
-      );
-      await kernel.initRemoteComms();
-
-      expect(mockPlatformServices.resetAllBackoffs).not.toHaveBeenCalled();
-    });
-
-    it('does not reset backoffs when gap is within threshold', async () => {
-      // Set lastActiveTime to 10 minutes ago (within 1 hour default threshold)
-      const tenMinutesAgo = Date.now() - 10 * 60 * 1_000;
-      mockKernelDatabase.kernelKVStore.set(
-        'lastActiveTime',
-        String(tenMinutesAgo),
-      );
-
-      const kernel = await Kernel.make(
-        mockPlatformServices,
-        mockKernelDatabase,
-      );
-      await kernel.initRemoteComms();
-
-      expect(mockPlatformServices.resetAllBackoffs).not.toHaveBeenCalled();
-    });
-  });
-
   describe('restartVat()', () => {
     it('preserves vat state across multiple restarts', async () => {
       const kernel = await Kernel.make(

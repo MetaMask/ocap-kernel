@@ -77,9 +77,6 @@ export class Kernel {
   /** The kernel's router */
   readonly #kernelRouter: KernelRouter;
 
-  /** Whether a cross-incarnation wake was detected at startup */
-  #crossIncarnationWake = false;
-
   /**
    * Construct a new kernel instance.
    *
@@ -211,12 +208,6 @@ export class Kernel {
    * Start the kernel running.
    */
   async #init(): Promise<void> {
-    // Detect cross-incarnation wake and record current activity
-    this.#crossIncarnationWake = this.#kernelStore.detectCrossIncarnationWake();
-    if (this.#crossIncarnationWake) {
-      this.#logger.log('Cross-incarnation wake detected');
-    }
-
     // Set up the remote message handler
     this.#remoteManager.setMessageHandler(
       async (from: string, message: string) =>
@@ -243,19 +234,11 @@ export class Kernel {
   /**
    * Initialize the remote comms object.
    *
-   * If a cross-incarnation wake was detected at startup, resets all
-   * reconnection backoffs so the transport doesn't wait out stale
-   * exponential delays accumulated before sleep.
-   *
    * @param options - Options for remote communications initialization.
    * @returns A promise that resolves when initialization is complete.
    */
   async initRemoteComms(options?: RemoteCommsOptions): Promise<void> {
     await this.#remoteManager.initRemoteComms(options);
-
-    if (this.#crossIncarnationWake) {
-      await this.#platformServices.resetAllBackoffs();
-    }
   }
 
   /**
