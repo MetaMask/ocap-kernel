@@ -577,6 +577,7 @@ export class Kernel {
    */
   async stop(): Promise<void> {
     await this.#kernelQueue.waitForCrank();
+    this.#kernelStore.recordLastActiveTime();
     await this.#platformServices.stopRemoteComms();
     this.#remoteManager.cleanup();
     await this.#platformServices.terminateAll();

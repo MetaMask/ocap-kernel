@@ -370,6 +370,13 @@ export type PlatformServices = {
    * @returns A promise that resolves when reconnection is initiated.
    */
   reconnectPeer: (peerId: string, hints?: string[]) => Promise<void>;
+  /**
+   * Reset all reconnection backoffs.
+   * Called after detecting a cross-incarnation wake to avoid unnecessary delays.
+   *
+   * @returns A promise that resolves when backoffs have been reset.
+   */
+  resetAllBackoffs: () => Promise<void>;
 };
 
 // Cluster configuration

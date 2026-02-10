@@ -68,6 +68,7 @@ import type { KernelDatabase, KVStore, VatStore } from '@metamask/kernel-store';
 import { Logger } from '@metamask/logger';
 
 import type { KRef, VatId } from '../types.ts';
+import { getActivityMethods } from './methods/activity.ts';
 import { getBaseMethods } from './methods/base.ts';
 import { getCListMethods } from './methods/clist.ts';
 import { getCrankMethods } from './methods/crank.ts';
@@ -165,6 +166,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
   const pinned = getPinMethods(context);
   const crank = getCrankMethods(context, kdb);
   const subclusters = getSubclusterMethods(context);
+  const activity = getActivityMethods(kv);
 
   /**
    * Create a new VatStore for a vat.
@@ -295,6 +297,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     ...pinned,
     ...crank,
     ...subclusters,
+    ...activity,
     makeVatStore,
     deleteVat,
     clear,

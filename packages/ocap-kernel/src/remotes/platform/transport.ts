@@ -75,6 +75,7 @@ export async function initTransport(
   closeConnection: (peerId: string) => Promise<void>;
   registerLocationHints: (peerId: string, hints: string[]) => void;
   reconnectPeer: (peerId: string, hints?: string[]) => Promise<void>;
+  resetAllBackoffs: () => void;
 }> {
   const {
     relays = [],
@@ -710,6 +711,15 @@ export async function initTransport(
     connectionRateLimiter.clear();
   }
 
+  /**
+   * Reset all reconnection backoffs.
+   * Called when a cross-incarnation wake is detected to avoid unnecessary delays.
+   */
+  function resetAllBackoffs(): void {
+    logger.log('Resetting all reconnection backoffs');
+    reconnectionManager.resetAllBackoffs();
+  }
+
   // Return the sender with a stop handle and connection management functions
   return {
     sendRemoteMessage,
@@ -717,5 +727,6 @@ export async function initTransport(
     closeConnection,
     registerLocationHints,
     reconnectPeer,
+    resetAllBackoffs,
   };
 }

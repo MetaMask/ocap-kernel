@@ -167,6 +167,11 @@ export async function initRemoteComms(
 
   const knownRelays = relays.length > 0 ? relays : getKnownRelays(kv);
   logger?.log(`relays: ${JSON.stringify(knownRelays)}`);
+
+  // detectWake() reads and updates lastActiveTime atomically, so it must be
+  // called before initializeRemoteComms to capture the pre-restart timestamp.
+  const wakeDetected = kernelStore.detectWake();
+
   await platformServices.initializeRemoteComms(
     keySeed,
     { ...options, relays: knownRelays },
@@ -175,6 +180,11 @@ export async function initRemoteComms(
     incarnationId,
     onIncarnationChange,
   );
+
+  if (wakeDetected) {
+    logger?.log('Cross-incarnation wake detected, resetting backoffs');
+    await platformServices.resetAllBackoffs();
+  }
 
   /**
    * Obtain this kernel's peer ID.

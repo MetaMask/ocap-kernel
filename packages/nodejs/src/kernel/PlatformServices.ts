@@ -45,6 +45,8 @@ export class NodejsPlatformServices implements PlatformServices {
     | ((peerId: string, hints?: string[]) => Promise<void>)
     | null = null;
 
+  #resetAllBackoffsFunc: (() => void) | null = null;
+
   #remoteMessageHandler: RemoteMessageHandler | undefined = undefined;
 
   readonly #workerFilePath: string;
@@ -257,6 +259,7 @@ export class NodejsPlatformServices implements PlatformServices {
       closeConnection,
       registerLocationHints,
       reconnectPeer,
+      resetAllBackoffs,
     } = await initTransport(
       keySeed,
       options,
@@ -270,6 +273,7 @@ export class NodejsPlatformServices implements PlatformServices {
     this.#closeConnectionFunc = closeConnection;
     this.#registerLocationHintsFunc = registerLocationHints;
     this.#reconnectPeerFunc = reconnectPeer;
+    this.#resetAllBackoffsFunc = resetAllBackoffs;
   }
 
   /**
@@ -288,6 +292,7 @@ export class NodejsPlatformServices implements PlatformServices {
     this.#closeConnectionFunc = null;
     this.#registerLocationHintsFunc = null;
     this.#reconnectPeerFunc = null;
+    this.#resetAllBackoffsFunc = null;
   }
 
   /**
@@ -330,6 +335,17 @@ export class NodejsPlatformServices implements PlatformServices {
       throw Error('remote comms not initialized');
     }
     await this.#reconnectPeerFunc(peerId, hints);
+  }
+
+  /**
+   * Reset all reconnection backoffs.
+   * Called after detecting a cross-incarnation wake to avoid unnecessary delays.
+   */
+  async resetAllBackoffs(): Promise<void> {
+    if (!this.#resetAllBackoffsFunc) {
+      return;
+    }
+    this.#resetAllBackoffsFunc();
   }
 }
 harden(NodejsPlatformServices);

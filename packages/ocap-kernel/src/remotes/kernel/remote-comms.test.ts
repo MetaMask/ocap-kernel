@@ -607,6 +607,84 @@ describe('remote-comms', () => {
     });
   });
 
+  describe('cross-incarnation wake detection', () => {
+    it('resets backoffs when wake is detected', async () => {
+      const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1_000;
+      mockKernelStore.kv.set('lastActiveTime', String(twoHoursAgo));
+
+      await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+
+      expect(mockPlatformServices.resetAllBackoffs).toHaveBeenCalledOnce();
+    });
+
+    it('does not reset backoffs when no lastActiveTime exists', async () => {
+      await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+
+      expect(mockPlatformServices.resetAllBackoffs).not.toHaveBeenCalled();
+    });
+
+    it('does not reset backoffs when gap is within threshold', async () => {
+      const tenMinutesAgo = Date.now() - 10 * 60 * 1_000;
+      mockKernelStore.kv.set('lastActiveTime', String(tenMinutesAgo));
+
+      await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+
+      expect(mockPlatformServices.resetAllBackoffs).not.toHaveBeenCalled();
+    });
+
+    it('updates lastActiveTime after detection', async () => {
+      const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1_000;
+      mockKernelStore.kv.set('lastActiveTime', String(twoHoursAgo));
+
+      const before = Date.now();
+      await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+      );
+      const after = Date.now();
+
+      const stored = mockKernelStore.kv.get('lastActiveTime');
+      expect(stored).toBeDefined();
+      const timestamp = Number(stored);
+      expect(timestamp).toBeGreaterThanOrEqual(before);
+      expect(timestamp).toBeLessThanOrEqual(after);
+    });
+
+    it('logs when wake is detected', async () => {
+      const mockLogger = {
+        log: vi.fn(),
+        error: vi.fn(),
+      };
+      const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1_000;
+      mockKernelStore.kv.set('lastActiveTime', String(twoHoursAgo));
+
+      await initRemoteComms(
+        mockKernelStore,
+        mockPlatformServices,
+        mockRemoteMessageHandler,
+        {},
+        mockLogger as unknown as Logger,
+      );
+
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        'Cross-incarnation wake detected, resetting backoffs',
+      );
+    });
+  });
+
   describe('initRemoteComms with mnemonic option', () => {
     // Valid 12-word test mnemonic
     const VALID_12_WORD_MNEMONIC =

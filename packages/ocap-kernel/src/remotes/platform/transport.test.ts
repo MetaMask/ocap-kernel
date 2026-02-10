@@ -1191,6 +1191,16 @@ describe('transport.initTransport', () => {
     });
   });
 
+  describe('resetAllBackoffs', () => {
+    it('exposes resetAllBackoffs that delegates to reconnection manager', async () => {
+      const transport = await initTransport('0x1234', {}, vi.fn());
+
+      transport.resetAllBackoffs();
+
+      expect(mockReconnectionManager.resetAllBackoffs).toHaveBeenCalledOnce();
+    });
+  });
+
   describe('race conditions', () => {
     it('queues message if reconnection starts during dial', async () => {
       // Initially not reconnecting

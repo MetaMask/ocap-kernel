@@ -19,6 +19,7 @@ describe('platform-services index', () => {
         'closeConnection',
         'registerLocationHints',
         'reconnectPeer',
+        'resetAllBackoffs',
       ];
 
       for (const handlerName of expectedHandlers) {
@@ -123,6 +124,14 @@ describe('platform-services index', () => {
         expect(handler.hooks).toStrictEqual({ reconnectPeer: true });
         expect(typeof handler.implementation).toBe('function');
       });
+
+      it('should have resetAllBackoffs handler with correct configuration', () => {
+        const handler = platformServicesHandlers.resetAllBackoffs;
+
+        expect(handler.method).toBe('resetAllBackoffs');
+        expect(handler.hooks).toStrictEqual({ resetAllBackoffs: true });
+        expect(typeof handler.implementation).toBe('function');
+      });
     });
   });
 
@@ -138,6 +147,7 @@ describe('platform-services index', () => {
         'closeConnection',
         'registerLocationHints',
         'reconnectPeer',
+        'resetAllBackoffs',
       ];
 
       for (const specName of expectedSpecs) {
@@ -211,6 +221,11 @@ describe('platform-services index', () => {
         const spec = platformServicesMethodSpecs.reconnectPeer;
         expect(spec.method).toBe('reconnectPeer');
       });
+
+      it('should have resetAllBackoffs spec with correct method name', () => {
+        const spec = platformServicesMethodSpecs.resetAllBackoffs;
+        expect(spec.method).toBe('resetAllBackoffs');
+      });
     });
   });
 
@@ -227,6 +242,7 @@ describe('platform-services index', () => {
         'closeConnection',
         'registerLocationHints',
         'reconnectPeer',
+        'resetAllBackoffs',
       ];
 
       for (const method of methods) {
@@ -256,9 +272,9 @@ describe('platform-services index', () => {
       }
     });
 
-    it('should have exactly 9 platform services', () => {
-      expect(Object.keys(platformServicesHandlers)).toHaveLength(9);
-      expect(Object.keys(platformServicesMethodSpecs)).toHaveLength(9);
+    it('should have exactly 10 platform services', () => {
+      expect(Object.keys(platformServicesHandlers)).toHaveLength(10);
+      expect(Object.keys(platformServicesMethodSpecs)).toHaveLength(10);
     });
 
     it('should maintain handler-spec consistency for all services', () => {
@@ -272,6 +288,7 @@ describe('platform-services index', () => {
         'closeConnection',
         'registerLocationHints',
         'reconnectPeer',
+        'resetAllBackoffs',
       ] as const;
 
       for (const service of services) {

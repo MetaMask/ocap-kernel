@@ -104,6 +104,7 @@ describe('Kernel', () => {
       terminate: async () => undefined,
       terminateAll: async () => undefined,
       stopRemoteComms: vi.fn(async () => undefined),
+      resetAllBackoffs: vi.fn(async () => undefined),
     } as unknown as PlatformServices;
 
     launchWorkerMock = vi
@@ -678,6 +679,23 @@ describe('Kernel', () => {
 
       // Verify waitForCrank is called before other operations
       expect(waitForCrankSpy).toHaveBeenCalledOnce();
+    });
+
+    it('saves lastActiveTime to KV store', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+
+      const before = Date.now();
+      await kernel.stop();
+      const after = Date.now();
+
+      const stored = mockKernelDatabase.kernelKVStore.get('lastActiveTime');
+      expect(stored).toBeDefined();
+      const timestamp = Number(stored);
+      expect(timestamp).toBeGreaterThanOrEqual(before);
+      expect(timestamp).toBeLessThanOrEqual(after);
     });
   });
 
