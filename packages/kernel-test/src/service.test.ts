@@ -45,15 +45,16 @@ describe('Kernel service object invocation', () => {
 
     await runTestVats(kernel, testSubcluster);
 
-    // ko3 ::= the (test) service object
-    // ko4 ::= test vat root object
-    // ko5 ::= internal object generated inside test vat to have its kref extracted
+    // ko3 ::= the kernel facet
+    // ko4 ::= the (test) service object
+    // ko5 ::= test vat root object
+    // ko6 ::= internal object generated inside test vat to have its kref extracted
 
-    const testVatRootObject: KRef = 'ko4';
+    const testVatRootObject: KRef = 'ko5';
     await kernel.queueMessage(testVatRootObject, 'go', []);
     await waitUntilQuiescent(100);
     const testLogs = extractTestLogs(entries);
-    expect(testLogs).toContain('kernel service returns hello -- ko5');
+    expect(testLogs).toContain('kernel service returns hello -- ko6');
   });
 
   it('configure subcluster with unknown service throws', async () => {
@@ -78,10 +79,11 @@ describe('Kernel service object invocation', () => {
 
     await runTestVats(kernel, testSubcluster);
 
-    // ko3 ::= the (test) service object
-    // ko4 ::= test vat root object
-    // ko5 ::= internal object generated inside test vat to have its kref extracted
-    const testVatRootObject: KRef = 'ko4';
+    // ko3 ::= the kernel facet
+    // ko4 ::= the (test) service object
+    // ko5 ::= test vat root object
+    // ko6 ::= internal object generated inside test vat to have its kref extracted
+    const testVatRootObject: KRef = 'ko5';
 
     await kernel.queueMessage(testVatRootObject, 'goBadly', []);
     await waitUntilQuiescent(100);

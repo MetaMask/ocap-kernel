@@ -26,8 +26,8 @@ const testSubcluster = {
   },
 };
 
-// First vat root object is ko3 due to kernel service objects being created before any vats.
-const exoTestRoot: KRef = 'ko3';
+// First vat root object is ko4 due to the kernel facet and other kernel service objects being created before any vats.
+const exoTestRoot: KRef = 'ko4';
 
 describe('virtual objects functionality', async () => {
   let kernel: Kernel;
