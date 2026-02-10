@@ -59,6 +59,30 @@ describe('KernelServiceManager', () => {
       expect(registered.name).toBe('testService');
       expect(registered.kref).toMatch(/^ko\d+$/u);
       expect(registered.service).toBe(testService);
+      expect(registered.systemOnly).toBe(false);
+    });
+
+    it('defaults systemOnly to false when no options provided', () => {
+      const testService = { testMethod: () => 'test' };
+
+      const registered = serviceManager.registerKernelServiceObject(
+        'testService',
+        testService,
+      );
+
+      expect(registered.systemOnly).toBe(false);
+    });
+
+    it('sets systemOnly to true when specified', () => {
+      const testService = { testMethod: () => 'test' };
+
+      const registered = serviceManager.registerKernelServiceObject(
+        'testService',
+        testService,
+        { systemOnly: true },
+      );
+
+      expect(registered.systemOnly).toBe(true);
     });
 
     it('pins the service object in kernel store', () => {
@@ -121,6 +145,18 @@ describe('KernelServiceManager', () => {
 
       const retrieved = serviceManager.getKernelService('testService');
       expect(retrieved).toStrictEqual(registered);
+    });
+
+    it('returns the systemOnly flag on retrieved service', () => {
+      const testService = { testMethod: () => 'test' };
+
+      serviceManager.registerKernelServiceObject('sysOnly', testService, {
+        systemOnly: true,
+      });
+      serviceManager.registerKernelServiceObject('open', testService);
+
+      expect(serviceManager.getKernelService('sysOnly')?.systemOnly).toBe(true);
+      expect(serviceManager.getKernelService('open')?.systemOnly).toBe(false);
     });
 
     it('returns undefined for non-existent service', () => {

@@ -152,8 +152,13 @@ export class Kernel {
       kernelStore: this.#kernelStore,
       kernelQueue: this.#kernelQueue,
       vatManager: this.#vatManager,
-      getKernelService: (name) =>
-        this.#kernelServiceManager.getKernelService(name),
+      getKernelService: (name) => {
+        const service = this.#kernelServiceManager.getKernelService(name);
+        if (!service) {
+          return undefined;
+        }
+        return { kref: service.kref, systemOnly: service.systemOnly };
+      },
       queueMessage: this.queueMessage.bind(this),
       logger: this.#logger.subLogger({ tags: ['SubclusterManager'] }),
     });
@@ -276,6 +281,7 @@ export class Kernel {
     this.#kernelServiceManager.registerKernelServiceObject(
       'kernelFacet',
       kernelFacet,
+      { systemOnly: true },
     );
     return kernelFacet;
   }
@@ -367,10 +373,21 @@ export class Kernel {
    *
    * @param name - The name of the service.
    * @param object - The service object to register.
+   * @param options - Registration options.
+   * @param options.systemOnly - Whether the service is only available to system
+   * subclusters. Defaults to `false`.
    * @returns The registration details including the kref.
    */
-  registerKernelServiceObject(name: string, object: object): KernelService {
-    return this.#kernelServiceManager.registerKernelServiceObject(name, object);
+  registerKernelServiceObject(
+    name: string,
+    object: object,
+    options?: { systemOnly?: boolean },
+  ): KernelService {
+    return this.#kernelServiceManager.registerKernelServiceObject(
+      name,
+      object,
+      options,
+    );
   }
 
   /**

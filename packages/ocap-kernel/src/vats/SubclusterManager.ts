@@ -22,7 +22,9 @@ type SubclusterManagerOptions = {
   kernelStore: KernelStore;
   kernelQueue: KernelQueue;
   vatManager: VatManager;
-  getKernelService: (name: string) => { kref: string } | undefined;
+  getKernelService: (
+    name: string,
+  ) => { kref: string; systemOnly: boolean } | undefined;
   queueMessage: (
     target: KRef,
     method: string,
@@ -45,7 +47,9 @@ export class SubclusterManager {
   readonly #vatManager: VatManager;
 
   /** Function to get kernel services */
-  readonly #getKernelService: (name: string) => { kref: string } | undefined;
+  readonly #getKernelService: (
+    name: string,
+  ) => { kref: string; systemOnly: boolean } | undefined;
 
   /** Function to queue messages */
   readonly #queueMessage: (
@@ -92,17 +96,22 @@ export class SubclusterManager {
    * Launches a sub-cluster of vats.
    *
    * @param config - Configuration object for sub-cluster.
+   * @param options - Launch options.
+   * @param options.isSystem - Whether this is a system subcluster. System
+   * subclusters may access restricted kernel services. Defaults to `false`.
    * @returns A promise for the subcluster ID, bootstrap root kref, and
    * bootstrap result.
    */
   async launchSubcluster(
     config: ClusterConfig,
+    { isSystem = false }: { isSystem?: boolean } = {},
   ): Promise<SubclusterLaunchResult> {
     await this.#kernelQueue.waitForCrank();
     isClusterConfig(config) || Fail`invalid cluster config`;
     if (!config.vats[config.bootstrap]) {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;
     }
+    this.#validateServices(config, isSystem);
     const subclusterId = this.#kernelStore.addSubcluster(config);
     const { rootKref, bootstrapResult } = await this.#launchVatsForSubcluster(
       subclusterId,
@@ -205,6 +214,31 @@ export class SubclusterManager {
   }
 
   /**
+   * Validates that all requested services exist and are accessible.
+   *
+   * @param config - The cluster configuration to validate.
+   * @param isSystem - Whether this is a system subcluster.
+   * @throws If a requested service does not exist or is system-only and the
+   * subcluster is not a system subcluster.
+   */
+  #validateServices(config: ClusterConfig, isSystem: boolean): void {
+    if (!config.services) {
+      return;
+    }
+    for (const name of config.services) {
+      const service = this.#getKernelService(name);
+      if (!service) {
+        throw Error(`no registered kernel service '${name}'`);
+      }
+      if (service.systemOnly && !isSystem) {
+        throw Error(
+          `kernel service '${name}' is restricted to system subclusters`,
+        );
+      }
+    }
+  }
+
+  /**
    * Launches all vats for a subcluster and sets up their bootstrap connections.
    *
    * @param subclusterId - The ID of the subcluster to launch vats for.
@@ -295,7 +329,7 @@ export class SubclusterManager {
     }
 
     for (const { name, config } of newConfigs) {
-      const result = await this.launchSubcluster(config);
+      const result = await this.launchSubcluster(config, { isSystem: true });
       this.#systemSubclusterRoots.set(name, result.rootKref);
 
       // Persist the mapping
