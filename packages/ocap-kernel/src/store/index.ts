@@ -65,6 +65,7 @@
  */
 
 import type { KernelDatabase, KVStore, VatStore } from '@metamask/kernel-store';
+import { detectCrossIncarnationWake as detectWake } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 
 import type { KRef, VatId } from '../types.ts';
@@ -279,6 +280,31 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     kdb.rollbackSavepoint(name);
   }
 
+  /**
+   * Detect whether the kernel is resuming after a period of system sleep that
+   * spanned a process restart. Compares the persisted `lastActiveTime` with
+   * the current time and records the current time as the new active timestamp.
+   *
+   * @returns `true` if a cross-incarnation wake event was detected.
+   */
+  function detectCrossIncarnationWake(): boolean {
+    const lastActiveTimeStr = context.kv.get('lastActiveTime');
+    const lastActiveTime = lastActiveTimeStr
+      ? Number(lastActiveTimeStr)
+      : undefined;
+    const wakeDetected = detectWake(lastActiveTime);
+    context.kv.set('lastActiveTime', String(Date.now()));
+    return wakeDetected;
+  }
+
+  /**
+   * Record the current time as the last active timestamp.
+   * Called on graceful shutdown to provide the most recent timestamp.
+   */
+  function recordLastActiveTime(): void {
+    context.kv.set('lastActiveTime', String(Date.now()));
+  }
+
   return harden({
     ...id,
     ...queue,
@@ -300,6 +326,8 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     clear,
     reset,
     provideIncarnationId,
+    detectCrossIncarnationWake,
+    recordLastActiveTime,
     createSavepoint,
     releaseSavepoint,
     rollbackSavepoint,

@@ -70,6 +70,7 @@ describe('kernel store', () => {
         'deleteVat',
         'deleteVatConfig',
         'dequeueRun',
+        'detectCrossIncarnationWake',
         'endCrank',
         'enqueuePromiseMessage',
         'enqueueRun',
@@ -132,6 +133,7 @@ describe('kernel store', () => {
         'nextTerminatedVatCleanup',
         'pinObject',
         'provideIncarnationId',
+        'recordLastActiveTime',
         'releaseAllSavepoints',
         'releaseSavepoint',
         'removeVatFromSubcluster',
@@ -490,6 +492,58 @@ describe('kernel store', () => {
       const preserved = ks.provideIncarnationId();
 
       expect(preserved).toBe(original);
+    });
+  });
+
+  describe('cross-incarnation wake detection', () => {
+    it('returns false when no lastActiveTime exists', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+
+      expect(ks.detectCrossIncarnationWake()).toBe(false);
+    });
+
+    it('returns true when lastActiveTime gap exceeds threshold', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1_000;
+      ks.kv.set('lastActiveTime', String(twoHoursAgo));
+
+      expect(ks.detectCrossIncarnationWake()).toBe(true);
+    });
+
+    it('returns false when gap is within threshold', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const tenMinutesAgo = Date.now() - 10 * 60 * 1_000;
+      ks.kv.set('lastActiveTime', String(tenMinutesAgo));
+
+      expect(ks.detectCrossIncarnationWake()).toBe(false);
+    });
+
+    it('records current time as lastActiveTime', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+
+      const before = Date.now();
+      ks.detectCrossIncarnationWake();
+      const after = Date.now();
+
+      const stored = ks.kv.get('lastActiveTime');
+      expect(stored).toBeDefined();
+      const timestamp = Number(stored);
+      expect(timestamp).toBeGreaterThanOrEqual(before);
+      expect(timestamp).toBeLessThanOrEqual(after);
+    });
+
+    it('records current time via recordLastActiveTime', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+
+      const before = Date.now();
+      ks.recordLastActiveTime();
+      const after = Date.now();
+
+      const stored = ks.kv.get('lastActiveTime');
+      expect(stored).toBeDefined();
+      const timestamp = Number(stored);
+      expect(timestamp).toBeGreaterThanOrEqual(before);
+      expect(timestamp).toBeLessThanOrEqual(after);
     });
   });
 });
