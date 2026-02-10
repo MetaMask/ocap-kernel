@@ -48,6 +48,15 @@ describe('getActivityMethods', () => {
       expect(timestamp).toBeLessThanOrEqual(after);
     });
 
+    it('returns false when lastActiveTime is corrupted', () => {
+      const kv = makeMapKVStore();
+      kv.set('lastActiveTime', 'not-a-number');
+
+      const { detectWake } = getActivityMethods(kv);
+
+      expect(detectWake()).toBe(false);
+    });
+
     it('returns false on second call after wake detection', () => {
       const kv = makeMapKVStore();
       const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1_000;

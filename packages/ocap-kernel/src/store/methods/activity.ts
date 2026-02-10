@@ -26,6 +26,7 @@ export function getActivityMethods(kv: KVStore) {
       : undefined;
     const wakeDetected =
       lastActiveTime !== undefined &&
+      !Number.isNaN(lastActiveTime) &&
       Date.now() - lastActiveTime > WAKE_THRESHOLD_MS;
     kv.set('lastActiveTime', String(Date.now()));
     return wakeDetected;
