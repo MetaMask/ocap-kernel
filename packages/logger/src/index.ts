@@ -1,6 +1,7 @@
 export { Logger } from './logger.ts';
 export {
   makeConsoleTransport,
+  makeTaglessConsoleTransport,
   makeArrayTransport,
   makeStreamTransport,
 } from './transports.ts';

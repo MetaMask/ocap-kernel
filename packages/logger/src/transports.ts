@@ -43,6 +43,43 @@ export function makeConsoleTransport(level: LogLevel = 'debug'): Transport {
 }
 
 /**
+ * A console transport that omits tags from output. Useful for CLI tools
+ * where the tag prefix (e.g. `['cli']`) is noise in terminal output.
+ *
+ * @param level - The logging level for this instance.
+ * @returns A transport function that writes to the console without tags.
+ */
+export function makeTaglessConsoleTransport(
+  level: LogLevel = 'debug',
+): Transport {
+  const baseLevelIdx = logLevels[level];
+  const logFn = (method: LogLevel): LogMethod => {
+    if (baseLevelIdx <= logLevels[method]) {
+      return (...args: unknown[]) => {
+        // eslint-disable-next-line no-console
+        console[method](...args);
+      };
+    }
+    // eslint-disable-next-line no-empty-function
+    return harden(() => {}) as LogMethod;
+  };
+  const filteredConsole = {
+    debug: logFn('debug'),
+    info: logFn('info'),
+    log: logFn('log'),
+    warn: logFn('warn'),
+    error: logFn('error'),
+  };
+  return (entry) => {
+    const args = [
+      ...(entry.message ? [entry.message] : []),
+      ...(entry.data ?? []),
+    ] as LogArgs;
+    filteredConsole[entry.level](...args);
+  };
+}
+
+/**
  * The stream transport for the logger. Expects the stream is listening for
  * log entries.
  *

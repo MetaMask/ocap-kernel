@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { logLevels } from './constants.ts';
 import {
   makeConsoleTransport,
+  makeTaglessConsoleTransport,
   makeArrayTransport,
   makeStreamTransport,
 } from './transports.ts';
@@ -31,6 +32,33 @@ describe('consoleTransport', () => {
       );
     },
   );
+});
+
+describe('taglessConsoleTransport', () => {
+  it.each(Object.keys(logLevels))(
+    'logs without tags for level: %s',
+    (levelString: string) => {
+      const transport = makeTaglessConsoleTransport();
+      const level = levelString as LogLevel;
+      const logEntry = makeLogEntry(level);
+      const consoleMethodSpy = vi.spyOn(console, level);
+      transport(logEntry);
+      expect(consoleMethodSpy).toHaveBeenCalledWith(logEntry.message);
+    },
+  );
+
+  it('omits tags from output', () => {
+    const transport = makeTaglessConsoleTransport();
+    const entry: LogEntry = {
+      level: 'info',
+      message: 'hello',
+      tags: ['cli', 'daemon'],
+      data: ['extra'],
+    };
+    const spy = vi.spyOn(console, 'info');
+    transport(entry);
+    expect(spy).toHaveBeenCalledWith('hello', 'extra');
+  });
 });
 
 describe('makeStreamTransport', () => {
