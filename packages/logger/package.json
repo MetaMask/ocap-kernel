@@ -29,6 +29,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./file-transport": {
+      "import": {
+        "types": "./dist/file-transport.d.mts",
+        "default": "./dist/file-transport.mjs"
+      },
+      "require": {
+        "types": "./dist/file-transport.d.cts",
+        "default": "./dist/file-transport.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",
