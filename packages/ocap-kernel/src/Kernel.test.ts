@@ -543,7 +543,7 @@ describe('Kernel', () => {
         vats: [],
         subclusters: [],
         remoteComms: {
-          isInitialized: false,
+          state: 'disconnected',
         },
       });
     });
@@ -560,7 +560,7 @@ describe('Kernel', () => {
       expect(status.subclusters).toHaveLength(1);
       expect(status.subclusters[0]?.config).toStrictEqual(config);
       expect(status.remoteComms).toStrictEqual({
-        isInitialized: false,
+        state: 'disconnected',
       });
     });
   });

@@ -581,16 +581,16 @@ export class Kernel {
 
     if (this.#remoteManager.isRemoteCommsInitialized()) {
       status.remoteComms = {
-        isInitialized: true,
+        state: 'connected',
         peerId: this.#remoteManager.getPeerId(),
       };
     } else if (this.#remoteManager.isIdentityInitialized()) {
       status.remoteComms = {
-        isInitialized: false,
+        state: 'identity-only',
         peerId: this.#remoteManager.getPeerId(),
       };
     } else {
-      status.remoteComms = { isInitialized: false };
+      status.remoteComms = { state: 'disconnected' };
     }
 
     return status;
