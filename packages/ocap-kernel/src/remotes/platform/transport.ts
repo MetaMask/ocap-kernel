@@ -75,6 +75,7 @@ export async function initTransport(
   closeConnection: (peerId: string) => Promise<void>;
   registerLocationHints: (peerId: string, hints: string[]) => void;
   reconnectPeer: (peerId: string, hints?: string[]) => Promise<void>;
+  resetAllBackoffs: () => void;
 }> {
   const {
     relays = [],

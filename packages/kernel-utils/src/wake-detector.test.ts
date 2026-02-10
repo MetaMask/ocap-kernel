@@ -1,53 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import {
-  detectCrossIncarnationWake,
-  DEFAULT_CROSS_INCARNATION_WAKE_THRESHOLD_MS,
-  installWakeDetector,
-} from './wake-detector.ts';
-
-describe('detectCrossIncarnationWake', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('returns true when gap exceeds default threshold', () => {
-    const twoHoursAgo =
-      Date.now() - 2 * DEFAULT_CROSS_INCARNATION_WAKE_THRESHOLD_MS;
-    expect(detectCrossIncarnationWake(twoHoursAgo)).toBe(true);
-  });
-
-  it('returns false when gap is within default threshold', () => {
-    const tenMinutesAgo = Date.now() - 10 * 60 * 1_000;
-    expect(detectCrossIncarnationWake(tenMinutesAgo)).toBe(false);
-  });
-
-  it('returns false when lastShutdownTimestamp is undefined', () => {
-    expect(detectCrossIncarnationWake(undefined)).toBe(false);
-  });
-
-  it('returns false when timestamp is very recent', () => {
-    expect(detectCrossIncarnationWake(Date.now())).toBe(false);
-  });
-
-  it('supports a custom threshold', () => {
-    const fiveMinutesAgo = Date.now() - 5 * 60 * 1_000;
-    const oneMinuteThreshold = 60 * 1_000;
-    expect(detectCrossIncarnationWake(fiveMinutesAgo, oneMinuteThreshold)).toBe(
-      true,
-    );
-  });
-
-  it('returns false when gap equals the threshold exactly', () => {
-    const exactlyAtThreshold =
-      Date.now() - DEFAULT_CROSS_INCARNATION_WAKE_THRESHOLD_MS;
-    expect(detectCrossIncarnationWake(exactlyAtThreshold)).toBe(false);
-  });
-});
+import { installWakeDetector } from './wake-detector.ts';
 
 describe('installWakeDetector', () => {
   beforeEach(() => {

@@ -1,5 +1,7 @@
 import type { KVStore } from '@metamask/kernel-store';
-import { detectCrossIncarnationWake } from '@metamask/kernel-utils';
+
+/** Minimum gap in milliseconds to consider a cross-incarnation wake (1 hour). */
+const WAKE_THRESHOLD_MS = 3_600_000;
 
 /**
  * Get methods for tracking kernel activity and detecting cross-incarnation
@@ -22,7 +24,9 @@ export function getActivityMethods(kv: KVStore) {
     const lastActiveTime = lastActiveTimeStr
       ? Number(lastActiveTimeStr)
       : undefined;
-    const wakeDetected = detectCrossIncarnationWake(lastActiveTime);
+    const wakeDetected =
+      lastActiveTime !== undefined &&
+      Date.now() - lastActiveTime > WAKE_THRESHOLD_MS;
     kv.set('lastActiveTime', String(Date.now()));
     return wakeDetected;
   }

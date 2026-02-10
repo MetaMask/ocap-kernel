@@ -5,11 +5,7 @@ export type { JsonSchema, MethodSchema } from './schema.ts';
 export { fetchValidatedJson } from './fetchValidatedJson.ts';
 export { abortableDelay, delay, makeCounter } from './misc.ts';
 export { stringify } from './stringify.ts';
-export {
-  installWakeDetector,
-  detectCrossIncarnationWake,
-  DEFAULT_CROSS_INCARNATION_WAKE_THRESHOLD_MS,
-} from './wake-detector.ts';
+export { installWakeDetector } from './wake-detector.ts';
 export type { WakeDetectorOptions } from './wake-detector.ts';
 export type {
   ExtractGuardType,

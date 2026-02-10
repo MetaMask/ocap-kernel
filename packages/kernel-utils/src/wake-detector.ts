@@ -18,31 +18,6 @@ export type WakeDetectorOptions = {
 };
 
 /**
- * Default threshold for cross-incarnation wake detection (1 hour in milliseconds).
- */
-export const DEFAULT_CROSS_INCARNATION_WAKE_THRESHOLD_MS = 3_600_000;
-
-/**
- * Detect whether the kernel is resuming after a period of system sleep that
- * spanned a process restart (cross-incarnation). Compares the last known
- * active timestamp with the current time.
- *
- * @param lastActiveTimestamp - The timestamp (ms since epoch) of the last
- *   known activity, or `undefined` if no prior timestamp was recorded.
- * @param thresholdMs - Minimum gap in milliseconds to consider a wake event.
- * @returns `true` if the elapsed time since last activity exceeds the threshold.
- */
-export function detectCrossIncarnationWake(
-  lastActiveTimestamp: number | undefined,
-  thresholdMs: number = DEFAULT_CROSS_INCARNATION_WAKE_THRESHOLD_MS,
-): boolean {
-  if (lastActiveTimestamp === undefined) {
-    return false;
-  }
-  return Date.now() - lastActiveTimestamp > thresholdMs;
-}
-
-/**
  * Install a cross-environment sleep/wake detector that uses clock jump detection.
  * Useful for detecting when a machine wakes from sleep in both browser and Node.js.
  *
