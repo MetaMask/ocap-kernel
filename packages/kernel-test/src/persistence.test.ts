@@ -13,7 +13,7 @@ import {
   runTestVats,
 } from './utils.ts';
 
-const v1Root = 'ko3';
+const v1Root = 'ko4';
 
 describe('persistent storage', { timeout: 20_000 }, () => {
   let logger: ReturnType<typeof makeTestLogger>;

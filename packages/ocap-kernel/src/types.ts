@@ -385,6 +385,7 @@ export type VatConfig = UserCodeSpec & {
   creationOptions?: Record<string, Json>;
   parameters?: Record<string, Json>;
   platformConfig?: Partial<PlatformConfig>;
+  globals?: string[];
 };
 
 const UserCodeSpecStruct = union([
@@ -406,14 +407,15 @@ export const VatConfigStruct = define<VatConfig>('VatConfig', (value) => {
     return false;
   }
 
-  const { creationOptions, parameters, platformConfig, ...specOnly } =
+  const { creationOptions, parameters, platformConfig, globals, ...specOnly } =
     value as Record<string, unknown>;
 
   return (
     is(specOnly, UserCodeSpecStruct) &&
     (!creationOptions || is(creationOptions, UnsafeJsonStruct)) &&
     (!parameters || is(parameters, UnsafeJsonStruct)) &&
-    (!platformConfig || is(platformConfig, platformConfigStruct))
+    (!platformConfig || is(platformConfig, platformConfigStruct)) &&
+    (!globals || is(globals, array(string())))
   );
 });
 
@@ -438,7 +440,7 @@ export const isClusterConfig = (value: unknown): value is ClusterConfig =>
 export const SubclusterStruct = object({
   id: SubclusterIdStruct,
   config: ClusterConfigStruct,
-  vats: array(VatIdStruct),
+  vats: record(string(), VatIdStruct),
 });
 
 export type Subcluster = Infer<typeof SubclusterStruct>;
@@ -450,7 +452,7 @@ export type SubclusterLaunchResult = {
   /** The ID of the launched subcluster. */
   subclusterId: string;
   /** The kref of the bootstrap vat's root object. */
-  bootstrapRootKref: KRef;
+  rootKref: KRef;
   /** The CapData result of calling bootstrap() on the root object, if any. */
   bootstrapResult: CapData<KRef> | undefined;
 };
@@ -547,4 +549,17 @@ export type EndpointHandle = {
   deliverRetireExports: (erefs: ERef[]) => Promise<CrankResults>;
   deliverRetireImports: (erefs: ERef[]) => Promise<CrankResults>;
   deliverBringOutYourDead: () => Promise<CrankResults>;
+};
+
+/**
+ * Configuration for a system subcluster.
+ * System subclusters are statically declared at kernel initialization and can
+ * receive powerful kernel services not available to normal subclusters.
+ * They persist across kernel restarts, just like regular subclusters.
+ */
+export type SystemSubclusterConfig = {
+  /** Unique name for this system subcluster (used for retrieval via `getSystemSubclusterRoot`) */
+  name: string;
+  /** The cluster configuration */
+  config: ClusterConfig;
 };

@@ -193,6 +193,6 @@ describe('Subcluster functionality', () => {
     const reloadedSubcluster = await kernel.reloadSubcluster('s1');
     console.log('reloadedSubcluster', reloadedSubcluster);
     expect(reloadedSubcluster).toBeDefined();
-    expect(reloadedSubcluster.vats).toHaveLength(2);
+    expect(Object.keys(reloadedSubcluster.vats)).toHaveLength(2);
   });
 });

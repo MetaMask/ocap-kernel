@@ -2,24 +2,36 @@ import type { KernelDatabase } from '@metamask/kernel-store';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
-import type { ClusterConfig } from '@metamask/ocap-kernel';
+import type {
+  ClusterConfig,
+  SystemSubclusterConfig,
+} from '@metamask/ocap-kernel';
 
 import { NodejsPlatformServices } from '../../src/kernel/PlatformServices.ts';
+
+type MakeTestKernelOptions = {
+  resetStorage?: boolean;
+  mnemonic?: string;
+  systemSubclusters?: SystemSubclusterConfig[];
+};
 
 /**
  * Helper function to create a kernel with an existing database.
  * This avoids creating the database twice.
  *
  * @param kernelDatabase - The kernel database to use.
- * @param resetStorage - Whether to reset the storage.
- * @param mnemonic - Optional BIP39 mnemonic for identity recovery.
+ * @param options - Options for the test kernel.
+ * @param options.resetStorage - Whether to reset the storage (default: true).
+ * @param options.mnemonic - Optional BIP39 mnemonic string.
+ * @param options.systemSubclusters - Optional system subcluster configurations.
  * @returns The kernel.
  */
 export async function makeTestKernel(
   kernelDatabase: KernelDatabase,
-  resetStorage: boolean,
-  mnemonic?: string,
+  options: MakeTestKernelOptions = {},
 ): Promise<Kernel> {
+  const { resetStorage = true, mnemonic, systemSubclusters } = options;
+
   const logger = new Logger('test-kernel');
   const platformServices = new NodejsPlatformServices({
     logger: logger.subLogger({ tags: ['platform-services'] }),
@@ -27,6 +39,7 @@ export async function makeTestKernel(
   const kernel = await Kernel.make(platformServices, kernelDatabase, {
     resetStorage,
     mnemonic,
+    systemSubclusters,
     logger: logger.subLogger({ tags: ['kernel'] }),
   });
 

@@ -11,7 +11,6 @@ export * from './makeIframeVatWorker.ts';
 export * from './PlatformServicesClient.ts';
 export * from './PlatformServicesServer.ts';
 export * from './utils/index.ts';
-export type { KernelFacade } from './types.ts';
 export {
   makeBackgroundCapTP,
   isCapTPNotification,

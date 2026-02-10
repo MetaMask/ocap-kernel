@@ -1,5 +1,6 @@
 import { E } from '@endo/eventual-send';
 import type { ClusterConfig, Kernel } from '@metamask/ocap-kernel';
+import { makeKernelFacet, kslot } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeKernelCapTP } from './kernel-captp.ts';
@@ -10,7 +11,7 @@ import type { CapTPMessage } from '../../background-captp.ts';
  * Integration tests for CapTP communication between background and kernel endpoints.
  *
  * These tests validate that the two CapTP endpoints can communicate correctly
- * and that E() works properly with the kernel facade remote presence.
+ * and that E() works properly with the kernel facet remote presence.
  */
 describe('CapTP Integration', () => {
   let mockKernel: Kernel;
@@ -20,31 +21,59 @@ describe('CapTP Integration', () => {
   beforeEach(() => {
     // Create mock kernel with method implementations
     mockKernel = {
-      launchSubcluster: vi.fn().mockResolvedValue({
-        subclusterId: 'sc1',
-        bootstrapRootKref: 'ko1',
-        bootstrapResult: {
-          body: '#{"result":"ok"}',
-          slots: [],
-        },
-      }),
-      terminateSubcluster: vi.fn().mockResolvedValue(undefined),
-      queueMessage: vi.fn().mockResolvedValue({
-        body: '#{"result":"message-sent"}',
-        slots: [],
-      }),
+      getPresence: vi
+        .fn()
+        .mockImplementation(async (kref: string, iface: string) =>
+          kslot(kref, iface),
+        ),
       getStatus: vi.fn().mockResolvedValue({
         vats: [{ id: 'v1', name: 'test-vat' }],
         subclusters: ['sc1'],
         remoteComms: false,
       }),
+      getSubcluster: vi.fn().mockReturnValue(undefined),
+      getSubclusters: vi.fn().mockReturnValue([]),
+      getSystemSubclusterRoot: vi.fn().mockReturnValue('ko99'),
+      launchSubcluster: vi.fn().mockResolvedValue({
+        subclusterId: 'sc1',
+        rootKref: 'ko1',
+        bootstrapResult: {
+          body: '#{"result":"ok"}',
+          slots: [],
+        },
+      }),
       pingVat: vi.fn().mockResolvedValue('pong'),
+      queueMessage: vi.fn().mockResolvedValue({
+        body: '#{"result":"message-sent"}',
+        slots: [],
+      }),
+      reloadSubcluster: vi.fn().mockResolvedValue({ id: 'sc1', vats: [] }),
+      reset: vi.fn().mockResolvedValue(undefined),
+      terminateSubcluster: vi.fn().mockResolvedValue(undefined),
+      provideFacet: vi.fn(),
     } as unknown as Kernel;
+
+    // Wire up provideFacet to return a real facet backed by the mock kernel.
+    // We wrap each mock method with a delegate so that harden() inside
+    // makeKernelFacet (via makeDefaultExo) freezes the wrapper functions
+    // instead of the original vi.fn() instances, keeping call tracking intact.
+    vi.mocked(mockKernel.provideFacet).mockReturnValue(
+      makeKernelFacet(
+        Object.fromEntries(
+          Object.entries(mockKernel)
+            .filter(
+              (entry): entry is [string, (...args: never[]) => unknown] =>
+                typeof entry[1] === 'function',
+            )
+            .map(([key, fn]) => [key, (...args: never[]) => fn(...args)]),
+        ) as unknown as Kernel,
+      ),
+    );
 
     // Wire up CapTP endpoints to dispatch messages synchronously to each other
     // This simulates direct message passing for testing
 
-    // Kernel-side: exposes facade as bootstrap
+    // Kernel-side: exposes facet as bootstrap
     kernelCapTP = makeKernelCapTP({
       kernel: mockKernel,
       send: (message: CapTPMessage) => {
@@ -64,7 +93,7 @@ describe('CapTP Integration', () => {
 
   describe('bootstrap', () => {
     it('background can get kernel remote presence via getKernel', async () => {
-      // Request the kernel facade - with synchronous dispatch, this resolves immediately
+      // Request the kernel facet - with synchronous dispatch, this resolves immediately
       const kernel = await backgroundCapTP.getKernel();
       expect(kernel).toBeDefined();
     });
@@ -115,10 +144,14 @@ describe('CapTP Integration', () => {
       // Call launchSubcluster via E()
       const result = await E(kernel).launchSubcluster(config);
 
-      // The kernel facade now returns LaunchResult instead of CapData
+      // The kernel facet delegates to the kernel's launchSubcluster
       expect(result).toStrictEqual({
         subclusterId: 'sc1',
         rootKref: 'ko1',
+        bootstrapResult: {
+          body: '#{"result":"ok"}',
+          slots: [],
+        },
       });
 
       expect(mockKernel.launchSubcluster).toHaveBeenCalledWith(config);

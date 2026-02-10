@@ -4,7 +4,6 @@ export type {
   CapletManifest,
   InstalledCaplet,
   InstallResult,
-  LaunchResult,
 } from './types.ts';
 export {
   isCapletId,

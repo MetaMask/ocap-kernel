@@ -47,7 +47,6 @@ async function main(): Promise<void> {
       makeSQLKernelDatabase({ dbFilename: DB_FILENAME }),
     ]);
 
-  // Set up console forwarding - messages flow through offscreen to background
   setupConsoleForwarding({
     source: 'kernel-worker',
     onMessage: (message) => {
@@ -55,12 +54,16 @@ async function main(): Promise<void> {
     },
   });
 
-  const resetStorage =
-    new URLSearchParams(globalThis.location.search).get('reset-storage') ===
-    'true';
+  const urlParams = new URLSearchParams(globalThis.location.search);
+  const resetStorage = urlParams.get('reset-storage') === 'true';
+  const systemSubclustersParam = urlParams.get('system-subclusters');
+  const systemSubclusters = systemSubclustersParam
+    ? JSON.parse(systemSubclustersParam)
+    : undefined;
 
   const kernelP = Kernel.make(platformServicesClient, kernelDatabase, {
     resetStorage,
+    systemSubclusters,
   });
 
   const handlerP = kernelP.then((kernel) => {

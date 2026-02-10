@@ -263,7 +263,7 @@ describe('GC methods', () => {
         bootstrap: 'v1',
         vats: { v1: { bundleName: 'test' } },
       });
-      kernelStore.addSubclusterVat(subclusterId, 'v1');
+      kernelStore.addSubclusterVat(subclusterId, 'v1', 'v1');
 
       const ko1 = kernelStore.initKernelObject('v1');
 

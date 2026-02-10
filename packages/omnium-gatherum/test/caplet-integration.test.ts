@@ -68,18 +68,18 @@ describe('Caplet Integration - Echo Caplet', () => {
   it('installs a caplet', async () => {
     const result = await capletController.install(echoCapletManifest);
 
-    expect(result.capletId).toBe('com.example.echo');
+    expect(result.capletId).toBe('echo');
     expect(result.subclusterId).toBe('test-subcluster-1');
   });
 
   it('retrieves installed a caplet', async () => {
     await capletController.install(echoCapletManifest);
 
-    const caplet = capletController.get('com.example.echo');
+    const caplet = capletController.get('echo');
 
     expect(caplet).toStrictEqual({
       manifest: {
-        id: 'com.example.echo',
+        id: 'echo',
         name: 'Echo Caplet',
         version: '1.0.0',
         bundleSpec: expect.anything(),
@@ -98,7 +98,7 @@ describe('Caplet Integration - Echo Caplet', () => {
 
     const list = capletController.list();
     expect(list).toHaveLength(1);
-    expect(list[0]?.manifest.id).toBe('com.example.echo');
+    expect(list[0]?.manifest.id).toBe('echo');
   });
 
   it('uninstalls a caplet', async () => {
@@ -107,12 +107,12 @@ describe('Caplet Integration - Echo Caplet', () => {
     let list = capletController.list();
     expect(list).toHaveLength(1);
 
-    await capletController.uninstall('com.example.echo');
+    await capletController.uninstall('echo');
 
     list = capletController.list();
     expect(list).toHaveLength(0);
 
-    const caplet = capletController.get('com.example.echo');
+    const caplet = capletController.get('echo');
     expect(caplet).toBeUndefined();
   });
 
@@ -133,8 +133,7 @@ describe('Caplet Integration - Echo Caplet', () => {
   it('gets caplet root object', async () => {
     await capletController.install(echoCapletManifest);
 
-    const rootPresence =
-      await capletController.getCapletRoot('com.example.echo');
+    const rootPresence = await capletController.getCapletRoot('echo');
 
     expect(rootPresence).toStrictEqual({ kref: 'ko1' });
   });
@@ -169,6 +168,6 @@ describe('Caplet Integration - Echo Caplet', () => {
     // The caplet should still be there
     const list = newController.list();
     expect(list).toHaveLength(1);
-    expect(list[0]?.manifest.id).toBe('com.example.echo');
+    expect(list[0]?.manifest.id).toBe('echo');
   });
 });

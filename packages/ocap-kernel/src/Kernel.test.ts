@@ -290,7 +290,7 @@ describe('Kernel', () => {
       expect(result).toStrictEqual({
         subclusterId: 's1',
         bootstrapResult: { body: '{"result":"ok"}', slots: [] },
-        bootstrapRootKref: expect.stringMatching(/^ko\d+$/u),
+        rootKref: expect.stringMatching(/^ko\d+$/u),
       });
     });
   });
@@ -354,7 +354,18 @@ describe('Kernel', () => {
         mockPlatformServices,
         mockKernelDatabase,
       );
-      expect(kernel.getSubcluster('non-existent')).toBeUndefined();
+      // Use valid subcluster ID format (s + number) that doesn't exist
+      expect(kernel.getSubcluster('s999')).toBeUndefined();
+    });
+
+    it('throws for invalid subcluster ID format', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      expect(() => kernel.getSubcluster('non-existent')).toThrow(
+        'Invalid subcluster ID: non-existent',
+      );
     });
   });
 
@@ -372,7 +383,8 @@ describe('Kernel', () => {
       const subclusterId = firstSubcluster?.id as string;
       expect(subclusterId).toBeDefined();
       expect(kernel.isVatInSubcluster('v1', subclusterId)).toBe(true);
-      expect(kernel.isVatInSubcluster('v1', 'other-subcluster')).toBe(false);
+      // Use valid subcluster ID format (s + number) that doesn't match
+      expect(kernel.isVatInSubcluster('v1', 's999')).toBe(false);
     });
   });
 
@@ -838,6 +850,39 @@ describe('Kernel', () => {
       expect(kernel.getVatIds()).toHaveLength(0);
     });
 
+    it('clears system subcluster roots', async () => {
+      const mockDb = makeMapKernelDatabase();
+      const kernel = await Kernel.make(mockPlatformServices, mockDb, {
+        systemSubclusters: [
+          {
+            name: 'testSystemSubcluster',
+            config: {
+              bootstrap: 'testSystemSubcluster',
+              vats: {
+                testSystemSubcluster: {
+                  sourceSpec: 'system-vat.js',
+                },
+              },
+            },
+          },
+        ],
+      });
+      // Verify system subcluster bootstrap root was stored
+      expect(
+        kernel.getSystemSubclusterRoot('testSystemSubcluster'),
+      ).toBeDefined();
+      expect(kernel.getSystemSubclusterRoot('testSystemSubcluster')).toMatch(
+        /^ko\d+$/u,
+      );
+
+      await kernel.reset();
+
+      // Verify system subcluster roots are cleared
+      expect(() =>
+        kernel.getSystemSubclusterRoot('testSystemSubcluster'),
+      ).toThrow('System subcluster "testSystemSubcluster" not found');
+    });
+
     it('logs an error if resetting the kernel state fails', async () => {
       const mockDb = makeMapKernelDatabase();
       const logger = new Logger('test');
@@ -855,6 +900,120 @@ describe('Kernel', () => {
         'Error resetting kernel:',
         new Error('test error'),
       );
+    });
+  });
+
+  describe('system subcluster cleanup', () => {
+    it('deletes orphaned system subclusters without starting their vats', async () => {
+      const db = makeMapKernelDatabase();
+      const systemSubclusterConfig = {
+        name: 'testSystemSubcluster',
+        config: {
+          bootstrap: 'testSystemSubcluster',
+          vats: {
+            testSystemSubcluster: {
+              sourceSpec: 'system-vat.js',
+            },
+          },
+        },
+      };
+
+      // Create kernel with system subcluster
+      const kernel1 = await Kernel.make(mockPlatformServices, db, {
+        systemSubclusters: [systemSubclusterConfig],
+      });
+      expect(kernel1.getSubclusters()).toHaveLength(1);
+      expect(kernel1.getVatIds()).toStrictEqual(['v1']);
+      expect(
+        kernel1.getSystemSubclusterRoot('testSystemSubcluster'),
+      ).toBeDefined();
+
+      // Stop kernel
+      await kernel1.stop();
+
+      // Clear spies to track what happens on restart
+      launchWorkerMock.mockClear();
+      makeVatHandleMock.mockClear();
+
+      // Restart kernel WITHOUT the system subcluster config
+      const kernel2 = await Kernel.make(mockPlatformServices, db, {
+        systemSubclusters: [], // No system subclusters
+      });
+
+      // The orphaned system subcluster should have been deleted without starting vats
+      expect(launchWorkerMock).not.toHaveBeenCalled();
+      expect(makeVatHandleMock).not.toHaveBeenCalled();
+      expect(kernel2.getSubclusters()).toHaveLength(0);
+      expect(kernel2.getVatIds()).toStrictEqual([]);
+      expect(() =>
+        kernel2.getSystemSubclusterRoot('testSystemSubcluster'),
+      ).toThrow('System subcluster "testSystemSubcluster" not found');
+    });
+
+    it('throws if persisted system subcluster has no bootstrap vat', async () => {
+      const db = makeMapKernelDatabase();
+      const systemSubclusterConfig = {
+        name: 'testSystemSubcluster',
+        config: {
+          bootstrap: 'testSystemSubcluster',
+          vats: {
+            testSystemSubcluster: {
+              sourceSpec: 'system-vat.js',
+            },
+          },
+        },
+      };
+
+      // Create kernel with system subcluster
+      const kernel1 = await Kernel.make(mockPlatformServices, db, {
+        systemSubclusters: [systemSubclusterConfig],
+      });
+      await kernel1.stop();
+
+      // Corrupt database: remove vats from the subcluster
+      const subclustersJson = db.kernelKVStore.get('subclusters');
+      const subclusters = JSON.parse(subclustersJson ?? '[]');
+      subclusters[0].vats = {};
+      db.kernelKVStore.set('subclusters', JSON.stringify(subclusters));
+
+      // Restart kernel - should throw
+      await expect(
+        Kernel.make(mockPlatformServices, db, {
+          systemSubclusters: [systemSubclusterConfig],
+        }),
+      ).rejects.toThrow('has no bootstrap vat - database may be corrupted');
+    });
+
+    it('throws if persisted system subcluster has no root object', async () => {
+      const db = makeMapKernelDatabase();
+      const systemSubclusterConfig = {
+        name: 'testSystemSubcluster',
+        config: {
+          bootstrap: 'testSystemSubcluster',
+          vats: {
+            testSystemSubcluster: {
+              sourceSpec: 'system-vat.js',
+            },
+          },
+        },
+      };
+
+      // Create kernel with system subcluster
+      const kernel1 = await Kernel.make(mockPlatformServices, db, {
+        systemSubclusters: [systemSubclusterConfig],
+      });
+      await kernel1.stop();
+
+      // Corrupt database: delete the root object entry for the vat
+      // Root object is stored at: ${vatId}.c.o+0
+      db.kernelKVStore.delete('v1.c.o+0');
+
+      // Restart kernel - should throw
+      await expect(
+        Kernel.make(mockPlatformServices, db, {
+          systemSubclusters: [systemSubclusterConfig],
+        }),
+      ).rejects.toThrow('has no root object - database may be corrupted');
     });
   });
 
@@ -889,7 +1048,7 @@ describe('Kernel', () => {
       const config = makeSingleVatClusterConfig();
       await kernel.launchSubcluster(config);
       // Pinning existing vat root should return the kref
-      expect(kernel.pinVatRoot('v1')).toBe('ko3');
+      expect(kernel.pinVatRoot('v1')).toBe('ko4');
       // Pinning non-existent vat should throw
       expect(() => kernel.pinVatRoot('v2')).toThrow(VatNotFoundError);
       // Unpinning existing vat root should succeed

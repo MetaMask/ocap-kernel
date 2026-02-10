@@ -2,10 +2,13 @@ import {
   makeIframeVatWorker,
   PlatformServicesServer,
   createRelayQueryString,
+  setupConsoleForwarding,
+  isConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
+import type { SystemSubclusterConfig } from '@metamask/ocap-kernel';
 import type { DuplexStream } from '@metamask/streams';
 import {
   initializeMessageChannel,
@@ -31,6 +34,20 @@ async function main(): Promise<void> {
     JsonRpcMessage
   >(chrome.runtime, 'offscreen', 'background', isJsonRpcMessage);
 
+  setupConsoleForwarding({
+    source: 'offscreen',
+    onMessage: (message) => {
+      backgroundStream.write(message).catch(() => undefined);
+    },
+  });
+
+  // Listen for console messages from vat iframes and forward to background
+  window.addEventListener('message', (event) => {
+    if (isConsoleForwardMessage(event.data)) {
+      backgroundStream.write(event.data).catch(() => undefined);
+    }
+  });
+
   const kernelStream = await makeKernelWorker();
 
   // Handle messages from the background script / kernel
@@ -55,6 +72,25 @@ async function makeKernelWorker(): Promise<
 
   const workerUrlParams = new URLSearchParams(relayQueryString);
   workerUrlParams.set('reset-storage', process.env.RESET_STORAGE ?? 'false');
+
+  // Configure system subclusters to launch at kernel initialization
+  const systemSubclusters = [
+    {
+      name: 'omnium-controllers',
+      config: {
+        bootstrap: 'omnium-controllers',
+        vats: {
+          'omnium-controllers': {
+            bundleSpec: chrome.runtime.getURL('controller-vat-bundle.json'),
+            parameters: {},
+            globals: ['Date'],
+          },
+        },
+        services: ['kernelFacet'],
+      },
+    },
+  ] satisfies SystemSubclusterConfig[];
+  workerUrlParams.set('system-subclusters', JSON.stringify(systemSubclusters));
 
   const workerUrl = new URL('kernel-worker.js', import.meta.url);
   workerUrl.search = workerUrlParams.toString();

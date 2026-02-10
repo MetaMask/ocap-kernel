@@ -4,18 +4,19 @@ import {
   makeCapTPNotification,
   isCapTPNotification,
   getCapTPMessage,
+  isConsoleForwardMessage,
+  handleConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
 import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
+import type { KernelFacet } from '@metamask/ocap-kernel';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
-import { initializeControllers } from './controllers/index.ts';
-import type {
-  CapletControllerFacet,
-  CapletManifest,
-} from './controllers/index.ts';
+import type { CapletManifest } from './controllers/index.ts';
+
+export type QueueMessageResult = ReturnType<KernelFacet['queueMessage']>;
 
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
 const logger = new Logger('background');
@@ -106,21 +107,25 @@ async function main(): Promise<void> {
   });
 
   const kernelP = backgroundCapTP.getKernel();
-  globalThis.kernel = kernelP;
+  globals.setKernel(kernelP);
 
-  try {
-    const controllers = await initializeControllers({
-      logger,
-      kernel: kernelP,
+  // Set up controller vat initialization (runs concurrently with stream drain)
+  E(kernelP)
+    .getSystemSubclusterRoot('omnium-controllers')
+    .then((kref) => {
+      globals.setControllerVatKref(kref);
+      logger.info('Controller vat initialized');
+      return undefined;
+    })
+    .catch((error) => {
+      logger.error('Failed to initialize controller vat:', error);
     });
-    globals.setCapletController(controllers.caplet);
-  } catch (error) {
-    offscreenStream.throw(error as Error).catch(logger.error);
-  }
 
   try {
     await offscreenStream.drain((message) => {
-      if (isCapTPNotification(message)) {
+      if (isConsoleForwardMessage(message)) {
+        handleConsoleForwardMessage(message);
+      } else if (isCapTPNotification(message)) {
         const captpMessage = getCapTPMessage(message);
         backgroundCapTP.dispatch(captpMessage);
       } else {
@@ -137,7 +142,9 @@ async function main(): Promise<void> {
 }
 
 type GlobalSetters = {
-  setCapletController: (value: CapletControllerFacet) => void;
+  setKernel: (kernel: KernelFacet | Promise<KernelFacet>) => void;
+  // Not globally available, but needed for other globals to work
+  setControllerVatKref: (kref: string) => void;
 };
 
 /**
@@ -146,7 +153,28 @@ type GlobalSetters = {
  * @returns A device for setting the global values.
  */
 function defineGlobals(): GlobalSetters {
-  let capletController: CapletControllerFacet;
+  let controllerVatKref: string;
+
+  /**
+   * Call a method on the controller vat via queueMessage.
+   *
+   * @param method - The method name to call.
+   * @param args - Arguments to pass to the method.
+   * @returns The result from the controller vat.
+   */
+  const callController = async (
+    method: string,
+    args: unknown[] = [],
+  ): QueueMessageResult => {
+    if (!kernel) {
+      throw new Error('Kernel not initialized');
+    }
+    if (!controllerVatKref) {
+      throw new Error('Controller vat not initialized');
+    }
+
+    return await E(kernel).queueMessage(controllerVatKref, method, args);
+  };
 
   Object.defineProperty(globalThis, 'E', {
     configurable: false,
@@ -206,26 +234,45 @@ function defineGlobals(): GlobalSetters {
     return { manifest, bundle };
   };
 
+  const getCapletRoot = async (capletId: string): Promise<string> => {
+    const { slots } = await callController('getCapletRoot', [capletId]);
+    const rootKref = slots[0];
+    if (!rootKref) {
+      throw new Error(`Caplet "${capletId}" has no root kref`);
+    }
+    return rootKref;
+  };
+
   Object.defineProperties(globalThis.omnium, {
     caplet: {
       value: harden({
         install: async (manifest: CapletManifest) =>
-          E(capletController).install(manifest),
+          callController('install', [manifest]),
         uninstall: async (capletId: string) =>
-          E(capletController).uninstall(capletId),
-        list: async () => E(capletController).list(),
+          callController('uninstall', [capletId]),
+        list: async () => callController('list'),
         load: loadCaplet,
-        get: async (capletId: string) => E(capletController).get(capletId),
-        getCapletRoot: async (capletId: string) =>
-          E(capletController).getCapletRoot(capletId),
+        get: async (capletId: string) => callController('get', [capletId]),
+        getCapletRoot,
+        callCapletMethod: async (
+          capletId: string,
+          method: string,
+          args: unknown[],
+        ) => {
+          const rootKref = await getCapletRoot(capletId);
+          return await E(kernel).queueMessage(rootKref, method, args);
+        },
       }),
     },
   });
   harden(globalThis.omnium);
 
   return {
-    setCapletController: (value) => {
-      capletController = value;
+    setKernel: (kernel) => {
+      globalThis.kernel = kernel;
+    },
+    setControllerVatKref: (kref) => {
+      controllerVatKref = kref;
     },
   };
 }

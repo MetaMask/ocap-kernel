@@ -100,10 +100,10 @@ const reference = sortLogs([
   ...carolResumeReference,
 ]);
 
-// Vat root objects start with ko3 due to kernel service objects being created before any vats.
-const v1Root: KRef = 'ko3';
-const v2Root: KRef = 'ko4';
-const v3Root: KRef = 'ko5';
+// Vat root objects start with ko4 due to the kernel facet and other kernel service objects being created before any vats.
+const v1Root: KRef = 'ko4';
+const v2Root: KRef = 'ko5';
+const v3Root: KRef = 'ko6';
 
 describe('restarting vats', async () => {
   it('exercise restart vats individually', async () => {

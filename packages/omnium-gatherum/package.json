@@ -20,7 +20,7 @@
     "build:dev": "yarn build:vite --mode development",
     "build:watch": "yarn build:dev --watch",
     "build:browser": "OPEN_BROWSER=true yarn build:dev --watch",
-    "build:caplets": "ocap bundle src/caplets/echo",
+    "build:caplets": "ocap bundle src/caplets/echo && ocap bundle src/vats/controller-vat.ts",
     "build:vite": "vite build --configLoader runner --config vite.config.ts",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/omnium-gatherum",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",
@@ -47,6 +47,7 @@
   "dependencies": {
     "@endo/eventual-send": "^1.3.4",
     "@endo/exo": "^1.5.12",
+    "@endo/promise-kit": "^1.1.13",
     "@metamask/kernel-browser-runtime": "workspace:^",
     "@metamask/kernel-shims": "workspace:^",
     "@metamask/kernel-ui": "workspace:^",

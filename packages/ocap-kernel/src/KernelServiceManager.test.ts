@@ -1,3 +1,4 @@
+import { delay } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -94,6 +95,17 @@ describe('KernelServiceManager', () => {
       expect(registered1.name).toBe('service1');
       expect(registered2.name).toBe('service2');
     });
+
+    it('throws when registering a service with a name that is already registered', () => {
+      const service1 = { method1: () => 'result1' };
+      const service2 = { method2: () => 'result2' };
+
+      serviceManager.registerKernelServiceObject('duplicateName', service1);
+
+      expect(() =>
+        serviceManager.registerKernelServiceObject('duplicateName', service2),
+      ).toThrow('Kernel service "duplicateName" is already registered');
+    });
   });
 
   describe('getKernelService', () => {
@@ -173,7 +185,8 @@ describe('KernelServiceManager', () => {
         methargs: kser(['testMethod', ['arg1', 'arg2']]),
       };
 
-      await serviceManager.invokeKernelService(registered.kref, message);
+      serviceManager.invokeKernelService(registered.kref, message);
+      await delay();
 
       expect(testMethod).toHaveBeenCalledWith('arg1', 'arg2');
       expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
@@ -195,7 +208,8 @@ describe('KernelServiceManager', () => {
         result: 'kp123',
       };
 
-      await serviceManager.invokeKernelService(registered.kref, message);
+      serviceManager.invokeKernelService(registered.kref, message);
+      await delay();
 
       expect(testMethod).toHaveBeenCalledWith('arg1');
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
@@ -220,7 +234,8 @@ describe('KernelServiceManager', () => {
         result: 'kp123',
       };
 
-      await serviceManager.invokeKernelService(registered.kref, message);
+      serviceManager.invokeKernelService(registered.kref, message);
+      await delay();
 
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
         ['kp123', true, kser(testError)],
@@ -244,7 +259,8 @@ describe('KernelServiceManager', () => {
         methargs: kser(['testMethod', []]),
       };
 
-      await serviceManager.invokeKernelService(registered.kref, message);
+      serviceManager.invokeKernelService(registered.kref, message);
+      await delay();
 
       expect(loggerErrorSpy).toHaveBeenCalledWith(
         'Error in kernel service method:',
@@ -253,14 +269,14 @@ describe('KernelServiceManager', () => {
       expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
     });
 
-    it('throws error for non-existent service', async () => {
+    it('throws error for non-existent service', () => {
       const message: Message = {
         methargs: kser(['testMethod', []]),
       };
 
-      await expect(
+      expect(() =>
         serviceManager.invokeKernelService('ko999', message),
-      ).rejects.toThrow('No registered service for ko999');
+      ).toThrow('No registered service for ko999');
     });
 
     it('handles unknown method with result', async () => {
@@ -278,7 +294,8 @@ describe('KernelServiceManager', () => {
         result: 'kp123',
       };
 
-      await serviceManager.invokeKernelService(registered.kref, message);
+      serviceManager.invokeKernelService(registered.kref, message);
+      await delay();
 
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
         ['kp123', true, kser(Error("unknown service method 'unknownMethod'"))],
@@ -300,7 +317,8 @@ describe('KernelServiceManager', () => {
         methargs: kser(['unknownMethod', []]),
       };
 
-      await serviceManager.invokeKernelService(registered.kref, message);
+      serviceManager.invokeKernelService(registered.kref, message);
+      await delay();
 
       expect(loggerErrorSpy).toHaveBeenCalledWith(
         "unknown service method 'unknownMethod'",
@@ -321,7 +339,8 @@ describe('KernelServiceManager', () => {
         result: 'kp123',
       };
 
-      await serviceManager.invokeKernelService(registered.kref, message);
+      serviceManager.invokeKernelService(registered.kref, message);
+      await delay();
 
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
         ['kp123', true, kser(Error("unknown service method 'anyMethod'"))],
@@ -343,7 +362,8 @@ describe('KernelServiceManager', () => {
         result: 'kp123',
       };
 
-      await serviceManager.invokeKernelService(registered.kref, message);
+      serviceManager.invokeKernelService(registered.kref, message);
+      await delay();
 
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
         ['kp123', false, kser(undefined)],

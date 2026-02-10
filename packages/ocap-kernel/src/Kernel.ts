@@ -2,10 +2,14 @@ import type { CapData } from '@endo/marshal';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { Logger } from '@metamask/logger';
 
+import { makeKernelFacet } from './kernel-facet.ts';
+import type { KernelFacet } from './kernel-facet.ts';
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import { KernelServiceManager } from './KernelServiceManager.ts';
 import type { KernelService } from './KernelServiceManager.ts';
+import type { SlotValue } from './liveslots/kernel-marshal.ts';
+import { kslot } from './liveslots/kernel-marshal.ts';
 import { OcapURLManager } from './remotes/kernel/OcapURLManager.ts';
 import { RemoteManager } from './remotes/kernel/RemoteManager.ts';
 import type { RemoteCommsOptions } from './remotes/types.ts';
@@ -24,8 +28,9 @@ import type {
   Subcluster,
   SubclusterLaunchResult,
   EndpointHandle,
+  SystemSubclusterConfig,
 } from './types.ts';
-import { isVatId, isRemoteId } from './types.ts';
+import { isVatId, isRemoteId, isSubclusterId } from './types.ts';
 import { SubclusterManager } from './vats/SubclusterManager.ts';
 import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
@@ -150,6 +155,7 @@ export class Kernel {
       getKernelService: (name) =>
         this.#kernelServiceManager.getKernelService(name),
       queueMessage: this.queueMessage.bind(this),
+      logger: this.#logger.subLogger({ tags: ['SubclusterManager'] }),
     });
 
     this.#kernelRouter = new KernelRouter(
@@ -187,6 +193,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
+   * @param options.systemSubclusters - Optional array of system subcluster configurations.
    * @returns A promise for the new kernel instance.
    */
   static async make(
@@ -197,22 +204,41 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
+      systemSubclusters?: SystemSubclusterConfig[];
     } = {},
   ): Promise<Kernel> {
     const kernel = new Kernel(platformServices, kernelDatabase, options);
-    await kernel.#init();
+    await kernel.#init(options.systemSubclusters);
     return kernel;
   }
 
   /**
    * Start the kernel running.
+   *
+   * @param systemSubclusterConfigs - Optional array of system subcluster configurations.
    */
-  async #init(): Promise<void> {
+  async #init(
+    systemSubclusterConfigs?: SystemSubclusterConfig[],
+  ): Promise<void> {
+    const configs = systemSubclusterConfigs ?? [];
+
     // Set up the remote message handler
     this.#remoteManager.setMessageHandler(
       async (from: string, message: string) =>
         this.#remoteManager.handleRemoteMessage(from, message),
     );
+
+    // Always provide the kernel facet, even when there are no system subcluster
+    // configs. The run queue may contain messages targeting the kernel facet kref
+    // from a previous incarnation's system subclusters. If the facet is not
+    // registered, invokeKernelService throws and crashes the kernel queue.
+    // Ideally, orphaned messages would be purged before the queue starts, but
+    // the run queue has no selective removal capability.
+    this.provideFacet();
+
+    // Restore persisted system subclusters and delete ones that no
+    // longer have a config, to ensure that orphaned vats aren't started
+    this.#subclusterManager.initSystemSubclusters(configs);
 
     // Start all vats that were previously running before starting the queue
     // This ensures that any messages in the queue have their target vats ready
@@ -229,6 +255,29 @@ export class Kernel {
         );
         // Don't re-throw to avoid unhandled rejection in this long-running task
       });
+
+    // Launch new system subclusters (requires queue to be running)
+    await this.#subclusterManager.launchNewSystemSubclusters(configs);
+  }
+
+  /**
+   * Provide the kernel facet, creating and registering it as a kernel service
+   * if it doesn't already exist.
+   *
+   * @returns The kernel facet.
+   */
+  provideFacet(): KernelFacet {
+    const existing = this.#kernelServiceManager.getKernelService('kernelFacet');
+    if (existing) {
+      return existing.service as KernelFacet;
+    }
+
+    const kernelFacet = makeKernelFacet(this);
+    this.#kernelServiceManager.registerKernelServiceObject(
+      'kernelFacet',
+      kernelFacet,
+    );
+    return kernelFacet;
   }
 
   /**
@@ -329,8 +378,12 @@ export class Kernel {
    *
    * @param subclusterId - The id of the subcluster.
    * @returns The subcluster, or undefined if not found.
+   * @throws If subclusterId is not a valid subcluster ID format.
    */
   getSubcluster(subclusterId: string): Subcluster | undefined {
+    if (!isSubclusterId(subclusterId)) {
+      throw new Error(`Invalid subcluster ID: ${String(subclusterId)}`);
+    }
     return this.#subclusterManager.getSubcluster(subclusterId);
   }
 
@@ -341,6 +394,30 @@ export class Kernel {
    */
   getSubclusters(): Subcluster[] {
     return this.#subclusterManager.getSubclusters();
+  }
+
+  /**
+   * Get the bootstrap root kref of a system subcluster by name.
+   *
+   * @param name - The name of the system subcluster.
+   * @returns The bootstrap root kref.
+   * @throws If the system subcluster is not found.
+   */
+  getSystemSubclusterRoot(name: string): KRef {
+    return this.#subclusterManager.getSystemSubclusterRoot(name);
+  }
+
+  /**
+   * Convert a kref string to a slot value (presence).
+   *
+   * Use this to restore a presence from a stored kref string after restart.
+   *
+   * @param kref - The kref string to convert.
+   * @param iface - The interface name for the slot value.
+   * @returns The slot value that will become a presence when marshalled.
+   */
+  getPresence(kref: string, iface: string = 'Kernel Object'): SlotValue {
+    return kslot(kref, iface);
   }
 
   /**
@@ -549,6 +626,7 @@ export class Kernel {
     await this.#kernelQueue.waitForCrank();
     try {
       await this.terminateAllVats();
+      this.#subclusterManager.clearSystemSubclusters();
       this.#resetKernelState();
     } catch (error) {
       this.#logger.error('Error resetting kernel:', error);
