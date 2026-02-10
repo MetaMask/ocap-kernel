@@ -17,3 +17,5 @@ export {
 export { createDaemonServer } from './daemon-server.ts';
 export type { RpcDispatcher } from './daemon-server.ts';
 export type { DaemonConnection } from './types.ts';
+export { registerDaemonCommands, handleDaemonStart } from './commands/index.ts';
+export type { DaemonCommandsConfig } from './commands/types.ts';
