@@ -611,14 +611,6 @@ export async function initTransport(
     });
   });
 
-  // Reset backoffs if a cross-incarnation wake was detected at startup
-  if (options.crossIncarnationWake) {
-    logger.log(
-      'Cross-incarnation wake detected, resetting reconnection backoffs',
-    );
-    reconnectionManager.resetAllBackoffs();
-  }
-
   // Install wake detector to reset backoff on sleep/wake
   cleanupWakeDetector = installWakeDetector(handleWakeFromSleep);
 
@@ -718,6 +710,15 @@ export async function initTransport(
     connectionRateLimiter.clear();
   }
 
+  /**
+   * Reset all reconnection backoffs.
+   * Called when a cross-incarnation wake is detected to avoid unnecessary delays.
+   */
+  function resetAllBackoffs(): void {
+    logger.log('Resetting all reconnection backoffs');
+    reconnectionManager.resetAllBackoffs();
+  }
+
   // Return the sender with a stop handle and connection management functions
   return {
     sendRemoteMessage,
@@ -725,5 +726,6 @@ export async function initTransport(
     closeConnection,
     registerLocationHints,
     reconnectPeer,
+    resetAllBackoffs,
   };
 }

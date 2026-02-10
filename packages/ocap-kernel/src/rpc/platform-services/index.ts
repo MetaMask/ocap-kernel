@@ -30,6 +30,14 @@ import type {
   RegisterLocationHintsHandler,
 } from './registerLocationHints.ts';
 import {
+  resetAllBackoffsSpec,
+  resetAllBackoffsHandler,
+} from './resetAllBackoffs.ts';
+import type {
+  ResetAllBackoffsSpec,
+  ResetAllBackoffsHandler,
+} from './resetAllBackoffs.ts';
+import {
   sendRemoteMessageSpec,
   sendRemoteMessageHandler,
 } from './sendRemoteMessage.ts';
@@ -60,6 +68,7 @@ export const platformServicesHandlers = {
   closeConnection: closeConnectionHandler,
   registerLocationHints: registerLocationHintsHandler,
   reconnectPeer: reconnectPeerHandler,
+  resetAllBackoffs: resetAllBackoffsHandler,
 } as {
   launch: LaunchHandler;
   terminate: TerminateHandler;
@@ -70,6 +79,7 @@ export const platformServicesHandlers = {
   closeConnection: CloseConnectionHandler;
   registerLocationHints: RegisterLocationHintsHandler;
   reconnectPeer: ReconnectPeerHandler;
+  resetAllBackoffs: ResetAllBackoffsHandler;
 };
 
 export type PlatformServicesMethodSpecs =
@@ -81,7 +91,8 @@ export type PlatformServicesMethodSpecs =
   | typeof stopRemoteCommsSpec
   | typeof closeConnectionSpec
   | typeof registerLocationHintsSpec
-  | typeof reconnectPeerSpec;
+  | typeof reconnectPeerSpec
+  | typeof resetAllBackoffsSpec;
 
 export const platformServicesMethodSpecs = {
   launch: launchSpec,
@@ -93,6 +104,7 @@ export const platformServicesMethodSpecs = {
   closeConnection: closeConnectionSpec,
   registerLocationHints: registerLocationHintsSpec,
   reconnectPeer: reconnectPeerSpec,
+  resetAllBackoffs: resetAllBackoffsSpec,
 } as {
   launch: LaunchSpec;
   terminate: TerminateSpec;
@@ -103,6 +115,7 @@ export const platformServicesMethodSpecs = {
   closeConnection: CloseConnectionSpec;
   registerLocationHints: RegisterLocationHintsSpec;
   reconnectPeer: ReconnectPeerSpec;
+  resetAllBackoffs: ResetAllBackoffsSpec;
 };
 
 export type PlatformServicesMethod = PlatformServicesMethodSpecs['method'];

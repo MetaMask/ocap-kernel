@@ -1,5 +1,6 @@
 import type { CapData } from '@endo/marshal';
 import type { KernelDatabase } from '@metamask/kernel-store';
+import { detectCrossIncarnationWake } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 
 import { KernelQueue } from './KernelQueue.ts';
@@ -234,11 +235,33 @@ export class Kernel {
   /**
    * Initialize the remote comms object.
    *
+   * Detects cross-incarnation wake events by comparing the persisted
+   * `lastActiveTime` with the current time. If the gap exceeds the threshold
+   * (default 1 hour), resets all reconnection backoffs so the transport
+   * doesn't wait out stale exponential delays accumulated before sleep.
+   *
    * @param options - Options for remote communications initialization.
    * @returns A promise that resolves when initialization is complete.
    */
   async initRemoteComms(options?: RemoteCommsOptions): Promise<void> {
+    // Detect cross-incarnation wake before initializing remote comms
+    const lastActiveTimeStr = this.#kernelStore.kv.get('lastActiveTime');
+    const lastActiveTime = lastActiveTimeStr
+      ? Number(lastActiveTimeStr)
+      : undefined;
+    const crossIncarnationWake = detectCrossIncarnationWake(lastActiveTime);
+    if (crossIncarnationWake) {
+      this.#logger.log('Cross-incarnation wake detected');
+    }
+    // Record that the kernel is now active
+    this.#kernelStore.kv.set('lastActiveTime', String(Date.now()));
+
     await this.#remoteManager.initRemoteComms(options);
+
+    // Reset backoffs after comms are initialized so the transport is ready
+    if (crossIncarnationWake) {
+      await this.#platformServices.resetAllBackoffs();
+    }
   }
 
   /**
@@ -577,6 +600,8 @@ export class Kernel {
    */
   async stop(): Promise<void> {
     await this.#kernelQueue.waitForCrank();
+    // Update last active time so the next startup can detect cross-incarnation wake
+    this.#kernelStore.kv.set('lastActiveTime', String(Date.now()));
     await this.#platformServices.stopRemoteComms();
     this.#remoteManager.cleanup();
     await this.#platformServices.terminateAll();

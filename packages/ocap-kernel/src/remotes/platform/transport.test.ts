@@ -1191,23 +1191,13 @@ describe('transport.initTransport', () => {
     });
   });
 
-  describe('cross-incarnation wake', () => {
-    it('resets all backoffs when crossIncarnationWake option is true', async () => {
-      await initTransport('0x1234', { crossIncarnationWake: true }, vi.fn());
+  describe('resetAllBackoffs', () => {
+    it('exposes resetAllBackoffs that delegates to reconnection manager', async () => {
+      const transport = await initTransport('0x1234', {}, vi.fn());
+
+      transport.resetAllBackoffs();
 
       expect(mockReconnectionManager.resetAllBackoffs).toHaveBeenCalledOnce();
-    });
-
-    it('does not reset backoffs when crossIncarnationWake option is absent', async () => {
-      await initTransport('0x1234', {}, vi.fn());
-
-      expect(mockReconnectionManager.resetAllBackoffs).not.toHaveBeenCalled();
-    });
-
-    it('does not reset backoffs when crossIncarnationWake option is false', async () => {
-      await initTransport('0x1234', { crossIncarnationWake: false }, vi.fn());
-
-      expect(mockReconnectionManager.resetAllBackoffs).not.toHaveBeenCalled();
     });
   });
 

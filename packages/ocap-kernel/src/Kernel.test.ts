@@ -104,6 +104,7 @@ describe('Kernel', () => {
       terminate: async () => undefined,
       terminateAll: async () => undefined,
       stopRemoteComms: vi.fn(async () => undefined),
+      resetAllBackoffs: vi.fn(async () => undefined),
     } as unknown as PlatformServices;
 
     launchWorkerMock = vi
@@ -678,6 +679,89 @@ describe('Kernel', () => {
 
       // Verify waitForCrank is called before other operations
       expect(waitForCrankSpy).toHaveBeenCalledOnce();
+    });
+
+    it('saves lastActiveTime to KV store', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+
+      const before = Date.now();
+      await kernel.stop();
+      const after = Date.now();
+
+      const stored = mockKernelDatabase.kernelKVStore.get('lastActiveTime');
+      expect(stored).toBeDefined();
+      const timestamp = Number(stored);
+      expect(timestamp).toBeGreaterThanOrEqual(before);
+      expect(timestamp).toBeLessThanOrEqual(after);
+    });
+  });
+
+  describe('initRemoteComms()', () => {
+    it('saves lastActiveTime to KV store', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+
+      const before = Date.now();
+      await kernel.initRemoteComms();
+      const after = Date.now();
+
+      const stored = mockKernelDatabase.kernelKVStore.get('lastActiveTime');
+      expect(stored).toBeDefined();
+      const timestamp = Number(stored);
+      expect(timestamp).toBeGreaterThanOrEqual(before);
+      expect(timestamp).toBeLessThanOrEqual(after);
+    });
+
+    it('calls resetAllBackoffs when cross-incarnation wake is detected', async () => {
+      // Set lastActiveTime to 2 hours ago (exceeds 1 hour default threshold)
+      const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1_000;
+      mockKernelDatabase.kernelKVStore.set(
+        'lastActiveTime',
+        String(twoHoursAgo),
+      );
+
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+
+      await kernel.initRemoteComms();
+
+      expect(mockPlatformServices.resetAllBackoffs).toHaveBeenCalledOnce();
+    });
+
+    it('does not call resetAllBackoffs when no lastActiveTime exists', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+
+      await kernel.initRemoteComms();
+
+      expect(mockPlatformServices.resetAllBackoffs).not.toHaveBeenCalled();
+    });
+
+    it('does not call resetAllBackoffs when gap is within threshold', async () => {
+      // Set lastActiveTime to 10 minutes ago (within 1 hour default threshold)
+      const tenMinutesAgo = Date.now() - 10 * 60 * 1_000;
+      mockKernelDatabase.kernelKVStore.set(
+        'lastActiveTime',
+        String(tenMinutesAgo),
+      );
+
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+
+      await kernel.initRemoteComms();
+
+      expect(mockPlatformServices.resetAllBackoffs).not.toHaveBeenCalled();
     });
   });
 

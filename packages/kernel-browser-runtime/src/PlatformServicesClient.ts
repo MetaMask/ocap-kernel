@@ -281,6 +281,16 @@ export class PlatformServicesClient implements PlatformServices {
   }
 
   /**
+   * Reset all reconnection backoffs.
+   * Called after detecting a cross-incarnation wake to avoid unnecessary delays.
+   *
+   * @returns A promise that resolves when backoffs have been reset.
+   */
+  async resetAllBackoffs(): Promise<void> {
+    await this.#rpcClient.call('resetAllBackoffs', []);
+  }
+
+  /**
    * Handle a remote message from a peer.
    *
    * @param from - The peer ID that sent the message.

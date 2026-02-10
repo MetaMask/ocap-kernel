@@ -96,12 +96,6 @@ export type RemoteCommsOptions = {
    * Uses a sliding 1-minute window.
    */
   maxConnectionAttemptsPerMinute?: number | undefined;
-  /**
-   * Whether a cross-incarnation wake event was detected at startup.
-   * When `true`, the transport resets all reconnection backoffs immediately
-   * to avoid unnecessary delays after the system resumes from sleep.
-   */
-  crossIncarnationWake?: boolean | undefined;
 };
 
 export type RemoteInfo = {

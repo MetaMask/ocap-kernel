@@ -85,6 +85,8 @@ export class PlatformServicesServer {
     | ((peerId: string, hints?: string[]) => Promise<void>)
     | null = null;
 
+  #resetAllBackoffsFunc: (() => void) | null = null;
+
   /**
    * **ATTN:** Prefer {@link PlatformServicesServer.make} over constructing
    * this class directly.
@@ -131,6 +133,7 @@ export class PlatformServicesServer {
       closeConnection: this.#closeConnection.bind(this),
       registerLocationHints: this.#registerLocationHints.bind(this),
       reconnectPeer: this.#reconnectPeer.bind(this),
+      resetAllBackoffs: this.#resetAllBackoffs.bind(this),
     });
 
     // Start draining messages immediately after construction
@@ -287,6 +290,7 @@ export class PlatformServicesServer {
       closeConnection,
       registerLocationHints,
       reconnectPeer,
+      resetAllBackoffs,
     } = await initTransport(
       keySeed,
       options,
@@ -300,6 +304,7 @@ export class PlatformServicesServer {
     this.#closeConnectionFunc = closeConnection;
     this.#registerLocationHintsFunc = registerLocationHints;
     this.#reconnectPeerFunc = reconnectPeer;
+    this.#resetAllBackoffsFunc = resetAllBackoffs;
     return null;
   }
 
@@ -318,6 +323,7 @@ export class PlatformServicesServer {
     this.#closeConnectionFunc = null;
     this.#registerLocationHintsFunc = null;
     this.#reconnectPeerFunc = null;
+    this.#resetAllBackoffsFunc = null;
     return null;
   }
 
@@ -362,6 +368,19 @@ export class PlatformServicesServer {
       throw Error('remote comms not initialized');
     }
     await this.#reconnectPeerFunc(peerId, hints);
+    return null;
+  }
+
+  /**
+   * Reset all reconnection backoffs.
+   *
+   * @returns A promise that resolves when backoffs have been reset.
+   */
+  async #resetAllBackoffs(): Promise<null> {
+    if (!this.#resetAllBackoffsFunc) {
+      return null;
+    }
+    this.#resetAllBackoffsFunc();
     return null;
   }
 
