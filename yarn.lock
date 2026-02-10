@@ -3375,6 +3375,7 @@ __metadata:
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/logger": "workspace:^"
     "@metamask/utils": "npm:^11.9.0"
+    "@ocap/kernel-daemon": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"
     "@ts-bridge/shims": "npm:^0.1.1"
@@ -3396,6 +3397,7 @@ __metadata:
     eslint-plugin-n: "npm:^17.17.0"
     eslint-plugin-prettier: "npm:^5.2.6"
     eslint-plugin-promise: "npm:^7.2.1"
+    execa: "npm:^9.5.2"
     glob: "npm:^11.0.0"
     jsdom: "npm:^27.4.0"
     libp2p: "npm:2.10.0"
@@ -3601,7 +3603,7 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ocap/kernel-daemon@workspace:packages/kernel-daemon":
+"@ocap/kernel-daemon@workspace:^, @ocap/kernel-daemon@workspace:packages/kernel-daemon":
   version: 0.0.0-use.local
   resolution: "@ocap/kernel-daemon@workspace:packages/kernel-daemon"
   dependencies:

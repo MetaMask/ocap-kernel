@@ -6,6 +6,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
 import { bundleSource } from './commands/bundle.ts';
+import { registerKernelCommands } from './commands/kernel/index.ts';
 import { getServer } from './commands/serve.ts';
 import { watchDir } from './commands/watch.ts';
 import { defaultConfig } from './config.ts';
@@ -174,5 +175,7 @@ const yargsInstance = yargs(hideBin(process.argv))
       await startRelay(logger);
     },
   );
+
+registerKernelCommands(yargsInstance, logger);
 
 await yargsInstance.help('help').parse();

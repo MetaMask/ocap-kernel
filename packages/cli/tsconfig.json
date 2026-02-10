@@ -9,13 +9,15 @@
   "references": [
     { "path": "../logger" },
     { "path": "../repo-tools" },
-    { "path": "../kernel-utils" }
+    { "path": "../kernel-utils" },
+    { "path": "../kernel-daemon" }
   ],
   "include": [
     "../../vitest.config.ts",
     "./src/**/*.ts",
     "./test",
     "./vitest.config.ts",
+    "./vitest.config.e2e.ts",
     "./vitest.integration.config.ts"
   ]
 }

@@ -37,7 +37,8 @@
     "test:integration": "yarn workspaces foreach --all run test:integration",
     "test:verbose": "yarn test --reporter verbose",
     "test:watch": "vitest",
-    "why:batch": "./scripts/why-batch.sh"
+    "why:batch": "./scripts/why-batch.sh",
+    "root": "./scripts/echo-root.sh"
   },
   "simple-git-hooks": {
     "pre-commit": "./scripts/pre-commit.sh",
