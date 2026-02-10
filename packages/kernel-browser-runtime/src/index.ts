@@ -1,4 +1,5 @@
-export * from './rpc-handlers/index.ts';
+export { rpcHandlers, rpcMethodSpecs } from '@metamask/ocap-kernel/rpc';
+export type { KernelControlMethod } from '@metamask/ocap-kernel/rpc';
 export {
   connectToKernel,
   receiveInternalConnections,

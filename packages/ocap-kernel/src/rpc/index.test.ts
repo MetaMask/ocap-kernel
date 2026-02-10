@@ -9,6 +9,8 @@ describe('index', () => {
       'kernelRemoteMethodSpecs',
       'platformServicesHandlers',
       'platformServicesMethodSpecs',
+      'rpcHandlers',
+      'rpcMethodSpecs',
       'vatHandlers',
       'vatMethodSpecs',
       'vatSyscallHandlers',

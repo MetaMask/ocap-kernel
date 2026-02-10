@@ -1,6 +1,8 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import type { Kernel, KRef } from '@metamask/ocap-kernel';
 import { string, object, boolean } from '@metamask/superstruct';
+
+import type { Kernel } from '../../Kernel.ts';
+import type { KRef } from '../../types.ts';
 
 /**
  * Check if a kernel object has been revoked.

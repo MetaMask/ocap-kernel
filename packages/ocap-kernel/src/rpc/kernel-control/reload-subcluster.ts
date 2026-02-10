@@ -1,7 +1,9 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import type { Kernel, Subcluster } from '@metamask/ocap-kernel';
-import { SubclusterStruct } from '@metamask/ocap-kernel';
 import { object, string, union, literal } from '@metamask/superstruct';
+
+import type { Kernel } from '../../Kernel.ts';
+import type { Subcluster } from '../../types.ts';
+import { SubclusterStruct } from '../../types.ts';
 
 export const reloadSubclusterSpec: MethodSpec<
   'reloadSubcluster',

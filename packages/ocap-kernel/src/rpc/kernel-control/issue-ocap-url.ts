@@ -1,6 +1,7 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import type { Kernel } from '@metamask/ocap-kernel';
 import { string, object } from '@metamask/superstruct';
+
+import type { Kernel } from '../../Kernel.ts';
 
 /**
  * Issue an OCAP URL for a kernel object.

@@ -1,7 +1,9 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import type { Kernel, VatId } from '@metamask/ocap-kernel';
-import { VatIdStruct } from '@metamask/ocap-kernel';
 import { object, literal } from '@metamask/superstruct';
+
+import type { Kernel } from '../../Kernel.ts';
+import type { VatId } from '../../types.ts';
+import { VatIdStruct } from '../../types.ts';
 
 export const terminateVatSpec: MethodSpec<
   'terminateVat',

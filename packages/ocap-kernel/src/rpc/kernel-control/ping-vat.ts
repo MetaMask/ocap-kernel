@@ -1,9 +1,11 @@
 import type { Handler, MethodSpec } from '@metamask/kernel-rpc-methods';
-import type { Kernel, VatId } from '@metamask/ocap-kernel';
-import { VatIdStruct } from '@metamask/ocap-kernel';
-import { vatMethodSpecs } from '@metamask/ocap-kernel/rpc';
-import type { PingVatResult } from '@metamask/ocap-kernel/rpc';
 import { object } from '@metamask/superstruct';
+
+import type { Kernel } from '../../Kernel.ts';
+import type { VatId } from '../../types.ts';
+import { VatIdStruct } from '../../types.ts';
+import { vatMethodSpecs } from '../vat/index.ts';
+import type { PingVatResult } from '../vat/index.ts';
 
 export type PingVatHooks = {
   kernel: Kernel;

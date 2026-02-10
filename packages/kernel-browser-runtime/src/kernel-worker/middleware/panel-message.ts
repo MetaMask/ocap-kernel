@@ -2,9 +2,8 @@ import type { JsonRpcMiddleware } from '@metamask/json-rpc-engine/v2';
 import { RpcService } from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import type { Kernel } from '@metamask/ocap-kernel';
+import { rpcHandlers } from '@metamask/ocap-kernel/rpc';
 import { isJsonRpcRequest } from '@metamask/utils';
-
-import { rpcHandlers } from '../../rpc-handlers/index.ts';
 
 /**
  * Makes a middleware function that handles panel messages.

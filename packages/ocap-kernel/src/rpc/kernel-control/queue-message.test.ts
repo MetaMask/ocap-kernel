@@ -1,8 +1,8 @@
 import type { CapData } from '@endo/marshal';
-import type { Kernel } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { queueMessageSpec, queueMessageHandler } from './queue-message.ts';
+import type { Kernel } from '../../Kernel.ts';
 
 describe('queueMessageSpec', () => {
   it('should define the correct method name', () => {
