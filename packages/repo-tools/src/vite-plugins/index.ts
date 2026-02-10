@@ -1,3 +1,5 @@
+export { bundleVat, bundleVats } from './bundle-vats/index.ts';
+export type { VatBundle } from './bundle-vats/index.ts';
 export * from './deduplicate-assets.ts';
 export * from './extension-dev.ts';
 export * from './html-trusted-prelude.ts';

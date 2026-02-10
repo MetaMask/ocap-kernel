@@ -8,11 +8,12 @@ import {
   handleConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
 import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
-import defaultSubcluster from '@metamask/kernel-browser-runtime/default-cluster';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
+
+import defaultSubcluster from './default-cluster.json';
 
 defineGlobals();
 

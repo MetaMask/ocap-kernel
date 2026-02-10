@@ -53,6 +53,7 @@
     "@typescript-eslint/utils": "^8.29.0",
     "@vitest/eslint-plugin": "^1.6.5",
     "@vitest/runner": "4.0.16",
+    "acorn": "^8.15.0",
     "cheerio": "^1.0.0",
     "depcheck": "^1.4.7",
     "eslint": "^9.23.0",

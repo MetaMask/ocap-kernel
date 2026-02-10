@@ -1,11 +1,11 @@
 import type { Logger } from '@metamask/logger';
+import { bundleVat } from '@ocap/repo-tools/vite-plugins';
 import { glob } from 'glob';
 import { writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 
 import { isDirectory } from '../file.ts';
 import { resolveBundlePath } from '../path.ts';
-import { bundleVat } from '../vite/vat-bundler.ts';
 
 type BundleFileOptions = {
   logger: Logger;

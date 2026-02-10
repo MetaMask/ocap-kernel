@@ -1,10 +1,18 @@
-import clusterConfig from '@metamask/kernel-browser-runtime/default-cluster' assert { type: 'json' };
 import { waitFor, renderHook } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
 }));
+
+const clusterConfig = {
+  bootstrap: 'alice',
+  forceReset: true,
+  services: [],
+  vats: {
+    alice: { bundleSpec: 'sample-vat.bundle', parameters: { name: 'Alice' } },
+  },
+};
 
 vi.mock('@metamask/kernel-utils', async (importOriginal) => ({
   ...(await importOriginal()),
