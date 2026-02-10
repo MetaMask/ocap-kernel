@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "lib": ["ES2022"],
+    "types": ["node", "ses", "vitest"]
+  },
+  "references": [
+    { "path": "../kernel-rpc-methods" },
+    { "path": "../logger" },
+    { "path": "../repo-tools" }
+  ],
+  "include": ["../../vitest.config.ts", "./src", "./test", "./vitest.config.ts"]
+}
