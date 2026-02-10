@@ -2,7 +2,11 @@ import { AES_GCM } from '@libp2p/crypto/ciphers';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import type { KVStore } from '@metamask/kernel-store';
-import { toHex, fromHex } from '@metamask/kernel-utils';
+import {
+  toHex,
+  fromHex,
+  detectCrossIncarnationWake,
+} from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import { base58btc } from 'multiformats/bases/base58';
 
@@ -167,9 +171,20 @@ export async function initRemoteComms(
 
   const knownRelays = relays.length > 0 ? relays : getKnownRelays(kv);
   logger?.log(`relays: ${JSON.stringify(knownRelays)}`);
+
+  const lastActiveTimeStr = kv.get('lastActiveTime');
+  const lastActiveTime = lastActiveTimeStr
+    ? Number(lastActiveTimeStr)
+    : undefined;
+  const crossIncarnationWake = detectCrossIncarnationWake(lastActiveTime);
+  if (crossIncarnationWake) {
+    logger?.log('comms init: cross-incarnation wake detected');
+  }
+  kv.set('lastActiveTime', String(Date.now()));
+
   await platformServices.initializeRemoteComms(
     keySeed,
-    { ...options, relays: knownRelays },
+    { ...options, relays: knownRelays, crossIncarnationWake },
     remoteMessageHandler,
     onRemoteGiveUp,
     incarnationId,

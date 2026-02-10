@@ -79,6 +79,24 @@ describe('initializeRemoteComms', () => {
         expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
       });
 
+      it('should accept params with crossIncarnationWake', () => {
+        const validParams = {
+          keySeed: '0x1234567890abcdef',
+          crossIncarnationWake: true,
+        };
+
+        expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+      });
+
+      it('should reject params with non-boolean crossIncarnationWake', () => {
+        const invalidParams = {
+          keySeed: '0x1234567890abcdef',
+          crossIncarnationWake: 'true',
+        };
+
+        expect(is(invalidParams, initializeRemoteCommsSpec.params)).toBe(false);
+      });
+
       it('should reject params with missing keySeed', () => {
         const invalidParams = {
           relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
@@ -709,6 +727,31 @@ describe('initializeRemoteComms', () => {
         '0xtestseed',
         {
           maxQueue: 0,
+        },
+        undefined,
+      );
+    });
+
+    it('should pass crossIncarnationWake to hook when provided', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        crossIncarnationWake: true,
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+        '0xtestseed',
+        {
+          crossIncarnationWake: true,
         },
         undefined,
       );

@@ -6,12 +6,14 @@ describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'DEFAULT_BASE_DELAY_MS',
+      'DEFAULT_CROSS_INCARNATION_WAKE_THRESHOLD_MS',
       'DEFAULT_MAX_DELAY_MS',
       'DEFAULT_MAX_RETRY_ATTEMPTS',
       'EmptyJsonArray',
       'abortableDelay',
       'calculateReconnectionBackoff',
       'delay',
+      'detectCrossIncarnationWake',
       'fetchValidatedJson',
       'fromHex',
       'installWakeDetector',

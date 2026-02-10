@@ -1191,6 +1191,26 @@ describe('transport.initTransport', () => {
     });
   });
 
+  describe('cross-incarnation wake', () => {
+    it('resets all backoffs when crossIncarnationWake option is true', async () => {
+      await initTransport('0x1234', { crossIncarnationWake: true }, vi.fn());
+
+      expect(mockReconnectionManager.resetAllBackoffs).toHaveBeenCalledOnce();
+    });
+
+    it('does not reset backoffs when crossIncarnationWake option is absent', async () => {
+      await initTransport('0x1234', {}, vi.fn());
+
+      expect(mockReconnectionManager.resetAllBackoffs).not.toHaveBeenCalled();
+    });
+
+    it('does not reset backoffs when crossIncarnationWake option is false', async () => {
+      await initTransport('0x1234', { crossIncarnationWake: false }, vi.fn());
+
+      expect(mockReconnectionManager.resetAllBackoffs).not.toHaveBeenCalled();
+    });
+  });
+
   describe('race conditions', () => {
     it('queues message if reconnection starts during dial', async () => {
       // Initially not reconnecting

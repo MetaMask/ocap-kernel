@@ -611,6 +611,14 @@ export async function initTransport(
     });
   });
 
+  // Reset backoffs if a cross-incarnation wake was detected at startup
+  if (options.crossIncarnationWake) {
+    logger.log(
+      'Cross-incarnation wake detected, resetting reconnection backoffs',
+    );
+    reconnectionManager.resetAllBackoffs();
+  }
+
   // Install wake detector to reset backoff on sleep/wake
   cleanupWakeDetector = installWakeDetector(handleWakeFromSleep);
 

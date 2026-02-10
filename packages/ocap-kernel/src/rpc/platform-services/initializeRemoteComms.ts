@@ -1,6 +1,7 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
 import {
   array,
+  boolean,
   object,
   literal,
   string,
@@ -16,6 +17,7 @@ const initializeRemoteCommsParamsStruct = object({
   maxRetryAttempts: optional(number()),
   maxQueue: optional(number()),
   incarnationId: optional(string()),
+  crossIncarnationWake: optional(boolean()),
 });
 
 type InitializeRemoteCommsParams = {
@@ -24,6 +26,7 @@ type InitializeRemoteCommsParams = {
   maxRetryAttempts?: number;
   maxQueue?: number;
   incarnationId?: string;
+  crossIncarnationWake?: boolean;
 };
 
 export type InitializeRemoteCommsSpec = MethodSpec<
@@ -68,6 +71,9 @@ export const initializeRemoteCommsHandler: InitializeRemoteCommsHandler = {
     }
     if (params.maxQueue !== undefined) {
       options.maxQueue = params.maxQueue;
+    }
+    if (params.crossIncarnationWake !== undefined) {
+      options.crossIncarnationWake = params.crossIncarnationWake;
     }
     return await initializeRemoteComms(
       params.keySeed,
