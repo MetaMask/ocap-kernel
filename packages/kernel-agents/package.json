@@ -179,7 +179,7 @@
     "vitest": "^4.0.16"
   },
   "engines": {
-    "node": "^20.11 || >=22"
+    "node": ">=22"
   },
   "dependencies": {
     "@endo/eventual-send": "^1.3.4",

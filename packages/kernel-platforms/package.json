@@ -100,7 +100,7 @@
     "vitest": "^4.0.16"
   },
   "engines": {
-    "node": "^20.11 || >=22"
+    "node": ">=22"
   },
   "dependencies": {
     "@metamask/superstruct": "^3.2.1",

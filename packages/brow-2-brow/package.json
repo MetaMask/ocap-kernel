@@ -82,7 +82,7 @@
     }
   },
   "engines": {
-    "node": "^20.11 || >=22"
+    "node": ">=22"
   },
   "exports": {
     "./package.json": "./package.json"

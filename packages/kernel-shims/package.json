@@ -86,7 +86,7 @@
     "@libp2p/webrtc": "5.2.24"
   },
   "engines": {
-    "node": "^20.11 || >=22"
+    "node": ">=22"
   },
   "publishConfig": {
     "access": "public",
