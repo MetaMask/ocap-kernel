@@ -201,35 +201,6 @@ describe('Kernel', () => {
     });
   });
 
-  describe('reload()', () => {
-    it('should reload all subclusters', async () => {
-      const kernel = await Kernel.make(
-        mockPlatformServices,
-        mockKernelDatabase,
-      );
-      const config = makeMockClusterConfig();
-      await kernel.launchSubcluster(config);
-      const { subclusters } = await kernel.getStatus();
-      expect(subclusters).toHaveLength(1);
-      const [firstSubcluster] = subclusters;
-      expect(firstSubcluster).toBeDefined();
-      await kernel.reload();
-      // Verify the old vat was terminated
-      expect(vatHandles[0]?.terminate).toHaveBeenCalledTimes(1);
-      // Initial + reload
-      expect(launchWorkerMock).toHaveBeenCalledTimes(2);
-    });
-
-    it('should handle empty subclusters gracefully', async () => {
-      const kernel = await Kernel.make(
-        mockPlatformServices,
-        mockKernelDatabase,
-      );
-      const result = await kernel.reload();
-      expect(result).toBeUndefined();
-    });
-  });
-
   describe('queueMessage()', () => {
     it('enqueues a message and returns the result', async () => {
       const kernel = await Kernel.make(
@@ -415,35 +386,6 @@ describe('Kernel', () => {
       expect(subclusterId).toBeDefined();
       const vatIds = kernel.getSubclusterVats(subclusterId);
       expect(vatIds).toStrictEqual(['v1', 'v2']);
-    });
-  });
-
-  describe('reloadSubcluster()', () => {
-    it('reloads a specific subcluster', async () => {
-      const kernel = await Kernel.make(
-        mockPlatformServices,
-        mockKernelDatabase,
-      );
-      const config = makeMockClusterConfig();
-      await kernel.launchSubcluster(config);
-      const { subclusters } = await kernel.getStatus();
-      const [firstSubcluster] = subclusters;
-      expect(firstSubcluster).toBeDefined();
-      const subclusterId = firstSubcluster?.id as string;
-      expect(subclusterId).toBeDefined();
-      await kernel.reloadSubcluster(subclusterId);
-      expect(terminateWorkerMock).toHaveBeenCalledOnce();
-      expect(launchWorkerMock).toHaveBeenCalledTimes(2); // initial + reload
-    });
-
-    it('throws when reloading non-existent subcluster', async () => {
-      const kernel = await Kernel.make(
-        mockPlatformServices,
-        mockKernelDatabase,
-      );
-      await expect(kernel.reloadSubcluster('non-existent')).rejects.toThrow(
-        'Subcluster does not exist.',
-      );
     });
   });
 

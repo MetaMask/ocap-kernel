@@ -1,5 +1,4 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel } from '@metamask/ocap-kernel';
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -101,30 +100,6 @@ describe('Subcluster functionality', () => {
     expect(kernel.getSubcluster('s1')).toBeUndefined();
   });
 
-  it('can reload a subcluster', async () => {
-    // Create subcluster
-    const subcluster = makeTestSubcluster('subcluster1');
-    const bootstrapResult1 = await runTestVats(kernel, subcluster);
-    expect(bootstrapResult1).toBe('bootstrap complete');
-
-    // Get initial vat IDs
-    const initialVats = kernel.getVats();
-    const initialVatIds = initialVats.map((vat) => vat.id);
-
-    await waitUntilQuiescent();
-
-    // Reload Subcluster
-    await kernel.reloadSubcluster('s1');
-
-    // Verify vats were reloaded
-    const reloadedVats = kernel.getVats();
-    expect(reloadedVats).toHaveLength(2);
-
-    // Vat IDs should be different after reload
-    const reloadedVatIds = reloadedVats.map((vat) => vat.id);
-    expect(reloadedVatIds).not.toStrictEqual(initialVatIds);
-  });
-
   it('can check if a vat belongs to a subcluster', async () => {
     // Create subcluster
     const subcluster = makeTestSubcluster('subcluster1');
@@ -143,35 +118,6 @@ describe('Subcluster functionality', () => {
     await expect(kernel.terminateSubcluster('nonexistent')).rejects.toThrow(
       'Subcluster does not exist',
     );
-    await expect(kernel.reloadSubcluster('nonexistent')).rejects.toThrow(
-      'Subcluster does not exist',
-    );
-  });
-
-  // TODO: fix this test that fails on CI
-  it.todo('can reload the entire kernel', async () => {
-    // Create multiple subclusters
-    const subcluster1 = makeTestSubcluster('subcluster1');
-    const subcluster2 = makeTestSubcluster('subcluster2');
-    await runTestVats(kernel, subcluster1);
-    await runTestVats(kernel, subcluster2);
-
-    // Verify initial state
-    expect(kernel.getSubclusters()).toHaveLength(2);
-    expect(kernel.getVats()).toHaveLength(4);
-    const initialVatIds = kernel.getVats().map((vat) => vat.id);
-
-    // Reload kernel
-    await kernel.reload();
-
-    // Verify subclusters were reloaded
-    expect(kernel.getSubclusters()).toHaveLength(2);
-    expect(kernel.getVats()).toHaveLength(4);
-
-    // Verify vat IDs are different after reload
-    const reloadedVatIds = kernel.getVats().map((vat) => vat.id);
-    expect(reloadedVatIds).toHaveLength(4);
-    expect(reloadedVatIds).not.toStrictEqual(initialVatIds);
   });
 
   it('can handle subcluster operations with terminated vats', async () => {
@@ -185,14 +131,7 @@ describe('Subcluster functionality', () => {
 
     // Verify vat is removed from subcluster
     const subclusterVats = kernel.getSubclusterVats('s1');
-    console.log('subclusterVats', subclusterVats);
     expect(subclusterVats).toHaveLength(1);
     expect(subclusterVats).not.toContain('v2');
-
-    // reload subcluster should recreate all vats
-    const reloadedSubcluster = await kernel.reloadSubcluster('s1');
-    console.log('reloadedSubcluster', reloadedSubcluster);
-    expect(reloadedSubcluster).toBeDefined();
-    expect(Object.keys(reloadedSubcluster.vats)).toHaveLength(2);
   });
 });

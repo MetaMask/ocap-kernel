@@ -17,11 +17,6 @@ import {
 import { pingVatHandler, pingVatSpec } from './ping-vat.ts';
 import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
 import { redeemOcapURLHandler, redeemOcapURLSpec } from './redeem-ocap-url.ts';
-import { reloadConfigHandler, reloadConfigSpec } from './reload-config.ts';
-import {
-  reloadSubclusterHandler,
-  reloadSubclusterSpec,
-} from './reload-subcluster.ts';
 import { restartVatHandler, restartVatSpec } from './restart-vat.ts';
 import { revokeHandler, revokeSpec } from './revoke.ts';
 import {
@@ -43,7 +38,6 @@ export const rpcHandlers = {
   getStatus: getStatusHandler,
   issueOcapURL: issueOcapURLHandler,
   pingVat: pingVatHandler,
-  reload: reloadConfigHandler,
   redeemOcapURL: redeemOcapURLHandler,
   revoke: revokeHandler,
   isRevoked: isRevokedHandler,
@@ -53,7 +47,6 @@ export const rpcHandlers = {
   collectGarbage: collectGarbageHandler,
   terminateVat: terminateVatHandler,
   launchSubcluster: launchSubclusterHandler,
-  reloadSubcluster: reloadSubclusterHandler,
   terminateSubcluster: terminateSubclusterHandler,
 } as {
   clearState: typeof clearStateHandler;
@@ -61,7 +54,6 @@ export const rpcHandlers = {
   getStatus: typeof getStatusHandler;
   issueOcapURL: typeof issueOcapURLHandler;
   pingVat: typeof pingVatHandler;
-  reload: typeof reloadConfigHandler;
   redeemOcapURL: typeof redeemOcapURLHandler;
   revoke: typeof revokeHandler;
   isRevoked: typeof isRevokedHandler;
@@ -71,7 +63,6 @@ export const rpcHandlers = {
   collectGarbage: typeof collectGarbageHandler;
   terminateVat: typeof terminateVatHandler;
   launchSubcluster: typeof launchSubclusterHandler;
-  reloadSubcluster: typeof reloadSubclusterHandler;
   terminateSubcluster: typeof terminateSubclusterHandler;
 };
 
@@ -84,7 +75,6 @@ export const rpcMethodSpecs = {
   getStatus: getStatusSpec,
   issueOcapURL: issueOcapURLSpec,
   pingVat: pingVatSpec,
-  reload: reloadConfigSpec,
   redeemOcapURL: redeemOcapURLSpec,
   revoke: revokeSpec,
   isRevoked: isRevokedSpec,
@@ -94,7 +84,6 @@ export const rpcMethodSpecs = {
   collectGarbage: collectGarbageSpec,
   terminateVat: terminateVatSpec,
   launchSubcluster: launchSubclusterSpec,
-  reloadSubcluster: reloadSubclusterSpec,
   terminateSubcluster: terminateSubclusterSpec,
 } as {
   clearState: typeof clearStateSpec;
@@ -102,7 +91,6 @@ export const rpcMethodSpecs = {
   getStatus: typeof getStatusSpec;
   issueOcapURL: typeof issueOcapURLSpec;
   pingVat: typeof pingVatSpec;
-  reload: typeof reloadConfigSpec;
   redeemOcapURL: typeof redeemOcapURLSpec;
   revoke: typeof revokeSpec;
   isRevoked: typeof isRevokedSpec;
@@ -112,7 +100,6 @@ export const rpcMethodSpecs = {
   collectGarbage: typeof collectGarbageSpec;
   terminateVat: typeof terminateVatSpec;
   launchSubcluster: typeof launchSubclusterSpec;
-  reloadSubcluster: typeof reloadSubclusterSpec;
   terminateSubcluster: typeof terminateSubclusterSpec;
 };
 

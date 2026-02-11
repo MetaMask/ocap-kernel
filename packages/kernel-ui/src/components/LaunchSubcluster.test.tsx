@@ -53,7 +53,6 @@ describe('LaunchSubcluster', () => {
       launchSubcluster: mockLaunchSubcluster,
       terminateAllVats: vi.fn(),
       clearState: vi.fn(),
-      reload: vi.fn(),
       collectGarbage: vi.fn(),
     });
     vi.mocked(usePanelContext).mockReturnValue({

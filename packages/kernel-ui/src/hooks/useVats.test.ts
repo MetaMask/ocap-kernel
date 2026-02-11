@@ -362,40 +362,4 @@ describe('useVats', () => {
       });
     });
   });
-
-  describe('reloadSubcluster', () => {
-    it('should send reload subcluster message and log success', async () => {
-      const { useVats } = await import('./useVats.ts');
-      const { result } = renderHook(() => useVats());
-
-      mockSendMessage.mockResolvedValueOnce({ success: true });
-
-      result.current.reloadSubcluster(mockSubclusterId);
-      await waitFor(() => {
-        expect(mockSendMessage).toHaveBeenCalledWith({
-          method: 'reloadSubcluster',
-          params: { id: mockSubclusterId },
-        });
-      });
-      expect(mockLogMessage).toHaveBeenCalledWith(
-        `Reloaded subcluster "${mockSubclusterId}"`,
-        'success',
-      );
-    });
-
-    it('should handle reload subcluster error', async () => {
-      const { useVats } = await import('./useVats.ts');
-      const { result } = renderHook(() => useVats());
-
-      mockSendMessage.mockRejectedValueOnce(new Error());
-
-      result.current.reloadSubcluster(mockSubclusterId);
-      await waitFor(() => {
-        expect(mockLogMessage).toHaveBeenCalledWith(
-          `Failed to reload subcluster "${mockSubclusterId}"`,
-          'error',
-        );
-      });
-    });
-  });
 });

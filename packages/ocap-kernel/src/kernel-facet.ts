@@ -11,7 +11,6 @@ const kernelFacetMethodNames = [
   'launchSubcluster',
   'pingVat',
   'queueMessage',
-  'reloadSubcluster',
   'reset',
   'terminateSubcluster',
 ] as const;

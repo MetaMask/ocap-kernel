@@ -46,7 +46,6 @@ export const useVats = (): {
   restartVat: (id: VatId) => void;
   terminateVat: (id: VatId) => void;
   terminateSubcluster: (id: string) => void;
-  reloadSubcluster: (id: string) => void;
   hasVats: boolean;
 } => {
   const { callKernelMethod, status, logMessage } = usePanelContext();
@@ -134,20 +133,6 @@ export const useVats = (): {
     [callKernelMethod, logMessage],
   );
 
-  const reloadSubcluster = useCallback(
-    (id: string) => {
-      callKernelMethod({
-        method: 'reloadSubcluster',
-        params: { id },
-      })
-        .then(() => logMessage(`Reloaded subcluster "${id}"`, 'success'))
-        .catch(() =>
-          logMessage(`Failed to reload subcluster "${id}"`, 'error'),
-        );
-    },
-    [callKernelMethod, logMessage],
-  );
-
   return {
     hasVats,
     subclusters,
@@ -155,6 +140,5 @@ export const useVats = (): {
     restartVat,
     terminateVat,
     terminateSubcluster,
-    reloadSubcluster,
   };
 };

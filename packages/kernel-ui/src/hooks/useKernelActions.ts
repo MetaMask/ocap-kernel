@@ -12,7 +12,6 @@ export function useKernelActions(): {
   terminateAllVats: () => void;
   collectGarbage: () => void;
   clearState: () => void;
-  reload: () => void;
   launchSubcluster: (config: ClusterConfig) => void;
 } {
   const { callKernelMethod, logMessage } = usePanelContext();
@@ -58,18 +57,6 @@ export function useKernelActions(): {
   }, [callKernelMethod, logMessage]);
 
   /**
-   * Reloads the kernel
-   */
-  const reload = useCallback(() => {
-    callKernelMethod({
-      method: 'reload',
-      params: [],
-    })
-      .then(() => logMessage('Kernel reloaded', 'success'))
-      .catch(() => logMessage('Failed to reload', 'error'));
-  }, [callKernelMethod, logMessage]);
-
-  /**
    * Launches a subcluster.
    */
   const launchSubcluster = useCallback(
@@ -90,7 +77,6 @@ export function useKernelActions(): {
     terminateAllVats,
     collectGarbage,
     clearState,
-    reload,
     launchSubcluster,
   };
 }

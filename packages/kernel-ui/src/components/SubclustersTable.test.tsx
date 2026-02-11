@@ -57,7 +57,6 @@ describe('SubclustersTable Component', () => {
     restartVat: vi.fn(),
     terminateVat: vi.fn(),
     terminateSubcluster: vi.fn(),
-    reloadSubcluster: vi.fn(),
   };
 
   beforeEach(() => {
