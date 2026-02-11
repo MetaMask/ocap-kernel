@@ -1,4 +1,3 @@
-import clusterConfig from '@metamask/kernel-browser-runtime/default-cluster' assert { type: 'json' };
 import { waitFor, renderHook } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -7,6 +6,15 @@ vi.mock('../services/logger.ts', () => ({
     error: vi.fn(),
   },
 }));
+
+const clusterConfig = {
+  bootstrap: 'alice',
+  forceReset: true,
+  services: [],
+  vats: {
+    alice: { bundleSpec: 'sample-vat.bundle', parameters: { name: 'Alice' } },
+  },
+};
 
 describe('useStatusPolling', () => {
   const mockSendMessage = vi.fn();

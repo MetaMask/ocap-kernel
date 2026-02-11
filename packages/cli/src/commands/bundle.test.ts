@@ -25,7 +25,7 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('../vite/vat-bundler.ts', () => ({
+vi.mock('@ocap/repo-tools/vite-plugins', () => ({
   bundleVat: mocks.bundleVat,
 }));
 

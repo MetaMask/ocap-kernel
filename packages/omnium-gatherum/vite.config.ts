@@ -6,6 +6,7 @@ import {
   getPackageDevAliases,
 } from '@ocap/repo-tools/build-utils/vite';
 import {
+  bundleVats,
   deduplicateAssets,
   extensionDev,
   htmlTrustedPrelude,
@@ -38,15 +39,9 @@ const staticCopyTargets: readonly (string | Target)[] = [
   'packages/omnium-gatherum/src/manifest.json',
   // Trusted prelude-related
   'packages/kernel-shims/dist/endoify.js',
-  // Controller vat bundle (system vat for kernel services)
-  {
-    src: 'packages/omnium-gatherum/src/vats/controller-vat.bundle',
-    dest: './',
-    rename: 'controller-vat-bundle.json',
-  },
   // Caplets (add new caplet entries here)
   {
-    src: 'packages/omnium-gatherum/src/caplets/echo/{manifest.json,*.bundle}',
+    src: 'packages/omnium-gatherum/src/caplets/echo/manifest.json',
     dest: 'echo/',
   },
 ];
@@ -113,6 +108,18 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
+      bundleVats({
+        vats: [
+          {
+            source: path.resolve(dirname, 'src/caplets/echo/echo-caplet.js'),
+            output: 'echo/echo-caplet.bundle',
+          },
+          {
+            source: path.resolve(dirname, 'src/vats/controller-vat.ts'),
+            output: 'controller-vat-bundle.json',
+          },
+        ],
+      }),
       react(),
       htmlTrustedPrelude(),
       jsTrustedPrelude({ trustedPreludes }),

@@ -6,6 +6,7 @@ import {
   getPackageDevAliases,
 } from '@ocap/repo-tools/build-utils/vite';
 import {
+  bundleVats,
   deduplicateAssets,
   extensionDev,
   htmlTrustedPrelude,
@@ -90,6 +91,17 @@ export default defineConfig(({ mode }) => {
       },
     },
     plugins: [
+      bundleVats({
+        vats: [
+          {
+            source: path.resolve(
+              rootDir,
+              'packages/kernel-test/src/vats/default/sample-vat.js',
+            ),
+            output: 'sample-vat.bundle',
+          },
+        ],
+      }),
       react(),
       htmlTrustedPrelude(),
       jsTrustedPrelude({ trustedPreludes }),

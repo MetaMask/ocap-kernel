@@ -29,15 +29,13 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./package.json": "./package.json",
-    "./default-cluster": "./dist/default-cluster.json"
+    "./package.json": "./package.json"
   },
   "module": "./dist/index.mjs",
   "main": "./dist/index.cjs",
   "types": "./dist/index.d.cts",
   "files": [
-    "dist/",
-    "default-cluster.js"
+    "dist/"
   ],
   "scripts": {
     "build": "yarn build:lib && yarn build:vite",
