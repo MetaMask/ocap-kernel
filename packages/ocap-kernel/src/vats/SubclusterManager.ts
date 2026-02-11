@@ -227,13 +227,8 @@ export class SubclusterManager {
     }
     for (const name of config.services) {
       const service = this.#getKernelService(name);
-      if (!service) {
+      if (!service || (service.systemOnly && !isSystem)) {
         throw Error(`no registered kernel service '${name}'`);
-      }
-      if (service.systemOnly && !isSystem) {
-        throw Error(
-          `kernel service '${name}' is restricted to system subclusters`,
-        );
       }
     }
   }
