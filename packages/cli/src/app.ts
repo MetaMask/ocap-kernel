@@ -6,6 +6,7 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
 import { bundleSource } from './commands/bundle.ts';
+import { handleCompile } from './commands/generate-binary.ts';
 import { getServer } from './commands/serve.ts';
 import { watchDir } from './commands/watch.ts';
 import { defaultConfig } from './config.ts';
@@ -164,6 +165,35 @@ const yargsInstance = yargs(hideBin(process.argv))
       closeHandlers.push(closeServer);
 
       logger.info(`Bundling and serving ${resolvedDir} on localhost:${port}`);
+    },
+  )
+  .command(
+    'compile <name>',
+    'Generate a compiled console binary',
+    (_yargs) =>
+      _yargs
+        .option('name', {
+          type: 'string',
+          required: true,
+          describe: 'Output file name/path for the binary',
+        })
+        .option('ocap-url', {
+          type: 'string',
+          required: true,
+          describe: 'OCAP URL for the console vat root object',
+        })
+        .option('endpoint-url', {
+          type: 'string',
+          required: true,
+          describe: 'HTTP endpoint URL for the kernel invocation server',
+        }),
+    async (args) => {
+      await handleCompile({
+        name: args.name,
+        ocapURL: args.ocapUrl,
+        endpointURL: args.endpointUrl,
+        logger,
+      });
     },
   )
   .command(
