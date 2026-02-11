@@ -3,15 +3,15 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for kernel-browser-runtime/src/rpc-handlers/restart-vat.ts</title>
+    <title>Code coverage report for ocap-kernel/src/rpc/kernel-control/terminate-vat.ts</title>
     <meta charset="utf-8" />
-    <link rel="stylesheet" href="../../../prettify.css" />
-    <link rel="stylesheet" href="../../../base.css" />
-    <link rel="shortcut icon" type="image/x-icon" href="../../../favicon.png" />
+    <link rel="stylesheet" href="../../../../prettify.css" />
+    <link rel="stylesheet" href="../../../../base.css" />
+    <link rel="shortcut icon" type="image/x-icon" href="../../../../favicon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style type='text/css'>
         .coverage-summary .sorter {
-            background-image: url(../../../sort-arrow-sprite.png);
+            background-image: url(../../../../sort-arrow-sprite.png);
         }
     </style>
 </head>
@@ -19,7 +19,7 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">kernel-browser-runtime/src/rpc-handlers</a> restart-vat.ts</h1>
+        <h1><a href="../../../../index.html">All files</a> / <a href="index.html">ocap-kernel/src/rpc/kernel-control</a> terminate-vat.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
@@ -95,17 +95,7 @@
 <a name='L30'></a><a href='#L30'>30</a>
 <a name='L31'></a><a href='#L31'>31</a>
 <a name='L32'></a><a href='#L32'>32</a>
-<a name='L33'></a><a href='#L33'>33</a>
-<a name='L34'></a><a href='#L34'>34</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
+<a name='L33'></a><a href='#L33'>33</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -116,12 +106,20 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">31x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">31x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -130,35 +128,34 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import { VatIdStruct } from '@metamask/ocap-kernel';
-import type { Kernel, VatId } from '@metamask/ocap-kernel';
 import { object, literal } from '@metamask/superstruct';
 &nbsp;
-export const restartVatSpec: MethodSpec&lt;
-  'restartVat',
+import type { Kernel } from '../../Kernel.ts';
+import type { VatId } from '../../types.ts';
+import { VatIdStruct } from '../../types.ts';
+&nbsp;
+export const terminateVatSpec: MethodSpec&lt;
+  'terminateVat',
   { id: VatId },
   Promise&lt;null&gt;
 &gt; = {
-  method: 'restartVat',
+  method: 'terminateVat',
   params: object({ id: VatIdStruct }),
   result: literal(null),
 };
 &nbsp;
-export type RestartVatHooks = { kernel: Pick&lt;Kernel, 'restartVat'&gt; };
+export type TerminateVatHooks = { kernel: Pick&lt;Kernel, 'terminateVat'&gt; };
 &nbsp;
-export const restartVatHandler: Handler&lt;
-  'restartVat',
+export const terminateVatHandler: Handler&lt;
+  'terminateVat',
   { id: VatId },
   Promise&lt;null&gt;,
-  RestartVatHooks
+  TerminateVatHooks
 &gt; = {
-  ...restartVatSpec,
+  ...terminateVatSpec,
   hooks: { kernel: true },
-  implementation: async (
-    { kernel }: RestartVatHooks,
-    params: { id: VatId },
-  ): Promise&lt;null&gt; =&gt; {
-    await kernel.restartVat(params.id);
+  implementation: async ({ kernel }, params): Promise&lt;null&gt; =&gt; {
+    await kernel.terminateVat(params.id);
     return null;
   },
 };
@@ -169,16 +166,16 @@ export const restartVatHandler: Handler&lt;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-10T23:04:23.923Z
+                at 2026-02-11T12:51:44.873Z
             </div>
-        <script src="../../../prettify.js"></script>
+        <script src="../../../../prettify.js"></script>
         <script>
             window.onload = function () {
                 prettyPrint();
             };
         </script>
-        <script src="../../../sorter.js"></script>
-        <script src="../../../block-navigation.js"></script>
+        <script src="../../../../sorter.js"></script>
+        <script src="../../../../block-navigation.js"></script>
     </body>
 </html>
     
