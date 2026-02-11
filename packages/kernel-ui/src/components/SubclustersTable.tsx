@@ -13,7 +13,6 @@ export const SubclustersTable: React.FC = () => {
     restartVat,
     terminateVat,
     terminateSubcluster,
-    reloadSubcluster,
   } = useVats();
 
   if (!subclusters || subclusters.length === 0) {
@@ -36,7 +35,6 @@ export const SubclustersTable: React.FC = () => {
           onRestartVat={restartVat}
           onTerminateVat={terminateVat}
           onTerminateSubcluster={terminateSubcluster}
-          onReloadSubcluster={reloadSubcluster}
         />
       ))}
     </Box>

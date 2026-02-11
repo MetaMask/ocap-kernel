@@ -19,12 +19,6 @@ const makeMockKernel = (): KernelFacetSource => ({
     }),
   pingVat: async () => Promise.resolve('pong'),
   queueMessage: async () => Promise.resolve({ body: '#null', slots: [] }),
-  reloadSubcluster: async () =>
-    Promise.resolve({
-      id: 's1',
-      config: { bootstrap: 'b', vats: {} },
-      vats: {},
-    }),
   reset: async () => Promise.resolve(),
   terminateSubcluster: async () => Promise.resolve(),
 });
@@ -42,7 +36,6 @@ describe('makeKernelFacet', () => {
     expect(typeof facet.ping).toBe('function');
     expect(typeof facet.pingVat).toBe('function');
     expect(typeof facet.queueMessage).toBe('function');
-    expect(typeof facet.reloadSubcluster).toBe('function');
     expect(typeof facet.reset).toBe('function');
     expect(typeof facet.terminateSubcluster).toBe('function');
   });

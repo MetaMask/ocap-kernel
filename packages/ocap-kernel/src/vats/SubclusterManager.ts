@@ -32,7 +32,7 @@ type SubclusterManagerOptions = {
 };
 
 /**
- * Manages subcluster operations including creation, termination, and reload.
+ * Manages subcluster operations including creation and termination.
  */
 export class SubclusterManager {
   /** Storage holding the kernel's persistent state */
@@ -140,71 +140,6 @@ export class SubclusterManager {
       this.#vatManager.collectGarbage();
     }
     this.#kernelStore.deleteSubcluster(subclusterId);
-  }
-
-  /**
-   * Reloads a named subcluster by restarting all its vats.
-   * This terminates and restarts all vats in the subcluster.
-   *
-   * @param subclusterId - The id of the subcluster to reload.
-   * @returns A promise for an object containing the subcluster.
-   * @throws If the subcluster is not found.
-   */
-  async reloadSubcluster(subclusterId: string): Promise<Subcluster> {
-    await this.#kernelQueue.waitForCrank();
-    const subcluster = this.getSubcluster(subclusterId);
-    if (!subcluster) {
-      throw new SubclusterNotFoundError(subclusterId);
-    }
-
-    // Check if this is a system subcluster before reloading
-    let systemSubclusterName: string | undefined;
-    for (const [
-      name,
-      mappedId,
-    ] of this.#kernelStore.getAllSystemSubclusterMappings()) {
-      if (mappedId === subclusterId) {
-        systemSubclusterName = name;
-        break;
-      }
-    }
-
-    for (const vatId of Object.values(subcluster.vats).reverse()) {
-      await this.#vatManager.terminateVat(vatId);
-      this.#vatManager.collectGarbage();
-    }
-    const newId = this.#kernelStore.addSubcluster(subcluster.config);
-    await this.#launchVatsForSubcluster(newId, subcluster.config);
-    const newSubcluster = this.getSubcluster(newId);
-    if (!newSubcluster) {
-      throw new SubclusterNotFoundError(newId);
-    }
-
-    // Update system subcluster mappings to point to the new subcluster ID
-    if (systemSubclusterName !== undefined) {
-      const bootstrapVatId = newSubcluster.vats[newSubcluster.config.bootstrap];
-      if (!bootstrapVatId) {
-        throw new Error(
-          `Reloaded system subcluster "${systemSubclusterName}" has no bootstrap vat`,
-        );
-      }
-      const rootKref = this.#kernelStore.getRootObject(bootstrapVatId);
-      if (!rootKref) {
-        throw new Error(
-          `Reloaded system subcluster "${systemSubclusterName}" has no root object`,
-        );
-      }
-      this.#systemSubclusterRoots.set(systemSubclusterName, rootKref);
-      this.#kernelStore.setSystemSubclusterMapping(
-        systemSubclusterName,
-        newSubcluster.id,
-      );
-      this.#logger.info(
-        `Updated system subcluster mapping "${systemSubclusterName}" to ${newSubcluster.id}`,
-      );
-    }
-
-    return newSubcluster;
   }
 
   /**
@@ -455,56 +390,6 @@ export class SubclusterManager {
     }
 
     return hasValidPersistedSubclusters;
-  }
-
-  /**
-   * Reload all subclusters.
-   * This is for debugging purposes only.
-   */
-  async reloadAllSubclusters(): Promise<void> {
-    const subclusters = this.#kernelStore.getSubclusters();
-    // Build a reverse map of old subcluster ID -> system subcluster name
-    const systemNameBySubclusterId = new Map<string, string>();
-    for (const [
-      name,
-      mappedId,
-    ] of this.#kernelStore.getAllSystemSubclusterMappings()) {
-      systemNameBySubclusterId.set(mappedId, name);
-    }
-
-    await this.#vatManager.terminateAllVats();
-    for (const subcluster of subclusters) {
-      await this.#kernelQueue.waitForCrank();
-      const newId = this.#kernelStore.addSubcluster(subcluster.config);
-      await this.#launchVatsForSubcluster(newId, subcluster.config);
-
-      // Update system subcluster mappings if this was a system subcluster
-      const systemName = systemNameBySubclusterId.get(subcluster.id);
-      if (systemName !== undefined) {
-        const newSubcluster = this.getSubcluster(newId);
-        if (!newSubcluster) {
-          throw new SubclusterNotFoundError(newId);
-        }
-        const bootstrapVatId =
-          newSubcluster.vats[newSubcluster.config.bootstrap];
-        if (!bootstrapVatId) {
-          throw new Error(
-            `Reloaded system subcluster "${systemName}" has no bootstrap vat`,
-          );
-        }
-        const rootKref = this.#kernelStore.getRootObject(bootstrapVatId);
-        if (!rootKref) {
-          throw new Error(
-            `Reloaded system subcluster "${systemName}" has no root object`,
-          );
-        }
-        this.#systemSubclusterRoots.set(systemName, rootKref);
-        this.#kernelStore.setSystemSubclusterMapping(systemName, newId);
-        this.#logger.info(
-          `Updated system subcluster mapping "${systemName}" to ${newId}`,
-        );
-      }
-    }
   }
 }
 harden(SubclusterManager);

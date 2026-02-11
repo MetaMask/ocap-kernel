@@ -137,39 +137,6 @@ describe('useKernelActions', () => {
     });
   });
 
-  describe('reload', () => {
-    it('sends reload command', async () => {
-      const { useKernelActions } = await import('./useKernelActions.ts');
-      const { result } = renderHook(() => useKernelActions());
-
-      mockSendMessage.mockResolvedValueOnce({ success: true });
-
-      result.current.reload();
-      await waitFor(() => {
-        expect(mockSendMessage).toHaveBeenCalledWith({
-          method: 'reload',
-          params: [],
-        });
-      });
-      expect(mockLogMessage).toHaveBeenCalledWith('Kernel reloaded', 'success');
-    });
-
-    it('logs error on failure', async () => {
-      const { useKernelActions } = await import('./useKernelActions.ts');
-      const { result } = renderHook(() => useKernelActions());
-
-      mockSendMessage.mockRejectedValueOnce(new Error());
-
-      result.current.reload();
-      await waitFor(() => {
-        expect(mockLogMessage).toHaveBeenCalledWith(
-          'Failed to reload',
-          'error',
-        );
-      });
-    });
-  });
-
   describe('launchSubcluster', () => {
     it('sends launch subcluster command with correct parameters', async () => {
       const { useKernelActions } = await import('./useKernelActions.ts');

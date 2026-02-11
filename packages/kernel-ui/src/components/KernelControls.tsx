@@ -14,8 +14,7 @@ import { useVats } from '../hooks/useVats.ts';
  * @returns A panel for controlling the kernel.
  */
 export const KernelControls: React.FC = () => {
-  const { terminateAllVats, collectGarbage, clearState, reload } =
-    useKernelActions();
+  const { terminateAllVats, collectGarbage, clearState } = useKernelActions();
   const { hasVats } = useVats();
 
   return (
@@ -47,13 +46,6 @@ export const KernelControls: React.FC = () => {
       >
         <Icon name={IconName.Data} className="mb-2" />
         Clear All State
-      </ButtonBase>
-      <ButtonBase
-        className="h-auto flex-1 flex-col justify-center rounded-lg bg-muted py-4 hover:bg-muted-hover active:bg-muted-pressed"
-        onClick={reload}
-      >
-        <Icon name={IconName.Refresh} className="mb-2" />
-        Reload Kernel
       </ButtonBase>
     </Box>
   );

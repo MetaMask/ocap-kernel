@@ -130,21 +130,6 @@ test.describe('Control Panel', () => {
     ).toContainText('pong');
   });
 
-  test('should reload a subcluster', async () => {
-    // Open the subcluster accordion first
-    await popupPage.locator('[data-testid="accordion-header"]').first().click();
-    await expect(
-      popupPage.locator('[data-testid="reload-subcluster-button"]').first(),
-    ).toBeVisible();
-    await popupPage
-      .locator('[data-testid="reload-subcluster-button"]')
-      .first()
-      .click();
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('Reloaded subcluster');
-  });
-
   test('should terminate all vats', async () => {
     await expect(
       popupPage.locator('button:text("Terminate All Vats")'),
@@ -162,22 +147,6 @@ test.describe('Control Panel', () => {
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('State cleared');
     await expect(popupPage.locator('table')).not.toBeVisible();
-  });
-
-  test('should reload kernel state and load default vats', async () => {
-    test.slow();
-    await expect(
-      popupPage.locator('button:text("Reload Kernel")'),
-    ).toBeVisible();
-    await popupPage.click('button:text("Reload Kernel")');
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('"method": "reload"');
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('Kernel reloaded', {
-      timeout: 10000,
-    });
   });
 
   test('should collect garbage', async () => {

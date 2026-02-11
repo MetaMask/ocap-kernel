@@ -19,7 +19,6 @@ describe('makeKernelCapTP', () => {
     launchSubcluster: vi.fn(),
     pingVat: vi.fn(),
     queueMessage: vi.fn(),
-    reloadSubcluster: vi.fn(),
     reset: vi.fn(),
     terminateSubcluster: vi.fn(),
     provideFacet: vi.fn(),

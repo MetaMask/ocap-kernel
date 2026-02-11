@@ -47,7 +47,6 @@ describe('CapTP Integration', () => {
         body: '#{"result":"message-sent"}',
         slots: [],
       }),
-      reloadSubcluster: vi.fn().mockResolvedValue({ id: 'sc1', vats: [] }),
       reset: vi.fn().mockResolvedValue(undefined),
       terminateSubcluster: vi.fn().mockResolvedValue(undefined),
       provideFacet: vi.fn(),

@@ -20,7 +20,6 @@ const mockUseKernelActions = (overrides = {}): void => {
   vi.mocked(useKernelActions).mockReturnValue({
     terminateAllVats: vi.fn(),
     clearState: vi.fn(),
-    reload: vi.fn(),
     collectGarbage: vi.fn(),
     launchSubcluster: vi.fn(),
     ...overrides,
@@ -34,7 +33,6 @@ const mockUseVats = (vats: VatRecord[] = []): void => {
     restartVat: vi.fn(),
     terminateVat: vi.fn(),
     terminateSubcluster: vi.fn(),
-    reloadSubcluster: vi.fn(),
     hasVats: vats.length > 0,
   });
 };
@@ -63,16 +61,6 @@ describe('KernelControls', () => {
       name: 'Clear All State',
     });
     expect(clearButton).toBeInTheDocument();
-  });
-
-  it('renders the "Reload Kernel" button', () => {
-    mockUseKernelActions();
-    mockUseVats();
-    render(<KernelControls />);
-    const reloadButton = screen.getByRole('button', {
-      name: 'Reload Kernel',
-    });
-    expect(reloadButton).toBeInTheDocument();
   });
 
   it('does not render "Terminate All Vats" button when no vats exist', () => {
@@ -145,17 +133,5 @@ describe('KernelControls', () => {
     });
     await userEvent.click(clearButton);
     expect(clearState).toHaveBeenCalledTimes(1);
-  });
-
-  it('calls reload when "Reload Kernel" button is clicked', async () => {
-    const reload = vi.fn();
-    mockUseKernelActions({ reload });
-    mockUseVats();
-    render(<KernelControls />);
-    const reloadButton = screen.getByRole('button', {
-      name: 'Reload Kernel',
-    });
-    await userEvent.click(reloadButton);
-    expect(reload).toHaveBeenCalledTimes(1);
   });
 });

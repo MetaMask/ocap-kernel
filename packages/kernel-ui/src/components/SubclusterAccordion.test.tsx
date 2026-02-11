@@ -107,7 +107,6 @@ describe('SubclusterAccordion', () => {
     onRestartVat: vi.fn(),
     onTerminateVat: vi.fn(),
     onTerminateSubcluster: vi.fn(),
-    onReloadSubcluster: vi.fn(),
   };
 
   const defaultProps = {
@@ -153,7 +152,6 @@ describe('SubclusterAccordion', () => {
     expect(
       screen.getByTestId('terminate-subcluster-button'),
     ).toBeInTheDocument();
-    expect(screen.getByTestId('reload-subcluster-button')).toBeInTheDocument();
     expect(screen.getByTestId('vat-table')).toBeInTheDocument();
   });
 
@@ -170,19 +168,6 @@ describe('SubclusterAccordion', () => {
     expect(mockActions.onTerminateSubcluster).toHaveBeenCalledWith(
       'subcluster-1',
     );
-  });
-
-  it('calls onReloadSubcluster when reload button is clicked', async () => {
-    const user = userEvent.setup();
-    render(<SubclusterAccordion {...defaultProps} />);
-
-    // Expand the accordion
-    await user.click(screen.getByText('Subcluster subcluster-1 -'));
-
-    // Click reload button
-    await user.click(screen.getByTestId('reload-subcluster-button'));
-
-    expect(mockActions.onReloadSubcluster).toHaveBeenCalledWith('subcluster-1');
   });
 
   it('opens config modal when View Config button is clicked', async () => {

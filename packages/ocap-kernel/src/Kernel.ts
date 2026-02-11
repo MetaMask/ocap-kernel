@@ -397,18 +397,6 @@ export class Kernel {
   }
 
   /**
-   * Reloads a named subcluster by restarting all its vats.
-   * This terminates and restarts all vats in the subcluster.
-   *
-   * @param subclusterId - The id of the subcluster to reload.
-   * @returns A promise for an object containing the subcluster.
-   * @throws If the subcluster is not found.
-   */
-  async reloadSubcluster(subclusterId: string): Promise<Subcluster> {
-    return this.#subclusterManager.reloadSubcluster(subclusterId);
-  }
-
-  /**
    * Retrieves a subcluster by its ID.
    *
    * @param subclusterId - The id of the subcluster.
@@ -686,14 +674,6 @@ export class Kernel {
    */
   async terminateAllVats(): Promise<void> {
     await this.#vatManager.terminateAllVats();
-  }
-
-  /**
-   * Terminate all running vats and reload them.
-   * This is for debugging purposes only.
-   */
-  async reload(): Promise<void> {
-    await this.#subclusterManager.reloadAllSubclusters();
   }
 
   /**

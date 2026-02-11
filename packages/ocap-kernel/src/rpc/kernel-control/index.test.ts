@@ -20,11 +20,6 @@ import {
 import { pingVatHandler, pingVatSpec } from './ping-vat.ts';
 import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
 import { redeemOcapURLHandler, redeemOcapURLSpec } from './redeem-ocap-url.ts';
-import { reloadConfigHandler, reloadConfigSpec } from './reload-config.ts';
-import {
-  reloadSubclusterHandler,
-  reloadSubclusterSpec,
-} from './reload-subcluster.ts';
 import { restartVatHandler, restartVatSpec } from './restart-vat.ts';
 import { revokeHandler, revokeSpec } from './revoke.ts';
 import {
@@ -45,7 +40,6 @@ describe('handlers/index', () => {
       getStatus: getStatusHandler,
       issueOcapURL: issueOcapURLHandler,
       pingVat: pingVatHandler,
-      reload: reloadConfigHandler,
       redeemOcapURL: redeemOcapURLHandler,
       restartVat: restartVatHandler,
       revoke: revokeHandler,
@@ -55,7 +49,6 @@ describe('handlers/index', () => {
       collectGarbage: collectGarbageHandler,
       terminateVat: terminateVatHandler,
       launchSubcluster: launchSubclusterHandler,
-      reloadSubcluster: reloadSubclusterHandler,
       terminateSubcluster: terminateSubclusterHandler,
     });
   });
@@ -76,7 +69,6 @@ describe('handlers/index', () => {
       getStatus: getStatusSpec,
       issueOcapURL: issueOcapURLSpec,
       pingVat: pingVatSpec,
-      reload: reloadConfigSpec,
       redeemOcapURL: redeemOcapURLSpec,
       restartVat: restartVatSpec,
       revoke: revokeSpec,
@@ -86,7 +78,6 @@ describe('handlers/index', () => {
       collectGarbage: collectGarbageSpec,
       terminateVat: terminateVatSpec,
       launchSubcluster: launchSubclusterSpec,
-      reloadSubcluster: reloadSubclusterSpec,
       terminateSubcluster: terminateSubclusterSpec,
     });
   });

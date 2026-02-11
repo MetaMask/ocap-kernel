@@ -1,6 +1,5 @@
 import {
   Box,
-  Button,
   ButtonBase,
   FontWeight,
   TextColor,
@@ -23,7 +22,6 @@ export const SubclusterAccordion: React.FC<{
   onRestartVat: (id: string) => void;
   onTerminateVat: (id: string) => void;
   onTerminateSubcluster: (id: string) => void;
-  onReloadSubcluster: (id: string) => void;
 }> = ({
   id,
   vats,
@@ -32,7 +30,6 @@ export const SubclusterAccordion: React.FC<{
   onRestartVat,
   onTerminateVat,
   onTerminateSubcluster,
-  onReloadSubcluster,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -65,19 +62,6 @@ export const SubclusterAccordion: React.FC<{
         testId={`subcluster-accordion-${id}`}
       >
         <Box className="flex gap-2 px-3">
-          <Button
-            className="h-auto flex-row justify-center rounded-md"
-            onClick={() => onReloadSubcluster(id)}
-            data-testid="reload-subcluster-button"
-          >
-            <TextComponent
-              variant={TextVariant.BodySm}
-              color={TextColor.PrimaryInverse}
-            >
-              Reload
-            </TextComponent>
-          </Button>
-
           <ButtonBase
             className="h-auto flex-row justify-center rounded-md bg-error-default py-1 hover:bg-error-default-pressed active:bg-error-default-pressed"
             onClick={() => onTerminateSubcluster(id)}

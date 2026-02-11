@@ -320,58 +320,6 @@ describe('System Subcluster', { timeout: 30_000 }, () => {
     });
   });
 
-  describe('system subcluster reload', () => {
-    it('updates system subcluster mapping after reload and survives restart', async () => {
-      kernelDatabase = await makeSQLKernelDatabase({
-        dbFilename: ':memory:',
-      });
-      kernel = await makeTestKernel(kernelDatabase, {
-        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
-      });
-
-      const initialSubclusters = kernel.getSubclusters();
-      expect(initialSubclusters).toHaveLength(1);
-      const initialSubclusterId = initialSubclusters[0]!.id;
-      const initialRoot = kernel.getSystemSubclusterRoot('test-system');
-
-      // Reload the system subcluster (creates a new subcluster with new ID)
-      const reloadedSubcluster =
-        await kernel.reloadSubcluster(initialSubclusterId);
-      expect(reloadedSubcluster.id).not.toBe(initialSubclusterId);
-
-      // System subcluster root should be updated
-      const reloadedRoot = kernel.getSystemSubclusterRoot('test-system');
-      expect(reloadedRoot).toBeDefined();
-      expect(reloadedRoot).not.toBe(initialRoot);
-
-      // The reloaded system vat should still work
-      const result = await kernel.queueMessage(
-        reloadedRoot,
-        'hasKernelFacet',
-        [],
-      );
-      await delay();
-      expect(kunser(result)).toBe(true);
-
-      // Stop and restart kernel — should not throw
-      await kernel.stop();
-
-      // eslint-disable-next-line require-atomic-updates
-      kernel = await makeTestKernel(kernelDatabase, {
-        resetStorage: false,
-        systemSubclusters: [makeSystemSubclusterConfig('test-system')],
-      });
-
-      // Should restore with the new subcluster ID, not the stale one
-      const restartedSubclusters = kernel.getSubclusters();
-      expect(restartedSubclusters).toHaveLength(1);
-      expect(restartedSubclusters[0]!.id).toBe(reloadedSubcluster.id);
-
-      const restartedRoot = kernel.getSystemSubclusterRoot('test-system');
-      expect(restartedRoot).toBeDefined();
-    });
-  });
-
   describe('multiple system subclusters', () => {
     it('launches multiple system subclusters at kernel initialization', async () => {
       kernelDatabase = await makeSQLKernelDatabase({
