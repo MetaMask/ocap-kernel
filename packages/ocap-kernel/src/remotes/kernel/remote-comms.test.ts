@@ -8,6 +8,7 @@ import {
   initRemoteIdentity,
   initRemoteComms,
   parseOcapURL,
+  constructInvocationURL,
   getKnownRelays,
 } from './remote-comms.ts';
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
@@ -518,6 +519,103 @@ describe('remote-comms', () => {
       ['ocap:oid@', 'empty where part'],
     ])('rejects badly formatted ocap URL: %s', (url, _description) => {
       expect(() => parseOcapURL(url)).toThrow('bad ocap URL');
+    });
+
+    it('extracts method and args query parameters', () => {
+      const url = 'ocap:oid@peerid?method=invoke&args=%5B1%2C%22hello%22%5D';
+      const parts = parseOcapURL(url);
+      expect(parts).toStrictEqual({
+        oid: 'oid',
+        host: 'peerid',
+        hints: [],
+        method: 'invoke',
+        args: [1, 'hello'],
+      });
+    });
+
+    it('extracts method and args with hints', () => {
+      const url = 'ocap:oid@peerid,hint1,hint2?method=foo&args=%5B%5D';
+      const parts = parseOcapURL(url);
+      expect(parts).toStrictEqual({
+        oid: 'oid',
+        host: 'peerid',
+        hints: ['hint1', 'hint2'],
+        method: 'foo',
+        args: [],
+      });
+    });
+
+    it('omits method and args when query params are absent', () => {
+      const parts = parseOcapURL('ocap:oid@peerid');
+      expect(parts).toStrictEqual({
+        oid: 'oid',
+        host: 'peerid',
+        hints: [],
+      });
+      expect(parts.method).toBeUndefined();
+      expect(parts.args).toBeUndefined();
+    });
+  });
+
+  describe('constructInvocationURL', () => {
+    it('appends method and args to a base URL', () => {
+      const url = constructInvocationURL('ocap:oid@peerid', 'invoke', [
+        1,
+        'hello',
+      ]);
+      const parts = parseOcapURL(url);
+      expect(parts.method).toBe('invoke');
+      expect(parts.args).toStrictEqual([1, 'hello']);
+      expect(parts.oid).toBe('oid');
+      expect(parts.host).toBe('peerid');
+    });
+
+    it('preserves hints in base URL', () => {
+      const url = constructInvocationURL('ocap:oid@peerid,hint1,hint2', 'foo', [
+        'bar',
+      ]);
+      const parts = parseOcapURL(url);
+      expect(parts.hints).toStrictEqual(['hint1', 'hint2']);
+      expect(parts.method).toBe('foo');
+      expect(parts.args).toStrictEqual(['bar']);
+    });
+
+    it('defaults args to empty array', () => {
+      const url = constructInvocationURL('ocap:oid@peerid', 'ping');
+      const parts = parseOcapURL(url);
+      expect(parts.method).toBe('ping');
+      expect(parts.args).toStrictEqual([]);
+    });
+
+    it('handles special characters in method and args', () => {
+      const url = constructInvocationURL('ocap:oid@peerid', 'do-thing', [
+        'hello world',
+        { key: 'value' },
+      ]);
+      const parts = parseOcapURL(url);
+      expect(parts.method).toBe('do-thing');
+      expect(parts.args).toStrictEqual(['hello world', { key: 'value' }]);
+    });
+
+    it('round-trips: construct then parse preserves all fields', () => {
+      const baseURL = 'ocap:oid@peerid,hint1';
+      const method = 'transfer';
+      const args = [42, 'recipient', true, null];
+      const invocationURL = constructInvocationURL(baseURL, method, args);
+      const parts = parseOcapURL(invocationURL);
+      expect(parts).toStrictEqual({
+        oid: 'oid',
+        host: 'peerid',
+        hints: ['hint1'],
+        method: 'transfer',
+        args: [42, 'recipient', true, null],
+      });
+    });
+
+    it('rejects unparseable base URL', () => {
+      expect(() => constructInvocationURL('garbage', 'method')).toThrow(
+        'unparseable URL',
+      );
     });
   });
 

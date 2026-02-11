@@ -22,6 +22,8 @@ export type OcapURLParts = {
   oid: string;
   host: string;
   hints: string[];
+  method?: string;
+  args?: unknown[];
 };
 
 /**
@@ -52,11 +54,43 @@ export function parseOcapURL(ocapURL: string): OcapURLParts {
   if (!host) {
     throw Error('bad ocap URL');
   }
-  return {
-    oid,
-    host,
-    hints,
-  };
+  const result: OcapURLParts = { oid, host, hints };
+
+  const method = ref.searchParams.get('method');
+  if (method) {
+    result.method = method;
+  }
+
+  const argsParam = ref.searchParams.get('args');
+  if (argsParam) {
+    result.args = JSON.parse(argsParam) as unknown[];
+  }
+
+  return result;
+}
+
+/**
+ * Construct an invocation URL by appending method and args query parameters
+ * to a base OCAP URL.
+ *
+ * @param baseURL - The base OCAP URL (e.g. `ocap:oid@host,hint`).
+ * @param method - The method name to invoke.
+ * @param args - The arguments to pass to the method.
+ *
+ * @returns the OCAP URL with query parameters appended.
+ */
+export function constructInvocationURL(
+  baseURL: string,
+  method: string,
+  args: unknown[] = [],
+): string {
+  const ref = URL.parse(baseURL);
+  if (!ref) {
+    throw Error('unparseable URL');
+  }
+  ref.searchParams.set('method', method);
+  ref.searchParams.set('args', JSON.stringify(args));
+  return ref.toString();
 }
 
 /**
