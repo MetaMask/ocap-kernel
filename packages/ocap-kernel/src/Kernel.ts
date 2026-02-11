@@ -152,13 +152,8 @@ export class Kernel {
       kernelStore: this.#kernelStore,
       kernelQueue: this.#kernelQueue,
       vatManager: this.#vatManager,
-      getKernelService: (name) => {
-        const service = this.#kernelServiceManager.getKernelService(name);
-        if (!service) {
-          return undefined;
-        }
-        return { kref: service.kref, systemOnly: service.systemOnly };
-      },
+      getKernelService: (name) =>
+        this.#kernelServiceManager.getKernelService(name),
       queueMessage: this.queueMessage.bind(this),
       logger: this.#logger.subLogger({ tags: ['SubclusterManager'] }),
     });
