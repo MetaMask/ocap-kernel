@@ -1,5 +1,6 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Kernel } from '@metamask/ocap-kernel';
+import type { KernelStatus } from '@metamask/ocap-kernel';
 import { describe, it, expect } from 'vitest';
 
 import { makeTestKernel } from '../helpers/kernel.ts';
@@ -16,6 +17,21 @@ const TEST_TIMEOUT = 30_000;
 // Dummy relay addresses - not actually connected to, just needed for bootstrap
 // Using localhost addresses that won't conflict with real relay ports
 const DUMMY_RELAYS = ['/ip4/127.0.0.1/tcp/19001/ws/p2p/QmDummyPeerId'];
+
+/**
+ * Extract peerId from remoteComms status, returning undefined for disconnected state.
+ *
+ * @param remoteComms - The remote comms status object.
+ * @returns The peer ID string or undefined.
+ */
+function getRemoteCommsPeerId(
+  remoteComms: KernelStatus['remoteComms'],
+): string | undefined {
+  if (remoteComms && remoteComms.state !== 'disconnected') {
+    return remoteComms.peerId;
+  }
+  return undefined;
+}
 
 // Tests for identity recovery using mnemonic
 // Note: These tests verify that the same mnemonic produces the same peer ID
@@ -39,8 +55,8 @@ describe('BIP39 Identity Recovery', () => {
         });
 
         const status1 = await kernel1.getStatus();
-        expect(status1.remoteComms?.isInitialized).toBe(true);
-        peerId1 = status1.remoteComms?.peerId;
+        expect(status1.remoteComms?.state).toBe('connected');
+        peerId1 = getRemoteCommsPeerId(status1.remoteComms);
         expect(peerId1).toBeDefined();
       } finally {
         if (kernel1) {
@@ -63,8 +79,8 @@ describe('BIP39 Identity Recovery', () => {
         });
 
         const status2 = await kernel2.getStatus();
-        expect(status2.remoteComms?.isInitialized).toBe(true);
-        const peerId2 = status2.remoteComms?.peerId;
+        expect(status2.remoteComms?.state).toBe('connected');
+        const peerId2 = getRemoteCommsPeerId(status2.remoteComms);
 
         // Peer IDs should be identical
         expect(peerId2).toBe(peerId1);
@@ -95,7 +111,7 @@ describe('BIP39 Identity Recovery', () => {
         });
 
         const status1 = await kernel1.getStatus();
-        peerId1 = status1.remoteComms?.peerId;
+        peerId1 = getRemoteCommsPeerId(status1.remoteComms);
         expect(peerId1).toBeDefined();
       } finally {
         if (kernel1) {
@@ -118,7 +134,7 @@ describe('BIP39 Identity Recovery', () => {
         });
 
         const status2 = await kernel2.getStatus();
-        const peerId2 = status2.remoteComms?.peerId;
+        const peerId2 = getRemoteCommsPeerId(status2.remoteComms);
 
         // Peer IDs should be different
         expect(peerId2).not.toBe(peerId1);
@@ -146,7 +162,7 @@ describe('BIP39 Identity Recovery', () => {
         await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
 
         const status1 = await kernel.getStatus();
-        expect(status1.remoteComms?.peerId).toBeDefined();
+        expect(getRemoteCommsPeerId(status1.remoteComms)).toBeDefined();
 
         // Stop kernel but don't close database
         await kernel.stop();
@@ -213,7 +229,7 @@ describe('BIP39 Identity Recovery', () => {
         await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
 
         const status1 = await kernel.getStatus();
-        const originalPeerId = status1.remoteComms?.peerId;
+        const originalPeerId = getRemoteCommsPeerId(status1.remoteComms);
         expect(originalPeerId).toBeDefined();
 
         // Stop kernel but don't close database
@@ -227,7 +243,7 @@ describe('BIP39 Identity Recovery', () => {
         await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
 
         const status2 = await kernel.getStatus();
-        const recoveredPeerId = status2.remoteComms?.peerId;
+        const recoveredPeerId = getRemoteCommsPeerId(status2.remoteComms);
 
         // Should have new identity from mnemonic, not the original random one
         expect(recoveredPeerId).not.toBe(originalPeerId);
@@ -243,7 +259,7 @@ describe('BIP39 Identity Recovery', () => {
         await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
 
         const status3 = await kernel.getStatus();
-        expect(status3.remoteComms?.peerId).toBe(recoveredPeerId);
+        expect(getRemoteCommsPeerId(status3.remoteComms)).toBe(recoveredPeerId);
       } finally {
         if (kernel) {
           await kernel.stop();

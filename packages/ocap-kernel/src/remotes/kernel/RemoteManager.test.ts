@@ -15,6 +15,7 @@ vi.mock('./remote-comms.ts', async () => {
   return {
     ...actual,
     initRemoteComms: vi.fn(),
+    initRemoteIdentity: vi.fn(),
   };
 });
 
@@ -52,6 +53,149 @@ describe('RemoteManager', () => {
     });
 
     vi.mocked(remoteComms.initRemoteComms).mockClear();
+    vi.mocked(remoteComms.initRemoteIdentity).mockClear();
+  });
+
+  describe('identity initialization', () => {
+    it('initializes identity without message handler', async () => {
+      const mockIdentity = {
+        getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
+        issueOcapURL: vi.fn(),
+        redeemLocalOcapURL: vi.fn(),
+      };
+      vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
+        identity: mockIdentity,
+        keySeed: 'test-key-seed',
+        knownRelays: [],
+      });
+
+      // No message handler set - should still work
+      await remoteManager.initIdentity();
+
+      expect(remoteComms.initRemoteIdentity).toHaveBeenCalledWith(
+        kernelStore,
+        { mnemonic: undefined },
+        logger,
+        undefined,
+      );
+    });
+
+    it('reports isIdentityInitialized correctly', async () => {
+      expect(remoteManager.isIdentityInitialized()).toBe(false);
+
+      const mockIdentity = {
+        getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
+        issueOcapURL: vi.fn(),
+        redeemLocalOcapURL: vi.fn(),
+      };
+      vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
+        identity: mockIdentity,
+        keySeed: 'test-key-seed',
+        knownRelays: [],
+      });
+
+      await remoteManager.initIdentity();
+      expect(remoteManager.isIdentityInitialized()).toBe(true);
+    });
+
+    it('getRemoteIdentity works after initIdentity', async () => {
+      const mockIdentity = {
+        getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
+        issueOcapURL: vi.fn(),
+        redeemLocalOcapURL: vi.fn(),
+      };
+      vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
+        identity: mockIdentity,
+        keySeed: 'test-key-seed',
+        knownRelays: [],
+      });
+
+      await remoteManager.initIdentity();
+      const identity = remoteManager.getRemoteIdentity();
+      expect(identity.getPeerId()).toBe('identity-peer-id');
+    });
+
+    it('getRemoteIdentity works after initRemoteComms (returns comms)', async () => {
+      const messageHandler = vi.fn();
+      vi.mocked(remoteComms.initRemoteComms).mockResolvedValue(mockRemoteComms);
+
+      remoteManager.setMessageHandler(messageHandler);
+      await remoteManager.initRemoteComms();
+
+      const identity = remoteManager.getRemoteIdentity();
+      expect(identity).toBe(mockRemoteComms);
+    });
+
+    it('getRemoteIdentity throws when nothing initialized', () => {
+      expect(() => remoteManager.getRemoteIdentity()).toThrow(
+        'Remote identity not initialized',
+      );
+    });
+
+    it('cleanup clears identity', async () => {
+      const mockIdentity = {
+        getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
+        issueOcapURL: vi.fn(),
+        redeemLocalOcapURL: vi.fn(),
+      };
+      vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
+        identity: mockIdentity,
+        keySeed: 'test-key-seed',
+        knownRelays: [],
+      });
+
+      await remoteManager.initIdentity();
+      expect(remoteManager.isIdentityInitialized()).toBe(true);
+
+      remoteManager.cleanup();
+      expect(remoteManager.isIdentityInitialized()).toBe(false);
+    });
+
+    it('getPeerId works with identity-only', async () => {
+      const mockIdentity = {
+        getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
+        issueOcapURL: vi.fn(),
+        redeemLocalOcapURL: vi.fn(),
+      };
+      vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
+        identity: mockIdentity,
+        keySeed: 'test-key-seed',
+        knownRelays: [],
+      });
+
+      await remoteManager.initIdentity();
+      expect(remoteManager.getPeerId()).toBe('identity-peer-id');
+    });
+
+    it('passes mnemonic from constructor', async () => {
+      const managerWithMnemonic = new RemoteManager({
+        platformServices: mockPlatformServices,
+        kernelStore,
+        kernelQueue: mockKernelQueue,
+        logger,
+        mnemonic: 'test mnemonic phrase',
+      });
+
+      const mockIdentity = {
+        getPeerId: vi.fn().mockReturnValue('mnemonic-peer-id'),
+        issueOcapURL: vi.fn(),
+        redeemLocalOcapURL: vi.fn(),
+      };
+      vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
+        identity: mockIdentity,
+        keySeed: 'mnemonic-key-seed',
+        knownRelays: [],
+      });
+
+      await managerWithMnemonic.initIdentity();
+
+      expect(remoteComms.initRemoteIdentity).toHaveBeenCalledWith(
+        kernelStore,
+        { mnemonic: 'test mnemonic phrase' },
+        expect.any(Object),
+        undefined,
+      );
+    });
   });
 
   describe('initialization', () => {
@@ -452,7 +596,7 @@ describe('RemoteManager', () => {
       remoteManager.cleanup();
 
       expect(() => remoteManager.getPeerId()).toThrow(
-        'Remote comms not initialized',
+        'Remote identity not initialized',
       );
     });
 

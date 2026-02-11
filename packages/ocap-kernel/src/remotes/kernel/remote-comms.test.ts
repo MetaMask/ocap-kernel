@@ -5,6 +5,7 @@ import type { Logger } from '@metamask/logger';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import {
+  initRemoteIdentity,
   initRemoteComms,
   parseOcapURL,
   getKnownRelays,
@@ -345,6 +346,107 @@ describe('remote-comms', () => {
       // Should not overwrite existing relays
       expect(mockKernelStore.kv.get('knownRelays')).toBe(
         JSON.stringify(storedRelays),
+      );
+    });
+  });
+
+  describe('initRemoteIdentity', () => {
+    it('creates identity with expected keys/methods and stores state in KV', async () => {
+      const result = await initRemoteIdentity(mockKernelStore);
+
+      expect(result.identity).toHaveProperty('getPeerId');
+      expect(result.identity).toHaveProperty('issueOcapURL');
+      expect(result.identity).toHaveProperty('redeemLocalOcapURL');
+
+      const keySeed = mockKernelStore.kv.get('keySeed');
+      expect(keySeed).toBe(
+        '0100000000000000000000000000000000000000000000000000000000000000',
+      );
+      expect(result.keySeed).toBe(keySeed);
+
+      const ocapURLKey = mockKernelStore.kv.get('ocapURLKey');
+      expect(ocapURLKey).toBe(
+        '0200000000000000000000000000000000000000000000000000000000000000',
+      );
+
+      const peerId = mockKernelStore.kv.get('peerId');
+      const keyPair = await generateKeyPairFromSeed(
+        'Ed25519',
+        fromHex(keySeed as string),
+      );
+      expect(peerId).toBe(peerIdFromPrivateKey(keyPair).toString());
+      expect(result.identity.getPeerId()).toBe(peerId);
+    });
+
+    it('does not require platformServices or messageHandler', async () => {
+      // initRemoteIdentity only needs kernelStore - no network dependencies
+      const result = await initRemoteIdentity(mockKernelStore);
+      expect(result.identity.getPeerId()).toBeDefined();
+    });
+
+    it('roundtrips issueOcapURL and redeemLocalOcapURL', async () => {
+      const { identity } = await initRemoteIdentity(mockKernelStore);
+
+      const ocapURL = await identity.issueOcapURL('ko42');
+      const kref = await identity.redeemLocalOcapURL(ocapURL);
+      expect(kref).toBe('ko42');
+    });
+
+    it('reuses existing identity from KV', async () => {
+      const result1 = await initRemoteIdentity(mockKernelStore);
+      const peerId1 = result1.identity.getPeerId();
+
+      const result2 = await initRemoteIdentity(mockKernelStore);
+      const peerId2 = result2.identity.getPeerId();
+
+      expect(peerId1).toBe(peerId2);
+      expect(result1.keySeed).toBe(result2.keySeed);
+    });
+
+    it('includes relays in issued URLs when provided', async () => {
+      const testRelays = [
+        '/dns4/relay1.example.com/tcp/443/wss/p2p-circuit',
+        '/dns4/relay2.example.com/tcp/443/wss/p2p-circuit',
+      ];
+      const { identity } = await initRemoteIdentity(mockKernelStore, {
+        relays: testRelays,
+      });
+
+      const ocapURL = await identity.issueOcapURL('ko1');
+      const { hints } = parseOcapURL(ocapURL);
+      expect(hints).toStrictEqual(testRelays);
+    });
+
+    it('returns keySeed and knownRelays', async () => {
+      const testRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relay'];
+      const result = await initRemoteIdentity(mockKernelStore, {
+        relays: testRelays,
+      });
+
+      expect(result.keySeed).toBeDefined();
+      expect(result.knownRelays).toStrictEqual(testRelays);
+    });
+
+    it('throws with mnemonic when identity already exists', async () => {
+      mockKernelStore.kv.set('peerId', 'existing-peer-id');
+      mockKernelStore.kv.set('keySeed', 'abcdef1234567890abcdef1234567890');
+
+      await expect(
+        initRemoteIdentity(mockKernelStore, {
+          mnemonic:
+            'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about',
+        }),
+      ).rejects.toThrow(
+        'Cannot use mnemonic: kernel identity already exists. Use resetStorage to clear existing identity first.',
+      );
+    });
+
+    it('rejects wrong host in redeemLocalOcapURL', async () => {
+      const { identity } = await initRemoteIdentity(mockKernelStore);
+
+      const wrongHostURL = 'ocap:someoid@different-peer-id';
+      await expect(identity.redeemLocalOcapURL(wrongHostURL)).rejects.toThrow(
+        "ocapURL from a host that's not me",
       );
     });
   });

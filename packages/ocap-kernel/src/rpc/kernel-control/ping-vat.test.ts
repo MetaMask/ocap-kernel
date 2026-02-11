@@ -1,7 +1,7 @@
-import type { Kernel } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { pingVatHandler } from './ping-vat.ts';
+import type { Kernel } from '../../Kernel.ts';
 
 describe('pingVatHandler', () => {
   let mockKernel: Kernel;

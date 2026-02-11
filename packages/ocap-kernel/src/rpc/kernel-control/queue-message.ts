@@ -1,10 +1,11 @@
 import type { CapData } from '@endo/marshal';
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import type { Kernel } from '@metamask/ocap-kernel';
-import { CapDataStruct } from '@metamask/ocap-kernel';
 import { tuple, string, array } from '@metamask/superstruct';
 import { UnsafeJsonStruct } from '@metamask/utils';
 import type { Json } from '@metamask/utils';
+
+import type { Kernel } from '../../Kernel.ts';
+import { CapDataStruct } from '../../types.ts';
 
 /**
  * Enqueue a message to a vat via the kernel's crank queue.

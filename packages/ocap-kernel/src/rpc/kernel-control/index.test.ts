@@ -12,12 +12,14 @@ import {
 import { getStatusHandler, getStatusSpec } from './get-status.ts';
 import { rpcHandlers, rpcMethodSpecs } from './index.ts';
 import { isRevokedHandler, isRevokedSpec } from './is-revoked.ts';
+import { issueOcapURLHandler, issueOcapURLSpec } from './issue-ocap-url.ts';
 import {
   launchSubclusterHandler,
   launchSubclusterSpec,
 } from './launch-subcluster.ts';
 import { pingVatHandler, pingVatSpec } from './ping-vat.ts';
 import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
+import { redeemOcapURLHandler, redeemOcapURLSpec } from './redeem-ocap-url.ts';
 import { reloadConfigHandler, reloadConfigSpec } from './reload-config.ts';
 import {
   reloadSubclusterHandler,
@@ -41,8 +43,10 @@ describe('handlers/index', () => {
       clearState: clearStateHandler,
       executeDBQuery: executeDBQueryHandler,
       getStatus: getStatusHandler,
+      issueOcapURL: issueOcapURLHandler,
       pingVat: pingVatHandler,
       reload: reloadConfigHandler,
+      redeemOcapURL: redeemOcapURLHandler,
       restartVat: restartVatHandler,
       revoke: revokeHandler,
       isRevoked: isRevokedHandler,
@@ -70,8 +74,10 @@ describe('handlers/index', () => {
       clearState: clearStateSpec,
       executeDBQuery: executeDBQuerySpec,
       getStatus: getStatusSpec,
+      issueOcapURL: issueOcapURLSpec,
       pingVat: pingVatSpec,
       reload: reloadConfigSpec,
+      redeemOcapURL: redeemOcapURLSpec,
       restartVat: restartVatSpec,
       revoke: revokeSpec,
       isRevoked: isRevokedSpec,

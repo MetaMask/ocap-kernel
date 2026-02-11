@@ -1,7 +1,7 @@
-import type { Kernel } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { collectGarbageHandler } from './collect-garbage.ts';
+import type { Kernel } from '../../Kernel.ts';
 
 describe('collectGarbageHandler', () => {
   let mockKernel: Kernel;

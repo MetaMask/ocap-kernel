@@ -119,8 +119,8 @@ describe.sequential('Remote Communications E2E', () => {
         const status1 = await kernel1.getStatus();
         const status2 = await kernel2.getStatus();
 
-        expect(status1.remoteComms?.isInitialized).toBe(true);
-        expect(status2.remoteComms?.isInitialized).toBe(true);
+        expect(status1.remoteComms?.state).toBe('connected');
+        expect(status2.remoteComms?.state).toBe('connected');
 
         const { peerId1, peerId2 } = await getPeerIds(kernel1, kernel2);
         expect(peerId1).not.toBe(peerId2);

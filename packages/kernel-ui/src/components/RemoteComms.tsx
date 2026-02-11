@@ -15,25 +15,24 @@ import type { ExportedOcapURL } from '../types.ts';
 import { Input } from './shared/Input.tsx';
 
 // RemoteCommsStatus component displays the status of remote communications.
-const RemoteCommsStatus: React.FC<{ isInitialized: boolean }> = ({
-  isInitialized,
-}) => {
+const RemoteCommsStatus: React.FC<{
+  state: 'disconnected' | 'identity-only' | 'connected';
+}> = ({ state }) => {
+  const isConnected = state === 'connected';
   return (
     <>
       <BadgeStatus
         status={
-          isInitialized ? BadgeStatusStatus.Active : BadgeStatusStatus.Inactive
+          isConnected ? BadgeStatusStatus.Active : BadgeStatusStatus.Inactive
         }
       />
 
       <TextComponent
         variant={TextVariant.BodySm}
-        color={
-          isInitialized ? TextColor.SuccessDefault : TextColor.ErrorDefault
-        }
+        color={isConnected ? TextColor.SuccessDefault : TextColor.ErrorDefault}
         data-testid="initialization-status"
       >
-        {isInitialized ? 'Initialized' : 'Not Initialized'}
+        {isConnected ? 'Initialized' : 'Not Initialized'}
       </TextComponent>
     </>
   );
@@ -178,13 +177,20 @@ export const RemoteComms: React.FC = () => {
             </TextComponent>
             <Box className="flex items-center gap-2">
               {remoteComms ? (
-                <RemoteCommsStatus isInitialized={remoteComms.isInitialized} />
+                <RemoteCommsStatus state={remoteComms.state} />
               ) : (
                 <RemoteCommsUnavailable />
               )}
             </Box>
           </Box>
-          <RemoteCommsPeerId peerId={remoteComms?.peerId} />
+          <RemoteCommsPeerId
+            peerId={
+              remoteComms?.state === 'connected' ||
+              remoteComms?.state === 'identity-only'
+                ? remoteComms.peerId
+                : undefined
+            }
+          />
         </Box>
       </Box>
       <RemoteCommsExportedUrls exportedUrls={exportedUrls} />

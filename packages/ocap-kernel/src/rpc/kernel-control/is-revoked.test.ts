@@ -1,7 +1,7 @@
-import type { Kernel } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { isRevokedHandler } from './is-revoked.ts';
+import type { Kernel } from '../../Kernel.ts';
 
 describe('isRevokedHandler', () => {
   let mockKernel: Kernel;

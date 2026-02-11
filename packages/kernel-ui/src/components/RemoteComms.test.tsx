@@ -80,7 +80,7 @@ describe('RemoteComms', () => {
     expect(screen.getByTestId('warning-message')).toBeInTheDocument();
   });
 
-  it('should show initialized status with peer ID when remote comms is available', () => {
+  it('should show initialized status with peer ID when remote comms is connected', () => {
     const mockPeerId = '12D3KooWTest123456789';
 
     mockUsePanelContext.mockReturnValue(
@@ -89,7 +89,7 @@ describe('RemoteComms', () => {
           vats: [],
           subclusters: [],
           remoteComms: {
-            isInitialized: true,
+            state: 'connected',
             peerId: mockPeerId,
           },
         },
@@ -112,14 +112,14 @@ describe('RemoteComms', () => {
     expect(peerIdInput).toHaveAttribute('readonly');
   });
 
-  it('should show not initialized status when remote comms is not initialized', () => {
+  it('should show not initialized status when remote comms is disconnected', () => {
     mockUsePanelContext.mockReturnValue(
       createMockPanelContext({
         status: {
           vats: [],
           subclusters: [],
           remoteComms: {
-            isInitialized: false,
+            state: 'disconnected',
           },
         },
       }),
@@ -133,20 +133,22 @@ describe('RemoteComms', () => {
       'Not Initialized',
     );
 
-    // Peer ID section should not be visible when not initialized
+    // Peer ID section should not be visible when disconnected
     expect(screen.queryByText('Peer Identity')).not.toBeInTheDocument();
     expect(screen.queryByTestId('peer-id-display')).not.toBeInTheDocument();
   });
 
-  it('should not show peer ID section when peerId is not available', () => {
+  it('should show identity-only status with peer ID but not initialized', () => {
+    const mockPeerId = '12D3KooWTest123456789';
+
     mockUsePanelContext.mockReturnValue(
       createMockPanelContext({
         status: {
           vats: [],
           subclusters: [],
           remoteComms: {
-            isInitialized: true,
-            // peerId not included
+            state: 'identity-only',
+            peerId: mockPeerId,
           },
         },
       }),
@@ -154,15 +156,17 @@ describe('RemoteComms', () => {
 
     render(<RemoteComms />);
 
-    // Status should be shown
+    // Status should show not initialized
     expect(screen.getByTestId('status-text')).toBeInTheDocument();
     expect(screen.getByTestId('initialization-status')).toHaveTextContent(
-      'Initialized',
+      'Not Initialized',
     );
 
-    // But peer ID section should not be visible
-    expect(screen.queryByTestId('peer-id-text')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('peer-id-display')).not.toBeInTheDocument();
+    // But peer ID section should be visible
+    expect(screen.getByTestId('peer-id-text')).toBeInTheDocument();
+    const peerIdInput = screen.getByTestId('peer-id-display');
+    expect(peerIdInput).toBeInTheDocument();
+    expect(peerIdInput).toHaveValue(mockPeerId);
   });
 
   it('should apply correct CSS classes to the container', () => {
@@ -172,7 +176,7 @@ describe('RemoteComms', () => {
           vats: [],
           subclusters: [],
           remoteComms: {
-            isInitialized: true,
+            state: 'connected',
             peerId: 'test-peer-id',
           },
         },
@@ -193,7 +197,7 @@ describe('RemoteComms', () => {
           vats: [],
           subclusters: [],
           remoteComms: {
-            isInitialized: true,
+            state: 'connected',
             peerId: 'test-peer-id',
           },
         },
@@ -216,7 +220,7 @@ describe('RemoteComms', () => {
           vats: [],
           subclusters: [],
           remoteComms: {
-            isInitialized: true,
+            state: 'connected',
             peerId: '',
           },
         },
@@ -242,7 +246,7 @@ describe('RemoteComms', () => {
           vats: [],
           subclusters: [],
           remoteComms: {
-            isInitialized: true,
+            state: 'connected',
             peerId: 'test-peer-id',
           },
         },
@@ -299,7 +303,7 @@ describe('RemoteComms', () => {
           vats: [],
           subclusters: [],
           remoteComms: {
-            isInitialized: true,
+            state: 'connected',
             peerId: 'test-peer-id',
           },
         },
@@ -326,7 +330,7 @@ describe('RemoteComms', () => {
           vats: [],
           subclusters: [],
           remoteComms: {
-            isInitialized: true,
+            state: 'connected',
             peerId: 'test-peer-id',
           },
         },
@@ -346,7 +350,7 @@ describe('RemoteComms', () => {
           vats: [],
           subclusters: [],
           remoteComms: {
-            isInitialized: true,
+            state: 'connected',
             peerId: 'test-peer-id',
           },
         },

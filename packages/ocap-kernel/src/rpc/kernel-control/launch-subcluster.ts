@@ -1,13 +1,15 @@
 import type { CapData } from '@endo/marshal';
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import type { Kernel, ClusterConfig, KRef } from '@metamask/ocap-kernel';
-import { ClusterConfigStruct, CapDataStruct } from '@metamask/ocap-kernel';
 import {
   object,
   string,
   nullable,
   type as structType,
 } from '@metamask/superstruct';
+
+import type { Kernel } from '../../Kernel.ts';
+import type { ClusterConfig, KRef } from '../../types.ts';
+import { ClusterConfigStruct, CapDataStruct } from '../../types.ts';
 
 /**
  * JSON-compatible version of SubclusterLaunchResult for RPC.

@@ -42,13 +42,19 @@ const mocks = vi.hoisted(() => {
 
     isRemoteCommsInitialized = vi.fn().mockReturnValue(false);
 
+    isIdentityInitialized = vi.fn().mockReturnValue(false);
+
     setMessageHandler = vi.fn();
+
+    initIdentity = vi.fn().mockResolvedValue(undefined);
 
     initRemoteComms = vi.fn().mockResolvedValue(undefined);
 
     closeConnection = vi.fn().mockResolvedValue(undefined);
 
     reconnectPeer = vi.fn().mockResolvedValue(undefined);
+
+    getPeerId = vi.fn().mockReturnValue('mock-peer-id');
 
     constructor() {
       (this.constructor as typeof RemoteManager).lastInstance = this;
@@ -537,7 +543,7 @@ describe('Kernel', () => {
         vats: [],
         subclusters: [],
         remoteComms: {
-          isInitialized: false,
+          state: 'disconnected',
         },
       });
     });
@@ -554,7 +560,7 @@ describe('Kernel', () => {
       expect(status.subclusters).toHaveLength(1);
       expect(status.subclusters[0]?.config).toStrictEqual(config);
       expect(status.remoteComms).toStrictEqual({
-        isInitialized: false,
+        state: 'disconnected',
       });
     });
   });

@@ -281,6 +281,21 @@ export class Kernel {
   }
 
   /**
+   * Initialize the kernel's remote identity (peer ID, crypto keys, OCAP URL
+   * operations) without starting network communications. This is sufficient
+   * for issuing and redeeming local OCAP URLs in the daemon.
+   *
+   * @param options - Options for identity initialization.
+   * @param options.mnemonic - BIP39 mnemonic for seed recovery.
+   * @returns A promise that resolves when initialization is complete.
+   */
+  async initIdentity(options?: {
+    mnemonic?: string | undefined;
+  }): Promise<void> {
+    await this.#remoteManager.initIdentity(options);
+  }
+
+  /**
    * Initialize the remote comms object.
    *
    * @param options - Options for remote communications initialization.
@@ -325,6 +340,26 @@ export class Kernel {
     args: unknown[],
   ): Promise<CapData<KRef>> {
     return this.#kernelQueue.enqueueMessage(target, method, args);
+  }
+
+  /**
+   * Issue an OCAP URL for a kernel reference.
+   *
+   * @param kref - The kref of the object to issue an OCAP URL for.
+   * @returns A promise for the OCAP URL.
+   */
+  async issueOcapURL(kref: string): Promise<string> {
+    return this.#ocapURLManager.issueOcapURL(kref);
+  }
+
+  /**
+   * Redeem an OCAP URL to get the kernel reference it represents.
+   *
+   * @param url - The OCAP URL to redeem.
+   * @returns A promise for the kref of the object referenced by the OCAP URL.
+   */
+  async redeemOcapURL(url: string): Promise<string> {
+    return this.#ocapURLManager.redeemOcapURL(url);
   }
 
   /**
@@ -538,16 +573,27 @@ export class Kernel {
    */
   async getStatus(): Promise<KernelStatus> {
     await this.#kernelQueue.waitForCrank();
-    return {
+
+    const status: KernelStatus = {
       vats: this.getVats(),
       subclusters: this.#subclusterManager.getSubclusters(),
-      remoteComms: this.#remoteManager.isRemoteCommsInitialized()
-        ? {
-            isInitialized: true,
-            peerId: this.#remoteManager.getPeerId(),
-          }
-        : { isInitialized: false },
     };
+
+    if (this.#remoteManager.isRemoteCommsInitialized()) {
+      status.remoteComms = {
+        state: 'connected',
+        peerId: this.#remoteManager.getPeerId(),
+      };
+    } else if (this.#remoteManager.isIdentityInitialized()) {
+      status.remoteComms = {
+        state: 'identity-only',
+        peerId: this.#remoteManager.getPeerId(),
+      };
+    } else {
+      status.remoteComms = { state: 'disconnected' };
+    }
+
+    return status;
   }
 
   /**

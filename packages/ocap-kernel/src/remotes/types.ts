@@ -16,11 +16,14 @@ export type SendRemoteMessage = (to: string, message: string) => Promise<void>;
 
 export type StopRemoteComms = () => Promise<void>;
 
-export type RemoteComms = {
+export type RemoteIdentity = {
   getPeerId: () => string;
-  sendRemoteMessage: SendRemoteMessage;
   issueOcapURL: (kref: string) => Promise<string>;
   redeemLocalOcapURL: (ocapURL: string) => Promise<string>;
+};
+
+export type RemoteComms = RemoteIdentity & {
+  sendRemoteMessage: SendRemoteMessage;
   registerLocationHints: (peerId: string, hints: string[]) => Promise<void>;
 };
 

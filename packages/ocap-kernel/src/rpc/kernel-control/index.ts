@@ -9,12 +9,14 @@ import {
 } from './execute-db-query.ts';
 import { getStatusHandler, getStatusSpec } from './get-status.ts';
 import { isRevokedHandler, isRevokedSpec } from './is-revoked.ts';
+import { issueOcapURLHandler, issueOcapURLSpec } from './issue-ocap-url.ts';
 import {
   launchSubclusterHandler,
   launchSubclusterSpec,
 } from './launch-subcluster.ts';
 import { pingVatHandler, pingVatSpec } from './ping-vat.ts';
 import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
+import { redeemOcapURLHandler, redeemOcapURLSpec } from './redeem-ocap-url.ts';
 import { reloadConfigHandler, reloadConfigSpec } from './reload-config.ts';
 import {
   reloadSubclusterHandler,
@@ -39,8 +41,10 @@ export const rpcHandlers = {
   clearState: clearStateHandler,
   executeDBQuery: executeDBQueryHandler,
   getStatus: getStatusHandler,
+  issueOcapURL: issueOcapURLHandler,
   pingVat: pingVatHandler,
   reload: reloadConfigHandler,
+  redeemOcapURL: redeemOcapURLHandler,
   revoke: revokeHandler,
   isRevoked: isRevokedHandler,
   restartVat: restartVatHandler,
@@ -55,8 +59,10 @@ export const rpcHandlers = {
   clearState: typeof clearStateHandler;
   executeDBQuery: typeof executeDBQueryHandler;
   getStatus: typeof getStatusHandler;
+  issueOcapURL: typeof issueOcapURLHandler;
   pingVat: typeof pingVatHandler;
   reload: typeof reloadConfigHandler;
+  redeemOcapURL: typeof redeemOcapURLHandler;
   revoke: typeof revokeHandler;
   isRevoked: typeof isRevokedHandler;
   restartVat: typeof restartVatHandler;
@@ -76,8 +82,10 @@ export const rpcMethodSpecs = {
   clearState: clearStateSpec,
   executeDBQuery: executeDBQuerySpec,
   getStatus: getStatusSpec,
+  issueOcapURL: issueOcapURLSpec,
   pingVat: pingVatSpec,
   reload: reloadConfigSpec,
+  redeemOcapURL: redeemOcapURLSpec,
   revoke: revokeSpec,
   isRevoked: isRevokedSpec,
   restartVat: restartVatSpec,
@@ -92,8 +100,10 @@ export const rpcMethodSpecs = {
   clearState: typeof clearStateSpec;
   executeDBQuery: typeof executeDBQuerySpec;
   getStatus: typeof getStatusSpec;
+  issueOcapURL: typeof issueOcapURLSpec;
   pingVat: typeof pingVatSpec;
   reload: typeof reloadConfigSpec;
+  redeemOcapURL: typeof redeemOcapURLSpec;
   revoke: typeof revokeSpec;
   isRevoked: typeof isRevokedSpec;
   restartVat: typeof restartVatSpec;

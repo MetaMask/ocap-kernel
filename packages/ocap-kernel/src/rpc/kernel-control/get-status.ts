@@ -1,7 +1,9 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
 import { EmptyJsonArray } from '@metamask/kernel-utils';
-import { KernelStatusStruct } from '@metamask/ocap-kernel';
-import type { Kernel, KernelStatus } from '@metamask/ocap-kernel';
+
+import type { Kernel } from '../../Kernel.ts';
+import type { KernelStatus } from '../../types.ts';
+import { KernelStatusStruct } from '../../types.ts';
 
 export const getStatusSpec: MethodSpec<
   'getStatus',

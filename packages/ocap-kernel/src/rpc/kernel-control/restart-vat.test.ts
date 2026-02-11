@@ -1,7 +1,7 @@
-import type { Kernel } from '@metamask/ocap-kernel';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { restartVatHandler } from './restart-vat.ts';
+import type { Kernel } from '../../Kernel.ts';
 
 describe('restartVatHandler', () => {
   let mockKernel: Kernel;

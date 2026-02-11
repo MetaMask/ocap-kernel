@@ -1,12 +1,13 @@
 import type { Logger } from '@metamask/logger';
 
-import { initRemoteComms } from './remote-comms.ts';
+import { initRemoteComms, initRemoteIdentity } from './remote-comms.ts';
 import { RemoteHandle } from './RemoteHandle.ts';
 import type { KernelQueue } from '../../KernelQueue.ts';
 import { kser } from '../../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../../store/index.ts';
 import type { PlatformServices, RemoteId } from '../../types.ts';
 import type {
+  RemoteIdentity,
   RemoteComms,
   RemoteMessageHandler,
   RemoteInfo,
@@ -56,6 +57,9 @@ export class RemoteManager {
    */
   readonly #incarnationId: string;
 
+  /** Remote identity (peer ID, crypto keys, OCAP URL operations) */
+  #remoteIdentity: RemoteIdentity | undefined;
+
   /** Remote communications interface */
   #remoteComms: RemoteComms | undefined;
 
@@ -99,6 +103,57 @@ export class RemoteManager {
    */
   setMessageHandler(handler: RemoteMessageHandler): void {
     this.#messageHandler = handler;
+  }
+
+  /**
+   * Initialize the kernel's remote identity (peer ID, crypto keys, OCAP URL
+   * operations) without starting network communications. This is sufficient
+   * for issuing and redeeming local OCAP URLs.
+   *
+   * @param options - Options for identity initialization.
+   * @param options.mnemonic - BIP39 mnemonic for seed recovery.
+   * @returns a promise that resolves when initialization is complete.
+   */
+  async initIdentity(options?: {
+    mnemonic?: string | undefined;
+  }): Promise<void> {
+    const mnemonic = options?.mnemonic ?? this.#mnemonic;
+    const mergedOptions = {
+      ...(mnemonic === undefined ? {} : { mnemonic }),
+    };
+
+    const { identity } = await initRemoteIdentity(
+      this.#kernelStore,
+      mergedOptions,
+      this.#logger,
+      this.#keySeed,
+    );
+    this.#remoteIdentity = identity;
+  }
+
+  /**
+   * Get the remote identity object.
+   *
+   * @returns the remote identity object.
+   * @throws if neither remote identity nor remote comms is initialized.
+   */
+  getRemoteIdentity(): RemoteIdentity {
+    const identity = this.#remoteIdentity ?? this.#remoteComms;
+    if (identity) {
+      return identity;
+    }
+    throw Error('Remote identity not initialized');
+  }
+
+  /**
+   * Check if remote identity is initialized (either standalone or via full comms).
+   *
+   * @returns true if remote identity is initialized, false otherwise.
+   */
+  isIdentityInitialized(): boolean {
+    return (
+      this.#remoteIdentity !== undefined || this.#remoteComms !== undefined
+    );
   }
 
   /**
@@ -198,6 +253,7 @@ export class RemoteManager {
       this.#incarnationId,
       this.#handleIncarnationChange.bind(this),
     );
+    this.#remoteIdentity = this.#remoteComms;
 
     // Restore all remotes that were previously established
     for (const {
@@ -217,6 +273,7 @@ export class RemoteManager {
     for (const remote of this.#remotes.values()) {
       remote.cleanup();
     }
+    this.#remoteIdentity = undefined;
     this.#remoteComms = undefined;
     this.#remotes.clear();
     this.#remotesByPeer.clear();
@@ -248,10 +305,10 @@ export class RemoteManager {
    * Get the peer ID of this kernel.
    *
    * @returns the peer ID.
-   * @throws if remote comms is not initialized.
+   * @throws if remote identity is not initialized.
    */
   getPeerId(): string {
-    return this.getRemoteComms().getPeerId();
+    return this.getRemoteIdentity().getPeerId();
   }
 
   /**

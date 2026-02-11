@@ -283,11 +283,24 @@ describe('Remote Communications (Integration Tests)', () => {
     expect(status2.vats).toStrictEqual([]);
     expect(status1.remoteComms).toBeDefined();
     expect(status2.remoteComms).toBeDefined();
-    expect(status1.remoteComms?.isInitialized).toBe(true);
-    expect(status2.remoteComms?.isInitialized).toBe(true);
-    expect(status1.remoteComms?.peerId).toBeDefined();
-    expect(status2.remoteComms?.peerId).toBeDefined();
-    expect(status1.remoteComms?.peerId).not.toBe(status2.remoteComms?.peerId);
+    expect(status1.remoteComms).toStrictEqual({
+      state: 'connected',
+      peerId: expect.any(String),
+    });
+    expect(status2.remoteComms).toStrictEqual({
+      state: 'connected',
+      peerId: expect.any(String),
+    });
+    // Each kernel should have a unique peer ID
+    const peerId1 =
+      status1.remoteComms?.state === 'connected'
+        ? status1.remoteComms.peerId
+        : undefined;
+    const peerId2 =
+      status2.remoteComms?.state === 'connected'
+        ? status2.remoteComms.peerId
+        : undefined;
+    expect(peerId1).not.toBe(peerId2);
   });
 
   it('should create vats with ocap URL services', async () => {

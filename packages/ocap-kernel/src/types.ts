@@ -457,6 +457,20 @@ export type SubclusterLaunchResult = {
   bootstrapResult: CapData<KRef> | undefined;
 };
 
+const RemoteCommsDisconnectedStruct = object({
+  state: literal('disconnected'),
+});
+
+const RemoteCommsIdentityOnlyStruct = object({
+  state: literal('identity-only'),
+  peerId: string(),
+});
+
+const RemoteCommsConnectedStruct = object({
+  state: literal('connected'),
+  peerId: string(),
+});
+
 export const KernelStatusStruct = type({
   subclusters: array(SubclusterStruct),
   vats: array(
@@ -467,10 +481,11 @@ export const KernelStatusStruct = type({
     }),
   ),
   remoteComms: exactOptional(
-    object({
-      isInitialized: boolean(),
-      peerId: exactOptional(string()),
-    }),
+    union([
+      RemoteCommsDisconnectedStruct,
+      RemoteCommsIdentityOnlyStruct,
+      RemoteCommsConnectedStruct,
+    ]),
   ),
 });
 

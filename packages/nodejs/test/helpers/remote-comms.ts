@@ -41,8 +41,10 @@ export async function getPeerIds(
 ): Promise<{ peerId1: string; peerId2: string }> {
   const status1 = await kernel1.getStatus();
   const status2 = await kernel2.getStatus();
-  const peerId1 = status1.remoteComms?.peerId;
-  const peerId2 = status2.remoteComms?.peerId;
+  const rc1 = status1.remoteComms;
+  const rc2 = status2.remoteComms;
+  const peerId1 = rc1 && rc1.state !== 'disconnected' ? rc1.peerId : undefined;
+  const peerId2 = rc2 && rc2.state !== 'disconnected' ? rc2.peerId : undefined;
 
   if (!peerId1 || !peerId2) {
     throw new Error('Peer IDs not available');

@@ -1,8 +1,9 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
 import { EmptyJsonArray } from '@metamask/kernel-utils';
-import type { Kernel } from '@metamask/ocap-kernel';
 import { literal } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
+
+import type { Kernel } from '../../Kernel.ts';
 
 export const clearStateSpec: MethodSpec<'clearState', Json[], Promise<null>> = {
   method: 'clearState',
