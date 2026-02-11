@@ -19,7 +19,9 @@ describe('SubclusterManager', () => {
   let mockKernelStore: Mocked<KernelStore>;
   let mockKernelQueue: Mocked<KernelQueue>;
   let mockVatManager: Mocked<VatManager>;
-  let mockGetKernelService: (name: string) => { kref: string } | undefined;
+  let mockGetKernelService: (
+    name: string,
+  ) => { kref: string; systemOnly: boolean } | undefined;
   let mockQueueMessage: (
     target: KRef,
     method: string,
@@ -77,7 +79,7 @@ describe('SubclusterManager', () => {
 
     mockGetKernelService = vi.fn().mockReturnValue(undefined) as unknown as (
       name: string,
-    ) => { kref: string } | undefined;
+    ) => { kref: string; systemOnly: boolean } | undefined;
     mockQueueMessage = vi
       .fn()
       .mockResolvedValue({ body: '{"result":"ok"}', slots: [] }) as unknown as (
@@ -151,7 +153,7 @@ describe('SubclusterManager', () => {
       );
     });
 
-    it('includes kernel services when specified', async () => {
+    it('includes unrestricted kernel services when specified', async () => {
       const config: ClusterConfig = {
         bootstrap: 'testVat',
         vats: {
@@ -161,6 +163,7 @@ describe('SubclusterManager', () => {
       };
       (mockGetKernelService as ReturnType<typeof vi.fn>).mockReturnValue({
         kref: 'ko-service',
+        systemOnly: false,
       });
 
       await subclusterManager.launchSubcluster(config);
@@ -169,6 +172,46 @@ describe('SubclusterManager', () => {
       expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
         expect.anything(),
         { testService: expect.anything() },
+      ]);
+    });
+
+    it('throws when user subcluster requests a restricted service', async () => {
+      const config: ClusterConfig = {
+        bootstrap: 'testVat',
+        vats: {
+          testVat: { sourceSpec: 'test.js' },
+        },
+        services: ['kernelFacet'],
+      };
+      (mockGetKernelService as ReturnType<typeof vi.fn>).mockReturnValue({
+        kref: 'ko-service',
+        systemOnly: true,
+      });
+
+      await expect(subclusterManager.launchSubcluster(config)).rejects.toThrow(
+        "kernel service 'kernelFacet' is restricted to system subclusters",
+      );
+    });
+
+    it('allows system subcluster to access restricted services', async () => {
+      const config: ClusterConfig = {
+        bootstrap: 'testVat',
+        vats: {
+          testVat: { sourceSpec: 'test.js' },
+        },
+        services: ['kernelFacet'],
+      };
+      (mockGetKernelService as ReturnType<typeof vi.fn>).mockReturnValue({
+        kref: 'ko-service',
+        systemOnly: true,
+      });
+
+      await subclusterManager.launchSubcluster(config, { isSystem: true });
+
+      expect(mockGetKernelService).toHaveBeenCalledWith('kernelFacet');
+      expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
+        expect.anything(),
+        { kernelFacet: expect.anything() },
       ]);
     });
 

@@ -10,6 +10,7 @@ export type KernelService = {
   name: string;
   kref: string;
   service: object;
+  systemOnly: boolean;
 };
 
 type KernelServiceManagerConstructorProps = {
@@ -60,9 +61,16 @@ export class KernelServiceManager {
    *
    * @param name - The name of the service.
    * @param service - The service object.
+   * @param options - Registration options.
+   * @param options.systemOnly - Whether the service is only available to system
+   * subclusters. Defaults to `false`.
    * @returns The registered kernel service with its kref.
    */
-  registerKernelServiceObject(name: string, service: object): KernelService {
+  registerKernelServiceObject(
+    name: string,
+    service: object,
+    { systemOnly = false }: { systemOnly?: boolean } = {},
+  ): KernelService {
     if (this.#kernelServicesByName.has(name)) {
       throw new Error(`Kernel service "${name}" is already registered`);
     }
@@ -73,7 +81,7 @@ export class KernelServiceManager {
       this.#kernelStore.kv.set(serviceKey, kref);
       this.#kernelStore.pinObject(kref);
     }
-    const kernelService = { name, kref, service };
+    const kernelService = { name, kref, service, systemOnly };
     this.#kernelServicesByName.set(name, kernelService);
     this.#kernelServicesByObject.set(kref, kernelService);
     return kernelService;
