@@ -189,7 +189,7 @@ describe('SubclusterManager', () => {
       });
 
       await expect(subclusterManager.launchSubcluster(config)).rejects.toThrow(
-        "kernel service 'kernelFacet' is restricted to system subclusters",
+        "no registered kernel service 'kernelFacet'",
       );
     });
 
