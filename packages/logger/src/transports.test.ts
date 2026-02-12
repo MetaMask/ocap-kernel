@@ -25,12 +25,34 @@ describe('consoleTransport', () => {
       const logEntry = makeLogEntry(level);
       const consoleMethodSpy = vi.spyOn(console, level);
       consoleTransport(logEntry);
-      expect(consoleMethodSpy).toHaveBeenCalledWith(
-        logEntry.tags,
-        logEntry.message,
-      );
+      expect(consoleMethodSpy).toHaveBeenCalledWith(logEntry.message);
     },
   );
+
+  it('omits tags by default', () => {
+    const transport = makeConsoleTransport();
+    const entry: LogEntry = {
+      level: 'info',
+      message: 'hello',
+      tags: ['cli', 'daemon'],
+      data: ['extra'],
+    };
+    const spy = vi.spyOn(console, 'info');
+    transport(entry);
+    expect(spy).toHaveBeenCalledWith('hello', 'extra');
+  });
+
+  it('includes tags when tags option is true', () => {
+    const transport = makeConsoleTransport({ tags: true });
+    const entry: LogEntry = {
+      level: 'info',
+      message: 'hello',
+      tags: ['cli', 'daemon'],
+    };
+    const spy = vi.spyOn(console, 'info');
+    transport(entry);
+    expect(spy).toHaveBeenCalledWith(['cli', 'daemon'], 'hello');
+  });
 });
 
 describe('makeStreamTransport', () => {

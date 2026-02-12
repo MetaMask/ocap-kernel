@@ -3,15 +3,26 @@ import type { DuplexStream } from '@metamask/streams';
 
 import { logLevels } from './constants.ts';
 import { lser } from './stream.ts';
+import { hasTags } from './tags.ts';
 import type { Transport, LogArgs, LogLevel, LogMethod } from './types.ts';
+
+type ConsoleTransportOptions = {
+  level?: LogLevel;
+  tags?: boolean;
+};
 
 /**
  * The console transport for the logger.
  *
- * @param level - The logging level for this instance.
+ * @param options - Options for the console transport.
+ * @param options.level - The logging level for this instance (default: `'debug'`).
+ * @param options.tags - Whether to include tags in the output (default: `false`).
  * @returns A transport function that writes to the console.
  */
-export function makeConsoleTransport(level: LogLevel = 'debug'): Transport {
+export function makeConsoleTransport(
+  options: ConsoleTransportOptions = {},
+): Transport {
+  const { level = 'debug', tags = false } = options;
   const baseLevelIdx = logLevels[level];
   const logFn = (method: LogLevel): LogMethod => {
     if (baseLevelIdx <= logLevels[method]) {
@@ -31,15 +42,14 @@ export function makeConsoleTransport(level: LogLevel = 'debug'): Transport {
     warn: logFn('warn'),
     error: logFn('error'),
   };
-  const consoleTransport: Transport = (entry) => {
+  return (entry) => {
     const args = [
-      ...(entry.tags.length > 0 ? [entry.tags] : []),
+      ...(hasTags(tags, entry) ? [entry.tags] : []),
       ...(entry.message ? [entry.message] : []),
       ...(entry.data ?? []),
     ] as LogArgs;
     filteredConsole[entry.level](...args);
   };
-  return consoleTransport;
 }
 
 /**

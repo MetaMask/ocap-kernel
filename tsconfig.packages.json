@@ -15,6 +15,7 @@
       "@metamask/kernel-store/sqlite/wasm": [
         "../kernel-store/src/sqlite/wasm.ts"
       ],
+      "@metamask/logger/file-transport": ["../logger/src/file-transport.ts"],
       "@ocap/*": ["../*/src"]
     }
   }

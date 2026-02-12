@@ -9,7 +9,7 @@ import type { LogMessage } from './stream.ts';
 import { makeConsoleTransport } from './transports.ts';
 
 const consoleMethod = ['log', 'debug', 'info', 'warn', 'error'] as const;
-const transports = [makeConsoleTransport()];
+const transports = [makeConsoleTransport({ tags: true })];
 
 describe('Logger', () => {
   it.each([
@@ -18,7 +18,7 @@ describe('Logger', () => {
     ['a string tag', 'test'],
     [
       'an options bag',
-      { tags: ['test'], transports: [makeConsoleTransport()] },
+      { tags: ['test'], transports: [makeConsoleTransport({ tags: true })] },
     ],
   ])('can be constructed with $description', (_description, options) => {
     const logger = new Logger(options);
@@ -67,7 +67,10 @@ describe('Logger', () => {
   it('can be nested', () => {
     const consoleSpy = vi.spyOn(console, 'log');
     const vatLogger = new Logger({ tags: ['vat 0x01'] });
-    const subLogger = vatLogger.subLogger({ tags: ['(process)'], transports });
+    const subLogger = vatLogger.subLogger({
+      tags: ['(process)'],
+      transports,
+    });
     subLogger.log('foo');
     expect(consoleSpy).toHaveBeenCalledWith(['vat 0x01', '(process)'], 'foo');
   });
@@ -121,7 +124,7 @@ describe('Logger', () => {
     consoleMethod.forEach((level) => {
       it(`logging at level ${level}`, () => {
         const testLogger = new Logger({
-          transports: [makeConsoleTransport(level)],
+          transports: [makeConsoleTransport({ level })],
         });
         consoleMethod.forEach((method) => {
           const consoleSpy = vi.spyOn(console, method);
