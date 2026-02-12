@@ -32,7 +32,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>9/9</span>
+                <span class='fraction'>11/11</span>
             </div>
         
             
@@ -137,7 +137,17 @@
 <a name='L72'></a><a href='#L72'>72</a>
 <a name='L73'></a><a href='#L73'>73</a>
 <a name='L74'></a><a href='#L74'>74</a>
-<a name='L75'></a><a href='#L75'>75</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a>
+<a name='L78'></a><a href='#L78'>78</a>
+<a name='L79'></a><a href='#L79'>79</a>
+<a name='L80'></a><a href='#L80'>80</a>
+<a name='L81'></a><a href='#L81'>81</a>
+<a name='L82'></a><a href='#L82'>82</a>
+<a name='L83'></a><a href='#L83'>83</a>
+<a name='L84'></a><a href='#L84'>84</a>
+<a name='L85'></a><a href='#L85'>85</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -151,34 +161,44 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">707x</span>
-<span class="cline-any cline-yes">707x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">709x</span>
+<span class="cline-any cline-yes">709x</span>
+<span class="cline-any cline-yes">709x</span>
+<span class="cline-any cline-yes">3545x</span>
 <span class="cline-any cline-yes">3535x</span>
-<span class="cline-any cline-yes">3525x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4681x</span>
+<span class="cline-any cline-yes">4683x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">707x</span>
+<span class="cline-any cline-yes">709x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">707x</span>
-<span class="cline-any cline-yes">4691x</span>
+<span class="cline-any cline-yes">709x</span>
+<span class="cline-any cline-yes">4693x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">4691x</span>
+<span class="cline-any cline-yes">4693x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">707x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -216,15 +236,26 @@ import type { DuplexStream } from '@metamask/streams';
 &nbsp;
 import { logLevels } from './constants.ts';
 import { lser } from './stream.ts';
+import { hasTags } from './tags.ts';
 import type { Transport, LogArgs, LogLevel, LogMethod } from './types.ts';
+&nbsp;
+type ConsoleTransportOptions = {
+  level?: LogLevel;
+  tags?: boolean;
+};
 &nbsp;
 /**
  * The console transport for the logger.
  *
- * @param level - The logging level for this instance.
+ * @param options - Options for the console transport.
+ * @param options.level - The logging level for this instance (default: `'debug'`).
+ * @param options.tags - Whether to include tags in the output (default: `false`).
  * @returns A transport function that writes to the console.
  */
-export function makeConsoleTransport(level: LogLevel = 'debug'): Transport {
+export function makeConsoleTransport(
+  options: ConsoleTransportOptions = {},
+): Transport {
+  const { level = 'debug', tags = false } = options;
   const baseLevelIdx = logLevels[level];
   const logFn = (method: LogLevel): LogMethod =&gt; {
     if (baseLevelIdx &lt;= logLevels[method]) {
@@ -244,15 +275,14 @@ export function makeConsoleTransport(level: LogLevel = 'debug'): Transport {
     warn: logFn('warn'),
     error: logFn('error'),
   };
-  const consoleTransport: Transport = (entry) =&gt; {
+  return (entry) =&gt; {
     const args = [
-      ...(entry.tags.length &gt; 0 ? [entry.tags] : []),
+      ...(hasTags(tags, entry) ? [entry.tags] : []),
       ...(entry.message ? [entry.message] : []),
       ...(entry.data ?? []),
     ] as LogArgs;
     filteredConsole[entry.level](...args);
   };
-  return consoleTransport;
 }
 &nbsp;
 /**
@@ -292,7 +322,7 @@ export const makeArrayTransport = (
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-11T21:32:43.462Z
+                at 2026-02-12T13:05:37.960Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
