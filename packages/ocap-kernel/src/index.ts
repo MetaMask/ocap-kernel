@@ -2,9 +2,12 @@ export { Kernel } from './Kernel.ts';
 export { VatHandle } from './vats/VatHandle.ts';
 export { VatSupervisor } from './vats/VatSupervisor.ts';
 export { initTransport } from './remotes/platform/transport.ts';
+export type { IOChannel, IOChannelFactory } from './io/types.ts';
 export type {
   Baggage,
   ClusterConfig,
+  IOConfig,
+  IOSpec,
   KRef,
   Message,
   VatId,

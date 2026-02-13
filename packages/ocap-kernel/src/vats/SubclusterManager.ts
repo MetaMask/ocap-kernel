@@ -2,6 +2,7 @@ import type { CapData } from '@endo/marshal';
 import { SubclusterNotFoundError } from '@metamask/kernel-errors';
 import { Logger } from '@metamask/logger';
 
+import type { IOManager } from '../io/IOManager.ts';
 import type { KernelQueue } from '../KernelQueue.ts';
 import type { VatManager } from './VatManager.ts';
 import { kslot, kunser } from '../liveslots/kernel-marshal.ts';
@@ -30,6 +31,7 @@ type SubclusterManagerOptions = {
     method: string,
     args: unknown[],
   ) => Promise<CapData<KRef>>;
+  ioManager?: IOManager;
   logger?: Logger;
 };
 
@@ -61,6 +63,9 @@ export class SubclusterManager {
   /** Logger for diagnostic output */
   readonly #logger: Logger;
 
+  /** Optional IO manager for creating/destroying IO channels */
+  readonly #ioManager: IOManager | undefined;
+
   /** Stores bootstrap root krefs of launched system subclusters */
   readonly #systemSubclusterRoots: Map<string, KRef> = new Map();
 
@@ -73,6 +78,7 @@ export class SubclusterManager {
    * @param options.vatManager - Manager for creating and managing vat instances.
    * @param options.getKernelService - Function to retrieve a kernel service by its kref.
    * @param options.queueMessage - Function to queue messages for delivery to targets.
+   * @param options.ioManager - Optional IO manager for IO channel lifecycle.
    * @param options.logger - Optional logger for diagnostic output.
    */
   constructor({
@@ -81,6 +87,7 @@ export class SubclusterManager {
     vatManager,
     getKernelService,
     queueMessage,
+    ioManager,
     logger,
   }: SubclusterManagerOptions) {
     this.#kernelStore = kernelStore;
@@ -88,6 +95,7 @@ export class SubclusterManager {
     this.#vatManager = vatManager;
     this.#getKernelService = getKernelService;
     this.#queueMessage = queueMessage;
+    this.#ioManager = ioManager;
     this.#logger = logger ?? new Logger('SubclusterManager');
     harden(this);
   }
@@ -111,8 +119,15 @@ export class SubclusterManager {
     if (!config.vats[config.bootstrap]) {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;
     }
-    this.#validateServices(config, isSystem);
     const subclusterId = this.#kernelStore.addSubcluster(config);
+
+    // Create IO channels before validating services so that IO service
+    // names are registered and discoverable by #validateServices.
+    if (config.io && this.#ioManager) {
+      await this.#ioManager.createChannels(subclusterId, config.io);
+    }
+
+    this.#validateServices(config, isSystem);
     const { rootKref, bootstrapResult } = await this.#launchVatsForSubcluster(
       subclusterId,
       config,
@@ -141,6 +156,11 @@ export class SubclusterManager {
         this.#logger.info(`Cleaned up system subcluster mapping "${name}"`);
         break;
       }
+    }
+
+    // Destroy IO channels before terminating vats
+    if (this.#ioManager) {
+      await this.#ioManager.destroyChannels(subclusterId);
     }
 
     const vatIdsToTerminate = this.#kernelStore.getSubclusterVats(subclusterId);
