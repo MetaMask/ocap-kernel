@@ -101,24 +101,24 @@ export type RemoteCommsOptions = {
    */
   maxConnectionAttemptsPerMinute?: number | undefined;
   /**
-   * Direct listen addresses for non-relay transports (e.g. QUIC).
-   * Example: `['/ip4/0.0.0.0/udp/0/quic-v1']`
+   * Direct listen addresses for non-relay transports (e.g. QUIC, TCP).
+   * Example: `['/ip4/0.0.0.0/udp/0/quic-v1', '/ip4/0.0.0.0/tcp/4001']`
    *
-   * The platform layer detects the required transport from the address strings
-   * and injects it automatically. Users never need to import transport packages.
+   * The platform layer detects the required transports from the address strings
+   * and injects them automatically. Users never need to import transport packages.
    */
   directListenAddresses?: string[] | undefined;
   /**
-   * Internal option injected by platform services. Bundles a direct transport
-   * implementation with its listen addresses. Users should use
+   * Internal option injected by platform services. Bundles direct transport
+   * implementations with their listen addresses. Users should use
    * `directListenAddresses` instead.
    *
    * @internal
    */
-  directTransport?: {
+  directTransports?: {
     transport: unknown;
     listenAddresses: string[];
-  };
+  }[];
 };
 
 /**
@@ -130,11 +130,11 @@ export type ConnectionFactoryOptions = {
   logger: Logger;
   signal: AbortSignal;
   maxRetryAttempts?: number | undefined;
-  directTransport?:
+  directTransports?:
     | {
         transport: unknown;
         listenAddresses: string[];
-      }
+      }[]
     | undefined;
 };
 

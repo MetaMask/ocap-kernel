@@ -248,7 +248,7 @@ describe('transport.initTransport', () => {
         logger: expect.any(Object),
         signal: expect.any(AbortSignal),
         maxRetryAttempts: undefined,
-        directTransport: undefined,
+        directTransports: undefined,
       });
     });
 
@@ -265,20 +265,27 @@ describe('transport.initTransport', () => {
         logger: expect.any(Object),
         signal: expect.any(AbortSignal),
         maxRetryAttempts,
-        directTransport: undefined,
+        directTransports: undefined,
       });
     });
 
-    it('passes directTransport to ConnectionFactory.make', async () => {
+    it('passes directTransports to ConnectionFactory.make', async () => {
       const { ConnectionFactory } = await import('./connection-factory.ts');
       const keySeed = '0xabcd';
-      const mockTransport = { tag: 'quic' };
-      const directTransport = {
-        transport: mockTransport,
-        listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
-      };
+      const mockQuic = { tag: 'quic' };
+      const mockTcp = { tag: 'tcp' };
+      const directTransports = [
+        {
+          transport: mockQuic,
+          listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
+        },
+        {
+          transport: mockTcp,
+          listenAddresses: ['/ip4/0.0.0.0/tcp/4001'],
+        },
+      ];
 
-      await initTransport(keySeed, { relays: [], directTransport }, vi.fn());
+      await initTransport(keySeed, { relays: [], directTransports }, vi.fn());
 
       expect(ConnectionFactory.make).toHaveBeenCalledWith({
         keySeed,
@@ -286,7 +293,7 @@ describe('transport.initTransport', () => {
         logger: expect.any(Object),
         signal: expect.any(AbortSignal),
         maxRetryAttempts: undefined,
-        directTransport,
+        directTransports,
       });
     });
 

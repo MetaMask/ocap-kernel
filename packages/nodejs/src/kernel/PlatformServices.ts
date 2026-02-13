@@ -258,25 +258,40 @@ export class NodejsPlatformServices implements PlatformServices {
 
     const { directListenAddresses, ...restOptions } = options;
 
-    if (directListenAddresses?.some((addr) => addr.includes('/tcp/'))) {
-      throw new Error('Direct TCP listen addresses are not yet supported');
-    }
+    const directTransports: {
+      transport: unknown;
+      listenAddresses: string[];
+    }[] = [];
 
-    const hasQuic = directListenAddresses?.some((addr) =>
-      addr.includes('/quic-v1'),
-    );
+    if (directListenAddresses && directListenAddresses.length > 0) {
+      const quicAddresses = directListenAddresses.filter((addr) =>
+        addr.includes('/quic-v1'),
+      );
+      const tcpAddresses = directListenAddresses.filter((addr) =>
+        addr.includes('/tcp/'),
+      );
 
-    let enhancedOptions: RemoteCommsOptions = restOptions;
-    if (hasQuic && directListenAddresses) {
-      const { quic } = await import('@chainsafe/libp2p-quic');
-      enhancedOptions = {
-        ...restOptions,
-        directTransport: {
+      if (quicAddresses.length > 0) {
+        const { quic } = await import('@chainsafe/libp2p-quic');
+        directTransports.push({
           transport: quic(),
-          listenAddresses: directListenAddresses,
-        },
-      };
+          listenAddresses: quicAddresses,
+        });
+      }
+
+      if (tcpAddresses.length > 0) {
+        const { tcp } = await import('@libp2p/tcp');
+        directTransports.push({
+          transport: tcp(),
+          listenAddresses: tcpAddresses,
+        });
+      }
     }
+
+    const enhancedOptions: RemoteCommsOptions = {
+      ...restOptions,
+      ...(directTransports.length > 0 ? { directTransports } : {}),
+    };
 
     const {
       sendRemoteMessage,

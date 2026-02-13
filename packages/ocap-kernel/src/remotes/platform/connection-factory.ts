@@ -42,12 +42,10 @@ export class ConnectionFactory {
 
   readonly #maxRetryAttempts: number;
 
-  readonly #directTransport:
-    | {
-        transport: unknown;
-        listenAddresses: string[];
-      }
-    | undefined;
+  readonly #directTransports: {
+    transport: unknown;
+    listenAddresses: string[];
+  }[];
 
   #inboundHandler?: InboundConnectionHandler;
 
@@ -60,7 +58,7 @@ export class ConnectionFactory {
    * @param options.logger - The logger to use for the libp2p node.
    * @param options.signal - The signal to use for the libp2p node.
    * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
-   * @param options.directTransport - Optional direct transport (e.g. QUIC) with listen addresses.
+   * @param options.directTransports - Optional direct transports (e.g. QUIC, TCP) with listen addresses.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(options: ConnectionFactoryOptions) {
@@ -69,7 +67,7 @@ export class ConnectionFactory {
     this.#logger = options.logger;
     this.#signal = options.signal;
     this.#maxRetryAttempts = options.maxRetryAttempts ?? 0;
-    this.#directTransport = options.directTransport;
+    this.#directTransports = options.directTransports ?? [];
   }
 
   /**
@@ -81,7 +79,7 @@ export class ConnectionFactory {
    * @param options.logger - The logger to use for the libp2p node.
    * @param options.signal - The signal to use for the libp2p node.
    * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
-   * @param options.directTransport - Optional direct transport (e.g. QUIC) with listen addresses.
+   * @param options.directTransports - Optional direct transports (e.g. QUIC, TCP) with listen addresses.
    * @returns A promise for the new ConnectionFactory instance.
    */
   static async make(
@@ -104,7 +102,7 @@ export class ConnectionFactory {
         listen: [
           '/webrtc',
           '/p2p-circuit',
-          ...(this.#directTransport?.listenAddresses ?? []),
+          ...this.#directTransports.flatMap((dt) => dt.listenAddresses),
         ],
         appendAnnounce: ['/webrtc'],
       },
@@ -124,9 +122,9 @@ export class ConnectionFactory {
           },
         }),
         circuitRelayTransport(),
-        ...(this.#directTransport
-          ? [this.#directTransport.transport as ReturnType<typeof webSockets>]
-          : []),
+        ...this.#directTransports.map(
+          (dt) => dt.transport as ReturnType<typeof webSockets>,
+        ),
       ],
       connectionEncrypters: [noise()],
       streamMuxers: [yamux()],

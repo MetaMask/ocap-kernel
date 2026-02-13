@@ -201,18 +201,16 @@ describe('ConnectionFactory', () => {
    * @param options - Options for the factory.
    * @param options.signal - The signal to use for the ConnectionFactory.
    * @param options.maxRetryAttempts - Maximum number of retry attempts.
-   * @param options.directTransport - Optional direct transport with listen addresses.
-   * @param options.directTransport.transport - The transport implementation.
-   * @param options.directTransport.listenAddresses - Addresses to listen on.
+   * @param options.directTransports - Optional direct transports with listen addresses.
    * @returns The ConnectionFactory.
    */
   async function createFactory(options?: {
     signal?: AbortSignal;
     maxRetryAttempts?: number;
-    directTransport?: {
+    directTransports?: {
       transport: unknown;
       listenAddresses: string[];
-    };
+    }[];
   }): Promise<
     Awaited<
       ReturnType<
@@ -228,7 +226,7 @@ describe('ConnectionFactory', () => {
       logger: new Logger(),
       signal: options?.signal ?? new AbortController().signal,
       maxRetryAttempts: options?.maxRetryAttempts,
-      directTransport: options?.directTransport,
+      directTransports: options?.directTransports,
     });
   }
 
@@ -1266,14 +1264,16 @@ describe('ConnectionFactory', () => {
     });
   });
 
-  describe('directTransport', () => {
-    it('includes direct transport in libp2p config when provided', async () => {
+  describe('directTransports', () => {
+    it('includes a single direct transport in libp2p config', async () => {
       const mockTransport = { tag: 'quic-transport' };
       factory = await createFactory({
-        directTransport: {
-          transport: mockTransport,
-          listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
-        },
+        directTransports: [
+          {
+            transport: mockTransport,
+            listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
+          },
+        ],
       });
 
       const callArgs = createLibp2p.mock.calls[0]?.[0];
@@ -1281,12 +1281,36 @@ describe('ConnectionFactory', () => {
       expect(callArgs.transports[4]).toBe(mockTransport);
     });
 
+    it('includes multiple direct transports in libp2p config', async () => {
+      const mockQuic = { tag: 'quic-transport' };
+      const mockTcp = { tag: 'tcp-transport' };
+      factory = await createFactory({
+        directTransports: [
+          {
+            transport: mockQuic,
+            listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
+          },
+          {
+            transport: mockTcp,
+            listenAddresses: ['/ip4/0.0.0.0/tcp/4001'],
+          },
+        ],
+      });
+
+      const callArgs = createLibp2p.mock.calls[0]?.[0];
+      expect(callArgs.transports).toHaveLength(6); // 4 default + 2 direct
+      expect(callArgs.transports[4]).toBe(mockQuic);
+      expect(callArgs.transports[5]).toBe(mockTcp);
+    });
+
     it('merges direct listen addresses with default addresses', async () => {
       factory = await createFactory({
-        directTransport: {
-          transport: {},
-          listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
-        },
+        directTransports: [
+          {
+            transport: {},
+            listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
+          },
+        ],
       });
 
       const callArgs = createLibp2p.mock.calls[0]?.[0];
@@ -1297,7 +1321,30 @@ describe('ConnectionFactory', () => {
       ]);
     });
 
-    it('does not add direct transport when not provided', async () => {
+    it('merges multiple transport listen addresses', async () => {
+      factory = await createFactory({
+        directTransports: [
+          {
+            transport: {},
+            listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
+          },
+          {
+            transport: {},
+            listenAddresses: ['/ip4/0.0.0.0/tcp/4001'],
+          },
+        ],
+      });
+
+      const callArgs = createLibp2p.mock.calls[0]?.[0];
+      expect(callArgs.addresses.listen).toStrictEqual([
+        '/webrtc',
+        '/p2p-circuit',
+        '/ip4/0.0.0.0/udp/0/quic-v1',
+        '/ip4/0.0.0.0/tcp/4001',
+      ]);
+    });
+
+    it('does not add direct transports when not provided', async () => {
       factory = await createFactory();
 
       const callArgs = createLibp2p.mock.calls[0]?.[0];

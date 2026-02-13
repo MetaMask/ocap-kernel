@@ -87,7 +87,7 @@ export async function initTransport(
     stalePeerTimeoutMs = DEFAULT_STALE_PEER_TIMEOUT_MS,
     maxMessagesPerSecond = DEFAULT_MESSAGE_RATE_LIMIT,
     maxConnectionAttemptsPerMinute = DEFAULT_CONNECTION_RATE_LIMIT,
-    directTransport,
+    directTransports,
   } = options;
   let cleanupWakeDetector: (() => void) | undefined;
   const stopController = new AbortController();
@@ -123,7 +123,7 @@ export async function initTransport(
     logger,
     signal,
     maxRetryAttempts,
-    directTransport,
+    directTransports,
   });
 
   // Create handshake dependencies (only if incarnation ID is configured).

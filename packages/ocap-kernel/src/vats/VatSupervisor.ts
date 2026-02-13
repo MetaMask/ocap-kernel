@@ -43,7 +43,6 @@ import { isVatConfig, coerceVatSyscallObject } from '../types.ts';
 
 const makeLiveSlots: MakeLiveSlotsFn = localMakeLiveSlots;
 
-// eslint-disable-next-line n/no-unsupported-features/node-builtins
 export type FetchBlob = (bundleURL: string) => Promise<Response>;
 
 type SupervisorRpcClient = Pick<

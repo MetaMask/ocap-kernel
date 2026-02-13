@@ -3963,6 +3963,7 @@ __metadata:
     "@endo/eventual-send": "npm:^1.3.4"
     "@endo/promise-kit": "npm:^1.1.13"
     "@libp2p/interface": "npm:2.11.0"
+    "@libp2p/tcp": "npm:10.1.19"
     "@libp2p/webrtc": "npm:5.2.24"
     "@metamask/auto-changelog": "npm:^5.3.0"
     "@metamask/eslint-config": "npm:^15.0.0"

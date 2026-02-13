@@ -38,8 +38,9 @@ async function stopWithTimeout(
   }
 }
 
-// QUIC listen addresses for each kernel (port 0 = OS-assigned)
+// Listen addresses for each kernel (port 0 = OS-assigned)
 const quicListenAddress = '/ip4/127.0.0.1/udp/0/quic-v1';
+const tcpListenAddress = '/ip4/127.0.0.1/tcp/0';
 
 /**
  * Get the connected remote comms info from a kernel's status.
@@ -51,6 +52,7 @@ async function getConnectedInfo(kernel: Kernel): Promise<{
   peerId: string;
   listenAddresses: string[];
   quicAddresses: string[];
+  tcpAddresses: string[];
 }> {
   const status = await kernel.getStatus();
   if (status.remoteComms?.state !== 'connected') {
@@ -61,10 +63,13 @@ async function getConnectedInfo(kernel: Kernel): Promise<{
     peerId,
     listenAddresses,
     quicAddresses: listenAddresses.filter((addr) => addr.includes('/quic-v1/')),
+    tcpAddresses: listenAddresses.filter(
+      (addr) => addr.includes('/tcp/') && !addr.includes('/ws'),
+    ),
   };
 }
 
-describe.sequential('QUIC Transport E2E', () => {
+describe.sequential('Direct Transport E2E', () => {
   let kernel1: Kernel;
   let kernel2: Kernel;
   let kernelDatabase1: Awaited<ReturnType<typeof makeSQLKernelDatabase>>;
@@ -133,13 +138,39 @@ describe.sequential('QUIC Transport E2E', () => {
     );
 
     it(
-      'rejects direct TCP listen addresses',
+      'initializes remote comms with TCP transport without a relay',
       async () => {
-        await expect(
-          kernel1.initRemoteComms({
-            directListenAddresses: ['/ip4/0.0.0.0/tcp/4001'],
-          }),
-        ).rejects.toThrow('Direct TCP listen addresses are not yet supported');
+        await kernel1.initRemoteComms({
+          directListenAddresses: [tcpListenAddress],
+        });
+        await kernel2.initRemoteComms({
+          directListenAddresses: [tcpListenAddress],
+        });
+
+        const info1 = await getConnectedInfo(kernel1);
+        const info2 = await getConnectedInfo(kernel2);
+
+        // Each kernel should have TCP listen addresses
+        expect(info1.tcpAddresses.length).toBeGreaterThan(0);
+        expect(info2.tcpAddresses.length).toBeGreaterThan(0);
+
+        // Peer IDs should be distinct
+        expect(info1.peerId).not.toBe(info2.peerId);
+      },
+      NETWORK_TIMEOUT,
+    );
+
+    it(
+      'initializes remote comms with both QUIC and TCP',
+      async () => {
+        await kernel1.initRemoteComms({
+          directListenAddresses: [quicListenAddress, tcpListenAddress],
+        });
+
+        const info1 = await getConnectedInfo(kernel1);
+
+        expect(info1.quicAddresses.length).toBeGreaterThan(0);
+        expect(info1.tcpAddresses.length).toBeGreaterThan(0);
       },
       NETWORK_TIMEOUT,
     );
@@ -260,6 +291,38 @@ describe.sequential('QUIC Transport E2E', () => {
           );
           expect(response).toContain('vat Bob got "hello" from Alice');
         }
+      },
+      NETWORK_TIMEOUT,
+    );
+
+    it(
+      'sends a message via direct TCP',
+      async () => {
+        await kernel1.initRemoteComms({
+          directListenAddresses: [tcpListenAddress],
+        });
+        await kernel2.initRemoteComms({
+          directListenAddresses: [tcpListenAddress],
+        });
+
+        const info2 = await getConnectedInfo(kernel2);
+        await kernel1.registerLocationHints(info2.peerId, info2.tcpAddresses);
+
+        const aliceConfig = makeRemoteVatConfig('Alice');
+        const bobConfig = makeRemoteVatConfig('Bob');
+        await launchVatAndGetURL(kernel1, aliceConfig);
+        const bobURL = await launchVatAndGetURL(kernel2, bobConfig);
+
+        const aliceRef = getVatRootRef(kernel1, kernelStore1, 'Alice');
+
+        const response = await sendRemoteMessage(
+          kernel1,
+          aliceRef,
+          bobURL,
+          'hello',
+          ['Alice'],
+        );
+        expect(response).toContain('vat Bob got "hello" from Alice');
       },
       NETWORK_TIMEOUT,
     );
