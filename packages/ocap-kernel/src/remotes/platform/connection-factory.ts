@@ -184,7 +184,7 @@ export class ConnectionFactory {
   }
 
   /**
-   * Get the actual listen addresses of the libp2p node.
+   * Get the listen addresses of the libp2p node.
    * These are the multiaddr strings that other peers can use to dial this node.
    *
    * @returns The listen address strings.
@@ -211,10 +211,6 @@ export class ConnectionFactory {
 
   /**
    * Get candidate address strings for dialing a peer.
-   *
-   * Hints that already contain `/p2p/{peerId}` are treated as direct addresses
-   * (e.g. QUIC multiaddrs) and are used as-is. Other hints are relay addresses
-   * and are expanded with circuit-relay patterns. Direct addresses are tried first.
    *
    * @param peerId - The peer ID to get candidate address strings for.
    * @param hints - The hints to get candidate address strings for.

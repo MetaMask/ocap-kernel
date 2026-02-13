@@ -291,9 +291,9 @@ export class PlatformServicesClient implements PlatformServices {
   }
 
   /**
-   * Get the actual listen addresses of the libp2p node.
+   * Get the listen addresses of the libp2p node.
    * In the browser runtime, this always returns an empty array since
-   * direct transport (QUIC) is only supported in Node.js.
+   * direct transport is only supported in Node.js.
    *
    * @returns An empty array.
    */

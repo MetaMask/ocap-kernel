@@ -139,6 +139,10 @@ class DirectNetworkService {
         // Mock implementation - in direct network, connections are always available
         return Promise.resolve();
       },
+
+      getListenAddresses() {
+        return [];
+      },
     };
   }
 }

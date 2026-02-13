@@ -378,7 +378,7 @@ export type PlatformServices = {
    */
   resetAllBackoffs: () => Promise<void>;
   /**
-   * Get the actual listen addresses of the libp2p node.
+   * Get the listen addresses of the libp2p node.
    * Returns multiaddr strings that other peers can use to dial this node directly.
    * Returns an empty array if remote comms is not initialized.
    *

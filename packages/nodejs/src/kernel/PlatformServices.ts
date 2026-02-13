@@ -392,7 +392,7 @@ export class NodejsPlatformServices implements PlatformServices {
   }
 
   /**
-   * Get the actual listen addresses of the libp2p node.
+   * Get the listen addresses of the libp2p node.
    * Returns multiaddr strings that other peers can use to dial this node directly.
    *
    * @returns The listen address strings, or empty array if remote comms not initialized.

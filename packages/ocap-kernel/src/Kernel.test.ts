@@ -111,6 +111,7 @@ describe('Kernel', () => {
       terminateAll: async () => undefined,
       stopRemoteComms: vi.fn(async () => undefined),
       resetAllBackoffs: vi.fn(async () => undefined),
+      getListenAddresses: vi.fn(() => []),
     } as unknown as PlatformServices;
 
     launchWorkerMock = vi
