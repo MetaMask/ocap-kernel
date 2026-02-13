@@ -442,7 +442,7 @@ export class ConnectionFactory {
         this.#logger.error('libp2p.stop() failed or timed out:', error);
         // Continue anyway - we'll clear the reference
       }
-      this.#libp2p = undefined;
+      this.#libp2p = undefined as unknown as Libp2p;
     }
   }
 }
