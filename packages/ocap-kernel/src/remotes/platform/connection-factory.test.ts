@@ -99,6 +99,10 @@ vi.mock('@metamask/logger', () => ({
 
 vi.mock('@multiformats/multiaddr', () => ({
   multiaddr: (addr: string) => {
+    // Real multiaddr() throws on malformed addresses
+    if (!addr.startsWith('/')) {
+      throw new Error(`invalid multiaddr "${addr}"`);
+    }
     // Extract the last /p2p/<peerId> segment if present
     const peerIdMatch = addr.match(/\/p2p\/([^/]+)$/u);
     return {
@@ -1457,6 +1461,19 @@ describe('ConnectionFactory', () => {
       // Relay hint addresses follow
       expect(addresses[1]).toContain('hint.example');
       expect(addresses[1]).toContain('/p2p-circuit/');
+    });
+
+    it('skips malformed hints and still generates relay addresses', async () => {
+      factory = await createFactory();
+
+      const addresses = factory.candidateAddressStrings('peer123', [
+        'not-a-valid-multiaddr',
+      ]);
+
+      // Malformed hint is skipped, relay addresses still generated
+      expect(addresses).not.toContain('not-a-valid-multiaddr');
+      expect(addresses.length).toBeGreaterThan(0);
+      expect(addresses.every((a) => a.includes('/p2p-circuit/'))).toBe(true);
     });
   });
 });

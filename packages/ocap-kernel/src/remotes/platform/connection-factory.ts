@@ -220,10 +220,15 @@ export class ConnectionFactory {
     const relayHints: string[] = [];
 
     for (const hint of hints) {
-      if (multiaddr(hint).getPeerId() === peerId) {
-        directAddresses.push(hint);
-      } else {
-        relayHints.push(hint);
+      try {
+        if (multiaddr(hint).getPeerId() === peerId) {
+          directAddresses.push(hint);
+        } else {
+          relayHints.push(hint);
+        }
+      } catch {
+        // Skip malformed hints so relay fallback still works.
+        this.#logger.log(`skipping malformed hint: ${hint}`);
       }
     }
 
