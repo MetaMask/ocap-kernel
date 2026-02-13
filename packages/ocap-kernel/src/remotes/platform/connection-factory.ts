@@ -132,6 +132,7 @@ export class ConnectionFactory {
         // Allow private addresses for local testing
         denyDialMultiaddr: async () => false,
       },
+      // No peer discovery in direct connection mode
       ...(this.#knownRelays.length > 0
         ? {
             peerDiscovery: [
@@ -221,7 +222,7 @@ export class ConnectionFactory {
     const relayHints: string[] = [];
 
     for (const hint of hints) {
-      if (hint.includes(`/p2p/${peerId}`)) {
+      if (multiaddr(hint).getPeerId() === peerId) {
         directAddresses.push(hint);
       } else {
         relayHints.push(hint);

@@ -98,7 +98,14 @@ vi.mock('@metamask/logger', () => ({
 }));
 
 vi.mock('@multiformats/multiaddr', () => ({
-  multiaddr: (addr: string) => addr,
+  multiaddr: (addr: string) => {
+    // Extract the last /p2p/<peerId> segment if present
+    const peerIdMatch = addr.match(/\/p2p\/([^/]+)$/u);
+    return {
+      toString: () => addr,
+      getPeerId: () => peerIdMatch?.[1] ?? null,
+    };
+  },
 }));
 
 // Simple ByteStream mock
@@ -1261,7 +1268,7 @@ describe('ConnectionFactory', () => {
 
       // Verify dial was made
       expect(libp2pState.dials).toHaveLength(1);
-      expect(libp2pState.dials[0]?.addr).toContain('hint.example');
+      expect(libp2pState.dials[0]?.addr.toString()).toContain('hint.example');
 
       // Clean up
       await factory.stop();
