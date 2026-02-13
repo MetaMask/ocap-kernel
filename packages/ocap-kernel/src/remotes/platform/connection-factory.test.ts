@@ -416,6 +416,20 @@ describe('ConnectionFactory', () => {
       );
       expect(relay1Addresses).toHaveLength(2); // Just WebRTC and circuit
     });
+
+    it('returns empty array when no relays and no hints', async () => {
+      const { ConnectionFactory } = await import('./connection-factory.ts');
+      factory = await ConnectionFactory.make({
+        keySeed,
+        knownRelays: [],
+        logger: new (await import('@metamask/logger')).Logger(),
+        signal: new AbortController().signal,
+      });
+
+      const addresses = factory.candidateAddressStrings('peer123', []);
+
+      expect(addresses).toStrictEqual([]);
+    });
   });
 
   describe('openChannelOnce', () => {
@@ -609,6 +623,20 @@ describe('ConnectionFactory', () => {
       );
       expect(mockLoggerLog).toHaveBeenCalledWith(
         expect.stringContaining('opened channel to peer123'),
+      );
+    });
+
+    it('throws fallback error when no relays and no hints', async () => {
+      const { ConnectionFactory } = await import('./connection-factory.ts');
+      factory = await ConnectionFactory.make({
+        keySeed,
+        knownRelays: [],
+        logger: new (await import('@metamask/logger')).Logger(),
+        signal: new AbortController().signal,
+      });
+
+      await expect(factory.openChannelOnce('peer123')).rejects.toThrow(
+        'unable to open channel to peer123',
       );
     });
   });

@@ -264,27 +264,55 @@ export class NodejsPlatformServices implements PlatformServices {
     }[] = [];
 
     if (directListenAddresses && directListenAddresses.length > 0) {
-      const quicAddresses = directListenAddresses.filter((addr) =>
-        addr.includes('/quic-v1'),
-      );
-      const tcpAddresses = directListenAddresses.filter((addr) =>
-        addr.includes('/tcp/'),
-      );
+      const quicAddresses: string[] = [];
+      const tcpAddresses: string[] = [];
+
+      for (const addr of directListenAddresses) {
+        const isQuic = addr.includes('/quic-v1');
+        const isTcp = addr.includes('/tcp/');
+
+        if (isQuic) {
+          quicAddresses.push(addr);
+        } else if (isTcp) {
+          tcpAddresses.push(addr);
+        } else {
+          throw new Error(
+            `Unsupported direct listen address: ${addr}. ` +
+              `Only QUIC (/quic-v1) and TCP (/tcp/) addresses are supported.`,
+          );
+        }
+      }
 
       if (quicAddresses.length > 0) {
-        const { quic } = await import('@chainsafe/libp2p-quic');
-        directTransports.push({
-          transport: quic(),
-          listenAddresses: quicAddresses,
-        });
+        try {
+          const { quic } = await import('@chainsafe/libp2p-quic');
+          directTransports.push({
+            transport: quic(),
+            listenAddresses: quicAddresses,
+          });
+        } catch (error) {
+          throw new Error(
+            `Failed to load QUIC transport for addresses: ${quicAddresses.join(', ')}. ` +
+              `Ensure @chainsafe/libp2p-quic is installed and compatible with your platform.`,
+            { cause: error },
+          );
+        }
       }
 
       if (tcpAddresses.length > 0) {
-        const { tcp } = await import('@libp2p/tcp');
-        directTransports.push({
-          transport: tcp(),
-          listenAddresses: tcpAddresses,
-        });
+        try {
+          const { tcp } = await import('@libp2p/tcp');
+          directTransports.push({
+            transport: tcp(),
+            listenAddresses: tcpAddresses,
+          });
+        } catch (error) {
+          throw new Error(
+            `Failed to load TCP transport for addresses: ${tcpAddresses.join(', ')}. ` +
+              `Ensure @libp2p/tcp is installed.`,
+            { cause: error },
+          );
+        }
       }
     }
 

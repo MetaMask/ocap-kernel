@@ -501,6 +501,68 @@ describe('NodejsPlatformServices', () => {
         );
       });
 
+      it('throws for unsupported direct listen addresses', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+        const remoteHandler = vi.fn(async () => 'response');
+
+        await expect(
+          service.initializeRemoteComms(
+            '0xtest',
+            {
+              directListenAddresses: ['/ip4/0.0.0.0/udp/0/webrtc'],
+            },
+            remoteHandler,
+          ),
+        ).rejects.toThrowError('Unsupported direct listen address');
+      });
+
+      it('wraps QUIC import failure with actionable error', async () => {
+        vi.doMock('@chainsafe/libp2p-quic', () => {
+          throw new Error('native module not found');
+        });
+
+        // Re-import PlatformServices to pick up the new mock
+        vi.resetModules();
+        const { NodejsPlatformServices: FreshServices } = await import(
+          './PlatformServices.ts'
+        );
+        const service = new FreshServices({ workerFilePath });
+        const remoteHandler = vi.fn(async () => 'response');
+
+        await expect(
+          service.initializeRemoteComms(
+            '0xtest',
+            {
+              directListenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
+            },
+            remoteHandler,
+          ),
+        ).rejects.toThrowError('Failed to load QUIC transport');
+      });
+
+      it('wraps TCP import failure with actionable error', async () => {
+        vi.doMock('@libp2p/tcp', () => {
+          throw new Error('module not found');
+        });
+
+        vi.resetModules();
+        const { NodejsPlatformServices: FreshServices } = await import(
+          './PlatformServices.ts'
+        );
+        const service = new FreshServices({ workerFilePath });
+        const remoteHandler = vi.fn(async () => 'response');
+
+        await expect(
+          service.initializeRemoteComms(
+            '0xtest',
+            {
+              directListenAddresses: ['/ip4/0.0.0.0/tcp/4001'],
+            },
+            remoteHandler,
+          ),
+        ).rejects.toThrowError('Failed to load TCP transport');
+      });
+
       it('does not inject directTransports when no directListenAddresses provided', async () => {
         const service = new NodejsPlatformServices({ workerFilePath });
         const keySeed = '0x1234567890abcdef';

@@ -290,10 +290,12 @@ describe('Remote Communications (Integration Tests)', () => {
     expect(status1.remoteComms).toStrictEqual({
       state: 'connected',
       peerId: expect.any(String),
+      listenAddresses: [],
     });
     expect(status2.remoteComms).toStrictEqual({
       state: 'connected',
       peerId: expect.any(String),
+      listenAddresses: [],
     });
     // Each kernel should have a unique peer ID
     const peerId1 =

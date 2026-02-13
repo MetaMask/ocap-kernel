@@ -428,20 +428,21 @@ export class ConnectionFactory {
       try {
         // Add a timeout to prevent hanging if libp2p.stop() doesn't complete
         const STOP_TIMEOUT_MS = 2000;
+        let timeoutId: ReturnType<typeof setTimeout>;
         await Promise.race([
           this.#libp2p.stop(),
-          new Promise<void>((_resolve, reject) =>
-            setTimeout(
+          new Promise<void>((_resolve, reject) => {
+            timeoutId = setTimeout(
               () => reject(new Error('libp2p.stop() timed out')),
               STOP_TIMEOUT_MS,
-            ),
-          ),
-        ]);
+            );
+          }),
+        ]).finally(() => clearTimeout(timeoutId));
       } catch (error) {
         this.#logger.error('libp2p.stop() failed or timed out:', error);
         // Continue anyway - we'll clear the reference
       }
-      this.#libp2p = undefined as unknown as Libp2p;
+      this.#libp2p = undefined;
     }
   }
 }
