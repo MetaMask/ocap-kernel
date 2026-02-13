@@ -115,7 +115,7 @@ describe.sequential('Direct Transport E2E', () => {
 
   describe('Initialization', () => {
     it(
-      'initializes remote comms with QUIC transport without a relay',
+      'initializes remote comms with QUIC transport',
       async () => {
         await kernel1.initRemoteComms({
           directListenAddresses: [quicListenAddress],
@@ -138,7 +138,7 @@ describe.sequential('Direct Transport E2E', () => {
     );
 
     it(
-      'initializes remote comms with TCP transport without a relay',
+      'initializes remote comms with TCP transport',
       async () => {
         await kernel1.initRemoteComms({
           directListenAddresses: [tcpListenAddress],
@@ -180,7 +180,7 @@ describe.sequential('Direct Transport E2E', () => {
     it(
       'sends a message via direct QUIC',
       async () => {
-        // Initialize both kernels with QUIC only — no relays
+        // Initialize both kernels with QUIC only
         await kernel1.initRemoteComms({
           directListenAddresses: [quicListenAddress],
         });
