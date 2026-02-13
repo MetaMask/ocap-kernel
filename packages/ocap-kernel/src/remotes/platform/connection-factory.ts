@@ -20,6 +20,7 @@ import { createLibp2p } from 'libp2p';
 import type {
   Channel,
   ConnectionFactoryOptions,
+  DirectTransport,
   InboundConnectionHandler,
 } from '../types.ts';
 
@@ -42,10 +43,7 @@ export class ConnectionFactory {
 
   readonly #maxRetryAttempts: number;
 
-  readonly #directTransports: {
-    transport: unknown;
-    listenAddresses: string[];
-  }[];
+  readonly #directTransports: DirectTransport[];
 
   #inboundHandler?: InboundConnectionHandler;
 

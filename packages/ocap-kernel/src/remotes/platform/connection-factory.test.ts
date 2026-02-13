@@ -214,10 +214,7 @@ describe('ConnectionFactory', () => {
   async function createFactory(options?: {
     signal?: AbortSignal;
     maxRetryAttempts?: number;
-    directTransports?: {
-      transport: unknown;
-      listenAddresses: string[];
-    }[];
+    directTransports?: import('../types.ts').DirectTransport[];
   }): Promise<
     Awaited<
       ReturnType<

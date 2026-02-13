@@ -5,6 +5,7 @@ import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type {
+  DirectTransport,
   PlatformServices,
   VatId,
   RemoteMessageHandler,
@@ -260,10 +261,7 @@ export class NodejsPlatformServices implements PlatformServices {
 
     const { directListenAddresses, ...restOptions } = options;
 
-    const directTransports: {
-      transport: unknown;
-      listenAddresses: string[];
-    }[] = [];
+    const directTransports: DirectTransport[] = [];
 
     if (directListenAddresses && directListenAddresses.length > 0) {
       const quicAddresses: string[] = [];

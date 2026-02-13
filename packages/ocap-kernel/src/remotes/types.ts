@@ -115,10 +115,15 @@ export type RemoteCommsOptions = {
    *
    * @internal
    */
-  directTransports?: {
-    transport: unknown;
-    listenAddresses: string[];
-  }[];
+  directTransports?: DirectTransport[];
+};
+
+/**
+ * A direct transport implementation bundled with its listen addresses.
+ */
+export type DirectTransport = {
+  transport: unknown;
+  listenAddresses: string[];
 };
 
 /**
@@ -130,12 +135,7 @@ export type ConnectionFactoryOptions = {
   logger: Logger;
   signal: AbortSignal;
   maxRetryAttempts?: number | undefined;
-  directTransports?:
-    | {
-        transport: unknown;
-        listenAddresses: string[];
-      }[]
-    | undefined;
+  directTransports?: DirectTransport[] | undefined;
 };
 
 export type RemoteInfo = {
