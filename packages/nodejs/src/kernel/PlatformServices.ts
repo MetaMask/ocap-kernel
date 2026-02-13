@@ -284,35 +284,19 @@ export class NodejsPlatformServices implements PlatformServices {
       }
 
       if (quicAddresses.length > 0) {
-        try {
-          const { quic } = await import('@chainsafe/libp2p-quic');
-          directTransports.push({
-            transport: quic(),
-            listenAddresses: quicAddresses,
-          });
-        } catch (error) {
-          throw new Error(
-            `Failed to load QUIC transport for addresses: ${quicAddresses.join(', ')}. ` +
-              `Ensure @chainsafe/libp2p-quic is installed and compatible with your platform.`,
-            { cause: error },
-          );
-        }
+        const { quic } = await import('@chainsafe/libp2p-quic');
+        directTransports.push({
+          transport: quic(),
+          listenAddresses: quicAddresses,
+        });
       }
 
       if (tcpAddresses.length > 0) {
-        try {
-          const { tcp } = await import('@libp2p/tcp');
-          directTransports.push({
-            transport: tcp(),
-            listenAddresses: tcpAddresses,
-          });
-        } catch (error) {
-          throw new Error(
-            `Failed to load TCP transport for addresses: ${tcpAddresses.join(', ')}. ` +
-              `Ensure @libp2p/tcp is installed.`,
-            { cause: error },
-          );
-        }
+        const { tcp } = await import('@libp2p/tcp');
+        directTransports.push({
+          transport: tcp(),
+          listenAddresses: tcpAddresses,
+        });
       }
     }
 
