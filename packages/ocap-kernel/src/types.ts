@@ -377,6 +377,14 @@ export type PlatformServices = {
    * @returns A promise that resolves when backoffs have been reset.
    */
   resetAllBackoffs: () => Promise<void>;
+  /**
+   * Get the actual listen addresses of the libp2p node.
+   * Returns multiaddr strings that other peers can use to dial this node directly.
+   * Returns an empty array if remote comms is not initialized.
+   *
+   * @returns The listen address strings.
+   */
+  getListenAddresses: () => string[];
 };
 
 // Cluster configuration
@@ -469,6 +477,7 @@ const RemoteCommsIdentityOnlyStruct = object({
 const RemoteCommsConnectedStruct = object({
   state: literal('connected'),
   peerId: string(),
+  listenAddresses: array(string()),
 });
 
 export const KernelStatusStruct = type({

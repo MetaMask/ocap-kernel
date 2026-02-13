@@ -328,6 +328,17 @@ export class Kernel {
   }
 
   /**
+   * Register location hints for a remote peer.
+   * Hints are multiaddr strings that can be used to dial the peer directly.
+   *
+   * @param peerId - The peer ID to register hints for.
+   * @param hints - The location hint multiaddr strings.
+   */
+  async registerLocationHints(peerId: string, hints: string[]): Promise<void> {
+    await this.#remoteManager.registerLocationHints(peerId, hints);
+  }
+
+  /**
    * Send a message from the kernel to an object in a vat.
    *
    * @param target - The object to which the message is directed.
@@ -583,6 +594,7 @@ export class Kernel {
       status.remoteComms = {
         state: 'connected',
         peerId: this.#remoteManager.getPeerId(),
+        listenAddresses: this.#platformServices.getListenAddresses(),
       };
     } else if (this.#remoteManager.isIdentityInitialized()) {
       status.remoteComms = {

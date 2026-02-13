@@ -76,6 +76,7 @@ export async function initTransport(
   registerLocationHints: (peerId: string, hints: string[]) => void;
   reconnectPeer: (peerId: string, hints?: string[]) => Promise<void>;
   resetAllBackoffs: () => void;
+  getListenAddresses: () => string[];
 }> {
   const {
     relays = [],
@@ -86,6 +87,7 @@ export async function initTransport(
     stalePeerTimeoutMs = DEFAULT_STALE_PEER_TIMEOUT_MS,
     maxMessagesPerSecond = DEFAULT_MESSAGE_RATE_LIMIT,
     maxConnectionAttemptsPerMinute = DEFAULT_CONNECTION_RATE_LIMIT,
+    directTransport,
   } = options;
   let cleanupWakeDetector: (() => void) | undefined;
   const stopController = new AbortController();
@@ -115,13 +117,14 @@ export async function initTransport(
     }
     connectionLossHolder.impl(peerId);
   };
-  const connectionFactory = await ConnectionFactory.make(
+  const connectionFactory = await ConnectionFactory.make({
     keySeed,
-    relays,
+    knownRelays: relays,
     logger,
     signal,
     maxRetryAttempts,
-  );
+    directTransport,
+  });
 
   // Create handshake dependencies (only if incarnation ID is configured).
   // The incarnation ID is optional primarily for unit tests that don't need
@@ -728,5 +731,6 @@ export async function initTransport(
     registerLocationHints,
     reconnectPeer,
     resetAllBackoffs,
+    getListenAddresses: () => connectionFactory.getListenAddresses(),
   };
 }

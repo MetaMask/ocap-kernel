@@ -73,6 +73,10 @@ vi.mock('node:worker_threads', () => ({
   }),
 }));
 
+vi.mock('@chainsafe/libp2p-quic', () => ({
+  quic: () => ({ tag: 'mock-quic-transport' }),
+}));
+
 vi.mock('@metamask/ocap-kernel', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@metamask/ocap-kernel')>();
   return {
@@ -83,6 +87,10 @@ vi.mock('@metamask/ocap-kernel', async (importOriginal) => {
       closeConnection: mockCloseConnection,
       registerLocationHints: mockRegisterLocationHints,
       reconnectPeer: mockReconnectPeer,
+      resetAllBackoffs: vi.fn(),
+      getListenAddresses: vi.fn(() => [
+        '/ip4/127.0.0.1/udp/12345/quic-v1/p2p/mock-peer-id',
+      ]),
     })),
   };
 });
@@ -384,6 +392,95 @@ describe('NodejsPlatformServices', () => {
         // Handler is stored internally and will be used when messages arrive
         // This is tested through integration tests
         expect(service).toBeInstanceOf(NodejsPlatformServices);
+      });
+
+      it('injects QUIC directTransport when directListenAddresses contain /quic-v1', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+        const keySeed = '0x1234567890abcdef';
+        const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+        const remoteHandler = vi.fn(async () => 'response');
+
+        await service.initializeRemoteComms(
+          keySeed,
+          {
+            relays,
+            directListenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
+          },
+          remoteHandler,
+        );
+
+        const { initTransport } = await import('@metamask/ocap-kernel');
+        expect(initTransport).toHaveBeenCalledWith(
+          keySeed,
+          expect.objectContaining({
+            relays,
+            directTransport: {
+              transport: expect.any(Object),
+              listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
+            },
+          }),
+          expect.any(Function),
+          undefined,
+          undefined,
+          undefined,
+        );
+      });
+
+      it('does not inject directTransport when no directListenAddresses provided', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+        const keySeed = '0x1234567890abcdef';
+        const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+        const remoteHandler = vi.fn(async () => 'response');
+
+        await service.initializeRemoteComms(keySeed, { relays }, remoteHandler);
+
+        const { initTransport } = await import('@metamask/ocap-kernel');
+        const callArgs = (
+          initTransport as unknown as ReturnType<typeof vi.fn>
+        ).mock.calls.at(-1);
+        // Second argument is the options
+        expect(callArgs?.[1]).not.toHaveProperty('directTransport');
+      });
+
+      it('throws error for direct TCP listen addresses', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+        const remoteHandler = vi.fn(async () => 'response');
+
+        await expect(
+          service.initializeRemoteComms(
+            '0xtest',
+            {
+              relays: [],
+              directListenAddresses: ['/ip4/0.0.0.0/tcp/4001'],
+            },
+            remoteHandler,
+          ),
+        ).rejects.toThrowError(
+          'Direct TCP listen addresses are not yet supported',
+        );
+      });
+    });
+
+    describe('getListenAddresses', () => {
+      it('returns listen addresses after initialization', async () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+        const remoteHandler = vi.fn(async () => '');
+
+        await service.initializeRemoteComms(
+          '0xabcd',
+          { relays: [] },
+          remoteHandler,
+        );
+
+        const addresses = service.getListenAddresses();
+        expect(addresses).toStrictEqual([
+          '/ip4/127.0.0.1/udp/12345/quic-v1/p2p/mock-peer-id',
+        ]);
+      });
+
+      it('returns empty array before initialization', () => {
+        const service = new NodejsPlatformServices({ workerFilePath });
+        expect(service.getListenAddresses()).toStrictEqual([]);
       });
     });
 

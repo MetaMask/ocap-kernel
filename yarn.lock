@@ -480,6 +480,93 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@chainsafe/libp2p-quic-darwin-arm64@npm:1.1.8":
+  version: 1.1.8
+  resolution: "@chainsafe/libp2p-quic-darwin-arm64@npm:1.1.8"
+  conditions: os=darwin & cpu=arm64
+  languageName: node
+  linkType: hard
+
+"@chainsafe/libp2p-quic-darwin-x64@npm:1.1.8":
+  version: 1.1.8
+  resolution: "@chainsafe/libp2p-quic-darwin-x64@npm:1.1.8"
+  conditions: os=darwin & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@chainsafe/libp2p-quic-linux-arm64-gnu@npm:1.1.8":
+  version: 1.1.8
+  resolution: "@chainsafe/libp2p-quic-linux-arm64-gnu@npm:1.1.8"
+  conditions: os=linux & cpu=arm64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+"@chainsafe/libp2p-quic-linux-arm64-musl@npm:1.1.8":
+  version: 1.1.8
+  resolution: "@chainsafe/libp2p-quic-linux-arm64-musl@npm:1.1.8"
+  conditions: os=linux & cpu=arm64 & libc=musl
+  languageName: node
+  linkType: hard
+
+"@chainsafe/libp2p-quic-linux-x64-gnu@npm:1.1.8":
+  version: 1.1.8
+  resolution: "@chainsafe/libp2p-quic-linux-x64-gnu@npm:1.1.8"
+  conditions: os=linux & cpu=x64 & libc=glibc
+  languageName: node
+  linkType: hard
+
+"@chainsafe/libp2p-quic-linux-x64-musl@npm:1.1.8":
+  version: 1.1.8
+  resolution: "@chainsafe/libp2p-quic-linux-x64-musl@npm:1.1.8"
+  conditions: os=linux & cpu=x64 & libc=musl
+  languageName: node
+  linkType: hard
+
+"@chainsafe/libp2p-quic-win32-x64-msvc@npm:1.1.8":
+  version: 1.1.8
+  resolution: "@chainsafe/libp2p-quic-win32-x64-msvc@npm:1.1.8"
+  conditions: os=win32 & cpu=x64
+  languageName: node
+  linkType: hard
+
+"@chainsafe/libp2p-quic@npm:^1.1.8":
+  version: 1.1.8
+  resolution: "@chainsafe/libp2p-quic@npm:1.1.8"
+  dependencies:
+    "@chainsafe/libp2p-quic-darwin-arm64": "npm:1.1.8"
+    "@chainsafe/libp2p-quic-darwin-x64": "npm:1.1.8"
+    "@chainsafe/libp2p-quic-linux-arm64-gnu": "npm:1.1.8"
+    "@chainsafe/libp2p-quic-linux-arm64-musl": "npm:1.1.8"
+    "@chainsafe/libp2p-quic-linux-x64-gnu": "npm:1.1.8"
+    "@chainsafe/libp2p-quic-linux-x64-musl": "npm:1.1.8"
+    "@chainsafe/libp2p-quic-win32-x64-msvc": "npm:1.1.8"
+    "@libp2p/crypto": "npm:^5.1.7"
+    "@libp2p/interface": "npm:^2.10.5"
+    "@libp2p/utils": "npm:^6.7.1"
+    "@multiformats/multiaddr": "npm:^12.4.0"
+    "@multiformats/multiaddr-matcher": "npm:^2.0.1"
+    it-stream-types: "npm:^2.0.2"
+    race-signal: "npm:^1.1.3"
+    uint8arraylist: "npm:^2.4.8"
+  dependenciesMeta:
+    "@chainsafe/libp2p-quic-darwin-arm64":
+      optional: true
+    "@chainsafe/libp2p-quic-darwin-x64":
+      optional: true
+    "@chainsafe/libp2p-quic-linux-arm64-gnu":
+      optional: true
+    "@chainsafe/libp2p-quic-linux-arm64-musl":
+      optional: true
+    "@chainsafe/libp2p-quic-linux-x64-gnu":
+      optional: true
+    "@chainsafe/libp2p-quic-linux-x64-musl":
+      optional: true
+    "@chainsafe/libp2p-quic-win32-x64-msvc":
+      optional: true
+  checksum: 10/7db59436903a62788c99b1be076231cbc21f7742f177d61757730a39b97037c002713e239a6f7d3f80088252c87e3048e684eeb9fba33b6de8e6a0374d380dd0
+  languageName: node
+  linkType: hard
+
 "@chainsafe/libp2p-yamux@npm:7.0.4":
   version: 7.0.4
   resolution: "@chainsafe/libp2p-yamux@npm:7.0.4"
@@ -1672,18 +1759,18 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@libp2p/crypto@npm:^5.0.0, @libp2p/crypto@npm:^5.1.8":
-  version: 5.1.12
-  resolution: "@libp2p/crypto@npm:5.1.12"
+"@libp2p/crypto@npm:^5.0.0, @libp2p/crypto@npm:^5.1.7, @libp2p/crypto@npm:^5.1.8":
+  version: 5.1.13
+  resolution: "@libp2p/crypto@npm:5.1.13"
   dependencies:
-    "@libp2p/interface": "npm:^3.0.2"
+    "@libp2p/interface": "npm:^3.1.0"
     "@noble/curves": "npm:^2.0.1"
     "@noble/hashes": "npm:^2.0.1"
     multiformats: "npm:^13.4.0"
     protons-runtime: "npm:^5.6.0"
     uint8arraylist: "npm:^2.4.8"
     uint8arrays: "npm:^5.1.0"
-  checksum: 10/ff88cca89b27087654415054b54aca9e1c13b59ce3739f759a528b431956b59b19aa1259ed64887eda48d9390ba633a5f5dc89864d90c2fcf9722348a52931ee
+  checksum: 10/8e4a248ab34f668d2ad55e7c579df6043750e13ab2008e488a6ece7a6b3c4271728691da0f28eee52d134a6044fa8b8dc662af7c0a4a17fac8fc0a17b5bf19e3
   languageName: node
   linkType: hard
 
@@ -1883,7 +1970,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@libp2p/utils@npm:^6.0.0, @libp2p/utils@npm:^6.7.2":
+"@libp2p/utils@npm:^6.0.0, @libp2p/utils@npm:^6.7.1, @libp2p/utils@npm:^6.7.2":
   version: 6.7.2
   resolution: "@libp2p/utils@npm:6.7.2"
   dependencies:
@@ -3062,7 +3149,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@multiformats/multiaddr-matcher@npm:^2.0.0":
+"@multiformats/multiaddr-matcher@npm:^2.0.0, @multiformats/multiaddr-matcher@npm:^2.0.1":
   version: 2.0.2
   resolution: "@multiformats/multiaddr-matcher@npm:2.0.2"
   dependencies:
@@ -3872,6 +3959,7 @@ __metadata:
   resolution: "@ocap/nodejs@workspace:packages/nodejs"
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.17.4"
+    "@chainsafe/libp2p-quic": "npm:^1.1.8"
     "@endo/eventual-send": "npm:^1.3.4"
     "@endo/promise-kit": "npm:^1.1.13"
     "@libp2p/interface": "npm:2.11.0"

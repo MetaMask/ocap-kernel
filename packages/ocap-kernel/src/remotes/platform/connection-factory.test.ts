@@ -162,6 +162,10 @@ describe('ConnectionFactory', () => {
         toString: () => 'test-peer-id',
       },
       addEventListener: vi.fn(),
+      getMultiaddrs: vi.fn(() => [
+        { toString: () => '/ip4/127.0.0.1/udp/12345/quic-v1/p2p/test-peer-id' },
+        { toString: () => '/ip4/127.0.0.1/tcp/9001/ws/p2p/test-peer-id' },
+      ]),
       dialProtocol: vi.fn(
         async (
           addr: string,
@@ -194,14 +198,22 @@ describe('ConnectionFactory', () => {
   /**
    * Create a new ConnectionFactory.
    *
-   * @param signal - The signal to use for the ConnectionFactory.
-   * @param maxRetryAttempts - Maximum number of retry attempts.
+   * @param options - Options for the factory.
+   * @param options.signal - The signal to use for the ConnectionFactory.
+   * @param options.maxRetryAttempts - Maximum number of retry attempts.
+   * @param options.directTransport - Optional direct transport with listen addresses.
+   * @param options.directTransport.transport - The transport implementation.
+   * @param options.directTransport.listenAddresses - Addresses to listen on.
    * @returns The ConnectionFactory.
    */
-  async function createFactory(
-    signal?: AbortSignal,
-    maxRetryAttempts?: number,
-  ): Promise<
+  async function createFactory(options?: {
+    signal?: AbortSignal;
+    maxRetryAttempts?: number;
+    directTransport?: {
+      transport: unknown;
+      listenAddresses: string[];
+    };
+  }): Promise<
     Awaited<
       ReturnType<
         typeof import('./connection-factory.ts').ConnectionFactory.make
@@ -210,13 +222,14 @@ describe('ConnectionFactory', () => {
   > {
     const { ConnectionFactory } = await import('./connection-factory.ts');
     const { Logger } = await import('@metamask/logger');
-    return ConnectionFactory.make(
+    return ConnectionFactory.make({
       keySeed,
       knownRelays,
-      new Logger(),
-      signal ?? new AbortController().signal,
-      maxRetryAttempts,
-    );
+      logger: new Logger(),
+      signal: options?.signal ?? new AbortController().signal,
+      maxRetryAttempts: options?.maxRetryAttempts,
+      directTransport: options?.directTransport,
+    });
   }
 
   describe('initialize', () => {
@@ -258,9 +271,22 @@ describe('ConnectionFactory', () => {
       expect(callArgs.peerDiscovery).toBeDefined();
     });
 
+    it('omits bootstrap when no relays are provided', async () => {
+      const { ConnectionFactory } = await import('./connection-factory.ts');
+      factory = await ConnectionFactory.make({
+        keySeed,
+        knownRelays: [],
+        logger: new (await import('@metamask/logger')).Logger(),
+        signal: new AbortController().signal,
+      });
+
+      const callArgs = createLibp2p.mock.calls[0]?.[0];
+      expect(callArgs.peerDiscovery).toBeUndefined();
+    });
+
     it('accepts maxRetryAttempts parameter', async () => {
       const maxRetryAttempts = 5;
-      factory = await createFactory(undefined, maxRetryAttempts);
+      factory = await createFactory({ maxRetryAttempts });
 
       expect(createLibp2p).toHaveBeenCalledOnce();
       expect(libp2pState.startCalled).toBe(true);
@@ -442,7 +468,7 @@ describe('ConnectionFactory', () => {
       const controller = new AbortController();
       controller.abort();
 
-      factory = await createFactory(controller.signal);
+      factory = await createFactory({ signal: controller.signal });
 
       await expect(factory.openChannelOnce('peer123')).rejects.toThrow(
         AbortError,
@@ -472,7 +498,7 @@ describe('ConnectionFactory', () => {
         handle: vi.fn(),
       }));
 
-      factory = await createFactory(controller.signal);
+      factory = await createFactory({ signal: controller.signal });
 
       // The error is caught, then on retry signal.aborted is checked and AbortError is thrown
       await expect(factory.openChannelOnce('peer123')).rejects.toThrow(
@@ -698,12 +724,12 @@ describe('ConnectionFactory', () => {
       vi.resetModules();
       const { ConnectionFactory } = await import('./connection-factory.ts');
       const { Logger } = await import('@metamask/logger');
-      factory = await ConnectionFactory.make(
+      factory = await ConnectionFactory.make({
         keySeed,
         knownRelays,
-        new Logger(),
-        new AbortController().signal,
-      );
+        logger: new Logger(),
+        signal: new AbortController().signal,
+      });
 
       await factory.openChannelWithRetry('peer123');
 
@@ -746,12 +772,12 @@ describe('ConnectionFactory', () => {
       vi.resetModules();
       const { ConnectionFactory } = await import('./connection-factory.ts');
       const { Logger } = await import('@metamask/logger');
-      factory = await ConnectionFactory.make(
+      factory = await ConnectionFactory.make({
         keySeed,
         knownRelays,
-        new Logger(),
-        new AbortController().signal,
-      );
+        logger: new Logger(),
+        signal: new AbortController().signal,
+      });
 
       await factory.openChannelWithRetry('peer123');
 
@@ -797,13 +823,13 @@ describe('ConnectionFactory', () => {
       vi.resetModules();
       const { ConnectionFactory } = await import('./connection-factory.ts');
       const { Logger } = await import('@metamask/logger');
-      factory = await ConnectionFactory.make(
+      factory = await ConnectionFactory.make({
         keySeed,
         knownRelays,
-        new Logger(),
-        new AbortController().signal,
+        logger: new Logger(),
+        signal: new AbortController().signal,
         maxRetryAttempts,
-      );
+      });
 
       await factory.openChannelWithRetry('peer123');
 
@@ -1237,6 +1263,121 @@ describe('ConnectionFactory', () => {
       expect(receivedChannels).toHaveLength(1);
       expect(receivedChannels[0]?.peerId).toBe('inbound-peer');
       expect(outboundChannel.peerId).toBe('outbound-peer');
+    });
+  });
+
+  describe('directTransport', () => {
+    it('includes direct transport in libp2p config when provided', async () => {
+      const mockTransport = { tag: 'quic-transport' };
+      factory = await createFactory({
+        directTransport: {
+          transport: mockTransport,
+          listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
+        },
+      });
+
+      const callArgs = createLibp2p.mock.calls[0]?.[0];
+      expect(callArgs.transports).toHaveLength(5); // 4 default + 1 direct
+      expect(callArgs.transports[4]).toBe(mockTransport);
+    });
+
+    it('merges direct listen addresses with default addresses', async () => {
+      factory = await createFactory({
+        directTransport: {
+          transport: {},
+          listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
+        },
+      });
+
+      const callArgs = createLibp2p.mock.calls[0]?.[0];
+      expect(callArgs.addresses.listen).toStrictEqual([
+        '/webrtc',
+        '/p2p-circuit',
+        '/ip4/0.0.0.0/udp/0/quic-v1',
+      ]);
+    });
+
+    it('does not add direct transport when not provided', async () => {
+      factory = await createFactory();
+
+      const callArgs = createLibp2p.mock.calls[0]?.[0];
+      expect(callArgs.transports).toHaveLength(4);
+      expect(callArgs.addresses.listen).toStrictEqual([
+        '/webrtc',
+        '/p2p-circuit',
+      ]);
+    });
+  });
+
+  describe('getListenAddresses', () => {
+    it('returns multiaddr strings from libp2p', async () => {
+      factory = await createFactory();
+
+      const addresses = factory.getListenAddresses();
+
+      expect(addresses).toStrictEqual([
+        '/ip4/127.0.0.1/udp/12345/quic-v1/p2p/test-peer-id',
+        '/ip4/127.0.0.1/tcp/9001/ws/p2p/test-peer-id',
+      ]);
+    });
+
+    it('returns empty array after stop', async () => {
+      factory = await createFactory();
+      await factory.stop();
+
+      const addresses = factory.getListenAddresses();
+
+      expect(addresses).toStrictEqual([]);
+    });
+  });
+
+  describe('candidateAddressStrings with direct addresses', () => {
+    it('places direct address hints first', async () => {
+      factory = await createFactory();
+
+      const directHint = '/ip4/192.168.1.1/udp/4001/quic-v1/p2p/peer123';
+      const addresses = factory.candidateAddressStrings('peer123', [
+        directHint,
+      ]);
+
+      expect(addresses[0]).toBe(directHint);
+      // Relay addresses follow
+      expect(addresses[1]).toContain('/p2p-circuit/');
+    });
+
+    it('does not wrap direct address hints in relay pattern', async () => {
+      factory = await createFactory();
+
+      const directHint = '/ip4/192.168.1.1/udp/4001/quic-v1/p2p/peer123';
+      const addresses = factory.candidateAddressStrings('peer123', [
+        directHint,
+      ]);
+
+      // The direct address should appear exactly as provided
+      expect(addresses).toContain(directHint);
+      // It should NOT be wrapped in a relay circuit
+      const wrappedDirectAddresses = addresses.filter(
+        (addr: string) =>
+          addr.includes('/p2p-circuit/') && addr.includes('quic-v1'),
+      );
+      expect(wrappedDirectAddresses).toHaveLength(0);
+    });
+
+    it('handles mix of direct and relay hints', async () => {
+      factory = await createFactory();
+
+      const directHint = '/ip4/192.168.1.1/udp/4001/quic-v1/p2p/peer123';
+      const relayHint = '/dns4/hint.example/tcp/443/wss/p2p/hint';
+      const addresses = factory.candidateAddressStrings('peer123', [
+        directHint,
+        relayHint,
+      ]);
+
+      // Direct addresses come first
+      expect(addresses[0]).toBe(directHint);
+      // Relay hint addresses follow
+      expect(addresses[1]).toContain('hint.example');
+      expect(addresses[1]).toContain('/p2p-circuit/');
     });
   });
 });

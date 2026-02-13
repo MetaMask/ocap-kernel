@@ -17,7 +17,11 @@ import { multiaddr } from '@multiformats/multiaddr';
 import { byteStream } from 'it-byte-stream';
 import { createLibp2p } from 'libp2p';
 
-import type { Channel, InboundConnectionHandler } from '../types.ts';
+import type {
+  Channel,
+  ConnectionFactoryOptions,
+  InboundConnectionHandler,
+} from '../types.ts';
 
 /**
  * Connection factory for libp2p network operations.
@@ -38,56 +42,52 @@ export class ConnectionFactory {
 
   readonly #maxRetryAttempts: number;
 
+  readonly #directTransport:
+    | {
+        transport: unknown;
+        listenAddresses: string[];
+      }
+    | undefined;
+
   #inboundHandler?: InboundConnectionHandler;
 
   /**
    * Constructor for the ConnectionFactory.
    *
-   * @param keySeed - The key seed to use for the libp2p node.
-   * @param knownRelays - The known relays to use for the libp2p node.
-   * @param logger - The logger to use for the libp2p node.
-   * @param signal - The signal to use for the libp2p node.
-   * @param maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+   * @param options - The options for the ConnectionFactory.
+   * @param options.keySeed - The key seed to use for the libp2p node.
+   * @param options.knownRelays - The known relays to use for the libp2p node.
+   * @param options.logger - The logger to use for the libp2p node.
+   * @param options.signal - The signal to use for the libp2p node.
+   * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+   * @param options.directTransport - Optional direct transport (e.g. QUIC) with listen addresses.
    */
   // eslint-disable-next-line no-restricted-syntax
-  private constructor(
-    keySeed: string,
-    knownRelays: string[],
-    logger: Logger,
-    signal: AbortSignal,
-    maxRetryAttempts?: number,
-  ) {
-    this.#keySeed = keySeed;
-    this.#knownRelays = knownRelays;
-    this.#logger = logger;
-    this.#signal = signal;
-    this.#maxRetryAttempts = maxRetryAttempts ?? 0;
+  private constructor(options: ConnectionFactoryOptions) {
+    this.#keySeed = options.keySeed;
+    this.#knownRelays = options.knownRelays;
+    this.#logger = options.logger;
+    this.#signal = options.signal;
+    this.#maxRetryAttempts = options.maxRetryAttempts ?? 0;
+    this.#directTransport = options.directTransport;
   }
 
   /**
    * Create a new ConnectionFactory instance.
    *
-   * @param keySeed - The key seed to use for the libp2p node.
-   * @param knownRelays - The known relays to use for the libp2p node.
-   * @param logger - The logger to use for the libp2p node.
-   * @param signal - The signal to use for the libp2p node.
-   * @param maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+   * @param options - The options for the ConnectionFactory.
+   * @param options.keySeed - The key seed to use for the libp2p node.
+   * @param options.knownRelays - The known relays to use for the libp2p node.
+   * @param options.logger - The logger to use for the libp2p node.
+   * @param options.signal - The signal to use for the libp2p node.
+   * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+   * @param options.directTransport - Optional direct transport (e.g. QUIC) with listen addresses.
    * @returns A promise for the new ConnectionFactory instance.
    */
   static async make(
-    keySeed: string,
-    knownRelays: string[],
-    logger: Logger,
-    signal: AbortSignal,
-    maxRetryAttempts?: number,
+    options: ConnectionFactoryOptions,
   ): Promise<ConnectionFactory> {
-    const factory = new ConnectionFactory(
-      keySeed,
-      knownRelays,
-      logger,
-      signal,
-      maxRetryAttempts,
-    );
+    const factory = new ConnectionFactory(options);
     await factory.#init();
     return factory;
   }
@@ -101,7 +101,11 @@ export class ConnectionFactory {
     this.#libp2p = await createLibp2p({
       privateKey,
       addresses: {
-        listen: ['/webrtc', '/p2p-circuit'],
+        listen: [
+          '/webrtc',
+          '/p2p-circuit',
+          ...(this.#directTransport?.listenAddresses ?? []),
+        ],
         appendAnnounce: ['/webrtc'],
       },
       transports: [
@@ -120,6 +124,9 @@ export class ConnectionFactory {
           },
         }),
         circuitRelayTransport(),
+        ...(this.#directTransport
+          ? [this.#directTransport.transport as ReturnType<typeof webSockets>]
+          : []),
       ],
       connectionEncrypters: [noise()],
       streamMuxers: [yamux()],
@@ -127,11 +134,15 @@ export class ConnectionFactory {
         // Allow private addresses for local testing
         denyDialMultiaddr: async () => false,
       },
-      peerDiscovery: [
-        bootstrap({
-          list: this.#knownRelays,
-        }),
-      ],
+      ...(this.#knownRelays.length > 0
+        ? {
+            peerDiscovery: [
+              bootstrap({
+                list: this.#knownRelays,
+              }),
+            ],
+          }
+        : {}),
       services: {
         identify: identify(),
         ping: ping(),
@@ -175,6 +186,19 @@ export class ConnectionFactory {
   }
 
   /**
+   * Get the actual listen addresses of the libp2p node.
+   * These are the multiaddr strings that other peers can use to dial this node.
+   *
+   * @returns The listen address strings.
+   */
+  getListenAddresses(): string[] {
+    if (!this.#libp2p) {
+      return [];
+    }
+    return this.#libp2p.getMultiaddrs().map((ma) => ma.toString());
+  }
+
+  /**
    * Generate key info from the seed.
    *
    * @returns The key info.
@@ -190,19 +214,37 @@ export class ConnectionFactory {
   /**
    * Get candidate address strings for dialing a peer.
    *
+   * Hints that already contain `/p2p/{peerId}` are treated as direct addresses
+   * (e.g. QUIC multiaddrs) and are used as-is. Other hints are relay addresses
+   * and are expanded with circuit-relay patterns. Direct addresses are tried first.
+   *
    * @param peerId - The peer ID to get candidate address strings for.
    * @param hints - The hints to get candidate address strings for.
    * @returns The candidate address strings.
    */
   candidateAddressStrings(peerId: string, hints: string[]): string[] {
-    const possibleContacts = hints.concat(
-      ...this.#knownRelays.filter((relay) => !hints.includes(relay)),
+    const directAddresses: string[] = [];
+    const relayHints: string[] = [];
+
+    for (const hint of hints) {
+      if (hint.includes(`/p2p/${peerId}`)) {
+        directAddresses.push(hint);
+      } else {
+        relayHints.push(hint);
+      }
+    }
+
+    const possibleRelays = relayHints.concat(
+      ...this.#knownRelays.filter((relay) => !relayHints.includes(relay)),
     );
-    // Try WebRTC via relay first, then WebSocket via relay.
-    return possibleContacts.flatMap((relay) => [
+
+    // Direct addresses first, then WebRTC via relay, then WebSocket via relay.
+    const relayAddresses = possibleRelays.flatMap((relay) => [
       `${relay}/p2p-circuit/webrtc/p2p/${peerId}`,
       `${relay}/p2p-circuit/p2p/${peerId}`,
     ]);
+
+    return [...directAddresses, ...relayAddresses];
   }
 
   /**

@@ -1,3 +1,4 @@
+import type { Logger } from '@metamask/logger';
 import type { ByteStream } from 'it-byte-stream';
 
 export type InboundConnectionHandler = (channel: Channel) => void;
@@ -99,6 +100,42 @@ export type RemoteCommsOptions = {
    * Uses a sliding 1-minute window.
    */
   maxConnectionAttemptsPerMinute?: number | undefined;
+  /**
+   * Direct listen addresses for non-relay transports (e.g. QUIC).
+   * Example: `['/ip4/0.0.0.0/udp/0/quic-v1']`
+   *
+   * The platform layer detects the required transport from the address strings
+   * and injects it automatically. Users never need to import transport packages.
+   */
+  directListenAddresses?: string[] | undefined;
+  /**
+   * Internal option injected by platform services. Bundles a direct transport
+   * implementation with its listen addresses. Users should use
+   * `directListenAddresses` instead.
+   *
+   * @internal
+   */
+  directTransport?: {
+    transport: unknown;
+    listenAddresses: string[];
+  };
+};
+
+/**
+ * Options for creating a ConnectionFactory instance.
+ */
+export type ConnectionFactoryOptions = {
+  keySeed: string;
+  knownRelays: string[];
+  logger: Logger;
+  signal: AbortSignal;
+  maxRetryAttempts?: number | undefined;
+  directTransport?:
+    | {
+        transport: unknown;
+        listenAddresses: string[];
+      }
+    | undefined;
 };
 
 export type RemoteInfo = {

@@ -47,6 +47,8 @@ export class NodejsPlatformServices implements PlatformServices {
 
   #resetAllBackoffsFunc: (() => void) | null = null;
 
+  #getListenAddressesFunc: (() => string[]) | null = null;
+
   #remoteMessageHandler: RemoteMessageHandler | undefined = undefined;
 
   readonly #workerFilePath: string;
@@ -253,6 +255,29 @@ export class NodejsPlatformServices implements PlatformServices {
       throw Error('remote comms already initialized');
     }
     this.#remoteMessageHandler = remoteMessageHandler;
+
+    const { directListenAddresses, ...restOptions } = options;
+
+    if (directListenAddresses?.some((addr) => addr.includes('/tcp/'))) {
+      throw new Error('Direct TCP listen addresses are not yet supported');
+    }
+
+    const hasQuic = directListenAddresses?.some((addr) =>
+      addr.includes('/quic-v1'),
+    );
+
+    let enhancedOptions: RemoteCommsOptions = restOptions;
+    if (hasQuic && directListenAddresses) {
+      const { quic } = await import('@chainsafe/libp2p-quic');
+      enhancedOptions = {
+        ...restOptions,
+        directTransport: {
+          transport: quic(),
+          listenAddresses: directListenAddresses,
+        },
+      };
+    }
+
     const {
       sendRemoteMessage,
       stop,
@@ -260,9 +285,10 @@ export class NodejsPlatformServices implements PlatformServices {
       registerLocationHints,
       reconnectPeer,
       resetAllBackoffs,
+      getListenAddresses,
     } = await initTransport(
       keySeed,
-      options,
+      enhancedOptions,
       this.#handleRemoteMessage.bind(this),
       onRemoteGiveUp,
       incarnationId,
@@ -274,6 +300,7 @@ export class NodejsPlatformServices implements PlatformServices {
     this.#registerLocationHintsFunc = registerLocationHints;
     this.#reconnectPeerFunc = reconnectPeer;
     this.#resetAllBackoffsFunc = resetAllBackoffs;
+    this.#getListenAddressesFunc = getListenAddresses;
   }
 
   /**
@@ -293,6 +320,7 @@ export class NodejsPlatformServices implements PlatformServices {
     this.#registerLocationHintsFunc = null;
     this.#reconnectPeerFunc = null;
     this.#resetAllBackoffsFunc = null;
+    this.#getListenAddressesFunc = null;
   }
 
   /**
@@ -346,6 +374,19 @@ export class NodejsPlatformServices implements PlatformServices {
       return;
     }
     this.#resetAllBackoffsFunc();
+  }
+
+  /**
+   * Get the actual listen addresses of the libp2p node.
+   * Returns multiaddr strings that other peers can use to dial this node directly.
+   *
+   * @returns The listen address strings, or empty array if remote comms not initialized.
+   */
+  getListenAddresses(): string[] {
+    if (!this.#getListenAddressesFunc) {
+      return [];
+    }
+    return this.#getListenAddressesFunc();
   }
 }
 harden(NodejsPlatformServices);
