@@ -1,8 +1,11 @@
+import { quic } from '@chainsafe/libp2p-quic';
 import { makePromiseKit } from '@endo/promise-kit';
+import { tcp } from '@libp2p/tcp';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type {
+  DirectTransport,
   PlatformServices,
   VatId,
   RemoteMessageHandler,
@@ -46,6 +49,8 @@ export class NodejsPlatformServices implements PlatformServices {
     | null = null;
 
   #resetAllBackoffsFunc: (() => void) | null = null;
+
+  #getListenAddressesFunc: (() => string[]) | null = null;
 
   #remoteMessageHandler: RemoteMessageHandler | undefined = undefined;
 
@@ -253,6 +258,51 @@ export class NodejsPlatformServices implements PlatformServices {
       throw Error('remote comms already initialized');
     }
     this.#remoteMessageHandler = remoteMessageHandler;
+
+    const { directListenAddresses, ...restOptions } = options;
+
+    const directTransports: DirectTransport[] = [];
+
+    if (directListenAddresses && directListenAddresses.length > 0) {
+      const quicAddresses: string[] = [];
+      const tcpAddresses: string[] = [];
+
+      for (const addr of directListenAddresses) {
+        const isQuic = addr.includes('/quic-v1');
+        const isTcp = addr.includes('/tcp/');
+
+        if (isQuic) {
+          quicAddresses.push(addr);
+        } else if (isTcp) {
+          tcpAddresses.push(addr);
+        } else {
+          throw new Error(
+            `Unsupported direct listen address: ${addr}. ` +
+              `Only QUIC (/quic-v1) and TCP (/tcp/) addresses are supported.`,
+          );
+        }
+      }
+
+      if (quicAddresses.length > 0) {
+        directTransports.push({
+          transport: quic(),
+          listenAddresses: quicAddresses,
+        });
+      }
+
+      if (tcpAddresses.length > 0) {
+        directTransports.push({
+          transport: tcp(),
+          listenAddresses: tcpAddresses,
+        });
+      }
+    }
+
+    const enhancedOptions: RemoteCommsOptions = {
+      ...restOptions,
+      ...(directTransports.length > 0 ? { directTransports } : {}),
+    };
+
     const {
       sendRemoteMessage,
       stop,
@@ -260,9 +310,10 @@ export class NodejsPlatformServices implements PlatformServices {
       registerLocationHints,
       reconnectPeer,
       resetAllBackoffs,
+      getListenAddresses,
     } = await initTransport(
       keySeed,
-      options,
+      enhancedOptions,
       this.#handleRemoteMessage.bind(this),
       onRemoteGiveUp,
       incarnationId,
@@ -274,6 +325,7 @@ export class NodejsPlatformServices implements PlatformServices {
     this.#registerLocationHintsFunc = registerLocationHints;
     this.#reconnectPeerFunc = reconnectPeer;
     this.#resetAllBackoffsFunc = resetAllBackoffs;
+    this.#getListenAddressesFunc = getListenAddresses;
   }
 
   /**
@@ -293,6 +345,7 @@ export class NodejsPlatformServices implements PlatformServices {
     this.#registerLocationHintsFunc = null;
     this.#reconnectPeerFunc = null;
     this.#resetAllBackoffsFunc = null;
+    this.#getListenAddressesFunc = null;
   }
 
   /**
@@ -346,6 +399,19 @@ export class NodejsPlatformServices implements PlatformServices {
       return;
     }
     this.#resetAllBackoffsFunc();
+  }
+
+  /**
+   * Get the listen addresses of the libp2p node.
+   * Returns multiaddr strings that other peers can use to dial this node directly.
+   *
+   * @returns The listen address strings, or empty array if remote comms not initialized.
+   */
+  getListenAddresses(): string[] {
+    if (!this.#getListenAddressesFunc) {
+      return [];
+    }
+    return this.#getListenAddressesFunc();
   }
 }
 harden(NodejsPlatformServices);

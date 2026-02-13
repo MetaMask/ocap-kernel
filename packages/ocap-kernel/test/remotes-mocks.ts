@@ -62,6 +62,7 @@ export class MockRemotesFactory {
       registerLocationHints: vi.fn(),
       reconnectPeer: vi.fn(),
       resetAllBackoffs: vi.fn(),
+      getListenAddresses: vi.fn().mockReturnValue([]),
     };
   }
 

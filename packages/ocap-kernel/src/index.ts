@@ -18,6 +18,7 @@ export type {
   SystemSubclusterConfig,
 } from './types.ts';
 export type {
+  DirectTransport,
   RemoteIdentity,
   RemoteMessageHandler,
   SendRemoteMessage,

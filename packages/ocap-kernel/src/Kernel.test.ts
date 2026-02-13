@@ -54,6 +54,8 @@ const mocks = vi.hoisted(() => {
 
     reconnectPeer = vi.fn().mockResolvedValue(undefined);
 
+    registerLocationHints = vi.fn().mockResolvedValue(undefined);
+
     getPeerId = vi.fn().mockReturnValue('mock-peer-id');
 
     constructor() {
@@ -111,6 +113,7 @@ describe('Kernel', () => {
       terminateAll: async () => undefined,
       stopRemoteComms: vi.fn(async () => undefined),
       resetAllBackoffs: vi.fn(async () => undefined),
+      getListenAddresses: vi.fn(() => []),
     } as unknown as PlatformServices;
 
     launchWorkerMock = vi
@@ -1048,6 +1051,24 @@ describe('Kernel', () => {
           'peer-789',
           [],
         );
+      });
+    });
+
+    describe('registerLocationHints()', () => {
+      it('registers location hints via RemoteManager', async () => {
+        const kernel = await Kernel.make(
+          mockPlatformServices,
+          mockKernelDatabase,
+        );
+        const remoteManagerInstance = mocks.RemoteManager.lastInstance;
+        await kernel.registerLocationHints('peer-123', [
+          '/ip4/192.168.1.1/udp/4001/quic-v1/p2p/peer-123',
+        ]);
+        expect(
+          remoteManagerInstance.registerLocationHints,
+        ).toHaveBeenCalledWith('peer-123', [
+          '/ip4/192.168.1.1/udp/4001/quic-v1/p2p/peer-123',
+        ]);
       });
     });
   });

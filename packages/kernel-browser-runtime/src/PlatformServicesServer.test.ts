@@ -50,6 +50,7 @@ vi.mock('@metamask/ocap-kernel', () => ({
         closeConnection: mockCloseConnection,
         registerLocationHints: mockRegisterLocationHints,
         reconnectPeer: mockReconnectPeer,
+        getListenAddresses: vi.fn(() => []),
       };
     },
   ),

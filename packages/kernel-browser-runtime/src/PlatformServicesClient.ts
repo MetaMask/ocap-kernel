@@ -291,6 +291,17 @@ export class PlatformServicesClient implements PlatformServices {
   }
 
   /**
+   * Get the listen addresses of the libp2p node.
+   * In the browser runtime, this always returns an empty array since
+   * direct transport is only supported in Node.js.
+   *
+   * @returns An empty array.
+   */
+  getListenAddresses(): string[] {
+    return [];
+  }
+
+  /**
    * Handle a remote message from a peer.
    *
    * @param from - The peer ID that sent the message.

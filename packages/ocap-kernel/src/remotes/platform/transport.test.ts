@@ -80,6 +80,7 @@ const mockConnectionFactory = {
   onInboundConnection: vi.fn(),
   stop: vi.fn().mockResolvedValue(undefined),
   closeChannel: vi.fn().mockResolvedValue(undefined),
+  getListenAddresses: vi.fn().mockReturnValue([]),
 };
 
 vi.mock('./connection-factory.ts', () => {
@@ -241,13 +242,14 @@ describe('transport.initTransport', () => {
 
       await initTransport(keySeed, { relays: knownRelays }, vi.fn());
 
-      expect(ConnectionFactory.make).toHaveBeenCalledWith(
+      expect(ConnectionFactory.make).toHaveBeenCalledWith({
         keySeed,
         knownRelays,
-        expect.any(Object), // Logger instance
-        expect.any(AbortSignal), // signal from AbortController
-        undefined, // maxRetryAttempts (optional)
-      );
+        logger: expect.any(Object),
+        signal: expect.any(AbortSignal),
+        maxRetryAttempts: undefined,
+        directTransports: undefined,
+      });
     });
 
     it('passes maxRetryAttempts to ConnectionFactory.make', async () => {
@@ -257,16 +259,45 @@ describe('transport.initTransport', () => {
 
       await initTransport(keySeed, { relays: [], maxRetryAttempts }, vi.fn());
 
-      expect(ConnectionFactory.make).toHaveBeenCalledWith(
+      expect(ConnectionFactory.make).toHaveBeenCalledWith({
         keySeed,
-        [],
-        expect.any(Object),
-        expect.any(AbortSignal),
+        knownRelays: [],
+        logger: expect.any(Object),
+        signal: expect.any(AbortSignal),
         maxRetryAttempts,
-      );
+        directTransports: undefined,
+      });
     });
 
-    it('returns sendRemoteMessage, stop, closeConnection, registerLocationHints, and reconnectPeer', async () => {
+    it('passes directTransports to ConnectionFactory.make', async () => {
+      const { ConnectionFactory } = await import('./connection-factory.ts');
+      const keySeed = '0xabcd';
+      const mockQuic = { tag: 'quic' };
+      const mockTcp = { tag: 'tcp' };
+      const directTransports = [
+        {
+          transport: mockQuic,
+          listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
+        },
+        {
+          transport: mockTcp,
+          listenAddresses: ['/ip4/0.0.0.0/tcp/4001'],
+        },
+      ];
+
+      await initTransport(keySeed, { relays: [], directTransports }, vi.fn());
+
+      expect(ConnectionFactory.make).toHaveBeenCalledWith({
+        keySeed,
+        knownRelays: [],
+        logger: expect.any(Object),
+        signal: expect.any(AbortSignal),
+        maxRetryAttempts: undefined,
+        directTransports,
+      });
+    });
+
+    it('returns sendRemoteMessage, stop, closeConnection, registerLocationHints, reconnectPeer, and getListenAddresses', async () => {
       const result = await initTransport('0x1234', {}, vi.fn());
 
       expect(result).toHaveProperty('sendRemoteMessage');
@@ -274,11 +305,13 @@ describe('transport.initTransport', () => {
       expect(result).toHaveProperty('closeConnection');
       expect(result).toHaveProperty('registerLocationHints');
       expect(result).toHaveProperty('reconnectPeer');
+      expect(result).toHaveProperty('getListenAddresses');
       expect(typeof result.sendRemoteMessage).toBe('function');
       expect(typeof result.stop).toBe('function');
       expect(typeof result.closeConnection).toBe('function');
       expect(typeof result.registerLocationHints).toBe('function');
       expect(typeof result.reconnectPeer).toBe('function');
+      expect(typeof result.getListenAddresses).toBe('function');
     });
   });
 
