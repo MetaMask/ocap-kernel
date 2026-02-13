@@ -1,4 +1,6 @@
+import { quic } from '@chainsafe/libp2p-quic';
 import { makePromiseKit } from '@endo/promise-kit';
+import { tcp } from '@libp2p/tcp';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -284,7 +286,6 @@ export class NodejsPlatformServices implements PlatformServices {
       }
 
       if (quicAddresses.length > 0) {
-        const { quic } = await import('@chainsafe/libp2p-quic');
         directTransports.push({
           transport: quic(),
           listenAddresses: quicAddresses,
@@ -292,7 +293,6 @@ export class NodejsPlatformServices implements PlatformServices {
       }
 
       if (tcpAddresses.length > 0) {
-        const { tcp } = await import('@libp2p/tcp');
         directTransports.push({
           transport: tcp(),
           listenAddresses: tcpAddresses,
