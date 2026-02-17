@@ -1,4 +1,10 @@
-import { keccak256, toHex, encodePacked } from 'viem';
+import {
+  keccak256,
+  toHex,
+  encodePacked,
+  decodeAbiParameters,
+  parseAbiParameters,
+} from 'viem';
 
 import { DELEGATION_TYPES, ROOT_AUTHORITY } from '../constants.ts';
 import type {
@@ -155,18 +161,48 @@ export function delegationMatchesAction(
   // Check each caveat - all must pass for the delegation to match
   for (const caveat of delegation.caveats) {
     if (caveat.type === 'allowedTargets') {
-      // Decode targets and check if action.to is included
-      // For simplicity, we do a substring match on the encoded terms
-      const actionTo = action.to.toLowerCase().slice(2);
-      if (!caveat.terms.toLowerCase().includes(actionTo)) {
+      const [targets] = decodeAbiParameters(
+        parseAbiParameters('address[]'),
+        caveat.terms,
+      );
+      const match = targets.some(
+        (target) => target.toLowerCase() === action.to.toLowerCase(),
+      );
+      if (!match) {
         return false;
       }
     }
 
     if (caveat.type === 'allowedMethods' && action.data) {
-      // Check if the function selector is in the allowed list
-      const selector = action.data.slice(0, 10).toLowerCase();
-      if (!caveat.terms.toLowerCase().includes(selector.slice(2))) {
+      const selector = action.data.slice(0, 10).toLowerCase() as Hex;
+      const [methods] = decodeAbiParameters(
+        parseAbiParameters('bytes4[]'),
+        caveat.terms,
+      );
+      const match = methods.some((method) => method.toLowerCase() === selector);
+      if (!match) {
+        return false;
+      }
+    }
+
+    if (caveat.type === 'valueLte') {
+      const [maxValue] = decodeAbiParameters(
+        parseAbiParameters('uint256'),
+        caveat.terms,
+      );
+      const actionValue = action.value ? BigInt(action.value) : 0n;
+      if (actionValue > maxValue) {
+        return false;
+      }
+    }
+
+    if (caveat.type === 'timestamp') {
+      const [after, before] = decodeAbiParameters(
+        parseAbiParameters('uint128, uint128'),
+        caveat.terms,
+      );
+      const now = BigInt(Math.floor(Date.now() / 1000));
+      if (now < after || now > before) {
         return false;
       }
     }

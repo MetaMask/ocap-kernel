@@ -214,3 +214,39 @@ export const Eip712TypedDataStruct = object({
 });
 
 export type Eip712TypedData = Infer<typeof Eip712TypedDataStruct>;
+
+// ---------------------------------------------------------------------------
+// ERC-4337 UserOperation (off-chain representation, v0.7)
+// ---------------------------------------------------------------------------
+
+export const UserOperationStruct = object({
+  sender: AddressStruct,
+  nonce: HexStruct,
+  factory: optional(AddressStruct),
+  factoryData: optional(HexStruct),
+  callData: HexStruct,
+  callGasLimit: HexStruct,
+  verificationGasLimit: HexStruct,
+  preVerificationGas: HexStruct,
+  maxFeePerGas: HexStruct,
+  maxPriorityFeePerGas: HexStruct,
+  paymaster: optional(AddressStruct),
+  paymasterVerificationGasLimit: optional(HexStruct),
+  paymasterPostOpGasLimit: optional(HexStruct),
+  paymasterData: optional(HexStruct),
+  signature: HexStruct,
+});
+
+export type UserOperation = Infer<typeof UserOperationStruct>;
+
+// ---------------------------------------------------------------------------
+// Execution descriptor (for delegation redemption)
+// ---------------------------------------------------------------------------
+
+export const ExecutionStruct = object({
+  target: AddressStruct,
+  value: HexStruct,
+  callData: HexStruct,
+});
+
+export type Execution = Infer<typeof ExecutionStruct>;
