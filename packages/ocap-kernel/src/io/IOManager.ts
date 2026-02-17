@@ -76,13 +76,14 @@ export class IOManager {
     const serviceNames: string[] = [];
 
     for (const [name, config] of Object.entries(ioConfig)) {
+      const serviceName = `io:${subclusterId}:${name}`;
       try {
         const channel = await this.#factory(name, config);
         channels.set(name, channel);
 
-        const service = makeIOService(name, subclusterId, channel, config);
-        this.#registerService(name, service);
-        serviceNames.push(name);
+        const service = makeIOService(serviceName, channel, config);
+        this.#registerService(serviceName, service);
+        serviceNames.push(serviceName);
 
         this.#logger?.info(
           `Created IO channel "${name}" for subcluster ${subclusterId}`,

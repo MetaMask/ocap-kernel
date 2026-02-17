@@ -56,7 +56,10 @@ describe('IOManager', () => {
       await manager.createChannels('s1', ioConfig);
 
       expect(factory).toHaveBeenCalledWith('repl', ioConfig.repl);
-      expect(registerService).toHaveBeenCalledWith('repl', expect.any(Object));
+      expect(registerService).toHaveBeenCalledWith(
+        'io:s1:repl',
+        expect.any(Object),
+      );
     });
 
     it('creates multiple channels', async () => {
@@ -99,7 +102,7 @@ describe('IOManager', () => {
       );
 
       expect(successChannel.close).toHaveBeenCalledOnce();
-      expect(unregisterService).toHaveBeenCalledWith('first');
+      expect(unregisterService).toHaveBeenCalledWith('io:s1:first');
     });
   });
 
@@ -113,7 +116,7 @@ describe('IOManager', () => {
       await manager.destroyChannels('s1');
 
       expect(channels[0]?.close).toHaveBeenCalledOnce();
-      expect(unregisterService).toHaveBeenCalledWith('repl');
+      expect(unregisterService).toHaveBeenCalledWith('io:s1:repl');
     });
 
     it('is idempotent for unknown subcluster', async () => {

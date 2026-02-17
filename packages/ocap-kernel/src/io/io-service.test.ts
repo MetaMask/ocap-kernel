@@ -22,8 +22,7 @@ describe('makeIOService', () => {
     it('delegates to the channel', async () => {
       const channel = makeChannel();
       const service = makeIOService(
-        'test',
-        'subclusterFoo',
+        'io:subclusterFoo:test',
         channel,
         makeConfig(),
       ) as {
@@ -39,14 +38,13 @@ describe('makeIOService', () => {
     it('throws on write-only channel', async () => {
       const channel = makeChannel();
       const service = makeIOService(
-        'test',
-        'subclusterFoo',
+        'io:subclusterFoo:test',
         channel,
         makeConfig({ direction: 'out' }),
       ) as { read: () => Promise<string | null> };
 
       await expect(service.read()).rejects.toThrow(
-        'IO channel "test" is write-only',
+        'IO channel "io:subclusterFoo:test" is write-only',
       );
       expect(channel.read).not.toHaveBeenCalled();
     });
@@ -56,8 +54,7 @@ describe('makeIOService', () => {
       async (direction) => {
         const channel = makeChannel();
         const service = makeIOService(
-          'test',
-          'subclusterFoo',
+          'io:subclusterFoo:test',
           channel,
           makeConfig({ direction }),
         ) as { read: () => Promise<string | null> };
@@ -71,8 +68,7 @@ describe('makeIOService', () => {
     it('delegates to the channel', async () => {
       const channel = makeChannel();
       const service = makeIOService(
-        'test',
-        'subclusterFoo',
+        'io:subclusterFoo:test',
         channel,
         makeConfig(),
       ) as {
@@ -87,14 +83,13 @@ describe('makeIOService', () => {
     it('throws on read-only channel', async () => {
       const channel = makeChannel();
       const service = makeIOService(
-        'test',
-        'subclusterFoo',
+        'io:subclusterFoo:test',
         channel,
         makeConfig({ direction: 'in' }),
       ) as { write: (data: string) => Promise<void> };
 
       await expect(service.write('data')).rejects.toThrow(
-        'IO channel "test" is read-only',
+        'IO channel "io:subclusterFoo:test" is read-only',
       );
       expect(channel.write).not.toHaveBeenCalled();
     });
@@ -104,8 +99,7 @@ describe('makeIOService', () => {
       async (direction) => {
         const channel = makeChannel();
         const service = makeIOService(
-          'test',
-          'subclusterFoo',
+          'io:subclusterFoo:test',
           channel,
           makeConfig({ direction }),
         ) as { write: (data: string) => Promise<void> };
@@ -119,8 +113,7 @@ describe('makeIOService', () => {
     it('defaults to inout when direction is not specified', async () => {
       const channel = makeChannel();
       const service = makeIOService(
-        'test',
-        'subclusterFoo',
+        'io:subclusterFoo:test',
         channel,
         makeConfig(),
       ) as {

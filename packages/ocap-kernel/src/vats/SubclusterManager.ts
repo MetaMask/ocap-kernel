@@ -255,7 +255,14 @@ export class SubclusterManager {
     if (!config.services) {
       return;
     }
+    const ioNames = config.io
+      ? new Set(Object.keys(config.io))
+      : new Set<string>();
     for (const name of config.services) {
+      // IO services are registered by IOManager with scoped names
+      if (ioNames.has(name)) {
+        continue;
+      }
       const service = this.#getKernelService(name);
       if (!service || (service.systemOnly && !isSystem)) {
         throw Error(`no registered kernel service '${name}'`);
@@ -289,15 +296,24 @@ export class SubclusterManager {
       roots[vatName] = kslot(rootRef, 'vatRoot');
     }
     const services: Record<string, SlotValue> = {};
-    if (config.services) {
-      for (const name of config.services) {
-        const possibleService = this.#getKernelService(name);
-        if (possibleService) {
-          const { kref } = possibleService;
-          services[name] = kslot(kref);
-        } else {
-          throw Error(`no registered kernel service '${name}'`);
-        }
+    const ioNames = config.io
+      ? new Set(Object.keys(config.io))
+      : new Set<string>();
+
+    // Collect all service names: explicit services plus IO channel names
+    const allServiceNames = new Set([...(config.services ?? []), ...ioNames]);
+
+    for (const name of allServiceNames) {
+      // IO services are registered under scoped names to avoid collisions
+      const lookupName = ioNames.has(name)
+        ? `io:${subclusterId}:${name}`
+        : name;
+      const possibleService = this.#getKernelService(lookupName);
+      if (possibleService) {
+        const { kref } = possibleService;
+        services[name] = kslot(kref);
+      } else {
+        throw Error(`no registered kernel service '${lookupName}'`);
       }
     }
     const rootKref = rootIds[config.bootstrap];
