@@ -134,13 +134,21 @@ describe('makeSocketIOChannel', () => {
     expect(result).toBeNull();
   });
 
-  it('returns null when no client is connected', async () => {
+  it('blocks read until a client connects and sends data', async () => {
     const socketPath = tempSocketPath();
     const channel = await makeSocketIOChannel('test', socketPath);
     channels.push(channel);
 
-    const result = await channel.read();
-    expect(result).toBeNull();
+    // Start read before any client connects — should block
+    const readPromise = channel.read();
+
+    // Connect and send data
+    const client = await connectToSocket(socketPath);
+    clients.push(client);
+    await writeLine(client, 'hello');
+
+    const result = await readPromise;
+    expect(result).toBe('hello');
   });
 
   it('throws on write when no client is connected', async () => {

@@ -132,9 +132,7 @@ export async function makeSocketIOChannel(
       if (queued !== undefined) {
         return queued;
       }
-      if (!currentSocket) {
-        return null;
-      }
+      // Block until data arrives (from a current or future client connection)
       return new Promise<string | null>((resolve) => {
         readerQueue.push({ resolve });
       });

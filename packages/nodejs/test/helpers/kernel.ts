@@ -4,6 +4,7 @@ import { Logger } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type {
   ClusterConfig,
+  IOChannelFactory,
   SystemSubclusterConfig,
 } from '@metamask/ocap-kernel';
 
@@ -13,6 +14,7 @@ type MakeTestKernelOptions = {
   resetStorage?: boolean;
   mnemonic?: string;
   systemSubclusters?: SystemSubclusterConfig[];
+  ioChannelFactory?: IOChannelFactory;
 };
 
 /**
@@ -24,13 +26,19 @@ type MakeTestKernelOptions = {
  * @param options.resetStorage - Whether to reset the storage (default: true).
  * @param options.mnemonic - Optional BIP39 mnemonic string.
  * @param options.systemSubclusters - Optional system subcluster configurations.
+ * @param options.ioChannelFactory - Optional IO channel factory.
  * @returns The kernel.
  */
 export async function makeTestKernel(
   kernelDatabase: KernelDatabase,
   options: MakeTestKernelOptions = {},
 ): Promise<Kernel> {
-  const { resetStorage = true, mnemonic, systemSubclusters } = options;
+  const {
+    resetStorage = true,
+    mnemonic,
+    systemSubclusters,
+    ioChannelFactory,
+  } = options;
 
   const logger = new Logger('test-kernel');
   const platformServices = new NodejsPlatformServices({
@@ -40,6 +48,7 @@ export async function makeTestKernel(
     resetStorage,
     mnemonic,
     systemSubclusters,
+    ioChannelFactory,
     logger: logger.subLogger({ tags: ['kernel'] }),
   });
 

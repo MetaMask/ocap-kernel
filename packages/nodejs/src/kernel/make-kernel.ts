@@ -1,7 +1,10 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Logger } from '@metamask/logger';
 import { Kernel } from '@metamask/ocap-kernel';
-import type { IOChannelFactory } from '@metamask/ocap-kernel';
+import type {
+  IOChannelFactory,
+  SystemSubclusterConfig,
+} from '@metamask/ocap-kernel';
 
 import { NodejsPlatformServices } from './PlatformServices.ts';
 import { makeIOChannelFactory } from '../io/index.ts';
@@ -16,6 +19,7 @@ import { makeIOChannelFactory } from '../io/index.ts';
  * @param options.logger - The logger to use for the kernel.
  * @param options.keySeed - Optional seed for libp2p key generation.
  * @param options.ioChannelFactory - Optional factory for creating IO channels.
+ * @param options.systemSubclusters - Optional system subcluster configurations.
  * @returns The kernel, initialized.
  */
 export async function makeKernel({
@@ -25,6 +29,7 @@ export async function makeKernel({
   logger,
   keySeed,
   ioChannelFactory,
+  systemSubclusters,
 }: {
   workerFilePath?: string;
   resetStorage?: boolean;
@@ -32,6 +37,7 @@ export async function makeKernel({
   logger?: Logger;
   keySeed?: string | undefined;
   ioChannelFactory?: IOChannelFactory;
+  systemSubclusters?: SystemSubclusterConfig[];
 }): Promise<Kernel> {
   const rootLogger = logger ?? new Logger('kernel-worker');
   const platformServicesClient = new NodejsPlatformServices({
@@ -48,6 +54,7 @@ export async function makeKernel({
     logger: rootLogger.subLogger({ tags: ['kernel'] }),
     keySeed,
     ioChannelFactory: ioChannelFactory ?? makeIOChannelFactory(),
+    ...(systemSubclusters ? { systemSubclusters } : {}),
   });
 
   return kernel;
