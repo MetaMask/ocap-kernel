@@ -113,7 +113,11 @@ export class IOManager {
     }
 
     for (const name of state.serviceNames) {
-      this.#unregisterService(name);
+      try {
+        this.#unregisterService(name);
+      } catch (error) {
+        this.#logger?.error(`Error unregistering IO service "${name}":`, error);
+      }
     }
 
     await this.#closeChannels(state.channels);

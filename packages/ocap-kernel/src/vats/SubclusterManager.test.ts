@@ -349,6 +349,37 @@ describe('SubclusterManager', () => {
       expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
     });
 
+    it('does not mask original error when destroyChannels fails during rollback', async () => {
+      const mockIOManager = {
+        createChannels: vi.fn().mockResolvedValue(undefined),
+        destroyChannels: vi.fn().mockRejectedValue(new Error('cleanup boom')),
+      };
+      const mgr = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+        ioManager: mockIOManager as never,
+      });
+
+      mockVatManager.launchVat.mockRejectedValue(new Error('launch boom'));
+
+      const config: ClusterConfig = {
+        bootstrap: 'testVat',
+        vats: { testVat: { sourceSpec: 'test.js' } },
+        io: {
+          repl: { type: 'socket', path: '/tmp/repl.sock' },
+        },
+      };
+
+      // Original error propagates, not the cleanup error
+      await expect(mgr.launchSubcluster(config)).rejects.toThrow('launch boom');
+
+      // deleteSubcluster still called despite destroyChannels failure
+      expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
+    });
+
     it('throws when config declares IO but no IO manager is provided', async () => {
       const config: ClusterConfig = {
         bootstrap: 'testVat',

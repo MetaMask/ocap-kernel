@@ -123,6 +123,32 @@ describe('IOManager', () => {
       expect(await manager.destroyChannels('nonexistent')).toBeUndefined();
     });
 
+    it('handles unregister errors gracefully', async () => {
+      const failingUnregister = vi.fn(() => {
+        throw new Error('unregister failed');
+      });
+      const errorSpy = vi.spyOn(logger, 'error');
+
+      const mgr = new IOManager({
+        factory,
+        registerService,
+        unregisterService: failingUnregister,
+        logger,
+      });
+
+      await mgr.createChannels('s1', {
+        ch: { type: 'socket', path: '/tmp/ch.sock' } as IOConfig,
+      });
+      await mgr.destroyChannels('s1');
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error unregistering IO service "io:s1:ch":',
+        expect.any(Error),
+      );
+      // Channel should still be closed despite unregister failure
+      expect(channels[0]?.close).toHaveBeenCalledOnce();
+    });
+
     it('handles close errors gracefully', async () => {
       const errorChannel = makeChannel();
       (errorChannel.close as ReturnType<typeof vi.fn>).mockRejectedValue(

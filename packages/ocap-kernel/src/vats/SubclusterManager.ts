@@ -140,9 +140,17 @@ export class SubclusterManager {
       );
       return { subclusterId, rootKref, bootstrapResult };
     } catch (error) {
-      // Roll back IO channels and persisted subcluster on failure
-      if (this.#ioManager) {
-        await this.#ioManager.destroyChannels(subclusterId);
+      // Roll back IO channels and persisted subcluster on failure.
+      // Cleanup is best-effort — errors must not mask the original failure.
+      try {
+        if (this.#ioManager) {
+          await this.#ioManager.destroyChannels(subclusterId);
+        }
+      } catch (cleanupError) {
+        this.#logger.error(
+          'Error during IO cleanup on failed launch:',
+          cleanupError,
+        );
       }
       this.#kernelStore.deleteSubcluster(subclusterId);
       throw error;
@@ -180,8 +188,12 @@ export class SubclusterManager {
 
     // Destroy IO channels after terminating vats so that any queued
     // messages targeting IO service krefs are drained first.
-    if (this.#ioManager) {
-      await this.#ioManager.destroyChannels(subclusterId);
+    try {
+      if (this.#ioManager) {
+        await this.#ioManager.destroyChannels(subclusterId);
+      }
+    } catch (error) {
+      this.#logger.error('Error during IO cleanup on termination:', error);
     }
     this.#kernelStore.deleteSubcluster(subclusterId);
   }
