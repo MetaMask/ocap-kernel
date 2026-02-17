@@ -76,6 +76,24 @@ describe('cluster-config', () => {
       }
     });
 
+    it('requests TextEncoder/TextDecoder globals for vats that need them', () => {
+      const config = makeWalletClusterConfig({
+        bundleBaseUrl: BUNDLE_BASE_URL,
+      });
+
+      const expectedGlobals = ['TextEncoder', 'TextDecoder'];
+      for (const vatName of ['keyring', 'provider', 'delegation']) {
+        const vatConfig = config.vats[vatName] as { globals?: string[] };
+        expect(vatConfig.globals).toStrictEqual(expectedGlobals);
+      }
+
+      // coordinator does not need them
+      const coordinatorConfig = config.vats.coordinator as {
+        globals?: string[];
+      };
+      expect(coordinatorConfig.globals).toBeUndefined();
+    });
+
     it('designates coordinator as the bootstrap vat', () => {
       const config = makeWalletClusterConfig({
         bundleBaseUrl: BUNDLE_BASE_URL,

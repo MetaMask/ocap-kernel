@@ -188,7 +188,7 @@ export function buildRootObject(
     throw new Error('No authority to sign this transaction');
   }
 
-  return makeDefaultExo('walletCoordinator', {
+  const coordinator = makeDefaultExo('walletCoordinator', {
     // ------------------------------------------------------------------
     // Lifecycle
     // ------------------------------------------------------------------
@@ -295,7 +295,7 @@ export function buildRootObject(
         return E(peerWallet).handleSigningRequest({
           type: 'message',
           message,
-          account: account ?? ('' as Address),
+          ...(account ? { account } : {}),
         });
       }
 
@@ -369,7 +369,7 @@ export function buildRootObject(
       if (!issuerService) {
         throw new Error('OCAP URL issuer service not available');
       }
-      return E(issuerService).issue(this);
+      return E(issuerService).issue(coordinator);
     },
 
     async connectToPeer(ocapUrl: string): Promise<void> {
@@ -445,4 +445,5 @@ export function buildRootObject(
       };
     },
   });
+  return coordinator;
 }
