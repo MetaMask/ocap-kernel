@@ -317,6 +317,38 @@ describe('SubclusterManager', () => {
       expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
     });
 
+    it('cleans up subcluster when createChannels fails', async () => {
+      const mockIOManager = {
+        createChannels: vi
+          .fn()
+          .mockRejectedValue(new Error('channel creation failed')),
+        destroyChannels: vi.fn().mockResolvedValue(undefined),
+      };
+      const mgr = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+        ioManager: mockIOManager as never,
+      });
+
+      const config: ClusterConfig = {
+        bootstrap: 'testVat',
+        vats: { testVat: { sourceSpec: 'test.js' } },
+        io: {
+          repl: { type: 'socket', path: '/tmp/repl.sock' },
+        },
+      };
+
+      await expect(mgr.launchSubcluster(config)).rejects.toThrow(
+        'channel creation failed',
+      );
+
+      expect(mockIOManager.destroyChannels).toHaveBeenCalledWith('s1');
+      expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
+    });
+
     it('throws when launchVat returns undefined', async () => {
       const config: ClusterConfig = {
         bootstrap: 'testVat',

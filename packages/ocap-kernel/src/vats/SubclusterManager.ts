@@ -121,13 +121,13 @@ export class SubclusterManager {
     }
     const subclusterId = this.#kernelStore.addSubcluster(config);
 
-    // Create IO channels before validating services so that IO service
-    // names are registered and discoverable by #validateServices.
-    if (config.io && this.#ioManager) {
-      await this.#ioManager.createChannels(subclusterId, config.io);
-    }
-
     try {
+      // Create IO channels before validating services so that IO service
+      // names are registered and discoverable by #validateServices.
+      if (config.io && this.#ioManager) {
+        await this.#ioManager.createChannels(subclusterId, config.io);
+      }
+
       this.#validateServices(config, isSystem);
       const { rootKref, bootstrapResult } = await this.#launchVatsForSubcluster(
         subclusterId,

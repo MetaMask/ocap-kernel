@@ -90,6 +90,10 @@ export async function makeSocketIOChannel(
       socket.destroy();
       return;
     }
+    // Drain stale state from any previous connection
+    lineQueue.length = 0;
+    deliverEOF();
+
     currentSocket = socket;
     buffer = '';
 

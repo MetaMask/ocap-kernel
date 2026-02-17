@@ -219,6 +219,30 @@ describe('makeSocketIOChannel', () => {
     await expect(channel.write('data')).rejects.toThrow('is closed');
   });
 
+  it('drains stale lineQueue when a new client connects', async () => {
+    const socketPath = tempSocketPath();
+    const channel = await makeSocketIOChannel('test', socketPath);
+    channels.push(channel);
+
+    // First client sends lines that are not read
+    const client1 = await connectToSocket(socketPath);
+    await writeLine(client1, 'stale-line');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // Disconnect first client
+    client1.destroy();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // Second client connects — stale lines should be gone
+    const client2 = await connectToSocket(socketPath);
+    clients.push(client2);
+
+    await writeLine(client2, 'fresh-line');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(await channel.read()).toBe('fresh-line');
+  });
+
   it('removes stale socket file on creation', async () => {
     const socketPath = tempSocketPath();
 
