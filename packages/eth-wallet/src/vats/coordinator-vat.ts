@@ -2,6 +2,12 @@ import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
 
+import {
+  buildDelegationUserOp,
+  computeUserOpHash,
+  ENTRY_POINT_V07,
+  numberToHex,
+} from '../lib/userop.ts';
 import type {
   Action,
   Address,
@@ -9,8 +15,10 @@ import type {
   CreateDelegationOptions,
   Delegation,
   Eip712TypedData,
+  Execution,
   Hex,
   TransactionRequest,
+  UserOperation,
   WalletCapabilities,
 } from '../types.ts';
 
@@ -51,6 +59,22 @@ type ProviderFacet = {
   configure: (config: ChainConfig) => Promise<void>;
   request: (method: string, params?: unknown[]) => Promise<unknown>;
   broadcastTransaction: (signedTx: Hex) => Promise<Hex>;
+  getChainId: () => Promise<number>;
+  getNonce: (address: Address) => Promise<number>;
+  submitUserOp: (options: {
+    bundlerUrl: string;
+    entryPoint: Hex;
+    userOp: UserOperation;
+  }) => Promise<Hex>;
+  estimateUserOpGas: (options: {
+    bundlerUrl: string;
+    entryPoint: Hex;
+    userOp: UserOperation;
+  }) => Promise<{
+    callGasLimit: Hex;
+    verificationGasLimit: Hex;
+    preVerificationGas: Hex;
+  }>;
 };
 
 type DelegationFacet = {
@@ -74,6 +98,13 @@ type PeerWalletFacet = {
     message?: string;
     account?: Address;
   }) => Promise<Hex>;
+};
+
+type ExternalSignerFacet = {
+  getAccounts: () => Promise<Address[]>;
+  signTypedData: (data: Eip712TypedData, from: Address) => Promise<Hex>;
+  signMessage: (message: string, from: Address) => Promise<Hex>;
+  signTransaction: (tx: TransactionRequest) => Promise<Hex>;
 };
 
 type OcapURLIssuerFacet = {
@@ -111,6 +142,14 @@ export function buildRootObject(
   // Peer wallet reference (Phase 2: set via connectToPeer)
   let peerWallet: PeerWalletFacet | undefined;
 
+  // External signer reference (e.g. MetaMask)
+  let externalSigner: ExternalSignerFacet | undefined;
+
+  // Bundler configuration for ERC-4337 UserOps
+  let bundlerConfig:
+    | { bundlerUrl: string; entryPoint: Hex; chainId: number }
+    | undefined;
+
   // Restore vat references from baggage if available (resuscitation)
   if (baggage.has('keyringVat')) {
     keyringVat = baggage.get('keyringVat') as KeyringFacet;
@@ -123,6 +162,12 @@ export function buildRootObject(
   }
   if (baggage.has('peerWallet')) {
     peerWallet = baggage.get('peerWallet') as PeerWalletFacet;
+  }
+  if (baggage.has('externalSigner')) {
+    externalSigner = baggage.get('externalSigner') as ExternalSignerFacet;
+  }
+  if (baggage.has('bundlerConfig')) {
+    bundlerConfig = baggage.get('bundlerConfig') as typeof bundlerConfig;
   }
 
   /**
@@ -140,8 +185,81 @@ export function buildRootObject(
   }
 
   /**
+   * Resolve the signing strategy for typed data.
+   * Priority: keyring → external signer → peer wallet → error
+   *
+   * @param data - The EIP-712 typed data to sign.
+   * @param from - Optional sender address.
+   * @returns The signature as a hex string.
+   */
+  async function resolveTypedDataSigning(
+    data: Eip712TypedData,
+    from?: Address,
+  ): Promise<Hex> {
+    if (keyringVat) {
+      const hasKeys = await E(keyringVat).hasKeys();
+      if (hasKeys) {
+        return E(keyringVat).signTypedData(data);
+      }
+    }
+
+    if (externalSigner) {
+      const accounts = await E(externalSigner).getAccounts();
+      if (accounts.length > 0) {
+        return E(externalSigner).signTypedData(data, from ?? accounts[0]);
+      }
+    }
+
+    if (peerWallet) {
+      return E(peerWallet).handleSigningRequest({
+        type: 'typedData',
+        data,
+      });
+    }
+
+    throw new Error('No authority to sign typed data');
+  }
+
+  /**
+   * Resolve the signing strategy for a personal message.
+   * Priority: keyring → external signer → peer wallet → error
+   *
+   * @param message - The message to sign.
+   * @param from - Optional sender address.
+   * @returns The signature as a hex string.
+   */
+  async function resolveMessageSigning(
+    message: string,
+    from?: Address,
+  ): Promise<Hex> {
+    if (keyringVat) {
+      const hasKeys = await E(keyringVat).hasKeys();
+      if (hasKeys) {
+        return E(keyringVat).signMessage(message, from);
+      }
+    }
+
+    if (externalSigner) {
+      const accounts = await E(externalSigner).getAccounts();
+      if (accounts.length > 0) {
+        return E(externalSigner).signMessage(message, from ?? accounts[0]);
+      }
+    }
+
+    if (peerWallet) {
+      return E(peerWallet).handleSigningRequest({
+        type: 'message',
+        message,
+        ...(from ? { account: from } : {}),
+      });
+    }
+
+    throw new Error('No authority to sign message');
+  }
+
+  /**
    * Resolve the signing strategy for a transaction.
-   * Priority: delegation → local key → peer wallet → reject
+   * Priority: delegation → local key → external signer → peer wallet → reject
    *
    * @param tx - The transaction request to sign.
    * @returns The signed transaction as a hex string.
@@ -177,7 +295,12 @@ export function buildRootObject(
       }
     }
 
-    // Strategy 3: Check if a peer wallet can handle it (Phase 2)
+    // Strategy 3: Check if external signer can handle it
+    if (externalSigner) {
+      return E(externalSigner).signTransaction(tx);
+    }
+
+    // Strategy 4: Check if a peer wallet can handle it
     if (peerWallet) {
       return E(peerWallet).handleSigningRequest({
         type: 'transaction',
@@ -241,6 +364,28 @@ export function buildRootObject(
     },
 
     // ------------------------------------------------------------------
+    // External signer & bundler configuration
+    // ------------------------------------------------------------------
+
+    async connectExternalSigner(signer: ExternalSignerFacet): Promise<void> {
+      externalSigner = signer;
+      persistBaggage('externalSigner', externalSigner);
+    },
+
+    async configureBundler(config: {
+      bundlerUrl: string;
+      entryPoint?: Hex;
+      chainId: number;
+    }): Promise<void> {
+      bundlerConfig = {
+        bundlerUrl: config.bundlerUrl,
+        entryPoint: config.entryPoint ?? ENTRY_POINT_V07,
+        chainId: config.chainId,
+      };
+      persistBaggage('bundlerConfig', bundlerConfig);
+    },
+
+    // ------------------------------------------------------------------
     // Public wallet API
     // ------------------------------------------------------------------
 
@@ -249,8 +394,20 @@ export function buildRootObject(
         ? await E(keyringVat).getAccounts()
         : [];
 
-      // In future: merge with delegation-covered accounts
-      return localAccounts;
+      const extAccounts: Address[] = externalSigner
+        ? await E(externalSigner).getAccounts()
+        : [];
+
+      // Deduplicate by lowercasing
+      const seen = new Set(localAccounts.map((a) => a.toLowerCase()));
+      const merged = [...localAccounts];
+      for (const account of extAccounts) {
+        if (!seen.has(account.toLowerCase())) {
+          seen.add(account.toLowerCase());
+          merged.push(account);
+        }
+      }
+      return merged;
     },
 
     async signTransaction(tx: TransactionRequest): Promise<Hex> {
@@ -265,41 +422,12 @@ export function buildRootObject(
       return E(providerVat).broadcastTransaction(signedTx);
     },
 
-    async signTypedData(data: Eip712TypedData): Promise<Hex> {
-      if (keyringVat) {
-        const hasKeys = await E(keyringVat).hasKeys();
-        if (hasKeys) {
-          return E(keyringVat).signTypedData(data);
-        }
-      }
-
-      if (peerWallet) {
-        return E(peerWallet).handleSigningRequest({
-          type: 'typedData',
-          data,
-        });
-      }
-
-      throw new Error('No authority to sign typed data');
+    async signTypedData(data: Eip712TypedData, from?: Address): Promise<Hex> {
+      return resolveTypedDataSigning(data, from);
     },
 
     async signMessage(message: string, account?: Address): Promise<Hex> {
-      if (keyringVat) {
-        const hasKeys = await E(keyringVat).hasKeys();
-        if (hasKeys) {
-          return E(keyringVat).signMessage(message, account);
-        }
-      }
-
-      if (peerWallet) {
-        return E(peerWallet).handleSigningRequest({
-          type: 'message',
-          message,
-          ...(account ? { account } : {}),
-        });
-      }
-
-      throw new Error('No authority to sign message');
+      return resolveMessageSigning(message, account);
     },
 
     async request(method: string, params?: unknown[]): Promise<unknown> {
@@ -314,15 +442,40 @@ export function buildRootObject(
     // ------------------------------------------------------------------
 
     async createDelegation(opts: CreateDelegationOptions): Promise<Delegation> {
-      if (!delegationVat || !keyringVat) {
-        throw new Error('Delegation or keyring vat not available');
+      if (!delegationVat) {
+        throw new Error('Delegation vat not available');
       }
 
-      const accounts = await E(keyringVat).getAccounts();
-      if (accounts.length === 0) {
+      // Determine delegator from keyring or external signer
+      let delegator: Address | undefined;
+      let signTypedDataFn:
+        | ((data: Eip712TypedData) => Promise<Hex>)
+        | undefined;
+
+      if (keyringVat) {
+        const accounts = await E(keyringVat).getAccounts();
+        if (accounts.length > 0) {
+          delegator = accounts[0];
+          const kv = keyringVat;
+          signTypedDataFn = async (data: Eip712TypedData) =>
+            E(kv).signTypedData(data);
+        }
+      }
+
+      if (!delegator && externalSigner) {
+        const accounts = await E(externalSigner).getAccounts();
+        if (accounts.length > 0) {
+          delegator = accounts[0];
+          const ext = externalSigner;
+          const from = delegator;
+          signTypedDataFn = async (data: Eip712TypedData) =>
+            E(ext).signTypedData(data, from);
+        }
+      }
+
+      if (!delegator || !signTypedDataFn) {
         throw new Error('No accounts available to create delegation');
       }
-      const delegator = accounts[0] as Address;
 
       const delegation = await E(delegationVat).createDelegation({
         ...opts,
@@ -333,7 +486,7 @@ export function buildRootObject(
         delegation.id,
       );
 
-      const signature = await E(keyringVat).signTypedData(typedData);
+      const signature = await signTypedDataFn(typedData);
 
       await E(delegationVat).storeSigned(delegation.id, signature);
 
@@ -362,7 +515,81 @@ export function buildRootObject(
     },
 
     // ------------------------------------------------------------------
-    // Peer wallet connectivity (Phase 2 stubs)
+    // Delegation redemption (ERC-4337)
+    // ------------------------------------------------------------------
+
+    async redeemDelegation(options: {
+      execution: Execution;
+      delegationId?: string;
+      action?: Action;
+      maxFeePerGas: Hex;
+      maxPriorityFeePerGas: Hex;
+    }): Promise<Hex> {
+      if (!delegationVat) {
+        throw new Error('Delegation vat not available');
+      }
+      if (!providerVat) {
+        throw new Error('Provider vat not available');
+      }
+      if (!bundlerConfig) {
+        throw new Error('Bundler not configured');
+      }
+
+      // Find delegation by ID or by action match
+      let delegation: Delegation | undefined;
+      if (options.delegationId) {
+        delegation = await E(delegationVat).getDelegation(options.delegationId);
+      } else if (options.action) {
+        delegation = await E(delegationVat).findDelegationForAction(
+          options.action,
+        );
+      }
+
+      if (!delegation) {
+        throw new Error('No matching delegation found');
+      }
+
+      const sender = delegation.delegate;
+
+      // Get nonce (on-chain transaction nonce for now; EntryPoint nonce for production)
+      const nonce = await E(providerVat).getNonce(sender);
+
+      // Build unsigned UserOp (pure computation)
+      const unsignedUserOp = buildDelegationUserOp({
+        sender,
+        nonce: numberToHex(nonce),
+        delegations: [delegation],
+        execution: options.execution,
+        maxFeePerGas: options.maxFeePerGas,
+        maxPriorityFeePerGas: options.maxPriorityFeePerGas,
+      });
+
+      // Compute UserOp hash (pure computation)
+      const userOpHash = computeUserOpHash(
+        unsignedUserOp,
+        bundlerConfig.entryPoint,
+        bundlerConfig.chainId,
+      );
+
+      // Sign the hash
+      const signature = await resolveMessageSigning(userOpHash, sender);
+
+      // Attach signature
+      const signedUserOp: UserOperation = {
+        ...unsignedUserOp,
+        signature,
+      };
+
+      // Submit via provider vat
+      return E(providerVat).submitUserOp({
+        bundlerUrl: bundlerConfig.bundlerUrl,
+        entryPoint: bundlerConfig.entryPoint,
+        userOp: signedUserOp,
+      });
+    },
+
+    // ------------------------------------------------------------------
+    // Peer wallet connectivity
     // ------------------------------------------------------------------
 
     async issueOcapUrl(): Promise<string> {
@@ -394,28 +621,45 @@ export function buildRootObject(
           if (!request.tx) {
             throw new Error('Missing transaction in signing request');
           }
-          if (!keyringVat) {
-            throw new Error('No local keyring to handle signing request');
+          if (keyringVat) {
+            return E(keyringVat).signTransaction(request.tx);
           }
-          return E(keyringVat).signTransaction(request.tx);
+          if (externalSigner) {
+            return E(externalSigner).signTransaction(request.tx);
+          }
+          throw new Error('No signer available to handle signing request');
 
         case 'typedData':
           if (!request.data) {
             throw new Error('Missing typed data in signing request');
           }
-          if (!keyringVat) {
-            throw new Error('No local keyring to handle signing request');
+          if (keyringVat) {
+            return E(keyringVat).signTypedData(request.data);
           }
-          return E(keyringVat).signTypedData(request.data);
+          if (externalSigner) {
+            const accounts = await E(externalSigner).getAccounts();
+            return E(externalSigner).signTypedData(
+              request.data,
+              request.account ?? accounts[0],
+            );
+          }
+          throw new Error('No signer available to handle signing request');
 
         case 'message':
           if (!request.message) {
             throw new Error('Missing message in signing request');
           }
-          if (!keyringVat) {
-            throw new Error('No local keyring to handle signing request');
+          if (keyringVat) {
+            return E(keyringVat).signMessage(request.message, request.account);
           }
-          return E(keyringVat).signMessage(request.message, request.account);
+          if (externalSigner) {
+            const accounts = await E(externalSigner).getAccounts();
+            return E(externalSigner).signMessage(
+              request.message,
+              request.account ?? accounts[0],
+            );
+          }
+          throw new Error('No signer available to handle signing request');
 
         default:
           throw new Error(`Unknown signing request type: ${request.type}`);
@@ -442,6 +686,8 @@ export function buildRootObject(
         localAccounts,
         delegationCount: delegations.length,
         hasPeerWallet: peerWallet !== undefined,
+        hasExternalSigner: externalSigner !== undefined,
+        hasBundlerConfig: bundlerConfig !== undefined,
       };
     },
   });
