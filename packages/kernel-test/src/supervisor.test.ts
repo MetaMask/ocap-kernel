@@ -28,7 +28,7 @@ const makeVatSupervisor = async ({
       logger: makeMockLogger(),
       vatPowers,
       makePlatform: vi.fn().mockResolvedValue({}),
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
+
       fetchBlob: async (url: string): Promise<Response> => {
         if (!url.endsWith('.bundle')) {
           throw new Error(`Unexpected URL: ${url}`);
@@ -39,7 +39,6 @@ const makeVatSupervisor = async ({
         return {
           ok: true,
           text: async () => bundleContent,
-          // eslint-disable-next-line n/no-unsupported-features/node-builtins
         } as Response;
       },
     }),

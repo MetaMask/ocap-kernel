@@ -7,7 +7,6 @@ import type { FetchCapability, FetchCaveat, FetchConfig } from './types.ts';
  * @returns The resolved URL
  */
 export const resolveUrl = (arg: Parameters<typeof fetch>[0]): URL =>
-  // eslint-disable-next-line n/no-unsupported-features/node-builtins
   new URL(arg instanceof Request ? arg.url : arg);
 
 /**

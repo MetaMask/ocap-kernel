@@ -12,7 +12,7 @@ describe('resolveUrl', () => {
     { name: 'string URL', input: 'https://example.test/path' },
     {
       name: 'Request object URL',
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
+
       input: new Request('https://example.test/path'),
     },
     { name: 'URL object', input: new URL('https://example.test/path') },
@@ -44,7 +44,7 @@ describe('makeHostCaveat', () => {
   it.each([
     {
       name: 'Request objects',
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
+
       input: new Request('https://example.test/path'),
     },
     { name: 'URL objects', input: new URL('https://example.test/path') },
@@ -91,7 +91,6 @@ describe('makeCaveatedFetch', () => {
     const mockResponse = {
       status: 200,
       text: async () => Promise.resolve('test'),
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
     } as Response;
     const mockFetch = vi.fn().mockResolvedValue(mockResponse);
     const caveat = vi.fn().mockResolvedValue(undefined);
@@ -122,7 +121,6 @@ describe('makeCaveatedFetch', () => {
     const mockResponse = {
       status: 200,
       text: async () => Promise.resolve('test'),
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
     } as Response;
     const mockFetch = vi.fn().mockResolvedValue(mockResponse);
     const caveat = vi.fn().mockResolvedValue(undefined);
@@ -142,7 +140,6 @@ describe('shared fetch capability behavior', () => {
     const mockResponse = {
       status: 200,
       text: async () => Promise.resolve('test'),
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
     } as Response;
     const mockFetch = vi.fn().mockResolvedValue(mockResponse);
     const caveat = makeFetchCaveat({ allowedHosts: ['example.test'] });
@@ -164,7 +161,6 @@ describe('shared fetch capability behavior', () => {
     const mockResponse = {
       status: 200,
       text: async () => Promise.resolve('test'),
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
     } as Response;
     const mockFetch = vi.fn().mockResolvedValue(mockResponse);
     const caveat = makeFetchCaveat({ allowedHosts: ['example.test'] });
@@ -179,7 +175,7 @@ describe('shared fetch capability behavior', () => {
   it.each([
     {
       name: 'Request objects',
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
+
       input: new Request('https://example.test/path'),
     },
     { name: 'URL objects', input: new URL('https://example.test/path') },
@@ -187,7 +183,6 @@ describe('shared fetch capability behavior', () => {
     const mockResponse = {
       status: 200,
       text: async () => Promise.resolve('test'),
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
     } as Response;
     const mockFetch = vi.fn().mockResolvedValue(mockResponse);
     const caveat = makeFetchCaveat({ allowedHosts: ['example.test'] });

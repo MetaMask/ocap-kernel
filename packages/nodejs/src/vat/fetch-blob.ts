@@ -11,11 +11,16 @@ import url from 'node:url';
  *
  * @returns a Response containing the requested blob.
  */
-// eslint-disable-next-line n/no-unsupported-features/node-builtins
+
+/**
+ * Fetch a blob.
+ *
+ * @param blobURL - The URL of the blob you want.
+ * @returns the fetch response.
+ */
 export async function fetchBlob(blobURL: string): Promise<Response> {
   const parsedURL = new URL(blobURL);
   if (parsedURL.protocol === 'file:') {
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins
     return new Response(await fs.readFile(url.fileURLToPath(parsedURL)));
   }
   return fetch(blobURL);
