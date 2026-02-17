@@ -124,7 +124,12 @@ export class SubclusterManager {
     try {
       // Create IO channels before validating services so that IO service
       // names are registered and discoverable by #validateServices.
-      if (config.io && this.#ioManager) {
+      if (config.io) {
+        if (!this.#ioManager) {
+          throw new Error(
+            'Cluster config declares IO channels but no IO channel factory was provided to the kernel',
+          );
+        }
         await this.#ioManager.createChannels(subclusterId, config.io);
       }
 

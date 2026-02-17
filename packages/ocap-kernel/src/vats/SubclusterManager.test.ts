@@ -349,6 +349,22 @@ describe('SubclusterManager', () => {
       expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
     });
 
+    it('throws when config declares IO but no IO manager is provided', async () => {
+      const config: ClusterConfig = {
+        bootstrap: 'testVat',
+        vats: { testVat: { sourceSpec: 'test.js' } },
+        io: {
+          repl: { type: 'socket', path: '/tmp/repl.sock' },
+        },
+      };
+
+      await expect(subclusterManager.launchSubcluster(config)).rejects.toThrow(
+        'no IO channel factory was provided',
+      );
+
+      expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
+    });
+
     it('throws when launchVat returns undefined', async () => {
       const config: ClusterConfig = {
         bootstrap: 'testVat',
