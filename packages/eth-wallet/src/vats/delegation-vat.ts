@@ -1,8 +1,10 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
+import { verifyTypedData } from 'viem';
 
 import { DEFAULT_DELEGATION_MANAGER } from '../constants.ts';
 import {
+  computeDelegationId,
   makeDelegation,
   prepareDelegationTypedData,
   delegationMatchesAction,
@@ -108,14 +110,48 @@ export function buildRootObject(
       if (delegation.status !== 'signed') {
         throw new Error('Can only receive signed delegations');
       }
+      if (!delegation.signature) {
+        throw new Error('Delegation has no signature');
+      }
+
+      // Verify the delegation ID is consistent with the fields
+      const expectedId = computeDelegationId(delegation);
+      if (delegation.id !== expectedId) {
+        throw new Error('Delegation ID mismatch');
+      }
+
+      // Verify EIP-712 signature
+      const typedData = prepareDelegationTypedData({
+        delegation,
+        verifyingContract: delegationManagerAddress,
+      });
+      const valid = await verifyTypedData({
+        address: delegation.delegator,
+        domain: typedData.domain as Record<string, unknown>,
+        types: typedData.types as Record<
+          string,
+          { name: string; type: string }[]
+        >,
+        primaryType: typedData.primaryType,
+        message: typedData.message,
+        signature: delegation.signature,
+      });
+      if (!valid) {
+        throw new Error('Invalid delegation signature');
+      }
+
       delegations.set(delegation.id, delegation);
       persistDelegations();
     },
 
     async findDelegationForAction(
       action: Action,
+      chainId?: number,
     ): Promise<Delegation | undefined> {
       for (const delegation of delegations.values()) {
+        if (chainId !== undefined && delegation.chainId !== chainId) {
+          continue;
+        }
         if (delegationMatchesAction(delegation, action)) {
           return delegation;
         }

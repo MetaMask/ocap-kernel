@@ -52,6 +52,7 @@ type KeyringFacet = {
   signTransaction: (tx: TransactionRequest) => Promise<Hex>;
   signTypedData: (data: Eip712TypedData) => Promise<Hex>;
   signMessage: (message: string, from?: Address) => Promise<Hex>;
+  signHash: (hash: Hex, from?: Address) => Promise<Hex>;
 };
 
 type ProviderFacet = {
@@ -83,6 +84,10 @@ type ProviderFacet = {
     bundlerUrl: string;
     userOpHash: Hex;
   }) => Promise<unknown>;
+  getGasFees: () => Promise<{
+    maxFeePerGas: Hex;
+    maxPriorityFeePerGas: Hex;
+  }>;
 };
 
 type DelegationFacet = {
@@ -92,7 +97,10 @@ type DelegationFacet = {
   prepareDelegationForSigning: (id: string) => Promise<Eip712TypedData>;
   storeSigned: (id: string, signature: Hex) => Promise<void>;
   receiveDelegation: (delegation: Delegation) => Promise<void>;
-  findDelegationForAction: (action: Action) => Promise<Delegation | undefined>;
+  findDelegationForAction: (
+    action: Action,
+    chainId?: number,
+  ) => Promise<Delegation | undefined>;
   getDelegation: (id: string) => Promise<Delegation>;
   listDelegations: () => Promise<Delegation[]>;
   revokeDelegation: (id: string) => Promise<void>;
@@ -269,6 +277,45 @@ export function buildRootObject(
   }
 
   /**
+   * Resolve the signing strategy for a raw hash (ECDSA without EIP-191 prefix).
+   * Used for signing UserOp hashes where the EntryPoint expects raw ECDSA.
+   * Priority: keyring → external signer (signMessage) → peer wallet → error
+   *
+   * @param hash - The hash to sign.
+   * @param from - Optional sender address.
+   * @returns The signature as a hex string.
+   */
+  async function resolveHashSigning(hash: Hex, from?: Address): Promise<Hex> {
+    // Local keyring: raw ECDSA (no EIP-191 prefix)
+    if (keyringVat) {
+      const hasKeys = await E(keyringVat).hasKeys();
+      if (hasKeys) {
+        return E(keyringVat).signHash(hash, from);
+      }
+    }
+
+    // External signer: uses signMessage (EIP-191) — may need adjustment
+    // depending on smart account model (blocked on Q3)
+    if (externalSigner) {
+      const accounts = await E(externalSigner).getAccounts();
+      if (accounts.length > 0) {
+        return E(externalSigner).signMessage(hash, from ?? accounts[0]);
+      }
+    }
+
+    // Peer wallet: falls back to message signing
+    if (peerWallet) {
+      return E(peerWallet).handleSigningRequest({
+        type: 'message',
+        message: hash,
+        ...(from ? { account: from } : {}),
+      });
+    }
+
+    throw new Error('No authority to sign hash');
+  }
+
+  /**
    * Resolve the signing strategy for a transaction.
    * Priority: local key → external signer → peer wallet → reject
    *
@@ -315,14 +362,22 @@ export function buildRootObject(
   async function submitDelegationUserOp(options: {
     delegations: Delegation[];
     execution: Execution;
-    maxFeePerGas: Hex;
-    maxPriorityFeePerGas: Hex;
+    maxFeePerGas?: Hex;
+    maxPriorityFeePerGas?: Hex;
   }): Promise<Hex> {
     if (!providerVat) {
       throw new Error('Provider vat not available');
     }
     if (!bundlerConfig) {
       throw new Error('Bundler not configured');
+    }
+
+    // Estimate gas fees if not explicitly provided
+    let { maxFeePerGas, maxPriorityFeePerGas } = options;
+    if (!maxFeePerGas || !maxPriorityFeePerGas) {
+      const fees = await E(providerVat).getGasFees();
+      maxFeePerGas = maxFeePerGas ?? fees.maxFeePerGas;
+      maxPriorityFeePerGas = maxPriorityFeePerGas ?? fees.maxPriorityFeePerGas;
     }
 
     const sender = options.delegations[0].delegate;
@@ -339,8 +394,8 @@ export function buildRootObject(
       nonce: nonceHex,
       delegations: options.delegations,
       execution: options.execution,
-      maxFeePerGas: options.maxFeePerGas,
-      maxPriorityFeePerGas: options.maxPriorityFeePerGas,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
     });
 
     // Estimate gas via bundler
@@ -365,8 +420,8 @@ export function buildRootObject(
       bundlerConfig.chainId,
     );
 
-    // Sign the hash
-    const signature = await resolveMessageSigning(userOpHash, sender);
+    // Sign the hash (raw ECDSA, no EIP-191 prefix)
+    const signature = await resolveHashSigning(userOpHash, sender);
 
     // Attach signature and submit
     const signedUserOp: UserOperation = {
@@ -502,11 +557,10 @@ export function buildRootObject(
 
       // Check if a delegation covers this action and bundler is configured
       if (delegationVat && bundlerConfig) {
-        const delegation = await E(delegationVat).findDelegationForAction({
-          to: tx.to,
-          value: tx.value,
-          data: tx.data,
-        });
+        const delegation = await E(delegationVat).findDelegationForAction(
+          { to: tx.to, value: tx.value, data: tx.data },
+          bundlerConfig.chainId,
+        );
 
         if (delegation && delegation.status === 'signed') {
           return submitDelegationUserOp({
@@ -516,9 +570,8 @@ export function buildRootObject(
               value: tx.value ?? ('0x0' as Hex),
               callData: tx.data ?? ('0x' as Hex),
             },
-            maxFeePerGas: tx.maxFeePerGas ?? ('0x3b9aca00' as Hex),
-            maxPriorityFeePerGas:
-              tx.maxPriorityFeePerGas ?? ('0x3b9aca00' as Hex),
+            maxFeePerGas: tx.maxFeePerGas,
+            maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
           });
         }
       }
@@ -628,8 +681,8 @@ export function buildRootObject(
       delegations?: Delegation[];
       delegationId?: string;
       action?: Action;
-      maxFeePerGas: Hex;
-      maxPriorityFeePerGas: Hex;
+      maxFeePerGas?: Hex;
+      maxPriorityFeePerGas?: Hex;
     }): Promise<Hex> {
       if (!delegationVat) {
         throw new Error('Delegation vat not available');
@@ -649,6 +702,7 @@ export function buildRootObject(
       } else if (options.action) {
         const delegation = await E(delegationVat).findDelegationForAction(
           options.action,
+          bundlerConfig?.chainId,
         );
         if (!delegation) {
           throw new Error('No matching delegation found');
@@ -673,6 +727,33 @@ export function buildRootObject(
         maxFeePerGas: options.maxFeePerGas,
         maxPriorityFeePerGas: options.maxPriorityFeePerGas,
       });
+    },
+
+    async waitForUserOpReceipt(options: {
+      userOpHash: Hex;
+      pollIntervalMs?: number;
+      timeoutMs?: number;
+    }): Promise<unknown> {
+      if (!providerVat || !bundlerConfig) {
+        throw new Error('Provider and bundler must be configured');
+      }
+      const interval = options.pollIntervalMs ?? 2000;
+      const timeout = options.timeoutMs ?? 60000;
+      const start = Date.now();
+
+      while (Date.now() - start < timeout) {
+        const receipt = await E(providerVat).getUserOpReceipt({
+          bundlerUrl: bundlerConfig.bundlerUrl,
+          userOpHash: options.userOpHash,
+        });
+        if (receipt !== null) {
+          return receipt;
+        }
+        await new Promise((resolve) => setTimeout(resolve, interval));
+      }
+      throw new Error(
+        `UserOp ${options.userOpHash} not found after ${timeout}ms`,
+      );
     },
 
     // ------------------------------------------------------------------

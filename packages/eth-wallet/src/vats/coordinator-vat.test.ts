@@ -53,6 +53,10 @@ function makeMockProviderVat() {
       preVerificationGas: '0x10000' as Hex,
     }),
     getUserOpReceipt: vi.fn().mockResolvedValue(null),
+    getGasFees: vi.fn().mockResolvedValue({
+      maxFeePerGas: '0x77359400' as Hex,
+      maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+    }),
   };
 }
 
@@ -1169,6 +1173,95 @@ describe('coordinator-vat', () => {
 
       expect(result).toBe('0xuserophash');
       expect(extSigner.signMessage).toHaveBeenCalled();
+    });
+  });
+
+  describe('waitForUserOpReceipt', () => {
+    it('returns receipt when found immediately', async () => {
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      const receipt = { success: true, receipt: { transactionHash: '0xabc' } };
+      providerVat.getUserOpReceipt.mockResolvedValueOnce(receipt);
+
+      const result = await coordinator.waitForUserOpReceipt({
+        userOpHash: '0xdeadbeef' as Hex,
+      });
+      expect(result).toStrictEqual(receipt);
+    });
+
+    it('polls and returns receipt after delay', async () => {
+      vi.useFakeTimers();
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      const receipt = { success: true };
+      providerVat.getUserOpReceipt
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(receipt);
+
+      const resultPromise = coordinator.waitForUserOpReceipt({
+        userOpHash: '0xdeadbeef' as Hex,
+        pollIntervalMs: 100,
+      });
+
+      // Advance through two polls
+      await vi.advanceTimersByTimeAsync(100);
+      await vi.advanceTimersByTimeAsync(100);
+
+      const result = await resultPromise;
+      expect(result).toStrictEqual(receipt);
+      expect(providerVat.getUserOpReceipt).toHaveBeenCalledTimes(3);
+
+      vi.useRealTimers();
+    });
+
+    it('throws on timeout', async () => {
+      vi.useFakeTimers();
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      providerVat.getUserOpReceipt.mockResolvedValue(null);
+
+      const resultPromise = coordinator.waitForUserOpReceipt({
+        userOpHash: '0xdeadbeef' as Hex,
+        pollIntervalMs: 100,
+        timeoutMs: 500,
+      });
+
+      // Advance past timeout
+      for (let i = 0; i < 10; i++) {
+        await vi.advanceTimersByTimeAsync(100);
+      }
+
+      await expect(resultPromise).rejects.toThrow('not found after 500ms');
+
+      vi.useRealTimers();
+    });
+
+    it('throws when provider and bundler are not configured', async () => {
+      const freshBaggage = makeMockBaggage();
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await expect(
+        coord.waitForUserOpReceipt({
+          userOpHash: '0xdeadbeef' as Hex,
+        }),
+      ).rejects.toThrow('Provider and bundler must be configured');
     });
   });
 });

@@ -100,6 +100,9 @@ export type {
   UserOpReceipt,
 } from './lib/bundler.ts';
 
+// Keyring utilities
+export { generateMnemonicPhrase } from './lib/keyring.ts';
+
 // MetaMask signing adapter
 export {
   makeProviderSigner,
