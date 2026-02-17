@@ -3,7 +3,12 @@ import type { Baggage } from '@metamask/ocap-kernel';
 
 import { makeKeyring } from '../lib/keyring.ts';
 import type { Keyring, KeyringInitOptions } from '../lib/keyring.ts';
-import { signTransaction, signMessage, signTypedData } from '../lib/signing.ts';
+import {
+  signHash,
+  signTransaction,
+  signMessage,
+  signTypedData,
+} from '../lib/signing.ts';
 import type {
   Address,
   Eip712TypedData,
@@ -120,6 +125,22 @@ export function buildRootObject(
         throw new Error('Account not found');
       }
       return signTypedData({ account, typedData });
+    },
+
+    async signHash(hash: Hex, from?: Address): Promise<Hex> {
+      if (!keyring) {
+        throw new Error('Keyring not initialized');
+      }
+      const accounts = keyring.getAccounts();
+      const address = from ?? accounts[0];
+      if (!address) {
+        throw new Error('No accounts available');
+      }
+      const account = keyring.getAccount(address);
+      if (!account) {
+        throw new Error(`No key for account ${address}`);
+      }
+      return signHash({ account, hash });
     },
 
     async signMessage(message: string, from?: Address): Promise<Hex> {

@@ -51,6 +51,25 @@ export async function signTransaction(options: {
 }
 
 /**
+ * Sign a raw hash using ECDSA (no EIP-191 prefix).
+ *
+ * This is used for UserOp hash signing where the EntryPoint expects
+ * a raw ECDSA signature over the hash, not a personal_sign envelope.
+ *
+ * @param options - Signing options.
+ * @param options.account - The local account to sign with.
+ * @param options.hash - The hash to sign.
+ * @returns The signature as a hex string.
+ */
+export async function signHash(options: {
+  account: LocalAccount;
+  hash: Hex;
+}): Promise<Hex> {
+  const { account, hash } = options;
+  return account.sign({ hash });
+}
+
+/**
  * Sign a message using EIP-191 personal sign.
  *
  * @param options - Signing options.

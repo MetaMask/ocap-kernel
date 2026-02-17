@@ -1,7 +1,12 @@
 import { privateKeyToAccount } from 'viem/accounts';
 import { describe, it, expect } from 'vitest';
 
-import { signTransaction, signMessage, signTypedData } from './signing.ts';
+import {
+  signHash,
+  signTransaction,
+  signMessage,
+  signTypedData,
+} from './signing.ts';
 
 // Deterministic test key (DO NOT use in production)
 const TEST_PRIVATE_KEY =
@@ -63,6 +68,50 @@ describe('lib/signing', () => {
       });
 
       expect(signed).toMatch(/^0x/u);
+    });
+  });
+
+  describe('signHash', () => {
+    it('signs a raw hash without EIP-191 prefix', async () => {
+      const account = makeTestAccount();
+      const hash =
+        '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+      const signature = await signHash({
+        account,
+        hash: hash as `0x${string}`,
+      });
+
+      expect(signature).toMatch(/^0x/u);
+      expect(signature).toHaveLength(132);
+    });
+
+    it('produces a different signature than signMessage for the same input', async () => {
+      const account = makeTestAccount();
+      const input =
+        '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+
+      const hashSig = await signHash({
+        account,
+        hash: input as `0x${string}`,
+      });
+      const msgSig = await signMessage({
+        account,
+        message: input,
+      });
+
+      // signHash (raw ECDSA) and signMessage (EIP-191) must differ
+      expect(hashSig).not.toBe(msgSig);
+    });
+
+    it('produces deterministic signatures', async () => {
+      const account = makeTestAccount();
+      const hash =
+        '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+
+      const sig1 = await signHash({ account, hash: hash as `0x${string}` });
+      const sig2 = await signHash({ account, hash: hash as `0x${string}` });
+
+      expect(sig1).toBe(sig2);
     });
   });
 

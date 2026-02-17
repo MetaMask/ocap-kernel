@@ -210,6 +210,35 @@ export function delegationMatchesAction(
         return false;
       }
     }
+
+    if (caveat.type === 'erc20TransferAmount') {
+      const [token, maxAmount] = decodeAbiParameters(
+        parseAbiParameters('address, uint256'),
+        caveat.terms,
+      );
+      // Must target the token contract
+      if (action.to.toLowerCase() !== token.toLowerCase()) {
+        return false;
+      }
+      // Must have calldata that is an ERC-20 transfer(address,uint256)
+      // Minimum length: 0x (2) + selector (8) + address (64) + uint256 (64) = 138
+      if (!action.data || action.data.length < 138) {
+        return false;
+      }
+      const selector = action.data.slice(0, 10).toLowerCase();
+      if (selector !== '0xa9059cbb') {
+        return false;
+      }
+      // Extract the amount (second parameter: bytes 36-68 of calldata, hex chars 74-138)
+      const amountHex = `0x${action.data.slice(74, 138)}`;
+      const transferAmount = BigInt(amountHex);
+      if (transferAmount > maxAmount) {
+        return false;
+      }
+    }
+
+    // limitedCalls: Cannot enforce client-side (requires on-chain call counter).
+    // The on-chain enforcer is authoritative — pass through.
   }
 
   return true;
