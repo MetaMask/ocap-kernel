@@ -36,12 +36,15 @@ export function makeWalletClusterConfig(
       },
       keyring: {
         bundleSpec: `${bundleBaseUrl}/keyring-vat.bundle`,
+        globals: ['TextEncoder', 'TextDecoder'],
       },
       provider: {
         bundleSpec: `${bundleBaseUrl}/provider-vat.bundle`,
+        globals: ['TextEncoder', 'TextDecoder'],
       },
       delegation: {
         bundleSpec: `${bundleBaseUrl}/delegation-vat.bundle`,
+        globals: ['TextEncoder', 'TextDecoder'],
         ...(delegationManagerAddress
           ? { parameters: { delegationManagerAddress } }
           : {}),

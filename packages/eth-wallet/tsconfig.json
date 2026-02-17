@@ -8,8 +8,16 @@
   "references": [
     { "path": "../repo-tools" },
     { "path": "../kernel-utils" },
+    { "path": "../kernel-store" },
     { "path": "../logger" },
+    { "path": "../nodejs" },
     { "path": "../ocap-kernel" }
   ],
-  "include": ["../../vitest.config.ts", "./src", "./test", "./vitest.config.ts"]
+  "include": [
+    "../../vitest.config.ts",
+    "./src",
+    "./test",
+    "./vitest.config.ts",
+    "./vitest.config.integration.ts"
+  ]
 }
