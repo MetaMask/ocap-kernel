@@ -342,4 +342,53 @@ describe('provider-vat', () => {
       ).rejects.toThrow('estimation failed');
     });
   });
+
+  describe('getGasFees', () => {
+    it('throws when provider is not configured', async () => {
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (root as any).getGasFees(),
+      ).rejects.toThrow('Provider not configured');
+    });
+
+    it('returns computed gas fees from block and priority fee', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configure({
+        chainId: 1,
+        rpcUrl: 'https://eth.example.com',
+      });
+
+      // baseFeePerGas = 0x3b9aca00 (1 gwei), priorityFee = 0x3b9aca00 (1 gwei)
+      mockProvider.request
+        .mockResolvedValueOnce({ baseFeePerGas: '0x3b9aca00' }) // eth_getBlockByNumber
+        .mockResolvedValueOnce('0x3b9aca00'); // eth_maxPriorityFeePerGas
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fees = await (root as any).getGasFees();
+
+      // maxFeePerGas = 2 * 1gwei + 1gwei = 3gwei = 0xb2d05e00
+      expect(fees).toStrictEqual({
+        maxFeePerGas: '0xb2d05e00',
+        maxPriorityFeePerGas: '0x3b9aca00',
+      });
+    });
+
+    it('falls back to 1 gwei priority fee when eth_maxPriorityFeePerGas fails', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configure({
+        chainId: 1,
+        rpcUrl: 'https://eth.example.com',
+      });
+
+      mockProvider.request
+        .mockResolvedValueOnce({ baseFeePerGas: '0x3b9aca00' }) // eth_getBlockByNumber
+        .mockRejectedValueOnce(new Error('method not found')); // eth_maxPriorityFeePerGas
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const fees = await (root as any).getGasFees();
+
+      // Should fall back to 1 gwei for priority fee
+      expect(fees.maxPriorityFeePerGas).toBe('0x3b9aca00');
+    });
+  });
 });

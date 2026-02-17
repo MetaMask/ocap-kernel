@@ -9,6 +9,7 @@ export type WalletClusterConfigOptions = {
   bundleBaseUrl: string;
   delegationManagerAddress?: Address;
   chainId?: number;
+  forceReset?: boolean;
   services?: string[];
 };
 
@@ -29,7 +30,7 @@ export function makeWalletClusterConfig(
 
   return {
     bootstrap: 'coordinator',
-    forceReset: true,
+    forceReset: options.forceReset ?? true,
     services,
     vats: {
       coordinator: {

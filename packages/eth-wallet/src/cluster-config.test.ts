@@ -94,6 +94,21 @@ describe('cluster-config', () => {
       expect(coordinatorConfig.globals).toBeUndefined();
     });
 
+    it('defaults forceReset to true', () => {
+      const config = makeWalletClusterConfig({
+        bundleBaseUrl: BUNDLE_BASE_URL,
+      });
+      expect(config.forceReset).toBe(true);
+    });
+
+    it('respects forceReset false', () => {
+      const config = makeWalletClusterConfig({
+        bundleBaseUrl: BUNDLE_BASE_URL,
+        forceReset: false,
+      });
+      expect(config.forceReset).toBe(false);
+    });
+
     it('designates coordinator as the bootstrap vat', () => {
       const config = makeWalletClusterConfig({
         bundleBaseUrl: BUNDLE_BASE_URL,

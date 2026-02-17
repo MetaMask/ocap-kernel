@@ -5,6 +5,8 @@ import {
   encodeAllowedMethods,
   encodeValueLte,
   encodeTimestamp,
+  encodeErc20TransferAmount,
+  encodeLimitedCalls,
   makeCaveat,
 } from './caveats.ts';
 import {
@@ -333,6 +335,98 @@ describe('lib/delegation', () => {
       expect(delegationMatchesAction(delegation, { to: TARGET_CONTRACT })).toBe(
         false,
       );
+    });
+
+    describe('erc20TransferAmount caveat', () => {
+      const TOKEN = '0xdead000000000000000000000000000000000000' as Address;
+      const MAX_AMOUNT = 1000000n; // 1 USDC (6 decimals)
+
+      const makeErc20Delegation = () =>
+        makeSignedDelegation([
+          makeCaveat({
+            type: 'erc20TransferAmount',
+            terms: encodeErc20TransferAmount({
+              token: TOKEN,
+              amount: MAX_AMOUNT,
+            }),
+          }),
+        ]);
+
+      // ERC-20 transfer(address,uint256) calldata helper
+      const makeTransferCalldata = (to: Address, amount: bigint): Hex => {
+        const selector = 'a9059cbb';
+        const toParam = to.slice(2).toLowerCase().padStart(64, '0');
+        const amountParam = amount.toString(16).padStart(64, '0');
+        return `0x${selector}${toParam}${amountParam}` as Hex;
+      };
+
+      it('matches valid ERC-20 transfer within limit', () => {
+        const delegation = makeErc20Delegation();
+        const result = delegationMatchesAction(delegation, {
+          to: TOKEN,
+          data: makeTransferCalldata(BOB, 500000n),
+        });
+        expect(result).toBe(true);
+      });
+
+      it('matches when transfer amount equals limit', () => {
+        const delegation = makeErc20Delegation();
+        const result = delegationMatchesAction(delegation, {
+          to: TOKEN,
+          data: makeTransferCalldata(BOB, MAX_AMOUNT),
+        });
+        expect(result).toBe(true);
+      });
+
+      it('does not match when transfer amount exceeds limit', () => {
+        const delegation = makeErc20Delegation();
+        const result = delegationMatchesAction(delegation, {
+          to: TOKEN,
+          data: makeTransferCalldata(BOB, MAX_AMOUNT + 1n),
+        });
+        expect(result).toBe(false);
+      });
+
+      it('does not match when target is wrong token', () => {
+        const delegation = makeErc20Delegation();
+        const result = delegationMatchesAction(delegation, {
+          to: TARGET_CONTRACT, // wrong token
+          data: makeTransferCalldata(BOB, 500000n),
+        });
+        expect(result).toBe(false);
+      });
+
+      it('does not match when calldata is not a transfer', () => {
+        const delegation = makeErc20Delegation();
+        const result = delegationMatchesAction(delegation, {
+          to: TOKEN,
+          data: '0x12345678' as Hex, // wrong selector
+        });
+        expect(result).toBe(false);
+      });
+
+      it('does not match when calldata is missing', () => {
+        const delegation = makeErc20Delegation();
+        const result = delegationMatchesAction(delegation, {
+          to: TOKEN,
+        });
+        expect(result).toBe(false);
+      });
+    });
+
+    describe('limitedCalls caveat', () => {
+      it('always matches (client-side passthrough)', () => {
+        const delegation = makeSignedDelegation([
+          makeCaveat({
+            type: 'limitedCalls',
+            terms: encodeLimitedCalls(5),
+          }),
+        ]);
+
+        expect(
+          delegationMatchesAction(delegation, { to: TARGET_CONTRACT }),
+        ).toBe(true);
+      });
     });
   });
 

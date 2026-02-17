@@ -165,5 +165,30 @@ export function buildRootObject(
       });
       return result ?? null;
     },
+
+    async getGasFees(): Promise<{
+      maxFeePerGas: Hex;
+      maxPriorityFeePerGas: Hex;
+    }> {
+      if (!provider) {
+        throw new Error('Provider not configured');
+      }
+      const [block, priorityFee] = await Promise.all([
+        provider.request('eth_getBlockByNumber', ['latest', false]),
+        provider
+          .request('eth_maxPriorityFeePerGas', [])
+          .catch(() => '0x3b9aca00'),
+      ]);
+      const baseFee = BigInt(
+        (block as { baseFeePerGas: string }).baseFeePerGas ?? '0x0',
+      );
+      const priority = BigInt(priorityFee as string);
+      // maxFeePerGas = 2 * baseFee + maxPriorityFeePerGas (standard EIP-1559 heuristic)
+      const maxFee = baseFee * 2n + priority;
+      return {
+        maxFeePerGas: `0x${maxFee.toString(16)}`,
+        maxPriorityFeePerGas: `0x${priority.toString(16)}`,
+      };
+    },
   });
 }

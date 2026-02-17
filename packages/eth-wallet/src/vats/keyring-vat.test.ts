@@ -138,6 +138,41 @@ describe('keyring-vat', () => {
     });
   });
 
+  describe('signHash', () => {
+    it('signs a raw hash without EIP-191 prefix', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).initialize({ type: 'srp', mnemonic: TEST_MNEMONIC });
+
+      const hash =
+        '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const signature = await (root as any).signHash(hash);
+      expect(signature).toMatch(/^0x/u);
+      expect(signature).toHaveLength(132);
+    });
+
+    it('produces a different signature than signMessage for the same input', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).initialize({ type: 'srp', mnemonic: TEST_MNEMONIC });
+
+      const input =
+        '0xabcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890';
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const hashSig = await (root as any).signHash(input);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const msgSig = await (root as any).signMessage(input);
+
+      expect(hashSig).not.toBe(msgSig);
+    });
+
+    it('throws when not initialized', async () => {
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (root as any).signHash('0xabcd'),
+      ).rejects.toThrow('Keyring not initialized');
+    });
+  });
+
   describe('signMessage', () => {
     it('signs a personal message', async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

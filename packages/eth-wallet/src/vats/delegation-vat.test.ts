@@ -1,10 +1,21 @@
+import { privateKeyToAccount } from 'viem/accounts';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { buildRootObject } from './delegation-vat.ts';
 import { makeMockBaggage } from '../../test/helpers.ts';
+import { DEFAULT_DELEGATION_MANAGER } from '../constants.ts';
 import { encodeAllowedTargets, makeCaveat } from '../lib/caveats.ts';
-import { finalizeDelegation, makeDelegation } from '../lib/delegation.ts';
+import {
+  finalizeDelegation,
+  makeDelegation,
+  prepareDelegationTypedData,
+} from '../lib/delegation.ts';
 import type { Address, Hex } from '../types.ts';
+
+// Deterministic test key (DO NOT use in production)
+const TEST_PRIVATE_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+const TEST_ACCOUNT = privateKeyToAccount(TEST_PRIVATE_KEY);
 
 const ALICE = '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266' as Address;
 const BOB = '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address;
@@ -113,16 +124,31 @@ describe('delegation-vat', () => {
   });
 
   describe('receiveDelegation', () => {
-    it('stores a signed delegation from a peer', async () => {
-      const delegation = finalizeDelegation(
-        makeDelegation({
-          delegator: ALICE,
-          delegate: BOB,
-          caveats: [],
-          chainId: 1,
-        }),
-        '0xdeadbeef' as Hex,
-      );
+    async function makeProperlySignedDelegation() {
+      const unsigned = makeDelegation({
+        delegator: ALICE,
+        delegate: BOB,
+        caveats: [],
+        chainId: 1,
+      });
+      const typedData = prepareDelegationTypedData({
+        delegation: unsigned,
+        verifyingContract: DEFAULT_DELEGATION_MANAGER,
+      });
+      const signature = await TEST_ACCOUNT.signTypedData({
+        domain: typedData.domain as Record<string, unknown>,
+        types: typedData.types as Record<
+          string,
+          { name: string; type: string }[]
+        >,
+        primaryType: typedData.primaryType,
+        message: typedData.message,
+      });
+      return finalizeDelegation(unsigned, signature);
+    }
+
+    it('stores a signed delegation with valid signature', async () => {
+      const delegation = await makeProperlySignedDelegation();
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       await (root as any).receiveDelegation(delegation);
@@ -144,6 +170,83 @@ describe('delegation-vat', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (root as any).receiveDelegation(delegation),
       ).rejects.toThrow('Can only receive signed delegations');
+    });
+
+    it('rejects delegation with missing signature', async () => {
+      const delegation = makeDelegation({
+        delegator: ALICE,
+        delegate: BOB,
+        caveats: [],
+        chainId: 1,
+      });
+      // Force status to 'signed' but without a signature
+      const noSig = { ...delegation, status: 'signed' as const };
+
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (root as any).receiveDelegation(noSig),
+      ).rejects.toThrow('Delegation has no signature');
+    });
+
+    it('rejects delegation with mismatched ID', async () => {
+      const delegation = await makeProperlySignedDelegation();
+      const tampered = { ...delegation, id: '0xbadid' };
+
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (root as any).receiveDelegation(tampered),
+      ).rejects.toThrow('Delegation ID mismatch');
+    });
+
+    it('rejects delegation with invalid signature', async () => {
+      const unsigned = makeDelegation({
+        delegator: ALICE,
+        delegate: BOB,
+        caveats: [],
+        chainId: 1,
+      });
+      // Valid format (65 bytes, v=27) but garbage r/s values
+      const fakeSig = `0x${'ab'.repeat(32)}${'cd'.repeat(32)}1b`;
+      const signed = finalizeDelegation(unsigned, fakeSig as Hex);
+
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (root as any).receiveDelegation(signed),
+      ).rejects.toThrow('Invalid delegation signature');
+    });
+
+    it('rejects delegation signed by wrong account', async () => {
+      // Create delegation claiming ALICE is delegator, but sign with a different key
+      const otherKey =
+        '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
+      const otherAccount = privateKeyToAccount(otherKey as `0x${string}`);
+
+      const unsigned = makeDelegation({
+        delegator: ALICE, // claims ALICE is delegator
+        delegate: BOB,
+        caveats: [],
+        chainId: 1,
+      });
+      const typedData = prepareDelegationTypedData({
+        delegation: unsigned,
+        verifyingContract: DEFAULT_DELEGATION_MANAGER,
+      });
+      // Sign with otherAccount (not ALICE)
+      const signature = await otherAccount.signTypedData({
+        domain: typedData.domain as Record<string, unknown>,
+        types: typedData.types as Record<
+          string,
+          { name: string; type: string }[]
+        >,
+        primaryType: typedData.primaryType,
+        message: typedData.message,
+      });
+      const tampered = finalizeDelegation(unsigned, signature);
+
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (root as any).receiveDelegation(tampered),
+      ).rejects.toThrow('Invalid delegation signature');
     });
   });
 
@@ -184,6 +287,60 @@ describe('delegation-vat', () => {
       });
 
       expect(found).toBeUndefined();
+    });
+
+    it('filters by chainId when provided', async () => {
+      // Create delegation on chain 1
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const delegation = await (root as any).createDelegation({
+        delegator: ALICE,
+        delegate: BOB,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([TARGET]),
+          }),
+        ],
+        chainId: 1,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).storeSigned(delegation.id, '0xdeadbeef' as Hex);
+
+      // Should find on chain 1
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const found = await (root as any).findDelegationForAction(
+        { to: TARGET },
+        1,
+      );
+      expect(found).toBeDefined();
+      expect(found.id).toBe(delegation.id);
+
+      // Should NOT find on chain 42
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const notFound = await (root as any).findDelegationForAction(
+        { to: TARGET },
+        42,
+      );
+      expect(notFound).toBeUndefined();
+    });
+
+    it('returns all chains when chainId is omitted', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const delegation = await (root as any).createDelegation({
+        delegator: ALICE,
+        delegate: BOB,
+        caveats: [],
+        chainId: 137,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).storeSigned(delegation.id, '0xdeadbeef' as Hex);
+
+      // No chainId filter — should still find it
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const found = await (root as any).findDelegationForAction({
+        to: TARGET,
+      });
+      expect(found).toBeDefined();
     });
   });
 
