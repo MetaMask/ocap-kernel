@@ -243,6 +243,37 @@ describe('makeSocketIOChannel', () => {
     expect(await channel.read()).toBe('fresh-line');
   });
 
+  it('handles multi-byte UTF-8 split across TCP chunks', async () => {
+    const socketPath = tempSocketPath();
+    const channel = await makeSocketIOChannel('test', socketPath);
+    channels.push(channel);
+
+    const client = await connectToSocket(socketPath);
+    clients.push(client);
+
+    // U+1F600 (😀) is 4 bytes: f0 9f 98 80
+    const emoji = '\u{1F600}';
+    const fullMessage = `hello ${emoji} world\n`;
+    const encoded = Buffer.from(fullMessage, 'utf8');
+
+    // Split in the middle of the emoji (after first 2 bytes of the 4-byte sequence)
+    const splitPoint = Buffer.from('hello ', 'utf8').length + 2;
+    const chunk1 = encoded.subarray(0, splitPoint);
+    const chunk2 = encoded.subarray(splitPoint);
+
+    // Send the two chunks separately
+    await new Promise<void>((resolve, reject) => {
+      client.write(chunk1, (error) => (error ? reject(error) : resolve()));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    await new Promise<void>((resolve, reject) => {
+      client.write(chunk2, (error) => (error ? reject(error) : resolve()));
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(await channel.read()).toBe(`hello ${emoji} world`);
+  });
+
   it('removes stale socket file on creation', async () => {
     const socketPath = tempSocketPath();
 

@@ -1,6 +1,7 @@
 import type { IOChannel } from '@metamask/ocap-kernel';
 import fs from 'node:fs/promises';
 import * as net from 'node:net';
+import { StringDecoder } from 'node:string_decoder';
 
 type PendingReader = {
   resolve: (value: string | null) => void;
@@ -23,6 +24,7 @@ export async function makeSocketIOChannel(
   const lineQueue: string[] = [];
   const readerQueue: PendingReader[] = [];
   let currentSocket: net.Socket | null = null;
+  let decoder = new StringDecoder('utf8');
   let buffer = '';
   let closed = false;
 
@@ -56,7 +58,7 @@ export async function makeSocketIOChannel(
    * @param data - The raw data buffer from the socket.
    */
   function handleData(data: Buffer): void {
-    buffer += data.toString();
+    buffer += decoder.write(data);
     let newlineIndex = buffer.indexOf('\n');
     while (newlineIndex !== -1) {
       const line = buffer.slice(0, newlineIndex);
@@ -75,6 +77,8 @@ export async function makeSocketIOChannel(
     if (currentSocket !== socket) {
       return;
     }
+    // Flush any incomplete multi-byte sequence from the decoder
+    buffer += decoder.end();
     // Deliver any remaining buffered data as a final line
     if (buffer.length > 0) {
       deliverLine(buffer);
@@ -95,6 +99,7 @@ export async function makeSocketIOChannel(
     deliverEOF();
 
     currentSocket = socket;
+    decoder = new StringDecoder('utf8');
     buffer = '';
 
     socket.on('data', handleData);
