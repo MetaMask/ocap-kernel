@@ -1,5 +1,4 @@
-import type { IOChannelFactory } from '@metamask/ocap-kernel';
-import type { IOConfig } from '@metamask/ocap-kernel';
+import type { IOChannelFactory, IOConfig } from '@metamask/ocap-kernel';
 
 import { makeSocketIOChannel } from './socket-channel.ts';
 

@@ -21,7 +21,12 @@ describe('makeIOService', () => {
   describe('read()', () => {
     it('delegates to the channel', async () => {
       const channel = makeChannel();
-      const service = makeIOService('test', channel, makeConfig()) as {
+      const service = makeIOService(
+        'test',
+        'subclusterFoo',
+        channel,
+        makeConfig(),
+      ) as {
         read: () => Promise<string | null>;
       };
 
@@ -35,6 +40,7 @@ describe('makeIOService', () => {
       const channel = makeChannel();
       const service = makeIOService(
         'test',
+        'subclusterFoo',
         channel,
         makeConfig({ direction: 'out' }),
       ) as { read: () => Promise<string | null> };
@@ -51,6 +57,7 @@ describe('makeIOService', () => {
         const channel = makeChannel();
         const service = makeIOService(
           'test',
+          'subclusterFoo',
           channel,
           makeConfig({ direction }),
         ) as { read: () => Promise<string | null> };
@@ -63,7 +70,12 @@ describe('makeIOService', () => {
   describe('write()', () => {
     it('delegates to the channel', async () => {
       const channel = makeChannel();
-      const service = makeIOService('test', channel, makeConfig()) as {
+      const service = makeIOService(
+        'test',
+        'subclusterFoo',
+        channel,
+        makeConfig(),
+      ) as {
         write: (data: string) => Promise<void>;
       };
 
@@ -76,6 +88,7 @@ describe('makeIOService', () => {
       const channel = makeChannel();
       const service = makeIOService(
         'test',
+        'subclusterFoo',
         channel,
         makeConfig({ direction: 'in' }),
       ) as { write: (data: string) => Promise<void> };
@@ -92,6 +105,7 @@ describe('makeIOService', () => {
         const channel = makeChannel();
         const service = makeIOService(
           'test',
+          'subclusterFoo',
           channel,
           makeConfig({ direction }),
         ) as { write: (data: string) => Promise<void> };
@@ -104,7 +118,12 @@ describe('makeIOService', () => {
   describe('direction defaults', () => {
     it('defaults to inout when direction is not specified', async () => {
       const channel = makeChannel();
-      const service = makeIOService('test', channel, makeConfig()) as {
+      const service = makeIOService(
+        'test',
+        'subclusterFoo',
+        channel,
+        makeConfig(),
+      ) as {
         read: () => Promise<string | null>;
         write: (data: string) => Promise<void>;
       };

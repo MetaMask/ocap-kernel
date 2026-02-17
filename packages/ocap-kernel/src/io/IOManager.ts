@@ -80,7 +80,7 @@ export class IOManager {
         const channel = await this.#factory(name, config);
         channels.set(name, channel);
 
-        const service = makeIOService(name, channel, config);
+        const service = makeIOService(name, subclusterId, channel, config);
         this.#registerService(name, service);
         serviceNames.push(name);
 

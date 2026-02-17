@@ -41,7 +41,7 @@ export async function makeSocketIOChannel(
   }
 
   /**
-   *
+   * Handle the end of the input stream.
    */
   function deliverEOF(): void {
     while (readerQueue.length > 0) {
@@ -67,9 +67,14 @@ export async function makeSocketIOChannel(
   }
 
   /**
+   * Handle the channel disconnecting.
    *
+   * @param socket - The socket that disconnected.
    */
-  function handleDisconnect(): void {
+  function handleDisconnect(socket: net.Socket): void {
+    if (currentSocket !== socket) {
+      return;
+    }
     // Deliver any remaining buffered data as a final line
     if (buffer.length > 0) {
       deliverLine(buffer);
@@ -89,13 +94,9 @@ export async function makeSocketIOChannel(
     buffer = '';
 
     socket.on('data', handleData);
-    socket.on('end', handleDisconnect);
-    socket.on('error', handleDisconnect);
-    socket.on('close', () => {
-      if (currentSocket === socket) {
-        handleDisconnect();
-      }
-    });
+    socket.on('end', () => handleDisconnect(socket));
+    socket.on('error', () => handleDisconnect(socket));
+    socket.on('close', () => handleDisconnect(socket));
   });
 
   // Remove stale socket file if it exists
