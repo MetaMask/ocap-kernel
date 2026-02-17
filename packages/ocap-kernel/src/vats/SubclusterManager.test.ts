@@ -253,6 +253,70 @@ describe('SubclusterManager', () => {
       );
     });
 
+    it('cleans up IO channels and subcluster on validation failure', async () => {
+      const mockIOManager = {
+        createChannels: vi.fn().mockResolvedValue(undefined),
+        destroyChannels: vi.fn().mockResolvedValue(undefined),
+      };
+      const mgr = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+        ioManager: mockIOManager as never,
+      });
+
+      const config: ClusterConfig = {
+        bootstrap: 'testVat',
+        vats: { testVat: { sourceSpec: 'test.js' } },
+        services: ['unknownService'],
+        io: {
+          repl: { type: 'socket', path: '/tmp/repl.sock' },
+        },
+      };
+      (mockGetKernelService as ReturnType<typeof vi.fn>).mockReturnValue(
+        undefined,
+      );
+
+      await expect(mgr.launchSubcluster(config)).rejects.toThrow(
+        "no registered kernel service 'unknownService'",
+      );
+
+      expect(mockIOManager.destroyChannels).toHaveBeenCalledWith('s1');
+      expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
+    });
+
+    it('cleans up IO channels and subcluster on vat launch failure', async () => {
+      const mockIOManager = {
+        createChannels: vi.fn().mockResolvedValue(undefined),
+        destroyChannels: vi.fn().mockResolvedValue(undefined),
+      };
+      const mgr = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+        ioManager: mockIOManager as never,
+      });
+
+      mockVatManager.launchVat.mockRejectedValue(new Error('vat boom'));
+
+      const config: ClusterConfig = {
+        bootstrap: 'testVat',
+        vats: { testVat: { sourceSpec: 'test.js' } },
+        io: {
+          repl: { type: 'socket', path: '/tmp/repl.sock' },
+        },
+      };
+
+      await expect(mgr.launchSubcluster(config)).rejects.toThrow('vat boom');
+
+      expect(mockIOManager.destroyChannels).toHaveBeenCalledWith('s1');
+      expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
+    });
+
     it('throws when launchVat returns undefined', async () => {
       const config: ClusterConfig = {
         bootstrap: 'testVat',

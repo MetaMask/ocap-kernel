@@ -127,12 +127,21 @@ export class SubclusterManager {
       await this.#ioManager.createChannels(subclusterId, config.io);
     }
 
-    this.#validateServices(config, isSystem);
-    const { rootKref, bootstrapResult } = await this.#launchVatsForSubcluster(
-      subclusterId,
-      config,
-    );
-    return { subclusterId, rootKref, bootstrapResult };
+    try {
+      this.#validateServices(config, isSystem);
+      const { rootKref, bootstrapResult } = await this.#launchVatsForSubcluster(
+        subclusterId,
+        config,
+      );
+      return { subclusterId, rootKref, bootstrapResult };
+    } catch (error) {
+      // Roll back IO channels and persisted subcluster on failure
+      if (this.#ioManager) {
+        await this.#ioManager.destroyChannels(subclusterId);
+      }
+      this.#kernelStore.deleteSubcluster(subclusterId);
+      throw error;
+    }
   }
 
   /**
