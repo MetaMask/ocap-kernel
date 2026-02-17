@@ -36,11 +36,11 @@ type VatPowers = Record<string, unknown>;
  */
 export function buildRootObject(
   _vatPowers: VatPowers,
-  parameters: { delegationManagerAddress?: Address },
+  parameters: { delegationManagerAddress?: Address } | undefined,
   baggage: Baggage,
 ): object {
   const delegationManagerAddress =
-    parameters.delegationManagerAddress ?? DEFAULT_DELEGATION_MANAGER;
+    parameters?.delegationManagerAddress ?? DEFAULT_DELEGATION_MANAGER;
 
   // Restore delegations from baggage
   const delegations: Map<string, Delegation> = baggage.has('delegations')
