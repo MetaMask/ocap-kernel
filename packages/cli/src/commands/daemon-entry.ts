@@ -2,7 +2,7 @@
 import '@metamask/kernel-shims/endoify-node';
 import { Logger } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
-import { mkdir } from 'node:fs/promises';
+import { chmod, mkdir, rm, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -72,12 +72,25 @@ async function main(): Promise<void> {
       logger,
     });
 
+    // Write the admin .ocap file so `ok <path> <command>` works
+    const ocapPath =
+      process.env.OCAP_CONSOLE_PATH ?? join(ocapDir, `${consoleName}.ocap`);
+    await mkdir(dirname(ocapPath), { recursive: true });
+    await writeFile(ocapPath, `#!/usr/bin/env ok\n${handle.selfRef}\n`);
+    await chmod(ocapPath, 0o700);
+    logger.info(`Wrote ${ocapPath}`);
+
+    // Write PID file so `ok daemon stop` can signal this process
+    const pidPath = join(ocapDir, 'daemon.pid');
+    await writeFile(pidPath, String(process.pid));
+
     logger.info(`Daemon started. Socket: ${handle.socketPath}`);
 
     // Keep the process alive
     const shutdown = async (signal: string): Promise<void> => {
       logger.info(`Received ${signal}, shutting down...`);
       await handle.close();
+      await rm(pidPath, { force: true });
       process.exit(0);
     };
 

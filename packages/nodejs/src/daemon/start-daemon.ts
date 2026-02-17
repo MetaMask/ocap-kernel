@@ -1,6 +1,7 @@
 import { ifDefined } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import type { Kernel, SystemSubclusterConfig } from '@metamask/ocap-kernel';
+import { kunser } from '@metamask/ocap-kernel';
 import { mkdir } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -35,6 +36,7 @@ export type StartDaemonOptions = {
 export type DaemonHandle = {
   kernel: Kernel;
   socketPath: string;
+  selfRef: string;
   close: () => Promise<void>;
 };
 
@@ -95,6 +97,14 @@ export async function startDaemon(
 
   await kernel.initIdentity();
 
+  // Issue a self-ref so the admin .ocap file can address the console root object
+  const rootKref = kernel.getSystemSubclusterRoot(systemConsoleName);
+  const capData = await kernel.queueMessage(rootKref, 'issueRef', [
+    rootKref,
+    true,
+  ]);
+  const selfRef = kunser(capData) as string;
+
   const close = async (): Promise<void> => {
     await kernel.stop();
   };
@@ -102,6 +112,7 @@ export async function startDaemon(
   return {
     kernel,
     socketPath,
+    selfRef,
     close,
   };
 }

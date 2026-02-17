@@ -23,9 +23,12 @@ export async function flushDaemon(options?: FlushDaemonOptions): Promise<void> {
   const dbFilename = options?.dbFilename ?? join(ocapDir, 'kernel.sqlite');
   const bundlesDir = join(ocapDir, 'bundles');
 
+  const pidPath = join(ocapDir, 'daemon.pid');
+
   await Promise.all([
     rm(dbFilename, { force: true }),
     rm(socketPath, { force: true }),
     rm(bundlesDir, { recursive: true, force: true }),
+    rm(pidPath, { force: true }),
   ]);
 }

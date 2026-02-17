@@ -11,6 +11,7 @@ const makeMockKernel = (): KernelFacetSource => ({
   getSubcluster: () => undefined,
   getSubclusters: () => [],
   getSystemSubclusterRoot: () => 'ko99',
+  invokeMethod: async () => Promise.resolve(null),
   launchSubcluster: async () =>
     Promise.resolve({
       subclusterId: 's1',
@@ -32,6 +33,7 @@ describe('makeKernelFacet', () => {
     expect(typeof facet.getSubcluster).toBe('function');
     expect(typeof facet.getSubclusters).toBe('function');
     expect(typeof facet.getSystemSubclusterRoot).toBe('function');
+    expect(typeof facet.invokeMethod).toBe('function');
     expect(typeof facet.launchSubcluster).toBe('function');
     expect(typeof facet.ping).toBe('function');
     expect(typeof facet.pingVat).toBe('function');

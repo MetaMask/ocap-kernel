@@ -3,6 +3,8 @@ import type { Socket } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+const READ_TIMEOUT_MS = 30_000;
+
 /**
  * Get the default daemon socket path.
  *
@@ -37,19 +39,44 @@ async function connectSocket(socketPath: string): Promise<Socket> {
 async function readLine(socket: Socket): Promise<string> {
   return new Promise((resolve, reject) => {
     let buffer = '';
+
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error('Daemon response timed out'));
+    }, READ_TIMEOUT_MS);
+
+    /**
+     * Remove all listeners and clear the timeout.
+     */
+    function cleanup(): void {
+      clearTimeout(timer);
+      socket.removeAllListeners('data');
+      socket.removeAllListeners('error');
+      socket.removeAllListeners('end');
+      socket.removeAllListeners('close');
+    }
+
     const onData = (data: Buffer): void => {
       buffer += data.toString();
       const idx = buffer.indexOf('\n');
       if (idx !== -1) {
-        socket.removeAllListeners('data');
-        socket.removeAllListeners('error');
+        cleanup();
         resolve(buffer.slice(0, idx));
       }
     };
+
     socket.on('data', onData);
     socket.once('error', (error) => {
-      socket.removeAllListeners('data');
+      cleanup();
       reject(error);
+    });
+    socket.once('end', () => {
+      cleanup();
+      reject(new Error('Socket closed before response received'));
+    });
+    socket.once('close', () => {
+      cleanup();
+      reject(new Error('Socket closed before response received'));
     });
   });
 }
@@ -85,7 +112,8 @@ export type ConsoleResponse = {
  * Send a JSON request to the daemon over a UNIX socket and return the response.
  *
  * Opens a connection, writes one JSON line, reads one JSON response line,
- * then closes the connection.
+ * then closes the connection. Retries once after a short delay if the
+ * connection is rejected (e.g. due to a probe connection race).
  *
  * @param socketPath - The UNIX socket path.
  * @param request - The request to send.
@@ -98,13 +126,24 @@ export async function sendCommand(
   socketPath: string,
   request: { ref?: string; method: string; args?: unknown[] },
 ): Promise<ConsoleResponse> {
-  const socket = await connectSocket(socketPath);
+  const attempt = async (): Promise<ConsoleResponse> => {
+    const socket = await connectSocket(socketPath);
+    try {
+      await writeLine(socket, JSON.stringify(request));
+      const responseLine = await readLine(socket);
+      return JSON.parse(responseLine) as ConsoleResponse;
+    } finally {
+      socket.destroy();
+    }
+  };
+
   try {
-    await writeLine(socket, JSON.stringify(request));
-    const responseLine = await readLine(socket);
-    return JSON.parse(responseLine) as ConsoleResponse;
-  } finally {
-    socket.destroy();
+    return await attempt();
+  } catch {
+    // Retry once after a short delay — the daemon's socket channel may
+    // still be cleaning up a previous probe connection.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    return attempt();
   }
 }
 

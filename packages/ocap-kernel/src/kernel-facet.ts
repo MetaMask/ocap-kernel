@@ -8,6 +8,7 @@ const kernelFacetMethodNames = [
   'getSubcluster',
   'getSubclusters',
   'getSystemSubclusterRoot',
+  'invokeMethod',
   'launchSubcluster',
   'pingVat',
   'queueMessage',

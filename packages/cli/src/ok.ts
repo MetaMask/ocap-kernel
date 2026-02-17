@@ -1,20 +1,33 @@
 /* eslint-disable n/no-process-exit, n/no-sync, no-negated-condition */
 import '@metamask/kernel-shims/endoify-node';
 import { existsSync, fstatSync } from 'node:fs';
-import { writeFile, chmod } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { readFile, rm } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
 import {
   getSocketPath,
+  isDaemonRunning,
   sendCommand,
   readStdin,
-  readRefFromStdin,
   readRefFromFile,
 } from './commands/daemon-client.ts';
 import { ensureDaemon } from './commands/daemon-spawn.ts';
+
+const home = homedir();
+
+/**
+ * Replace the home directory prefix with `~` for display.
+ *
+ * @param path - An absolute path.
+ * @returns The path with the home prefix replaced.
+ */
+function tildify(path: string): string {
+  return path.startsWith(home) ? `~${path.slice(home.length)}` : path;
+}
 
 /**
  * Handle the core invocation: resolve ref, call method, output result.
@@ -61,8 +74,11 @@ async function handleInvoke(args: string[], socketPath: string): Promise<void> {
     methodArgs = args.slice(1);
   }
 
-  // For launch: resolve relative bundleSpec paths to file:// URLs
+  // For launch: resolve relative bundleSpec paths to file:// URLs.
+  // Handle shell word-splitting: `$(cat file.json)` without quotes splits
+  // JSON into many args. Try joining all args as one JSON string first.
   if (method === 'launch') {
+    methodArgs = rejoinSplitJson(methodArgs);
     methodArgs = methodArgs.map((arg) => {
       try {
         const parsed = JSON.parse(arg) as unknown;
@@ -130,6 +146,39 @@ function isRefResult(result: unknown): result is { ref: string } {
 }
 
 /**
+ * Rejoin args that were word-split by the shell from a single JSON value.
+ *
+ * When a user writes `ok launch $(cat config.json)` without quotes, bash
+ * splits the JSON on whitespace into many argv entries. This function
+ * detects that pattern and reassembles the original JSON.
+ *
+ * @param args - The method arguments (possibly word-split).
+ * @returns The args, with split JSON rejoined into a single element.
+ */
+function rejoinSplitJson(args: string[]): string[] {
+  if (args.length <= 1) {
+    return args;
+  }
+  // If the first arg already parses as a complete JSON object, no fix needed
+  const first = args[0];
+  if (first !== undefined) {
+    try {
+      JSON.parse(first);
+      return args;
+    } catch {
+      // First arg alone isn't valid JSON — try joining
+    }
+  }
+  const joined = args.join(' ');
+  try {
+    JSON.parse(joined);
+    return [joined];
+  } catch {
+    return args;
+  }
+}
+
+/**
  * Check if a value looks like a cluster config (has bootstrap + vats).
  *
  * @param value - The value to check.
@@ -151,6 +200,7 @@ function isClusterConfigLike(
  * Resolve relative bundleSpec paths in a cluster config to file:// URLs.
  *
  * @param config - The cluster config object.
+ * @param config.vats - The vat configurations with optional bundleSpec paths.
  * @returns The config with resolved bundleSpec URLs.
  */
 function resolveBundleSpecs(config: {
@@ -181,16 +231,54 @@ async function handleDaemon(args: string[], socketPath: string): Promise<void> {
   const subcommand = args[0];
 
   if (subcommand === 'stop') {
-    const { isDaemonRunning } = await import('./commands/daemon-client.ts');
-    if (await isDaemonRunning(socketPath)) {
-      process.stderr.write(
-        'Stopping daemon... (send SIGTERM to daemon process)\n',
-      );
-      process.stderr.write(
-        `Run: kill $(lsof -t ${socketPath}) or use pkill -f daemon-entry\n`,
-      );
-    } else {
+    if (!(await isDaemonRunning(socketPath))) {
       process.stderr.write('Daemon is not running.\n');
+      return;
+    }
+
+    const pidPath = join(homedir(), '.ocap', 'daemon.pid');
+
+    let pid: number | undefined;
+    try {
+      pid = Number(await readFile(pidPath, 'utf-8'));
+    } catch {
+      // PID file missing — fall back to manual instructions
+    }
+
+    if (!pid || Number.isNaN(pid)) {
+      process.stderr.write(
+        'PID file not found. Stop the daemon manually:\n' +
+          `  kill $(lsof -t ${tildify(socketPath)})\n`,
+      );
+      return;
+    }
+
+    process.stderr.write('Stopping daemon...\n');
+    try {
+      process.kill(pid, 'SIGTERM');
+    } catch {
+      process.stderr.write(
+        'Failed to send SIGTERM (process may already be gone).\n',
+      );
+      await rm(pidPath, { force: true });
+      return;
+    }
+
+    // Poll until socket stops responding (max 5s)
+    const pollEnd = Date.now() + 5_000;
+    while (Date.now() < pollEnd) {
+      await new Promise((_resolve) => setTimeout(_resolve, 250));
+      if (!(await isDaemonRunning(socketPath))) {
+        break;
+      }
+    }
+
+    await rm(pidPath, { force: true });
+
+    if (await isDaemonRunning(socketPath)) {
+      process.stderr.write('Daemon did not stop within 5 seconds.\n');
+    } else {
+      process.stderr.write('Daemon stopped.\n');
     }
     return;
   }
@@ -212,77 +300,29 @@ async function handleDaemon(args: string[], socketPath: string): Promise<void> {
   }
 
   // Default: start daemon (or confirm running)
-  let consoleName = 'system-console';
+  let consolePath = 'system-console.ocap';
   const consoleIdx = args.indexOf('--console');
   if (consoleIdx !== -1 && args[consoleIdx + 1]) {
-    consoleName = args[consoleIdx + 1] ?? consoleName;
+    consolePath = args[consoleIdx + 1] ?? consolePath;
   }
+
+  // Resolve relative to PWD
+  const ocapPath = resolve(consolePath);
+  // Derive the console name from the filename (strip .ocap if present)
+  const consoleName = ocapPath.endsWith('.ocap')
+    ? ocapPath.slice(ocapPath.lastIndexOf('/') + 1, -5)
+    : ocapPath.slice(ocapPath.lastIndexOf('/') + 1);
 
   // eslint-disable-next-line n/no-process-env -- CLI sets env for daemon child process
   process.env.OCAP_CONSOLE_NAME = consoleName;
+  // eslint-disable-next-line n/no-process-env -- CLI sets env for daemon child process
+  process.env.OCAP_CONSOLE_PATH = ocapPath;
 
   await ensureDaemon(socketPath);
 
-  // Check if the .ocap file exists
-  const ocapPath = `${consoleName}.ocap`;
-  if (!existsSync(ocapPath)) {
-    // Request listRefs from the daemon to find the system console ref
-    const response = await sendCommand(socketPath, { method: 'listRefs' });
-
-    if (response.ok) {
-      const result = response.result as {
-        refs: { ref: string; kref: string }[];
-      };
-      const firstRef = result.refs[0];
-      if (firstRef) {
-        const content = `#!/usr/bin/env ok\n${firstRef.ref}\n`;
-        await writeFile(ocapPath, content);
-        await chmod(ocapPath, 0o755);
-        process.stderr.write(`Created ${ocapPath}\n`);
-      }
-    }
-  }
-
-  process.stderr.write(`Daemon running. Socket: ${socketPath}\n`);
-}
-
-/**
- * Handle revoke command.
- *
- * @param args - CLI arguments after `ok revoke`.
- * @param socketPath - The daemon socket path.
- */
-async function handleRevoke(args: string[], socketPath: string): Promise<void> {
-  let ref: string;
-
-  const firstArg = args[0];
-  if (
-    firstArg !== undefined &&
-    (firstArg.endsWith('.ocap') || existsSync(firstArg))
-  ) {
-    ref = await readRefFromFile(firstArg);
-  } else if (
-    !process.stdin.isTTY &&
-    (fstatSync(0).isFIFO() || fstatSync(0).isFile())
-  ) {
-    ref = await readRefFromStdin();
-  } else {
-    process.stderr.write(
-      'Usage: ok revoke <file.ocap>\n       ok revoke < file.ocap\n',
-    );
-    process.exit(1);
-  }
-
-  const response = await sendCommand(socketPath, {
-    method: 'revoke',
-    args: [ref],
-  });
-
-  if (response.ok && (response.result as { ok: boolean }).ok) {
-    process.stderr.write(`Revoked ref: ${ref}\n`);
-  } else {
-    process.stderr.write(`Ref not found: ${ref}\n`);
-    process.exit(1);
+  process.stderr.write(`Daemon running. Socket: ${tildify(socketPath)}\n`);
+  if (existsSync(ocapPath)) {
+    process.stderr.write(`Admin console: ${tildify(ocapPath)}\n`);
   }
 }
 
@@ -291,101 +331,7 @@ const socketPath = getSocketPath();
 const cli = yargs(hideBin(process.argv))
   .scriptName('ok')
   .usage('$0 [file.ocap] <command> [...args]')
-
-  .command(
-    'launch [config]',
-    'Launch a subcluster',
-    (_yargs) =>
-      _yargs
-        .positional('config', {
-          describe: 'Cluster config as inline JSON string',
-          type: 'string',
-        })
-        .example(
-          '$0 launch \'{"bootstrap":"v","vats":{"v":{"bundleSpec":"file:///path/to.bundle"}}}\'',
-          'Inline JSON',
-        )
-        .example('$0 launch < config.json > root.ocap', 'File redirect')
-        .example('cat config.json | $0 launch', 'Piped'),
-    async (args) => {
-      await ensureDaemon(socketPath);
-      await handleInvoke(
-        ['launch', ...(args.config ? [args.config] : [])],
-        socketPath,
-      );
-    },
-  )
-
-  .command(
-    'terminate <subclusterId>',
-    'Terminate a subcluster',
-    (_yargs) =>
-      _yargs.positional('subclusterId', {
-        describe: 'ID of the subcluster to terminate',
-        type: 'string',
-        demandOption: true,
-      }),
-    async (args) => {
-      await ensureDaemon(socketPath);
-      await handleInvoke(['terminate', String(args.subclusterId)], socketPath);
-    },
-  )
-
-  .command(
-    'status',
-    'Show kernel status',
-    () => ({}),
-    async () => {
-      await ensureDaemon(socketPath);
-      await handleInvoke(['status'], socketPath);
-    },
-  )
-
-  .command(
-    'subclusters',
-    'List subclusters',
-    () => ({}),
-    async () => {
-      await ensureDaemon(socketPath);
-      await handleInvoke(['subclusters'], socketPath);
-    },
-  )
-
-  .command(
-    'listRefs',
-    'List all issued refs',
-    () => ({}),
-    async () => {
-      await ensureDaemon(socketPath);
-      await handleInvoke(['listRefs'], socketPath);
-    },
-  )
-
-  .command(
-    'help',
-    'Show available kernel commands',
-    () => ({}),
-    async () => {
-      await ensureDaemon(socketPath);
-      await handleInvoke(['help'], socketPath);
-    },
-  )
-
-  .command(
-    'revoke [target]',
-    'Revoke a capability ref',
-    (_yargs) =>
-      _yargs
-        .positional('target', {
-          describe: 'Path to .ocap file',
-          type: 'string',
-        })
-        .example('$0 revoke file.ocap', 'By file path')
-        .example('$0 revoke < file.ocap', 'From stdin'),
-    async (args) => {
-      await handleRevoke(args.target ? [String(args.target)] : [], socketPath);
-    },
-  )
+  .help(false)
 
   .command(
     'daemon [subcommand]',
@@ -397,9 +343,9 @@ const cli = yargs(hideBin(process.argv))
           type: 'string',
         })
         .option('console', {
-          describe: 'System console name',
+          describe: 'Path for the .ocap admin file (relative to PWD)',
           type: 'string',
-          default: 'system-console',
+          default: 'system-console.ocap',
         })
         .option('forgood', {
           describe: 'Confirm state deletion (for begone)',
@@ -413,7 +359,7 @@ const cli = yargs(hideBin(process.argv))
       if (args.forgood) {
         daemonArgs.push('--forgood');
       }
-      if (args.console && args.console !== 'system-console') {
+      if (args.console && args.console !== 'system-console.ocap') {
         daemonArgs.push('--console', String(args.console));
       }
       await handleDaemon(daemonArgs, socketPath);

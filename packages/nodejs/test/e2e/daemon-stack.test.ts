@@ -1,13 +1,15 @@
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
-import type { Kernel, IOChannel, IOConfig } from '@metamask/ocap-kernel';
+import type { Kernel } from '@metamask/ocap-kernel';
+import { kunser } from '@metamask/ocap-kernel';
 import * as net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { describe, it, expect, afterEach } from 'vitest';
 
+import { makeIOChannelFactory } from '../../src/io/index.ts';
 import { makeTestKernel } from '../helpers/kernel.ts';
 
 const SYSTEM_CONSOLE_NAME = 'system-console';
@@ -105,136 +107,6 @@ async function sendCommand(
 }
 
 /**
- * Create a test socket IO channel factory.
- *
- * @returns The factory function.
- */
-function makeTestIOChannelFactory() {
-  const fsPromises = import('node:fs/promises');
-
-  return async (_name: string, config: IOConfig): Promise<IOChannel> => {
-    if (config.type !== 'socket') {
-      throw new Error(`unsupported IO type: ${config.type}`);
-    }
-    const fs = await fsPromises;
-    const lineQueue: string[] = [];
-    const readerQueue: { resolve: (value: string | null) => void }[] = [];
-    let currentSocket: net.Socket | null = null;
-    let lineBuffer = '';
-    let closed = false;
-
-    function deliverLine(line: string): void {
-      const reader = readerQueue.shift();
-      if (reader) {
-        reader.resolve(line);
-      } else {
-        lineQueue.push(line);
-      }
-    }
-
-    function deliverEOF(): void {
-      while (readerQueue.length > 0) {
-        readerQueue.shift()?.resolve(null);
-      }
-    }
-
-    const server = net.createServer((socket) => {
-      if (currentSocket) {
-        socket.destroy();
-        return;
-      }
-      currentSocket = socket;
-      lineBuffer = '';
-      socket.on('data', (data: Buffer) => {
-        lineBuffer += data.toString();
-        let idx = lineBuffer.indexOf('\n');
-        while (idx !== -1) {
-          deliverLine(lineBuffer.slice(0, idx));
-          lineBuffer = lineBuffer.slice(idx + 1);
-          idx = lineBuffer.indexOf('\n');
-        }
-      });
-      socket.on('end', () => {
-        if (lineBuffer.length > 0) {
-          deliverLine(lineBuffer);
-          lineBuffer = '';
-        }
-        currentSocket = null;
-        deliverEOF();
-      });
-      socket.on('error', () => {
-        currentSocket = null;
-        deliverEOF();
-      });
-    });
-
-    try {
-      await fs.unlink(config.path);
-    } catch {
-      // ignore
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      server.on('error', reject);
-      server.listen(config.path, () => {
-        server.removeListener('error', reject);
-        resolve();
-      });
-    });
-
-    return {
-      async read() {
-        if (closed) {
-          return null;
-        }
-        const queued = lineQueue.shift();
-        if (queued !== undefined) {
-          return queued;
-        }
-        if (!currentSocket) {
-          return null;
-        }
-        return new Promise<string | null>((resolve) => {
-          readerQueue.push({ resolve });
-        });
-      },
-      async write(data: string) {
-        if (!currentSocket) {
-          throw new Error('no connected client');
-        }
-        const socket = currentSocket;
-        return new Promise<void>((resolve, reject) => {
-          socket.write(`${data}\n`, (error) => {
-            if (error) {
-              reject(error);
-            } else {
-              resolve();
-            }
-          });
-        });
-      },
-      async close() {
-        if (closed) {
-          return;
-        }
-        closed = true;
-        deliverEOF();
-        currentSocket?.destroy();
-        currentSocket = null;
-        await new Promise<void>((resolve) => {
-          server.close(() => resolve());
-        });
-        try {
-          await fs.unlink(config.path);
-        } catch {
-          // ignore
-        }
-      },
-    };
-  };
-}
-
-/**
  * Get the bundle spec for the system console vat test bundle.
  *
  * @returns The bundle spec URL.
@@ -261,7 +133,7 @@ describe('Daemon Stack (IO socket protocol)', { timeout: 30_000 }, () => {
 
     kernelDatabase = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
     kernel = await makeTestKernel(kernelDatabase, {
-      ioChannelFactory: makeTestIOChannelFactory(),
+      ioChannelFactory: makeIOChannelFactory(),
       systemSubclusters: [
         {
           name: SYSTEM_CONSOLE_NAME,
@@ -303,54 +175,162 @@ describe('Daemon Stack (IO socket protocol)', { timeout: 30_000 }, () => {
     }
   });
 
-  it('dispatches help command via socket', async () => {
-    const socketPath = await bootDaemonStack();
+  describe('daemon tier (no ref)', () => {
+    it('dispatches help command with daemon-tier commands only', async () => {
+      const socketPath = await bootDaemonStack();
 
-    const response = await sendCommand(socketPath, { method: 'help' });
+      const response = await sendCommand(socketPath, { method: 'help' });
 
-    expect(response.ok).toBe(true);
-    const result = response.result as { commands: string[] };
-    expect(result.commands).toBeDefined();
-    expect(result.commands.length).toBeGreaterThan(0);
-    expect(result.commands.some((cmd) => cmd.includes('help'))).toBe(true);
-    expect(result.commands.some((cmd) => cmd.includes('status'))).toBe(true);
+      expect(response.ok).toBe(true);
+      expect(response.result).toStrictEqual({
+        commands: ['help - show available commands', 'status - daemon status'],
+      });
+    });
+
+    it('dispatches status command returning liveness indicator', async () => {
+      const socketPath = await bootDaemonStack();
+
+      const response = await sendCommand(socketPath, { method: 'status' });
+
+      expect(response).toStrictEqual({
+        ok: true,
+        result: { running: true },
+      });
+    });
+
+    it('returns error for unknown command', async () => {
+      const socketPath = await bootDaemonStack();
+
+      const response = await sendCommand(socketPath, {
+        method: 'nonexistent',
+      });
+
+      expect(response.ok).toBe(false);
+      expect(response.error).toContain('Unknown command');
+    });
+
+    it('rejects privileged commands at daemon tier', async () => {
+      const socketPath = await bootDaemonStack();
+
+      const response = await sendCommand(socketPath, { method: 'ls' });
+
+      expect(response.ok).toBe(false);
+      expect(response.error).toContain('Unknown command');
+    });
+
+    it('handles sequential requests on separate connections', async () => {
+      const socketPath = await bootDaemonStack();
+
+      const response1 = await sendCommand(socketPath, { method: 'help' });
+      expect(response1.ok).toBe(true);
+
+      const response2 = await sendCommand(socketPath, { method: 'status' });
+      expect(response2.ok).toBe(true);
+    });
   });
 
-  it('dispatches status command via socket', async () => {
-    const socketPath = await bootDaemonStack();
+  describe('privileged tier (ref-based dispatch)', () => {
+    /**
+     * Boot daemon and issue a self-ref for the console root object.
+     *
+     * @returns The socket path and the issued ref.
+     */
+    async function bootWithSelfRef(): Promise<{
+      socketPath: string;
+      selfRef: string;
+    }> {
+      const socketPath = await bootDaemonStack();
 
-    const response = await sendCommand(socketPath, { method: 'status' });
+      // Issue a self-ref via kernel API (same as start-daemon.ts does)
+      const rootKref = kernel!.getSystemSubclusterRoot(SYSTEM_CONSOLE_NAME);
+      const capData = await kernel!.queueMessage(rootKref, 'issueRef', [
+        rootKref,
+        true,
+      ]);
+      const selfRef = kunser(capData) as string;
 
-    expect(response.ok).toBe(true);
-  });
+      return { socketPath, selfRef };
+    }
 
-  it('dispatches listRefs command', async () => {
-    const socketPath = await bootDaemonStack();
+    it('dispatches help via ref', async () => {
+      const { socketPath, selfRef } = await bootWithSelfRef();
 
-    const response = await sendCommand(socketPath, { method: 'listRefs' });
+      const response = await sendCommand(socketPath, {
+        ref: selfRef,
+        method: 'help',
+      });
 
-    expect(response.ok).toBe(true);
-    const result = response.result as { refs: { ref: string; kref: string }[] };
-    expect(result.refs).toBeDefined();
-    expect(Array.isArray(result.refs)).toBe(true);
-  });
+      expect(response.ok).toBe(true);
+      const result = response.result as { commands: string[] };
+      expect(result.commands).toContain('help - show available commands');
+      expect(result.commands).toContain('ls - list all issued refs');
+    });
 
-  it('returns error for unknown command', async () => {
-    const socketPath = await bootDaemonStack();
+    it('dispatches status via ref (returns kernel status)', async () => {
+      const { socketPath, selfRef } = await bootWithSelfRef();
 
-    const response = await sendCommand(socketPath, { method: 'nonexistent' });
+      const response = await sendCommand(socketPath, {
+        ref: selfRef,
+        method: 'status',
+      });
 
-    expect(response.ok).toBe(false);
-    expect(response.error).toContain('Unknown command');
-  });
+      expect(response.ok).toBe(true);
+      const result = response.result as Record<string, unknown>;
+      expect(result).toHaveProperty('vats');
+      expect(result).toHaveProperty('subclusters');
+    });
 
-  it('handles sequential requests on separate connections', async () => {
-    const socketPath = await bootDaemonStack();
+    it('dispatches ls via ref', async () => {
+      const { socketPath, selfRef } = await bootWithSelfRef();
 
-    const response1 = await sendCommand(socketPath, { method: 'help' });
-    expect(response1.ok).toBe(true);
+      const response = await sendCommand(socketPath, {
+        ref: selfRef,
+        method: 'ls',
+      });
 
-    const response2 = await sendCommand(socketPath, { method: 'status' });
-    expect(response2.ok).toBe(true);
+      expect(response.ok).toBe(true);
+      const result = response.result as { refs: string[] };
+      expect(Array.isArray(result.refs)).toBe(true);
+    });
+
+    it('dispatches subclusters via ref', async () => {
+      const { socketPath, selfRef } = await bootWithSelfRef();
+
+      const response = await sendCommand(socketPath, {
+        ref: selfRef,
+        method: 'subclusters',
+      });
+
+      expect(response.ok).toBe(true);
+      expect(Array.isArray(response.result)).toBe(true);
+    });
+
+    it('dispatches invoke to call method on a ref through the kernel', async () => {
+      const { socketPath, selfRef } = await bootWithSelfRef();
+
+      // Use invoke to call 'ls' on the self-ref (goes through getPresence + E())
+      const response = await sendCommand(socketPath, {
+        ref: selfRef,
+        method: 'invoke',
+        args: [selfRef, 'ls'],
+      });
+
+      expect(response.ok).toBe(true);
+      const result = response.result as { refs: string[] };
+      expect(Array.isArray(result.refs)).toBe(true);
+    });
+
+    it('returns error when invoke targets unknown ref', async () => {
+      const { socketPath, selfRef } = await bootWithSelfRef();
+
+      const response = await sendCommand(socketPath, {
+        ref: selfRef,
+        method: 'invoke',
+        args: ['d-999', 'someMethod'],
+      });
+
+      expect(response.ok).toBe(false);
+      expect(response.error).toContain('Unknown ref: d-999');
+    });
   });
 });
