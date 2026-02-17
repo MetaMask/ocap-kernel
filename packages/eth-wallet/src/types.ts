@@ -161,6 +161,8 @@ export const WalletCapabilitiesStruct = object({
   localAccounts: array(AddressStruct),
   delegationCount: number(),
   hasPeerWallet: boolean(),
+  hasExternalSigner: boolean(),
+  hasBundlerConfig: boolean(),
 });
 
 export type WalletCapabilities = Infer<typeof WalletCapabilitiesStruct>;

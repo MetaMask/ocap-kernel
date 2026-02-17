@@ -1,9 +1,10 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
+import { http } from 'viem';
 
 import { makeProvider } from '../lib/provider.ts';
 import type { Provider } from '../lib/provider.ts';
-import type { Address, ChainConfig, Hex } from '../types.ts';
+import type { Address, ChainConfig, Hex, UserOperation } from '../types.ts';
 
 /**
  * Vat powers for the provider vat.
@@ -82,6 +83,46 @@ export function buildRootObject(
         throw new Error('Provider not configured');
       }
       return provider.getNonce(address);
+    },
+
+    async submitUserOp(options: {
+      bundlerUrl: string;
+      entryPoint: Hex;
+      userOp: UserOperation;
+    }): Promise<Hex> {
+      const transport = http(options.bundlerUrl)({
+        chain: undefined,
+        retryCount: 0,
+      });
+      const result = await transport.request({
+        method: 'eth_sendUserOperation' as never,
+        params: [options.userOp, options.entryPoint] as never,
+      });
+      return result as Hex;
+    },
+
+    async estimateUserOpGas(options: {
+      bundlerUrl: string;
+      entryPoint: Hex;
+      userOp: UserOperation;
+    }): Promise<{
+      callGasLimit: Hex;
+      verificationGasLimit: Hex;
+      preVerificationGas: Hex;
+    }> {
+      const transport = http(options.bundlerUrl)({
+        chain: undefined,
+        retryCount: 0,
+      });
+      const result = await transport.request({
+        method: 'eth_estimateUserOperationGas' as never,
+        params: [options.userOp, options.entryPoint] as never,
+      });
+      return result as {
+        callGasLimit: Hex;
+        verificationGasLimit: Hex;
+        preVerificationGas: Hex;
+      };
     },
   });
 }
