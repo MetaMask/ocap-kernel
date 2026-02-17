@@ -15,6 +15,7 @@
   "references": [
     { "path": "./packages/cli" },
     { "path": "./packages/create-package" },
+    { "path": "./packages/eth-wallet" },
     { "path": "./packages/extension" },
     { "path": "./packages/kernel-agents" },
     { "path": "./packages/kernel-browser-runtime" },
