@@ -16,6 +16,8 @@ import type {
   Hex,
 } from '../types.ts';
 
+const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
 /**
  * Generate a deterministic delegation ID from its components.
  *
@@ -87,7 +89,7 @@ export function makeDelegation(options: {
     salt,
   });
 
-  return {
+  return harden({
     id,
     delegator: options.delegator,
     delegate: options.delegate,
@@ -96,7 +98,7 @@ export function makeDelegation(options: {
     salt,
     chainId: options.chainId,
     status: 'pending',
-  };
+  });
 }
 
 /**
@@ -148,11 +150,13 @@ export function prepareDelegationTypedData(options: {
  *
  * @param delegation - The delegation to check.
  * @param action - The action to match against.
+ * @param currentTime - Optional current time in milliseconds (defaults to Date.now()).
  * @returns True if the delegation might cover the action.
  */
 export function delegationMatchesAction(
   delegation: Delegation,
   action: Action,
+  currentTime?: number,
 ): boolean {
   if (delegation.status !== 'signed') {
     return false;
@@ -201,7 +205,7 @@ export function delegationMatchesAction(
         parseAbiParameters('uint128, uint128'),
         caveat.terms,
       );
-      const now = BigInt(Math.floor(Date.now() / 1000));
+      const now = BigInt(Math.floor((currentTime ?? Date.now()) / 1000));
       if (now < after || now > before) {
         return false;
       }
@@ -222,9 +226,9 @@ export function finalizeDelegation(
   delegation: Delegation,
   signature: Hex,
 ): Delegation {
-  return {
+  return harden({
     ...delegation,
     signature,
     status: 'signed',
-  };
+  });
 }

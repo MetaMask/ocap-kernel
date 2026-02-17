@@ -52,7 +52,7 @@ export function buildRootObject(
     : new Map();
 
   /**
-   *
+   * Persist the current delegations map to baggage.
    */
   function persistDelegations(): void {
     const serialized = Object.fromEntries(delegations);

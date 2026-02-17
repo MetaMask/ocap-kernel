@@ -3,6 +3,8 @@ import type { Chain } from 'viem';
 
 import type { Address, ChainConfig, Hex } from '../types.ts';
 
+const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
 /**
  * A JSON-RPC provider for Ethereum.
  */
@@ -44,7 +46,7 @@ export function makeProvider(config: ChainConfig): Provider {
     transport: http(config.rpcUrl),
   });
 
-  return {
+  return harden({
     async request(method: string, params?: unknown[]): Promise<unknown> {
       // Use the transport directly for generic JSON-RPC passthrough
       const response = await client.transport.request({
@@ -76,5 +78,5 @@ export function makeProvider(config: ChainConfig): Provider {
         address,
       });
     },
-  };
+  });
 }

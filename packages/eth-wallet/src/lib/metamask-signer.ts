@@ -26,6 +26,8 @@ import type {
   TransactionRequest,
 } from '../types.ts';
 
+const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
 /**
  * An Ethereum provider with the standard request method.
  */
@@ -70,7 +72,7 @@ export function makeProviderSigner(
 ): MetaMaskSigner {
   let cachedAccounts: Address[] | undefined;
 
-  return {
+  return harden({
     provider,
 
     async getAccounts(): Promise<Address[]> {
@@ -114,7 +116,7 @@ export function makeProviderSigner(
       cachedAccounts = undefined;
       options.disconnect?.();
     },
-  };
+  });
 }
 
 /**
