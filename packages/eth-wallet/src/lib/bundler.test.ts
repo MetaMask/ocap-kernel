@@ -49,12 +49,14 @@ describe('lib/bundler', () => {
 
   const mockFetchResponse = (result: unknown) => {
     fetchSpy.mockResolvedValueOnce({
+      ok: true,
       json: async () => Promise.resolve({ jsonrpc: '2.0', id: 1, result }),
     });
   };
 
   const mockFetchError = (message: string) => {
     fetchSpy.mockResolvedValueOnce({
+      ok: true,
       json: async () =>
         Promise.resolve({
           jsonrpc: '2.0',
@@ -173,6 +175,7 @@ describe('lib/bundler', () => {
 
       // Always return null
       fetchSpy.mockImplementation(() => ({
+        ok: true,
         json: () => ({ jsonrpc: '2.0', id: 1, result: null }),
       }));
 

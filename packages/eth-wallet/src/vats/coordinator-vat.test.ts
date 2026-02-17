@@ -45,12 +45,14 @@ function makeMockProviderVat() {
     getBalance: vi.fn(),
     getChainId: vi.fn().mockResolvedValue(1),
     getNonce: vi.fn().mockResolvedValue(0),
+    getEntryPointNonce: vi.fn().mockResolvedValue('0x0' as Hex),
     submitUserOp: vi.fn().mockResolvedValue('0xuserophash'),
     estimateUserOpGas: vi.fn().mockResolvedValue({
       callGasLimit: '0x50000' as Hex,
       verificationGasLimit: '0x60000' as Hex,
       preVerificationGas: '0x10000' as Hex,
     }),
+    getUserOpReceipt: vi.fn().mockResolvedValue(null),
   };
 }
 
@@ -270,6 +272,77 @@ describe('coordinator-vat', () => {
       expect(txHash).toBe('0xtxhash');
       expect(providerVat.broadcastTransaction).toHaveBeenCalled();
     });
+
+    it('uses UserOp pipeline when delegation and bundler are configured', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      // Create a signed delegation covering the target
+      await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([TARGET]),
+          }),
+        ],
+        chainId: 1,
+      });
+
+      const tx: TransactionRequest = {
+        from: delegator,
+        to: TARGET,
+        value: '0x0' as Hex,
+        data: '0xdeadbeef' as Hex,
+        chainId: 1,
+        nonce: 0,
+        maxFeePerGas: '0x3b9aca00' as Hex,
+        maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      };
+
+      const result = await coordinator.sendTransaction(tx);
+      expect(result).toBe('0xuserophash');
+      expect(providerVat.submitUserOp).toHaveBeenCalled();
+      expect(providerVat.broadcastTransaction).not.toHaveBeenCalled();
+    });
+
+    it('falls back to broadcast when no matching delegation', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const tx: TransactionRequest = {
+        from: accounts[0],
+        to: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
+        value: '0xde0b6b3a7640000' as Hex,
+        chainId: 1,
+        nonce: 0,
+        maxFeePerGas: '0x3b9aca00' as Hex,
+        maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      };
+
+      const txHash = await coordinator.sendTransaction(tx);
+      expect(txHash).toBe('0xtxhash');
+      expect(providerVat.broadcastTransaction).toHaveBeenCalled();
+      expect(providerVat.submitUserOp).not.toHaveBeenCalled();
+    });
   });
 
   describe('signMessage', () => {
@@ -427,6 +500,24 @@ describe('coordinator-vat', () => {
       const accounts = await coordinator.getAccounts();
       expect(accounts).toContain(EXT_SIGNER_ACCOUNT);
       expect(accounts.length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('rejects invalid signer objects', async () => {
+      await expect(coordinator.connectExternalSigner(null)).rejects.toThrow(
+        'Invalid external signer',
+      );
+
+      await expect(
+        coordinator.connectExternalSigner({ getAccounts: vi.fn() }),
+      ).rejects.toThrow('Invalid external signer');
+
+      await expect(
+        coordinator.connectExternalSigner({
+          getAccounts: vi.fn(),
+          signTypedData: vi.fn(),
+          // missing signMessage and signTransaction
+        }),
+      ).rejects.toThrow('Invalid external signer');
     });
 
     it('deduplicates accounts from external and local signers', async () => {
@@ -814,7 +905,16 @@ describe('coordinator-vat', () => {
       });
 
       expect(result).toBe('0xuserophash');
-      expect(providerVat.getNonce).toHaveBeenCalledWith(delegator);
+      expect(providerVat.getEntryPointNonce).toHaveBeenCalledWith({
+        entryPoint: ENTRY_POINT_V07,
+        sender: delegator,
+      });
+      expect(providerVat.estimateUserOpGas).toHaveBeenCalledWith(
+        expect.objectContaining({
+          bundlerUrl: 'https://bundler.example.com',
+          entryPoint: ENTRY_POINT_V07,
+        }),
+      );
       expect(providerVat.submitUserOp).toHaveBeenCalledWith(
         expect.objectContaining({
           bundlerUrl: 'https://bundler.example.com',
@@ -902,6 +1002,17 @@ describe('coordinator-vat', () => {
         mnemonic: TEST_MNEMONIC,
       });
 
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      // Create a real signed delegation so we get past the lookup
+      const delegation = await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [],
+        chainId: 1,
+      });
+
+      // No configureBundler call — should throw
       await expect(
         coordinator.redeemDelegation({
           execution: {
@@ -909,11 +1020,105 @@ describe('coordinator-vat', () => {
             value: '0x0' as Hex,
             callData: '0x' as Hex,
           },
-          delegationId: 'some-id',
+          delegations: [delegation],
           maxFeePerGas: '0x3b9aca00' as Hex,
           maxPriorityFeePerGas: '0x3b9aca00' as Hex,
         }),
       ).rejects.toThrow('Bundler not configured');
+    });
+
+    it('rejects delegations with non-signed status', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      // Create a delegation but don't sign it (stays pending) — use delegation vat directly
+      const pendingDelegation = await delegationVat.createDelegation({
+        delegator,
+        delegate: delegator,
+        caveats: [],
+        chainId: 1,
+      });
+
+      await expect(
+        coordinator.redeemDelegation({
+          execution: {
+            target: TARGET,
+            value: '0x0' as Hex,
+            callData: '0x' as Hex,
+          },
+          delegationId: pendingDelegation.id,
+          maxFeePerGas: '0x3b9aca00' as Hex,
+          maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+        }),
+      ).rejects.toThrow("has status 'pending', expected 'signed'");
+    });
+
+    it('throws when no delegations, delegationId, or action provided', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      await expect(
+        coordinator.redeemDelegation({
+          execution: {
+            target: TARGET,
+            value: '0x0' as Hex,
+            callData: '0x' as Hex,
+          },
+          maxFeePerGas: '0x3b9aca00' as Hex,
+          maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+        }),
+      ).rejects.toThrow('Must provide delegations, delegationId, or action');
+    });
+
+    it('accepts explicit delegation chains', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      const delegation = await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [],
+        chainId: 1,
+      });
+
+      const result = await coordinator.redeemDelegation({
+        execution: {
+          target: TARGET,
+          value: '0x0' as Hex,
+          callData: '0x' as Hex,
+        },
+        delegations: [delegation],
+        maxFeePerGas: '0x3b9aca00' as Hex,
+        maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      });
+
+      expect(result).toBe('0xuserophash');
     });
 
     it('redeems via external signer when no keyring', async () => {

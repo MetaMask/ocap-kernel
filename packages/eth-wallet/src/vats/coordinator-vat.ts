@@ -6,7 +6,6 @@ import {
   buildDelegationUserOp,
   computeUserOpHash,
   ENTRY_POINT_V07,
-  numberToHex,
 } from '../lib/userop.ts';
 import type {
   Action,
@@ -61,6 +60,11 @@ type ProviderFacet = {
   broadcastTransaction: (signedTx: Hex) => Promise<Hex>;
   getChainId: () => Promise<number>;
   getNonce: (address: Address) => Promise<number>;
+  getEntryPointNonce: (options: {
+    entryPoint: Address;
+    sender: Address;
+    key?: Hex;
+  }) => Promise<Hex>;
   submitUserOp: (options: {
     bundlerUrl: string;
     entryPoint: Hex;
@@ -75,6 +79,10 @@ type ProviderFacet = {
     verificationGasLimit: Hex;
     preVerificationGas: Hex;
   }>;
+  getUserOpReceipt: (options: {
+    bundlerUrl: string;
+    userOpHash: Hex;
+  }) => Promise<unknown>;
 };
 
 type DelegationFacet = {
@@ -139,10 +147,13 @@ export function buildRootObject(
   let issuerService: OcapURLIssuerFacet | undefined;
   let redemptionService: OcapURLRedemptionFacet | undefined;
 
-  // Peer wallet reference (Phase 2: set via connectToPeer)
+  // Peer wallet reference (set via connectToPeer)
   let peerWallet: PeerWalletFacet | undefined;
 
-  // External signer reference (e.g. MetaMask)
+  // External signer reference (e.g. MetaMask).
+  // Note: external signers are transient — they must be reconnected after
+  // kernel restart via connectExternalSigner(). The baggage entry tracks
+  // the reference but it may be stale after resuscitation.
   let externalSigner: ExternalSignerFacet | undefined;
 
   // Bundler configuration for ERC-4337 UserOps
@@ -259,7 +270,7 @@ export function buildRootObject(
 
   /**
    * Resolve the signing strategy for a transaction.
-   * Priority: delegation → local key → external signer → peer wallet → reject
+   * Priority: local key → external signer → peer wallet → reject
    *
    * @param tx - The transaction request to sign.
    * @returns The signed transaction as a hex string.
@@ -267,27 +278,7 @@ export function buildRootObject(
   async function resolveTransactionSigning(
     tx: TransactionRequest,
   ): Promise<Hex> {
-    // Strategy 1: Check if a delegation covers this action
-    if (delegationVat) {
-      const delegation = await E(delegationVat).findDelegationForAction({
-        to: tx.to,
-        value: tx.value,
-        data: tx.data,
-      });
-
-      if (delegation) {
-        // For MVP, we sign the original transaction with the local key
-        // In a full implementation, this would prepare a UserOp and redeem the delegation
-        if (keyringVat) {
-          const accounts = await E(keyringVat).getAccounts();
-          if (accounts.length > 0) {
-            return E(keyringVat).signTransaction(tx);
-          }
-        }
-      }
-    }
-
-    // Strategy 2: Check if local keyring owns this account
+    // Strategy 1: Check if local keyring owns this account
     if (keyringVat) {
       const accounts = await E(keyringVat).getAccounts();
       if (accounts.includes(tx.from.toLowerCase() as Address)) {
@@ -295,12 +286,12 @@ export function buildRootObject(
       }
     }
 
-    // Strategy 3: Check if external signer can handle it
+    // Strategy 2: Check if external signer can handle it
     if (externalSigner) {
       return E(externalSigner).signTransaction(tx);
     }
 
-    // Strategy 4: Check if a peer wallet can handle it
+    // Strategy 3: Check if a peer wallet can handle it
     if (peerWallet) {
       return E(peerWallet).handleSigningRequest({
         type: 'transaction',
@@ -309,6 +300,85 @@ export function buildRootObject(
     }
 
     throw new Error('No authority to sign this transaction');
+  }
+
+  /**
+   * Build, sign, and submit a UserOp that redeems one or more delegations.
+   *
+   * @param options - UserOp pipeline options.
+   * @param options.delegations - The delegation chain (leaf to root).
+   * @param options.execution - The execution to perform.
+   * @param options.maxFeePerGas - Max fee per gas.
+   * @param options.maxPriorityFeePerGas - Max priority fee per gas.
+   * @returns The UserOp hash from the bundler.
+   */
+  async function submitDelegationUserOp(options: {
+    delegations: Delegation[];
+    execution: Execution;
+    maxFeePerGas: Hex;
+    maxPriorityFeePerGas: Hex;
+  }): Promise<Hex> {
+    if (!providerVat) {
+      throw new Error('Provider vat not available');
+    }
+    if (!bundlerConfig) {
+      throw new Error('Bundler not configured');
+    }
+
+    const sender = options.delegations[0].delegate;
+
+    // Get nonce from EntryPoint contract (ERC-4337 nonce)
+    const nonceHex = await E(providerVat).getEntryPointNonce({
+      entryPoint: bundlerConfig.entryPoint,
+      sender,
+    });
+
+    // Build unsigned UserOp (pure computation)
+    const unsignedUserOp = buildDelegationUserOp({
+      sender,
+      nonce: nonceHex,
+      delegations: options.delegations,
+      execution: options.execution,
+      maxFeePerGas: options.maxFeePerGas,
+      maxPriorityFeePerGas: options.maxPriorityFeePerGas,
+    });
+
+    // Estimate gas via bundler
+    const gasEstimate = await E(providerVat).estimateUserOpGas({
+      bundlerUrl: bundlerConfig.bundlerUrl,
+      entryPoint: bundlerConfig.entryPoint,
+      userOp: unsignedUserOp,
+    });
+
+    // Rebuild with estimated gas limits
+    const userOpWithGas: UserOperation = {
+      ...unsignedUserOp,
+      callGasLimit: gasEstimate.callGasLimit,
+      verificationGasLimit: gasEstimate.verificationGasLimit,
+      preVerificationGas: gasEstimate.preVerificationGas,
+    };
+
+    // Compute UserOp hash for signing (pure computation)
+    const userOpHash = computeUserOpHash(
+      userOpWithGas,
+      bundlerConfig.entryPoint,
+      bundlerConfig.chainId,
+    );
+
+    // Sign the hash
+    const signature = await resolveMessageSigning(userOpHash, sender);
+
+    // Attach signature and submit
+    const signedUserOp: UserOperation = {
+      ...userOpWithGas,
+      signature,
+    };
+
+    return E(providerVat).submitUserOp({
+      bundlerUrl: bundlerConfig.bundlerUrl,
+      entryPoint: bundlerConfig.entryPoint,
+      userOp: signedUserOp,
+    });
   }
 
   const coordinator = makeDefaultExo('walletCoordinator', {
@@ -368,6 +438,17 @@ export function buildRootObject(
     // ------------------------------------------------------------------
 
     async connectExternalSigner(signer: ExternalSignerFacet): Promise<void> {
+      if (
+        !signer ||
+        typeof signer.getAccounts !== 'function' ||
+        typeof signer.signTypedData !== 'function' ||
+        typeof signer.signMessage !== 'function' ||
+        typeof signer.signTransaction !== 'function'
+      ) {
+        throw new Error(
+          'Invalid external signer: must implement getAccounts, signTypedData, signMessage, signTransaction',
+        );
+      }
       externalSigner = signer;
       persistBaggage('externalSigner', externalSigner);
     },
@@ -418,6 +499,30 @@ export function buildRootObject(
       if (!providerVat) {
         throw new Error('Provider not configured');
       }
+
+      // Check if a delegation covers this action and bundler is configured
+      if (delegationVat && bundlerConfig) {
+        const delegation = await E(delegationVat).findDelegationForAction({
+          to: tx.to,
+          value: tx.value,
+          data: tx.data,
+        });
+
+        if (delegation && delegation.status === 'signed') {
+          return submitDelegationUserOp({
+            delegations: [delegation],
+            execution: {
+              target: tx.to,
+              value: tx.value ?? ('0x0' as Hex),
+              callData: tx.data ?? ('0x' as Hex),
+            },
+            maxFeePerGas: tx.maxFeePerGas ?? ('0x3b9aca00' as Hex),
+            maxPriorityFeePerGas:
+              tx.maxPriorityFeePerGas ?? ('0x3b9aca00' as Hex),
+          });
+        }
+      }
+
       const signedTx = await resolveTransactionSigning(tx);
       return E(providerVat).broadcastTransaction(signedTx);
     },
@@ -520,6 +625,7 @@ export function buildRootObject(
 
     async redeemDelegation(options: {
       execution: Execution;
+      delegations?: Delegation[];
       delegationId?: string;
       action?: Action;
       maxFeePerGas: Hex;
@@ -528,63 +634,44 @@ export function buildRootObject(
       if (!delegationVat) {
         throw new Error('Delegation vat not available');
       }
-      if (!providerVat) {
-        throw new Error('Provider vat not available');
-      }
-      if (!bundlerConfig) {
-        throw new Error('Bundler not configured');
-      }
 
-      // Find delegation by ID or by action match
-      let delegation: Delegation | undefined;
-      if (options.delegationId) {
-        delegation = await E(delegationVat).getDelegation(options.delegationId);
+      // Resolve the delegation chain
+      let delegations: Delegation[];
+
+      if (options.delegations && options.delegations.length > 0) {
+        // Explicit delegation chain provided
+        delegations = options.delegations;
+      } else if (options.delegationId) {
+        const delegation = await E(delegationVat).getDelegation(
+          options.delegationId,
+        );
+        delegations = [delegation];
       } else if (options.action) {
-        delegation = await E(delegationVat).findDelegationForAction(
+        const delegation = await E(delegationVat).findDelegationForAction(
           options.action,
         );
+        if (!delegation) {
+          throw new Error('No matching delegation found');
+        }
+        delegations = [delegation];
+      } else {
+        throw new Error('Must provide delegations, delegationId, or action');
       }
 
-      if (!delegation) {
-        throw new Error('No matching delegation found');
+      // Validate all delegations in the chain are signed
+      for (const delegation of delegations) {
+        if (delegation.status !== 'signed') {
+          throw new Error(
+            `Delegation ${delegation.id} has status '${delegation.status}', expected 'signed'`,
+          );
+        }
       }
 
-      const sender = delegation.delegate;
-
-      // Get nonce (on-chain transaction nonce for now; EntryPoint nonce for production)
-      const nonce = await E(providerVat).getNonce(sender);
-
-      // Build unsigned UserOp (pure computation)
-      const unsignedUserOp = buildDelegationUserOp({
-        sender,
-        nonce: numberToHex(nonce),
-        delegations: [delegation],
+      return submitDelegationUserOp({
+        delegations,
         execution: options.execution,
         maxFeePerGas: options.maxFeePerGas,
         maxPriorityFeePerGas: options.maxPriorityFeePerGas,
-      });
-
-      // Compute UserOp hash (pure computation)
-      const userOpHash = computeUserOpHash(
-        unsignedUserOp,
-        bundlerConfig.entryPoint,
-        bundlerConfig.chainId,
-      );
-
-      // Sign the hash
-      const signature = await resolveMessageSigning(userOpHash, sender);
-
-      // Attach signature
-      const signedUserOp: UserOperation = {
-        ...unsignedUserOp,
-        signature,
-      };
-
-      // Submit via provider vat
-      return E(providerVat).submitUserOp({
-        bundlerUrl: bundlerConfig.bundlerUrl,
-        entryPoint: bundlerConfig.entryPoint,
-        userOp: signedUserOp,
       });
     },
 

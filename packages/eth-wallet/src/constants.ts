@@ -1,5 +1,7 @@
 import type { Address, CaveatType, Hex } from './types.ts';
 
+const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
 /**
  * The default BIP-44 HD path for Ethereum accounts: m/44'/60'/0'/0/{index}.
  */
@@ -27,7 +29,7 @@ export type ChainContracts = {
  * Placeholder contract addresses used when no chain-specific deployment
  * is registered. These will not work on-chain but allow offline testing.
  */
-export const PLACEHOLDER_CONTRACTS: ChainContracts = {
+export const PLACEHOLDER_CONTRACTS: ChainContracts = harden({
   delegationManager: '0x0000000000000000000000000000000000000000' as Address,
   enforcers: {
     allowedTargets: '0x0000000000000000000000000000000000000001' as Address,
@@ -38,13 +40,13 @@ export const PLACEHOLDER_CONTRACTS: ChainContracts = {
     limitedCalls: '0x0000000000000000000000000000000000000005' as Address,
     timestamp: '0x0000000000000000000000000000000000000006' as Address,
   },
-};
+});
 
 /**
  * Registry of contract addresses keyed by chain ID.
  * Populate with actual deployment addresses per chain.
  */
-export const CHAIN_CONTRACTS: Record<number, ChainContracts> = {};
+export const CHAIN_CONTRACTS: Record<number, ChainContracts> = harden({});
 
 /**
  * Get the contract addresses for a chain, falling back to placeholders.
@@ -85,7 +87,7 @@ export const ENFORCER_ADDRESSES: Record<CaveatType, Address> =
 export const DELEGATION_TYPES: Record<
   string,
   { name: string; type: string }[]
-> = {
+> = harden({
   Delegation: [
     { name: 'delegate', type: 'address' },
     { name: 'delegator', type: 'address' },
@@ -97,4 +99,4 @@ export const DELEGATION_TYPES: Record<
     { name: 'enforcer', type: 'address' },
     { name: 'terms', type: 'bytes' },
   ],
-};
+});

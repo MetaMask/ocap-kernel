@@ -1,10 +1,15 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
-import { http } from 'viem';
+import { encodeAbiParameters, http, parseAbiParameters } from 'viem';
 
 import { makeProvider } from '../lib/provider.ts';
 import type { Provider } from '../lib/provider.ts';
 import type { Address, ChainConfig, Hex, UserOperation } from '../types.ts';
+
+/**
+ * Function selector for EntryPoint.getNonce(address,uint192).
+ */
+const GET_NONCE_SELECTOR = '0x35567e1a' as Hex;
 
 /**
  * Vat powers for the provider vat.
@@ -123,6 +128,42 @@ export function buildRootObject(
         verificationGasLimit: Hex;
         preVerificationGas: Hex;
       };
+    },
+
+    async getEntryPointNonce(options: {
+      entryPoint: Address;
+      sender: Address;
+      key?: Hex;
+    }): Promise<Hex> {
+      if (!provider) {
+        throw new Error('Provider not configured');
+      }
+      const encoded = encodeAbiParameters(
+        parseAbiParameters('address, uint192'),
+        [options.sender, options.key ? BigInt(options.key) : 0n],
+      );
+      const callData = (GET_NONCE_SELECTOR + encoded.slice(2)) as Hex;
+
+      const result = await provider.request('eth_call', [
+        { to: options.entryPoint, data: callData },
+        'latest',
+      ]);
+      return result as Hex;
+    },
+
+    async getUserOpReceipt(options: {
+      bundlerUrl: string;
+      userOpHash: Hex;
+    }): Promise<unknown> {
+      const transport = http(options.bundlerUrl)({
+        chain: undefined,
+        retryCount: 0,
+      });
+      const result = await transport.request({
+        method: 'eth_getUserOperationReceipt' as never,
+        params: [options.userOpHash] as never,
+      });
+      return result ?? null;
     },
   });
 }

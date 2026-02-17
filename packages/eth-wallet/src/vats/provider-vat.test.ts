@@ -188,6 +188,112 @@ describe('provider-vat', () => {
     });
   });
 
+  describe('getEntryPointNonce', () => {
+    it('throws when provider is not configured', async () => {
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (root as any).getEntryPointNonce({
+          entryPoint: ENTRY_POINT_V07,
+          sender: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266' as Address,
+        }),
+      ).rejects.toThrow('Provider not configured');
+    });
+
+    it('calls eth_call with encoded getNonce calldata', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configure({
+        chainId: 1,
+        rpcUrl: 'https://eth.example.com',
+      });
+
+      mockProvider.request.mockResolvedValue(
+        '0x0000000000000000000000000000000000000000000000000000000000000005',
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (root as any).getEntryPointNonce({
+        entryPoint: ENTRY_POINT_V07,
+        sender: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266' as Address,
+      });
+
+      expect(result).toBe(
+        '0x0000000000000000000000000000000000000000000000000000000000000005',
+      );
+      expect(mockProvider.request).toHaveBeenCalledWith('eth_call', [
+        {
+          to: ENTRY_POINT_V07,
+          data: expect.stringMatching(/^0x35567e1a/u),
+        },
+        'latest',
+      ]);
+    });
+
+    it('encodes custom key parameter', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configure({
+        chainId: 1,
+        rpcUrl: 'https://eth.example.com',
+      });
+
+      mockProvider.request.mockResolvedValue('0x0' as Hex);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).getEntryPointNonce({
+        entryPoint: ENTRY_POINT_V07,
+        sender: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266' as Address,
+        key: '0x1' as Hex,
+      });
+
+      expect(mockProvider.request).toHaveBeenCalledWith('eth_call', [
+        expect.objectContaining({
+          to: ENTRY_POINT_V07,
+        }),
+        'latest',
+      ]);
+    });
+  });
+
+  describe('getUserOpReceipt', () => {
+    it('queries bundler for UserOp receipt', async () => {
+      const receipt = { success: true, receipt: { transactionHash: '0xabc' } };
+      mockTransportRequest.mockResolvedValue(receipt);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (root as any).getUserOpReceipt({
+        bundlerUrl: 'https://bundler.example.com',
+        userOpHash: '0xdeadbeef' as Hex,
+      });
+
+      expect(result).toStrictEqual(receipt);
+      expect(mockTransportRequest).toHaveBeenCalledWith({
+        method: 'eth_getUserOperationReceipt',
+        params: ['0xdeadbeef'],
+      });
+    });
+
+    it('returns null when receipt is not found', async () => {
+      mockTransportRequest.mockResolvedValue(null);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (root as any).getUserOpReceipt({
+        bundlerUrl: 'https://bundler.example.com',
+        userOpHash: '0xdeadbeef' as Hex,
+      });
+
+      expect(result).toBeNull();
+    });
+
+    it('returns null when bundler returns undefined', async () => {
+      mockTransportRequest.mockResolvedValue(undefined);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (root as any).getUserOpReceipt({
+        bundlerUrl: 'https://bundler.example.com',
+        userOpHash: '0xdeadbeef' as Hex,
+      });
+
+      expect(result).toBeNull();
+    });
+  });
+
   describe('estimateUserOpGas', () => {
     const mockUserOp: UserOperation = {
       sender: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266' as Address,

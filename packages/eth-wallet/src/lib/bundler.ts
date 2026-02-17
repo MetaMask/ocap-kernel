@@ -1,5 +1,7 @@
 import type { Hex, UserOperation } from '../types.ts';
 
+const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
 /**
  * Configuration for connecting to an ERC-4337 bundler.
  */
@@ -57,6 +59,12 @@ async function bundlerRpc(
     }),
   });
 
+  if (!response.ok) {
+    throw new Error(
+      `Bundler HTTP error: ${response.status} ${response.statusText}`,
+    );
+  }
+
   const json = (await response.json()) as {
     result?: unknown;
     error?: { message: string; code: number };
@@ -84,7 +92,7 @@ export async function submitUserOp(
     userOp,
     config.entryPoint,
   ]);
-  return result as Hex;
+  return harden(result as Hex);
 }
 
 /**
@@ -102,7 +110,7 @@ export async function estimateUserOpGas(
     userOp,
     config.entryPoint,
   ]);
-  return result as UserOpGasEstimate;
+  return harden(result as UserOpGasEstimate);
 }
 
 /**
@@ -119,7 +127,8 @@ export async function getUserOpReceipt(
   const result = await bundlerRpc(config.url, 'eth_getUserOperationReceipt', [
     userOpHash,
   ]);
-  return (result as UserOpReceipt) ?? null;
+  const receipt = (result as UserOpReceipt) ?? null;
+  return receipt ? harden(receipt) : null;
 }
 
 /**
