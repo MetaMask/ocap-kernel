@@ -167,15 +167,16 @@ export class SubclusterManager {
       }
     }
 
-    // Destroy IO channels before terminating vats
-    if (this.#ioManager) {
-      await this.#ioManager.destroyChannels(subclusterId);
-    }
-
     const vatIdsToTerminate = this.#kernelStore.getSubclusterVats(subclusterId);
     for (const vatId of vatIdsToTerminate.reverse()) {
       await this.#vatManager.terminateVat(vatId);
       this.#vatManager.collectGarbage();
+    }
+
+    // Destroy IO channels after terminating vats so that any queued
+    // messages targeting IO service krefs are drained first.
+    if (this.#ioManager) {
+      await this.#ioManager.destroyChannels(subclusterId);
     }
     this.#kernelStore.deleteSubcluster(subclusterId);
   }
