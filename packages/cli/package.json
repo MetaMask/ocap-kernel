@@ -9,7 +9,8 @@
   },
   "type": "module",
   "bin": {
-    "ocap": "./dist/app.mjs"
+    "ocap": "./dist/app.mjs",
+    "ok": "./dist/ok.mjs"
   },
   "files": [
     "dist/"
