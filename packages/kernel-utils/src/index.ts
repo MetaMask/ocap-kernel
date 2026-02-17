@@ -3,7 +3,7 @@ export { makeDiscoverableExo } from './discoverable.ts';
 export type { DiscoverableExo } from './discoverable.ts';
 export type { JsonSchema, MethodSchema } from './schema.ts';
 export { fetchValidatedJson } from './fetchValidatedJson.ts';
-export { abortableDelay, delay, makeCounter } from './misc.ts';
+export { abortableDelay, delay, ifDefined, makeCounter } from './misc.ts';
 export { stringify } from './stringify.ts';
 export { installWakeDetector } from './wake-detector.ts';
 export type { WakeDetectorOptions } from './wake-detector.ts';

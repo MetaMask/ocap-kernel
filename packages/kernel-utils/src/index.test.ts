@@ -14,6 +14,7 @@ describe('index', () => {
       'delay',
       'fetchValidatedJson',
       'fromHex',
+      'ifDefined',
       'installWakeDetector',
       'isJsonRpcCall',
       'isJsonRpcMessage',
