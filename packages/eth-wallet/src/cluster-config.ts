@@ -8,6 +8,7 @@ import type { Address } from './types.ts';
 export type WalletClusterConfigOptions = {
   bundleBaseUrl: string;
   delegationManagerAddress?: Address;
+  chainId?: number;
   services?: string[];
 };
 

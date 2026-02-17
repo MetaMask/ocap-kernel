@@ -1,6 +1,6 @@
 import { encodeAbiParameters, parseAbiParameters } from 'viem';
 
-import { ENFORCER_ADDRESSES } from '../constants.ts';
+import { getChainContracts } from '../constants.ts';
 import type { Address, Caveat, CaveatType, Hex } from '../types.ts';
 
 /**
@@ -92,15 +92,20 @@ export function encodeTimestamp(options: {
  * @param options.type - The caveat type.
  * @param options.terms - The ABI-encoded terms.
  * @param options.enforcerAddress - Optional override for the enforcer address.
+ * @param options.chainId - Optional chain ID to look up enforcer addresses.
  * @returns The Caveat struct.
  */
 export function makeCaveat(options: {
   type: CaveatType;
   terms: Hex;
   enforcerAddress?: Address;
+  chainId?: number;
 }): Caveat {
+  const enforcer =
+    options.enforcerAddress ??
+    getChainContracts(options.chainId).enforcers[options.type];
   return {
-    enforcer: options.enforcerAddress ?? ENFORCER_ADDRESSES[options.type],
+    enforcer,
     terms: options.terms,
     type: options.type,
   };
@@ -110,8 +115,12 @@ export function makeCaveat(options: {
  * Get the well-known enforcer address for a caveat type.
  *
  * @param caveatType - The caveat type.
+ * @param chainId - Optional chain ID to look up enforcer addresses.
  * @returns The enforcer address.
  */
-export function getEnforcerAddress(caveatType: CaveatType): Address {
-  return ENFORCER_ADDRESSES[caveatType];
+export function getEnforcerAddress(
+  caveatType: CaveatType,
+  chainId?: number,
+): Address {
+  return getChainContracts(chainId).enforcers[caveatType];
 }

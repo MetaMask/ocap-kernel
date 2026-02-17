@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 
-import { encodeAllowedTargets, encodeAllowedMethods } from './caveats.ts';
-import { makeCaveat } from './caveats.ts';
+import {
+  encodeAllowedTargets,
+  encodeAllowedMethods,
+  encodeValueLte,
+  encodeTimestamp,
+  makeCaveat,
+} from './caveats.ts';
 import {
   computeDelegationId,
   makeDelegation,
@@ -249,6 +254,85 @@ describe('lib/delegation', () => {
           data: '0x12345678' as Hex,
         }),
       ).toBe(false);
+    });
+
+    it('matches when value is within valueLte limit', () => {
+      const delegation = makeSignedDelegation([
+        makeCaveat({
+          type: 'valueLte',
+          terms: encodeValueLte(1000000000000000000n), // 1 ETH
+        }),
+      ]);
+
+      expect(
+        delegationMatchesAction(delegation, {
+          to: TARGET_CONTRACT,
+          value: '0x0de0b6b3a7640000' as Hex, // 1 ETH
+        }),
+      ).toBe(true);
+    });
+
+    it('does not match when value exceeds valueLte limit', () => {
+      const delegation = makeSignedDelegation([
+        makeCaveat({
+          type: 'valueLte',
+          terms: encodeValueLte(1000000000000000000n), // 1 ETH
+        }),
+      ]);
+
+      expect(
+        delegationMatchesAction(delegation, {
+          to: TARGET_CONTRACT,
+          value: '0x1bc16d674ec80000' as Hex, // 2 ETH
+        }),
+      ).toBe(false);
+    });
+
+    it('matches valueLte when action has no value', () => {
+      const delegation = makeSignedDelegation([
+        makeCaveat({
+          type: 'valueLte',
+          terms: encodeValueLte(1000000000000000000n),
+        }),
+      ]);
+
+      expect(delegationMatchesAction(delegation, { to: TARGET_CONTRACT })).toBe(
+        true,
+      );
+    });
+
+    it('matches when within timestamp window', () => {
+      const now = Math.floor(Date.now() / 1000);
+      const delegation = makeSignedDelegation([
+        makeCaveat({
+          type: 'timestamp',
+          terms: encodeTimestamp({
+            after: now - 3600,
+            before: now + 3600,
+          }),
+        }),
+      ]);
+
+      expect(delegationMatchesAction(delegation, { to: TARGET_CONTRACT })).toBe(
+        true,
+      );
+    });
+
+    it('does not match when timestamp window has expired', () => {
+      const now = Math.floor(Date.now() / 1000);
+      const delegation = makeSignedDelegation([
+        makeCaveat({
+          type: 'timestamp',
+          terms: encodeTimestamp({
+            after: now - 7200,
+            before: now - 3600,
+          }),
+        }),
+      ]);
+
+      expect(delegationMatchesAction(delegation, { to: TARGET_CONTRACT })).toBe(
+        false,
+      );
     });
   });
 
