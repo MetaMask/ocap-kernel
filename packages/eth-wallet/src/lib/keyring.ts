@@ -9,6 +9,8 @@ import type { HDAccount, LocalAccount } from 'viem/accounts';
 
 import type { Address } from '../types.ts';
 
+const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
 /**
  * Options for initializing a keyring.
  */
@@ -66,7 +68,7 @@ export function makeKeyring(options: KeyringInitOptions): Keyring {
     return address;
   }
 
-  return {
+  return harden({
     getAccounts(): Address[] {
       return [...accounts.keys()];
     },
@@ -86,7 +88,7 @@ export function makeKeyring(options: KeyringInitOptions): Keyring {
     getMnemonic(): string | undefined {
       return mnemonic;
     },
-  };
+  });
 }
 
 /**

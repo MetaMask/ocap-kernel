@@ -1,8 +1,27 @@
 import { describe, it, expect, vi } from 'vitest';
 
-import { makeProviderSigner } from './metamask-signer.ts';
+import {
+  makeProviderSigner,
+  connectMetaMaskSigner,
+} from './metamask-signer.ts';
 import type { EthereumProvider } from './metamask-signer.ts';
 import type { Address, Hex } from '../types.ts';
+
+const mockConnect = vi.fn().mockResolvedValue(undefined);
+const mockGetProvider = vi.fn();
+const mockTerminate = vi.fn().mockResolvedValue(undefined);
+
+vi.mock('@metamask/sdk', () => {
+  return {
+    MetaMaskSDK: class {
+      connect = mockConnect;
+
+      getProvider = mockGetProvider;
+
+      terminate = mockTerminate;
+    },
+  };
+});
 
 const ALICE = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 const ALICE_LOWER = '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266' as Address;
@@ -142,6 +161,45 @@ describe('lib/metamask-signer', () => {
 
         expect(signer.provider).toBe(provider);
       });
+    });
+  });
+
+  describe('connectMetaMaskSigner', () => {
+    it('connects to MetaMask SDK and returns a signer', async () => {
+      const mockProvider = {
+        request: vi.fn().mockResolvedValue([ALICE]),
+      };
+      mockGetProvider.mockReturnValue(mockProvider);
+
+      const signer = await connectMetaMaskSigner({
+        dappMetadata: { name: 'Test App', url: 'https://test.app' },
+      });
+
+      expect(mockConnect).toHaveBeenCalled();
+      expect(mockGetProvider).toHaveBeenCalled();
+
+      const accounts = await signer.getAccounts();
+      expect(accounts).toStrictEqual([ALICE_LOWER]);
+    });
+
+    it('calls sdk.terminate on disconnect', async () => {
+      const mockProvider = {
+        request: vi.fn().mockResolvedValue([ALICE]),
+      };
+      mockGetProvider.mockReturnValue(mockProvider);
+
+      const signer = await connectMetaMaskSigner();
+      signer.disconnect();
+
+      expect(mockTerminate).toHaveBeenCalled();
+    });
+
+    it('throws when provider is not found', async () => {
+      mockGetProvider.mockReturnValue(null);
+
+      await expect(connectMetaMaskSigner()).rejects.toThrow(
+        'MetaMask SDK provider not found',
+      );
     });
   });
 });

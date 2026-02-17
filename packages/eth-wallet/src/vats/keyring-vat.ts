@@ -38,6 +38,14 @@ export function buildRootObject(
   if (baggage.has('keyringInit')) {
     const initOptions = baggage.get('keyringInit') as KeyringInitOptions;
     keyring = makeKeyring(initOptions);
+
+    // Re-derive previously derived accounts
+    if (baggage.has('accountCount')) {
+      const count = baggage.get('accountCount') as number;
+      for (let i = 1; i < count; i++) {
+        keyring.deriveAccount(i);
+      }
+    }
   }
 
   return makeDefaultExo('walletKeyring', {

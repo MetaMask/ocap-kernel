@@ -83,6 +83,7 @@ export {
   computeUserOpHash,
   encodeDelegationChain,
   encodeExecution,
+  numberToHex,
   ENTRY_POINT_V07,
 } from './lib/userop.ts';
 
