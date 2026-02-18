@@ -14,6 +14,7 @@ import {
   makeDelegation,
   prepareDelegationTypedData,
   delegationMatchesAction,
+  explainDelegationMatch,
   finalizeDelegation,
   generateSalt,
 } from './delegation.ts';
@@ -427,6 +428,156 @@ describe('lib/delegation', () => {
           delegationMatchesAction(delegation, { to: TARGET_CONTRACT }),
         ).toBe(true);
       });
+    });
+  });
+
+  describe('explainDelegationMatch', () => {
+    const makeSignedDelegation = (caveats: Delegation['caveats']): Delegation =>
+      finalizeDelegation(
+        makeDelegation({
+          delegator: ALICE,
+          delegate: BOB,
+          caveats,
+          chainId: 1,
+        }),
+        '0xdeadbeef' as Hex,
+      );
+
+    it('returns matches: true for a matching delegation', () => {
+      const delegation = makeSignedDelegation([]);
+      const result = explainDelegationMatch(delegation, {
+        to: TARGET_CONTRACT,
+      });
+      expect(result).toStrictEqual({ matches: true });
+    });
+
+    it('returns reason when delegation is not signed', () => {
+      const delegation = makeDelegation({
+        delegator: ALICE,
+        delegate: BOB,
+        caveats: [],
+        chainId: 1,
+      });
+
+      const result = explainDelegationMatch(delegation, {
+        to: TARGET_CONTRACT,
+      });
+      expect(result.matches).toBe(false);
+      expect(result.reason).toBe('Delegation is not signed');
+      expect(result.failedCaveat).toBeUndefined();
+    });
+
+    it('reports allowedTargets failure with target address', () => {
+      const delegation = makeSignedDelegation([
+        makeCaveat({
+          type: 'allowedTargets',
+          terms: encodeAllowedTargets([TARGET_CONTRACT]),
+        }),
+      ]);
+
+      const wrongTarget =
+        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Address;
+      const result = explainDelegationMatch(delegation, { to: wrongTarget });
+      expect(result).toStrictEqual({
+        matches: false,
+        failedCaveat: 'allowedTargets',
+        reason: `Target ${wrongTarget} is not in the allowed targets list`,
+      });
+    });
+
+    it('reports allowedMethods failure with selector', () => {
+      const transferSelector = '0xa9059cbb' as Hex;
+      const delegation = makeSignedDelegation([
+        makeCaveat({
+          type: 'allowedMethods',
+          terms: encodeAllowedMethods([transferSelector]),
+        }),
+      ]);
+
+      const result = explainDelegationMatch(delegation, {
+        to: TARGET_CONTRACT,
+        data: '0x12345678' as Hex,
+      });
+      expect(result).toStrictEqual({
+        matches: false,
+        failedCaveat: 'allowedMethods',
+        reason: 'Method selector 0x12345678 is not in the allowed methods list',
+      });
+    });
+
+    it('reports valueLte failure with amounts', () => {
+      const delegation = makeSignedDelegation([
+        makeCaveat({
+          type: 'valueLte',
+          terms: encodeValueLte(1000000000000000000n), // 1 ETH
+        }),
+      ]);
+
+      const result = explainDelegationMatch(delegation, {
+        to: TARGET_CONTRACT,
+        value: '0x1bc16d674ec80000' as Hex, // 2 ETH
+      });
+      expect(result.matches).toBe(false);
+      expect(result.failedCaveat).toBe('valueLte');
+      expect(result.reason).toContain('exceeds maximum');
+    });
+
+    it('reports timestamp failure for expired window', () => {
+      const now = Math.floor(Date.now() / 1000);
+      const delegation = makeSignedDelegation([
+        makeCaveat({
+          type: 'timestamp',
+          terms: encodeTimestamp({
+            after: now - 7200,
+            before: now - 3600,
+          }),
+        }),
+      ]);
+
+      const result = explainDelegationMatch(delegation, {
+        to: TARGET_CONTRACT,
+      });
+      expect(result.matches).toBe(false);
+      expect(result.failedCaveat).toBe('timestamp');
+      expect(result.reason).toContain('after the allowed window');
+    });
+
+    it('reports timestamp failure for future window', () => {
+      const now = Math.floor(Date.now() / 1000);
+      const delegation = makeSignedDelegation([
+        makeCaveat({
+          type: 'timestamp',
+          terms: encodeTimestamp({
+            after: now + 3600,
+            before: now + 7200,
+          }),
+        }),
+      ]);
+
+      const result = explainDelegationMatch(delegation, {
+        to: TARGET_CONTRACT,
+      });
+      expect(result.matches).toBe(false);
+      expect(result.failedCaveat).toBe('timestamp');
+      expect(result.reason).toContain('before the allowed window');
+    });
+
+    it('reports erc20TransferAmount failure for wrong token', () => {
+      const TOKEN = '0xdead000000000000000000000000000000000000' as Address;
+      const delegation = makeSignedDelegation([
+        makeCaveat({
+          type: 'erc20TransferAmount',
+          terms: encodeErc20TransferAmount({ token: TOKEN, amount: 1000000n }),
+        }),
+      ]);
+
+      const result = explainDelegationMatch(delegation, {
+        to: TARGET_CONTRACT,
+        data: '0xa9059cbb0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+      });
+      expect(result.matches).toBe(false);
+      expect(result.failedCaveat).toBe('erc20TransferAmount');
+      expect(result.reason).toContain('does not match token contract');
     });
   });
 

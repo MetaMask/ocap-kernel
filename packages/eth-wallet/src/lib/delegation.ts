@@ -12,6 +12,7 @@ import type {
   Address,
   Caveat,
   Delegation,
+  DelegationMatchResult,
   Eip712TypedData,
   Hex,
 } from '../types.ts';
@@ -140,26 +141,32 @@ export function prepareDelegationTypedData(options: {
 }
 
 /**
- * Check whether a signed delegation potentially covers an action.
+ * Explain whether a signed delegation potentially covers an action.
+ *
+ * Returns a detailed result indicating whether the delegation matches,
+ * and if not, which caveat failed and why.
  *
  * This performs a client-side check based on the caveat types:
  * - allowedTargets: checks if action.to is in the allowed list
  * - allowedMethods: checks if action.data starts with an allowed selector
+ * - valueLte: checks if action.value is within the limit
+ * - timestamp: checks if current time is within the window
+ * - erc20TransferAmount: checks token, selector, and amount
  *
  * This is a best-effort match. On-chain enforcement is authoritative.
  *
  * @param delegation - The delegation to check.
  * @param action - The action to match against.
  * @param currentTime - Optional current time in milliseconds (defaults to Date.now()).
- * @returns True if the delegation might cover the action.
+ * @returns A result object with match status and failure details.
  */
-export function delegationMatchesAction(
+export function explainDelegationMatch(
   delegation: Delegation,
   action: Action,
   currentTime?: number,
-): boolean {
+): DelegationMatchResult {
   if (delegation.status !== 'signed') {
-    return false;
+    return { matches: false, reason: 'Delegation is not signed' };
   }
 
   // Check each caveat - all must pass for the delegation to match
@@ -173,7 +180,11 @@ export function delegationMatchesAction(
         (target) => target.toLowerCase() === action.to.toLowerCase(),
       );
       if (!match) {
-        return false;
+        return {
+          matches: false,
+          failedCaveat: 'allowedTargets',
+          reason: `Target ${action.to} is not in the allowed targets list`,
+        };
       }
     }
 
@@ -185,7 +196,11 @@ export function delegationMatchesAction(
       );
       const match = methods.some((method) => method.toLowerCase() === selector);
       if (!match) {
-        return false;
+        return {
+          matches: false,
+          failedCaveat: 'allowedMethods',
+          reason: `Method selector ${selector} is not in the allowed methods list`,
+        };
       }
     }
 
@@ -196,7 +211,11 @@ export function delegationMatchesAction(
       );
       const actionValue = action.value ? BigInt(action.value) : 0n;
       if (actionValue > maxValue) {
-        return false;
+        return {
+          matches: false,
+          failedCaveat: 'valueLte',
+          reason: `Value ${actionValue} exceeds maximum ${maxValue}`,
+        };
       }
     }
 
@@ -206,8 +225,19 @@ export function delegationMatchesAction(
         caveat.terms,
       );
       const now = BigInt(Math.floor((currentTime ?? Date.now()) / 1000));
-      if (now < after || now > before) {
-        return false;
+      if (now < after) {
+        return {
+          matches: false,
+          failedCaveat: 'timestamp',
+          reason: `Current time ${now} is before the allowed window (starts at ${after})`,
+        };
+      }
+      if (now > before) {
+        return {
+          matches: false,
+          failedCaveat: 'timestamp',
+          reason: `Current time ${now} is after the allowed window (ended at ${before})`,
+        };
       }
     }
 
@@ -216,24 +246,36 @@ export function delegationMatchesAction(
         parseAbiParameters('address, uint256'),
         caveat.terms,
       );
-      // Must target the token contract
       if (action.to.toLowerCase() !== token.toLowerCase()) {
-        return false;
+        return {
+          matches: false,
+          failedCaveat: 'erc20TransferAmount',
+          reason: `Target ${action.to} does not match token contract ${token}`,
+        };
       }
-      // Must have calldata that is an ERC-20 transfer(address,uint256)
-      // Minimum length: 0x (2) + selector (8) + address (64) + uint256 (64) = 138
       if (!action.data || action.data.length < 138) {
-        return false;
+        return {
+          matches: false,
+          failedCaveat: 'erc20TransferAmount',
+          reason: 'Missing or incomplete ERC-20 transfer calldata',
+        };
       }
       const selector = action.data.slice(0, 10).toLowerCase();
       if (selector !== '0xa9059cbb') {
-        return false;
+        return {
+          matches: false,
+          failedCaveat: 'erc20TransferAmount',
+          reason: `Selector ${selector} is not transfer(address,uint256)`,
+        };
       }
-      // Extract the amount (second parameter: bytes 36-68 of calldata, hex chars 74-138)
       const amountHex = `0x${action.data.slice(74, 138)}`;
       const transferAmount = BigInt(amountHex);
       if (transferAmount > maxAmount) {
-        return false;
+        return {
+          matches: false,
+          failedCaveat: 'erc20TransferAmount',
+          reason: `Transfer amount ${transferAmount} exceeds maximum ${maxAmount}`,
+        };
       }
     }
 
@@ -241,7 +283,26 @@ export function delegationMatchesAction(
     // The on-chain enforcer is authoritative — pass through.
   }
 
-  return true;
+  return { matches: true };
+}
+
+/**
+ * Check whether a signed delegation potentially covers an action.
+ *
+ * This is a convenience wrapper around {@link explainDelegationMatch}
+ * that returns a simple boolean.
+ *
+ * @param delegation - The delegation to check.
+ * @param action - The action to match against.
+ * @param currentTime - Optional current time in milliseconds (defaults to Date.now()).
+ * @returns True if the delegation might cover the action.
+ */
+export function delegationMatchesAction(
+  delegation: Delegation,
+  action: Action,
+  currentTime?: number,
+): boolean {
+  return explainDelegationMatch(delegation, action, currentTime).matches;
 }
 
 /**
