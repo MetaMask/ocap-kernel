@@ -119,6 +119,47 @@ describe('coordinator-vat', () => {
     });
   });
 
+  describe('configureProvider', () => {
+    it('rejects invalid RPC URL', async () => {
+      await expect(
+        coordinator.configureProvider({
+          chainId: 1,
+          rpcUrl: 'not-a-url',
+        }),
+      ).rejects.toThrow('Invalid RPC URL');
+    });
+
+    it('rejects non-HTTP(S) RPC URL', async () => {
+      await expect(
+        coordinator.configureProvider({
+          chainId: 1,
+          rpcUrl: 'ws://eth.example.com',
+        }),
+      ).rejects.toThrow('Invalid RPC URL');
+    });
+
+    it('rejects invalid chain ID in provider config', async () => {
+      await expect(
+        coordinator.configureProvider({
+          chainId: 0,
+          rpcUrl: 'https://eth.example.com',
+        }),
+      ).rejects.toThrow('Invalid chain ID');
+    });
+
+    it('accepts valid HTTP(S) provider config', async () => {
+      await coordinator.configureProvider({
+        chainId: 1,
+        rpcUrl: 'https://eth.example.com',
+      });
+
+      expect(providerVat.configure).toHaveBeenCalledWith({
+        chainId: 1,
+        rpcUrl: 'https://eth.example.com',
+      });
+    });
+  });
+
   describe('initializeKeyring', () => {
     it('initializes the keyring with SRP', async () => {
       await coordinator.initializeKeyring({
@@ -591,6 +632,47 @@ describe('coordinator-vat', () => {
 
       const caps = await coordinator.getCapabilities();
       expect(caps.hasBundlerConfig).toBe(true);
+    });
+
+    it('rejects invalid bundler URL', async () => {
+      await expect(
+        coordinator.configureBundler({
+          bundlerUrl: 'not-a-url',
+          chainId: 1,
+        }),
+      ).rejects.toThrow('Invalid bundler URL');
+    });
+
+    it('rejects non-HTTP(S) bundler URL', async () => {
+      await expect(
+        coordinator.configureBundler({
+          bundlerUrl: 'ftp://bundler.example.com',
+          chainId: 1,
+        }),
+      ).rejects.toThrow('Invalid bundler URL');
+    });
+
+    it('rejects invalid chain ID', async () => {
+      await expect(
+        coordinator.configureBundler({
+          bundlerUrl: 'https://bundler.example.com',
+          chainId: 0,
+        }),
+      ).rejects.toThrow('Invalid chain ID');
+
+      await expect(
+        coordinator.configureBundler({
+          bundlerUrl: 'https://bundler.example.com',
+          chainId: -1,
+        }),
+      ).rejects.toThrow('Invalid chain ID');
+
+      await expect(
+        coordinator.configureBundler({
+          bundlerUrl: 'https://bundler.example.com',
+          chainId: 1.5,
+        }),
+      ).rejects.toThrow('Invalid chain ID');
     });
   });
 

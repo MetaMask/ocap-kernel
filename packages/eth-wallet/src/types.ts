@@ -1,6 +1,7 @@
 import {
   array,
   boolean,
+  create,
   define,
   enums,
   literal,
@@ -47,6 +48,23 @@ export const ChainConfigStruct = object({
 });
 
 export type ChainConfig = Infer<typeof ChainConfigStruct>;
+
+/**
+ * Create a validated ChainConfig.
+ *
+ * @param options - Chain configuration options.
+ * @param options.chainId - The numeric chain ID.
+ * @param options.rpcUrl - The JSON-RPC endpoint URL.
+ * @param options.name - Optional human-readable chain name.
+ * @returns A validated ChainConfig object.
+ */
+export function makeChainConfig(options: {
+  chainId: number;
+  rpcUrl: string;
+  name?: string;
+}): ChainConfig {
+  return create(options, ChainConfigStruct);
+}
 
 // ---------------------------------------------------------------------------
 // Caveat types (MetaMask Delegation Framework / Gator)
@@ -252,3 +270,13 @@ export const ExecutionStruct = object({
 });
 
 export type Execution = Infer<typeof ExecutionStruct>;
+
+// ---------------------------------------------------------------------------
+// Delegation match result (for delegation matching diagnostics)
+// ---------------------------------------------------------------------------
+
+export type DelegationMatchResult = {
+  matches: boolean;
+  failedCaveat?: CaveatType;
+  reason?: string;
+};

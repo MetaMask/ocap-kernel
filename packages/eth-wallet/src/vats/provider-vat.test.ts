@@ -390,5 +390,43 @@ describe('provider-vat', () => {
       // Should fall back to 1 gwei for priority fee
       expect(fees.maxPriorityFeePerGas).toBe('0x3b9aca00');
     });
+
+    it('throws when block response is missing baseFeePerGas', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configure({
+        chainId: 1,
+        rpcUrl: 'https://eth.example.com',
+      });
+
+      mockProvider.request
+        .mockResolvedValueOnce({ number: '0x1' }) // no baseFeePerGas
+        .mockResolvedValueOnce('0x3b9aca00');
+
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (root as any).getGasFees(),
+      ).rejects.toThrow(
+        'Invalid block response: missing or malformed baseFeePerGas',
+      );
+    });
+
+    it('throws when block response is null', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configure({
+        chainId: 1,
+        rpcUrl: 'https://eth.example.com',
+      });
+
+      mockProvider.request
+        .mockResolvedValueOnce(null) // null block
+        .mockResolvedValueOnce('0x3b9aca00');
+
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (root as any).getGasFees(),
+      ).rejects.toThrow(
+        'Invalid block response: missing or malformed baseFeePerGas',
+      );
+    });
   });
 });
