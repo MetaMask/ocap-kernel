@@ -485,6 +485,25 @@ export function buildRootObject(
       if (!providerVat) {
         throw new Error('Provider vat not available');
       }
+
+      // Validate RPC URL
+      try {
+        const url = new URL(chainConfig.rpcUrl);
+        if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+          throw new Error('unsupported protocol');
+        }
+      } catch {
+        throw new Error(
+          `Invalid RPC URL: "${chainConfig.rpcUrl}". Must be a valid HTTP(S) URL.`,
+        );
+      }
+
+      if (!Number.isInteger(chainConfig.chainId) || chainConfig.chainId <= 0) {
+        throw new Error(
+          `Invalid chain ID: ${String(chainConfig.chainId)}. Must be a positive integer.`,
+        );
+      }
+
       await E(providerVat).configure(chainConfig);
     },
 
@@ -513,6 +532,24 @@ export function buildRootObject(
       entryPoint?: Hex;
       chainId: number;
     }): Promise<void> {
+      // Validate bundler URL
+      try {
+        const url = new URL(config.bundlerUrl);
+        if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+          throw new Error('unsupported protocol');
+        }
+      } catch {
+        throw new Error(
+          `Invalid bundler URL: "${config.bundlerUrl}". Must be a valid HTTP(S) URL.`,
+        );
+      }
+
+      if (!Number.isInteger(config.chainId) || config.chainId <= 0) {
+        throw new Error(
+          `Invalid chain ID: ${String(config.chainId)}. Must be a positive integer.`,
+        );
+      }
+
       bundlerConfig = {
         bundlerUrl: config.bundlerUrl,
         entryPoint: config.entryPoint ?? ENTRY_POINT_V07,

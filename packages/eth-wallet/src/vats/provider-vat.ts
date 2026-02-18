@@ -179,9 +179,18 @@ export function buildRootObject(
           .request('eth_maxPriorityFeePerGas', [])
           .catch(() => '0x3b9aca00'),
       ]);
-      const baseFee = BigInt(
-        (block as { baseFeePerGas: string }).baseFeePerGas ?? '0x0',
-      );
+      // Validate RPC response shape before using it
+      const blockObj = block as Record<string, unknown> | null;
+      if (
+        !blockObj ||
+        typeof blockObj !== 'object' ||
+        typeof blockObj.baseFeePerGas !== 'string'
+      ) {
+        throw new Error(
+          'Invalid block response: missing or malformed baseFeePerGas',
+        );
+      }
+      const baseFee = BigInt(blockObj.baseFeePerGas);
       const priority = BigInt(priorityFee as string);
       // maxFeePerGas = 2 * baseFee + maxPriorityFeePerGas (standard EIP-1559 heuristic)
       const maxFee = baseFee * 2n + priority;
