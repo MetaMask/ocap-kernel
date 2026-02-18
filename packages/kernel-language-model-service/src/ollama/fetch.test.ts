@@ -97,7 +97,6 @@ describe('makeHostRestrictedFetch', () => {
     });
 
     it('should handle Request objects correctly', async () => {
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
       const request = new Request(mockUrl);
 
       await restrictedFetch(request);

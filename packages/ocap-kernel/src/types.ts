@@ -11,6 +11,7 @@ import type { VatCheckpoint } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { DuplexStream } from '@metamask/streams';
 import {
+  assign,
   define,
   is,
   object,
@@ -432,10 +433,59 @@ export const isVatConfig = (value: unknown): value is VatConfig =>
 
 export type VatConfigTable = Record<string, VatConfig>;
 
+// IO configuration types
+
+const ConsoleIOSpecStruct = object({ type: literal('console') });
+const ListenIOSpecStruct = object({
+  type: literal('listen'),
+  hostport: string(),
+});
+const NetworkIOSpecStruct = object({
+  type: literal('network'),
+  hostport: string(),
+});
+const FileIOSpecStruct = object({ type: literal('file'), path: string() });
+const SocketIOSpecStruct = object({ type: literal('socket'), path: string() });
+
+export type IOSpec =
+  | Infer<typeof ConsoleIOSpecStruct>
+  | Infer<typeof ListenIOSpecStruct>
+  | Infer<typeof NetworkIOSpecStruct>
+  | Infer<typeof FileIOSpecStruct>
+  | Infer<typeof SocketIOSpecStruct>;
+
+const IODirectionStruct = union([
+  literal('in'),
+  literal('out'),
+  literal('inout'),
+]);
+const IOUnitStruct = union([
+  literal('line'),
+  literal('string'),
+  literal('chars'),
+  literal('bytes'),
+]);
+
+const IOExtraStruct = object({
+  direction: exactOptional(IODirectionStruct),
+  unit: exactOptional(IOUnitStruct),
+});
+
+const IOConfigStruct = union([
+  assign(ConsoleIOSpecStruct, IOExtraStruct),
+  assign(ListenIOSpecStruct, IOExtraStruct),
+  assign(NetworkIOSpecStruct, IOExtraStruct),
+  assign(FileIOSpecStruct, IOExtraStruct),
+  assign(SocketIOSpecStruct, IOExtraStruct),
+]);
+
+export type IOConfig = Infer<typeof IOConfigStruct>;
+
 export const ClusterConfigStruct = object({
   bootstrap: string(),
   forceReset: exactOptional(boolean()),
   services: exactOptional(array(string())),
+  io: exactOptional(record(string(), IOConfigStruct)),
   vats: record(string(), VatConfigStruct),
   bundles: exactOptional(record(string(), VatConfigStruct)),
 });

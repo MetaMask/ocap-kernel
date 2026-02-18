@@ -24,7 +24,6 @@ export const makeHostRestrictedFetch = (
   const restrictedFetch = async (
     ...[url, ...args]: Parameters<typeof fetch>
   ): ReturnType<typeof fetch> => {
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins
     const { host } = new URL(url instanceof Request ? url.url : url);
     if (!allowedHosts.includes(host)) {
       throw new Error(

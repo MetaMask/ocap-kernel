@@ -2,6 +2,8 @@ import type { CapData } from '@endo/marshal';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { Logger } from '@metamask/logger';
 
+import { IOManager } from './io/IOManager.ts';
+import type { IOChannelFactory } from './io/types.ts';
 import { makeKernelFacet } from './kernel-facet.ts';
 import type { KernelFacet } from './kernel-facet.ts';
 import { KernelQueue } from './KernelQueue.ts';
@@ -82,6 +84,9 @@ export class Kernel {
   /** The kernel's router */
   readonly #kernelRouter: KernelRouter;
 
+  /** Manages IO channel lifecycle (optional, requires factory injection) */
+  readonly #ioManager: IOManager | undefined;
+
   /**
    * Construct a new kernel instance.
    *
@@ -92,6 +97,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
+   * @param options.ioChannelFactory - Optional factory for creating IO channels.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
@@ -102,6 +108,7 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
+      ioChannelFactory?: IOChannelFactory;
     } = {},
   ) {
     this.#platformServices = platformServices;
@@ -148,6 +155,21 @@ export class Kernel {
       logger: this.#logger.subLogger({ tags: ['KernelServiceManager'] }),
     });
 
+    if (options.ioChannelFactory) {
+      this.#ioManager = new IOManager({
+        factory: options.ioChannelFactory,
+        registerService:
+          this.#kernelServiceManager.registerKernelServiceObject.bind(
+            this.#kernelServiceManager,
+          ),
+        unregisterService:
+          this.#kernelServiceManager.unregisterKernelServiceObject.bind(
+            this.#kernelServiceManager,
+          ),
+        logger: this.#logger.subLogger({ tags: ['IOManager'] }),
+      });
+    }
+
     this.#subclusterManager = new SubclusterManager({
       kernelStore: this.#kernelStore,
       kernelQueue: this.#kernelQueue,
@@ -155,6 +177,7 @@ export class Kernel {
       getKernelService: (name) =>
         this.#kernelServiceManager.getKernelService(name),
       queueMessage: this.queueMessage.bind(this),
+      ...(this.#ioManager ? { ioManager: this.#ioManager } : {}),
       logger: this.#logger.subLogger({ tags: ['SubclusterManager'] }),
     });
 
@@ -193,6 +216,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
+   * @param options.ioChannelFactory - Optional factory for creating IO channels.
    * @param options.systemSubclusters - Optional array of system subcluster configurations.
    * @returns A promise for the new kernel instance.
    */
@@ -204,6 +228,7 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
+      ioChannelFactory?: IOChannelFactory;
       systemSubclusters?: SystemSubclusterConfig[];
     } = {},
   ): Promise<Kernel> {
@@ -683,6 +708,9 @@ export class Kernel {
   async reset(): Promise<void> {
     await this.#kernelQueue.waitForCrank();
     try {
+      if (this.#ioManager) {
+        await this.#ioManager.destroyAllChannels();
+      }
       await this.terminateAllVats();
       this.#subclusterManager.clearSystemSubclusters();
       this.#resetKernelState();

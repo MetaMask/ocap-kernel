@@ -31,7 +31,7 @@ describe('fetch nodejs capability', () => {
       {
         name: 'with Request objects',
         config: {},
-        // eslint-disable-next-line n/no-unsupported-features/node-builtins
+
         input: new Request('file:///path/to/file.txt'),
       },
       {
@@ -50,7 +50,7 @@ describe('fetch nodejs capability', () => {
       const result = await fetchCapability(input);
 
       expect(readFile).toHaveBeenCalledWith('/path/to/file.txt', 'utf8');
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
+
       expect(result).toBeInstanceOf(Response);
       expect(await result.text()).toBe(fileContents);
       expect(fetchMock).not.toHaveBeenCalled(); // Should not call global fetch for file:// URLs

@@ -88,6 +88,22 @@ export class KernelServiceManager {
   }
 
   /**
+   * Unregister a kernel service object by name.
+   *
+   * @param name - The name of the service to unregister.
+   */
+  unregisterKernelServiceObject(name: string): void {
+    const service = this.#kernelServicesByName.get(name);
+    if (!service) {
+      return;
+    }
+    this.#kernelServicesByName.delete(name);
+    this.#kernelServicesByObject.delete(service.kref);
+    this.#kernelStore.unpinObject(service.kref);
+    this.#kernelStore.kv.delete(`kernelService.${name}`);
+  }
+
+  /**
    * Get a kernel service by name.
    *
    * @param name - The name of the service.

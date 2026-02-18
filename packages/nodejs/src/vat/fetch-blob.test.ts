@@ -2,8 +2,6 @@ import { fetchMock } from '@ocap/repo-tools/test-utils/fetch-mock';
 import '@ocap/repo-tools/test-utils/mock-endoify';
 import { describe, expect, it, vi } from 'vitest';
 
-/* eslint-disable n/no-unsupported-features/node-builtins */
-
 const mocks = vi.hoisted(() => ({
   readFile: vi.fn(),
   fileURLToPath: vi.fn(),

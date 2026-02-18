@@ -2,6 +2,7 @@ import type { CapData } from '@endo/marshal';
 import { SubclusterNotFoundError } from '@metamask/kernel-errors';
 import { Logger } from '@metamask/logger';
 
+import type { IOManager } from '../io/IOManager.ts';
 import type { KernelQueue } from '../KernelQueue.ts';
 import type { VatManager } from './VatManager.ts';
 import { kslot, kunser } from '../liveslots/kernel-marshal.ts';
@@ -30,6 +31,7 @@ type SubclusterManagerOptions = {
     method: string,
     args: unknown[],
   ) => Promise<CapData<KRef>>;
+  ioManager?: IOManager;
   logger?: Logger;
 };
 
@@ -61,6 +63,9 @@ export class SubclusterManager {
   /** Logger for diagnostic output */
   readonly #logger: Logger;
 
+  /** Optional IO manager for creating/destroying IO channels */
+  readonly #ioManager: IOManager | undefined;
+
   /** Stores bootstrap root krefs of launched system subclusters */
   readonly #systemSubclusterRoots: Map<string, KRef> = new Map();
 
@@ -73,6 +78,7 @@ export class SubclusterManager {
    * @param options.vatManager - Manager for creating and managing vat instances.
    * @param options.getKernelService - Function to retrieve a kernel service by its kref.
    * @param options.queueMessage - Function to queue messages for delivery to targets.
+   * @param options.ioManager - Optional IO manager for IO channel lifecycle.
    * @param options.logger - Optional logger for diagnostic output.
    */
   constructor({
@@ -81,6 +87,7 @@ export class SubclusterManager {
     vatManager,
     getKernelService,
     queueMessage,
+    ioManager,
     logger,
   }: SubclusterManagerOptions) {
     this.#kernelStore = kernelStore;
@@ -88,6 +95,7 @@ export class SubclusterManager {
     this.#vatManager = vatManager;
     this.#getKernelService = getKernelService;
     this.#queueMessage = queueMessage;
+    this.#ioManager = ioManager;
     this.#logger = logger ?? new Logger('SubclusterManager');
     harden(this);
   }
@@ -111,13 +119,42 @@ export class SubclusterManager {
     if (!config.vats[config.bootstrap]) {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;
     }
-    this.#validateServices(config, isSystem);
     const subclusterId = this.#kernelStore.addSubcluster(config);
-    const { rootKref, bootstrapResult } = await this.#launchVatsForSubcluster(
-      subclusterId,
-      config,
-    );
-    return { subclusterId, rootKref, bootstrapResult };
+
+    try {
+      // Create IO channels before validating services so that IO service
+      // names are registered and discoverable by #validateServices.
+      if (config.io) {
+        if (!this.#ioManager) {
+          throw new Error(
+            'Cluster config declares IO channels but no IO channel factory was provided to the kernel',
+          );
+        }
+        await this.#ioManager.createChannels(subclusterId, config.io);
+      }
+
+      this.#validateServices(config, isSystem);
+      const { rootKref, bootstrapResult } = await this.#launchVatsForSubcluster(
+        subclusterId,
+        config,
+      );
+      return { subclusterId, rootKref, bootstrapResult };
+    } catch (error) {
+      // Roll back IO channels and persisted subcluster on failure.
+      // Cleanup is best-effort — errors must not mask the original failure.
+      try {
+        if (this.#ioManager) {
+          await this.#ioManager.destroyChannels(subclusterId);
+        }
+      } catch (cleanupError) {
+        this.#logger.error(
+          'Error during IO cleanup on failed launch:',
+          cleanupError,
+        );
+      }
+      this.#kernelStore.deleteSubcluster(subclusterId);
+      throw error;
+    }
   }
 
   /**
@@ -147,6 +184,16 @@ export class SubclusterManager {
     for (const vatId of vatIdsToTerminate.reverse()) {
       await this.#vatManager.terminateVat(vatId);
       this.#vatManager.collectGarbage();
+    }
+
+    // Destroy IO channels after terminating vats so that any queued
+    // messages targeting IO service krefs are drained first.
+    try {
+      if (this.#ioManager) {
+        await this.#ioManager.destroyChannels(subclusterId);
+      }
+    } catch (error) {
+      this.#logger.error('Error during IO cleanup on termination:', error);
     }
     this.#kernelStore.deleteSubcluster(subclusterId);
   }
@@ -225,7 +272,14 @@ export class SubclusterManager {
     if (!config.services) {
       return;
     }
+    const ioNames = config.io
+      ? new Set(Object.keys(config.io))
+      : new Set<string>();
     for (const name of config.services) {
+      // IO services are registered by IOManager with scoped names
+      if (ioNames.has(name)) {
+        continue;
+      }
       const service = this.#getKernelService(name);
       if (!service || (service.systemOnly && !isSystem)) {
         throw Error(`no registered kernel service '${name}'`);
@@ -259,15 +313,24 @@ export class SubclusterManager {
       roots[vatName] = kslot(rootRef, 'vatRoot');
     }
     const services: Record<string, SlotValue> = {};
-    if (config.services) {
-      for (const name of config.services) {
-        const possibleService = this.#getKernelService(name);
-        if (possibleService) {
-          const { kref } = possibleService;
-          services[name] = kslot(kref);
-        } else {
-          throw Error(`no registered kernel service '${name}'`);
-        }
+    const ioNames = config.io
+      ? new Set(Object.keys(config.io))
+      : new Set<string>();
+
+    // Collect all service names: explicit services plus IO channel names
+    const allServiceNames = new Set([...(config.services ?? []), ...ioNames]);
+
+    for (const name of allServiceNames) {
+      // IO services are registered under scoped names to avoid collisions
+      const lookupName = ioNames.has(name)
+        ? `io:${subclusterId}:${name}`
+        : name;
+      const possibleService = this.#getKernelService(lookupName);
+      if (possibleService) {
+        const { kref } = possibleService;
+        services[name] = kslot(kref);
+      } else {
+        throw Error(`no registered kernel service '${lookupName}'`);
       }
     }
     const rootKref = rootIds[config.bootstrap];
