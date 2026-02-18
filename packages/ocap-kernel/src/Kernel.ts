@@ -708,6 +708,9 @@ export class Kernel {
   async reset(): Promise<void> {
     await this.#kernelQueue.waitForCrank();
     try {
+      if (this.#ioManager) {
+        await this.#ioManager.destroyAllChannels();
+      }
       await this.terminateAllVats();
       this.#subclusterManager.clearSystemSubclusters();
       this.#resetKernelState();

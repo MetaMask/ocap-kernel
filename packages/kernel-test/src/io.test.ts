@@ -240,9 +240,17 @@ describe('IO kernel service', () => {
     // Send a line from the test to the vat
     await writeLine(client, 'hello from test');
 
-    // Trigger the vat to read
+    // Trigger the vat to read and verify it received the data
     await kernel.queueMessage(rootKref, 'doRead', []);
     await waitUntilQuiescent(100);
+
+    const bufferResult = await kernel.queueMessage(
+      rootKref,
+      'getReadBuffer',
+      [],
+    );
+    await waitUntilQuiescent(100);
+    expect(bufferResult.body).toContain('hello from test');
 
     // Trigger the vat to write
     const linePromise = readLine(client);

@@ -20,6 +20,7 @@ export function buildRootObject(
   const name = parameters?.name ?? 'io-vat';
   const tlog = unwrapTestLogger(vatPowers, name);
   let ioService: unknown;
+  const readBuffer: string[] = [];
 
   return makeDefaultExo('root', {
     async bootstrap(_vats: unknown, services: { repl: unknown }) {
@@ -29,11 +30,15 @@ export function buildRootObject(
     async doRead() {
       const line = await E(ioService).read();
       tlog(`read: ${line}`);
+      readBuffer.push(String(line));
       return line;
     },
     async doWrite(data: string) {
       await E(ioService).write(data);
       tlog(`wrote: ${data}`);
+    },
+    async getReadBuffer() {
+      return [...readBuffer];
     },
   });
 }

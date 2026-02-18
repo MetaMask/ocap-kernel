@@ -104,6 +104,46 @@ describe('IOManager', () => {
       expect(successChannel.close).toHaveBeenCalledOnce();
       expect(unregisterService).toHaveBeenCalledWith('io:s1:first');
     });
+
+    it('does not mask factory error when unregister fails during rollback', async () => {
+      const successChannel = makeChannel();
+      let callCount = 0;
+      const failingFactory = vi.fn(async () => {
+        callCount += 1;
+        if (callCount === 2) {
+          throw new Error('factory error');
+        }
+        return successChannel;
+      }) as unknown as IOChannelFactory;
+
+      const failingUnregister = vi.fn(() => {
+        throw new Error('unregister boom');
+      });
+      const errorSpy = vi.spyOn(logger, 'error');
+
+      const mgr = new IOManager({
+        factory: failingFactory,
+        registerService,
+        unregisterService: failingUnregister,
+        logger,
+      });
+
+      const ioConfig: Record<string, IOConfig> = {
+        first: { type: 'socket', path: '/tmp/a.sock' } as IOConfig,
+        second: { type: 'socket', path: '/tmp/b.sock' } as IOConfig,
+      };
+
+      // Original factory error propagates, not the unregister error
+      await expect(mgr.createChannels('s1', ioConfig)).rejects.toThrow(
+        'factory error',
+      );
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        'Error unregistering IO service "io:s1:first":',
+        expect.any(Error),
+      );
+      expect(successChannel.close).toHaveBeenCalledOnce();
+    });
   });
 
   describe('destroyChannels', () => {
@@ -176,6 +216,28 @@ describe('IOManager', () => {
         'Error closing IO channel "ch":',
         expect.any(Error),
       );
+    });
+  });
+
+  describe('destroyAllChannels', () => {
+    it('destroys channels for all subclusters', async () => {
+      await manager.createChannels('s1', {
+        a: { type: 'socket', path: '/tmp/a.sock' } as IOConfig,
+      });
+      await manager.createChannels('s2', {
+        b: { type: 'socket', path: '/tmp/b.sock' } as IOConfig,
+      });
+
+      await manager.destroyAllChannels();
+
+      expect(channels[0]?.close).toHaveBeenCalledOnce();
+      expect(channels[1]?.close).toHaveBeenCalledOnce();
+      expect(unregisterService).toHaveBeenCalledWith('io:s1:a');
+      expect(unregisterService).toHaveBeenCalledWith('io:s2:b');
+    });
+
+    it('is safe to call when no channels exist', async () => {
+      expect(await manager.destroyAllChannels()).toBeUndefined();
     });
   });
 });

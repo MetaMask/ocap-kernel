@@ -92,7 +92,14 @@ export class IOManager {
         // Clean up any channels we already created before re-throwing
         await this.#closeChannels(channels);
         for (const registeredName of serviceNames) {
-          this.#unregisterService(registeredName);
+          try {
+            this.#unregisterService(registeredName);
+          } catch (unregisterError) {
+            this.#logger?.error(
+              `Error unregistering IO service "${registeredName}":`,
+              unregisterError,
+            );
+          }
         }
         throw error;
       }
@@ -124,6 +131,16 @@ export class IOManager {
     this.#subclusters.delete(subclusterId);
 
     this.#logger?.info(`Destroyed IO channels for subcluster ${subclusterId}`);
+  }
+
+  /**
+   * Destroy all IO channels across all subclusters.
+   * Used during kernel reset to ensure no channels are leaked.
+   */
+  async destroyAllChannels(): Promise<void> {
+    for (const subclusterId of [...this.#subclusters.keys()]) {
+      await this.destroyChannels(subclusterId);
+    }
   }
 
   /**
