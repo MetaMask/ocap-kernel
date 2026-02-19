@@ -2,7 +2,7 @@ import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
 
-import { computeSmartAccountAddress } from '../lib/sdk.ts';
+import { computeSmartAccountAddress, resolveEnvironment } from '../lib/sdk.ts';
 import {
   buildDelegationUserOp,
   computeUserOpHash,
@@ -90,6 +90,24 @@ type ProviderFacet = {
     maxFeePerGas: Hex;
     maxPriorityFeePerGas: Hex;
   }>;
+  configureBundler: (config: {
+    bundlerUrl: string;
+    chainId: number;
+  }) => Promise<void>;
+  sponsorUserOp: (options: {
+    bundlerUrl: string;
+    entryPoint: Hex;
+    userOp: UserOperation;
+    context?: Record<string, unknown>;
+  }) => Promise<{
+    paymaster: Address;
+    paymasterData: Hex;
+    paymasterVerificationGasLimit: Hex;
+    paymasterPostOpGasLimit: Hex;
+    callGasLimit: Hex;
+    verificationGasLimit: Hex;
+    preVerificationGas: Hex;
+  }>;
 };
 
 type DelegationFacet = {
@@ -168,7 +186,13 @@ export function buildRootObject(
 
   // Bundler configuration for ERC-4337 UserOps
   let bundlerConfig:
-    | { bundlerUrl: string; entryPoint: Hex; chainId: number }
+    | {
+        bundlerUrl: string;
+        entryPoint: Hex;
+        chainId: number;
+        usePaymaster?: boolean;
+        sponsorshipPolicyId?: string;
+      }
     | undefined;
 
   // Smart account configuration (persisted in baggage)
@@ -360,6 +384,29 @@ export function buildRootObject(
   }
 
   /**
+   * Resolve the EOA owner address for signing.
+   * When a smart account is the sender, the signature must come from the
+   * underlying EOA owner, not the smart account address itself.
+   *
+   * @returns The EOA address to use for signing.
+   */
+  async function resolveSignerAddress(): Promise<Address | undefined> {
+    if (keyringVat) {
+      const accounts = await E(keyringVat).getAccounts();
+      if (accounts.length > 0) {
+        return accounts[0];
+      }
+    }
+    if (externalSigner) {
+      const accounts = await E(externalSigner).getAccounts();
+      if (accounts.length > 0) {
+        return accounts[0];
+      }
+    }
+    return undefined;
+  }
+
+  /**
    * Build, sign, and submit a UserOp that redeems one or more delegations.
    *
    * @param options - UserOp pipeline options.
@@ -400,6 +447,13 @@ export function buildRootObject(
       sender,
     });
 
+    // Include factory/factoryData when the smart account is not yet deployed
+    const includeFactory =
+      smartAccountConfig &&
+      smartAccountConfig.deployed === false &&
+      smartAccountConfig.factory &&
+      smartAccountConfig.factoryData;
+
     // Build unsigned UserOp (pure computation)
     const unsignedUserOp = buildDelegationUserOp({
       sender,
@@ -408,22 +462,56 @@ export function buildRootObject(
       execution: options.execution,
       maxFeePerGas,
       maxPriorityFeePerGas,
+      ...(includeFactory
+        ? {
+            factory: smartAccountConfig.factory,
+            factoryData: smartAccountConfig.factoryData,
+          }
+        : {}),
     });
 
-    // Estimate gas via bundler
-    const gasEstimate = await E(providerVat).estimateUserOpGas({
-      bundlerUrl: bundlerConfig.bundlerUrl,
-      entryPoint: bundlerConfig.entryPoint,
-      userOp: unsignedUserOp,
-    });
+    let userOpWithGas: UserOperation;
 
-    // Rebuild with estimated gas limits
-    const userOpWithGas: UserOperation = {
-      ...unsignedUserOp,
-      callGasLimit: gasEstimate.callGasLimit,
-      verificationGasLimit: gasEstimate.verificationGasLimit,
-      preVerificationGas: gasEstimate.preVerificationGas,
-    };
+    if (bundlerConfig.usePaymaster) {
+      // Use paymaster sponsorship instead of gas estimation
+      const sponsorContext: Record<string, unknown> = {};
+      if (bundlerConfig.sponsorshipPolicyId) {
+        sponsorContext.sponsorshipPolicyId = bundlerConfig.sponsorshipPolicyId;
+      }
+
+      const sponsorResult = await E(providerVat).sponsorUserOp({
+        bundlerUrl: bundlerConfig.bundlerUrl,
+        entryPoint: bundlerConfig.entryPoint,
+        userOp: unsignedUserOp,
+        context: sponsorContext,
+      });
+
+      userOpWithGas = {
+        ...unsignedUserOp,
+        paymaster: sponsorResult.paymaster,
+        paymasterData: sponsorResult.paymasterData,
+        paymasterVerificationGasLimit:
+          sponsorResult.paymasterVerificationGasLimit,
+        paymasterPostOpGasLimit: sponsorResult.paymasterPostOpGasLimit,
+        callGasLimit: sponsorResult.callGasLimit,
+        verificationGasLimit: sponsorResult.verificationGasLimit,
+        preVerificationGas: sponsorResult.preVerificationGas,
+      };
+    } else {
+      // Estimate gas via bundler
+      const gasEstimate = await E(providerVat).estimateUserOpGas({
+        bundlerUrl: bundlerConfig.bundlerUrl,
+        entryPoint: bundlerConfig.entryPoint,
+        userOp: unsignedUserOp,
+      });
+
+      userOpWithGas = {
+        ...unsignedUserOp,
+        callGasLimit: gasEstimate.callGasLimit,
+        verificationGasLimit: gasEstimate.verificationGasLimit,
+        preVerificationGas: gasEstimate.preVerificationGas,
+      };
+    }
 
     // Compute UserOp hash for signing (pure computation)
     const userOpHash = computeUserOpHash(
@@ -432,8 +520,15 @@ export function buildRootObject(
       bundlerConfig.chainId,
     );
 
+    // Resolve the signing address: when the sender is a smart account,
+    // sign with the underlying EOA owner, not the smart account address.
+    const signerAddress =
+      smartAccountConfig?.address === sender
+        ? await resolveSignerAddress()
+        : sender;
+
     // Sign the hash (raw ECDSA, no EIP-191 prefix)
-    const signature = await resolveHashSigning(userOpHash, sender);
+    const signature = await resolveHashSigning(userOpHash, signerAddress);
 
     // Attach signature and submit
     const signedUserOp: UserOperation = {
@@ -441,11 +536,22 @@ export function buildRootObject(
       signature,
     };
 
-    return E(providerVat).submitUserOp({
+    const result = await E(providerVat).submitUserOp({
       bundlerUrl: bundlerConfig.bundlerUrl,
       entryPoint: bundlerConfig.entryPoint,
       userOp: signedUserOp,
     });
+
+    // Mark smart account as deployed after successful submission
+    if (smartAccountConfig && smartAccountConfig.deployed === false) {
+      smartAccountConfig = {
+        ...smartAccountConfig,
+        deployed: true,
+      };
+      persistBaggage('smartAccountConfig', smartAccountConfig);
+    }
+
+    return result;
   }
 
   const coordinator = makeDefaultExo('walletCoordinator', {
@@ -543,6 +649,8 @@ export function buildRootObject(
       bundlerUrl: string;
       entryPoint?: Hex;
       chainId: number;
+      usePaymaster?: boolean;
+      sponsorshipPolicyId?: string;
     }): Promise<void> {
       // Validate bundler URL
       try {
@@ -566,8 +674,17 @@ export function buildRootObject(
         bundlerUrl: config.bundlerUrl,
         entryPoint: config.entryPoint ?? ENTRY_POINT_V07,
         chainId: config.chainId,
+        usePaymaster: config.usePaymaster,
+        sponsorshipPolicyId: config.sponsorshipPolicyId,
       };
       persistBaggage('bundlerConfig', bundlerConfig);
+
+      if (providerVat) {
+        await E(providerVat).configureBundler({
+          bundlerUrl: config.bundlerUrl,
+          chainId: config.chainId,
+        });
+      }
     },
 
     // ------------------------------------------------------------------
@@ -580,6 +697,8 @@ export function buildRootObject(
       address?: Address;
     }): Promise<SmartAccountConfig> {
       let { address } = config;
+      let factory: Address | undefined;
+      let factoryData: Hex | undefined;
 
       // Derive counterfactual address if not explicitly provided
       if (!address) {
@@ -603,18 +722,25 @@ export function buildRootObject(
           );
         }
 
+        const env = resolveEnvironment(config.chainId);
+        factory = env.SimpleFactory;
+
         const derived = await computeSmartAccountAddress({
           owner,
           deploySalt: config.deploySalt,
           chainId: config.chainId,
         });
         address = derived.address;
+        factoryData = derived.factoryData;
       }
 
       smartAccountConfig = {
         implementation: 'hybrid' as const,
         deploySalt: config.deploySalt,
         address,
+        factory,
+        factoryData,
+        deployed: false,
       };
       persistBaggage('smartAccountConfig', smartAccountConfig);
       return smartAccountConfig;

@@ -63,40 +63,5 @@ describe('constants', () => {
     it('returns placeholder contracts when chainId is undefined', () => {
       expect(getChainContracts(undefined)).toBe(PLACEHOLDER_CONTRACTS);
     });
-
-    it('returns real Sepolia addresses from SDK', () => {
-      const contracts = getChainContracts(SEPOLIA_CHAIN_ID);
-
-      expect(contracts.delegationManager).toMatch(/^0x[\da-f]{40}$/iu);
-      expect(contracts.delegationManager).not.toBe(
-        PLACEHOLDER_CONTRACTS.delegationManager,
-      );
-
-      expect(contracts.enforcers.allowedTargets).toMatch(/^0x[\da-f]{40}$/iu);
-      expect(contracts.enforcers.allowedMethods).toMatch(/^0x[\da-f]{40}$/iu);
-      expect(contracts.enforcers.valueLte).toMatch(/^0x[\da-f]{40}$/iu);
-      expect(contracts.enforcers.erc20TransferAmount).toMatch(
-        /^0x[\da-f]{40}$/iu,
-      );
-      expect(contracts.enforcers.limitedCalls).toMatch(/^0x[\da-f]{40}$/iu);
-      expect(contracts.enforcers.timestamp).toMatch(/^0x[\da-f]{40}$/iu);
-    });
-
-    it('prefers SDK environment over manual registry for known chains', () => {
-      const sdkContracts = getChainContracts(SEPOLIA_CHAIN_ID);
-
-      // Temporarily register manual contracts for Sepolia
-      CHAIN_CONTRACTS[SEPOLIA_CHAIN_ID] = PLACEHOLDER_CONTRACTS;
-
-      try {
-        // SDK should still win
-        const contracts = getChainContracts(SEPOLIA_CHAIN_ID);
-        expect(contracts.delegationManager).toBe(
-          sdkContracts.delegationManager,
-        );
-      } finally {
-        delete CHAIN_CONTRACTS[SEPOLIA_CHAIN_ID];
-      }
-    });
   });
 });

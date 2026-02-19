@@ -20,6 +20,7 @@ vi.mock('../lib/provider.ts', () => ({
 const mockBundlerClient = {
   sendUserOperation: vi.fn(),
   estimateUserOperationGas: vi.fn(),
+  sponsorUserOperation: vi.fn(),
   getUserOperationReceipt: vi.fn(),
   waitForUserOperationReceipt: vi.fn(),
 };
@@ -347,6 +348,47 @@ describe('provider-vat', () => {
           userOp: mockUserOp,
         }),
       ).rejects.toThrow('estimation failed');
+    });
+  });
+
+  describe('sponsorUserOp', () => {
+    const mockUserOp: UserOperation = {
+      sender: '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266' as Address,
+      nonce: '0x0' as Hex,
+      callData: '0xdeadbeef' as Hex,
+      callGasLimit: '0x50000' as Hex,
+      verificationGasLimit: '0x60000' as Hex,
+      preVerificationGas: '0x10000' as Hex,
+      maxFeePerGas: '0x3b9aca00' as Hex,
+      maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      signature: '0x' as Hex,
+    };
+
+    it('sponsors a UserOp via bundler client', async () => {
+      const sponsorResult = {
+        paymaster: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
+        paymasterData: '0xdeadbeef' as Hex,
+        paymasterVerificationGasLimit: '0x60000' as Hex,
+        paymasterPostOpGasLimit: '0x10000' as Hex,
+        callGasLimit: '0x50000' as Hex,
+        verificationGasLimit: '0x60000' as Hex,
+        preVerificationGas: '0x10000' as Hex,
+      };
+      mockBundlerClient.sponsorUserOperation.mockResolvedValue(sponsorResult);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (root as any).sponsorUserOp({
+        bundlerUrl: 'https://bundler.example.com',
+        entryPoint: ENTRY_POINT_V07,
+        userOp: mockUserOp,
+      });
+
+      expect(result).toStrictEqual(sponsorResult);
+      expect(mockBundlerClient.sponsorUserOperation).toHaveBeenCalledWith({
+        userOp: mockUserOp,
+        entryPointAddress: ENTRY_POINT_V07,
+        context: undefined,
+      });
     });
   });
 

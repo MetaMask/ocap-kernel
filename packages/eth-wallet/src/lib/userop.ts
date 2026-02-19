@@ -6,11 +6,6 @@ import {
   toHex,
 } from 'viem';
 
-import {
-  encodeSdkDelegations,
-  buildSdkRedeemCallData,
-  createSdkExecution,
-} from './sdk.ts';
 import type {
   Address,
   Delegation,
@@ -36,42 +31,56 @@ const DEFAULT_GAS_LIMITS = {
 } as const;
 
 /**
+ * ABI tuple type for a single Delegation struct.
+ */
+const DELEGATION_TUPLE =
+  '(address delegate, address delegator, bytes32 authority, (address enforcer, bytes terms)[] caveats, uint256 salt, bytes signature)';
+
+/**
  * Encode a delegation chain into the permission context bytes
  * expected by `DelegationManager.redeemDelegations`.
- *
- * Delegates to the SDK's `encodeDelegations()`.
  *
  * @param delegations - The delegation chain (leaf to root order).
  * @returns The ABI-encoded permission context.
  */
 export function encodeDelegationChain(delegations: Delegation[]): Hex {
-  return encodeSdkDelegations(delegations);
+  const tuples = delegations.map((del) => ({
+    delegate: del.delegate,
+    delegator: del.delegator,
+    authority: del.authority,
+    caveats: del.caveats.map((cav) => ({
+      enforcer: cav.enforcer,
+      terms: cav.terms,
+    })),
+    salt: BigInt(del.salt),
+    signature: del.signature ?? '0x',
+  }));
+
+  return encodeAbiParameters(parseAbiParameters(`${DELEGATION_TUPLE}[]`), [
+    tuples,
+  ] as never);
 }
 
 /**
  * Encode an Execution struct for use in callData.
  *
- * Delegates to the SDK's `createExecution()`.
- *
  * @param execution - The execution to encode.
  * @returns The ABI-encoded execution.
  */
 export function encodeExecution(execution: Execution): Hex {
-  const sdkExecution = createSdkExecution({
-    target: execution.target,
-    value: BigInt(execution.value),
-    callData: execution.callData,
-  });
   return encodeAbiParameters(
     parseAbiParameters('address target, uint256 value, bytes callData'),
-    [sdkExecution.target, sdkExecution.value, sdkExecution.callData],
+    [execution.target, BigInt(execution.value), execution.callData],
   );
 }
 
 /**
+ * Function selector for `redeemDelegations(bytes[],uint256[],bytes[])`.
+ */
+const REDEEM_DELEGATIONS_SELECTOR = '0x38c86720' as Hex;
+
+/**
  * Build the callData for `DelegationManager.redeemDelegations`.
- *
- * Delegates to the SDK's `DelegationManager.encode.redeemDelegations()`.
  *
  * @param options - Options.
  * @param options.delegations - The delegation chain (leaf to root).
@@ -82,7 +91,29 @@ export function buildRedeemCallData(options: {
   delegations: Delegation[];
   execution: Execution;
 }): Hex {
-  return buildSdkRedeemCallData(options);
+  const permissionContexts = [encodeDelegationChain(options.delegations)];
+  const modes = [0n]; // SingleDefault
+  const executions = [
+    encodeAbiParameters(
+      parseAbiParameters('(address target, uint256 value, bytes callData)[]'),
+      [
+        [
+          {
+            target: options.execution.target,
+            value: BigInt(options.execution.value),
+            callData: options.execution.callData,
+          },
+        ],
+      ] as never,
+    ),
+  ];
+
+  const args = encodeAbiParameters(
+    parseAbiParameters('bytes[], uint256[], bytes[]'),
+    [permissionContexts, modes, executions],
+  );
+
+  return (REDEEM_DELEGATIONS_SELECTOR + args.slice(2)) as Hex;
 }
 
 /**
@@ -99,6 +130,8 @@ export function buildRedeemCallData(options: {
  * @param options.gasLimits.callGasLimit - Override for call gas limit.
  * @param options.gasLimits.verificationGasLimit - Override for verification gas limit.
  * @param options.gasLimits.preVerificationGas - Override for pre-verification gas.
+ * @param options.factory - Optional factory address for account deployment.
+ * @param options.factoryData - Optional factory data for account deployment.
  * @returns An unsigned UserOperation.
  */
 export function buildDelegationUserOp(options: {
@@ -108,6 +141,8 @@ export function buildDelegationUserOp(options: {
   execution: Execution;
   maxFeePerGas: Hex;
   maxPriorityFeePerGas: Hex;
+  factory?: Address;
+  factoryData?: Hex;
   gasLimits?: {
     callGasLimit?: Hex;
     verificationGasLimit?: Hex;
@@ -122,6 +157,8 @@ export function buildDelegationUserOp(options: {
   return {
     sender: options.sender,
     nonce: options.nonce,
+    ...(options.factory ? { factory: options.factory } : {}),
+    ...(options.factoryData ? { factoryData: options.factoryData } : {}),
     callData,
     callGasLimit:
       options.gasLimits?.callGasLimit ?? DEFAULT_GAS_LIMITS.callGasLimit,

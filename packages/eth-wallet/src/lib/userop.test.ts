@@ -84,7 +84,7 @@ describe('lib/userop', () => {
         execution,
       });
 
-      expect(callData).toMatch(/^0x[\da-f]{8}/u);
+      expect(callData).toMatch(/^0x38c86720/u);
       expect(callData.length).toBeGreaterThan(10);
     });
   });
