@@ -1,4 +1,5 @@
 import '@metamask/kernel-shims/endoify-node';
+import { startRelay } from '@metamask/kernel-utils/libp2p';
 import { Logger } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
 import path from 'node:path';
@@ -10,7 +11,6 @@ import { getServer } from './commands/serve.ts';
 import { watchDir } from './commands/watch.ts';
 import { defaultConfig } from './config.ts';
 import type { Config } from './config.ts';
-import { startRelay } from './relay.ts';
 import { withTimeout } from './utils.ts';
 
 /**

@@ -4,7 +4,7 @@ set -x
 set -e
 set -o pipefail
 
-yarn ocap relay &
+yarn run -T ocap relay &
 RELAY_PID=$!
 
 function cleanup() {

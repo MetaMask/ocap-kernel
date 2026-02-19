@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createConnection } from 'node:net';
 import type { Socket } from 'node:net';
 import { homedir } from 'node:os';
@@ -100,38 +101,46 @@ async function writeLine(socket: Socket, line: string): Promise<void> {
 }
 
 /**
- * The response shape from the system console vat.
+ * A JSON-RPC 2.0 response.
  */
-export type ConsoleResponse = {
-  ok: boolean;
+export type JsonRpcResponse = {
+  jsonrpc: '2.0';
+  id: string | null;
   result?: unknown;
-  error?: string;
+  error?: { code: number; message: string };
 };
 
 /**
- * Send a JSON request to the daemon over a UNIX socket and return the response.
+ * Send a JSON-RPC request to the daemon over a UNIX socket and return the response.
  *
- * Opens a connection, writes one JSON line, reads one JSON response line,
- * then closes the connection. Retries once after a short delay if the
- * connection is rejected (e.g. due to a probe connection race).
+ * Opens a connection, writes one JSON-RPC request line, reads one JSON-RPC
+ * response line, then closes the connection. Retries once after a short delay
+ * if the connection is rejected (e.g. due to a probe connection race).
  *
  * @param socketPath - The UNIX socket path.
- * @param request - The request to send.
- * @param request.ref - Optional ref targeting a capability.
- * @param request.method - The method name to invoke.
- * @param request.args - Optional arguments array.
- * @returns The parsed response.
+ * @param method - The RPC method name.
+ * @param params - Optional method parameters.
+ * @returns The parsed JSON-RPC response.
  */
 export async function sendCommand(
   socketPath: string,
-  request: { ref?: string; method: string; args?: unknown[] },
-): Promise<ConsoleResponse> {
-  const attempt = async (): Promise<ConsoleResponse> => {
+  method: string,
+  params?: Record<string, unknown>,
+): Promise<JsonRpcResponse> {
+  const id = randomUUID();
+  const request = {
+    jsonrpc: '2.0',
+    id,
+    method,
+    ...(params === undefined ? {} : { params }),
+  };
+
+  const attempt = async (): Promise<JsonRpcResponse> => {
     const socket = await connectSocket(socketPath);
     try {
       await writeLine(socket, JSON.stringify(request));
       const responseLine = await readLine(socket);
-      return JSON.parse(responseLine) as ConsoleResponse;
+      return JSON.parse(responseLine) as JsonRpcResponse;
     } finally {
       socket.destroy();
     }
@@ -140,7 +149,7 @@ export async function sendCommand(
   try {
     return await attempt();
   } catch {
-    // Retry once after a short delay — the daemon's socket channel may
+    // Retry once after a short delay — the daemon's socket may
     // still be cleaning up a previous probe connection.
     await new Promise((resolve) => setTimeout(resolve, 100));
     return attempt();
@@ -161,52 +170,4 @@ export async function isDaemonRunning(socketPath: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-/**
- * Read all content from stdin, stripping shebang lines.
- *
- * @returns The stdin content with shebang lines removed.
- */
-export async function readStdin(): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    process.stdin.on('data', (chunk: Buffer) => chunks.push(chunk));
-    process.stdin.on('end', () => {
-      const raw = Buffer.concat(chunks).toString().trim();
-      const lines = raw.split('\n').filter((line) => !line.startsWith('#!'));
-      resolve(lines.join('\n').trim());
-    });
-    process.stdin.on('error', reject);
-  });
-}
-
-/**
- * Read a ref from stdin. Strips shebang lines.
- *
- * @returns The ref string.
- */
-export async function readRefFromStdin(): Promise<string> {
-  const content = await readStdin();
-  if (!content) {
-    throw new Error('No ref found in stdin');
-  }
-  return content;
-}
-
-/**
- * Read a ref from a .ocap file. Strips shebang lines.
- *
- * @param filePath - The path to the .ocap file.
- * @returns The ref string.
- */
-export async function readRefFromFile(filePath: string): Promise<string> {
-  const { readFile } = await import('node:fs/promises');
-  const raw = (await readFile(filePath, 'utf-8')).trim();
-  const lines = raw.split('\n').filter((line) => !line.startsWith('#!'));
-  const ref = lines.join('\n').trim();
-  if (!ref) {
-    throw new Error(`No ref found in ${filePath}`);
-  }
-  return ref;
 }

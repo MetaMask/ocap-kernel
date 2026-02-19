@@ -3,35 +3,24 @@ import { vi, describe, it, expect, afterEach } from 'vitest';
 import { startDaemon } from './start-daemon.ts';
 import type { DaemonHandle } from './start-daemon.ts';
 
-// Mock makeKernel to avoid real kernel creation
-vi.mock('../kernel/make-kernel.ts', () => ({
-  makeKernel: vi.fn().mockResolvedValue({
-    initIdentity: vi.fn().mockResolvedValue(undefined),
-    stop: vi.fn().mockResolvedValue(undefined),
-    getSystemSubclusterRoot: vi.fn().mockReturnValue('ko-root'),
-    queueMessage: vi.fn().mockResolvedValue({ body: '"d-1"', slots: [] }),
+const { mockRpcServerClose } = vi.hoisted(() => ({
+  mockRpcServerClose: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Mock RPC socket server to avoid real socket creation
+vi.mock('./rpc-socket-server.ts', () => ({
+  startRpcSocketServer: vi.fn().mockResolvedValue({
+    close: mockRpcServerClose,
   }),
 }));
 
-// Mock kunser to deserialise the capdata returned by queueMessage
-vi.mock('@metamask/ocap-kernel', async () => {
-  const actual = await vi.importActual<typeof import('@metamask/ocap-kernel')>(
-    '@metamask/ocap-kernel',
-  );
-  return { ...actual, kunser: vi.fn().mockReturnValue('d-1') };
-});
+const mockKernel = {
+  stop: vi.fn().mockResolvedValue(undefined),
+};
 
-// Mock filesystem operations
-vi.mock('node:fs/promises', async () => {
-  const actual =
-    await vi.importActual<typeof import('node:fs/promises')>(
-      'node:fs/promises',
-    );
-  return {
-    ...actual,
-    mkdir: vi.fn().mockResolvedValue(undefined),
-  };
-});
+const mockKernelDatabase = {
+  executeQuery: vi.fn().mockReturnValue([]),
+};
 
 describe('startDaemon', () => {
   let handle: DaemonHandle | undefined;
@@ -42,97 +31,56 @@ describe('startDaemon', () => {
       handle = undefined;
       await toClose.close();
     }
+    vi.clearAllMocks();
   });
 
-  it('creates kernel with IO-based system subcluster config', async () => {
-    const { makeKernel } = await import('../kernel/make-kernel.ts');
-    const mockedMakeKernel = vi.mocked(makeKernel);
+  it('starts RPC socket server with kernel and database', async () => {
+    const { startRpcSocketServer } = await import('./rpc-socket-server.ts');
+    const mockedStartRpc = vi.mocked(startRpcSocketServer);
 
     const tmpSocket = `/tmp/daemon-test-${Date.now()}-${Math.random().toString(36).slice(2)}.sock`;
 
     handle = await startDaemon({
-      systemConsoleBundleSpec: 'http://localhost/bundle',
-      systemConsoleName: 'my-console',
       socketPath: tmpSocket,
+      kernel: mockKernel as never,
+      kernelDatabase: mockKernelDatabase as never,
     });
 
-    expect(mockedMakeKernel).toHaveBeenCalledWith(
-      expect.objectContaining({
-        systemSubclusters: [
-          {
-            name: 'my-console',
-            config: {
-              bootstrap: 'my-console',
-              io: {
-                console: {
-                  type: 'socket',
-                  path: tmpSocket,
-                },
-              },
-              services: ['kernelFacet', 'console'],
-              vats: {
-                'my-console': {
-                  bundleSpec: 'http://localhost/bundle',
-                  parameters: { name: 'my-console' },
-                },
-              },
-            },
-          },
-        ],
-      }),
-    );
+    expect(mockedStartRpc).toHaveBeenCalledWith({
+      socketPath: tmpSocket,
+      kernel: mockKernel,
+      kernelDatabase: mockKernelDatabase,
+    });
   });
 
-  it('returns socket path, selfRef, and close function', async () => {
+  it('returns socket path, kernel, and close function', async () => {
     const tmpSocket = `/tmp/daemon-test-${Date.now()}-${Math.random().toString(36).slice(2)}.sock`;
 
     handle = await startDaemon({
-      systemConsoleBundleSpec: 'http://localhost/bundle',
       socketPath: tmpSocket,
+      kernel: mockKernel as never,
+      kernelDatabase: mockKernelDatabase as never,
     });
 
     expect(handle.socketPath).toBe(tmpSocket);
-    expect(handle.selfRef).toBe('d-1');
+    expect(handle.kernel).toBe(mockKernel);
     expect(typeof handle.close).toBe('function');
-    expect(handle.kernel).toBeDefined();
   });
 
-  it('issues a self-ref via getSystemSubclusterRoot and queueMessage', async () => {
-    const { makeKernel } = await import('../kernel/make-kernel.ts');
-    const mockedMakeKernel = vi.mocked(makeKernel);
-
+  it('closes RPC server and stops kernel on close', async () => {
     const tmpSocket = `/tmp/daemon-test-${Date.now()}-${Math.random().toString(36).slice(2)}.sock`;
 
     handle = await startDaemon({
-      systemConsoleBundleSpec: 'http://localhost/bundle',
-      systemConsoleName: 'my-console',
       socketPath: tmpSocket,
+      kernel: mockKernel as never,
+      kernelDatabase: mockKernelDatabase as never,
     });
 
-    const mockKernel = await mockedMakeKernel.mock.results[0]!.value;
-    expect(mockKernel.getSystemSubclusterRoot).toHaveBeenCalledWith(
-      'my-console',
-    );
-    expect(mockKernel.queueMessage).toHaveBeenCalledWith(
-      'ko-root',
-      'issueRef',
-      ['ko-root', true],
-    );
-  });
-
-  it('calls kernel.stop on close', async () => {
-    const tmpSocket = `/tmp/daemon-test-${Date.now()}-${Math.random().toString(36).slice(2)}.sock`;
-
-    handle = await startDaemon({
-      systemConsoleBundleSpec: 'http://localhost/bundle',
-      socketPath: tmpSocket,
-    });
-
-    const { stop } = handle.kernel;
     const toClose = handle;
     handle = undefined;
     await toClose.close();
 
-    expect(stop).toHaveBeenCalled();
+    expect(mockRpcServerClose).toHaveBeenCalled();
+    expect(mockKernel.stop).toHaveBeenCalled();
   });
 });

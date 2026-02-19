@@ -1,6 +1,6 @@
-/* eslint-disable n/no-process-exit, n/no-sync, no-negated-condition */
+/* eslint-disable n/no-process-exit */
 import '@metamask/kernel-shims/endoify-node';
-import { existsSync, fstatSync } from 'node:fs';
+import { flushDaemon } from '@ocap/nodejs/daemon';
 import { readFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -12,8 +12,6 @@ import {
   getSocketPath,
   isDaemonRunning,
   sendCommand,
-  readStdin,
-  readRefFromFile,
 } from './commands/daemon-client.ts';
 import { ensureDaemon } from './commands/daemon-spawn.ts';
 
@@ -30,151 +28,45 @@ function tildify(path: string): string {
 }
 
 /**
- * Handle the core invocation: resolve ref, call method, output result.
+ * Handle the core invocation: call an RPC method on the daemon.
  *
  * @param args - CLI arguments after `ok`.
  * @param socketPath - The daemon socket path.
  */
 async function handleInvoke(args: string[], socketPath: string): Promise<void> {
-  let ref: string | undefined;
-  let method: string;
-  let methodArgs: string[];
+  const method = args[0] ?? 'getStatus';
+  const rawParams = args[1];
 
-  const firstArg = args[0];
-  if (
-    firstArg !== undefined &&
-    (firstArg.endsWith('.ocap') || existsSync(firstArg))
-  ) {
-    // File arg mode: ok <file.ocap> <method> [...args]
-    ref = await readRefFromFile(firstArg);
-    method = args[1] ?? 'help';
-    methodArgs = args.slice(2);
-  } else if (
-    !process.stdin.isTTY &&
-    (fstatSync(0).isFIFO() || fstatSync(0).isFile())
-  ) {
-    // Redirected stdin (pipe or file): could be a ref (d-<uuid>) or JSON data
-    const stdinContent = await readStdin();
-    if (!stdinContent) {
-      throw new Error('No input on stdin');
-    }
-    if (stdinContent.startsWith('d-')) {
-      // Ref mode: ok <method> [...args] < file.ocap
-      ref = stdinContent;
-      method = args[0] ?? 'help';
-      methodArgs = args.slice(1);
-    } else {
-      // Data mode: cat config.json | ok launch
-      method = args[0] ?? 'help';
-      methodArgs = [stdinContent, ...args.slice(1)];
-    }
-  } else {
-    // No ref — dispatch on the system console itself
-    method = args[0] ?? 'help';
-    methodArgs = args.slice(1);
-  }
-
-  // For launch: resolve relative bundleSpec paths to file:// URLs.
-  // Handle shell word-splitting: `$(cat file.json)` without quotes splits
-  // JSON into many args. Try joining all args as one JSON string first.
-  if (method === 'launch') {
-    methodArgs = rejoinSplitJson(methodArgs);
-    methodArgs = methodArgs.map((arg) => {
-      try {
-        const parsed = JSON.parse(arg) as unknown;
-        if (isClusterConfigLike(parsed)) {
-          return JSON.stringify(resolveBundleSpecs(parsed));
-        }
-      } catch {
-        // not JSON — leave as-is
-      }
-      return arg;
-    });
-  }
-
-  // Parse args: try JSON for each, fall back to string
-  const parsedArgs = methodArgs.map((arg) => {
+  // For launchSubcluster: resolve relative bundleSpec paths to file:// URLs.
+  let params: Record<string, unknown> | undefined;
+  if (rawParams !== undefined) {
     try {
-      return JSON.parse(arg) as unknown;
+      const parsed = JSON.parse(rawParams) as Record<string, unknown>;
+      if (method === 'launchSubcluster' && isClusterConfigLike(parsed)) {
+        params = resolveBundleSpecs(parsed) as Record<string, unknown>;
+      } else {
+        params = parsed;
+      }
     } catch {
-      return arg;
+      // Not valid JSON — wrap as a simple value
+      params = { value: rawParams };
     }
-  });
+  }
 
-  const request: { ref?: string; method: string; args?: unknown[] } = {
-    method,
-    ...(ref !== undefined ? { ref } : {}),
-    ...(parsedArgs.length > 0 ? { args: parsedArgs } : {}),
-  };
+  const response = await sendCommand(socketPath, method, params);
 
-  const response = await sendCommand(socketPath, request);
-
-  if (!response.ok) {
-    process.stderr.write(`Error: ${response.error}\n`);
+  if (response.error) {
+    process.stderr.write(
+      `Error: ${response.error.message} (code ${String(response.error.code)})\n`,
+    );
     process.exit(1);
   }
 
   const isTTY = process.stdout.isTTY ?? false;
-  const { result } = response;
-
-  // Check if result contains a ref (capability)
-  const resultRef = isRefResult(result) ? result.ref : undefined;
-
-  if (resultRef && !isTTY) {
-    // Piped: output .ocap content for the ref
-    process.stdout.write(`#!/usr/bin/env ok\n${resultRef}\n`);
-  } else if (isTTY) {
-    process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+  if (isTTY) {
+    process.stdout.write(`${JSON.stringify(response.result, null, 2)}\n`);
   } else {
-    process.stdout.write(`${JSON.stringify(result)}\n`);
-  }
-}
-
-/**
- * Check if a result object contains a ref field.
- *
- * @param result - The result to check.
- * @returns True if the result has a ref string.
- */
-function isRefResult(result: unknown): result is { ref: string } {
-  return (
-    typeof result === 'object' &&
-    result !== null &&
-    'ref' in result &&
-    typeof (result as { ref: unknown }).ref === 'string'
-  );
-}
-
-/**
- * Rejoin args that were word-split by the shell from a single JSON value.
- *
- * When a user writes `ok launch $(cat config.json)` without quotes, bash
- * splits the JSON on whitespace into many argv entries. This function
- * detects that pattern and reassembles the original JSON.
- *
- * @param args - The method arguments (possibly word-split).
- * @returns The args, with split JSON rejoined into a single element.
- */
-function rejoinSplitJson(args: string[]): string[] {
-  if (args.length <= 1) {
-    return args;
-  }
-  // If the first arg already parses as a complete JSON object, no fix needed
-  const first = args[0];
-  if (first !== undefined) {
-    try {
-      JSON.parse(first);
-      return args;
-    } catch {
-      // First arg alone isn't valid JSON — try joining
-    }
-  }
-  const joined = args.join(' ');
-  try {
-    JSON.parse(joined);
-    return [joined];
-  } catch {
-    return args;
+    process.stdout.write(`${JSON.stringify(response.result)}\n`);
   }
 }
 
@@ -292,45 +184,21 @@ async function handleDaemon(args: string[], socketPath: string): Promise<void> {
       );
       process.exit(1);
     }
-    // eslint-disable-next-line import-x/no-extraneous-dependencies -- workspace package
-    const { flushDaemon } = await import('@ocap/nodejs');
     await flushDaemon({ socketPath });
     process.stderr.write('All daemon state flushed.\n');
     return;
   }
 
   // Default: start daemon (or confirm running)
-  let consolePath = 'system-console.ocap';
-  const consoleIdx = args.indexOf('--console');
-  if (consoleIdx !== -1 && args[consoleIdx + 1]) {
-    consolePath = args[consoleIdx + 1] ?? consolePath;
-  }
-
-  // Resolve relative to PWD
-  const ocapPath = resolve(consolePath);
-  // Derive the console name from the filename (strip .ocap if present)
-  const consoleName = ocapPath.endsWith('.ocap')
-    ? ocapPath.slice(ocapPath.lastIndexOf('/') + 1, -5)
-    : ocapPath.slice(ocapPath.lastIndexOf('/') + 1);
-
-  // eslint-disable-next-line n/no-process-env -- CLI sets env for daemon child process
-  process.env.OCAP_CONSOLE_NAME = consoleName;
-  // eslint-disable-next-line n/no-process-env -- CLI sets env for daemon child process
-  process.env.OCAP_CONSOLE_PATH = ocapPath;
-
   await ensureDaemon(socketPath);
-
   process.stderr.write(`Daemon running. Socket: ${tildify(socketPath)}\n`);
-  if (existsSync(ocapPath)) {
-    process.stderr.write(`Admin console: ${tildify(ocapPath)}\n`);
-  }
 }
 
 const socketPath = getSocketPath();
 
 const cli = yargs(hideBin(process.argv))
   .scriptName('ok')
-  .usage('$0 [file.ocap] <command> [...args]')
+  .usage('$0 <method> [params-json]')
   .help(false)
 
   .command(
@@ -341,11 +209,6 @@ const cli = yargs(hideBin(process.argv))
         .positional('subcommand', {
           describe: 'Subcommand: stop, begone',
           type: 'string',
-        })
-        .option('console', {
-          describe: 'Path for the .ocap admin file (relative to PWD)',
-          type: 'string',
-          default: 'system-console.ocap',
         })
         .option('forgood', {
           describe: 'Confirm state deletion (for begone)',
@@ -359,14 +222,11 @@ const cli = yargs(hideBin(process.argv))
       if (args.forgood) {
         daemonArgs.push('--forgood');
       }
-      if (args.console && args.console !== 'system-console.ocap') {
-        daemonArgs.push('--console', String(args.console));
-      }
       await handleDaemon(daemonArgs, socketPath);
     },
   )
 
-  // Default: file.ocap dispatch or bare invocation
+  // Default: RPC method dispatch
   .command(
     '$0 [args..]',
     false,
@@ -374,10 +234,7 @@ const cli = yargs(hideBin(process.argv))
     async (args) => {
       const invokeArgs = ((args.args ?? []) as string[]).map(String);
       await ensureDaemon(socketPath);
-      await handleInvoke(
-        invokeArgs.length > 0 ? invokeArgs : ['help'],
-        socketPath,
-      );
+      await handleInvoke(invokeArgs, socketPath);
     },
   )
 

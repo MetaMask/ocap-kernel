@@ -1,14 +1,12 @@
-/* eslint-disable n/no-process-exit, n/no-process-env, n/no-sync */
+/* eslint-disable n/no-process-exit, n/no-process-env */
 import '@metamask/kernel-shims/endoify-node';
 import { Logger } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
-import { chmod, mkdir, rm, writeFile } from 'node:fs/promises';
-import { createRequire } from 'node:module';
+import { makeKernel } from '@ocap/nodejs';
+import { startDaemon } from '@ocap/nodejs/daemon';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
-
-import { bundleFile } from './bundle.ts';
+import { join } from 'node:path';
 
 /**
  * Create a file transport that writes logs to a file.
@@ -18,10 +16,11 @@ import { bundleFile } from './bundle.ts';
  */
 function makeFileTransport(logPath: string) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports, n/global-require -- need sync fs for log transport
-  const { appendFileSync } = require('node:fs') as typeof import('node:fs');
+  const fs = require('node:fs') as typeof import('node:fs');
   return (entry: LogEntry): void => {
     const line = `[${new Date().toISOString()}] [${entry.level}] ${entry.message ?? ''} ${(entry.data ?? []).map(String).join(' ')}\n`;
-    appendFileSync(logPath, line);
+    // eslint-disable-next-line n/no-sync -- synchronous write needed for log transport reliability
+    fs.appendFileSync(logPath, line);
   };
 }
 
@@ -41,44 +40,18 @@ async function main(): Promise<void> {
   try {
     const socketPath =
       process.env.OCAP_SOCKET_PATH ?? join(ocapDir, 'console.sock');
-    const consoleName = process.env.OCAP_CONSOLE_NAME ?? 'system-console';
 
-    // Bundle system console vat if needed
-    const bundlesDir = join(ocapDir, 'bundles');
-    await mkdir(bundlesDir, { recursive: true });
-
-    const bundlePath = join(bundlesDir, 'system-console-vat.bundle');
-    const cjsRequire = createRequire(import.meta.url);
-    const kernelPkgPath = cjsRequire.resolve(
-      '@metamask/ocap-kernel/package.json',
-    );
-    const vatSource = resolve(
-      dirname(kernelPkgPath),
-      'src/vats/system-console-vat.ts',
-    );
-    logger.info(`Bundling system console vat from ${vatSource}...`);
-    await bundleFile(vatSource, { logger, targetPath: bundlePath });
-    const bundleSpec = pathToFileURL(bundlePath).href;
-
-    // Dynamically import to avoid pulling @ocap/nodejs into the CLI bundle graph
-    // eslint-disable-next-line import-x/no-extraneous-dependencies -- workspace package
-    const { startDaemon } = await import('@ocap/nodejs');
-
-    const handle = await startDaemon({
-      systemConsoleBundleSpec: bundleSpec,
-      systemConsoleName: consoleName,
-      socketPath,
+    const { kernel, kernelDatabase } = await makeKernel({
       resetStorage: true,
       logger,
     });
+    await kernel.initIdentity();
 
-    // Write the admin .ocap file so `ok <path> <command>` works
-    const ocapPath =
-      process.env.OCAP_CONSOLE_PATH ?? join(ocapDir, `${consoleName}.ocap`);
-    await mkdir(dirname(ocapPath), { recursive: true });
-    await writeFile(ocapPath, `#!/usr/bin/env ok\n${handle.selfRef}\n`);
-    await chmod(ocapPath, 0o700);
-    logger.info(`Wrote ${ocapPath}`);
+    const handle = await startDaemon({
+      socketPath,
+      kernel,
+      kernelDatabase,
+    });
 
     // Write PID file so `ok daemon stop` can signal this process
     const pidPath = join(ocapDir, 'daemon.pid');

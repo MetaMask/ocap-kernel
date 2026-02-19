@@ -1,33 +1,18 @@
-import { ifDefined } from '@metamask/kernel-utils';
-import type { Logger } from '@metamask/logger';
-import type { Kernel, SystemSubclusterConfig } from '@metamask/ocap-kernel';
-import { kunser } from '@metamask/ocap-kernel';
-import { mkdir } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+import type { KernelDatabase } from '@metamask/kernel-store';
+import type { Kernel } from '@metamask/ocap-kernel';
 
-import { makeKernel } from '../kernel/make-kernel.ts';
+import { startRpcSocketServer } from './rpc-socket-server.ts';
 
 /**
  * Options for starting the daemon.
  */
 export type StartDaemonOptions = {
-  /** UNIX socket path for the system console IO channel. Defaults to ~/.ocap/console.sock. */
-  socketPath?: string;
-  /** URL to the bundled system-console-vat. */
-  systemConsoleBundleSpec: string;
-  /** Name for the system console subcluster. Defaults to 'system-console'. */
-  systemConsoleName?: string;
-  /** Path to vat worker file. */
-  workerFilePath?: string;
-  /** SQLite database filename. Defaults to ~/.ocap/kernel.sqlite. */
-  dbFilename?: string;
-  /** If true, clear kernel storage. */
-  resetStorage?: boolean;
-  /** Logger instance. */
-  logger?: Logger;
-  /** Seed for libp2p key generation. */
-  keySeed?: string;
+  /** UNIX socket path for the RPC server. */
+  socketPath: string;
+  /** A running kernel instance. */
+  kernel: Kernel;
+  /** The kernel database instance. */
+  kernelDatabase: KernelDatabase;
 };
 
 /**
@@ -36,15 +21,14 @@ export type StartDaemonOptions = {
 export type DaemonHandle = {
   kernel: Kernel;
   socketPath: string;
-  selfRef: string;
   close: () => Promise<void>;
 };
 
 /**
  * Start the OCAP daemon.
  *
- * Creates a kernel with a system console vat that listens for commands
- * on a UNIX domain socket IO channel. The kernel process IS the daemon.
+ * Starts a JSON-RPC socket server that exposes kernel control methods
+ * on a UNIX domain socket.
  *
  * @param options - Configuration options.
  * @returns A daemon handle.
@@ -52,67 +36,22 @@ export type DaemonHandle = {
 export async function startDaemon(
   options: StartDaemonOptions,
 ): Promise<DaemonHandle> {
-  const {
-    systemConsoleBundleSpec,
-    systemConsoleName = 'system-console',
-    workerFilePath,
-    resetStorage,
-    logger,
-    keySeed,
-  } = options;
+  const { socketPath, kernel, kernelDatabase } = options;
 
-  const ocapDir = join(homedir(), '.ocap');
-  await mkdir(ocapDir, { recursive: true });
-
-  const socketPath = options.socketPath ?? join(ocapDir, 'console.sock');
-  const dbFilename = options.dbFilename ?? join(ocapDir, 'kernel.sqlite');
-
-  // Build system subcluster config with IO channel for the console socket
-  const systemSubcluster: SystemSubclusterConfig = {
-    name: systemConsoleName,
-    config: {
-      bootstrap: systemConsoleName,
-      io: {
-        console: {
-          type: 'socket' as const,
-          path: socketPath,
-        },
-      },
-      services: ['kernelFacet', 'console'],
-      vats: {
-        [systemConsoleName]: {
-          bundleSpec: systemConsoleBundleSpec,
-          parameters: { name: systemConsoleName },
-        },
-      },
-    },
-  };
-
-  const kernel = await makeKernel({
-    ...ifDefined({ workerFilePath, resetStorage, logger }),
-    dbFilename,
-    keySeed,
-    systemSubclusters: [systemSubcluster],
+  const rpcServer = await startRpcSocketServer({
+    socketPath,
+    kernel,
+    kernelDatabase,
   });
 
-  await kernel.initIdentity();
-
-  // Issue a self-ref so the admin .ocap file can address the console root object
-  const rootKref = kernel.getSystemSubclusterRoot(systemConsoleName);
-  const capData = await kernel.queueMessage(rootKref, 'issueRef', [
-    rootKref,
-    true,
-  ]);
-  const selfRef = kunser(capData) as string;
-
   const close = async (): Promise<void> => {
+    await rpcServer.close();
     await kernel.stop();
   };
 
   return {
     kernel,
     socketPath,
-    selfRef,
     close,
   };
 }

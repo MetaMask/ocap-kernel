@@ -1,9 +1,9 @@
 import type { Libp2p } from '@libp2p/interface';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import { startRelay } from '@metamask/kernel-utils/libp2p';
 import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
 import type { KRef } from '@metamask/ocap-kernel';
-import { startRelay } from '@ocap/cli/relay';
 import { delay } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 

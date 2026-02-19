@@ -6,8 +6,8 @@ set -o pipefail
 yarn build
 
 # Bundle and serve test vats (e.g., empty-vat used by minimal-cluster.json)
-yarn ocap bundle "../kernel-test/src/vats/default"
-yarn ocap serve "../kernel-test/src/vats/default" &
+yarn run -T ocap bundle "../kernel-test/src/vats/default"
+yarn run -T ocap serve "../kernel-test/src/vats/default" &
 SERVER_PID=$!
 
 function cleanup() {

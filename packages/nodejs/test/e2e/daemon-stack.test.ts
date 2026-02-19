@@ -1,18 +1,14 @@
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import type { Kernel } from '@metamask/ocap-kernel';
-import { kunser } from '@metamask/ocap-kernel';
 import * as net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { describe, it, expect, afterEach } from 'vitest';
 
-import { makeIOChannelFactory } from '../../src/io/index.ts';
+import type { RpcSocketServerHandle } from '../../src/daemon/index.ts';
+import { startRpcSocketServer } from '../../src/daemon/index.ts';
 import { makeTestKernel } from '../helpers/kernel.ts';
-
-const SYSTEM_CONSOLE_NAME = 'system-console';
 
 /**
  * Generate a unique temp socket path.
@@ -82,49 +78,51 @@ async function readLine(socket: net.Socket): Promise<string> {
 }
 
 /**
- * Send a JSON request over a socket and read the JSON response.
+ * A JSON-RPC 2.0 response.
+ */
+type JsonRpcResponse = {
+  jsonrpc: '2.0';
+  id: string | null;
+  result?: unknown;
+  error?: { code: number; message: string };
+};
+
+/**
+ * Send a JSON-RPC request over a socket and read the JSON-RPC response.
  *
  * @param socketPath - The socket path.
- * @param request - The request object.
- * @returns The parsed response.
+ * @param method - The RPC method name.
+ * @param params - Optional method parameters.
+ * @returns The parsed JSON-RPC response.
  */
-async function sendCommand(
+async function sendJsonRpc(
   socketPath: string,
-  request: Record<string, unknown>,
-): Promise<{ ok: boolean; result?: unknown; error?: string }> {
+  method: string,
+  params?: Record<string, unknown>,
+): Promise<JsonRpcResponse> {
   const socket = await connectToSocket(socketPath);
   try {
+    const request = {
+      jsonrpc: '2.0',
+      id: '1',
+      method,
+      ...(params === undefined ? {} : { params }),
+    };
     await writeLine(socket, JSON.stringify(request));
     const responseLine = await readLine(socket);
-    return JSON.parse(responseLine) as {
-      ok: boolean;
-      result?: unknown;
-      error?: string;
-    };
+    return JSON.parse(responseLine) as JsonRpcResponse;
   } finally {
     socket.destroy();
   }
 }
 
-/**
- * Get the bundle spec for the system console vat test bundle.
- *
- * @returns The bundle spec URL.
- */
-function getSystemConsoleBundleSpec(): string {
-  const bundlePath = join(
-    import.meta.dirname,
-    '../vats/system-console-vat.bundle',
-  );
-  return pathToFileURL(bundlePath).href;
-}
-
-describe('Daemon Stack (IO socket protocol)', { timeout: 30_000 }, () => {
+describe('Daemon Stack (JSON-RPC socket protocol)', { timeout: 30_000 }, () => {
   let kernel: Kernel | undefined;
   let kernelDatabase: KernelDatabase | undefined;
+  let rpcServer: RpcSocketServerHandle | undefined;
 
   /**
-   * Boot a kernel with a system console subcluster using IO socket.
+   * Boot a kernel with an RPC socket server.
    *
    * @returns The socket path.
    */
@@ -132,38 +130,24 @@ describe('Daemon Stack (IO socket protocol)', { timeout: 30_000 }, () => {
     const socketPath = tempSocketPath();
 
     kernelDatabase = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
-    kernel = await makeTestKernel(kernelDatabase, {
-      ioChannelFactory: makeIOChannelFactory(),
-      systemSubclusters: [
-        {
-          name: SYSTEM_CONSOLE_NAME,
-          config: {
-            bootstrap: SYSTEM_CONSOLE_NAME,
-            io: {
-              console: {
-                type: 'socket' as const,
-                path: socketPath,
-              },
-            },
-            services: ['kernelFacet', 'console'],
-            vats: {
-              [SYSTEM_CONSOLE_NAME]: {
-                bundleSpec: getSystemConsoleBundleSpec(),
-                parameters: { name: SYSTEM_CONSOLE_NAME },
-              },
-            },
-          },
-        },
-      ],
-    });
-
+    kernel = await makeTestKernel(kernelDatabase);
     await kernel.initIdentity();
-    await waitUntilQuiescent(100);
+
+    rpcServer = await startRpcSocketServer({
+      socketPath,
+      kernel,
+      kernelDatabase,
+    });
 
     return socketPath;
   }
 
   afterEach(async () => {
+    if (rpcServer) {
+      const toClose = rpcServer;
+      rpcServer = undefined;
+      await toClose.close();
+    }
     if (kernel) {
       const stopResult = kernel.stop();
       kernel = undefined;
@@ -175,162 +159,71 @@ describe('Daemon Stack (IO socket protocol)', { timeout: 30_000 }, () => {
     }
   });
 
-  describe('daemon tier (no ref)', () => {
-    it('dispatches help command with daemon-tier commands only', async () => {
-      const socketPath = await bootDaemonStack();
+  it('returns kernel status via getStatus', async () => {
+    const socketPath = await bootDaemonStack();
 
-      const response = await sendCommand(socketPath, { method: 'help' });
+    const response = await sendJsonRpc(socketPath, 'getStatus');
 
-      expect(response.ok).toBe(true);
-      expect(response.result).toStrictEqual({
-        commands: ['help - show available commands', 'status - daemon status'],
-      });
-    });
-
-    it('dispatches status command returning liveness indicator', async () => {
-      const socketPath = await bootDaemonStack();
-
-      const response = await sendCommand(socketPath, { method: 'status' });
-
-      expect(response).toStrictEqual({
-        ok: true,
-        result: { running: true },
-      });
-    });
-
-    it('returns error for unknown command', async () => {
-      const socketPath = await bootDaemonStack();
-
-      const response = await sendCommand(socketPath, {
-        method: 'nonexistent',
-      });
-
-      expect(response.ok).toBe(false);
-      expect(response.error).toContain('Unknown command');
-    });
-
-    it('rejects privileged commands at daemon tier', async () => {
-      const socketPath = await bootDaemonStack();
-
-      const response = await sendCommand(socketPath, { method: 'ls' });
-
-      expect(response.ok).toBe(false);
-      expect(response.error).toContain('Unknown command');
-    });
-
-    it('handles sequential requests on separate connections', async () => {
-      const socketPath = await bootDaemonStack();
-
-      const response1 = await sendCommand(socketPath, { method: 'help' });
-      expect(response1.ok).toBe(true);
-
-      const response2 = await sendCommand(socketPath, { method: 'status' });
-      expect(response2.ok).toBe(true);
-    });
+    expect(response.jsonrpc).toBe('2.0');
+    expect(response.error).toBeUndefined();
+    expect(response.result).toBeDefined();
+    const result = response.result as Record<string, unknown>;
+    expect(result).toHaveProperty('vats');
+    expect(result).toHaveProperty('subclusters');
   });
 
-  describe('privileged tier (ref-based dispatch)', () => {
-    /**
-     * Boot daemon and issue a self-ref for the console root object.
-     *
-     * @returns The socket path and the issued ref.
-     */
-    async function bootWithSelfRef(): Promise<{
-      socketPath: string;
-      selfRef: string;
-    }> {
-      const socketPath = await bootDaemonStack();
+  it('returns error for unknown method', async () => {
+    const socketPath = await bootDaemonStack();
 
-      // Issue a self-ref via kernel API (same as start-daemon.ts does)
-      const rootKref = kernel!.getSystemSubclusterRoot(SYSTEM_CONSOLE_NAME);
-      const capData = await kernel!.queueMessage(rootKref, 'issueRef', [
-        rootKref,
-        true,
-      ]);
-      const selfRef = kunser(capData) as string;
+    const response = await sendJsonRpc(socketPath, 'nonexistentMethod');
 
-      return { socketPath, selfRef };
-    }
+    expect(response.error).toBeDefined();
+    expect(response.error!.code).toBe(-32601);
+  });
 
-    it('dispatches help via ref', async () => {
-      const { socketPath, selfRef } = await bootWithSelfRef();
+  it('executes DB query', async () => {
+    const socketPath = await bootDaemonStack();
 
-      const response = await sendCommand(socketPath, {
-        ref: selfRef,
-        method: 'help',
-      });
-
-      expect(response.ok).toBe(true);
-      const result = response.result as { commands: string[] };
-      expect(result.commands).toContain('help - show available commands');
-      expect(result.commands).toContain('ls - list all issued refs');
+    const response = await sendJsonRpc(socketPath, 'executeDBQuery', {
+      sql: 'SELECT key, value FROM kv LIMIT 5',
     });
 
-    it('dispatches status via ref (returns kernel status)', async () => {
-      const { socketPath, selfRef } = await bootWithSelfRef();
+    expect(response.error).toBeUndefined();
+    expect(Array.isArray(response.result)).toBe(true);
+  });
 
-      const response = await sendCommand(socketPath, {
-        ref: selfRef,
-        method: 'status',
-      });
+  it('handles sequential requests on separate connections', async () => {
+    const socketPath = await bootDaemonStack();
 
-      expect(response.ok).toBe(true);
-      const result = response.result as Record<string, unknown>;
-      expect(result).toHaveProperty('vats');
-      expect(result).toHaveProperty('subclusters');
-    });
+    const response1 = await sendJsonRpc(socketPath, 'getStatus');
+    expect(response1.error).toBeUndefined();
+    expect(response1.result).toBeDefined();
 
-    it('dispatches ls via ref', async () => {
-      const { socketPath, selfRef } = await bootWithSelfRef();
+    const response2 = await sendJsonRpc(socketPath, 'getStatus');
+    expect(response2.error).toBeUndefined();
+    expect(response2.result).toBeDefined();
+  });
 
-      const response = await sendCommand(socketPath, {
-        ref: selfRef,
-        method: 'ls',
-      });
+  it('terminates all vats', async () => {
+    const socketPath = await bootDaemonStack();
 
-      expect(response.ok).toBe(true);
-      const result = response.result as { refs: string[] };
-      expect(Array.isArray(result.refs)).toBe(true);
-    });
+    const response = await sendJsonRpc(socketPath, 'terminateAllVats');
 
-    it('dispatches subclusters via ref', async () => {
-      const { socketPath, selfRef } = await bootWithSelfRef();
+    expect(response.error).toBeUndefined();
+  });
 
-      const response = await sendCommand(socketPath, {
-        ref: selfRef,
-        method: 'subclusters',
-      });
+  it('returns proper JSON-RPC error structure', async () => {
+    const socketPath = await bootDaemonStack();
 
-      expect(response.ok).toBe(true);
-      expect(Array.isArray(response.result)).toBe(true);
-    });
+    const response = await sendJsonRpc(socketPath, 'nonexistent');
 
-    it('dispatches invoke to call method on a ref through the kernel', async () => {
-      const { socketPath, selfRef } = await bootWithSelfRef();
-
-      // Use invoke to call 'ls' on the self-ref (goes through getPresence + E())
-      const response = await sendCommand(socketPath, {
-        ref: selfRef,
-        method: 'invoke',
-        args: [selfRef, 'ls'],
-      });
-
-      expect(response.ok).toBe(true);
-      const result = response.result as { refs: string[] };
-      expect(Array.isArray(result.refs)).toBe(true);
-    });
-
-    it('returns error when invoke targets unknown ref', async () => {
-      const { socketPath, selfRef } = await bootWithSelfRef();
-
-      const response = await sendCommand(socketPath, {
-        ref: selfRef,
-        method: 'invoke',
-        args: ['d-999', 'someMethod'],
-      });
-
-      expect(response.ok).toBe(false);
-      expect(response.error).toContain('Unknown ref: d-999');
+    expect(response).toStrictEqual({
+      jsonrpc: '2.0',
+      id: '1',
+      error: expect.objectContaining({
+        code: expect.any(Number),
+        message: expect.any(String),
+      }),
     });
   });
 });
