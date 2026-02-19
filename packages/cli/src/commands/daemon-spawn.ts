@@ -27,7 +27,7 @@ export async function ensureDaemon(socketPath: string): Promise<void> {
     detached: true,
     stdio: 'ignore',
     env: {
-      ...process.env, // eslint-disable-line n/no-process-env -- pass env to child
+      ...process.env,
       OCAP_SOCKET_PATH: socketPath,
     },
   });

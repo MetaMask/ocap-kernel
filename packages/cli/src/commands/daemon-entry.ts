@@ -38,11 +38,16 @@ async function main(): Promise<void> {
   const pidPath = join(ocapDir, 'daemon.pid');
   await writeFile(pidPath, String(process.pid));
 
+  let shutdownPromise: Promise<void> | undefined;
   const shutdown = async (reason: string): Promise<void> => {
-    logger.info(`Shutting down (${reason})...`);
-    // eslint-disable-next-line @typescript-eslint/no-use-before-define -- shutdown is only called async, after handle is initialized
-    await handle.close();
-    await rm(pidPath, { force: true });
+    if (shutdownPromise === undefined) {
+      logger.info(`Shutting down (${reason})...`);
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define -- shutdown is only called async, after handle is initialized
+      shutdownPromise = handle
+        .close()
+        .then(async () => rm(pidPath, { force: true }));
+    }
+    return shutdownPromise;
   };
 
   const handle = await startDaemon({
