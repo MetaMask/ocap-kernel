@@ -47,9 +47,9 @@ describe('persistent storage', { timeout: 20_000 }, () => {
   };
 
   it('maintains state across kernel restarts', async () => {
-    const database = await makeSQLKernelDatabase({ dbFilename: databasePath });
+    const database1 = await makeSQLKernelDatabase({ dbFilename: databasePath });
     const kernel1 = await makeKernel(
-      database,
+      database1,
       false,
       logger.logger.subLogger({ tags: ['test'] }),
     );
@@ -60,14 +60,16 @@ describe('persistent storage', { timeout: 20_000 }, () => {
     expect(incrementResult1).toBe('Counter incremented to: 2');
     await waitUntilQuiescent();
     await kernel1.stop();
+    const database2 = await makeSQLKernelDatabase({ dbFilename: databasePath });
     const kernel2 = await makeKernel(
-      database,
+      database2,
       false,
       logger.logger.subLogger({ tags: ['test'] }),
     );
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const resumeResult = await runResume(kernel2, v1Root);
     expect(resumeResult).toBe('Counter incremented to: 3');
+    await kernel2.stop();
   });
 
   it('handles multiple vats with persistent state', async () => {
@@ -88,9 +90,9 @@ describe('persistent storage', { timeout: 20_000 }, () => {
         },
       },
     };
-    const database = await makeSQLKernelDatabase({ dbFilename: databasePath });
+    const database1 = await makeSQLKernelDatabase({ dbFilename: databasePath });
     const kernel1 = await makeKernel(
-      database,
+      database1,
       false,
       logger.logger.subLogger({ tags: ['test'] }),
     );
@@ -101,14 +103,16 @@ describe('persistent storage', { timeout: 20_000 }, () => {
     expect(workResult1).toBe('Work completed: Worker1(1), Worker2(1)');
     await waitUntilQuiescent();
     await kernel1.stop();
+    const database2 = await makeSQLKernelDatabase({ dbFilename: databasePath });
     const kernel2 = await makeKernel(
-      database,
+      database2,
       false,
       logger.logger.subLogger({ tags: ['test'] }),
     );
     await new Promise((resolve) => setTimeout(resolve, 1000));
     const workResult2 = await runResume(kernel2, v1Root);
     expect(workResult2).toBe('Work completed: Worker1(2), Worker2(2)');
+    await kernel2.stop();
   });
 
   it('respects resetStorage flag when set to true', async () => {
@@ -148,10 +152,10 @@ describe('persistent storage', { timeout: 20_000 }, () => {
   });
 
   it('handles messages in queue after kernel restart', async () => {
-    const database = await makeSQLKernelDatabase({ dbFilename: databasePath });
-    const kernelStore = makeKernelStore(database);
+    const database1 = await makeSQLKernelDatabase({ dbFilename: databasePath });
+    const kernelStore1 = makeKernelStore(database1);
     const kernel1 = await makeKernel(
-      database,
+      database1,
       false,
       logger.logger.subLogger({ tags: ['test'] }),
     );
@@ -164,31 +168,34 @@ describe('persistent storage', { timeout: 20_000 }, () => {
     const result1 = await kernel1.queueMessage(v1Root, 'resume', []);
     expect(kunser(result1)).toBe('Counter incremented to: 2');
     // Enqueue a send message into the database
-    kernelStore.kv.set('queue.run.head', '4');
-    kernelStore.kv.set('nextPromiseId', '4');
-    kernelStore.kv.set(`${v1Root}.refCount`, '3,3');
-    kernelStore.kv.set('queue.kp3.head', '1');
-    kernelStore.kv.set('queue.kp3.tail', '1');
-    kernelStore.kv.set('kp3.state', 'unresolved');
-    kernelStore.kv.set('kp3.subscribers', '[]');
-    kernelStore.kv.set('kp3.refCount', '2');
-    kernelStore.kv.set(
+    kernelStore1.kv.set('queue.run.head', '4');
+    kernelStore1.kv.set('nextPromiseId', '4');
+    kernelStore1.kv.set(`${v1Root}.refCount`, '3,3');
+    kernelStore1.kv.set('queue.kp3.head', '1');
+    kernelStore1.kv.set('queue.kp3.tail', '1');
+    kernelStore1.kv.set('kp3.state', 'unresolved');
+    kernelStore1.kv.set('kp3.subscribers', '[]');
+    kernelStore1.kv.set('kp3.refCount', '2');
+    kernelStore1.kv.set(
       'queue.run.3',
       `{"type":"send","target":"${v1Root}","message":{"methargs":{"body":"#[\\"resume\\",[]]","slots":[]},"result":"kp3"}}`,
     );
     await kernel1.stop();
-    // verify that the message is in the database
-    expect(kernelStore.kv.get('queue.run.3')).toBeDefined();
+    // Open a fresh connection to verify the message is in the database
+    const database2 = await makeSQLKernelDatabase({ dbFilename: databasePath });
+    const kernelStore2 = makeKernelStore(database2);
+    expect(kernelStore2.kv.get('queue.run.3')).toBeDefined();
     // restart the kernel
     const kernel2 = await makeKernel(
-      database,
+      database2,
       false,
       logger.logger.subLogger({ tags: ['test'] }),
     );
     // verify that the run queue is empty
-    expect(kernelStore.kv.get('queue.run.3')).toBeUndefined();
+    expect(kernelStore2.kv.get('queue.run.3')).toBeUndefined();
     // verify that the message is processed and the counter is incremented
     const result2 = await kernel2.queueMessage(v1Root, 'resume', []);
     expect(kunser(result2)).toBe('Counter incremented to: 4');
+    await kernel2.stop();
   });
 });
