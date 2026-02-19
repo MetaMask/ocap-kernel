@@ -1,4 +1,3 @@
-/* eslint-disable n/no-process-exit */
 import { isJsonRpcFailure } from '@metamask/utils';
 import { deleteDaemonState } from '@ocap/nodejs/daemon';
 import { readFile, rm } from 'node:fs/promises';
@@ -184,7 +183,8 @@ export async function handleDaemonExec(
     process.stderr.write(
       `Error: ${response.error.message} (code ${String(response.error.code)})\n`,
     );
-    process.exit(1);
+    process.exitCode = 1;
+    return;
   }
 
   const isTTY = process.stdout.isTTY ?? false;
