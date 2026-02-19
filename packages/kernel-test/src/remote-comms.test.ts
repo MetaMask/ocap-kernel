@@ -13,7 +13,10 @@ import type {
   RemoteCommsOptions,
 } from '@metamask/ocap-kernel';
 import { NodejsPlatformServices } from '@ocap/nodejs';
-import { describe, it, expect, beforeEach } from 'vitest';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import {
   makeTestLogger,
@@ -278,6 +281,17 @@ describe('Remote Communications (Integration Tests)', () => {
     );
   });
 
+  afterEach(async () => {
+    await Promise.all([
+      kernel1.stop().catch(() => {
+        // already stopped inside the test
+      }),
+      kernel2.stop().catch(() => {
+        // already stopped inside the test
+      }),
+    ]);
+  });
+
   it('should initialize remote communications without errors', async () => {
     const status1 = await kernel1.getStatus();
     const status2 = await kernel2.getStatus();
@@ -365,87 +379,120 @@ describe('Remote Communications (Integration Tests)', () => {
   });
 
   it('remote relationships should survive kernel restart', async () => {
-    // Launch client vat on kernel1
-    const clientConfig = makeMaasClientConfig('client1', true);
-    let clientKernel = kernel1;
-    await runTestVats(clientKernel, clientConfig);
-    const clientRootRef = kernelStore1.getRootObject('v1') as KRef;
+    // This test needs file-based databases for persistence across stop/restart.
+    // Stop the beforeEach kernels and replace them with file-backed ones.
+    const tempDir = await mkdtemp(join(tmpdir(), 'kernel-test-rc-'));
+    const dbFile1 = join(tempDir, 'k1.db');
+    const dbFile2 = join(tempDir, 'k2.db');
+    try {
+      await Promise.all([kernel1.stop(), kernel2.stop()]);
 
-    // Launch server vat on kernel2
-    const serverConfig = makeMaasServerConfig('server2', true);
-    let serverKernel = kernel2;
-    const serverResult = await runTestVats(serverKernel, serverConfig);
+      const initDb1 = await makeSQLKernelDatabase({ dbFilename: dbFile1 });
+      const localKernelStore1 = makeKernelStore(initDb1);
+      let clientKernel = await makeTestKernel(
+        'kernel1',
+        initDb1,
+        directNetwork,
+        true,
+        'kernel1-peer',
+        '01',
+      );
 
-    // The server's ocap URL is its bootstrap result
-    const serverURL = serverResult as string;
+      const initDb2 = await makeSQLKernelDatabase({ dbFilename: dbFile2 });
+      let serverKernel = await makeTestKernel(
+        'kernel2',
+        initDb2,
+        directNetwork,
+        true,
+        'kernel2-peer',
+        '02',
+      );
 
-    expect(typeof serverURL).toBe('string');
-    expect(serverURL).toMatch(/^ocap:/u);
+      // Launch client vat on kernel1
+      const clientConfig = makeMaasClientConfig('client1', true);
+      await runTestVats(clientKernel, clientConfig);
+      const clientRootRef = localKernelStore1.getRootObject('v1') as KRef;
 
-    // Configure the client with the server's URL
-    const setupResult = await clientKernel.queueMessage(
-      clientRootRef,
-      'setMaas',
-      [serverURL],
-    );
-    let response = kunser(setupResult);
-    expect(response).toBeDefined();
-    expect(response).toContain('MaaS service URL set');
+      // Launch server vat on kernel2
+      const serverConfig = makeMaasServerConfig('server2', true);
+      const serverResult = await runTestVats(serverKernel, serverConfig);
 
-    // Tell the client to talk to the server
-    let expectedCount = 1;
-    const stepResult = await clientKernel.queueMessage(
-      clientRootRef,
-      'step',
-      [],
-    );
-    response = kunser(stepResult);
-    expect(response).toBeDefined();
-    expect(response).toContain(`next step: ${expectedCount} `);
+      // The server's ocap URL is its bootstrap result
+      const serverURL = serverResult as string;
 
-    // Kill the server and restart it
-    await serverKernel.stop();
-    serverKernel = await makeTestKernel(
-      'kernel2b',
-      kernelDatabase2,
-      directNetwork,
-      false,
-      'kernel2-peer',
-      '02',
-    );
+      expect(typeof serverURL).toBe('string');
+      expect(serverURL).toMatch(/^ocap:/u);
 
-    // Tell the client to talk to the server a second time
-    expectedCount += 1;
-    const stepResult2 = await clientKernel.queueMessage(
-      clientRootRef,
-      'step',
-      [],
-    );
-    response = kunser(stepResult2);
-    expect(response).toBeDefined();
-    expect(response).toContain(`next step: ${expectedCount} `);
+      // Configure the client with the server's URL
+      const setupResult = await clientKernel.queueMessage(
+        clientRootRef,
+        'setMaas',
+        [serverURL],
+      );
+      let response = kunser(setupResult);
+      expect(response).toBeDefined();
+      expect(response).toContain('MaaS service URL set');
 
-    // Kill the client and restart it
-    await clientKernel.stop();
-    clientKernel = await makeTestKernel(
-      'kernel1b',
-      kernelDatabase1,
-      directNetwork,
-      false,
-      'kernel1-peer',
-      '01',
-    );
+      // Tell the client to talk to the server
+      let expectedCount = 1;
+      const stepResult = await clientKernel.queueMessage(
+        clientRootRef,
+        'step',
+        [],
+      );
+      response = kunser(stepResult);
+      expect(response).toBeDefined();
+      expect(response).toContain(`next step: ${expectedCount} `);
 
-    // Tell the client to talk to the server a third time
-    expectedCount += 1;
-    const stepResult3 = await clientKernel.queueMessage(
-      clientRootRef,
-      'step',
-      [],
-    );
-    response = kunser(stepResult3);
-    expect(response).toBeDefined();
-    expect(response).toContain(`next step: ${expectedCount} `);
+      // Kill the server and restart it with a fresh db connection
+      await serverKernel.stop();
+      serverKernel = await makeTestKernel(
+        'kernel2b',
+        await makeSQLKernelDatabase({ dbFilename: dbFile2 }),
+        directNetwork,
+        false,
+        'kernel2-peer',
+        '02',
+      );
+
+      // Tell the client to talk to the server a second time
+      expectedCount += 1;
+      const stepResult2 = await clientKernel.queueMessage(
+        clientRootRef,
+        'step',
+        [],
+      );
+      response = kunser(stepResult2);
+      expect(response).toBeDefined();
+      expect(response).toContain(`next step: ${expectedCount} `);
+
+      // Kill the client and restart it with a fresh db connection
+      await clientKernel.stop();
+      clientKernel = await makeTestKernel(
+        'kernel1b',
+        await makeSQLKernelDatabase({ dbFilename: dbFile1 }),
+        directNetwork,
+        false,
+        'kernel1-peer',
+        '01',
+      );
+
+      // Tell the client to talk to the server a third time
+      expectedCount += 1;
+      const stepResult3 = await clientKernel.queueMessage(
+        clientRootRef,
+        'step',
+        [],
+      );
+      response = kunser(stepResult3);
+      expect(response).toBeDefined();
+      expect(response).toContain(`next step: ${expectedCount} `);
+
+      // Stop the local kernels before the temp dir is cleaned up
+      await Promise.all([clientKernel.stop(), serverKernel.stop()]);
+    } finally {
+      await rm(tempDir, { recursive: true, force: true });
+    }
   });
 });
 
