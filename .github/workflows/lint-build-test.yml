@@ -171,7 +171,9 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: yarn playwright install --with-deps chromium
+        run: yarn playwright install chromium
+      - name: Install Playwright system dependencies
+        run: yarn playwright install-deps chromium
       - run: VITE_DB_FOLDER=e2e yarn build
       - name: Run E2E tests
         id: e2e
