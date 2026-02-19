@@ -45,7 +45,7 @@ Send an RPC method call to the daemon. Defaults to `getStatus` when `method` is 
 The daemon is a prototype. The following limitations apply:
 
 1. **`executeDBQuery` accepts arbitrary SQL** — any CLI user can execute unrestricted SQL against the kernel database. For production, this should be removed or restricted to read-only queries.
-2. **No socket permission enforcement** — the Unix socket is created with default permissions. Any local user can connect and issue commands. For production, socket permissions should be restricted to `0o600`.
+2. **No socket permission enforcement** — the Unix socket is created with default permissions. Any local user can connect and issue commands. For production, socket permissions should be restricted to `0600`.
 3. **No daemon spawn concurrency protection** — if two CLI invocations run simultaneously and neither finds a running daemon, both may attempt to spawn one. A lockfile mechanism would prevent this.
 4. **No request size limits** — the RPC server buffers incoming data without a size cap. A malicious client could exhaust daemon memory.
 5. **No log rotation** — `daemon.log` grows without bound. Production use should add log rotation.

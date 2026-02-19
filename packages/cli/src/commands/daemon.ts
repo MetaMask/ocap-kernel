@@ -96,7 +96,7 @@ export async function stopDaemon(socketPath: string): Promise<boolean> {
     } catch {
       // Socket became unresponsive.
     }
-    stopped = await waitFor(async () => !(await pingDaemon(socketPath)), 5_000);
+    stopped = !(await pingDaemon(socketPath));
   }
 
   // Strategy 2: SIGTERM.
