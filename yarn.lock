@@ -3825,6 +3825,7 @@ __metadata:
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/logger": "workspace:^"
     "@metamask/ocap-kernel": "workspace:^"
+    "@ocap/cli": "workspace:^"
     "@ocap/kernel-language-model-service": "workspace:^"
     "@ocap/nodejs": "workspace:^"
     "@ocap/nodejs-test-workers": "workspace:^"
