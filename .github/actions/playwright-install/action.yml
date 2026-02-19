@@ -12,8 +12,9 @@ runs:
         key: playwright-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
     - name: Install Playwright browsers
       if: steps.playwright-cache.outputs.cache-hit != 'true'
-      run: yarn playwright install chromium
+      run: yarn playwright install --with-deps chromium
       shell: bash
     - name: Install Playwright system dependencies
+      if: steps.playwright-cache.outputs.cache-hit == 'true'
       run: yarn playwright install-deps chromium
       shell: bash
