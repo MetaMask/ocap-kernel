@@ -1,9 +1,17 @@
+/**
+ * @deprecated Use `lib/bundler-client.ts` (`makeBundlerClient()`) instead.
+ * This module is retained for backwards compatibility and will be removed
+ * in a future release.
+ */
+
 import type { Hex, UserOperation } from '../types.ts';
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
 
 /**
  * Configuration for connecting to an ERC-4337 bundler.
+ *
+ * @deprecated Use `BundlerClientConfig` from `lib/bundler-client.ts` instead.
  */
 export type BundlerConfig = {
   url: string;
@@ -80,6 +88,7 @@ async function bundlerRpc(
 /**
  * Submit a signed UserOperation to the bundler.
  *
+ * @deprecated Use `makeBundlerClient().sendUserOperation()` instead.
  * @param config - The bundler configuration.
  * @param userOp - The signed UserOperation.
  * @returns The UserOperation hash.
@@ -98,6 +107,7 @@ export async function submitUserOp(
 /**
  * Estimate gas for a UserOperation.
  *
+ * @deprecated Use `makeBundlerClient().estimateUserOperationGas()` instead.
  * @param config - The bundler configuration.
  * @param userOp - The UserOperation to estimate.
  * @returns The gas estimates.
@@ -116,6 +126,7 @@ export async function estimateUserOpGas(
 /**
  * Get the receipt for a UserOperation.
  *
+ * @deprecated Use `makeBundlerClient().getUserOperationReceipt()` instead.
  * @param config - The bundler configuration.
  * @param userOpHash - The UserOperation hash.
  * @returns The receipt, or null if not yet included.
@@ -134,6 +145,7 @@ export async function getUserOpReceipt(
 /**
  * Poll for a UserOperation receipt until it is included.
  *
+ * @deprecated Use `makeBundlerClient().waitForUserOperationReceipt()` instead.
  * @param config - The bundler configuration.
  * @param userOpHash - The UserOperation hash.
  * @param options - Polling options.

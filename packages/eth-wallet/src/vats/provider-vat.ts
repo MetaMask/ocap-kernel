@@ -1,7 +1,9 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
-import { encodeAbiParameters, http, parseAbiParameters } from 'viem';
+import { encodeAbiParameters, parseAbiParameters } from 'viem';
 
+import { makeBundlerClient } from '../lib/bundler-client.ts';
+import type { ViemBundlerClient } from '../lib/bundler-client.ts';
 import { makeProvider } from '../lib/provider.ts';
 import type { Provider } from '../lib/provider.ts';
 import type { Address, ChainConfig, Hex, UserOperation } from '../types.ts';
@@ -33,11 +35,47 @@ export function buildRootObject(
   baggage: Baggage,
 ): object {
   let provider: Provider | undefined;
+  let bundlerClient: ViemBundlerClient | undefined;
 
   // Restore provider from persisted chain config
   if (baggage.has('chainConfig')) {
     const chainConfig = baggage.get('chainConfig') as ChainConfig;
     provider = makeProvider(chainConfig);
+  }
+
+  // Restore bundler client from persisted config
+  if (baggage.has('bundlerConfig')) {
+    const config = baggage.get('bundlerConfig') as {
+      bundlerUrl: string;
+      chainId: number;
+    };
+    bundlerClient = makeBundlerClient({
+      bundlerUrl: config.bundlerUrl,
+      chainId: config.chainId,
+    });
+  }
+
+  /**
+   * Get or create a bundler client for the given URL and chain.
+   * Prefers the pre-configured client if the URL matches.
+   *
+   * @param bundlerUrl - The bundler RPC URL.
+   * @param chainId - The chain ID (used for ephemeral clients).
+   * @returns A bundler client.
+   */
+  function getBundlerClient(
+    bundlerUrl: string,
+    chainId?: number,
+  ): ViemBundlerClient {
+    // Use pre-configured client if available
+    if (bundlerClient) {
+      return bundlerClient;
+    }
+    // Create an ephemeral client for this request
+    return makeBundlerClient({
+      bundlerUrl,
+      chainId: chainId ?? 1,
+    });
   }
 
   return makeDefaultExo('walletProvider', {
@@ -52,6 +90,22 @@ export function buildRootObject(
         baggage.set('chainConfig', chainConfig);
       } else {
         baggage.init('chainConfig', chainConfig);
+      }
+    },
+
+    async configureBundler(config: {
+      bundlerUrl: string;
+      chainId: number;
+    }): Promise<void> {
+      bundlerClient = makeBundlerClient({
+        bundlerUrl: config.bundlerUrl,
+        chainId: config.chainId,
+      });
+
+      if (baggage.has('bundlerConfig')) {
+        baggage.set('bundlerConfig', config);
+      } else {
+        baggage.init('bundlerConfig', config);
       }
     },
 
@@ -95,15 +149,11 @@ export function buildRootObject(
       entryPoint: Hex;
       userOp: UserOperation;
     }): Promise<Hex> {
-      const transport = http(options.bundlerUrl)({
-        chain: undefined,
-        retryCount: 0,
+      const client = getBundlerClient(options.bundlerUrl);
+      return client.sendUserOperation({
+        userOp: options.userOp as never,
+        entryPointAddress: options.entryPoint,
       });
-      const result = await transport.request({
-        method: 'eth_sendUserOperation' as never,
-        params: [options.userOp, options.entryPoint] as never,
-      });
-      return result as Hex;
     },
 
     async estimateUserOpGas(options: {
@@ -115,18 +165,15 @@ export function buildRootObject(
       verificationGasLimit: Hex;
       preVerificationGas: Hex;
     }> {
-      const transport = http(options.bundlerUrl)({
-        chain: undefined,
-        retryCount: 0,
+      const client = getBundlerClient(options.bundlerUrl);
+      const estimate = await client.estimateUserOperationGas({
+        userOp: options.userOp as never,
+        entryPointAddress: options.entryPoint,
       });
-      const result = await transport.request({
-        method: 'eth_estimateUserOperationGas' as never,
-        params: [options.userOp, options.entryPoint] as never,
-      });
-      return result as {
-        callGasLimit: Hex;
-        verificationGasLimit: Hex;
-        preVerificationGas: Hex;
+      return {
+        callGasLimit: `0x${estimate.callGasLimit.toString(16)}`,
+        verificationGasLimit: `0x${estimate.verificationGasLimit.toString(16)}`,
+        preVerificationGas: `0x${estimate.preVerificationGas.toString(16)}`,
       };
     },
 
@@ -155,15 +202,8 @@ export function buildRootObject(
       bundlerUrl: string;
       userOpHash: Hex;
     }): Promise<unknown> {
-      const transport = http(options.bundlerUrl)({
-        chain: undefined,
-        retryCount: 0,
-      });
-      const result = await transport.request({
-        method: 'eth_getUserOperationReceipt' as never,
-        params: [options.userOpHash] as never,
-      });
-      return result ?? null;
+      const client = getBundlerClient(options.bundlerUrl);
+      return client.getUserOperationReceipt(options.userOpHash);
     },
 
     async getGasFees(): Promise<{

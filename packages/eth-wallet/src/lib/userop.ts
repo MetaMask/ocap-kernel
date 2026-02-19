@@ -6,6 +6,11 @@ import {
   toHex,
 } from 'viem';
 
+import {
+  encodeSdkDelegations,
+  buildSdkRedeemCallData,
+  createSdkExecution,
+} from './sdk.ts';
 import type {
   Address,
   Delegation,
@@ -31,54 +36,42 @@ const DEFAULT_GAS_LIMITS = {
 } as const;
 
 /**
- * ABI fragment for DelegationManager.redeemDelegations.
- */
-const REDEEM_DELEGATIONS_SELECTOR = '0x38c86720' as Hex;
-
-/**
  * Encode a delegation chain into the permission context bytes
  * expected by `DelegationManager.redeemDelegations`.
+ *
+ * Delegates to the SDK's `encodeDelegations()`.
  *
  * @param delegations - The delegation chain (leaf to root order).
  * @returns The ABI-encoded permission context.
  */
 export function encodeDelegationChain(delegations: Delegation[]): Hex {
-  const encoded = delegations.map((delegation) => ({
-    delegate: delegation.delegate,
-    delegator: delegation.delegator,
-    authority: delegation.authority,
-    caveats: delegation.caveats.map((caveat) => ({
-      enforcer: caveat.enforcer,
-      terms: caveat.terms,
-      args: '0x' as Hex,
-    })),
-    salt: BigInt(delegation.salt),
-    signature: delegation.signature ?? ('0x' as Hex),
-  }));
-
-  return encodeAbiParameters(
-    parseAbiParameters(
-      '(address delegate, address delegator, bytes32 authority, (address enforcer, bytes terms, bytes args)[] caveats, uint256 salt, bytes signature)[]',
-    ),
-    [encoded],
-  );
+  return encodeSdkDelegations(delegations);
 }
 
 /**
  * Encode an Execution struct for use in callData.
  *
+ * Delegates to the SDK's `createExecution()`.
+ *
  * @param execution - The execution to encode.
  * @returns The ABI-encoded execution.
  */
 export function encodeExecution(execution: Execution): Hex {
+  const sdkExecution = createSdkExecution({
+    target: execution.target,
+    value: BigInt(execution.value),
+    callData: execution.callData,
+  });
   return encodeAbiParameters(
     parseAbiParameters('address target, uint256 value, bytes callData'),
-    [execution.target, BigInt(execution.value), execution.callData],
+    [sdkExecution.target, sdkExecution.value, sdkExecution.callData],
   );
 }
 
 /**
  * Build the callData for `DelegationManager.redeemDelegations`.
+ *
+ * Delegates to the SDK's `DelegationManager.encode.redeemDelegations()`.
  *
  * @param options - Options.
  * @param options.delegations - The delegation chain (leaf to root).
@@ -89,16 +82,7 @@ export function buildRedeemCallData(options: {
   delegations: Delegation[];
   execution: Execution;
 }): Hex {
-  const permissionContext = encodeDelegationChain(options.delegations);
-  const executionCallData = encodeExecution(options.execution);
-
-  // redeemDelegations(bytes[] _permissionContexts, uint256[] _modes, bytes[] _executionCallDatas)
-  const args = encodeAbiParameters(
-    parseAbiParameters('bytes[], uint256[], bytes[]'),
-    [[permissionContext], [0n], [executionCallData]],
-  );
-
-  return (REDEEM_DELEGATIONS_SELECTOR + args.slice(2)) as Hex;
+  return buildSdkRedeemCallData(options);
 }
 
 /**

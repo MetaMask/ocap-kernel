@@ -17,15 +17,16 @@ vi.mock('../lib/provider.ts', () => ({
   makeProvider: vi.fn(() => mockProvider),
 }));
 
-const mockTransportRequest = vi.fn();
+const mockBundlerClient = {
+  sendUserOperation: vi.fn(),
+  estimateUserOperationGas: vi.fn(),
+  getUserOperationReceipt: vi.fn(),
+  waitForUserOperationReceipt: vi.fn(),
+};
 
-vi.mock('viem', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('viem')>();
-  return {
-    ...actual,
-    http: vi.fn(() => () => ({ request: mockTransportRequest })),
-  };
-});
+vi.mock('../lib/bundler-client.ts', () => ({
+  makeBundlerClient: vi.fn(() => mockBundlerClient),
+}));
 
 describe('provider-vat', () => {
   let baggage: ReturnType<typeof makeMockBaggage>;
@@ -54,6 +55,18 @@ describe('provider-vat', () => {
       });
 
       expect(baggage.has('chainConfig')).toBe(true);
+    });
+  });
+
+  describe('configureBundler', () => {
+    it('stores bundler config in baggage', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      expect(baggage.has('bundlerConfig')).toBe(true);
     });
   });
 
@@ -157,8 +170,8 @@ describe('provider-vat', () => {
       signature: '0xsig' as Hex,
     };
 
-    it('submits a UserOp via bundler transport', async () => {
-      mockTransportRequest.mockResolvedValue('0xuserophash');
+    it('submits a UserOp via bundler client', async () => {
+      mockBundlerClient.sendUserOperation.mockResolvedValue('0xuserophash');
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await (root as any).submitUserOp({
@@ -168,14 +181,16 @@ describe('provider-vat', () => {
       });
 
       expect(result).toBe('0xuserophash');
-      expect(mockTransportRequest).toHaveBeenCalledWith({
-        method: 'eth_sendUserOperation',
-        params: [mockUserOp, ENTRY_POINT_V07],
+      expect(mockBundlerClient.sendUserOperation).toHaveBeenCalledWith({
+        userOp: mockUserOp,
+        entryPointAddress: ENTRY_POINT_V07,
       });
     });
 
-    it('propagates transport errors', async () => {
-      mockTransportRequest.mockRejectedValue(new Error('bundler error'));
+    it('propagates bundler client errors', async () => {
+      mockBundlerClient.sendUserOperation.mockRejectedValue(
+        new Error('bundler error'),
+      );
 
       await expect(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -252,9 +267,9 @@ describe('provider-vat', () => {
   });
 
   describe('getUserOpReceipt', () => {
-    it('queries bundler for UserOp receipt', async () => {
+    it('queries bundler client for UserOp receipt', async () => {
       const receipt = { success: true, receipt: { transactionHash: '0xabc' } };
-      mockTransportRequest.mockResolvedValue(receipt);
+      mockBundlerClient.getUserOperationReceipt.mockResolvedValue(receipt);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await (root as any).getUserOpReceipt({
@@ -263,26 +278,13 @@ describe('provider-vat', () => {
       });
 
       expect(result).toStrictEqual(receipt);
-      expect(mockTransportRequest).toHaveBeenCalledWith({
-        method: 'eth_getUserOperationReceipt',
-        params: ['0xdeadbeef'],
-      });
+      expect(mockBundlerClient.getUserOperationReceipt).toHaveBeenCalledWith(
+        '0xdeadbeef',
+      );
     });
 
     it('returns null when receipt is not found', async () => {
-      mockTransportRequest.mockResolvedValue(null);
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await (root as any).getUserOpReceipt({
-        bundlerUrl: 'https://bundler.example.com',
-        userOpHash: '0xdeadbeef' as Hex,
-      });
-
-      expect(result).toBeNull();
-    });
-
-    it('returns null when bundler returns undefined', async () => {
-      mockTransportRequest.mockResolvedValue(undefined);
+      mockBundlerClient.getUserOperationReceipt.mockResolvedValue(null);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await (root as any).getUserOpReceipt({
@@ -307,13 +309,12 @@ describe('provider-vat', () => {
       signature: '0x' as Hex,
     };
 
-    it('estimates gas via bundler transport', async () => {
-      const gasEstimate = {
-        callGasLimit: '0x50000' as Hex,
-        verificationGasLimit: '0x60000' as Hex,
-        preVerificationGas: '0x10000' as Hex,
-      };
-      mockTransportRequest.mockResolvedValue(gasEstimate);
+    it('estimates gas via bundler client', async () => {
+      mockBundlerClient.estimateUserOperationGas.mockResolvedValue({
+        callGasLimit: 0x50000n,
+        verificationGasLimit: 0x60000n,
+        preVerificationGas: 0x10000n,
+      });
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const result = await (root as any).estimateUserOpGas({
@@ -322,15 +323,21 @@ describe('provider-vat', () => {
         userOp: mockUserOp,
       });
 
-      expect(result).toStrictEqual(gasEstimate);
-      expect(mockTransportRequest).toHaveBeenCalledWith({
-        method: 'eth_estimateUserOperationGas',
-        params: [mockUserOp, ENTRY_POINT_V07],
+      expect(result).toStrictEqual({
+        callGasLimit: '0x50000',
+        verificationGasLimit: '0x60000',
+        preVerificationGas: '0x10000',
+      });
+      expect(mockBundlerClient.estimateUserOperationGas).toHaveBeenCalledWith({
+        userOp: mockUserOp,
+        entryPointAddress: ENTRY_POINT_V07,
       });
     });
 
-    it('propagates transport errors', async () => {
-      mockTransportRequest.mockRejectedValue(new Error('estimation failed'));
+    it('propagates bundler client errors', async () => {
+      mockBundlerClient.estimateUserOperationGas.mockRejectedValue(
+        new Error('estimation failed'),
+      );
 
       await expect(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

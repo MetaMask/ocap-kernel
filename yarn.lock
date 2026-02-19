@@ -2107,6 +2107,23 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@metamask/7715-permission-types@npm:^0.4.0":
+  version: 0.4.0
+  resolution: "@metamask/7715-permission-types@npm:0.4.0"
+  checksum: 10/70748053e7b9fcd89d044a7602b48168137cc0761f8606ad17fdaafc13ac69271a75230c727a64df49dfedc59a0b3f60bd6fa46c60e06df40691985b9823881d
+  languageName: node
+  linkType: hard
+
+"@metamask/abi-utils@npm:^3.0.0":
+  version: 3.0.0
+  resolution: "@metamask/abi-utils@npm:3.0.0"
+  dependencies:
+    "@metamask/superstruct": "npm:^3.1.0"
+    "@metamask/utils": "npm:^11.0.1"
+  checksum: 10/068b98185148b9e185b4af4392c6a6f82f1d4b1ff60013c57679c618f37afe9030e3ccc940e1a8b690be6f62ea91115ab18b73f3c3c09f4eff1794e31ababb9b
+  languageName: node
+  linkType: hard
+
 "@metamask/action-utils@npm:^1.0.0":
   version: 1.1.1
   resolution: "@metamask/action-utils@npm:1.1.1"
@@ -2218,6 +2235,31 @@ __metadata:
   bin:
     create-release-branch: bin/create-release-branch.js
   checksum: 10/fbaece7e989b559e5b8d70197b3abc86550f6678db4f35e75c0931522c45b91dc0d7fd4bb1e6aca567137d4715c803594c356ad9169ba6a6a55edf109b2827cc
+  languageName: node
+  linkType: hard
+
+"@metamask/delegation-abis@npm:^0.11.0":
+  version: 0.11.0
+  resolution: "@metamask/delegation-abis@npm:0.11.0"
+  checksum: 10/d76ebdd7e74ad453d0e83dd7e8bd01148587d63848e95e5ceaedcae871002011ea3a52f6bef25dcca007f8970eff0de182e881a709d34f032e053086a9809355
+  languageName: node
+  linkType: hard
+
+"@metamask/delegation-core@npm:^0.3.0":
+  version: 0.3.0
+  resolution: "@metamask/delegation-core@npm:0.3.0"
+  dependencies:
+    "@metamask/abi-utils": "npm:^3.0.0"
+    "@metamask/utils": "npm:^11.4.0"
+    "@noble/hashes": "npm:^1.8.0"
+  checksum: 10/5a09cf145b7918807d536714a975e7fc7b183e3ad9aa6a476175021e3def3dea730f36e403e72ea706e054897ab306b1eb6bf498c69b4bc70ec8fbe15dc56712
+  languageName: node
+  linkType: hard
+
+"@metamask/delegation-deployments@npm:^0.15.0":
+  version: 0.15.0
+  resolution: "@metamask/delegation-deployments@npm:0.15.0"
+  checksum: 10/b37933e4b1c7d5cad5b6ec8861dc0b883eb4dd17cc29a9d804b3fbdb2c39aadb7ff47b8a42d1195b637eefbae15e7e3cea6bde3e7ff34f64eee11c1026767413
   languageName: node
   linkType: hard
 
@@ -3067,6 +3109,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@metamask/smart-accounts-kit@npm:^0.3.0":
+  version: 0.3.0
+  resolution: "@metamask/smart-accounts-kit@npm:0.3.0"
+  dependencies:
+    "@metamask/7715-permission-types": "npm:^0.4.0"
+    "@metamask/delegation-abis": "npm:^0.11.0"
+    "@metamask/delegation-core": "npm:^0.3.0"
+    "@metamask/delegation-deployments": "npm:^0.15.0"
+    buffer: "npm:^6.0.3"
+    webauthn-p256: "npm:^0.0.10"
+  peerDependencies:
+    viem: ^2.31.4
+  checksum: 10/9924cdec168c63563e70440f93d6b4ad0fd1eaf45ccc086dc4a14941aee5d208edf339ccddd74fe1d2196b960a71f4b76daf7f83d753dd77d6ab3fb1d71eb459
+  languageName: node
+  linkType: hard
+
 "@metamask/snaps-registry@npm:^4.0.0":
   version: 4.0.0
   resolution: "@metamask/snaps-registry@npm:4.0.0"
@@ -3377,7 +3435,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/curves@npm:^1.1.0, @noble/curves@npm:^1.2.0, @noble/curves@npm:^1.8.1, @noble/curves@npm:^1.9.1, @noble/curves@npm:^1.9.7, @noble/curves@npm:~1.9.0":
+"@noble/curves@npm:^1.1.0, @noble/curves@npm:^1.2.0, @noble/curves@npm:^1.4.0, @noble/curves@npm:^1.8.1, @noble/curves@npm:^1.9.1, @noble/curves@npm:^1.9.7, @noble/curves@npm:~1.9.0":
   version: 1.9.7
   resolution: "@noble/curves@npm:1.9.7"
   dependencies:
@@ -3402,7 +3460,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@noble/hashes@npm:1.8.0, @noble/hashes@npm:^1.1.2, @noble/hashes@npm:^1.3.1, @noble/hashes@npm:^1.3.2, @noble/hashes@npm:^1.8.0, @noble/hashes@npm:~1.8.0":
+"@noble/hashes@npm:1.8.0, @noble/hashes@npm:^1.1.2, @noble/hashes@npm:^1.3.1, @noble/hashes@npm:^1.3.2, @noble/hashes@npm:^1.4.0, @noble/hashes@npm:^1.8.0, @noble/hashes@npm:~1.8.0":
   version: 1.8.0
   resolution: "@noble/hashes@npm:1.8.0"
   checksum: 10/474b7f56bc6fb2d5b3a42132561e221b0ea4f91e590f4655312ca13667840896b34195e2b53b7f097ec080a1fdd3b58d902c2a8d0fbdf51d2e238b53808a177e
@@ -3725,6 +3783,7 @@ __metadata:
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/ocap-kernel": "workspace:^"
     "@metamask/sdk": "npm:^0.34.0"
+    "@metamask/smart-accounts-kit": "npm:^0.3.0"
     "@metamask/superstruct": "npm:^3.2.1"
     "@ocap/cli": "workspace:^"
     "@ocap/nodejs": "workspace:^"
@@ -3750,7 +3809,7 @@ __metadata:
     typedoc: "npm:^0.28.1"
     typescript: "npm:~5.8.2"
     typescript-eslint: "npm:^8.29.0"
-    viem: "npm:^2.27.0"
+    viem: "npm:^2.31.4"
     vite: "npm:^7.3.0"
     vitest: "npm:^4.0.16"
   languageName: unknown
@@ -12626,9 +12685,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"ox@npm:0.12.1":
-  version: 0.12.1
-  resolution: "ox@npm:0.12.1"
+"ox@npm:0.12.4":
+  version: 0.12.4
+  resolution: "ox@npm:0.12.4"
   dependencies:
     "@adraffy/ens-normalize": "npm:^1.11.0"
     "@noble/ciphers": "npm:^1.3.0"
@@ -12643,7 +12702,7 @@ __metadata:
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/ccad93092117ebcc9bb20d875d30b4394b58dce66be63cfa13e8ddccf07471c4598bf6cb50f1dc0b58fb7ab609e75277aeb310fdfee6333f473014714f7149ad
+  checksum: 10/077509b841658693a411df505d0bdbbee2d68734aa19736ccff5a6087c119c4aebc1d8d8c2039ca9f16ae7430cb44812e4c182f858cab67c9a755dd0e9914178
   languageName: node
   linkType: hard
 
@@ -15716,9 +15775,9 @@ __metadata:
   languageName: node
   linkType: hard
 
-"viem@npm:^2.27.0":
-  version: 2.46.1
-  resolution: "viem@npm:2.46.1"
+"viem@npm:^2.31.4":
+  version: 2.46.2
+  resolution: "viem@npm:2.46.2"
   dependencies:
     "@noble/curves": "npm:1.9.1"
     "@noble/hashes": "npm:1.8.0"
@@ -15726,14 +15785,14 @@ __metadata:
     "@scure/bip39": "npm:1.6.0"
     abitype: "npm:1.2.3"
     isows: "npm:1.0.7"
-    ox: "npm:0.12.1"
+    ox: "npm:0.12.4"
     ws: "npm:8.18.3"
   peerDependencies:
     typescript: ">=5.0.4"
   peerDependenciesMeta:
     typescript:
       optional: true
-  checksum: 10/d6fc96543a7cd84995b244bc64054e625929806e426d2a4ab96cea32d139b3b7f21da3afcdfa01503e0555c571a2af9eaed98045634843e35c0dd9fdab886529
+  checksum: 10/dd763503c9fc7c3c2908f8cd403f375a0c313d0ded7aeeef87e1672553fc75cca070ed02e2d811ccc5d3cfb7a589be23e45cb147a556a0a0751adbb3f77be265
   languageName: node
   linkType: hard
 
@@ -15984,6 +16043,16 @@ __metadata:
     ms: "npm:^3.0.0-canary.1"
     supports-color: "npm:^9.4.0"
   checksum: 10/6bb68cdb030547a77cfec690efc0bda3938abb5471196404161c312f7611abeb1497cfcb6932f20096fc48181ad3018faa11c0c68568501d8dccbf064e1a28a2
+  languageName: node
+  linkType: hard
+
+"webauthn-p256@npm:^0.0.10":
+  version: 0.0.10
+  resolution: "webauthn-p256@npm:0.0.10"
+  dependencies:
+    "@noble/curves": "npm:^1.4.0"
+    "@noble/hashes": "npm:^1.4.0"
+  checksum: 10/dde2b6313b6a0f20996f7ee90181258fc7685bfff401df7d904578da75b374f25d5b9c1189cd2fcec30625b1f276b393188d156d49783f0611623cd713bb5b09
   languageName: node
   linkType: hard
 

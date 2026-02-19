@@ -29,8 +29,22 @@ vi.mock('@endo/eventual-send', () => ({
   },
 }));
 
+vi.mock('../lib/sdk.ts', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/sdk.ts')>();
+  return {
+    ...actual,
+    computeSmartAccountAddress: vi.fn().mockResolvedValue({
+      address: '0xcccccccccccccccccccccccccccccccccccccccc',
+      factoryData: '0xfactorydata',
+    }),
+  };
+});
+
 // Dynamic import after mocking
 const { buildRootObject } = await import('./coordinator-vat.ts');
+
+const DERIVED_SMART_ACCOUNT =
+  '0xcccccccccccccccccccccccccccccccccccccccc' as Address;
 
 const TEST_MNEMONIC =
   'test test test test test test test test test test test junk';
@@ -66,9 +80,21 @@ const EXT_SIGNER_ACCOUNT =
 function makeMockExternalSigner() {
   return {
     getAccounts: vi.fn().mockResolvedValue([EXT_SIGNER_ACCOUNT]),
-    signTypedData: vi.fn().mockResolvedValue('0xexttypedsig' as Hex),
-    signMessage: vi.fn().mockResolvedValue('0xextmsgsig' as Hex),
-    signTransaction: vi.fn().mockResolvedValue('0xexttxsig' as Hex),
+    signTypedData: vi
+      .fn()
+      .mockResolvedValue(
+        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef00' as Hex,
+      ),
+    signMessage: vi
+      .fn()
+      .mockResolvedValue(
+        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef00' as Hex,
+      ),
+    signTransaction: vi
+      .fn()
+      .mockResolvedValue(
+        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef00' as Hex,
+      ),
   };
 }
 
@@ -475,6 +501,7 @@ describe('coordinator-vat', () => {
         hasPeerWallet: false,
         hasExternalSigner: false,
         hasBundlerConfig: false,
+        smartAccountAddress: undefined,
       });
     });
   });
@@ -726,7 +753,9 @@ describe('coordinator-vat', () => {
       };
 
       const signature = await coord.signTypedData(typedData);
-      expect(signature).toBe('0xexttypedsig');
+      expect(signature).toBe(
+        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef00',
+      );
       expect(extSigner.signTypedData).toHaveBeenCalledWith(
         typedData,
         EXT_SIGNER_ACCOUNT,
@@ -747,7 +776,9 @@ describe('coordinator-vat', () => {
       await coord.bootstrap({ provider: providerVat }, {});
 
       const signature = await coord.signMessage('Hello');
-      expect(signature).toBe('0xextmsgsig');
+      expect(signature).toBe(
+        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef00',
+      );
       expect(extSigner.signMessage).toHaveBeenCalledWith(
         'Hello',
         EXT_SIGNER_ACCOUNT,
@@ -775,7 +806,9 @@ describe('coordinator-vat', () => {
       };
 
       const signature = await coord.signTransaction(tx);
-      expect(signature).toBe('0xexttxsig');
+      expect(signature).toBe(
+        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef00',
+      );
       expect(extSigner.signTransaction).toHaveBeenCalledWith(tx);
     });
 
@@ -812,7 +845,9 @@ describe('coordinator-vat', () => {
         type: 'transaction',
         tx,
       });
-      expect(signed).toBe('0xexttxsig');
+      expect(signed).toBe(
+        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef00',
+      );
     });
 
     it('falls back to external signer for typedData requests', async () => {
@@ -838,7 +873,9 @@ describe('coordinator-vat', () => {
         type: 'typedData',
         data,
       });
-      expect(signed).toBe('0xexttypedsig');
+      expect(signed).toBe(
+        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef00',
+      );
     });
 
     it('falls back to external signer for message requests', async () => {
@@ -857,7 +894,9 @@ describe('coordinator-vat', () => {
         type: 'message',
         message: 'test',
       });
-      expect(signed).toBe('0xextmsgsig');
+      expect(signed).toBe(
+        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef00',
+      );
     });
 
     it('throws when no signer is available', async () => {
@@ -916,7 +955,9 @@ describe('coordinator-vat', () => {
       });
 
       expect(delegation.status).toBe('signed');
-      expect(delegation.signature).toBe('0xexttypedsig');
+      expect(delegation.signature).toBe(
+        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef00',
+      );
       expect(delegation.delegator).toBe(EXT_SIGNER_ACCOUNT);
       expect(extSigner.signTypedData).toHaveBeenCalled();
     });
@@ -1344,6 +1385,158 @@ describe('coordinator-vat', () => {
           userOpHash: '0xdeadbeef' as Hex,
         }),
       ).rejects.toThrow('Provider and bundler must be configured');
+    });
+  });
+
+  describe('createSmartAccount', () => {
+    it('derives counterfactual address when not provided', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const config = await coordinator.createSmartAccount({
+        deploySalt:
+          '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        chainId: 11155111,
+      });
+
+      expect(config).toStrictEqual({
+        implementation: 'hybrid',
+        deploySalt:
+          '0x0000000000000000000000000000000000000000000000000000000000000001',
+        address: DERIVED_SMART_ACCOUNT,
+      });
+
+      expect(coordinatorBaggage.has('smartAccountConfig')).toBe(true);
+    });
+
+    it('stores explicit address when provided', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const smartAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+
+      const config = await coordinator.createSmartAccount({
+        deploySalt:
+          '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        chainId: 11155111,
+        address: smartAddress,
+      });
+
+      expect(config.address).toBe(smartAddress);
+    });
+
+    it('throws when no owner account is available', async () => {
+      const freshBaggage = makeMockBaggage();
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.bootstrap({ provider: providerVat }, {});
+
+      await expect(
+        coord.createSmartAccount({
+          deploySalt:
+            '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+          chainId: 11155111,
+        }),
+      ).rejects.toThrow('No owner account available');
+    });
+
+    it('reports smartAccountAddress in capabilities', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const smartAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+
+      await coordinator.createSmartAccount({
+        deploySalt:
+          '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        chainId: 11155111,
+        address: smartAddress,
+      });
+
+      const caps = await coordinator.getCapabilities();
+      expect(caps.smartAccountAddress).toBe(smartAddress);
+    });
+  });
+
+  describe('getSmartAccountAddress', () => {
+    it('returns undefined when no smart account configured', async () => {
+      const address = await coordinator.getSmartAccountAddress();
+      expect(address).toBeUndefined();
+    });
+
+    it('returns derived address after smart account creation', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.createSmartAccount({
+        deploySalt:
+          '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        chainId: 11155111,
+      });
+
+      const address = await coordinator.getSmartAccountAddress();
+      expect(address).toBe(DERIVED_SMART_ACCOUNT);
+    });
+
+    it('returns explicit address after smart account creation', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const smartAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+
+      await coordinator.createSmartAccount({
+        deploySalt:
+          '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        chainId: 11155111,
+        address: smartAddress,
+      });
+
+      const address = await coordinator.getSmartAccountAddress();
+      expect(address).toBe(smartAddress);
+    });
+  });
+
+  describe('smart account delegation', () => {
+    it('uses smart account address as delegator when configured', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const smartAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      await coordinator.createSmartAccount({
+        deploySalt:
+          '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        chainId: 11155111,
+        address: smartAddress,
+      });
+
+      const delegation = await coordinator.createDelegation({
+        delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
+        caveats: [],
+        chainId: 1,
+      });
+
+      expect(delegation.delegator).toBe(smartAddress);
+      expect(delegation.status).toBe('signed');
     });
   });
 });
