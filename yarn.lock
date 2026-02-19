@@ -3897,6 +3897,7 @@ __metadata:
     globals: "npm:^16.0.0"
     lint-staged: "npm:^15.5.0"
     lodash: "npm:^4.17.21"
+    playwright: "npm:^1.58.2"
     prettier: "npm:^3.5.3"
     prettier-plugin-packagejson: "npm:^2.5.10"
     rimraf: "npm:^6.0.1"
