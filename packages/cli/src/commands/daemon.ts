@@ -68,11 +68,13 @@ function resolveBundleSpecs(config: {
  * the socket is unresponsive.
  *
  * @param socketPath - The daemon socket path.
+ * @returns True if the daemon was stopped (or was not running), false if it
+ * failed to stop within the timeout.
  */
-export async function stopDaemon(socketPath: string): Promise<void> {
+export async function stopDaemon(socketPath: string): Promise<boolean> {
   if (!(await pingDaemon(socketPath))) {
     process.stderr.write('Daemon is not running.\n');
-    return;
+    return true;
   }
 
   process.stderr.write('Stopping daemon...\n');
@@ -90,7 +92,7 @@ export async function stopDaemon(socketPath: string): Promise<void> {
     await new Promise((_resolve) => setTimeout(_resolve, 250));
     if (!(await pingDaemon(socketPath))) {
       process.stderr.write('Daemon stopped.\n');
-      return;
+      return true;
     }
   }
 
@@ -109,20 +111,15 @@ export async function stopDaemon(socketPath: string): Promise<void> {
     } catch {
       // Process may already be gone.
     }
-
-    // Poll again after SIGTERM.
-    const sigPollEnd = Date.now() + 5_000;
-    while (Date.now() < sigPollEnd) {
-      await new Promise((_resolve) => setTimeout(_resolve, 250));
-      if (!(await pingDaemon(socketPath))) {
-        await rm(pidPath, { force: true });
-        process.stderr.write('Daemon stopped.\n');
-        return;
-      }
-    }
+    // Give the process a moment to exit.
+    await new Promise((_resolve) => setTimeout(_resolve, 500));
+    await rm(pidPath, { force: true });
+    process.stderr.write('Daemon stopped.\n');
+    return true;
   }
 
   process.stderr.write('Daemon did not stop within timeout.\n');
+  return false;
 }
 
 /**
@@ -141,8 +138,13 @@ export async function handleDaemonStart(socketPath: string): Promise<void> {
  * @param socketPath - The daemon socket path.
  */
 export async function handleDaemonBegone(socketPath: string): Promise<void> {
-  if (await pingDaemon(socketPath)) {
-    await stopDaemon(socketPath);
+  const stopped = await stopDaemon(socketPath);
+  if (!stopped) {
+    process.stderr.write(
+      'Refusing to delete state while the daemon is still running.\n',
+    );
+    process.exitCode = 1;
+    return;
   }
   await deleteDaemonState({ socketPath });
   process.stderr.write('All daemon state deleted.\n');

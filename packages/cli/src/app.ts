@@ -202,7 +202,10 @@ const yargsInstance = yargs(hideBin(process.argv))
           'Stop the daemon',
           (_y) => _y,
           async () => {
-            await stopDaemon(socketPath);
+            const stopped = await stopDaemon(socketPath);
+            if (!stopped) {
+              process.exitCode = 1;
+            }
           },
         )
         .command(
