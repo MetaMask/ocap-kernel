@@ -174,8 +174,9 @@ export async function handleDaemonExec(
         params = parsed;
       }
     } catch {
-      // Not valid JSON — wrap as a simple value
-      params = { value: rawParams };
+      process.stderr.write('Error: params-json must be valid JSON.\n');
+      process.exitCode = 1;
+      return;
     }
   }
 
