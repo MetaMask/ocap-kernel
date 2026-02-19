@@ -206,15 +206,23 @@ const yargsInstance = yargs(hideBin(process.argv))
           },
         )
         .command(
-          'begone',
+          ['purge', 'begone'],
           'Stop the daemon and delete all state',
           (_y) =>
-            _y.option('forgood', {
+            _y.option('force', {
               describe: 'Confirm state deletion',
               type: 'boolean',
               demandOption: true,
             }),
-          async () => {
+          async (args) => {
+            if (!args.force) {
+              process.stderr.write(
+                'Usage: ocap daemon purge --force\n' +
+                  'This will delete all OCAP daemon state.\n',
+              );
+              process.exitCode = 1;
+              return;
+            }
             await handleDaemonBegone(socketPath);
           },
         )

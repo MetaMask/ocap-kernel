@@ -32,7 +32,7 @@ Start the daemon or confirm it is already running.
 
 Gracefully stop the daemon.
 
-### `ocap daemon begone --forgood`
+### `ocap daemon purge --force`
 
 Stop the daemon and delete all state.
 
