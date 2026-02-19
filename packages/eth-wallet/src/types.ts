@@ -194,6 +194,9 @@ export const SmartAccountConfigStruct = object({
   implementation: literal('hybrid'),
   deploySalt: HexStruct,
   address: optional(AddressStruct),
+  factory: optional(AddressStruct),
+  factoryData: optional(HexStruct),
+  deployed: optional(boolean()),
 });
 
 export type SmartAccountConfig = Infer<typeof SmartAccountConfigStruct>;

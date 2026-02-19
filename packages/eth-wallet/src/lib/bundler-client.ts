@@ -27,6 +27,19 @@ export type BundlerClientConfig = {
 };
 
 /**
+ * Result from a paymaster sponsorship request.
+ */
+export type PaymasterSponsorResult = {
+  paymaster: Address;
+  paymasterData: Hex;
+  paymasterVerificationGasLimit: Hex;
+  paymasterPostOpGasLimit: Hex;
+  callGasLimit: Hex;
+  verificationGasLimit: Hex;
+  preVerificationGas: Hex;
+};
+
+/**
  * A viem-based bundler client with ERC-4337 capabilities.
  */
 export type ViemBundlerClient = {
@@ -42,6 +55,11 @@ export type ViemBundlerClient = {
     verificationGasLimit: bigint;
     preVerificationGas: bigint;
   }>;
+  sponsorUserOperation: (options: {
+    userOp: Partial<UserOperation<'0.7'>>;
+    entryPointAddress: Address;
+    context?: Record<string, unknown>;
+  }) => Promise<PaymasterSponsorResult>;
   getUserOperationReceipt: (hash: Hex) => Promise<unknown>;
   waitForUserOperationReceipt: (options: {
     hash: Hex;
@@ -118,6 +136,22 @@ export function makeBundlerClient(
         verificationGasLimit: BigInt(estimate.verificationGasLimit),
         preVerificationGas: BigInt(estimate.preVerificationGas),
       };
+    },
+
+    async sponsorUserOperation(options: {
+      userOp: Partial<UserOperation<'0.7'>>;
+      entryPointAddress: Address;
+      context?: Record<string, unknown>;
+    }): Promise<PaymasterSponsorResult> {
+      const result = await client.request({
+        method: 'pm_sponsorUserOperation' as never,
+        params: [
+          options.userOp,
+          options.entryPointAddress,
+          options.context ?? {},
+        ] as never,
+      });
+      return result as PaymasterSponsorResult;
     },
 
     async getUserOperationReceipt(hash: Hex): Promise<unknown> {

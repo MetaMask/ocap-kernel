@@ -29,6 +29,8 @@ vi.mock('@endo/eventual-send', () => ({
   },
 }));
 
+const MOCK_FACTORY = '0xDDdDddDdDdddDDddDDddDDDDdDdDDdDDdDDDDDDd' as Address;
+
 vi.mock('../lib/sdk.ts', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../lib/sdk.ts')>();
   return {
@@ -36,6 +38,13 @@ vi.mock('../lib/sdk.ts', async (importOriginal) => {
     computeSmartAccountAddress: vi.fn().mockResolvedValue({
       address: '0xcccccccccccccccccccccccccccccccccccccccc',
       factoryData: '0xfactorydata',
+    }),
+    resolveEnvironment: vi.fn().mockReturnValue({
+      SimpleFactory: '0xDDdDddDdDdddDDddDDddDDDDdDdDDdDDdDDDDDDd',
+      DelegationManager: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
+      EntryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
+      implementations: {},
+      caveatEnforcers: {},
     }),
   };
 });
@@ -70,6 +79,16 @@ function makeMockProviderVat() {
     getGasFees: vi.fn().mockResolvedValue({
       maxFeePerGas: '0x77359400' as Hex,
       maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+    }),
+    configureBundler: vi.fn(),
+    sponsorUserOp: vi.fn().mockResolvedValue({
+      paymaster: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
+      paymasterData: '0xdeadbeef' as Hex,
+      paymasterVerificationGasLimit: '0x60000' as Hex,
+      paymasterPostOpGasLimit: '0x10000' as Hex,
+      callGasLimit: '0x50000' as Hex,
+      verificationGasLimit: '0x60000' as Hex,
+      preVerificationGas: '0x10000' as Hex,
     }),
   };
 }
@@ -1406,6 +1425,9 @@ describe('coordinator-vat', () => {
         deploySalt:
           '0x0000000000000000000000000000000000000000000000000000000000000001',
         address: DERIVED_SMART_ACCOUNT,
+        factory: MOCK_FACTORY,
+        factoryData: '0xfactorydata',
+        deployed: false,
       });
 
       expect(coordinatorBaggage.has('smartAccountConfig')).toBe(true);
@@ -1537,6 +1559,163 @@ describe('coordinator-vat', () => {
 
       expect(delegation.delegator).toBe(smartAddress);
       expect(delegation.status).toBe('signed');
+    });
+
+    it('signs with EOA owner when smart account is sender', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const eoaOwner = accounts[0] as Address;
+
+      await coordinator.createSmartAccount({
+        deploySalt:
+          '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        chainId: 11155111,
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 11155111,
+      });
+
+      // Create a self-delegation where delegator is the smart account
+      const delegation = await coordinator.createDelegation({
+        delegate: DERIVED_SMART_ACCOUNT,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([TARGET]),
+          }),
+        ],
+        chainId: 11155111,
+      });
+
+      const result = await coordinator.redeemDelegation({
+        execution: {
+          target: TARGET,
+          value: '0x0' as Hex,
+          callData: '0x' as Hex,
+        },
+        delegationId: delegation.id,
+        maxFeePerGas: '0x3b9aca00' as Hex,
+        maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      });
+
+      expect(result).toBe('0xuserophash');
+      // The sender is the smart account but signing address should be the EOA
+      const submitCall = providerVat.submitUserOp.mock.calls[0][0];
+      expect(submitCall.userOp.sender).toBe(DERIVED_SMART_ACCOUNT);
+      // Verify signature is present (signed by EOA)
+      expect(submitCall.userOp.signature).toMatch(/^0x/u);
+      expect(submitCall.userOp.signature).not.toBe('0x');
+      // The EOA owner is used for derivation and signing
+      expect(eoaOwner).toMatch(/^0x[\da-f]{40}$/iu);
+    });
+  });
+
+  describe('paymaster sponsorship', () => {
+    it('uses paymaster when usePaymaster is configured', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+        usePaymaster: true,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      const delegation = await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([TARGET]),
+          }),
+        ],
+        chainId: 1,
+      });
+
+      const result = await coordinator.redeemDelegation({
+        execution: {
+          target: TARGET,
+          value: '0x0' as Hex,
+          callData: '0x' as Hex,
+        },
+        delegationId: delegation.id,
+        maxFeePerGas: '0x3b9aca00' as Hex,
+        maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      });
+
+      expect(result).toBe('0xuserophash');
+      expect(providerVat.sponsorUserOp).toHaveBeenCalled();
+      expect(providerVat.estimateUserOpGas).not.toHaveBeenCalled();
+
+      // Verify the submitted UserOp includes paymaster fields
+      const submitCall = providerVat.submitUserOp.mock.calls[0][0];
+      expect(submitCall.userOp.paymaster).toBe(
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      );
+      expect(submitCall.userOp.paymasterData).toBe('0xdeadbeef');
+    });
+
+    it('passes sponsorshipPolicyId in context', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+        usePaymaster: true,
+        sponsorshipPolicyId: 'sp_my_policy',
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      const delegation = await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [],
+        chainId: 1,
+      });
+
+      await coordinator.redeemDelegation({
+        execution: {
+          target: TARGET,
+          value: '0x0' as Hex,
+          callData: '0x' as Hex,
+        },
+        delegationId: delegation.id,
+        maxFeePerGas: '0x3b9aca00' as Hex,
+        maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      });
+
+      expect(providerVat.sponsorUserOp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          context: { sponsorshipPolicyId: 'sp_my_policy' },
+        }),
+      );
+    });
+
+    it('calls provider configureBundler during coordinator configureBundler', async () => {
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      expect(providerVat.configureBundler).toHaveBeenCalledWith({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
     });
   });
 });

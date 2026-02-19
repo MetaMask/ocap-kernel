@@ -177,6 +177,28 @@ export function buildRootObject(
       };
     },
 
+    async sponsorUserOp(options: {
+      bundlerUrl: string;
+      entryPoint: Hex;
+      userOp: UserOperation;
+      context?: Record<string, unknown>;
+    }): Promise<{
+      paymaster: Address;
+      paymasterData: Hex;
+      paymasterVerificationGasLimit: Hex;
+      paymasterPostOpGasLimit: Hex;
+      callGasLimit: Hex;
+      verificationGasLimit: Hex;
+      preVerificationGas: Hex;
+    }> {
+      const client = getBundlerClient(options.bundlerUrl);
+      return client.sponsorUserOperation({
+        userOp: options.userOp as never,
+        entryPointAddress: options.entryPoint,
+        context: options.context,
+      });
+    },
+
     async getEntryPointNonce(options: {
       entryPoint: Address;
       sender: Address;
