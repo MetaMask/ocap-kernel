@@ -178,8 +178,12 @@ export async function handleDaemonExec(
   if (rawParams !== undefined) {
     try {
       const parsed = JSON.parse(rawParams) as Record<string, unknown>;
-      if (method === 'launchSubcluster' && isClusterConfigLike(parsed)) {
-        params = resolveBundleSpecs(parsed) as Record<string, unknown>;
+      const { config } = parsed as { config?: unknown };
+      if (method === 'launchSubcluster' && isClusterConfigLike(config)) {
+        params = {
+          ...parsed,
+          config: resolveBundleSpecs(config),
+        };
       } else {
         params = parsed;
       }
