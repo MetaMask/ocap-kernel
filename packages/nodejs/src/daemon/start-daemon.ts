@@ -50,7 +50,6 @@ export async function startDaemon(
   const close = async (): Promise<void> => {
     await rpcServer.close();
     await kernel.stop();
-    kernelDatabase.close();
   };
 
   return {
