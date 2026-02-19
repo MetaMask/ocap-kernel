@@ -65,61 +65,71 @@ function resolveBundleSpecs(config: {
 
 /**
  * Stop the daemon via a `shutdown` RPC call. Falls back to PID + SIGTERM if
- * the socket is unresponsive.
+ * the socket is unresponsive, and escalates to SIGKILL if SIGTERM is ignored.
  *
  * @param socketPath - The daemon socket path.
  * @returns True if the daemon was stopped (or was not running), false if it
  * failed to stop within the timeout.
  */
 export async function stopDaemon(socketPath: string): Promise<boolean> {
-  if (!(await pingDaemon(socketPath))) {
+  const pidPath = join(homedir(), '.ocap', 'daemon.pid');
+  const pid = await readPidFile(pidPath);
+  const processAlive = pid !== undefined && isProcessAlive(pid);
+  const socketResponsive = await pingDaemon(socketPath);
+
+  if (!socketResponsive && !processAlive) {
+    if (pid !== undefined) {
+      await rm(pidPath, { force: true });
+    }
     process.stderr.write('Daemon is not running.\n');
     return true;
   }
 
   process.stderr.write('Stopping daemon...\n');
 
-  // Try socket-based shutdown first.
-  try {
-    await sendCommand(socketPath, 'shutdown');
-  } catch {
-    // Socket unresponsive — fall back to PID + SIGTERM below.
-  }
+  let stopped = false;
 
-  // Poll until socket stops responding (max 5s).
-  const pollEnd = Date.now() + 5_000;
-  while (Date.now() < pollEnd) {
-    await new Promise((_resolve) => setTimeout(_resolve, 250));
-    if (!(await pingDaemon(socketPath))) {
-      process.stderr.write('Daemon stopped.\n');
-      return true;
+  // Strategy 1: Graceful socket-based shutdown.
+  if (socketResponsive) {
+    try {
+      await sendCommand({ socketPath, method: 'shutdown' });
+    } catch {
+      // Socket became unresponsive.
     }
+    stopped = await waitFor(async () => !(await pingDaemon(socketPath)), 5_000);
   }
 
-  // Fallback: read PID file and send SIGTERM.
-  const pidPath = join(homedir(), '.ocap', 'daemon.pid');
-  let pid: number | undefined;
-  try {
-    pid = Number(await readFile(pidPath, 'utf-8'));
-  } catch {
-    // PID file missing.
-  }
-
-  if (pid && !Number.isNaN(pid)) {
+  // Strategy 2: SIGTERM.
+  if (!stopped && pid !== undefined) {
     try {
       process.kill(pid, 'SIGTERM');
     } catch {
-      // Process may already be gone.
+      stopped = true;
     }
-    // Give the process a moment to exit.
-    await new Promise((_resolve) => setTimeout(_resolve, 500));
-    await rm(pidPath, { force: true });
-    process.stderr.write('Daemon stopped.\n');
-    return true;
+    if (!stopped) {
+      stopped = await waitFor(() => !isProcessAlive(pid), 5_000);
+    }
   }
 
-  process.stderr.write('Daemon did not stop within timeout.\n');
-  return false;
+  // Strategy 3: SIGKILL.
+  if (!stopped && pid !== undefined) {
+    try {
+      process.kill(pid, 'SIGKILL');
+    } catch {
+      stopped = true;
+    }
+    if (!stopped) {
+      stopped = await waitFor(() => !isProcessAlive(pid), 2_000);
+    }
+  }
+
+  if (stopped) {
+    await rm(pidPath, { force: true });
+    process.stderr.write('Daemon stopped.\n');
+  } else {
+    process.stderr.write('Daemon did not stop within timeout.\n');
+  }
+  return stopped;
 }
 
 /**
@@ -180,7 +190,7 @@ export async function handleDaemonExec(
     }
   }
 
-  const response = await sendCommand(socketPath, method, params);
+  const response = await sendCommand({ socketPath, method, params });
 
   if (isJsonRpcFailure(response)) {
     process.stderr.write(
@@ -196,4 +206,55 @@ export async function handleDaemonExec(
   } else {
     process.stdout.write(`${JSON.stringify(response.result)}\n`);
   }
+}
+
+/**
+ * Read a PID from a file.
+ *
+ * @param pidPath - The PID file path.
+ * @returns The PID, or undefined if the file is missing or invalid.
+ */
+async function readPidFile(pidPath: string): Promise<number | undefined> {
+  try {
+    const pid = Number(await readFile(pidPath, 'utf-8'));
+    return pid > 0 && !Number.isNaN(pid) ? pid : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Check whether a process is alive by sending signal 0.
+ *
+ * @param pid - The process ID to check.
+ * @returns True if the process exists.
+ */
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Poll until a condition is met or the timeout elapses.
+ *
+ * @param check - A function that returns true when the condition is met.
+ * @param timeoutMs - Maximum time to wait in milliseconds.
+ * @returns True if the condition was met, false on timeout.
+ */
+async function waitFor(
+  check: () => boolean | Promise<boolean>,
+  timeoutMs: number,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (await check()) {
+      return true;
+    }
+    await new Promise((resolveTimeout) => setTimeout(resolveTimeout, 250));
+  }
+  return await check();
 }

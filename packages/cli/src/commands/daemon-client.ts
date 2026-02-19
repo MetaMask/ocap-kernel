@@ -7,8 +7,6 @@ import type { Socket } from 'node:net';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const READ_TIMEOUT_MS = 30_000;
-
 /**
  * Get the default daemon socket path.
  *
@@ -35,22 +33,39 @@ async function connectSocket(socketPath: string): Promise<Socket> {
 }
 
 /**
+ * Options for {@link sendCommand}.
+ */
+type SendCommandOptions = {
+  /** The UNIX socket path. */
+  socketPath: string;
+  /** The RPC method name. */
+  method: string;
+  /** Optional method parameters. */
+  params?: Record<string, unknown> | undefined;
+  /** Read timeout in milliseconds (default: 30 000). */
+  timeoutMs?: number | undefined;
+};
+
+/**
  * Send a JSON-RPC request to the daemon over a UNIX socket and return the response.
  *
  * Opens a connection, writes one JSON-RPC request line, reads one JSON-RPC
  * response line, then closes the connection. Retries once after a short delay
  * if the connection is rejected (e.g. due to a probe connection race).
  *
- * @param socketPath - The UNIX socket path.
- * @param method - The RPC method name.
- * @param params - Optional method parameters.
+ * @param options - Command options.
+ * @param options.socketPath - The UNIX socket path.
+ * @param options.method - The RPC method name.
+ * @param options.params - Optional method parameters.
+ * @param options.timeoutMs - Read timeout in milliseconds (default: 30 000).
  * @returns The parsed JSON-RPC response.
  */
-export async function sendCommand(
-  socketPath: string,
-  method: string,
-  params?: Record<string, unknown>,
-): Promise<JsonRpcResponse> {
+export async function sendCommand({
+  socketPath,
+  method,
+  params,
+  timeoutMs = 30_000,
+}: SendCommandOptions): Promise<JsonRpcResponse> {
   const id = randomUUID();
   const request = {
     jsonrpc: '2.0',
@@ -63,7 +78,7 @@ export async function sendCommand(
     const socket = await connectSocket(socketPath);
     try {
       await writeLine(socket, JSON.stringify(request));
-      const responseLine = await readLine(socket, READ_TIMEOUT_MS);
+      const responseLine = await readLine(socket, timeoutMs);
       const parsed: unknown = JSON.parse(responseLine);
       assertIsJsonRpcResponse(parsed);
       return parsed;
@@ -96,7 +111,7 @@ export async function sendCommand(
  */
 export async function pingDaemon(socketPath: string): Promise<boolean> {
   try {
-    await sendCommand(socketPath, 'getStatus');
+    await sendCommand({ socketPath, method: 'getStatus', timeoutMs: 3_000 });
     return true;
   } catch {
     return false;
