@@ -1,6 +1,6 @@
 /* eslint-disable n/no-process-exit */
 import { isJsonRpcFailure } from '@metamask/utils';
-import { flushDaemon } from '@ocap/nodejs/daemon';
+import { deleteDaemonState } from '@ocap/nodejs/daemon';
 import { readFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -137,7 +137,7 @@ export async function handleDaemonStart(socketPath: string): Promise<void> {
 }
 
 /**
- * Stop the daemon (if running) and flush all state.
+ * Stop the daemon (if running) and delete all state.
  *
  * @param socketPath - The daemon socket path.
  */
@@ -145,8 +145,8 @@ export async function handleDaemonBegone(socketPath: string): Promise<void> {
   if (await pingDaemon(socketPath)) {
     await stopDaemon(socketPath);
   }
-  await flushDaemon({ socketPath });
-  process.stderr.write('All daemon state flushed.\n');
+  await deleteDaemonState({ socketPath });
+  process.stderr.write('All daemon state deleted.\n');
 }
 
 /**

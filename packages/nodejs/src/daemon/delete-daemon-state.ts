@@ -3,9 +3,9 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 /**
- * Options for flushing daemon state.
+ * Options for deleting daemon state.
  */
-export type FlushDaemonOptions = {
+export type DeleteDaemonStateOptions = {
   /** UNIX socket path. Defaults to ~/.ocap/daemon.sock. */
   socketPath?: string;
   /** SQLite database filename. Defaults to ~/.ocap/kernel.sqlite. */
@@ -17,7 +17,9 @@ export type FlushDaemonOptions = {
  *
  * @param options - Optional overrides for file paths.
  */
-export async function flushDaemon(options?: FlushDaemonOptions): Promise<void> {
+export async function deleteDaemonState(
+  options?: DeleteDaemonStateOptions,
+): Promise<void> {
   const ocapDir = join(homedir(), '.ocap');
   const socketPath = options?.socketPath ?? join(ocapDir, 'daemon.sock');
   const dbFilename = options?.dbFilename ?? join(ocapDir, 'kernel.sqlite');
