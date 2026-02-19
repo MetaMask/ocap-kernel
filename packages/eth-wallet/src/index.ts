@@ -7,8 +7,10 @@ export {
   DELEGATION_TYPES,
   ENFORCER_ADDRESSES,
   ETH_HD_PATH_PREFIX,
+  PIMLICO_RPC_BASE_URL,
   PLACEHOLDER_CONTRACTS,
   ROOT_AUTHORITY,
+  SEPOLIA_CHAIN_ID,
   getChainContracts,
 } from './constants.ts';
 export type { ChainContracts } from './constants.ts';
@@ -33,6 +35,7 @@ export type {
   Execution,
   Hex,
   SigningRequest,
+  SmartAccountConfig,
   TransactionRequest,
   UserOperation,
   WalletCapabilities,
@@ -51,6 +54,7 @@ export {
   ExecutionStruct,
   makeChainConfig,
   SigningRequestStruct,
+  SmartAccountConfigStruct,
   TransactionRequestStruct,
   UserOperationStruct,
   WalletCapabilitiesStruct,
@@ -90,7 +94,7 @@ export {
   ENTRY_POINT_V07,
 } from './lib/userop.ts';
 
-// Bundler utilities
+// Bundler utilities (deprecated — use bundler-client.ts)
 export {
   estimateUserOpGas,
   getUserOpReceipt,
@@ -102,6 +106,30 @@ export type {
   UserOpGasEstimate,
   UserOpReceipt,
 } from './lib/bundler.ts';
+
+// Bundler client (viem-based replacement)
+export { makeBundlerClient } from './lib/bundler-client.ts';
+export type {
+  BundlerClientConfig,
+  ViemBundlerClient,
+} from './lib/bundler-client.ts';
+
+// SDK adapter
+export {
+  resolveEnvironment,
+  getDelegationManagerAddress,
+  getEnforcerAddresses,
+  toSdkDelegation,
+  fromSdkDelegation,
+  encodeSdkDelegations,
+  buildSdkRedeemCallData,
+  createSdkExecution,
+  computeSmartAccountAddress,
+  createHybridSmartAccount,
+  Implementation,
+  ExecutionMode,
+} from './lib/sdk.ts';
+export type { SmartAccountsEnvironment, SdkDelegation } from './lib/sdk.ts';
 
 // Keyring utilities
 export { generateMnemonicPhrase } from './lib/keyring.ts';

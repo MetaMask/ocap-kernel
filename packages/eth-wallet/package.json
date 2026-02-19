@@ -52,8 +52,9 @@
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/ocap-kernel": "workspace:^",
     "@metamask/sdk": "^0.34.0",
+    "@metamask/smart-accounts-kit": "^0.3.0",
     "@metamask/superstruct": "^3.2.1",
-    "viem": "^2.27.0"
+    "viem": "^2.31.4"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",

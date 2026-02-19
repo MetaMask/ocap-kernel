@@ -2,6 +2,7 @@ import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
 
+import { computeSmartAccountAddress } from '../lib/sdk.ts';
 import {
   buildDelegationUserOp,
   computeUserOpHash,
@@ -16,6 +17,7 @@ import type {
   Eip712TypedData,
   Execution,
   Hex,
+  SmartAccountConfig,
   TransactionRequest,
   UserOperation,
   WalletCapabilities,
@@ -169,6 +171,9 @@ export function buildRootObject(
     | { bundlerUrl: string; entryPoint: Hex; chainId: number }
     | undefined;
 
+  // Smart account configuration (persisted in baggage)
+  let smartAccountConfig: SmartAccountConfig | undefined;
+
   // Restore vat references from baggage if available (resuscitation)
   if (baggage.has('keyringVat')) {
     keyringVat = baggage.get('keyringVat') as KeyringFacet;
@@ -187,6 +192,11 @@ export function buildRootObject(
   }
   if (baggage.has('bundlerConfig')) {
     bundlerConfig = baggage.get('bundlerConfig') as typeof bundlerConfig;
+  }
+  if (baggage.has('smartAccountConfig')) {
+    smartAccountConfig = baggage.get(
+      'smartAccountConfig',
+    ) as SmartAccountConfig;
   }
 
   /**
@@ -380,7 +390,9 @@ export function buildRootObject(
       maxPriorityFeePerGas = maxPriorityFeePerGas ?? fees.maxPriorityFeePerGas;
     }
 
-    const sender = options.delegations[0].delegate;
+    // Use smart account address as sender when configured, otherwise delegate
+    const sender =
+      smartAccountConfig?.address ?? options.delegations[0].delegate;
 
     // Get nonce from EntryPoint contract (ERC-4337 nonce)
     const nonceHex = await E(providerVat).getEntryPointNonce({
@@ -559,6 +571,60 @@ export function buildRootObject(
     },
 
     // ------------------------------------------------------------------
+    // Smart account configuration
+    // ------------------------------------------------------------------
+
+    async createSmartAccount(config: {
+      deploySalt: Hex;
+      chainId: number;
+      address?: Address;
+    }): Promise<SmartAccountConfig> {
+      let { address } = config;
+
+      // Derive counterfactual address if not explicitly provided
+      if (!address) {
+        // Find the owner EOA from keyring or external signer
+        let owner: Address | undefined;
+        if (keyringVat) {
+          const accounts = await E(keyringVat).getAccounts();
+          if (accounts.length > 0) {
+            owner = accounts[0];
+          }
+        }
+        if (!owner && externalSigner) {
+          const accounts = await E(externalSigner).getAccounts();
+          if (accounts.length > 0) {
+            owner = accounts[0];
+          }
+        }
+        if (!owner) {
+          throw new Error(
+            'No owner account available to derive smart account address',
+          );
+        }
+
+        const derived = await computeSmartAccountAddress({
+          owner,
+          deploySalt: config.deploySalt,
+          chainId: config.chainId,
+        });
+        address = derived.address;
+      }
+
+      smartAccountConfig = {
+        implementation: 'hybrid' as const,
+        deploySalt: config.deploySalt,
+        address,
+      };
+      persistBaggage('smartAccountConfig', smartAccountConfig);
+      return smartAccountConfig;
+    },
+
+    async getSmartAccountAddress(): Promise<Address | undefined> {
+      return smartAccountConfig?.address;
+    },
+
+    // ------------------------------------------------------------------
     // Public wallet API
     // ------------------------------------------------------------------
 
@@ -641,7 +707,9 @@ export function buildRootObject(
         throw new Error('Delegation vat not available');
       }
 
-      // Determine delegator from keyring or external signer
+      // Determine delegator and signing function.
+      // When a smart account is configured, use its address as delegator
+      // but sign with the underlying EOA key (the smart account's owner).
       let delegator: Address | undefined;
       let signTypedDataFn:
         | ((data: Eip712TypedData) => Promise<Hex>)
@@ -650,7 +718,7 @@ export function buildRootObject(
       if (keyringVat) {
         const accounts = await E(keyringVat).getAccounts();
         if (accounts.length > 0) {
-          delegator = accounts[0];
+          delegator = smartAccountConfig?.address ?? accounts[0];
           const kv = keyringVat;
           signTypedDataFn = async (data: Eip712TypedData) =>
             E(kv).signTypedData(data);
@@ -660,7 +728,7 @@ export function buildRootObject(
       if (!delegator && externalSigner) {
         const accounts = await E(externalSigner).getAccounts();
         if (accounts.length > 0) {
-          delegator = accounts[0];
+          delegator = smartAccountConfig?.address ?? accounts[0];
           const ext = externalSigner;
           const from = delegator;
           signTypedDataFn = async (data: Eip712TypedData) =>
@@ -893,6 +961,7 @@ export function buildRootObject(
         hasPeerWallet: peerWallet !== undefined,
         hasExternalSigner: externalSigner !== undefined,
         hasBundlerConfig: bundlerConfig !== undefined,
+        smartAccountAddress: smartAccountConfig?.address,
       };
     },
   });
