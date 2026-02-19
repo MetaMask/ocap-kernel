@@ -48,15 +48,26 @@ export async function startRpcSocketServer({
   const server = createServer((socket) => {
     let buffer = '';
 
-    socket.on('data', (data) => {
+    const onData = (data: Buffer): void => {
       buffer += data.toString();
       const idx = buffer.indexOf('\n');
       if (idx === -1) {
         return;
       }
 
+      // One request per connection — stop listening for further data.
+      socket.removeListener('data', onData);
+
       const line = buffer.slice(0, idx);
+      const remaining = buffer.slice(idx + 1);
       buffer = '';
+
+      if (remaining.length > 0) {
+        socket.end(
+          `${JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Only one request per connection is allowed' } })}\n`,
+        );
+        return;
+      }
 
       handleRequest(rpcService, line, onShutdown)
         .then((response) => {
@@ -68,7 +79,8 @@ export async function startRpcSocketServer({
             `${JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32603, message: 'Internal error' } })}\n`,
           );
         });
-    });
+    };
+    socket.on('data', onData);
 
     socket.on('error', () => {
       // Ignore client socket errors (e.g. broken pipe from probe connections)
