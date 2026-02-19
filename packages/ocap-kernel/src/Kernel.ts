@@ -11,7 +11,7 @@ import { KernelRouter } from './KernelRouter.ts';
 import { KernelServiceManager } from './KernelServiceManager.ts';
 import type { KernelService } from './KernelServiceManager.ts';
 import type { SlotValue } from './liveslots/kernel-marshal.ts';
-import { kslot, kunser } from './liveslots/kernel-marshal.ts';
+import { kslot } from './liveslots/kernel-marshal.ts';
 import { OcapURLManager } from './remotes/kernel/OcapURLManager.ts';
 import { RemoteManager } from './remotes/kernel/RemoteManager.ts';
 import type { RemoteCommsOptions } from './remotes/types.ts';
@@ -377,27 +377,6 @@ export class Kernel {
     args: unknown[],
   ): Promise<CapData<KRef>> {
     return this.#kernelQueue.enqueueMessage(target, method, args);
-  }
-
-  /**
-   * Send a message to an object in a vat and return the deserialized result.
-   *
-   * Unlike {@link queueMessage}, which returns raw CapData, this method
-   * deserializes the result so that it can be returned through a kernel
-   * service and re-serialized by liveslots for the calling vat.
-   *
-   * @param target - The kref of the object to invoke.
-   * @param method - The method name.
-   * @param args - The method arguments.
-   * @returns The deserialized result of the method invocation.
-   */
-  async invokeMethod(
-    target: KRef,
-    method: string,
-    args: unknown[],
-  ): Promise<unknown> {
-    const capData = await this.queueMessage(target, method, args);
-    return kunser(capData);
   }
 
   /**
