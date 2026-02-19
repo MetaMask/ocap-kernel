@@ -6,13 +6,11 @@ import {
   buildSdkRedeemCallData,
   createSdkExecution,
   encodeSdkDelegations,
-  fromSdkDelegation,
   getDelegationManagerAddress,
   getEnforcerAddresses,
   resolveEnvironment,
   toSdkDelegation,
 } from './sdk.ts';
-import type { SdkDelegation } from './sdk.ts';
 import type { Address, Hex } from '../types.ts';
 
 const ALICE = '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266' as Address;
@@ -100,70 +98,6 @@ describe('lib/sdk', () => {
 
       const sdkDelegation = toSdkDelegation(delegation);
       expect(sdkDelegation.signature).toBe('0x');
-    });
-  });
-
-  describe('fromSdkDelegation', () => {
-    it('converts SDK delegation to our format', () => {
-      const sdkDelegation: SdkDelegation = {
-        delegate: BOB,
-        delegator: ALICE,
-        authority:
-          '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as Hex,
-        caveats: [],
-        salt: '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
-        signature: '0xdeadbeef' as Hex,
-      };
-
-      const delegation = fromSdkDelegation(sdkDelegation, 1, 'signed');
-
-      expect(delegation.delegate).toBe(BOB);
-      expect(delegation.delegator).toBe(ALICE);
-      expect(delegation.chainId).toBe(1);
-      expect(delegation.status).toBe('signed');
-      expect(delegation.signature).toBe('0xdeadbeef');
-      expect(delegation.id).toMatch(/^0x[\da-f]{64}$/iu);
-    });
-
-    it('omits signature when SDK delegation has 0x', () => {
-      const sdkDelegation: SdkDelegation = {
-        delegate: BOB,
-        delegator: ALICE,
-        authority:
-          '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as Hex,
-        caveats: [],
-        salt: '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
-        signature: '0x' as Hex,
-      };
-
-      const delegation = fromSdkDelegation(sdkDelegation, 1);
-      expect(delegation.signature).toBeUndefined();
-      expect(delegation.status).toBe('pending');
-    });
-  });
-
-  describe('type mapping round-trip', () => {
-    it('preserves delegation data through toSdk → fromSdk', () => {
-      const original = finalizeDelegation(
-        makeDelegation({
-          delegator: ALICE,
-          delegate: BOB,
-          caveats: [],
-          chainId: 1,
-          salt: '0x0000000000000000000000000000000000000000000000000000000000000042' as Hex,
-        }),
-        '0xdeadbeefdeadbeef' as Hex,
-      );
-
-      const sdkDelegation = toSdkDelegation(original);
-      const roundTripped = fromSdkDelegation(sdkDelegation, 1, 'signed');
-
-      expect(roundTripped.delegate).toBe(original.delegate);
-      expect(roundTripped.delegator).toBe(original.delegator);
-      expect(roundTripped.authority).toBe(original.authority);
-      expect(roundTripped.salt).toBe(original.salt);
-      expect(roundTripped.signature).toBe(original.signature);
-      expect(roundTripped.id).toBe(original.id);
     });
   });
 

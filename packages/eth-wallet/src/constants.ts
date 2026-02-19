@@ -1,7 +1,3 @@
-import {
-  getDelegationManagerAddress,
-  getEnforcerAddresses,
-} from './lib/sdk.ts';
 import type { Address, CaveatType, Hex } from './types.ts';
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
@@ -63,37 +59,14 @@ export const PLACEHOLDER_CONTRACTS: ChainContracts = harden({
 export const CHAIN_CONTRACTS: Record<number, ChainContracts> = harden({});
 
 /**
- * Map an SDK environment to our ChainContracts shape.
- *
- * @param chainId - The chain ID.
- * @returns The contract addresses.
- */
-function mapSdkEnvironmentToChainContracts(chainId: number): ChainContracts {
-  return {
-    delegationManager: getDelegationManagerAddress(chainId),
-    enforcers: getEnforcerAddresses(chainId),
-  };
-}
-
-/**
  * Get the contract addresses for a chain, falling back to placeholders.
- *
- * Uses the SDK environment as primary source. Falls back to the manual
- * registry, then to placeholder contracts.
  *
  * @param chainId - The chain ID to look up.
  * @returns The contract addresses.
  */
 export function getChainContracts(chainId?: number): ChainContracts {
-  if (chainId !== undefined) {
-    try {
-      return mapSdkEnvironmentToChainContracts(chainId);
-    } catch {
-      // SDK doesn't know this chain, fall back to manual registry
-      if (CHAIN_CONTRACTS[chainId]) {
-        return CHAIN_CONTRACTS[chainId];
-      }
-    }
+  if (chainId !== undefined && CHAIN_CONTRACTS[chainId]) {
+    return CHAIN_CONTRACTS[chainId];
   }
   return PLACEHOLDER_CONTRACTS;
 }

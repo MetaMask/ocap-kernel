@@ -256,13 +256,13 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Coordinator -- Lifecycle
 
-| Method                           | Description                                                                                  |
-| -------------------------------- | -------------------------------------------------------------------------------------------- |
-| `bootstrap(vats, services)`      | Called by the kernel during subcluster launch. Wires up vat references.                      |
-| `initializeKeyring(options)`     | Initialize the keyring vat. Options: `{ type: 'srp', mnemonic }` or `{ type: 'throwaway' }`. |
-| `configureProvider(chainConfig)` | Configure the provider vat with an RPC URL and chain ID.                                     |
-| `connectExternalSigner(signer)`  | Connect an external signing backend (e.g., MetaMask).                                        |
-| `configureBundler(config)`       | Configure the ERC-4337 bundler. Accepts `{ bundlerUrl, chainId, entryPoint? }`.              |
+| Method                           | Description                                                                                                          |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `bootstrap(vats, services)`      | Called by the kernel during subcluster launch. Wires up vat references.                                              |
+| `initializeKeyring(options)`     | Initialize the keyring vat. Options: `{ type: 'srp', mnemonic }` or `{ type: 'throwaway' }`.                         |
+| `configureProvider(chainConfig)` | Configure the provider vat with an RPC URL and chain ID.                                                             |
+| `connectExternalSigner(signer)`  | Connect an external signing backend (e.g., MetaMask).                                                                |
+| `configureBundler(config)`       | Configure the ERC-4337 bundler. Accepts `{ bundlerUrl, chainId, entryPoint?, usePaymaster?, sponsorshipPolicyId? }`. |
 
 ### Coordinator -- Signing
 
@@ -299,6 +299,13 @@ const userOpHash = await coordinator.redeemDelegation({
 | `getAccounts()`     | List all accounts (local keyring + external signer, deduplicated). |
 | `getCapabilities()` | Return a `WalletCapabilities` object describing the wallet state.  |
 
+### Coordinator -- Smart Accounts
+
+| Method                       | Description                                                                                |
+| ---------------------------- | ------------------------------------------------------------------------------------------ |
+| `createSmartAccount(config)` | Derive a counterfactual Hybrid smart account. Accepts `{ deploySalt, chainId, address? }`. |
+| `getSmartAccountAddress()`   | Return the smart account address, if configured.                                           |
+
 The `WalletCapabilities` object contains:
 
 ```typescript
@@ -309,6 +316,7 @@ type WalletCapabilities = {
   hasPeerWallet: boolean;
   hasExternalSigner: boolean;
   hasBundlerConfig: boolean;
+  smartAccountAddress?: Address;
 };
 ```
 
@@ -404,30 +412,41 @@ const hash = computeUserOpHash(userOp, ENTRY_POINT_V07, 1);
 
 ### Bundler Client
 
-```typescript
-import {
-  submitUserOp,
-  estimateUserOpGas,
-  getUserOpReceipt,
-  waitForUserOp,
-} from '@ocap/eth-wallet';
-import type { BundlerConfig } from '@ocap/eth-wallet';
+Use `makeBundlerClient` for ERC-4337 bundler interactions (replaces the legacy `submitUserOp` / `estimateUserOpGas` helpers).
 
-const config: BundlerConfig = {
-  url: 'https://bundler.example.com/rpc',
-  entryPoint: ENTRY_POINT_V07,
-};
+```typescript
+import { makeBundlerClient, ENTRY_POINT_V07 } from '@ocap/eth-wallet';
+
+const client = makeBundlerClient({
+  bundlerUrl: 'https://api.pimlico.io/v2/sepolia/rpc',
+  chainId: 11155111,
+  apiKey: 'YOUR_PIMLICO_KEY',
+});
 
 // Estimate gas
-const gas = await estimateUserOpGas(config, unsignedUserOp);
+const gas = await client.estimateUserOperationGas({
+  userOp: unsignedUserOp,
+  entryPointAddress: ENTRY_POINT_V07,
+});
+
+// Sponsor via paymaster (Pimlico)
+const sponsorship = await client.sponsorUserOperation({
+  userOp: unsignedUserOp,
+  entryPointAddress: ENTRY_POINT_V07,
+  context: { sponsorshipPolicyId: 'sp_my_policy' },
+});
 
 // Submit
-const userOpHash = await submitUserOp(config, signedUserOp);
+const userOpHash = await client.sendUserOperation({
+  userOp: signedUserOp,
+  entryPointAddress: ENTRY_POINT_V07,
+});
 
 // Wait for inclusion
-const receipt = await waitForUserOp(config, userOpHash, {
-  pollIntervalMs: 2000,
-  timeoutMs: 60000,
+const receipt = await client.waitForUserOperationReceipt({
+  hash: userOpHash,
+  pollingInterval: 2000,
+  timeout: 60000,
 });
 ```
 
@@ -503,6 +522,8 @@ The package exports chain contract addresses used by the Delegation Framework:
 
 | Export                       | Description                                                                      |
 | ---------------------------- | -------------------------------------------------------------------------------- |
+| `SEPOLIA_CHAIN_ID`           | Sepolia testnet chain ID (`11155111`).                                           |
+| `PIMLICO_RPC_BASE_URL`       | Base URL for the Pimlico bundler on Sepolia.                                     |
 | `CHAIN_CONTRACTS`            | Registry of contract addresses keyed by chain ID.                                |
 | `getChainContracts(chainId)` | Get contracts for a chain, falling back to placeholders.                         |
 | `ENTRY_POINT_V07`            | ERC-4337 EntryPoint v0.7 address (`0x0000000071727de22e5e9d8baf0edac6f37da032`). |

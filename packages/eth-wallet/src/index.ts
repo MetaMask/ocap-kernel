@@ -111,6 +111,7 @@ export type {
 export { makeBundlerClient } from './lib/bundler-client.ts';
 export type {
   BundlerClientConfig,
+  PaymasterSponsorResult,
   ViemBundlerClient,
 } from './lib/bundler-client.ts';
 
@@ -120,12 +121,10 @@ export {
   getDelegationManagerAddress,
   getEnforcerAddresses,
   toSdkDelegation,
-  fromSdkDelegation,
   encodeSdkDelegations,
   buildSdkRedeemCallData,
   createSdkExecution,
   computeSmartAccountAddress,
-  createHybridSmartAccount,
   Implementation,
   ExecutionMode,
 } from './lib/sdk.ts';

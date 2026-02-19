@@ -12,20 +12,16 @@ import {
   getSmartAccountsEnvironment,
   Implementation,
   ExecutionMode,
-  toMetaMaskSmartAccount,
   contracts,
 } from '@metamask/smart-accounts-kit';
 import type {
   SmartAccountsEnvironment,
   Delegation as SdkDelegation,
-  ToMetaMaskSmartAccountReturnType,
 } from '@metamask/smart-accounts-kit';
 import {
   encodeDelegations as sdkEncodeDelegations,
   getCounterfactualAccountData,
 } from '@metamask/smart-accounts-kit/utils';
-import { keccak256, encodePacked } from 'viem';
-import type { PublicClient, Account as ViemAccount } from 'viem';
 
 import type {
   Address,
@@ -125,75 +121,6 @@ export function toSdkDelegation(delegation: Delegation): SdkDelegation {
     salt: delegation.salt,
     signature: delegation.signature ?? ('0x' as Hex),
   };
-}
-
-/**
- * Convert an SDK Delegation back to our Delegation type.
- *
- * @param sdkDelegation - The SDK delegation.
- * @param chainId - The chain ID.
- * @param status - The delegation status (defaults to 'pending').
- * @returns Our delegation type.
- */
-export function fromSdkDelegation(
-  sdkDelegation: SdkDelegation,
-  chainId: number,
-  status: 'pending' | 'signed' | 'revoked' = 'pending',
-): Delegation {
-  const id = keccak256(
-    encodePacked(
-      ['address', 'address', 'bytes32', 'uint256'],
-      [
-        sdkDelegation.delegator,
-        sdkDelegation.delegate,
-        sdkDelegation.authority,
-        BigInt(sdkDelegation.salt),
-      ],
-    ),
-  );
-
-  return harden({
-    id,
-    delegator: sdkDelegation.delegator,
-    delegate: sdkDelegation.delegate,
-    authority: sdkDelegation.authority,
-    caveats: sdkDelegation.caveats.map((caveat) => ({
-      enforcer: caveat.enforcer,
-      terms: caveat.terms,
-      type: resolveCaveatType(caveat.enforcer, chainId),
-    })),
-    salt: sdkDelegation.salt,
-    signature:
-      sdkDelegation.signature === '0x' ? undefined : sdkDelegation.signature,
-    chainId,
-    status,
-  });
-}
-
-/**
- * Attempt to resolve the CaveatType from an enforcer address.
- * Falls back to 'allowedTargets' if the enforcer is not recognized.
- *
- * @param enforcer - The enforcer contract address.
- * @param chainId - The chain ID.
- * @returns The resolved caveat type.
- */
-function resolveCaveatType(enforcer: Address, chainId: number): CaveatType {
-  try {
-    const env = resolveEnvironment(chainId);
-    for (const [caveatType, sdkKey] of Object.entries(SDK_ENFORCER_KEYS)) {
-      if (
-        env.caveatEnforcers[sdkKey] &&
-        (env.caveatEnforcers[sdkKey] as string).toLowerCase() ===
-          enforcer.toLowerCase()
-      ) {
-        return caveatType as CaveatType;
-      }
-    }
-  } catch {
-    // SDK doesn't know this chain — can't resolve
-  }
-  return 'allowedTargets';
 }
 
 // ---------------------------------------------------------------------------
@@ -306,44 +233,4 @@ export async function computeSmartAccountAddress(options: {
     address: result.address,
     factoryData: result.factoryData,
   };
-}
-
-/**
- * Create a Hybrid smart account via the SDK.
- *
- * @param options - Smart account options.
- * @param options.client - The viem public client.
- * @param options.signer - The signer configuration.
- * @param options.signer.account - The account with signing methods.
- * @param options.environment - Optional SDK environment override.
- * @param options.deployParams - Deployment parameters for counterfactual accounts.
- * @param options.deploySalt - Deployment salt for deterministic addresses.
- * @param options.address - Existing smart account address.
- * @returns The smart account instance.
- */
-export async function createHybridSmartAccount(options: {
-  client: PublicClient;
-  signer: {
-    account: Pick<ViemAccount, 'signMessage' | 'signTypedData' | 'address'>;
-  };
-  environment?: SmartAccountsEnvironment;
-  deployParams?: [Hex, string[], bigint[], bigint[]];
-  deploySalt?: Hex;
-  address?: Address;
-}): Promise<ToMetaMaskSmartAccountReturnType<Implementation.Hybrid>> {
-  const params = {
-    client: options.client,
-    implementation: Implementation.Hybrid,
-    signer: options.signer,
-    environment: options.environment,
-  } as Parameters<typeof toMetaMaskSmartAccount<Implementation.Hybrid>>[0];
-
-  if (options.address) {
-    (params as Record<string, unknown>).address = options.address;
-  } else if (options.deployParams && options.deploySalt) {
-    (params as Record<string, unknown>).deployParams = options.deployParams;
-    (params as Record<string, unknown>).deploySalt = options.deploySalt;
-  }
-
-  return toMetaMaskSmartAccount(params);
 }
