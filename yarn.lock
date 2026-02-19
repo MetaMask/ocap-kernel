@@ -3498,7 +3498,6 @@ __metadata:
     yargs: "npm:^17.7.2"
   bin:
     ocap: ./dist/app.mjs
-    ok: ./dist/ok.mjs
   languageName: unknown
   linkType: soft
 
