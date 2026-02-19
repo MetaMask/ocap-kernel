@@ -273,6 +273,12 @@ describe.sequential('Remote Communications E2E', () => {
         response = kunser(stepResult3);
         expect(response).toBeDefined();
         expect(response).toContain(`next step: ${expectedCount} `);
+
+        // Update describe-scope refs so afterEach stops the restarted kernels
+        // eslint-disable-next-line require-atomic-updates
+        kernel1 = clientKernel;
+        // eslint-disable-next-line require-atomic-updates
+        kernel2 = serverKernel;
       },
       NETWORK_TIMEOUT * 2,
     );
