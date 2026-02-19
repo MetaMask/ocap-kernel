@@ -84,6 +84,9 @@ export class Kernel {
   /** The kernel's router */
   readonly #kernelRouter: KernelRouter;
 
+  /** Database holding the kernel's persistent state */
+  readonly #kernelDatabase: KernelDatabase;
+
   /** Manages IO channel lifecycle (optional, requires factory injection) */
   readonly #ioManager: IOManager | undefined;
 
@@ -112,6 +115,7 @@ export class Kernel {
     } = {},
   ) {
     this.#platformServices = platformServices;
+    this.#kernelDatabase = kernelDatabase;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase, this.#logger);
     if (!this.#kernelStore.kv.get('initialized')) {
@@ -737,6 +741,7 @@ export class Kernel {
     await this.#platformServices.stopRemoteComms();
     this.#remoteManager.cleanup();
     await this.#platformServices.terminateAll();
+    this.#kernelDatabase.close();
   }
 
   /**

@@ -1,4 +1,4 @@
-import type { KernelDatabase } from '@metamask/kernel-store';
+import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { stringify } from '@metamask/kernel-utils';
 import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
 import type {
@@ -132,18 +132,19 @@ export async function sendRemoteMessage(
 }
 
 /**
- * Restart a kernel with the same database.
+ * Restart a kernel by opening a fresh database connection to the same file.
  *
- * @param kernelDatabase - The kernel database to use.
+ * @param dbFilename - The database filename to open a fresh connection to.
  * @param resetStorage - Whether to reset storage.
  * @param relays - Array of relay addresses.
  * @returns The restarted kernel.
  */
 export async function restartKernel(
-  kernelDatabase: KernelDatabase,
+  dbFilename: string,
   resetStorage: boolean,
   relays: string[],
 ): Promise<Kernel> {
+  const kernelDatabase = await makeSQLKernelDatabase({ dbFilename });
   const kernel = await makeTestKernel(kernelDatabase, { resetStorage });
   await kernel.initRemoteComms({ relays });
   return kernel;
@@ -152,19 +153,19 @@ export async function restartKernel(
 /**
  * Restart a kernel and relaunch its vat.
  *
- * @param kernelDatabase - The kernel database to use.
+ * @param dbFilename - The database filename to open a fresh connection to.
  * @param resetStorage - Whether to reset storage.
  * @param relays - Array of relay addresses.
  * @param config - Cluster configuration for the vat.
  * @returns Object with the restarted kernel and its ocap URL.
  */
 export async function restartKernelAndReloadVat(
-  kernelDatabase: KernelDatabase,
+  dbFilename: string,
   resetStorage: boolean,
   relays: string[],
   config: ClusterConfig,
 ): Promise<{ kernel: Kernel; url: string }> {
-  const kernel = await restartKernel(kernelDatabase, resetStorage, relays);
+  const kernel = await restartKernel(dbFilename, resetStorage, relays);
   const url = await launchVatAndGetURL(kernel, config);
   return { kernel, url };
 }
