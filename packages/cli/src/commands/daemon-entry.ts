@@ -39,7 +39,7 @@ async function main(): Promise<void> {
 
   try {
     const socketPath =
-      process.env.OCAP_SOCKET_PATH ?? join(ocapDir, 'console.sock');
+      process.env.OCAP_SOCKET_PATH ?? join(ocapDir, 'daemon.sock');
 
     const { kernel, kernelDatabase } = await makeKernel({
       resetStorage: false,

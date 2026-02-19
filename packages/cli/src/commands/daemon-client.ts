@@ -15,7 +15,7 @@ const READ_TIMEOUT_MS = 30_000;
  * @returns The socket path.
  */
 export function getSocketPath(): string {
-  return join(homedir(), '.ocap', 'console.sock');
+  return join(homedir(), '.ocap', 'daemon.sock');
 }
 
 /**

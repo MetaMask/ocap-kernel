@@ -6,7 +6,7 @@ import { join } from 'node:path';
  * Options for flushing daemon state.
  */
 export type FlushDaemonOptions = {
-  /** UNIX socket path. Defaults to ~/.ocap/console.sock. */
+  /** UNIX socket path. Defaults to ~/.ocap/daemon.sock. */
   socketPath?: string;
   /** SQLite database filename. Defaults to ~/.ocap/kernel.sqlite. */
   dbFilename?: string;
@@ -19,7 +19,7 @@ export type FlushDaemonOptions = {
  */
 export async function flushDaemon(options?: FlushDaemonOptions): Promise<void> {
   const ocapDir = join(homedir(), '.ocap');
-  const socketPath = options?.socketPath ?? join(ocapDir, 'console.sock');
+  const socketPath = options?.socketPath ?? join(ocapDir, 'daemon.sock');
   const dbFilename = options?.dbFilename ?? join(ocapDir, 'kernel.sqlite');
   const bundlesDir = join(ocapDir, 'bundles');
 
