@@ -42,30 +42,31 @@ async function main(): Promise<void> {
       process.env.OCAP_SOCKET_PATH ?? join(ocapDir, 'console.sock');
 
     const { kernel, kernelDatabase } = await makeKernel({
-      resetStorage: true,
+      resetStorage: false,
       logger,
     });
     await kernel.initIdentity();
+
+    // Write PID file so `ok daemon stop` can use it as a fallback
+    const pidPath = join(ocapDir, 'daemon.pid');
+    await writeFile(pidPath, String(process.pid));
+
+    const shutdown = async (reason: string): Promise<void> => {
+      logger.info(`Shutting down (${reason})...`);
+      // eslint-disable-next-line @typescript-eslint/no-use-before-define -- shutdown is only called async, after handle is initialized
+      await handle.close();
+      await rm(pidPath, { force: true });
+      process.exit(0);
+    };
 
     const handle = await startDaemon({
       socketPath,
       kernel,
       kernelDatabase,
+      onShutdown: async () => shutdown('RPC shutdown'),
     });
 
-    // Write PID file so `ok daemon stop` can signal this process
-    const pidPath = join(ocapDir, 'daemon.pid');
-    await writeFile(pidPath, String(process.pid));
-
     logger.info(`Daemon started. Socket: ${handle.socketPath}`);
-
-    // Keep the process alive
-    const shutdown = async (signal: string): Promise<void> => {
-      logger.info(`Received ${signal}, shutting down...`);
-      await handle.close();
-      await rm(pidPath, { force: true });
-      process.exit(0);
-    };
 
     process.on('SIGTERM', () => {
       shutdown('SIGTERM').catch(() => process.exit(1));

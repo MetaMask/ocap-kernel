@@ -1,5 +1,6 @@
 /* eslint-disable n/no-process-exit */
 import '@metamask/kernel-shims/endoify-node';
+import { isJsonRpcFailure } from '@metamask/utils';
 import { flushDaemon } from '@ocap/nodejs/daemon';
 import { readFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -10,7 +11,7 @@ import { hideBin } from 'yargs/helpers';
 
 import {
   getSocketPath,
-  isDaemonRunning,
+  pingDaemon,
   sendCommand,
 } from './commands/daemon-client.ts';
 import { ensureDaemon } from './commands/daemon-spawn.ts';
@@ -55,7 +56,7 @@ async function handleInvoke(args: string[], socketPath: string): Promise<void> {
 
   const response = await sendCommand(socketPath, method, params);
 
-  if (response.error) {
+  if (isJsonRpcFailure(response)) {
     process.stderr.write(
       `Error: ${response.error.message} (code ${String(response.error.code)})\n`,
     );
@@ -114,6 +115,68 @@ function resolveBundleSpecs(config: {
 }
 
 /**
+ * Stop the daemon via a `shutdown` RPC call. Falls back to PID + SIGTERM if
+ * the socket is unresponsive.
+ *
+ * @param socketPath - The daemon socket path.
+ */
+async function stopDaemon(socketPath: string): Promise<void> {
+  if (!(await pingDaemon(socketPath))) {
+    process.stderr.write('Daemon is not running.\n');
+    return;
+  }
+
+  process.stderr.write('Stopping daemon...\n');
+
+  // Try socket-based shutdown first.
+  try {
+    await sendCommand(socketPath, 'shutdown');
+  } catch {
+    // Socket unresponsive — fall back to PID + SIGTERM below.
+  }
+
+  // Poll until socket stops responding (max 5s).
+  const pollEnd = Date.now() + 5_000;
+  while (Date.now() < pollEnd) {
+    await new Promise((_resolve) => setTimeout(_resolve, 250));
+    if (!(await pingDaemon(socketPath))) {
+      process.stderr.write('Daemon stopped.\n');
+      return;
+    }
+  }
+
+  // Fallback: read PID file and send SIGTERM.
+  const pidPath = join(homedir(), '.ocap', 'daemon.pid');
+  let pid: number | undefined;
+  try {
+    pid = Number(await readFile(pidPath, 'utf-8'));
+  } catch {
+    // PID file missing.
+  }
+
+  if (pid && !Number.isNaN(pid)) {
+    try {
+      process.kill(pid, 'SIGTERM');
+    } catch {
+      // Process may already be gone.
+    }
+
+    // Poll again after SIGTERM.
+    const sigPollEnd = Date.now() + 5_000;
+    while (Date.now() < sigPollEnd) {
+      await new Promise((_resolve) => setTimeout(_resolve, 250));
+      if (!(await pingDaemon(socketPath))) {
+        await rm(pidPath, { force: true });
+        process.stderr.write('Daemon stopped.\n');
+        return;
+      }
+    }
+  }
+
+  process.stderr.write('Daemon did not stop within timeout.\n');
+}
+
+/**
  * Handle daemon management commands.
  *
  * @param args - CLI arguments after `ok daemon`.
@@ -123,55 +186,7 @@ async function handleDaemon(args: string[], socketPath: string): Promise<void> {
   const subcommand = args[0];
 
   if (subcommand === 'stop') {
-    if (!(await isDaemonRunning(socketPath))) {
-      process.stderr.write('Daemon is not running.\n');
-      return;
-    }
-
-    const pidPath = join(homedir(), '.ocap', 'daemon.pid');
-
-    let pid: number | undefined;
-    try {
-      pid = Number(await readFile(pidPath, 'utf-8'));
-    } catch {
-      // PID file missing — fall back to manual instructions
-    }
-
-    if (!pid || Number.isNaN(pid)) {
-      process.stderr.write(
-        'PID file not found. Stop the daemon manually:\n' +
-          `  kill $(lsof -t ${tildify(socketPath)})\n`,
-      );
-      return;
-    }
-
-    process.stderr.write('Stopping daemon...\n');
-    try {
-      process.kill(pid, 'SIGTERM');
-    } catch {
-      process.stderr.write(
-        'Failed to send SIGTERM (process may already be gone).\n',
-      );
-      await rm(pidPath, { force: true });
-      return;
-    }
-
-    // Poll until socket stops responding (max 5s)
-    const pollEnd = Date.now() + 5_000;
-    while (Date.now() < pollEnd) {
-      await new Promise((_resolve) => setTimeout(_resolve, 250));
-      if (!(await isDaemonRunning(socketPath))) {
-        break;
-      }
-    }
-
-    await rm(pidPath, { force: true });
-
-    if (await isDaemonRunning(socketPath)) {
-      process.stderr.write('Daemon did not stop within 5 seconds.\n');
-    } else {
-      process.stderr.write('Daemon stopped.\n');
-    }
+    await stopDaemon(socketPath);
     return;
   }
 
@@ -183,6 +198,9 @@ async function handleDaemon(args: string[], socketPath: string): Promise<void> {
           'This will delete all OCAP daemon state.\n',
       );
       process.exit(1);
+    }
+    if (await pingDaemon(socketPath)) {
+      await stopDaemon(socketPath);
     }
     await flushDaemon({ socketPath });
     process.stderr.write('All daemon state flushed.\n');

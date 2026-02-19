@@ -13,6 +13,8 @@ export type StartDaemonOptions = {
   kernel: Kernel;
   /** The kernel database instance. */
   kernelDatabase: KernelDatabase;
+  /** Optional callback invoked when a `shutdown` RPC is received. */
+  onShutdown?: () => Promise<void>;
 };
 
 /**
@@ -36,12 +38,13 @@ export type DaemonHandle = {
 export async function startDaemon(
   options: StartDaemonOptions,
 ): Promise<DaemonHandle> {
-  const { socketPath, kernel, kernelDatabase } = options;
+  const { socketPath, kernel, kernelDatabase, onShutdown } = options;
 
   const rpcServer = await startRpcSocketServer({
     socketPath,
     kernel,
     kernelDatabase,
+    onShutdown,
   });
 
   const close = async (): Promise<void> => {

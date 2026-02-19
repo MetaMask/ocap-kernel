@@ -7,7 +7,11 @@ import { join } from 'node:path';
 import { describe, it, expect, afterEach } from 'vitest';
 
 import type { RpcSocketServerHandle } from '../../src/daemon/index.ts';
-import { startRpcSocketServer } from '../../src/daemon/index.ts';
+import {
+  readLine,
+  startRpcSocketServer,
+  writeLine,
+} from '../../src/daemon/index.ts';
 import { makeTestKernel } from '../helpers/kernel.ts';
 
 /**
@@ -39,55 +43,6 @@ async function connectToSocket(socketPath: string): Promise<net.Socket> {
 }
 
 /**
- * Write a newline-delimited line to a socket.
- *
- * @param socket - The socket.
- * @param line - The line to write.
- */
-async function writeLine(socket: net.Socket, line: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    socket.write(`${line}\n`, (error) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-/**
- * Read a newline-delimited line from a socket.
- *
- * @param socket - The socket.
- * @returns The line read.
- */
-async function readLine(socket: net.Socket): Promise<string> {
-  return new Promise((resolve) => {
-    let buffer = '';
-    const onData = (data: Buffer): void => {
-      buffer += data.toString();
-      const idx = buffer.indexOf('\n');
-      if (idx !== -1) {
-        socket.removeListener('data', onData);
-        resolve(buffer.slice(0, idx));
-      }
-    };
-    socket.on('data', onData);
-  });
-}
-
-/**
- * A JSON-RPC 2.0 response.
- */
-type JsonRpcResponse = {
-  jsonrpc: '2.0';
-  id: string | null;
-  result?: unknown;
-  error?: { code: number; message: string };
-};
-
-/**
  * Send a JSON-RPC request over a socket and read the JSON-RPC response.
  *
  * @param socketPath - The socket path.
@@ -99,7 +54,7 @@ async function sendJsonRpc(
   socketPath: string,
   method: string,
   params?: Record<string, unknown>,
-): Promise<JsonRpcResponse> {
+): Promise<Record<string, unknown>> {
   const socket = await connectToSocket(socketPath);
   try {
     const request = {
@@ -110,7 +65,7 @@ async function sendJsonRpc(
     };
     await writeLine(socket, JSON.stringify(request));
     const responseLine = await readLine(socket);
-    return JSON.parse(responseLine) as JsonRpcResponse;
+    return JSON.parse(responseLine) as Record<string, unknown>;
   } finally {
     socket.destroy();
   }
@@ -178,7 +133,7 @@ describe('Daemon Stack (JSON-RPC socket protocol)', { timeout: 30_000 }, () => {
     const response = await sendJsonRpc(socketPath, 'nonexistentMethod');
 
     expect(response.error).toBeDefined();
-    expect(response.error!.code).toBe(-32601);
+    expect((response.error as { code: number }).code).toBe(-32601);
   });
 
   it('executes DB query', async () => {

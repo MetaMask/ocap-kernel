@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { isDaemonRunning } from './daemon-client.ts';
+import { pingDaemon } from './daemon-client.ts';
 
 const POLL_INTERVAL_MS = 100;
 const MAX_POLLS = 300; // 30 seconds
@@ -14,7 +14,7 @@ const MAX_POLLS = 300; // 30 seconds
  * @param socketPath - The UNIX socket path.
  */
 export async function ensureDaemon(socketPath: string): Promise<void> {
-  if (await isDaemonRunning(socketPath)) {
+  if (await pingDaemon(socketPath)) {
     return;
   }
 
@@ -36,7 +36,7 @@ export async function ensureDaemon(socketPath: string): Promise<void> {
   // Poll until daemon responds
   for (let i = 0; i < MAX_POLLS; i++) {
     await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-    if (await isDaemonRunning(socketPath)) {
+    if (await pingDaemon(socketPath)) {
       process.stderr.write('Daemon ready.\n');
       return;
     }

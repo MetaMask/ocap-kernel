@@ -1,3 +1,6 @@
+import type { JsonRpcResponse } from '@metamask/utils';
+import { assertIsJsonRpcResponse } from '@metamask/utils';
+import { readLine, writeLine } from '@ocap/nodejs/daemon';
 import { randomUUID } from 'node:crypto';
 import { createConnection } from 'node:net';
 import type { Socket } from 'node:net';
@@ -32,85 +35,6 @@ async function connectSocket(socketPath: string): Promise<Socket> {
 }
 
 /**
- * Read a single newline-delimited line from a socket.
- *
- * @param socket - The socket to read from.
- * @returns The line read.
- */
-async function readLine(socket: Socket): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let buffer = '';
-
-    const timer = setTimeout(() => {
-      cleanup();
-      reject(new Error('Daemon response timed out'));
-    }, READ_TIMEOUT_MS);
-
-    /**
-     * Remove all listeners and clear the timeout.
-     */
-    function cleanup(): void {
-      clearTimeout(timer);
-      socket.removeAllListeners('data');
-      socket.removeAllListeners('error');
-      socket.removeAllListeners('end');
-      socket.removeAllListeners('close');
-    }
-
-    const onData = (data: Buffer): void => {
-      buffer += data.toString();
-      const idx = buffer.indexOf('\n');
-      if (idx !== -1) {
-        cleanup();
-        resolve(buffer.slice(0, idx));
-      }
-    };
-
-    socket.on('data', onData);
-    socket.once('error', (error) => {
-      cleanup();
-      reject(error);
-    });
-    socket.once('end', () => {
-      cleanup();
-      reject(new Error('Socket closed before response received'));
-    });
-    socket.once('close', () => {
-      cleanup();
-      reject(new Error('Socket closed before response received'));
-    });
-  });
-}
-
-/**
- * Write a newline-delimited line to a socket.
- *
- * @param socket - The socket to write to.
- * @param line - The line to write.
- */
-async function writeLine(socket: Socket, line: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    socket.write(`${line}\n`, (error) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve();
-      }
-    });
-  });
-}
-
-/**
- * A JSON-RPC 2.0 response.
- */
-export type JsonRpcResponse = {
-  jsonrpc: '2.0';
-  id: string | null;
-  result?: unknown;
-  error?: { code: number; message: string };
-};
-
-/**
  * Send a JSON-RPC request to the daemon over a UNIX socket and return the response.
  *
  * Opens a connection, writes one JSON-RPC request line, reads one JSON-RPC
@@ -139,8 +63,10 @@ export async function sendCommand(
     const socket = await connectSocket(socketPath);
     try {
       await writeLine(socket, JSON.stringify(request));
-      const responseLine = await readLine(socket);
-      return JSON.parse(responseLine) as JsonRpcResponse;
+      const responseLine = await readLine(socket, READ_TIMEOUT_MS);
+      const parsed: unknown = JSON.parse(responseLine);
+      assertIsJsonRpcResponse(parsed);
+      return parsed;
     } finally {
       socket.destroy();
     }
@@ -148,24 +74,29 @@ export async function sendCommand(
 
   try {
     return await attempt();
-  } catch {
-    // Retry once after a short delay — the daemon's socket may
-    // still be cleaning up a previous probe connection.
+  } catch (error: unknown) {
+    // Retry once on connection errors only — the daemon's socket may
+    // still be cleaning up a previous connection.
+    const code = (error as NodeJS.ErrnoException | undefined)?.code;
+    if (code !== 'ECONNREFUSED' && code !== 'ECONNRESET') {
+      throw error;
+    }
     await new Promise((resolve) => setTimeout(resolve, 100));
     return attempt();
   }
 }
 
 /**
- * Check whether the daemon is running by probing the socket.
+ * Check whether the daemon is running by sending a lightweight `getStatus`
+ * RPC call. Unlike a bare socket probe, this avoids spurious connect/disconnect
+ * noise on the server.
  *
  * @param socketPath - The UNIX socket path.
- * @returns True if the daemon socket accepts a connection.
+ * @returns True if the daemon responds to the RPC call.
  */
-export async function isDaemonRunning(socketPath: string): Promise<boolean> {
+export async function pingDaemon(socketPath: string): Promise<boolean> {
   try {
-    const socket = await connectSocket(socketPath);
-    socket.destroy();
+    await sendCommand(socketPath, 'getStatus');
     return true;
   } catch {
     return false;
