@@ -28,8 +28,10 @@ async function main(): Promise<void> {
   const socketPath =
     process.env.OCAP_SOCKET_PATH ?? join(ocapDir, 'daemon.sock');
 
+  const dbFilename = join(ocapDir, 'kernel.sqlite');
   const { kernel, kernelDatabase } = await makeKernel({
     resetStorage: false,
+    dbFilename,
     logger,
   });
   await kernel.initIdentity();
