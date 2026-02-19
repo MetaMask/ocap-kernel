@@ -45,9 +45,9 @@ async function main(): Promise<void> {
     if (shutdownPromise === undefined) {
       logger.info(`Shutting down (${reason})...`);
       // eslint-disable-next-line @typescript-eslint/no-use-before-define -- shutdown is only called async, after handle is initialized
-      shutdownPromise = handle
-        .close()
-        .then(async () => rm(pidPath, { force: true }));
+      shutdownPromise = handle.close().finally(() => {
+        rm(pidPath, { force: true }).catch(() => undefined);
+      });
     }
     return shutdownPromise;
   };
