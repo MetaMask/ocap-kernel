@@ -181,9 +181,22 @@ export const WalletCapabilitiesStruct = object({
   hasPeerWallet: boolean(),
   hasExternalSigner: boolean(),
   hasBundlerConfig: boolean(),
+  smartAccountAddress: optional(AddressStruct),
 });
 
 export type WalletCapabilities = Infer<typeof WalletCapabilitiesStruct>;
+
+// ---------------------------------------------------------------------------
+// Smart account configuration
+// ---------------------------------------------------------------------------
+
+export const SmartAccountConfigStruct = object({
+  implementation: literal('hybrid'),
+  deploySalt: HexStruct,
+  address: optional(AddressStruct),
+});
+
+export type SmartAccountConfig = Infer<typeof SmartAccountConfigStruct>;
 
 // ---------------------------------------------------------------------------
 // Action descriptor (for delegation matching)

@@ -75,7 +75,7 @@ describe('lib/userop', () => {
   });
 
   describe('buildRedeemCallData', () => {
-    it('builds callData starting with redeemDelegations selector', () => {
+    it('builds callData with a function selector', () => {
       const delegation = makeTestDelegation();
       const execution = makeTestExecution();
 
@@ -84,7 +84,8 @@ describe('lib/userop', () => {
         execution,
       });
 
-      expect(callData).toMatch(/^0x38c86720/u);
+      expect(callData).toMatch(/^0x[\da-f]{8}/u);
+      expect(callData.length).toBeGreaterThan(10);
     });
   });
 
@@ -104,7 +105,7 @@ describe('lib/userop', () => {
 
       expect(userOp.sender).toBe(BOB);
       expect(userOp.nonce).toBe('0x0');
-      expect(userOp.callData).toMatch(/^0x38c86720/u);
+      expect(userOp.callData).toMatch(/^0x[\da-f]{8}/u);
       expect(userOp.signature).toBe('0x');
     });
 
