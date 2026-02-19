@@ -3,6 +3,7 @@ import { Logger } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
 import { makeKernel } from '@ocap/nodejs';
 import { startDaemon } from '@ocap/nodejs/daemon';
+import type { DaemonHandle } from '@ocap/nodejs/daemon';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -34,32 +35,49 @@ async function main(): Promise<void> {
     dbFilename,
     logger,
   });
-  await kernel.initIdentity();
 
-  // Write PID file so we can use it as a fallback when stopping the daemon
   const pidPath = join(ocapDir, 'daemon.pid');
-  await writeFile(pidPath, String(process.pid));
+
+  let handle: DaemonHandle;
+  try {
+    await kernel.initIdentity();
+    await writeFile(pidPath, String(process.pid));
+
+    handle = await startDaemon({
+      socketPath,
+      kernel,
+      kernelDatabase,
+      onShutdown: async () => shutdown('RPC shutdown'),
+    });
+  } catch (error) {
+    try {
+      kernel.stop().catch(() => undefined);
+      kernelDatabase.close();
+    } catch {
+      // Best-effort cleanup.
+    }
+    rm(pidPath, { force: true }).catch(() => undefined);
+    throw error;
+  }
+
+  logger.info(`Daemon started. Socket: ${handle.socketPath}`);
 
   let shutdownPromise: Promise<void> | undefined;
-  const shutdown = async (reason: string): Promise<void> => {
+  /**
+   * Shut down the daemon idempotently. Concurrent calls coalesce.
+   *
+   * @param reason - A label describing why shutdown was triggered.
+   * @returns A promise that resolves when shutdown completes.
+   */
+  async function shutdown(reason: string): Promise<void> {
     if (shutdownPromise === undefined) {
       logger.info(`Shutting down (${reason})...`);
-      // eslint-disable-next-line @typescript-eslint/no-use-before-define -- shutdown is only called async, after handle is initialized
       shutdownPromise = handle.close().finally(() => {
         rm(pidPath, { force: true }).catch(() => undefined);
       });
     }
     return shutdownPromise;
-  };
-
-  const handle = await startDaemon({
-    socketPath,
-    kernel,
-    kernelDatabase,
-    onShutdown: async () => shutdown('RPC shutdown'),
-  });
-
-  logger.info(`Daemon started. Socket: ${handle.socketPath}`);
+  }
 
   process.on('SIGTERM', () => {
     shutdown('SIGTERM').catch(() => (process.exitCode = 1));
