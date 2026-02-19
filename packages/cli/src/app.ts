@@ -230,7 +230,24 @@ const yargsInstance = yargs(hideBin(process.argv))
               .positional('params-json', {
                 describe: 'JSON-encoded method parameters',
                 type: 'string',
-              }),
+              })
+              .example('$0 daemon exec', 'Get daemon status')
+              .example(
+                '$0 daemon exec getStatus',
+                'Get daemon status (explicit)',
+              )
+              .example(
+                '$0 daemon exec pingVat \'{"vatId":"v1"}\'',
+                'Ping a vat',
+              )
+              .example(
+                '$0 daemon exec executeDBQuery \'{"sql":"SELECT * FROM kv LIMIT 5"}\'',
+                'Run a SQL query',
+              )
+              .example(
+                '$0 daemon exec terminateVat \'{"vatId":"v1"}\'',
+                'Terminate a vat',
+              ),
           async (args) => {
             const execArgs: string[] = [];
             if (args.method) {
