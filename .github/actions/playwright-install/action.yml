@@ -1,0 +1,20 @@
+name: Install Playwright browsers
+description: Cache and install Playwright Chromium browser and system dependencies
+
+runs:
+  using: composite
+  steps:
+    - name: Cache Playwright browsers
+      id: playwright-cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('yarn.lock') }}
+    - name: Install Playwright browsers
+      if: steps.playwright-cache.outputs.cache-hit != 'true'
+      run: yarn playwright install --with-deps chromium
+      shell: bash
+    - name: Install Playwright system dependencies
+      if: steps.playwright-cache.outputs.cache-hit == 'true'
+      run: yarn playwright install-deps chromium
+      shell: bash
