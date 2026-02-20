@@ -26,11 +26,13 @@ export async function deleteDaemonState(
   const bundlesDir = join(ocapDir, 'bundles');
 
   const pidPath = join(ocapDir, 'daemon.pid');
+  const logPath = join(ocapDir, 'daemon.log');
 
   await Promise.all([
     rm(dbFilename, { force: true }),
     rm(socketPath, { force: true }),
     rm(bundlesDir, { recursive: true, force: true }),
     rm(pidPath, { force: true }),
+    rm(logPath, { force: true }),
   ]);
 }
