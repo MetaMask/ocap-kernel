@@ -41,19 +41,6 @@ export async function readLine(
       }, timeoutMs);
     }
 
-    /**
-     * Remove all listeners and clear the timeout.
-     */
-    function cleanup(): void {
-      if (timer !== undefined) {
-        clearTimeout(timer);
-      }
-      socket.removeAllListeners('data');
-      socket.removeAllListeners('error');
-      socket.removeAllListeners('end');
-      socket.removeAllListeners('close');
-    }
-
     const onData = (data: Buffer): void => {
       buffer += data.toString();
       const idx = buffer.indexOf('\n');
@@ -63,18 +50,37 @@ export async function readLine(
       }
     };
 
-    socket.on('data', onData);
-    socket.once('error', (error) => {
+    const onError = (error: Error): void => {
       cleanup();
       reject(error);
-    });
-    socket.once('end', () => {
+    };
+
+    const onEnd = (): void => {
       cleanup();
       reject(new Error('Socket closed before response received'));
-    });
-    socket.once('close', () => {
+    };
+
+    const onClose = (): void => {
       cleanup();
       reject(new Error('Socket closed before response received'));
-    });
+    };
+
+    /**
+     * Remove listeners registered by this call and clear the timeout.
+     */
+    function cleanup(): void {
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+      socket.removeListener('data', onData);
+      socket.removeListener('error', onError);
+      socket.removeListener('end', onEnd);
+      socket.removeListener('close', onClose);
+    }
+
+    socket.on('data', onData);
+    socket.once('error', onError);
+    socket.once('end', onEnd);
+    socket.once('close', onClose);
   });
 }
