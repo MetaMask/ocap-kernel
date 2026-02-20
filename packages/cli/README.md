@@ -49,6 +49,7 @@ The daemon is a prototype. The following limitations apply:
 3. **No daemon spawn concurrency protection** — if two CLI invocations run simultaneously and neither finds a running daemon, both may attempt to spawn one. A lockfile mechanism would prevent this.
 4. **No request size limits** — the RPC server buffers incoming data without a size cap. A malicious client could exhaust daemon memory.
 5. **No log rotation** — `daemon.log` grows without bound. Production use should add log rotation.
+6. **PID file is vulnerable to PID reuse** — if the daemon crashes without cleaning up `daemon.pid` and the OS reassigns that PID to an unrelated process, `stopDaemon` may signal the wrong process. A lockfile (`flock`) mechanism would eliminate this risk (and also solve limitation #3).
 
 ## Contributing
 
