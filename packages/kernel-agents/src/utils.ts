@@ -2,17 +2,7 @@ import type { Logger } from '@metamask/logger';
 
 import type { SampleCollector } from './types.ts';
 
-/**
- * Return a new object with the undefined values removed.
- *
- * @param record - The record to filter.
- * @returns The new object with the undefined values removed.
- */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export const ifDefined = (record: Record<string, unknown>) =>
-  Object.fromEntries(
-    Object.entries(record).filter(([_, value]) => value !== undefined),
-  );
+export { ifDefined } from '@metamask/kernel-utils';
 
 /**
  * Await a promise, and call the abort callback when done or on error.

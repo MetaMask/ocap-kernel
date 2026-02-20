@@ -17,7 +17,7 @@ describe('Kernel Worker', () => {
   const testVatIds = ['v1', 'v2', 'v3'].sort();
 
   beforeEach(async () => {
-    kernel = await makeKernel({});
+    ({ kernel } = await makeKernel({}));
   });
 
   afterEach(async () => {

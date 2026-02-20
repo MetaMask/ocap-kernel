@@ -1,10 +1,22 @@
+import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Logger } from '@metamask/logger';
 import { Kernel } from '@metamask/ocap-kernel';
-import type { IOChannelFactory } from '@metamask/ocap-kernel';
+import type {
+  IOChannelFactory,
+  SystemSubclusterConfig,
+} from '@metamask/ocap-kernel';
 
 import { NodejsPlatformServices } from './PlatformServices.ts';
 import { makeIOChannelFactory } from '../io/index.ts';
+
+/**
+ * Result of {@link makeKernel}.
+ */
+export type MakeKernelResult = {
+  kernel: Kernel;
+  kernelDatabase: KernelDatabase;
+};
 
 /**
  * The main function for the kernel worker.
@@ -16,7 +28,8 @@ import { makeIOChannelFactory } from '../io/index.ts';
  * @param options.logger - The logger to use for the kernel.
  * @param options.keySeed - Optional seed for libp2p key generation.
  * @param options.ioChannelFactory - Optional factory for creating IO channels.
- * @returns The kernel, initialized.
+ * @param options.systemSubclusters - Optional system subcluster configurations.
+ * @returns The kernel and its database.
  */
 export async function makeKernel({
   workerFilePath,
@@ -25,6 +38,7 @@ export async function makeKernel({
   logger,
   keySeed,
   ioChannelFactory,
+  systemSubclusters,
 }: {
   workerFilePath?: string;
   resetStorage?: boolean;
@@ -32,7 +46,8 @@ export async function makeKernel({
   logger?: Logger;
   keySeed?: string | undefined;
   ioChannelFactory?: IOChannelFactory;
-}): Promise<Kernel> {
+  systemSubclusters?: SystemSubclusterConfig[];
+}): Promise<MakeKernelResult> {
   const rootLogger = logger ?? new Logger('kernel-worker');
   const platformServicesClient = new NodejsPlatformServices({
     workerFilePath,
@@ -48,7 +63,8 @@ export async function makeKernel({
     logger: rootLogger.subLogger({ tags: ['kernel'] }),
     keySeed,
     ioChannelFactory: ioChannelFactory ?? makeIOChannelFactory(),
+    ...(systemSubclusters ? { systemSubclusters } : {}),
   });
 
-  return kernel;
+  return { kernel, kernelDatabase };
 }

@@ -25,7 +25,7 @@ cd ~/path/to/ocap-kernel/packages/nodejs
 If it's not already running, start the `@ocap/cli` in `kernel-test/src/vats/default`.
 
 ```sh
-yarn ocap start ../kernel-test/src/vats/default
+yarn run -T ocap start ../kernel-test/src/vats/default
 ```
 
 Then, run the end to end tests.

@@ -1,4 +1,4 @@
-import { startRelay } from '@ocap/cli/relay';
+import { startRelay } from '@metamask/kernel-utils/libp2p';
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 import { rm } from 'node:fs/promises';

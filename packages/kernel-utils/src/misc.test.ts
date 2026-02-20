@@ -1,7 +1,32 @@
 import { AbortError } from '@metamask/kernel-errors';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-import { abortableDelay, delay, makeCounter } from './misc.ts';
+import { abortableDelay, delay, ifDefined, makeCounter } from './misc.ts';
+
+describe('ifDefined', () => {
+  it('removes undefined values', () => {
+    expect(ifDefined({ a: 1, b: undefined, c: 3 })).toStrictEqual({
+      a: 1,
+      c: 3,
+    });
+  });
+
+  it('returns empty object when all values are undefined', () => {
+    expect(ifDefined({ a: undefined, b: undefined })).toStrictEqual({});
+  });
+
+  it('preserves all values when none are undefined', () => {
+    expect(ifDefined({ a: 1, b: 'two', c: null })).toStrictEqual({
+      a: 1,
+      b: 'two',
+      c: null,
+    });
+  });
+
+  it('returns empty object for empty input', () => {
+    expect(ifDefined({})).toStrictEqual({});
+  });
+});
 
 describe('misc utilities', () => {
   beforeEach(() => {

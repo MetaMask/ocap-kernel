@@ -113,7 +113,6 @@
     "allowScripts": {
       "$root$": true,
       "@ocap/cli>@metamask/logger>@metamask/streams": true,
-      "@ocap/cli>@libp2p/webrtc>@ipshipyard/node-datachannel": false,
       "@lavamoat/preinstall-always-fail": false,
       "eslint-import-resolver-typescript>unrs-resolver": false,
       "eslint-plugin-import-x>unrs-resolver": false,
@@ -124,7 +123,9 @@
       "vitest>@vitest/browser>webdriverio>@wdio/utils>edgedriver": false,
       "vitest>@vitest/browser>webdriverio>@wdio/utils>geckodriver": false,
       "vitest>@vitest/mocker>msw": false,
-      "@ocap/cli>@metamask/kernel-shims>@libp2p/webrtc>@ipshipyard/node-datachannel": false
+      "@ocap/cli>@ocap/nodejs>@libp2p/webrtc>@ipshipyard/node-datachannel": false,
+      "@ocap/cli>@ocap/nodejs>@metamask/kernel-store>better-sqlite3": false,
+      "@ocap/cli>@ocap/nodejs>@metamask/streams": false
     }
   },
   "resolutions": {

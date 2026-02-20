@@ -90,13 +90,21 @@ export async function makeSocketIOChannel(
 
   const server = net.createServer((socket) => {
     if (currentSocket) {
-      // Only one connection at a time
-      socket.destroy();
-      return;
+      if (currentSocket.readableEnded || currentSocket.destroyed) {
+        // Old connection is dead but events haven't been fully processed;
+        // clean it up and accept the new connection.
+        currentSocket.removeAllListeners();
+        currentSocket.destroy();
+        currentSocket = null;
+      } else {
+        // Existing active client — reject the new connection
+        socket.destroy();
+        return;
+      }
     }
-    // Drain stale state from any previous connection
+    // Drain stale data from any previous connection, but keep pending
+    // readers alive so they can receive data from the new connection.
     lineQueue.length = 0;
-    deliverEOF();
 
     currentSocket = socket;
     decoder = new StringDecoder('utf8');
@@ -132,9 +140,7 @@ export async function makeSocketIOChannel(
       if (queued !== undefined) {
         return queued;
       }
-      if (!currentSocket) {
-        return null;
-      }
+      // Block until data arrives (from a current or future client connection)
       return new Promise<string | null>((resolve) => {
         readerQueue.push({ resolve });
       });

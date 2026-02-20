@@ -1,4 +1,5 @@
 import '@metamask/kernel-shims/endoify-node';
+import { startRelay } from '@metamask/kernel-utils/libp2p';
 import { Logger } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
 import path from 'node:path';
@@ -6,11 +7,18 @@ import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
 
 import { bundleSource } from './commands/bundle.ts';
+import { getSocketPath } from './commands/daemon-client.ts';
+import { ensureDaemon } from './commands/daemon-spawn.ts';
+import {
+  handleDaemonBegone,
+  handleDaemonExec,
+  handleDaemonStart,
+  stopDaemon,
+} from './commands/daemon.ts';
 import { getServer } from './commands/serve.ts';
 import { watchDir } from './commands/watch.ts';
 import { defaultConfig } from './config.ts';
 import type { Config } from './config.ts';
-import { startRelay } from './relay.ts';
 import { withTimeout } from './utils.ts';
 
 /**
@@ -172,6 +180,108 @@ const yargsInstance = yargs(hideBin(process.argv))
     (_yargs) => _yargs,
     async () => {
       await startRelay(logger);
+    },
+  )
+  .command(
+    'daemon',
+    'Manage the OCAP daemon process',
+    (_yargs) => {
+      const socketPath = getSocketPath();
+
+      return _yargs
+        .command(
+          'start',
+          'Start the daemon (or confirm it is running)',
+          (_y) => _y,
+          async () => {
+            await handleDaemonStart(socketPath);
+          },
+        )
+        .command(
+          'stop',
+          'Stop the daemon',
+          (_y) => _y,
+          async () => {
+            const stopped = await stopDaemon(socketPath);
+            if (!stopped) {
+              process.exitCode = 1;
+            }
+          },
+        )
+        .command(
+          ['purge', 'begone'],
+          'Stop the daemon and delete all state',
+          (_y) =>
+            _y.option('force', {
+              describe: 'Confirm state deletion',
+              type: 'boolean',
+              demandOption: true,
+            }),
+          async (args) => {
+            if (!args.force) {
+              process.stderr.write(
+                'Usage: ocap daemon purge --force\n' +
+                  'This will delete all OCAP daemon state.\n',
+              );
+              process.exitCode = 1;
+              return;
+            }
+            await handleDaemonBegone(socketPath);
+          },
+        )
+        .command(
+          'exec [method] [params-json]',
+          'Send an RPC method call to the daemon',
+          (_y) =>
+            _y
+              .positional('method', {
+                describe: 'RPC method name (defaults to getStatus)',
+                type: 'string',
+              })
+              .positional('params-json', {
+                describe: 'JSON-encoded method parameters',
+                type: 'string',
+              })
+              .example('$0 daemon exec', 'Get daemon status')
+              .example(
+                '$0 daemon exec getStatus',
+                'Get daemon status (explicit)',
+              )
+              .example(
+                '$0 daemon exec pingVat \'{"vatId":"v1"}\'',
+                'Ping a vat',
+              )
+              .example(
+                '$0 daemon exec executeDBQuery \'{"sql":"SELECT * FROM kv LIMIT 5"}\'',
+                'Run a SQL query',
+              )
+              .example(
+                '$0 daemon exec terminateVat \'{"vatId":"v1"}\'',
+                'Terminate a vat',
+              ),
+          async (args) => {
+            const execArgs: string[] = [];
+            if (args.method) {
+              execArgs.push(String(args.method));
+            }
+            if (args['params-json']) {
+              execArgs.push(String(args['params-json']));
+            }
+            await ensureDaemon(socketPath);
+            await handleDaemonExec(execArgs, socketPath);
+          },
+        )
+        .command(
+          '$0',
+          false,
+          (_y) => _y,
+          async () => {
+            await handleDaemonStart(socketPath);
+          },
+        );
+    },
+    () => {
+      // Handled by subcommands.
     },
   );
 

@@ -14,7 +14,7 @@ vi.mock('@metamask/kernel-store/sqlite/nodejs', async () => {
 
 describe('makeKernel', () => {
   it('should return a Kernel', async () => {
-    const kernel = await makeKernel({});
+    const { kernel } = await makeKernel({});
 
     expect(kernel).toBeInstanceOf(Kernel);
   });
