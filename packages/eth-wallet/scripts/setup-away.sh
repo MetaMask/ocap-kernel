@@ -77,8 +77,9 @@ fi
 # ---------------------------------------------------------------------------
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-BUNDLE_DIR="$SCRIPT_DIR/src/vats"
+PKG_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$PKG_ROOT/../.." && pwd)"
+BUNDLE_DIR="$PKG_ROOT/src/vats"
 OCAP_BIN="$REPO_ROOT/node_modules/.bin/ocap"
 
 if [[ ! -x "$OCAP_BIN" ]]; then
