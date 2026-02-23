@@ -132,6 +132,71 @@ describe('KernelServiceManager', () => {
     });
   });
 
+  describe('unregisterKernelServiceObject', () => {
+    it('removes a registered service', () => {
+      const testService = { testMethod: () => 'test' };
+      serviceManager.registerKernelServiceObject('myService', testService);
+
+      serviceManager.unregisterKernelServiceObject('myService');
+
+      expect(serviceManager.getKernelService('myService')).toBeUndefined();
+    });
+
+    it('removes from kref lookup', () => {
+      const testService = { testMethod: () => 'test' };
+      const registered = serviceManager.registerKernelServiceObject(
+        'myService',
+        testService,
+      );
+
+      serviceManager.unregisterKernelServiceObject('myService');
+
+      expect(
+        serviceManager.getKernelServiceByKref(registered.kref),
+      ).toBeUndefined();
+      expect(serviceManager.isKernelService(registered.kref)).toBe(false);
+    });
+
+    it('unpins the object and deletes the KV key', () => {
+      const testService = { testMethod: () => 'test' };
+      const registered = serviceManager.registerKernelServiceObject(
+        'myService',
+        testService,
+      );
+
+      serviceManager.unregisterKernelServiceObject('myService');
+
+      expect(kernelStore.kv.get('kernelService.myService')).toBeUndefined();
+      // Verify it was unpinned by trying to re-register with the same name
+      const reregistered = serviceManager.registerKernelServiceObject(
+        'myService',
+        testService,
+      );
+      expect(reregistered.kref).not.toBe(registered.kref);
+    });
+
+    it('is a no-op for non-existent service', () => {
+      expect(() =>
+        serviceManager.unregisterKernelServiceObject('nonexistent'),
+      ).not.toThrow();
+    });
+
+    it('allows re-registration after unregister', () => {
+      const service1 = { method: () => 'v1' };
+      const service2 = { method: () => 'v2' };
+
+      serviceManager.registerKernelServiceObject('svc', service1);
+      serviceManager.unregisterKernelServiceObject('svc');
+      const registered = serviceManager.registerKernelServiceObject(
+        'svc',
+        service2,
+      );
+
+      expect(registered.service).toBe(service2);
+      expect(serviceManager.getKernelService('svc')?.service).toBe(service2);
+    });
+  });
+
   describe('getKernelService', () => {
     it('retrieves registered service by name', () => {
       const testService = {

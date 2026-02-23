@@ -13,13 +13,12 @@ import { makeCapabilitySpecification } from '../../specification.ts';
  */
 const makeExtendedFetch = (fromFetch: FetchCapability): FetchCapability => {
   return async (...[input, ...args]: Parameters<FetchCapability>) => {
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins
     const url = input instanceof Request ? input.url : input;
     const { protocol, pathname } = new URL(url);
 
     if (protocol === 'file:') {
       const contents = await readFile(pathname, 'utf8');
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
+
       return new Response(contents);
     }
 

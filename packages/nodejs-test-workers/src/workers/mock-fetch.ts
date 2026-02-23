@@ -7,8 +7,6 @@ const LOG_TAG = 'nodejs-test-vat-worker';
 
 let logger = new Logger(LOG_TAG);
 
-/* eslint-disable n/no-unsupported-features/node-builtins */
-
 main().catch((reason) => logger.error('main exited with error', reason));
 
 /**

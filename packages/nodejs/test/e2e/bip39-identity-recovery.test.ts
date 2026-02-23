@@ -1,6 +1,9 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Kernel } from '@metamask/ocap-kernel';
 import type { KernelStatus } from '@metamask/ocap-kernel';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 import { makeTestKernel } from '../helpers/kernel.ts';
@@ -62,7 +65,6 @@ describe('BIP39 Identity Recovery', () => {
         if (kernel1) {
           await kernel1.stop();
         }
-        kernelDatabase1.close();
       }
 
       // Create fresh database and kernel with same mnemonic
@@ -88,7 +90,6 @@ describe('BIP39 Identity Recovery', () => {
         if (kernel2) {
           await kernel2.stop();
         }
-        kernelDatabase2.close();
       }
     },
     TEST_TIMEOUT,
@@ -117,7 +118,6 @@ describe('BIP39 Identity Recovery', () => {
         if (kernel1) {
           await kernel1.stop();
         }
-        kernelDatabase1.close();
       }
 
       // Create kernel with different mnemonic
@@ -142,7 +142,6 @@ describe('BIP39 Identity Recovery', () => {
         if (kernel2) {
           await kernel2.stop();
         }
-        kernelDatabase2.close();
       }
     },
     TEST_TIMEOUT,
@@ -151,25 +150,29 @@ describe('BIP39 Identity Recovery', () => {
   it(
     'throws error when mnemonic provided but identity already exists in storage',
     async () => {
-      const kernelDatabase = await makeSQLKernelDatabase({
-        dbFilename: ':memory:',
-      });
+      const tempDir3 = await mkdtemp(join(tmpdir(), 'ocap-bip39-'));
+      const dbFilename3 = join(tempDir3, 'kernel.db');
       let kernel: Kernel | undefined;
 
       try {
         // First kernel without mnemonic - generates random identity
-        kernel = await makeTestKernel(kernelDatabase);
+        kernel = await makeTestKernel(
+          await makeSQLKernelDatabase({ dbFilename: dbFilename3 }),
+        );
         await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
 
         const status1 = await kernel.getStatus();
         expect(getRemoteCommsPeerId(status1.remoteComms)).toBeDefined();
 
-        // Stop kernel but don't close database
+        // Stop kernel (also closes database)
         await kernel.stop();
         kernel = undefined;
 
         // Create kernel with mnemonic but using existing storage - should throw
-        kernel = await makeTestKernel(kernelDatabase, { resetStorage: false });
+        kernel = await makeTestKernel(
+          await makeSQLKernelDatabase({ dbFilename: dbFilename3 }),
+          { resetStorage: false },
+        );
         await expect(
           kernel.initRemoteComms({
             relays: DUMMY_RELAYS,
@@ -182,7 +185,7 @@ describe('BIP39 Identity Recovery', () => {
         if (kernel) {
           await kernel.stop();
         }
-        kernelDatabase.close();
+        await rm(tempDir3, { recursive: true, force: true });
       }
     },
     TEST_TIMEOUT,
@@ -209,7 +212,6 @@ describe('BIP39 Identity Recovery', () => {
         if (kernel) {
           await kernel.stop();
         }
-        kernelDatabase.close();
       }
     },
     TEST_TIMEOUT,
@@ -218,28 +220,30 @@ describe('BIP39 Identity Recovery', () => {
   it(
     'allows recovery with resetStorage and mnemonic when identity exists',
     async () => {
-      const kernelDatabase = await makeSQLKernelDatabase({
-        dbFilename: ':memory:',
-      });
+      const tempDir5 = await mkdtemp(join(tmpdir(), 'ocap-bip39-'));
+      const dbFilename5 = join(tempDir5, 'kernel.db');
       let kernel: Kernel | undefined;
 
       try {
         // First kernel without mnemonic - generates random identity
-        kernel = await makeTestKernel(kernelDatabase);
+        kernel = await makeTestKernel(
+          await makeSQLKernelDatabase({ dbFilename: dbFilename5 }),
+        );
         await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
 
         const status1 = await kernel.getStatus();
         const originalPeerId = getRemoteCommsPeerId(status1.remoteComms);
         expect(originalPeerId).toBeDefined();
 
-        // Stop kernel but don't close database
+        // Stop kernel (also closes database)
         await kernel.stop();
         kernel = undefined;
 
         // Create kernel with resetStorage AND mnemonic - should work
-        kernel = await makeTestKernel(kernelDatabase, {
-          mnemonic: TEST_MNEMONIC,
-        });
+        kernel = await makeTestKernel(
+          await makeSQLKernelDatabase({ dbFilename: dbFilename5 }),
+          { mnemonic: TEST_MNEMONIC },
+        );
         await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
 
         const status2 = await kernel.getStatus();
@@ -253,9 +257,10 @@ describe('BIP39 Identity Recovery', () => {
         await kernel.stop();
         kernel = undefined;
 
-        kernel = await makeTestKernel(kernelDatabase, {
-          mnemonic: TEST_MNEMONIC,
-        });
+        kernel = await makeTestKernel(
+          await makeSQLKernelDatabase({ dbFilename: dbFilename5 }),
+          { mnemonic: TEST_MNEMONIC },
+        );
         await kernel.initRemoteComms({ relays: DUMMY_RELAYS });
 
         const status3 = await kernel.getStatus();
@@ -264,7 +269,7 @@ describe('BIP39 Identity Recovery', () => {
         if (kernel) {
           await kernel.stop();
         }
-        kernelDatabase.close();
+        await rm(tempDir5, { recursive: true, force: true });
       }
     },
     TEST_TIMEOUT,

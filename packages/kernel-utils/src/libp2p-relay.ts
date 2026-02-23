@@ -8,7 +8,6 @@ import type { Libp2p, PrivateKey } from '@libp2p/interface';
 import { ping } from '@libp2p/ping';
 import { tcp } from '@libp2p/tcp';
 import { webSockets } from '@libp2p/websockets';
-import type { Logger } from '@metamask/logger';
 import { createLibp2p } from 'libp2p';
 
 /**
@@ -20,12 +19,19 @@ import { createLibp2p } from 'libp2p';
 const RELAY_LOCAL_ID = 200;
 
 /**
+ * A minimal logger interface for relay events.
+ */
+type RelayLogger = {
+  log: (message: string, ...args: unknown[]) => void;
+};
+
+/**
  * Start the relay server.
  *
  * @param logger - The logger to use.
  * @returns The libp2p instance.
  */
-export async function startRelay(logger: Logger | Console): Promise<Libp2p> {
+export async function startRelay(logger: RelayLogger): Promise<Libp2p> {
   const privateKey = await generateKeyPair(RELAY_LOCAL_ID);
   const libp2p = await createLibp2p({
     privateKey,

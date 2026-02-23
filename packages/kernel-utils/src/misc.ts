@@ -1,6 +1,19 @@
 import { AbortError } from '@metamask/kernel-errors';
 
 /**
+ * Return a new object with the undefined values removed.
+ * Useful for building options bags with exact optional property types.
+ *
+ * @param record - The record to filter.
+ * @returns The new object with the undefined values removed.
+ */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
+export const ifDefined = (record: Record<string, unknown>) =>
+  Object.fromEntries(
+    Object.entries(record).filter(([_, value]) => value !== undefined),
+  );
+
+/**
  * A simple counter which increments and returns when called.
  *
  * @param start - One less than the first returned number.
