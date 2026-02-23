@@ -213,6 +213,25 @@ if [[ -n "$INFURA_KEY" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
+# 5b. Configure bundler (requires Pimlico key)
+# ---------------------------------------------------------------------------
+
+if [[ -n "$PIMLICO_KEY" ]]; then
+  BUNDLER_URL="https://api.pimlico.io/v2/${CHAIN_ID}/rpc?apikey=${PIMLICO_KEY}"
+  info "Configuring bundler (Pimlico)..."
+
+  BUNDLER_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" BURL="$BUNDLER_URL" node -e "
+    const p = JSON.stringify([process.env.KREF, 'configureBundler', [{ bundlerUrl: process.env.BURL, chainId: Number(process.env.CID), usePaymaster: true }]]);
+    process.stdout.write(p);
+  ")
+
+  $OCAP_BIN daemon exec queueMessage "$BUNDLER_PARAMS" >/dev/null
+  ok "Bundler configured — Pimlico (chain $CHAIN_ID)"
+else
+  info "Skipping bundler config (no --pimlico-key). UserOp submission will not work."
+fi
+
+# ---------------------------------------------------------------------------
 # 6. Connect to home wallet
 # ---------------------------------------------------------------------------
 

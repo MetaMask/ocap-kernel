@@ -4,6 +4,40 @@ This guide walks through setting up the OCAP eth-wallet on two devices:
 - **Home device** (your laptop/desktop): holds the master keys, approves signing requests
 - **Away device** (VPS): runs the agent with a restricted wallet, uses delegations
 
+**Contents:**
+- [API keys](#api-keys) — Infura, Pimlico, and testnet ETH
+- [Quick start](#quick-start-automated-scripts) — automated setup scripts
+- [Manual setup](#manual-setup) — step-by-step commands
+  - [1. Build the packages](#1-build-the-packages)
+  - [2. Home device setup](#2-home-device-setup)
+  - [3. Away device setup](#3-away-device-vps-setup)
+  - [4. Delegate authority](#4-delegate-authority-from-home-to-away)
+  - [5. OpenClaw plugin setup](#5-openclaw-plugin-setup)
+- [Try it out](#6-try-it-out) — agent prompts and CLI commands
+- [How it works](#7-how-it-works)
+- [Verify everything works](#8-verify-everything-works)
+
+## API keys
+
+### Infura (Ethereum RPC)
+
+1. Go to <https://developer.metamask.io>
+2. Sign in with Google and create a free account
+3. You should land on the dashboard with a "My First Key" visible — click the **Copy key** button on the right
+
+### Pimlico (ERC-4337 bundler + paymaster)
+
+1. Go to <https://dashboard.pimlico.io> and create an account
+2. Generate an API key for **sepolia-testnet**
+3. Go to <https://dashboard.pimlico.io/sponsorship-policies>, add an "allow all" policy, and enable it
+
+### Testnet ETH
+
+The home wallet's mnemonic account needs a small amount of Sepolia ETH for gas. You can get free testnet ETH from:
+
+- <https://docs.metamask.io/developer-tools/faucet> (MetaMask / Infura faucet)
+- <https://sepolia-faucet.pk910.de/> (PoW faucet, no sign-in required)
+
 ## Quick start (automated scripts)
 
 Two bash scripts in `packages/eth-wallet/scripts/` automate everything below.
@@ -11,17 +45,25 @@ Two bash scripts in `packages/eth-wallet/scripts/` automate everything below.
 **Home device** (holds the master keys):
 
 ```bash
-./scripts/setup-home.sh --mnemonic "your twelve word mnemonic" --infura-key YOUR_INFURA_KEY
+./scripts/setup-home.sh \
+  --mnemonic "your twelve word mnemonic" \
+  --infura-key YOUR_INFURA_KEY \
+  --pimlico-key YOUR_PIMLICO_KEY
 # Prints an ocap: URL to stdout — copy it for the away device.
 ```
 
 **Away device** (VPS / agent machine):
 
 ```bash
-./scripts/setup-away.sh --ocap-url "ocap:…URL_FROM_HOME…" --infura-key YOUR_INFURA_KEY
+./scripts/setup-away.sh \
+  --ocap-url "ocap:…URL_FROM_HOME…" \
+  --infura-key YOUR_INFURA_KEY \
+  --pimlico-key YOUR_PIMLICO_KEY
 ```
 
-Both scripts accept `--pimlico-key`, `--chain-id`, and `--no-build`. Run with `--help` for details.
+The `--pimlico-key` configures the Pimlico bundler for ERC-4337 UserOp submission with paymaster sponsorship. Without it, smart account deployment and on-chain delegation redemption will not work.
+
+Both scripts also accept `--chain-id` (default: Sepolia) and `--no-build`. Run with `--help` for details.
 
 ---
 
@@ -252,16 +294,49 @@ In your agent configuration:
 }
 ```
 
-### 5d. Test it
+## 6. Try it out
 
-Ask the agent:
-- "What's my wallet balance?"
-- "Send 0.01 ETH to 0x..."
-- "Sign the message 'hello'"
+The wallet can be used via the agent (OpenClaw plugin) or directly through `ocap daemon exec`. All commands below route through the kernel's capability system — the caller never touches private keys.
 
-The agent will call the wallet tools, which forward to the OCAP daemon, which routes through the kernel's capability system. The agent never sees private keys.
+### Via the agent (OpenClaw)
 
-## 6. How it works
+Ask the agent natural-language questions and it will invoke the corresponding wallet tools:
+
+- "What are my wallet accounts?"
+- "What's the balance of 0x71fA...?"
+- "Sign the message 'hello world'"
+- "Send 0.001 ETH to 0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
+- "What capabilities does my wallet have?"
+
+### Via the CLI
+
+You can also call the wallet coordinator directly. Replace `ko4` with your `rootKref`.
+
+```bash
+# List accounts
+ocap daemon exec queueMessage '["ko4", "getAccounts", []]'
+
+# Check capabilities (local keys, peer wallet, delegations, bundler)
+ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
+
+# Sign a message
+ocap daemon exec queueMessage '["ko4", "signMessage", ["hello world"]]'
+
+# Sign a transaction
+ocap daemon exec queueMessage '["ko4", "signTransaction", [{"to": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8", "value": "0x2386F26FC10000", "chainId": 11155111}]]'
+
+# Query the chain (eth_getBalance, eth_blockNumber, etc.)
+ocap daemon exec queueMessage '["ko4", "request", ["eth_getBalance", ["0x71fA1599e6c6FE46CD2A798E136f3ba22863cF82", "latest"]]]'
+ocap daemon exec queueMessage '["ko4", "request", ["eth_blockNumber", []]]'
+
+# Create a delegation for another address
+ocap daemon exec queueMessage '["ko4", "createDelegation", [{"delegate": "0x...", "caveats": [], "chainId": 11155111}]]'
+
+# List active delegations
+ocap daemon exec queueMessage '["ko4", "listDelegations", []]'
+```
+
+## 7. How it works
 
 ```
 Agent (AI)
@@ -288,7 +363,7 @@ Agent (AI)
          signing      (CapTP to home)
 ```
 
-## 7. Verify everything works
+## 8. Verify everything works
 
 Run the automated tests to confirm the setup:
 
