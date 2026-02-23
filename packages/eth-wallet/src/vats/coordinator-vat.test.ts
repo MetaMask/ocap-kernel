@@ -1314,7 +1314,8 @@ describe('coordinator-vat', () => {
       });
 
       expect(result).toBe('0xuserophash');
-      expect(extSigner.signMessage).toHaveBeenCalled();
+      // UserOp is now signed via signTypedData (EIP-712 for HybridDeleGator)
+      expect(extSigner.signTypedData).toHaveBeenCalled();
     });
   });
 

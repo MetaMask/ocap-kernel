@@ -45,8 +45,8 @@ const TEST_MNEMONIC =
   process.env.TEST_MNEMONIC ||
   'describe vote fluid circle capable include endless leopard clarify copper industry address';
 const BUNDLE_BASE_URL = new URL('../../src/vats', import.meta.url).toString();
-const DEPLOY_SALT =
-  '0x0000000000000000000000000000000000000000000000000000000000000002';
+// Use a unique deploy salt per test run to get a fresh smart account each time
+const DEPLOY_SALT = `0x${Date.now().toString(16).padStart(64, '0')}`;
 const USEROP_TIMEOUT = 120_000;
 
 // ---------------------------------------------------------------------------
@@ -200,12 +200,34 @@ async function main() {
     `userOp hash: ${userOpHash}`,
   );
 
-  // -- 7. Wait for on-chain inclusion --
+  // -- 7. Wait for on-chain inclusion (poll from test, not vat — setTimeout
+  //    is unavailable under SES) --
   console.log('\n--- Wait for UserOp receipt ---');
   console.log(`  Polling (timeout: ${USEROP_TIMEOUT / 1000}s)...`);
-  const receipt = await call(kernel, rootKref, 'waitForUserOpReceipt', [
-    { userOpHash, pollIntervalMs: 3000, timeoutMs: USEROP_TIMEOUT },
-  ]);
+  const deadline = Date.now() + USEROP_TIMEOUT;
+  let receipt = null;
+  while (Date.now() < deadline) {
+    try {
+      const resp = await fetch(bundlerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'eth_getUserOperationReceipt',
+          params: [userOpHash],
+        }),
+      });
+      const json = await resp.json();
+      if (json.result) {
+        receipt = json.result;
+        break;
+      }
+    } catch {
+      // ignore fetch errors during polling
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
   assert(receipt !== null && receipt !== undefined, 'receipt received');
   assert(receipt.success === true, 'UserOp succeeded on-chain');
   if (receipt.receipt?.transactionHash) {

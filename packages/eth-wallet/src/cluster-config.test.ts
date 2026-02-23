@@ -76,21 +76,24 @@ describe('cluster-config', () => {
       }
     });
 
-    it('requests TextEncoder/TextDecoder globals for all vats', () => {
+    it('requests required globals for all vats', () => {
       const config = makeWalletClusterConfig({
         bundleBaseUrl: BUNDLE_BASE_URL,
       });
 
-      const expectedGlobals = ['TextEncoder', 'TextDecoder'];
-      for (const vatName of [
-        'coordinator',
-        'keyring',
-        'provider',
-        'delegation',
-      ]) {
+      const baseGlobals = ['TextEncoder', 'TextDecoder'];
+      for (const vatName of ['keyring', 'provider', 'delegation']) {
         const vatConfig = config.vats[vatName] as { globals?: string[] };
-        expect(vatConfig.globals).toStrictEqual(expectedGlobals);
+        expect(vatConfig.globals).toStrictEqual(baseGlobals);
       }
+
+      // Coordinator additionally needs Date (SDK uses Date.now at import)
+      const coordConfig = config.vats.coordinator as { globals?: string[] };
+      expect(coordConfig.globals).toStrictEqual([
+        'TextEncoder',
+        'TextDecoder',
+        'Date',
+      ]);
     });
 
     it('defaults forceReset to true', () => {
