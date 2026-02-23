@@ -176,7 +176,31 @@ ocap daemon exec queueMessage '["ko4", "receiveDelegation", [{ ...signed delegat
 
 ### 5a. Install the wallet plugin
 
-Copy the `openclaw-plugin/` directory to your OpenClaw plugins folder, or reference it in your OpenClaw config.
+The plugin lives in `packages/eth-wallet/openclaw-plugin/`. To load it in OpenClaw:
+
+```bash
+# From the VPS where OpenClaw is installed, load the plugin
+openclaw plugin load /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
+```
+
+Or add it to your OpenClaw config file (`~/.openclaw/config.json` or equivalent):
+
+```json
+{
+  "plugins": [
+    {
+      "path": "/path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin"
+    }
+  ]
+}
+```
+
+The plugin requires `@sinclair/typebox` as a dependency. Install it in the plugin directory:
+
+```bash
+cd /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
+npm install
+```
 
 ### 5b. Configure the plugin
 

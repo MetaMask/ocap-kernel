@@ -8,6 +8,6 @@
     "openclaw": "workspace:*"
   },
   "openclaw": {
-    "extensions": ["./index.mjs"]
+    "extensions": ["./index.ts"]
   }
 }
