@@ -302,7 +302,7 @@ export function prepareUserOpTypedData(options: {
   return {
     domain: {
       chainId: options.chainId,
-      name: options.smartAccountName ?? 'DelegationManager',
+      name: options.smartAccountName ?? 'HybridDeleGator',
       version: '1',
       verifyingContract: options.smartAccountAddress,
     },

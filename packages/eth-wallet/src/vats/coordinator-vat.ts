@@ -438,8 +438,14 @@ export function buildRootObject(
     let { maxFeePerGas, maxPriorityFeePerGas } = options;
     if (!maxFeePerGas || !maxPriorityFeePerGas) {
       const fees = await E(providerVat).getGasFees();
-      maxFeePerGas = maxFeePerGas ?? fees.maxFeePerGas;
-      maxPriorityFeePerGas = maxPriorityFeePerGas ?? fees.maxPriorityFeePerGas;
+      // Add 10% buffer to gas fees to meet bundler minimums
+      const bumpHex = (value: Hex): Hex => {
+        const bumped = (BigInt(value) * 110n) / 100n;
+        return `0x${bumped.toString(16)}`;
+      };
+      maxFeePerGas = maxFeePerGas ?? bumpHex(fees.maxFeePerGas);
+      maxPriorityFeePerGas =
+        maxPriorityFeePerGas ?? bumpHex(fees.maxPriorityFeePerGas);
     }
 
     // Use smart account address as sender when configured, otherwise delegate
