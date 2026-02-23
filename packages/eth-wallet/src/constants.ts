@@ -68,6 +68,12 @@ export function getChainContracts(chainId?: number): ChainContracts {
   if (chainId !== undefined && CHAIN_CONTRACTS[chainId]) {
     return CHAIN_CONTRACTS[chainId];
   }
+  if (chainId !== undefined) {
+    throw new Error(
+      `No contract addresses registered for chain ${chainId}. ` +
+        `Register addresses in CHAIN_CONTRACTS or provide explicit enforcer addresses.`,
+    );
+  }
   return PLACEHOLDER_CONTRACTS;
 }
 

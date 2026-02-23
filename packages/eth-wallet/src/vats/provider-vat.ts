@@ -58,26 +58,17 @@ export function buildRootObject(
   }
 
   /**
-   * Get or create a bundler client for the given URL and chain.
-   * Prefers the pre-configured client if the URL matches.
+   * Get the pre-configured bundler client.
    *
-   * @param bundlerUrl - The bundler RPC URL.
-   * @param chainId - The chain ID (used for ephemeral clients).
    * @returns A bundler client.
    */
-  function getBundlerClient(
-    bundlerUrl: string,
-    chainId?: number,
-  ): ViemBundlerClient {
-    // Use pre-configured client if available
+  function getBundlerClient(): ViemBundlerClient {
     if (bundlerClient) {
       return bundlerClient;
     }
-    // Create an ephemeral client for this request
-    return makeBundlerClient({
-      bundlerUrl,
-      chainId: chainId ?? 1,
-    });
+    throw new Error(
+      'Bundler client not configured. Call configureBundler() first.',
+    );
   }
 
   return makeDefaultExo('walletProvider', {
@@ -153,7 +144,7 @@ export function buildRootObject(
       entryPoint: Hex;
       userOp: UserOperation;
     }): Promise<Hex> {
-      const client = getBundlerClient(options.bundlerUrl);
+      const client = getBundlerClient();
       return client.sendUserOperation({
         userOp: options.userOp as never,
         entryPointAddress: options.entryPoint,
@@ -169,7 +160,7 @@ export function buildRootObject(
       verificationGasLimit: Hex;
       preVerificationGas: Hex;
     }> {
-      const client = getBundlerClient(options.bundlerUrl);
+      const client = getBundlerClient();
       const estimate = await client.estimateUserOperationGas({
         userOp: options.userOp as never,
         entryPointAddress: options.entryPoint,
@@ -195,7 +186,7 @@ export function buildRootObject(
       verificationGasLimit: Hex;
       preVerificationGas: Hex;
     }> {
-      const client = getBundlerClient(options.bundlerUrl);
+      const client = getBundlerClient();
       return client.sponsorUserOperation({
         userOp: options.userOp as never,
         entryPointAddress: options.entryPoint,
@@ -228,7 +219,7 @@ export function buildRootObject(
       bundlerUrl: string;
       userOpHash: Hex;
     }): Promise<unknown> {
-      const client = getBundlerClient(options.bundlerUrl);
+      const client = getBundlerClient();
       return client.getUserOperationReceipt(options.userOpHash);
     },
 
@@ -243,7 +234,13 @@ export function buildRootObject(
         provider.request('eth_getBlockByNumber', ['latest', false]),
         provider
           .request('eth_maxPriorityFeePerGas', [])
-          .catch(() => '0x3b9aca00'),
+          .catch((error: unknown) => {
+            const message = String((error as Error).message ?? error);
+            if (message.includes('-32601') || message.includes('not supported')) {
+              return '0x3b9aca00';
+            }
+            throw error;
+          }),
       ]);
       // Validate RPC response shape before using it
       const blockObj = block as Record<string, unknown> | null;

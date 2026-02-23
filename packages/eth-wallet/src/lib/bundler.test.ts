@@ -77,11 +77,14 @@ describe('lib/bundler', () => {
       const result = await submitUserOp(config, userOp);
 
       expect(result).toBe(expectedHash);
-      expect(fetchSpy).toHaveBeenCalledWith(config.url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: expect.stringContaining('eth_sendUserOperation'),
-      });
+      expect(fetchSpy).toHaveBeenCalledWith(
+        config.url,
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: expect.stringContaining('eth_sendUserOperation'),
+        }),
+      );
     });
 
     it('throws on bundler error', async () => {

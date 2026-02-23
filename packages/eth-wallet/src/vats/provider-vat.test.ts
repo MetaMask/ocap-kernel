@@ -172,6 +172,11 @@ describe('provider-vat', () => {
     };
 
     it('submits a UserOp via bundler client', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
       mockBundlerClient.sendUserOperation.mockResolvedValue('0xuserophash');
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -189,6 +194,11 @@ describe('provider-vat', () => {
     });
 
     it('propagates bundler client errors', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
       mockBundlerClient.sendUserOperation.mockRejectedValue(
         new Error('bundler error'),
       );
@@ -269,6 +279,11 @@ describe('provider-vat', () => {
 
   describe('getUserOpReceipt', () => {
     it('queries bundler client for UserOp receipt', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
       const receipt = { success: true, receipt: { transactionHash: '0xabc' } };
       mockBundlerClient.getUserOperationReceipt.mockResolvedValue(receipt);
 
@@ -285,6 +300,11 @@ describe('provider-vat', () => {
     });
 
     it('returns null when receipt is not found', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
       mockBundlerClient.getUserOperationReceipt.mockResolvedValue(null);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -311,6 +331,11 @@ describe('provider-vat', () => {
     };
 
     it('estimates gas via bundler client', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
       mockBundlerClient.estimateUserOperationGas.mockResolvedValue({
         callGasLimit: 0x50000n,
         verificationGasLimit: 0x60000n,
@@ -336,6 +361,11 @@ describe('provider-vat', () => {
     });
 
     it('propagates bundler client errors', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
       mockBundlerClient.estimateUserOperationGas.mockRejectedValue(
         new Error('estimation failed'),
       );
@@ -365,6 +395,11 @@ describe('provider-vat', () => {
     };
 
     it('sponsors a UserOp via bundler client', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
       const sponsorResult = {
         paymaster: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
         paymasterData: '0xdeadbeef' as Hex,
@@ -431,7 +466,7 @@ describe('provider-vat', () => {
 
       mockProvider.request
         .mockResolvedValueOnce({ baseFeePerGas: '0x3b9aca00' }) // eth_getBlockByNumber
-        .mockRejectedValueOnce(new Error('method not found')); // eth_maxPriorityFeePerGas
+        .mockRejectedValueOnce(new Error('method not supported')); // eth_maxPriorityFeePerGas
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fees = await (root as any).getGasFees();
