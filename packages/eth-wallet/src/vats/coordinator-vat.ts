@@ -5,13 +5,10 @@ import type { Baggage } from '@metamask/ocap-kernel';
 import {
   buildSdkRedeemCallData,
   computeSmartAccountAddress,
+  prepareUserOpTypedData,
   resolveEnvironment,
 } from '../lib/sdk.ts';
-import {
-  buildDelegationUserOp,
-  computeUserOpHash,
-  ENTRY_POINT_V07,
-} from '../lib/userop.ts';
+import { buildDelegationUserOp, ENTRY_POINT_V07 } from '../lib/userop.ts';
 import type {
   Action,
   Address,
@@ -325,6 +322,7 @@ export function buildRootObject(
    * @param from - Optional sender address.
    * @returns The signature as a hex string.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function resolveHashSigning(hash: Hex, from?: Address): Promise<Hex> {
     // Local keyring: raw ECDSA (no EIP-191 prefix)
     if (keyringVat) {
@@ -396,6 +394,7 @@ export function buildRootObject(
    *
    * @returns The EOA address to use for signing.
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function resolveSignerAddress(): Promise<Address | undefined> {
     if (keyringVat) {
       const accounts = await E(keyringVat).getAccounts();
@@ -535,22 +534,17 @@ export function buildRootObject(
       };
     }
 
-    // Compute UserOp hash for signing (pure computation)
-    const userOpHash = computeUserOpHash(
-      userOpWithGas,
-      bundlerConfig.entryPoint,
-      bundlerConfig.chainId,
-    );
+    // Sign the UserOp as EIP-712 typed data.
+    // HybridDeleGator validates signatures as typed data (not raw ECDSA),
+    // using the smart account as the verifyingContract.
+    const userOpTypedData = prepareUserOpTypedData({
+      userOp: userOpWithGas,
+      entryPoint: bundlerConfig.entryPoint,
+      chainId: bundlerConfig.chainId,
+      smartAccountAddress: sender,
+    });
 
-    // Resolve the signing address: when the sender is a smart account,
-    // sign with the underlying EOA owner, not the smart account address.
-    const signerAddress =
-      smartAccountConfig?.address === sender
-        ? await resolveSignerAddress()
-        : sender;
-
-    // Sign the hash (raw ECDSA, no EIP-191 prefix)
-    const signature = await resolveHashSigning(userOpHash, signerAddress);
+    const signature = await resolveTypedDataSigning(userOpTypedData);
 
     // Attach signature and submit
     const signedUserOp: UserOperation = {

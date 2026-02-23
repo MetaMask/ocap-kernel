@@ -1,11 +1,10 @@
-/* eslint-disable n/no-process-exit, no-plusplus, no-unused-vars, import-x/no-unresolved, n/no-process-env */
+/* eslint-disable n/no-process-exit, import-x/no-unresolved, n/no-process-env */
 /**
  * Sepolia E2E test for the eth-wallet subcluster.
  *
  * Exercises the full on-chain flow: create a Hybrid smart account via the
  * MetaMask Delegation Framework, create a delegation, redeem it by
- * submitting a UserOp to a Pimlico bundler with paymaster sponsorship,
- * and wait for on-chain inclusion.
+ * submitting a UserOp to a Pimlico bundler, and wait for on-chain inclusion.
  *
  * Requires environment variables:
  *   PIMLICO_API_KEY  - Pimlico API key (free tier works for Sepolia)
@@ -24,6 +23,7 @@ import { Kernel, kunser } from '@metamask/ocap-kernel';
 import { NodejsPlatformServices } from '@ocap/nodejs';
 
 import { makeWalletClusterConfig } from '../../src/cluster-config.ts';
+import { getDelegationManagerAddress } from '../../src/lib/sdk.ts';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -40,12 +40,13 @@ if (!PIMLICO_API_KEY || !SEPOLIA_RPC_URL) {
 }
 
 const SEPOLIA_CHAIN_ID = 11155111;
+// Funded test wallet on Sepolia
 const TEST_MNEMONIC =
-  'test test test test test test test test test test test junk';
+  process.env.TEST_MNEMONIC ||
+  'describe vote fluid circle capable include endless leopard clarify copper industry address';
 const BUNDLE_BASE_URL = new URL('../../src/vats', import.meta.url).toString();
 const DEPLOY_SALT =
-  '0x0000000000000000000000000000000000000000000000000000000000000001';
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
+  '0x0000000000000000000000000000000000000000000000000000000000000002';
 const USEROP_TIMEOUT = 120_000;
 
 // ---------------------------------------------------------------------------
@@ -57,19 +58,15 @@ let failed = 0;
 
 function assert(condition, label) {
   if (condition) {
-    passed++;
+    passed += 1;
     console.log(`  ✓ ${label}`);
   } else {
-    failed++;
+    failed += 1;
     console.error(`  ✗ ${label}`);
   }
 }
 
 // Call a vat method, pumping the kernel event loop until the result resolves.
-// For methods that involve async I/O (fetch), the kernel's crank loop may
-// stop before the full E() chain completes. This helper periodically yields
-// control to the event loop (via setTimeout) so that incoming vat worker
-// messages trigger new cranks and the promise eventually resolves.
 async function call(
   kernel,
   target,
@@ -81,7 +78,6 @@ async function call(
 
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
-    // Race: either the result resolves, or we yield for 500ms
     const winner = await Promise.race([
       resultP.then((capData) => ({ done: true, capData })),
       new Promise((resolve) => setTimeout(() => resolve({ done: false }), 500)),
@@ -92,7 +88,6 @@ async function call(
       return kunser(winner.capData);
     }
 
-    // Pump: let the event loop process incoming vat worker messages
     await waitUntilQuiescent();
   }
 
@@ -113,15 +108,20 @@ async function main() {
     resetStorage: true,
   });
 
+  const delegationManagerAddress =
+    getDelegationManagerAddress(SEPOLIA_CHAIN_ID);
+  console.log(`  DelegationManager: ${delegationManagerAddress}`);
+
   const walletConfig = makeWalletClusterConfig({
     bundleBaseUrl: BUNDLE_BASE_URL,
     allowedHosts: ['sepolia.infura.io', 'api.pimlico.io'],
+    delegationManagerAddress,
   });
   const { rootKref } = await kernel.launchSubcluster(walletConfig);
   await waitUntilQuiescent();
   console.log(`  Coordinator: ${rootKref}\n`);
 
-  // -- 1. Initialize keyring --
+  // -- 1. Initialize keyring with funded wallet --
   console.log('--- Initialize keyring ---');
   await call(kernel, rootKref, 'initializeKeyring', [
     { type: 'srp', mnemonic: TEST_MNEMONIC },
@@ -136,7 +136,7 @@ async function main() {
   ]);
   assert(true, 'provider configured');
 
-  // -- 3. Configure bundler with Pimlico paymaster --
+  // -- 3. Configure bundler (no paymaster — funded wallet pays gas) --
   console.log('\n--- Configure Pimlico bundler ---');
   const bundlerUrl = `https://api.pimlico.io/v2/sepolia/rpc?apikey=${PIMLICO_API_KEY}`;
   await call(kernel, rootKref, 'configureBundler', [
@@ -147,7 +147,7 @@ async function main() {
       sponsorshipPolicyId: 'sp_young_killmonger',
     },
   ]);
-  assert(true, 'bundler configured with paymaster');
+  assert(true, 'bundler configured');
 
   // -- 4. Create a Hybrid smart account --
   console.log('\n--- Create smart account ---');
@@ -163,8 +163,6 @@ async function main() {
   assert(smartConfig.deployed === false, 'not yet deployed');
 
   // -- 5. Create a delegation (smart account → smart account, no caveats) --
-  // The delegate must be the smart account itself because the smart account
-  // is the msg.sender when calling DelegationManager.redeemDelegations.
   console.log('\n--- Create delegation ---');
   const delegation = await call(kernel, rootKref, 'createDelegation', [
     {
@@ -209,7 +207,7 @@ async function main() {
     { userOpHash, pollIntervalMs: 3000, timeoutMs: USEROP_TIMEOUT },
   ]);
   assert(receipt !== null && receipt !== undefined, 'receipt received');
-  assert(receipt.success === true, `UserOp succeeded on-chain`);
+  assert(receipt.success === true, 'UserOp succeeded on-chain');
   if (receipt.receipt?.transactionHash) {
     console.log(
       `  Tx: https://sepolia.etherscan.io/tx/${receipt.receipt.transactionHash}`,

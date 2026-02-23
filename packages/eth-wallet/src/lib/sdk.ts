@@ -22,6 +22,7 @@ import {
   encodeDelegations as sdkEncodeDelegations,
   getCounterfactualAccountData,
 } from '@metamask/smart-accounts-kit/utils';
+import { toPackedUserOperation } from 'viem/account-abstraction';
 
 import type {
   Address,
@@ -30,6 +31,24 @@ import type {
   Execution,
   Hex,
 } from '../types.ts';
+
+/**
+ * EIP-712 type definitions for PackedUserOperation signing.
+ * Used by HybridDeleGator's validateUserOp.
+ */
+const SIGNABLE_USER_OP_TYPED_DATA = {
+  PackedUserOperation: [
+    { name: 'sender', type: 'address' },
+    { name: 'nonce', type: 'uint256' },
+    { name: 'initCode', type: 'bytes' },
+    { name: 'callData', type: 'bytes' },
+    { name: 'accountGasLimits', type: 'bytes32' },
+    { name: 'preVerificationGas', type: 'uint256' },
+    { name: 'gasFees', type: 'bytes32' },
+    { name: 'paymasterAndData', type: 'bytes' },
+    { name: 'entryPoint', type: 'address' },
+  ],
+} as const;
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
 
@@ -246,5 +265,55 @@ export async function computeSmartAccountAddress(options: {
   return {
     address: result.address,
     factoryData: result.factoryData,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// UserOp signing (EIP-712 typed data for HybridDeleGator)
+// ---------------------------------------------------------------------------
+
+/**
+ * Prepare EIP-712 typed data for signing a UserOperation.
+ *
+ * HybridDeleGator smart accounts validate UserOp signatures as EIP-712
+ * typed data (not raw ECDSA over the standard UserOp hash). This function
+ * produces the typed data payload that the EOA owner must sign.
+ *
+ * @param options - Options.
+ * @param options.userOp - The UserOperation to sign.
+ * @param options.entryPoint - The EntryPoint address.
+ * @param options.chainId - The chain ID.
+ * @param options.smartAccountAddress - The smart account address (verifyingContract).
+ * @param options.smartAccountName - The smart account name for the EIP-712 domain.
+ * @returns The EIP-712 typed data for signing.
+ */
+export function prepareUserOpTypedData(options: {
+  userOp: Record<string, unknown>;
+  entryPoint: Address;
+  chainId: number;
+  smartAccountAddress: Address;
+  smartAccountName?: string;
+}): Eip712TypedData {
+  const packed = toPackedUserOperation({
+    ...options.userOp,
+    signature: '0x',
+  } as never);
+
+  return {
+    domain: {
+      chainId: options.chainId,
+      name: options.smartAccountName ?? 'DelegationManager',
+      version: '1',
+      verifyingContract: options.smartAccountAddress,
+    },
+    types: SIGNABLE_USER_OP_TYPED_DATA as Record<
+      string,
+      { name: string; type: string }[]
+    >,
+    primaryType: 'PackedUserOperation',
+    message: {
+      ...packed,
+      entryPoint: options.entryPoint,
+    },
   };
 }
