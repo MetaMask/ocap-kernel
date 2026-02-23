@@ -506,15 +506,53 @@ All vat code runs under [SES lockdown](https://github.com/endojs/endo/tree/maste
 # Build vat bundles
 yarn workspace @ocap/eth-wallet build
 
-# Run unit tests
-yarn workspace @ocap/eth-wallet test:dev:quiet
-
-# Run integration tests (requires build first)
-yarn workspace @ocap/eth-wallet test:integration
-
 # Lint
 yarn workspace @ocap/eth-wallet lint:fix
 ```
+
+## Testing
+
+The package has four tiers of tests, each exercising a progressively larger slice of the stack.
+
+### Unit tests (275 tests)
+
+```bash
+yarn workspace @ocap/eth-wallet test:dev:quiet
+```
+
+Fast, in-process tests using vitest. All inter-vat `E()` calls are mocked. Covers every `lib/` module and every vat's `buildRootObject` logic in isolation — keyring operations, signing, delegation creation/matching, caveat encoding, UserOp building, bundler client, SDK adapter, MetaMask signer, and coordinator strategy resolution.
+
+### Single-kernel integration (34 assertions)
+
+```bash
+yarn workspace @ocap/eth-wallet test:node
+```
+
+Plain Node.js script that runs under **real SES lockdown** in a **real kernel**. Launches the wallet subcluster (4 vats), exercises the full coordinator API via `kernel.queueMessage()`, and verifies inter-vat `E()` communication actually works end-to-end. Covers: keyring init (SRP + throwaway), signing (message, transaction, EIP-712), delegation lifecycle (create, sign, list), capabilities introspection, and no-authority error handling.
+
+### Peer wallet over QUIC (29 assertions)
+
+```bash
+yarn workspace @ocap/eth-wallet test:node:peer
+```
+
+Two separate kernel instances connected via QUIC direct transport. Tests the home/away wallet architecture: OCAP URL issuance and redemption, remote message signing forwarded over CapTP, remote transaction signing, remote EIP-712 signing, delegation creation on the home wallet and transfer to the away wallet, and combined throwaway-key + peer + delegation capabilities. Verifies that remote signatures are identical to local signatures (same signing key, same result).
+
+### Daemon integration (23 assertions)
+
+```bash
+yarn workspace @ocap/eth-wallet test:node:daemon
+```
+
+Exercises the wallet through the **daemon JSON-RPC socket** — the same interface an agent process uses in production. Boots a kernel with an RPC socket server, launches the wallet subcluster via `launchSubcluster` RPC, then calls wallet methods via `queueMessage` RPC over the Unix socket. Covers: daemon status, subcluster lifecycle, keyring init, signing, delegation creation, capabilities, error propagation through the RPC layer, and subcluster termination.
+
+### Vitest integration (blocked)
+
+```bash
+yarn workspace @ocap/eth-wallet test:integration
+```
+
+Vitest-based integration tests in `test/integration/peer-wallet.test.ts`. Currently blocked by a SES/vitest interaction issue (`TextEncoder is not a constructor` in vat compartments when run via vitest's `pool: 'forks'`). The plain Node.js tests above cover the same scenarios without this issue. The vitest tests remain as a reference for when the SES compatibility is resolved upstream.
 
 ## Constants
 
