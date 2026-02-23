@@ -1,20 +1,18 @@
 /**
- * Bundler client wrapper using viem's bundler transport.
+ * Bundler client using raw fetch for ERC-4337 interactions.
  *
- * Replaces the manual JSON-RPC bundler in `lib/bundler.ts` with
- * viem's `createBundlerClient` for standardized ERC-4337 interactions.
+ * Avoids viem's createClient/http which use Math.random() (blocked under
+ * SES lockdown). All methods are simple JSON-RPC calls over fetch.
  *
  * @module lib/bundler-client
  */
 
-import { createClient, http } from 'viem';
-import type { Chain } from 'viem';
-import { bundlerActions } from 'viem/account-abstraction';
-import type { BundlerActions, UserOperation } from 'viem/account-abstraction';
-
 import type { Address, Hex } from '../types.ts';
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
+// Monotonic counter for JSON-RPC request IDs.
+let bundlerRequestId = 0;
 
 /**
  * Configuration for the bundler client.
@@ -40,15 +38,20 @@ export type PaymasterSponsorResult = {
 };
 
 /**
- * A viem-based bundler client with ERC-4337 capabilities.
+ * UserOperation type for ERC-4337 v0.7 (simplified for bundler RPC).
+ */
+type UserOp07 = Record<string, unknown>;
+
+/**
+ * A bundler client with ERC-4337 capabilities.
  */
 export type ViemBundlerClient = {
   sendUserOperation: (options: {
-    userOp: UserOperation<'0.7'>;
+    userOp: UserOp07;
     entryPointAddress: Address;
   }) => Promise<Hex>;
   estimateUserOperationGas: (options: {
-    userOp: Partial<UserOperation<'0.7'>>;
+    userOp: Partial<UserOp07>;
     entryPointAddress: Address;
   }) => Promise<{
     callGasLimit: bigint;
@@ -56,7 +59,7 @@ export type ViemBundlerClient = {
     preVerificationGas: bigint;
   }>;
   sponsorUserOperation: (options: {
-    userOp: Partial<UserOperation<'0.7'>>;
+    userOp: Partial<UserOp07>;
     entryPointAddress: Address;
     context?: Record<string, unknown>;
   }) => Promise<PaymasterSponsorResult>;
@@ -69,22 +72,58 @@ export type ViemBundlerClient = {
 };
 
 /**
- * Resolve a chain object from a chain ID.
+ * Send a JSON-RPC request to the bundler.
  *
- * @param chainId - The numeric chain ID.
- * @returns A minimal chain definition.
+ * @param bundlerUrl - The bundler RPC URL.
+ * @param method - The JSON-RPC method.
+ * @param params - The method parameters.
+ * @returns The JSON-RPC result.
  */
-function resolveChain(chainId: number): Chain {
-  return {
-    id: chainId,
-    name: `Chain ${chainId}`,
-    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-    rpcUrls: { default: { http: [] } },
+async function bundlerRpc(
+  bundlerUrl: string,
+  method: string,
+  params: unknown[] = [],
+): Promise<unknown> {
+  bundlerRequestId += 1;
+  const response = await fetch(bundlerUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: bundlerRequestId,
+      method,
+      params,
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `Bundler RPC failed: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  const json = (await response.json()) as {
+    result?: unknown;
+    error?: { code: number; message: string; data?: unknown };
   };
+
+  if (json.error) {
+    const detail = json.error.data
+      ? ` (${JSON.stringify(json.error.data)})`
+      : '';
+    throw new Error(
+      `Bundler RPC error ${json.error.code}: ${json.error.message}${detail}`,
+    );
+  }
+
+  return json.result;
 }
 
 /**
- * Create a viem bundler client for ERC-4337 operations.
+ * Create a bundler client for ERC-4337 operations.
+ *
+ * Uses raw fetch instead of viem's createClient to avoid Math.random()
+ * usage that is blocked under SES lockdown.
  *
  * @param config - Bundler configuration.
  * @returns A bundler client with ERC-4337 actions.
@@ -92,74 +131,62 @@ function resolveChain(chainId: number): Chain {
 export function makeBundlerClient(
   config: BundlerClientConfig,
 ): ViemBundlerClient {
-  const chain = resolveChain(config.chainId);
   const bundlerUrl = config.apiKey
     ? `${config.bundlerUrl}?apikey=${config.apiKey}`
     : config.bundlerUrl;
 
-  const client = createClient({
-    chain,
-    transport: http(bundlerUrl),
-  }).extend(bundlerActions) as ReturnType<typeof createClient> & BundlerActions;
-
   return harden({
     async sendUserOperation(options: {
-      userOp: UserOperation<'0.7'>;
+      userOp: UserOp07;
       entryPointAddress: Address;
     }): Promise<Hex> {
-      const result = await client.request({
-        method: 'eth_sendUserOperation' as never,
-        params: [options.userOp, options.entryPointAddress] as never,
-      });
-      return result as Hex;
+      return (await bundlerRpc(bundlerUrl, 'eth_sendUserOperation', [
+        options.userOp,
+        options.entryPointAddress,
+      ])) as Hex;
     },
 
     async estimateUserOperationGas(options: {
-      userOp: Partial<UserOperation<'0.7'>>;
+      userOp: Partial<UserOp07>;
       entryPointAddress: Address;
     }): Promise<{
       callGasLimit: bigint;
       verificationGasLimit: bigint;
       preVerificationGas: bigint;
     }> {
-      const result = await client.request({
-        method: 'eth_estimateUserOperationGas' as never,
-        params: [options.userOp, options.entryPointAddress] as never,
-      });
-      const estimate = result as {
+      const result = (await bundlerRpc(
+        bundlerUrl,
+        'eth_estimateUserOperationGas',
+        [options.userOp, options.entryPointAddress],
+      )) as {
         callGasLimit: Hex;
         verificationGasLimit: Hex;
         preVerificationGas: Hex;
       };
       return {
-        callGasLimit: BigInt(estimate.callGasLimit),
-        verificationGasLimit: BigInt(estimate.verificationGasLimit),
-        preVerificationGas: BigInt(estimate.preVerificationGas),
+        callGasLimit: BigInt(result.callGasLimit),
+        verificationGasLimit: BigInt(result.verificationGasLimit),
+        preVerificationGas: BigInt(result.preVerificationGas),
       };
     },
 
     async sponsorUserOperation(options: {
-      userOp: Partial<UserOperation<'0.7'>>;
+      userOp: Partial<UserOp07>;
       entryPointAddress: Address;
       context?: Record<string, unknown>;
     }): Promise<PaymasterSponsorResult> {
-      const result = await client.request({
-        method: 'pm_sponsorUserOperation' as never,
-        params: [
-          options.userOp,
-          options.entryPointAddress,
-          options.context ?? {},
-        ] as never,
-      });
-      return result as PaymasterSponsorResult;
+      return (await bundlerRpc(bundlerUrl, 'pm_sponsorUserOperation', [
+        options.userOp,
+        options.entryPointAddress,
+        options.context ?? {},
+      ])) as PaymasterSponsorResult;
     },
 
     async getUserOperationReceipt(hash: Hex): Promise<unknown> {
-      const result = await client.request({
-        method: 'eth_getUserOperationReceipt' as never,
-        params: [hash] as never,
-      });
-      return result ?? null;
+      return (
+        (await bundlerRpc(bundlerUrl, 'eth_getUserOperationReceipt', [hash])) ??
+        null
+      );
     },
 
     async waitForUserOperationReceipt(options: {
@@ -171,10 +198,11 @@ export function makeBundlerClient(
       const deadline = Date.now() + timeout;
 
       while (Date.now() < deadline) {
-        const receipt = await client.request({
-          method: 'eth_getUserOperationReceipt' as never,
-          params: [options.hash] as never,
-        });
+        const receipt = await bundlerRpc(
+          bundlerUrl,
+          'eth_getUserOperationReceipt',
+          [options.hash],
+        );
         if (receipt !== null && receipt !== undefined) {
           return receipt;
         }

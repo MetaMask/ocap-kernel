@@ -87,6 +87,7 @@ async function main() {
 
   const walletConfig = makeWalletClusterConfig({
     bundleBaseUrl: BUNDLE_BASE_URL,
+    allowedHosts: ['sepolia.infura.io', 'api.pimlico.io'],
   });
   const { rootKref } = await kernel.launchSubcluster(walletConfig);
   await waitUntilQuiescent();

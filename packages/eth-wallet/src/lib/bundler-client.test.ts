@@ -1,27 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { makeBundlerClient } from './bundler-client.ts';
 import type { Hex } from '../types.ts';
 
-const mockRequest = vi.fn();
+// Mock globalThis.fetch
+const mockFetch = vi.fn();
+globalThis.fetch = mockFetch;
 
-vi.mock('viem', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('viem')>();
+/**
+ * Create a mock fetch response for bundler RPC.
+ *
+ * @param result - The JSON-RPC result to return.
+ * @returns A mock Response-like object.
+ */
+function mockRpcResponse(result: unknown): {
+  ok: boolean;
+  json: () => Promise<{ jsonrpc: string; id: number; result: unknown }>;
+} {
   return {
-    ...actual,
-    createClient: vi.fn(() => ({
-      request: mockRequest,
-      extend: vi.fn().mockReturnThis(),
-    })),
-    http: vi.fn(() => 'mock-transport'),
+    ok: true,
+    json: async () => ({ jsonrpc: '2.0', id: 1, result }),
   };
-});
-
-vi.mock('viem/account-abstraction', () => ({
-  bundlerActions: vi.fn(() => (client: unknown) => client),
-}));
-
-// Dynamic import after mocking
-const { makeBundlerClient } = await import('./bundler-client.ts');
+}
 
 describe('lib/bundler-client', () => {
   beforeEach(() => {
@@ -45,7 +45,7 @@ describe('lib/bundler-client', () => {
 
   describe('sendUserOperation', () => {
     it('sends a user operation via RPC', async () => {
-      mockRequest.mockResolvedValue('0xuserophash');
+      mockFetch.mockResolvedValue(mockRpcResponse('0xuserophash'));
 
       const client = makeBundlerClient({
         bundlerUrl: 'https://bundler.example.com',
@@ -58,20 +58,22 @@ describe('lib/bundler-client', () => {
       });
 
       expect(result).toBe('0xuserophash');
-      expect(mockRequest).toHaveBeenCalledWith({
-        method: 'eth_sendUserOperation',
-        params: [{}, '0x0000000071727de22e5e9d8baf0edac6f37da032'],
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://bundler.example.com',
+        expect.objectContaining({ method: 'POST' }),
+      );
     });
   });
 
   describe('estimateUserOperationGas', () => {
     it('returns gas estimates as bigints', async () => {
-      mockRequest.mockResolvedValue({
-        callGasLimit: '0x50000',
-        verificationGasLimit: '0x60000',
-        preVerificationGas: '0x10000',
-      });
+      mockFetch.mockResolvedValue(
+        mockRpcResponse({
+          callGasLimit: '0x50000',
+          verificationGasLimit: '0x60000',
+          preVerificationGas: '0x10000',
+        }),
+      );
 
       const client = makeBundlerClient({
         bundlerUrl: 'https://bundler.example.com',
@@ -91,8 +93,11 @@ describe('lib/bundler-client', () => {
 
   describe('getUserOperationReceipt', () => {
     it('returns receipt when found', async () => {
-      const receipt = { success: true, receipt: { transactionHash: '0xabc' } };
-      mockRequest.mockResolvedValue(receipt);
+      const receipt = {
+        success: true,
+        receipt: { transactionHash: '0xabc' },
+      };
+      mockFetch.mockResolvedValue(mockRpcResponse(receipt));
 
       const client = makeBundlerClient({
         bundlerUrl: 'https://bundler.example.com',
@@ -104,7 +109,7 @@ describe('lib/bundler-client', () => {
     });
 
     it('returns null when receipt is not found', async () => {
-      mockRequest.mockResolvedValue(null);
+      mockFetch.mockResolvedValue(mockRpcResponse(null));
 
       const client = makeBundlerClient({
         bundlerUrl: 'https://bundler.example.com',
@@ -119,7 +124,7 @@ describe('lib/bundler-client', () => {
   describe('waitForUserOperationReceipt', () => {
     it('returns receipt when found immediately', async () => {
       const receipt = { success: true };
-      mockRequest.mockResolvedValue(receipt);
+      mockFetch.mockResolvedValue(mockRpcResponse(receipt));
 
       const client = makeBundlerClient({
         bundlerUrl: 'https://bundler.example.com',
@@ -134,7 +139,9 @@ describe('lib/bundler-client', () => {
 
     it('polls and returns receipt after retries', async () => {
       const receipt = { success: true };
-      mockRequest.mockResolvedValueOnce(null).mockResolvedValueOnce(receipt);
+      mockFetch
+        .mockResolvedValueOnce(mockRpcResponse(null))
+        .mockResolvedValueOnce(mockRpcResponse(receipt));
 
       const client = makeBundlerClient({
         bundlerUrl: 'https://bundler.example.com',
@@ -148,11 +155,11 @@ describe('lib/bundler-client', () => {
       });
 
       expect(result).toStrictEqual(receipt);
-      expect(mockRequest).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
     });
 
     it('throws on timeout', async () => {
-      mockRequest.mockResolvedValue(null);
+      mockFetch.mockResolvedValue(mockRpcResponse(null));
 
       const client = makeBundlerClient({
         bundlerUrl: 'https://bundler.example.com',
