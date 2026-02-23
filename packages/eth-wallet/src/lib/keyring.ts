@@ -1,3 +1,4 @@
+import { keccak256, encodePacked } from 'viem';
 import {
   english,
   generateMnemonic,
@@ -7,9 +8,12 @@ import {
 } from 'viem/accounts';
 import type { HDAccount, LocalAccount } from 'viem/accounts';
 
-import type { Address } from '../types.ts';
+import type { Address, Hex } from '../types.ts';
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
+// Counter for throwaway key generation in SES environments.
+let throwawayCounter = 0;
 
 /**
  * Options for initializing a keyring.
@@ -44,8 +48,20 @@ export function makeKeyring(options: KeyringInitOptions): Keyring {
     // Derive the first account by default
     deriveAccountInternal(0);
   } else {
-    // Generate a throwaway private key
-    const privateKey = generatePrivateKey();
+    // Generate a throwaway private key.
+    // In SES compartments crypto.getRandomValues is unavailable, so fall
+    // back to a keccak256-based key derived from a timestamp counter.
+    // Throwaway keys only need uniqueness, not cryptographic strength.
+    let privateKey: Hex;
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    if (globalThis.crypto?.getRandomValues) {
+      privateKey = generatePrivateKey();
+    } else {
+      throwawayCounter += 1;
+      privateKey = keccak256(
+        encodePacked(['uint256'], [BigInt(throwawayCounter)]),
+      );
+    }
     const account = privateKeyToAccount(privateKey);
     accounts.set(account.address.toLowerCase() as Address, account);
   }

@@ -19,6 +19,8 @@ import type {
   Hex,
 } from '../types.ts';
 
+const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
 /**
  * Vat powers for the delegation vat.
  */
@@ -57,7 +59,7 @@ export function buildRootObject(
    * Persist the current delegations map to baggage.
    */
   function persistDelegations(): void {
-    const serialized = Object.fromEntries(delegations);
+    const serialized = harden(Object.fromEntries(delegations));
     if (baggage.has('delegations')) {
       baggage.set('delegations', serialized);
     } else {
@@ -73,13 +75,15 @@ export function buildRootObject(
     async createDelegation(
       options: CreateDelegationOptions & { delegator: Address },
     ): Promise<Delegation> {
-      const delegation = makeDelegation({
-        delegator: options.delegator,
-        delegate: options.delegate,
-        caveats: options.caveats,
-        chainId: options.chainId,
-        ...(options.salt ? { salt: options.salt } : {}),
-      });
+      const delegation = harden(
+        makeDelegation({
+          delegator: options.delegator,
+          delegate: options.delegate,
+          caveats: options.caveats,
+          chainId: options.chainId,
+          ...(options.salt ? { salt: options.salt } : {}),
+        }),
+      );
       delegations.set(delegation.id, delegation);
       persistDelegations();
       return delegation;
@@ -90,10 +94,12 @@ export function buildRootObject(
       if (!delegation) {
         throw new Error(`Delegation not found: ${id}`);
       }
-      return prepareDelegationTypedData({
-        delegation,
-        verifyingContract: delegationManagerAddress,
-      });
+      return harden(
+        prepareDelegationTypedData({
+          delegation,
+          verifyingContract: delegationManagerAddress,
+        }),
+      );
     },
 
     async storeSigned(id: string, signature: Hex): Promise<void> {
@@ -101,7 +107,7 @@ export function buildRootObject(
       if (!delegation) {
         throw new Error(`Delegation not found: ${id}`);
       }
-      const signed = finalizeDelegation(delegation, signature);
+      const signed = harden(finalizeDelegation(delegation, signature));
       delegations.set(id, signed);
       persistDelegations();
     },
@@ -164,11 +170,11 @@ export function buildRootObject(
       if (!delegation) {
         throw new Error(`Delegation not found: ${id}`);
       }
-      return delegation;
+      return harden(delegation);
     },
 
     async listDelegations(): Promise<Delegation[]> {
-      return [...delegations.values()];
+      return harden([...delegations.values()]);
     },
 
     async revokeDelegation(id: string): Promise<void> {
@@ -176,7 +182,10 @@ export function buildRootObject(
       if (!delegation) {
         throw new Error(`Delegation not found: ${id}`);
       }
-      delegations.set(id, { ...delegation, status: 'revoked' });
+      delegations.set(
+        id,
+        harden({ ...delegation, status: 'revoked' as const }),
+      );
       persistDelegations();
     },
   });

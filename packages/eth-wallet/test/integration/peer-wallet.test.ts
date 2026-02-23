@@ -2,7 +2,7 @@ import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
-import type { CapData, KRef } from '@metamask/ocap-kernel';
+import type { KRef } from '@metamask/ocap-kernel';
 import { NodejsPlatformServices } from '@ocap/nodejs';
 import { delay } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -91,7 +91,7 @@ async function callVatMethod(
   method: string,
   args: unknown[] = [],
 ): Promise<unknown> {
-  const result: CapData<KRef> = await kernel.queueMessage(target, method, args);
+  const result = await kernel.queueMessage(target, method, args);
   await waitUntilQuiescent();
   return kunser(result);
 }
@@ -324,6 +324,9 @@ describe.sequential('Peer wallet integration', () => {
           ]),
           delegationCount: 0,
           hasPeerWallet: false,
+          hasExternalSigner: false,
+          hasBundlerConfig: false,
+          smartAccountAddress: undefined,
         });
 
         const caps2 = (await callVatMethod(
@@ -342,6 +345,9 @@ describe.sequential('Peer wallet integration', () => {
           localAccounts: [],
           delegationCount: 0,
           hasPeerWallet: false,
+          hasExternalSigner: false,
+          hasBundlerConfig: false,
+          smartAccountAddress: undefined,
         });
       },
       NETWORK_TIMEOUT,
