@@ -555,13 +555,13 @@ PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
 
 Full on-chain test on Sepolia testnet. Creates a Hybrid smart account via the MetaMask Delegation Framework SDK, creates and signs a delegation, redeems it by submitting an ERC-4337 UserOp to the Pimlico bundler with paymaster gas sponsorship, and waits for on-chain inclusion. Skips automatically if `PIMLICO_API_KEY` and `SEPOLIA_RPC_URL` are not set.
 
-### Vitest integration (blocked)
+### Vitest integration (5 tests)
 
 ```bash
 yarn workspace @ocap/eth-wallet test:integration
 ```
 
-Vitest-based integration tests in `test/integration/peer-wallet.test.ts`. Currently blocked by a SES/vitest interaction issue (`TextEncoder is not a constructor` in vat compartments when run via vitest's `pool: 'forks'`). The plain Node.js tests above cover the same scenarios without this issue. The vitest tests remain as a reference for when the SES compatibility is resolved upstream.
+Vitest-based peer wallet tests in `test/integration/peer-wallet.test.ts`. Requires building bundles first (`yarn build`). Tests OCAP URL connection, remote message/transaction signing via CapTP, no-authority errors, and capabilities reporting across two kernels.
 
 ## Constants
 
