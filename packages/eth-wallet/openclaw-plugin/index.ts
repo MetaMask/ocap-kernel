@@ -13,13 +13,14 @@
  *   ocapCliPath  - Absolute path to the `ocap` CLI binary (or omit to use PATH)
  *   walletKref   - The kernel reference for the wallet coordinator (e.g. "ko4")
  */
-import { Type } from "@sinclair/typebox";
-import { spawn } from "node:child_process";
+import { Type } from '@sinclair/typebox';
+import { spawn } from 'node:child_process';
 
-const DEFAULT_CLI = "ocap";
+const DEFAULT_CLI = 'ocap';
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 type ExecResult = { stdout: string; stderr: string; code: number | null };
+type CapDataLike = { body: string; slots: unknown[] };
 
 /**
  * Run an `ocap daemon exec` command and return its output.
@@ -31,46 +32,46 @@ type ExecResult = { stdout: string; stderr: string; code: number | null };
  * @param options.timeoutMs - Timeout in ms.
  * @returns The command result.
  */
-function runDaemonExec(options: {
+async function runDaemonExec(options: {
   cliPath: string;
   method: string;
   params: unknown;
   timeoutMs: number;
 }): Promise<ExecResult> {
   const { cliPath, method, params, timeoutMs } = options;
-  const args = ["daemon", "exec", method, JSON.stringify(params)];
+  const args = ['daemon', 'exec', method, JSON.stringify(params)];
 
   return new Promise((resolve, reject) => {
     const child = spawn(cliPath, args, {
-      stdio: ["ignore", "pipe", "pipe"],
+      stdio: ['ignore', 'pipe', 'pipe'],
     });
 
-    let stdout = "";
-    let stderr = "";
+    let stdout = '';
+    let stderr = '';
 
-    child.stdout?.setEncoding("utf8");
-    child.stderr?.setEncoding("utf8");
-    child.stdout?.on("data", (chunk: string) => {
+    child.stdout?.setEncoding('utf8');
+    child.stderr?.setEncoding('utf8');
+    child.stdout?.on('data', (chunk: string) => {
       stdout += chunk;
     });
-    child.stderr?.on("data", (chunk: string) => {
+    child.stderr?.on('data', (chunk: string) => {
       stderr += chunk;
     });
 
     const timer = setTimeout(() => {
       try {
-        child.kill("SIGKILL");
+        child.kill('SIGKILL');
       } finally {
         reject(new Error(`ocap daemon exec timed out after ${timeoutMs}ms`));
       }
     }, timeoutMs);
 
-    child.once("error", (error: Error) => {
+    child.once('error', (error: Error) => {
       clearTimeout(timer);
       reject(error);
     });
 
-    child.once("exit", (code) => {
+    child.once('exit', (code) => {
       clearTimeout(timer);
       resolve({ stdout, stderr, code: code ?? null });
     });
@@ -94,11 +95,11 @@ async function callWallet(options: {
   method: string;
   args: unknown[];
   timeoutMs: number;
-}): Promise<string> {
+}): Promise<unknown> {
   const { cliPath, walletKref, method, args, timeoutMs } = options;
   const result = await runDaemonExec({
     cliPath,
-    method: "queueMessage",
+    method: 'queueMessage',
     params: [walletKref, method, args],
     timeoutMs,
   });
@@ -108,7 +109,65 @@ async function callWallet(options: {
     throw new Error(`Wallet ${method} failed (exit ${result.code}): ${detail}`);
   }
 
-  return result.stdout.trim();
+  return decodeCapData(result.stdout.trim(), method);
+}
+
+/**
+ * Check if a value looks like Endo CapData.
+ *
+ * @param value - The parsed JSON value.
+ * @returns True when value has CapData shape.
+ */
+function isCapDataLike(value: unknown): value is CapDataLike {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  if (!('body' in value) || !('slots' in value)) {
+    return false;
+  }
+  const { body } = value as { body?: unknown };
+  const { slots } = value as { slots?: unknown };
+  return typeof body === 'string' && Array.isArray(slots);
+}
+
+/**
+ * Decode daemon JSON output, unwrapping Endo CapData.
+ *
+ * @param raw - Raw stdout from `ocap daemon exec`.
+ * @param method - Wallet method name (for better errors).
+ * @returns The decoded value.
+ */
+function decodeCapData(raw: string, method: string): unknown {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error(`Wallet ${method} returned non-JSON output`);
+  }
+
+  if (!isCapDataLike(parsed)) {
+    return parsed;
+  }
+
+  if (!parsed.body.startsWith('#')) {
+    throw new Error(`Wallet ${method} returned invalid CapData body`);
+  }
+
+  try {
+    return JSON.parse(parsed.body.slice(1));
+  } catch {
+    throw new Error(`Wallet ${method} returned undecodable CapData body`);
+  }
+}
+
+/**
+ * Convert a decoded wallet result into text for OpenClaw responses.
+ *
+ * @param value - The decoded result.
+ * @returns A string suitable for tool output.
+ */
+function formatToolResult(value: unknown): string {
+  return typeof value === 'string' ? value : JSON.stringify(value);
 }
 
 const ETH_ADDRESS_RE = /^0x[\da-f]{40}$/iu;
@@ -121,9 +180,9 @@ const HEX_VALUE_RE = /^0x[\da-f]+$/iu;
  * @returns A plugin tool response containing the error.
  */
 function makeError(text: string): {
-  content: { type: "text"; text: string }[];
+  content: { type: 'text'; text: string }[];
 } {
-  return { content: [{ type: "text" as const, text: `Error: ${text}` }] };
+  return { content: [{ type: 'text' as const, text: `Error: ${text}` }] };
 }
 
 /**
@@ -134,39 +193,43 @@ function makeError(text: string): {
 export default function register(api: any): void {
   const pluginConfig = api.pluginConfig as Record<string, unknown> | undefined;
   const cliPath =
-    typeof pluginConfig?.ocapCliPath === "string"
+    typeof pluginConfig?.ocapCliPath === 'string'
       ? pluginConfig.ocapCliPath.trim()
       : DEFAULT_CLI;
   const walletKref =
-    typeof pluginConfig?.walletKref === "string"
+    typeof pluginConfig?.walletKref === 'string'
       ? pluginConfig.walletKref.trim()
-      : "ko4";
+      : 'ko4';
   const timeoutMs =
-    typeof pluginConfig?.timeoutMs === "number"
+    typeof pluginConfig?.timeoutMs === 'number'
       ? pluginConfig.timeoutMs
       : DEFAULT_TIMEOUT_MS;
 
   api.registerTool(
     {
-      name: "wallet_balance",
-      label: "Wallet balance",
+      name: 'wallet_balance',
+      label: 'Wallet balance',
       description:
-        "Get the ETH balance for a wallet address. Uses the OCAP daemon; no key access needed.",
+        'Get the ETH balance for a wallet address. Uses the OCAP daemon; no key access needed.',
       parameters: Type.Object({
-        address: Type.String({ description: "Ethereum address (0x...)" }),
+        address: Type.String({ description: 'Ethereum address (0x...)' }),
       }),
       async execute(_id: string, params: { address: string }) {
         if (!ETH_ADDRESS_RE.test(params.address)) {
-          return makeError("Invalid Ethereum address. Must be 0x followed by 40 hex characters.");
+          return makeError(
+            'Invalid Ethereum address. Must be 0x followed by 40 hex characters.',
+          );
         }
         const result = await callWallet({
           cliPath,
           walletKref,
-          method: "request",
-          args: ["eth_getBalance", [params.address, "latest"]],
+          method: 'request',
+          args: ['eth_getBalance', [params.address, 'latest']],
           timeoutMs,
         });
-        return { content: [{ type: "text" as const, text: result }] };
+        return {
+          content: [{ type: 'text' as const, text: formatToolResult(result) }],
+        };
       },
     },
     { optional: true },
@@ -174,32 +237,56 @@ export default function register(api: any): void {
 
   api.registerTool(
     {
-      name: "wallet_send",
-      label: "Wallet send",
+      name: 'wallet_send',
+      label: 'Wallet send',
       description:
-        "Send ETH to an address. The kernel handles signing via delegations or peer wallet.",
+        'Send ETH to an address. The kernel handles signing via delegations or peer wallet.',
       parameters: Type.Object({
-        to: Type.String({ description: "Recipient address (0x...)" }),
+        to: Type.String({ description: 'Recipient address (0x...)' }),
         value: Type.String({
-          description:
-            "Value in hex wei (e.g. '0xde0b6b3a7640000' for 1 ETH)",
+          description: "Value in hex wei (e.g. '0xde0b6b3a7640000' for 1 ETH)",
         }),
       }),
       async execute(_id: string, params: { to: string; value: string }) {
         if (!ETH_ADDRESS_RE.test(params.to)) {
-          return makeError("Invalid recipient address. Must be 0x followed by 40 hex characters.");
+          return makeError(
+            'Invalid recipient address. Must be 0x followed by 40 hex characters.',
+          );
         }
         if (!HEX_VALUE_RE.test(params.value)) {
-          return makeError("Invalid value. Must be a hex string (e.g. '0xde0b6b3a7640000' for 1 ETH).");
+          return makeError(
+            "Invalid value. Must be a hex string (e.g. '0xde0b6b3a7640000' for 1 ETH).",
+          );
         }
+
+        const accountsResult = await callWallet({
+          cliPath,
+          walletKref,
+          method: 'getAccounts',
+          args: [],
+          timeoutMs,
+        });
+        if (!Array.isArray(accountsResult)) {
+          return makeError('Wallet returned invalid accounts response.');
+        }
+        const from = accountsResult.find(
+          (account): account is string =>
+            typeof account === 'string' && ETH_ADDRESS_RE.test(account),
+        );
+        if (!from) {
+          return makeError('No wallet account available to use as sender.');
+        }
+
         const result = await callWallet({
           cliPath,
           walletKref,
-          method: "sendTransaction",
-          args: [{ to: params.to, value: params.value }],
+          method: 'sendTransaction',
+          args: [{ from, to: params.to, value: params.value }],
           timeoutMs,
         });
-        return { content: [{ type: "text" as const, text: result }] };
+        return {
+          content: [{ type: 'text' as const, text: formatToolResult(result) }],
+        };
       },
     },
     { optional: true },
@@ -207,22 +294,24 @@ export default function register(api: any): void {
 
   api.registerTool(
     {
-      name: "wallet_sign",
-      label: "Wallet sign",
+      name: 'wallet_sign',
+      label: 'Wallet sign',
       description:
-        "Sign a message. May forward to the home kernel for approval.",
+        'Sign a message. May forward to the home kernel for approval.',
       parameters: Type.Object({
-        message: Type.String({ description: "Message to sign" }),
+        message: Type.String({ description: 'Message to sign' }),
       }),
       async execute(_id: string, params: { message: string }) {
         const result = await callWallet({
           cliPath,
           walletKref,
-          method: "signMessage",
+          method: 'signMessage',
           args: [params.message],
           timeoutMs,
         });
-        return { content: [{ type: "text" as const, text: result }] };
+        return {
+          content: [{ type: 'text' as const, text: formatToolResult(result) }],
+        };
       },
     },
     { optional: true },
@@ -230,20 +319,22 @@ export default function register(api: any): void {
 
   api.registerTool(
     {
-      name: "wallet_capabilities",
-      label: "Wallet capabilities",
+      name: 'wallet_capabilities',
+      label: 'Wallet capabilities',
       description:
-        "Check wallet capabilities: local keys, delegations, peer wallet, bundler.",
+        'Check wallet capabilities: local keys, delegations, peer wallet, bundler.',
       parameters: Type.Object({}),
       async execute() {
         const result = await callWallet({
           cliPath,
           walletKref,
-          method: "getCapabilities",
+          method: 'getCapabilities',
           args: [],
           timeoutMs,
         });
-        return { content: [{ type: "text" as const, text: result }] };
+        return {
+          content: [{ type: 'text' as const, text: formatToolResult(result) }],
+        };
       },
     },
     { optional: true },
@@ -251,19 +342,21 @@ export default function register(api: any): void {
 
   api.registerTool(
     {
-      name: "wallet_accounts",
-      label: "Wallet accounts",
-      description: "List all wallet accounts.",
+      name: 'wallet_accounts',
+      label: 'Wallet accounts',
+      description: 'List all wallet accounts.',
       parameters: Type.Object({}),
       async execute() {
         const result = await callWallet({
           cliPath,
           walletKref,
-          method: "getAccounts",
+          method: 'getAccounts',
           args: [],
           timeoutMs,
         });
-        return { content: [{ type: "text" as const, text: result }] };
+        return {
+          content: [{ type: 'text' as const, text: formatToolResult(result) }],
+        };
       },
     },
     { optional: true },
