@@ -79,6 +79,7 @@ function makeSpawnResult(options: {
 
   child.stdout = makeReadable();
   child.stderr = makeReadable();
+  child.kill = () => true;
   vi.spyOn(child, 'kill').mockImplementation(() => true);
 
   queueMicrotask(() => {
