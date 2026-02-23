@@ -1,4 +1,4 @@
-/* eslint-disable n/no-process-exit, no-plusplus, import-x/no-unresolved, n/no-process-env */
+/* eslint-disable n/no-process-exit, no-plusplus, no-unused-vars, import-x/no-unresolved, n/no-process-env */
 /**
  * Sepolia E2E test for the eth-wallet subcluster.
  *
@@ -65,10 +65,38 @@ function assert(condition, label) {
   }
 }
 
-async function call(kernel, target, method, args = []) {
-  const result = await kernel.queueMessage(target, method, args);
-  await waitUntilQuiescent();
-  return kunser(result);
+// Call a vat method, pumping the kernel event loop until the result resolves.
+// For methods that involve async I/O (fetch), the kernel's crank loop may
+// stop before the full E() chain completes. This helper periodically yields
+// control to the event loop (via setTimeout) so that incoming vat worker
+// messages trigger new cranks and the promise eventually resolves.
+async function call(
+  kernel,
+  target,
+  method,
+  args = [],
+  timeout = USEROP_TIMEOUT,
+) {
+  const resultP = kernel.queueMessage(target, method, args);
+
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    // Race: either the result resolves, or we yield for 500ms
+    const winner = await Promise.race([
+      resultP.then((capData) => ({ done: true, capData })),
+      new Promise((resolve) => setTimeout(() => resolve({ done: false }), 500)),
+    ]);
+
+    if (winner.done) {
+      await waitUntilQuiescent();
+      return kunser(winner.capData);
+    }
+
+    // Pump: let the event loop process incoming vat worker messages
+    await waitUntilQuiescent();
+  }
+
+  throw new Error(`call(${method}) timed out after ${timeout}ms`);
 }
 
 // ---------------------------------------------------------------------------
@@ -129,11 +157,11 @@ async function main() {
   assert(smartConfig.implementation === 'hybrid', 'implementation: hybrid');
   assert(smartConfig.deployed === false, 'not yet deployed');
 
-  // -- 5. Create a delegation (smart account → smart account, no caveats) --
+  // -- 5. Create a delegation (smart account → EOA, no caveats) --
   console.log('\n--- Create delegation ---');
   const delegation = await call(kernel, rootKref, 'createDelegation', [
     {
-      delegate: smartConfig.address,
+      delegate: accounts[0],
       caveats: [],
       chainId: SEPOLIA_CHAIN_ID,
     },
@@ -143,10 +171,7 @@ async function main() {
     delegation.delegator === smartConfig.address,
     'delegator is smart account',
   );
-  assert(
-    delegation.delegate === smartConfig.address,
-    'delegate is smart account',
-  );
+  assert(delegation.delegate === accounts[0], 'delegate is EOA');
   console.log(`  Delegation ID: ${delegation.id.slice(0, 20)}...`);
 
   // -- 6. Redeem the delegation via UserOp --
@@ -155,7 +180,7 @@ async function main() {
   const userOpHash = await call(kernel, rootKref, 'redeemDelegation', [
     {
       execution: {
-        target: ZERO_ADDRESS,
+        target: smartConfig.address,
         value: '0x0',
         callData: '0x',
       },

@@ -71,23 +71,30 @@ export class VatSyscall {
   }
 
   /**
-   * Handle a 'send' syscall from the vat. The send is buffered and will be
-   * flushed to the run queue on successful crank completion.
+   * Handle a 'send' syscall from the vat. During a crank, the send is
+   * buffered and flushed on crank completion. Outside a crank (async vat
+   * operations like fetch), the send is enqueued immediately to wake the
+   * run queue.
    *
    * @param target - The target of the message send.
    * @param message - The message that was sent.
    */
   #handleSyscallSend(target: KRef, message: Message): void {
-    this.#kernelQueue.enqueueSend(target, message, false);
+    const immediate = !this.#kernelStore.isInCrank();
+    this.#kernelQueue.enqueueSend(target, message, immediate);
   }
 
   /**
-   * Handle a 'resolve' syscall from the vat.
+   * Handle a 'resolve' syscall from the vat. During a crank, notifications
+   * are buffered and flushed on crank completion. Outside a crank (async vat
+   * operations like fetch), notifications are enqueued immediately to wake
+   * the run queue.
    *
    * @param resolutions - One or more promise resolutions.
    */
   #handleSyscallResolve(resolutions: VatOneResolution[]): void {
-    this.#kernelQueue.resolvePromises(this.vatId, resolutions, false);
+    const immediate = !this.#kernelStore.isInCrank();
+    this.#kernelQueue.resolvePromises(this.vatId, resolutions, immediate);
   }
 
   /**
