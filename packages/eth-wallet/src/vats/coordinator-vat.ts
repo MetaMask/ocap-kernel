@@ -23,6 +23,8 @@ import type {
   WalletCapabilities,
 } from '../types.ts';
 
+const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
 /**
  * Vat powers for the coordinator vat.
  */
@@ -544,10 +546,10 @@ export function buildRootObject(
 
     // Mark smart account as deployed after successful submission
     if (smartAccountConfig && smartAccountConfig.deployed === false) {
-      smartAccountConfig = {
+      smartAccountConfig = harden({
         ...smartAccountConfig,
         deployed: true,
-      };
+      });
       persistBaggage('smartAccountConfig', smartAccountConfig);
     }
 
@@ -604,13 +606,8 @@ export function buildRootObject(
         throw new Error('Provider vat not available');
       }
 
-      // Validate RPC URL
-      try {
-        const url = new URL(chainConfig.rpcUrl);
-        if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-          throw new Error('unsupported protocol');
-        }
-      } catch {
+      // Validate RPC URL (regex — URL constructor unavailable under SES)
+      if (!/^https?:\/\/.+/u.test(chainConfig.rpcUrl)) {
         throw new Error(
           `Invalid RPC URL: "${chainConfig.rpcUrl}". Must be a valid HTTP(S) URL.`,
         );
@@ -652,13 +649,8 @@ export function buildRootObject(
       usePaymaster?: boolean;
       sponsorshipPolicyId?: string;
     }): Promise<void> {
-      // Validate bundler URL
-      try {
-        const url = new URL(config.bundlerUrl);
-        if (url.protocol !== 'https:' && url.protocol !== 'http:') {
-          throw new Error('unsupported protocol');
-        }
-      } catch {
+      // Validate bundler URL (regex — URL constructor unavailable under SES)
+      if (!/^https?:\/\/.+/u.test(config.bundlerUrl)) {
         throw new Error(
           `Invalid bundler URL: "${config.bundlerUrl}". Must be a valid HTTP(S) URL.`,
         );
@@ -670,13 +662,13 @@ export function buildRootObject(
         );
       }
 
-      bundlerConfig = {
+      bundlerConfig = harden({
         bundlerUrl: config.bundlerUrl,
         entryPoint: config.entryPoint ?? ENTRY_POINT_V07,
         chainId: config.chainId,
         usePaymaster: config.usePaymaster,
         sponsorshipPolicyId: config.sponsorshipPolicyId,
-      };
+      });
       persistBaggage('bundlerConfig', bundlerConfig);
 
       if (providerVat) {
@@ -734,14 +726,14 @@ export function buildRootObject(
         factoryData = derived.factoryData;
       }
 
-      smartAccountConfig = {
+      smartAccountConfig = harden({
         implementation: 'hybrid' as const,
         deploySalt: config.deploySalt,
         address,
         factory,
         factoryData,
         deployed: false,
-      };
+      });
       persistBaggage('smartAccountConfig', smartAccountConfig);
       return smartAccountConfig;
     },
@@ -1080,7 +1072,7 @@ export function buildRootObject(
         ? await E(delegationVat).listDelegations()
         : [];
 
-      return {
+      return harden({
         hasLocalKeys,
         localAccounts,
         delegationCount: delegations.length,
@@ -1088,7 +1080,7 @@ export function buildRootObject(
         hasExternalSigner: externalSigner !== undefined,
         hasBundlerConfig: bundlerConfig !== undefined,
         smartAccountAddress: smartAccountConfig?.address,
-      };
+      });
     },
   });
   return coordinator;

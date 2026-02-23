@@ -11,6 +11,7 @@ export type WalletClusterConfigOptions = {
   chainId?: number;
   forceReset?: boolean;
   services?: string[];
+  allowedHosts?: string[];
 };
 
 /**
@@ -26,6 +27,7 @@ export function makeWalletClusterConfig(
     bundleBaseUrl,
     delegationManagerAddress,
     services = ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+    allowedHosts,
   } = options;
 
   return {
@@ -44,6 +46,9 @@ export function makeWalletClusterConfig(
       provider: {
         bundleSpec: `${bundleBaseUrl}/provider-vat.bundle`,
         globals: ['TextEncoder', 'TextDecoder'],
+        platformConfig: {
+          fetch: allowedHosts ? { allowedHosts } : {},
+        },
       },
       delegation: {
         bundleSpec: `${bundleBaseUrl}/delegation-vat.bundle`,

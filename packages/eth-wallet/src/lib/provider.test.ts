@@ -3,24 +3,25 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { makeProvider } from './provider.ts';
 import type { Provider } from './provider.ts';
 
-const mockTransportRequest = vi.fn();
+// Mock globalThis.fetch for all tests
+const mockFetch = vi.fn();
+globalThis.fetch = mockFetch;
 
-const mockClient = {
-  request: vi.fn(),
-  transport: { request: mockTransportRequest },
-  sendRawTransaction: vi.fn(),
-  getBalance: vi.fn(),
-  getChainId: vi.fn(),
-  getTransactionCount: vi.fn(),
-};
-
-vi.mock('viem', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('viem')>();
+/**
+ * Create a mock fetch response.
+ *
+ * @param result - The JSON-RPC result to return.
+ * @returns A mock Response-like object.
+ */
+function mockRpcResponse(result: unknown): {
+  ok: boolean;
+  json: () => Promise<{ jsonrpc: string; id: number; result: unknown }>;
+} {
   return {
-    ...actual,
-    createPublicClient: vi.fn(() => mockClient),
+    ok: true,
+    json: async () => ({ jsonrpc: '2.0', id: 1, result }),
   };
-});
+}
 
 describe('lib/provider', () => {
   let provider: Provider;
@@ -55,22 +56,25 @@ describe('lib/provider', () => {
   });
 
   describe('request', () => {
-    it('forwards JSON-RPC calls to the client', async () => {
-      mockTransportRequest.mockResolvedValue('0x1');
+    it('forwards JSON-RPC calls via fetch', async () => {
+      mockFetch.mockResolvedValue(mockRpcResponse('0x1'));
 
       const result = await provider.request('eth_chainId', []);
       expect(result).toBe('0x1');
-      expect(mockTransportRequest).toHaveBeenCalledWith({
-        method: 'eth_chainId',
-        params: [],
-      });
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://rpc.example.com',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
     });
   });
 
   describe('broadcastTransaction', () => {
     it('sends a raw transaction', async () => {
       const txHash = '0xabc123';
-      mockClient.sendRawTransaction.mockResolvedValue(txHash);
+      mockFetch.mockResolvedValue(mockRpcResponse(txHash));
 
       const result = await provider.broadcastTransaction('0xf86c...');
       expect(result).toBe(txHash);
@@ -79,7 +83,7 @@ describe('lib/provider', () => {
 
   describe('getBalance', () => {
     it('returns the balance as a hex string', async () => {
-      mockClient.getBalance.mockResolvedValue(1000000000000000000n);
+      mockFetch.mockResolvedValue(mockRpcResponse('0xde0b6b3a7640000'));
 
       const balance = await provider.getBalance(
         '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
@@ -90,7 +94,7 @@ describe('lib/provider', () => {
 
   describe('getChainId', () => {
     it('returns the chain ID', async () => {
-      mockClient.getChainId.mockResolvedValue(1);
+      mockFetch.mockResolvedValue(mockRpcResponse('0x1'));
 
       const chainId = await provider.getChainId();
       expect(chainId).toBe(1);
@@ -99,7 +103,7 @@ describe('lib/provider', () => {
 
   describe('getNonce', () => {
     it('returns the transaction count', async () => {
-      mockClient.getTransactionCount.mockResolvedValue(42);
+      mockFetch.mockResolvedValue(mockRpcResponse('0x2a'));
 
       const nonce = await provider.getNonce(
         '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',

@@ -8,6 +8,8 @@ import { makeProvider } from '../lib/provider.ts';
 import type { Provider } from '../lib/provider.ts';
 import type { Address, ChainConfig, Hex, UserOperation } from '../types.ts';
 
+const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
 /**
  * Function selector for EntryPoint.getNonce(address,uint192).
  */
@@ -86,10 +88,11 @@ export function buildRootObject(
     async configure(chainConfig: ChainConfig): Promise<void> {
       provider = makeProvider(chainConfig);
 
+      const hardenedConfig = harden({ ...chainConfig });
       if (baggage.has('chainConfig')) {
-        baggage.set('chainConfig', chainConfig);
+        baggage.set('chainConfig', hardenedConfig);
       } else {
-        baggage.init('chainConfig', chainConfig);
+        baggage.init('chainConfig', hardenedConfig);
       }
     },
 
@@ -102,10 +105,11 @@ export function buildRootObject(
         chainId: config.chainId,
       });
 
+      const hardenedBundlerConfig = harden({ ...config });
       if (baggage.has('bundlerConfig')) {
-        baggage.set('bundlerConfig', config);
+        baggage.set('bundlerConfig', hardenedBundlerConfig);
       } else {
-        baggage.init('bundlerConfig', config);
+        baggage.init('bundlerConfig', hardenedBundlerConfig);
       }
     },
 
