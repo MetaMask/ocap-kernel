@@ -106,6 +106,15 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
     return items;
   }
 
+  /**
+   * Check whether the kernel is currently inside a crank.
+   *
+   * @returns True if a crank is in progress.
+   */
+  function isInCrank(): boolean {
+    return ctx.inCrank;
+  }
+
   return {
     startCrank,
     createCrankSavepoint,
@@ -115,5 +124,6 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
     waitForCrank,
     bufferCrankOutput,
     flushCrankBuffer,
+    isInCrank,
   };
 }
