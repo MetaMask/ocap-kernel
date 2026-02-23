@@ -48,16 +48,32 @@ export function computeDelegationId(delegation: {
   );
 }
 
+// Monotonic counter for salt uniqueness in SES compartments where
+// neither crypto.getRandomValues nor Math.random is available.
+let saltCounter = 0;
+
 /**
  * Generate a random salt for delegation uniqueness.
+ *
+ * Prefers crypto.getRandomValues when available. In SES compartments
+ * where crypto is not endowed, falls back to keccak256(counter).
  *
  * @returns A hex-encoded random salt.
  */
 export function generateSalt(): Hex {
-  const bytes = new Uint8Array(32);
   // eslint-disable-next-line n/no-unsupported-features/node-builtins
-  globalThis.crypto.getRandomValues(bytes);
-  return toHex(bytes);
+  if (globalThis.crypto?.getRandomValues) {
+    const bytes = new Uint8Array(32);
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    globalThis.crypto.getRandomValues(bytes);
+    return toHex(bytes);
+  }
+
+  // SES fallback: keccak256(counter). Unique per vat lifetime but not
+  // cryptographically random. The salt only needs uniqueness, not
+  // unpredictability.
+  saltCounter += 1;
+  return keccak256(encodePacked(['uint256'], [BigInt(saltCounter)]));
 }
 
 /**
