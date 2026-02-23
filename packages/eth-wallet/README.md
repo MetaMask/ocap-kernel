@@ -546,6 +546,15 @@ yarn workspace @ocap/eth-wallet test:node:daemon
 
 Exercises the wallet through the **daemon JSON-RPC socket** — the same interface an agent process uses in production. Boots a kernel with an RPC socket server, launches the wallet subcluster via `launchSubcluster` RPC, then calls wallet methods via `queueMessage` RPC over the Unix socket. Covers: daemon status, subcluster lifecycle, keyring init, signing, delegation creation, capabilities, error propagation through the RPC layer, and subcluster termination.
 
+### Sepolia E2E (13 assertions, requires API keys)
+
+```bash
+PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
+  yarn workspace @ocap/eth-wallet test:node:sepolia
+```
+
+Full on-chain test on Sepolia testnet. Creates a Hybrid smart account via the MetaMask Delegation Framework SDK, creates and signs a delegation, redeems it by submitting an ERC-4337 UserOp to the Pimlico bundler with paymaster gas sponsorship, and waits for on-chain inclusion. Skips automatically if `PIMLICO_API_KEY` and `SEPOLIA_RPC_URL` are not set.
+
 ### Vitest integration (blocked)
 
 ```bash
