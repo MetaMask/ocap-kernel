@@ -458,12 +458,29 @@ export function buildRootObject(
       sender,
     });
 
-    // Include factory/factoryData when the smart account is not yet deployed
-    const includeFactory =
+    // Check on-chain whether the smart account is deployed (eth_getCode).
+    // This avoids relying on a cached flag that could be stale if the
+    // deployment UserOp failed on-chain.
+    let includeFactory = false;
+    if (
       smartAccountConfig &&
-      smartAccountConfig.deployed === false &&
       smartAccountConfig.factory &&
-      smartAccountConfig.factoryData;
+      smartAccountConfig.factoryData
+    ) {
+      const code = (await E(providerVat).request('eth_getCode', [
+        sender,
+        'latest',
+      ])) as string;
+      includeFactory = code === '0x' || code === '0x0';
+
+      if (!includeFactory && smartAccountConfig.deployed === false) {
+        smartAccountConfig = harden({
+          ...smartAccountConfig,
+          deployed: true,
+        });
+        persistBaggage('smartAccountConfig', smartAccountConfig);
+      }
+    }
 
     // Build the callData using the SDK's encoder, which wraps
     // redeemDelegations inside a DeleGatorCore.execute call so the
@@ -485,10 +502,10 @@ export function buildRootObject(
       execution: options.execution,
       maxFeePerGas,
       maxPriorityFeePerGas,
-      ...(includeFactory
+      ...(includeFactory && smartAccountConfig
         ? {
-            factory: smartAccountConfig.factory,
-            factoryData: smartAccountConfig.factoryData,
+            factory: smartAccountConfig.factory as Hex,
+            factoryData: smartAccountConfig.factoryData as Hex,
           }
         : {}),
     });
@@ -564,15 +581,6 @@ export function buildRootObject(
       userOp: signedUserOp,
     });
 
-    // Mark smart account as deployed after successful submission
-    if (smartAccountConfig && smartAccountConfig.deployed === false) {
-      smartAccountConfig = harden({
-        ...smartAccountConfig,
-        deployed: true,
-      });
-      persistBaggage('smartAccountConfig', smartAccountConfig);
-    }
-
     return result;
   }
 
@@ -647,15 +655,9 @@ export function buildRootObject(
     // ------------------------------------------------------------------
 
     async connectExternalSigner(signer: ExternalSignerFacet): Promise<void> {
-      if (
-        !signer ||
-        typeof signer.getAccounts !== 'function' ||
-        typeof signer.signTypedData !== 'function' ||
-        typeof signer.signMessage !== 'function' ||
-        typeof signer.signTransaction !== 'function'
-      ) {
+      if (!signer || typeof signer !== 'object') {
         throw new Error(
-          'Invalid external signer: must implement getAccounts, signTypedData, signMessage, signTransaction',
+          'Invalid external signer: must be a non-null object',
         );
       }
       externalSigner = signer;
@@ -901,6 +903,14 @@ export function buildRootObject(
       await E(delegationVat).receiveDelegation(delegation);
     },
 
+    /**
+     * Revoke a delegation locally. Note: this only removes the delegation
+     * from the local store. It does NOT submit an on-chain revocation.
+     * A party holding a copy of the signed delegation can still redeem it
+     * on-chain until on-chain revocation is implemented.
+     *
+     * @param id - The delegation identifier.
+     */
     async revokeDelegation(id: string): Promise<void> {
       if (!delegationVat) {
         throw new Error('Delegation vat not available');
@@ -910,7 +920,7 @@ export function buildRootObject(
 
     async listDelegations(): Promise<Delegation[]> {
       if (!delegationVat) {
-        return [];
+        throw new Error('Delegation vat not available');
       }
       return E(delegationVat).listDelegations();
     },

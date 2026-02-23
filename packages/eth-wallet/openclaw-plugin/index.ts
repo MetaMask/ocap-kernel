@@ -111,6 +111,21 @@ async function callWallet(options: {
   return result.stdout.trim();
 }
 
+const ETH_ADDRESS_RE = /^0x[\da-f]{40}$/iu;
+const HEX_VALUE_RE = /^0x[\da-f]+$/iu;
+
+/**
+ * Format an error response for the plugin.
+ *
+ * @param text - The error message text.
+ * @returns A plugin tool response containing the error.
+ */
+function makeError(text: string): {
+  content: { type: "text"; text: string }[];
+} {
+  return { content: [{ type: "text" as const, text: `Error: ${text}` }] };
+}
+
 /**
  * Register the wallet plugin tools.
  *
@@ -141,6 +156,9 @@ export default function register(api: any): void {
         address: Type.String({ description: "Ethereum address (0x...)" }),
       }),
       async execute(_id: string, params: { address: string }) {
+        if (!ETH_ADDRESS_RE.test(params.address)) {
+          return makeError("Invalid Ethereum address. Must be 0x followed by 40 hex characters.");
+        }
         const result = await callWallet({
           cliPath,
           walletKref,
@@ -168,6 +186,12 @@ export default function register(api: any): void {
         }),
       }),
       async execute(_id: string, params: { to: string; value: string }) {
+        if (!ETH_ADDRESS_RE.test(params.to)) {
+          return makeError("Invalid recipient address. Must be 0x followed by 40 hex characters.");
+        }
+        if (!HEX_VALUE_RE.test(params.value)) {
+          return makeError("Invalid value. Must be a hex string (e.g. '0xde0b6b3a7640000' for 1 ETH).");
+        }
         const result = await callWallet({
           cliPath,
           walletKref,

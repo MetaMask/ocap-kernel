@@ -28,8 +28,10 @@ describe('constants', () => {
       expect(getChainContracts()).toBe(PLACEHOLDER_CONTRACTS);
     });
 
-    it('returns placeholder contracts for unknown chainId', () => {
-      expect(getChainContracts(99999)).toBe(PLACEHOLDER_CONTRACTS);
+    it('throws for unknown chainId', () => {
+      expect(() => getChainContracts(99999)).toThrow(
+        'No contract addresses registered for chain 99999',
+      );
     });
 
     it('returns chain-specific contracts when registered in manual registry', () => {

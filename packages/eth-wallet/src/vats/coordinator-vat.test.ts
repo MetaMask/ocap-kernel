@@ -7,6 +7,7 @@ import { encodeAllowedTargets, makeCaveat } from '../lib/caveats.ts';
 import { ENTRY_POINT_V07 } from '../lib/userop.ts';
 import type {
   Address,
+  Delegation,
   Eip712TypedData,
   Hex,
   TransactionRequest,
@@ -462,6 +463,131 @@ describe('coordinator-vat', () => {
         'No authority to sign message',
       );
     });
+
+    it('falls back to peer wallet when no local keys and no external signer', async () => {
+      const mockPeerWallet = {
+        handleSigningRequest: vi
+          .fn()
+          .mockResolvedValue('0xpeersigmessage' as Hex),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('peerWallet', mockPeerWallet);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.bootstrap({ provider: providerVat }, {});
+
+      const signature = await coord.signMessage('Hello, world!');
+      expect(signature).toBe('0xpeersigmessage');
+      expect(mockPeerWallet.handleSigningRequest).toHaveBeenCalledWith({
+        type: 'message',
+        message: 'Hello, world!',
+      });
+    });
+  });
+
+  describe('signTypedData', () => {
+    it('falls back to peer wallet when no local keys and no external signer', async () => {
+      const mockPeerWallet = {
+        handleSigningRequest: vi
+          .fn()
+          .mockResolvedValue('0xpeersigtyped' as Hex),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('peerWallet', mockPeerWallet);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.bootstrap({ provider: providerVat }, {});
+
+      const typedData: Eip712TypedData = {
+        domain: { name: 'Test' },
+        types: { Test: [{ name: 'v', type: 'uint256' }] },
+        primaryType: 'Test',
+        message: { v: '1' },
+      };
+
+      const signature = await coord.signTypedData(typedData);
+      expect(signature).toBe('0xpeersigtyped');
+      expect(mockPeerWallet.handleSigningRequest).toHaveBeenCalledWith({
+        type: 'typedData',
+        data: typedData,
+      });
+    });
+
+    it('rejects when no authority', async () => {
+      const freshBaggage = makeMockBaggage();
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.bootstrap({ provider: providerVat }, {});
+
+      const typedData: Eip712TypedData = {
+        domain: { name: 'Test' },
+        types: { Test: [{ name: 'v', type: 'uint256' }] },
+        primaryType: 'Test',
+        message: { v: '1' },
+      };
+
+      await expect(coord.signTypedData(typedData)).rejects.toThrow(
+        'No authority to sign typed data',
+      );
+    });
+  });
+
+  describe('request', () => {
+    it('forwards call to provider vat', async () => {
+      providerVat.request.mockResolvedValueOnce('0x1');
+
+      const result = await coordinator.request('eth_chainId');
+      expect(result).toBe('0x1');
+      expect(providerVat.request).toHaveBeenCalledWith(
+        'eth_chainId',
+        undefined,
+      );
+    });
+
+    it('forwards params to provider vat', async () => {
+      providerVat.request.mockResolvedValueOnce('0xbalance');
+
+      const result = await coordinator.request('eth_getBalance', [
+        '0x1234567890abcdef1234567890abcdef12345678',
+        'latest',
+      ]);
+      expect(result).toBe('0xbalance');
+      expect(providerVat.request).toHaveBeenCalledWith('eth_getBalance', [
+        '0x1234567890abcdef1234567890abcdef12345678',
+        'latest',
+      ]);
+    });
+
+    it('throws when provider not configured', async () => {
+      const freshBaggage = makeMockBaggage();
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await expect(coord.request('eth_chainId')).rejects.toThrow(
+        'Provider not configured',
+      );
+    });
   });
 
   describe('delegation management', () => {
@@ -500,6 +626,98 @@ describe('coordinator-vat', () => {
 
       const delegations = await coordinator.listDelegations();
       expect(delegations).toHaveLength(1);
+    });
+  });
+
+  describe('receiveDelegation', () => {
+    it('forwards delegation to delegation vat', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const delegation = await coordinator.createDelegation({
+        delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
+        caveats: [],
+        chainId: 1,
+      });
+
+      const freshDelegationVat = buildDelegationRoot(
+        {},
+        {},
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        makeMockBaggage() as any,
+      );
+      const freshBaggage = makeMockBaggage();
+      const receiver = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await receiver.bootstrap(
+        { provider: providerVat, delegation: freshDelegationVat },
+        {},
+      );
+
+      await receiver.receiveDelegation(delegation);
+
+      const stored = await freshDelegationVat.listDelegations();
+      expect(stored).toHaveLength(1);
+      expect((stored as Delegation[])[0].id).toBe(delegation.id);
+    });
+
+    it('throws when delegation vat not available', async () => {
+      const freshBaggage = makeMockBaggage();
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.bootstrap({ provider: providerVat }, {});
+
+      await expect(
+        coord.receiveDelegation({} as Delegation),
+      ).rejects.toThrow('Delegation vat not available');
+    });
+  });
+
+  describe('revokeDelegation', () => {
+    it('forwards revocation to delegation vat', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const delegation = await coordinator.createDelegation({
+        delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
+        caveats: [],
+        chainId: 1,
+      });
+
+      await coordinator.revokeDelegation(delegation.id);
+
+      const delegations = await coordinator.listDelegations();
+      const found = (delegations as Delegation[]).find(
+        (entry) => entry.id === delegation.id,
+      );
+      expect(found?.status).toBe('revoked');
+    });
+
+    it('throws when delegation vat not available', async () => {
+      const freshBaggage = makeMockBaggage();
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.bootstrap({ provider: providerVat }, {});
+
+      await expect(coord.revokeDelegation('some-id')).rejects.toThrow(
+        'Delegation vat not available',
+      );
     });
   });
 
@@ -593,23 +811,23 @@ describe('coordinator-vat', () => {
       expect(accounts.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('rejects invalid signer objects', async () => {
-      await expect(coordinator.connectExternalSigner(null)).rejects.toThrow(
-        'Invalid external signer',
-      );
-
-      await expect(
-        coordinator.connectExternalSigner({ getAccounts: vi.fn() }),
-      ).rejects.toThrow('Invalid external signer');
-
-      await expect(
-        coordinator.connectExternalSigner({
-          getAccounts: vi.fn(),
-          signTypedData: vi.fn(),
-          // missing signMessage and signTransaction
-        }),
-      ).rejects.toThrow('Invalid external signer');
-    });
+    it.each([
+      ['null', null],
+      ['undefined', undefined],
+      ['a string', 'not-an-object'],
+      ['a number', 42],
+    ])(
+      'rejects %s as external signer',
+      async (
+        _label: string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        signer: any,
+      ) => {
+        await expect(
+          coordinator.connectExternalSigner(signer),
+        ).rejects.toThrow('Invalid external signer');
+      },
+    );
 
     it('deduplicates accounts from external and local signers', async () => {
       await coordinator.initializeKeyring({
