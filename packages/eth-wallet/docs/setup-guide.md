@@ -7,6 +7,7 @@ This guide walks through setting up the OCAP eth-wallet on two devices:
 **Contents:**
 - [API keys](#api-keys) — Infura, Pimlico, and testnet ETH
 - [Quick start](#quick-start-automated-scripts) — automated setup scripts
+- [OpenClaw plugin install (separate step)](#openclaw-plugin-install-separate-step)
 - [Manual setup](#manual-setup) — step-by-step commands
   - [1. Build the packages](#1-build-the-packages)
   - [2. Home device setup](#2-home-device-setup)
@@ -64,6 +65,46 @@ Two bash scripts in `packages/eth-wallet/scripts/` automate everything below.
 The `--pimlico-key` configures the Pimlico bundler for ERC-4337 UserOp submission with paymaster sponsorship. Without it, smart account deployment and on-chain delegation redemption will not work.
 
 Both scripts also accept `--chain-id` (default: Sepolia) and `--no-build`. Run with `--help` for details.
+
+`setup-away.sh` does **not** install or configure the OpenClaw wallet plugin. Do that separately in the next section.
+
+## OpenClaw plugin install (separate step)
+
+Run this on the away device after `setup-away.sh` completes.
+
+1. Load the plugin:
+
+```bash
+openclaw plugin load /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
+```
+
+2. Install plugin dependencies (once, inside the plugin directory):
+
+```bash
+cd /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
+npm install
+```
+
+3. Configure the plugin in OpenClaw with the wallet coordinator kref (`ko4` by default):
+
+```json
+{
+  "wallet": {
+    "walletKref": "ko4",
+    "ocapCliPath": "/path/to/ocap"
+  }
+}
+```
+
+4. Allow tools for your agent:
+
+```json
+{
+  "tools": {
+    "allow": ["wallet_balance", "wallet_send", "wallet_sign", "wallet_accounts", "wallet_capabilities"]
+  }
+}
+```
 
 ---
 
