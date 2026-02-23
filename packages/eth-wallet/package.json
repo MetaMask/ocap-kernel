@@ -46,6 +46,7 @@
     "test:watch": "vitest --config vitest.config.ts",
     "test:dev:quiet": "yarn test:dev --reporter @ocap/repo-tools/vitest-reporters/silent",
     "test:integration": "yarn build && vitest run --config vitest.config.integration.ts",
+    "test:integration:plugin": "yarn build && vitest run --config vitest.config.integration.ts test/integration/openclaw-plugin.integration.test.ts",
     "test:node": "yarn build && node --conditions development test/integration/run-wallet.mjs",
     "test:node:peer": "yarn build && node --conditions development test/integration/run-peer-wallet.mjs",
     "test:node:daemon": "yarn build && node --conditions development test/integration/run-daemon-wallet.mjs",

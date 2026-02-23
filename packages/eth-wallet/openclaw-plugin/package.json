@@ -3,11 +3,15 @@
   "version": "0.0.1",
   "description": "Wallet plugin: tools that call the away kernel CLI (balance, send, sign).",
   "type": "module",
+  "dependencies": {
+    "@sinclair/typebox": "0.34.48"
+  },
   "devDependencies": {
-    "@sinclair/typebox": "0.34.48",
     "openclaw": "workspace:*"
   },
   "openclaw": {
-    "extensions": ["./index.ts"]
+    "extensions": [
+      "./index.ts"
+    ]
   }
 }
