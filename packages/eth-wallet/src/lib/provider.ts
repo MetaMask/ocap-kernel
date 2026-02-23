@@ -1,5 +1,4 @@
-import { createPublicClient, http, defineChain } from 'viem';
-import type { Chain } from 'viem';
+import { numberToHex } from 'viem';
 
 import type { Address, ChainConfig, Hex } from '../types.ts';
 
@@ -16,67 +15,96 @@ export type Provider = {
   getNonce: (address: Address) => Promise<number>;
 };
 
+// Monotonic counter for JSON-RPC request IDs (replaces Math.random under SES).
+let rpcRequestId = 0;
+
 /**
- * Create a viem Chain object from our ChainConfig.
+ * Send a JSON-RPC request to the given URL.
  *
- * @param config - The chain configuration.
- * @returns The viem Chain object.
+ * @param rpcUrl - The RPC endpoint URL.
+ * @param method - The JSON-RPC method name.
+ * @param params - The method parameters.
+ * @returns The JSON-RPC result.
  */
-function toViemChain(config: ChainConfig): Chain {
-  return defineChain({
-    id: config.chainId,
-    name: config.name ?? `Chain ${config.chainId}`,
-    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-    rpcUrls: {
-      default: { http: [config.rpcUrl] },
-    },
+async function jsonRpc(
+  rpcUrl: string,
+  method: string,
+  params: unknown[] = [],
+): Promise<unknown> {
+  rpcRequestId += 1;
+  const response = await fetch(rpcUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      jsonrpc: '2.0',
+      id: rpcRequestId,
+      method,
+      params,
+    }),
   });
+
+  if (!response.ok) {
+    throw new Error(
+      `RPC request failed: ${response.status} ${response.statusText}`,
+    );
+  }
+
+  const json = (await response.json()) as {
+    result?: unknown;
+    error?: { code: number; message: string };
+  };
+
+  if (json.error) {
+    throw new Error(`RPC error ${json.error.code}: ${json.error.message}`);
+  }
+
+  return json.result;
 }
 
 /**
  * Create a JSON-RPC provider for the given chain.
  *
+ * Uses raw fetch instead of viem's createPublicClient to avoid
+ * Math.random() usage that is blocked under SES lockdown.
+ *
  * @param config - The chain configuration.
  * @returns The provider instance.
  */
 export function makeProvider(config: ChainConfig): Provider {
-  const chain = toViemChain(config);
-  const client = createPublicClient({
-    chain,
-    transport: http(config.rpcUrl),
-  });
+  const { rpcUrl } = config;
 
   return harden({
     async request(method: string, params?: unknown[]): Promise<unknown> {
-      // Use the transport directly for generic JSON-RPC passthrough
-      const response = await client.transport.request({
-        method,
-        params: params ?? [],
-      });
-      return response;
+      return jsonRpc(rpcUrl, method, params);
     },
 
     async broadcastTransaction(signedTx: Hex): Promise<Hex> {
-      return client.sendRawTransaction({
-        serializedTransaction: signedTx,
-      });
+      return (await jsonRpc(rpcUrl, 'eth_sendRawTransaction', [
+        signedTx,
+      ])) as Hex;
     },
 
     async getBalance(address: Address): Promise<string> {
-      const balance = await client.getBalance({
+      return (await jsonRpc(rpcUrl, 'eth_getBalance', [
         address,
-      });
-      return `0x${balance.toString(16)}`;
+        'latest',
+      ])) as string;
     },
 
     async getChainId(): Promise<number> {
-      return client.getChainId();
+      const result = (await jsonRpc(rpcUrl, 'eth_chainId')) as string;
+      return Number(result);
     },
 
     async getNonce(address: Address): Promise<number> {
-      return client.getTransactionCount({
+      const result = (await jsonRpc(rpcUrl, 'eth_getTransactionCount', [
         address,
-      });
+        'latest',
+      ])) as string;
+      return Number(result);
     },
   });
 }
+
+// Re-export numberToHex for backward compatibility (used by provider-vat gas fees)
+export { numberToHex };
