@@ -2,7 +2,11 @@ import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
 
-import { computeSmartAccountAddress, resolveEnvironment } from '../lib/sdk.ts';
+import {
+  buildSdkRedeemCallData,
+  computeSmartAccountAddress,
+  resolveEnvironment,
+} from '../lib/sdk.ts';
 import {
   buildDelegationUserOp,
   computeUserOpHash,
@@ -456,7 +460,19 @@ export function buildRootObject(
       smartAccountConfig.factory &&
       smartAccountConfig.factoryData;
 
-    // Build unsigned UserOp (pure computation)
+    // Build the callData using the SDK's encoder, which wraps
+    // redeemDelegations inside a DeleGatorCore.execute call so the
+    // smart account routes the call to the DelegationManager.
+    const sdkCallData = buildSdkRedeemCallData({
+      delegations: options.delegations,
+      execution: options.execution,
+      chainId: bundlerConfig.chainId,
+    });
+
+    // Build unsigned UserOp with the SDK-encoded callData.
+    // Include a dummy 65-byte signature so that the smart account's
+    // validateUserOp can parse the ECDSA signature during bundler/paymaster
+    // simulation. An empty signature (0x) causes the simulation to revert.
     const unsignedUserOp = buildDelegationUserOp({
       sender,
       nonce: nonceHex,
@@ -471,6 +487,10 @@ export function buildRootObject(
           }
         : {}),
     });
+    // Override callData with the SDK-encoded version
+    unsignedUserOp.callData = sdkCallData;
+    unsignedUserOp.signature =
+      '0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c' as Hex;
 
     let userOpWithGas: UserOperation;
 

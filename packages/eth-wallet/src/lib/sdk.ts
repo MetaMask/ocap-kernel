@@ -144,11 +144,13 @@ export function encodeSdkDelegations(delegations: Delegation[]): Hex {
  * @param options - Options.
  * @param options.delegations - The delegation chain (leaf to root).
  * @param options.execution - The execution to perform.
+ * @param options.chainId - The chain ID (for DelegationManager address resolution).
  * @returns The encoded callData.
  */
 export function buildSdkRedeemCallData(options: {
   delegations: Delegation[];
   execution: Execution;
+  chainId: number;
 }): Hex {
   const sdkDelegations = options.delegations.map(toSdkDelegation);
   const sdkExecution = sdkCreateExecution({
@@ -157,13 +159,25 @@ export function buildSdkRedeemCallData(options: {
     callData: options.execution.callData,
   });
 
-  const callData = contracts.DelegationManager.encode.redeemDelegations({
+  // Build the redeemDelegations callData for the DelegationManager
+  const redeemCallData = contracts.DelegationManager.encode.redeemDelegations({
     delegations: [sdkDelegations],
     modes: [ExecutionMode.SingleDefault],
     executions: [[sdkExecution]],
   });
 
-  return callData;
+  // Wrap in a DeleGatorCore.execute call so the smart account routes
+  // the call to the DelegationManager. The UserOp callData must target
+  // the smart account's own execute function, not the DelegationManager
+  // directly.
+  const env = getSmartAccountsEnvironment(options.chainId);
+  return contracts.DeleGatorCore.encode.execute({
+    execution: sdkCreateExecution({
+      target: env.DelegationManager,
+      value: 0n,
+      callData: redeemCallData,
+    }),
+  });
 }
 
 // ---------------------------------------------------------------------------

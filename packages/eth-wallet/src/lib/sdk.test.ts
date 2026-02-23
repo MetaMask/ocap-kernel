@@ -152,10 +152,11 @@ describe('lib/sdk', () => {
           value: '0x0' as Hex,
           callData: '0x' as Hex,
         },
+        chainId: 11155111,
       });
 
-      // The SDK's redeemDelegations function selector
-      expect(callData).toMatch(/^0x[\da-f]{8}/u);
+      // Wrapped in DeleGatorCore.execute (selector 0x5c1c6dcd)
+      expect(callData).toMatch(/^0x5c1c6dcd/u);
       expect(callData.length).toBeGreaterThan(10);
     });
 
@@ -178,6 +179,7 @@ describe('lib/sdk', () => {
           value: '0x0' as Hex,
           callData: '0xa9059cbb' as Hex,
         },
+        chainId: 11155111,
       });
 
       expect(callData.length).toBeGreaterThan(10);

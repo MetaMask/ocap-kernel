@@ -140,7 +140,12 @@ async function main() {
   console.log('\n--- Configure Pimlico bundler ---');
   const bundlerUrl = `https://api.pimlico.io/v2/sepolia/rpc?apikey=${PIMLICO_API_KEY}`;
   await call(kernel, rootKref, 'configureBundler', [
-    { bundlerUrl, chainId: SEPOLIA_CHAIN_ID, usePaymaster: true },
+    {
+      bundlerUrl,
+      chainId: SEPOLIA_CHAIN_ID,
+      usePaymaster: true,
+      sponsorshipPolicyId: 'sp_young_killmonger',
+    },
   ]);
   assert(true, 'bundler configured with paymaster');
 
@@ -157,11 +162,13 @@ async function main() {
   assert(smartConfig.implementation === 'hybrid', 'implementation: hybrid');
   assert(smartConfig.deployed === false, 'not yet deployed');
 
-  // -- 5. Create a delegation (smart account → EOA, no caveats) --
+  // -- 5. Create a delegation (smart account → smart account, no caveats) --
+  // The delegate must be the smart account itself because the smart account
+  // is the msg.sender when calling DelegationManager.redeemDelegations.
   console.log('\n--- Create delegation ---');
   const delegation = await call(kernel, rootKref, 'createDelegation', [
     {
-      delegate: accounts[0],
+      delegate: smartConfig.address,
       caveats: [],
       chainId: SEPOLIA_CHAIN_ID,
     },
@@ -171,7 +178,10 @@ async function main() {
     delegation.delegator === smartConfig.address,
     'delegator is smart account',
   );
-  assert(delegation.delegate === accounts[0], 'delegate is EOA');
+  assert(
+    delegation.delegate === smartConfig.address,
+    'delegate is smart account',
+  );
   console.log(`  Delegation ID: ${delegation.id.slice(0, 20)}...`);
 
   // -- 6. Redeem the delegation via UserOp --
