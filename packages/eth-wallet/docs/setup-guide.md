@@ -4,6 +4,31 @@ This guide walks through setting up the OCAP eth-wallet on two devices:
 - **Home device** (your laptop/desktop): holds the master keys, approves signing requests
 - **Away device** (VPS): runs the agent with a restricted wallet, uses delegations
 
+## Quick start (automated scripts)
+
+Two bash scripts in `packages/eth-wallet/scripts/` automate everything below.
+
+**Home device** (holds the master keys):
+
+```bash
+./scripts/setup-home.sh --mnemonic "your twelve word mnemonic" --infura-key YOUR_INFURA_KEY
+# Prints an ocap: URL to stdout — copy it for the away device.
+```
+
+**Away device** (VPS / agent machine):
+
+```bash
+./scripts/setup-away.sh --ocap-url "ocap:…URL_FROM_HOME…" --infura-key YOUR_INFURA_KEY
+```
+
+Both scripts accept `--pimlico-key`, `--chain-id`, and `--no-build`. Run with `--help` for details.
+
+---
+
+## Manual setup
+
+The sections below walk through each step if you prefer to run the commands yourself.
+
 ## Prerequisites
 
 - Node.js >= 22
