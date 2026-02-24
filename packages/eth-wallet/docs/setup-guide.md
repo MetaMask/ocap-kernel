@@ -27,7 +27,7 @@ This guide walks through setting up the OCAP eth-wallet on two devices:
 - The `ocap-kernel` monorepo cloned and built
 
 ```bash
-git clone git@github.com:MetaMask/ocap-kernel.git
+git clone https://github.com/MetaMask/ocap-kernel.git
 ```
 
 - OpenClaw installed on the VPS (for the agent integration)
