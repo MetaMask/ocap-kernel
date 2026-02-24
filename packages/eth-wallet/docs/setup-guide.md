@@ -65,7 +65,7 @@ Two bash scripts in `packages/eth-wallet/scripts/` automate everything below.
 If your home device is behind CGN/DS-Lite (no public IPv4), you need a relay. Start one on the VPS:
 
 ```bash
-node packages/cli/dist/app.mjs relay
+yarn ocap relay
 # Note the PeerID and multiaddrs (TCP port 9002)
 ```
 
