@@ -273,7 +273,7 @@ export class VatSupervisor {
     // XXX TODO: this check can and should go away once we can handle `bundleName` and `sourceSpec` too
     if (!('bundleSpec' in vatConfig)) {
       throw Error(
-        'for now, only sourceSpec is support in vatConfig specifications',
+        'for now, only bundleSpec is supported in vatConfig specifications',
       );
     }
     this.#loaded = true;
