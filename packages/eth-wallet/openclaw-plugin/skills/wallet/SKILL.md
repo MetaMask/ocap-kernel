@@ -1,13 +1,7 @@
 ---
 name: wallet
 description: Use the wallet tools for all balance, send, and sign operations. All wallet actions go through the away kernel; some actions may require user approval at home.
-metadata:
-  {
-    "openclaw": {
-      "emoji": "👛",
-      "requires": { "bins": ["wallet"] }
-    }
-  }
+metadata: { 'openclaw': { 'emoji': '👛', 'requires': { 'bins': ['wallet'] } } }
 ---
 
 # Wallet (ocap)

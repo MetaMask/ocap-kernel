@@ -146,13 +146,24 @@ ocap daemon start
 
 This starts the OCAP daemon at `~/.ocap/daemon.sock` with persistent storage at `~/.ocap/kernel.sqlite`.
 
-### 2b. Launch the wallet subcluster
+### 2b. Initialize remote comms (QUIC)
+
+Initialize the libp2p networking stack before launching the subcluster. The OCAP URL issuer service requires an active network identity.
 
 ```bash
-# Get the bundle base URL (serve from a local HTTP server or use file:// URLs)
-ocap start packages/eth-wallet/src/vats
+# Start QUIC transport
+ocap daemon exec initRemoteComms '{"directListenAddresses": ["/ip4/0.0.0.0/udp/0/quic-v1"]}'
 
-# In another terminal, launch the wallet subcluster
+# Verify it's connected and note the listen addresses
+ocap daemon exec getStatus
+# Look for: remoteComms.state === "connected", remoteComms.listenAddresses
+```
+
+Save the listen addresses — you'll give them to the away device along with the OCAP URL.
+
+### 2c. Launch the wallet subcluster
+
+```bash
 ocap daemon exec launchSubcluster '{
   "config": {
     "bootstrap": "coordinator",
@@ -160,20 +171,20 @@ ocap daemon exec launchSubcluster '{
     "services": ["ocapURLIssuerService", "ocapURLRedemptionService"],
     "vats": {
       "coordinator": {
-        "bundleSpec": "http://localhost:3000/coordinator-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder", "Date"]
+        "bundleSpec": "/path/to/packages/eth-wallet/src/vats/coordinator-vat.bundle",
+        "globals": ["TextEncoder", "TextDecoder", "Date", "setTimeout"]
       },
       "keyring": {
-        "bundleSpec": "http://localhost:3000/keyring-vat.bundle",
+        "bundleSpec": "/path/to/packages/eth-wallet/src/vats/keyring-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder"]
       },
       "provider": {
-        "bundleSpec": "http://localhost:3000/provider-vat.bundle",
+        "bundleSpec": "/path/to/packages/eth-wallet/src/vats/provider-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder"],
         "platformConfig": { "fetch": { "allowedHosts": ["sepolia.infura.io", "api.pimlico.io"] } }
       },
       "delegation": {
-        "bundleSpec": "http://localhost:3000/delegation-vat.bundle",
+        "bundleSpec": "/path/to/packages/eth-wallet/src/vats/delegation-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder"],
         "parameters": { "delegationManagerAddress": "0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3" }
       }
@@ -182,9 +193,11 @@ ocap daemon exec launchSubcluster '{
 }'
 ```
 
-Note the `rootKref` from the output (e.g. `ko4`). This is the wallet coordinator reference.
+Note the `rootKref` from the output (e.g. `ko4`). This is the wallet coordinator reference. The CLI automatically converts absolute file paths to `file://` URLs.
 
-### 2c. Initialize the keyring
+> **Warning:** `forceReset: true` destroys all existing subcluster state (keyrings, delegations, OCAP URLs). Omit it on subsequent runs to preserve state.
+
+### 2d. Initialize the keyring
 
 ```bash
 # Initialize with your mnemonic (SRP)
@@ -194,21 +207,10 @@ ocap daemon exec queueMessage '["ko4", "initializeKeyring", [{"type": "srp", "mn
 ocap daemon exec queueMessage '["ko4", "getAccounts", []]'
 ```
 
-### 2d. Configure the provider
+### 2e. Configure the provider
 
 ```bash
 ocap daemon exec queueMessage '["ko4", "configureProvider", [{"chainId": 11155111, "rpcUrl": "https://sepolia.infura.io/v3/YOUR_INFURA_KEY"}]]'
-```
-
-### 2e. Initialize remote comms (QUIC)
-
-```bash
-# Start the libp2p networking stack with QUIC transport
-ocap daemon exec initRemoteComms '{"directListenAddresses": ["/ip4/0.0.0.0/udp/0/quic-v1"]}'
-
-# Verify it's connected and note the listen addresses
-ocap daemon exec getStatus
-# Look for: remoteComms.state === "connected", remoteComms.listenAddresses
 ```
 
 ### 2f. Issue an OCAP URL for the away device

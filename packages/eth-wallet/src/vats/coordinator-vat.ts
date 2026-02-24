@@ -462,11 +462,7 @@ export function buildRootObject(
     // This avoids relying on a cached flag that could be stale if the
     // deployment UserOp failed on-chain.
     let includeFactory = false;
-    if (
-      smartAccountConfig &&
-      smartAccountConfig.factory &&
-      smartAccountConfig.factoryData
-    ) {
+    if (smartAccountConfig?.factory && smartAccountConfig.factoryData) {
       const code = (await E(providerVat).request('eth_getCode', [
         sender,
         'latest',
@@ -656,9 +652,7 @@ export function buildRootObject(
 
     async connectExternalSigner(signer: ExternalSignerFacet): Promise<void> {
       if (!signer || typeof signer !== 'object') {
-        throw new Error(
-          'Invalid external signer: must be a non-null object',
-        );
+        throw new Error('Invalid external signer: must be a non-null object');
       }
       externalSigner = signer;
       persistBaggage('externalSigner', externalSigner);
@@ -693,12 +687,15 @@ export function buildRootObject(
       });
       persistBaggage('bundlerConfig', bundlerConfig);
 
-      if (providerVat) {
-        await E(providerVat).configureBundler({
-          bundlerUrl: config.bundlerUrl,
-          chainId: config.chainId,
-        });
+      if (!providerVat) {
+        throw new Error(
+          'Provider vat not available. Call configureProvider() before configureBundler().',
+        );
       }
+      await E(providerVat).configureBundler({
+        bundlerUrl: config.bundlerUrl,
+        chainId: config.chainId,
+      });
     },
 
     // ------------------------------------------------------------------
@@ -805,7 +802,13 @@ export function buildRootObject(
           bundlerConfig.chainId,
         );
 
-        if (delegation && delegation.status === 'signed') {
+        if (delegation) {
+          if (delegation.status !== 'signed') {
+            throw new Error(
+              `Found delegation ${delegation.id} but its status is '${delegation.status}' (expected 'signed'). ` +
+                `Direct signing is not used when a delegation exists, to avoid bypassing caveats.`,
+            );
+          }
           return submitDelegationUserOp({
             delegations: [delegation],
             execution: {
@@ -1055,7 +1058,10 @@ export function buildRootObject(
             throw new Error('Missing typed data in signing request');
           }
           if (keyringVat) {
-            return E(keyringVat).signTypedData(request.data);
+            const hasKeys = await E(keyringVat).hasKeys();
+            if (hasKeys) {
+              return E(keyringVat).signTypedData(request.data);
+            }
           }
           if (externalSigner) {
             const accounts = await E(externalSigner).getAccounts();

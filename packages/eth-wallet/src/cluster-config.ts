@@ -37,7 +37,7 @@ export function makeWalletClusterConfig(
     vats: {
       coordinator: {
         bundleSpec: `${bundleBaseUrl}/coordinator-vat.bundle`,
-        globals: ['TextEncoder', 'TextDecoder', 'Date'],
+        globals: ['TextEncoder', 'TextDecoder', 'Date', 'setTimeout'],
       },
       keyring: {
         bundleSpec: `${bundleBaseUrl}/keyring-vat.bundle`,

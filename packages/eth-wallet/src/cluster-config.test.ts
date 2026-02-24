@@ -87,12 +87,13 @@ describe('cluster-config', () => {
         expect(vatConfig.globals).toStrictEqual(baseGlobals);
       }
 
-      // Coordinator additionally needs Date (SDK uses Date.now at import)
+      // Coordinator additionally needs Date and setTimeout
       const coordConfig = config.vats.coordinator as { globals?: string[] };
       expect(coordConfig.globals).toStrictEqual([
         'TextEncoder',
         'TextDecoder',
         'Date',
+        'setTimeout',
       ]);
     });
 

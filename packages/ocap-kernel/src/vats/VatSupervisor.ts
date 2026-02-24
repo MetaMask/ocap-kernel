@@ -303,6 +303,7 @@ export class VatSupervisor {
       Date: globalThis.Date,
       TextEncoder: globalThis.TextEncoder,
       TextDecoder: globalThis.TextDecoder,
+      setTimeout: globalThis.setTimeout,
     };
 
     // Build additional endowments from globals list

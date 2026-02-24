@@ -55,11 +55,21 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --ocap-url)    OCAP_URL="$2"; shift 2 ;;
-    --listen-addrs) LISTEN_ADDRS="$2"; shift 2 ;;
-    --infura-key)  INFURA_KEY="$2"; shift 2 ;;
-    --pimlico-key) PIMLICO_KEY="$2"; shift 2 ;;
-    --chain-id)    CHAIN_ID="$2"; shift 2 ;;
+    --ocap-url)
+      [[ $# -lt 2 ]] && { echo "Error: --ocap-url requires a value" >&2; usage; }
+      OCAP_URL="$2"; shift 2 ;;
+    --listen-addrs)
+      [[ $# -lt 2 ]] && { echo "Error: --listen-addrs requires a value" >&2; usage; }
+      LISTEN_ADDRS="$2"; shift 2 ;;
+    --infura-key)
+      [[ $# -lt 2 ]] && { echo "Error: --infura-key requires a value" >&2; usage; }
+      INFURA_KEY="$2"; shift 2 ;;
+    --pimlico-key)
+      [[ $# -lt 2 ]] && { echo "Error: --pimlico-key requires a value" >&2; usage; }
+      PIMLICO_KEY="$2"; shift 2 ;;
+    --chain-id)
+      [[ $# -lt 2 ]] && { echo "Error: --chain-id requires a value" >&2; usage; }
+      CHAIN_ID="$2"; shift 2 ;;
     --no-build)    SKIP_BUILD=true; shift ;;
     -h|--help)     usage ;;
     *) echo "Unknown option: $1" >&2; usage ;;
@@ -79,6 +89,15 @@ fi
 if [[ -z "$LISTEN_ADDRS" ]]; then
   echo "Error: --listen-addrs is required." >&2
   usage
+fi
+
+# ---------------------------------------------------------------------------
+# Prerequisites
+# ---------------------------------------------------------------------------
+
+if ! command -v node &>/dev/null; then
+  echo "Error: Node.js is required but not found on PATH." >&2
+  exit 1
 fi
 
 # ---------------------------------------------------------------------------
@@ -111,10 +130,45 @@ fail()  { echo "  ✗ $*" >&2; exit 1; }
 parse_capdata() {
   node -e "
     const raw = require('fs').readFileSync('/dev/stdin', 'utf8').trim();
-    const data = JSON.parse(raw);
-    const value = JSON.parse(data.body.slice(1));
+    if (!raw) {
+      process.stderr.write('parse_capdata: empty input\n');
+      process.exit(1);
+    }
+    let data;
+    try { data = JSON.parse(raw); } catch (e) {
+      process.stderr.write('parse_capdata: invalid JSON: ' + raw.slice(0, 200) + '\n');
+      process.exit(1);
+    }
+    if (!data.body || typeof data.body !== 'string') {
+      process.stderr.write('parse_capdata: missing body field: ' + raw.slice(0, 200) + '\n');
+      process.exit(1);
+    }
+    if (!data.body.startsWith('#')) {
+      process.stderr.write('parse_capdata: unexpected body prefix: ' + data.body.slice(0, 200) + '\n');
+      process.exit(1);
+    }
+    if (data.slots && data.slots.length > 0) {
+      process.stderr.write('parse_capdata: cannot handle slot references\n');
+      process.exit(1);
+    }
+    let value;
+    try { value = JSON.parse(data.body.slice(1)); } catch (e) {
+      process.stderr.write('parse_capdata: invalid CapData body: ' + data.body.slice(0, 200) + '\n');
+      process.exit(1);
+    }
     process.stdout.write(typeof value === 'string' ? value : JSON.stringify(value));
   "
+}
+
+# Run a daemon exec command and log its output to stderr.
+# Usage: daemon_exec <method> <params>
+daemon_exec() {
+  local result
+  result=$($OCAP_BIN daemon exec "$@")
+  if [[ -n "$result" ]]; then
+    echo "  [daemon exec $1] $result" >&2
+  fi
+  echo "$result"
 }
 
 # ---------------------------------------------------------------------------
@@ -147,18 +201,48 @@ ok "Daemon running"
 # ---------------------------------------------------------------------------
 
 info "Initializing remote comms..."
-$OCAP_BIN daemon exec initRemoteComms '{"directListenAddresses":["/ip4/0.0.0.0/udp/0/quic-v1"]}' >/dev/null
+daemon_exec initRemoteComms '{"directListenAddresses":["/ip4/0.0.0.0/udp/0/quic-v1"]}' >/dev/null
 ok "Remote comms initialized"
+
+# Wait for remote comms to reach 'connected' state
+info "Waiting for remote comms to connect..."
+for i in $(seq 1 30); do
+  STATUS=$($OCAP_BIN daemon exec getStatus)
+  STATE=$(echo "$STATUS" | node -e "
+    const data = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
+    process.stdout.write(data.remoteComms?.state ?? 'none');
+  ")
+  if [[ "$STATE" == "connected" ]]; then
+    break
+  fi
+  if [[ "$i" -eq 30 ]]; then
+    fail "Remote comms did not reach 'connected' state after 30s (current: $STATE)"
+  fi
+  sleep 1
+done
+ok "Remote comms connected"
 
 # ---------------------------------------------------------------------------
 # 4. Register home device location hints
 # ---------------------------------------------------------------------------
 
 info "Registering home device location hints..."
+
+# OCAP URL format: ocap:<oid>@<peerId>,<hint1>,<hint2>,...
 HOME_PEER_ID=$(echo "$OCAP_URL" | node -e "
   const url = require('fs').readFileSync('/dev/stdin', 'utf8').trim();
-  const peerId = url.split(':')[1]?.split('/')[0];
-  process.stdout.write(peerId || '');
+  const withoutScheme = url.replace(/^ocap:/, '');
+  const afterAt = withoutScheme.split('@')[1];
+  if (!afterAt) {
+    process.stderr.write('Failed to parse OCAP URL: no @ separator found in: ' + url.slice(0, 100) + '\n');
+    process.exit(1);
+  }
+  const peerId = afterAt.split(',')[0];
+  if (!peerId) {
+    process.stderr.write('Failed to parse OCAP URL: no peer ID found after @ in: ' + url.slice(0, 100) + '\n');
+    process.exit(1);
+  }
+  process.stdout.write(peerId);
 ")
 
 if [[ -z "$HOME_PEER_ID" ]]; then
@@ -170,7 +254,7 @@ HINTS_PARAMS=$(PEER="$HOME_PEER_ID" ADDRS="$LISTEN_ADDRS" node -e "
   process.stdout.write(p);
 ")
 
-$OCAP_BIN daemon exec registerLocationHints "$HINTS_PARAMS" >/dev/null
+daemon_exec registerLocationHints "$HINTS_PARAMS" >/dev/null
 ok "Location hints registered for peer $HOME_PEER_ID"
 
 # ---------------------------------------------------------------------------
@@ -190,7 +274,7 @@ CONFIG=$(cat <<ENDJSON
     "vats": {
       "coordinator": {
         "bundleSpec": "$BUNDLE_DIR/coordinator-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder", "Date"]
+        "globals": ["TextEncoder", "TextDecoder", "Date", "setTimeout"]
       },
       "keyring": {
         "bundleSpec": "$BUNDLE_DIR/keyring-vat.bundle",
@@ -228,11 +312,11 @@ ok "Subcluster launched — coordinator: $ROOT_KREF"
 # ---------------------------------------------------------------------------
 
 info "Initializing throwaway keyring..."
-$OCAP_BIN daemon exec queueMessage "[\"$ROOT_KREF\", \"initializeKeyring\", [{\"type\":\"throwaway\"}]]" >/dev/null
+daemon_exec queueMessage "[\"$ROOT_KREF\", \"initializeKeyring\", [{\"type\":\"throwaway\"}]]" >/dev/null
 ok "Throwaway keyring initialized"
 
 info "Verifying accounts..."
-ACCOUNTS_RAW=$($OCAP_BIN daemon exec queueMessage "[\"$ROOT_KREF\", \"getAccounts\", []]")
+ACCOUNTS_RAW=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"getAccounts\", []]")
 ACCOUNTS=$(echo "$ACCOUNTS_RAW" | parse_capdata)
 ok "Local throwaway account: $ACCOUNTS"
 
@@ -249,7 +333,7 @@ if [[ -n "$INFURA_KEY" ]]; then
     process.stdout.write(p);
   ")
 
-  $OCAP_BIN daemon exec queueMessage "$PROVIDER_PARAMS" >/dev/null
+  daemon_exec queueMessage "$PROVIDER_PARAMS" >/dev/null
   ok "Provider configured — $RPC_URL"
 fi
 
@@ -266,7 +350,7 @@ if [[ -n "$PIMLICO_KEY" ]]; then
     process.stdout.write(p);
   ")
 
-  $OCAP_BIN daemon exec queueMessage "$BUNDLER_PARAMS" >/dev/null
+  daemon_exec queueMessage "$BUNDLER_PARAMS" >/dev/null
   ok "Bundler configured — Pimlico (chain $CHAIN_ID)"
 else
   info "Skipping bundler config (no --pimlico-key). UserOp submission will not work."
@@ -283,7 +367,7 @@ CONNECT_PARAMS=$(KREF="$ROOT_KREF" PEER_URL="$OCAP_URL" node -e "
   process.stdout.write(p);
 ")
 
-$OCAP_BIN daemon exec queueMessage "$CONNECT_PARAMS" >/dev/null
+daemon_exec queueMessage "$CONNECT_PARAMS" >/dev/null
 ok "Connected to home wallet"
 
 # ---------------------------------------------------------------------------
@@ -291,7 +375,7 @@ ok "Connected to home wallet"
 # ---------------------------------------------------------------------------
 
 info "Verifying capabilities..."
-CAPS_RAW=$($OCAP_BIN daemon exec queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]")
+CAPS_RAW=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]")
 CAPS=$(echo "$CAPS_RAW" | parse_capdata)
 
 HAS_PEER=$(echo "$CAPS" | node -e "
