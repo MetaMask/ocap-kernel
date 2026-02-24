@@ -236,10 +236,11 @@ export function buildRootObject(
           .request('eth_maxPriorityFeePerGas', [])
           .catch((error: unknown) => {
             const message = String((error as Error).message ?? error);
-            if (message.includes('-32601') || message.includes('not supported')) {
+            // JSON-RPC -32601 = method not found. Expected on non-EIP-1559 chains.
+            if (message.includes('-32601')) {
               return '0x3b9aca00';
             }
-            throw error;
+            throw new Error(`Failed to get priority fee: ${message}`);
           }),
       ]);
       // Validate RPC response shape before using it

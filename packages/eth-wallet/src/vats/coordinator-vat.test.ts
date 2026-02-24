@@ -677,9 +677,9 @@ describe('coordinator-vat', () => {
       );
       await coord.bootstrap({ provider: providerVat }, {});
 
-      await expect(
-        coord.receiveDelegation({} as Delegation),
-      ).rejects.toThrow('Delegation vat not available');
+      await expect(coord.receiveDelegation({} as Delegation)).rejects.toThrow(
+        'Delegation vat not available',
+      );
     });
   });
 
@@ -823,9 +823,9 @@ describe('coordinator-vat', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         signer: any,
       ) => {
-        await expect(
-          coordinator.connectExternalSigner(signer),
-        ).rejects.toThrow('Invalid external signer');
+        await expect(coordinator.connectExternalSigner(signer)).rejects.toThrow(
+          'Invalid external signer',
+        );
       },
     );
 

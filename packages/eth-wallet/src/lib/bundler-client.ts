@@ -106,7 +106,7 @@ async function bundlerRpc(
     try {
       return await bundlerRpcOnce(bundlerUrl, id, method, params);
     } catch (error: unknown) {
-      const status = (error as { status?: number }).status;
+      const { status } = error as { status?: number };
       if (status && RETRYABLE_STATUS_CODES.has(status)) {
         lastError = error as Error;
         continue;

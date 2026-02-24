@@ -6,7 +6,7 @@ For a step-by-step walkthrough of deploying the wallet on a home device + VPS wi
 
 ## Security model and known limitations
 
-- **Peer signing has no interactive approval.** When the away wallet forwards a signing request to the home wallet via CapTP, the home wallet signs immediately — there is no approval prompt. The OCAP URL *is* the authorization: possessing it grants full signing authority over the home wallet's keys. Future work includes adding an approval queue, caveat-based restrictions on the OCAP URL, and a delegation-only mode where the away wallet can only redeem pre-signed delegations.
+- **Peer signing has no interactive approval.** When the away wallet forwards a signing request to the home wallet via CapTP, the home wallet signs immediately — there is no approval prompt. The OCAP URL _is_ the authorization: possessing it grants full signing authority over the home wallet's keys. Future work includes adding an approval queue, caveat-based restrictions on the OCAP URL, and a delegation-only mode where the away wallet can only redeem pre-signed delegations.
 - **`revokeDelegation()` is local-only.** Revoking a delegation removes it from the local store but does not submit an on-chain revocation. A party holding a copy of the signed delegation can still redeem it on-chain. On-chain revocation via the DelegationManager contract is planned.
 - **Mnemonic is stored in plaintext.** The keyring vat persists the mnemonic to the kernel's durable store (SQLite) without encryption. Filesystem access to the kernel database exposes the key material.
 

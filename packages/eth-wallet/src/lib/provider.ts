@@ -55,14 +55,19 @@ async function jsonRpc(
     try {
       return await jsonRpcOnce(rpcUrl, id, method, params);
     } catch (error: unknown) {
-      const status = (error as { status?: number }).status;
+      const { status } = error as { status?: number };
       if (status && RETRYABLE_STATUS_CODES.has(status)) {
         lastError = error as Error;
         continue;
       }
       const message = (error as Error).message ?? '';
-      if (message.includes('timed out') || (error as Error).name === 'AbortError') {
-        lastError = new Error(`RPC request timed out after ${RPC_TIMEOUT_MS}ms`);
+      if (
+        message.includes('timed out') ||
+        (error as Error).name === 'AbortError'
+      ) {
+        lastError = new Error(
+          `RPC request timed out after ${RPC_TIMEOUT_MS}ms`,
+        );
         continue;
       }
       throw error;

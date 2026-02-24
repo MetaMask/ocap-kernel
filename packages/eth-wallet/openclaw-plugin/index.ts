@@ -220,16 +220,24 @@ export default function register(api: any): void {
             'Invalid Ethereum address. Must be 0x followed by 40 hex characters.',
           );
         }
-        const result = await callWallet({
-          cliPath,
-          walletKref,
-          method: 'request',
-          args: ['eth_getBalance', [params.address, 'latest']],
-          timeoutMs,
-        });
-        return {
-          content: [{ type: 'text' as const, text: formatToolResult(result) }],
-        };
+        try {
+          const result = await callWallet({
+            cliPath,
+            walletKref,
+            method: 'request',
+            args: ['eth_getBalance', [params.address, 'latest']],
+            timeoutMs,
+          });
+          return {
+            content: [
+              { type: 'text' as const, text: formatToolResult(result) },
+            ],
+          };
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          return makeError(`Balance lookup failed: ${message}`);
+        }
       },
     },
     { optional: true },
@@ -259,34 +267,42 @@ export default function register(api: any): void {
           );
         }
 
-        const accountsResult = await callWallet({
-          cliPath,
-          walletKref,
-          method: 'getAccounts',
-          args: [],
-          timeoutMs,
-        });
-        if (!Array.isArray(accountsResult)) {
-          return makeError('Wallet returned invalid accounts response.');
-        }
-        const from = accountsResult.find(
-          (account): account is string =>
-            typeof account === 'string' && ETH_ADDRESS_RE.test(account),
-        );
-        if (!from) {
-          return makeError('No wallet account available to use as sender.');
-        }
+        try {
+          const accountsResult = await callWallet({
+            cliPath,
+            walletKref,
+            method: 'getAccounts',
+            args: [],
+            timeoutMs,
+          });
+          if (!Array.isArray(accountsResult)) {
+            return makeError('Wallet returned invalid accounts response.');
+          }
+          const from = accountsResult.find(
+            (account): account is string =>
+              typeof account === 'string' && ETH_ADDRESS_RE.test(account),
+          );
+          if (!from) {
+            return makeError('No wallet account available to use as sender.');
+          }
 
-        const result = await callWallet({
-          cliPath,
-          walletKref,
-          method: 'sendTransaction',
-          args: [{ from, to: params.to, value: params.value }],
-          timeoutMs,
-        });
-        return {
-          content: [{ type: 'text' as const, text: formatToolResult(result) }],
-        };
+          const result = await callWallet({
+            cliPath,
+            walletKref,
+            method: 'sendTransaction',
+            args: [{ from, to: params.to, value: params.value }],
+            timeoutMs,
+          });
+          return {
+            content: [
+              { type: 'text' as const, text: formatToolResult(result) },
+            ],
+          };
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          return makeError(`Send transaction failed: ${message}`);
+        }
       },
     },
     { optional: true },
@@ -302,16 +318,24 @@ export default function register(api: any): void {
         message: Type.String({ description: 'Message to sign' }),
       }),
       async execute(_id: string, params: { message: string }) {
-        const result = await callWallet({
-          cliPath,
-          walletKref,
-          method: 'signMessage',
-          args: [params.message],
-          timeoutMs,
-        });
-        return {
-          content: [{ type: 'text' as const, text: formatToolResult(result) }],
-        };
+        try {
+          const result = await callWallet({
+            cliPath,
+            walletKref,
+            method: 'signMessage',
+            args: [params.message],
+            timeoutMs,
+          });
+          return {
+            content: [
+              { type: 'text' as const, text: formatToolResult(result) },
+            ],
+          };
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          return makeError(`Sign message failed: ${message}`);
+        }
       },
     },
     { optional: true },
@@ -325,16 +349,24 @@ export default function register(api: any): void {
         'Check wallet capabilities: local keys, delegations, peer wallet, bundler.',
       parameters: Type.Object({}),
       async execute() {
-        const result = await callWallet({
-          cliPath,
-          walletKref,
-          method: 'getCapabilities',
-          args: [],
-          timeoutMs,
-        });
-        return {
-          content: [{ type: 'text' as const, text: formatToolResult(result) }],
-        };
+        try {
+          const result = await callWallet({
+            cliPath,
+            walletKref,
+            method: 'getCapabilities',
+            args: [],
+            timeoutMs,
+          });
+          return {
+            content: [
+              { type: 'text' as const, text: formatToolResult(result) },
+            ],
+          };
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          return makeError(`Get capabilities failed: ${message}`);
+        }
       },
     },
     { optional: true },
@@ -347,16 +379,24 @@ export default function register(api: any): void {
       description: 'List all wallet accounts.',
       parameters: Type.Object({}),
       async execute() {
-        const result = await callWallet({
-          cliPath,
-          walletKref,
-          method: 'getAccounts',
-          args: [],
-          timeoutMs,
-        });
-        return {
-          content: [{ type: 'text' as const, text: formatToolResult(result) }],
-        };
+        try {
+          const result = await callWallet({
+            cliPath,
+            walletKref,
+            method: 'getAccounts',
+            args: [],
+            timeoutMs,
+          });
+          return {
+            content: [
+              { type: 'text' as const, text: formatToolResult(result) },
+            ],
+          };
+        } catch (error: unknown) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          return makeError(`Get accounts failed: ${message}`);
+        }
       },
     },
     { optional: true },
