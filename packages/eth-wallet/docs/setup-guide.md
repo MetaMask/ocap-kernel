@@ -121,7 +121,7 @@ Both scripts also accept `--chain-id` (default: Sepolia), `--quic-port` (default
 
 Run this on the away device after `setup-away.sh` completes.
 
-1. Install plugin dependencies (once, inside the plugin directory):
+1. Install plugin dependencies (the plugin is not a yarn workspace, so this is needed once):
 
 ```bash
 cd packages/eth-wallet/openclaw-plugin
