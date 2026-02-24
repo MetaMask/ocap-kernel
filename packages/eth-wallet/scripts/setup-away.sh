@@ -6,10 +6,11 @@
 # the peer connection.
 #
 # Usage:
-#   ./setup-away.sh --ocap-url "ocap:..." [options]
+#   ./setup-away.sh --ocap-url "ocap:..." --listen-addrs '["/ip4/..."]' [options]
 #
 # Required:
-#   --ocap-url    The OCAP URL issued by the home device (from setup-home.sh)
+#   --ocap-url      The OCAP URL issued by the home device (from setup-home.sh)
+#   --listen-addrs  JSON array of home device listen addresses (from setup-home.sh)
 #
 # Optional:
 #   --infura-key  KEY   Infura API key (for direct chain queries)
@@ -27,6 +28,7 @@ CHAIN_ID=11155111
 PIMLICO_KEY=""
 OCAP_URL=""
 INFURA_KEY=""
+LISTEN_ADDRS=""
 SKIP_BUILD=false
 DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
 
@@ -36,10 +38,11 @@ DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
 
 usage() {
   cat <<EOF
-Usage: $0 --ocap-url "ocap:..." [--infura-key KEY] [--pimlico-key KEY] [--chain-id ID] [--no-build]
+Usage: $0 --ocap-url "ocap:..." --listen-addrs '["/ip4/..."]' [--infura-key KEY] [--pimlico-key KEY] [--chain-id ID] [--no-build]
 
 Required:
   --ocap-url       OCAP URL from the home device (output of setup-home.sh)
+  --listen-addrs   JSON array of home device listen addresses (output of setup-home.sh)
 
 Optional:
   --infura-key     Infura API key (for direct chain queries)
@@ -53,6 +56,7 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --ocap-url)    OCAP_URL="$2"; shift 2 ;;
+    --listen-addrs) LISTEN_ADDRS="$2"; shift 2 ;;
     --infura-key)  INFURA_KEY="$2"; shift 2 ;;
     --pimlico-key) PIMLICO_KEY="$2"; shift 2 ;;
     --chain-id)    CHAIN_ID="$2"; shift 2 ;;
@@ -70,6 +74,11 @@ fi
 if [[ "$OCAP_URL" != ocap:* ]]; then
   echo "Error: OCAP URL must start with 'ocap:'." >&2
   exit 1
+fi
+
+if [[ -z "$LISTEN_ADDRS" ]]; then
+  echo "Error: --listen-addrs is required." >&2
+  usage
 fi
 
 # ---------------------------------------------------------------------------
@@ -134,7 +143,38 @@ $OCAP_BIN daemon start >&2
 ok "Daemon running"
 
 # ---------------------------------------------------------------------------
-# 3. Launch wallet subcluster
+# 3. Initialize remote comms (QUIC transport)
+# ---------------------------------------------------------------------------
+
+info "Initializing remote comms..."
+$OCAP_BIN daemon exec initRemoteComms '{"directListenAddresses":["/ip4/0.0.0.0/udp/0/quic-v1"]}' >/dev/null
+ok "Remote comms initialized"
+
+# ---------------------------------------------------------------------------
+# 4. Register home device location hints
+# ---------------------------------------------------------------------------
+
+info "Registering home device location hints..."
+HOME_PEER_ID=$(echo "$OCAP_URL" | node -e "
+  const url = require('fs').readFileSync('/dev/stdin', 'utf8').trim();
+  const peerId = url.split(':')[1]?.split('/')[0];
+  process.stdout.write(peerId || '');
+")
+
+if [[ -z "$HOME_PEER_ID" ]]; then
+  fail "Failed to extract peer ID from OCAP URL"
+fi
+
+HINTS_PARAMS=$(PEER="$HOME_PEER_ID" ADDRS="$LISTEN_ADDRS" node -e "
+  const p = JSON.stringify({ peerId: process.env.PEER, hints: JSON.parse(process.env.ADDRS) });
+  process.stdout.write(p);
+")
+
+$OCAP_BIN daemon exec registerLocationHints "$HINTS_PARAMS" >/dev/null
+ok "Location hints registered for peer $HOME_PEER_ID"
+
+# ---------------------------------------------------------------------------
+# 5. Launch wallet subcluster
 # ---------------------------------------------------------------------------
 
 info "Launching wallet subcluster..."
@@ -184,7 +224,7 @@ fi
 ok "Subcluster launched — coordinator: $ROOT_KREF"
 
 # ---------------------------------------------------------------------------
-# 4. Initialize keyring (throwaway)
+# 6. Initialize keyring (throwaway)
 # ---------------------------------------------------------------------------
 
 info "Initializing throwaway keyring..."
@@ -197,7 +237,7 @@ ACCOUNTS=$(echo "$ACCOUNTS_RAW" | parse_capdata)
 ok "Local throwaway account: $ACCOUNTS"
 
 # ---------------------------------------------------------------------------
-# 5. Configure provider (optional — only if Infura key provided)
+# 7. Configure provider (optional — only if Infura key provided)
 # ---------------------------------------------------------------------------
 
 if [[ -n "$INFURA_KEY" ]]; then
@@ -214,7 +254,7 @@ if [[ -n "$INFURA_KEY" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 5b. Configure bundler (requires Pimlico key)
+# 7b. Configure bundler (requires Pimlico key)
 # ---------------------------------------------------------------------------
 
 if [[ -n "$PIMLICO_KEY" ]]; then
@@ -233,7 +273,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 6. Connect to home wallet
+# 8. Connect to home wallet
 # ---------------------------------------------------------------------------
 
 info "Connecting to home wallet..."
@@ -247,7 +287,7 @@ $OCAP_BIN daemon exec queueMessage "$CONNECT_PARAMS" >/dev/null
 ok "Connected to home wallet"
 
 # ---------------------------------------------------------------------------
-# 7. Verify connection
+# 9. Verify connection
 # ---------------------------------------------------------------------------
 
 info "Verifying capabilities..."
