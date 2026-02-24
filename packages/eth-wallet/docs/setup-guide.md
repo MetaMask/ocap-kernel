@@ -8,6 +8,7 @@ This guide walks through setting up the OCAP eth-wallet on two devices:
 **Contents:**
 
 - [API keys](#api-keys) — Infura, Pimlico, and testnet ETH
+- [Ports and firewall](#ports-and-firewall) — what to open on the VPS
 - [Quick start](#quick-start-automated-scripts) — automated setup scripts
 - [OpenClaw plugin install](#openclaw-plugin-install) — configure the agent plugin
 - [Manual setup](#manual-setup) — step-by-step commands
@@ -56,6 +57,53 @@ The home wallet's mnemonic account needs a small amount of Sepolia ETH for gas. 
 - <https://docs.metamask.io/developer-tools/faucet> (MetaMask / Infura faucet)
 - <https://sepolia-faucet.pk910.de/> (PoW faucet, no sign-in required)
 
+## Ports and firewall
+
+The home and away kernels communicate over libp2p. There are two networking modes; choose whichever matches your network topology.
+
+### Direct mode (both devices have public IPs)
+
+Both devices dial each other directly over QUIC (UDP). One port is needed on each device:
+
+| Device | Port | Protocol | Purpose |
+| ------ | ---- | -------- | ------- |
+| Home   | 4002/udp | QUIC | libp2p direct transport |
+| VPS    | 4002/udp | QUIC | libp2p direct transport |
+
+```bash
+# On each device
+sudo ufw allow 4002/udp
+```
+
+The port is configurable via `--quic-port` in the setup scripts. No relay is needed; pass no `--relay` flag.
+
+### Relay mode (home is behind NAT / CGN / DS-Lite)
+
+If the home device has no public IPv4 (common with CGN/DS-Lite), both kernels connect **outbound** to a relay running on the VPS. No inbound ports are needed on the home device.
+
+| Device | Port | Protocol | Purpose |
+| ------ | ---- | -------- | ------- |
+| VPS    | 9001/tcp | WebSocket | Relay listener (kernels dial this) |
+| VPS    | 9002/tcp | TCP | Relay listener (alternative transport) |
+| VPS    | 4002/udp | QUIC | VPS kernel's own direct listener (optional — needed if other peers connect directly to the VPS) |
+| Home   | _none_ | — | All connections are outbound |
+
+```bash
+# On the VPS
+sudo ufw allow 9001/tcp   # relay WebSocket
+sudo ufw allow 9002/tcp   # relay TCP
+sudo ufw allow 4002/udp   # QUIC (if direct peers also connect)
+```
+
+### Outbound access (both modes)
+
+Both devices need outbound HTTPS (TCP 443) to:
+
+- **Infura** (`sepolia.infura.io`) — Ethereum JSON-RPC
+- **Pimlico** (`api.pimlico.io`) — ERC-4337 bundler and paymaster
+
+No special firewall rules are needed for outbound on most systems.
+
 ## Quick start (automated scripts)
 
 Two bash scripts in `packages/eth-wallet/scripts/` automate everything below.
@@ -79,11 +127,7 @@ Pass `--relay` to both setup scripts (see below). Both devices connect **outboun
 
 ### Direct connection (both devices have public IPs)
 
-If both devices have public IPs (no CGN), they can connect directly over QUIC (UDP). Open the QUIC port on the VPS firewall:
-
-```bash
-sudo ufw allow 4002/udp
-```
+If both devices have public IPs (no CGN), they can connect directly over QUIC (UDP). See the [Ports and firewall](#ports-and-firewall) section above.
 
 No `--relay` flag is needed in this case.
 
@@ -449,6 +493,11 @@ yarn workspace @ocap/eth-wallet test:node:daemon
 # Sepolia E2E (requires API keys)
 PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
   yarn workspace @ocap/eth-wallet test:node:sepolia
+
+# Full peer wallet E2E against Sepolia (two kernels + QUIC + UserOp)
+PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
+  MNEMONIC="your twelve word mnemonic" \
+  yarn workspace @ocap/eth-wallet test:node:peer-e2e
 ```
 
 > **Note:** The vitest-based integration tests (`test:integration`) may fail with SES lockdown errors (`TextEncoder is not a constructor` or `Date.now() throws`). This is a pre-existing kernel/SES environment issue, not an eth-wallet bug. The `test:node:*` scripts work around this by running as plain Node.js scripts.

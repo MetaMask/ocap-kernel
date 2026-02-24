@@ -7,14 +7,72 @@
  * delegation creation/transfer/redemption via UserOp, and smart account
  * creation — all against the Sepolia testnet.
  *
- * Requires environment variables:
- *   PIMLICO_API_KEY  - Pimlico API key (free tier works for Sepolia)
- *   SEPOLIA_RPC_URL  - Sepolia JSON-RPC endpoint (e.g. Infura, Alchemy)
- *   MNEMONIC         - Funded Sepolia wallet mnemonic
+ * ── What it tests ──────────────────────────────────────────────────────
  *
- * Usage:
- *   PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
- *   MNEMONIC="..." yarn workspace @ocap/eth-wallet test:node:peer-e2e
+ *   1. Two in-process kernels connected over local QUIC (UDP)
+ *   2. OCAP URL issuance (kernel1) and redemption (kernel2)
+ *   3. Remote message + transaction signing forwarded via CapTP
+ *   4. Provider RPC queries (eth_blockNumber, eth_getBalance) through kernel2
+ *   5. Cross-kernel delegation creation, transfer, and revocation
+ *   6. Smart account creation (counterfactual Hybrid via Delegation Framework)
+ *   7. Self-delegation redemption via ERC-4337 UserOp submitted to Pimlico
+ *   8. On-chain inclusion verified by polling the bundler for the receipt
+ *
+ * ── Environment variables (required) ───────────────────────────────────
+ *
+ *   PIMLICO_API_KEY  Pimlico API key — free tier works for Sepolia.
+ *                    Get one at https://dashboard.pimlico.io
+ *                    Also create a sponsorship policy at
+ *                    https://dashboard.pimlico.io/sponsorship-policies
+ *                    (the test uses `sp_young_killmonger` — replace if
+ *                    using your own policy).
+ *
+ *   SEPOLIA_RPC_URL  Sepolia JSON-RPC endpoint, e.g. Infura or Alchemy.
+ *                    For Infura: sign up at https://developer.metamask.io
+ *                    and use https://sepolia.infura.io/v3/<YOUR_KEY>
+ *
+ *   MNEMONIC         BIP-39 mnemonic for a funded Sepolia wallet.
+ *                    The first derived account (m/44'/60'/0'/0/0) must
+ *                    hold a small amount of Sepolia ETH. The paymaster
+ *                    sponsors UserOp gas, but the EOA itself is used for
+ *                    signing delegations.
+ *                    Free testnet ETH:
+ *                      - https://docs.metamask.io/developer-tools/faucet
+ *                      - https://sepolia-faucet.pk910.de/
+ *
+ * ── Network / firewall ─────────────────────────────────────────────────
+ *
+ *   This test runs both kernels in the same process on localhost, so no
+ *   inbound ports need to be opened. QUIC binds to 127.0.0.1 on an
+ *   ephemeral UDP port (`:0`).
+ *
+ *   If you run this on a VPS the only outbound access required is:
+ *     - HTTPS (TCP 443) to Infura (sepolia.infura.io) for JSON-RPC
+ *     - HTTPS (TCP 443) to Pimlico (api.pimlico.io) for bundler + paymaster
+ *
+ *   For the production two-device setup (home + VPS), see the
+ *   "Ports and firewall" section in docs/setup-guide.md.
+ *
+ * ── Prerequisites ──────────────────────────────────────────────────────
+ *
+ *   - Node.js >= 22
+ *   - The monorepo cloned and dependencies installed (`yarn install`)
+ *   - Vat bundles built (`yarn workspace @ocap/eth-wallet build`)
+ *     — the test:node:peer-e2e script runs `build` automatically
+ *
+ * ── Usage ──────────────────────────────────────────────────────────────
+ *
+ *   PIMLICO_API_KEY=xxx \
+ *   SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
+ *   MNEMONIC="word1 word2 ... word12" \
+ *     yarn workspace @ocap/eth-wallet test:node:peer-e2e
+ *
+ *   The test takes ~30–90 s depending on Sepolia block times and Pimlico
+ *   bundler latency. The UserOp polling timeout is 120 s.
+ *
+ *   Exit code 0 = all assertions passed; 1 = at least one failed.
+ *   If PIMLICO_API_KEY, SEPOLIA_RPC_URL, or MNEMONIC is missing the
+ *   test exits 0 (skip) with a diagnostic message.
  */
 
 import '@metamask/kernel-shims/endoify-node';
