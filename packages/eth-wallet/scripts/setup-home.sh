@@ -31,6 +31,7 @@ CHAIN_ID=11155111
 PIMLICO_KEY=""
 MNEMONIC=""
 INFURA_KEY=""
+RELAY_ADDR=""
 SKIP_BUILD=false
 QUIC_PORT=4002
 DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
@@ -41,7 +42,7 @@ DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
 
 usage() {
   cat <<EOF
-Usage: $0 --mnemonic "..." --infura-key KEY [--pimlico-key KEY] [--chain-id ID] [--quic-port PORT] [--no-build]
+Usage: $0 --mnemonic "..." --infura-key KEY [--pimlico-key KEY] [--relay MULTIADDR] [--chain-id ID] [--quic-port PORT] [--no-build]
 
 Required:
   --mnemonic       12-word seed phrase
@@ -49,6 +50,7 @@ Required:
 
 Optional:
   --pimlico-key    Pimlico API key (bundler/paymaster)
+  --relay          Relay multiaddr (e.g. /ip4/HOST/tcp/9002/p2p/PEER_ID)
   --chain-id       Chain ID (default: $CHAIN_ID)
   --quic-port      UDP port for QUIC transport (default: $QUIC_PORT)
   --no-build       Skip yarn build
@@ -70,6 +72,9 @@ while [[ $# -gt 0 ]]; do
     --chain-id)
       [[ $# -lt 2 ]] && { echo "Error: --chain-id requires a value" >&2; usage; }
       CHAIN_ID="$2"; shift 2 ;;
+    --relay)
+      [[ $# -lt 2 ]] && { echo "Error: --relay requires a value" >&2; usage; }
+      RELAY_ADDR="$2"; shift 2 ;;
     --quic-port)
       [[ $# -lt 2 ]] && { echo "Error: --quic-port requires a value" >&2; usage; }
       QUIC_PORT="$2"; shift 2 ;;
@@ -213,7 +218,12 @@ ok "Daemon running"
 # ---------------------------------------------------------------------------
 
 info "Initializing remote comms (QUIC port $QUIC_PORT)..."
-daemon_exec initRemoteComms "{\"directListenAddresses\":[\"/ip4/0.0.0.0/udp/${QUIC_PORT}/quic-v1\"]}" >/dev/null
+COMMS_PARAMS="{\"directListenAddresses\":[\"/ip4/0.0.0.0/udp/${QUIC_PORT}/quic-v1\"]"
+if [[ -n "$RELAY_ADDR" ]]; then
+  COMMS_PARAMS="${COMMS_PARAMS},\"relays\":[\"${RELAY_ADDR}\"]"
+fi
+COMMS_PARAMS="${COMMS_PARAMS}}"
+daemon_exec initRemoteComms "$COMMS_PARAMS" >/dev/null
 ok "Remote comms initialized"
 
 # Wait for remote comms to reach 'connected' state
@@ -372,26 +382,22 @@ if [[ "$LISTEN_ADDRS" == "[]" ]]; then
   fail "No listen addresses found. Remote comms may not be fully connected."
 fi
 
-# Detect public IP and add a public multiaddr so remote peers behind NAT can connect.
+# Detect public IP and add a public multiaddr so remote peers can connect.
+PEER_ID=$(echo "$LISTEN_ADDRS" | node -e "
+  const addrs = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
+  const match = addrs.find(a => a.includes('/p2p/'));
+  if (match) process.stdout.write(match.split('/p2p/').pop());
+")
+
 PUBLIC_IP=$(curl -s -4 --max-time 5 https://ifconfig.me || true)
-if [[ -n "$PUBLIC_IP" ]]; then
-  # Extract the peer ID from any existing listen address.
-  PEER_ID=$(echo "$LISTEN_ADDRS" | node -e "
+if [[ -n "$PUBLIC_IP" && -n "$PEER_ID" ]]; then
+  PUBLIC_ADDR="/ip4/${PUBLIC_IP}/udp/${QUIC_PORT}/quic-v1/p2p/${PEER_ID}"
+  LISTEN_ADDRS=$(echo "$LISTEN_ADDRS" | node -e "
     const addrs = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
-    const match = addrs.find(a => a.includes('/p2p/'));
-    if (match) process.stdout.write(match.split('/p2p/').pop());
+    addrs.unshift('${PUBLIC_ADDR}');
+    process.stdout.write(JSON.stringify(addrs));
   ")
-  if [[ -n "$PEER_ID" ]]; then
-    PUBLIC_ADDR="/ip4/${PUBLIC_IP}/udp/${QUIC_PORT}/quic-v1/p2p/${PEER_ID}"
-    LISTEN_ADDRS=$(echo "$LISTEN_ADDRS" | node -e "
-      const addrs = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
-      addrs.unshift('${PUBLIC_ADDR}');
-      process.stdout.write(JSON.stringify(addrs));
-    ")
-    ok "Public address: $PUBLIC_ADDR"
-  fi
-else
-  info "Could not detect public IP — only local addresses will be listed"
+  ok "Public address: $PUBLIC_ADDR"
 fi
 ok "Listen addresses: $LISTEN_ADDRS"
 

@@ -29,6 +29,7 @@ PIMLICO_KEY=""
 OCAP_URL=""
 INFURA_KEY=""
 LISTEN_ADDRS=""
+RELAY_ADDR=""
 SKIP_BUILD=false
 QUIC_PORT=4002
 DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
@@ -48,6 +49,7 @@ Required:
 Optional:
   --infura-key     Infura API key (for direct chain queries)
   --pimlico-key    Pimlico API key (bundler/paymaster)
+  --relay          Relay multiaddr (e.g. /ip4/HOST/tcp/9002/p2p/PEER_ID)
   --chain-id       Chain ID (default: $CHAIN_ID)
   --quic-port      UDP port for QUIC transport (default: $QUIC_PORT)
   --no-build       Skip yarn build
@@ -72,6 +74,9 @@ while [[ $# -gt 0 ]]; do
     --chain-id)
       [[ $# -lt 2 ]] && { echo "Error: --chain-id requires a value" >&2; usage; }
       CHAIN_ID="$2"; shift 2 ;;
+    --relay)
+      [[ $# -lt 2 ]] && { echo "Error: --relay requires a value" >&2; usage; }
+      RELAY_ADDR="$2"; shift 2 ;;
     --quic-port)
       [[ $# -lt 2 ]] && { echo "Error: --quic-port requires a value" >&2; usage; }
       QUIC_PORT="$2"; shift 2 ;;
@@ -215,7 +220,12 @@ ok "Daemon running"
 # ---------------------------------------------------------------------------
 
 info "Initializing remote comms (QUIC port $QUIC_PORT)..."
-daemon_exec initRemoteComms "{\"directListenAddresses\":[\"/ip4/0.0.0.0/udp/${QUIC_PORT}/quic-v1\"]}" >/dev/null
+COMMS_PARAMS="{\"directListenAddresses\":[\"/ip4/0.0.0.0/udp/${QUIC_PORT}/quic-v1\"]"
+if [[ -n "$RELAY_ADDR" ]]; then
+  COMMS_PARAMS="${COMMS_PARAMS},\"relays\":[\"${RELAY_ADDR}\"]"
+fi
+COMMS_PARAMS="${COMMS_PARAMS}}"
+daemon_exec initRemoteComms "$COMMS_PARAMS" >/dev/null
 ok "Remote comms initialized"
 
 # Wait for remote comms to reach 'connected' state
