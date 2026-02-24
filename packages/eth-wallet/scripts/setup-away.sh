@@ -438,7 +438,7 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
   The away wallet can now forward signing
   requests to the home wallet via CapTP.
 
-  $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")       watch daemon logs
-  $(echo -e "${DIM}")yarn ocap daemon stop$(echo -e "${RESET}")             stop the daemon
+  Watch daemon logs: $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")
+  Stop the daemon:   $(echo -e "${DIM}")yarn ocap daemon stop$(echo -e "${RESET}")
 
 EOF
