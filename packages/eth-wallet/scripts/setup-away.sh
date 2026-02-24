@@ -438,6 +438,12 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
   The away wallet can now forward signing
   requests to the home wallet via CapTP.
 
+$(echo -e "${YELLOW}${BOLD}")  To delegate authority, run this on the HOME device:$(echo -e "${RESET}")
+
+  $(echo -e "${DIM}")yarn ocap daemon exec queueMessage '["<HOME_KREF>", "createDelegation", [{"delegate": "$(echo "$ACCOUNTS" | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'))[0])")", "caveats": [], "chainId": $CHAIN_ID}]]'$(echo -e "${RESET}")
+
+  $(echo -e "${DIM}")Replace <HOME_KREF> with the coordinator kref from setup-home.sh output.$(echo -e "${RESET}")
+
   Watch daemon logs: $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")
   Stop the daemon:   $(echo -e "${DIM}")yarn ocap daemon stop$(echo -e "${RESET}")
 
