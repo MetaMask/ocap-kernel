@@ -415,6 +415,9 @@ cat >&2 <<EOF
 
   The away wallet can now forward signing
   requests to the home wallet via CapTP.
+
+  To stop the daemon:
+    node $OCAP_BIN daemon stop
 ══════════════════════════════════════════════
 
 EOF

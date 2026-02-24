@@ -360,6 +360,28 @@ LISTEN_ADDRS=$(echo "$STATUS" | node -e "
 if [[ "$LISTEN_ADDRS" == "[]" ]]; then
   fail "No listen addresses found. Remote comms may not be fully connected."
 fi
+
+# Detect public IP and add a public multiaddr so remote peers behind NAT can connect.
+PUBLIC_IP=$(curl -s -4 --max-time 5 https://ifconfig.me || true)
+if [[ -n "$PUBLIC_IP" ]]; then
+  # Extract the peer ID from any existing listen address.
+  PEER_ID=$(echo "$LISTEN_ADDRS" | node -e "
+    const addrs = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
+    const match = addrs.find(a => a.includes('/p2p/'));
+    if (match) process.stdout.write(match.split('/p2p/').pop());
+  ")
+  if [[ -n "$PEER_ID" ]]; then
+    PUBLIC_ADDR="/ip4/${PUBLIC_IP}/udp/${QUIC_PORT}/quic-v1/p2p/${PEER_ID}"
+    LISTEN_ADDRS=$(echo "$LISTEN_ADDRS" | node -e "
+      const addrs = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
+      addrs.unshift('${PUBLIC_ADDR}');
+      process.stdout.write(JSON.stringify(addrs));
+    ")
+    ok "Public address: $PUBLIC_ADDR"
+  fi
+else
+  info "Could not detect public IP — only local addresses will be listed"
+fi
 ok "Listen addresses: $LISTEN_ADDRS"
 
 # ---------------------------------------------------------------------------
@@ -379,6 +401,9 @@ cat >&2 <<EOF
 
   Pass the OCAP URL and listen addresses
   below to setup-away.sh on the away device.
+
+  To stop the daemon:
+    node $OCAP_BIN daemon stop
 ══════════════════════════════════════════════
 
 EOF
