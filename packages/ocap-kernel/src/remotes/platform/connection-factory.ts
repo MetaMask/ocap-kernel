@@ -9,6 +9,7 @@ import type { PrivateKey, Libp2p } from '@libp2p/interface';
 import { ping } from '@libp2p/ping';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
+import * as wsFilters from '@libp2p/websockets/filters';
 import { webTransport } from '@libp2p/webtransport';
 import { AbortError, isRetryableNetworkError } from '@metamask/kernel-errors';
 import { fromHex, retryWithBackoff } from '@metamask/kernel-utils';
@@ -105,7 +106,7 @@ export class ConnectionFactory {
         appendAnnounce: ['/webrtc'],
       },
       transports: [
-        webSockets(),
+        webSockets({ filter: wsFilters.all }),
         webTransport(),
         webRTC({
           rtcConfiguration: {
