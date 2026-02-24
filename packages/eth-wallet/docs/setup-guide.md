@@ -126,6 +126,10 @@ The `--pimlico-key` configures the Pimlico bundler for ERC-4337 UserOp submissio
 
 Both scripts also accept `--chain-id` (default: Sepolia), `--quic-port` (default: 4002), and `--no-build`. Run with `--help` for details.
 
+### Delegate authority (home to away)
+
+After `setup-away.sh` completes, it prints a `createDelegation` command with the away wallet's address pre-filled. Run that command on the **home device** (replacing `<HOME_KREF>` with the coordinator kref from `setup-home.sh` output) to grant the away wallet signing authority.
+
 `setup-away.sh` does **not** install or configure the OpenClaw wallet plugin — do that next.
 
 ## OpenClaw plugin install
