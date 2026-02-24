@@ -60,41 +60,60 @@ The home wallet's mnemonic account needs a small amount of Sepolia ETH for gas. 
 
 Two bash scripts in `packages/eth-wallet/scripts/` automate everything below.
 
-**Home device** (holds the master keys):
+### Using a relay (recommended)
+
+If your home device is behind CGN/DS-Lite (no public IPv4), you need a relay. Start one on the VPS:
+
+```bash
+node packages/cli/dist/app.mjs relay
+# Note the PeerID and multiaddrs (TCP port 9002)
+```
+
+The relay PeerID is deterministic: `12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc`. Form the relay address using the VPS's public IP:
+
+```
+/ip4/<VPS_PUBLIC_IP>/tcp/9002/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc
+```
+
+Pass `--relay` to both setup scripts (see below). Both devices connect **outbound** to the relay — no inbound ports needed on the home device.
+
+### Direct connection (both devices have public IPs)
+
+If both devices have public IPs (no CGN), they can connect directly over QUIC (UDP). Open the QUIC port on the VPS firewall:
+
+```bash
+sudo ufw allow 4002/udp
+```
+
+No `--relay` flag is needed in this case.
+
+### Home device (holds the master keys)
 
 ```bash
 ./scripts/setup-home.sh \
   --mnemonic "your twelve word mnemonic" \
   --infura-key YOUR_INFURA_KEY \
-  --pimlico-key YOUR_PIMLICO_KEY
+  --pimlico-key YOUR_PIMLICO_KEY \
+  --relay "/ip4/<VPS_IP>/tcp/9002/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
 # Prints two lines to stdout:
 #   1. The OCAP URL        — pass to setup-away.sh --ocap-url
 #   2. Listen addresses     — pass to setup-away.sh --listen-addrs
 ```
 
-**Away device** (VPS / agent machine):
+### Away device (VPS / agent machine)
 
 ```bash
 ./scripts/setup-away.sh \
   --ocap-url "ocap:…URL_FROM_HOME…" \
   --listen-addrs '["/ip4/…/udp/…/quic-v1/p2p/…"]' \
   --infura-key YOUR_INFURA_KEY \
-  --pimlico-key YOUR_PIMLICO_KEY
+  --pimlico-key YOUR_PIMLICO_KEY \
+  --relay "/ip4/<VPS_IP>/tcp/9002/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
 ```
 
 The `--pimlico-key` configures the Pimlico bundler for ERC-4337 UserOp submission with paymaster sponsorship. Without it, smart account deployment and on-chain delegation redemption will not work.
 
 Both scripts also accept `--chain-id` (default: Sepolia), `--quic-port` (default: 4002), and `--no-build`. Run with `--help` for details.
-
-### Firewall (VPS)
-
-The home and away devices communicate over QUIC (UDP). On a VPS, you must open the QUIC port (default: 4002) in the firewall:
-
-```bash
-sudo ufw allow 4002/udp
-```
-
-If you use a custom port via `--quic-port`, open that port instead. Both devices need to be reachable on their QUIC port for the peer connection to establish.
 
 `setup-away.sh` does **not** install or configure the OpenClaw wallet plugin — do that next.
 
