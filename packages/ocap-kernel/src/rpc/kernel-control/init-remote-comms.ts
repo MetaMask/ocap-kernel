@@ -5,7 +5,8 @@ import {
   optional,
   array,
   string,
-  number,
+  integer,
+  min,
 } from '@metamask/superstruct';
 import type { Struct } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
@@ -16,8 +17,8 @@ import type { RemoteCommsOptions } from '../../remotes/types.ts';
 const initRemoteCommsParamsStruct = object({
   relays: optional(array(string())),
   directListenAddresses: optional(array(string())),
-  maxRetryAttempts: optional(number()),
-  maxQueue: optional(number()),
+  maxRetryAttempts: optional(min(integer(), 0)),
+  maxQueue: optional(min(integer(), 0)),
 });
 
 // Superstruct's `optional()` infers `T | undefined` for each field, but
