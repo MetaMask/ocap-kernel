@@ -373,7 +373,10 @@ export function buildRootObject(
 
     // Strategy 2: Check if external signer can handle it
     if (externalSigner) {
-      return E(externalSigner).signTransaction(tx);
+      return E(externalSigner).signTransaction({
+        ...tx,
+        from: tx.from.toLowerCase() as Address,
+      });
     }
 
     // Strategy 3: Check if a peer wallet can handle it
@@ -491,7 +494,7 @@ export function buildRootObject(
     // Include a dummy 65-byte signature so that the smart account's
     // validateUserOp can parse the ECDSA signature during bundler/paymaster
     // simulation. An empty signature (0x) causes the simulation to revert.
-    const unsignedUserOp = buildDelegationUserOp({
+    const baseUserOp = buildDelegationUserOp({
       sender,
       nonce: nonceHex,
       delegations: options.delegations,
@@ -505,10 +508,13 @@ export function buildRootObject(
           }
         : {}),
     });
-    // Override callData with the SDK-encoded version
-    unsignedUserOp.callData = sdkCallData;
-    unsignedUserOp.signature =
-      '0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c' as Hex;
+    // Use SDK-encoded callData and a dummy 65-byte signature for simulation
+    const unsignedUserOp: UserOperation = {
+      ...baseUserOp,
+      callData: sdkCallData,
+      signature:
+        '0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c' as Hex,
+    };
 
     let userOpWithGas: UserOperation;
 
@@ -993,6 +999,17 @@ export function buildRootObject(
       if (!providerVat || !bundlerConfig) {
         throw new Error('Provider and bundler must be configured');
       }
+
+      if (
+        typeof globalThis.Date?.now !== 'function' ||
+        typeof globalThis.setTimeout !== 'function'
+      ) {
+        throw new Error(
+          'waitForUserOpReceipt requires Date.now and setTimeout ' +
+            '(not available in SES compartments without timer endowments)',
+        );
+      }
+
       const interval = options.pollIntervalMs ?? 2000;
       const timeout = options.timeoutMs ?? 60000;
       const start = Date.now();
@@ -1065,10 +1082,12 @@ export function buildRootObject(
           }
           if (externalSigner) {
             const accounts = await E(externalSigner).getAccounts();
-            return E(externalSigner).signTypedData(
-              request.data,
-              request.account ?? accounts[0],
-            );
+            if (accounts.length > 0) {
+              return E(externalSigner).signTypedData(
+                request.data,
+                request.account ?? accounts[0],
+              );
+            }
           }
           throw new Error('No signer available to handle signing request');
 
@@ -1081,10 +1100,12 @@ export function buildRootObject(
           }
           if (externalSigner) {
             const accounts = await E(externalSigner).getAccounts();
-            return E(externalSigner).signMessage(
-              request.message,
-              request.account ?? accounts[0],
-            );
+            if (accounts.length > 0) {
+              return E(externalSigner).signMessage(
+                request.message,
+                request.account ?? accounts[0],
+              );
+            }
           }
           throw new Error('No signer available to handle signing request');
 

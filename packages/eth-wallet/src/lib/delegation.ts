@@ -151,7 +151,7 @@ export function prepareDelegationTypedData(options: {
         enforcer: caveat.enforcer,
         terms: caveat.terms,
       })),
-      salt: BigInt(delegation.salt).toString(),
+      salt: BigInt(delegation.salt),
     },
   };
 }
@@ -240,6 +240,17 @@ export function explainDelegationMatch(
         parseAbiParameters('uint128, uint128'),
         caveat.terms,
       );
+      if (
+        currentTime === undefined &&
+        typeof globalThis.Date?.now !== 'function'
+      ) {
+        return {
+          matches: false,
+          failedCaveat: 'timestamp',
+          reason:
+            'Cannot evaluate timestamp caveat: Date.now() is not available (SES compartment) and no currentTime was provided',
+        };
+      }
       const now = BigInt(Math.floor((currentTime ?? Date.now()) / 1000));
       if (now < after) {
         return {

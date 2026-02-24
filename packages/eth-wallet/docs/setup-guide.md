@@ -1,10 +1,12 @@
 # ETH Wallet Setup Guide
 
 This guide walks through setting up the OCAP eth-wallet on two devices:
+
 - **Home device** (your laptop/desktop): holds the master keys, approves signing requests
 - **Away device** (VPS): runs the agent with a restricted wallet, uses delegations
 
 **Contents:**
+
 - [API keys](#api-keys) — Infura, Pimlico, and testnet ETH
 - [Quick start](#quick-start-automated-scripts) — automated setup scripts
 - [OpenClaw plugin install (separate step)](#openclaw-plugin-install-separate-step)
@@ -17,6 +19,22 @@ This guide walks through setting up the OCAP eth-wallet on two devices:
 - [Try it out](#6-try-it-out) — agent prompts and CLI commands
 - [How it works](#7-how-it-works)
 - [Verify everything works](#8-verify-everything-works)
+
+## Prerequisites
+
+- Node.js >= 22
+- yarn (`npm install -g yarn` or enable via `corepack enable`)
+- The `ocap-kernel` monorepo cloned and built
+
+```bash
+git clone git@github.com:MetaMask/ocap-kernel.git
+```
+
+- OpenClaw installed on the VPS (for the agent integration)
+
+```bash
+curl -fsSL https://openclaw.ai/install.sh | bash
+```
 
 ## API keys
 
@@ -67,7 +85,17 @@ Two bash scripts in `packages/eth-wallet/scripts/` automate everything below.
 
 The `--pimlico-key` configures the Pimlico bundler for ERC-4337 UserOp submission with paymaster sponsorship. Without it, smart account deployment and on-chain delegation redemption will not work.
 
-Both scripts also accept `--chain-id` (default: Sepolia) and `--no-build`. Run with `--help` for details.
+Both scripts also accept `--chain-id` (default: Sepolia), `--quic-port` (default: 4002), and `--no-build`. Run with `--help` for details.
+
+### Firewall (VPS)
+
+The home and away devices communicate over QUIC (UDP). On a VPS, you must open the QUIC port (default: 4002) in the firewall:
+
+```bash
+sudo ufw allow 4002/udp
+```
+
+If you use a custom port via `--quic-port`, open that port instead. Both devices need to be reachable on their QUIC port for the peer connection to establish.
 
 `setup-away.sh` does **not** install or configure the OpenClaw wallet plugin. Do that separately in the next section.
 
@@ -104,7 +132,13 @@ npm install
 ```json
 {
   "tools": {
-    "allow": ["wallet_balance", "wallet_send", "wallet_sign", "wallet_accounts", "wallet_capabilities"]
+    "allow": [
+      "wallet_balance",
+      "wallet_send",
+      "wallet_sign",
+      "wallet_accounts",
+      "wallet_capabilities"
+    ]
   }
 }
 ```
@@ -114,12 +148,6 @@ npm install
 ## Manual setup
 
 The sections below walk through each step if you prefer to run the commands yourself.
-
-## Prerequisites
-
-- Node.js >= 22
-- The `ocap-kernel` monorepo cloned and built
-- OpenClaw installed on the VPS (for the agent integration)
 
 ## 1. Build the packages
 
@@ -151,8 +179,8 @@ This starts the OCAP daemon at `~/.ocap/daemon.sock` with persistent storage at 
 Initialize the libp2p networking stack before launching the subcluster. The OCAP URL issuer service requires an active network identity.
 
 ```bash
-# Start QUIC transport
-ocap daemon exec initRemoteComms '{"directListenAddresses": ["/ip4/0.0.0.0/udp/0/quic-v1"]}'
+# Start QUIC transport (use a fixed port so firewall rules work)
+ocap daemon exec initRemoteComms '{"directListenAddresses": ["/ip4/0.0.0.0/udp/4002/quic-v1"]}'
 
 # Verify it's connected and note the listen addresses
 ocap daemon exec getStatus
@@ -237,7 +265,8 @@ ocap daemon start
 
 ```bash
 # Start the libp2p networking stack with QUIC transport
-ocap daemon exec initRemoteComms '{"directListenAddresses": ["/ip4/0.0.0.0/udp/0/quic-v1"]}'
+# Use a fixed port and open it in the firewall: sudo ufw allow 4002/udp
+ocap daemon exec initRemoteComms '{"directListenAddresses": ["/ip4/0.0.0.0/udp/4002/quic-v1"]}'
 
 # Register the home device's listen addresses so the away kernel can find it.
 # The peer ID is the first path component of the OCAP URL (ocap:<peerId>/...).
@@ -246,11 +275,9 @@ ocap daemon exec registerLocationHints '{"peerId": "HOME_PEER_ID", "hints": ["/i
 
 ### 3d. Launch the wallet subcluster
 
-Same as the home device, but with the VPS's allowed hosts:
+Same as the home device (see section 2c), but with the VPS's allowed hosts:
 
 ```bash
-ocap start packages/eth-wallet/src/vats
-
 ocap daemon exec launchSubcluster '{"config": { ... }}'
 ```
 
@@ -349,7 +376,13 @@ In your agent configuration:
 ```json
 {
   "tools": {
-    "allow": ["wallet_balance", "wallet_send", "wallet_sign", "wallet_accounts", "wallet_capabilities"]
+    "allow": [
+      "wallet_balance",
+      "wallet_send",
+      "wallet_sign",
+      "wallet_accounts",
+      "wallet_capabilities"
+    ]
   }
 }
 ```
@@ -428,7 +461,7 @@ Agent (AI)
 Run the automated tests to confirm the setup:
 
 ```bash
-# Unit tests (mocked)
+# Unit tests (mocked) — should all pass
 yarn workspace @ocap/eth-wallet test:dev:quiet
 
 # Single-kernel integration (real SES + kernel)
@@ -444,3 +477,5 @@ yarn workspace @ocap/eth-wallet test:node:daemon
 PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
   yarn workspace @ocap/eth-wallet test:node:sepolia
 ```
+
+> **Note:** The vitest-based integration tests (`test:integration`) may fail with SES lockdown errors (`TextEncoder is not a constructor` or `Date.now() throws`). This is a pre-existing kernel/SES environment issue, not an eth-wallet bug. The `test:node:*` scripts work around this by running as plain Node.js scripts.

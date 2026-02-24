@@ -10,7 +10,7 @@ Use the **wallet tools** for any Ethereum balance, send, or sign request. Do not
 
 ## Tools
 
-- **wallet_balance** — Get ETH balance (address optional, chainId optional).
+- **wallet_balance** — Get ETH balance for an address (address required, e.g. `0x71fA...`). Use `wallet_accounts` first to get an address if needed.
 - **wallet_send** — Send ETH to an address. May require user approval at home; the agent cannot approve for the user.
 - **wallet_sign** — Sign a message or typed data. May require user approval at home.
 
