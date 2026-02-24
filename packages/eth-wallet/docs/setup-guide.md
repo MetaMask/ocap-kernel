@@ -66,13 +66,13 @@ If your home device is behind CGN/DS-Lite (no public IPv4), you need a relay. St
 
 ```bash
 yarn ocap relay
-# Note the PeerID and multiaddrs (TCP port 9002)
+# Note the PeerID and multiaddrs (WebSocket port 9001, TCP port 9002)
 ```
 
-The relay PeerID is deterministic: `12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc`. Form the relay address using the VPS's public IP:
+The relay PeerID is deterministic: `12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc`. Form the relay address using the VPS's public IP and the **WebSocket** port (the kernel dials via WebSocket):
 
 ```
-/ip4/<VPS_PUBLIC_IP>/tcp/9002/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc
+/ip4/<VPS_PUBLIC_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc
 ```
 
 Pass `--relay` to both setup scripts (see below). Both devices connect **outbound** to the relay — no inbound ports needed on the home device.
@@ -94,7 +94,7 @@ No `--relay` flag is needed in this case.
   --mnemonic "your twelve word mnemonic" \
   --infura-key YOUR_INFURA_KEY \
   --pimlico-key YOUR_PIMLICO_KEY \
-  --relay "/ip4/<VPS_IP>/tcp/9002/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
+  --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
 # Prints two lines to stdout:
 #   1. The OCAP URL        — pass to setup-away.sh --ocap-url
 #   2. Listen addresses     — pass to setup-away.sh --listen-addrs
@@ -108,7 +108,7 @@ No `--relay` flag is needed in this case.
   --listen-addrs '["/ip4/…/udp/…/quic-v1/p2p/…"]' \
   --infura-key YOUR_INFURA_KEY \
   --pimlico-key YOUR_PIMLICO_KEY \
-  --relay "/ip4/<VPS_IP>/tcp/9002/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
+  --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
 ```
 
 The `--pimlico-key` configures the Pimlico bundler for ERC-4337 UserOp submission with paymaster sponsorship. Without it, smart account deployment and on-chain delegation redemption will not work.
