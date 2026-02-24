@@ -48,10 +48,11 @@ export function parseOcapURL(ocapURL: string): OcapURLParts {
   if (!where || !oid) {
     throw Error('bad ocap URL');
   }
-  const [host, ...hints] = where.split(',');
+  const [host, ...rawHints] = where.split(',');
   if (!host) {
     throw Error('bad ocap URL');
   }
+  const hints = rawHints.filter(Boolean);
   return {
     oid,
     host,
@@ -189,7 +190,9 @@ export async function initRemoteIdentity(
     const encodedKref = encoder.encode(paddedKref);
     const rawOid = await cipher.encrypt(encodedKref, ocapURLKey);
     const oid = base58btc.encode(rawOid);
-    const ocapURL = `ocap:${oid}@${peerId},${knownRelays.join(',')}`;
+    const relaySuffix =
+      knownRelays.length > 0 ? `,${knownRelays.join(',')}` : '';
+    const ocapURL = `ocap:${oid}@${peerId}${relaySuffix}`;
     return ocapURL;
   }
 
