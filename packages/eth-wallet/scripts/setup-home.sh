@@ -429,6 +429,6 @@ $(echo -e "${YELLOW}${BOLD}")  Copy these values to setup-away.sh on the away de
   $(echo -e "${BOLD}")'$LISTEN_ADDRS'$(echo -e "${RESET}")
 
   $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")       watch daemon logs
-  $(echo -e "${DIM}")node $OCAP_BIN daemon stop$(echo -e "${RESET}")  stop the daemon
+  $(echo -e "${DIM}")yarn ocap daemon stop$(echo -e "${RESET}")             stop the daemon
 
 EOF
