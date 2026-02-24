@@ -39,10 +39,14 @@ async function runDaemonExec(options: {
   timeoutMs: number;
 }): Promise<ExecResult> {
   const { cliPath, method, params, timeoutMs } = options;
-  const args = ['daemon', 'exec', method, JSON.stringify(params)];
+  const daemonArgs = ['daemon', 'exec', method, JSON.stringify(params)];
+
+  // If cliPath points to a .mjs file, invoke it via node.
+  const command = cliPath.endsWith('.mjs') ? 'node' : cliPath;
+  const args = cliPath.endsWith('.mjs') ? [cliPath, ...daemonArgs] : daemonArgs;
 
   return new Promise((resolve, reject) => {
-    const child = spawn(cliPath, args, {
+    const child = spawn(command, args, {
       stdio: ['ignore', 'pipe', 'pipe'],
     });
 

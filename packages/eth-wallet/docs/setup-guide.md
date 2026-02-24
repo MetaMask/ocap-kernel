@@ -103,31 +103,31 @@ If you use a custom port via `--quic-port`, open that port instead. Both devices
 
 Run this on the away device after `setup-away.sh` completes.
 
-1. Load the plugin:
-
-```bash
-openclaw plugin load /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
-```
-
-2. Install plugin dependencies (once, inside the plugin directory):
+1. Install plugin dependencies (once, inside the plugin directory):
 
 ```bash
 cd /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
 npm install
 ```
 
-3. Configure the plugin in OpenClaw with the wallet coordinator kref (`ko4` by default):
+2. Load the plugin into OpenClaw:
 
-```json
-{
-  "wallet": {
-    "walletKref": "ko4",
-    "ocapCliPath": "/path/to/ocap"
-  }
-}
+```bash
+openclaw plugin load /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
 ```
 
-4. Allow tools for your agent:
+3. Configure the plugin in OpenClaw's plugin settings (`openclaw plugin config wallet`):
+
+- **Wallet Coordinator KRef**: the `rootKref` from `setup-away.sh` output (e.g. `ko4`)
+- **OCAP CLI Path**: absolute path to the CLI entry point, e.g. `/home/ubuntu/ocap-kernel/packages/cli/dist/app.mjs`
+
+4. Restart the OpenClaw gateway so the plugin loads:
+
+```bash
+openclaw gateway restart
+```
+
+5. Allow wallet tools for your agent in the agent configuration:
 
 ```json
 {
@@ -328,50 +328,38 @@ ocap daemon exec queueMessage '["ko4", "receiveDelegation", [{ ...signed delegat
 
 ## 5. OpenClaw plugin setup
 
-### 5a. Install the wallet plugin
+### 5a. Install plugin dependencies
 
-The plugin lives in `packages/eth-wallet/openclaw-plugin/`. To load it in OpenClaw:
-
-```bash
-# From the VPS where OpenClaw is installed, load the plugin
-openclaw plugin load /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
-```
-
-Or add it to your OpenClaw config file (`~/.openclaw/config.json` or equivalent):
-
-```json
-{
-  "plugins": [
-    {
-      "path": "/path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin"
-    }
-  ]
-}
-```
-
-The plugin requires `@sinclair/typebox` as a dependency. Install it in the plugin directory:
+The plugin lives in `packages/eth-wallet/openclaw-plugin/`. Install its dependencies first:
 
 ```bash
 cd /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
 npm install
 ```
 
-### 5b. Configure the plugin
+### 5b. Load the plugin
 
-In your OpenClaw plugin settings:
-
-```json
-{
-  "wallet": {
-    "walletKref": "ko4",
-    "ocapCliPath": "/path/to/ocap"
-  }
-}
+```bash
+openclaw plugin load /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
 ```
 
-### 5c. Allow wallet tools for your agent
+### 5c. Configure the plugin
 
-In your agent configuration:
+Configure the plugin via OpenClaw's plugin settings (`openclaw plugin config wallet`):
+
+- **Wallet Coordinator KRef** (`walletKref`): the `rootKref` from the setup output (e.g. `ko4`)
+- **OCAP CLI Path** (`ocapCliPath`): absolute path to the CLI, e.g. `/home/ubuntu/ocap-kernel/packages/cli/dist/app.mjs`
+- **Timeout** (`timeoutMs`): optional, defaults to 60000 ms
+
+### 5d. Restart the gateway
+
+```bash
+openclaw gateway restart
+```
+
+### 5e. Allow wallet tools for your agent
+
+In your agent configuration, allow the wallet tools:
 
 ```json
 {
