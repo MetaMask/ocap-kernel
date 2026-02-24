@@ -187,7 +187,7 @@ The home device holds the master wallet keys and runs a kernel daemon that the a
 ### 2a. Start the home daemon
 
 ```bash
-ocap daemon start
+yarn ocap daemon start
 ```
 
 This starts the OCAP daemon at `~/.ocap/daemon.sock` with persistent storage at `~/.ocap/kernel.sqlite`.
@@ -198,10 +198,10 @@ Initialize the libp2p networking stack before launching the subcluster. The OCAP
 
 ```bash
 # Start QUIC transport (use a fixed port so firewall rules work)
-ocap daemon exec initRemoteComms '{"directListenAddresses": ["/ip4/0.0.0.0/udp/4002/quic-v1"]}'
+yarn ocap daemon exec initRemoteComms '{"directListenAddresses": ["/ip4/0.0.0.0/udp/4002/quic-v1"]}'
 
 # Verify it's connected and note the listen addresses
-ocap daemon exec getStatus
+yarn ocap daemon exec getStatus
 # Look for: remoteComms.state === "connected", remoteComms.listenAddresses
 ```
 
@@ -210,7 +210,7 @@ Save the listen addresses — you'll give them to the away device along with the
 ### 2c. Launch the wallet subcluster
 
 ```bash
-ocap daemon exec launchSubcluster '{
+yarn ocap daemon exec launchSubcluster '{
   "config": {
     "bootstrap": "coordinator",
     "forceReset": true,
@@ -247,22 +247,22 @@ Note the `rootKref` from the output (e.g. `ko4`). This is the wallet coordinator
 
 ```bash
 # Initialize with your mnemonic (SRP)
-ocap daemon exec queueMessage '["ko4", "initializeKeyring", [{"type": "srp", "mnemonic": "your twelve word mnemonic phrase here"}]]'
+yarn ocap daemon exec queueMessage '["ko4", "initializeKeyring", [{"type": "srp", "mnemonic": "your twelve word mnemonic phrase here"}]]'
 
 # Verify
-ocap daemon exec queueMessage '["ko4", "getAccounts", []]'
+yarn ocap daemon exec queueMessage '["ko4", "getAccounts", []]'
 ```
 
 ### 2e. Configure the provider
 
 ```bash
-ocap daemon exec queueMessage '["ko4", "configureProvider", [{"chainId": 11155111, "rpcUrl": "https://sepolia.infura.io/v3/YOUR_INFURA_KEY"}]]'
+yarn ocap daemon exec queueMessage '["ko4", "configureProvider", [{"chainId": 11155111, "rpcUrl": "https://sepolia.infura.io/v3/YOUR_INFURA_KEY"}]]'
 ```
 
 ### 2f. Issue an OCAP URL for the away device
 
 ```bash
-ocap daemon exec queueMessage '["ko4", "issueOcapUrl", []]'
+yarn ocap daemon exec queueMessage '["ko4", "issueOcapUrl", []]'
 ```
 
 Save the returned `ocap:...` URL and the listen addresses from `getStatus` above — you'll give both to the away device.
@@ -276,7 +276,7 @@ Follow the OpenClaw installation docs. The agent will use the wallet plugin to i
 ### 3b. Start the away daemon
 
 ```bash
-ocap daemon start
+yarn ocap daemon start
 ```
 
 ### 3c. Initialize remote comms and register home location hints
@@ -284,11 +284,11 @@ ocap daemon start
 ```bash
 # Start the libp2p networking stack with QUIC transport
 # Use a fixed port and open it in the firewall: sudo ufw allow 4002/udp
-ocap daemon exec initRemoteComms '{"directListenAddresses": ["/ip4/0.0.0.0/udp/4002/quic-v1"]}'
+yarn ocap daemon exec initRemoteComms '{"directListenAddresses": ["/ip4/0.0.0.0/udp/4002/quic-v1"]}'
 
 # Register the home device's listen addresses so the away kernel can find it.
 # The peer ID is the first path component of the OCAP URL (ocap:<peerId>/...).
-ocap daemon exec registerLocationHints '{"peerId": "HOME_PEER_ID", "hints": ["/ip4/.../udp/.../quic-v1/p2p/..."]}'
+yarn ocap daemon exec registerLocationHints '{"peerId": "HOME_PEER_ID", "hints": ["/ip4/.../udp/.../quic-v1/p2p/..."]}'
 ```
 
 ### 3d. Launch the wallet subcluster
@@ -296,7 +296,7 @@ ocap daemon exec registerLocationHints '{"peerId": "HOME_PEER_ID", "hints": ["/i
 Same as the home device (see section 2c), but with the VPS's allowed hosts:
 
 ```bash
-ocap daemon exec launchSubcluster '{"config": { ... }}'
+yarn ocap daemon exec launchSubcluster '{"config": { ... }}'
 ```
 
 ### 3e. Initialize with a throwaway key
@@ -304,19 +304,19 @@ ocap daemon exec launchSubcluster '{"config": { ... }}'
 The away wallet gets a throwaway key (for gas/own operations within delegations):
 
 ```bash
-ocap daemon exec queueMessage '["ko4", "initializeKeyring", [{"type": "throwaway"}]]'
+yarn ocap daemon exec queueMessage '["ko4", "initializeKeyring", [{"type": "throwaway"}]]'
 ```
 
 ### 3f. Connect to the home wallet
 
 ```bash
-ocap daemon exec queueMessage '["ko4", "connectToPeer", ["ocap:zgAu...YOUR_OCAP_URL_HERE"]]'
+yarn ocap daemon exec queueMessage '["ko4", "connectToPeer", ["ocap:zgAu...YOUR_OCAP_URL_HERE"]]'
 ```
 
 ### 3g. Verify the connection
 
 ```bash
-ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
+yarn ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
 ```
 
 Should show `hasPeerWallet: true`.
@@ -327,10 +327,10 @@ On the **home device**, create a delegation for the away wallet's address:
 
 ```bash
 # Get the away wallet's address first (on the away device)
-ocap daemon exec queueMessage '["ko4", "getAccounts", []]'
+yarn ocap daemon exec queueMessage '["ko4", "getAccounts", []]'
 
 # On the home device, create a delegation
-ocap daemon exec queueMessage '["ko4", "createDelegation", [{
+yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{
   "delegate": "0xAwayAddress...",
   "caveats": [],
   "chainId": 11155111
@@ -341,12 +341,12 @@ Transfer the signed delegation to the away device:
 
 ```bash
 # On the away device
-ocap daemon exec queueMessage '["ko4", "receiveDelegation", [{ ...signed delegation JSON... }]]'
+yarn ocap daemon exec queueMessage '["ko4", "receiveDelegation", [{ ...signed delegation JSON... }]]'
 ```
 
 ## 5. Try it out
 
-The wallet can be used via the agent (OpenClaw plugin) or directly through `ocap daemon exec`. All commands below route through the kernel's capability system — the caller never touches private keys.
+The wallet can be used via the agent (OpenClaw plugin) or directly through `yarn ocap daemon exec`. All commands below route through the kernel's capability system — the caller never touches private keys.
 
 ### Via the agent (OpenClaw)
 
@@ -364,26 +364,26 @@ You can also call the wallet coordinator directly. Replace `ko4` with your `root
 
 ```bash
 # List accounts
-ocap daemon exec queueMessage '["ko4", "getAccounts", []]'
+yarn ocap daemon exec queueMessage '["ko4", "getAccounts", []]'
 
 # Check capabilities (local keys, peer wallet, delegations, bundler)
-ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
+yarn ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
 
 # Sign a message
-ocap daemon exec queueMessage '["ko4", "signMessage", ["hello world"]]'
+yarn ocap daemon exec queueMessage '["ko4", "signMessage", ["hello world"]]'
 
 # Sign a transaction
-ocap daemon exec queueMessage '["ko4", "signTransaction", [{"to": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8", "value": "0x2386F26FC10000", "chainId": 11155111}]]'
+yarn ocap daemon exec queueMessage '["ko4", "signTransaction", [{"to": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8", "value": "0x2386F26FC10000", "chainId": 11155111}]]'
 
 # Query the chain (eth_getBalance, eth_blockNumber, etc.)
-ocap daemon exec queueMessage '["ko4", "request", ["eth_getBalance", ["0x71fA1599e6c6FE46CD2A798E136f3ba22863cF82", "latest"]]]'
-ocap daemon exec queueMessage '["ko4", "request", ["eth_blockNumber", []]]'
+yarn ocap daemon exec queueMessage '["ko4", "request", ["eth_getBalance", ["0x71fA1599e6c6FE46CD2A798E136f3ba22863cF82", "latest"]]]'
+yarn ocap daemon exec queueMessage '["ko4", "request", ["eth_blockNumber", []]]'
 
 # Create a delegation for another address
-ocap daemon exec queueMessage '["ko4", "createDelegation", [{"delegate": "0x...", "caveats": [], "chainId": 11155111}]]'
+yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{"delegate": "0x...", "caveats": [], "chainId": 11155111}]]'
 
 # List active delegations
-ocap daemon exec queueMessage '["ko4", "listDelegations", []]'
+yarn ocap daemon exec queueMessage '["ko4", "listDelegations", []]'
 ```
 
 ## 6. How it works
@@ -395,7 +395,7 @@ Agent (AI)
   ├─ wallet_send     ──→       │
   └─ wallet_sign     ──→       │
                                 │
-                         ocap daemon exec queueMessage
+                         yarn ocap daemon exec queueMessage
                                 │
                           OCAP Daemon (Unix socket)
                                 │
