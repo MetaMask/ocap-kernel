@@ -466,7 +466,7 @@ describe('provider-vat', () => {
 
       mockProvider.request
         .mockResolvedValueOnce({ baseFeePerGas: '0x3b9aca00' }) // eth_getBlockByNumber
-        .mockRejectedValueOnce(new Error('method not supported')); // eth_maxPriorityFeePerGas
+        .mockRejectedValueOnce(new Error('Method not found (-32601)')); // eth_maxPriorityFeePerGas
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const fees = await (root as any).getGasFees();
