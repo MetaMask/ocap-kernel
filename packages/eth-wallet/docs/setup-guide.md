@@ -87,6 +87,17 @@ sudo ufw allow 4002/udp
 
 No `--relay` flag is needed in this case.
 
+### Switching between relay and direct mode
+
+Relay addresses are persisted in the kernel's KV store. If you previously ran with `--relay` and want to switch to direct mode (or vice versa), purge the daemon state first:
+
+```bash
+yarn ocap daemon stop
+yarn ocap daemon purge --force
+```
+
+Then re-run the setup script. Without this, the old relay address stays embedded in new OCAP URLs.
+
 ### Home device (holds the master keys)
 
 ```bash
