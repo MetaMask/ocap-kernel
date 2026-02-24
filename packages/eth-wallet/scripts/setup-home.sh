@@ -217,7 +217,11 @@ ok "Daemon running"
 # 3. Initialize remote comms (QUIC transport)
 # ---------------------------------------------------------------------------
 
-info "Initializing remote comms (QUIC port $QUIC_PORT)..."
+if [[ -n "$RELAY_ADDR" ]]; then
+  info "Initializing remote comms (QUIC port $QUIC_PORT + relay)..."
+else
+  info "Initializing remote comms (QUIC port $QUIC_PORT)..."
+fi
 COMMS_PARAMS="{\"directListenAddresses\":[\"/ip4/0.0.0.0/udp/${QUIC_PORT}/quic-v1\"]"
 if [[ -n "$RELAY_ADDR" ]]; then
   COMMS_PARAMS="${COMMS_PARAMS},\"relays\":[\"${RELAY_ADDR}\"]"
