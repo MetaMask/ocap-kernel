@@ -158,7 +158,7 @@ async function callVat(
       `queueMessage RPC error: ${response.error.message ?? JSON.stringify(response.error)}`,
     );
   }
-  return decodeCapData(response);
+  return decodeCapData(response.result);
 }
 
 describe.sequential('OpenClaw wallet plugin daemon integration', () => {
