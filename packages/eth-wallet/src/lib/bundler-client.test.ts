@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { makeBundlerClient } from './bundler-client.ts';
 import type { Hex } from '../types.ts';
 
-// Mock globalThis.fetch
+// Mock globalThis.fetch for all tests.
+// Each test file runs in its own vitest worker, so this doesn't leak.
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 

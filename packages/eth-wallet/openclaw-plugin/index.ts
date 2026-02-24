@@ -153,8 +153,15 @@ function decodeCapData(raw: string, method: string): unknown {
     throw new Error(`Wallet ${method} returned invalid CapData body`);
   }
 
+  const bodyContent = parsed.body.slice(1);
+
+  // Handle error bodies from vat exceptions (e.g. "#error:message")
+  if (bodyContent.startsWith('error:')) {
+    throw new Error(`Wallet ${method} vat error: ${bodyContent.slice(6)}`);
+  }
+
   try {
-    return JSON.parse(parsed.body.slice(1));
+    return JSON.parse(bodyContent);
   } catch {
     throw new Error(`Wallet ${method} returned undecodable CapData body`);
   }

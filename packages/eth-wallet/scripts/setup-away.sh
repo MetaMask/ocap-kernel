@@ -30,6 +30,7 @@ OCAP_URL=""
 INFURA_KEY=""
 LISTEN_ADDRS=""
 SKIP_BUILD=false
+QUIC_PORT=4002
 DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
 
 # ---------------------------------------------------------------------------
@@ -38,7 +39,7 @@ DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
 
 usage() {
   cat <<EOF
-Usage: $0 --ocap-url "ocap:..." --listen-addrs '["/ip4/..."]' [--infura-key KEY] [--pimlico-key KEY] [--chain-id ID] [--no-build]
+Usage: $0 --ocap-url "ocap:..." --listen-addrs '["/ip4/..."]' [--infura-key KEY] [--pimlico-key KEY] [--chain-id ID] [--quic-port PORT] [--no-build]
 
 Required:
   --ocap-url       OCAP URL from the home device (output of setup-home.sh)
@@ -48,6 +49,7 @@ Optional:
   --infura-key     Infura API key (for direct chain queries)
   --pimlico-key    Pimlico API key (bundler/paymaster)
   --chain-id       Chain ID (default: $CHAIN_ID)
+  --quic-port      UDP port for QUIC transport (default: $QUIC_PORT)
   --no-build       Skip yarn build
 EOF
   exit 1
@@ -70,6 +72,9 @@ while [[ $# -gt 0 ]]; do
     --chain-id)
       [[ $# -lt 2 ]] && { echo "Error: --chain-id requires a value" >&2; usage; }
       CHAIN_ID="$2"; shift 2 ;;
+    --quic-port)
+      [[ $# -lt 2 ]] && { echo "Error: --quic-port requires a value" >&2; usage; }
+      QUIC_PORT="$2"; shift 2 ;;
     --no-build)    SKIP_BUILD=true; shift ;;
     -h|--help)     usage ;;
     *) echo "Unknown option: $1" >&2; usage ;;
@@ -97,6 +102,11 @@ fi
 
 if ! command -v node &>/dev/null; then
   echo "Error: Node.js is required but not found on PATH." >&2
+  exit 1
+fi
+
+if ! command -v yarn &>/dev/null; then
+  echo "Error: yarn is required but not found on PATH. Run: npm install -g yarn" >&2
   exit 1
 fi
 
@@ -200,14 +210,18 @@ ok "Daemon running"
 # 3. Initialize remote comms (QUIC transport)
 # ---------------------------------------------------------------------------
 
-info "Initializing remote comms..."
-daemon_exec initRemoteComms '{"directListenAddresses":["/ip4/0.0.0.0/udp/0/quic-v1"]}' >/dev/null
+info "Initializing remote comms (QUIC port $QUIC_PORT)..."
+daemon_exec initRemoteComms "{\"directListenAddresses\":[\"/ip4/0.0.0.0/udp/${QUIC_PORT}/quic-v1\"]}" >/dev/null
 ok "Remote comms initialized"
 
 # Wait for remote comms to reach 'connected' state
 info "Waiting for remote comms to connect..."
 for i in $(seq 1 30); do
-  STATUS=$($OCAP_BIN daemon exec getStatus)
+  STATUS=$($OCAP_BIN daemon exec getStatus 2>/dev/null) || STATUS=""
+  if [[ -z "$STATUS" ]]; then
+    sleep 1
+    continue
+  fi
   STATE=$(echo "$STATUS" | node -e "
     const data = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
     process.stdout.write(data.remoteComms?.state ?? 'none');
@@ -263,38 +277,38 @@ ok "Location hints registered for peer $HOME_PEER_ID"
 
 info "Launching wallet subcluster..."
 
-ALLOWED_HOSTS='["sepolia.infura.io", "api.pimlico.io"]'
-
-CONFIG=$(cat <<ENDJSON
-{
-  "config": {
-    "bootstrap": "coordinator",
-    "forceReset": true,
-    "services": ["ocapURLIssuerService", "ocapURLRedemptionService"],
-    "vats": {
-      "coordinator": {
-        "bundleSpec": "$BUNDLE_DIR/coordinator-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder", "Date", "setTimeout"]
-      },
-      "keyring": {
-        "bundleSpec": "$BUNDLE_DIR/keyring-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder"]
-      },
-      "provider": {
-        "bundleSpec": "$BUNDLE_DIR/provider-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder"],
-        "platformConfig": { "fetch": { "allowedHosts": $ALLOWED_HOSTS } }
-      },
-      "delegation": {
-        "bundleSpec": "$BUNDLE_DIR/delegation-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder"],
-        "parameters": { "delegationManagerAddress": "$DELEGATION_MANAGER" }
+CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" node -e "
+  const bd = process.env.BUNDLE_DIR;
+  const dm = process.env.DM;
+  const config = {
+    config: {
+      bootstrap: 'coordinator',
+      forceReset: true,
+      services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+      vats: {
+        coordinator: {
+          bundleSpec: bd + '/coordinator-vat.bundle',
+          globals: ['TextEncoder', 'TextDecoder', 'Date', 'setTimeout']
+        },
+        keyring: {
+          bundleSpec: bd + '/keyring-vat.bundle',
+          globals: ['TextEncoder', 'TextDecoder']
+        },
+        provider: {
+          bundleSpec: bd + '/provider-vat.bundle',
+          globals: ['TextEncoder', 'TextDecoder'],
+          platformConfig: { fetch: { allowedHosts: ['sepolia.infura.io', 'api.pimlico.io'] } }
+        },
+        delegation: {
+          bundleSpec: bd + '/delegation-vat.bundle',
+          globals: ['TextEncoder', 'TextDecoder'],
+          parameters: { delegationManagerAddress: dm }
+        }
       }
     }
-  }
-}
-ENDJSON
-)
+  };
+  process.stdout.write(JSON.stringify(config));
+")
 
 LAUNCH_RESULT=$($OCAP_BIN daemon exec launchSubcluster "$CONFIG")
 ROOT_KREF=$(echo "$LAUNCH_RESULT" | node -e "

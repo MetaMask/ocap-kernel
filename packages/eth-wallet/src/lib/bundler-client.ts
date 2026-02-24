@@ -238,6 +238,12 @@ export function makeBundlerClient(
       pollingInterval?: number;
       timeout?: number;
     }): Promise<unknown> {
+      if (!hasTimers) {
+        throw new Error(
+          'waitForUserOperationReceipt requires timer support ' +
+            '(not available in SES compartments)',
+        );
+      }
       const { pollingInterval = 2000, timeout = 60000 } = options;
       const deadline = Date.now() + timeout;
 

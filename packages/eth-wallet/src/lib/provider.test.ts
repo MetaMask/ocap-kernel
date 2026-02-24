@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { makeProvider } from './provider.ts';
 import type { Provider } from './provider.ts';
 
-// Mock globalThis.fetch for all tests
+// Mock globalThis.fetch for all tests.
+// Each test file runs in its own vitest worker, so this doesn't leak.
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 

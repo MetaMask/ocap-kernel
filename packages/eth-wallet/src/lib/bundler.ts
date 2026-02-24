@@ -153,6 +153,11 @@ export async function waitForUserOp(
   userOpHash: Hex,
   options: { pollIntervalMs?: number; timeoutMs?: number } = {},
 ): Promise<UserOpReceipt> {
+  if (typeof globalThis.setTimeout !== 'function') {
+    throw new Error(
+      'waitForUserOp requires timer support (not available in SES compartments)',
+    );
+  }
   const { pollIntervalMs = 2000, timeoutMs = 60000 } = options;
   const deadline = Date.now() + timeoutMs;
 
