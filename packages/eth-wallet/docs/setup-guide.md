@@ -90,7 +90,7 @@ No `--relay` flag is needed in this case.
 ### Home device (holds the master keys)
 
 ```bash
-./scripts/setup-home.sh \
+./packages/eth-wallet/scripts/setup-home.sh \
   --mnemonic "your twelve word mnemonic" \
   --infura-key YOUR_INFURA_KEY \
   --pimlico-key YOUR_PIMLICO_KEY \
@@ -103,7 +103,7 @@ No `--relay` flag is needed in this case.
 ### Away device (VPS / agent machine)
 
 ```bash
-./scripts/setup-away.sh \
+./packages/eth-wallet/scripts/setup-away.sh \
   --ocap-url "ocap:…URL_FROM_HOME…" \
   --listen-addrs '["/ip4/…/udp/…/quic-v1/p2p/…"]' \
   --infura-key YOUR_INFURA_KEY \
@@ -124,20 +124,20 @@ Run this on the away device after `setup-away.sh` completes.
 1. Install plugin dependencies (once, inside the plugin directory):
 
 ```bash
-cd /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
+cd packages/eth-wallet/openclaw-plugin
 npm install
 ```
 
 2. Load the plugin into OpenClaw:
 
 ```bash
-openclaw plugin load /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
+openclaw plugin load packages/eth-wallet/openclaw-plugin
 ```
 
 3. Configure the plugin in OpenClaw's plugin settings (`openclaw plugin config wallet`):
 
 - **Wallet Coordinator KRef**: the `rootKref` from `setup-away.sh` output (e.g. `ko4`)
-- **OCAP CLI Path**: absolute path to the CLI entry point, e.g. `/home/ubuntu/ocap-kernel/packages/cli/dist/app.mjs`
+- **OCAP CLI Path**: absolute path to the CLI entry point, e.g. `~/ocap-kernel/packages/cli/dist/app.mjs`
 
 4. Restart the OpenClaw gateway so the plugin loads:
 
@@ -217,20 +217,20 @@ ocap daemon exec launchSubcluster '{
     "services": ["ocapURLIssuerService", "ocapURLRedemptionService"],
     "vats": {
       "coordinator": {
-        "bundleSpec": "/path/to/packages/eth-wallet/src/vats/coordinator-vat.bundle",
+        "bundleSpec": "packages/eth-wallet/src/vats/coordinator-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder", "Date", "setTimeout"]
       },
       "keyring": {
-        "bundleSpec": "/path/to/packages/eth-wallet/src/vats/keyring-vat.bundle",
+        "bundleSpec": "packages/eth-wallet/src/vats/keyring-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder"]
       },
       "provider": {
-        "bundleSpec": "/path/to/packages/eth-wallet/src/vats/provider-vat.bundle",
+        "bundleSpec": "packages/eth-wallet/src/vats/provider-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder"],
         "platformConfig": { "fetch": { "allowedHosts": ["sepolia.infura.io", "api.pimlico.io"] } }
       },
       "delegation": {
-        "bundleSpec": "/path/to/packages/eth-wallet/src/vats/delegation-vat.bundle",
+        "bundleSpec": "packages/eth-wallet/src/vats/delegation-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder"],
         "parameters": { "delegationManagerAddress": "0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3" }
       }
