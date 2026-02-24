@@ -9,16 +9,15 @@ This guide walks through setting up the OCAP eth-wallet on two devices:
 
 - [API keys](#api-keys) — Infura, Pimlico, and testnet ETH
 - [Quick start](#quick-start-automated-scripts) — automated setup scripts
-- [OpenClaw plugin install (separate step)](#openclaw-plugin-install-separate-step)
+- [OpenClaw plugin install](#openclaw-plugin-install) — configure the agent plugin
 - [Manual setup](#manual-setup) — step-by-step commands
   - [1. Build the packages](#1-build-the-packages)
   - [2. Home device setup](#2-home-device-setup)
   - [3. Away device setup](#3-away-device-vps-setup)
   - [4. Delegate authority](#4-delegate-authority-from-home-to-away)
-  - [5. OpenClaw plugin setup](#5-openclaw-plugin-setup)
-- [Try it out](#6-try-it-out) — agent prompts and CLI commands
-- [How it works](#7-how-it-works)
-- [Verify everything works](#8-verify-everything-works)
+- [Try it out](#5-try-it-out) — agent prompts and CLI commands
+- [How it works](#6-how-it-works)
+- [Verify everything works](#7-verify-everything-works)
 
 ## Prerequisites
 
@@ -97,9 +96,9 @@ sudo ufw allow 4002/udp
 
 If you use a custom port via `--quic-port`, open that port instead. Both devices need to be reachable on their QUIC port for the peer connection to establish.
 
-`setup-away.sh` does **not** install or configure the OpenClaw wallet plugin. Do that separately in the next section.
+`setup-away.sh` does **not** install or configure the OpenClaw wallet plugin — do that next.
 
-## OpenClaw plugin install (separate step)
+## OpenClaw plugin install
 
 Run this on the away device after `setup-away.sh` completes.
 
@@ -326,56 +325,7 @@ Transfer the signed delegation to the away device:
 ocap daemon exec queueMessage '["ko4", "receiveDelegation", [{ ...signed delegation JSON... }]]'
 ```
 
-## 5. OpenClaw plugin setup
-
-### 5a. Install plugin dependencies
-
-The plugin lives in `packages/eth-wallet/openclaw-plugin/`. Install its dependencies first:
-
-```bash
-cd /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
-npm install
-```
-
-### 5b. Load the plugin
-
-```bash
-openclaw plugin load /path/to/ocap-kernel/packages/eth-wallet/openclaw-plugin
-```
-
-### 5c. Configure the plugin
-
-Configure the plugin via OpenClaw's plugin settings (`openclaw plugin config wallet`):
-
-- **Wallet Coordinator KRef** (`walletKref`): the `rootKref` from the setup output (e.g. `ko4`)
-- **OCAP CLI Path** (`ocapCliPath`): absolute path to the CLI, e.g. `/home/ubuntu/ocap-kernel/packages/cli/dist/app.mjs`
-- **Timeout** (`timeoutMs`): optional, defaults to 60000 ms
-
-### 5d. Restart the gateway
-
-```bash
-openclaw gateway restart
-```
-
-### 5e. Allow wallet tools for your agent
-
-In your agent configuration, allow the wallet tools:
-
-```json
-{
-  "tools": {
-    "allow": [
-      "wallet_balance",
-      "wallet_send",
-      "wallet_sign",
-      "wallet_accounts",
-      "wallet_capabilities"
-    ]
-  }
-}
-```
-
-## 6. Try it out
+## 5. Try it out
 
 The wallet can be used via the agent (OpenClaw plugin) or directly through `ocap daemon exec`. All commands below route through the kernel's capability system — the caller never touches private keys.
 
@@ -417,7 +367,7 @@ ocap daemon exec queueMessage '["ko4", "createDelegation", [{"delegate": "0x..."
 ocap daemon exec queueMessage '["ko4", "listDelegations", []]'
 ```
 
-## 7. How it works
+## 6. How it works
 
 ```
 Agent (AI)
@@ -444,7 +394,7 @@ Agent (AI)
          signing      (CapTP to home)
 ```
 
-## 8. Verify everything works
+## 7. Verify everything works
 
 Run the automated tests to confirm the setup:
 
