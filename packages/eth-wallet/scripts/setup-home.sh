@@ -402,6 +402,9 @@ cat >&2 <<EOF
   Pass the OCAP URL and listen addresses
   below to setup-away.sh on the away device.
 
+  To watch daemon logs:
+    tail -f ~/.ocap/daemon.log
+
   To stop the daemon:
     node $OCAP_BIN daemon stop
 ══════════════════════════════════════════════
