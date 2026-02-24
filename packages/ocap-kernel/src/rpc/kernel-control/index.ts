@@ -8,6 +8,10 @@ import {
   executeDBQuerySpec,
 } from './execute-db-query.ts';
 import { getStatusHandler, getStatusSpec } from './get-status.ts';
+import {
+  initRemoteCommsHandler,
+  initRemoteCommsSpec,
+} from './init-remote-comms.ts';
 import { isRevokedHandler, isRevokedSpec } from './is-revoked.ts';
 import { issueOcapURLHandler, issueOcapURLSpec } from './issue-ocap-url.ts';
 import {
@@ -17,6 +21,10 @@ import {
 import { pingVatHandler, pingVatSpec } from './ping-vat.ts';
 import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
 import { redeemOcapURLHandler, redeemOcapURLSpec } from './redeem-ocap-url.ts';
+import {
+  registerLocationHintsHandler,
+  registerLocationHintsSpec,
+} from './register-location-hints.ts';
 import { restartVatHandler, restartVatSpec } from './restart-vat.ts';
 import { revokeHandler, revokeSpec } from './revoke.ts';
 import {
@@ -36,9 +44,11 @@ export const rpcHandlers = {
   clearState: clearStateHandler,
   executeDBQuery: executeDBQueryHandler,
   getStatus: getStatusHandler,
+  initRemoteComms: initRemoteCommsHandler,
   issueOcapURL: issueOcapURLHandler,
   pingVat: pingVatHandler,
   redeemOcapURL: redeemOcapURLHandler,
+  registerLocationHints: registerLocationHintsHandler,
   revoke: revokeHandler,
   isRevoked: isRevokedHandler,
   restartVat: restartVatHandler,
@@ -52,9 +62,11 @@ export const rpcHandlers = {
   clearState: typeof clearStateHandler;
   executeDBQuery: typeof executeDBQueryHandler;
   getStatus: typeof getStatusHandler;
+  initRemoteComms: typeof initRemoteCommsHandler;
   issueOcapURL: typeof issueOcapURLHandler;
   pingVat: typeof pingVatHandler;
   redeemOcapURL: typeof redeemOcapURLHandler;
+  registerLocationHints: typeof registerLocationHintsHandler;
   revoke: typeof revokeHandler;
   isRevoked: typeof isRevokedHandler;
   restartVat: typeof restartVatHandler;
@@ -73,9 +85,11 @@ export const rpcMethodSpecs = {
   clearState: clearStateSpec,
   executeDBQuery: executeDBQuerySpec,
   getStatus: getStatusSpec,
+  initRemoteComms: initRemoteCommsSpec,
   issueOcapURL: issueOcapURLSpec,
   pingVat: pingVatSpec,
   redeemOcapURL: redeemOcapURLSpec,
+  registerLocationHints: registerLocationHintsSpec,
   revoke: revokeSpec,
   isRevoked: isRevokedSpec,
   restartVat: restartVatSpec,
@@ -89,9 +103,11 @@ export const rpcMethodSpecs = {
   clearState: typeof clearStateSpec;
   executeDBQuery: typeof executeDBQuerySpec;
   getStatus: typeof getStatusSpec;
+  initRemoteComms: typeof initRemoteCommsSpec;
   issueOcapURL: typeof issueOcapURLSpec;
   pingVat: typeof pingVatSpec;
   redeemOcapURL: typeof redeemOcapURLSpec;
+  registerLocationHints: typeof registerLocationHintsSpec;
   revoke: typeof revokeSpec;
   isRevoked: typeof isRevokedSpec;
   restartVat: typeof restartVatSpec;
