@@ -50,7 +50,7 @@ Required:
 
 Optional:
   --pimlico-key    Pimlico API key (bundler/paymaster)
-  --relay          Relay multiaddr (e.g. /ip4/HOST/tcp/9002/p2p/PEER_ID)
+  --relay          Relay multiaddr (e.g. /ip4/HOST/tcp/9001/ws/p2p/PEER_ID)
   --chain-id       Chain ID (default: $CHAIN_ID)
   --quic-port      UDP port for QUIC transport (default: $QUIC_PORT)
   --no-build       Skip yarn build
@@ -177,11 +177,17 @@ parse_capdata() {
 }
 
 # Run a daemon exec command and log its output to stderr.
-# Usage: daemon_exec <method> <params>
+# Usage: daemon_exec [--quiet] <method> <params>
+# Pass --quiet to suppress the stderr log line (for sensitive params).
 daemon_exec() {
+  local quiet=false
+  if [[ "${1:-}" == "--quiet" ]]; then
+    quiet=true
+    shift
+  fi
   local result
   result=$(node "$OCAP_BIN" daemon exec "$@")
-  if [[ -n "$result" ]]; then
+  if [[ -n "$result" && "$quiet" == false ]]; then
     echo "  [daemon exec $1] $result" >&2
   fi
   echo "$result"
@@ -313,7 +319,7 @@ INIT_PARAMS=$(KREF="$ROOT_KREF" SRP="$MNEMONIC" node -e "
   process.stdout.write(p);
 ")
 
-daemon_exec queueMessage "$INIT_PARAMS" >/dev/null
+daemon_exec --quiet queueMessage "$INIT_PARAMS" >/dev/null
 ok "Keyring initialized"
 
 info "Verifying accounts..."
@@ -396,11 +402,11 @@ PEER_ID=$(echo "$LISTEN_ADDRS" | node -e "
 PUBLIC_IP=$(curl -s -4 --max-time 5 https://ifconfig.me || true)
 if [[ -n "$PUBLIC_IP" && -n "$PEER_ID" ]]; then
   PUBLIC_ADDR="/ip4/${PUBLIC_IP}/udp/${QUIC_PORT}/quic-v1/p2p/${PEER_ID}"
-  LISTEN_ADDRS=$(echo "$LISTEN_ADDRS" | node -e "
+  LISTEN_ADDRS=$(PUBLIC_ADDR="$PUBLIC_ADDR" node -e "
     const addrs = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
-    addrs.unshift('${PUBLIC_ADDR}');
+    addrs.unshift(process.env.PUBLIC_ADDR);
     process.stdout.write(JSON.stringify(addrs));
-  ")
+  " <<< "$LISTEN_ADDRS")
   ok "Public address: $PUBLIC_ADDR"
 fi
 ok "Listen addresses: $LISTEN_ADDRS"

@@ -190,6 +190,7 @@ From the monorepo root:
 yarn install
 yarn workspace @metamask/ocap-kernel build
 yarn workspace @ocap/nodejs build
+yarn workspace @ocap/cli build
 yarn workspace @ocap/eth-wallet build
 ```
 

@@ -49,7 +49,7 @@ Required:
 Optional:
   --infura-key     Infura API key (for direct chain queries)
   --pimlico-key    Pimlico API key (bundler/paymaster)
-  --relay          Relay multiaddr (e.g. /ip4/HOST/tcp/9002/p2p/PEER_ID)
+  --relay          Relay multiaddr (e.g. /ip4/HOST/tcp/9001/ws/p2p/PEER_ID)
   --chain-id       Chain ID (default: $CHAIN_ID)
   --quic-port      UDP port for QUIC transport (default: $QUIC_PORT)
   --no-build       Skip yarn build
@@ -179,11 +179,17 @@ parse_capdata() {
 }
 
 # Run a daemon exec command and log its output to stderr.
-# Usage: daemon_exec <method> <params> [--timeout <seconds>]
+# Usage: daemon_exec [--quiet] <method> <params> [--timeout <seconds>]
+# Pass --quiet to suppress the stderr log line (for sensitive params).
 daemon_exec() {
+  local quiet=false
+  if [[ "${1:-}" == "--quiet" ]]; then
+    quiet=true
+    shift
+  fi
   local result
   result=$(node "$OCAP_BIN" daemon exec "$@")
-  if [[ -n "$result" ]]; then
+  if [[ -n "$result" && "$quiet" == false ]]; then
     echo "  [daemon exec $1] $result" >&2
   fi
   echo "$result"
@@ -400,29 +406,41 @@ CONNECT_PARAMS=$(KREF="$ROOT_KREF" PEER_URL="$OCAP_URL" node -e "
 ")
 
 daemon_exec queueMessage "$CONNECT_PARAMS" --timeout 120 >/dev/null
-ok "Connected to home wallet"
 
 # ---------------------------------------------------------------------------
-# 9. Verify connection
+# 9. Wait for peer wallet connection
 # ---------------------------------------------------------------------------
 
-info "Verifying capabilities..."
-CAPS_RAW=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]")
-CAPS=$(echo "$CAPS_RAW" | parse_capdata)
-
-HAS_PEER=$(echo "$CAPS" | node -e "
-  const data = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
-  process.stdout.write(String(data.hasPeerWallet));
-")
-
-if [[ "$HAS_PEER" != "true" ]]; then
-  fail "Peer connection verification failed (hasPeerWallet=$HAS_PEER)"
-fi
+info "Waiting for peer wallet connection (up to 60s)..."
+for i in $(seq 1 60); do
+  CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
+  if [[ -n "$CAPS_RAW" ]]; then
+    HAS_PEER=$(echo "$CAPS_RAW" | node -e "
+      try {
+        const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+        const v = JSON.parse(d.body.slice(1));
+        process.stdout.write(String(v.hasPeerWallet));
+      } catch { process.stdout.write('false'); }
+    " 2>/dev/null || echo "false")
+    if [[ "$HAS_PEER" == "true" ]]; then
+      break
+    fi
+  fi
+  if [[ "$i" -eq 60 ]]; then
+    fail "Peer wallet not connected after 60s"
+  fi
+  sleep 1
+done
 ok "Peer wallet connected and verified"
 
 # ---------------------------------------------------------------------------
 # Done
 # ---------------------------------------------------------------------------
+
+AWAY_ADDR=$(echo "$ACCOUNTS" | node -e "
+  const arr = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+  process.stdout.write(arr[0]);
+")
 
 cat >&2 <<EOF
 
@@ -432,7 +450,7 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
 
   $(echo -e "${DIM}")Coordinator kref :$(echo -e "${RESET}") $ROOT_KREF
   $(echo -e "${DIM}")Chain ID         :$(echo -e "${RESET}") $CHAIN_ID
-  $(echo -e "${DIM}")Local account    :$(echo -e "${RESET}") $ACCOUNTS
+  $(echo -e "${DIM}")Local account    :$(echo -e "${RESET}") $AWAY_ADDR
   $(echo -e "${DIM}")Peer connected   :$(echo -e "${RESET}") $(echo -e "${GREEN}")true$(echo -e "${RESET}")
 
   The away wallet can now forward signing
@@ -440,7 +458,7 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
 
 $(echo -e "${YELLOW}${BOLD}")  To delegate authority, run this on the HOME device:$(echo -e "${RESET}")
 
-  $(echo -e "${DIM}")yarn ocap daemon exec queueMessage '["<HOME_KREF>", "createDelegation", [{"delegate": "$(echo "$ACCOUNTS" | node -e "process.stdout.write(JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'))[0])")", "caveats": [], "chainId": $CHAIN_ID}]]'$(echo -e "${RESET}")
+  $(echo -e "${DIM}")yarn ocap daemon exec queueMessage '["<HOME_KREF>", "createDelegation", [{"delegate": "$AWAY_ADDR", "caveats": [], "chainId": $CHAIN_ID}]]'$(echo -e "${RESET}")
 
   $(echo -e "${DIM}")Replace <HOME_KREF> with the coordinator kref from setup-home.sh output.$(echo -e "${RESET}")
 
