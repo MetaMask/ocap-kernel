@@ -432,6 +432,3 @@ $(echo -e "${YELLOW}${BOLD}")  Copy these values to setup-away.sh on the away de
   $(echo -e "${DIM}")node $OCAP_BIN daemon stop$(echo -e "${RESET}")  stop the daemon
 
 EOF
-
-echo "$OCAP_URL"
-echo "$LISTEN_ADDRS"
