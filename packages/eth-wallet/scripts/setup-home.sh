@@ -111,15 +111,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$PKG_ROOT/../.." && pwd)"
 BUNDLE_DIR="$PKG_ROOT/src/vats"
-OCAP_BIN="$REPO_ROOT/node_modules/.bin/ocap"
+OCAP_BIN="$REPO_ROOT/packages/cli/dist/app.mjs"
 
-if [[ ! -x "$OCAP_BIN" ]]; then
-  if command -v ocap &>/dev/null; then
-    OCAP_BIN=ocap
-  else
-    echo "Error: ocap CLI not found. Run 'yarn install' from the repo root." >&2
-    exit 1
-  fi
+if [[ ! -f "$OCAP_BIN" ]]; then
+  echo "Error: ocap CLI not found at $OCAP_BIN. Run 'yarn workspace @ocap/cli build' first." >&2
+  exit 1
 fi
 
 RPC_URL="https://sepolia.infura.io/v3/${INFURA_KEY}"
@@ -171,7 +167,7 @@ parse_capdata() {
 # Usage: daemon_exec <method> <params>
 daemon_exec() {
   local result
-  result=$($OCAP_BIN daemon exec "$@")
+  result=$(node "$OCAP_BIN" daemon exec "$@")
   if [[ -n "$result" ]]; then
     echo "  [daemon exec $1] $result" >&2
   fi
@@ -186,6 +182,7 @@ if [[ "$SKIP_BUILD" == false ]]; then
   info "Building packages..."
   (cd "$REPO_ROOT" && yarn workspace @metamask/ocap-kernel build) >&2
   (cd "$REPO_ROOT" && yarn workspace @ocap/nodejs build) >&2
+  (cd "$REPO_ROOT" && yarn workspace @ocap/cli build) >&2
   (cd "$REPO_ROOT" && yarn workspace @ocap/eth-wallet build) >&2
   ok "Build complete"
 else
@@ -200,7 +197,7 @@ fi
 # ---------------------------------------------------------------------------
 
 info "Starting daemon..."
-$OCAP_BIN daemon start >&2
+node "$OCAP_BIN" daemon start >&2
 ok "Daemon running"
 
 # ---------------------------------------------------------------------------
@@ -214,7 +211,7 @@ ok "Remote comms initialized"
 # Wait for remote comms to reach 'connected' state
 info "Waiting for remote comms to connect..."
 for i in $(seq 1 30); do
-  STATUS=$($OCAP_BIN daemon exec getStatus 2>/dev/null) || STATUS=""
+  STATUS=$(node "$OCAP_BIN" daemon exec getStatus 2>/dev/null) || STATUS=""
   if [[ -z "$STATUS" ]]; then
     sleep 1
     continue
@@ -272,7 +269,7 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" node -e "
   process.stdout.write(JSON.stringify(config));
 ")
 
-LAUNCH_RESULT=$($OCAP_BIN daemon exec launchSubcluster "$CONFIG")
+LAUNCH_RESULT=$(node "$OCAP_BIN" daemon exec launchSubcluster "$CONFIG")
 ROOT_KREF=$(echo "$LAUNCH_RESULT" | node -e "
   const data = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8').trim());
   process.stdout.write(data.rootKref);
@@ -353,7 +350,7 @@ ok "OCAP URL issued"
 # ---------------------------------------------------------------------------
 
 info "Extracting listen addresses..."
-STATUS=$($OCAP_BIN daemon exec getStatus)
+STATUS=$(node "$OCAP_BIN" daemon exec getStatus)
 LISTEN_ADDRS=$(echo "$STATUS" | node -e "
   const data = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
   const addrs = data.remoteComms?.listenAddresses ?? [];
