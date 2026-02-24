@@ -50,7 +50,8 @@
     "test:node": "yarn build && node --conditions development test/integration/run-wallet.mjs",
     "test:node:peer": "yarn build && node --conditions development test/integration/run-peer-wallet.mjs",
     "test:node:daemon": "yarn build && node --conditions development test/integration/run-daemon-wallet.mjs",
-    "test:node:sepolia": "yarn build && node --conditions development test/integration/run-sepolia-e2e.mjs"
+    "test:node:sepolia": "yarn build && node --conditions development test/integration/run-sepolia-e2e.mjs",
+    "test:node:peer-e2e": "yarn build && node --conditions development test/integration/run-peer-e2e.mjs"
   },
   "dependencies": {
     "@endo/eventual-send": "^1.3.4",
