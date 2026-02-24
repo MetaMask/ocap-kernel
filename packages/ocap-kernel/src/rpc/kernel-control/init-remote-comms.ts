@@ -7,6 +7,8 @@ import {
   string,
   number,
 } from '@metamask/superstruct';
+import type { Struct } from '@metamask/superstruct';
+import type { Infer } from '@metamask/superstruct';
 
 import type { Kernel } from '../../Kernel.ts';
 import type { RemoteCommsOptions } from '../../remotes/types.ts';
@@ -18,24 +20,27 @@ const initRemoteCommsParamsStruct = object({
   maxQueue: optional(number()),
 });
 
+// Superstruct's `optional()` infers `T | undefined` for each field, but
+// `JsonRpcParams` (from `@metamask/utils`) does not include `undefined` in its
+// `Json` union. This mapped type strips `| undefined` while preserving
+// optionality, keeping the type derived from the struct (single source of truth).
 type InitRemoteCommsParams = {
-  relays?: string[];
-  directListenAddresses?: string[];
-  maxRetryAttempts?: number;
-  maxQueue?: number;
+  [K in keyof Infer<typeof initRemoteCommsParamsStruct>]: Exclude<
+    Infer<typeof initRemoteCommsParamsStruct>[K],
+    undefined
+  >;
 };
 
-type InitRemoteCommsSpec = MethodSpec<
+export const initRemoteCommsSpec: MethodSpec<
   'initRemoteComms',
   InitRemoteCommsParams,
   null
->;
-
-export const initRemoteCommsSpec: InitRemoteCommsSpec = {
+> = {
   method: 'initRemoteComms',
-  params: initRemoteCommsParamsStruct,
+  // Safe: the struct validates JSON-RPC params which never contain `undefined`.
+  params: initRemoteCommsParamsStruct as Struct<InitRemoteCommsParams>,
   result: literal(null),
-} as InitRemoteCommsSpec;
+};
 
 export type InitRemoteCommsHooks = {
   kernel: Pick<Kernel, 'initRemoteComms'>;
