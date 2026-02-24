@@ -17,7 +17,9 @@
 #   --chain-id    ID    Chain ID (default: 11155111 = Sepolia)
 #   --no-build          Skip the build step
 #
-# Outputs the OCAP URL to stdout on success. Pass it to setup-away.sh.
+# Outputs two lines to stdout on success:
+#   1. The OCAP URL (pass to setup-away.sh --ocap-url)
+#   2. JSON array of listen addresses (pass to setup-away.sh --listen-addrs)
 
 set -euo pipefail
 
@@ -140,7 +142,15 @@ $OCAP_BIN daemon start >&2
 ok "Daemon running"
 
 # ---------------------------------------------------------------------------
-# 3. Launch wallet subcluster
+# 3. Initialize remote comms (QUIC transport)
+# ---------------------------------------------------------------------------
+
+info "Initializing remote comms..."
+$OCAP_BIN daemon exec initRemoteComms '{"directListenAddresses":["/ip4/0.0.0.0/udp/0/quic-v1"]}' >/dev/null
+ok "Remote comms initialized"
+
+# ---------------------------------------------------------------------------
+# 4. Launch wallet subcluster
 # ---------------------------------------------------------------------------
 
 info "Launching wallet subcluster..."
@@ -190,7 +200,7 @@ fi
 ok "Subcluster launched — coordinator: $ROOT_KREF"
 
 # ---------------------------------------------------------------------------
-# 4. Initialize keyring
+# 5. Initialize keyring
 # ---------------------------------------------------------------------------
 
 info "Initializing keyring with SRP..."
@@ -209,7 +219,7 @@ ACCOUNTS=$(echo "$ACCOUNTS_RAW" | parse_capdata)
 ok "Accounts: $ACCOUNTS"
 
 # ---------------------------------------------------------------------------
-# 5. Configure provider
+# 6. Configure provider
 # ---------------------------------------------------------------------------
 
 info "Configuring provider (chain $CHAIN_ID)..."
@@ -223,7 +233,7 @@ $OCAP_BIN daemon exec queueMessage "$PROVIDER_PARAMS" >/dev/null
 ok "Provider configured — $RPC_URL"
 
 # ---------------------------------------------------------------------------
-# 5b. Configure bundler (requires Pimlico key)
+# 6b. Configure bundler (requires Pimlico key)
 # ---------------------------------------------------------------------------
 
 if [[ -n "$PIMLICO_KEY" ]]; then
@@ -242,7 +252,7 @@ else
 fi
 
 # ---------------------------------------------------------------------------
-# 6. Issue OCAP URL
+# 7. Issue OCAP URL
 # ---------------------------------------------------------------------------
 
 info "Issuing OCAP URL for the away device..."
@@ -253,6 +263,19 @@ if [[ -z "$OCAP_URL" || "$OCAP_URL" != ocap:* ]]; then
   fail "Failed to issue OCAP URL"
 fi
 ok "OCAP URL issued"
+
+# ---------------------------------------------------------------------------
+# 8. Extract listen addresses for the away device
+# ---------------------------------------------------------------------------
+
+info "Extracting listen addresses..."
+STATUS=$($OCAP_BIN daemon exec getStatus)
+LISTEN_ADDRS=$(echo "$STATUS" | node -e "
+  const data = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
+  const addrs = data.remoteComms?.listenAddresses ?? [];
+  process.stdout.write(JSON.stringify(addrs));
+")
+ok "Listen addresses: $LISTEN_ADDRS"
 
 # ---------------------------------------------------------------------------
 # Done
@@ -267,11 +290,13 @@ cat >&2 <<EOF
   Chain ID         : $CHAIN_ID
   RPC URL          : $RPC_URL
   Accounts         : $ACCOUNTS
+  Listen addresses : $LISTEN_ADDRS
 
-  Pass the OCAP URL below to setup-away.sh
-  on the away device.
+  Pass the OCAP URL and listen addresses
+  below to setup-away.sh on the away device.
 ══════════════════════════════════════════════
 
 EOF
 
 echo "$OCAP_URL"
+echo "$LISTEN_ADDRS"

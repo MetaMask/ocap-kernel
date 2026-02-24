@@ -50,7 +50,9 @@ Two bash scripts in `packages/eth-wallet/scripts/` automate everything below.
   --mnemonic "your twelve word mnemonic" \
   --infura-key YOUR_INFURA_KEY \
   --pimlico-key YOUR_PIMLICO_KEY
-# Prints an ocap: URL to stdout — copy it for the away device.
+# Prints two lines to stdout:
+#   1. The OCAP URL        — pass to setup-away.sh --ocap-url
+#   2. Listen addresses     — pass to setup-away.sh --listen-addrs
 ```
 
 **Away device** (VPS / agent machine):
@@ -58,6 +60,7 @@ Two bash scripts in `packages/eth-wallet/scripts/` automate everything below.
 ```bash
 ./scripts/setup-away.sh \
   --ocap-url "ocap:…URL_FROM_HOME…" \
+  --listen-addrs '["/ip4/…/udp/…/quic-v1/p2p/…"]' \
   --infura-key YOUR_INFURA_KEY \
   --pimlico-key YOUR_PIMLICO_KEY
 ```
@@ -200,9 +203,12 @@ ocap daemon exec queueMessage '["ko4", "configureProvider", [{"chainId": 1115511
 ### 2e. Initialize remote comms (QUIC)
 
 ```bash
-# Enable QUIC transport for the home kernel
-# (This is done programmatically — the daemon needs QUIC init support,
-# which will be added to the CLI. For now, use the Node.js API directly.)
+# Start the libp2p networking stack with QUIC transport
+ocap daemon exec initRemoteComms '{"directListenAddresses": ["/ip4/0.0.0.0/udp/0/quic-v1"]}'
+
+# Verify it's connected and note the listen addresses
+ocap daemon exec getStatus
+# Look for: remoteComms.state === "connected", remoteComms.listenAddresses
 ```
 
 ### 2f. Issue an OCAP URL for the away device
@@ -211,7 +217,7 @@ ocap daemon exec queueMessage '["ko4", "configureProvider", [{"chainId": 1115511
 ocap daemon exec queueMessage '["ko4", "issueOcapUrl", []]'
 ```
 
-Save the returned `ocap:...` URL — you'll give this to the away device.
+Save the returned `ocap:...` URL and the listen addresses from `getStatus` above — you'll give both to the away device.
 
 ## 3. Away device (VPS) setup
 
@@ -225,7 +231,18 @@ Follow the OpenClaw installation docs. The agent will use the wallet plugin to i
 ocap daemon start
 ```
 
-### 3c. Launch the wallet subcluster
+### 3c. Initialize remote comms and register home location hints
+
+```bash
+# Start the libp2p networking stack with QUIC transport
+ocap daemon exec initRemoteComms '{"directListenAddresses": ["/ip4/0.0.0.0/udp/0/quic-v1"]}'
+
+# Register the home device's listen addresses so the away kernel can find it.
+# The peer ID is the first path component of the OCAP URL (ocap:<peerId>/...).
+ocap daemon exec registerLocationHints '{"peerId": "HOME_PEER_ID", "hints": ["/ip4/.../udp/.../quic-v1/p2p/..."]}'
+```
+
+### 3d. Launch the wallet subcluster
 
 Same as the home device, but with the VPS's allowed hosts:
 
@@ -235,7 +252,7 @@ ocap start packages/eth-wallet/src/vats
 ocap daemon exec launchSubcluster '{"config": { ... }}'
 ```
 
-### 3d. Initialize with a throwaway key
+### 3e. Initialize with a throwaway key
 
 The away wallet gets a throwaway key (for gas/own operations within delegations):
 
@@ -243,13 +260,13 @@ The away wallet gets a throwaway key (for gas/own operations within delegations)
 ocap daemon exec queueMessage '["ko4", "initializeKeyring", [{"type": "throwaway"}]]'
 ```
 
-### 3e. Connect to the home wallet
+### 3f. Connect to the home wallet
 
 ```bash
 ocap daemon exec queueMessage '["ko4", "connectToPeer", ["ocap:zgAu...YOUR_OCAP_URL_HERE"]]'
 ```
 
-### 3f. Verify the connection
+### 3g. Verify the connection
 
 ```bash
 ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'

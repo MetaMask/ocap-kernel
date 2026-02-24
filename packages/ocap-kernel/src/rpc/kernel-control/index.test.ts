@@ -11,6 +11,10 @@ import {
 } from './execute-db-query.ts';
 import { getStatusHandler, getStatusSpec } from './get-status.ts';
 import { rpcHandlers, rpcMethodSpecs } from './index.ts';
+import {
+  initRemoteCommsHandler,
+  initRemoteCommsSpec,
+} from './init-remote-comms.ts';
 import { isRevokedHandler, isRevokedSpec } from './is-revoked.ts';
 import { issueOcapURLHandler, issueOcapURLSpec } from './issue-ocap-url.ts';
 import {
@@ -20,6 +24,10 @@ import {
 import { pingVatHandler, pingVatSpec } from './ping-vat.ts';
 import { queueMessageHandler, queueMessageSpec } from './queue-message.ts';
 import { redeemOcapURLHandler, redeemOcapURLSpec } from './redeem-ocap-url.ts';
+import {
+  registerLocationHintsHandler,
+  registerLocationHintsSpec,
+} from './register-location-hints.ts';
 import { restartVatHandler, restartVatSpec } from './restart-vat.ts';
 import { revokeHandler, revokeSpec } from './revoke.ts';
 import {
@@ -38,9 +46,11 @@ describe('handlers/index', () => {
       clearState: clearStateHandler,
       executeDBQuery: executeDBQueryHandler,
       getStatus: getStatusHandler,
+      initRemoteComms: initRemoteCommsHandler,
       issueOcapURL: issueOcapURLHandler,
       pingVat: pingVatHandler,
       redeemOcapURL: redeemOcapURLHandler,
+      registerLocationHints: registerLocationHintsHandler,
       restartVat: restartVatHandler,
       revoke: revokeHandler,
       isRevoked: isRevokedHandler,
@@ -67,9 +77,11 @@ describe('handlers/index', () => {
       clearState: clearStateSpec,
       executeDBQuery: executeDBQuerySpec,
       getStatus: getStatusSpec,
+      initRemoteComms: initRemoteCommsSpec,
       issueOcapURL: issueOcapURLSpec,
       pingVat: pingVatSpec,
       redeemOcapURL: redeemOcapURLSpec,
+      registerLocationHints: registerLocationHintsSpec,
       restartVat: restartVatSpec,
       revoke: revokeSpec,
       isRevoked: isRevokedSpec,
