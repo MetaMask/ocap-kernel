@@ -124,9 +124,17 @@ RPC_URL="https://sepolia.infura.io/v3/${INFURA_KEY}"
 # Helpers
 # ---------------------------------------------------------------------------
 
-info()  { echo "→ $*" >&2; }
-ok()    { echo "  ✓ $*" >&2; }
-fail()  { echo "  ✗ $*" >&2; exit 1; }
+BOLD='\033[1m'
+DIM='\033[2m'
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+YELLOW='\033[0;33m'
+RESET='\033[0m'
+
+info()  { echo -e "${CYAN}→${RESET} $*" >&2; }
+ok()    { echo -e "  ${GREEN}✓${RESET} $*" >&2; }
+fail()  { echo -e "  ${RED}✗${RESET} $*" >&2; exit 1; }
 
 # Parse the value out of Endo CapData JSON ({"body":"#...","slots":[...]}).
 # Simple values only (strings, arrays, objects without slot references).
@@ -340,6 +348,9 @@ info "Issuing OCAP URL for the away device..."
 OCAP_URL_RAW=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"issueOcapUrl\", []]")
 OCAP_URL=$(echo "$OCAP_URL_RAW" | parse_capdata)
 
+# Strip trailing comma (kernel emits ocap:...@peerId, when no relays are known)
+OCAP_URL="${OCAP_URL%,}"
+
 if [[ -z "$OCAP_URL" || "$OCAP_URL" != ocap:* ]]; then
   fail "Failed to issue OCAP URL"
 fi
@@ -390,24 +401,25 @@ ok "Listen addresses: $LISTEN_ADDRS"
 
 cat >&2 <<EOF
 
-══════════════════════════════════════════════
+$(echo -e "${GREEN}${BOLD}")══════════════════════════════════════════════
   Home wallet setup complete!
+══════════════════════════════════════════════$(echo -e "${RESET}")
 
-  Coordinator kref : $ROOT_KREF
-  Chain ID         : $CHAIN_ID
-  RPC URL          : $RPC_URL
-  Accounts         : $ACCOUNTS
-  Listen addresses : $LISTEN_ADDRS
+  $(echo -e "${DIM}")Coordinator kref :$(echo -e "${RESET}") $ROOT_KREF
+  $(echo -e "${DIM}")Chain ID         :$(echo -e "${RESET}") $CHAIN_ID
+  $(echo -e "${DIM}")RPC URL          :$(echo -e "${RESET}") $RPC_URL
+  $(echo -e "${DIM}")Accounts         :$(echo -e "${RESET}") $ACCOUNTS
 
-  Pass the OCAP URL and listen addresses
-  below to setup-away.sh on the away device.
+$(echo -e "${YELLOW}${BOLD}")  Copy these values to setup-away.sh on the away device:$(echo -e "${RESET}")
 
-  To watch daemon logs:
-    tail -f ~/.ocap/daemon.log
+  $(echo -e "${DIM}")--ocap-url$(echo -e "${RESET}")
+  $(echo -e "${BOLD}")$OCAP_URL$(echo -e "${RESET}")
 
-  To stop the daemon:
-    node $OCAP_BIN daemon stop
-══════════════════════════════════════════════
+  $(echo -e "${DIM}")--listen-addrs$(echo -e "${RESET}")
+  $(echo -e "${BOLD}")'$LISTEN_ADDRS'$(echo -e "${RESET}")
+
+  $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")       watch daemon logs
+  $(echo -e "${DIM}")node $OCAP_BIN daemon stop$(echo -e "${RESET}")  stop the daemon
 
 EOF
 

@@ -129,9 +129,16 @@ fi
 # Helpers
 # ---------------------------------------------------------------------------
 
-info()  { echo "→ $*" >&2; }
-ok()    { echo "  ✓ $*" >&2; }
-fail()  { echo "  ✗ $*" >&2; exit 1; }
+BOLD='\033[1m'
+DIM='\033[2m'
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+CYAN='\033[0;36m'
+RESET='\033[0m'
+
+info()  { echo -e "${CYAN}→${RESET} $*" >&2; }
+ok()    { echo -e "  ${GREEN}✓${RESET} $*" >&2; }
+fail()  { echo -e "  ${RED}✗${RESET} $*" >&2; exit 1; }
 
 parse_capdata() {
   node -e "
@@ -405,22 +412,19 @@ ok "Peer wallet connected and verified"
 
 cat >&2 <<EOF
 
-══════════════════════════════════════════════
+$(echo -e "${GREEN}${BOLD}")══════════════════════════════════════════════
   Away wallet setup complete!
+══════════════════════════════════════════════$(echo -e "${RESET}")
 
-  Coordinator kref : $ROOT_KREF
-  Chain ID         : $CHAIN_ID
-  Local account    : $ACCOUNTS
-  Peer connected   : true
+  $(echo -e "${DIM}")Coordinator kref :$(echo -e "${RESET}") $ROOT_KREF
+  $(echo -e "${DIM}")Chain ID         :$(echo -e "${RESET}") $CHAIN_ID
+  $(echo -e "${DIM}")Local account    :$(echo -e "${RESET}") $ACCOUNTS
+  $(echo -e "${DIM}")Peer connected   :$(echo -e "${RESET}") $(echo -e "${GREEN}")true$(echo -e "${RESET}")
 
   The away wallet can now forward signing
   requests to the home wallet via CapTP.
 
-  To watch daemon logs:
-    tail -f ~/.ocap/daemon.log
-
-  To stop the daemon:
-    node $OCAP_BIN daemon stop
-══════════════════════════════════════════════
+  $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")       watch daemon logs
+  $(echo -e "${DIM}")node $OCAP_BIN daemon stop$(echo -e "${RESET}")  stop the daemon
 
 EOF
