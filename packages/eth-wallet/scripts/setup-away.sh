@@ -167,7 +167,7 @@ parse_capdata() {
 }
 
 # Run a daemon exec command and log its output to stderr.
-# Usage: daemon_exec <method> <params>
+# Usage: daemon_exec <method> <params> [--timeout <seconds>]
 daemon_exec() {
   local result
   result=$(node "$OCAP_BIN" daemon exec "$@")
@@ -378,7 +378,7 @@ CONNECT_PARAMS=$(KREF="$ROOT_KREF" PEER_URL="$OCAP_URL" node -e "
   process.stdout.write(p);
 ")
 
-daemon_exec queueMessage "$CONNECT_PARAMS" >/dev/null
+daemon_exec queueMessage "$CONNECT_PARAMS" --timeout 120 >/dev/null
 ok "Connected to home wallet"
 
 # ---------------------------------------------------------------------------
