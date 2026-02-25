@@ -1,6 +1,5 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
-import { verifyTypedData } from 'viem';
 
 import { DEFAULT_DELEGATION_MANAGER } from '../constants.ts';
 import {
@@ -126,25 +125,11 @@ export function buildRootObject(
         throw new Error('Delegation ID mismatch');
       }
 
-      // Verify EIP-712 signature
-      const typedData = prepareDelegationTypedData({
-        delegation,
-        verifyingContract: delegationManagerAddress,
-      });
-      const valid = await verifyTypedData({
-        address: delegation.delegator,
-        domain: typedData.domain as Record<string, unknown>,
-        types: typedData.types as Record<
-          string,
-          { name: string; type: string }[]
-        >,
-        primaryType: typedData.primaryType,
-        message: typedData.message,
-        signature: delegation.signature,
-      });
-      if (!valid) {
-        throw new Error('Invalid delegation signature');
-      }
+      // Signature verification is skipped here. When the delegator is a
+      // smart account, the EIP-712 signature is made by the underlying
+      // EOA owner — ecrecover returns the EOA, not the smart account
+      // address. The on-chain DelegationManager performs the authoritative
+      // signature check during delegation redemption.
 
       delegations.set(delegation.id, delegation);
       persistDelegations();
