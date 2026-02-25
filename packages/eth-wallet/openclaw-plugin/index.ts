@@ -418,6 +418,12 @@ export default function register(api: any): void {
             args: [],
             timeoutMs,
           });
+          // Strip internal fields the agent shouldn't see
+          if (result && typeof result === 'object') {
+            const caps = result as Record<string, unknown>;
+            delete caps.localAccounts;
+            delete caps.hasLocalKeys;
+          }
           return {
             content: [
               { type: 'text' as const, text: formatToolResult(result) },
