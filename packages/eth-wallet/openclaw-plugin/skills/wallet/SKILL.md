@@ -10,7 +10,7 @@ Use the **wallet tools** for any Ethereum balance, send, or sign request. Do not
 
 ## Tools
 
-- **wallet_accounts** — List all accounts (local and peer/home wallet).
+- **wallet_accounts** — List wallet accounts.
 - **wallet_balance** — Get ETH balance for an address. Use `wallet_accounts` first to find the right address.
 - **wallet_send** — Send ETH to an address. May require user approval at home; the agent cannot approve for the user.
 - **wallet_sign** — Sign a message or typed data. May require user approval at home.

@@ -773,6 +773,13 @@ export function buildRootObject(
     // ------------------------------------------------------------------
 
     async getAccounts(): Promise<Address[]> {
+      // When a peer wallet is connected, present only the peer (home)
+      // accounts. The local throwaway key is an implementation detail
+      // used internally for delegation signing.
+      if (peerWallet) {
+        return E(peerWallet).getAccounts();
+      }
+
       const localAccounts: Address[] = keyringVat
         ? await E(keyringVat).getAccounts()
         : [];
@@ -781,14 +788,10 @@ export function buildRootObject(
         ? await E(externalSigner).getAccounts()
         : [];
 
-      const peerAccounts: Address[] = peerWallet
-        ? await E(peerWallet).getAccounts()
-        : [];
-
       // Deduplicate by lowercasing
       const seen = new Set(localAccounts.map((a) => a.toLowerCase()));
       const merged = [...localAccounts];
-      for (const account of [...extAccounts, ...peerAccounts]) {
+      for (const account of extAccounts) {
         if (!seen.has(account.toLowerCase())) {
           seen.add(account.toLowerCase());
           merged.push(account);
@@ -1126,9 +1129,13 @@ export function buildRootObject(
     async getCapabilities(): Promise<WalletCapabilities> {
       const hasLocalKeys = keyringVat ? await E(keyringVat).hasKeys() : false;
 
-      const localAccounts: Address[] = keyringVat
-        ? await E(keyringVat).getAccounts()
-        : [];
+      // Show peer accounts when connected, local accounts otherwise.
+      let accounts: Address[] = [];
+      if (peerWallet) {
+        accounts = await E(peerWallet).getAccounts();
+      } else if (keyringVat) {
+        accounts = await E(keyringVat).getAccounts();
+      }
 
       const delegations: Delegation[] = delegationVat
         ? await E(delegationVat).listDelegations()
@@ -1136,7 +1143,7 @@ export function buildRootObject(
 
       return harden({
         hasLocalKeys,
-        localAccounts,
+        localAccounts: accounts,
         delegationCount: delegations.length,
         hasPeerWallet: peerWallet !== undefined,
         hasExternalSigner: externalSigner !== undefined,
