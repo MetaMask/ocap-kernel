@@ -403,7 +403,7 @@ export default function register(api: any): void {
     {
       name: 'wallet_accounts',
       label: 'Wallet accounts',
-      description: 'List all wallet accounts.',
+      description: 'List all wallet accounts (local and peer).',
       parameters: { type: 'object', properties: {} },
       async execute() {
         try {

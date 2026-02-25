@@ -10,13 +10,15 @@ Use the **wallet tools** for any Ethereum balance, send, or sign request. Do not
 
 ## Tools
 
-- **wallet_balance** — Get ETH balance for an address (address required, e.g. `0x71fA...`). Use `wallet_accounts` first to get an address if needed.
+- **wallet_accounts** — List all accounts (local and peer/home wallet).
+- **wallet_balance** — Get ETH balance for an address. Use `wallet_accounts` first to find the right address.
 - **wallet_send** — Send ETH to an address. May require user approval at home; the agent cannot approve for the user.
 - **wallet_sign** — Sign a message or typed data. May require user approval at home.
+- **wallet_capabilities** — Check what the wallet can do (local keys, peer wallet, delegations, bundler).
 
 ## Rules
 
-- Use only the wallet_balance, wallet_send, and wallet_sign tools for wallet operations.
+- Use only the wallet tools for wallet operations.
 - Do not use exec to run cast, ethers, or other scripts for sending ETH or signing.
 - If a send or sign returns pending or waiting for approval, tell the user and do not retry with a different method.
 - Never prompt the user to type "yes" or "allow" in chat for approval; approval happens in the user's wallet or home UI.
