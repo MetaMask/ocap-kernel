@@ -187,16 +187,7 @@ openclaw plugins install -l ./packages/eth-wallet/openclaw-plugin
 openclaw plugins enable wallet
 ```
 
-2. Configure the plugin:
-
-```bash
-openclaw config set plugins.entries.wallet.config.walletKref '"ko4"'
-openclaw config set plugins.entries.wallet.config.ocapCliPath '"~/ocap-kernel/packages/cli/dist/app.mjs"'
-```
-
-Replace `ko4` with the `rootKref` from `setup-away.sh` output, and adjust the CLI path if your repo is in a different location.
-
-3. Restart the gateway and verify the plugin loaded:
+2. Restart the gateway and verify the plugin loaded:
 
 ```bash
 openclaw gateway restart
@@ -204,7 +195,14 @@ openclaw plugins list        # should show wallet as enabled
 openclaw plugins doctor      # should report no errors
 ```
 
-4. Allow wallet tools for your agent in the agent configuration:
+The plugin auto-detects the CLI path relative to the monorepo and defaults to `ko4` for the wallet coordinator kref. To override these defaults:
+
+```bash
+openclaw config set plugins.entries.wallet.config.walletKref '"ko8"'
+openclaw config set plugins.entries.wallet.config.ocapCliPath '"/custom/path/to/ocap"'
+```
+
+3. Allow wallet tools for your agent in the agent configuration:
 
 ```json
 {
