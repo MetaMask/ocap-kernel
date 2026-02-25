@@ -549,7 +549,8 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
 
   The wallet is ready. To install the OpenClaw plugin:
 
-  $(echo -e "${DIM}")openclaw plugins install -l ./packages/eth-wallet/openclaw-plugin
+  $(echo -e "${DIM}")cd $REPO_ROOT
+  openclaw plugins install -l ./packages/eth-wallet/openclaw-plugin
   openclaw plugins enable wallet
   openclaw config set tools.allow '["wallet"]'
   openclaw gateway restart
