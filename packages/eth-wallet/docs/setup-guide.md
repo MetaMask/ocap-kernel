@@ -36,6 +36,8 @@ git clone https://github.com/MetaMask/ocap-kernel.git
 curl -fsSL https://openclaw.ai/install.sh | bash
 ```
 
+- (Optional) Connect a Telegram channel to interact with the agent via chat. Follow the setup instructions at <https://docs.openclaw.ai/channels/telegram>.
+
 ## API keys
 
 ### Infura (Ethereum RPC)
