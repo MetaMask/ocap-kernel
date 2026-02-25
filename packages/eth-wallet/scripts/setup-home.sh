@@ -434,6 +434,47 @@ $(echo -e "${YELLOW}${BOLD}")  Copy these values to setup-away.sh on the away de
   $(echo -e "${DIM}")--listen-addrs$(echo -e "${RESET}")
   $(echo -e "${BOLD}")'$LISTEN_ADDRS'$(echo -e "${RESET}")
 
+EOF
+
+# ---------------------------------------------------------------------------
+# 9. Create delegation (interactive — waits for away device delegate address)
+# ---------------------------------------------------------------------------
+
+cat >&2 <<EOF
+$(echo -e "${YELLOW}${BOLD}")  Run setup-away.sh on the VPS now. When it finishes, it will
+  show a delegate address. Paste that address below.$(echo -e "${RESET}")
+
+EOF
+
+echo -ne "${CYAN}→${RESET} Paste the delegate address from the away device: " >&2
+read -r DELEGATE_ADDR
+
+if [[ -z "$DELEGATE_ADDR" ]]; then
+  echo -e "\n  ${DIM}No delegate address provided. You can create the delegation manually later:${RESET}" >&2
+  echo -e "  ${DIM}yarn ocap daemon exec queueMessage '[\"$ROOT_KREF\", \"createDelegation\", [{\"delegate\": \"0xADDRESS\", \"caveats\": [], \"chainId\": $CHAIN_ID}]]'${RESET}\n" >&2
+  exit 0
+fi
+
+if ! echo "$DELEGATE_ADDR" | grep -qiE '^0x[0-9a-f]{40}$'; then
+  fail "Invalid Ethereum address: $DELEGATE_ADDR"
+fi
+
+info "Creating delegation for $DELEGATE_ADDR..."
+DEL_PARAMS=$(KREF="$ROOT_KREF" DEL="$DELEGATE_ADDR" CID="$CHAIN_ID" node -e "
+  const p = JSON.stringify([process.env.KREF, 'createDelegation', [{ delegate: process.env.DEL, caveats: [], chainId: Number(process.env.CID) }]]);
+  process.stdout.write(p);
+")
+DEL_RAW=$(daemon_exec queueMessage "$DEL_PARAMS")
+DEL_INNER=$(echo "$DEL_RAW" | parse_capdata)
+ok "Delegation created"
+
+cat >&2 <<EOF
+
+$(echo -e "${YELLOW}${BOLD}")  Copy this delegation JSON and paste it into the away device
+  script when prompted:$(echo -e "${RESET}")
+
+$(echo -e "${BOLD}")$DEL_RAW$(echo -e "${RESET}")
+
   Watch daemon logs: $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")
   Stop the daemon:   $(echo -e "${DIM}")yarn ocap daemon stop$(echo -e "${RESET}")
 
