@@ -836,7 +836,29 @@ export function buildRootObject(
         }
       }
 
-      const signedTx = await resolveTransactionSigning(tx);
+      // Estimate missing gas fields for direct (non-delegation) sends
+      const filledTx = { ...tx };
+
+      filledTx.nonce ??= await E(providerVat).getNonce(filledTx.from);
+      filledTx.chainId ??= await E(providerVat).getChainId();
+      if (!filledTx.maxFeePerGas || !filledTx.maxPriorityFeePerGas) {
+        const fees = await E(providerVat).getGasFees();
+        filledTx.maxFeePerGas ??= fees.maxFeePerGas;
+        filledTx.maxPriorityFeePerGas ??= fees.maxPriorityFeePerGas;
+      }
+      if (!filledTx.gas) {
+        const estimated = (await E(providerVat).request('eth_estimateGas', [
+          {
+            from: filledTx.from,
+            to: filledTx.to,
+            value: filledTx.value,
+            data: filledTx.data,
+          },
+        ])) as Hex;
+        filledTx.gas = estimated;
+      }
+
+      const signedTx = await resolveTransactionSigning(filledTx);
       return E(providerVat).broadcastTransaction(signedTx);
     },
 
