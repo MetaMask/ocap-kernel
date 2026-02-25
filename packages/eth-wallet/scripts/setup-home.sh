@@ -370,11 +370,39 @@ if [[ -n "$PIMLICO_KEY" ]]; then
   ")
   if [[ -n "$HOME_SMART_ACCOUNT" ]]; then
     ok "Smart account: $HOME_SMART_ACCOUNT"
-    echo "" >&2
-    echo -e "  ${YELLOW}${BOLD}Note:${RESET} Transfer ETH from your EOA to the smart account" >&2
-    echo -e "  for delegation-based sends to work:" >&2
-    echo -e "  ${DIM}$HOME_SMART_ACCOUNT${RESET}" >&2
-    echo "" >&2
+
+    # Fund the smart account from the EOA
+    info "Funding smart account from EOA..."
+    EOA_ADDR=$(echo "$ACCOUNTS" | node -e "
+      const arr = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+      process.stdout.write(arr[0] || '');
+    ")
+
+    # Get current balance of smart account
+    SA_BALANCE_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"request\", [\"eth_getBalance\", [\"$HOME_SMART_ACCOUNT\", \"latest\"]]]")
+    SA_BALANCE=$(echo "$SA_BALANCE_RAW" | parse_capdata)
+
+    if [[ "$SA_BALANCE" == "0x0" || "$SA_BALANCE" == "0x00" ]]; then
+      # Fund with 0.1 ETH (0x16345785D8A0000)
+      FUND_AMOUNT="0x16345785D8A0000"
+      info "Sending 0.1 ETH from $EOA_ADDR to smart account..."
+
+      FUND_PARAMS=$(KREF="$ROOT_KREF" FROM="$EOA_ADDR" TO="$HOME_SMART_ACCOUNT" VAL="$FUND_AMOUNT" CID="$CHAIN_ID" node -e "
+        const p = JSON.stringify([process.env.KREF, 'sendTransaction', [{
+          from: process.env.FROM,
+          to: process.env.TO,
+          value: process.env.VAL,
+          chainId: Number(process.env.CID)
+        }]]);
+        process.stdout.write(p);
+      ")
+
+      FUND_RESULT=$(daemon_exec --quiet queueMessage "$FUND_PARAMS" --timeout 60)
+      FUND_TX=$(echo "$FUND_RESULT" | parse_capdata)
+      ok "Smart account funded — tx: $FUND_TX"
+    else
+      ok "Smart account already funded (balance: $SA_BALANCE)"
+    fi
   else
     info "Smart account creation returned no address (may already exist)"
   fi
