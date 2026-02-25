@@ -848,7 +848,7 @@ describe('coordinator-vat', () => {
       expect(merged).toHaveLength(1);
     });
 
-    it('includes peer wallet accounts in getAccounts', async () => {
+    it('returns only peer accounts when peer wallet is connected', async () => {
       const peerAddress =
         '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
       const mockPeerWallet = {
@@ -869,34 +869,10 @@ describe('coordinator-vat', () => {
         freshBaggage as any,
       );
 
+      await coord.initializeKeyring({ type: 'throwaway' });
       const accounts = await coord.getAccounts();
-      expect(accounts).toContain(peerAddress);
-    });
-
-    it('deduplicates peer wallet accounts with local accounts', async () => {
-      await coordinator.initializeKeyring({ type: 'throwaway' });
-      const localAccounts = await coordinator.getAccounts();
-
-      const mockPeerWallet = {
-        getAccounts: vi.fn().mockResolvedValue([localAccounts[0]]),
-        handleSigningRequest: vi.fn().mockResolvedValue('0xpeersigned' as Hex),
-      };
-
-      const freshBaggage = makeMockBaggage();
-      freshBaggage.init('keyringVat', keyringVat);
-      freshBaggage.init('providerVat', providerVat);
-      freshBaggage.init('delegationVat', delegationVat);
-      freshBaggage.init('peerWallet', mockPeerWallet);
-
-      const coordWithPeer = buildRootObject(
-        {},
-        undefined,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        freshBaggage as any,
-      );
-
-      const merged = await coordWithPeer.getAccounts();
-      expect(merged).toHaveLength(1);
+      // Only peer accounts — local throwaway is hidden
+      expect(accounts).toStrictEqual([peerAddress]);
     });
   });
 

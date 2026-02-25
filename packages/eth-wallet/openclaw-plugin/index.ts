@@ -223,32 +223,66 @@ export default function register(api: any): void {
       name: 'wallet_balance',
       label: 'Wallet balance',
       description:
-        'Get the ETH balance for a wallet address. Uses the OCAP daemon; no key access needed.',
+        'Get ETH balance. If no address is given, checks all wallet accounts.',
       parameters: {
         type: 'object',
         properties: {
-          address: { type: 'string', description: 'Ethereum address (0x...)' },
+          address: {
+            type: 'string',
+            description:
+              'Ethereum address (0x...). Omit to check all accounts.',
+          },
         },
-        required: ['address'],
       },
-      async execute(_id: string, params: { address: string }) {
-        if (!ETH_ADDRESS_RE.test(params.address)) {
-          return makeError(
-            'Invalid Ethereum address. Must be 0x followed by 40 hex characters.',
-          );
-        }
+      async execute(_id: string, params: { address?: string }) {
         try {
-          const result = await callWallet({
-            cliPath,
-            walletKref,
-            method: 'request',
-            args: ['eth_getBalance', [params.address, 'latest']],
-            timeoutMs,
-          });
+          const addresses: string[] = [];
+
+          if (params.address) {
+            if (!ETH_ADDRESS_RE.test(params.address)) {
+              return makeError(
+                'Invalid Ethereum address. Must be 0x followed by 40 hex characters.',
+              );
+            }
+            addresses.push(params.address);
+          } else {
+            const accounts = await callWallet({
+              cliPath,
+              walletKref,
+              method: 'getAccounts',
+              args: [],
+              timeoutMs,
+            });
+            if (Array.isArray(accounts)) {
+              addresses.push(
+                ...accounts.filter(
+                  (a: unknown): a is string =>
+                    typeof a === 'string' && ETH_ADDRESS_RE.test(a),
+                ),
+              );
+            }
+          }
+
+          if (addresses.length === 0) {
+            return makeError('No wallet accounts found.');
+          }
+
+          const lines: string[] = [];
+          for (const addr of addresses) {
+            const result = await callWallet({
+              cliPath,
+              walletKref,
+              method: 'request',
+              args: ['eth_getBalance', [addr, 'latest']],
+              timeoutMs,
+            });
+            const balanceHex = typeof result === 'string' ? result : '0x0';
+            const wei = BigInt(balanceHex);
+            const ethAmount = `${(Number(wei) / 1e18).toFixed(6)} ETH`;
+            lines.push(`${addr}: ${ethAmount} (${balanceHex})`);
+          }
           return {
-            content: [
-              { type: 'text' as const, text: formatToolResult(result) },
-            ],
+            content: [{ type: 'text' as const, text: lines.join('\n') }],
           };
         } catch (error: unknown) {
           const message =
@@ -403,7 +437,7 @@ export default function register(api: any): void {
     {
       name: 'wallet_accounts',
       label: 'Wallet accounts',
-      description: 'List all wallet accounts (local and peer).',
+      description: 'List wallet accounts.',
       parameters: { type: 'object', properties: {} },
       async execute() {
         try {

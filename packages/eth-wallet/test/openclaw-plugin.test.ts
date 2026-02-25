@@ -5,12 +5,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import register from '../openclaw-plugin/index.ts';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
-vi.mock('@sinclair/typebox', () => ({
-  Type: {
-    Object: (shape: Record<string, unknown>) => shape,
-    String: (_options?: Record<string, unknown>) => ({ type: 'string' }),
-  },
-}));
 
 type ToolResponse = {
   content: { type: 'text'; text: string }[];
@@ -136,7 +130,9 @@ describe('openclaw wallet plugin', () => {
 
     const result = await tool!.execute('req-1', { address: account });
 
-    expect(result.content[0]?.text).toBe('0xde0b6b3a7640000');
+    expect(result.content[0]?.text).toBe(
+      `${account}: 1.000000 ETH (0xde0b6b3a7640000)`,
+    );
   });
 
   it('decodes CapData object response for wallet_capabilities', async () => {
