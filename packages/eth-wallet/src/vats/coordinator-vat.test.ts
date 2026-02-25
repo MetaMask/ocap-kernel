@@ -308,6 +308,7 @@ describe('coordinator-vat', () => {
     describe('peer wallet fallback', () => {
       it('forwards to peer wallet when no local authority', async () => {
         const mockPeerWallet = {
+          getAccounts: vi.fn().mockResolvedValue([]),
           handleSigningRequest: vi
             .fn()
             .mockResolvedValue('0xpeersigned' as Hex),
@@ -466,6 +467,7 @@ describe('coordinator-vat', () => {
 
     it('falls back to peer wallet when no local keys and no external signer', async () => {
       const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([]),
         handleSigningRequest: vi
           .fn()
           .mockResolvedValue('0xpeersigmessage' as Hex),
@@ -494,6 +496,7 @@ describe('coordinator-vat', () => {
   describe('signTypedData', () => {
     it('falls back to peer wallet when no local keys and no external signer', async () => {
       const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([]),
         handleSigningRequest: vi
           .fn()
           .mockResolvedValue('0xpeersigtyped' as Hex),
@@ -842,6 +845,57 @@ describe('coordinator-vat', () => {
       await coordinator.connectExternalSigner(extSigner);
 
       const merged = await coordinator.getAccounts();
+      expect(merged).toHaveLength(1);
+    });
+
+    it('includes peer wallet accounts in getAccounts', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        handleSigningRequest: vi.fn().mockResolvedValue('0xpeersigned' as Hex),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      const accounts = await coord.getAccounts();
+      expect(accounts).toContain(peerAddress);
+    });
+
+    it('deduplicates peer wallet accounts with local accounts', async () => {
+      await coordinator.initializeKeyring({ type: 'throwaway' });
+      const localAccounts = await coordinator.getAccounts();
+
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([localAccounts[0]]),
+        handleSigningRequest: vi.fn().mockResolvedValue('0xpeersigned' as Hex),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+
+      const coordWithPeer = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      const merged = await coordWithPeer.getAccounts();
       expect(merged).toHaveLength(1);
     });
   });
