@@ -16,6 +16,7 @@ export default defineConfig((args) => {
             import.meta.resolve('@ocap/repo-tools/test-utils/mock-endoify'),
           ),
         ],
+        exclude: ['test/integration/**'],
       },
     }),
   );

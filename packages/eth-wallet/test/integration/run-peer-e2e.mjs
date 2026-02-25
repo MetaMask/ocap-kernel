@@ -374,18 +374,27 @@ async function main() {
 
   console.log('\n--- Initialize throwaway keyring (kernel2) ---');
   await call(kernel2, coord2, 'initializeKeyring', [{ type: 'throwaway' }]);
+
+  // getAccounts returns only peer (home) accounts — throwaway is hidden
   const awayAccounts = await call(kernel2, coord2, 'getAccounts');
-  assert(awayAccounts.length === 1, 'away wallet has one account');
+  assert(awayAccounts.length === 1, 'away wallet shows one account');
   assert(
-    awayAccounts[0].toLowerCase() !== homeAddr.toLowerCase(),
-    'throwaway is different from home address',
+    awayAccounts[0].toLowerCase() === homeAddr.toLowerCase(),
+    'away getAccounts returns home address',
   );
-  const throwawayAddr = awayAccounts[0];
-  console.log(`  Throwaway: ${throwawayAddr}`);
 
   const caps2Full = await call(kernel2, coord2, 'getCapabilities');
   assert(caps2Full.hasLocalKeys === true, 'away: now has local keys');
   assert(caps2Full.hasPeerWallet === true, 'away: still has peer');
+
+  // Throwaway is available via getCapabilities().localAccounts for delegation use
+  assert(caps2Full.localAccounts.length === 1, 'away: one local account');
+  const throwawayAddr = caps2Full.localAccounts[0];
+  assert(
+    throwawayAddr.toLowerCase() !== homeAddr.toLowerCase(),
+    'throwaway is different from home address',
+  );
+  console.log(`  Throwaway: ${throwawayAddr}`);
 
   // =====================================================================
   // 8. Delegation transfer (home → away)
