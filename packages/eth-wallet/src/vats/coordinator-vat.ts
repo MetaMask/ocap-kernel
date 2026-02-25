@@ -130,6 +130,7 @@ type DelegationFacet = {
 };
 
 type PeerWalletFacet = {
+  getAccounts: () => Promise<Address[]>;
   handleSigningRequest: (request: {
     type: string;
     tx?: TransactionRequest;
@@ -780,10 +781,14 @@ export function buildRootObject(
         ? await E(externalSigner).getAccounts()
         : [];
 
+      const peerAccounts: Address[] = peerWallet
+        ? await E(peerWallet).getAccounts()
+        : [];
+
       // Deduplicate by lowercasing
       const seen = new Set(localAccounts.map((a) => a.toLowerCase()));
       const merged = [...localAccounts];
-      for (const account of extAccounts) {
+      for (const account of [...extAccounts, ...peerAccounts]) {
         if (!seen.has(account.toLowerCase())) {
           seen.add(account.toLowerCase());
           merged.push(account);
