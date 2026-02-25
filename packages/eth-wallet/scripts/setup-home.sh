@@ -399,6 +399,11 @@ if [[ -n "$PIMLICO_KEY" ]]; then
 
       FUND_RESULT=$(daemon_exec --quiet queueMessage "$FUND_PARAMS" --timeout 60)
       FUND_TX=$(echo "$FUND_RESULT" | parse_capdata)
+
+      # Check if the result is an error
+      if echo "$FUND_TX" | grep -q '#error'; then
+        fail "Failed to fund smart account: $FUND_TX"
+      fi
       ok "Smart account funded — tx: $FUND_TX"
     else
       ok "Smart account already funded (balance: $SA_BALANCE)"
