@@ -117,6 +117,31 @@ yarn ocap relay
 # Note the PeerID and multiaddrs (WebSocket port 9001, TCP port 9002)
 ```
 
+To run the relay as a systemd service (recommended for VPS deployments):
+
+```bash
+sudo tee /etc/systemd/system/ocap-relay.service > /dev/null <<'UNIT'
+[Unit]
+Description=OCAP libp2p relay
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/ocap-kernel
+ExecStart=/root/.nvm/versions/node/v24.14.0/bin/node packages/cli/dist/app.mjs relay
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now ocap-relay
+```
+
+Adjust `User`, `WorkingDirectory`, and the node path to match your setup. Manage with `systemctl status/restart/stop ocap-relay` and view logs with `journalctl -u ocap-relay -f`.
+
 The relay PeerID is deterministic: `12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc`. Form the relay address using the VPS's public IP and the **WebSocket** port (the kernel dials via WebSocket):
 
 ```
