@@ -483,12 +483,8 @@ $(echo -e "${YELLOW}${BOLD}")  Run this on the HOME device now:$(echo -e "${RESE
 
 EOF
 
-echo -e "${CYAN}→${RESET} Paste the delegation JSON from the home device, then press Enter on an empty line:" >&2
-DELEGATION_JSON=""
-while IFS= read -r line; do
-  [[ -z "$line" && -n "$DELEGATION_JSON" ]] && break
-  DELEGATION_JSON="${DELEGATION_JSON}${line}"
-done
+echo -e "${CYAN}→${RESET} Paste the delegation JSON from the home device (press Ctrl+D when done):" >&2
+DELEGATION_JSON=$(cat)
 
 if [[ -z "$DELEGATION_JSON" ]]; then
   fail "No delegation JSON provided"
