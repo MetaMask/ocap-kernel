@@ -390,6 +390,23 @@ if [[ -n "$PIMLICO_KEY" ]]; then
 
   daemon_exec queueMessage "$BUNDLER_PARAMS" >/dev/null
   ok "Bundler configured — Pimlico (chain $CHAIN_ID)"
+
+  # Create smart account (required for delegation-based sends via ERC-4337)
+  info "Creating smart account..."
+  SA_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" node -e "
+    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ deploySalt: '0x0000000000000000000000000000000000000000000000000000000000000001', chainId: Number(process.env.CID) }]]);
+    process.stdout.write(p);
+  ")
+  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS")
+  SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
+    const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+    process.stdout.write(d.address || '');
+  ")
+  if [[ -n "$SMART_ACCOUNT" ]]; then
+    ok "Smart account: $SMART_ACCOUNT"
+  else
+    info "Smart account creation returned no address (may already exist)"
+  fi
 else
   info "Skipping bundler config (no --pimlico-key). UserOp submission will not work."
 fi
@@ -437,10 +454,15 @@ ok "Peer wallet connected and verified"
 # Done
 # ---------------------------------------------------------------------------
 
-AWAY_ADDR=$(echo "$ACCOUNTS" | node -e "
-  const arr = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-  process.stdout.write(arr[0]);
-")
+# Determine the delegate address for delegation (smart account if available, else throwaway)
+if [[ -n "${SMART_ACCOUNT:-}" ]]; then
+  DELEGATE_ADDR="$SMART_ACCOUNT"
+else
+  DELEGATE_ADDR=$(echo "$ACCOUNTS" | node -e "
+    const arr = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+    process.stdout.write(arr[0]);
+  ")
+fi
 
 cat >&2 <<EOF
 
@@ -450,15 +472,19 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
 
   $(echo -e "${DIM}")Coordinator kref :$(echo -e "${RESET}") $ROOT_KREF
   $(echo -e "${DIM}")Chain ID         :$(echo -e "${RESET}") $CHAIN_ID
-  $(echo -e "${DIM}")Local account    :$(echo -e "${RESET}") $AWAY_ADDR
+  $(echo -e "${DIM}")Delegate address :$(echo -e "${RESET}") $DELEGATE_ADDR
   $(echo -e "${DIM}")Peer connected   :$(echo -e "${RESET}") $(echo -e "${GREEN}")true$(echo -e "${RESET}")
 
   The away wallet can now forward signing
   requests to the home wallet via CapTP.
 
-$(echo -e "${YELLOW}${BOLD}")  To delegate authority, run this on the HOME device:$(echo -e "${RESET}")
+$(echo -e "${YELLOW}${BOLD}")  Next: delegate authority from the HOME device.$(echo -e "${RESET}")
 
-  $(echo -e "${DIM}")yarn ocap daemon exec queueMessage '["<HOME_KREF>", "createDelegation", [{"delegate": "$AWAY_ADDR", "caveats": [], "chainId": $CHAIN_ID}]]'$(echo -e "${RESET}")
+  $(echo -e "${DIM}")Step 1 — On the HOME device, create the delegation:$(echo -e "${RESET}")
+  yarn ocap daemon exec queueMessage '["<HOME_KREF>", "createDelegation", [{"delegate": "$DELEGATE_ADDR", "caveats": [], "chainId": $CHAIN_ID}]]'
+
+  $(echo -e "${DIM}")Step 2 — Copy the full JSON output and run on the VPS:$(echo -e "${RESET}")
+  yarn ocap daemon exec queueMessage '["$ROOT_KREF", "receiveDelegation", [<PASTE_DELEGATION_JSON>]]'
 
   $(echo -e "${DIM}")Replace <HOME_KREF> with the coordinator kref from setup-home.sh output.$(echo -e "${RESET}")
 

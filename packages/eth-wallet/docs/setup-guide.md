@@ -407,18 +407,21 @@ Should show `hasPeerWallet: true`.
 
 This is a 3-step process across both devices. The away wallet needs a delegation from the home wallet to send transactions on its behalf.
 
-**Step 1 — Get the away wallet's throwaway address (on the VPS):**
+**Step 1 — Get the away wallet's delegate address (on the VPS):**
 
 ```bash
 yarn ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
-# Look for localAccounts[0] — that's the throwaway address used for delegations
+# If smartAccountAddress is set, use that as the delegate
+# Otherwise, use localAccounts[0] (the throwaway address)
 ```
+
+If you ran the setup script with `--pimlico-key`, the smart account was created automatically and `smartAccountAddress` will be set. Use that address as the delegate — it's the account that redeems delegations on-chain via ERC-4337.
 
 **Step 2 — Create the delegation (on the home device):**
 
 ```bash
 yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{
-  "delegate": "0xTHROWAWAY_ADDRESS_FROM_STEP_1",
+  "delegate": "0xDELEGATE_ADDRESS_FROM_STEP_1",
   "caveats": [],
   "chainId": 11155111
 }]]'
