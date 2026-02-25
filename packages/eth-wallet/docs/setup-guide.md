@@ -199,7 +199,12 @@ Both scripts also accept `--chain-id` (default: Sepolia), `--quic-port` (default
 
 ### Delegate authority (home to away)
 
-After `setup-away.sh` completes, it prints a `createDelegation` command with the away wallet's address pre-filled. Run that command on the **home device** (replacing `<HOME_KREF>` with the coordinator kref from `setup-home.sh` output) to grant the away wallet signing authority.
+After `setup-away.sh` completes, it prints a `createDelegation` command with the away wallet's throwaway address pre-filled.
+
+1. Run the `createDelegation` command on the **home device** — it outputs a signed delegation JSON
+2. Copy the delegation JSON and run `receiveDelegation` on the **VPS** to transfer it
+
+See [section 4](#4-delegate-authority-from-home-to-away) for the full step-by-step commands.
 
 `setup-away.sh` does **not** install or configure the OpenClaw wallet plugin — do that next.
 
@@ -400,25 +405,50 @@ Should show `hasPeerWallet: true`.
 
 ## 4. Delegate authority from home to away
 
-On the **home device**, create a delegation for the away wallet's address:
+This is a 3-step process across both devices. The away wallet needs a delegation from the home wallet to send transactions on its behalf.
+
+**Step 1 — Get the away wallet's throwaway address (on the VPS):**
 
 ```bash
-# Get the away wallet's address first (on the away device)
-yarn ocap daemon exec queueMessage '["ko4", "getAccounts", []]'
+yarn ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
+# Look for localAccounts[0] — that's the throwaway address used for delegations
+```
 
-# On the home device, create a delegation
+**Step 2 — Create the delegation (on the home device):**
+
+```bash
 yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{
-  "delegate": "0xAwayAddress...",
+  "delegate": "0xTHROWAWAY_ADDRESS_FROM_STEP_1",
   "caveats": [],
   "chainId": 11155111
 }]]'
 ```
 
-Transfer the signed delegation to the away device:
+This outputs a signed delegation JSON object. Copy the entire JSON output.
+
+**Step 3 — Transfer the delegation to the away device (on the VPS):**
+
+Paste the full delegation JSON from step 2 into the `receiveDelegation` call:
 
 ```bash
-# On the away device
-yarn ocap daemon exec queueMessage '["ko4", "receiveDelegation", [{ ...signed delegation JSON... }]]'
+yarn ocap daemon exec queueMessage '["ko4", "receiveDelegation", [{
+  "authority": "0xfff...",
+  "caveats": [],
+  "chainId": 11155111,
+  "delegate": "0x...",
+  "delegator": "0x...",
+  "id": "0x...",
+  "salt": "0x...",
+  "signature": "0x...",
+  "status": "signed"
+}]]'
+```
+
+Verify the delegation was received:
+
+```bash
+yarn ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
+# Should show delegationCount: 1
 ```
 
 ## 5. Try it out
