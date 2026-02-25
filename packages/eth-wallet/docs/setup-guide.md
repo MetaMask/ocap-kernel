@@ -227,21 +227,7 @@ openclaw config set plugins.entries.wallet.config.walletKref '"ko8"'
 openclaw config set plugins.entries.wallet.config.ocapCliPath '"/custom/path/to/ocap"'
 ```
 
-3. Allow wallet tools for your agent in the agent configuration:
-
-```json
-{
-  "tools": {
-    "allow": [
-      "wallet_balance",
-      "wallet_send",
-      "wallet_sign",
-      "wallet_accounts",
-      "wallet_capabilities"
-    ]
-  }
-}
-```
+The wallet tools (`wallet_balance`, `wallet_send`, `wallet_sign`, `wallet_accounts`, `wallet_capabilities`) are automatically available to agents once the plugin is enabled.
 
 ---
 
