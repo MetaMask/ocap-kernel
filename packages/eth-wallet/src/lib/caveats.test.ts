@@ -5,6 +5,7 @@ import {
   encodeAllowedTargets,
   encodeAllowedMethods,
   encodeValueLte,
+  encodeNativeTokenTransferAmount,
   encodeErc20TransferAmount,
   encodeLimitedCalls,
   encodeTimestamp,
@@ -66,6 +67,19 @@ describe('lib/caveats', () => {
         encoded,
       );
       expect(decoded).toBe(maxValue);
+    });
+  });
+
+  describe('encodeNativeTokenTransferAmount', () => {
+    it('encodes a total spending ceiling', () => {
+      const maxAmount = 50000000000000000n; // 0.05 ETH
+      const encoded = encodeNativeTokenTransferAmount(maxAmount);
+
+      const [decoded] = decodeAbiParameters(
+        parseAbiParameters('uint256'),
+        encoded,
+      );
+      expect(decoded).toBe(maxAmount);
     });
   });
 
@@ -145,6 +159,7 @@ describe('lib/caveats', () => {
         'allowedTargets',
         'allowedMethods',
         'valueLte',
+        'nativeTokenTransferAmount',
         'erc20TransferAmount',
         'limitedCalls',
         'timestamp',

@@ -8,6 +8,7 @@ import {
   getChainContracts,
 } from './constants.ts';
 import type { ChainContracts } from './constants.ts';
+import { CaveatTypeValues } from './types.ts';
 import type { Address } from './types.ts';
 
 describe('constants', () => {
@@ -44,6 +45,8 @@ describe('constants', () => {
           allowedMethods:
             '0xcccccccccccccccccccccccccccccccccccccccc' as Address,
           valueLte: '0xdddddddddddddddddddddddddddddddddddddd' as Address,
+          nativeTokenTransferAmount:
+            '0x3333333333333333333333333333333333333333' as Address,
           erc20TransferAmount:
             '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' as Address,
           limitedCalls: '0x1111111111111111111111111111111111111111' as Address,
@@ -64,6 +67,14 @@ describe('constants', () => {
 
     it('returns placeholder contracts when chainId is undefined', () => {
       expect(getChainContracts(undefined)).toBe(PLACEHOLDER_CONTRACTS);
+    });
+
+    it('returns Sepolia contracts for chain 11155111', () => {
+      const contracts = getChainContracts(SEPOLIA_CHAIN_ID);
+      expect(contracts.delegationManager).toMatch(/^0x[0-9a-fA-F]{40}$/u);
+      for (const caveatType of CaveatTypeValues) {
+        expect(contracts.enforcers[caveatType]).toMatch(/^0x[0-9a-fA-F]{40}$/u);
+      }
     });
   });
 });

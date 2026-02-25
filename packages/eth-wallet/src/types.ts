@@ -78,6 +78,7 @@ export const CaveatTypeValues = [
   'allowedTargets',
   'allowedMethods',
   'valueLte',
+  'nativeTokenTransferAmount',
   'erc20TransferAmount',
   'limitedCalls',
   'timestamp',

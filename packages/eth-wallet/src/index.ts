@@ -65,6 +65,7 @@ export {
   encodeAllowedTargets,
   encodeAllowedMethods,
   encodeValueLte,
+  encodeNativeTokenTransferAmount,
   encodeErc20TransferAmount,
   encodeLimitedCalls,
   encodeTimestamp,

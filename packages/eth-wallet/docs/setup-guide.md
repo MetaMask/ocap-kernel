@@ -10,6 +10,7 @@ This guide walks through setting up the OCAP eth-wallet on two devices:
 - [API keys](#api-keys) — Infura, Pimlico, and testnet ETH
 - [Ports and firewall](#ports-and-firewall) — what to open on the VPS
 - [Quick start](#quick-start-automated-scripts) — automated setup scripts
+- [Spending limits](#spending-limits) — restrict how much ETH the agent can spend
 - [OpenClaw plugin install](#openclaw-plugin-install) — configure the agent plugin
 - [Manual setup](#manual-setup) — step-by-step commands
   - [1. Build the packages](#1-build-the-packages)
@@ -207,11 +208,74 @@ The scripts guide you through a handshake:
 
 Both scripts finish automatically after the delegation is transferred.
 
+During delegation setup, the home script prompts for two optional spending limits:
+
+- **Total ETH spending limit** — the maximum cumulative ETH the agent can spend across all transactions (enforced by the `NativeTokenTransferAmountEnforcer`)
+- **Max ETH per transaction** — the maximum ETH value in any single transaction (enforced by the `ValueLteEnforcer`)
+
+Both limits are enforced on-chain by caveat enforcers in the DeleGator framework. The agent cannot bypass them. Press Enter at either prompt to skip that limit.
+
 The `--pimlico-key` configures the Pimlico bundler for ERC-4337 UserOp submission with paymaster sponsorship. Without it, smart account deployment and on-chain delegation redemption will not work.
 
 Both scripts also accept `--chain-id` (default: Sepolia), `--quic-port` (default: 4002), and `--no-build`. Run with `--help` for details.
 
 `setup-away.sh` also prints OpenClaw plugin install commands at the end — run those next.
+
+## Spending limits
+
+The delegation can include on-chain spending limits that restrict how much ETH the agent is allowed to spend. Two types of limits are available:
+
+| Limit | Enforcer contract | Address (CREATE2, same on all chains) |
+| --- | --- | --- |
+| Total spending ceiling | `NativeTokenTransferAmountEnforcer` | `0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320` |
+| Per-transaction max | `ValueLteEnforcer` | `0x92Bf12322527cAA612fd31a0e810472BBB106A8F` |
+
+Both limits compose — the DelegationManager checks ALL caveats, so both must pass for a transaction to go through.
+
+### Setting limits (automated scripts)
+
+The `setup-home.sh` script prompts for both limits during delegation creation:
+
+```
+→ Total ETH spending limit (e.g. 0.1, or Enter for unlimited):
+→ Max ETH per transaction (e.g. 0.01, or Enter for unlimited):
+```
+
+### Setting limits (manual)
+
+When creating a delegation manually, add caveats to the `caveats` array. The `terms` field is `abi.encode(uint256)` — the amount in wei, padded to 32 bytes:
+
+```bash
+# Delegation with 0.05 ETH total limit and 0.01 ETH per-transaction limit
+yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{
+  "delegate": "0xAWAY_SMART_ACCOUNT",
+  "caveats": [
+    {
+      "type": "nativeTokenTransferAmount",
+      "enforcer": "0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320",
+      "terms": "0x0000000000000000000000000000000000000000000000000000b1a2bc2ec500"
+    },
+    {
+      "type": "valueLte",
+      "enforcer": "0x92Bf12322527cAA612fd31a0e810472BBB106A8F",
+      "terms": "0x000000000000000000000000000000000000000000000000002386f26fc10000"
+    }
+  ],
+  "chainId": 11155111
+}]]'
+```
+
+### Changing limits
+
+Spending limits are immutable once set — they are baked into the delegation's on-chain caveats. To change limits, revoke the existing delegation and create a new one:
+
+```bash
+# 1. Revoke the old delegation (on the home device)
+yarn ocap daemon exec queueMessage '["ko4", "revokeDelegation", ["0xDELEGATION_ID"]]'
+
+# 2. Create a new delegation with different limits
+# (re-run setup-home.sh or use createDelegation manually)
+```
 
 ## OpenClaw plugin install
 
@@ -428,7 +492,7 @@ yarn ocap daemon exec queueMessage '["ko4", "createSmartAccount", [{"deploySalt"
 yarn ocap daemon exec queueMessage '["ko4", "sendTransaction", [{"from": "0xEOA_ADDRESS", "to": "0xHOME_SMART_ACCOUNT", "value": "0x16345785D8A0000", "chainId": 11155111}]]'
 ```
 
-3. Create the delegation on the home device (delegate = away smart account):
+3. Create the delegation on the home device (delegate = away smart account). See [Spending limits](#spending-limits) for adding caveats:
 
 ```bash
 yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{"delegate": "0xAWAY_SMART_ACCOUNT", "caveats": [], "chainId": 11155111}]]'

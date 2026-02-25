@@ -37,6 +37,18 @@ export function encodeValueLte(maxValue: bigint): Hex {
 }
 
 /**
+ * Encode caveat terms for the NativeTokenTransferAmount enforcer.
+ * Limits the total cumulative ETH that can be spent across all
+ * transactions using this delegation (stateful, tracked on-chain).
+ *
+ * @param maxAmount - The maximum total amount in wei (as bigint).
+ * @returns The ABI-encoded terms.
+ */
+export function encodeNativeTokenTransferAmount(maxAmount: bigint): Hex {
+  return encodeAbiParameters(parseAbiParameters('uint256'), [maxAmount]);
+}
+
+/**
  * Encode caveat terms for the ERC20TransferAmount enforcer.
  * Limits the amount of an ERC-20 token that can be transferred.
  *

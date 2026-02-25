@@ -562,7 +562,7 @@ read -r DELEGATE_ADDR
 
 if [[ -z "$DELEGATE_ADDR" ]]; then
   echo -e "\n  ${DIM}No delegate address provided. You can create the delegation manually later:${RESET}" >&2
-  echo -e "  ${DIM}yarn ocap daemon exec queueMessage '[\"$ROOT_KREF\", \"createDelegation\", [{\"delegate\": \"0xADDRESS\", \"caveats\": [], \"chainId\": $CHAIN_ID}]]'${RESET}\n" >&2
+  echo -e "  ${DIM}yarn ocap daemon exec queueMessage '[\"$ROOT_KREF\", \"createDelegation\", [{\"delegate\": \"0xADDRESS\", \"caveats\": [{\"type\":\"nativeTokenTransferAmount\",\"enforcer\":\"0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320\",\"terms\":\"0x...\"}], \"chainId\": $CHAIN_ID}]]'${RESET}\n" >&2
   exit 0
 fi
 
@@ -570,9 +570,46 @@ if ! echo "$DELEGATE_ADDR" | grep -qiE '^0x[0-9a-f]{40}$'; then
   fail "Invalid Ethereum address: $DELEGATE_ADDR"
 fi
 
-info "Creating delegation for $DELEGATE_ADDR..."
-DEL_PARAMS=$(KREF="$ROOT_KREF" DEL="$DELEGATE_ADDR" CID="$CHAIN_ID" node -e "
-  const p = JSON.stringify([process.env.KREF, 'createDelegation', [{ delegate: process.env.DEL, caveats: [], chainId: Number(process.env.CID) }]]);
+# Prompt for optional spending limits
+echo "" >&2
+echo -e "  ${DIM}Spending limits restrict how much ETH the agent can spend.${RESET}" >&2
+echo -e "  ${DIM}Both are enforced on-chain — the agent cannot bypass them.${RESET}" >&2
+echo "" >&2
+echo -ne "${CYAN}→${RESET} Total ETH spending limit (e.g. 0.1, or Enter for unlimited): " >&2
+read -r TOTAL_LIMIT
+echo -ne "${CYAN}→${RESET} Max ETH per transaction (e.g. 0.01, or Enter for unlimited): " >&2
+read -r TX_LIMIT
+
+CAVEATS_JSON=$(TOTAL="$TOTAL_LIMIT" TX="$TX_LIMIT" node -e "
+  const caveats = [];
+  const total = (process.env.TOTAL || '').trim();
+  const tx = (process.env.TX || '').trim();
+  const encode = (v) => {
+    const wei = BigInt(Math.round(parseFloat(v) * 1e18));
+    return '0x' + wei.toString(16).padStart(64, '0');
+  };
+  if (total) caveats.push({
+    type: 'nativeTokenTransferAmount',
+    enforcer: '0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320',
+    terms: encode(total)
+  });
+  if (tx) caveats.push({
+    type: 'valueLte',
+    enforcer: '0x92Bf12322527cAA612fd31a0e810472BBB106A8F',
+    terms: encode(tx)
+  });
+  process.stdout.write(JSON.stringify(caveats));
+")
+
+if [[ "$CAVEATS_JSON" == "[]" ]]; then
+  info "Creating delegation for $DELEGATE_ADDR (no spending limits)..."
+else
+  info "Creating delegation for $DELEGATE_ADDR with spending limits..."
+  echo -e "  ${DIM}Caveats: $CAVEATS_JSON${RESET}" >&2
+fi
+
+DEL_PARAMS=$(KREF="$ROOT_KREF" DEL="$DELEGATE_ADDR" CID="$CHAIN_ID" CAVS="$CAVEATS_JSON" node -e "
+  const p = JSON.stringify([process.env.KREF, 'createDelegation', [{ delegate: process.env.DEL, caveats: JSON.parse(process.env.CAVS), chainId: Number(process.env.CID) }]]);
   process.stdout.write(p);
 ")
 DEL_RAW=$(daemon_exec queueMessage "$DEL_PARAMS")
