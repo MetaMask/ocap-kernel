@@ -32,6 +32,7 @@ describe('VatSyscall', () => {
       forgetKref: vi.fn(),
       getVatConfig: vi.fn(() => ({})),
       isVatActive: vi.fn(() => true),
+      isInCrank: vi.fn(() => true),
     } as unknown as KernelStore;
     logger = {
       debug: vi.fn(),
@@ -66,6 +67,27 @@ describe('VatSyscall', () => {
     );
   });
 
+  it('enqueues send immediately when outside a crank', () => {
+    (kernelStore.isInCrank as unknown as MockInstance).mockReturnValue(false);
+    const target = 'o+1';
+    const message = { methargs: { body: '', slots: [] } } as unknown as Message;
+    const vso = ['send', target, message] as unknown as VatSyscallObject;
+    vatSys.handleSyscall(vso);
+    expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(target, message, true);
+  });
+
+  it('resolves promises immediately when outside a crank', () => {
+    (kernelStore.isInCrank as unknown as MockInstance).mockReturnValue(false);
+    const resolution = ['kp1', false, {}] as unknown as VatOneResolution;
+    const vso = ['resolve', [resolution]] as unknown as VatSyscallObject;
+    vatSys.handleSyscall(vso);
+    expect(kernelQueue.resolvePromises).toHaveBeenCalledWith(
+      'v1',
+      [resolution],
+      true,
+    );
+  });
+
   describe('subscribe syscall', () => {
     it('subscribes to unresolved promise', async () => {
       (
@@ -94,6 +116,18 @@ describe('VatSyscall', () => {
         'kp1',
         false,
       );
+    });
+
+    it('notifies immediately for resolved promise when outside a crank', () => {
+      (kernelStore.isInCrank as unknown as MockInstance).mockReturnValue(false);
+      (
+        kernelStore.getKernelPromise as unknown as MockInstance
+      ).mockReturnValueOnce({
+        state: 'fulfilled',
+      });
+      const vso = ['subscribe', 'kp1'] as unknown as VatSyscallObject;
+      vatSys.handleSyscall(vso);
+      expect(kernelQueue.enqueueNotify).toHaveBeenCalledWith('v1', 'kp1', true);
     });
   });
 
