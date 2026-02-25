@@ -356,6 +356,28 @@ if [[ -n "$PIMLICO_KEY" ]]; then
 
   daemon_exec queueMessage "$BUNDLER_PARAMS" >/dev/null
   ok "Bundler configured — Pimlico (chain $CHAIN_ID)"
+
+  # Create smart account (delegations require the delegator to be a smart account)
+  info "Creating smart account..."
+  SA_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" node -e "
+    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ deploySalt: '0x0000000000000000000000000000000000000000000000000000000000000001', chainId: Number(process.env.CID) }]]);
+    process.stdout.write(p);
+  ")
+  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS")
+  HOME_SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
+    const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+    process.stdout.write(d.address || '');
+  ")
+  if [[ -n "$HOME_SMART_ACCOUNT" ]]; then
+    ok "Smart account: $HOME_SMART_ACCOUNT"
+    echo "" >&2
+    echo -e "  ${YELLOW}${BOLD}Note:${RESET} Transfer ETH from your EOA to the smart account" >&2
+    echo -e "  for delegation-based sends to work:" >&2
+    echo -e "  ${DIM}$HOME_SMART_ACCOUNT${RESET}" >&2
+    echo "" >&2
+  else
+    info "Smart account creation returned no address (may already exist)"
+  fi
 else
   info "Skipping bundler config (no --pimlico-key). UserOp submission will not work."
 fi
