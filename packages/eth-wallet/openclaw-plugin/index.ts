@@ -18,7 +18,7 @@ import { resolve as resolvePath, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const pluginDir = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_CLI = resolvePath(pluginDir, '../../../cli/dist/app.mjs');
+const DEFAULT_CLI = resolvePath(pluginDir, '../../cli/dist/app.mjs');
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 type ExecResult = { stdout: string; stderr: string; code: number | null };
