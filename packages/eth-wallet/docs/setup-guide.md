@@ -214,7 +214,13 @@ openclaw plugins install -l ./packages/eth-wallet/openclaw-plugin
 openclaw plugins enable wallet
 ```
 
-2. Restart the gateway and verify the plugin loaded:
+2. Allow the wallet tools:
+
+```bash
+openclaw config set tools.allow '["wallet"]'
+```
+
+3. Restart the gateway and verify the plugin loaded:
 
 ```bash
 openclaw gateway restart
