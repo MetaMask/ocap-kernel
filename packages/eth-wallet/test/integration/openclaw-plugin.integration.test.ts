@@ -20,11 +20,6 @@ type ToolDefinition = {
   ) => Promise<ToolResponse>;
 };
 
-type RpcResponse = {
-  result?: unknown;
-  error?: { message?: string };
-};
-
 const moduleDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(moduleDir, '../../../..');
 const ocapCliEntrypoint = resolve(repoRoot, 'node_modules/.bin/ocap');
@@ -140,18 +135,15 @@ async function callVat(
   method: string,
   args: unknown[] = [],
 ): Promise<unknown> {
-  const response = (await runOcapJson([
+  // `daemon exec` outputs the unwrapped result (not the JSON-RPC envelope).
+  // For queueMessage, the result is CapData.
+  const result = await runOcapJson([
     'daemon',
     'exec',
     'queueMessage',
     JSON.stringify([rootKref, method, args]),
-  ])) as RpcResponse;
-  if (response.error) {
-    throw new Error(
-      `queueMessage RPC error: ${response.error.message ?? JSON.stringify(response.error)}`,
-    );
-  }
-  return decodeCapData(response.result);
+  ]);
+  return decodeCapData(result);
 }
 
 describe.sequential('OpenClaw wallet plugin daemon integration', () => {
