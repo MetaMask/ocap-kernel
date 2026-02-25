@@ -169,7 +169,7 @@ yarn ocap daemon purge --force
 
 Then re-run the setup script. Without this, the old relay address stays embedded in new OCAP URLs.
 
-### Home device (holds the master keys)
+### Step 1 — Start the home script
 
 ```bash
 ./packages/eth-wallet/scripts/setup-home.sh \
@@ -177,12 +177,13 @@ Then re-run the setup script. Without this, the old relay address stays embedded
   --infura-key YOUR_INFURA_KEY \
   --pimlico-key YOUR_PIMLICO_KEY \
   --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
-# Prints two lines to stdout:
-#   1. The OCAP URL        — pass to setup-away.sh --ocap-url
-#   2. Listen addresses     — pass to setup-away.sh --listen-addrs
 ```
 
-### Away device (VPS / agent machine)
+The script sets up the home wallet and then **waits** — it will show the OCAP URL and listen addresses to copy.
+
+### Step 2 — Start the away script (on the VPS)
+
+Copy the OCAP URL and listen addresses from the home output and pass them:
 
 ```bash
 ./packages/eth-wallet/scripts/setup-away.sh \
@@ -193,20 +194,24 @@ Then re-run the setup script. Without this, the old relay address stays embedded
   --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
 ```
 
+When the away script finishes setup, it shows the **delegate address** and waits.
+
+### Step 3 — Delegate authority (copy-paste between terminals)
+
+The scripts guide you through a handshake:
+
+1. **Away → Home**: copy the delegate address from the away terminal, paste it into the home terminal
+2. The home script creates the delegation and prints the delegation JSON
+3. **Home → Away**: copy the delegation JSON, paste it into the away terminal, press `Ctrl+D`
+4. The away script receives the delegation and verifies it
+
+Both scripts finish automatically after the delegation is transferred.
+
 The `--pimlico-key` configures the Pimlico bundler for ERC-4337 UserOp submission with paymaster sponsorship. Without it, smart account deployment and on-chain delegation redemption will not work.
 
 Both scripts also accept `--chain-id` (default: Sepolia), `--quic-port` (default: 4002), and `--no-build`. Run with `--help` for details.
 
-### Delegate authority (home to away)
-
-After `setup-away.sh` completes, it prints a `createDelegation` command with the away wallet's throwaway address pre-filled.
-
-1. Run the `createDelegation` command on the **home device** — it outputs a signed delegation JSON
-2. Copy the delegation JSON and run `receiveDelegation` on the **VPS** to transfer it
-
-See [section 4](#4-delegate-authority-from-home-to-away) for the full step-by-step commands.
-
-`setup-away.sh` does **not** install or configure the OpenClaw wallet plugin — do that next.
+`setup-away.sh` also prints OpenClaw plugin install commands at the end — run those next.
 
 ## OpenClaw plugin install
 
