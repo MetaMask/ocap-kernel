@@ -547,8 +547,13 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
   $(echo -e "${DIM}")Delegations      :$(echo -e "${RESET}") $DEL_COUNT
   $(echo -e "${DIM}")Peer connected   :$(echo -e "${RESET}") $(echo -e "${GREEN}")true$(echo -e "${RESET}")
 
-  The wallet is ready. Install the OpenClaw
-  plugin next (see setup guide).
+  The wallet is ready. To install the OpenClaw plugin:
+
+  $(echo -e "${DIM}")openclaw plugins install -l ./packages/eth-wallet/openclaw-plugin
+  openclaw plugins enable wallet
+  openclaw config set tools.allow '["wallet"]'
+  openclaw gateway restart
+  openclaw plugins list$(echo -e "${RESET}")
 
   Watch daemon logs: $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")
   Stop the daemon:   $(echo -e "${DIM}")yarn ocap daemon stop$(echo -e "${RESET}")
