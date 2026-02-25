@@ -198,55 +198,27 @@ describe('delegation-vat', () => {
       ).rejects.toThrow('Delegation ID mismatch');
     });
 
-    it('rejects delegation with invalid signature', async () => {
+    it('accepts delegation without verifying signature (deferred to on-chain)', async () => {
       const unsigned = makeDelegation({
         delegator: ALICE,
         delegate: BOB,
         caveats: [],
         chainId: 1,
       });
-      // Valid format (65 bytes, v=27) but garbage r/s values
+      // Garbage signature — accepted because verification is deferred to on-chain
       const fakeSig = `0x${'ab'.repeat(32)}${'cd'.repeat(32)}1b`;
       const signed = finalizeDelegation(unsigned, fakeSig as Hex);
 
-      await expect(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (root as any).receiveDelegation(signed),
-      ).rejects.toThrow('Invalid delegation signature');
-    });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).receiveDelegation(signed);
 
-    it('rejects delegation signed by wrong account', async () => {
-      // Create delegation claiming ALICE is delegator, but sign with a different key
-      const otherKey =
-        '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d';
-      const otherAccount = privateKeyToAccount(otherKey as `0x${string}`);
-
-      const unsigned = makeDelegation({
-        delegator: ALICE, // claims ALICE is delegator
-        delegate: BOB,
-        caveats: [],
-        chainId: 1,
-      });
-      const typedData = prepareDelegationTypedData({
-        delegation: unsigned,
-        verifyingContract: DEFAULT_DELEGATION_MANAGER,
-      });
-      // Sign with otherAccount (not ALICE)
-      const signature = await otherAccount.signTypedData({
-        domain: typedData.domain as Record<string, unknown>,
-        types: typedData.types as Record<
-          string,
-          { name: string; type: string }[]
-        >,
-        primaryType: typedData.primaryType,
-        message: typedData.message,
-      });
-      const tampered = finalizeDelegation(unsigned, signature);
-
-      await expect(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (root as any).receiveDelegation(tampered),
-      ).rejects.toThrow('Invalid delegation signature');
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const found = await (root as any).findDelegationForAction(
+        { to: '0x0000000000000000000000000000000000000001' },
+        1,
+      );
+      expect(found).toBeDefined();
+      expect(found.id).toBe(signed.id);
     });
   });
 
