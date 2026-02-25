@@ -135,8 +135,8 @@ describe('openclaw wallet plugin', () => {
     );
   });
 
-  it('decodes CapData object response for wallet_capabilities', async () => {
-    const expected = {
+  it('strips internal fields from wallet_capabilities', async () => {
+    const rawCapabilities = {
       hasLocalKeys: true,
       localAccounts: [account],
       delegationCount: 1,
@@ -146,7 +146,7 @@ describe('openclaw wallet plugin', () => {
       smartAccountAddress: account,
     };
     mockSpawn.mockImplementationOnce(() =>
-      makeSpawnResult({ stdout: makeCapData(expected) }),
+      makeSpawnResult({ stdout: makeCapData(rawCapabilities) }),
     );
 
     const tools = setupPlugin();
@@ -154,8 +154,17 @@ describe('openclaw wallet plugin', () => {
     expect(tool).toBeDefined();
 
     const result = await tool!.execute('req-2');
+    const parsed = JSON.parse(result.content[0]?.text ?? '{}');
 
-    expect(JSON.parse(result.content[0]?.text ?? '{}')).toStrictEqual(expected);
+    expect(parsed).toStrictEqual({
+      delegationCount: 1,
+      hasPeerWallet: true,
+      hasExternalSigner: false,
+      hasBundlerConfig: true,
+      smartAccountAddress: account,
+    });
+    expect(parsed).not.toHaveProperty('localAccounts');
+    expect(parsed).not.toHaveProperty('hasLocalKeys');
   });
 
   it('infers from account before wallet_send', async () => {
