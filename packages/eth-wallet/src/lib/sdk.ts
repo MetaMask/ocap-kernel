@@ -90,6 +90,7 @@ const SDK_ENFORCER_KEYS: Record<CaveatType, string> = {
   allowedTargets: 'AllowedTargetsEnforcer',
   allowedMethods: 'AllowedMethodsEnforcer',
   valueLte: 'ValueLteEnforcer',
+  nativeTokenTransferAmount: 'NativeTokenTransferAmountEnforcer',
   erc20TransferAmount: 'ERC20TransferAmountEnforcer',
   limitedCalls: 'LimitedCallsEnforcer',
   timestamp: 'TimestampEnforcer',

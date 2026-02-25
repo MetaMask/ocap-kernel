@@ -45,6 +45,8 @@ export const PLACEHOLDER_CONTRACTS: ChainContracts = harden({
     allowedTargets: '0x0000000000000000000000000000000000000001' as Address,
     allowedMethods: '0x0000000000000000000000000000000000000002' as Address,
     valueLte: '0x0000000000000000000000000000000000000003' as Address,
+    nativeTokenTransferAmount:
+      '0x0000000000000000000000000000000000000007' as Address,
     erc20TransferAmount:
       '0x0000000000000000000000000000000000000004' as Address,
     limitedCalls: '0x0000000000000000000000000000000000000005' as Address,
@@ -56,7 +58,23 @@ export const PLACEHOLDER_CONTRACTS: ChainContracts = harden({
  * Registry of contract addresses keyed by chain ID.
  * Populate with actual deployment addresses per chain.
  */
-export const CHAIN_CONTRACTS: Record<number, ChainContracts> = harden({});
+export const CHAIN_CONTRACTS: Record<number, ChainContracts> = {
+  /** Sepolia testnet (chain 11155111). */
+  [SEPOLIA_CHAIN_ID]: harden({
+    delegationManager: '0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3' as Address,
+    enforcers: {
+      allowedTargets: '0xD5D960245C3DdA84C6068757e0f3f4BD0B575bAc' as Address,
+      allowedMethods: '0x06ea8bA2fcf36781D9C8ec62F63D42F1CFa3d959' as Address,
+      valueLte: '0x92Bf12322527cAA612fd31a0e810472BBB106A8F' as Address,
+      nativeTokenTransferAmount:
+        '0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320' as Address,
+      erc20TransferAmount:
+        '0x2A2b4F58Ce0299eE0e2e5dC0600DaCA7bca2b02F' as Address,
+      limitedCalls: '0x42bF09Fe66bE38e36c18dDc4158C0A51F7124dAE' as Address,
+      timestamp: '0x40aB3EFC45B3059e8a0a4eE9bC2AdB0bef9cF09a' as Address,
+    },
+  }),
+};
 
 /**
  * Get the contract addresses for a chain, falling back to placeholders.
