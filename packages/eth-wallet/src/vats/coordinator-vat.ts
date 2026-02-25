@@ -846,17 +846,14 @@ export function buildRootObject(
         filledTx.maxFeePerGas ??= fees.maxFeePerGas;
         filledTx.maxPriorityFeePerGas ??= fees.maxPriorityFeePerGas;
       }
-      if (!filledTx.gas) {
-        const estimated = (await E(providerVat).request('eth_estimateGas', [
-          {
-            from: filledTx.from,
-            to: filledTx.to,
-            value: filledTx.value,
-            data: filledTx.data,
-          },
-        ])) as Hex;
-        filledTx.gas = estimated;
-      }
+      filledTx.gasLimit ??= (await E(providerVat).request('eth_estimateGas', [
+        {
+          from: filledTx.from,
+          to: filledTx.to,
+          value: filledTx.value,
+          data: filledTx.data,
+        },
+      ])) as Hex;
 
       const signedTx = await resolveTransactionSigning(filledTx);
       return E(providerVat).broadcastTransaction(signedTx);
