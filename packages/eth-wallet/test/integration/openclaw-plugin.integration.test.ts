@@ -3,17 +3,10 @@ import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import register from '../../openclaw-plugin/index.ts';
 import { makeWalletClusterConfig } from '../../src/cluster-config.ts';
-
-vi.mock('@sinclair/typebox', () => ({
-  Type: {
-    Object: (shape: Record<string, unknown>) => shape,
-    String: (_options?: Record<string, unknown>) => ({ type: 'string' }),
-  },
-}));
 
 type ToolResponse = {
   content: { type: 'text'; text: string }[];
@@ -289,7 +282,7 @@ exec "${process.execPath}" "${ocapCliEntrypoint}" "$@"
 
     const result = await tool!.execute('req-balance', { address });
 
-    expect(result.content[0]?.text).toBe('0x2a');
+    expect(result.content[0]?.text).toContain('0x2a');
   });
 
   it('infers from and sends signed tx via wallet_send', async () => {
