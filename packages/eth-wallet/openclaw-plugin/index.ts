@@ -9,13 +9,16 @@
  * Enable tools via agents.list[].tools.allow: ["wallet_balance", "wallet_send"]
  * or allow all with ["wallet"].
  *
- * Config (in openclaw plugin settings):
- *   ocapCliPath  - Absolute path to the `ocap` CLI binary (or omit to use PATH)
- *   walletKref   - The kernel reference for the wallet coordinator (e.g. "ko4")
+ * Config (optional, in openclaw plugin settings):
+ *   ocapCliPath  - Absolute path to the `ocap` CLI (auto-detected from monorepo)
+ *   walletKref   - The kernel reference for the wallet coordinator (default: "ko4")
  */
 import { spawn } from 'node:child_process';
+import { resolve as resolvePath, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const DEFAULT_CLI = 'ocap';
+const pluginDir = dirname(fileURLToPath(import.meta.url));
+const DEFAULT_CLI = resolvePath(pluginDir, '../../../cli/dist/app.mjs');
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 type ExecResult = { stdout: string; stderr: string; code: number | null };
