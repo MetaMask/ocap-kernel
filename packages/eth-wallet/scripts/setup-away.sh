@@ -475,15 +475,17 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
   $(echo -e "${DIM}")Delegate address :$(echo -e "${RESET}") $DELEGATE_ADDR
   $(echo -e "${DIM}")Peer connected   :$(echo -e "${RESET}") $(echo -e "${GREEN}")true$(echo -e "${RESET}")
 
-$(echo -e "${YELLOW}${BOLD}")  Run this on the HOME device now:$(echo -e "${RESET}")
+$(echo -e "${YELLOW}${BOLD}")  Run this EXACT command on the HOME device now:$(echo -e "${RESET}")
 
-  yarn ocap daemon exec queueMessage '["<HOME_KREF>", "createDelegation", [{"delegate": "$DELEGATE_ADDR", "caveats": [], "chainId": $CHAIN_ID}]]'
+$(echo -e "${BOLD}")  yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{"delegate": "$DELEGATE_ADDR", "caveats": [], "chainId": $CHAIN_ID}]]'$(echo -e "${RESET}")
 
-  $(echo -e "${DIM}")Replace <HOME_KREF> with the coordinator kref from setup-home.sh output (usually ko4).$(echo -e "${RESET}")
+  $(echo -e "${DIM}")If your home coordinator kref is not ko4, replace it accordingly.$(echo -e "${RESET}")
+
+  Then copy the ENTIRE output and paste it below.
 
 EOF
 
-echo -e "${CYAN}→${RESET} Paste the delegation JSON from the home device (press Ctrl+D when done):" >&2
+echo -e "${CYAN}→${RESET} Paste the output from the home device (press Ctrl+D when done):" >&2
 DELEGATION_JSON=$(cat)
 
 if [[ -z "$DELEGATION_JSON" ]]; then
