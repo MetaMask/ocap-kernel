@@ -1129,13 +1129,9 @@ export function buildRootObject(
     async getCapabilities(): Promise<WalletCapabilities> {
       const hasLocalKeys = keyringVat ? await E(keyringVat).hasKeys() : false;
 
-      // Show peer accounts when connected, local accounts otherwise.
-      let accounts: Address[] = [];
-      if (peerWallet) {
-        accounts = await E(peerWallet).getAccounts();
-      } else if (keyringVat) {
-        accounts = await E(keyringVat).getAccounts();
-      }
+      const localAccounts: Address[] = keyringVat
+        ? await E(keyringVat).getAccounts()
+        : [];
 
       const delegations: Delegation[] = delegationVat
         ? await E(delegationVat).listDelegations()
@@ -1143,7 +1139,7 @@ export function buildRootObject(
 
       return harden({
         hasLocalKeys,
-        localAccounts: accounts,
+        localAccounts,
         delegationCount: delegations.length,
         hasPeerWallet: peerWallet !== undefined,
         hasExternalSigner: externalSigner !== undefined,
