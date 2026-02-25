@@ -410,49 +410,37 @@ Should show `hasPeerWallet: true`.
 
 ## 4. Delegate authority from home to away
 
-This is a 3-step process across both devices. The away wallet needs a delegation from the home wallet to send transactions on its behalf.
+If you used the automated scripts, this is handled interactively — the scripts guide you through copying the delegate address and delegation JSON between terminals. See [Step 3 in Quick start](#step-3--delegate-authority-copy-paste-between-terminals).
 
-**Step 1 — Get the away wallet's delegate address (on the VPS):**
+When `--pimlico-key` is provided, both scripts also create a smart account and the home script auto-funds it with 0.1 ETH from the EOA. Delegations require smart accounts as delegator and delegate — this is handled automatically.
 
-```bash
-yarn ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
-# If smartAccountAddress is set, use that as the delegate
-# Otherwise, use localAccounts[0] (the throwaway address)
-```
+For manual setup, the steps are:
 
-If you ran the setup script with `--pimlico-key`, the smart account was created automatically and `smartAccountAddress` will be set. Use that address as the delegate — it's the account that redeems delegations on-chain via ERC-4337.
-
-**Step 2 — Create the delegation (on the home device):**
+1. Create a smart account on both devices:
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{
-  "delegate": "0xDELEGATE_ADDRESS_FROM_STEP_1",
-  "caveats": [],
-  "chainId": 11155111
-}]]'
+yarn ocap daemon exec queueMessage '["ko4", "createSmartAccount", [{"deploySalt": "0x0000000000000000000000000000000000000000000000000000000000000001", "chainId": 11155111}]]'
 ```
 
-This outputs a signed delegation JSON object. Copy the entire JSON output.
-
-**Step 3 — Transfer the delegation to the away device (on the VPS):**
-
-Paste the full delegation JSON from step 2 into the `receiveDelegation` call:
+2. Fund the home smart account from the EOA (the delegator needs ETH for transfers):
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "receiveDelegation", [{
-  "authority": "0xfff...",
-  "caveats": [],
-  "chainId": 11155111,
-  "delegate": "0x...",
-  "delegator": "0x...",
-  "id": "0x...",
-  "salt": "0x...",
-  "signature": "0x...",
-  "status": "signed"
-}]]'
+yarn ocap daemon exec queueMessage '["ko4", "sendTransaction", [{"from": "0xEOA_ADDRESS", "to": "0xHOME_SMART_ACCOUNT", "value": "0x16345785D8A0000", "chainId": 11155111}]]'
 ```
 
-Verify the delegation was received:
+3. Create the delegation on the home device (delegate = away smart account):
+
+```bash
+yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{"delegate": "0xAWAY_SMART_ACCOUNT", "caveats": [], "chainId": 11155111}]]'
+```
+
+4. Transfer the delegation to the away device:
+
+```bash
+yarn ocap daemon exec queueMessage '["ko4", "receiveDelegation", [<PASTE_DELEGATION_JSON>]]'
+```
+
+5. Verify:
 
 ```bash
 yarn ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
