@@ -13,7 +13,6 @@
  *   ocapCliPath  - Absolute path to the `ocap` CLI binary (or omit to use PATH)
  *   walletKref   - The kernel reference for the wallet coordinator (e.g. "ko4")
  */
-import { Type } from '@sinclair/typebox';
 import { spawn } from 'node:child_process';
 
 const DEFAULT_CLI = 'ocap';
@@ -222,9 +221,13 @@ export default function register(api: any): void {
       label: 'Wallet balance',
       description:
         'Get the ETH balance for a wallet address. Uses the OCAP daemon; no key access needed.',
-      parameters: Type.Object({
-        address: Type.String({ description: 'Ethereum address (0x...)' }),
-      }),
+      parameters: {
+        type: 'object',
+        properties: {
+          address: { type: 'string', description: 'Ethereum address (0x...)' },
+        },
+        required: ['address'],
+      },
       async execute(_id: string, params: { address: string }) {
         if (!ETH_ADDRESS_RE.test(params.address)) {
           return makeError(
@@ -260,12 +263,18 @@ export default function register(api: any): void {
       label: 'Wallet send',
       description:
         'Send ETH to an address. The kernel handles signing via delegations or peer wallet.',
-      parameters: Type.Object({
-        to: Type.String({ description: 'Recipient address (0x...)' }),
-        value: Type.String({
-          description: "Value in hex wei (e.g. '0xde0b6b3a7640000' for 1 ETH)",
-        }),
-      }),
+      parameters: {
+        type: 'object',
+        properties: {
+          to: { type: 'string', description: 'Recipient address (0x...)' },
+          value: {
+            type: 'string',
+            description:
+              "Value in hex wei (e.g. '0xde0b6b3a7640000' for 1 ETH)",
+          },
+        },
+        required: ['to', 'value'],
+      },
       async execute(_id: string, params: { to: string; value: string }) {
         if (!ETH_ADDRESS_RE.test(params.to)) {
           return makeError(
@@ -325,9 +334,13 @@ export default function register(api: any): void {
       label: 'Wallet sign',
       description:
         'Sign a message. May forward to the home kernel for approval.',
-      parameters: Type.Object({
-        message: Type.String({ description: 'Message to sign' }),
-      }),
+      parameters: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', description: 'Message to sign' },
+        },
+        required: ['message'],
+      },
       async execute(_id: string, params: { message: string }) {
         try {
           const result = await callWallet({
@@ -358,7 +371,7 @@ export default function register(api: any): void {
       label: 'Wallet capabilities',
       description:
         'Check wallet capabilities: local keys, delegations, peer wallet, bundler.',
-      parameters: Type.Object({}),
+      parameters: { type: 'object', properties: {} },
       async execute() {
         try {
           const result = await callWallet({
@@ -388,7 +401,7 @@ export default function register(api: any): void {
       name: 'wallet_accounts',
       label: 'Wallet accounts',
       description: 'List all wallet accounts.',
-      parameters: Type.Object({}),
+      parameters: { type: 'object', properties: {} },
       async execute() {
         try {
           const result = await callWallet({

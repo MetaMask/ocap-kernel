@@ -178,33 +178,33 @@ After `setup-away.sh` completes, it prints a `createDelegation` command with the
 
 ## OpenClaw plugin install
 
-Run this on the away device after `setup-away.sh` completes.
+Run this on the away device after `setup-away.sh` completes. The install path must be relative to the current directory (use `./`).
 
-1. Install plugin dependencies (the plugin is not a yarn workspace, so this is needed once):
-
-```bash
-cd packages/eth-wallet/openclaw-plugin
-npm install
-```
-
-2. Load the plugin into OpenClaw:
+1. Link and enable the plugin:
 
 ```bash
-openclaw plugin load packages/eth-wallet/openclaw-plugin
+openclaw plugins install -l ./packages/eth-wallet/openclaw-plugin
+openclaw plugins enable wallet
 ```
 
-3. Configure the plugin in OpenClaw's plugin settings (`openclaw plugin config wallet`):
+2. Configure the plugin:
 
-- **Wallet Coordinator KRef**: the `rootKref` from `setup-away.sh` output (e.g. `ko4`)
-- **OCAP CLI Path**: absolute path to the CLI entry point, e.g. `~/ocap-kernel/packages/cli/dist/app.mjs`
+```bash
+openclaw config set plugins.entries.wallet.config.walletKref '"ko4"'
+openclaw config set plugins.entries.wallet.config.ocapCliPath '"~/ocap-kernel/packages/cli/dist/app.mjs"'
+```
 
-4. Restart the OpenClaw gateway so the plugin loads:
+Replace `ko4` with the `rootKref` from `setup-away.sh` output, and adjust the CLI path if your repo is in a different location.
+
+3. Restart the gateway and verify the plugin loaded:
 
 ```bash
 openclaw gateway restart
+openclaw plugins list        # should show wallet as enabled
+openclaw plugins doctor      # should report no errors
 ```
 
-5. Allow wallet tools for your agent in the agent configuration:
+4. Allow wallet tools for your agent in the agent configuration:
 
 ```json
 {
