@@ -451,7 +451,7 @@ done
 ok "Peer wallet connected and verified"
 
 # ---------------------------------------------------------------------------
-# Done
+# 10. Delegate authority (interactive)
 # ---------------------------------------------------------------------------
 
 # Determine the delegate address for delegation (smart account if available, else throwaway)
@@ -467,7 +467,7 @@ fi
 cat >&2 <<EOF
 
 $(echo -e "${GREEN}${BOLD}")══════════════════════════════════════════════
-  Away wallet setup complete!
+  Away wallet ready — delegation needed
 ══════════════════════════════════════════════$(echo -e "${RESET}")
 
   $(echo -e "${DIM}")Coordinator kref :$(echo -e "${RESET}") $ROOT_KREF
@@ -475,18 +475,80 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
   $(echo -e "${DIM}")Delegate address :$(echo -e "${RESET}") $DELEGATE_ADDR
   $(echo -e "${DIM}")Peer connected   :$(echo -e "${RESET}") $(echo -e "${GREEN}")true$(echo -e "${RESET}")
 
-  The away wallet can now forward signing
-  requests to the home wallet via CapTP.
+$(echo -e "${YELLOW}${BOLD}")  Run this on the HOME device now:$(echo -e "${RESET}")
 
-$(echo -e "${YELLOW}${BOLD}")  Next: delegate authority from the HOME device.$(echo -e "${RESET}")
-
-  $(echo -e "${DIM}")Step 1 — On the HOME device, create the delegation:$(echo -e "${RESET}")
   yarn ocap daemon exec queueMessage '["<HOME_KREF>", "createDelegation", [{"delegate": "$DELEGATE_ADDR", "caveats": [], "chainId": $CHAIN_ID}]]'
 
-  $(echo -e "${DIM}")Step 2 — Copy the full JSON output and run on the VPS:$(echo -e "${RESET}")
-  yarn ocap daemon exec queueMessage '["$ROOT_KREF", "receiveDelegation", [<PASTE_DELEGATION_JSON>]]'
+  $(echo -e "${DIM}")Replace <HOME_KREF> with the coordinator kref from setup-home.sh output (usually ko4).$(echo -e "${RESET}")
 
-  $(echo -e "${DIM}")Replace <HOME_KREF> with the coordinator kref from setup-home.sh output.$(echo -e "${RESET}")
+EOF
+
+echo -e "${CYAN}→${RESET} Paste the delegation JSON from the home device and press Enter:" >&2
+read -r DELEGATION_JSON
+
+if [[ -z "$DELEGATION_JSON" ]]; then
+  fail "No delegation JSON provided"
+fi
+
+# Extract the inner delegation object from CapData if needed
+DELEGATION_INNER=$(echo "$DELEGATION_JSON" | node -e "
+  const raw = require('fs').readFileSync('/dev/stdin', 'utf8').trim();
+  let data;
+  try { data = JSON.parse(raw); } catch {
+    process.stderr.write('Invalid JSON\n');
+    process.exit(1);
+  }
+  // If it's CapData, unwrap it
+  if (data.body && typeof data.body === 'string' && data.body.startsWith('#')) {
+    try {
+      const inner = JSON.parse(data.body.slice(1));
+      process.stdout.write(JSON.stringify(inner));
+    } catch {
+      process.stderr.write('Failed to parse CapData body\n');
+      process.exit(1);
+    }
+  } else {
+    // Already a plain delegation object
+    process.stdout.write(JSON.stringify(data));
+  }
+")
+
+info "Receiving delegation..."
+RECEIVE_PARAMS=$(KREF="$ROOT_KREF" DEL="$DELEGATION_INNER" node -e "
+  const p = JSON.stringify([process.env.KREF, 'receiveDelegation', [JSON.parse(process.env.DEL)]]);
+  process.stdout.write(p);
+")
+daemon_exec queueMessage "$RECEIVE_PARAMS" >/dev/null
+ok "Delegation received"
+
+# Verify
+CAPS_FINAL_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_FINAL_RAW=""
+DEL_COUNT=$(echo "$CAPS_FINAL_RAW" | node -e "
+  try {
+    const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+    const v = JSON.parse(d.body.slice(1));
+    process.stdout.write(String(v.delegationCount));
+  } catch { process.stdout.write('0'); }
+" 2>/dev/null || echo "0")
+ok "Delegation count: $DEL_COUNT"
+
+# ---------------------------------------------------------------------------
+# Done
+# ---------------------------------------------------------------------------
+
+cat >&2 <<EOF
+
+$(echo -e "${GREEN}${BOLD}")══════════════════════════════════════════════
+  Away wallet setup complete!
+══════════════════════════════════════════════$(echo -e "${RESET}")
+
+  $(echo -e "${DIM}")Coordinator kref :$(echo -e "${RESET}") $ROOT_KREF
+  $(echo -e "${DIM}")Delegate address :$(echo -e "${RESET}") $DELEGATE_ADDR
+  $(echo -e "${DIM}")Delegations      :$(echo -e "${RESET}") $DEL_COUNT
+  $(echo -e "${DIM}")Peer connected   :$(echo -e "${RESET}") $(echo -e "${GREEN}")true$(echo -e "${RESET}")
+
+  The wallet is ready. Install the OpenClaw
+  plugin next (see setup guide).
 
   Watch daemon logs: $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")
   Stop the daemon:   $(echo -e "${DIM}")yarn ocap daemon stop$(echo -e "${RESET}")
