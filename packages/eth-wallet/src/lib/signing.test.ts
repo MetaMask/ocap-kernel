@@ -80,6 +80,30 @@ describe('lib/signing', () => {
       expect(signed.startsWith('0x04')).toBe(true);
     });
 
+    it('signs an EIP-7702 tx even without maxFeePerGas', async () => {
+      const account = makeTestAccount();
+      const auth = await signAuthorization({
+        account,
+        contractAddress: '0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B',
+        chainId: 11155111,
+      });
+
+      const signed = await signTransaction({
+        account,
+        tx: {
+          from: account.address.toLowerCase() as `0x${string}`,
+          to: account.address.toLowerCase() as `0x${string}`,
+          chainId: 11155111,
+          nonce: 0,
+          gasLimit: '0x19000',
+          authorizationList: [auth],
+        },
+      });
+
+      // Still type-4 even without maxFeePerGas
+      expect(signed.startsWith('0x04')).toBe(true);
+    });
+
     it('signs a transaction with data', async () => {
       const account = makeTestAccount();
       const signed = await signTransaction({
