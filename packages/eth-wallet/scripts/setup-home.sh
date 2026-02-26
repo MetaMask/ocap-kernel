@@ -363,7 +363,7 @@ if [[ -n "$PIMLICO_KEY" ]]; then
     const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ chainId: Number(process.env.CID), implementation: 'stateless7702' }]]);
     process.stdout.write(p);
   ")
-  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 60)
+  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 120)
   HOME_SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
     const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
     process.stdout.write(d.address || '');
