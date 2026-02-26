@@ -165,10 +165,13 @@ export async function handleDaemonBegone(socketPath: string): Promise<void> {
  *
  * @param args - Positional arguments: [method, params-json].
  * @param socketPath - The daemon socket path.
+ * @param options - Additional options.
+ * @param options.timeoutMs - Read timeout in milliseconds.
  */
 export async function handleDaemonExec(
   args: string[],
   socketPath: string,
+  { timeoutMs }: { timeoutMs?: number } = {},
 ): Promise<void> {
   const method = args[0] ?? 'getStatus';
   const rawParams = args[1];
@@ -194,7 +197,12 @@ export async function handleDaemonExec(
     }
   }
 
-  const response = await sendCommand({ socketPath, method, params });
+  const response = await sendCommand({
+    socketPath,
+    method,
+    params,
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+  });
 
   if (isJsonRpcFailure(response)) {
     process.stderr.write(
