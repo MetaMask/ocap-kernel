@@ -671,18 +671,13 @@ export function buildRootObject(
       chainId,
     );
 
-    // Build and sign the EIP-7702 transaction
+    // Build and sign the EIP-7702 transaction.
+    // Use a conservative fixed gas limit: an EIP-7702 authorization-only tx
+    // (no calldata, no value) costs ~65k gas. Standard eth_estimateGas may
+    // not support the authorizationList parameter on all RPC providers.
+    const EIP7702_AUTH_GAS_LIMIT = '0x19000' as Hex; // 102400
     const nonce = await E(providerVat).getNonce(eoaAddress);
     const fees = await E(providerVat).getGasFees();
-
-    // Estimate gas for the authorization tx
-    const gasLimit = (await E(providerVat).request('eth_estimateGas', [
-      {
-        from: eoaAddress,
-        to: eoaAddress,
-        authorizationList: [signedAuth],
-      },
-    ])) as Hex;
 
     const signedTx = await E(keyringVat).signTransaction({
       from: eoaAddress,
@@ -691,11 +686,30 @@ export function buildRootObject(
       nonce,
       maxFeePerGas: fees.maxFeePerGas,
       maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
-      gasLimit,
+      gasLimit: EIP7702_AUTH_GAS_LIMIT,
       authorizationList: [signedAuth],
-    } as TransactionRequest);
+    });
 
-    await E(providerVat).broadcastTransaction(signedTx);
+    const txHash = await E(providerVat).broadcastTransaction(signedTx);
+
+    // Wait for the authorization tx to be mined so subsequent UserOps
+    // see the 7702 delegation on-chain. Poll eth_getCode up to 60s.
+    const maxAttempts = 30;
+    for (let i = 0; i < maxAttempts; i++) {
+      const updatedCode = (await E(providerVat).request('eth_getCode', [
+        eoaAddress,
+        'latest',
+      ])) as string;
+      if (isEip7702Delegated(updatedCode, chainId)) {
+        break;
+      }
+      if (i === maxAttempts - 1) {
+        throw new Error(
+          `EIP-7702 authorization tx ${txHash} not confirmed after 60s`,
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    }
 
     smartAccountConfig = harden({
       implementation: 'stateless7702' as const,

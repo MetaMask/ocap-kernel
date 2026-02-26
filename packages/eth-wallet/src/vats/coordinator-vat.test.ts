@@ -1973,21 +1973,29 @@ describe('coordinator-vat', () => {
 
   describe('createSmartAccount (stateless7702)', () => {
     it('creates a 7702 smart account when EOA has no code', async () => {
+      vi.useFakeTimers();
+
       await coordinator.initializeKeyring({
         type: 'srp',
         mnemonic: TEST_MNEMONIC,
       });
 
-      // eth_getCode returns empty (not yet delegated)
-      providerVat.request.mockResolvedValueOnce('0x');
-      // eth_estimateGas for the authorization tx
-      providerVat.request.mockResolvedValueOnce('0x5208' as Hex);
+      // eth_getCode returns empty (not yet delegated), then confirmed after broadcast
+      providerVat.request
+        .mockResolvedValueOnce('0x') // initial check
+        .mockResolvedValueOnce(
+          '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
+        ); // confirmation poll
 
-      const config = await coordinator.createSmartAccount({
+      const configPromise = coordinator.createSmartAccount({
         chainId: 11155111,
         implementation: 'stateless7702',
       });
 
+      // Advance past the confirmation poll timeout
+      await vi.advanceTimersByTimeAsync(2000);
+
+      const config = await configPromise;
       const accounts = await coordinator.getAccounts();
 
       expect(config.implementation).toBe('stateless7702');
@@ -1998,8 +2006,14 @@ describe('coordinator-vat', () => {
       expect(config.deploySalt).toBeUndefined();
       expect(coordinatorBaggage.has('smartAccountConfig')).toBe(true);
 
-      // Should have broadcast the authorization tx
+      // Should have broadcast the authorization tx (as type-4 EIP-7702)
       expect(providerVat.broadcastTransaction).toHaveBeenCalled();
+      const broadcastArg = providerVat.broadcastTransaction.mock
+        .calls[0][0] as string;
+      // EIP-7702 serialized tx starts with 0x04
+      expect(broadcastArg.startsWith('0x04')).toBe(true);
+
+      vi.useRealTimers();
     });
 
     it('skips tx when EOA is already 7702-delegated', async () => {

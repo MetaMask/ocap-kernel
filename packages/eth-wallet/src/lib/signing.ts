@@ -1,6 +1,7 @@
 import type {
   SignedAuthorization,
   TransactionSerializableEIP1559,
+  TransactionSerializableEIP7702,
   TransactionSerializableLegacy,
 } from 'viem';
 import type { LocalAccount } from 'viem/accounts';
@@ -15,6 +16,11 @@ import type {
 /**
  * Sign a transaction with the given account.
  *
+ * Detects the transaction type from the request fields:
+ * - `authorizationList` present → EIP-7702 (type 4)
+ * - `maxFeePerGas` present → EIP-1559 (type 2)
+ * - Otherwise → Legacy (type 0)
+ *
  * @param options - Signing options.
  * @param options.account - The local account to sign with.
  * @param options.tx - The transaction request.
@@ -26,6 +32,29 @@ export async function signTransaction(options: {
 }): Promise<Hex> {
   const { account, tx } = options;
 
+  // EIP-7702 (type 4) — authorization list present
+  if (tx.authorizationList && tx.authorizationList.length > 0) {
+    const eip7702Tx = {
+      to: tx.to,
+      type: 'eip7702' as const,
+      authorizationList:
+        tx.authorizationList as unknown as SignedAuthorization[],
+      ...(tx.maxFeePerGas === undefined
+        ? {}
+        : { maxFeePerGas: BigInt(tx.maxFeePerGas) }),
+      ...(tx.maxPriorityFeePerGas === undefined
+        ? {}
+        : { maxPriorityFeePerGas: BigInt(tx.maxPriorityFeePerGas) }),
+      ...(tx.value === undefined ? {} : { value: BigInt(tx.value) }),
+      ...(tx.data === undefined ? {} : { data: tx.data }),
+      ...(tx.nonce === undefined ? {} : { nonce: tx.nonce }),
+      ...(tx.gasLimit === undefined ? {} : { gas: BigInt(tx.gasLimit) }),
+      ...(tx.chainId === undefined ? {} : { chainId: tx.chainId }),
+    } as TransactionSerializableEIP7702;
+    return account.signTransaction(eip7702Tx);
+  }
+
+  // EIP-1559 (type 2)
   if (tx.maxFeePerGas) {
     const eip1559Tx = {
       to: tx.to,
@@ -43,6 +72,7 @@ export async function signTransaction(options: {
     return account.signTransaction(eip1559Tx);
   }
 
+  // Legacy (type 0)
   const legacyTx = {
     to: tx.to,
     type: 'legacy' as const,
