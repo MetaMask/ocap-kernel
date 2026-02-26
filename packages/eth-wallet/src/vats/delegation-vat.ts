@@ -138,12 +138,13 @@ export function buildRootObject(
     async findDelegationForAction(
       action: Action,
       chainId?: number,
+      currentTime?: number,
     ): Promise<Delegation | undefined> {
       for (const delegation of delegations.values()) {
         if (chainId !== undefined && delegation.chainId !== chainId) {
           continue;
         }
-        if (delegationMatchesAction(delegation, action)) {
+        if (delegationMatchesAction(delegation, action, currentTime)) {
           return delegation;
         }
       }

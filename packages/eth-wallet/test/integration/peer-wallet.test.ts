@@ -241,17 +241,15 @@ describe.sequential('Peer wallet integration', () => {
     );
 
     it(
-      'forwards transaction signing to peer wallet',
+      'rejects remote transaction signing (no peer fallback)',
       async () => {
         await setupPeerConnection();
 
-        // Get kernel1's accounts to construct a valid transaction
         const accounts = (await callVatMethod(
           kernel1,
           coordinatorKref1,
           'getAccounts',
         )) as Address[];
-        expect(accounts).toHaveLength(1);
 
         const tx: TransactionRequest = {
           from: accounts[0] as Address,
@@ -263,15 +261,16 @@ describe.sequential('Peer wallet integration', () => {
           maxPriorityFeePerGas: '0x3b9aca00' as Hex,
         };
 
-        // Kernel2 (no local keys) forwards to kernel1
-        const signed = (await callVatMethod(
-          kernel2,
+        // Transaction signing has no peer fallback — kernel2 has no local
+        // keys so this should return an error, not forward to kernel1.
+        const result = await kernel2.queueMessage(
           coordinatorKref2,
           'signTransaction',
           [tx],
-        )) as Hex;
-
-        expect(signed).toMatch(/^0x/u);
+        );
+        await waitUntilQuiescent();
+        expect(result.body).toContain('#error');
+        expect(result.body).toContain('No authority to sign this transaction');
       },
       NETWORK_TIMEOUT,
     );

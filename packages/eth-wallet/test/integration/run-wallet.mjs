@@ -17,6 +17,7 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import { NodejsPlatformServices } from '@ocap/nodejs';
+import { randomBytes } from 'node:crypto';
 
 import { makeWalletClusterConfig } from '../../src/cluster-config.ts';
 
@@ -254,8 +255,9 @@ async function main() {
 
   // -- Throwaway key --
   console.log('\n--- Throwaway key ---');
+  const entropy = `0x${randomBytes(32).toString('hex')}`;
   await call(kernel, coordinator2, 'initializeKeyring', [
-    { type: 'throwaway' },
+    { type: 'throwaway', entropy },
   ]);
   const throwawayAccounts = await call(kernel, coordinator2, 'getAccounts');
   assert(throwawayAccounts.length === 1, 'throwaway key produces one account');

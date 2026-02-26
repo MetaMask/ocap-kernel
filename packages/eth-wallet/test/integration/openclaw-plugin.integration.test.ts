@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
@@ -229,7 +230,10 @@ exec "${process.execPath}" "${ocapCliEntrypoint}" "$@"
     }
     rootKref = launchResponse.rootKref;
 
-    await callVat(rootKref, 'initializeKeyring', [{ type: 'throwaway' }]);
+    const entropy = `0x${randomBytes(32).toString('hex')}`;
+    await callVat(rootKref, 'initializeKeyring', [
+      { type: 'throwaway', entropy },
+    ]);
     await callVat(rootKref, 'configureProvider', [{ chainId: 31337, rpcUrl }]);
 
     tools = new Map<string, ToolDefinition>();
