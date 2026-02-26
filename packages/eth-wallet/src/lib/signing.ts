@@ -1,10 +1,16 @@
 import type {
+  SignedAuthorization,
   TransactionSerializableEIP1559,
   TransactionSerializableLegacy,
 } from 'viem';
 import type { LocalAccount } from 'viem/accounts';
 
-import type { Eip712TypedData, Hex, TransactionRequest } from '../types.ts';
+import type {
+  Address,
+  Eip712TypedData,
+  Hex,
+  TransactionRequest,
+} from '../types.ts';
 
 /**
  * Sign a transaction with the given account.
@@ -103,5 +109,25 @@ export async function signTypedData(options: {
     types: typedData.types as Record<string, { name: string; type: string }[]>,
     primaryType: typedData.primaryType,
     message: typedData.message,
+  });
+}
+
+/**
+ * Sign an EIP-7702 authorization to delegate an EOA's code to a contract.
+ *
+ * @param options - Signing options.
+ * @param options.account - The local account to sign with.
+ * @param options.contractAddress - The implementation contract address.
+ * @param options.chainId - The chain ID for the authorization.
+ * @returns The signed authorization.
+ */
+export async function signAuthorization(options: {
+  account: LocalAccount;
+  contractAddress: Address;
+  chainId: number;
+}): Promise<SignedAuthorization> {
+  return options.account.signAuthorization({
+    contractAddress: options.contractAddress,
+    chainId: options.chainId,
   });
 }

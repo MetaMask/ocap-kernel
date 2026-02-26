@@ -1,14 +1,20 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
+import type { SignedAuthorization } from 'viem';
 
 import {
   buildSdkRedeemCallData,
   computeSmartAccountAddress,
+  isEip7702Delegated,
   prepareUserOpTypedData,
   resolveEnvironment,
 } from '../lib/sdk.ts';
-import { buildDelegationUserOp, ENTRY_POINT_V07 } from '../lib/userop.ts';
+import {
+  buildDelegationUserOp,
+  computeUserOpHash,
+  ENTRY_POINT_V07,
+} from '../lib/userop.ts';
 import type {
   Action,
   Address,
@@ -58,6 +64,11 @@ type KeyringFacet = {
   signTypedData: (data: Eip712TypedData) => Promise<Hex>;
   signMessage: (message: string, from?: Address) => Promise<Hex>;
   signHash: (hash: Hex, from?: Address) => Promise<Hex>;
+  signAuthorization: (
+    contractAddress: Address,
+    chainId: number,
+    from?: Address,
+  ) => Promise<SignedAuthorization>;
 };
 
 type ProviderFacet = {
@@ -323,7 +334,6 @@ export function buildRootObject(
    * @param from - Optional sender address.
    * @returns The signature as a hex string.
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async function resolveHashSigning(hash: Hex, from?: Address): Promise<Hex> {
     // Local keyring: raw ECDSA (no EIP-191 prefix)
     if (keyringVat) {
@@ -462,11 +472,19 @@ export function buildRootObject(
       sender,
     });
 
+    // Stateless7702 accounts never need factory data
+    const isStateless7702 =
+      smartAccountConfig?.implementation === 'stateless7702';
+
     // Check on-chain whether the smart account is deployed (eth_getCode).
     // This avoids relying on a cached flag that could be stale if the
     // deployment UserOp failed on-chain.
     let includeFactory = false;
-    if (smartAccountConfig?.factory && smartAccountConfig.factoryData) {
+    if (
+      !isStateless7702 &&
+      smartAccountConfig?.factory &&
+      smartAccountConfig.factoryData
+    ) {
       const code = (await E(providerVat).request('eth_getCode', [
         sender,
         'latest',
@@ -560,17 +578,26 @@ export function buildRootObject(
       };
     }
 
-    // Sign the UserOp as EIP-712 typed data.
-    // HybridDeleGator validates signatures as typed data (not raw ECDSA),
-    // using the smart account as the verifyingContract.
-    const userOpTypedData = prepareUserOpTypedData({
-      userOp: userOpWithGas,
-      entryPoint: bundlerConfig.entryPoint,
-      chainId: bundlerConfig.chainId,
-      smartAccountAddress: sender,
-    });
-
-    const signature = await resolveTypedDataSigning(userOpTypedData);
+    // Sign the UserOp.
+    // Stateless7702: raw ECDSA over the standard UserOp hash.
+    // Hybrid: EIP-712 typed data with smart account as verifyingContract.
+    let signature: Hex;
+    if (isStateless7702) {
+      const hash = computeUserOpHash(
+        userOpWithGas,
+        bundlerConfig.entryPoint,
+        bundlerConfig.chainId,
+      );
+      signature = await resolveHashSigning(hash);
+    } else {
+      const userOpTypedData = prepareUserOpTypedData({
+        userOp: userOpWithGas,
+        entryPoint: bundlerConfig.entryPoint,
+        chainId: bundlerConfig.chainId,
+        smartAccountAddress: sender,
+      });
+      signature = await resolveTypedDataSigning(userOpTypedData);
+    }
 
     // Attach signature and submit
     const signedUserOp: UserOperation = {
@@ -585,6 +612,98 @@ export function buildRootObject(
     });
 
     return result;
+  }
+
+  /**
+   * Create a Stateless7702 smart account by signing and broadcasting
+   * an EIP-7702 authorization transaction. The user's EOA address
+   * becomes the smart account — no factory deployment or funding needed.
+   *
+   * @param chainId - The chain ID.
+   * @returns The smart account configuration.
+   */
+  async function createStateless7702SmartAccount(
+    chainId: number,
+  ): Promise<SmartAccountConfig> {
+    if (!keyringVat) {
+      throw new Error('Keyring vat required for EIP-7702 authorization');
+    }
+    if (!providerVat) {
+      throw new Error('Provider vat required for EIP-7702 authorization');
+    }
+
+    const accounts = await E(keyringVat).getAccounts();
+    if (accounts.length === 0) {
+      throw new Error('No accounts available');
+    }
+    const eoaAddress = accounts[0];
+
+    // Check if already delegated
+    const code = (await E(providerVat).request('eth_getCode', [
+      eoaAddress,
+      'latest',
+    ])) as string;
+
+    if (isEip7702Delegated(code, chainId)) {
+      // Already set up — just persist config
+      smartAccountConfig = harden({
+        implementation: 'stateless7702' as const,
+        address: eoaAddress,
+        deployed: true,
+      });
+      persistBaggage('smartAccountConfig', smartAccountConfig);
+      return smartAccountConfig;
+    }
+
+    // Sign EIP-7702 authorization
+    const env = resolveEnvironment(chainId);
+    const implAddress = (
+      env.implementations as Record<string, string | undefined>
+    ).EIP7702StatelessDeleGatorImpl;
+    if (!implAddress) {
+      throw new Error(
+        `EIP7702StatelessDeleGatorImpl not found in environment for chain ${String(chainId)}`,
+      );
+    }
+
+    const signedAuth = await E(keyringVat).signAuthorization(
+      implAddress as Address,
+      chainId,
+    );
+
+    // Build and sign the EIP-7702 transaction
+    const nonce = await E(providerVat).getNonce(eoaAddress);
+    const fees = await E(providerVat).getGasFees();
+
+    // Estimate gas for the authorization tx
+    const gasLimit = (await E(providerVat).request('eth_estimateGas', [
+      {
+        from: eoaAddress,
+        to: eoaAddress,
+        authorizationList: [signedAuth],
+      },
+    ])) as Hex;
+
+    const signedTx = await E(keyringVat).signTransaction({
+      from: eoaAddress,
+      to: eoaAddress,
+      chainId,
+      nonce,
+      maxFeePerGas: fees.maxFeePerGas,
+      maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+      gasLimit,
+      authorizationList: [signedAuth],
+    } as TransactionRequest);
+
+    await E(providerVat).broadcastTransaction(signedTx);
+
+    smartAccountConfig = harden({
+      implementation: 'stateless7702' as const,
+      address: eoaAddress,
+      deployed: true,
+    });
+    persistBaggage('smartAccountConfig', smartAccountConfig);
+    return smartAccountConfig;
   }
 
   const coordinator = makeDefaultExo('walletCoordinator', {
@@ -710,13 +829,24 @@ export function buildRootObject(
     // ------------------------------------------------------------------
 
     async createSmartAccount(config: {
-      deploySalt: Hex;
+      deploySalt?: Hex;
       chainId: number;
       address?: Address;
+      implementation?: 'hybrid' | 'stateless7702';
     }): Promise<SmartAccountConfig> {
+      const implementation = config.implementation ?? 'hybrid';
+
+      if (implementation === 'stateless7702') {
+        return createStateless7702SmartAccount(config.chainId);
+      }
+
+      // Hybrid path (existing logic)
       let { address } = config;
       let factory: Address | undefined;
       let factoryData: Hex | undefined;
+      const deploySalt =
+        config.deploySalt ??
+        ('0x0000000000000000000000000000000000000000000000000000000000000001' as Hex);
 
       // Derive counterfactual address if not explicitly provided
       if (!address) {
@@ -745,7 +875,7 @@ export function buildRootObject(
 
         const derived = await computeSmartAccountAddress({
           owner,
-          deploySalt: config.deploySalt,
+          deploySalt,
           chainId: config.chainId,
         });
         address = derived.address;
@@ -754,7 +884,7 @@ export function buildRootObject(
 
       smartAccountConfig = harden({
         implementation: 'hybrid' as const,
-        deploySalt: config.deploySalt,
+        deploySalt,
         address,
         factory,
         factoryData,

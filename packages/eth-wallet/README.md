@@ -309,10 +309,10 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Coordinator -- Smart Accounts
 
-| Method                       | Description                                                                                |
-| ---------------------------- | ------------------------------------------------------------------------------------------ |
-| `createSmartAccount(config)` | Derive a counterfactual Hybrid smart account. Accepts `{ deploySalt, chainId, address? }`. |
-| `getSmartAccountAddress()`   | Return the smart account address, if configured.                                           |
+| Method                       | Description                                                                                                                                                                                  |
+| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createSmartAccount(config)` | Create a smart account. Accepts `{ chainId, implementation?, deploySalt?, address? }`. Default implementation is `'hybrid'`; use `'stateless7702'` for EIP-7702 (EOA becomes smart account). |
+| `getSmartAccountAddress()`   | Return the smart account address, if configured.                                                                                                                                             |
 
 The `WalletCapabilities` object contains:
 
@@ -561,7 +561,7 @@ PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
   yarn workspace @ocap/eth-wallet test:node:sepolia
 ```
 
-Full on-chain test on Sepolia testnet. Creates a Hybrid smart account via the MetaMask Delegation Framework SDK, creates and signs a delegation, redeems it by submitting an ERC-4337 UserOp to the Pimlico bundler with paymaster gas sponsorship, and waits for on-chain inclusion. Skips automatically if `PIMLICO_API_KEY` and `SEPOLIA_RPC_URL` are not set.
+Full on-chain test on Sepolia testnet. Creates an EIP-7702 stateless smart account (EOA becomes the smart account), creates and signs a delegation, redeems it by submitting an ERC-4337 UserOp to the Pimlico bundler with paymaster gas sponsorship, and waits for on-chain inclusion. Skips automatically if `PIMLICO_API_KEY` and `SEPOLIA_RPC_URL` are not set.
 
 ### Peer wallet Sepolia E2E (40 assertions, requires API keys)
 
