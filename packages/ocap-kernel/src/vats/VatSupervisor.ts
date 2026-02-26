@@ -301,6 +301,9 @@ export class VatSupervisor {
     // Map of allowed global names to their values
     const allowedGlobals: Record<string, unknown> = {
       Date: globalThis.Date,
+      TextEncoder: globalThis.TextEncoder,
+      TextDecoder: globalThis.TextDecoder,
+      setTimeout: globalThis.setTimeout,
     };
 
     // Build additional endowments from globals list
