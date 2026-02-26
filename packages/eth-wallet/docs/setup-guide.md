@@ -476,35 +476,29 @@ Should show `hasPeerWallet: true`.
 
 If you used the automated scripts, this is handled interactively — the scripts guide you through copying the delegate address and delegation JSON between terminals. See [Step 3 in Quick start](#step-3--delegate-authority-copy-paste-between-terminals).
 
-When `--pimlico-key` is provided, both scripts also create a smart account and the home script auto-funds it with 0.1 ETH from the EOA. Delegations require smart accounts as delegator and delegate — this is handled automatically.
+When `--pimlico-key` is provided, both scripts also create an EIP-7702 smart account (the EOA becomes the smart account — same address, no funding transfer needed). Delegations require smart accounts as delegator and delegate — this is handled automatically.
 
 For manual setup, the steps are:
 
-1. Create a smart account on both devices:
+1. Create a smart account on both devices (EIP-7702 — the EOA address becomes the smart account):
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "createSmartAccount", [{"deploySalt": "0x0000000000000000000000000000000000000000000000000000000000000001", "chainId": 11155111}]]'
+yarn ocap daemon exec queueMessage '["ko4", "createSmartAccount", [{"chainId": 11155111, "implementation": "stateless7702"}]]'
 ```
 
-2. Fund the home smart account from the EOA (the delegator needs ETH for transfers):
-
-```bash
-yarn ocap daemon exec queueMessage '["ko4", "sendTransaction", [{"from": "0xEOA_ADDRESS", "to": "0xHOME_SMART_ACCOUNT", "value": "0x16345785D8A0000", "chainId": 11155111}]]'
-```
-
-3. Create the delegation on the home device (delegate = away smart account). See [Spending limits](#spending-limits) for adding caveats:
+2. Create the delegation on the home device (delegate = away smart account). See [Spending limits](#spending-limits) for adding caveats:
 
 ```bash
 yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{"delegate": "0xAWAY_SMART_ACCOUNT", "caveats": [], "chainId": 11155111}]]'
 ```
 
-4. Transfer the delegation to the away device:
+3. Transfer the delegation to the away device:
 
 ```bash
 yarn ocap daemon exec queueMessage '["ko4", "receiveDelegation", [<PASTE_DELEGATION_JSON>]]'
 ```
 
-5. Verify:
+4. Verify:
 
 ```bash
 yarn ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'

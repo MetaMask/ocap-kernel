@@ -1,9 +1,11 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
+import type { SignedAuthorization } from 'viem';
 
 import { makeKeyring } from '../lib/keyring.ts';
 import type { Keyring, KeyringInitOptions } from '../lib/keyring.ts';
 import {
+  signAuthorization,
   signHash,
   signTransaction,
   signMessage,
@@ -157,6 +159,26 @@ export function buildRootObject(
         throw new Error(`No key for account ${address}`);
       }
       return signMessage({ account, message });
+    },
+
+    async signAuthorization(
+      contractAddress: Address,
+      chainId: number,
+      from?: Address,
+    ): Promise<SignedAuthorization> {
+      if (!keyring) {
+        throw new Error('Keyring not initialized');
+      }
+      const accounts = keyring.getAccounts();
+      const address = from ?? accounts[0];
+      if (!address) {
+        throw new Error('No accounts available');
+      }
+      const account = keyring.getAccount(address);
+      if (!account) {
+        throw new Error(`No key for account ${address}`);
+      }
+      return signAuthorization({ account, contractAddress, chainId });
     },
   });
 }

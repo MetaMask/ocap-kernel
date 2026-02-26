@@ -391,19 +391,19 @@ if [[ -n "$PIMLICO_KEY" ]]; then
   daemon_exec queueMessage "$BUNDLER_PARAMS" >/dev/null
   ok "Bundler configured — Pimlico (chain $CHAIN_ID)"
 
-  # Create smart account (required for delegation-based sends via ERC-4337)
-  info "Creating smart account..."
+  # Create smart account using EIP-7702 (EOA becomes smart account — no funding needed)
+  info "Setting up smart account (EIP-7702)..."
   SA_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" node -e "
-    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ deploySalt: '0x0000000000000000000000000000000000000000000000000000000000000001', chainId: Number(process.env.CID) }]]);
+    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ chainId: Number(process.env.CID), implementation: 'stateless7702' }]]);
     process.stdout.write(p);
   ")
-  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS")
+  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 60)
   SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
     const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
     process.stdout.write(d.address || '');
   ")
   if [[ -n "$SMART_ACCOUNT" ]]; then
-    ok "Smart account: $SMART_ACCOUNT"
+    ok "Smart account: $SMART_ACCOUNT (same as EOA)"
   else
     info "Smart account creation returned no address (may already exist)"
   fi

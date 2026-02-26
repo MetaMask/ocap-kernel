@@ -44,7 +44,10 @@ vi.mock('../lib/sdk.ts', async (importOriginal) => {
       SimpleFactory: '0xDDdDddDdDdddDDddDDddDDDDdDdDDdDDdDDDDDDd',
       DelegationManager: '0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE',
       EntryPoint: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
-      implementations: {},
+      implementations: {
+        EIP7702StatelessDeleGatorImpl:
+          '0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B',
+      },
       caveatEnforcers: {},
     }),
   };
@@ -1965,6 +1968,138 @@ describe('coordinator-vat', () => {
         bundlerUrl: 'https://bundler.example.com',
         chainId: 1,
       });
+    });
+  });
+
+  describe('createSmartAccount (stateless7702)', () => {
+    it('creates a 7702 smart account when EOA has no code', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      // eth_getCode returns empty (not yet delegated)
+      providerVat.request.mockResolvedValueOnce('0x');
+      // eth_estimateGas for the authorization tx
+      providerVat.request.mockResolvedValueOnce('0x5208' as Hex);
+
+      const config = await coordinator.createSmartAccount({
+        chainId: 11155111,
+        implementation: 'stateless7702',
+      });
+
+      const accounts = await coordinator.getAccounts();
+
+      expect(config.implementation).toBe('stateless7702');
+      expect(config.address).toBe(accounts[0]);
+      expect(config.deployed).toBe(true);
+      expect(config.factory).toBeUndefined();
+      expect(config.factoryData).toBeUndefined();
+      expect(config.deploySalt).toBeUndefined();
+      expect(coordinatorBaggage.has('smartAccountConfig')).toBe(true);
+
+      // Should have broadcast the authorization tx
+      expect(providerVat.broadcastTransaction).toHaveBeenCalled();
+    });
+
+    it('skips tx when EOA is already 7702-delegated', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      // eth_getCode returns valid EIP-7702 designator
+      providerVat.request.mockResolvedValueOnce(
+        '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
+      );
+
+      const config = await coordinator.createSmartAccount({
+        chainId: 11155111,
+        implementation: 'stateless7702',
+      });
+
+      expect(config.implementation).toBe('stateless7702');
+      expect(config.deployed).toBe(true);
+      // No broadcast needed
+      expect(providerVat.broadcastTransaction).not.toHaveBeenCalled();
+    });
+
+    it('throws when keyring is not available', async () => {
+      const freshBaggage = makeMockBaggage();
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.bootstrap({ provider: providerVat }, {});
+
+      await expect(
+        coord.createSmartAccount({
+          chainId: 11155111,
+          implementation: 'stateless7702',
+        }),
+      ).rejects.toThrow('Keyring vat required');
+    });
+  });
+
+  describe('submitDelegationUserOp (stateless7702 signing)', () => {
+    it('uses raw ECDSA hash signing for 7702 accounts', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const eoaAddress = accounts[0] as Address;
+
+      // Set up 7702 smart account (already delegated)
+      providerVat.request.mockResolvedValueOnce(
+        '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
+      );
+      await coordinator.createSmartAccount({
+        chainId: 11155111,
+        implementation: 'stateless7702',
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 11155111,
+      });
+
+      // Create a delegation
+      const delegation = await coordinator.createDelegation({
+        delegate: eoaAddress,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([TARGET]),
+          }),
+        ],
+        chainId: 11155111,
+      });
+
+      const result = await coordinator.redeemDelegation({
+        execution: {
+          target: TARGET,
+          value: '0x0' as Hex,
+          callData: '0x' as Hex,
+        },
+        delegationId: delegation.id,
+        maxFeePerGas: '0x3b9aca00' as Hex,
+        maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      });
+
+      expect(result).toBe('0xuserophash');
+
+      // Verify UserOp was submitted with the EOA address as sender
+      const submitCall = providerVat.submitUserOp.mock.calls[0][0];
+      expect(submitCall.userOp.sender).toBe(eoaAddress);
+      expect(submitCall.userOp.signature).toMatch(/^0x/u);
+      expect(submitCall.userOp.signature).not.toBe('0x');
+      // No factory should be included for 7702 accounts
+      expect(submitCall.userOp.factory).toBeUndefined();
+      expect(submitCall.userOp.factoryData).toBeUndefined();
     });
   });
 });

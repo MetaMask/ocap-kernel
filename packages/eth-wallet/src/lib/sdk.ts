@@ -270,6 +270,39 @@ export async function computeSmartAccountAddress(options: {
 }
 
 // ---------------------------------------------------------------------------
+// EIP-7702 status check
+// ---------------------------------------------------------------------------
+
+/**
+ * Check whether on-chain code indicates an active EIP-7702 delegation
+ * to the expected Stateless7702 DeleGator implementation.
+ *
+ * EIP-7702 designator format: `0xef0100` + 20-byte address.
+ *
+ * @param code - The result of `eth_getCode` for the EOA.
+ * @param chainId - The chain ID (for environment resolution).
+ * @returns `true` if the code points at the expected 7702 implementation.
+ */
+export function isEip7702Delegated(code: string, chainId: number): boolean {
+  // 0xef0100 (6 chars) + 40 hex chars address = 46 chars + "0x" prefix = 48
+  if (!code || code === '0x' || code.length !== 48) {
+    return false;
+  }
+  if (!code.toLowerCase().startsWith('0xef0100')) {
+    return false;
+  }
+  const addr = `0x${code.slice(8)}`;
+  const env = resolveEnvironment(chainId);
+  const expectedImpl = (
+    env.implementations as Record<string, string | undefined>
+  ).EIP7702StatelessDeleGatorImpl;
+  if (!expectedImpl) {
+    return false;
+  }
+  return addr.toLowerCase() === expectedImpl.toLowerCase();
+}
+
+// ---------------------------------------------------------------------------
 // UserOp signing (EIP-712 typed data for HybridDeleGator)
 // ---------------------------------------------------------------------------
 

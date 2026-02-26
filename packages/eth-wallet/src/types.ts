@@ -192,8 +192,8 @@ export type WalletCapabilities = Infer<typeof WalletCapabilitiesStruct>;
 // ---------------------------------------------------------------------------
 
 export const SmartAccountConfigStruct = object({
-  implementation: literal('hybrid'),
-  deploySalt: HexStruct,
+  implementation: union([literal('hybrid'), literal('stateless7702')]),
+  deploySalt: optional(HexStruct),
   address: optional(AddressStruct),
   factory: optional(AddressStruct),
   factoryData: optional(HexStruct),

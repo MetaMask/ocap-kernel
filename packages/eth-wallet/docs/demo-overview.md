@@ -49,7 +49,7 @@ This means:
 
 ### Smart Accounts (ERC-4337)
 
-Both devices create **Hybrid DeleGator smart accounts** via MetaMask's Delegation Framework. These are ERC-4337 smart contract wallets that support:
+Both devices create **EIP-7702 stateless DeleGator smart accounts** via MetaMask's Delegation Framework. With EIP-7702, the user's EOA address *becomes* the smart account — same address, no factory deployment or funding transfer needed. These are ERC-4337 smart contract wallets that support:
 
 - **UserOperations** — transactions submitted through a bundler instead of directly
 - **Delegations** — signed permission slips that authorize another account to act on behalf of the smart account
