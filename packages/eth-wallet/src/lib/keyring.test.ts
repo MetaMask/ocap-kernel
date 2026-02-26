@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { makeKeyring, generateMnemonicPhrase } from './keyring.ts';
 
@@ -95,6 +95,17 @@ describe('lib/keyring', () => {
       it('does not expose a mnemonic', () => {
         const keyring = makeKeyring({ type: 'throwaway' });
         expect(keyring.getMnemonic()).toBeUndefined();
+      });
+
+      it('requires secure randomness when creating throwaway keys', () => {
+        vi.stubGlobal('crypto', undefined);
+        try {
+          expect(() => makeKeyring({ type: 'throwaway' })).toThrow(
+            'Throwaway keyring requires crypto.getRandomValues',
+          );
+        } finally {
+          vi.unstubAllGlobals();
+        }
       });
     });
   });

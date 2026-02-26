@@ -309,7 +309,7 @@ describe('coordinator-vat', () => {
     });
 
     describe('peer wallet fallback', () => {
-      it('forwards to peer wallet when no local authority', async () => {
+      it('does not forward transaction signing to peer wallet', async () => {
         const mockPeerWallet = {
           getAccounts: vi.fn().mockResolvedValue([]),
           handleSigningRequest: vi
@@ -335,12 +335,10 @@ describe('coordinator-vat', () => {
           nonce: 0,
         };
 
-        const signed = await coordinatorWithPeer.signTransaction(tx);
-        expect(signed).toBe('0xpeersigned');
-        expect(mockPeerWallet.handleSigningRequest).toHaveBeenCalledWith({
-          type: 'transaction',
-          tx,
-        });
+        await expect(coordinatorWithPeer.signTransaction(tx)).rejects.toThrow(
+          'No authority to sign this transaction',
+        );
+        expect(mockPeerWallet.handleSigningRequest).not.toHaveBeenCalled();
       });
     });
   });
@@ -437,6 +435,35 @@ describe('coordinator-vat', () => {
       expect(txHash).toBe('0xtxhash');
       expect(providerVat.broadcastTransaction).toHaveBeenCalled();
       expect(providerVat.submitUserOp).not.toHaveBeenCalled();
+    });
+
+    it('does not fall back to peer transaction signing', async () => {
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([]),
+        handleSigningRequest: vi.fn(),
+      };
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('peerWallet', mockPeerWallet);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.bootstrap({ provider: providerVat }, {});
+
+      const tx: TransactionRequest = {
+        from: '0x0000000000000000000000000000000000000099' as Address,
+        to: TARGET,
+        value: '0x0' as Hex,
+        chainId: 1,
+      };
+
+      await expect(coord.sendTransaction(tx)).rejects.toThrow(
+        'No authority to sign this transaction',
+      );
+      expect(mockPeerWallet.handleSigningRequest).not.toHaveBeenCalled();
     });
   });
 
@@ -750,27 +777,29 @@ describe('coordinator-vat', () => {
   });
 
   describe('handleSigningRequest', () => {
-    it('handles transaction signing requests', async () => {
+    it('rejects transaction signing requests', async () => {
       await coordinator.initializeKeyring({
         type: 'srp',
         mnemonic: TEST_MNEMONIC,
       });
 
       const accounts = await coordinator.getAccounts();
-      const signed = await coordinator.handleSigningRequest({
-        type: 'transaction',
-        tx: {
-          from: accounts[0],
-          to: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
-          value: '0xde0b6b3a7640000' as Hex,
-          chainId: 1,
-          nonce: 0,
-          maxFeePerGas: '0x3b9aca00' as Hex,
-          maxPriorityFeePerGas: '0x3b9aca00' as Hex,
-        },
-      });
-
-      expect(signed).toMatch(/^0x/u);
+      await expect(
+        coordinator.handleSigningRequest({
+          type: 'transaction',
+          tx: {
+            from: accounts[0],
+            to: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
+            value: '0xde0b6b3a7640000' as Hex,
+            chainId: 1,
+            nonce: 0,
+            maxFeePerGas: '0x3b9aca00' as Hex,
+            maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+          },
+        }),
+      ).rejects.toThrow(
+        'Peer transaction signing is disabled; use delegation redemption',
+      );
     });
 
     it('handles message signing requests', async () => {
@@ -1092,7 +1121,7 @@ describe('coordinator-vat', () => {
   });
 
   describe('handleSigningRequest with external signer', () => {
-    it('falls back to external signer for transaction requests', async () => {
+    it('rejects transaction requests', async () => {
       const freshBaggage = makeMockBaggage();
       const extSigner = makeMockExternalSigner();
       freshBaggage.init('externalSigner', extSigner);
@@ -1111,13 +1140,15 @@ describe('coordinator-vat', () => {
         nonce: 0,
       };
 
-      const signed = await coord.handleSigningRequest({
-        type: 'transaction',
-        tx,
-      });
-      expect(signed).toBe(
-        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef00',
+      await expect(
+        coord.handleSigningRequest({
+          type: 'transaction',
+          tx,
+        }),
+      ).rejects.toThrow(
+        'Peer transaction signing is disabled; use delegation redemption',
       );
+      expect(extSigner.signTransaction).not.toHaveBeenCalled();
     });
 
     it('falls back to external signer for typedData requests', async () => {
@@ -1181,12 +1212,12 @@ describe('coordinator-vat', () => {
 
       await expect(
         coord.handleSigningRequest({
-          type: 'transaction',
-          tx: {
-            from: EXT_SIGNER_ACCOUNT,
-            to: TARGET,
-            chainId: 1,
-            nonce: 0,
+          type: 'typedData',
+          data: {
+            domain: { name: 'Test' },
+            types: { Test: [{ name: 'v', type: 'uint256' }] },
+            primaryType: 'Test',
+            message: { v: '1' },
           },
         }),
       ).rejects.toThrow('No signer available to handle signing request');
@@ -1230,6 +1261,51 @@ describe('coordinator-vat', () => {
       );
       expect(delegation.delegator).toBe(EXT_SIGNER_ACCOUNT);
       expect(extSigner.signTypedData).toHaveBeenCalled();
+    });
+
+    it('uses external owner account for smart-account delegation signing', async () => {
+      const extSigner = makeMockExternalSigner();
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('externalSigner', extSigner);
+
+      const freshDelegationVat = buildDelegationRoot(
+        {},
+        {},
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        makeMockBaggage() as any,
+      );
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.bootstrap(
+        { provider: providerVat, delegation: freshDelegationVat },
+        {},
+      );
+
+      const smartAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      await coord.createSmartAccount({
+        chainId: 11155111,
+        address: smartAddress,
+      });
+
+      const delegation = await coord.createDelegation({
+        delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
+        caveats: [],
+        chainId: 11155111,
+      });
+
+      expect(delegation.delegator).toBe(smartAddress);
+      expect(extSigner.signTypedData).toHaveBeenCalled();
+      const [, from] = extSigner.signTypedData.mock.calls.at(-1) as [
+        Eip712TypedData,
+        Address,
+      ];
+      expect(from).toBe(EXT_SIGNER_ACCOUNT);
     });
 
     it('throws when neither keyring nor external signer is available', async () => {
