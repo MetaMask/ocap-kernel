@@ -81,6 +81,7 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import { NodejsPlatformServices } from '@ocap/nodejs';
+import { randomBytes } from 'node:crypto';
 
 import { makeWalletClusterConfig } from '../../src/cluster-config.ts';
 import { getDelegationManagerAddress } from '../../src/lib/sdk.ts';
@@ -325,7 +326,11 @@ async function main() {
   ]);
   assert(msgSig === localSig, 'remote signature matches home wallet');
 
-  console.log('\n--- Remote transaction signing (away → home) ---');
+  // Transaction signing has no peer fallback — the away kernel must use
+  // delegation redemption for sends. Verify it rejects correctly.
+  console.log(
+    '\n--- Remote transaction signing (away → home, expect error) ---',
+  );
   const tx = {
     from: homeAddr,
     to: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
@@ -335,15 +340,16 @@ async function main() {
     maxFeePerGas: '0x3b9aca00',
     maxPriorityFeePerGas: '0x3b9aca00',
   };
-  const remoteTxSig = await call(kernel2, coord2, 'signTransaction', [tx]);
-  assert(remoteTxSig.startsWith('0x'), 'remote tx signed');
+  const txResult = await kernel2.queueMessage(coord2, 'signTransaction', [tx]);
+  await waitUntilQuiescent();
   assert(
-    remoteTxSig.length > 100,
-    `remote signed tx: ${remoteTxSig.length} chars`,
+    typeof txResult.body === 'string' && txResult.body.includes('#error'),
+    'remote tx signing returned error',
   );
-
-  const localTxSig = await call(kernel1, coord1, 'signTransaction', [tx]);
-  assert(remoteTxSig === localTxSig, 'remote tx signature matches home wallet');
+  assert(
+    txResult.body.includes('No authority to sign this transaction'),
+    'remote tx signing rejected (no peer fallback)',
+  );
 
   // =====================================================================
   // 6. Provider queries via kernel2
@@ -373,7 +379,10 @@ async function main() {
   // =====================================================================
 
   console.log('\n--- Initialize throwaway keyring (kernel2) ---');
-  await call(kernel2, coord2, 'initializeKeyring', [{ type: 'throwaway' }]);
+  const throwawayEntropy = `0x${randomBytes(32).toString('hex')}`;
+  await call(kernel2, coord2, 'initializeKeyring', [
+    { type: 'throwaway', entropy: throwawayEntropy },
+  ]);
 
   // getAccounts returns only peer (home) accounts — throwaway is hidden
   const awayAccounts = await call(kernel2, coord2, 'getAccounts');

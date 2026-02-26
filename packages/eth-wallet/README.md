@@ -9,7 +9,7 @@ For a step-by-step walkthrough of deploying the wallet on a home device + VPS wi
 - **Peer signing has no interactive approval for message/typed-data requests.** Transaction signing over peer requests is now disabled and peer-connected wallets must use delegation redemption for sends, but message and typed-data peer signing still execute immediately without an approval prompt.
 - **`revokeDelegation()` is local-only.** Revoking a delegation removes it from the local store but does not submit an on-chain revocation. A party holding a copy of the signed delegation can still redeem it on-chain. On-chain revocation via the DelegationManager contract is planned.
 - **Mnemonic is stored in plaintext.** The keyring vat persists the mnemonic to the kernel's durable store (SQLite) without encryption. Filesystem access to the kernel database exposes the key material.
-- **Throwaway keyring needs secure entropy.** `initializeKeyring({ type: 'throwaway' })` now requires `crypto.getRandomValues`; in runtimes without secure randomness, initialize with SRP instead.
+- **Throwaway keyring needs secure entropy.** `initializeKeyring({ type: 'throwaway' })` requires either `crypto.getRandomValues` in the runtime or caller-provided entropy via `{ type: 'throwaway', entropy: '0x...' }`. Under SES lockdown (where `crypto` is unavailable inside vat compartments), the caller must generate 32 bytes of entropy externally and pass it in.
 
 ## Architecture
 
@@ -120,7 +120,9 @@ import { makeWalletClusterConfig } from '@ocap/eth-wallet';
 // 1. Launch the wallet subcluster with a throwaway keyring
 const config = makeWalletClusterConfig({ bundleBaseUrl: '/bundles' });
 const { rootKref } = await kernel.launchSubcluster(config);
-await coordinator.initializeKeyring({ type: 'throwaway' });
+// Under SES lockdown, pass entropy generated outside the vat:
+const entropy = `0x${Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex')}`;
+await coordinator.initializeKeyring({ type: 'throwaway', entropy });
 
 // 2. Connect to the home kernel via the OCAP URL
 await coordinator.connectToPeer(ocapUrl);
@@ -149,7 +151,7 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Peer Wallet Communication
 
-When the away kernel has no local keys and no matching delegation for a signing request, it falls back to the peer wallet (the home kernel's coordinator). The signing request is forwarded over the OCAP URL connection, and the home kernel signs it using its own keyring or external signer.
+When the away kernel has no local keys and no matching delegation for a message or typed-data signing request, it falls back to the peer wallet (the home kernel's coordinator). The signing request is forwarded over the OCAP URL connection, and the home kernel signs it using its own keyring or external signer. Transaction signing (`signTransaction`) does not have a peer fallback — the away kernel must use delegation redemption for sends.
 
 ```
   Away Kernel                           Home Kernel
@@ -265,13 +267,13 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Coordinator -- Lifecycle
 
-| Method                           | Description                                                                                                          |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `bootstrap(vats, services)`      | Called by the kernel during subcluster launch. Wires up vat references.                                              |
-| `initializeKeyring(options)`     | Initialize the keyring vat. Options: `{ type: 'srp', mnemonic }` or `{ type: 'throwaway' }`.                         |
-| `configureProvider(chainConfig)` | Configure the provider vat with an RPC URL and chain ID.                                                             |
-| `connectExternalSigner(signer)`  | Connect an external signing backend (e.g., MetaMask).                                                                |
-| `configureBundler(config)`       | Configure the ERC-4337 bundler. Accepts `{ bundlerUrl, chainId, entryPoint?, usePaymaster?, sponsorshipPolicyId? }`. |
+| Method                           | Description                                                                                                                                                                 |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bootstrap(vats, services)`      | Called by the kernel during subcluster launch. Wires up vat references.                                                                                                     |
+| `initializeKeyring(options)`     | Initialize the keyring vat. Options: `{ type: 'srp', mnemonic }` or `{ type: 'throwaway', entropy? }`. Under SES lockdown, pass `entropy` (32-byte hex) for throwaway keys. |
+| `configureProvider(chainConfig)` | Configure the provider vat with an RPC URL and chain ID.                                                                                                                    |
+| `connectExternalSigner(signer)`  | Connect an external signing backend (e.g., MetaMask).                                                                                                                       |
+| `configureBundler(config)`       | Configure the ERC-4337 bundler. Accepts `{ bundlerUrl, chainId, entryPoint?, usePaymaster?, sponsorshipPolicyId? }`.                                                        |
 
 ### Coordinator -- Signing
 
@@ -545,7 +547,7 @@ Plain Node.js script that runs under **real SES lockdown** in a **real kernel**.
 yarn workspace @ocap/eth-wallet test:node:peer
 ```
 
-Two separate kernel instances connected via QUIC direct transport. Tests the home/away wallet architecture: OCAP URL issuance and redemption, remote message signing forwarded over CapTP, remote transaction signing, remote EIP-712 signing, delegation creation on the home wallet and transfer to the away wallet, and combined throwaway-key + peer + delegation capabilities. Verifies that remote signatures are identical to local signatures (same signing key, same result).
+Two separate kernel instances connected via QUIC direct transport. Tests the home/away wallet architecture: OCAP URL issuance and redemption, remote message signing forwarded over CapTP, remote EIP-712 signing, transaction signing rejection (no peer fallback), delegation creation on the home wallet and transfer to the away wallet, and combined throwaway-key + peer + delegation capabilities. Verifies that remote signatures are identical to local signatures (same signing key, same result).
 
 ### Daemon integration (23 assertions)
 

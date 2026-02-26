@@ -15,6 +15,7 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import { NodejsPlatformServices } from '@ocap/nodejs';
+import { randomBytes } from 'node:crypto';
 
 import { makeWalletClusterConfig } from '../../src/cluster-config.ts';
 
@@ -189,8 +190,10 @@ async function main() {
     'remote signature matches home wallet local signature',
   );
 
-  // -- Remote transaction signing --
-  console.log('\n--- Remote transaction signing (away → home) ---');
+  // -- Remote transaction signing (not supported — no peer fallback) --
+  console.log(
+    '\n--- Remote transaction signing (away → home, expect error) ---',
+  );
   const tx = {
     from: accounts1[0],
     to: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
@@ -200,14 +203,16 @@ async function main() {
     maxFeePerGas: '0x3b9aca00',
     maxPriorityFeePerGas: '0x3b9aca00',
   };
-  const remoteTxSig = await call(kernel2, coord2, 'signTransaction', [tx]);
-  assert(remoteTxSig.startsWith('0x'), 'remote tx signed');
-  assert(
-    remoteTxSig.length > 100,
-    `remote signed tx: ${remoteTxSig.length} chars`,
+  const txErrorBody = await callExpectError(
+    kernel2,
+    coord2,
+    'signTransaction',
+    [tx],
   );
-  const localTxSig = await call(kernel1, coord1, 'signTransaction', [tx]);
-  assert(remoteTxSig === localTxSig, 'remote tx signature matches home wallet');
+  assert(
+    typeof txErrorBody === 'string' && txErrorBody.includes('error'),
+    'remote tx signing rejected (no peer fallback)',
+  );
 
   // -- Remote typed data signing (EIP-712) --
   console.log('\n--- Remote typed data signing (away → home) ---');
@@ -267,7 +272,10 @@ async function main() {
 
   // -- Away wallet with throwaway key + peer --
   console.log('\n--- Away wallet with throwaway key + peer ---');
-  await call(kernel2, coord2, 'initializeKeyring', [{ type: 'throwaway' }]);
+  const entropy = `0x${randomBytes(32).toString('hex')}`;
+  await call(kernel2, coord2, 'initializeKeyring', [
+    { type: 'throwaway', entropy },
+  ]);
   const caps2Full = await call(kernel2, coord2, 'getCapabilities');
   assert(caps2Full.hasLocalKeys === true, 'away wallet: now has local keys');
   assert(caps2Full.hasPeerWallet === true, 'away wallet: still has peer');

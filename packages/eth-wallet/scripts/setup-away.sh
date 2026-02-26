@@ -350,7 +350,11 @@ ok "Subcluster launched — coordinator: $ROOT_KREF"
 # ---------------------------------------------------------------------------
 
 info "Initializing throwaway keyring..."
-daemon_exec queueMessage "[\"$ROOT_KREF\", \"initializeKeyring\", [{\"type\":\"throwaway\"}]]" >/dev/null
+# Generate 32 bytes of entropy outside the SES compartment (crypto.getRandomValues
+# is unavailable inside vats). The entropy is passed to the keyring vat which uses
+# it as the private key for the throwaway account.
+ENTROPY="0x$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
+daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"initializeKeyring\", [{\"type\":\"throwaway\",\"entropy\":\"$ENTROPY\"}]]" >/dev/null
 ok "Throwaway keyring initialized"
 
 info "Verifying accounts..."

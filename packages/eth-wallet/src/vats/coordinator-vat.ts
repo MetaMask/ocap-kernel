@@ -133,6 +133,7 @@ type DelegationFacet = {
   findDelegationForAction: (
     action: Action,
     chainId?: number,
+    currentTime?: number,
   ) => Promise<Delegation | undefined>;
   getDelegation: (id: string) => Promise<Delegation>;
   listDelegations: () => Promise<Delegation[]>;
@@ -345,16 +346,24 @@ export function buildRootObject(
       }
     }
 
-    // External signer: uses signMessage (EIP-191) — may need adjustment
-    // depending on smart account model (blocked on Q3)
-    if (externalSigner) {
-      const accounts = await E(externalSigner).getAccounts();
-      if (accounts.length > 0) {
-        return E(externalSigner).signMessage(hash, from ?? accounts[0]);
-      }
+    // Raw ECDSA hash signing requires a local keyring. External signers and
+    // peer wallets use EIP-191 (signMessage), which prefixes the hash and
+    // produces invalid signatures for UserOp hashes.
+    const reasons: string[] = [];
+    if (keyringVat) {
+      reasons.push('keyring has no keys');
     }
-
-    throw new Error('No authority to sign hash');
+    if (externalSigner) {
+      reasons.push('external signer uses EIP-191 (incompatible)');
+    }
+    if (peerWallet) {
+      reasons.push('peer wallet uses EIP-191 (incompatible)');
+    }
+    throw new Error(
+      `No authority to sign hash: raw hash signing requires a local keyring with keys${
+        reasons.length > 0 ? ` (${reasons.join('; ')})` : ''
+      }`,
+    );
   }
 
   /**
@@ -721,6 +730,7 @@ export function buildRootObject(
     async initializeKeyring(options: {
       type: 'srp' | 'throwaway';
       mnemonic?: string;
+      entropy?: Hex;
     }): Promise<void> {
       if (!keyringVat) {
         throw new Error('Keyring vat not available');
@@ -728,7 +738,7 @@ export function buildRootObject(
       const initOptions =
         options.type === 'srp'
           ? { type: 'srp' as const, mnemonic: options.mnemonic ?? '' }
-          : { type: 'throwaway' as const };
+          : { type: 'throwaway' as const, entropy: options.entropy };
       await E(keyringVat).initialize(initOptions);
     },
 
@@ -925,6 +935,7 @@ export function buildRootObject(
         const delegation = await E(delegationVat).findDelegationForAction(
           { to: tx.to, value: tx.value, data: tx.data },
           bundlerConfig.chainId,
+          Date.now(),
         );
 
         if (delegation) {
@@ -1105,6 +1116,7 @@ export function buildRootObject(
         const delegation = await E(delegationVat).findDelegationForAction(
           options.action,
           bundlerConfig?.chainId,
+          Date.now(),
         );
         if (!delegation) {
           throw new Error('No matching delegation found');
@@ -1232,7 +1244,13 @@ export function buildRootObject(
             throw new Error('Missing message in signing request');
           }
           if (keyringVat) {
-            return E(keyringVat).signMessage(request.message, request.account);
+            const hasKeys = await E(keyringVat).hasKeys();
+            if (hasKeys) {
+              return E(keyringVat).signMessage(
+                request.message,
+                request.account,
+              );
+            }
           }
           if (externalSigner) {
             const accounts = await E(externalSigner).getAccounts();
