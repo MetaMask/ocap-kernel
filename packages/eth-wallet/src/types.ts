@@ -169,7 +169,14 @@ export const TransactionRequestStruct = object({
   chainId: optional(number()),
 });
 
-export type TransactionRequest = Infer<typeof TransactionRequestStruct>;
+export type TransactionRequest = Infer<typeof TransactionRequestStruct> & {
+  /**
+   * EIP-7702 signed authorization list. When present, the transaction is
+   * serialized as a type-4 (EIP-7702) transaction instead of EIP-1559.
+   * This field is not validated by the struct since it only flows internally.
+   */
+  authorizationList?: readonly unknown[];
+};
 
 // ---------------------------------------------------------------------------
 // Wallet capabilities introspection
