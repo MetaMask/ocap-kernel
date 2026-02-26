@@ -16,7 +16,7 @@ const harden = globalThis.harden ?? (<T>(value: T): T => value);
  */
 export type KeyringInitOptions =
   | { type: 'srp'; mnemonic: string }
-  | { type: 'throwaway' };
+  | { type: 'throwaway'; entropy?: Hex };
 
 /**
  * A keyring manages private keys and signing. Keys never leave this module.
@@ -44,15 +44,26 @@ export function makeKeyring(options: KeyringInitOptions): Keyring {
     // Derive the first account by default
     deriveAccountInternal(0);
   } else {
-    // Throwaway keys still require cryptographically secure randomness.
-    // Refuse to initialize if secure entropy is unavailable in this realm.
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins
-    if (!globalThis.crypto?.getRandomValues) {
-      throw new Error(
-        'Throwaway keyring requires crypto.getRandomValues; initialize with SRP when secure randomness is unavailable',
-      );
+    let privateKey: Hex;
+    if (options.entropy) {
+      // Caller-provided entropy (for SES compartments without crypto global).
+      // The caller is responsible for providing cryptographically secure bytes.
+      if (!/^0x[\da-f]{64}$/iu.test(options.entropy)) {
+        throw new Error(
+          'Invalid entropy: expected a 0x-prefixed 32-byte hex string' +
+            ` (got ${String(options.entropy).length} chars)`,
+        );
+      }
+      privateKey = options.entropy;
+    } else {
+      // eslint-disable-next-line n/no-unsupported-features/node-builtins
+      if (!globalThis.crypto?.getRandomValues) {
+        throw new Error(
+          'Throwaway keyring requires crypto.getRandomValues or caller-provided entropy',
+        );
+      }
+      privateKey = generatePrivateKey();
     }
-    const privateKey: Hex = generatePrivateKey();
     const account = privateKeyToAccount(privateKey);
     accounts.set(account.address.toLowerCase() as Address, account);
   }
