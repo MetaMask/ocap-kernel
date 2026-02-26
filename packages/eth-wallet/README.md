@@ -596,3 +596,9 @@ The package exports chain contract addresses used by the Delegation Framework:
 | `ROOT_AUTHORITY`             | The root authority hash (no parent delegation): `0xfff...fff`.                   |
 | `DELEGATION_TYPES`           | EIP-712 type definitions for the Delegation Framework.                           |
 | `ETH_HD_PATH_PREFIX`         | BIP-44 HD path for Ethereum: `m/44'/60'/0'/0`.                                   |
+
+## Disclaimer
+
+This package is experimental software developed with the assistance of AI code generation tools. While it includes extensive test coverage (unit, integration, and on-chain E2E tests), it has not been formally audited. It may contain bugs, security vulnerabilities, or unexpected behavior.
+
+This software is provided "as is", without warranty of any kind. The authors are not responsible for any loss of funds, data, or other damages resulting from its use. Do not use this package in production or with real assets without conducting your own thorough review and testing.
