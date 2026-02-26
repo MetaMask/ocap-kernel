@@ -145,7 +145,7 @@ jobs:
     strategy:
       matrix:
         node-version: [24.x]
-        package: [omnium-gatherum, nodejs, extension]
+        package: [omnium-gatherum, nodejs, extension, eth-wallet]
     steps:
       - name: Checkout and setup environment
         uses: MetaMask/action-checkout-and-setup@v2
