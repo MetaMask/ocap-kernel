@@ -304,6 +304,7 @@ export class VatSupervisor {
       TextEncoder: globalThis.TextEncoder,
       TextDecoder: globalThis.TextDecoder,
       setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
     };
 
     // Build additional endowments from globals list
