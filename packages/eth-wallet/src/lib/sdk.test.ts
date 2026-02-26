@@ -8,6 +8,7 @@ import {
   encodeSdkDelegations,
   getDelegationManagerAddress,
   getEnforcerAddresses,
+  isEip7702Delegated,
   resolveEnvironment,
   toSdkDelegation,
 } from './sdk.ts';
@@ -205,6 +206,44 @@ describe('lib/sdk', () => {
       expect(execution.target).toBe(TARGET);
       expect(execution.value).toBe(1000000000000000000n);
       expect(execution.callData).toBe('0xa9059cbb');
+    });
+  });
+
+  describe('isEip7702Delegated', () => {
+    it('returns true for valid 7702 designator with correct implementation', () => {
+      const env = resolveEnvironment(SEPOLIA_CHAIN_ID);
+      const implAddress = (
+        env.implementations as Record<string, string | undefined>
+      ).EIP7702StatelessDeleGatorImpl;
+      // EIP-7702 designator: 0xef0100 + 20-byte address (no 0x prefix on address part)
+      const code = `0xef0100${implAddress?.slice(2).toLowerCase()}`;
+      expect(isEip7702Delegated(code, SEPOLIA_CHAIN_ID)).toBe(true);
+    });
+
+    it('returns false for empty code', () => {
+      expect(isEip7702Delegated('0x', SEPOLIA_CHAIN_ID)).toBe(false);
+    });
+
+    it('returns false for wrong prefix', () => {
+      expect(
+        isEip7702Delegated(
+          '0xef020063c0c19a282a1b52b07dd5a65b58948a07dae32b',
+          SEPOLIA_CHAIN_ID,
+        ),
+      ).toBe(false);
+    });
+
+    it('returns false for wrong implementation address', () => {
+      expect(
+        isEip7702Delegated(
+          '0xef01000000000000000000000000000000000000000000',
+          SEPOLIA_CHAIN_ID,
+        ),
+      ).toBe(false);
+    });
+
+    it('returns false for code with wrong length', () => {
+      expect(isEip7702Delegated('0xef0100abcd', SEPOLIA_CHAIN_ID)).toBe(false);
     });
   });
 });

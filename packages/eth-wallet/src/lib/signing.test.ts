@@ -2,6 +2,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { describe, it, expect } from 'vitest';
 
 import {
+  signAuthorization,
   signHash,
   signTransaction,
   signMessage,
@@ -142,6 +143,39 @@ describe('lib/signing', () => {
       const sig2 = await signMessage({ account, message: 'world' });
 
       expect(sig1).not.toBe(sig2);
+    });
+  });
+
+  describe('signAuthorization', () => {
+    it('signs an EIP-7702 authorization', async () => {
+      const account = makeTestAccount();
+      const auth = await signAuthorization({
+        account,
+        contractAddress: '0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B',
+        chainId: 11155111,
+      });
+
+      expect(auth.address).toBe('0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B');
+      expect(auth.chainId).toBe(11155111);
+      expect(auth.r).toBeDefined();
+      expect(auth.s).toBeDefined();
+    });
+
+    it('produces deterministic authorizations', async () => {
+      const account = makeTestAccount();
+      const auth1 = await signAuthorization({
+        account,
+        contractAddress: '0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B',
+        chainId: 11155111,
+      });
+      const auth2 = await signAuthorization({
+        account,
+        contractAddress: '0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B',
+        chainId: 11155111,
+      });
+
+      expect(auth1.r).toBe(auth2.r);
+      expect(auth1.s).toBe(auth2.s);
     });
   });
 

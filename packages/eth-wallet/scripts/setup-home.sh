@@ -357,113 +357,19 @@ if [[ -n "$PIMLICO_KEY" ]]; then
   daemon_exec queueMessage "$BUNDLER_PARAMS" >/dev/null
   ok "Bundler configured — Pimlico (chain $CHAIN_ID)"
 
-  # Create smart account (delegations require the delegator to be a smart account)
-  info "Creating smart account..."
+  # Create smart account using EIP-7702 (EOA becomes smart account — no funding needed)
+  info "Setting up smart account (EIP-7702)..."
   SA_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" node -e "
-    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ deploySalt: '0x0000000000000000000000000000000000000000000000000000000000000001', chainId: Number(process.env.CID) }]]);
+    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ chainId: Number(process.env.CID), implementation: 'stateless7702' }]]);
     process.stdout.write(p);
   ")
-  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS")
+  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 60)
   HOME_SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
     const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
     process.stdout.write(d.address || '');
   ")
   if [[ -n "$HOME_SMART_ACCOUNT" ]]; then
-    ok "Smart account: $HOME_SMART_ACCOUNT"
-
-    # Fund the smart account from the EOA
-    info "Funding smart account from EOA..."
-    EOA_ADDR=$(echo "$ACCOUNTS" | node -e "
-      const arr = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-      process.stdout.write(arr[0] || '');
-    ")
-
-    # Get current balance of smart account
-    SA_BALANCE_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"request\", [\"eth_getBalance\", [\"$HOME_SMART_ACCOUNT\", \"latest\"]]]")
-    SA_BALANCE=$(echo "$SA_BALANCE_RAW" | parse_capdata)
-
-    if [[ "$SA_BALANCE" == "0x0" || "$SA_BALANCE" == "0x00" ]]; then
-      # Fund with 0.1 ETH (0x16345785D8A0000)
-      FUND_AMOUNT="0x16345785D8A0000"
-      info "Sending 0.1 ETH from $EOA_ADDR to smart account..."
-
-      FUND_PARAMS=$(KREF="$ROOT_KREF" FROM="$EOA_ADDR" TO="$HOME_SMART_ACCOUNT" VAL="$FUND_AMOUNT" CID="$CHAIN_ID" node -e "
-        const p = JSON.stringify([process.env.KREF, 'sendTransaction', [{
-          from: process.env.FROM,
-          to: process.env.TO,
-          value: process.env.VAL,
-          chainId: Number(process.env.CID)
-        }]]);
-        process.stdout.write(p);
-      ")
-
-      FUND_RESULT=$(daemon_exec --quiet queueMessage "$FUND_PARAMS" --timeout 60)
-      FUND_TX=$(echo "$FUND_RESULT" | parse_capdata)
-
-      # Check if the result is an error
-      if echo "$FUND_TX" | grep -q '#error'; then
-        fail "Failed to fund smart account: $FUND_TX"
-      fi
-      ok "Smart account funded — tx: $FUND_TX"
-    else
-      ok "Smart account already funded (balance: $SA_BALANCE)"
-    fi
-
-    # Deploy the smart account on-chain via a self-delegation UserOp.
-    # The DelegationManager requires the delegator contract to exist
-    # before delegations can be redeemed by the away device.
-    SA_CODE=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"request\", [\"eth_getCode\", [\"$HOME_SMART_ACCOUNT\", \"latest\"]]]" 2>/dev/null)
-    SA_CODE_INNER=$(echo "$SA_CODE" | parse_capdata)
-    if [[ "$SA_CODE_INNER" == "0x" || "$SA_CODE_INNER" == "0x0" ]]; then
-      info "Deploying smart account on-chain..."
-
-      # Create a self-delegation (delegate = delegator = smart account)
-      SELF_DEL_PARAMS=$(KREF="$ROOT_KREF" SA="$HOME_SMART_ACCOUNT" CID="$CHAIN_ID" node -e "
-        const p = JSON.stringify([process.env.KREF, 'createDelegation', [{ delegate: process.env.SA, caveats: [], chainId: Number(process.env.CID) }]]);
-        process.stdout.write(p);
-      ")
-      SELF_DEL_RAW=$(daemon_exec --quiet queueMessage "$SELF_DEL_PARAMS")
-      SELF_DEL_ID=$(echo "$SELF_DEL_RAW" | parse_capdata | node -e "
-        const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-        process.stdout.write(d.id || '');
-      ")
-
-      if [[ -z "$SELF_DEL_ID" ]]; then
-        fail "Failed to create self-delegation for smart account deployment"
-      fi
-      ok "Self-delegation created: ${SELF_DEL_ID:0:20}..."
-
-      # Redeem the self-delegation via UserOp (this deploys the smart account)
-      REDEEM_PARAMS=$(KREF="$ROOT_KREF" SA="$HOME_SMART_ACCOUNT" DID="$SELF_DEL_ID" node -e "
-        const p = JSON.stringify([process.env.KREF, 'redeemDelegation', [{ execution: { target: process.env.SA, value: '0x0', callData: '0x' }, delegationId: process.env.DID }]]);
-        process.stdout.write(p);
-      ")
-      info "Submitting deployment UserOp to bundler..."
-      USEROP_RAW=$(daemon_exec --quiet queueMessage "$REDEEM_PARAMS" --timeout 120)
-      USEROP_HASH=$(echo "$USEROP_RAW" | parse_capdata)
-
-      if echo "$USEROP_HASH" | grep -q '#error'; then
-        fail "Failed to deploy smart account: $USEROP_HASH"
-      fi
-      ok "Deployment UserOp submitted: ${USEROP_HASH:0:20}..."
-
-      # Wait for on-chain inclusion
-      info "Waiting for deployment confirmation (up to 120s)..."
-      for i in $(seq 1 40); do
-        SA_CODE_CHECK=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"request\", [\"eth_getCode\", [\"$HOME_SMART_ACCOUNT\", \"latest\"]]]" 2>/dev/null)
-        SA_CODE_CHECK_INNER=$(echo "$SA_CODE_CHECK" | parse_capdata)
-        if [[ "$SA_CODE_CHECK_INNER" != "0x" && "$SA_CODE_CHECK_INNER" != "0x0" && -n "$SA_CODE_CHECK_INNER" ]]; then
-          break
-        fi
-        if [[ "$i" -eq 40 ]]; then
-          fail "Smart account deployment not confirmed after 120s"
-        fi
-        sleep 3
-      done
-      ok "Smart account deployed on-chain"
-    else
-      ok "Smart account already deployed"
-    fi
+    ok "Smart account: $HOME_SMART_ACCOUNT (same as EOA)"
   else
     info "Smart account creation returned no address (may already exist)"
   fi

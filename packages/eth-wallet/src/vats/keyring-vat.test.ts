@@ -185,6 +185,33 @@ describe('keyring-vat', () => {
     });
   });
 
+  describe('signAuthorization', () => {
+    it('signs an EIP-7702 authorization', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).initialize({ type: 'srp', mnemonic: TEST_MNEMONIC });
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const auth = await (root as any).signAuthorization(
+        '0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B',
+        11155111,
+      );
+      expect(auth.address).toBe('0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B');
+      expect(auth.chainId).toBe(11155111);
+      expect(auth.r).toBeDefined();
+      expect(auth.s).toBeDefined();
+    });
+
+    it('throws when not initialized', async () => {
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (root as any).signAuthorization(
+          '0x63c0c19a282a1B52b07dD5a65b58948A07DAE32B',
+          11155111,
+        ),
+      ).rejects.toThrow('Keyring not initialized');
+    });
+  });
+
   describe('resuscitation from baggage', () => {
     it('restores keyring from persisted init options', async () => {
       // Initialize and persist

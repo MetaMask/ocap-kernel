@@ -6,14 +6,13 @@ A step-by-step demo that showcases the full OCAP eth-wallet capabilities: accoun
 
 ### Sepolia ETH required
 
-The home wallet's EOA should hold **~1 ETH** on Sepolia. This is the user's personal wallet — the demo shows funds flowing from this wallet through the delegation system.
+The home wallet's EOA should hold **~1 ETH** on Sepolia. This is the user's personal wallet — the demo shows funds flowing from this wallet through the delegation system. With EIP-7702, the EOA *is* the smart account (same address), so no funding transfer is needed during setup.
 
-| Purpose                                                | Amount     |
-| ------------------------------------------------------ | ---------- |
-| Fund the smart account (auto-transferred during setup) | 0.1 ETH    |
-| Demo sends (multiple small txs)                        | ~0.05 ETH  |
-| Gas for EOA transactions                               | ~0.005 ETH |
-| Buffer for retries / re-setup                          | ~0.85 ETH  |
+| Purpose                                | Amount     |
+| -------------------------------------- | ---------- |
+| Demo sends (multiple small txs)        | ~0.05 ETH  |
+| Gas for EOA transactions               | ~0.005 ETH |
+| Buffer for retries / re-setup          | ~0.95 ETH  |
 
 **For the video**: having a round ~1 ETH balance makes the demo cleaner. The audience sees the user starts with 1 ETH, delegates a budget to the agent, and the balance decreases as the agent spends.
 
@@ -59,7 +58,7 @@ Get free Sepolia ETH from:
   --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
 ```
 
-> **Caption:** "The home script initializes the wallet, creates a smart account, and funds it with 0.1 ETH from the user's wallet."
+> **Caption:** "The home script initializes the wallet and creates a smart account via EIP-7702 (no deployment or funding needed — the EOA becomes the smart account)."
 
 The script will:
 
@@ -68,9 +67,8 @@ The script will:
 3. Launch the wallet subcluster
 4. Initialize the keyring with your mnemonic
 5. Configure the Sepolia provider and Pimlico bundler
-6. Create and fund a smart account (0.1 ETH from your EOA)
-7. Deploy the smart account on-chain
-8. Issue an OCAP URL
+6. Create an EIP-7702 smart account (EOA address becomes the smart account)
+7. Issue an OCAP URL
 
 Copy the **OCAP URL** and **listen addresses** to the VPS.
 
@@ -132,7 +130,7 @@ These messages can be sent via **Telegram**, **OpenClaw TUI**, or any connected 
 
 ### Scene 1: Show the user's wallet (establish baseline)
 
-> **Caption:** "The user's wallet on Sepolia. Started with ~1 ETH — 0.1 ETH was moved to the smart account during setup."
+> **Caption:** "The user's wallet on Sepolia. Started with ~1 ETH — all funds remain in the EOA (which is now the smart account via EIP-7702)."
 
 **You send:**
 
@@ -140,9 +138,9 @@ These messages can be sent via **Telegram**, **OpenClaw TUI**, or any connected 
 
 **Expected response:** The agent calls `wallet_balance` and shows something like:
 
-> Account 0x71fA...: **0.89 ETH** (890000000000000000 wei)
+> Account 0x71fA...: **~1 ETH** (close to the starting balance)
 
-_(The balance will be ~0.9 ETH after the 0.1 ETH was used to fund the smart account during setup.)_
+_(The balance will be close to 1 ETH since EIP-7702 setup requires no funding transfer.)_
 
 ---
 
@@ -201,7 +199,7 @@ _(The balance will be ~0.9 ETH after the 0.1 ETH was used to fund the smart acco
 
 ---
 
-> **Caption:** "Balance decreased. The ETH came from the user's smart account — real funds, delegated to the agent with restrictions."
+> **Caption:** "Balance decreased. The ETH came from the user's EOA (acting as a smart account via EIP-7702) — real funds, delegated to the agent with restrictions."
 
 **You send:**
 
