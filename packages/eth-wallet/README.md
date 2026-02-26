@@ -525,7 +525,7 @@ yarn workspace @ocap/eth-wallet lint:fix
 
 The package has four tiers of tests, each exercising a progressively larger slice of the stack.
 
-### Unit tests (275 tests)
+### Unit tests (319 tests)
 
 ```bash
 yarn workspace @ocap/eth-wallet test:dev:quiet
@@ -541,7 +541,7 @@ yarn workspace @ocap/eth-wallet test:node
 
 Plain Node.js script that runs under **real SES lockdown** in a **real kernel**. Launches the wallet subcluster (4 vats), exercises the full coordinator API via `kernel.queueMessage()`, and verifies inter-vat `E()` communication actually works end-to-end. Covers: keyring init (SRP + throwaway), signing (message, transaction, EIP-712), delegation lifecycle (create, sign, list), capabilities introspection, and no-authority error handling.
 
-### Peer wallet over QUIC (29 assertions)
+### Peer wallet over QUIC (27 assertions)
 
 ```bash
 yarn workspace @ocap/eth-wallet test:node:peer
@@ -566,7 +566,7 @@ PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
 
 Full on-chain test on Sepolia testnet. Creates an EIP-7702 stateless smart account (EOA becomes the smart account), creates and signs a delegation, redeems it by submitting an ERC-4337 UserOp to the Pimlico bundler with paymaster gas sponsorship, and waits for on-chain inclusion. Skips automatically if `PIMLICO_API_KEY` and `SEPOLIA_RPC_URL` are not set.
 
-### Peer wallet Sepolia E2E (40 assertions, requires API keys)
+### Peer wallet Sepolia E2E (41 assertions, requires API keys)
 
 ```bash
 PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
@@ -574,7 +574,7 @@ PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
   yarn workspace @ocap/eth-wallet test:node:peer-e2e
 ```
 
-The most comprehensive test: two kernels connected via local QUIC, exercising the complete home/away flow against Sepolia. Covers OCAP URL peer connection, remote signing forwarded via CapTP (message + transaction), provider RPC queries, cross-kernel delegation transfer and revocation, smart account creation, self-delegation redemption via UserOp, and on-chain inclusion. Skips if any of `PIMLICO_API_KEY`, `SEPOLIA_RPC_URL`, or `MNEMONIC` is missing. Takes ~30–90 s depending on network conditions.
+The most comprehensive test: two kernels connected via local QUIC, exercising the complete home/away flow against Sepolia. Covers OCAP URL peer connection, remote message signing forwarded via CapTP, transaction signing rejection (no peer fallback), provider RPC queries, cross-kernel delegation transfer and revocation, smart account creation, self-delegation redemption via UserOp, and on-chain inclusion. Skips if any of `PIMLICO_API_KEY`, `SEPOLIA_RPC_URL`, or `MNEMONIC` is missing. Takes ~30–90 s depending on network conditions.
 
 ### Vitest integration (5 tests)
 
