@@ -245,5 +245,15 @@ describe('lib/sdk', () => {
     it('returns false for code with wrong length', () => {
       expect(isEip7702Delegated('0xef0100abcd', SEPOLIA_CHAIN_ID)).toBe(false);
     });
+
+    it('handles case-insensitive comparison', () => {
+      const env = resolveEnvironment(SEPOLIA_CHAIN_ID);
+      const implAddress = (
+        env.implementations as Record<string, string | undefined>
+      ).EIP7702StatelessDeleGatorImpl;
+      // Use uppercase hex for the designator
+      const code = `0xEF0100${implAddress?.slice(2).toUpperCase()}`;
+      expect(isEip7702Delegated(code, SEPOLIA_CHAIN_ID)).toBe(true);
+    });
   });
 });
