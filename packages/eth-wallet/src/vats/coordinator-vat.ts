@@ -1,7 +1,6 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
-import type { SignedAuthorization } from 'viem';
 
 import {
   buildSdkRedeemCallData,
@@ -68,7 +67,7 @@ type KeyringFacet = {
     contractAddress: Address,
     chainId: number,
     from?: Address,
-  ) => Promise<SignedAuthorization>;
+  ) => Promise<unknown>;
 };
 
 type ProviderFacet = {
@@ -328,7 +327,10 @@ export function buildRootObject(
   /**
    * Resolve the signing strategy for a raw hash (ECDSA without EIP-191 prefix).
    * Used for signing UserOp hashes where the EntryPoint expects raw ECDSA.
-   * Priority: keyring → external signer (signMessage) → peer wallet → error
+   * Priority: keyring → external signer (signMessage) → error
+   *
+   * Note: peer wallet is intentionally excluded — its signMessage uses EIP-191
+   * which adds a prefix, producing an invalid signature for raw hash signing.
    *
    * @param hash - The hash to sign.
    * @param from - Optional sender address.
@@ -352,21 +354,12 @@ export function buildRootObject(
       }
     }
 
-    // Peer wallet: falls back to message signing
-    if (peerWallet) {
-      return E(peerWallet).handleSigningRequest({
-        type: 'message',
-        message: hash,
-        ...(from ? { account: from } : {}),
-      });
-    }
-
     throw new Error('No authority to sign hash');
   }
 
   /**
    * Resolve the signing strategy for a transaction.
-   * Priority: local key → external signer → peer wallet → reject
+   * Priority: local key → external signer → reject
    *
    * @param tx - The transaction request to sign.
    * @returns The signed transaction as a hex string.
@@ -390,39 +383,7 @@ export function buildRootObject(
       });
     }
 
-    // Strategy 3: Check if a peer wallet can handle it
-    if (peerWallet) {
-      return E(peerWallet).handleSigningRequest({
-        type: 'transaction',
-        tx,
-      });
-    }
-
     throw new Error('No authority to sign this transaction');
-  }
-
-  /**
-   * Resolve the EOA owner address for signing.
-   * When a smart account is the sender, the signature must come from the
-   * underlying EOA owner, not the smart account address itself.
-   *
-   * @returns The EOA address to use for signing.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  async function resolveSignerAddress(): Promise<Address | undefined> {
-    if (keyringVat) {
-      const accounts = await E(keyringVat).getAccounts();
-      if (accounts.length > 0) {
-        return accounts[0];
-      }
-    }
-    if (externalSigner) {
-      const accounts = await E(externalSigner).getAccounts();
-      if (accounts.length > 0) {
-        return accounts[0];
-      }
-    }
-    return undefined;
   }
 
   /**
@@ -694,6 +655,12 @@ export function buildRootObject(
 
     // Wait for the authorization tx to be mined so subsequent UserOps
     // see the 7702 delegation on-chain. Poll eth_getCode up to 60s.
+    if (typeof globalThis.setTimeout !== 'function') {
+      throw new Error(
+        'EIP-7702 confirmation polling requires setTimeout ' +
+          '(not available in SES compartments without timer endowments)',
+      );
+    }
     const maxAttempts = 30;
     for (let i = 0; i < maxAttempts; i++) {
       const updatedCode = (await E(providerVat).request('eth_getCode', [
@@ -1050,7 +1017,9 @@ export function buildRootObject(
         if (accounts.length > 0) {
           delegator = smartAccountConfig?.address ?? accounts[0];
           const ext = externalSigner;
-          const from = delegator;
+          // Smart-account delegations are signed by the owner EOA, not the
+          // smart-account address used as delegator in typed data.
+          const from = accounts[0];
           signTypedDataFn = async (data: Eip712TypedData) =>
             E(ext).signTypedData(data, from);
         }
@@ -1233,13 +1202,9 @@ export function buildRootObject(
           if (!request.tx) {
             throw new Error('Missing transaction in signing request');
           }
-          if (keyringVat) {
-            return E(keyringVat).signTransaction(request.tx);
-          }
-          if (externalSigner) {
-            return E(externalSigner).signTransaction(request.tx);
-          }
-          throw new Error('No signer available to handle signing request');
+          throw new Error(
+            'Peer transaction signing is disabled; use delegation redemption',
+          );
 
         case 'typedData':
           if (!request.data) {
