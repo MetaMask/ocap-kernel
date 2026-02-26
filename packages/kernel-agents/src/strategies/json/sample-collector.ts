@@ -1,10 +1,16 @@
 import { SampleGenerationError } from '@metamask/kernel-errors';
 import type { Logger } from '@metamask/logger';
+import { parse, MalformedJSON, PartialJSON } from 'partial-json';
 
 import type { SampleCollector } from '../../types.ts';
 
 /**
- * A quick and dirty sample collector for a streaming response.
+ * A sample collector for a streaming JSON object response.
+ *
+ * Uses `partial-json` for a three-way check on each chunk:
+ * - **Complete** — `parse(buffer, 0)` returns the parsed object.
+ * - **Incomplete** — throws `PartialJSON`, meaning the buffer is valid so far.
+ * - **Malformed** — throws `MalformedJSON`, meaning the buffer is irrecoverable.
  *
  * @param args - The arguments to make the sample collector.
  * @param args.prefix - The prefix to prepend to the response
@@ -24,36 +30,25 @@ export const makeSampleCollector = <Result = unknown>({
 }): SampleCollector<Result> => {
   let response = prefix;
   let chunkCount = 0;
-  let leftBracketCount = prefix.split('{').length - 1;
-  let rightBracketCount = prefix.split('}').length - 1;
   return (delta: string) => {
     chunkCount += 1;
-    const subchunks = delta.split('}');
-    const lastSubchunk = subchunks.pop() as string;
-    for (const subchunk of subchunks) {
-      rightBracketCount += 1;
-      leftBracketCount += subchunk.split('{').length - 1;
-      response += `${subchunk}}`;
-      logger?.info('toParse:', response);
-      try {
-        const result = JSON.parse(response);
-        logger?.info('parsed:', result);
-        return result;
-      } catch (cause) {
-        // XXX There are other ways to detect an irrecoverable state.
-        // This is the simplest.
-        if (leftBracketCount === rightBracketCount) {
-          throw new SampleGenerationError(
-            response,
-            cause instanceof Error
-              ? cause
-              : new Error('Invalid JSON', { cause }),
-          );
-        }
+    response += delta;
+    logger?.info('toParse:', response);
+
+    try {
+      const result = parse(response, 0);
+      logger?.info('parsed:', result);
+      return result;
+    } catch (error) {
+      if (error instanceof PartialJSON) {
+        // Buffer is incomplete but structurally valid.
+      } else if (error instanceof MalformedJSON) {
+        throw new SampleGenerationError(response, error);
+      } else {
+        throw error;
       }
     }
-    leftBracketCount += lastSubchunk.split('{').length - 1;
-    response += lastSubchunk;
+
     if (maxChunkCount && chunkCount > maxChunkCount) {
       throw new SampleGenerationError(
         response,

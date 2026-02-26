@@ -215,4 +215,17 @@ describe('crank methods', () => {
       crankMethods.endCrank();
     });
   });
+
+  describe('isInCrank', () => {
+    it('returns false when not in a crank', () => {
+      expect(crankMethods.isInCrank()).toBe(false);
+    });
+
+    it('returns true during a crank', () => {
+      crankMethods.startCrank();
+      expect(crankMethods.isInCrank()).toBe(true);
+      crankMethods.endCrank();
+      expect(crankMethods.isInCrank()).toBe(false);
+    });
+  });
 });

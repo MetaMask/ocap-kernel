@@ -10,5 +10,8 @@
       "Skill(push)"
     ],
     "deny": ["Read(**/.env)", "Read(**/.env.*)"]
+  },
+  "enabledPlugins": {
+    "typescript-lsp@claude-plugins-official": true
   }
 }

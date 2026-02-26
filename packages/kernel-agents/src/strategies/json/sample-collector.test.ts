@@ -48,14 +48,13 @@ describe('makeSampleCollector', () => {
     );
   });
 
-  it('throws error for invalid JSON', () => {
-    const invalidJson = '{"invalid": json}';
+  it('throws error for malformed JSON', () => {
     const collector = makeSampleCollector({});
-    expect(() => collector(invalidJson)).toThrow(
+    expect(() => collector('not json at all')).toThrow(
       expect.objectContaining({
         message: 'LLM generated invalid response.',
         cause: expect.objectContaining({
-          message: expect.stringContaining(invalidJson),
+          message: expect.stringContaining('at position'),
         }),
       }),
     );
@@ -63,14 +62,38 @@ describe('makeSampleCollector', () => {
 
   it('throws error when max chunk count exceeded', () => {
     const collector = makeSampleCollector({ maxChunkCount: 2 });
-    collector('chunk1');
-    collector('chunk2');
-    expect(() => collector('chunk3')).toThrow(
+    // Use valid partial JSON so partial-json does not flag it early
+    collector('{"key": "');
+    collector('aaa');
+    expect(() => collector('bbb')).toThrow(
       expect.objectContaining({
         message: 'LLM generated invalid response.',
         cause: expect.objectContaining({
           message: expect.stringContaining('Max chunk count reached'),
         }),
+      }),
+    );
+  });
+
+  it('handles braces inside string values without false errors', () => {
+    const collector = makeSampleCollector({});
+    // Simulates an LLM streaming: { think: "I should add a '}' to the..."
+    // The old bracket-counting heuristic would false-positive here because
+    // the '}' inside the string balances the opening brace.
+    expect(collector('{"think": "I should add a ')).toBeNull();
+    expect(collector("'}' to the")).toBeNull();
+    expect(collector(' response", "done": true}')).toStrictEqual({
+      think: "I should add a '}' to the response",
+      done: true,
+    });
+  });
+
+  it('detects genuinely malformed JSON early', () => {
+    const collector = makeSampleCollector({ maxChunkCount: 100 });
+    // Bare text is structurally invalid — partial-json detects this immediately
+    expect(() => collector('this is not json')).toThrow(
+      expect.objectContaining({
+        message: 'LLM generated invalid response.',
       }),
     );
   });

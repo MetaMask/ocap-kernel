@@ -107,7 +107,8 @@ export class VatSyscall {
     if (kp.state === 'unresolved') {
       this.#kernelStore.addPromiseSubscriber(this.vatId, kpid);
     } else {
-      this.#kernelQueue.enqueueNotify(this.vatId, kpid, false);
+      const immediate = !this.#kernelStore.isInCrank();
+      this.#kernelQueue.enqueueNotify(this.vatId, kpid, immediate);
     }
   }
 

@@ -121,6 +121,7 @@ describe('kernel store', () => {
         'initKernelObject',
         'initKernelPromise',
         'invertRRef',
+        'isInCrank',
         'isObjectPinned',
         'isRevoked',
         'isRootObject',
