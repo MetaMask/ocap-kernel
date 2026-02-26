@@ -2055,10 +2055,91 @@ describe('coordinator-vat', () => {
         }),
       ).rejects.toThrow('Keyring vat required');
     });
+
+    it('throws when provider is not available', async () => {
+      const freshBaggage = makeMockBaggage();
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.bootstrap({ keyring: keyringVat }, {});
+      await coord.initializeKeyring({ type: 'throwaway' });
+
+      await expect(
+        coord.createSmartAccount({
+          chainId: 11155111,
+          implementation: 'stateless7702',
+        }),
+      ).rejects.toThrow('Provider vat required');
+    });
+
+    it('throws when keyring has no accounts', async () => {
+      const freshBaggage = makeMockBaggage();
+      const emptyKeyring = {
+        ...keyringVat,
+        hasKeys: vi.fn().mockResolvedValue(false),
+        getAccounts: vi.fn().mockResolvedValue([]),
+      };
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.bootstrap(
+        { keyring: emptyKeyring, provider: providerVat },
+        {},
+      );
+
+      await expect(
+        coord.createSmartAccount({
+          chainId: 11155111,
+          implementation: 'stateless7702',
+        }),
+      ).rejects.toThrow('No accounts available');
+    });
+
+    it('throws on confirmation timeout', async () => {
+      vi.useFakeTimers();
+
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      // eth_getCode always returns empty (never confirms)
+      providerVat.request.mockResolvedValue('0x');
+
+      const configPromise = coordinator.createSmartAccount({
+        chainId: 11155111,
+        implementation: 'stateless7702',
+      });
+
+      // Advance through all 30 poll attempts (2s each)
+      for (let i = 0; i < 30; i++) {
+        await vi.advanceTimersByTimeAsync(2000);
+      }
+
+      await expect(configPromise).rejects.toThrow('not confirmed after 60s');
+
+      vi.useRealTimers();
+    });
   });
 
   describe('submitDelegationUserOp (stateless7702 signing)', () => {
-    it('uses raw ECDSA hash signing for 7702 accounts', async () => {
+    /**
+     * Set up a 7702 smart account (already-delegated path) and configure
+     * a bundler.
+     *
+     * @param options - Setup options.
+     * @param options.usePaymaster - Whether to enable paymaster sponsorship.
+     * @returns The EOA address.
+     */
+    async function setup7702WithBundler(options?: {
+      usePaymaster?: boolean;
+    }): Promise<Address> {
       await coordinator.initializeKeyring({
         type: 'srp',
         mnemonic: TEST_MNEMONIC,
@@ -2079,7 +2160,14 @@ describe('coordinator-vat', () => {
       await coordinator.configureBundler({
         bundlerUrl: 'https://bundler.example.com',
         chainId: 11155111,
+        usePaymaster: options?.usePaymaster,
       });
+
+      return eoaAddress;
+    }
+
+    it('uses raw ECDSA hash signing for 7702 accounts', async () => {
+      const eoaAddress = await setup7702WithBundler();
 
       // Create a delegation
       const delegation = await coordinator.createDelegation({
@@ -2114,6 +2202,136 @@ describe('coordinator-vat', () => {
       // No factory should be included for 7702 accounts
       expect(submitCall.userOp.factory).toBeUndefined();
       expect(submitCall.userOp.factoryData).toBeUndefined();
+    });
+
+    it('produces a different signature than hybrid (typed data) signing', async () => {
+      // --- 7702 path ---
+      const eoa7702 = await setup7702WithBundler();
+
+      const del7702 = await coordinator.createDelegation({
+        delegate: eoa7702,
+        caveats: [],
+        chainId: 11155111,
+      });
+
+      await coordinator.redeemDelegation({
+        execution: {
+          target: TARGET,
+          value: '0x0' as Hex,
+          callData: '0x' as Hex,
+        },
+        delegationId: del7702.id,
+        maxFeePerGas: '0x3b9aca00' as Hex,
+        maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      });
+
+      const sig7702 =
+        providerVat.submitUserOp.mock.calls[0][0].userOp.signature;
+
+      // --- Hybrid path (fresh coordinator) ---
+      const hybridBaggage = makeMockBaggage();
+      const hybridKeyringBaggage = makeMockBaggage();
+      const hybridDelegationBaggage = makeMockBaggage();
+
+      const hybridKeyring = buildKeyringRoot(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        hybridKeyringBaggage as any,
+      );
+
+      const hybridDelegation = buildDelegationRoot(
+        {},
+        {},
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        hybridDelegationBaggage as any,
+      );
+      const hybridProvider = makeMockProviderVat();
+
+      const hybridCoord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        hybridBaggage as any,
+      );
+      await hybridCoord.bootstrap(
+        {
+          keyring: hybridKeyring,
+          provider: hybridProvider,
+          delegation: hybridDelegation,
+        },
+        {},
+      );
+      await hybridCoord.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+      await hybridCoord.createSmartAccount({
+        deploySalt:
+          '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        chainId: 11155111,
+      });
+      await hybridCoord.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 11155111,
+      });
+
+      const hybridAccounts = await hybridCoord.getAccounts();
+      const delHybrid = await hybridCoord.createDelegation({
+        delegate: hybridAccounts[0] as Address,
+        caveats: [],
+        chainId: 11155111,
+      });
+
+      await hybridCoord.redeemDelegation({
+        execution: {
+          target: TARGET,
+          value: '0x0' as Hex,
+          callData: '0x' as Hex,
+        },
+        delegationId: delHybrid.id,
+        maxFeePerGas: '0x3b9aca00' as Hex,
+        maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      });
+
+      const sigHybrid =
+        hybridProvider.submitUserOp.mock.calls[0][0].userOp.signature;
+
+      // The two signatures must differ: 7702 uses raw ECDSA hash,
+      // hybrid uses EIP-712 typed data over a different domain.
+      expect(sig7702).not.toBe(sigHybrid);
+    });
+
+    it('works with paymaster sponsorship', async () => {
+      const eoaAddress = await setup7702WithBundler({ usePaymaster: true });
+
+      const delegation = await coordinator.createDelegation({
+        delegate: eoaAddress,
+        caveats: [],
+        chainId: 11155111,
+      });
+
+      const result = await coordinator.redeemDelegation({
+        execution: {
+          target: TARGET,
+          value: '0x0' as Hex,
+          callData: '0x' as Hex,
+        },
+        delegationId: delegation.id,
+        maxFeePerGas: '0x3b9aca00' as Hex,
+        maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      });
+
+      expect(result).toBe('0xuserophash');
+      expect(providerVat.sponsorUserOp).toHaveBeenCalled();
+      expect(providerVat.estimateUserOpGas).not.toHaveBeenCalled();
+
+      const submitCall = providerVat.submitUserOp.mock.calls[0][0];
+      expect(submitCall.userOp.paymaster).toBe(
+        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+      );
+      expect(submitCall.userOp.sender).toBe(eoaAddress);
+      expect(submitCall.userOp.factory).toBeUndefined();
     });
   });
 });
