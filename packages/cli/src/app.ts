@@ -255,6 +255,10 @@ const yargsInstance = yargs(hideBin(process.argv))
                 '$0 daemon exec executeDBQuery \'{"sql":"SELECT * FROM kv LIMIT 5"}\'',
                 'Run a SQL query',
               )
+              .option('timeout', {
+                describe: 'Read timeout in seconds (default: 30)',
+                type: 'number',
+              })
               .example(
                 '$0 daemon exec terminateVat \'{"vatId":"v1"}\'',
                 'Terminate a vat',
@@ -268,7 +272,13 @@ const yargsInstance = yargs(hideBin(process.argv))
               execArgs.push(String(args['params-json']));
             }
             await ensureDaemon(socketPath);
-            await handleDaemonExec(execArgs, socketPath);
+            await handleDaemonExec(
+              execArgs,
+              socketPath,
+              typeof args.timeout === 'number' && args.timeout > 0
+                ? { timeoutMs: args.timeout * 1000 }
+                : {},
+            );
           },
         )
         .command(
