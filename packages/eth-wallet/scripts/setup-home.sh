@@ -387,25 +387,38 @@ if [[ -n "$PIMLICO_KEY" ]]; then
   fi
   ok "Smart account: $HOME_SMART_ACCOUNT (deploys on first UserOp)"
 
-  # Check if the smart account needs funding
-  ACCOUNTS_RAW2=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"getAccounts\", []]")
-  EOA_ADDR=$(echo "$ACCOUNTS_RAW2" | parse_capdata | node -e "
+  # Fund the smart account from the EOA if needed
+  EOA_ADDR=$(echo "$ACCOUNTS" | node -e "
     const arr = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
     process.stdout.write(arr[0] || '');
   ")
 
   if [[ "$HOME_SMART_ACCOUNT" != "$EOA_ADDR" ]]; then
-    # Hybrid smart account has a different address from the EOA — needs funding.
-    info "Smart account address differs from EOA."
-    info "  EOA:           $EOA_ADDR"
-    info "  Smart account: $HOME_SMART_ACCOUNT"
-    echo "" >&2
-    echo -e "  ${YELLOW}${BOLD}The smart account needs ETH to send transactions.${RESET}" >&2
-    echo -e "  ${DIM}Transfer ETH from your EOA to the smart account address above.${RESET}" >&2
-    echo -e "  ${DIM}The account itself deploys on the first UserOp (gas paid by paymaster).${RESET}" >&2
-    echo "" >&2
-    echo -ne "${CYAN}→${RESET} Press Enter once you've funded the smart account (or Enter to skip): " >&2
-    read -r _FUNDED
+    info "Checking smart account balance..."
+    SA_BALANCE_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"request\", [\"eth_getBalance\", [\"$HOME_SMART_ACCOUNT\", \"latest\"]]]")
+    SA_BALANCE=$(echo "$SA_BALANCE_RAW" | parse_capdata)
+
+    if [[ "$SA_BALANCE" == "0x0" || "$SA_BALANCE" == "0x00" || "$SA_BALANCE" == "0x" ]]; then
+      # Fund with 0.1 ETH (0x16345785D8A0000)
+      FUND_AMOUNT="0x16345785D8A0000"
+      info "Sending 0.1 ETH from EOA ($EOA_ADDR) to smart account ($HOME_SMART_ACCOUNT)..."
+
+      FUND_PARAMS=$(KREF="$ROOT_KREF" FROM="$EOA_ADDR" TO="$HOME_SMART_ACCOUNT" VAL="$FUND_AMOUNT" CID="$CHAIN_ID" node -e "
+        const p = JSON.stringify([process.env.KREF, 'sendTransaction', [{
+          from: process.env.FROM,
+          to: process.env.TO,
+          value: process.env.VAL,
+          chainId: Number(process.env.CID)
+        }]]);
+        process.stdout.write(p);
+      ")
+
+      FUND_RESULT=$(daemon_exec --quiet queueMessage "$FUND_PARAMS" --timeout 60)
+      FUND_TX=$(echo "$FUND_RESULT" | parse_capdata)
+      ok "Smart account funded — tx: $FUND_TX"
+    else
+      ok "Smart account already funded (balance: $SA_BALANCE)"
+    fi
   fi
 else
   info "Skipping bundler config (no --pimlico-key). UserOp submission will not work."
