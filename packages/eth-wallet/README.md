@@ -312,10 +312,12 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Coordinator -- Smart Accounts
 
-| Method                       | Description                                                                                                                                                                                  |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createSmartAccount(config)` | Create a smart account. Accepts `{ chainId, implementation?, deploySalt?, address? }`. Default implementation is `'hybrid'`; use `'stateless7702'` for EIP-7702 (EOA becomes smart account). |
-| `getSmartAccountAddress()`   | Return the smart account address, if configured.                                                                                                                                             |
+| Method                       | Description                                                                                                                                                                                                                                                                                                     |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createSmartAccount(config)` | Create a smart account. Accepts `{ chainId, implementation?, deploySalt?, address? }`. Default implementation is `'hybrid'` (counterfactual, deploys on first UserOp). `'stateless7702'` is also supported but requires RPC providers that expose EIP-7702 designator codes via `eth_getCode` (see note below). |
+| `getSmartAccountAddress()`   | Return the smart account address, if configured.                                                                                                                                                                                                                                                                |
+
+**Note on smart account implementations:** The `hybrid` implementation creates a counterfactual smart account that deploys on-chain on the first UserOp via factory data. It works with all RPC providers and bundlers. The `stateless7702` implementation uses EIP-7702 to delegate the EOA's code to a DeleGator implementation (no separate contract needed), but as of early 2026 most Sepolia RPC providers (Infura, publicnode, 1rpc) don't return the EIP-7702 designator code via `eth_getCode`, causing bundler simulation to fail. Until RPC infrastructure catches up, use `hybrid` for production setups. The `stateless7702` path will be preferred once supported, as it avoids deploying a separate contract and doesn't require funding a separate address.
 
 The `WalletCapabilities` object contains:
 
@@ -564,7 +566,7 @@ PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
   yarn workspace @ocap/eth-wallet test:node:sepolia
 ```
 
-Full on-chain test on Sepolia testnet. Creates an EIP-7702 stateless smart account (EOA becomes the smart account), creates and signs a delegation, redeems it by submitting an ERC-4337 UserOp to the Pimlico bundler with paymaster gas sponsorship, and waits for on-chain inclusion. Skips automatically if `PIMLICO_API_KEY` and `SEPOLIA_RPC_URL` are not set.
+Full on-chain test on Sepolia testnet. Creates a Hybrid smart account, creates and signs a delegation, redeems it by submitting an ERC-4337 UserOp to the Pimlico bundler with paymaster gas sponsorship, and waits for on-chain inclusion. Skips automatically if `PIMLICO_API_KEY` and `SEPOLIA_RPC_URL` are not set.
 
 ### Peer wallet Sepolia E2E (41 assertions, requires API keys)
 
