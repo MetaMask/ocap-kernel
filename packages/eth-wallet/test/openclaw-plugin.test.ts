@@ -169,11 +169,29 @@ describe('openclaw wallet plugin', () => {
 
   it('infers from account before wallet_send', async () => {
     mockSpawn
+      // 1. getAccounts
       .mockImplementationOnce(() =>
         makeSpawnResult({ stdout: makeCapData([account]) }),
       )
+      // 2. sendTransaction
       .mockImplementationOnce(() =>
         makeSpawnResult({ stdout: makeCapData('0xtxhash') }),
+      )
+      // 3. getCapabilities (best-effort, for chain ID)
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({ chainId: 11155111 }),
+        }),
+      )
+      // 4. getTransactionReceipt (best-effort, resolve UserOp hash)
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({
+            txHash: '0xrealtxhash',
+            userOpHash: '0xtxhash',
+            success: true,
+          }),
+        }),
       );
 
     const tools = setupPlugin();
@@ -185,8 +203,11 @@ describe('openclaw wallet plugin', () => {
       value: '0x1',
     });
 
-    expect(result.content[0]?.text).toBe('0xtxhash');
-    expect(mockSpawn).toHaveBeenCalledTimes(2);
+    expect(result.content[0]?.text).toContain('Transaction hash: 0xrealtxhash');
+    expect(result.content[0]?.text).toContain(
+      'https://sepolia.etherscan.io/tx/0xrealtxhash',
+    );
+    expect(result.content[0]?.text).toContain('UserOp hash: 0xtxhash');
 
     const sendCallArgs = mockSpawn.mock.calls[1]?.[1];
     expect(Array.isArray(sendCallArgs)).toBe(true);
