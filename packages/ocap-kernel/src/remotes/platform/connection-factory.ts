@@ -41,22 +41,23 @@ function isPlainWs(ma: Multiaddr): boolean {
 
 /**
  * Returns true if the given host is a private/loopback address.
- * Covers IPv4 loopback (127.0.0.0/8), RFC 1918 ranges, IPv6 loopback,
- * IPv6 unique-local (fc00::/7), and IPv6 link-local (fe80::/10).
+ * Covers IPv4 loopback per RFC 1122 §3.2.1.3 (127.0.0.0/8), IPv4 private
+ * ranges per RFC 1918, IPv6 loopback per RFC 4291 §2.5.3 (::1), IPv6
+ * unique-local per RFC 4193 (fc00::/7), and IPv6 link-local per RFC 4291
+ * §2.5.6 (fe80::/10).
  *
  * @param host - The hostname or IP address to check.
  * @returns True if the host is a private or loopback address.
  */
 function isPrivateAddress(host: string): boolean {
   if (host === 'localhost' || host === '::1') {
-    return true;
+    return true; // ::1 loopback per RFC 4291 §2.5.3
   }
   const lower = host.toLowerCase();
-  // IPv6 unique-local (fc00::/7) and link-local (fe80::/10)
   if (
     lower.startsWith('fc') ||
-    lower.startsWith('fd') ||
-    lower.startsWith('fe80:')
+    lower.startsWith('fd') || // fc00::/7 unique-local per RFC 4193
+    lower.startsWith('fe80:') // fe80::/10 link-local per RFC 4291 §2.5.6
   ) {
     return true;
   }
@@ -71,10 +72,10 @@ function isPrivateAddress(host: string): boolean {
   }
   const [p0, p1] = octets as [number, number, number, number];
   return (
-    p0 === 127 || // 127.0.0.0/8  loopback
-    p0 === 10 || // 10.0.0.0/8   RFC 1918
-    (p0 === 172 && p1 >= 16 && p1 <= 31) || // 172.16.0.0/12 RFC 1918
-    (p0 === 192 && p1 === 168) // 192.168.0.0/16 RFC 1918
+    p0 === 127 || // 127.0.0.0/8  loopback per RFC 1122 §3.2.1.3
+    p0 === 10 || // 10.0.0.0/8   private per RFC 1918
+    (p0 === 172 && p1 >= 16 && p1 <= 31) || // 172.16.0.0/12 private per RFC 1918
+    (p0 === 192 && p1 === 168) // 192.168.0.0/16 private per RFC 1918
   );
 }
 
