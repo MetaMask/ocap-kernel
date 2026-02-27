@@ -39,6 +39,17 @@ function isPlainWs(ma: Multiaddr): boolean {
   );
 }
 
+const isIPv4Address = (host: string): boolean => {
+  return /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/u.test(host);
+};
+
+const isIPv6Address = (host: string): boolean => {
+  // IPv6 addresses consist only of hex digits and colons; DNS hostnames never
+  // contain colons. This guards against a hostname like 'fcevil.example.com'
+  // being mistaken for a private IPv6 address via the prefix checks below.
+  return /^[0-9a-f:]+$/u.test(host);
+};
+
 /**
  * Returns true if the given host is a private/loopback address.
  * Covers IPv4 loopback per RFC 1122 §3.2.1.3 (127.0.0.0/8), IPv4 private
@@ -53,33 +64,20 @@ function isPrivateAddress(host: string): boolean {
   if (host === 'localhost' || host === '::1') {
     return true; // ::1 loopback per RFC 4291 §2.5.3
   }
-  // Use the URL parser's built-in IPv6 validation: valid IPv6 literals parse
-  // fine inside brackets, DNS hostnames and other strings throw "Invalid URL".
-  // This prevents a hostname like 'fcevil.example.com' from being mistaken
-  // for a private IPv6 address via the fc/fd/fe80 prefix checks below.
-  const isIPv6 = (() => {
-    try {
-      return new URL(`http://[${host}]`).hostname.length > 0;
-    } catch {
-      return false;
-    }
-  })();
   const lower = host.toLowerCase();
   if (
-    isIPv6 &&
+    isIPv6Address(lower) &&
     (lower.startsWith('fc') ||
       lower.startsWith('fd') || // fc00::/7 unique-local per RFC 4193
       lower.startsWith('fe80:')) // fe80::/10 link-local per RFC 4291 §2.5.6
   ) {
     return true;
   }
-  // IPv4: compare octets directly against known private CIDR ranges
-  const parts = host.split('.');
-  if (parts.length !== 4) {
+  if (!isIPv4Address(host)) {
     return false;
   }
-  const octets = parts.map(Number);
-  if (octets.some((octet) => isNaN(octet) || octet < 0 || octet > 255)) {
+  const octets = host.split('.').map(Number);
+  if (octets.some((octet) => octet > 255)) {
     return false;
   }
   const [p0, p1] = octets as [number, number, number, number];
