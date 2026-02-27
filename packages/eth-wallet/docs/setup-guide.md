@@ -184,9 +184,10 @@ The script sets up the home wallet and then **waits** — it will show the OCAP 
 
 ### Step 2 — Start the away script (on the VPS)
 
-Copy the OCAP URL and listen addresses from the home output and pass them:
+The home script outputs a complete `setup-away.sh` command with all flags pre-filled. Copy and paste it on the VPS (from the `ocap-kernel` repo root):
 
 ```bash
+# Example output from setup-home.sh — copy the whole command
 ./packages/eth-wallet/scripts/setup-away.sh \
   --ocap-url "ocap:…URL_FROM_HOME…" \
   --listen-addrs '["/ip4/…/udp/…/quic-v1/p2p/…"]' \
@@ -219,7 +220,7 @@ The `--pimlico-key` configures the Pimlico bundler for ERC-4337 UserOp submissio
 
 Both scripts also accept `--chain-id` (default: Sepolia), `--quic-port` (default: 4002), and `--no-build`. Run with `--help` for details.
 
-`setup-away.sh` also prints OpenClaw plugin install commands at the end — run those next.
+`setup-away.sh` will offer to install the OpenClaw plugin automatically at the end. If you decline, it prints the manual install commands.
 
 ## Spending limits
 
@@ -452,10 +453,11 @@ yarn ocap daemon exec launchSubcluster '{"config": { ... }}'
 
 ### 3e. Initialize with a throwaway key
 
-The away wallet gets a throwaway key (for gas/own operations within delegations):
+The away wallet gets a throwaway key (for signing UserOps within delegations). Under SES lockdown, `crypto.getRandomValues` is unavailable in vat compartments, so you must generate entropy externally:
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "initializeKeyring", [{"type": "throwaway"}]]'
+ENTROPY="0x$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
+yarn ocap daemon exec queueMessage "[\"ko4\", \"initializeKeyring\", [{\"type\": \"throwaway\", \"entropy\": \"$ENTROPY\"}]]"
 ```
 
 ### 3f. Connect to the home wallet
@@ -476,15 +478,19 @@ Should show `hasPeerWallet: true`.
 
 If you used the automated scripts, this is handled interactively — the scripts guide you through copying the delegate address and delegation JSON between terminals. See [Step 3 in Quick start](#step-3--delegate-authority-copy-paste-between-terminals).
 
-When `--pimlico-key` is provided, both scripts also create an EIP-7702 smart account (the EOA becomes the smart account — same address, no funding transfer needed). Delegations require smart accounts as delegator and delegate — this is handled automatically.
+When `--pimlico-key` is provided, both scripts create Hybrid smart accounts (counterfactual — they deploy on-chain on the first UserOp via factory data). The home script also auto-funds the smart account with 0.1 ETH from the EOA. Delegations require smart accounts as delegator and delegate — this is handled automatically.
+
+> **Note on EIP-7702:** The `stateless7702` implementation (EOA becomes smart account, no separate contract) is also supported but currently doesn't work on Sepolia because RPC providers don't expose EIP-7702 designator codes via `eth_getCode`, causing bundler simulation to fail. Hybrid is used as the default until RPC infrastructure catches up.
 
 For manual setup, the steps are:
 
-1. Create a smart account on both devices (EIP-7702 — the EOA address becomes the smart account):
+1. Create a Hybrid smart account on both devices:
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "createSmartAccount", [{"chainId": 11155111, "implementation": "stateless7702"}]]'
+yarn ocap daemon exec queueMessage '["ko4", "createSmartAccount", [{"chainId": 11155111}]]'
 ```
+
+The home smart account needs ETH to execute delegated transfers. Send ETH from the EOA to the smart account address shown in the output.
 
 2. Create the delegation on the home device (delegate = away smart account). See [Spending limits](#spending-limits) for adding caveats:
 
