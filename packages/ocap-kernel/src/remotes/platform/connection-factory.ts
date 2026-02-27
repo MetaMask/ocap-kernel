@@ -126,6 +126,8 @@ export class ConnectionFactory {
     ReturnType<typeof setTimeout>
   >();
 
+  #stopped = false;
+
   #inboundHandler?: InboundConnectionHandler;
 
   /**
@@ -158,7 +160,7 @@ export class ConnectionFactory {
           this.#relayMultiaddrs.set(peerId, relay);
         }
       } catch {
-        // Skip malformed relay addresses
+        this.#logger.log(`skipping malformed relay address: ${relay}`);
       }
     }
   }
@@ -527,7 +529,11 @@ export class ConnectionFactory {
    * @param relayPeerId - The peer ID of the relay to reconnect to.
    */
   #scheduleRelayReconnect(relayPeerId: string): void {
-    if (this.#pendingRelayReconnects.has(relayPeerId) || this.#signal.aborted) {
+    if (
+      this.#stopped ||
+      this.#pendingRelayReconnects.has(relayPeerId) ||
+      this.#signal.aborted
+    ) {
       return;
     }
     this.#reconnectRelay(relayPeerId, 0);
@@ -541,7 +547,7 @@ export class ConnectionFactory {
    */
   #reconnectRelay(relayPeerId: string, attempt: number): void {
     if (attempt >= RELAY_RECONNECT_MAX_ATTEMPTS) {
-      this.#logger.log(
+      this.#logger.error(
         `relay ${relayPeerId} reconnect exhausted after ${RELAY_RECONNECT_MAX_ATTEMPTS} attempts`,
       );
       this.#pendingRelayReconnects.delete(relayPeerId);
@@ -553,33 +559,33 @@ export class ConnectionFactory {
       RELAY_RECONNECT_MAX_DELAY_MS,
     );
 
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises
-    const timer = setTimeout(async () => {
-      if (this.#signal.aborted || !this.#libp2p) {
-        this.#pendingRelayReconnects.delete(relayPeerId);
-        return;
-      }
+    const timer = setTimeout(() => {
+      // eslint-disable-next-line @typescript-eslint/no-floating-promises
+      (async () => {
+        try {
+          if (this.#stopped || this.#signal.aborted || !this.#libp2p) {
+            this.#pendingRelayReconnects.delete(relayPeerId);
+            return;
+          }
 
-      const relayAddr = this.#relayMultiaddrs.get(relayPeerId);
-      if (!relayAddr) {
-        this.#pendingRelayReconnects.delete(relayPeerId);
-        return;
-      }
+          const relayAddr = this.#relayMultiaddrs.get(relayPeerId);
+          if (!relayAddr) {
+            this.#pendingRelayReconnects.delete(relayPeerId);
+            return;
+          }
 
-      this.#logger.log(
-        `attempting relay reconnect to ${relayPeerId} (attempt ${attempt + 1}/${RELAY_RECONNECT_MAX_ATTEMPTS})`,
-      );
+          this.#logger.log(
+            `attempting relay reconnect to ${relayPeerId} (attempt ${attempt + 1}/${RELAY_RECONNECT_MAX_ATTEMPTS})`,
+          );
 
-      try {
-        await this.#libp2p.dial(multiaddr(relayAddr));
-        this.#logger.log(`relay ${relayPeerId} reconnected`);
-        this.#pendingRelayReconnects.delete(relayPeerId);
-      } catch (error) {
-        this.#logger.log(
-          `relay ${relayPeerId} reconnect failed: ${String(error)}`,
-        );
-        this.#reconnectRelay(relayPeerId, attempt + 1);
-      }
+          await this.#libp2p.dial(multiaddr(relayAddr));
+          this.#logger.log(`relay ${relayPeerId} reconnected`);
+          this.#pendingRelayReconnects.delete(relayPeerId);
+        } catch (error) {
+          this.#logger.error(`relay ${relayPeerId} reconnect failed:`, error);
+          this.#reconnectRelay(relayPeerId, attempt + 1);
+        }
+      })();
     }, delay);
 
     this.#pendingRelayReconnects.set(relayPeerId, timer);
@@ -605,6 +611,7 @@ export class ConnectionFactory {
    * Stop libp2p and clean up.
    */
   async stop(): Promise<void> {
+    this.#stopped = true;
     for (const timer of this.#pendingRelayReconnects.values()) {
       clearTimeout(timer);
     }
@@ -629,6 +636,12 @@ export class ConnectionFactory {
         // Continue anyway - we'll clear the reference
       }
       this.#libp2p = undefined as unknown as Libp2p;
+      // Clear any reconnects scheduled by connection:close events during
+      // libp2p.stop() teardown.
+      for (const timer of this.#pendingRelayReconnects.values()) {
+        clearTimeout(timer);
+      }
+      this.#pendingRelayReconnects.clear();
     }
   }
 }

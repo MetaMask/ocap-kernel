@@ -1495,7 +1495,7 @@ describe('ConnectionFactory', () => {
       await runAllTimers();
 
       expect(mockDial).toHaveBeenCalledTimes(10);
-      expect(mockLoggerLog).toHaveBeenCalledWith(
+      expect(mockLoggerError).toHaveBeenCalledWith(
         expect.stringContaining('reconnect exhausted after 10 attempts'),
       );
     });
@@ -1511,6 +1511,37 @@ describe('ConnectionFactory', () => {
 
       await factory.stop();
 
+      expect(pendingTimers).toHaveLength(0);
+      expect(mockDial).not.toHaveBeenCalled();
+    });
+
+    it('does not schedule reconnects for connection:close events during stop', async () => {
+      const mockDial = vi.fn().mockResolvedValue({});
+      // Mock libp2p.stop() to fire connection:close for relay peers
+      createLibp2p.mockImplementation(async () => ({
+        start: vi.fn(),
+        stop: vi.fn(() => {
+          // Simulate libp2p tearing down relay connections during stop
+          fireConnectionClose('relay1');
+        }),
+        peerId: { toString: () => 'test-peer-id' },
+        addEventListener: vi.fn(
+          (event: string, handler: (evt: { detail: unknown }) => void) => {
+            libp2pState.eventListeners[event] ??= [];
+            libp2pState.eventListeners[event].push(handler);
+          },
+        ),
+        getMultiaddrs: vi.fn(() => []),
+        dialProtocol: vi.fn(async () => ({})),
+        handle: vi.fn(),
+        dial: mockDial,
+      }));
+
+      factory = await createFactory();
+
+      await factory.stop();
+
+      // No reconnect timers should have been scheduled
       expect(pendingTimers).toHaveLength(0);
       expect(mockDial).not.toHaveBeenCalled();
     });
