@@ -537,6 +537,7 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
 
   Watch daemon logs: $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")
   Stop the daemon:   $(echo -e "${DIM}")yarn ocap daemon stop$(echo -e "${RESET}")
+  Purge all state:   $(echo -e "${DIM}")yarn ocap daemon purge --force$(echo -e "${RESET}")
 
 EOF
 
