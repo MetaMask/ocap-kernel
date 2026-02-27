@@ -190,6 +190,7 @@ export const WalletCapabilitiesStruct = object({
   hasExternalSigner: boolean(),
   hasBundlerConfig: boolean(),
   smartAccountAddress: optional(AddressStruct),
+  chainId: optional(number()),
 });
 
 export type WalletCapabilities = Infer<typeof WalletCapabilitiesStruct>;

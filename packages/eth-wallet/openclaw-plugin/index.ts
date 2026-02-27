@@ -21,6 +21,11 @@ const pluginDir = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CLI = resolvePath(pluginDir, '../../cli/dist/app.mjs');
 const DEFAULT_TIMEOUT_MS = 60_000;
 
+const BLOCK_EXPLORER_URLS: Record<number, string> = {
+  1: 'https://etherscan.io',
+  11155111: 'https://sepolia.etherscan.io',
+};
+
 type ExecResult = { stdout: string; stderr: string; code: number | null };
 type CapDataLike = { body: string; slots: unknown[] };
 
@@ -350,10 +355,60 @@ export default function register(api: any): void {
             args: [{ from, to: params.to, value: params.value }],
             timeoutMs,
           });
+
+          // Resolve the hash to get the actual on-chain tx hash and
+          // build a block explorer link.
+          const hash = typeof result === 'string' ? result : '';
+          let txHash = hash;
+          let userOpHash: string | undefined;
+          let explorerUrl = '';
+
+          try {
+            const [caps, receipt] = await Promise.all([
+              callWallet({
+                cliPath,
+                walletKref,
+                method: 'getCapabilities',
+                args: [],
+                timeoutMs: 10_000,
+              }) as Promise<Record<string, unknown>>,
+              callWallet({
+                cliPath,
+                walletKref,
+                method: 'getTransactionReceipt',
+                args: [hash],
+                timeoutMs: 30_000,
+              }) as Promise<Record<string, unknown> | null>,
+            ]);
+
+            if (receipt) {
+              if (typeof receipt.txHash === 'string') {
+                txHash = receipt.txHash;
+              }
+              if (typeof receipt.userOpHash === 'string') {
+                userOpHash = receipt.userOpHash;
+              }
+            }
+
+            const chainId =
+              typeof caps?.chainId === 'number' ? caps.chainId : 0;
+            const baseUrl = BLOCK_EXPLORER_URLS[chainId] ?? '';
+            if (baseUrl && txHash) {
+              explorerUrl = `${baseUrl}/tx/${txHash}`;
+            }
+          } catch {
+            // Best-effort — if resolution fails, return the raw hash
+          }
+
+          const parts = [`Transaction hash: ${txHash}`];
+          if (explorerUrl) {
+            parts.push(`Explorer: ${explorerUrl}`);
+          }
+          if (userOpHash) {
+            parts.push(`UserOp hash: ${userOpHash}`);
+          }
           return {
-            content: [
-              { type: 'text' as const, text: formatToolResult(result) },
-            ],
+            content: [{ type: 'text' as const, text: parts.join('\n') }],
           };
         } catch (error: unknown) {
           const message =

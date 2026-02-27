@@ -1007,6 +1007,62 @@ export function buildRootObject(
       return E(providerVat).request(method, params);
     },
 
+    /**
+     * Look up a transaction by hash. Tries the bundler first (in case the
+     * hash is a UserOp hash from delegation redemption), then falls back
+     * to a regular `eth_getTransactionReceipt` RPC call.
+     *
+     * @param hash - A UserOp hash or regular tx hash.
+     * @returns An object with `txHash` and `receipt`, or null if not found.
+     */
+    async getTransactionReceipt(hash: Hex): Promise<{
+      txHash: Hex;
+      userOpHash?: Hex;
+      success: boolean;
+    } | null> {
+      if (!providerVat) {
+        throw new Error('Provider not configured');
+      }
+
+      // Try bundler first (UserOp hash)
+      if (bundlerConfig) {
+        try {
+          const userOpReceipt = (await E(providerVat).getUserOpReceipt({
+            bundlerUrl: bundlerConfig.bundlerUrl,
+            userOpHash: hash,
+          })) as {
+            success: boolean;
+            receipt?: { transactionHash?: string };
+          } | null;
+
+          if (userOpReceipt?.receipt?.transactionHash) {
+            return harden({
+              txHash: userOpReceipt.receipt.transactionHash as Hex,
+              userOpHash: hash,
+              success: userOpReceipt.success,
+            });
+          }
+        } catch {
+          // Not a UserOp hash — fall through to regular RPC
+        }
+      }
+
+      // Try regular tx receipt
+      const receipt = (await E(providerVat).request(
+        'eth_getTransactionReceipt',
+        [hash],
+      )) as { status?: string; transactionHash?: string } | null;
+
+      if (receipt?.transactionHash) {
+        return harden({
+          txHash: receipt.transactionHash as Hex,
+          success: receipt.status === '0x1',
+        });
+      }
+
+      return null;
+    },
+
     // ------------------------------------------------------------------
     // Delegation management
     // ------------------------------------------------------------------
@@ -1302,6 +1358,7 @@ export function buildRootObject(
         hasExternalSigner: externalSigner !== undefined,
         hasBundlerConfig: bundlerConfig !== undefined,
         smartAccountAddress: smartAccountConfig?.address,
+        chainId: bundlerConfig?.chainId,
       });
     },
   });

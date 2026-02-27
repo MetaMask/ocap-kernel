@@ -772,6 +772,7 @@ describe('coordinator-vat', () => {
         hasExternalSigner: false,
         hasBundlerConfig: false,
         smartAccountAddress: undefined,
+        chainId: undefined,
       });
     });
   });
