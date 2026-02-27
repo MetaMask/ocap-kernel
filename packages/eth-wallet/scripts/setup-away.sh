@@ -395,10 +395,25 @@ if [[ -n "$PIMLICO_KEY" ]]; then
   daemon_exec queueMessage "$BUNDLER_PARAMS" >/dev/null
   ok "Bundler configured — Pimlico (chain $CHAIN_ID)"
 
-  # NOTE: The away device does NOT create a smart account. The throwaway
-  # EOA has no ETH to pay for an on-chain EIP-7702 authorization tx.
-  # Instead, the throwaway address is used directly as the delegation
-  # delegate, and delegations are redeemed via paymaster-sponsored UserOps.
+  # Create a Hybrid smart account (counterfactual — no on-chain tx needed).
+  # It deploys automatically on the first UserOp via factory data.
+  # The away device can't use stateless7702 because the throwaway EOA has
+  # no ETH to pay for the on-chain EIP-7702 authorization tx.
+  info "Setting up smart account (Hybrid, counterfactual)..."
+  SA_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" node -e "
+    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ chainId: Number(process.env.CID) }]]);
+    process.stdout.write(p);
+  ")
+  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 120)
+  SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
+    const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+    process.stdout.write(d.address || '');
+  " 2>/dev/null || echo "")
+  if [[ -n "$SMART_ACCOUNT" ]]; then
+    ok "Smart account: $SMART_ACCOUNT (deploys on first UserOp)"
+  else
+    info "Smart account creation returned no address — redemption may not work"
+  fi
 else
   info "Skipping bundler config (no --pimlico-key). UserOp submission will not work."
 fi
@@ -446,11 +461,15 @@ ok "Peer wallet connected and verified"
 # 10. Delegate authority (interactive)
 # ---------------------------------------------------------------------------
 
-# The delegate address is the throwaway EOA
-DELEGATE_ADDR=$(echo "$ACCOUNTS" | node -e "
-  const arr = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-  process.stdout.write(arr[0]);
-")
+# Use the smart account as delegate if available, otherwise the throwaway EOA
+if [[ -n "${SMART_ACCOUNT:-}" ]]; then
+  DELEGATE_ADDR="$SMART_ACCOUNT"
+else
+  DELEGATE_ADDR=$(echo "$ACCOUNTS" | node -e "
+    const arr = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+    process.stdout.write(arr[0]);
+  ")
+fi
 
 cat >&2 <<EOF
 
