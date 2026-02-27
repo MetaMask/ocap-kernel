@@ -1591,6 +1591,39 @@ describe('ConnectionFactory', () => {
 
       expect(pendingTimers).toHaveLength(0);
     });
+
+    it('does not leak timer when stop() runs during in-flight dial', async () => {
+      // Dial rejects after stop() has already completed both cleanup passes.
+      // The catch block's recursive #reconnectRelay call must not schedule a
+      // new timer.
+      let dialReject: (reason: Error) => void;
+      const mockDial = vi.fn(
+        async () =>
+          new Promise<object>((_resolve, reject) => {
+            dialReject = reject;
+          }),
+      );
+      setupRelayMock(mockDial);
+
+      factory = await createFactory();
+      fireConnectionClose('relay1');
+
+      // Fire the first reconnect timer — starts the in-flight dial
+      expect(pendingTimers).toHaveLength(1);
+      const timerCallback = pendingTimers.shift()!;
+      const callbackDone = timerCallback.callback();
+
+      // stop() runs and completes both cleanup passes while dial is in-flight
+      await factory.stop();
+      expect(pendingTimers).toHaveLength(0);
+
+      // Now the dial rejects — the catch handler calls #reconnectRelay
+      dialReject!(new Error('dial failed'));
+      await callbackDone;
+
+      // No new timer should have been scheduled
+      expect(pendingTimers).toHaveLength(0);
+    });
   });
 
   describe('integration scenarios', () => {

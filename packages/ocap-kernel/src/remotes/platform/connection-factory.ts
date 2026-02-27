@@ -550,6 +550,11 @@ export class ConnectionFactory {
    * @param attempt - The current attempt number (0-indexed).
    */
   #reconnectRelay(relayPeerId: string, attempt: number): void {
+    if (this.#stopped || this.#signal.aborted) {
+      this.#pendingRelayReconnects.delete(relayPeerId);
+      return;
+    }
+
     if (attempt >= RELAY_RECONNECT_MAX_ATTEMPTS) {
       this.#logger.error(
         `relay ${relayPeerId} reconnect exhausted after ${RELAY_RECONNECT_MAX_ATTEMPTS} attempts`,
