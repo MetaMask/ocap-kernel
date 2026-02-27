@@ -367,54 +367,45 @@ if [[ -n "$PIMLICO_KEY" ]]; then
   daemon_exec queueMessage "$BUNDLER_PARAMS" >/dev/null
   ok "Bundler configured — Pimlico (chain $CHAIN_ID)"
 
-  # Create smart account using EIP-7702 (EOA becomes smart account — no funding needed)
-  info "Setting up smart account (EIP-7702)..."
+  # Create a Hybrid smart account (counterfactual — deploys on first UserOp).
+  # EIP-7702 stateless accounts don't work yet because Sepolia RPC nodes
+  # don't expose the designator code via eth_getCode, so bundler simulation
+  # fails. Hybrid accounts are real contracts that work everywhere.
+  info "Setting up smart account (Hybrid, counterfactual)..."
   SA_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" node -e "
-    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ chainId: Number(process.env.CID), implementation: 'stateless7702' }]]);
+    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ chainId: Number(process.env.CID) }]]);
     process.stdout.write(p);
   ")
-  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 120)
-  # Check if the result is an error (e.g. confirmation timeout)
-  SA_IS_ERROR=$(echo "$SA_RAW" | node -e "
-    const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
-    try {
-      const d = JSON.parse(raw);
-      process.stdout.write(d.body && d.body.includes('#error') ? 'true' : 'false');
-    } catch { process.stdout.write('true'); }
-  " 2>/dev/null || echo "true")
+  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 30)
+  HOME_SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
+    const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+    process.stdout.write(d.address || '');
+  " 2>/dev/null || echo "")
 
-  if [[ "$SA_IS_ERROR" == "true" ]]; then
-    # The EIP-7702 tx may have been broadcast but confirmation timed out.
-    # Check on-chain state — the authorization may still have landed.
-    info "Smart account creation returned error (tx may still be pending)..."
-    info "Checking on-chain EIP-7702 delegation status..."
-    ACCOUNTS_CHECK=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"getAccounts\", []]" 2>/dev/null)
-    EOA_ADDR=$(echo "$ACCOUNTS_CHECK" | parse_capdata | node -e "
-      const arr = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-      process.stdout.write(arr[0] || '');
-    " 2>/dev/null || echo "")
-    if [[ -n "$EOA_ADDR" ]]; then
-      # Retry createSmartAccount — if the 7702 delegation landed on-chain,
-      # the second call detects it and returns the config without rebroadcasting.
-      info "Retrying smart account detection..."
-      SA_RAW2=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 120 2>/dev/null || echo "")
-      HOME_SMART_ACCOUNT=$(echo "$SA_RAW2" | parse_capdata 2>/dev/null | node -e "
-        const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-        process.stdout.write(d.address || '');
-      " 2>/dev/null || echo "")
-    fi
-  else
-    HOME_SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
-      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-      process.stdout.write(d.address || '');
-    ")
+  if [[ -z "$HOME_SMART_ACCOUNT" ]]; then
+    fail "Failed to create smart account"
   fi
+  ok "Smart account: $HOME_SMART_ACCOUNT (deploys on first UserOp)"
 
-  if [[ -n "${HOME_SMART_ACCOUNT:-}" ]]; then
-    ok "Smart account: $HOME_SMART_ACCOUNT (same as EOA)"
-  else
-    info "Smart account setup incomplete — the EIP-7702 tx may still be confirming."
-    info "You can continue; the smart account will be detected on the next call."
+  # Check if the smart account needs funding
+  ACCOUNTS_RAW2=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"getAccounts\", []]")
+  EOA_ADDR=$(echo "$ACCOUNTS_RAW2" | parse_capdata | node -e "
+    const arr = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+    process.stdout.write(arr[0] || '');
+  ")
+
+  if [[ "$HOME_SMART_ACCOUNT" != "$EOA_ADDR" ]]; then
+    # Hybrid smart account has a different address from the EOA — needs funding.
+    info "Smart account address differs from EOA."
+    info "  EOA:           $EOA_ADDR"
+    info "  Smart account: $HOME_SMART_ACCOUNT"
+    echo "" >&2
+    echo -e "  ${YELLOW}${BOLD}The smart account needs ETH to send transactions.${RESET}" >&2
+    echo -e "  ${DIM}Transfer ETH from your EOA to the smart account address above.${RESET}" >&2
+    echo -e "  ${DIM}The account itself deploys on the first UserOp (gas paid by paymaster).${RESET}" >&2
+    echo "" >&2
+    echo -ne "${CYAN}→${RESET} Press Enter once you've funded the smart account (or Enter to skip): " >&2
+    read -r _FUNDED
   fi
 else
   info "Skipping bundler config (no --pimlico-key). UserOp submission will not work."
