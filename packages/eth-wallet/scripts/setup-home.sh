@@ -364,14 +364,47 @@ if [[ -n "$PIMLICO_KEY" ]]; then
     process.stdout.write(p);
   ")
   SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 120)
-  HOME_SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
-    const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-    process.stdout.write(d.address || '');
-  ")
-  if [[ -n "$HOME_SMART_ACCOUNT" ]]; then
+  # Check if the result is an error (e.g. confirmation timeout)
+  SA_IS_ERROR=$(echo "$SA_RAW" | node -e "
+    const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
+    try {
+      const d = JSON.parse(raw);
+      process.stdout.write(d.body && d.body.includes('#error') ? 'true' : 'false');
+    } catch { process.stdout.write('true'); }
+  " 2>/dev/null || echo "true")
+
+  if [[ "$SA_IS_ERROR" == "true" ]]; then
+    # The EIP-7702 tx may have been broadcast but confirmation timed out.
+    # Check on-chain state — the authorization may still have landed.
+    info "Smart account creation returned error (tx may still be pending)..."
+    info "Checking on-chain EIP-7702 delegation status..."
+    ACCOUNTS_CHECK=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"getAccounts\", []]" 2>/dev/null)
+    EOA_ADDR=$(echo "$ACCOUNTS_CHECK" | parse_capdata | node -e "
+      const arr = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+      process.stdout.write(arr[0] || '');
+    " 2>/dev/null || echo "")
+    if [[ -n "$EOA_ADDR" ]]; then
+      # Retry createSmartAccount — if the 7702 delegation landed on-chain,
+      # the second call detects it and returns the config without rebroadcasting.
+      info "Retrying smart account detection..."
+      SA_RAW2=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 120 2>/dev/null || echo "")
+      HOME_SMART_ACCOUNT=$(echo "$SA_RAW2" | parse_capdata 2>/dev/null | node -e "
+        const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+        process.stdout.write(d.address || '');
+      " 2>/dev/null || echo "")
+    fi
+  else
+    HOME_SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
+      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+      process.stdout.write(d.address || '');
+    ")
+  fi
+
+  if [[ -n "${HOME_SMART_ACCOUNT:-}" ]]; then
     ok "Smart account: $HOME_SMART_ACCOUNT (same as EOA)"
   else
-    info "Smart account creation returned no address (may already exist)"
+    info "Smart account setup incomplete — the EIP-7702 tx may still be confirming."
+    info "You can continue; the smart account will be detected on the next call."
   fi
 else
   info "Skipping bundler config (no --pimlico-key). UserOp submission will not work."
