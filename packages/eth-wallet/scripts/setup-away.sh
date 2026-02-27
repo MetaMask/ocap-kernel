@@ -535,16 +535,42 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
   $(echo -e "${DIM}")Delegations      :$(echo -e "${RESET}") $DEL_COUNT
   $(echo -e "${DIM}")Peer connected   :$(echo -e "${RESET}") $(echo -e "${GREEN}")true$(echo -e "${RESET}")
 
-  The wallet is ready. To install the OpenClaw plugin:
-
-  $(echo -e "${DIM}")cd $REPO_ROOT
-  openclaw plugins install -l ./packages/eth-wallet/openclaw-plugin
-  openclaw plugins enable wallet
-  openclaw config set tools.allow '["wallet"]'
-  openclaw gateway restart
-  openclaw plugins list$(echo -e "${RESET}")
-
   Watch daemon logs: $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")
   Stop the daemon:   $(echo -e "${DIM}")yarn ocap daemon stop$(echo -e "${RESET}")
 
 EOF
+
+# ---------------------------------------------------------------------------
+# 11. Optional: Install OpenClaw plugin
+# ---------------------------------------------------------------------------
+
+if command -v openclaw &>/dev/null; then
+  echo "" >&2
+  echo -ne "${CYAN}→${RESET} Install the OpenClaw wallet plugin? [y/N] " >&2
+  read -r INSTALL_PLUGIN
+  if [[ "$INSTALL_PLUGIN" =~ ^[Yy]$ ]]; then
+    info "Installing OpenClaw wallet plugin..."
+    (cd "$REPO_ROOT" && openclaw plugins install -l ./packages/eth-wallet/openclaw-plugin) >&2
+    openclaw plugins enable wallet >&2
+    openclaw config set tools.allow '["wallet"]' >&2
+    openclaw gateway restart >&2
+    ok "OpenClaw wallet plugin installed and enabled"
+    echo -e "  ${DIM}Run 'openclaw plugins list' to verify${RESET}" >&2
+  else
+    echo "" >&2
+    echo -e "  ${DIM}To install manually later:${RESET}" >&2
+    echo -e "  ${DIM}  cd $REPO_ROOT${RESET}" >&2
+    echo -e "  ${DIM}  openclaw plugins install -l ./packages/eth-wallet/openclaw-plugin${RESET}" >&2
+    echo -e "  ${DIM}  openclaw plugins enable wallet${RESET}" >&2
+    echo -e "  ${DIM}  openclaw config set tools.allow '[\"wallet\"]'${RESET}" >&2
+    echo -e "  ${DIM}  openclaw gateway restart${RESET}" >&2
+  fi
+else
+  echo "" >&2
+  echo -e "  ${DIM}OpenClaw not found. To install the wallet plugin manually:${RESET}" >&2
+  echo -e "  ${DIM}  cd $REPO_ROOT${RESET}" >&2
+  echo -e "  ${DIM}  openclaw plugins install -l ./packages/eth-wallet/openclaw-plugin${RESET}" >&2
+  echo -e "  ${DIM}  openclaw plugins enable wallet${RESET}" >&2
+  echo -e "  ${DIM}  openclaw config set tools.allow '[\"wallet\"]'${RESET}" >&2
+  echo -e "  ${DIM}  openclaw gateway restart${RESET}" >&2
+fi
