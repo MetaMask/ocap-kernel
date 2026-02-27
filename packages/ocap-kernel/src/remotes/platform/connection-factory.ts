@@ -15,6 +15,7 @@ import { AbortError, isRetryableNetworkError } from '@metamask/kernel-errors';
 import { fromHex, retryWithBackoff } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { multiaddr } from '@multiformats/multiaddr';
+import type { Multiaddr } from '@multiformats/multiaddr';
 import { byteStream } from 'it-byte-stream';
 import { createLibp2p } from 'libp2p';
 
@@ -24,6 +25,70 @@ import type {
   DirectTransport,
   InboundConnectionHandler,
 } from '../types.ts';
+
+/**
+ * Returns true if the multiaddr uses plain (unencrypted) WebSocket transport.
+ *
+ * @param ma - The multiaddr to check.
+ * @returns True if the multiaddr is a plain ws:// address.
+ */
+function isPlainWs(ma: Multiaddr): boolean {
+  const names = ma.protoNames();
+  return (
+    names.includes('ws') && !names.includes('wss') && !names.includes('tls')
+  );
+}
+
+const isIPv4Address = (host: string): boolean => {
+  return /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/u.test(host);
+};
+
+const isIPv6Address = (host: string): boolean => {
+  // IPv6 addresses consist only of hex digits and colons, and always contain
+  // at least one colon. DNS hostnames never contain colons, so requiring one
+  // prevents an all-hex hostname like 'fdcafe' from matching the fc/fd prefix
+  // checks in isPrivateAddress.
+  return /^[0-9a-f]*:[0-9a-f:]+$/u.test(host);
+};
+
+/**
+ * Returns true if the given host is a private/loopback address.
+ * Covers IPv4 loopback per RFC 1122 §3.2.1.3 (127.0.0.0/8), IPv4 private
+ * ranges per RFC 1918, IPv6 loopback per RFC 4291 §2.5.3 (::1), IPv6
+ * unique-local per RFC 4193 (fc00::/7), and IPv6 link-local per RFC 4291
+ * §2.5.6 (fe80::/10).
+ *
+ * @param host - The hostname or IP address to check.
+ * @returns True if the host is a private or loopback address.
+ */
+function isPrivateAddress(host: string): boolean {
+  if (host === 'localhost' || host === '::1') {
+    return true; // ::1 loopback per RFC 4291 §2.5.3
+  }
+  const lower = host.toLowerCase();
+  if (
+    isIPv6Address(lower) &&
+    (lower.startsWith('fc') ||
+      lower.startsWith('fd') || // fc00::/7 unique-local per RFC 4193
+      lower.startsWith('fe80:')) // fe80::/10 link-local per RFC 4291 §2.5.6
+  ) {
+    return true;
+  }
+  if (!isIPv4Address(host)) {
+    return false;
+  }
+  const octets = host.split('.').map(Number);
+  if (octets.some((octet) => octet > 255)) {
+    return false;
+  }
+  const [p0, p1] = octets as [number, number, number, number];
+  return (
+    p0 === 127 || // 127.0.0.0/8  loopback per RFC 1122 §3.2.1.3
+    p0 === 10 || // 10.0.0.0/8   private per RFC 1918
+    (p0 === 172 && p1 >= 16 && p1 <= 31) || // 172.16.0.0/12 private per RFC 1918
+    (p0 === 192 && p1 === 168) // 192.168.0.0/16 private per RFC 1918
+  );
+}
 
 /**
  * Connection factory for libp2p network operations.
@@ -46,6 +111,8 @@ export class ConnectionFactory {
 
   readonly #directTransports: DirectTransport[];
 
+  readonly #allowedWsHosts: string[];
+
   #inboundHandler?: InboundConnectionHandler;
 
   /**
@@ -58,6 +125,7 @@ export class ConnectionFactory {
    * @param options.signal - The signal to use for the libp2p node.
    * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
    * @param options.directTransports - Optional direct transports (e.g. QUIC, TCP) with listen addresses.
+   * @param options.allowedWsHosts - Hostnames/IPs allowed for plain ws:// connections beyond private ranges.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(options: ConnectionFactoryOptions) {
@@ -67,6 +135,7 @@ export class ConnectionFactory {
     this.#signal = options.signal;
     this.#maxRetryAttempts = options.maxRetryAttempts ?? 0;
     this.#directTransports = options.directTransports ?? [];
+    this.#allowedWsHosts = options.allowedWsHosts ?? [];
   }
 
   /**
@@ -79,6 +148,7 @@ export class ConnectionFactory {
    * @param options.signal - The signal to use for the libp2p node.
    * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
    * @param options.directTransports - Optional direct transports (e.g. QUIC, TCP) with listen addresses.
+   * @param options.allowedWsHosts - Hostnames/IPs allowed for plain ws:// connections beyond private ranges.
    * @returns A promise for the new ConnectionFactory instance.
    */
   static async make(
@@ -128,8 +198,16 @@ export class ConnectionFactory {
       connectionEncrypters: [noise()],
       streamMuxers: [yamux()],
       connectionGater: {
-        // Allow private addresses for local testing
-        denyDialMultiaddr: async () => false,
+        denyDialMultiaddr: async (ma: Multiaddr) => {
+          if (!isPlainWs(ma)) {
+            return false; // allow wss://, webRTC, circuit relay, etc.
+          }
+          const { host } = ma.toOptions();
+          if (isPrivateAddress(host) || this.#allowedWsHosts.includes(host)) {
+            return false;
+          }
+          return true; // deny plain ws:// to unrecognised public addresses
+        },
       },
       // No peer discovery in direct connection mode
       ...(this.#knownRelays.length > 0
