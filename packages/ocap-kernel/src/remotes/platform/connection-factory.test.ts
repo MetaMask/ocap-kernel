@@ -112,6 +112,25 @@ vi.mock('@multiformats/multiaddr', () => ({
   },
 }));
 
+/**
+ * Build a minimal Multiaddr-like object for connectionGater tests.
+ *
+ * @param protoNames - The protocol names in the multiaddr.
+ * @param host - The host component.
+ * @returns A minimal Multiaddr-shaped object.
+ */
+function makeTestMultiaddr(protoNames: string[], host: string) {
+  return {
+    protoNames: () => protoNames,
+    toOptions: () => ({
+      host,
+      port: 0,
+      transport: 'tcp' as const,
+      family: 4 as const,
+    }),
+  };
+}
+
 // Simple ByteStream mock
 type MockByteStream = {
   write: (chunk: Uint8Array) => Promise<void>;
@@ -213,12 +232,14 @@ describe('ConnectionFactory', () => {
    * @param options.signal - The signal to use for the ConnectionFactory.
    * @param options.maxRetryAttempts - Maximum number of retry attempts.
    * @param options.directTransports - Optional direct transports with listen addresses.
+   * @param options.allowedWsHosts - Hostnames/IPs allowed for plain ws:// beyond private ranges.
    * @returns The ConnectionFactory.
    */
   async function createFactory(options?: {
     signal?: AbortSignal;
     maxRetryAttempts?: number;
     directTransports?: import('../types.ts').DirectTransport[];
+    allowedWsHosts?: string[];
   }): Promise<
     Awaited<
       ReturnType<
@@ -235,6 +256,7 @@ describe('ConnectionFactory', () => {
       signal: options?.signal ?? new AbortController().signal,
       maxRetryAttempts: options?.maxRetryAttempts,
       directTransports: options?.directTransports,
+      allowedWsHosts: options?.allowedWsHosts,
     });
   }
 
@@ -298,16 +320,99 @@ describe('ConnectionFactory', () => {
       expect(libp2pState.startCalled).toBe(true);
     });
 
-    it('configures connectionGater to allow all multiaddrs', async () => {
-      factory = await createFactory();
+    describe('connectionGater.denyDialMultiaddr', () => {
+      it.each([
+        {
+          label: 'wss:// to public IP',
+          protoNames: ['ip4', 'tcp', 'wss'],
+          host: '8.8.8.8',
+          allowedWsHosts: [],
+          expected: false,
+        },
+        {
+          label: 'ws:// to 127.0.0.1 (loopback)',
+          protoNames: ['ip4', 'tcp', 'ws'],
+          host: '127.0.0.1',
+          allowedWsHosts: [],
+          expected: false,
+        },
+        {
+          label: 'ws:// to 10.0.0.1 (RFC 1918)',
+          protoNames: ['ip4', 'tcp', 'ws'],
+          host: '10.0.0.1',
+          allowedWsHosts: [],
+          expected: false,
+        },
+        {
+          label: 'ws:// to 172.16.0.1 (RFC 1918)',
+          protoNames: ['ip4', 'tcp', 'ws'],
+          host: '172.16.0.1',
+          allowedWsHosts: [],
+          expected: false,
+        },
+        {
+          label: 'ws:// to 192.168.1.1 (RFC 1918)',
+          protoNames: ['ip4', 'tcp', 'ws'],
+          host: '192.168.1.1',
+          allowedWsHosts: [],
+          expected: false,
+        },
+        {
+          label: 'ws:// to public IP (denied)',
+          protoNames: ['ip4', 'tcp', 'ws'],
+          host: '8.8.8.8',
+          allowedWsHosts: [],
+          expected: true,
+        },
+        {
+          label: 'ws:// to allowlisted hostname',
+          protoNames: ['dns4', 'tcp', 'ws'],
+          host: 'relay.internal',
+          allowedWsHosts: ['relay.internal'],
+          expected: false,
+        },
+        {
+          label: 'ws:// to non-allowlisted hostname (denied)',
+          protoNames: ['dns4', 'tcp', 'ws'],
+          host: 'relay.example',
+          allowedWsHosts: [],
+          expected: true,
+        },
+        {
+          label: 'ws:// to hostname starting with fc (denied, not IPv6)',
+          protoNames: ['dns4', 'tcp', 'ws'],
+          host: 'fcevil.attacker.com',
+          allowedWsHosts: [],
+          expected: true,
+        },
+        {
+          label:
+            'ws:// to all-hex hostname starting with fd (denied, not IPv6)',
+          protoNames: ['dns4', 'tcp', 'ws'],
+          host: 'fdcafe',
+          allowedWsHosts: [],
+          expected: true,
+        },
+        {
+          label: 'non-WebSocket multiaddr (/webrtc)',
+          protoNames: ['ip4', 'udp', 'webrtc'],
+          host: '8.8.8.8',
+          allowedWsHosts: [],
+          expected: false,
+        },
+      ])(
+        '$label → $expected',
+        async ({ protoNames, host, allowedWsHosts, expected }) => {
+          factory = await createFactory({ allowedWsHosts });
 
-      const callArgs = createLibp2p.mock.calls[0]?.[0];
-      expect(callArgs.connectionGater).toBeDefined();
-      expect(callArgs.connectionGater.denyDialMultiaddr).toBeDefined();
+          const callArgs = createLibp2p.mock.calls[0]?.[0];
+          expect(callArgs.connectionGater.denyDialMultiaddr).toBeDefined();
 
-      // Test that denyDialMultiaddr returns false (allowing connections)
-      const result = await callArgs.connectionGater.denyDialMultiaddr();
-      expect(result).toBe(false);
+          const ma = makeTestMultiaddr(protoNames, host);
+          const result = await callArgs.connectionGater.denyDialMultiaddr(ma);
+          expect(result).toBe(expected);
+        },
+      );
     });
 
     it('registers peer update event listener', async () => {

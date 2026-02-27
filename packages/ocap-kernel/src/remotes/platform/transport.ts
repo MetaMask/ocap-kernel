@@ -88,6 +88,7 @@ export async function initTransport(
     maxMessagesPerSecond = DEFAULT_MESSAGE_RATE_LIMIT,
     maxConnectionAttemptsPerMinute = DEFAULT_CONNECTION_RATE_LIMIT,
     directTransports,
+    allowedWsHosts,
   } = options;
   let cleanupWakeDetector: (() => void) | undefined;
   const stopController = new AbortController();
@@ -124,6 +125,7 @@ export async function initTransport(
     signal,
     maxRetryAttempts,
     directTransports,
+    allowedWsHosts,
   });
 
   // Create handshake dependencies (only if incarnation ID is configured).

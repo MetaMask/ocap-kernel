@@ -275,7 +275,7 @@ const yargsInstance = yargs(hideBin(process.argv))
             await handleDaemonExec(
               execArgs,
               socketPath,
-              typeof args.timeout === 'number'
+              typeof args.timeout === 'number' && args.timeout > 0
                 ? { timeoutMs: args.timeout * 1000 }
                 : {},
             );

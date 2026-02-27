@@ -101,6 +101,12 @@ export type RemoteCommsOptions = {
    */
   maxConnectionAttemptsPerMinute?: number | undefined;
   /**
+   * Hostnames or IP addresses permitted for plain ws:// relay connections,
+   * in addition to RFC 1918 / loopback addresses which are always allowed.
+   * Defaults to [] (private/loopback addresses only).
+   */
+  allowedWsHosts?: string[] | undefined;
+  /**
    * Direct listen addresses for non-relay transports (e.g. QUIC, TCP).
    * Example: `['/ip4/0.0.0.0/udp/0/quic-v1', '/ip4/0.0.0.0/tcp/4001']`
    *
@@ -136,6 +142,7 @@ export type ConnectionFactoryOptions = {
   signal: AbortSignal;
   maxRetryAttempts?: number | undefined;
   directTransports?: DirectTransport[] | undefined;
+  allowedWsHosts?: string[] | undefined;
 };
 
 export type RemoteInfo = {
