@@ -231,6 +231,16 @@ fi
 COMMS_PARAMS="{\"directListenAddresses\":[\"/ip4/0.0.0.0/udp/${QUIC_PORT}/quic-v1\"]"
 if [[ -n "$RELAY_ADDR" ]]; then
   COMMS_PARAMS="${COMMS_PARAMS},\"relays\":[\"${RELAY_ADDR}\"]"
+  # Extract the relay host (IP or hostname) for the ws:// allowlist.
+  # Plain ws:// to public IPs is denied by default; allowedWsHosts permits it.
+  RELAY_HOST=$(echo "$RELAY_ADDR" | node -e "
+    const addr = require('fs').readFileSync('/dev/stdin','utf8').trim();
+    const m = addr.match(/\\/(?:ip4|ip6|dns4|dns6)\\/([^\\/]+)/);
+    if (m) process.stdout.write(m[1]);
+  ")
+  if [[ -n "$RELAY_HOST" ]]; then
+    COMMS_PARAMS="${COMMS_PARAMS},\"allowedWsHosts\":[\"${RELAY_HOST}\"]"
+  fi
 fi
 COMMS_PARAMS="${COMMS_PARAMS}}"
 daemon_exec initRemoteComms "$COMMS_PARAMS" >/dev/null
