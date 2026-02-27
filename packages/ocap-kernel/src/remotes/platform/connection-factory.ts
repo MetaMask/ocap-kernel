@@ -90,6 +90,10 @@ function isPrivateAddress(host: string): boolean {
   );
 }
 
+const RELAY_RECONNECT_BASE_DELAY_MS = 5_000;
+const RELAY_RECONNECT_MAX_DELAY_MS = 60_000;
+const RELAY_RECONNECT_MAX_ATTEMPTS = 10;
+
 /**
  * Connection factory for libp2p network operations.
  * Handles libp2p initialization, dialing, and connection management.
@@ -112,6 +116,15 @@ export class ConnectionFactory {
   readonly #directTransports: DirectTransport[];
 
   readonly #allowedWsHosts: string[];
+
+  readonly #relayPeerIds = new Set<string>();
+
+  readonly #relayMultiaddrs = new Map<string, string>();
+
+  readonly #pendingRelayReconnects = new Map<
+    string,
+    ReturnType<typeof setTimeout>
+  >();
 
   #inboundHandler?: InboundConnectionHandler;
 
@@ -136,6 +149,18 @@ export class ConnectionFactory {
     this.#maxRetryAttempts = options.maxRetryAttempts ?? 0;
     this.#directTransports = options.directTransports ?? [];
     this.#allowedWsHosts = options.allowedWsHosts ?? [];
+
+    for (const relay of this.#knownRelays) {
+      try {
+        const peerId = multiaddr(relay).getPeerId();
+        if (peerId) {
+          this.#relayPeerIds.add(peerId);
+          this.#relayMultiaddrs.set(peerId, relay);
+        }
+      } catch {
+        // Skip malformed relay addresses
+      }
+    }
   }
 
   /**
@@ -247,6 +272,16 @@ export class ConnectionFactory {
 
     this.#libp2p.addEventListener('self:peer:update', (evt) => {
       this.#logger.log(`Peer update: ${JSON.stringify(evt.detail)}`);
+    });
+
+    this.#libp2p.addEventListener('connection:close', (evt) => {
+      const remotePeerId = evt.detail.remotePeer.toString();
+      if (this.#relayPeerIds.has(remotePeerId)) {
+        this.#logger.log(
+          `relay ${remotePeerId} connection closed, scheduling reconnect`,
+        );
+        this.#scheduleRelayReconnect(remotePeerId);
+      }
     });
 
     await this.#libp2p.start();
@@ -487,6 +522,70 @@ export class ConnectionFactory {
   }
 
   /**
+   * Schedule a relay reconnection if one is not already in progress.
+   *
+   * @param relayPeerId - The peer ID of the relay to reconnect to.
+   */
+  #scheduleRelayReconnect(relayPeerId: string): void {
+    if (this.#pendingRelayReconnects.has(relayPeerId) || this.#signal.aborted) {
+      return;
+    }
+    this.#reconnectRelay(relayPeerId, 0);
+  }
+
+  /**
+   * Attempt to reconnect to a relay with exponential backoff.
+   *
+   * @param relayPeerId - The peer ID of the relay to reconnect to.
+   * @param attempt - The current attempt number (0-indexed).
+   */
+  #reconnectRelay(relayPeerId: string, attempt: number): void {
+    if (attempt >= RELAY_RECONNECT_MAX_ATTEMPTS) {
+      this.#logger.log(
+        `relay ${relayPeerId} reconnect exhausted after ${RELAY_RECONNECT_MAX_ATTEMPTS} attempts`,
+      );
+      this.#pendingRelayReconnects.delete(relayPeerId);
+      return;
+    }
+
+    const delay = Math.min(
+      RELAY_RECONNECT_BASE_DELAY_MS * 2 ** attempt,
+      RELAY_RECONNECT_MAX_DELAY_MS,
+    );
+
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    const timer = setTimeout(async () => {
+      if (this.#signal.aborted || !this.#libp2p) {
+        this.#pendingRelayReconnects.delete(relayPeerId);
+        return;
+      }
+
+      const relayAddr = this.#relayMultiaddrs.get(relayPeerId);
+      if (!relayAddr) {
+        this.#pendingRelayReconnects.delete(relayPeerId);
+        return;
+      }
+
+      this.#logger.log(
+        `attempting relay reconnect to ${relayPeerId} (attempt ${attempt + 1}/${RELAY_RECONNECT_MAX_ATTEMPTS})`,
+      );
+
+      try {
+        await this.#libp2p.dial(multiaddr(relayAddr));
+        this.#logger.log(`relay ${relayPeerId} reconnected`);
+        this.#pendingRelayReconnects.delete(relayPeerId);
+      } catch (error) {
+        this.#logger.log(
+          `relay ${relayPeerId} reconnect failed: ${String(error)}`,
+        );
+        this.#reconnectRelay(relayPeerId, attempt + 1);
+      }
+    }, delay);
+
+    this.#pendingRelayReconnects.set(relayPeerId, timer);
+  }
+
+  /**
    * Output an error message.
    *
    * @param peerId - The peer ID to output an error message for.
@@ -506,6 +605,10 @@ export class ConnectionFactory {
    * Stop libp2p and clean up.
    */
   async stop(): Promise<void> {
+    for (const timer of this.#pendingRelayReconnects.values()) {
+      clearTimeout(timer);
+    }
+    this.#pendingRelayReconnects.clear();
     this.#inflightDials.clear();
     if (this.#libp2p) {
       try {
