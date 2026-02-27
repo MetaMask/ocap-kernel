@@ -15,6 +15,7 @@ import { AbortError, isRetryableNetworkError } from '@metamask/kernel-errors';
 import { fromHex, retryWithBackoff } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { multiaddr } from '@multiformats/multiaddr';
+import type { Multiaddr } from '@multiformats/multiaddr';
 import { byteStream } from 'it-byte-stream';
 import { createLibp2p } from 'libp2p';
 
@@ -24,6 +25,58 @@ import type {
   DirectTransport,
   InboundConnectionHandler,
 } from '../types.ts';
+
+/**
+ * Returns true if the multiaddr uses plain (unencrypted) WebSocket transport.
+ *
+ * @param ma - The multiaddr to check.
+ * @returns True if the multiaddr is a plain ws:// address.
+ */
+function isPlainWs(ma: Multiaddr): boolean {
+  const names = ma.protoNames();
+  return (
+    names.includes('ws') && !names.includes('wss') && !names.includes('tls')
+  );
+}
+
+/**
+ * Returns true if the given host is a private/loopback address.
+ * Covers IPv4 loopback (127.0.0.0/8), RFC 1918 ranges, IPv6 loopback,
+ * IPv6 unique-local (fc00::/7), and IPv6 link-local (fe80::/10).
+ *
+ * @param host - The hostname or IP address to check.
+ * @returns True if the host is a private or loopback address.
+ */
+function isPrivateAddress(host: string): boolean {
+  if (host === 'localhost' || host === '::1') {
+    return true;
+  }
+  const lower = host.toLowerCase();
+  // IPv6 unique-local (fc00::/7) and link-local (fe80::/10)
+  if (
+    lower.startsWith('fc') ||
+    lower.startsWith('fd') ||
+    lower.startsWith('fe80:')
+  ) {
+    return true;
+  }
+  // IPv4: compare octets directly against known private CIDR ranges
+  const parts = host.split('.');
+  if (parts.length !== 4) {
+    return false;
+  }
+  const octets = parts.map(Number);
+  if (octets.some((octet) => isNaN(octet) || octet < 0 || octet > 255)) {
+    return false;
+  }
+  const [p0, p1] = octets as [number, number, number, number];
+  return (
+    p0 === 127 || // 127.0.0.0/8  loopback
+    p0 === 10 || // 10.0.0.0/8   RFC 1918
+    (p0 === 172 && p1 >= 16 && p1 <= 31) || // 172.16.0.0/12 RFC 1918
+    (p0 === 192 && p1 === 168) // 192.168.0.0/16 RFC 1918
+  );
+}
 
 /**
  * Connection factory for libp2p network operations.
@@ -46,6 +99,8 @@ export class ConnectionFactory {
 
   readonly #directTransports: DirectTransport[];
 
+  readonly #allowedWsHosts: string[];
+
   #inboundHandler?: InboundConnectionHandler;
 
   /**
@@ -58,6 +113,7 @@ export class ConnectionFactory {
    * @param options.signal - The signal to use for the libp2p node.
    * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
    * @param options.directTransports - Optional direct transports (e.g. QUIC, TCP) with listen addresses.
+   * @param options.allowedWsHosts - Hostnames/IPs allowed for plain ws:// connections beyond private ranges.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(options: ConnectionFactoryOptions) {
@@ -67,6 +123,7 @@ export class ConnectionFactory {
     this.#signal = options.signal;
     this.#maxRetryAttempts = options.maxRetryAttempts ?? 0;
     this.#directTransports = options.directTransports ?? [];
+    this.#allowedWsHosts = options.allowedWsHosts ?? [];
   }
 
   /**
@@ -79,6 +136,7 @@ export class ConnectionFactory {
    * @param options.signal - The signal to use for the libp2p node.
    * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
    * @param options.directTransports - Optional direct transports (e.g. QUIC, TCP) with listen addresses.
+   * @param options.allowedWsHosts - Hostnames/IPs allowed for plain ws:// connections beyond private ranges.
    * @returns A promise for the new ConnectionFactory instance.
    */
   static async make(
@@ -128,8 +186,16 @@ export class ConnectionFactory {
       connectionEncrypters: [noise()],
       streamMuxers: [yamux()],
       connectionGater: {
-        // Allow private addresses for local testing
-        denyDialMultiaddr: async () => false,
+        denyDialMultiaddr: async (ma: Multiaddr) => {
+          if (!isPlainWs(ma)) {
+            return false; // allow wss://, webRTC, circuit relay, etc.
+          }
+          const { host } = ma.toOptions();
+          if (isPrivateAddress(host) || this.#allowedWsHosts.includes(host)) {
+            return false;
+          }
+          return true; // deny plain ws:// to unrecognised public addresses
+        },
       },
       // No peer discovery in direct connection mode
       ...(this.#knownRelays.length > 0
