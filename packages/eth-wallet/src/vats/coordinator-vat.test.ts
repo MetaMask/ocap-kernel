@@ -2056,12 +2056,10 @@ describe('coordinator-vat', () => {
         mnemonic: TEST_MNEMONIC,
       });
 
-      // eth_getCode returns empty (not yet delegated), then confirmed after broadcast
+      // eth_getCode returns empty (not yet delegated), then receipt confirms the tx
       providerVat.request
-        .mockResolvedValueOnce('0x') // initial check
-        .mockResolvedValueOnce(
-          '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
-        ); // confirmation poll
+        .mockResolvedValueOnce('0x') // initial eth_getCode check
+        .mockResolvedValueOnce({ status: '0x1' }); // eth_getTransactionReceipt poll
 
       const configPromise = coordinator.createSmartAccount({
         chainId: 11155111,
@@ -2185,20 +2183,21 @@ describe('coordinator-vat', () => {
         mnemonic: TEST_MNEMONIC,
       });
 
-      // eth_getCode always returns empty (never confirms)
-      providerVat.request.mockResolvedValue('0x');
+      // eth_getCode returns empty (no EIP-7702 designator — e.g. Infura),
+      // and eth_getTransactionReceipt returns null (tx not mined yet).
+      providerVat.request.mockResolvedValue(null);
 
       const configPromise = coordinator.createSmartAccount({
         chainId: 11155111,
         implementation: 'stateless7702',
       });
 
-      // Advance through all 30 poll attempts (2s each)
-      for (let i = 0; i < 30; i++) {
+      // Advance through all 45 poll attempts (2s each)
+      for (let i = 0; i < 45; i++) {
         await vi.advanceTimersByTimeAsync(2000);
       }
 
-      await expect(configPromise).rejects.toThrow('not confirmed after 60s');
+      await expect(configPromise).rejects.toThrow('not confirmed after 90s');
 
       vi.useRealTimers();
     });

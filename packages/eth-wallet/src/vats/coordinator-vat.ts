@@ -608,14 +608,23 @@ export function buildRootObject(
     }
     const eoaAddress = accounts[0];
 
-    // Check if already delegated
+    // Check if already set up (persisted from a prior call)
+    if (
+      smartAccountConfig?.implementation === 'stateless7702' &&
+      smartAccountConfig.address === eoaAddress
+    ) {
+      return smartAccountConfig;
+    }
+
+    // Best-effort on-chain check — works on providers that support
+    // EIP-7702 designator codes via eth_getCode (not all do, e.g. Infura).
     const code = (await E(providerVat).request('eth_getCode', [
       eoaAddress,
       'latest',
     ])) as string;
 
     if (isEip7702Delegated(code, chainId)) {
-      // Already set up — just persist config
+      // eslint-disable-next-line require-atomic-updates
       smartAccountConfig = harden({
         implementation: 'stateless7702' as const,
         address: eoaAddress,
@@ -662,31 +671,33 @@ export function buildRootObject(
 
     const txHash = await E(providerVat).broadcastTransaction(signedTx);
 
-    // Wait for the authorization tx to be mined so subsequent UserOps
-    // see the 7702 delegation on-chain. Poll eth_getCode up to 60s.
+    // Wait for the authorization tx to be mined. Some RPC providers (e.g.
+    // Infura) don't expose EIP-7702 designator code via eth_getCode, so we
+    // poll eth_getTransactionReceipt instead (status 0x1 = success).
     if (typeof globalThis.setTimeout !== 'function') {
       throw new Error(
         'EIP-7702 confirmation polling requires setTimeout ' +
           '(not available in SES compartments without timer endowments)',
       );
     }
-    const maxAttempts = 30;
+    const maxAttempts = 45;
     for (let i = 0; i < maxAttempts; i++) {
-      const updatedCode = (await E(providerVat).request('eth_getCode', [
-        eoaAddress,
-        'latest',
-      ])) as string;
-      if (isEip7702Delegated(updatedCode, chainId)) {
+      const receipt = (await E(providerVat).request(
+        'eth_getTransactionReceipt',
+        [txHash],
+      )) as { status?: string } | null;
+      if (receipt?.status === '0x1') {
         break;
       }
       if (i === maxAttempts - 1) {
         throw new Error(
-          `EIP-7702 authorization tx ${txHash} not confirmed after 60s`,
+          `EIP-7702 authorization tx ${txHash} not confirmed after 90s`,
         );
       }
       await new Promise((resolve) => setTimeout(resolve, 2000));
     }
 
+    // eslint-disable-next-line require-atomic-updates
     smartAccountConfig = harden({
       implementation: 'stateless7702' as const,
       address: eoaAddress,
