@@ -490,13 +490,20 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
   $(echo -e "${DIM}")RPC URL          :$(echo -e "${RESET}") $RPC_URL
   $(echo -e "${DIM}")Accounts         :$(echo -e "${RESET}") $ACCOUNTS
 
-$(echo -e "${YELLOW}${BOLD}")  Copy these values to setup-away.sh on the away device:$(echo -e "${RESET}")
+$(echo -e "${YELLOW}${BOLD}")  Run this on the away device (VPS):$(echo -e "${RESET}")
 
-  $(echo -e "${DIM}")--ocap-url$(echo -e "${RESET}")
-  $(echo -e "${BOLD}")$OCAP_URL$(echo -e "${RESET}")
-
-  $(echo -e "${DIM}")--listen-addrs$(echo -e "${RESET}")
-  $(echo -e "${BOLD}")'$LISTEN_ADDRS'$(echo -e "${RESET}")
+$(echo -e "${BOLD}")  ./packages/eth-wallet/scripts/setup-away.sh \\
+    --ocap-url "$OCAP_URL" \\
+    --listen-addrs '$LISTEN_ADDRS'$(
+      [[ -n "$INFURA_KEY" ]] && echo " \\
+    --infura-key $INFURA_KEY"
+    )$(
+      [[ -n "$PIMLICO_KEY" ]] && echo " \\
+    --pimlico-key $PIMLICO_KEY"
+    )$(
+      [[ -n "$RELAY_ADDR" ]] && echo " \\
+    --relay \"$RELAY_ADDR\""
+    )$(echo -e "${RESET}")
 
 EOF
 
@@ -505,8 +512,8 @@ EOF
 # ---------------------------------------------------------------------------
 
 cat >&2 <<EOF
-$(echo -e "${YELLOW}${BOLD}")  Run setup-away.sh on the VPS now. When it finishes, it will
-  show a delegate address. Paste that address below.$(echo -e "${RESET}")
+$(echo -e "${YELLOW}${BOLD}")  When setup-away.sh finishes, it will show a delegate address.
+  Paste that address below.$(echo -e "${RESET}")
 
 EOF
 
