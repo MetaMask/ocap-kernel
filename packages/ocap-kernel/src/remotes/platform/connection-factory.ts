@@ -53,11 +53,23 @@ function isPrivateAddress(host: string): boolean {
   if (host === 'localhost' || host === '::1') {
     return true; // ::1 loopback per RFC 4291 §2.5.3
   }
+  // Use the URL parser's built-in IPv6 validation: valid IPv6 literals parse
+  // fine inside brackets, DNS hostnames and other strings throw "Invalid URL".
+  // This prevents a hostname like 'fcevil.example.com' from being mistaken
+  // for a private IPv6 address via the fc/fd/fe80 prefix checks below.
+  const isIPv6 = (() => {
+    try {
+      return new URL(`http://[${host}]`).hostname.length > 0;
+    } catch {
+      return false;
+    }
+  })();
   const lower = host.toLowerCase();
   if (
-    lower.startsWith('fc') ||
-    lower.startsWith('fd') || // fc00::/7 unique-local per RFC 4193
-    lower.startsWith('fe80:') // fe80::/10 link-local per RFC 4291 §2.5.6
+    isIPv6 &&
+    (lower.startsWith('fc') ||
+      lower.startsWith('fd') || // fc00::/7 unique-local per RFC 4193
+      lower.startsWith('fe80:')) // fe80::/10 link-local per RFC 4291 §2.5.6
   ) {
     return true;
   }

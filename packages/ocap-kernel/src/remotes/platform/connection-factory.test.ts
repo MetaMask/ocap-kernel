@@ -379,6 +379,13 @@ describe('ConnectionFactory', () => {
           expected: true,
         },
         {
+          label: 'ws:// to hostname starting with fc (denied, not IPv6)',
+          protoNames: ['dns4', 'tcp', 'ws'],
+          host: 'fcevil.attacker.com',
+          allowedWsHosts: [],
+          expected: true,
+        },
+        {
           label: 'non-WebSocket multiaddr (/webrtc)',
           protoNames: ['ip4', 'udp', 'webrtc'],
           host: '8.8.8.8',
