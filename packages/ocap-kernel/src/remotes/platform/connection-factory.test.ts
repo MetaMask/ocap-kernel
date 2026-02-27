@@ -22,7 +22,8 @@ const libp2pState: {
   }[];
   stopCalled: boolean;
   startCalled: boolean;
-} = { dials: [], stopCalled: false, startCalled: false };
+  eventListeners: Record<string, ((evt: { detail: unknown }) => void)[]>;
+} = { dials: [], stopCalled: false, startCalled: false, eventListeners: {} };
 
 vi.mock('@chainsafe/libp2p-noise', () => ({ noise: () => ({}) }));
 vi.mock('@chainsafe/libp2p-yamux', () => ({ yamux: () => ({}) }));
@@ -177,6 +178,7 @@ describe('ConnectionFactory', () => {
     libp2pState.handler = undefined;
     libp2pState.stopCalled = false;
     libp2pState.startCalled = false;
+    libp2pState.eventListeners = {};
     mockLoggerLog.mockClear();
     mockLoggerError.mockClear();
 
@@ -191,7 +193,13 @@ describe('ConnectionFactory', () => {
       peerId: {
         toString: () => 'test-peer-id',
       },
-      addEventListener: vi.fn(),
+      addEventListener: vi.fn(
+        (event: string, handler: (evt: { detail: unknown }) => void) => {
+          libp2pState.eventListeners[event] ??= [];
+          libp2pState.eventListeners[event].push(handler);
+        },
+      ),
+      dial: vi.fn(async () => ({})),
       getMultiaddrs: vi.fn(() => [
         { toString: () => '/ip4/127.0.0.1/udp/12345/quic-v1/p2p/test-peer-id' },
         { toString: () => '/ip4/127.0.0.1/tcp/9001/ws/p2p/test-peer-id' },
@@ -1323,6 +1331,188 @@ describe('ConnectionFactory', () => {
       expect(mockLoggerLog).toHaveBeenCalledWith(
         `${channel.peerId}:: channel stream lacks close/abort, relying on natural closure`,
       );
+    });
+  });
+
+  describe('relay reconnection', () => {
+    // vi.useFakeTimers() is incompatible with SES lockdown (Date is frozen),
+    // so we manually spy on setTimeout/clearTimeout.
+    type PendingTimer = {
+      callback: (...args: never[]) => Promise<void> | void;
+      delay: number;
+      id: number;
+    };
+
+    let pendingTimers: PendingTimer[];
+    let nextTimerId: number;
+    let setTimeoutSpy: ReturnType<typeof vi.spyOn>;
+    let clearTimeoutSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      pendingTimers = [];
+      nextTimerId = 1;
+      setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((
+        callback: (...args: never[]) => void,
+        delay?: number,
+      ) => {
+        const id = nextTimerId;
+        nextTimerId += 1;
+        pendingTimers.push({ callback, delay: delay ?? 0, id });
+        return id as unknown as ReturnType<typeof setTimeout>;
+      }) as unknown as typeof setTimeout);
+      clearTimeoutSpy = vi
+        .spyOn(globalThis, 'clearTimeout')
+        .mockImplementation(((id: unknown) => {
+          pendingTimers = pendingTimers.filter((timer) => timer.id !== id);
+        }) as unknown as typeof clearTimeout);
+    });
+
+    afterEach(() => {
+      setTimeoutSpy.mockRestore();
+      clearTimeoutSpy.mockRestore();
+    });
+
+    /**
+     * Run the first pending timer callback and await its completion.
+     */
+    async function runNextTimer(): Promise<void> {
+      const timer = pendingTimers.shift();
+      if (timer) {
+        await timer.callback();
+      }
+    }
+
+    /**
+     * Run all pending timers until none remain, up to a safety limit.
+     */
+    async function runAllTimers(): Promise<void> {
+      const limit = 100;
+      let iterations = 0;
+      while (pendingTimers.length > 0 && iterations < limit) {
+        await runNextTimer();
+        iterations += 1;
+      }
+    }
+
+    function fireConnectionClose(remotePeerId: string) {
+      for (const listener of libp2pState.eventListeners['connection:close'] ??
+        []) {
+        listener({
+          detail: { remotePeer: { toString: () => remotePeerId } },
+        });
+      }
+    }
+
+    /**
+     * Create a libp2p mock that captures event listeners and exposes a dial spy.
+     *
+     * @param mockDial - The dial mock to use.
+     */
+    function setupRelayMock(mockDial: ReturnType<typeof vi.fn>) {
+      createLibp2p.mockImplementation(async () => ({
+        start: vi.fn(),
+        stop: vi.fn(),
+        peerId: { toString: () => 'test-peer-id' },
+        addEventListener: vi.fn(
+          (event: string, handler: (evt: { detail: unknown }) => void) => {
+            libp2pState.eventListeners[event] ??= [];
+            libp2pState.eventListeners[event].push(handler);
+          },
+        ),
+        getMultiaddrs: vi.fn(() => []),
+        dialProtocol: vi.fn(async () => ({})),
+        handle: vi.fn(),
+        dial: mockDial,
+      }));
+    }
+
+    it('re-dials relay when connection closes', async () => {
+      const mockDial = vi.fn().mockResolvedValue({});
+      setupRelayMock(mockDial);
+
+      factory = await createFactory();
+      fireConnectionClose('relay1');
+
+      expect(pendingTimers).toHaveLength(1);
+      expect(pendingTimers[0]?.delay).toBe(5_000);
+
+      await runNextTimer();
+
+      expect(mockDial).toHaveBeenCalledTimes(1);
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        expect.stringContaining('relay relay1 reconnected'),
+      );
+    });
+
+    it('does not re-dial for non-relay peer', async () => {
+      const mockDial = vi.fn().mockResolvedValue({});
+      setupRelayMock(mockDial);
+
+      factory = await createFactory();
+      fireConnectionClose('random-peer');
+
+      expect(pendingTimers).toHaveLength(0);
+      expect(mockDial).not.toHaveBeenCalled();
+    });
+
+    it('applies exponential backoff on consecutive failures', async () => {
+      const mockDial = vi.fn().mockRejectedValue(new Error('dial failed'));
+      setupRelayMock(mockDial);
+
+      factory = await createFactory();
+      fireConnectionClose('relay1');
+
+      // Attempt 1: 5s delay
+      expect(pendingTimers[0]?.delay).toBe(5_000);
+      await runNextTimer();
+      expect(mockDial).toHaveBeenCalledTimes(1);
+
+      // Attempt 2: 10s delay
+      expect(pendingTimers[0]?.delay).toBe(10_000);
+      await runNextTimer();
+      expect(mockDial).toHaveBeenCalledTimes(2);
+
+      // Attempt 3: 20s delay
+      expect(pendingTimers[0]?.delay).toBe(20_000);
+      await runNextTimer();
+      expect(mockDial).toHaveBeenCalledTimes(3);
+
+      // Attempt 4: 40s delay
+      expect(pendingTimers[0]?.delay).toBe(40_000);
+
+      // Attempt 5+: capped at 60s
+      await runNextTimer();
+      expect(pendingTimers[0]?.delay).toBe(60_000);
+    });
+
+    it('stops retrying after max attempts', async () => {
+      const mockDial = vi.fn().mockRejectedValue(new Error('dial failed'));
+      setupRelayMock(mockDial);
+
+      factory = await createFactory();
+      fireConnectionClose('relay1');
+
+      await runAllTimers();
+
+      expect(mockDial).toHaveBeenCalledTimes(10);
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        expect.stringContaining('reconnect exhausted after 10 attempts'),
+      );
+    });
+
+    it('clears pending reconnects on stop', async () => {
+      const mockDial = vi.fn().mockRejectedValue(new Error('dial failed'));
+      setupRelayMock(mockDial);
+
+      factory = await createFactory();
+      fireConnectionClose('relay1');
+
+      expect(pendingTimers).toHaveLength(1);
+
+      await factory.stop();
+
+      expect(pendingTimers).toHaveLength(0);
+      expect(mockDial).not.toHaveBeenCalled();
     });
   });
 
