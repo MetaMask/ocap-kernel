@@ -158,9 +158,13 @@ export class ConnectionFactory {
         if (peerId) {
           this.#relayPeerIds.add(peerId);
           this.#relayMultiaddrs.set(peerId, relay);
+        } else {
+          this.#logger.warn(
+            `relay address lacks /p2p/<peerId> suffix, reconnection disabled: ${relay}`,
+          );
         }
-      } catch {
-        this.#logger.log(`skipping malformed relay address: ${relay}`);
+      } catch (error) {
+        this.#logger.warn(`skipping malformed relay address: ${relay}`, error);
       }
     }
   }
@@ -560,24 +564,26 @@ export class ConnectionFactory {
     );
 
     const timer = setTimeout(() => {
-      // eslint-disable-next-line @typescript-eslint/no-floating-promises
       (async () => {
-        try {
-          if (this.#stopped || this.#signal.aborted || !this.#libp2p) {
-            this.#pendingRelayReconnects.delete(relayPeerId);
-            return;
-          }
+        if (this.#stopped || this.#signal.aborted || !this.#libp2p) {
+          this.#pendingRelayReconnects.delete(relayPeerId);
+          return;
+        }
 
-          const relayAddr = this.#relayMultiaddrs.get(relayPeerId);
-          if (!relayAddr) {
-            this.#pendingRelayReconnects.delete(relayPeerId);
-            return;
-          }
-
-          this.#logger.log(
-            `attempting relay reconnect to ${relayPeerId} (attempt ${attempt + 1}/${RELAY_RECONNECT_MAX_ATTEMPTS})`,
+        const relayAddr = this.#relayMultiaddrs.get(relayPeerId);
+        if (!relayAddr) {
+          this.#logger.warn(
+            `relay ${relayPeerId} has no known address, cannot reconnect`,
           );
+          this.#pendingRelayReconnects.delete(relayPeerId);
+          return;
+        }
 
+        this.#logger.log(
+          `attempting relay reconnect to ${relayPeerId} (attempt ${attempt + 1}/${RELAY_RECONNECT_MAX_ATTEMPTS})`,
+        );
+
+        try {
           await this.#libp2p.dial(multiaddr(relayAddr));
           this.#logger.log(`relay ${relayPeerId} reconnected`);
           this.#pendingRelayReconnects.delete(relayPeerId);
@@ -585,7 +591,9 @@ export class ConnectionFactory {
           this.#logger.error(`relay ${relayPeerId} reconnect failed:`, error);
           this.#reconnectRelay(relayPeerId, attempt + 1);
         }
-      })();
+      })().catch(() => {
+        // Prevent unhandled rejection if logger or reconnect scheduling fails
+      });
     }, delay);
 
     this.#pendingRelayReconnects.set(relayPeerId, timer);

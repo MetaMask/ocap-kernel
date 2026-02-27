@@ -1545,6 +1545,52 @@ describe('ConnectionFactory', () => {
       expect(pendingTimers).toHaveLength(0);
       expect(mockDial).not.toHaveBeenCalled();
     });
+
+    it('stops retrying after a successful reconnect', async () => {
+      let dialCount = 0;
+      const mockDial = vi.fn(async () => {
+        dialCount += 1;
+        if (dialCount < 3) {
+          throw new Error('dial failed');
+        }
+        return {};
+      });
+      setupRelayMock(mockDial);
+
+      factory = await createFactory();
+      fireConnectionClose('relay1');
+
+      await runAllTimers();
+
+      expect(mockDial).toHaveBeenCalledTimes(3);
+      expect(pendingTimers).toHaveLength(0);
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        expect.stringContaining('relay relay1 reconnected'),
+      );
+    });
+
+    it('does not schedule duplicate reconnects for the same relay', async () => {
+      const mockDial = vi.fn().mockRejectedValue(new Error('dial failed'));
+      setupRelayMock(mockDial);
+
+      factory = await createFactory();
+      fireConnectionClose('relay1');
+      fireConnectionClose('relay1');
+
+      expect(pendingTimers).toHaveLength(1);
+    });
+
+    it('does not schedule reconnect when signal is already aborted', async () => {
+      const mockDial = vi.fn().mockResolvedValue({});
+      setupRelayMock(mockDial);
+
+      const controller = new AbortController();
+      factory = await createFactory({ signal: controller.signal });
+      controller.abort();
+      fireConnectionClose('relay1');
+
+      expect(pendingTimers).toHaveLength(0);
+    });
   });
 
   describe('integration scenarios', () => {
