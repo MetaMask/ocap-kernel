@@ -386,6 +386,14 @@ describe('ConnectionFactory', () => {
           expected: true,
         },
         {
+          label:
+            'ws:// to all-hex hostname starting with fd (denied, not IPv6)',
+          protoNames: ['dns4', 'tcp', 'ws'],
+          host: 'fdcafe',
+          allowedWsHosts: [],
+          expected: true,
+        },
+        {
           label: 'non-WebSocket multiaddr (/webrtc)',
           protoNames: ['ip4', 'udp', 'webrtc'],
           host: '8.8.8.8',

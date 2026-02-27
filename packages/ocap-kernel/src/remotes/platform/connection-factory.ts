@@ -44,10 +44,11 @@ const isIPv4Address = (host: string): boolean => {
 };
 
 const isIPv6Address = (host: string): boolean => {
-  // IPv6 addresses consist only of hex digits and colons; DNS hostnames never
-  // contain colons. This guards against a hostname like 'fcevil.example.com'
-  // being mistaken for a private IPv6 address via the prefix checks below.
-  return /^[0-9a-f:]+$/u.test(host);
+  // IPv6 addresses consist only of hex digits and colons, and always contain
+  // at least one colon. DNS hostnames never contain colons, so requiring one
+  // prevents an all-hex hostname like 'fdcafe' from matching the fc/fd prefix
+  // checks in isPrivateAddress.
+  return /^[0-9a-f]*:[0-9a-f:]+$/u.test(host);
 };
 
 /**
