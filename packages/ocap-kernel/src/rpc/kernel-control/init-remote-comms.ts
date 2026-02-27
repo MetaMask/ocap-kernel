@@ -19,6 +19,7 @@ const initRemoteCommsParamsStruct = object({
   directListenAddresses: optional(array(string())),
   maxRetryAttempts: optional(min(integer(), 0)),
   maxQueue: optional(min(integer(), 0)),
+  allowedWsHosts: optional(array(string())),
 });
 
 // Superstruct's `optional()` infers `T | undefined` for each field, but
@@ -68,6 +69,9 @@ export const initRemoteCommsHandler: Handler<
     }
     if (params.maxQueue !== undefined) {
       options.maxQueue = params.maxQueue;
+    }
+    if (params.allowedWsHosts !== undefined) {
+      options.allowedWsHosts = params.allowedWsHosts;
     }
     await kernel.initRemoteComms(options);
     return null;
