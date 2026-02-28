@@ -44,8 +44,33 @@ vi.mock('@libp2p/crypto/keys', () => ({
   generateKeyPairFromSeed,
 }));
 
+type CalculateReconnectionBackoffOptions = Readonly<{
+  baseDelayMs?: number;
+  maxDelayMs?: number;
+  jitter?: boolean;
+}>;
+
+function calculateReconnectionBackoff(
+  attempt: number,
+  opts?: CalculateReconnectionBackoffOptions,
+): number {
+  const base = Math.max(1, opts?.baseDelayMs ?? 500);
+  const cap = Math.max(base, opts?.maxDelayMs ?? 10_000);
+  const pow = Math.max(0, attempt - 1);
+  const raw = Math.min(cap, base * Math.pow(2, pow));
+  const useJitter = opts?.jitter !== false;
+  if (useJitter) {
+    // In production this uses Math.random(), but under SES lockdown Math.random
+    // may be non-configurable, making it hard to mock in tests. Use a stable
+    // deterministic value within the expected jitter range instead.
+    return Math.floor(raw / 2);
+  }
+  return raw;
+}
+
 vi.mock('@metamask/kernel-utils', () => ({
   fromHex: (_hex: string) => new Uint8Array(_hex.length / 2),
+  calculateReconnectionBackoff,
   retryWithBackoff: async <OperationResult>(
     operation: () => Promise<OperationResult>,
     options?: {
@@ -823,6 +848,7 @@ describe('ConnectionFactory', () => {
       // Override the mock retryWithBackoff to track onRetry calls
       vi.doMock('@metamask/kernel-utils', () => ({
         fromHex: (_hex: string) => new Uint8Array(_hex.length / 2),
+        calculateReconnectionBackoff,
         retryWithBackoff: async <OperationResult>(
           operation: () => Promise<OperationResult>,
           options?: {
@@ -893,6 +919,7 @@ describe('ConnectionFactory', () => {
       // Override the mock retryWithBackoff to capture options
       vi.doMock('@metamask/kernel-utils', () => ({
         fromHex: (_hex: string) => new Uint8Array(_hex.length / 2),
+        calculateReconnectionBackoff,
         retryWithBackoff: async <OperationResult>(
           operation: () => Promise<OperationResult>,
           options?: Parameters<
@@ -944,6 +971,7 @@ describe('ConnectionFactory', () => {
       // Override the mock retryWithBackoff to capture options
       vi.doMock('@metamask/kernel-utils', () => ({
         fromHex: (_hex: string) => new Uint8Array(_hex.length / 2),
+        calculateReconnectionBackoff,
         retryWithBackoff: async <OperationResult>(
           operation: () => Promise<OperationResult>,
           options?: Parameters<
@@ -1434,7 +1462,8 @@ describe('ConnectionFactory', () => {
       fireConnectionClose('relay1');
 
       expect(pendingTimers).toHaveLength(1);
-      expect(pendingTimers[0]?.delay).toBe(5_000);
+      // With full jitter and Math.random=0.5, attempt 1 (raw 5000) => 2500
+      expect(pendingTimers[0]?.delay).toBe(2_500);
 
       await runNextTimer();
 
@@ -1462,27 +1491,28 @@ describe('ConnectionFactory', () => {
       factory = await createFactory();
       fireConnectionClose('relay1');
 
-      // Attempt 1: 5s delay
-      expect(pendingTimers[0]?.delay).toBe(5_000);
+      // Full jitter with Math.random=0.5 yields half of the raw backoff (floored).
+      // Attempt 1 raw=5000 => 2500
+      expect(pendingTimers[0]?.delay).toBe(2_500);
       await runNextTimer();
       expect(mockDial).toHaveBeenCalledTimes(1);
 
-      // Attempt 2: 10s delay
-      expect(pendingTimers[0]?.delay).toBe(10_000);
+      // Attempt 2 raw=10000 => 5000
+      expect(pendingTimers[0]?.delay).toBe(5_000);
       await runNextTimer();
       expect(mockDial).toHaveBeenCalledTimes(2);
 
-      // Attempt 3: 20s delay
-      expect(pendingTimers[0]?.delay).toBe(20_000);
+      // Attempt 3 raw=20000 => 10000
+      expect(pendingTimers[0]?.delay).toBe(10_000);
       await runNextTimer();
       expect(mockDial).toHaveBeenCalledTimes(3);
 
-      // Attempt 4: 40s delay
-      expect(pendingTimers[0]?.delay).toBe(40_000);
+      // Attempt 4 raw=40000 => 20000
+      expect(pendingTimers[0]?.delay).toBe(20_000);
 
-      // Attempt 5+: capped at 60s
+      // Attempt 5 raw=80000 capped to 60000 => 30000
       await runNextTimer();
-      expect(pendingTimers[0]?.delay).toBe(60_000);
+      expect(pendingTimers[0]?.delay).toBe(30_000);
     });
 
     it('stops retrying after max attempts', async () => {

@@ -12,7 +12,11 @@ import { webSockets } from '@libp2p/websockets';
 import * as wsFilters from '@libp2p/websockets/filters';
 import { webTransport } from '@libp2p/webtransport';
 import { AbortError, isRetryableNetworkError } from '@metamask/kernel-errors';
-import { fromHex, retryWithBackoff } from '@metamask/kernel-utils';
+import {
+  calculateReconnectionBackoff,
+  fromHex,
+  retryWithBackoff,
+} from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { multiaddr } from '@multiformats/multiaddr';
 import type { Multiaddr } from '@multiformats/multiaddr';
@@ -563,10 +567,10 @@ export class ConnectionFactory {
       return;
     }
 
-    const delay = Math.min(
-      RELAY_RECONNECT_BASE_DELAY_MS * 2 ** attempt,
-      RELAY_RECONNECT_MAX_DELAY_MS,
-    );
+    const delay = calculateReconnectionBackoff(attempt + 1, {
+      baseDelayMs: RELAY_RECONNECT_BASE_DELAY_MS,
+      maxDelayMs: RELAY_RECONNECT_MAX_DELAY_MS,
+    });
 
     const timer = setTimeout(() => {
       (async () => {
@@ -596,8 +600,8 @@ export class ConnectionFactory {
           this.#logger.error(`relay ${relayPeerId} reconnect failed:`, error);
           this.#reconnectRelay(relayPeerId, attempt + 1);
         }
-      })().catch(() => {
-        // Prevent unhandled rejection if logger or reconnect scheduling fails
+      })().catch((error) => {
+        this.#logger.error('reconnection failed unexpectedly:', error);
       });
     }, delay);
 
