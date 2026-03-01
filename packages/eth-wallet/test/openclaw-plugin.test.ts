@@ -245,6 +245,43 @@ describe('openclaw wallet plugin', () => {
     expect(mockSpawn).toHaveBeenCalledTimes(1);
   });
 
+  it('surfaces CapData error from vat exception', async () => {
+    // Simulate: getAccounts succeeds, sendTransaction returns a CapData error
+    mockSpawn
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData([account]) }),
+      )
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: JSON.stringify({
+            body: `#${JSON.stringify({
+              '#error':
+                'Bundler RPC error -32521: UserOperation reverted during simulation',
+              errorId: 'error:liveSlots:v1#70003',
+              name: 'Error',
+            })}`,
+            slots: [],
+          }),
+        }),
+      );
+
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_send');
+    expect(tool).toBeDefined();
+
+    const result = await tool!.execute('req-err', {
+      to: recipient,
+      value: '0x1',
+    });
+
+    expect(result.content[0]?.text).toContain('Error:');
+    expect(result.content[0]?.text).toContain(
+      'Bundler RPC error -32521: UserOperation reverted during simulation',
+    );
+    // Should NOT call getTransactionReceipt/getCapabilities after an error
+    expect(mockSpawn).toHaveBeenCalledTimes(2);
+  });
+
   it('does not spawn process for invalid wallet_send params', async () => {
     const tools = setupPlugin();
     const tool = tools.get('wallet_send');

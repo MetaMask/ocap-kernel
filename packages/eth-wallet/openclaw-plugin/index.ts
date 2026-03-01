@@ -171,11 +171,22 @@ function decodeCapData(raw: string, method: string): unknown {
     throw new Error(`Wallet ${method} vat error: ${bodyContent.slice(6)}`);
   }
 
+  let decoded: unknown;
   try {
-    return JSON.parse(bodyContent);
+    decoded = JSON.parse(bodyContent);
   } catch {
     throw new Error(`Wallet ${method} returned undecodable CapData body`);
   }
+
+  // Handle Endo CapData error encoding: #{"#error": "message", ...}
+  if (decoded !== null && typeof decoded === 'object' && '#error' in decoded) {
+    const errorMsg = (decoded as Record<string, unknown>)['#error'];
+    throw new Error(
+      `Wallet ${method} failed: ${typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)}`,
+    );
+  }
+
+  return decoded;
 }
 
 /**
