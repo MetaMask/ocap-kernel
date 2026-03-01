@@ -394,16 +394,56 @@ if [[ -n "$PIMLICO_KEY" ]]; then
   ")
 
   if [[ "$HOME_SMART_ACCOUNT" != "$EOA_ADDR" ]]; then
+    # Auto-fund smart account: top up to TARGET when balance falls below MIN.
+    SA_MIN_BALANCE="0xB1A2BC2EC50000"   # 0.05 ETH
+    SA_TARGET_BALANCE="0x16345785D8A0000" # 0.1 ETH
+
     info "Checking smart account balance..."
     SA_BALANCE_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"request\", [\"eth_getBalance\", [\"$HOME_SMART_ACCOUNT\", \"latest\"]]]")
     SA_BALANCE=$(echo "$SA_BALANCE_RAW" | parse_capdata)
 
-    if [[ "$SA_BALANCE" == "0x0" || "$SA_BALANCE" == "0x00" || "$SA_BALANCE" == "0x" ]]; then
-      # Fund with 0.1 ETH (0x16345785D8A0000)
-      FUND_AMOUNT="0x16345785D8A0000"
-      info "Sending 0.1 ETH from EOA ($EOA_ADDR) to smart account ($HOME_SMART_ACCOUNT)..."
+    FUND_DECISION=$(BAL="$SA_BALANCE" MIN="$SA_MIN_BALANCE" TGT="$SA_TARGET_BALANCE" node -e "
+      const bal = BigInt(process.env.BAL || '0x0');
+      const min = BigInt(process.env.MIN);
+      const tgt = BigInt(process.env.TGT);
+      const ethStr = (wei) => (Number(wei) / 1e18).toFixed(4);
+      if (bal >= min) {
+        process.stdout.write(JSON.stringify({ fund: false, balEth: ethStr(bal) }));
+      } else {
+        const topUp = tgt - bal;
+        process.stdout.write(JSON.stringify({
+          fund: true,
+          balEth: ethStr(bal),
+          topUpHex: '0x' + topUp.toString(16),
+          topUpEth: ethStr(topUp),
+          targetEth: ethStr(tgt),
+        }));
+      }
+    ")
 
-      FUND_PARAMS=$(KREF="$ROOT_KREF" FROM="$EOA_ADDR" TO="$HOME_SMART_ACCOUNT" VAL="$FUND_AMOUNT" CID="$CHAIN_ID" node -e "
+    SHOULD_FUND=$(echo "$FUND_DECISION" | node -e "
+      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+      process.stdout.write(d.fund ? 'true' : 'false');
+    ")
+    CURRENT_ETH=$(echo "$FUND_DECISION" | node -e "
+      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+      process.stdout.write(d.balEth);
+    ")
+
+    if [[ "$SHOULD_FUND" == "true" ]]; then
+      TOPUP_HEX=$(echo "$FUND_DECISION" | node -e "
+        const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+        process.stdout.write(d.topUpHex);
+      ")
+      TOPUP_ETH=$(echo "$FUND_DECISION" | node -e "
+        const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+        process.stdout.write(d.topUpEth);
+      ")
+
+      info "Smart account balance: ${CURRENT_ETH} ETH (below 0.05 ETH threshold)"
+      info "Topping up ${TOPUP_ETH} ETH from EOA ($EOA_ADDR) → smart account ($HOME_SMART_ACCOUNT)..."
+
+      FUND_PARAMS=$(KREF="$ROOT_KREF" FROM="$EOA_ADDR" TO="$HOME_SMART_ACCOUNT" VAL="$TOPUP_HEX" CID="$CHAIN_ID" node -e "
         const p = JSON.stringify([process.env.KREF, 'sendTransaction', [{
           from: process.env.FROM,
           to: process.env.TO,
@@ -417,7 +457,7 @@ if [[ -n "$PIMLICO_KEY" ]]; then
       FUND_TX=$(echo "$FUND_RESULT" | parse_capdata)
       ok "Smart account funded — tx: $FUND_TX"
     else
-      ok "Smart account already funded (balance: $SA_BALANCE)"
+      ok "Smart account balance: ${CURRENT_ETH} ETH (above 0.05 ETH threshold, no top-up needed)"
     fi
   fi
 else
