@@ -602,6 +602,7 @@ export class ConnectionFactory {
         }
       })().catch((error) => {
         this.#logger.error('reconnection failed unexpectedly:', error);
+        this.#pendingRelayReconnects.delete(relayPeerId);
       });
     }, delay);
 

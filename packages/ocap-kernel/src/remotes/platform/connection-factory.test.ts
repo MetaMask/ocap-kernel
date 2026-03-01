@@ -1622,6 +1622,37 @@ describe('ConnectionFactory', () => {
       expect(pendingTimers).toHaveLength(0);
     });
 
+    it('cleans up pending reconnect entry when outer catch fires', async () => {
+      const mockDial = vi.fn().mockResolvedValue({});
+      setupRelayMock(mockDial);
+
+      factory = await createFactory();
+
+      // Make logger.log throw when the "attempting relay reconnect" message is
+      // logged — this triggers the outer .catch() handler.
+      mockLoggerLog.mockImplementation((message: string) => {
+        if (
+          typeof message === 'string' &&
+          message.includes('attempting relay')
+        ) {
+          throw new Error('logger blew up');
+        }
+      });
+
+      fireConnectionClose('relay1');
+      await runNextTimer();
+
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        'reconnection failed unexpectedly:',
+        expect.any(Error),
+      );
+
+      // The pending entry must be removed so future reconnects are not blocked.
+      mockLoggerLog.mockReset();
+      fireConnectionClose('relay1');
+      expect(pendingTimers).toHaveLength(1);
+    });
+
     it('does not leak timer when stop() runs during in-flight dial', async () => {
       // Dial rejects after stop() has already completed both cleanup passes.
       // The catch block's recursive #reconnectRelay call must not schedule a
