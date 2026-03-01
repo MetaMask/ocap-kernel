@@ -7,6 +7,7 @@ import {
   makeDelegation,
   prepareDelegationTypedData,
   delegationMatchesAction,
+  explainDelegationMatch,
   finalizeDelegation,
 } from '../lib/delegation.ts';
 import type {
@@ -14,6 +15,7 @@ import type {
   Address,
   CreateDelegationOptions,
   Delegation,
+  DelegationMatchResult,
   Eip712TypedData,
   Hex,
 } from '../types.ts';
@@ -149,6 +151,27 @@ export function buildRootObject(
         }
       }
       return undefined;
+    },
+
+    async explainActionMatch(
+      action: Action,
+      chainId?: number,
+      currentTime?: number,
+    ): Promise<{ delegationId: string; result: DelegationMatchResult }[]> {
+      const results: {
+        delegationId: string;
+        result: DelegationMatchResult;
+      }[] = [];
+      for (const delegation of delegations.values()) {
+        if (chainId !== undefined && delegation.chainId !== chainId) {
+          continue;
+        }
+        results.push({
+          delegationId: delegation.id,
+          result: explainDelegationMatch(delegation, action, currentTime),
+        });
+      }
+      return harden(results);
     },
 
     async getDelegation(id: string): Promise<Delegation> {

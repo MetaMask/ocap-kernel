@@ -4,7 +4,11 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { buildRootObject } from './delegation-vat.ts';
 import { makeMockBaggage } from '../../test/helpers.ts';
 import { DEFAULT_DELEGATION_MANAGER } from '../constants.ts';
-import { encodeAllowedTargets, makeCaveat } from '../lib/caveats.ts';
+import {
+  encodeAllowedTargets,
+  encodeValueLte,
+  makeCaveat,
+} from '../lib/caveats.ts';
 import {
   finalizeDelegation,
   makeDelegation,
@@ -313,6 +317,57 @@ describe('delegation-vat', () => {
         to: TARGET,
       });
       expect(found).toBeDefined();
+    });
+  });
+
+  describe('explainActionMatch', () => {
+    it('returns failure reasons for non-matching delegations', async () => {
+      const caveats = [
+        makeCaveat({
+          type: 'valueLte',
+          terms: encodeValueLte(100000000000000000n), // 0.1 ETH
+        }),
+      ];
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const delegation = await (root as any).createDelegation({
+        delegator: ALICE,
+        delegate: BOB,
+        caveats,
+        chainId: 1,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).storeSigned(delegation.id, '0xdeadbeef' as Hex);
+
+      // Value exceeds limit
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const results = await (root as any).explainActionMatch(
+        { to: TARGET, value: '0x1BC16D674EC80000' }, // 2 ETH
+        1,
+      );
+
+      expect(results).toHaveLength(1);
+      expect(results[0].result.matches).toBe(false);
+      expect(results[0].result.failedCaveat).toBe('valueLte');
+      expect(results[0].result.reason).toMatch(/exceeds maximum/u);
+    });
+
+    it('returns match for matching delegations', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const delegation = await (root as any).createDelegation({
+        delegator: ALICE,
+        delegate: BOB,
+        caveats: [],
+        chainId: 1,
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).storeSigned(delegation.id, '0xdeadbeef' as Hex);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const results = await (root as any).explainActionMatch({ to: TARGET }, 1);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].result.matches).toBe(true);
     });
   });
 

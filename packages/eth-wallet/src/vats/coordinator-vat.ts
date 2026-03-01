@@ -20,6 +20,7 @@ import type {
   ChainConfig,
   CreateDelegationOptions,
   Delegation,
+  DelegationMatchResult,
   Eip712TypedData,
   Execution,
   Hex,
@@ -135,6 +136,11 @@ type DelegationFacet = {
     chainId?: number,
     currentTime?: number,
   ) => Promise<Delegation | undefined>;
+  explainActionMatch: (
+    action: Action,
+    chainId?: number,
+    currentTime?: number,
+  ) => Promise<{ delegationId: string; result: DelegationMatchResult }[]>;
   getDelegation: (id: string) => Promise<Delegation>;
   listDelegations: () => Promise<Delegation[]>;
   revokeDelegation: (id: string) => Promise<void>;
@@ -943,10 +949,16 @@ export function buildRootObject(
 
       // Check if a delegation covers this action and bundler is configured
       if (delegationVat && bundlerConfig) {
+        const action: Action = {
+          to: tx.to,
+          value: tx.value,
+          data: tx.data,
+        };
+        const now = Date.now();
         const delegation = await E(delegationVat).findDelegationForAction(
-          { to: tx.to, value: tx.value, data: tx.data },
+          action,
           bundlerConfig.chainId,
-          Date.now(),
+          now,
         );
 
         if (delegation) {
@@ -966,6 +978,36 @@ export function buildRootObject(
             maxFeePerGas: tx.maxFeePerGas,
             maxPriorityFeePerGas: tx.maxPriorityFeePerGas,
           });
+        }
+
+        // No delegation matched — explain why before falling through
+        const explanations = await E(delegationVat).explainActionMatch(
+          action,
+          bundlerConfig.chainId,
+          now,
+        );
+        if (explanations.length > 0) {
+          const reasons = explanations
+            .filter(
+              (entry: {
+                delegationId: string;
+                result: DelegationMatchResult;
+              }) => !entry.result.matches,
+            )
+            .map(
+              (entry: {
+                delegationId: string;
+                result: DelegationMatchResult;
+              }) =>
+                `delegation ${entry.delegationId.slice(0, 10)}…: ${entry.result.reason ?? 'unknown'} (caveat: ${entry.result.failedCaveat ?? 'n/a'})`,
+            );
+          const valueDesc = tx.value
+            ? `${BigInt(tx.value)} wei (${Number(BigInt(tx.value)) / 1e18} ETH)`
+            : 'no value';
+          throw new Error(
+            `No delegation covers this transaction (to: ${tx.to}, value: ${valueDesc}). ` +
+              `${reasons.length} delegation(s) checked: ${reasons.join('; ')}`,
+          );
         }
       }
 
@@ -1180,13 +1222,36 @@ export function buildRootObject(
         );
         delegations = [delegation];
       } else if (options.action) {
+        const now = Date.now();
         const delegation = await E(delegationVat).findDelegationForAction(
           options.action,
           bundlerConfig?.chainId,
-          Date.now(),
+          now,
         );
         if (!delegation) {
-          throw new Error('No matching delegation found');
+          const explanations = await E(delegationVat).explainActionMatch(
+            options.action,
+            bundlerConfig?.chainId,
+            now,
+          );
+          const reasons = explanations
+            .filter(
+              (entry: {
+                delegationId: string;
+                result: DelegationMatchResult;
+              }) => !entry.result.matches,
+            )
+            .map(
+              (entry: {
+                delegationId: string;
+                result: DelegationMatchResult;
+              }) =>
+                `delegation ${entry.delegationId.slice(0, 10)}…: ${entry.result.reason ?? 'unknown'} (caveat: ${entry.result.failedCaveat ?? 'n/a'})`,
+            );
+          throw new Error(
+            `No matching delegation found. ` +
+              `${explanations.length} delegation(s) checked: ${reasons.join('; ')}`,
+          );
         }
         delegations = [delegation];
       } else {
