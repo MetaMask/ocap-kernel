@@ -160,6 +160,7 @@ ACTIVE_INFO=$(ACCTS="$ACCOUNTS" node -e "
     count: issued.length,
     delegate: last.delegate,
     chainId: last.chainId,
+    ids: issued.map(del => del.id),
   }));
 " <<< "$DEL_LIST")
 
@@ -220,8 +221,23 @@ CAVEATS_JSON=$(TOTAL="$TOTAL_LIMIT" TX="$TX_LIMIT" node -e "
 ")
 
 # ---------------------------------------------------------------------------
-# 3. Create new delegation
+# 3. Revoke old delegations and create new one
 # ---------------------------------------------------------------------------
+
+# Revoke all active delegations for this delegate
+OLD_IDS=$(echo "$ACTIVE_INFO" | node -e "
+  const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+  process.stdout.write(JSON.stringify(d.ids));
+")
+
+info "Revoking old delegation(s)..."
+echo "$OLD_IDS" | node -e "
+  const ids = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+  for (const id of ids) { console.log(id); }
+" | while read -r DEL_ID; do
+  daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"revokeDelegation\", [\"$DEL_ID\"]]" >/dev/null
+done
+ok "Revoked $ACTIVE_COUNT old delegation(s)"
 
 if [[ "$CAVEATS_JSON" == "[]" ]]; then
   info "Creating new delegation for $DELEGATE_ADDR (no spending limits)..."
