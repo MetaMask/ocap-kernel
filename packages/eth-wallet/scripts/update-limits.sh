@@ -112,25 +112,31 @@ daemon_exec() {
 # ---------------------------------------------------------------------------
 
 info "Fetching current delegations..."
+ACCOUNTS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getAccounts\", []]")
+ACCOUNTS=$(echo "$ACCOUNTS_RAW" | parse_capdata)
 DEL_LIST_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"listDelegations\", []]")
 DEL_LIST=$(echo "$DEL_LIST_RAW" | parse_capdata)
 
-DEL_COUNT=$(echo "$DEL_LIST" | node -e "
+# Show only active (signed) delegations issued by this device
+ACTIVE_INFO=$(ACCTS="$ACCOUNTS" node -e "
   const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-  process.stdout.write(String(d.length));
-")
-
-if [[ "$DEL_COUNT" == "0" ]]; then
-  fail "No delegations found. Run setup-home.sh first to create a delegation."
-fi
-
-# Show current delegations
-echo "$DEL_LIST" | node -e "
-  const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+  const accounts = JSON.parse(process.env.ACCTS).map(a => a.toLowerCase());
   const fmt = (wei) => (Number(BigInt(wei)) / 1e18).toFixed(4);
-  process.stderr.write('\n  Current delegations:\n');
-  d.forEach((del, i) => {
-    process.stderr.write('  ' + (i+1) + '. delegate: ' + del.delegate + ' (chain ' + del.chainId + ', ' + del.status + ')\n');
+
+  // Signed delegations where we are the delegator (issued by us)
+  const issued = d.filter(del =>
+    del.status === 'signed' && accounts.includes(del.delegator.toLowerCase())
+  );
+
+  if (issued.length === 0) {
+    process.stderr.write('\n  No active delegations issued by this device.\n\n');
+    process.stdout.write(JSON.stringify({ count: 0 }));
+    return;
+  }
+
+  process.stderr.write('\n  Active delegations:\n');
+  issued.forEach((del, i) => {
+    process.stderr.write('  ' + (i+1) + '. delegate: ' + del.delegate + ' (chain ' + del.chainId + ')\n');
     if (del.caveats && del.caveats.length > 0) {
       for (const c of del.caveats) {
         if (c.type === 'nativeTokenTransferAmount') {
@@ -148,20 +154,32 @@ echo "$DEL_LIST" | node -e "
     }
   });
   process.stderr.write('\n');
-" >&2
 
-# Pick the delegate address from the most recent signed delegation
-DELEGATE_ADDR=$(echo "$DEL_LIST" | node -e "
+  const last = issued[issued.length - 1];
+  process.stdout.write(JSON.stringify({
+    count: issued.length,
+    delegate: last.delegate,
+    chainId: last.chainId,
+  }));
+" <<< "$DEL_LIST" >&2)
+
+ACTIVE_COUNT=$(echo "$ACTIVE_INFO" | node -e "
   const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-  const signed = d.filter(x => x.status === 'signed');
-  if (signed.length === 0) { process.stderr.write('No signed delegations found\n'); process.exit(1); }
-  process.stdout.write(signed[signed.length - 1].delegate);
+  process.stdout.write(String(d.count));
 ")
 
-CHAIN_ID=$(echo "$DEL_LIST" | node -e "
+if [[ "$ACTIVE_COUNT" == "0" ]]; then
+  fail "No active delegations found. Run setup-home.sh first to create a delegation."
+fi
+
+DELEGATE_ADDR=$(echo "$ACTIVE_INFO" | node -e "
   const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-  const signed = d.filter(x => x.status === 'signed');
-  process.stdout.write(String(signed[signed.length - 1].chainId));
+  process.stdout.write(d.delegate);
+")
+
+CHAIN_ID=$(echo "$ACTIVE_INFO" | node -e "
+  const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+  process.stdout.write(String(d.chainId));
 ")
 
 echo -e "  ${DIM}Delegate: $DELEGATE_ADDR (chain $CHAIN_ID)${RESET}" >&2
