@@ -367,16 +367,14 @@ if [[ -n "$PIMLICO_KEY" ]]; then
   daemon_exec queueMessage "$BUNDLER_PARAMS" >/dev/null
   ok "Bundler configured — Pimlico (chain $CHAIN_ID)"
 
-  # Create a Hybrid smart account (counterfactual — deploys on first UserOp).
-  # EIP-7702 stateless accounts don't work yet because Sepolia RPC nodes
-  # don't expose the designator code via eth_getCode, so bundler simulation
-  # fails. Hybrid accounts are real contracts that work everywhere.
-  info "Setting up smart account (Hybrid, counterfactual)..."
+  # Promote the EOA to a smart account via EIP-7702 authorization.
+  # The EOA's address stays the same — no separate contract, no funding needed.
+  info "Setting up smart account (EIP-7702 stateless)..."
   SA_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" node -e "
-    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ chainId: Number(process.env.CID) }]]);
+    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ chainId: Number(process.env.CID), implementation: 'stateless7702' }]]);
     process.stdout.write(p);
   ")
-  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 30)
+  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 60)
   HOME_SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
     const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
     process.stdout.write(d.address || '');
@@ -385,81 +383,7 @@ if [[ -n "$PIMLICO_KEY" ]]; then
   if [[ -z "$HOME_SMART_ACCOUNT" ]]; then
     fail "Failed to create smart account"
   fi
-  ok "Smart account: $HOME_SMART_ACCOUNT (deploys on first UserOp)"
-
-  # Fund the smart account from the EOA if needed
-  EOA_ADDR=$(echo "$ACCOUNTS" | node -e "
-    const arr = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-    process.stdout.write(arr[0] || '');
-  ")
-
-  if [[ "$HOME_SMART_ACCOUNT" != "$EOA_ADDR" ]]; then
-    # Auto-fund smart account: top up to TARGET when balance falls below MIN.
-    SA_MIN_BALANCE="0xB1A2BC2EC50000"   # 0.05 ETH
-    SA_TARGET_BALANCE="0x16345785D8A0000" # 0.1 ETH
-
-    info "Checking smart account balance..."
-    SA_BALANCE_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"request\", [\"eth_getBalance\", [\"$HOME_SMART_ACCOUNT\", \"latest\"]]]")
-    SA_BALANCE=$(echo "$SA_BALANCE_RAW" | parse_capdata)
-
-    FUND_DECISION=$(BAL="$SA_BALANCE" MIN="$SA_MIN_BALANCE" TGT="$SA_TARGET_BALANCE" node -e "
-      const bal = BigInt(process.env.BAL || '0x0');
-      const min = BigInt(process.env.MIN);
-      const tgt = BigInt(process.env.TGT);
-      const ethStr = (wei) => (Number(wei) / 1e18).toFixed(4);
-      if (bal >= min) {
-        process.stdout.write(JSON.stringify({ fund: false, balEth: ethStr(bal) }));
-      } else {
-        const topUp = tgt - bal;
-        process.stdout.write(JSON.stringify({
-          fund: true,
-          balEth: ethStr(bal),
-          topUpHex: '0x' + topUp.toString(16),
-          topUpEth: ethStr(topUp),
-          targetEth: ethStr(tgt),
-        }));
-      }
-    ")
-
-    SHOULD_FUND=$(echo "$FUND_DECISION" | node -e "
-      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-      process.stdout.write(d.fund ? 'true' : 'false');
-    ")
-    CURRENT_ETH=$(echo "$FUND_DECISION" | node -e "
-      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-      process.stdout.write(d.balEth);
-    ")
-
-    if [[ "$SHOULD_FUND" == "true" ]]; then
-      TOPUP_HEX=$(echo "$FUND_DECISION" | node -e "
-        const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-        process.stdout.write(d.topUpHex);
-      ")
-      TOPUP_ETH=$(echo "$FUND_DECISION" | node -e "
-        const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-        process.stdout.write(d.topUpEth);
-      ")
-
-      info "Smart account balance: ${CURRENT_ETH} ETH (below 0.05 ETH threshold)"
-      info "Topping up ${TOPUP_ETH} ETH from EOA ($EOA_ADDR) → smart account ($HOME_SMART_ACCOUNT)..."
-
-      FUND_PARAMS=$(KREF="$ROOT_KREF" FROM="$EOA_ADDR" TO="$HOME_SMART_ACCOUNT" VAL="$TOPUP_HEX" CID="$CHAIN_ID" node -e "
-        const p = JSON.stringify([process.env.KREF, 'sendTransaction', [{
-          from: process.env.FROM,
-          to: process.env.TO,
-          value: process.env.VAL,
-          chainId: Number(process.env.CID)
-        }]]);
-        process.stdout.write(p);
-      ")
-
-      FUND_RESULT=$(daemon_exec --quiet queueMessage "$FUND_PARAMS" --timeout 60)
-      FUND_TX=$(echo "$FUND_RESULT" | parse_capdata)
-      ok "Smart account funded — tx: $FUND_TX"
-    else
-      ok "Smart account balance: ${CURRENT_ETH} ETH (above 0.05 ETH threshold, no top-up needed)"
-    fi
-  fi
+  ok "Smart account: $HOME_SMART_ACCOUNT (EIP-7702, same as EOA)"
 else
   info "Skipping bundler config (no --pimlico-key). UserOp submission will not work."
 fi
