@@ -478,19 +478,21 @@ Should show `hasPeerWallet: true`.
 
 If you used the automated scripts, this is handled interactively — the scripts guide you through copying the delegate address and delegation JSON between terminals. See [Step 3 in Quick start](#step-3--delegate-authority-copy-paste-between-terminals).
 
-When `--pimlico-key` is provided, both scripts create Hybrid smart accounts (counterfactual — they deploy on-chain on the first UserOp via factory data). The home script also auto-funds the smart account with 0.1 ETH from the EOA. Delegations require smart accounts as delegator and delegate — this is handled automatically.
-
-> **Note on EIP-7702:** The `stateless7702` implementation (EOA becomes smart account, no separate contract) is also supported but currently doesn't work on Sepolia because RPC providers don't expose EIP-7702 designator codes via `eth_getCode`, causing bundler simulation to fail. Hybrid is used as the default until RPC infrastructure catches up.
+When `--pimlico-key` is provided, both scripts set up smart accounts. The home script uses EIP-7702 to promote the EOA into a smart account (no separate contract or funding needed). The away script creates a Hybrid smart account (counterfactual — deploys on first UserOp). Delegations require smart accounts as delegator and delegate — this is handled automatically.
 
 For manual setup, the steps are:
 
-1. Create a Hybrid smart account on both devices:
+1. Create smart accounts on both devices:
 
 ```bash
+# Home device (EIP-7702 — EOA becomes the smart account):
+yarn ocap daemon exec queueMessage '["ko4", "createSmartAccount", [{"chainId": 11155111, "implementation": "stateless7702"}]]'
+
+# Away device (Hybrid — deploys on first UserOp):
 yarn ocap daemon exec queueMessage '["ko4", "createSmartAccount", [{"chainId": 11155111}]]'
 ```
 
-The home smart account needs ETH to execute delegated transfers. Send ETH from the EOA to the smart account address shown in the output.
+The home EOA's existing ETH balance is used directly for delegated transfers — no separate funding step needed.
 
 2. Create the delegation on the home device (delegate = away smart account). See [Spending limits](#spending-limits) for adding caveats:
 
