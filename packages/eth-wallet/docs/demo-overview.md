@@ -1,6 +1,6 @@
-# OCAP ETH Wallet: Architecture Overview
+# OCAP ETH Wallet: How It Works
 
-A companion document for the demo. Explains the components, how they fit together, and why the architecture matters.
+An overview of the components, how they fit together, and why the architecture matters.
 
 ---
 
@@ -43,6 +43,7 @@ The home and away kernels connect over **QUIC** (UDP) using **libp2p**. On top o
 When the away device needs a signature, the coordinator forwards the request over CapTP to the home kernel's coordinator, which asks its local keyring. The signature travels back through the same channel.
 
 This means:
+
 - The private key stays on the home device at all times
 - The away device only ever receives signatures, never key material
 - The CapTP channel is encrypted end-to-end
@@ -72,6 +73,8 @@ Two caveat enforcers are used for spending limits:
 
 Both enforcers are deployed at deterministic CREATE2 addresses (same address on every EVM chain).
 
+Spending limits are baked into the delegation's cryptographic signature. Changing them means creating a new delegation — the cumulative spending counter resets to zero. The `update-limits.sh` script handles this (see the [Setup Guide](./setup-guide.md#changing-limits)).
+
 ### The Relay (optional)
 
 If the home device is behind NAT (no public IP), a lightweight **libp2p relay** runs on the VPS. Both kernels connect outbound to the relay, which forwards traffic between them. The relay cannot read the CapTP-encrypted traffic.
@@ -85,10 +88,10 @@ If the home device is behind NAT (no public IP), a lightweight **libp2p relay** 
 | `wallet_accounts` | Lists available Ethereum accounts |
 | `wallet_balance` | Queries ETH balance from the chain |
 | `wallet_sign` | Signs a personal message (EIP-191) |
-| `wallet_send` | Sends ETH (via delegation UserOp if delegated) |
+| `wallet_send` | Sends ETH (accepts decimal amounts like "0.08", converts to wei internally) |
 | `wallet_capabilities` | Reports wallet state (keys, peer, delegations, bundler) |
 
-The plugin communicates with the kernel through the OCAP daemon's Unix socket — `yarn ocap daemon exec queueMessage`. The agent never has direct access to keys, RPC endpoints, or delegation internals.
+The plugin communicates with the kernel through the OCAP daemon's Unix socket. The agent never has direct access to keys, RPC endpoints, or delegation internals.
 
 ---
 
@@ -97,12 +100,13 @@ The plugin communicates with the kernel through the OCAP daemon's Unix socket �
 Here's what happens when the agent sends ETH on behalf of the user:
 
 ```
-1. User (Telegram) → "Send 0.001 ETH to 0x70..."
+1. User (Telegram) → "Send 0.01 ETH to 0x70..."
                           │
 2. OpenClaw Agent         │  natural language → tool call
                           ▼
-3. Wallet Plugin    wallet_send(to: 0x70..., value: 0x...)
-                          │
+3. Wallet Plugin    wallet_send(to: 0x70..., value: "0.01")
+                          │  converts to hex wei internally
+                          ▼
 4. OCAP Daemon      queueMessage(coordinator, "sendTransaction", [...])
                           │
 5. Coordinator Vat        │  finds matching delegation with caveats
@@ -117,10 +121,10 @@ Here's what happens when the agent sends ETH on behalf of the user:
                           │
 10. Ethereum        DelegationManager.redeemDelegations()
                           │  checks ALL caveats:
-                          │  ✓ NativeTokenTransferAmount: 0.001 < 0.05 ceiling
-                          │  ✓ ValueLte: 0.001 < 0.01 per-tx max
+                          │  ✓ NativeTokenTransferAmount: under total ceiling
+                          │  ✓ ValueLte: under per-tx max
                           ▼
-11. Transfer        0.001 ETH sent to recipient
+11. Transfer        0.01 ETH sent to recipient
 ```
 
 If any caveat check fails at step 10, the entire UserOp reverts — the ETH is not sent.
@@ -135,18 +139,6 @@ If any caveat check fails at step 10, the entire UserOp reverts — the ETH is n
 | **Agent has a hard budget** | On-chain caveat enforcers (NativeTokenTransferAmount + ValueLte) |
 | **No ambient authority** | Ocap kernel: vats communicate only through explicit capability references |
 | **Limits can't be bypassed** | Enforced by Ethereum smart contracts, not software checks |
-| **Limits can be changed** | Revoke old delegation, create new one with different caveats |
+| **Limits can be changed** | Create a new delegation with different caveats via `update-limits.sh` |
 | **Relay can't snoop** | CapTP encryption — relay only forwards opaque bytes |
 | **Agent can't escalate** | Delegation is scoped — the agent can only do what the caveats allow |
-
----
-
-## Demo Flow Summary
-
-1. **Setup**: Start relay, set up home kernel (keys + smart account), set up away kernel (agent + delegation with 0.05 ETH ceiling / 0.01 ETH per-tx)
-2. **Basics**: Check accounts, balances, sign a message (remote signing demo)
-3. **Send within limits**: 0.001 ETH send succeeds
-4. **Exceed per-tx limit**: 0.02 ETH send reverts (exceeds 0.01 per-tx)
-5. **Exhaust total ceiling**: After enough sends, even small amounts revert (0.05 ceiling hit)
-6. **Change limits**: Revoke old delegation, create new one
-7. **Multi-channel**: Same wallet works from Telegram, TUI, CLI — any OpenClaw channel
