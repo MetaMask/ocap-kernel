@@ -268,15 +268,36 @@ yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{
 
 ### Changing limits
 
-Spending limits are immutable once set — they are baked into the delegation's on-chain caveats. To change limits, revoke the existing delegation and create a new one:
+Spending limits are immutable once set — they are baked into the delegation's cryptographic signature. To change limits, use the `update-limits.sh` script on the home device:
 
 ```bash
-# 1. Revoke the old delegation (on the home device)
-yarn ocap daemon exec queueMessage '["ko4", "revokeDelegation", ["0xDELEGATION_ID"]]'
-
-# 2. Create a new delegation with different limits
-# (re-run setup-home.sh or use createDelegation manually)
+./packages/eth-wallet/scripts/update-limits.sh
 ```
+
+This will:
+
+1. Show your current active delegations and their limits
+2. Prompt for new total and per-transaction limits
+3. Create and sign a new delegation (the cumulative spending counter resets to zero)
+4. Output the full command to run on the away device
+
+Then paste the output command on the away device to apply the new delegation.
+
+You can also do this manually:
+
+```bash
+# 1. Create a new delegation with different limits (on the home device)
+yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{
+  "delegate": "0xAWAY_SMART_ACCOUNT",
+  "caveats": [...],
+  "chainId": 11155111
+}]]'
+
+# 2. Send the output to the away device
+yarn ocap daemon exec queueMessage '["ko4", "receiveDelegation", [<DELEGATION_JSON>]]'
+```
+
+The old delegation remains valid on-chain but unused — the away device switches to whichever delegation was most recently received.
 
 ## OpenClaw plugin install
 
