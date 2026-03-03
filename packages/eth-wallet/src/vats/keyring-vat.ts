@@ -161,16 +161,17 @@ export function buildRootObject(
       return signMessage({ account, message });
     },
 
-    async signAuthorization(
-      contractAddress: Address,
-      chainId: number,
-      from?: Address,
-    ): Promise<SignedAuthorization> {
+    async signAuthorization(options: {
+      contractAddress: Address;
+      chainId: number;
+      nonce?: number;
+      from?: Address;
+    }): Promise<SignedAuthorization> {
       if (!keyring) {
         throw new Error('Keyring not initialized');
       }
       const accounts = keyring.getAccounts();
-      const address = from ?? accounts[0];
+      const address = options.from ?? accounts[0];
       if (!address) {
         throw new Error('No accounts available');
       }
@@ -178,7 +179,12 @@ export function buildRootObject(
       if (!account) {
         throw new Error(`No key for account ${address}`);
       }
-      return signAuthorization({ account, contractAddress, chainId });
+      return signAuthorization({
+        account,
+        contractAddress: options.contractAddress,
+        chainId: options.chainId,
+        nonce: options.nonce,
+      });
     },
   });
 }
