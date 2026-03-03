@@ -131,7 +131,7 @@ ACTIVE_INFO=$(ACCTS="$ACCOUNTS" node -e "
   if (issued.length === 0) {
     process.stderr.write('\n  No active delegations issued by this device.\n\n');
     process.stdout.write(JSON.stringify({ count: 0 }));
-    return;
+    process.exit(0);
   }
 
   process.stderr.write('\n  Active delegations:\n');
