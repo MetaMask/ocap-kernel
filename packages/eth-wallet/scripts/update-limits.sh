@@ -161,7 +161,7 @@ ACTIVE_INFO=$(ACCTS="$ACCOUNTS" node -e "
     delegate: last.delegate,
     chainId: last.chainId,
   }));
-" <<< "$DEL_LIST" >&2)
+" <<< "$DEL_LIST")
 
 ACTIVE_COUNT=$(echo "$ACTIVE_INFO" | node -e "
   const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
