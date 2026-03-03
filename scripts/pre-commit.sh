@@ -10,4 +10,3 @@ fi
 
 yarn lint-staged
 yarn dedupe --check
-
