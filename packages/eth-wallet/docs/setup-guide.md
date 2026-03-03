@@ -278,26 +278,11 @@ This will:
 
 1. Show your current active delegations and their limits
 2. Prompt for new total and per-transaction limits
-3. Create and sign a new delegation (the cumulative spending counter resets to zero)
-4. Output the full command to run on the away device
+3. Revoke old delegations locally
+4. Create and sign a new delegation (the cumulative spending counter resets to zero)
+5. Output the full command to run on the away device
 
 Then paste the output command on the away device to apply the new delegation.
-
-You can also do this manually:
-
-```bash
-# 1. Create a new delegation with different limits (on the home device)
-yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{
-  "delegate": "0xAWAY_SMART_ACCOUNT",
-  "caveats": [...],
-  "chainId": 11155111
-}]]'
-
-# 2. Send the output to the away device
-yarn ocap daemon exec queueMessage '["ko4", "receiveDelegation", [<DELEGATION_JSON>]]'
-```
-
-The old delegation remains valid on-chain but unused — the away device switches to whichever delegation was most recently received.
 
 ## OpenClaw plugin install
 
