@@ -5,10 +5,9 @@
 #
 # Environment variables checked:
 # - DEPENDABOT: Set in the Dependabot updater environment
-# - GITHUB_ACTOR: Set to "dependabot[bot]" in Dependabot PR workflows
 
 is_dependabot_env() {
-    [ -n "$DEPENDABOT" ] || [ "$GITHUB_ACTOR" = "dependabot[bot]" ]
+    [ -n "$DEPENDABOT" ]
 }
 
 is_dependabot_env

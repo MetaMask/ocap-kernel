@@ -4,9 +4,9 @@
 # This checks if artifacts already exist to avoid unnecessary rebuilds.
 # Pass --force or -f to rebuild even if build artifacts already exist.
 
-# Skip in Dependabot environments (native builds aren't needed and may fail)
+# Skip in Dependabot updater environments (native builds aren't needed and may fail)
 if "$(dirname "$0")/utils/check-dependabot.sh"; then
-    echo "⏭️  Skipping native rebuild in Dependabot environment"
+    echo "⏭️  Skipping native rebuild in Dependabot updater environment"
     exit 0
 fi
 
