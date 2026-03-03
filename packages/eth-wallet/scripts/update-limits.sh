@@ -219,13 +219,15 @@ DEL_PARAMS=$(KREF="$ROOT_KREF" DEL="$DELEGATE_ADDR" CID="$CHAIN_ID" CAVS="$CAVEA
 DEL_RAW=$(daemon_exec queueMessage "$DEL_PARAMS")
 ok "New delegation created"
 
+AWAY_CMD=$(RAW="$DEL_RAW" node -e "
+  const escaped = process.env.RAW.replace(/'/g, \"'\\\\''\" );
+  process.stdout.write('yarn ocap daemon exec queueMessage \'[\"ko4\", \"receiveDelegation\", [' + escaped + ']]\'');
+")
+
 cat >&2 <<EOF
 
-$(echo -e "${YELLOW}${BOLD}")  Copy this delegation JSON and paste it into the away device:$(echo -e "${RESET}")
+$(echo -e "${YELLOW}${BOLD}")  Run this on the away device to apply the new delegation:$(echo -e "${RESET}")
 
-  On the away device, run:
-    yarn ocap daemon exec queueMessage '["ko4", "receiveDelegation", [<PASTE_JSON>]]'
-
-$(echo -e "${BOLD}")$DEL_RAW$(echo -e "${RESET}")
+$(echo -e "${BOLD}")$AWAY_CMD$(echo -e "${RESET}")
 
 EOF
