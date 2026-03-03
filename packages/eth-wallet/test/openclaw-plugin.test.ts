@@ -198,9 +198,10 @@ describe('openclaw wallet plugin', () => {
     const tool = tools.get('wallet_send');
     expect(tool).toBeDefined();
 
+    // Pass decimal ETH — plugin converts to hex wei
     const result = await tool!.execute('req-3', {
       to: recipient,
-      value: '0x1',
+      value: '0.08',
     });
 
     expect(result.content[0]?.text).toContain('Transaction hash: 0xrealtxhash');
@@ -218,10 +219,11 @@ describe('openclaw wallet plugin', () => {
       unknown[],
     ];
 
+    // 0.08 ETH = 80000000000000000 wei = 0x11c37937e080000
     expect(payload).toStrictEqual([
       'ko4',
       'sendTransaction',
-      [{ from: account, to: recipient, value: '0x1' }],
+      [{ from: account, to: recipient, value: '0x11c37937e080000' }],
     ]);
   });
 
