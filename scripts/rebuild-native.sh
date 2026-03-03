@@ -4,6 +4,13 @@
 # This checks if artifacts already exist to avoid unnecessary rebuilds.
 # Pass --force or -f to rebuild even if build artifacts already exist.
 
+# Skip in the Dependabot updater environment (not needed there), but not on
+# Dependabot PR CI runs (native modules are required for `yarn build`).
+if [ -n "$DEPENDABOT" ]; then
+    echo "⏭️  Skipping native rebuild in Dependabot updater environment"
+    exit 0
+fi
+
 # Track if any builds fail
 BUILD_FAILED=0
 
