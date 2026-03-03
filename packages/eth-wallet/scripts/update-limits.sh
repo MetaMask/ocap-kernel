@@ -235,11 +235,14 @@ DEL_PARAMS=$(KREF="$ROOT_KREF" DEL="$DELEGATE_ADDR" CID="$CHAIN_ID" CAVS="$CAVEA
   process.stdout.write(p);
 ")
 DEL_RAW=$(daemon_exec queueMessage "$DEL_PARAMS")
+DEL_JSON=$(echo "$DEL_RAW" | parse_capdata)
 ok "New delegation created"
 
-AWAY_CMD=$(RAW="$DEL_RAW" node -e "
-  const escaped = process.env.RAW.replace(/'/g, \"'\\\\''\" );
-  process.stdout.write('yarn ocap daemon exec queueMessage \'[\"ko4\", \"receiveDelegation\", [' + escaped + ']]\'');
+AWAY_CMD=$(DEL="$DEL_JSON" node -e "
+  const del = JSON.stringify(JSON.parse(process.env.DEL));
+  const args = JSON.stringify(['ko4', 'receiveDelegation', [JSON.parse(process.env.DEL)]]);
+  const escaped = args.replace(/'/g, \"'\\\\''\" );
+  process.stdout.write('yarn ocap daemon exec queueMessage ' + \"'\" + escaped + \"'\");
 ")
 
 cat >&2 <<EOF
