@@ -323,7 +323,7 @@ export default function register(api: any): void {
           value: {
             type: 'string',
             description:
-              "Value in hex wei (e.g. '0xde0b6b3a7640000' for 1 ETH)",
+              "Amount of ETH to send as a decimal string (e.g. '0.1' for 0.1 ETH)",
           },
         },
         required: ['to', 'value'],
@@ -334,10 +334,25 @@ export default function register(api: any): void {
             'Invalid recipient address. Must be 0x followed by 40 hex characters.',
           );
         }
-        if (!HEX_VALUE_RE.test(params.value)) {
-          return makeError(
-            "Invalid value. Must be a hex string (e.g. '0xde0b6b3a7640000' for 1 ETH).",
-          );
+
+        // Convert decimal ETH string to hex wei.
+        // Accept both decimal ("0.08") and hex ("0xde0b6b3a7640000").
+        let hexValue: string;
+        if (HEX_VALUE_RE.test(params.value)) {
+          hexValue = params.value;
+        } else {
+          const parsed = parseFloat(params.value);
+          if (Number.isNaN(parsed) || parsed <= 0) {
+            return makeError(
+              "Invalid value. Provide a decimal ETH amount (e.g. '0.1') or hex wei (e.g. '0xde0b6b3a7640000').",
+            );
+          }
+          // Use BigInt math to avoid floating-point precision loss.
+          // Split on decimal point, pad fractional part to 18 digits.
+          const [whole = '0', frac = ''] = params.value.split('.');
+          const paddedFrac = frac.padEnd(18, '0').slice(0, 18);
+          const wei = BigInt(whole) * 10n ** 18n + BigInt(paddedFrac);
+          hexValue = `0x${wei.toString(16)}`;
         }
 
         try {
@@ -363,7 +378,7 @@ export default function register(api: any): void {
             cliPath,
             walletKref,
             method: 'sendTransaction',
-            args: [{ from, to: params.to, value: params.value }],
+            args: [{ from, to: params.to, value: hexValue }],
             timeoutMs,
           });
 
