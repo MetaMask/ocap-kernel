@@ -2,7 +2,7 @@
 
 A capability-driven Ethereum wallet implemented as an OCAP kernel subcluster. It uses the [MetaMask Delegation Framework (Gator)](https://github.com/MetaMask/delegation-framework) for delegated transaction authority via ERC-4337 UserOperations. The wallet subcluster isolates key management, Ethereum RPC communication, and delegation lifecycle into separate vats, enforcing the principle of least authority across the entire signing pipeline.
 
-For a step-by-step walkthrough of deploying the wallet on a home device + VPS with OpenClaw, see the [Setup Guide](./docs/setup-guide.md).
+For a deeper explanation of the components and data flow, see [How It Works](./docs/demo-overview.md). For deploying the wallet on a home device + VPS with OpenClaw, see the [Setup Guide](./docs/setup-guide.md).
 
 ## Security model and known limitations
 
