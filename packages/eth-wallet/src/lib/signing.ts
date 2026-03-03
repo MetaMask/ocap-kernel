@@ -149,15 +149,18 @@ export async function signTypedData(options: {
  * @param options.account - The local account to sign with.
  * @param options.contractAddress - The implementation contract address.
  * @param options.chainId - The chain ID for the authorization.
+ * @param options.nonce - The authorization nonce (required for self-execution: txNonce + 1).
  * @returns The signed authorization.
  */
 export async function signAuthorization(options: {
   account: LocalAccount;
   contractAddress: Address;
   chainId: number;
+  nonce?: number;
 }): Promise<SignedAuthorization> {
   return options.account.signAuthorization({
     contractAddress: options.contractAddress,
     chainId: options.chainId,
+    ...(options.nonce === undefined ? {} : { nonce: options.nonce }),
   });
 }

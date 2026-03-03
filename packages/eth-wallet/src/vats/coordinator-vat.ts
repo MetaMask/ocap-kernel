@@ -64,11 +64,12 @@ type KeyringFacet = {
   signTypedData: (data: Eip712TypedData) => Promise<Hex>;
   signMessage: (message: string, from?: Address) => Promise<Hex>;
   signHash: (hash: Hex, from?: Address) => Promise<Hex>;
-  signAuthorization: (
-    contractAddress: Address,
-    chainId: number,
-    from?: Address,
-  ) => Promise<unknown>;
+  signAuthorization: (options: {
+    contractAddress: Address;
+    chainId: number;
+    nonce?: number;
+    from?: Address;
+  }) => Promise<unknown>;
 };
 
 type ProviderFacet = {
@@ -651,18 +652,21 @@ export function buildRootObject(
       );
     }
 
-    const signedAuth = await E(keyringVat).signAuthorization(
-      implAddress as Address,
-      chainId,
-    );
-
-    // Build and sign the EIP-7702 transaction.
-    // Use a conservative fixed gas limit: an EIP-7702 authorization-only tx
-    // (no calldata, no value) costs ~65k gas. Standard eth_estimateGas may
-    // not support the authorizationList parameter on all RPC providers.
+    // Fetch the EOA nonce, gas fees, and sign the authorization in parallel.
+    // EIP-7702 self-execution: the tx sender is the same EOA as the
+    // authorization authority. The sender's nonce is incremented by the tx
+    // validity check BEFORE authorizations are processed, so the
+    // authorization nonce must be txNonce + 1.
     const EIP7702_AUTH_GAS_LIMIT = '0x19000' as Hex; // 102400
-    const nonce = await E(providerVat).getNonce(eoaAddress);
-    const fees = await E(providerVat).getGasFees();
+    const [nonce, fees] = await Promise.all([
+      E(providerVat).getNonce(eoaAddress),
+      E(providerVat).getGasFees(),
+    ]);
+    const signedAuth = await E(keyringVat).signAuthorization({
+      contractAddress: implAddress as Address,
+      chainId,
+      nonce: nonce + 1,
+    });
 
     const signedTx = await E(keyringVat).signTransaction({
       from: eoaAddress,
