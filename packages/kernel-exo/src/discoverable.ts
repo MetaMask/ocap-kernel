@@ -1,9 +1,9 @@
 import { makeExo } from '@endo/exo';
 import type { Methods } from '@endo/exo';
 import type { InterfaceGuard } from '@endo/patterns';
+import { mergeDisjointRecords } from '@metamask/kernel-utils';
 
 import { makeDefaultInterface } from './exo.ts';
-import { mergeDisjointRecords } from './merge-disjoint-records.ts';
 import type { MethodSchema } from './schema.ts';
 
 /**

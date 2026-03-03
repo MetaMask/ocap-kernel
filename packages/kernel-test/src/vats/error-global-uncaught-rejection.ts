@@ -1,5 +1,5 @@
 import { makePromiseKit } from '@endo/promise-kit';
-import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import { makeDefaultExo } from '@metamask/kernel-exo';
 
 // eslint-disable-next-line no-console
 console.log('global uncaught rejection');

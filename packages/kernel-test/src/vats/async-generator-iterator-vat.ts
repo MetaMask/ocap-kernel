@@ -1,5 +1,5 @@
 import { E } from '@endo/eventual-send';
-import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import { makeDefaultExo } from '@metamask/kernel-exo';
 import { makeEventualIterator, makeExoGenerator } from '@ocap/remote-iterables';
 
 import { unwrapTestLogger } from '../test-powers.ts';

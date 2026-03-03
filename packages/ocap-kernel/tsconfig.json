@@ -4,6 +4,7 @@
     "baseUrl": "./"
   },
   "references": [
+    { "path": "../kernel-exo" },
     { "path": "../kernel-errors" },
     { "path": "../logger" },
     { "path": "../kernel-rpc-methods" },

@@ -2,7 +2,7 @@ import { E } from '@endo/eventual-send';
 import type { ERef } from '@endo/eventual-send';
 import { makePromiseKit } from '@endo/promise-kit';
 import type { PromiseKit } from '@endo/promise-kit';
-import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import { makeDefaultExo } from '@metamask/kernel-exo';
 import { Logger } from '@metamask/logger';
 import type {
   Baggage,

@@ -1,5 +1,5 @@
 import { E } from '@endo/eventual-send';
-import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import { makeDefaultExo } from '@metamask/kernel-exo';
 
 /**
  * Build function for a vat that supports remote communication testing.

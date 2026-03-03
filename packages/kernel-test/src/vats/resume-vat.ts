@@ -1,6 +1,6 @@
 /* global harden */
 import { E } from '@endo/eventual-send';
-import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import { makeDefaultExo } from '@metamask/kernel-exo';
 import type { Baggage } from '@metamask/ocap-kernel';
 
 import { unwrapTestLogger } from '../test-powers.ts';

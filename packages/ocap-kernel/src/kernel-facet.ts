@@ -1,4 +1,4 @@
-import { makeDefaultExo } from '@metamask/kernel-utils';
+import { makeDefaultExo } from '@metamask/kernel-exo';
 
 import type { Kernel } from './Kernel.ts';
 

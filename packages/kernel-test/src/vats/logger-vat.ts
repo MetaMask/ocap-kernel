@@ -1,4 +1,4 @@
-import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import { makeDefaultExo } from '@metamask/kernel-exo';
 
 import type { TestPowers } from '../test-powers.ts';
 

@@ -1,5 +1,5 @@
 import { E } from '@endo/eventual-send';
-import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import { makeDefaultExo } from '@metamask/kernel-exo';
 
 /**
  * Vat providing Monotony As A Service (MaaS). It just keeps relentlessly counting up. It's very boring.

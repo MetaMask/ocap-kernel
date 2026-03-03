@@ -1,5 +1,6 @@
+import { makeDefaultExo } from '@metamask/kernel-exo';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import { makeDefaultExo, waitUntilQuiescent } from '@metamask/kernel-utils';
+import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, krefOf } from '@metamask/ocap-kernel';
 import type { KRef, SlotValue } from '@metamask/ocap-kernel';
 import { describe, expect, it } from 'vitest';

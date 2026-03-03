@@ -1,4 +1,4 @@
-import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import { makeDefaultExo } from '@metamask/kernel-exo';
 
 import type { IOChannel } from './types.ts';
 import type { IOConfig } from '../types.ts';

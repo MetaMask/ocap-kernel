@@ -48,6 +48,7 @@
     "@endo/exo": "^1.5.12",
     "@endo/promise-kit": "^1.1.13",
     "@metamask/kernel-browser-runtime": "workspace:^",
+    "@metamask/kernel-exo": "workspace:^",
     "@metamask/kernel-shims": "workspace:^",
     "@metamask/kernel-ui": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",

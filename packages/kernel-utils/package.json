@@ -29,26 +29,6 @@
         "default": "./dist/index.cjs"
       }
     },
-    "./exo": {
-      "import": {
-        "types": "./dist/exo.d.mts",
-        "default": "./dist/exo.mjs"
-      },
-      "require": {
-        "types": "./dist/exo.d.cts",
-        "default": "./dist/exo.cjs"
-      }
-    },
-    "./discoverable": {
-      "import": {
-        "types": "./dist/discoverable.d.mts",
-        "default": "./dist/discoverable.mjs"
-      },
-      "require": {
-        "types": "./dist/discoverable.d.cts",
-        "default": "./dist/discoverable.cjs"
-      }
-    },
     "./libp2p": {
       "import": {
         "types": "./dist/libp2p-relay.d.mts",
@@ -91,8 +71,6 @@
     "@chainsafe/libp2p-yamux": "patch:@chainsafe/libp2p-yamux@npm%3A7.0.4#~/.yarn/patches/@chainsafe-libp2p-yamux-npm-7.0.4-284c2f6812.patch",
     "@endo/captp": "^4.4.8",
     "@endo/errors": "^1.2.13",
-    "@endo/exo": "^1.5.12",
-    "@endo/patterns": "^1.7.0",
     "@endo/promise-kit": "^1.1.13",
     "@libp2p/autonat": "2.0.38",
     "@libp2p/circuit-relay-v2": "3.2.24",

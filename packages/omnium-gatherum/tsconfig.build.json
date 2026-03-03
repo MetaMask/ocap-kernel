@@ -12,6 +12,7 @@
     "types": ["chrome", "ses", "react-dom"]
   },
   "references": [
+    { "path": "../kernel-exo/tsconfig.build.json" },
     { "path": "../kernel-browser-runtime/tsconfig.build.json" },
     { "path": "../kernel-rpc-methods/tsconfig.build.json" },
     { "path": "../kernel-ui/tsconfig.build.json" },

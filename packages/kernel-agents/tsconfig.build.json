@@ -8,6 +8,7 @@
     "types": ["node"]
   },
   "references": [
+    { "path": "../kernel-exo/tsconfig.build.json" },
     { "path": "../kernel-language-model-service/tsconfig.build.json" },
     { "path": "../kernel-utils/tsconfig.build.json" },
     { "path": "../logger/tsconfig.build.json" }

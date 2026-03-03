@@ -11,6 +11,7 @@
     "types": ["chrome", "ses", "vitest", "@playwright/test", "react-dom"]
   },
   "references": [
+    { "path": "../kernel-exo" },
     { "path": "../kernel-browser-runtime" },
     { "path": "../kernel-rpc-methods" },
     { "path": "../kernel-shims" },

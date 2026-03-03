@@ -8,6 +8,7 @@
     "types": ["node", "ses", "vitest"]
   },
   "references": [
+    { "path": "../kernel-exo" },
     { "path": "../kernel-platforms" },
     { "path": "../ocap-kernel" },
     { "path": "../logger" },

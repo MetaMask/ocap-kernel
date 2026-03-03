@@ -2,7 +2,7 @@ import { assert, Fail } from '@endo/errors';
 import { passStyleOf, makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import type { Passable } from '@endo/pass-style';
-import { makeDefaultExo } from '@metamask/kernel-utils';
+import { makeDefaultExo } from '@metamask/kernel-exo';
 
 import type { KRef } from '../types.ts';
 

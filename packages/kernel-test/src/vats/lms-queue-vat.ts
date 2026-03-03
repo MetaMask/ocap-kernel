@@ -1,4 +1,4 @@
-import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import { makeDefaultExo } from '@metamask/kernel-exo';
 import { makeQueueService } from '@ocap/kernel-language-model-service/test-utils';
 import { makeExoGenerator } from '@ocap/remote-iterables';
 
