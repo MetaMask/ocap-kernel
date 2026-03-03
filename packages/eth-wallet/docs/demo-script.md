@@ -271,39 +271,39 @@ _(When the running total would exceed 0.05 ETH.)_
 
 ## Part 4: Demo — Changing Limits
 
-### Scene 7: Revoke and re-delegate
+### Scene 7: Update spending limits
 
-> **Caption:** "Spending limits are immutable — baked into the delegation's on-chain caveats. To change them: revoke the old delegation, create a new one."
+> **Caption:** "Spending limits are baked into the delegation's cryptographic signature. To change them, create a new delegation — the cumulative spending counter resets to zero."
 
-**On the home device CLI:**
-
-```bash
-# List the delegation ID
-yarn ocap daemon exec queueMessage '["ko4", "listDelegations", []]'
-
-# Revoke it
-yarn ocap daemon exec queueMessage '["ko4", "revokeDelegation", ["0xDELEGATION_ID"]]'
-```
-
-Then create a new delegation with different limits:
+**On the home device:**
 
 ```bash
-# Re-run the delegation step of setup-home.sh, or manually:
-yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{
-  "delegate": "0xAWAY_SMART_ACCOUNT",
-  "caveats": [
-    {"type": "nativeTokenTransferAmount", "enforcer": "0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320", "terms": "0x00000000000000000000000000000000000000000000000000b1a2bc2ec50000"},
-    {"type": "valueLte", "enforcer": "0x92Bf12322527cAA612fd31a0e810472BBB106A8F", "terms": "0x000000000000000000000000000000000000000000000000002386f26fc10000"}
-  ],
-  "chainId": 11155111
-}]]'
+./packages/eth-wallet/scripts/update-limits.sh
 ```
 
-_(The terms above encode 0.05 ETH total and 0.01 ETH per-tx — adjust as needed.)_
+The script shows current delegations with their limits, prompts for new values, creates a new delegation, and outputs the command to run on the away device:
 
-Transfer the new delegation to the away device, and the agent can start spending again with the new budget.
+```
+  Active delegations:
+  1. delegate: 0x8bA7...3c7d (chain 11155111)
+     total limit: 0.0500 ETH
+     per-tx limit: 0.0100 ETH
 
-> **Caption:** "Old delegation permanently invalidated. New delegation starts with a fresh budget."
+  This creates a new delegation — the cumulative spending counter resets to zero.
+  Both limits are enforced on-chain — the agent cannot bypass them.
+
+→ Total ETH spending limit (e.g. 0.5, or Enter for unlimited): 0.1
+→ Max ETH per transaction (e.g. 0.01, or Enter for unlimited): 0.02
+  ✓ New delegation created
+
+  Run this on the away device to apply the new delegation:
+
+yarn ocap daemon exec queueMessage '["ko4","receiveDelegation",[{...}]]'
+```
+
+**On the away device**, paste the output command. The agent can now spend with the new budget.
+
+> **Caption:** "New delegation, fresh budget. One script on the home device, one paste on the away device."
 
 ---
 
