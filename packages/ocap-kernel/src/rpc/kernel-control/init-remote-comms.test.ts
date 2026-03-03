@@ -1,6 +1,10 @@
+import { is } from '@metamask/superstruct';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { initRemoteCommsHandler } from './init-remote-comms.ts';
+import {
+  initRemoteCommsHandler,
+  initRemoteCommsSpec,
+} from './init-remote-comms.ts';
 import type { Kernel } from '../../Kernel.ts';
 
 describe('initRemoteCommsHandler', () => {
@@ -75,5 +79,33 @@ describe('initRemoteCommsHandler', () => {
     await expect(
       initRemoteCommsHandler.implementation({ kernel: mockKernel }, {}),
     ).rejects.toThrow(error);
+  });
+
+  describe('params validation', () => {
+    it('accepts valid params', () => {
+      expect(is({}, initRemoteCommsSpec.params)).toBe(true);
+      expect(
+        is({ maxRetryAttempts: 0, maxQueue: 0 }, initRemoteCommsSpec.params),
+      ).toBe(true);
+      expect(
+        is({ maxRetryAttempts: 5, maxQueue: 100 }, initRemoteCommsSpec.params),
+      ).toBe(true);
+    });
+
+    it.each([-1, -100, 1.5, 3.14, -0.5])(
+      'rejects invalid maxRetryAttempts value: %s',
+      (value) => {
+        expect(
+          is({ maxRetryAttempts: value }, initRemoteCommsSpec.params),
+        ).toBe(false);
+      },
+    );
+
+    it.each([-1, -100, 1.5, 3.14, -0.5])(
+      'rejects invalid maxQueue value: %s',
+      (value) => {
+        expect(is({ maxQueue: value }, initRemoteCommsSpec.params)).toBe(false);
+      },
+    );
   });
 });
