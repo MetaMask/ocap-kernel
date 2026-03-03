@@ -170,8 +170,8 @@ echo -e "  ${DIM}Delegate: $DELEGATE_ADDR (chain $CHAIN_ID)${RESET}" >&2
 # 2. Prompt for new limits
 # ---------------------------------------------------------------------------
 
-echo -e "  ${DIM}Enter new spending limits (or Enter to keep unlimited).${RESET}" >&2
-echo -e "  ${DIM}Both are enforced on-chain — the agent cannot bypass them.${RESET}" >&2
+echo -e "  ${DIM}This creates a new delegation — the cumulative spending counter resets to zero.${RESET}" >&2
+echo -e "  ${DIM}Both limits are enforced on-chain — the agent cannot bypass them.${RESET}" >&2
 echo "" >&2
 echo -ne "${CYAN}→${RESET} Total ETH spending limit (e.g. 0.5, or Enter for unlimited): " >&2
 read -r TOTAL_LIMIT
