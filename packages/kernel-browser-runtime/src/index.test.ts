@@ -7,6 +7,7 @@ describe('index', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'PlatformServicesClient',
       'PlatformServicesServer',
+      'UIOrchestrator',
       'connectToKernel',
       'createRelayQueryString',
       'getCapTPMessage',
@@ -17,6 +18,7 @@ describe('index', () => {
       'makeBackgroundCapTP',
       'makeCapTPNotification',
       'makeIframeVatWorker',
+      'makeUIVatWorker',
       'parseRelayQueryString',
       'receiveInternalConnections',
       'rpcHandlers',
