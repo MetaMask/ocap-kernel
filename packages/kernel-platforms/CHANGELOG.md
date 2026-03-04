@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0]
+
 ### Uncategorized
 
 - chore: @ocap/kernel-platforms -> @metamask/kernel-platforms ([#864](https://github.com/MetaMask/ocap-kernel/pull/864))
@@ -25,4 +27,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - build: Use Turborepo for root build script ([#634](https://github.com/MetaMask/ocap-kernel/pull/634))
 - feat: add kernel platforms ([#610](https://github.com/MetaMask/ocap-kernel/pull/610))
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-platforms@0.1.0...HEAD
+[0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/kernel-platforms@0.1.0
