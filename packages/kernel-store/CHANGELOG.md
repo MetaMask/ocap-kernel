@@ -12,11 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Support absolute database paths ([#821](https://github.com/MetaMask/ocap-kernel/pull/821))
-- Consolidate extension console logs and capture in Playwright tests ([#798](https://github.com/MetaMask/ocap-kernel/pull/798))
-- Add silent Vitest reporter ([#792](https://github.com/MetaMask/ocap-kernel/pull/792))
-- Add Turborepo caching for test:dev and fix streams dev tests ([#757](https://github.com/MetaMask/ocap-kernel/pull/757))
-- Add Node.js e2e tests and fix shutdown handling ([#692](https://github.com/MetaMask/ocap-kernel/pull/692))
-- First pass of support for kernel-kernel network comms ([#578](https://github.com/MetaMask/ocap-kernel/pull/578))
+- Add `close()` method to `KernelDatabase` ([#692](https://github.com/MetaMask/ocap-kernel/pull/692))
 
 ### Changed
 

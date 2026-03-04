@@ -11,16 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add permanent failure detection for reconnection ([#789](https://github.com/MetaMask/ocap-kernel/pull/789))
-- Consolidate extension console logs and capture in Playwright tests ([#798](https://github.com/MetaMask/ocap-kernel/pull/798))
-- Add silent Vitest reporter ([#792](https://github.com/MetaMask/ocap-kernel/pull/792))
-- Add rate limiting for messages and connections ([#776](https://github.com/MetaMask/ocap-kernel/pull/776))
-- Add Turborepo caching for test:dev and fix streams dev tests ([#757](https://github.com/MetaMask/ocap-kernel/pull/757))
-- Add resource limits for remote communications ([#714](https://github.com/MetaMask/ocap-kernel/pull/714))
-- Add REPL agent ([#695](https://github.com/MetaMask/ocap-kernel/pull/695))
-- Automatic reconnection with exponential backoff for remote comms ([#678](https://github.com/MetaMask/ocap-kernel/pull/678))
-- Prevent overriding endowment names ([#619](https://github.com/MetaMask/ocap-kernel/pull/619))
-- First pass of support for kernel-kernel network comms ([#578](https://github.com/MetaMask/ocap-kernel/pull/578))
+- Add permanent failure detection and network error code utilities ([#789](https://github.com/MetaMask/ocap-kernel/pull/789))
+- Add `isResourceLimitError()` utility ([#776](https://github.com/MetaMask/ocap-kernel/pull/776))
+- Add `ResourceLimitError` error class ([#714](https://github.com/MetaMask/ocap-kernel/pull/714))
+- Add `EvaluatorError` and `SampleGenerationError` error classes ([#695](https://github.com/MetaMask/ocap-kernel/pull/695))
+- Add `AbortError` and `isRetryableNetworkError()` utility ([#678](https://github.com/MetaMask/ocap-kernel/pull/678))
+- Add `DuplicateEndowmentError` ([#619](https://github.com/MetaMask/ocap-kernel/pull/619))
 
 ### Changed
 
@@ -28,8 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Fix message queueing and add e2e tests ([#697](https://github.com/MetaMask/ocap-kernel/pull/697))
-- Remove circular internal dependency relationships ([#630](https://github.com/MetaMask/ocap-kernel/pull/630))
+- Improve retryable network error detection ([#697](https://github.com/MetaMask/ocap-kernel/pull/697))
 
 ## [0.4.0]
 

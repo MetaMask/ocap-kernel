@@ -11,29 +11,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add bundleVats Vite plugin for vat bundling ([#834](https://github.com/MetaMask/ocap-kernel/pull/834))
-- Enable offline ocap url methods ([#823](https://github.com/MetaMask/ocap-kernel/pull/823))
-- Consolidate extension console logs and capture in Playwright tests ([#798](https://github.com/MetaMask/ocap-kernel/pull/798))
-- Add silent Vitest reporter ([#792](https://github.com/MetaMask/ocap-kernel/pull/792))
-- Add Turborepo caching for test:dev and fix streams dev tests ([#757](https://github.com/MetaMask/ocap-kernel/pull/757))
-- Add `omnium-gatherum` extension ([#654](https://github.com/MetaMask/ocap-kernel/pull/654))
-- Add Remote Comms UI panel and testing infrastructure ([#637](https://github.com/MetaMask/ocap-kernel/pull/637))
-- First pass of support for kernel-kernel network comms ([#578](https://github.com/MetaMask/ocap-kernel/pull/578))
+- Add Remote Comms UI panel ([#637](https://github.com/MetaMask/ocap-kernel/pull/637))
+- Update `RemoteComms` status display to use `state` (`'connected'` | `'identity-only'` | `'disconnected'`) instead of `isInitialized` boolean ([#823](https://github.com/MetaMask/ocap-kernel/pull/823))
+- Include error details in garbage collection failure messages ([#578](https://github.com/MetaMask/ocap-kernel/pull/578))
 
 ### Changed
 
 - **BREAKING:** Drop Node 20 support ([#837](https://github.com/MetaMask/ocap-kernel/pull/837))
-- Remove reload methods from Kernel and SubclusterManager ([#836](https://github.com/MetaMask/ocap-kernel/pull/836))
-- Update MetaMask design system and React to v18 ([#746](https://github.com/MetaMask/ocap-kernel/pull/746))
-- Silence Yarn peer dependency warnings ([#738](https://github.com/MetaMask/ocap-kernel/pull/738))
-- Move default cluster startup to background ([#709](https://github.com/MetaMask/ocap-kernel/pull/709))
-- Migrate to JsonRpcEngineV2 ([#707](https://github.com/MetaMask/ocap-kernel/pull/707))
-- Make various updates to `lint-build-test.yml` to unblock CI ([#683](https://github.com/MetaMask/ocap-kernel/pull/683))
-- Enable `n/prefer-node-protocol` ESLint rule ([#647](https://github.com/MetaMask/ocap-kernel/pull/647))
+- Remove `reload` kernel action and `reloadSubcluster` from UI controls ([#836](https://github.com/MetaMask/ocap-kernel/pull/836))
+- Update MetaMask design system dependencies and React peer dependency to v18 ([#746](https://github.com/MetaMask/ocap-kernel/pull/746))
+- Use `connectToKernel` instead of `establishKernelConnection` for kernel stream setup ([#709](https://github.com/MetaMask/ocap-kernel/pull/709))
 
 ### Fixed
 
-- Rationalize build externals and dependency declarations ([#652](https://github.com/MetaMask/ocap-kernel/pull/652))
+- Move `react` and `react-dom` to `peerDependencies` and fix build externals ([#652](https://github.com/MetaMask/ocap-kernel/pull/652))
 
 ## [0.3.0]
 

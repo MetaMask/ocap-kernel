@@ -12,14 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add vat bundle utilities ([#763](https://github.com/MetaMask/ocap-kernel/pull/763))
-- Add exo utilities ([#612](https://github.com/MetaMask/ocap-kernel/pull/612))
-- Add daemon process with ocap daemon CLI ([#843](https://github.com/MetaMask/ocap-kernel/pull/843))
-- Add controller architecture ([#752](https://github.com/MetaMask/ocap-kernel/pull/752))
-- Add Turborepo caching for test:dev and fix streams dev tests ([#757](https://github.com/MetaMask/ocap-kernel/pull/757))
-- Add makeDiscoverableExo constructor ([#705](https://github.com/MetaMask/ocap-kernel/pull/705))
-- Automatic reconnection with exponential backoff for remote comms ([#678](https://github.com/MetaMask/ocap-kernel/pull/678))
-- Prevent overriding endowment names ([#619](https://github.com/MetaMask/ocap-kernel/pull/619))
-- First pass of support for kernel-kernel network comms ([#578](https://github.com/MetaMask/ocap-kernel/pull/578))
+- Add `./libp2p` export with `startRelay()` and `ifDefined()` utility ([#843](https://github.com/MetaMask/ocap-kernel/pull/843))
+- Add `Promisified<T>` utility type ([#752](https://github.com/MetaMask/ocap-kernel/pull/752))
+- Add `makeDiscoverableExo()` constructor ([#705](https://github.com/MetaMask/ocap-kernel/pull/705))
+- Add retry utilities with exponential backoff and wake detection ([#678](https://github.com/MetaMask/ocap-kernel/pull/678))
+- Add `mergeDisjointRecords()` utility ([#619](https://github.com/MetaMask/ocap-kernel/pull/619))
+- Add `makeDefaultExo` utility ([#612](https://github.com/MetaMask/ocap-kernel/pull/612))
+- Add hex encoding utilities ([#578](https://github.com/MetaMask/ocap-kernel/pull/578))
 
 ### Changed
 
