@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0]
+
+### Added
+
+- Add permanent failure detection and network error code utilities ([#789](https://github.com/MetaMask/ocap-kernel/pull/789))
+- Add `isResourceLimitError()` utility ([#776](https://github.com/MetaMask/ocap-kernel/pull/776))
+- Add `ResourceLimitError` error class ([#714](https://github.com/MetaMask/ocap-kernel/pull/714))
+- Add `EvaluatorError` and `SampleGenerationError` error classes ([#695](https://github.com/MetaMask/ocap-kernel/pull/695))
+- Add `AbortError` and `isRetryableNetworkError()` utility ([#678](https://github.com/MetaMask/ocap-kernel/pull/678))
+- Add `DuplicateEndowmentError` ([#619](https://github.com/MetaMask/ocap-kernel/pull/619))
+
+### Changed
+
+- **BREAKING:** Drop Node 20 support ([#837](https://github.com/MetaMask/ocap-kernel/pull/837))
+
+### Fixed
+
+- Improve retryable network error detection ([#697](https://github.com/MetaMask/ocap-kernel/pull/697))
+
 ## [0.4.0]
 
 ### Changed
@@ -31,7 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.4.0...HEAD
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.5.0...HEAD
+[0.5.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.4.0...@metamask/kernel-errors@0.5.0
 [0.4.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.3.0...@metamask/kernel-errors@0.4.0
 [0.3.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.2.0...@metamask/kernel-errors@0.3.0
 [0.2.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-errors@0.1.0...@metamask/kernel-errors@0.2.0

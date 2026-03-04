@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0]
+
+### Added
+
+- Add Remote Comms UI panel ([#637](https://github.com/MetaMask/ocap-kernel/pull/637))
+  - Update `RemoteComms` status display to use `state` (`'connected'` | `'identity-only'` | `'disconnected'`) instead of `isInitialized` boolean ([#823](https://github.com/MetaMask/ocap-kernel/pull/823))
+- Include error details in garbage collection failure messages ([#578](https://github.com/MetaMask/ocap-kernel/pull/578))
+
+### Changed
+
+- **BREAKING:** Drop Node 20 support ([#837](https://github.com/MetaMask/ocap-kernel/pull/837))
+- Remove `reload` kernel action and `reloadSubcluster` from UI controls ([#836](https://github.com/MetaMask/ocap-kernel/pull/836))
+- Update MetaMask design system dependencies and React peer dependency to v18 ([#746](https://github.com/MetaMask/ocap-kernel/pull/746))
+- Use `connectToKernel` instead of `establishKernelConnection` for kernel stream setup ([#709](https://github.com/MetaMask/ocap-kernel/pull/709))
+
+### Fixed
+
+- Move `react` and `react-dom` to `peerDependencies` and fix build externals ([#652](https://github.com/MetaMask/ocap-kernel/pull/652))
+
 ## [0.3.0]
 
 ### Changed
@@ -31,7 +50,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-ui@0.3.0...HEAD
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-ui@0.4.0...HEAD
+[0.4.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-ui@0.3.0...@metamask/kernel-ui@0.4.0
 [0.3.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-ui@0.2.0...@metamask/kernel-ui@0.3.0
 [0.2.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-ui@0.1.0...@metamask/kernel-ui@0.2.0
 [0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/kernel-ui@0.1.0

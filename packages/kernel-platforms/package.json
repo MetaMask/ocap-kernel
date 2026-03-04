@@ -1,6 +1,6 @@
 {
   "name": "@metamask/kernel-platforms",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Specifications and implementations of capabilities across platforms",
   "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-platforms#readme",
   "bugs": {
