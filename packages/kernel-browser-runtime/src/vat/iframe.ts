@@ -1,3 +1,4 @@
+import { makePlatform } from '@metamask/kernel-platforms/browser';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -6,7 +7,6 @@ import {
   MessagePortDuplexStream,
   receiveMessagePort,
 } from '@metamask/streams/browser';
-import { makePlatform } from '@ocap/kernel-platforms/browser';
 
 import { setupConsoleForwarding } from '../utils/console-forwarding.ts';
 

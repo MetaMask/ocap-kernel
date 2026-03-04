@@ -1,7 +1,6 @@
 {
-  "name": "@ocap/kernel-platforms",
+  "name": "@metamask/kernel-platforms",
   "version": "0.0.0",
-  "private": true,
   "description": "Specifications and implementations of capabilities across platforms",
   "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-platforms#readme",
   "bugs": {
@@ -51,7 +50,7 @@
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/kernel-platforms",
+    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-platforms",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck --quiet",

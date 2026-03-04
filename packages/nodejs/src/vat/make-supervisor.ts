@@ -1,7 +1,7 @@
+import { makePlatform } from '@metamask/kernel-platforms/nodejs';
 import { makeStreamTransport, Logger } from '@metamask/logger';
 import type { VatId } from '@metamask/ocap-kernel';
 import { VatSupervisor } from '@metamask/ocap-kernel';
-import { makePlatform } from '@ocap/kernel-platforms/nodejs';
 
 import { fetchBlob } from './fetch-blob.ts';
 import { makeStreams } from './streams.ts';
