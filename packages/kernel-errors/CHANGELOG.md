@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- chore: Drop Node 20 support ([#837](https://github.com/MetaMask/ocap-kernel/pull/837))
+- feat(ocap-kernel): add permanent failure detection for reconnection ([#789](https://github.com/MetaMask/ocap-kernel/pull/789))
+- feat: Consolidate extension console logs and capture in Playwright tests ([#798](https://github.com/MetaMask/ocap-kernel/pull/798))
+- feat(repo-tools): Add silent Vitest reporter ([#792](https://github.com/MetaMask/ocap-kernel/pull/792))
+- feat(transport): add rate limiting for messages and connections ([#776](https://github.com/MetaMask/ocap-kernel/pull/776))
+- feat: Add Turborepo caching for test:dev and fix streams dev tests ([#757](https://github.com/MetaMask/ocap-kernel/pull/757))
+- chore(deps): Update MetaMask ESLint dependencies and fix JSDoc compliance ([#741](https://github.com/MetaMask/ocap-kernel/pull/741))
+- feat(ocap-kernel): add resource limits for remote communications ([#714](https://github.com/MetaMask/ocap-kernel/pull/714))
+- chore: Add Claude Code commands for common development and git workflows ([#725](https://github.com/MetaMask/ocap-kernel/pull/725))
+- chore: Update vite & vitest dependencies to latest versions ([#717](https://github.com/MetaMask/ocap-kernel/pull/717))
+- Clean up `__dirname` use ([#701](https://github.com/MetaMask/ocap-kernel/pull/701))
+- feat(kernel-agents): Add REPL agent ([#695](https://github.com/MetaMask/ocap-kernel/pull/695))
+- fix(remote-comms): Fix message queueing and add e2e tests ([#697](https://github.com/MetaMask/ocap-kernel/pull/697))
+- feat(ocap-kernel): Automatic reconnection with exponential backoff for remote comms ([#678](https://github.com/MetaMask/ocap-kernel/pull/678))
+- chore: Enable `n/prefer-node-protocol` ESLint rule ([#647](https://github.com/MetaMask/ocap-kernel/pull/647))
+- chore(root): clean script removes .turbo cache ([#643](https://github.com/MetaMask/ocap-kernel/pull/643))
+- refactor: Add `@ocap/repo-tools` ([#641](https://github.com/MetaMask/ocap-kernel/pull/641))
+- build: Use Turborepo for root build script ([#634](https://github.com/MetaMask/ocap-kernel/pull/634))
+- fix: Remove circular internal dependency relationships ([#630](https://github.com/MetaMask/ocap-kernel/pull/630))
+- feat(ocap-kernel): Prevent overriding endowment names ([#619](https://github.com/MetaMask/ocap-kernel/pull/619))
+- First pass of support for kernel-kernel network comms ([#578](https://github.com/MetaMask/ocap-kernel/pull/578))
+
 ## [0.4.0]
 
 ### Changed
