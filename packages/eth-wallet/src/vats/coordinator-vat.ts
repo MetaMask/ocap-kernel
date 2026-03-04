@@ -1440,19 +1440,20 @@ export function buildRootObject(
 
       // Resolve the signing mode so consumers (including AI agents) know
       // how signing works and whether user approval is needed.
+      // Peer wallet takes priority — when present, it is the actual signing
+      // authority (the local throwaway key is an implementation detail).
       let signingMode: string = 'none';
-      if (hasLocalKeys) {
-        signingMode = 'local';
-      } else if (externalSigner) {
-        signingMode = 'external:metamask';
-      } else if (peerWallet) {
-        // Ask the peer how it signs so the away device can relay the info.
+      if (peerWallet) {
         try {
           const peerCaps = await E(peerWallet).getCapabilities();
           signingMode = `peer:${peerCaps.signingMode ?? 'unknown'}`;
         } catch {
           signingMode = 'peer:unknown';
         }
+      } else if (externalSigner) {
+        signingMode = 'external:metamask';
+      } else if (hasLocalKeys) {
+        signingMode = 'local';
       }
 
       return harden({
