@@ -149,6 +149,7 @@ type DelegationFacet = {
 
 type PeerWalletFacet = {
   getAccounts: () => Promise<Address[]>;
+  getCapabilities: () => Promise<WalletCapabilities>;
   handleSigningRequest: (request: {
     type: string;
     tx?: TransactionRequest;
@@ -602,18 +603,27 @@ export function buildRootObject(
   async function createStateless7702SmartAccount(
     chainId: number,
   ): Promise<SmartAccountConfig> {
-    if (!keyringVat) {
-      throw new Error('Keyring vat required for EIP-7702 authorization');
-    }
     if (!providerVat) {
       throw new Error('Provider vat required for EIP-7702 authorization');
     }
 
-    const accounts = await E(keyringVat).getAccounts();
-    if (accounts.length === 0) {
-      throw new Error('No accounts available');
+    // Resolve EOA address: keyring first, then external signer.
+    let eoaAddress: Address | undefined;
+    if (keyringVat) {
+      const accounts = await E(keyringVat).getAccounts();
+      if (accounts.length > 0) {
+        eoaAddress = accounts[0];
+      }
     }
-    const eoaAddress = accounts[0];
+    if (!eoaAddress && externalSigner) {
+      const accounts = await E(externalSigner).getAccounts();
+      if (accounts.length > 0) {
+        eoaAddress = accounts[0];
+      }
+    }
+    if (!eoaAddress) {
+      throw new Error('No accounts available for EIP-7702 smart account');
+    }
 
     // Check if already set up (persisted from a prior call)
     if (
@@ -639,6 +649,15 @@ export function buildRootObject(
       });
       persistBaggage('smartAccountConfig', smartAccountConfig);
       return smartAccountConfig;
+    }
+
+    // EIP-7702 promotion requires signAuthorization which is only
+    // available on the local keyring (not supported by external signers).
+    if (!keyringVat || !(await E(keyringVat).hasKeys())) {
+      throw new Error(
+        'EIP-7702 promotion requires a local keyring with initialized keys. ' +
+          'Use implementation: "hybrid", or promote the account through MetaMask first.',
+      );
     }
 
     // Sign EIP-7702 authorization
@@ -1419,6 +1438,23 @@ export function buildRootObject(
         ? await E(delegationVat).listDelegations()
         : [];
 
+      // Resolve the signing mode so consumers (including AI agents) know
+      // how signing works and whether user approval is needed.
+      let signingMode: string = 'none';
+      if (hasLocalKeys) {
+        signingMode = 'local';
+      } else if (externalSigner) {
+        signingMode = 'external:metamask';
+      } else if (peerWallet) {
+        // Ask the peer how it signs so the away device can relay the info.
+        try {
+          const peerCaps = await E(peerWallet).getCapabilities();
+          signingMode = `peer:${peerCaps.signingMode ?? 'unknown'}`;
+        } catch {
+          signingMode = 'peer:unknown';
+        }
+      }
+
       return harden({
         hasLocalKeys,
         localAccounts,
@@ -1428,6 +1464,7 @@ export function buildRootObject(
         hasBundlerConfig: bundlerConfig !== undefined,
         smartAccountAddress: smartAccountConfig?.address,
         chainId: bundlerConfig?.chainId,
+        signingMode,
       });
     },
   });

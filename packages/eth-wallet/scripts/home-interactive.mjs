@@ -1,0 +1,643 @@
+/* eslint-disable jsdoc/require-description, jsdoc/require-jsdoc, jsdoc/require-param, jsdoc/require-param-description, jsdoc/require-param-type, jsdoc/require-returns, jsdoc/require-returns-description, n/no-process-exit, n/no-sync, n/no-extraneous-import, no-console, no-plusplus, no-empty-function, no-negated-condition, no-unused-vars, id-denylist, prefer-template, require-unicode-regexp, import-x/no-unresolved, import-x/no-extraneous-dependencies */
+/**
+ * Interactive home wallet — MetaMask Mobile signs everything.
+ *
+ * Runs the kernel in-process (no daemon), connects MetaMask via SDK (QR code),
+ * and registers the signer as a kernel service so the coordinator vat can call
+ * it via E(externalSigner).signTypedData(...) etc.
+ *
+ * No mnemonic is stored on the home device.
+ *
+ * IMPORTANT: MetaMask SDK must connect BEFORE SES lockdown. SES freezes
+ * built-in prototypes (TLS sockets, streams) which breaks the SDK's networking.
+ * This script uses dynamic imports to control the order:
+ *   1. Connect MetaMask (no SES)
+ *   2. Activate SES lockdown
+ *   3. Start kernel and proceed
+ *
+ * Usage:
+ *   node packages/eth-wallet/scripts/home-interactive.mjs \
+ *     --infura-key KEY [--pimlico-key KEY] [--chain-id 11155111] \
+ *     [--relay MULTIADDR] [--quic-port 4002]
+ */
+
+import { existsSync, mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+import * as readline from 'node:readline';
+
+// ---------------------------------------------------------------------------
+// ANSI helpers
+// ---------------------------------------------------------------------------
+
+const BOLD = '\x1b[1m';
+const DIM = '\x1b[2m';
+const GREEN = '\x1b[0;32m';
+const CYAN = '\x1b[0;36m';
+const YELLOW = '\x1b[0;33m';
+const RED = '\x1b[0;31m';
+const RESET = '\x1b[0m';
+
+// Keep references to the real console methods so our helpers always work,
+// even after we mute console globally to suppress libp2p/comms noise.
+const _log = console.log.bind(console);
+const _error = console.error.bind(console);
+
+/**
+ *
+ * @param msg
+ */
+const info = (msg) => _error(`${CYAN}->${RESET} ${msg}`);
+/**
+ *
+ * @param msg
+ */
+const ok = (msg) => _error(`  ${GREEN}ok${RESET} ${msg}`);
+/**
+ *
+ * @param msg
+ */
+const fail = (msg) => {
+  _error(`  ${RED}error${RESET} ${msg}`);
+  process.exit(1);
+};
+
+/** Suppress all console output from third-party code (libp2p, comms, etc.). */
+function muteConsole() {
+  /**
+   *
+   */
+  const noop = () => {};
+  console.log = noop;
+  console.debug = noop;
+  console.info = noop;
+  console.warn = noop;
+  console.error = noop;
+}
+
+// ---------------------------------------------------------------------------
+// CLI argument parsing
+// ---------------------------------------------------------------------------
+
+/**
+ *
+ * @param argv
+ */
+function parseArgs(argv) {
+  const args = {
+    infuraKey: '',
+    pimlicoKey: '',
+    chainId: 11155111,
+    relay: '',
+    quicPort: 4002,
+    reset: false,
+    dbPath: join(homedir(), '.ocap', 'kernel-interactive.sqlite'),
+  };
+
+  for (let i = 2; i < argv.length; i++) {
+    switch (argv[i]) {
+      case '--infura-key':
+        args.infuraKey = argv[++i];
+        break;
+      case '--pimlico-key':
+        args.pimlicoKey = argv[++i];
+        break;
+      case '--reset':
+        args.reset = true;
+        break;
+      case '--chain-id':
+        args.chainId = Number(argv[++i]);
+        break;
+      case '--relay':
+        args.relay = argv[++i];
+        break;
+      case '--quic-port':
+        args.quicPort = Number(argv[++i]);
+        break;
+      case '--db-path':
+        args.dbPath = argv[++i];
+        break;
+      case '-h':
+      case '--help':
+        console.error(
+          [
+            `Usage: node home-interactive.mjs --infura-key KEY [options]`,
+            ``,
+            `Required:`,
+            `  --infura-key KEY    Infura API key (Sepolia RPC)`,
+            ``,
+            `Optional:`,
+            `  --pimlico-key KEY   Pimlico API key (bundler/paymaster)`,
+            `  --chain-id ID       Chain ID (default: 11155111 = Sepolia)`,
+            `  --relay MULTIADDR   Relay multiaddr`,
+            `  --quic-port PORT    UDP port for QUIC (default: 4002)`,
+            `  --db-path PATH      SQLite database path`,
+            `  --reset             Purge all kernel state and start fresh`,
+          ].join('\n'),
+        );
+        process.exit(0);
+        break;
+      default:
+        fail(`Unknown option: ${argv[i]}`);
+    }
+  }
+
+  if (!args.infuraKey) {
+    fail('--infura-key is required');
+  }
+
+  return args;
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Prompt the user for a line of input.
+ *
+ * @param question
+ */
+function prompt(question) {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stderr,
+  });
+  return new Promise((resolve) => {
+    rl.question(`${CYAN}->${RESET} ${question}`, (answer) => {
+      rl.close();
+      resolve(answer.trim());
+    });
+  });
+}
+
+/**
+ * Encode an ETH amount string to a 32-byte hex terms value.
+ *
+ * @param ethAmount
+ */
+function encodeEthToTerms(ethAmount) {
+  const [whole, frac = ''] = ethAmount.split('.');
+  const fracPadded = frac.padEnd(18, '0').slice(0, 18);
+  const wei = BigInt(whole || '0') * 10n ** 18n + BigInt(fracPadded);
+  return `0x${wei.toString(16).padStart(64, '0')}`;
+}
+
+// ---------------------------------------------------------------------------
+// Main
+// ---------------------------------------------------------------------------
+
+/**
+ *
+ */
+async function main() {
+  const args = parseArgs(process.argv);
+
+  const BUNDLE_BASE_URL = new URL('../src/vats', import.meta.url).toString();
+  const RPC_URL = `https://sepolia.infura.io/v3/${args.infuraKey}`;
+  const DELEGATION_MANAGER = '0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3';
+
+  // -----------------------------------------------------------------------
+  // 1. Connect MetaMask BEFORE SES lockdown.
+  //    SES freezes built-in prototypes (TLS sockets, streams) which breaks
+  //    the MetaMask SDK's networking. We connect first, then lock down.
+  // -----------------------------------------------------------------------
+
+  info('Connecting to MetaMask Mobile (scan the QR code)...');
+  const { connectMetaMaskSigner } = await import(
+    '../src/lib/metamask-signer.ts'
+  );
+  const signer = await connectMetaMaskSigner({
+    dappMetadata: { name: 'OCAP Wallet', url: 'https://ocap.metamask.io' },
+    infuraAPIKey: args.infuraKey,
+  });
+
+  const accounts = await signer.getAccounts();
+  if (accounts.length === 0) {
+    fail('No accounts returned from MetaMask');
+  }
+  ok(`MetaMask connected — account: ${accounts[0]}`);
+
+  // Switch MetaMask to the target chain (e.g. Sepolia) so that
+  // eth_signTypedData_v4 doesn't reject due to chain ID mismatch.
+  const chainHex = `0x${args.chainId.toString(16)}`;
+  try {
+    await signer.provider.request({
+      method: 'wallet_switchEthereumChain',
+      params: [{ chainId: chainHex }],
+    });
+    ok(`Switched MetaMask to chain ${args.chainId}`);
+  } catch (switchErr) {
+    // 4902 = chain not added — not fatal, user may need to add it manually
+    if (switchErr?.code !== 4902) {
+      fail(
+        `Failed to switch MetaMask to chain ${args.chainId}: ${switchErr.message}`,
+      );
+    }
+    info(`Chain ${args.chainId} not found in MetaMask — add it manually`);
+  }
+
+  // -----------------------------------------------------------------------
+  // 2. Activate SES lockdown, then import kernel modules
+  // -----------------------------------------------------------------------
+
+  info('Activating SES lockdown...');
+  await import('@metamask/kernel-shims/endoify-node');
+  ok('SES lockdown active');
+
+  const { makeSQLKernelDatabase } = await import(
+    '@metamask/kernel-store/sqlite/nodejs'
+  );
+  const { waitUntilQuiescent } = await import('@metamask/kernel-utils');
+  const { Kernel, kunser, kslot } = await import('@metamask/ocap-kernel');
+  const { Logger } = await import('@metamask/logger');
+  const { NodejsPlatformServices } = await import('@ocap/nodejs');
+  const { makeWalletClusterConfig } = await import('../src/cluster-config.ts');
+
+  /**
+   * Send a message to the coordinator and return the deserialized result.
+   *
+   * @param kernel
+   * @param target
+   * @param method
+   * @param callArgs
+   */
+  async function call(kernel, target, method, callArgs = []) {
+    const result = await kernel.queueMessage(target, method, callArgs);
+    await waitUntilQuiescent();
+    return kunser(result);
+  }
+
+  /**
+   * Like call(), but also returns the raw CapData for pasting into other scripts.
+   *
+   * @param kernel
+   * @param target
+   * @param method
+   * @param callArgs
+   */
+  async function rawCall(kernel, target, method, callArgs = []) {
+    const raw = await kernel.queueMessage(target, method, callArgs);
+    await waitUntilQuiescent();
+    return { raw, value: kunser(raw) };
+  }
+
+  // -----------------------------------------------------------------------
+  // 3. Create kernel in-process with SQLite persistence
+  // -----------------------------------------------------------------------
+
+  info('Starting kernel...');
+  const dbDir = join(args.dbPath, '..');
+  if (!existsSync(dbDir)) {
+    mkdirSync(dbDir, { recursive: true });
+  }
+  const kernelDb = await makeSQLKernelDatabase({ dbFilename: args.dbPath });
+  const platformServices = new NodejsPlatformServices({});
+  // Only log warnings and errors — suppress verbose kernel debug output.
+  const logger = new Logger({
+    tags: ['ocap-kernel'],
+    transports: [
+      (entry) => {
+        if (entry.level === 'error') {
+          _error(
+            `[${entry.tags.join(',')}] ${entry.message}`,
+            ...(entry.data ?? []),
+          );
+        }
+      },
+    ],
+  });
+  const kernel = await Kernel.make(platformServices, kernelDb, {
+    logger,
+    ...(args.reset ? { resetStorage: true } : {}),
+  });
+  ok('Kernel started');
+
+  // -----------------------------------------------------------------------
+  // 4. Initialize remote comms (QUIC transport)
+  // -----------------------------------------------------------------------
+
+  const commsOptions = {
+    directListenAddresses: [`/ip4/0.0.0.0/udp/${args.quicPort}/quic-v1`],
+  };
+  if (args.relay) {
+    commsOptions.relays = [args.relay];
+    // Extract the relay host for ws:// allowlist
+    const hostMatch = args.relay.match(/\/(?:ip4|ip6|dns4|dns6)\/([^/]+)/);
+    if (hostMatch) {
+      commsOptions.allowedWsHosts = [hostMatch[1]];
+    }
+  }
+
+  info('Initializing remote comms...');
+  await kernel.initRemoteComms(commsOptions);
+
+  // Wait for remote comms to be ready
+  for (let i = 0; i < 30; i++) {
+    const status = await kernel.getStatus();
+    if (status.remoteComms?.state === 'connected') {
+      break;
+    }
+    if (i === 29) {
+      fail(
+        `Remote comms did not reach 'connected' state after 30s (current: ${status.remoteComms?.state})`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+  }
+  ok('Remote comms connected');
+
+  // Mute all console output from libp2p/comms — only our helpers print from here.
+  muteConsole();
+
+  // -----------------------------------------------------------------------
+  // 5. Launch wallet subcluster
+  // -----------------------------------------------------------------------
+
+  info('Launching wallet subcluster...');
+  const walletConfig = makeWalletClusterConfig({
+    bundleBaseUrl: BUNDLE_BASE_URL,
+    delegationManagerAddress: DELEGATION_MANAGER,
+    allowedHosts: ['sepolia.infura.io', 'api.pimlico.io'],
+  });
+
+  const { rootKref } = await kernel.launchSubcluster(walletConfig);
+  await waitUntilQuiescent();
+  ok(`Subcluster launched — coordinator: ${rootKref}`);
+
+  // -----------------------------------------------------------------------
+  // 6. Register MetaMask signer as kernel service → pass to coordinator
+  // -----------------------------------------------------------------------
+
+  info('Registering MetaMask signer as kernel service...');
+  const { kref: signerKref } = kernel.registerKernelServiceObject(
+    'metamaskSigner',
+    signer,
+  );
+
+  await call(kernel, rootKref, 'connectExternalSigner', [
+    kslot(signerKref, 'metamaskSigner'),
+  ]);
+  ok('External signer connected to coordinator');
+
+  // -----------------------------------------------------------------------
+  // 7. Configure provider
+  // -----------------------------------------------------------------------
+
+  info(`Configuring provider (chain ${args.chainId})...`);
+  await call(kernel, rootKref, 'configureProvider', [
+    { chainId: args.chainId, rpcUrl: RPC_URL },
+  ]);
+  ok(`Provider configured — ${RPC_URL}`);
+
+  // -----------------------------------------------------------------------
+  // 8. Configure bundler (if Pimlico key provided)
+  // -----------------------------------------------------------------------
+
+  let smartAccountAddress;
+
+  if (args.pimlicoKey) {
+    const bundlerUrl = `https://api.pimlico.io/v2/${args.chainId}/rpc?apikey=${args.pimlicoKey}`;
+    info('Configuring bundler (Pimlico)...');
+    await call(kernel, rootKref, 'configureBundler', [
+      {
+        bundlerUrl,
+        chainId: args.chainId,
+        usePaymaster: true,
+      },
+    ]);
+    ok(`Bundler configured — Pimlico (chain ${args.chainId})`);
+
+    // Hybrid smart account — uses EIP-712 typed data for UserOp signing,
+    // fully compatible with external signers (MetaMask).
+    info('Configuring smart account...');
+    const saResult = await call(kernel, rootKref, 'createSmartAccount', [
+      {
+        chainId: args.chainId,
+        implementation: 'hybrid',
+      },
+    ]);
+    smartAccountAddress = saResult?.address;
+    ok(`Smart account: ${smartAccountAddress}`);
+
+    // Fund the smart account if its balance is below 0.05 ETH.
+    // The hybrid smart account has a different address from the EOA,
+    // so it needs its own ETH to execute value transfers.
+    if (smartAccountAddress) {
+      const MIN_BALANCE = 0.05;
+      const TARGET_BALANCE = 0.1;
+
+      info('Checking smart account balance...');
+      const balanceHex = await signer.provider.request({
+        method: 'eth_getBalance',
+        params: [smartAccountAddress, 'latest'],
+      });
+      const balanceWei = BigInt(balanceHex);
+      const balanceEth = Number(balanceWei) / 1e18;
+
+      if (balanceEth < MIN_BALANCE) {
+        const fundWei = BigInt(Math.round(TARGET_BALANCE * 1e18)) - balanceWei;
+        info(
+          `Smart account has ${balanceEth.toFixed(4)} ETH — funding to ${TARGET_BALANCE} ETH via MetaMask...`,
+        );
+        try {
+          await signer.provider.request({
+            method: 'eth_sendTransaction',
+            params: [
+              {
+                from: accounts[0],
+                to: smartAccountAddress,
+                value: `0x${fundWei.toString(16)}`,
+              },
+            ],
+          });
+          ok(
+            `Funded smart account with ${(Number(fundWei) / 1e18).toFixed(4)} ETH`,
+          );
+        } catch (fundErr) {
+          info(`Could not fund smart account: ${fundErr.message}`);
+          info(
+            `You can fund it manually by sending ETH to ${smartAccountAddress}`,
+          );
+        }
+      } else {
+        ok(`Smart account balance: ${balanceEth.toFixed(4)} ETH`);
+      }
+    }
+  } else {
+    info('Skipping bundler config (no --pimlico-key)');
+  }
+
+  // -----------------------------------------------------------------------
+  // 9. Issue OCAP URL
+  // -----------------------------------------------------------------------
+
+  info('Issuing OCAP URL for the away device...');
+  const ocapUrl = await call(kernel, rootKref, 'issueOcapUrl', []);
+  ok('OCAP URL issued');
+
+  // -----------------------------------------------------------------------
+  // 10. Extract listen addresses + detect public IP
+  // -----------------------------------------------------------------------
+
+  const status = await kernel.getStatus();
+  const listenAddresses = [...(status.remoteComms?.listenAddresses ?? [])];
+
+  // Detect public IP and prepend a public multiaddr so remote peers can connect.
+  const peerId = listenAddresses
+    .find((a) => a.includes('/p2p/'))
+    ?.split('/p2p/')
+    .pop();
+
+  if (peerId) {
+    try {
+      const resp = await fetch('https://api.ipify.org', {
+        signal: AbortSignal.timeout(5000),
+      });
+      const publicIp = (await resp.text()).trim();
+      if (publicIp) {
+        const publicAddr = `/ip4/${publicIp}/udp/${args.quicPort}/quic-v1/p2p/${peerId}`;
+        listenAddresses.unshift(publicAddr);
+        ok(`Public address: ${publicAddr}`);
+      }
+    } catch {
+      // Public IP detection is best-effort
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Output connection info
+  // -----------------------------------------------------------------------
+
+  _error(`
+${GREEN}${BOLD}==============================================
+  Home wallet setup complete! (Interactive mode)
+==============================================${RESET}
+
+  ${DIM}Coordinator kref :${RESET} ${rootKref}
+  ${DIM}Chain ID         :${RESET} ${args.chainId}
+  ${DIM}RPC URL          :${RESET} ${RPC_URL}
+  ${DIM}Account          :${RESET} ${accounts[0]}${smartAccountAddress ? `\n  ${DIM}Smart Account    :${RESET} ${smartAccountAddress}` : ''}
+
+${YELLOW}${BOLD}  Run this on the away device (VPS):${RESET}
+
+${BOLD}  ./packages/eth-wallet/scripts/setup-away.sh \\
+    --ocap-url "${ocapUrl}" \\
+    --listen-addrs '${JSON.stringify(listenAddresses)}'${args.infuraKey ? ` \\\n    --infura-key ${args.infuraKey}` : ''}${args.pimlicoKey ? ` \\\n    --pimlico-key ${args.pimlicoKey}` : ''}${args.relay ? ` \\\n    --relay "${args.relay}"` : ''}${RESET}
+`);
+
+  // -----------------------------------------------------------------------
+  // 11. Interactive delegation creation
+  // -----------------------------------------------------------------------
+
+  _error(
+    `${YELLOW}${BOLD}  When setup-away.sh finishes, it will show a delegate address.\n  Paste that address below.${RESET}\n`,
+  );
+
+  const delegateAddr = await prompt(
+    'Paste the delegate address from the away device: ',
+  );
+
+  if (!delegateAddr) {
+    _error(
+      `\n  ${DIM}No delegate address provided. You can create the delegation manually later.${RESET}\n`,
+    );
+  } else if (!/^0x[0-9a-fA-F]{40}$/u.test(delegateAddr)) {
+    fail(`Invalid Ethereum address: ${delegateAddr}`);
+  } else {
+    // Prompt for spending limits
+    _error('');
+    _error(
+      `  ${DIM}Spending limits restrict how much ETH the agent can spend.${RESET}`,
+    );
+    _error(
+      `  ${DIM}Both are enforced on-chain — the agent cannot bypass them.${RESET}`,
+    );
+    _error('');
+
+    const totalLimit = await prompt(
+      'Total ETH spending limit (e.g. 0.1, or Enter for unlimited): ',
+    );
+    const txLimit = await prompt(
+      'Max ETH per transaction (e.g. 0.01, or Enter for unlimited): ',
+    );
+
+    const caveats = [];
+    if (totalLimit) {
+      caveats.push({
+        type: 'nativeTokenTransferAmount',
+        enforcer: '0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320',
+        terms: encodeEthToTerms(totalLimit),
+      });
+    }
+    if (txLimit) {
+      caveats.push({
+        type: 'valueLte',
+        enforcer: '0x92Bf12322527cAA612fd31a0e810472BBB106A8F',
+        terms: encodeEthToTerms(txLimit),
+      });
+    }
+
+    if (caveats.length === 0) {
+      info(`Creating delegation for ${delegateAddr} (no spending limits)...`);
+    } else {
+      info(`Creating delegation for ${delegateAddr} with spending limits...`);
+    }
+
+    const { raw: delegationRaw, value: delegation } = await rawCall(
+      kernel,
+      rootKref,
+      'createDelegation',
+      [
+        {
+          delegate: delegateAddr,
+          caveats,
+          chainId: args.chainId,
+        },
+      ],
+    );
+    ok('Delegation created');
+
+    _error(`
+${YELLOW}${BOLD}  Copy this delegation JSON and paste it into the away device
+  script when prompted:${RESET}
+
+${BOLD}${JSON.stringify(delegationRaw)}${RESET}
+
+  ${DIM}ID        :${RESET} ${delegation.id}
+  ${DIM}Status    :${RESET} ${delegation.status}
+  ${DIM}Delegator :${RESET} ${delegation.delegator}
+  ${DIM}Delegate  :${RESET} ${delegation.delegate}
+`);
+  }
+
+  // -----------------------------------------------------------------------
+  // 12. Stay running — signing requests come in via CapTP
+  // -----------------------------------------------------------------------
+
+  _error(
+    `${GREEN}${BOLD}  Listening for signing requests... (Ctrl+C to stop)${RESET}\n`,
+  );
+
+  // Keep the process alive
+  const keepAlive = setInterval(() => {}, 60_000);
+
+  process.on('SIGINT', async () => {
+    _error(`\n${CYAN}->${RESET} Shutting down...`);
+    clearInterval(keepAlive);
+    signer.disconnect();
+    try {
+      await kernel.stop();
+    } catch {
+      // Ignore stop errors
+    }
+    kernelDb.close();
+    _error(`  ${GREEN}ok${RESET} Goodbye`);
+    process.exit(0);
+  });
+}
+
+main().catch((error) => {
+  _error(`${RED}FATAL:${RESET}`, error);
+  process.exit(1);
+});

@@ -89,9 +89,13 @@ export function makeProviderSigner(
     },
 
     async signTypedData(data: Eip712TypedData, from: Address): Promise<Hex> {
+      // EIP-712 typed data may contain BigInt values (e.g. salt).
+      // JSON.stringify cannot handle BigInt, so we convert them to strings.
+      const replacer = (_key: string, value: unknown): unknown =>
+        typeof value === 'bigint' ? String(value) : value;
       const result = await provider.request({
         method: 'eth_signTypedData_v4',
-        params: [from, JSON.stringify(data)],
+        params: [from, JSON.stringify(data, replacer)],
       });
       return result as Hex;
     },
