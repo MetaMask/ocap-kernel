@@ -9,30 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0]
 
-### Added
-
-- Consolidate extension console logs and capture in Playwright tests ([#798](https://github.com/MetaMask/ocap-kernel/pull/798))
-- Add silent Vitest reporter ([#792](https://github.com/MetaMask/ocap-kernel/pull/792))
-- Add Turborepo caching for test:dev and fix streams dev tests ([#757](https://github.com/MetaMask/ocap-kernel/pull/757))
-
 ### Changed
 
-- Drop Node 20 support ([#837](https://github.com/MetaMask/ocap-kernel/pull/837))
-- Update MetaMask ESLint dependencies and fix JSDoc compliance ([#741](https://github.com/MetaMask/ocap-kernel/pull/741))
-- Skip certain postinstall steps in Dependabot contexts ([#743](https://github.com/MetaMask/ocap-kernel/pull/743))
-- Add Claude Code commands for common development and git workflows ([#725](https://github.com/MetaMask/ocap-kernel/pull/725))
-- Update vite & vitest dependencies to latest versions ([#717](https://github.com/MetaMask/ocap-kernel/pull/717))
-- Clean up `__dirname` use ([#701](https://github.com/MetaMask/ocap-kernel/pull/701))
-- Clean script removes .turbo cache ([#643](https://github.com/MetaMask/ocap-kernel/pull/643))
-- Add `@ocap/repo-tools` ([#641](https://github.com/MetaMask/ocap-kernel/pull/641))
-- Use Turborepo for root build script ([#634](https://github.com/MetaMask/ocap-kernel/pull/634))
-
-### Fixed
-
-- Cache and install Playwright browsers in e2e job ([#844](https://github.com/MetaMask/ocap-kernel/pull/844))
-- Update vulnerable dependencies to resolve security alerts ([#791](https://github.com/MetaMask/ocap-kernel/pull/791))
-- Remove circular internal dependency relationships ([#630](https://github.com/MetaMask/ocap-kernel/pull/630))
-- Run with persistence ([#604](https://github.com/MetaMask/ocap-kernel/pull/604))
+- **BREAKING:** Drop Node 20 support ([#837](https://github.com/MetaMask/ocap-kernel/pull/837))
 
 ## [0.4.0]
 

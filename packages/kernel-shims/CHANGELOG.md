@@ -18,16 +18,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Drop Node 20 support ([#837](https://github.com/MetaMask/ocap-kernel/pull/837))
+- **BREAKING:** Drop Node 20 support ([#837](https://github.com/MetaMask/ocap-kernel/pull/837))
 - Consolidate endoify setup and rationalize extension globals ([#787](https://github.com/MetaMask/ocap-kernel/pull/787))
-- Update MetaMask ESLint dependencies and fix JSDoc compliance ([#741](https://github.com/MetaMask/ocap-kernel/pull/741))
-- Add Claude Code commands for common development and git workflows ([#725](https://github.com/MetaMask/ocap-kernel/pull/725))
-- Update vite & vitest dependencies to latest versions ([#717](https://github.com/MetaMask/ocap-kernel/pull/717))
-- Clean up `__dirname` use ([#701](https://github.com/MetaMask/ocap-kernel/pull/701))
 - Ocap URL location hint handling ([#666](https://github.com/MetaMask/ocap-kernel/pull/666))
-- Clean script removes .turbo cache ([#643](https://github.com/MetaMask/ocap-kernel/pull/643))
-- Add `@ocap/repo-tools` ([#641](https://github.com/MetaMask/ocap-kernel/pull/641))
-- Use Turborepo for root build script ([#634](https://github.com/MetaMask/ocap-kernel/pull/634))
 
 ### Fixed
 
