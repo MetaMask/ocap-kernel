@@ -169,6 +169,9 @@ module.exports = defineConfig({
           // All non-root package must have valid "changelog:update" and
           // "changelog:validate" scripts.
           expectCorrectWorkspaceChangelogScripts(workspace);
+
+          // Non-private packages must not have production dependencies on private workspace packages.
+          expectNoPrivateWorkspaceProductionDependencies(Yarn, workspace);
         }
 
         // Non-published packages must not specify the following keys except from the ones that are exempted
@@ -823,6 +826,36 @@ function expectConsistentDependenciesAndDevDependencies(Yarn) {
           );
         }
       }
+    }
+  }
+}
+
+/**
+ * Expect that non-private workspace packages do not have production
+ * dependencies (anything except `devDependencies`) using the `workspace:`
+ * protocol that resolve to private packages.
+ *
+ * @param {Yarn} Yarn - The Yarn "global".
+ * @param {Workspace} workspace - The workspace to check.
+ */
+function expectNoPrivateWorkspaceProductionDependencies(Yarn, workspace) {
+  for (const dependency of Yarn.dependencies({ workspace })) {
+    if (dependency.type === 'devDependencies') {
+      continue;
+    }
+
+    if (!dependency.range.startsWith('workspace:')) {
+      continue;
+    }
+
+    const dependencyWorkspace = Yarn.workspace({ ident: dependency.ident });
+    if (
+      dependencyWorkspace !== null &&
+      dependencyWorkspace.manifest.private === true
+    ) {
+      dependency.error(
+        `Non-private package "${workspace.manifest.name}" must not depend on private package "${dependency.ident}" in "${dependency.type}"`,
+      );
     }
   }
 }
