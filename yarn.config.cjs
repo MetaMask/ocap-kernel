@@ -126,6 +126,11 @@ module.exports = defineConfig({
           expectWorkspaceLicense(workspace);
         }
 
+        if (!isPrivate) {
+          // Non-private packages must not depend on private packages.
+          expectNoPrivateWorkspaceProductionDependencies(Yarn, workspace);
+        }
+
         if (!isPrivate && !exportsExceptions.includes(workspaceBasename)) {
           // The entrypoints for all published packages must be the same.
           expectWorkspaceField(workspace, 'module', './dist/index.mjs');
@@ -169,9 +174,6 @@ module.exports = defineConfig({
           // All non-root package must have valid "changelog:update" and
           // "changelog:validate" scripts.
           expectCorrectWorkspaceChangelogScripts(workspace);
-
-          // Non-private packages must not have production dependencies on private workspace packages.
-          expectNoPrivateWorkspaceProductionDependencies(Yarn, workspace);
         }
 
         // Non-published packages must not specify the following keys except from the ones that are exempted
