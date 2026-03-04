@@ -8,10 +8,21 @@ An overview of the components, how they fit together, and why the architecture m
 
 The OCAP ETH Wallet is a two-device wallet system where:
 
-- A **home device** (your laptop) holds the private keys
+- A **home device** (your laptop) holds the signing authority
 - An **away device** (a VPS) runs an AI agent that can spend ETH within configurable on-chain limits
 
 The agent never touches private keys. Instead, it holds a **delegation** — a signed permission slip from the home wallet, with enforceable spending limits baked in as smart contract caveats.
+
+### Signing modes
+
+The home device supports two signing modes:
+
+| Mode | Script | How signing works | Smart account type |
+| --- | --- | --- | --- |
+| **Mnemonic** | `setup-home.sh` | Automatic — keyring signs locally | Stateless EIP-7702 (EOA = smart account) |
+| **Interactive (MetaMask)** | `setup-home-interactive.sh` | Each request triggers MetaMask Mobile approval | Hybrid (separate address, auto-funded) |
+
+The away device discovers the home's signing mode via `getCapabilities()` → `signingMode`. Values like `peer:local` (mnemonic) or `peer:external:metamask` (interactive) tell the agent whether user approval is needed and on which channel.
 
 ---
 
@@ -40,17 +51,25 @@ The coordinator routes requests to the appropriate vat. For example, when the ag
 
 The home and away kernels connect over **QUIC** (UDP) using **libp2p**. On top of that, they establish a **CapTP** (Capability Transport Protocol) channel — a protocol for passing capability references between processes.
 
-When the away device needs a signature, the coordinator forwards the request over CapTP to the home kernel's coordinator, which asks its local keyring. The signature travels back through the same channel.
+When the away device needs a signature, the coordinator forwards the request over CapTP to the home kernel's coordinator, which resolves signing through its authority chain: local keyring → external signer (MetaMask) → error. The signature travels back through the same channel.
 
 This means:
 
-- The private key stays on the home device at all times
+- The private key stays on the home device at all times (mnemonic mode), or on MetaMask Mobile (interactive mode)
 - The away device only ever receives signatures, never key material
 - The CapTP channel is encrypted end-to-end
 
+### External Signer (Interactive Mode)
+
+In interactive mode, the home device connects to **MetaMask Mobile** via the MetaMask SDK. A QR code is displayed in the terminal — scanning it establishes a WebSocket connection to MetaMask.
+
+The signer object is registered as a **kernel service** via `registerKernelServiceObject()`. When the coordinator calls `E(externalSigner).signTypedData(...)`, the kernel routes it to the service manager, which invokes the method on the live MetaMask SDK object. MetaMask Mobile shows an approval dialog; the user approves; the signature flows back through the kernel.
+
+The MetaMask SDK must connect **before** SES lockdown (which freezes built-in prototypes). The interactive script uses dynamic imports to control this ordering.
+
 ### Smart Accounts (ERC-4337)
 
-Both devices create **DeleGator smart accounts** via MetaMask's Delegation Framework. The home device uses **EIP-7702** to promote the EOA into a smart account (same address, no factory deployment or funding needed). The away device uses a **Hybrid** counterfactual smart account (deploys on first UserOp). These are ERC-4337 smart contract wallets that support:
+Both devices create **DeleGator smart accounts** via MetaMask's Delegation Framework. In mnemonic mode, the home device uses **EIP-7702** to promote the EOA into a smart account (same address, no funding needed). In interactive mode, the home device uses a **Hybrid** smart account (different address, auto-funded from the EOA). The away device always uses a **Hybrid** counterfactual smart account (deploys on first UserOp). These are ERC-4337 smart contract wallets that support:
 
 - **UserOperations** — transactions submitted through a bundler instead of directly
 - **Delegations** — signed permission slips that authorize another account to act on behalf of the smart account
@@ -135,7 +154,7 @@ If any caveat check fails at step 10, the entire UserOp reverts — the ETH is n
 
 | Property | How it's achieved |
 | --- | --- |
-| **Keys never leave home** | Keyring vat isolation + CapTP remote signing |
+| **Keys never leave home** | Keyring vat isolation + CapTP remote signing (mnemonic mode), or MetaMask Mobile holds keys (interactive mode) |
 | **Agent has a hard budget** | On-chain caveat enforcers (NativeTokenTransferAmount + ValueLte) |
 | **No ambient authority** | Ocap kernel: vats communicate only through explicit capability references |
 | **Limits can't be bypassed** | Enforced by Ethereum smart contracts, not software checks |

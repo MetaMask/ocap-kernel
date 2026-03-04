@@ -773,6 +773,7 @@ describe('coordinator-vat', () => {
         hasBundlerConfig: false,
         smartAccountAddress: undefined,
         chainId: undefined,
+        signingMode: 'local',
       });
     });
   });
@@ -2128,7 +2129,7 @@ describe('coordinator-vat', () => {
           chainId: 11155111,
           implementation: 'stateless7702',
         }),
-      ).rejects.toThrow('Keyring vat required');
+      ).rejects.toThrow('No accounts available for EIP-7702 smart account');
     });
 
     it('throws when provider is not available', async () => {

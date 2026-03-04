@@ -109,7 +109,15 @@ No special firewall rules are needed for outbound on most systems.
 
 ## Quick start (automated scripts)
 
-Two bash scripts in `packages/eth-wallet/scripts/` automate everything below.
+There are two home-device modes, plus a shared away-device script:
+
+| Script | Mode | Signing | Key storage |
+| --- | --- | --- | --- |
+| `setup-home.sh` | **Mnemonic** | Automatic (no approval) | Mnemonic stored on home device |
+| `setup-home-interactive.sh` | **Interactive (MetaMask)** | Each request requires MetaMask Mobile approval | No keys on home device |
+| `setup-away.sh` | Away device | Via peer wallet to home | Throwaway key only |
+
+Both home scripts produce the same output (OCAP URL, listen addresses, delegation JSON) and the away script works identically with either.
 
 ### Using a relay (recommended)
 
@@ -172,6 +180,10 @@ Then re-run the setup script. Without this, the old relay address stays embedded
 
 ### Step 1 — Start the home script
 
+Choose one of the two modes:
+
+#### Option A: Mnemonic mode (automatic signing)
+
 ```bash
 ./packages/eth-wallet/scripts/setup-home.sh \
   --mnemonic "your twelve word mnemonic" \
@@ -181,6 +193,28 @@ Then re-run the setup script. Without this, the old relay address stays embedded
 ```
 
 The script sets up the home wallet and then **waits** — it will show the OCAP URL and listen addresses to copy.
+
+#### Option B: Interactive mode (MetaMask approval)
+
+No mnemonic needed — MetaMask Mobile handles all signing. Every signing request shows an approval dialog on your phone.
+
+```bash
+./packages/eth-wallet/scripts/setup-home-interactive.sh \
+  --infura-key YOUR_INFURA_KEY \
+  --pimlico-key YOUR_PIMLICO_KEY \
+  --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
+```
+
+The script will:
+1. Show a QR code — scan it with MetaMask Mobile to connect
+2. Switch MetaMask to the target chain (Sepolia)
+3. Start an in-process kernel (no daemon — the MetaMask signer is a live object)
+4. Create a Hybrid smart account and fund it if needed (triggers MetaMask approval)
+5. Show the OCAP URL and `setup-away.sh` command
+
+Use `--reset` to purge all kernel state and start fresh. The SQLite database is at `~/.ocap/kernel-interactive.sqlite`.
+
+**Note:** Interactive mode uses a Hybrid smart account (different address from the EOA) instead of EIP-7702 stateless. This is because MetaMask cannot perform raw ECDSA hash signing needed for stateless7702 UserOps. The smart account is auto-funded from the EOA if its balance is below 0.05 ETH.
 
 ### Step 2 — Start the away script (on the VPS)
 

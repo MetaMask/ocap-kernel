@@ -28,6 +28,7 @@ import type {
   Address,
   CaveatType,
   Delegation,
+  Eip712TypedData,
   Execution,
   Hex,
 } from '../types.ts';
@@ -340,7 +341,7 @@ export function prepareUserOpTypedData(options: {
       version: '1',
       verifyingContract: options.smartAccountAddress,
     },
-    types: SIGNABLE_USER_OP_TYPED_DATA as Record<
+    types: SIGNABLE_USER_OP_TYPED_DATA as unknown as Record<
       string,
       { name: string; type: string }[]
     >,
