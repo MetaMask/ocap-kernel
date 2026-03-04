@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add Remote Comms UI panel ([#637](https://github.com/MetaMask/ocap-kernel/pull/637))
-- Update `RemoteComms` status display to use `state` (`'connected'` | `'identity-only'` | `'disconnected'`) instead of `isInitialized` boolean ([#823](https://github.com/MetaMask/ocap-kernel/pull/823))
+  - Update `RemoteComms` status display to use `state` (`'connected'` | `'identity-only'` | `'disconnected'`) instead of `isInitialized` boolean ([#823](https://github.com/MetaMask/ocap-kernel/pull/823))
 - Include error details in garbage collection failure messages ([#578](https://github.com/MetaMask/ocap-kernel/pull/578))
 
 ### Changed
