@@ -420,6 +420,39 @@ async function main() {
     smartAccountAddress = saResult?.address;
     ok(`Smart account: ${smartAccountAddress}`);
 
+    // Deploy the hybrid smart account if it isn't on-chain yet.
+    // The DelegationManager needs code at the delegator address to validate
+    // delegation redemptions. Without deployment, submitDelegationUserOp reverts.
+    if (smartAccountAddress && saResult?.factory && saResult?.factoryData) {
+      const code = await signer.provider.request({
+        method: 'eth_getCode',
+        params: [smartAccountAddress, 'latest'],
+      });
+      if (code === '0x' || code === '0x0') {
+        info('Deploying smart account on-chain via factory...');
+        try {
+          await signer.provider.request({
+            method: 'eth_sendTransaction',
+            params: [
+              {
+                from: accounts[0],
+                to: saResult.factory,
+                data: saResult.factoryData,
+              },
+            ],
+          });
+          ok('Smart account deployed');
+        } catch (deployErr) {
+          info(`Could not deploy smart account: ${deployErr.message}`);
+          info(
+            'Delegation redemption may fail until the smart account is deployed.',
+          );
+        }
+      } else {
+        ok('Smart account already deployed');
+      }
+    }
+
     // Fund the smart account if its balance is below 0.05 ETH.
     // The hybrid smart account has a different address from the EOA,
     // so it needs its own ETH to execute value transfers.
