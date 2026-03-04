@@ -10,6 +10,7 @@ import {
   DuplicateEndowmentError,
   StreamReadError,
 } from '@metamask/kernel-errors';
+import type { PlatformFactory } from '@metamask/kernel-platforms';
 import { RpcClient, RpcService } from '@metamask/kernel-rpc-methods';
 import type { VatKVStore } from '@metamask/kernel-store';
 import {
@@ -25,7 +26,6 @@ import {
   isJsonRpcRequest,
   isJsonRpcResponse,
 } from '@metamask/utils';
-import type { PlatformFactory } from '@ocap/kernel-platforms';
 
 import { loadBundle } from './bundle-loader.ts';
 import { makeGCAndFinalize } from '../garbage-collection/gc-finalize.ts';
