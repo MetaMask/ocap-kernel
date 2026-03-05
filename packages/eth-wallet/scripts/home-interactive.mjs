@@ -1,4 +1,4 @@
-/* eslint-disable jsdoc/require-description, jsdoc/require-jsdoc, jsdoc/require-param, jsdoc/require-param-description, jsdoc/require-param-type, jsdoc/require-returns, jsdoc/require-returns-description, n/no-process-exit, n/no-sync, n/no-extraneous-import, no-console, no-plusplus, no-empty-function, no-negated-condition, no-unused-vars, id-denylist, prefer-template, require-unicode-regexp, import-x/no-unresolved, import-x/no-extraneous-dependencies */
+/* eslint-disable jsdoc/require-description, jsdoc/require-param-description, jsdoc/require-param-type, jsdoc/require-returns, n/no-process-exit, n/no-sync, n/no-extraneous-import, no-plusplus, no-empty-function, no-negated-condition, no-unused-vars, id-denylist, require-unicode-regexp, import-x/no-unresolved, import-x/no-extraneous-dependencies */
 /**
  * Interactive home wallet — MetaMask Mobile signs everything.
  *
@@ -430,8 +430,9 @@ async function main() {
       });
       if (code === '0x' || code === '0x0') {
         info('Deploying smart account on-chain via factory...');
+        info('(MetaMask will show a transaction — please approve it)');
         try {
-          await signer.provider.request({
+          const deployTxHash = await signer.provider.request({
             method: 'eth_sendTransaction',
             params: [
               {
@@ -441,12 +442,30 @@ async function main() {
               },
             ],
           });
-          ok('Smart account deployed');
+          // Wait for the deployment transaction to be mined.
+          // The DelegationManager needs code at the delegator address — if we
+          // create the delegation before the tx confirms, isValidSignature()
+          // returns empty data and delegation redemption reverts with NotSelf().
+          info(`Waiting for deployment tx to confirm: ${deployTxHash}`);
+          for (let i = 0; i < 90; i++) {
+            const receipt = await signer.provider.request({
+              method: 'eth_getTransactionReceipt',
+              params: [deployTxHash],
+            });
+            if (receipt?.status === '0x1') {
+              break;
+            }
+            if (receipt?.status === '0x0') {
+              fail('Smart account deployment transaction reverted');
+            }
+            if (i === 89) {
+              fail('Smart account deployment did not confirm after 3 minutes');
+            }
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
+          ok('Smart account deployed and confirmed on-chain');
         } catch (deployErr) {
-          info(`Could not deploy smart account: ${deployErr.message}`);
-          info(
-            'Delegation redemption may fail until the smart account is deployed.',
-          );
+          fail(`Could not deploy smart account: ${deployErr.message}`);
         }
       } else {
         ok('Smart account already deployed');
