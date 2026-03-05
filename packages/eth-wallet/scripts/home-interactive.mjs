@@ -419,6 +419,10 @@ async function main() {
     ]);
     smartAccountAddress = saResult?.address;
     ok(`Smart account: ${smartAccountAddress}`);
+    _error(`  ${DIM}factory        :${RESET} ${saResult?.factory ?? '(none)'}`);
+    _error(
+      `  ${DIM}factoryData len:${RESET} ${saResult?.factoryData ? saResult.factoryData.length : 0} chars`,
+    );
 
     // Deploy the hybrid smart account if it isn't on-chain yet.
     // The DelegationManager needs code at the delegator address to validate
@@ -428,6 +432,9 @@ async function main() {
         method: 'eth_getCode',
         params: [smartAccountAddress, 'latest'],
       });
+      _error(
+        `  ${DIM}eth_getCode    :${RESET} ${code?.slice(0, 20)}... (${(code?.length - 2) / 2} bytes)`,
+      );
       if (code === '0x' || code === '0x0') {
         info('Deploying smart account on-chain via factory...');
         info('(MetaMask will show a transaction — please approve it)');
@@ -628,6 +635,25 @@ ${BOLD}  ./packages/eth-wallet/scripts/setup-away.sh \\
         enforcer: '0x92Bf12322527cAA612fd31a0e810472BBB106A8F',
         terms: encodeEthToTerms(txLimit),
       });
+    }
+
+    // Final check: confirm smart account is deployed before creating delegation.
+    // The DelegationManager calls isValidSignature() on the delegator during
+    // redemption — if not deployed, it reverts with NotSelf().
+    if (smartAccountAddress) {
+      const codeCheck = await signer.provider.request({
+        method: 'eth_getCode',
+        params: [smartAccountAddress, 'latest'],
+      });
+      if (codeCheck === '0x' || codeCheck === '0x0') {
+        fail(
+          `Smart account ${smartAccountAddress} is not deployed on-chain. ` +
+            `Delegation redemption will fail. Re-run with --reset to force redeployment.`,
+        );
+      }
+      ok(
+        `Delegator smart account confirmed deployed (${(codeCheck.length - 2) / 2} bytes)`,
+      );
     }
 
     if (caveats.length === 0) {
