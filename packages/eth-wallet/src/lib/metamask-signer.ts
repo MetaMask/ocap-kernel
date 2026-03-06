@@ -89,13 +89,42 @@ export function makeProviderSigner(
     },
 
     async signTypedData(data: Eip712TypedData, from: Address): Promise<Hex> {
+      // MetaMask Mobile requires EIP712Domain to be explicitly listed in the
+      // types field. Without it, the domain separator is computed as empty,
+      // producing invalid signatures.
+      const domain = (data.domain ?? {}) as Record<string, unknown>;
+      const domainTypes: { name: string; type: string }[] = [];
+      if (domain.name !== undefined) {
+        domainTypes.push({ name: 'name', type: 'string' });
+      }
+      if (domain.version !== undefined) {
+        domainTypes.push({ name: 'version', type: 'string' });
+      }
+      if (domain.chainId !== undefined) {
+        domainTypes.push({ name: 'chainId', type: 'uint256' });
+      }
+      if (domain.verifyingContract !== undefined) {
+        domainTypes.push({ name: 'verifyingContract', type: 'address' });
+      }
+      if (domain.salt !== undefined) {
+        domainTypes.push({ name: 'salt', type: 'bytes32' });
+      }
+
+      const enrichedData = {
+        ...data,
+        types: {
+          EIP712Domain: domainTypes,
+          ...data.types,
+        },
+      };
+
       // EIP-712 typed data may contain BigInt values (e.g. salt).
-      // JSON.stringify cannot handle BigInt, so we convert them to strings.
+      // JSON.stringify cannot handle BigInt, so we convert them to hex strings.
       const replacer = (_key: string, value: unknown): unknown =>
-        typeof value === 'bigint' ? String(value) : value;
+        typeof value === 'bigint' ? `0x${value.toString(16)}` : value;
       const result = await provider.request({
         method: 'eth_signTypedData_v4',
-        params: [from, JSON.stringify(data, replacer)],
+        params: [from, JSON.stringify(enrichedData, replacer)],
       });
       return result as Hex;
     },
