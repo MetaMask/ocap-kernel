@@ -582,6 +582,108 @@ describe('coordinator-vat', () => {
     });
   });
 
+  describe('signing guard for peer accounts', () => {
+    const peerAddress = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+
+    it('routes signMessage to peer wallet when from is a peer account', async () => {
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        handleSigningRequest: vi.fn().mockResolvedValue('0xpeersig' as Hex),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+      freshBaggage.init('cachedPeerAccounts', [peerAddress]);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.initializeKeyring({ type: 'throwaway' });
+
+      const signature = await coord.signMessage('hello', peerAddress);
+      expect(signature).toBe('0xpeersig');
+      expect(mockPeerWallet.handleSigningRequest).toHaveBeenCalledWith({
+        type: 'message',
+        message: 'hello',
+        account: peerAddress,
+      });
+    });
+
+    it('throws when signing as peer account and peer is offline', async () => {
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('cachedPeerAccounts', [peerAddress]);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.initializeKeyring({ type: 'throwaway' });
+
+      await expect(coord.signMessage('hello', peerAddress)).rejects.toThrow(
+        'home device is offline',
+      );
+    });
+
+    it('throws when signing typed data as peer account and peer is offline', async () => {
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('cachedPeerAccounts', [peerAddress]);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.initializeKeyring({ type: 'throwaway' });
+
+      const typedData: Eip712TypedData = {
+        domain: { name: 'Test' },
+        types: { Test: [{ name: 'v', type: 'uint256' }] },
+        primaryType: 'Test',
+        message: { v: '1' },
+      };
+
+      await expect(coord.signTypedData(typedData, peerAddress)).rejects.toThrow(
+        'home device is offline',
+      );
+    });
+
+    it('signs with local key when from is not a peer account', async () => {
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('cachedPeerAccounts', [peerAddress]);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.initializeKeyring({ type: 'throwaway' });
+
+      // Sign without specifying from — should use local key
+      const signature = await coord.signMessage('hello');
+      expect(signature).toMatch(/^0x/u);
+      expect(signature).toHaveLength(132);
+    });
+  });
+
   describe('request', () => {
     it('forwards call to provider vat', async () => {
       providerVat.request.mockResolvedValueOnce('0x1');
@@ -776,6 +878,8 @@ describe('coordinator-vat', () => {
         chainId: undefined,
         signingMode: 'local',
         autonomy: 'no signing authority',
+        peerAccountsCached: false,
+        cachedPeerAccounts: [],
       });
     });
   });
@@ -909,6 +1013,118 @@ describe('coordinator-vat', () => {
       const accounts = await coord.getAccounts();
       // Only peer accounts — local throwaway is hidden
       expect(accounts).toStrictEqual([peerAddress]);
+    });
+
+    it('falls back to cached peer accounts when peer is offline', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockRejectedValue(new Error('peer offline')),
+        handleSigningRequest: vi.fn(),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+      freshBaggage.init('cachedPeerAccounts', [peerAddress]);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await coord.initializeKeyring({ type: 'throwaway' });
+      const accounts = await coord.getAccounts();
+      expect(accounts).toStrictEqual([peerAddress]);
+    });
+
+    it('returns cached peer accounts when peer wallet is no longer set', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('cachedPeerAccounts', [peerAddress]);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await coord.initializeKeyring({ type: 'throwaway' });
+      const accounts = await coord.getAccounts();
+      expect(accounts).toStrictEqual([peerAddress]);
+    });
+
+    it('updates cached peer accounts on successful getAccounts', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        handleSigningRequest: vi.fn(),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await coord.getAccounts();
+      expect(freshBaggage.get('cachedPeerAccounts')).toStrictEqual([
+        peerAddress,
+      ]);
+    });
+  });
+
+  describe('refreshPeerAccounts', () => {
+    it('fetches and caches peer accounts', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        handleSigningRequest: vi.fn(),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      const accounts = await coord.refreshPeerAccounts();
+      expect(accounts).toStrictEqual([peerAddress]);
+      expect(freshBaggage.get('cachedPeerAccounts')).toStrictEqual([
+        peerAddress,
+      ]);
+    });
+
+    it('throws when no peer wallet is connected', async () => {
+      await expect(coordinator.refreshPeerAccounts()).rejects.toThrow(
+        'No peer wallet connected',
+      );
     });
   });
 

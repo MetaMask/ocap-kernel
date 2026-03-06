@@ -468,6 +468,15 @@ done
 ok "Peer wallet connected and verified"
 
 # ---------------------------------------------------------------------------
+# 9b. Cache peer accounts for offline autonomy
+# ---------------------------------------------------------------------------
+
+info "Caching home device accounts for offline use..."
+CACHED_RAW=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"refreshPeerAccounts\", []]")
+CACHED_ACCOUNTS=$(echo "$CACHED_RAW" | parse_capdata)
+ok "Cached peer accounts: $CACHED_ACCOUNTS"
+
+# ---------------------------------------------------------------------------
 # 10. Delegate authority (interactive)
 # ---------------------------------------------------------------------------
 
@@ -562,6 +571,7 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
   $(echo -e "${DIM}")Coordinator kref :$(echo -e "${RESET}") $ROOT_KREF
   $(echo -e "${DIM}")Delegate address :$(echo -e "${RESET}") $DELEGATE_ADDR
   $(echo -e "${DIM}")Delegations      :$(echo -e "${RESET}") $DEL_COUNT
+  $(echo -e "${DIM}")Cached accounts  :$(echo -e "${RESET}") $CACHED_ACCOUNTS
   $(echo -e "${DIM}")Peer connected   :$(echo -e "${RESET}") $(echo -e "${GREEN}")true$(echo -e "${RESET}")
 
   Watch daemon logs: $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")
