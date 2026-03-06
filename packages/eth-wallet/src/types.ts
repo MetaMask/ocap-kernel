@@ -182,16 +182,32 @@ export type TransactionRequest = Infer<typeof TransactionRequestStruct> & {
 // Wallet capabilities introspection
 // ---------------------------------------------------------------------------
 
+export const DelegationInfoStruct = object({
+  id: string(),
+  delegator: AddressStruct,
+  delegate: AddressStruct,
+  caveats: array(
+    object({
+      type: CaveatTypeStruct,
+      humanReadable: string(),
+    }),
+  ),
+});
+
+export type DelegationInfo = Infer<typeof DelegationInfoStruct>;
+
 export const WalletCapabilitiesStruct = object({
   hasLocalKeys: boolean(),
   localAccounts: array(AddressStruct),
   delegationCount: number(),
+  delegations: optional(array(DelegationInfoStruct)),
   hasPeerWallet: boolean(),
   hasExternalSigner: boolean(),
   hasBundlerConfig: boolean(),
   smartAccountAddress: optional(AddressStruct),
   chainId: optional(number()),
   signingMode: optional(string()),
+  autonomy: optional(string()),
 });
 
 export type WalletCapabilities = Infer<typeof WalletCapabilitiesStruct>;

@@ -768,12 +768,14 @@ describe('coordinator-vat', () => {
           expect.stringMatching(/^0x[\da-f]{40}$/iu),
         ]),
         delegationCount: 0,
+        delegations: [],
         hasPeerWallet: false,
         hasExternalSigner: false,
         hasBundlerConfig: false,
         smartAccountAddress: undefined,
         chainId: undefined,
         signingMode: 'local',
+        autonomy: 'no signing authority',
       });
     });
   });

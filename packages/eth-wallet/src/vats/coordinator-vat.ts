@@ -17,6 +17,7 @@ import {
 import type {
   Action,
   Address,
+  Caveat,
   ChainConfig,
   CreateDelegationOptions,
   Delegation,
@@ -31,6 +32,50 @@ import type {
 } from '../types.ts';
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
+/**
+ * Convert a wei amount in hex to a human-readable ETH string.
+ *
+ * @param weiHex - The wei amount as a hex string.
+ * @returns A formatted string like "1.5 ETH".
+ */
+function weiToEth(weiHex: string): string {
+  const wei = BigInt(weiHex);
+  const whole = wei / 10n ** 18n;
+  const frac = wei % 10n ** 18n;
+  if (frac === 0n) {
+    return `${String(whole)} ETH`;
+  }
+  const fracStr = frac.toString().padStart(18, '0').replace(/0+$/u, '');
+  return `${String(whole)}.${fracStr} ETH`;
+}
+
+/**
+ * Convert a caveat to a human-readable description.
+ *
+ * @param caveat - The caveat to describe.
+ * @returns A human-readable string describing the caveat's constraint.
+ */
+function describeCaveat(caveat: Caveat): string {
+  switch (caveat.type) {
+    case 'nativeTokenTransferAmount':
+      return `total spend limit: ${weiToEth(caveat.terms)}`;
+    case 'valueLte':
+      return `max per tx: ${weiToEth(caveat.terms)}`;
+    case 'allowedTargets':
+      return 'restricted target addresses';
+    case 'allowedMethods':
+      return 'restricted methods';
+    case 'limitedCalls':
+      return 'limited number of calls';
+    case 'timestamp':
+      return 'time-limited';
+    case 'erc20TransferAmount':
+      return 'ERC-20 transfer limit';
+    default:
+      return `${String(caveat.type)} enforced`;
+  }
+}
 
 /**
  * Vat powers for the coordinator vat.
@@ -1434,9 +1479,12 @@ export function buildRootObject(
         ? await E(keyringVat).getAccounts()
         : [];
 
-      const delegations: Delegation[] = delegationVat
+      const allDelegations: Delegation[] = delegationVat
         ? await E(delegationVat).listDelegations()
         : [];
+      const activeDelegations = allDelegations.filter(
+        (del) => del.status === 'signed',
+      );
 
       // Resolve the signing mode so consumers (including AI agents) know
       // how signing works and whether user approval is needed.
@@ -1456,16 +1504,49 @@ export function buildRootObject(
         signingMode = 'local';
       }
 
+      // Build human-readable delegation summaries so AI agents understand
+      // what they can do autonomously without further user approval.
+      const delegationInfos = activeDelegations.map((del) => ({
+        id: del.id,
+        delegator: del.delegator,
+        delegate: del.delegate,
+        caveats: del.caveats.map((cav) => ({
+          type: cav.type,
+          humanReadable: describeCaveat(cav),
+        })),
+      }));
+
+      // Determine the agent's autonomy level based on delegations.
+      // When delegations exist, the agent can send ETH within the
+      // delegation's limits without requiring further user approval.
+      let autonomy: string;
+      if (activeDelegations.length > 0 && bundlerConfig) {
+        const limits = activeDelegations
+          .flatMap((del) => del.caveats)
+          .map(describeCaveat)
+          .filter(Boolean);
+        autonomy =
+          limits.length > 0
+            ? `autonomous within limits: ${limits.join('; ')}`
+            : 'autonomous (no spending limits)';
+      } else if (peerWallet) {
+        autonomy = 'requires peer wallet approval for each action';
+      } else {
+        autonomy = 'no signing authority';
+      }
+
       return harden({
         hasLocalKeys,
         localAccounts,
-        delegationCount: delegations.length,
+        delegationCount: activeDelegations.length,
+        delegations: delegationInfos,
         hasPeerWallet: peerWallet !== undefined,
         hasExternalSigner: externalSigner !== undefined,
         hasBundlerConfig: bundlerConfig !== undefined,
         smartAccountAddress: smartAccountConfig?.address,
         chainId: bundlerConfig?.chainId,
         signingMode,
+        autonomy,
       });
     },
   });
