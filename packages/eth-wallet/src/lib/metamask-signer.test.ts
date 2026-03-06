@@ -63,7 +63,7 @@ describe('lib/metamask-signer', () => {
     });
 
     describe('signTypedData', () => {
-      it('calls eth_signTypedData_v4 with JSON-stringified data', async () => {
+      it('calls eth_signTypedData_v4 with EIP712Domain in types', async () => {
         const provider = makeTestProvider();
         const expectedSig = '0xdeadbeef' as Hex;
         provider.request.mockResolvedValueOnce(expectedSig);
@@ -79,9 +79,39 @@ describe('lib/metamask-signer', () => {
         const signature = await signer.signTypedData(typedData, ALICE_LOWER);
 
         expect(signature).toBe(expectedSig);
+        const callArgs = provider.request.mock.calls[0][0] as {
+          params: [string, string];
+        };
+        const sentJson = JSON.parse(callArgs.params[1]);
+        // EIP712Domain should be injected with domain fields
+        expect(sentJson.types.EIP712Domain).toStrictEqual([
+          { name: 'name', type: 'string' },
+        ]);
+        expect(sentJson.types.Test).toStrictEqual(typedData.types.Test);
+      });
+
+      it('converts BigInt values to hex strings', async () => {
+        const provider = makeTestProvider();
+        const expectedSig = '0xdeadbeef' as Hex;
+        provider.request.mockResolvedValueOnce(expectedSig);
+
+        const signer = makeProviderSigner(provider);
+        const salt = BigInt('0xff'.padEnd(66, 'ff'));
+        const typedData = {
+          domain: { name: 'Test', chainId: 11155111 },
+          types: { Test: [{ name: 'salt', type: 'uint256' }] },
+          primaryType: 'Test',
+          message: { salt },
+        };
+
+        await signer.signTypedData(typedData, ALICE_LOWER);
+
         expect(provider.request).toHaveBeenCalledWith({
           method: 'eth_signTypedData_v4',
-          params: [ALICE_LOWER, JSON.stringify(typedData)],
+          params: [
+            ALICE_LOWER,
+            expect.stringContaining(`"salt":"0x${salt.toString(16)}"`),
+          ],
         });
       });
     });

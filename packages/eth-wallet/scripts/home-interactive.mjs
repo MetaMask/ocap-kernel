@@ -654,6 +654,109 @@ ${BOLD}  ./packages/eth-wallet/scripts/setup-away.sh \\
       ok(
         `Delegator smart account confirmed deployed (${(codeCheck.length - 2) / 2} bytes)`,
       );
+
+      // Verify the on-chain owner matches the MetaMask EOA.
+      // The HybridDeleGator's isValidSignature checks ECDSA.recover == owner().
+      try {
+        const ownerResult = await signer.provider.request({
+          method: 'eth_call',
+          params: [
+            {
+              to: smartAccountAddress,
+              // owner() selector = 0x8da5cb5b
+              data: '0x8da5cb5b',
+            },
+            'latest',
+          ],
+        });
+        if (ownerResult && ownerResult !== '0x') {
+          const onChainOwner = `0x${ownerResult.slice(26).toLowerCase()}`;
+          const expectedOwner = accounts[0].toLowerCase();
+          if (onChainOwner === expectedOwner) {
+            ok(`Smart account owner verified: ${onChainOwner}`);
+          } else {
+            _error(`  ${RED}WARNING: Smart account owner mismatch!${RESET}`);
+            _error(`  ${RED}On-chain owner : ${onChainOwner}${RESET}`);
+            _error(`  ${RED}Expected (EOA) : ${expectedOwner}${RESET}`);
+            _error(
+              `  ${RED}Delegation signing will fail. Re-run with --reset.${RESET}`,
+            );
+          }
+        }
+      } catch {
+        // owner() call failed — not critical, continue
+      }
+    }
+
+    // Diagnostic: sign typed data directly (bypass kernel) to test if
+    // the MetaMask SDK produces correct signatures after SES lockdown.
+    info('Testing direct MetaMask signing (bypass kernel)...');
+    try {
+      const { hashTypedData, recoverAddress } = await import('viem');
+      const testTypedData = {
+        domain: {
+          name: 'DelegationManager',
+          version: '1',
+          chainId: args.chainId,
+          verifyingContract: '0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3',
+        },
+        types: {
+          Delegation: [
+            { name: 'delegate', type: 'address' },
+            { name: 'delegator', type: 'address' },
+            { name: 'authority', type: 'bytes32' },
+            { name: 'caveats', type: 'Caveat[]' },
+            { name: 'salt', type: 'uint256' },
+          ],
+          Caveat: [
+            { name: 'enforcer', type: 'address' },
+            { name: 'terms', type: 'bytes' },
+          ],
+        },
+        primaryType: 'Delegation',
+        message: {
+          delegate: delegateAddr,
+          delegator: smartAccountAddress ?? accounts[0],
+          authority:
+            '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+          caveats: [],
+          salt: BigInt(1),
+        },
+      };
+      const testSig = await signer.signTypedData(testTypedData, accounts[0]);
+      const testHash = hashTypedData(testTypedData);
+      const testRecovered = await recoverAddress({
+        hash: testHash,
+        signature: testSig,
+      });
+      const directMatch =
+        testRecovered.toLowerCase() === accounts[0].toLowerCase();
+      if (directMatch) {
+        ok('Direct signing test PASSED — SDK signs correctly');
+      } else {
+        _error(
+          `  ${RED}Direct signing test FAILED — SDK produces wrong signature${RESET}`,
+        );
+        _error(`  ${DIM}Expected : ${accounts[0]}${RESET}`);
+        _error(`  ${DIM}Recovered: ${testRecovered}${RESET}`);
+
+        // Check if empty domain matches
+        const emptyDomainHash = hashTypedData({
+          ...testTypedData,
+          domain: {},
+        });
+        const emptyRecovered = await recoverAddress({
+          hash: emptyDomainHash,
+          signature: testSig,
+        });
+        if (emptyRecovered.toLowerCase() === accounts[0].toLowerCase()) {
+          _error(
+            `  ${RED}Confirmed: MetaMask SDK signs with EMPTY domain after SES lockdown${RESET}`,
+          );
+        }
+      }
+    } catch (testErr) {
+      _error(`  ${DIM}Direct signing test error: ${testErr.message}${RESET}`);
     }
 
     if (caveats.length === 0) {
@@ -675,6 +778,102 @@ ${BOLD}  ./packages/eth-wallet/scripts/setup-away.sh \\
       ],
     );
     ok('Delegation created');
+
+    // Verify the delegation signature off-chain before proceeding.
+    // This catches EIP-712 hash mismatches (e.g. from BigInt serialization
+    // issues) early, rather than failing later during on-chain redemption.
+    if (delegation.signature && smartAccountAddress) {
+      try {
+        const { hashTypedData, recoverAddress } = await import('viem');
+        const { hashDelegation } = await import('@metamask/delegation-core');
+
+        // Compute the delegation struct hash the same way the on-chain
+        // DelegationManager does (via the SDK's hashDelegation).
+        const structHash = hashDelegation({
+          delegate: delegation.delegate,
+          delegator: delegation.delegator,
+          authority: delegation.authority,
+          caveats: delegation.caveats.map((caveat) => ({
+            enforcer: caveat.enforcer,
+            terms: caveat.terms,
+            args: '0x',
+          })),
+          salt: BigInt(delegation.salt),
+          signature: delegation.signature,
+        });
+
+        // Compute the full EIP-712 typed data hash (domain + struct hash)
+        const typedDataHash = hashTypedData({
+          domain: {
+            name: 'DelegationManager',
+            version: '1',
+            chainId: args.chainId,
+            verifyingContract: '0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3',
+          },
+          types: {
+            Delegation: [
+              { name: 'delegate', type: 'address' },
+              { name: 'delegator', type: 'address' },
+              { name: 'authority', type: 'bytes32' },
+              { name: 'caveats', type: 'Caveat[]' },
+              { name: 'salt', type: 'uint256' },
+            ],
+            Caveat: [
+              { name: 'enforcer', type: 'address' },
+              { name: 'terms', type: 'bytes' },
+            ],
+          },
+          primaryType: 'Delegation',
+          message: {
+            delegate: delegation.delegate,
+            delegator: delegation.delegator,
+            authority: delegation.authority,
+            caveats: delegation.caveats.map((caveat) => ({
+              enforcer: caveat.enforcer,
+              terms: caveat.terms,
+            })),
+            salt: BigInt(delegation.salt),
+          },
+        });
+
+        // Recover the signer from the signature
+        const recoveredSigner = await recoverAddress({
+          hash: typedDataHash,
+          signature: delegation.signature,
+        });
+
+        const expectedSigner = accounts[0];
+        const signerMatch =
+          recoveredSigner.toLowerCase() === expectedSigner.toLowerCase();
+
+        _error(`  ${DIM}Delegation struct hash :${RESET} ${structHash}`);
+        _error(`  ${DIM}EIP-712 typed hash    :${RESET} ${typedDataHash}`);
+        _error(`  ${DIM}Recovered signer      :${RESET} ${recoveredSigner}`);
+        _error(`  ${DIM}Expected signer (EOA) :${RESET} ${expectedSigner}`);
+        _error(
+          `  ${DIM}Smart account (owner) :${RESET} ${smartAccountAddress}`,
+        );
+
+        if (signerMatch) {
+          ok('Delegation signature verified (signer matches EOA)');
+        } else {
+          _error(`  ${RED}WARNING: Delegation signature mismatch!${RESET}`);
+          _error(
+            `  ${RED}Recovered ${recoveredSigner} but expected ${expectedSigner}${RESET}`,
+          );
+          _error(
+            `  ${RED}On-chain redemption will fail with InvalidERC1271Signature.${RESET}`,
+          );
+          _error(
+            `  ${RED}This likely indicates an EIP-712 hash mismatch between MetaMask and the contract.${RESET}`,
+          );
+        }
+      } catch (verifyErr) {
+        _error(
+          `  ${DIM}Signature verification skipped: ${verifyErr.message}${RESET}`,
+        );
+      }
+    }
 
     _error(`
 ${YELLOW}${BOLD}  Copy this delegation JSON and paste it into the away device

@@ -63,9 +63,11 @@ This means:
 
 In interactive mode, the home device connects to **MetaMask Mobile** via the MetaMask SDK. A QR code is displayed in the terminal — scanning it establishes a WebSocket connection to MetaMask.
 
-The signer object is registered as a **kernel service** via `registerKernelServiceObject()`. When the coordinator calls `E(externalSigner).signTypedData(...)`, the kernel routes it to the service manager, which invokes the method on the live MetaMask SDK object. MetaMask Mobile shows an approval dialog; the user approves; the signature flows back through the kernel.
+The signer object is registered as a **kernel service** via `registerKernelServiceObject()`. When the coordinator calls `E(externalSigner).signTypedData(...)`, the kernel routes it to the service manager, which invokes the method on the live MetaMask SDK object. MetaMask Mobile shows an approval dialog; the user approves; the signature flows back through the kernel. In practice, the only approval is the **delegation signing** — after that, the agent acts autonomously within the delegation's spending limits.
 
 The MetaMask SDK must connect **before** SES lockdown (which freezes built-in prototypes). The interactive script uses dynamic imports to control this ordering.
+
+> **Note:** MetaMask Mobile requires `EIP712Domain` to be explicitly listed in the `types` field of `eth_signTypedData_v4` requests. Without it, MetaMask computes an empty domain separator, producing invalid signatures. The `makeProviderSigner` adapter handles this automatically.
 
 ### Smart Accounts (ERC-4337)
 
