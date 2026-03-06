@@ -1,6 +1,6 @@
 ---
 name: wallet
-description: Use the wallet tools for all balance, send, and sign operations. All wallet actions go through the away kernel; some actions may require user approval at home.
+description: Use the wallet tools for all balance, send, and sign operations. The away wallet operates autonomously after setup — the home device does not need to be online.
 metadata: { 'openclaw': { 'emoji': '👛', 'requires': { 'bins': ['wallet'] } } }
 ---
 
@@ -10,11 +10,15 @@ Use the **wallet tools** for any Ethereum balance, send, or sign request. Do not
 
 ## Tools
 
-- **wallet_accounts** — List wallet accounts.
+- **wallet_accounts** — List wallet accounts. Returns cached home accounts if the home device is offline.
 - **wallet_balance** — Get ETH balance for an address. Use `wallet_accounts` first to find the right address.
-- **wallet_send** — Send ETH to an address. May require user approval at home; the agent cannot approve for the user.
-- **wallet_sign** — Sign a message or typed data. May require user approval at home.
-- **wallet_capabilities** — Check what the wallet can do (local keys, peer wallet, delegations, bundler).
+- **wallet_send** — Send ETH to an address. Fully autonomous — uses delegation redemption via the bundler, no home device needed.
+- **wallet_sign** — Sign a message or typed data with the local key. The signature is valid for EIP-1271 verification against the smart account address.
+- **wallet_capabilities** — Check what the wallet can do (local keys, peer wallet, delegations, bundler, cached accounts, autonomy level).
+
+## Autonomy
+
+After setup, the away wallet is **fully autonomous** for sending ETH and signing messages. The home device only needs to be online for signing as the home EOA address specifically (which is rarely needed). Check `wallet_capabilities` — if `autonomy` contains "offline-capable", the wallet works independently.
 
 ## Rules
 
