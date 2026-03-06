@@ -688,9 +688,10 @@ ${BOLD}  ./packages/eth-wallet/scripts/setup-away.sh \\
       }
     }
 
-    // Diagnostic: sign typed data directly (bypass kernel) to test if
-    // the MetaMask SDK produces correct signatures after SES lockdown.
-    info('Testing direct MetaMask signing (bypass kernel)...');
+    // Verify MetaMask signing works correctly (EIP-712 domain is preserved).
+    // MetaMask Mobile requires EIP712Domain in the types field — the signer
+    // adapter injects it automatically. This test catches regressions.
+    info('Verifying MetaMask EIP-712 signing...');
     try {
       const { hashTypedData, recoverAddress } = await import('viem');
       const testTypedData = {
@@ -732,15 +733,15 @@ ${BOLD}  ./packages/eth-wallet/scripts/setup-away.sh \\
       const directMatch =
         testRecovered.toLowerCase() === accounts[0].toLowerCase();
       if (directMatch) {
-        ok('Direct signing test PASSED — SDK signs correctly');
+        ok('MetaMask EIP-712 signing verified');
       } else {
         _error(
-          `  ${RED}Direct signing test FAILED — SDK produces wrong signature${RESET}`,
+          `  ${RED}MetaMask EIP-712 signing FAILED — signature mismatch${RESET}`,
         );
         _error(`  ${DIM}Expected : ${accounts[0]}${RESET}`);
         _error(`  ${DIM}Recovered: ${testRecovered}${RESET}`);
 
-        // Check if empty domain matches
+        // Check if the domain was lost (empty domain separator)
         const emptyDomainHash = hashTypedData({
           ...testTypedData,
           domain: {},
@@ -751,12 +752,14 @@ ${BOLD}  ./packages/eth-wallet/scripts/setup-away.sh \\
         });
         if (emptyRecovered.toLowerCase() === accounts[0].toLowerCase()) {
           _error(
-            `  ${RED}Confirmed: MetaMask SDK signs with EMPTY domain after SES lockdown${RESET}`,
+            `  ${RED}MetaMask signed with empty EIP-712 domain — EIP712Domain types injection may not be working${RESET}`,
           );
         }
       }
     } catch (testErr) {
-      _error(`  ${DIM}Direct signing test error: ${testErr.message}${RESET}`);
+      _error(
+        `  ${DIM}MetaMask signing verification skipped: ${testErr.message}${RESET}`,
+      );
     }
 
     if (caveats.length === 0) {
