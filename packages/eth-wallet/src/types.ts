@@ -208,6 +208,8 @@ export const WalletCapabilitiesStruct = object({
   chainId: optional(number()),
   signingMode: optional(string()),
   autonomy: optional(string()),
+  peerAccountsCached: optional(boolean()),
+  cachedPeerAccounts: optional(array(AddressStruct)),
 });
 
 export type WalletCapabilities = Infer<typeof WalletCapabilitiesStruct>;

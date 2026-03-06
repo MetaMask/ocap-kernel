@@ -266,6 +266,11 @@ export function buildRootObject(
   // Smart account configuration (persisted in baggage)
   let smartAccountConfig: SmartAccountConfig | undefined;
 
+  // Cached peer (home) accounts for offline autonomy
+  let cachedPeerAccounts: Address[] = [];
+  // Cached peer signing mode for offline autonomy
+  let cachedPeerSigningMode: string | undefined;
+
   // Restore vat references from baggage if available (resuscitation)
   if (baggage.has('keyringVat')) {
     keyringVat = baggage.get('keyringVat') as KeyringFacet;
@@ -289,6 +294,50 @@ export function buildRootObject(
     smartAccountConfig = baggage.get(
       'smartAccountConfig',
     ) as SmartAccountConfig;
+  }
+  if (baggage.has('cachedPeerAccounts')) {
+    cachedPeerAccounts = baggage.get('cachedPeerAccounts') as Address[];
+  }
+  if (baggage.has('cachedPeerSigningMode')) {
+    cachedPeerSigningMode = baggage.get('cachedPeerSigningMode') as string;
+  }
+
+  /**
+   * Check if an address belongs to the cached peer (home) accounts.
+   *
+   * @param address - The Ethereum address to check.
+   * @returns True if the address is a cached peer account.
+   */
+  function isPeerAccount(address: Address): boolean {
+    return cachedPeerAccounts.some(
+      (a) => a.toLowerCase() === address.toLowerCase(),
+    );
+  }
+
+  const PEER_TIMEOUT_MS = 5000;
+
+  /**
+   * Race a promise against a timeout.
+   *
+   * @param promise - The promise to race.
+   * @param ms - Timeout in milliseconds.
+   * @returns The resolved value of the promise.
+   */
+  async function raceWithTimeout<T>(
+    promise: Promise<T>,
+    ms: number,
+  ): Promise<T> {
+    if (typeof globalThis.setTimeout !== 'function') {
+      return promise;
+    }
+    return Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) => {
+        globalThis.setTimeout(() => {
+          reject(new Error(`Peer call timed out after ${String(ms)}ms`));
+        }, ms);
+      }),
+    ]);
   }
 
   /**
@@ -317,6 +366,19 @@ export function buildRootObject(
     data: Eip712TypedData,
     from?: Address,
   ): Promise<Hex> {
+    // If the requested address belongs to the home device, route to peer
+    if (from && isPeerAccount(from)) {
+      if (peerWallet) {
+        return E(peerWallet).handleSigningRequest({
+          type: 'typedData',
+          data,
+        });
+      }
+      throw new Error(
+        `Cannot sign typed data as ${from}: home device is offline and this address requires home signing authority`,
+      );
+    }
+
     if (keyringVat) {
       const hasKeys = await E(keyringVat).hasKeys();
       if (hasKeys) {
@@ -353,6 +415,20 @@ export function buildRootObject(
     message: string,
     from?: Address,
   ): Promise<Hex> {
+    // If the requested address belongs to the home device, route to peer
+    if (from && isPeerAccount(from)) {
+      if (peerWallet) {
+        return E(peerWallet).handleSigningRequest({
+          type: 'message',
+          message,
+          account: from,
+        });
+      }
+      throw new Error(
+        `Cannot sign message as ${from}: home device is offline and this address requires home signing authority`,
+      );
+    }
+
     if (keyringVat) {
       const hasKeys = await E(keyringVat).hasKeys();
       if (hasKeys) {
@@ -979,11 +1055,29 @@ export function buildRootObject(
     // ------------------------------------------------------------------
 
     async getAccounts(): Promise<Address[]> {
-      // When a peer wallet is connected, present only the peer (home)
-      // accounts. The local throwaway key is an implementation detail
-      // used internally for delegation signing.
+      // When a peer wallet is connected, try to fetch live accounts.
+      // Fall back to cached peer accounts if the peer is unreachable.
       if (peerWallet) {
-        return E(peerWallet).getAccounts();
+        try {
+          const liveAccounts: Address[] = await raceWithTimeout(
+            E(peerWallet).getAccounts(),
+            PEER_TIMEOUT_MS,
+          );
+          // Refresh the cache on success
+          cachedPeerAccounts = liveAccounts;
+          persistBaggage('cachedPeerAccounts', cachedPeerAccounts);
+          return liveAccounts;
+        } catch {
+          if (cachedPeerAccounts.length > 0) {
+            return cachedPeerAccounts;
+          }
+          // No cache — fall through to local accounts
+        }
+      }
+
+      // Return cached peer accounts if available (peer may have disconnected)
+      if (cachedPeerAccounts.length > 0) {
+        return cachedPeerAccounts;
       }
 
       const localAccounts: Address[] = keyringVat
@@ -1400,6 +1494,24 @@ export function buildRootObject(
         ocapUrl,
       )) as PeerWalletFacet;
       persistBaggage('peerWallet', peerWallet);
+
+      // Cache the peer accounts for offline autonomy
+      try {
+        cachedPeerAccounts = await E(peerWallet).getAccounts();
+        persistBaggage('cachedPeerAccounts', cachedPeerAccounts);
+      } catch {
+        // Peer may not be ready yet; accounts can be cached later
+        // via refreshPeerAccounts()
+      }
+    },
+
+    async refreshPeerAccounts(): Promise<Address[]> {
+      if (!peerWallet) {
+        throw new Error('No peer wallet connected');
+      }
+      cachedPeerAccounts = await E(peerWallet).getAccounts();
+      persistBaggage('cachedPeerAccounts', cachedPeerAccounts);
+      return cachedPeerAccounts;
     },
 
     async handleSigningRequest(request: {
@@ -1493,10 +1605,15 @@ export function buildRootObject(
       let signingMode: string = 'none';
       if (peerWallet) {
         try {
-          const peerCaps = await E(peerWallet).getCapabilities();
+          const peerCaps = await raceWithTimeout(
+            E(peerWallet).getCapabilities(),
+            PEER_TIMEOUT_MS,
+          );
           signingMode = `peer:${peerCaps.signingMode ?? 'unknown'}`;
+          cachedPeerSigningMode = signingMode;
+          persistBaggage('cachedPeerSigningMode', cachedPeerSigningMode);
         } catch {
-          signingMode = 'peer:unknown';
+          signingMode = cachedPeerSigningMode ?? 'peer:unknown';
         }
       } else if (externalSigner) {
         signingMode = 'external:metamask';
@@ -1525,10 +1642,12 @@ export function buildRootObject(
           .flatMap((del) => del.caveats)
           .map(describeCaveat)
           .filter(Boolean);
-        autonomy =
+        const base =
           limits.length > 0
             ? `autonomous within limits: ${limits.join('; ')}`
             : 'autonomous (no spending limits)';
+        autonomy =
+          cachedPeerAccounts.length > 0 ? `${base} (offline-capable)` : base;
       } else if (peerWallet) {
         autonomy = 'requires peer wallet approval for each action';
       } else {
@@ -1547,6 +1666,8 @@ export function buildRootObject(
         chainId: bundlerConfig?.chainId,
         signingMode,
         autonomy,
+        peerAccountsCached: cachedPeerAccounts.length > 0,
+        cachedPeerAccounts,
       });
     },
   });
