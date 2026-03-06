@@ -163,3 +163,34 @@ If any caveat check fails at step 10, the entire UserOp reverts — the ETH is n
 | **Limits can be changed** | Create a new delegation with different caveats via `update-limits.sh` |
 | **Relay can't snoop** | CapTP encryption — relay only forwards opaque bytes |
 | **Agent can't escalate** | Delegation is scoped — the agent can only do what the caveats allow |
+| **VPS runs autonomously** | Peer accounts are cached during setup; the home device can go offline after delegation is created |
+
+---
+
+## Offline Autonomy (VPS Mode)
+
+After the initial setup, the away device (VPS) is **fully autonomous** — the home device does not need to stay online. This works because:
+
+1. **Account caching** — During `connectToPeer()`, the away coordinator fetches and caches the home device's accounts in durable storage (baggage). When the home goes offline, `getAccounts()` returns the cached accounts instead of hanging. The cache is refreshed automatically whenever the home device is reachable.
+
+2. **Delegation redemption is local** — The away device signs UserOps with its own throwaway key and submits them to the Pimlico bundler. The DelegationManager contract verifies the delegation on-chain. No home device involvement.
+
+3. **Message signing uses the local key** — The away device signs messages and typed data with its throwaway key. For contracts that support [EIP-1271](https://eips.ethereum.org/EIPS/eip-1271) (including SIWE/EIP-4361), the signature is valid when verified against the smart account address, since the throwaway key is the smart account's owner.
+
+4. **Capabilities are cached** — The signing mode from `getCapabilities()` is persisted so the agent can report its state even when the home device is offline.
+
+### What requires the home device online
+
+| Operation | Autonomous? | Why |
+| --- | --- | --- |
+| `sendTransaction` (delegation) | Yes | Signed locally, submitted to bundler |
+| `getAccounts` | Yes | Falls back to cached peer accounts |
+| `getCapabilities` | Yes | Signing mode cached in baggage |
+| `signMessage` / `signTypedData` (local key or smart account) | Yes | Throwaway key signs; valid for EIP-1271 |
+| `signMessage` / `signTypedData` (as home EOA address) | **No** | Requires the home device's private key |
+
+The last case is a fundamental limitation — signing as a specific EOA address requires that address's private key, which never leaves the home device (mnemonic mode) or MetaMask (interactive mode). When the away device detects a signing request for a cached peer account and the home is offline, it throws a descriptive error instead of silently signing with the wrong key.
+
+### Timeout behavior
+
+Peer calls (`getAccounts`, `getCapabilities`) race against a 5-second timeout. If the home device doesn't respond in time, the cached value is used. This prevents the agent from hanging when the home device is unreachable.

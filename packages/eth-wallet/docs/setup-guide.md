@@ -243,6 +243,8 @@ The scripts guide you through a handshake:
 
 Both scripts finish automatically after the delegation is transferred.
 
+> **Offline autonomy:** After the delegation is received, the away device caches the home accounts and operates fully autonomously. The home device can go offline — the VPS will continue sending ETH, signing messages, and responding to agent requests without it. See [How It Works — Offline Autonomy](./how-it-works.md#offline-autonomy-vps-mode) for details.
+
 During delegation setup, the home script prompts for two optional spending limits:
 
 - **Total ETH spending limit** — the maximum cumulative ETH the agent can spend across all transactions (enforced by the `NativeTokenTransferAmountEnforcer`)

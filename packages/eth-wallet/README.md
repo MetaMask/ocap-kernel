@@ -167,6 +167,17 @@ When the away kernel has no local keys and no matching delegation for a message 
        +--------------------------------------+
 ```
 
+### Offline Autonomy
+
+The away kernel caches the home kernel's accounts and signing mode during `connectToPeer()`. After the delegation is transferred, the home device can go offline — the away kernel operates fully autonomously:
+
+- `getAccounts()` returns cached peer accounts (with a 5-second timeout on live peer calls)
+- `getCapabilities()` returns cached signing mode
+- `sendTransaction()` signs locally and submits via the bundler (no home needed)
+- `signMessage()` / `signTypedData()` signs with the local throwaway key
+
+The only operation that still requires the home online is signing as the home EOA address specifically (since that requires the home's private key). The away coordinator detects this and throws a clear error instead of signing with the wrong key. See [How It Works — Offline Autonomy](./docs/how-it-works.md#offline-autonomy-vps-mode) for details.
+
 ## Signing Strategy Resolution
 
 The coordinator resolves the appropriate signer for each request type using a priority chain.
@@ -182,11 +193,12 @@ Priority: delegation -> local key -> external signer -> peer wallet -> error
 
 ### Message and Typed Data Signing
 
-Priority: keyring -> external signer -> peer wallet -> error
+Priority: peer account guard -> keyring -> external signer -> peer wallet -> error
 
-1. **Keyring** -- If the keyring has keys, it signs directly.
-2. **External signer** -- If a MetaMask or other external signer is connected, it signs.
-3. **Peer wallet** -- If a peer wallet is connected, the request is forwarded.
+1. **Peer account guard** -- If `from` matches a cached peer (home) account, the request is routed to the peer wallet. If the peer is offline, a descriptive error is thrown instead of silently signing with the wrong key.
+2. **Keyring** -- If the keyring has keys, it signs directly.
+3. **External signer** -- If a MetaMask or other external signer is connected, it signs.
+4. **Peer wallet** -- If a peer wallet is connected, the request is forwarded.
 
 ## Delegation Flow
 
@@ -297,18 +309,19 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Coordinator -- Peer Connectivity
 
-| Method                          | Description                                                                                     |
-| ------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `issueOcapUrl()`                | Issue an OCAP URL that grants a reference to this coordinator. Requires `ocapURLIssuerService`. |
-| `connectToPeer(ocapUrl)`        | Connect to a remote coordinator via an OCAP URL. Requires `ocapURLRedemptionService`.           |
-| `handleSigningRequest(request)` | Handle an incoming signing request from a peer wallet.                                          |
+| Method                          | Description                                                                                                                 |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `issueOcapUrl()`                | Issue an OCAP URL that grants a reference to this coordinator. Requires `ocapURLIssuerService`.                             |
+| `connectToPeer(ocapUrl)`        | Connect to a remote coordinator via an OCAP URL. Caches peer accounts for offline use. Requires `ocapURLRedemptionService`. |
+| `refreshPeerAccounts()`         | Re-fetch and cache peer accounts. Throws if no peer wallet is connected.                                                    |
+| `handleSigningRequest(request)` | Handle an incoming signing request from a peer wallet.                                                                      |
 
 ### Coordinator -- Introspection
 
-| Method              | Description                                                        |
-| ------------------- | ------------------------------------------------------------------ |
-| `getAccounts()`     | List all accounts (local keyring + external signer, deduplicated). |
-| `getCapabilities()` | Return a `WalletCapabilities` object describing the wallet state.  |
+| Method              | Description                                                                                   |
+| ------------------- | --------------------------------------------------------------------------------------------- |
+| `getAccounts()`     | List accounts. Returns cached peer accounts when the home device is offline (5s timeout).     |
+| `getCapabilities()` | Return a `WalletCapabilities` object describing the wallet state, including cached peer info. |
 
 ### Coordinator -- Smart Accounts
 
@@ -326,10 +339,16 @@ type WalletCapabilities = {
   hasLocalKeys: boolean;
   localAccounts: Address[];
   delegationCount: number;
+  delegations?: DelegationInfo[];
   hasPeerWallet: boolean;
   hasExternalSigner: boolean;
   hasBundlerConfig: boolean;
   smartAccountAddress?: Address;
+  chainId?: number;
+  signingMode?: string;
+  autonomy?: string;
+  peerAccountsCached?: boolean;
+  cachedPeerAccounts?: Address[];
 };
 ```
 
