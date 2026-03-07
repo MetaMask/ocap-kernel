@@ -88,8 +88,10 @@ describe('Kernel service object invocation', () => {
     await kernel.queueMessage(testVatRootObject, 'goBadly', []);
     await waitUntilQuiescent(100);
     const testLogs = extractTestLogs(entries);
-    expect(testLogs).toContain(
-      `kernel service threw: unknown service method 'nonexistentMethod'`,
+    expect(testLogs).toStrictEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/kernel service threw:.*nonexistentMethod/u),
+      ]),
     );
   });
 });

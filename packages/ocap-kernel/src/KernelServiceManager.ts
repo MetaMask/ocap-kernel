@@ -1,3 +1,4 @@
+import { E } from '@endo/eventual-send';
 import type { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from './KernelQueue.ts';
@@ -156,30 +157,20 @@ export class KernelServiceManager {
     if (result) {
       assert.typeof(result, 'string');
     }
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-    const service = kernelService.service as Record<string, Function>;
-    const methodFunction = service[method];
-    if (methodFunction === undefined) {
-      if (result) {
-        this.#kernelQueue.resolvePromises('kernel', [
-          [result, true, kser(Error(`unknown service method '${method}'`))],
-        ]);
-      } else {
-        this.#logger?.error(`unknown service method '${method}'`);
-      }
-      return;
-    }
-    assert.typeof(methodFunction, 'function');
     assert(Array.isArray(args));
 
+    // Use E() so this works for both local objects and remote presences
+    // (CapTP proxies whose methods aren't enumerable).
     // Call the method without awaiting. This allows the crank to complete
     // even if the method internally waits for the crank to end.
     try {
-      const maybePromise = methodFunction.apply(service, args);
-      // Use Promise.resolve to normalize: if maybePromise is a Promise, it
-      // returns that Promise; if it's a value, it returns an immediately-
-      // resolved Promise.
-      Promise.resolve(maybePromise)
+      const service = kernelService.service as Record<
+        string,
+        (...methodArgs: unknown[]) => unknown
+      >;
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const resultPromise = E(service)[method]!(...args);
+      Promise.resolve(resultPromise)
         .then((resultValue) => {
           if (result) {
             this.#kernelQueue.resolvePromises('kernel', [

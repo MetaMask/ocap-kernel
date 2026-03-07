@@ -9,6 +9,22 @@ import { makeKernelStore } from './store/index.ts';
 import type { Message } from './types.ts';
 import { makeMapKernelDatabase } from '../test/storage.ts';
 
+/**
+ * Create a trackable service method that records calls without using vi.fn(),
+ * which doesn't work well with E() under SES/lockdown (frozen mock state).
+ *
+ * @param implementation - Optional implementation to call.
+ * @returns An object with the method and call tracking state.
+ */
+function makeTrackableMethod(implementation?: (...args: unknown[]) => unknown) {
+  const calls: unknown[][] = [];
+  const method = (...args: unknown[]) => {
+    calls.push(args);
+    return implementation?.(...args);
+  };
+  return { method, calls };
+}
+
 describe('KernelServiceManager', () => {
   let serviceManager: KernelServiceManager;
   let kernelStore: ReturnType<typeof makeKernelStore>;
@@ -272,10 +288,10 @@ describe('KernelServiceManager', () => {
 
   describe('invokeKernelService', () => {
     it('successfully invokes a service method without result', async () => {
-      const testMethod = vi.fn().mockReturnValue('test result');
-      const testService = {
-        testMethod,
-      };
+      const { method: testMethod, calls } = makeTrackableMethod(
+        () => 'test result',
+      );
+      const testService = { testMethod };
 
       const registered = serviceManager.registerKernelServiceObject(
         'testService',
@@ -289,15 +305,15 @@ describe('KernelServiceManager', () => {
       serviceManager.invokeKernelService(registered.kref, message);
       await delay();
 
-      expect(testMethod).toHaveBeenCalledWith('arg1', 'arg2');
+      expect(calls).toStrictEqual([['arg1', 'arg2']]);
       expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
     });
 
     it('successfully invokes a service method with result', async () => {
-      const testMethod = vi.fn().mockResolvedValue('test result');
-      const testService = {
-        testMethod,
-      };
+      const { method: testMethod, calls } = makeTrackableMethod(async () =>
+        Promise.resolve('test result'),
+      );
+      const testService = { testMethod };
 
       const registered = serviceManager.registerKernelServiceObject(
         'testService',
@@ -312,7 +328,7 @@ describe('KernelServiceManager', () => {
       serviceManager.invokeKernelService(registered.kref, message);
       await delay();
 
-      expect(testMethod).toHaveBeenCalledWith('arg1');
+      expect(calls).toStrictEqual([['arg1']]);
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
         ['kp123', false, kser('test result')],
       ]);
@@ -320,10 +336,10 @@ describe('KernelServiceManager', () => {
 
     it('handles errors when invoking service method with result', async () => {
       const testError = new Error('Test error');
-      const testMethod = vi.fn().mockRejectedValue(testError);
-      const testService = {
-        testMethod,
-      };
+      const { method: testMethod } = makeTrackableMethod(async () =>
+        Promise.reject(testError),
+      );
+      const testService = { testMethod };
 
       const registered = serviceManager.registerKernelServiceObject(
         'testService',
@@ -346,10 +362,10 @@ describe('KernelServiceManager', () => {
     it('handles errors when invoking service method without result', async () => {
       const loggerErrorSpy = vi.spyOn(logger, 'error');
       const testError = new Error('Test error');
-      const testMethod = vi.fn().mockRejectedValue(testError);
-      const testService = {
-        testMethod,
-      };
+      const { method: testMethod } = makeTrackableMethod(async () =>
+        Promise.reject(testError),
+      );
+      const testService = { testMethod };
 
       const registered = serviceManager.registerKernelServiceObject(
         'testService',
@@ -399,7 +415,13 @@ describe('KernelServiceManager', () => {
       await delay();
 
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
-        ['kp123', true, kser(Error("unknown service method 'unknownMethod'"))],
+        [
+          'kp123',
+          true,
+          expect.objectContaining({
+            body: expect.stringContaining('unknownMethod'),
+          }),
+        ],
       ]);
     });
 
@@ -422,7 +444,10 @@ describe('KernelServiceManager', () => {
       await delay();
 
       expect(loggerErrorSpy).toHaveBeenCalledWith(
-        "unknown service method 'unknownMethod'",
+        'Error in kernel service method:',
+        expect.objectContaining({
+          message: expect.stringContaining('unknownMethod'),
+        }),
       );
       expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
     });
@@ -444,7 +469,48 @@ describe('KernelServiceManager', () => {
       await delay();
 
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
-        ['kp123', true, kser(Error("unknown service method 'anyMethod'"))],
+        [
+          'kp123',
+          true,
+          expect.objectContaining({
+            body: expect.stringContaining('anyMethod'),
+          }),
+        ],
+      ]);
+    });
+
+    it('invokes methods on a proxy-based service (simulated remote presence)', async () => {
+      const { method: testMethod, calls } = makeTrackableMethod(async () =>
+        Promise.resolve('remote result'),
+      );
+      const proxyService = new Proxy(
+        {},
+        {
+          get: (_target, prop) => {
+            if (prop === 'testMethod') {
+              return testMethod;
+            }
+            return undefined;
+          },
+        },
+      );
+
+      const registered = serviceManager.registerKernelServiceObject(
+        'proxyService',
+        proxyService,
+      );
+
+      const message: Message = {
+        methargs: kser(['testMethod', ['arg1']]),
+        result: 'kp123',
+      };
+
+      serviceManager.invokeKernelService(registered.kref, message);
+      await delay();
+
+      expect(calls).toStrictEqual([['arg1']]);
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
+        ['kp123', false, kser('remote result')],
       ]);
     });
 
