@@ -36,7 +36,9 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', sections }).getSection({ lift });
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+      lift,
+    });
     expect(await E(wallet).getBalance('alice')).toBe(42);
     expect(liftCalled).toBe(false);
   });
@@ -55,7 +57,7 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: async (_germs) => Promise.resolve(0),
     });
     await expect(E(wallet).getBalance('bob')).rejects.toThrow(
@@ -99,7 +101,7 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: argmin,
     });
     // argmin picks cost=1 section which returns 42
@@ -131,7 +133,7 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: async (_germs) => Promise.resolve(0),
     });
     const guard = wallet[GET_INTERFACE_GUARD]();
@@ -167,7 +169,7 @@ describe('sheafify', () => {
       },
     ];
 
-    let wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    let wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: argmin,
     });
     expect(await E(wallet).getBalance('alice')).toBe(100);
@@ -189,7 +191,7 @@ describe('sheafify', () => {
       ) as unknown as Section,
       metadata: { cost: 1 },
     });
-    wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: argmin,
     });
 
@@ -215,7 +217,7 @@ describe('sheafify', () => {
       { exo: exo as unknown as Section, metadata: { cost: 1 } },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: async (_germs) => Promise.resolve(0),
     });
     expect(await E(wallet).getBalance('alice')).toBe(42);
@@ -247,7 +249,7 @@ describe('sheafify', () => {
       },
     ];
 
-    let wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    let wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: argmin,
     });
     expect(await E(wallet).getBalance('alice')).toBe(100);
@@ -267,7 +269,7 @@ describe('sheafify', () => {
       },
     );
     sections.push({ exo: exo as unknown as Section, metadata: { cost: 1 } });
-    wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: argmin,
     });
 
@@ -293,7 +295,7 @@ describe('sheafify', () => {
       { exo: exo as unknown as Section, metadata: { cost: 1 } },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: async (_germs) => Promise.resolve(0),
     });
     const guard = wallet[GET_INTERFACE_GUARD]();
@@ -337,7 +339,7 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: spy,
     });
     await E(wallet).getBalance('alice');
@@ -387,7 +389,7 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: spy,
     });
     await E(wallet).getBalance('alice');
@@ -424,7 +426,7 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: async (_germs) => {
         liftCalled = true;
         return Promise.resolve(0);
@@ -470,7 +472,7 @@ describe('sheafify', () => {
       { exo: exo as unknown as Section, metadata: { cost: 1 } },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: argmin,
     });
     // argmin picks the exo section (cost=1)
@@ -496,7 +498,7 @@ describe('sheafify', () => {
     ];
 
     const sheaf = sheafify({ name: 'Wallet', sections });
-    const wallet = sheaf.getSection({
+    const wallet = sheaf.getGlobalSection({
       lift: async () => Promise.resolve(0),
     });
 
@@ -528,7 +530,7 @@ describe('sheafify', () => {
     ];
 
     const sheaf = sheafify({ name: 'Wallet', sections });
-    const wallet = sheaf.getSection({
+    const wallet = sheaf.getGlobalSection({
       lift: async () => Promise.resolve(0),
     });
 
@@ -560,7 +562,7 @@ describe('sheafify', () => {
     // No sections granted yet
     expect(sheaf.getExported()).toBeUndefined();
 
-    sheaf.getSection({ lift: async () => Promise.resolve(0) });
+    sheaf.getGlobalSection({ lift: async () => Promise.resolve(0) });
 
     const exported = sheaf.getExported();
     expect(exported).toBeDefined();
@@ -583,7 +585,7 @@ describe('sheafify', () => {
     ];
 
     const sheaf = sheafify({ name: 'Wallet', sections });
-    sheaf.getSection({ lift: async () => Promise.resolve(0) });
+    sheaf.getGlobalSection({ lift: async () => Promise.resolve(0) });
 
     expect(sheaf.getExported()).toBeDefined();
 

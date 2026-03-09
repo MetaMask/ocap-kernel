@@ -187,15 +187,10 @@ export const sheafify = <MetaData = unknown>({
     guard,
     lift,
   }: {
-    guard?: InterfaceGuard;
+    guard: InterfaceGuard;
     lift: Lift<MetaData>;
   }): object => {
-    const resolvedGuard =
-      guard ??
-      collectSheafGuard(
-        name,
-        frozenSections.map(({ exo }) => exo),
-      );
+    const resolvedGuard = guard;
 
     const asyncMethodGuards = asyncifyMethodGuards(resolvedGuard);
     const asyncGuard = M.interface(`${name}:section`, asyncMethodGuards);
@@ -263,6 +258,16 @@ export const sheafify = <MetaData = unknown>({
     return exo;
   };
 
+  const getGlobalSection = ({ lift }: { lift: Lift<MetaData> }): object => {
+    return getSection({
+      guard: collectSheafGuard(
+        name,
+        frozenSections.map(({ exo }) => exo),
+      ),
+      lift,
+    });
+  };
+
   const revokePoint = (method: string, ...args: unknown[]): void => {
     for (const grant of grants) {
       if (!grant.isRevoked() && guardCoversPoint(grant.guard, method, args)) {
@@ -291,6 +296,7 @@ export const sheafify = <MetaData = unknown>({
 
   return {
     getSection,
+    getGlobalSection,
     revokePoint,
     getExported,
     revokeAll,
