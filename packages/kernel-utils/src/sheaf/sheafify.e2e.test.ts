@@ -1,6 +1,6 @@
 import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { sheafify } from './sheafify.ts';
 import type { Lift, PresheafSection, Section } from './types.ts';
@@ -29,6 +29,9 @@ describe('e2e: cost-optimal routing', () => {
         ),
       );
 
+    const remote0GetBalance = vi.fn((_acct: string): number => 0);
+    const local1GetBalance = vi.fn((_acct: string): number => 0);
+
     const sections: PresheafSection<{ cost: number }>[] = [
       {
         // Remote: covers all accounts, expensive
@@ -37,7 +40,7 @@ describe('e2e: cost-optimal routing', () => {
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
-          { getBalance: (acct: string) => (acct === 'alice' ? 1000 : 500) },
+          { getBalance: remote0GetBalance },
         ) as unknown as Section,
         metadata: { cost: 100 },
       },
@@ -48,7 +51,7 @@ describe('e2e: cost-optimal routing', () => {
           M.interface('Wallet:1', {
             getBalance: M.call(M.eq('alice')).returns(M.number()),
           }),
-          { getBalance: (_acct: string) => 1000 },
+          { getBalance: local1GetBalance },
         ) as unknown as Section,
         metadata: { cost: 1 },
       },
@@ -59,19 +62,26 @@ describe('e2e: cost-optimal routing', () => {
     });
 
     // alice: both sections match, argmin picks local (cost=1)
-    expect(await E(wallet).getBalance('alice')).toBe(1000);
+    await E(wallet).getBalance('alice');
+    expect(local1GetBalance).toHaveBeenCalledWith('alice');
+    expect(remote0GetBalance).not.toHaveBeenCalled();
+    local1GetBalance.mockClear();
 
     // bob: only remote matches (stalk=1, lift not invoked)
-    expect(await E(wallet).getBalance('bob')).toBe(500);
+    await E(wallet).getBalance('bob');
+    expect(remote0GetBalance).toHaveBeenCalledWith('bob');
+    expect(local1GetBalance).not.toHaveBeenCalled();
+    remote0GetBalance.mockClear();
 
     // Expand with a broader local cache (cost=2), re-sheafify.
+    const local2GetBalance = vi.fn((_acct: string): number => 0);
     sections.push({
       exo: makeExo(
         'Wallet:2',
         M.interface('Wallet:2', {
           getBalance: M.call(M.string()).returns(M.number()),
         }),
-        { getBalance: (acct: string) => (acct === 'alice' ? 1000 : 500) },
+        { getBalance: local2GetBalance },
       ) as unknown as Section,
       metadata: { cost: 2 },
     });
@@ -80,10 +90,16 @@ describe('e2e: cost-optimal routing', () => {
     });
 
     // bob: now remote (cost=100) and new local (cost=2) both match, argmin picks cost=2
-    expect(await E(wallet).getBalance('bob')).toBe(500);
+    await E(wallet).getBalance('bob');
+    expect(local2GetBalance).toHaveBeenCalledWith('bob');
+    expect(remote0GetBalance).not.toHaveBeenCalled();
+    local2GetBalance.mockClear();
 
     // alice: three sections match, argmin still picks cost=1
-    expect(await E(wallet).getBalance('alice')).toBe(1000);
+    await E(wallet).getBalance('alice');
+    expect(local1GetBalance).toHaveBeenCalledWith('alice');
+    expect(remote0GetBalance).not.toHaveBeenCalled();
+    expect(local2GetBalance).not.toHaveBeenCalled();
   });
 });
 
@@ -113,10 +129,6 @@ describe('e2e: multi-tier capability routing', () => {
     );
 
   it('routes reads to the fastest matching tier and writes to the only capable section', async () => {
-    // Dispatch log — sections push their label on every call so we can
-    // observe which tier actually handled each request.
-    const log: string[] = [];
-
     // Shared ledger — all sections read from this, so the sheaf condition
     // (effect-equivalence) holds by construction.
     const ledger: Record<string, number> = {
@@ -124,6 +136,26 @@ describe('e2e: multi-tier capability routing', () => {
       bob: 500,
       carol: 250,
     };
+
+    const networkGetBalance = vi.fn(
+      (acct: string): number => ledger[acct] ?? 0,
+    );
+    const localGetBalance = vi.fn((_acct: string): number => ledger.alice ?? 0);
+    const cacheGetBalance = vi.fn((acct: string): number => ledger[acct] ?? 0);
+    const writeBackendGetBalance = vi.fn(
+      (acct: string): number => ledger[acct] ?? 0,
+    );
+    const writeBackendTransfer = vi.fn(
+      (from: string, to: string, amt: number): boolean => {
+        const fromBal = ledger[from] ?? 0;
+        if (fromBal < amt) {
+          return false;
+        }
+        ledger[from] = fromBal - amt;
+        ledger[to] = (ledger[to] ?? 0) + amt;
+        return true;
+      },
+    );
 
     const sections: PresheafSection<Tier>[] = [];
 
@@ -135,12 +167,7 @@ describe('e2e: multi-tier capability routing', () => {
         M.interface('Wallet:0', {
           getBalance: M.call(M.string()).returns(M.number()),
         }),
-        {
-          getBalance: (acct: string) => {
-            log.push('network');
-            return ledger[acct] ?? 0;
-          },
-        },
+        { getBalance: networkGetBalance },
       ) as unknown as Section,
       metadata: { latencyMs: 500, label: 'network' },
     });
@@ -150,11 +177,14 @@ describe('e2e: multi-tier capability routing', () => {
     });
 
     // Phase 1 — single backend: stalk is always 1, lift never fires.
-    expect(await E(wallet).getBalance('alice')).toBe(1000);
-    expect(await E(wallet).getBalance('bob')).toBe(500);
-    expect(await E(wallet).getBalance('dave')).toBe(0);
-    expect(log).toStrictEqual(['network', 'network', 'network']);
-    log.length = 0;
+    await E(wallet).getBalance('alice');
+    await E(wallet).getBalance('bob');
+    await E(wallet).getBalance('dave');
+    expect(networkGetBalance).toHaveBeenCalledTimes(3);
+    expect(networkGetBalance).toHaveBeenCalledWith('alice');
+    expect(networkGetBalance).toHaveBeenCalledWith('bob');
+    expect(networkGetBalance).toHaveBeenCalledWith('dave');
+    networkGetBalance.mockClear();
 
     // ── Tier 2: Local state for owned account ────────────────
     // Only covers 'alice' (M.eq), 1ms.
@@ -164,12 +194,7 @@ describe('e2e: multi-tier capability routing', () => {
         M.interface('Wallet:1', {
           getBalance: M.call(M.eq('alice')).returns(M.number()),
         }),
-        {
-          getBalance: (_acct: string) => {
-            log.push('local');
-            return ledger.alice ?? 0;
-          },
-        },
+        { getBalance: localGetBalance },
       ) as unknown as Section,
       metadata: { latencyMs: 1, label: 'local' },
     });
@@ -178,10 +203,14 @@ describe('e2e: multi-tier capability routing', () => {
     });
 
     // Phase 2 — alice routes to local (1ms < 500ms), bob still hits network.
-    expect(await E(wallet).getBalance('alice')).toBe(1000);
-    expect(await E(wallet).getBalance('bob')).toBe(500);
-    expect(log).toStrictEqual(['local', 'network']);
-    log.length = 0;
+    await E(wallet).getBalance('alice');
+    await E(wallet).getBalance('bob');
+    expect(localGetBalance).toHaveBeenCalledWith('alice');
+    expect(networkGetBalance).toHaveBeenCalledWith('bob');
+    expect(networkGetBalance).not.toHaveBeenCalledWith('alice');
+    expect(localGetBalance).not.toHaveBeenCalledWith('bob');
+    localGetBalance.mockClear();
+    networkGetBalance.mockClear();
 
     // ── Tier 3: In-memory cache for specific accounts ────────
     // Covers bob and carol via M.or, instant (0ms).
@@ -193,12 +222,7 @@ describe('e2e: multi-tier capability routing', () => {
             M.number(),
           ),
         }),
-        {
-          getBalance: (acct: string) => {
-            log.push('cache');
-            return ledger[acct] ?? 0;
-          },
-        },
+        { getBalance: cacheGetBalance },
       ) as unknown as Section,
       metadata: { latencyMs: 0, label: 'cache' },
     });
@@ -207,12 +231,20 @@ describe('e2e: multi-tier capability routing', () => {
     });
 
     // Phase 3 — every known account hits its optimal tier.
-    expect(await E(wallet).getBalance('alice')).toBe(1000); // local  (1ms)
-    expect(await E(wallet).getBalance('bob')).toBe(500); //    cache  (0ms)
-    expect(await E(wallet).getBalance('carol')).toBe(250); //  cache  (0ms)
-    expect(await E(wallet).getBalance('dave')).toBe(0); //     network (only match)
-    expect(log).toStrictEqual(['local', 'cache', 'cache', 'network']);
-    log.length = 0;
+    await E(wallet).getBalance('alice'); // local  (1ms)
+    await E(wallet).getBalance('bob'); //   cache  (0ms)
+    await E(wallet).getBalance('carol'); // cache  (0ms)
+    await E(wallet).getBalance('dave'); //  network (only match)
+    expect(localGetBalance).toHaveBeenCalledWith('alice');
+    expect(cacheGetBalance).toHaveBeenCalledWith('bob');
+    expect(cacheGetBalance).toHaveBeenCalledWith('carol');
+    expect(networkGetBalance).toHaveBeenCalledWith('dave');
+    expect(networkGetBalance).toHaveBeenCalledTimes(1);
+    expect(localGetBalance).toHaveBeenCalledTimes(1);
+    expect(cacheGetBalance).toHaveBeenCalledTimes(2);
+    localGetBalance.mockClear();
+    cacheGetBalance.mockClear();
+    networkGetBalance.mockClear();
 
     // ── Tier 4: Heterogeneous methods ────────────────────────
     // A write-capable section that declares `transfer`. None of the
@@ -228,20 +260,8 @@ describe('e2e: multi-tier capability routing', () => {
           ),
         }),
         {
-          getBalance: (acct: string) => {
-            log.push('write-backend');
-            return ledger[acct] ?? 0;
-          },
-          transfer: (from: string, to: string, amt: number) => {
-            log.push('write-backend');
-            const fromBal = ledger[from] ?? 0;
-            if (fromBal < amt) {
-              return false;
-            }
-            ledger[from] = fromBal - amt;
-            ledger[to] = (ledger[to] ?? 0) + amt;
-            return true;
-          },
+          getBalance: writeBackendGetBalance,
+          transfer: writeBackendTransfer,
         },
       ) as unknown as Section,
       metadata: { latencyMs: 200, label: 'write-backend' },
@@ -255,70 +275,61 @@ describe('e2e: multi-tier capability routing', () => {
       string,
       (...args: unknown[]) => unknown
     >;
-    expect(await E(facade).transfer('alice', 'dave', 100)).toBe(true);
-    expect(log).toStrictEqual(['write-backend']);
-    log.length = 0;
+    await E(facade).transfer('alice', 'dave', 100);
+    expect(writeBackendTransfer).toHaveBeenCalledWith('alice', 'dave', 100);
+    writeBackendTransfer.mockClear();
 
     // The shared ledger is mutated. All tiers see the new state because
     // they all close over the same ledger (sheaf condition by construction).
-    expect(await E(wallet).getBalance('alice')).toBe(900); //  local (1ms), was 1000
-    expect(await E(wallet).getBalance('dave')).toBe(100); //   write-backend (200ms < 500ms)
-    expect(await E(wallet).getBalance('bob')).toBe(500); //    cache, unchanged
-    expect(log).toStrictEqual(['local', 'write-backend', 'cache']);
+    await E(wallet).getBalance('alice'); // local (1ms), was 1000
+    await E(wallet).getBalance('dave'); //  write-backend (200ms < 500ms for dave)
+    await E(wallet).getBalance('bob'); //   cache, unchanged
+    expect(localGetBalance).toHaveBeenCalledWith('alice');
+    expect(writeBackendGetBalance).toHaveBeenCalledWith('dave');
+    expect(cacheGetBalance).toHaveBeenCalledWith('bob');
+    expect(ledger.alice).toBe(900);
+    expect(ledger.dave).toBe(100);
+    expect(ledger.bob).toBe(500);
   });
 
   it('same germ structure, different lifts, different routing', async () => {
     // The lift is the operational policy — swap it and the same
     // set of sections produces different routing behavior.
-    const ledger: Record<string, number> = { alice: 1000, bob: 500 };
+    const networkGetBalance = vi.fn((_acct: string): number => 0);
+    const mirrorGetBalance = vi.fn((_acct: string): number => 0);
 
-    const build = (lift: Lift<Tier>) => {
-      const log: string[] = [];
-      const sections: PresheafSection<Tier>[] = [
-        {
-          exo: makeExo(
-            'Wallet:0',
-            M.interface('Wallet:0', {
-              getBalance: M.call(M.string()).returns(M.number()),
-            }),
-            {
-              getBalance: (acct: string) => {
-                log.push('network');
-                return ledger[acct] ?? 0;
-              },
-            },
-          ) as unknown as Section,
-          metadata: { latencyMs: 500, label: 'network' },
-        },
-        {
-          exo: makeExo(
-            'Wallet:1',
-            M.interface('Wallet:1', {
-              getBalance: M.call(M.string()).returns(M.number()),
-            }),
-            {
-              getBalance: (acct: string) => {
-                log.push('mirror');
-                return ledger[acct] ?? 0;
-              },
-            },
-          ) as unknown as Section,
-          metadata: { latencyMs: 50, label: 'mirror' },
-        },
-      ];
-
-      return {
-        wallet: sheafify({ name: 'Wallet', sections }).getGlobalSection({
-          lift,
-        }),
-        log,
-      };
-    };
+    const makeSections = (): PresheafSection<Tier>[] => [
+      {
+        exo: makeExo(
+          'Wallet:0',
+          M.interface('Wallet:0', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: networkGetBalance },
+        ) as unknown as Section,
+        metadata: { latencyMs: 500, label: 'network' },
+      },
+      {
+        exo: makeExo(
+          'Wallet:1',
+          M.interface('Wallet:1', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: mirrorGetBalance },
+        ) as unknown as Section,
+        metadata: { latencyMs: 50, label: 'mirror' },
+      },
+    ];
 
     // Policy A: fastest wins (mirror at 50ms < network at 500ms).
-    const { wallet: walletA, log: logA } = build(fastest);
-    expect(await E(walletA).getBalance('alice')).toBe(1000);
-    expect(logA).toStrictEqual(['mirror']);
+    const walletA = sheafify({
+      name: 'Wallet',
+      sections: makeSections(),
+    }).getGlobalSection({ lift: fastest });
+    await E(walletA).getBalance('alice');
+    expect(mirrorGetBalance).toHaveBeenCalledWith('alice');
+    expect(networkGetBalance).not.toHaveBeenCalled();
+    mirrorGetBalance.mockClear();
 
     // Policy B: highest latency wins (simulate "prefer-canonical-source").
     const slowest: Lift<Tier> = async (germs) =>
@@ -332,9 +343,13 @@ describe('e2e: multi-tier capability routing', () => {
           0,
         ),
       );
-    const { wallet: walletB, log: logB } = build(slowest);
-    expect(await E(walletB).getBalance('alice')).toBe(1000);
-    expect(logB).toStrictEqual(['network']);
+    const walletB = sheafify({
+      name: 'Wallet',
+      sections: makeSections(),
+    }).getGlobalSection({ lift: slowest });
+    await E(walletB).getBalance('alice');
+    expect(networkGetBalance).toHaveBeenCalledWith('alice');
+    expect(mirrorGetBalance).not.toHaveBeenCalled();
   });
 });
 
@@ -350,15 +365,18 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
       return Promise.resolve(pushIdx >= 0 ? pushIdx : 0);
     };
 
+    const pullGetBalance = vi.fn((_acct: string): number => 0);
+    const pushGetBalance = vi.fn((_acct: string): number => 0);
+
     const sections: PresheafSection<{ push: boolean }>[] = [
       {
-        // Pull section: M.any() guards, push=false
+        // Pull section: M.string() guards, push=false
         exo: makeExo(
           'PushPull:0',
           M.interface('PushPull:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
-          { getBalance: (_acct: string) => 999 },
+          { getBalance: pullGetBalance },
         ) as unknown as Section,
         metadata: { push: false },
       },
@@ -369,7 +387,7 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
           M.interface('PushPull:1', {
             getBalance: M.call(M.eq('alice')).returns(M.number()),
           }),
-          { getBalance: (_acct: string) => 42 },
+          { getBalance: pushGetBalance },
         ) as unknown as Section,
         metadata: { push: true },
       },
@@ -380,9 +398,14 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
     });
 
     // alice: both match, preferPush picks push section
-    expect(await E(wallet).getBalance('alice')).toBe(42);
+    await E(wallet).getBalance('alice');
+    expect(pushGetBalance).toHaveBeenCalledWith('alice');
+    expect(pullGetBalance).not.toHaveBeenCalled();
+    pushGetBalance.mockClear();
 
     // bob: only pull matches (stalk=1, lift bypassed)
-    expect(await E(wallet).getBalance('bob')).toBe(999);
+    await E(wallet).getBalance('bob');
+    expect(pullGetBalance).toHaveBeenCalledWith('bob');
+    expect(pushGetBalance).not.toHaveBeenCalled();
   });
 });
