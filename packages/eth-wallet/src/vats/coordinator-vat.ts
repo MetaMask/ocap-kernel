@@ -271,7 +271,11 @@ export function buildRootObject(
   // Smart account configuration (persisted in baggage)
   let smartAccountConfig: SmartAccountConfig | undefined;
 
-  // Away wallet reference (set via registerAwayWallet from the away device)
+  // Away wallet reference (set via registerAwayWallet from the away device).
+  // Note: like externalSigner, this is a transient CapTP reference — it will
+  // be stale after kernel restart. The baggage entry is restored but the
+  // remote endpoint may be gone. pushDelegationToAway() will fail at call
+  // time if the reference is dead.
   let awayWallet: AwayWalletFacet | undefined;
 
   // Cached peer (home) accounts for offline autonomy
@@ -1521,7 +1525,9 @@ export function buildRootObject(
         await E(peerWallet).registerAwayWallet(coordinator);
       } catch {
         // Home device may not support registerAwayWallet yet (older version).
-        // Delegation transfer falls back to copy-paste.
+        // Delegation transfer falls back to copy-paste. The error is not
+        // surfaced because vats have no logging facility; the user can detect
+        // this via getCapabilities() on the home side (hasAwayWallet: false).
       }
     },
 
@@ -1535,6 +1541,11 @@ export function buildRootObject(
     },
 
     async registerAwayWallet(awayRef: unknown): Promise<void> {
+      if (!awayRef || typeof awayRef !== 'object') {
+        throw new Error(
+          'Invalid away wallet reference: must be a non-null object',
+        );
+      }
       awayWallet = awayRef as AwayWalletFacet;
       persistBaggage('awayWallet', awayWallet);
     },
