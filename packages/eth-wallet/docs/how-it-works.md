@@ -20,9 +20,9 @@ The home device supports two signing modes:
 | Mode | Script | How signing works | Smart account type |
 | --- | --- | --- | --- |
 | **Mnemonic** | `setup-home.sh` | Automatic — keyring signs locally | Stateless EIP-7702 (EOA = smart account) |
-| **Interactive (MetaMask)** | `setup-home-interactive.sh` | Each request triggers MetaMask Mobile approval | Hybrid (separate address, auto-funded) |
+| **Interactive (MetaMask)** | `setup-home-interactive.sh` | MetaMask Mobile signs the delegation once during setup; agent acts autonomously after | Hybrid (separate address, auto-funded) |
 
-The away device discovers the home's signing mode via `getCapabilities()` → `signingMode`. Values like `peer:local` (mnemonic) or `peer:external:metamask` (interactive) tell the agent whether user approval is needed and on which channel.
+The away device discovers the home's signing mode via `getCapabilities()` → `signingMode`. Values like `peer:local` (mnemonic) or `peer:external:metamask` (interactive) indicate how the home device signs — but in both modes the away device operates autonomously after setup via delegation redemption.
 
 ---
 
