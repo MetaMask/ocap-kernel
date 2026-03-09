@@ -490,10 +490,25 @@ else
   ")
 fi
 
+# ---------------------------------------------------------------------------
+# 9c. Send delegate address to home device
+# ---------------------------------------------------------------------------
+
+info "Sending delegate address to home device..."
+SEND_ADDR_PARAMS=$(KREF="$ROOT_KREF" ADDR="$DELEGATE_ADDR" node -e "
+  const p = JSON.stringify([process.env.KREF, 'sendDelegateAddressToPeer', [process.env.ADDR]]);
+  process.stdout.write(p);
+")
+if daemon_exec --quiet queueMessage "$SEND_ADDR_PARAMS" --timeout 15 >/dev/null 2>&1; then
+  ok "Delegate address sent to home device: $DELEGATE_ADDR"
+else
+  echo -e "  ${YELLOW}Could not send delegate address automatically.${RESET}" >&2
+fi
+
 cat >&2 <<EOF
 
 $(echo -e "${GREEN}${BOLD}")══════════════════════════════════════════════
-  Away wallet ready — delegation needed
+  Away wallet ready — waiting for delegation
 ══════════════════════════════════════════════$(echo -e "${RESET}")
 
   $(echo -e "${DIM}")Coordinator kref :$(echo -e "${RESET}") $ROOT_KREF
@@ -501,18 +516,12 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
   $(echo -e "${DIM}")Delegate address :$(echo -e "${RESET}") $DELEGATE_ADDR
   $(echo -e "${DIM}")Peer connected   :$(echo -e "${RESET}") $(echo -e "${GREEN}")true$(echo -e "${RESET}")
 
-$(echo -e "${YELLOW}${BOLD}")  Paste this delegate address into the HOME device script:$(echo -e "${RESET}")
-
-$(echo -e "${BOLD}")  $DELEGATE_ADDR$(echo -e "${RESET}")
-
-  $(echo -e "${DIM}")The delegation will be pushed automatically over the QUIC connection.$(echo -e "${RESET}")
-  $(echo -e "${DIM}")If that doesn't work, you can paste the delegation JSON manually below.$(echo -e "${RESET}")
+  $(echo -e "${DIM}")Run setup-home.sh on the home device now.$(echo -e "${RESET}")
+  $(echo -e "${DIM}")The delegate address and delegation will be exchanged automatically.$(echo -e "${RESET}")
 
 EOF
 
 info "Waiting for delegation from home device (up to 120s)..."
-echo -e "  ${DIM}Run setup-home.sh or update-limits.sh on the home device now.${RESET}" >&2
-echo -e "  ${DIM}The delegation will be pushed automatically over QUIC.${RESET}" >&2
 
 DEL_COUNT="0"
 POLL_FAILURES=0
