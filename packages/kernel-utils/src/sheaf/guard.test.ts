@@ -9,6 +9,7 @@ import type { MethodGuard, Pattern } from '@endo/patterns';
 import { describe, it, expect } from 'vitest';
 
 import { collectSheafGuard } from './guard.ts';
+import { guardCoversPoint } from './stalk.ts';
 import type { Section } from './types.ts';
 
 const makeSection = (
@@ -157,6 +158,30 @@ describe('collectSheafGuard', () => {
 
     expect(matches('hello', restArgGuard)).toBe(true);
     expect(matches(42, restArgGuard)).toBe(true);
+  });
+
+  it('rest-arg section covers optional positions (no false negative)', () => {
+    // Section A requires 1 number; Section B requires 0 args but accepts any
+    // number of strings via rest. A call ['hello'] is covered by B — the
+    // collected guard must pass it too.
+    const sections = [
+      makeSection(
+        'AB:0',
+        { f: M.call(M.number()).returns(M.any()) },
+        { f: (_: number) => undefined },
+      ),
+      makeSection(
+        'AB:1',
+        { f: M.call().rest(M.string()).returns(M.any()) },
+        { f: (..._args: string[]) => undefined },
+      ),
+    ];
+
+    const guard = collectSheafGuard('AB', sections);
+
+    expect(guardCoversPoint(guard, 'f', ['hello'])).toBe(true); // covered by B
+    expect(guardCoversPoint(guard, 'f', [42])).toBe(true); // covered by A
+    expect(guardCoversPoint(guard, 'f', [])).toBe(true); // covered by B (0 required)
   });
 
   it('multi-method guard collection', () => {
