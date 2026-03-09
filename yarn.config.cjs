@@ -35,6 +35,7 @@ const exportsExceptions = ['kernel-cli', 'kernel-shims'];
 const filesExceptions = [
   'kernel-browser-runtime',
   'kernel-store',
+  'kernel-utils',
   'ocap-kernel',
   'streams',
 ];
@@ -129,6 +130,10 @@ module.exports = defineConfig({
         if (!isPrivate) {
           // Non-private packages must not depend on private packages.
           expectNoPrivateWorkspaceProductionDependencies(Yarn, workspace);
+          // Non-private packages must not use the patch: protocol in production deps.
+          expectNoPatchProtocolProductionDependencies(Yarn, workspace);
+          // Non-private packages must declare and ship any patched dependencies.
+          expectPatchedDependenciesAreDeclaredAndShipped(workspace);
         }
 
         if (!isPrivate && !exportsExceptions.includes(workspaceBasename)) {
@@ -857,6 +862,55 @@ function expectNoPrivateWorkspaceProductionDependencies(Yarn, workspace) {
     ) {
       dependency.error(
         `Non-private package "${workspace.manifest.name}" must not depend on private package "${dependency.ident}" in "${dependency.type}"`,
+      );
+    }
+  }
+}
+
+/**
+ * Expect that non-private workspace packages do not have production
+ * dependencies using the `patch:` protocol. Patches are workspace-local and
+ * are not bundled with published packages, making them unresolvable for
+ * consumers. Use `patch-package` with a root `patches/` directory instead.
+ *
+ * @param {Yarn} Yarn - The Yarn "global".
+ * @param {Workspace} workspace - The workspace to check.
+ */
+function expectNoPatchProtocolProductionDependencies(Yarn, workspace) {
+  for (const dependency of Yarn.dependencies({ workspace })) {
+    if (dependency.type === 'devDependencies') {
+      continue;
+    }
+    if (dependency.range.startsWith('patch:')) {
+      dependency.error(
+        `Non-private package "${workspace.manifest.name}" must not use the "patch:" protocol for "${dependency.ident}" in "${dependency.type}". Use patch-package with a root patches/ directory and declare the patch in "patchedDependencies" instead.`,
+      );
+    }
+  }
+}
+
+/**
+ * Expect that non-private workspace packages declare all patched transitive
+ * dependencies in a `patchedDependencies` field, and that each declared
+ * patch file is included in `files`.
+ *
+ * @param {Workspace} workspace - The workspace to check.
+ */
+function expectPatchedDependenciesAreDeclaredAndShipped(workspace) {
+  const patchedDependencies = workspace.manifest.patchedDependencies ?? {};
+  const files = workspace.manifest.files ?? [];
+
+  for (const [dep, patchPath] of Object.entries(patchedDependencies)) {
+    // Each patch path must be covered by a files entry.
+    const normalized = patchPath.replace(/^\.\//u, '');
+    const dir = `${normalized.split('/')[0]}/`;
+    if (
+      !files.includes(dir) &&
+      !files.includes(patchPath) &&
+      !files.includes(normalized)
+    ) {
+      workspace.error(
+        `Non-private package "${workspace.manifest.name}" declares patch "${patchPath}" for "${dep}" in "patchedDependencies", but "${dir}" is not in "files". Add it so the patch is shipped with the package.`,
       );
     }
   }
