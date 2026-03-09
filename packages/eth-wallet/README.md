@@ -309,12 +309,14 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Coordinator -- Peer Connectivity
 
-| Method                          | Description                                                                                                                 |
-| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `issueOcapUrl()`                | Issue an OCAP URL that grants a reference to this coordinator. Requires `ocapURLIssuerService`.                             |
-| `connectToPeer(ocapUrl)`        | Connect to a remote coordinator via an OCAP URL. Caches peer accounts for offline use. Requires `ocapURLRedemptionService`. |
-| `refreshPeerAccounts()`         | Re-fetch and cache peer accounts. Throws if no peer wallet is connected.                                                    |
-| `handleSigningRequest(request)` | Handle an incoming signing request from a peer wallet.                                                                      |
+| Method                             | Description                                                                                                                 |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `issueOcapUrl()`                   | Issue an OCAP URL that grants a reference to this coordinator. Requires `ocapURLIssuerService`.                             |
+| `connectToPeer(ocapUrl)`           | Connect to a remote coordinator via an OCAP URL. Caches peer accounts for offline use. Requires `ocapURLRedemptionService`. |
+| `refreshPeerAccounts()`            | Re-fetch and cache peer accounts. Throws if no peer wallet is connected.                                                    |
+| `registerAwayWallet(awayRef)`      | Register an away wallet reference for delegation push. Called automatically by the away device during `connectToPeer`.      |
+| `pushDelegationToAway(delegation)` | Push a signed delegation to the registered away wallet over CapTP. Throws if no away wallet is registered.                  |
+| `handleSigningRequest(request)`    | Handle an incoming signing request from a peer wallet.                                                                      |
 
 ### Coordinator -- Introspection
 
@@ -349,6 +351,7 @@ type WalletCapabilities = {
   autonomy?: string;
   peerAccountsCached?: boolean;
   cachedPeerAccounts?: Address[];
+  hasAwayWallet?: boolean;
 };
 ```
 

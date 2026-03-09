@@ -202,6 +202,7 @@ type PeerWalletFacet = {
     message?: string;
     account?: Address;
   }) => Promise<Hex>;
+  registerAwayWallet: (awayRef: unknown) => Promise<void>;
 };
 
 type ExternalSignerFacet = {
@@ -209,6 +210,10 @@ type ExternalSignerFacet = {
   signTypedData: (data: Eip712TypedData, from: Address) => Promise<Hex>;
   signMessage: (message: string, from: Address) => Promise<Hex>;
   signTransaction: (tx: TransactionRequest) => Promise<Hex>;
+};
+
+type AwayWalletFacet = {
+  receiveDelegation: (delegation: Delegation) => Promise<void>;
 };
 
 type OcapURLIssuerFacet = {
@@ -266,6 +271,9 @@ export function buildRootObject(
   // Smart account configuration (persisted in baggage)
   let smartAccountConfig: SmartAccountConfig | undefined;
 
+  // Away wallet reference (set via registerAwayWallet from the away device)
+  let awayWallet: AwayWalletFacet | undefined;
+
   // Cached peer (home) accounts for offline autonomy
   let cachedPeerAccounts: Address[] = [];
   // Cached peer signing mode for offline autonomy
@@ -294,6 +302,9 @@ export function buildRootObject(
     smartAccountConfig = baggage.get(
       'smartAccountConfig',
     ) as SmartAccountConfig;
+  }
+  if (baggage.has('awayWallet')) {
+    awayWallet = baggage.get('awayWallet') as AwayWalletFacet;
   }
   if (baggage.has('cachedPeerAccounts')) {
     cachedPeerAccounts = baggage.get('cachedPeerAccounts') as Address[];
@@ -1503,6 +1514,15 @@ export function buildRootObject(
         // Peer may not be ready yet; accounts can be cached later
         // via refreshPeerAccounts()
       }
+
+      // Register this coordinator as the away wallet on the home device
+      // so the home can push delegations directly over CapTP.
+      try {
+        await E(peerWallet).registerAwayWallet(coordinator);
+      } catch {
+        // Home device may not support registerAwayWallet yet (older version).
+        // Delegation transfer falls back to copy-paste.
+      }
     },
 
     async refreshPeerAccounts(): Promise<Address[]> {
@@ -1512,6 +1532,20 @@ export function buildRootObject(
       cachedPeerAccounts = await E(peerWallet).getAccounts();
       persistBaggage('cachedPeerAccounts', cachedPeerAccounts);
       return cachedPeerAccounts;
+    },
+
+    async registerAwayWallet(awayRef: unknown): Promise<void> {
+      awayWallet = awayRef as AwayWalletFacet;
+      persistBaggage('awayWallet', awayWallet);
+    },
+
+    async pushDelegationToAway(delegation: Delegation): Promise<void> {
+      if (!awayWallet) {
+        throw new Error(
+          'No away wallet registered. The away device must connect first.',
+        );
+      }
+      await E(awayWallet).receiveDelegation(delegation);
     },
 
     async handleSigningRequest(request: {
@@ -1668,6 +1702,7 @@ export function buildRootObject(
         autonomy,
         peerAccountsCached: cachedPeerAccounts.length > 0,
         cachedPeerAccounts,
+        hasAwayWallet: awayWallet !== undefined,
       });
     },
   });
