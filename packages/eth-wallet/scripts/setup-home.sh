@@ -478,12 +478,12 @@ EOF
 # Poll for the delegate address from the away device (sent over QUIC/CapTP).
 # The away device calls sendDelegateAddressToPeer after connecting.
 DELEGATE_ADDR=""
-info "Waiting for delegate address from away device (up to 120s)..."
+info "Waiting for delegate address from away device (up to 10 min)..."
 echo -e "  ${DIM}Run setup-away.sh on the away device now if you haven't already.${RESET}" >&2
 echo -e "  ${DIM}Or paste the delegate address here to skip waiting.${RESET}" >&2
 
 POLL_FAILURES=0
-for i in $(seq 1 60); do
+for i in $(seq 1 300); do
   DELEGATE_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getDelegateAddress\", []]" 2>/dev/null) || DELEGATE_RAW=""
   if [[ -n "$DELEGATE_RAW" ]]; then
     POLL_FAILURES=0
@@ -505,7 +505,7 @@ for i in $(seq 1 60); do
       fail "Daemon appears to be down (5 consecutive failed polls). Check: tail -f ~/.ocap/daemon.log"
     fi
   fi
-  if [[ "$i" -eq 60 ]]; then
+  if [[ "$i" -eq 300 ]]; then
     echo "" >&2
     echo -e "  ${YELLOW}Timed out waiting. Falling back to manual input.${RESET}" >&2
     echo -ne "${CYAN}→${RESET} Paste the delegate address: " >&2
