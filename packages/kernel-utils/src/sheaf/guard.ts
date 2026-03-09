@@ -74,7 +74,14 @@ export const collectSheafGuard = <Core extends Methods>(
     if (idx < payload.argGuards.length) {
       return payload.argGuards[idx];
     }
-    return payload.optionalArgGuards?.[idx - payload.argGuards.length];
+    const optIdx = idx - payload.argGuards.length;
+    if (
+      payload.optionalArgGuards &&
+      optIdx < payload.optionalArgGuards.length
+    ) {
+      return payload.optionalArgGuards[optIdx];
+    }
+    return payload.restArgGuard;
   };
 
   const unionMethodGuards: Record<string, MethodGuard> = {};
