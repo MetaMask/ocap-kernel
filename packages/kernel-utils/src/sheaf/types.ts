@@ -65,11 +65,10 @@ export type Presheaf<MetaData = unknown> = PresheafSection<MetaData>[];
  * granted authority for auditing and revocation.
  */
 export type Sheaf<MetaData = unknown> = {
-  /** Produce a revocable dispatch exo over the given guard (or the full union). */
-  getSection: (opts: {
-    guard?: InterfaceGuard;
-    lift: Lift<MetaData>;
-  }) => object;
+  /** Produce a revocable dispatch exo over the given guard. */
+  getSection: (opts: { guard: InterfaceGuard; lift: Lift<MetaData> }) => object;
+  /** Produce a revocable dispatch exo over the full union guard of all presheaf sections. */
+  getGlobalSection: (opts: { lift: Lift<MetaData> }) => object;
   /** Revoke every granted section whose guard covers the point (method, ...args). */
   revokePoint: (method: string, ...args: unknown[]) => void;
   /** Union guard of all active (non-revoked) granted sections, or undefined. */
