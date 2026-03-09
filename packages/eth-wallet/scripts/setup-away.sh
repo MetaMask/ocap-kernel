@@ -521,13 +521,13 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
 
 EOF
 
-info "Waiting for delegation from home device (up to 120s)..."
+info "Waiting for delegation from home device (up to 10 min)..."
 echo -e "  ${DIM}Press Enter to skip waiting and paste manually.${RESET}" >&2
 
 DEL_COUNT="0"
 POLL_FAILURES=0
 MANUAL_SKIP=false
-for i in $(seq 1 60); do
+for i in $(seq 1 300); do
   CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
   if [[ -n "$CAPS_RAW" ]]; then
     POLL_FAILURES=0
@@ -546,7 +546,7 @@ for i in $(seq 1 60); do
       fail "Daemon appears to be down (5 consecutive failed polls). Check: tail -f ~/.ocap/daemon.log"
     fi
   fi
-  if [[ "$i" -eq 60 ]]; then
+  if [[ "$i" -eq 300 ]]; then
     MANUAL_SKIP=true
     break
   fi
@@ -559,7 +559,7 @@ done
 
 if [[ "$MANUAL_SKIP" == true && "$DEL_COUNT" == "0" ]]; then
   echo "" >&2
-  if [[ "$i" -eq 60 ]]; then
+  if [[ "$i" -eq 300 ]]; then
     echo -e "  ${YELLOW}Timed out waiting. Falling back to manual paste.${RESET}" >&2
   fi
   echo -e "${CYAN}→${RESET} Paste the delegation JSON from the home device (press Ctrl+D when done):" >&2
