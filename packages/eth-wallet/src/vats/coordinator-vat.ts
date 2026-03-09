@@ -10,11 +10,7 @@ import {
   prepareUserOpTypedData,
   resolveEnvironment,
 } from '../lib/sdk.ts';
-import {
-  buildDelegationUserOp,
-  computeUserOpHash,
-  ENTRY_POINT_V07,
-} from '../lib/userop.ts';
+import { computeUserOpHash, ENTRY_POINT_V07 } from '../lib/userop.ts';
 import type {
   Action,
   Address,
@@ -216,6 +212,7 @@ type ExternalSignerFacet = {
 
 type AwayWalletFacet = {
   receiveDelegation: (delegation: Delegation) => Promise<void>;
+  revokeDelegationLocally: (id: string) => Promise<void>;
 };
 
 type OcapURLIssuerFacet = {
@@ -548,18 +545,30 @@ export function buildRootObject(
   }
 
   /**
-   * Build, sign, and submit a UserOp that redeems one or more delegations.
+   * Add a 10% buffer to a hex gas value to meet bundler minimums.
    *
-   * @param options - UserOp pipeline options.
-   * @param options.delegations - The delegation chain (leaf to root).
-   * @param options.execution - The execution to perform.
-   * @param options.maxFeePerGas - Max fee per gas.
-   * @param options.maxPriorityFeePerGas - Max priority fee per gas.
+   * @param value - The hex gas value.
+   * @returns The bumped hex value.
+   */
+  function bumpHex(value: Hex): Hex {
+    const bumped = (BigInt(value) * 110n) / 100n;
+    return `0x${bumped.toString(16)}`;
+  }
+
+  /**
+   * Build, sign, and submit a UserOp. Shared pipeline for both delegation
+   * redemption and on-chain delegation revocation.
+   *
+   * @param options - Pipeline options.
+   * @param options.sender - The smart account address that sends the UserOp.
+   * @param options.callData - The encoded callData for the UserOp.
+   * @param options.maxFeePerGas - Optional max fee per gas override.
+   * @param options.maxPriorityFeePerGas - Optional max priority fee per gas override.
    * @returns The UserOp hash from the bundler.
    */
-  async function submitDelegationUserOp(options: {
-    delegations: Delegation[];
-    execution: Execution;
+  async function buildAndSubmitUserOp(options: {
+    sender: Address;
+    callData: Hex;
     maxFeePerGas?: Hex;
     maxPriorityFeePerGas?: Hex;
   }): Promise<Hex> {
@@ -570,23 +579,16 @@ export function buildRootObject(
       throw new Error('Bundler not configured');
     }
 
+    const { sender, callData } = options;
+
     // Estimate gas fees if not explicitly provided
     let { maxFeePerGas, maxPriorityFeePerGas } = options;
     if (!maxFeePerGas || !maxPriorityFeePerGas) {
       const fees = await E(providerVat).getGasFees();
-      // Add 10% buffer to gas fees to meet bundler minimums
-      const bumpHex = (value: Hex): Hex => {
-        const bumped = (BigInt(value) * 110n) / 100n;
-        return `0x${bumped.toString(16)}`;
-      };
       maxFeePerGas = maxFeePerGas ?? bumpHex(fees.maxFeePerGas);
       maxPriorityFeePerGas =
         maxPriorityFeePerGas ?? bumpHex(fees.maxPriorityFeePerGas);
     }
-
-    // Use smart account address as sender when configured, otherwise delegate
-    const sender =
-      smartAccountConfig?.address ?? options.delegations[0].delegate;
 
     // Get nonce from EntryPoint contract (ERC-4337 nonce)
     const nonceHex = await E(providerVat).getEntryPointNonce({
@@ -622,39 +624,26 @@ export function buildRootObject(
       }
     }
 
-    // Build the callData using the SDK's encoder, which wraps
-    // redeemDelegations inside a DeleGatorCore.execute call so the
-    // smart account routes the call to the DelegationManager.
-    const sdkCallData = buildSdkRedeemCallData({
-      delegations: options.delegations,
-      execution: options.execution,
-      chainId: bundlerConfig.chainId,
-    });
-
-    // Build unsigned UserOp with the SDK-encoded callData.
-    // Include a dummy 65-byte signature so that the smart account's
-    // validateUserOp can parse the ECDSA signature during bundler/paymaster
-    // simulation. An empty signature (0x) causes the simulation to revert.
-    const baseUserOp = buildDelegationUserOp({
+    // Build unsigned UserOp with a dummy 65-byte signature so that the
+    // smart account's validateUserOp can parse the ECDSA signature during
+    // bundler/paymaster simulation. An empty signature (0x) causes revert.
+    const unsignedUserOp: UserOperation = {
       sender,
       nonce: nonceHex,
-      delegations: options.delegations,
-      execution: options.execution,
+      callData,
+      callGasLimit: '0x50000' as Hex,
+      verificationGasLimit: '0x60000' as Hex,
+      preVerificationGas: '0x10000' as Hex,
       maxFeePerGas,
       maxPriorityFeePerGas,
+      signature:
+        '0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c' as Hex,
       ...(includeFactory && smartAccountConfig
         ? {
             factory: smartAccountConfig.factory as Hex,
             factoryData: smartAccountConfig.factoryData as Hex,
           }
         : {}),
-    });
-    // Use SDK-encoded callData and a dummy 65-byte signature for simulation
-    const unsignedUserOp: UserOperation = {
-      ...baseUserOp,
-      callData: sdkCallData,
-      signature:
-        '0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c' as Hex,
     };
 
     let userOpWithGas: UserOperation;
@@ -727,13 +716,52 @@ export function buildRootObject(
       signature,
     };
 
-    const result = await E(providerVat).submitUserOp({
+    return E(providerVat).submitUserOp({
       bundlerUrl: bundlerConfig.bundlerUrl,
       entryPoint: bundlerConfig.entryPoint,
       userOp: signedUserOp,
     });
+  }
 
-    return result;
+  /**
+   * Build, sign, and submit a UserOp that redeems one or more delegations.
+   *
+   * @param options - UserOp pipeline options.
+   * @param options.delegations - The delegation chain (leaf to root).
+   * @param options.execution - The execution to perform.
+   * @param options.maxFeePerGas - Max fee per gas.
+   * @param options.maxPriorityFeePerGas - Max priority fee per gas.
+   * @returns The UserOp hash from the bundler.
+   */
+  async function submitDelegationUserOp(options: {
+    delegations: Delegation[];
+    execution: Execution;
+    maxFeePerGas?: Hex | undefined;
+    maxPriorityFeePerGas?: Hex | undefined;
+  }): Promise<Hex> {
+    const sender =
+      smartAccountConfig?.address ?? options.delegations[0].delegate;
+
+    const sdkCallData = buildSdkRedeemCallData({
+      delegations: options.delegations,
+      execution: options.execution,
+      chainId: bundlerConfig?.chainId ?? 1,
+    });
+
+    const userOpOptions: {
+      sender: Address;
+      callData: Hex;
+      maxFeePerGas?: Hex;
+      maxPriorityFeePerGas?: Hex;
+    } = { sender, callData: sdkCallData };
+    if (options.maxFeePerGas) {
+      userOpOptions.maxFeePerGas = options.maxFeePerGas;
+    }
+    if (options.maxPriorityFeePerGas) {
+      userOpOptions.maxPriorityFeePerGas = options.maxPriorityFeePerGas;
+    }
+
+    return buildAndSubmitUserOp(userOpOptions);
   }
 
   /**
@@ -745,155 +773,24 @@ export function buildRootObject(
    * @returns The UserOp hash from the bundler.
    */
   async function submitDisableUserOp(delegation: Delegation): Promise<Hex> {
-    if (!providerVat) {
-      throw new Error('Provider vat not available');
-    }
-    if (!bundlerConfig) {
-      throw new Error(
-        'Bundler not configured. On-chain revocation requires a bundler — call configureBundler first.',
-      );
-    }
-
-    // The delegator's smart account must submit the disable call
     const sender = smartAccountConfig?.address ?? delegation.delegator;
 
-    // Gas fees
-    const fees = await E(providerVat).getGasFees();
-    const bumpHex = (value: Hex): Hex => {
-      const bumped = (BigInt(value) * 110n) / 100n;
-      return `0x${bumped.toString(16)}`;
-    };
-    const maxFeePerGas = bumpHex(fees.maxFeePerGas);
-    const maxPriorityFeePerGas = bumpHex(fees.maxPriorityFeePerGas);
-
-    // Nonce
-    const nonceHex = await E(providerVat).getEntryPointNonce({
-      entryPoint: bundlerConfig.entryPoint,
-      sender,
-    });
-
-    // Factory data (same logic as submitDelegationUserOp)
-    const isStateless7702 =
-      smartAccountConfig?.implementation === 'stateless7702';
-    let includeFactory = false;
-    if (
-      !isStateless7702 &&
-      smartAccountConfig?.factory &&
-      smartAccountConfig.factoryData
-    ) {
-      const code = (await E(providerVat).request('eth_getCode', [
-        sender,
-        'latest',
-      ])) as string;
-      includeFactory = code === '0x' || code === '0x0';
-
-      if (!includeFactory && smartAccountConfig.deployed === false) {
-        smartAccountConfig = harden({
-          ...smartAccountConfig,
-          deployed: true,
-        });
-        persistBaggage('smartAccountConfig', smartAccountConfig);
-      }
-    }
-
-    // Build disableDelegation callData
     const disableCallData = buildSdkDisableCallData({
       delegation,
-      chainId: bundlerConfig.chainId,
+      chainId: bundlerConfig?.chainId ?? 1,
     });
 
-    // Build unsigned UserOp
-    const unsignedUserOp: UserOperation = {
-      sender,
-      nonce: nonceHex,
-      callData: disableCallData,
-      callGasLimit: '0x50000' as Hex,
-      verificationGasLimit: '0x60000' as Hex,
-      preVerificationGas: '0x10000' as Hex,
-      maxFeePerGas,
-      maxPriorityFeePerGas,
-      signature:
-        '0xfffffffffffffffffffffffffffffff0000000000000000000000000000000007aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1c' as Hex,
-      ...(includeFactory && smartAccountConfig
-        ? {
-            factory: smartAccountConfig.factory as Hex,
-            factoryData: smartAccountConfig.factoryData as Hex,
-          }
-        : {}),
-    };
-
-    // Gas estimation / paymaster sponsorship
-    let userOpWithGas: UserOperation;
-
-    if (bundlerConfig.usePaymaster) {
-      const sponsorContext: Record<string, unknown> = {};
-      if (bundlerConfig.sponsorshipPolicyId) {
-        sponsorContext.sponsorshipPolicyId = bundlerConfig.sponsorshipPolicyId;
-      }
-
-      const sponsorResult = await E(providerVat).sponsorUserOp({
-        bundlerUrl: bundlerConfig.bundlerUrl,
-        entryPoint: bundlerConfig.entryPoint,
-        userOp: unsignedUserOp,
-        context: sponsorContext,
+    try {
+      return await buildAndSubmitUserOp({
+        sender,
+        callData: disableCallData,
       });
-
-      userOpWithGas = {
-        ...unsignedUserOp,
-        paymaster: sponsorResult.paymaster,
-        paymasterData: sponsorResult.paymasterData,
-        paymasterVerificationGasLimit:
-          sponsorResult.paymasterVerificationGasLimit,
-        paymasterPostOpGasLimit: sponsorResult.paymasterPostOpGasLimit,
-        callGasLimit: sponsorResult.callGasLimit,
-        verificationGasLimit: sponsorResult.verificationGasLimit,
-        preVerificationGas: sponsorResult.preVerificationGas,
-      };
-    } else {
-      const gasEstimate = await E(providerVat).estimateUserOpGas({
-        bundlerUrl: bundlerConfig.bundlerUrl,
-        entryPoint: bundlerConfig.entryPoint,
-        userOp: unsignedUserOp,
-      });
-
-      userOpWithGas = {
-        ...unsignedUserOp,
-        callGasLimit: gasEstimate.callGasLimit,
-        verificationGasLimit: gasEstimate.verificationGasLimit,
-        preVerificationGas: gasEstimate.preVerificationGas,
-      };
-    }
-
-    // Sign the UserOp
-    let signature: Hex;
-    if (isStateless7702) {
-      const hash = computeUserOpHash(
-        userOpWithGas,
-        bundlerConfig.entryPoint,
-        bundlerConfig.chainId,
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to submit on-chain revocation for delegation ${delegation.delegate}: ${message}`,
       );
-      signature = await resolveHashSigning(hash);
-    } else {
-      const userOpTypedData = prepareUserOpTypedData({
-        userOp: userOpWithGas,
-        entryPoint: bundlerConfig.entryPoint,
-        chainId: bundlerConfig.chainId,
-        smartAccountAddress: sender,
-      });
-      signature = await resolveTypedDataSigning(userOpTypedData);
     }
-
-    // Submit
-    const signedUserOp: UserOperation = {
-      ...userOpWithGas,
-      signature,
-    };
-
-    return E(providerVat).submitUserOp({
-      bundlerUrl: bundlerConfig.bundlerUrl,
-      entryPoint: bundlerConfig.entryPoint,
-      userOp: signedUserOp,
-    });
   }
 
   /**
@@ -1518,6 +1415,29 @@ export function buildRootObject(
     },
 
     /**
+     * Mark a delegation as revoked in the local store without submitting
+     * an on-chain transaction. Used by the home device to propagate
+     * revocations to the away device over CapTP.
+     *
+     * @param id - The delegation identifier.
+     */
+    async revokeDelegationLocally(id: string): Promise<void> {
+      if (!delegationVat) {
+        throw new Error('Delegation vat not available');
+      }
+      // Silently ignore if the delegation doesn't exist locally
+      // (the away device may not have received it yet).
+      try {
+        const delegation = await E(delegationVat).getDelegation(id);
+        if (delegation.status !== 'revoked') {
+          await E(delegationVat).revokeDelegation(id);
+        }
+      } catch {
+        // Delegation not found locally — nothing to revoke.
+      }
+    },
+
+    /**
      * Revoke a delegation on-chain by submitting a UserOp that calls
      * `DelegationManager.disableDelegation`. Blocks until the UserOp is
      * confirmed on-chain, then updates the local delegation status.
@@ -1543,11 +1463,31 @@ export function buildRootObject(
         );
       }
 
+      // Verify this wallet controls the delegator address
+      const accounts = await coordinator.getAccounts();
+      const delegatorLower = delegation.delegator.toLowerCase();
+      const smartAccountLower = smartAccountConfig?.address?.toLowerCase();
+      const isOwned =
+        accounts.some((a: string) => a.toLowerCase() === delegatorLower) ||
+        smartAccountLower === delegatorLower;
+      if (!isOwned) {
+        throw new Error(
+          `Cannot revoke delegation ${id}: delegator ${delegation.delegator} is not controlled by this wallet`,
+        );
+      }
+
       // Submit on-chain disable
       const userOpHash = await submitDisableUserOp(delegation);
 
-      // Wait for on-chain confirmation
-      await coordinator.waitForUserOpReceipt({ userOpHash });
+      // Wait for on-chain confirmation and check success
+      const receipt = (await coordinator.waitForUserOpReceipt({
+        userOpHash,
+      })) as { success?: boolean } | null;
+      if (receipt && receipt.success === false) {
+        throw new Error(
+          `On-chain revocation reverted for delegation ${id} (userOpHash: ${userOpHash})`,
+        );
+      }
 
       // Update local status after on-chain confirmation
       await E(delegationVat).revokeDelegation(id);
@@ -1741,12 +1681,23 @@ export function buildRootObject(
       persistBaggage('awayWallet', awayWallet);
     },
 
-    async pushDelegationToAway(delegation: Delegation): Promise<void> {
+    async pushDelegationToAway(
+      delegation: Delegation,
+      revokeIds?: string[],
+    ): Promise<void> {
       if (!awayWallet) {
         throw new Error(
           'No away wallet registered. The away device must connect first.',
         );
       }
+
+      // Revoke old delegations on the away device first so it stops using them
+      if (revokeIds && revokeIds.length > 0) {
+        for (const id of revokeIds) {
+          await E(awayWallet).revokeDelegationLocally(id);
+        }
+      }
+
       await E(awayWallet).receiveDelegation(delegation);
     },
 

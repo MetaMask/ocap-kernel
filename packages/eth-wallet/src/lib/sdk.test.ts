@@ -189,7 +189,7 @@ describe('lib/sdk', () => {
   });
 
   describe('buildSdkDisableCallData', () => {
-    it('produces callData wrapped in DeleGatorCore.execute', () => {
+    it('produces callData wrapped in DeleGatorCore.execute targeting DelegationManager', () => {
       const delegation = finalizeDelegation(
         makeDelegation({
           delegator: ALICE,
@@ -208,7 +208,14 @@ describe('lib/sdk', () => {
 
       // Wrapped in DeleGatorCore.execute (selector 0x5c1c6dcd)
       expect(callData).toMatch(/^0x5c1c6dcd/u);
-      expect(callData.length).toBeGreaterThan(10);
+
+      // The inner call targets the DelegationManager address
+      const env = resolveEnvironment(SEPOLIA_CHAIN_ID);
+      const dmAddrLower = env.DelegationManager.toLowerCase().slice(2);
+      expect(callData.toLowerCase()).toContain(dmAddrLower);
+
+      // The inner call uses disableDelegation (selector 0x49934047)
+      expect(callData.toLowerCase()).toContain('49934047');
     });
   });
 
