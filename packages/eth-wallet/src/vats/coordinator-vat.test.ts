@@ -1148,6 +1148,88 @@ describe('coordinator-vat', () => {
       const caps = await coordinator.getCapabilities();
       expect(caps.hasAwayWallet).toBe(true);
     });
+
+    it.each([
+      ['null', null],
+      ['undefined', undefined],
+      ['a string', 'not-an-object'],
+      ['a number', 42],
+    ])(
+      'rejects %s as away wallet reference',
+      async (
+        _label: string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ref: any,
+      ) => {
+        await expect(coordinator.registerAwayWallet(ref)).rejects.toThrow(
+          'Invalid away wallet reference: must be a non-null object',
+        );
+      },
+    );
+
+    it('overwrites a previous away wallet reference', async () => {
+      const walletA = {
+        receiveDelegation: vi.fn().mockResolvedValue(undefined),
+      };
+      const walletB = {
+        receiveDelegation: vi.fn().mockResolvedValue(undefined),
+      };
+
+      await coordinator.registerAwayWallet(walletA);
+      await coordinator.registerAwayWallet(walletB);
+
+      const delegation: Delegation = {
+        id: 'del-overwrite',
+        delegator: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
+        delegate: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address,
+        authority:
+          '0xa0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+        caveats: [],
+        salt: '0x01' as Hex,
+        signature: '0xsig' as Hex,
+        chainId: 1,
+        status: 'signed',
+      };
+
+      await coordinator.pushDelegationToAway(delegation);
+      expect(walletA.receiveDelegation).not.toHaveBeenCalled();
+      expect(walletB.receiveDelegation).toHaveBeenCalledWith(delegation);
+    });
+
+    it('restores away wallet from baggage on resuscitation', async () => {
+      const mockAwayWallet = {
+        receiveDelegation: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('awayWallet', mockAwayWallet);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      const delegation: Delegation = {
+        id: 'del-resuscitate',
+        delegator: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
+        delegate: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address,
+        authority:
+          '0xa0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+        caveats: [],
+        salt: '0x01' as Hex,
+        signature: '0xsig' as Hex,
+        chainId: 1,
+        status: 'signed',
+      };
+
+      await coord.pushDelegationToAway(delegation);
+      expect(mockAwayWallet.receiveDelegation).toHaveBeenCalledWith(delegation);
+    });
   });
 
   describe('pushDelegationToAway', () => {
@@ -1194,6 +1276,116 @@ describe('coordinator-vat', () => {
       ).rejects.toThrow(
         'No away wallet registered. The away device must connect first.',
       );
+    });
+
+    it('propagates errors from receiveDelegation', async () => {
+      const mockAwayWallet = {
+        receiveDelegation: vi
+          .fn()
+          .mockRejectedValue(new Error('CapTP connection lost')),
+      };
+
+      await coordinator.registerAwayWallet(mockAwayWallet);
+
+      const delegation: Delegation = {
+        id: 'del-push-error',
+        delegator: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
+        delegate: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address,
+        authority:
+          '0xa0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+        caveats: [],
+        salt: '0x01' as Hex,
+        signature: '0xsig' as Hex,
+        chainId: 1,
+        status: 'signed',
+      };
+
+      await expect(
+        coordinator.pushDelegationToAway(delegation),
+      ).rejects.toThrow('CapTP connection lost');
+    });
+  });
+
+  describe('connectToPeer', () => {
+    it('registers the coordinator as away wallet on the home device', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        getCapabilities: vi.fn().mockResolvedValue({ signingMode: 'local' }),
+        handleSigningRequest: vi.fn(),
+        registerAwayWallet: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockRedemption = {
+        redeem: vi.fn().mockResolvedValue(mockPeerWallet),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await coord.bootstrap(
+        {
+          keyring: keyringVat,
+          provider: providerVat,
+          delegation: delegationVat,
+        },
+        { ocapURLRedemptionService: mockRedemption },
+      );
+
+      await coord.connectToPeer('ocap:test@peer123');
+      expect(mockPeerWallet.registerAwayWallet).toHaveBeenCalled();
+    });
+
+    it('completes when peer does not support registerAwayWallet', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        getCapabilities: vi.fn().mockResolvedValue({ signingMode: 'local' }),
+        handleSigningRequest: vi.fn(),
+        registerAwayWallet: vi
+          .fn()
+          .mockRejectedValue(new Error('method not found')),
+      };
+
+      const mockRedemption = {
+        redeem: vi.fn().mockResolvedValue(mockPeerWallet),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await coord.bootstrap(
+        {
+          keyring: keyringVat,
+          provider: providerVat,
+          delegation: delegationVat,
+        },
+        { ocapURLRedemptionService: mockRedemption },
+      );
+
+      // Does not throw — gracefully degrades
+      await coord.connectToPeer('ocap:test@peer123');
+      expect(mockPeerWallet.registerAwayWallet).toHaveBeenCalled();
     });
   });
 

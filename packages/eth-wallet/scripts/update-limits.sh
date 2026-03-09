@@ -231,12 +231,20 @@ OLD_IDS=$(echo "$ACTIVE_INFO" | node -e "
 ")
 
 info "Revoking old delegation(s)..."
-echo "$OLD_IDS" | node -e "
+REVOKE_FAILED=0
+while read -r DEL_ID; do
+  if ! daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"revokeDelegation\", [\"$DEL_ID\"]]" >/dev/null 2>&1; then
+    echo -e "  ${RED}✗${RESET} Failed to revoke delegation $DEL_ID" >&2
+    REVOKE_FAILED=$((REVOKE_FAILED + 1))
+  fi
+done < <(echo "$OLD_IDS" | node -e "
   const ids = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
   for (const id of ids) { console.log(id); }
-" | while read -r DEL_ID; do
-  daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"revokeDelegation\", [\"$DEL_ID\"]]" >/dev/null
-done
+")
+
+if [[ "$REVOKE_FAILED" -gt 0 ]]; then
+  fail "Failed to revoke $REVOKE_FAILED delegation(s). Aborting to avoid duplicate active delegations."
+fi
 ok "Revoked $ACTIVE_COUNT old delegation(s)"
 
 if [[ "$CAVEATS_JSON" == "[]" ]]; then
@@ -259,13 +267,20 @@ ok "New delegation created"
 # ---------------------------------------------------------------------------
 
 # Check if the away device has registered a back-channel
-HAS_AWAY=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" | node -e "
-  try {
+HAS_AWAY="false"
+CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
+if [[ -n "$CAPS_RAW" ]]; then
+  HAS_AWAY=$(echo "$CAPS_RAW" | node -e "
     const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
     const v = JSON.parse(d.body.slice(1));
     process.stdout.write(String(v.hasAwayWallet === true));
-  } catch { process.stdout.write('false'); }
-" 2>/dev/null || echo "false")
+  " 2>&1) || {
+    echo -e "  ${YELLOW}Warning: Failed to parse capabilities — cannot auto-push delegation${RESET}" >&2
+    HAS_AWAY="false"
+  }
+else
+  echo -e "  ${YELLOW}Warning: Failed to query capabilities — cannot auto-push delegation${RESET}" >&2
+fi
 
 if [[ "$HAS_AWAY" == "true" ]]; then
   info "Pushing delegation to away device over QUIC..."
@@ -273,18 +288,21 @@ if [[ "$HAS_AWAY" == "true" ]]; then
     const p = JSON.stringify([process.env.KREF, 'pushDelegationToAway', [JSON.parse(process.env.DEL)]]);
     process.stdout.write(p);
   ")
-  if daemon_exec --quiet queueMessage "$PUSH_PARAMS" --timeout 30 >/dev/null 2>&1; then
+  PUSH_OUTPUT=$(daemon_exec --quiet queueMessage "$PUSH_PARAMS" --timeout 30 2>&1) && {
     ok "Delegation pushed to away device"
-  else
+  } || {
     echo -e "  ${RED}✗${RESET} Push failed — falling back to manual transfer" >&2
+    if [[ -n "$PUSH_OUTPUT" ]]; then
+      echo -e "  ${DIM}Reason: $PUSH_OUTPUT${RESET}" >&2
+    fi
     HAS_AWAY="false"
-  fi
+  }
 fi
 
 if [[ "$HAS_AWAY" != "true" ]]; then
-  AWAY_CMD=$(DEL="$DEL_JSON" node -e "
+  AWAY_CMD=$(DEL="$DEL_JSON" KREF="$ROOT_KREF" node -e "
     const del = JSON.stringify(JSON.parse(process.env.DEL));
-    const args = JSON.stringify(['ko4', 'receiveDelegation', [JSON.parse(process.env.DEL)]]);
+    const args = JSON.stringify([process.env.KREF, 'receiveDelegation', [JSON.parse(process.env.DEL)]]);
     const escaped = args.replace(/'/g, \"'\\\\''\" );
     process.stdout.write('yarn ocap daemon exec queueMessage ' + \"'\" + escaped + \"'\");
   ")

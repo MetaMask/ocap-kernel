@@ -515,19 +515,24 @@ echo -e "  ${DIM}Run setup-home.sh or update-limits.sh on the home device now.${
 echo -e "  ${DIM}The delegation will be pushed automatically over QUIC.${RESET}" >&2
 
 DEL_COUNT="0"
+POLL_FAILURES=0
 for i in $(seq 1 60); do
   CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
   if [[ -n "$CAPS_RAW" ]]; then
+    POLL_FAILURES=0
     DEL_COUNT=$(echo "$CAPS_RAW" | node -e "
-      try {
-        const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
-        const v = JSON.parse(d.body.slice(1));
-        process.stdout.write(String(v.delegationCount));
-      } catch { process.stdout.write('0'); }
+      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+      const v = JSON.parse(d.body.slice(1));
+      process.stdout.write(String(v.delegationCount));
     " 2>/dev/null || echo "0")
     if [[ "$DEL_COUNT" != "0" ]]; then
       ok "Delegation received (auto-pushed over QUIC)"
       break
+    fi
+  else
+    POLL_FAILURES=$((POLL_FAILURES + 1))
+    if [[ "$POLL_FAILURES" -ge 5 ]]; then
+      fail "Daemon appears to be down (5 consecutive failed polls). Check: tail -f ~/.ocap/daemon.log"
     fi
   fi
   if [[ "$i" -eq 60 ]]; then
