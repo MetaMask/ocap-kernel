@@ -819,7 +819,43 @@ describe('coordinator-vat', () => {
   });
 
   describe('revokeDelegation', () => {
-    it('forwards revocation to delegation vat', async () => {
+    it('submits on-chain disable and updates local status', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com/rpc',
+        chainId: 1,
+      });
+
+      const delegation = await coordinator.createDelegation({
+        delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
+        caveats: [],
+        chainId: 1,
+      });
+
+      // Mock: receipt found immediately so waitForUserOpReceipt resolves
+      providerVat.getUserOpReceipt.mockResolvedValueOnce({
+        success: true,
+        receipt: { transactionHash: '0xabc' },
+      });
+
+      const userOpHash = await coordinator.revokeDelegation(delegation.id);
+      expect(userOpHash).toBe('0xuserophash');
+
+      // Verify local status is now revoked
+      const delegations = await coordinator.listDelegations();
+      const found = (delegations as Delegation[]).find(
+        (entry) => entry.id === delegation.id,
+      );
+      expect(found?.status).toBe('revoked');
+
+      // Verify UserOp was submitted
+      expect(providerVat.submitUserOp).toHaveBeenCalled();
+    });
+
+    it('throws when bundler not configured', async () => {
       await coordinator.initializeKeyring({
         type: 'srp',
         mnemonic: TEST_MNEMONIC,
@@ -831,13 +867,35 @@ describe('coordinator-vat', () => {
         chainId: 1,
       });
 
+      await expect(coordinator.revokeDelegation(delegation.id)).rejects.toThrow(
+        'Bundler not configured',
+      );
+    });
+
+    it('throws when delegation already revoked', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com/rpc',
+        chainId: 1,
+      });
+
+      const delegation = await coordinator.createDelegation({
+        delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
+        caveats: [],
+        chainId: 1,
+      });
+
+      // Revoke it first
+      providerVat.getUserOpReceipt.mockResolvedValueOnce({ success: true });
       await coordinator.revokeDelegation(delegation.id);
 
-      const delegations = await coordinator.listDelegations();
-      const found = (delegations as Delegation[]).find(
-        (entry) => entry.id === delegation.id,
+      // Second revoke should fail
+      await expect(coordinator.revokeDelegation(delegation.id)).rejects.toThrow(
+        'already revoked',
       );
-      expect(found?.status).toBe('revoked');
     });
 
     it('throws when delegation vat not available', async () => {

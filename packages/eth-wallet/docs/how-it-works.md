@@ -169,6 +169,7 @@ If any caveat check fails at step 10, the entire UserOp reverts — the ETH is n
 | **No ambient authority** | Ocap kernel: vats communicate only through explicit capability references |
 | **Limits can't be bypassed** | Enforced by Ethereum smart contracts, not software checks |
 | **Limits can be changed** | Create a new delegation with different caveats via `update-limits.sh` |
+| **Delegations can be revoked** | `revokeDelegation` submits an on-chain `disableDelegation` UserOp — once confirmed, the delegation cannot be redeemed |
 | **Relay can't snoop** | CapTP encryption — relay only forwards opaque bytes |
 | **Agent can't escalate** | Delegation is scoped — the agent can only do what the caveats allow |
 | **VPS runs autonomously** | Peer accounts are cached during setup; the home device can go offline after delegation is created |
