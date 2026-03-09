@@ -1,6 +1,6 @@
 import type { VatBundle } from '@metamask/kernel-utils';
+import { bundleVat } from '@metamask/kernel-utils/vite-plugins';
 import type { Logger } from '@metamask/logger';
-import { bundleVat } from '@ocap/repo-tools/vite-plugins';
 import { glob } from 'glob';
 import { writeFile } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
@@ -30,7 +30,6 @@ export async function bundleFile(
   const { logger, targetPath } = options;
   const sourceFullPath = resolve(sourcePath);
   const bundlePath = targetPath ?? resolveBundlePath(sourceFullPath);
-  // Type annotation ensures repo-tools VatBundle stays compatible with kernel-utils VatBundle.
   const bundle: VatBundle = await bundleVat(sourceFullPath);
   const bundleContent = JSON.stringify(bundle);
   await writeFile(bundlePath, bundleContent);

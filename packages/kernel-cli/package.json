@@ -1,12 +1,21 @@
 {
-  "name": "@ocap/cli",
+  "name": "@metamask/kernel-cli",
   "version": "0.0.0",
-  "private": true,
   "description": "Ocap Kernel cli",
+  "keywords": [
+    "MetaMask",
+    "object capabilities",
+    "ocap"
+  ],
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-cli#readme",
+  "bugs": {
+    "url": "https://github.com/MetaMask/ocap-kernel/issues"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
+  "license": "(MIT OR Apache-2.0)",
   "type": "module",
   "bin": {
     "ocap": "./dist/app.mjs"
@@ -15,9 +24,10 @@
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
+    "build": "ts-bridge --project tsconfig.build.json --no-references --clean && chmod +x dist/app.mjs",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/cli",
+    "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-cli",
+    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-cli",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck --quiet",
@@ -35,12 +45,11 @@
   },
   "dependencies": {
     "@endo/promise-kit": "^1.1.13",
+    "@metamask/kernel-node-runtime": "workspace:^",
     "@metamask/kernel-shims": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
     "@metamask/utils": "^11.9.0",
-    "@ocap/nodejs": "workspace:^",
-    "@ocap/repo-tools": "workspace:^",
     "@types/node": "^22.13.1",
     "chokidar": "^4.0.1",
     "glob": "^11.0.0",
@@ -54,6 +63,7 @@
     "@metamask/eslint-config": "^15.0.0",
     "@metamask/eslint-config-nodejs": "^15.0.0",
     "@metamask/eslint-config-typescript": "^15.0.0",
+    "@ocap/repo-tools": "workspace:^",
     "@ts-bridge/cli": "^0.6.3",
     "@ts-bridge/shims": "^0.1.1",
     "@types/serve-handler": "^6",
@@ -86,5 +96,9 @@
   },
   "exports": {
     "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

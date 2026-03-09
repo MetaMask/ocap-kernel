@@ -191,7 +191,9 @@ describe('IO kernel service', () => {
     });
     const { logger } = makeTestLogger();
 
-    const { NodejsPlatformServices } = await import('@ocap/nodejs');
+    const { NodejsPlatformServices } = await import(
+      '@metamask/kernel-node-runtime'
+    );
     const kernel = await Kernel.make(
       new NodejsPlatformServices({
         logger: logger.subLogger({ tags: ['platform'] }),

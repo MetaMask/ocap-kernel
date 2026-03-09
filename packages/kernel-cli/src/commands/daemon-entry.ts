@@ -1,9 +1,9 @@
 import '@metamask/kernel-shims/endoify-node';
-import { Logger } from '@metamask/logger';
+import { makeKernel } from '@metamask/kernel-node-runtime';
+import { startDaemon } from '@metamask/kernel-node-runtime/daemon';
+import type { DaemonHandle } from '@metamask/kernel-node-runtime/daemon';
 import type { LogEntry } from '@metamask/logger';
-import { makeKernel } from '@ocap/nodejs';
-import { startDaemon } from '@ocap/nodejs/daemon';
-import type { DaemonHandle } from '@ocap/nodejs/daemon';
+import { Logger } from '@metamask/logger';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';

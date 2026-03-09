@@ -1,5 +1,5 @@
+import { deleteDaemonState } from '@metamask/kernel-node-runtime/daemon';
 import { isJsonRpcFailure } from '@metamask/utils';
-import { deleteDaemonState } from '@ocap/nodejs/daemon';
 import { readFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';

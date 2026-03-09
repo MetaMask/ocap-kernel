@@ -1,12 +1,12 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vitest" />
 
+import { bundleVats } from '@metamask/kernel-utils/vite-plugins';
 import {
   getDefines,
   getPackageDevAliases,
 } from '@ocap/repo-tools/build-utils/vite';
 import {
-  bundleVats,
   deduplicateAssets,
   extensionDev,
   htmlTrustedPrelude,
