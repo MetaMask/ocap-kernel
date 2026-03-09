@@ -540,12 +540,54 @@ DEL_RAW=$(daemon_exec queueMessage "$DEL_PARAMS")
 DEL_INNER=$(echo "$DEL_RAW" | parse_capdata)
 ok "Delegation created"
 
-cat >&2 <<EOF
+# ---------------------------------------------------------------------------
+# Push delegation to away device (or fall back to manual copy-paste)
+# ---------------------------------------------------------------------------
+
+HAS_AWAY="false"
+CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
+if [[ -n "$CAPS_RAW" ]]; then
+  HAS_AWAY=$(echo "$CAPS_RAW" | node -e "
+    const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+    const v = JSON.parse(d.body.slice(1));
+    process.stdout.write(String(v.hasAwayWallet === true));
+  " 2>&1) || {
+    echo -e "  ${YELLOW}Warning: Failed to parse capabilities — cannot auto-push delegation${RESET}" >&2
+    HAS_AWAY="false"
+  }
+else
+  echo -e "  ${YELLOW}Warning: Failed to query capabilities — cannot auto-push delegation${RESET}" >&2
+fi
+
+if [[ "$HAS_AWAY" == "true" ]]; then
+  info "Pushing delegation to away device over QUIC..."
+  PUSH_PARAMS=$(KREF="$ROOT_KREF" DEL="$DEL_INNER" node -e "
+    const p = JSON.stringify([process.env.KREF, 'pushDelegationToAway', [JSON.parse(process.env.DEL)]]);
+    process.stdout.write(p);
+  ")
+  PUSH_OUTPUT=$(daemon_exec --quiet queueMessage "$PUSH_PARAMS" --timeout 30 2>&1) && {
+    ok "Delegation pushed to away device"
+  } || {
+    echo -e "  ${RED}✗${RESET} Push failed — falling back to manual transfer" >&2
+    if [[ -n "$PUSH_OUTPUT" ]]; then
+      echo -e "  ${DIM}Reason: $PUSH_OUTPUT${RESET}" >&2
+    fi
+    HAS_AWAY="false"
+  }
+fi
+
+if [[ "$HAS_AWAY" != "true" ]]; then
+  cat >&2 <<EOF
 
 $(echo -e "${YELLOW}${BOLD}")  Copy this delegation JSON and paste it into the away device
   script when prompted:$(echo -e "${RESET}")
 
 $(echo -e "${BOLD}")$DEL_RAW$(echo -e "${RESET}")
+
+EOF
+fi
+
+cat >&2 <<EOF
 
   Watch daemon logs: $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")
   Stop the daemon:   $(echo -e "${DIM}")yarn ocap daemon stop$(echo -e "${RESET}")
