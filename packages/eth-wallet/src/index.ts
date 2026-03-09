@@ -123,6 +123,7 @@ export {
   getEnforcerAddresses,
   toSdkDelegation,
   encodeSdkDelegations,
+  buildSdkDisableCallData,
   buildSdkRedeemCallData,
   createSdkExecution,
   computeSmartAccountAddress,

@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { encodeAllowedTargets, makeCaveat } from './caveats.ts';
 import { finalizeDelegation, makeDelegation } from './delegation.ts';
 import {
+  buildSdkDisableCallData,
   buildSdkRedeemCallData,
   createSdkExecution,
   encodeSdkDelegations,
@@ -183,6 +184,30 @@ describe('lib/sdk', () => {
         chainId: 11155111,
       });
 
+      expect(callData.length).toBeGreaterThan(10);
+    });
+  });
+
+  describe('buildSdkDisableCallData', () => {
+    it('produces callData wrapped in DeleGatorCore.execute', () => {
+      const delegation = finalizeDelegation(
+        makeDelegation({
+          delegator: ALICE,
+          delegate: BOB,
+          caveats: [],
+          chainId: 1,
+          salt: '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        }),
+        '0xdeadbeef' as Hex,
+      );
+
+      const callData = buildSdkDisableCallData({
+        delegation,
+        chainId: SEPOLIA_CHAIN_ID,
+      });
+
+      // Wrapped in DeleGatorCore.execute (selector 0x5c1c6dcd)
+      expect(callData).toMatch(/^0x5c1c6dcd/u);
       expect(callData.length).toBeGreaterThan(10);
     });
   });

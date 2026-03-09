@@ -230,10 +230,12 @@ OLD_IDS=$(echo "$ACTIVE_INFO" | node -e "
   process.stdout.write(JSON.stringify(d.ids));
 ")
 
-info "Revoking old delegation(s)..."
+info "Revoking old delegation(s) on-chain..."
+echo -e "  ${DIM}Each revocation submits a UserOp and waits for on-chain confirmation.${RESET}" >&2
 REVOKE_FAILED=0
 while read -r DEL_ID; do
-  if ! daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"revokeDelegation\", [\"$DEL_ID\"]]" >/dev/null 2>&1; then
+  echo -e "  ${DIM}Revoking $DEL_ID...${RESET}" >&2
+  if ! daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"revokeDelegation\", [\"$DEL_ID\"]]" --timeout 120 >/dev/null 2>&1; then
     echo -e "  ${RED}✗${RESET} Failed to revoke delegation $DEL_ID" >&2
     REVOKE_FAILED=$((REVOKE_FAILED + 1))
   fi
@@ -243,9 +245,9 @@ done < <(echo "$OLD_IDS" | node -e "
 ")
 
 if [[ "$REVOKE_FAILED" -gt 0 ]]; then
-  fail "Failed to revoke $REVOKE_FAILED delegation(s). Aborting to avoid duplicate active delegations."
+  fail "Failed to revoke $REVOKE_FAILED delegation(s) on-chain. Aborting to avoid duplicate active delegations."
 fi
-ok "Revoked $ACTIVE_COUNT old delegation(s)"
+ok "Revoked $ACTIVE_COUNT old delegation(s) on-chain"
 
 if [[ "$CAVEATS_JSON" == "[]" ]]; then
   info "Creating new delegation for $DELEGATE_ADDR (no spending limits)..."

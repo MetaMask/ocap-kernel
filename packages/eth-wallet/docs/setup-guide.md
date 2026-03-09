@@ -313,7 +313,7 @@ This will:
 
 1. Show your current active delegations and their limits
 2. Prompt for new total and per-transaction limits
-3. Revoke old delegations locally
+3. Revoke old delegations (on-chain via `DelegationManager.disableDelegation`)
 4. Create and sign a new delegation (the cumulative spending counter resets to zero)
 5. Push the new delegation to the away device over the existing QUIC/CapTP connection
 

@@ -7,7 +7,7 @@ For a deeper explanation of the components and data flow, see [How It Works](./d
 ## Security model and known limitations
 
 - **Peer signing has no interactive approval for message/typed-data requests.** Transaction signing over peer requests is now disabled and peer-connected wallets must use delegation redemption for sends, but message and typed-data peer signing still execute immediately without an approval prompt.
-- **`revokeDelegation()` is local-only.** Revoking a delegation removes it from the local store but does not submit an on-chain revocation. A party holding a copy of the signed delegation can still redeem it on-chain. On-chain revocation via the DelegationManager contract is planned.
+- **`revokeDelegation()` requires a bundler.** Revocation submits an on-chain `disableDelegation` UserOp to the DelegationManager contract. The bundler and (optionally) paymaster must be configured. If the UserOp fails, the local delegation status is not changed.
 - **Mnemonic is stored in plaintext.** The keyring vat persists the mnemonic to the kernel's durable store (SQLite) without encryption. Filesystem access to the kernel database exposes the key material.
 - **Throwaway keyring needs secure entropy.** `initializeKeyring({ type: 'throwaway' })` requires either `crypto.getRandomValues` in the runtime or caller-provided entropy via `{ type: 'throwaway', entropy: '0x...' }`. Under SES lockdown (where `crypto` is unavailable inside vat compartments), the caller must generate 32 bytes of entropy externally and pass it in.
 
@@ -313,13 +313,13 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Coordinator -- Delegation
 
-| Method                          | Description                                                        |
-| ------------------------------- | ------------------------------------------------------------------ |
-| `createDelegation(opts)`        | Create and sign a new delegation. Returns the signed `Delegation`. |
-| `receiveDelegation(delegation)` | Store a signed delegation received from a peer.                    |
-| `revokeDelegation(id)`          | Mark a delegation as revoked (local state only).                   |
-| `listDelegations()`             | List all stored delegations.                                       |
-| `redeemDelegation(options)`     | Build, sign, and submit a UserOp to redeem a delegation.           |
+| Method                          | Description                                                                                      |
+| ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `createDelegation(opts)`        | Create and sign a new delegation. Returns the signed `Delegation`.                               |
+| `receiveDelegation(delegation)` | Store a signed delegation received from a peer.                                                  |
+| `revokeDelegation(id)`          | Revoke a delegation on-chain via `DelegationManager.disableDelegation`. Returns the UserOp hash. |
+| `listDelegations()`             | List all stored delegations.                                                                     |
+| `redeemDelegation(options)`     | Build, sign, and submit a UserOp to redeem a delegation.                                         |
 
 ### Coordinator -- Peer Connectivity
 

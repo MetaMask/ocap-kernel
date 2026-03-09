@@ -201,6 +201,36 @@ export function buildSdkRedeemCallData(options: {
   });
 }
 
+/**
+ * Build the callData for `DelegationManager.disableDelegation`, wrapped in a
+ * `DeleGatorCore.execute` call so it can be submitted as a UserOp from the
+ * delegator's smart account.
+ *
+ * @param options - Options.
+ * @param options.delegation - The delegation to disable on-chain.
+ * @param options.chainId - The chain ID (for DelegationManager address resolution).
+ * @returns The encoded callData.
+ */
+export function buildSdkDisableCallData(options: {
+  delegation: Delegation;
+  chainId: number;
+}): Hex {
+  const sdkDelegation = toSdkDelegation(options.delegation);
+
+  const disableCallData = contracts.DelegationManager.encode.disableDelegation({
+    delegation: sdkDelegation,
+  });
+
+  const env = getSmartAccountsEnvironment(options.chainId);
+  return contracts.DeleGatorCore.encode.execute({
+    execution: sdkCreateExecution({
+      target: env.DelegationManager,
+      value: 0n,
+      callData: disableCallData,
+    }),
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Execution
 // ---------------------------------------------------------------------------
