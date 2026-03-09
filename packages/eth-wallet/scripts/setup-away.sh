@@ -522,9 +522,11 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
 EOF
 
 info "Waiting for delegation from home device (up to 120s)..."
+echo -e "  ${DIM}Press Enter to skip waiting and paste manually.${RESET}" >&2
 
 DEL_COUNT="0"
 POLL_FAILURES=0
+MANUAL_SKIP=false
 for i in $(seq 1 60); do
   CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
   if [[ -n "$CAPS_RAW" ]]; then
@@ -545,55 +547,65 @@ for i in $(seq 1 60); do
     fi
   fi
   if [[ "$i" -eq 60 ]]; then
-    echo "" >&2
-    echo -e "  ${YELLOW}Auto-push timed out. Falling back to manual paste.${RESET}" >&2
-    echo -e "${CYAN}→${RESET} Paste the delegation JSON from the home device (press Ctrl+D when done):" >&2
-    DELEGATION_JSON=$(cat)
-
-    if [[ -z "$DELEGATION_JSON" ]]; then
-      fail "No delegation JSON provided"
-    fi
-
-    DELEGATION_INNER=$(echo "$DELEGATION_JSON" | node -e "
-      const raw = require('fs').readFileSync('/dev/stdin', 'utf8').trim();
-      let data;
-      try { data = JSON.parse(raw); } catch {
-        process.stderr.write('Invalid JSON\n');
-        process.exit(1);
-      }
-      if (data.body && typeof data.body === 'string' && data.body.startsWith('#')) {
-        try {
-          const inner = JSON.parse(data.body.slice(1));
-          process.stdout.write(JSON.stringify(inner));
-        } catch {
-          process.stderr.write('Failed to parse CapData body\n');
-          process.exit(1);
-        }
-      } else {
-        process.stdout.write(JSON.stringify(data));
-      }
-    ")
-
-    info "Receiving delegation..."
-    RECEIVE_PARAMS=$(KREF="$ROOT_KREF" DEL="$DELEGATION_INNER" node -e "
-      const p = JSON.stringify([process.env.KREF, 'receiveDelegation', [JSON.parse(process.env.DEL)]]);
-      process.stdout.write(p);
-    ")
-    daemon_exec queueMessage "$RECEIVE_PARAMS" >/dev/null
-    ok "Delegation received (manual)"
-
-    CAPS_FINAL_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_FINAL_RAW=""
-    DEL_COUNT=$(echo "$CAPS_FINAL_RAW" | node -e "
-      try {
-        const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
-        const v = JSON.parse(d.body.slice(1));
-        process.stdout.write(String(v.delegationCount));
-      } catch { process.stdout.write('0'); }
-    " 2>/dev/null || echo "0")
+    MANUAL_SKIP=true
     break
   fi
-  sleep 2
+  # read -t 2 doubles as the sleep — pressing Enter skips to manual paste
+  if read -t 2 -r _ 2>/dev/null; then
+    MANUAL_SKIP=true
+    break
+  fi
 done
+
+if [[ "$MANUAL_SKIP" == true && "$DEL_COUNT" == "0" ]]; then
+  echo "" >&2
+  if [[ "$i" -eq 60 ]]; then
+    echo -e "  ${YELLOW}Timed out waiting. Falling back to manual paste.${RESET}" >&2
+  fi
+  echo -e "${CYAN}→${RESET} Paste the delegation JSON from the home device (press Ctrl+D when done):" >&2
+  DELEGATION_JSON=$(cat)
+
+  if [[ -z "$DELEGATION_JSON" ]]; then
+    fail "No delegation JSON provided"
+  fi
+
+  DELEGATION_INNER=$(echo "$DELEGATION_JSON" | node -e "
+    const raw = require('fs').readFileSync('/dev/stdin', 'utf8').trim();
+    let data;
+    try { data = JSON.parse(raw); } catch {
+      process.stderr.write('Invalid JSON\n');
+      process.exit(1);
+    }
+    if (data.body && typeof data.body === 'string' && data.body.startsWith('#')) {
+      try {
+        const inner = JSON.parse(data.body.slice(1));
+        process.stdout.write(JSON.stringify(inner));
+      } catch {
+        process.stderr.write('Failed to parse CapData body\n');
+        process.exit(1);
+      }
+    } else {
+      process.stdout.write(JSON.stringify(data));
+    }
+  ")
+
+  info "Receiving delegation..."
+  RECEIVE_PARAMS=$(KREF="$ROOT_KREF" DEL="$DELEGATION_INNER" node -e "
+    const p = JSON.stringify([process.env.KREF, 'receiveDelegation', [JSON.parse(process.env.DEL)]]);
+    process.stdout.write(p);
+  ")
+  daemon_exec queueMessage "$RECEIVE_PARAMS" >/dev/null
+  ok "Delegation received (manual)"
+
+  CAPS_FINAL_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_FINAL_RAW=""
+  DEL_COUNT=$(echo "$CAPS_FINAL_RAW" | node -e "
+    try {
+      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+      const v = JSON.parse(d.body.slice(1));
+      process.stdout.write(String(v.delegationCount));
+    } catch { process.stdout.write('0'); }
+  " 2>/dev/null || echo "0")
+fi
 ok "Delegation count: $DEL_COUNT"
 
 # ---------------------------------------------------------------------------

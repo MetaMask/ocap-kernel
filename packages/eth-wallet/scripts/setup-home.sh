@@ -480,6 +480,7 @@ EOF
 DELEGATE_ADDR=""
 info "Waiting for delegate address from away device (up to 120s)..."
 echo -e "  ${DIM}Run setup-away.sh on the away device now if you haven't already.${RESET}" >&2
+echo -e "  ${DIM}Or paste the delegate address here to skip waiting.${RESET}" >&2
 
 POLL_FAILURES=0
 for i in $(seq 1 60); do
@@ -506,8 +507,8 @@ for i in $(seq 1 60); do
   fi
   if [[ "$i" -eq 60 ]]; then
     echo "" >&2
-    echo -e "  ${YELLOW}Timed out waiting for delegate address. Falling back to manual input.${RESET}" >&2
-    echo -ne "${CYAN}→${RESET} Paste the delegate address from the away device: " >&2
+    echo -e "  ${YELLOW}Timed out waiting. Falling back to manual input.${RESET}" >&2
+    echo -ne "${CYAN}→${RESET} Paste the delegate address: " >&2
     read -r DELEGATE_ADDR
 
     if [[ -z "$DELEGATE_ADDR" ]]; then
@@ -515,8 +516,14 @@ for i in $(seq 1 60); do
       echo -e "  ${DIM}yarn ocap daemon exec queueMessage '[\"$ROOT_KREF\", \"createDelegation\", [{\"delegate\": \"0xADDRESS\", \"caveats\": [{\"type\":\"nativeTokenTransferAmount\",\"enforcer\":\"0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320\",\"terms\":\"0x...\"}], \"chainId\": $CHAIN_ID}]]'${RESET}\n" >&2
       exit 0
     fi
+    break
   fi
-  sleep 2
+  # read -t 2 doubles as the sleep — if the user pastes an address it breaks immediately
+  if read -t 2 -r MANUAL_ADDR 2>/dev/null && [[ -n "$MANUAL_ADDR" ]]; then
+    DELEGATE_ADDR="$MANUAL_ADDR"
+    ok "Delegate address entered manually: $DELEGATE_ADDR"
+    break
+  fi
 done
 
 if ! echo "$DELEGATE_ADDR" | grep -qiE '^0x[0-9a-f]{40}$'; then
