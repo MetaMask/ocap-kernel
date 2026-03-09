@@ -15,7 +15,7 @@ This document explains the parts of the ocap kernel that are relevant to buildin
 7. [Exos (Remotable Objects)](#exos-remotable-objects)
 8. [Baggage (Persistent State)](#baggage-persistent-state)
 9. [Revocation](#revocation)
-10. [Glossary](#glossary)
+10. [Glossary and Key Types](#glossary-and-key-types)
 
 ---
 
@@ -426,51 +426,9 @@ Revocation is a kernel-level operation. Vats holding a reference to a revoked ob
 
 ---
 
-## Glossary
+## Glossary and Key Types
 
-### Concepts
-
-**kernel** — A centralized manager of vats and distributed objects. See the `Kernel` class.
-
-**vat** — A unit of compute managed by the kernel. User code runs inside vats, isolated from each other. Vats communicate via asynchronous message passing.
-
-**subcluster** (also "cluster") — A logically related group of vats, intended to be operated together. Defined by a `ClusterConfig`.
-
-**system subcluster** — A subcluster declared at kernel initialization that can access privileged (`systemOnly`) kernel services. Persists across kernel restarts.
-
-**distributed object** — A persistent object residing in a vat, asynchronously accessible to other vats via `E()`.
-
-**kernel service** — An object registered with the kernel that vats can invoke via `E()`. Runs in the kernel's context, not in a vat.
-
-**exo** — A remotable object created with `makeDefaultExo()`. The standard way to create objects that participate in the kernel's capability system.
-
-**bootstrap** — The initialization method called on the bootstrap vat's root object when a subcluster is first launched. Receives references to other vats and kernel services.
-
-**baggage** — Persistent key-value storage for a vat's durable state. Survives vat restarts (resuscitation).
-
-**crank** — A single execution cycle in the kernel's run queue. Each crank processes one message or notification.
-
-**delivery** — The process of sending a message or notification to a vat.
-
-**marshaling** — Serializing and deserializing data (including object references) for transmission between vats.
-
-**revocation** — Invalidating an object reference, preventing further access. Permanent.
-
-**garbage collection (GC)** — The kernel tracks reference counts and cleans up unreachable objects. The kernel's GC, liveslots' GC, and JavaScript's GC are all independent.
-
-**liveslots** — The runtime framework inside vats that manages object lifecycles, persistence, promise management, and syscall coordination.
-
-### Abbreviations
-
-**kref** — Kernel reference. A string like `ko42` that uniquely identifies an object within the kernel. Assigned when an object is first imported into or exported from a vat.
-
-**vref** — Vat reference. A string designating an object within the scope of a particular vat. Used across the kernel/vat boundary in message marshaling.
-
-**rref** — Remote reference. A string designating an object within the scope of a point-to-point communication channel between two kernels.
-
-**eref** — Endpoint reference. A generic term for a ref that is either a vref or an rref.
-
-**clist** — Capability list. A bidirectional mapping between short, channel-specific identifiers and actual object references.
+For definitions of terms used in this guide (kernel, vat, subcluster, exo, baggage, kref, etc.), see the [canonical glossary](./glossary.md).
 
 ### Key Types
 

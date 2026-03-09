@@ -10,13 +10,29 @@ A centralized manager of [vats](#vat) and [distributed objects](#distributed-obj
 
 A unit of compute managed by the [kernel](#kernel). See the [VatHandle](../packages/ocap-kernel/src/VatHandle.ts) and [VatSupervisor](../packages/ocap-kernel/src/VatSupervisor.ts) classes.
 
+### baggage
+
+Persistent key-value storage for a [vat's](#vat) durable state. Baggage survives vat restarts (resuscitation) and is the primary mechanism for vat state persistence. Baggage is provided as the third argument to `buildRootObject`.
+
+### bootstrap
+
+The initialization method called on the bootstrap [vat's](#vat) root object when a [subcluster](#subcluster) is first launched. The bootstrap method receives references to other vats and [kernel services](#kernel-service) and is called exactly once — it is not called again after a vat restart.
+
 ### cluster
 
-A logically related group of [vats](#vat), intended to be operated together. See the `ClusterConfig` type in [`packages/ocap-kernel/src/types.ts`](../packages/ocap-kernel/src/types.ts).
+See [subcluster](#subcluster).
+
+### exo
+
+A remotable object created with `makeDefaultExo()` from `@metamask/kernel-utils/exo`. Exos are the standard way to create objects that can be passed between [vats](#vat), stored in [baggage](#baggage), and invoked via `E()`. Do not use `Far()` from `@endo/far`.
 
 ### distributed object
 
 A persistent object residing in a [vat](#vat) and asynchronously accessible to other vats. See the [implementation](../packages/ocap-kernel/src/store/methods/object.ts) in the kernel's storage methods.
+
+### kernel service
+
+An object registered with the [kernel](#kernel) that [vats](#vat) can invoke via `E()`. Kernel services run in the kernel's own context (not in a vat) and are registered using `kernel.registerKernelServiceObject()`. Services marked `systemOnly` can only be accessed by [system subclusters](#system-subcluster). See the [KernelServiceManager](../packages/ocap-kernel/src/KernelServiceManager.ts).
 
 ### supervisor
 
@@ -61,6 +77,14 @@ A communication pathway between different components, such as between a [vat](#v
 ### stream
 
 A remote asynchronous iterator that provides bidirectional communication between components. Streams implement the `Reader` interface from `@endo/stream` and can be used for message passing between [vats](#vat), kernel components, and external systems. See the [BaseDuplexStream](../packages/streams/src/BaseDuplexStream.ts) for bidirectional streams.
+
+### subcluster
+
+A logically related group of [vats](#vat), intended to be operated together. Defined by a `ClusterConfig`. When a subcluster is launched, all its vats start and the [bootstrap](#bootstrap) vat receives references to the other vats. See the `ClusterConfig` type in [`packages/ocap-kernel/src/types.ts`](../packages/ocap-kernel/src/types.ts).
+
+### system subcluster
+
+A [subcluster](#subcluster) declared at [kernel](#kernel) initialization that can access privileged (`systemOnly`) [kernel services](#kernel-service). System subclusters persist across kernel restarts and are identified by a unique name. See the [SubclusterManager](../packages/ocap-kernel/src/SubclusterManager.ts).
 
 ### run queue
 
