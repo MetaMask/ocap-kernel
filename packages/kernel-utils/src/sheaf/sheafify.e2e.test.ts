@@ -54,7 +54,7 @@ describe('e2e: cost-optimal routing', () => {
       },
     ];
 
-    let wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    let wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: argmin,
     });
 
@@ -75,7 +75,7 @@ describe('e2e: cost-optimal routing', () => {
       ) as unknown as Section,
       metadata: { cost: 2 },
     });
-    wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: argmin,
     });
 
@@ -145,7 +145,7 @@ describe('e2e: multi-tier capability routing', () => {
       metadata: { latencyMs: 500, label: 'network' },
     });
 
-    let wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    let wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: fastest,
     });
 
@@ -173,7 +173,7 @@ describe('e2e: multi-tier capability routing', () => {
       ) as unknown as Section,
       metadata: { latencyMs: 1, label: 'local' },
     });
-    wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: fastest,
     });
 
@@ -202,7 +202,7 @@ describe('e2e: multi-tier capability routing', () => {
       ) as unknown as Section,
       metadata: { latencyMs: 0, label: 'cache' },
     });
-    wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: fastest,
     });
 
@@ -246,7 +246,7 @@ describe('e2e: multi-tier capability routing', () => {
       ) as unknown as Section,
       metadata: { latencyMs: 200, label: 'write-backend' },
     });
-    wallet = sheafify({ name: 'Wallet', sections }).getSection({
+    wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: fastest,
     });
 
@@ -308,7 +308,9 @@ describe('e2e: multi-tier capability routing', () => {
       ];
 
       return {
-        wallet: sheafify({ name: 'Wallet', sections }).getSection({ lift }),
+        wallet: sheafify({ name: 'Wallet', sections }).getGlobalSection({
+          lift,
+        }),
         log,
       };
     };
@@ -373,7 +375,7 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'PushPull', sections }).getSection({
+    const wallet = sheafify({ name: 'PushPull', sections }).getGlobalSection({
       lift: preferPush,
     });
 
