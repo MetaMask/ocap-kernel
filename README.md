@@ -4,7 +4,10 @@ Welcome to the Ocap Kernel team's monorepo! It is a work in progress.
 
 ## Usage
 
-For detailed information on how to use the OCAP Kernel, please refer to the [OCAP Kernel Usage Guide](docs/usage.md) which provides comprehensive documentation on setting up, configuring, and using the kernel in both browser and Node.js environments.
+For detailed information on how to use the OCAP Kernel, please refer to:
+
+- [Usage Guide](docs/usage.md) — Setting up, configuring, and running the kernel in browser and Node.js environments.
+- [Kernel Guide](docs/kernel-guide.md) — Building on the kernel: writing vat code, kernel services, system subclusters, and persistence.
 
 ### Kernel Control Panel
 
@@ -66,3 +69,4 @@ For information on creating releases, see the [MetaMask/core release documentati
 ## References
 
 - [Glossary](./docs/glossary.md)
+- [Kernel Guide](./docs/kernel-guide.md)

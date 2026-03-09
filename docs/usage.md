@@ -25,9 +25,8 @@ The OCAP Kernel is a powerful object capability-based system that enables secure
 
 To initialize the OCAP Kernel, you need the following components:
 
-1. A message stream for communication with the kernel
-2. A vat worker service to manage vat instances
-3. A kernel database for state persistence
+1. A platform services implementation (browser or Node.js)
+2. A kernel database for state persistence
 
 ### Browser Environment
 
@@ -36,14 +35,7 @@ Here's a basic example for browser environments:
 ```typescript
 import { Kernel } from '@metamask/ocap-kernel';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
-import { MessagePortDuplexStream } from '@metamask/streams/browser';
 import { PlatformServicesClient } from '@metamask/kernel-browser-runtime';
-
-// Create a message stream for communicating with the kernel
-const kernelStream = await MessagePortDuplexStream.make(
-  messagePort,
-  isJsonRpcCall,
-);
 
 // Initialize kernel dependencies
 const platformServices = await PlatformServicesClient.make(globalThis);
@@ -52,14 +44,9 @@ const kernelDatabase = await makeSQLKernelDatabase({
 });
 
 // Initialize the kernel - it's ready to use immediately
-const kernel = await Kernel.make(
-  kernelStream,
-  platformServices,
-  kernelDatabase,
-  {
-    resetStorage: false, // Set to true to reset storage on startup
-  },
-);
+const kernel = await Kernel.make(platformServices, kernelDatabase, {
+  resetStorage: false, // Set to true to reset storage on startup
+});
 ```
 
 #### Configuring Relay Addresses for Workers
@@ -113,28 +100,18 @@ Alternatively, you can manually set up the Node.js components:
 ```typescript
 import { Kernel } from '@metamask/ocap-kernel';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import { NodeWorkerDuplexStream } from '@metamask/streams';
-import { MessageChannel, MessagePort } from 'node:worker_threads';
-import { NodejsVatWorkerService } from '@ocap/nodejs';
-
-// Create a message port for kernel communication
-const { port1: kernelPort } = new MessageChannel();
-
-// Create a Node.js stream for communication
-const nodeStream = new NodeWorkerDuplexStream(kernelPort);
-
-// Initialize vat worker manager for Node.js
-const vatWorkerService = new NodejsVatWorkerService({
-  workerFilePath: './path/to/vat-worker.js',
-});
+import { NodejsPlatformServices } from '@ocap/nodejs';
 
 // Initialize kernel database with Node.js SQLite implementation
 const kernelDatabase = await makeSQLKernelDatabase({
   dbFilename: 'store.db',
 });
 
+// Initialize platform services for Node.js
+const platformServices = new NodejsPlatformServices();
+
 // Create and start the kernel
-const kernel = await Kernel.make(nodeStream, vatWorkerService, kernelDatabase, {
+const kernel = await Kernel.make(platformServices, kernelDatabase, {
   resetStorage: false,
 });
 ```
@@ -149,8 +126,7 @@ Vats execute JavaScript code bundled into a specific format. To create a vat bun
 Example vat code:
 
 ```javascript
-import { makeExo } from '@endo/exo';
-import { M } from '@endo/patterns';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for a vat.
@@ -163,19 +139,15 @@ import { M } from '@endo/patterns';
 export function buildRootObject(vatPowers, parameters, _baggage) {
   const { name } = parameters;
 
-  return makeExo(
-    'root',
-    M.interface('root', {}, { defaultGuards: 'passable' }),
-    {
-      greet() {
-        return `Greeting from ${name}`;
-      },
-
-      async processMessage(message) {
-        return `${name} processed: ${message}`;
-      },
+  return makeDefaultExo('root', {
+    greet() {
+      return `Greeting from ${name}`;
     },
-  );
+
+    async processMessage(message) {
+      return `${name} processed: ${message}`;
+    },
+  });
 }
 ```
 
@@ -386,22 +358,20 @@ kernel.collectGarbage();
 
 ### Persistence
 
-The kernel automatically persists state using the provided database. To handle persistence in your vat:
-
-1. Ensure important state is attached to the root object or referenced objects
-2. The kernel will automatically save and restore this state
+The kernel automatically persists state using the provided database. Vats can use **baggage** (persistent key-value storage) to manage their own durable state across restarts. See [Baggage (Persistent State)](./kernel-guide.md#baggage-persistent-state) in the Kernel Guide for details and examples.
 
 ## Endo Integration
 
 The OCAP Kernel builds on the [Endo project](https://github.com/endojs/endo), which provides core object capability patterns and tools. Understanding these fundamental concepts is essential for effective vat development.
 
+For in-depth coverage of writing vat code, kernel services, system subclusters, and persistence patterns, see the [Kernel Guide](./kernel-guide.md).
+
 ### Object Capability Model
 
-Vats use Endo's implementation of the object capability security model through the `makeExo` function to create shareable objects:
+Vats use Endo's implementation of the object capability security model through `makeDefaultExo` to create shareable objects:
 
 ```javascript
-import { makeExo } from '@endo/exo';
-import { M } from '@endo/patterns';
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
  * Build function for a vat.
@@ -420,32 +390,24 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
   }
 
   // Creating a capability-based service object
-  const service = makeExo(
-    'service',
-    M.interface('service', {}, { defaultGuards: 'passable' }),
-    {
-      getData() {
-        log('getData called');
-        return { value: 'some data' };
-      },
+  const service = makeDefaultExo('service', {
+    getData() {
+      log('getData called');
+      return { value: 'some data' };
     },
-  );
+  });
 
-  // The root object must be created with makeExo
-  return makeExo(
-    'root',
-    M.interface('root', {}, { defaultGuards: 'passable' }),
-    {
-      getService() {
-        return service;
-      },
-
-      bootstrap() {
-        log('bootstrap called');
-        return 'bootstrap complete';
-      },
+  // The root object must be created with makeDefaultExo
+  return makeDefaultExo('root', {
+    getService() {
+      return service;
     },
-  );
+
+    bootstrap() {
+      log('bootstrap called');
+      return 'bootstrap complete';
+    },
+  });
 }
 ```
 
@@ -454,23 +416,22 @@ export function buildRootObject(vatPowers, parameters, _baggage) {
 Vats communicate asynchronously using the `E()` notation for eventual sends:
 
 ```javascript
+import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import { E } from '@endo/eventual-send';
+
 // In another vat that wants to use the service
 export function buildRootObject(vatPowers, parameters, _baggage) {
-  return makeExo(
-    'root',
-    M.interface('root', {}, { defaultGuards: 'passable' }),
-    {
-      async useRemoteService(serviceProvider) {
-        // Get a reference to the service
-        const service = await E(serviceProvider).getService();
+  return makeDefaultExo('root', {
+    async useRemoteService(serviceProvider) {
+      // Get a reference to the service
+      const service = await E(serviceProvider).getService();
 
-        // Call a method on the remote service
-        const data = await E(service).getData();
+      // Call a method on the remote service
+      const data = await E(service).getData();
 
-        return data;
-      },
+      return data;
     },
-  );
+  });
 }
 ```
 
@@ -624,23 +585,9 @@ Here's a complete example of implementing the OCAP Kernel in both browser and No
 import { Kernel, ClusterConfigStruct } from '@metamask/ocap-kernel';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/wasm';
 import { fetchValidatedJson } from '@metamask/kernel-utils';
-import {
-  MessagePortDuplexStream,
-  receiveMessagePort,
-} from '@metamask/streams/browser';
 import { PlatformServicesClient } from '@metamask/kernel-browser-runtime';
-import { isJsonRpcCall } from '@metamask/kernel-utils';
 
 async function initBrowserKernel() {
-  // Create a message port for communication
-  const port = await receiveMessagePort(
-    (listener) => globalThis.addEventListener('message', listener),
-    (listener) => globalThis.removeEventListener('message', listener),
-  );
-
-  // Create a message stream
-  const kernelStream = await MessagePortDuplexStream.make(port, isJsonRpcCall);
-
   // Create client end of the platform services
   const platformServices = await PlatformServicesClient.make(globalThis);
 
@@ -649,7 +596,7 @@ async function initBrowserKernel() {
   });
 
   // Initialize the kernel
-  return await Kernel.make(kernelStream, platformServices, kernelDatabase, {
+  return await Kernel.make(platformServices, kernelDatabase, {
     resetStorage: true, // For development purposes
   });
 }

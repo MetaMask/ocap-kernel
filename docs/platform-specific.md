@@ -29,6 +29,7 @@ The core kernel packages export platform-specific implementations through dedica
 - **Platform-implicit exports**: Modules like [`kernel-store/sqlite/wasm`](../packages/kernel-store/src/sqlite/wasm.ts) target browser environments through WebAssembly
 
 The platform-specific runtime packages ([`kernel-browser-runtime`](../packages/kernel-browser-runtime/) and [`nodejs`](../packages/nodejs/)) are responsible for:
+
 - Importing the appropriate platform-specific implementations
 - Providing these implementations to the `Kernel` constructor
 - Handling platform-specific initialization and configuration
@@ -36,6 +37,7 @@ The platform-specific runtime packages ([`kernel-browser-runtime`](../packages/k
 ### Testing Strategy
 
 Each platform implementation includes comprehensive end-to-end testing:
+
 - **Browser platform**: Tested through the [`extension`](../packages/extension/) package
 - **Node.js platform**: Tested through the [`kernel-test`](../packages/kernel-test/) package
 
@@ -63,6 +65,7 @@ Choose an appropriate directory structure based on your feature's complexity:
 ### 4. Package Configuration
 
 Update `package.json` to export platform-specific features:
+
 - Simple structure: `@ocap/my-package/<platform>`
 - Complex structure: `@ocap/my-package/<feature>/<platform>`
 
