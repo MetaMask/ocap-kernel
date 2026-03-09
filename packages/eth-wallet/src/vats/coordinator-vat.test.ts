@@ -880,6 +880,7 @@ describe('coordinator-vat', () => {
         autonomy: 'no signing authority',
         peerAccountsCached: false,
         cachedPeerAccounts: [],
+        hasAwayWallet: false,
       });
     });
   });
@@ -1124,6 +1125,74 @@ describe('coordinator-vat', () => {
     it('throws when no peer wallet is connected', async () => {
       await expect(coordinator.refreshPeerAccounts()).rejects.toThrow(
         'No peer wallet connected',
+      );
+    });
+  });
+
+  describe('registerAwayWallet', () => {
+    it('stores the away wallet reference in baggage', async () => {
+      const mockAwayWallet = {
+        receiveDelegation: vi.fn().mockResolvedValue(undefined),
+      };
+
+      await coordinator.registerAwayWallet(mockAwayWallet);
+      expect(coordinatorBaggage.get('awayWallet')).toBe(mockAwayWallet);
+    });
+
+    it('reports hasAwayWallet in capabilities after registration', async () => {
+      const mockAwayWallet = {
+        receiveDelegation: vi.fn().mockResolvedValue(undefined),
+      };
+
+      await coordinator.registerAwayWallet(mockAwayWallet);
+      const caps = await coordinator.getCapabilities();
+      expect(caps.hasAwayWallet).toBe(true);
+    });
+  });
+
+  describe('pushDelegationToAway', () => {
+    it('pushes a delegation to the away wallet', async () => {
+      const mockAwayWallet = {
+        receiveDelegation: vi.fn().mockResolvedValue(undefined),
+      };
+
+      await coordinator.registerAwayWallet(mockAwayWallet);
+
+      const delegation: Delegation = {
+        id: 'del-push-1',
+        delegator: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
+        delegate: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address,
+        authority:
+          '0xa0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+        caveats: [],
+        salt: '0x01' as Hex,
+        signature: '0xsig' as Hex,
+        chainId: 1,
+        status: 'signed',
+      };
+
+      await coordinator.pushDelegationToAway(delegation);
+      expect(mockAwayWallet.receiveDelegation).toHaveBeenCalledWith(delegation);
+    });
+
+    it('throws when no away wallet is registered', async () => {
+      const delegation: Delegation = {
+        id: 'del-push-2',
+        delegator: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
+        delegate: '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address,
+        authority:
+          '0xa0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+        caveats: [],
+        salt: '0x01' as Hex,
+        signature: '0xsig' as Hex,
+        chainId: 1,
+        status: 'signed',
+      };
+
+      await expect(
+        coordinator.pushDelegationToAway(delegation),
+      ).rejects.toThrow(
+        'No away wallet registered. The away device must connect first.',
       );
     });
   });

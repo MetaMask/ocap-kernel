@@ -96,6 +96,8 @@ Both enforcers are deployed at deterministic CREATE2 addresses (same address on 
 
 Spending limits are baked into the delegation's cryptographic signature. Changing them means creating a new delegation — the cumulative spending counter resets to zero. The `update-limits.sh` script handles this (see the [Setup Guide](./setup-guide.md#changing-limits)).
 
+When the away device is connected, `update-limits.sh` pushes the new delegation directly over the existing QUIC/CapTP connection using `pushDelegationToAway()`. If the away device is offline, it falls back to printing a manual command.
+
 ### The Relay (optional)
 
 If the home device is behind NAT (no public IP), a lightweight **libp2p relay** runs on the VPS. Both kernels connect outbound to the relay, which forwards traffic between them. The relay cannot read the CapTP-encrypted traffic.

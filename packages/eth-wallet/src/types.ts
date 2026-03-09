@@ -210,6 +210,7 @@ export const WalletCapabilitiesStruct = object({
   autonomy: optional(string()),
   peerAccountsCached: optional(boolean()),
   cachedPeerAccounts: optional(array(AddressStruct)),
+  hasAwayWallet: optional(boolean()),
 });
 
 export type WalletCapabilities = Infer<typeof WalletCapabilitiesStruct>;

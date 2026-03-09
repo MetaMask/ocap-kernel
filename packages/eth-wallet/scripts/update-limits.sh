@@ -254,17 +254,46 @@ DEL_RAW=$(daemon_exec queueMessage "$DEL_PARAMS")
 DEL_JSON=$(echo "$DEL_RAW" | parse_capdata)
 ok "New delegation created"
 
-AWAY_CMD=$(DEL="$DEL_JSON" node -e "
-  const del = JSON.stringify(JSON.parse(process.env.DEL));
-  const args = JSON.stringify(['ko4', 'receiveDelegation', [JSON.parse(process.env.DEL)]]);
-  const escaped = args.replace(/'/g, \"'\\\\''\" );
-  process.stdout.write('yarn ocap daemon exec queueMessage ' + \"'\" + escaped + \"'\");
-")
+# ---------------------------------------------------------------------------
+# 4. Push delegation to away device (or fall back to manual copy-paste)
+# ---------------------------------------------------------------------------
 
-cat >&2 <<EOF
+# Check if the away device has registered a back-channel
+HAS_AWAY=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" | node -e "
+  try {
+    const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+    const v = JSON.parse(d.body.slice(1));
+    process.stdout.write(String(v.hasAwayWallet === true));
+  } catch { process.stdout.write('false'); }
+" 2>/dev/null || echo "false")
+
+if [[ "$HAS_AWAY" == "true" ]]; then
+  info "Pushing delegation to away device over QUIC..."
+  PUSH_PARAMS=$(KREF="$ROOT_KREF" DEL="$DEL_JSON" node -e "
+    const p = JSON.stringify([process.env.KREF, 'pushDelegationToAway', [JSON.parse(process.env.DEL)]]);
+    process.stdout.write(p);
+  ")
+  if daemon_exec --quiet queueMessage "$PUSH_PARAMS" --timeout 30 >/dev/null 2>&1; then
+    ok "Delegation pushed to away device"
+  else
+    echo -e "  ${RED}✗${RESET} Push failed — falling back to manual transfer" >&2
+    HAS_AWAY="false"
+  fi
+fi
+
+if [[ "$HAS_AWAY" != "true" ]]; then
+  AWAY_CMD=$(DEL="$DEL_JSON" node -e "
+    const del = JSON.stringify(JSON.parse(process.env.DEL));
+    const args = JSON.stringify(['ko4', 'receiveDelegation', [JSON.parse(process.env.DEL)]]);
+    const escaped = args.replace(/'/g, \"'\\\\''\" );
+    process.stdout.write('yarn ocap daemon exec queueMessage ' + \"'\" + escaped + \"'\");
+  ")
+
+  cat >&2 <<EOF
 
 $(echo -e "${YELLOW}${BOLD}")  Run this on the away device to apply the new delegation:$(echo -e "${RESET}")
 
 $(echo -e "${BOLD}")$AWAY_CMD$(echo -e "${RESET}")
 
 EOF
+fi
