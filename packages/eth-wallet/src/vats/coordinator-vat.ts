@@ -596,9 +596,25 @@ export function buildRootObject(
       sender,
     });
 
-    // Stateless7702 accounts never need factory data
-    const isStateless7702 =
+    // Detect signing mode: check smartAccountConfig first, then fall back
+    // to on-chain code inspection. This ensures the correct signing mode
+    // even if smartAccountConfig is lost from baggage.
+    let isStateless7702 =
       smartAccountConfig?.implementation === 'stateless7702';
+
+    // Always fetch on-chain code — needed for both factory detection and
+    // signing mode fallback.
+    const onChainCode = (await E(providerVat).request('eth_getCode', [
+      sender,
+      'latest',
+    ])) as string;
+
+    if (
+      !isStateless7702 &&
+      isEip7702Delegated(onChainCode, bundlerConfig.chainId)
+    ) {
+      isStateless7702 = true;
+    }
 
     // Check on-chain whether the smart account is deployed (eth_getCode).
     // This avoids relying on a cached flag that could be stale if the
@@ -609,11 +625,7 @@ export function buildRootObject(
       smartAccountConfig?.factory &&
       smartAccountConfig.factoryData
     ) {
-      const code = (await E(providerVat).request('eth_getCode', [
-        sender,
-        'latest',
-      ])) as string;
-      includeFactory = code === '0x' || code === '0x0';
+      includeFactory = onChainCode === '0x' || onChainCode === '0x0';
 
       if (!includeFactory && smartAccountConfig.deployed === false) {
         smartAccountConfig = harden({

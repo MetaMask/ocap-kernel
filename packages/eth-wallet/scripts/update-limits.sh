@@ -235,13 +235,38 @@ echo -e "  ${DIM}Each revocation submits a UserOp and waits for on-chain confirm
 REVOKE_FAILED=0
 while read -r DEL_ID; do
   echo -e "  ${DIM}Revoking $DEL_ID...${RESET}" >&2
-  REVOKE_OUTPUT=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"revokeDelegation\", [\"$DEL_ID\"]]" --timeout 120 2>&1) || {
+  REVOKE_OUTPUT=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"revokeDelegation\", [\"$DEL_ID\"]]" --timeout 120) || {
     echo -e "  ${RED}✗${RESET} Failed to revoke delegation $DEL_ID" >&2
     if [[ -n "$REVOKE_OUTPUT" ]]; then
       echo -e "  ${DIM}Reason: $REVOKE_OUTPUT${RESET}" >&2
     fi
     REVOKE_FAILED=$((REVOKE_FAILED + 1))
+    continue
   }
+  # Check if the daemon returned a CapData-wrapped error (exit code is still 0)
+  if echo "$REVOKE_OUTPUT" | grep -q '"#error"'; then
+    ERR_MSG=$(echo "$REVOKE_OUTPUT" | parse_capdata 2>/dev/null | node -e "
+      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+      process.stdout.write(d['#error'] || 'Unknown error');
+    " 2>/dev/null) || ERR_MSG="Unknown error"
+    echo -e "  ${RED}✗${RESET} Failed to revoke delegation $DEL_ID" >&2
+    echo -e "     ${DIM}Reason: $ERR_MSG${RESET}" >&2
+    REVOKE_FAILED=$((REVOKE_FAILED + 1))
+    continue
+  fi
+  # Extract userOpHash from CapData and print explorer link
+  USER_OP_HASH=$(echo "$REVOKE_OUTPUT" | parse_capdata 2>/dev/null) || USER_OP_HASH=""
+  if [[ -n "$USER_OP_HASH" && "$USER_OP_HASH" == 0x* ]]; then
+    if [[ "$CHAIN_ID" == "1" ]]; then
+      JIFFYSCAN_URL="https://jiffyscan.xyz/userOpHash/${USER_OP_HASH}"
+    else
+      JIFFYSCAN_URL="https://sepolia.jiffyscan.xyz/userOpHash/${USER_OP_HASH}"
+    fi
+    ok "Revoked $DEL_ID"
+    echo -e "     ${DIM}${JIFFYSCAN_URL}${RESET}" >&2
+  else
+    ok "Revoked $DEL_ID"
+  fi
 done < <(echo "$OLD_IDS" | node -e "
   const ids = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
   for (const id of ids) { console.log(id); }
