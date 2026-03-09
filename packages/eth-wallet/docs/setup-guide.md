@@ -114,7 +114,7 @@ There are two home-device modes, plus a shared away-device script:
 | Script | Mode | Signing | Key storage |
 | --- | --- | --- | --- |
 | `setup-home.sh` | **Mnemonic** | Automatic (no approval) | Mnemonic stored on home device |
-| `setup-home-interactive.sh` | **Interactive (MetaMask)** | Each request requires MetaMask Mobile approval | No keys on home device |
+| `setup-home-interactive.sh` | **Interactive (MetaMask)** | MetaMask Mobile signs the delegation once during setup; autonomous after | No keys on home device |
 | `setup-away.sh` | Away device | Via peer wallet to home | Throwaway key only |
 
 Both home scripts produce the same output (OCAP URL, listen addresses, delegation JSON) and the away script works identically with either.
@@ -194,9 +194,9 @@ Choose one of the two modes:
 
 The script sets up the home wallet and then **waits** — it will show the OCAP URL and listen addresses to copy.
 
-#### Option B: Interactive mode (MetaMask approval)
+#### Option B: Interactive mode (MetaMask)
 
-No mnemonic needed — MetaMask Mobile handles all signing. Every signing request shows an approval dialog on your phone.
+No mnemonic needed — MetaMask Mobile handles signing during setup. MetaMask approval is only required once: to sign the delegation. After that the away device acts autonomously.
 
 ```bash
 ./packages/eth-wallet/scripts/setup-home-interactive.sh \
@@ -209,7 +209,7 @@ The script will:
 1. Show a QR code — scan it with MetaMask Mobile to connect
 2. Switch MetaMask to the target chain (Sepolia)
 3. Start an in-process kernel (no daemon — the MetaMask signer is a live object)
-4. Create a Hybrid smart account and fund it if needed (triggers MetaMask approval)
+4. Create a Hybrid smart account and fund it if needed (may trigger a MetaMask approval for the funding tx)
 5. Show the OCAP URL and `setup-away.sh` command
 
 Use `--reset` to purge all kernel state and start fresh. The SQLite database is at `~/.ocap/kernel-interactive.sqlite`.
