@@ -203,6 +203,7 @@ type PeerWalletFacet = {
     account?: Address;
   }) => Promise<Hex>;
   registerAwayWallet: (awayRef: unknown) => Promise<void>;
+  registerDelegateAddress: (address: string) => Promise<void>;
 };
 
 type ExternalSignerFacet = {
@@ -278,6 +279,9 @@ export function buildRootObject(
   // time if the reference is dead.
   let awayWallet: AwayWalletFacet | undefined;
 
+  // Delegate address sent by the away device for delegation creation
+  let pendingDelegateAddress: Address | undefined;
+
   // Cached peer (home) accounts for offline autonomy
   let cachedPeerAccounts: Address[] = [];
   // Cached peer signing mode for offline autonomy
@@ -309,6 +313,9 @@ export function buildRootObject(
   }
   if (baggage.has('awayWallet')) {
     awayWallet = baggage.get('awayWallet') as AwayWalletFacet;
+  }
+  if (baggage.has('pendingDelegateAddress')) {
+    pendingDelegateAddress = baggage.get('pendingDelegateAddress') as Address;
   }
   if (baggage.has('cachedPeerAccounts')) {
     cachedPeerAccounts = baggage.get('cachedPeerAccounts') as Address[];
@@ -1557,6 +1564,31 @@ export function buildRootObject(
         );
       }
       await E(awayWallet).receiveDelegation(delegation);
+    },
+
+    async registerDelegateAddress(address: string): Promise<void> {
+      if (
+        !address ||
+        typeof address !== 'string' ||
+        !/^0x[\da-f]{40}$/iu.test(address)
+      ) {
+        throw new Error(
+          'Invalid delegate address: must be a 0x-prefixed 40-hex-char string',
+        );
+      }
+      pendingDelegateAddress = address as Address;
+      persistBaggage('pendingDelegateAddress', pendingDelegateAddress);
+    },
+
+    async getDelegateAddress(): Promise<Address | undefined> {
+      return pendingDelegateAddress;
+    },
+
+    async sendDelegateAddressToPeer(address: string): Promise<void> {
+      if (!peerWallet) {
+        throw new Error('No peer wallet connected');
+      }
+      await E(peerWallet).registerDelegateAddress(address);
     },
 
     async handleSigningRequest(request: {

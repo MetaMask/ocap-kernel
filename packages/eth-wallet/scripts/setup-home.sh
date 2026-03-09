@@ -475,19 +475,39 @@ EOF
 # 9. Create delegation (interactive — waits for away device delegate address)
 # ---------------------------------------------------------------------------
 
-cat >&2 <<EOF
+# Check if the away device has already sent its delegate address
+DELEGATE_ADDR=""
+info "Checking for delegate address from away device..."
+DELEGATE_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getDelegateAddress\", []]" 2>/dev/null) || DELEGATE_RAW=""
+if [[ -n "$DELEGATE_RAW" ]]; then
+  DELEGATE_ADDR=$(echo "$DELEGATE_RAW" | node -e "
+    const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+    if (!d.body || !d.body.startsWith('#')) { process.exit(0); }
+    const v = JSON.parse(d.body.slice(1));
+    if (v && typeof v === 'string' && /^0x[\da-fA-F]{40}$/.test(v)) {
+      process.stdout.write(v);
+    }
+  " 2>/dev/null || echo "")
+fi
+
+if [[ -n "$DELEGATE_ADDR" ]]; then
+  ok "Delegate address received from away device: $DELEGATE_ADDR"
+else
+  cat >&2 <<EOF
 $(echo -e "${YELLOW}${BOLD}")  When setup-away.sh finishes, it will show a delegate address.
-  Paste that address below.$(echo -e "${RESET}")
+  Paste that address below (or wait and re-run this script — the away
+  device sends it automatically).$(echo -e "${RESET}")
 
 EOF
 
-echo -ne "${CYAN}→${RESET} Paste the delegate address from the away device: " >&2
-read -r DELEGATE_ADDR
+  echo -ne "${CYAN}→${RESET} Paste the delegate address from the away device: " >&2
+  read -r DELEGATE_ADDR
 
-if [[ -z "$DELEGATE_ADDR" ]]; then
-  echo -e "\n  ${DIM}No delegate address provided. You can create the delegation manually later:${RESET}" >&2
-  echo -e "  ${DIM}yarn ocap daemon exec queueMessage '[\"$ROOT_KREF\", \"createDelegation\", [{\"delegate\": \"0xADDRESS\", \"caveats\": [{\"type\":\"nativeTokenTransferAmount\",\"enforcer\":\"0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320\",\"terms\":\"0x...\"}], \"chainId\": $CHAIN_ID}]]'${RESET}\n" >&2
-  exit 0
+  if [[ -z "$DELEGATE_ADDR" ]]; then
+    echo -e "\n  ${DIM}No delegate address provided. You can create the delegation manually later:${RESET}" >&2
+    echo -e "  ${DIM}yarn ocap daemon exec queueMessage '[\"$ROOT_KREF\", \"createDelegation\", [{\"delegate\": \"0xADDRESS\", \"caveats\": [{\"type\":\"nativeTokenTransferAmount\",\"enforcer\":\"0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320\",\"terms\":\"0x...\"}], \"chainId\": $CHAIN_ID}]]'${RESET}\n" >&2
+    exit 0
+  fi
 fi
 
 if ! echo "$DELEGATE_ADDR" | grep -qiE '^0x[0-9a-f]{40}$'; then

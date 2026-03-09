@@ -1389,6 +1389,94 @@ describe('coordinator-vat', () => {
     });
   });
 
+  describe('registerDelegateAddress', () => {
+    it('stores delegate address in baggage', async () => {
+      const addr = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      await coordinator.registerDelegateAddress(addr);
+      expect(coordinatorBaggage.get('pendingDelegateAddress')).toBe(addr);
+    });
+
+    it('returns delegate address via getDelegateAddress', async () => {
+      const addr = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      await coordinator.registerDelegateAddress(addr);
+      const result = await coordinator.getDelegateAddress();
+      expect(result).toBe(addr);
+    });
+
+    it('returns undefined when no delegate address is set', async () => {
+      const result = await coordinator.getDelegateAddress();
+      expect(result).toBeUndefined();
+    });
+
+    it.each([
+      ['empty string', ''],
+      ['not hex', 'not-an-address'],
+      ['too short', '0x1234'],
+      ['null', null],
+    ])(
+      'rejects %s as delegate address',
+      async (
+        _label: string,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        addr: any,
+      ) => {
+        await expect(coordinator.registerDelegateAddress(addr)).rejects.toThrow(
+          'Invalid delegate address',
+        );
+      },
+    );
+  });
+
+  describe('sendDelegateAddressToPeer', () => {
+    it('sends delegate address to peer wallet', async () => {
+      const addr = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([]),
+        getCapabilities: vi.fn().mockResolvedValue({ signingMode: 'local' }),
+        handleSigningRequest: vi.fn(),
+        registerAwayWallet: vi.fn().mockResolvedValue(undefined),
+        registerDelegateAddress: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const mockRedemption = {
+        redeem: vi.fn().mockResolvedValue(mockPeerWallet),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await coord.bootstrap(
+        {
+          keyring: keyringVat,
+          provider: providerVat,
+          delegation: delegationVat,
+        },
+        { ocapURLRedemptionService: mockRedemption },
+      );
+
+      await coord.connectToPeer('ocap:test@peer123');
+      await coord.sendDelegateAddressToPeer(addr);
+      expect(mockPeerWallet.registerDelegateAddress).toHaveBeenCalledWith(addr);
+    });
+
+    it('throws when no peer wallet is connected', async () => {
+      await expect(
+        coordinator.sendDelegateAddressToPeer(
+          '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        ),
+      ).rejects.toThrow('No peer wallet connected');
+    });
+  });
+
   describe('configureBundler', () => {
     it('stores bundler config in baggage', async () => {
       await coordinator.configureBundler({
