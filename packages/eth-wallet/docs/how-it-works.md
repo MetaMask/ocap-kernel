@@ -51,6 +51,11 @@ The coordinator routes requests to the appropriate vat. For example, when the ag
 
 The home and away kernels connect over **QUIC** (UDP) using **libp2p**. On top of that, they establish a **CapTP** (Capability Transport Protocol) channel — a protocol for passing capability references between processes.
 
+When the away device connects via `connectToPeer()`, it also registers a back-channel with the home coordinator (`registerAwayWallet`) and sends its delegate address (`sendDelegateAddressToPeer`). This enables:
+
+- **Automatic delegate address exchange** — the home device reads the delegate address without copy-paste
+- **Delegation push** — the home device pushes signed delegations (and updated limits) directly to the away device over QUIC
+
 When the away device needs a signature, the coordinator forwards the request over CapTP to the home kernel's coordinator, which resolves signing through its authority chain: local keyring → external signer (MetaMask) → error. The signature travels back through the same channel.
 
 This means:
@@ -58,6 +63,7 @@ This means:
 - The private key stays on the home device at all times (mnemonic mode), or on MetaMask Mobile (interactive mode)
 - The away device only ever receives signatures, never key material
 - The CapTP channel is encrypted end-to-end
+- Setup requires no manual copy-paste — delegate address and delegation are exchanged automatically
 
 ### External Signer (Interactive Mode)
 
@@ -96,7 +102,7 @@ Both enforcers are deployed at deterministic CREATE2 addresses (same address on 
 
 Spending limits are baked into the delegation's cryptographic signature. Changing them means creating a new delegation — the cumulative spending counter resets to zero. The `update-limits.sh` script handles this (see the [Setup Guide](./setup-guide.md#changing-limits)).
 
-When the away device is connected, `update-limits.sh` pushes the new delegation directly over the existing QUIC/CapTP connection using `pushDelegationToAway()`. If the away device is offline, it falls back to printing a manual command.
+When the away device is connected, `update-limits.sh` revokes the old delegation(s) and pushes the new delegation directly over the existing QUIC/CapTP connection using `pushDelegationToAway()` — no copy-paste needed. If the away device is offline, it falls back to printing a manual command.
 
 ### The Relay (optional)
 
