@@ -235,10 +235,13 @@ echo -e "  ${DIM}Each revocation submits a UserOp and waits for on-chain confirm
 REVOKE_FAILED=0
 while read -r DEL_ID; do
   echo -e "  ${DIM}Revoking $DEL_ID...${RESET}" >&2
-  if ! daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"revokeDelegation\", [\"$DEL_ID\"]]" --timeout 120 >/dev/null 2>&1; then
+  REVOKE_OUTPUT=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"revokeDelegation\", [\"$DEL_ID\"]]" --timeout 120 2>&1) || {
     echo -e "  ${RED}✗${RESET} Failed to revoke delegation $DEL_ID" >&2
+    if [[ -n "$REVOKE_OUTPUT" ]]; then
+      echo -e "  ${DIM}Reason: $REVOKE_OUTPUT${RESET}" >&2
+    fi
     REVOKE_FAILED=$((REVOKE_FAILED + 1))
-  fi
+  }
 done < <(echo "$OLD_IDS" | node -e "
   const ids = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
   for (const id of ids) { console.log(id); }
@@ -286,8 +289,8 @@ fi
 
 if [[ "$HAS_AWAY" == "true" ]]; then
   info "Pushing delegation to away device over QUIC..."
-  PUSH_PARAMS=$(KREF="$ROOT_KREF" DEL="$DEL_JSON" node -e "
-    const p = JSON.stringify([process.env.KREF, 'pushDelegationToAway', [JSON.parse(process.env.DEL)]]);
+  PUSH_PARAMS=$(KREF="$ROOT_KREF" DEL="$DEL_JSON" OLD="$OLD_IDS" node -e "
+    const p = JSON.stringify([process.env.KREF, 'pushDelegationToAway', [JSON.parse(process.env.DEL), JSON.parse(process.env.OLD)]]);
     process.stdout.write(p);
   ")
   PUSH_OUTPUT=$(daemon_exec --quiet queueMessage "$PUSH_PARAMS" --timeout 30 2>&1) && {
@@ -302,18 +305,26 @@ if [[ "$HAS_AWAY" == "true" ]]; then
 fi
 
 if [[ "$HAS_AWAY" != "true" ]]; then
-  AWAY_CMD=$(DEL="$DEL_JSON" KREF="$ROOT_KREF" node -e "
-    const del = JSON.stringify(JSON.parse(process.env.DEL));
-    const args = JSON.stringify([process.env.KREF, 'receiveDelegation', [JSON.parse(process.env.DEL)]]);
-    const escaped = args.replace(/'/g, \"'\\\\''\" );
-    process.stdout.write('yarn ocap daemon exec queueMessage ' + \"'\" + escaped + \"'\");
+  AWAY_CMDS=$(DEL="$DEL_JSON" KREF="$ROOT_KREF" IDS="$OLD_IDS" node -e "
+    const kref = process.env.KREF;
+    const ids = JSON.parse(process.env.IDS);
+    const lines = [];
+    for (const id of ids) {
+      const args = JSON.stringify([kref, 'revokeDelegationLocally', [id]]);
+      const escaped = args.replace(/'/g, \"'\\\\''\" );
+      lines.push('yarn ocap daemon exec queueMessage ' + \"'\" + escaped + \"'\");
+    }
+    const recvArgs = JSON.stringify([kref, 'receiveDelegation', [JSON.parse(process.env.DEL)]]);
+    const recvEscaped = recvArgs.replace(/'/g, \"'\\\\''\" );
+    lines.push('yarn ocap daemon exec queueMessage ' + \"'\" + recvEscaped + \"'\");
+    process.stdout.write(lines.join('\n'));
   ")
 
   cat >&2 <<EOF
 
-$(echo -e "${YELLOW}${BOLD}")  Run this on the away device to apply the new delegation:$(echo -e "${RESET}")
+$(echo -e "${YELLOW}${BOLD}")  Run these commands on the away device to apply the new delegation:$(echo -e "${RESET}")
 
-$(echo -e "${BOLD}")$AWAY_CMD$(echo -e "${RESET}")
+$(echo -e "${BOLD}")$AWAY_CMDS$(echo -e "${RESET}")
 
 EOF
 fi
