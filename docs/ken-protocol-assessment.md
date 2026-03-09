@@ -28,6 +28,7 @@ turn_end:
 ```
 
 Key aspects:
+
 - Only one message delivered per turn
 - All outputs buffered until end of turn
 - Atomic checkpoint includes application state AND output queue
@@ -38,26 +39,27 @@ Key aspects:
 
 ### What We Have (Aligned with Ken)
 
-| Property | Status | Implementation |
-|----------|--------|----------------|
-| Sender-based logging | ✓ | Messages persisted at `remotePending.${remoteId}.${seq}` |
-| Sequence numbers | ✓ | `seq` on outgoing, `highestReceivedSeq` for incoming |
-| Cumulative ACK | ✓ | Piggyback ACKs acknowledge all messages up to seq |
-| Retransmission | ✓ | Timeout-based retransmit until ACK or max retries |
-| Crash-safe persistence | ✓ | Write message first, then update nextSendSeq |
-| Local recovery | ✓ | Restore seq state, restart ACK timeout |
-| Transactional turns | ✓ | Crank buffering defers outputs until crank commit |
-| Deferred transmission | ✓ | Outputs reach RemoteHandle only after originating crank commits |
-| Output validity | ✓ | Crank buffering ensures outputs escape only after commit |
-| Atomic checkpoint | ✓ | Database savepoints make crank state changes atomic |
-| Exactly-once receive | ✓ | Transactional receive with dedup check (Issue #808) |
-| FIFO ordering | ✓ | TCP guarantees in-order; dedup handles retransmits |
+| Property               | Status | Implementation                                                  |
+| ---------------------- | ------ | --------------------------------------------------------------- |
+| Sender-based logging   | ✓      | Messages persisted at `remotePending.${remoteId}.${seq}`        |
+| Sequence numbers       | ✓      | `seq` on outgoing, `highestReceivedSeq` for incoming            |
+| Cumulative ACK         | ✓      | Piggyback ACKs acknowledge all messages up to seq               |
+| Retransmission         | ✓      | Timeout-based retransmit until ACK or max retries               |
+| Crash-safe persistence | ✓      | Write message first, then update nextSendSeq                    |
+| Local recovery         | ✓      | Restore seq state, restart ACK timeout                          |
+| Transactional turns    | ✓      | Crank buffering defers outputs until crank commit               |
+| Deferred transmission  | ✓      | Outputs reach RemoteHandle only after originating crank commits |
+| Output validity        | ✓      | Crank buffering ensures outputs escape only after commit        |
+| Atomic checkpoint      | ✓      | Database savepoints make crank state changes atomic             |
+| Exactly-once receive   | ✓      | Transactional receive with dedup check (Issue #808)             |
+| FIFO ordering          | ✓      | TCP guarantees in-order; dedup handles retransmits              |
 
 ### Crank Buffering (Issue #786)
 
 The crank buffering feature achieves Ken's core send-side properties:
 
 **Our crank model:**
+
 ```
 crank_start(deliver one item from run queue)
   → create database savepoint
@@ -138,21 +140,22 @@ Therefore, explicit receive-side reordering is not required given our transport 
 
 ### Summary Table
 
-| Ken Property | Our System | Notes |
-|--------------|------------|-------|
-| Transactional turns | **Yes** | Crank buffering provides turn boundaries |
-| Output validity | **Yes** | Outputs escape only after originating crank commits |
-| Deferred transmission | **Yes** | Run queue staging ensures this |
-| Atomic checkpoint | **Yes** | Database savepoints for kernel state |
-| Consistent frontier | **Yes** | Each kernel's checkpoint is independent |
-| Local recovery | **Yes** | Crashes don't affect other processes |
-| Sender-based logging | **Yes** | Messages persisted in remotePending until ACKed |
-| Exactly-once delivery | **Yes** | Transactional receive with dedup check |
-| FIFO ordering | **Yes** | TCP guarantees in-order; dedup handles retransmits |
+| Ken Property          | Our System | Notes                                               |
+| --------------------- | ---------- | --------------------------------------------------- |
+| Transactional turns   | **Yes**    | Crank buffering provides turn boundaries            |
+| Output validity       | **Yes**    | Outputs escape only after originating crank commits |
+| Deferred transmission | **Yes**    | Run queue staging ensures this                      |
+| Atomic checkpoint     | **Yes**    | Database savepoints for kernel state                |
+| Consistent frontier   | **Yes**    | Each kernel's checkpoint is independent             |
+| Local recovery        | **Yes**    | Crashes don't affect other processes                |
+| Sender-based logging  | **Yes**    | Messages persisted in remotePending until ACKed     |
+| Exactly-once delivery | **Yes**    | Transactional receive with dedup check              |
+| FIFO ordering         | **Yes**    | TCP guarantees in-order; dedup handles retransmits  |
 
 ## Architectural Summary
 
 **Send side (crank buffering):**
+
 ```
 Vat Crank:
   vat processes message → syscalls buffer outputs
@@ -167,6 +170,7 @@ Later (separate operation):
 The key insight: by the time RemoteHandle sees a message, the originating crank has already committed. Output validity is achieved.
 
 **Receive side (transactional processing):**
+
 ```
 receive from network
   → check seq <= highestReceivedSeq (skip if duplicate)
@@ -180,15 +184,15 @@ If a crash occurs before commit, both the run queue entry and the sequence updat
 
 ## Progress Summary
 
-| Area | Status |
-|------|--------|
-| Kernel-internal output buffering | **Achieved** (Issue #786) |
-| Rollback discards uncommitted outputs | **Achieved** (Issue #786) |
-| Atomic kernel state + output queue | **Achieved** (Issue #786) |
-| Output validity (send side) | **Achieved** (Issue #786) |
-| Deferred transmission (send side) | **Achieved** (Issue #786) |
-| FIFO ordering | **Achieved** (TCP transport) |
-| Exactly-once receive (dedup + atomicity) | **Achieved** (Issue #808) |
+| Area                                     | Status                       |
+| ---------------------------------------- | ---------------------------- |
+| Kernel-internal output buffering         | **Achieved** (Issue #786)    |
+| Rollback discards uncommitted outputs    | **Achieved** (Issue #786)    |
+| Atomic kernel state + output queue       | **Achieved** (Issue #786)    |
+| Output validity (send side)              | **Achieved** (Issue #786)    |
+| Deferred transmission (send side)        | **Achieved** (Issue #786)    |
+| FIFO ordering                            | **Achieved** (TCP transport) |
+| Exactly-once receive (dedup + atomicity) | **Achieved** (Issue #808)    |
 
 All Ken protocol properties are now implemented.
 
