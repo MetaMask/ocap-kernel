@@ -92,9 +92,13 @@ await coordinator.configureBundler({
 const ocapUrl = await coordinator.issueOcapUrl();
 // Send ocapUrl to the away kernel via any out-of-band channel
 
-// 5. Create a delegation for the away kernel's address
+// 5. Read the delegate address sent by the away kernel (automatic)
+const delegateAddress = await coordinator.getDelegateAddress();
+// Falls back to manual input if the away kernel hasn't connected yet
+
+// 6. Create a delegation for the away kernel's address
 const delegation = await coordinator.createDelegation({
-  delegate: '0xAwayAddress...' as Address,
+  delegate: delegateAddress ?? ('0xAwayAddress...' as Address),
   caveats: [
     makeCaveat({
       type: 'allowedTargets',
@@ -107,12 +111,14 @@ const delegation = await coordinator.createDelegation({
   ],
   chainId: 1,
 });
-// Share the signed delegation with the away kernel
+
+// 7. Push the delegation to the away kernel (automatic over QUIC/CapTP)
+await coordinator.pushDelegationToAway(delegation);
 ```
 
 ### Away Kernel
 
-The away kernel receives delegated authority. It initializes a throwaway keyring (or receives delegations without any local keys) and redeems delegations by building ERC-4337 UserOperations.
+The away kernel receives delegated authority. It initializes a throwaway keyring and redeems delegations by building ERC-4337 UserOperations. When connecting to the home kernel, it automatically sends its delegate address and registers a back-channel for receiving delegations — no manual copy-paste needed.
 
 ```typescript
 import { makeWalletClusterConfig } from '@ocap/eth-wallet';
@@ -125,10 +131,15 @@ const entropy = `0x${Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toS
 await coordinator.initializeKeyring({ type: 'throwaway', entropy });
 
 // 2. Connect to the home kernel via the OCAP URL
+// This automatically:
+//   - Caches peer accounts for offline use
+//   - Registers a back-channel (registerAwayWallet) for delegation push
+//   - Sends the delegate address to the home device
 await coordinator.connectToPeer(ocapUrl);
 
-// 3. Receive the delegation from the home kernel
-await coordinator.receiveDelegation(delegation);
+// 3. The home device pushes the delegation automatically via pushDelegationToAway().
+//    Alternatively, receive it manually:
+// await coordinator.receiveDelegation(delegation);
 
 // 4. Configure the bundler
 await coordinator.configureBundler({
@@ -151,7 +162,9 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Peer Wallet Communication
 
-When the away kernel has no local keys and no matching delegation for a message or typed-data signing request, it falls back to the peer wallet (the home kernel's coordinator). The signing request is forwarded over the OCAP URL connection, and the home kernel signs it using its own keyring or external signer. Transaction signing (`signTransaction`) does not have a peer fallback — the away kernel must use delegation redemption for sends.
+When the away kernel connects via `connectToPeer()`, it automatically registers a back-channel with the home coordinator and sends its delegate address. This enables the home device to push delegations and read the delegate address without manual copy-paste.
+
+If the away kernel has no local keys and no matching delegation for a message or typed-data signing request, it falls back to the peer wallet (the home kernel's coordinator). The signing request is forwarded over the OCAP URL connection, and the home kernel signs it using its own keyring or external signer. Transaction signing (`signTransaction`) does not have a peer fallback — the away kernel must use delegation redemption for sends.
 
 ```
   Away Kernel                           Home Kernel
@@ -252,8 +265,9 @@ const delegation = await coordinator.createDelegation({
 
 ### Sharing Delegations
 
-Delegations can be shared between kernels in two ways:
+Delegations can be shared between kernels in three ways:
 
+- **Automatic push (recommended)** -- When the away device connects via `connectToPeer()`, it registers a back-channel with the home coordinator. The home device can then push delegations directly via `pushDelegationToAway(delegation)`. The setup scripts and `update-limits.sh` use this automatically.
 - **Direct** -- Call `coordinator.receiveDelegation(delegation)` on the receiving kernel, passing the signed delegation object.
 - **OCAP URL** -- The home kernel issues an OCAP URL, and the away kernel redeems it to obtain a reference to the home coordinator, then receives delegations via method calls.
 
@@ -309,14 +323,17 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Coordinator -- Peer Connectivity
 
-| Method                             | Description                                                                                                                 |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `issueOcapUrl()`                   | Issue an OCAP URL that grants a reference to this coordinator. Requires `ocapURLIssuerService`.                             |
-| `connectToPeer(ocapUrl)`           | Connect to a remote coordinator via an OCAP URL. Caches peer accounts for offline use. Requires `ocapURLRedemptionService`. |
-| `refreshPeerAccounts()`            | Re-fetch and cache peer accounts. Throws if no peer wallet is connected.                                                    |
-| `registerAwayWallet(awayRef)`      | Register an away wallet reference for delegation push. Called automatically by the away device during `connectToPeer`.      |
-| `pushDelegationToAway(delegation)` | Push a signed delegation to the registered away wallet over CapTP. Throws if no away wallet is registered.                  |
-| `handleSigningRequest(request)`    | Handle an incoming signing request from a peer wallet.                                                                      |
+| Method                               | Description                                                                                                                |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `issueOcapUrl()`                     | Issue an OCAP URL that grants a reference to this coordinator. Requires `ocapURLIssuerService`.                            |
+| `connectToPeer(ocapUrl)`             | Connect to a remote coordinator via an OCAP URL. Caches peer accounts, registers back-channel, and sends delegate address. |
+| `refreshPeerAccounts()`              | Re-fetch and cache peer accounts. Throws if no peer wallet is connected.                                                   |
+| `registerAwayWallet(awayRef)`        | Register an away wallet reference for delegation push. Called automatically by the away device during `connectToPeer`.     |
+| `pushDelegationToAway(delegation)`   | Push a signed delegation to the registered away wallet over CapTP. Throws if no away wallet is registered.                 |
+| `registerDelegateAddress(address)`   | Store a delegate address received from the away device. Called automatically via `sendDelegateAddressToPeer`.              |
+| `getDelegateAddress()`               | Return the pending delegate address sent by the away device, or `undefined` if none.                                       |
+| `sendDelegateAddressToPeer(address)` | Send this device's delegate address to the connected peer (home) device. Called automatically during `connectToPeer`.      |
+| `handleSigningRequest(request)`      | Handle an incoming signing request from a peer wallet.                                                                     |
 
 ### Coordinator -- Introspection
 

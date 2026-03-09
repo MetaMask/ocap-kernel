@@ -232,16 +232,15 @@ The home script outputs a complete `setup-away.sh` command with all flags pre-fi
 
 When the away script finishes setup, it shows the **delegate address** and waits.
 
-### Step 3 — Delegate authority (copy-paste between terminals)
+### Step 3 — Delegate authority (automatic)
 
-The scripts guide you through a handshake:
+The delegate address and delegation are exchanged automatically over the QUIC/CapTP connection — no copy-paste needed:
 
-1. **Away → Home**: copy the delegate address from the away terminal, paste it into the home terminal
-2. The home script creates the delegation and prints the delegation JSON
-3. **Home → Away**: copy the delegation JSON, paste it into the away terminal, press `Ctrl+D`
-4. The away script receives the delegation and verifies it
+1. The away script connects to the home kernel and sends its delegate address automatically
+2. The home script detects the delegate address, prompts for spending limits, creates the delegation, and pushes it to the away device over QUIC
+3. The away script receives the delegation and verifies it
 
-Both scripts finish automatically after the delegation is transferred.
+Both scripts finish automatically after the delegation is transferred. If the automatic exchange fails (e.g. network issues), both scripts fall back to manual input — you can paste the delegate address or delegation JSON when prompted, or press Enter to skip to the manual prompt at any time.
 
 > **Offline autonomy:** After the delegation is received, the away device caches the home accounts and operates fully autonomously. The home device can go offline — the VPS will continue sending ETH, signing messages, and responding to agent requests without it. See [How It Works — Offline Autonomy](./how-it-works.md#offline-autonomy-vps-mode) for details.
 
@@ -316,9 +315,9 @@ This will:
 2. Prompt for new total and per-transaction limits
 3. Revoke old delegations locally
 4. Create and sign a new delegation (the cumulative spending counter resets to zero)
-5. Output the full command to run on the away device
+5. Push the new delegation to the away device over the existing QUIC/CapTP connection
 
-Then paste the output command on the away device to apply the new delegation.
+If the away device is offline, the script falls back to printing a manual command to run on the away device.
 
 ## OpenClaw plugin install
 
@@ -518,7 +517,7 @@ Should show `hasPeerWallet: true`.
 
 ## 4. Delegate authority from home to away
 
-If you used the automated scripts, this is handled interactively — the scripts guide you through copying the delegate address and delegation JSON between terminals. See [Step 3 in Quick start](#step-3--delegate-authority-copy-paste-between-terminals).
+If you used the automated scripts, this is handled automatically — the away device sends its delegate address to the home device over QUIC/CapTP, the home device creates the delegation, and pushes it back. No copy-paste needed. See [Step 3 in Quick start](#step-3--delegate-authority-automatic).
 
 When `--pimlico-key` is provided, both scripts set up smart accounts. The home script uses EIP-7702 to promote the EOA into a smart account (no separate contract or funding needed). The away script creates a Hybrid smart account (counterfactual — deploys on first UserOp). Delegations require smart accounts as delegator and delegate — this is handled automatically.
 
@@ -536,19 +535,32 @@ yarn ocap daemon exec queueMessage '["ko4", "createSmartAccount", [{"chainId": 1
 
 The home EOA's existing ETH balance is used directly for delegated transfers — no separate funding step needed.
 
-2. Create the delegation on the home device (delegate = away smart account). See [Spending limits](#spending-limits) for adding caveats:
+2. Read the delegate address from the away device (sent automatically during `connectToPeer`):
+
+```bash
+yarn ocap daemon exec queueMessage '["ko4", "getDelegateAddress", []]'
+```
+
+3. Create the delegation on the home device (delegate = away smart account). See [Spending limits](#spending-limits) for adding caveats:
 
 ```bash
 yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{"delegate": "0xAWAY_SMART_ACCOUNT", "caveats": [], "chainId": 11155111}]]'
 ```
 
-3. Transfer the delegation to the away device:
+4. Push the delegation to the away device (if connected):
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "receiveDelegation", [<PASTE_DELEGATION_JSON>]]'
+yarn ocap daemon exec queueMessage '["ko4", "pushDelegationToAway", [<DELEGATION_JSON>]]'
 ```
 
-4. Verify:
+Or transfer manually if the away device is offline:
+
+```bash
+# On the away device:
+yarn ocap daemon exec queueMessage '["ko4", "receiveDelegation", [<DELEGATION_JSON>]]'
+```
+
+5. Verify:
 
 ```bash
 yarn ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
