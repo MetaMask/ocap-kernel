@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { makeDiscoverableExo } from './discoverable.ts';
+import { GET_DESCRIPTION, makeDiscoverableExo } from './discoverable.ts';
 import type { MethodSchema } from './schema.ts';
 
 const makeExoMock = vi.hoisted(() =>
@@ -56,16 +56,16 @@ describe('makeDiscoverableExo', () => {
     expect(exo).toBeDefined();
     expect(exo.greet).toBeDefined();
     expect(exo.add).toBeDefined();
-    expect(exo.describe).toBeDefined();
+    expect(exo[GET_DESCRIPTION]).toBeDefined();
   });
 
-  it('returns full schema when describe is called', () => {
+  it('returns full schema when __getDescription__ is called', () => {
     const methods = { greet: (name: string) => `Hello, ${name}!` };
     const schema = { greet: greetSchema };
 
     const exo = makeDiscoverableExo('TestExo', methods, schema);
 
-    expect(exo.describe()).toStrictEqual(schema);
+    expect(exo[GET_DESCRIPTION]()).toStrictEqual(schema);
   });
 
   it('preserves method functionality', () => {
@@ -94,7 +94,7 @@ describe('makeDiscoverableExo', () => {
     const exo = makeDiscoverableExo('TestExo', methods, schema);
 
     expect(exo.getValue()).toBe(42);
-    expect(exo.describe()).toStrictEqual({
+    expect(exo[GET_DESCRIPTION]()).toStrictEqual({
       getValue: schema.getValue,
     });
   });
@@ -117,18 +117,18 @@ describe('makeDiscoverableExo', () => {
 
     exo.doSomething();
     expect(called).toBe(true);
-    expect(exo.describe()).toStrictEqual({
+    expect(exo[GET_DESCRIPTION]()).toStrictEqual({
       doSomething: schema.doSomething,
     });
   });
 
-  it('throws if describe is already a method', () => {
+  it('throws if __getDescription__ is already a method', () => {
     const methods = {
-      describe: () => 'original describe',
+      [GET_DESCRIPTION]: () => 'original describe',
       greet: (name: string) => `Hello, ${name}!`,
     };
     const schema: Record<keyof typeof methods, MethodSchema> = {
-      describe: {
+      [GET_DESCRIPTION]: {
         description: 'Original describe method',
         args: {},
         returns: { type: 'string', description: 'Original description' },
@@ -138,7 +138,9 @@ describe('makeDiscoverableExo', () => {
 
     expect(() => {
       makeDiscoverableExo('TestExo', methods, schema);
-    }).toThrow('The `describe` method name is reserved for discoverable exos.');
+    }).toThrow(
+      `The \`${GET_DESCRIPTION}\` method name is reserved for discoverable exos.`,
+    );
   });
 
   it('re-throws errors from makeExo that are not about describe key', () => {

@@ -1,4 +1,5 @@
 import { E } from '@endo/eventual-send';
+import { GET_DESCRIPTION } from '@metamask/kernel-utils';
 import type { DiscoverableExo, MethodSchema } from '@metamask/kernel-utils';
 
 import type { CapabilityRecord, CapabilitySpec } from '../types.ts';
@@ -14,7 +15,10 @@ export const discover = async (
   exo: DiscoverableExo,
 ): Promise<CapabilityRecord> => {
   // @ts-expect-error - E type doesn't remember method names
-  const description = (await E(exo).describe()) as Record<string, MethodSchema>;
+  const description = (await E(exo)[GET_DESCRIPTION]()) as Record<
+    string,
+    MethodSchema
+  >;
 
   const capabilities: CapabilityRecord = Object.fromEntries(
     Object.entries(description).map(([name, schema]) => {
