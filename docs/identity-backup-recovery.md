@@ -14,6 +14,7 @@ Each kernel has a unique identity derived from a cryptographic seed. This identi
 A BIP39 mnemonic is a human-readable sequence of words (typically 12 or 24 words) that represents cryptographic entropy. The same mnemonic will always produce the same seed when using the standard PBKDF2 derivation, making it ideal for backup and recovery.
 
 Example 12-word mnemonic:
+
 ```
 abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
 ```
@@ -47,7 +48,8 @@ Validates a BIP39 mnemonic phrase.
 ```typescript
 import { isValidMnemonic } from '@metamask/ocap-kernel';
 
-const mnemonic = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+const mnemonic =
+  'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 if (isValidMnemonic(mnemonic)) {
   console.log('Valid mnemonic');
 } else {
@@ -64,7 +66,8 @@ This is a **one-way operation** - you cannot reverse a seed back to its mnemonic
 ```typescript
 import { mnemonicToSeed } from '@metamask/ocap-kernel';
 
-const mnemonic = 'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+const mnemonic =
+  'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
 const seed = mnemonicToSeed(mnemonic);
 // seed is a 64-character hex string (32 bytes)
 ```
@@ -217,6 +220,7 @@ await kernel.initRemoteComms({ relays });
 ```
 
 If you attempt to provide a mnemonic when an identity already exists without `resetStorage: true`, you'll get:
+
 ```
 Error: Cannot use mnemonic: kernel identity already exists. Use resetStorage to clear existing identity first.
 ```
