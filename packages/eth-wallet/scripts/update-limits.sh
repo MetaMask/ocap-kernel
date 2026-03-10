@@ -244,8 +244,8 @@ while read -r DEL_ID; do
     continue
   }
   # Check if the daemon returned a CapData-wrapped error (exit code is still 0).
-  # Inside JSON, quotes are escaped as \", so the pattern matches \"#error\".
-  if echo "$REVOKE_OUTPUT" | grep -q '\"#error\"'; then
+  # The CapData body contains "#error" as a JSON key; grep the raw output.
+  if echo "$REVOKE_OUTPUT" | grep -q '#error'; then
     ERR_MSG=$(echo "$REVOKE_OUTPUT" | parse_capdata | node -e "
       const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
       try {

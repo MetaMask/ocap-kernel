@@ -504,13 +504,13 @@ export function buildRootObject(
   }
 
   /**
-   * Add a 10% buffer to a hex gas value to meet bundler minimums.
+   * Add a 25% buffer to a hex gas value to meet bundler minimums.
    *
    * @param value - The hex gas value.
    * @returns The bumped hex value.
    */
   function bumpHex(value: Hex): Hex {
-    const bumped = (BigInt(value) * 110n) / 100n;
+    const bumped = (BigInt(value) * 125n) / 100n;
     return `0x${bumped.toString(16)}`;
   }
 
