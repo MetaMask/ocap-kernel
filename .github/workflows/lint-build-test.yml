@@ -151,6 +151,13 @@ jobs:
             '@ocap/extension',
             '@ocap/omnium-gatherum',
           ]
+        include:
+          - package: '@metamask/kernel-node-runtime'
+            directory: kernel-node-runtime
+          - package: '@ocap/extension'
+            directory: extension
+          - package: '@ocap/omnium-gatherum'
+            directory: omnium-gatherum
     steps:
       - name: Checkout and setup environment
         uses: MetaMask/action-checkout-and-setup@v3
@@ -166,8 +173,8 @@ jobs:
         if: ${{ failure() && steps.e2e.conclusion == 'failure' }}
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-traces-${{ matrix.package }}
-          path: packages/${{ matrix.package }}/test-results
+          name: playwright-traces-${{ matrix.directory }}
+          path: packages/${{ matrix.directory }}/test-results
           if-no-files-found: ignore
       - name: Require clean working directory
         shell: bash
