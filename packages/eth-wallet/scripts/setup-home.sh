@@ -35,6 +35,7 @@ RELAY_ADDR=""
 SKIP_BUILD=false
 QUIC_PORT=4002
 DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
+KEYRING_PASSWORD=""
 
 # ---------------------------------------------------------------------------
 # Parse arguments
@@ -42,7 +43,7 @@ DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
 
 usage() {
   cat <<EOF
-Usage: $0 --mnemonic "..." --infura-key KEY [--pimlico-key KEY] [--relay MULTIADDR] [--chain-id ID] [--quic-port PORT] [--no-build]
+Usage: $0 --mnemonic "..." --infura-key KEY [--pimlico-key KEY] [--relay MULTIADDR] [--chain-id ID] [--quic-port PORT] [--password PW] [--no-build]
 
 Required:
   --mnemonic       12-word seed phrase
@@ -53,6 +54,7 @@ Optional:
   --relay          Relay multiaddr (e.g. /ip4/HOST/tcp/9001/ws/p2p/PEER_ID)
   --chain-id       Chain ID (default: $CHAIN_ID)
   --quic-port      UDP port for QUIC transport (default: $QUIC_PORT)
+  --password       Password to encrypt the mnemonic at rest
   --no-build       Skip yarn build
 EOF
   exit 1
@@ -78,6 +80,9 @@ while [[ $# -gt 0 ]]; do
     --quic-port)
       [[ $# -lt 2 ]] && { echo "Error: --quic-port requires a value" >&2; usage; }
       QUIC_PORT="$2"; shift 2 ;;
+    --password)
+      [[ $# -lt 2 ]] && { echo "Error: --password requires a value" >&2; usage; }
+      KEYRING_PASSWORD="$2"; shift 2 ;;
     --no-build)    SKIP_BUILD=true; shift ;;
     -h|--help)     usage ;;
     *) echo "Unknown option: $1" >&2; usage ;;
@@ -322,10 +327,19 @@ ok "Subcluster launched — coordinator: $ROOT_KREF"
 # 5. Initialize keyring
 # ---------------------------------------------------------------------------
 
-info "Initializing keyring with SRP..."
+if [[ -n "$KEYRING_PASSWORD" ]]; then
+  info "Initializing keyring with SRP (encrypted)..."
+else
+  info "Initializing keyring with SRP..."
+fi
 
-INIT_PARAMS=$(KREF="$ROOT_KREF" SRP="$MNEMONIC" node -e "
-  const p = JSON.stringify([process.env.KREF, 'initializeKeyring', [{ type: 'srp', mnemonic: process.env.SRP }]]);
+INIT_PARAMS=$(KREF="$ROOT_KREF" SRP="$MNEMONIC" PW="$KEYRING_PASSWORD" node -e "
+  const opts = { type: 'srp', mnemonic: process.env.SRP };
+  if (process.env.PW) {
+    opts.password = process.env.PW;
+    opts.salt = require('crypto').randomBytes(16).toString('hex');
+  }
+  const p = JSON.stringify([process.env.KREF, 'initializeKeyring', [opts]]);
   process.stdout.write(p);
 ")
 

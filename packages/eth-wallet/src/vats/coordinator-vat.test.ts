@@ -245,6 +245,73 @@ describe('coordinator-vat', () => {
       const accounts = await coordinator.getAccounts();
       expect(accounts).toHaveLength(1);
     });
+
+    it('encrypts mnemonic when password and salt are provided', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+        password: 'test-password',
+        salt: 'aabbccddaabbccddaabbccddaabbccdd',
+      });
+
+      const accounts = await coordinator.getAccounts();
+      expect(accounts).toHaveLength(1);
+
+      // Verify the keyring vat persisted encrypted data
+      const stored = keyringBaggage.get('keyringInit') as Record<
+        string,
+        unknown
+      >;
+      expect(stored.encrypted).toBe(true);
+      expect(stored).not.toHaveProperty('mnemonic');
+    });
+  });
+
+  describe('unlockKeyring / isKeyringLocked', () => {
+    const LOCK_PASSWORD = 'test-password';
+    const LOCK_SALT = 'aabbccddaabbccddaabbccddaabbccdd';
+
+    it('delegates unlock to keyring vat', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+        password: LOCK_PASSWORD,
+        salt: LOCK_SALT,
+      });
+
+      // Resuscitate coordinator + keyring (simulates daemon restart)
+
+      const restoredKeyring = buildKeyringRoot(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        keyringBaggage as any,
+      );
+      const freshBaggage = makeMockBaggage();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const restoredCoord: any = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await restoredCoord.bootstrap(
+        {
+          keyring: restoredKeyring,
+          provider: providerVat,
+          delegation: delegationVat,
+        },
+        {},
+      );
+
+      expect(await restoredCoord.isKeyringLocked()).toBe(true);
+
+      await restoredCoord.unlockKeyring(LOCK_PASSWORD);
+
+      expect(await restoredCoord.isKeyringLocked()).toBe(false);
+      const accounts = await restoredCoord.getAccounts();
+      expect(accounts).toHaveLength(1);
+    });
   });
 
   describe('signing strategy resolution', () => {

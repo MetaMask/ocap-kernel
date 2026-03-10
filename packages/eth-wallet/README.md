@@ -8,7 +8,7 @@ For a deeper explanation of the components and data flow, see [How It Works](./d
 
 - **Peer signing has no interactive approval for message/typed-data requests.** Transaction signing over peer requests is now disabled and peer-connected wallets must use delegation redemption for sends, but message and typed-data peer signing still execute immediately without an approval prompt.
 - **`revokeDelegation()` requires a bundler.** Revocation submits an on-chain `disableDelegation` UserOp to the DelegationManager contract. The bundler and (optionally) paymaster must be configured. If the UserOp fails, the local delegation status is not changed.
-- **Mnemonic is stored in plaintext.** The keyring vat persists the mnemonic to the kernel's durable store (SQLite) without encryption. Filesystem access to the kernel database exposes the key material.
+- **Mnemonic encryption is optional.** The keyring vat can encrypt the mnemonic at rest using AES-256-GCM with a PBKDF2-derived key. Pass a `password` and `salt` to `initializeKeyring()` to enable encryption. Without a password, the mnemonic is stored in plaintext. When encrypted, the keyring starts in a locked state on daemon restart and must be unlocked with `unlockKeyring(password)` before signing operations work.
 - **Throwaway keyring needs secure entropy.** `initializeKeyring({ type: 'throwaway' })` requires either `crypto.getRandomValues` in the runtime or caller-provided entropy via `{ type: 'throwaway', entropy: '0x...' }`. Under SES lockdown (where `crypto` is unavailable inside vat compartments), the caller must generate 32 bytes of entropy externally and pass it in.
 
 ## Architecture
@@ -52,7 +52,7 @@ the keyring vat                                 (no keys, no network)
 
 **Coordinator vat** -- The bootstrap vat and sole public API surface. Resolves which signing strategy to use for each request (delegation, local key, external signer, or peer wallet). Builds and submits ERC-4337 UserOperations for delegation redemption. Manages peer wallet connectivity via OCAP URLs.
 
-**Keyring vat** -- Isolates private key material. Supports two initialization modes: `srp` (BIP-39 mnemonic with BIP-44 HD derivation at `m/44'/60'/0'/0/{index}`) and `throwaway` (a single randomly generated private key). Signs transactions, personal messages, and EIP-712 typed data. Keys never leave this vat.
+**Keyring vat** -- Isolates private key material. Supports two initialization modes: `srp` (BIP-39 mnemonic with BIP-44 HD derivation at `m/44'/60'/0'/0/{index}`) and `throwaway` (a single randomly generated private key). Signs transactions, personal messages, and EIP-712 typed data. Keys never leave this vat. Optionally encrypts the mnemonic at rest with AES-256-GCM (password-based, PBKDF2 key derivation).
 
 **Provider vat** -- Handles all Ethereum JSON-RPC communication. Wraps a [viem](https://viem.sh/) transport for standard RPC calls (`eth_call`, `eth_getBalance`, etc.), transaction broadcasting, and ERC-4337 bundler RPC (`eth_sendUserOperation`, `eth_estimateUserOperationGas`).
 
@@ -293,13 +293,15 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Coordinator -- Lifecycle
 
-| Method                           | Description                                                                                                                                                                 |
-| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bootstrap(vats, services)`      | Called by the kernel during subcluster launch. Wires up vat references.                                                                                                     |
-| `initializeKeyring(options)`     | Initialize the keyring vat. Options: `{ type: 'srp', mnemonic }` or `{ type: 'throwaway', entropy? }`. Under SES lockdown, pass `entropy` (32-byte hex) for throwaway keys. |
-| `configureProvider(chainConfig)` | Configure the provider vat with an RPC URL and chain ID.                                                                                                                    |
-| `connectExternalSigner(signer)`  | Connect an external signing backend (e.g., MetaMask).                                                                                                                       |
-| `configureBundler(config)`       | Configure the ERC-4337 bundler. Accepts `{ bundlerUrl, chainId, entryPoint?, usePaymaster?, sponsorshipPolicyId? }`.                                                        |
+| Method                           | Description                                                                                                                                                                                                                                                                                                 |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bootstrap(vats, services)`      | Called by the kernel during subcluster launch. Wires up vat references.                                                                                                                                                                                                                                     |
+| `initializeKeyring(options)`     | Initialize the keyring vat. Options: `{ type: 'srp', mnemonic, password?, salt? }` or `{ type: 'throwaway', entropy? }`. Under SES lockdown, pass `entropy` (32-byte hex) for throwaway keys. When `password` is provided for SRP, the mnemonic is encrypted at rest (requires a random `salt` hex string). |
+| `unlockKeyring(password)`        | Unlock an encrypted keyring after daemon restart. Required before any signing operations when the mnemonic was encrypted with a password.                                                                                                                                                                   |
+| `isKeyringLocked()`              | Returns `true` if the keyring is encrypted and has not been unlocked yet.                                                                                                                                                                                                                                   |
+| `configureProvider(chainConfig)` | Configure the provider vat with an RPC URL and chain ID.                                                                                                                                                                                                                                                    |
+| `connectExternalSigner(signer)`  | Connect an external signing backend (e.g., MetaMask).                                                                                                                                                                                                                                                       |
+| `configureBundler(config)`       | Configure the ERC-4337 bundler. Accepts `{ bundlerUrl, chainId, entryPoint?, usePaymaster?, sponsorshipPolicyId? }`.                                                                                                                                                                                        |
 
 ### Coordinator -- Signing
 
@@ -566,13 +568,13 @@ yarn workspace @ocap/eth-wallet lint:fix
 
 The package has four tiers of tests, each exercising a progressively larger slice of the stack.
 
-### Unit tests (319 tests)
+### Unit tests (382 tests)
 
 ```bash
 yarn workspace @ocap/eth-wallet test:dev:quiet
 ```
 
-Fast, in-process tests using vitest. All inter-vat `E()` calls are mocked. Covers every `lib/` module and every vat's `buildRootObject` logic in isolation — keyring operations, signing, delegation creation/matching, caveat encoding, UserOp building, bundler client, SDK adapter, MetaMask signer, and coordinator strategy resolution.
+Fast, in-process tests using vitest. All inter-vat `E()` calls are mocked. Covers every `lib/` module and every vat's `buildRootObject` logic in isolation — keyring operations, signing, mnemonic encryption/decryption, delegation creation/matching, caveat encoding, UserOp building, bundler client, SDK adapter, MetaMask signer, and coordinator strategy resolution.
 
 ### Single-kernel integration (34 assertions)
 

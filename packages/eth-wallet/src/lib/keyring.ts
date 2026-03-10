@@ -7,6 +7,7 @@ import {
 } from 'viem/accounts';
 import type { HDAccount, LocalAccount } from 'viem/accounts';
 
+import type { EncryptedMnemonicData } from './mnemonic-crypto.ts';
 import type { Address, Hex } from '../types.ts';
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
@@ -17,6 +18,18 @@ const harden = globalThis.harden ?? (<T>(value: T): T => value);
 export type KeyringInitOptions =
   | { type: 'srp'; mnemonic: string }
   | { type: 'throwaway'; entropy?: Hex };
+
+/**
+ * Encrypted keyring init data stored in baggage when a password is used.
+ */
+export type EncryptedKeyringInit = EncryptedMnemonicData & {
+  type: 'srp';
+};
+
+/**
+ * The shape of keyring init data stored in baggage — either plaintext or encrypted.
+ */
+export type StoredKeyringInit = KeyringInitOptions | EncryptedKeyringInit;
 
 /**
  * A keyring manages private keys and signing. Keys never leave this module.
