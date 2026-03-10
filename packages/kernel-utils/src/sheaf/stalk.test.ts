@@ -3,6 +3,7 @@ import { M } from '@endo/patterns';
 import type { MethodGuard } from '@endo/patterns';
 import { describe, it, expect } from 'vitest';
 
+import { constant } from './metadata.ts';
 import { getStalk } from './stalk.ts';
 import type { PresheafSection, Section } from './types.ts';
 
@@ -14,7 +15,7 @@ const makePresheafSection = (
 ): PresheafSection<{ cost: number }> => {
   const interfaceGuard = M.interface(tag, guards);
   const exo = makeExo(tag, interfaceGuard, methods);
-  return { exo: exo as unknown as Section, metadata };
+  return { exo: exo as unknown as Section, metadata: constant(metadata) };
 };
 
 describe('getStalk', () => {
@@ -56,7 +57,7 @@ describe('getStalk', () => {
 
     const stalk = getStalk(sections, 'add', [1]);
     expect(stalk).toHaveLength(1);
-    expect(stalk[0]!.metadata?.cost).toBe(1);
+    expect(stalk[0]!.metadata).toStrictEqual(constant({ cost: 1 }));
   });
 
   it('filters out sections with arg count mismatch', () => {
