@@ -566,13 +566,19 @@ export function buildRootObject(
     const onChainCode = (await E(providerVat).request('eth_getCode', [
       sender,
       'latest',
-    ])) as string;
+    ])) as string | undefined;
 
-    // For signing mode detection, any EIP-7702 designator means raw ECDSA
-    // signing (not EIP-712 typed data). The strict `isEip7702Delegated` check
-    // validates the exact implementation address, but here we only care about
-    // the signing format — so check the prefix directly.
-    if (!isStateless7702 && onChainCode?.toLowerCase().startsWith('0xef0100')) {
+    if (typeof onChainCode !== 'string') {
+      throw new Error(
+        `eth_getCode for ${sender} returned ${String(onChainCode)}; check provider configuration`,
+      );
+    }
+
+    // Fall back to on-chain code detection for 7702 accounts that weren't
+    // configured via smartAccountConfig (e.g., restored from stale baggage).
+    // Any EIP-7702 designator prefix (0xef0100) indicates a Stateless7702
+    // DeleGator, which uses a different EIP-712 domain name for signing.
+    if (!isStateless7702 && onChainCode.toLowerCase().startsWith('0xef0100')) {
       isStateless7702 = true;
     }
 

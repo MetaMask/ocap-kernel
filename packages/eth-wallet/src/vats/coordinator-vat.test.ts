@@ -67,7 +67,12 @@ function makeMockProviderVat() {
   return {
     bootstrap: vi.fn(),
     configure: vi.fn(),
-    request: vi.fn(),
+    request: vi.fn().mockImplementation(async (method: string) => {
+      if (method === 'eth_getCode') {
+        return Promise.resolve('0x');
+      }
+      return Promise.resolve(undefined);
+    }),
     broadcastTransaction: vi.fn().mockResolvedValue('0xtxhash'),
     getBalance: vi.fn(),
     getChainId: vi.fn().mockResolvedValue(1),
