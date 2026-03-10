@@ -71,6 +71,9 @@ function makeMockProviderVat() {
       if (method === 'eth_getCode') {
         return Promise.resolve('0x');
       }
+      if (method === 'eth_estimateGas') {
+        return Promise.resolve('0x5208' as Hex);
+      }
       return Promise.resolve(undefined);
     }),
     broadcastTransaction: vi.fn().mockResolvedValue('0xtxhash'),
@@ -450,6 +453,14 @@ describe('coordinator-vat', () => {
       const txHash = await coordinator.sendTransaction(tx);
       expect(txHash).toBe('0xtxhash');
       expect(providerVat.broadcastTransaction).toHaveBeenCalled();
+
+      // Verify eth_estimateGas was called for the missing gasLimit
+      expect(providerVat.request).toHaveBeenCalledWith(
+        'eth_estimateGas',
+        expect.arrayContaining([
+          expect.objectContaining({ from: accounts[0] }),
+        ]),
+      );
     });
 
     it('uses UserOp pipeline when delegation and bundler are configured', async () => {
@@ -2233,6 +2244,11 @@ describe('coordinator-vat', () => {
           userOp: expect.objectContaining({
             sender: delegator,
             signature: expect.stringMatching(/^0x/u),
+            // Self-pay path: callGasLimit and verificationGasLimit get 10% buffer
+            callGasLimit: '0x58000', // 0x50000 + 10%
+            verificationGasLimit: '0x69999', // 0x60000 + 10%
+            // preVerificationGas must NOT be buffered
+            preVerificationGas: '0x10000',
           }),
         }),
       );
@@ -2830,6 +2846,12 @@ describe('coordinator-vat', () => {
         '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
       );
       expect(submitCall.userOp.paymasterData).toBe('0xdeadbeef');
+
+      // Paymaster path: gas values must pass through unbuffered (they are
+      // part of the paymaster's signed commitment)
+      expect(submitCall.userOp.callGasLimit).toBe('0x50000');
+      expect(submitCall.userOp.verificationGasLimit).toBe('0x60000');
+      expect(submitCall.userOp.preVerificationGas).toBe('0x10000');
     });
 
     it('passes sponsorshipPolicyId in context', async () => {
@@ -2894,9 +2916,11 @@ describe('coordinator-vat', () => {
         mnemonic: TEST_MNEMONIC,
       });
 
-      // eth_getCode returns empty (not yet delegated), then receipt confirms the tx
+      // eth_getCode returns empty (not yet delegated), eth_estimateGas for
+      // the authorization tx, then receipt confirms the tx
       providerVat.request
         .mockResolvedValueOnce('0x') // initial eth_getCode check
+        .mockResolvedValueOnce('0x19000') // eth_estimateGas for EIP-7702 auth
         .mockResolvedValueOnce({ status: '0x1' }); // eth_getTransactionReceipt poll
 
       const configPromise = coordinator.createSmartAccount({
@@ -2925,6 +2949,53 @@ describe('coordinator-vat', () => {
       // EIP-7702 serialized tx starts with 0x04
       expect(broadcastArg.startsWith('0x04')).toBe(true);
 
+      vi.useRealTimers();
+    });
+
+    it('falls back to hardcoded gas when eth_estimateGas fails for EIP-7702', async () => {
+      vi.useFakeTimers();
+
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      // eth_getCode returns empty, eth_estimateGas rejects, then receipt confirms
+      providerVat.request
+        .mockResolvedValueOnce('0x') // initial eth_getCode check
+        .mockRejectedValueOnce(new Error('method not supported')) // eth_estimateGas
+        .mockResolvedValueOnce({ status: '0x1' }); // eth_getTransactionReceipt poll
+
+      // Suppress console.warn from the fallback path
+      const warnSpy = vi
+        .spyOn(console, 'warn')
+        // eslint-disable-next-line no-empty-function
+        .mockImplementation(() => {});
+
+      const configPromise = coordinator.createSmartAccount({
+        chainId: 11155111,
+        implementation: 'stateless7702',
+      });
+
+      await vi.advanceTimersByTimeAsync(2000);
+
+      const config = await configPromise;
+      expect(config.implementation).toBe('stateless7702');
+      expect(config.deployed).toBe(true);
+
+      // Should have broadcast despite gas estimation failure
+      expect(providerVat.broadcastTransaction).toHaveBeenCalled();
+      const broadcastArg = providerVat.broadcastTransaction.mock
+        .calls[0][0] as string;
+      expect(broadcastArg.startsWith('0x04')).toBe(true);
+
+      // Should have warned about the fallback
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('eth_estimateGas failed for EIP-7702 auth'),
+        expect.stringContaining('method not supported'),
+      );
+
+      warnSpy.mockRestore();
       vi.useRealTimers();
     });
 
