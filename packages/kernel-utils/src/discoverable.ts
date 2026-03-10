@@ -7,7 +7,12 @@ import { mergeDisjointRecords } from './merge-disjoint-records.ts';
 import type { MethodSchema } from './schema.ts';
 
 /**
- * A discoverable exo object that extends a base exo interface with a `describe` method
+ * The dunder method name used to retrieve a discoverable exo's schema.
+ */
+export const GET_DESCRIPTION = '__getDescription__';
+
+/**
+ * A discoverable exo object that extends a base exo interface with a `__getDescription__` method
  * for runtime introspection of method schemas.
  */
 export type DiscoverableExo<
@@ -24,7 +29,7 @@ export type DiscoverableExo<
        *
        * @returns A schema of the methods.
        */
-      describe: () => Schema;
+      [GET_DESCRIPTION]: () => Schema;
     }
   >
 >;
@@ -64,16 +69,16 @@ export const makeDiscoverableExo = <
          *
          * @returns A schema of the methods.
          */
-        describe: () => schema,
+        [GET_DESCRIPTION]: () => schema,
       }),
     );
   } catch (error) {
     if (
       error instanceof Error &&
-      error.message.includes('Duplicate keys in records: describe')
+      error.message.includes(`Duplicate keys in records: ${GET_DESCRIPTION}`)
     ) {
       throw new Error(
-        'The `describe` method name is reserved for discoverable exos.',
+        `The \`${GET_DESCRIPTION}\` method name is reserved for discoverable exos.`,
       );
     }
     throw error;
