@@ -89,6 +89,20 @@ function makeMockProviderVat() {
       maxFeePerGas: '0x77359400' as Hex,
       maxPriorityFeePerGas: '0x3b9aca00' as Hex,
     }),
+    getUserOperationGasPrice: vi.fn().mockResolvedValue({
+      slow: {
+        maxFeePerGas: '0x59682f00' as Hex,
+        maxPriorityFeePerGas: '0x1dcd6500' as Hex,
+      },
+      standard: {
+        maxFeePerGas: '0x6fc23ac0' as Hex,
+        maxPriorityFeePerGas: '0x2faf0800' as Hex,
+      },
+      fast: {
+        maxFeePerGas: '0x77359400' as Hex,
+        maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      },
+    }),
     configureBundler: vi.fn(),
     sponsorUserOp: vi.fn().mockResolvedValue({
       paymaster: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,

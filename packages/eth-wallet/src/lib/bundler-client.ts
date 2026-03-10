@@ -43,6 +43,14 @@ export type PaymasterSponsorResult = {
 type UserOp07 = Record<string, unknown>;
 
 /**
+ * Gas price recommendation from the bundler (e.g. Pimlico).
+ */
+export type GasPriceResult = {
+  maxFeePerGas: Hex;
+  maxPriorityFeePerGas: Hex;
+};
+
+/**
  * A bundler client with ERC-4337 capabilities.
  */
 export type ViemBundlerClient = {
@@ -63,6 +71,11 @@ export type ViemBundlerClient = {
     entryPointAddress: Address;
     context?: Record<string, unknown>;
   }) => Promise<PaymasterSponsorResult>;
+  getUserOperationGasPrice: () => Promise<{
+    slow: GasPriceResult;
+    standard: GasPriceResult;
+    fast: GasPriceResult;
+  }>;
   getUserOperationReceipt: (hash: Hex) => Promise<unknown>;
   waitForUserOperationReceipt: (options: {
     hash: Hex;
@@ -224,6 +237,22 @@ export function makeBundlerClient(
         options.entryPointAddress,
         options.context ?? {},
       ])) as PaymasterSponsorResult;
+    },
+
+    async getUserOperationGasPrice(): Promise<{
+      slow: GasPriceResult;
+      standard: GasPriceResult;
+      fast: GasPriceResult;
+    }> {
+      return (await bundlerRpc(
+        bundlerUrl,
+        'pimlico_getUserOperationGasPrice',
+        [],
+      )) as {
+        slow: GasPriceResult;
+        standard: GasPriceResult;
+        fast: GasPriceResult;
+      };
     },
 
     async getUserOperationReceipt(hash: Hex): Promise<unknown> {
