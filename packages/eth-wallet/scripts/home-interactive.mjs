@@ -314,7 +314,7 @@ async function main() {
   ok('Kernel started');
 
   // -----------------------------------------------------------------------
-  // 4. Initialize remote comms (QUIC transport)
+  // 4. Initialize remote comms (libp2p)
   // -----------------------------------------------------------------------
 
   const commsOptions = {

@@ -320,7 +320,7 @@ else
 fi
 
 if [[ "$HAS_AWAY" == "true" ]]; then
-  info "Pushing delegation to away device over QUIC..."
+  info "Pushing delegation to away device..."
   PUSH_PARAMS=$(KREF="$ROOT_KREF" DEL="$DEL_JSON" OLD="$OLD_IDS" node -e "
     const p = JSON.stringify([process.env.KREF, 'pushDelegationToAway', [JSON.parse(process.env.DEL), JSON.parse(process.env.OLD)]]);
     process.stdout.write(p);
