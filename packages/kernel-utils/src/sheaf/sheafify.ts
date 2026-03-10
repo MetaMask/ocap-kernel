@@ -23,8 +23,16 @@ import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
 import { stringify } from '../stringify.ts';
 import { collectSheafGuard } from './guard.ts';
 import type { MethodGuardPayload } from './guard.ts';
+import { evaluateMetadata, resolveMetaDataSpec } from './metadata.ts';
+import type { ResolvedMetaDataSpec } from './metadata.ts';
 import { getStalk, guardCoversPoint } from './stalk.ts';
-import type { Lift, PresheafSection, Section, Sheaf } from './types.ts';
+import type {
+  EvaluatedSection,
+  Lift,
+  PresheafSection,
+  Section,
+  Sheaf,
+} from './types.ts';
 
 /**
  * Serialize metadata for equivalence-class keying (collapse step).
@@ -53,10 +61,10 @@ const metadataKey = (metadata: unknown): string => {
  * @returns One representative per equivalence class.
  */
 const collapseEquivalent = <MetaData>(
-  stalk: PresheafSection<MetaData>[],
-): PresheafSection<MetaData>[] => {
+  stalk: EvaluatedSection<MetaData>[],
+): EvaluatedSection<MetaData>[] => {
   const seen = new Set<string>();
-  const representatives: PresheafSection<MetaData>[] = [];
+  const representatives: EvaluatedSection<MetaData>[] = [];
   for (const entry of stalk) {
     const key = metadataKey(entry.metadata);
     if (!seen.has(key)) {
@@ -75,10 +83,10 @@ const collapseEquivalent = <MetaData>(
  * @returns Constraints and stripped germs.
  */
 const decomposeMetadata = <MetaData>(
-  stalk: PresheafSection<MetaData>[],
+  stalk: EvaluatedSection<MetaData>[],
 ): {
   constraints: Partial<MetaData>;
-  stripped: PresheafSection<Partial<MetaData>>[];
+  stripped: EvaluatedSection<Partial<MetaData>>[];
 } => {
   const constraints: Record<string, unknown> = {};
 
@@ -173,14 +181,29 @@ type Grant = {
   isRevoked: () => boolean;
 };
 
+type ResolvedSection<M> = {
+  exo: Section;
+  spec: ResolvedMetaDataSpec<M> | undefined;
+};
+
 export const sheafify = <MetaData = unknown>({
   name,
   sections,
+  compartment,
 }: {
   name: string;
   sections: PresheafSection<MetaData>[];
+  compartment?: { evaluate: (src: string) => unknown };
 }): Sheaf<MetaData> => {
-  const frozenSections = [...sections];
+  const frozenSections: readonly ResolvedSection<MetaData>[] = Object.freeze(
+    sections.map((section) => ({
+      exo: section.exo,
+      spec:
+        section.metadata === undefined
+          ? undefined
+          : resolveMetaDataSpec(section.metadata, compartment),
+    })),
+  );
   const grants: Grant[] = [];
 
   const getSection = ({
@@ -206,22 +229,28 @@ export const sheafify = <MetaData = unknown>({
       }
 
       const stalk = getStalk(frozenSections, method, args);
-      let winner: PresheafSection<MetaData>;
-      switch (stalk.length) {
+      const evaluatedStalk: EvaluatedSection<MetaData>[] = stalk.map(
+        (section) => ({
+          exo: section.exo,
+          metadata: evaluateMetadata(section.spec, args),
+        }),
+      );
+      let winner: EvaluatedSection<MetaData>;
+      switch (evaluatedStalk.length) {
         case 0:
           throw new Error(`No section covers ${method}(${stringify(args, 0)})`);
         case 1:
-          winner = stalk[0] as PresheafSection<MetaData>;
+          winner = evaluatedStalk[0] as EvaluatedSection<MetaData>;
           break;
         default: {
-          const collapsed = collapseEquivalent(stalk);
+          const collapsed = collapseEquivalent(evaluatedStalk);
           if (collapsed.length === 1) {
-            winner = collapsed[0] as PresheafSection<MetaData>;
+            winner = collapsed[0] as EvaluatedSection<MetaData>;
             break;
           }
           const { constraints, stripped } = decomposeMetadata(collapsed);
           const index = await lift(stripped, { method, args, constraints });
-          winner = collapsed[index] as PresheafSection<MetaData>;
+          winner = collapsed[index] as EvaluatedSection<MetaData>;
           break;
         }
       }

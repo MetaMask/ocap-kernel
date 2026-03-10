@@ -2,8 +2,15 @@ import { makeExo, GET_INTERFACE_GUARD } from '@endo/exo';
 import { M, getInterfaceGuardPayload } from '@endo/patterns';
 import { describe, it, expect } from 'vitest';
 
+import { constant } from './metadata.ts';
 import { sheafify } from './sheafify.ts';
-import type { Lift, LiftContext, PresheafSection, Section } from './types.ts';
+import type {
+  EvaluatedSection,
+  Lift,
+  LiftContext,
+  PresheafSection,
+  Section,
+} from './types.ts';
 
 // Thin cast for calling exo methods directly in tests without going through
 // HandledPromise (which is not available in the test environment).
@@ -32,7 +39,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 42 },
         ) as unknown as Section,
-        metadata: { cost: 1 },
+        metadata: constant({ cost: 1 }),
       },
     ];
 
@@ -53,7 +60,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 42 },
         ) as unknown as Section,
-        metadata: { cost: 1 },
+        metadata: constant({ cost: 1 }),
       },
     ];
 
@@ -87,7 +94,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 100 },
         ) as unknown as Section,
-        metadata: { cost: 100 },
+        metadata: constant({ cost: 100 }),
       },
       {
         exo: makeExo(
@@ -97,7 +104,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 42 },
         ) as unknown as Section,
-        metadata: { cost: 1 },
+        metadata: constant({ cost: 1 }),
       },
     ];
 
@@ -119,7 +126,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 100 },
         ) as unknown as Section,
-        metadata: { cost: 100 },
+        metadata: constant({ cost: 100 }),
       },
       {
         exo: makeExo(
@@ -129,7 +136,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 50 },
         ) as unknown as Section,
-        metadata: { cost: 1 },
+        metadata: constant({ cost: 1 }),
       },
     ];
 
@@ -165,7 +172,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 100 },
         ) as unknown as Section,
-        metadata: { cost: 100 },
+        metadata: constant({ cost: 100 }),
       },
     ];
 
@@ -189,7 +196,7 @@ describe('sheafify', () => {
           transfer: (_from: string, _to: string, _amt: number) => true,
         },
       ) as unknown as Section,
-      metadata: { cost: 1 },
+      metadata: constant({ cost: 1 }),
     });
     wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: argmin,
@@ -214,7 +221,7 @@ describe('sheafify', () => {
       { getBalance: (_acct: string) => 42 },
     );
     const sections: PresheafSection<{ cost: number }>[] = [
-      { exo: exo as unknown as Section, metadata: { cost: 1 } },
+      { exo: exo as unknown as Section, metadata: constant({ cost: 1 }) },
     ];
 
     const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
@@ -245,7 +252,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 100 },
         ) as unknown as Section,
-        metadata: { cost: 100 },
+        metadata: constant({ cost: 100 }),
       },
     ];
 
@@ -268,7 +275,10 @@ describe('sheafify', () => {
         transfer: (_from: string, _to: string, _amt: number) => true,
       },
     );
-    sections.push({ exo: exo as unknown as Section, metadata: { cost: 1 } });
+    sections.push({
+      exo: exo as unknown as Section,
+      metadata: constant({ cost: 1 }),
+    });
     wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: argmin,
     });
@@ -292,7 +302,7 @@ describe('sheafify', () => {
       { getBalance: (_acct: string) => 42 },
     );
     const sections: PresheafSection<{ cost: number }>[] = [
-      { exo: exo as unknown as Section, metadata: { cost: 1 } },
+      { exo: exo as unknown as Section, metadata: constant({ cost: 1 }) },
     ];
 
     const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
@@ -307,7 +317,7 @@ describe('sheafify', () => {
 
   it('lift receives constraints in context and only distinguishing metadata', async () => {
     type Meta = { region: string; cost: number };
-    let capturedGerms: PresheafSection<Partial<Meta>>[] = [];
+    let capturedGerms: EvaluatedSection<Partial<Meta>>[] = [];
     let capturedContext: LiftContext<Meta> | undefined;
 
     const spy: Lift<Meta> = async (germs, context) => {
@@ -325,7 +335,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 100 },
         ) as unknown as Section,
-        metadata: { region: 'us', cost: 100 },
+        metadata: constant({ region: 'us', cost: 100 }),
       },
       {
         exo: makeExo(
@@ -335,7 +345,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 42 },
         ) as unknown as Section,
-        metadata: { region: 'us', cost: 1 },
+        metadata: constant({ region: 'us', cost: 1 }),
       },
     ];
 
@@ -357,7 +367,7 @@ describe('sheafify', () => {
 
   it('all-shared metadata yields empty distinguishing metadata', async () => {
     type Meta = { region: string };
-    let capturedGerms: PresheafSection<Partial<Meta>>[] = [];
+    let capturedGerms: EvaluatedSection<Partial<Meta>>[] = [];
     let capturedContext: LiftContext<Meta> | undefined;
 
     const spy: Lift<Meta> = async (germs, context) => {
@@ -375,7 +385,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 100 },
         ) as unknown as Section,
-        metadata: { region: 'us' },
+        metadata: constant({ region: 'us' }),
       },
       {
         exo: makeExo(
@@ -385,7 +395,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 42 },
         ) as unknown as Section,
-        metadata: { region: 'us' },
+        metadata: constant({ region: 'us' }),
       },
     ];
 
@@ -412,7 +422,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 100 },
         ) as unknown as Section,
-        metadata: { cost: 1 },
+        metadata: constant({ cost: 1 }),
       },
       {
         exo: makeExo(
@@ -422,7 +432,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 42 },
         ) as unknown as Section,
-        metadata: { cost: 1 },
+        metadata: constant({ cost: 1 }),
       },
     ];
 
@@ -467,9 +477,9 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 100 },
         ) as unknown as Section,
-        metadata: { cost: 100 },
+        metadata: constant({ cost: 100 }),
       },
-      { exo: exo as unknown as Section, metadata: { cost: 1 } },
+      { exo: exo as unknown as Section, metadata: constant({ cost: 1 }) },
     ];
 
     const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
@@ -493,7 +503,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 42 },
         ) as unknown as Section,
-        metadata: { cost: 1 },
+        metadata: constant({ cost: 1 }),
       },
     ];
 
@@ -525,7 +535,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 42 },
         ) as unknown as Section,
-        metadata: { cost: 1 },
+        metadata: constant({ cost: 1 }),
       },
     ];
 
@@ -553,7 +563,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 42 },
         ) as unknown as Section,
-        metadata: { cost: 1 },
+        metadata: constant({ cost: 1 }),
       },
     ];
 
@@ -580,7 +590,7 @@ describe('sheafify', () => {
           }),
           { getBalance: (_acct: string) => 42 },
         ) as unknown as Section,
-        metadata: { cost: 1 },
+        metadata: constant({ cost: 1 }),
       },
     ];
 

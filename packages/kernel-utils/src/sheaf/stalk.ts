@@ -11,7 +11,7 @@ import {
 import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
 
 import type { MethodGuardPayload } from './guard.ts';
-import type { PresheafSection } from './types.ts';
+import type { Section } from './types.ts';
 
 /**
  * Check whether an interface guard covers the invocation point (method, args).
@@ -65,11 +65,11 @@ export const guardCoversPoint = (
  * @param args - The arguments to the method invocation.
  * @returns The presheaf sections whose guards accept the invocation.
  */
-export const getStalk = <MetaData>(
-  sections: PresheafSection<MetaData>[],
+export const getStalk = <T extends { exo: Section }>(
+  sections: T[],
   method: string,
   args: unknown[],
-): PresheafSection<MetaData>[] => {
+): T[] => {
   return sections.filter(({ exo }) => {
     const interfaceGuard = exo[GET_INTERFACE_GUARD]?.();
     if (!interfaceGuard) {
