@@ -66,7 +66,7 @@ export const guardCoversPoint = (
  * @returns The presheaf sections whose guards accept the invocation.
  */
 export const getStalk = <T extends { exo: Section }>(
-  sections: T[],
+  sections: readonly T[],
   method: string,
   args: unknown[],
 ): T[] => {

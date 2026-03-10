@@ -20,6 +20,7 @@ import {
 } from '@endo/patterns';
 import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
 
+import { ifDefined } from '../misc.ts';
 import { stringify } from '../stringify.ts';
 import { collectSheafGuard } from './guard.ts';
 import type { MethodGuardPayload } from './guard.ts';
@@ -232,7 +233,9 @@ export const sheafify = <MetaData = unknown>({
       const evaluatedStalk: EvaluatedSection<MetaData>[] = stalk.map(
         (section) => ({
           exo: section.exo,
-          metadata: evaluateMetadata(section.spec, args),
+          ...ifDefined({
+            metadata: evaluateMetadata(section.spec, args),
+          }),
         }),
       );
       let winner: EvaluatedSection<MetaData>;
