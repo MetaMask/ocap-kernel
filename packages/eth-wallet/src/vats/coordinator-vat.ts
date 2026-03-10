@@ -4,6 +4,17 @@ import { Logger } from '@metamask/logger';
 import type { Baggage } from '@metamask/ocap-kernel';
 
 import {
+  decodeBalanceOfResult,
+  decodeDecimalsResult,
+  decodeNameResult,
+  decodeSymbolResult,
+  encodeBalanceOf,
+  encodeDecimals,
+  encodeName,
+  encodeSymbol,
+  encodeTransfer,
+} from '../lib/erc20.ts';
+import {
   buildSdkDisableCallData,
   buildSdkRedeemCallData,
   computeSmartAccountAddress,
@@ -61,6 +72,32 @@ function validateGasEstimate(result: unknown): Hex {
 }
 
 /**
+ * Validate that a token `eth_call` response is a usable hex string.
+ *
+ * @param result - The raw RPC response.
+ * @param method - The ERC-20 method name (for error context).
+ * @param token - The token address (for error context).
+ * @returns The validated hex string.
+ * @throws If the result is not a non-empty hex string.
+ */
+function validateTokenCallResult(
+  result: unknown,
+  method: string,
+  token: Address,
+): Hex {
+  if (
+    typeof result !== 'string' ||
+    !result.startsWith('0x') ||
+    result === '0x'
+  ) {
+    throw new Error(
+      `${method}() call to token ${token} returned unexpected value: ${String(result)}`,
+    );
+  }
+  return result as Hex;
+}
+
+/**
  * Convert a wei amount in hex to a human-readable ETH string.
  *
  * @param weiHex - The wei amount as a hex string.
@@ -97,8 +134,20 @@ function describeCaveat(caveat: Caveat): string {
       return 'limited number of calls';
     case 'timestamp':
       return 'time-limited';
-    case 'erc20TransferAmount':
+    case 'erc20TransferAmount': {
+      // ABI-encoded (address, uint256): 12 bytes padding + 20 bytes address + 32 bytes uint256
+      // In hex string: '0x' + 24 pad chars + 40 address chars + 64 amount chars = 130 chars
+      if (caveat.terms.length >= 130) {
+        try {
+          const token = `0x${caveat.terms.slice(26, 66)}`;
+          const amount = BigInt(`0x${caveat.terms.slice(66)}`);
+          return `ERC-20 transfer limit: ${amount.toString()} units on ${token}`;
+        } catch {
+          // Fall through to generic description
+        }
+      }
       return 'ERC-20 transfer limit';
+    }
     default:
       return `${String(caveat.type)} enforced`;
   }
@@ -1656,6 +1705,127 @@ export function buildRootObject(
         execution: options.execution,
         maxFeePerGas: options.maxFeePerGas,
         maxPriorityFeePerGas: options.maxPriorityFeePerGas,
+      });
+    },
+
+    // ------------------------------------------------------------------
+    // ERC-20 token utilities
+    // ------------------------------------------------------------------
+
+    async getTokenBalance(options: {
+      token: Address;
+      owner: Address;
+    }): Promise<string> {
+      if (!providerVat) {
+        throw new Error('Provider not configured');
+      }
+      const callData = encodeBalanceOf(options.owner);
+      const result = await E(providerVat).request('eth_call', [
+        { to: options.token, data: callData },
+        'latest',
+      ]);
+      const validated = validateTokenCallResult(
+        result,
+        'balanceOf',
+        options.token,
+      );
+      return decodeBalanceOfResult(validated).toString();
+    },
+
+    async getTokenMetadata(options: {
+      token: Address;
+    }): Promise<{ name: string; symbol: string; decimals: number }> {
+      if (!providerVat) {
+        throw new Error('Provider not configured');
+      }
+      const [nameSettled, symbolSettled, decimalsSettled] =
+        await Promise.allSettled([
+          E(providerVat).request('eth_call', [
+            { to: options.token, data: encodeName() },
+            'latest',
+          ]),
+          E(providerVat).request('eth_call', [
+            { to: options.token, data: encodeSymbol() },
+            'latest',
+          ]),
+          E(providerVat).request('eth_call', [
+            { to: options.token, data: encodeDecimals() },
+            'latest',
+          ]),
+        ]);
+
+      // decimals is mandatory — wrong decimals causes financial errors
+      if (decimalsSettled.status === 'rejected') {
+        throw new Error(
+          `decimals() call failed for token ${options.token}: ${
+            decimalsSettled.reason instanceof Error
+              ? decimalsSettled.reason.message
+              : String(decimalsSettled.reason)
+          }`,
+        );
+      }
+
+      // name and symbol are optional in ERC-20; fall back gracefully
+      let name = 'Unknown';
+      if (nameSettled.status === 'fulfilled') {
+        try {
+          name = decodeNameResult(
+            validateTokenCallResult(nameSettled.value, 'name', options.token),
+          );
+        } catch {
+          // name() not implemented or returned invalid data
+        }
+      }
+
+      let symbol = 'Unknown';
+      if (symbolSettled.status === 'fulfilled') {
+        try {
+          symbol = decodeSymbolResult(
+            validateTokenCallResult(
+              symbolSettled.value,
+              'symbol',
+              options.token,
+            ),
+          );
+        } catch {
+          // symbol() not implemented or returned invalid data
+        }
+      }
+
+      return harden({
+        name,
+        symbol,
+        decimals: decodeDecimalsResult(
+          validateTokenCallResult(
+            decimalsSettled.value,
+            'decimals',
+            options.token,
+          ),
+        ),
+      });
+    },
+
+    async sendErc20Transfer(options: {
+      token: Address;
+      to: Address;
+      amount: bigint | Hex;
+      from?: Address;
+    }): Promise<Hex> {
+      const accounts = await coordinator.getAccounts();
+      const from = options.from ?? accounts[0];
+      if (!from) {
+        throw new Error('No accounts available');
+      }
+      const rawAmount =
+        typeof options.amount === 'bigint'
+          ? options.amount
+          : BigInt(options.amount);
+      const callData = encodeTransfer(options.to, rawAmount);
+      return coordinator.sendTransaction({
+        from,
+        to: options.token,
+        data: callData,
+        value: '0x0' as Hex,
       });
     },
 

@@ -1,4 +1,4 @@
-/* eslint-disable jsdoc/require-description, jsdoc/require-param-description, jsdoc/require-param-type, jsdoc/require-returns, n/no-process-exit, n/no-sync, n/no-extraneous-import, no-plusplus, no-empty-function, no-negated-condition, no-unused-vars, id-denylist, require-unicode-regexp, import-x/no-unresolved, import-x/no-extraneous-dependencies */
+/* eslint-disable jsdoc/require-description, jsdoc/require-param-description, jsdoc/require-param-type, jsdoc/require-returns, n/no-process-exit, n/no-sync, no-plusplus, no-empty-function, no-negated-condition, no-unused-vars, id-denylist, require-unicode-regexp, import-x/no-unresolved */
 /**
  * Interactive home wallet — MetaMask Mobile signs everything.
  *
@@ -788,22 +788,6 @@ ${BOLD}  ./packages/eth-wallet/scripts/setup-away.sh \\
     if (delegation.signature && smartAccountAddress) {
       try {
         const { hashTypedData, recoverAddress } = await import('viem');
-        const { hashDelegation } = await import('@metamask/delegation-core');
-
-        // Compute the delegation struct hash the same way the on-chain
-        // DelegationManager does (via the SDK's hashDelegation).
-        const structHash = hashDelegation({
-          delegate: delegation.delegate,
-          delegator: delegation.delegator,
-          authority: delegation.authority,
-          caveats: delegation.caveats.map((caveat) => ({
-            enforcer: caveat.enforcer,
-            terms: caveat.terms,
-            args: '0x',
-          })),
-          salt: BigInt(delegation.salt),
-          signature: delegation.signature,
-        });
 
         // Compute the full EIP-712 typed data hash (domain + struct hash)
         const typedDataHash = hashTypedData({
@@ -849,7 +833,6 @@ ${BOLD}  ./packages/eth-wallet/scripts/setup-away.sh \\
         const signerMatch =
           recoveredSigner.toLowerCase() === expectedSigner.toLowerCase();
 
-        _error(`  ${DIM}Delegation struct hash :${RESET} ${structHash}`);
         _error(`  ${DIM}EIP-712 typed hash    :${RESET} ${typedDataHash}`);
         _error(`  ${DIM}Recovered signer      :${RESET} ${recoveredSigner}`);
         _error(`  ${DIM}Expected signer (EOA) :${RESET} ${expectedSigner}`);
