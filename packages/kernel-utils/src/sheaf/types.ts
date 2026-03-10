@@ -16,12 +16,32 @@ export type Section<Core extends Methods = Methods> = Partial<Core> & {
 };
 
 /**
- * A presheaf section: a section (F_sem) paired with optional metadata (F_op).
+ * A metadata specification: either a static value, a JS source string, or a
+ * live function. Source strings are compiled once at sheafify construction time.
+ */
+export type MetaDataSpec<M> =
+  | { kind: 'constant'; value: M }
+  | { kind: 'source'; src: string }
+  | { kind: 'callable'; fn: (args: unknown[]) => M };
+
+/**
+ * A presheaf section: a section (F_sem) paired with an optional metadata spec (F_op).
  *
  * This is the input data to sheafify — an (exo, metadata) pair assigned over
  * the open set defined by the exo's guard.
  */
 export type PresheafSection<MetaData = unknown> = {
+  exo: Section;
+  metadata?: MetaDataSpec<MetaData>;
+};
+
+/**
+ * A section with evaluated metadata: the metadata spec has been computed against
+ * the invocation args, yielding a concrete value. Used internally during dispatch
+ * and as the element type of the `germs` array received by Lift (where each entry
+ * is already a representative of an equivalence class after collapsing).
+ */
+export type EvaluatedSection<MetaData = unknown> = {
   exo: Section;
   metadata?: MetaData;
 };
@@ -49,7 +69,7 @@ export type LiftContext<MetaData = unknown> = {
  * Returns a Promise<number> — the index into the germs array.
  */
 export type Lift<MetaData = unknown> = (
-  germs: PresheafSection<Partial<MetaData>>[],
+  germs: EvaluatedSection<Partial<MetaData>>[],
   context: LiftContext<MetaData>,
 ) => Promise<number>;
 
