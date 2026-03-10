@@ -214,7 +214,7 @@ The script will:
 
 Use `--reset` to purge all kernel state and start fresh. The SQLite database is at `~/.ocap/kernel-interactive.sqlite`.
 
-**Note:** Interactive mode uses a Hybrid smart account (different address from the EOA) instead of EIP-7702 stateless. This is because MetaMask cannot perform raw ECDSA hash signing needed for stateless7702 UserOps. The smart account is auto-funded from the EOA if its balance is below 0.05 ETH.
+**Note:** Interactive mode uses a Hybrid smart account (different address from the EOA) instead of EIP-7702 stateless. This is because EIP-7702 requires signing an authorization transaction that MetaMask Mobile does not support. The smart account is auto-funded from the EOA if its balance is below 0.05 ETH.
 
 ### Step 2 — Start the away script (on the VPS)
 
