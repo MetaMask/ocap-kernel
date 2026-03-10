@@ -2,6 +2,7 @@ import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
 import { describe, expect, it, vi } from 'vitest';
 
+import { callable, constant } from './metadata.ts';
 import { sheafify } from './sheafify.ts';
 import type { Lift, PresheafSection, Section } from './types.ts';
 
@@ -42,7 +43,7 @@ describe('e2e: cost-optimal routing', () => {
           }),
           { getBalance: remote0GetBalance },
         ) as unknown as Section,
-        metadata: { cost: 100 },
+        metadata: constant({ cost: 100 }),
       },
       {
         // Local cache: covers only 'alice', cheap
@@ -53,7 +54,7 @@ describe('e2e: cost-optimal routing', () => {
           }),
           { getBalance: local1GetBalance },
         ) as unknown as Section,
-        metadata: { cost: 1 },
+        metadata: constant({ cost: 1 }),
       },
     ];
 
@@ -83,7 +84,7 @@ describe('e2e: cost-optimal routing', () => {
         }),
         { getBalance: local2GetBalance },
       ) as unknown as Section,
-      metadata: { cost: 2 },
+      metadata: constant({ cost: 2 }),
     });
     wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: argmin,
@@ -169,7 +170,7 @@ describe('e2e: multi-tier capability routing', () => {
         }),
         { getBalance: networkGetBalance },
       ) as unknown as Section,
-      metadata: { latencyMs: 500, label: 'network' },
+      metadata: constant({ latencyMs: 500, label: 'network' }),
     });
 
     let wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
@@ -196,7 +197,7 @@ describe('e2e: multi-tier capability routing', () => {
         }),
         { getBalance: localGetBalance },
       ) as unknown as Section,
-      metadata: { latencyMs: 1, label: 'local' },
+      metadata: constant({ latencyMs: 1, label: 'local' }),
     });
     wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: fastest,
@@ -224,7 +225,7 @@ describe('e2e: multi-tier capability routing', () => {
         }),
         { getBalance: cacheGetBalance },
       ) as unknown as Section,
-      metadata: { latencyMs: 0, label: 'cache' },
+      metadata: constant({ latencyMs: 0, label: 'cache' }),
     });
     wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: fastest,
@@ -264,7 +265,7 @@ describe('e2e: multi-tier capability routing', () => {
           transfer: writeBackendTransfer,
         },
       ) as unknown as Section,
-      metadata: { latencyMs: 200, label: 'write-backend' },
+      metadata: constant({ latencyMs: 200, label: 'write-backend' }),
     });
     wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
       lift: fastest,
@@ -307,7 +308,7 @@ describe('e2e: multi-tier capability routing', () => {
           }),
           { getBalance: networkGetBalance },
         ) as unknown as Section,
-        metadata: { latencyMs: 500, label: 'network' },
+        metadata: constant({ latencyMs: 500, label: 'network' }),
       },
       {
         exo: makeExo(
@@ -317,7 +318,7 @@ describe('e2e: multi-tier capability routing', () => {
           }),
           { getBalance: mirrorGetBalance },
         ) as unknown as Section,
-        metadata: { latencyMs: 50, label: 'mirror' },
+        metadata: constant({ latencyMs: 50, label: 'mirror' }),
       },
     ];
 
@@ -359,7 +360,7 @@ describe('e2e: multi-tier capability routing', () => {
 
 describe('e2e: preferAutonomous recovered as degenerate case', () => {
   it('binary push metadata recovers push-pull lift rule', async () => {
-    // Binary metadata: { push: true } = push section, { push: false } = pull
+    // Binary metadata: constant({ push: true }) = push section, { push: false } = pull
     const preferPush: Lift<{ push: boolean }> = async (germs) => {
       const pushIdx = germs.findIndex((entry) => entry.metadata?.push);
       return Promise.resolve(pushIdx >= 0 ? pushIdx : 0);
@@ -378,7 +379,7 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
           }),
           { getBalance: pullGetBalance },
         ) as unknown as Section,
-        metadata: { push: false },
+        metadata: constant({ push: false }),
       },
       {
         // Push section: narrow guard, push=true
@@ -389,7 +390,7 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
           }),
           { getBalance: pushGetBalance },
         ) as unknown as Section,
-        metadata: { push: true },
+        metadata: constant({ push: true }),
       },
     ];
 
@@ -407,5 +408,86 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
     await E(wallet).getBalance('bob');
     expect(pullGetBalance).toHaveBeenCalledWith('bob');
     expect(pushGetBalance).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// E2E: callable metadata — cost varies with invocation args
+// ---------------------------------------------------------------------------
+
+describe('e2e: callable metadata — cost varies with invocation args', () => {
+  // Two swap sections whose cost is a function of the swap amount.
+  // Swap A is cheaper for small amounts; Swap B is cheaper for large amounts.
+  // Breakeven ≈ 90.9 (1 + 0.1x = 10 + 0.001x → 0.099x = 9 → x ≈ 90.9)
+
+  type SwapCost = { cost: number };
+
+  const cheapest: Lift<SwapCost> = async (germs) =>
+    Promise.resolve(
+      germs.reduce(
+        (bestIdx, entry, idx) =>
+          (entry.metadata?.cost ?? Infinity) <
+          (germs[bestIdx]!.metadata?.cost ?? Infinity)
+            ? idx
+            : bestIdx,
+        0,
+      ),
+    );
+
+  it('routes swap(50) to A and swap(100) to B based on callable cost metadata', async () => {
+    const swapAFn = vi.fn(
+      (_amount: number, _from: string, _to: string): boolean => true,
+    );
+    const swapBFn = vi.fn(
+      (_amount: number, _from: string, _to: string): boolean => true,
+    );
+
+    const sections: PresheafSection<SwapCost>[] = [
+      {
+        exo: makeExo(
+          'SwapA',
+          M.interface('SwapA', {
+            swap: M.call(M.number(), M.string(), M.string()).returns(
+              M.boolean(),
+            ),
+          }),
+          { swap: swapAFn },
+        ) as unknown as Section,
+        // cost(amount) = 1 + 0.1 * amount
+        metadata: callable((args) => ({
+          cost: 1 + 0.1 * (args[0] as number),
+        })),
+      },
+      {
+        exo: makeExo(
+          'SwapB',
+          M.interface('SwapB', {
+            swap: M.call(M.number(), M.string(), M.string()).returns(
+              M.boolean(),
+            ),
+          }),
+          { swap: swapBFn },
+        ) as unknown as Section,
+        // cost(amount) = 10 + 0.001 * amount
+        metadata: callable((args) => ({
+          cost: 10 + 0.001 * (args[0] as number),
+        })),
+      },
+    ];
+
+    const facade = sheafify({ name: 'Swap', sections }).getGlobalSection({
+      lift: cheapest,
+    }) as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
+
+    // swap(50): A costs 6, B costs 10.05 → A wins
+    await facade.swap(50, 'FUZ', 'BIZ');
+    expect(swapAFn).toHaveBeenCalledWith(50, 'FUZ', 'BIZ');
+    expect(swapBFn).not.toHaveBeenCalled();
+    swapAFn.mockClear();
+
+    // swap(100): A costs 11, B costs 10.1 → B wins
+    await facade.swap(100, 'FUZ', 'BIZ');
+    expect(swapBFn).toHaveBeenCalledWith(100, 'FUZ', 'BIZ');
+    expect(swapAFn).not.toHaveBeenCalled();
   });
 });
