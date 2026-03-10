@@ -265,9 +265,9 @@ while read -r DEL_ID; do
   USER_OP_HASH=$(echo "$REVOKE_OUTPUT" | parse_capdata 2>/dev/null) || USER_OP_HASH=""
   if [[ -n "$USER_OP_HASH" && "$USER_OP_HASH" == 0x* ]]; then
     if [[ "$CHAIN_ID" == "1" ]]; then
-      JIFFYSCAN_URL="https://jiffyscan.xyz/userOpHash/${USER_OP_HASH}"
+      JIFFYSCAN_URL="https://jiffyscan.xyz/userOpHash/${USER_OP_HASH}?network=mainnet"
     else
-      JIFFYSCAN_URL="https://sepolia.jiffyscan.xyz/userOpHash/${USER_OP_HASH}"
+      JIFFYSCAN_URL="https://jiffyscan.xyz/userOpHash/${USER_OP_HASH}?network=sepolia"
     fi
     ok "Revoked $DEL_ID"
     echo -e "     ${DIM}${JIFFYSCAN_URL}${RESET}" >&2
