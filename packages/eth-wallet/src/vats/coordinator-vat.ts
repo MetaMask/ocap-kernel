@@ -10,7 +10,7 @@ import {
   prepareUserOpTypedData,
   resolveEnvironment,
 } from '../lib/sdk.ts';
-import { computeUserOpHash, ENTRY_POINT_V07 } from '../lib/userop.ts';
+import { ENTRY_POINT_V07 } from '../lib/userop.ts';
 import type {
   Action,
   Address,
@@ -475,47 +475,6 @@ export function buildRootObject(
   }
 
   /**
-   * Resolve the signing strategy for a raw hash (ECDSA without EIP-191 prefix).
-   * Used for signing UserOp hashes where the EntryPoint expects raw ECDSA.
-   * Priority: keyring → external signer (signMessage) → error
-   *
-   * Note: peer wallet is intentionally excluded — its signMessage uses EIP-191
-   * which adds a prefix, producing an invalid signature for raw hash signing.
-   *
-   * @param hash - The hash to sign.
-   * @param from - Optional sender address.
-   * @returns The signature as a hex string.
-   */
-  async function resolveHashSigning(hash: Hex, from?: Address): Promise<Hex> {
-    // Local keyring: raw ECDSA (no EIP-191 prefix)
-    if (keyringVat) {
-      const hasKeys = await E(keyringVat).hasKeys();
-      if (hasKeys) {
-        return E(keyringVat).signHash(hash, from);
-      }
-    }
-
-    // Raw ECDSA hash signing requires a local keyring. External signers and
-    // peer wallets use EIP-191 (signMessage), which prefixes the hash and
-    // produces invalid signatures for UserOp hashes.
-    const reasons: string[] = [];
-    if (keyringVat) {
-      reasons.push('keyring has no keys');
-    }
-    if (externalSigner) {
-      reasons.push('external signer uses EIP-191 (incompatible)');
-    }
-    if (peerWallet) {
-      reasons.push('peer wallet uses EIP-191 (incompatible)');
-    }
-    throw new Error(
-      `No authority to sign hash: raw hash signing requires a local keyring with keys${
-        reasons.length > 0 ? ` (${reasons.join('; ')})` : ''
-      }`,
-    );
-  }
-
-  /**
    * Resolve the signing strategy for a transaction.
    * Priority: local key → external signer → reject
    *
@@ -609,10 +568,11 @@ export function buildRootObject(
       'latest',
     ])) as string;
 
-    if (
-      !isStateless7702 &&
-      isEip7702Delegated(onChainCode, bundlerConfig.chainId)
-    ) {
+    // For signing mode detection, any EIP-7702 designator means raw ECDSA
+    // signing (not EIP-712 typed data). The strict `isEip7702Delegated` check
+    // validates the exact implementation address, but here we only care about
+    // the signing format — so check the prefix directly.
+    if (!isStateless7702 && onChainCode?.toLowerCase().startsWith('0xef0100')) {
       isStateless7702 = true;
     }
 
@@ -701,26 +661,19 @@ export function buildRootObject(
       };
     }
 
-    // Sign the UserOp.
-    // Stateless7702: raw ECDSA over the standard UserOp hash.
-    // Hybrid: EIP-712 typed data with smart account as verifyingContract.
-    let signature: Hex;
-    if (isStateless7702) {
-      const hash = computeUserOpHash(
-        userOpWithGas,
-        bundlerConfig.entryPoint,
-        bundlerConfig.chainId,
-      );
-      signature = await resolveHashSigning(hash);
-    } else {
-      const userOpTypedData = prepareUserOpTypedData({
-        userOp: userOpWithGas,
-        entryPoint: bundlerConfig.entryPoint,
-        chainId: bundlerConfig.chainId,
-        smartAccountAddress: sender,
-      });
-      signature = await resolveTypedDataSigning(userOpTypedData);
-    }
+    // Sign the UserOp via EIP-712 typed data. Both Hybrid and Stateless7702
+    // DeleGators validate signatures using EIP-712 — the only difference is
+    // the domain name.
+    const userOpTypedData = prepareUserOpTypedData({
+      userOp: userOpWithGas,
+      entryPoint: bundlerConfig.entryPoint,
+      chainId: bundlerConfig.chainId,
+      smartAccountAddress: sender,
+      ...(isStateless7702
+        ? { smartAccountName: 'EIP7702StatelessDeleGator' }
+        : {}),
+    });
+    const signature: Hex = await resolveTypedDataSigning(userOpTypedData);
 
     // Attach signature and submit
     const signedUserOp: UserOperation = {
@@ -800,7 +753,7 @@ export function buildRootObject(
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(
-        `Failed to submit on-chain revocation for delegation ${delegation.delegate}: ${message}`,
+        `Failed to submit on-chain revocation for delegator ${delegation.delegator}: ${message}`,
       );
     }
   }
