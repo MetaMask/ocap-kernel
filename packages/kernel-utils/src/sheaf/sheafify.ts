@@ -230,10 +230,12 @@ export const sheafify = <MetaData = unknown>({
 
       const stalk = getStalk(frozenSections, method, args);
       const evaluatedStalk: EvaluatedSection<MetaData>[] = stalk.map(
-        (section) => ({
-          exo: section.exo,
-          metadata: evaluateMetadata(section.spec, args),
-        }),
+        (section) => {
+          const metadata = evaluateMetadata(section.spec, args);
+          return metadata === undefined
+            ? { exo: section.exo }
+            : { exo: section.exo, metadata };
+        },
       );
       let winner: EvaluatedSection<MetaData>;
       switch (evaluatedStalk.length) {
