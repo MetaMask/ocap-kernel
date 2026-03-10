@@ -31,6 +31,35 @@ import type {
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
 
 /**
+ * Apply a percentage buffer to a hex gas value.
+ *
+ * @param gasHex - The gas value as a hex string.
+ * @param bufferPercent - The buffer percentage to add (e.g. 10 for 10%).
+ * @returns The buffered gas value as a hex string.
+ */
+function applyGasBuffer(gasHex: Hex, bufferPercent: number): Hex {
+  const gas = BigInt(gasHex);
+  const buffered = gas + (gas * BigInt(bufferPercent)) / 100n;
+  return `0x${buffered.toString(16)}`;
+}
+
+/**
+ * Validate that an `eth_estimateGas` response is a valid hex string.
+ *
+ * @param result - The raw RPC response.
+ * @returns The validated hex string.
+ * @throws If the result is not a hex string.
+ */
+function validateGasEstimate(result: unknown): Hex {
+  if (typeof result !== 'string' || !result.startsWith('0x')) {
+    throw new Error(
+      `eth_estimateGas returned unexpected value: ${String(result)}`,
+    );
+  }
+  return result as Hex;
+}
+
+/**
  * Convert a wei amount in hex to a human-readable ETH string.
  *
  * @param weiHex - The wei amount as a hex string.
@@ -661,8 +690,11 @@ export function buildRootObject(
 
       userOpWithGas = {
         ...unsignedUserOp,
-        callGasLimit: gasEstimate.callGasLimit,
-        verificationGasLimit: gasEstimate.verificationGasLimit,
+        callGasLimit: applyGasBuffer(gasEstimate.callGasLimit, 10),
+        verificationGasLimit: applyGasBuffer(
+          gasEstimate.verificationGasLimit,
+          10,
+        ),
         preVerificationGas: gasEstimate.preVerificationGas,
       };
     }
@@ -848,11 +880,51 @@ export function buildRootObject(
     // authorization authority. The sender's nonce is incremented by the tx
     // validity check BEFORE authorizations are processed, so the
     // authorization nonce must be txNonce + 1.
-    const EIP7702_AUTH_GAS_LIMIT = '0x19000' as Hex; // 102400
-    const [nonce, fees] = await Promise.all([
+    const EIP7702_FALLBACK_GAS = '0x19000' as Hex; // 102400
+    // Minimum plausible gas for an EIP-7702 auth tx (~40k). Estimates
+    // below this likely indicate the RPC ignored the authorizationList
+    // and returned a plain-transfer estimate (21000).
+    const EIP7702_MIN_GAS = 0xa000n; // 40960
+    const [nonce, fees, estimatedAuthGas] = await Promise.all([
       E(providerVat).getNonce(eoaAddress),
       E(providerVat).getGasFees(),
+      (
+        E(providerVat).request('eth_estimateGas', [
+          {
+            from: eoaAddress,
+            to: eoaAddress,
+            authorizationList: [{ address: implAddress, chainId }],
+          },
+        ]) as Promise<Hex>
+      ).then(
+        (result) => {
+          if (typeof result !== 'string' || !result.startsWith('0x')) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[eth-wallet] eth_estimateGas returned non-hex for EIP-7702 auth: ${String(result)}, using fallback`,
+            );
+            return EIP7702_FALLBACK_GAS;
+          }
+          if (BigInt(result) < EIP7702_MIN_GAS) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              `[eth-wallet] eth_estimateGas returned suspiciously low value ${result} for EIP-7702 auth, using fallback`,
+            );
+            return EIP7702_FALLBACK_GAS;
+          }
+          return result;
+        },
+        (error: unknown) => {
+          // eslint-disable-next-line no-console
+          console.warn(
+            '[eth-wallet] eth_estimateGas failed for EIP-7702 auth, using fallback:',
+            error instanceof Error ? error.message : error,
+          );
+          return EIP7702_FALLBACK_GAS;
+        },
+      ),
     ]);
+    const authGasLimit = applyGasBuffer(estimatedAuthGas, 20);
     const signedAuth = await E(keyringVat).signAuthorization({
       contractAddress: implAddress as Address,
       chainId,
@@ -866,7 +938,7 @@ export function buildRootObject(
       nonce,
       maxFeePerGas: fees.maxFeePerGas,
       maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
-      gasLimit: EIP7702_AUTH_GAS_LIMIT,
+      gasLimit: authGasLimit,
       authorizationList: [signedAuth],
     });
 
@@ -1252,14 +1324,19 @@ export function buildRootObject(
         filledTx.maxFeePerGas ??= fees.maxFeePerGas;
         filledTx.maxPriorityFeePerGas ??= fees.maxPriorityFeePerGas;
       }
-      filledTx.gasLimit ??= (await E(providerVat).request('eth_estimateGas', [
-        {
-          from: filledTx.from,
-          to: filledTx.to,
-          value: filledTx.value,
-          data: filledTx.data,
-        },
-      ])) as Hex;
+      filledTx.gasLimit ??= applyGasBuffer(
+        validateGasEstimate(
+          await E(providerVat).request('eth_estimateGas', [
+            {
+              from: filledTx.from,
+              to: filledTx.to,
+              value: filledTx.value,
+              data: filledTx.data,
+            },
+          ]),
+        ),
+        10,
+      );
 
       const signedTx = await resolveTransactionSigning(filledTx);
       return E(providerVat).broadcastTransaction(signedTx);
