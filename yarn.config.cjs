@@ -28,7 +28,7 @@ const buildExceptions = ['create-package', 'kernel-cli', 'repo-tools'];
 // Packages that do not have tests
 const noTests = [];
 // Packages that do not export a `package.json` file
-const noPackageJson = ['extension', 'omnium-gatherum'];
+const noPackageJsonExport = ['extension', 'omnium-gatherum'];
 // Packages that have weird exports
 const exportsExceptions = ['kernel-cli', 'kernel-shims'];
 // Packages that have weird files
@@ -185,7 +185,7 @@ module.exports = defineConfig({
         }
 
         // All non-root packages must export a `package.json` file except for the ones that are exempted
-        if (!noPackageJson.includes(workspaceBasename)) {
+        if (!noPackageJsonExport.includes(workspaceBasename)) {
           expectWorkspaceField(
             workspace,
             'exports["./package.json"]',
