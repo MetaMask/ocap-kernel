@@ -118,6 +118,12 @@ describe('openclaw wallet plugin', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
+  it('registers the wallet_token_resolve tool', () => {
+    const tools = setupPlugin();
+    expect(tools.has('wallet_token_resolve')).toBe(true);
   });
 
   it('decodes CapData string response for wallet_balance', async () => {
@@ -282,6 +288,206 @@ describe('openclaw wallet plugin', () => {
     );
     // Should NOT call getTransactionReceipt/getCapabilities after an error
     expect(mockSpawn).toHaveBeenCalledTimes(2);
+  });
+
+  it('fetches ERC-20 token balance with formatting', async () => {
+    const token = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+    mockSpawn
+      // 1. getAccounts (to resolve owner)
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData([account]) }),
+      )
+      // 2. getTokenBalance
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData('1000000') }),
+      )
+      // 3. getTokenMetadata
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({
+            name: 'USD Coin',
+            symbol: 'USDC',
+            decimals: 6,
+          }),
+        }),
+      );
+
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_token_balance');
+    expect(tool).toBeDefined();
+
+    const result = await tool!.execute('req-tok-1', { token });
+    expect(result.content[0]?.text).toBe(`${account}: 1 USDC (raw: 1000000)`);
+  });
+
+  it('sends ERC-20 tokens via wallet_token_send', async () => {
+    const token = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+    mockSpawn
+      // 1. getTokenMetadata (for decimals)
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({
+            name: 'USD Coin',
+            symbol: 'USDC',
+            decimals: 6,
+          }),
+        }),
+      )
+      // 2. sendErc20Transfer
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData('0xtokentxhash') }),
+      )
+      // 3. getCapabilities (best-effort)
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({ chainId: 11155111 }),
+        }),
+      )
+      // 4. getTransactionReceipt (best-effort)
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({ txHash: '0xrealtokentx', success: true }),
+        }),
+      );
+
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_token_send');
+    expect(tool).toBeDefined();
+
+    const result = await tool!.execute('req-tok-2', {
+      token,
+      to: recipient,
+      amount: '100.5',
+    });
+
+    expect(result.content[0]?.text).toContain('Sent 100.5 USDC');
+    expect(result.content[0]?.text).toContain(
+      'Transaction hash: 0xrealtokentx',
+    );
+    expect(result.content[0]?.text).toContain(
+      'https://sepolia.etherscan.io/tx/0xrealtokentx',
+    );
+
+    // Verify the sendErc20Transfer daemon call
+    const sendCallArgs = mockSpawn.mock.calls[1]?.[1] as string[];
+    const payload = JSON.parse(sendCallArgs[3] ?? 'null');
+    expect(payload[1]).toBe('sendErc20Transfer');
+  });
+
+  it('returns token metadata via wallet_token_info', async () => {
+    const token = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+    mockSpawn.mockImplementationOnce(() =>
+      makeSpawnResult({
+        stdout: makeCapData({ name: 'USD Coin', symbol: 'USDC', decimals: 6 }),
+      }),
+    );
+
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_token_info');
+    expect(tool).toBeDefined();
+
+    const result = await tool!.execute('req-tok-3', { token });
+    const parsed = JSON.parse(result.content[0]?.text ?? '{}');
+    expect(parsed).toStrictEqual({
+      name: 'USD Coin',
+      symbol: 'USDC',
+      decimals: 6,
+    });
+  });
+
+  it('resolves token symbol via MetaMask Token API for wallet_token_balance', async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
+
+    mockSpawn
+      // 1. getCapabilities (for chain ID during token resolution)
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({ chainId: 1 }),
+        }),
+      )
+      // 2. getAccounts (to resolve owner)
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData([account]) }),
+      )
+      // 3. getTokenBalance
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData('1000000') }),
+      )
+      // 4. getTokenMetadata
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({
+            name: 'USD Coin',
+            symbol: 'USDC',
+            decimals: 6,
+          }),
+        }),
+      );
+
+    // MetaMask Token API search response (single request)
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            assetId:
+              'eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+            name: 'USDC',
+            symbol: 'USDC',
+            decimals: 6,
+          },
+        ],
+      }),
+    });
+
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_token_balance');
+    expect(tool).toBeDefined();
+
+    const result = await tool!.execute('req-resolve-1', { token: 'USDC' });
+
+    expect(result.content[0]?.text).toContain('USDC');
+    expect(result.content[0]?.text).toContain('raw: 1000000');
+    // Verify the resolved address was used for daemon calls
+    const balanceCallArgs = mockSpawn.mock.calls[2]?.[1] as string[];
+    const balancePayload = JSON.parse(balanceCallArgs[3] ?? 'null');
+    expect(balancePayload[2][0].token).toBe(
+      '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+    );
+    // Single fetch call (MetaMask API returns everything in one request)
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns error when token symbol has no matches', async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
+
+    // getCapabilities for chain ID
+    mockSpawn.mockImplementationOnce(() =>
+      makeSpawnResult({
+        stdout: makeCapData({ chainId: 11155111 }),
+      }),
+    );
+
+    // MetaMask Token API returns empty results for testnet
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ data: [] }),
+    });
+
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_token_balance');
+    expect(tool).toBeDefined();
+
+    const result = await tool!.execute('req-resolve-2', { token: 'USDC' });
+
+    expect(result.content[0]?.text).toContain('Error:');
+    expect(result.content[0]?.text).toContain('No token found');
+    expect(result.content[0]?.text).toContain('contract address directly');
   });
 
   it('does not spawn process for invalid wallet_send params', async () => {

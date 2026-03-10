@@ -1,7 +1,7 @@
 {
   "id": "wallet",
   "name": "Wallet (OCAP)",
-  "description": "Ethereum wallet tools backed by the OCAP kernel daemon. The AI agent can check balances, send transactions, and sign messages without accessing private keys.",
+  "description": "Ethereum wallet tools backed by the OCAP kernel daemon. The AI agent can check balances (ETH and ERC-20 tokens), send transactions (native and token transfers), resolve token symbols to addresses, and sign messages without accessing private keys.",
   "configSchema": {
     "type": "object",
     "properties": {

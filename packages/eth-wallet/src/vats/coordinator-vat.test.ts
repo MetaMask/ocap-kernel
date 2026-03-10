@@ -2500,6 +2500,163 @@ describe('coordinator-vat', () => {
     });
   });
 
+  describe('getTokenBalance', () => {
+    it('returns the decoded balance', async () => {
+      // ABI-encoded uint256 for 1000000
+      providerVat.request.mockResolvedValueOnce(
+        '0x00000000000000000000000000000000000000000000000000000000000f4240' as Hex,
+      );
+      const balance = await coordinator.getTokenBalance({
+        token: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
+        owner: TARGET,
+      });
+      expect(balance).toBe('1000000');
+      expect(providerVat.request).toHaveBeenCalledWith('eth_call', [
+        expect.objectContaining({
+          to: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+          data: expect.stringMatching(/^0x70a08231/u),
+        }),
+        'latest',
+      ]);
+    });
+
+    it('throws when provider is not configured', async () => {
+      const bare = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        makeMockBaggage() as any,
+      );
+      await expect(
+        bare.getTokenBalance({
+          token: TARGET,
+          owner: TARGET,
+        }),
+      ).rejects.toThrow('Provider not configured');
+    });
+  });
+
+  describe('getTokenMetadata', () => {
+    it('returns name, symbol, and decimals', async () => {
+      // "USD Coin" as ABI-encoded string
+      const nameEncoded = [
+        '0x',
+        '0000000000000000000000000000000000000000000000000000000000000020',
+        '0000000000000000000000000000000000000000000000000000000000000008',
+        '55534420436f696e000000000000000000000000000000000000000000000000',
+      ].join('') as Hex;
+      // "USDC" as ABI-encoded string
+      const symbolEncoded = [
+        '0x',
+        '0000000000000000000000000000000000000000000000000000000000000020',
+        '0000000000000000000000000000000000000000000000000000000000000004',
+        '5553444300000000000000000000000000000000000000000000000000000000',
+      ].join('') as Hex;
+      const decimalsEncoded =
+        '0x0000000000000000000000000000000000000000000000000000000000000006' as Hex;
+
+      providerVat.request
+        .mockResolvedValueOnce(nameEncoded) // name
+        .mockResolvedValueOnce(symbolEncoded) // symbol
+        .mockResolvedValueOnce(decimalsEncoded); // decimals
+
+      const meta = await coordinator.getTokenMetadata({
+        token: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
+      });
+      expect(meta).toStrictEqual({
+        name: 'USD Coin',
+        symbol: 'USDC',
+        decimals: 6,
+      });
+    });
+
+    it('throws when RPC returns empty response', async () => {
+      providerVat.request
+        .mockResolvedValueOnce('0x') // name returns empty
+        .mockResolvedValueOnce('0x')
+        .mockResolvedValueOnce('0x');
+
+      await expect(
+        coordinator.getTokenMetadata({
+          token: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
+        }),
+      ).rejects.toThrow(/returned unexpected value/u);
+    });
+
+    it('throws when provider is not configured', async () => {
+      const bare = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        makeMockBaggage() as any,
+      );
+      await expect(
+        bare.getTokenMetadata({
+          token: TARGET,
+        }),
+      ).rejects.toThrow('Provider not configured');
+    });
+  });
+
+  describe('sendErc20Transfer', () => {
+    it('routes through sendTransaction with encoded transfer calldata', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+      await coordinator.configureProvider({ chainId: 1, rpcUrl: 'http://rpc' });
+
+      const token = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address;
+      const result = await coordinator.sendErc20Transfer({
+        token,
+        to: TARGET,
+        amount: 1000n,
+      });
+      expect(result).toBe('0xtxhash');
+      expect(providerVat.broadcastTransaction).toHaveBeenCalled();
+
+      // Verify eth_estimateGas was called with correct ERC-20 tx shape
+      const estimateCall = providerVat.request.mock.calls.find(
+        (call: unknown[]) => call[0] === 'eth_estimateGas',
+      );
+      expect(estimateCall).toBeDefined();
+      const txParam = estimateCall[1][0];
+      // to = token contract, not recipient
+      expect(txParam.to).toBe(token);
+      // value = 0 for ERC-20
+      expect(txParam.value).toBe('0x0');
+      // data starts with transfer selector
+      expect(txParam.data.slice(0, 10).toLowerCase()).toBe('0xa9059cbb');
+    });
+
+    it('uses explicit from address when provided', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+      await coordinator.configureProvider({ chainId: 1, rpcUrl: 'http://rpc' });
+
+      const accounts = await coordinator.getAccounts();
+      const result = await coordinator.sendErc20Transfer({
+        token: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
+        to: TARGET,
+        amount: 500n,
+        from: accounts[0] as Address,
+      });
+      expect(result).toBe('0xtxhash');
+    });
+
+    it('throws when no accounts available', async () => {
+      await expect(
+        coordinator.sendErc20Transfer({
+          token: TARGET,
+          to: TARGET,
+          amount: 100n,
+        }),
+      ).rejects.toThrow('No accounts available');
+    });
+  });
+
   describe('waitForUserOpReceipt', () => {
     it('returns receipt when found immediately', async () => {
       await coordinator.configureBundler({

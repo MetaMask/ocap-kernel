@@ -73,6 +73,18 @@ export {
   getEnforcerAddress,
 } from './lib/caveats.ts';
 
+// ERC-20 utilities
+export {
+  encodeTransfer,
+  encodeApprove,
+  encodeBalanceOf,
+  makeErc20TransferExecution,
+  decodeTransferCalldata,
+  isErc20TransferCalldata,
+  ERC20_TRANSFER_SELECTOR,
+  ERC20_APPROVE_SELECTOR,
+} from './lib/erc20.ts';
+
 // Delegation utilities
 export {
   makeDelegation,

@@ -337,6 +337,14 @@ const userOpHash = await coordinator.redeemDelegation({
 | `sendDelegateAddressToPeer(address)` | Send this device's delegate address to the connected peer (home) device. Called automatically during `connectToPeer`.      |
 | `handleSigningRequest(request)`      | Handle an incoming signing request from a peer wallet.                                                                     |
 
+### Coordinator -- ERC-20 Tokens
+
+| Method                       | Description                                                                                                                  |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `getTokenBalance(options)`   | Get ERC-20 balance. Accepts `{ token, owner }`. Returns the raw balance as a decimal string.                                 |
+| `getTokenMetadata(options)`  | Get token metadata. Accepts `{ token }`. Returns `{ name, symbol, decimals }`. Handles non-standard `bytes32` returns (MKR). |
+| `sendErc20Transfer(options)` | Send ERC-20 tokens. Accepts `{ token, to, amount, from? }`. Routes through `sendTransaction` (delegation-aware).             |
+
 ### Coordinator -- Introspection
 
 | Method              | Description                                                                                   |
@@ -398,6 +406,37 @@ const caveat = makeCaveat({
   terms: encodeAllowedTargets(['0x...' as Address]),
   chainId: 1, // optional: looks up enforcer address by chain
 });
+```
+
+### ERC-20 Utilities
+
+```typescript
+import {
+  encodeTransfer,
+  encodeApprove,
+  encodeBalanceOf,
+  decodeTransferCalldata,
+  makeErc20TransferExecution,
+  isErc20TransferCalldata,
+  ERC20_TRANSFER_SELECTOR,
+  ERC20_APPROVE_SELECTOR,
+} from '@ocap/eth-wallet';
+
+// Encode a transfer(address,uint256) call
+const callData = encodeTransfer('0xRecipient...' as Address, 1000000n);
+
+// Build an Execution struct for delegation redemption
+const execution = makeErc20TransferExecution({
+  token: '0xUSDC...' as Address,
+  to: '0xRecipient...' as Address,
+  amount: 1000000n, // 1 USDC (6 decimals)
+});
+
+// Decode transfer calldata
+const { to, amount } = decodeTransferCalldata(callData);
+
+// Check if calldata is a transfer
+isErc20TransferCalldata(callData); // true
 ```
 
 ### Delegation Utilities
@@ -527,6 +566,38 @@ const signature = await signer.signTypedData(typedData, accounts[0]);
 signer.disconnect();
 ```
 
+## OpenClaw Plugin
+
+The `openclaw-plugin/` directory contains an [OpenClaw](https://openclaw.dev) plugin that exposes wallet operations as AI agent tools. The plugin communicates with the OCAP daemon via `ocap daemon exec` commands.
+
+### Plugin Structure
+
+| File                | Purpose                                                                                |
+| ------------------- | -------------------------------------------------------------------------------------- |
+| `index.ts`          | Tool registration — defines all `wallet_*` tools                                       |
+| `daemon.ts`         | Daemon communication layer — spawns CLI, decodes CapData responses                     |
+| `token-resolver.ts` | Token symbol resolution via the [MetaMask Token API](https://token.api.cx.metamask.io) |
+
+### Tools
+
+| Tool                   | Description                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------- |
+| `wallet_accounts`      | List wallet accounts                                                            |
+| `wallet_balance`       | Get ETH balance for an address                                                  |
+| `wallet_send`          | Send ETH to an address                                                          |
+| `wallet_token_resolve` | Resolve a token symbol (e.g. "USDC") to a contract address on the current chain |
+| `wallet_token_balance` | Get ERC-20 token balance (accepts address or symbol)                            |
+| `wallet_token_send`    | Send ERC-20 tokens (accepts address or symbol)                                  |
+| `wallet_token_info`    | Get token metadata (name, symbol, decimals)                                     |
+| `wallet_sign`          | Sign a message                                                                  |
+| `wallet_capabilities`  | Check wallet capabilities                                                       |
+
+### Token Symbol Resolution
+
+All token tools (`wallet_token_balance`, `wallet_token_send`, `wallet_token_info`) accept either a contract address (`0x...`) or a token symbol/name (e.g. `"USDC"`, `"DAI"`). Symbol resolution uses the **MetaMask Token API** — a single search request returns contract addresses with metadata for the wallet's chain. Testnets are not indexed; provide contract addresses directly on test networks.
+
+The dedicated `wallet_token_resolve` tool can be used to search for tokens by name or symbol explicitly.
+
 ## Cluster Configuration
 
 Use `makeWalletClusterConfig` to generate the `ClusterConfig` for launching the subcluster.
@@ -568,7 +639,7 @@ yarn workspace @ocap/eth-wallet lint:fix
 
 The package has four tiers of tests, each exercising a progressively larger slice of the stack.
 
-### Unit tests (382 tests)
+### Unit tests (420+ tests)
 
 ```bash
 yarn workspace @ocap/eth-wallet test:dev:quiet
