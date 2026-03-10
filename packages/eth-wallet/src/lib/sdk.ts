@@ -334,15 +334,16 @@ export function isEip7702Delegated(code: string, chainId: number): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// UserOp signing (EIP-712 typed data for HybridDeleGator)
+// UserOp signing (EIP-712 typed data for DeleGator smart accounts)
 // ---------------------------------------------------------------------------
 
 /**
  * Prepare EIP-712 typed data for signing a UserOperation.
  *
- * HybridDeleGator smart accounts validate UserOp signatures as EIP-712
- * typed data (not raw ECDSA over the standard UserOp hash). This function
- * produces the typed data payload that the EOA owner must sign.
+ * DeleGator smart accounts (both HybridDeleGator and EIP7702StatelessDeleGator)
+ * validate UserOp signatures as EIP-712 typed data. This function produces the
+ * typed data payload that the EOA owner must sign. The domain name defaults to
+ * 'HybridDeleGator' but can be overridden via `smartAccountName`.
  *
  * @param options - Options.
  * @param options.userOp - The UserOperation to sign.
