@@ -232,4 +232,191 @@ describe('keyring-vat', () => {
       expect(accountsAfter).toStrictEqual(accountsBefore);
     });
   });
+
+  describe('password encryption', () => {
+    const TEST_PASSWORD = 'super-secret-123';
+    const TEST_SALT = 'aabbccddaabbccddaabbccddaabbccdd';
+
+    it('stores encrypted data in baggage when password provided', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).initialize(
+        { type: 'srp', mnemonic: TEST_MNEMONIC },
+        TEST_PASSWORD,
+        TEST_SALT,
+      );
+
+      const stored = baggage.get('keyringInit') as Record<string, unknown>;
+      expect(stored.encrypted).toBe(true);
+      expect(stored.type).toBe('srp');
+      expect(stored.ciphertext).toBeDefined();
+      expect(stored.nonce).toBeDefined();
+      expect(stored.salt).toBe(TEST_SALT);
+      // Mnemonic should NOT be in the stored data
+      expect(stored).not.toHaveProperty('mnemonic');
+    });
+
+    it('stores plaintext in baggage when no password provided', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).initialize({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const stored = baggage.get('keyringInit') as Record<string, unknown>;
+      expect(stored).not.toHaveProperty('encrypted');
+      expect(stored.mnemonic).toBe(TEST_MNEMONIC);
+    });
+
+    it('requires salt when password is provided', async () => {
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (root as any).initialize(
+          { type: 'srp', mnemonic: TEST_MNEMONIC },
+          TEST_PASSWORD,
+        ),
+      ).rejects.toThrow('A random salt is required');
+    });
+
+    it('ignores password for throwaway keyrings', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).initialize(
+        { type: 'throwaway' },
+        TEST_PASSWORD,
+        TEST_SALT,
+      );
+
+      const stored = baggage.get('keyringInit') as Record<string, unknown>;
+      expect(stored).not.toHaveProperty('encrypted');
+      expect(stored.type).toBe('throwaway');
+    });
+
+    it('resuscitates encrypted baggage into locked state', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).initialize(
+        { type: 'srp', mnemonic: TEST_MNEMONIC },
+        TEST_PASSWORD,
+        TEST_SALT,
+      );
+
+      // Simulate resuscitation
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const restored = buildRootObject({}, undefined, baggage as any);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(await (restored as any).isLocked()).toBe(true);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(await (restored as any).hasKeys()).toBe(false);
+    });
+
+    it('unlocks with correct password and restores keyring', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).initialize(
+        { type: 'srp', mnemonic: TEST_MNEMONIC },
+        TEST_PASSWORD,
+        TEST_SALT,
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const accountsBefore = await (root as any).getAccounts();
+
+      // Simulate resuscitation
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const restored = buildRootObject({}, undefined, baggage as any);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (restored as any).unlock(TEST_PASSWORD);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(await (restored as any).isLocked()).toBe(false);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      expect(await (restored as any).hasKeys()).toBe(true);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const accountsAfter = await (restored as any).getAccounts();
+      expect(accountsAfter).toStrictEqual(accountsBefore);
+    });
+
+    it('throws on unlock with wrong password', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).initialize(
+        { type: 'srp', mnemonic: TEST_MNEMONIC },
+        TEST_PASSWORD,
+        TEST_SALT,
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const restored = buildRootObject({}, undefined, baggage as any);
+
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (restored as any).unlock('wrong-password'),
+      ).rejects.toThrow(/invalid.*tag|decrypt/iu);
+    });
+
+    it('throws on unlock when not locked', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).initialize({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (root as any).unlock(TEST_PASSWORD),
+      ).rejects.toThrow('Keyring is not locked');
+    });
+
+    it('throws on signing while locked', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).initialize(
+        { type: 'srp', mnemonic: TEST_MNEMONIC },
+        TEST_PASSWORD,
+        TEST_SALT,
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const restored = buildRootObject({}, undefined, baggage as any);
+
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (restored as any).signMessage('hello'),
+      ).rejects.toThrow('Keyring is locked');
+
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (restored as any).signHash('0xabcd'),
+      ).rejects.toThrow('Keyring is locked');
+
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (restored as any).deriveAccount(1),
+      ).rejects.toThrow('Keyring is locked');
+    });
+
+    it('re-derives additional accounts after unlock', async () => {
+      // Initialize and derive extra accounts
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).initialize(
+        { type: 'srp', mnemonic: TEST_MNEMONIC },
+        TEST_PASSWORD,
+        TEST_SALT,
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).deriveAccount(1);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).deriveAccount(2);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const accountsBefore = await (root as any).getAccounts();
+      expect(accountsBefore).toHaveLength(3);
+
+      // Resuscitate and unlock
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const restored = buildRootObject({}, undefined, baggage as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (restored as any).unlock(TEST_PASSWORD);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const accountsAfter = await (restored as any).getAccounts();
+      expect(accountsAfter).toStrictEqual(accountsBefore);
+    });
+  });
 });

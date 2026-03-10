@@ -165,6 +165,7 @@ If any caveat check fails at step 10, the entire UserOp reverts — the ETH is n
 | Property | How it's achieved |
 | --- | --- |
 | **Keys never leave home** | Keyring vat isolation + CapTP remote signing (mnemonic mode), or MetaMask Mobile holds keys (interactive mode) |
+| **Mnemonic encrypted at rest** | Optional AES-256-GCM encryption with PBKDF2-derived key; keyring starts locked on restart and requires password to unlock |
 | **Agent has a hard budget** | On-chain caveat enforcers (NativeTokenTransferAmount + ValueLte) |
 | **No ambient authority** | Ocap kernel: vats communicate only through explicit capability references |
 | **Limits can't be bypassed** | Enforced by Ethereum smart contracts, not software checks |

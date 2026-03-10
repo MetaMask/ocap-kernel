@@ -113,7 +113,7 @@ There are two home-device modes, plus a shared away-device script:
 
 | Script | Mode | Signing | Key storage |
 | --- | --- | --- | --- |
-| `setup-home.sh` | **Mnemonic** | Automatic (no approval) | Mnemonic stored on home device |
+| `setup-home.sh` | **Mnemonic** | Automatic (no approval) | Mnemonic on home device (optionally encrypted with `--password`) |
 | `setup-home-interactive.sh` | **Interactive (MetaMask)** | MetaMask Mobile signs the delegation once during setup; autonomous after | No keys on home device |
 | `setup-away.sh` | Away device | Via peer wallet to home | Throwaway key only |
 
@@ -187,6 +187,17 @@ Choose one of the two modes:
 ```bash
 ./packages/eth-wallet/scripts/setup-home.sh \
   --mnemonic "your twelve word mnemonic" \
+  --infura-key YOUR_INFURA_KEY \
+  --pimlico-key YOUR_PIMLICO_KEY \
+  --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
+```
+
+To encrypt the mnemonic at rest, add `--password`:
+
+```bash
+./packages/eth-wallet/scripts/setup-home.sh \
+  --mnemonic "your twelve word mnemonic" \
+  --password "your-password" \
   --infura-key YOUR_INFURA_KEY \
   --pimlico-key YOUR_PIMLICO_KEY \
   --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
@@ -439,11 +450,21 @@ Note the `rootKref` from the output (e.g. `ko4`). This is the wallet coordinator
 ### 2d. Initialize the keyring
 
 ```bash
-# Initialize with your mnemonic (SRP)
+# Initialize with your mnemonic (SRP) — plaintext storage
 yarn ocap daemon exec queueMessage '["ko4", "initializeKeyring", [{"type": "srp", "mnemonic": "your twelve word mnemonic phrase here"}]]'
+
+# Or encrypt the mnemonic at rest with a password:
+SALT="$(node -e "process.stdout.write(require('crypto').randomBytes(16).toString('hex'))")"
+yarn ocap daemon exec queueMessage "[\"ko4\", \"initializeKeyring\", [{\"type\": \"srp\", \"mnemonic\": \"your twelve word mnemonic phrase here\", \"password\": \"your-password\", \"salt\": \"$SALT\"}]]"
 
 # Verify
 yarn ocap daemon exec queueMessage '["ko4", "getAccounts", []]'
+```
+
+When a password is provided, the mnemonic is encrypted with AES-256-GCM (PBKDF2 key derivation). After a daemon restart, the keyring will be locked — unlock it before signing:
+
+```bash
+yarn ocap daemon exec queueMessage '["ko4", "unlockKeyring", ["your-password"]]'
 ```
 
 ### 2e. Configure the provider

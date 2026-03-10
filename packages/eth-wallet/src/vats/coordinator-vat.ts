@@ -98,7 +98,13 @@ type WalletServices = {
 
 // Typed facets for E() calls (avoid `any` by using explicit method signatures)
 type KeyringFacet = {
-  initialize: (options: { type: string; mnemonic?: string }) => Promise<void>;
+  initialize: (
+    options: { type: string; mnemonic?: string },
+    password?: string,
+    salt?: string,
+  ) => Promise<void>;
+  unlock: (password: string) => Promise<void>;
+  isLocked: () => Promise<boolean>;
   hasKeys: () => Promise<boolean>;
   getAccounts: () => Promise<Address[]>;
   deriveAccount: (index: number) => Promise<Address>;
@@ -937,6 +943,8 @@ export function buildRootObject(
       type: 'srp' | 'throwaway';
       mnemonic?: string;
       entropy?: Hex;
+      password?: string;
+      salt?: string;
     }): Promise<void> {
       if (!keyringVat) {
         throw new Error('Keyring vat not available');
@@ -945,7 +953,23 @@ export function buildRootObject(
         options.type === 'srp'
           ? { type: 'srp' as const, mnemonic: options.mnemonic ?? '' }
           : { type: 'throwaway' as const, entropy: options.entropy };
-      await E(keyringVat).initialize(initOptions);
+
+      const password = options.type === 'srp' ? options.password : undefined;
+      await E(keyringVat).initialize(initOptions, password, options.salt);
+    },
+
+    async unlockKeyring(password: string): Promise<void> {
+      if (!keyringVat) {
+        throw new Error('Keyring vat not available');
+      }
+      await E(keyringVat).unlock(password);
+    },
+
+    async isKeyringLocked(): Promise<boolean> {
+      if (!keyringVat) {
+        throw new Error('Keyring vat not available');
+      }
+      return E(keyringVat).isLocked();
     },
 
     async configureProvider(chainConfig: ChainConfig): Promise<void> {
