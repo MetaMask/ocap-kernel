@@ -151,6 +151,9 @@ type ProviderFacet = {
     bundlerUrl: string;
     chainId: number;
   }) => Promise<void>;
+  getUserOperationGasPrice: () => Promise<{
+    fast: { maxFeePerGas: Hex; maxPriorityFeePerGas: Hex };
+  }>;
   sponsorUserOp: (options: {
     bundlerUrl: string;
     entryPoint: Hex;
@@ -504,17 +507,6 @@ export function buildRootObject(
   }
 
   /**
-   * Add a 25% buffer to a hex gas value to meet bundler minimums.
-   *
-   * @param value - The hex gas value.
-   * @returns The bumped hex value.
-   */
-  function bumpHex(value: Hex): Hex {
-    const bumped = (BigInt(value) * 125n) / 100n;
-    return `0x${bumped.toString(16)}`;
-  }
-
-  /**
    * Build, sign, and submit a UserOp. Shared pipeline for both delegation
    * redemption and on-chain delegation revocation.
    *
@@ -540,13 +532,15 @@ export function buildRootObject(
 
     const { sender, callData } = options;
 
-    // Estimate gas fees if not explicitly provided
+    // Get gas prices from the bundler (pimlico_getUserOperationGasPrice)
+    // which returns prices the bundler will accept, avoiding rejection
+    // due to stale node-reported fees.
     let { maxFeePerGas, maxPriorityFeePerGas } = options;
     if (!maxFeePerGas || !maxPriorityFeePerGas) {
-      const fees = await E(providerVat).getGasFees();
-      maxFeePerGas = maxFeePerGas ?? bumpHex(fees.maxFeePerGas);
+      const gasPrice = await E(providerVat).getUserOperationGasPrice();
+      maxFeePerGas = maxFeePerGas ?? gasPrice.fast.maxFeePerGas;
       maxPriorityFeePerGas =
-        maxPriorityFeePerGas ?? bumpHex(fees.maxPriorityFeePerGas);
+        maxPriorityFeePerGas ?? gasPrice.fast.maxPriorityFeePerGas;
     }
 
     // Get nonce from EntryPoint contract (ERC-4337 nonce)

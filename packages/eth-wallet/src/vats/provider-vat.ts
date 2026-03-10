@@ -194,6 +194,13 @@ export function buildRootObject(
       });
     },
 
+    async getUserOperationGasPrice(): Promise<{
+      fast: { maxFeePerGas: Hex; maxPriorityFeePerGas: Hex };
+    }> {
+      const client = getBundlerClient();
+      return client.getUserOperationGasPrice();
+    },
+
     async getEntryPointNonce(options: {
       entryPoint: Address;
       sender: Address;
