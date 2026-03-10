@@ -220,13 +220,13 @@ node "$OCAP_BIN" daemon start >&2
 ok "Daemon running"
 
 # ---------------------------------------------------------------------------
-# 3. Initialize remote comms (QUIC transport)
+# 3. Initialize remote comms (libp2p)
 # ---------------------------------------------------------------------------
 
 if [[ -n "$RELAY_ADDR" ]]; then
-  info "Initializing remote comms (QUIC port $QUIC_PORT + relay)..."
+  info "Initializing remote comms (relay: ${RELAY_ADDR})..."
 else
-  info "Initializing remote comms (QUIC port $QUIC_PORT)..."
+  info "Initializing remote comms (direct QUIC on port $QUIC_PORT)..."
 fi
 COMMS_PARAMS="{\"directListenAddresses\":[\"/ip4/0.0.0.0/udp/${QUIC_PORT}/quic-v1\"]"
 if [[ -n "$RELAY_ADDR" ]]; then
@@ -475,7 +475,7 @@ EOF
 # 9. Create delegation (interactive — waits for away device delegate address)
 # ---------------------------------------------------------------------------
 
-# Poll for the delegate address from the away device (sent over QUIC/CapTP).
+# Poll for the delegate address from the away device (sent over libp2p/CapTP).
 # The away device calls sendDelegateAddressToPeer after connecting.
 DELEGATE_ADDR=""
 info "Waiting for delegate address from away device (up to 10 min)..."
@@ -596,7 +596,7 @@ else
 fi
 
 if [[ "$HAS_AWAY" == "true" ]]; then
-  info "Pushing delegation to away device over QUIC..."
+  info "Pushing delegation to away device..."
   PUSH_PARAMS=$(KREF="$ROOT_KREF" DEL="$DEL_INNER" node -e "
     const p = JSON.stringify([process.env.KREF, 'pushDelegationToAway', [JSON.parse(process.env.DEL)]]);
     process.stdout.write(p);

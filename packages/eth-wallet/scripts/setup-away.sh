@@ -222,13 +222,13 @@ node "$OCAP_BIN" daemon start >&2
 ok "Daemon running"
 
 # ---------------------------------------------------------------------------
-# 3. Initialize remote comms (QUIC transport)
+# 3. Initialize remote comms (libp2p)
 # ---------------------------------------------------------------------------
 
 if [[ -n "$RELAY_ADDR" ]]; then
-  info "Initializing remote comms (QUIC port $QUIC_PORT + relay)..."
+  info "Initializing remote comms (relay: ${RELAY_ADDR})..."
 else
-  info "Initializing remote comms (QUIC port $QUIC_PORT)..."
+  info "Initializing remote comms (direct QUIC on port $QUIC_PORT)..."
 fi
 COMMS_PARAMS="{\"directListenAddresses\":[\"/ip4/0.0.0.0/udp/${QUIC_PORT}/quic-v1\"]"
 if [[ -n "$RELAY_ADDR" ]]; then
@@ -537,7 +537,7 @@ for i in $(seq 1 300); do
       process.stdout.write(String(v.delegationCount));
     " 2>/dev/null || echo "0")
     if [[ "$DEL_COUNT" != "0" ]]; then
-      ok "Delegation received (auto-pushed over QUIC)"
+      ok "Delegation received (auto-pushed from home device)"
       break
     fi
   else
