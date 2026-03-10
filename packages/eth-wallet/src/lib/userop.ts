@@ -187,19 +187,18 @@ export function computeUserOpHash(
   entryPoint: Address,
   chainId: number,
 ): Hex {
-  // Pack the UserOperation fields
+  // ERC-4337 v0.7 uses abi.encode (not abi.encodePacked) for both the inner
+  // packing and the outer hash. The inner fields match PackedUserOperation:
+  //   abi.encode(sender, nonce, hashInitCode, hashCallData,
+  //              accountGasLimits, preVerificationGas, gasFees,
+  //              hashPaymasterAndData)
+  // where accountGasLimits = verificationGasLimit << 128 | callGasLimit
+  // and gasFees = maxPriorityFeePerGas << 128 | maxFeePerGas.
   const packed = keccak256(
-    encodePacked(
-      [
-        'address',
-        'uint256',
-        'bytes32',
-        'bytes32',
-        'bytes32',
-        'uint256',
-        'bytes32',
-        'bytes32',
-      ],
+    encodeAbiParameters(
+      parseAbiParameters(
+        'address, uint256, bytes32, bytes32, bytes32, uint256, bytes32, bytes32',
+      ),
       [
         userOp.sender,
         BigInt(userOp.nonce),
@@ -239,10 +238,11 @@ export function computeUserOpHash(
   );
 
   return keccak256(
-    encodePacked(
-      ['bytes32', 'address', 'uint256'],
-      [packed, entryPoint, BigInt(chainId)],
-    ),
+    encodeAbiParameters(parseAbiParameters('bytes32, address, uint256'), [
+      packed,
+      entryPoint,
+      BigInt(chainId),
+    ]),
   );
 }
 

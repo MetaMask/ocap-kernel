@@ -2993,7 +2993,7 @@ describe('coordinator-vat', () => {
       return eoaAddress;
     }
 
-    it('uses raw ECDSA hash signing for 7702 accounts', async () => {
+    it('uses EIP-712 typed data with 7702 domain name', async () => {
       const eoaAddress = await setup7702WithBundler();
 
       // Create a delegation
@@ -3124,8 +3124,8 @@ describe('coordinator-vat', () => {
       const sigHybrid =
         hybridProvider.submitUserOp.mock.calls[0][0].userOp.signature;
 
-      // The two signatures must differ: 7702 uses raw ECDSA hash,
-      // hybrid uses EIP-712 typed data over a different domain.
+      // The two signatures must differ: 7702 uses EIP-712 with domain
+      // name 'EIP7702StatelessDeleGator', hybrid uses 'HybridDeleGator'.
       expect(sig7702).not.toBe(sigHybrid);
     });
 

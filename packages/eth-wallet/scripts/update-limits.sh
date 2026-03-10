@@ -243,11 +243,15 @@ while read -r DEL_ID; do
     REVOKE_FAILED=$((REVOKE_FAILED + 1))
     continue
   }
-  # Check if the daemon returned a CapData-wrapped error (exit code is still 0)
-  if echo "$REVOKE_OUTPUT" | grep -q '"#error"'; then
+  # Check if the daemon returned a CapData-wrapped error (exit code is still 0).
+  # Inside JSON, the inner quotes are escaped as \" so we grep for the escaped form.
+  if echo "$REVOKE_OUTPUT" | grep -q '#error'; then
     ERR_MSG=$(echo "$REVOKE_OUTPUT" | parse_capdata 2>/dev/null | node -e "
-      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
-      process.stdout.write(d['#error'] || 'Unknown error');
+      const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
+      try {
+        const d = JSON.parse(raw);
+        process.stdout.write(d['#error'] || raw);
+      } catch { process.stdout.write(raw); }
     " 2>/dev/null) || ERR_MSG="Unknown error"
     echo -e "  ${RED}✗${RESET} Failed to revoke delegation $DEL_ID" >&2
     echo -e "     ${DIM}Reason: $ERR_MSG${RESET}" >&2
