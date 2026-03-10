@@ -1,4 +1,5 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { Logger } from '@metamask/logger';
 import type { Baggage } from '@metamask/ocap-kernel';
 
 import { DEFAULT_DELEGATION_MANAGER } from '../constants.ts';
@@ -25,7 +26,9 @@ const harden = globalThis.harden ?? (<T>(value: T): T => value);
 /**
  * Vat powers for the delegation vat.
  */
-type VatPowers = Record<string, unknown>;
+type VatPowers = {
+  logger?: Logger;
+};
 
 /**
  * Build the root object for the delegation vat.

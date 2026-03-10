@@ -1,4 +1,5 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { Logger } from '@metamask/logger';
 import type { Baggage } from '@metamask/ocap-kernel';
 import type { SignedAuthorization } from 'viem';
 
@@ -27,7 +28,9 @@ import type {
 /**
  * Vat powers for the keyring vat.
  */
-type VatPowers = Record<string, unknown>;
+type VatPowers = {
+  logger?: Logger;
+};
 
 /**
  * Build the root object for the keyring vat.

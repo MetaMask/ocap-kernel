@@ -7,7 +7,7 @@
     "rootDir": "./src",
     "types": []
   },
-  "references": [],
+  "references": [{ "path": "../logger/tsconfig.build.json" }],
   "files": [],
   "include": ["./src"]
 }
