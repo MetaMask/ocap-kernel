@@ -2966,12 +2966,6 @@ describe('coordinator-vat', () => {
         .mockRejectedValueOnce(new Error('method not supported')) // eth_estimateGas
         .mockResolvedValueOnce({ status: '0x1' }); // eth_getTransactionReceipt poll
 
-      // Suppress console.warn from the fallback path
-      const warnSpy = vi
-        .spyOn(console, 'warn')
-        // eslint-disable-next-line no-empty-function
-        .mockImplementation(() => {});
-
       const configPromise = coordinator.createSmartAccount({
         chainId: 11155111,
         implementation: 'stateless7702',
@@ -2983,19 +2977,12 @@ describe('coordinator-vat', () => {
       expect(config.implementation).toBe('stateless7702');
       expect(config.deployed).toBe(true);
 
-      // Should have broadcast despite gas estimation failure
+      // Should have broadcast despite gas estimation failure (using fallback gas)
       expect(providerVat.broadcastTransaction).toHaveBeenCalled();
       const broadcastArg = providerVat.broadcastTransaction.mock
         .calls[0][0] as string;
       expect(broadcastArg.startsWith('0x04')).toBe(true);
 
-      // Should have warned about the fallback
-      expect(warnSpy).toHaveBeenCalledWith(
-        expect.stringContaining('eth_estimateGas failed for EIP-7702 auth'),
-        expect.stringContaining('method not supported'),
-      );
-
-      warnSpy.mockRestore();
       vi.useRealTimers();
     });
 

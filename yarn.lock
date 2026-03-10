@@ -3781,6 +3781,7 @@ __metadata:
     "@metamask/kernel-shims": "workspace:^"
     "@metamask/kernel-store": "workspace:^"
     "@metamask/kernel-utils": "workspace:^"
+    "@metamask/logger": "workspace:^"
     "@metamask/ocap-kernel": "workspace:^"
     "@metamask/sdk": "npm:^0.34.0"
     "@metamask/smart-accounts-kit": "npm:^0.3.0"

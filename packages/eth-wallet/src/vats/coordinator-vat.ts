@@ -1,5 +1,6 @@
 import { E } from '@endo/eventual-send';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import { Logger } from '@metamask/logger';
 import type { Baggage } from '@metamask/ocap-kernel';
 
 import {
@@ -106,7 +107,9 @@ function describeCaveat(caveat: Caveat): string {
 /**
  * Vat powers for the coordinator vat.
  */
-type VatPowers = Record<string, unknown>;
+type VatPowers = {
+  logger?: Logger;
+};
 
 /**
  * Vat references available in the wallet subcluster.
@@ -268,16 +271,20 @@ type OcapURLRedemptionFacet = {
  * management, and peer wallet communication. It is the public API of
  * the wallet subcluster.
  *
- * @param _vatPowers - Special powers granted to this vat.
+ * @param vatPowers - Special powers granted to this vat.
  * @param _parameters - Initialization parameters.
  * @param baggage - Root of vat's persistent state.
  * @returns The root object for the coordinator vat.
  */
 export function buildRootObject(
-  _vatPowers: VatPowers,
+  vatPowers: VatPowers,
   _parameters: unknown,
   baggage: Baggage,
 ): object {
+  const logger = (vatPowers.logger ?? new Logger()).subLogger({
+    tags: ['coordinator-vat'],
+  });
+
   // References to other vats (set during bootstrap)
   let keyringVat: KeyringFacet | undefined;
   let providerVat: ProviderFacet | undefined;
@@ -899,25 +906,22 @@ export function buildRootObject(
       ).then(
         (result) => {
           if (typeof result !== 'string' || !result.startsWith('0x')) {
-            // eslint-disable-next-line no-console
-            console.warn(
-              `[eth-wallet] eth_estimateGas returned non-hex for EIP-7702 auth: ${String(result)}, using fallback`,
+            logger.warn(
+              `eth_estimateGas returned non-hex for EIP-7702 auth: ${String(result)}, using fallback`,
             );
             return EIP7702_FALLBACK_GAS;
           }
           if (BigInt(result) < EIP7702_MIN_GAS) {
-            // eslint-disable-next-line no-console
-            console.warn(
-              `[eth-wallet] eth_estimateGas returned suspiciously low value ${result} for EIP-7702 auth, using fallback`,
+            logger.warn(
+              `eth_estimateGas returned suspiciously low value ${result} for EIP-7702 auth, using fallback`,
             );
             return EIP7702_FALLBACK_GAS;
           }
           return result;
         },
         (error: unknown) => {
-          // eslint-disable-next-line no-console
-          console.warn(
-            '[eth-wallet] eth_estimateGas failed for EIP-7702 auth, using fallback:',
+          logger.warn(
+            'eth_estimateGas failed for EIP-7702 auth, using fallback:',
             error instanceof Error ? error.message : error,
           );
           return EIP7702_FALLBACK_GAS;
@@ -1208,7 +1212,8 @@ export function buildRootObject(
           cachedPeerAccounts = liveAccounts;
           persistBaggage('cachedPeerAccounts', cachedPeerAccounts);
           return liveAccounts;
-        } catch {
+        } catch (error) {
+          logger.debug('peer getAccounts timed out, using cache', error);
           if (cachedPeerAccounts.length > 0) {
             return cachedPeerAccounts;
           }
@@ -1392,8 +1397,12 @@ export function buildRootObject(
               success: userOpReceipt.success,
             });
           }
-        } catch {
+        } catch (error) {
           // Not a UserOp hash — fall through to regular RPC
+          logger.debug(
+            'UserOp receipt lookup failed, trying regular RPC',
+            error,
+          );
         }
       }
 
@@ -1498,8 +1507,9 @@ export function buildRootObject(
         if (delegation.status !== 'revoked') {
           await E(delegationVat).revokeDelegation(id);
         }
-      } catch {
+      } catch (error) {
         // Delegation not found locally — nothing to revoke.
+        logger.debug('revokeDelegationLocally: delegation not found', error);
       }
     },
 
@@ -1711,20 +1721,20 @@ export function buildRootObject(
       try {
         cachedPeerAccounts = await E(peerWallet).getAccounts();
         persistBaggage('cachedPeerAccounts', cachedPeerAccounts);
-      } catch {
+      } catch (error) {
         // Peer may not be ready yet; accounts can be cached later
         // via refreshPeerAccounts()
+        logger.debug('peer account fetch failed during connect', error);
       }
 
       // Register this coordinator as the away wallet on the home device
       // so the home can push delegations directly over CapTP.
       try {
         await E(peerWallet).registerAwayWallet(coordinator);
-      } catch {
+      } catch (error) {
         // Home device may not support registerAwayWallet yet (older version).
-        // Delegation transfer falls back to copy-paste. The error is not
-        // surfaced because vats have no logging facility; the user can detect
-        // this via getCapabilities() on the home side (hasAwayWallet: false).
+        // Delegation transfer falls back to copy-paste.
+        logger.debug('registerAwayWallet failed', error);
       }
     },
 
@@ -1890,7 +1900,8 @@ export function buildRootObject(
           signingMode = `peer:${peerCaps.signingMode ?? 'unknown'}`;
           cachedPeerSigningMode = signingMode;
           persistBaggage('cachedPeerSigningMode', cachedPeerSigningMode);
-        } catch {
+        } catch (error) {
+          logger.debug('peer getCapabilities timed out, using cache', error);
           signingMode = cachedPeerSigningMode ?? 'peer:unknown';
         }
       } else if (externalSigner) {
