@@ -23,8 +23,8 @@ export function buildRootObject(
   let languageModel: unknown;
   const root = makeDefaultExo('root', {
     async bootstrap(
+      _roots: unknown,
       { languageModelService }: { languageModelService: unknown },
-      _kernelServices: unknown,
     ) {
       languageModel = await E(languageModelService).makeInstance({
         model: 'test',

@@ -21,7 +21,10 @@ type QueueModel = {
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject() {
   const queueService = makeQueueService();
-  return makeDefaultExo('root', {
+  const root = makeDefaultExo('root', {
+    bootstrap(_roots: unknown, _services: unknown) {
+      return root;
+    },
     async makeInstance(config: unknown) {
       const model = (await queueService.makeInstance(config)) as QueueModel;
       return makeDefaultExo('queueLanguageModel', {
@@ -61,4 +64,5 @@ export function buildRootObject() {
       });
     },
   });
+  return root;
 }

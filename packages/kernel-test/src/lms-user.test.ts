@@ -1,5 +1,6 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import { LANGUAGE_MODEL_SERVICE_NAME } from '@ocap/kernel-language-model-service';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -10,29 +11,41 @@ import {
   runTestVats,
 } from './utils.ts';
 
-const testSubcluster = {
-  bootstrap: 'main',
-  forceReset: true,
-  vats: {
-    main: {
-      bundleSpec: getBundleSpec('lms-user-vat'),
-      parameters: {
-        name: 'Alice',
-      },
-    },
-    languageModelService: {
-      bundleSpec: getBundleSpec('lms-queue-vat'),
-    },
-  },
-};
-
 describe('lms-user vat', () => {
   it('logs response from language model', async () => {
     const kernelDatabase = await makeSQLKernelDatabase({
       dbFilename: ':memory:',
     });
     const { logger, entries } = makeTestLogger();
-    const kernel = await makeKernel(kernelDatabase, true, logger);
+    const kernel = await makeKernel(
+      kernelDatabase,
+      true,
+      logger,
+      undefined,
+      undefined,
+      undefined,
+      [
+        {
+          name: 'languageModelService',
+          config: {
+            bootstrap: 'lms',
+            vats: { lms: { bundleSpec: getBundleSpec('lms-queue-vat') } },
+          },
+          registersAsService: LANGUAGE_MODEL_SERVICE_NAME,
+        },
+      ],
+    );
+
+    const testSubcluster = {
+      bootstrap: 'main',
+      services: [LANGUAGE_MODEL_SERVICE_NAME],
+      vats: {
+        main: {
+          bundleSpec: getBundleSpec('lms-user-vat'),
+          parameters: { name: 'Alice' },
+        },
+      },
+    };
 
     await runTestVats(kernel, testSubcluster);
     await waitUntilQuiescent(100);

@@ -10,7 +10,11 @@ import {
 } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
-import type { ClusterConfig, PlatformServices } from '@metamask/ocap-kernel';
+import type {
+  ClusterConfig,
+  PlatformServices,
+  SystemSubclusterConfig,
+} from '@metamask/ocap-kernel';
 import { NodejsPlatformServices } from '@ocap/nodejs';
 import { vi } from 'vitest';
 
@@ -70,6 +74,7 @@ export async function runResume(
  * @param workerFilePath - The path to the worker file to use for the vat workers.
  * @param platformServices - The platform services client to use for the kernel.
  * @param keySeed - Optional seed for libp2p key generation.
+ * @param systemSubclusters - Optional array of system subcluster configurations.
  *
  * @returns the new kernel instance.
  */
@@ -80,6 +85,7 @@ export async function makeKernel(
   workerFilePath?: string,
   platformServices?: PlatformServices,
   keySeed?: string,
+  systemSubclusters?: SystemSubclusterConfig[],
 ): Promise<Kernel> {
   const platformServicesConfig: { logger: Logger; workerFilePath?: string } = {
     logger: logger.subLogger({ tags: ['vat-worker-manager'] }),
@@ -93,6 +99,7 @@ export async function makeKernel(
     resetStorage,
     logger,
     keySeed,
+    systemSubclusters,
   });
   return kernel;
 }
