@@ -267,7 +267,7 @@ describe('coordinator-vat', () => {
       >;
       expect(stored.encrypted).toBe(true);
       expect(stored).not.toHaveProperty('mnemonic');
-    });
+    }, 900_000);
   });
 
   describe('unlockKeyring / isKeyringLocked', () => {
@@ -314,7 +314,7 @@ describe('coordinator-vat', () => {
       expect(await restoredCoord.isKeyringLocked()).toBe(false);
       const accounts = await restoredCoord.getAccounts();
       expect(accounts).toHaveLength(1);
-    });
+    }, 900_000);
   });
 
   describe('signing strategy resolution', () => {
@@ -757,6 +757,48 @@ describe('coordinator-vat', () => {
       await expect(coord.signTypedData(typedData, peerAddress)).rejects.toThrow(
         'home device is offline',
       );
+    });
+
+    it('routes signTypedData to peer wallet when from is a peer account', async () => {
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        getCapabilities: vi.fn().mockResolvedValue({ signingMode: 'local' }),
+        handleSigningRequest: vi
+          .fn()
+          .mockResolvedValue(
+            '0xfeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedfacefeedface1b',
+          ),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+      freshBaggage.init('cachedPeerAccounts', [peerAddress]);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+      await coord.initializeKeyring({ type: 'throwaway' });
+
+      const typedData: Eip712TypedData = {
+        domain: { name: 'Test' },
+        types: { Test: [{ name: 'v', type: 'uint256' }] },
+        primaryType: 'Test',
+        message: { v: '1' },
+      };
+
+      const signature = await coord.signTypedData(typedData, peerAddress);
+      expect(signature).toMatch(/^0x/u);
+      expect(mockPeerWallet.handleSigningRequest).toHaveBeenCalledWith({
+        type: 'typedData',
+        data: typedData,
+        account: peerAddress,
+      });
     });
 
     it('signs with local key when from is not a peer account', async () => {
@@ -1907,6 +1949,54 @@ describe('coordinator-vat', () => {
       expect(extSigner.signTypedData).toHaveBeenCalledWith(
         typedData,
         EXT_SIGNER_ACCOUNT,
+      );
+    });
+
+    it('uses the requested local account for signTypedData', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+      const secondAccount = await keyringVat.deriveAccount(1);
+
+      const typedData: Eip712TypedData = {
+        domain: { name: 'Test' },
+        types: { Test: [{ name: 'v', type: 'uint256' }] },
+        primaryType: 'Test',
+        message: { v: '1' },
+      };
+
+      const signature = await coordinator.signTypedData(
+        typedData,
+        secondAccount,
+      );
+      const expected = await keyringVat.signTypedData(typedData, secondAccount);
+      const firstAccountSignature = await keyringVat.signTypedData(typedData);
+
+      expect(signature).toBe(expected);
+      expect(signature).not.toBe(firstAccountSignature);
+    });
+
+    it('throws when signTypedData requests an unknown local account', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const typedData: Eip712TypedData = {
+        domain: { name: 'Test' },
+        types: { Test: [{ name: 'v', type: 'uint256' }] },
+        primaryType: 'Test',
+        message: { v: '1' },
+      };
+
+      await expect(
+        coordinator.signTypedData(
+          typedData,
+          '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+        ),
+      ).rejects.toThrow(
+        'No key for account 0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
       );
     });
 

@@ -51,7 +51,7 @@ The coordinator routes requests to the appropriate vat. For example, when the ag
 
 The home and away kernels connect over **QUIC** (UDP) using **libp2p**. On top of that, they establish a **CapTP** (Capability Transport Protocol) channel — a protocol for passing capability references between processes.
 
-When the away device connects via `connectToPeer()`, it also registers a back-channel with the home coordinator (`registerAwayWallet`) and sends its delegate address (`sendDelegateAddressToPeer`). This enables:
+In the provided setup flow, the away device connects via `connectToPeer()`, then higher-level automation registers a back-channel with the home coordinator (`registerAwayWallet`) and sends its delegate address (`sendDelegateAddressToPeer`). This enables:
 
 - **Automatic delegate address exchange** — the home device reads the delegate address without copy-paste
 - **Delegation push** — the home device pushes signed delegations (and updated limits) directly to the away device over QUIC

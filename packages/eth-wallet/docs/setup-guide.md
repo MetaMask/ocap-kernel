@@ -247,7 +247,7 @@ When the away script finishes setup, it shows the **delegate address** and waits
 
 The delegate address and delegation are exchanged automatically over the QUIC/CapTP connection — no copy-paste needed:
 
-1. The away script connects to the home kernel and sends its delegate address automatically
+1. The away script connects to the home kernel, and the setup flow sends its delegate address automatically
 2. The home script detects the delegate address, prompts for spending limits, creates the delegation, and pushes it to the away device over QUIC
 3. The away script receives the delegation and verifies it
 
@@ -538,7 +538,7 @@ Should show `hasPeerWallet: true`.
 
 ## 4. Delegate authority from home to away
 
-If you used the automated scripts, this is handled automatically — the away device sends its delegate address to the home device over QUIC/CapTP, the home device creates the delegation, and pushes it back. No copy-paste needed. See [Step 3 in Quick start](#step-3--delegate-authority-automatic).
+If you used the automated scripts, this is handled automatically — the setup flow sends the away device's delegate address to the home device over QUIC/CapTP, the home device creates the delegation, and pushes it back. No copy-paste needed. See [Step 3 in Quick start](#step-3--delegate-authority-automatic).
 
 When `--pimlico-key` is provided, both scripts set up smart accounts. The home script uses EIP-7702 to promote the EOA into a smart account (no separate contract or funding needed). The away script creates a Hybrid smart account (counterfactual — deploys on first UserOp). Delegations require smart accounts as delegator and delegate — this is handled automatically.
 
@@ -556,7 +556,7 @@ yarn ocap daemon exec queueMessage '["ko4", "createSmartAccount", [{"chainId": 1
 
 The home EOA's existing ETH balance is used directly for delegated transfers — no separate funding step needed.
 
-2. Read the delegate address from the away device (sent automatically during `connectToPeer`):
+2. Read the delegate address from the away device (sent automatically by the setup flow after peer connection):
 
 ```bash
 yarn ocap daemon exec queueMessage '["ko4", "getDelegateAddress", []]'

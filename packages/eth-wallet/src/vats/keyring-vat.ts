@@ -196,19 +196,22 @@ export function buildRootObject(
       return signTransaction({ account, tx });
     },
 
-    async signTypedData(typedData: Eip712TypedData): Promise<Hex> {
+    async signTypedData(
+      typedData: Eip712TypedData,
+      from?: Address,
+    ): Promise<Hex> {
       assertUnlocked();
       if (!keyring) {
         throw new Error('Keyring not initialized');
       }
-      // Use the first account for typed data signing
       const accounts = keyring.getAccounts();
-      if (accounts.length === 0) {
+      const address = from ?? accounts[0];
+      if (!address) {
         throw new Error('No accounts available');
       }
-      const account = keyring.getAccount(accounts[0] as Address);
+      const account = keyring.getAccount(address);
       if (!account) {
-        throw new Error('Account not found');
+        throw new Error(`No key for account ${address}`);
       }
       return signTypedData({ account, typedData });
     },

@@ -40,6 +40,24 @@ export type TokenResolution = {
 };
 
 /**
+ * Build the standard ambiguity error for multiple token matches.
+ *
+ * @param token - The user-supplied token query.
+ * @param matches - The matching token records.
+ * @returns The ambiguity error.
+ */
+function makeAmbiguousTokenError(token: string, matches: TokenMatch[]): Error {
+  const list = matches
+    .map((match) => `${match.name} (${match.symbol}): ${match.address}`)
+    .join('\n  ');
+
+  return new Error(
+    `Multiple tokens match "${token}":\n  ${list}\n` +
+      'Please specify the contract address.',
+  );
+}
+
+/**
  * Resolve a token symbol or name to contract addresses via MetaMask Token API.
  *
  * @param options - Resolution options.
@@ -131,22 +149,21 @@ export async function resolveTokenParam(options: {
     );
   }
 
-  // If there's an exact symbol match, prefer it
+  // If there's an exact symbol match, only auto-select when it is unique.
   const lowerQuery = options.token.toLowerCase();
-  const exactMatch = matches.find(
+  const exactMatches = matches.filter(
     (match) => match.symbol.toLowerCase() === lowerQuery,
   );
+  if (exactMatches.length > 1) {
+    throw makeAmbiguousTokenError(options.token, exactMatches);
+  }
+
+  const exactMatch = exactMatches[0];
   const best = exactMatch ?? matches[0];
 
   // If multiple distinct tokens match and no exact symbol match, ask user
   if (!exactMatch && matches.length > 1) {
-    const list = matches
-      .map((match) => `${match.name} (${match.symbol}): ${match.address}`)
-      .join('\n  ');
-    throw new Error(
-      `Multiple tokens match "${options.token}":\n  ${list}\n` +
-        'Please specify the contract address.',
-    );
+    throw makeAmbiguousTokenError(options.token, matches);
   }
 
   return {

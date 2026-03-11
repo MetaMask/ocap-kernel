@@ -118,7 +118,7 @@ await coordinator.pushDelegationToAway(delegation);
 
 ### Away Kernel
 
-The away kernel receives delegated authority. It initializes a throwaway keyring and redeems delegations by building ERC-4337 UserOperations. When connecting to the home kernel, it automatically sends its delegate address and registers a back-channel for receiving delegations — no manual copy-paste needed.
+The away kernel receives delegated authority. It initializes a throwaway keyring and redeems delegations by building ERC-4337 UserOperations. In the provided home/away setup flow, the delegate address exchange and back-channel registration happen automatically, so no manual copy-paste is needed.
 
 ```typescript
 import { makeWalletClusterConfig } from '@ocap/eth-wallet';
@@ -132,9 +132,11 @@ await coordinator.initializeKeyring({ type: 'throwaway', entropy });
 
 // 2. Connect to the home kernel via the OCAP URL
 // This automatically:
+//   - Connects to the peer coordinator
 //   - Caches peer accounts for offline use
-//   - Registers a back-channel (registerAwayWallet) for delegation push
-//   - Sends the delegate address to the home device
+// Additional setup automation can then:
+//   - Register a back-channel (registerAwayWallet) for delegation push
+//   - Send the delegate address to the home device
 await coordinator.connectToPeer(ocapUrl);
 
 // 3. The home device pushes the delegation automatically via pushDelegationToAway().
@@ -162,7 +164,7 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Peer Wallet Communication
 
-When the away kernel connects via `connectToPeer()`, it automatically registers a back-channel with the home coordinator and sends its delegate address. This enables the home device to push delegations and read the delegate address without manual copy-paste.
+In the provided setup flow, the away kernel connects via `connectToPeer()`, then higher-level automation registers a back-channel with the home coordinator and sends the delegate address. This enables the home device to push delegations and read the delegate address without manual copy-paste.
 
 If the away kernel has no local keys and no matching delegation for a message or typed-data signing request, it falls back to the peer wallet (the home kernel's coordinator). The signing request is forwarded over the OCAP URL connection, and the home kernel signs it using its own keyring or external signer. Transaction signing (`signTransaction`) does not have a peer fallback — the away kernel must use delegation redemption for sends.
 
@@ -325,17 +327,17 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Coordinator -- Peer Connectivity
 
-| Method                               | Description                                                                                                                |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `issueOcapUrl()`                     | Issue an OCAP URL that grants a reference to this coordinator. Requires `ocapURLIssuerService`.                            |
-| `connectToPeer(ocapUrl)`             | Connect to a remote coordinator via an OCAP URL. Caches peer accounts, registers back-channel, and sends delegate address. |
-| `refreshPeerAccounts()`              | Re-fetch and cache peer accounts. Throws if no peer wallet is connected.                                                   |
-| `registerAwayWallet(awayRef)`        | Register an away wallet reference for delegation push. Called automatically by the away device during `connectToPeer`.     |
-| `pushDelegationToAway(delegation)`   | Push a signed delegation to the registered away wallet over CapTP. Throws if no away wallet is registered.                 |
-| `registerDelegateAddress(address)`   | Store a delegate address received from the away device. Called automatically via `sendDelegateAddressToPeer`.              |
-| `getDelegateAddress()`               | Return the pending delegate address sent by the away device, or `undefined` if none.                                       |
-| `sendDelegateAddressToPeer(address)` | Send this device's delegate address to the connected peer (home) device. Called automatically during `connectToPeer`.      |
-| `handleSigningRequest(request)`      | Handle an incoming signing request from a peer wallet.                                                                     |
+| Method                               | Description                                                                                                            |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------- |
+| `issueOcapUrl()`                     | Issue an OCAP URL that grants a reference to this coordinator. Requires `ocapURLIssuerService`.                        |
+| `connectToPeer(ocapUrl)`             | Connect to a remote coordinator via an OCAP URL and cache peer accounts for offline use.                               |
+| `refreshPeerAccounts()`              | Re-fetch and cache peer accounts. Throws if no peer wallet is connected.                                               |
+| `registerAwayWallet(awayRef)`        | Register an away wallet reference for delegation push. Called automatically by the away device during `connectToPeer`. |
+| `pushDelegationToAway(delegation)`   | Push a signed delegation to the registered away wallet over CapTP. Throws if no away wallet is registered.             |
+| `registerDelegateAddress(address)`   | Store a delegate address received from the away device. Called automatically via `sendDelegateAddressToPeer`.          |
+| `getDelegateAddress()`               | Return the pending delegate address sent by the away device, or `undefined` if none.                                   |
+| `sendDelegateAddressToPeer(address)` | Send this device's delegate address to the connected peer (home) device. Used by the higher-level setup flow.          |
+| `handleSigningRequest(request)`      | Handle an incoming signing request from a peer wallet.                                                                 |
 
 ### Coordinator -- ERC-20 Tokens
 
