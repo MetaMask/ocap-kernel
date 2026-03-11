@@ -116,8 +116,7 @@
     "@metamask/utils": "^11.9.0",
     "acorn": "^8.15.0",
     "libp2p": "2.10.0",
-    "setimmediate": "^1.0.5",
-    "vite": "^7.3.0"
+    "setimmediate": "^1.0.5"
   },
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.17.4",
@@ -151,7 +150,11 @@
     "typedoc": "^0.28.1",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.29.0",
+    "vite": "^7.3.0",
     "vitest": "^4.0.16"
+  },
+  "peerDependencies": {
+    "vite": "^7.3.0"
   },
   "engines": {
     "node": ">=22"
