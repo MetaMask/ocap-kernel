@@ -80,7 +80,7 @@ await kernel.initRemoteComms(relays);
 For Node.js environments, you can use the provided utility function:
 
 ```typescript
-import { makeKernel } from '@ocap/nodejs';
+import { makeKernel } from '@metamask/kernel-node-runtime';
 import { MessageChannel } from 'node:worker_threads';
 
 // Create a message channel for kernel communication
@@ -100,7 +100,7 @@ Alternatively, you can manually set up the Node.js components:
 ```typescript
 import { Kernel } from '@metamask/ocap-kernel';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import { NodejsPlatformServices } from '@ocap/nodejs';
+import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 
 // Initialize kernel database with Node.js SQLite implementation
 const kernelDatabase = await makeSQLKernelDatabase({
@@ -121,7 +121,7 @@ const kernel = await Kernel.make(platformServices, kernelDatabase, {
 Vats execute JavaScript code bundled into a specific format. To create a vat bundle:
 
 1. Write your vat code with a root object that exports methods
-2. Bundle the code using the `@ocap/cli` with `yarn ocap bundle ./path/to/vat.js`
+2. Bundle the code using the `@metamask/kernel-cli` with `yarn ocap bundle ./path/to/vat.js`
 
 Example vat code:
 
@@ -475,7 +475,7 @@ For a comprehensive overview of the API:
 
 ### CLI Tools
 
-The `@ocap/cli` package provides tools for working with vat bundles:
+The `@metamask/kernel-cli` package provides tools for working with vat bundles:
 
 ```bash
 # Bundle a vat file
@@ -490,7 +490,7 @@ yarn ocap serve ./path/to/bundles
 For testing vats and kernel integration, the project uses Vitest:
 
 ```typescript
-import { makeKernel } from '@ocap/nodejs';
+import { makeKernel } from '@metamask/kernel-node-runtime';
 import { MessageChannel } from 'node:worker_threads';
 import { describe, it, expect } from 'vitest';
 
@@ -619,7 +619,7 @@ async function run() {
 ### Node.js Implementation
 
 ```typescript
-import { makeKernel } from '@ocap/nodejs';
+import { makeKernel } from '@metamask/kernel-node-runtime';
 import { ClusterConfigStruct } from '@metamask/ocap-kernel';
 import { MessageChannel } from 'node:worker_threads';
 import fs from 'node:fs/promises';
