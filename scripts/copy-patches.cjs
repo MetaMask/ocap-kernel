@@ -9,23 +9,13 @@ const {
 } = require('node:fs/promises');
 const path = require('node:path');
 
+const {
+  parsePatchFilename,
+  getTransitiveInternalDeps,
+} = require('./patch-utils.cjs');
+
 const ROOT = path.resolve(__dirname, '..');
 const ROOT_PATCHES_DIR = path.join(ROOT, 'patches');
-
-/**
- * Parse a patch filename to extract the package name and version.
- *
- * @param {string} filename - The patch filename.
- * @returns {{ pkgName: string, version: string }} The parsed package name and version.
- */
-function parsePatchFilename(filename) {
-  const withoutExt = filename.replace(/\.patch$/u, '');
-  const lastPlusIdx = withoutExt.lastIndexOf('+');
-  const version = withoutExt.slice(lastPlusIdx + 1);
-  const pkgRaw = withoutExt.slice(0, lastPlusIdx);
-  const pkgName = pkgRaw.replace(/\+/gu, '/');
-  return { pkgName, version };
-}
 
 /**
  * Check whether a file exists.
@@ -89,44 +79,6 @@ function buildWorkspaceMap(workspaces) {
 }
 
 /**
- * Get the transitive closure of internal workspace dependencies for a package.
- *
- * @param {string} pkgName - The package name.
- * @param {Map<string, { name: string, deps: Record<string, string> }>} workspaceMap - The workspace name map.
- * @param {Map<string, Set<string>>} cache - Memoization cache.
- * @returns {Set<string>} Set of transitive internal dep names.
- */
-function getTransitiveInternalDeps(pkgName, workspaceMap, cache) {
-  if (cache.has(pkgName)) {
-    return cache.get(pkgName);
-  }
-
-  const ws = workspaceMap.get(pkgName);
-  if (!ws) {
-    cache.set(pkgName, new Set());
-    return new Set();
-  }
-
-  const result = new Set();
-  cache.set(pkgName, result); // set before recursing to break cycles
-
-  for (const depName of Object.keys(ws.deps)) {
-    if (workspaceMap.has(depName)) {
-      result.add(depName);
-      for (const transitiveDep of getTransitiveInternalDeps(
-        depName,
-        workspaceMap,
-        cache,
-      )) {
-        result.add(transitiveDep);
-      }
-    }
-  }
-
-  return result;
-}
-
-/**
  * Find the sink workspaces for a given patched dependency.
  *
  * Sinks are workspaces in the set of direct dependents (non-private packages
@@ -136,7 +88,7 @@ function getTransitiveInternalDeps(pkgName, workspaceMap, cache) {
  *
  * @param {string} patchedPkgName - The patched package name.
  * @param {{ name: string, dir: string, deps: Record<string, string>, files: string[] }[]} workspaces - All non-private workspaces.
- * @param {Map<string, { name: string, deps: Record<string, string> }>} workspaceMap - The workspace name map.
+ * @param {Map<string, { name: string, dir: string, deps: Record<string, string>, files: string[] }>} workspaceMap - The workspace name map.
  * @returns {{ name: string, dir: string, deps: Record<string, string>, files: string[] }[]} The sink workspaces.
  */
 function findSinks(patchedPkgName, workspaces, workspaceMap) {
@@ -149,12 +101,21 @@ function findSinks(patchedPkgName, workspaces, workspaceMap) {
   }
 
   const directDepNames = new Set(directDeps.map((ws) => ws.name));
+  const workspaceNames = new Set(workspaceMap.keys());
+  /**
+   * Get the dependency names for a workspace.
+   *
+   * @param {string} name - The workspace name.
+   * @returns {string[]} The dependency names.
+   */
+  const getDeps = (name) => Object.keys(workspaceMap.get(name)?.deps ?? {});
   const cache = new Map();
 
   return directDeps.filter((ws) => {
     const transitiveDeps = getTransitiveInternalDeps(
       ws.name,
-      workspaceMap,
+      workspaceNames,
+      getDeps,
       cache,
     );
     return ![...transitiveDeps].some((dep) => directDepNames.has(dep));
@@ -223,4 +184,7 @@ async function main() {
   }
 }
 
-main().catch(console.error);
+main().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

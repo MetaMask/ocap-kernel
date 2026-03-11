@@ -12,7 +12,7 @@ or
 
 ## SES/Lockdown Compatibility
 
-This package is designed to run under [SES](https://github.com/endojs/endo/tree/master/packages/ses) (Secure ECMAScript lockdown). One of its dependencies, `@chainsafe/libp2p-yamux`, requires a patch to work in a locked-down environment. The required patches are listed in the `patchedDependencies` field of this package's `package.json`, and the patch files are included in the `patches/` directory of this package.
+This package is designed to run under [SES](https://github.com/endojs/endo/tree/master/packages/ses) (Secure ECMAScript lockdown). Some of its dependencies require patches to work in a locked-down environment. The required patch files are included in the `patches/` directory of this package.
 
 Apply them using [`patch-package`](https://github.com/ds300/patch-package):
 

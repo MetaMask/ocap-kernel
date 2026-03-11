@@ -14,6 +14,11 @@ const { basename, resolve } = require('node:path');
 const { inspect } = require('node:util');
 const semver = require('semver');
 
+const {
+  parsePatchFilename,
+  getTransitiveInternalDeps,
+} = require('./scripts/patch-utils.cjs');
+
 // Packages that do not have an entrypoint, types, or sideEffects
 const entrypointExceptions = ['shims', 'streams'];
 // Packages that do not have typedoc
@@ -899,60 +904,6 @@ function expectNoPatchProtocolProductionDependencies(Yarn, workspace) {
 }
 
 /**
- * Parse a patch filename to extract the package name and version.
- *
- * @param {string} filename - The patch filename.
- * @returns {{ pkgName: string, version: string }} The parsed package name and version.
- */
-function parsePatchFilename(filename) {
-  const withoutExt = filename.replace(/\.patch$/u, '');
-  const lastPlusIdx = withoutExt.lastIndexOf('+');
-  const version = withoutExt.slice(lastPlusIdx + 1);
-  const pkgRaw = withoutExt.slice(0, lastPlusIdx);
-  const pkgName = pkgRaw.replace(/\+/gu, '/');
-  return { pkgName, version };
-}
-
-/**
- * Get the transitive closure of internal workspace dependencies for a workspace.
- *
- * @param {string} wsName - The workspace name.
- * @param {Map<string, Workspace>} workspaceNameMap - Map of workspace name to workspace.
- * @param {Map<string, Set<string>>} cache - Memoization cache.
- * @returns {Set<string>} Set of transitive internal dep names.
- */
-function getTransitiveInternalDeps(wsName, workspaceNameMap, cache) {
-  if (cache.has(wsName)) {
-    return cache.get(wsName);
-  }
-
-  const ws = workspaceNameMap.get(wsName);
-  if (!ws) {
-    cache.set(wsName, new Set());
-    return new Set();
-  }
-
-  const result = new Set();
-  cache.set(wsName, result); // set before recursing to break cycles
-
-  const deps = ws.manifest.dependencies ?? {};
-  for (const depName of Object.keys(deps)) {
-    if (workspaceNameMap.has(depName)) {
-      result.add(depName);
-      for (const transitiveDep of getTransitiveInternalDeps(
-        depName,
-        workspaceNameMap,
-        cache,
-      )) {
-        result.add(transitiveDep);
-      }
-    }
-  }
-
-  return result;
-}
-
-/**
  * Compute which non-private workspaces are "sinks" for each patched dependency.
  *
  * A sink is a workspace in U (non-private packages directly depending on the
@@ -1011,13 +962,17 @@ async function computeAllPatchData(Yarn) {
     );
 
     const directDepNames = new Set(directDeps.map((ws) => ws.manifest.name));
+    const workspaceNames = new Set(workspaceNameMap.keys());
+    const getDeps = (name) =>
+      Object.keys(workspaceNameMap.get(name)?.manifest.dependencies ?? {});
     const cache = new Map();
     const sinks = new Set();
 
     for (const ws of directDeps) {
       const transitiveDeps = getTransitiveInternalDeps(
         ws.manifest.name,
-        workspaceNameMap,
+        workspaceNames,
+        getDeps,
         cache,
       );
       if (![...transitiveDeps].some((dep) => directDepNames.has(dep))) {
@@ -1054,7 +1009,7 @@ const PATCH_POSTINSTALL =
  * Expect that a non-private workspace correctly ships patches based on whether
  * it is a sink in the patch dependency graph.
  *
- * Sinks must have `patches/` in `files`, `patch-package: "*"` in
+ * Sinks must have `patches/` in `files`, `patch-package: "^8.0.0"` in
  * `peerDependencies`, and a `postinstall` script that runs patch-package.
  * Non-sinks must have none of these.
  *
@@ -1074,7 +1029,8 @@ function expectPatchShippingIsCorrect(workspace, sinkWorkspaces) {
         `Package "${wsName}" is a patch sink but does not have "patches/" in "files". Add it to ship the patch.`,
       );
     }
-    workspace.set('peerDependencies["patch-package"]', '*');
+    workspace.set('peerDependencies["patch-package"]', '^8.0.0');
+    workspace.unset('peerDependenciesMeta["patch-package"]');
     if (!postinstall) {
       workspace.set('scripts.postinstall', PATCH_POSTINSTALL);
     } else if (!postinstall.includes('patch-package --patch-dir patches')) {
@@ -1092,6 +1048,7 @@ function expectPatchShippingIsCorrect(workspace, sinkWorkspaces) {
     if (Object.prototype.hasOwnProperty.call(peerDeps, 'patch-package')) {
       workspace.unset('peerDependencies["patch-package"]');
     }
+    workspace.unset('peerDependenciesMeta["patch-package"]');
     if (postinstall === PATCH_POSTINSTALL) {
       workspace.unset('scripts.postinstall');
     } else if (postinstall.includes('patch-package')) {

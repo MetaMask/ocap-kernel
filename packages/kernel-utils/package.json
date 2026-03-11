@@ -155,7 +155,7 @@
   },
   "peerDependencies": {
     "acorn": "^8.15.0",
-    "patch-package": "*",
+    "patch-package": "^8.0.0",
     "vite": "^7.3.0"
   },
   "peerDependenciesMeta": {

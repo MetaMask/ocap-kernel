@@ -81,7 +81,7 @@ node_modules/
 # Bundle files
 *.bundle
 
-# Generated per-package patches dirs (populated by scripts/copy-patches.js at publish time)
+# Generated per-package patches dirs (populated by scripts/copy-patches.cjs at publish time)
 packages/*/patches/
 
 # Playwright reports
