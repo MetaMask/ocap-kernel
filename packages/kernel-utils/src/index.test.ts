@@ -9,6 +9,7 @@ describe('index', () => {
       'DEFAULT_MAX_DELAY_MS',
       'DEFAULT_MAX_RETRY_ATTEMPTS',
       'EmptyJsonArray',
+      'GET_DESCRIPTION',
       'abortableDelay',
       'calculateReconnectionBackoff',
       'delay',
