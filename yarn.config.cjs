@@ -1043,6 +1043,14 @@ async function computeAllPatchData(Yarn) {
 }
 
 /**
+ * The canonical postinstall script for patch sink packages. Guards with
+ * `[ -d patches ]` so the script is a no-op in the monorepo where the
+ * `patches/` directory is only populated at publish time.
+ */
+const PATCH_POSTINSTALL =
+  '[ ! -d patches ] || patch-package --patch-dir patches';
+
+/**
  * Expect that a non-private workspace correctly ships patches based on whether
  * it is a sink in the patch dependency graph.
  *
@@ -1068,7 +1076,7 @@ function expectPatchShippingIsCorrect(workspace, sinkWorkspaces) {
     }
     workspace.set('peerDependencies["patch-package"]', '*');
     if (!postinstall) {
-      workspace.set('scripts.postinstall', 'patch-package --patch-dir patches');
+      workspace.set('scripts.postinstall', PATCH_POSTINSTALL);
     } else if (!postinstall.includes('patch-package --patch-dir patches')) {
       workspace.error(
         `Package "${wsName}" is a patch sink but its "postinstall" script does not include "patch-package --patch-dir patches".`,
@@ -1084,7 +1092,7 @@ function expectPatchShippingIsCorrect(workspace, sinkWorkspaces) {
     if (Object.prototype.hasOwnProperty.call(peerDeps, 'patch-package')) {
       workspace.unset('peerDependencies["patch-package"]');
     }
-    if (postinstall === 'patch-package --patch-dir patches') {
+    if (postinstall === PATCH_POSTINSTALL) {
       workspace.unset('scripts.postinstall');
     } else if (postinstall.includes('patch-package')) {
       workspace.error(
