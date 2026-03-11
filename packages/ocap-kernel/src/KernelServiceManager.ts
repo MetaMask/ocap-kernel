@@ -10,7 +10,7 @@ import { assert } from './utils/assert.ts';
 export type KernelService = {
   name: string;
   kref: string;
-  service: object;
+  service?: object;
   systemOnly: boolean;
 };
 
@@ -85,6 +85,40 @@ export class KernelServiceManager {
     const kernelService = { name, kref, service, systemOnly };
     this.#kernelServicesByName.set(name, kernelService);
     this.#kernelServicesByObject.set(kref, kernelService);
+    return kernelService;
+  }
+
+  /**
+   * Register a kernel service by kref (e.g. a vat-owned kref from a system subcluster).
+   *
+   * Unlike `registerKernelServiceObject`, this method does NOT add the kref to
+   * `#kernelServicesByObject`, so `isKernelService` returns false and messages
+   * to this kref route to the vat via normal dispatch rather than
+   * `invokeKernelService`.
+   *
+   * @param name - The name of the service.
+   * @param kref - The kref of the service object (must already be owned by a vat).
+   * @param options - Registration options.
+   * @param options.systemOnly - Whether the service is only available to system
+   * subclusters. Defaults to `false`.
+   * @returns The registered kernel service.
+   */
+  registerKernelServiceKref(
+    name: string,
+    kref: KRef,
+    { systemOnly = false }: { systemOnly?: boolean } = {},
+  ): KernelService {
+    if (this.#kernelServicesByName.has(name)) {
+      throw new Error(`Kernel service "${name}" is already registered`);
+    }
+    const serviceKey = `kernelService.${name}`;
+    if (!this.#kernelStore.kv.get(serviceKey)) {
+      this.#kernelStore.kv.set(serviceKey, kref);
+      this.#kernelStore.pinObject(kref);
+    }
+    const kernelService = { name, kref, systemOnly };
+    this.#kernelServicesByName.set(name, kernelService);
+    // NOTE: NOT added to #kernelServicesByObject — messages route to the vat via normal dispatch
     return kernelService;
   }
 

@@ -636,4 +636,6 @@ export type SystemSubclusterConfig = {
   name: string;
   /** The cluster configuration */
   config: ClusterConfig;
+  /** If set, the bootstrap root kref is registered as a named kernel service under this name. */
+  registersAsService?: string;
 };

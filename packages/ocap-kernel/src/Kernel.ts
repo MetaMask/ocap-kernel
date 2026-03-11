@@ -285,8 +285,44 @@ export class Kernel {
         // Don't re-throw to avoid unhandled rejection in this long-running task
       });
 
-    // Launch new system subclusters (requires queue to be running)
-    await this.#subclusterManager.launchNewSystemSubclusters(configs);
+    // Launch new system subclusters (requires queue to be running).
+    // Returns bootstrap results only for subclusters launched this boot
+    // (restored subclusters are absent from the map).
+    const bootstrapResults =
+      await this.#subclusterManager.launchNewSystemSubclusters(configs);
+
+    // Register service krefs for system subclusters that expose a named service.
+    for (const config of configs) {
+      if (!config.registersAsService) {
+        continue;
+      }
+      let serviceKref: KRef;
+      if (bootstrapResults.has(config.name)) {
+        // First launch: extract the service kref from the bootstrap return value.
+        const bootstrapResult = bootstrapResults.get(config.name);
+        if (!bootstrapResult?.slots[0]) {
+          throw new Error(
+            `System subcluster "${config.name}" bootstrap must return the service object when registersAsService is set`,
+          );
+        }
+        serviceKref = bootstrapResult.slots[0];
+      } else {
+        // Restart: the service kref was persisted on first launch.
+        const stored = this.#kernelStore.kv.get(
+          `kernelService.${config.registersAsService}`,
+        );
+        if (!stored) {
+          throw new Error(
+            `Service kref for "${config.registersAsService}" not found after restart`,
+          );
+        }
+        serviceKref = stored;
+      }
+      this.#kernelServiceManager.registerKernelServiceKref(
+        config.registersAsService,
+        serviceKref,
+      );
+    }
   }
 
   /**
@@ -421,6 +457,31 @@ export class Kernel {
     return this.#kernelServiceManager.registerKernelServiceObject(
       name,
       object,
+      options,
+    );
+  }
+
+  /**
+   * Register a kernel service by kref (e.g. a vat-owned kref).
+   *
+   * Unlike `registerKernelServiceObject`, messages to this kref route to the
+   * vat via normal dispatch rather than `invokeKernelService`.
+   *
+   * @param name - The name of the service.
+   * @param kref - The kref of the service object.
+   * @param options - Registration options.
+   * @param options.systemOnly - Whether the service is only available to system
+   * subclusters. Defaults to `false`.
+   * @returns The registration details including the kref.
+   */
+  registerKernelServiceKref(
+    name: string,
+    kref: KRef,
+    options?: { systemOnly?: boolean },
+  ): KernelService {
+    return this.#kernelServiceManager.registerKernelServiceKref(
+      name,
+      kref,
       options,
     );
   }

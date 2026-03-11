@@ -373,18 +373,17 @@ export class SubclusterManager {
    * sends bootstrap messages.
    *
    * @param configs - Array of system subcluster configurations.
+   * @returns Map from subcluster name to bootstrap result CapData (undefined for already-persisted subclusters).
    */
   async launchNewSystemSubclusters(
     configs: SystemSubclusterConfig[],
-  ): Promise<void> {
+  ): Promise<Map<string, CapData<KRef> | undefined>> {
+    const bootstrapResults = new Map<string, CapData<KRef> | undefined>();
+
     // Filter to only configs that weren't restored from persistence
     const newConfigs = configs.filter(
       ({ name }) => !this.#systemSubclusterRoots.has(name),
     );
-
-    if (newConfigs.length === 0) {
-      return;
-    }
 
     for (const { name, config } of newConfigs) {
       const result = await this.launchSubcluster(config, { isSystem: true });
@@ -393,8 +392,11 @@ export class SubclusterManager {
       // Persist the mapping
       this.#kernelStore.setSystemSubclusterMapping(name, result.subclusterId);
 
+      bootstrapResults.set(name, result.bootstrapResult);
       this.#logger.info(`Launched new system subcluster "${name}"`);
     }
+
+    return bootstrapResults;
   }
 
   /**
