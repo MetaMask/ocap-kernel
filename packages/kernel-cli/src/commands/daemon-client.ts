@@ -1,6 +1,6 @@
+import { readLine, writeLine } from '@metamask/kernel-node-runtime/daemon';
 import type { JsonRpcResponse } from '@metamask/utils';
 import { assertIsJsonRpcResponse } from '@metamask/utils';
-import { readLine, writeLine } from '@ocap/nodejs/daemon';
 import { randomUUID } from 'node:crypto';
 import { createConnection } from 'node:net';
 import type { Socket } from 'node:net';

@@ -256,10 +256,10 @@ const config = createConfig([
     files: [
       '**/vite.config.ts',
       '**/vitest.config.ts',
-      'packages/cli/**/*',
       'packages/extension/**/*',
-      'packages/nodejs/**/*-worker.ts',
-      'packages/nodejs/test/workers/**/*',
+      'packages/kernel-cli/**/*',
+      'packages/kernel-node-runtime/**/*-worker.ts',
+      'packages/kernel-node-runtime/test/workers/**/*',
       'packages/omnium-gatherum/**/*',
       'packages/repo-tools/**/*',
     ],
@@ -273,7 +273,7 @@ const config = createConfig([
       'packages/*/src/**/vats/**/*',
       'packages/*/src/**/caplets/**/*.js',
       'packages/*/test/**/vats/**/*',
-      'packages/nodejs/test/workers/**/*',
+      'packages/kernel-node-runtime/test/workers/**/*',
       'packages/logger/test/workers/**/*',
     ],
     rules: {

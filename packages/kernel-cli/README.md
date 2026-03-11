@@ -1,6 +1,14 @@
-# `cli`
+# `@metamask/kernel-cli`
 
-Ocap Kernel cli.
+Ocap Kernel CLI tool for bundling and serving vat bundles.
+
+## Installation
+
+`yarn add @metamask/kernel-cli`
+
+or
+
+`npm install @metamask/kernel-cli`
 
 ## Commands
 

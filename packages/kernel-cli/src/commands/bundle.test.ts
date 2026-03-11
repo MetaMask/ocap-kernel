@@ -25,7 +25,7 @@ const mocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('@ocap/repo-tools/vite-plugins', () => ({
+vi.mock('@metamask/kernel-utils/vite-plugins', () => ({
   bundleVat: mocks.bundleVat,
 }));
 

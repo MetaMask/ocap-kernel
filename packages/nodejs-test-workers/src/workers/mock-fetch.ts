@@ -1,7 +1,7 @@
 import '@metamask/kernel-shims/endoify-node';
+import { makeNodeJsVatSupervisor } from '@metamask/kernel-node-runtime';
 import { Logger } from '@metamask/logger';
 import type { VatId } from '@metamask/ocap-kernel';
-import { makeNodeJsVatSupervisor } from '@ocap/nodejs';
 
 const LOG_TAG = 'nodejs-test-vat-worker';
 

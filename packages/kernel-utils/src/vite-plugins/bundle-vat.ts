@@ -1,21 +1,11 @@
 import { build } from 'vite';
 import type { Rollup } from 'vite';
 
+import type { VatBundle } from '../vat-bundle.ts';
 import { exportMetadataPlugin } from './export-metadata-plugin.ts';
 import { stripCommentsPlugin } from './strip-comments-plugin.ts';
 
-/**
- * A bundle produced by the vat bundler.
- *
- * Contains the bundled code as an IIFE that assigns exports to `__vatExports__`,
- * along with metadata about the bundle's exports and external dependencies.
- */
-export type VatBundle = {
-  moduleFormat: 'iife';
-  code: string;
-  exports: string[];
-  external: string[];
-};
+export type { VatBundle } from '../vat-bundle.ts';
 
 /**
  * Bundle a vat source file using vite.

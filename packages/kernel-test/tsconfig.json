@@ -11,7 +11,7 @@
     { "path": "../kernel-agents" },
     { "path": "../kernel-store" },
     { "path": "../kernel-utils" },
-    { "path": "../nodejs" },
+    { "path": "../kernel-node-runtime" },
     { "path": "../nodejs-test-workers" },
     { "path": "../ocap-kernel" },
     { "path": "../remote-iterables" },

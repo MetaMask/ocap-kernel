@@ -1,6 +1,7 @@
 // eslint-disable-next-line spaced-comment
 /// <reference types="vite/client" />
 
+import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { stringify, waitUntilQuiescent } from '@metamask/kernel-utils';
 import {
@@ -11,7 +12,6 @@ import {
 import type { LogEntry } from '@metamask/logger';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { ClusterConfig, PlatformServices } from '@metamask/ocap-kernel';
-import { NodejsPlatformServices } from '@ocap/nodejs';
 import { vi } from 'vitest';
 
 /**

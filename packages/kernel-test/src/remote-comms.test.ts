@@ -1,5 +1,6 @@
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { peerIdFromPrivateKey } from '@libp2p/peer-id';
+import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { fromHex } from '@metamask/kernel-utils';
@@ -12,7 +13,6 @@ import type {
   RemoteMessageHandler,
   RemoteCommsOptions,
 } from '@metamask/ocap-kernel';
-import { NodejsPlatformServices } from '@ocap/nodejs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

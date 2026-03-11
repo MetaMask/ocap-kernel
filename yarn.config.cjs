@@ -23,14 +23,14 @@ const typedocExceptions = [
   'omnium-gatherum',
   'repo-tools',
 ];
-// Packages that do not have builds
-const noBuild = ['create-package', 'repo-tools'];
+// Packages that do not enforce the standard build script
+const buildExceptions = ['create-package', 'kernel-cli', 'repo-tools'];
 // Packages that do not have tests
 const noTests = [];
 // Packages that do not export a `package.json` file
-const noPackageJson = ['extension', 'omnium-gatherum'];
+const noPackageJsonExport = ['extension', 'omnium-gatherum'];
 // Packages that have weird exports
-const exportsExceptions = ['kernel-shims'];
+const exportsExceptions = ['kernel-cli', 'kernel-shims'];
 // Packages that have weird files
 const filesExceptions = [
   'kernel-browser-runtime',
@@ -185,7 +185,7 @@ module.exports = defineConfig({
         }
 
         // All non-root packages must export a `package.json` file except for the ones that are exempted
-        if (!noPackageJson.includes(workspaceBasename)) {
+        if (!noPackageJsonExport.includes(workspaceBasename)) {
           expectWorkspaceField(
             workspace,
             'exports["./package.json"]',
@@ -281,7 +281,7 @@ module.exports = defineConfig({
         }
       }
 
-      if (!noBuild.includes(workspaceBasename)) {
+      if (!buildExceptions.includes(workspaceBasename)) {
         const enforceTsBridge = (currentValue) =>
           typeof currentValue === 'string' && currentValue.includes('ts-bridge')
             ? 'ts-bridge --project tsconfig.build.json --no-references --clean'
