@@ -253,7 +253,7 @@ describe('keyring-vat', () => {
       expect(stored.salt).toBe(TEST_SALT);
       // Mnemonic should NOT be in the stored data
       expect(stored).not.toHaveProperty('mnemonic');
-    });
+    }, 900_000);
 
     it('stores plaintext in baggage when no password provided', async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -306,7 +306,7 @@ describe('keyring-vat', () => {
       expect(await (restored as any).isLocked()).toBe(true);
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       expect(await (restored as any).hasKeys()).toBe(false);
-    });
+    }, 900_000);
 
     it('unlocks with correct password and restores keyring', async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -333,7 +333,7 @@ describe('keyring-vat', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const accountsAfter = await (restored as any).getAccounts();
       expect(accountsAfter).toStrictEqual(accountsBefore);
-    });
+    }, 900_000);
 
     it('throws on unlock with wrong password', async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -350,7 +350,7 @@ describe('keyring-vat', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (restored as any).unlock('wrong-password'),
       ).rejects.toThrow(/invalid.*tag|decrypt/iu);
-    });
+    }, 900_000);
 
     it('throws on unlock when not locked', async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -390,7 +390,7 @@ describe('keyring-vat', () => {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (restored as any).deriveAccount(1),
       ).rejects.toThrow('Keyring is locked');
-    });
+    }, 900_000);
 
     it('re-derives additional accounts after unlock', async () => {
       // Initialize and derive extra accounts
@@ -417,6 +417,6 @@ describe('keyring-vat', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const accountsAfter = await (restored as any).getAccounts();
       expect(accountsAfter).toStrictEqual(accountsBefore);
-    });
+    }, 900_000);
   });
 });

@@ -121,6 +121,70 @@ async function resolveToken(options: {
   return resolveTokenParam({ token: options.token, chainId });
 }
 
+type TransactionResult = {
+  txHash?: string;
+  userOpHash?: string;
+  explorerUrl: string;
+  pendingUserOp: boolean;
+};
+
+type PendingUserOpResult = {
+  txHash?: string;
+  userOpHash: string;
+  pendingUserOp: boolean;
+};
+
+/**
+ * Extract the mined transaction hash from a UserOp receipt result.
+ *
+ * @param userOpReceipt - The raw receipt response.
+ * @returns The mined transaction hash, if present.
+ */
+function getUserOpTransactionHash(userOpReceipt: unknown): string | undefined {
+  if (!userOpReceipt || typeof userOpReceipt !== 'object') {
+    return undefined;
+  }
+
+  const { receipt } = userOpReceipt as {
+    receipt?: { transactionHash?: unknown };
+  };
+  return typeof receipt?.transactionHash === 'string'
+    ? receipt.transactionHash
+    : undefined;
+}
+
+/**
+ * Try to resolve a pending UserOp to its eventual transaction hash.
+ *
+ * @param options - Resolution options.
+ * @param options.hash - The UserOp hash to resolve.
+ * @param options.wallet - Wallet caller.
+ * @returns Resolution details for the pending UserOp.
+ */
+async function resolvePendingUserOp(options: {
+  hash: string;
+  wallet: WalletCaller;
+}): Promise<PendingUserOpResult> {
+  const { hash, wallet } = options;
+
+  try {
+    const userOpReceipt = await wallet(
+      'waitForUserOpReceipt',
+      [{ userOpHash: hash, pollIntervalMs: 2000, timeoutMs: 10000 }],
+      12_000,
+    );
+    const txHash = getUserOpTransactionHash(userOpReceipt);
+
+    if (txHash) {
+      return { txHash, userOpHash: hash, pendingUserOp: false };
+    }
+  } catch {
+    // Best-effort — treat unresolved UserOps as still pending.
+  }
+
+  return { userOpHash: hash, pendingUserOp: true };
+}
+
 /**
  * Resolve a transaction hash to an on-chain tx hash with explorer link.
  * Best-effort — returns the raw hash on failure.
@@ -133,11 +197,12 @@ async function resolveToken(options: {
 async function resolveTransactionResult(options: {
   hash: string;
   wallet: WalletCaller;
-}): Promise<{ txHash: string; userOpHash?: string; explorerUrl: string }> {
+}): Promise<TransactionResult> {
   const { hash, wallet } = options;
-  let txHash = hash;
+  let txHash: string | undefined;
   let userOpHash: string | undefined;
   let explorerUrl = '';
+  let pendingUserOp = false;
 
   try {
     const [caps, receipt] = await Promise.all([
@@ -155,6 +220,11 @@ async function resolveTransactionResult(options: {
       if (typeof receipt.userOpHash === 'string') {
         userOpHash = receipt.userOpHash;
       }
+    } else {
+      const pendingResult = await resolvePendingUserOp({ hash, wallet });
+      txHash = pendingResult.txHash;
+      userOpHash = pendingResult.userOpHash;
+      pendingUserOp = pendingResult.pendingUserOp;
     }
 
     const chainId = typeof caps?.chainId === 'number' ? caps.chainId : 0;
@@ -166,35 +236,50 @@ async function resolveTransactionResult(options: {
     // Best-effort — if resolution fails, return the raw hash
   }
 
-  return { txHash, userOpHash, explorerUrl };
+  if (!txHash && !userOpHash) {
+    txHash = hash;
+  }
+
+  return { txHash, userOpHash, explorerUrl, pendingUserOp };
 }
 
 /**
  * Format a transaction result into lines of text.
  *
  * @param result - The resolved transaction result.
- * @param result.txHash - The transaction hash.
+ * @param result.txHash - The transaction hash, when known.
  * @param result.userOpHash - The UserOp hash, if applicable.
  * @param result.explorerUrl - Block explorer URL.
+ * @param result.pendingUserOp - Whether the UserOp is still pending resolution.
  * @param prefix - Optional prefix line (e.g. "Sent 100 USDC to 0x...").
  * @returns Formatted text.
  */
 function formatTxResult(
-  result: { txHash: string; userOpHash?: string; explorerUrl: string },
+  result: {
+    txHash?: string;
+    userOpHash?: string;
+    explorerUrl: string;
+    pendingUserOp: boolean;
+  },
   prefix?: string,
 ): string {
   const parts: string[] = [];
   if (prefix) {
     parts.push(prefix);
   }
-  parts.push(`Transaction hash: ${result.txHash}`);
+  if (result.txHash) {
+    parts.push(`Transaction hash: ${result.txHash}`);
+  }
   if (result.explorerUrl) {
     parts.push(`Explorer: ${result.explorerUrl}`);
   }
   if (result.userOpHash) {
     parts.push(`UserOp hash: ${result.userOpHash}`);
   }
-  return parts.join('\n');
+  if (result.pendingUserOp) {
+    parts.push('Waiting for on-chain transaction hash.');
+  }
+  return parts.length > 0 ? parts.join('\n') : 'Transaction submitted.';
 }
 
 /**
@@ -205,9 +290,23 @@ function formatTxResult(
  * @returns The raw BigInt value.
  */
 function parseDecimalAmount(amount: string, decimals: number): bigint {
-  const [whole = '0', frac = ''] = amount.split('.');
-  const paddedFrac = frac.padEnd(decimals, '0').slice(0, decimals);
-  return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(paddedFrac);
+  const match = /^(\d+)(?:\.(\d+))?$/u.exec(amount);
+  if (!match) {
+    throw new Error(
+      'Amount must be a plain decimal string without signs, exponents, or extra punctuation.',
+    );
+  }
+
+  const whole = match[1] ?? '0';
+  const frac = match[2] ?? '';
+  if (frac.length > decimals) {
+    throw new Error(
+      `Amount has too many decimal places; this asset supports at most ${String(decimals)}.`,
+    );
+  }
+
+  const paddedFrac = frac.padEnd(decimals, '0');
+  return BigInt(whole) * 10n ** BigInt(decimals) + BigInt(paddedFrac || '0');
 }
 
 // ---------------------------------------------------------------------------
@@ -339,14 +438,18 @@ export default function register(api: OpenClawPluginApi): void {
         if (HEX_VALUE_RE.test(params.value)) {
           hexValue = params.value;
         } else {
-          const parsed = parseFloat(params.value);
-          if (Number.isNaN(parsed) || parsed <= 0) {
+          try {
+            const wei = parseDecimalAmount(params.value, 18);
+            if (wei <= 0n) {
+              return makeError('Amount must be greater than zero.');
+            }
+            hexValue = `0x${wei.toString(16)}`;
+          } catch (error: unknown) {
             return makeError(
-              "Invalid value. Provide a decimal ETH amount (e.g. '0.1') or hex wei (e.g. '0xde0b6b3a7640000').",
+              `Invalid value. ${errorMessage(error)} ` +
+                "Provide a decimal ETH amount (e.g. '0.1') or hex wei (e.g. '0xde0b6b3a7640000').",
             );
           }
-          const wei = parseDecimalAmount(params.value, 18);
-          hexValue = `0x${wei.toString(16)}`;
         }
 
         try {

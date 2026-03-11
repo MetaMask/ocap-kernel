@@ -190,7 +190,7 @@ type KeyringFacet = {
   getAccounts: () => Promise<Address[]>;
   deriveAccount: (index: number) => Promise<Address>;
   signTransaction: (tx: TransactionRequest) => Promise<Hex>;
-  signTypedData: (data: Eip712TypedData) => Promise<Hex>;
+  signTypedData: (data: Eip712TypedData, from?: Address) => Promise<Hex>;
   signMessage: (message: string, from?: Address) => Promise<Hex>;
   signHash: (hash: Hex, from?: Address) => Promise<Hex>;
   signAuthorization: (options: {
@@ -469,6 +469,22 @@ export function buildRootObject(
   }
 
   /**
+   * Build a peer signing request for typed data.
+   *
+   * @param data - The typed data to sign.
+   * @param account - Optional account to sign with.
+   * @returns The peer signing request payload.
+   */
+  function makeTypedDataSigningRequest(
+    data: Eip712TypedData,
+    account?: Address,
+  ): { type: 'typedData'; data: Eip712TypedData; account?: Address } {
+    return account
+      ? { type: 'typedData', data, account }
+      : { type: 'typedData', data };
+  }
+
+  /**
    * Resolve the signing strategy for typed data.
    * Priority: keyring → external signer → peer wallet → error
    *
@@ -483,10 +499,9 @@ export function buildRootObject(
     // If the requested address belongs to the home device, route to peer
     if (from && isPeerAccount(from)) {
       if (peerWallet) {
-        return E(peerWallet).handleSigningRequest({
-          type: 'typedData',
-          data,
-        });
+        return E(peerWallet).handleSigningRequest(
+          makeTypedDataSigningRequest(data, from),
+        );
       }
       throw new Error(
         `Cannot sign typed data as ${from}: home device is offline and this address requires home signing authority`,
@@ -496,7 +511,7 @@ export function buildRootObject(
     if (keyringVat) {
       const hasKeys = await E(keyringVat).hasKeys();
       if (hasKeys) {
-        return E(keyringVat).signTypedData(data);
+        return E(keyringVat).signTypedData(data, from);
       }
     }
 
@@ -508,10 +523,9 @@ export function buildRootObject(
     }
 
     if (peerWallet) {
-      return E(peerWallet).handleSigningRequest({
-        type: 'typedData',
-        data,
-      });
+      return E(peerWallet).handleSigningRequest(
+        makeTypedDataSigningRequest(data, from),
+      );
     }
 
     throw new Error('No authority to sign typed data');
@@ -1995,7 +2009,7 @@ export function buildRootObject(
           if (keyringVat) {
             const hasKeys = await E(keyringVat).hasKeys();
             if (hasKeys) {
-              return E(keyringVat).signTypedData(request.data);
+              return E(keyringVat).signTypedData(request.data, request.account);
             }
           }
           if (externalSigner) {

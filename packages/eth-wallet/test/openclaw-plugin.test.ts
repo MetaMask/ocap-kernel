@@ -253,6 +253,23 @@ describe('openclaw wallet plugin', () => {
     expect(mockSpawn).toHaveBeenCalledTimes(1);
   });
 
+  it('rejects malformed decimal ETH amounts before spawning', async () => {
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_send');
+    expect(tool).toBeDefined();
+
+    const result = await tool!.execute('req-invalid-decimal', {
+      to: recipient,
+      value: '1.2.3',
+    });
+
+    expect(result.content[0]?.text).toContain('Error: Invalid value.');
+    expect(result.content[0]?.text).toContain(
+      'Amount must be a plain decimal string',
+    );
+    expect(mockSpawn).not.toHaveBeenCalled();
+  });
+
   it('surfaces CapData error from vat exception', async () => {
     // Simulate: getAccounts succeeds, sendTransaction returns a CapData error
     mockSpawn
@@ -376,6 +393,114 @@ describe('openclaw wallet plugin', () => {
     expect(payload[1]).toBe('sendErc20Transfer');
   });
 
+  it('waits for a delayed UserOp receipt before showing tx hash', async () => {
+    mockSpawn
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData([account]) }),
+      )
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData('0xuserophash') }),
+      )
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({ chainId: 11155111 }),
+        }),
+      )
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData(null) }),
+      )
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({
+            success: true,
+            receipt: { transactionHash: '0xresolvedtx' },
+          }),
+        }),
+      );
+
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_send');
+    expect(tool).toBeDefined();
+
+    const result = await tool!.execute('req-userop-resolved', {
+      to: recipient,
+      value: '0.08',
+    });
+
+    expect(result.content[0]?.text).toContain('Transaction hash: 0xresolvedtx');
+    expect(result.content[0]?.text).toContain('UserOp hash: 0xuserophash');
+    expect(result.content[0]?.text).toContain(
+      'https://sepolia.etherscan.io/tx/0xresolvedtx',
+    );
+  });
+
+  it('reports pending UserOp without tx explorer URL', async () => {
+    mockSpawn
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData([account]) }),
+      )
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData('0xpendinguserop') }),
+      )
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({ chainId: 11155111 }),
+        }),
+      )
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData(null) }),
+      )
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stderr: 'timed out', code: 1 }),
+      );
+
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_send');
+    expect(tool).toBeDefined();
+
+    const result = await tool!.execute('req-userop-pending', {
+      to: recipient,
+      value: '0.08',
+    });
+
+    expect(result.content[0]?.text).toContain('UserOp hash: 0xpendinguserop');
+    expect(result.content[0]?.text).toContain(
+      'Waiting for on-chain transaction hash.',
+    );
+    expect(result.content[0]?.text).not.toContain('Transaction hash:');
+    expect(result.content[0]?.text).not.toContain('/tx/');
+  });
+
+  it('rejects token amounts with too many decimals', async () => {
+    const token = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
+
+    mockSpawn.mockImplementationOnce(() =>
+      makeSpawnResult({
+        stdout: makeCapData({
+          name: 'USD Coin',
+          symbol: 'USDC',
+          decimals: 6,
+        }),
+      }),
+    );
+
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_token_send');
+    expect(tool).toBeDefined();
+
+    const result = await tool!.execute('req-token-precision', {
+      token,
+      to: recipient,
+      amount: '1.1234567',
+    });
+
+    expect(result.content[0]?.text).toContain('Error: Token send failed:');
+    expect(result.content[0]?.text).toContain(
+      'Amount has too many decimal places',
+    );
+    expect(mockSpawn).toHaveBeenCalledTimes(1);
+  });
+
   it('returns token metadata via wallet_token_info', async () => {
     const token = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa';
 
@@ -488,6 +613,94 @@ describe('openclaw wallet plugin', () => {
     expect(result.content[0]?.text).toContain('Error:');
     expect(result.content[0]?.text).toContain('No token found');
     expect(result.content[0]?.text).toContain('contract address directly');
+  });
+
+  it('rejects ambiguous exact symbol matches', async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
+
+    mockSpawn.mockImplementationOnce(() =>
+      makeSpawnResult({
+        stdout: makeCapData({ chainId: 1 }),
+      }),
+    );
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            assetId:
+              'eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+            name: 'USD Coin',
+            symbol: 'USDC',
+            decimals: 6,
+          },
+          {
+            assetId:
+              'eip155:1/erc20:0x1111111111111111111111111111111111111111',
+            name: 'Bridged USD Coin',
+            symbol: 'USDC',
+            decimals: 6,
+          },
+        ],
+      }),
+    });
+
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_token_balance');
+    expect(tool).toBeDefined();
+
+    const result = await tool!.execute('req-ambiguous-exact', {
+      token: 'USDC',
+    });
+
+    expect(result.content[0]?.text).toContain('Error:');
+    expect(result.content[0]?.text).toContain('Multiple tokens match "USDC"');
+    expect(mockSpawn).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects ambiguous fuzzy token matches', async () => {
+    const mockFetch = vi.fn();
+    vi.stubGlobal('fetch', mockFetch);
+
+    mockSpawn.mockImplementationOnce(() =>
+      makeSpawnResult({
+        stdout: makeCapData({ chainId: 1 }),
+      }),
+    );
+
+    mockFetch.mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        data: [
+          {
+            assetId:
+              'eip155:1/erc20:0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
+            name: 'USD Coin',
+            symbol: 'USDC',
+            decimals: 6,
+          },
+          {
+            assetId:
+              'eip155:1/erc20:0x2222222222222222222222222222222222222222',
+            name: 'First Digital USD',
+            symbol: 'FDUSD',
+            decimals: 18,
+          },
+        ],
+      }),
+    });
+
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_token_balance');
+    expect(tool).toBeDefined();
+
+    const result = await tool!.execute('req-ambiguous-fuzzy', { token: 'USD' });
+
+    expect(result.content[0]?.text).toContain('Error:');
+    expect(result.content[0]?.text).toContain('Multiple tokens match "USD"');
+    expect(mockSpawn).toHaveBeenCalledTimes(1);
   });
 
   it('does not spawn process for invalid wallet_send params', async () => {

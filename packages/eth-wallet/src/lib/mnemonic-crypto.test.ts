@@ -10,122 +10,157 @@ const TEST_SALT = 'deadbeefdeadbeefdeadbeefdeadbeef';
 
 describe('mnemonic-crypto', () => {
   describe('encryptMnemonic / decryptMnemonic', () => {
-    it('roundtrips with correct password', () => {
-      const encrypted = encryptMnemonic({
-        mnemonic: TEST_MNEMONIC,
-        password: TEST_PASSWORD,
-      });
+    // PBKDF2 with 600k iterations is slow under coverage instrumentation.
+    const KDF_TIMEOUT = 900_000;
 
-      expect(encrypted.encrypted).toBe(true);
-      expect(encrypted.ciphertext).not.toBe('');
-      expect(encrypted.nonce).not.toBe('');
-      expect(encrypted.salt).not.toBe('');
+    it(
+      'roundtrips with correct password',
+      () => {
+        const encrypted = encryptMnemonic({
+          mnemonic: TEST_MNEMONIC,
+          password: TEST_PASSWORD,
+        });
 
-      const decrypted = decryptMnemonic({
-        data: encrypted,
-        password: TEST_PASSWORD,
-      });
+        expect(encrypted.encrypted).toBe(true);
+        expect(encrypted.ciphertext).not.toBe('');
+        expect(encrypted.nonce).not.toBe('');
+        expect(encrypted.salt).not.toBe('');
 
-      expect(decrypted).toBe(TEST_MNEMONIC);
-    });
+        const decrypted = decryptMnemonic({
+          data: encrypted,
+          password: TEST_PASSWORD,
+        });
 
-    it('roundtrips with caller-provided salt', () => {
-      const encrypted = encryptMnemonic({
-        mnemonic: TEST_MNEMONIC,
-        password: TEST_PASSWORD,
-        salt: TEST_SALT,
-      });
+        expect(decrypted).toBe(TEST_MNEMONIC);
+      },
+      KDF_TIMEOUT,
+    );
 
-      expect(encrypted.salt).toBe(TEST_SALT);
+    it(
+      'roundtrips with caller-provided salt',
+      () => {
+        const encrypted = encryptMnemonic({
+          mnemonic: TEST_MNEMONIC,
+          password: TEST_PASSWORD,
+          salt: TEST_SALT,
+        });
 
-      const decrypted = decryptMnemonic({
-        data: encrypted,
-        password: TEST_PASSWORD,
-      });
+        expect(encrypted.salt).toBe(TEST_SALT);
 
-      expect(decrypted).toBe(TEST_MNEMONIC);
-    });
+        const decrypted = decryptMnemonic({
+          data: encrypted,
+          password: TEST_PASSWORD,
+        });
 
-    it('throws on decrypt with wrong password', () => {
-      const encrypted = encryptMnemonic({
-        mnemonic: TEST_MNEMONIC,
-        password: TEST_PASSWORD,
-      });
+        expect(decrypted).toBe(TEST_MNEMONIC);
+      },
+      KDF_TIMEOUT,
+    );
 
-      expect(() =>
-        decryptMnemonic({ data: encrypted, password: 'wrong-password' }),
-      ).toThrow(/invalid.*tag|decrypt/iu);
-    });
+    it(
+      'throws on decrypt with wrong password',
+      () => {
+        const encrypted = encryptMnemonic({
+          mnemonic: TEST_MNEMONIC,
+          password: TEST_PASSWORD,
+        });
 
-    it('produces deterministic output for same password and salt', () => {
-      const a = encryptMnemonic({
-        mnemonic: TEST_MNEMONIC,
-        password: TEST_PASSWORD,
-        salt: TEST_SALT,
-      });
-      const b = encryptMnemonic({
-        mnemonic: TEST_MNEMONIC,
-        password: TEST_PASSWORD,
-        salt: TEST_SALT,
-      });
+        expect(() =>
+          decryptMnemonic({ data: encrypted, password: 'wrong-password' }),
+        ).toThrow(/invalid.*tag|decrypt/iu);
+      },
+      KDF_TIMEOUT,
+    );
 
-      expect(a).toStrictEqual(b);
-    });
+    it(
+      'produces deterministic output for same password and salt',
+      () => {
+        const a = encryptMnemonic({
+          mnemonic: TEST_MNEMONIC,
+          password: TEST_PASSWORD,
+          salt: TEST_SALT,
+        });
+        const b = encryptMnemonic({
+          mnemonic: TEST_MNEMONIC,
+          password: TEST_PASSWORD,
+          salt: TEST_SALT,
+        });
 
-    it('produces different output for different passwords with same salt', () => {
-      const a = encryptMnemonic({
-        mnemonic: TEST_MNEMONIC,
-        password: 'password-a',
-        salt: TEST_SALT,
-      });
-      const b = encryptMnemonic({
-        mnemonic: TEST_MNEMONIC,
-        password: 'password-b',
-        salt: TEST_SALT,
-      });
+        expect(a).toStrictEqual(b);
+      },
+      KDF_TIMEOUT,
+    );
 
-      expect(a.ciphertext).not.toBe(b.ciphertext);
-    });
+    it(
+      'produces different output for different passwords with same salt',
+      () => {
+        const a = encryptMnemonic({
+          mnemonic: TEST_MNEMONIC,
+          password: 'password-a',
+          salt: TEST_SALT,
+        });
+        const b = encryptMnemonic({
+          mnemonic: TEST_MNEMONIC,
+          password: 'password-b',
+          salt: TEST_SALT,
+        });
 
-    it('stores all fields as hex strings', () => {
-      const encrypted = encryptMnemonic({
-        mnemonic: TEST_MNEMONIC,
-        password: TEST_PASSWORD,
-        salt: TEST_SALT,
-      });
+        expect(a.ciphertext).not.toBe(b.ciphertext);
+      },
+      KDF_TIMEOUT,
+    );
 
-      expect(encrypted.ciphertext).toMatch(/^[\da-f]+$/u);
-      expect(encrypted.nonce).toMatch(/^[\da-f]+$/u);
-      expect(encrypted.salt).toMatch(/^[\da-f]+$/u);
-      expect(encrypted.nonce).toHaveLength(24); // 12 bytes = 24 hex chars
-    });
+    it(
+      'stores all fields as hex strings',
+      () => {
+        const encrypted = encryptMnemonic({
+          mnemonic: TEST_MNEMONIC,
+          password: TEST_PASSWORD,
+          salt: TEST_SALT,
+        });
 
-    it('handles empty mnemonic', () => {
-      const encrypted = encryptMnemonic({
-        mnemonic: '',
-        password: TEST_PASSWORD,
-      });
-      const decrypted = decryptMnemonic({
-        data: encrypted,
-        password: TEST_PASSWORD,
-      });
-      expect(decrypted).toBe('');
-    });
+        expect(encrypted.ciphertext).toMatch(/^[\da-f]+$/u);
+        expect(encrypted.nonce).toMatch(/^[\da-f]+$/u);
+        expect(encrypted.salt).toMatch(/^[\da-f]+$/u);
+        expect(encrypted.nonce).toHaveLength(24); // 12 bytes = 24 hex chars
+      },
+      KDF_TIMEOUT,
+    );
 
-    it('rejects tampered ciphertext', () => {
-      const encrypted = encryptMnemonic({
-        mnemonic: TEST_MNEMONIC,
-        password: TEST_PASSWORD,
-      });
+    it(
+      'handles empty mnemonic',
+      () => {
+        const encrypted = encryptMnemonic({
+          mnemonic: '',
+          password: TEST_PASSWORD,
+        });
+        const decrypted = decryptMnemonic({
+          data: encrypted,
+          password: TEST_PASSWORD,
+        });
+        expect(decrypted).toBe('');
+      },
+      KDF_TIMEOUT,
+    );
 
-      const tampered: EncryptedMnemonicData = {
-        ...encrypted,
-        ciphertext: encrypted.ciphertext.replace(/^.{2}/u, 'ff'),
-      };
+    it(
+      'rejects tampered ciphertext',
+      () => {
+        const encrypted = encryptMnemonic({
+          mnemonic: TEST_MNEMONIC,
+          password: TEST_PASSWORD,
+        });
 
-      expect(() =>
-        decryptMnemonic({ data: tampered, password: TEST_PASSWORD }),
-      ).toThrow(/invalid.*tag|decrypt/iu);
-    });
+        const tampered: EncryptedMnemonicData = {
+          ...encrypted,
+          ciphertext: encrypted.ciphertext.replace(/^.{2}/u, 'ff'),
+        };
+
+        expect(() =>
+          decryptMnemonic({ data: tampered, password: TEST_PASSWORD }),
+        ).toThrow(/invalid.*tag|decrypt/iu);
+      },
+      KDF_TIMEOUT,
+    );
   });
 });
