@@ -127,7 +127,8 @@
       "@metamask/kernel-cli>@metamask/kernel-node-runtime>@libp2p/webrtc>@ipshipyard/node-datachannel": false,
       "@metamask/kernel-cli>@metamask/kernel-node-runtime>@metamask/kernel-store>better-sqlite3": false,
       "@metamask/kernel-cli>@metamask/kernel-node-runtime>@metamask/streams": false,
-      "@metamask/kernel-cli>@metamask/kernel-shims>@libp2p/webrtc>@ipshipyard/node-datachannel": false
+      "@metamask/kernel-cli>@metamask/kernel-shims>@libp2p/webrtc>@ipshipyard/node-datachannel": false,
+      "@metamask/kernel-cli>@metamask/kernel-utils": false
     }
   },
   "resolutions": {
