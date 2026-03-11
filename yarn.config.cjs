@@ -9,7 +9,7 @@
 
 const { defineConfig } = require('@yarnpkg/types');
 const { get } = require('lodash');
-const { readFile } = require('node:fs/promises');
+const { readFile, readdir } = require('node:fs/promises');
 const { basename, resolve } = require('node:path');
 const { inspect } = require('node:util');
 const semver = require('semver');
@@ -60,6 +60,8 @@ module.exports = defineConfig({
       /\.git$/u,
       '',
     );
+
+    const patchData = await computeAllPatchData(Yarn);
 
     for (const workspace of Yarn.workspaces()) {
       const workspaceBasename = getWorkspaceBasename(workspace);
@@ -132,8 +134,8 @@ module.exports = defineConfig({
           expectNoPrivateWorkspaceProductionDependencies(Yarn, workspace);
           // Non-private packages must not use the patch: protocol in production deps.
           expectNoPatchProtocolProductionDependencies(Yarn, workspace);
-          // Non-private packages must declare and ship any patched dependencies.
-          expectPatchedDependenciesAreDeclaredAndShipped(workspace);
+          // Non-private packages must correctly ship patches (sinks only).
+          expectPatchShippingIsCorrect(workspace, patchData.sinkWorkspaces);
         }
 
         if (!isPrivate && !exportsExceptions.includes(workspaceBasename)) {
@@ -309,6 +311,13 @@ module.exports = defineConfig({
         // development-only scripts, as otherwise the
         // `node/no-unpublished-require` ESLint rule will disallow it.)
         expectWorkspaceField(workspace, 'files', []);
+
+        // Root patches/ must not contain patches for deps removed from all workspaces.
+        expectNoPatchesForRemovedDependencies(
+          Yarn,
+          workspace,
+          patchData.pkgNameByPatch,
+        );
       }
 
       // Ensure all dependency ranges are recognizable
@@ -883,34 +892,235 @@ function expectNoPatchProtocolProductionDependencies(Yarn, workspace) {
     }
     if (dependency.range.startsWith('patch:')) {
       dependency.error(
-        `Non-private package "${workspace.manifest.name}" must not use the "patch:" protocol for "${dependency.ident}" in "${dependency.type}". Use patch-package with a root patches/ directory and declare the patch in "patchedDependencies" instead.`,
+        `Non-private package "${workspace.manifest.name}" must not use the "patch:" protocol for "${dependency.ident}" in "${dependency.type}". Use patch-package with a root patches/ directory instead.`,
       );
     }
   }
 }
 
 /**
- * Expect that non-private workspace packages declare all patched transitive
- * dependencies in a `patchedDependencies` field, and that each declared
- * patch file is included in `files`.
+ * Parse a patch filename to extract the package name and version.
+ *
+ * @param {string} filename - The patch filename.
+ * @returns {{ pkgName: string, version: string }} The parsed package name and version.
+ */
+function parsePatchFilename(filename) {
+  const withoutExt = filename.replace(/\.patch$/u, '');
+  const lastPlusIdx = withoutExt.lastIndexOf('+');
+  const version = withoutExt.slice(lastPlusIdx + 1);
+  const pkgRaw = withoutExt.slice(0, lastPlusIdx);
+  const pkgName = pkgRaw.replace(/\+/gu, '/');
+  return { pkgName, version };
+}
+
+/**
+ * Get the transitive closure of internal workspace dependencies for a workspace.
+ *
+ * @param {string} wsName - The workspace name.
+ * @param {Map<string, Workspace>} workspaceNameMap - Map of workspace name to workspace.
+ * @param {Map<string, Set<string>>} cache - Memoization cache.
+ * @returns {Set<string>} Set of transitive internal dep names.
+ */
+function getTransitiveInternalDeps(wsName, workspaceNameMap, cache) {
+  if (cache.has(wsName)) {
+    return cache.get(wsName);
+  }
+
+  const ws = workspaceNameMap.get(wsName);
+  if (!ws) {
+    cache.set(wsName, new Set());
+    return new Set();
+  }
+
+  const result = new Set();
+  cache.set(wsName, result); // set before recursing to break cycles
+
+  const deps = ws.manifest.dependencies ?? {};
+  for (const depName of Object.keys(deps)) {
+    if (workspaceNameMap.has(depName)) {
+      result.add(depName);
+      for (const transitiveDep of getTransitiveInternalDeps(
+        depName,
+        workspaceNameMap,
+        cache,
+      )) {
+        result.add(transitiveDep);
+      }
+    }
+  }
+
+  return result;
+}
+
+/**
+ * Compute which non-private workspaces are "sinks" for each patched dependency.
+ *
+ * A sink is a workspace in U (non-private packages directly depending on the
+ * patched dep) that does not transitively depend on any other workspace in U.
+ * Only sinks need to ship the patch; non-sinks always have a sink installed
+ * alongside them.
+ *
+ * @param {Yarn} Yarn - The Yarn "global".
+ * @returns {Promise<{
+ *   sinkWorkspaces: Map<string, boolean>,
+ *   pkgNameByPatch: Map<string, string>
+ * }>} The computed sink workspaces and patch-to-package-name mapping.
+ */
+async function computeAllPatchData(Yarn) {
+  const patchesDir = resolve(__dirname, 'patches');
+  let patchFiles;
+  try {
+    const entries = await readdir(patchesDir);
+    patchFiles = entries.filter((patchFile) => patchFile.endsWith('.patch'));
+  } catch (error) {
+    if (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      error.code === 'ENOENT'
+    ) {
+      patchFiles = [];
+    } else {
+      throw error;
+    }
+  }
+
+  const workspaceNameMap = new Map();
+  for (const ws of Yarn.workspaces()) {
+    if (ws.manifest.name) {
+      workspaceNameMap.set(ws.manifest.name, ws);
+    }
+  }
+
+  // pkgName -> Set<wsName> of sinks
+  const sinksByPkg = new Map();
+  const pkgNameByPatch = new Map();
+
+  for (const patchFile of patchFiles) {
+    const { pkgName } = parsePatchFilename(patchFile);
+    pkgNameByPatch.set(patchFile, pkgName);
+
+    // directDeps = non-private workspaces with pkgName as a direct dependency
+    const directDeps = Yarn.workspaces().filter(
+      (ws) =>
+        ws.manifest.private !== true &&
+        Object.prototype.hasOwnProperty.call(
+          ws.manifest.dependencies ?? {},
+          pkgName,
+        ),
+    );
+
+    const directDepNames = new Set(directDeps.map((ws) => ws.manifest.name));
+    const cache = new Map();
+    const sinks = new Set();
+
+    for (const ws of directDeps) {
+      const transitiveDeps = getTransitiveInternalDeps(
+        ws.manifest.name,
+        workspaceNameMap,
+        cache,
+      );
+      if (![...transitiveDeps].some((dep) => directDepNames.has(dep))) {
+        sinks.add(ws.manifest.name);
+      }
+    }
+
+    sinksByPkg.set(pkgName, sinks);
+  }
+
+  // Build sinkWorkspaces: wsName -> boolean
+  const sinkWorkspaces = new Map();
+  for (const ws of Yarn.workspaces()) {
+    if (!ws.manifest.name || ws.manifest.private === true) {
+      continue;
+    }
+    const wsName = ws.manifest.name;
+    const isSink = [...sinksByPkg.values()].some((sinks) => sinks.has(wsName));
+    sinkWorkspaces.set(wsName, isSink);
+  }
+
+  return { sinkWorkspaces, pkgNameByPatch };
+}
+
+/**
+ * Expect that a non-private workspace correctly ships patches based on whether
+ * it is a sink in the patch dependency graph.
+ *
+ * Sinks must have `patches/` in `files`, `patch-package: "*"` in
+ * `peerDependencies`, and a `postinstall` script that runs patch-package.
+ * Non-sinks must have none of these.
  *
  * @param {Workspace} workspace - The workspace to check.
+ * @param {Map<string, boolean>} sinkWorkspaces - Map of workspace name to isSink.
  */
-function expectPatchedDependenciesAreDeclaredAndShipped(workspace) {
-  const patchedDependencies = workspace.manifest.patchedDependencies ?? {};
+function expectPatchShippingIsCorrect(workspace, sinkWorkspaces) {
+  const wsName = workspace.manifest.name;
+  const isSink = sinkWorkspaces.get(wsName) ?? false;
   const files = workspace.manifest.files ?? [];
+  const peerDeps = workspace.manifest.peerDependencies ?? {};
+  const postinstall = workspace.manifest.scripts?.postinstall ?? '';
 
-  for (const [dep, patchPath] of Object.entries(patchedDependencies)) {
-    // Each patch path must be covered by a files entry.
-    const normalized = patchPath.replace(/^\.\//u, '');
-    const dir = `${normalized.split('/')[0]}/`;
-    if (
-      !files.includes(dir) &&
-      !files.includes(patchPath) &&
-      !files.includes(normalized)
-    ) {
+  if (isSink) {
+    if (!files.includes('patches/')) {
       workspace.error(
-        `Non-private package "${workspace.manifest.name}" declares patch "${patchPath}" for "${dep}" in "patchedDependencies", but "${dir}" is not in "files". Add it so the patch is shipped with the package.`,
+        `Package "${wsName}" is a patch sink but does not have "patches/" in "files". Add it to ship the patch.`,
+      );
+    }
+    workspace.set('peerDependencies["patch-package"]', '*');
+    if (!postinstall) {
+      workspace.set('scripts.postinstall', 'patch-package --patch-dir patches');
+    } else if (!postinstall.includes('patch-package --patch-dir patches')) {
+      workspace.error(
+        `Package "${wsName}" is a patch sink but its "postinstall" script does not include "patch-package --patch-dir patches".`,
+      );
+    }
+  } else {
+    if (files.includes('patches/')) {
+      workspace.set(
+        'files',
+        files.filter((file) => file !== 'patches/'),
+      );
+    }
+    if (Object.prototype.hasOwnProperty.call(peerDeps, 'patch-package')) {
+      workspace.unset('peerDependencies["patch-package"]');
+    }
+    if (postinstall === 'patch-package --patch-dir patches') {
+      workspace.unset('scripts.postinstall');
+    } else if (postinstall.includes('patch-package')) {
+      workspace.error(
+        `Package "${wsName}" is not a patch sink but its "postinstall" script references "patch-package". Remove it manually.`,
+      );
+    }
+  }
+}
+
+/**
+ * Expect that the root `patches/` directory does not contain patches for
+ * packages that are no longer dependencies of any workspace.
+ *
+ * @param {Yarn} Yarn - The Yarn "global".
+ * @param {Workspace} rootWorkspace - The root workspace.
+ * @param {Map<string, string>} pkgNameByPatch - Map of patch filename to package name.
+ */
+function expectNoPatchesForRemovedDependencies(
+  Yarn,
+  rootWorkspace,
+  pkgNameByPatch,
+) {
+  const allDeps = new Set();
+  for (const ws of Yarn.workspaces()) {
+    for (const dep of Object.keys(ws.manifest.dependencies ?? {})) {
+      allDeps.add(dep);
+    }
+    for (const dep of Object.keys(ws.manifest.devDependencies ?? {})) {
+      allDeps.add(dep);
+    }
+  }
+
+  for (const [patchFile, pkgName] of pkgNameByPatch) {
+    if (!allDeps.has(pkgName)) {
+      rootWorkspace.error(
+        `Root patch "${patchFile}" targets "${pkgName}" which is not a dependency of any workspace. Delete the patch file.`,
       );
     }
   }

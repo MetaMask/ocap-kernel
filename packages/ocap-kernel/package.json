@@ -46,7 +46,6 @@
   "types": "./dist/index.d.cts",
   "files": [
     "dist/",
-    "patches/",
     "rpc.js"
   ],
   "scripts": {
@@ -136,9 +135,6 @@
   },
   "engines": {
     "node": ">=22"
-  },
-  "patchedDependencies": {
-    "@chainsafe/libp2p-yamux@7.0.4": "./patches/@chainsafe+libp2p-yamux+7.0.4.patch"
   },
   "publishConfig": {
     "access": "public",

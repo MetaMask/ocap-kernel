@@ -2842,6 +2842,7 @@ __metadata:
     vitest: "npm:^4.0.16"
   peerDependencies:
     acorn: ^8.15.0
+    patch-package: "*"
     vite: ^7.3.0
   peerDependenciesMeta:
     acorn:

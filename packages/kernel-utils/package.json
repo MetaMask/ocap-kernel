@@ -89,6 +89,7 @@
     "lint:eslint": "eslint . --cache",
     "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies",
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore --log-level error",
+    "postinstall": "patch-package --patch-dir patches",
     "publish:preview": "yarn npm publish --tag preview",
     "test": "vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
@@ -154,6 +155,7 @@
   },
   "peerDependencies": {
     "acorn": "^8.15.0",
+    "patch-package": "*",
     "vite": "^7.3.0"
   },
   "peerDependenciesMeta": {
@@ -166,9 +168,6 @@
   },
   "engines": {
     "node": ">=22"
-  },
-  "patchedDependencies": {
-    "@chainsafe/libp2p-yamux@7.0.4": "./patches/@chainsafe+libp2p-yamux+7.0.4.patch"
   },
   "publishConfig": {
     "access": "public",
