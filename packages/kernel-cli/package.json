@@ -51,6 +51,7 @@
     "@metamask/logger": "workspace:^",
     "@metamask/utils": "^11.9.0",
     "@types/node": "^22.13.1",
+    "acorn": "^8.15.0",
     "chokidar": "^4.0.1",
     "glob": "^11.0.0",
     "serve-handler": "^6.1.6",
