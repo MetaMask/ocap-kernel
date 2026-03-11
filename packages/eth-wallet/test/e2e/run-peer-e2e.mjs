@@ -77,10 +77,10 @@
 
 import '@metamask/kernel-shims/endoify-node';
 
+import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
-import { NodejsPlatformServices } from '@ocap/nodejs';
 import { randomBytes } from 'node:crypto';
 
 import { makeWalletClusterConfig } from '../../src/cluster-config.ts';

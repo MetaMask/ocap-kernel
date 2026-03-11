@@ -1,6 +1,6 @@
 {
   "name": "@metamask/ocap-kernel",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "OCap kernel core components",
   "keywords": [
     "MetaMask",
@@ -72,6 +72,7 @@
     "@chainsafe/libp2p-noise": "^16.1.3",
     "@chainsafe/libp2p-yamux": "patch:@chainsafe/libp2p-yamux@npm%3A7.0.4#~/.yarn/patches/@chainsafe-libp2p-yamux-npm-7.0.4-284c2f6812.patch",
     "@endo/errors": "^1.2.13",
+    "@endo/eventual-send": "^1.3.4",
     "@endo/marshal": "^1.8.0",
     "@endo/pass-style": "^1.6.3",
     "@endo/promise-kit": "^1.1.13",
@@ -86,6 +87,7 @@
     "@libp2p/websockets": "9.2.19",
     "@libp2p/webtransport": "5.0.51",
     "@metamask/kernel-errors": "workspace:^",
+    "@metamask/kernel-platforms": "workspace:^",
     "@metamask/kernel-rpc-methods": "workspace:^",
     "@metamask/kernel-store": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
@@ -95,7 +97,6 @@
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.9.0",
     "@multiformats/multiaddr": "^12.4.4",
-    "@ocap/kernel-platforms": "workspace:^",
     "@scure/bip39": "^2.0.1",
     "it-byte-stream": "^2.0.1",
     "libp2p": "2.10.0",

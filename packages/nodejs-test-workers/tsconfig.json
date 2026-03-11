@@ -7,7 +7,7 @@
   },
   "references": [
     { "path": "../repo-tools" },
-    { "path": "../nodejs" },
+    { "path": "../kernel-node-runtime" },
     { "path": "../ocap-kernel" },
     { "path": "../logger" }
   ],

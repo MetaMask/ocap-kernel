@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0]
+
+### Added
+
+- Add `./endoify-node` export for Node.js-specific lockdown initialization ([#787](https://github.com/MetaMask/ocap-kernel/pull/787))
+- Add `./endoify-repair` export for `repairIntrinsics`-only lockdown ([#578](https://github.com/MetaMask/ocap-kernel/pull/578))
+
+### Changed
+
+- **BREAKING:** Drop Node 20 support ([#837](https://github.com/MetaMask/ocap-kernel/pull/837))
+
 ## [0.3.0]
 
 ### Changed
@@ -31,7 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-shims@0.3.0...HEAD
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-shims@0.4.0...HEAD
+[0.4.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-shims@0.3.0...@metamask/kernel-shims@0.4.0
 [0.3.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-shims@0.2.0...@metamask/kernel-shims@0.3.0
 [0.2.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-shims@0.1.0...@metamask/kernel-shims@0.2.0
 [0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/kernel-shims@0.1.0

@@ -9,7 +9,7 @@
   },
   "references": [
     { "path": "../logger/tsconfig.build.json" },
-    { "path": "../nodejs/tsconfig.build.json" },
+    { "path": "../kernel-node-runtime/tsconfig.build.json" },
     { "path": "../ocap-kernel/tsconfig.build.json" }
   ],
   "files": [],

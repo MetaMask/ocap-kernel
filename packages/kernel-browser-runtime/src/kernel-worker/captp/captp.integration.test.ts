@@ -49,6 +49,7 @@ describe('CapTP Integration', () => {
       }),
       reset: vi.fn().mockResolvedValue(undefined),
       terminateSubcluster: vi.fn().mockResolvedValue(undefined),
+      registerKernelServiceObject: vi.fn(),
       provideFacet: vi.fn(),
     } as unknown as Kernel;
 

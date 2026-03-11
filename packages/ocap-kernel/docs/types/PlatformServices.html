@@ -1,0 +1,1829 @@
+<!doctype html>
+<html class="default" lang="en" data-base="../">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="IE=edge" />
+    <title>PlatformServices | @metamask/ocap-kernel</title>
+    <meta
+      name="description"
+      content="Documentation for @metamask/ocap-kernel"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="../assets/style.css" />
+    <link rel="stylesheet" href="../assets/highlight.css" />
+    <script defer src="../assets/main.js"></script>
+    <script async src="../assets/icons.js" id="tsd-icons-script"></script>
+    <script async src="../assets/search.js" id="tsd-search-script"></script>
+    <script async src="../assets/navigation.js" id="tsd-nav-script"></script>
+  </head>
+  <body>
+    <script>
+      document.documentElement.dataset.theme =
+        localStorage.getItem('tsd-theme') || 'os';
+      document.body.style.display = 'none';
+      setTimeout(
+        () =>
+          window.app
+            ? app.showPage()
+            : document.body.style.removeProperty('display'),
+        500,
+      );
+    </script>
+    <header class="tsd-page-toolbar">
+      <div class="tsd-toolbar-contents container">
+        <a href="../index.html" class="title">@metamask/ocap-kernel</a>
+        <div id="tsd-toolbar-links"></div>
+        <button id="tsd-search-trigger" class="tsd-widget" aria-label="Search">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <use href="../assets/icons.svg#icon-search"></use>
+          </svg>
+        </button>
+        <dialog id="tsd-search" aria-label="Search">
+          <input
+            role="combobox"
+            id="tsd-search-input"
+            aria-controls="tsd-search-results"
+            aria-autocomplete="list"
+            aria-expanded="true"
+            autocapitalize="off"
+            autocomplete="off"
+            placeholder="Search the docs"
+            maxlength="100"
+          />
+          <ul role="listbox" id="tsd-search-results"></ul>
+          <div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+            <div>Preparing search index...</div>
+          </div>
+        </dialog>
+        <a
+          href="#"
+          class="tsd-widget menu"
+          id="tsd-toolbar-menu-trigger"
+          data-toggle="menu"
+          aria-label="Menu"
+          ><svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <use href="../assets/icons.svg#icon-menu"></use></svg
+        ></a>
+      </div>
+    </header>
+    <div class="container container-main">
+      <div class="col-content">
+        <div class="tsd-page-title">
+          <ul class="tsd-breadcrumb" aria-label="Breadcrumb">
+            <li><a href="" aria-current="page">PlatformServices</a></li>
+          </ul>
+          <h1>Type Alias PlatformServices</h1>
+        </div>
+        <section class="tsd-panel tsd-comment">
+          <div class="tsd-comment tsd-typography">
+            <p>
+              A service for things the kernel worker can't do itself. Abstracts
+              platform-specific details of how vat workers are launched,
+              terminated, and connected to the kernel, and for network
+              communications.
+            </p>
+          </div>
+          <div class="tsd-comment tsd-typography"></div>
+        </section>
+        <div class="tsd-signature">
+          <span class="tsd-signature-keyword">type</span>
+          <span class="tsd-kind-type-alias">PlatformServices</span>
+          <span class="tsd-signature-symbol">=</span>
+          <span class="tsd-signature-symbol">{</span><br />    <a
+            class="tsd-kind-property"
+            href="#closeconnection"
+            >closeConnection</a
+          ><span class="tsd-signature-symbol">:</span>
+          <span class="tsd-signature-symbol">(</span
+          ><span class="tsd-kind-parameter">peerId</span
+          ><span class="tsd-signature-symbol">:</span>
+          <span class="tsd-signature-type">string</span
+          ><span class="tsd-signature-symbol">)</span>
+          <span class="tsd-signature-symbol">=&gt;</span>
+          <span class="tsd-signature-type">Promise</span
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><span class="tsd-signature-type">void</span
+          ><span class="tsd-signature-symbol">&gt;</span
+          ><span class="tsd-signature-symbol">;</span><br />    <a
+            class="tsd-kind-property"
+            href="#initializeremotecomms"
+            >initializeRemoteComms</a
+          ><span class="tsd-signature-symbol">:</span>
+          <span class="tsd-signature-symbol">(</span><br />        <span
+            class="tsd-kind-parameter"
+            >keySeed</span
+          ><span class="tsd-signature-symbol">:</span>
+          <span class="tsd-signature-type">string</span
+          ><span class="tsd-signature-symbol">,</span><br />        <span
+            class="tsd-kind-parameter"
+            >options</span
+          ><span class="tsd-signature-symbol">:</span>
+          <a
+            href="RemoteCommsOptions.html"
+            class="tsd-signature-type tsd-kind-type-alias"
+            >RemoteCommsOptions</a
+          ><span class="tsd-signature-symbol">,</span><br />        <span
+            class="tsd-kind-parameter"
+            >remoteMessageHandler</span
+          ><span class="tsd-signature-symbol">:</span>
+          <a
+            href="RemoteMessageHandler.html"
+            class="tsd-signature-type tsd-kind-type-alias"
+            >RemoteMessageHandler</a
+          ><span class="tsd-signature-symbol">,</span><br />        <span
+            class="tsd-kind-parameter"
+            >onRemoteGiveUp</span
+          ><span class="tsd-signature-symbol">?:</span>
+          <span class="tsd-signature-type">OnRemoteGiveUp</span
+          ><span class="tsd-signature-symbol">,</span><br />    <span
+            class="tsd-signature-symbol"
+            >)</span
+          >
+          <span class="tsd-signature-symbol">=&gt;</span>
+          <span class="tsd-signature-type">Promise</span
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><span class="tsd-signature-type">void</span
+          ><span class="tsd-signature-symbol">&gt;</span
+          ><span class="tsd-signature-symbol">;</span><br />    <a
+            class="tsd-kind-property"
+            href="#launch"
+            >launch</a
+          ><span class="tsd-signature-symbol">:</span>
+          <span class="tsd-signature-symbol">(</span><br />        <span
+            class="tsd-kind-parameter"
+            >vatId</span
+          ><span class="tsd-signature-symbol">:</span>
+          <a href="VatId.html" class="tsd-signature-type tsd-kind-type-alias"
+            >VatId</a
+          ><span class="tsd-signature-symbol">,</span><br />        <span
+            class="tsd-kind-parameter"
+            >vatConfig</span
+          ><span class="tsd-signature-symbol">:</span>
+          <a
+            href="VatConfig.html"
+            class="tsd-signature-type tsd-kind-type-alias"
+            >VatConfig</a
+          ><span class="tsd-signature-symbol">,</span><br />    <span
+            class="tsd-signature-symbol"
+            >)</span
+          >
+          <span class="tsd-signature-symbol">=&gt;</span>
+          <span class="tsd-signature-type">Promise</span
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><span class="tsd-signature-type">DuplexStream</span
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><span class="tsd-signature-type">JsonRpcMessage</span
+          ><span class="tsd-signature-symbol">,</span>
+          <span class="tsd-signature-type">JsonRpcMessage</span
+          ><span class="tsd-signature-symbol">&gt;</span
+          ><span class="tsd-signature-symbol">&gt;</span
+          ><span class="tsd-signature-symbol">;</span><br />    <a
+            class="tsd-kind-property"
+            href="#reconnectpeer"
+            >reconnectPeer</a
+          ><span class="tsd-signature-symbol">:</span>
+          <span class="tsd-signature-symbol">(</span
+          ><span class="tsd-kind-parameter">peerId</span
+          ><span class="tsd-signature-symbol">:</span>
+          <span class="tsd-signature-type">string</span
+          ><span class="tsd-signature-symbol">,</span>
+          <span class="tsd-kind-parameter">hints</span
+          ><span class="tsd-signature-symbol">?:</span>
+          <span class="tsd-signature-type">string</span
+          ><span class="tsd-signature-symbol">[]</span
+          ><span class="tsd-signature-symbol">)</span>
+          <span class="tsd-signature-symbol">=&gt;</span>
+          <span class="tsd-signature-type">Promise</span
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><span class="tsd-signature-type">void</span
+          ><span class="tsd-signature-symbol">&gt;</span
+          ><span class="tsd-signature-symbol">;</span><br />    <a
+            class="tsd-kind-property"
+            href="#registerlocationhints"
+            >registerLocationHints</a
+          ><span class="tsd-signature-symbol">:</span>
+          <span class="tsd-signature-symbol">(</span
+          ><span class="tsd-kind-parameter">peerId</span
+          ><span class="tsd-signature-symbol">:</span>
+          <span class="tsd-signature-type">string</span
+          ><span class="tsd-signature-symbol">,</span>
+          <span class="tsd-kind-parameter">hints</span
+          ><span class="tsd-signature-symbol">:</span>
+          <span class="tsd-signature-type">string</span
+          ><span class="tsd-signature-symbol">[]</span
+          ><span class="tsd-signature-symbol">)</span>
+          <span class="tsd-signature-symbol">=&gt;</span>
+          <span class="tsd-signature-type">Promise</span
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><span class="tsd-signature-type">void</span
+          ><span class="tsd-signature-symbol">&gt;</span
+          ><span class="tsd-signature-symbol">;</span><br />    <a
+            class="tsd-kind-property"
+            href="#sendremotemessage"
+            >sendRemoteMessage</a
+          ><span class="tsd-signature-symbol">:</span>
+          <a
+            href="SendRemoteMessage.html"
+            class="tsd-signature-type tsd-kind-type-alias"
+            >SendRemoteMessage</a
+          ><span class="tsd-signature-symbol">;</span><br />    <a
+            class="tsd-kind-property"
+            href="#stopremotecomms"
+            >stopRemoteComms</a
+          ><span class="tsd-signature-symbol">:</span>
+          <a
+            href="StopRemoteComms.html"
+            class="tsd-signature-type tsd-kind-type-alias"
+            >StopRemoteComms</a
+          ><span class="tsd-signature-symbol">;</span><br />    <a
+            class="tsd-kind-property"
+            href="#terminate"
+            >terminate</a
+          ><span class="tsd-signature-symbol">:</span>
+          <span class="tsd-signature-symbol">(</span
+          ><span class="tsd-kind-parameter">vatId</span
+          ><span class="tsd-signature-symbol">:</span>
+          <a href="VatId.html" class="tsd-signature-type tsd-kind-type-alias"
+            >VatId</a
+          ><span class="tsd-signature-symbol">,</span>
+          <span class="tsd-kind-parameter">error</span
+          ><span class="tsd-signature-symbol">?:</span>
+          <span class="tsd-signature-type">Error</span
+          ><span class="tsd-signature-symbol">)</span>
+          <span class="tsd-signature-symbol">=&gt;</span>
+          <span class="tsd-signature-type">Promise</span
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><span class="tsd-signature-type">void</span
+          ><span class="tsd-signature-symbol">&gt;</span
+          ><span class="tsd-signature-symbol">;</span><br />    <a
+            class="tsd-kind-property"
+            href="#terminateall"
+            >terminateAll</a
+          ><span class="tsd-signature-symbol">:</span>
+          <span class="tsd-signature-symbol">()</span>
+          <span class="tsd-signature-symbol">=&gt;</span>
+          <span class="tsd-signature-type">Promise</span
+          ><span class="tsd-signature-symbol">&lt;</span
+          ><span class="tsd-signature-type">void</span
+          ><span class="tsd-signature-symbol">&gt;</span
+          ><span class="tsd-signature-symbol">;</span><br /><span
+            class="tsd-signature-symbol"
+            >}</span
+          >
+        </div>
+        <aside class="tsd-sources">
+          <ul>
+            <li>
+              Defined in
+              <a
+                href="https://github.com/MetaMask/ocap-kernel/blob/8c4f04ba2889c442f5e0cc4eb43f5b6b9d80c39c/packages/ocap-kernel/src/types.ts#L277"
+                >packages/ocap-kernel/src/types.ts:277</a
+              >
+            </li>
+          </ul>
+        </aside>
+        <section class="tsd-panel-group tsd-index-group">
+          <section class="tsd-panel tsd-index-panel">
+            <details class="tsd-index-content tsd-accordion" open>
+              <summary class="tsd-accordion-summary tsd-index-summary">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <use href="../assets/icons.svg#icon-chevronSmall"></use>
+                </svg>
+                <h5 class="tsd-index-heading uppercase">Index</h5>
+              </summary>
+              <div class="tsd-accordion-details">
+                <section class="tsd-index-section">
+                  <h3 class="tsd-index-heading">Properties</h3>
+                  <div class="tsd-index-list">
+                    <a href="#closeconnection" class="tsd-index-link"
+                      ><svg
+                        class="tsd-kind-icon"
+                        viewBox="0 0 24 24"
+                        aria-label="Property"
+                      >
+                        <use href="../assets/icons.svg#icon-1024"></use></svg
+                      ><span>close<wbr />Connection</span></a
+                    >
+                    <a href="#initializeremotecomms" class="tsd-index-link"
+                      ><svg
+                        class="tsd-kind-icon"
+                        viewBox="0 0 24 24"
+                        aria-label="Property"
+                      >
+                        <use href="../assets/icons.svg#icon-1024"></use></svg
+                      ><span>initialize<wbr />Remote<wbr />Comms</span></a
+                    >
+                    <a href="#launch" class="tsd-index-link"
+                      ><svg
+                        class="tsd-kind-icon"
+                        viewBox="0 0 24 24"
+                        aria-label="Property"
+                      >
+                        <use href="../assets/icons.svg#icon-1024"></use></svg
+                      ><span>launch</span></a
+                    >
+                    <a href="#reconnectpeer" class="tsd-index-link"
+                      ><svg
+                        class="tsd-kind-icon"
+                        viewBox="0 0 24 24"
+                        aria-label="Property"
+                      >
+                        <use href="../assets/icons.svg#icon-1024"></use></svg
+                      ><span>reconnect<wbr />Peer</span></a
+                    >
+                    <a href="#registerlocationhints" class="tsd-index-link"
+                      ><svg
+                        class="tsd-kind-icon"
+                        viewBox="0 0 24 24"
+                        aria-label="Property"
+                      >
+                        <use href="../assets/icons.svg#icon-1024"></use></svg
+                      ><span>register<wbr />Location<wbr />Hints</span></a
+                    >
+                    <a href="#sendremotemessage" class="tsd-index-link"
+                      ><svg
+                        class="tsd-kind-icon"
+                        viewBox="0 0 24 24"
+                        aria-label="Property"
+                      >
+                        <use href="../assets/icons.svg#icon-1024"></use></svg
+                      ><span>send<wbr />Remote<wbr />Message</span></a
+                    >
+                    <a href="#stopremotecomms" class="tsd-index-link"
+                      ><svg
+                        class="tsd-kind-icon"
+                        viewBox="0 0 24 24"
+                        aria-label="Property"
+                      >
+                        <use href="../assets/icons.svg#icon-1024"></use></svg
+                      ><span>stop<wbr />Remote<wbr />Comms</span></a
+                    >
+                    <a href="#terminate" class="tsd-index-link"
+                      ><svg
+                        class="tsd-kind-icon"
+                        viewBox="0 0 24 24"
+                        aria-label="Property"
+                      >
+                        <use href="../assets/icons.svg#icon-1024"></use></svg
+                      ><span>terminate</span></a
+                    >
+                    <a href="#terminateall" class="tsd-index-link"
+                      ><svg
+                        class="tsd-kind-icon"
+                        viewBox="0 0 24 24"
+                        aria-label="Property"
+                      >
+                        <use href="../assets/icons.svg#icon-1024"></use></svg
+                      ><span>terminate<wbr />All</span></a
+                    >
+                  </div>
+                </section>
+              </div>
+            </details>
+          </section>
+        </section>
+        <details class="tsd-panel-group tsd-member-group tsd-accordion" open>
+          <summary class="tsd-accordion-summary" data-key="section-Properties">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <use href="../assets/icons.svg#icon-chevronDown"></use>
+            </svg>
+            <h2>Properties</h2>
+          </summary>
+          <section>
+            <section class="tsd-panel tsd-member">
+              <h3 class="tsd-anchor-link" id="closeconnection">
+                <span>close<wbr />Connection</span
+                ><a
+                  href="#closeconnection"
+                  aria-label="Permalink"
+                  class="tsd-anchor-icon"
+                  ><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <use href="../assets/icons.svg#icon-anchor"></use></svg
+                ></a>
+              </h3>
+              <div class="tsd-signature">
+                <span class="tsd-kind-property">closeConnection</span
+                ><span class="tsd-signature-symbol">:</span>
+                <span class="tsd-signature-symbol">(</span
+                ><span class="tsd-kind-parameter">peerId</span
+                ><span class="tsd-signature-symbol">:</span>
+                <span class="tsd-signature-type">string</span
+                ><span class="tsd-signature-symbol">)</span>
+                <span class="tsd-signature-symbol">=&gt;</span>
+                <span class="tsd-signature-type">Promise</span
+                ><span class="tsd-signature-symbol">&lt;</span
+                ><span class="tsd-signature-type">void</span
+                ><span class="tsd-signature-symbol">&gt;</span>
+              </div>
+              <div class="tsd-comment tsd-typography">
+                <p>
+                  Explicitly close a connection to a peer. Marks the peer as
+                  intentionally closed to prevent automatic reconnection.
+                </p>
+              </div>
+              <div class="tsd-type-declaration">
+                <h4>Type declaration</h4>
+                <ul class="tsd-parameters">
+                  <li class="tsd-parameter-signature">
+                    <ul class="tsd-signatures">
+                      <li class="tsd-signature">
+                        <span class="tsd-signature-symbol">(</span
+                        ><span class="tsd-kind-parameter">peerId</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <span class="tsd-signature-type">string</span
+                        ><span class="tsd-signature-symbol">)</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <span class="tsd-signature-type">Promise</span
+                        ><span class="tsd-signature-symbol">&lt;</span
+                        ><span class="tsd-signature-type">void</span
+                        ><span class="tsd-signature-symbol">&gt;</span>
+                      </li>
+                      <li class="tsd-description">
+                        <div class="tsd-parameters">
+                          <h4 class="tsd-parameters-title">Parameters</h4>
+                          <ul class="tsd-parameter-list">
+                            <li>
+                              <span
+                                ><span class="tsd-kind-parameter">peerId</span>:
+                                <span class="tsd-signature-type"
+                                  >string</span
+                                ></span
+                              >
+                              <div class="tsd-comment tsd-typography">
+                                <p>The peer ID to close the connection for.</p>
+                              </div>
+                              <div class="tsd-comment tsd-typography"></div>
+                            </li>
+                          </ul>
+                        </div>
+                        <h4 class="tsd-returns-title">
+                          Returns <span class="tsd-signature-type">Promise</span
+                          ><span class="tsd-signature-symbol">&lt;</span
+                          ><span class="tsd-signature-type">void</span
+                          ><span class="tsd-signature-symbol">&gt;</span>
+                        </h4>
+                        <p>
+                          A promise that resolves when the connection is closed.
+                        </p>
+                        <div class="tsd-comment tsd-typography"></div>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+              <div class="tsd-comment tsd-typography"></div>
+              <aside class="tsd-sources">
+                <ul>
+                  <li>
+                    Defined in
+                    <a
+                      href="https://github.com/MetaMask/ocap-kernel/blob/8c4f04ba2889c442f5e0cc4eb43f5b6b9d80c39c/packages/ocap-kernel/src/types.ts#L350"
+                      >packages/ocap-kernel/src/types.ts:350</a
+                    >
+                  </li>
+                </ul>
+              </aside>
+            </section>
+            <section class="tsd-panel tsd-member">
+              <h3 class="tsd-anchor-link" id="initializeremotecomms">
+                <span>initialize<wbr />Remote<wbr />Comms</span
+                ><a
+                  href="#initializeremotecomms"
+                  aria-label="Permalink"
+                  class="tsd-anchor-icon"
+                  ><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <use href="../assets/icons.svg#icon-anchor"></use></svg
+                ></a>
+              </h3>
+              <div class="tsd-signature">
+                <span class="tsd-kind-property">initializeRemoteComms</span
+                ><span class="tsd-signature-symbol">:</span>
+                <span class="tsd-signature-symbol">(</span><br />    <span
+                  class="tsd-kind-parameter"
+                  >keySeed</span
+                ><span class="tsd-signature-symbol">:</span>
+                <span class="tsd-signature-type">string</span
+                ><span class="tsd-signature-symbol">,</span><br />    <span
+                  class="tsd-kind-parameter"
+                  >options</span
+                ><span class="tsd-signature-symbol">:</span>
+                <a
+                  href="RemoteCommsOptions.html"
+                  class="tsd-signature-type tsd-kind-type-alias"
+                  >RemoteCommsOptions</a
+                ><span class="tsd-signature-symbol">,</span><br />    <span
+                  class="tsd-kind-parameter"
+                  >remoteMessageHandler</span
+                ><span class="tsd-signature-symbol">:</span>
+                <a
+                  href="RemoteMessageHandler.html"
+                  class="tsd-signature-type tsd-kind-type-alias"
+                  >RemoteMessageHandler</a
+                ><span class="tsd-signature-symbol">,</span><br />    <span
+                  class="tsd-kind-parameter"
+                  >onRemoteGiveUp</span
+                ><span class="tsd-signature-symbol">?:</span>
+                <span class="tsd-signature-type">OnRemoteGiveUp</span
+                ><span class="tsd-signature-symbol">,</span><br /><span
+                  class="tsd-signature-symbol"
+                  >)</span
+                >
+                <span class="tsd-signature-symbol">=&gt;</span>
+                <span class="tsd-signature-type">Promise</span
+                ><span class="tsd-signature-symbol">&lt;</span
+                ><span class="tsd-signature-type">void</span
+                ><span class="tsd-signature-symbol">&gt;</span>
+              </div>
+              <div class="tsd-comment tsd-typography">
+                <p>Initialize network communications.</p>
+              </div>
+              <div class="tsd-type-declaration">
+                <h4>Type declaration</h4>
+                <ul class="tsd-parameters">
+                  <li class="tsd-parameter-signature">
+                    <ul class="tsd-signatures">
+                      <li class="tsd-signature">
+                        <span class="tsd-signature-symbol">(</span
+                        ><br />    <span class="tsd-kind-parameter"
+                          >keySeed</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <span class="tsd-signature-type">string</span
+                        ><span class="tsd-signature-symbol">,</span
+                        ><br />    <span class="tsd-kind-parameter"
+                          >options</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <a
+                          href="RemoteCommsOptions.html"
+                          class="tsd-signature-type tsd-kind-type-alias"
+                          >RemoteCommsOptions</a
+                        ><span class="tsd-signature-symbol">,</span
+                        ><br />    <span class="tsd-kind-parameter"
+                          >remoteMessageHandler</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <a
+                          href="RemoteMessageHandler.html"
+                          class="tsd-signature-type tsd-kind-type-alias"
+                          >RemoteMessageHandler</a
+                        ><span class="tsd-signature-symbol">,</span
+                        ><br />    <span class="tsd-kind-parameter"
+                          >onRemoteGiveUp</span
+                        ><span class="tsd-signature-symbol">?:</span>
+                        <span class="tsd-signature-type">OnRemoteGiveUp</span
+                        ><span class="tsd-signature-symbol">,</span><br /><span
+                          class="tsd-signature-symbol"
+                          >)</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <span class="tsd-signature-type">Promise</span
+                        ><span class="tsd-signature-symbol">&lt;</span
+                        ><span class="tsd-signature-type">void</span
+                        ><span class="tsd-signature-symbol">&gt;</span>
+                      </li>
+                      <li class="tsd-description">
+                        <div class="tsd-parameters">
+                          <h4 class="tsd-parameters-title">Parameters</h4>
+                          <ul class="tsd-parameter-list">
+                            <li>
+                              <span
+                                ><span class="tsd-kind-parameter">keySeed</span
+                                >:
+                                <span class="tsd-signature-type"
+                                  >string</span
+                                ></span
+                              >
+                              <div class="tsd-comment tsd-typography">
+                                <p>
+                                  The seed for generating this kernel's secret
+                                  key.
+                                </p>
+                              </div>
+                              <div class="tsd-comment tsd-typography"></div>
+                            </li>
+                            <li>
+                              <span
+                                ><span class="tsd-kind-parameter">options</span
+                                >:
+                                <a
+                                  href="RemoteCommsOptions.html"
+                                  class="tsd-signature-type tsd-kind-type-alias"
+                                  >RemoteCommsOptions</a
+                                ></span
+                              >
+                              <div class="tsd-comment tsd-typography">
+                                <p>
+                                  Options for remote communications
+                                  initialization.
+                                </p>
+                              </div>
+                              <div class="tsd-comment tsd-typography"></div>
+                              <div class="tsd-comment tsd-typography">
+                                <p>
+                                  Options for initializing remote
+                                  communications.
+                                </p>
+                              </div>
+                              <ul class="tsd-parameters">
+                                <li class="tsd-parameter">
+                                  <h5 id="cleanupintervalms">
+                                    <code class="tsd-tag">Optional</code
+                                    ><span class="tsd-kind-property"
+                                      >cleanupIntervalMs</span
+                                    ><span class="tsd-signature-symbol"
+                                      >?: </span
+                                    ><span class="tsd-signature-type"
+                                      >number</span
+                                    >
+                                  </h5>
+                                  <div class="tsd-comment tsd-typography">
+                                    <p>
+                                      Interval in milliseconds between stale
+                                      peer cleanup runs (default: 15 minutes).
+                                      Controls how often the system checks for
+                                      and removes stale peer data.
+                                    </p>
+                                  </div>
+                                  <div class="tsd-comment tsd-typography"></div>
+                                </li>
+                                <li class="tsd-parameter">
+                                  <h5 id="maxconcurrentconnections">
+                                    <code class="tsd-tag">Optional</code
+                                    ><span class="tsd-kind-property"
+                                      >maxConcurrentConnections</span
+                                    ><span class="tsd-signature-symbol"
+                                      >?: </span
+                                    ><span class="tsd-signature-type"
+                                      >number</span
+                                    >
+                                  </h5>
+                                  <div class="tsd-comment tsd-typography">
+                                    <p>
+                                      Maximum number of concurrent connections
+                                      (default: 100). When the limit is reached,
+                                      new outbound connections are rejected with
+                                      ResourceLimitError and inbound connections
+                                      are closed immediately.
+                                    </p>
+                                  </div>
+                                  <div class="tsd-comment tsd-typography"></div>
+                                </li>
+                                <li class="tsd-parameter">
+                                  <h5 id="maxmessagesizebytes">
+                                    <code class="tsd-tag">Optional</code
+                                    ><span class="tsd-kind-property"
+                                      >maxMessageSizeBytes</span
+                                    ><span class="tsd-signature-symbol"
+                                      >?: </span
+                                    ><span class="tsd-signature-type"
+                                      >number</span
+                                    >
+                                  </h5>
+                                  <div class="tsd-comment tsd-typography">
+                                    <p>
+                                      Maximum message size in bytes (default:
+                                      1MB). Messages exceeding this limit are
+                                      immediately rejected with
+                                      ResourceLimitError before any connection
+                                      or queuing attempt.
+                                    </p>
+                                  </div>
+                                  <div class="tsd-comment tsd-typography"></div>
+                                </li>
+                                <li class="tsd-parameter">
+                                  <h5 id="maxqueue">
+                                    <code class="tsd-tag">Optional</code
+                                    ><span class="tsd-kind-property"
+                                      >maxQueue</span
+                                    ><span class="tsd-signature-symbol"
+                                      >?: </span
+                                    ><span class="tsd-signature-type"
+                                      >number</span
+                                    >
+                                  </h5>
+                                  <div class="tsd-comment tsd-typography">
+                                    <p>
+                                      Maximum number of messages to queue per
+                                      peer while reconnecting. If not provided,
+                                      uses the default MAX_QUEUE value (200).
+                                    </p>
+                                  </div>
+                                  <div class="tsd-comment tsd-typography"></div>
+                                </li>
+                                <li class="tsd-parameter">
+                                  <h5 id="maxretryattempts">
+                                    <code class="tsd-tag">Optional</code
+                                    ><span class="tsd-kind-property"
+                                      >maxRetryAttempts</span
+                                    ><span class="tsd-signature-symbol"
+                                      >?: </span
+                                    ><span class="tsd-signature-type"
+                                      >number</span
+                                    >
+                                  </h5>
+                                  <div class="tsd-comment tsd-typography">
+                                    <p>
+                                      Maximum number of reconnection attempts. 0
+                                      = infinite (default). If not provided,
+                                      uses DEFAULT_MAX_RETRY_ATTEMPTS.
+                                    </p>
+                                  </div>
+                                  <div class="tsd-comment tsd-typography"></div>
+                                </li>
+                                <li class="tsd-parameter">
+                                  <h5 id="relays">
+                                    <code class="tsd-tag">Optional</code
+                                    ><span class="tsd-kind-property"
+                                      >relays</span
+                                    ><span class="tsd-signature-symbol"
+                                      >?: </span
+                                    ><span class="tsd-signature-type"
+                                      >string</span
+                                    ><span class="tsd-signature-symbol"
+                                      >[]</span
+                                    >
+                                  </h5>
+                                  <div class="tsd-comment tsd-typography">
+                                    <p>
+                                      Array of relay peer IDs/multiaddrs to use
+                                      for remote communications.
+                                    </p>
+                                  </div>
+                                  <div class="tsd-comment tsd-typography"></div>
+                                </li>
+                                <li class="tsd-parameter">
+                                  <h5 id="stalepeertimeoutms">
+                                    <code class="tsd-tag">Optional</code
+                                    ><span class="tsd-kind-property"
+                                      >stalePeerTimeoutMs</span
+                                    ><span class="tsd-signature-symbol"
+                                      >?: </span
+                                    ><span class="tsd-signature-type"
+                                      >number</span
+                                    >
+                                  </h5>
+                                  <div class="tsd-comment tsd-typography">
+                                    <p>
+                                      Time in milliseconds before a disconnected
+                                      peer is considered stale (default: 1
+                                      hour). When a peer has been disconnected
+                                      for longer than this duration and is not
+                                      actively reconnecting, its data is cleaned
+                                      up including: message queues, location
+                                      hints, connection timestamps, and
+                                      reconnection state.
+                                    </p>
+                                  </div>
+                                  <div class="tsd-comment tsd-typography"></div>
+                                </li>
+                              </ul>
+                            </li>
+                            <li>
+                              <span
+                                ><span class="tsd-kind-parameter"
+                                  >remoteMessageHandler</span
+                                >:
+                                <a
+                                  href="RemoteMessageHandler.html"
+                                  class="tsd-signature-type tsd-kind-type-alias"
+                                  >RemoteMessageHandler</a
+                                ></span
+                              >
+                              <div class="tsd-comment tsd-typography">
+                                <p>
+                                  A handler function to receive remote messages.
+                                </p>
+                              </div>
+                              <div class="tsd-comment tsd-typography"></div>
+                            </li>
+                            <li>
+                              <span
+                                ><code class="tsd-tag">Optional</code
+                                ><span class="tsd-kind-parameter"
+                                  >onRemoteGiveUp</span
+                                >:
+                                <span class="tsd-signature-type"
+                                  >OnRemoteGiveUp</span
+                                ></span
+                              >
+                              <div class="tsd-comment tsd-typography">
+                                <p>
+                                  Optional callback to be called when we give up
+                                  on a remote.
+                                </p>
+                              </div>
+                              <div class="tsd-comment tsd-typography"></div>
+                            </li>
+                          </ul>
+                        </div>
+                        <h4 class="tsd-returns-title">
+                          Returns <span class="tsd-signature-type">Promise</span
+                          ><span class="tsd-signature-symbol">&lt;</span
+                          ><span class="tsd-signature-type">void</span
+                          ><span class="tsd-signature-symbol">&gt;</span>
+                        </h4>
+                        <p>
+                          A promise that resolves once network access has been
+                          established or rejects if there is some problem doing
+                          so.
+                        </p>
+                        <div class="tsd-comment tsd-typography"></div>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+              <div class="tsd-comment tsd-typography"></div>
+              <aside class="tsd-sources">
+                <ul>
+                  <li>
+                    Defined in
+                    <a
+                      href="https://github.com/MetaMask/ocap-kernel/blob/8c4f04ba2889c442f5e0cc4eb43f5b6b9d80c39c/packages/ocap-kernel/src/types.ts#L330"
+                      >packages/ocap-kernel/src/types.ts:330</a
+                    >
+                  </li>
+                </ul>
+              </aside>
+            </section>
+            <section class="tsd-panel tsd-member">
+              <h3 class="tsd-anchor-link" id="launch">
+                <span>launch</span
+                ><a
+                  href="#launch"
+                  aria-label="Permalink"
+                  class="tsd-anchor-icon"
+                  ><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <use href="../assets/icons.svg#icon-anchor"></use></svg
+                ></a>
+              </h3>
+              <div class="tsd-signature">
+                <span class="tsd-kind-property">launch</span
+                ><span class="tsd-signature-symbol">:</span>
+                <span class="tsd-signature-symbol">(</span><br />    <span
+                  class="tsd-kind-parameter"
+                  >vatId</span
+                ><span class="tsd-signature-symbol">:</span>
+                <a
+                  href="VatId.html"
+                  class="tsd-signature-type tsd-kind-type-alias"
+                  >VatId</a
+                ><span class="tsd-signature-symbol">,</span><br />    <span
+                  class="tsd-kind-parameter"
+                  >vatConfig</span
+                ><span class="tsd-signature-symbol">:</span>
+                <a
+                  href="VatConfig.html"
+                  class="tsd-signature-type tsd-kind-type-alias"
+                  >VatConfig</a
+                ><span class="tsd-signature-symbol">,</span><br /><span
+                  class="tsd-signature-symbol"
+                  >)</span
+                >
+                <span class="tsd-signature-symbol">=&gt;</span>
+                <span class="tsd-signature-type">Promise</span
+                ><span class="tsd-signature-symbol">&lt;</span
+                ><span class="tsd-signature-type">DuplexStream</span
+                ><span class="tsd-signature-symbol">&lt;</span
+                ><span class="tsd-signature-type">JsonRpcMessage</span
+                ><span class="tsd-signature-symbol">,</span>
+                <span class="tsd-signature-type">JsonRpcMessage</span
+                ><span class="tsd-signature-symbol">&gt;</span
+                ><span class="tsd-signature-symbol">&gt;</span>
+              </div>
+              <div class="tsd-comment tsd-typography">
+                <p>Launch a new worker with a specific vat id.</p>
+              </div>
+              <div class="tsd-type-declaration">
+                <h4>Type declaration</h4>
+                <ul class="tsd-parameters">
+                  <li class="tsd-parameter-signature">
+                    <ul class="tsd-signatures">
+                      <li class="tsd-signature">
+                        <span class="tsd-signature-symbol">(</span
+                        ><br />    <span class="tsd-kind-parameter">vatId</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <a
+                          href="VatId.html"
+                          class="tsd-signature-type tsd-kind-type-alias"
+                          >VatId</a
+                        ><span class="tsd-signature-symbol">,</span
+                        ><br />    <span class="tsd-kind-parameter"
+                          >vatConfig</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <a
+                          href="VatConfig.html"
+                          class="tsd-signature-type tsd-kind-type-alias"
+                          >VatConfig</a
+                        ><span class="tsd-signature-symbol">,</span><br /><span
+                          class="tsd-signature-symbol"
+                          >)</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <span class="tsd-signature-type">Promise</span
+                        ><span class="tsd-signature-symbol">&lt;</span
+                        ><span class="tsd-signature-type">DuplexStream</span
+                        ><span class="tsd-signature-symbol">&lt;</span
+                        ><span class="tsd-signature-type">JsonRpcMessage</span
+                        ><span class="tsd-signature-symbol">,</span>
+                        <span class="tsd-signature-type">JsonRpcMessage</span
+                        ><span class="tsd-signature-symbol">&gt;</span
+                        ><span class="tsd-signature-symbol">&gt;</span>
+                      </li>
+                      <li class="tsd-description">
+                        <div class="tsd-parameters">
+                          <h4 class="tsd-parameters-title">Parameters</h4>
+                          <ul class="tsd-parameter-list">
+                            <li>
+                              <span
+                                ><span class="tsd-kind-parameter">vatId</span>:
+                                <a
+                                  href="VatId.html"
+                                  class="tsd-signature-type tsd-kind-type-alias"
+                                  >VatId</a
+                                ></span
+                              >
+                              <div class="tsd-comment tsd-typography">
+                                <p>The vat id of the worker to launch.</p>
+                              </div>
+                              <div class="tsd-comment tsd-typography"></div>
+                            </li>
+                            <li>
+                              <span
+                                ><span class="tsd-kind-parameter"
+                                  >vatConfig</span
+                                >:
+                                <a
+                                  href="VatConfig.html"
+                                  class="tsd-signature-type tsd-kind-type-alias"
+                                  >VatConfig</a
+                                ></span
+                              >
+                              <div class="tsd-comment tsd-typography">
+                                <p>Configuration object describing vat.</p>
+                              </div>
+                              <div class="tsd-comment tsd-typography"></div>
+                            </li>
+                          </ul>
+                        </div>
+                        <h4 class="tsd-returns-title">
+                          Returns <span class="tsd-signature-type">Promise</span
+                          ><span class="tsd-signature-symbol">&lt;</span
+                          ><span class="tsd-signature-type">DuplexStream</span
+                          ><span class="tsd-signature-symbol">&lt;</span
+                          ><span class="tsd-signature-type">JsonRpcMessage</span
+                          ><span class="tsd-signature-symbol">,</span>
+                          <span class="tsd-signature-type">JsonRpcMessage</span
+                          ><span class="tsd-signature-symbol">&gt;</span
+                          ><span class="tsd-signature-symbol">&gt;</span>
+                        </h4>
+                        <p>
+                          A promise for a duplex stream connected to the worker
+                          which rejects if a worker with the given vat id
+                          already exists.
+                        </p>
+                        <div class="tsd-comment tsd-typography"></div>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+              <div class="tsd-comment tsd-typography"></div>
+              <aside class="tsd-sources">
+                <ul>
+                  <li>
+                    Defined in
+                    <a
+                      href="https://github.com/MetaMask/ocap-kernel/blob/8c4f04ba2889c442f5e0cc4eb43f5b6b9d80c39c/packages/ocap-kernel/src/types.ts#L286"
+                      >packages/ocap-kernel/src/types.ts:286</a
+                    >
+                  </li>
+                </ul>
+              </aside>
+            </section>
+            <section class="tsd-panel tsd-member">
+              <h3 class="tsd-anchor-link" id="reconnectpeer">
+                <span>reconnect<wbr />Peer</span
+                ><a
+                  href="#reconnectpeer"
+                  aria-label="Permalink"
+                  class="tsd-anchor-icon"
+                  ><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <use href="../assets/icons.svg#icon-anchor"></use></svg
+                ></a>
+              </h3>
+              <div class="tsd-signature">
+                <span class="tsd-kind-property">reconnectPeer</span
+                ><span class="tsd-signature-symbol">:</span>
+                <span class="tsd-signature-symbol">(</span
+                ><span class="tsd-kind-parameter">peerId</span
+                ><span class="tsd-signature-symbol">:</span>
+                <span class="tsd-signature-type">string</span
+                ><span class="tsd-signature-symbol">,</span>
+                <span class="tsd-kind-parameter">hints</span
+                ><span class="tsd-signature-symbol">?:</span>
+                <span class="tsd-signature-type">string</span
+                ><span class="tsd-signature-symbol">[]</span
+                ><span class="tsd-signature-symbol">)</span>
+                <span class="tsd-signature-symbol">=&gt;</span>
+                <span class="tsd-signature-type">Promise</span
+                ><span class="tsd-signature-symbol">&lt;</span
+                ><span class="tsd-signature-type">void</span
+                ><span class="tsd-signature-symbol">&gt;</span>
+              </div>
+              <div class="tsd-comment tsd-typography">
+                <p>
+                  Manually reconnect to a peer after intentional close. Clears
+                  the intentional close flag and initiates reconnection.
+                </p>
+              </div>
+              <div class="tsd-type-declaration">
+                <h4>Type declaration</h4>
+                <ul class="tsd-parameters">
+                  <li class="tsd-parameter-signature">
+                    <ul class="tsd-signatures">
+                      <li class="tsd-signature">
+                        <span class="tsd-signature-symbol">(</span
+                        ><span class="tsd-kind-parameter">peerId</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <span class="tsd-signature-type">string</span
+                        ><span class="tsd-signature-symbol">,</span>
+                        <span class="tsd-kind-parameter">hints</span
+                        ><span class="tsd-signature-symbol">?:</span>
+                        <span class="tsd-signature-type">string</span
+                        ><span class="tsd-signature-symbol">[]</span
+                        ><span class="tsd-signature-symbol">)</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <span class="tsd-signature-type">Promise</span
+                        ><span class="tsd-signature-symbol">&lt;</span
+                        ><span class="tsd-signature-type">void</span
+                        ><span class="tsd-signature-symbol">&gt;</span>
+                      </li>
+                      <li class="tsd-description">
+                        <div class="tsd-parameters">
+                          <h4 class="tsd-parameters-title">Parameters</h4>
+                          <ul class="tsd-parameter-list">
+                            <li>
+                              <span
+                                ><span class="tsd-kind-parameter">peerId</span>:
+                                <span class="tsd-signature-type"
+                                  >string</span
+                                ></span
+                              >
+                              <div class="tsd-comment tsd-typography">
+                                <p>The peer ID to reconnect to.</p>
+                              </div>
+                              <div class="tsd-comment tsd-typography"></div>
+                            </li>
+                            <li>
+                              <span
+                                ><code class="tsd-tag">Optional</code
+                                ><span class="tsd-kind-parameter">hints</span>:
+                                <span class="tsd-signature-type">string</span
+                                ><span class="tsd-signature-symbol"
+                                  >[]</span
+                                ></span
+                              >
+                              <div class="tsd-comment tsd-typography">
+                                <p>Optional hints for reconnection.</p>
+                              </div>
+                              <div class="tsd-comment tsd-typography"></div>
+                            </li>
+                          </ul>
+                        </div>
+                        <h4 class="tsd-returns-title">
+                          Returns <span class="tsd-signature-type">Promise</span
+                          ><span class="tsd-signature-symbol">&lt;</span
+                          ><span class="tsd-signature-type">void</span
+                          ><span class="tsd-signature-symbol">&gt;</span>
+                        </h4>
+                        <p>
+                          A promise that resolves when reconnection is
+                          initiated.
+                        </p>
+                        <div class="tsd-comment tsd-typography"></div>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+              <div class="tsd-comment tsd-typography"></div>
+              <aside class="tsd-sources">
+                <ul>
+                  <li>
+                    Defined in
+                    <a
+                      href="https://github.com/MetaMask/ocap-kernel/blob/8c4f04ba2889c442f5e0cc4eb43f5b6b9d80c39c/packages/ocap-kernel/src/types.ts#L366"
+                      >packages/ocap-kernel/src/types.ts:366</a
+                    >
+                  </li>
+                </ul>
+              </aside>
+            </section>
+            <section class="tsd-panel tsd-member">
+              <h3 class="tsd-anchor-link" id="registerlocationhints">
+                <span>register<wbr />Location<wbr />Hints</span
+                ><a
+                  href="#registerlocationhints"
+                  aria-label="Permalink"
+                  class="tsd-anchor-icon"
+                  ><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <use href="../assets/icons.svg#icon-anchor"></use></svg
+                ></a>
+              </h3>
+              <div class="tsd-signature">
+                <span class="tsd-kind-property">registerLocationHints</span
+                ><span class="tsd-signature-symbol">:</span>
+                <span class="tsd-signature-symbol">(</span
+                ><span class="tsd-kind-parameter">peerId</span
+                ><span class="tsd-signature-symbol">:</span>
+                <span class="tsd-signature-type">string</span
+                ><span class="tsd-signature-symbol">,</span>
+                <span class="tsd-kind-parameter">hints</span
+                ><span class="tsd-signature-symbol">:</span>
+                <span class="tsd-signature-type">string</span
+                ><span class="tsd-signature-symbol">[]</span
+                ><span class="tsd-signature-symbol">)</span>
+                <span class="tsd-signature-symbol">=&gt;</span>
+                <span class="tsd-signature-type">Promise</span
+                ><span class="tsd-signature-symbol">&lt;</span
+                ><span class="tsd-signature-type">void</span
+                ><span class="tsd-signature-symbol">&gt;</span>
+              </div>
+              <div class="tsd-comment tsd-typography">
+                <p>Take note of where a peer might be.</p>
+              </div>
+              <div class="tsd-type-declaration">
+                <h4>Type declaration</h4>
+                <ul class="tsd-parameters">
+                  <li class="tsd-parameter-signature">
+                    <ul class="tsd-signatures">
+                      <li class="tsd-signature">
+                        <span class="tsd-signature-symbol">(</span
+                        ><span class="tsd-kind-parameter">peerId</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <span class="tsd-signature-type">string</span
+                        ><span class="tsd-signature-symbol">,</span>
+                        <span class="tsd-kind-parameter">hints</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <span class="tsd-signature-type">string</span
+                        ><span class="tsd-signature-symbol">[]</span
+                        ><span class="tsd-signature-symbol">)</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <span class="tsd-signature-type">Promise</span
+                        ><span class="tsd-signature-symbol">&lt;</span
+                        ><span class="tsd-signature-type">void</span
+                        ><span class="tsd-signature-symbol">&gt;</span>
+                      </li>
+                      <li class="tsd-description">
+                        <div class="tsd-parameters">
+                          <h4 class="tsd-parameters-title">Parameters</h4>
+                          <ul class="tsd-parameter-list">
+                            <li>
+                              <span
+                                ><span class="tsd-kind-parameter">peerId</span>:
+                                <span class="tsd-signature-type"
+                                  >string</span
+                                ></span
+                              >
+                              <div class="tsd-comment tsd-typography">
+                                <p>
+                                  The peer ID to which this information applies
+                                </p>
+                              </div>
+                              <div class="tsd-comment tsd-typography"></div>
+                            </li>
+                            <li>
+                              <span
+                                ><span class="tsd-kind-parameter">hints</span>:
+                                <span class="tsd-signature-type">string</span
+                                ><span class="tsd-signature-symbol"
+                                  >[]</span
+                                ></span
+                              >
+                              <div class="tsd-comment tsd-typography">
+                                <p>Location hints for the peer.</p>
+                              </div>
+                              <div class="tsd-comment tsd-typography"></div>
+                            </li>
+                          </ul>
+                        </div>
+                        <h4 class="tsd-returns-title">
+                          Returns <span class="tsd-signature-type">Promise</span
+                          ><span class="tsd-signature-symbol">&lt;</span
+                          ><span class="tsd-signature-type">void</span
+                          ><span class="tsd-signature-symbol">&gt;</span>
+                        </h4>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+              <div class="tsd-comment tsd-typography"></div>
+              <aside class="tsd-sources">
+                <ul>
+                  <li>
+                    Defined in
+                    <a
+                      href="https://github.com/MetaMask/ocap-kernel/blob/8c4f04ba2889c442f5e0cc4eb43f5b6b9d80c39c/packages/ocap-kernel/src/types.ts#L357"
+                      >packages/ocap-kernel/src/types.ts:357</a
+                    >
+                  </li>
+                </ul>
+              </aside>
+            </section>
+            <section class="tsd-panel tsd-member">
+              <h3 class="tsd-anchor-link" id="sendremotemessage">
+                <span>send<wbr />Remote<wbr />Message</span
+                ><a
+                  href="#sendremotemessage"
+                  aria-label="Permalink"
+                  class="tsd-anchor-icon"
+                  ><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <use href="../assets/icons.svg#icon-anchor"></use></svg
+                ></a>
+              </h3>
+              <div class="tsd-signature">
+                <span class="tsd-kind-property">sendRemoteMessage</span
+                ><span class="tsd-signature-symbol">:</span>
+                <a
+                  href="SendRemoteMessage.html"
+                  class="tsd-signature-type tsd-kind-type-alias"
+                  >SendRemoteMessage</a
+                >
+              </div>
+              <div class="tsd-comment tsd-typography">
+                <p>Send a message over the network to another kernel.</p>
+              </div>
+              <div class="tsd-comment tsd-typography">
+                <div class="tsd-tag-param">
+                  <h4 class="tsd-anchor-link" id="param-to">
+                    Param: to<a
+                      href="#param-to"
+                      aria-label="Permalink"
+                      class="tsd-anchor-icon"
+                      ><svg viewBox="0 0 24 24" aria-hidden="true">
+                        <use href="../assets/icons.svg#icon-anchor"></use></svg
+                    ></a>
+                  </h4>
+                  <p>The network peer to whom to send the message.</p>
+                </div>
+                <div class="tsd-tag-param">
+                  <h4 class="tsd-anchor-link" id="param-message">
+                    Param: message<a
+                      href="#param-message"
+                      aria-label="Permalink"
+                      class="tsd-anchor-icon"
+                      ><svg viewBox="0 0 24 24" aria-hidden="true">
+                        <use href="../assets/icons.svg#icon-anchor"></use></svg
+                    ></a>
+                  </h4>
+                  <p>The message itself.</p>
+                </div>
+                <div class="tsd-tag-returns">
+                  <h4 class="tsd-anchor-link" id="returns">
+                    Returns<a
+                      href="#returns"
+                      aria-label="Permalink"
+                      class="tsd-anchor-icon"
+                      ><svg viewBox="0 0 24 24" aria-hidden="true">
+                        <use href="../assets/icons.svg#icon-anchor"></use></svg
+                    ></a>
+                  </h4>
+                  <p>
+                    A promise that resolves when the message has been
+                    transmitted or rejects if there is some problem doing so.
+                  </p>
+                </div>
+              </div>
+              <aside class="tsd-sources">
+                <ul>
+                  <li>
+                    Defined in
+                    <a
+                      href="https://github.com/MetaMask/ocap-kernel/blob/8c4f04ba2889c442f5e0cc4eb43f5b6b9d80c39c/packages/ocap-kernel/src/types.ts#L315"
+                      >packages/ocap-kernel/src/types.ts:315</a
+                    >
+                  </li>
+                </ul>
+              </aside>
+            </section>
+            <section class="tsd-panel tsd-member">
+              <h3 class="tsd-anchor-link" id="stopremotecomms">
+                <span>stop<wbr />Remote<wbr />Comms</span
+                ><a
+                  href="#stopremotecomms"
+                  aria-label="Permalink"
+                  class="tsd-anchor-icon"
+                  ><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <use href="../assets/icons.svg#icon-anchor"></use></svg
+                ></a>
+              </h3>
+              <div class="tsd-signature">
+                <span class="tsd-kind-property">stopRemoteComms</span
+                ><span class="tsd-signature-symbol">:</span>
+                <a
+                  href="StopRemoteComms.html"
+                  class="tsd-signature-type tsd-kind-type-alias"
+                  >StopRemoteComms</a
+                >
+              </div>
+              <div class="tsd-comment tsd-typography">
+                <p>Stop network communications.</p>
+              </div>
+              <div class="tsd-comment tsd-typography">
+                <div class="tsd-tag-returns">
+                  <h4 class="tsd-anchor-link" id="returns-1">
+                    Returns<a
+                      href="#returns-1"
+                      aria-label="Permalink"
+                      class="tsd-anchor-icon"
+                      ><svg viewBox="0 0 24 24" aria-hidden="true">
+                        <use href="../assets/icons.svg#icon-anchor"></use></svg
+                    ></a>
+                  </h4>
+                  <p>
+                    A promise that resolves when network access has been stopped
+                    or rejects if there is some problem doing so.
+                  </p>
+                </div>
+              </div>
+              <aside class="tsd-sources">
+                <ul>
+                  <li>
+                    Defined in
+                    <a
+                      href="https://github.com/MetaMask/ocap-kernel/blob/8c4f04ba2889c442f5e0cc4eb43f5b6b9d80c39c/packages/ocap-kernel/src/types.ts#L342"
+                      >packages/ocap-kernel/src/types.ts:342</a
+                    >
+                  </li>
+                </ul>
+              </aside>
+            </section>
+            <section class="tsd-panel tsd-member">
+              <h3 class="tsd-anchor-link" id="terminate">
+                <span>terminate</span
+                ><a
+                  href="#terminate"
+                  aria-label="Permalink"
+                  class="tsd-anchor-icon"
+                  ><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <use href="../assets/icons.svg#icon-anchor"></use></svg
+                ></a>
+              </h3>
+              <div class="tsd-signature">
+                <span class="tsd-kind-property">terminate</span
+                ><span class="tsd-signature-symbol">:</span>
+                <span class="tsd-signature-symbol">(</span
+                ><span class="tsd-kind-parameter">vatId</span
+                ><span class="tsd-signature-symbol">:</span>
+                <a
+                  href="VatId.html"
+                  class="tsd-signature-type tsd-kind-type-alias"
+                  >VatId</a
+                ><span class="tsd-signature-symbol">,</span>
+                <span class="tsd-kind-parameter">error</span
+                ><span class="tsd-signature-symbol">?:</span>
+                <span class="tsd-signature-type">Error</span
+                ><span class="tsd-signature-symbol">)</span>
+                <span class="tsd-signature-symbol">=&gt;</span>
+                <span class="tsd-signature-type">Promise</span
+                ><span class="tsd-signature-symbol">&lt;</span
+                ><span class="tsd-signature-type">void</span
+                ><span class="tsd-signature-symbol">&gt;</span>
+              </div>
+              <div class="tsd-comment tsd-typography">
+                <p>Terminate a worker identified by its vat id.</p>
+              </div>
+              <div class="tsd-type-declaration">
+                <h4>Type declaration</h4>
+                <ul class="tsd-parameters">
+                  <li class="tsd-parameter-signature">
+                    <ul class="tsd-signatures">
+                      <li class="tsd-signature">
+                        <span class="tsd-signature-symbol">(</span
+                        ><span class="tsd-kind-parameter">vatId</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <a
+                          href="VatId.html"
+                          class="tsd-signature-type tsd-kind-type-alias"
+                          >VatId</a
+                        ><span class="tsd-signature-symbol">,</span>
+                        <span class="tsd-kind-parameter">error</span
+                        ><span class="tsd-signature-symbol">?:</span>
+                        <span class="tsd-signature-type">Error</span
+                        ><span class="tsd-signature-symbol">)</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <span class="tsd-signature-type">Promise</span
+                        ><span class="tsd-signature-symbol">&lt;</span
+                        ><span class="tsd-signature-type">void</span
+                        ><span class="tsd-signature-symbol">&gt;</span>
+                      </li>
+                      <li class="tsd-description">
+                        <div class="tsd-parameters">
+                          <h4 class="tsd-parameters-title">Parameters</h4>
+                          <ul class="tsd-parameter-list">
+                            <li>
+                              <span
+                                ><span class="tsd-kind-parameter">vatId</span>:
+                                <a
+                                  href="VatId.html"
+                                  class="tsd-signature-type tsd-kind-type-alias"
+                                  >VatId</a
+                                ></span
+                              >
+                              <div class="tsd-comment tsd-typography">
+                                <p>The vat id of the worker to terminate.</p>
+                              </div>
+                              <div class="tsd-comment tsd-typography"></div>
+                            </li>
+                            <li>
+                              <span
+                                ><code class="tsd-tag">Optional</code
+                                ><span class="tsd-kind-parameter">error</span>:
+                                <span class="tsd-signature-type"
+                                  >Error</span
+                                ></span
+                              >
+                              <div class="tsd-comment tsd-typography">
+                                <p>
+                                  An optional error to terminate the worker
+                                  with.
+                                </p>
+                              </div>
+                              <div class="tsd-comment tsd-typography"></div>
+                            </li>
+                          </ul>
+                        </div>
+                        <h4 class="tsd-returns-title">
+                          Returns <span class="tsd-signature-type">Promise</span
+                          ><span class="tsd-signature-symbol">&lt;</span
+                          ><span class="tsd-signature-type">void</span
+                          ><span class="tsd-signature-symbol">&gt;</span>
+                        </h4>
+                        <p>
+                          A promise that resolves when the worker has terminated
+                          or rejects if that worker does not exist.
+                        </p>
+                        <div class="tsd-comment tsd-typography"></div>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+              <div class="tsd-comment tsd-typography"></div>
+              <aside class="tsd-sources">
+                <ul>
+                  <li>
+                    Defined in
+                    <a
+                      href="https://github.com/MetaMask/ocap-kernel/blob/8c4f04ba2889c442f5e0cc4eb43f5b6b9d80c39c/packages/ocap-kernel/src/types.ts#L298"
+                      >packages/ocap-kernel/src/types.ts:298</a
+                    >
+                  </li>
+                </ul>
+              </aside>
+            </section>
+            <section class="tsd-panel tsd-member">
+              <h3 class="tsd-anchor-link" id="terminateall">
+                <span>terminate<wbr />All</span
+                ><a
+                  href="#terminateall"
+                  aria-label="Permalink"
+                  class="tsd-anchor-icon"
+                  ><svg viewBox="0 0 24 24" aria-hidden="true">
+                    <use href="../assets/icons.svg#icon-anchor"></use></svg
+                ></a>
+              </h3>
+              <div class="tsd-signature">
+                <span class="tsd-kind-property">terminateAll</span
+                ><span class="tsd-signature-symbol">:</span>
+                <span class="tsd-signature-symbol">()</span>
+                <span class="tsd-signature-symbol">=&gt;</span>
+                <span class="tsd-signature-type">Promise</span
+                ><span class="tsd-signature-symbol">&lt;</span
+                ><span class="tsd-signature-type">void</span
+                ><span class="tsd-signature-symbol">&gt;</span>
+              </div>
+              <div class="tsd-comment tsd-typography">
+                <p>Terminate all workers managed by the service.</p>
+              </div>
+              <div class="tsd-type-declaration">
+                <h4>Type declaration</h4>
+                <ul class="tsd-parameters">
+                  <li class="tsd-parameter-signature">
+                    <ul class="tsd-signatures">
+                      <li class="tsd-signature">
+                        <span class="tsd-signature-symbol">()</span
+                        ><span class="tsd-signature-symbol">:</span>
+                        <span class="tsd-signature-type">Promise</span
+                        ><span class="tsd-signature-symbol">&lt;</span
+                        ><span class="tsd-signature-type">void</span
+                        ><span class="tsd-signature-symbol">&gt;</span>
+                      </li>
+                      <li class="tsd-description">
+                        <h4 class="tsd-returns-title">
+                          Returns <span class="tsd-signature-type">Promise</span
+                          ><span class="tsd-signature-symbol">&lt;</span
+                          ><span class="tsd-signature-type">void</span
+                          ><span class="tsd-signature-symbol">&gt;</span>
+                        </h4>
+                        <p>
+                          A promise that resolves after all workers have
+                          terminated or rejects if there was an error during
+                          termination.
+                        </p>
+                        <div class="tsd-comment tsd-typography"></div>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
+              </div>
+              <div class="tsd-comment tsd-typography"></div>
+              <aside class="tsd-sources">
+                <ul>
+                  <li>
+                    Defined in
+                    <a
+                      href="https://github.com/MetaMask/ocap-kernel/blob/8c4f04ba2889c442f5e0cc4eb43f5b6b9d80c39c/packages/ocap-kernel/src/types.ts#L305"
+                      >packages/ocap-kernel/src/types.ts:305</a
+                    >
+                  </li>
+                </ul>
+              </aside>
+            </section>
+          </section>
+        </details>
+      </div>
+      <div class="col-sidebar">
+        <div class="page-menu">
+          <div class="tsd-navigation settings">
+            <details class="tsd-accordion">
+              <summary class="tsd-accordion-summary">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <use href="../assets/icons.svg#icon-chevronDown"></use>
+                </svg>
+                <h3>Settings</h3>
+              </summary>
+              <div class="tsd-accordion-details">
+                <div class="tsd-filter-visibility">
+                  <span class="settings-label">Member Visibility</span>
+                  <ul id="tsd-filter-options">
+                    <li class="tsd-filter-item">
+                      <label class="tsd-filter-input"
+                        ><input
+                          type="checkbox"
+                          id="tsd-filter-protected"
+                          name="protected"
+                        /><svg
+                          width="32"
+                          height="32"
+                          viewBox="0 0 32 32"
+                          aria-hidden="true"
+                        >
+                          <rect
+                            class="tsd-checkbox-background"
+                            width="30"
+                            height="30"
+                            x="1"
+                            y="1"
+                            rx="6"
+                            fill="none"
+                          ></rect>
+                          <path
+                            class="tsd-checkbox-checkmark"
+                            d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25"
+                            stroke="none"
+                            stroke-width="3.5"
+                            stroke-linejoin="round"
+                            fill="none"
+                          ></path></svg
+                        ><span>Protected</span></label
+                      >
+                    </li>
+                    <li class="tsd-filter-item">
+                      <label class="tsd-filter-input"
+                        ><input
+                          type="checkbox"
+                          id="tsd-filter-inherited"
+                          name="inherited"
+                          checked
+                        /><svg
+                          width="32"
+                          height="32"
+                          viewBox="0 0 32 32"
+                          aria-hidden="true"
+                        >
+                          <rect
+                            class="tsd-checkbox-background"
+                            width="30"
+                            height="30"
+                            x="1"
+                            y="1"
+                            rx="6"
+                            fill="none"
+                          ></rect>
+                          <path
+                            class="tsd-checkbox-checkmark"
+                            d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25"
+                            stroke="none"
+                            stroke-width="3.5"
+                            stroke-linejoin="round"
+                            fill="none"
+                          ></path></svg
+                        ><span>Inherited</span></label
+                      >
+                    </li>
+                    <li class="tsd-filter-item">
+                      <label class="tsd-filter-input"
+                        ><input
+                          type="checkbox"
+                          id="tsd-filter-external"
+                          name="external"
+                        /><svg
+                          width="32"
+                          height="32"
+                          viewBox="0 0 32 32"
+                          aria-hidden="true"
+                        >
+                          <rect
+                            class="tsd-checkbox-background"
+                            width="30"
+                            height="30"
+                            x="1"
+                            y="1"
+                            rx="6"
+                            fill="none"
+                          ></rect>
+                          <path
+                            class="tsd-checkbox-checkmark"
+                            d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25"
+                            stroke="none"
+                            stroke-width="3.5"
+                            stroke-linejoin="round"
+                            fill="none"
+                          ></path></svg
+                        ><span>External</span></label
+                      >
+                    </li>
+                  </ul>
+                </div>
+                <div class="tsd-theme-toggle">
+                  <label class="settings-label" for="tsd-theme">Theme</label
+                  ><select id="tsd-theme">
+                    <option value="os">OS</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                </div>
+              </div>
+            </details>
+          </div>
+          <details open class="tsd-accordion tsd-page-navigation">
+            <summary class="tsd-accordion-summary">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <use href="../assets/icons.svg#icon-chevronDown"></use>
+              </svg>
+              <h3>On This Page</h3>
+            </summary>
+            <div class="tsd-accordion-details">
+              <details open class="tsd-accordion tsd-page-navigation-section">
+                <summary
+                  class="tsd-accordion-summary"
+                  data-key="section-Properties"
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    aria-hidden="true"
+                  >
+                    <use href="../assets/icons.svg#icon-chevronDown"></use></svg
+                  >Properties
+                </summary>
+                <div>
+                  <a href="#closeconnection"
+                    ><svg
+                      class="tsd-kind-icon"
+                      viewBox="0 0 24 24"
+                      aria-label="Property"
+                    >
+                      <use href="../assets/icons.svg#icon-1024"></use></svg
+                    ><span>close<wbr />Connection</span></a
+                  ><a href="#initializeremotecomms"
+                    ><svg
+                      class="tsd-kind-icon"
+                      viewBox="0 0 24 24"
+                      aria-label="Property"
+                    >
+                      <use href="../assets/icons.svg#icon-1024"></use></svg
+                    ><span>initialize<wbr />Remote<wbr />Comms</span></a
+                  ><a href="#launch"
+                    ><svg
+                      class="tsd-kind-icon"
+                      viewBox="0 0 24 24"
+                      aria-label="Property"
+                    >
+                      <use href="../assets/icons.svg#icon-1024"></use></svg
+                    ><span>launch</span></a
+                  ><a href="#reconnectpeer"
+                    ><svg
+                      class="tsd-kind-icon"
+                      viewBox="0 0 24 24"
+                      aria-label="Property"
+                    >
+                      <use href="../assets/icons.svg#icon-1024"></use></svg
+                    ><span>reconnect<wbr />Peer</span></a
+                  ><a href="#registerlocationhints"
+                    ><svg
+                      class="tsd-kind-icon"
+                      viewBox="0 0 24 24"
+                      aria-label="Property"
+                    >
+                      <use href="../assets/icons.svg#icon-1024"></use></svg
+                    ><span>register<wbr />Location<wbr />Hints</span></a
+                  ><a href="#sendremotemessage"
+                    ><svg
+                      class="tsd-kind-icon"
+                      viewBox="0 0 24 24"
+                      aria-label="Property"
+                    >
+                      <use href="../assets/icons.svg#icon-1024"></use></svg
+                    ><span>send<wbr />Remote<wbr />Message</span></a
+                  ><a href="#stopremotecomms"
+                    ><svg
+                      class="tsd-kind-icon"
+                      viewBox="0 0 24 24"
+                      aria-label="Property"
+                    >
+                      <use href="../assets/icons.svg#icon-1024"></use></svg
+                    ><span>stop<wbr />Remote<wbr />Comms</span></a
+                  ><a href="#terminate"
+                    ><svg
+                      class="tsd-kind-icon"
+                      viewBox="0 0 24 24"
+                      aria-label="Property"
+                    >
+                      <use href="../assets/icons.svg#icon-1024"></use></svg
+                    ><span>terminate</span></a
+                  ><a href="#terminateall"
+                    ><svg
+                      class="tsd-kind-icon"
+                      viewBox="0 0 24 24"
+                      aria-label="Property"
+                    >
+                      <use href="../assets/icons.svg#icon-1024"></use></svg
+                    ><span>terminate<wbr />All</span></a
+                  >
+                </div>
+              </details>
+            </div>
+          </details>
+        </div>
+        <div class="site-menu">
+          <nav class="tsd-navigation">
+            <a href="../modules.html">@metamask/ocap-kernel</a>
+            <ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+              <li>Loading...</li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+    <footer></footer>
+    <div class="overlay"></div>
+  </body>
+</html>

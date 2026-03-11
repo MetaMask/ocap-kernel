@@ -1,0 +1,381 @@
+<!doctype html>
+<html class="default" lang="en" data-base="./">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="x-ua-compatible" content="IE=edge" />
+    <title>@ocap/create-package</title>
+    <meta name="description" content="Documentation for @ocap/create-package" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="assets/style.css" />
+    <link rel="stylesheet" href="assets/highlight.css" />
+    <script defer src="assets/main.js"></script>
+    <script async src="assets/icons.js" id="tsd-icons-script"></script>
+    <script async src="assets/search.js" id="tsd-search-script"></script>
+    <script async src="assets/navigation.js" id="tsd-nav-script"></script>
+  </head>
+  <body>
+    <script>
+      document.documentElement.dataset.theme =
+        localStorage.getItem('tsd-theme') || 'os';
+      document.body.style.display = 'none';
+      setTimeout(
+        () =>
+          window.app
+            ? app.showPage()
+            : document.body.style.removeProperty('display'),
+        500,
+      );
+    </script>
+    <header class="tsd-page-toolbar">
+      <div class="tsd-toolbar-contents container">
+        <a href="index.html" class="title">@ocap/create-package</a>
+        <div id="tsd-toolbar-links"></div>
+        <button id="tsd-search-trigger" class="tsd-widget" aria-label="Search">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <use href="assets/icons.svg#icon-search"></use>
+          </svg>
+        </button>
+        <dialog id="tsd-search" aria-label="Search">
+          <input
+            role="combobox"
+            id="tsd-search-input"
+            aria-controls="tsd-search-results"
+            aria-autocomplete="list"
+            aria-expanded="true"
+            autocapitalize="off"
+            autocomplete="off"
+            placeholder="Search the docs"
+            maxlength="100"
+          />
+          <ul role="listbox" id="tsd-search-results"></ul>
+          <div id="tsd-search-status" aria-live="polite" aria-atomic="true">
+            <div>Preparing search index...</div>
+          </div>
+        </dialog>
+        <a
+          href="#"
+          class="tsd-widget menu"
+          id="tsd-toolbar-menu-trigger"
+          data-toggle="menu"
+          aria-label="Menu"
+          ><svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+          >
+            <use href="assets/icons.svg#icon-menu"></use></svg
+        ></a>
+      </div>
+    </header>
+    <div class="container container-main">
+      <div class="col-content">
+        <div class="tsd-page-title"><h1>@ocap/create-package</h1></div>
+        <div class="tsd-panel tsd-typography">
+          <h1 id="create-package" class="tsd-anchor-link">
+            <code>create-package</code
+            ><a
+              href="#create-package"
+              aria-label="Permalink"
+              class="tsd-anchor-icon"
+              ><svg viewBox="0 0 24 24" aria-hidden="true">
+                <use href="assets/icons.svg#icon-anchor"></use></svg
+            ></a>
+          </h1>
+          <div class="tsd-alert tsd-alert-note">
+            <div class="tsd-alert-title">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                aria-hidden="true"
+              >
+                <use href="assets/icons.svg#icon-alertNote"></use></svg
+              ><span>Note</span>
+            </div>
+            <p>
+              Originally adapted from
+              <a
+                href="https://github.com/MetaMask/core/tree/85188d8146d13f06e1fe1a4143b6a35ac95630ea/scripts/create-package"
+                ><code>MetaMask/core#85188d8</code></a
+              >.
+            </p>
+          </div>
+          <p>
+            Manually creating a new monorepo package can be a tedious, even
+            frustrating process. To alleviate that problem, we have created this
+            CLI that automates most of the job for us, creatively titled
+            <code>create-package</code>. To create a new monorepo package,
+            follow these steps:
+          </p>
+          <ol>
+            <li>
+              Create a new package using <code>yarn create-package</code>.
+              <ul>
+                <li>Use the <code>--help</code> flag for usage information.</li>
+                <li>
+                  Once this is done, you can find a package with your chosen
+                  name in <code>/packages</code>.
+                </li>
+                <li>
+                  By default, <code>create-package</code> does not set a
+                  license. We intend to change this behavior
+                </li>
+              </ul>
+            </li>
+            <li>
+              Add your dependencies.
+              <ul>
+                <li>Do this as normal using <code>yarn</code>.</li>
+                <li>
+                  Remember, if you are adding other monorepo packages as
+                  dependents, don't forget to add them to the
+                  <code>references</code> array in your package's
+                  <code>tsconfig.json</code> and
+                  <code>tsconfig.build.json</code>.
+                </li>
+              </ul>
+            </li>
+            <li>
+              Add coverage thresholds to the root
+              <code>vitest.config.ts</code> file.
+              <ul>
+                <li>
+                  The downside of <code>.ts</code> config files is that they
+                  suck to work with programmatically.
+                </li>
+              </ul>
+            </li>
+          </ol>
+          <p>And that's it!</p>
+          <h2 id="contributing-to-create-package" class="tsd-anchor-link">
+            Contributing to <code>create-package</code
+            ><a
+              href="#contributing-to-create-package"
+              aria-label="Permalink"
+              class="tsd-anchor-icon"
+              ><svg viewBox="0 0 24 24" aria-hidden="true">
+                <use href="assets/icons.svg#icon-anchor"></use></svg
+            ></a>
+          </h2>
+          <p>
+            Along with this documentation, <code>create-package</code> is
+            intended to be the source of truth for the process of adding new
+            packages to the monorepo. Consequently, to change that process, you
+            will want to change <code>create-package</code>.
+          </p>
+          <p>
+            The <code>create-package</code> references a
+            <a href="../template-package/">template package</a>. This is an
+            actual private package located at
+            <code>packages/template-package</code>. The CLI is not aware of the
+            contents of the template, only that its files have
+            <a href="media/constants.ts">placeholder values</a>. When a new
+            package is created, the template files are read from disk, the
+            placeholder values are replaced with real ones, and the updated
+            files are added to a new directory in <code>/packages</code>. To
+            modify the template package:
+          </p>
+          <ul>
+            <li>
+              If you need to add or modify any files or folders, just go ahead
+              and make your changes in
+              <a href="../template-package/"
+                ><code>/packages/template-package</code></a
+              >. The CLI will read whatever's in that directory and write it to
+              disk.
+            </li>
+            <li>
+              If you need to add or modify any placeholders, make sure that your
+              desired values are added to both the relevant file(s) and
+              <a href="media/constants.ts"><code>./src/constants.ts</code></a
+              >. Then, update the implementation of the CLI accordingly.
+            </li>
+            <li>
+              As with placeholders, updating the monorepo files that the CLI
+              interacts with begins by updating
+              <a href="media/constants.ts"><code>./src/constants.ts</code></a
+              >.
+            </li>
+          </ul>
+        </div>
+      </div>
+      <div class="col-sidebar">
+        <div class="page-menu">
+          <div class="tsd-navigation settings">
+            <details class="tsd-accordion">
+              <summary class="tsd-accordion-summary">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <use href="assets/icons.svg#icon-chevronDown"></use>
+                </svg>
+                <h3>Settings</h3>
+              </summary>
+              <div class="tsd-accordion-details">
+                <div class="tsd-filter-visibility">
+                  <span class="settings-label">Member Visibility</span>
+                  <ul id="tsd-filter-options">
+                    <li class="tsd-filter-item">
+                      <label class="tsd-filter-input"
+                        ><input
+                          type="checkbox"
+                          id="tsd-filter-protected"
+                          name="protected"
+                        /><svg
+                          width="32"
+                          height="32"
+                          viewBox="0 0 32 32"
+                          aria-hidden="true"
+                        >
+                          <rect
+                            class="tsd-checkbox-background"
+                            width="30"
+                            height="30"
+                            x="1"
+                            y="1"
+                            rx="6"
+                            fill="none"
+                          ></rect>
+                          <path
+                            class="tsd-checkbox-checkmark"
+                            d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25"
+                            stroke="none"
+                            stroke-width="3.5"
+                            stroke-linejoin="round"
+                            fill="none"
+                          ></path></svg
+                        ><span>Protected</span></label
+                      >
+                    </li>
+                    <li class="tsd-filter-item">
+                      <label class="tsd-filter-input"
+                        ><input
+                          type="checkbox"
+                          id="tsd-filter-inherited"
+                          name="inherited"
+                          checked
+                        /><svg
+                          width="32"
+                          height="32"
+                          viewBox="0 0 32 32"
+                          aria-hidden="true"
+                        >
+                          <rect
+                            class="tsd-checkbox-background"
+                            width="30"
+                            height="30"
+                            x="1"
+                            y="1"
+                            rx="6"
+                            fill="none"
+                          ></rect>
+                          <path
+                            class="tsd-checkbox-checkmark"
+                            d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25"
+                            stroke="none"
+                            stroke-width="3.5"
+                            stroke-linejoin="round"
+                            fill="none"
+                          ></path></svg
+                        ><span>Inherited</span></label
+                      >
+                    </li>
+                    <li class="tsd-filter-item">
+                      <label class="tsd-filter-input"
+                        ><input
+                          type="checkbox"
+                          id="tsd-filter-external"
+                          name="external"
+                        /><svg
+                          width="32"
+                          height="32"
+                          viewBox="0 0 32 32"
+                          aria-hidden="true"
+                        >
+                          <rect
+                            class="tsd-checkbox-background"
+                            width="30"
+                            height="30"
+                            x="1"
+                            y="1"
+                            rx="6"
+                            fill="none"
+                          ></rect>
+                          <path
+                            class="tsd-checkbox-checkmark"
+                            d="M8.35422 16.8214L13.2143 21.75L24.6458 10.25"
+                            stroke="none"
+                            stroke-width="3.5"
+                            stroke-linejoin="round"
+                            fill="none"
+                          ></path></svg
+                        ><span>External</span></label
+                      >
+                    </li>
+                  </ul>
+                </div>
+                <div class="tsd-theme-toggle">
+                  <label class="settings-label" for="tsd-theme">Theme</label
+                  ><select id="tsd-theme">
+                    <option value="os">OS</option>
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </select>
+                </div>
+              </div>
+            </details>
+          </div>
+          <details open class="tsd-accordion tsd-page-navigation">
+            <summary class="tsd-accordion-summary">
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <use href="assets/icons.svg#icon-chevronDown"></use>
+              </svg>
+              <h3>On This Page</h3>
+            </summary>
+            <div class="tsd-accordion-details">
+              <a href="#create-package"
+                ><span>create-<wbr />package</span></a
+              >
+              <ul>
+                <li>
+                  <a href="#contributing-to-create-package"
+                    ><span>Contributing to create-<wbr />package</span></a
+                  >
+                </li>
+              </ul>
+            </div>
+          </details>
+        </div>
+        <div class="site-menu">
+          <nav class="tsd-navigation">
+            <a href="modules.html">@ocap/create-package</a>
+            <ul class="tsd-small-nested-navigation" id="tsd-nav-container">
+              <li>Loading...</li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+    <footer></footer>
+    <div class="overlay"></div>
+  </body>
+</html>

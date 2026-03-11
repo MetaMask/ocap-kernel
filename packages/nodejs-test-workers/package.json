@@ -81,9 +81,9 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@metamask/kernel-node-runtime": "workspace:^",
     "@metamask/kernel-shims": "workspace:^",
     "@metamask/logger": "workspace:^",
-    "@metamask/ocap-kernel": "workspace:^",
-    "@ocap/nodejs": "workspace:^"
+    "@metamask/ocap-kernel": "workspace:^"
   }
 }

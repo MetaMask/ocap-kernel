@@ -1,7 +1,6 @@
 {
-  "name": "@ocap/kernel-platforms",
-  "version": "0.0.0",
-  "private": true,
+  "name": "@metamask/kernel-platforms",
+  "version": "0.1.0",
   "description": "Specifications and implementations of capabilities across platforms",
   "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-platforms#readme",
   "bugs": {
@@ -51,7 +50,8 @@
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/kernel-platforms",
+    "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-platforms",
+    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-platforms",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck --quiet",
@@ -105,5 +105,19 @@
   "dependencies": {
     "@metamask/superstruct": "^3.2.1",
     "ses": "^1.14.0"
+  },
+  "keywords": [
+    "MetaMask",
+    "object capabilities",
+    "ocap"
+  ],
+  "license": "(MIT OR Apache-2.0)",
+  "module": "./dist/index.mjs",
+  "main": "./dist/index.cjs",
+  "types": "./dist/index.d.cts",
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

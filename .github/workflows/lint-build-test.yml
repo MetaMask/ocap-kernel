@@ -145,7 +145,22 @@ jobs:
     strategy:
       matrix:
         node-version: [24.x]
-        package: [omnium-gatherum, nodejs, extension, eth-wallet]
+        package:
+          [
+            '@metamask/kernel-node-runtime',
+            '@ocap/extension',
+            '@ocap/omnium-gatherum',
+            '@ocap/eth-wallet',
+          ]
+        include:
+          - package: '@metamask/kernel-node-runtime'
+            directory: kernel-node-runtime
+          - package: '@ocap/extension'
+            directory: extension
+          - package: '@ocap/omnium-gatherum'
+            directory: omnium-gatherum
+          - package: '@ocap/eth-wallet'
+            directory: eth-wallet
     steps:
       - name: Checkout and setup environment
         uses: MetaMask/action-checkout-and-setup@v3
@@ -156,13 +171,13 @@ jobs:
       - run: VITE_DB_FOLDER=e2e yarn build
       - name: Run E2E tests
         id: e2e
-        run: yarn workspace @ocap/${{ matrix.package }} test:e2e:ci
+        run: yarn workspace ${{ matrix.package }} test:e2e:ci
       - name: Upload test artifacts
         if: ${{ failure() && steps.e2e.conclusion == 'failure' }}
         uses: actions/upload-artifact@v7
         with:
-          name: playwright-traces-${{ matrix.package }}
-          path: packages/${{ matrix.package }}/test-results
+          name: playwright-traces-${{ matrix.directory }}
+          path: packages/${{ matrix.directory }}/test-results
           if-no-files-found: ignore
       - name: Require clean working directory
         shell: bash

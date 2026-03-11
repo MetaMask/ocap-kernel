@@ -1,6 +1,6 @@
 {
   "name": "@metamask/kernel-browser-runtime",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Tools for running the MetaMask Ocap Kernel in a web browser",
   "keywords": [
     "MetaMask",
@@ -66,6 +66,7 @@
     "@endo/captp": "^4.4.8",
     "@metamask/json-rpc-engine": "^10.2.0",
     "@metamask/kernel-errors": "workspace:^",
+    "@metamask/kernel-platforms": "workspace:^",
     "@metamask/kernel-rpc-methods": "workspace:^",
     "@metamask/kernel-store": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
@@ -76,7 +77,6 @@
     "@metamask/streams": "workspace:^",
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.9.0",
-    "@ocap/kernel-platforms": "workspace:^",
     "nanoid": "^5.1.5",
     "ses": "^1.14.0"
   },

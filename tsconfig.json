@@ -13,7 +13,7 @@
   "files": [],
   "include": [],
   "references": [
-    { "path": "./packages/cli" },
+    { "path": "./packages/kernel-cli" },
     { "path": "./packages/create-package" },
     { "path": "./packages/eth-wallet" },
     { "path": "./packages/extension" },
@@ -28,7 +28,7 @@
     { "path": "./packages/kernel-ui" },
     { "path": "./packages/kernel-utils" },
     { "path": "./packages/logger" },
-    { "path": "./packages/nodejs" },
+    { "path": "./packages/kernel-node-runtime" },
     { "path": "./packages/nodejs-test-workers" },
     { "path": "./packages/ocap-kernel" },
     { "path": "./packages/omnium-gatherum" },

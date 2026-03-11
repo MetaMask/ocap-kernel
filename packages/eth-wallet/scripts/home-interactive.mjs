@@ -251,7 +251,9 @@ async function main() {
   const { waitUntilQuiescent } = await import('@metamask/kernel-utils');
   const { Kernel, kunser, kslot } = await import('@metamask/ocap-kernel');
   const { Logger } = await import('@metamask/logger');
-  const { NodejsPlatformServices } = await import('@ocap/nodejs');
+  const { NodejsPlatformServices } = await import(
+    '@metamask/kernel-node-runtime'
+  );
   const { makeWalletClusterConfig } = await import('../src/cluster-config.ts');
 
   /**

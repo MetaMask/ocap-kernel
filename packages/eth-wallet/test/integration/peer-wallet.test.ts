@@ -1,9 +1,9 @@
+import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { KRef } from '@metamask/ocap-kernel';
-import { NodejsPlatformServices } from '@ocap/nodejs';
 import { delay } from '@ocap/repo-tools/test-utils';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 

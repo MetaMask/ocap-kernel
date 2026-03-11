@@ -7,6 +7,8 @@ import type {
   VatOneResolution,
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
+import type { PlatformConfig } from '@metamask/kernel-platforms';
+import { platformConfigStruct } from '@metamask/kernel-platforms';
 import type { VatCheckpoint } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { DuplexStream } from '@metamask/streams';
@@ -28,8 +30,6 @@ import {
 import type { Infer } from '@metamask/superstruct';
 import type { Json } from '@metamask/utils';
 import { UnsafeJsonStruct } from '@metamask/utils';
-import type { PlatformConfig } from '@ocap/kernel-platforms';
-import { platformConfigStruct } from '@ocap/kernel-platforms';
 
 import type {
   RemoteMessageHandler,

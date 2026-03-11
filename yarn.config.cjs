@@ -23,14 +23,14 @@ const typedocExceptions = [
   'omnium-gatherum',
   'repo-tools',
 ];
-// Packages that do not have builds
-const noBuild = ['create-package', 'repo-tools'];
+// Packages that do not enforce the standard build script
+const buildExceptions = ['create-package', 'kernel-cli', 'repo-tools'];
 // Packages that do not have tests
 const noTests = [];
 // Packages that do not export a `package.json` file
-const noPackageJson = ['extension', 'omnium-gatherum'];
+const noPackageJsonExport = ['extension', 'omnium-gatherum'];
 // Packages that have weird exports
-const exportsExceptions = ['kernel-shims'];
+const exportsExceptions = ['kernel-cli', 'kernel-shims'];
 // Packages that have weird files
 const filesExceptions = [
   'kernel-browser-runtime',
@@ -126,6 +126,11 @@ module.exports = defineConfig({
           expectWorkspaceLicense(workspace);
         }
 
+        if (!isPrivate) {
+          // Non-private packages must not depend on private packages.
+          expectNoPrivateWorkspaceProductionDependencies(Yarn, workspace);
+        }
+
         if (!isPrivate && !exportsExceptions.includes(workspaceBasename)) {
           // The entrypoints for all published packages must be the same.
           expectWorkspaceField(workspace, 'module', './dist/index.mjs');
@@ -180,7 +185,7 @@ module.exports = defineConfig({
         }
 
         // All non-root packages must export a `package.json` file except for the ones that are exempted
-        if (!noPackageJson.includes(workspaceBasename)) {
+        if (!noPackageJsonExport.includes(workspaceBasename)) {
           expectWorkspaceField(
             workspace,
             'exports["./package.json"]',
@@ -276,7 +281,7 @@ module.exports = defineConfig({
         }
       }
 
-      if (!noBuild.includes(workspaceBasename)) {
+      if (!buildExceptions.includes(workspaceBasename)) {
         const enforceTsBridge = (currentValue) =>
           typeof currentValue === 'string' && currentValue.includes('ts-bridge')
             ? 'ts-bridge --project tsconfig.build.json --no-references --clean'
@@ -823,6 +828,36 @@ function expectConsistentDependenciesAndDevDependencies(Yarn) {
           );
         }
       }
+    }
+  }
+}
+
+/**
+ * Expect that non-private workspace packages do not have production
+ * dependencies (anything except `devDependencies`) using the `workspace:`
+ * protocol that resolve to private packages.
+ *
+ * @param {Yarn} Yarn - The Yarn "global".
+ * @param {Workspace} workspace - The workspace to check.
+ */
+function expectNoPrivateWorkspaceProductionDependencies(Yarn, workspace) {
+  for (const dependency of Yarn.dependencies({ workspace })) {
+    if (dependency.type === 'devDependencies') {
+      continue;
+    }
+
+    if (!dependency.range.startsWith('workspace:')) {
+      continue;
+    }
+
+    const dependencyWorkspace = Yarn.workspace({ ident: dependency.ident });
+    if (
+      dependencyWorkspace !== null &&
+      dependencyWorkspace.manifest.private === true
+    ) {
+      dependency.error(
+        `Non-private package "${workspace.manifest.name}" must not depend on private package "${dependency.ident}" in "${dependency.type}"`,
+      );
     }
   }
 }

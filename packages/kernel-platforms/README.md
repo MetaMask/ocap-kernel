@@ -1,14 +1,14 @@
-# `@ocap/kernel-platforms`
+# `@metamask/kernel-platforms`
 
 Specifications and implementations of platform capabilities
 
 ## Installation
 
-`yarn add @ocap/kernel-platforms`
+`yarn add @metamask/kernel-platforms`
 
 or
 
-`npm install @ocap/kernel-platforms`
+`npm install @metamask/kernel-platforms`
 
 ## Contributing
 

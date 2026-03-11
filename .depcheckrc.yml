@@ -2,7 +2,7 @@
 ignores:
   # monorepo
   - '@metamask/kernel-shims'
-  - '@ocap/cli'
+  - '@metamask/kernel-cli'
   - '@ocap/repo-tools'
 
   # eslint and prettier
@@ -47,11 +47,11 @@ ignores:
   - 'typedoc'
   - 'typescript'
 
-  # Used by @ocap/nodejs to build the sqlite3 bindings
+  # Used by @metamask/kernel-node-runtime to build the sqlite3 bindings
   - 'node-gyp'
 
   # Peer dependency of @metamask/kernel-shims due to its /endoify-node
-  # export, used by @ocap/nodejs
+  # export, used by @metamask/kernel-node-runtime
   - '@libp2p/webrtc'
 
   # These are peer dependencies of various modules we actually do

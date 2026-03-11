@@ -68,10 +68,10 @@ The home and away kernels communicate over libp2p. There are two networking mode
 
 Both devices dial each other directly over QUIC (UDP). One port is needed on each device:
 
-| Device | Port | Protocol | Purpose |
-| ------ | ---- | -------- | ------- |
-| Home   | 4002/udp | QUIC | libp2p direct transport |
-| VPS    | 4002/udp | QUIC | libp2p direct transport |
+| Device | Port     | Protocol | Purpose                 |
+| ------ | -------- | -------- | ----------------------- |
+| Home   | 4002/udp | QUIC     | libp2p direct transport |
+| VPS    | 4002/udp | QUIC     | libp2p direct transport |
 
 ```bash
 # On each device
@@ -84,12 +84,12 @@ The port is configurable via `--quic-port` in the setup scripts. No relay is nee
 
 If the home device has no public IPv4 (common with CGN/DS-Lite), both kernels connect **outbound** to a relay running on the VPS. No inbound ports are needed on the home device.
 
-| Device | Port | Protocol | Purpose |
-| ------ | ---- | -------- | ------- |
-| VPS    | 9001/tcp | WebSocket | Relay listener (kernels dial this) |
-| VPS    | 9002/tcp | TCP | Relay listener (alternative transport) |
-| VPS    | 4002/udp | QUIC | VPS kernel's own direct listener (optional — needed if other peers connect directly to the VPS) |
-| Home   | _none_ | — | All connections are outbound |
+| Device | Port     | Protocol  | Purpose                                                                                         |
+| ------ | -------- | --------- | ----------------------------------------------------------------------------------------------- |
+| VPS    | 9001/tcp | WebSocket | Relay listener (kernels dial this)                                                              |
+| VPS    | 9002/tcp | TCP       | Relay listener (alternative transport)                                                          |
+| VPS    | 4002/udp | QUIC      | VPS kernel's own direct listener (optional — needed if other peers connect directly to the VPS) |
+| Home   | _none_   | —         | All connections are outbound                                                                    |
 
 ```bash
 # On the VPS
@@ -111,11 +111,11 @@ No special firewall rules are needed for outbound on most systems.
 
 There are two home-device modes, plus a shared away-device script:
 
-| Script | Mode | Signing | Key storage |
-| --- | --- | --- | --- |
-| `setup-home.sh` | **Mnemonic** | Automatic (no approval) | Mnemonic on home device (optionally encrypted with `--password`) |
-| `setup-home-interactive.sh` | **Interactive (MetaMask)** | MetaMask Mobile signs the delegation once during setup; autonomous after | No keys on home device |
-| `setup-away.sh` | Away device | Via peer wallet to home | Throwaway key only |
+| Script                      | Mode                       | Signing                                                                  | Key storage                                                      |
+| --------------------------- | -------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------- |
+| `setup-home.sh`             | **Mnemonic**               | Automatic (no approval)                                                  | Mnemonic on home device (optionally encrypted with `--password`) |
+| `setup-home-interactive.sh` | **Interactive (MetaMask)** | MetaMask Mobile signs the delegation once during setup; autonomous after | No keys on home device                                           |
+| `setup-away.sh`             | Away device                | Via peer wallet to home                                                  | Throwaway key only                                               |
 
 Both home scripts produce the same output (OCAP URL, listen addresses, delegation JSON) and the away script works identically with either.
 
@@ -140,7 +140,7 @@ After=network.target
 Type=simple
 User=root
 WorkingDirectory=/root/ocap-kernel
-ExecStart=/root/.nvm/versions/node/v24.14.0/bin/node packages/cli/dist/app.mjs relay
+ExecStart=/root/.nvm/versions/node/v24.14.0/bin/node packages/kernel-cli/dist/app.mjs relay
 Restart=on-failure
 
 [Install]
@@ -217,6 +217,7 @@ No mnemonic needed — MetaMask Mobile handles signing during setup. MetaMask ap
 ```
 
 The script will:
+
 1. Show a QR code — scan it with MetaMask Mobile to connect
 2. Switch MetaMask to the target chain (Sepolia)
 3. Start an in-process kernel (no daemon — the MetaMask signer is a live object)
@@ -272,10 +273,10 @@ Both scripts also accept `--chain-id` (default: Sepolia), `--quic-port` (default
 
 The delegation can include on-chain spending limits that restrict how much ETH the agent is allowed to spend. Two types of limits are available:
 
-| Limit | Enforcer contract | Address (CREATE2, same on all chains) |
-| --- | --- | --- |
+| Limit                  | Enforcer contract                   | Address (CREATE2, same on all chains)        |
+| ---------------------- | ----------------------------------- | -------------------------------------------- |
 | Total spending ceiling | `NativeTokenTransferAmountEnforcer` | `0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320` |
-| Per-transaction max | `ValueLteEnforcer` | `0x92Bf12322527cAA612fd31a0e810472BBB106A8F` |
+| Per-transaction max    | `ValueLteEnforcer`                  | `0x92Bf12322527cAA612fd31a0e810472BBB106A8F` |
 
 Both limits compose — the DelegationManager checks ALL caveats, so both must pass for a transaction to go through.
 
@@ -377,8 +378,8 @@ From the monorepo root:
 ```bash
 yarn install
 yarn workspace @metamask/ocap-kernel build
-yarn workspace @ocap/nodejs build
-yarn workspace @ocap/cli build
+yarn workspace @metamask/kernel-node-runtime build
+yarn workspace @metamask/kernel-cli build
 yarn workspace @ocap/eth-wallet build
 ```
 
