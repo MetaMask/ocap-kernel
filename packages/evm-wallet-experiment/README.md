@@ -1,6 +1,6 @@
-# @ocap/eth-wallet
+# @ocap/evm-wallet-experiment
 
-A capability-driven Ethereum wallet implemented as an OCAP kernel subcluster. It uses the [MetaMask Delegation Framework (Gator)](https://github.com/MetaMask/delegation-framework) for delegated transaction authority via ERC-4337 UserOperations. The wallet subcluster isolates key management, Ethereum RPC communication, and delegation lifecycle into separate vats, enforcing the principle of least authority across the entire signing pipeline.
+A capability-driven EVM wallet implemented as an OCAP kernel subcluster. It uses the [MetaMask Delegation Framework (Gator)](https://github.com/MetaMask/delegation-framework) for delegated transaction authority via ERC-4337 UserOperations. The wallet subcluster isolates key management, Ethereum RPC communication, and delegation lifecycle into separate vats, enforcing the principle of least authority across the entire signing pipeline.
 
 For a deeper explanation of the components and data flow, see [How It Works](./docs/how-it-works.md). For deploying the wallet on a home device + VPS with OpenClaw, see the [Setup Guide](./docs/setup-guide.md).
 
@@ -70,7 +70,7 @@ The home kernel is the authority holder. It typically has MetaMask connected as 
 import {
   makeWalletClusterConfig,
   connectMetaMaskSigner,
-} from '@ocap/eth-wallet';
+} from '@ocap/evm-wallet-experiment';
 
 // 1. Launch the wallet subcluster
 const config = makeWalletClusterConfig({ bundleBaseUrl: '/bundles' });
@@ -121,7 +121,7 @@ await coordinator.pushDelegationToAway(delegation);
 The away kernel receives delegated authority. It initializes a throwaway keyring and redeems delegations by building ERC-4337 UserOperations. In the provided home/away setup flow, the delegate address exchange and back-channel registration happen automatically, so no manual copy-paste is needed.
 
 ```typescript
-import { makeWalletClusterConfig } from '@ocap/eth-wallet';
+import { makeWalletClusterConfig } from '@ocap/evm-wallet-experiment';
 
 // 1. Launch the wallet subcluster with a throwaway keyring
 const config = makeWalletClusterConfig({ bundleBaseUrl: '/bundles' });
@@ -242,7 +242,7 @@ import {
   encodeTimestamp,
   encodeLimitedCalls,
   encodeErc20TransferAmount,
-} from '@ocap/eth-wallet';
+} from '@ocap/evm-wallet-experiment';
 
 const delegation = await coordinator.createDelegation({
   delegate: '0xDelegateAddress...' as Address,
@@ -420,7 +420,7 @@ import {
   encodeTimestamp,
   makeCaveat,
   getEnforcerAddress,
-} from '@ocap/eth-wallet';
+} from '@ocap/evm-wallet-experiment';
 
 // Build a complete Caveat struct from type + encoded terms
 const caveat = makeCaveat({
@@ -445,7 +445,7 @@ import {
   ERC20_TRANSFER_SELECTOR,
   ERC20_APPROVE_SELECTOR,
   ERC20_ALLOWANCE_SELECTOR,
-} from '@ocap/eth-wallet';
+} from '@ocap/evm-wallet-experiment';
 
 // Encode a transfer(address,uint256) call
 const callData = encodeTransfer('0xRecipient...' as Address, 1000000n);
@@ -475,7 +475,7 @@ import {
   finalizeDelegation,
   computeDelegationId,
   generateSalt,
-} from '@ocap/eth-wallet';
+} from '@ocap/evm-wallet-experiment';
 
 // Create an unsigned delegation
 const delegation = makeDelegation({
@@ -509,7 +509,7 @@ import {
   encodeDelegationChain,
   encodeExecution,
   ENTRY_POINT_V07,
-} from '@ocap/eth-wallet';
+} from '@ocap/evm-wallet-experiment';
 
 // Build an unsigned UserOp for delegation redemption
 const userOp = buildDelegationUserOp({
@@ -538,7 +538,7 @@ import {
   makeBundlerClient,
   ENTRY_POINT_V07,
   type UserOpReceiptResult,
-} from '@ocap/eth-wallet';
+} from '@ocap/evm-wallet-experiment';
 
 const client = makeBundlerClient({
   bundlerUrl: 'https://api.pimlico.io/v2/sepolia/rpc',
@@ -592,7 +592,7 @@ import {
   getEnforcerAddresses,
   Implementation,
   ExecutionMode,
-} from '@ocap/eth-wallet';
+} from '@ocap/evm-wallet-experiment';
 
 // Build callData for batch execution (multiple executions in one UserOp)
 const callData = buildBatchExecuteCallData([execution1, execution2]);
@@ -609,7 +609,10 @@ const redeemCallData = buildSdkBatchRedeemCallData({
 ### MetaMask Signer Adapter
 
 ```typescript
-import { connectMetaMaskSigner, makeProviderSigner } from '@ocap/eth-wallet';
+import {
+  connectMetaMaskSigner,
+  makeProviderSigner,
+} from '@ocap/evm-wallet-experiment';
 
 // High-level: connect via MetaMask SDK
 const signer = await connectMetaMaskSigner({
@@ -668,7 +671,7 @@ The dedicated `wallet_token_resolve` tool can be used to search for tokens by na
 Use `makeWalletClusterConfig` to generate the `ClusterConfig` for launching the subcluster.
 
 ```typescript
-import { makeWalletClusterConfig } from '@ocap/eth-wallet';
+import { makeWalletClusterConfig } from '@ocap/evm-wallet-experiment';
 
 const config = makeWalletClusterConfig({
   bundleBaseUrl: 'https://example.com/bundles',
@@ -694,10 +697,10 @@ All vat code runs under [SES lockdown](https://github.com/endojs/endo/tree/maste
 
 ```bash
 # Build vat bundles
-yarn workspace @ocap/eth-wallet build
+yarn workspace @ocap/evm-wallet-experiment build
 
 # Lint
-yarn workspace @ocap/eth-wallet lint:fix
+yarn workspace @ocap/evm-wallet-experiment lint:fix
 ```
 
 ## Testing
@@ -707,7 +710,7 @@ The package has four tiers of tests, each exercising a progressively larger slic
 ### Unit tests (420+ tests)
 
 ```bash
-yarn workspace @ocap/eth-wallet test:dev:quiet
+yarn workspace @ocap/evm-wallet-experiment test:dev:quiet
 ```
 
 Fast, in-process tests using vitest. All inter-vat `E()` calls are mocked. Covers every `lib/` module and every vat's `buildRootObject` logic in isolation — keyring operations, signing, mnemonic encryption/decryption, delegation creation/matching, caveat encoding, UserOp building, bundler client, SDK adapter, MetaMask signer, and coordinator strategy resolution.
@@ -715,7 +718,7 @@ Fast, in-process tests using vitest. All inter-vat `E()` calls are mocked. Cover
 ### Single-kernel integration (34 assertions)
 
 ```bash
-yarn workspace @ocap/eth-wallet test:node
+yarn workspace @ocap/evm-wallet-experiment test:node
 ```
 
 Plain Node.js script that runs under **real SES lockdown** in a **real kernel**. Launches the wallet subcluster (4 vats), exercises the full coordinator API via `kernel.queueMessage()`, and verifies inter-vat `E()` communication actually works end-to-end. Covers: keyring init (SRP + throwaway), signing (message, transaction, EIP-712), delegation lifecycle (create, sign, list), capabilities introspection, and no-authority error handling.
@@ -723,7 +726,7 @@ Plain Node.js script that runs under **real SES lockdown** in a **real kernel**.
 ### Peer wallet over QUIC (27 assertions)
 
 ```bash
-yarn workspace @ocap/eth-wallet test:node:peer
+yarn workspace @ocap/evm-wallet-experiment test:node:peer
 ```
 
 Two separate kernel instances connected via QUIC direct transport. Tests the home/away wallet architecture: OCAP URL issuance and redemption, remote message signing forwarded over CapTP, remote EIP-712 signing, transaction signing rejection (no peer fallback), delegation creation on the home wallet and transfer to the away wallet, and combined throwaway-key + peer + delegation capabilities. Verifies that remote signatures are identical to local signatures (same signing key, same result).
@@ -731,7 +734,7 @@ Two separate kernel instances connected via QUIC direct transport. Tests the hom
 ### Daemon integration (23 assertions)
 
 ```bash
-yarn workspace @ocap/eth-wallet test:node:daemon
+yarn workspace @ocap/evm-wallet-experiment test:node:daemon
 ```
 
 Exercises the wallet through the **daemon JSON-RPC socket** — the same interface an agent process uses in production. Boots a kernel with an RPC socket server, launches the wallet subcluster via `launchSubcluster` RPC, then calls wallet methods via `queueMessage` RPC over the Unix socket. Covers: daemon status, subcluster lifecycle, keyring init, signing, delegation creation, capabilities, error propagation through the RPC layer, and subcluster termination.
@@ -740,7 +743,7 @@ Exercises the wallet through the **daemon JSON-RPC socket** — the same interfa
 
 ```bash
 PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
-  yarn workspace @ocap/eth-wallet test:node:sepolia
+  yarn workspace @ocap/evm-wallet-experiment test:node:sepolia
 ```
 
 Full on-chain test on Sepolia testnet. Creates a Hybrid smart account (standalone single-device test), creates and signs a delegation, redeems it by submitting an ERC-4337 UserOp to the Pimlico bundler with paymaster gas sponsorship, and waits for on-chain inclusion. Skips automatically if `PIMLICO_API_KEY` and `SEPOLIA_RPC_URL` are not set.
@@ -750,7 +753,7 @@ Full on-chain test on Sepolia testnet. Creates a Hybrid smart account (standalon
 ```bash
 PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
   MNEMONIC="your twelve word mnemonic" \
-  yarn workspace @ocap/eth-wallet test:node:peer-e2e
+  yarn workspace @ocap/evm-wallet-experiment test:node:peer-e2e
 ```
 
 The most comprehensive test: two kernels connected via local QUIC, exercising the complete home/away flow against Sepolia. Covers OCAP URL peer connection, remote message signing forwarded via CapTP, transaction signing rejection (no peer fallback), provider RPC queries, cross-kernel delegation transfer and revocation, smart account creation, self-delegation redemption via UserOp, and on-chain inclusion. Skips if any of `PIMLICO_API_KEY`, `SEPOLIA_RPC_URL`, or `MNEMONIC` is missing. Takes ~30–90 s depending on network conditions.
@@ -758,7 +761,7 @@ The most comprehensive test: two kernels connected via local QUIC, exercising th
 ### Vitest integration (5 tests)
 
 ```bash
-yarn workspace @ocap/eth-wallet test:integration
+yarn workspace @ocap/evm-wallet-experiment test:integration
 ```
 
 Vitest-based peer wallet tests in `test/integration/peer-wallet.test.ts`. Requires building bundles first (`yarn build`). Tests OCAP URL connection, remote message/transaction signing via CapTP, no-authority errors, and capabilities reporting across two kernels.

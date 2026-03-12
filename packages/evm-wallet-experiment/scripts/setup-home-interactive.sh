@@ -52,7 +52,7 @@ if [[ "$SKIP_BUILD" == false ]]; then
   echo -e "\033[0;36m->\033[0m Building packages..." >&2
   (cd "$REPO_ROOT" && yarn workspace @metamask/ocap-kernel build) >&2
   (cd "$REPO_ROOT" && yarn workspace @metamask/kernel-node-runtime build) >&2
-  (cd "$REPO_ROOT" && yarn workspace @ocap/eth-wallet build) >&2
+  (cd "$REPO_ROOT" && yarn workspace @ocap/evm-wallet-experiment build) >&2
   echo -e "  \033[0;32mok\033[0m Build complete" >&2
 else
   echo -e "\033[0;36m->\033[0m Skipping build (--no-build)" >&2

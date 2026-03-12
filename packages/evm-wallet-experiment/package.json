@@ -1,9 +1,9 @@
 {
-  "name": "@ocap/eth-wallet",
+  "name": "@ocap/evm-wallet-experiment",
   "version": "0.0.0",
   "private": true,
-  "description": "Capability-driven Ethereum wallet subcluster for the OCAP kernel",
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/eth-wallet#readme",
+  "description": "Capability-driven EVM wallet subcluster for the OCAP kernel",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/evm-wallet-experiment#readme",
   "bugs": {
     "url": "https://github.com/MetaMask/ocap-kernel/issues"
   },
@@ -31,7 +31,7 @@
   "scripts": {
     "build": "ocap bundle src/vats/coordinator-vat.ts src/vats/keyring-vat.ts src/vats/provider-vat.ts src/vats/delegation-vat.ts",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/eth-wallet",
+    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/evm-wallet-experiment",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck --quiet",

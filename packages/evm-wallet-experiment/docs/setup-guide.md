@@ -1,6 +1,6 @@
-# ETH Wallet Setup Guide
+# EVM Wallet Setup Guide
 
-This guide walks through setting up the OCAP eth-wallet on two devices:
+This guide walks through setting up the OCAP evm-wallet on two devices:
 
 - **Home device** (your laptop/desktop): holds the master keys, approves signing requests
 - **Away device** (VPS): runs the agent with a restricted wallet, uses delegations
@@ -189,14 +189,14 @@ Choose one of the two modes:
 
 ```bash
 # Sepolia (default chain):
-./packages/eth-wallet/scripts/setup-home.sh \
+./packages/evm-wallet-experiment/scripts/setup-home.sh \
   --mnemonic "your twelve word mnemonic" \
   --infura-key YOUR_INFURA_KEY \
   --pimlico-key YOUR_PIMLICO_KEY \
   --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
 
 # Base mainnet:
-./packages/eth-wallet/scripts/setup-home.sh \
+./packages/evm-wallet-experiment/scripts/setup-home.sh \
   --mnemonic "your twelve word mnemonic" \
   --chain base \
   --infura-key YOUR_INFURA_KEY \
@@ -204,7 +204,7 @@ Choose one of the two modes:
   --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
 
 # BNB Smart Chain (no Infura — use custom RPC):
-./packages/eth-wallet/scripts/setup-home.sh \
+./packages/evm-wallet-experiment/scripts/setup-home.sh \
   --mnemonic "your twelve word mnemonic" \
   --chain bsc \
   --rpc-url "https://bsc-dataseed.binance.org" \
@@ -215,7 +215,7 @@ Choose one of the two modes:
 To encrypt the mnemonic at rest, add `--password`:
 
 ```bash
-./packages/eth-wallet/scripts/setup-home.sh \
+./packages/evm-wallet-experiment/scripts/setup-home.sh \
   --mnemonic "your twelve word mnemonic" \
   --password "your-password" \
   --infura-key YOUR_INFURA_KEY \
@@ -230,13 +230,13 @@ The script sets up the home wallet and then **waits** — it will show the OCAP 
 No mnemonic needed — MetaMask Mobile handles signing during setup. MetaMask approval is only required once: to sign the delegation. After that the away device acts autonomously.
 
 ```bash
-./packages/eth-wallet/scripts/setup-home-interactive.sh \
+./packages/evm-wallet-experiment/scripts/setup-home-interactive.sh \
   --infura-key YOUR_INFURA_KEY \
   --pimlico-key YOUR_PIMLICO_KEY \
   --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
 
 # Or for a specific chain:
-./packages/eth-wallet/scripts/setup-home-interactive.sh \
+./packages/evm-wallet-experiment/scripts/setup-home-interactive.sh \
   --chain base \
   --infura-key YOUR_INFURA_KEY \
   --pimlico-key YOUR_PIMLICO_KEY \
@@ -261,7 +261,7 @@ The home script outputs a complete `setup-away.sh` command with all flags pre-fi
 
 ```bash
 # Example output from setup-home.sh — copy the whole command
-./packages/eth-wallet/scripts/setup-away.sh \
+./packages/evm-wallet-experiment/scripts/setup-away.sh \
   --ocap-url "ocap:…URL_FROM_HOME…" \
   --listen-addrs '["/ip4/…/udp/…/quic-v1/p2p/…"]' \
   --infura-key YOUR_INFURA_KEY \
@@ -360,7 +360,7 @@ yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{
 Spending limits are immutable once set — they are baked into the delegation's cryptographic signature. To change limits, use the `update-limits.sh` script on the home device:
 
 ```bash
-./packages/eth-wallet/scripts/update-limits.sh
+./packages/evm-wallet-experiment/scripts/update-limits.sh
 ```
 
 This will:
@@ -380,7 +380,7 @@ Run this on the away device after `setup-away.sh` completes. The install path mu
 1. Link and enable the plugin:
 
 ```bash
-openclaw plugins install -l ./packages/eth-wallet/openclaw-plugin
+openclaw plugins install -l ./packages/evm-wallet-experiment/openclaw-plugin
 openclaw plugins enable wallet
 ```
 
@@ -422,10 +422,10 @@ yarn install
 yarn workspace @metamask/ocap-kernel build
 yarn workspace @metamask/kernel-node-runtime build
 yarn workspace @metamask/kernel-cli build
-yarn workspace @ocap/eth-wallet build
+yarn workspace @ocap/evm-wallet-experiment build
 ```
 
-The last command produces four `.bundle` files in `packages/eth-wallet/src/vats/`.
+The last command produces four `.bundle` files in `packages/evm-wallet-experiment/src/vats/`.
 
 ## 2. Home device setup
 
@@ -464,20 +464,20 @@ yarn ocap daemon exec launchSubcluster '{
     "services": ["ocapURLIssuerService", "ocapURLRedemptionService"],
     "vats": {
       "coordinator": {
-        "bundleSpec": "packages/eth-wallet/src/vats/coordinator-vat.bundle",
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/coordinator-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder", "Date", "setTimeout"]
       },
       "keyring": {
-        "bundleSpec": "packages/eth-wallet/src/vats/keyring-vat.bundle",
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/keyring-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder"]
       },
       "provider": {
-        "bundleSpec": "packages/eth-wallet/src/vats/provider-vat.bundle",
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/provider-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder"],
         "platformConfig": { "fetch": { "allowedHosts": ["<chain>.infura.io", "api.pimlico.io", "swap.api.cx.metamask.io"] } }
       },
       "delegation": {
-        "bundleSpec": "packages/eth-wallet/src/vats/delegation-vat.bundle",
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/delegation-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder"],
         "parameters": { "delegationManagerAddress": "0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3" }
       }
@@ -715,25 +715,25 @@ Run the automated tests to confirm the setup:
 
 ```bash
 # Unit tests (mocked) — should all pass
-yarn workspace @ocap/eth-wallet test:dev:quiet
+yarn workspace @ocap/evm-wallet-experiment test:dev:quiet
 
 # Single-kernel integration (real SES + kernel)
-yarn workspace @ocap/eth-wallet test:node
+yarn workspace @ocap/evm-wallet-experiment test:node
 
 # Two-kernel peer wallet over QUIC
-yarn workspace @ocap/eth-wallet test:node:peer
+yarn workspace @ocap/evm-wallet-experiment test:node:peer
 
 # Daemon integration (JSON-RPC socket)
-yarn workspace @ocap/eth-wallet test:node:daemon
+yarn workspace @ocap/evm-wallet-experiment test:node:daemon
 
 # Sepolia E2E (requires API keys)
 PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
-  yarn workspace @ocap/eth-wallet test:node:sepolia
+  yarn workspace @ocap/evm-wallet-experiment test:node:sepolia
 
 # Full peer wallet E2E against Sepolia (two kernels + QUIC + UserOp)
 PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
   MNEMONIC="your twelve word mnemonic" \
-  yarn workspace @ocap/eth-wallet test:node:peer-e2e
+  yarn workspace @ocap/evm-wallet-experiment test:node:peer-e2e
 ```
 
-> **Note:** The vitest-based integration tests (`test:integration`) may fail with SES lockdown errors (`TextEncoder is not a constructor` or `Date.now() throws`). This is a pre-existing kernel/SES environment issue, not an eth-wallet bug. The `test:node:*` scripts work around this by running as plain Node.js scripts.
+> **Note:** The vitest-based integration tests (`test:integration`) may fail with SES lockdown errors (`TextEncoder is not a constructor` or `Date.now() throws`). This is a pre-existing kernel/SES environment issue, not an evm-wallet bug. The `test:node:*` scripts work around this by running as plain Node.js scripts.

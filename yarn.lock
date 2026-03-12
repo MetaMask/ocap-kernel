@@ -3871,9 +3871,9 @@ __metadata:
   languageName: unknown
   linkType: soft
 
-"@ocap/eth-wallet@workspace:packages/eth-wallet":
+"@ocap/evm-wallet-experiment@workspace:packages/evm-wallet-experiment":
   version: 0.0.0-use.local
-  resolution: "@ocap/eth-wallet@workspace:packages/eth-wallet"
+  resolution: "@ocap/evm-wallet-experiment@workspace:packages/evm-wallet-experiment"
   dependencies:
     "@arethetypeswrong/cli": "npm:^0.17.4"
     "@endo/eventual-send": "npm:^1.3.4"

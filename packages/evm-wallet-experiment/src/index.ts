@@ -1,4 +1,4 @@
-// Public API exports for @ocap/eth-wallet
+// Public API exports for @ocap/evm-wallet-experiment
 
 // Constants
 export {

@@ -1,6 +1,6 @@
 /* eslint-disable n/no-process-exit, n/no-process-env */
 /**
- * Aggregate E2E runner for the eth-wallet package.
+ * Aggregate E2E runner for the evm-wallet package.
  *
  * Runs each Sepolia E2E script sequentially and reports aggregate results.
  * Skips all tests gracefully when required environment variables are missing.
@@ -11,7 +11,7 @@
  *
  * Usage:
  *   PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
- *     yarn workspace @ocap/eth-wallet test:e2e
+ *     yarn workspace @ocap/evm-wallet-experiment test:e2e
  */
 
 import { execFile } from 'node:child_process';

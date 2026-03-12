@@ -1,6 +1,6 @@
 /* eslint-disable n/no-process-exit, import-x/no-unresolved, n/no-process-env */
 /**
- * Sepolia E2E test for the eth-wallet subcluster.
+ * Sepolia E2E test for the evm-wallet subcluster.
  *
  * Exercises the full on-chain flow: create a Hybrid smart account via the
  * MetaMask Delegation Framework, create a delegation, redeem it by
@@ -12,7 +12,7 @@
  *
  * Usage:
  *   PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
- *     yarn workspace @ocap/eth-wallet test:node:sepolia
+ *     yarn workspace @ocap/evm-wallet-experiment test:node:sepolia
  */
 
 import '@metamask/kernel-shims/endoify-node';

@@ -1,27 +1,24 @@
 #!/usr/bin/env bash
-# Setup script for the HOME wallet device.
+# Setup script for the AWAY wallet device (VPS / agent machine).
 #
-# Starts the daemon, launches the wallet subcluster, initialises the keyring
-# with the provided mnemonic, configures the Ethereum provider, and issues an
-# OCAP URL that the away device will use to connect.
+# Starts the daemon, launches the wallet subcluster, initialises a throwaway
+# keyring, connects to the home wallet via the provided OCAP URL, and verifies
+# the peer connection.
 #
 # Usage:
-#   ./setup-home.sh --mnemonic "word1 word2 ..." --infura-key KEY [options]
+#   ./setup-away.sh --ocap-url "ocap:..." --listen-addrs '["/ip4/..."]' [options]
 #
 # Required:
-#   --mnemonic    The 12-word seed phrase for the master wallet
-#   --infura-key  Infura project API key
+#   --ocap-url      The OCAP URL issued by the home device (from setup-home.sh)
+#   --listen-addrs  JSON array of home device listen addresses (from setup-home.sh)
 #
 # Optional:
+#   --infura-key  KEY   Infura API key (for direct chain queries)
 #   --pimlico-key KEY   Pimlico API key (for bundler / paymaster)
 #   --chain         NAME  Chain name (e.g. sepolia, base, ethereum). See --help.
 #   --chain-id      ID    Chain ID (default: 11155111 = Sepolia)
 #   --rpc-url       URL   Custom RPC URL (overrides Infura URL derivation)
 #   --no-build            Skip the build step
-#
-# Outputs two lines to stdout on success:
-#   1. The OCAP URL (pass to setup-away.sh --ocap-url)
-#   2. JSON array of listen addresses (pass to setup-away.sh --listen-addrs)
 
 set -euo pipefail
 
@@ -35,13 +32,13 @@ source "$SCRIPT_DIR_EARLY/resolve-chain.sh"
 
 CHAIN_ID=11155111
 PIMLICO_KEY=""
-MNEMONIC=""
+OCAP_URL=""
 INFURA_KEY=""
+LISTEN_ADDRS=""
 RELAY_ADDR=""
 SKIP_BUILD=false
 QUIC_PORT=4002
 DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
-KEYRING_PASSWORD=""
 CUSTOM_RPC_URL=""
 
 # ---------------------------------------------------------------------------
@@ -50,20 +47,20 @@ CUSTOM_RPC_URL=""
 
 usage() {
   cat <<EOF
-Usage: $0 --mnemonic "..." --infura-key KEY [--pimlico-key KEY] [--relay MULTIADDR] [--chain NAME] [--quic-port PORT] [--password PW] [--no-build]
+Usage: $0 --ocap-url "ocap:..." --listen-addrs '["/ip4/..."]' [--infura-key KEY] [--pimlico-key KEY] [--chain NAME] [--quic-port PORT] [--no-build]
 
 Required:
-  --mnemonic       12-word seed phrase
-  --infura-key     Infura API key
+  --ocap-url       OCAP URL from the home device (output of setup-home.sh)
+  --listen-addrs   JSON array of home device listen addresses (output of setup-home.sh)
 
 Optional:
+  --infura-key     Infura API key (for direct chain queries)
   --pimlico-key    Pimlico API key (bundler/paymaster)
   --relay          Relay multiaddr (e.g. /ip4/HOST/tcp/9001/ws/p2p/PEER_ID)
   --chain          Chain name (e.g. sepolia, base, ethereum)
   --chain-id       Chain ID (alternative to --chain; default: $CHAIN_ID)
   --rpc-url        Custom RPC URL (overrides Infura URL derivation)
   --quic-port      UDP port for QUIC transport (default: $QUIC_PORT)
-  --password       Password to encrypt the mnemonic at rest
   --no-build       Skip yarn build
 EOF
   print_supported_chains
@@ -72,9 +69,12 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --mnemonic)
-      [[ $# -lt 2 ]] && { echo "Error: --mnemonic requires a value" >&2; usage; }
-      MNEMONIC="$2"; shift 2 ;;
+    --ocap-url)
+      [[ $# -lt 2 ]] && { echo "Error: --ocap-url requires a value" >&2; usage; }
+      OCAP_URL="$2"; shift 2 ;;
+    --listen-addrs)
+      [[ $# -lt 2 ]] && { echo "Error: --listen-addrs requires a value" >&2; usage; }
+      LISTEN_ADDRS="$2"; shift 2 ;;
     --infura-key)
       [[ $# -lt 2 ]] && { echo "Error: --infura-key requires a value" >&2; usage; }
       INFURA_KEY="$2"; shift 2 ;;
@@ -96,22 +96,24 @@ while [[ $# -gt 0 ]]; do
     --quic-port)
       [[ $# -lt 2 ]] && { echo "Error: --quic-port requires a value" >&2; usage; }
       QUIC_PORT="$2"; shift 2 ;;
-    --password)
-      [[ $# -lt 2 ]] && { echo "Error: --password requires a value" >&2; usage; }
-      KEYRING_PASSWORD="$2"; shift 2 ;;
     --no-build)    SKIP_BUILD=true; shift ;;
     -h|--help)     usage ;;
     *) echo "Unknown option: $1" >&2; usage ;;
   esac
 done
 
-if [[ -z "$MNEMONIC" ]]; then
-  echo "Error: --mnemonic is required." >&2
+if [[ -z "$OCAP_URL" ]]; then
+  echo "Error: --ocap-url is required." >&2
   usage
 fi
 
-if [[ -z "$INFURA_KEY" && -z "$CUSTOM_RPC_URL" ]]; then
-  echo "Error: --infura-key is required (or provide --rpc-url for custom RPC)." >&2
+if [[ "$OCAP_URL" != ocap:* ]]; then
+  echo "Error: OCAP URL must start with 'ocap:'." >&2
+  exit 1
+fi
+
+if [[ -z "$LISTEN_ADDRS" ]]; then
+  echo "Error: --listen-addrs is required." >&2
   usage
 fi
 
@@ -144,19 +146,6 @@ if [[ ! -f "$OCAP_BIN" ]]; then
   exit 1
 fi
 
-if [[ -n "$CUSTOM_RPC_URL" ]]; then
-  RPC_URL="$CUSTOM_RPC_URL"
-else
-  RPC_URL=$(infura_rpc_url "$CHAIN_ID" "$INFURA_KEY") || exit 1
-fi
-
-# Extract hostname from RPC URL for the fetch allowlist
-RPC_HOST=$(echo "$RPC_URL" | node -e "
-  const u = require('fs').readFileSync('/dev/stdin','utf8').trim();
-  const m = u.match(/^https?:\\/\\/([^/:]+)/);
-  if (m) process.stdout.write(m[1]);
-")
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -166,15 +155,12 @@ DIM='\033[2m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 CYAN='\033[0;36m'
-YELLOW='\033[0;33m'
 RESET='\033[0m'
 
 info()  { echo -e "${CYAN}→${RESET} $*" >&2; }
 ok()    { echo -e "  ${GREEN}✓${RESET} $*" >&2; }
 fail()  { echo -e "  ${RED}✗${RESET} $*" >&2; exit 1; }
 
-# Parse the value out of Endo CapData JSON ({"body":"#...","slots":[...]}).
-# Simple values only (strings, arrays, objects without slot references).
 parse_capdata() {
   node -e "
     const raw = require('fs').readFileSync('/dev/stdin', 'utf8').trim();
@@ -209,7 +195,7 @@ parse_capdata() {
 }
 
 # Run a daemon exec command and log its output to stderr.
-# Usage: daemon_exec [--quiet] <method> <params>
+# Usage: daemon_exec [--quiet] <method> <params> [--timeout <seconds>]
 # Pass --quiet to suppress the stderr log line (for sensitive params).
 daemon_exec() {
   local quiet=false
@@ -234,7 +220,7 @@ if [[ "$SKIP_BUILD" == false ]]; then
   (cd "$REPO_ROOT" && yarn workspace @metamask/ocap-kernel build) >&2
   (cd "$REPO_ROOT" && yarn workspace @metamask/kernel-node-runtime build) >&2
   (cd "$REPO_ROOT" && yarn workspace @metamask/kernel-cli build) >&2
-  (cd "$REPO_ROOT" && yarn workspace @ocap/eth-wallet build) >&2
+  (cd "$REPO_ROOT" && yarn workspace @ocap/evm-wallet-experiment build) >&2
   ok "Build complete"
 else
   info "Skipping build (--no-build)"
@@ -323,17 +309,70 @@ if [[ -n "$RELAY_ADDR" ]]; then
   if [[ "$RELAY_OK" == "true" ]]; then
     ok "Relay reservation active"
   else
-    fail "Relay reservation not established after 30s. Is the relay running? Check: ssh VPS 'sudo systemctl status ocap-relay.service'"
+    fail "Relay reservation not established after 30s. Is the relay running? Check: sudo systemctl status ocap-relay.service"
   fi
 fi
 
 # ---------------------------------------------------------------------------
-# 4. Launch wallet subcluster
+# 4. Register home device location hints
+# ---------------------------------------------------------------------------
+
+info "Registering home device location hints..."
+
+# OCAP URL format: ocap:<oid>@<peerId>,<hint1>,<hint2>,...
+HOME_PEER_ID=$(echo "$OCAP_URL" | node -e "
+  const url = require('fs').readFileSync('/dev/stdin', 'utf8').trim();
+  const withoutScheme = url.replace(/^ocap:/, '');
+  const afterAt = withoutScheme.split('@')[1];
+  if (!afterAt) {
+    process.stderr.write('Failed to parse OCAP URL: no @ separator found in: ' + url.slice(0, 100) + '\n');
+    process.exit(1);
+  }
+  const peerId = afterAt.split(',')[0];
+  if (!peerId) {
+    process.stderr.write('Failed to parse OCAP URL: no peer ID found after @ in: ' + url.slice(0, 100) + '\n');
+    process.exit(1);
+  }
+  process.stdout.write(peerId);
+")
+
+if [[ -z "$HOME_PEER_ID" ]]; then
+  fail "Failed to extract peer ID from OCAP URL"
+fi
+
+HINTS_PARAMS=$(PEER="$HOME_PEER_ID" ADDRS="$LISTEN_ADDRS" node -e "
+  const p = JSON.stringify({ peerId: process.env.PEER, hints: JSON.parse(process.env.ADDRS) });
+  process.stdout.write(p);
+")
+
+daemon_exec registerLocationHints "$HINTS_PARAMS" >/dev/null
+ok "Location hints registered for peer $HOME_PEER_ID"
+
+# ---------------------------------------------------------------------------
+# 5. Launch wallet subcluster
 # ---------------------------------------------------------------------------
 
 info "Launching wallet subcluster..."
 
-CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$RPC_HOST" node -e "
+# Extract RPC hostname for allowedHosts (if provider will be configured)
+AWAY_RPC_HOST=""
+if [[ -n "$INFURA_KEY" ]]; then
+  if [[ -n "$CUSTOM_RPC_URL" ]]; then
+    AWAY_RPC_HOST=$(echo "$CUSTOM_RPC_URL" | node -e "
+      const u = require('fs').readFileSync('/dev/stdin','utf8').trim();
+      const m = u.match(/^https?:\\/\\/([^/:]+)/);
+      if (m) process.stdout.write(m[1]);
+    ")
+  else
+    AWAY_RPC_HOST=$(echo "$(infura_rpc_url "$CHAIN_ID" "x")" | node -e "
+      const u = require('fs').readFileSync('/dev/stdin','utf8').trim();
+      const m = u.match(/^https?:\\/\\/([^/:]+)/);
+      if (m) process.stdout.write(m[1]);
+    ")
+  fi
+fi
+
+CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$AWAY_RPC_HOST" node -e "
   const bd = process.env.BUNDLE_DIR;
   const dm = process.env.DM;
   const rpcHost = process.env.RPC_HOST;
@@ -380,49 +419,45 @@ fi
 ok "Subcluster launched — coordinator: $ROOT_KREF"
 
 # ---------------------------------------------------------------------------
-# 5. Initialize keyring
+# 6. Initialize keyring (throwaway)
 # ---------------------------------------------------------------------------
 
-if [[ -n "$KEYRING_PASSWORD" ]]; then
-  info "Initializing keyring with SRP (encrypted)..."
-else
-  info "Initializing keyring with SRP..."
-fi
-
-INIT_PARAMS=$(KREF="$ROOT_KREF" SRP="$MNEMONIC" PW="$KEYRING_PASSWORD" node -e "
-  const opts = { type: 'srp', mnemonic: process.env.SRP };
-  if (process.env.PW) {
-    opts.password = process.env.PW;
-    opts.salt = require('crypto').randomBytes(16).toString('hex');
-  }
-  const p = JSON.stringify([process.env.KREF, 'initializeKeyring', [opts]]);
-  process.stdout.write(p);
-")
-
-daemon_exec --quiet queueMessage "$INIT_PARAMS" >/dev/null
-ok "Keyring initialized"
+info "Initializing throwaway keyring..."
+# Generate 32 bytes of entropy outside the SES compartment (crypto.getRandomValues
+# is unavailable inside vats). The entropy is passed to the keyring vat which uses
+# it as the private key for the throwaway account.
+ENTROPY="0x$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
+daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"initializeKeyring\", [{\"type\":\"throwaway\",\"entropy\":\"$ENTROPY\"}]]" >/dev/null
+ok "Throwaway keyring initialized"
 
 info "Verifying accounts..."
 ACCOUNTS_RAW=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"getAccounts\", []]")
 ACCOUNTS=$(echo "$ACCOUNTS_RAW" | parse_capdata)
-ok "Accounts: $ACCOUNTS"
+ok "Local throwaway account: $ACCOUNTS"
 
 # ---------------------------------------------------------------------------
-# 6. Configure provider
+# 7. Configure provider (optional — only if Infura key provided)
 # ---------------------------------------------------------------------------
 
-info "Configuring provider ($(chain_name "$CHAIN_ID"), chain $CHAIN_ID)..."
+if [[ -n "$INFURA_KEY" ]]; then
+  if [[ -n "$CUSTOM_RPC_URL" ]]; then
+    RPC_URL="$CUSTOM_RPC_URL"
+  else
+    RPC_URL=$(infura_rpc_url "$CHAIN_ID" "$INFURA_KEY") || exit 1
+  fi
+  info "Configuring provider ($(chain_name "$CHAIN_ID"), chain $CHAIN_ID)..."
 
-PROVIDER_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" URL="$RPC_URL" node -e "
-  const p = JSON.stringify([process.env.KREF, 'configureProvider', [{ chainId: Number(process.env.CID), rpcUrl: process.env.URL }]]);
-  process.stdout.write(p);
-")
+  PROVIDER_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" URL="$RPC_URL" node -e "
+    const p = JSON.stringify([process.env.KREF, 'configureProvider', [{ chainId: Number(process.env.CID), rpcUrl: process.env.URL }]]);
+    process.stdout.write(p);
+  ")
 
-daemon_exec queueMessage "$PROVIDER_PARAMS" >/dev/null
-ok "Provider configured — $RPC_URL"
+  daemon_exec queueMessage "$PROVIDER_PARAMS" >/dev/null
+  ok "Provider configured — $RPC_URL"
+fi
 
 # ---------------------------------------------------------------------------
-# 6b. Configure bundler (requires Pimlico key)
+# 7b. Configure bundler (requires Pimlico key)
 # ---------------------------------------------------------------------------
 
 if [[ -n "$PIMLICO_KEY" ]]; then
@@ -438,154 +473,139 @@ if [[ -n "$PIMLICO_KEY" ]]; then
   daemon_exec queueMessage "$BUNDLER_PARAMS" >/dev/null
   ok "Bundler configured — Pimlico (chain $CHAIN_ID)"
 
-  # Promote the EOA to a smart account via EIP-7702 authorization.
-  # The EOA's address stays the same — no separate contract, no funding needed.
-  info "Setting up smart account (EIP-7702 stateless)..."
+  # Create a Hybrid smart account (counterfactual — no on-chain tx needed).
+  # It deploys automatically on the first UserOp via factory data.
+  # The away device can't use stateless7702 because the throwaway EOA has
+  # no ETH to pay for the on-chain EIP-7702 authorization tx.
+  info "Setting up smart account (Hybrid, counterfactual)..."
   SA_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" node -e "
-    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ chainId: Number(process.env.CID), implementation: 'stateless7702' }]]);
+    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ chainId: Number(process.env.CID) }]]);
     process.stdout.write(p);
   ")
-  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 60)
-  HOME_SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
+  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 120)
+  SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
     const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
     process.stdout.write(d.address || '');
   " 2>/dev/null || echo "")
-
-  if [[ -z "$HOME_SMART_ACCOUNT" ]]; then
-    fail "Failed to create smart account"
+  if [[ -n "$SMART_ACCOUNT" ]]; then
+    ok "Smart account: $SMART_ACCOUNT (deploys on first UserOp)"
+  else
+    info "Smart account creation returned no address — redemption may not work"
   fi
-  ok "Smart account: $HOME_SMART_ACCOUNT (EIP-7702, same as EOA)"
 else
   info "Skipping bundler config (no --pimlico-key). UserOp submission will not work."
 fi
 
 # ---------------------------------------------------------------------------
-# 7. Issue OCAP URL
+# 8. Connect to home wallet
 # ---------------------------------------------------------------------------
 
-info "Issuing OCAP URL for the away device..."
-OCAP_URL_RAW=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"issueOcapUrl\", []]")
-OCAP_URL=$(echo "$OCAP_URL_RAW" | parse_capdata)
+info "Connecting to home wallet..."
 
-# Strip trailing comma (kernel emits ocap:...@peerId, when no relays are known)
-OCAP_URL="${OCAP_URL%,}"
-
-if [[ -z "$OCAP_URL" || "$OCAP_URL" != ocap:* ]]; then
-  fail "Failed to issue OCAP URL"
-fi
-ok "OCAP URL issued"
-
-# ---------------------------------------------------------------------------
-# 8. Extract listen addresses for the away device
-# ---------------------------------------------------------------------------
-
-info "Extracting listen addresses..."
-STATUS=$(node "$OCAP_BIN" daemon exec getStatus)
-LISTEN_ADDRS=$(echo "$STATUS" | node -e "
-  const data = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
-  const addrs = data.remoteComms?.listenAddresses ?? [];
-  process.stdout.write(JSON.stringify(addrs));
+CONNECT_PARAMS=$(KREF="$ROOT_KREF" PEER_URL="$OCAP_URL" node -e "
+  const p = JSON.stringify([process.env.KREF, 'connectToPeer', [process.env.PEER_URL]]);
+  process.stdout.write(p);
 ")
 
-if [[ "$LISTEN_ADDRS" == "[]" ]]; then
-  fail "No listen addresses found. Remote comms may not be fully connected."
+daemon_exec queueMessage "$CONNECT_PARAMS" --timeout 120 >/dev/null
+
+# ---------------------------------------------------------------------------
+# 9. Wait for peer wallet connection
+# ---------------------------------------------------------------------------
+
+info "Waiting for peer wallet connection (up to 60s)..."
+for i in $(seq 1 60); do
+  CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
+  if [[ -n "$CAPS_RAW" ]]; then
+    HAS_PEER=$(echo "$CAPS_RAW" | node -e "
+      try {
+        const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+        const v = JSON.parse(d.body.slice(1));
+        process.stdout.write(String(v.hasPeerWallet));
+      } catch { process.stdout.write('false'); }
+    " 2>/dev/null || echo "false")
+    if [[ "$HAS_PEER" == "true" ]]; then
+      break
+    fi
+  fi
+  if [[ "$i" -eq 60 ]]; then
+    fail "Peer wallet not connected after 60s"
+  fi
+  sleep 1
+done
+ok "Peer wallet connected and verified"
+
+# ---------------------------------------------------------------------------
+# 9b. Cache peer accounts for offline autonomy
+# ---------------------------------------------------------------------------
+
+info "Caching home device accounts for offline use..."
+CACHED_RAW=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"refreshPeerAccounts\", []]")
+CACHED_ACCOUNTS=$(echo "$CACHED_RAW" | parse_capdata)
+ok "Cached peer accounts: $CACHED_ACCOUNTS"
+
+# ---------------------------------------------------------------------------
+# 10. Delegate authority (interactive)
+# ---------------------------------------------------------------------------
+
+# Use the smart account as delegate if available, otherwise the throwaway EOA
+if [[ -n "${SMART_ACCOUNT:-}" ]]; then
+  DELEGATE_ADDR="$SMART_ACCOUNT"
+else
+  DELEGATE_ADDR=$(echo "$ACCOUNTS" | node -e "
+    const arr = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
+    process.stdout.write(arr[0]);
+  ")
 fi
 
-# Detect public IP and add a public multiaddr so remote peers can connect.
-PEER_ID=$(echo "$LISTEN_ADDRS" | node -e "
-  const addrs = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
-  const match = addrs.find(a => a.includes('/p2p/'));
-  if (match) process.stdout.write(match.split('/p2p/').pop());
+# ---------------------------------------------------------------------------
+# 9c. Send delegate address to home device
+# ---------------------------------------------------------------------------
+
+info "Sending delegate address to home device..."
+SEND_ADDR_PARAMS=$(KREF="$ROOT_KREF" ADDR="$DELEGATE_ADDR" node -e "
+  const p = JSON.stringify([process.env.KREF, 'sendDelegateAddressToPeer', [process.env.ADDR]]);
+  process.stdout.write(p);
 ")
-
-PUBLIC_IP=$(curl -s -4 --max-time 5 https://ifconfig.me || true)
-if [[ -n "$PUBLIC_IP" && -n "$PEER_ID" ]]; then
-  PUBLIC_ADDR="/ip4/${PUBLIC_IP}/udp/${QUIC_PORT}/quic-v1/p2p/${PEER_ID}"
-  LISTEN_ADDRS=$(PUBLIC_ADDR="$PUBLIC_ADDR" node -e "
-    const addrs = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
-    addrs.unshift(process.env.PUBLIC_ADDR);
-    process.stdout.write(JSON.stringify(addrs));
-  " <<< "$LISTEN_ADDRS")
-  ok "Public address: $PUBLIC_ADDR"
+if daemon_exec --quiet queueMessage "$SEND_ADDR_PARAMS" --timeout 15 >/dev/null 2>&1; then
+  ok "Delegate address sent to home device: $DELEGATE_ADDR"
+else
+  echo -e "  ${YELLOW}Could not send delegate address automatically.${RESET}" >&2
 fi
-
-# Ensure relay circuit addresses are included even if the relay reservation
-# hasn't been established yet (getMultiaddrs() only reports them after the
-# async reservation completes). These are essential for the away device to
-# reach this node through the relay.
-if [[ -n "$RELAY_ADDR" && -n "$PEER_ID" ]]; then
-  LISTEN_ADDRS=$(RELAY="$RELAY_ADDR" PID="$PEER_ID" node -e "
-    const addrs = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
-    const relay = process.env.RELAY;
-    const peerId = process.env.PID;
-    const circuitWebrtc = relay + '/p2p-circuit/webrtc/p2p/' + peerId;
-    const circuitDirect = relay + '/p2p-circuit/p2p/' + peerId;
-    if (!addrs.includes(circuitWebrtc)) addrs.push(circuitWebrtc);
-    if (!addrs.includes(circuitDirect)) addrs.push(circuitDirect);
-    process.stdout.write(JSON.stringify(addrs));
-  " <<< "$LISTEN_ADDRS")
-  ok "Relay circuit addresses added"
-fi
-ok "Listen addresses: $LISTEN_ADDRS"
-
-# ---------------------------------------------------------------------------
-# Done
-# ---------------------------------------------------------------------------
 
 cat >&2 <<EOF
 
 $(echo -e "${GREEN}${BOLD}")══════════════════════════════════════════════
-  Home wallet setup complete!
+  Away wallet ready — waiting for delegation
 ══════════════════════════════════════════════$(echo -e "${RESET}")
 
   $(echo -e "${DIM}")Coordinator kref :$(echo -e "${RESET}") $ROOT_KREF
   $(echo -e "${DIM}")Chain ID         :$(echo -e "${RESET}") $CHAIN_ID
-  $(echo -e "${DIM}")RPC URL          :$(echo -e "${RESET}") $RPC_URL
-  $(echo -e "${DIM}")Accounts         :$(echo -e "${RESET}") $ACCOUNTS
+  $(echo -e "${DIM}")Delegate address :$(echo -e "${RESET}") $DELEGATE_ADDR
+  $(echo -e "${DIM}")Peer connected   :$(echo -e "${RESET}") $(echo -e "${GREEN}")true$(echo -e "${RESET}")
 
-$(echo -e "${YELLOW}${BOLD}")  Run this on the away device (VPS):$(echo -e "${RESET}")
-
-$(echo -e "${BOLD}")  ./packages/eth-wallet/scripts/setup-away.sh \\
-    --ocap-url "$OCAP_URL" \\
-    --listen-addrs '$LISTEN_ADDRS'$(
-      [[ -n "$INFURA_KEY" ]] && echo " \\
-    --infura-key $INFURA_KEY"
-    )$(
-      [[ -n "$PIMLICO_KEY" ]] && echo " \\
-    --pimlico-key $PIMLICO_KEY"
-    )$(
-      [[ -n "$RELAY_ADDR" ]] && echo " \\
-    --relay \"$RELAY_ADDR\""
-    )$(echo -e "${RESET}")
+  $(echo -e "${DIM}")Run setup-home.sh on the home device now.$(echo -e "${RESET}")
+  $(echo -e "${DIM}")The delegate address and delegation will be exchanged automatically.$(echo -e "${RESET}")
 
 EOF
 
-# ---------------------------------------------------------------------------
-# 9. Create delegation (interactive — waits for away device delegate address)
-# ---------------------------------------------------------------------------
+info "Waiting for delegation from home device (up to 10 min)..."
+echo -e "  ${DIM}Press Enter to skip waiting and paste manually.${RESET}" >&2
 
-# Poll for the delegate address from the away device (sent over libp2p/CapTP).
-# The away device calls sendDelegateAddressToPeer after connecting.
-DELEGATE_ADDR=""
-info "Waiting for delegate address from away device (up to 10 min)..."
-echo -e "  ${DIM}Run setup-away.sh on the away device now if you haven't already.${RESET}" >&2
-echo -e "  ${DIM}Or paste the delegate address here to skip waiting.${RESET}" >&2
-
+DEL_COUNT="0"
 POLL_FAILURES=0
+MANUAL_SKIP=false
 for i in $(seq 1 300); do
-  DELEGATE_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getDelegateAddress\", []]" 2>/dev/null) || DELEGATE_RAW=""
-  if [[ -n "$DELEGATE_RAW" ]]; then
+  CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
+  if [[ -n "$CAPS_RAW" ]]; then
     POLL_FAILURES=0
-    DELEGATE_ADDR=$(echo "$DELEGATE_RAW" | node -e "
+    DEL_COUNT=$(echo "$CAPS_RAW" | node -e "
       const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
-      if (!d.body || !d.body.startsWith('#')) { process.exit(0); }
       const v = JSON.parse(d.body.slice(1));
-      if (v && typeof v === 'string' && /^0x[\da-fA-F]{40}$/.test(v)) {
-        process.stdout.write(v);
-      }
-    " 2>/dev/null || echo "")
-    if [[ -n "$DELEGATE_ADDR" ]]; then
-      ok "Delegate address received from away device: $DELEGATE_ADDR"
+      process.stdout.write(String(v.delegationCount));
+    " 2>/dev/null || echo "0")
+    if [[ "$DEL_COUNT" != "0" ]]; then
+      ok "Delegation received (auto-pushed from home device)"
       break
     fi
   else
@@ -595,127 +615,120 @@ for i in $(seq 1 300); do
     fi
   fi
   if [[ "$i" -eq 300 ]]; then
-    echo "" >&2
-    echo -e "  ${YELLOW}Timed out waiting. Falling back to manual input.${RESET}" >&2
-    echo -ne "${CYAN}→${RESET} Paste the delegate address: " >&2
-    read -r DELEGATE_ADDR
-
-    if [[ -z "$DELEGATE_ADDR" ]]; then
-      echo -e "\n  ${DIM}No delegate address provided. You can create the delegation manually later:${RESET}" >&2
-      echo -e "  ${DIM}yarn ocap daemon exec queueMessage '[\"$ROOT_KREF\", \"createDelegation\", [{\"delegate\": \"0xADDRESS\", \"caveats\": [{\"type\":\"nativeTokenTransferAmount\",\"enforcer\":\"0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320\",\"terms\":\"0x...\"}], \"chainId\": $CHAIN_ID}]]'${RESET}\n" >&2
-      exit 0
-    fi
+    MANUAL_SKIP=true
     break
   fi
-  # read -t 2 doubles as the sleep — if the user pastes an address it breaks immediately
-  if read -t 2 -r MANUAL_ADDR 2>/dev/null && [[ -n "$MANUAL_ADDR" ]]; then
-    DELEGATE_ADDR="$MANUAL_ADDR"
-    ok "Delegate address entered manually: $DELEGATE_ADDR"
+  # read -t 2 doubles as the sleep — pressing Enter skips to manual paste
+  if read -t 2 -r _ 2>/dev/null; then
+    MANUAL_SKIP=true
     break
   fi
 done
 
-if ! echo "$DELEGATE_ADDR" | grep -qiE '^0x[0-9a-f]{40}$'; then
-  fail "Invalid Ethereum address: $DELEGATE_ADDR"
-fi
+if [[ "$MANUAL_SKIP" == true && "$DEL_COUNT" == "0" ]]; then
+  echo "" >&2
+  if [[ "$i" -eq 300 ]]; then
+    echo -e "  ${YELLOW}Timed out waiting. Falling back to manual paste.${RESET}" >&2
+  fi
+  echo -e "${CYAN}→${RESET} Paste the delegation JSON from the home device (press Ctrl+D when done):" >&2
+  DELEGATION_JSON=$(cat)
 
-# Prompt for optional spending limits
-echo "" >&2
-echo -e "  ${DIM}Spending limits restrict how much ETH the agent can spend.${RESET}" >&2
-echo -e "  ${DIM}Both are enforced on-chain — the agent cannot bypass them.${RESET}" >&2
-echo "" >&2
-echo -ne "${CYAN}→${RESET} Total ETH spending limit (e.g. 0.1, or Enter for unlimited): " >&2
-read -r TOTAL_LIMIT
-echo -ne "${CYAN}→${RESET} Max ETH per transaction (e.g. 0.01, or Enter for unlimited): " >&2
-read -r TX_LIMIT
+  if [[ -z "$DELEGATION_JSON" ]]; then
+    fail "No delegation JSON provided"
+  fi
 
-CAVEATS_JSON=$(TOTAL="$TOTAL_LIMIT" TX="$TX_LIMIT" node -e "
-  const caveats = [];
-  const total = (process.env.TOTAL || '').trim();
-  const tx = (process.env.TX || '').trim();
-  const encode = (v) => {
-    const wei = BigInt(Math.round(parseFloat(v) * 1e18));
-    return '0x' + wei.toString(16).padStart(64, '0');
-  };
-  if (total) caveats.push({
-    type: 'nativeTokenTransferAmount',
-    enforcer: '0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320',
-    terms: encode(total)
-  });
-  if (tx) caveats.push({
-    type: 'valueLte',
-    enforcer: '0x92Bf12322527cAA612fd31a0e810472BBB106A8F',
-    terms: encode(tx)
-  });
-  process.stdout.write(JSON.stringify(caveats));
-")
+  DELEGATION_INNER=$(echo "$DELEGATION_JSON" | node -e "
+    const raw = require('fs').readFileSync('/dev/stdin', 'utf8').trim();
+    let data;
+    try { data = JSON.parse(raw); } catch {
+      process.stderr.write('Invalid JSON\n');
+      process.exit(1);
+    }
+    if (data.body && typeof data.body === 'string' && data.body.startsWith('#')) {
+      try {
+        const inner = JSON.parse(data.body.slice(1));
+        process.stdout.write(JSON.stringify(inner));
+      } catch {
+        process.stderr.write('Failed to parse CapData body\n');
+        process.exit(1);
+      }
+    } else {
+      process.stdout.write(JSON.stringify(data));
+    }
+  ")
 
-if [[ "$CAVEATS_JSON" == "[]" ]]; then
-  info "Creating delegation for $DELEGATE_ADDR (no spending limits)..."
-else
-  info "Creating delegation for $DELEGATE_ADDR with spending limits..."
-  echo -e "  ${DIM}Caveats: $CAVEATS_JSON${RESET}" >&2
-fi
-
-DEL_PARAMS=$(KREF="$ROOT_KREF" DEL="$DELEGATE_ADDR" CID="$CHAIN_ID" CAVS="$CAVEATS_JSON" node -e "
-  const p = JSON.stringify([process.env.KREF, 'createDelegation', [{ delegate: process.env.DEL, caveats: JSON.parse(process.env.CAVS), chainId: Number(process.env.CID) }]]);
-  process.stdout.write(p);
-")
-DEL_RAW=$(daemon_exec queueMessage "$DEL_PARAMS")
-DEL_INNER=$(echo "$DEL_RAW" | parse_capdata)
-ok "Delegation created"
-
-# ---------------------------------------------------------------------------
-# Push delegation to away device (or fall back to manual copy-paste)
-# ---------------------------------------------------------------------------
-
-HAS_AWAY="false"
-CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
-if [[ -n "$CAPS_RAW" ]]; then
-  HAS_AWAY=$(echo "$CAPS_RAW" | node -e "
-    const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
-    const v = JSON.parse(d.body.slice(1));
-    process.stdout.write(String(v.hasAwayWallet === true));
-  " 2>&1) || {
-    echo -e "  ${YELLOW}Warning: Failed to parse capabilities — cannot auto-push delegation${RESET}" >&2
-    HAS_AWAY="false"
-  }
-else
-  echo -e "  ${YELLOW}Warning: Failed to query capabilities — cannot auto-push delegation${RESET}" >&2
-fi
-
-if [[ "$HAS_AWAY" == "true" ]]; then
-  info "Pushing delegation to away device..."
-  PUSH_PARAMS=$(KREF="$ROOT_KREF" DEL="$DEL_INNER" node -e "
-    const p = JSON.stringify([process.env.KREF, 'pushDelegationToAway', [JSON.parse(process.env.DEL)]]);
+  info "Receiving delegation..."
+  RECEIVE_PARAMS=$(KREF="$ROOT_KREF" DEL="$DELEGATION_INNER" node -e "
+    const p = JSON.stringify([process.env.KREF, 'receiveDelegation', [JSON.parse(process.env.DEL)]]);
     process.stdout.write(p);
   ")
-  PUSH_OUTPUT=$(daemon_exec --quiet queueMessage "$PUSH_PARAMS" --timeout 30 2>&1) && {
-    ok "Delegation pushed to away device"
-  } || {
-    echo -e "  ${RED}✗${RESET} Push failed — falling back to manual transfer" >&2
-    if [[ -n "$PUSH_OUTPUT" ]]; then
-      echo -e "  ${DIM}Reason: $PUSH_OUTPUT${RESET}" >&2
-    fi
-    HAS_AWAY="false"
-  }
+  daemon_exec queueMessage "$RECEIVE_PARAMS" >/dev/null
+  ok "Delegation received (manual)"
+
+  CAPS_FINAL_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_FINAL_RAW=""
+  DEL_COUNT=$(echo "$CAPS_FINAL_RAW" | node -e "
+    try {
+      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+      const v = JSON.parse(d.body.slice(1));
+      process.stdout.write(String(v.delegationCount));
+    } catch { process.stdout.write('0'); }
+  " 2>/dev/null || echo "0")
 fi
+ok "Delegation count: $DEL_COUNT"
 
-if [[ "$HAS_AWAY" != "true" ]]; then
-  cat >&2 <<EOF
-
-$(echo -e "${YELLOW}${BOLD}")  Copy this delegation JSON and paste it into the away device
-  script when prompted:$(echo -e "${RESET}")
-
-$(echo -e "${BOLD}")$DEL_RAW$(echo -e "${RESET}")
-
-EOF
-fi
+# ---------------------------------------------------------------------------
+# Done
+# ---------------------------------------------------------------------------
 
 cat >&2 <<EOF
+
+$(echo -e "${GREEN}${BOLD}")══════════════════════════════════════════════
+  Away wallet setup complete!
+══════════════════════════════════════════════$(echo -e "${RESET}")
+
+  $(echo -e "${DIM}")Coordinator kref :$(echo -e "${RESET}") $ROOT_KREF
+  $(echo -e "${DIM}")Delegate address :$(echo -e "${RESET}") $DELEGATE_ADDR
+  $(echo -e "${DIM}")Delegations      :$(echo -e "${RESET}") $DEL_COUNT
+  $(echo -e "${DIM}")Cached accounts  :$(echo -e "${RESET}") $CACHED_ACCOUNTS
+  $(echo -e "${DIM}")Peer connected   :$(echo -e "${RESET}") $(echo -e "${GREEN}")true$(echo -e "${RESET}")
 
   Watch daemon logs: $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")
   Stop the daemon:   $(echo -e "${DIM}")yarn ocap daemon stop$(echo -e "${RESET}")
   Purge all state:   $(echo -e "${DIM}")yarn ocap daemon purge --force$(echo -e "${RESET}")
 
 EOF
+
+# ---------------------------------------------------------------------------
+# 11. Optional: Install OpenClaw plugin
+# ---------------------------------------------------------------------------
+
+if command -v openclaw &>/dev/null; then
+  echo "" >&2
+  echo -ne "${CYAN}→${RESET} Install the OpenClaw wallet plugin? [y/N] " >&2
+  read -r INSTALL_PLUGIN
+  if [[ "$INSTALL_PLUGIN" =~ ^[Yy]$ ]]; then
+    info "Installing OpenClaw wallet plugin..."
+    (cd "$REPO_ROOT" && openclaw plugins install -l ./packages/evm-wallet-experiment/openclaw-plugin) >&2
+    openclaw plugins enable wallet >&2
+    openclaw config set tools.allow '["wallet"]' >&2
+    openclaw gateway restart >&2
+    ok "OpenClaw wallet plugin installed and enabled"
+    echo -e "  ${DIM}Run 'openclaw plugins list' to verify${RESET}" >&2
+  else
+    echo "" >&2
+    echo -e "  ${DIM}To install manually later:${RESET}" >&2
+    echo -e "  ${DIM}  cd $REPO_ROOT${RESET}" >&2
+    echo -e "  ${DIM}  openclaw plugins install -l ./packages/evm-wallet-experiment/openclaw-plugin${RESET}" >&2
+    echo -e "  ${DIM}  openclaw plugins enable wallet${RESET}" >&2
+    echo -e "  ${DIM}  openclaw config set tools.allow '[\"wallet\"]'${RESET}" >&2
+    echo -e "  ${DIM}  openclaw gateway restart${RESET}" >&2
+  fi
+else
+  echo "" >&2
+  echo -e "  ${DIM}OpenClaw not found. To install the wallet plugin manually:${RESET}" >&2
+  echo -e "  ${DIM}  cd $REPO_ROOT${RESET}" >&2
+  echo -e "  ${DIM}  openclaw plugins install -l ./packages/evm-wallet-experiment/openclaw-plugin${RESET}" >&2
+  echo -e "  ${DIM}  openclaw plugins enable wallet${RESET}" >&2
+  echo -e "  ${DIM}  openclaw config set tools.allow '[\"wallet\"]'${RESET}" >&2
+  echo -e "  ${DIM}  openclaw gateway restart${RESET}" >&2
+fi

@@ -1,4 +1,4 @@
-# OCAP ETH Wallet: How It Works
+# OCAP EVM Wallet: How It Works
 
 An overview of the components, how they fit together, and why the architecture matters.
 
@@ -6,7 +6,7 @@ An overview of the components, how they fit together, and why the architecture m
 
 ## What is this?
 
-The OCAP ETH Wallet is a two-device wallet system where:
+The OCAP EVM Wallet is a two-device wallet system where:
 
 - A **home device** (your laptop) holds the signing authority
 - An **away device** (a VPS) runs an AI agent that can spend ETH within configurable on-chain limits
