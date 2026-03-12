@@ -362,7 +362,7 @@ openclaw config set plugins.entries.wallet.config.walletKref '"ko8"'
 openclaw config set plugins.entries.wallet.config.ocapCliPath '"/custom/path/to/ocap"'
 ```
 
-The wallet tools (`wallet_balance`, `wallet_send`, `wallet_sign`, `wallet_accounts`, `wallet_capabilities`) are automatically available to agents once the plugin is enabled.
+The wallet tools (`wallet_balance`, `wallet_send`, `wallet_token_balance`, `wallet_token_send`, `wallet_token_info`, `wallet_token_resolve`, `wallet_sign`, `wallet_accounts`, `wallet_capabilities`) are automatically available to agents once the plugin is enabled.
 
 ---
 
@@ -598,8 +598,11 @@ Ask the agent natural-language questions and it will invoke the corresponding wa
 
 - "What are my wallet accounts?"
 - "What's the balance of 0x71fA...?"
-- "Sign the message 'hello world'"
+- "How much USDC do I have?"
 - "Send 0.001 ETH to 0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
+- "Send 10 USDC to 0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
+- "What's the contract address for LINK?"
+- "Sign the message 'hello world'"
 - "What capabilities does my wallet have?"
 
 ### Via the CLI
