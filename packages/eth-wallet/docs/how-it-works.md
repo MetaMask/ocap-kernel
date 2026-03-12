@@ -17,10 +17,10 @@ The agent never touches private keys. Instead, it holds a **delegation** — a s
 
 The home device supports two signing modes:
 
-| Mode | Script | How signing works | Smart account type |
-| --- | --- | --- | --- |
-| **Mnemonic** | `setup-home.sh` | Automatic — keyring signs locally | Stateless EIP-7702 (EOA = smart account) |
-| **Interactive (MetaMask)** | `setup-home-interactive.sh` | MetaMask Mobile signs the delegation once during setup; agent acts autonomously after | Hybrid (separate address, auto-funded) |
+| Mode                       | Script                      | How signing works                                                                     | Smart account type                       |
+| -------------------------- | --------------------------- | ------------------------------------------------------------------------------------- | ---------------------------------------- |
+| **Mnemonic**               | `setup-home.sh`             | Automatic — keyring signs locally                                                     | Stateless EIP-7702 (EOA = smart account) |
+| **Interactive (MetaMask)** | `setup-home-interactive.sh` | MetaMask Mobile signs the delegation once during setup; agent acts autonomously after | Hybrid (separate address, auto-funded)   |
 
 The away device discovers the home's signing mode via `getCapabilities()` → `signingMode`. Values like `peer:local` (mnemonic) or `peer:external:metamask` (interactive) indicate how the home device signs — but in both modes the away device operates autonomously after setup via delegation redemption.
 
@@ -38,12 +38,12 @@ Each device runs its own kernel instance.
 
 The wallet subcluster consists of four vats:
 
-| Vat | Responsibility | Isolation guarantee |
-| --- | --- | --- |
-| **Coordinator** | Orchestrates wallet operations, resolves signing strategies | No direct key or network access |
-| **Keyring** | Holds private keys, performs signing | Keys never leave this vat |
-| **Provider** | Ethereum JSON-RPC communication | Network access restricted to allowed hosts |
-| **Delegation** | Manages delegations and caveats (DeleGator framework) | Pure logic, no keys or network |
+| Vat             | Responsibility                                              | Isolation guarantee                        |
+| --------------- | ----------------------------------------------------------- | ------------------------------------------ |
+| **Coordinator** | Orchestrates wallet operations, resolves signing strategies | No direct key or network access            |
+| **Keyring**     | Holds private keys, performs signing                        | Keys never leave this vat                  |
+| **Provider**    | Ethereum JSON-RPC communication                             | Network access restricted to allowed hosts |
+| **Delegation**  | Manages delegations and caveats (DeleGator framework)       | Pure logic, no keys or network             |
 
 The coordinator routes requests to the appropriate vat. For example, when the agent asks to sign a message, the coordinator sends the request to the keyring vat — the signature comes back, but the key never does.
 
@@ -93,10 +93,10 @@ A **delegation** is a signed EIP-712 message that says: "I (delegator smart acco
 
 Two caveat enforcers are used for spending limits:
 
-| Enforcer | What it does | State |
-| --- | --- | --- |
-| `NativeTokenTransferAmountEnforcer` | Limits total cumulative ETH spend | **Stateful** — tracks spend on-chain |
-| `ValueLteEnforcer` | Limits ETH per single transaction | Stateless — checks each tx independently |
+| Enforcer                            | What it does                      | State                                    |
+| ----------------------------------- | --------------------------------- | ---------------------------------------- |
+| `NativeTokenTransferAmountEnforcer` | Limits total cumulative ETH spend | **Stateful** — tracks spend on-chain     |
+| `ValueLteEnforcer`                  | Limits ETH per single transaction | Stateless — checks each tx independently |
 
 Both enforcers are deployed at deterministic CREATE2 addresses (same address on every EVM chain).
 
@@ -110,23 +110,27 @@ If the home device is behind NAT (no public IP), a lightweight **libp2p relay** 
 
 ### OpenClaw Agent + Wallet Plugin
 
-**OpenClaw** is an AI agent framework that supports multiple channels (CLI, TUI, Telegram, web). The **wallet plugin** exposes five tools to the agent:
+**OpenClaw** is an AI agent framework that supports multiple channels (CLI, TUI, Telegram, web). The **wallet plugin** exposes tools to the agent:
 
-| Tool | What it does |
-| --- | --- |
-| `wallet_accounts` | Lists available Ethereum accounts |
-| `wallet_balance` | Queries ETH balance from the chain |
-| `wallet_sign` | Signs a personal message (EIP-191) |
-| `wallet_send` | Sends ETH (accepts decimal amounts like "0.08", converts to wei internally) |
-| `wallet_capabilities` | Reports wallet state (keys, peer, delegations, bundler) |
+| Tool                   | What it does                                                                |
+| ---------------------- | --------------------------------------------------------------------------- |
+| `wallet_accounts`      | Lists available Ethereum accounts                                           |
+| `wallet_balance`       | Queries ETH balance from the chain                                          |
+| `wallet_send`          | Sends ETH (accepts decimal amounts like "0.08", converts to wei internally) |
+| `wallet_token_balance` | Queries ERC-20 token balance (by contract address or symbol)                |
+| `wallet_token_send`    | Sends ERC-20 tokens (USDC, LINK, etc. — resolves symbols to addresses)      |
+| `wallet_token_info`    | Gets token metadata (name, symbol, decimals)                                |
+| `wallet_token_resolve` | Resolves a token symbol to its contract address                             |
+| `wallet_sign`          | Signs a personal message (EIP-191)                                          |
+| `wallet_capabilities`  | Reports wallet state (keys, peer, delegations, bundler)                     |
 
 The plugin communicates with the kernel through the OCAP daemon's Unix socket. The agent never has direct access to keys, RPC endpoints, or delegation internals.
 
 ---
 
-## Data Flow: Sending ETH
+## Data Flow: Sending ETH or ERC-20 Tokens
 
-Here's what happens when the agent sends ETH on behalf of the user:
+Here's what happens when the agent sends ETH (or ERC-20 tokens) on behalf of the user. For token transfers, the coordinator encodes an ERC-20 `transfer(to, amount)` call and wraps it in a delegation UserOp — the flow is identical from step 5 onward:
 
 ```
 1. User (Telegram) → "Send 0.01 ETH to 0x70..."
@@ -162,18 +166,18 @@ If any caveat check fails at step 10, the entire UserOp reverts — the ETH is n
 
 ## Security Properties
 
-| Property | How it's achieved |
-| --- | --- |
-| **Keys never leave home** | Keyring vat isolation + CapTP remote signing (mnemonic mode), or MetaMask Mobile holds keys (interactive mode) |
+| Property                       | How it's achieved                                                                                                         |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------- |
+| **Keys never leave home**      | Keyring vat isolation + CapTP remote signing (mnemonic mode), or MetaMask Mobile holds keys (interactive mode)            |
 | **Mnemonic encrypted at rest** | Optional AES-256-GCM encryption with PBKDF2-derived key; keyring starts locked on restart and requires password to unlock |
-| **Agent has a hard budget** | On-chain caveat enforcers (NativeTokenTransferAmount + ValueLte) |
-| **No ambient authority** | Ocap kernel: vats communicate only through explicit capability references |
-| **Limits can't be bypassed** | Enforced by Ethereum smart contracts, not software checks |
-| **Limits can be changed** | Create a new delegation with different caveats via `update-limits.sh` |
-| **Delegations can be revoked** | `revokeDelegation` submits an on-chain `disableDelegation` UserOp — once confirmed, the delegation cannot be redeemed |
-| **Relay can't snoop** | CapTP encryption — relay only forwards opaque bytes |
-| **Agent can't escalate** | Delegation is scoped — the agent can only do what the caveats allow |
-| **VPS runs autonomously** | Peer accounts are cached during setup; the home device can go offline after delegation is created |
+| **Agent has a hard budget**    | On-chain caveat enforcers (NativeTokenTransferAmount + ValueLte)                                                          |
+| **No ambient authority**       | Ocap kernel: vats communicate only through explicit capability references                                                 |
+| **Limits can't be bypassed**   | Enforced by Ethereum smart contracts, not software checks                                                                 |
+| **Limits can be changed**      | Create a new delegation with different caveats via `update-limits.sh`                                                     |
+| **Delegations can be revoked** | `revokeDelegation` submits an on-chain `disableDelegation` UserOp — once confirmed, the delegation cannot be redeemed     |
+| **Relay can't snoop**          | CapTP encryption — relay only forwards opaque bytes                                                                       |
+| **Agent can't escalate**       | Delegation is scoped — the agent can only do what the caveats allow                                                       |
+| **VPS runs autonomously**      | Peer accounts are cached during setup; the home device can go offline after delegation is created                         |
 
 ---
 
@@ -191,13 +195,13 @@ After the initial setup, the away device (VPS) is **fully autonomous** — the h
 
 ### What requires the home device online
 
-| Operation | Autonomous? | Why |
-| --- | --- | --- |
-| `sendTransaction` (delegation) | Yes | Signed locally, submitted to bundler |
-| `getAccounts` | Yes | Falls back to cached peer accounts |
-| `getCapabilities` | Yes | Signing mode cached in baggage |
-| `signMessage` / `signTypedData` (local key or smart account) | Yes | Throwaway key signs; valid for EIP-1271 |
-| `signMessage` / `signTypedData` (as home EOA address) | **No** | Requires the home device's private key |
+| Operation                                                    | Autonomous? | Why                                     |
+| ------------------------------------------------------------ | ----------- | --------------------------------------- |
+| `sendTransaction` (delegation)                               | Yes         | Signed locally, submitted to bundler    |
+| `getAccounts`                                                | Yes         | Falls back to cached peer accounts      |
+| `getCapabilities`                                            | Yes         | Signing mode cached in baggage          |
+| `signMessage` / `signTypedData` (local key or smart account) | Yes         | Throwaway key signs; valid for EIP-1271 |
+| `signMessage` / `signTypedData` (as home EOA address)        | **No**      | Requires the home device's private key  |
 
 The last case is a fundamental limitation — signing as a specific EOA address requires that address's private key, which never leaves the home device (mnemonic mode) or MetaMask (interactive mode). When the away device detects a signing request for a cached peer account and the home is offline, it throws a descriptive error instead of silently signing with the wrong key.
 
