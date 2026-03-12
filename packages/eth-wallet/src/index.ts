@@ -3,6 +3,7 @@
 // Constants
 export {
   CHAIN_CONTRACTS,
+  CHAIN_NAMES,
   DEFAULT_DELEGATION_MANAGER,
   DELEGATION_TYPES,
   ENFORCER_ADDRESSES,
@@ -11,7 +12,9 @@ export {
   PLACEHOLDER_CONTRACTS,
   ROOT_AUTHORITY,
   SEPOLIA_CHAIN_ID,
+  SUPPORTED_CHAIN_IDS,
   getChainContracts,
+  getPimlicoRpcUrl,
 } from './constants.ts';
 export type { ChainContracts } from './constants.ts';
 

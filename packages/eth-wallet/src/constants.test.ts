@@ -2,14 +2,15 @@ import { describe, it, expect } from 'vitest';
 
 import {
   CHAIN_CONTRACTS,
+  CHAIN_NAMES,
   PLACEHOLDER_CONTRACTS,
   SEPOLIA_CHAIN_ID,
   PIMLICO_RPC_BASE_URL,
+  SUPPORTED_CHAIN_IDS,
   getChainContracts,
+  getPimlicoRpcUrl,
 } from './constants.ts';
-import type { ChainContracts } from './constants.ts';
 import { CaveatTypeValues } from './types.ts';
-import type { Address } from './types.ts';
 
 describe('constants', () => {
   describe('SEPOLIA_CHAIN_ID', () => {
@@ -24,6 +25,32 @@ describe('constants', () => {
     });
   });
 
+  describe('SUPPORTED_CHAIN_IDS', () => {
+    it('contains all 8 supported chains', () => {
+      expect(SUPPORTED_CHAIN_IDS).toStrictEqual([
+        1, 10, 56, 137, 8453, 42161, 59144, 11155111,
+      ]);
+    });
+
+    it('has a matching entry in CHAIN_CONTRACTS for every ID', () => {
+      for (const chainId of SUPPORTED_CHAIN_IDS) {
+        expect(CHAIN_CONTRACTS[chainId]).toBeDefined();
+      }
+    });
+
+    it('has a matching entry in CHAIN_NAMES for every ID', () => {
+      for (const chainId of SUPPORTED_CHAIN_IDS) {
+        expect(CHAIN_NAMES[chainId]).toBeDefined();
+      }
+    });
+
+    it('has a Pimlico URL for every ID', () => {
+      for (const chainId of SUPPORTED_CHAIN_IDS) {
+        expect(() => getPimlicoRpcUrl(chainId)).not.toThrow();
+      }
+    });
+  });
+
   describe('getChainContracts', () => {
     it('returns placeholder contracts when no chainId provided', () => {
       expect(getChainContracts()).toBe(PLACEHOLDER_CONTRACTS);
@@ -35,46 +62,53 @@ describe('constants', () => {
       );
     });
 
-    it('returns chain-specific contracts when registered in manual registry', () => {
-      const testContracts: ChainContracts = {
-        delegationManager:
-          '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
-        enforcers: {
-          allowedTargets:
-            '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address,
-          allowedMethods:
-            '0xcccccccccccccccccccccccccccccccccccccccc' as Address,
-          valueLte: '0xdddddddddddddddddddddddddddddddddddddd' as Address,
-          nativeTokenTransferAmount:
-            '0x3333333333333333333333333333333333333333' as Address,
-          erc20TransferAmount:
-            '0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee' as Address,
-          limitedCalls: '0x1111111111111111111111111111111111111111' as Address,
-          timestamp: '0x2222222222222222222222222222222222222222' as Address,
-        },
-      };
-
-      // Register a test chain (SDK doesn't know this ID, so manual fallback)
-      const chainId = 12345;
-      CHAIN_CONTRACTS[chainId] = testContracts;
-
-      try {
-        expect(getChainContracts(chainId)).toBe(testContracts);
-      } finally {
-        delete CHAIN_CONTRACTS[chainId];
-      }
-    });
-
     it('returns placeholder contracts when chainId is undefined', () => {
       expect(getChainContracts(undefined)).toBe(PLACEHOLDER_CONTRACTS);
     });
 
-    it('returns Sepolia contracts for chain 11155111', () => {
-      const contracts = getChainContracts(SEPOLIA_CHAIN_ID);
-      expect(contracts.delegationManager).toMatch(/^0x[0-9a-fA-F]{40}$/u);
-      for (const caveatType of CaveatTypeValues) {
-        expect(contracts.enforcers[caveatType]).toMatch(/^0x[0-9a-fA-F]{40}$/u);
+    it.each([1, 10, 56, 137, 8453, 42161, 59144, 11155111])(
+      'returns valid contracts for chain %i',
+      (chainId) => {
+        const contracts = getChainContracts(chainId);
+        expect(contracts.delegationManager).toMatch(/^0x[0-9a-fA-F]{40}$/u);
+        for (const caveatType of CaveatTypeValues) {
+          expect(contracts.enforcers[caveatType]).toMatch(
+            /^0x[0-9a-fA-F]{40}$/u,
+          );
+        }
+      },
+    );
+
+    it('valueLte and nativeTokenTransferAmount use distinct addresses on all chains', () => {
+      for (const chainId of SUPPORTED_CHAIN_IDS) {
+        const contracts = getChainContracts(chainId);
+        expect(contracts.enforcers.valueLte).not.toBe(
+          contracts.enforcers.nativeTokenTransferAmount,
+        );
       }
+    });
+  });
+
+  describe('getPimlicoRpcUrl', () => {
+    it.each([
+      [1, 'ethereum'],
+      [10, 'optimism'],
+      [56, 'binance'],
+      [137, 'polygon'],
+      [8453, 'base'],
+      [42161, 'arbitrum'],
+      [59144, 'linea'],
+      [11155111, 'sepolia'],
+    ])('returns correct URL for chain %i (%s)', (chainId, slug) => {
+      expect(getPimlicoRpcUrl(chainId)).toBe(
+        `https://api.pimlico.io/v2/${slug}/rpc`,
+      );
+    });
+
+    it('throws for unsupported chain', () => {
+      expect(() => getPimlicoRpcUrl(99999)).toThrow(
+        'No Pimlico bundler URL for chain 99999',
+      );
     });
   });
 });

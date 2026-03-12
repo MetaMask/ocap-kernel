@@ -15,10 +15,16 @@
 # Optional:
 #   --infura-key  KEY   Infura API key (for direct chain queries)
 #   --pimlico-key KEY   Pimlico API key (for bundler / paymaster)
-#   --chain-id    ID    Chain ID (default: 11155111 = Sepolia)
-#   --no-build          Skip the build step
+#   --chain         NAME  Chain name (e.g. sepolia, base, ethereum). See --help.
+#   --chain-id      ID    Chain ID (default: 11155111 = Sepolia)
+#   --rpc-url       URL   Custom RPC URL (overrides Infura URL derivation)
+#   --no-build            Skip the build step
 
 set -euo pipefail
+
+SCRIPT_DIR_EARLY="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=resolve-chain.sh
+source "$SCRIPT_DIR_EARLY/resolve-chain.sh"
 
 # ---------------------------------------------------------------------------
 # Defaults
@@ -33,6 +39,7 @@ RELAY_ADDR=""
 SKIP_BUILD=false
 QUIC_PORT=4002
 DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
+CUSTOM_RPC_URL=""
 
 # ---------------------------------------------------------------------------
 # Parse arguments
@@ -40,7 +47,7 @@ DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
 
 usage() {
   cat <<EOF
-Usage: $0 --ocap-url "ocap:..." --listen-addrs '["/ip4/..."]' [--infura-key KEY] [--pimlico-key KEY] [--chain-id ID] [--quic-port PORT] [--no-build]
+Usage: $0 --ocap-url "ocap:..." --listen-addrs '["/ip4/..."]' [--infura-key KEY] [--pimlico-key KEY] [--chain NAME] [--quic-port PORT] [--no-build]
 
 Required:
   --ocap-url       OCAP URL from the home device (output of setup-home.sh)
@@ -50,10 +57,13 @@ Optional:
   --infura-key     Infura API key (for direct chain queries)
   --pimlico-key    Pimlico API key (bundler/paymaster)
   --relay          Relay multiaddr (e.g. /ip4/HOST/tcp/9001/ws/p2p/PEER_ID)
-  --chain-id       Chain ID (default: $CHAIN_ID)
+  --chain          Chain name (e.g. sepolia, base, ethereum)
+  --chain-id       Chain ID (alternative to --chain; default: $CHAIN_ID)
+  --rpc-url        Custom RPC URL (overrides Infura URL derivation)
   --quic-port      UDP port for QUIC transport (default: $QUIC_PORT)
   --no-build       Skip yarn build
 EOF
+  print_supported_chains
   exit 1
 }
 
@@ -71,9 +81,15 @@ while [[ $# -gt 0 ]]; do
     --pimlico-key)
       [[ $# -lt 2 ]] && { echo "Error: --pimlico-key requires a value" >&2; usage; }
       PIMLICO_KEY="$2"; shift 2 ;;
+    --chain)
+      [[ $# -lt 2 ]] && { echo "Error: --chain requires a value" >&2; usage; }
+      resolve_chain "$2" || exit 1; shift 2 ;;
     --chain-id)
       [[ $# -lt 2 ]] && { echo "Error: --chain-id requires a value" >&2; usage; }
-      CHAIN_ID="$2"; shift 2 ;;
+      resolve_chain "$2" || exit 1; shift 2 ;;
+    --rpc-url)
+      [[ $# -lt 2 ]] && { echo "Error: --rpc-url requires a value" >&2; usage; }
+      CUSTOM_RPC_URL="$2"; shift 2 ;;
     --relay)
       [[ $# -lt 2 ]] && { echo "Error: --relay requires a value" >&2; usage; }
       RELAY_ADDR="$2"; shift 2 ;;
@@ -338,9 +354,29 @@ ok "Location hints registered for peer $HOME_PEER_ID"
 
 info "Launching wallet subcluster..."
 
-CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" node -e "
+# Extract RPC hostname for allowedHosts (if provider will be configured)
+AWAY_RPC_HOST=""
+if [[ -n "$INFURA_KEY" ]]; then
+  if [[ -n "$CUSTOM_RPC_URL" ]]; then
+    AWAY_RPC_HOST=$(echo "$CUSTOM_RPC_URL" | node -e "
+      const u = require('fs').readFileSync('/dev/stdin','utf8').trim();
+      const m = u.match(/^https?:\\/\\/([^/:]+)/);
+      if (m) process.stdout.write(m[1]);
+    ")
+  else
+    AWAY_RPC_HOST=$(echo "$(infura_rpc_url "$CHAIN_ID" "x")" | node -e "
+      const u = require('fs').readFileSync('/dev/stdin','utf8').trim();
+      const m = u.match(/^https?:\\/\\/([^/:]+)/);
+      if (m) process.stdout.write(m[1]);
+    ")
+  fi
+fi
+
+CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$AWAY_RPC_HOST" node -e "
   const bd = process.env.BUNDLE_DIR;
   const dm = process.env.DM;
+  const rpcHost = process.env.RPC_HOST;
+  const hosts = [rpcHost, 'api.pimlico.io', 'swap.api.cx.metamask.io'].filter(Boolean);
   const config = {
     config: {
       bootstrap: 'coordinator',
@@ -358,7 +394,7 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" node -e "
         provider: {
           bundleSpec: bd + '/provider-vat.bundle',
           globals: ['TextEncoder', 'TextDecoder'],
-          platformConfig: { fetch: { allowedHosts: ['sepolia.infura.io', 'api.pimlico.io', 'swap.api.cx.metamask.io'] } }
+          platformConfig: { fetch: { allowedHosts: hosts } }
         },
         delegation: {
           bundleSpec: bd + '/delegation-vat.bundle',
@@ -404,8 +440,12 @@ ok "Local throwaway account: $ACCOUNTS"
 # ---------------------------------------------------------------------------
 
 if [[ -n "$INFURA_KEY" ]]; then
-  RPC_URL="https://sepolia.infura.io/v3/${INFURA_KEY}"
-  info "Configuring provider (chain $CHAIN_ID)..."
+  if [[ -n "$CUSTOM_RPC_URL" ]]; then
+    RPC_URL="$CUSTOM_RPC_URL"
+  else
+    RPC_URL=$(infura_rpc_url "$CHAIN_ID" "$INFURA_KEY") || exit 1
+  fi
+  info "Configuring provider ($(chain_name "$CHAIN_ID"), chain $CHAIN_ID)..."
 
   PROVIDER_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" URL="$RPC_URL" node -e "
     const p = JSON.stringify([process.env.KREF, 'configureProvider', [{ chainId: Number(process.env.CID), rpcUrl: process.env.URL }]]);
@@ -421,7 +461,8 @@ fi
 # ---------------------------------------------------------------------------
 
 if [[ -n "$PIMLICO_KEY" ]]; then
-  BUNDLER_URL="https://api.pimlico.io/v2/${CHAIN_ID}/rpc?apikey=${PIMLICO_KEY}"
+  PIMLICO_BASE=$(pimlico_rpc_url "$CHAIN_ID") || exit 1
+  BUNDLER_URL="${PIMLICO_BASE}?apikey=${PIMLICO_KEY}"
   info "Configuring bundler (Pimlico)..."
 
   BUNDLER_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" BURL="$BUNDLER_URL" node -e "
