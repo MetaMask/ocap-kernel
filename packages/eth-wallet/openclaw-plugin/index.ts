@@ -20,7 +20,7 @@ import type { WalletCaller } from './daemon.ts';
 import { resolveTokenBySymbol, resolveTokenParam } from './token-resolver.ts';
 
 const pluginDir = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_CLI = resolvePath(pluginDir, '../../cli/dist/app.mjs');
+const DEFAULT_CLI = resolvePath(pluginDir, '../../kernel-cli/dist/app.mjs');
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 const ETH_ADDRESS_RE = /^0x[\da-f]{40}$/iu;
