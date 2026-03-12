@@ -170,8 +170,8 @@ async function resolvePendingUserOp(options: {
   try {
     const userOpReceipt = await wallet(
       'waitForUserOpReceipt',
-      [{ userOpHash: hash, pollIntervalMs: 2000, timeoutMs: 10000 }],
-      12_000,
+      [{ userOpHash: hash, pollIntervalMs: 3000, timeoutMs: 45000 }],
+      50_000,
     );
     const txHash = getUserOpTransactionHash(userOpReceipt);
 
