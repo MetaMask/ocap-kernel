@@ -141,7 +141,12 @@ export function decryptMnemonic({
   });
 
   const cipher = gcm(key, nonce);
-  const plaintext = cipher.decrypt(ciphertext);
+  let plaintext: Uint8Array;
+  try {
+    plaintext = cipher.decrypt(ciphertext);
+  } catch {
+    throw new Error('Decryption failed — check that the password is correct');
+  }
 
   return new TextDecoder().decode(plaintext);
 }

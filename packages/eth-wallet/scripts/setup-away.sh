@@ -358,7 +358,7 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" node -e "
         provider: {
           bundleSpec: bd + '/provider-vat.bundle',
           globals: ['TextEncoder', 'TextDecoder'],
-          platformConfig: { fetch: { allowedHosts: ['sepolia.infura.io', 'api.pimlico.io'] } }
+          platformConfig: { fetch: { allowedHosts: ['sepolia.infura.io', 'api.pimlico.io', 'swap.api.cx.metamask.io'] } }
         },
         delegation: {
           bundleSpec: bd + '/delegation-vat.bundle',

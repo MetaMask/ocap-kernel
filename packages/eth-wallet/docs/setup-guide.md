@@ -104,6 +104,7 @@ Both devices need outbound HTTPS (TCP 443) to:
 
 - **Infura** (`sepolia.infura.io`) — Ethereum JSON-RPC
 - **Pimlico** (`api.pimlico.io`) — ERC-4337 bundler and paymaster
+- **MetaMask Swaps** (`swap.api.cx.metamask.io`) — Token swap quotes and trades (only needed if using swap tools)
 
 No special firewall rules are needed for outbound on most systems.
 
@@ -363,7 +364,7 @@ openclaw config set plugins.entries.wallet.config.walletKref '"ko8"'
 openclaw config set plugins.entries.wallet.config.ocapCliPath '"/custom/path/to/ocap"'
 ```
 
-The wallet tools (`wallet_balance`, `wallet_send`, `wallet_token_balance`, `wallet_token_send`, `wallet_token_info`, `wallet_token_resolve`, `wallet_sign`, `wallet_accounts`, `wallet_capabilities`) are automatically available to agents once the plugin is enabled.
+The wallet tools (`wallet_balance`, `wallet_send`, `wallet_token_balance`, `wallet_token_send`, `wallet_token_info`, `wallet_token_resolve`, `wallet_swap`, `wallet_swap_quote`, `wallet_sign`, `wallet_accounts`, `wallet_capabilities`) are automatically available to agents once the plugin is enabled.
 
 ---
 
@@ -432,7 +433,7 @@ yarn ocap daemon exec launchSubcluster '{
       "provider": {
         "bundleSpec": "packages/eth-wallet/src/vats/provider-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder"],
-        "platformConfig": { "fetch": { "allowedHosts": ["sepolia.infura.io", "api.pimlico.io"] } }
+        "platformConfig": { "fetch": { "allowedHosts": ["sepolia.infura.io", "api.pimlico.io", "swap.api.cx.metamask.io"] } }
       },
       "delegation": {
         "bundleSpec": "packages/eth-wallet/src/vats/delegation-vat.bundle",
@@ -603,6 +604,8 @@ Ask the agent natural-language questions and it will invoke the corresponding wa
 - "Send 0.001 ETH to 0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
 - "Send 10 USDC to 0x70997970c51812dc3a010c7d01b50e0d17dc79c8"
 - "What's the contract address for LINK?"
+- "Get a quote for swapping 0.1 ETH to USDC"
+- "Swap 50 USDC for DAI"
 - "Sign the message 'hello world'"
 - "What capabilities does my wallet have?"
 

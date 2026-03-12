@@ -718,4 +718,123 @@ describe('openclaw wallet plugin', () => {
     );
     expect(mockSpawn).not.toHaveBeenCalled();
   });
+
+  it('registers wallet_swap_quote and wallet_swap tools', () => {
+    const tools = setupPlugin();
+    expect(tools.has('wallet_swap_quote')).toBe(true);
+    expect(tools.has('wallet_swap')).toBe(true);
+  });
+
+  it('rejects invalid slippage for wallet_swap_quote', async () => {
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_swap_quote');
+    expect(tool).toBeDefined();
+
+    const result = await tool!.execute('req-swap-1', {
+      srcToken: 'ETH',
+      destToken: 'USDC',
+      amount: '1.0',
+      slippage: '60',
+    } as Record<string, string>);
+
+    expect(result.content[0]?.text).toContain('Error:');
+    expect(result.content[0]?.text).toContain('Slippage');
+  });
+
+  it('formats wallet_swap_quote output', async () => {
+    const destToken = '0xdac17f958d2ee523a2206206994597c13d831ec7';
+    const quote = {
+      trade: {
+        to: '0x3333333333333333333333333333333333333333',
+        from: '0xwallet',
+        data: '0x',
+        value: '0x0',
+        gas: '0x30000',
+      },
+      approvalNeeded: null,
+      sourceAmount: '1000000000000000000',
+      destinationAmount: '2000000000',
+      aggregator: 'testAgg',
+      fee: 0,
+      gasEstimate: '200000',
+      priceSlippage: 0.5,
+      quoteRefreshSeconds: 30,
+    };
+
+    // Call 1: getTokenMetadata for destToken (address passed directly, no symbol resolution)
+    // Call 2: getSwapQuote
+    mockSpawn
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({ name: 'Tether', symbol: 'USDT', decimals: 6 }),
+        }),
+      )
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData(quote) }),
+      );
+
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_swap_quote');
+
+    const result = await tool!.execute('req-swap-2', {
+      srcToken: 'ETH',
+      destToken,
+      amount: '1.0',
+    } as Record<string, string>);
+
+    expect(result.content[0]?.text).toContain('Swap 1.0 ETH');
+    expect(result.content[0]?.text).toContain('2000');
+    expect(result.content[0]?.text).toContain('USDT');
+    expect(result.content[0]?.text).toContain('testAgg');
+  });
+
+  it('executes wallet_swap and formats result', async () => {
+    const destToken = '0xdac17f958d2ee523a2206206994597c13d831ec7';
+    const swapResult = {
+      swapTxHash:
+        '0xabc123def456abc123def456abc123def456abc123def456abc123def456abc1',
+      sourceAmount: '1000000000000000000',
+      destinationAmount: '2000000000',
+      aggregator: 'testAgg',
+    };
+
+    // Call 1: getTokenMetadata for destToken (resolveSwapToken)
+    // Call 2: swapTokens
+    // Call 3: getCapabilities (for resolveTransactionResult)
+    // Call 4: getTransactionReceipt
+    mockSpawn
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({ decimals: 6, symbol: 'USDT' }),
+        }),
+      )
+      .mockImplementationOnce(() =>
+        makeSpawnResult({ stdout: makeCapData(swapResult) }),
+      )
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({ chainId: 1 }),
+        }),
+      )
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({
+            txHash:
+              '0xabc123def456abc123def456abc123def456abc123def456abc123def456abc1',
+          }),
+        }),
+      );
+
+    const tools = setupPlugin();
+    const tool = tools.get('wallet_swap');
+
+    const result = await tool!.execute('req-swap-3', {
+      srcToken: 'ETH',
+      destToken,
+      amount: '1.0',
+    } as Record<string, string>);
+
+    expect(result.content[0]?.text).toContain('Swapped 1.0 ETH for USDT');
+    expect(result.content[0]?.text).toContain('testAgg');
+  });
 });

@@ -197,18 +197,28 @@ The only operation that still requires the home online is signing as the home EO
 
 The coordinator resolves the appropriate signer for each request type using a priority chain.
 
-### Transaction Signing
+### `signTransaction()`
 
-Priority: delegation -> local key -> external signer -> peer wallet -> error
+Priority: local key → external signer → error
 
-1. **Delegation** -- If a stored delegation matches the transaction's action (target, value, data), the coordinator signs via the local keyring.
-2. **Local key** -- If the keyring owns the `from` account, it signs directly.
-3. **External signer** -- If a MetaMask or other external signer is connected, it signs.
-4. **Peer wallet** -- If a peer wallet is connected, the request is forwarded.
+1. **Local key** -- If the keyring owns the `from` account, it signs directly.
+2. **External signer** -- If a MetaMask or other external signer is connected, it signs.
 
-### Message and Typed Data Signing
+No delegation or peer wallet fallback is used for bare transaction signing.
 
-Priority: peer account guard -> keyring -> external signer -> peer wallet -> error
+### `sendTransaction()`
+
+Priority: delegation (UserOp) → local key sign + broadcast → external signer sign + broadcast → error
+
+1. **Delegation** -- If a stored delegation matches the transaction's action (target, value, data), the coordinator builds and submits a UserOp signed via the local keyring.
+2. **Local key** -- If the keyring owns the `from` account, it signs and broadcasts directly.
+3. **External signer** -- If a MetaMask or other external signer is connected, it signs and broadcasts.
+
+Delegations are checked first, but there is no peer wallet fallback for transactions.
+
+### `signMessage()` / `signTypedData()`
+
+Priority: peer account guard → keyring → external signer → peer wallet → error
 
 1. **Peer account guard** -- If `from` matches a cached peer (home) account, the request is routed to the peer wallet. If the peer is offline, a descriptive error is thrown instead of silently signing with the wrong key.
 2. **Keyring** -- If the keyring has keys, it signs directly.
@@ -256,14 +266,15 @@ const delegation = await coordinator.createDelegation({
 
 ### Supported Caveats
 
-| Caveat Type           | Description                                       | Encoder                     |
-| --------------------- | ------------------------------------------------- | --------------------------- |
-| `allowedTargets`      | Restrict to specific contract addresses           | `encodeAllowedTargets`      |
-| `allowedMethods`      | Restrict to specific function selectors (4 bytes) | `encodeAllowedMethods`      |
-| `valueLte`            | Cap the ETH value per call                        | `encodeValueLte`            |
-| `erc20TransferAmount` | Cap the ERC-20 token transfer amount              | `encodeErc20TransferAmount` |
-| `limitedCalls`        | Limit total number of calls                       | `encodeLimitedCalls`        |
-| `timestamp`           | Restrict usage to a time window (unix seconds)    | `encodeTimestamp`           |
+| Caveat Type                 | Description                                       | Encoder                           |
+| --------------------------- | ------------------------------------------------- | --------------------------------- |
+| `allowedTargets`            | Restrict to specific contract addresses           | `encodeAllowedTargets`            |
+| `allowedMethods`            | Restrict to specific function selectors (4 bytes) | `encodeAllowedMethods`            |
+| `valueLte`                  | Cap the ETH value per call                        | `encodeValueLte`                  |
+| `nativeTokenTransferAmount` | Cap the native token (ETH) transfer amount        | `encodeNativeTokenTransferAmount` |
+| `erc20TransferAmount`       | Cap the ERC-20 token transfer amount              | `encodeErc20TransferAmount`       |
+| `limitedCalls`              | Limit total number of calls                       | `encodeLimitedCalls`              |
+| `timestamp`                 | Restrict usage to a time window (unix seconds)    | `encodeTimestamp`                 |
 
 ### Sharing Delegations
 
@@ -307,13 +318,14 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Coordinator -- Signing
 
-| Method                           | Description                                        |
-| -------------------------------- | -------------------------------------------------- |
-| `signTransaction(tx)`            | Sign a transaction using strategy resolution.      |
-| `sendTransaction(tx)`            | Sign and broadcast a transaction via the provider. |
-| `signMessage(message, account?)` | Sign a personal message (EIP-191).                 |
-| `signTypedData(data, from?)`     | Sign EIP-712 typed data.                           |
-| `request(method, params?)`       | Forward a raw JSON-RPC request to the provider.    |
+| Method                           | Description                                                                                                                                                    |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `signTransaction(tx)`            | Sign a transaction using strategy resolution.                                                                                                                  |
+| `sendTransaction(tx)`            | Sign and broadcast a transaction via the provider.                                                                                                             |
+| `sendBatchTransaction(txs)`      | Batch multiple transactions into a single UserOp for smart accounts. Falls back to sequential `sendTransaction` calls for EOA wallets without a smart account. |
+| `signMessage(message, account?)` | Sign a personal message (EIP-191).                                                                                                                             |
+| `signTypedData(data, from?)`     | Sign EIP-712 typed data.                                                                                                                                       |
+| `request(method, params?)`       | Forward a raw JSON-RPC request to the provider.                                                                                                                |
 
 ### Coordinator -- Delegation
 
@@ -346,6 +358,13 @@ const userOpHash = await coordinator.redeemDelegation({
 | `getTokenBalance(options)`   | Get ERC-20 balance. Accepts `{ token, owner }`. Returns the raw balance as a decimal string.                                 |
 | `getTokenMetadata(options)`  | Get token metadata. Accepts `{ token }`. Returns `{ name, symbol, decimals }`. Handles non-standard `bytes32` returns (MKR). |
 | `sendErc20Transfer(options)` | Send ERC-20 tokens. Accepts `{ token, to, amount, from? }`. Routes through `sendTransaction` (delegation-aware).             |
+
+### Coordinator -- Token Swaps
+
+| Method                  | Description                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getSwapQuote(options)` | Get the best swap quote from MetaSwap (MetaMask's aggregator). Accepts `{ srcToken, destToken, srcAmount, slippage }`. Returns a `SwapQuote` with trade data and approval details. The `SwapQuote` type has a corresponding runtime validation struct (`SwapQuoteStruct`) exported from the package.                                            |
+| `swapTokens(options)`   | Execute a token swap. Fetches a fresh quote, handles ERC-20 approval if needed, then executes the swap. Returns a `SwapResult` with transaction hashes and details. When a smart account is configured and the swap requires an ERC-20 approval, the approve and swap are batched into a single UserOp and the result includes `batched: true`. |
 
 ### Coordinator -- Introspection
 
@@ -395,6 +414,7 @@ import {
   encodeAllowedTargets,
   encodeAllowedMethods,
   encodeValueLte,
+  encodeNativeTokenTransferAmount,
   encodeErc20TransferAmount,
   encodeLimitedCalls,
   encodeTimestamp,
@@ -416,12 +436,15 @@ const caveat = makeCaveat({
 import {
   encodeTransfer,
   encodeApprove,
+  encodeAllowance,
   encodeBalanceOf,
   decodeTransferCalldata,
+  decodeAllowanceResult,
   makeErc20TransferExecution,
   isErc20TransferCalldata,
   ERC20_TRANSFER_SELECTOR,
   ERC20_APPROVE_SELECTOR,
+  ERC20_ALLOWANCE_SELECTOR,
 } from '@ocap/eth-wallet';
 
 // Encode a transfer(address,uint256) call
@@ -448,6 +471,7 @@ import {
   makeDelegation,
   prepareDelegationTypedData,
   delegationMatchesAction,
+  explainDelegationMatch,
   finalizeDelegation,
   computeDelegationId,
   generateSalt,
@@ -507,10 +531,14 @@ const hash = computeUserOpHash(userOp, ENTRY_POINT_V07, 1);
 
 ### Bundler Client
 
-Use `makeBundlerClient` for ERC-4337 bundler interactions (replaces the legacy `submitUserOp` / `estimateUserOpGas` helpers).
+Use `makeBundlerClient` for ERC-4337 bundler interactions (replaces the legacy `submitUserOp` / `estimateUserOpGas` helpers). The bundler client also exports a `UserOpReceiptResult` type for typed receipt results.
 
 ```typescript
-import { makeBundlerClient, ENTRY_POINT_V07 } from '@ocap/eth-wallet';
+import {
+  makeBundlerClient,
+  ENTRY_POINT_V07,
+  type UserOpReceiptResult,
+} from '@ocap/eth-wallet';
 
 const client = makeBundlerClient({
   bundlerUrl: 'https://api.pimlico.io/v2/sepolia/rpc',
@@ -542,6 +570,39 @@ const receipt = await client.waitForUserOperationReceipt({
   hash: userOpHash,
   pollingInterval: 2000,
   timeout: 60000,
+});
+```
+
+### SDK Adapter
+
+Utilities for interacting with the MetaMask Delegation Framework SDK, including batch operations and smart account address computation.
+
+```typescript
+import {
+  buildBatchExecuteCallData,
+  buildSdkBatchRedeemCallData,
+  buildSdkRedeemCallData,
+  buildSdkDisableCallData,
+  createSdkExecution,
+  computeSmartAccountAddress,
+  toSdkDelegation,
+  encodeSdkDelegations,
+  resolveEnvironment,
+  getDelegationManagerAddress,
+  getEnforcerAddresses,
+  Implementation,
+  ExecutionMode,
+} from '@ocap/eth-wallet';
+
+// Build callData for batch execution (multiple executions in one UserOp)
+const callData = buildBatchExecuteCallData([execution1, execution2]);
+
+// Build callData for batch delegation redemption (multiple delegations in one UserOp)
+const redeemCallData = buildSdkBatchRedeemCallData({
+  delegations: [[sdkDelegation1], [sdkDelegation2]],
+  executions: [execution1, execution2],
+  modes: [ExecutionMode.CALL, ExecutionMode.CALL],
+  environment,
 });
 ```
 
@@ -591,6 +652,8 @@ The `openclaw-plugin/` directory contains an [OpenClaw](https://openclaw.dev) pl
 | `wallet_token_balance` | Get ERC-20 token balance (accepts address or symbol)                            |
 | `wallet_token_send`    | Send ERC-20 tokens (accepts address or symbol)                                  |
 | `wallet_token_info`    | Get token metadata (name, symbol, decimals)                                     |
+| `wallet_swap_quote`    | Get a token swap quote (source/dest token, amount, slippage)                    |
+| `wallet_swap`          | Execute a token swap with automatic approval handling                           |
 | `wallet_sign`          | Sign a message                                                                  |
 | `wallet_capabilities`  | Check wallet capabilities                                                       |
 
@@ -714,6 +777,14 @@ The package exports chain contract addresses used by the Delegation Framework:
 | `ROOT_AUTHORITY`             | The root authority hash (no parent delegation): `0xfff...fff`.                   |
 | `DELEGATION_TYPES`           | EIP-712 type definitions for the Delegation Framework.                           |
 | `ETH_HD_PATH_PREFIX`         | BIP-44 HD path for Ethereum: `m/44'/60'/0'/0`.                                   |
+
+## Recent Improvements
+
+- **Batch execution** -- `sendBatchTransaction` batches multiple transactions into a single UserOp for smart accounts. Token swaps that require an ERC-20 approval now batch the approve + swap into one UserOp (indicated by `batched: true` in the `SwapResult`). EOA wallets without a smart account fall back to sequential execution.
+- **EIP-7702 authorization** -- The authorization flow now checks for reverted transactions instead of silently timing out, providing faster and more informative error reporting.
+- **Error handling** -- Decryption with a wrong password now returns a clear error message. EIP-7702 gas estimation failures are no longer silently swallowed for all error types.
+- **Timer cleanup** -- The internal `raceWithTimeout` helper (used for peer communication timeouts) now properly cleans up timers to prevent resource leaks.
+- **SES lockdown compliance** -- Module-level counters (`bundlerRequestId`, `rpcRequestId`) have been moved into per-client-instance closures, eliminating shared mutable state that conflicts with SES lockdown requirements.
 
 ## Disclaimer
 

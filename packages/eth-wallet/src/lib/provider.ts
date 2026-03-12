@@ -15,9 +15,6 @@ export type Provider = {
   getNonce: (address: Address) => Promise<number>;
 };
 
-// Monotonic counter for JSON-RPC request IDs (replaces Math.random under SES).
-let rpcRequestId = 0;
-
 const RPC_TIMEOUT_MS = 30_000;
 const MAX_RETRIES = 2;
 const RETRYABLE_STATUS_CODES = new Set([408, 429, 502, 503, 504]);
@@ -31,15 +28,18 @@ const hasTimers = typeof globalThis.setTimeout === 'function';
  * @param rpcUrl - The RPC endpoint URL.
  * @param method - The JSON-RPC method name.
  * @param params - The method parameters.
+ * @param counter - Monotonic counter for JSON-RPC request IDs.
+ * @param counter.value - The current counter value (mutated on each call).
  * @returns The JSON-RPC result.
  */
 async function jsonRpc(
   rpcUrl: string,
   method: string,
   params: unknown[] = [],
+  counter: { value: number } = { value: 0 },
 ): Promise<unknown> {
-  rpcRequestId += 1;
-  const id = rpcRequestId;
+  counter.value += 1;
+  const id = counter.value;
 
   if (!hasTimers) {
     return jsonRpcOnce(rpcUrl, id, method, params);
@@ -132,37 +132,114 @@ async function jsonRpcOnce(
 export function makeProvider(config: ChainConfig): Provider {
   const { rpcUrl } = config;
 
+  // Monotonic counter for JSON-RPC request IDs, scoped to this provider instance.
+  const requestCounter = { value: 0 };
+
   return harden({
     async request(method: string, params?: unknown[]): Promise<unknown> {
-      return jsonRpc(rpcUrl, method, params);
+      return jsonRpc(rpcUrl, method, params, requestCounter);
     },
 
     async broadcastTransaction(signedTx: Hex): Promise<Hex> {
-      return (await jsonRpc(rpcUrl, 'eth_sendRawTransaction', [
-        signedTx,
-      ])) as Hex;
+      return (await jsonRpc(
+        rpcUrl,
+        'eth_sendRawTransaction',
+        [signedTx],
+        requestCounter,
+      )) as Hex;
     },
 
     async getBalance(address: Address): Promise<string> {
-      return (await jsonRpc(rpcUrl, 'eth_getBalance', [
-        address,
-        'latest',
-      ])) as string;
+      return (await jsonRpc(
+        rpcUrl,
+        'eth_getBalance',
+        [address, 'latest'],
+        requestCounter,
+      )) as string;
     },
 
     async getChainId(): Promise<number> {
-      const result = (await jsonRpc(rpcUrl, 'eth_chainId')) as string;
+      const result = (await jsonRpc(
+        rpcUrl,
+        'eth_chainId',
+        [],
+        requestCounter,
+      )) as string;
       return Number(result);
     },
 
     async getNonce(address: Address): Promise<number> {
-      const result = (await jsonRpc(rpcUrl, 'eth_getTransactionCount', [
-        address,
-        'latest',
-      ])) as string;
+      const result = (await jsonRpc(
+        rpcUrl,
+        'eth_getTransactionCount',
+        [address, 'latest'],
+        requestCounter,
+      )) as string;
       return Number(result);
     },
   });
+}
+
+/**
+ * Send an HTTP GET request and parse the JSON response, with retries.
+ *
+ * @param url - The URL to fetch.
+ * @returns The parsed JSON response body.
+ */
+export async function httpGetJson(url: string): Promise<unknown> {
+  if (!hasTimers) {
+    return httpGetJsonOnce(url);
+  }
+
+  let lastError: Error | undefined;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await new Promise<void>((resolve) =>
+        setTimeout(resolve, 500 * 2 ** (attempt - 1)),
+      );
+    }
+    try {
+      return await httpGetJsonOnce(url);
+    } catch (error: unknown) {
+      const { status } = error as { status?: number };
+      if (status && RETRYABLE_STATUS_CODES.has(status)) {
+        lastError = error as Error;
+        continue;
+      }
+      const message = (error as Error).message ?? '';
+      if (
+        message.includes('timed out') ||
+        (error as Error).name === 'AbortError'
+      ) {
+        lastError = new Error(
+          `HTTP GET request timed out after ${RPC_TIMEOUT_MS}ms`,
+        );
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw lastError ?? new Error('HTTP GET request failed after retries');
+}
+
+/**
+ * Send a single HTTP GET request (no retries).
+ *
+ * @param url - The URL to fetch.
+ * @returns The parsed JSON response body.
+ */
+async function httpGetJsonOnce(url: string): Promise<unknown> {
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    const error = new Error(
+      `HTTP GET failed: ${response.status} ${response.statusText}`,
+    );
+    Object.assign(error, { status: response.status });
+    throw error;
+  }
+
+  return response.json();
 }
 
 // Re-export numberToHex for backward compatibility (used by provider-vat gas fees)

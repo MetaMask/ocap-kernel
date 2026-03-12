@@ -3,13 +3,16 @@ import { describe, expect, it } from 'vitest';
 
 import type { Address, Hex } from '../types.ts';
 import {
+  ERC20_ALLOWANCE_SELECTOR,
   ERC20_APPROVE_SELECTOR,
   ERC20_TRANSFER_SELECTOR,
+  decodeAllowanceResult,
   decodeBalanceOfResult,
   decodeDecimalsResult,
   decodeNameResult,
   decodeSymbolResult,
   decodeTransferCalldata,
+  encodeAllowance,
   encodeApprove,
   encodeBalanceOf,
   encodeDecimals,
@@ -215,6 +218,50 @@ describe('erc20', () => {
     it('throws for empty response', () => {
       expect(() => decodeNameResult('0x' as Hex)).toThrow(
         /name\(\) returned empty/u,
+      );
+    });
+  });
+
+  describe('encodeAllowance', () => {
+    it('produces calldata with the allowance selector', () => {
+      const data = encodeAllowance(ALICE, BOB);
+      expect(data.slice(0, 10).toLowerCase()).toBe(ERC20_ALLOWANCE_SELECTOR);
+    });
+
+    it('encodes the correct owner and spender', () => {
+      const data = encodeAllowance(ALICE, BOB);
+      const params = `0x${data.slice(10)}`;
+      const [owner, spender] = decodeAbiParameters(
+        parseAbiParameters('address, address'),
+        params,
+      );
+      expect((owner as string).toLowerCase()).toBe(ALICE.toLowerCase());
+      expect((spender as string).toLowerCase()).toBe(BOB.toLowerCase());
+    });
+  });
+
+  describe('decodeAllowanceResult', () => {
+    it('decodes zero allowance', () => {
+      const result =
+        '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex;
+      expect(decodeAllowanceResult(result)).toBe(0n);
+    });
+
+    it('decodes non-zero allowance', () => {
+      const result =
+        '0x00000000000000000000000000000000000000000000000000000000000f4240' as Hex;
+      expect(decodeAllowanceResult(result)).toBe(1000000n);
+    });
+
+    it('decodes max uint256 (unlimited approval)', () => {
+      const result =
+        '0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff' as Hex;
+      expect(decodeAllowanceResult(result)).toBe(2n ** 256n - 1n);
+    });
+
+    it('throws for empty response', () => {
+      expect(() => decodeAllowanceResult('0x' as Hex)).toThrow(
+        /allowance\(\) returned empty/u,
       );
     });
   });

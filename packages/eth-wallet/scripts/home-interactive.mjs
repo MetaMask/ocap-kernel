@@ -360,7 +360,11 @@ async function main() {
   const walletConfig = makeWalletClusterConfig({
     bundleBaseUrl: BUNDLE_BASE_URL,
     delegationManagerAddress: DELEGATION_MANAGER,
-    allowedHosts: ['sepolia.infura.io', 'api.pimlico.io'],
+    allowedHosts: [
+      'sepolia.infura.io',
+      'api.pimlico.io',
+      'swap.api.cx.metamask.io',
+    ],
   });
 
   const { rootKref } = await kernel.launchSubcluster(walletConfig);
