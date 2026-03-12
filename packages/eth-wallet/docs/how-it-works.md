@@ -102,11 +102,30 @@ Two caveat enforcers are used for spending limits:
 | `NativeTokenTransferAmountEnforcer` | Limits total cumulative ETH spend | **Stateful** — tracks spend on-chain     |
 | `ValueLteEnforcer`                  | Limits ETH per single transaction | Stateless — checks each tx independently |
 
-Both enforcers are deployed at deterministic CREATE2 addresses (same address on every EVM chain).
+Both enforcers are deployed at deterministic CREATE2 addresses (same address on every supported EVM chain — see [Supported Chains](#supported-chains) below).
 
 Spending limits are baked into the delegation's cryptographic signature. Changing them means creating a new delegation — the cumulative spending counter resets to zero. The `update-limits.sh` script handles this (see the [Setup Guide](./setup-guide.md#changing-limits)).
 
 When the away device is connected, `update-limits.sh` revokes the old delegation(s) and pushes the new delegation directly over the existing QUIC/CapTP connection using `pushDelegationToAway()` — no copy-paste needed. If the away device is offline, it falls back to printing a manual command.
+
+### Supported Chains
+
+The wallet supports multiple EVM chains. The DelegationManager and caveat enforcers are deployed at the same CREATE2 addresses on all mainnet chains. Sepolia uses different enforcer addresses (separate testnet deployment).
+
+| Chain           | Chain ID | Swap support |
+| --------------- | -------- | ------------ |
+| Ethereum        | 1        | Yes          |
+| Optimism        | 10       | Yes          |
+| BNB Smart Chain | 56       | Yes          |
+| Polygon         | 137      | Yes          |
+| Base            | 8453     | Yes          |
+| Arbitrum One    | 42161    | Yes          |
+| Linea           | 59144    | Yes          |
+| Sepolia         | 11155111 | No           |
+
+Use `--chain <name>` (e.g. `--chain base`) or `--chain-id <number>` in the setup scripts. Chain names and aliases are listed in [the setup guide](./setup-guide.md#quick-start-automated-scripts).
+
+For chains not supported by Infura (e.g. BNB Smart Chain), pass `--rpc-url` with a custom RPC endpoint instead of `--infura-key`.
 
 ### The Relay (optional)
 

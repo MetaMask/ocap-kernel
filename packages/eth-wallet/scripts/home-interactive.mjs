@@ -17,7 +17,7 @@
  *
  * Usage:
  *   node packages/eth-wallet/scripts/home-interactive.mjs \
- *     --infura-key KEY [--pimlico-key KEY] [--chain-id 11155111] \
+ *     --infura-key KEY [--pimlico-key KEY] [--chain sepolia] \
  *     [--relay MULTIADDR] [--quic-port 4002]
  */
 
@@ -79,6 +79,66 @@ function muteConsole() {
 // CLI argument parsing
 // ---------------------------------------------------------------------------
 
+const CHAIN_NAME_TO_ID = {
+  ethereum: 1,
+  eth: 1,
+  mainnet: 1,
+  optimism: 10,
+  op: 10,
+  bsc: 56,
+  bnb: 56,
+  polygon: 137,
+  matic: 137,
+  base: 8453,
+  arbitrum: 42161,
+  arb: 42161,
+  linea: 59144,
+  sepolia: 11155111,
+};
+
+const PIMLICO_SLUGS = {
+  1: 'ethereum',
+  10: 'optimism',
+  56: 'binance',
+  137: 'polygon',
+  8453: 'base',
+  42161: 'arbitrum',
+  59144: 'linea',
+  11155111: 'sepolia',
+};
+
+const INFURA_SUBDOMAINS = {
+  1: 'mainnet',
+  10: 'optimism-mainnet',
+  137: 'polygon-mainnet',
+  8453: 'base-mainnet',
+  42161: 'arbitrum-mainnet',
+  59144: 'linea-mainnet',
+  11155111: 'sepolia',
+};
+
+/**
+ * Resolve a chain name or numeric ID to a chain ID number.
+ *
+ * @param {string} value - Chain name (e.g. "base") or numeric ID string.
+ * @returns {number} The resolved chain ID.
+ */
+function resolveChain(value) {
+  const lower = value.toLowerCase();
+  if (CHAIN_NAME_TO_ID[lower] !== undefined) {
+    return CHAIN_NAME_TO_ID[lower];
+  }
+  const num = Number(value);
+  if (!Number.isNaN(num) && num > 0) {
+    return num;
+  }
+  // fail() calls process.exit — this return is unreachable but satisfies lint.
+  fail(
+    `Unknown chain "${value}". Supported: ${Object.keys(CHAIN_NAME_TO_ID).join(', ')}`,
+  );
+  return 0;
+}
+
 /**
  *
  * @param argv
@@ -91,6 +151,7 @@ function parseArgs(argv) {
     relay: '',
     quicPort: 4002,
     reset: false,
+    rpcUrl: '',
     dbPath: join(homedir(), '.ocap', 'kernel-interactive.sqlite'),
   };
 
@@ -105,14 +166,20 @@ function parseArgs(argv) {
       case '--reset':
         args.reset = true;
         break;
+      case '--chain':
+        args.chainId = resolveChain(argv[++i]);
+        break;
       case '--chain-id':
-        args.chainId = Number(argv[++i]);
+        args.chainId = resolveChain(argv[++i]);
         break;
       case '--relay':
         args.relay = argv[++i];
         break;
       case '--quic-port':
         args.quicPort = Number(argv[++i]);
+        break;
+      case '--rpc-url':
+        args.rpcUrl = argv[++i];
         break;
       case '--db-path':
         args.dbPath = argv[++i];
@@ -123,16 +190,20 @@ function parseArgs(argv) {
           [
             `Usage: node home-interactive.mjs --infura-key KEY [options]`,
             ``,
-            `Required:`,
-            `  --infura-key KEY    Infura API key (Sepolia RPC)`,
+            `Required (one of):`,
+            `  --infura-key KEY    Infura API key (derives RPC URL from chain)`,
+            `  --rpc-url URL       Custom RPC URL (overrides Infura derivation)`,
             ``,
             `Optional:`,
             `  --pimlico-key KEY   Pimlico API key (bundler/paymaster)`,
-            `  --chain-id ID       Chain ID (default: 11155111 = Sepolia)`,
+            `  --chain NAME        Chain name (e.g. sepolia, base, ethereum)`,
+            `  --chain-id ID       Chain ID (alternative to --chain; default: 11155111)`,
             `  --relay MULTIADDR   Relay multiaddr`,
             `  --quic-port PORT    UDP port for QUIC (default: 4002)`,
             `  --db-path PATH      SQLite database path`,
             `  --reset             Purge all kernel state and start fresh`,
+            ``,
+            `Supported chains: ${Object.keys(CHAIN_NAME_TO_ID).join(', ')}`,
           ].join('\n'),
         );
         process.exit(0);
@@ -142,8 +213,8 @@ function parseArgs(argv) {
     }
   }
 
-  if (!args.infuraKey) {
-    fail('--infura-key is required');
+  if (!args.infuraKey && !args.rpcUrl) {
+    fail('--infura-key or --rpc-url is required');
   }
 
   return args;
@@ -194,7 +265,23 @@ async function main() {
   const args = parseArgs(process.argv);
 
   const BUNDLE_BASE_URL = new URL('../src/vats', import.meta.url).toString();
-  const RPC_URL = `https://sepolia.infura.io/v3/${args.infuraKey}`;
+  let RPC_URL;
+  let RPC_HOST;
+  if (args.rpcUrl) {
+    RPC_URL = args.rpcUrl;
+    const hostMatch = RPC_URL.match(/^https?:\/\/([^/:]+)/);
+    RPC_HOST = hostMatch ? hostMatch[1] : 'localhost';
+  } else {
+    const infuraSub = INFURA_SUBDOMAINS[args.chainId];
+    if (!infuraSub) {
+      fail(
+        `Infura does not support chain ${args.chainId}. Use --rpc-url instead. ` +
+          `Infura-supported chains: ${Object.keys(INFURA_SUBDOMAINS).join(', ')}`,
+      );
+    }
+    RPC_URL = `https://${infuraSub}.infura.io/v3/${args.infuraKey}`;
+    RPC_HOST = `${infuraSub}.infura.io`;
+  }
   const DELEGATION_MANAGER = '0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3';
 
   // -----------------------------------------------------------------------
@@ -358,11 +445,7 @@ async function main() {
   const walletConfig = makeWalletClusterConfig({
     bundleBaseUrl: BUNDLE_BASE_URL,
     delegationManagerAddress: DELEGATION_MANAGER,
-    allowedHosts: [
-      'sepolia.infura.io',
-      'api.pimlico.io',
-      'swap.api.cx.metamask.io',
-    ],
+    allowedHosts: [RPC_HOST, 'api.pimlico.io', 'swap.api.cx.metamask.io'],
   });
 
   const { rootKref } = await kernel.launchSubcluster(walletConfig);
@@ -401,7 +484,13 @@ async function main() {
   let smartAccountAddress;
 
   if (args.pimlicoKey) {
-    const bundlerUrl = `https://api.pimlico.io/v2/${args.chainId}/rpc?apikey=${args.pimlicoKey}`;
+    const pimlicoSlug = PIMLICO_SLUGS[args.chainId];
+    if (!pimlicoSlug) {
+      fail(
+        `Pimlico does not support chain ${args.chainId}. Supported: ${Object.keys(PIMLICO_SLUGS).join(', ')}`,
+      );
+    }
+    const bundlerUrl = `https://api.pimlico.io/v2/${pimlicoSlug}/rpc?apikey=${args.pimlicoKey}`;
     info('Configuring bundler (Pimlico)...');
     await call(kernel, rootKref, 'configureBundler', [
       {

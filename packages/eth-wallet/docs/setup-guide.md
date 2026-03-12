@@ -50,15 +50,17 @@ curl -fsSL https://openclaw.ai/install.sh | bash
 ### Pimlico (ERC-4337 bundler + paymaster)
 
 1. Go to <https://dashboard.pimlico.io> and create an account
-2. Generate an API key for **sepolia-testnet**
+2. Generate an API key for your target chain (e.g. **sepolia-testnet** for testing, or a mainnet chain)
 3. Go to <https://dashboard.pimlico.io/sponsorship-policies>, add an "allow all" policy, and enable it
 
-### Testnet ETH
+### Testnet ETH (Sepolia only)
 
-The home wallet's mnemonic account needs a small amount of Sepolia ETH for gas. You can get free testnet ETH from:
+If using Sepolia for testing, the home wallet's mnemonic account needs a small amount of Sepolia ETH for gas. You can get free testnet ETH from:
 
 - <https://docs.metamask.io/developer-tools/faucet> (MetaMask / Infura faucet)
 - <https://sepolia-faucet.pk910.de/> (PoW faucet, no sign-in required)
+
+For mainnet chains, the home wallet needs a small amount of native tokens for gas (ETH, MATIC, BNB, etc.).
 
 ## Ports and firewall
 
@@ -102,7 +104,7 @@ sudo ufw allow 4002/udp   # QUIC (if direct peers also connect)
 
 Both devices need outbound HTTPS (TCP 443) to:
 
-- **Infura** (`sepolia.infura.io`) — Ethereum JSON-RPC
+- **Infura** (`<chain>.infura.io`, e.g. `mainnet.infura.io`, `sepolia.infura.io`) — Ethereum JSON-RPC. The exact subdomain depends on the chain. If using `--rpc-url` with a custom provider, substitute that host instead.
 - **Pimlico** (`api.pimlico.io`) — ERC-4337 bundler and paymaster
 - **MetaMask Swaps** (`swap.api.cx.metamask.io`) — Token swap quotes and trades (only needed if using swap tools)
 
@@ -186,9 +188,26 @@ Choose one of the two modes:
 #### Option A: Mnemonic mode (automatic signing)
 
 ```bash
+# Sepolia (default chain):
 ./packages/eth-wallet/scripts/setup-home.sh \
   --mnemonic "your twelve word mnemonic" \
   --infura-key YOUR_INFURA_KEY \
+  --pimlico-key YOUR_PIMLICO_KEY \
+  --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
+
+# Base mainnet:
+./packages/eth-wallet/scripts/setup-home.sh \
+  --mnemonic "your twelve word mnemonic" \
+  --chain base \
+  --infura-key YOUR_INFURA_KEY \
+  --pimlico-key YOUR_PIMLICO_KEY \
+  --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
+
+# BNB Smart Chain (no Infura — use custom RPC):
+./packages/eth-wallet/scripts/setup-home.sh \
+  --mnemonic "your twelve word mnemonic" \
+  --chain bsc \
+  --rpc-url "https://bsc-dataseed.binance.org" \
   --pimlico-key YOUR_PIMLICO_KEY \
   --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
 ```
@@ -215,11 +234,18 @@ No mnemonic needed — MetaMask Mobile handles signing during setup. MetaMask ap
   --infura-key YOUR_INFURA_KEY \
   --pimlico-key YOUR_PIMLICO_KEY \
   --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
+
+# Or for a specific chain:
+./packages/eth-wallet/scripts/setup-home-interactive.sh \
+  --chain base \
+  --infura-key YOUR_INFURA_KEY \
+  --pimlico-key YOUR_PIMLICO_KEY \
+  --relay "/ip4/<VPS_IP>/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc"
 ```
 
 The script will:
 1. Show a QR code — scan it with MetaMask Mobile to connect
-2. Switch MetaMask to the target chain (Sepolia)
+2. Switch MetaMask to the target chain
 3. Start an in-process kernel (no daemon — the MetaMask signer is a live object)
 4. Create a Hybrid smart account and fund it if needed (may trigger a MetaMask approval for the funding tx)
 5. Show the OCAP URL and `setup-away.sh` command
@@ -265,7 +291,20 @@ Both limits are enforced on-chain by caveat enforcers in the DeleGator framework
 
 The `--pimlico-key` configures the Pimlico bundler for ERC-4337 UserOp submission with paymaster sponsorship. Without it, smart account deployment and on-chain delegation redemption will not work.
 
-Both scripts also accept `--chain-id` (default: Sepolia), `--quic-port` (default: 4002), and `--no-build`. Run with `--help` for details.
+All scripts also accept `--chain <name>` (e.g. `--chain base`, `--chain ethereum`) or `--chain-id <number>` (default: Sepolia 11155111), `--quic-port` (default: 4002), and `--no-build`. For chains not supported by Infura (e.g. BNB Smart Chain), pass `--rpc-url` instead of `--infura-key`. Run with `--help` for details.
+
+Supported chain names and aliases:
+
+| Name     | Chain ID | Aliases      |
+| -------- | -------- | ------------ |
+| ethereum | 1        | eth, mainnet |
+| optimism | 10       | op           |
+| bsc      | 56       | bnb          |
+| polygon  | 137      | matic        |
+| base     | 8453     |              |
+| arbitrum | 42161    | arb          |
+| linea    | 59144    |              |
+| sepolia  | 11155111 |              |
 
 `setup-away.sh` will offer to install the OpenClaw plugin automatically at the end. If you decline, it prints the manual install commands.
 
@@ -273,10 +312,12 @@ Both scripts also accept `--chain-id` (default: Sepolia), `--quic-port` (default
 
 The delegation can include on-chain spending limits that restrict how much ETH the agent is allowed to spend. Two types of limits are available:
 
-| Limit | Enforcer contract | Address (CREATE2, same on all chains) |
-| --- | --- | --- |
+| Limit                  | Enforcer contract                   | Address (same on all chains)                 |
+| ---------------------- | ----------------------------------- | -------------------------------------------- |
 | Total spending ceiling | `NativeTokenTransferAmountEnforcer` | `0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320` |
 | Per-transaction max | `ValueLteEnforcer` | `0x92Bf12322527cAA612fd31a0e810472BBB106A8F` |
+
+Sepolia uses different enforcer addresses (separate testnet deployment). The setup scripts and SDK resolve the correct addresses automatically based on the chain.
 
 Both limits compose — the DelegationManager checks ALL caveats, so both must pass for a transaction to go through.
 
@@ -432,7 +473,7 @@ yarn ocap daemon exec launchSubcluster '{
       "provider": {
         "bundleSpec": "packages/eth-wallet/src/vats/provider-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder"],
-        "platformConfig": { "fetch": { "allowedHosts": ["sepolia.infura.io", "api.pimlico.io", "swap.api.cx.metamask.io"] } }
+        "platformConfig": { "fetch": { "allowedHosts": ["<chain>.infura.io", "api.pimlico.io", "swap.api.cx.metamask.io"] } }
       },
       "delegation": {
         "bundleSpec": "packages/eth-wallet/src/vats/delegation-vat.bundle",
@@ -445,6 +486,8 @@ yarn ocap daemon exec launchSubcluster '{
 ```
 
 Note the `rootKref` from the output (e.g. `ko4`). This is the wallet coordinator reference. The CLI automatically converts absolute file paths to `file://` URLs.
+
+> **Note:** Replace `<chain>.infura.io` in `allowedHosts` with the actual Infura subdomain for your chain (e.g. `mainnet.infura.io`, `base-mainnet.infura.io`, `sepolia.infura.io`). If using a custom RPC provider via `--rpc-url`, use that provider's hostname instead.
 
 > **Warning:** `forceReset: true` destroys all existing subcluster state (keyrings, delegations, OCAP URLs). Omit it on subsequent runs to preserve state.
 
@@ -472,6 +515,8 @@ yarn ocap daemon exec queueMessage '["ko4", "unlockKeyring", ["your-password"]]'
 
 ```bash
 yarn ocap daemon exec queueMessage '["ko4", "configureProvider", [{"chainId": 11155111, "rpcUrl": "https://sepolia.infura.io/v3/YOUR_INFURA_KEY"}]]'
+# For other chains, adjust chainId and rpcUrl:
+# yarn ocap daemon exec queueMessage '["ko4", "configureProvider", [{"chainId": 8453, "rpcUrl": "https://base-mainnet.infura.io/v3/YOUR_INFURA_KEY"}]]'
 ```
 
 ### 2f. Issue an OCAP URL for the away device

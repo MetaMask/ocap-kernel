@@ -9,8 +9,41 @@ export const SEPOLIA_CHAIN_ID = 11155111;
 
 /**
  * Base URL for the Pimlico bundler on Sepolia.
+ *
+ * @deprecated Use {@link getPimlicoRpcUrl} for chain-specific URLs.
  */
 export const PIMLICO_RPC_BASE_URL = 'https://api.pimlico.io/v2/sepolia/rpc';
+
+/**
+ * Pimlico chain slug per chain ID.
+ */
+const PIMLICO_CHAIN_SLUGS: Record<number, string> = harden({
+  1: 'ethereum',
+  10: 'optimism',
+  56: 'binance',
+  137: 'polygon',
+  8453: 'base',
+  42161: 'arbitrum',
+  59144: 'linea',
+  11155111: 'sepolia',
+});
+
+/**
+ * Get the Pimlico bundler RPC URL for a given chain.
+ *
+ * @param chainId - The chain ID.
+ * @returns The Pimlico bundler RPC URL.
+ */
+export function getPimlicoRpcUrl(chainId: number): string {
+  const slug = PIMLICO_CHAIN_SLUGS[chainId];
+  if (slug === undefined) {
+    throw new Error(
+      `No Pimlico bundler URL for chain ${chainId}. ` +
+        `Supported chains: ${Object.keys(PIMLICO_CHAIN_SLUGS).join(', ')}.`,
+    );
+  }
+  return `https://api.pimlico.io/v2/${slug}/rpc`;
+}
 
 /**
  * The default BIP-44 HD path for Ethereum accounts: m/44'/60'/0'/0/{index}.
@@ -54,27 +87,90 @@ export const PLACEHOLDER_CONTRACTS: ChainContracts = harden({
   },
 });
 
+// ---------------------------------------------------------------------------
+// Shared contract addresses (same across all supported chains)
+// ---------------------------------------------------------------------------
+
+const SHARED_DELEGATION_MANAGER: Address =
+  '0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3' as Address;
+
+/**
+ * Enforcer addresses shared across all supported mainnet chains.
+ */
+const MAINNET_ENFORCERS: Record<CaveatType, Address> = harden({
+  allowedTargets: '0x7F20f61b1f09b08D970938F6fa563634d65c4EeB' as Address,
+  allowedMethods: '0x2c21fD0Cb9DC8445CB3fb0DC5E7Bb0Aca01842B5' as Address,
+  valueLte: '0x92Bf12322527cAA612fd31a0e810472BBB106A8F' as Address,
+  nativeTokenTransferAmount:
+    '0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320' as Address,
+  erc20TransferAmount: '0xf100b0819427117EcF76Ed94B358B1A5b5C6D2Fc' as Address,
+  limitedCalls: '0x04658B29F6b82ed55274221a06Fc97D318E25416' as Address,
+  timestamp: '0x1046bb45C8d673d4ea75321280DB34899413c069' as Address,
+});
+
+const makeMainnetChainContracts = (): ChainContracts =>
+  harden({
+    delegationManager: SHARED_DELEGATION_MANAGER,
+    enforcers: { ...MAINNET_ENFORCERS },
+  });
+
+/**
+ * Supported chain IDs (both mainnets and testnets).
+ */
+export const SUPPORTED_CHAIN_IDS: readonly number[] = harden([
+  1, 10, 56, 137, 8453, 42161, 59144, 11155111,
+]);
+
+/**
+ * Human-readable chain names keyed by chain ID.
+ */
+export const CHAIN_NAMES: Record<number, string> = harden({
+  1: 'Ethereum',
+  10: 'Optimism',
+  56: 'BNB Smart Chain',
+  137: 'Polygon',
+  8453: 'Base',
+  42161: 'Arbitrum One',
+  59144: 'Linea',
+  11155111: 'Sepolia',
+});
+
 /**
  * Registry of contract addresses keyed by chain ID.
- * Populate with actual deployment addresses per chain.
  */
-export const CHAIN_CONTRACTS: Record<number, ChainContracts> = {
-  /** Sepolia testnet (chain 11155111). */
-  [SEPOLIA_CHAIN_ID]: harden({
-    delegationManager: '0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3' as Address,
-    enforcers: {
-      allowedTargets: '0xD5D960245C3DdA84C6068757e0f3f4BD0B575bAc' as Address,
-      allowedMethods: '0x06ea8bA2fcf36781D9C8ec62F63D42F1CFa3d959' as Address,
-      valueLte: '0x92Bf12322527cAA612fd31a0e810472BBB106A8F' as Address,
-      nativeTokenTransferAmount:
-        '0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320' as Address,
-      erc20TransferAmount:
-        '0x2A2b4F58Ce0299eE0e2e5dC0600DaCA7bca2b02F' as Address,
-      limitedCalls: '0x42bF09Fe66bE38e36c18dDc4158C0A51F7124dAE' as Address,
-      timestamp: '0x40aB3EFC45B3059e8a0a4eE9bC2AdB0bef9cF09a' as Address,
-    },
-  }),
-};
+export const CHAIN_CONTRACTS: Readonly<Record<number, ChainContracts>> = harden(
+  {
+    /** Ethereum mainnet (chain 1). */
+    1: makeMainnetChainContracts(),
+    /** Optimism (chain 10). */
+    10: makeMainnetChainContracts(),
+    /** BNB Smart Chain (chain 56). */
+    56: makeMainnetChainContracts(),
+    /** Polygon (chain 137). */
+    137: makeMainnetChainContracts(),
+    /** Base (chain 8453). */
+    8453: makeMainnetChainContracts(),
+    /** Arbitrum One (chain 42161). */
+    42161: makeMainnetChainContracts(),
+    /** Linea (chain 59144). */
+    59144: makeMainnetChainContracts(),
+    /** Sepolia testnet (chain 11155111). */
+    [SEPOLIA_CHAIN_ID]: harden({
+      delegationManager: SHARED_DELEGATION_MANAGER,
+      enforcers: {
+        allowedTargets: '0xD5D960245C3DdA84C6068757e0f3f4BD0B575bAc' as Address,
+        allowedMethods: '0x06ea8bA2fcf36781D9C8ec62F63D42F1CFa3d959' as Address,
+        valueLte: '0x92Bf12322527cAA612fd31a0e810472BBB106A8F' as Address,
+        nativeTokenTransferAmount:
+          '0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320' as Address,
+        erc20TransferAmount:
+          '0x2A2b4F58Ce0299eE0e2e5dC0600DaCA7bca2b02F' as Address,
+        limitedCalls: '0x42bF09Fe66bE38e36c18dDc4158C0A51F7124dAE' as Address,
+        timestamp: '0x40aB3EFC45B3059e8a0a4eE9bC2AdB0bef9cF09a' as Address,
+      },
+    }),
+  },
+);
 
 /**
  * Get the contract addresses for a chain, falling back to placeholders.
@@ -83,8 +179,11 @@ export const CHAIN_CONTRACTS: Record<number, ChainContracts> = {
  * @returns The contract addresses.
  */
 export function getChainContracts(chainId?: number): ChainContracts {
-  if (chainId !== undefined && CHAIN_CONTRACTS[chainId]) {
-    return CHAIN_CONTRACTS[chainId];
+  if (chainId !== undefined) {
+    const entry = CHAIN_CONTRACTS[chainId];
+    if (entry !== undefined) {
+      return entry;
+    }
   }
   if (chainId !== undefined) {
     throw new Error(

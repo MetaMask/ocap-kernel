@@ -6,15 +6,16 @@
 # to connect. Every signing request triggers a MetaMask approval dialog.
 #
 # Usage:
-#   ./setup-home-interactive.sh --infura-key KEY [--pimlico-key KEY] [--relay MULTIADDR] [--chain-id ID] [--quic-port PORT] [--no-build]
+#   ./setup-home-interactive.sh --infura-key KEY [--pimlico-key KEY] [--relay MULTIADDR] [--chain base] [--quic-port PORT] [--no-build]
 #
 # Required:
-#   --infura-key     Infura API key (Sepolia RPC)
+#   --infura-key     Infura API key
 #
 # Optional:
 #   --pimlico-key    Pimlico API key (bundler/paymaster)
 #   --relay          Relay multiaddr
-#   --chain-id       Chain ID (default: 11155111 = Sepolia)
+#   --chain          Chain name (e.g. sepolia, base, ethereum)
+#   --chain-id       Chain ID (alternative to --chain; default: 11155111 = Sepolia)
 #   --quic-port      UDP port for QUIC transport (default: 4002)
 #   --no-build       Skip the build step
 

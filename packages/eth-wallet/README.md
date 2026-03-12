@@ -763,16 +763,38 @@ yarn workspace @ocap/eth-wallet test:integration
 
 Vitest-based peer wallet tests in `test/integration/peer-wallet.test.ts`. Requires building bundles first (`yarn build`). Tests OCAP URL connection, remote message/transaction signing via CapTP, no-authority errors, and capabilities reporting across two kernels.
 
+## Supported Chains
+
+The wallet supports all chains where the MetaMask Delegation Framework is deployed:
+
+| Chain ID | Network           | Swap Support |
+| -------- | ----------------- | ------------ |
+| 1        | Ethereum          | Yes          |
+| 10       | Optimism          | Yes          |
+| 56       | BNB Smart Chain   | Yes          |
+| 137      | Polygon           | Yes          |
+| 8453     | Base              | Yes          |
+| 42161    | Arbitrum One      | Yes          |
+| 59144    | Linea             | Yes          |
+| 11155111 | Sepolia (testnet) | No           |
+
+All chains share the same DelegationManager address (`0xdb9B...47dB3`). Mainnet chains share enforcer addresses; Sepolia has its own deployment. Swap support (via MetaSwap API) is only available on mainnets.
+
+Use `SUPPORTED_CHAIN_IDS`, `CHAIN_NAMES`, and `getChainContracts(chainId)` to query chain support programmatically. Use `getPimlicoRpcUrl(chainId)` for Pimlico bundler URLs.
+
 ## Constants
 
 The package exports chain contract addresses used by the Delegation Framework:
 
 | Export                       | Description                                                                      |
 | ---------------------------- | -------------------------------------------------------------------------------- |
-| `SEPOLIA_CHAIN_ID`           | Sepolia testnet chain ID (`11155111`).                                           |
-| `PIMLICO_RPC_BASE_URL`       | Base URL for the Pimlico bundler on Sepolia.                                     |
+| `SUPPORTED_CHAIN_IDS`        | Array of all supported chain IDs.                                                |
+| `CHAIN_NAMES`                | Human-readable chain names keyed by chain ID.                                    |
 | `CHAIN_CONTRACTS`            | Registry of contract addresses keyed by chain ID.                                |
 | `getChainContracts(chainId)` | Get contracts for a chain, falling back to placeholders.                         |
+| `getPimlicoRpcUrl(chainId)`  | Get the Pimlico bundler RPC URL for a given chain.                               |
+| `SEPOLIA_CHAIN_ID`           | Sepolia testnet chain ID (`11155111`).                                           |
+| `PIMLICO_RPC_BASE_URL`       | _(deprecated)_ Base URL for the Pimlico bundler on Sepolia.                      |
 | `ENTRY_POINT_V07`            | ERC-4337 EntryPoint v0.7 address (`0x0000000071727de22e5e9d8baf0edac6f37da032`). |
 | `ROOT_AUTHORITY`             | The root authority hash (no parent delegation): `0xfff...fff`.                   |
 | `DELEGATION_TYPES`           | EIP-712 type definitions for the Delegation Framework.                           |
