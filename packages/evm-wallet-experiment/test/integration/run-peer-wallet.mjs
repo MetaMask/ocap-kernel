@@ -6,7 +6,7 @@
  * remote signing forwarded via CapTP, and delegation transfer.
  *
  * Usage:
- *   yarn workspace @ocap/eth-wallet test:node:peer
+ *   yarn workspace @ocap/evm-wallet-experiment test:node:peer
  */
 
 import '@metamask/kernel-shims/endoify-node';

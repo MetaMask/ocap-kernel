@@ -1,7 +1,7 @@
 /**
  * OpenClaw wallet plugin: registers tools that forward to the OCAP daemon.
  *
- * The OCAP daemon runs the eth-wallet subcluster. This plugin sends JSON-RPC
+ * The OCAP daemon runs the evm-wallet subcluster. This plugin sends JSON-RPC
  * messages to the daemon over its Unix socket, routing wallet operations
  * through the kernel's capability system. The AI agent never touches keys.
  *

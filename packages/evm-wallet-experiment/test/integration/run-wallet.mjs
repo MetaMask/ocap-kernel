@@ -1,13 +1,13 @@
 /* eslint-disable jsdoc/require-description, jsdoc/require-param-description, jsdoc/require-returns-description, n/no-process-exit, no-plusplus, import-x/no-unresolved */
 /**
- * Plain Node.js integration test for the eth-wallet subcluster.
+ * Plain Node.js integration test for the evm-wallet subcluster.
  *
  * Bypasses vitest to avoid SES/vitest interactions. Runs under real SES
  * lockdown, creates a real kernel, launches the wallet subcluster, and
  * exercises the wallet API via queueMessage.
  *
  * Usage:
- *   yarn workspace @ocap/eth-wallet test:node
+ *   yarn workspace @ocap/evm-wallet-experiment test:node
  */
 
 // SES lockdown must be the first thing that runs.

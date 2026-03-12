@@ -16,7 +16,7 @@
  *   3. Start kernel and proceed
  *
  * Usage:
- *   node packages/eth-wallet/scripts/home-interactive.mjs \
+ *   node packages/evm-wallet-experiment/scripts/home-interactive.mjs \
  *     --infura-key KEY [--pimlico-key KEY] [--chain sepolia] \
  *     [--relay MULTIADDR] [--quic-port 4002]
  */
@@ -673,7 +673,7 @@ ${GREEN}${BOLD}==============================================
 
 ${YELLOW}${BOLD}  Run this on the away device (VPS):${RESET}
 
-${BOLD}  ./packages/eth-wallet/scripts/setup-away.sh \\
+${BOLD}  ./packages/evm-wallet-experiment/scripts/setup-away.sh \\
     --ocap-url "${ocapUrl}" \\
     --listen-addrs '${JSON.stringify(listenAddresses)}'${args.infuraKey ? ` \\\n    --infura-key ${args.infuraKey}` : ''}${args.pimlicoKey ? ` \\\n    --pimlico-key ${args.pimlicoKey}` : ''}${args.relay ? ` \\\n    --relay "${args.relay}"` : ''}${RESET}
 `);

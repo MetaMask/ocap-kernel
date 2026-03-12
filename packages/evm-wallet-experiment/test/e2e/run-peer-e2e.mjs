@@ -57,7 +57,7 @@
  *
  *   - Node.js >= 22
  *   - The monorepo cloned and dependencies installed (`yarn install`)
- *   - Vat bundles built (`yarn workspace @ocap/eth-wallet build`)
+ *   - Vat bundles built (`yarn workspace @ocap/evm-wallet-experiment build`)
  *     — the test:node:peer-e2e script runs `build` automatically
  *
  * ── Usage ──────────────────────────────────────────────────────────────
@@ -65,7 +65,7 @@
  *   PIMLICO_API_KEY=xxx \
  *   SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
  *   MNEMONIC="word1 word2 ... word12" \
- *     yarn workspace @ocap/eth-wallet test:node:peer-e2e
+ *     yarn workspace @ocap/evm-wallet-experiment test:node:peer-e2e
  *
  *   The test takes ~30–90 s depending on Sepolia block times and Pimlico
  *   bundler latency. The UserOp polling timeout is 120 s.

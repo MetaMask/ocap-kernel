@@ -29,7 +29,7 @@
  * ── Usage ──────────────────────────────────────────────────────────────
  *
  *   PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
- *     yarn workspace @ocap/eth-wallet test:node:spending-limits
+ *     yarn workspace @ocap/evm-wallet-experiment test:node:spending-limits
  */
 
 import '@metamask/kernel-shims/endoify-node';

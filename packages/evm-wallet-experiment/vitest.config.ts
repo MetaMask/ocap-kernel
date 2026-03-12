@@ -10,7 +10,7 @@ export default defineConfig((args) => {
     defaultConfig,
     defineProject({
       test: {
-        name: 'eth-wallet',
+        name: 'evm-wallet',
         setupFiles: [
           fileURLToPath(
             import.meta.resolve('@ocap/repo-tools/test-utils/mock-endoify'),

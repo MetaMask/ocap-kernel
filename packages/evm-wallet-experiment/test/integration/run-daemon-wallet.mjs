@@ -1,6 +1,6 @@
 /* eslint-disable jsdoc/require-param-description, jsdoc/require-returns-description, n/no-process-exit, no-plusplus, import-x/no-unresolved */
 /**
- * Integration test for the eth-wallet subcluster accessed via the daemon
+ * Integration test for the evm-wallet subcluster accessed via the daemon
  * JSON-RPC socket. Verifies the full stack: daemon → kernel → vats.
  *
  * This simulates how an agent process talks to the wallet: through the
@@ -8,7 +8,7 @@
  * directly.
  *
  * Usage:
- *   yarn workspace @ocap/eth-wallet test:node:daemon
+ *   yarn workspace @ocap/evm-wallet-experiment test:node:daemon
  */
 
 import '@metamask/kernel-shims/endoify-node';
@@ -54,7 +54,7 @@ function assert(condition, label) {
 function tempSocketPath() {
   return join(
     tmpdir(),
-    `eth-wallet-daemon-${Date.now()}-${Math.random().toString(36).slice(2)}.sock`,
+    `evm-wallet-daemon-${Date.now()}-${Math.random().toString(36).slice(2)}.sock`,
   );
 }
 

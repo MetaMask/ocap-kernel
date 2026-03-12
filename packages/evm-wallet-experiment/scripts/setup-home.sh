@@ -137,10 +137,10 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$PKG_ROOT/../.." && pwd)"
 BUNDLE_DIR="$PKG_ROOT/src/vats"
-OCAP_BIN="$REPO_ROOT/packages/cli/dist/app.mjs"
+OCAP_BIN="$REPO_ROOT/packages/kernel-cli/dist/app.mjs"
 
 if [[ ! -f "$OCAP_BIN" ]]; then
-  echo "Error: ocap CLI not found at $OCAP_BIN. Run 'yarn workspace @ocap/cli build' first." >&2
+  echo "Error: ocap CLI not found at $OCAP_BIN. Run 'yarn workspace @metamask/kernel-cli build' first." >&2
   exit 1
 fi
 
@@ -232,9 +232,9 @@ daemon_exec() {
 if [[ "$SKIP_BUILD" == false ]]; then
   info "Building packages..."
   (cd "$REPO_ROOT" && yarn workspace @metamask/ocap-kernel build) >&2
-  (cd "$REPO_ROOT" && yarn workspace @ocap/nodejs build) >&2
-  (cd "$REPO_ROOT" && yarn workspace @ocap/cli build) >&2
-  (cd "$REPO_ROOT" && yarn workspace @ocap/eth-wallet build) >&2
+  (cd "$REPO_ROOT" && yarn workspace @metamask/kernel-node-runtime build) >&2
+  (cd "$REPO_ROOT" && yarn workspace @metamask/kernel-cli build) >&2
+  (cd "$REPO_ROOT" && yarn workspace @ocap/evm-wallet-experiment build) >&2
   ok "Build complete"
 else
   info "Skipping build (--no-build)"
@@ -545,7 +545,7 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
 
 $(echo -e "${YELLOW}${BOLD}")  Run this on the away device (VPS):$(echo -e "${RESET}")
 
-$(echo -e "${BOLD}")  ./packages/eth-wallet/scripts/setup-away.sh \\
+$(echo -e "${BOLD}")  ./packages/evm-wallet-experiment/scripts/setup-away.sh \\
     --ocap-url "$OCAP_URL" \\
     --listen-addrs '$LISTEN_ADDRS'$(
       [[ -n "$INFURA_KEY" ]] && echo " \\

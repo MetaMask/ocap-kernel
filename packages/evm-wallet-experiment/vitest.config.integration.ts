@@ -10,7 +10,7 @@ export default defineConfig((args) => {
     defaultConfig,
     defineProject({
       test: {
-        name: 'eth-wallet:integration',
+        name: 'evm-wallet:integration',
         pool: 'forks',
         setupFiles: [
           fileURLToPath(

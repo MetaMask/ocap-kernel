@@ -15,7 +15,7 @@
   "references": [
     { "path": "./packages/kernel-cli" },
     { "path": "./packages/create-package" },
-    { "path": "./packages/eth-wallet" },
+    { "path": "./packages/evm-wallet-experiment" },
     { "path": "./packages/extension" },
     { "path": "./packages/kernel-agents" },
     { "path": "./packages/kernel-browser-runtime" },
