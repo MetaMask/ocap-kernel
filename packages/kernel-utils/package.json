@@ -75,7 +75,8 @@
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.cts",
   "files": [
-    "dist/"
+    "dist/",
+    "patches/"
   ],
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
@@ -88,6 +89,7 @@
     "lint:eslint": "eslint . --cache",
     "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies",
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore --log-level error",
+    "postinstall": "[ ! -d patches ] || patch-package --patch-dir patches",
     "publish:preview": "yarn npm publish --tag preview",
     "test": "vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
@@ -98,7 +100,7 @@
   },
   "dependencies": {
     "@chainsafe/libp2p-noise": "^16.1.3",
-    "@chainsafe/libp2p-yamux": "patch:@chainsafe/libp2p-yamux@npm%3A7.0.4#~/.yarn/patches/@chainsafe-libp2p-yamux-npm-7.0.4-284c2f6812.patch",
+    "@chainsafe/libp2p-yamux": "7.0.4",
     "@endo/captp": "^4.4.8",
     "@endo/errors": "^1.2.13",
     "@endo/exo": "^1.5.12",
@@ -153,6 +155,7 @@
   },
   "peerDependencies": {
     "acorn": "^8.15.0",
+    "patch-package": "^8.0.0",
     "vite": "^7.3.0"
   },
   "peerDependenciesMeta": {

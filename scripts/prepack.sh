@@ -10,3 +10,4 @@ if [[ -n $SKIP_PREPACK ]]; then
 fi
 
 yarn build
+node scripts/copy-patches.cjs
