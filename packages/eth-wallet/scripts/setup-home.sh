@@ -273,6 +273,33 @@ for i in $(seq 1 30); do
 done
 ok "Remote comms connected"
 
+# If a relay is configured, verify the relay reservation is actually active
+# by waiting for circuit relay addresses to appear in getMultiaddrs().
+if [[ -n "$RELAY_ADDR" ]]; then
+  info "Verifying relay reservation..."
+  RELAY_OK=false
+  for i in $(seq 1 30); do
+    STATUS=$(node "$OCAP_BIN" daemon exec getStatus 2>/dev/null) || STATUS=""
+    if [[ -n "$STATUS" ]]; then
+      HAS_CIRCUIT=$(echo "$STATUS" | node -e "
+        const data = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
+        const addrs = data.remoteComms?.listenAddresses ?? [];
+        process.stdout.write(String(addrs.some(a => a.includes('/p2p-circuit/'))));
+      ")
+      if [[ "$HAS_CIRCUIT" == "true" ]]; then
+        RELAY_OK=true
+        break
+      fi
+    fi
+    sleep 1
+  done
+  if [[ "$RELAY_OK" == "true" ]]; then
+    ok "Relay reservation active"
+  else
+    fail "Relay reservation not established after 30s. Is the relay running? Check: ssh VPS 'sudo systemctl status ocap-relay.service'"
+  fi
+fi
+
 # ---------------------------------------------------------------------------
 # 4. Launch wallet subcluster
 # ---------------------------------------------------------------------------
@@ -450,6 +477,24 @@ if [[ -n "$PUBLIC_IP" && -n "$PEER_ID" ]]; then
     process.stdout.write(JSON.stringify(addrs));
   " <<< "$LISTEN_ADDRS")
   ok "Public address: $PUBLIC_ADDR"
+fi
+
+# Ensure relay circuit addresses are included even if the relay reservation
+# hasn't been established yet (getMultiaddrs() only reports them after the
+# async reservation completes). These are essential for the away device to
+# reach this node through the relay.
+if [[ -n "$RELAY_ADDR" && -n "$PEER_ID" ]]; then
+  LISTEN_ADDRS=$(RELAY="$RELAY_ADDR" PID="$PEER_ID" node -e "
+    const addrs = JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8'));
+    const relay = process.env.RELAY;
+    const peerId = process.env.PID;
+    const circuitWebrtc = relay + '/p2p-circuit/webrtc/p2p/' + peerId;
+    const circuitDirect = relay + '/p2p-circuit/p2p/' + peerId;
+    if (!addrs.includes(circuitWebrtc)) addrs.push(circuitWebrtc);
+    if (!addrs.includes(circuitDirect)) addrs.push(circuitDirect);
+    process.stdout.write(JSON.stringify(addrs));
+  " <<< "$LISTEN_ADDRS")
+  ok "Relay circuit addresses added"
 fi
 ok "Listen addresses: $LISTEN_ADDRS"
 
