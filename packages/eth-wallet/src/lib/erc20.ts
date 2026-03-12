@@ -22,6 +22,11 @@ export const ERC20_TRANSFER_SELECTOR = '0xa9059cbb' as Hex;
  */
 export const ERC20_APPROVE_SELECTOR = '0x095ea7b3' as Hex;
 
+/**
+ * Function selector for ERC-20 `allowance(address,address)`.
+ */
+export const ERC20_ALLOWANCE_SELECTOR = '0xdd62ed3e' as Hex;
+
 // ---------------------------------------------------------------------------
 // Encoding
 // ---------------------------------------------------------------------------
@@ -54,6 +59,21 @@ export function encodeApprove(spender: Address, amount: bigint): Hex {
     amount,
   ]);
   return `${ERC20_APPROVE_SELECTOR}${params.slice(2)}` as Hex;
+}
+
+/**
+ * Encode calldata for ERC-20 `allowance(address,address)`.
+ *
+ * @param owner - The token owner address.
+ * @param spender - The spender address.
+ * @returns The ABI-encoded calldata.
+ */
+export function encodeAllowance(owner: Address, spender: Address): Hex {
+  const params = encodeAbiParameters(parseAbiParameters('address, address'), [
+    owner,
+    spender,
+  ]);
+  return `${ERC20_ALLOWANCE_SELECTOR}${params.slice(2)}` as Hex;
 }
 
 /**
@@ -176,6 +196,21 @@ function decodeStringOrBytes32(result: Hex): string {
     }
     return String.fromCharCode(...chars);
   }
+}
+
+/**
+ * Decode an `allowance` return value.
+ *
+ * @param result - The raw ABI-encoded result from `eth_call`.
+ * @returns The allowance as a bigint.
+ */
+export function decodeAllowanceResult(result: Hex): bigint {
+  assertNonEmptyResult(result, 'allowance');
+  const [allowance] = decodeAbiParameters(
+    parseAbiParameters('uint256'),
+    result,
+  );
+  return allowance;
 }
 
 /**

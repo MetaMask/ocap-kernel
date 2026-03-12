@@ -3,6 +3,8 @@ import { describe, it, expect } from 'vitest';
 import { encodeAllowedTargets, makeCaveat } from './caveats.ts';
 import { finalizeDelegation, makeDelegation } from './delegation.ts';
 import {
+  buildBatchExecuteCallData,
+  buildSdkBatchRedeemCallData,
   buildSdkDisableCallData,
   buildSdkRedeemCallData,
   createSdkExecution,
@@ -10,6 +12,7 @@ import {
   getDelegationManagerAddress,
   getEnforcerAddresses,
   isEip7702Delegated,
+  prepareUserOpTypedData,
   resolveEnvironment,
   toSdkDelegation,
 } from './sdk.ts';
@@ -219,6 +222,90 @@ describe('lib/sdk', () => {
     });
   });
 
+  describe('buildSdkBatchRedeemCallData', () => {
+    it('produces callData wrapped in DeleGatorCore.execute with batch mode', () => {
+      const delegation = finalizeDelegation(
+        makeDelegation({
+          delegator: ALICE,
+          delegate: BOB,
+          caveats: [],
+          chainId: 1,
+          salt: '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        }),
+        '0xdeadbeef' as Hex,
+      );
+
+      const callData = buildSdkBatchRedeemCallData({
+        delegations: [delegation],
+        executions: [
+          { target: TARGET, value: '0x0' as Hex, callData: '0x' as Hex },
+          {
+            target: TARGET,
+            value: '0x0' as Hex,
+            callData: '0xa9059cbb' as Hex,
+          },
+        ],
+        chainId: SEPOLIA_CHAIN_ID,
+      });
+
+      // Wrapped in DeleGatorCore.execute (selector 0x5c1c6dcd)
+      expect(callData).toMatch(/^0x5c1c6dcd/u);
+      expect(callData.length).toBeGreaterThan(10);
+    });
+
+    it('encodes the DelegationManager as the inner target', () => {
+      const delegation = finalizeDelegation(
+        makeDelegation({
+          delegator: ALICE,
+          delegate: BOB,
+          caveats: [],
+          chainId: 1,
+          salt: '0x0000000000000000000000000000000000000000000000000000000000000001' as Hex,
+        }),
+        '0xdeadbeef' as Hex,
+      );
+
+      const callData = buildSdkBatchRedeemCallData({
+        delegations: [delegation],
+        executions: [
+          { target: TARGET, value: '0x0' as Hex, callData: '0x' as Hex },
+        ],
+        chainId: SEPOLIA_CHAIN_ID,
+      });
+
+      const env = resolveEnvironment(SEPOLIA_CHAIN_ID);
+      const dmAddrLower = env.DelegationManager.toLowerCase().slice(2);
+      expect(callData.toLowerCase()).toContain(dmAddrLower);
+    });
+  });
+
+  describe('buildBatchExecuteCallData', () => {
+    it('produces callData using executeWithMode selector', () => {
+      const callData = buildBatchExecuteCallData({
+        executions: [
+          { target: TARGET, value: '0x0' as Hex, callData: '0x' as Hex },
+          { target: ALICE, value: '0x0' as Hex, callData: '0xa9059cbb' as Hex },
+        ],
+      });
+
+      // DeleGatorCore.executeWithMode selector: 0xe9ae5c53
+      expect(callData).toMatch(/^0xe9ae5c53/u);
+      expect(callData.length).toBeGreaterThan(10);
+    });
+
+    it('encodes target addresses in the callData', () => {
+      const callData = buildBatchExecuteCallData({
+        executions: [
+          { target: TARGET, value: '0x0' as Hex, callData: '0x' as Hex },
+          { target: ALICE, value: '0x0' as Hex, callData: '0x' as Hex },
+        ],
+      });
+
+      expect(callData.toLowerCase()).toContain(TARGET.toLowerCase().slice(2));
+      expect(callData.toLowerCase()).toContain(ALICE.toLowerCase().slice(2));
+    });
+  });
+
   describe('createSdkExecution', () => {
     it('creates an execution struct with defaults', () => {
       const execution = createSdkExecution({ target: TARGET });
@@ -286,6 +373,61 @@ describe('lib/sdk', () => {
       // Use uppercase hex for the designator
       const code = `0xEF0100${implAddress?.slice(2).toUpperCase()}`;
       expect(isEip7702Delegated(code, SEPOLIA_CHAIN_ID)).toBe(true);
+    });
+  });
+
+  describe('prepareUserOpTypedData', () => {
+    const ENTRY_POINT = '0x0000000071727De22E5E9d8BAf0edAc6f37da032' as Address;
+    const SMART_ACCOUNT =
+      '0xcccccccccccccccccccccccccccccccccccccccc' as Address;
+
+    it('produces typed data with HybridDeleGator domain by default', () => {
+      const typedData = prepareUserOpTypedData({
+        userOp: {
+          sender: SMART_ACCOUNT,
+          nonce: '0x0',
+          callData: '0x',
+          callGasLimit: '0x50000',
+          verificationGasLimit: '0x60000',
+          preVerificationGas: '0x10000',
+          maxFeePerGas: '0x77359400',
+          maxPriorityFeePerGas: '0x3b9aca00',
+          signature: '0x',
+        },
+        entryPoint: ENTRY_POINT,
+        chainId: SEPOLIA_CHAIN_ID,
+        smartAccountAddress: SMART_ACCOUNT,
+      });
+
+      expect(typedData.domain.name).toBe('HybridDeleGator');
+      expect(typedData.domain.version).toBe('1');
+      expect(typedData.domain.chainId).toBe(SEPOLIA_CHAIN_ID);
+      expect(typedData.domain.verifyingContract).toBe(SMART_ACCOUNT);
+      expect(typedData.primaryType).toBe('PackedUserOperation');
+      expect(typedData.types).toHaveProperty('PackedUserOperation');
+      expect(typedData.message).toHaveProperty('entryPoint', ENTRY_POINT);
+    });
+
+    it('uses custom domain name for EIP7702StatelessDeleGator', () => {
+      const typedData = prepareUserOpTypedData({
+        userOp: {
+          sender: SMART_ACCOUNT,
+          nonce: '0x0',
+          callData: '0x',
+          callGasLimit: '0x50000',
+          verificationGasLimit: '0x60000',
+          preVerificationGas: '0x10000',
+          maxFeePerGas: '0x77359400',
+          maxPriorityFeePerGas: '0x3b9aca00',
+          signature: '0x',
+        },
+        entryPoint: ENTRY_POINT,
+        chainId: SEPOLIA_CHAIN_ID,
+        smartAccountAddress: SMART_ACCOUNT,
+        smartAccountName: 'EIP7702StatelessDeleGator',
+      });
+
+      expect(typedData.domain.name).toBe('EIP7702StatelessDeleGator');
     });
   });
 });

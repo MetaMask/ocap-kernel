@@ -85,6 +85,10 @@ Both devices create **DeleGator smart accounts** via MetaMask's Delegation Frame
 
 The Pimlico bundler handles UserOp submission, gas estimation, and optional paymaster sponsorship (so the agent doesn't need ETH for gas).
 
+#### Batch execution
+
+The coordinator supports `sendBatchTransaction`, which combines multiple transactions into a single UserOp using `DeleGatorCore.executeWithMode` with `BatchDefault` mode. This is used when an operation requires multiple on-chain steps — for example, a token swap that needs an ERC-20 approval followed by the swap trade. Instead of submitting two separate UserOps, batch execution packs both into one atomic operation: either both succeed or both revert. The single-delegation redemption path remains available for standalone transactions.
+
 ### Delegations and Caveats
 
 A **delegation** is a signed EIP-712 message that says: "I (delegator smart account) authorize this (delegate smart account) to perform actions on my behalf, subject to these caveats."
@@ -121,6 +125,8 @@ If the home device is behind NAT (no public IP), a lightweight **libp2p relay** 
 | `wallet_token_send`    | Sends ERC-20 tokens (USDC, LINK, etc. — resolves symbols to addresses)      |
 | `wallet_token_info`    | Gets token metadata (name, symbol, decimals)                                |
 | `wallet_token_resolve` | Resolves a token symbol to its contract address                             |
+| `wallet_swap_quote`    | Gets a token swap quote without executing (amount, aggregator, gas)         |
+| `wallet_swap`          | Executes a token swap with automatic approval handling                      |
 | `wallet_sign`          | Signs a personal message (EIP-191)                                          |
 | `wallet_capabilities`  | Reports wallet state (keys, peer, delegations, bundler)                     |
 
@@ -162,6 +168,23 @@ Here's what happens when the agent sends ETH (or ERC-20 tokens) on behalf of the
 
 If any caveat check fails at step 10, the entire UserOp reverts — the ETH is not sent.
 
+### Batch execution path (token swaps)
+
+When an operation involves multiple transactions — such as a token swap that requires an ERC-20 approval before the trade — the coordinator uses `sendBatchTransaction` to combine them into a single atomic UserOp. The flow diverges at step 6:
+
+```
+5. Coordinator      finds delegation, collects multiple executions
+                          │
+6. Delegation Vat   builds batch calldata (BatchDefault mode)
+                          │  encodes [approve, swap] as one execution bundle
+                          │
+7. Coordinator      builds single UserOp with batch calldata
+                          │
+8–11. (same as above — one UserOp, one on-chain transaction)
+```
+
+Both the approval and the swap execute atomically: if either step fails, the entire UserOp reverts. This avoids the situation where an approval succeeds but the swap fails, leaving a dangling token allowance. When a bundler is not configured, the coordinator falls back to submitting transactions sequentially.
+
 ---
 
 ## Security Properties
@@ -195,13 +218,14 @@ After the initial setup, the away device (VPS) is **fully autonomous** — the h
 
 ### What requires the home device online
 
-| Operation                                                    | Autonomous? | Why                                     |
-| ------------------------------------------------------------ | ----------- | --------------------------------------- |
-| `sendTransaction` (delegation)                               | Yes         | Signed locally, submitted to bundler    |
-| `getAccounts`                                                | Yes         | Falls back to cached peer accounts      |
-| `getCapabilities`                                            | Yes         | Signing mode cached in baggage          |
-| `signMessage` / `signTypedData` (local key or smart account) | Yes         | Throwaway key signs; valid for EIP-1271 |
-| `signMessage` / `signTypedData` (as home EOA address)        | **No**      | Requires the home device's private key  |
+| Operation                                                    | Autonomous? | Why                                       |
+| ------------------------------------------------------------ | ----------- | ----------------------------------------- |
+| `sendTransaction` (delegation)                               | Yes         | Signed locally, submitted to bundler      |
+| `sendBatchTransaction` (delegation)                          | Yes         | Same as above, multiple txs in one UserOp |
+| `getAccounts`                                                | Yes         | Falls back to cached peer accounts        |
+| `getCapabilities`                                            | Yes         | Signing mode cached in baggage            |
+| `signMessage` / `signTypedData` (local key or smart account) | Yes         | Throwaway key signs; valid for EIP-1271   |
+| `signMessage` / `signTypedData` (as home EOA address)        | **No**      | Requires the home device's private key    |
 
 The last case is a fundamental limitation — signing as a specific EOA address requires that address's private key, which never leaves the home device (mnemonic mode) or MetaMask (interactive mode). When the away device detects a signing request for a cached peer account and the home is offline, it throws a descriptive error instead of silently signing with the wrong key.
 

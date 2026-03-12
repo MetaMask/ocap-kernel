@@ -50,6 +50,9 @@ export function computeDelegationId(delegation: {
 
 // Monotonic counter for salt uniqueness in SES compartments where
 // neither crypto.getRandomValues nor Math.random is available.
+// This is intentionally module-level: generateSalt() is a standalone
+// exported function (not part of a factory), so the counter must persist
+// across calls for the lifetime of the module/compartment.
 let saltCounter = 0;
 
 /**
@@ -168,6 +171,7 @@ export function prepareDelegationTypedData(options: {
  * - valueLte: checks if action.value is within the limit
  * - timestamp: checks if current time is within the window
  * - erc20TransferAmount: checks token, selector, and amount
+ * - nativeTokenTransferAmount: cannot be enforced client-side (requires on-chain accounting)
  *
  * This is a best-effort match. On-chain enforcement is authoritative.
  *
@@ -307,7 +311,8 @@ export function explainDelegationMatch(
     }
 
     // limitedCalls: Cannot enforce client-side (requires on-chain call counter).
-    // The on-chain enforcer is authoritative — pass through.
+    // nativeTokenTransferAmount: Cannot enforce client-side (requires on-chain accounting).
+    // The on-chain enforcers are authoritative — pass through.
   }
 
   return { matches: true };

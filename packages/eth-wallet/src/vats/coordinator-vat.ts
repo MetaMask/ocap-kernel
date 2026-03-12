@@ -4,10 +4,12 @@ import { Logger } from '@metamask/logger';
 import type { Baggage } from '@metamask/ocap-kernel';
 
 import {
+  decodeAllowanceResult,
   decodeBalanceOfResult,
   decodeDecimalsResult,
   decodeNameResult,
   decodeSymbolResult,
+  encodeAllowance,
   encodeBalanceOf,
   encodeDecimals,
   encodeName,
@@ -15,6 +17,8 @@ import {
   encodeTransfer,
 } from '../lib/erc20.ts';
 import {
+  buildBatchExecuteCallData,
+  buildSdkBatchRedeemCallData,
   buildSdkDisableCallData,
   buildSdkRedeemCallData,
   computeSmartAccountAddress,
@@ -35,6 +39,8 @@ import type {
   Execution,
   Hex,
   SmartAccountConfig,
+  SwapQuote,
+  SwapResult,
   TransactionRequest,
   UserOperation,
   WalletCapabilities,
@@ -238,6 +244,7 @@ type ProviderFacet = {
     bundlerUrl: string;
     chainId: number;
   }) => Promise<void>;
+  httpGetJson: (url: string) => Promise<unknown>;
   getUserOperationGasPrice: () => Promise<{
     fast: { maxFeePerGas: Hex; maxPriorityFeePerGas: Hex };
   }>;
@@ -379,42 +386,32 @@ export function buildRootObject(
   // Cached peer signing mode for offline autonomy
   let cachedPeerSigningMode: string | undefined;
 
+  /**
+   * Typed helper for restoring values from baggage (resuscitation).
+   *
+   * @param key - The baggage key to look up.
+   * @returns The stored value cast to T, or undefined if not present.
+   */
+  function restoreFromBaggage<T>(key: string): T | undefined {
+    return baggage.has(key) ? (baggage.get(key) as T) : undefined;
+  }
+
   // Restore vat references from baggage if available (resuscitation)
-  if (baggage.has('keyringVat')) {
-    keyringVat = baggage.get('keyringVat') as KeyringFacet;
-  }
-  if (baggage.has('providerVat')) {
-    providerVat = baggage.get('providerVat') as ProviderFacet;
-  }
-  if (baggage.has('delegationVat')) {
-    delegationVat = baggage.get('delegationVat') as DelegationFacet;
-  }
-  if (baggage.has('peerWallet')) {
-    peerWallet = baggage.get('peerWallet') as PeerWalletFacet;
-  }
-  if (baggage.has('externalSigner')) {
-    externalSigner = baggage.get('externalSigner') as ExternalSignerFacet;
-  }
-  if (baggage.has('bundlerConfig')) {
-    bundlerConfig = baggage.get('bundlerConfig') as typeof bundlerConfig;
-  }
-  if (baggage.has('smartAccountConfig')) {
-    smartAccountConfig = baggage.get(
-      'smartAccountConfig',
-    ) as SmartAccountConfig;
-  }
-  if (baggage.has('awayWallet')) {
-    awayWallet = baggage.get('awayWallet') as AwayWalletFacet;
-  }
-  if (baggage.has('pendingDelegateAddress')) {
-    pendingDelegateAddress = baggage.get('pendingDelegateAddress') as Address;
-  }
-  if (baggage.has('cachedPeerAccounts')) {
-    cachedPeerAccounts = baggage.get('cachedPeerAccounts') as Address[];
-  }
-  if (baggage.has('cachedPeerSigningMode')) {
-    cachedPeerSigningMode = baggage.get('cachedPeerSigningMode') as string;
-  }
+  keyringVat = restoreFromBaggage<KeyringFacet>('keyringVat');
+  providerVat = restoreFromBaggage<ProviderFacet>('providerVat');
+  delegationVat = restoreFromBaggage<DelegationFacet>('delegationVat');
+  peerWallet = restoreFromBaggage<PeerWalletFacet>('peerWallet');
+  externalSigner = restoreFromBaggage<ExternalSignerFacet>('externalSigner');
+  bundlerConfig = restoreFromBaggage<typeof bundlerConfig>('bundlerConfig');
+  smartAccountConfig =
+    restoreFromBaggage<SmartAccountConfig>('smartAccountConfig');
+  awayWallet = restoreFromBaggage<AwayWalletFacet>('awayWallet');
+  pendingDelegateAddress = restoreFromBaggage<Address>(
+    'pendingDelegateAddress',
+  );
+  cachedPeerAccounts =
+    restoreFromBaggage<Address[]>('cachedPeerAccounts') ?? [];
+  cachedPeerSigningMode = restoreFromBaggage<string>('cachedPeerSigningMode');
 
   /**
    * Check if an address belongs to the cached peer (home) accounts.
@@ -426,6 +423,48 @@ export function buildRootObject(
     return cachedPeerAccounts.some(
       (a) => a.toLowerCase() === address.toLowerCase(),
     );
+  }
+
+  /**
+   * Build a human-readable error message from delegation match results.
+   *
+   * @param matchResults - The match results from explainActionMatch.
+   * @param context - A message prefix describing the context.
+   * @returns A formatted error message string.
+   */
+  function buildDelegationMismatchError(
+    matchResults: { delegationId: string; result: DelegationMatchResult }[],
+    context: string,
+  ): string {
+    const reasons = matchResults
+      .filter((entry) => !entry.result.matches)
+      .map(
+        (entry) =>
+          `delegation ${entry.delegationId.slice(0, 10)}…: ${entry.result.reason ?? 'unknown'} (caveat: ${entry.result.failedCaveat ?? 'n/a'})`,
+      );
+    return `${context}. ${reasons.length} delegation(s) checked: ${reasons.join('; ')}`;
+  }
+
+  /**
+   * Resolve the EOA owner address from the keyring or external signer.
+   *
+   * @returns The first available EOA address.
+   * @throws If no accounts are available.
+   */
+  async function resolveOwnerAddress(): Promise<Address> {
+    if (keyringVat) {
+      const accounts = await E(keyringVat).getAccounts();
+      if (accounts.length > 0) {
+        return accounts[0] as Address;
+      }
+    }
+    if (externalSigner) {
+      const accounts = await E(externalSigner).getAccounts();
+      if (accounts.length > 0) {
+        return accounts[0] as Address;
+      }
+    }
+    throw new Error('No accounts available');
   }
 
   const PEER_TIMEOUT_MS = 5000;
@@ -444,14 +483,24 @@ export function buildRootObject(
     if (typeof globalThis.setTimeout !== 'function') {
       return promise;
     }
-    return Promise.race([
-      promise,
-      new Promise<never>((_resolve, reject) => {
-        globalThis.setTimeout(() => {
-          reject(new Error(`Peer call timed out after ${String(ms)}ms`));
-        }, ms);
-      }),
-    ]);
+    return new Promise<T>((resolve, reject) => {
+      const timer = globalThis.setTimeout(() => {
+        reject(new Error(`Peer call timed out after ${String(ms)}ms`));
+      }, ms);
+      // eslint-disable-next-line promise/catch-or-return
+      promise.then(
+        (value) => {
+          globalThis.clearTimeout(timer);
+          resolve(value);
+          return undefined;
+        },
+        (error: unknown) => {
+          globalThis.clearTimeout(timer);
+          reject(error instanceof Error ? error : new Error(String(error)));
+          return undefined;
+        },
+      );
+    });
   }
 
   /**
@@ -812,13 +861,17 @@ export function buildRootObject(
     maxFeePerGas?: Hex | undefined;
     maxPriorityFeePerGas?: Hex | undefined;
   }): Promise<Hex> {
+    if (!bundlerConfig) {
+      throw new Error('Bundler not configured');
+    }
+
     const sender =
       smartAccountConfig?.address ?? options.delegations[0].delegate;
 
     const sdkCallData = buildSdkRedeemCallData({
       delegations: options.delegations,
       execution: options.execution,
-      chainId: bundlerConfig?.chainId ?? 1,
+      chainId: bundlerConfig.chainId,
     });
 
     const userOpOptions: {
@@ -838,6 +891,39 @@ export function buildRootObject(
   }
 
   /**
+   * Submit a batch of executions via delegation redemption in a single UserOp.
+   * Uses `ExecutionMode.BatchDefault` so all executions share the same
+   * delegation chain.
+   *
+   * @param options - Batch delegation options.
+   * @param options.delegations - The delegation chain (leaf to root).
+   * @param options.executions - The executions to batch.
+   * @returns The UserOp hash from the bundler.
+   */
+  async function submitBatchDelegationUserOp(options: {
+    delegations: Delegation[];
+    executions: Execution[];
+  }): Promise<Hex> {
+    if (!bundlerConfig) {
+      throw new Error('Bundler not configured');
+    }
+
+    const sender =
+      smartAccountConfig?.address ?? options.delegations[0]?.delegate;
+    if (!sender) {
+      throw new Error('No sender address available for batch delegation');
+    }
+
+    const sdkCallData = buildSdkBatchRedeemCallData({
+      delegations: options.delegations,
+      executions: options.executions,
+      chainId: bundlerConfig.chainId,
+    });
+
+    return buildAndSubmitUserOp({ sender, callData: sdkCallData });
+  }
+
+  /**
    * Submit a UserOp that calls `DelegationManager.disableDelegation` to
    * revoke a delegation on-chain. The UserOp is sent from the delegator's
    * smart account.
@@ -846,11 +932,15 @@ export function buildRootObject(
    * @returns The UserOp hash from the bundler.
    */
   async function submitDisableUserOp(delegation: Delegation): Promise<Hex> {
+    if (!bundlerConfig) {
+      throw new Error('Bundler not configured');
+    }
+
     const sender = smartAccountConfig?.address ?? delegation.delegator;
 
     const disableCallData = buildSdkDisableCallData({
       delegation,
-      chainId: bundlerConfig?.chainId ?? 1,
+      chainId: bundlerConfig.chainId,
     });
 
     try {
@@ -882,20 +972,10 @@ export function buildRootObject(
     }
 
     // Resolve EOA address: keyring first, then external signer.
-    let eoaAddress: Address | undefined;
-    if (keyringVat) {
-      const accounts = await E(keyringVat).getAccounts();
-      if (accounts.length > 0) {
-        eoaAddress = accounts[0];
-      }
-    }
-    if (!eoaAddress && externalSigner) {
-      const accounts = await E(externalSigner).getAccounts();
-      if (accounts.length > 0) {
-        eoaAddress = accounts[0];
-      }
-    }
-    if (!eoaAddress) {
+    let eoaAddress: Address;
+    try {
+      eoaAddress = await resolveOwnerAddress();
+    } catch {
       throw new Error('No accounts available for EIP-7702 smart account');
     }
 
@@ -983,11 +1063,23 @@ export function buildRootObject(
           return result;
         },
         (error: unknown) => {
-          logger.warn(
-            'eth_estimateGas failed for EIP-7702 auth, using fallback:',
-            error instanceof Error ? error.message : error,
+          const message =
+            error instanceof Error ? error.message : String(error);
+          // Only fall back when the RPC doesn't support authorizationList param
+          if (
+            message.includes('-32602') ||
+            message.includes('-32601') ||
+            message.includes('not supported') ||
+            message.includes('unknown field')
+          ) {
+            logger.warn(
+              'eth_estimateGas does not support authorizationList, using fallback gas',
+            );
+            return EIP7702_FALLBACK_GAS;
+          }
+          throw new Error(
+            `eth_estimateGas failed for EIP-7702 authorization: ${message}`,
           );
-          return EIP7702_FALLBACK_GAS;
         },
       ),
     ]);
@@ -1028,6 +1120,11 @@ export function buildRootObject(
       )) as { status?: string } | null;
       if (receipt?.status === '0x1') {
         break;
+      }
+      if (receipt?.status === '0x0') {
+        throw new Error(
+          `EIP-7702 authorization tx ${txHash as string} reverted on-chain`,
+        );
       }
       if (i === maxAttempts - 1) {
         throw new Error(
@@ -1211,20 +1308,10 @@ export function buildRootObject(
       // Derive counterfactual address if not explicitly provided
       if (!address) {
         // Find the owner EOA from keyring or external signer
-        let owner: Address | undefined;
-        if (keyringVat) {
-          const accounts = await E(keyringVat).getAccounts();
-          if (accounts.length > 0) {
-            owner = accounts[0];
-          }
-        }
-        if (!owner && externalSigner) {
-          const accounts = await E(externalSigner).getAccounts();
-          if (accounts.length > 0) {
-            owner = accounts[0];
-          }
-        }
-        if (!owner) {
+        let owner: Address;
+        try {
+          owner = await resolveOwnerAddress();
+        } catch {
           throw new Error(
             'No owner account available to derive smart account address',
           );
@@ -1358,26 +1445,14 @@ export function buildRootObject(
           now,
         );
         if (explanations.length > 0) {
-          const reasons = explanations
-            .filter(
-              (entry: {
-                delegationId: string;
-                result: DelegationMatchResult;
-              }) => !entry.result.matches,
-            )
-            .map(
-              (entry: {
-                delegationId: string;
-                result: DelegationMatchResult;
-              }) =>
-                `delegation ${entry.delegationId.slice(0, 10)}…: ${entry.result.reason ?? 'unknown'} (caveat: ${entry.result.failedCaveat ?? 'n/a'})`,
-            );
           const valueDesc = tx.value
             ? `${BigInt(tx.value)} wei (${Number(BigInt(tx.value)) / 1e18} ETH)`
             : 'no value';
           throw new Error(
-            `No delegation covers this transaction (to: ${tx.to}, value: ${valueDesc}). ` +
-              `${reasons.length} delegation(s) checked: ${reasons.join('; ')}`,
+            buildDelegationMismatchError(
+              explanations,
+              `No delegation covers this transaction (to: ${tx.to}, value: ${valueDesc})`,
+            ),
           );
         }
       }
@@ -1408,6 +1483,73 @@ export function buildRootObject(
 
       const signedTx = await resolveTransactionSigning(filledTx);
       return E(providerVat).broadcastTransaction(signedTx);
+    },
+
+    async sendBatchTransaction(
+      txs: TransactionRequest[],
+    ): Promise<Hex | Hex[]> {
+      if (txs.length === 0) {
+        throw new Error('No transactions to send');
+      }
+
+      if (txs.length === 1) {
+        return coordinator.sendTransaction(txs[0] as TransactionRequest);
+      }
+
+      if (!providerVat) {
+        throw new Error('Provider not configured');
+      }
+
+      // Smart account path: batch into a single UserOp
+      if (bundlerConfig) {
+        const executions: Execution[] = txs.map((tx) => ({
+          target: tx.to,
+          value: tx.value ?? ('0x0' as Hex),
+          callData: tx.data ?? ('0x' as Hex),
+        }));
+
+        // Delegation path: batch via redeemDelegations with BatchDefault mode
+        if (delegationVat) {
+          const now = Date.now();
+          // Find a delegation that covers the first action. All executions
+          // in the batch share the same delegation chain.
+          const firstTx = txs[0] as TransactionRequest;
+          const action: Action = {
+            to: firstTx.to,
+            value: firstTx.value,
+            data: firstTx.data,
+          };
+          const delegation = await E(delegationVat).findDelegationForAction(
+            action,
+            bundlerConfig.chainId,
+            now,
+          );
+
+          if (delegation && delegation.status === 'signed') {
+            return submitBatchDelegationUserOp({
+              delegations: [delegation],
+              executions,
+            });
+          }
+        }
+
+        // Direct smart account batch (no delegation)
+        const sender =
+          smartAccountConfig?.address ?? (await coordinator.getAccounts())[0];
+        if (!sender) {
+          throw new Error('No accounts available for batch');
+        }
+
+        const callData = buildBatchExecuteCallData({ executions });
+        return buildAndSubmitUserOp({ sender, callData });
+      }
+
+      // EOA fallback: execute sequentially
+      const hashes: Hex[] = [];
+      for (const tx of txs) {
+        hashes.push(await coordinator.sendTransaction(tx));
+      }
+      return hashes;
     },
 
     async signTypedData(data: Eip712TypedData, from?: Address): Promise<Hex> {
@@ -1681,23 +1823,11 @@ export function buildRootObject(
             bundlerConfig?.chainId,
             now,
           );
-          const reasons = explanations
-            .filter(
-              (entry: {
-                delegationId: string;
-                result: DelegationMatchResult;
-              }) => !entry.result.matches,
-            )
-            .map(
-              (entry: {
-                delegationId: string;
-                result: DelegationMatchResult;
-              }) =>
-                `delegation ${entry.delegationId.slice(0, 10)}…: ${entry.result.reason ?? 'unknown'} (caveat: ${entry.result.failedCaveat ?? 'n/a'})`,
-            );
           throw new Error(
-            `No matching delegation found. ` +
-              `${explanations.length} delegation(s) checked: ${reasons.join('; ')}`,
+            buildDelegationMismatchError(
+              explanations,
+              'No matching delegation found',
+            ),
           );
         }
         delegations = [delegation];
@@ -1843,6 +1973,203 @@ export function buildRootObject(
       });
     },
 
+    // ------------------------------------------------------------------
+    // Token swaps (MetaSwap API)
+    // ------------------------------------------------------------------
+
+    async getSwapQuote(options: {
+      srcToken: Address;
+      destToken: Address;
+      srcAmount: Hex;
+      slippage: number;
+      walletAddress?: Address;
+    }): Promise<SwapQuote> {
+      if (!providerVat) {
+        throw new Error('Provider not configured');
+      }
+
+      if (options.slippage < 0.1 || options.slippage > 50) {
+        throw new Error('Slippage must be between 0.1 and 50');
+      }
+
+      const walletAddress =
+        options.walletAddress ?? (await coordinator.getAccounts())[0];
+      if (!walletAddress) {
+        throw new Error('No accounts available');
+      }
+
+      const chainId =
+        bundlerConfig?.chainId ?? (await E(providerVat).getChainId());
+
+      const rawAmount = BigInt(options.srcAmount).toString();
+
+      const params = new URLSearchParams({
+        sourceToken: options.srcToken.toLowerCase(),
+        destinationToken: options.destToken.toLowerCase(),
+        sourceAmount: rawAmount,
+        slippage: String(options.slippage),
+        walletAddress,
+        timeout: '10000',
+      });
+
+      const url = `https://swap.api.cx.metamask.io/networks/${String(chainId)}/trades?${params.toString()}`;
+
+      const response = await E(providerVat).httpGetJson(url);
+
+      if (!Array.isArray(response) || response.length === 0) {
+        throw new Error(
+          'No swap quotes available for this token pair and amount',
+        );
+      }
+
+      // Select the best quote by highest destinationAmount
+      let best: SwapQuote | undefined;
+      let bestAmount = -1n;
+
+      for (const entry of response) {
+        const quote = entry as Record<string, unknown>;
+        if (quote.error) {
+          continue;
+        }
+        const rawDest =
+          typeof quote.destinationAmount === 'string'
+            ? quote.destinationAmount
+            : '0';
+        const destAmount = BigInt(rawDest);
+        if (destAmount > bestAmount) {
+          bestAmount = destAmount;
+          best = quote as unknown as SwapQuote;
+        }
+      }
+
+      if (!best) {
+        throw new Error(
+          'All swap aggregators returned errors. Try a different amount or token pair.',
+        );
+      }
+
+      return harden(best);
+    },
+
+    async swapTokens(options: {
+      srcToken: Address;
+      destToken: Address;
+      srcAmount: Hex;
+      slippage: number;
+    }): Promise<SwapResult> {
+      const ZERO_ADDRESS =
+        '0x0000000000000000000000000000000000000000' as Address;
+
+      const accounts = await coordinator.getAccounts();
+      const from = accounts[0];
+      if (!from) {
+        throw new Error('No accounts available');
+      }
+
+      // Fetch a fresh quote at execution time, reusing the resolved account
+      const quote = await coordinator.getSwapQuote({
+        ...options,
+        walletAddress: from,
+      });
+
+      // Determine if approval is needed
+      const needsApproval =
+        quote.approvalNeeded !== null &&
+        options.srcToken.toLowerCase() !== ZERO_ADDRESS;
+
+      const approvalInfo = needsApproval ? quote.approvalNeeded : null;
+      let approvalNeeded = false;
+      if (approvalInfo) {
+        if (!providerVat) {
+          throw new Error('Provider not configured');
+        }
+
+        const spender = approvalInfo.to as Address;
+        const allowanceCallData = encodeAllowance(from, spender);
+        const allowanceResult = await E(providerVat).request('eth_call', [
+          { to: options.srcToken, data: allowanceCallData },
+          'latest',
+        ]);
+
+        const currentAllowance =
+          typeof allowanceResult === 'string' && allowanceResult !== '0x'
+            ? decodeAllowanceResult(allowanceResult as Hex)
+            : 0n;
+
+        approvalNeeded = currentAllowance < BigInt(options.srcAmount);
+      }
+
+      const swapTx: TransactionRequest = {
+        from,
+        to: quote.trade.to as Address,
+        data: quote.trade.data as Hex,
+        value: (quote.trade.value || '0x0') as Hex,
+      };
+
+      // Batch path: combine approve + swap in a single UserOp when
+      // the bundler is configured (smart account).
+      if (approvalNeeded && approvalInfo && bundlerConfig) {
+        const approvalTx: TransactionRequest = {
+          from,
+          to: options.srcToken,
+          data: approvalInfo.data as Hex,
+          value: (approvalInfo.value || '0x0') as Hex,
+        };
+
+        const batchResult = await coordinator.sendBatchTransaction([
+          approvalTx,
+          swapTx,
+        ]);
+
+        // sendBatchTransaction returns a single Hex for batched UserOps
+        const batchHash = Array.isArray(batchResult)
+          ? (batchResult[0] as Hex)
+          : batchResult;
+
+        return harden({
+          approvalTxHash: undefined,
+          swapTxHash: batchHash,
+          sourceAmount: quote.sourceAmount,
+          destinationAmount: quote.destinationAmount,
+          aggregator: quote.aggregator,
+          batched: true,
+        });
+      }
+
+      // Sequential path: approve then swap (EOA or no approval needed)
+      let approvalTxHash: Hex | undefined;
+      if (approvalNeeded && approvalInfo) {
+        approvalTxHash = await coordinator.sendTransaction({
+          from,
+          to: options.srcToken,
+          data: approvalInfo.data as Hex,
+          value: (approvalInfo.value || '0x0') as Hex,
+        });
+      }
+
+      try {
+        const swapTxHash = await coordinator.sendTransaction(swapTx);
+
+        return harden({
+          approvalTxHash,
+          swapTxHash,
+          sourceAmount: quote.sourceAmount,
+          destinationAmount: quote.destinationAmount,
+          aggregator: quote.aggregator,
+        });
+      } catch (error: unknown) {
+        if (approvalTxHash) {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          throw new Error(
+            `Swap transaction failed after approval was sent (approval tx: ${approvalTxHash}). ` +
+              `The token allowance was set but the swap did not complete: ${message}`,
+          );
+        }
+        throw error;
+      }
+    },
+
     async waitForUserOpReceipt(options: {
       userOpHash: Hex;
       pollIntervalMs?: number;
@@ -1908,7 +2235,7 @@ export function buildRootObject(
       } catch (error) {
         // Peer may not be ready yet; accounts can be cached later
         // via refreshPeerAccounts()
-        logger.debug('peer account fetch failed during connect', error);
+        logger.warn('peer account fetch failed during connect', error);
       }
 
       // Register this coordinator as the away wallet on the home device
@@ -1918,7 +2245,7 @@ export function buildRootObject(
       } catch (error) {
         // Home device may not support registerAwayWallet yet (older version).
         // Delegation transfer falls back to copy-paste.
-        logger.debug('registerAwayWallet failed', error);
+        logger.warn('registerAwayWallet failed', error);
       }
     },
 

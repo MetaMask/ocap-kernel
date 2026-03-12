@@ -120,6 +120,32 @@ export function getEnforcerAddresses(
 }
 
 // ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Wrap inner callData in a `DeleGatorCore.execute` call targeting the
+ * DelegationManager for the given chain.
+ *
+ * @param innerCallData - The encoded call to route through the DelegationManager.
+ * @param chainId - The chain ID (for DelegationManager address resolution).
+ * @returns The wrapped callData.
+ */
+function wrapInDelegationManagerExecute(
+  innerCallData: Hex,
+  chainId: number,
+): Hex {
+  const env = getSmartAccountsEnvironment(chainId);
+  return contracts.DeleGatorCore.encode.execute({
+    execution: sdkCreateExecution({
+      target: env.DelegationManager,
+      value: 0n,
+      callData: innerCallData,
+    }),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Type mapping: our types ↔ SDK types
 // ---------------------------------------------------------------------------
 
@@ -191,14 +217,7 @@ export function buildSdkRedeemCallData(options: {
   // the call to the DelegationManager. The UserOp callData must target
   // the smart account's own execute function, not the DelegationManager
   // directly.
-  const env = getSmartAccountsEnvironment(options.chainId);
-  return contracts.DeleGatorCore.encode.execute({
-    execution: sdkCreateExecution({
-      target: env.DelegationManager,
-      value: 0n,
-      callData: redeemCallData,
-    }),
-  });
+  return wrapInDelegationManagerExecute(redeemCallData, options.chainId);
 }
 
 /**
@@ -221,13 +240,65 @@ export function buildSdkDisableCallData(options: {
     delegation: sdkDelegation,
   });
 
-  const env = getSmartAccountsEnvironment(options.chainId);
-  return contracts.DeleGatorCore.encode.execute({
-    execution: sdkCreateExecution({
-      target: env.DelegationManager,
-      value: 0n,
-      callData: disableCallData,
+  return wrapInDelegationManagerExecute(disableCallData, options.chainId);
+}
+
+/**
+ * Build batch callData for `DelegationManager.redeemDelegations` with
+ * multiple executions in a single UserOp, wrapped in
+ * `DeleGatorCore.execute`.
+ *
+ * @param options - Options.
+ * @param options.delegations - The delegation chain (leaf to root).
+ * @param options.executions - The executions to perform as a batch.
+ * @param options.chainId - The chain ID (for DelegationManager address resolution).
+ * @returns The encoded callData.
+ */
+export function buildSdkBatchRedeemCallData(options: {
+  delegations: Delegation[];
+  executions: Execution[];
+  chainId: number;
+}): Hex {
+  const sdkDelegations = options.delegations.map(toSdkDelegation);
+  const sdkExecutions = options.executions.map((exec) =>
+    sdkCreateExecution({
+      target: exec.target,
+      value: BigInt(exec.value),
+      callData: exec.callData,
     }),
+  );
+
+  const redeemCallData = contracts.DelegationManager.encode.redeemDelegations({
+    delegations: [sdkDelegations],
+    modes: [ExecutionMode.BatchDefault],
+    executions: [sdkExecutions],
+  });
+
+  return wrapInDelegationManagerExecute(redeemCallData, options.chainId);
+}
+
+/**
+ * Build batch callData for `DeleGatorCore.executeWithMode` to execute
+ * multiple operations in a single UserOp without delegation redemption.
+ *
+ * @param options - Options.
+ * @param options.executions - The executions to batch.
+ * @returns The encoded callData.
+ */
+export function buildBatchExecuteCallData(options: {
+  executions: Execution[];
+}): Hex {
+  const sdkExecutions = options.executions.map((exec) =>
+    sdkCreateExecution({
+      target: exec.target,
+      value: BigInt(exec.value),
+      callData: exec.callData,
+    }),
+  );
+
+  return contracts.DeleGatorCore.encode.executeWithMode({
+    mode: ExecutionMode.BatchDefault,
+    executions: sdkExecutions,
   });
 }
 

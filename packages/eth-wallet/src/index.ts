@@ -36,6 +36,8 @@ export type {
   Hex,
   SigningRequest,
   SmartAccountConfig,
+  SwapQuote,
+  SwapResult,
   TransactionRequest,
   UserOperation,
   WalletCapabilities,
@@ -55,6 +57,7 @@ export {
   makeChainConfig,
   SigningRequestStruct,
   SmartAccountConfigStruct,
+  SwapQuoteStruct,
   TransactionRequestStruct,
   UserOperationStruct,
   WalletCapabilitiesStruct,
@@ -77,12 +80,15 @@ export {
 export {
   encodeTransfer,
   encodeApprove,
+  encodeAllowance,
   encodeBalanceOf,
   makeErc20TransferExecution,
   decodeTransferCalldata,
+  decodeAllowanceResult,
   isErc20TransferCalldata,
   ERC20_TRANSFER_SELECTOR,
   ERC20_APPROVE_SELECTOR,
+  ERC20_ALLOWANCE_SELECTOR,
 } from './lib/erc20.ts';
 
 // Delegation utilities
@@ -125,6 +131,7 @@ export { makeBundlerClient } from './lib/bundler-client.ts';
 export type {
   BundlerClientConfig,
   PaymasterSponsorResult,
+  UserOpReceiptResult,
   ViemBundlerClient,
 } from './lib/bundler-client.ts';
 
@@ -135,6 +142,8 @@ export {
   getEnforcerAddresses,
   toSdkDelegation,
   encodeSdkDelegations,
+  buildBatchExecuteCallData,
+  buildSdkBatchRedeemCallData,
   buildSdkDisableCallData,
   buildSdkRedeemCallData,
   createSdkExecution,

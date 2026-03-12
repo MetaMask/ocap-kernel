@@ -5,7 +5,7 @@ import { encodeAbiParameters, parseAbiParameters } from 'viem';
 
 import { makeBundlerClient } from '../lib/bundler-client.ts';
 import type { ViemBundlerClient } from '../lib/bundler-client.ts';
-import { makeProvider } from '../lib/provider.ts';
+import { httpGetJson, makeProvider } from '../lib/provider.ts';
 import type { Provider } from '../lib/provider.ts';
 import type { Address, ChainConfig, Hex, UserOperation } from '../types.ts';
 
@@ -231,6 +231,10 @@ export function buildRootObject(
     }): Promise<unknown> {
       const client = getBundlerClient();
       return client.getUserOperationReceipt(options.userOpHash);
+    },
+
+    async httpGetJson(url: string): Promise<unknown> {
+      return httpGetJson(url);
     },
 
     async getGasFees(): Promise<{

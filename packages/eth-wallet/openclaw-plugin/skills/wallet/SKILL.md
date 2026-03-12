@@ -17,6 +17,8 @@ Use the **wallet tools** for any Ethereum balance, send, or sign request. Do not
 - **wallet_token_balance** — Get ERC-20 token balance. Accepts a contract address or symbol (e.g. "USDC"). Returns human-readable amount with symbol.
 - **wallet_token_send** — Send ERC-20 tokens to an address. Accepts a contract address or symbol. Automatically converts decimal amounts using the token's decimals.
 - **wallet_token_info** — Get ERC-20 token metadata (name, symbol, decimals). Accepts a contract address or symbol.
+- **wallet_swap_quote** — Get a token swap quote without executing. Shows expected output amount, aggregator, and gas estimate. Accepts contract addresses or token symbols.
+- **wallet_swap** — Execute a token swap. Handles ERC-20 approval and swap in sequence. Accepts contract addresses or token symbols.
 - **wallet_sign** — Sign a message or typed data with the local key. The signature is valid for EIP-1271 verification against the smart account address.
 - **wallet_capabilities** — Check what the wallet can do (local keys, peer wallet, delegations, bundler, cached accounts, autonomy level).
 
@@ -33,6 +35,16 @@ To send tokens, use `wallet_token_send` with the token (address or symbol), reci
 To check a token balance, use `wallet_token_balance` with the token (address or symbol).
 
 If you need to discover a token's address, use `wallet_token_resolve` to search by name or symbol. If you need to check which token a contract is, use `wallet_token_info` to get its name, symbol, and decimals.
+
+## Token Swaps
+
+Use `wallet_swap_quote` to preview a swap before executing, and `wallet_swap` to execute. Both accept token symbols (e.g. "ETH", "USDC") or contract addresses. The swap uses MetaSwap (MetaMask's aggregator) to find the best rate across multiple DEXs.
+
+- Default slippage is 1%. Adjust with the `slippage` parameter (0.1–50%).
+- For ERC-20 source tokens, approval is handled automatically if needed.
+- When a smart account is configured, the approve and swap are batched atomically in a single UserOp — no separate approval transaction.
+- Native ETH is represented as "ETH" or the zero address.
+- Swaps are not available on all testnets — MetaSwap may not support them.
 
 ## Rules
 

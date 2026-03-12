@@ -106,6 +106,7 @@ function makeMockProviderVat() {
         maxPriorityFeePerGas: '0x3b9aca00' as Hex,
       },
     }),
+    httpGetJson: vi.fn(),
     configureBundler: vi.fn(),
     sponsorUserOp: vi.fn().mockResolvedValue({
       paymaster: '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address,
@@ -2836,6 +2837,123 @@ describe('coordinator-vat', () => {
     });
   });
 
+  describe('getTransactionReceipt', () => {
+    beforeEach(async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+    });
+
+    it('throws when provider is not configured', async () => {
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        makeMockBaggage() as any,
+      );
+      await coord.bootstrap({ keyring: keyringVat }, {});
+
+      await expect(
+        coord.getTransactionReceipt('0xdeadbeef' as Hex),
+      ).rejects.toThrow('Provider not configured');
+    });
+
+    it('returns receipt from bundler when UserOp hash matches', async () => {
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 11155111,
+      });
+
+      providerVat.getUserOpReceipt.mockResolvedValueOnce({
+        success: true,
+        receipt: { transactionHash: '0xabc123' },
+      });
+
+      const result = await coordinator.getTransactionReceipt(
+        '0xdeadbeef' as Hex,
+      );
+
+      expect(result).toStrictEqual({
+        txHash: '0xabc123',
+        userOpHash: '0xdeadbeef',
+        success: true,
+      });
+    });
+
+    it('falls back to regular RPC when bundler returns null', async () => {
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 11155111,
+      });
+
+      providerVat.getUserOpReceipt.mockResolvedValueOnce(null);
+      providerVat.request.mockResolvedValueOnce({
+        status: '0x1',
+        transactionHash: '0xregulartx',
+      });
+
+      const result = await coordinator.getTransactionReceipt(
+        '0xregulartx' as Hex,
+      );
+
+      expect(result).toStrictEqual({
+        txHash: '0xregulartx',
+        success: true,
+      });
+    });
+
+    it('falls back to regular RPC when bundler throws', async () => {
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 11155111,
+      });
+
+      providerVat.getUserOpReceipt.mockRejectedValueOnce(
+        new Error('not found'),
+      );
+      providerVat.request.mockResolvedValueOnce({
+        status: '0x1',
+        transactionHash: '0xregulartx',
+      });
+
+      const result = await coordinator.getTransactionReceipt(
+        '0xregulartx' as Hex,
+      );
+
+      expect(result).toStrictEqual({
+        txHash: '0xregulartx',
+        success: true,
+      });
+    });
+
+    it('returns null when receipt not found anywhere', async () => {
+      providerVat.request.mockResolvedValueOnce(null);
+
+      const result = await coordinator.getTransactionReceipt(
+        '0xnonexistent' as Hex,
+      );
+
+      expect(result).toBeNull();
+    });
+
+    it('maps status 0x0 as success: false', async () => {
+      providerVat.request.mockResolvedValueOnce({
+        status: '0x0',
+        transactionHash: '0xreverted',
+      });
+
+      const result = await coordinator.getTransactionReceipt(
+        '0xreverted' as Hex,
+      );
+
+      expect(result).toStrictEqual({
+        txHash: '0xreverted',
+        success: false,
+      });
+    });
+  });
+
   describe('createSmartAccount', () => {
     it('derives counterfactual address when not provided', async () => {
       await coordinator.initializeKeyring({
@@ -3550,6 +3668,597 @@ describe('coordinator-vat', () => {
       );
       expect(submitCall.userOp.sender).toBe(eoaAddress);
       expect(submitCall.userOp.factory).toBeUndefined();
+    });
+  });
+
+  // ------------------------------------------------------------------
+  // Token swaps
+  // ------------------------------------------------------------------
+
+  describe('sendBatchTransaction', () => {
+    beforeEach(async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+    });
+
+    it('throws when no transactions provided', async () => {
+      await expect(coordinator.sendBatchTransaction([])).rejects.toThrow(
+        'No transactions to send',
+      );
+    });
+
+    it('delegates to sendTransaction for a single tx', async () => {
+      providerVat.broadcastTransaction.mockResolvedValueOnce('0xsingletx');
+
+      const accounts = await coordinator.getAccounts();
+      const result = await coordinator.sendBatchTransaction([
+        {
+          from: accounts[0] as Address,
+          to: '0x1111111111111111111111111111111111111111' as Address,
+          value: '0x1' as Hex,
+        },
+      ]);
+
+      expect(result).toBe('0xsingletx');
+    });
+
+    it('executes sequentially for EOA (no bundler)', async () => {
+      providerVat.broadcastTransaction
+        .mockResolvedValueOnce('0xtx1')
+        .mockResolvedValueOnce('0xtx2');
+
+      const accounts = await coordinator.getAccounts();
+      const result = await coordinator.sendBatchTransaction([
+        {
+          from: accounts[0] as Address,
+          to: '0x1111111111111111111111111111111111111111' as Address,
+          value: '0x1' as Hex,
+        },
+        {
+          from: accounts[0] as Address,
+          to: '0x2222222222222222222222222222222222222222' as Address,
+          value: '0x2' as Hex,
+        },
+      ]);
+
+      expect(result).toStrictEqual(['0xtx1', '0xtx2']);
+    });
+
+    it('batches into single UserOp when bundler is configured', async () => {
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 11155111,
+      });
+
+      providerVat.request.mockImplementation(async (method: string) => {
+        if (method === 'eth_getCode') {
+          return '0x';
+        }
+        if (method === 'eth_estimateGas') {
+          return '0x5208' as Hex;
+        }
+        return undefined;
+      });
+      providerVat.submitUserOp.mockResolvedValueOnce('0xbatchhash');
+
+      const accounts = await coordinator.getAccounts();
+      const result = await coordinator.sendBatchTransaction([
+        {
+          from: accounts[0] as Address,
+          to: '0x1111111111111111111111111111111111111111' as Address,
+          value: '0x1' as Hex,
+        },
+        {
+          from: accounts[0] as Address,
+          to: '0x2222222222222222222222222222222222222222' as Address,
+          value: '0x2' as Hex,
+        },
+      ]);
+
+      expect(result).toBe('0xbatchhash');
+      expect(providerVat.submitUserOp).toHaveBeenCalledOnce();
+    });
+
+    it('uses direct batch when delegation vat exists but no matching delegation', async () => {
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 11155111,
+      });
+      await coordinator.createSmartAccount({
+        implementation: 'hybrid',
+        deploySalt: '0x01' as Hex,
+        factory: MOCK_FACTORY,
+      });
+
+      // delegation vat is connected but has no delegations, so
+      // findDelegationForAction returns nothing → falls through to direct batch
+      providerVat.request.mockImplementation(async (method: string) => {
+        if (method === 'eth_getCode') {
+          return '0x';
+        }
+        if (method === 'eth_estimateGas') {
+          return '0x5208' as Hex;
+        }
+        return undefined;
+      });
+      providerVat.submitUserOp.mockResolvedValueOnce('0xdirectbatch');
+
+      const result = await coordinator.sendBatchTransaction([
+        {
+          from: '0xcccccccccccccccccccccccccccccccccccccccc' as Address,
+          to: '0x1111111111111111111111111111111111111111' as Address,
+          value: '0x1' as Hex,
+        },
+        {
+          from: '0xcccccccccccccccccccccccccccccccccccccccc' as Address,
+          to: '0x2222222222222222222222222222222222222222' as Address,
+          value: '0x2' as Hex,
+        },
+      ]);
+
+      expect(result).toBe('0xdirectbatch');
+      expect(providerVat.submitUserOp).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('getSwapQuote', () => {
+    const SRC_TOKEN = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48' as Address;
+    const DEST_TOKEN = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2' as Address;
+    const SRC_AMOUNT = '0xf4240' as Hex; // 1000000
+
+    beforeEach(async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+    });
+
+    it('throws when provider is not configured', async () => {
+      // Build a coordinator without a provider vat
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        makeMockBaggage() as any,
+      );
+      await coord.bootstrap(
+        { keyring: keyringVat, delegation: delegationVat },
+        {},
+      );
+      await expect(
+        coord.getSwapQuote({
+          srcToken: SRC_TOKEN,
+          destToken: DEST_TOKEN,
+          srcAmount: SRC_AMOUNT,
+          slippage: 1,
+        }),
+      ).rejects.toThrow('Provider not configured');
+    });
+
+    it('throws for invalid slippage', async () => {
+      await expect(
+        coordinator.getSwapQuote({
+          srcToken: SRC_TOKEN,
+          destToken: DEST_TOKEN,
+          srcAmount: SRC_AMOUNT,
+          slippage: 0,
+        }),
+      ).rejects.toThrow('Slippage must be between 0.1 and 50');
+    });
+
+    it('throws when no quotes are returned', async () => {
+      providerVat.httpGetJson.mockResolvedValueOnce([]);
+
+      await expect(
+        coordinator.getSwapQuote({
+          srcToken: SRC_TOKEN,
+          destToken: DEST_TOKEN,
+          srcAmount: SRC_AMOUNT,
+          slippage: 1,
+        }),
+      ).rejects.toThrow('No swap quotes available');
+    });
+
+    it('throws when all aggregators error', async () => {
+      providerVat.httpGetJson.mockResolvedValueOnce([
+        { error: 'insufficient liquidity' },
+        { error: 'pair not supported' },
+      ]);
+
+      await expect(
+        coordinator.getSwapQuote({
+          srcToken: SRC_TOKEN,
+          destToken: DEST_TOKEN,
+          srcAmount: SRC_AMOUNT,
+          slippage: 1,
+        }),
+      ).rejects.toThrow('All swap aggregators returned errors');
+    });
+
+    it('selects the best quote by destinationAmount', async () => {
+      const quotes = [
+        {
+          trade: {
+            to: '0xrouter1',
+            from: '0xwallet',
+            data: '0xcalldata1',
+            value: '0x0',
+            gas: '0x30000',
+          },
+          approvalNeeded: null,
+          sourceAmount: '1000000',
+          destinationAmount: '500000000000000',
+          aggregator: 'agg1',
+          fee: 0,
+          gasEstimate: '200000',
+          priceSlippage: 0.5,
+          quoteRefreshSeconds: 30,
+        },
+        {
+          trade: {
+            to: '0xrouter2',
+            from: '0xwallet',
+            data: '0xcalldata2',
+            value: '0x0',
+            gas: '0x30000',
+          },
+          approvalNeeded: null,
+          sourceAmount: '1000000',
+          destinationAmount: '600000000000000',
+          aggregator: 'agg2',
+          fee: 0,
+          gasEstimate: '250000',
+          priceSlippage: 0.3,
+          quoteRefreshSeconds: 30,
+        },
+      ];
+      providerVat.httpGetJson.mockResolvedValueOnce(quotes);
+
+      const result = await coordinator.getSwapQuote({
+        srcToken: SRC_TOKEN,
+        destToken: DEST_TOKEN,
+        srcAmount: SRC_AMOUNT,
+        slippage: 1,
+      });
+
+      expect(result.aggregator).toBe('agg2');
+      expect(result.destinationAmount).toBe('600000000000000');
+    });
+
+    it('skips errored aggregator entries', async () => {
+      const quotes = [
+        { error: 'no liquidity' },
+        {
+          trade: {
+            to: '0xrouter',
+            from: '0xwallet',
+            data: '0xcalldata',
+            value: '0x0',
+            gas: '0x30000',
+          },
+          approvalNeeded: null,
+          sourceAmount: '1000000',
+          destinationAmount: '500000000000000',
+          aggregator: 'goodAgg',
+          fee: 0,
+          gasEstimate: '200000',
+          priceSlippage: 0.5,
+          quoteRefreshSeconds: 30,
+        },
+      ];
+      providerVat.httpGetJson.mockResolvedValueOnce(quotes);
+
+      const result = await coordinator.getSwapQuote({
+        srcToken: SRC_TOKEN,
+        destToken: DEST_TOKEN,
+        srcAmount: SRC_AMOUNT,
+        slippage: 1,
+      });
+
+      expect(result.aggregator).toBe('goodAgg');
+    });
+
+    it('builds the correct MetaSwap URL', async () => {
+      providerVat.httpGetJson.mockResolvedValueOnce([
+        {
+          trade: {
+            to: '0xrouter',
+            from: '0xwallet',
+            data: '0x',
+            value: '0x0',
+            gas: '0x30000',
+          },
+          approvalNeeded: null,
+          sourceAmount: '1000000',
+          destinationAmount: '500000',
+          aggregator: 'test',
+          fee: 0,
+          gasEstimate: '200000',
+          priceSlippage: 0.5,
+          quoteRefreshSeconds: 30,
+        },
+      ]);
+
+      await coordinator.getSwapQuote({
+        srcToken: SRC_TOKEN,
+        destToken: DEST_TOKEN,
+        srcAmount: SRC_AMOUNT,
+        slippage: 2.5,
+      });
+
+      const url = providerVat.httpGetJson.mock.calls[0][0] as string;
+      expect(url).toContain('swap.api.cx.metamask.io');
+      expect(url).toContain(`sourceToken=${SRC_TOKEN.toLowerCase()}`);
+      expect(url).toContain(`destinationToken=${DEST_TOKEN.toLowerCase()}`);
+      expect(url).toContain('sourceAmount=1000000');
+      expect(url).toContain('slippage=2.5');
+    });
+  });
+
+  describe('swapTokens', () => {
+    const SRC_TOKEN = '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48' as Address;
+    const DEST_TOKEN = '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2' as Address;
+    const SRC_AMOUNT = '0xf4240' as Hex;
+    const ZERO_ADDRESS =
+      '0x0000000000000000000000000000000000000000' as Address;
+
+    const SWAP_CALLDATA = '0xabcdef01' as Hex;
+    const APPROVAL_CALLDATA = '0x095ea7b3' as Hex;
+
+    const makeQuoteResponse = (options?: {
+      approvalNeeded?: { to: string; data: string; value: string } | null;
+    }) => [
+      {
+        trade: {
+          to: '0x3333333333333333333333333333333333333333',
+          from: '0xwallet',
+          data: SWAP_CALLDATA,
+          value: '0x0',
+          gas: '0x30000',
+        },
+        approvalNeeded: options?.approvalNeeded ?? null,
+        sourceAmount: '1000000',
+        destinationAmount: '500000000000000',
+        aggregator: 'testAgg',
+        fee: 0,
+        gasEstimate: '200000',
+        priceSlippage: 0.5,
+        quoteRefreshSeconds: 30,
+      },
+    ];
+
+    beforeEach(async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+    });
+
+    it('executes a swap without approval (native ETH or sufficient allowance)', async () => {
+      providerVat.httpGetJson.mockResolvedValueOnce(makeQuoteResponse());
+      providerVat.broadcastTransaction.mockResolvedValueOnce('0xswaptxhash');
+
+      const result = await coordinator.swapTokens({
+        srcToken: SRC_TOKEN,
+        destToken: DEST_TOKEN,
+        srcAmount: SRC_AMOUNT,
+        slippage: 1,
+      });
+
+      expect(result.swapTxHash).toBe('0xswaptxhash');
+      expect(result.approvalTxHash).toBeUndefined();
+      expect(result.aggregator).toBe('testAgg');
+      expect(result.sourceAmount).toBe('1000000');
+      expect(result.destinationAmount).toBe('500000000000000');
+    });
+
+    it('sends approval when approvalNeeded and insufficient allowance', async () => {
+      const approval = {
+        to: '0x3333333333333333333333333333333333333333',
+        data: APPROVAL_CALLDATA,
+        value: '0x0',
+      };
+      providerVat.httpGetJson.mockResolvedValueOnce(
+        makeQuoteResponse({ approvalNeeded: approval }),
+      );
+
+      // Mock allowance check returning 0
+      providerVat.request.mockImplementation(
+        async (method: string, params?: unknown[]) => {
+          if (method === 'eth_call') {
+            const callParams = params?.[0] as
+              | { to: string; data: string }
+              | undefined;
+            // Allowance call to src token
+            if (
+              callParams?.to?.toLowerCase() === SRC_TOKEN.toLowerCase() &&
+              callParams?.data?.startsWith('0xdd62ed3e')
+            ) {
+              return '0x0000000000000000000000000000000000000000000000000000000000000000';
+            }
+          }
+          if (method === 'eth_estimateGas') {
+            return '0x5208' as Hex;
+          }
+          return undefined;
+        },
+      );
+      providerVat.broadcastTransaction
+        .mockResolvedValueOnce('0xapprovaltxhash')
+        .mockResolvedValueOnce('0xswaptxhash');
+
+      const result = await coordinator.swapTokens({
+        srcToken: SRC_TOKEN,
+        destToken: DEST_TOKEN,
+        srcAmount: SRC_AMOUNT,
+        slippage: 1,
+      });
+
+      expect(result.approvalTxHash).toBe('0xapprovaltxhash');
+      expect(result.swapTxHash).toBe('0xswaptxhash');
+    });
+
+    it('skips approval when srcToken is native ETH (zero address)', async () => {
+      const approval = {
+        to: '0x3333333333333333333333333333333333333333',
+        data: APPROVAL_CALLDATA,
+        value: '0x0',
+      };
+      providerVat.httpGetJson.mockResolvedValueOnce(
+        makeQuoteResponse({ approvalNeeded: approval }),
+      );
+      providerVat.broadcastTransaction.mockResolvedValueOnce('0xswaptxhash');
+
+      const result = await coordinator.swapTokens({
+        srcToken: ZERO_ADDRESS,
+        destToken: DEST_TOKEN,
+        srcAmount: SRC_AMOUNT,
+        slippage: 1,
+      });
+
+      expect(result.approvalTxHash).toBeUndefined();
+      expect(result.swapTxHash).toBe('0xswaptxhash');
+    });
+
+    it('skips approval when current allowance is sufficient', async () => {
+      const approval = {
+        to: '0x3333333333333333333333333333333333333333',
+        data: APPROVAL_CALLDATA,
+        value: '0x0',
+      };
+      providerVat.httpGetJson.mockResolvedValueOnce(
+        makeQuoteResponse({ approvalNeeded: approval }),
+      );
+
+      // Mock allowance check returning more than srcAmount (0xf4240 = 1000000)
+      providerVat.request.mockImplementation(
+        async (method: string, params?: unknown[]) => {
+          if (method === 'eth_call') {
+            const callParams = params?.[0] as
+              | { to: string; data: string }
+              | undefined;
+            if (
+              callParams?.to?.toLowerCase() === SRC_TOKEN.toLowerCase() &&
+              callParams?.data?.startsWith('0xdd62ed3e')
+            ) {
+              // Return 2000000 allowance (more than 1000000 required)
+              return '0x00000000000000000000000000000000000000000000000000000000001e8480';
+            }
+          }
+          if (method === 'eth_estimateGas') {
+            return '0x5208' as Hex;
+          }
+          return undefined;
+        },
+      );
+      providerVat.broadcastTransaction.mockResolvedValueOnce('0xswaptxhash');
+
+      const result = await coordinator.swapTokens({
+        srcToken: SRC_TOKEN,
+        destToken: DEST_TOKEN,
+        srcAmount: SRC_AMOUNT,
+        slippage: 1,
+      });
+
+      expect(result.approvalTxHash).toBeUndefined();
+      expect(result.swapTxHash).toBe('0xswaptxhash');
+    });
+
+    it('batches approve + swap in a single UserOp when bundler is configured', async () => {
+      // Configure bundler to enable smart account (batch) path
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 11155111,
+      });
+
+      const approval = {
+        to: '0x3333333333333333333333333333333333333333',
+        data: APPROVAL_CALLDATA,
+        value: '0x0',
+      };
+      providerVat.httpGetJson.mockResolvedValueOnce(
+        makeQuoteResponse({ approvalNeeded: approval }),
+      );
+
+      // Mock allowance check returning 0 (approval needed)
+      providerVat.request.mockImplementation(
+        async (method: string, params?: unknown[]) => {
+          if (method === 'eth_call') {
+            const callParams = params?.[0] as
+              | { to: string; data: string }
+              | undefined;
+            if (
+              callParams?.to?.toLowerCase() === SRC_TOKEN.toLowerCase() &&
+              callParams?.data?.startsWith('0xdd62ed3e')
+            ) {
+              return '0x0000000000000000000000000000000000000000000000000000000000000000';
+            }
+          }
+          if (method === 'eth_getCode') {
+            return '0x';
+          }
+          if (method === 'eth_estimateGas') {
+            return '0x5208' as Hex;
+          }
+          return undefined;
+        },
+      );
+
+      // submitUserOp returns a single hash for the batched UserOp
+      providerVat.submitUserOp.mockResolvedValueOnce('0xbatchuserophash');
+
+      const result = await coordinator.swapTokens({
+        srcToken: SRC_TOKEN,
+        destToken: DEST_TOKEN,
+        srcAmount: SRC_AMOUNT,
+        slippage: 1,
+      });
+
+      // Should return a single batched hash, no separate approval hash
+      expect(result.swapTxHash).toBe('0xbatchuserophash');
+      expect(result.approvalTxHash).toBeUndefined();
+      expect(result.batched).toBe(true);
+    });
+
+    it('includes approval tx hash in error when swap fails after approval', async () => {
+      const approval = {
+        to: '0x3333333333333333333333333333333333333333',
+        data: APPROVAL_CALLDATA,
+        value: '0x0',
+      };
+      providerVat.httpGetJson.mockResolvedValueOnce(
+        makeQuoteResponse({ approvalNeeded: approval }),
+      );
+      providerVat.request.mockImplementation(
+        async (method: string, params?: unknown[]) => {
+          if (method === 'eth_call') {
+            const callParams = params?.[0] as
+              | { to: string; data: string }
+              | undefined;
+            if (callParams?.data?.startsWith('0xdd62ed3e')) {
+              return '0x0000000000000000000000000000000000000000000000000000000000000000';
+            }
+          }
+          if (method === 'eth_estimateGas') {
+            return '0x5208' as Hex;
+          }
+          return undefined;
+        },
+      );
+      providerVat.broadcastTransaction
+        .mockResolvedValueOnce('0xapproval123')
+        .mockRejectedValueOnce(new Error('execution reverted'));
+
+      await expect(
+        coordinator.swapTokens({
+          srcToken: SRC_TOKEN,
+          destToken: DEST_TOKEN,
+          srcAmount: SRC_AMOUNT,
+          slippage: 1,
+        }),
+      ).rejects.toThrow(/approval tx: 0xapproval123/u);
     });
   });
 });

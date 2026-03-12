@@ -13,8 +13,11 @@ const mockProvider = {
   getNonce: vi.fn(),
 };
 
+const mockHttpGetJson = vi.fn();
+
 vi.mock('../lib/provider.ts', () => ({
   makeProvider: vi.fn(() => mockProvider),
+  httpGetJson: (...args: unknown[]) => mockHttpGetJson(...args),
 }));
 
 const mockBundlerClient = {
@@ -511,6 +514,32 @@ describe('provider-vat', () => {
       ).rejects.toThrow(
         'Invalid block response: missing or malformed baseFeePerGas',
       );
+    });
+  });
+
+  describe('httpGetJson', () => {
+    it('delegates to the httpGetJson lib function', async () => {
+      const mockResponse = { foo: 'bar' };
+      mockHttpGetJson.mockResolvedValueOnce(mockResponse);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (root as any).httpGetJson(
+        'https://api.example.com/data',
+      );
+
+      expect(result).toStrictEqual(mockResponse);
+      expect(mockHttpGetJson).toHaveBeenCalledWith(
+        'https://api.example.com/data',
+      );
+    });
+
+    it('propagates errors from the lib function', async () => {
+      mockHttpGetJson.mockRejectedValueOnce(new Error('Network error'));
+
+      await expect(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (root as any).httpGetJson('https://api.example.com/data'),
+      ).rejects.toThrow('Network error');
     });
   });
 });
