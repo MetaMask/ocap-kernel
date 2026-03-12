@@ -313,12 +313,10 @@ Supported chain names and aliases:
 
 The delegation can include on-chain spending limits that restrict how much ETH the agent is allowed to spend. Two types of limits are available:
 
-| Limit                  | Enforcer contract                   | Address (mainnet chains)                     |
+| Limit                  | Enforcer contract                   | Address (same on all chains)                 |
 | ---------------------- | ----------------------------------- | -------------------------------------------- |
 | Total spending ceiling | `NativeTokenTransferAmountEnforcer` | `0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320` |
 | Per-transaction max    | `ValueLteEnforcer`                  | `0x92Bf12322527cAA612fd31a0e810472BBB106A8F` |
-
-Sepolia uses different enforcer addresses (separate testnet deployment). The setup scripts and SDK resolve the correct addresses automatically based on the chain.
 
 Both limits compose — the DelegationManager checks ALL caveats, so both must pass for a transaction to go through.
 

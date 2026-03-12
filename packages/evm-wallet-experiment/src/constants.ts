@@ -95,9 +95,10 @@ const SHARED_DELEGATION_MANAGER: Address =
   '0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3' as Address;
 
 /**
- * Enforcer addresses shared across all supported mainnet chains.
+ * Enforcer addresses shared across all supported chains (same CREATE2
+ * addresses on every chain, including Sepolia).
  */
-const MAINNET_ENFORCERS: Record<CaveatType, Address> = harden({
+const SHARED_ENFORCERS: Record<CaveatType, Address> = harden({
   allowedTargets: '0x7F20f61b1f09b08D970938F6fa563634d65c4EeB' as Address,
   allowedMethods: '0x2c21fD0Cb9DC8445CB3fb0DC5E7Bb0Aca01842B5' as Address,
   valueLte: '0x92Bf12322527cAA612fd31a0e810472BBB106A8F' as Address,
@@ -108,10 +109,10 @@ const MAINNET_ENFORCERS: Record<CaveatType, Address> = harden({
   timestamp: '0x1046bb45C8d673d4ea75321280DB34899413c069' as Address,
 });
 
-const makeMainnetChainContracts = (): ChainContracts =>
+const makeChainContracts = (): ChainContracts =>
   harden({
     delegationManager: SHARED_DELEGATION_MANAGER,
-    enforcers: { ...MAINNET_ENFORCERS },
+    enforcers: { ...SHARED_ENFORCERS },
   });
 
 /**
@@ -141,34 +142,21 @@ export const CHAIN_NAMES: Record<number, string> = harden({
 export const CHAIN_CONTRACTS: Readonly<Record<number, ChainContracts>> = harden(
   {
     /** Ethereum mainnet (chain 1). */
-    1: makeMainnetChainContracts(),
+    1: makeChainContracts(),
     /** Optimism (chain 10). */
-    10: makeMainnetChainContracts(),
+    10: makeChainContracts(),
     /** BNB Smart Chain (chain 56). */
-    56: makeMainnetChainContracts(),
+    56: makeChainContracts(),
     /** Polygon (chain 137). */
-    137: makeMainnetChainContracts(),
+    137: makeChainContracts(),
     /** Base (chain 8453). */
-    8453: makeMainnetChainContracts(),
+    8453: makeChainContracts(),
     /** Arbitrum One (chain 42161). */
-    42161: makeMainnetChainContracts(),
+    42161: makeChainContracts(),
     /** Linea (chain 59144). */
-    59144: makeMainnetChainContracts(),
+    59144: makeChainContracts(),
     /** Sepolia testnet (chain 11155111). */
-    [SEPOLIA_CHAIN_ID]: harden({
-      delegationManager: SHARED_DELEGATION_MANAGER,
-      enforcers: {
-        allowedTargets: '0xD5D960245C3DdA84C6068757e0f3f4BD0B575bAc' as Address,
-        allowedMethods: '0x06ea8bA2fcf36781D9C8ec62F63D42F1CFa3d959' as Address,
-        valueLte: '0x92Bf12322527cAA612fd31a0e810472BBB106A8F' as Address,
-        nativeTokenTransferAmount:
-          '0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320' as Address,
-        erc20TransferAmount:
-          '0x2A2b4F58Ce0299eE0e2e5dC0600DaCA7bca2b02F' as Address,
-        limitedCalls: '0x42bF09Fe66bE38e36c18dDc4158C0A51F7124dAE' as Address,
-        timestamp: '0x40aB3EFC45B3059e8a0a4eE9bC2AdB0bef9cF09a' as Address,
-      },
-    }),
+    [SEPOLIA_CHAIN_ID]: makeChainContracts(),
   },
 );
 

@@ -110,7 +110,7 @@ When the away device is connected, `update-limits.sh` revokes the old delegation
 
 ### Supported Chains
 
-The wallet supports multiple EVM chains. The DelegationManager and caveat enforcers are deployed at the same CREATE2 addresses on all mainnet chains. Sepolia uses different enforcer addresses (separate testnet deployment).
+The wallet supports multiple EVM chains. The DelegationManager and all caveat enforcers are deployed at the same deterministic CREATE2 addresses on every supported chain (including Sepolia).
 
 | Chain           | Chain ID | Swap support |
 | --------------- | -------- | ------------ |
