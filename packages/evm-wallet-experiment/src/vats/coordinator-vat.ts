@@ -1748,9 +1748,12 @@ export function buildRootObject(
       const accounts = await coordinator.getAccounts();
       const delegatorLower = delegation.delegator.toLowerCase();
       const smartAccountLower = smartAccountConfig?.address?.toLowerCase();
-      const isOwned =
-        accounts.some((a: string) => a.toLowerCase() === delegatorLower) ||
-        smartAccountLower === delegatorLower;
+      const matchesAccount = accounts.some(
+        (a: string) => a.toLowerCase() === delegatorLower,
+      );
+      const isOwned = matchesAccount
+        ? true
+        : smartAccountLower === delegatorLower;
       if (!isOwned) {
         throw new Error(
           `Cannot revoke delegation ${id}: delegator ${delegation.delegator} is not controlled by this wallet`,
@@ -2110,7 +2113,7 @@ export function buildRootObject(
         from,
         to: quote.trade.to as Address,
         data: quote.trade.data as Hex,
-        value: (quote.trade.value || '0x0') as Hex,
+        value: (quote.trade.value ?? '0x0') as Hex,
       };
 
       // Batch path: combine approve + swap in a single UserOp when
@@ -2120,7 +2123,7 @@ export function buildRootObject(
           from,
           to: options.srcToken,
           data: approvalInfo.data as Hex,
-          value: (approvalInfo.value || '0x0') as Hex,
+          value: (approvalInfo.value ?? '0x0') as Hex,
         };
 
         const batchResult = await coordinator.sendBatchTransaction([
@@ -2150,7 +2153,7 @@ export function buildRootObject(
           from,
           to: options.srcToken,
           data: approvalInfo.data as Hex,
-          value: (approvalInfo.value || '0x0') as Hex,
+          value: (approvalInfo.value ?? '0x0') as Hex,
         });
       }
 
