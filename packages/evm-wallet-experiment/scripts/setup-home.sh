@@ -547,7 +547,11 @@ $(echo -e "${YELLOW}${BOLD}")  Run this on the away device (VPS):$(echo -e "${RE
 
 $(echo -e "${BOLD}")  ./packages/evm-wallet-experiment/scripts/setup-away.sh \\
     --ocap-url "$OCAP_URL" \\
-    --listen-addrs '$LISTEN_ADDRS'$(
+    --listen-addrs '$LISTEN_ADDRS' \\
+    --chain-id $CHAIN_ID$(
+      [[ -n "$CUSTOM_RPC_URL" ]] && echo " \\
+    --rpc-url \"$CUSTOM_RPC_URL\""
+    )$(
       [[ -n "$INFURA_KEY" ]] && echo " \\
     --infura-key $INFURA_KEY"
     )$(

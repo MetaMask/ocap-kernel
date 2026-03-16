@@ -675,7 +675,8 @@ ${YELLOW}${BOLD}  Run this on the away device (VPS):${RESET}
 
 ${BOLD}  ./packages/evm-wallet-experiment/scripts/setup-away.sh \\
     --ocap-url "${ocapUrl}" \\
-    --listen-addrs '${JSON.stringify(listenAddresses)}'${args.infuraKey ? ` \\\n    --infura-key ${args.infuraKey}` : ''}${args.pimlicoKey ? ` \\\n    --pimlico-key ${args.pimlicoKey}` : ''}${args.relay ? ` \\\n    --relay "${args.relay}"` : ''}${RESET}
+    --listen-addrs '${JSON.stringify(listenAddresses)}' \\
+    --chain-id ${args.chainId}${args.rpcUrl ? ` \\\n    --rpc-url "${args.rpcUrl}"` : ''}${args.infuraKey ? ` \\\n    --infura-key ${args.infuraKey}` : ''}${args.pimlicoKey ? ` \\\n    --pimlico-key ${args.pimlicoKey}` : ''}${args.relay ? ` \\\n    --relay "${args.relay}"` : ''}${RESET}
 `);
 
   // -----------------------------------------------------------------------
