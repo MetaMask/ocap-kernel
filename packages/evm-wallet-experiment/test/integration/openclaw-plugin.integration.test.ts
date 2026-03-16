@@ -195,6 +195,23 @@ exec "${process.execPath}" "${ocapCliEntrypoint}" "$@"
             const [rawTx] = (parsed.params ?? []) as [string];
             observedRawTx = rawTx;
             result = `0x${'ab'.repeat(32)}`;
+          } else if (parsed.method === 'eth_getBlockByNumber') {
+            result = {
+              baseFeePerGas: '0x3b9aca00',
+              number: '0x1',
+              hash: `0x${'00'.repeat(32)}`,
+              timestamp: '0x60000000',
+              gasLimit: '0x1c9c380',
+              gasUsed: '0x0',
+            };
+          } else if (parsed.method === 'eth_estimateGas') {
+            result = '0x5208';
+          } else if (parsed.method === 'eth_getTransactionCount') {
+            result = '0x0';
+          } else if (parsed.method === 'eth_chainId') {
+            result = '0x7a69';
+          } else if (parsed.method === 'eth_maxPriorityFeePerGas') {
+            result = '0x3b9aca00';
           } else {
             result = null;
           }
