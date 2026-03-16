@@ -8,6 +8,12 @@ export const NATIVE_ETH = '0x0000000000000000000000000000000000000000';
 
 const BLOCK_EXPLORER_URLS: Record<number, string> = {
   1: 'https://etherscan.io',
+  10: 'https://optimistic.etherscan.io',
+  56: 'https://bscscan.com',
+  137: 'https://polygonscan.com',
+  8453: 'https://basescan.org',
+  42161: 'https://arbiscan.io',
+  59144: 'https://lineascan.build',
   11155111: 'https://sepolia.etherscan.io',
 };
 
