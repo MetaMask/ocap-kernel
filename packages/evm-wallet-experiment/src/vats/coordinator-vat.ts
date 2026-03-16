@@ -1508,24 +1508,37 @@ export function buildRootObject(
           callData: tx.data ?? ('0x' as Hex),
         }));
 
-        // Delegation path: batch via redeemDelegations with BatchDefault mode
+        // Delegation path: batch via redeemDelegations with BatchDefault mode.
+        // Validate that the delegation covers ALL actions in the batch,
+        // not just the first one, to avoid on-chain reverts.
         if (delegationVat) {
           const now = Date.now();
-          // Find a delegation that covers the first action. All executions
-          // in the batch share the same delegation chain.
-          const firstTx = txs[0] as TransactionRequest;
-          const action: Action = {
-            to: firstTx.to,
-            value: firstTx.value,
-            data: firstTx.data,
-          };
-          const delegation = await E(delegationVat).findDelegationForAction(
-            action,
-            bundlerConfig.chainId,
-            now,
-          );
+          const actions: Action[] = txs.map((tx) => ({
+            to: tx.to,
+            value: tx.value,
+            data: tx.data,
+          }));
 
-          if (delegation && delegation.status === 'signed') {
+          let delegation: Delegation | undefined;
+          for (const action of actions) {
+            const found = await E(delegationVat).findDelegationForAction(
+              action,
+              bundlerConfig.chainId,
+              now,
+            );
+            if (!found || found.status !== 'signed') {
+              delegation = undefined;
+              break;
+            }
+            // All actions must be covered by the same delegation.
+            if (delegation && delegation.id !== found.id) {
+              delegation = undefined;
+              break;
+            }
+            delegation = found;
+          }
+
+          if (delegation) {
             return submitBatchDelegationUserOp({
               delegations: [delegation],
               executions,

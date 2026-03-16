@@ -13,7 +13,7 @@ describe('cluster-config', () => {
       });
 
       expect(config.bootstrap).toBe('coordinator');
-      expect(config.forceReset).toBe(true);
+      expect(config.forceReset).toBe(false);
       expect(config.vats).toHaveProperty('coordinator');
       expect(config.vats).toHaveProperty('keyring');
       expect(config.vats).toHaveProperty('provider');
@@ -97,19 +97,19 @@ describe('cluster-config', () => {
       ]);
     });
 
-    it('defaults forceReset to true', () => {
+    it('defaults forceReset to false', () => {
       const config = makeWalletClusterConfig({
         bundleBaseUrl: BUNDLE_BASE_URL,
-      });
-      expect(config.forceReset).toBe(true);
-    });
-
-    it('respects forceReset false', () => {
-      const config = makeWalletClusterConfig({
-        bundleBaseUrl: BUNDLE_BASE_URL,
-        forceReset: false,
       });
       expect(config.forceReset).toBe(false);
+    });
+
+    it('respects forceReset true', () => {
+      const config = makeWalletClusterConfig({
+        bundleBaseUrl: BUNDLE_BASE_URL,
+        forceReset: true,
+      });
+      expect(config.forceReset).toBe(true);
     });
 
     it('designates coordinator as the bootstrap vat', () => {

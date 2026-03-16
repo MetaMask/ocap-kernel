@@ -32,7 +32,7 @@ export function makeWalletClusterConfig(
 
   return {
     bootstrap: 'coordinator',
-    forceReset: options.forceReset ?? true,
+    forceReset: options.forceReset ?? false,
     services,
     vats: {
       coordinator: {
