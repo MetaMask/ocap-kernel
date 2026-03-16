@@ -2003,16 +2003,23 @@ export function buildRootObject(
 
       const rawAmount = BigInt(options.srcAmount).toString();
 
-      const params = new URLSearchParams({
-        sourceToken: options.srcToken.toLowerCase(),
-        destinationToken: options.destToken.toLowerCase(),
-        sourceAmount: rawAmount,
-        slippage: String(options.slippage),
-        walletAddress,
-        timeout: '10000',
-      });
+      // Build query string manually — URLSearchParams is unavailable in SES vats.
+      const queryEntries: [string, string][] = [
+        ['sourceToken', options.srcToken.toLowerCase()],
+        ['destinationToken', options.destToken.toLowerCase()],
+        ['sourceAmount', rawAmount],
+        ['slippage', String(options.slippage)],
+        ['walletAddress', walletAddress],
+        ['timeout', '10000'],
+      ];
+      const query = queryEntries
+        .map(
+          ([key, val]) =>
+            `${encodeURIComponent(key)}=${encodeURIComponent(val)}`,
+        )
+        .join('&');
 
-      const url = `https://swap.api.cx.metamask.io/networks/${String(chainId)}/trades?${params.toString()}`;
+      const url = `https://swap.api.cx.metamask.io/networks/${String(chainId)}/trades?${query}`;
 
       const response = await E(providerVat).httpGetJson(url);
 
