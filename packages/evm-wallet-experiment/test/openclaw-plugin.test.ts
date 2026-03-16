@@ -761,9 +761,15 @@ describe('openclaw wallet plugin', () => {
       quoteRefreshSeconds: 30,
     };
 
-    // Call 1: getTokenMetadata for destToken (address passed directly, no symbol resolution)
-    // Call 2: getSwapQuote
+    // Call 1: getCapabilities (for chainId)
+    // Call 2: getTokenMetadata for destToken (address passed directly, no symbol resolution)
+    // Call 3: getSwapQuote
     mockSpawn
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({ chainId: 1 }),
+        }),
+      )
       .mockImplementationOnce(() =>
         makeSpawnResult({
           stdout: makeCapData({ name: 'Tether', symbol: 'USDT', decimals: 6 }),
@@ -798,11 +804,17 @@ describe('openclaw wallet plugin', () => {
       aggregator: 'testAgg',
     };
 
-    // Call 1: getTokenMetadata for destToken (resolveSwapToken)
-    // Call 2: swapTokens
-    // Call 3: getCapabilities (for resolveTransactionResult)
-    // Call 4: getTransactionReceipt
+    // Call 1: getCapabilities (for chainId in resolveSwapToken)
+    // Call 2: getTokenMetadata for destToken (resolveSwapToken)
+    // Call 3: swapTokens
+    // Call 4: getCapabilities (for resolveTransactionResult)
+    // Call 5: getTransactionReceipt
     mockSpawn
+      .mockImplementationOnce(() =>
+        makeSpawnResult({
+          stdout: makeCapData({ chainId: 1 }),
+        }),
+      )
       .mockImplementationOnce(() =>
         makeSpawnResult({
           stdout: makeCapData({ decimals: 6, symbol: 'USDT' }),

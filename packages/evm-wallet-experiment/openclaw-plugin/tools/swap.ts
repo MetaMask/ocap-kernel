@@ -2,7 +2,7 @@ import type { WalletCaller } from '../daemon.ts';
 import type { OpenClawPluginApi } from '../types.ts';
 import {
   NATIVE_ETH,
-  NATIVE_TOKEN_SYMBOLS,
+  NATIVE_TOKEN_BY_CHAIN,
   errorMessage,
   formatTxResult,
   makeError,
@@ -14,20 +14,24 @@ import {
 
 /**
  * Resolve a swap token parameter to an address, decimals, and symbol.
- * Handles native ETH as a special case.
+ * Handles native tokens as a special case, checking against the chain's
+ * native token to avoid resolving e.g. "BNB" as native on Ethereum.
  *
  * @param token - Token address or symbol.
  * @param wallet - Wallet caller function.
+ * @param chainId - Current chain ID for native token resolution.
  * @returns The resolved token details, or an error object.
  */
 async function resolveSwapToken(
   token: string,
   wallet: WalletCaller,
+  chainId: number,
 ): Promise<
   { address: string; decimals: number; symbol: string } | { error: string }
 > {
-  if (NATIVE_TOKEN_SYMBOLS.has(token.toUpperCase()) || token === NATIVE_ETH) {
-    return { address: NATIVE_ETH, decimals: 18, symbol: token.toUpperCase() };
+  const nativeSymbol = NATIVE_TOKEN_BY_CHAIN[chainId] ?? 'ETH';
+  if (token === NATIVE_ETH || token.toUpperCase() === nativeSymbol) {
+    return { address: NATIVE_ETH, decimals: 18, symbol: nativeSymbol };
   }
 
   let resolved: { address: string; symbol?: string };
@@ -117,12 +121,22 @@ export function registerSwapTools(
         }
 
         try {
-          const src = await resolveSwapToken(params.srcToken, wallet);
+          const caps = (await wallet('getCapabilities', [], 10_000)) as Record<
+            string,
+            unknown
+          >;
+          const chainId = typeof caps?.chainId === 'number' ? caps.chainId : 1;
+
+          const src = await resolveSwapToken(params.srcToken, wallet, chainId);
           if ('error' in src) {
             return makeError(src.error);
           }
 
-          const dest = await resolveSwapToken(params.destToken, wallet);
+          const dest = await resolveSwapToken(
+            params.destToken,
+            wallet,
+            chainId,
+          );
           if ('error' in dest) {
             return makeError(dest.error);
           }
@@ -237,12 +251,22 @@ export function registerSwapTools(
         }
 
         try {
-          const src = await resolveSwapToken(params.srcToken, wallet);
+          const caps = (await wallet('getCapabilities', [], 10_000)) as Record<
+            string,
+            unknown
+          >;
+          const chainId = typeof caps?.chainId === 'number' ? caps.chainId : 1;
+
+          const src = await resolveSwapToken(params.srcToken, wallet, chainId);
           if ('error' in src) {
             return makeError(src.error);
           }
 
-          const dest = await resolveSwapToken(params.destToken, wallet);
+          const dest = await resolveSwapToken(
+            params.destToken,
+            wallet,
+            chainId,
+          );
           if ('error' in dest) {
             return makeError(dest.error);
           }
