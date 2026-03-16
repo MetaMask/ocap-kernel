@@ -7,18 +7,19 @@ export const HEX_VALUE_RE = /^0x[\da-f]+$/iu;
 export const NATIVE_ETH = '0x0000000000000000000000000000000000000000';
 
 /**
- * Native token symbol for each supported chain.
- * Only the chain's own native token should resolve to the zero address.
+ * Native token symbols for each supported chain.
+ * Only the chain's own native token(s) should resolve to the zero address.
+ * Polygon accepts both "POL" (current) and "MATIC" (legacy).
  */
-export const NATIVE_TOKEN_BY_CHAIN: Record<number, string> = {
-  1: 'ETH',
-  10: 'ETH',
-  56: 'BNB',
-  137: 'POL',
-  8453: 'ETH',
-  42161: 'ETH',
-  59144: 'ETH',
-  11155111: 'ETH',
+export const NATIVE_TOKENS_BY_CHAIN: Record<number, string[]> = {
+  1: ['ETH'],
+  10: ['ETH'],
+  56: ['BNB'],
+  137: ['POL', 'MATIC'],
+  8453: ['ETH'],
+  42161: ['ETH'],
+  59144: ['ETH'],
+  11155111: ['ETH'],
 };
 
 const BLOCK_EXPLORER_URLS: Record<number, string> = {

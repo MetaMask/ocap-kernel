@@ -2,7 +2,7 @@ import type { WalletCaller } from '../daemon.ts';
 import type { OpenClawPluginApi } from '../types.ts';
 import {
   NATIVE_ETH,
-  NATIVE_TOKEN_BY_CHAIN,
+  NATIVE_TOKENS_BY_CHAIN,
   errorMessage,
   formatTxResult,
   makeError,
@@ -29,9 +29,10 @@ async function resolveSwapToken(
 ): Promise<
   { address: string; decimals: number; symbol: string } | { error: string }
 > {
-  const nativeSymbol = NATIVE_TOKEN_BY_CHAIN[chainId] ?? 'ETH';
-  if (token === NATIVE_ETH || token.toUpperCase() === nativeSymbol) {
-    return { address: NATIVE_ETH, decimals: 18, symbol: nativeSymbol };
+  const nativeSymbols = NATIVE_TOKENS_BY_CHAIN[chainId] ?? ['ETH'];
+  const primaryNative = nativeSymbols[0];
+  if (token === NATIVE_ETH || nativeSymbols.includes(token.toUpperCase())) {
+    return { address: NATIVE_ETH, decimals: 18, symbol: primaryNative };
   }
 
   let resolved: { address: string; symbol?: string };

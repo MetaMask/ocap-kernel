@@ -581,8 +581,8 @@ async function main() {
     // The hybrid smart account has a different address from the EOA,
     // so it needs its own ETH to execute value transfers.
     if (smartAccountAddress) {
-      const MIN_BALANCE = 0.05;
-      const TARGET_BALANCE = 0.1;
+      const MIN_BALANCE_WEI = 50000000000000000n; // 0.05 ETH
+      const TARGET_BALANCE_WEI = 100000000000000000n; // 0.1 ETH
 
       info('Checking smart account balance...');
       const balanceHex = await signer.provider.request({
@@ -590,12 +590,12 @@ async function main() {
         params: [smartAccountAddress, 'latest'],
       });
       const balanceWei = BigInt(balanceHex);
-      const balanceEth = Number(balanceWei) / 1e18;
 
-      if (balanceEth < MIN_BALANCE) {
-        const fundWei = BigInt(Math.round(TARGET_BALANCE * 1e18)) - balanceWei;
+      if (balanceWei < MIN_BALANCE_WEI) {
+        const fundWei = TARGET_BALANCE_WEI - balanceWei;
+        const balanceEthStr = (Number(balanceWei) / 1e18).toFixed(4);
         info(
-          `Smart account has ${balanceEth.toFixed(4)} ETH — funding to ${TARGET_BALANCE} ETH via MetaMask...`,
+          `Smart account has ${balanceEthStr} ETH — funding to 0.1 ETH via MetaMask...`,
         );
         try {
           await signer.provider.request({
@@ -618,7 +618,9 @@ async function main() {
           );
         }
       } else {
-        ok(`Smart account balance: ${balanceEth.toFixed(4)} ETH`);
+        ok(
+          `Smart account balance: ${(Number(balanceWei) / 1e18).toFixed(4)} ETH`,
+        );
       }
     }
   } else {
