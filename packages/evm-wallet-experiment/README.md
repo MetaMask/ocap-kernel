@@ -707,7 +707,7 @@ yarn workspace @ocap/evm-wallet-experiment lint:fix
 
 The package has four tiers of tests, each exercising a progressively larger slice of the stack.
 
-### Unit tests (420+ tests)
+### Unit tests (490+ tests)
 
 ```bash
 yarn workspace @ocap/evm-wallet-experiment test:dev:quiet
@@ -781,7 +781,7 @@ The wallet supports all chains where the MetaMask Delegation Framework is deploy
 | 59144    | Linea             | Yes          |
 | 11155111 | Sepolia (testnet) | No           |
 
-All chains share the same DelegationManager address (`0xdb9B...47dB3`). Mainnet chains share enforcer addresses; Sepolia has its own deployment. Swap support (via MetaSwap API) is only available on mainnets.
+All chains share the same DelegationManager and enforcer addresses (deterministic CREATE2 deployment, including Sepolia). Swap support (via MetaSwap API) is only available on mainnets.
 
 Use `SUPPORTED_CHAIN_IDS`, `CHAIN_NAMES`, and `getChainContracts(chainId)` to query chain support programmatically. Use `getPimlicoRpcUrl(chainId)` for Pimlico bundler URLs.
 
