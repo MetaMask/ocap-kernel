@@ -2,6 +2,7 @@ import type { WalletCaller } from '../daemon.ts';
 import type { OpenClawPluginApi } from '../types.ts';
 import {
   NATIVE_ETH,
+  NATIVE_TOKEN_SYMBOLS,
   errorMessage,
   formatTxResult,
   makeError,
@@ -25,8 +26,8 @@ async function resolveSwapToken(
 ): Promise<
   { address: string; decimals: number; symbol: string } | { error: string }
 > {
-  if (token.toUpperCase() === 'ETH' || token === NATIVE_ETH) {
-    return { address: NATIVE_ETH, decimals: 18, symbol: 'ETH' };
+  if (NATIVE_TOKEN_SYMBOLS.has(token.toUpperCase()) || token === NATIVE_ETH) {
+    return { address: NATIVE_ETH, decimals: 18, symbol: token.toUpperCase() };
   }
 
   let resolved: { address: string; symbol?: string };
@@ -36,9 +37,16 @@ async function resolveSwapToken(
     return { error: errorMessage(error) };
   }
 
-  const metadata = (await wallet('getTokenMetadata', [
-    { token: resolved.address },
-  ])) as Record<string, unknown>;
+  let metadata: Record<string, unknown>;
+  try {
+    metadata = (await wallet('getTokenMetadata', [
+      { token: resolved.address },
+    ])) as Record<string, unknown>;
+  } catch (error: unknown) {
+    return {
+      error: `Could not fetch metadata for ${token}: ${errorMessage(error)}`,
+    };
+  }
 
   if (typeof metadata?.decimals !== 'number') {
     return { error: `Could not determine decimals for ${token}.` };

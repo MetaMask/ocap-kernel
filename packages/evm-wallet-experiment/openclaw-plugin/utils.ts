@@ -6,6 +6,11 @@ export const ETH_ADDRESS_RE = /^0x[\da-f]{40}$/iu;
 export const HEX_VALUE_RE = /^0x[\da-f]+$/iu;
 export const NATIVE_ETH = '0x0000000000000000000000000000000000000000';
 
+/**
+ * Native token symbols that map to the zero address across supported chains.
+ */
+export const NATIVE_TOKEN_SYMBOLS = new Set(['ETH', 'BNB', 'MATIC', 'POL']);
+
 const BLOCK_EXPLORER_URLS: Record<number, string> = {
   1: 'https://etherscan.io',
   10: 'https://optimistic.etherscan.io',

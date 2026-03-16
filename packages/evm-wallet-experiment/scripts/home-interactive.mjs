@@ -249,7 +249,10 @@ function prompt(question) {
  */
 function encodeEthToTerms(ethAmount) {
   const [whole, frac = ''] = ethAmount.split('.');
-  const fracPadded = frac.padEnd(18, '0').slice(0, 18);
+  if (frac.length > 18) {
+    fail(`Amount "${ethAmount}" has too many decimal places (max 18 for ETH).`);
+  }
+  const fracPadded = frac.padEnd(18, '0');
   const wei = BigInt(whole || '0') * 10n ** 18n + BigInt(fracPadded);
   return `0x${wei.toString(16).padStart(64, '0')}`;
 }

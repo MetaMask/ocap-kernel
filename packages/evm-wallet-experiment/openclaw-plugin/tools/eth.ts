@@ -125,6 +125,9 @@ export function registerEthTools(
         // Convert decimal ETH string to hex wei.
         let hexValue: string;
         if (HEX_VALUE_RE.test(params.value)) {
+          if (BigInt(params.value) <= 0n) {
+            return makeError('Amount must be greater than zero.');
+          }
           hexValue = params.value;
         } else {
           try {
