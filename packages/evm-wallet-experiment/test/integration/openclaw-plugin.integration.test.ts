@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { access, chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { dirname, resolve } from 'node:path';
@@ -147,152 +147,160 @@ async function callVat(
   return decodeCapData(result);
 }
 
-describe.sequential('OpenClaw wallet plugin daemon integration', () => {
-  let tempHome: string;
-  let rootKref: string;
-  let rpcServer: ReturnType<typeof createServer>;
-  let rpcUrl: string;
-  let observedRawTx: string | undefined;
-  let tools: Map<string, ToolDefinition>;
+const cliAvailable = await access(ocapCliEntrypoint)
+  .then(() => true)
+  .catch(() => false);
 
-  beforeAll(async () => {
-    tempHome = await mkdtemp(`${tmpdir()}/ocap-plugin-integration-`);
-    ocapEnv = { HOME: tempHome };
-    ocapCliPath = resolve(tempHome, 'ocap-cli-wrapper.sh');
-    await writeFile(
-      ocapCliPath,
-      `#!/bin/bash
+describe
+  .skipIf(!cliAvailable)
+  .sequential('OpenClaw wallet plugin daemon integration', () => {
+    let tempHome: string;
+    let rootKref: string;
+    let rpcServer: ReturnType<typeof createServer>;
+    let rpcUrl: string;
+    let observedRawTx: string | undefined;
+    let tools: Map<string, ToolDefinition>;
+
+    beforeAll(async () => {
+      tempHome = await mkdtemp(`${tmpdir()}/ocap-plugin-integration-`);
+      ocapEnv = { HOME: tempHome };
+      ocapCliPath = resolve(tempHome, 'ocap-cli-wrapper.sh');
+      await writeFile(
+        ocapCliPath,
+        `#!/bin/bash
 HOME="${tempHome}"
 export HOME
 exec "${process.execPath}" "${ocapCliEntrypoint}" "$@"
 `,
-      'utf8',
-    );
-    await chmod(ocapCliPath, 0o755);
+        'utf8',
+      );
+      await chmod(ocapCliPath, 0o755);
 
-    rpcServer = createServer((req, res) => {
-      let body = '';
-      req.setEncoding('utf8');
-      req.on('data', (chunk) => {
-        body += chunk;
+      rpcServer = createServer((req, res) => {
+        let body = '';
+        req.setEncoding('utf8');
+        req.on('data', (chunk) => {
+          body += chunk;
+        });
+        req.on('end', () => {
+          const parsed = JSON.parse(body) as {
+            id: number;
+            method: string;
+            params?: unknown[];
+          };
+          let result: unknown;
+          if (parsed.method === 'eth_getBalance') {
+            result = '0x2a';
+          } else if (parsed.method === 'eth_sendRawTransaction') {
+            const [rawTx] = (parsed.params ?? []) as [string];
+            observedRawTx = rawTx;
+            result = `0x${'ab'.repeat(32)}`;
+          } else {
+            result = null;
+          }
+          const response = {
+            jsonrpc: '2.0',
+            id: parsed.id,
+            result,
+          };
+          res.statusCode = 200;
+          res.setHeader('content-type', 'application/json');
+          res.end(JSON.stringify(response));
+        });
       });
-      req.on('end', () => {
-        const parsed = JSON.parse(body) as {
-          id: number;
-          method: string;
-          params?: unknown[];
-        };
-        let result: unknown;
-        if (parsed.method === 'eth_getBalance') {
-          result = '0x2a';
-        } else if (parsed.method === 'eth_sendRawTransaction') {
-          const [rawTx] = (parsed.params ?? []) as [string];
-          observedRawTx = rawTx;
-          result = `0x${'ab'.repeat(32)}`;
-        } else {
-          result = null;
-        }
-        const response = {
-          jsonrpc: '2.0',
-          id: parsed.id,
-          result,
-        };
-        res.statusCode = 200;
-        res.setHeader('content-type', 'application/json');
-        res.end(JSON.stringify(response));
+
+      await new Promise<void>((resolvePromise) => {
+        rpcServer.listen(0, '127.0.0.1', () => resolvePromise());
       });
-    });
+      const address = rpcServer.address();
+      if (!address || typeof address === 'string') {
+        throw new Error('Failed to start test RPC server');
+      }
+      rpcUrl = `http://127.0.0.1:${String(address.port)}`;
+      const allowedRpcHost = new URL(rpcUrl).host;
 
-    await new Promise<void>((resolvePromise) => {
-      rpcServer.listen(0, '127.0.0.1', () => resolvePromise());
-    });
-    const address = rpcServer.address();
-    if (!address || typeof address === 'string') {
-      throw new Error('Failed to start test RPC server');
-    }
-    rpcUrl = `http://127.0.0.1:${String(address.port)}`;
-    const allowedRpcHost = new URL(rpcUrl).host;
-
-    await runOcap(['daemon', 'start']);
-    const launchResponse = (await runOcapJson([
-      'daemon',
-      'exec',
-      'launchSubcluster',
-      JSON.stringify({
-        config: makeWalletClusterConfig({
-          bundleBaseUrl,
-          allowedHosts: [allowedRpcHost],
+      await runOcap(['daemon', 'start']);
+      const launchResponse = (await runOcapJson([
+        'daemon',
+        'exec',
+        'launchSubcluster',
+        JSON.stringify({
+          config: makeWalletClusterConfig({
+            bundleBaseUrl,
+            allowedHosts: [allowedRpcHost],
+          }),
         }),
-      }),
-    ])) as { rootKref?: string };
-    if (!launchResponse.rootKref) {
-      throw new Error('launchSubcluster did not return rootKref');
-    }
-    rootKref = launchResponse.rootKref;
+      ])) as { rootKref?: string };
+      if (!launchResponse.rootKref) {
+        throw new Error('launchSubcluster did not return rootKref');
+      }
+      rootKref = launchResponse.rootKref;
 
-    const entropy = `0x${randomBytes(32).toString('hex')}`;
-    await callVat(rootKref, 'initializeKeyring', [
-      { type: 'throwaway', entropy },
-    ]);
-    await callVat(rootKref, 'configureProvider', [{ chainId: 31337, rpcUrl }]);
+      const entropy = `0x${randomBytes(32).toString('hex')}`;
+      await callVat(rootKref, 'initializeKeyring', [
+        { type: 'throwaway', entropy },
+      ]);
+      await callVat(rootKref, 'configureProvider', [
+        { chainId: 31337, rpcUrl },
+      ]);
 
-    tools = new Map<string, ToolDefinition>();
-    register({
-      pluginConfig: {
-        ocapCliPath,
-        walletKref: rootKref,
-        timeoutMs: 30_000,
-      },
-      registerTool: (tool: ToolDefinition) => {
-        tools.set(tool.name, tool);
-      },
-    });
-  }, 60_000);
+      tools = new Map<string, ToolDefinition>();
+      register({
+        pluginConfig: {
+          ocapCliPath,
+          walletKref: rootKref,
+          timeoutMs: 30_000,
+        },
+        registerTool: (tool: ToolDefinition) => {
+          tools.set(tool.name, tool);
+        },
+      });
+    }, 60_000);
 
-  afterAll(async () => {
-    try {
-      await runOcap(['daemon', 'stop']);
-    } catch {
-      // Ignore daemon stop failures during cleanup.
-    }
-    await new Promise<void>((resolvePromise) => {
-      rpcServer.close(() => resolvePromise());
-    });
-    await rm(tempHome, { recursive: true, force: true });
-  });
-
-  it('decodes CapData response for wallet_accounts', async () => {
-    const tool = tools.get('wallet_accounts');
-    expect(tool).toBeDefined();
-    const result = await tool!.execute('req-accounts');
-    const accounts = JSON.parse(result.content[0]?.text ?? '[]') as string[];
-    expect(accounts.length).toBeGreaterThan(0);
-    expect(accounts[0]).toMatch(/^0x[\da-f]{40}$/iu);
-  });
-
-  it('returns decoded balance from wallet_balance', async () => {
-    const accountsResult = await callVat(rootKref, 'getAccounts');
-    const [address] = accountsResult as string[];
-    const tool = tools.get('wallet_balance');
-    expect(tool).toBeDefined();
-
-    const result = await tool!.execute('req-balance', { address });
-
-    expect(result.content[0]?.text).toContain('0x2a');
-  });
-
-  it('infers from and sends signed tx via wallet_send', async () => {
-    const tool = tools.get('wallet_send');
-    expect(tool).toBeDefined();
-
-    const result = await tool!.execute('req-send', {
-      to: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
-      value: '0x1',
+    afterAll(async () => {
+      try {
+        await runOcap(['daemon', 'stop']);
+      } catch {
+        // Ignore daemon stop failures during cleanup.
+      }
+      await new Promise<void>((resolvePromise) => {
+        rpcServer.close(() => resolvePromise());
+      });
+      await rm(tempHome, { recursive: true, force: true });
     });
 
-    expect(result.content[0]?.text).toMatch(/^0x[\da-f]{64}$/iu);
-    expect(observedRawTx).toMatch(/^0x[\da-f]+$/iu);
-    expect(observedRawTx?.length).toBeGreaterThan(10);
-    expect(result.content[0]?.text).not.toContain('toLowerCase');
+    it('decodes CapData response for wallet_accounts', async () => {
+      const tool = tools.get('wallet_accounts');
+      expect(tool).toBeDefined();
+      const result = await tool!.execute('req-accounts');
+      const accounts = JSON.parse(result.content[0]?.text ?? '[]') as string[];
+      expect(accounts.length).toBeGreaterThan(0);
+      expect(accounts[0]).toMatch(/^0x[\da-f]{40}$/iu);
+    });
+
+    it('returns decoded balance from wallet_balance', async () => {
+      const accountsResult = await callVat(rootKref, 'getAccounts');
+      const [address] = accountsResult as string[];
+      const tool = tools.get('wallet_balance');
+      expect(tool).toBeDefined();
+
+      const result = await tool!.execute('req-balance', { address });
+
+      expect(result.content[0]?.text).toContain('0x2a');
+    });
+
+    it('infers from and sends signed tx via wallet_send', async () => {
+      const tool = tools.get('wallet_send');
+      expect(tool).toBeDefined();
+
+      const result = await tool!.execute('req-send', {
+        to: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
+        value: '0x1',
+      });
+
+      expect(result.content[0]?.text).toMatch(/^0x[\da-f]{64}$/iu);
+      expect(observedRawTx).toMatch(/^0x[\da-f]+$/iu);
+      expect(observedRawTx?.length).toBeGreaterThan(10);
+      expect(result.content[0]?.text).not.toContain('toLowerCase');
+    });
   });
-});
