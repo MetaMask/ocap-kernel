@@ -13,11 +13,15 @@
 
 import '@metamask/kernel-shims/endoify-node';
 
+import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
+import {
+  startRpcSocketServer,
+  readLine,
+  writeLine,
+} from '@metamask/kernel-node-runtime/daemon';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
-import { NodejsPlatformServices } from '@ocap/nodejs';
-import { startRpcSocketServer, readLine, writeLine } from '@ocap/nodejs/daemon';
 import * as net from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';

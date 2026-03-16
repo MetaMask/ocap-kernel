@@ -10,7 +10,7 @@
     { "path": "../kernel-utils" },
     { "path": "../kernel-store" },
     { "path": "../logger" },
-    { "path": "../nodejs" },
+    { "path": "../kernel-node-runtime" },
     { "path": "../ocap-kernel" }
   ],
   "include": [
