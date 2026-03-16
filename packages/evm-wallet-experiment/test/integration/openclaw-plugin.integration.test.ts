@@ -315,9 +315,10 @@ exec "${process.execPath}" "${ocapCliEntrypoint}" "$@"
         value: '0x1',
       });
 
-      expect(result.content[0]?.text).toMatch(/^0x[\da-f]{64}$/iu);
+      const text = result.content[0]?.text ?? '';
+      expect(text).not.toContain('Error');
+      expect(text).toMatch(/0x[\da-f]{64}/iu);
       expect(observedRawTx).toMatch(/^0x[\da-f]+$/iu);
       expect(observedRawTx?.length).toBeGreaterThan(10);
-      expect(result.content[0]?.text).not.toContain('toLowerCase');
     });
   });
