@@ -126,7 +126,12 @@ export function registerSwapTools(
             string,
             unknown
           >;
-          const chainId = typeof caps?.chainId === 'number' ? caps.chainId : 1;
+          const chainId = typeof caps?.chainId === 'number' ? caps.chainId : 0;
+          if (chainId === 0) {
+            return makeError(
+              'Could not determine chain ID. Configure the provider before swapping.',
+            );
+          }
 
           const src = await resolveSwapToken(params.srcToken, wallet, chainId);
           if ('error' in src) {
@@ -256,7 +261,12 @@ export function registerSwapTools(
             string,
             unknown
           >;
-          const chainId = typeof caps?.chainId === 'number' ? caps.chainId : 1;
+          const chainId = typeof caps?.chainId === 'number' ? caps.chainId : 0;
+          if (chainId === 0) {
+            return makeError(
+              'Could not determine chain ID. Configure the provider before swapping.',
+            );
+          }
 
           const src = await resolveSwapToken(params.srcToken, wallet, chainId);
           if ('error' in src) {
