@@ -6,7 +6,7 @@ import { getMoonPhase } from '@ocap/kernel-agents/capabilities/examples';
 import { count, add, multiply } from '@ocap/kernel-agents/capabilities/math';
 import { makeJsonAgent } from '@ocap/kernel-agents/json';
 import { makeReplAgent } from '@ocap/kernel-agents-repl';
-import { OllamaNodejsService } from '@ocap/kernel-language-model-service/ollama/nodejs';
+import { makeOllamaNodejsKernelService } from '@ocap/kernel-language-model-service/ollama/nodejs';
 import { fetchMock } from '@ocap/repo-tools/test-utils/fetch-mock';
 import {
   afterAll,
@@ -19,8 +19,8 @@ import {
   vi,
 } from 'vitest';
 
-import { DEFAULT_MODEL } from '../../src/constants.ts';
-import { filterTransports, randomLetter } from '../../src/utils.ts';
+import { DEFAULT_MODEL } from './constants.ts';
+import { filterTransports, randomLetter } from './utils.ts';
 
 const logger = new Logger({
   tags: ['test'],
@@ -72,10 +72,10 @@ describe.each([
       fetchMock.enableMocks();
     });
 
-    let languageModelService: OllamaNodejsService;
+    let service: ReturnType<typeof makeOllamaNodejsKernelService>;
     beforeEach(() => {
       result = undefined;
-      languageModelService = new OllamaNodejsService({ endowments: { fetch } });
+      service = makeOllamaNodejsKernelService({ endowments: { fetch } });
       printLogger.log(`\n<== New ${strategy.toUpperCase()} ===`);
     });
 
@@ -85,13 +85,19 @@ describe.each([
       printLogger.log(`=== End ${strategy.toUpperCase()} ==>`);
     });
 
+    const makeLanguageModel = (svc: typeof service) => ({
+      getInfo: async () => ({ model: DEFAULT_MODEL, options: {} }),
+      load: async () => undefined,
+      unload: async () => undefined,
+      sample: async (prompt: string) =>
+        svc.sample({ model: DEFAULT_MODEL, prompt, stream: true }),
+    });
+
     it(
       'processes a semantic request',
       { retry, timeout },
       catchErrorAsResult(async () => {
-        const languageModel = await languageModelService.makeInstance({
-          model: DEFAULT_MODEL,
-        });
+        const languageModel = makeLanguageModel(service);
         const agent = makeAgent({ languageModel, capabilities: {}, logger });
         expect(agent).toBeDefined();
 
@@ -121,9 +127,7 @@ describe.each([
       'uses tools',
       { retry, timeout },
       catchErrorAsResult(async () => {
-        const languageModel = await languageModelService.makeInstance({
-          model: DEFAULT_MODEL,
-        });
+        const languageModel = makeLanguageModel(service);
         const getMoonPhaseSpy = vi.spyOn(getMoonPhase, 'func');
         const agent = makeAgent({
           languageModel,
@@ -143,9 +147,7 @@ describe.each([
       'performs multi-step calculations',
       { retry, timeout },
       catchErrorAsResult(async () => {
-        const languageModel = await languageModelService.makeInstance({
-          model: DEFAULT_MODEL,
-        });
+        const languageModel = makeLanguageModel(service);
         const capabilities = {};
         const agent = makeAgent({ languageModel, capabilities, logger });
         expect(agent).toBeDefined();
@@ -162,9 +164,7 @@ describe.each([
       // Caveat: We don't expect the solution to be correct.
       { retry, timeout: 120_000 },
       catchErrorAsResult(async () => {
-        const languageModel = await languageModelService.makeInstance({
-          model: DEFAULT_MODEL,
-        });
+        const languageModel = makeLanguageModel(service);
         const capabilities = {};
         const agent = makeAgent({ languageModel, capabilities, logger });
         expect(agent).toBeDefined();
@@ -188,9 +188,7 @@ describe.each([
       { retry, timeout },
       // TODO: This functionality is not yet implemented.
       catchErrorAsResult(async () => {
-        const languageModel = await languageModelService.makeInstance({
-          model: DEFAULT_MODEL,
-        });
+        const languageModel = makeLanguageModel(service);
         const capabilities = {};
         const agent = makeAgent({ languageModel, capabilities, logger });
         expect(agent).toBeDefined();

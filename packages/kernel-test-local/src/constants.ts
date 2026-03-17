@@ -10,10 +10,8 @@ export const TEST_MODELS = ['llama3.1:latest', 'gpt-oss:20b'];
 export const OLLAMA_API_BASE = 'http://localhost:11434';
 export const OLLAMA_TAGS_ENDPOINT = `${OLLAMA_API_BASE}/api/tags`;
 
-// extract ignored logger tags from environment variable
-
 /**
- * The tags to ignore for the local tests.
+ * Logger tags to ignore, parsed from the LOGGER_IGNORE environment variable.
  */
 export const IGNORE_TAGS =
   // eslint-disable-next-line n/no-process-env
