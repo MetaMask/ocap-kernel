@@ -1,6 +1,13 @@
 import type { GenerateResponse, ListResponse } from 'ollama';
 
-import type { LanguageModelService } from '../types.ts';
+import type {
+  ChatParams,
+  ChatResult,
+  ChatRole,
+  LanguageModelService,
+  SampleParams,
+  SampleResult,
+} from '../types.ts';
 import { parseModelConfig } from './parse.ts';
 import type {
   OllamaInstanceConfig,
@@ -47,6 +54,88 @@ export class OllamaBaseService<Ollama extends OllamaClient>
   }
 
   /**
+   * Performs a chat completion request via the Ollama chat API.
+   *
+   * @param params - The chat parameters.
+   * @returns A hardened chat result.
+   */
+  async chat(params: ChatParams): Promise<ChatResult> {
+    const { model, messages, temperature, seed, stop } = params;
+    const ollama = await this.#makeClient();
+    let stopArr: string[] | undefined;
+    if (stop !== undefined) {
+      stopArr = Array.isArray(stop) ? stop : [stop];
+    }
+    const response = await ollama.chat({
+      model,
+      messages,
+      stream: false,
+      options: {
+        ...(temperature !== undefined && { temperature }),
+        ...(params.top_p !== undefined && { top_p: params.top_p }),
+        ...(seed !== undefined && { seed }),
+        ...(params.max_tokens !== undefined && {
+          num_predict: params.max_tokens,
+        }),
+        ...(stopArr !== undefined && { stop: stopArr }),
+      },
+    });
+    const promptTokens = response.prompt_eval_count ?? 0;
+    const completionTokens = response.eval_count ?? 0;
+    return harden({
+      id: 'ollama-chat',
+      model: response.model,
+      choices: [
+        {
+          message: {
+            role: response.message.role as ChatRole,
+            content: response.message.content,
+          },
+          index: 0,
+          finish_reason: response.done_reason ?? 'stop',
+        },
+      ],
+      usage: {
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens,
+        total_tokens: promptTokens + completionTokens,
+      },
+    });
+  }
+
+  /**
+   * Performs a raw token-prediction request via Ollama's generate API with raw=true,
+   * bypassing the model's chat template.
+   *
+   * @param params - The raw sample parameters.
+   * @returns A hardened raw sample result.
+   */
+  async sample(params: SampleParams): Promise<SampleResult> {
+    const { model, prompt, temperature, seed, stop } = params;
+    const ollama = await this.#makeClient();
+    let stopArr: string[] | undefined;
+    if (stop !== undefined) {
+      stopArr = Array.isArray(stop) ? stop : [stop];
+    }
+    const response = await ollama.generate({
+      model,
+      prompt,
+      raw: true,
+      stream: false,
+      options: {
+        ...(temperature !== undefined && { temperature }),
+        ...(params.top_p !== undefined && { top_p: params.top_p }),
+        ...(seed !== undefined && { seed }),
+        ...(params.max_tokens !== undefined && {
+          num_predict: params.max_tokens,
+        }),
+        ...(stopArr !== undefined && { stop: stopArr }),
+      },
+    });
+    return harden({ text: response.response });
+  }
+
+  /**
    * Creates a new language model instance with the specified configuration.
    * The returned instance is hardened for object capability security.
    *
@@ -62,7 +151,7 @@ export class OllamaBaseService<Ollama extends OllamaClient>
     };
     const mandatoryOptions = {
       model,
-      stream: true,
+      stream: true as const,
       raw: true,
     };
 
