@@ -94,7 +94,9 @@ function isPrivateAddress(host: string): boolean {
   );
 }
 
-const RELAY_RECONNECT_BASE_DELAY_MS = 5_000;
+// Use a longer base delay to give the circuit relay transport's own
+// reservation recovery time to re-establish the connection first.
+const RELAY_RECONNECT_BASE_DELAY_MS = 15_000;
 const RELAY_RECONNECT_MAX_DELAY_MS = 60_000;
 const RELAY_RECONNECT_MAX_ATTEMPTS = 10;
 
@@ -129,6 +131,9 @@ export class ConnectionFactory {
     string,
     ReturnType<typeof setTimeout>
   >();
+
+  /** Tracks consecutive relay connection failures to avoid infinite reconnect */
+  readonly #relayReconnectAttempts = new Map<string, number>();
 
   #stopped = false;
 
@@ -198,6 +203,11 @@ export class ConnectionFactory {
    * Initialize libp2p with the provided configuration.
    */
   async #init(): Promise<void> {
+    this.#logger.log(
+      `ConnectionFactory init: relays=[${this.#knownRelays.join(', ')}] ` +
+        `allowedWsHosts=[${this.#allowedWsHosts.join(', ')}] ` +
+        `relayPeerIds=[${[...this.#relayPeerIds].join(', ')}]`,
+    );
     const privateKey = await this.#generateKeyInfo();
 
     this.#libp2p = await createLibp2p({
@@ -239,8 +249,14 @@ export class ConnectionFactory {
           }
           const { host } = ma.toOptions();
           if (isPrivateAddress(host) || this.#allowedWsHosts.includes(host)) {
+            this.#logger.log(
+              `connectionGater: ALLOW ws://${host} (private=${isPrivateAddress(host)}, allowlisted=${this.#allowedWsHosts.includes(host)})`,
+            );
             return false;
           }
+          this.#logger.warn(
+            `connectionGater: DENY ws://${host} (allowedWsHosts=[${this.#allowedWsHosts.join(',')}])`,
+          );
           return true; // deny plain ws:// to unrecognised public addresses
         },
       },
@@ -284,13 +300,60 @@ export class ConnectionFactory {
       this.#logger.log(`Peer update: ${JSON.stringify(evt.detail)}`);
     });
 
+    this.#libp2p.addEventListener('peer:connect', (evt) => {
+      const peerId = evt.detail.toString();
+      this.#logger.log(`peer:connect ${peerId}`);
+      // Identify completed — reset the reconnect counter for relay peers.
+      if (this.#relayPeerIds.has(peerId)) {
+        this.#relayReconnectAttempts.delete(peerId);
+      }
+    });
+
+    this.#libp2p.addEventListener('peer:disconnect', (evt) => {
+      this.#logger.log(`peer:disconnect ${evt.detail.toString()}`);
+    });
+
+    this.#libp2p.addEventListener('connection:open', (evt) => {
+      const conn = evt.detail;
+      const remotePeerId = conn.remotePeer.toString();
+      const isRelay = this.#relayPeerIds.has(remotePeerId);
+      this.#logger.log(
+        `connection:open id=${conn.id} peer=${remotePeerId} ` +
+          `addr=${conn.remoteAddr.toString()} dir=${conn.direction} ` +
+          `status=${conn.status} isRelay=${isRelay}`,
+      );
+    });
+
     this.#libp2p.addEventListener('connection:close', (evt) => {
-      const remotePeerId = evt.detail.remotePeer.toString();
-      if (this.#relayPeerIds.has(remotePeerId)) {
-        this.#logger.log(
-          `relay ${remotePeerId} connection closed, scheduling reconnect`,
-        );
-        this.#scheduleRelayReconnect(remotePeerId);
+      const conn = evt.detail;
+      const remotePeerId = conn.remotePeer.toString();
+      const isRelay = this.#relayPeerIds.has(remotePeerId);
+      this.#logger.log(
+        `connection:close id=${conn.id} peer=${remotePeerId} ` +
+          `addr=${conn.remoteAddr.toString()} dir=${conn.direction} ` +
+          `status=${conn.status} isRelay=${isRelay}`,
+      );
+
+      if (isRelay) {
+        // Check remaining connections after a microtask to let the
+        // connection manager finish cleanup from any pruning.
+        queueMicrotask(() => {
+          const remaining =
+            this.#libp2p
+              ?.getConnections()
+              .filter(
+                (connection) =>
+                  connection.remotePeer.toString() === remotePeerId,
+              ) ?? [];
+
+          this.#logger.log(
+            `relay ${remotePeerId} post-close: ${remaining.length} connection(s) remain`,
+          );
+
+          if (remaining.length === 0) {
+            this.#scheduleRelayReconnect(remotePeerId);
+          }
+        });
       }
     });
 
@@ -544,7 +607,10 @@ export class ConnectionFactory {
     ) {
       return;
     }
-    this.#reconnectRelay(relayPeerId, 0);
+    // Use the persistent attempt counter so short-lived connections
+    // (open → immediate close) still count toward the max attempts.
+    const attempt = this.#relayReconnectAttempts.get(relayPeerId) ?? 0;
+    this.#reconnectRelay(relayPeerId, attempt);
   }
 
   /**
@@ -588,6 +654,21 @@ export class ConnectionFactory {
           return;
         }
 
+        // Check if the circuit relay transport already re-established
+        // the connection (it has its own recovery via not-enough-relays).
+        const existingConns = this.#libp2p
+          .getConnections()
+          .filter(
+            (connection) => connection.remotePeer.toString() === relayPeerId,
+          );
+        if (existingConns.length > 0) {
+          this.#logger.log(
+            `relay ${relayPeerId} already reconnected (${existingConns.length} conn(s)), skipping attempt`,
+          );
+          this.#pendingRelayReconnects.delete(relayPeerId);
+          return;
+        }
+
         this.#logger.log(
           `attempting relay reconnect to ${relayPeerId} (attempt ${attempt + 1}/${RELAY_RECONNECT_MAX_ATTEMPTS})`,
         );
@@ -596,8 +677,12 @@ export class ConnectionFactory {
           await this.#libp2p.dial(multiaddr(relayAddr));
           this.#logger.log(`relay ${relayPeerId} reconnected`);
           this.#pendingRelayReconnects.delete(relayPeerId);
+          // Increment the persistent counter — if this connection also
+          // drops immediately, the next reconnect uses a longer backoff.
+          this.#relayReconnectAttempts.set(relayPeerId, attempt + 1);
         } catch (error) {
           this.#logger.error(`relay ${relayPeerId} reconnect failed:`, error);
+          this.#relayReconnectAttempts.set(relayPeerId, attempt + 1);
           this.#reconnectRelay(relayPeerId, attempt + 1);
         }
       })().catch((error) => {

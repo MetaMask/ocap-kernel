@@ -1,6 +1,5 @@
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
-import { autoNAT } from '@libp2p/autonat';
 import { circuitRelayServer } from '@libp2p/circuit-relay-v2';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
@@ -54,7 +53,6 @@ export async function startRelay(logger: RelayLogger): Promise<Libp2p> {
     services: {
       identify: identify(),
       ping: ping(),
-      autoNat: autoNAT(),
       relay: circuitRelayServer({
         // Allow unlimited reservations for testing
         reservations: {
