@@ -1,0 +1,115 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+import { makeProvider } from './provider.ts';
+import type { Provider } from './provider.ts';
+
+// Mock globalThis.fetch for all tests.
+// Each test file runs in its own vitest worker, so this doesn't leak.
+const mockFetch = vi.fn();
+globalThis.fetch = mockFetch;
+
+/**
+ * Create a mock fetch response.
+ *
+ * @param result - The JSON-RPC result to return.
+ * @returns A mock Response-like object.
+ */
+function mockRpcResponse(result: unknown): {
+  ok: boolean;
+  json: () => Promise<{ jsonrpc: string; id: number; result: unknown }>;
+} {
+  return {
+    ok: true,
+    json: async () => ({ jsonrpc: '2.0', id: 1, result }),
+  };
+}
+
+describe('lib/provider', () => {
+  let provider: Provider;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    provider = makeProvider({ chainId: 1, rpcUrl: 'https://rpc.example.com' });
+  });
+
+  describe('makeProvider', () => {
+    it('creates a provider for a known chain', () => {
+      const knownProvider = makeProvider({
+        chainId: 1,
+        rpcUrl: 'https://eth.example.com',
+      });
+      expect(knownProvider).toBeDefined();
+      expect(knownProvider.request).toBeDefined();
+      expect(knownProvider.broadcastTransaction).toBeDefined();
+      expect(knownProvider.getBalance).toBeDefined();
+      expect(knownProvider.getChainId).toBeDefined();
+      expect(knownProvider.getNonce).toBeDefined();
+    });
+
+    it('creates a provider for a custom chain', () => {
+      const customProvider = makeProvider({
+        chainId: 99999,
+        rpcUrl: 'https://custom-rpc.example.com',
+        name: 'Custom Chain',
+      });
+      expect(customProvider).toBeDefined();
+    });
+  });
+
+  describe('request', () => {
+    it('forwards JSON-RPC calls via fetch', async () => {
+      mockFetch.mockResolvedValue(mockRpcResponse('0x1'));
+
+      const result = await provider.request('eth_chainId', []);
+      expect(result).toBe('0x1');
+      expect(mockFetch).toHaveBeenCalledWith(
+        'https://rpc.example.com',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    });
+  });
+
+  describe('broadcastTransaction', () => {
+    it('sends a raw transaction', async () => {
+      const txHash = '0xabc123';
+      mockFetch.mockResolvedValue(mockRpcResponse(txHash));
+
+      const result = await provider.broadcastTransaction('0xf86c...');
+      expect(result).toBe(txHash);
+    });
+  });
+
+  describe('getBalance', () => {
+    it('returns the balance as a hex string', async () => {
+      mockFetch.mockResolvedValue(mockRpcResponse('0xde0b6b3a7640000'));
+
+      const balance = await provider.getBalance(
+        '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
+      );
+      expect(balance).toBe('0xde0b6b3a7640000');
+    });
+  });
+
+  describe('getChainId', () => {
+    it('returns the chain ID', async () => {
+      mockFetch.mockResolvedValue(mockRpcResponse('0x1'));
+
+      const chainId = await provider.getChainId();
+      expect(chainId).toBe(1);
+    });
+  });
+
+  describe('getNonce', () => {
+    it('returns the transaction count', async () => {
+      mockFetch.mockResolvedValue(mockRpcResponse('0x2a'));
+
+      const nonce = await provider.getNonce(
+        '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266',
+      );
+      expect(nonce).toBe(42);
+    });
+  });
+});

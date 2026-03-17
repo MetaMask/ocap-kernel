@@ -150,6 +150,7 @@ jobs:
             '@metamask/kernel-node-runtime',
             '@ocap/extension',
             '@ocap/omnium-gatherum',
+            '@ocap/evm-wallet-experiment',
           ]
         include:
           - package: '@metamask/kernel-node-runtime'
@@ -158,6 +159,8 @@ jobs:
             directory: extension
           - package: '@ocap/omnium-gatherum'
             directory: omnium-gatherum
+          - package: '@ocap/evm-wallet-experiment'
+            directory: evm-wallet-experiment
     steps:
       - name: Checkout and setup environment
         uses: MetaMask/action-checkout-and-setup@v3

@@ -1,0 +1,36 @@
+{
+  "id": "wallet",
+  "name": "Wallet (OCAP)",
+  "description": "Ethereum wallet tools backed by the OCAP kernel daemon. The AI agent can check balances (ETH and ERC-20 tokens), send transactions (native and token transfers), resolve token symbols to addresses, and sign messages without accessing private keys.",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "ocapCliPath": {
+        "type": "string",
+        "description": "Absolute path to the ocap CLI entry point (.mjs file or binary). Default: 'ocap' from PATH."
+      },
+      "walletKref": {
+        "type": "string",
+        "description": "Kernel reference of the wallet coordinator (e.g. 'ko4'). Found via `ocap daemon exec getStatus`."
+      },
+      "timeoutMs": {
+        "type": "number",
+        "description": "Timeout for daemon calls in ms (default: 60000)"
+      }
+    }
+  },
+  "uiHints": {
+    "walletKref": {
+      "label": "Wallet Coordinator KRef",
+      "placeholder": "ko4"
+    },
+    "ocapCliPath": {
+      "label": "OCAP CLI Path",
+      "placeholder": "~/ocap-kernel/packages/kernel-cli/dist/app.mjs"
+    },
+    "timeoutMs": {
+      "label": "Timeout (ms)",
+      "placeholder": "60000"
+    }
+  }
+}
