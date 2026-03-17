@@ -9,6 +9,7 @@ export type StoreContext = {
   kv: KVStore;
   runQueue: StoredQueue; // Holds RunAction[]
   runQueueLengthCache: number; // Holds number
+  refreshRunQueue: () => void;
   nextObjectId: StoredValue; // Holds string
   nextPromiseId: StoredValue; // Holds string
   nextVatId: StoredValue; // Holds string

@@ -132,7 +132,11 @@ export class KernelRouter {
 
     const routeAsSplat = (error?: CapData<KRef>): MessageRoute => {
       if (message.result && error) {
-        this.#kernelQueue.resolvePromises(undefined, [
+        // Use the current decider as the resolver. After a crank rollback,
+        // the decider may have reverted to the sending vat rather than the
+        // (now-terminated) target vat.
+        const promise = this.#kernelStore.getKernelPromise(message.result);
+        this.#kernelQueue.resolvePromises(promise?.decider, [
           [message.result, true, error],
         ]);
       }
@@ -140,11 +144,13 @@ export class KernelRouter {
     };
     const routeAsSend = (targetObject: KRef): MessageRoute => {
       if (this.#kernelStore.isRevoked(targetObject)) {
-        return routeAsSplat(kser('revoked object'));
+        return routeAsSplat(kser('target object has been revoked'));
       }
       const endpointId = this.#kernelStore.getOwner(targetObject);
       if (!endpointId) {
-        return routeAsSplat(kser('no endpoint'));
+        return routeAsSplat(
+          kser('target object has no owner; it may have been deleted'),
+        );
       }
       return { endpointId, target: targetObject };
     };
@@ -165,7 +171,9 @@ export class KernelRouter {
               return routeAsSend(targetObject);
             }
           }
-          return routeAsSplat(kser('no object'));
+          return routeAsSplat(
+            kser('promise fulfilled but did not contain an object reference'),
+          );
         }
         case 'rejected':
           return routeAsSplat(promise.value);
@@ -216,9 +224,39 @@ export class KernelRouter {
     );
     if (endpointId) {
       const isKernelServiceMessage = endpointId === 'kernel';
-      const endpoint = isKernelServiceMessage
-        ? null
-        : this.#getEndpoint(endpointId);
+      let endpoint: EndpointHandle | null = null;
+      if (!isKernelServiceMessage) {
+        try {
+          endpoint = this.#getEndpoint(endpointId);
+        } catch {
+          // Endpoint vanished (e.g., vat terminated but ownership entries not
+          // yet cleaned up). Treat the same as a splat.
+          if (message.result) {
+            const promise = this.#kernelStore.getKernelPromise(message.result);
+            this.#kernelQueue.resolvePromises(promise.decider, [
+              [
+                message.result,
+                true,
+                kser(
+                  'target endpoint is unreachable (terminated or disconnected)',
+                ),
+              ],
+            ]);
+            this.#kernelStore.decrementRefCount(
+              message.result,
+              'deliver|splat|result',
+            );
+          }
+          this.#kernelStore.decrementRefCount(target, 'deliver|splat|target');
+          for (const slot of message.methargs.slots) {
+            this.#kernelStore.decrementRefCount(slot, 'deliver|splat|slot');
+          }
+          this.#logger?.log(
+            `@@@@ message went splat (endpoint gone) ${target}<-${JSON.stringify(message)}`,
+          );
+          return crankResults;
+        }
+      }
       if (endpoint || isKernelServiceMessage) {
         if (message.result) {
           if (typeof message.result !== 'string') {

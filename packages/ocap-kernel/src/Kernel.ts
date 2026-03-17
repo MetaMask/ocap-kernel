@@ -128,9 +128,14 @@ export class Kernel {
       this.#resetKernelState({ resetIdentity: Boolean(options.mnemonic) });
     }
 
+    // Bypass VatManager.terminateVat() here because it calls waitForCrank(),
+    // which would deadlock — this callback is invoked from within a crank.
     this.#kernelQueue = new KernelQueue(
       this.#kernelStore,
-      async (vatId, reason) => this.#vatManager.terminateVat(vatId, reason),
+      async (vatId, reason) => {
+        await this.#vatManager.stopVat(vatId, true, reason);
+        this.#kernelStore.markVatAsTerminated(vatId);
+      },
     );
 
     this.#vatManager = new VatManager({

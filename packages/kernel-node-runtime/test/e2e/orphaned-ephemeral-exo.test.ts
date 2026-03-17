@@ -55,10 +55,11 @@ describe('Orphaned ephemeral exo', { timeout: 30_000 }, () => {
         // The consumer's E(ephemeral).increment() targets an orphaned vref.
         // Liveslots in the provider throws "I don't remember allocating",
         // which terminates the provider and rejects the caller's promise.
+        // This is surfaced to the caller as "target object has no owner".
         await expect(
           kernel.queueMessage(rootKref, 'useEphemeral', []),
         ).rejects.toMatchObject({
-          body: expect.stringContaining("I don't remember allocating"),
+          body: expect.stringContaining('target object has no owner'),
         });
       } finally {
         await kernel.stop();

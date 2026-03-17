@@ -35,7 +35,13 @@ export class KernelQueue {
   ) => Promise<void>;
 
   /** Message results that the kernel itself has subscribed to */
-  readonly subscriptions: Map<KRef, (value: CapData<KRef>) => void> = new Map();
+  readonly subscriptions: Map<
+    KRef,
+    {
+      resolve: (value: CapData<KRef>) => void;
+      reject: (reason: unknown) => void;
+    }
+  > = new Map();
 
   /** Promises resolved during this crank that have kernel subscriptions */
   #resolvedWithKernelSubscription: KRef[] = [];
@@ -77,6 +83,21 @@ export class KernelQueue {
         this.#kernelStore.rollbackCrank('start');
         // Discard kernel subscriptions that were queued for invocation
         this.#resolvedWithKernelSubscription = [];
+
+        // If the vat is being terminated, reject the JS subscription for this
+        // message's result promise immediately. The rollback undid the delivery,
+        // and the vat won't be around to handle a retry.
+        if (
+          crankResults.terminate &&
+          item.type === 'send' &&
+          item.message.result
+        ) {
+          const subscription = this.subscriptions.get(item.message.result);
+          if (subscription) {
+            this.subscriptions.delete(item.message.result);
+            subscription.reject(crankResults.terminate.info);
+          }
+        }
         // TODO: Currently all errors terminate the vat, but instead we could
         // restart it and terminate the vat only after a certain number of failed
         // retries. This is probably where we should implement the vat restart logic.
@@ -117,23 +138,21 @@ export class KernelQueue {
           continue;
         }
 
-        while (this.#kernelStore.runQueueLength() > 0) {
+        if (this.#kernelStore.runQueueLength() > 0) {
           const item = this.#kernelStore.dequeueRun();
           if (item) {
             yield item;
-          } else {
-            break;
+            continue;
           }
         }
 
-        if (this.#kernelStore.runQueueLength() === 0) {
-          const { promise, resolve } = makePromiseKit<void>();
-          if (this.#wakeUpTheRunQueue !== null) {
-            Fail`wakeUpTheRunQueue function already set`;
-          }
-          this.#wakeUpTheRunQueue = resolve;
-          wakeUpPromise = promise;
+        // Queue empty — sleep until woken
+        const { promise, resolve } = makePromiseKit<void>();
+        if (this.#wakeUpTheRunQueue !== null) {
+          Fail`run queue already waiting to be woken; cannot sleep again before the previous wake handler is consumed`;
         }
+        this.#wakeUpTheRunQueue = resolve;
+        wakeUpPromise = promise;
       } finally {
         this.#kernelStore.endCrank();
         if (wakeUpPromise) {
@@ -190,7 +209,11 @@ export class KernelQueue {
     if (subscription) {
       this.subscriptions.delete(kpid);
       const promise = this.#kernelStore.getKernelPromise(kpid);
-      subscription(promise.value as CapData<KRef>);
+      if (promise.state === 'rejected') {
+        subscription.reject(promise.value);
+      } else {
+        subscription.resolve(promise.value as CapData<KRef>);
+      }
     }
   }
 
@@ -212,8 +235,8 @@ export class KernelQueue {
     // eslint-disable-next-line no-console
     console.debug('enqueueMessage', target, method, args);
     const result = this.#kernelStore.initKernelPromise()[0];
-    const { promise, resolve } = makePromiseKit<CapData<KRef>>();
-    this.subscriptions.set(result, resolve);
+    const { promise, resolve, reject } = makePromiseKit<CapData<KRef>>();
+    this.subscriptions.set(result, { resolve, reject });
     this.enqueueSend(target, {
       methargs: kser([method, args]),
       result,

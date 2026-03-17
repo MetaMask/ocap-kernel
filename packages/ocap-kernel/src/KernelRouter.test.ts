@@ -194,7 +194,7 @@ describe('KernelRouter', () => {
               'kp1',
               true,
               expect.objectContaining({
-                body: expect.stringContaining('revoked object'),
+                body: expect.stringContaining('target object has been revoked'),
                 slots: [],
               }),
             ]),

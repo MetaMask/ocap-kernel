@@ -339,10 +339,17 @@ export class SubclusterManager {
         `Bootstrap vat "${config.bootstrap}" not found in rootIds`,
       );
     }
-    const bootstrapResult = await this.#queueMessage(rootKref, 'bootstrap', [
-      roots,
-      services,
-    ]);
+    let bootstrapResult: CapData<KRef>;
+    try {
+      bootstrapResult = await this.#queueMessage(rootKref, 'bootstrap', [
+        roots,
+        services,
+      ]);
+    } catch (rejection) {
+      // queueMessage rejects with CapData for rejected kernel promises.
+      // Deserialize to surface the original Error to the caller.
+      throw kunser(rejection as CapData<KRef>);
+    }
     const unserialized = kunser(bootstrapResult);
     if (unserialized instanceof Error) {
       throw unserialized;

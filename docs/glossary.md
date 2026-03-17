@@ -66,8 +66,9 @@ runtime environment for vat code and handles object persistence, promise managem
 ### crank
 
 A single execution cycle in the kernel's [run queue](#run-queue). Each crank processes one
-item from the run queue, delivering a single message or notification to [a vat](#vat).
-Cranks can be aborted and rolled back if errors occur. See the
+item from the run queue, delivering a single message or notification to [a vat](#vat). The
+"message or notification" is whatever item is taken of the run queue. Cranks can be
+aborted and rolled back if errors occur. See the
 [KernelQueue](../packages/ocap-kernel/src/KernelQueue.ts) for the run loop implementation.
 
 ### syscall

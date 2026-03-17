@@ -48,6 +48,13 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
       if (ctx.savepoints[ordinal] === savepoint) {
         kdb.rollbackSavepoint(`t${ordinal}`);
         ctx.savepoints.length = ordinal;
+        // The rollback reverted DB state but in-memory caches are stale.
+        // Recreate the run queue so its cached head/tail are re-read from DB.
+        ctx.refreshRunQueue();
+        // Invalidate the run queue length cache so it's recalculated from
+        // the database on next access, since the rollback may have restored
+        // dequeued items.
+        ctx.runQueueLengthCache = -1;
         return;
       }
     }

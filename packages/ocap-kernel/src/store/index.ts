@@ -117,6 +117,10 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     runQueue: provideStoredQueue('run', true),
     /** Cache of the run queue's current length */
     runQueueLengthCache: -1,
+    /** Recreate the run queue from DB state (used after rollback to clear stale caches). */
+    refreshRunQueue: () => {
+      context.runQueue = provideStoredQueue('run', true);
+    },
     /** Counter for allocating kernel object IDs */
     nextObjectId: provideCachedStoredValue('nextObjectId', '1'),
     /** Counter for allocating kernel promise IDs */
