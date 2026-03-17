@@ -28,9 +28,8 @@ const libp2pState: {
 vi.mock('@chainsafe/libp2p-noise', () => ({ noise: () => ({}) }));
 vi.mock('@chainsafe/libp2p-yamux', () => ({ yamux: () => ({}) }));
 vi.mock('@libp2p/bootstrap', () => ({ bootstrap: () => ({}) }));
-const circuitRelayTransport = vi.fn(() => ({}));
 vi.mock('@libp2p/circuit-relay-v2', () => ({
-  circuitRelayTransport,
+  circuitRelayTransport: () => ({}),
 }));
 vi.mock('@libp2p/identify', () => ({ identify: () => ({}) }));
 vi.mock('@libp2p/webrtc', () => ({ webRTC: () => ({}) }));
@@ -315,14 +314,6 @@ describe('ConnectionFactory', () => {
       const callArgs = createLibp2p.mock.calls[0]?.[0];
       expect(callArgs).toBeDefined();
       expect(callArgs.transports).toHaveLength(4); // webSockets, webTransport, webRTC, circuitRelay
-    });
-
-    it('configures circuit relay transport with relay discovery', async () => {
-      factory = await createFactory();
-
-      expect(circuitRelayTransport).toHaveBeenCalledWith({
-        discoverRelays: 1,
-      });
     });
 
     it('uses provided key seed for key generation', async () => {

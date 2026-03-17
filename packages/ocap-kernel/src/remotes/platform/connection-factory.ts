@@ -225,7 +225,7 @@ export class ConnectionFactory {
             ],
           },
         }),
-        circuitRelayTransport({ discoverRelays: 1 }),
+        circuitRelayTransport(),
         ...this.#directTransports.map(
           (dt) => dt.transport as ReturnType<typeof webSockets>,
         ),
