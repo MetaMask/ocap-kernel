@@ -46,14 +46,15 @@ kernel's storage methods.
 
 An object registered with the [kernel](#kernel) that [vats](#vat) can invoke via `E()`.
 Kernel services run in the kernel's own context (not in a vat) and are registered using
-`kernel.registerKernelServiceObject()`. Services marked `systemOnly` can only be accessed
-by [system subclusters](#system-subcluster). See the
+`kernel.registerKernelServiceObject()`. Because service implementations do not participate
+in the kernel's reference management, they cannot return [exos](#exo). Services marked
+`systemOnly` can only be accessed by [system subclusters](#system-subcluster). See the
 [KernelServiceManager](../packages/ocap-kernel/src/KernelServiceManager.ts).
 
 ### supervisor
 
-A component that manages the lifecycle and communication of a [vat](#vat). The
-[VatSupervisor](../packages/ocap-kernel/src/VatSupervisor.ts) handles [message
+A kernel-space component that manages the lifecycle and communication of a [vat](#vat).
+The [VatSupervisor](../packages/ocap-kernel/src/VatSupervisor.ts) handles [message
 delivery](#delivery), [syscalls](#syscall), and vat initialization.
 
 ### liveslots
@@ -65,8 +66,8 @@ runtime environment for vat code and handles object persistence, promise managem
 ### crank
 
 A single execution cycle in the kernel's [run queue](#run-queue). Each crank processes one
-item from the run queue, delivering messages or notifications to [vats](#vat). Cranks can
-be aborted and rolled back if errors occur. See the
+item from the run queue, delivering a single message or notification to [a vat](#vat).
+Cranks can be aborted and rolled back if errors occur. See the
 [KernelQueue](../packages/ocap-kernel/src/KernelQueue.ts) for the run loop implementation.
 
 ### syscall
@@ -78,9 +79,9 @@ persistent storage. See [VatSyscall](../packages/ocap-kernel/src/VatSyscall.ts) 
 
 ### delivery
 
-The process of sending a message or notification to a [vat](#vat). Deliveries can be of
-type 'message', 'notify', 'dropExports', 'retireExports', 'retireImports', or
-'bringOutYourDead'. See the [router](#router)
+The process of sending a message or notification to a [vat](#vat) in a [crank](#crank).
+Deliveries can be of type 'message', 'notify', 'dropExports', 'retireExports',
+'retireImports', or 'bringOutYourDead'. See the [kernel router](#kernel-router)
 ([KernelRouter](../packages/ocap-kernel/src/KernelRouter.ts)) for delivery logic.
 
 ### marshaling
@@ -152,7 +153,7 @@ this queue. See the [KernelQueue](../packages/ocap-kernel/src/KernelQueue.ts) cl
 [queue methods](../packages/ocap-kernel/src/store/methods/queue.ts) for implementation
 details.
 
-### router
+### kernel router
 
 The component responsible for routing messages to the correct [vat](#vat) based on target
 references and promise states. The router handles [delivery](#delivery) logic. See the
