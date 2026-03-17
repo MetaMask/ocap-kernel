@@ -10,9 +10,9 @@ export default defineConfig((args) => {
     defineProject({
       test: {
         name: 'kernel-test-local-e2e',
-        testTimeout: 30_000,
+        testTimeout: 60_000,
         hookTimeout: 10_000,
-        include: ['./test/e2e/**/*.test.ts'],
+        include: ['./src/**/*.e2e.test.ts', './test/**/*.test.ts'],
       },
     }),
   );

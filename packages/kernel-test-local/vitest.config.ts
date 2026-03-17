@@ -13,6 +13,7 @@ export default defineConfig((args) => {
         testTimeout: 30_000,
         hookTimeout: 10_000,
         include: ['./src/**/*.test.ts'],
+        exclude: ['**/*.e2e.test.ts'],
       },
     }),
   );

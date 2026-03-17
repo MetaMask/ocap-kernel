@@ -23,7 +23,7 @@ export const filterTransports = (
 /**
  * Generate a random letter.
  *
- * @returns a random letter.
+ * @returns A random letter.
  */
 export function randomLetter(): string {
   return String.fromCharCode(Math.floor(Math.random() * 26) + 97);
