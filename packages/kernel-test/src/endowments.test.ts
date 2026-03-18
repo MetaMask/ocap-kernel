@@ -49,7 +49,11 @@ describe('endowments', () => {
 
     await waitUntilQuiescent();
 
-    await kernel.queueMessage(v1Root, 'hello', [`https://${badHost}`]);
+    await expect(
+      kernel.queueMessage(v1Root, 'hello', [`https://${badHost}`]),
+    ).rejects.toMatchObject({
+      body: expect.stringContaining(`Invalid host: ${badHost}`),
+    });
 
     await waitUntilQuiescent();
 
