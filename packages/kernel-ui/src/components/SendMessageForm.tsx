@@ -76,7 +76,13 @@ export const SendMessageForm: React.FC = () => {
         logMessage(stringify(response), 'received');
         return fetchObjectRegistry();
       })
-      .catch((error) => logMessage(String(error), 'error'));
+      .catch((error: unknown) => {
+        const errorString =
+          error instanceof Error ? String(error) : stringify(error);
+        setResult(errorString);
+        logMessage(errorString, 'error');
+        return fetchObjectRegistry();
+      });
   };
 
   const handleKeyDown = (

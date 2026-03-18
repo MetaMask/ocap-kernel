@@ -124,6 +124,6 @@ test.describe('Object Registry', () => {
 
     // After revoking, the previously successful message should fail
     response = await sendMessage(popupPage, target, method, params);
-    await expect(response).toContainText(/[Rr]evoked object/u);
+    await expect(response).toContainText('has been revoked');
   });
 });
