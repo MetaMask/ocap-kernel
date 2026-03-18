@@ -85,8 +85,9 @@ export class SilentReporter extends DotReporter {
 
     if (hasFailed || errors.length > 0) {
       super.reportSummary(files, errors);
+    } else {
+      process.stdout.write('All tests pass.\n');
     }
-    // Silent when all pass
   }
 }
 
