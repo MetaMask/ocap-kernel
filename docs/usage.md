@@ -59,7 +59,7 @@ import {
   getCommsParamsFromCurrentLocation,
 } from '@metamask/kernel-browser-runtime';
 
-// Define relay addresses and other options (libp2p multiaddrs, etc.)
+// Define relay addresses and other RemoteCommsOptions (allowedWsHosts, maxQueue, directListenAddresses, etc.)
 const commsParams = {
   relays: [
     '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
@@ -67,9 +67,11 @@ const commsParams = {
   allowedWsHosts: ['localhost'],
 };
 
-// Build worker URL with query string (append params with .set() before .toString() if needed)
+// Build worker URL with query string (createCommsQueryString returns URLSearchParams)
+const workerUrlParams = createCommsQueryString(commsParams);
+workerUrlParams.set('reset-storage', 'false'); // append other params as needed
 const workerUrl = new URL('kernel-worker.js', import.meta.url);
-workerUrl.search = createCommsQueryString(commsParams).toString();
+workerUrl.search = workerUrlParams.toString();
 const worker = new Worker(workerUrl, { type: 'module' });
 
 // Inside the worker, retrieve all comms options and init
@@ -251,7 +253,7 @@ The `initRemoteComms` method enables peer-to-peer communication between kernels 
 const relays = [
   '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
 ];
-await kernel.initRemoteComms(relays);
+await kernel.initRemoteComms({ relays });
 
 //... launch subcluster
 
