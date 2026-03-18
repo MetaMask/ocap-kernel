@@ -49,30 +49,32 @@ const kernel = await Kernel.make(platformServices, kernelDatabase, {
 });
 ```
 
-#### Configuring Relay Addresses for Workers
+#### Configuring Remote Comms for Workers
 
-When creating kernel workers with relay configuration, use the utilities from `@metamask/kernel-browser-runtime`:
+When creating kernel workers with relay and other remote comms options, use the utilities from `@metamask/kernel-browser-runtime`:
 
 ```typescript
 import {
-  createWorkerUrlWithRelays,
-  getRelaysFromCurrentLocation,
+  createCommsQueryString,
+  getCommsParamsFromCurrentLocation,
 } from '@metamask/kernel-browser-runtime';
 
-// Define relay addresses (libp2p multiaddrs)
-const relays = [
-  '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
-];
+// Define relay addresses and other options (libp2p multiaddrs, etc.)
+const commsParams = {
+  relays: [
+    '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+  ],
+  allowedWsHosts: ['localhost'],
+};
 
-// Create a worker with relay configuration
-const worker = new Worker(
-  createWorkerUrlWithRelays('kernel-worker.js', relays),
-  { type: 'module' },
-);
+// Build worker URL with query string (append params with .set() before .toString() if needed)
+const workerUrl = new URL('kernel-worker.js', import.meta.url);
+workerUrl.search = createCommsQueryString(commsParams).toString();
+const worker = new Worker(workerUrl, { type: 'module' });
 
-// Inside the worker, retrieve relay configuration
-const relays = getRelaysFromCurrentLocation();
-await kernel.initRemoteComms(relays);
+// Inside the worker, retrieve all comms options and init
+const options = getCommsParamsFromCurrentLocation();
+await kernel.initRemoteComms(options);
 ```
 
 ### Node.js Environment

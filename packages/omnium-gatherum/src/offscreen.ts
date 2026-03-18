@@ -1,14 +1,17 @@
 import {
   makeIframeVatWorker,
   PlatformServicesServer,
-  createRelayQueryString,
+  createCommsQueryString,
   setupConsoleForwarding,
   isConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import type { SystemSubclusterConfig } from '@metamask/ocap-kernel';
+import type {
+  RemoteCommsOptions,
+  SystemSubclusterConfig,
+} from '@metamask/ocap-kernel';
 import type { DuplexStream } from '@metamask/streams';
 import {
   initializeMessageChannel,
@@ -57,20 +60,21 @@ async function main(): Promise<void> {
   ]);
 }
 
+const DEFAULT_RELAYS = [
+  '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+];
+
 /**
  * Creates and initializes the kernel worker.
  *
+ * @param remoteCommsOptions - Options passed to {@link Kernel.initRemoteComms} via the worker URL (relays, allowedWsHosts, etc.); defaults to DEFAULT_RELAYS.
  * @returns The message port stream for worker communication
  */
-async function makeKernelWorker(): Promise<
-  DuplexStream<JsonRpcMessage, JsonRpcMessage>
-> {
-  // Assign local relay address generated from `yarn ocap relay`
-  const relayQueryString = createRelayQueryString([
-    '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
-  ]);
-
-  const workerUrlParams = new URLSearchParams(relayQueryString);
+async function makeKernelWorker(
+  remoteCommsOptions?: Partial<RemoteCommsOptions>,
+): Promise<DuplexStream<JsonRpcMessage, JsonRpcMessage>> {
+  const opts = remoteCommsOptions ?? { relays: DEFAULT_RELAYS };
+  const workerUrlParams = createCommsQueryString(opts);
   workerUrlParams.set('reset-storage', process.env.RESET_STORAGE ?? 'false');
 
   // Configure system subclusters to launch at kernel initialization
