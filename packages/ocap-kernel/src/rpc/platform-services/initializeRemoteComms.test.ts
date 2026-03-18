@@ -70,6 +70,42 @@ describe('initializeRemoteComms', () => {
         expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
       });
 
+      it('should accept params with allowedWsHosts', () => {
+        const validParams = {
+          keySeed: '0x1234567890abcdef',
+          allowedWsHosts: ['localhost', 'example.com'],
+        };
+
+        expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+      });
+
+      it('should accept params with empty allowedWsHosts array', () => {
+        const validParams = {
+          keySeed: '0x1234567890abcdef',
+          allowedWsHosts: [],
+        };
+
+        expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);
+      });
+
+      it('should reject params with non-array allowedWsHosts', () => {
+        const invalidParams = {
+          keySeed: '0x1234567890abcdef',
+          allowedWsHosts: 'not-an-array',
+        };
+
+        expect(is(invalidParams, initializeRemoteCommsSpec.params)).toBe(false);
+      });
+
+      it('should reject params with non-string elements in allowedWsHosts', () => {
+        const invalidParams = {
+          keySeed: '0x1234567890abcdef',
+          allowedWsHosts: ['localhost', 123],
+        };
+
+        expect(is(invalidParams, initializeRemoteCommsSpec.params)).toBe(false);
+      });
+
       it('should accept params with incarnationId', () => {
         const validParams = {
           keySeed: '0x1234567890abcdef',
@@ -562,6 +598,31 @@ describe('initializeRemoteComms', () => {
       );
     });
 
+    it('should pass allowedWsHosts to hook when provided', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        allowedWsHosts: ['localhost', 'example.com'],
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+        '0xtestseed',
+        {
+          allowedWsHosts: ['localhost', 'example.com'],
+        },
+        undefined,
+      );
+    });
+
     it('should pass all options when all are provided', async () => {
       const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
         async () => null,
@@ -576,6 +637,7 @@ describe('initializeRemoteComms', () => {
         relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
         maxRetryAttempts: 5,
         maxQueue: 100,
+        allowedWsHosts: ['localhost'],
       };
 
       await initializeRemoteCommsHandler.implementation(hooks, params);
@@ -586,6 +648,7 @@ describe('initializeRemoteComms', () => {
           relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
           maxRetryAttempts: 5,
           maxQueue: 100,
+          allowedWsHosts: ['localhost'],
         },
         undefined,
       );
@@ -620,6 +683,7 @@ describe('initializeRemoteComms', () => {
           expect(options).not.toHaveProperty('relays');
           expect(options).not.toHaveProperty('maxRetryAttempts');
           expect(options).not.toHaveProperty('maxQueue');
+          expect(options).not.toHaveProperty('allowedWsHosts');
           return null;
         },
       );
@@ -641,6 +705,7 @@ describe('initializeRemoteComms', () => {
         relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
         maxRetryAttempts: 5,
         maxQueue: 100,
+        allowedWsHosts: ['localhost'],
       };
 
       expect(is(validParams, initializeRemoteCommsSpec.params)).toBe(true);

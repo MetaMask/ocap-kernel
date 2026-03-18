@@ -15,6 +15,7 @@ const initializeRemoteCommsParamsStruct = object({
   relays: optional(array(string())),
   maxRetryAttempts: optional(number()),
   maxQueue: optional(number()),
+  allowedWsHosts: optional(array(string())),
   incarnationId: optional(string()),
 });
 
@@ -23,6 +24,7 @@ type InitializeRemoteCommsParams = {
   relays?: string[];
   maxRetryAttempts?: number;
   maxQueue?: number;
+  allowedWsHosts?: string[];
   incarnationId?: string;
 };
 
@@ -68,6 +70,9 @@ export const initializeRemoteCommsHandler: InitializeRemoteCommsHandler = {
     }
     if (params.maxQueue !== undefined) {
       options.maxQueue = params.maxQueue;
+    }
+    if (params.allowedWsHosts !== undefined) {
+      options.allowedWsHosts = params.allowedWsHosts;
     }
     return await initializeRemoteComms(
       params.keySeed,
