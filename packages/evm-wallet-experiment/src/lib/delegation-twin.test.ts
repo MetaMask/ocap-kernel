@@ -276,5 +276,56 @@ describe('makeDelegationTwin', () => {
       };
       expect(guard.payload.methodGuards).not.toHaveProperty('getBalance');
     });
+
+    it('uses generic string guard for address arg by default', () => {
+      const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
+      makeDelegationTwin({
+        grant: makeTransferGrant(1000n),
+        redeemFn,
+      });
+      const guard = lastInterfaceGuard as {
+        payload: {
+          methodGuards: Record<string, { payload: { argGuards: unknown[] } }>;
+        };
+      };
+      const argGuard = guard.payload.methodGuards.transfer.payload.argGuards[0];
+      expect(typeof argGuard).not.toBe('string');
+    });
+
+    it('restricts address arg to literal when allowedCalldata caveat present', () => {
+      const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
+      const grant = makeTransferGrant(1000n);
+      grant.caveatSpecs.push({
+        type: 'allowedCalldata' as const,
+        dataStart: 4,
+        value: `0x${BOB.slice(2).padStart(64, '0')}`,
+      });
+      makeDelegationTwin({ grant, redeemFn });
+      const guard = lastInterfaceGuard as {
+        payload: {
+          methodGuards: Record<string, { payload: { argGuards: unknown[] } }>;
+        };
+      };
+      const argGuard = guard.payload.methodGuards.transfer.payload.argGuards[0];
+      expect(argGuard).toBe(BOB);
+    });
+
+    it('does not restrict address arg for call method', () => {
+      const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
+      const grant = makeCallGrant();
+      grant.caveatSpecs.push({
+        type: 'allowedCalldata' as const,
+        dataStart: 4,
+        value: `0x${BOB.slice(2).padStart(64, '0')}`,
+      });
+      makeDelegationTwin({ grant, redeemFn });
+      const guard = lastInterfaceGuard as {
+        payload: {
+          methodGuards: Record<string, { payload: { argGuards: unknown[] } }>;
+        };
+      };
+      const argGuard = guard.payload.methodGuards.call.payload.argGuards[0];
+      expect(typeof argGuard).not.toBe('string');
+    });
   });
 });

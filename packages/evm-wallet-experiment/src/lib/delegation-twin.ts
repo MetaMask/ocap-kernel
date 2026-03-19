@@ -13,14 +13,64 @@ import type {
   Hex,
 } from '../types.ts';
 
-const METHOD_GUARDS: Record<
-  CatalogMethodName,
-  ReturnType<typeof M.callWhen>
-> = {
-  transfer: M.callWhen(M.string(), M.scalar()).returns(M.any()),
-  approve: M.callWhen(M.string(), M.scalar()).returns(M.any()),
-  call: M.callWhen(M.string(), M.scalar(), M.string()).returns(M.any()),
-};
+/**
+ * Byte offset of the first argument in ABI-encoded calldata (after the
+ * 4-byte function selector). An `allowedCalldata` caveat spec at this offset
+ * pins the address argument for transfer/approve.
+ */
+const FIRST_ARG_OFFSET = 4;
+
+const METHODS_WITH_ADDRESS_ARG: ReadonlySet<string> = new Set([
+  'transfer',
+  'approve',
+]);
+
+/**
+ * Extract a restricted address from an `allowedCalldata` caveat spec that
+ * pins the first argument (offset 4, 32-byte ABI-encoded address).
+ *
+ * @param caveatSpecs - The caveat specs to search.
+ * @returns The restricted address, or undefined if none found.
+ */
+function findRestrictedAddress(caveatSpecs: CaveatSpec[]): Address | undefined {
+  const spec = caveatSpecs.find(
+    (cs): cs is CaveatSpec & { type: 'allowedCalldata' } =>
+      cs.type === 'allowedCalldata' && cs.dataStart === FIRST_ARG_OFFSET,
+  );
+  if (!spec) {
+    return undefined;
+  }
+  // The value is a 32-byte ABI-encoded address; extract the last 40 hex chars.
+  return `0x${spec.value.slice(-40)}`;
+}
+
+/**
+ * Build the method guard for a catalog method, optionally restricting the
+ * first (address) argument to a single literal value.
+ *
+ * @param methodName - The catalog method name.
+ * @param restrictAddress - If provided, lock the first arg to this literal.
+ * @returns A method guard for use in an InterfaceGuard.
+ */
+function buildMethodGuard(
+  methodName: CatalogMethodName,
+  restrictAddress?: Address,
+): ReturnType<typeof M.callWhen> {
+  const addrGuard =
+    restrictAddress !== undefined && METHODS_WITH_ADDRESS_ARG.has(methodName)
+      ? restrictAddress
+      : M.string();
+
+  switch (methodName) {
+    case 'transfer':
+    case 'approve':
+      return M.callWhen(addrGuard, M.scalar()).returns(M.any());
+    case 'call':
+      return M.callWhen(M.string(), M.scalar(), M.string()).returns(M.any());
+    default:
+      throw new Error(`Unknown catalog method: ${String(methodName)}`);
+  }
+}
 
 type SpendTracker = {
   spent: bigint;
@@ -126,8 +176,13 @@ export function makeDelegationTwin(
     [methodName]: entry.schema,
   };
 
+  const restrictedAddress = findRestrictedAddress(caveatSpecs);
+
   const methodGuards: Record<string, ReturnType<typeof M.callWhen>> = {
-    [methodName]: METHOD_GUARDS[methodName as CatalogMethodName],
+    [methodName]: buildMethodGuard(
+      methodName as CatalogMethodName,
+      restrictedAddress,
+    ),
   };
 
   if (readFn && token) {

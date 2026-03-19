@@ -73,6 +73,7 @@ export {
 // Caveat utilities (for creating delegations externally)
 export {
   encodeAllowedTargets,
+  encodeAllowedCalldata,
   encodeAllowedMethods,
   encodeValueLte,
   encodeNativeTokenTransferAmount,

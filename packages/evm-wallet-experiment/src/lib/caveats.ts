@@ -15,6 +15,25 @@ export function encodeAllowedTargets(targets: Address[]): Hex {
 }
 
 /**
+ * Encode caveat terms for the AllowedCalldata enforcer.
+ * Restricts a byte range of the execution calldata to an expected value.
+ * Commonly used to pin a function argument (e.g. a recipient address).
+ *
+ * @param options - Options for the caveat.
+ * @param options.dataStart - Byte offset into calldata where the check begins.
+ * @param options.value - The expected byte value at that offset.
+ * @returns The packed terms (32-byte offset ++ value bytes).
+ */
+export function encodeAllowedCalldata(options: {
+  dataStart: number;
+  value: Hex;
+}): Hex {
+  const startHex = options.dataStart.toString(16).padStart(64, '0');
+  // Strip the 0x prefix from value and concatenate
+  return `0x${startHex}${options.value.slice(2)}`;
+}
+
+/**
  * Encode caveat terms for the AllowedMethods enforcer.
  * Restricts delegation to only call specific function selectors.
  *

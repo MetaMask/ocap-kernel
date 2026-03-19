@@ -1,4 +1,5 @@
 import {
+  encodeAllowedCalldata,
   encodeAllowedMethods,
   encodeAllowedTargets,
   encodeErc20TransferAmount,
@@ -8,9 +9,31 @@ import {
 } from './caveats.ts';
 import { makeDelegation } from './delegation.ts';
 import { ERC20_APPROVE_SELECTOR, ERC20_TRANSFER_SELECTOR } from './erc20.ts';
-import type { Address, Caveat, CaveatSpec, DelegationGrant } from '../types.ts';
+import type {
+  Address,
+  Caveat,
+  CaveatSpec,
+  DelegationGrant,
+  Hex,
+} from '../types.ts';
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
+/**
+ * Byte offset of the first argument in ABI-encoded calldata (after the
+ * 4-byte function selector).
+ */
+const FIRST_ARG_OFFSET = 4;
+
+/**
+ * Encode an address as a 32-byte ABI-encoded word (left-padded with zeros).
+ *
+ * @param address - The Ethereum address to encode.
+ * @returns The 0x-prefixed 32-byte hex string.
+ */
+function abiEncodeAddress(address: Address): Hex {
+  return `0x${address.slice(2).toLowerCase().padStart(64, '0')}`;
+}
 
 type TransferOptions = {
   delegator: Address;
@@ -19,6 +42,7 @@ type TransferOptions = {
   max: bigint;
   chainId: number;
   validUntil?: number;
+  recipient?: Address;
 };
 
 type ApproveOptions = {
@@ -28,6 +52,7 @@ type ApproveOptions = {
   max: bigint;
   chainId: number;
   validUntil?: number;
+  spender?: Address;
 };
 
 type CallOptions = {
@@ -81,7 +106,8 @@ export function buildDelegationGrant(
  * @returns An unsigned DelegationGrant for ERC-20 transfers.
  */
 function buildTransferGrant(options: TransferOptions): DelegationGrant {
-  const { delegator, delegate, token, max, chainId, validUntil } = options;
+  const { delegator, delegate, token, max, chainId, validUntil, recipient } =
+    options;
   const caveats: Caveat[] = [
     makeCaveat({
       type: 'allowedTargets',
@@ -101,6 +127,22 @@ function buildTransferGrant(options: TransferOptions): DelegationGrant {
   ];
 
   const caveatSpecs: CaveatSpec[] = [{ type: 'cumulativeSpend', token, max }];
+
+  if (recipient !== undefined) {
+    const value = abiEncodeAddress(recipient);
+    caveats.push(
+      makeCaveat({
+        type: 'allowedCalldata',
+        terms: encodeAllowedCalldata({ dataStart: FIRST_ARG_OFFSET, value }),
+        chainId,
+      }),
+    );
+    caveatSpecs.push({
+      type: 'allowedCalldata',
+      dataStart: FIRST_ARG_OFFSET,
+      value,
+    });
+  }
 
   if (validUntil !== undefined) {
     caveats.push(
@@ -129,7 +171,8 @@ function buildTransferGrant(options: TransferOptions): DelegationGrant {
  * @returns An unsigned DelegationGrant for ERC-20 approvals.
  */
 function buildApproveGrant(options: ApproveOptions): DelegationGrant {
-  const { delegator, delegate, token, max, chainId, validUntil } = options;
+  const { delegator, delegate, token, max, chainId, validUntil, spender } =
+    options;
   const caveats: Caveat[] = [
     makeCaveat({
       type: 'allowedTargets',
@@ -149,6 +192,22 @@ function buildApproveGrant(options: ApproveOptions): DelegationGrant {
   ];
 
   const caveatSpecs: CaveatSpec[] = [{ type: 'cumulativeSpend', token, max }];
+
+  if (spender !== undefined) {
+    const value = abiEncodeAddress(spender);
+    caveats.push(
+      makeCaveat({
+        type: 'allowedCalldata',
+        terms: encodeAllowedCalldata({ dataStart: FIRST_ARG_OFFSET, value }),
+        chainId,
+      }),
+    );
+    caveatSpecs.push({
+      type: 'allowedCalldata',
+      dataStart: FIRST_ARG_OFFSET,
+      value,
+    });
+  }
 
   if (validUntil !== undefined) {
     caveats.push(
