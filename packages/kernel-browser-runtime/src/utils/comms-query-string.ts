@@ -1,41 +1,41 @@
 import { Logger } from '@metamask/logger';
 import type { RemoteCommsOptions } from '@metamask/ocap-kernel';
+import { array, integer, is, min, string } from '@metamask/superstruct';
 
 /**
  * Utilities for handling remote comms options in worker URL query strings.
  * Supports all serializable fields of {@link RemoteCommsOptions} except
- * `directTransports` (internal / not URL-serializable).
+ * `directTransports` (internal / not URL-serializable) and `mnemonic`
+ * (secret — should not be exposed in URLs).
  */
 
 const logger = new Logger('comms-query-string');
 
 /**
  * Subset of {@link RemoteCommsOptions} that can be encoded in a query string.
- * Excludes `directTransports` (internal, platform-injected).
+ * Excludes `directTransports` (internal, platform-injected) and `mnemonic`
+ * (secret — must not appear in URLs; pass via postMessage instead).
  */
-export type CommsQueryParams = Partial<
-  Omit<RemoteCommsOptions, 'directTransports'>
+export type CommsQueryParams = Omit<
+  RemoteCommsOptions,
+  'directTransports' | 'mnemonic'
 >;
-
-type SerializableCommsOptions = Omit<RemoteCommsOptions, 'directTransports'>;
 
 /** Keys of RemoteCommsOptions whose value is string[] (URL-serialized as JSON array). */
 type ArrayParamKey = {
-  [K in keyof SerializableCommsOptions]: SerializableCommsOptions[K] extends
+  [K in keyof CommsQueryParams]: CommsQueryParams[K] extends
     | string[]
     | undefined
     ? K
     : never;
-}[keyof SerializableCommsOptions];
+}[keyof CommsQueryParams];
 
 /** Keys of RemoteCommsOptions whose value is number (URL-serialized as string). */
 type NumberParamKey = {
-  [K in keyof SerializableCommsOptions]: SerializableCommsOptions[K] extends
-    | number
-    | undefined
+  [K in keyof CommsQueryParams]: CommsQueryParams[K] extends number | undefined
     ? K
     : never;
-}[keyof SerializableCommsOptions];
+}[keyof CommsQueryParams];
 
 const ARRAY_PARAM_NAMES = [
   'relays',
@@ -54,96 +54,14 @@ const NUMBER_PARAM_NAMES = [
   'maxConnectionAttemptsPerMinute',
 ] as const satisfies readonly NumberParamKey[];
 
-/**
- * Parses a JSON-encoded array from a query string parameter.
- *
- * @param queryString - The query string (e.g., from window.location.search)
- * @param paramName - Name of the query parameter
- * @returns Array of strings, or undefined if param is missing or parsing fails
- */
-function parseJsonArrayParam(
-  queryString: string,
-  paramName: string,
-): string[] | undefined {
-  try {
-    const param = queryString.split(`${paramName}=`)[1];
-    if (!param) {
-      return undefined;
-    }
-    const value = param.split('&')[0];
-    if (value === undefined) {
-      return undefined;
-    }
-    const parsed = JSON.parse(decodeURIComponent(value));
-    if (!Array.isArray(parsed)) {
-      return undefined;
-    }
-    return parsed.every((item): item is string => typeof item === 'string')
-      ? parsed
-      : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Parses a non-negative integer from a query string parameter.
- *
- * @param queryString - The query string
- * @param paramName - Name of the query parameter
- * @returns Parsed number, or undefined if param is missing or invalid
- */
-function parseNumberParam(
-  queryString: string,
-  paramName: string,
-): number | undefined {
-  try {
-    const param = queryString.split(`${paramName}=`)[1];
-    if (!param) {
-      return undefined;
-    }
-    const value = param.split('&')[0];
-    if (value === undefined) {
-      return undefined;
-    }
-    const decoded = decodeURIComponent(value);
-    const parsed = Number(decoded);
-    if (!Number.isInteger(parsed) || parsed < 0 || !Number.isFinite(parsed)) {
-      return undefined;
-    }
-    return parsed;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Parses a string from a query string parameter.
- *
- * @param queryString - The query string
- * @param paramName - Name of the query parameter
- * @returns Decoded string, or undefined if param is missing
- */
-function parseStringParam(
-  queryString: string,
-  paramName: string,
-): string | undefined {
-  try {
-    const param = queryString.split(`${paramName}=`)[1];
-    if (!param) {
-      return undefined;
-    }
-    const value = param.split('&')[0];
-    return value === undefined ? undefined : decodeURIComponent(value);
-  } catch {
-    return undefined;
-  }
-}
+const NonNegativeInteger = min(integer(), 0);
+const StringArray = array(string());
 
 /**
  * Creates URLSearchParams from remote comms options.
  * Use when building the kernel worker URL so the worker can read all params.
  * Callers can append additional params (e.g. reset-storage) before assigning to URL.search.
+ * Validates types at runtime via superstruct; throws if invalid values are passed.
  *
  * @param params - Subset of {@link RemoteCommsOptions} (excluding directTransports)
  * @returns URLSearchParams with comms options; use .toString() for URL.search
@@ -155,20 +73,30 @@ export function createCommsQueryString(
 
   for (const key of ARRAY_PARAM_NAMES) {
     const value = params[key];
-    if (value !== undefined && value.length > 0) {
+    if (value === undefined) {
+      continue;
+    }
+    if (!is(value, StringArray)) {
+      throw new TypeError(
+        `createCommsQueryString: ${key} must be an array of strings, got ${typeof value}`,
+      );
+    }
+    if (value.length > 0) {
       searchParams.set(key, JSON.stringify(value));
     }
   }
 
   for (const key of NUMBER_PARAM_NAMES) {
     const value = params[key];
-    if (value !== undefined) {
-      searchParams.set(key, String(value));
+    if (value === undefined) {
+      continue;
     }
-  }
-
-  if (params.mnemonic !== undefined && params.mnemonic !== '') {
-    searchParams.set('mnemonic', params.mnemonic);
+    if (!is(value, NonNegativeInteger)) {
+      throw new TypeError(
+        `createCommsQueryString: ${key} must be a non-negative integer, got ${typeof value} ${JSON.stringify(value)}`,
+      );
+    }
+    searchParams.set(key, String(value));
   }
 
   return searchParams;
@@ -183,24 +111,33 @@ export function createCommsQueryString(
  */
 export function parseCommsQueryString(queryString: string): CommsQueryParams {
   const options: CommsQueryParams = {};
+  const search = queryString.startsWith('?')
+    ? queryString.slice(1)
+    : queryString;
+  const params = new URLSearchParams(search);
 
   for (const key of ARRAY_PARAM_NAMES) {
-    const value = parseJsonArrayParam(queryString, key);
-    if (value !== undefined) {
-      options[key] = value;
+    const raw = params.get(key);
+    if (raw !== null && raw !== '') {
+      try {
+        const parsed = JSON.parse(raw) as unknown;
+        if (is(parsed, StringArray)) {
+          options[key] = parsed;
+        }
+      } catch {
+        // Silently ignore invalid JSON
+      }
     }
   }
 
   for (const key of NUMBER_PARAM_NAMES) {
-    const value = parseNumberParam(queryString, key);
-    if (value !== undefined) {
-      options[key] = value;
+    const raw = params.get(key);
+    if (raw !== null && raw !== '') {
+      const parsed = Number(raw);
+      if (is(parsed, NonNegativeInteger)) {
+        options[key] = parsed;
+      }
     }
-  }
-
-  const mnemonic = parseStringParam(queryString, 'mnemonic');
-  if (mnemonic !== undefined && mnemonic !== '') {
-    options.mnemonic = mnemonic;
   }
 
   return options;

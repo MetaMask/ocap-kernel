@@ -5,10 +5,10 @@ import {
   setupConsoleForwarding,
   isConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
+import type { CommsQueryParams } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import type { RemoteCommsOptions } from '@metamask/ocap-kernel';
 import type { DuplexStream } from '@metamask/streams';
 import {
   initializeMessageChannel,
@@ -71,7 +71,7 @@ async function main(): Promise<void> {
  * @returns The message port stream for worker communication
  */
 async function makeKernelWorker(
-  remoteCommsOptions?: Partial<RemoteCommsOptions>,
+  remoteCommsOptions?: CommsQueryParams,
 ): Promise<DuplexStream<JsonRpcMessage, JsonRpcMessage>> {
   const opts = remoteCommsOptions ?? { relays: DEFAULT_RELAYS };
   const workerUrlParams = createCommsQueryString(opts);

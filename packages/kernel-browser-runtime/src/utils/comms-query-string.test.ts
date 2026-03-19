@@ -74,6 +74,33 @@ describe('comms-query-string', () => {
         options,
       );
     });
+
+    it('throws on invalid array param types', () => {
+      expect(() =>
+        createCommsQueryString({
+          relays: 'not-an-array' as unknown as string[],
+        }),
+      ).toThrow(TypeError);
+      expect(() =>
+        createCommsQueryString({
+          relays: [1, 2] as unknown as string[],
+        }),
+      ).toThrow(TypeError);
+    });
+
+    it('throws on invalid number param types', () => {
+      expect(() => createCommsQueryString({ maxRetryAttempts: -1 })).toThrow(
+        TypeError,
+      );
+      expect(() => createCommsQueryString({ maxQueue: 1.5 })).toThrow(
+        TypeError,
+      );
+      expect(() =>
+        createCommsQueryString({
+          maxRetryAttempts: 'five' as unknown as number,
+        }),
+      ).toThrow(TypeError);
+    });
   });
 
   describe('parseCommsQueryString', () => {
@@ -98,11 +125,28 @@ describe('comms-query-string', () => {
       });
     });
 
-    it('parses mnemonic when present', () => {
-      const mnemonic =
-        'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
-      const queryString = `?mnemonic=${encodeURIComponent(mnemonic)}`;
-      expect(parseCommsQueryString(queryString)).toStrictEqual({ mnemonic });
+    it('parses query string without leading ?', () => {
+      const queryString = `relays=${encodeURIComponent(JSON.stringify(['/ip4/127.0.0.1/tcp/9001/ws']))}`;
+      expect(parseCommsQueryString(queryString)).toStrictEqual({
+        relays: ['/ip4/127.0.0.1/tcp/9001/ws'],
+      });
+    });
+
+    it('ignores array params with non-string-array JSON values', () => {
+      expect(
+        parseCommsQueryString(
+          `?relays=${encodeURIComponent(JSON.stringify({ not: 'an array' }))}`,
+        ),
+      ).toStrictEqual({});
+      expect(
+        parseCommsQueryString(
+          `?relays=${encodeURIComponent(JSON.stringify([1, 2]))}`,
+        ),
+      ).toStrictEqual({});
+    });
+
+    it('ignores array params with invalid JSON', () => {
+      expect(parseCommsQueryString('?relays=not-json')).toStrictEqual({});
     });
 
     it('ignores invalid number values', () => {
