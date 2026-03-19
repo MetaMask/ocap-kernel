@@ -17,6 +17,7 @@ describe('index', () => {
       'fromHex',
       'ifDefined',
       'installWakeDetector',
+      'isCapData',
       'isJsonRpcCall',
       'isJsonRpcMessage',
       'isPrimitive',

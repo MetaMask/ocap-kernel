@@ -2,6 +2,7 @@ import { isObject } from '@metamask/utils';
 import { describe, it, expect } from 'vitest';
 
 import {
+  isCapData,
   isJsonRpcCall,
   isJsonRpcMessage,
   isPrimitive,
@@ -12,6 +13,33 @@ import {
 const isNumber = (value: unknown): value is number => typeof value === 'number';
 const alwaysFalse = () => false;
 const alwaysTrue = () => true;
+
+describe('isCapData', () => {
+  it.each`
+    label                     | value
+    ${'body and empty slots'} | ${{ body: '#"hello"', slots: [] }}
+    ${'body with slots'}      | ${{ body: '#{"#error":"oops"}', slots: ['ko1'] }}
+    ${'extra properties'}     | ${{ body: '"x"', slots: [], stacks: [] }}
+  `('returns true for CapData-like $label', ({ value }) => {
+    expect(isCapData(value)).toBe(true);
+  });
+
+  it.each`
+    label                | value
+    ${'null'}            | ${null}
+    ${'undefined'}       | ${undefined}
+    ${'string'}          | ${'not capdata'}
+    ${'number'}          | ${42}
+    ${'empty object'}    | ${{}}
+    ${'missing body'}    | ${{ slots: [] }}
+    ${'missing slots'}   | ${{ body: '"x"' }}
+    ${'non-string body'} | ${{ body: 123, slots: [] }}
+    ${'non-array slots'} | ${{ body: '"x"', slots: 'not-array' }}
+    ${'Error instance'}  | ${new Error('fail')}
+  `('returns false for invalid $label', ({ value }) => {
+    expect(isCapData(value)).toBe(false);
+  });
+});
 
 describe('isPrimitive', () => {
   it.each`

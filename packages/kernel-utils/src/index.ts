@@ -17,6 +17,7 @@ export type {
 } from './types.ts';
 export {
   EmptyJsonArray,
+  isCapData,
   isPrimitive,
   isTypedArray,
   isTypedObject,
