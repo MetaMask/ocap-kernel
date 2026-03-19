@@ -27,10 +27,12 @@ export type {
   Address,
   Action,
   Caveat,
+  CaveatSpec,
   CaveatType,
   ChainConfig,
   CreateDelegationOptions,
   Delegation,
+  DelegationGrant,
   DelegationMatchResult,
   DelegationStatus,
   Eip712Domain,
@@ -48,10 +50,12 @@ export type {
 
 export {
   ActionStruct,
+  CaveatSpecStruct,
   CaveatStruct,
   CaveatTypeValues,
   ChainConfigStruct,
   CreateDelegationOptionsStruct,
+  DelegationGrantStruct,
   DelegationStatusValues,
   DelegationStruct,
   Eip712DomainStruct,
@@ -170,3 +174,13 @@ export type {
   MetaMaskSigner,
   MetaMaskSignerOptions,
 } from './lib/metamask-signer.ts';
+
+// Method catalog
+export { METHOD_CATALOG } from './lib/method-catalog.ts';
+export type { CatalogMethodName } from './lib/method-catalog.ts';
+
+// Grant builder
+export { buildDelegationGrant } from './lib/delegation-grant.ts';
+
+// Twin factory
+export { makeDelegationTwin } from './lib/delegation-twin.ts';

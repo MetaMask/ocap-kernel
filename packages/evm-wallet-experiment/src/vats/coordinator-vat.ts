@@ -3,6 +3,7 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import { Logger } from '@metamask/logger';
 import type { Baggage } from '@metamask/ocap-kernel';
 
+import { buildDelegationGrant } from '../lib/delegation-grant.ts';
 import {
   decodeAllowanceResult,
   decodeBalanceOfResult,
@@ -16,6 +17,7 @@ import {
   encodeSymbol,
   encodeTransfer,
 } from '../lib/erc20.ts';
+import type { CatalogMethodName } from '../lib/method-catalog.ts';
 import {
   buildBatchExecuteCallData,
   buildSdkBatchRedeemCallData,
@@ -36,6 +38,7 @@ import type {
   ChainConfig,
   CreateDelegationOptions,
   Delegation,
+  DelegationGrant,
   DelegationMatchResult,
   Eip712TypedData,
   Execution,
@@ -2228,6 +2231,114 @@ export function buildRootObject(
         throw new Error('Delegation vat not available');
       }
       return E(delegationVat).listDelegations();
+    },
+
+    // ------------------------------------------------------------------
+    // Delegation twins
+    // ------------------------------------------------------------------
+
+    async makeDelegationGrant(
+      method: CatalogMethodName,
+      options: Record<string, unknown>,
+    ): Promise<DelegationGrant> {
+      if (!delegationVat) {
+        throw new Error('Delegation vat not available');
+      }
+
+      // Resolve delegator: smart account address if configured, else first local account
+      const delegator =
+        smartAccountConfig?.address ?? (await resolveOwnerAddress());
+
+      const grant = buildDelegationGrant(method, {
+        delegator,
+        ...options,
+      } as Parameters<typeof buildDelegationGrant>[1]);
+
+      // Sign the delegation via the existing create → prepare → sign → store flow
+      const { delegation } = grant;
+
+      // Determine signing function (same logic as createDelegation)
+      let signTypedDataFn:
+        | ((data: Eip712TypedData) => Promise<Hex>)
+        | undefined;
+
+      if (keyringVat) {
+        const accounts = await E(keyringVat).getAccounts();
+        if (accounts.length > 0) {
+          const kv = keyringVat;
+          signTypedDataFn = async (data: Eip712TypedData) =>
+            E(kv).signTypedData(data);
+        }
+      }
+
+      if (!signTypedDataFn && externalSigner) {
+        const accounts = await E(externalSigner).getAccounts();
+        if (accounts.length > 0) {
+          const ext = externalSigner;
+          const from = accounts[0];
+          signTypedDataFn = async (data: Eip712TypedData) =>
+            E(ext).signTypedData(data, from);
+        }
+      }
+
+      if (!signTypedDataFn) {
+        throw new Error('No signing authority available');
+      }
+
+      // Store, prepare, sign, and finalize the delegation
+      const stored = await E(delegationVat).createDelegation({
+        delegate: delegation.delegate,
+        caveats: delegation.caveats,
+        chainId: delegation.chainId,
+        salt: delegation.salt,
+        delegator,
+      });
+
+      const typedData = await E(delegationVat).prepareDelegationForSigning(
+        stored.id,
+      );
+      const signature = await signTypedDataFn(typedData);
+      await E(delegationVat).storeSigned(stored.id, signature);
+
+      const signedDelegation = await E(delegationVat).getDelegation(stored.id);
+
+      return harden({
+        ...grant,
+        delegation: signedDelegation,
+      });
+    },
+
+    async provisionTwin(grant: DelegationGrant): Promise<unknown> {
+      if (!delegationVat) {
+        throw new Error('Delegation vat not available');
+      }
+
+      const { delegation } = grant;
+
+      // Build redeemFn closure that submits a delegation UserOp
+      const redeemFn = async (execution: Execution): Promise<Hex> => {
+        return submitDelegationUserOp({
+          delegations: [delegation],
+          execution,
+        });
+      };
+
+      // Build readFn closure if provider is available
+      let readFn:
+        | ((opts: { to: Address; data: Hex }) => Promise<Hex>)
+        | undefined;
+      if (providerVat) {
+        const pv = providerVat;
+        readFn = async (opts: { to: Address; data: Hex }): Promise<Hex> => {
+          const result = await E(pv).request('eth_call', [
+            { to: opts.to, data: opts.data },
+            'latest',
+          ]);
+          return result as Hex;
+        };
+      }
+
+      return E(delegationVat).addDelegation(grant, redeemFn, readFn);
     },
 
     // ------------------------------------------------------------------

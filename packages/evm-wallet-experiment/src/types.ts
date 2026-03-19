@@ -323,6 +323,39 @@ export type DelegationMatchResult = {
 };
 
 // ---------------------------------------------------------------------------
+// Delegation grant (twin construction input)
+// ---------------------------------------------------------------------------
+
+const BigIntStruct = define<bigint>(
+  'BigInt',
+  (value) => typeof value === 'bigint',
+);
+
+export const CaveatSpecStruct = union([
+  object({
+    type: literal('cumulativeSpend'),
+    token: AddressStruct,
+    max: BigIntStruct,
+  }),
+  object({
+    type: literal('blockWindow'),
+    after: BigIntStruct,
+    before: BigIntStruct,
+  }),
+]);
+
+export type CaveatSpec = Infer<typeof CaveatSpecStruct>;
+
+export const DelegationGrantStruct = object({
+  delegation: DelegationStruct,
+  methodName: string(),
+  caveatSpecs: array(CaveatSpecStruct),
+  token: optional(AddressStruct),
+});
+
+export type DelegationGrant = Infer<typeof DelegationGrantStruct>;
+
+// ---------------------------------------------------------------------------
 // Swap types (MetaSwap API)
 // ---------------------------------------------------------------------------
 
