@@ -491,11 +491,11 @@ describe('ConnectionFactory', () => {
         ['dns4', 'tcp', 'ws'],
         'relay2.public.com',
       );
-      // ws:// relay host is auto-allowed
+      // Host from ws:// relay is auto-added to allowedWsHosts → plain ws:// dial allowed
       expect(
         await callArgs.connectionGater.denyDialMultiaddr(wsRelayAddr),
       ).toBe(false);
-      // wss:// relay host is NOT auto-allowed (wss doesn't need it)
+      // Host from wss:// relay is NOT auto-added (wss bypasses the gater) → plain ws:// dial denied
       expect(
         await callArgs.connectionGater.denyDialMultiaddr(wssRelayAddr),
       ).toBe(true);
