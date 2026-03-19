@@ -105,9 +105,10 @@ export class KernelQueue {
   }
 
   /**
-   * Async generator that yields the items from the kernel run queue, in order.
+   * Get the next item from the kernel run queue.
+   * **ATTN:** Mutates the kernel store if the queue is not empty.
    *
-   * @returns the next item in the run queue.
+   * @returns The next item in the run queue, or undefined if the queue is empty.
    */
   #getNextRunQueueItem(): RunQueueItem | undefined {
     const gcAction = processGCActionSet(this.#kernelStore);
