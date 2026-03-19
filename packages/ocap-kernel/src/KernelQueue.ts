@@ -7,7 +7,7 @@ import { kser } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import { insistEndpointId } from './types.ts';
 import type {
-  CrankResults,
+  CrankResult,
   KRef,
   Message,
   RunQueueItem,
@@ -71,7 +71,7 @@ export class KernelQueue {
    * @param deliver - A function that delivers an item to the kernel.
    */
   async run(
-    deliver: (item: RunQueueItem) => Promise<CrankResults | undefined>,
+    deliver: (item: RunQueueItem) => Promise<CrankResult | undefined>,
   ): Promise<never> {
     for (;;) {
       let wakeUpPromise: Promise<void> | undefined;
@@ -95,8 +95,8 @@ export class KernelQueue {
           wakeUpPromise = promise;
         } else {
           this.#kernelStore.nextTerminatedVatCleanup();
-          const crankResults = await deliver(queueItem);
-          await this.#processCrankResults(crankResults, queueItem);
+          const crankResult = await deliver(queueItem);
+          await this.#processCrankResult(crankResult, queueItem);
         }
       } finally {
         this.#kernelStore.endCrank();
@@ -135,14 +135,14 @@ export class KernelQueue {
   /**
    * Process the results of a crank.
    *
-   * @param crankResults - The crank results.
+   * @param crankResult - The crank results.
    * @param queueItem - The run qeueue item that caused the crank results.
    */
-  async #processCrankResults(
-    crankResults: CrankResults | undefined,
+  async #processCrankResult(
+    crankResult: CrankResult | undefined,
     queueItem: RunQueueItem,
   ): Promise<void> {
-    if (crankResults?.abort) {
+    if (crankResult?.abort) {
       // Rollback the kernel state to before the failed delivery attempt.
       // For active vats, this allows the message to be retried in a future crank.
       // For terminated vats, the message will just go splat.
@@ -154,14 +154,14 @@ export class KernelQueue {
       // message's result promise immediately. The rollback undid the delivery,
       // and the vat won't be around to handle a retry.
       if (
-        crankResults.terminate &&
+        crankResult.terminate &&
         queueItem.type === 'send' &&
         queueItem.message.result
       ) {
         const subscription = this.subscriptions.get(queueItem.message.result);
         if (subscription) {
           this.subscriptions.delete(queueItem.message.result);
-          subscription.reject(crankResults.terminate.info);
+          subscription.reject(crankResult.terminate.info);
         }
       }
       // TODO: Currently all errors terminate the vat, but instead we could
@@ -173,8 +173,8 @@ export class KernelQueue {
     }
     // Vat termination during delivery is triggered by an illegal syscall
     // or by syscall.exit().
-    if (crankResults?.terminate) {
-      const { vatId, info } = crankResults.terminate;
+    if (crankResult?.terminate) {
+      const { vatId, info } = crankResult.terminate;
       await this.#terminateVat(vatId, info);
     }
     this.#kernelStore.collectGarbage();

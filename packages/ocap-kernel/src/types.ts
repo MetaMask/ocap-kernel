@@ -608,7 +608,7 @@ export const GCActionStruct = define<GCAction>('GCAction', (value: unknown) => {
 export const isGCAction = (value: unknown): value is GCAction =>
   is(value, GCActionStruct);
 
-export type CrankResults = {
+export type CrankResult = {
   didDelivery?: EndpointId; // the endpoint to which we made a delivery
   abort?: boolean; // changes should be discarded, not committed
   terminate?: { vatId: VatId; reject: boolean; info: SwingSetCapData };
@@ -617,12 +617,12 @@ export type CrankResults = {
 export type VatDeliveryResult = [VatCheckpoint, string | null];
 
 export type EndpointHandle = {
-  deliverMessage: (target: ERef, message: Message) => Promise<CrankResults>;
-  deliverNotify: (resolutions: VatOneResolution[]) => Promise<CrankResults>;
-  deliverDropExports: (erefs: ERef[]) => Promise<CrankResults>;
-  deliverRetireExports: (erefs: ERef[]) => Promise<CrankResults>;
-  deliverRetireImports: (erefs: ERef[]) => Promise<CrankResults>;
-  deliverBringOutYourDead: () => Promise<CrankResults>;
+  deliverMessage: (target: ERef, message: Message) => Promise<CrankResult>;
+  deliverNotify: (resolutions: VatOneResolution[]) => Promise<CrankResult>;
+  deliverDropExports: (erefs: ERef[]) => Promise<CrankResult>;
+  deliverRetireExports: (erefs: ERef[]) => Promise<CrankResult>;
+  deliverRetireImports: (erefs: ERef[]) => Promise<CrankResult>;
+  deliverBringOutYourDead: () => Promise<CrankResult>;
 };
 
 /**

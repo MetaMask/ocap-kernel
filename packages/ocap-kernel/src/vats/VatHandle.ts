@@ -25,7 +25,7 @@ import type {
   VatId,
   VatConfig,
   VRef,
-  CrankResults,
+  CrankResult,
   VatDeliveryResult,
   EndpointHandle,
 } from '../types.ts';
@@ -211,12 +211,12 @@ export class VatHandle implements EndpointHandle {
    * @param message - The message to deliver.
    * @returns The crank results.
    */
-  async deliverMessage(target: VRef, message: Message): Promise<CrankResults> {
+  async deliverMessage(target: VRef, message: Message): Promise<CrankResult> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['message', target, message],
     });
-    return this.#getDeliveryCrankResults();
+    return this.#getDeliveryCrankResult();
   }
 
   /**
@@ -225,12 +225,12 @@ export class VatHandle implements EndpointHandle {
    * @param resolutions - One or more promise resolutions to deliver.
    * @returns The crank results.
    */
-  async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResults> {
+  async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResult> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['notify', resolutions],
     });
-    return this.#getDeliveryCrankResults();
+    return this.#getDeliveryCrankResult();
   }
 
   /**
@@ -239,12 +239,12 @@ export class VatHandle implements EndpointHandle {
    * @param vrefs - The VRefs of the exports to be dropped.
    * @returns The crank results.
    */
-  async deliverDropExports(vrefs: VRef[]): Promise<CrankResults> {
+  async deliverDropExports(vrefs: VRef[]): Promise<CrankResult> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['dropExports', vrefs],
     });
-    return this.#getDeliveryCrankResults();
+    return this.#getDeliveryCrankResult();
   }
 
   /**
@@ -253,12 +253,12 @@ export class VatHandle implements EndpointHandle {
    * @param vrefs - The VRefs of the exports to be retired.
    * @returns The crank results.
    */
-  async deliverRetireExports(vrefs: VRef[]): Promise<CrankResults> {
+  async deliverRetireExports(vrefs: VRef[]): Promise<CrankResult> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['retireExports', vrefs],
     });
-    return this.#getDeliveryCrankResults();
+    return this.#getDeliveryCrankResult();
   }
 
   /**
@@ -267,12 +267,12 @@ export class VatHandle implements EndpointHandle {
    * @param vrefs - The VRefs of the imports to be retired.
    * @returns The crank results.
    */
-  async deliverRetireImports(vrefs: VRef[]): Promise<CrankResults> {
+  async deliverRetireImports(vrefs: VRef[]): Promise<CrankResult> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['retireImports', vrefs],
     });
-    return this.#getDeliveryCrankResults();
+    return this.#getDeliveryCrankResult();
   }
 
   /**
@@ -280,12 +280,12 @@ export class VatHandle implements EndpointHandle {
    *
    * @returns The crank results.
    */
-  async deliverBringOutYourDead(): Promise<CrankResults> {
+  async deliverBringOutYourDead(): Promise<CrankResult> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['bringOutYourDead'],
     });
-    return this.#getDeliveryCrankResults();
+    return this.#getDeliveryCrankResult();
   }
 
   /**
@@ -345,8 +345,8 @@ export class VatHandle implements EndpointHandle {
    *
    * @returns The crank outcome.
    */
-  async #getDeliveryCrankResults(): Promise<CrankResults> {
-    const results: CrankResults = {
+  async #getDeliveryCrankResult(): Promise<CrankResult> {
+    const results: CrankResult = {
       didDelivery: this.vatId,
     };
 

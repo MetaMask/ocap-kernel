@@ -18,7 +18,7 @@ import type {
   RunQueueItemBringOutYourDead,
   RunQueueItemNotify,
   RunQueueItemGCAction,
-  CrankResults,
+  CrankResult,
 } from './types.ts';
 import { insistEndpointId, insistMessage } from './types.ts';
 import { assert, Fail } from './utils/assert.ts';
@@ -91,7 +91,7 @@ export class KernelRouter {
    * @param item - The message/notification to deliver.
    * @returns The crank outcome.
    */
-  async deliver(item: RunQueueItem): Promise<CrankResults | undefined> {
+  async deliver(item: RunQueueItem): Promise<CrankResult | undefined> {
     switch (item.type) {
       case 'send':
         return await this.#deliverSend(item);
@@ -193,11 +193,9 @@ export class KernelRouter {
    * @param item - The send item to deliver.
    * @returns The crank outcome.
    */
-  async #deliverSend(
-    item: RunQueueItemSend,
-  ): Promise<CrankResults | undefined> {
+  async #deliverSend(item: RunQueueItemSend): Promise<CrankResult | undefined> {
     const route = this.#routeMessage(item);
-    let crankResults: CrankResults | undefined;
+    let crankResult: CrankResult | undefined;
 
     // Message went splat
     if (!route) {
@@ -214,7 +212,7 @@ export class KernelRouter {
       this.#logger?.log(
         `@@@@ message went splat ${item.target}<-${JSON.stringify(item.message)}`,
       );
-      return crankResults;
+      return crankResult;
     }
 
     const { endpointId, target } = route;
@@ -257,7 +255,7 @@ export class KernelRouter {
           this.#logger?.log(
             `@@@@ message went splat (endpoint gone) ${target}<-${JSON.stringify(message)}`,
           );
-          return crankResults;
+          return crankResult;
         }
       }
       if (endpoint || isKernelServiceMessage) {
@@ -283,7 +281,7 @@ export class KernelRouter {
           message,
         );
         try {
-          crankResults = await endpoint.deliverMessage(
+          crankResult = await endpoint.deliverMessage(
             endpointTarget,
             endpointMessage,
           );
@@ -304,7 +302,7 @@ export class KernelRouter {
           // Continue processing other messages - don't let one failure crash the queue
         }
       } else if (isKernelServiceMessage) {
-        crankResults = this.#deliverKernelServiceMessage(target, message);
+        crankResult = this.#deliverKernelServiceMessage(target, message);
       } else {
         Fail`no owner for kernel object ${target}`;
       }
@@ -316,7 +314,7 @@ export class KernelRouter {
       this.#kernelStore.enqueuePromiseMessage(target, message);
     }
 
-    return crankResults;
+    return crankResult;
   }
 
   /**
@@ -326,7 +324,7 @@ export class KernelRouter {
    * @param message - The message to deliver to the service.
    * @returns The crank results indicating the delivery was to the kernel.
    */
-  #deliverKernelServiceMessage(target: KRef, message: Message): CrankResults {
+  #deliverKernelServiceMessage(target: KRef, message: Message): CrankResult {
     this.#invokeKernelService(target, message);
     return { didDelivery: 'kernel' };
   }
@@ -337,7 +335,7 @@ export class KernelRouter {
    * @param item - The notify item to deliver.
    * @returns The crank outcome.
    */
-  async #deliverNotify(item: RunQueueItemNotify): Promise<CrankResults> {
+  async #deliverNotify(item: RunQueueItemNotify): Promise<CrankResult> {
     const { endpointId, kpid } = item;
     insistEndpointId(endpointId);
     const { context, isPromise } = parseRef(kpid);
@@ -383,10 +381,10 @@ export class KernelRouter {
       }
     }
     const endpoint = this.#getEndpoint(endpointId);
-    const crankResults = await endpoint.deliverNotify(resolutions);
+    const crankResult = await endpoint.deliverNotify(resolutions);
     // Decrement reference count for processed 'notify' item
     this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
-    return crankResults;
+    return crankResult;
   }
 
   /**
@@ -395,7 +393,7 @@ export class KernelRouter {
    * @param item - The dropExports | retireExports | retireImports item to deliver.
    * @returns The crank outcome.
    */
-  async #deliverGCAction(item: RunQueueItemGCAction): Promise<CrankResults> {
+  async #deliverGCAction(item: RunQueueItemGCAction): Promise<CrankResult> {
     const { type, endpointId, krefs } = item;
     this.#logger?.log(
       `@@@@ deliver ${endpointId} ${type} ${JSON.stringify(krefs)}`,
@@ -407,8 +405,8 @@ export class KernelRouter {
         | 'deliverDropExports'
         | 'deliverRetireExports'
         | 'deliverRetireImports';
-    const crankResults = await endpoint[method](erefs);
-    return crankResults;
+    const crankResult = await endpoint[method](erefs);
+    return crankResult;
   }
 
   /**
@@ -419,11 +417,11 @@ export class KernelRouter {
    */
   async #deliverBringOutYourDead(
     item: RunQueueItemBringOutYourDead,
-  ): Promise<CrankResults | undefined> {
+  ): Promise<CrankResult | undefined> {
     const { endpointId } = item;
     this.#logger?.log(`@@@@ deliver ${endpointId} bringOutYourDead`);
     const endpoint = this.#getEndpoint(endpointId);
-    const crankResults = await endpoint.deliverBringOutYourDead();
-    return crankResults;
+    const crankResult = await endpoint.deliverBringOutYourDead();
+    return crankResult;
   }
 }
