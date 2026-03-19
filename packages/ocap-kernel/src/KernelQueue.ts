@@ -76,10 +76,7 @@ export class KernelQueue {
     for (;;) {
       let wakeUpPromise: Promise<void> | undefined;
 
-      // TODO: This is the only part of the run loop that could throw an uncaught
-      // error. Is that actually what we want?
       this.#kernelStore.startCrank();
-
       try {
         this.#kernelStore.createCrankSavepoint('start');
 
