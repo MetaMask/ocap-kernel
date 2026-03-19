@@ -60,8 +60,8 @@ delivery](#delivery), [syscalls](#syscall), and vat initialization.
 ### liveslots
 
 A framework for managing object lifecycles within [vats](#vat). Liveslots provides the
-runtime environment for vat code and handles object persistence, promise management, and
-[syscall](#syscall) coordination.
+runtime environment for vat code and handles object persistence, [kernel
+promise](#kernel-promise) management, and [syscall](#syscall) coordination.
 
 ### crank
 
@@ -74,7 +74,7 @@ aborted and rolled back if errors occur. See the
 ### syscall
 
 A system call made by a [vat](#vat) to request kernel services. Syscalls include
-operations like sending messages, resolving [promises](#promise-resolution), and accessing
+operations like sending messages, resolving [kernel promises](#kernel-promise), and accessing
 persistent storage. See [VatSyscall](../packages/ocap-kernel/src/VatSyscall.ts) and the
 [syscall service](../packages/ocap-kernel/src/services/syscall.ts).
 
@@ -93,11 +93,41 @@ suitable for cross-vat communication. See the [kernel marshal
 service](../packages/ocap-kernel/src/services/kernel-marshal.ts) for `kser` and `kunser`
 functions.
 
+### kernel promise
+
+A persistent record in the kernel store that tracks the state of a promise across [vat](#vat)
+boundaries. A kernel promise has a state (`unresolved`, `fulfilled`, or `rejected`), a
+[decider](#decider), a list of subscribers, and (once settled) a value. Kernel promises
+survive vat restarts and [crank](#crank) rollbacks.
+
+Kernel promises are distinct from JavaScript promises. Vat code works with JS promises
+and `E()` calls; [liveslots](#liveslots) translates between the vat's JS promises and
+kernel promise IDs ([krefs](#kref)) via [syscalls](#syscall). Kernel-space code (e.g.,
+[`enqueueMessage`](../packages/ocap-kernel/src/KernelQueue.ts)) may create both a kernel
+promise (for routing) and a JS promise (for the caller to `await`), bridged by a
+subscription callback. See the
+[promise store methods](../packages/ocap-kernel/src/store/methods/promise.ts).
+
+### decider
+
+The endpoint authorized to settle (fulfill or reject) a [kernel promise](#kernel-promise).
+Analogous to a function call: when vat A sends `E(obj).foo()` to vat B, vat A is the
+caller waiting for a result, and vat B is the callee that computes it. B becomes the
+decider of the result's kernel promise at [delivery](#delivery) time, just as a callee
+determines the return value of a function call. Only the decider can resolve the kernel
+promise — attempts by other endpoints are rejected. After [crank](#crank) rollback, the
+decider reverts to its pre-delivery value, which matters for error handling (e.g.,
+rejecting the kernel promise of a message sent to a terminated [vat](#vat)). See
+[`setPromiseDecider`](../packages/ocap-kernel/src/store/methods/promise.ts) and the
+authorization check in
+[`resolvePromises`](../packages/ocap-kernel/src/KernelQueue.ts).
+
 ### promise resolution
 
-The process of fulfilling or rejecting a promise. Promise resolutions are delivered as
-notifications to [vats](#vat) and can trigger cascading resolutions of dependent promises.
-See the [promise store methods](../packages/ocap-kernel/src/store/methods/promise.ts) for
+The process of fulfilling or rejecting a [kernel promise](#kernel-promise). Promise
+resolutions are delivered as notifications to [vats](#vat) and can trigger cascading
+resolutions of dependent kernel promises. See the
+[promise store methods](../packages/ocap-kernel/src/store/methods/promise.ts) for
 implementation details.
 
 ### garbage collection (GC)
@@ -157,7 +187,8 @@ details.
 ### kernel router
 
 The component responsible for routing messages to the correct [vat](#vat) based on target
-references and promise states. The router handles [delivery](#delivery) logic. See the
+references and [kernel promise](#kernel-promise) states. The router handles
+[delivery](#delivery) logic. See the
 [KernelRouter](../packages/ocap-kernel/src/KernelRouter.ts) for routing logic.
 
 ## Abbreviations
