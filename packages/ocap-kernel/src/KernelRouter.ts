@@ -229,6 +229,9 @@ export class KernelRouter {
         try {
           endpoint = this.#getEndpoint(endpointId);
         } catch {
+          // TODO: Narrow this catch to the expected error type (e.g.,
+          // VatNotFoundError) so that unexpected errors are not silently
+          // swallowed and deliverable messages are not incorrectly discarded.
           // Endpoint vanished (e.g., vat terminated but ownership entries not
           // yet cleaned up). Treat the same as a splat.
           if (message.result) {
