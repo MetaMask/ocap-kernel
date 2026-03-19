@@ -5,7 +5,6 @@ import {
   setupConsoleForwarding,
   isConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
-import type { CommsQueryParams } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -58,21 +57,19 @@ async function main(): Promise<void> {
   ]);
 }
 
-const DEFAULT_RELAYS = [
-  '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
-];
-
 /**
  * Creates and initializes the kernel worker.
  *
- * @param remoteCommsOptions - Options passed to {@link Kernel.initRemoteComms} via the worker URL (relays, allowedWsHosts, etc.); defaults to DEFAULT_RELAYS.
  * @returns The message port stream for worker communication
  */
-async function makeKernelWorker(
-  remoteCommsOptions?: CommsQueryParams,
-): Promise<DuplexStream<JsonRpcMessage, JsonRpcMessage>> {
-  const opts = remoteCommsOptions ?? { relays: DEFAULT_RELAYS };
-  const workerUrlParams = createCommsQueryString(opts);
+async function makeKernelWorker(): Promise<
+  DuplexStream<JsonRpcMessage, JsonRpcMessage>
+> {
+  const workerUrlParams = createCommsQueryString({
+    relays: [
+      '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+    ],
+  });
   workerUrlParams.set('reset-storage', process.env.RESET_STORAGE ?? 'false');
 
   // Configure system subclusters to launch at kernel initialization
