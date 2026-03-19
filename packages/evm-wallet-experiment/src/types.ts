@@ -77,6 +77,7 @@ export function makeChainConfig(options: {
 export const CaveatTypeValues = [
   'allowedTargets',
   'allowedMethods',
+  'allowedCalldata',
   'valueLte',
   'nativeTokenTransferAmount',
   'erc20TransferAmount',
@@ -341,6 +342,11 @@ export const CaveatSpecStruct = union([
     type: literal('blockWindow'),
     after: BigIntStruct,
     before: BigIntStruct,
+  }),
+  object({
+    type: literal('allowedCalldata'),
+    dataStart: number(),
+    value: HexStruct,
   }),
   object({
     type: literal('valueLte'),
