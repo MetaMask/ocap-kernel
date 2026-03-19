@@ -133,8 +133,8 @@ export class KernelQueue {
   /**
    * Process the results of a crank.
    *
-   * @param crankResult - The crank results.
-   * @param queueItem - The run qeueue item that caused the crank results.
+   * @param crankResult - The crank result.
+   * @param queueItem - The run queue item that caused the crank result.
    */
   async #processCrankResult(
     crankResult: CrankResult | undefined,

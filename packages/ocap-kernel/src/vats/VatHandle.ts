@@ -209,7 +209,7 @@ export class VatHandle implements EndpointHandle {
    *
    * @param target - The VRef of the object to which the message is addressed.
    * @param message - The message to deliver.
-   * @returns The crank results.
+   * @returns The crank result.
    */
   async deliverMessage(target: VRef, message: Message): Promise<CrankResult> {
     await this.sendVatCommand({
@@ -223,7 +223,7 @@ export class VatHandle implements EndpointHandle {
    * Make a 'notify' delivery to the vat.
    *
    * @param resolutions - One or more promise resolutions to deliver.
-   * @returns The crank results.
+   * @returns The crank result.
    */
   async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResult> {
     await this.sendVatCommand({
@@ -237,7 +237,7 @@ export class VatHandle implements EndpointHandle {
    * Make a 'dropExports' delivery to the vat.
    *
    * @param vrefs - The VRefs of the exports to be dropped.
-   * @returns The crank results.
+   * @returns The crank result.
    */
   async deliverDropExports(vrefs: VRef[]): Promise<CrankResult> {
     await this.sendVatCommand({
@@ -251,7 +251,7 @@ export class VatHandle implements EndpointHandle {
    * Make a 'retireExports' delivery to the vat.
    *
    * @param vrefs - The VRefs of the exports to be retired.
-   * @returns The crank results.
+   * @returns The crank result.
    */
   async deliverRetireExports(vrefs: VRef[]): Promise<CrankResult> {
     await this.sendVatCommand({
@@ -265,7 +265,7 @@ export class VatHandle implements EndpointHandle {
    * Make a 'retireImports' delivery to the vat.
    *
    * @param vrefs - The VRefs of the imports to be retired.
-   * @returns The crank results.
+   * @returns The crank result.
    */
   async deliverRetireImports(vrefs: VRef[]): Promise<CrankResult> {
     await this.sendVatCommand({
@@ -278,7 +278,7 @@ export class VatHandle implements EndpointHandle {
   /**
    * Make a 'bringOutYourDead' delivery to the vat.
    *
-   * @returns The crank results.
+   * @returns The crank result.
    */
   async deliverBringOutYourDead(): Promise<CrankResult> {
     await this.sendVatCommand({

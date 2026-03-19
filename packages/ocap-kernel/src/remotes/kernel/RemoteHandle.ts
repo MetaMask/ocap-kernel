@@ -577,7 +577,7 @@ export class RemoteHandle implements EndpointHandle {
    *
    * @param target - The ref of the object to which the message is addressed.
    * @param message - The message to deliver.
-   * @returns the crank results.
+   * @returns the crank result.
    */
   async deliverMessage(target: ERef, message: Message): Promise<CrankResult> {
     await this.#sendRemoteCommand({
@@ -591,7 +591,7 @@ export class RemoteHandle implements EndpointHandle {
    * Send a 'notify' delivery to the remote.
    *
    * @param resolutions - One or more promise resolutions to deliver.
-   * @returns the crank results.
+   * @returns the crank result.
    */
   async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResult> {
     await this.#sendRemoteCommand({
@@ -605,7 +605,7 @@ export class RemoteHandle implements EndpointHandle {
    * Send a 'dropExports' delivery to the remote.
    *
    * @param erefs - The refs of the exports to be dropped.
-   * @returns the crank results.
+   * @returns the crank result.
    */
   async deliverDropExports(erefs: ERef[]): Promise<CrankResult> {
     await this.#sendRemoteCommand({
@@ -619,7 +619,7 @@ export class RemoteHandle implements EndpointHandle {
    * Send a 'retireExports' delivery to the remote.
    *
    * @param erefs - The refs of the exports to be retired.
-   * @returns the crank results.
+   * @returns the crank result.
    */
   async deliverRetireExports(erefs: ERef[]): Promise<CrankResult> {
     await this.#sendRemoteCommand({
@@ -633,7 +633,7 @@ export class RemoteHandle implements EndpointHandle {
    * Send a 'retireImports' delivery to the remote.
    *
    * @param erefs - The refs of the imports to be retired.
-   * @returns the crank results.
+   * @returns the crank result.
    */
   async deliverRetireImports(erefs: ERef[]): Promise<CrankResult> {
     await this.#sendRemoteCommand({
@@ -648,7 +648,7 @@ export class RemoteHandle implements EndpointHandle {
    * its garbage collection cycle. If the current BOYD was triggered by an
    * incoming remote request, skip sending to prevent infinite ping-pong.
    *
-   * @returns the crank results.
+   * @returns the crank result.
    */
   async deliverBringOutYourDead(): Promise<CrankResult> {
     if (this.#remoteGcRequested) {

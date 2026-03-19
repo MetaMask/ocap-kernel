@@ -322,7 +322,7 @@ export class KernelRouter {
    *
    * @param target - The kernel reference of the target service object.
    * @param message - The message to deliver to the service.
-   * @returns The crank results indicating the delivery was to the kernel.
+   * @returns The crank result indicating the delivery was to the kernel.
    */
   #deliverKernelServiceMessage(target: KRef, message: Message): CrankResult {
     this.#invokeKernelService(target, message);
