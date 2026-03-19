@@ -132,26 +132,32 @@ describe('comms-query-string', () => {
       });
     });
 
-    it('ignores array params with non-string-array JSON values', () => {
-      expect(
+    it('throws on array params with non-string-array JSON values', () => {
+      expect(() =>
         parseCommsQueryString(
           `?relays=${encodeURIComponent(JSON.stringify({ not: 'an array' }))}`,
         ),
-      ).toStrictEqual({});
-      expect(
+      ).toThrow(TypeError);
+      expect(() =>
         parseCommsQueryString(
           `?relays=${encodeURIComponent(JSON.stringify([1, 2]))}`,
         ),
-      ).toStrictEqual({});
+      ).toThrow(TypeError);
     });
 
-    it('ignores array params with invalid JSON', () => {
-      expect(parseCommsQueryString('?relays=not-json')).toStrictEqual({});
+    it('throws on array params with invalid JSON', () => {
+      expect(() => parseCommsQueryString('?relays=not-json')).toThrow(
+        TypeError,
+      );
     });
 
-    it('ignores invalid number values', () => {
-      expect(parseCommsQueryString('?maxRetryAttempts=-1')).toStrictEqual({});
-      expect(parseCommsQueryString('?maxRetryAttempts=1.5')).toStrictEqual({});
+    it('throws on invalid number values', () => {
+      expect(() => parseCommsQueryString('?maxRetryAttempts=-1')).toThrow(
+        TypeError,
+      );
+      expect(() => parseCommsQueryString('?maxRetryAttempts=1.5')).toThrow(
+        TypeError,
+      );
       expect(parseCommsQueryString('?maxRetryAttempts=10')).toStrictEqual({
         maxRetryAttempts: 10,
       });

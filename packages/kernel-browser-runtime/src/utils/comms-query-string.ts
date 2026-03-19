@@ -119,14 +119,20 @@ export function parseCommsQueryString(queryString: string): CommsQueryParams {
   for (const key of ARRAY_PARAM_NAMES) {
     const raw = params.get(key);
     if (raw !== null && raw !== '') {
+      let parsed: unknown;
       try {
-        const parsed = JSON.parse(raw) as unknown;
-        if (is(parsed, StringArray)) {
-          options[key] = parsed;
-        }
+        parsed = JSON.parse(raw);
       } catch {
-        // Silently ignore invalid JSON
+        throw new TypeError(
+          `parseCommsQueryString: ${key} contains invalid JSON: ${raw}`,
+        );
       }
+      if (!is(parsed, StringArray)) {
+        throw new TypeError(
+          `parseCommsQueryString: ${key} must be a JSON array of strings, got ${raw}`,
+        );
+      }
+      options[key] = parsed;
     }
   }
 
@@ -134,9 +140,12 @@ export function parseCommsQueryString(queryString: string): CommsQueryParams {
     const raw = params.get(key);
     if (raw !== null && raw !== '') {
       const parsed = Number(raw);
-      if (is(parsed, NonNegativeInteger)) {
-        options[key] = parsed;
+      if (!is(parsed, NonNegativeInteger)) {
+        throw new TypeError(
+          `parseCommsQueryString: ${key} must be a non-negative integer, got ${raw}`,
+        );
       }
+      options[key] = parsed;
     }
   }
 
