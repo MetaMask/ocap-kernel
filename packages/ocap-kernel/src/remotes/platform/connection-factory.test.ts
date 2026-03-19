@@ -115,9 +115,13 @@ vi.mock('@metamask/kernel-errors', () => ({
 const mockLoggerLog = vi.fn();
 const mockLoggerError = vi.fn();
 
+const mockLoggerWarn = vi.fn();
+
 vi.mock('@metamask/logger', () => ({
   Logger: class {
     log = mockLoggerLog;
+
+    warn = mockLoggerWarn;
 
     error = mockLoggerError;
   },
@@ -131,9 +135,26 @@ vi.mock('@multiformats/multiaddr', () => ({
     }
     // Extract the last /p2p/<peerId> segment if present
     const peerIdMatch = addr.match(/\/p2p\/([^/]+)$/u);
+    // Extract protocol names from multiaddr segments (e.g. /dns4/.../tcp/.../ws/...)
+    const segments = addr.split('/').filter(Boolean);
+    const protos: string[] = [];
+    for (const seg of segments) {
+      if (!/^\d+$/u.test(seg) && !peerIdMatch?.[1]?.includes(seg)) {
+        protos.push(seg);
+      }
+    }
+    // Extract host: value after dns4/dns6/ip4/ip6
+    const hostMatch = addr.match(/\/(dns[46]?|ip[46])\/([^/]+)/u);
     return {
       toString: () => addr,
       getPeerId: () => peerIdMatch?.[1] ?? null,
+      protoNames: () => protos,
+      toOptions: () => ({
+        host: hostMatch?.[2] ?? 'unknown',
+        port: 0,
+        transport: 'tcp' as const,
+        family: 4 as const,
+      }),
     };
   },
 }));
@@ -446,6 +467,38 @@ describe('ConnectionFactory', () => {
           expect(result).toBe(expected);
         },
       );
+    });
+
+    it('auto-allows ws:// relay hosts in connectionGater', async () => {
+      const { ConnectionFactory } = await import('./connection-factory.ts');
+      const { Logger } = await import('@metamask/logger');
+      factory = await ConnectionFactory.make({
+        keySeed,
+        knownRelays: [
+          '/dns4/relay.public.com/tcp/9001/ws/p2p/relay1',
+          '/dns4/relay2.public.com/tcp/443/wss/p2p/relay2',
+        ],
+        logger: new Logger(),
+        signal: new AbortController().signal,
+      });
+
+      const callArgs = createLibp2p.mock.calls[0]?.[0];
+      const wsRelayAddr = makeTestMultiaddr(
+        ['dns4', 'tcp', 'ws'],
+        'relay.public.com',
+      );
+      const wssRelayAddr = makeTestMultiaddr(
+        ['dns4', 'tcp', 'ws'],
+        'relay2.public.com',
+      );
+      // ws:// relay host is auto-allowed
+      expect(
+        await callArgs.connectionGater.denyDialMultiaddr(wsRelayAddr),
+      ).toBe(false);
+      // wss:// relay host is NOT auto-allowed (wss doesn't need it)
+      expect(
+        await callArgs.connectionGater.denyDialMultiaddr(wssRelayAddr),
+      ).toBe(true);
     });
 
     it('registers peer update event listener', async () => {
