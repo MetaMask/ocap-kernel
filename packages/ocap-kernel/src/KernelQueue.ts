@@ -81,19 +81,18 @@ export class KernelQueue {
         this.#kernelStore.createCrankSavepoint('start');
 
         const queueItem = this.#getNextRunQueueItem();
-        if (queueItem === undefined) {
-          // Queue empty — sleep until woken
-          const { promise, resolve } = makePromiseKit<void>();
+        if (queueItem) {
+          this.#kernelStore.nextTerminatedVatCleanup();
+          const crankResult = await deliver(queueItem);
+          await this.#processCrankResult(crankResult, queueItem);
+        } else {
           if (this.#wakeUpTheRunQueue !== null) {
             Fail`run queue already waiting to be woken; cannot sleep again before the previous wake handler is consumed`;
           }
 
+          const { promise, resolve } = makePromiseKit<void>();
           this.#wakeUpTheRunQueue = resolve;
           wakeUpPromise = promise;
-        } else {
-          this.#kernelStore.nextTerminatedVatCleanup();
-          const crankResult = await deliver(queueItem);
-          await this.#processCrankResult(crankResult, queueItem);
         }
       } finally {
         this.#kernelStore.endCrank();
