@@ -1,8 +1,10 @@
+import { M } from '@endo/patterns';
 import type { MethodSchema } from '@metamask/kernel-utils';
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 
 import { decodeBalanceOfResult, encodeBalanceOf } from './erc20.ts';
 import { GET_BALANCE_SCHEMA, METHOD_CATALOG } from './method-catalog.ts';
+import type { CatalogMethodName } from './method-catalog.ts';
 import type {
   Address,
   CaveatSpec,
@@ -10,6 +12,15 @@ import type {
   Execution,
   Hex,
 } from '../types.ts';
+
+const METHOD_GUARDS: Record<
+  CatalogMethodName,
+  ReturnType<typeof M.callWhen>
+> = {
+  transfer: M.callWhen(M.string(), M.scalar()).returns(M.any()),
+  approve: M.callWhen(M.string(), M.scalar()).returns(M.any()),
+  call: M.callWhen(M.string(), M.scalar(), M.string()).returns(M.any()),
+};
 
 type SpendTracker = {
   spent: bigint;
@@ -115,6 +126,10 @@ export function makeDelegationTwin(
     [methodName]: entry.schema,
   };
 
+  const methodGuards: Record<string, ReturnType<typeof M.callWhen>> = {
+    [methodName]: METHOD_GUARDS[methodName as CatalogMethodName],
+  };
+
   if (readFn && token) {
     methods.getBalance = async (): Promise<bigint> => {
       const result = await readFn({
@@ -124,11 +139,19 @@ export function makeDelegationTwin(
       return decodeBalanceOfResult(result);
     };
     schema.getBalance = GET_BALANCE_SCHEMA;
+    methodGuards.getBalance = M.callWhen().returns(M.any());
   }
+
+  const interfaceGuard = M.interface(
+    `DelegationTwin:${methodName}:${idPrefix}`,
+    methodGuards,
+    { defaultGuards: 'passable' },
+  );
 
   return makeDiscoverableExo(
     `DelegationTwin:${methodName}:${idPrefix}`,
     methods,
     schema,
+    interfaceGuard,
   );
 }

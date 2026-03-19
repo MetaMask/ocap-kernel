@@ -4,15 +4,21 @@ import type { Address, DelegationGrant, Execution, Hex } from '../types.ts';
 import { makeDelegationTwin } from './delegation-twin.ts';
 import { encodeBalanceOf } from './erc20.ts';
 
+let lastInterfaceGuard: unknown;
+
 vi.mock('@metamask/kernel-utils/discoverable', () => ({
   makeDiscoverableExo: (
     _name: string,
     methods: Record<string, (...args: unknown[]) => unknown>,
     methodSchema: Record<string, unknown>,
-  ) => ({
-    ...methods,
-    __getDescription__: () => methodSchema,
-  }),
+    interfaceGuard?: unknown,
+  ) => {
+    lastInterfaceGuard = interfaceGuard;
+    return {
+      ...methods,
+      __getDescription__: () => methodSchema,
+    };
+  },
 }));
 
 const ALICE = '0x1111111111111111111111111111111111111111' as Address;
@@ -215,6 +221,60 @@ describe('makeDelegationTwin', () => {
       const execution = redeemFn.mock.calls[0]?.[0] as Execution;
       expect(execution.target).toBe(target);
       expect(execution.callData).toBe('0xdeadbeef');
+    });
+  });
+
+  describe('interfaceGuard', () => {
+    it('passes an InterfaceGuard to makeDiscoverableExo', () => {
+      const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
+      makeDelegationTwin({
+        grant: makeTransferGrant(1000n),
+        redeemFn,
+      });
+      expect(lastInterfaceGuard).toBeDefined();
+    });
+
+    it('guard covers the primary method', () => {
+      const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
+      makeDelegationTwin({
+        grant: makeTransferGrant(1000n),
+        redeemFn,
+      });
+      const guard = lastInterfaceGuard as {
+        payload: { methodGuards: Record<string, unknown> };
+      };
+      expect(guard.payload.methodGuards).toHaveProperty('transfer');
+    });
+
+    it('guard includes getBalance when readFn provided', () => {
+      const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
+      const readFn = vi
+        .fn()
+        .mockResolvedValue(
+          '0x00000000000000000000000000000000000000000000000000000000000f4240' as Hex,
+        );
+      makeDelegationTwin({
+        grant: makeTransferGrant(1000n),
+        redeemFn,
+        readFn,
+      });
+      const guard = lastInterfaceGuard as {
+        payload: { methodGuards: Record<string, unknown> };
+      };
+      expect(guard.payload.methodGuards).toHaveProperty('transfer');
+      expect(guard.payload.methodGuards).toHaveProperty('getBalance');
+    });
+
+    it('guard does not include getBalance when readFn absent', () => {
+      const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
+      makeDelegationTwin({
+        grant: makeTransferGrant(1000n),
+        redeemFn,
+      });
+      const guard = lastInterfaceGuard as {
+        payload: { methodGuards: Record<string, unknown> };
+      };
+      expect(guard.payload.methodGuards).not.toHaveProperty('getBalance');
     });
   });
 });
