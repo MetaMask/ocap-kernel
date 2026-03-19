@@ -21,7 +21,7 @@ import { setupConsoleForwarding } from '../utils/console-forwarding.ts';
 import { makeKernelCapTP } from './captp/index.ts';
 import { makeLoggingMiddleware } from './middleware/logging.ts';
 import { makePanelMessageMiddleware } from './middleware/panel-message.ts';
-import { getRelaysFromCurrentLocation } from '../utils/relay-query-string.ts';
+import { getCommsParamsFromCurrentLocation } from '../utils/comms-query-string.ts';
 
 const logger = new Logger('kernel-worker');
 const DB_FILENAME = 'store.db';
@@ -107,6 +107,6 @@ async function main(): Promise<void> {
       logger.error('Message stream error:', error);
     });
 
-  const relays = getRelaysFromCurrentLocation();
-  await kernel.initRemoteComms({ relays });
+  const commsOptions = getCommsParamsFromCurrentLocation();
+  await kernel.initRemoteComms(commsOptions);
 }

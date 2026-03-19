@@ -1,2 +1,2 @@
 export * from './console-forwarding.ts';
-export * from './relay-query-string.ts';
+export * from './comms-query-string.ts';

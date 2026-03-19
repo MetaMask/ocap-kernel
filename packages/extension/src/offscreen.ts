@@ -1,7 +1,7 @@
 import {
   makeIframeVatWorker,
   PlatformServicesServer,
-  createRelayQueryString,
+  createCommsQueryString,
   setupConsoleForwarding,
   isConsoleForwardMessage,
 } from '@metamask/kernel-browser-runtime';
@@ -64,14 +64,11 @@ async function main(): Promise<void> {
 async function makeKernelWorker(): Promise<
   DuplexStream<JsonRpcMessage, JsonRpcMessage>
 > {
-  // Assign local relay address generated from `yarn ocap relay`
-  const relayQueryString = createRelayQueryString([
-    '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
-    // '/dns4/troll.fudco.com/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
-    // '/dns4/troll.fudco.com/tcp/9003/ws/p2p/12D3KooWL9PaFePyNg2hFLpaWPFEPVYGzTvrWAFU9Lk2KoiKqJqR',
-  ]);
-
-  const workerUrlParams = new URLSearchParams(relayQueryString);
+  const workerUrlParams = createCommsQueryString({
+    relays: [
+      '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+    ],
+  });
   workerUrlParams.set('reset-storage', process.env.RESET_STORAGE ?? 'false');
 
   const workerUrl = new URL('kernel-worker.js', import.meta.url);

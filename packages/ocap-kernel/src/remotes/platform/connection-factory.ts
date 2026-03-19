@@ -154,11 +154,13 @@ export class ConnectionFactory {
     this.#signal = options.signal;
     this.#maxRetryAttempts = options.maxRetryAttempts ?? 0;
     this.#directTransports = options.directTransports ?? [];
-    this.#allowedWsHosts = options.allowedWsHosts ?? [];
+    const explicitHosts = options.allowedWsHosts ?? [];
+    const relayHosts: string[] = [];
 
     for (const relay of this.#knownRelays) {
       try {
-        const peerId = multiaddr(relay).getPeerId();
+        const ma = multiaddr(relay);
+        const peerId = ma.getPeerId();
         if (peerId) {
           this.#relayPeerIds.add(peerId);
           this.#relayMultiaddrs.set(peerId, relay);
@@ -167,10 +169,16 @@ export class ConnectionFactory {
             `relay address lacks /p2p/<peerId> suffix, reconnection disabled: ${relay}`,
           );
         }
+        // Auto-allow the relay host for plain ws:// connections
+        if (isPlainWs(ma)) {
+          relayHosts.push(ma.toOptions().host);
+        }
       } catch (error) {
         this.#logger.warn(`skipping malformed relay address: ${relay}`, error);
       }
     }
+
+    this.#allowedWsHosts = [...new Set([...explicitHosts, ...relayHosts])];
   }
 
   /**
