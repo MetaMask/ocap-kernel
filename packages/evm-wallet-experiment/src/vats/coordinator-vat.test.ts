@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { afterEach, describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { buildRootObject as buildDelegationRoot } from './delegation-vat.ts';
 import { buildRootObject as buildKeyringRoot } from './keyring-vat.ts';
@@ -507,6 +507,57 @@ describe('coordinator-vat', () => {
       expect(providerVat.broadcastTransaction).not.toHaveBeenCalled();
     });
 
+    it('redeems delegation via direct 7702 tx when bundler is absent', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      // Configure provider so resolveChainId returns 11155111 (matching
+      // the delegation's chainId) — without this, the delegation lookup
+      // would use chainId 1 from the getChainId mock and miss the match.
+      await coordinator.configureProvider({
+        rpcUrl: 'https://sepolia.infura.io/v3/test',
+        chainId: 11155111,
+      });
+
+      // Set up 7702 smart account (already delegated) — no bundler configured
+      providerVat.request.mockResolvedValueOnce(
+        '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
+      );
+      await coordinator.createSmartAccount({
+        chainId: 11155111,
+        implementation: 'stateless7702',
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([TARGET]),
+          }),
+        ],
+        chainId: 11155111,
+      });
+
+      const tx: TransactionRequest = {
+        from: delegator,
+        to: TARGET,
+        value: '0x0' as Hex,
+        data: '0xdeadbeef' as Hex,
+      };
+
+      const result = await coordinator.sendTransaction(tx);
+      expect(result).toBe('0xtxhash');
+      // Must use direct 7702 broadcast (self-call), not bundler UserOp
+      expect(providerVat.broadcastTransaction).toHaveBeenCalled();
+      expect(providerVat.submitUserOp).not.toHaveBeenCalled();
+    });
+
     it('falls back to broadcast when no matching delegation', async () => {
       await coordinator.initializeKeyring({
         type: 'srp',
@@ -995,7 +1046,94 @@ describe('coordinator-vat', () => {
       expect(providerVat.submitUserOp).toHaveBeenCalled();
     });
 
-    it('throws when bundler not configured', async () => {
+    it('revokes via direct 7702 tx and polls eth_getTransactionReceipt', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      // Set up 7702 smart account (already delegated)
+      providerVat.request.mockResolvedValueOnce(
+        '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
+      );
+      await coordinator.createSmartAccount({
+        chainId: 11155111,
+        implementation: 'stateless7702',
+      });
+
+      const delegation = await coordinator.createDelegation({
+        delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
+        caveats: [],
+        chainId: 11155111,
+      });
+
+      // Mock: direct tx receipt found immediately
+      providerVat.request.mockImplementation(async (method: string) => {
+        if (method === 'eth_getTransactionReceipt') {
+          return { status: '0x1', transactionHash: '0xabc' };
+        }
+        if (method === 'eth_estimateGas') {
+          return '0x5208' as Hex;
+        }
+        return undefined;
+      });
+
+      const hash = await coordinator.revokeDelegation(delegation.id);
+      expect(hash).toBe('0xtxhash');
+      expect(providerVat.submitUserOp).not.toHaveBeenCalled();
+      expect(providerVat.broadcastTransaction).toHaveBeenCalled();
+
+      // Verify local status is revoked
+      const delegations = await coordinator.listDelegations();
+      const found = (delegations as Delegation[]).find(
+        (entry) => entry.id === delegation.id,
+      );
+      expect(found?.status).toBe('revoked');
+    });
+
+    it('throws when 7702 direct revocation reverts on-chain', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      providerVat.request.mockResolvedValueOnce(
+        '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
+      );
+      await coordinator.createSmartAccount({
+        chainId: 11155111,
+        implementation: 'stateless7702',
+      });
+
+      const delegation = await coordinator.createDelegation({
+        delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
+        caveats: [],
+        chainId: 11155111,
+      });
+
+      providerVat.request.mockImplementation(async (method: string) => {
+        if (method === 'eth_getTransactionReceipt') {
+          return { status: '0x0' };
+        }
+        if (method === 'eth_estimateGas') {
+          return '0x5208' as Hex;
+        }
+        return undefined;
+      });
+
+      await expect(coordinator.revokeDelegation(delegation.id)).rejects.toThrow(
+        'On-chain revocation reverted',
+      );
+
+      // Local status must NOT be updated
+      const delegations = await coordinator.listDelegations();
+      const found = (delegations as Delegation[]).find(
+        (entry) => entry.id === delegation.id,
+      );
+      expect(found?.status).toBe('signed');
+    });
+
+    it('throws when bundler not configured for hybrid account', async () => {
       await coordinator.initializeKeyring({
         type: 'srp',
         mnemonic: TEST_MNEMONIC,
@@ -1198,13 +1336,47 @@ describe('coordinator-vat', () => {
         hasExternalSigner: false,
         hasBundlerConfig: false,
         smartAccountAddress: undefined,
-        chainId: undefined,
+        chainId: 1,
         signingMode: 'local',
         autonomy: 'no signing authority',
         peerAccountsCached: false,
         cachedPeerAccounts: [],
         hasAwayWallet: false,
       });
+    });
+
+    it('reports autonomy for 7702 with delegations and no bundler', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      // Set up 7702 smart account (already delegated) — no bundler
+      providerVat.request.mockResolvedValueOnce(
+        '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
+      );
+      await coordinator.createSmartAccount({
+        chainId: 11155111,
+        implementation: 'stateless7702',
+      });
+
+      // Create a delegation
+      await coordinator.createDelegation({
+        delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
+        caveats: [],
+        chainId: 11155111,
+      });
+
+      // Configure provider so cachedProviderChainId is set to 11155111
+      await coordinator.configureProvider({
+        rpcUrl: 'https://sepolia.infura.io/v3/test',
+        chainId: 11155111,
+      });
+
+      const caps = await coordinator.getCapabilities();
+      expect(caps.hasBundlerConfig).toBe(false);
+      expect(caps.autonomy).toMatch(/^autonomous/u);
+      expect(caps.chainId).toBe(11155111);
     });
   });
 
@@ -2837,6 +3009,114 @@ describe('coordinator-vat', () => {
     });
   });
 
+  describe('waitForTransactionReceipt', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('returns success when receipt is found', async () => {
+      providerVat.request.mockResolvedValueOnce({
+        status: '0x1',
+        transactionHash: '0xabc',
+      });
+
+      const result = await coordinator.waitForTransactionReceipt({
+        txHash: '0xdeadbeef' as Hex,
+      });
+      expect(result).toStrictEqual({ success: true });
+      expect(providerVat.request).toHaveBeenCalledWith(
+        'eth_getTransactionReceipt',
+        ['0xdeadbeef'],
+      );
+    });
+
+    it('polls until receipt appears', async () => {
+      vi.useFakeTimers();
+
+      providerVat.request
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({ status: '0x1' });
+
+      const resultPromise = coordinator.waitForTransactionReceipt({
+        txHash: '0xabc' as Hex,
+        pollIntervalMs: 100,
+      });
+
+      await vi.advanceTimersByTimeAsync(100);
+      await vi.advanceTimersByTimeAsync(100);
+
+      const result = await resultPromise;
+      expect(result.success).toBe(true);
+      expect(providerVat.request).toHaveBeenCalledTimes(2);
+    });
+
+    it('returns success: false for reverted transaction', async () => {
+      providerVat.request.mockResolvedValueOnce({
+        status: '0x0',
+        transactionHash: '0xabc',
+      });
+
+      const result = await coordinator.waitForTransactionReceipt({
+        txHash: '0xdeadbeef' as Hex,
+      });
+      expect(result).toStrictEqual({ success: false });
+    });
+
+    it('normalizes numeric status from provider', async () => {
+      providerVat.request.mockResolvedValueOnce({
+        status: 1,
+        transactionHash: '0xabc',
+      });
+
+      const result = await coordinator.waitForTransactionReceipt({
+        txHash: '0xdeadbeef' as Hex,
+      });
+      expect(result).toStrictEqual({ success: true });
+    });
+
+    it('treats missing status as success', async () => {
+      providerVat.request.mockResolvedValueOnce({
+        transactionHash: '0xabc',
+      });
+
+      const result = await coordinator.waitForTransactionReceipt({
+        txHash: '0xdeadbeef' as Hex,
+      });
+      expect(result).toStrictEqual({ success: true });
+    });
+
+    it('throws on timeout when receipt never appears', async () => {
+      vi.useFakeTimers();
+
+      providerVat.request.mockResolvedValue(null);
+
+      const resultPromise = coordinator.waitForTransactionReceipt({
+        txHash: '0xabc' as Hex,
+        pollIntervalMs: 50,
+        timeoutMs: 200,
+      });
+
+      // Advance past the timeout
+      await vi.advanceTimersByTimeAsync(300);
+
+      await expect(resultPromise).rejects.toThrow('not mined after');
+    });
+
+    it('throws when provider is not configured', async () => {
+      const freshBaggage = makeMockBaggage();
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await expect(
+        coord.waitForTransactionReceipt({ txHash: '0xdeadbeef' as Hex }),
+      ).rejects.toThrow('Provider not configured');
+    });
+  });
+
   describe('getTransactionReceipt', () => {
     beforeEach(async () => {
       await coordinator.initializeKeyring({
@@ -3464,13 +3744,13 @@ describe('coordinator-vat', () => {
     });
   });
 
-  describe('submitDelegationUserOp (stateless7702 signing)', () => {
+  describe('redeemDelegation (stateless7702 direct tx)', () => {
     /**
-     * Set up a 7702 smart account (already-delegated path) and configure
-     * a bundler.
+     * Set up a 7702 smart account (already-delegated path). Optionally
+     * configure a bundler (unused for redemption on the direct 7702 path).
      *
      * @param options - Setup options.
-     * @param options.usePaymaster - Whether to enable paymaster sponsorship.
+     * @param options.usePaymaster - Whether to enable paymaster on bundler config.
      * @returns The EOA address.
      */
     async function setup7702WithBundler(options?: {
@@ -3502,7 +3782,7 @@ describe('coordinator-vat', () => {
       return eoaAddress;
     }
 
-    it('uses EIP-712 typed data with 7702 domain name', async () => {
+    it('broadcasts a self-call EIP-1559 tx instead of a UserOp', async () => {
       const eoaAddress = await setup7702WithBundler();
 
       // Create a delegation
@@ -3528,19 +3808,16 @@ describe('coordinator-vat', () => {
         maxPriorityFeePerGas: '0x3b9aca00' as Hex,
       });
 
-      expect(result).toBe('0xuserophash');
-
-      // Verify UserOp was submitted with the EOA address as sender
-      const submitCall = providerVat.submitUserOp.mock.calls[0][0];
-      expect(submitCall.userOp.sender).toBe(eoaAddress);
-      expect(submitCall.userOp.signature).toMatch(/^0x/u);
-      expect(submitCall.userOp.signature).not.toBe('0x');
-      // No factory should be included for 7702 accounts
-      expect(submitCall.userOp.factory).toBeUndefined();
-      expect(submitCall.userOp.factoryData).toBeUndefined();
+      expect(result).toBe('0xtxhash');
+      expect(providerVat.submitUserOp).not.toHaveBeenCalled();
+      expect(providerVat.broadcastTransaction).toHaveBeenCalledOnce();
+      const signedRaw = providerVat.broadcastTransaction.mock
+        .calls[0][0] as Hex;
+      expect(typeof signedRaw).toBe('string');
+      expect(signedRaw.startsWith('0x')).toBe(true);
     });
 
-    it('produces a different signature than hybrid (typed data) signing', async () => {
+    it('uses direct broadcast for 7702 and UserOp submission for hybrid', async () => {
       // --- 7702 path ---
       const eoa7702 = await setup7702WithBundler();
 
@@ -3561,8 +3838,8 @@ describe('coordinator-vat', () => {
         maxPriorityFeePerGas: '0x3b9aca00' as Hex,
       });
 
-      const sig7702 =
-        providerVat.submitUserOp.mock.calls[0][0].userOp.signature;
+      expect(providerVat.broadcastTransaction).toHaveBeenCalled();
+      expect(providerVat.submitUserOp).not.toHaveBeenCalled();
 
       // --- Hybrid path (fresh coordinator) ---
       const hybridBaggage = makeMockBaggage();
@@ -3630,15 +3907,13 @@ describe('coordinator-vat', () => {
         maxPriorityFeePerGas: '0x3b9aca00' as Hex,
       });
 
+      expect(hybridProvider.submitUserOp).toHaveBeenCalled();
       const sigHybrid =
         hybridProvider.submitUserOp.mock.calls[0][0].userOp.signature;
-
-      // The two signatures must differ: 7702 uses EIP-712 with domain
-      // name 'EIP7702StatelessDeleGator', hybrid uses 'HybridDeleGator'.
-      expect(sig7702).not.toBe(sigHybrid);
+      expect(sigHybrid).toMatch(/^0x/u);
     });
 
-    it('works with paymaster sponsorship', async () => {
+    it('does not use paymaster or UserOps for stateless7702 redemption', async () => {
       const eoaAddress = await setup7702WithBundler({ usePaymaster: true });
 
       const delegation = await coordinator.createDelegation({
@@ -3658,16 +3933,10 @@ describe('coordinator-vat', () => {
         maxPriorityFeePerGas: '0x3b9aca00' as Hex,
       });
 
-      expect(result).toBe('0xuserophash');
-      expect(providerVat.sponsorUserOp).toHaveBeenCalled();
-      expect(providerVat.estimateUserOpGas).not.toHaveBeenCalled();
-
-      const submitCall = providerVat.submitUserOp.mock.calls[0][0];
-      expect(submitCall.userOp.paymaster).toBe(
-        '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
-      );
-      expect(submitCall.userOp.sender).toBe(eoaAddress);
-      expect(submitCall.userOp.factory).toBeUndefined();
+      expect(result).toBe('0xtxhash');
+      expect(providerVat.sponsorUserOp).not.toHaveBeenCalled();
+      expect(providerVat.submitUserOp).not.toHaveBeenCalled();
+      expect(providerVat.broadcastTransaction).toHaveBeenCalled();
     });
   });
 
@@ -3800,6 +4069,44 @@ describe('coordinator-vat', () => {
 
       expect(result).toBe('0xdirectbatch');
       expect(providerVat.submitUserOp).toHaveBeenCalledOnce();
+    });
+
+    it('batches via direct EIP-1559 when stateless7702 has no bundler', async () => {
+      providerVat.request.mockResolvedValueOnce(
+        '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
+      );
+      await coordinator.createSmartAccount({
+        chainId: 11155111,
+        implementation: 'stateless7702',
+      });
+
+      providerVat.request.mockImplementation(async (method: string) => {
+        if (method === 'eth_getCode') {
+          return '0x';
+        }
+        if (method === 'eth_estimateGas') {
+          return '0x5208' as Hex;
+        }
+        return undefined;
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const result = await coordinator.sendBatchTransaction([
+        {
+          from: accounts[0] as Address,
+          to: '0x1111111111111111111111111111111111111111' as Address,
+          value: '0x1' as Hex,
+        },
+        {
+          from: accounts[0] as Address,
+          to: '0x2222222222222222222222222222222222222222' as Address,
+          value: '0x2' as Hex,
+        },
+      ]);
+
+      expect(result).toBe('0xtxhash');
+      expect(providerVat.submitUserOp).not.toHaveBeenCalled();
+      expect(providerVat.broadcastTransaction).toHaveBeenCalledOnce();
     });
   });
 

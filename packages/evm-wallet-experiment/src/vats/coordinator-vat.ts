@@ -413,6 +413,173 @@ export function buildRootObject(
     restoreFromBaggage<Address[]>('cachedPeerAccounts') ?? [];
   cachedPeerSigningMode = restoreFromBaggage<string>('cachedPeerSigningMode');
 
+  /** Chain ID from the last `configureProvider` call (avoids RPC on every send). */
+  let cachedProviderChainId: number | undefined = restoreFromBaggage<number>(
+    'cachedProviderChainId',
+  );
+
+  /**
+   * Resolve the wallet chain ID for delegation matching, SDK addresses, and txs.
+   *
+   * Order: bundler config → cached provider config → `eth_chainId` RPC.
+   *
+   * @returns The resolved chain ID.
+   */
+  async function resolveChainId(): Promise<number> {
+    if (bundlerConfig?.chainId !== undefined) {
+      return bundlerConfig.chainId;
+    }
+    if (cachedProviderChainId !== undefined) {
+      return cachedProviderChainId;
+    }
+    if (!providerVat) {
+      throw new Error(
+        'Provider not configured — call configureProvider() first',
+      );
+    }
+    return E(providerVat).getChainId();
+  }
+
+  /**
+   * Whether smart-account operations for this sender should use Infura-style
+   * raw transactions (stateless 7702) instead of ERC-4337 UserOps.
+   *
+   * @param sender - Smart account address (same as EOA for stateless 7702).
+   * @returns True when direct EIP-1559 submission should be used.
+   */
+  async function useDirect7702Tx(sender: Address): Promise<boolean> {
+    if (smartAccountConfig?.implementation === 'stateless7702') {
+      if (
+        smartAccountConfig.address !== undefined &&
+        smartAccountConfig.address.toLowerCase() !== sender.toLowerCase()
+      ) {
+        // Config points at a different account — fall through to lazy check.
+      } else {
+        return true;
+      }
+    }
+    if (smartAccountConfig?.implementation === 'hybrid') {
+      return false;
+    }
+    if (!providerVat) {
+      throw new Error(
+        'Cannot determine account type: provider not configured and ' +
+          'smartAccountConfig is absent. Call configureProvider() first.',
+      );
+    }
+    const code = (await E(providerVat).request('eth_getCode', [
+      sender,
+      'latest',
+    ])) as string;
+    const chainId = await resolveChainId();
+    return isEip7702Delegated(code, chainId);
+  }
+
+  /**
+   * Sign and broadcast a self-call tx with SDK-encoded DeleGator calldata
+   * (7702 EOA). Returns the transaction hash immediately after broadcast.
+   *
+   * @param options - Direct submission options.
+   * @param options.sender - Upgraded EOA / smart account address.
+   * @param options.callData - SDK-wrapped `execute` calldata.
+   * @param options.maxFeePerGas - Optional max fee per gas override.
+   * @param options.maxPriorityFeePerGas - Optional priority fee override.
+   * @returns The transaction hash from `eth_sendRawTransaction`.
+   */
+  async function buildAndSubmitDirect7702Tx(options: {
+    sender: Address;
+    callData: Hex;
+    maxFeePerGas?: Hex;
+    maxPriorityFeePerGas?: Hex;
+  }): Promise<Hex> {
+    if (!providerVat) {
+      throw new Error('Provider vat not available');
+    }
+    const chainId = await resolveChainId();
+    let { maxFeePerGas, maxPriorityFeePerGas } = options;
+    if (!maxFeePerGas || !maxPriorityFeePerGas) {
+      const fees = await E(providerVat).getGasFees();
+      maxFeePerGas = maxFeePerGas ?? fees.maxFeePerGas;
+      maxPriorityFeePerGas = maxPriorityFeePerGas ?? fees.maxPriorityFeePerGas;
+    }
+    const nonce = await E(providerVat).getNonce(options.sender);
+    const estimatedGas = validateGasEstimate(
+      await E(providerVat).request('eth_estimateGas', [
+        {
+          from: options.sender,
+          to: options.sender,
+          data: options.callData,
+        },
+      ]),
+    );
+    const gasLimit = applyGasBuffer(estimatedGas, 10);
+    const filledTx: TransactionRequest = {
+      from: options.sender,
+      to: options.sender,
+      chainId,
+      nonce,
+      maxFeePerGas,
+      maxPriorityFeePerGas,
+      gasLimit,
+      data: options.callData,
+      value: '0x0' as Hex,
+    };
+    const signedTx = await resolveTransactionSigning(filledTx);
+    return E(providerVat).broadcastTransaction(signedTx);
+  }
+
+  /**
+   * Poll until an EIP-1559 transaction is mined or timeout.
+   *
+   * @param options - Polling options.
+   * @param options.txHash - Transaction hash to wait for.
+   * @param options.pollIntervalMs - Delay between RPC polls in milliseconds.
+   * @param options.timeoutMs - Maximum time to wait in milliseconds.
+   * @returns Whether the mined transaction succeeded (`status` 0x1).
+   */
+  async function pollTransactionReceipt(options: {
+    txHash: Hex;
+    pollIntervalMs?: number;
+    timeoutMs?: number;
+  }): Promise<{ success: boolean }> {
+    if (!providerVat) {
+      throw new Error('Provider not configured');
+    }
+    if (
+      typeof globalThis.Date?.now !== 'function' ||
+      typeof globalThis.setTimeout !== 'function'
+    ) {
+      throw new Error(
+        'Transaction receipt polling requires Date.now and setTimeout',
+      );
+    }
+    const interval = options.pollIntervalMs ?? 2000;
+    const timeout = options.timeoutMs ?? 120_000;
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      const receipt = (await E(providerVat).request(
+        'eth_getTransactionReceipt',
+        [options.txHash],
+      )) as { status?: string | number } | null;
+      if (receipt) {
+        // Normalize: some providers return status as a number (1) rather
+        // than the standard hex string ('0x1'). Missing status (pre-Byzantium)
+        // is treated as success since the tx was mined.
+        const { status } = receipt;
+        if (status === undefined || status === null) {
+          return { success: true };
+        }
+        const normalizedStatus =
+          typeof status === 'number' ? `0x${status.toString(16)}` : status;
+        return { success: normalizedStatus === '0x1' };
+      }
+      await new Promise((resolve) => setTimeout(resolve, interval));
+    }
+    throw new Error(
+      `Transaction ${options.txHash} not mined after ${String(timeout)}ms`,
+    );
+  }
+
   /**
    * Check if an address belongs to the cached peer (home) accounts.
    *
@@ -861,18 +1028,30 @@ export function buildRootObject(
     maxFeePerGas?: Hex | undefined;
     maxPriorityFeePerGas?: Hex | undefined;
   }): Promise<Hex> {
-    if (!bundlerConfig) {
-      throw new Error('Bundler not configured');
-    }
-
     const sender =
       smartAccountConfig?.address ?? options.delegations[0].delegate;
 
+    const chainId = await resolveChainId();
     const sdkCallData = buildSdkRedeemCallData({
       delegations: options.delegations,
       execution: options.execution,
-      chainId: bundlerConfig.chainId,
+      chainId,
     });
+
+    if (await useDirect7702Tx(sender)) {
+      return buildAndSubmitDirect7702Tx({
+        sender,
+        callData: sdkCallData,
+        maxFeePerGas: options.maxFeePerGas,
+        maxPriorityFeePerGas: options.maxPriorityFeePerGas,
+      });
+    }
+
+    if (!bundlerConfig) {
+      throw new Error(
+        'Bundler not configured (required for hybrid smart account redemption)',
+      );
+    }
 
     const userOpOptions: {
       sender: Address;
@@ -904,50 +1083,70 @@ export function buildRootObject(
     delegations: Delegation[];
     executions: Execution[];
   }): Promise<Hex> {
-    if (!bundlerConfig) {
-      throw new Error('Bundler not configured');
-    }
-
     const sender =
       smartAccountConfig?.address ?? options.delegations[0]?.delegate;
     if (!sender) {
       throw new Error('No sender address available for batch delegation');
     }
 
+    const chainId = await resolveChainId();
     const sdkCallData = buildSdkBatchRedeemCallData({
       delegations: options.delegations,
       executions: options.executions,
-      chainId: bundlerConfig.chainId,
+      chainId,
     });
+
+    if (await useDirect7702Tx(sender)) {
+      return buildAndSubmitDirect7702Tx({ sender, callData: sdkCallData });
+    }
+
+    if (!bundlerConfig) {
+      throw new Error(
+        'Bundler not configured (required for hybrid smart account batch redemption)',
+      );
+    }
 
     return buildAndSubmitUserOp({ sender, callData: sdkCallData });
   }
 
   /**
-   * Submit a UserOp that calls `DelegationManager.disableDelegation` to
-   * revoke a delegation on-chain. The UserOp is sent from the delegator's
-   * smart account.
+   * Submit a transaction that calls `DelegationManager.disableDelegation` to
+   * revoke a delegation on-chain — either via a direct EIP-1559 tx (7702) or
+   * an ERC-4337 UserOp (hybrid).
    *
    * @param delegation - The delegation to disable.
-   * @returns The UserOp hash from the bundler.
+   * @returns The hash and whether the direct 7702 path was used.
    */
-  async function submitDisableUserOp(delegation: Delegation): Promise<Hex> {
-    if (!bundlerConfig) {
-      throw new Error('Bundler not configured');
-    }
-
+  async function submitDisableUserOp(
+    delegation: Delegation,
+  ): Promise<{ hash: Hex; isDirect: boolean }> {
     const sender = smartAccountConfig?.address ?? delegation.delegator;
 
+    const chainId = await resolveChainId();
     const disableCallData = buildSdkDisableCallData({
       delegation,
-      chainId: bundlerConfig.chainId,
+      chainId,
     });
 
     try {
-      return await buildAndSubmitUserOp({
+      const isDirect = await useDirect7702Tx(sender);
+      if (isDirect) {
+        const hash = await buildAndSubmitDirect7702Tx({
+          sender,
+          callData: disableCallData,
+        });
+        return { hash, isDirect: true };
+      }
+      if (!bundlerConfig) {
+        throw new Error(
+          'Bundler not configured (required for hybrid on-chain revocation)',
+        );
+      }
+      const hash = await buildAndSubmitUserOp({
         sender,
         callData: disableCallData,
       });
+      return { hash, isDirect: false };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       throw new Error(
@@ -1227,6 +1426,9 @@ export function buildRootObject(
       }
 
       await E(providerVat).configure(chainConfig);
+
+      cachedProviderChainId = chainConfig.chainId;
+      persistBaggage('cachedProviderChainId', cachedProviderChainId);
     },
 
     // ------------------------------------------------------------------
@@ -1405,8 +1607,11 @@ export function buildRootObject(
         throw new Error('Provider not configured');
       }
 
-      // Check if a delegation covers this action and bundler is configured
-      if (delegationVat && bundlerConfig) {
+      // Enforce delegations whenever the delegation vat exists (bundler optional
+      // for 7702). Delegations are a security boundary — if we cannot resolve the
+      // chain ID we must fail rather than silently bypassing caveat enforcement.
+      if (delegationVat) {
+        const walletChainId = await resolveChainId();
         const action: Action = {
           to: tx.to,
           value: tx.value,
@@ -1415,7 +1620,7 @@ export function buildRootObject(
         const now = Date.now();
         const delegation = await E(delegationVat).findDelegationForAction(
           action,
-          bundlerConfig.chainId,
+          walletChainId,
           now,
         );
 
@@ -1441,7 +1646,7 @@ export function buildRootObject(
         // No delegation matched — explain why before falling through
         const explanations = await E(delegationVat).explainActionMatch(
           action,
-          bundlerConfig.chainId,
+          walletChainId,
           now,
         );
         if (explanations.length > 0) {
@@ -1493,20 +1698,35 @@ export function buildRootObject(
       }
 
       if (txs.length === 1) {
-        return coordinator.sendTransaction(txs[0] as TransactionRequest);
+        return coordinator.sendTransaction(txs[0]);
       }
 
       if (!providerVat) {
         throw new Error('Provider not configured');
       }
 
-      // Smart account path: batch into a single UserOp
-      if (bundlerConfig) {
+      const batchSender =
+        smartAccountConfig?.address ?? (await coordinator.getAccounts())[0];
+
+      // Cache the predicate result — useDirect7702Tx is impure (eth_getCode)
+      // and must not be called twice for the same sender (see revokeDelegation).
+      const isDirect7702Batch =
+        batchSender !== undefined &&
+        smartAccountConfig?.implementation === 'stateless7702' &&
+        (await useDirect7702Tx(batchSender));
+
+      const useSmartAccountBatchPath =
+        bundlerConfig !== undefined || isDirect7702Batch;
+
+      // Smart account path: single UserOp or direct 7702 self-call
+      if (useSmartAccountBatchPath) {
         const executions: Execution[] = txs.map((tx) => ({
           target: tx.to,
           value: tx.value ?? ('0x0' as Hex),
           callData: tx.data ?? ('0x' as Hex),
         }));
+
+        const walletChainId = await resolveChainId();
 
         // Delegation path: batch via redeemDelegations with BatchDefault mode.
         // Validate that the delegation covers ALL actions in the batch,
@@ -1523,7 +1743,7 @@ export function buildRootObject(
           for (const action of actions) {
             const found = await E(delegationVat).findDelegationForAction(
               action,
-              bundlerConfig.chainId,
+              walletChainId,
               now,
             );
             if (!found || found.status !== 'signed') {
@@ -1547,13 +1767,20 @@ export function buildRootObject(
         }
 
         // Direct smart account batch (no delegation)
-        const sender =
-          smartAccountConfig?.address ?? (await coordinator.getAccounts())[0];
+        const sender = batchSender;
         if (!sender) {
           throw new Error('No accounts available for batch');
         }
 
         const callData = buildBatchExecuteCallData({ executions });
+        if (isDirect7702Batch) {
+          return buildAndSubmitDirect7702Tx({ sender, callData });
+        }
+        if (!bundlerConfig) {
+          throw new Error(
+            'Bundler not configured (required for hybrid smart account batch execution)',
+          );
+        }
         return buildAndSubmitUserOp({ sender, callData });
       }
 
@@ -1732,15 +1959,15 @@ export function buildRootObject(
     },
 
     /**
-     * Revoke a delegation on-chain by submitting a UserOp that calls
-     * `DelegationManager.disableDelegation`. Blocks until the UserOp is
-     * confirmed on-chain, then updates the local delegation status.
+     * Revoke a delegation on-chain by calling `DelegationManager.disableDelegation`
+     * via a UserOp (hybrid) or a direct EIP-1559 transaction (stateless 7702).
+     * Blocks until the transaction is confirmed on-chain, then updates the local
+     * delegation status.
      *
-     * Requires the bundler to be configured. The delegator's smart account
-     * submits the UserOp (gas is covered by the paymaster if configured).
+     * Hybrid accounts require a configured bundler (paymaster optional).
      *
      * @param id - The delegation identifier.
-     * @returns The UserOp hash of the on-chain revocation transaction.
+     * @returns The UserOp hash or transaction hash of the on-chain revocation.
      */
     async revokeDelegation(id: string): Promise<Hex> {
       if (!delegationVat) {
@@ -1773,23 +2000,49 @@ export function buildRootObject(
         );
       }
 
-      // Submit on-chain disable
-      const userOpHash = await submitDisableUserOp(delegation);
+      // Submit on-chain disable — returns the hash and which path was used
+      // so we poll the right receipt endpoint without calling useDirect7702Tx
+      // a second time (the predicate is impure due to eth_getCode).
+      const { hash: submissionHash, isDirect } =
+        await submitDisableUserOp(delegation);
 
-      // Wait for on-chain confirmation and check success
-      const receipt = (await coordinator.waitForUserOpReceipt({
-        userOpHash,
-      })) as { success?: boolean } | null;
-      if (receipt && receipt.success === false) {
-        throw new Error(
-          `On-chain revocation reverted for delegation ${id} (userOpHash: ${userOpHash})`,
-        );
+      if (isDirect) {
+        const receipt = await pollTransactionReceipt({
+          txHash: submissionHash,
+        });
+        if (!receipt.success) {
+          throw new Error(
+            `On-chain revocation reverted for delegation ${id} (tx: ${submissionHash})`,
+          );
+        }
+      } else {
+        // waitForUserOpReceipt either returns a non-null receipt or throws
+        // on timeout — validate the shape to catch unexpected bundler responses.
+        const rawReceipt = await coordinator.waitForUserOpReceipt({
+          userOpHash: submissionHash,
+        });
+        const receipt = rawReceipt as { success?: boolean } | undefined;
+        if (
+          !receipt ||
+          typeof receipt !== 'object' ||
+          !('success' in receipt)
+        ) {
+          throw new Error(
+            `Unexpected UserOp receipt format for delegation ${id} ` +
+              `(userOpHash: ${submissionHash})`,
+          );
+        }
+        if (!receipt.success) {
+          throw new Error(
+            `On-chain revocation reverted for delegation ${id} (userOpHash: ${submissionHash})`,
+          );
+        }
       }
 
       // Update local status after on-chain confirmation
       await E(delegationVat).revokeDelegation(id);
 
-      return userOpHash;
+      return submissionHash;
     },
 
     async listDelegations(): Promise<Delegation[]> {
@@ -1827,16 +2080,18 @@ export function buildRootObject(
         );
         delegations = [delegation];
       } else if (options.action) {
+        // Only resolve chain ID when needed for delegation matching
+        const walletChainId = await resolveChainId();
         const now = Date.now();
         const delegation = await E(delegationVat).findDelegationForAction(
           options.action,
-          bundlerConfig?.chainId,
+          walletChainId,
           now,
         );
         if (!delegation) {
           const explanations = await E(delegationVat).explainActionMatch(
             options.action,
-            bundlerConfig?.chainId,
+            walletChainId,
             now,
           );
           throw new Error(
@@ -2014,8 +2269,7 @@ export function buildRootObject(
         throw new Error('No accounts available');
       }
 
-      const chainId =
-        bundlerConfig?.chainId ?? (await E(providerVat).getChainId());
+      const chainId = await resolveChainId();
 
       const rawAmount = BigInt(options.srcAmount).toString();
 
@@ -2229,6 +2483,24 @@ export function buildRootObject(
       throw new Error(
         `UserOp ${options.userOpHash} not found after ${timeout}ms`,
       );
+    },
+
+    /**
+     * Poll until a regular EIP-1559 transaction is mined (e.g. stateless 7702
+     * direct sends). Prefer `waitForUserOpReceipt` for ERC-4337 UserOp hashes.
+     *
+     * @param options - Polling options.
+     * @param options.txHash - Transaction hash to wait for.
+     * @param options.pollIntervalMs - Delay between RPC polls in milliseconds.
+     * @param options.timeoutMs - Maximum time to wait in milliseconds.
+     * @returns Whether the mined transaction succeeded (`status` 0x1).
+     */
+    async waitForTransactionReceipt(options: {
+      txHash: Hex;
+      pollIntervalMs?: number;
+      timeoutMs?: number;
+    }): Promise<{ success: boolean }> {
+      return pollTransactionReceipt(options);
     },
 
     // ------------------------------------------------------------------
@@ -2459,8 +2731,13 @@ export function buildRootObject(
       // Determine the agent's autonomy level based on delegations.
       // When delegations exist, the agent can send ETH within the
       // delegation's limits without requiring further user approval.
+      // Stateless 7702 can redeem via direct RPC without a bundler.
       let autonomy: string;
-      if (activeDelegations.length > 0 && bundlerConfig) {
+      const canRedeemDelegationsOnChain =
+        activeDelegations.length > 0 &&
+        (bundlerConfig !== undefined ||
+          smartAccountConfig?.implementation === 'stateless7702');
+      if (canRedeemDelegationsOnChain) {
         const limits = activeDelegations
           .flatMap((del) => del.caveats)
           .map(describeCaveat)
@@ -2477,6 +2754,13 @@ export function buildRootObject(
         autonomy = 'no signing authority';
       }
 
+      let capabilityChainId: number | undefined;
+      try {
+        capabilityChainId = await resolveChainId();
+      } catch (error) {
+        logger.debug('Failed to resolve chain ID for capabilities', error);
+      }
+
       return harden({
         hasLocalKeys,
         localAccounts,
@@ -2486,7 +2770,7 @@ export function buildRootObject(
         hasExternalSigner: externalSigner !== undefined,
         hasBundlerConfig: bundlerConfig !== undefined,
         smartAccountAddress: smartAccountConfig?.address,
-        chainId: bundlerConfig?.chainId,
+        chainId: capabilityChainId,
         signingMode,
         autonomy,
         peerAccountsCached: cachedPeerAccounts.length > 0,

@@ -75,19 +75,25 @@ The MetaMask SDK must connect **before** SES lockdown (which freezes built-in pr
 
 > **Note:** MetaMask Mobile requires `EIP712Domain` to be explicitly listed in the `types` field of `eth_signTypedData_v4` requests. Without it, MetaMask computes an empty domain separator, producing invalid signatures. The `makeProviderSigner` adapter handles this automatically.
 
-### Smart Accounts (ERC-4337)
+### Smart Accounts (ERC-4337 and EIP-7702)
 
-Both devices create **DeleGator smart accounts** via MetaMask's Delegation Framework. In mnemonic mode, the home device uses **EIP-7702** to promote the EOA into a smart account (same address, no funding needed). In interactive mode, the home device uses a **Hybrid** smart account (different address, auto-funded from the EOA). The away device always uses a **Hybrid** counterfactual smart account (deploys on first UserOp). These are ERC-4337 smart contract wallets that support:
+Both devices create **DeleGator smart accounts** via MetaMask's Delegation Framework. In mnemonic mode, the home device uses **EIP-7702** to promote the EOA into a smart account (same address, no separate contract deployment). In interactive mode, the home device uses a **Hybrid** smart account (different address, counterfactual until the first UserOp). The away device always uses **Hybrid** (deploys on first UserOp).
 
-- **UserOperations** — transactions submitted through a bundler instead of directly
+**Submission path:**
+
+- **Hybrid** — redemption, batch execution, and revocation go through **ERC-4337 UserOperations** (bundler + optional paymaster). Gas can be sponsored so the agent does not need ETH.
+- **Stateless 7702 (home / mnemonic)** — the same SDK-encoded `execute` calldata is sent as a **normal EIP-1559 transaction** (self-call on the upgraded EOA) via your configured JSON-RPC provider (e.g. Infura). No bundler is required for redemption or revocation; the EOA pays gas.
+
+All modes support:
+
 - **Delegations** — signed permission slips that authorize another account to act on behalf of the smart account
 - **Caveat enforcers** — on-chain contracts that restrict what a delegation can do
 
-The Pimlico bundler handles UserOp submission, gas estimation, and optional paymaster sponsorship (so the agent doesn't need ETH for gas).
+When a bundler is configured for Hybrid, the Pimlico client handles UserOp submission, gas estimation, and optional paymaster sponsorship.
 
 #### Batch execution
 
-The coordinator supports `sendBatchTransaction`, which combines multiple transactions into a single UserOp using `DeleGatorCore.executeWithMode` with `BatchDefault` mode. This is used when an operation requires multiple on-chain steps — for example, a token swap that needs an ERC-20 approval followed by the swap trade. Instead of submitting two separate UserOps, batch execution packs both into one atomic operation: either both succeed or both revert. The single-delegation redemption path remains available for standalone transactions.
+The coordinator supports `sendBatchTransaction`, which combines multiple transactions into a single atomic execution using `DeleGatorCore.executeWithMode` with `BatchDefault` mode — either as one UserOp (Hybrid + bundler) or one direct EIP-1559 tx (stateless 7702). This is used when an operation requires multiple on-chain steps — for example, a token swap that needs an ERC-20 approval followed by the swap trade. The single-delegation redemption path remains available for standalone transactions.
 
 ### Delegations and Caveats
 
