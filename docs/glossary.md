@@ -60,8 +60,8 @@ delivery](#delivery), [syscalls](#syscall), and vat initialization.
 ### liveslots
 
 A framework for managing object lifecycles within [vats](#vat). Liveslots provides the
-runtime environment for vat code and handles object persistence, [kernel
-promise](#kernel-promise) management, and [syscall](#syscall) coordination.
+runtime environment for vat code and handles object persistence, distributed promise
+management, and [syscall](#syscall) coordination.
 
 ### crank
 
