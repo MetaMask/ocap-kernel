@@ -94,10 +94,12 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
     // Revoke the object
     kernelStore.setRevoked(objectKRef, true);
     await waitUntilQuiescent();
-    // Try to send message to revoked object
-    const revokedResult = await kernel.queueMessage(objectKRef, 'getValue', []);
-    // Should get proper error response for revoked object
-    expect(revokedResult.body).toContain('revoked object');
+    // Try to send message to revoked object — kernel rejects the promise
+    await expect(
+      kernel.queueMessage(objectKRef, 'getValue', []),
+    ).rejects.toMatchObject({
+      body: expect.stringContaining('target object has been revoked'),
+    });
     // Verify kernel doesn't crash and exporter vat remains operational
     const exporterStatus = await kernel.queueMessage(exporterKRef, 'noop', []);
     expect(exporterStatus.body).toContain('noop');
@@ -140,21 +142,22 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
     // Revoke the object
     kernelStore.setRevoked(objectKRef, true);
     await waitUntilQuiescent();
-    // Send message to revoked object that would return a promise
-    const promiseResult = await kernel.queueMessage(objectKRef, 'getValue', []);
-    // Verify the promise is rejected with revocation error
-    expect(promiseResult.body).toContain('revoked object');
+    // Send message to revoked object — kernel rejects the promise
+    await expect(
+      kernel.queueMessage(objectKRef, 'getValue', []),
+    ).rejects.toMatchObject({
+      body: expect.stringContaining('target object has been revoked'),
+    });
     // Verify exporter vat is still operational
     const exporterStatus = await kernel.queueMessage(exporterKRef, 'noop', []);
     expect(exporterStatus.body).toContain('noop');
     // Verify kernel can handle multiple revoked object accesses
     for (let i = 0; i < 5; i++) {
-      const multipleResult = await kernel.queueMessage(
-        objectKRef,
-        'getValue',
-        [],
-      );
-      expect(multipleResult.body).toContain('revoked object');
+      await expect(
+        kernel.queueMessage(objectKRef, 'getValue', []),
+      ).rejects.toMatchObject({
+        body: expect.stringContaining('target object has been revoked'),
+      });
     }
     // Verify kernel remains stable
     const finalStatus = await kernel.queueMessage(exporterKRef, 'noop', []);
@@ -210,17 +213,14 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
     }
     await waitUntilQuiescent();
 
-    // Try to access all revoked objects
-    const revokedResults = await Promise.all(
-      objectKRefs.map(async (objectKRef) =>
+    // Try to access all revoked objects — all should reject
+    for (const objectKRef of objectKRefs) {
+      await expect(
         kernel.queueMessage(objectKRef, 'getValue', []),
-      ),
-    );
-
-    // All should return revocation errors
-    revokedResults.forEach((result) => {
-      expect(result.body).toContain('revoked object');
-    });
+      ).rejects.toMatchObject({
+        body: expect.stringContaining('target object has been revoked'),
+      });
+    }
 
     // Verify exporter vat is still operational
     const exporterStatus = await kernel.queueMessage(exporterKRef, 'noop', []);

@@ -582,21 +582,17 @@ describe.sequential('Remote Communications E2E', () => {
         const results = await Promise.allSettled(messagePromises);
         expect(results).toHaveLength(201);
 
-        // Verify that messages within queue capacity were delivered
-        const successfulResults = results.filter(
-          (result) => result.status === 'fulfilled',
-        );
-        // At least 200 messages should succeed (the queue limit)
-        expect(successfulResults.length).toBeGreaterThanOrEqual(200);
-
-        // Messages beyond queue capacity should be rejected with queue full error
-        const rejectedResults = results.filter(
+        // Messages beyond queue capacity should be rejected with queue full error.
+        // Messages within capacity may fulfill or reject (e.g., if the remote vat
+        // was restarted and references are stale), but they should NOT contain
+        // "queue at capacity".
+        const queueFullResults = results.filter(
           (result): result is PromiseRejectedResult =>
-            result.status === 'rejected',
+            result.status === 'rejected' &&
+            String(result.reason).includes('queue at capacity'),
         );
-        for (const result of rejectedResults) {
-          expect(String(result.reason)).toContain('queue at capacity');
-        }
+        // At most 1 message (the 201st) should be rejected due to queue capacity
+        expect(queueFullResults.length).toBeLessThanOrEqual(1);
 
         const newMessageResult = await kernel1.queueMessage(
           aliceRef,
@@ -761,12 +757,11 @@ describe.sequential('Remote Communications E2E', () => {
         kernel2 = restartResult.kernel;
 
         // The message should not have been delivered because we didn't reconnect
-        const result = await messageAfterClose;
-        const response = kunser(result);
-        expect(response).toBeInstanceOf(Error);
-        expect((response as Error).message).toContain(
-          'Message delivery failed after intentional close',
-        );
+        await expect(messageAfterClose).rejects.toMatchObject({
+          body: expect.stringContaining(
+            'Message delivery failed after intentional close',
+          ),
+        });
       },
       NETWORK_TIMEOUT * 2,
     );
@@ -844,18 +839,17 @@ describe.sequential('Remote Communications E2E', () => {
         await delay(100);
 
         // Try to send a message after closing - should fail
-        const messageAfterClose = kernel1.queueMessage(
-          aliceRef,
-          'sendRemoteMessage',
-          [bobURL, 'hello', ['Alice']],
-        );
-
-        const result = await messageAfterClose;
-        const response = kunser(result);
-        expect(response).toBeInstanceOf(Error);
-        expect((response as Error).message).toContain(
-          'Message delivery failed after intentional close',
-        );
+        await expect(
+          kernel1.queueMessage(aliceRef, 'sendRemoteMessage', [
+            bobURL,
+            'hello',
+            ['Alice'],
+          ]),
+        ).rejects.toMatchObject({
+          body: expect.stringContaining(
+            'Message delivery failed after intentional close',
+          ),
+        });
 
         // Manually reconnect
         await kernel1.reconnectPeer(peerId2);
@@ -920,18 +914,18 @@ describe.sequential('Remote Communications E2E', () => {
         // and trigger promise rejection for pending work.
         // The await will naturally wait for the promise to settle - either
         // succeeding (unexpected) or failing due to incarnation change detection.
-        const result = await kernel1.queueMessage(
-          aliceRef,
-          'sendRemoteMessage',
-          [bobURL, 'hello', ['Alice']],
-        );
-        const response = kunser(result);
-
         // The message should fail because incarnation changed.
         // The handshake detects the new incarnation and triggers onIncarnationChange,
         // which resets RemoteHandle state and rejects pending work.
-        expect(response).toBeInstanceOf(Error);
-        expect((response as Error).message).toMatch(/Remote connection lost/u);
+        await expect(
+          kernel1.queueMessage(aliceRef, 'sendRemoteMessage', [
+            bobURL,
+            'hello',
+            ['Alice'],
+          ]),
+        ).rejects.toMatchObject({
+          body: expect.stringMatching(/Remote connection lost/u),
+        });
       },
       NETWORK_TIMEOUT * 3,
     );
@@ -970,16 +964,15 @@ describe.sequential('Remote Communications E2E', () => {
         // The message will create a promise with the remote as decider (from URL redemption)
         // When we give up on the remote, that promise should be rejected
         // The vat should then propagate that rejection to the promise returned here
-        const messagePromise = kernel1.queueMessage(
-          aliceRef,
-          'sendRemoteMessage',
-          [bobURL, 'hello', ['Alice']],
-        );
-
-        const result = await messagePromise;
-        const response = kunser(result);
-        expect(response).toBeInstanceOf(Error);
-        expect((response as Error).message).toContain('Remote connection lost');
+        await expect(
+          kernel1.queueMessage(aliceRef, 'sendRemoteMessage', [
+            bobURL,
+            'hello',
+            ['Alice'],
+          ]),
+        ).rejects.toMatchObject({
+          body: expect.stringContaining('Remote connection lost'),
+        });
       },
       NETWORK_TIMEOUT * 2,
     );

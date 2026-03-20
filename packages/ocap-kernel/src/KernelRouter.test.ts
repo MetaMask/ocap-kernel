@@ -13,7 +13,7 @@ import type {
   RunQueueItemBringOutYourDead,
   EndpointId,
   GCRunQueueType,
-  CrankResults,
+  CrankResult,
   EndpointHandle,
 } from './types.ts';
 
@@ -33,15 +33,15 @@ describe('KernelRouter', () => {
 
   beforeEach(() => {
     // Mock EndpointHandle with more detailed return values
-    const mockCrankResults: CrankResults = { didDelivery: 'v1' };
+    const mockCrankResult: CrankResult = { didDelivery: 'v1' };
 
     endpointHandle = {
-      deliverMessage: vi.fn().mockResolvedValue(mockCrankResults),
-      deliverNotify: vi.fn().mockResolvedValue(mockCrankResults),
-      deliverDropExports: vi.fn().mockResolvedValue(mockCrankResults),
-      deliverRetireExports: vi.fn().mockResolvedValue(mockCrankResults),
-      deliverRetireImports: vi.fn().mockResolvedValue(mockCrankResults),
-      deliverBringOutYourDead: vi.fn().mockResolvedValue(mockCrankResults),
+      deliverMessage: vi.fn().mockResolvedValue(mockCrankResult),
+      deliverNotify: vi.fn().mockResolvedValue(mockCrankResult),
+      deliverDropExports: vi.fn().mockResolvedValue(mockCrankResult),
+      deliverRetireExports: vi.fn().mockResolvedValue(mockCrankResult),
+      deliverRetireImports: vi.fn().mockResolvedValue(mockCrankResult),
+      deliverBringOutYourDead: vi.fn().mockResolvedValue(mockCrankResult),
     } as unknown as EndpointHandle;
 
     // Mock getEndpoint function
@@ -99,13 +99,13 @@ describe('KernelRouter', () => {
         );
 
         // Create a mock crank result that the vat will return
-        const mockCrankResults: CrankResults = {
+        const mockCrankResult: CrankResult = {
           didDelivery: endpointId,
           abort: false,
         };
         (
           endpointHandle.deliverMessage as unknown as MockInstance
-        ).mockResolvedValueOnce(mockCrankResults);
+        ).mockResolvedValueOnce(mockCrankResult);
 
         // Create a send message
         const message: Message = {
@@ -126,7 +126,7 @@ describe('KernelRouter', () => {
           `translated-${target}`,
           message,
         );
-        expect(result).toStrictEqual(mockCrankResults);
+        expect(result).toStrictEqual(mockCrankResult);
         expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
           'slot1',
           'deliver|send|slot',
@@ -194,7 +194,7 @@ describe('KernelRouter', () => {
               'kp1',
               true,
               expect.objectContaining({
-                body: expect.stringContaining('revoked object'),
+                body: expect.stringContaining('target object has been revoked'),
                 slots: [],
               }),
             ]),
@@ -414,10 +414,10 @@ describe('KernelRouter', () => {
         });
 
         // Mock crank results
-        const mockCrankResults: CrankResults = { didDelivery: endpointId };
+        const mockCrankResult: CrankResult = { didDelivery: endpointId };
         (
           endpointHandle.deliverNotify as unknown as MockInstance
-        ).mockResolvedValueOnce(mockCrankResults);
+        ).mockResolvedValueOnce(mockCrankResult);
 
         // Deliver the notify
         const result = await kernelRouter.deliver(notifyItem);
@@ -431,7 +431,7 @@ describe('KernelRouter', () => {
           kpid,
           'deliver|notify',
         );
-        expect(result).toStrictEqual(mockCrankResults);
+        expect(result).toStrictEqual(mockCrankResult);
       });
 
       it('returns didDelivery when promise is not in vat clist', async () => {
@@ -546,12 +546,12 @@ describe('KernelRouter', () => {
           };
 
           // Mock crank results
-          const mockCrankResults: CrankResults = { didDelivery: endpointId };
+          const mockCrankResult: CrankResult = { didDelivery: endpointId };
           (
             endpointHandle[
               deliverMethod as keyof EndpointHandle
             ] as unknown as MockInstance
-          ).mockResolvedValueOnce(mockCrankResults);
+          ).mockResolvedValueOnce(mockCrankResult);
 
           // Deliver the GC action
           const result = await kernelRouter.deliver(gcAction);
@@ -561,7 +561,7 @@ describe('KernelRouter', () => {
           expect(
             endpointHandle[deliverMethod as keyof EndpointHandle],
           ).toHaveBeenCalledWith(krefs.map((kref) => `translated-${kref}`));
-          expect(result).toStrictEqual(mockCrankResults);
+          expect(result).toStrictEqual(mockCrankResult);
         },
       );
     });
@@ -575,10 +575,10 @@ describe('KernelRouter', () => {
         };
 
         // Mock crank results
-        const mockCrankResults: CrankResults = { didDelivery: endpointId };
+        const mockCrankResult: CrankResult = { didDelivery: endpointId };
         (
           endpointHandle.deliverBringOutYourDead as unknown as MockInstance
-        ).mockResolvedValueOnce(mockCrankResults);
+        ).mockResolvedValueOnce(mockCrankResult);
 
         // Deliver the bringOutYourDead action
         const result = await kernelRouter.deliver(bringOutYourDeadItem);
@@ -586,7 +586,7 @@ describe('KernelRouter', () => {
         // Verify the action was delivered to the endpoint
         expect(getEndpoint).toHaveBeenCalledWith(endpointId);
         expect(endpointHandle.deliverBringOutYourDead).toHaveBeenCalled();
-        expect(result).toStrictEqual(mockCrankResults);
+        expect(result).toStrictEqual(mockCrankResult);
       });
     });
 

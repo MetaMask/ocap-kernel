@@ -94,3 +94,19 @@ export const JsonRpcMessageStruct: Struct<JsonRpcMessage> = union([
 
 export const isJsonRpcMessage = (value: unknown): value is JsonRpcMessage =>
   is(value, JsonRpcMessageStruct);
+
+/**
+ * Check whether a value has the shape of Endo CapData (`{ body: string, slots: unknown[] }`).
+ *
+ * @param value - The value to check.
+ * @returns `true` when `value` looks like CapData.
+ */
+export const isCapData = (
+  value: unknown,
+): value is { body: string; slots: unknown[] } =>
+  typeof value === 'object' &&
+  value !== null &&
+  'body' in value &&
+  typeof (value as { body: unknown }).body === 'string' &&
+  'slots' in value &&
+  Array.isArray((value as { slots: unknown }).slots);

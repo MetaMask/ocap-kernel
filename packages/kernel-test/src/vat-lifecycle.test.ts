@@ -1,6 +1,6 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
-import { kunser, makeKernelStore } from '@metamask/ocap-kernel';
+import { makeKernelStore } from '@metamask/ocap-kernel';
 import { describe, expect, it, beforeEach } from 'vitest';
 
 import {
@@ -131,13 +131,12 @@ describe('Vat Lifecycle', { timeout: 30_000 }, () => {
     expect(remainingVats).toHaveLength(1);
     expect(remainingVats[0]?.id).toBe(liveVatId);
 
-    // Try to send a message to the terminated vat's root object
-    const messageResult = await kernel.queueMessage(
-      deadRootObject,
-      'resume',
-      [],
-    );
-    expect(kunser(messageResult)).toBe('no endpoint');
+    // Try to send a message to the terminated vat's root object — rejects
+    await expect(
+      kernel.queueMessage(deadRootObject, 'resume', []),
+    ).rejects.toMatchObject({
+      body: expect.stringContaining('has no owner'),
+    });
 
     // Verify that messaging works as expected
     expect(await runResume(kernel, liveRootObject)).toBe(

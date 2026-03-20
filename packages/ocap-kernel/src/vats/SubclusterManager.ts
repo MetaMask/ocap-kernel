@@ -1,5 +1,6 @@
 import type { CapData } from '@endo/marshal';
 import { SubclusterNotFoundError } from '@metamask/kernel-errors';
+import { isCapData } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 
 import type { IOManager } from '../io/IOManager.ts';
@@ -339,10 +340,22 @@ export class SubclusterManager {
         `Bootstrap vat "${config.bootstrap}" not found in rootIds`,
       );
     }
-    const bootstrapResult = await this.#queueMessage(rootKref, 'bootstrap', [
-      roots,
-      services,
-    ]);
+    let bootstrapResult: CapData<KRef>;
+    try {
+      bootstrapResult = await this.#queueMessage(rootKref, 'bootstrap', [
+        roots,
+        services,
+      ]);
+    } catch (rejection) {
+      // queueMessage rejects with CapData for rejected kernel promises.
+      // Deserialize to surface the original Error to the caller.
+      // If the rejection isn't CapData (e.g., an internal error before the
+      // kernel promise was created), re-throw as-is.
+      if (isCapData(rejection)) {
+        throw kunser(rejection as CapData<KRef>);
+      }
+      throw rejection;
+    }
     const unserialized = kunser(bootstrapResult);
     if (unserialized instanceof Error) {
       throw unserialized;

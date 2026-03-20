@@ -15,7 +15,7 @@ import type {
   ERef,
   EndpointHandle,
   Message,
-  CrankResults,
+  CrankResult,
 } from '../../types.ts';
 import type { RemoteComms } from '../types.ts';
 
@@ -121,7 +121,7 @@ export class RemoteHandle implements EndpointHandle {
   #redemptionCounter: number = 1;
 
   /** Crank result object to reuse (since it's always the same). */
-  readonly #myCrankResult: CrankResults;
+  readonly #myCrankResult: CrankResult;
 
   /** Logger for diagnostic output. */
   readonly #logger: Logger;
@@ -577,9 +577,9 @@ export class RemoteHandle implements EndpointHandle {
    *
    * @param target - The ref of the object to which the message is addressed.
    * @param message - The message to deliver.
-   * @returns the crank results.
+   * @returns the crank result.
    */
-  async deliverMessage(target: ERef, message: Message): Promise<CrankResults> {
+  async deliverMessage(target: ERef, message: Message): Promise<CrankResult> {
     await this.#sendRemoteCommand({
       method: 'deliver',
       params: ['message', target, message],
@@ -591,9 +591,9 @@ export class RemoteHandle implements EndpointHandle {
    * Send a 'notify' delivery to the remote.
    *
    * @param resolutions - One or more promise resolutions to deliver.
-   * @returns the crank results.
+   * @returns the crank result.
    */
-  async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResults> {
+  async deliverNotify(resolutions: VatOneResolution[]): Promise<CrankResult> {
     await this.#sendRemoteCommand({
       method: 'deliver',
       params: ['notify', resolutions],
@@ -605,9 +605,9 @@ export class RemoteHandle implements EndpointHandle {
    * Send a 'dropExports' delivery to the remote.
    *
    * @param erefs - The refs of the exports to be dropped.
-   * @returns the crank results.
+   * @returns the crank result.
    */
-  async deliverDropExports(erefs: ERef[]): Promise<CrankResults> {
+  async deliverDropExports(erefs: ERef[]): Promise<CrankResult> {
     await this.#sendRemoteCommand({
       method: 'deliver',
       params: ['dropExports', erefs],
@@ -619,9 +619,9 @@ export class RemoteHandle implements EndpointHandle {
    * Send a 'retireExports' delivery to the remote.
    *
    * @param erefs - The refs of the exports to be retired.
-   * @returns the crank results.
+   * @returns the crank result.
    */
-  async deliverRetireExports(erefs: ERef[]): Promise<CrankResults> {
+  async deliverRetireExports(erefs: ERef[]): Promise<CrankResult> {
     await this.#sendRemoteCommand({
       method: 'deliver',
       params: ['retireExports', erefs],
@@ -633,9 +633,9 @@ export class RemoteHandle implements EndpointHandle {
    * Send a 'retireImports' delivery to the remote.
    *
    * @param erefs - The refs of the imports to be retired.
-   * @returns the crank results.
+   * @returns the crank result.
    */
-  async deliverRetireImports(erefs: ERef[]): Promise<CrankResults> {
+  async deliverRetireImports(erefs: ERef[]): Promise<CrankResult> {
     await this.#sendRemoteCommand({
       method: 'deliver',
       params: ['retireImports', erefs],
@@ -648,9 +648,9 @@ export class RemoteHandle implements EndpointHandle {
    * its garbage collection cycle. If the current BOYD was triggered by an
    * incoming remote request, skip sending to prevent infinite ping-pong.
    *
-   * @returns the crank results.
+   * @returns the crank result.
    */
-  async deliverBringOutYourDead(): Promise<CrankResults> {
+  async deliverBringOutYourDead(): Promise<CrankResult> {
     if (this.#remoteGcRequested) {
       this.#remoteGcRequested = false;
       return this.#myCrankResult;

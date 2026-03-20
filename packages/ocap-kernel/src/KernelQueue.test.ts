@@ -18,6 +18,13 @@ vi.mock('@endo/promise-kit', () => ({
   makePromiseKit: vi.fn(),
 }));
 
+/**
+ * Sentinel error used to stop the infinite run loop in tests.
+ * Thrown by collectGarbage (which runs after each delivery) so the
+ * test can assert on the side-effects of that delivery.
+ */
+const STOP_RUN_LOOP = 'test: stop run loop';
+
 describe('KernelQueue', () => {
   let kernelStore: KernelStore;
   let kernelQueue: KernelQueue;
@@ -89,7 +96,7 @@ describe('KernelQueue', () => {
       const mockItem: RunQueueItem = {
         type: 'send',
         target: 'ko123',
-        message: {} as Message,
+        message: { result: 'kp99' } as Message,
       };
       (kernelStore.runQueueLength as unknown as MockInstance)
         .mockReturnValueOnce(1)
@@ -98,15 +105,12 @@ describe('KernelQueue', () => {
         mockItem,
       );
       const deliver = vi.fn().mockResolvedValue({ abort: true });
-      const collectGarbageError = new Error(
-        'wakeUpTheRunQueue function already set',
-      );
-      (kernelStore.collectGarbage as unknown as MockInstance).mockRejectedValue(
-        collectGarbageError,
-      );
-      await expect(kernelQueue.run(deliver)).rejects.toThrow(
-        collectGarbageError.message,
-      );
+      (
+        kernelStore.collectGarbage as unknown as MockInstance
+      ).mockImplementation(() => {
+        throw new Error(STOP_RUN_LOOP);
+      });
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
       expect(kernelStore.startCrank).toHaveBeenCalled();
       expect(kernelStore.createCrankSavepoint).toHaveBeenCalledWith('start');
       expect(deliver).toHaveBeenCalledWith(mockItem);
@@ -129,15 +133,12 @@ describe('KernelQueue', () => {
         mockItem,
       );
       const deliver = vi.fn().mockResolvedValue({ terminate: terminateInfo });
-      const collectGarbageError = new Error(
-        'wakeUpTheRunQueue function already set',
-      );
-      (kernelStore.collectGarbage as unknown as MockInstance).mockRejectedValue(
-        collectGarbageError,
-      );
-      await expect(kernelQueue.run(deliver)).rejects.toThrow(
-        collectGarbageError.message,
-      );
+      (
+        kernelStore.collectGarbage as unknown as MockInstance
+      ).mockImplementation(() => {
+        throw new Error(STOP_RUN_LOOP);
+      });
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
       expect(kernelStore.startCrank).toHaveBeenCalled();
       expect(deliver).toHaveBeenCalledWith(mockItem);
       expect(terminateVat).toHaveBeenCalledWith(
@@ -164,6 +165,7 @@ describe('KernelQueue', () => {
       const successPromiseKit = {
         promise: resultPromiseRaw,
         resolve: resolvePromise,
+        reject: vi.fn(),
       };
       (makePromiseKit as unknown as MockInstance).mockReturnValueOnce(
         successPromiseKit,
@@ -187,8 +189,11 @@ describe('KernelQueue', () => {
         }),
       });
       expect(kernelQueue.subscriptions.has('kp1')).toBe(true);
-      const handler = kernelQueue.subscriptions.get('kp1');
-      expect(handler).toBeDefined();
+      const subscription = kernelQueue.subscriptions.get('kp1');
+      expect(subscription).toStrictEqual({
+        resolve: expect.any(Function),
+        reject: expect.any(Function),
+      });
       resolvePromise(resultValue);
       const result = await resultPromise;
       expect(result).toStrictEqual(resultValue);
@@ -280,7 +285,11 @@ describe('KernelQueue', () => {
         },
       );
       const resolveHandler = vi.fn();
-      kernelQueue.subscriptions.set(kpid, resolveHandler);
+      const rejectHandler = vi.fn();
+      kernelQueue.subscriptions.set(kpid, {
+        resolve: resolveHandler,
+        reject: rejectHandler,
+      });
       kernelQueue.resolvePromises(endpointId, [resolution], false);
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
         kpid,
@@ -331,7 +340,11 @@ describe('KernelQueue', () => {
         },
       );
       const resolveHandler = vi.fn();
-      kernelQueue.subscriptions.set(kpid, resolveHandler);
+      const rejectHandler = vi.fn();
+      kernelQueue.subscriptions.set(kpid, {
+        resolve: resolveHandler,
+        reject: rejectHandler,
+      });
       const insistEndpointIdSpy = vi.spyOn(types, 'insistEndpointId');
       kernelQueue.resolvePromises(undefined, [resolution], false);
       expect(insistEndpointIdSpy).not.toHaveBeenCalled();
@@ -380,7 +393,11 @@ describe('KernelQueue', () => {
         },
       );
       const resolveHandler = vi.fn();
-      kernelQueue.subscriptions.set(kpid, resolveHandler);
+      const rejectHandler = vi.fn();
+      kernelQueue.subscriptions.set(kpid, {
+        resolve: resolveHandler,
+        reject: rejectHandler,
+      });
       kernelQueue.resolvePromises(endpointId, [resolution], false);
       // No notifications buffered because no subscribers
       expect(kernelStore.bufferCrankOutput).not.toHaveBeenCalled();
@@ -436,8 +453,190 @@ describe('KernelQueue', () => {
     });
   });
 
+  describe('abort with terminate', () => {
+    it('rejects the JS subscription for the aborted send item', async () => {
+      const rejectSpy = vi.fn();
+      kernelQueue.subscriptions.set('kp99', {
+        resolve: vi.fn(),
+        reject: rejectSpy,
+      });
+      const mockItem: RunQueueItem = {
+        type: 'send',
+        target: 'ko123',
+        message: { result: 'kp99' } as Message,
+      };
+      const terminateInfo = {
+        body: '"vat terminated"',
+        slots: [],
+      };
+      (kernelStore.runQueueLength as unknown as MockInstance)
+        .mockReturnValueOnce(1)
+        .mockReturnValue(0);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce(
+        mockItem,
+      );
+      const deliver = vi.fn().mockResolvedValue({
+        abort: true,
+        terminate: { vatId: 'v1', info: terminateInfo },
+      });
+      (
+        kernelStore.collectGarbage as unknown as MockInstance
+      ).mockImplementation(() => {
+        throw new Error(STOP_RUN_LOOP);
+      });
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
+      expect(kernelStore.rollbackCrank).toHaveBeenCalledWith('start');
+      expect(rejectSpy).toHaveBeenCalledWith(terminateInfo);
+      expect(kernelQueue.subscriptions.has('kp99')).toBe(false);
+    });
+
+    it('preserves the subscription when abort without terminate', async () => {
+      const resolveSpy = vi.fn();
+      const rejectSpy = vi.fn();
+      kernelQueue.subscriptions.set('kp99', {
+        resolve: resolveSpy,
+        reject: rejectSpy,
+      });
+      const mockItem: RunQueueItem = {
+        type: 'send',
+        target: 'ko123',
+        message: { result: 'kp99' } as Message,
+      };
+      (kernelStore.runQueueLength as unknown as MockInstance)
+        .mockReturnValueOnce(1)
+        .mockReturnValue(0);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce(
+        mockItem,
+      );
+      const deliver = vi.fn().mockResolvedValue({ abort: true });
+      (
+        kernelStore.collectGarbage as unknown as MockInstance
+      ).mockImplementation(() => {
+        throw new Error(STOP_RUN_LOOP);
+      });
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
+      expect(kernelStore.rollbackCrank).toHaveBeenCalledWith('start');
+      expect(rejectSpy).not.toHaveBeenCalled();
+      expect(resolveSpy).not.toHaveBeenCalled();
+      expect(kernelQueue.subscriptions.has('kp99')).toBe(true);
+    });
+  });
+
+  describe('one-item-per-crank', () => {
+    it('calls startCrank/endCrank for each delivered item', async () => {
+      const items: RunQueueItem[] = [
+        { type: 'send', target: 'ko1', message: {} as Message },
+        { type: 'send', target: 'ko2', message: {} as Message },
+      ];
+      let dequeueCount = 0;
+      (
+        kernelStore.runQueueLength as unknown as MockInstance
+      ).mockImplementation(() => (dequeueCount < items.length ? 1 : 0));
+      (kernelStore.dequeueRun as unknown as MockInstance).mockImplementation(
+        () => {
+          const item = items[dequeueCount];
+          dequeueCount += 1;
+          return item;
+        },
+      );
+      let deliverCount = 0;
+      const deliver = vi.fn().mockImplementation(async () => {
+        deliverCount += 1;
+        if (deliverCount >= items.length) {
+          return Promise.reject(new Error('done'));
+        }
+        return Promise.resolve(undefined);
+      });
+      await expect(kernelQueue.run(deliver)).rejects.toThrow('done');
+      // Two items delivered = two cranks = two startCrank + two endCrank calls
+      expect(kernelStore.startCrank).toHaveBeenCalledTimes(2);
+      expect(kernelStore.endCrank).toHaveBeenCalledTimes(2);
+      expect(deliver).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('invokeKernelSubscription', () => {
+    it('calls reject for rejected promises', async () => {
+      const rejectSpy = vi.fn();
+      const resolveSpy = vi.fn();
+      kernelQueue.subscriptions.set('kp1', {
+        resolve: resolveSpy,
+        reject: rejectSpy,
+      });
+      const rejectedValue = { body: '"error"', slots: [] };
+      (kernelStore.flushCrankBuffer as unknown as MockInstance).mockReturnValue(
+        [{ type: 'notify', endpointId: 'v1', kpid: 'kp1' }],
+      );
+      (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
+        {
+          state: 'rejected',
+          value: rejectedValue,
+        },
+      );
+      const mockItem: RunQueueItem = {
+        type: 'send',
+        target: 'ko1',
+        message: {} as Message,
+      };
+      (kernelStore.runQueueLength as unknown as MockInstance)
+        .mockReturnValueOnce(1)
+        .mockReturnValue(0);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce(
+        mockItem,
+      );
+      const deliver = vi.fn().mockResolvedValue(undefined);
+      (
+        kernelStore.collectGarbage as unknown as MockInstance
+      ).mockImplementation(() => {
+        throw new Error(STOP_RUN_LOOP);
+      });
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
+      expect(rejectSpy).toHaveBeenCalledWith(rejectedValue);
+      expect(resolveSpy).not.toHaveBeenCalled();
+    });
+
+    it('calls resolve for fulfilled promises', async () => {
+      const rejectSpy = vi.fn();
+      const resolveSpy = vi.fn();
+      kernelQueue.subscriptions.set('kp1', {
+        resolve: resolveSpy,
+        reject: rejectSpy,
+      });
+      const fulfilledValue = { body: '"ok"', slots: [] };
+      (kernelStore.flushCrankBuffer as unknown as MockInstance).mockReturnValue(
+        [{ type: 'notify', endpointId: 'v1', kpid: 'kp1' }],
+      );
+      (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
+        {
+          state: 'fulfilled',
+          value: fulfilledValue,
+        },
+      );
+      const mockItem: RunQueueItem = {
+        type: 'send',
+        target: 'ko1',
+        message: {} as Message,
+      };
+      (kernelStore.runQueueLength as unknown as MockInstance)
+        .mockReturnValueOnce(1)
+        .mockReturnValue(0);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce(
+        mockItem,
+      );
+      const deliver = vi.fn().mockResolvedValue(undefined);
+      (
+        kernelStore.collectGarbage as unknown as MockInstance
+      ).mockImplementation(() => {
+        throw new Error(STOP_RUN_LOOP);
+      });
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
+      expect(resolveSpy).toHaveBeenCalledWith(fulfilledValue);
+      expect(rejectSpy).not.toHaveBeenCalled();
+    });
+  });
+
   describe('waitForCrank', () => {
-    it('should handle when waitForCrank returns a delayed promise', async () => {
+    it('handles when waitForCrank returns a delayed promise', async () => {
       let resolvePromise: ((value: void) => void) | undefined;
       const delayedPromise = new Promise<void>((resolve) => {
         resolvePromise = resolve;

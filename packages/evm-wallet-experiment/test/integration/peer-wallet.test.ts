@@ -262,15 +262,14 @@ describe.sequential('Peer wallet integration', () => {
         };
 
         // Transaction signing has no peer fallback — kernel2 has no local
-        // keys so this should return an error, not forward to kernel1.
-        const result = await kernel2.queueMessage(
-          coordinatorKref2,
-          'signTransaction',
-          [tx],
-        );
-        await waitUntilQuiescent();
-        expect(result.body).toContain('#error');
-        expect(result.body).toContain('No authority to sign this transaction');
+        // keys so this should reject, not forward to kernel1.
+        await expect(
+          kernel2.queueMessage(coordinatorKref2, 'signTransaction', [tx]),
+        ).rejects.toMatchObject({
+          body: expect.stringContaining(
+            'No authority to sign this transaction',
+          ),
+        });
       },
       NETWORK_TIMEOUT,
     );
@@ -281,16 +280,13 @@ describe.sequential('Peer wallet integration', () => {
       'returns error when no local keys and no peer wallet',
       async () => {
         // Kernel2 has no keys and no peer wallet connected
-        // queueMessage resolves with error CapData (not rejects)
-        const result = await kernel2.queueMessage(
-          coordinatorKref2,
-          'signMessage',
-          ['should fail'],
-        );
-        await waitUntilQuiescent();
-        // Error CapData body contains #error marker
-        expect(result.body).toContain('#error');
-        expect(result.body).toContain('No authority to sign message');
+        await expect(
+          kernel2.queueMessage(coordinatorKref2, 'signMessage', [
+            'should fail',
+          ]),
+        ).rejects.toMatchObject({
+          body: expect.stringContaining('No authority to sign message'),
+        });
       },
       NETWORK_TIMEOUT,
     );

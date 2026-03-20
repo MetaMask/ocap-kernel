@@ -18,7 +18,7 @@ import type {
   RunQueueItemBringOutYourDead,
   RunQueueItemNotify,
   RunQueueItemGCAction,
-  CrankResults,
+  CrankResult,
 } from './types.ts';
 import { insistEndpointId, insistMessage } from './types.ts';
 import { assert, Fail } from './utils/assert.ts';
@@ -91,7 +91,7 @@ export class KernelRouter {
    * @param item - The message/notification to deliver.
    * @returns The crank outcome.
    */
-  async deliver(item: RunQueueItem): Promise<CrankResults | undefined> {
+  async deliver(item: RunQueueItem): Promise<CrankResult | undefined> {
     switch (item.type) {
       case 'send':
         return await this.#deliverSend(item);
@@ -132,7 +132,11 @@ export class KernelRouter {
 
     const routeAsSplat = (error?: CapData<KRef>): MessageRoute => {
       if (message.result && error) {
-        this.#kernelQueue.resolvePromises(undefined, [
+        // Use the current decider as the resolver. After a crank rollback,
+        // the decider may have reverted to the sending vat rather than the
+        // (now-terminated) target vat.
+        const promise = this.#kernelStore.getKernelPromise(message.result);
+        this.#kernelQueue.resolvePromises(promise?.decider, [
           [message.result, true, error],
         ]);
       }
@@ -140,11 +144,13 @@ export class KernelRouter {
     };
     const routeAsSend = (targetObject: KRef): MessageRoute => {
       if (this.#kernelStore.isRevoked(targetObject)) {
-        return routeAsSplat(kser('revoked object'));
+        return routeAsSplat(kser('target object has been revoked'));
       }
       const endpointId = this.#kernelStore.getOwner(targetObject);
       if (!endpointId) {
-        return routeAsSplat(kser('no endpoint'));
+        return routeAsSplat(
+          kser('target object has no owner; it may have been deleted'),
+        );
       }
       return { endpointId, target: targetObject };
     };
@@ -165,7 +171,9 @@ export class KernelRouter {
               return routeAsSend(targetObject);
             }
           }
-          return routeAsSplat(kser('no object'));
+          return routeAsSplat(
+            kser('promise fulfilled but did not contain an object reference'),
+          );
         }
         case 'rejected':
           return routeAsSplat(promise.value);
@@ -185,11 +193,9 @@ export class KernelRouter {
    * @param item - The send item to deliver.
    * @returns The crank outcome.
    */
-  async #deliverSend(
-    item: RunQueueItemSend,
-  ): Promise<CrankResults | undefined> {
+  async #deliverSend(item: RunQueueItemSend): Promise<CrankResult | undefined> {
     const route = this.#routeMessage(item);
-    let crankResults: CrankResults | undefined;
+    let crankResult: CrankResult | undefined;
 
     // Message went splat
     if (!route) {
@@ -206,7 +212,7 @@ export class KernelRouter {
       this.#logger?.log(
         `@@@@ message went splat ${item.target}<-${JSON.stringify(item.message)}`,
       );
-      return crankResults;
+      return crankResult;
     }
 
     const { endpointId, target } = route;
@@ -216,9 +222,42 @@ export class KernelRouter {
     );
     if (endpointId) {
       const isKernelServiceMessage = endpointId === 'kernel';
-      const endpoint = isKernelServiceMessage
-        ? null
-        : this.#getEndpoint(endpointId);
+      let endpoint: EndpointHandle | null = null;
+      if (!isKernelServiceMessage) {
+        try {
+          endpoint = this.#getEndpoint(endpointId);
+        } catch {
+          // TODO: Narrow this catch to the expected error type (e.g.,
+          // VatNotFoundError) so that unexpected errors are not silently
+          // swallowed and deliverable messages are not incorrectly discarded.
+          // Endpoint vanished (e.g., vat terminated but ownership entries not
+          // yet cleaned up). Treat the same as a splat.
+          if (message.result) {
+            const promise = this.#kernelStore.getKernelPromise(message.result);
+            this.#kernelQueue.resolvePromises(promise.decider, [
+              [
+                message.result,
+                true,
+                kser(
+                  'target endpoint is unreachable (terminated or disconnected)',
+                ),
+              ],
+            ]);
+            this.#kernelStore.decrementRefCount(
+              message.result,
+              'deliver|splat|result',
+            );
+          }
+          this.#kernelStore.decrementRefCount(target, 'deliver|splat|target');
+          for (const slot of message.methargs.slots) {
+            this.#kernelStore.decrementRefCount(slot, 'deliver|splat|slot');
+          }
+          this.#logger?.log(
+            `@@@@ message went splat (endpoint gone) ${target}<-${JSON.stringify(message)}`,
+          );
+          return crankResult;
+        }
+      }
       if (endpoint || isKernelServiceMessage) {
         if (message.result) {
           if (typeof message.result !== 'string') {
@@ -242,7 +281,7 @@ export class KernelRouter {
           message,
         );
         try {
-          crankResults = await endpoint.deliverMessage(
+          crankResult = await endpoint.deliverMessage(
             endpointTarget,
             endpointMessage,
           );
@@ -263,7 +302,7 @@ export class KernelRouter {
           // Continue processing other messages - don't let one failure crash the queue
         }
       } else if (isKernelServiceMessage) {
-        crankResults = this.#deliverKernelServiceMessage(target, message);
+        crankResult = this.#deliverKernelServiceMessage(target, message);
       } else {
         Fail`no owner for kernel object ${target}`;
       }
@@ -275,7 +314,7 @@ export class KernelRouter {
       this.#kernelStore.enqueuePromiseMessage(target, message);
     }
 
-    return crankResults;
+    return crankResult;
   }
 
   /**
@@ -283,9 +322,9 @@ export class KernelRouter {
    *
    * @param target - The kernel reference of the target service object.
    * @param message - The message to deliver to the service.
-   * @returns The crank results indicating the delivery was to the kernel.
+   * @returns The crank result indicating the delivery was to the kernel.
    */
-  #deliverKernelServiceMessage(target: KRef, message: Message): CrankResults {
+  #deliverKernelServiceMessage(target: KRef, message: Message): CrankResult {
     this.#invokeKernelService(target, message);
     return { didDelivery: 'kernel' };
   }
@@ -296,7 +335,7 @@ export class KernelRouter {
    * @param item - The notify item to deliver.
    * @returns The crank outcome.
    */
-  async #deliverNotify(item: RunQueueItemNotify): Promise<CrankResults> {
+  async #deliverNotify(item: RunQueueItemNotify): Promise<CrankResult> {
     const { endpointId, kpid } = item;
     insistEndpointId(endpointId);
     const { context, isPromise } = parseRef(kpid);
@@ -342,10 +381,10 @@ export class KernelRouter {
       }
     }
     const endpoint = this.#getEndpoint(endpointId);
-    const crankResults = await endpoint.deliverNotify(resolutions);
+    const crankResult = await endpoint.deliverNotify(resolutions);
     // Decrement reference count for processed 'notify' item
     this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
-    return crankResults;
+    return crankResult;
   }
 
   /**
@@ -354,7 +393,7 @@ export class KernelRouter {
    * @param item - The dropExports | retireExports | retireImports item to deliver.
    * @returns The crank outcome.
    */
-  async #deliverGCAction(item: RunQueueItemGCAction): Promise<CrankResults> {
+  async #deliverGCAction(item: RunQueueItemGCAction): Promise<CrankResult> {
     const { type, endpointId, krefs } = item;
     this.#logger?.log(
       `@@@@ deliver ${endpointId} ${type} ${JSON.stringify(krefs)}`,
@@ -366,8 +405,8 @@ export class KernelRouter {
         | 'deliverDropExports'
         | 'deliverRetireExports'
         | 'deliverRetireImports';
-    const crankResults = await endpoint[method](erefs);
-    return crankResults;
+    const crankResult = await endpoint[method](erefs);
+    return crankResult;
   }
 
   /**
@@ -378,11 +417,11 @@ export class KernelRouter {
    */
   async #deliverBringOutYourDead(
     item: RunQueueItemBringOutYourDead,
-  ): Promise<CrankResults | undefined> {
+  ): Promise<CrankResult | undefined> {
     const { endpointId } = item;
     this.#logger?.log(`@@@@ deliver ${endpointId} bringOutYourDead`);
     const endpoint = this.#getEndpoint(endpointId);
-    const crankResults = await endpoint.deliverBringOutYourDead();
-    return crankResults;
+    const crankResult = await endpoint.deliverBringOutYourDead();
+    return crankResult;
   }
 }
