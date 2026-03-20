@@ -2910,6 +2910,7 @@ __metadata:
     eslint-plugin-promise: "npm:^7.2.1"
     jsdom: "npm:^27.4.0"
     libp2p: "npm:2.10.0"
+    patch-package: "npm:^8.0.0"
     prettier: "npm:^3.5.3"
     rimraf: "npm:^6.0.1"
     ses: "npm:^1.14.0"
