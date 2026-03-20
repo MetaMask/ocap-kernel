@@ -808,7 +808,11 @@ function expectUniqueDependencyTypes(Yarn, workspace) {
   dependencies.forEach((dep) => {
     if (depMap.has(dep.ident)) {
       const existingType = depMap.get(dep.ident);
-      if (existingType !== dep.type) {
+      const types = new Set([existingType, dep.type]);
+      if (
+        existingType !== dep.type &&
+        !(types.has('peerDependencies') && types.has('devDependencies'))
+      ) {
         throw new Error(
           `Dependency ${dep.ident} is listed under both ${existingType} and ${dep.type} in ${workspace.cwd}`,
         );
