@@ -81,24 +81,43 @@ describe('handleDaemonStart', () => {
       expect(process.exitCode).toBe(1);
     });
 
-    it('exits with code 1 when relay addr file is missing', async () => {
-      vi.mocked(readPidFile).mockResolvedValueOnce(1234);
-      vi.mocked(isProcessAlive).mockReturnValueOnce(true);
+    it.each([
+      [
+        'missing',
+        async () => {
+          const { readFile } = await import('node:fs/promises');
+          vi.mocked(readFile).mockRejectedValueOnce(
+            Object.assign(new Error('ENOENT'), { code: 'ENOENT' }),
+          );
+        },
+      ],
+      [
+        'empty',
+        async () => {
+          const { readFile } = await import('node:fs/promises');
+          vi.mocked(readFile).mockResolvedValueOnce('   ' as never);
+        },
+      ],
+    ])(
+      'exits with code 1 when relay addr file is %s',
+      async (_label, setupMock) => {
+        vi.mocked(readPidFile).mockResolvedValueOnce(1234);
+        vi.mocked(isProcessAlive).mockReturnValueOnce(true);
 
-      const { readFile } = await import('node:fs/promises');
-      vi.mocked(readFile).mockRejectedValueOnce(
-        Object.assign(new Error('ENOENT'), { code: 'ENOENT' }),
-      );
+        await setupMock();
 
-      const writeSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+        const writeSpy = vi
+          .spyOn(process.stderr, 'write')
+          .mockReturnValue(true);
 
-      await handleDaemonStart(socketPath, { localRelay: true });
+        await handleDaemonStart(socketPath, { localRelay: true });
 
-      expect(writeSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Relay address file not found'),
-      );
-      expect(process.exitCode).toBe(1);
-    });
+        expect(writeSpy).toHaveBeenCalledWith(
+          expect.stringContaining('Relay address file not found'),
+        );
+        expect(process.exitCode).toBe(1);
+      },
+    );
 
     it('initializes remote comms with the relay addr', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(1234);

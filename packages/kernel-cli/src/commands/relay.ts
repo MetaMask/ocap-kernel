@@ -33,6 +33,23 @@ export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
     throw error;
   }
 
+  try {
+    const relayAddr = libp2p
+      .getMultiaddrs()
+      .find((ma) => ma.toString().includes('/ip4/127.0.0.1/tcp/9001/ws/'))
+      ?.toString();
+    if (relayAddr === undefined) {
+      throw new Error(
+        'Relay started but no WS multiaddr found on 127.0.0.1:9001',
+      );
+    }
+    await writeFile(RELAY_ADDR_PATH, relayAddr);
+  } catch (error) {
+    await Promise.resolve(libp2p.stop()).catch(() => undefined);
+    await rm(RELAY_PID_PATH, { force: true });
+    throw error;
+  }
+
   const cleanup = (): void => {
     Promise.resolve(libp2p.stop())
       .catch(() => undefined)
@@ -49,17 +66,6 @@ export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
 
   process.on('SIGTERM', cleanup);
   process.on('SIGINT', cleanup);
-
-  const relayAddr = libp2p
-    .getMultiaddrs()
-    .find((ma) => ma.toString().includes('/ip4/127.0.0.1/tcp/9001/ws/'))
-    ?.toString();
-  if (relayAddr === undefined) {
-    throw new Error(
-      'Relay started but no WS multiaddr found on 127.0.0.1:9001',
-    );
-  }
-  await writeFile(RELAY_ADDR_PATH, relayAddr);
 }
 
 /**

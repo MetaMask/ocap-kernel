@@ -32,6 +32,7 @@ const mockLogger = { info: vi.fn(), error: vi.fn() } as unknown as Logger;
 const makeLibp2pMock = (
   addrs: string[] = ['/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo'],
 ) => ({
+  stop: vi.fn().mockResolvedValue(undefined),
   getMultiaddrs: () => addrs.map((addr) => ({ toString: () => addr })),
 });
 
@@ -86,17 +87,20 @@ describe('relay', () => {
       );
     });
 
-    it('throws when no WS multiaddr is available', async () => {
+    it('throws when no WS multiaddr is available, stops libp2p, and removes PID file', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
 
       const { startRelay } = await import('@metamask/kernel-utils/libp2p');
-      vi.mocked(startRelay).mockResolvedValueOnce(
-        makeLibp2pMock(['/ip4/0.0.0.0/tcp/9002']) as never,
-      );
+      const libp2pMock = makeLibp2pMock(['/ip4/0.0.0.0/tcp/9002']);
+      vi.mocked(startRelay).mockResolvedValueOnce(libp2pMock as never);
 
       await expect(startRelayWithBookkeeping(mockLogger)).rejects.toThrow(
         'Relay started but no WS multiaddr found on 127.0.0.1:9001',
       );
+      expect(libp2pMock.stop).toHaveBeenCalled();
+      expect(rm).toHaveBeenCalledWith(expect.stringContaining('relay.pid'), {
+        force: true,
+      });
     });
 
     it('removes PID file if startRelay throws', async () => {
