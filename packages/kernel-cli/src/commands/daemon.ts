@@ -297,3 +297,30 @@ export async function handleDaemonExec(
     process.stdout.write(`${JSON.stringify(response.result)}\n`);
   }
 }
+
+/**
+ * Redeem an OCAP URL via the daemon.
+ *
+ * @param url - The OCAP URL to redeem.
+ * @param socketPath - The daemon socket path.
+ */
+export async function handleRedeemURL(
+  url: string,
+  socketPath: string,
+): Promise<void> {
+  const response = await sendCommand({
+    socketPath,
+    method: 'redeemOcapURL',
+    params: { url },
+  });
+
+  if (isJsonRpcFailure(response)) {
+    process.stderr.write(
+      `Error: ${response.error.message} (code ${String(response.error.code)})\n`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  process.stdout.write(`${JSON.stringify(response.result)}\n`);
+}

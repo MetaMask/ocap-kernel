@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { handleDaemonStart } from './daemon.ts';
+import { handleDaemonStart, handleRedeemURL } from './daemon.ts';
 import { isProcessAlive, readPidFile } from '../utils.ts';
 
 vi.mock('@metamask/kernel-node-runtime/daemon', () => ({
@@ -216,5 +216,53 @@ describe('handleDaemonStart', () => {
       );
       expect(process.exitCode).toBe(1);
     });
+  });
+});
+
+describe('handleRedeemURL', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    process.exitCode = undefined;
+  });
+
+  it('sends redeemOcapURL RPC and prints the result', async () => {
+    const { sendCommand } = await import('./daemon-client.ts');
+    vi.mocked(sendCommand).mockResolvedValueOnce({
+      jsonrpc: '2.0',
+      id: '1',
+      result: 'ko42',
+    });
+
+    const writeSpy = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    await handleRedeemURL('ocap:abc@peer1,relay1', '/tmp/test.sock');
+
+    expect(sendCommand).toHaveBeenCalledWith({
+      socketPath: '/tmp/test.sock',
+      method: 'redeemOcapURL',
+      params: { url: 'ocap:abc@peer1,relay1' },
+    });
+    expect(writeSpy).toHaveBeenCalledWith('"ko42"\n');
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it('prints error and sets exit code on RPC failure', async () => {
+    const { sendCommand } = await import('./daemon-client.ts');
+    vi.mocked(sendCommand).mockResolvedValueOnce({
+      jsonrpc: '2.0',
+      id: '1',
+      error: { code: -32000, message: 'Remote comms not initialized' },
+    });
+
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    await handleRedeemURL('ocap:bad@peer', '/tmp/test.sock');
+
+    expect(stderrSpy).toHaveBeenCalledWith(
+      'Error: Remote comms not initialized (code -32000)\n',
+    );
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
   });
 });

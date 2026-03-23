@@ -12,6 +12,7 @@ import {
   handleDaemonBegone,
   handleDaemonExec,
   handleDaemonStart,
+  handleRedeemURL,
   stopDaemon,
 } from './commands/daemon.ts';
 import {
@@ -324,6 +325,25 @@ const yargsInstance = yargs(hideBin(process.argv))
                 ? { timeoutMs: args.timeout * 1000 }
                 : {},
             );
+          },
+        )
+        .command(
+          'redeem-url <url>',
+          'Redeem an OCAP URL and print the resulting kref',
+          (_y) =>
+            _y
+              .positional('url', {
+                describe: 'The OCAP URL to redeem (e.g., ocap:...@...)',
+                type: 'string',
+                demandOption: true,
+              })
+              .example(
+                '$0 daemon redeem-url ocap:abc123@12D3KooW...,/ip4/...',
+                'Redeem an OCAP URL',
+              ),
+          async (args) => {
+            await ensureDaemon(socketPath);
+            await handleRedeemURL(args.url, socketPath);
           },
         );
     },
