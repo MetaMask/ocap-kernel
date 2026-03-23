@@ -68,6 +68,9 @@ export async function printRelayStatus(): Promise<void> {
   if (pid !== undefined && isProcessAlive(pid)) {
     process.stderr.write(`Relay is running (PID: ${pid}).\n`);
   } else {
+    if (pid !== undefined) {
+      await rm(RELAY_PID_PATH, { force: true });
+    }
     process.stderr.write('Relay is not running.\n');
     process.exitCode = 1;
   }
