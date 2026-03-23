@@ -127,8 +127,9 @@ jobs:
     name: Code scanner
     needs: [check-workflows, detect-changes]
     if: |
-      needs.detect-changes.outputs.has-code == 'true'
-      && (needs.check-workflows.result == 'success' || needs.check-workflows.result == 'skipped')
+      always()
+      && needs.detect-changes.outputs.has-code == 'true'
+      && needs.check-workflows.result != 'failure'
     uses: ./.github/workflows/security-code-scanner.yml
     permissions:
       actions: read
@@ -142,8 +143,9 @@ jobs:
     name: Lint, build, and test
     needs: [check-workflows, detect-changes]
     if: |
-      needs.detect-changes.outputs.has-code == 'true'
-      && (needs.check-workflows.result == 'success' || needs.check-workflows.result == 'skipped')
+      always()
+      && needs.detect-changes.outputs.has-code == 'true'
+      && needs.check-workflows.result != 'failure'
     uses: ./.github/workflows/lint-build-test.yml
 
   lint-only:
