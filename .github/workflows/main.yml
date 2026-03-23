@@ -55,7 +55,8 @@ jobs:
           elif [[ "${{ github.event_name }}" == "merge_group" ]]; then
             BASE="${{ github.event.merge_group.base_sha }}"
           else
-            BASE="${{ github.event.before }}"
+            echo "::error::Unexpected event type: ${{ github.event_name }}"
+            exit 1
           fi
 
           FILES=$(git diff --name-only "$BASE" HEAD)
@@ -72,8 +73,9 @@ jobs:
               .github/workflows/*|.github/actions/*)
                 HAS_CI=true
                 ;;
-              # Documentation (skip everything)
+              # Documentation (lint-worthy for prettier, but not code)
               *.md|*.txt|docs/*|.claude/*|LICENSE)
+                HAS_LINT_TARGETS=true
                 ;;
               # Config/tooling (lint-worthy but not code)
               .eslintrc*|.prettierrc*|.editorconfig|.gitignore|.gitattributes|.nvmrc|.yarnrc*)
@@ -124,7 +126,9 @@ jobs:
   analyse-code:
     name: Code scanner
     needs: [check-workflows, detect-changes]
-    if: needs.detect-changes.outputs.has-code == 'true'
+    if: |
+      needs.detect-changes.outputs.has-code == 'true'
+      && (needs.check-workflows.result == 'success' || needs.check-workflows.result == 'skipped')
     uses: ./.github/workflows/security-code-scanner.yml
     permissions:
       actions: read
@@ -137,7 +141,9 @@ jobs:
   lint-build-test:
     name: Lint, build, and test
     needs: [check-workflows, detect-changes]
-    if: needs.detect-changes.outputs.has-code == 'true'
+    if: |
+      needs.detect-changes.outputs.has-code == 'true'
+      && (needs.check-workflows.result == 'success' || needs.check-workflows.result == 'skipped')
     uses: ./.github/workflows/lint-build-test.yml
 
   lint-only:
@@ -243,8 +249,8 @@ jobs:
             fi
           fi
 
-          # If CI files changed, check-workflows must have succeeded
-          if [[ "$HAS_CI" == "true" ]]; then
+          # check-workflows runs for both CI and code changes; require it when either is present
+          if [[ "$HAS_CI" == "true" || "$HAS_CODE" == "true" ]]; then
             if [[ "${{ needs.check-workflows.result }}" != "success" ]]; then
               echo "check-workflows did not succeed"
               exit 1
