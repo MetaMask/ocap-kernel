@@ -16,7 +16,12 @@ const RELAY_PID_PATH = join(homedir(), '.ocap', 'relay.pid');
  */
 export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
   await mkdir(join(homedir(), '.ocap'), { recursive: true });
-  await rm(RELAY_PID_PATH, { force: true });
+
+  const existingPid = await readPidFile(RELAY_PID_PATH);
+  if (existingPid !== undefined && isProcessAlive(existingPid)) {
+    throw new Error(`Relay is already running (PID: ${existingPid}).`);
+  }
+
   await writeFile(RELAY_PID_PATH, String(process.pid));
 
   const cleanup = (): void => {
@@ -29,7 +34,12 @@ export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
   process.on('SIGTERM', cleanup);
   process.on('SIGINT', cleanup);
 
-  await startRelay(logger);
+  try {
+    await startRelay(logger);
+  } catch (error) {
+    await rm(RELAY_PID_PATH, { force: true });
+    throw error;
+  }
 }
 
 /**
