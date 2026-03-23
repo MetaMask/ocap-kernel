@@ -26,11 +26,85 @@ jobs:
         if: github.event_name == 'merge_group'
         uses: MetaMask/github-tools/.github/actions/check-skip-merge-queue@v1
 
+  detect-changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      has-code: ${{ steps.changes.outputs.has-code }}
+      has-ci: ${{ steps.changes.outputs.has-ci }}
+      has-lint-targets: ${{ steps.changes.outputs.has-lint-targets }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Detect change categories
+        id: changes
+        run: |
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            # On pushes to main, always run everything
+            echo "has-code=true" >> "$GITHUB_OUTPUT"
+            echo "has-ci=true" >> "$GITHUB_OUTPUT"
+            echo "has-lint-targets=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          elif [[ "${{ github.event_name }}" == "merge_group" ]]; then
+            BASE="${{ github.event.merge_group.base_sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+
+          FILES=$(git diff --name-only "$BASE" HEAD)
+
+          HAS_CODE=false
+          HAS_CI=false
+          HAS_LINT_TARGETS=false
+
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+
+            case "$file" in
+              # CI / workflow files
+              .github/workflows/*|.github/actions/*)
+                HAS_CI=true
+                ;;
+              # Documentation (skip everything)
+              *.md|*.txt|docs/*|.claude/*|LICENSE|AGENTS.md)
+                ;;
+              # Config/tooling (lint-worthy but not code)
+              .eslintrc*|.prettierrc*|.editorconfig|.gitignore|.gitattributes|.nvmrc|.yarnrc*)
+                HAS_LINT_TARGETS=true
+                ;;
+              # Everything else is code (source, tests, package.json, tsconfig, lockfile, etc.)
+              *)
+                HAS_CODE=true
+                HAS_LINT_TARGETS=true
+                ;;
+            esac
+          done <<< "$FILES"
+
+          echo "has-code=$HAS_CODE" >> "$GITHUB_OUTPUT"
+          echo "has-ci=$HAS_CI" >> "$GITHUB_OUTPUT"
+          echo "has-lint-targets=$HAS_LINT_TARGETS" >> "$GITHUB_OUTPUT"
+
+          echo "## Change detection results" >> "$GITHUB_STEP_SUMMARY"
+          echo "- has-code: $HAS_CODE" >> "$GITHUB_STEP_SUMMARY"
+          echo "- has-ci: $HAS_CI" >> "$GITHUB_STEP_SUMMARY"
+          echo "- has-lint-targets: $HAS_LINT_TARGETS" >> "$GITHUB_STEP_SUMMARY"
+          echo "### Changed files" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "$FILES" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
   check-workflows:
     name: Check workflows
     runs-on: ubuntu-latest
-    needs: check-skip-merge-queue
-    if: github.event_name != 'merge_group' || needs.check-skip-merge-queue.outputs.skip-merge-queue != 'true'
+    needs: [check-skip-merge-queue, detect-changes]
+    if: |
+      (github.event_name != 'merge_group' || needs.check-skip-merge-queue.outputs.skip-merge-queue != 'true')
+      && (needs.detect-changes.outputs.has-ci == 'true' || needs.detect-changes.outputs.has-code == 'true')
     steps:
       - uses: actions/checkout@v6
       - name: Download actionlint
@@ -43,7 +117,8 @@ jobs:
 
   analyse-code:
     name: Code scanner
-    needs: check-workflows
+    needs: [check-workflows, detect-changes]
+    if: needs.detect-changes.outputs.has-code == 'true'
     uses: ./.github/workflows/security-code-scanner.yml
     permissions:
       actions: read
@@ -55,8 +130,32 @@ jobs:
 
   lint-build-test:
     name: Lint, build, and test
-    needs: check-workflows
+    needs: [check-workflows, detect-changes]
+    if: needs.detect-changes.outputs.has-code == 'true'
     uses: ./.github/workflows/lint-build-test.yml
+
+  lint-only:
+    name: Lint (no code changes)
+    runs-on: ubuntu-latest
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.has-code != 'true' && needs.detect-changes.outputs.has-lint-targets == 'true'
+    strategy:
+      matrix:
+        node-version: [24.x]
+    steps:
+      - name: Checkout and setup environment
+        uses: MetaMask/action-checkout-and-setup@v3
+        with:
+          is-high-risk-environment: false
+          node-version: ${{ matrix.node-version }}
+      - run: yarn lint
+      - name: Require clean working directory
+        shell: bash
+        run: |
+          if ! git diff --exit-code; then
+            echo "Working tree dirty at end of job"
+            exit 1
+          fi
 
   coverage-report:
     name: Coverage report
@@ -107,15 +206,38 @@ jobs:
   all-jobs-complete:
     name: All jobs complete
     runs-on: ubuntu-latest
+    if: ${{ always() }}
     needs:
+      - detect-changes
       - analyse-code
       - lint-build-test
+      - lint-only
     outputs:
       passed: ${{ steps.set-output.outputs.passed }}
     steps:
       - name: Set passed output
         id: set-output
-        run: echo "passed=true" >> "$GITHUB_OUTPUT"
+        run: |
+          HAS_CODE="${{ needs.detect-changes.outputs.has-code }}"
+          HAS_LINT="${{ needs.detect-changes.outputs.has-lint-targets }}"
+
+          # If code changed, analyse-code and lint-build-test must have succeeded
+          if [[ "$HAS_CODE" == "true" ]]; then
+            if [[ "${{ needs.analyse-code.result }}" != "success" || "${{ needs.lint-build-test.result }}" != "success" ]]; then
+              echo "Code jobs did not succeed"
+              exit 1
+            fi
+          fi
+
+          # If only lint targets changed (no code), lint-only must have succeeded
+          if [[ "$HAS_CODE" != "true" && "$HAS_LINT" == "true" ]]; then
+            if [[ "${{ needs.lint-only.result }}" != "success" ]]; then
+              echo "Lint-only job did not succeed"
+              exit 1
+            fi
+          fi
+
+          echo "passed=true" >> "$GITHUB_OUTPUT"
 
   all-jobs-pass:
     name: All jobs pass
