@@ -1,13 +1,40 @@
 import { readFile } from 'node:fs/promises';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { isProcessAlive, readPidFile, waitFor, withTimeout } from './utils.ts';
+import {
+  isErrorWithCode,
+  isProcessAlive,
+  readPidFile,
+  sendSignal,
+  waitFor,
+  withTimeout,
+} from './utils.ts';
 
 vi.mock('node:fs/promises');
 
 describe('utils', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  describe('isErrorWithCode', () => {
+    it('returns true for a matching error code', () => {
+      const error = Object.assign(new Error('fail'), { code: 'ENOENT' });
+      expect(isErrorWithCode(error, 'ENOENT')).toBe(true);
+    });
+
+    it('returns false for a non-matching error code', () => {
+      const error = Object.assign(new Error('fail'), { code: 'EACCES' });
+      expect(isErrorWithCode(error, 'ENOENT')).toBe(false);
+    });
+
+    it('returns false for a non-Error value', () => {
+      expect(isErrorWithCode('not an error', 'ENOENT')).toBe(false);
+    });
+
+    it('returns false for an Error without a code property', () => {
+      expect(isErrorWithCode(new Error('fail'), 'ENOENT')).toBe(false);
+    });
   });
 
   describe('withTimeout', () => {
@@ -34,8 +61,15 @@ describe('utils', () => {
     });
 
     it('returns undefined when the file is missing', async () => {
-      vi.mocked(readFile).mockRejectedValueOnce(new Error('ENOENT'));
+      const error = Object.assign(new Error('ENOENT'), { code: 'ENOENT' });
+      vi.mocked(readFile).mockRejectedValueOnce(error);
       expect(await readPidFile('/missing/path')).toBeUndefined();
+    });
+
+    it('throws on non-ENOENT errors', async () => {
+      const error = Object.assign(new Error('EACCES'), { code: 'EACCES' });
+      vi.mocked(readFile).mockRejectedValueOnce(error);
+      await expect(readPidFile('/some/path')).rejects.toThrow('EACCES');
     });
 
     it.each([['0'], ['-1'], ['not-a-number']])(
@@ -53,11 +87,39 @@ describe('utils', () => {
       expect(isProcessAlive(1234)).toBe(true);
     });
 
+    it('returns true when the process exists but is owned by another user (EPERM)', () => {
+      vi.spyOn(process, 'kill').mockImplementationOnce(() => {
+        throw Object.assign(new Error('EPERM'), { code: 'EPERM' });
+      });
+      expect(isProcessAlive(1234)).toBe(true);
+    });
+
     it('returns false when the process does not exist', () => {
       vi.spyOn(process, 'kill').mockImplementationOnce(() => {
-        throw new Error('ESRCH');
+        throw Object.assign(new Error('ESRCH'), { code: 'ESRCH' });
       });
       expect(isProcessAlive(1234)).toBe(false);
+    });
+  });
+
+  describe('sendSignal', () => {
+    it('returns true when the signal is delivered', () => {
+      vi.spyOn(process, 'kill').mockReturnValueOnce(true as never);
+      expect(sendSignal(1234, 'SIGTERM')).toBe(true);
+    });
+
+    it('returns false when the process does not exist (ESRCH)', () => {
+      vi.spyOn(process, 'kill').mockImplementationOnce(() => {
+        throw Object.assign(new Error('ESRCH'), { code: 'ESRCH' });
+      });
+      expect(sendSignal(1234, 'SIGTERM')).toBe(false);
+    });
+
+    it('throws on permission errors (EPERM)', () => {
+      vi.spyOn(process, 'kill').mockImplementationOnce(() => {
+        throw Object.assign(new Error('EPERM'), { code: 'EPERM' });
+      });
+      expect(() => sendSignal(1234, 'SIGTERM')).toThrow('EPERM');
     });
   });
 

@@ -4,7 +4,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import { isProcessAlive, readPidFile, waitFor } from '../utils.ts';
+import { isProcessAlive, readPidFile, sendSignal, waitFor } from '../utils.ts';
 
 const RELAY_PID_PATH = join(homedir(), '.ocap', 'relay.pid');
 
@@ -24,22 +24,28 @@ export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
 
   await writeFile(RELAY_PID_PATH, String(process.pid));
 
-  const cleanup = (): void => {
-    rm(RELAY_PID_PATH, { force: true })
-      .catch(() => undefined)
-      // eslint-disable-next-line n/no-process-exit -- signal handler must force exit after cleanup
-      .finally(() => process.exit(0));
-  };
-
-  process.on('SIGTERM', cleanup);
-  process.on('SIGINT', cleanup);
-
+  let libp2p;
   try {
-    await startRelay(logger);
+    libp2p = await startRelay(logger);
   } catch (error) {
     await rm(RELAY_PID_PATH, { force: true });
     throw error;
   }
+
+  const cleanup = (): void => {
+    libp2p
+      .stop()
+      .catch(() => undefined)
+      .finally(() => {
+        rm(RELAY_PID_PATH, { force: true })
+          .catch(() => undefined)
+          // eslint-disable-next-line n/no-process-exit -- signal handler must force exit after cleanup
+          .finally(() => process.exit(0));
+      });
+  };
+
+  process.on('SIGTERM', cleanup);
+  process.on('SIGINT', cleanup);
 }
 
 /**
@@ -83,22 +89,14 @@ export async function stopRelay({
   let stopped = false;
 
   // Strategy 1: SIGTERM.
-  try {
-    process.kill(pid, 'SIGTERM');
-  } catch {
-    stopped = true;
-  }
+  stopped = !sendSignal(pid, 'SIGTERM');
   if (!stopped) {
     stopped = await waitFor(() => !isProcessAlive(pid), 5_000);
   }
 
   // Strategy 2: SIGKILL (only with --force).
   if (!stopped && force) {
-    try {
-      process.kill(pid, 'SIGKILL');
-    } catch {
-      stopped = true;
-    }
+    stopped = !sendSignal(pid, 'SIGKILL');
     if (!stopped) {
       stopped = await waitFor(() => !isProcessAlive(pid), 2_000);
     }

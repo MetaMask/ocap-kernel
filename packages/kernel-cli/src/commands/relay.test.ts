@@ -7,7 +7,7 @@ import {
   startRelayWithBookkeeping,
   stopRelay,
 } from './relay.ts';
-import { isProcessAlive, readPidFile, waitFor } from '../utils.ts';
+import { isProcessAlive, readPidFile, sendSignal, waitFor } from '../utils.ts';
 
 vi.mock('@metamask/kernel-utils/libp2p', () => ({
   startRelay: vi.fn(),
@@ -23,6 +23,7 @@ vi.mock('node:fs/promises', async (importOriginal) => ({
 vi.mock('../utils.ts', () => ({
   isProcessAlive: vi.fn(),
   readPidFile: vi.fn(),
+  sendSignal: vi.fn(),
   waitFor: vi.fn(),
 }));
 
@@ -49,7 +50,7 @@ describe('relay', () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
 
       const { startRelay } = await import('@metamask/kernel-utils/libp2p');
-      vi.mocked(startRelay).mockResolvedValueOnce(undefined as never);
+      vi.mocked(startRelay).mockResolvedValueOnce({ stop: vi.fn() } as never);
 
       await startRelayWithBookkeeping(mockLogger);
 
@@ -65,7 +66,7 @@ describe('relay', () => {
       vi.mocked(isProcessAlive).mockReturnValueOnce(false);
 
       const { startRelay } = await import('@metamask/kernel-utils/libp2p');
-      vi.mocked(startRelay).mockResolvedValueOnce(undefined as never);
+      vi.mocked(startRelay).mockResolvedValueOnce({ stop: vi.fn() } as never);
 
       await startRelayWithBookkeeping(mockLogger);
 
@@ -149,39 +150,62 @@ describe('relay', () => {
     it('sends SIGTERM and returns true when process stops', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(1234);
       vi.mocked(isProcessAlive).mockReturnValueOnce(true);
+      vi.mocked(sendSignal).mockReturnValueOnce(true);
       vi.mocked(waitFor).mockResolvedValueOnce(true);
-      const killSpy = vi.spyOn(process, 'kill').mockReturnValue(true as never);
       vi.spyOn(process.stderr, 'write').mockReturnValue(true);
 
       expect(await stopRelay()).toBe(true);
-      expect(killSpy).toHaveBeenCalledWith(1234, 'SIGTERM');
+      expect(sendSignal).toHaveBeenCalledWith(1234, 'SIGTERM');
       expect(rm).toHaveBeenCalledWith(expect.stringContaining('relay.pid'), {
         force: true,
       });
     });
 
-    it('returns false when SIGTERM fails and force is not set', async () => {
+    it('returns true immediately when SIGTERM finds process already gone', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(1234);
       vi.mocked(isProcessAlive).mockReturnValueOnce(true);
+      vi.mocked(sendSignal).mockReturnValueOnce(false);
+      vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+      expect(await stopRelay()).toBe(true);
+      expect(rm).toHaveBeenCalledWith(expect.stringContaining('relay.pid'), {
+        force: true,
+      });
+    });
+
+    it('returns false when SIGTERM times out and force is not set', async () => {
+      vi.mocked(readPidFile).mockResolvedValueOnce(1234);
+      vi.mocked(isProcessAlive).mockReturnValueOnce(true);
+      vi.mocked(sendSignal).mockReturnValueOnce(true);
       vi.mocked(waitFor).mockResolvedValueOnce(false);
-      vi.spyOn(process, 'kill').mockReturnValue(true as never);
       vi.spyOn(process.stderr, 'write').mockReturnValue(true);
 
       expect(await stopRelay()).toBe(false);
     });
 
+    it('propagates EPERM from sendSignal', async () => {
+      vi.mocked(readPidFile).mockResolvedValueOnce(1234);
+      vi.mocked(isProcessAlive).mockReturnValueOnce(true);
+      vi.mocked(sendSignal).mockImplementationOnce(() => {
+        throw Object.assign(new Error('EPERM'), { code: 'EPERM' });
+      });
+      vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+      await expect(stopRelay()).rejects.toThrow('EPERM');
+    });
+
     it('escalates to SIGKILL with force option', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(1234);
       vi.mocked(isProcessAlive).mockReturnValueOnce(true);
+      vi.mocked(sendSignal).mockReturnValueOnce(true).mockReturnValueOnce(true);
       vi.mocked(waitFor)
         .mockResolvedValueOnce(false)
         .mockResolvedValueOnce(true);
-      const killSpy = vi.spyOn(process, 'kill').mockReturnValue(true as never);
       vi.spyOn(process.stderr, 'write').mockReturnValue(true);
 
       expect(await stopRelay({ force: true })).toBe(true);
-      expect(killSpy).toHaveBeenCalledWith(1234, 'SIGTERM');
-      expect(killSpy).toHaveBeenCalledWith(1234, 'SIGKILL');
+      expect(sendSignal).toHaveBeenCalledWith(1234, 'SIGTERM');
+      expect(sendSignal).toHaveBeenCalledWith(1234, 'SIGKILL');
     });
   });
 });

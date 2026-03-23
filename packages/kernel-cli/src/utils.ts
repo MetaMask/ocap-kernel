@@ -1,6 +1,21 @@
 import { readFile } from 'node:fs/promises';
 
 /**
+ * Check whether an unknown error is a Node.js system error with the given code.
+ *
+ * @param error - The error to check.
+ * @param code - The expected error code (e.g. 'ENOENT', 'EPERM').
+ * @returns True if the error matches the code.
+ */
+export function isErrorWithCode(error: unknown, code: string): boolean {
+  return (
+    error instanceof Error &&
+    'code' in error &&
+    (error as NodeJS.ErrnoException).code === code
+  );
+}
+
+/**
  * Read a PID from a file.
  *
  * @param pidPath - The PID file path.
@@ -12,8 +27,11 @@ export async function readPidFile(
   try {
     const pid = Number(await readFile(pidPath, 'utf-8'));
     return pid > 0 && !Number.isNaN(pid) ? pid : undefined;
-  } catch {
-    return undefined;
+  } catch (error: unknown) {
+    if (isErrorWithCode(error, 'ENOENT')) {
+      return undefined;
+    }
+    throw error;
   }
 }
 
@@ -27,8 +45,32 @@ export function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
-  } catch {
+  } catch (error: unknown) {
+    if (isErrorWithCode(error, 'EPERM')) {
+      return true;
+    }
     return false;
+  }
+}
+
+/**
+ * Send a signal to a process. Returns true if the signal was sent, false if
+ * the process does not exist (ESRCH). Re-throws on permission errors (EPERM)
+ * and other failures.
+ *
+ * @param pid - The process ID.
+ * @param signal - The signal to send.
+ * @returns True if the signal was delivered, false if the process is gone.
+ */
+export function sendSignal(pid: number, signal: NodeJS.Signals): boolean {
+  try {
+    process.kill(pid, signal);
+    return true;
+  } catch (error: unknown) {
+    if (isErrorWithCode(error, 'ESRCH')) {
+      return false;
+    }
+    throw error;
   }
 }
 
