@@ -32,15 +32,22 @@ Before creating the PR, analyze the diff to decide **which review subagents to l
 
 ### Triage: classify the change
 
-Look at the files changed in the diff and classify the PR:
+Categorize each changed file, then pick subagents based on which categories are present. A file belongs to exactly one category — evaluate in this order (first match wins):
 
-- **docs-only**: All changed files are documentation (`.md`, `.txt`, `CHANGELOG`, `LICENSE`, `CLAUDE.md`, `.claude/` skill files, `docs/`). **Skip the entire review phase** and go straight to Phase 3.
-- **config-only**: All changed files are configuration (`.json`, `.yml`, `.yaml`, `.eslintrc`, `.prettierrc`, `tsconfig`, `Dockerfile`, CI files). Launch only **Subagent 2 (Style)**.
-- **test-only**: All changed files are test files (`*.test.ts`, `*.spec.ts`, `test/` directories). Launch only **Subagent 2 (Style)** and **Subagent 4 (Tests)**.
-- **code**: Any source code files (`.ts`, `.js`, `.mjs`, `.cjs`, etc.) are changed. Launch **all applicable subagents** based on what changed:
-  - Always launch **Subagent 1 (Correctness)** and **Subagent 2 (Style)**
-  - Launch **Subagent 3 (Security)** if the diff touches: network/HTTP code, user input handling, authentication, cryptography, `eval`/`Function`, capability passing, or `harden()`/SES-related code
-  - Launch **Subagent 4 (Tests)** if non-test source files are changed
+1. **docs**: `.md`, `.txt`, `CHANGELOG`, `LICENSE`, `docs/`, `.claude/`
+2. **config**: `.json` (not `package.json`), `.yml`, `.yaml`, `.eslintrc*`, `.prettierrc*`, `tsconfig*`, `Dockerfile`, `.github/`, `.editorconfig`, `.gitignore`, `.gitattributes`, `.nvmrc`, `.yarnrc*`
+3. **test**: files matching `*.test.ts`, `*.spec.ts`, or under `test/` directories
+4. **code**: everything else (`.ts`, `.js`, `.mjs`, `.cjs`, `package.json`, etc.)
+
+Then decide which subagents to launch:
+
+- If **only docs** files changed: **skip the entire review phase** and go straight to Phase 3.
+- Otherwise, select subagents based on which categories are present:
+  - **config** or **test** present → launch **Subagent 2 (Style)**
+  - **test** present → also launch **Subagent 4 (Tests)**
+  - **code** present → launch **Subagent 1 (Correctness)** and **Subagent 2 (Style)**
+  - **code** present → also launch **Subagent 4 (Tests)**
+  - **code** present and diff touches security-sensitive areas (network/HTTP, user input, auth, crypto, `eval`/`Function`, capability passing, `harden()`/SES) → also launch **Subagent 3 (Security)**
 
 ### Subagent 1: Correctness & Logic
 
@@ -104,4 +111,4 @@ Otherwise, after all launched subagents complete:
 
    **If this is a stacked PR**, add `--draft` to create it as a draft PR.
 
-6. Return the PR URL, the review summary, and any relevant information.
+6. Return the PR URL and any relevant information. If a review was performed, include the review summary.
