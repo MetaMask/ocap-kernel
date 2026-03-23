@@ -69,9 +69,10 @@ jobs:
             [[ -z "$file" ]] && continue
 
             case "$file" in
-              # CI / workflow files
+              # CI / workflow files (also lint-worthy for prettier on .yml)
               .github/workflows/*|.github/actions/*)
                 HAS_CI=true
+                HAS_LINT_TARGETS=true
                 ;;
               # Documentation (lint-worthy for prettier, but not code)
               *.md|*.txt|docs/*|.claude/*|LICENSE)
