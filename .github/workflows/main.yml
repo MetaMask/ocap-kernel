@@ -215,6 +215,7 @@ jobs:
     if: ${{ always() }}
     needs:
       - detect-changes
+      - check-workflows
       - analyse-code
       - lint-build-test
       - lint-only
@@ -224,13 +225,28 @@ jobs:
       - name: Set passed output
         id: set-output
         run: |
+          # detect-changes must always succeed — without it we can't trust any outputs
+          if [[ "${{ needs.detect-changes.result }}" != "success" ]]; then
+            echo "detect-changes did not succeed"
+            exit 1
+          fi
+
           HAS_CODE="${{ needs.detect-changes.outputs.has-code }}"
+          HAS_CI="${{ needs.detect-changes.outputs.has-ci }}"
           HAS_LINT="${{ needs.detect-changes.outputs.has-lint-targets }}"
 
           # If code changed, analyse-code and lint-build-test must have succeeded
           if [[ "$HAS_CODE" == "true" ]]; then
             if [[ "${{ needs.analyse-code.result }}" != "success" || "${{ needs.lint-build-test.result }}" != "success" ]]; then
               echo "Code jobs did not succeed"
+              exit 1
+            fi
+          fi
+
+          # If CI files changed, check-workflows must have succeeded
+          if [[ "$HAS_CI" == "true" ]]; then
+            if [[ "${{ needs.check-workflows.result }}" != "success" ]]; then
+              echo "check-workflows did not succeed"
               exit 1
             fi
           fi
