@@ -29,6 +29,12 @@ vi.mock('../utils.ts', () => ({
 
 const mockLogger = { info: vi.fn(), error: vi.fn() } as unknown as Logger;
 
+const makeLibp2pMock = (
+  addrs: string[] = ['/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo'],
+) => ({
+  getMultiaddrs: () => addrs.map((addr) => ({ toString: () => addr })),
+});
+
 describe('relay', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -46,17 +52,21 @@ describe('relay', () => {
       expect(writeFile).not.toHaveBeenCalled();
     });
 
-    it('writes PID file and starts the relay', async () => {
+    it('writes PID and addr files and starts the relay', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
 
       const { startRelay } = await import('@metamask/kernel-utils/libp2p');
-      vi.mocked(startRelay).mockResolvedValueOnce({ stop: vi.fn() } as never);
+      vi.mocked(startRelay).mockResolvedValueOnce(makeLibp2pMock() as never);
 
       await startRelayWithBookkeeping(mockLogger);
 
       expect(writeFile).toHaveBeenCalledWith(
         expect.stringContaining('relay.pid'),
         String(process.pid),
+      );
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('relay.addr'),
+        '/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo',
       );
       expect(startRelay).toHaveBeenCalledWith(mockLogger);
     });
@@ -66,13 +76,26 @@ describe('relay', () => {
       vi.mocked(isProcessAlive).mockReturnValueOnce(false);
 
       const { startRelay } = await import('@metamask/kernel-utils/libp2p');
-      vi.mocked(startRelay).mockResolvedValueOnce({ stop: vi.fn() } as never);
+      vi.mocked(startRelay).mockResolvedValueOnce(makeLibp2pMock() as never);
 
       await startRelayWithBookkeeping(mockLogger);
 
       expect(writeFile).toHaveBeenCalledWith(
         expect.stringContaining('relay.pid'),
         String(process.pid),
+      );
+    });
+
+    it('throws when no WS multiaddr is available', async () => {
+      vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
+
+      const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      vi.mocked(startRelay).mockResolvedValueOnce(
+        makeLibp2pMock(['/ip4/0.0.0.0/tcp/9002']) as never,
+      );
+
+      await expect(startRelayWithBookkeeping(mockLogger)).rejects.toThrow(
+        'Relay started but no WS multiaddr found on 127.0.0.1:9001',
       );
     });
 
@@ -114,7 +137,7 @@ describe('relay', () => {
       expect(rm).not.toHaveBeenCalled();
     });
 
-    it('cleans up stale PID file when process is dead', async () => {
+    it('cleans up stale PID and addr files when process is dead', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(9999);
       vi.mocked(isProcessAlive).mockReturnValueOnce(false);
       vi.spyOn(process.stderr, 'write').mockReturnValue(true);
@@ -122,6 +145,9 @@ describe('relay', () => {
       await printRelayStatus();
 
       expect(rm).toHaveBeenCalledWith(expect.stringContaining('relay.pid'), {
+        force: true,
+      });
+      expect(rm).toHaveBeenCalledWith(expect.stringContaining('relay.addr'), {
         force: true,
       });
       expect(process.exitCode).toBe(1);
@@ -136,7 +162,7 @@ describe('relay', () => {
       expect(await stopRelay()).toBe(true);
     });
 
-    it('cleans up stale PID file and returns true when process is dead', async () => {
+    it('cleans up stale PID and addr files and returns true when process is dead', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(9999);
       vi.mocked(isProcessAlive).mockReturnValueOnce(false);
       vi.spyOn(process.stderr, 'write').mockReturnValue(true);
@@ -145,9 +171,12 @@ describe('relay', () => {
       expect(rm).toHaveBeenCalledWith(expect.stringContaining('relay.pid'), {
         force: true,
       });
+      expect(rm).toHaveBeenCalledWith(expect.stringContaining('relay.addr'), {
+        force: true,
+      });
     });
 
-    it('sends SIGTERM and returns true when process stops', async () => {
+    it('sends SIGTERM and removes PID and addr files when process stops', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(1234);
       vi.mocked(isProcessAlive).mockReturnValueOnce(true);
       vi.mocked(sendSignal).mockReturnValueOnce(true);
@@ -157,6 +186,9 @@ describe('relay', () => {
       expect(await stopRelay()).toBe(true);
       expect(sendSignal).toHaveBeenCalledWith(1234, 'SIGTERM');
       expect(rm).toHaveBeenCalledWith(expect.stringContaining('relay.pid'), {
+        force: true,
+      });
+      expect(rm).toHaveBeenCalledWith(expect.stringContaining('relay.addr'), {
         force: true,
       });
     });

@@ -1,0 +1,201 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { handleDaemonStart } from './daemon.ts';
+import { isProcessAlive, readPidFile } from '../utils.ts';
+
+vi.mock('@metamask/kernel-node-runtime/daemon', () => ({
+  deleteDaemonState: vi.fn(),
+}));
+
+vi.mock('node:fs/promises', async (importOriginal) => ({
+  ...(await importOriginal()),
+  readFile: vi.fn(),
+  rm: vi.fn(),
+}));
+
+vi.mock('../utils.ts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../utils.ts')>()),
+  isProcessAlive: vi.fn(),
+  readPidFile: vi.fn(),
+  waitFor: vi.fn(),
+}));
+
+vi.mock('./daemon-client.ts', () => ({
+  getSocketPath: vi.fn().mockReturnValue('/tmp/test.sock'),
+  pingDaemon: vi.fn(),
+  sendCommand: vi.fn(),
+}));
+
+vi.mock('./daemon-spawn.ts', () => ({
+  ensureDaemon: vi.fn(),
+}));
+
+vi.mock('./relay.ts', () => ({
+  RELAY_PID_PATH: '/mock/.ocap/relay.pid',
+  RELAY_ADDR_PATH: '/mock/.ocap/relay.addr',
+}));
+
+const socketPath = '/tmp/test.sock';
+
+describe('handleDaemonStart', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    process.exitCode = undefined;
+  });
+
+  it('starts the daemon without local relay', async () => {
+    const { ensureDaemon } = await import('./daemon-spawn.ts');
+    const writeSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+    await handleDaemonStart(socketPath);
+
+    expect(ensureDaemon).toHaveBeenCalledWith(socketPath);
+    expect(writeSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Daemon running'),
+    );
+  });
+
+  describe('--local-relay', () => {
+    it('exits with code 1 when relay has no PID file', async () => {
+      vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
+      const writeSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+      await handleDaemonStart(socketPath, { localRelay: true });
+
+      expect(writeSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Relay is not running'),
+      );
+      expect(process.exitCode).toBe(1);
+    });
+
+    it('exits with code 1 when relay PID is stale', async () => {
+      vi.mocked(readPidFile).mockResolvedValueOnce(9999);
+      vi.mocked(isProcessAlive).mockReturnValueOnce(false);
+      const writeSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+      await handleDaemonStart(socketPath, { localRelay: true });
+
+      expect(writeSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Relay is not running'),
+      );
+      expect(process.exitCode).toBe(1);
+    });
+
+    it('exits with code 1 when relay addr file is missing', async () => {
+      vi.mocked(readPidFile).mockResolvedValueOnce(1234);
+      vi.mocked(isProcessAlive).mockReturnValueOnce(true);
+
+      const { readFile } = await import('node:fs/promises');
+      vi.mocked(readFile).mockRejectedValueOnce(
+        Object.assign(new Error('ENOENT'), { code: 'ENOENT' }),
+      );
+
+      const writeSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+      await handleDaemonStart(socketPath, { localRelay: true });
+
+      expect(writeSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Relay address file not found'),
+      );
+      expect(process.exitCode).toBe(1);
+    });
+
+    it('initializes remote comms with the relay addr', async () => {
+      vi.mocked(readPidFile).mockResolvedValueOnce(1234);
+      vi.mocked(isProcessAlive).mockReturnValueOnce(true);
+
+      const { readFile } = await import('node:fs/promises');
+      vi.mocked(readFile).mockResolvedValueOnce(
+        '/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo' as never,
+      );
+
+      const { sendCommand } = await import('./daemon-client.ts');
+      vi.mocked(sendCommand)
+        .mockResolvedValueOnce({
+          jsonrpc: '2.0',
+          id: 1,
+          result: { remoteComms: { state: 'disconnected' } },
+        })
+        .mockResolvedValueOnce({ jsonrpc: '2.0', id: 2, result: {} });
+
+      const writeSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+      await handleDaemonStart(socketPath, { localRelay: true });
+
+      expect(sendCommand).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'initRemoteComms',
+          params: { relays: ['/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo'] },
+        }),
+      );
+      expect(writeSpy).toHaveBeenCalledWith(
+        'Remote comms initialized with local relay.\n',
+      );
+      expect(writeSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Daemon running'),
+      );
+      expect(process.exitCode).toBeUndefined();
+    });
+
+    it('skips initRemoteComms when remote comms already initialized', async () => {
+      vi.mocked(readPidFile).mockResolvedValueOnce(1234);
+      vi.mocked(isProcessAlive).mockReturnValueOnce(true);
+
+      const { readFile } = await import('node:fs/promises');
+      vi.mocked(readFile).mockResolvedValueOnce(
+        '/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo' as never,
+      );
+
+      const { sendCommand } = await import('./daemon-client.ts');
+      vi.mocked(sendCommand).mockResolvedValueOnce({
+        jsonrpc: '2.0',
+        id: 1,
+        result: { remoteComms: { state: 'connected' } },
+      });
+
+      const writeSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+      await handleDaemonStart(socketPath, { localRelay: true });
+
+      expect(sendCommand).toHaveBeenCalledTimes(1);
+      expect(writeSpy).toHaveBeenCalledWith(
+        'Remote comms already initialized.\n',
+      );
+      expect(process.exitCode).toBeUndefined();
+    });
+
+    it('exits with code 1 when initRemoteComms fails', async () => {
+      vi.mocked(readPidFile).mockResolvedValueOnce(1234);
+      vi.mocked(isProcessAlive).mockReturnValueOnce(true);
+
+      const { readFile } = await import('node:fs/promises');
+      vi.mocked(readFile).mockResolvedValueOnce(
+        '/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo' as never,
+      );
+
+      const { sendCommand } = await import('./daemon-client.ts');
+      vi.mocked(sendCommand)
+        .mockResolvedValueOnce({
+          jsonrpc: '2.0',
+          id: 1,
+          result: { remoteComms: { state: 'disconnected' } },
+        })
+        .mockResolvedValueOnce({
+          jsonrpc: '2.0',
+          id: 2,
+          error: { code: -32000, message: 'init failed' },
+        });
+
+      const writeSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+
+      await handleDaemonStart(socketPath, { localRelay: true });
+
+      expect(writeSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Failed to initialize remote comms: init failed',
+        ),
+      );
+      expect(process.exitCode).toBe(1);
+    });
+  });
+});

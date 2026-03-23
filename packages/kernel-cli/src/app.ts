@@ -227,11 +227,19 @@ const yargsInstance = yargs(hideBin(process.argv))
 
       return _yargs
         .command(
-          'start',
+          ['start', '$0'],
           'Start the daemon (or confirm it is running)',
-          (_y) => _y,
-          async () => {
-            await handleDaemonStart(socketPath);
+          (_y) =>
+            _y.option('local-relay', {
+              type: 'boolean',
+              default: false,
+              describe:
+                'Initialize remote comms with the local relay after starting',
+            }),
+          async (args) => {
+            await handleDaemonStart(socketPath, {
+              localRelay: args['local-relay'],
+            });
           },
         )
         .command(
@@ -316,14 +324,6 @@ const yargsInstance = yargs(hideBin(process.argv))
                 ? { timeoutMs: args.timeout * 1000 }
                 : {},
             );
-          },
-        )
-        .command(
-          '$0',
-          false,
-          (_y) => _y,
-          async () => {
-            await handleDaemonStart(socketPath);
           },
         );
     },

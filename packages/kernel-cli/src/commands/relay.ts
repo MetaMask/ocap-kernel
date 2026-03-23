@@ -6,7 +6,8 @@ import { join } from 'node:path';
 
 import { isProcessAlive, readPidFile, sendSignal, waitFor } from '../utils.ts';
 
-const RELAY_PID_PATH = join(homedir(), '.ocap', 'relay.pid');
+export const RELAY_PID_PATH = join(homedir(), '.ocap', 'relay.pid');
+export const RELAY_ADDR_PATH = join(homedir(), '.ocap', 'relay.addr');
 
 /**
  * Start the relay server, write a PID file, and register signal handlers for
@@ -36,7 +37,10 @@ export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
     Promise.resolve(libp2p.stop())
       .catch(() => undefined)
       .finally(() => {
-        rm(RELAY_PID_PATH, { force: true })
+        Promise.all([
+          rm(RELAY_PID_PATH, { force: true }),
+          rm(RELAY_ADDR_PATH, { force: true }),
+        ])
           .catch(() => undefined)
           // eslint-disable-next-line n/no-process-exit -- signal handler must force exit after cleanup
           .finally(() => process.exit(0));
@@ -45,6 +49,17 @@ export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
 
   process.on('SIGTERM', cleanup);
   process.on('SIGINT', cleanup);
+
+  const relayAddr = libp2p
+    .getMultiaddrs()
+    .find((ma) => ma.toString().includes('/ip4/127.0.0.1/tcp/9001/ws/'))
+    ?.toString();
+  if (relayAddr === undefined) {
+    throw new Error(
+      'Relay started but no WS multiaddr found on 127.0.0.1:9001',
+    );
+  }
+  await writeFile(RELAY_ADDR_PATH, relayAddr);
 }
 
 /**
@@ -56,7 +71,10 @@ export async function printRelayStatus(): Promise<void> {
     process.stderr.write(`Relay is running (PID: ${pid}).\n`);
   } else {
     if (pid !== undefined) {
-      await rm(RELAY_PID_PATH, { force: true });
+      await Promise.all([
+        rm(RELAY_PID_PATH, { force: true }),
+        rm(RELAY_ADDR_PATH, { force: true }),
+      ]);
     }
     process.stderr.write('Relay is not running.\n');
     process.exitCode = 1;
@@ -78,7 +96,10 @@ export async function stopRelay({
 
   if (pid === undefined || !isProcessAlive(pid)) {
     if (pid !== undefined) {
-      await rm(RELAY_PID_PATH, { force: true });
+      await Promise.all([
+        rm(RELAY_PID_PATH, { force: true }),
+        rm(RELAY_ADDR_PATH, { force: true }),
+      ]);
     }
     process.stderr.write('Relay is not running.\n');
     return true;
@@ -102,7 +123,10 @@ export async function stopRelay({
   }
 
   if (stopped) {
-    await rm(RELAY_PID_PATH, { force: true });
+    await Promise.all([
+      rm(RELAY_PID_PATH, { force: true }),
+      rm(RELAY_ADDR_PATH, { force: true }),
+    ]);
     process.stderr.write('Relay stopped.\n');
   } else {
     process.stderr.write('Relay did not stop within timeout.\n');
