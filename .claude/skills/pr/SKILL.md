@@ -24,7 +24,9 @@ When asked to create a pull request, follow these steps:
 
 3. Run `git log main..HEAD --oneline` to see the commit history.
 
-4. Run `git diff main...HEAD` to get the full diff for the review.
+4. Get the diff for the review:
+   - If this is a **stacked PR**, run `git diff <parent-branch>...HEAD` to scope the diff to only this branch's changes.
+   - Otherwise, run `git diff main...HEAD`.
 
 ## Phase 2: Automated PR review (parallel subagents)
 
@@ -35,14 +37,16 @@ Before creating the PR, analyze the diff to decide **which review subagents to l
 Categorize each changed file, then pick subagents based on which categories are present. A file belongs to exactly one category — evaluate in this order (first match wins):
 
 1. **docs**: `.md`, `.txt`, `CHANGELOG`, `LICENSE`, `docs/`, `.claude/`
-2. **config**: `.json` (not `package.json`), `.yml`, `.yaml`, `.eslintrc*`, `.prettierrc*`, `tsconfig*`, `Dockerfile`, `.github/`, `.editorconfig`, `.gitignore`, `.gitattributes`, `.nvmrc`, `.yarnrc*`
-3. **test**: files matching `*.test.ts`, `*.spec.ts`, or under `test/` directories
-4. **code**: everything else (`.ts`, `.js`, `.mjs`, `.cjs`, `package.json`, etc.)
+2. **ci**: `.github/workflows/`, `.github/actions/` — these often contain shell scripts with non-trivial logic
+3. **config**: `.json` (not `package.json`), `.yml`, `.yaml`, `.eslintrc*`, `.prettierrc*`, `tsconfig*`, `Dockerfile`, `.editorconfig`, `.gitignore`, `.gitattributes`, `.nvmrc`, `.yarnrc*`
+4. **test**: files matching `*.test.ts`, `*.spec.ts`, or under `test/` directories
+5. **code**: everything else (`.ts`, `.js`, `.mjs`, `.cjs`, `package.json`, etc.)
 
 Then decide which subagents to launch:
 
 - If **only docs** files changed: **skip the entire review phase** and go straight to Phase 3.
 - Otherwise, select subagents based on which categories are present:
+  - **ci** present → launch **Subagent 1 (Correctness)** (review shell logic, conditional expressions, job dependency chains)
   - **config** or **test** present → launch **Subagent 2 (Style)**
   - **test** present → also launch **Subagent 4 (Tests)**
   - **code** present → launch **Subagent 1 (Correctness)** and **Subagent 2 (Style)**
