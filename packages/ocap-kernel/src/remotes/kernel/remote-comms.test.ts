@@ -427,6 +427,52 @@ describe('remote-comms', () => {
       expect(result.knownRelays).toStrictEqual(testRelays);
     });
 
+    it('addKnownRelays persists new relays to KV (deduplicated)', async () => {
+      const initialRelays = ['/dns4/relay1.example/tcp/443/wss/p2p-circuit'];
+      const { identity } = await initRemoteIdentity(mockKernelStore, {
+        relays: initialRelays,
+      });
+
+      identity.addKnownRelays([
+        '/dns4/relay2.example/tcp/443/wss/p2p-circuit',
+        '/dns4/relay1.example/tcp/443/wss/p2p-circuit', // duplicate
+      ]);
+
+      const stored = getKnownRelays(mockKernelStore.kv);
+      expect(stored).toStrictEqual([
+        '/dns4/relay1.example/tcp/443/wss/p2p-circuit',
+        '/dns4/relay2.example/tcp/443/wss/p2p-circuit',
+      ]);
+    });
+
+    it('issueOcapURL embeds newly added relays', async () => {
+      const { identity } = await initRemoteIdentity(mockKernelStore);
+
+      // No relays initially
+      const url1 = await identity.issueOcapURL('ko1');
+      expect(parseOcapURL(url1).hints).toStrictEqual([]);
+
+      // Add relays dynamically
+      const newRelays = ['/dns4/relay.example/tcp/443/wss/p2p-circuit'];
+      identity.addKnownRelays(newRelays);
+
+      // Subsequent URL embeds the new relay
+      const url2 = await identity.issueOcapURL('ko2');
+      expect(parseOcapURL(url2).hints).toStrictEqual(newRelays);
+    });
+
+    it('addKnownRelays does nothing when given empty array', async () => {
+      const initialRelays = ['/dns4/relay1.example/tcp/443/wss/p2p-circuit'];
+      const { identity } = await initRemoteIdentity(mockKernelStore, {
+        relays: initialRelays,
+      });
+
+      identity.addKnownRelays([]);
+
+      const stored = getKnownRelays(mockKernelStore.kv);
+      expect(stored).toStrictEqual(initialRelays);
+    });
+
     it('throws with mnemonic when identity already exists', async () => {
       mockKernelStore.kv.set('peerId', 'existing-peer-id');
       mockKernelStore.kv.set('keySeed', 'abcdef1234567890abcdef1234567890');

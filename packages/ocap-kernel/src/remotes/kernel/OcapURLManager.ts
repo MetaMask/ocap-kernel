@@ -122,6 +122,8 @@ export class OcapURLManager {
     }
 
     // This is a remote OCAP URL — requires full remote comms
+    // Add relay hints to our own relay pool so future URLs embed them
+    identity.addKnownRelays(hints);
     const remote = this.#remoteManager.remoteFor(host, hints);
     return remote.redeemOcapURL(url);
   }

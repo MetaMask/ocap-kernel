@@ -164,8 +164,6 @@ export async function initRemoteIdentity(
   /* eslint-enable no-param-reassign */
   const cipher = AES_GCM.create();
 
-  const knownRelays = relays.length > 0 ? relays : getKnownRelays(kv);
-
   const KREF_MIN_LEN = 16;
 
   /**
@@ -190,10 +188,34 @@ export async function initRemoteIdentity(
     const encodedKref = encoder.encode(paddedKref);
     const rawOid = await cipher.encrypt(encodedKref, ocapURLKey);
     const oid = base58btc.encode(rawOid);
+    const currentRelays = getKnownRelays(kv);
     const relaySuffix =
-      knownRelays.length > 0 ? `,${knownRelays.join(',')}` : '';
+      currentRelays.length > 0 ? `,${currentRelays.join(',')}` : '';
     const ocapURL = `ocap:${oid}@${peerId}${relaySuffix}`;
     return ocapURL;
+  }
+
+  /**
+   * Add relay addresses to the kernel's known relay pool, deduplicating.
+   *
+   * @param newRelays - Relay multiaddrs to add.
+   */
+  function addKnownRelays(newRelays: string[]): void {
+    if (newRelays.length === 0) {
+      return;
+    }
+    const existing = getKnownRelays(kv);
+    const merged = new Set(existing);
+    let changed = false;
+    for (const relay of newRelays) {
+      if (!merged.has(relay)) {
+        merged.add(relay);
+        changed = true;
+      }
+    }
+    if (changed) {
+      kv.set('knownRelays', JSON.stringify([...merged]));
+    }
   }
 
   /**
@@ -223,9 +245,9 @@ export async function initRemoteIdentity(
   }
 
   return {
-    identity: { getPeerId, issueOcapURL, redeemLocalOcapURL },
+    identity: { getPeerId, issueOcapURL, redeemLocalOcapURL, addKnownRelays },
     keySeed,
-    knownRelays,
+    knownRelays: getKnownRelays(kv),
   };
 }
 
