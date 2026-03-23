@@ -1,5 +1,4 @@
 import '@metamask/kernel-shims/endoify-node';
-import { startRelay } from '@metamask/kernel-utils/libp2p';
 import { Logger } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
 import path from 'node:path';
@@ -15,6 +14,10 @@ import {
   handleDaemonStart,
   stopDaemon,
 } from './commands/daemon.ts';
+import {
+  printRelayStatus,
+  startRelayWithBookkeeping,
+} from './commands/relay.ts';
 import { getServer } from './commands/serve.ts';
 import { watchDir } from './commands/watch.ts';
 import { defaultConfig } from './config.ts';
@@ -177,9 +180,18 @@ const yargsInstance = yargs(hideBin(process.argv))
   .command(
     'relay',
     'Start a relay server',
-    (_yargs) => _yargs,
-    async () => {
-      await startRelay(logger);
+    (_yargs) =>
+      _yargs.option('status', {
+        type: 'boolean',
+        default: false,
+        describe: 'Print whether the relay is running',
+      }),
+    async (args) => {
+      if (args.status) {
+        await printRelayStatus();
+      } else {
+        await startRelayWithBookkeeping(logger);
+      }
     },
   )
   .command(
