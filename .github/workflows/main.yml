@@ -126,9 +126,10 @@ jobs:
 
   analyse-code:
     name: Code scanner
-    needs: [check-workflows, detect-changes]
+    needs: [check-skip-merge-queue, check-workflows, detect-changes]
     if: |
       always()
+      && needs.check-skip-merge-queue.outputs.skip-merge-queue != 'true'
       && needs.detect-changes.outputs.has-code == 'true'
       && needs.check-workflows.result != 'failure'
     uses: ./.github/workflows/security-code-scanner.yml
@@ -142,9 +143,10 @@ jobs:
 
   lint-build-test:
     name: Lint, build, and test
-    needs: [check-workflows, detect-changes]
+    needs: [check-skip-merge-queue, check-workflows, detect-changes]
     if: |
       always()
+      && needs.check-skip-merge-queue.outputs.skip-merge-queue != 'true'
       && needs.detect-changes.outputs.has-code == 'true'
       && needs.check-workflows.result != 'failure'
     uses: ./.github/workflows/lint-build-test.yml
