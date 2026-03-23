@@ -5,6 +5,8 @@ Documentation:
 Development workflows:
 
 - This is a Node.js monorepo managed with Yarn workspaces
+- Always use `yarn` to execute installed packages, e.g. `yarn vitest ...`; only use npx
+  for packages that aren't already installed
 - Published packages are prefixed with `@metamask/`, private packages with `@ocap/`
 - Use `yarn` and `yarn workspace` to run package scripts:
   - `lint:fix` for linting
@@ -19,7 +21,6 @@ Development workflows:
 General conventions:
 
 - Use `@metamask/superstruct` for runtime type checking and to define object types
-- Use TypeDoc for documentation
 - kebab-case for package and file names (`@ocap/test-utils`, `kernel-worker.js`, `vat.js`)
 - If a function has more than two arguments or could be expected to grow thereto,
   give it an options bag (i.e. named parameters)
@@ -47,14 +48,14 @@ Object capability (ocap) patterns:
 Testing:
 
 - Use `vitest` for testing
+- Check `@ocap/test-utils` before creating test helpers
 - Avoid introducing global state in tests
   - If you need a mock object of type `Foo`, add a utility like `const makeFoo = () => { ... }`
+- Avoid negative cases, but if you must, use "does not" instead of "should not" (e.g., `it('does not duplicate relays', ...)`)
 - If testing all properties of an object, use a single `toStrictEqual()` on the entire object
   instead of multiple `expect()` calls
 - Prefer `it.each()` for parameterized tests
 - Test titles should use concise verb forms without "should" (e.g., `it('creates and starts libp2p node', ...)` not `it('should create and start libp2p node', ...)`)
-- Avoid negative cases, but if you must, use "does not" instead of "should not" (e.g., `it('does not duplicate relays', ...)`)
-- Check the local package `@ocap/test-utils` (`packages/test-utils`) for test utilities before creating new ones
 - Use `vi.useFakeTimers()` for tests that rely on timers
 
 TypeScript:
@@ -66,13 +67,6 @@ TypeScript:
 
 File and directory structure:
 
-- Maintain a monorepo structure using Yarn workspaces
-- Place package source files under `<package-root>/src/`
 - Co-locate a package's unit tests with their covered source files in the `<package-root>/src/` directory (e.g. `ocap-kernel/src/kernel-worker.ts` should be tested in `ocap-kernel/src/kernel-worker.test.ts`)
 - Test utilities used by a single package should be separated into that package's `<package-root>/test/` directory
 - Test utilities used by multiple packages should be relocated into the dedicated `test-utils` package
-
-Cross-environment compatibility:
-
-- Libraries should be platform-agnostic and run in any environment unless otherwise specified
-- Packages like `extension` (browser) and `cli` (Node.js) are platform-specific
