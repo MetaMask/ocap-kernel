@@ -42,9 +42,11 @@ jobs:
         run: |
           if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
             # On pushes to main, always run everything
-            echo "has-code=true" >> "$GITHUB_OUTPUT"
-            echo "has-ci=true" >> "$GITHUB_OUTPUT"
-            echo "has-lint-targets=true" >> "$GITHUB_OUTPUT"
+            {
+              echo "has-code=true"
+              echo "has-ci=true"
+              echo "has-lint-targets=true"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -71,7 +73,7 @@ jobs:
                 HAS_CI=true
                 ;;
               # Documentation (skip everything)
-              *.md|*.txt|docs/*|.claude/*|LICENSE|AGENTS.md)
+              *.md|*.txt|docs/*|.claude/*|LICENSE)
                 ;;
               # Config/tooling (lint-worthy but not code)
               .eslintrc*|.prettierrc*|.editorconfig|.gitignore|.gitattributes|.nvmrc|.yarnrc*)
@@ -85,18 +87,22 @@ jobs:
             esac
           done <<< "$FILES"
 
-          echo "has-code=$HAS_CODE" >> "$GITHUB_OUTPUT"
-          echo "has-ci=$HAS_CI" >> "$GITHUB_OUTPUT"
-          echo "has-lint-targets=$HAS_LINT_TARGETS" >> "$GITHUB_OUTPUT"
+          {
+            echo "has-code=$HAS_CODE"
+            echo "has-ci=$HAS_CI"
+            echo "has-lint-targets=$HAS_LINT_TARGETS"
+          } >> "$GITHUB_OUTPUT"
 
-          echo "## Change detection results" >> "$GITHUB_STEP_SUMMARY"
-          echo "- has-code: $HAS_CODE" >> "$GITHUB_STEP_SUMMARY"
-          echo "- has-ci: $HAS_CI" >> "$GITHUB_STEP_SUMMARY"
-          echo "- has-lint-targets: $HAS_LINT_TARGETS" >> "$GITHUB_STEP_SUMMARY"
-          echo "### Changed files" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
-          echo "$FILES" >> "$GITHUB_STEP_SUMMARY"
-          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          {
+            echo "## Change detection results"
+            echo "- has-code: $HAS_CODE"
+            echo "- has-ci: $HAS_CI"
+            echo "- has-lint-targets: $HAS_LINT_TARGETS"
+            echo "### Changed files"
+            echo '```'
+            echo "$FILES"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
 
   check-workflows:
     name: Check workflows
