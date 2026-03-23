@@ -755,7 +755,7 @@ SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx TEST_MNEMONIC="..." \
   yarn workspace @ocap/evm-wallet-experiment test:node:sepolia-7702-direct
 ```
 
-On-chain flow using `implementation: 'stateless7702'`: EIP-7702 upgrade tx, delegation creation, redemption via `eth_sendRawTransaction` through your RPC only (no bundler). Skips if `SEPOLIA_RPC_URL` is unset. See [7702 direct verification](./docs/7702-direct-tx-verification.md).
+On-chain flow using `implementation: 'stateless7702'`: EIP-7702 upgrade tx, delegation creation, redemption via `eth_sendRawTransaction` through your RPC only (no bundler). Skips if `SEPOLIA_RPC_URL` is unset.
 
 ### Peer wallet Sepolia E2E (41 assertions, requires API keys)
 
