@@ -17,6 +17,7 @@ import {
 import {
   printRelayStatus,
   startRelayWithBookkeeping,
+  stopRelay,
 } from './commands/relay.ts';
 import { getServer } from './commands/serve.ts';
 import { watchDir } from './commands/watch.ts';
@@ -179,19 +180,43 @@ const yargsInstance = yargs(hideBin(process.argv))
   )
   .command(
     'relay',
-    'Start a relay server',
+    'Manage the relay server',
     (_yargs) =>
-      _yargs.option('status', {
-        type: 'boolean',
-        default: false,
-        describe: 'Print whether the relay is running',
-      }),
-    async (args) => {
-      if (args.status) {
-        await printRelayStatus();
-      } else {
-        await startRelayWithBookkeeping(logger);
-      }
+      _yargs
+        .command(
+          ['start', '$0'],
+          'Start the relay server',
+          (_y) => _y,
+          async () => {
+            await startRelayWithBookkeeping(logger);
+          },
+        )
+        .command(
+          'status',
+          'Print whether the relay is running',
+          (_y) => _y,
+          async () => {
+            await printRelayStatus();
+          },
+        )
+        .command(
+          'stop',
+          'Stop the relay server',
+          (_y) =>
+            _y.option('force', {
+              type: 'boolean',
+              default: false,
+              describe: 'Send SIGKILL if SIGTERM fails to stop the relay',
+            }),
+          async (args) => {
+            const stopped = await stopRelay({ force: args.force });
+            if (!stopped) {
+              process.exitCode = 1;
+            }
+          },
+        ),
+    () => {
+      // Handled by subcommands.
     },
   )
   .command(
