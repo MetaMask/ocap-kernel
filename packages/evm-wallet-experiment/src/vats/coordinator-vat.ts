@@ -557,21 +557,35 @@ export function buildRootObject(
     const timeout = options.timeoutMs ?? 120_000;
     const start = Date.now();
     while (Date.now() - start < timeout) {
-      const receipt = (await E(providerVat).request(
-        'eth_getTransactionReceipt',
-        [options.txHash],
-      )) as { status?: string | number } | null;
+      let receipt: { status?: string | number } | null = null;
+      try {
+        receipt = (await E(providerVat).request('eth_getTransactionReceipt', [
+          options.txHash,
+        ])) as { status?: string | number } | null;
+      } catch (error) {
+        // Transient RPC errors (network hiccups, rate limits) should not
+        // abort polling — the tx was already broadcast and may still mine.
+        logger.warn(
+          `RPC error polling receipt for ${options.txHash}, will retry`,
+          error,
+        );
+        await new Promise((resolve) => setTimeout(resolve, interval));
+        continue;
+      }
       if (receipt) {
         // Normalize: some providers return status as a number (1) rather
-        // than the standard hex string ('0x1'). Missing status (pre-Byzantium)
-        // is treated as success since the tx was mined.
+        // than the standard hex string ('0x1'). EIP-1559 receipts must have
+        // a status field; a missing one likely indicates a malformed response.
         const { status } = receipt;
         if (status === undefined || status === null) {
-          return { success: true };
+          logger.warn(
+            `Receipt for ${options.txHash} has no status field — assuming success`,
+          );
+          return harden({ success: true });
         }
         const normalizedStatus =
           typeof status === 'number' ? `0x${status.toString(16)}` : status;
-        return { success: normalizedStatus === '0x1' };
+        return harden({ success: normalizedStatus === '0x1' });
       }
       await new Promise((resolve) => setTimeout(resolve, interval));
     }
@@ -1148,9 +1162,9 @@ export function buildRootObject(
       });
       return { hash, isDirect: false };
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
       throw new Error(
-        `Failed to submit on-chain revocation for delegator ${delegation.delegator}: ${message}`,
+        `Failed to submit on-chain revocation for delegator ${delegation.delegator}`,
+        { cause: error },
       );
     }
   }
@@ -1764,6 +1778,13 @@ export function buildRootObject(
               executions,
             });
           }
+
+          // Log when delegation matching fails for a batch — sendTransaction
+          // would throw here, but batches fall through to direct execution.
+          logger.debug(
+            `No single delegation covers all ${String(actions.length)} batch actions — ` +
+              'falling through to direct smart account batch',
+          );
         }
 
         // Direct smart account batch (no delegation)
@@ -2758,7 +2779,7 @@ export function buildRootObject(
       try {
         capabilityChainId = await resolveChainId();
       } catch (error) {
-        logger.debug('Failed to resolve chain ID for capabilities', error);
+        logger.warn('Failed to resolve chain ID for capabilities', error);
       }
 
       return harden({

@@ -558,6 +558,58 @@ describe('coordinator-vat', () => {
       expect(providerVat.submitUserOp).not.toHaveBeenCalled();
     });
 
+    it('rejects tx to disallowed target when delegationVat exists without bundler', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.configureProvider({
+        rpcUrl: 'https://sepolia.infura.io/v3/test',
+        chainId: 11155111,
+      });
+
+      // Set up 7702 smart account — no bundler configured
+      providerVat.request.mockResolvedValueOnce(
+        '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
+      );
+      await coordinator.createSmartAccount({
+        chainId: 11155111,
+        implementation: 'stateless7702',
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      // Delegation only allows TARGET
+      await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([TARGET]),
+          }),
+        ],
+        chainId: 11155111,
+      });
+
+      const DISALLOWED_TARGET =
+        '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Address;
+      const tx: TransactionRequest = {
+        from: delegator,
+        to: DISALLOWED_TARGET,
+        value: '0x0' as Hex,
+        data: '0x' as Hex,
+      };
+
+      // Must NOT silently bypass delegation enforcement
+      await expect(coordinator.sendTransaction(tx)).rejects.toThrow(
+        'No delegation covers this transaction',
+      );
+      expect(providerVat.broadcastTransaction).not.toHaveBeenCalled();
+      expect(providerVat.submitUserOp).not.toHaveBeenCalled();
+    });
+
     it('falls back to broadcast when no matching delegation', async () => {
       await coordinator.initializeKeyring({
         type: 'srp',
@@ -1146,7 +1198,7 @@ describe('coordinator-vat', () => {
       });
 
       await expect(coordinator.revokeDelegation(delegation.id)).rejects.toThrow(
-        'Bundler not configured',
+        'Failed to submit on-chain revocation',
       );
     });
 
@@ -3085,6 +3137,19 @@ describe('coordinator-vat', () => {
       expect(result).toStrictEqual({ success: true });
     });
 
+    it('retries on transient RPC errors during polling', async () => {
+      providerVat.request
+        .mockRejectedValueOnce(new Error('network error'))
+        .mockResolvedValueOnce({ status: '0x1' });
+
+      const result = await coordinator.waitForTransactionReceipt({
+        txHash: '0xabc' as Hex,
+        pollIntervalMs: 10,
+      });
+      expect(result.success).toBe(true);
+      expect(providerVat.request).toHaveBeenCalledTimes(2);
+    });
+
     it('throws on timeout when receipt never appears', async () => {
       vi.useFakeTimers();
 
@@ -4069,6 +4134,54 @@ describe('coordinator-vat', () => {
 
       expect(result).toBe('0xdirectbatch');
       expect(providerVat.submitUserOp).toHaveBeenCalledOnce();
+    });
+
+    it('batches via delegation redemption using direct 7702 when no bundler', async () => {
+      // Set up 7702 smart account — no bundler
+      providerVat.request.mockResolvedValueOnce(
+        '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
+      );
+      await coordinator.createSmartAccount({
+        chainId: 11155111,
+        implementation: 'stateless7702',
+      });
+
+      await coordinator.configureProvider({
+        rpcUrl: 'https://sepolia.infura.io/v3/test',
+        chainId: 11155111,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+      const target1 = '0x1111111111111111111111111111111111111111' as Address;
+      const target2 = '0x2222222222222222222222222222222222222222' as Address;
+
+      await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([target1, target2]),
+          }),
+        ],
+        chainId: 11155111,
+      });
+
+      providerVat.request.mockImplementation(async (method: string) => {
+        if (method === 'eth_estimateGas') {
+          return '0x5208' as Hex;
+        }
+        return undefined;
+      });
+
+      const result = await coordinator.sendBatchTransaction([
+        { from: delegator, to: target1, value: '0x1' as Hex },
+        { from: delegator, to: target2, value: '0x2' as Hex },
+      ]);
+
+      expect(result).toBe('0xtxhash');
+      expect(providerVat.submitUserOp).not.toHaveBeenCalled();
+      expect(providerVat.broadcastTransaction).toHaveBeenCalledOnce();
     });
 
     it('batches via direct EIP-1559 when stateless7702 has no bundler', async () => {
