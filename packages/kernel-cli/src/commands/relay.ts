@@ -33,8 +33,7 @@ export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
   }
 
   const cleanup = (): void => {
-    libp2p
-      .stop()
+    Promise.resolve(libp2p.stop())
       .catch(() => undefined)
       .finally(() => {
         rm(RELAY_PID_PATH, { force: true })
