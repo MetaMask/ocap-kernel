@@ -1,40 +1,12 @@
 import { startRelay } from '@metamask/kernel-utils/libp2p';
 import type { Logger } from '@metamask/logger';
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
+import { isProcessAlive, readPidFile, waitFor } from '../utils.ts';
+
 const RELAY_PID_PATH = join(homedir(), '.ocap', 'relay.pid');
-
-/**
- * Read a PID from a file.
- *
- * @param pidPath - The PID file path.
- * @returns The PID, or undefined if the file is missing or invalid.
- */
-async function readPidFile(pidPath: string): Promise<number | undefined> {
-  try {
-    const pid = Number(await readFile(pidPath, 'utf-8'));
-    return pid > 0 && !Number.isNaN(pid) ? pid : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-/**
- * Check whether a process is alive by sending signal 0.
- *
- * @param pid - The process ID to check.
- * @returns True if the process exists.
- */
-function isProcessAlive(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /**
  * Start the relay server, write a PID file, and register signal handlers for
@@ -129,25 +101,4 @@ export async function stopRelay({
     process.stderr.write('Relay did not stop within timeout.\n');
   }
   return stopped;
-}
-
-/**
- * Poll until a condition is met or the timeout elapses.
- *
- * @param check - A function that returns true when the condition is met.
- * @param timeoutMs - Maximum time to wait in milliseconds.
- * @returns True if the condition was met, false on timeout.
- */
-async function waitFor(
-  check: () => boolean | Promise<boolean>,
-  timeoutMs: number,
-): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (await check()) {
-      return true;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-  }
-  return await check();
 }
