@@ -362,9 +362,20 @@ export class RemoteManager {
    * @returns an existing or new RemoteHandle to communicate with `peerId`.
    */
   remoteFor(peerId: string, hints: string[] = []): RemoteHandle {
-    const remote =
-      this.#remotesByPeer.get(peerId) ?? this.establishRemote(peerId, hints);
-    return remote;
+    const existing = this.#remotesByPeer.get(peerId);
+    if (existing) {
+      if (hints.length > 0) {
+        this.getRemoteComms()
+          .registerLocationHints(peerId, hints)
+          .catch((error: unknown) => {
+            this.#logger?.error(
+              `Failed to register location hints for ${peerId}: ${String(error)}`,
+            );
+          });
+      }
+      return existing;
+    }
+    return this.establishRemote(peerId, hints);
   }
 
   /**

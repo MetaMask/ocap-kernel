@@ -21,6 +21,7 @@ export type RemoteIdentity = {
   getPeerId: () => string;
   issueOcapURL: (kref: string) => Promise<string>;
   redeemLocalOcapURL: (ocapURL: string) => Promise<string>;
+  addKnownRelays: (relays: string[]) => void;
 };
 
 export type RemoteComms = RemoteIdentity & {

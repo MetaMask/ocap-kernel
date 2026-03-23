@@ -96,6 +96,7 @@ export class MockRemotesFactory {
         .fn()
         .mockResolvedValue(`ocap:abc123@${this.config.peerId}`),
       redeemLocalOcapURL: vi.fn().mockResolvedValue('ko123'),
+      addKnownRelays: vi.fn(),
       registerLocationHints: vi.fn().mockResolvedValue(undefined),
       ...overrides,
     };

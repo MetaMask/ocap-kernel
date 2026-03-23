@@ -62,6 +62,7 @@ describe('RemoteManager', () => {
         getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
         issueOcapURL: vi.fn(),
         redeemLocalOcapURL: vi.fn(),
+        addKnownRelays: vi.fn(),
       };
       vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
         identity: mockIdentity,
@@ -87,6 +88,7 @@ describe('RemoteManager', () => {
         getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
         issueOcapURL: vi.fn(),
         redeemLocalOcapURL: vi.fn(),
+        addKnownRelays: vi.fn(),
       };
       vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
         identity: mockIdentity,
@@ -103,6 +105,7 @@ describe('RemoteManager', () => {
         getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
         issueOcapURL: vi.fn(),
         redeemLocalOcapURL: vi.fn(),
+        addKnownRelays: vi.fn(),
       };
       vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
         identity: mockIdentity,
@@ -137,6 +140,7 @@ describe('RemoteManager', () => {
         getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
         issueOcapURL: vi.fn(),
         redeemLocalOcapURL: vi.fn(),
+        addKnownRelays: vi.fn(),
       };
       vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
         identity: mockIdentity,
@@ -156,6 +160,7 @@ describe('RemoteManager', () => {
         getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
         issueOcapURL: vi.fn(),
         redeemLocalOcapURL: vi.fn(),
+        addKnownRelays: vi.fn(),
       };
       vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
         identity: mockIdentity,
@@ -180,6 +185,7 @@ describe('RemoteManager', () => {
         getPeerId: vi.fn().mockReturnValue('mnemonic-peer-id'),
         issueOcapURL: vi.fn(),
         redeemLocalOcapURL: vi.fn(),
+        addKnownRelays: vi.fn(),
       };
       vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
         identity: mockIdentity,
@@ -472,6 +478,28 @@ describe('RemoteManager', () => {
       expect(remote).toBeDefined();
       const storedInfo = kernelStore.getRemoteInfo(remote.remoteId);
       expect(storedInfo?.hints).toStrictEqual(hints);
+    });
+
+    it('registers location hints for existing peer in remoteFor', () => {
+      const remote = remoteManager.establishRemote('existing-peer');
+      const hints = ['/dns4/relay.example/tcp/443/wss/p2p/relay'];
+
+      const result = remoteManager.remoteFor('existing-peer', hints);
+
+      expect(result).toBe(remote);
+      expect(mockRemoteComms.registerLocationHints).toHaveBeenCalledWith(
+        'existing-peer',
+        hints,
+      );
+    });
+
+    it('does not register location hints for existing peer when hints are empty', () => {
+      const remote = remoteManager.establishRemote('existing-peer');
+
+      const result = remoteManager.remoteFor('existing-peer', []);
+
+      expect(result).toBe(remote);
+      expect(mockRemoteComms.registerLocationHints).not.toHaveBeenCalled();
     });
 
     it('gets remote by ID', () => {

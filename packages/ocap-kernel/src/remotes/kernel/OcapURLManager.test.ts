@@ -146,6 +146,23 @@ describe('OcapURLManager', () => {
       expect(mockRemoteHandle.redeemOcapURL).toHaveBeenCalledWith(url);
     });
 
+    it('calls addKnownRelays with hints when redeeming a remote URL', async () => {
+      const url = 'ocap:def456@remote-peer-id,relay1,relay2';
+      await ocapURLManager.redeemOcapURL(url);
+
+      expect(mockRemoteComms.addKnownRelays).toHaveBeenCalledWith([
+        'relay1',
+        'relay2',
+      ]);
+    });
+
+    it('does not call addKnownRelays when redeeming a local URL', async () => {
+      const url = 'ocap:abc123@local-peer-id';
+      await ocapURLManager.redeemOcapURL(url);
+
+      expect(mockRemoteComms.addKnownRelays).not.toHaveBeenCalled();
+    });
+
     it('throws for invalid OCAP URL', async () => {
       await expect(ocapURLManager.redeemOcapURL('invalid-url')).rejects.toThrow(
         'unparseable URL',
