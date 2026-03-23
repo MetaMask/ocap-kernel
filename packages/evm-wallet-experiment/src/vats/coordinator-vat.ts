@@ -1779,12 +1779,25 @@ export function buildRootObject(
             });
           }
 
-          // Log when delegation matching fails for a batch — sendTransaction
-          // would throw here, but batches fall through to direct execution.
-          logger.debug(
-            `No single delegation covers all ${String(actions.length)} batch actions — ` +
-              'falling through to direct smart account batch',
-          );
+          // No single delegation covers all batch actions — check whether
+          // delegations exist that partially match. If so, block the batch
+          // (same enforcement as sendTransaction) to prevent bypassing caveats
+          // via the direct execute path.
+          for (const action of actions) {
+            const explanations = await E(delegationVat).explainActionMatch(
+              action,
+              walletChainId,
+              now,
+            );
+            if (explanations.length > 0) {
+              throw new Error(
+                buildDelegationMismatchError(
+                  explanations,
+                  `No single delegation covers all ${String(actions.length)} batch actions`,
+                ),
+              );
+            }
+          }
         }
 
         // Direct smart account batch (no delegation)

@@ -4184,6 +4184,55 @@ describe('coordinator-vat', () => {
       expect(providerVat.broadcastTransaction).toHaveBeenCalledOnce();
     });
 
+    it('rejects batch to disallowed targets when delegations exist', async () => {
+      // Set up 7702 smart account — no bundler
+      providerVat.request.mockResolvedValueOnce(
+        '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
+      );
+      await coordinator.createSmartAccount({
+        chainId: 11155111,
+        implementation: 'stateless7702',
+      });
+
+      await coordinator.configureProvider({
+        rpcUrl: 'https://sepolia.infura.io/v3/test',
+        chainId: 11155111,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      // Delegation only allows TARGET
+      await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([TARGET]),
+          }),
+        ],
+        chainId: 11155111,
+      });
+
+      // Batch to disallowed targets must NOT bypass caveat enforcement
+      await expect(
+        coordinator.sendBatchTransaction([
+          {
+            from: delegator,
+            to: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Address,
+            value: '0x1' as Hex,
+          },
+          {
+            from: delegator,
+            to: '0xdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef' as Address,
+            value: '0x2' as Hex,
+          },
+        ]),
+      ).rejects.toThrow('No single delegation covers all');
+      expect(providerVat.broadcastTransaction).not.toHaveBeenCalled();
+      expect(providerVat.submitUserOp).not.toHaveBeenCalled();
+    });
+
     it('batches via direct EIP-1559 when stateless7702 has no bundler', async () => {
       providerVat.request.mockResolvedValueOnce(
         '0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b',
