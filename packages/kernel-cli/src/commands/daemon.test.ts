@@ -133,7 +133,7 @@ describe('handleDaemonStart', () => {
         .mockResolvedValueOnce({
           jsonrpc: '2.0',
           id: 1,
-          result: { remoteComms: { state: 'disconnected' } },
+          result: { remoteComms: { state: 'identity-only' } },
         })
         .mockResolvedValueOnce({ jsonrpc: '2.0', id: 2, result: {} });
 
@@ -156,7 +156,7 @@ describe('handleDaemonStart', () => {
       expect(process.exitCode).toBeUndefined();
     });
 
-    it('skips initRemoteComms when remote comms already initialized', async () => {
+    it('skips initRemoteComms when remote comms already connected', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(1234);
       vi.mocked(isProcessAlive).mockReturnValueOnce(true);
 
@@ -197,7 +197,7 @@ describe('handleDaemonStart', () => {
         .mockResolvedValueOnce({
           jsonrpc: '2.0',
           id: 1,
-          result: { remoteComms: { state: 'disconnected' } },
+          result: { remoteComms: { state: 'identity-only' } },
         })
         .mockResolvedValueOnce({
           jsonrpc: '2.0',

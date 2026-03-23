@@ -194,7 +194,7 @@ export async function handleDaemonStart(
     if (
       !isJsonRpcFailure(statusResponse) &&
       (statusResponse.result as { remoteComms?: { state: string } }).remoteComms
-        ?.state !== 'disconnected'
+        ?.state === 'connected'
     ) {
       process.stderr.write('Remote comms already initialized.\n');
       process.stderr.write(`Daemon running. Socket: ${tildefy(socketPath)}\n`);
