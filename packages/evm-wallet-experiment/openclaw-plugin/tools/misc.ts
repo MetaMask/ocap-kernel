@@ -1,5 +1,7 @@
+import { Type } from '@sinclair/typebox';
+
 import type { WalletCaller } from '../daemon.ts';
-import type { OpenClawPluginApi } from '../types.ts';
+import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 import {
   errorMessage,
   formatToolResult,
@@ -25,14 +27,13 @@ export function registerMiscTools(
       label: 'Wallet sign',
       description:
         'Sign a message. May forward to the home kernel for approval.',
-      parameters: {
-        type: 'object',
-        properties: {
-          message: { type: 'string', description: 'Message to sign' },
-        },
-        required: ['message'],
-      },
-      async execute(_id: string, params: { message: string }) {
+      parameters: Type.Object({
+        message: Type.String({ description: 'Message to sign' }),
+      }),
+      async execute(
+        _id: string,
+        params: { message: string },
+      ): Promise<ToolResponse> {
         try {
           const result = await wallet('signMessage', [params.message]);
           return makeText(formatToolResult(result));
@@ -52,8 +53,8 @@ export function registerMiscTools(
       label: 'Wallet capabilities',
       description:
         'Check wallet capabilities: local keys, delegations, peer wallet, bundler.',
-      parameters: { type: 'object', properties: {} },
-      async execute() {
+      parameters: Type.Object({}),
+      async execute(): Promise<ToolResponse> {
         try {
           const result = await wallet('getCapabilities', []);
           // Strip internal fields the agent shouldn't see
@@ -78,8 +79,8 @@ export function registerMiscTools(
       name: 'wallet_accounts',
       label: 'Wallet accounts',
       description: 'List wallet accounts.',
-      parameters: { type: 'object', properties: {} },
-      async execute() {
+      parameters: Type.Object({}),
+      async execute(): Promise<ToolResponse> {
         try {
           const result = await wallet('getAccounts', []);
           return makeText(formatToolResult(result));

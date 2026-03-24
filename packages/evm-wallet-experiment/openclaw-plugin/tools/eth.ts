@@ -1,5 +1,7 @@
+import { Type } from '@sinclair/typebox';
+
 import type { WalletCaller } from '../daemon.ts';
-import type { OpenClawPluginApi } from '../types.ts';
+import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 import {
   ETH_ADDRESS_RE,
   HEX_VALUE_RE,
@@ -29,17 +31,18 @@ export function registerEthTools(
       label: 'Wallet balance',
       description:
         'Get ETH balance. If no address is given, checks all wallet accounts.',
-      parameters: {
-        type: 'object',
-        properties: {
-          address: {
-            type: 'string',
+      parameters: Type.Object({
+        address: Type.Optional(
+          Type.String({
             description:
               'Ethereum address (0x...). Omit to check all accounts.',
-          },
-        },
-      },
-      async execute(_id: string, params: { address?: string }) {
+          }),
+        ),
+      }),
+      async execute(
+        _id: string,
+        params: { address?: string },
+      ): Promise<ToolResponse> {
         try {
           const addresses: string[] = [];
 
@@ -103,19 +106,17 @@ export function registerEthTools(
       label: 'Wallet send',
       description:
         'Send ETH to an address. The kernel handles signing via delegations or peer wallet.',
-      parameters: {
-        type: 'object',
-        properties: {
-          to: { type: 'string', description: 'Recipient address (0x...)' },
-          value: {
-            type: 'string',
-            description:
-              "Amount of ETH to send as a decimal string (e.g. '0.1' for 0.1 ETH)",
-          },
-        },
-        required: ['to', 'value'],
-      },
-      async execute(_id: string, params: { to: string; value: string }) {
+      parameters: Type.Object({
+        to: Type.String({ description: 'Recipient address (0x...)' }),
+        value: Type.String({
+          description:
+            "Amount of ETH to send as a decimal string (e.g. '0.1' for 0.1 ETH)",
+        }),
+      }),
+      async execute(
+        _id: string,
+        params: { to: string; value: string },
+      ): Promise<ToolResponse> {
         if (!ETH_ADDRESS_RE.test(params.to)) {
           return makeError(
             'Invalid recipient address. Must be 0x followed by 40 hex characters.',

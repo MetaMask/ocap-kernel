@@ -1,18 +1,10 @@
-export type ToolResponse = { content: { type: 'text'; text: string }[] };
+export type { OpenClawPluginApi } from 'openclaw/plugin-sdk/plugin-entry';
 
-export type OpenClawPluginApi = {
-  pluginConfig?: Record<string, unknown>;
-  registerTool: (
-    tool: {
-      name: string;
-      label: string;
-      description: string;
-      parameters: Record<string, unknown>;
-      // Plugin framework calls execute() with dynamic tool-specific params.
-      // Each tool narrows internally; the boundary type must accept any shape.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      execute: (...args: any[]) => Promise<ToolResponse>;
-    },
-    options: { optional: boolean },
-  ) => void;
+/**
+ * Tool response matching AgentToolResult<undefined> from the OpenClaw SDK.
+ * Defined inline to avoid importing transitive dependencies.
+ */
+export type ToolResponse = {
+  content: { type: 'text'; text: string }[];
+  details: undefined;
 };

@@ -63,20 +63,23 @@ export default definePluginEntry({
     'Check balances, send transactions, resolve tokens, and sign messages ' +
     'without accessing private keys.',
   configSchema: {
-    type: 'object' as const,
-    properties: {
-      ocapCliPath: {
-        type: 'string',
-        description:
-          "Absolute path to the ocap CLI entry point. Default: 'ocap' from PATH.",
-      },
-      walletKref: {
-        type: 'string',
-        description: "Kernel reference of the wallet coordinator (e.g. 'ko4').",
-      },
-      timeoutMs: {
-        type: 'number',
-        description: 'Timeout for daemon calls in ms (default: 60000)',
+    jsonSchema: {
+      type: 'object',
+      properties: {
+        ocapCliPath: {
+          type: 'string',
+          description:
+            "Absolute path to the ocap CLI entry point. Default: 'ocap' from PATH.",
+        },
+        walletKref: {
+          type: 'string',
+          description:
+            "Kernel reference of the wallet coordinator (e.g. 'ko4').",
+        },
+        timeoutMs: {
+          type: 'number',
+          description: 'Timeout for daemon calls in ms (default: 60000)',
+        },
       },
     },
   },
