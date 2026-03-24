@@ -5,6 +5,7 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { decodeCapData } from '../decode-capdata.ts';
 import {
   isErrorWithCode,
   isProcessAlive,
@@ -323,4 +324,62 @@ export async function handleRedeemURL(
   }
 
   process.stdout.write(`${JSON.stringify(response.result)}\n`);
+}
+
+/**
+ * Send a `queueMessage` RPC call to the daemon and print the result.
+ * By default the CapData result is decoded into a human-readable form.
+ *
+ * @param options - The command options.
+ * @param options.target - KRef of the target object.
+ * @param options.method - Method name to invoke.
+ * @param options.args - JSON-encoded array of arguments.
+ * @param options.socketPath - The daemon socket path.
+ * @param options.raw - If true, output raw CapData JSON.
+ * @param options.timeoutMs - Read timeout in milliseconds.
+ */
+export async function handleDaemonQueueMessage({
+  target,
+  method,
+  args,
+  socketPath,
+  raw = false,
+  timeoutMs,
+}: {
+  target: string;
+  method: string;
+  args: unknown[];
+  socketPath: string;
+  raw?: boolean;
+  timeoutMs?: number;
+}): Promise<void> {
+  const response = await sendCommand({
+    socketPath,
+    method: 'queueMessage',
+    params: [target, method, args],
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+  });
+
+  if (isJsonRpcFailure(response)) {
+    process.stderr.write(
+      `Error: ${response.error.message} (code ${String(response.error.code)})\n`,
+    );
+    process.exitCode = 1;
+    return;
+  }
+
+  let output: unknown;
+  if (raw) {
+    output = response.result;
+  } else {
+    const result = response.result as { body: string; slots: string[] };
+    output = decodeCapData(result);
+  }
+
+  const isTTY = process.stdout.isTTY ?? false;
+  if (isTTY) {
+    process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+  } else {
+    process.stdout.write(`${JSON.stringify(output)}\n`);
+  }
 }
