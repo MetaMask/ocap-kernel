@@ -14,6 +14,7 @@
  */
 import { resolve as resolvePath, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { definePluginEntry } from 'openclaw/plugin-sdk/plugin-entry';
 
 import { makeWalletCaller } from './daemon.ts';
 import { registerEthTools } from './tools/eth.ts';
@@ -54,7 +55,7 @@ function register(api: OpenClawPluginApi): void {
   registerMiscTools(api, wallet);
 }
 
-const pluginEntry = {
+export default definePluginEntry({
   id: 'wallet',
   name: 'Wallet (OCAP)',
   description:
@@ -80,5 +81,4 @@ const pluginEntry = {
     },
   },
   register,
-};
-export default pluginEntry;
+});
