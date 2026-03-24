@@ -1,15 +1,16 @@
 const SLOT_REF_PATTERN = /^(\$|&)(\d+)(?:\.(.+))?$/u;
 
 /**
- * Decode a smallcaps-encoded CapData value into a plain JS value with
- * human-readable slot references.
+ * Convert a smallcaps-encoded CapData value into a plain JS value with
+ * human-readable slot references. This is a display-only transformation,
+ * not a marshal decode.
  *
- * @param capData - The CapData to decode.
+ * @param capData - The CapData to prettify.
  * @param capData.body - The smallcaps-encoded body string (prefixed with `#`).
  * @param capData.slots - The slot KRefs.
- * @returns The decoded value.
+ * @returns The prettified value.
  */
-export function decodeCapData(capData: {
+export function prettifyCapData(capData: {
   body: string;
   slots: string[];
 }): unknown {

@@ -7,6 +7,10 @@ vi.mock('@metamask/kernel-node-runtime/daemon', () => ({
   deleteDaemonState: vi.fn(),
 }));
 
+vi.mock('@metamask/kernel-utils', () => ({
+  prettifyCapData: vi.fn((val: unknown) => val),
+}));
+
 vi.mock('node:fs/promises', async (importOriginal) => ({
   ...(await importOriginal()),
   readFile: vi.fn(),

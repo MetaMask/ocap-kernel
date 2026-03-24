@@ -1,3 +1,4 @@
+export { prettifyCapData } from './prettify-capdata.ts';
 export { makeDefaultInterface, makeDefaultExo } from './exo.ts';
 export { GET_DESCRIPTION, makeDiscoverableExo } from './discoverable.ts';
 export type { DiscoverableExo } from './discoverable.ts';
