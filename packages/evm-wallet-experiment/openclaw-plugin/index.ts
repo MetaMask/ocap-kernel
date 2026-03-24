@@ -14,7 +14,6 @@
  */
 import { resolve as resolvePath, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { definePluginEntry } from 'openclaw/plugin-sdk/plugin-entry';
 
 import { makeWalletCaller } from './daemon.ts';
 import { registerEthTools } from './tools/eth.ts';
@@ -27,28 +26,33 @@ const pluginDir = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CLI = resolvePath(pluginDir, '../../kernel-cli/dist/app.mjs');
 const DEFAULT_TIMEOUT_MS = 60_000;
 
-export default definePluginEntry({
-  id: 'wallet',
-  register(api: OpenClawPluginApi) {
-    const { pluginConfig } = api;
-    const cliPath =
-      typeof pluginConfig?.ocapCliPath === 'string'
-        ? pluginConfig.ocapCliPath.trim()
-        : DEFAULT_CLI;
-    const walletKref =
-      typeof pluginConfig?.walletKref === 'string'
-        ? pluginConfig.walletKref.trim()
-        : 'ko4';
-    const timeoutMs =
-      typeof pluginConfig?.timeoutMs === 'number'
-        ? pluginConfig.timeoutMs
-        : DEFAULT_TIMEOUT_MS;
+/**
+ * Register all wallet tools with the OpenClaw plugin API.
+ *
+ * @param api - The OpenClaw plugin API.
+ */
+function register(api: OpenClawPluginApi): void {
+  const { pluginConfig } = api;
+  const cliPath =
+    typeof pluginConfig?.ocapCliPath === 'string'
+      ? pluginConfig.ocapCliPath.trim()
+      : DEFAULT_CLI;
+  const walletKref =
+    typeof pluginConfig?.walletKref === 'string'
+      ? pluginConfig.walletKref.trim()
+      : 'ko4';
+  const timeoutMs =
+    typeof pluginConfig?.timeoutMs === 'number'
+      ? pluginConfig.timeoutMs
+      : DEFAULT_TIMEOUT_MS;
 
-    const wallet = makeWalletCaller({ cliPath, walletKref, timeoutMs });
+  const wallet = makeWalletCaller({ cliPath, walletKref, timeoutMs });
 
-    registerEthTools(api, wallet);
-    registerTokenTools(api, wallet);
-    registerSwapTools(api, wallet);
-    registerMiscTools(api, wallet);
-  },
-});
+  registerEthTools(api, wallet);
+  registerTokenTools(api, wallet);
+  registerSwapTools(api, wallet);
+  registerMiscTools(api, wallet);
+}
+
+const pluginEntry = { id: 'wallet', register };
+export default pluginEntry;
