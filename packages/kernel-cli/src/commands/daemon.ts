@@ -1,13 +1,19 @@
 import { deleteDaemonState } from '@metamask/kernel-node-runtime/daemon';
 import { isJsonRpcFailure } from '@metamask/utils';
-import { rm } from 'node:fs/promises';
+import { readFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { isProcessAlive, readPidFile, waitFor } from '../utils.ts';
+import {
+  isErrorWithCode,
+  isProcessAlive,
+  readPidFile,
+  waitFor,
+} from '../utils.ts';
 import { pingDaemon, sendCommand } from './daemon-client.ts';
 import { ensureDaemon } from './daemon-spawn.ts';
+import { RELAY_ADDR_PATH, RELAY_PID_PATH } from './relay.ts';
 
 const home = homedir();
 
@@ -134,12 +140,83 @@ export async function stopDaemon(socketPath: string): Promise<boolean> {
 }
 
 /**
+ * Read the relay address from the relay address file.
+ *
+ * @returns The relay address, or undefined if the file is missing or empty.
+ */
+async function readRelayAddr(): Promise<string | undefined> {
+  try {
+    return (await readFile(RELAY_ADDR_PATH, 'utf-8')).trim() || undefined;
+  } catch (error: unknown) {
+    if (isErrorWithCode(error, 'ENOENT')) {
+      return undefined;
+    }
+    throw error;
+  }
+}
+
+/**
  * Ensure the daemon is running and print its socket path.
  *
  * @param socketPath - The daemon socket path.
+ * @param options - Additional options.
+ * @param options.localRelay - Initialize remote comms with the local relay after starting.
  */
-export async function handleDaemonStart(socketPath: string): Promise<void> {
-  await ensureDaemon(socketPath);
+export async function handleDaemonStart(
+  socketPath: string,
+  { localRelay = false }: { localRelay?: boolean } = {},
+): Promise<void> {
+  if (localRelay) {
+    const relayPid = await readPidFile(RELAY_PID_PATH);
+    if (relayPid === undefined || !isProcessAlive(relayPid)) {
+      process.stderr.write(
+        'Relay is not running. Start it with: ocap relay start\n',
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    const relayAddr = await readRelayAddr();
+    if (relayAddr === undefined) {
+      process.stderr.write(
+        'Relay address file not found. Restart the relay.\n',
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    await ensureDaemon(socketPath);
+
+    const statusResponse = await sendCommand({
+      socketPath,
+      method: 'getStatus',
+    });
+    if (
+      !isJsonRpcFailure(statusResponse) &&
+      (statusResponse.result as { remoteComms?: { state: string } }).remoteComms
+        ?.state === 'connected'
+    ) {
+      process.stderr.write('Remote comms already initialized.\n');
+      process.stderr.write(`Daemon running. Socket: ${tildefy(socketPath)}\n`);
+      return;
+    }
+
+    const initResponse = await sendCommand({
+      socketPath,
+      method: 'initRemoteComms',
+      params: { relays: [relayAddr] },
+    });
+    if (isJsonRpcFailure(initResponse)) {
+      process.stderr.write(
+        `Failed to initialize remote comms: ${initResponse.error.message}\n`,
+      );
+      process.exitCode = 1;
+      return;
+    }
+    process.stderr.write('Remote comms initialized with local relay.\n');
+  } else {
+    await ensureDaemon(socketPath);
+  }
   process.stderr.write(`Daemon running. Socket: ${tildefy(socketPath)}\n`);
 }
 
