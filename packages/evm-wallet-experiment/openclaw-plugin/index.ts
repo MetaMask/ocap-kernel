@@ -54,5 +54,31 @@ function register(api: OpenClawPluginApi): void {
   registerMiscTools(api, wallet);
 }
 
-const pluginEntry = { id: 'wallet', register };
+const pluginEntry = {
+  id: 'wallet',
+  name: 'Wallet (OCAP)',
+  description:
+    'Ethereum wallet tools backed by the OCAP kernel daemon. ' +
+    'Check balances, send transactions, resolve tokens, and sign messages ' +
+    'without accessing private keys.',
+  configSchema: {
+    type: 'object' as const,
+    properties: {
+      ocapCliPath: {
+        type: 'string',
+        description:
+          "Absolute path to the ocap CLI entry point. Default: 'ocap' from PATH.",
+      },
+      walletKref: {
+        type: 'string',
+        description: "Kernel reference of the wallet coordinator (e.g. 'ko4').",
+      },
+      timeoutMs: {
+        type: 'number',
+        description: 'Timeout for daemon calls in ms (default: 60000)',
+      },
+    },
+  },
+  register,
+};
 export default pluginEntry;
