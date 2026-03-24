@@ -382,9 +382,10 @@ openclaw plugins install -l ./packages/evm-wallet-experiment/openclaw-plugin
 openclaw plugins enable wallet
 ```
 
-2. Allow the wallet tools:
+2. Allow the plugin and its tools:
 
 ```bash
+openclaw config set plugins.allow '["wallet"]'
 openclaw config set tools.allow '["wallet"]'
 ```
 
