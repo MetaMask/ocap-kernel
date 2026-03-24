@@ -10,6 +10,16 @@ export const RELAY_PID_PATH = join(homedir(), '.ocap', 'relay.pid');
 export const RELAY_ADDR_PATH = join(homedir(), '.ocap', 'relay.addr');
 
 /**
+ * Remove the relay PID and address files.
+ */
+async function removeRelayFiles(): Promise<void> {
+  await Promise.all([
+    rm(RELAY_PID_PATH, { force: true }),
+    rm(RELAY_ADDR_PATH, { force: true }),
+  ]);
+}
+
+/**
  * Start the relay server, write a PID file, and register signal handlers for
  * cleanup on exit.
  *
@@ -29,7 +39,7 @@ export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
   try {
     libp2p = await startRelay(logger);
   } catch (error) {
-    await rm(RELAY_PID_PATH, { force: true });
+    await removeRelayFiles();
     throw error;
   }
 
@@ -46,7 +56,7 @@ export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
     await writeFile(RELAY_ADDR_PATH, relayAddr);
   } catch (error) {
     await Promise.resolve(libp2p.stop()).catch(() => undefined);
-    await rm(RELAY_PID_PATH, { force: true });
+    await removeRelayFiles();
     throw error;
   }
 
@@ -54,10 +64,7 @@ export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
     Promise.resolve(libp2p.stop())
       .catch(() => undefined)
       .finally(() => {
-        Promise.all([
-          rm(RELAY_PID_PATH, { force: true }),
-          rm(RELAY_ADDR_PATH, { force: true }),
-        ])
+        removeRelayFiles()
           .catch(() => undefined)
           // eslint-disable-next-line n/no-process-exit -- signal handler must force exit after cleanup
           .finally(() => process.exit(0));
@@ -77,10 +84,7 @@ export async function printRelayStatus(): Promise<void> {
     process.stderr.write(`Relay is running (PID: ${pid}).\n`);
   } else {
     if (pid !== undefined) {
-      await Promise.all([
-        rm(RELAY_PID_PATH, { force: true }),
-        rm(RELAY_ADDR_PATH, { force: true }),
-      ]);
+      await removeRelayFiles();
     }
     process.stderr.write('Relay is not running.\n');
     process.exitCode = 1;
@@ -102,10 +106,7 @@ export async function stopRelay({
 
   if (pid === undefined || !isProcessAlive(pid)) {
     if (pid !== undefined) {
-      await Promise.all([
-        rm(RELAY_PID_PATH, { force: true }),
-        rm(RELAY_ADDR_PATH, { force: true }),
-      ]);
+      await removeRelayFiles();
     }
     process.stderr.write('Relay is not running.\n');
     return true;
@@ -129,10 +130,7 @@ export async function stopRelay({
   }
 
   if (stopped) {
-    await Promise.all([
-      rm(RELAY_PID_PATH, { force: true }),
-      rm(RELAY_ADDR_PATH, { force: true }),
-    ]);
+    await removeRelayFiles();
     process.stderr.write('Relay stopped.\n');
   } else {
     process.stderr.write('Relay did not stop within timeout.\n');
