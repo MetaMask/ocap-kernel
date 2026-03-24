@@ -40,8 +40,8 @@ type SendCommandOptions = {
   socketPath: string;
   /** The RPC method name. */
   method: string;
-  /** Optional method parameters. */
-  params?: Record<string, unknown> | undefined;
+  /** Optional method parameters (object or positional array). */
+  params?: Record<string, unknown> | unknown[] | undefined;
   /** Read timeout in milliseconds (default: 30 000). */
   timeoutMs?: number | undefined;
 };
