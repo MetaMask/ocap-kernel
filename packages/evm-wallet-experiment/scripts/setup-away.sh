@@ -731,6 +731,7 @@ else
   echo -e "  ${DIM}  cd $REPO_ROOT${RESET}" >&2
   echo -e "  ${DIM}  openclaw plugins install -l ./packages/evm-wallet-experiment/openclaw-plugin${RESET}" >&2
   echo -e "  ${DIM}  openclaw plugins enable wallet${RESET}" >&2
+  echo -e "  ${DIM}  openclaw config set plugins.allow '[\"wallet\"]'${RESET}" >&2
   echo -e "  ${DIM}  openclaw config set tools.allow '[\"wallet\"]'${RESET}" >&2
   echo -e "  ${DIM}  openclaw gateway restart${RESET}" >&2
 fi
