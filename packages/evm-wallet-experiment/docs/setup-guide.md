@@ -290,7 +290,7 @@ During delegation setup, the home script prompts for two optional spending limit
 
 Both limits are enforced on-chain by caveat enforcers in the DeleGator framework. The agent cannot bypass them. Press Enter at either prompt to skip that limit.
 
-The `--pimlico-key` configures the Pimlico bundler for ERC-4337 UserOp submission with paymaster sponsorship. Without it, smart account deployment and on-chain delegation redemption will not work.
+The `--pimlico-key` configures the Pimlico bundler for ERC-4337 UserOp submission with paymaster sponsorship. It is **required** for the away device (Hybrid smart account) and for any **Hybrid** home setup. For a **mnemonic home wallet using stateless EIP-7702** (`implementation: 'stateless7702'`), delegation redemption uses your normal RPC only — Pimlico is optional on the home device in that configuration.
 
 All scripts also accept `--chain <name>` (e.g. `--chain base`, `--chain ethereum`) or `--chain-id <number>` (default: Sepolia 11155111), `--quic-port` (default: 4002), and `--no-build`. For chains not supported by Infura (e.g. BNB Smart Chain), pass `--rpc-url` instead of `--infura-key`. Run with `--help` for details.
 

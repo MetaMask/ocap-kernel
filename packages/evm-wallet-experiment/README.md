@@ -1,13 +1,13 @@
 # @ocap/evm-wallet-experiment
 
-A capability-driven EVM wallet implemented as an OCAP kernel subcluster. It uses the [MetaMask Delegation Framework (Gator)](https://github.com/MetaMask/delegation-framework) for delegated transaction authority via ERC-4337 UserOperations. The wallet subcluster isolates key management, Ethereum RPC communication, and delegation lifecycle into separate vats, enforcing the principle of least authority across the entire signing pipeline.
+A capability-driven EVM wallet implemented as an OCAP kernel subcluster. It uses the [MetaMask Delegation Framework (Gator)](https://github.com/MetaMask/delegation-framework) for delegated transaction authority. **Hybrid** smart accounts submit ERC-4337 UserOperations through a bundler; **stateless EIP-7702** home accounts (mnemonic path) redeem delegations with normal EIP-1559 transactions via your JSON-RPC provider (e.g. Infura), without a bundler. The wallet subcluster isolates key management, Ethereum RPC communication, and delegation lifecycle into separate vats, enforcing the principle of least authority across the entire signing pipeline.
 
 For a deeper explanation of the components and data flow, see [How It Works](./docs/how-it-works.md). For deploying the wallet on a home device + VPS with OpenClaw, see the [Setup Guide](./docs/setup-guide.md).
 
 ## Security model and known limitations
 
 - **Peer signing has no interactive approval for message/typed-data requests.** Transaction signing over peer requests is now disabled and peer-connected wallets must use delegation redemption for sends, but message and typed-data peer signing still execute immediately without an approval prompt.
-- **`revokeDelegation()` requires a bundler.** Revocation submits an on-chain `disableDelegation` UserOp to the DelegationManager contract. The bundler and (optionally) paymaster must be configured. If the UserOp fails, the local delegation status is not changed.
+- **`revokeDelegation()` and hybrid redemption require a bundler.** Hybrid accounts submit on-chain `disableDelegation` / redemption via ERC-4337 UserOps; configure a bundler (and optional paymaster). **Stateless 7702** accounts use a direct EIP-1559 transaction instead; only the JSON-RPC provider must be configured. If the on-chain transaction fails, the local delegation status is not changed.
 - **Mnemonic encryption is optional.** The keyring vat can encrypt the mnemonic at rest using AES-256-GCM with a PBKDF2-derived key. Pass a `password` and `salt` to `initializeKeyring()` to enable encryption. Without a password, the mnemonic is stored in plaintext. When encrypted, the keyring starts in a locked state on daemon restart and must be unlocked with `unlockKeyring(password)` before signing operations work.
 - **Throwaway keyring needs secure entropy.** `initializeKeyring({ type: 'throwaway' })` requires either `crypto.getRandomValues` in the runtime or caller-provided entropy via `{ type: 'throwaway', entropy: '0x...' }`. Under SES lockdown (where `crypto` is unavailable inside vat compartments), the caller must generate 32 bytes of entropy externally and pass it in.
 
@@ -747,6 +747,15 @@ PIMLICO_API_KEY=xxx SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx \
 ```
 
 Full on-chain test on Sepolia testnet. Creates a Hybrid smart account (standalone single-device test), creates and signs a delegation, redeems it by submitting an ERC-4337 UserOp to the Pimlico bundler with paymaster gas sponsorship, and waits for on-chain inclusion. Skips automatically if `PIMLICO_API_KEY` and `SEPOLIA_RPC_URL` are not set.
+
+### Sepolia E2E — 7702 direct (no Pimlico)
+
+```bash
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/xxx TEST_MNEMONIC="..." \
+  yarn workspace @ocap/evm-wallet-experiment test:node:sepolia-7702-direct
+```
+
+On-chain flow using `implementation: 'stateless7702'`: EIP-7702 upgrade tx, delegation creation, redemption via `eth_sendRawTransaction` through your RPC only (no bundler). Skips if `SEPOLIA_RPC_URL` is unset.
 
 ### Peer wallet Sepolia E2E (41 assertions, requires API keys)
 

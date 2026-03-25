@@ -12,7 +12,7 @@ Use the **wallet tools** for any Ethereum balance, send, or sign request. Do not
 
 - **wallet_accounts** — List wallet accounts. Returns cached home accounts if the home device is offline.
 - **wallet_balance** — Get ETH balance for an address. Use `wallet_accounts` first to find the right address.
-- **wallet_send** — Send ETH to an address. Fully autonomous — uses delegation redemption via the bundler, no home device needed.
+- **wallet_send** — Send ETH to an address. Fully autonomous — uses delegation redemption (bundler for Hybrid accounts, direct RPC for stateless EIP-7702 home accounts), no home device needed when the away wallet is configured.
 - **wallet_token_resolve** — Resolve a token symbol or name (e.g. "USDC") to its contract address on the current chain. Not available for testnets.
 - **wallet_token_balance** — Get ERC-20 token balance. Accepts a contract address or symbol (e.g. "USDC"). Returns human-readable amount with symbol.
 - **wallet_token_send** — Send ERC-20 tokens to an address. Accepts a contract address or symbol. Automatically converts decimal amounts using the token's decimals.
