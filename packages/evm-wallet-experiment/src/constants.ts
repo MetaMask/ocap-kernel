@@ -77,6 +77,7 @@ export const PLACEHOLDER_CONTRACTS: ChainContracts = harden({
   enforcers: {
     allowedTargets: '0x0000000000000000000000000000000000000001' as Address,
     allowedMethods: '0x0000000000000000000000000000000000000002' as Address,
+    allowedCalldata: '0x0000000000000000000000000000000000000008' as Address,
     valueLte: '0x0000000000000000000000000000000000000003' as Address,
     nativeTokenTransferAmount:
       '0x0000000000000000000000000000000000000007' as Address,
@@ -101,6 +102,7 @@ const SHARED_DELEGATION_MANAGER: Address =
 const SHARED_ENFORCERS: Record<CaveatType, Address> = harden({
   allowedTargets: '0x7F20f61b1f09b08D970938F6fa563634d65c4EeB' as Address,
   allowedMethods: '0x2c21fD0Cb9DC8445CB3fb0DC5E7Bb0Aca01842B5' as Address,
+  allowedCalldata: '0xc2b0d624c1c4319760c96503ba27c347f3260f55' as Address,
   valueLte: '0x92Bf12322527cAA612fd31a0e810472BBB106A8F' as Address,
   nativeTokenTransferAmount:
     '0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320' as Address,

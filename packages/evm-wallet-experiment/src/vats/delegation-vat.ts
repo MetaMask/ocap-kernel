@@ -3,6 +3,7 @@ import type { Logger } from '@metamask/logger';
 import type { Baggage } from '@metamask/ocap-kernel';
 
 import { DEFAULT_DELEGATION_MANAGER } from '../constants.ts';
+import { makeDelegationTwin } from '../lib/delegation-twin.ts';
 import {
   computeDelegationId,
   makeDelegation,
@@ -16,8 +17,10 @@ import type {
   Address,
   CreateDelegationOptions,
   Delegation,
+  DelegationGrant,
   DelegationMatchResult,
   Eip712TypedData,
+  Execution,
   Hex,
 } from '../types.ts';
 
@@ -58,6 +61,9 @@ export function buildRootObject(
         ),
       )
     : new Map();
+
+  // Twin exo references, keyed by delegation ID
+  const twins: Map<string, ReturnType<typeof makeDelegationTwin>> = new Map();
 
   /**
    * Persist the current delegations map to baggage.
@@ -199,6 +205,30 @@ export function buildRootObject(
         harden({ ...delegation, status: 'revoked' as const }),
       );
       persistDelegations();
+    },
+
+    async addDelegation(
+      grant: DelegationGrant,
+      redeemFn: (execution: Execution) => Promise<Hex>,
+      readFn?: (opts: { to: Address; data: Hex }) => Promise<Hex>,
+    ): Promise<ReturnType<typeof makeDelegationTwin>> {
+      const { delegation } = grant;
+      delegations.set(delegation.id, delegation);
+      persistDelegations();
+
+      const twin = makeDelegationTwin({ grant, redeemFn, readFn });
+      twins.set(delegation.id, twin);
+      return twin;
+    },
+
+    async getTwin(
+      delegationId: string,
+    ): Promise<ReturnType<typeof makeDelegationTwin>> {
+      const twin = twins.get(delegationId);
+      if (!twin) {
+        throw new Error(`Twin not found for delegation: ${delegationId}`);
+      }
+      return twin;
     },
   });
 }

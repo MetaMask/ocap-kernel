@@ -77,6 +77,7 @@ export function makeChainConfig(options: {
 export const CaveatTypeValues = [
   'allowedTargets',
   'allowedMethods',
+  'allowedCalldata',
   'valueLte',
   'nativeTokenTransferAmount',
   'erc20TransferAmount',
@@ -321,6 +322,44 @@ export type DelegationMatchResult = {
   failedCaveat?: CaveatType;
   reason?: string;
 };
+
+// ---------------------------------------------------------------------------
+// Delegation grant (twin construction input)
+// ---------------------------------------------------------------------------
+
+const BigIntStruct = define<bigint>(
+  'BigInt',
+  (value) => typeof value === 'bigint',
+);
+
+export const CaveatSpecStruct = union([
+  object({
+    type: literal('cumulativeSpend'),
+    token: AddressStruct,
+    max: BigIntStruct,
+  }),
+  object({
+    type: literal('blockWindow'),
+    after: BigIntStruct,
+    before: BigIntStruct,
+  }),
+  object({
+    type: literal('allowedCalldata'),
+    dataStart: number(),
+    value: HexStruct,
+  }),
+]);
+
+export type CaveatSpec = Infer<typeof CaveatSpecStruct>;
+
+export const DelegationGrantStruct = object({
+  delegation: DelegationStruct,
+  methodName: string(),
+  caveatSpecs: array(CaveatSpecStruct),
+  token: optional(AddressStruct),
+});
+
+export type DelegationGrant = Infer<typeof DelegationGrantStruct>;
 
 // ---------------------------------------------------------------------------
 // Swap types (MetaSwap API)

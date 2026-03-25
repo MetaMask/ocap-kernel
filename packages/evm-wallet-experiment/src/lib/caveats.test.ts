@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 
 import {
   encodeAllowedTargets,
+  encodeAllowedCalldata,
   encodeAllowedMethods,
   encodeValueLte,
   encodeNativeTokenTransferAmount,
@@ -40,6 +41,20 @@ describe('lib/caveats', () => {
         encoded,
       );
       expect(decoded.map((a) => a.toLowerCase())).toStrictEqual(targets);
+    });
+  });
+
+  describe('encodeAllowedCalldata', () => {
+    it('encodes offset and expected value', () => {
+      const value =
+        '0x0000000000000000000000001234567890abcdef1234567890abcdef12345678' as Hex;
+      const encoded = encodeAllowedCalldata({ dataStart: 4, value });
+
+      // First 32 bytes = offset (4), remainder = the value bytes
+      expect(encoded.slice(0, 66)).toBe(
+        `0x${(4).toString(16).padStart(64, '0')}`,
+      );
+      expect(encoded.slice(66)).toBe(value.slice(2));
     });
   });
 
@@ -158,6 +173,7 @@ describe('lib/caveats', () => {
       const types = [
         'allowedTargets',
         'allowedMethods',
+        'allowedCalldata',
         'valueLte',
         'nativeTokenTransferAmount',
         'erc20TransferAmount',
