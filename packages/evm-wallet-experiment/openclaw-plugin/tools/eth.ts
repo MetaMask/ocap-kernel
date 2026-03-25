@@ -1,5 +1,3 @@
-import { Type } from '@sinclair/typebox';
-
 import type { WalletCaller } from '../daemon.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 import {
@@ -30,13 +28,15 @@ export function registerEthTools(
     label: 'Wallet balance',
     description:
       'Get ETH balance. If no address is given, checks all wallet accounts.',
-    parameters: Type.Object({
-      address: Type.Optional(
-        Type.String({
+    parameters: {
+      type: 'object',
+      properties: {
+        address: {
+          type: 'string',
           description: 'Ethereum address (0x...). Omit to check all accounts.',
-        }),
-      ),
-    }),
+        },
+      },
+    },
     async execute(
       _id: string,
       params: { address?: string },
@@ -101,13 +101,18 @@ export function registerEthTools(
     label: 'Wallet send',
     description:
       'Send ETH to an address. The kernel handles signing via delegations or peer wallet.',
-    parameters: Type.Object({
-      to: Type.String({ description: 'Recipient address (0x...)' }),
-      value: Type.String({
-        description:
-          "Amount of ETH to send as a decimal string (e.g. '0.1' for 0.1 ETH)",
-      }),
-    }),
+    parameters: {
+      type: 'object',
+      properties: {
+        to: { type: 'string', description: 'Recipient address (0x...)' },
+        value: {
+          type: 'string',
+          description:
+            "Amount of ETH to send as a decimal string (e.g. '0.1' for 0.1 ETH)",
+        },
+      },
+      required: ['to', 'value'],
+    },
     async execute(
       _id: string,
       params: { to: string; value: string },

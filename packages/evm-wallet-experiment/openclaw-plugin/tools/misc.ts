@@ -1,5 +1,3 @@
-import { Type } from '@sinclair/typebox';
-
 import type { WalletCaller } from '../daemon.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 import {
@@ -25,9 +23,13 @@ export function registerMiscTools(
     name: 'wallet_sign',
     label: 'Wallet sign',
     description: 'Sign a message. May forward to the home kernel for approval.',
-    parameters: Type.Object({
-      message: Type.String({ description: 'Message to sign' }),
-    }),
+    parameters: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', description: 'Message to sign' },
+      },
+      required: ['message'],
+    },
     async execute(
       _id: string,
       params: { message: string },
@@ -48,7 +50,7 @@ export function registerMiscTools(
     label: 'Wallet capabilities',
     description:
       'Check wallet capabilities: local keys, delegations, peer wallet, bundler.',
-    parameters: Type.Object({}),
+    parameters: { type: 'object', properties: {} },
     async execute(): Promise<ToolResponse> {
       try {
         const result = await wallet('getCapabilities', []);
@@ -71,7 +73,7 @@ export function registerMiscTools(
     name: 'wallet_accounts',
     label: 'Wallet accounts',
     description: 'List wallet accounts.',
-    parameters: Type.Object({}),
+    parameters: { type: 'object', properties: {} },
     async execute(): Promise<ToolResponse> {
       try {
         const result = await wallet('getAccounts', []);

@@ -1,5 +1,3 @@
-import { Type } from '@sinclair/typebox';
-
 import type { WalletCaller } from '../daemon.ts';
 import { resolveTokenBySymbol } from '../token-resolver.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
@@ -32,12 +30,17 @@ export function registerTokenTools(
     label: 'Resolve token',
     description:
       'Resolve a token symbol or name (e.g. "USDC", "Uniswap") to its contract address on the current chain. Not available for testnets.',
-    parameters: Type.Object({
-      query: Type.String({
-        description:
-          'Token symbol or name to search for (e.g. "USDC", "DAI", "Uniswap")',
-      }),
-    }),
+    parameters: {
+      type: 'object',
+      properties: {
+        query: {
+          type: 'string',
+          description:
+            'Token symbol or name to search for (e.g. "USDC", "DAI", "Uniswap")',
+        },
+      },
+      required: ['query'],
+    },
     async execute(
       _id: string,
       params: { query: string },
@@ -82,18 +85,22 @@ export function registerTokenTools(
     label: 'Wallet token balance',
     description:
       'Get ERC-20 token balance. Accepts a contract address or token symbol (e.g. "USDC").',
-    parameters: Type.Object({
-      token: Type.String({
-        description:
-          'ERC-20 token contract address (0x...) or symbol (e.g. "USDC")',
-      }),
-      address: Type.Optional(
-        Type.String({
+    parameters: {
+      type: 'object',
+      properties: {
+        token: {
+          type: 'string',
+          description:
+            'ERC-20 token contract address (0x...) or symbol (e.g. "USDC")',
+        },
+        address: {
+          type: 'string',
           description:
             'Owner address (0x...). Omit to check the first wallet account.',
-        }),
-      ),
-    }),
+        },
+      },
+      required: ['token'],
+    },
     async execute(
       _id: string,
       params: { token: string; address?: string },
@@ -159,17 +166,23 @@ export function registerTokenTools(
     label: 'Wallet token send',
     description:
       'Send ERC-20 tokens to an address. Accepts a contract address or token symbol (e.g. "USDC").',
-    parameters: Type.Object({
-      token: Type.String({
-        description:
-          'ERC-20 token contract address (0x...) or symbol (e.g. "USDC")',
-      }),
-      to: Type.String({ description: 'Recipient address (0x...)' }),
-      amount: Type.String({
-        description:
-          "Amount of tokens as a decimal string (e.g. '100.5' for 100.5 USDC).",
-      }),
-    }),
+    parameters: {
+      type: 'object',
+      properties: {
+        token: {
+          type: 'string',
+          description:
+            'ERC-20 token contract address (0x...) or symbol (e.g. "USDC")',
+        },
+        to: { type: 'string', description: 'Recipient address (0x...)' },
+        amount: {
+          type: 'string',
+          description:
+            "Amount of tokens as a decimal string (e.g. '100.5' for 100.5 USDC).",
+        },
+      },
+      required: ['token', 'to', 'amount'],
+    },
     async execute(
       _id: string,
       params: { token: string; to: string; amount: string },
@@ -245,12 +258,17 @@ export function registerTokenTools(
     label: 'Wallet token info',
     description:
       'Get ERC-20 token metadata: name, symbol, and decimals. Accepts address or symbol.',
-    parameters: Type.Object({
-      token: Type.String({
-        description:
-          'ERC-20 token contract address (0x...) or symbol (e.g. "USDC")',
-      }),
-    }),
+    parameters: {
+      type: 'object',
+      properties: {
+        token: {
+          type: 'string',
+          description:
+            'ERC-20 token contract address (0x...) or symbol (e.g. "USDC")',
+        },
+      },
+      required: ['token'],
+    },
     async execute(
       _id: string,
       params: { token: string },

@@ -1,19 +1,8 @@
 {
   "name": "@openclaw/wallet",
-  "version": "2026.3.22",
+  "version": "2026.3.24",
   "description": "Wallet plugin: tools that call the OCAP kernel daemon (balance, send, sign, swap, etc.).",
   "type": "module",
-  "dependencies": {
-    "@sinclair/typebox": "0.34.48"
-  },
-  "peerDependencies": {
-    "openclaw": ">=2026.3.22"
-  },
-  "peerDependenciesMeta": {
-    "openclaw": {
-      "optional": true
-    }
-  },
   "openclaw": {
     "extensions": [
       "./index.ts"

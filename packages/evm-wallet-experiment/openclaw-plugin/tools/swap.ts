@@ -1,5 +1,3 @@
-import { Type } from '@sinclair/typebox';
-
 import type { WalletCaller } from '../daemon.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 import {
@@ -83,23 +81,31 @@ export function registerSwapTools(
     label: 'Swap quote',
     description:
       'Get a token swap quote without executing. Shows expected output amount, aggregator, and gas estimate. Accepts contract addresses or token symbols (e.g. "USDC", "ETH").',
-    parameters: Type.Object({
-      srcToken: Type.String({
-        description:
-          'Source token address (0x...) or symbol (e.g. "USDC", "ETH")',
-      }),
-      destToken: Type.String({
-        description:
-          'Destination token address (0x...) or symbol (e.g. "WETH", "DAI")',
-      }),
-      amount: Type.String({
-        description:
-          'Amount of source token as a decimal string (e.g. "100.5")',
-      }),
-      slippage: Type.Optional(
-        Type.Number({ description: 'Slippage tolerance % (default: 1)' }),
-      ),
-    }),
+    parameters: {
+      type: 'object',
+      properties: {
+        srcToken: {
+          type: 'string',
+          description:
+            'Source token address (0x...) or symbol (e.g. "USDC", "ETH")',
+        },
+        destToken: {
+          type: 'string',
+          description:
+            'Destination token address (0x...) or symbol (e.g. "WETH", "DAI")',
+        },
+        amount: {
+          type: 'string',
+          description:
+            'Amount of source token as a decimal string (e.g. "100.5")',
+        },
+        slippage: {
+          type: 'number',
+          description: 'Slippage tolerance % (default: 1)',
+        },
+      },
+      required: ['srcToken', 'destToken', 'amount'],
+    },
     async execute(
       _id: string,
       params: {
@@ -201,23 +207,31 @@ export function registerSwapTools(
     label: 'Swap tokens',
     description:
       'Execute a token swap. Handles approval and swap in sequence. Accepts contract addresses or token symbols (e.g. "USDC", "ETH").',
-    parameters: Type.Object({
-      srcToken: Type.String({
-        description:
-          'Source token address (0x...) or symbol (e.g. "USDC", "ETH")',
-      }),
-      destToken: Type.String({
-        description:
-          'Destination token address (0x...) or symbol (e.g. "WETH", "DAI")',
-      }),
-      amount: Type.String({
-        description:
-          'Amount of source token as a decimal string (e.g. "100.5")',
-      }),
-      slippage: Type.Optional(
-        Type.Number({ description: 'Slippage tolerance % (default: 1)' }),
-      ),
-    }),
+    parameters: {
+      type: 'object',
+      properties: {
+        srcToken: {
+          type: 'string',
+          description:
+            'Source token address (0x...) or symbol (e.g. "USDC", "ETH")',
+        },
+        destToken: {
+          type: 'string',
+          description:
+            'Destination token address (0x...) or symbol (e.g. "WETH", "DAI")',
+        },
+        amount: {
+          type: 'string',
+          description:
+            'Amount of source token as a decimal string (e.g. "100.5")',
+        },
+        slippage: {
+          type: 'number',
+          description: 'Slippage tolerance % (default: 1)',
+        },
+      },
+      required: ['srcToken', 'destToken', 'amount'],
+    },
     async execute(
       _id: string,
       params: {
