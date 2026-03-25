@@ -404,7 +404,7 @@ openclaw config set plugins.entries.wallet.config.walletKref '"ko8"'
 openclaw config set plugins.entries.wallet.config.ocapCliPath '"/custom/path/to/ocap"'
 ```
 
-The wallet tools (`wallet_balance`, `wallet_send`, `wallet_token_balance`, `wallet_token_send`, `wallet_token_info`, `wallet_token_resolve`, `wallet_swap`, `wallet_swap_quote`, `wallet_sign`, `wallet_accounts`, `wallet_capabilities`) are registered as optional tools. They become available once enabled via `tools.allow` (either individual tool names or `"wallet"` to allow all).
+The wallet tools (`wallet_balance`, `wallet_send`, `wallet_token_balance`, `wallet_token_send`, `wallet_token_info`, `wallet_token_resolve`, `wallet_swap`, `wallet_swap_quote`, `wallet_sign`, `wallet_accounts`, `wallet_capabilities`) are automatically available to agents once the plugin is enabled and allowed via `plugins.allow` and `tools.allow`.
 
 ---
 
