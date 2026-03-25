@@ -1,11 +1,8 @@
 {
   "name": "@openclaw/wallet",
-  "version": "0.0.1",
-  "description": "Wallet plugin: tools that call the away kernel CLI (balance, send, sign).",
+  "version": "2026.3.24",
+  "description": "Wallet plugin: tools that call the OCAP kernel daemon (balance, send, sign, swap, etc.).",
   "type": "module",
-  "devDependencies": {
-    "openclaw": "workspace:*"
-  },
   "openclaw": {
     "extensions": [
       "./index.ts"

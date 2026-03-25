@@ -382,9 +382,10 @@ openclaw plugins install -l ./packages/evm-wallet-experiment/openclaw-plugin
 openclaw plugins enable wallet
 ```
 
-2. Allow the wallet tools:
+2. Allow the plugin and its tools:
 
 ```bash
+openclaw config set plugins.allow '["wallet"]'
 openclaw config set tools.allow '["wallet"]'
 ```
 
@@ -403,7 +404,7 @@ openclaw config set plugins.entries.wallet.config.walletKref '"ko8"'
 openclaw config set plugins.entries.wallet.config.ocapCliPath '"/custom/path/to/ocap"'
 ```
 
-The wallet tools (`wallet_balance`, `wallet_send`, `wallet_token_balance`, `wallet_token_send`, `wallet_token_info`, `wallet_token_resolve`, `wallet_swap`, `wallet_swap_quote`, `wallet_sign`, `wallet_accounts`, `wallet_capabilities`) are automatically available to agents once the plugin is enabled.
+The wallet tools (`wallet_balance`, `wallet_send`, `wallet_token_balance`, `wallet_token_send`, `wallet_token_info`, `wallet_token_resolve`, `wallet_swap`, `wallet_swap_quote`, `wallet_sign`, `wallet_accounts`, `wallet_capabilities`) are automatically available to agents once the plugin is enabled and allowed via `plugins.allow` and `tools.allow`.
 
 ---
 

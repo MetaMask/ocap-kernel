@@ -710,6 +710,7 @@ if command -v openclaw &>/dev/null; then
     info "Installing OpenClaw wallet plugin..."
     (cd "$REPO_ROOT" && openclaw plugins install -l ./packages/evm-wallet-experiment/openclaw-plugin) >&2
     openclaw plugins enable wallet >&2
+    openclaw config set plugins.allow '["wallet"]' >&2
     openclaw config set tools.allow '["wallet"]' >&2
     openclaw gateway restart >&2
     ok "OpenClaw wallet plugin installed and enabled"
@@ -720,6 +721,7 @@ if command -v openclaw &>/dev/null; then
     echo -e "  ${DIM}  cd $REPO_ROOT${RESET}" >&2
     echo -e "  ${DIM}  openclaw plugins install -l ./packages/evm-wallet-experiment/openclaw-plugin${RESET}" >&2
     echo -e "  ${DIM}  openclaw plugins enable wallet${RESET}" >&2
+    echo -e "  ${DIM}  openclaw config set plugins.allow '[\"wallet\"]'${RESET}" >&2
     echo -e "  ${DIM}  openclaw config set tools.allow '[\"wallet\"]'${RESET}" >&2
     echo -e "  ${DIM}  openclaw gateway restart${RESET}" >&2
   fi
@@ -729,6 +731,7 @@ else
   echo -e "  ${DIM}  cd $REPO_ROOT${RESET}" >&2
   echo -e "  ${DIM}  openclaw plugins install -l ./packages/evm-wallet-experiment/openclaw-plugin${RESET}" >&2
   echo -e "  ${DIM}  openclaw plugins enable wallet${RESET}" >&2
+  echo -e "  ${DIM}  openclaw config set plugins.allow '[\"wallet\"]'${RESET}" >&2
   echo -e "  ${DIM}  openclaw config set tools.allow '[\"wallet\"]'${RESET}" >&2
   echo -e "  ${DIM}  openclaw gateway restart${RESET}" >&2
 fi

@@ -44,7 +44,10 @@ const BLOCK_EXPLORER_URLS: Record<number, string> = {
  * @returns A plugin tool response containing the error.
  */
 export function makeError(text: string): ToolResponse {
-  return { content: [{ type: 'text' as const, text: `Error: ${text}` }] };
+  return {
+    content: [{ type: 'text' as const, text: `Error: ${text}` }],
+    details: undefined,
+  };
 }
 
 /**
@@ -54,7 +57,10 @@ export function makeError(text: string): ToolResponse {
  * @returns A plugin tool response.
  */
 export function makeText(text: string): ToolResponse {
-  return { content: [{ type: 'text' as const, text }] };
+  return {
+    content: [{ type: 'text' as const, text }],
+    details: undefined,
+  };
 }
 
 /**
