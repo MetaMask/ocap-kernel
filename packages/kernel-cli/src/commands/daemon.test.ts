@@ -35,8 +35,8 @@ vi.mock('./daemon-spawn.ts', () => ({
 }));
 
 vi.mock('./relay.ts', () => ({
-  RELAY_PID_PATH: '/mock/.ocap/relay.pid',
-  RELAY_ADDR_PATH: '/mock/.ocap/relay.addr',
+  getRelayPidPath: () => '/mock/.ocap/relay.pid',
+  getRelayAddrPath: () => '/mock/.ocap/relay.addr',
 }));
 
 const socketPath = '/tmp/test.sock';

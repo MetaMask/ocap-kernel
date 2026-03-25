@@ -3,9 +3,10 @@ import { prettifyCapData } from '@metamask/kernel-utils';
 import { isJsonRpcFailure } from '@metamask/utils';
 import { readFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { getOcapHome } from '../ocap-home.ts';
 import {
   isErrorWithCode,
   isProcessAlive,
@@ -14,7 +15,7 @@ import {
 } from '../utils.ts';
 import { pingDaemon, sendCommand } from './daemon-client.ts';
 import { ensureDaemon } from './daemon-spawn.ts';
-import { RELAY_ADDR_PATH, RELAY_PID_PATH } from './relay.ts';
+import { getRelayAddrPath, getRelayPidPath } from './relay.ts';
 
 const home = homedir();
 
@@ -80,7 +81,7 @@ function resolveBundleSpecs(config: {
  * failed to stop within the timeout.
  */
 export async function stopDaemon(socketPath: string): Promise<boolean> {
-  const pidPath = join(homedir(), '.ocap', 'daemon.pid');
+  const pidPath = `${getOcapHome()}/daemon.pid`;
   const pid = await readPidFile(pidPath);
   const processAlive = pid !== undefined && isProcessAlive(pid);
   const socketResponsive = await pingDaemon(socketPath);
@@ -147,7 +148,7 @@ export async function stopDaemon(socketPath: string): Promise<boolean> {
  */
 async function readRelayAddr(): Promise<string | undefined> {
   try {
-    return (await readFile(RELAY_ADDR_PATH, 'utf-8')).trim() || undefined;
+    return (await readFile(getRelayAddrPath(), 'utf-8')).trim() || undefined;
   } catch (error: unknown) {
     if (isErrorWithCode(error, 'ENOENT')) {
       return undefined;
@@ -168,7 +169,7 @@ export async function handleDaemonStart(
   { localRelay = false }: { localRelay?: boolean } = {},
 ): Promise<void> {
   if (localRelay) {
-    const relayPid = await readPidFile(RELAY_PID_PATH);
+    const relayPid = await readPidFile(getRelayPidPath());
     if (relayPid === undefined || !isProcessAlive(relayPid)) {
       process.stderr.write(
         'Relay is not running. Start it with: ocap relay start\n',
@@ -235,7 +236,7 @@ export async function handleDaemonBegone(socketPath: string): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  await deleteDaemonState({ socketPath });
+  await deleteDaemonState({ ocapHome: getOcapHome(), socketPath });
   process.stderr.write('All daemon state deleted.\n');
 }
 

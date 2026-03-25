@@ -4,8 +4,8 @@ import { assertIsJsonRpcResponse } from '@metamask/utils';
 import { randomUUID } from 'node:crypto';
 import { createConnection } from 'node:net';
 import type { Socket } from 'node:net';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
+
+import { getOcapHome } from '../ocap-home.ts';
 
 /**
  * Get the default daemon socket path.
@@ -13,7 +13,7 @@ import { join } from 'node:path';
  * @returns The socket path.
  */
 export function getSocketPath(): string {
-  return join(homedir(), '.ocap', 'daemon.sock');
+  return `${getOcapHome()}/daemon.sock`;
 }
 
 /**
