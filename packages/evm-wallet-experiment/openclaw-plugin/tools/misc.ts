@@ -21,74 +21,64 @@ export function registerMiscTools(
 ): void {
   // -- wallet_sign ----------------------------------------------------------
 
-  api.registerTool(
-    {
-      name: 'wallet_sign',
-      label: 'Wallet sign',
-      description:
-        'Sign a message. May forward to the home kernel for approval.',
-      parameters: Type.Object({
-        message: Type.String({ description: 'Message to sign' }),
-      }),
-      async execute(
-        _id: string,
-        params: { message: string },
-      ): Promise<ToolResponse> {
-        try {
-          const result = await wallet('signMessage', [params.message]);
-          return makeText(formatToolResult(result));
-        } catch (error: unknown) {
-          return makeError(`Sign message failed: ${errorMessage(error)}`);
-        }
-      },
+  api.registerTool({
+    name: 'wallet_sign',
+    label: 'Wallet sign',
+    description: 'Sign a message. May forward to the home kernel for approval.',
+    parameters: Type.Object({
+      message: Type.String({ description: 'Message to sign' }),
+    }),
+    async execute(
+      _id: string,
+      params: { message: string },
+    ): Promise<ToolResponse> {
+      try {
+        const result = await wallet('signMessage', [params.message]);
+        return makeText(formatToolResult(result));
+      } catch (error: unknown) {
+        return makeError(`Sign message failed: ${errorMessage(error)}`);
+      }
     },
-    { optional: true },
-  );
+  });
 
   // -- wallet_capabilities --------------------------------------------------
 
-  api.registerTool(
-    {
-      name: 'wallet_capabilities',
-      label: 'Wallet capabilities',
-      description:
-        'Check wallet capabilities: local keys, delegations, peer wallet, bundler.',
-      parameters: Type.Object({}),
-      async execute(): Promise<ToolResponse> {
-        try {
-          const result = await wallet('getCapabilities', []);
-          // Strip internal fields the agent shouldn't see
-          if (result && typeof result === 'object') {
-            const caps = result as Record<string, unknown>;
-            delete caps.localAccounts;
-            delete caps.hasLocalKeys;
-          }
-          return makeText(formatToolResult(result));
-        } catch (error: unknown) {
-          return makeError(`Get capabilities failed: ${errorMessage(error)}`);
+  api.registerTool({
+    name: 'wallet_capabilities',
+    label: 'Wallet capabilities',
+    description:
+      'Check wallet capabilities: local keys, delegations, peer wallet, bundler.',
+    parameters: Type.Object({}),
+    async execute(): Promise<ToolResponse> {
+      try {
+        const result = await wallet('getCapabilities', []);
+        // Strip internal fields the agent shouldn't see
+        if (result && typeof result === 'object') {
+          const caps = result as Record<string, unknown>;
+          delete caps.localAccounts;
+          delete caps.hasLocalKeys;
         }
-      },
+        return makeText(formatToolResult(result));
+      } catch (error: unknown) {
+        return makeError(`Get capabilities failed: ${errorMessage(error)}`);
+      }
     },
-    { optional: true },
-  );
+  });
 
   // -- wallet_accounts ------------------------------------------------------
 
-  api.registerTool(
-    {
-      name: 'wallet_accounts',
-      label: 'Wallet accounts',
-      description: 'List wallet accounts.',
-      parameters: Type.Object({}),
-      async execute(): Promise<ToolResponse> {
-        try {
-          const result = await wallet('getAccounts', []);
-          return makeText(formatToolResult(result));
-        } catch (error: unknown) {
-          return makeError(`Get accounts failed: ${errorMessage(error)}`);
-        }
-      },
+  api.registerTool({
+    name: 'wallet_accounts',
+    label: 'Wallet accounts',
+    description: 'List wallet accounts.',
+    parameters: Type.Object({}),
+    async execute(): Promise<ToolResponse> {
+      try {
+        const result = await wallet('getAccounts', []);
+        return makeText(formatToolResult(result));
+      } catch (error: unknown) {
+        return makeError(`Get accounts failed: ${errorMessage(error)}`);
+      }
     },
-    { optional: true },
-  );
+  });
 }

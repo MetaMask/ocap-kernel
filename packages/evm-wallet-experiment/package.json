@@ -66,6 +66,8 @@
     "@metamask/superstruct": "^3.2.1",
     "@noble/ciphers": "^1.3.0",
     "@noble/hashes": "^1.8.0",
+    "@sinclair/typebox": "0.34.48",
+    "openclaw": "^2026.3.24",
     "viem": "^2.31.4"
   },
   "devDependencies": {
