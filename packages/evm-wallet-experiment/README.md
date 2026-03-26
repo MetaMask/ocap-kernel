@@ -7,7 +7,7 @@ For a deeper explanation of the components and data flow, see [How It Works](./d
 ## Security model and known limitations
 
 - **Peer signing has no interactive approval for message/typed-data requests.** Transaction signing over peer requests is now disabled and peer-connected wallets must use delegation redemption for sends, but message and typed-data peer signing still execute immediately without an approval prompt.
-- **`revokeDelegation()` and hybrid redemption require a bundler.** Hybrid accounts submit on-chain `disableDelegation` / redemption via ERC-4337 UserOps; configure a bundler (and optional paymaster). **Stateless 7702** accounts use a direct EIP-1559 transaction instead; only the JSON-RPC provider must be configured. If the on-chain transaction fails, the local delegation status is not changed.
+- **`revokeDelegation()` and hybrid redemption require a bundler or peer relay.** Hybrid accounts submit on-chain `disableDelegation` / redemption via ERC-4337 UserOps; configure a bundler (and optional paymaster). **Stateless 7702** accounts use a direct EIP-1559 transaction instead; only the JSON-RPC provider must be configured. **Away wallets without a bundler** relay delegation redemptions to the home wallet via CapTP (requires the home wallet to be online). If the on-chain transaction fails, the local delegation status is not changed.
 - **Mnemonic encryption is optional.** The keyring vat can encrypt the mnemonic at rest using AES-256-GCM with a PBKDF2-derived key. Pass a `password` and `salt` to `initializeKeyring()` to enable encryption. Without a password, the mnemonic is stored in plaintext. When encrypted, the keyring starts in a locked state on daemon restart and must be unlocked with `unlockKeyring(password)` before signing operations work.
 - **Throwaway keyring needs secure entropy.** `initializeKeyring({ type: 'throwaway' })` requires either `crypto.getRandomValues` in the runtime or caller-provided entropy via `{ type: 'throwaway', entropy: '0x...' }`. Under SES lockdown (where `crypto` is unavailable inside vat compartments), the caller must generate 32 bytes of entropy externally and pass it in.
 
@@ -143,13 +143,14 @@ await coordinator.connectToPeer(ocapUrl);
 //    Alternatively, receive it manually:
 // await coordinator.receiveDelegation(delegation);
 
-// 4. Configure the bundler
+// 4. (Optional) Configure the bundler — without it, redemptions are relayed
+//    to the home wallet (requires home online).
 await coordinator.configureBundler({
   bundlerUrl: 'https://bundler.example.com/rpc',
   chainId: 1,
 });
 
-// 5. Redeem the delegation via a UserOp
+// 5. Redeem the delegation (via UserOp if bundler configured, or relayed to home)
 const userOpHash = await coordinator.redeemDelegation({
   execution: {
     target: '0xContractAddress...' as Address,
@@ -184,14 +185,18 @@ If the away kernel has no local keys and no matching delegation for a message or
 
 ### Offline Autonomy
 
-The away kernel caches the home kernel's accounts and signing mode during `connectToPeer()`. After the delegation is transferred, the home device can go offline — the away kernel operates fully autonomously:
+The away kernel caches the home kernel's accounts and signing mode during `connectToPeer()`. After the delegation is transferred:
+
+**With bundler configured** — the home device can go offline, the away kernel operates fully autonomously:
 
 - `getAccounts()` returns cached peer accounts (with a 5-second timeout on live peer calls)
 - `getCapabilities()` returns cached signing mode
 - `sendTransaction()` signs locally and submits via the bundler (no home needed)
 - `signMessage()` / `signTypedData()` signs with the local throwaway key
 
-The only operation that still requires the home online is signing as the home EOA address specifically (since that requires the home's private key). The away coordinator detects this and throws a clear error instead of signing with the wrong key. See [How It Works — Offline Autonomy](./docs/how-it-works.md#offline-autonomy-vps-mode) for details.
+**Without bundler (relay mode)** — delegation redemptions are relayed to the home wallet via CapTP, requiring the home to be online for sends. Message/typed-data signing still works locally with the throwaway key.
+
+The only operation that always requires the home online is signing as the home EOA address specifically (since that requires the home's private key). The away coordinator detects this and throws a clear error instead of signing with the wrong key. See [How It Works — Offline Autonomy](./docs/how-it-works.md#offline-autonomy-vps-mode) for details.
 
 ## Signing Strategy Resolution
 
@@ -286,7 +291,11 @@ Delegations can be shared between kernels in three ways:
 
 ### Redeeming Delegations
 
-Redemption builds an ERC-4337 UserOperation that calls `DelegationManager.redeemDelegations` on-chain. The UserOp is signed by the delegate and submitted to a bundler, which routes it through the EntryPoint v0.7 contract.
+Redemption calls `DelegationManager.redeemDelegations` on-chain. The submission path depends on configuration:
+
+- **Bundler configured** — builds an ERC-4337 UserOp signed by the delegate and submitted to a bundler (routed through EntryPoint v0.7).
+- **Stateless 7702** — broadcasts a direct EIP-1559 self-call transaction via the JSON-RPC provider.
+- **Peer relay (away wallet, no bundler)** — relays the delegation + execution to the home wallet via CapTP; the home wallet submits on its own behalf using whichever path it supports.
 
 ```typescript
 const userOpHash = await coordinator.redeemDelegation({

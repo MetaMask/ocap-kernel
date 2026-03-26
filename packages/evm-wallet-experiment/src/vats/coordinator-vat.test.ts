@@ -1430,6 +1430,60 @@ describe('coordinator-vat', () => {
       expect(caps.autonomy).toMatch(/^autonomous/u);
       expect(caps.chainId).toBe(11155111);
     });
+
+    it('reports autonomy via peer relay when no bundler and no 7702', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        getCapabilities: vi.fn().mockResolvedValue({ signingMode: 'local' }),
+        handleSigningRequest: vi.fn(),
+        handleRedemptionRequest: vi.fn(),
+        registerAwayWallet: vi.fn().mockResolvedValue(undefined),
+        registerDelegateAddress: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+      freshBaggage.init('cachedPeerAccounts', [peerAddress]);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await coord.bootstrap(
+        {
+          keyring: keyringVat,
+          provider: providerVat,
+          delegation: delegationVat,
+        },
+        {},
+      );
+
+      await coord.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      // Create delegation — no bundler, no 7702, but peer wallet is connected
+      await coord.createDelegation({
+        delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
+        caveats: [],
+        chainId: 1,
+      });
+
+      const caps = await coord.getCapabilities();
+      expect(caps.hasBundlerConfig).toBe(false);
+      expect(caps.hasPeerWallet).toBe(true);
+      expect(caps.autonomy).toMatch(/^autonomous/u);
+      expect(caps.autonomy).toContain('relay, requires home online');
+    });
   });
 
   describe('handleSigningRequest', () => {
@@ -1850,6 +1904,199 @@ describe('coordinator-vat', () => {
       await expect(
         coordinator.pushDelegationToAway(delegation),
       ).rejects.toThrow('CapTP connection lost');
+    });
+  });
+
+  describe('handleRedemptionRequest', () => {
+    it('executes single delegation redemption on behalf of peer', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      const delegation = await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [],
+        chainId: 1,
+      });
+
+      const result = await coordinator.handleRedemptionRequest({
+        type: 'single',
+        delegations: [delegation],
+        execution: {
+          target: TARGET,
+          value: '0x0' as Hex,
+          callData: '0x' as Hex,
+        },
+        maxFeePerGas: '0x3b9aca00' as Hex,
+        maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      });
+
+      expect(result).toBe('0xuserophash');
+    });
+
+    it('executes batch delegation redemption on behalf of peer', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      const delegation = await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [],
+        chainId: 1,
+      });
+
+      const result = await coordinator.handleRedemptionRequest({
+        type: 'batch',
+        delegations: [delegation],
+        executions: [
+          { target: TARGET, value: '0x0' as Hex, callData: '0x' as Hex },
+          { target: TARGET, value: '0x1' as Hex, callData: '0x' as Hex },
+        ],
+      });
+
+      expect(result).toBe('0xuserophash');
+    });
+
+    it('throws for empty delegations array', async () => {
+      await expect(
+        coordinator.handleRedemptionRequest({
+          type: 'single',
+          delegations: [],
+        }),
+      ).rejects.toThrow('Missing or empty delegations in redemption request');
+    });
+
+    it('throws for single request without execution', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      const delegation = await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [],
+        chainId: 1,
+      });
+
+      await expect(
+        coordinator.handleRedemptionRequest({
+          type: 'single',
+          delegations: [delegation],
+        }),
+      ).rejects.toThrow('Missing execution in single redemption request');
+    });
+
+    it('throws for batch request without executions', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      const delegation = await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [],
+        chainId: 1,
+      });
+
+      await expect(
+        coordinator.handleRedemptionRequest({
+          type: 'batch',
+          delegations: [delegation],
+        }),
+      ).rejects.toThrow('Missing executions in batch redemption request');
+    });
+
+    it('throws for unknown redemption request type', async () => {
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      await coordinator.configureBundler({
+        bundlerUrl: 'https://bundler.example.com',
+        chainId: 1,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      const delegation = await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [],
+        chainId: 1,
+      });
+
+      await expect(
+        coordinator.handleRedemptionRequest({
+          type: 'unknown',
+          delegations: [delegation],
+        }),
+      ).rejects.toThrow('Unknown redemption request type: unknown');
+    });
+
+    it('rejects relayed request when no bundler or 7702 configured', async () => {
+      // No bundler, no 7702 — cannot fulfill relayed requests
+      await coordinator.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const accounts = await coordinator.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      const delegation = await coordinator.createDelegation({
+        delegate: delegator,
+        caveats: [],
+        chainId: 1,
+      });
+
+      await expect(
+        coordinator.handleRedemptionRequest({
+          type: 'single',
+          delegations: [delegation],
+          execution: {
+            target: TARGET,
+            value: '0x0' as Hex,
+            callData: '0x' as Hex,
+          },
+        }),
+      ).rejects.toThrow(
+        'Cannot fulfill relayed redemption: no bundler or direct 7702 configured',
+      );
     });
   });
 
@@ -2638,7 +2885,7 @@ describe('coordinator-vat', () => {
       ).rejects.toThrow('No matching delegation found');
     });
 
-    it('throws when bundler is not configured', async () => {
+    it('throws when bundler is not configured and no peer wallet', async () => {
       await coordinator.initializeKeyring({
         type: 'srp',
         mnemonic: TEST_MNEMONIC,
@@ -2666,7 +2913,354 @@ describe('coordinator-vat', () => {
           maxFeePerGas: '0x3b9aca00' as Hex,
           maxPriorityFeePerGas: '0x3b9aca00' as Hex,
         }),
-      ).rejects.toThrow('Bundler not configured');
+      ).rejects.toThrow(
+        'Bundler not configured and no peer wallet available for relay',
+      );
+    });
+
+    it('relays single delegation redemption to peer when no bundler', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        getCapabilities: vi.fn().mockResolvedValue({ signingMode: 'local' }),
+        handleSigningRequest: vi.fn(),
+        handleRedemptionRequest: vi
+          .fn()
+          .mockResolvedValue('0xrelayedhash' as Hex),
+        registerAwayWallet: vi.fn().mockResolvedValue(undefined),
+        registerDelegateAddress: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await coord.bootstrap(
+        {
+          keyring: keyringVat,
+          provider: providerVat,
+          delegation: delegationVat,
+        },
+        {},
+      );
+
+      await coord.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const accounts = await coord.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      const delegation = await coord.createDelegation({
+        delegate: delegator,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([TARGET]),
+          }),
+        ],
+        chainId: 1,
+      });
+
+      // No configureBundler — forces relay path
+      const result = await coord.redeemDelegation({
+        execution: {
+          target: TARGET,
+          value: '0x0' as Hex,
+          callData: '0x' as Hex,
+        },
+        delegationId: delegation.id,
+        maxFeePerGas: '0x3b9aca00' as Hex,
+        maxPriorityFeePerGas: '0x3b9aca00' as Hex,
+      });
+
+      expect(result).toBe('0xrelayedhash');
+      expect(mockPeerWallet.handleRedemptionRequest).toHaveBeenCalledWith({
+        type: 'single',
+        delegations: [expect.objectContaining({ id: delegation.id })],
+        execution: {
+          target: TARGET,
+          value: '0x0',
+          callData: '0x',
+        },
+        maxFeePerGas: '0x3b9aca00',
+        maxPriorityFeePerGas: '0x3b9aca00',
+      });
+    });
+
+    it('relays batch delegation redemption to peer when no bundler', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        getCapabilities: vi.fn().mockResolvedValue({ signingMode: 'local' }),
+        handleSigningRequest: vi.fn(),
+        handleRedemptionRequest: vi
+          .fn()
+          .mockResolvedValue('0xrelayedbatch' as Hex),
+        registerAwayWallet: vi.fn().mockResolvedValue(undefined),
+        registerDelegateAddress: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await coord.bootstrap(
+        {
+          keyring: keyringVat,
+          provider: providerVat,
+          delegation: delegationVat,
+        },
+        {},
+      );
+
+      await coord.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const accounts = await coord.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      // Create delegation with allowedTargets for TARGET
+      const delegation = await coord.createDelegation({
+        delegate: delegator,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([TARGET]),
+          }),
+        ],
+        chainId: 1,
+      });
+
+      // sendBatchTransaction routes through delegation batch path
+      const result = await coord.sendBatchTransaction([
+        { from: delegator, to: TARGET, value: '0x1' as Hex },
+        { from: delegator, to: TARGET, value: '0x2' as Hex },
+      ]);
+
+      expect(result).toBe('0xrelayedbatch');
+      expect(mockPeerWallet.handleRedemptionRequest).toHaveBeenCalledWith({
+        type: 'batch',
+        delegations: [expect.objectContaining({ id: delegation.id })],
+        executions: [
+          { target: TARGET, value: '0x1', callData: '0x' },
+          { target: TARGET, value: '0x2', callData: '0x' },
+        ],
+      });
+    });
+
+    it('relays sendTransaction via peer when delegation matches and no bundler', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        getCapabilities: vi.fn().mockResolvedValue({ signingMode: 'local' }),
+        handleSigningRequest: vi.fn(),
+        handleRedemptionRequest: vi
+          .fn()
+          .mockResolvedValue('0xrelayedtx' as Hex),
+        registerAwayWallet: vi.fn().mockResolvedValue(undefined),
+        registerDelegateAddress: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await coord.bootstrap(
+        {
+          keyring: keyringVat,
+          provider: providerVat,
+          delegation: delegationVat,
+        },
+        {},
+      );
+
+      await coord.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const accounts = await coord.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      await coord.createDelegation({
+        delegate: delegator,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([TARGET]),
+          }),
+        ],
+        chainId: 1,
+      });
+
+      // sendTransaction matches delegation and relays via peer
+      const result = await coord.sendTransaction({
+        from: delegator,
+        to: TARGET,
+        value: '0x1' as Hex,
+      });
+
+      expect(result).toBe('0xrelayedtx');
+      expect(mockPeerWallet.handleRedemptionRequest).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'single' }),
+      );
+    });
+
+    it('propagates peer relay errors to the caller', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        getCapabilities: vi.fn().mockResolvedValue({ signingMode: 'local' }),
+        handleSigningRequest: vi.fn(),
+        handleRedemptionRequest: vi
+          .fn()
+          .mockRejectedValue(new Error('CapTP connection lost')),
+        registerAwayWallet: vi.fn().mockResolvedValue(undefined),
+        registerDelegateAddress: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await coord.bootstrap(
+        {
+          keyring: keyringVat,
+          provider: providerVat,
+          delegation: delegationVat,
+        },
+        {},
+      );
+
+      await coord.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const accounts = await coord.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      const delegation = await coord.createDelegation({
+        delegate: delegator,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([TARGET]),
+          }),
+        ],
+        chainId: 1,
+      });
+
+      await expect(
+        coord.redeemDelegation({
+          execution: {
+            target: TARGET,
+            value: '0x0' as Hex,
+            callData: '0x' as Hex,
+          },
+          delegationId: delegation.id,
+        }),
+      ).rejects.toThrow('CapTP connection lost');
+    });
+
+    it('throws for non-delegation batch when peer is set but no bundler', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        getCapabilities: vi.fn().mockResolvedValue({ signingMode: 'local' }),
+        handleSigningRequest: vi.fn(),
+        handleRedemptionRequest: vi.fn(),
+        registerAwayWallet: vi.fn().mockResolvedValue(undefined),
+        registerDelegateAddress: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await coord.bootstrap(
+        {
+          keyring: keyringVat,
+          provider: providerVat,
+          delegation: delegationVat,
+        },
+        {},
+      );
+
+      await coord.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const accounts = await coord.getAccounts();
+      const sender = accounts[0] as Address;
+
+      // Non-delegation target — no delegation covers this address
+      const otherTarget =
+        '0x9999999999999999999999999999999999999999' as Address;
+
+      await expect(
+        coord.sendBatchTransaction([
+          { from: sender, to: otherTarget, value: '0x1' as Hex },
+          { from: sender, to: otherTarget, value: '0x2' as Hex },
+        ]),
+      ).rejects.toThrow(
+        'Non-delegation batch execution requires a bundler or direct 7702',
+      );
     });
 
     it('rejects delegations with non-signed status', async () => {

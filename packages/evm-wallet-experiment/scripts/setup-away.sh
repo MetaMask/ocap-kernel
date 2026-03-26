@@ -493,7 +493,7 @@ if [[ -n "$PIMLICO_KEY" ]]; then
     info "Smart account creation returned no address — redemption may not work"
   fi
 else
-  info "Skipping bundler config (no --pimlico-key). UserOp submission will not work."
+  info "Skipping bundler config (no --pimlico-key). Delegation redemptions will be relayed to the home wallet (requires home online)."
 fi
 
 # ---------------------------------------------------------------------------

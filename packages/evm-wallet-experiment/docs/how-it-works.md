@@ -81,8 +81,9 @@ Both devices create **DeleGator smart accounts** via MetaMask's Delegation Frame
 
 **Submission path:**
 
-- **Hybrid** — redemption, batch execution, and revocation go through **ERC-4337 UserOperations** (bundler + optional paymaster). Gas can be sponsored so the agent does not need ETH.
+- **Hybrid (with bundler)** — redemption, batch execution, and revocation go through **ERC-4337 UserOperations** (bundler + optional paymaster). Gas can be sponsored so the agent does not need ETH.
 - **Stateless 7702 (home / mnemonic)** — the same SDK-encoded `execute` calldata is sent as a **normal EIP-1559 transaction** (self-call on the upgraded EOA) via your configured JSON-RPC provider (e.g. Infura). No bundler is required for redemption or revocation; the EOA pays gas.
+- **Peer relay (away, no bundler)** — the away wallet relays the delegation + execution to the home wallet via CapTP. The home wallet submits the redemption using its own path (direct 7702 or bundler). This requires the home wallet to be online but eliminates the need for a Pimlico API key on the away device.
 
 All modes support:
 
