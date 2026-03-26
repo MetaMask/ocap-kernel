@@ -1,4 +1,122 @@
 /**
+ * A role in a chat conversation.
+ */
+export type ChatRole = 'system' | 'user' | 'assistant';
+
+/**
+ * A single message in a chat conversation.
+ */
+export type ChatMessage = {
+  role: ChatRole;
+  content: string;
+};
+
+/**
+ * Token usage statistics for a completion request.
+ */
+export type Usage = {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+};
+
+/**
+ * Options shared by raw sampling requests.
+ */
+export type SampleOptions = {
+  temperature?: number;
+  top_p?: number;
+  seed?: number;
+  max_tokens?: number;
+  stop?: string | string[];
+};
+
+/**
+ * Parameters for a raw token-prediction request (bypasses chat template).
+ */
+export type SampleParams = {
+  model: string;
+  prompt: string;
+} & SampleOptions;
+
+/**
+ * Result of a raw token-prediction request.
+ */
+export type SampleResult = {
+  text: string;
+};
+
+/**
+ * Parameters for a chat completion request.
+ */
+export type ChatParams = {
+  model: string;
+  messages: ChatMessage[];
+  max_tokens?: number;
+  temperature?: number;
+  top_p?: number;
+  stop?: string | string[];
+  seed?: number;
+  n?: number;
+  /** When `true`, the response is an SSE stream of {@link ChatStreamChunk}s. */
+  stream?: boolean;
+};
+
+/**
+ * A partial message delta from a streaming chat completion response.
+ */
+export type ChatStreamDelta = {
+  role?: ChatRole;
+  content?: string;
+};
+
+/**
+ * A single chunk from a streaming chat completion response.
+ */
+export type ChatStreamChunk = {
+  id: string;
+  model: string;
+  choices: {
+    delta: ChatStreamDelta;
+    index: number;
+    finish_reason: string | null;
+  }[];
+};
+
+/**
+ * A single choice in a chat completion response.
+ */
+export type ChatChoice = {
+  message: ChatMessage;
+  index: number;
+  finish_reason: string | null;
+};
+
+/**
+ * Result of a chat completion request.
+ */
+export type ChatResult = {
+  id: string;
+  model: string;
+  choices: ChatChoice[];
+  usage: Usage;
+};
+
+/**
+ * Minimal service interface required by `makeChatClient`.
+ */
+export type ChatService = {
+  chat: (params: ChatParams) => Promise<ChatResult>;
+};
+
+/**
+ * Minimal service interface required by `makeSampleClient`.
+ */
+export type SampleService = {
+  sample: (params: SampleParams) => Promise<SampleResult>;
+};
+
+/**
  * Configuration information for a language model.
  * Contains the model identifier and optional configuration parameters.
  *

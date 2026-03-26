@@ -1,5 +1,11 @@
 import { Ollama } from 'ollama';
 
+import type {
+  ChatParams,
+  ChatResult,
+  SampleParams,
+  SampleResult,
+} from '../types.ts';
 import { OllamaBaseService } from './base.ts';
 import { defaultClientConfig } from './constants.ts';
 import type { OllamaClient, OllamaNodejsConfig } from './types.ts';
@@ -34,3 +40,23 @@ export class OllamaNodejsService extends OllamaBaseService<OllamaClient> {
     );
   }
 }
+
+/**
+ * Creates a hardened kernel service backend backed by a local Ollama instance.
+ *
+ * @param config - Configuration for the Ollama Node.js service.
+ * @returns An object with `chat` and `sample` methods for use with
+ *   `makeKernelLanguageModelService`.
+ */
+export const makeOllamaNodejsKernelService = (
+  config: OllamaNodejsConfig,
+): {
+  chat: (params: ChatParams) => Promise<ChatResult>;
+  sample: (params: SampleParams) => Promise<SampleResult>;
+} => {
+  const service = new OllamaNodejsService(config);
+  return harden({
+    chat: async (params: ChatParams) => service.chat(params),
+    sample: async (params: SampleParams) => service.sample(params),
+  });
+};
