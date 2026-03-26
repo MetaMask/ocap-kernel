@@ -8,6 +8,9 @@ import type { TestDaemon } from './helpers.ts';
 import { spawnTestDaemon, waitForDaemonStop } from './helpers.ts';
 import { sendCommand, pingDaemon } from '../../src/commands/daemon-client.ts';
 
+// NOTE: `redeem-url` is not tested here because it requires remote comms
+// infrastructure (relay + peer). See unit tests in src/commands/daemon.test.ts.
+
 describe('Daemon CLI e2e', { timeout: 60_000 }, () => {
   describe('start / exec / queueMessage', () => {
     let daemon: TestDaemon;
@@ -52,6 +55,15 @@ describe('Daemon CLI e2e', { timeout: 60_000 }, () => {
 
       expect(response.error).toBeUndefined();
       expect(Array.isArray(response.result)).toBe(true);
+    });
+
+    it('returns error for queueMessage with invalid kref', async () => {
+      const response = await sendCommand({
+        socketPath: daemon.socketPath,
+        method: 'queueMessage',
+        params: ['ko99999', 'someMethod', []],
+      });
+      expect(response.error).toBeDefined();
     });
 
     it('writes state files to OCAP_HOME', () => {

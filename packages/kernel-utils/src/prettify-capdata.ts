@@ -35,6 +35,9 @@ export function prettifyCapData(capData: {
  */
 function walkValue(value: unknown, slots: string[]): unknown {
   if (typeof value === 'string') {
+    if (value.startsWith('!')) {
+      return value.slice(1);
+    }
     const match = SLOT_REF_PATTERN.exec(value);
     if (match) {
       const index = Number(match[2]);

@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { handleDaemonStart, handleRedeemURL } from './daemon.ts';
+import {
+  handleDaemonQueueMessage,
+  handleDaemonStart,
+  handleRedeemURL,
+} from './daemon.ts';
 import { isProcessAlive, readPidFile } from '../utils.ts';
 
 vi.mock('@metamask/kernel-node-runtime/daemon', () => ({
@@ -268,5 +272,134 @@ describe('handleRedeemURL', () => {
     );
     expect(stdoutSpy).not.toHaveBeenCalled();
     expect(process.exitCode).toBe(1);
+  });
+});
+
+describe('handleDaemonQueueMessage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    process.exitCode = undefined;
+  });
+
+  it('sends queueMessage RPC with positional params', async () => {
+    const { sendCommand } = await import('./daemon-client.ts');
+    vi.mocked(sendCommand).mockResolvedValueOnce({
+      jsonrpc: '2.0',
+      id: '1',
+      result: { body: '#"ok"', slots: [] },
+    });
+    vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    await handleDaemonQueueMessage({
+      target: 'ko1',
+      method: 'doStuff',
+      args: [1, 2],
+      socketPath,
+    });
+
+    expect(sendCommand).toHaveBeenCalledWith({
+      socketPath,
+      method: 'queueMessage',
+      params: ['ko1', 'doStuff', [1, 2]],
+    });
+  });
+
+  it('prints prettified CapData on success', async () => {
+    const { sendCommand } = await import('./daemon-client.ts');
+    vi.mocked(sendCommand).mockResolvedValueOnce({
+      jsonrpc: '2.0',
+      id: '1',
+      result: { body: '#"hello"', slots: [] },
+    });
+
+    const { prettifyCapData } = await import('@metamask/kernel-utils');
+    vi.mocked(prettifyCapData).mockReturnValueOnce('hello');
+
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    await handleDaemonQueueMessage({
+      target: 'ko1',
+      method: 'greet',
+      args: [],
+      socketPath,
+    });
+
+    expect(prettifyCapData).toHaveBeenCalledWith({
+      body: '#"hello"',
+      slots: [],
+    });
+    expect(stdoutSpy).toHaveBeenCalledWith('"hello"\n');
+  });
+
+  it('prints raw CapData when raw is true', async () => {
+    const { sendCommand } = await import('./daemon-client.ts');
+    const rawResult = { body: '#"hello"', slots: [] };
+    vi.mocked(sendCommand).mockResolvedValueOnce({
+      jsonrpc: '2.0',
+      id: '1',
+      result: rawResult,
+    });
+
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    await handleDaemonQueueMessage({
+      target: 'ko1',
+      method: 'greet',
+      args: [],
+      socketPath,
+      raw: true,
+    });
+
+    expect(stdoutSpy).toHaveBeenCalledWith(`${JSON.stringify(rawResult)}\n`);
+  });
+
+  it('prints error and sets exit code on RPC failure', async () => {
+    const { sendCommand } = await import('./daemon-client.ts');
+    vi.mocked(sendCommand).mockResolvedValueOnce({
+      jsonrpc: '2.0',
+      id: '1',
+      error: { code: -32603, message: 'target not found' },
+    });
+
+    const stderrSpy = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+    const stdoutSpy = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    await handleDaemonQueueMessage({
+      target: 'ko999',
+      method: 'nope',
+      args: [],
+      socketPath,
+    });
+
+    expect(stderrSpy).toHaveBeenCalledWith(
+      'Error: target not found (code -32603)\n',
+    );
+    expect(stdoutSpy).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
+  });
+
+  it('forwards timeoutMs when provided', async () => {
+    const { sendCommand } = await import('./daemon-client.ts');
+    vi.mocked(sendCommand).mockResolvedValueOnce({
+      jsonrpc: '2.0',
+      id: '1',
+      result: { body: '#null', slots: [] },
+    });
+    vi.spyOn(process.stdout, 'write').mockReturnValue(true);
+
+    await handleDaemonQueueMessage({
+      target: 'ko1',
+      method: 'slow',
+      args: [],
+      socketPath,
+      timeoutMs: 30_000,
+    });
+
+    expect(sendCommand).toHaveBeenCalledWith({
+      socketPath,
+      method: 'queueMessage',
+      params: ['ko1', 'slow', []],
+      timeoutMs: 30_000,
+    });
   });
 });

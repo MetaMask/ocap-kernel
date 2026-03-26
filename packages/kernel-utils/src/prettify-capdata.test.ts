@@ -47,13 +47,21 @@ describe('prettifyCapData', () => {
   it('decodes nested arrays and objects', () => {
     expect(
       prettifyCapData({
-        body: '#{"items":["$0","$1"],"meta":{"ref":"&0"}}',
+        body: '#{"items":["$0","$1"],"meta":{"ref":"&2"}}',
         slots: ['ko1', 'ko2', 'kp3'],
       }),
     ).toStrictEqual({
       items: ['<ko1>', '<ko2>'],
-      meta: { ref: '<ko1>' },
+      meta: { ref: '<kp3>' },
     });
+  });
+
+  it('strips smallcaps escape prefix from strings', () => {
+    expect(prettifyCapData({ body: '#"!$0"', slots: ['ko1'] })).toBe('$0');
+  });
+
+  it('strips double escape prefix', () => {
+    expect(prettifyCapData({ body: '#"!!hello"', slots: [] })).toBe('!hello');
   });
 
   it('leaves non-slot strings unchanged', () => {
