@@ -232,6 +232,7 @@ jobs:
     if: ${{ always() }}
     needs:
       - detect-changes
+      - check-skip-merge-queue
       - check-workflows
       - analyse-code
       - lint-build-test
@@ -261,8 +262,10 @@ jobs:
           fi
 
           # check-workflows runs for both CI and code changes; require it when either is present
+          # It is intentionally skipped when the merge queue decides to skip (PR already up-to-date)
           if [[ "$HAS_CI" == "true" || "$HAS_CODE" == "true" ]]; then
-            if [[ "${{ needs.check-workflows.result }}" != "success" ]]; then
+            if [[ "${{ needs.check-skip-merge-queue.outputs.skip-merge-queue }}" != "true" \
+                  && "${{ needs.check-workflows.result }}" != "success" ]]; then
               echo "check-workflows did not succeed"
               exit 1
             fi
