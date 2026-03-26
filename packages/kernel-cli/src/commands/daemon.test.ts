@@ -1,3 +1,4 @@
+import '@metamask/kernel-shims/endoify';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -11,7 +12,8 @@ vi.mock('@metamask/kernel-node-runtime/daemon', () => ({
   deleteDaemonState: vi.fn(),
 }));
 
-vi.mock('@metamask/kernel-utils', () => ({
+vi.mock('@metamask/kernel-utils', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@metamask/kernel-utils')>()),
   prettifySmallcaps: vi.fn((val: unknown) => val),
 }));
 

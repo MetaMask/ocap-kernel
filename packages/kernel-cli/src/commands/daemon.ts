@@ -1,5 +1,6 @@
 import { deleteDaemonState } from '@metamask/kernel-node-runtime/daemon';
-import { prettifySmallcaps } from '@metamask/kernel-utils';
+import { isCapData, prettifySmallcaps } from '@metamask/kernel-utils';
+import type { JsonRpcFailure } from '@metamask/utils';
 import { isJsonRpcFailure } from '@metamask/utils';
 import { readFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -18,6 +19,18 @@ import { ensureDaemon } from './daemon-spawn.ts';
 import { getRelayAddrPath, getRelayPidPath } from './relay.ts';
 
 const home = homedir();
+
+/**
+ * Format a JSON-RPC error for stderr and set exit code 1.
+ *
+ * @param response - The failed JSON-RPC response.
+ */
+function writeRpcError(response: JsonRpcFailure): void {
+  process.stderr.write(
+    `Error: ${response.error.message} (code ${String(response.error.code)})\n`,
+  );
+  process.exitCode = 1;
+}
 
 /**
  * Replace the home directory prefix with `~` for display.
@@ -285,10 +298,7 @@ export async function handleDaemonExec(
   });
 
   if (isJsonRpcFailure(response)) {
-    process.stderr.write(
-      `Error: ${response.error.message} (code ${String(response.error.code)})\n`,
-    );
-    process.exitCode = 1;
+    writeRpcError(response);
     return;
   }
 
@@ -317,10 +327,7 @@ export async function handleRedeemURL(
   });
 
   if (isJsonRpcFailure(response)) {
-    process.stderr.write(
-      `Error: ${response.error.message} (code ${String(response.error.code)})\n`,
-    );
-    process.exitCode = 1;
+    writeRpcError(response);
     return;
   }
 
@@ -362,19 +369,15 @@ export async function handleDaemonQueueMessage({
   });
 
   if (isJsonRpcFailure(response)) {
-    process.stderr.write(
-      `Error: ${response.error.message} (code ${String(response.error.code)})\n`,
-    );
-    process.exitCode = 1;
+    writeRpcError(response);
     return;
   }
 
   let output: unknown;
-  if (raw) {
+  if (raw || !isCapData(response.result)) {
     output = response.result;
   } else {
-    const result = response.result as { body: string; slots: string[] };
-    output = prettifySmallcaps(result);
+    output = prettifySmallcaps(response.result);
   }
 
   const isTTY = process.stdout.isTTY ?? false;
