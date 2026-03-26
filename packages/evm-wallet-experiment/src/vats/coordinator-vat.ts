@@ -1071,13 +1071,21 @@ export function buildRootObject(
 
     if (!bundlerConfig) {
       if (peerWallet) {
-        return E(peerWallet).handleRedemptionRequest({
-          type: 'single',
-          delegations: options.delegations,
-          execution: options.execution,
-          maxFeePerGas: options.maxFeePerGas,
-          maxPriorityFeePerGas: options.maxPriorityFeePerGas,
-        });
+        try {
+          return await E(peerWallet).handleRedemptionRequest({
+            type: 'single',
+            delegations: options.delegations,
+            execution: options.execution,
+            maxFeePerGas: options.maxFeePerGas,
+            maxPriorityFeePerGas: options.maxPriorityFeePerGas,
+          });
+        } catch (relayError) {
+          throw new Error(
+            'Failed to relay delegation redemption to home wallet — ' +
+              'ensure the home device is online and try again',
+            { cause: relayError },
+          );
+        }
       }
       throw new Error(
         'Bundler not configured and no peer wallet available for relay',
@@ -1133,11 +1141,19 @@ export function buildRootObject(
 
     if (!bundlerConfig) {
       if (peerWallet) {
-        return E(peerWallet).handleRedemptionRequest({
-          type: 'batch',
-          delegations: options.delegations,
-          executions: options.executions,
-        });
+        try {
+          return await E(peerWallet).handleRedemptionRequest({
+            type: 'batch',
+            delegations: options.delegations,
+            executions: options.executions,
+          });
+        } catch (relayError) {
+          throw new Error(
+            'Failed to relay batch delegation redemption to home wallet — ' +
+              'ensure the home device is online and try again',
+            { cause: relayError },
+          );
+        }
       }
       throw new Error(
         'Bundler not configured and no peer wallet available for relay',
@@ -1756,7 +1772,7 @@ export function buildRootObject(
       const useSmartAccountBatchPath =
         bundlerConfig !== undefined ||
         isDirect7702Batch ||
-        peerWallet !== undefined;
+        (peerWallet !== undefined && delegationVat !== undefined);
 
       // Smart account path: single UserOp or direct 7702 self-call
       if (useSmartAccountBatchPath) {

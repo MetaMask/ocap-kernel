@@ -3204,7 +3204,7 @@ describe('coordinator-vat', () => {
           },
           delegationId: delegation.id,
         }),
-      ).rejects.toThrow('CapTP connection lost');
+      ).rejects.toThrow('Failed to relay delegation redemption to home wallet');
     });
 
     it('throws for non-delegation batch when peer is set but no bundler', async () => {
