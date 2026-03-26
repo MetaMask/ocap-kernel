@@ -1,3 +1,4 @@
+/* eslint-disable n/no-process-env -- testing env var behavior */
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';

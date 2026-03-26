@@ -303,7 +303,7 @@ const yargsInstance = yargs(hideBin(process.argv))
                 'Run a SQL query',
               )
               .option('timeout', {
-                describe: 'Read timeout in seconds (default: 30)',
+                describe: 'Read timeout in seconds (default: no timeout)',
                 type: 'number',
               })
               .example(
@@ -372,7 +372,7 @@ const yargsInstance = yargs(hideBin(process.argv))
                 default: false,
               })
               .option('timeout', {
-                describe: 'Read timeout in seconds (default: 30)',
+                describe: 'Read timeout in seconds (default: no timeout)',
                 type: 'number',
               })
               .example(

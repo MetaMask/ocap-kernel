@@ -1,5 +1,5 @@
+import { getOcapHome } from '@metamask/kernel-utils/nodejs';
 import { rm } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 /**
@@ -22,7 +22,7 @@ export type DeleteDaemonStateOptions = {
 export async function deleteDaemonState(
   options?: DeleteDaemonStateOptions,
 ): Promise<void> {
-  const ocapDir = options?.ocapHome ?? join(homedir(), '.ocap');
+  const ocapDir = options?.ocapHome ?? getOcapHome();
   const socketPath = options?.socketPath ?? join(ocapDir, 'daemon.sock');
   const dbFilename = options?.dbFilename ?? join(ocapDir, 'kernel.sqlite');
   const bundlesDir = join(ocapDir, 'bundles');

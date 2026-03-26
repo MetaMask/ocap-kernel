@@ -42,7 +42,7 @@ type SendCommandOptions = {
   method: string;
   /** Optional method parameters (object or positional array). */
   params?: Record<string, unknown> | unknown[] | undefined;
-  /** Read timeout in milliseconds (default: 30 000). */
+  /** Read timeout in milliseconds (default: no timeout). */
   timeoutMs?: number | undefined;
 };
 
@@ -57,14 +57,14 @@ type SendCommandOptions = {
  * @param options.socketPath - The UNIX socket path.
  * @param options.method - The RPC method name.
  * @param options.params - Optional method parameters.
- * @param options.timeoutMs - Read timeout in milliseconds (default: 30 000).
+ * @param options.timeoutMs - Read timeout in milliseconds (default: no timeout).
  * @returns The parsed JSON-RPC response.
  */
 export async function sendCommand({
   socketPath,
   method,
   params,
-  timeoutMs = 30_000,
+  timeoutMs,
 }: SendCommandOptions): Promise<JsonRpcResponse> {
   const id = randomUUID();
   const request = {

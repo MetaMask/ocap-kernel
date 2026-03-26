@@ -59,6 +59,16 @@
         "default": "./dist/libp2p-relay.cjs"
       }
     },
+    "./nodejs": {
+      "import": {
+        "types": "./dist/nodejs/index.d.mts",
+        "default": "./dist/nodejs/index.mjs"
+      },
+      "require": {
+        "types": "./dist/nodejs/index.d.cts",
+        "default": "./dist/nodejs/index.cjs"
+      }
+    },
     "./vite-plugins": {
       "import": {
         "types": "./dist/vite-plugins/index.d.mts",
