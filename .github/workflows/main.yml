@@ -81,7 +81,7 @@ jobs:
                 HAS_LINT_TARGETS=true
                 ;;
               # Documentation (lint-worthy for prettier, but not code)
-              *.md|*.txt|docs/*|LICENSE)
+              *.md|*.txt|docs/*|LICENSE*)
                 HAS_LINT_TARGETS=true
                 ;;
               # Config/tooling (lint-worthy but not code)
