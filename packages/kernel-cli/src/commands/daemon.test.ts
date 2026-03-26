@@ -12,7 +12,7 @@ vi.mock('@metamask/kernel-node-runtime/daemon', () => ({
 }));
 
 vi.mock('@metamask/kernel-utils', () => ({
-  prettifyCapData: vi.fn((val: unknown) => val),
+  prettifySmallcaps: vi.fn((val: unknown) => val),
 }));
 
 vi.mock('node:fs/promises', async (importOriginal) => ({
@@ -312,8 +312,8 @@ describe('handleDaemonQueueMessage', () => {
       result: { body: '#"hello"', slots: [] },
     });
 
-    const { prettifyCapData } = await import('@metamask/kernel-utils');
-    vi.mocked(prettifyCapData).mockReturnValueOnce('hello');
+    const { prettifySmallcaps } = await import('@metamask/kernel-utils');
+    vi.mocked(prettifySmallcaps).mockReturnValueOnce('hello');
 
     const stdoutSpy = vi.spyOn(process.stdout, 'write').mockReturnValue(true);
 
@@ -324,7 +324,7 @@ describe('handleDaemonQueueMessage', () => {
       socketPath,
     });
 
-    expect(prettifyCapData).toHaveBeenCalledWith({
+    expect(prettifySmallcaps).toHaveBeenCalledWith({
       body: '#"hello"',
       slots: [],
     });

@@ -29,7 +29,7 @@ describe('index', () => {
       'makeDefaultInterface',
       'makeDiscoverableExo',
       'mergeDisjointRecords',
-      'prettifyCapData',
+      'prettifySmallcaps',
       'retry',
       'retryWithBackoff',
       'stringify',

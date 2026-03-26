@@ -1,5 +1,5 @@
 import { deleteDaemonState } from '@metamask/kernel-node-runtime/daemon';
-import { prettifyCapData } from '@metamask/kernel-utils';
+import { prettifySmallcaps } from '@metamask/kernel-utils';
 import { isJsonRpcFailure } from '@metamask/utils';
 import { readFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
@@ -374,7 +374,7 @@ export async function handleDaemonQueueMessage({
     output = response.result;
   } else {
     const result = response.result as { body: string; slots: string[] };
-    output = prettifyCapData(result);
+    output = prettifySmallcaps(result);
   }
 
   const isTTY = process.stdout.isTTY ?? false;
