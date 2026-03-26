@@ -1050,6 +1050,34 @@ export function buildRootObject(
     maxFeePerGas?: Hex | undefined;
     maxPriorityFeePerGas?: Hex | undefined;
   }): Promise<Hex> {
+    // Check the relay path first — it forwards raw delegations/execution to
+    // the home wallet and does not need local chain ID or SDK calldata.
+    if (!bundlerConfig && !smartAccountConfig) {
+      if (peerWallet) {
+        try {
+          return await E(peerWallet).handleRedemptionRequest({
+            type: 'single',
+            delegations: options.delegations,
+            execution: options.execution,
+            maxFeePerGas: options.maxFeePerGas,
+            maxPriorityFeePerGas: options.maxPriorityFeePerGas,
+          });
+        } catch (relayError) {
+          const detail =
+            relayError instanceof Error
+              ? relayError.message
+              : String(relayError);
+          throw new Error(
+            `Failed to relay delegation redemption to home wallet: ${detail}`,
+            { cause: relayError },
+          );
+        }
+      }
+      throw new Error(
+        'Bundler not configured and no peer wallet available for relay',
+      );
+    }
+
     const sender =
       smartAccountConfig?.address ?? options.delegations[0].delegate;
 
@@ -1070,25 +1098,8 @@ export function buildRootObject(
     }
 
     if (!bundlerConfig) {
-      if (peerWallet) {
-        try {
-          return await E(peerWallet).handleRedemptionRequest({
-            type: 'single',
-            delegations: options.delegations,
-            execution: options.execution,
-            maxFeePerGas: options.maxFeePerGas,
-            maxPriorityFeePerGas: options.maxPriorityFeePerGas,
-          });
-        } catch (relayError) {
-          throw new Error(
-            'Failed to relay delegation redemption to home wallet — ' +
-              'ensure the home device is online and try again',
-            { cause: relayError },
-          );
-        }
-      }
       throw new Error(
-        'Bundler not configured and no peer wallet available for relay',
+        'Bundler not configured (required for hybrid smart account redemption)',
       );
     }
 
@@ -1122,6 +1133,32 @@ export function buildRootObject(
     delegations: Delegation[];
     executions: Execution[];
   }): Promise<Hex> {
+    // Check the relay path first — it forwards raw delegations/executions to
+    // the home wallet and does not need local chain ID or SDK calldata.
+    if (!bundlerConfig && !smartAccountConfig) {
+      if (peerWallet) {
+        try {
+          return await E(peerWallet).handleRedemptionRequest({
+            type: 'batch',
+            delegations: options.delegations,
+            executions: options.executions,
+          });
+        } catch (relayError) {
+          const detail =
+            relayError instanceof Error
+              ? relayError.message
+              : String(relayError);
+          throw new Error(
+            `Failed to relay batch delegation redemption to home wallet: ${detail}`,
+            { cause: relayError },
+          );
+        }
+      }
+      throw new Error(
+        'Bundler not configured and no peer wallet available for relay',
+      );
+    }
+
     const sender =
       smartAccountConfig?.address ?? options.delegations[0]?.delegate;
     if (!sender) {
@@ -1140,23 +1177,8 @@ export function buildRootObject(
     }
 
     if (!bundlerConfig) {
-      if (peerWallet) {
-        try {
-          return await E(peerWallet).handleRedemptionRequest({
-            type: 'batch',
-            delegations: options.delegations,
-            executions: options.executions,
-          });
-        } catch (relayError) {
-          throw new Error(
-            'Failed to relay batch delegation redemption to home wallet — ' +
-              'ensure the home device is online and try again',
-            { cause: relayError },
-          );
-        }
-      }
       throw new Error(
-        'Bundler not configured and no peer wallet available for relay',
+        'Bundler not configured (required for hybrid smart account batch redemption)',
       );
     }
 
@@ -2767,12 +2789,15 @@ export function buildRootObject(
         throw new Error('Missing or empty delegations in redemption request');
       }
 
-      // Guard against infinite relay loops: if this wallet also has no
-      // bundler and no direct 7702, it cannot fulfill the request and
-      // must not relay it back to its own peer.
-      const sender =
-        smartAccountConfig?.address ?? request.delegations[0].delegate;
-      if (!bundlerConfig && !(await useDirect7702Tx(sender))) {
+      // Guard against infinite relay loops: if this wallet cannot fulfill
+      // the request locally, it must not relay it back to its own peer.
+      // Uses the same config-based check as the relay entry condition in
+      // submitDelegationUserOp/submitBatchDelegationUserOp — keep in sync.
+      const canFulfillLocally =
+        bundlerConfig !== undefined ||
+        (smartAccountConfig?.implementation === 'stateless7702' &&
+          providerVat !== undefined);
+      if (!canFulfillLocally) {
         throw new Error(
           'Cannot fulfill relayed redemption: no bundler or direct 7702 configured',
         );
@@ -2838,7 +2863,7 @@ export function buildRootObject(
           cachedPeerSigningMode = signingMode;
           persistBaggage('cachedPeerSigningMode', cachedPeerSigningMode);
         } catch (error) {
-          logger.warn('peer getCapabilities timed out, using cache', error);
+          logger.warn('peer getCapabilities failed, using cache', error);
           signingMode = cachedPeerSigningMode ?? 'peer:unknown';
         }
       } else if (externalSigner) {
@@ -2867,8 +2892,12 @@ export function buildRootObject(
       let autonomy: string;
       const canRedeemLocally =
         bundlerConfig !== undefined ||
-        smartAccountConfig?.implementation === 'stateless7702';
-      const canRedeemViaRelay = !canRedeemLocally && peerWallet !== undefined;
+        (smartAccountConfig?.implementation === 'stateless7702' &&
+          providerVat !== undefined);
+      // Relay requires no smartAccountConfig — mirrors the entry condition
+      // in submitDelegationUserOp/submitBatchDelegationUserOp.
+      const canRedeemViaRelay =
+        !canRedeemLocally && !smartAccountConfig && peerWallet !== undefined;
       const canRedeemDelegationsOnChain =
         activeDelegations.length > 0 && (canRedeemLocally || canRedeemViaRelay);
       if (canRedeemDelegationsOnChain) {

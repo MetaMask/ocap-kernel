@@ -3204,7 +3204,74 @@ describe('coordinator-vat', () => {
           },
           delegationId: delegation.id,
         }),
-      ).rejects.toThrow('Failed to relay delegation redemption to home wallet');
+      ).rejects.toThrow(
+        'Failed to relay delegation redemption to home wallet: CapTP connection lost',
+      );
+    });
+
+    it('propagates batch peer relay errors to the caller', async () => {
+      const peerAddress =
+        '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const mockPeerWallet = {
+        getAccounts: vi.fn().mockResolvedValue([peerAddress]),
+        getCapabilities: vi.fn().mockResolvedValue({ signingMode: 'local' }),
+        handleSigningRequest: vi.fn(),
+        handleRedemptionRequest: vi
+          .fn()
+          .mockRejectedValue(new Error('peer disconnected')),
+        registerAwayWallet: vi.fn().mockResolvedValue(undefined),
+        registerDelegateAddress: vi.fn().mockResolvedValue(undefined),
+      };
+
+      const freshBaggage = makeMockBaggage();
+      freshBaggage.init('keyringVat', keyringVat);
+      freshBaggage.init('providerVat', providerVat);
+      freshBaggage.init('delegationVat', delegationVat);
+      freshBaggage.init('peerWallet', mockPeerWallet);
+
+      const coord = buildRootObject(
+        {},
+        undefined,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        freshBaggage as any,
+      );
+
+      await coord.bootstrap(
+        {
+          keyring: keyringVat,
+          provider: providerVat,
+          delegation: delegationVat,
+        },
+        {},
+      );
+
+      await coord.initializeKeyring({
+        type: 'srp',
+        mnemonic: TEST_MNEMONIC,
+      });
+
+      const accounts = await coord.getAccounts();
+      const delegator = accounts[0] as Address;
+
+      await coord.createDelegation({
+        delegate: delegator,
+        caveats: [
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([TARGET]),
+          }),
+        ],
+        chainId: 1,
+      });
+
+      await expect(
+        coord.sendBatchTransaction([
+          { from: delegator, to: TARGET, value: '0x1' as Hex },
+          { from: delegator, to: TARGET, value: '0x2' as Hex },
+        ]),
+      ).rejects.toThrow(
+        'Failed to relay batch delegation redemption to home wallet: peer disconnected',
+      );
     });
 
     it('throws for non-delegation batch when peer is set but no bundler', async () => {
