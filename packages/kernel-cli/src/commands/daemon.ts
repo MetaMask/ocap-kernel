@@ -114,7 +114,7 @@ export async function stopDaemon(socketPath: string): Promise<boolean> {
   // Strategy 1: Graceful socket-based shutdown.
   if (socketResponsive) {
     try {
-      await sendCommand({ socketPath, method: 'shutdown' });
+      await sendCommand({ socketPath, method: 'shutdown', timeoutMs: 10_000 });
     } catch {
       // Socket became unresponsive.
     }
@@ -205,6 +205,7 @@ export async function handleDaemonStart(
     const statusResponse = await sendCommand({
       socketPath,
       method: 'getStatus',
+      timeoutMs: 10_000,
     });
     if (
       !isJsonRpcFailure(statusResponse) &&
@@ -220,6 +221,7 @@ export async function handleDaemonStart(
       socketPath,
       method: 'initRemoteComms',
       params: { relays: [relayAddr] },
+      timeoutMs: 30_000,
     });
     if (isJsonRpcFailure(initResponse)) {
       process.stderr.write(
