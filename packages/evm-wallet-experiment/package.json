@@ -57,12 +57,16 @@
     "test:node:peer-e2e": "yarn build && node --conditions development test/e2e/run-peer-e2e.mjs",
     "test:node:spending-limits": "yarn build && node --conditions development test/e2e/run-spending-limits-e2e.mjs",
     "docker:compose": "docker compose -f docker/docker-compose.yml",
+    "docker:compose:interactive": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.interactive.yml --profile interactive",
     "docker:build": "yarn docker:compose build",
     "docker:up": "yarn docker:compose up",
     "docker:down": "yarn docker:compose down",
+    "docker:interactive:up": "yarn docker:compose:interactive up",
+    "docker:interactive:down": "yarn docker:compose:interactive down",
+    "docker:setup:wallets": "npx tsx test/e2e/docker/setup-wallets.ts",
+    "docker:interactive:setup": "yarn docker:setup:wallets && yarn docker:compose:interactive exec away node /app/packages/evm-wallet-experiment/docker/setup-openclaw.mjs && yarn docker:compose:interactive exec -d away openclaw gateway && echo 'OpenClaw configured + gateway started. Shell in with: yarn docker:compose:interactive exec away bash'",
     "docker:delegate": "yarn docker:compose cp docker/create-delegation.mjs home:/app/packages/evm-wallet-experiment/docker/create-delegation.mjs && yarn docker:compose exec home node --conditions development /app/packages/evm-wallet-experiment/docker/create-delegation.mjs",
     "docker:logs": "yarn docker:compose logs -f --tail=100",
-    "docker:logs:vps": "yarn docker:compose logs -f --tail=100 vps",
     "test:e2e:docker": "vitest run --config vitest.config.docker.ts"
   },
   "dependencies": {

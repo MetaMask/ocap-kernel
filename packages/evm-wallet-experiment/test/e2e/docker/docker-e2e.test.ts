@@ -1,25 +1,23 @@
+/* eslint-disable n/no-process-env */
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
   callVat,
   evmRpc,
   isStackHealthy,
-  readContainerJson,
+  readContracts,
 } from './helpers/docker-exec.ts';
+import type { ContractAddresses } from './helpers/docker-exec.ts';
+import {
+  setup7702Away,
+  setupHome,
+  setupHybridAway,
+  setupPeerRelayAway,
+} from './helpers/scenarios.ts';
+import type { AwayResult, HomeResult } from './helpers/scenarios.ts';
 
 const EXPECTED_HOME_ADDRESS = '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266';
 const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
-
-type ServiceInfo = {
-  coordinatorKref: string;
-  smartAccountAddress?: string;
-  delegateAddress?: string;
-  delegationMode?: string;
-  hasBundlerConfig?: boolean;
-  hasPeerWallet?: boolean;
-  ocapUrl?: string;
-  peerId?: string;
-};
 
 type Delegation = {
   id: string;
@@ -38,32 +36,43 @@ type Capabilities = {
   autonomy?: string;
 };
 
-describe('Docker E2E', () => {
-  let homeInfo: ServiceInfo;
-  let awayInfo: ServiceInfo;
+const DELEGATION_MODE = process.env.DELEGATION_MODE ?? 'bundler-7702';
 
-  beforeAll(() => {
+const awaySetupFns: Record<
+  string,
+  (c: ContractAddresses, h: HomeResult) => AwayResult | Promise<AwayResult>
+> = {
+  'bundler-7702': setup7702Away,
+  'bundler-hybrid': setupHybridAway,
+  'peer-relay': setupPeerRelayAway,
+};
+
+describe('Docker E2E', () => {
+  let homeResult: HomeResult;
+  let awayResult: AwayResult;
+
+  beforeAll(async () => {
     if (!isStackHealthy()) {
       throw new Error(
         'Docker stack is not running. Start it with: yarn docker:up',
       );
     }
 
-    homeInfo = readContainerJson<ServiceInfo>(
-      'home',
-      '/run/ocap/home-info.json',
-    );
-    awayInfo = readContainerJson<ServiceInfo>(
-      'away',
-      '/run/ocap/away-info.json',
-    );
-  });
+    const contracts = readContracts();
+    homeResult = setupHome(contracts);
+
+    const setupAway = awaySetupFns[DELEGATION_MODE];
+    if (!setupAway) {
+      throw new Error(`Unknown DELEGATION_MODE: ${DELEGATION_MODE}`);
+    }
+    awayResult = await setupAway(contracts, homeResult);
+  }, 180_000);
 
   const callHome = (method: string, args: unknown[] = []) =>
-    callVat('home', homeInfo.coordinatorKref, method, args);
+    callVat('home', homeResult.kref, method, args);
 
   const callAway = (method: string, args: unknown[] = []) =>
-    callVat('away', awayInfo.coordinatorKref, method, args);
+    callVat('away', awayResult.kref, method, args);
 
   // ---------------------------------------------------------------------------
   // Home wallet tests
@@ -147,7 +156,7 @@ describe('Docker E2E', () => {
 
     beforeAll(() => {
       const delegate =
-        awayInfo.smartAccountAddress ?? awayInfo.delegateAddress ?? '';
+        awayResult.smartAccountAddress ?? awayResult.delegateAddress;
 
       delegation = callHome('createDelegation', [
         { delegate, caveats: [], chainId: 31337 },
@@ -167,7 +176,7 @@ describe('Docker E2E', () => {
     });
 
     it('sends ETH via delegated authority', async () => {
-      const homeSA = homeInfo.smartAccountAddress;
+      const homeSA = homeResult.smartAccountAddress;
       expect(homeSA).toBeDefined();
 
       const balanceBefore = BigInt(
@@ -188,12 +197,9 @@ describe('Docker E2E', () => {
 
     it('reports capabilities consistent with delegation mode', () => {
       const caps = callAway('getCapabilities') as Capabilities;
-      const mode = awayInfo.delegationMode ?? 'bundler-7702';
 
-      // All modes should report delegation count
       expect(caps.delegationCount).toBeGreaterThanOrEqual(1);
 
-      // Mode-specific expectations use a lookup to avoid conditional expects
       const expectations: Record<string, () => void> = {
         'bundler-7702': () => {
           expect(caps.hasBundlerConfig).toBe(true);
@@ -209,7 +215,7 @@ describe('Docker E2E', () => {
         },
       };
 
-      expectations[mode]?.();
+      expectations[DELEGATION_MODE]?.();
     });
   });
 });
