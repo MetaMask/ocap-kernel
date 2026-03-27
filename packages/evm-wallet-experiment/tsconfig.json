@@ -18,6 +18,7 @@
     "./src",
     "./test",
     "./vitest.config.ts",
-    "./vitest.config.integration.ts"
+    "./vitest.config.integration.ts",
+    "./vitest.config.docker.ts"
   ]
 }
