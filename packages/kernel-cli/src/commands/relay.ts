@@ -1,21 +1,35 @@
 import { startRelay } from '@metamask/kernel-utils/libp2p';
 import type { Logger } from '@metamask/logger';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 
+import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive, readPidFile, sendSignal, waitFor } from '../utils.ts';
 
-export const RELAY_PID_PATH = join(homedir(), '.ocap', 'relay.pid');
-export const RELAY_ADDR_PATH = join(homedir(), '.ocap', 'relay.addr');
+/**
+ * Get the relay PID file path.
+ *
+ * @returns The relay PID file path.
+ */
+export function getRelayPidPath(): string {
+  return `${getOcapHome()}/relay.pid`;
+}
+
+/**
+ * Get the relay address file path.
+ *
+ * @returns The relay address file path.
+ */
+export function getRelayAddrPath(): string {
+  return `${getOcapHome()}/relay.addr`;
+}
 
 /**
  * Remove the relay PID and address files.
  */
 async function removeRelayFiles(): Promise<void> {
   await Promise.all([
-    rm(RELAY_PID_PATH, { force: true }),
-    rm(RELAY_ADDR_PATH, { force: true }),
+    rm(getRelayPidPath(), { force: true }),
+    rm(getRelayAddrPath(), { force: true }),
   ]);
 }
 
@@ -26,14 +40,14 @@ async function removeRelayFiles(): Promise<void> {
  * @param logger - The logger instance.
  */
 export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
-  await mkdir(join(homedir(), '.ocap'), { recursive: true });
+  await mkdir(getOcapHome(), { recursive: true });
 
-  const existingPid = await readPidFile(RELAY_PID_PATH);
+  const existingPid = await readPidFile(getRelayPidPath());
   if (existingPid !== undefined && isProcessAlive(existingPid)) {
     throw new Error(`Relay is already running (PID: ${existingPid}).`);
   }
 
-  await writeFile(RELAY_PID_PATH, String(process.pid));
+  await writeFile(getRelayPidPath(), String(process.pid));
 
   let libp2p;
   try {
@@ -53,7 +67,7 @@ export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
         'Relay started but no WS multiaddr found on 127.0.0.1:9001',
       );
     }
-    await writeFile(RELAY_ADDR_PATH, relayAddr);
+    await writeFile(getRelayAddrPath(), relayAddr);
   } catch (error) {
     await Promise.resolve(libp2p.stop()).catch(() => undefined);
     await removeRelayFiles();
@@ -79,7 +93,7 @@ export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
  * Print whether the relay process is running.
  */
 export async function printRelayStatus(): Promise<void> {
-  const pid = await readPidFile(RELAY_PID_PATH);
+  const pid = await readPidFile(getRelayPidPath());
   if (pid !== undefined && isProcessAlive(pid)) {
     process.stderr.write(`Relay is running (PID: ${pid}).\n`);
   } else {
@@ -102,7 +116,7 @@ export async function printRelayStatus(): Promise<void> {
 export async function stopRelay({
   force = false,
 }: { force?: boolean } = {}): Promise<boolean> {
-  const pid = await readPidFile(RELAY_PID_PATH);
+  const pid = await readPidFile(getRelayPidPath());
 
   if (pid === undefined || !isProcessAlive(pid)) {
     if (pid !== undefined) {

@@ -1,10 +1,13 @@
 import { deleteDaemonState } from '@metamask/kernel-node-runtime/daemon';
+import { isCapData, prettifySmallcaps } from '@metamask/kernel-utils';
+import type { JsonRpcFailure } from '@metamask/utils';
 import { isJsonRpcFailure } from '@metamask/utils';
 import { readFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { getOcapHome } from '../ocap-home.ts';
 import {
   isErrorWithCode,
   isProcessAlive,
@@ -13,9 +16,21 @@ import {
 } from '../utils.ts';
 import { pingDaemon, sendCommand } from './daemon-client.ts';
 import { ensureDaemon } from './daemon-spawn.ts';
-import { RELAY_ADDR_PATH, RELAY_PID_PATH } from './relay.ts';
+import { getRelayAddrPath, getRelayPidPath } from './relay.ts';
 
 const home = homedir();
+
+/**
+ * Format a JSON-RPC error for stderr and set exit code 1.
+ *
+ * @param response - The failed JSON-RPC response.
+ */
+function writeRpcError(response: JsonRpcFailure): void {
+  process.stderr.write(
+    `Error: ${response.error.message} (code ${String(response.error.code)})\n`,
+  );
+  process.exitCode = 1;
+}
 
 /**
  * Replace the home directory prefix with `~` for display.
@@ -79,7 +94,7 @@ function resolveBundleSpecs(config: {
  * failed to stop within the timeout.
  */
 export async function stopDaemon(socketPath: string): Promise<boolean> {
-  const pidPath = join(homedir(), '.ocap', 'daemon.pid');
+  const pidPath = `${getOcapHome()}/daemon.pid`;
   const pid = await readPidFile(pidPath);
   const processAlive = pid !== undefined && isProcessAlive(pid);
   const socketResponsive = await pingDaemon(socketPath);
@@ -99,7 +114,7 @@ export async function stopDaemon(socketPath: string): Promise<boolean> {
   // Strategy 1: Graceful socket-based shutdown.
   if (socketResponsive) {
     try {
-      await sendCommand({ socketPath, method: 'shutdown' });
+      await sendCommand({ socketPath, method: 'shutdown', timeoutMs: 10_000 });
     } catch {
       // Socket became unresponsive.
     }
@@ -146,7 +161,7 @@ export async function stopDaemon(socketPath: string): Promise<boolean> {
  */
 async function readRelayAddr(): Promise<string | undefined> {
   try {
-    return (await readFile(RELAY_ADDR_PATH, 'utf-8')).trim() || undefined;
+    return (await readFile(getRelayAddrPath(), 'utf-8')).trim() || undefined;
   } catch (error: unknown) {
     if (isErrorWithCode(error, 'ENOENT')) {
       return undefined;
@@ -167,7 +182,7 @@ export async function handleDaemonStart(
   { localRelay = false }: { localRelay?: boolean } = {},
 ): Promise<void> {
   if (localRelay) {
-    const relayPid = await readPidFile(RELAY_PID_PATH);
+    const relayPid = await readPidFile(getRelayPidPath());
     if (relayPid === undefined || !isProcessAlive(relayPid)) {
       process.stderr.write(
         'Relay is not running. Start it with: ocap relay start\n',
@@ -190,6 +205,7 @@ export async function handleDaemonStart(
     const statusResponse = await sendCommand({
       socketPath,
       method: 'getStatus',
+      timeoutMs: 10_000,
     });
     if (
       !isJsonRpcFailure(statusResponse) &&
@@ -205,6 +221,7 @@ export async function handleDaemonStart(
       socketPath,
       method: 'initRemoteComms',
       params: { relays: [relayAddr] },
+      timeoutMs: 30_000,
     });
     if (isJsonRpcFailure(initResponse)) {
       process.stderr.write(
@@ -234,7 +251,7 @@ export async function handleDaemonBegone(socketPath: string): Promise<void> {
     process.exitCode = 1;
     return;
   }
-  await deleteDaemonState({ socketPath });
+  await deleteDaemonState({ ocapHome: getOcapHome(), socketPath });
   process.stderr.write('All daemon state deleted.\n');
 }
 
@@ -283,10 +300,7 @@ export async function handleDaemonExec(
   });
 
   if (isJsonRpcFailure(response)) {
-    process.stderr.write(
-      `Error: ${response.error.message} (code ${String(response.error.code)})\n`,
-    );
-    process.exitCode = 1;
+    writeRpcError(response);
     return;
   }
 
@@ -295,5 +309,83 @@ export async function handleDaemonExec(
     process.stdout.write(`${JSON.stringify(response.result, null, 2)}\n`);
   } else {
     process.stdout.write(`${JSON.stringify(response.result)}\n`);
+  }
+}
+
+/**
+ * Redeem an OCAP URL via the daemon.
+ *
+ * @param url - The OCAP URL to redeem.
+ * @param socketPath - The daemon socket path.
+ */
+export async function handleRedeemURL(
+  url: string,
+  socketPath: string,
+): Promise<void> {
+  const response = await sendCommand({
+    socketPath,
+    method: 'redeemOcapURL',
+    params: { url },
+  });
+
+  if (isJsonRpcFailure(response)) {
+    writeRpcError(response);
+    return;
+  }
+
+  process.stdout.write(`${JSON.stringify(response.result)}\n`);
+}
+
+/**
+ * Send a `queueMessage` RPC call to the daemon and print the result.
+ * By default the CapData result is decoded into a human-readable form.
+ *
+ * @param options - The command options.
+ * @param options.target - KRef of the target object.
+ * @param options.method - Method name to invoke.
+ * @param options.args - JSON-encoded array of arguments.
+ * @param options.socketPath - The daemon socket path.
+ * @param options.raw - If true, output raw CapData JSON.
+ * @param options.timeoutMs - Read timeout in milliseconds.
+ */
+export async function handleDaemonQueueMessage({
+  target,
+  method,
+  args,
+  socketPath,
+  raw = false,
+  timeoutMs,
+}: {
+  target: string;
+  method: string;
+  args: unknown[];
+  socketPath: string;
+  raw?: boolean;
+  timeoutMs?: number;
+}): Promise<void> {
+  const response = await sendCommand({
+    socketPath,
+    method: 'queueMessage',
+    params: [target, method, args],
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
+  });
+
+  if (isJsonRpcFailure(response)) {
+    writeRpcError(response);
+    return;
+  }
+
+  let output: unknown;
+  if (raw || !isCapData(response.result)) {
+    output = response.result;
+  } else {
+    output = prettifySmallcaps(response.result);
+  }
+
+  const isTTY = process.stdout.isTTY ?? false;
+  if (isTTY) {
+    process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);
+  } else {
+    process.stdout.write(`${JSON.stringify(output)}\n`);
   }
 }

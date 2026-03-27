@@ -19,23 +19,24 @@ describe('isCapData', () => {
     label                     | value
     ${'body and empty slots'} | ${{ body: '#"hello"', slots: [] }}
     ${'body with slots'}      | ${{ body: '#{"#error":"oops"}', slots: ['ko1'] }}
-    ${'extra properties'}     | ${{ body: '"x"', slots: [], stacks: [] }}
   `('returns true for CapData-like $label', ({ value }) => {
     expect(isCapData(value)).toBe(true);
   });
 
   it.each`
-    label                | value
-    ${'null'}            | ${null}
-    ${'undefined'}       | ${undefined}
-    ${'string'}          | ${'not capdata'}
-    ${'number'}          | ${42}
-    ${'empty object'}    | ${{}}
-    ${'missing body'}    | ${{ slots: [] }}
-    ${'missing slots'}   | ${{ body: '"x"' }}
-    ${'non-string body'} | ${{ body: 123, slots: [] }}
-    ${'non-array slots'} | ${{ body: '"x"', slots: 'not-array' }}
-    ${'Error instance'}  | ${new Error('fail')}
+    label                 | value
+    ${'null'}             | ${null}
+    ${'undefined'}        | ${undefined}
+    ${'string'}           | ${'not capdata'}
+    ${'number'}           | ${42}
+    ${'empty object'}     | ${{}}
+    ${'missing body'}     | ${{ slots: [] }}
+    ${'missing slots'}    | ${{ body: '"x"' }}
+    ${'non-string body'}  | ${{ body: 123, slots: [] }}
+    ${'non-array slots'}  | ${{ body: '"x"', slots: 'not-array' }}
+    ${'non-string slots'} | ${{ body: '"x"', slots: [1, 2] }}
+    ${'extra properties'} | ${{ body: '"x"', slots: [], stacks: [] }}
+    ${'Error instance'}   | ${new Error('fail')}
   `('returns false for invalid $label', ({ value }) => {
     expect(isCapData(value)).toBe(false);
   });

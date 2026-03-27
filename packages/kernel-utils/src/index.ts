@@ -1,3 +1,4 @@
+export { prettifySmallcaps } from './prettify-smallcaps.ts';
 export { makeDefaultInterface, makeDefaultExo } from './exo.ts';
 export { GET_DESCRIPTION, makeDiscoverableExo } from './discoverable.ts';
 export type { DiscoverableExo } from './discoverable.ts';

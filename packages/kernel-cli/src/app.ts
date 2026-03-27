@@ -11,7 +11,9 @@ import { ensureDaemon } from './commands/daemon-spawn.ts';
 import {
   handleDaemonBegone,
   handleDaemonExec,
+  handleDaemonQueueMessage,
   handleDaemonStart,
+  handleRedeemURL,
   stopDaemon,
 } from './commands/daemon.ts';
 import {
@@ -301,7 +303,7 @@ const yargsInstance = yargs(hideBin(process.argv))
                 'Run a SQL query',
               )
               .option('timeout', {
-                describe: 'Read timeout in seconds (default: 30)',
+                describe: 'Read timeout in seconds (default: no timeout)',
                 type: 'number',
               })
               .example(
@@ -324,6 +326,97 @@ const yargsInstance = yargs(hideBin(process.argv))
                 ? { timeoutMs: args.timeout * 1000 }
                 : {},
             );
+          },
+        )
+        .command(
+          'redeem-url <url>',
+          'Redeem an OCAP URL and print the resulting kref',
+          (_y) =>
+            _y
+              .positional('url', {
+                describe: 'The OCAP URL to redeem (e.g., ocap:...@...)',
+                type: 'string',
+                demandOption: true,
+              })
+              .example(
+                '$0 daemon redeem-url ocap:abc123@12D3KooW...,/ip4/...',
+                'Redeem an OCAP URL',
+              ),
+          async (args) => {
+            await ensureDaemon(socketPath);
+            await handleRedeemURL(args.url, socketPath);
+          },
+        )
+        .command(
+          'queueMessage <target> <method> [args-json]',
+          'Send a message to a kernel object and decode the CapData result',
+          (_y) =>
+            _y
+              .positional('target', {
+                describe: 'KRef of the target object',
+                type: 'string',
+                demandOption: true,
+              })
+              .positional('method', {
+                describe: 'Method name to invoke',
+                type: 'string',
+                demandOption: true,
+              })
+              .positional('args-json', {
+                describe: 'JSON-encoded array of arguments (default: [])',
+                type: 'string',
+              })
+              .option('raw', {
+                describe: 'Output raw CapData instead of decoded result',
+                type: 'boolean',
+                default: false,
+              })
+              .option('timeout', {
+                describe: 'Read timeout in seconds (default: no timeout)',
+                type: 'number',
+              })
+              .example(
+                '$0 daemon queueMessage ko123 getBalance',
+                'Call getBalance with no args',
+              )
+              .example(
+                '$0 daemon queueMessage ko123 transfer \'["ko456", 100]\'',
+                'Call transfer with args',
+              )
+              .example(
+                '$0 daemon queueMessage ko123 getBalance --raw',
+                'Get raw CapData output',
+              ),
+          async (args) => {
+            let parsedArgs: unknown[] = [];
+            if (args['args-json']) {
+              try {
+                const parsed: unknown = JSON.parse(String(args['args-json']));
+                if (!Array.isArray(parsed)) {
+                  process.stderr.write(
+                    'Error: args-json must be a JSON array.\n',
+                  );
+                  process.exitCode = 1;
+                  return;
+                }
+                parsedArgs = parsed;
+              } catch {
+                process.stderr.write('Error: args-json must be valid JSON.\n');
+                process.exitCode = 1;
+                return;
+              }
+            }
+            await ensureDaemon(socketPath);
+            await handleDaemonQueueMessage({
+              target: String(args.target),
+              method: String(args.method),
+              args: parsedArgs,
+              socketPath,
+              raw: args.raw,
+              ...(typeof args.timeout === 'number' && args.timeout > 0
+                ? { timeoutMs: args.timeout * 1000 }
+                : {}),
+            });
           },
         );
     },

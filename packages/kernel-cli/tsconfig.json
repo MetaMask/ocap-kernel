@@ -16,6 +16,7 @@
     "./src/**/*.ts",
     "./test",
     "./vitest.config.ts",
-    "./vitest.integration.config.ts"
+    "./vitest.integration.config.ts",
+    "./vitest.e2e.config.ts"
   ]
 }

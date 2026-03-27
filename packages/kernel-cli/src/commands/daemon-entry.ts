@@ -5,8 +5,9 @@ import type { DaemonHandle } from '@metamask/kernel-node-runtime/daemon';
 import type { LogEntry } from '@metamask/logger';
 import { Logger } from '@metamask/logger';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
+
+import { getOcapHome } from '../ocap-home.ts';
 
 main().catch((error) => {
   process.stderr.write(`Daemon fatal: ${String(error)}\n`);
@@ -17,7 +18,7 @@ main().catch((error) => {
  * Main daemon entry point. Starts the daemon process and keeps it running.
  */
 async function main(): Promise<void> {
-  const ocapDir = join(homedir(), '.ocap');
+  const ocapDir = getOcapHome();
   await mkdir(ocapDir, { recursive: true });
 
   const logPath = join(ocapDir, 'daemon.log');

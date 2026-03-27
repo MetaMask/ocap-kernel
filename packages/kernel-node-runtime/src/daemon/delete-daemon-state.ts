@@ -1,14 +1,16 @@
+import { getOcapHome } from '@metamask/kernel-utils/nodejs';
 import { rm } from 'node:fs/promises';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
 
 /**
  * Options for deleting daemon state.
  */
 export type DeleteDaemonStateOptions = {
-  /** UNIX socket path. Defaults to ~/.ocap/daemon.sock. */
+  /** OCAP home directory. Defaults to `~/.ocap`. */
+  ocapHome?: string;
+  /** UNIX socket path. Defaults to `<ocapHome>/daemon.sock`. */
   socketPath?: string;
-  /** SQLite database filename. Defaults to ~/.ocap/kernel.sqlite. */
+  /** SQLite database filename. Defaults to `<ocapHome>/kernel.sqlite`. */
   dbFilename?: string;
 };
 
@@ -20,7 +22,7 @@ export type DeleteDaemonStateOptions = {
 export async function deleteDaemonState(
   options?: DeleteDaemonStateOptions,
 ): Promise<void> {
-  const ocapDir = join(homedir(), '.ocap');
+  const ocapDir = options?.ocapHome ?? getOcapHome();
   const socketPath = options?.socketPath ?? join(ocapDir, 'daemon.sock');
   const dbFilename = options?.dbFilename ?? join(ocapDir, 'kernel.sqlite');
   const bundlesDir = join(ocapDir, 'bundles');
