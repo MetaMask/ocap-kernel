@@ -140,6 +140,7 @@ export type {
 
 // SDK adapter
 export {
+  registerEnvironment,
   resolveEnvironment,
   getDelegationManagerAddress,
   getEnforcerAddresses,

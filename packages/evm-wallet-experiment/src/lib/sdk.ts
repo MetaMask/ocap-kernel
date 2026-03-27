@@ -64,13 +64,61 @@ export type { SmartAccountsEnvironment, SdkDelegation };
 // Environment resolution
 // ---------------------------------------------------------------------------
 
+// Plain object registry — Maps may not work correctly under SES lockdown.
+let environmentOverrides: Record<number, SmartAccountsEnvironment> = {};
+
+// Lightweight log callback — set via setSdkLogger() from the coordinator vat
+// so we get visibility without importing @metamask/logger into a bundled module.
+type SdkLogFn = (
+  level: string,
+  message: string,
+  data?: Record<string, unknown>,
+) => void;
+let sdkLog: SdkLogFn | undefined;
+
+/**
+ * Set a logging callback for SDK operations.
+ * Called by the coordinator vat after its logger is initialized.
+ *
+ * @param fn - The log callback.
+ */
+export function setSdkLogger(fn: SdkLogFn): void {
+  sdkLog = fn;
+}
+
+/**
+ * Register a custom environment for a chain ID that the SDK doesn't natively
+ * support (e.g. local Hardhat at chain 31337). Overrides take precedence over
+ * the SDK's built-in registry.
+ *
+ * @param chainId - The chain ID.
+ * @param env - The deployed environment addresses.
+ */
+export function registerEnvironment(
+  chainId: number,
+  env: SmartAccountsEnvironment,
+): void {
+  environmentOverrides = { ...environmentOverrides, [chainId]: env };
+  sdkLog?.('info', 'registerEnvironment', {
+    chainId,
+    keys: Object.keys(env),
+  } as Record<string, unknown>);
+}
+
 /**
  * Resolve the SDK environment for a chain ID.
+ * Checks local overrides first, then falls back to the SDK.
  *
  * @param chainId - The chain ID.
  * @returns The SDK environment.
  */
 export function resolveEnvironment(chainId: number): SmartAccountsEnvironment {
+  const override = environmentOverrides[chainId];
+  if (override) {
+    sdkLog?.('debug', 'resolveEnvironment: using override', { chainId });
+    return override;
+  }
+  sdkLog?.('debug', 'resolveEnvironment: using SDK', { chainId });
   return getSmartAccountsEnvironment(chainId);
 }
 
@@ -135,7 +183,7 @@ function wrapInDelegationManagerExecute(
   innerCallData: Hex,
   chainId: number,
 ): Hex {
-  const env = getSmartAccountsEnvironment(chainId);
+  const env = resolveEnvironment(chainId);
   return contracts.DeleGatorCore.encode.execute({
     execution: sdkCreateExecution({
       target: env.DelegationManager,
