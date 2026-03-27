@@ -264,7 +264,7 @@ plugin** and let an LLM agent handle the entire flow conversationally. The
 agent redeems the OCAP URL, requests capabilities, and calls methods on your
 behalf — you just tell it what you want.
 
-#### Step 2: Install and Configure the Plugin
+#### Step 2: Install the Plugin
 
 Install the plugin into OpenClaw from the monorepo:
 
@@ -280,26 +280,9 @@ openclaw config set plugins.allow '["metamask"]'
 openclaw config set tools.allow '["metamask"]'
 ```
 
-Configure the OCAP URL. Create a `.env` file in the plugin directory (or copy
-the provided template):
-
-```bash
-cp packages/agentmask/openclaw-plugin-metamask/.env.example \
-   packages/agentmask/openclaw-plugin-metamask/.env
-```
-
-Edit the `.env` file and paste the OCAP URL from Part 1:
-
-```env
-OCAP_URL=ocap:<encrypted_oid>@<peer_id>,<relay_hints>
-OCAP_RESET_STATE=true
-```
-
-> Setting `OCAP_RESET_STATE=true` ensures a clean slate each time OpenClaw
-> restarts, which is useful while iterating on the demo.
-
-See the [plugin README](../openclaw-plugin-metamask/README.md) for the full
-configuration reference.
+> **Optional**: You can pre-configure the OCAP URL in a `.env` file (see the
+> [plugin README](../openclaw-plugin-metamask/README.md)), but this is not
+> required — the agent will ask for it in conversation.
 
 #### Step 3: Start OpenClaw and Walk Through the Demo
 
@@ -309,9 +292,11 @@ openclaw tui
 
 From here, the agent handles everything. An example conversation:
 
-1. **You**: "What capabilities do you have from my MetaMask wallet?"
+1. **Agent**: "I don't have a connection to your MetaMask wallet yet. Could
+   you provide the OCAP URL?"
 
-   - **Agent**: checks and reports none yet
+   - Copy the OCAP URL from Part 1 and paste it into the chat
+   - **Agent**: calls `metamask_obtain_vendor` to redeem the URL
 
 2. **You**: "I want you to be able to sign messages with my wallet"
 
@@ -330,9 +315,9 @@ From here, the agent handles everything. An example conversation:
    - **Approve the signing request** in the MetaMask extension popup
    - Returns the signature
 
-The agent manages krefs, CapData parsing, and method arguments internally.
-You only need to interact with the MetaMask extension to approve capability
-and signing requests.
+The agent manages URL redemption, krefs, CapData parsing, and method arguments
+internally. You only need to paste the OCAP URL when prompted and approve
+requests in the MetaMask extension.
 
 #### Starting Fresh
 
@@ -433,12 +418,12 @@ Steps 1-5 are shared. Then follow either the Manual or OpenClaw branch.
 
 **OpenClaw (Option B):**
 
-6. Install and enable the plugin. Set `OCAP_URL` in `.env`.
-7. `openclaw tui`. Ask the agent to request a signing capability. Approve in
-   extension.
-8. Ask the agent to list accounts. Confirm addresses returned.
-9. Ask the agent to sign a message. Approve in extension. Confirm signature
-   returned.
+6. Install and enable the plugin.
+7. `openclaw tui`. Paste the OCAP URL when the agent asks for it.
+8. Ask the agent to request a signing capability. Approve in extension.
+9. Ask the agent to list accounts. Confirm addresses returned.
+10. Ask the agent to sign a message. Approve in extension. Confirm signature
+    returned.
 
 ---
 
