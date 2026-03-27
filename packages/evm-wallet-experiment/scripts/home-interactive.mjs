@@ -678,7 +678,7 @@ ${GREEN}${BOLD}==============================================
   ${DIM}RPC URL          :${RESET} ${RPC_URL}
   ${DIM}Account          :${RESET} ${accounts[0]}${smartAccountAddress ? `\n  ${DIM}Smart Account    :${RESET} ${smartAccountAddress}` : ''}
 
-${YELLOW}${BOLD}  Run this on the away device (VPS):${RESET}
+${YELLOW}${BOLD}  Run this on the away device:${RESET}
 
 ${BOLD}  ./packages/evm-wallet-experiment/scripts/setup-away.sh \\
     --ocap-url "${ocapUrl}" \\

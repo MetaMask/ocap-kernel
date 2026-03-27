@@ -25,13 +25,14 @@ resolve_chain() {
     arbitrum|arb)          CHAIN_ID=42161 ;;
     linea)                 CHAIN_ID=59144 ;;
     sepolia)               CHAIN_ID=11155111 ;;
+    hardhat|localhost)     CHAIN_ID=31337 ;;
     *)
       # Try as numeric ID
       if echo "$input" | grep -qE '^[0-9]+$'; then
         CHAIN_ID="$input"
         # Validate it's a supported chain
         case "$CHAIN_ID" in
-          1|10|56|137|8453|42161|59144|11155111) ;; # ok
+          1|10|56|137|8453|42161|59144|11155111|31337) ;; # ok
           *) echo "Error: Chain ID $CHAIN_ID is not supported." >&2
              print_supported_chains
              return 1 ;;
@@ -55,6 +56,7 @@ chain_name() {
     42161)    echo "Arbitrum One" ;;
     59144)    echo "Linea" ;;
     11155111) echo "Sepolia" ;;
+    31337)    echo "Hardhat" ;;
     *)        echo "unknown" ;;
   esac
 }
@@ -124,4 +126,5 @@ print_supported_chains() {
   echo "  arbitrum   42161     arb" >&2
   echo "  linea      59144" >&2
   echo "  sepolia    11155111" >&2
+  echo "  hardhat    31337     localhost" >&2
 }

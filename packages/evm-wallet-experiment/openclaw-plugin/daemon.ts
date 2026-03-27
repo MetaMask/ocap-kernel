@@ -184,17 +184,35 @@ async function runDaemonExec(options: {
  */
 async function callWallet(options: WalletCallOptions): Promise<unknown> {
   const { cliPath, walletKref, method, args, timeoutMs } = options;
-  const result = await runDaemonExec({
-    cliPath,
-    method: 'queueMessage',
-    params: [walletKref, method, args],
-    timeoutMs,
-  });
+  const argsStr = JSON.stringify(args).slice(0, 200);
+  console.error(`[wallet-plugin] -> ${method}(${argsStr})`); // eslint-disable-line no-console
+
+  let result: ExecResult;
+  try {
+    result = await runDaemonExec({
+      cliPath,
+      method: 'queueMessage',
+      params: [walletKref, method, args],
+      timeoutMs,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    console.error(`[wallet-plugin] <- ${method} TIMEOUT/ERROR: ${reason}`); // eslint-disable-line no-console
+    throw error;
+  }
 
   if (result.code !== 0) {
     const detail = result.stderr.trim() || result.stdout.trim();
+    // eslint-disable-next-line no-console
+    console.error(
+      `[wallet-plugin] <- ${method} FAILED (exit ${result.code}): ${detail.slice(0, 200)}`,
+    );
     throw new Error(`Wallet ${method} failed (exit ${result.code}): ${detail}`);
   }
 
-  return decodeCapData(result.stdout.trim(), method);
+  const decoded = decodeCapData(result.stdout.trim(), method);
+  const preview =
+    typeof decoded === 'string' ? decoded.slice(0, 80) : typeof decoded;
+  console.error(`[wallet-plugin] <- ${method} ok (${preview})`); // eslint-disable-line no-console
+  return decoded;
 }

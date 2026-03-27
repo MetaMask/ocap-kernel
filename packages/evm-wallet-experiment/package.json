@@ -55,7 +55,15 @@
     "test:node:sepolia": "yarn build && node --conditions development test/e2e/run-sepolia-e2e.mjs",
     "test:node:sepolia-7702-direct": "yarn build && node --conditions development test/e2e/run-sepolia-7702-direct-e2e.mjs",
     "test:node:peer-e2e": "yarn build && node --conditions development test/e2e/run-peer-e2e.mjs",
-    "test:node:spending-limits": "yarn build && node --conditions development test/e2e/run-spending-limits-e2e.mjs"
+    "test:node:spending-limits": "yarn build && node --conditions development test/e2e/run-spending-limits-e2e.mjs",
+    "docker:compose": "docker compose -f docker/docker-compose.yml",
+    "docker:build": "yarn docker:compose build",
+    "docker:up": "yarn docker:compose up",
+    "docker:down": "yarn docker:compose down",
+    "docker:delegate": "yarn docker:compose cp docker/create-delegation.mjs home:/app/packages/evm-wallet-experiment/docker/create-delegation.mjs && yarn docker:compose exec home node --conditions development /app/packages/evm-wallet-experiment/docker/create-delegation.mjs",
+    "docker:logs": "yarn docker:compose logs -f --tail=100",
+    "docker:logs:vps": "yarn docker:compose logs -f --tail=100 vps",
+    "test:e2e:docker": "vitest run --config vitest.config.docker.ts"
   },
   "dependencies": {
     "@endo/eventual-send": "^1.3.4",
