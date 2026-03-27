@@ -1,0 +1,25 @@
+FROM ghcr.io/foundry-rs/foundry:latest AS foundry
+
+FROM node:22-slim
+
+WORKDIR /app
+
+# Copy anvil + cast from the foundry image
+COPY --from=foundry /usr/local/bin/anvil /usr/local/bin/anvil
+COPY --from=foundry /usr/local/bin/cast /usr/local/bin/cast
+
+# Install only the packages needed by deploy-contracts.mjs
+RUN npm init -y > /dev/null 2>&1 && \
+    npm install viem @metamask/smart-accounts-kit 2>&1 | tail -1
+
+COPY packages/evm-wallet-experiment/docker/deploy-contracts.mjs /app/deploy-contracts.mjs
+COPY packages/evm-wallet-experiment/docker/entrypoint-evm.sh /app/entrypoint-evm.sh
+
+RUN mkdir -p /logs /run/ocap
+
+EXPOSE 8545
+
+HEALTHCHECK --interval=3s --timeout=5s --retries=10 \
+  CMD cast bn --rpc-url http://localhost:8545
+
+ENTRYPOINT ["/bin/sh", "/app/entrypoint-evm.sh"]
