@@ -1,0 +1,157 @@
+services:
+  evm:
+    build:
+      context: ../../../
+      dockerfile: packages/evm-wallet-experiment/docker/Dockerfile.evm
+    networks: [ocap-e2e]
+    ports: ['8545:8545']
+    volumes:
+      - ocap-run:/run/ocap
+      - ocap-logs:/logs
+    healthcheck:
+      test: ['CMD', 'test', '-f', '/run/ocap/contracts.json']
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  bundler:
+    image: ghcr.io/pimlicolabs/alto:latest
+    networks: [ocap-e2e]
+    ports: ['4337:4337']
+    volumes:
+      - ocap-run:/run/ocap
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "Waiting for contracts..."
+        while [ ! -f /run/ocap/contracts.json ]; do sleep 1; done
+        ENTRYPOINT=$$(node -e "console.log(JSON.parse(require('fs').readFileSync('/run/ocap/contracts.json','utf8')).EntryPoint)")
+        echo "EntryPoint: $$ENTRYPOINT"
+        exec npm start -- \
+          --port 4337 \
+          --rpc-url http://evm:8545 \
+          --entrypoints "$$ENTRYPOINT" \
+          --executor-private-keys "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d" \
+          --utility-private-key "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6" \
+          --safe-mode false \
+          --balance-override true
+    depends_on:
+      evm:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - 'fetch("http://localhost:4337",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"eth_chainId",params:[]})}).then(r=>r.ok?process.exit(0):process.exit(1)).catch(()=>process.exit(1))'
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  llm:
+    build:
+      context: ../../../
+      dockerfile: packages/evm-wallet-experiment/docker/Dockerfile.node-base
+    environment:
+      - LLM_UPSTREAM=${LLM_UPSTREAM:-http://host.docker.internal:8080}
+    networks: [ocap-e2e]
+    ports: ['11434:11434']
+    entrypoint:
+      - node
+      - /app/packages/evm-wallet-experiment/docker/entrypoint-llm-proxy.mjs
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - 'fetch("http://localhost:11434").then(()=>process.exit(0)).catch(()=>process.exit(1))'
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  ollama:
+    profiles: [ollama]
+    image: ollama/ollama
+    networks: [ocap-e2e]
+    volumes:
+      - ollama-models:/root/.ollama
+      - ocap-logs:/logs
+      - ./entrypoint-llm.sh:/entrypoint-llm.sh:ro
+    entrypoint: ['/bin/sh', '/entrypoint-llm.sh']
+    healthcheck:
+      test: ['CMD', 'test', '-f', '/tmp/llm-ready']
+      interval: 5s
+      timeout: 5s
+      retries: 120
+      start_period: 300s
+
+  home:
+    environment:
+      - HOME=/run/ocap/home
+    build:
+      context: ../../../
+      dockerfile: packages/evm-wallet-experiment/docker/Dockerfile.node-base
+    networks: [ocap-e2e]
+    ports: ['4001:4001/udp']
+    volumes:
+      - ocap-run:/run/ocap
+      - ocap-logs:/logs
+    entrypoint:
+      - node
+      - '--conditions'
+      - development
+      - /app/packages/evm-wallet-experiment/docker/entrypoint-home.mjs
+    depends_on:
+      evm:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'test', '-f', '/run/ocap/home-info.json']
+      interval: 3s
+      timeout: 5s
+      retries: 60
+      start_period: 30s
+
+  away:
+    environment:
+      - HOME=/run/ocap/away
+      - DELEGATION_MODE=${DELEGATION_MODE:-bundler-7702}
+      - LLM_BASE_URL=${LLM_BASE_URL:-http://llm:11434/v1}
+      - LLM_MODEL=${LLM_MODEL:-glm-4.7-flash}
+      - LLM_API_TYPE=${LLM_API_TYPE:-openai-completions}
+    build:
+      context: ../../../
+      dockerfile: packages/evm-wallet-experiment/docker/Dockerfile.node-base
+    networks: [ocap-e2e]
+    ports: ['4002:4002/udp']
+    volumes:
+      - ocap-run:/run/ocap
+      - ocap-logs:/logs
+    entrypoint:
+      ['bash', '/app/packages/evm-wallet-experiment/docker/entrypoint-away.sh']
+    depends_on:
+      home:
+        condition: service_healthy
+      evm:
+        condition: service_healthy
+      bundler:
+        condition: service_healthy
+      llm:
+        condition: service_healthy
+    healthcheck:
+      test: ['CMD', 'test', '-f', '/run/ocap/away-info.json']
+      interval: 3s
+      timeout: 5s
+      retries: 60
+      start_period: 60s
+    stdin_open: true
+    tty: true
+
+networks:
+  ocap-e2e:
+    driver: bridge
+
+volumes:
+  ocap-run:
+  ocap-logs:
+  ollama-models:
