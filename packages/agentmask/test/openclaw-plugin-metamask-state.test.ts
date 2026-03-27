@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   createState,
+  ensureVendor,
   isKref,
   parseCapabilityResponse,
   resolveCapability,
@@ -102,5 +103,16 @@ describe('resolveCapability', () => {
     expect(() => resolveCapability('Unknown', state)).toThrow(
       /No capabilities obtained/u,
     );
+  });
+});
+
+describe('ensureVendor', () => {
+  it('throws prompting for metamask_obtain_vendor when no URL set', async () => {
+    const state = createState();
+    const daemon = { redeemUrl: vi.fn(), queueMessage: vi.fn() };
+    await expect(ensureVendor({ state, daemon })).rejects.toThrow(
+      /metamask_obtain_vendor/u,
+    );
+    expect(daemon.redeemUrl).not.toHaveBeenCalled();
   });
 });

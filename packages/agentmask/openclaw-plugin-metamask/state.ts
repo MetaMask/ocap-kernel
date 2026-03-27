@@ -13,6 +13,7 @@ export type CapEntry = {
 };
 
 export type PluginState = {
+  ocapUrl: string;
   vendorKref: string | undefined;
   capabilities: Map<string, CapEntry>;
 };
@@ -22,8 +23,15 @@ export type PluginState = {
  *
  * @returns A new empty plugin state.
  */
-export function createState(): PluginState {
+/**
+ * Create a fresh plugin state.
+ *
+ * @param ocapUrl - Initial OCAP URL from config/env (may be empty).
+ * @returns A new plugin state.
+ */
+export function createState(ocapUrl = ''): PluginState {
   return {
+    ocapUrl,
     vendorKref: undefined,
     capabilities: new Map(),
   };
@@ -89,21 +97,27 @@ export function parseCapabilityResponse(capData: unknown): {
  * @param options - Options.
  * @param options.state - The plugin state.
  * @param options.daemon - The daemon caller.
- * @param options.ocapUrl - The OCAP URL to redeem.
  * @returns The vendor kref.
  */
 export async function ensureVendor(options: {
   state: PluginState;
   daemon: DaemonCaller;
-  ocapUrl: string;
 }): Promise<string> {
-  const { state, daemon, ocapUrl } = options;
+  const { state, daemon } = options;
 
   if (state.vendorKref) {
     return state.vendorKref;
   }
 
-  const kref = await daemon.redeemUrl(ocapUrl);
+  if (!state.ocapUrl) {
+    throw new Error(
+      'Not connected to a MetaMask wallet. Ask the user for their OCAP URL ' +
+        'from their ocap kernel-enabled MetaMask extension and pass it to ' +
+        'metamask_obtain_vendor.',
+    );
+  }
+
+  const kref = await daemon.redeemUrl(state.ocapUrl);
   state.vendorKref = kref;
   return kref;
 }

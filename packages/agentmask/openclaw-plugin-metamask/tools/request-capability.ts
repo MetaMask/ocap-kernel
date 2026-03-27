@@ -13,15 +13,13 @@ import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
  * @param options.api - The OpenClaw plugin API.
  * @param options.daemon - The daemon caller.
  * @param options.state - The plugin state.
- * @param options.ocapUrl - The OCAP URL for the vendor.
  */
 export function registerRequestCapabilityTool(options: {
   api: OpenClawPluginApi;
   daemon: DaemonCaller;
   state: PluginState;
-  ocapUrl: string;
 }): void {
-  const { api, daemon, state, ocapUrl } = options;
+  const { api, daemon, state } = options;
 
   api.registerTool({
     name: 'metamask_request_capability',
@@ -46,7 +44,7 @@ export function registerRequestCapabilityTool(options: {
       params: { request: string },
     ): Promise<ToolResponse> {
       try {
-        const vendorKref = await ensureVendor({ state, daemon, ocapUrl });
+        const vendorKref = await ensureVendor({ state, daemon });
 
         const rawResult = await daemon.queueMessage({
           target: vendorKref,
