@@ -29,6 +29,23 @@ type PluginApi = {
   registerTool: (tool: ToolDefinition) => void;
 };
 
+const MOCK_SCHEMA = {
+  getAccounts: {
+    description: 'Get wallet accounts',
+    args: {},
+    returns: { type: 'array', description: 'List of addresses' },
+  },
+  signMessage: {
+    description: 'Sign a personal message',
+    args: {
+      address: { type: 'string', description: 'Signer address' },
+      message: { type: 'string', description: 'Message to sign' },
+      chainId: { type: 'string', description: 'Hex chain ID' },
+    },
+    returns: { type: 'string', description: 'Signature' },
+  },
+};
+
 /**
  * Register the metamask plugin and return registered tools by name.
  *
@@ -120,12 +137,15 @@ describe('openclaw metamask plugin', () => {
   });
 
   describe('metamask_request_capability', () => {
-    it('redeems URL then requests capability', async () => {
+    it('redeems URL, requests capability, and discovers methods', async () => {
       mockRedeemUrl.mockResolvedValueOnce('ko10');
+      // requestCapability response
       mockQueueMessage.mockResolvedValueOnce({
         body: '#"$0.Alleged: PersonalMessageSigner"',
         slots: ['ko5'],
       });
+      // __getDescription__ response
+      mockQueueMessage.mockResolvedValueOnce(MOCK_SCHEMA);
 
       const tools = setupPlugin();
       const tool = tools.get('metamask_request_capability')!;
@@ -133,40 +153,71 @@ describe('openclaw metamask plugin', () => {
         request: 'sign personal messages',
       });
 
-      expect(result.content[0].text).toContain('PersonalMessageSigner');
-      expect(result.content[0].text).toContain('ko5');
+      const { text } = result.content[0];
+      expect(text).toContain('PersonalMessageSigner');
+      expect(text).toContain('ko5');
+      expect(text).toContain('getAccounts');
+      expect(text).toContain('signMessage');
+      expect(text).toContain('Signer address');
+      expect(text).toContain('Message to sign');
 
-      expect(mockRedeemUrl).toHaveBeenCalledWith(
-        'ocap:test123@12D3KooWtest,/ip4/127.0.0.1/tcp/9090',
-      );
-      expect(mockQueueMessage).toHaveBeenCalledWith({
+      expect(mockQueueMessage).toHaveBeenCalledTimes(2);
+      expect(mockQueueMessage).toHaveBeenNthCalledWith(1, {
         target: 'ko10',
         method: 'requestCapability',
         args: ['sign personal messages'],
         raw: true,
       });
+      expect(mockQueueMessage).toHaveBeenNthCalledWith(2, {
+        target: 'ko5',
+        method: '__getDescription__',
+        args: [],
+      });
+    });
+
+    it('works when discovery fails gracefully', async () => {
+      mockRedeemUrl.mockResolvedValueOnce('ko10');
+      mockQueueMessage.mockResolvedValueOnce({
+        body: '#"$0.Alleged: PersonalMessageSigner"',
+        slots: ['ko5'],
+      });
+      // __getDescription__ fails
+      mockQueueMessage.mockRejectedValueOnce(new Error('not discoverable'));
+
+      const tools = setupPlugin();
+      const tool = tools.get('metamask_request_capability')!;
+      const result = await tool.execute('id1', {
+        request: 'sign messages',
+      });
+
+      expect(result.content[0].text).toContain('PersonalMessageSigner');
+      expect(result.content[0].text).toContain('ko5');
+      // No method listing, but no error either
+      expect(result.content[0].text).not.toContain('Error');
     });
 
     it('reuses cached vendor kref on second request', async () => {
       mockRedeemUrl.mockResolvedValueOnce('ko10');
-      mockQueueMessage
-        .mockResolvedValueOnce({
-          body: '#"$0.Alleged: PersonalMessageSigner"',
-          slots: ['ko5'],
-        })
-        .mockResolvedValueOnce({
-          body: '#"$0.Alleged: TokenSender"',
-          slots: ['ko6'],
-        });
+      // First: requestCapability + __getDescription__
+      mockQueueMessage.mockResolvedValueOnce({
+        body: '#"$0.Alleged: PersonalMessageSigner"',
+        slots: ['ko5'],
+      });
+      mockQueueMessage.mockResolvedValueOnce(MOCK_SCHEMA);
+      // Second: requestCapability + __getDescription__
+      mockQueueMessage.mockResolvedValueOnce({
+        body: '#"$0.Alleged: TokenSender"',
+        slots: ['ko6'],
+      });
+      mockQueueMessage.mockResolvedValueOnce({});
 
       const tools = setupPlugin();
       const tool = tools.get('metamask_request_capability')!;
       await tool.execute('id1', { request: 'sign messages' });
       await tool.execute('id2', { request: 'send tokens' });
 
-      // redeemUrl called only once
       expect(mockRedeemUrl).toHaveBeenCalledTimes(1);
-      expect(mockQueueMessage).toHaveBeenCalledTimes(2);
+      expect(mockQueueMessage).toHaveBeenCalledTimes(4);
     });
 
     it('returns error on redeem failure', async () => {
@@ -214,25 +265,24 @@ describe('openclaw metamask plugin', () => {
 
     it('enables request_capability after obtaining vendor', async () => {
       mockRedeemUrl.mockResolvedValueOnce('ko10');
+      // requestCapability + __getDescription__
       mockQueueMessage.mockResolvedValueOnce({
         body: '#"$0.Alleged: PersonalMessageSigner"',
         slots: ['ko5'],
       });
+      mockQueueMessage.mockResolvedValueOnce(MOCK_SCHEMA);
 
       const tools = setupPlugin({ ocapUrl: '' });
 
-      // Obtain vendor via URL provided in chat
       await tools
         .get('metamask_obtain_vendor')!
         .execute('id1', { url: 'ocap:abc@peer,/ip4/1.2.3.4/tcp/9090' });
 
-      // Now request_capability works without needing pre-configured URL
       const result = await tools
         .get('metamask_request_capability')!
         .execute('id2', { request: 'sign messages' });
 
       expect(result.content[0].text).toContain('PersonalMessageSigner');
-      // redeemUrl called once (by obtain_vendor), not again by request_capability
       expect(mockRedeemUrl).toHaveBeenCalledTimes(1);
     });
 
@@ -266,10 +316,12 @@ describe('openclaw metamask plugin', () => {
      */
     async function setupWithCapability(): Promise<Map<string, ToolDefinition>> {
       mockRedeemUrl.mockResolvedValueOnce('ko10');
+      // requestCapability + __getDescription__
       mockQueueMessage.mockResolvedValueOnce({
         body: '#"$0.Alleged: PersonalMessageSigner"',
         slots: ['ko5'],
       });
+      mockQueueMessage.mockResolvedValueOnce(MOCK_SCHEMA);
 
       const tools = setupPlugin();
       await tools.get('metamask_request_capability')!.execute('id1', {
@@ -372,12 +424,13 @@ describe('openclaw metamask plugin', () => {
       expect(result.content[0].text).toContain('metamask_request_capability');
     });
 
-    it('lists obtained capabilities', async () => {
+    it('lists obtained capabilities with methods', async () => {
       mockRedeemUrl.mockResolvedValueOnce('ko10');
       mockQueueMessage.mockResolvedValueOnce({
         body: '#"$0.Alleged: PersonalMessageSigner"',
         slots: ['ko5'],
       });
+      mockQueueMessage.mockResolvedValueOnce(MOCK_SCHEMA);
 
       const tools = setupPlugin();
       await tools.get('metamask_request_capability')!.execute('id1', {
@@ -390,7 +443,7 @@ describe('openclaw metamask plugin', () => {
       expect(result.content[0].text).toContain('Capabilities (1)');
       expect(result.content[0].text).toContain('PersonalMessageSigner');
       expect(result.content[0].text).toContain('ko5');
-      expect(result.content[0].text).toContain('sign messages');
+      expect(result.content[0].text).toContain('getAccounts, signMessage');
     });
   });
 });
