@@ -27,7 +27,9 @@ import type {
 } from './types.ts';
 
 const pluginDir = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_CLI = resolvePath(pluginDir, '../../kernel-cli/dist/app.mjs');
+// When bundled to dist/index.mjs, pluginDir is the dist/ subdirectory.
+// Resolve up: dist → openclaw-plugin → evm-wallet-experiment → packages → kernel-cli.
+const DEFAULT_CLI = resolvePath(pluginDir, '../../../kernel-cli/dist/app.mjs');
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 const KNOWN_KEYS = new Set(['ocapCliPath', 'walletKref', 'timeoutMs']);

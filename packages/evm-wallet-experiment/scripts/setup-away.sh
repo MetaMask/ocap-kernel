@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Setup script for the AWAY wallet device (VPS / agent machine).
+# Setup script for the AWAY wallet device (agent machine).
 #
 # Starts the daemon, launches the wallet subcluster, initialises a throwaway
 # keyring, connects to the home wallet via the provided OCAP URL, and verifies
@@ -40,6 +40,7 @@ SKIP_BUILD=false
 QUIC_PORT=4002
 DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
 CUSTOM_RPC_URL=""
+NON_INTERACTIVE=false
 
 # ---------------------------------------------------------------------------
 # Parse arguments
@@ -62,6 +63,7 @@ Optional:
   --rpc-url        Custom RPC URL (overrides Infura URL derivation)
   --quic-port      UDP port for QUIC transport (default: $QUIC_PORT)
   --no-build       Skip yarn build
+  --non-interactive  Skip interactive prompts (for Docker/CI)
 EOF
   print_supported_chains
   exit 1
@@ -97,6 +99,7 @@ while [[ $# -gt 0 ]]; do
       [[ $# -lt 2 ]] && { echo "Error: --quic-port requires a value" >&2; usage; }
       QUIC_PORT="$2"; shift 2 ;;
     --no-build)    SKIP_BUILD=true; shift ;;
+    --non-interactive) NON_INTERACTIVE=true; shift ;;
     -h|--help)     usage ;;
     *) echo "Unknown option: $1" >&2; usage ;;
   esac
@@ -337,29 +340,27 @@ ok "Location hints registered for peer $HOME_PEER_ID"
 
 info "Launching wallet subcluster..."
 
-# Extract RPC hostname for allowedHosts (if provider will be configured)
+# Extract RPC host (including port) for allowedHosts.
+# new URL(url).host includes the port for non-default ports (e.g. "evm:8545").
 AWAY_RPC_HOST=""
-if [[ -n "$INFURA_KEY" ]]; then
-  if [[ -n "$CUSTOM_RPC_URL" ]]; then
-    AWAY_RPC_HOST=$(echo "$CUSTOM_RPC_URL" | node -e "
-      const u = require('fs').readFileSync('/dev/stdin','utf8').trim();
-      const m = u.match(/^https?:\\/\\/([^/:]+)/);
-      if (m) process.stdout.write(m[1]);
-    ")
-  else
-    AWAY_RPC_HOST=$(echo "$(infura_rpc_url "$CHAIN_ID" "x")" | node -e "
-      const u = require('fs').readFileSync('/dev/stdin','utf8').trim();
-      const m = u.match(/^https?:\\/\\/([^/:]+)/);
-      if (m) process.stdout.write(m[1]);
-    ")
-  fi
+if [[ -n "$CUSTOM_RPC_URL" ]]; then
+  AWAY_RPC_HOST=$(echo "$CUSTOM_RPC_URL" | node -e "
+    const u = require('fs').readFileSync('/dev/stdin','utf8').trim();
+    try { process.stdout.write(new URL(u).host); } catch {}
+  ")
+elif [[ -n "$INFURA_KEY" ]]; then
+  AWAY_RPC_HOST=$(echo "$(infura_rpc_url "$CHAIN_ID" "x")" | node -e "
+    const u = require('fs').readFileSync('/dev/stdin','utf8').trim();
+    try { process.stdout.write(new URL(u).host); } catch {}
+  ")
 fi
 
 CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$AWAY_RPC_HOST" node -e "
   const bd = process.env.BUNDLE_DIR;
   const dm = process.env.DM;
   const rpcHost = process.env.RPC_HOST;
-  const hosts = [rpcHost, 'api.pimlico.io', 'swap.api.cx.metamask.io'].filter(Boolean);
+  const extra = (process.env.EXTRA_ALLOWED_HOSTS || '').split(',').filter(Boolean);
+  const hosts = [rpcHost, 'api.pimlico.io', 'swap.api.cx.metamask.io', ...extra].filter(Boolean);
   const config = {
     config: {
       bootstrap: 'coordinator',
@@ -424,13 +425,16 @@ ok "Local throwaway account: $ACCOUNTS"
 # 7. Configure provider (optional — only if Infura key provided)
 # ---------------------------------------------------------------------------
 
-if [[ -n "$INFURA_KEY" ]]; then
-  if [[ -n "$CUSTOM_RPC_URL" ]]; then
-    RPC_URL="$CUSTOM_RPC_URL"
-  else
-    RPC_URL=$(infura_rpc_url "$CHAIN_ID" "$INFURA_KEY") || exit 1
-  fi
-  info "Configuring provider ($(chain_name "$CHAIN_ID"), chain $CHAIN_ID)..."
+# Resolve the RPC URL: --rpc-url takes precedence, then Infura derivation
+RPC_URL=""
+if [[ -n "$CUSTOM_RPC_URL" ]]; then
+  RPC_URL="$CUSTOM_RPC_URL"
+elif [[ -n "$INFURA_KEY" ]]; then
+  RPC_URL=$(infura_rpc_url "$CHAIN_ID" "$INFURA_KEY") || exit 1
+fi
+
+if [[ -n "$RPC_URL" ]]; then
+  info "Configuring provider (chain $CHAIN_ID)..."
 
   PROVIDER_ARGS=$(CID="$CHAIN_ID" URL="$RPC_URL" node -e "
     process.stdout.write(JSON.stringify([{ chainId: Number(process.env.CID), rpcUrl: process.env.URL }]));
@@ -564,40 +568,47 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
 
 EOF
 
-info "Waiting for delegation from home device (up to 10 min)..."
-echo -e "  ${DIM}Press Enter to skip waiting and paste manually.${RESET}" >&2
+if [[ "$NON_INTERACTIVE" == true ]]; then
+  info "Non-interactive mode — skipping delegation wait"
+  DEL_COUNT="0"
+  MANUAL_SKIP=false
+else
+  info "Waiting for delegation from home device (up to 10 min)..."
+  echo -e "  ${DIM}Press Enter to skip waiting and paste manually.${RESET}" >&2
 
-DEL_COUNT="0"
-POLL_FAILURES=0
-MANUAL_SKIP=false
-for i in $(seq 1 300); do
-  CAPS_RESULT=$(daemon_qm --quiet "$ROOT_KREF" getCapabilities 2>/dev/null) || CAPS_RESULT=""
-  if [[ -n "$CAPS_RESULT" ]]; then
-    POLL_FAILURES=0
-    DEL_COUNT=$(echo "$CAPS_RESULT" | node -e "
-      const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
-      process.stdout.write(String(v.delegationCount));
-    " 2>/dev/null || echo "0")
-    if [[ "$DEL_COUNT" != "0" ]]; then
-      ok "Delegation received (auto-pushed from home device)"
+  DEL_COUNT="0"
+  POLL_FAILURES=0
+  MANUAL_SKIP=false
+  for i in $(seq 1 300); do
+    CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
+    if [[ -n "$CAPS_RAW" ]]; then
+      POLL_FAILURES=0
+      DEL_COUNT=$(echo "$CAPS_RAW" | node -e "
+        const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+        const v = JSON.parse(d.body.slice(1));
+        process.stdout.write(String(v.delegationCount));
+      " 2>/dev/null || echo "0")
+      if [[ "$DEL_COUNT" != "0" ]]; then
+        ok "Delegation received (auto-pushed from home device)"
+        break
+      fi
+    else
+      POLL_FAILURES=$((POLL_FAILURES + 1))
+      if [[ "$POLL_FAILURES" -ge 5 ]]; then
+        fail "Daemon appears to be down (5 consecutive failed polls). Check: tail -f ${OCAP_HOME:-~/.ocap}/daemon.log"
+      fi
+    fi
+    if [[ "$i" -eq 300 ]]; then
+      MANUAL_SKIP=true
       break
     fi
-  else
-    POLL_FAILURES=$((POLL_FAILURES + 1))
-    if [[ "$POLL_FAILURES" -ge 5 ]]; then
-      fail "Daemon appears to be down (5 consecutive failed polls). Check: tail -f ${OCAP_HOME:-~/.ocap}/daemon.log"
+    # read -t 2 doubles as the sleep — pressing Enter skips to manual paste
+    if read -t 2 -r _ 2>/dev/null; then
+      MANUAL_SKIP=true
+      break
     fi
-  fi
-  if [[ "$i" -eq 300 ]]; then
-    MANUAL_SKIP=true
-    break
-  fi
-  # read -t 2 doubles as the sleep — pressing Enter skips to manual paste
-  if read -t 2 -r _ 2>/dev/null; then
-    MANUAL_SKIP=true
-    break
-  fi
-done
+  done
+fi
 
 if [[ "$MANUAL_SKIP" == true && "$DEL_COUNT" == "0" ]]; then
   echo "" >&2
@@ -676,9 +687,14 @@ EOF
 # ---------------------------------------------------------------------------
 
 if command -v openclaw &>/dev/null; then
-  echo "" >&2
-  echo -ne "${CYAN}→${RESET} Install the OpenClaw wallet plugin? [y/N] " >&2
-  read -r INSTALL_PLUGIN
+  INSTALL_PLUGIN="n"
+  if [[ "$NON_INTERACTIVE" == true ]]; then
+    INSTALL_PLUGIN="y"
+  else
+    echo "" >&2
+    echo -ne "${CYAN}→${RESET} Install the OpenClaw wallet plugin? [y/N] " >&2
+    read -r INSTALL_PLUGIN
+  fi
   if [[ "$INSTALL_PLUGIN" =~ ^[Yy]$ ]]; then
     info "Installing OpenClaw wallet plugin..."
     (cd "$REPO_ROOT" && openclaw plugins install -l ./packages/evm-wallet-experiment/openclaw-plugin) >&2
