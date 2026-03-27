@@ -50,9 +50,11 @@ services:
       retries: 20
 
   llm:
+    profiles: [interactive]
     build:
       context: ../../../
-      dockerfile: packages/evm-wallet-experiment/docker/Dockerfile.node-base
+      dockerfile: packages/evm-wallet-experiment/docker/Dockerfile.kernel-base
+      target: kernel
     environment:
       - LLM_UPSTREAM=${LLM_UPSTREAM:-http://host.docker.internal:8080}
     networks: [ocap-e2e]
@@ -87,11 +89,16 @@ services:
       start_period: 300s
 
   home:
-    environment:
-      - HOME=/run/ocap/home
     build:
       context: ../../../
-      dockerfile: packages/evm-wallet-experiment/docker/Dockerfile.node-base
+      dockerfile: packages/evm-wallet-experiment/docker/Dockerfile.kernel-base
+      target: kernel
+    environment:
+      - SERVICE_NAME=home
+      - HOME=/run/ocap/home
+      - SOCKET_PATH=/run/ocap/home/.ocap/daemon.sock
+      - QUIC_LISTEN_ADDRESS=/ip4/0.0.0.0/udp/4001/quic-v1
+      - READY_FILE=/run/ocap/home-ready.json
     networks: [ocap-e2e]
     ports: ['4001:4001/udp']
     volumes:
@@ -101,51 +108,47 @@ services:
       - node
       - '--conditions'
       - development
-      - /app/packages/evm-wallet-experiment/docker/entrypoint-home.mjs
+      - /app/packages/evm-wallet-experiment/docker/entrypoint-kernel.mjs
     depends_on:
       evm:
         condition: service_healthy
     healthcheck:
-      test: ['CMD', 'test', '-f', '/run/ocap/home-info.json']
+      test: ['CMD', 'test', '-f', '/run/ocap/home-ready.json']
       interval: 3s
       timeout: 5s
       retries: 60
       start_period: 30s
 
   away:
-    environment:
-      - HOME=/run/ocap/away
-      - DELEGATION_MODE=${DELEGATION_MODE:-bundler-7702}
-      - LLM_BASE_URL=${LLM_BASE_URL:-http://llm:11434/v1}
-      - LLM_MODEL=${LLM_MODEL:-glm-4.7-flash}
-      - LLM_API_TYPE=${LLM_API_TYPE:-openai-completions}
     build:
       context: ../../../
-      dockerfile: packages/evm-wallet-experiment/docker/Dockerfile.node-base
+      dockerfile: packages/evm-wallet-experiment/docker/Dockerfile.kernel-base
+      target: kernel
+    environment:
+      - SERVICE_NAME=away
+      - HOME=/run/ocap/away
+      - SOCKET_PATH=/run/ocap/away/.ocap/daemon.sock
+      - QUIC_LISTEN_ADDRESS=/ip4/0.0.0.0/udp/4002/quic-v1
+      - READY_FILE=/run/ocap/away-ready.json
     networks: [ocap-e2e]
     ports: ['4002:4002/udp']
     volumes:
       - ocap-run:/run/ocap
       - ocap-logs:/logs
     entrypoint:
-      ['bash', '/app/packages/evm-wallet-experiment/docker/entrypoint-away.sh']
+      - node
+      - '--conditions'
+      - development
+      - /app/packages/evm-wallet-experiment/docker/entrypoint-kernel.mjs
     depends_on:
-      home:
-        condition: service_healthy
       evm:
         condition: service_healthy
-      bundler:
-        condition: service_healthy
-      llm:
-        condition: service_healthy
     healthcheck:
-      test: ['CMD', 'test', '-f', '/run/ocap/away-info.json']
+      test: ['CMD', 'test', '-f', '/run/ocap/away-ready.json']
       interval: 3s
       timeout: 5s
       retries: 60
       start_period: 60s
-    stdin_open: true
-    tty: true
 
 networks:
   ocap-e2e:

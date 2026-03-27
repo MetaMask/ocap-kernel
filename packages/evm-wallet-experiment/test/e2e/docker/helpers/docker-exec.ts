@@ -6,10 +6,13 @@
  * `fetch` against exposed ports for direct RPC.
  */
 import { execSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const currentDir = dirname(fileURLToPath(import.meta.url));
 
 const COMPOSE_FILE = resolve(
-  __dirname,
+  currentDir,
   '../../../../docker/docker-compose.yml',
 );
 const CLI = 'node /app/packages/kernel-cli/dist/app.mjs';
@@ -137,4 +140,71 @@ export function isStackHealthy(): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Execute a kernel-level daemon RPC method inside a container.
+ *
+ * Unlike {@link callVat} which sends a vat message via `queueMessage`,
+ * this calls a top-level daemon RPC method (e.g. `launchSubcluster`,
+ * `registerLocationHints`, `getStatus`).
+ *
+ * @param service - The compose service name.
+ * @param method - The daemon RPC method name.
+ * @param params - Optional parameters object.
+ * @returns The deserialized result.
+ */
+export function daemonExec(
+  service: string,
+  method: string,
+  params?: unknown,
+): unknown {
+  const args =
+    params === undefined
+      ? method
+      : `${method} '${JSON.stringify(params).replace(/'/gu, "'\\''")}'`;
+  const raw = execSync(
+    `docker compose -f ${COMPOSE_FILE} exec -T ${service} ${CLI} daemon exec ${args} --timeout 60`,
+    { encoding: 'utf-8', timeout: 90_000 },
+  ).trim();
+  return JSON.parse(raw) as unknown;
+}
+
+export type ServiceInfo = {
+  socketPath: string;
+  peerId?: string;
+  listenAddresses?: string[];
+};
+
+/**
+ * Read the readiness file for a kernel service.
+ *
+ * @param service - The compose service name (e.g. 'home', 'away').
+ * @returns The parsed readiness info.
+ */
+export function getServiceInfo(service: string): ServiceInfo {
+  return readContainerJson<ServiceInfo>(
+    service,
+    `/run/ocap/${service}-ready.json`,
+  );
+}
+
+export type ContractAddresses = {
+  EntryPoint: string;
+  DelegationManager: string;
+  SimpleFactory: string;
+  implementations: Record<string, string>;
+  caveatEnforcers: Record<string, string>;
+};
+
+/**
+ * Read the deployed contract addresses from the EVM container.
+ *
+ * @returns The parsed contract addresses.
+ */
+export function readContracts(): ContractAddresses {
+  return readContainerJson<ContractAddresses>(
+    'evm',
+    '/run/ocap/contracts.json',
+  );
 }

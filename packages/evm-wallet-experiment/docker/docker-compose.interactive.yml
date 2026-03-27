@@ -1,0 +1,18 @@
+# Compose override for interactive use (OpenClaw + LLM).
+#
+# Usage:
+#   yarn docker:interactive:up
+#
+# Then run wallet + OpenClaw setup:
+#   yarn docker:interactive:setup
+services:
+  away:
+    build:
+      target: interactive
+    environment:
+      - LLM_BASE_URL=${LLM_BASE_URL:-http://llm:11434/v1}
+      - LLM_MODEL=${LLM_MODEL:-glm-4.7-flash}
+      - LLM_API_TYPE=${LLM_API_TYPE:-openai-completions}
+    depends_on:
+      llm:
+        condition: service_healthy

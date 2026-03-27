@@ -43,18 +43,14 @@ RUN cd node_modules/@ipshipyard/node-datachannel && npm run install --ignore-scr
 # Also rebuild better-sqlite3 (needed by kernel-store at runtime)
 RUN npm rebuild better-sqlite3 || true
 
-# Build the kernel CLI (needed by setup-away.sh) and wallet bundles
+# Build the kernel CLI and wallet bundles
 RUN yarn workspace @metamask/kernel-cli build && \
     yarn workspace @ocap/evm-wallet-experiment build
 
-# Bundle the OpenClaw wallet plugin (TypeScript → single ESM file)
-RUN npx esbuild packages/evm-wallet-experiment/openclaw-plugin/index.ts \
-    --bundle --format=esm --platform=node \
-    --external:node:child_process --external:node:path --external:node:url \
-    --outfile=packages/evm-wallet-experiment/openclaw-plugin/dist/index.mjs
-
-# node:22 (not slim) — bash is required by setup-away.sh
-FROM node:22
+# ---------------------------------------------------------------------------
+# Target: kernel — minimal kernel runtime (used by tests)
+# ---------------------------------------------------------------------------
+FROM node:22-slim AS kernel
 
 WORKDIR /app
 
@@ -62,5 +58,15 @@ COPY --from=builder /build /app
 
 RUN mkdir -p /logs /run/ocap
 
-# Install OpenClaw globally for interactive agent use on the VPS
+# ---------------------------------------------------------------------------
+# Target: interactive — kernel + OpenClaw + wallet plugin (used interactively)
+# ---------------------------------------------------------------------------
+FROM kernel AS interactive
+
+# Bundle the OpenClaw wallet plugin (TypeScript → single ESM file)
+RUN npx esbuild packages/evm-wallet-experiment/openclaw-plugin/index.ts \
+    --bundle --format=esm --platform=node \
+    --external:node:child_process --external:node:path --external:node:url \
+    --outfile=packages/evm-wallet-experiment/openclaw-plugin/dist/index.mjs
+
 RUN npm install -g openclaw@latest
