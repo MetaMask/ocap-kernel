@@ -1,0 +1,44 @@
+{
+  "id": "metamask",
+  "name": "MetaMask (OCAP)",
+  "description": "Request and use wallet capabilities from a MetaMask capability vendor via the OCAP kernel daemon. Supports requesting capabilities, calling methods on them, and listing what has been obtained.",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "ocapCliPath": {
+        "type": "string",
+        "description": "Absolute path to the ocap CLI entry point (.mjs file or binary)."
+      },
+      "ocapUrl": {
+        "type": "string",
+        "description": "OCAP URL for the capability vendor public facet (e.g., ocap:abc123@12D3KooW...,/ip4/...)."
+      },
+      "timeoutMs": {
+        "type": "number",
+        "description": "Timeout for daemon calls in ms (default: 60000)."
+      },
+      "resetState": {
+        "type": "boolean",
+        "description": "Clear all plugin state on each register() call (default: false)."
+      }
+    }
+  },
+  "uiHints": {
+    "ocapUrl": {
+      "label": "OCAP URL",
+      "placeholder": "ocap:abc123@12D3KooW...,/ip4/..."
+    },
+    "ocapCliPath": {
+      "label": "OCAP CLI Path",
+      "placeholder": "~/ocap-kernel/packages/kernel-cli/dist/app.mjs"
+    },
+    "timeoutMs": {
+      "label": "Timeout (ms)",
+      "placeholder": "60000"
+    },
+    "resetState": {
+      "label": "Reset State on Register",
+      "placeholder": "false"
+    }
+  }
+}
