@@ -19,6 +19,7 @@ import { makeDaemonCaller } from './daemon.ts';
 import { createState } from './state.ts';
 import { registerCallCapabilityTool } from './tools/call-capability.ts';
 import { registerListCapabilitiesTool } from './tools/list-capabilities.ts';
+import { registerObtainVendorTool } from './tools/obtain-vendor.ts';
 import { registerRequestCapabilityTool } from './tools/request-capability.ts';
 import type {
   OpenClawPluginApi,
@@ -177,14 +178,7 @@ function register(api: OpenClawPluginApi): void {
       parse: (value) => value.toLowerCase() === 'true',
     }) ?? false;
 
-  if (!ocapUrl) {
-    // eslint-disable-next-line no-console
-    console.warn(
-      '[metamask plugin] No OCAP URL configured. Set OCAP_URL env var or ocapUrl in plugin config.',
-    );
-  }
-
-  const state = createState();
+  const state = createState(ocapUrl);
 
   // resetState is implicit since state always starts fresh, but if explicitly
   // enabled it also logs for visibility.
@@ -195,7 +189,8 @@ function register(api: OpenClawPluginApi): void {
 
   const daemon = makeDaemonCaller({ cliPath, timeoutMs });
 
-  registerRequestCapabilityTool({ api, daemon, state, ocapUrl });
+  registerObtainVendorTool({ api, daemon, state });
+  registerRequestCapabilityTool({ api, daemon, state });
   registerCallCapabilityTool({ api, daemon, state });
   registerListCapabilitiesTool({ api, state });
 }

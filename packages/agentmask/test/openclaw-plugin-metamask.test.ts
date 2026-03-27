@@ -69,9 +69,10 @@ describe('openclaw metamask plugin', () => {
       expect(pluginEntry.name).toBe('MetaMask (OCAP)');
     });
 
-    it('registers three tools', () => {
+    it('registers four tools', () => {
       const tools = setupPlugin();
       expect([...tools.keys()]).toStrictEqual([
+        'metamask_obtain_vendor',
         'metamask_request_capability',
         'metamask_call_capability',
         'metamask_list_capabilities',
@@ -179,6 +180,81 @@ describe('openclaw metamask plugin', () => {
 
       expect(result.content[0].text).toContain('Error:');
       expect(result.content[0].text).toContain('connection refused');
+    });
+
+    it('returns error prompting for obtain_vendor when no URL configured', async () => {
+      const tools = setupPlugin({ ocapUrl: '' });
+      const tool = tools.get('metamask_request_capability')!;
+      const result = await tool.execute('id1', {
+        request: 'sign messages',
+      });
+
+      expect(result.content[0].text).toContain('Not connected');
+      expect(result.content[0].text).toContain('metamask_obtain_vendor');
+      expect(mockRedeemUrl).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('metamask_obtain_vendor', () => {
+    it('redeems URL and stores vendor kref', async () => {
+      mockRedeemUrl.mockResolvedValueOnce('ko10');
+
+      const tools = setupPlugin({ ocapUrl: '' });
+      const tool = tools.get('metamask_obtain_vendor')!;
+      const result = await tool.execute('id1', {
+        url: 'ocap:fresh@12D3KooWnew,/ip4/1.2.3.4/tcp/9090',
+      });
+
+      expect(result.content[0].text).toContain('Obtained MetaMask');
+      expect(result.content[0].text).toContain('ko10');
+      expect(mockRedeemUrl).toHaveBeenCalledWith(
+        'ocap:fresh@12D3KooWnew,/ip4/1.2.3.4/tcp/9090',
+      );
+    });
+
+    it('enables request_capability after obtaining vendor', async () => {
+      mockRedeemUrl.mockResolvedValueOnce('ko10');
+      mockQueueMessage.mockResolvedValueOnce({
+        body: '#"$0.Alleged: PersonalMessageSigner"',
+        slots: ['ko5'],
+      });
+
+      const tools = setupPlugin({ ocapUrl: '' });
+
+      // Obtain vendor via URL provided in chat
+      await tools
+        .get('metamask_obtain_vendor')!
+        .execute('id1', { url: 'ocap:abc@peer,/ip4/1.2.3.4/tcp/9090' });
+
+      // Now request_capability works without needing pre-configured URL
+      const result = await tools
+        .get('metamask_request_capability')!
+        .execute('id2', { request: 'sign messages' });
+
+      expect(result.content[0].text).toContain('PersonalMessageSigner');
+      // redeemUrl called once (by obtain_vendor), not again by request_capability
+      expect(mockRedeemUrl).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns error on redeem failure', async () => {
+      mockRedeemUrl.mockRejectedValueOnce(new Error('invalid URL'));
+
+      const tools = setupPlugin({ ocapUrl: '' });
+      const tool = tools.get('metamask_obtain_vendor')!;
+      const result = await tool.execute('id1', { url: 'bad-url' });
+
+      expect(result.content[0].text).toContain('Error:');
+      expect(result.content[0].text).toContain('invalid URL');
+    });
+
+    it('returns error for empty URL', async () => {
+      const tools = setupPlugin({ ocapUrl: '' });
+      const tool = tools.get('metamask_obtain_vendor')!;
+      const result = await tool.execute('id1', { url: '  ' });
+
+      expect(result.content[0].text).toContain('Error:');
+      expect(result.content[0].text).toContain('empty');
+      expect(mockRedeemUrl).not.toHaveBeenCalled();
     });
   });
 
