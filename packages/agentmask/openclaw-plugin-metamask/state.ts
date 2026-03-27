@@ -6,10 +6,21 @@
  */
 import type { DaemonCaller } from './daemon.ts';
 
+/**
+ * Schema describing a single method on a capability.
+ * Mirrors `MethodSchema` from `@metamask/kernel-utils`.
+ */
+export type MethodSchema = {
+  description: string;
+  args: Record<string, { type: string; description?: string }>;
+  returns?: { type: string; description?: string };
+};
+
 export type CapEntry = {
   kref: string;
   name: string;
   description: string;
+  methods: Record<string, MethodSchema> | undefined;
 };
 
 export type PluginState = {
@@ -18,11 +29,6 @@ export type PluginState = {
   capabilities: Map<string, CapEntry>;
 };
 
-/**
- * Create a fresh plugin state.
- *
- * @returns A new empty plugin state.
- */
 /**
  * Create a fresh plugin state.
  *

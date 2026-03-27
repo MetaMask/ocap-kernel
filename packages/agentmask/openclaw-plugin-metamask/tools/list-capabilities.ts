@@ -38,7 +38,12 @@ export function registerListCapabilitiesTool(options: {
 
       const lines: string[] = [];
       for (const [name, entry] of state.capabilities) {
-        lines.push(`- ${name} (${entry.kref}): ${entry.description}`);
+        const methodNames = entry.methods
+          ? Object.keys(entry.methods).join(', ')
+          : 'unknown';
+        lines.push(
+          `- ${name} (${entry.kref}): ${entry.description}\n  Methods: ${methodNames}`,
+        );
       }
 
       return {

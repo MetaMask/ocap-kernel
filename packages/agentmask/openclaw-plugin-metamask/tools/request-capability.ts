@@ -2,9 +2,40 @@
  * metamask_request_capability tool: request a capability from the vendor.
  */
 import type { DaemonCaller } from '../daemon.ts';
-import type { PluginState } from '../state.ts';
+import type { MethodSchema, PluginState } from '../state.ts';
 import { ensureVendor, parseCapabilityResponse } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
+
+/**
+ * The dunder method name used to retrieve a discoverable exo's schema.
+ * Matches `GET_DESCRIPTION` from `@metamask/kernel-utils`.
+ */
+const GET_DESCRIPTION = '__getDescription__';
+
+/**
+ * Format a method schema into a human-readable string.
+ *
+ * @param name - The method name.
+ * @param schema - The method schema.
+ * @returns A formatted description string.
+ */
+function formatMethod(name: string, schema: MethodSchema): string {
+  const argParts = Object.entries(schema.args).map(([argName, argSchema]) => {
+    const desc = argSchema.description ? ` — ${argSchema.description}` : '';
+    return `    ${argName}: ${argSchema.type}${desc}`;
+  });
+
+  const argsBlock =
+    argParts.length > 0
+      ? `\n  Args:\n${argParts.join('\n')}`
+      : '\n  Args: none';
+
+  const returnsBlock = schema.returns
+    ? `\n  Returns: ${schema.returns.type}${schema.returns.description ? ` — ${schema.returns.description}` : ''}`
+    : '';
+
+  return `- ${name}: ${schema.description}${argsBlock}${returnsBlock}`;
+}
 
 /**
  * Register the metamask_request_capability tool.
@@ -27,7 +58,7 @@ export function registerRequestCapabilityTool(options: {
     description:
       'Request a capability from the MetaMask wallet vendor. ' +
       'Describe what you need in natural language (e.g., "I need to sign personal messages"). ' +
-      'Returns the capability name and kref for use with metamask_call_capability.',
+      'Returns the capability name, kref, and available methods with their signatures.',
     parameters: {
       type: 'object',
       properties: {
@@ -55,23 +86,44 @@ export function registerRequestCapabilityTool(options: {
 
         const { kref, name } = parseCapabilityResponse(rawResult);
 
+        // Discover available methods by calling __getDescription__ on the capability.
+        let methods: Record<string, MethodSchema> | undefined;
+        try {
+          const description = await daemon.queueMessage({
+            target: kref,
+            method: GET_DESCRIPTION,
+            args: [],
+          });
+          if (description && typeof description === 'object') {
+            methods = description as Record<string, MethodSchema>;
+          }
+        } catch {
+          // Discovery is best-effort — the capability may not be discoverable.
+        }
+
         state.capabilities.set(name, {
           kref,
           name,
           description: params.request,
+          methods,
         });
 
+        const lines = [`Obtained capability: ${name}`, `KRef: ${kref}`];
+
+        if (methods && Object.keys(methods).length > 0) {
+          lines.push('', 'Available methods:');
+          for (const [methodName, schema] of Object.entries(methods)) {
+            lines.push(formatMethod(methodName, schema));
+          }
+        }
+
+        lines.push(
+          '',
+          'Use metamask_call_capability to invoke methods on this capability.',
+        );
+
         return {
-          content: [
-            {
-              type: 'text' as const,
-              text: [
-                `Obtained capability: ${name}`,
-                `KRef: ${kref}`,
-                `Use metamask_call_capability to invoke methods on this capability.`,
-              ].join('\n'),
-            },
-          ],
+          content: [{ type: 'text' as const, text: lines.join('\n') }],
           details: undefined,
         };
       } catch (error: unknown) {
