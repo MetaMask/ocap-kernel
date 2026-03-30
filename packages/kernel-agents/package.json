@@ -33,6 +33,16 @@
         "default": "./dist/strategies/json-agent.cjs"
       }
     },
+    "./chat": {
+      "import": {
+        "types": "./dist/strategies/chat-agent.d.mts",
+        "default": "./dist/strategies/chat-agent.mjs"
+      },
+      "require": {
+        "types": "./dist/strategies/chat-agent.d.cts",
+        "default": "./dist/strategies/chat-agent.cjs"
+      }
+    },
     "./agent": {
       "import": {
         "types": "./dist/agent.d.mts",
