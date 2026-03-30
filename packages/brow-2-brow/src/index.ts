@@ -10,13 +10,14 @@ import type {
   Libp2pEvents,
   PrivateKey,
 } from '@libp2p/interface';
+import type { Stream } from '@libp2p/interface';
 import { peerIdFromPrivateKey } from '@libp2p/peer-id';
+import type { ByteStream } from '@libp2p/utils';
+import { byteStream } from '@libp2p/utils';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
 import { webTransport } from '@libp2p/webtransport';
 import { multiaddr } from '@multiformats/multiaddr';
-import type { ByteStream } from 'it-byte-stream';
-import { byteStream } from 'it-byte-stream';
 import { createLibp2p } from 'libp2p';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
@@ -30,7 +31,7 @@ const RELAY_ID = 200;
 const RELAY_HOST = '/dns4/troll.fudco.com';
 
 type Channel = {
-  msgStream: ByteStream;
+  msgStream: ByteStream<Stream>;
   id: number;
 };
 
@@ -431,7 +432,7 @@ const App = async (): Promise<void> => {
     return channel;
   }
 
-  await libp2p.handle('whatever', ({ connection, stream }) => {
+  await libp2p.handle('whatever', (stream, connection) => {
     const msgStream = byteStream(stream);
     const remotePeerId = connection.remotePeer;
     const id = idMap.get(peerId.toString()) ?? -1;

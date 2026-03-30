@@ -83,7 +83,7 @@
     "vitest": "^4.0.16"
   },
   "peerDependencies": {
-    "@libp2p/webrtc": "5.2.24"
+    "@libp2p/webrtc": "6.0.15"
   },
   "engines": {
     "node": ">=22"

@@ -19,7 +19,9 @@ const TEST_TIMEOUT = 30_000;
 
 // Dummy relay addresses - not actually connected to, just needed for bootstrap
 // Using localhost addresses that won't conflict with real relay ports
-const DUMMY_RELAYS = ['/ip4/127.0.0.1/tcp/19001/ws/p2p/QmDummyPeerId'];
+const DUMMY_RELAYS = [
+  '/ip4/127.0.0.1/tcp/19001/ws/p2p/12D3KooWBTf3S95YAsh6fi5rhohMsk8qaTy19rrpW8X9G69vn6GP',
+];
 
 /**
  * Extract peerId from remoteComms status, returning undefined for disconnected state.

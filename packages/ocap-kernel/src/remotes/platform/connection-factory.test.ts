@@ -9,10 +9,10 @@ import type { Channel } from '../types.ts';
 // Track state shared between mocks and tests
 const libp2pState: {
   handler?:
-    | ((args: {
-        connection: { remotePeer: { toString: () => string } };
-        stream: object;
-      }) => void | Promise<void>)
+    | ((
+        stream: object,
+        connection: { remotePeer: { toString: () => string } },
+      ) => void | Promise<void>)
     | undefined;
   dials: {
     addr: string;
@@ -127,34 +127,69 @@ vi.mock('@metamask/logger', () => ({
   },
 }));
 
+/** Protocol codes matching @multiformats/multiaddr v13 */
+const PROTO_CODES: Record<string, number> = {
+  ip4: 4,
+  ip6: 41,
+  tcp: 6,
+  udp: 273,
+  dns4: 54,
+  dns6: 55,
+  dnsaddr: 56,
+  ws: 477,
+  wss: 478,
+  tls: 448,
+  p2p: 421,
+  'p2p-circuit': 290,
+  webrtc: 280,
+  'quic-v1': 461,
+  webtransport: 465,
+};
+
 vi.mock('@multiformats/multiaddr', () => ({
+  CODE_P2P: 421,
+  CODE_IP4: 4,
+  CODE_IP6: 41,
+  CODE_DNS4: 54,
+  CODE_DNS6: 55,
+  CODE_DNSADDR: 56,
   multiaddr: (addr: string) => {
     // Real multiaddr() throws on malformed addresses
     if (!addr.startsWith('/')) {
       throw new Error(`invalid multiaddr "${addr}"`);
     }
-    // Extract the last /p2p/<peerId> segment if present
-    const peerIdMatch = addr.match(/\/p2p\/([^/]+)$/u);
-    // Extract protocol names from multiaddr segments (e.g. /dns4/.../tcp/.../ws/...)
+    // Parse segments into components
     const segments = addr.split('/').filter(Boolean);
-    const protos: string[] = [];
-    for (const seg of segments) {
-      if (!/^\d+$/u.test(seg) && !peerIdMatch?.[1]?.includes(seg)) {
-        protos.push(seg);
+    const components: { code: number; name: string; value?: string }[] = [];
+    const valuedProtos = new Set([
+      'ip4',
+      'ip6',
+      'tcp',
+      'udp',
+      'dns4',
+      'dns6',
+      'dnsaddr',
+      'p2p',
+    ]);
+    let idx = 0;
+    while (idx < segments.length) {
+      const name = segments[idx];
+      const code = PROTO_CODES[name];
+      if (code === undefined) {
+        idx += 1;
+        continue;
+      }
+      if (valuedProtos.has(name) && idx + 1 < segments.length) {
+        components.push({ code, name, value: segments[idx + 1] });
+        idx += 2;
+      } else {
+        components.push({ code, name });
+        idx += 1;
       }
     }
-    // Extract host: value after dns4/dns6/ip4/ip6
-    const hostMatch = addr.match(/\/(dns[46]?|ip[46])\/([^/]+)/u);
     return {
       toString: () => addr,
-      getPeerId: () => peerIdMatch?.[1] ?? null,
-      protoNames: () => protos,
-      toOptions: () => ({
-        host: hostMatch?.[2] ?? 'unknown',
-        port: 0,
-        transport: 'tcp' as const,
-        family: 4 as const,
-      }),
+      getComponents: () => components,
     };
   },
 }));
@@ -167,14 +202,19 @@ vi.mock('@multiformats/multiaddr', () => ({
  * @returns A minimal Multiaddr-shaped object.
  */
 function makeTestMultiaddr(protoNames: string[], host: string) {
+  // Build components: first component is the host (ip4/ip6/dns4/dns6)
+  const hostProto = protoNames.find((proto) =>
+    ['ip4', 'ip6', 'dns4', 'dns6', 'dnsaddr'].includes(proto),
+  );
+  const components = protoNames.map((name) => {
+    const code = PROTO_CODES[name] ?? 0;
+    if (name === hostProto) {
+      return { code, name, value: host };
+    }
+    return { code, name };
+  });
   return {
-    protoNames: () => protoNames,
-    toOptions: () => ({
-      host,
-      port: 0,
-      transport: 'tcp' as const,
-      family: 4 as const,
-    }),
+    getComponents: () => components,
   };
 }
 
@@ -186,7 +226,7 @@ type MockByteStream = {
 };
 
 const streamMap = new WeakMap<object, MockByteStream>();
-vi.mock('it-byte-stream', () => ({
+vi.mock('@libp2p/utils', () => ({
   byteStream: (stream: object) => {
     const bs: MockByteStream = {
       writes: [],
@@ -264,10 +304,10 @@ describe('ConnectionFactory', () => {
       handle: vi.fn(
         async (
           _protocol: string,
-          handler?: (args: {
-            connection: { remotePeer: { toString: () => string } };
-            stream: object;
-          }) => void | Promise<void>,
+          handler?: (
+            stream: object,
+            connection: { remotePeer: { toString: () => string } },
+          ) => void | Promise<void>,
         ) => {
           libp2pState.handler = handler;
         },
@@ -540,9 +580,8 @@ describe('ConnectionFactory', () => {
 
       // Simulate inbound connection
       const inboundStream = {};
-      await libp2pState.handler?.({
-        connection: { remotePeer: { toString: () => 'remote-peer' } },
-        stream: inboundStream,
+      await libp2pState.handler?.(inboundStream, {
+        remotePeer: { toString: () => 'remote-peer' },
       });
 
       expect(handler).toHaveBeenCalledWith(
@@ -561,9 +600,8 @@ describe('ConnectionFactory', () => {
       });
 
       const inboundStream = {};
-      await libp2pState.handler?.({
-        connection: { remotePeer: { toString: () => 'inbound-peer' } },
-        stream: inboundStream,
+      await libp2pState.handler?.(inboundStream, {
+        remotePeer: { toString: () => 'inbound-peer' },
       });
 
       expect(capturedChannel).toBeDefined();
@@ -1767,10 +1805,10 @@ describe('ConnectionFactory', () => {
         handle: vi.fn(
           async (
             _protocol: string,
-            handler?: (args: {
-              connection: { remotePeer: { toString: () => string } };
-              stream: object;
-            }) => void | Promise<void>,
+            handler?: (
+              stream: object,
+              connection: { remotePeer: { toString: () => string } },
+            ) => void | Promise<void>,
           ) => {
             libp2pState.handler = handler;
           },
@@ -1805,9 +1843,8 @@ describe('ConnectionFactory', () => {
 
       // Simulate inbound connection
       const inboundStream = {};
-      await libp2pState.handler?.({
-        connection: { remotePeer: { toString: () => 'inbound-peer' } },
-        stream: inboundStream,
+      await libp2pState.handler?.(inboundStream, {
+        remotePeer: { toString: () => 'inbound-peer' },
       });
 
       // Make outbound connection

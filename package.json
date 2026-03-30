@@ -124,10 +124,10 @@
       "vitest>@vitest/browser>webdriverio>@wdio/utils>edgedriver": false,
       "vitest>@vitest/browser>webdriverio>@wdio/utils>geckodriver": false,
       "vitest>@vitest/mocker>msw": false,
-      "@metamask/kernel-cli>@metamask/kernel-node-runtime>@libp2p/webrtc>@ipshipyard/node-datachannel": false,
+      "@metamask/kernel-cli>@metamask/kernel-node-runtime>@libp2p/webrtc>node-datachannel": false,
       "@metamask/kernel-cli>@metamask/kernel-node-runtime>@metamask/kernel-store>better-sqlite3": false,
       "@metamask/kernel-cli>@metamask/kernel-node-runtime>@metamask/streams": false,
-      "@metamask/kernel-cli>@metamask/kernel-shims>@libp2p/webrtc>@ipshipyard/node-datachannel": false,
+      "@metamask/kernel-cli>@metamask/kernel-shims>@libp2p/webrtc>node-datachannel": false,
       "@metamask/kernel-cli>@metamask/kernel-utils": false,
       "vitest>jsdom>ws>bufferutil": false,
       "vitest>jsdom>ws>utf-8-validate": false
@@ -136,10 +136,10 @@
   "resolutions": {
     "@radix-ui/react-slot@npm:^1.1.0": "1.2.4",
     "cookie": "^0.7.0",
-    "@chainsafe/libp2p-noise": "16.1.5",
-    "@libp2p/interface": "2.11.0",
-    "@multiformats/multiaddr": "12.5.1",
-    "@multiformats/multiaddr-to-uri": "11.0.2",
+    "@chainsafe/libp2p-noise": "17.0.0",
+    "@libp2p/interface": "3.1.1",
+    "@multiformats/multiaddr": "13.0.1",
+    "@multiformats/multiaddr-to-uri": "12.0.0",
     "@multiformats/dns": "1.0.9"
   }
 }

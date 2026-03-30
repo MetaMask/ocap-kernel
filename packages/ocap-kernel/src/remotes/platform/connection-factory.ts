@@ -7,9 +7,9 @@ import { identify } from '@libp2p/identify';
 import { MuxerClosedError } from '@libp2p/interface';
 import type { PrivateKey, Libp2p } from '@libp2p/interface';
 import { ping } from '@libp2p/ping';
+import { byteStream } from '@libp2p/utils';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
-import * as wsFilters from '@libp2p/websockets/filters';
 import { webTransport } from '@libp2p/webtransport';
 import { AbortError, isRetryableNetworkError } from '@metamask/kernel-errors';
 import {
@@ -18,9 +18,16 @@ import {
   retryWithBackoff,
 } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import { multiaddr } from '@multiformats/multiaddr';
+import {
+  multiaddr,
+  CODE_P2P,
+  CODE_IP4,
+  CODE_IP6,
+  CODE_DNS4,
+  CODE_DNS6,
+  CODE_DNSADDR,
+} from '@multiformats/multiaddr';
 import type { Multiaddr } from '@multiformats/multiaddr';
-import { byteStream } from 'it-byte-stream';
 import { createLibp2p } from 'libp2p';
 
 import type {
@@ -37,7 +44,7 @@ import type {
  * @returns True if the multiaddr is a plain ws:// address.
  */
 function isPlainWs(ma: Multiaddr): boolean {
-  const names = ma.protoNames();
+  const names = ma.getComponents().map((comp) => comp.name);
   return (
     names.includes('ws') && !names.includes('wss') && !names.includes('tls')
   );
@@ -160,7 +167,9 @@ export class ConnectionFactory {
     for (const relay of this.#knownRelays) {
       try {
         const ma = multiaddr(relay);
-        const peerId = ma.getPeerId();
+        const peerId = ma
+          .getComponents()
+          .find((comp) => comp.code === CODE_P2P)?.value;
         if (peerId) {
           this.#relayPeerIds.add(peerId);
           this.#relayMultiaddrs.set(peerId, relay);
@@ -171,7 +180,16 @@ export class ConnectionFactory {
         }
         // Auto-allow the relay host for plain ws:// connections
         if (isPlainWs(ma)) {
-          relayHosts.push(ma.toOptions().host);
+          const hostComponent = ma
+            .getComponents()
+            .find((comp) =>
+              [CODE_IP4, CODE_IP6, CODE_DNS4, CODE_DNS6, CODE_DNSADDR].includes(
+                comp.code,
+              ),
+            );
+          if (hostComponent?.value) {
+            relayHosts.push(hostComponent.value);
+          }
         }
       } catch (error) {
         this.#logger.warn(`skipping malformed relay address: ${relay}`, error);
@@ -219,7 +237,7 @@ export class ConnectionFactory {
         appendAnnounce: ['/webrtc'],
       },
       transports: [
-        webSockets({ filter: wsFilters.all }),
+        webSockets(),
         webTransport(),
         webRTC({
           rtcConfiguration: {
@@ -245,7 +263,18 @@ export class ConnectionFactory {
           if (!isPlainWs(ma)) {
             return false; // allow wss://, webRTC, circuit relay, etc.
           }
-          const { host } = ma.toOptions();
+          const host =
+            ma
+              .getComponents()
+              .find((comp) =>
+                [
+                  CODE_IP4,
+                  CODE_IP6,
+                  CODE_DNS4,
+                  CODE_DNS6,
+                  CODE_DNSADDR,
+                ].includes(comp.code),
+              )?.value ?? '';
           if (isPrivateAddress(host) || this.#allowedWsHosts.includes(host)) {
             return false;
           }
@@ -269,7 +298,7 @@ export class ConnectionFactory {
     });
 
     // Set up inbound handler
-    await this.#libp2p.handle('whatever', ({ connection, stream }) => {
+    await this.#libp2p.handle('whatever', (stream, connection) => {
       const msgStream = byteStream(stream);
       const remotePeerId = connection.remotePeer.toString();
       this.#logger.log(`inbound connection from peerId:${remotePeerId}`);
@@ -353,7 +382,11 @@ export class ConnectionFactory {
 
     for (const hint of hints) {
       try {
-        if (multiaddr(hint).getPeerId() === peerId) {
+        if (
+          multiaddr(hint)
+            .getComponents()
+            .find((comp) => comp.code === CODE_P2P)?.value === peerId
+        ) {
           directAddresses.push(hint);
         } else {
           relayHints.push(hint);

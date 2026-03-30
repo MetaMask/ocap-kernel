@@ -1,5 +1,5 @@
 import type { Libp2p } from '@libp2p/interface';
-import { protocols } from '@multiformats/multiaddr';
+import { CODE_P2P } from '@multiformats/multiaddr';
 import {
   WebRTC,
   WebSockets,
@@ -95,10 +95,7 @@ export function getPeerDetails(libp2p: Libp2p): string {
         .getMultiaddrs()
         .filter((ma) => Circuit.exactMatch(ma));
       const relayPeers = relayMultiaddrs.map((ma) => {
-        return ma
-          .stringTuples()
-          .filter(([name, _]) => name === protocols('p2p').code)
-          .map(([_, value]) => value)[0];
+        return ma.getComponents().find((comp) => comp.code === CODE_P2P)?.value;
       });
 
       // detect if this is a relay we have a reservation on
