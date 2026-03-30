@@ -115,6 +115,7 @@
   },
   "dependencies": {
     "@endo/eventual-send": "^1.3.4",
+    "@metamask/kernel-utils": "workspace:^",
     "@metamask/superstruct": "^3.2.1",
     "ollama": "^0.5.16",
     "ses": "^1.14.0"

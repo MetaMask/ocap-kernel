@@ -1,4 +1,9 @@
-import type { GenerateResponse, ListResponse } from 'ollama';
+import { ifDefined } from '@metamask/kernel-utils';
+import type {
+  AbortableAsyncIterator,
+  GenerateResponse,
+  ListResponse,
+} from 'ollama';
 
 import type {
   ChatParams,
@@ -15,6 +20,14 @@ import type {
   OllamaClient,
   OllamaModelOptions,
 } from './types.ts';
+
+/**
+ * Result of a streaming raw token-prediction request.
+ */
+export type SampleStreamResult = {
+  stream: AsyncIterable<GenerateResponse>;
+  abort: () => Promise<void>;
+};
 
 /**
  * Base service for interacting with Ollama language models.
@@ -70,15 +83,13 @@ export class OllamaBaseService<Ollama extends OllamaClient>
       model,
       messages,
       stream: false,
-      options: {
-        ...(temperature !== undefined && { temperature }),
-        ...(params.top_p !== undefined && { top_p: params.top_p }),
-        ...(seed !== undefined && { seed }),
-        ...(params.max_tokens !== undefined && {
-          num_predict: params.max_tokens,
-        }),
-        ...(stopArr !== undefined && { stop: stopArr }),
-      },
+      options: ifDefined({
+        temperature,
+        top_p: params.top_p,
+        seed,
+        num_predict: params.max_tokens,
+        stop: stopArr,
+      }),
     });
     const promptTokens = response.prompt_eval_count ?? 0;
     const completionTokens = response.eval_count ?? 0;
@@ -107,32 +118,94 @@ export class OllamaBaseService<Ollama extends OllamaClient>
    * Performs a raw token-prediction request via Ollama's generate API with raw=true,
    * bypassing the model's chat template.
    *
+   * When `params.stream` is `true`, returns a streaming result with an async
+   * iterable of {@link GenerateResponse} chunks and an abort handle.
+   * When `params.stream` is `false` or omitted, awaits and returns the full
+   * {@link SampleResult}.
+   *
    * @param params - The raw sample parameters.
-   * @returns A hardened raw sample result.
+   * @returns A streaming result when `stream: true`, or the full result otherwise.
    */
-  async sample(params: SampleParams): Promise<SampleResult> {
-    const { model, prompt, temperature, seed, stop } = params;
-    const ollama = await this.#makeClient();
-    let stopArr: string[] | undefined;
-    if (stop !== undefined) {
-      stopArr = Array.isArray(stop) ? stop : [stop];
+  sample(params: SampleParams & { stream: true }): Promise<SampleStreamResult>;
+
+  /**
+   * @param params - The raw sample parameters.
+   * @returns A promise resolving to the full sample result.
+   */
+  sample(params: SampleParams & { stream?: false }): Promise<SampleResult>;
+
+  /**
+   * @param params - The raw sample parameters.
+   * @returns A streaming result or full result depending on `params.stream`.
+   */
+  async sample(
+    params: SampleParams,
+  ): Promise<SampleResult> | Promise<SampleStreamResult> {
+    if (params.stream === true) {
+      return this.#streamingSample(params);
     }
+    return this.#nonStreamingSample(params);
+  }
+
+  /**
+   * @param params - The raw sample parameters.
+   * @returns A promise resolving to the full sample result.
+   */
+  async #nonStreamingSample(params: SampleParams): Promise<SampleResult> {
+    const ollama = await this.#makeClient();
     const response = await ollama.generate({
-      model,
-      prompt,
+      model: params.model,
+      prompt: params.prompt,
       raw: true,
       stream: false,
-      options: {
-        ...(temperature !== undefined && { temperature }),
-        ...(params.top_p !== undefined && { top_p: params.top_p }),
-        ...(seed !== undefined && { seed }),
-        ...(params.max_tokens !== undefined && {
-          num_predict: params.max_tokens,
-        }),
-        ...(stopArr !== undefined && { stop: stopArr }),
-      },
+      options: this.#buildSampleOptions(params),
     });
     return harden({ text: response.response });
+  }
+
+  /**
+   * @param params - The raw sample parameters.
+   * @returns A promise resolving to a streaming result.
+   */
+  async #streamingSample(params: SampleParams): Promise<SampleStreamResult> {
+    const ollama = await this.#makeClient();
+    const response: AbortableAsyncIterator<GenerateResponse> =
+      await ollama.generate({
+        model: params.model,
+        prompt: params.prompt,
+        raw: true,
+        stream: true,
+        options: this.#buildSampleOptions(params),
+      });
+    return harden({
+      stream: (async function* () {
+        for await (const chunk of response) {
+          yield harden(chunk);
+        }
+      })(),
+      abort: async () => response.abort(),
+    });
+  }
+
+  /**
+   * @param params - The raw sample parameters.
+   * @returns The options sub-object for an Ollama generate request.
+   */
+  #buildSampleOptions(params: SampleParams): Record<string, unknown> {
+    const { temperature, seed } = params;
+    let stopArr: string[] | undefined;
+    if (params.stop !== undefined) {
+      stopArr = Array.isArray(params.stop) ? params.stop : [params.stop];
+    }
+    return harden(
+      ifDefined({
+        temperature,
+        top_p: params.top_p,
+        seed,
+        num_predict: params.max_tokens,
+        stop: stopArr,
+      }),
+    );
   }
 
   /**

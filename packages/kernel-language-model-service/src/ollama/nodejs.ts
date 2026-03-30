@@ -7,6 +7,7 @@ import type {
   SampleResult,
 } from '../types.ts';
 import { OllamaBaseService } from './base.ts';
+import type { SampleStreamResult } from './base.ts';
 import { defaultClientConfig } from './constants.ts';
 import type { OllamaClient, OllamaNodejsConfig } from './types.ts';
 
@@ -52,11 +53,17 @@ export const makeOllamaNodejsKernelService = (
   config: OllamaNodejsConfig,
 ): {
   chat: (params: ChatParams) => Promise<ChatResult>;
-  sample: (params: SampleParams) => Promise<SampleResult>;
+  sample: {
+    (params: SampleParams & { stream: true }): Promise<SampleStreamResult>;
+    (params: SampleParams & { stream?: false }): Promise<SampleResult>;
+  };
 } => {
   const service = new OllamaNodejsService(config);
   return harden({
     chat: async (params: ChatParams) => service.chat(params),
-    sample: async (params: SampleParams) => service.sample(params),
+    sample: service.sample.bind(service) as {
+      (params: SampleParams & { stream: true }): Promise<SampleStreamResult>;
+      (params: SampleParams & { stream?: false }): Promise<SampleResult>;
+    },
   });
 };

@@ -69,6 +69,71 @@ describe('OllamaBaseService', () => {
     });
   });
 
+  describe('sample', () => {
+    const mockChunk = {
+      response: 'hello',
+      done: false,
+    } as GenerateResponse;
+
+    it('gETs non-streaming response when stream is omitted', async () => {
+      vi.mocked(mockClient.generate).mockResolvedValue({
+        response: 'hello world',
+      } as GenerateResponse);
+
+      const result = await service.sample({
+        model: 'llama2:7b',
+        prompt: 'Hi',
+      });
+
+      expect(mockClient.generate).toHaveBeenCalledWith(
+        expect.objectContaining({ stream: false, raw: true }),
+      );
+      expect(result).toStrictEqual({ text: 'hello world' });
+    });
+
+    it('passes options sub-object to generate', async () => {
+      vi.mocked(mockClient.generate).mockResolvedValue({
+        response: 'hi',
+      } as GenerateResponse);
+
+      await service.sample({
+        model: 'llama2:7b',
+        prompt: 'Hi',
+        temperature: 0.5,
+        seed: 42,
+      });
+
+      expect(mockClient.generate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({ temperature: 0.5, seed: 42 }),
+        }),
+      );
+    });
+
+    it('returns streaming result when stream is true', async () => {
+      vi.mocked(mockClient.generate).mockResolvedValue(
+        makeMockAbortableAsyncIterator([mockChunk]),
+      );
+
+      const { stream, abort } = await service.sample({
+        model: 'llama2:7b',
+        prompt: 'Hi',
+        stream: true,
+      });
+
+      const chunks: GenerateResponse[] = [];
+      for await (const chunk of stream) {
+        chunks.push(chunk);
+      }
+      await abort();
+
+      expect(mockClient.generate).toHaveBeenCalledWith(
+        expect.objectContaining({ stream: true, raw: true }),
+      );
+      expect(chunks).toStrictEqual([mockChunk]);
+    });
+  });
+
   describe('makeInstance', () => {
     it('should create instance with model', async () => {
       const config: InstanceConfig<OllamaModelOptions> = {
