@@ -14,8 +14,8 @@ const isIPv6Address = (host: string): boolean => {
  * Returns true if the given host is a private/loopback address.
  * Covers IPv4 loopback per RFC 1122 §3.2.1.3 (127.0.0.0/8), IPv4 private
  * ranges per RFC 1918, IPv6 loopback per RFC 4291 §2.5.3 (::1), IPv6
- * unique-local per RFC 4193 (fc00::/7), and IPv6 link-local per RFC 4291
- * §2.5.6 (fe80::/10).
+ * unique-local per RFC 4193 (fc00::/7), and IPv6 link-local (fe80::/64 —
+ * the practical subset of the RFC 4291 §2.5.6 fe80::/10 range).
  *
  * @param host - The hostname or IP address to check.
  * @returns True if the host is a private or loopback address.
@@ -29,7 +29,7 @@ export function isPrivateAddress(host: string): boolean {
     isIPv6Address(lower) &&
     (lower.startsWith('fc') ||
       lower.startsWith('fd') || // fc00::/7 unique-local per RFC 4193
-      lower.startsWith('fe80:')) // fe80::/10 link-local per RFC 4291 §2.5.6
+      lower.startsWith('fe80:')) // fe80::/64 link-local (RFC 4291 §2.5.6 defines /10 but bits 11-64 are always zero in practice)
   ) {
     return true;
   }
