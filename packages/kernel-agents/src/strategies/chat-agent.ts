@@ -1,15 +1,14 @@
-import { mergeDisjointRecords } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import type {
   ChatMessage,
   ChatResult,
+  Tool,
 } from '@ocap/kernel-language-model-service';
 
 import {
   extractCapabilitySchemas,
   extractCapabilities,
 } from '../capabilities/capability.ts';
-import { makeEnd } from '../capabilities/end.ts';
 import type { Agent } from '../types/agent.ts';
 import { Message } from '../types/messages.ts';
 import type { CapabilityRecord, Experience } from '../types.ts';
@@ -25,7 +24,7 @@ class ChatTurn extends Message<string> {
    * @param chatMessage.content - The text content of the message.
    */
   constructor({ role, content }: ChatMessage) {
-    super(role, { content });
+    super(role, { content: content ?? '' });
   }
 }
 
@@ -35,10 +34,14 @@ class ChatTurn extends Message<string> {
  *
  * ```ts
  * const client = makeChatClient(serviceRef, model);
- * const chat = (messages) => client.chat.completions.create({ messages });
+ * const chat = ({ messages, tools }) =>
+ *   client.chat.completions.create({ messages, tools });
  * ```
  */
-export type BoundChat = (messages: ChatMessage[]) => Promise<ChatResult>;
+export type BoundChat = (params: {
+  messages: ChatMessage[];
+  tools?: Tool[];
+}) => Promise<ChatResult>;
 
 export type MakeChatAgentArgs = {
   /**
@@ -49,76 +52,42 @@ export type MakeChatAgentArgs = {
   chat: BoundChat;
   /**
    * Capabilities the agent may invoke, expressed as a {@link CapabilityRecord}.
-   * An `end` capability is automatically added to signal task completion.
    */
   capabilities: CapabilityRecord;
 };
 
 /**
- * Build the system prompt that instructs the model to invoke capabilities
- * by responding with JSON objects.
+ * Convert a {@link CapabilityRecord} to the {@link Tool} array expected by
+ * the chat completions API.
  *
- * @param capSchemas - Serialized capability schemas.
- * @returns The system prompt string.
+ * @param capabilities - The capabilities to convert.
+ * @returns An array of tool definitions.
  */
-function buildSystemPrompt(capSchemas: Record<string, unknown>): string {
-  return [
-    'You are a capability-augmented assistant.',
-    'To invoke a capability, respond with ONLY a JSON object:',
-    '  {"name": "<capability_name>", "args": {<arguments>}}',
-    'Do not include any other text when invoking a capability.',
-    '',
-    'Available capabilities:',
-    JSON.stringify(capSchemas, null, 2),
-    '',
-    'When you have a final answer, invoke the "end" capability:',
-    '  {"name": "end", "args": {"final": "<your response>"}}',
-  ].join('\n');
-}
-
-/**
- * Extract the first JSON object from the model's response and validate that
- * it looks like a capability invocation (`{name, args}`).
- *
- * @param content - Raw assistant message content.
- * @returns Parsed invocation, or `null` if none found.
- */
-function parseInvocation(
-  content: string,
-): { name: string; args: Record<string, unknown> } | null {
-  const match = /\{[\s\S]*\}/u.exec(content);
-  if (!match) {
-    return null;
-  }
-  try {
-    const parsed = JSON.parse(match[0]) as unknown;
-    if (
-      parsed !== null &&
-      typeof parsed === 'object' &&
-      'name' in parsed &&
-      typeof (parsed as Record<string, unknown>).name === 'string'
-    ) {
-      const { name, args } = parsed as {
-        name: string;
-        args?: Record<string, unknown>;
-      };
-      return { name, args: args ?? {} };
-    }
-  } catch {
-    // not a valid capability invocation
-  }
-  return null;
+function buildTools(capabilities: CapabilityRecord): Tool[] {
+  const schemas = extractCapabilitySchemas(capabilities);
+  return Object.entries(schemas).map(([name, schema]) => ({
+    type: 'function' as const,
+    function: {
+      name,
+      description: schema.description,
+      parameters: {
+        type: 'object' as const,
+        properties: schema.args,
+        required: Object.keys(schema.args),
+      },
+    },
+  }));
 }
 
 /**
  * Make a chat-based capability-augmented agent.
  *
  * Unlike {@link makeJsonAgent} which uses raw text completion, this agent
- * drives the loop via a chat messages array, making it compatible with any
- * OpenAI-compatible or Ollama chat endpoint.
+ * drives the loop via a chat messages array and the standard tool-calling
+ * interface, making it compatible with any OpenAI-compatible chat endpoint.
  *
- * Capabilities are described to the model via a JSON system prompt.
- * The model signals completion by invoking the auto-injected `end` capability.
+ * Capabilities are exposed to the model as tools via the `tools` parameter.
+ * The model signals completion by returning a message without tool calls.
  *
  * @param args - Construction arguments.
  * @param args.chat - Bound chat function (model already configured).
@@ -140,23 +109,15 @@ export const makeChatAgent = ({
         logger,
       }: { invocationBudget?: number; logger?: Logger } = {},
     ): Promise<Result> => {
-      const [end, didEnd, getEnd] = makeEnd<Result>();
-      const capabilities = mergeDisjointRecords(agentCapabilities, {
-        end,
-      }) as CapabilityRecord;
-
       const effectiveJudgment =
         judgment ?? ((result: unknown): result is Result => true);
       const objective = { intent, judgment: effectiveJudgment };
-      const context = { capabilities };
+      const context = { capabilities: agentCapabilities };
 
-      const capSchemas = extractCapabilitySchemas(capabilities);
-      const capFunctions = extractCapabilities(capabilities);
+      const capFunctions = extractCapabilities(agentCapabilities);
+      const tools = buildTools(agentCapabilities);
 
-      const chatHistory: ChatMessage[] = [
-        { role: 'system', content: buildSystemPrompt(capSchemas) },
-        { role: 'user', content: intent },
-      ];
+      const chatHistory: ChatMessage[] = [{ role: 'user', content: intent }];
 
       const history = chatHistory.map((chatMsg) => new ChatTurn(chatMsg));
       const experience: Experience = { objective, context, history };
@@ -166,7 +127,10 @@ export const makeChatAgent = ({
         for (let step = 0; step < invocationBudget; step++) {
           logger?.info(`Step ${step + 1} of ${invocationBudget}`);
 
-          const chatResult = await chat(chatHistory);
+          const chatResult = await chat({
+            messages: chatHistory,
+            ...(tools.length > 0 && { tools }),
+          });
           const assistantMessage = chatResult.choices[0]?.message;
           if (!assistantMessage) {
             throw new Error('No response from model');
@@ -175,46 +139,56 @@ export const makeChatAgent = ({
           chatHistory.push(assistantMessage);
           history.push(new ChatTurn(assistantMessage));
 
-          const invocation = parseInvocation(assistantMessage.content);
-          if (!invocation) {
-            // Plain text — treat as final answer without capability invocation
+          const { tool_calls: toolCalls } = assistantMessage;
+          if (!toolCalls?.length) {
+            // No tool calls — model has a final answer
             const result = assistantMessage.content as unknown as Result;
-            Object.assign(experience, { result });
-            return result;
-          }
-
-          const { name, args } = invocation;
-          logger?.info(`Invoking capability: ${name}`, args);
-
-          const cap = capFunctions[name];
-          if (!cap) {
-            const errorContent = `[Error]: Unknown capability "${name}"`;
-            chatHistory.push({ role: 'user', content: errorContent });
-            history.push(new ChatTurn({ role: 'user', content: errorContent }));
-            continue;
-          }
-
-          let toolResult: unknown;
-          try {
-            toolResult = await cap(args as never);
-          } catch (error) {
-            const errorContent = `[Error calling ${name}]: ${(error as Error).message}`;
-            chatHistory.push({ role: 'user', content: errorContent });
-            history.push(new ChatTurn({ role: 'user', content: errorContent }));
-            continue;
-          }
-
-          const resultContent = `[Result of ${name}]: ${JSON.stringify(toolResult)}`;
-          chatHistory.push({ role: 'user', content: resultContent });
-          history.push(new ChatTurn({ role: 'user', content: resultContent }));
-
-          if (didEnd()) {
-            const result = getEnd();
             if (!effectiveJudgment(result)) {
               throw new Error(`Invalid result: ${JSON.stringify(result)}`);
             }
             Object.assign(experience, { result });
             return result;
+          }
+
+          for (const toolCall of toolCalls) {
+            const { name, arguments: argsJson } = toolCall.function;
+            logger?.info(`Invoking capability: ${name}`);
+
+            const cap = capFunctions[name];
+            if (!cap) {
+              const errorContent = `Unknown capability "${name}"`;
+              const toolMsg: ChatMessage = {
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                content: errorContent,
+              };
+              chatHistory.push(toolMsg);
+              history.push(new ChatTurn(toolMsg));
+              continue;
+            }
+
+            let toolResult: unknown;
+            try {
+              toolResult = await cap(JSON.parse(argsJson) as never);
+            } catch (error) {
+              const errorContent = `Error calling ${name}: ${(error as Error).message}`;
+              const toolMsg: ChatMessage = {
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                content: errorContent,
+              };
+              chatHistory.push(toolMsg);
+              history.push(new ChatTurn(toolMsg));
+              continue;
+            }
+
+            const toolMsg: ChatMessage = {
+              role: 'tool',
+              tool_call_id: toolCall.id,
+              content: JSON.stringify(toolResult),
+            };
+            chatHistory.push(toolMsg);
+            history.push(new ChatTurn(toolMsg));
           }
         }
         throw new Error('Invocation budget exceeded');

@@ -1,7 +1,33 @@
 /**
  * A role in a chat conversation.
  */
-export type ChatRole = 'system' | 'user' | 'assistant';
+export type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
+
+/**
+ * A single tool call made by the model.
+ */
+export type ToolCall = {
+  id: string;
+  type: 'function';
+  index?: number;
+  function: { name: string; arguments: string };
+};
+
+/**
+ * A tool definition passed to the model.
+ */
+export type Tool = {
+  type: 'function';
+  function: {
+    name: string;
+    description?: string;
+    parameters?: {
+      type: 'object';
+      properties?: Record<string, unknown>;
+      required?: string[];
+    };
+  };
+};
 
 /**
  * A single message in a chat conversation.
@@ -9,6 +35,8 @@ export type ChatRole = 'system' | 'user' | 'assistant';
 export type ChatMessage = {
   role: ChatRole;
   content: string;
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
 };
 
 /**
@@ -52,6 +80,7 @@ export type SampleResult = {
 export type ChatParams = {
   model: string;
   messages: ChatMessage[];
+  tools?: Tool[];
   max_tokens?: number;
   temperature?: number;
   top_p?: number;

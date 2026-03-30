@@ -19,7 +19,7 @@ import {
   vi,
 } from 'vitest';
 
-import { DEFAULT_MODEL } from './constants.ts';
+import { DEFAULT_MODEL, LMS_PROVIDER } from './constants.ts';
 import { filterTransports, randomLetter } from './utils.ts';
 
 const logger = new Logger({
@@ -33,7 +33,7 @@ const makeJsonAgentWithMathCapabilities = (args: MakeAgentArgs) =>
     capabilities: { count, add, multiply, ...args.capabilities },
   });
 
-describe.each([
+describe.skipIf(LMS_PROVIDER !== 'ollama').each([
   ['json', makeJsonAgentWithMathCapabilities],
   ['repl', makeReplAgent],
 ])(

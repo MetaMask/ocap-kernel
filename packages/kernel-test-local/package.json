@@ -23,6 +23,7 @@
     "build:docs": "typedoc",
     "test": "vitest run --config vitest.config.ts",
     "test:e2e:local": "vitest run --config vitest.config.e2e.ts",
+    "test:e2e:local:llama-cpp": "LMS_PROVIDER=llama-cpp yarn test:e2e:local",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --mode development",
     "test:verbose": "yarn test --reporter verbose",

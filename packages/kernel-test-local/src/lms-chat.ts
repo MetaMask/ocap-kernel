@@ -18,7 +18,7 @@ import {
 } from '@ocap/kernel-language-model-service';
 import { expect } from 'vitest';
 
-import { DEFAULT_MODEL } from './constants.ts';
+import { LMS_CHAT_MODEL } from './constants.ts';
 import { filterTransports } from './utils.ts';
 
 const getBundleSpec = (name: string): string =>
@@ -56,7 +56,7 @@ export const runLmsChatKernelTest = async (
     vats: {
       main: {
         bundleSpec: getBundleSpec('lms-chat-vat'),
-        parameters: { model: DEFAULT_MODEL },
+        parameters: { model: LMS_CHAT_MODEL },
       },
     },
   });
