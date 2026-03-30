@@ -30,6 +30,8 @@ When asked to create a pull request, follow these steps:
 
 ## Phase 2: Automated PR review (parallel subagents)
 
+**MANDATORY — DO NOT SKIP.** This phase must run before any PR is created, regardless of how "simple", "mechanical", or "well-tested" the changes appear. Subtle bugs (e.g., semantic mismatches in API migrations) hide in exactly the changes that seem safe to skip. The only exception is docs-only changes as described below.
+
 Before creating the PR, analyze the diff to decide **which review subagents to launch**. Not every PR needs every reviewer.
 
 ### Triage: classify the change
