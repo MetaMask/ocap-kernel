@@ -139,8 +139,8 @@ export class OllamaBaseService<Ollama extends OllamaClient>
    * @returns A streaming result or full result depending on `params.stream`.
    */
   async sample(
-    params: SampleParams,
-  ): Promise<SampleResult> | Promise<SampleStreamResult> {
+    params: SampleParams & { stream?: boolean },
+  ): Promise<SampleResult | SampleStreamResult> {
     if (params.stream === true) {
       return this.#streamingSample(params);
     }
