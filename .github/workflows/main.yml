@@ -242,42 +242,28 @@ jobs:
     steps:
       - name: Set passed output
         id: set-output
+        env:
+          RESULTS: >-
+            detect-changes=${{ needs.detect-changes.result }}
+            check-skip-merge-queue=${{ needs.check-skip-merge-queue.result }}
+            check-workflows=${{ needs.check-workflows.result }}
+            analyse-code=${{ needs.analyse-code.result }}
+            lint-build-test=${{ needs.lint-build-test.result }}
+            lint-only=${{ needs.lint-only.result }}
         run: |
-          # detect-changes must always succeed — without it we can't trust any outputs
-          if [[ "${{ needs.detect-changes.result }}" != "success" ]]; then
-            echo "detect-changes did not succeed"
-            exit 1
-          fi
+          echo "Job results: $RESULTS"
 
-          HAS_CODE="${{ needs.detect-changes.outputs.has-code }}"
-          HAS_CI="${{ needs.detect-changes.outputs.has-ci }}"
-          HAS_LINT="${{ needs.detect-changes.outputs.has-lint-targets }}"
-
-          # If code changed, analyse-code and lint-build-test must have succeeded
-          if [[ "$HAS_CODE" == "true" ]]; then
-            if [[ "${{ needs.analyse-code.result }}" != "success" || "${{ needs.lint-build-test.result }}" != "success" ]]; then
-              echo "Code jobs did not succeed"
+          # Each job's own `if` condition controls whether it runs or is
+          # skipped.  This gate only needs to verify that nothing *failed*
+          # or was *cancelled* — both "success" and "skipped" are acceptable.
+          for entry in $RESULTS; do
+            job="${entry%%=*}"
+            result="${entry#*=}"
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              echo "::error::$job did not succeed (result: $result)"
               exit 1
             fi
-          fi
-
-          # check-workflows runs for both CI and code changes; require it when either is present
-          # It is intentionally skipped when the merge queue decides to skip (PR already up-to-date)
-          if [[ "$HAS_CI" == "true" || "$HAS_CODE" == "true" ]]; then
-            if [[ "${{ needs.check-skip-merge-queue.outputs.skip-merge-queue }}" != "true" \
-                  && "${{ needs.check-workflows.result }}" != "success" ]]; then
-              echo "check-workflows did not succeed"
-              exit 1
-            fi
-          fi
-
-          # If only lint targets changed (no code), lint-only must have succeeded
-          if [[ "$HAS_CODE" != "true" && "$HAS_LINT" == "true" ]]; then
-            if [[ "${{ needs.lint-only.result }}" != "success" ]]; then
-              echo "Lint-only job did not succeed"
-              exit 1
-            fi
-          fi
+          done
 
           echo "passed=true" >> "$GITHUB_OUTPUT"
 
@@ -287,12 +273,9 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - all-jobs-complete
-      - check-skip-merge-queue
     steps:
       - name: Check that all jobs have passed
-        env:
-          PASSED: ${{ needs.all-jobs-complete.outputs.passed == 'true' || needs.check-skip-merge-queue.outputs.skip-merge-queue == 'true' }}
         run: |
-          if [[ "$PASSED" != "true" ]]; then
+          if [[ "${{ needs.all-jobs-complete.outputs.passed }}" != "true" ]]; then
             exit 1
           fi
