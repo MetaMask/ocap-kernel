@@ -3,6 +3,7 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { startRelay } from '@metamask/kernel-utils/libp2p';
 import { Kernel } from '@metamask/ocap-kernel';
 import type { KernelStatus } from '@metamask/ocap-kernel';
+import { createConnection } from 'node:net';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { makeTestKernel } from '../helpers/kernel.ts';
@@ -10,6 +11,7 @@ import { makeTestKernel } from '../helpers/kernel.ts';
 const STOP_TIMEOUT = 5_000;
 const TEST_TIMEOUT = 30_000;
 const RELAY_PEER_ID = '12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc';
+const RELAY_WS_PORT = 9001;
 
 async function stopWithTimeout(
   fn: () => Promise<void>,
@@ -30,35 +32,46 @@ function getRemoteCommsPeerId(
   return undefined;
 }
 
+/**
+ * Check if a TCP port is already in use.
+ *
+ * @param port - The port to check.
+ * @returns True if the port is in use.
+ */
+async function isPortInUse(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = createConnection({ port, host: '127.0.0.1' });
+    socket.on('connect', () => {
+      socket.destroy();
+      resolve(true);
+    });
+    socket.on('error', () => {
+      socket.destroy();
+      resolve(false);
+    });
+  });
+}
+
 describe('Relay Connectivity', () => {
-  let relay: Libp2p;
-  let relayAddr: string;
+  let relay: Libp2p | undefined;
+  const relayAddr = `/ip4/127.0.0.1/tcp/${RELAY_WS_PORT}/ws/p2p/${RELAY_PEER_ID}`;
 
   beforeAll(async () => {
-    relay = await startRelay(console);
-    const wsAddr = relay
-      .getMultiaddrs()
-      .find((ma) => ma.toString().includes('/ip4/127.0.0.1/tcp/9001/ws/'));
-    if (!wsAddr) {
-      throw new Error(
-        'Relay started but no WS multiaddr found on 127.0.0.1:9001',
-      );
+    // In CI, the test-e2e-ci.sh script or another test file may already have
+    // a relay running on port 9001. Only start our own if the port is free.
+    if (!(await isPortInUse(RELAY_WS_PORT))) {
+      relay = await startRelay(console);
     }
-    relayAddr = wsAddr.toString();
   }, 15_000);
 
   afterAll(async () => {
     if (relay) {
-      await stopWithTimeout(async () => relay.stop(), STOP_TIMEOUT);
+      await stopWithTimeout(async () => relay!.stop(), STOP_TIMEOUT);
     }
   }, 10_000);
 
-  it('starts relay with expected peer ID', () => {
-    expect(relay.peerId.toString()).toBe(RELAY_PEER_ID);
-
-    const addrs = relay.getMultiaddrs().map((ma) => ma.toString());
-    expect(addrs.some((a) => a.includes('/ws/'))).toBe(true);
-    expect(addrs.some((a) => a.includes('/tcp/9002/'))).toBe(true);
+  it('relay is reachable on expected port', async () => {
+    expect(await isPortInUse(RELAY_WS_PORT)).toBe(true);
   });
 
   it(
