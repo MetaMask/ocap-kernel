@@ -38,6 +38,11 @@ describe('getHost', () => {
       expected: 'relay.example.com',
     },
     {
+      desc: 'extracts IPv6 host',
+      addr: '/ip6/::1/tcp/9001/ws',
+      expected: '::1',
+    },
+    {
       desc: 'extracts dns6 host',
       addr: '/dns6/relay.example.com/tcp/443/wss',
       expected: 'relay.example.com',

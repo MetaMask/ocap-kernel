@@ -17,6 +17,9 @@ process.on('uncaughtException', (error: Error) => {
     // Benign: native WebRTC module fires async error after channel teardown.
     return;
   }
-  // Re-throw anything else so Vitest still catches real errors.
-  throw error;
+  // For non-datachannel errors, log and set exit code so Vitest reports
+  // the failure. Re-throwing inside uncaughtException would hard-kill the
+  // process without Vitest diagnostics.
+  console.error('Uncaught exception in e2e test:', error);
+  process.exitCode = 1;
 });

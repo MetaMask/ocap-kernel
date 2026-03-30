@@ -4,10 +4,27 @@ import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
 import type {
   ClusterConfig,
   KRef,
+  KernelStatus,
   RemoteCommsOptions,
 } from '@metamask/ocap-kernel';
 
 import { makeTestKernel } from './kernel.ts';
+
+/**
+ * Extract peerId from remoteComms status, returning undefined for
+ * disconnected state.
+ *
+ * @param remoteComms - The remote comms status object.
+ * @returns The peer ID string or undefined.
+ */
+export function getRemoteCommsPeerId(
+  remoteComms: KernelStatus['remoteComms'],
+): string | undefined {
+  if (remoteComms && remoteComms.state !== 'disconnected') {
+    return remoteComms.peerId;
+  }
+  return undefined;
+}
 
 /**
  * Helper to create a vat configuration for a remote vat.

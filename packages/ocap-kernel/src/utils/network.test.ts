@@ -47,6 +47,9 @@ describe('isPrivateAddress', () => {
     { host: 'relay.example.com', expected: false },
     { host: 'google.com', expected: false },
 
+    // Empty string (from getHost() ?? '' fallback)
+    { host: '', expected: false },
+
     // Invalid IPv4 (octets > 255)
     { host: '256.0.0.1', expected: false },
   ])('isPrivateAddress("$host") → $expected', ({ host, expected }) => {

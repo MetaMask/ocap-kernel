@@ -2,49 +2,17 @@ import type { Libp2p } from '@libp2p/interface';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { startRelay } from '@metamask/kernel-utils/libp2p';
 import { Kernel } from '@metamask/ocap-kernel';
-import type { KernelStatus } from '@metamask/ocap-kernel';
 import { createConnection } from 'node:net';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { makeTestKernel } from '../helpers/kernel.ts';
+import { getRemoteCommsPeerId } from '../helpers/remote-comms.ts';
+import { stopWithTimeout } from '../helpers/stop-with-timeout.ts';
 
 const STOP_TIMEOUT = 5_000;
 const TEST_TIMEOUT = 30_000;
 const RELAY_PEER_ID = '12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc';
 const RELAY_WS_PORT = 9001;
-
-/**
- * Stop an operation with a timeout to prevent hangs during cleanup.
- *
- * @param stopFn - The stop function to call.
- * @param timeoutMs - The timeout in milliseconds.
- * @param label - A label for logging.
- */
-async function stopWithTimeout(
-  stopFn: () => Promise<unknown>,
-  timeoutMs: number,
-  label: string,
-): Promise<void> {
-  try {
-    await Promise.race([
-      stopFn(),
-      new Promise<never>((_resolve, reject) =>
-        setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs),
-      ),
-    ]);
-  } catch {
-    // Ignore timeout errors during cleanup
-  }
-}
-
-function getRemoteCommsPeerId(
-  remoteComms: KernelStatus['remoteComms'],
-): string | undefined {
-  if (remoteComms && remoteComms.state !== 'disconnected') {
-    return remoteComms.peerId;
-  }
-  return undefined;
-}
 
 /**
  * Check if a TCP port is already in use.
