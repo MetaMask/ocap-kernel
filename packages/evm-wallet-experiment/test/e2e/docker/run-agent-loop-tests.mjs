@@ -11,8 +11,9 @@
  * as a bonus check rather than a hard requirement.
  */
 
-import { capability } from '@ocap/kernel-agents/capabilities/capability';
 import { makeChatAgent } from '@ocap/kernel-agents/chat';
+
+import { makeWalletCapabilities } from './helpers/capabilities.ts';
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL ?? 'http://llm:11434';
 const LLM_MODEL = process.env.LLM_MODEL ?? 'qwen2.5:0.5b';
@@ -50,71 +51,6 @@ export async function runAgentLoopTests(ctx) {
 
   const awayCoordKref = awayInfo.coordinatorKref;
 
-  const walletBalance = capability(
-    async () => {
-      const accounts = await callAway(awayCoordKref, 'getAccounts');
-      const balance = await callAway(awayCoordKref, 'request', [
-        'eth_getBalance',
-        [accounts[0], 'latest'],
-      ]);
-      return `Balance: ${(parseInt(balance, 16) / 1e18).toFixed(4)} ETH`;
-    },
-    {
-      description: 'Get the ETH balance of the wallet',
-      args: {},
-      returns: { type: 'string' },
-    },
-  );
-
-  const walletAccounts = capability(
-    async () => {
-      const accounts = await callAway(awayCoordKref, 'getAccounts');
-      return `Accounts: ${accounts.join(', ')}`;
-    },
-    {
-      description: 'Get wallet accounts/addresses',
-      args: {},
-      returns: { type: 'string' },
-    },
-  );
-
-  const walletSend = capability(
-    async ({ to, value }) => {
-      const accounts = await callAway(awayCoordKref, 'getAccounts');
-      const weiValue = `0x${(parseFloat(value || '0.01') * 1e18).toString(16)}`;
-      const txHash = await callAway(awayCoordKref, 'request', [
-        'eth_sendTransaction',
-        [
-          {
-            from: accounts[0],
-            to: to || '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
-            value: weiValue,
-          },
-        ],
-      ]);
-      return `Transaction sent: ${txHash}`;
-    },
-    {
-      description: 'Send ETH to an address',
-      args: { to: { type: 'string' }, value: { type: 'string' } },
-      returns: { type: 'string' },
-    },
-  );
-
-  const walletSign = capability(
-    async ({ message }) => {
-      const signature = await callAway(awayCoordKref, 'signMessage', [
-        message || 'test',
-      ]);
-      return `Signature: ${signature}`;
-    },
-    {
-      description: 'Sign a message with the wallet',
-      args: { message: { type: 'string' } },
-      returns: { type: 'string' },
-    },
-  );
-
   const chat = async (messages) => {
     const response = await fetch(CHAT_URL, {
       method: 'POST',
@@ -126,12 +62,10 @@ export async function runAgentLoopTests(ctx) {
 
   const agent = makeChatAgent({
     chat,
-    capabilities: {
-      wallet_balance: walletBalance,
-      wallet_accounts: walletAccounts,
-      wallet_send: walletSend,
-      wallet_sign: walletSign,
-    },
+    capabilities: makeWalletCapabilities(
+      (_kref, method, args) => callAway(method, args),
+      awayCoordKref,
+    ),
   });
 
   // -- Test 1: Balance query --
