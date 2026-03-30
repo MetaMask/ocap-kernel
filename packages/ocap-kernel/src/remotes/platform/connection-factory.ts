@@ -55,6 +55,19 @@ function getLastPeerId(ma: Multiaddr): string | undefined {
   return peerId;
 }
 
+const HOST_CODES = [CODE_IP4, CODE_IP6, CODE_DNS4, CODE_DNS6, CODE_DNSADDR];
+
+/**
+ * Extract the hostname or IP from a multiaddr (first ip4/ip6/dns component).
+ *
+ * @param ma - The multiaddr to extract the host from.
+ * @returns The host string, or undefined if no host component exists.
+ */
+function getHost(ma: Multiaddr): string | undefined {
+  return ma.getComponents().find((comp) => HOST_CODES.includes(comp.code))
+    ?.value;
+}
+
 /**
  * Returns true if the multiaddr uses plain (unencrypted) WebSocket transport.
  *
@@ -196,15 +209,9 @@ export class ConnectionFactory {
         }
         // Auto-allow the relay host for plain ws:// connections
         if (isPlainWs(ma)) {
-          const hostComponent = ma
-            .getComponents()
-            .find((comp) =>
-              [CODE_IP4, CODE_IP6, CODE_DNS4, CODE_DNS6, CODE_DNSADDR].includes(
-                comp.code,
-              ),
-            );
-          if (hostComponent?.value) {
-            relayHosts.push(hostComponent.value);
+          const host = getHost(ma);
+          if (host) {
+            relayHosts.push(host);
           }
         }
       } catch (error) {
@@ -279,18 +286,7 @@ export class ConnectionFactory {
           if (!isPlainWs(ma)) {
             return false; // allow wss://, webRTC, circuit relay, etc.
           }
-          const host =
-            ma
-              .getComponents()
-              .find((comp) =>
-                [
-                  CODE_IP4,
-                  CODE_IP6,
-                  CODE_DNS4,
-                  CODE_DNS6,
-                  CODE_DNSADDR,
-                ].includes(comp.code),
-              )?.value ?? '';
+          const host = getHost(ma) ?? '';
           if (isPrivateAddress(host) || this.#allowedWsHosts.includes(host)) {
             return false;
           }
