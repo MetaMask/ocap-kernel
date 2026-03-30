@@ -3,40 +3,41 @@ import { describe, it, expect } from 'vitest';
 import { prettifySmallcaps } from './prettify-smallcaps.ts';
 
 describe('prettifySmallcaps', () => {
-  it('decodes a plain string', () => {
-    expect(prettifySmallcaps({ body: '#"0xca46b9"', slots: [] })).toBe(
-      '0xca46b9',
-    );
+  it.each([
+    ['plain string', '#"0xca46b9"', [], '0xca46b9'],
+    ['number', '#42', [], 42],
+    ['null', '#null', [], null],
+    ['boolean', '#true', [], true],
+  ])('decodes a %s', (_label, body, slots, expected) => {
+    expect(prettifySmallcaps({ body, slots })).toStrictEqual(expected);
   });
 
-  it('decodes a number', () => {
-    expect(prettifySmallcaps({ body: '#42', slots: [] })).toBe(42);
+  it.each([
+    ['remotable', '#"$0"', ['ko12'], '<ko12>'],
+    [
+      'remotable with iface',
+      '#"$0.Alleged: MyObj"',
+      ['ko12'],
+      '<ko12> (Alleged: MyObj)',
+    ],
+    ['promise', '#"&0"', ['kp42'], '<kp42>'],
+    ['missing slot index', '#"$5"', ['ko1'], '<?5>'],
+  ])('replaces a %s slot reference', (_label, body, slots, expected) => {
+    expect(prettifySmallcaps({ body, slots })).toBe(expected);
   });
 
-  it('decodes null', () => {
-    expect(prettifySmallcaps({ body: '#null', slots: [] })).toBeNull();
-  });
-
-  it('decodes a boolean', () => {
-    expect(prettifySmallcaps({ body: '#true', slots: [] })).toBe(true);
-  });
-
-  it('replaces a remotable slot reference', () => {
-    expect(prettifySmallcaps({ body: '#"$0"', slots: ['ko12'] })).toBe(
-      '<ko12>',
-    );
-  });
-
-  it('replaces a remotable slot reference with interface name', () => {
-    expect(
-      prettifySmallcaps({ body: '#"$0.Alleged: MyObj"', slots: ['ko12'] }),
-    ).toBe('<ko12> (Alleged: MyObj)');
-  });
-
-  it('replaces a promise slot reference', () => {
-    expect(prettifySmallcaps({ body: '#"&0"', slots: ['kp42'] })).toBe(
-      '<kp42>',
-    );
+  it.each([
+    ['escaped string (!)', '#"!$0"', '$0'],
+    ['double escape (!!)', '#"!!hello"', '!hello'],
+    ['non-negative bigint (+)', '#"+7"', '7n'],
+    ['negative bigint (-)', '#"-7"', '-7n'],
+    ['#undefined', '#"#undefined"', '[undefined]'],
+    ['#NaN', '#"#NaN"', '[NaN]'],
+    ['#Infinity', '#"#Infinity"', '[Infinity]'],
+    ['#-Infinity', '#"#-Infinity"', '[-Infinity]'],
+    ['symbol (%)', '#"%foo"', '[Symbol: foo]'],
+  ])('decodes %s', (_label, body, expected) => {
+    expect(prettifySmallcaps({ body, slots: [] })).toBe(expected);
   });
 
   it('decodes an object with mixed values', () => {
@@ -60,64 +61,10 @@ describe('prettifySmallcaps', () => {
     });
   });
 
-  it('strips smallcaps escape prefix from strings', () => {
-    expect(prettifySmallcaps({ body: '#"!$0"', slots: ['ko1'] })).toBe('$0');
-  });
-
-  it('strips double escape prefix', () => {
-    expect(prettifySmallcaps({ body: '#"!!hello"', slots: [] })).toBe('!hello');
-  });
-
   it('leaves non-slot strings unchanged', () => {
     expect(
       prettifySmallcaps({ body: '#{"text":"hello world"}', slots: [] }),
     ).toStrictEqual({ text: 'hello world' });
-  });
-
-  it('handles missing slot index gracefully', () => {
-    expect(prettifySmallcaps({ body: '#"$5"', slots: ['ko1'] })).toBe('<?5>');
-  });
-
-  it('throws if body does not start with #', () => {
-    expect(() => prettifySmallcaps({ body: '"hello"', slots: [] })).toThrow(
-      "Expected body to start with '#'",
-    );
-  });
-
-  it('decodes a non-negative bigint', () => {
-    expect(prettifySmallcaps({ body: '#"+7"', slots: [] })).toBe('7n');
-  });
-
-  it('decodes a negative bigint', () => {
-    expect(prettifySmallcaps({ body: '#"-7"', slots: [] })).toBe('-7n');
-  });
-
-  it('decodes #undefined', () => {
-    expect(prettifySmallcaps({ body: '#"#undefined"', slots: [] })).toBe(
-      '[undefined]',
-    );
-  });
-
-  it('decodes #NaN', () => {
-    expect(prettifySmallcaps({ body: '#"#NaN"', slots: [] })).toBe('[NaN]');
-  });
-
-  it('decodes #Infinity', () => {
-    expect(prettifySmallcaps({ body: '#"#Infinity"', slots: [] })).toBe(
-      '[Infinity]',
-    );
-  });
-
-  it('decodes #-Infinity', () => {
-    expect(prettifySmallcaps({ body: '#"#-Infinity"', slots: [] })).toBe(
-      '[-Infinity]',
-    );
-  });
-
-  it('decodes a symbol', () => {
-    expect(prettifySmallcaps({ body: '#"%foo"', slots: [] })).toBe(
-      '[Symbol: foo]',
-    );
   });
 
   it('decodes a tagged value', () => {
@@ -129,22 +76,15 @@ describe('prettifySmallcaps', () => {
     ).toStrictEqual({ '[Tagged: match:any]': '[undefined]' });
   });
 
-  it('decodes an error', () => {
-    expect(
-      prettifySmallcaps({
-        body: '#{"#error":"boom","name":"TypeError"}',
-        slots: [],
-      }),
-    ).toBe('[TypeError: boom]');
-  });
-
-  it('decodes an error without name', () => {
-    expect(
-      prettifySmallcaps({
-        body: '#{"#error":"something broke"}',
-        slots: [],
-      }),
-    ).toBe('[Error: something broke]');
+  it.each([
+    ['with name', '#{"#error":"boom","name":"TypeError"}', '[TypeError: boom]'],
+    [
+      'without name',
+      '#{"#error":"something broke"}',
+      '[Error: something broke]',
+    ],
+  ])('decodes an error %s', (_label, body, expected) => {
+    expect(prettifySmallcaps({ body, slots: [] })).toBe(expected);
   });
 
   it('unescapes record keys', () => {
@@ -154,5 +94,11 @@ describe('prettifySmallcaps', () => {
         slots: [],
       }),
     ).toStrictEqual({ '#foo': 'bar', normal: 'baz' });
+  });
+
+  it('throws if body does not start with #', () => {
+    expect(() => prettifySmallcaps({ body: '"hello"', slots: [] })).toThrow(
+      "Expected body to start with '#'",
+    );
   });
 });

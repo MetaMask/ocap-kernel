@@ -96,7 +96,7 @@ export const isJsonRpcMessage = (value: unknown): value is JsonRpcMessage =>
   is(value, JsonRpcMessageStruct);
 
 /**
- * Check whether a value has the shape of Endo CapData (`{ body: string, slots: unknown[] }`).
+ * Check whether a value has the shape of Endo CapData (`{ body: string, slots: string[] }`).
  *
  * @param value - The value to check.
  * @returns `true` when `value` looks like CapData.

@@ -9,5 +9,9 @@ import { join } from 'node:path';
  */
 export function getOcapHome(): string {
   // eslint-disable-next-line n/no-process-env
-  return process.env.OCAP_HOME ?? join(homedir(), '.ocap');
+  const envValue = process.env.OCAP_HOME;
+  if (envValue) {
+    return envValue;
+  }
+  return join(homedir(), '.ocap');
 }

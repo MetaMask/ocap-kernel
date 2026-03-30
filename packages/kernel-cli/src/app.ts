@@ -25,7 +25,7 @@ import { getServer } from './commands/serve.ts';
 import { watchDir } from './commands/watch.ts';
 import { defaultConfig } from './config.ts';
 import type { Config } from './config.ts';
-import { withTimeout } from './utils.ts';
+import { parseTimeoutMs, withTimeout } from './utils.ts';
 
 /**
  * Console transport that omits tags from output.
@@ -319,12 +319,11 @@ const yargsInstance = yargs(hideBin(process.argv))
               execArgs.push(String(args['params-json']));
             }
             await ensureDaemon(socketPath);
+            const timeoutMs = parseTimeoutMs(args.timeout);
             await handleDaemonExec(
               execArgs,
               socketPath,
-              typeof args.timeout === 'number' && args.timeout > 0
-                ? { timeoutMs: args.timeout * 1000 }
-                : {},
+              timeoutMs === undefined ? {} : { timeoutMs },
             );
           },
         )
@@ -338,13 +337,19 @@ const yargsInstance = yargs(hideBin(process.argv))
                 type: 'string',
                 demandOption: true,
               })
+              .option('timeout', {
+                describe: 'Read timeout in seconds (default: no timeout)',
+                type: 'number',
+              })
               .example(
                 '$0 daemon redeem-url ocap:abc123@12D3KooW...,/ip4/...',
                 'Redeem an OCAP URL',
               ),
           async (args) => {
             await ensureDaemon(socketPath);
-            await handleRedeemURL(args.url, socketPath);
+            await handleRedeemURL(args.url, socketPath, {
+              timeoutMs: parseTimeoutMs(args.timeout),
+            });
           },
         )
         .command(
@@ -413,9 +418,7 @@ const yargsInstance = yargs(hideBin(process.argv))
               args: parsedArgs,
               socketPath,
               raw: args.raw,
-              ...(typeof args.timeout === 'number' && args.timeout > 0
-                ? { timeoutMs: args.timeout * 1000 }
-                : {}),
+              timeoutMs: parseTimeoutMs(args.timeout),
             });
           },
         );

@@ -317,15 +317,19 @@ export async function handleDaemonExec(
  *
  * @param url - The OCAP URL to redeem.
  * @param socketPath - The daemon socket path.
+ * @param options - Additional options.
+ * @param options.timeoutMs - Read timeout in milliseconds.
  */
 export async function handleRedeemURL(
   url: string,
   socketPath: string,
+  { timeoutMs }: { timeoutMs?: number } = {},
 ): Promise<void> {
   const response = await sendCommand({
     socketPath,
     method: 'redeemOcapURL',
     params: { url },
+    ...(timeoutMs === undefined ? {} : { timeoutMs }),
   });
 
   if (isJsonRpcFailure(response)) {

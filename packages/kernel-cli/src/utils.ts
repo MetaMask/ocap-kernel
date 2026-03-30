@@ -1,6 +1,23 @@
 import { readFile } from 'node:fs/promises';
 
 /**
+ * Parse and validate a `--timeout` option value (seconds → milliseconds).
+ *
+ * @param value - The raw option value from yargs.
+ * @returns The timeout in milliseconds, or `undefined` if not provided.
+ * @throws If the value is not a positive integer.
+ */
+export function parseTimeoutMs(value: number | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error(`--timeout must be a positive integer, got: ${value}`);
+  }
+  return value * 1000;
+}
+
+/**
  * Check whether an unknown error is a Node.js system error with the given code.
  *
  * @param error - The error to check.
