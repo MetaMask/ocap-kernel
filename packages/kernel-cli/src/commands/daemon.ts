@@ -266,7 +266,7 @@ export async function handleDaemonBegone(socketPath: string): Promise<void> {
 export async function handleDaemonExec(
   args: string[],
   socketPath: string,
-  { timeoutMs }: { timeoutMs?: number } = {},
+  { timeoutMs }: { timeoutMs?: number | undefined } = {},
 ): Promise<void> {
   const method = args[0] ?? 'getStatus';
   const rawParams = args[1];
@@ -323,7 +323,7 @@ export async function handleDaemonExec(
 export async function handleRedeemURL(
   url: string,
   socketPath: string,
-  { timeoutMs }: { timeoutMs?: number } = {},
+  { timeoutMs }: { timeoutMs?: number | undefined } = {},
 ): Promise<void> {
   const response = await sendCommand({
     socketPath,
@@ -364,8 +364,8 @@ export async function handleDaemonQueueMessage({
   method: string;
   args: unknown[];
   socketPath: string;
-  raw?: boolean;
-  timeoutMs?: number;
+  raw?: boolean | undefined;
+  timeoutMs?: number | undefined;
 }): Promise<void> {
   const response = await sendCommand({
     socketPath,
