@@ -13,14 +13,28 @@ const TEST_TIMEOUT = 30_000;
 const RELAY_PEER_ID = '12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc';
 const RELAY_WS_PORT = 9001;
 
+/**
+ * Stop an operation with a timeout to prevent hangs during cleanup.
+ *
+ * @param stopFn - The stop function to call.
+ * @param timeoutMs - The timeout in milliseconds.
+ * @param label - A label for logging.
+ */
 async function stopWithTimeout(
-  fn: () => Promise<void>,
-  timeout: number,
+  stopFn: () => Promise<unknown>,
+  timeoutMs: number,
+  label: string,
 ): Promise<void> {
-  await Promise.race([
-    fn(),
-    new Promise<void>((resolve) => setTimeout(resolve, timeout)),
-  ]);
+  try {
+    await Promise.race([
+      stopFn(),
+      new Promise<never>((_resolve, reject) =>
+        setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs),
+      ),
+    ]);
+  } catch {
+    // Ignore timeout errors during cleanup
+  }
 }
 
 function getRemoteCommsPeerId(
@@ -66,7 +80,11 @@ describe('Relay Connectivity', () => {
 
   afterAll(async () => {
     if (relay) {
-      await stopWithTimeout(async () => relay!.stop(), STOP_TIMEOUT);
+      await stopWithTimeout(
+        async () => relay!.stop(),
+        STOP_TIMEOUT,
+        'relay.stop',
+      );
     }
   }, 10_000);
 
@@ -89,10 +107,13 @@ describe('Relay Connectivity', () => {
         const peerId = getRemoteCommsPeerId(status.remoteComms);
         expect(peerId).toBeDefined();
         expect(typeof peerId).toBe('string');
-        console.log(`Kernel connected to relay with peerId: ${peerId}`);
       } finally {
         if (kernel) {
-          await kernel.stop();
+          await stopWithTimeout(
+            async () => kernel!.stop(),
+            STOP_TIMEOUT,
+            'kernel.stop',
+          );
         }
       }
     },
@@ -126,14 +147,53 @@ describe('Relay Connectivity', () => {
         expect(peerId1).toBeDefined();
         expect(peerId2).toBeDefined();
         expect(peerId1).not.toBe(peerId2);
-
-        console.log(`Kernel 1 peerId: ${peerId1}`);
-        console.log(`Kernel 2 peerId: ${peerId2}`);
       } finally {
         await Promise.all([
-          kernel1 && stopWithTimeout(async () => kernel1!.stop(), STOP_TIMEOUT),
-          kernel2 && stopWithTimeout(async () => kernel2!.stop(), STOP_TIMEOUT),
+          kernel1 &&
+            stopWithTimeout(
+              async () => kernel1!.stop(),
+              STOP_TIMEOUT,
+              'kernel1.stop',
+            ),
+          kernel2 &&
+            stopWithTimeout(
+              async () => kernel2!.stop(),
+              STOP_TIMEOUT,
+              'kernel2.stop',
+            ),
         ]);
+      }
+    },
+    TEST_TIMEOUT,
+  );
+
+  it(
+    'kernel reports connected state even with unreachable relay',
+    async () => {
+      // Use a valid but unreachable relay address on a port nothing listens on
+      const badRelayAddr =
+        '/ip4/127.0.0.1/tcp/19999/ws/p2p/12D3KooWBTf3S95YAsh6fi5rhohMsk8qaTy19rrpW8X9G69vn6GP';
+      const kernelDb = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
+      let kernel: Kernel | undefined;
+
+      try {
+        kernel = await makeTestKernel(kernelDb);
+        // initRemoteComms should not throw even if the relay is unreachable —
+        // the libp2p node starts locally and relay connection happens async.
+        await kernel.initRemoteComms({ relays: [badRelayAddr] });
+
+        const status = await kernel.getStatus();
+        // The kernel still gets a local peer ID even without relay connectivity
+        expect(status.remoteComms?.state).toBe('connected');
+        expect(getRemoteCommsPeerId(status.remoteComms)).toBeDefined();
+      } finally {
+        if (kernel) {
+          await stopWithTimeout(
+            async () => kernel!.stop(),
+            STOP_TIMEOUT,
+            'kernel.stop',
+          );
+        }
       }
     },
     TEST_TIMEOUT,

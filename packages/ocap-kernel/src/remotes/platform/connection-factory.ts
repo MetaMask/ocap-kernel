@@ -716,3 +716,4 @@ export class ConnectionFactory {
     }
   }
 }
+harden(ConnectionFactory);
