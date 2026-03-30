@@ -1,6 +1,7 @@
 import { startRelay } from '@metamask/kernel-utils/libp2p';
 import type { Logger } from '@metamask/logger';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 
 import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive, readPidFile, sendSignal, waitFor } from '../utils.ts';
@@ -11,7 +12,7 @@ import { isProcessAlive, readPidFile, sendSignal, waitFor } from '../utils.ts';
  * @returns The relay PID file path.
  */
 export function getRelayPidPath(): string {
-  return `${getOcapHome()}/relay.pid`;
+  return join(getOcapHome(), 'relay.pid');
 }
 
 /**
@@ -20,7 +21,7 @@ export function getRelayPidPath(): string {
  * @returns The relay address file path.
  */
 export function getRelayAddrPath(): string {
-  return `${getOcapHome()}/relay.addr`;
+  return join(getOcapHome(), 'relay.addr');
 }
 
 /**

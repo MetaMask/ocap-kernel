@@ -4,7 +4,7 @@ import type { JsonRpcFailure } from '@metamask/utils';
 import { isJsonRpcFailure } from '@metamask/utils';
 import { readFile, rm } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { getOcapHome } from '../ocap-home.ts';
@@ -94,7 +94,7 @@ function resolveBundleSpecs(config: {
  * failed to stop within the timeout.
  */
 export async function stopDaemon(socketPath: string): Promise<boolean> {
-  const pidPath = `${getOcapHome()}/daemon.pid`;
+  const pidPath = join(getOcapHome(), 'daemon.pid');
   const pid = await readPidFile(pidPath);
   const processAlive = pid !== undefined && isProcessAlive(pid);
   const socketResponsive = await pingDaemon(socketPath);

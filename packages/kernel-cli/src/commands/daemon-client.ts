@@ -4,6 +4,7 @@ import { assertIsJsonRpcResponse } from '@metamask/utils';
 import { randomUUID } from 'node:crypto';
 import { createConnection } from 'node:net';
 import type { Socket } from 'node:net';
+import { join } from 'node:path';
 
 import { getOcapHome } from '../ocap-home.ts';
 
@@ -13,7 +14,7 @@ import { getOcapHome } from '../ocap-home.ts';
  * @returns The socket path.
  */
 export function getSocketPath(): string {
-  return `${getOcapHome()}/daemon.sock`;
+  return join(getOcapHome(), 'daemon.sock');
 }
 
 /**
