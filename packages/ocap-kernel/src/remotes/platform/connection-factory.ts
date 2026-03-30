@@ -169,7 +169,7 @@ export class ConnectionFactory {
         const ma = multiaddr(relay);
         const peerId = ma
           .getComponents()
-          .find((comp) => comp.code === CODE_P2P)?.value;
+          .findLast((comp) => comp.code === CODE_P2P)?.value;
         if (peerId) {
           this.#relayPeerIds.add(peerId);
           this.#relayMultiaddrs.set(peerId, relay);
@@ -385,7 +385,7 @@ export class ConnectionFactory {
         if (
           multiaddr(hint)
             .getComponents()
-            .find((comp) => comp.code === CODE_P2P)?.value === peerId
+            .findLast((comp) => comp.code === CODE_P2P)?.value === peerId
         ) {
           directAddresses.push(hint);
         } else {

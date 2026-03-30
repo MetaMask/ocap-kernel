@@ -141,7 +141,7 @@ const PROTO_CODES: Record<string, number> = {
   tls: 448,
   p2p: 421,
   'p2p-circuit': 290,
-  webrtc: 280,
+  webrtc: 281,
   'quic-v1': 461,
   webtransport: 465,
 };
