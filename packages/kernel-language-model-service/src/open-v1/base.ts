@@ -125,6 +125,19 @@ export class OpenV1BaseService {
   }
 
   /**
+   * Lists models available at the `/v1/models` endpoint.
+   *
+   * @returns A promise resolving to an array of model ID strings.
+   */
+  async listModels(): Promise<string[]> {
+    const response = await this.#fetch(`${this.#baseUrl}/v1/models`, {
+      headers: this.#makeHeaders(),
+    });
+    const data = (await response.json()) as { data: { id: string }[] };
+    return harden(data.data.map((model) => model.id));
+  }
+
+  /**
    * @returns Headers for the request, including Authorization if an API key is set.
    */
   #makeHeaders(): Record<string, string> {

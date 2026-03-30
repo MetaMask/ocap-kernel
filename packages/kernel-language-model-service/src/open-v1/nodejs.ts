@@ -24,6 +24,7 @@ export const makeOpenV1NodejsService = (config: {
     (params: ChatParams & { stream: true }): AsyncIterable<ChatStreamChunk>;
     (params: ChatParams & { stream?: false }): Promise<ChatResult>;
   };
+  listModels: () => Promise<string[]>;
 } => {
   const { endowments, baseUrl, apiKey } = config;
   if (!endowments?.fetch) {
@@ -35,5 +36,6 @@ export const makeOpenV1NodejsService = (config: {
       (params: ChatParams & { stream: true }): AsyncIterable<ChatStreamChunk>;
       (params: ChatParams & { stream?: false }): Promise<ChatResult>;
     },
+    listModels: service.listModels.bind(service),
   });
 };

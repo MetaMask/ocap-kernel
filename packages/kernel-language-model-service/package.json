@@ -23,6 +23,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./open-v1/nodejs": {
+      "import": {
+        "types": "./dist/open-v1/nodejs.d.mts",
+        "default": "./dist/open-v1/nodejs.mjs"
+      },
+      "require": {
+        "types": "./dist/open-v1/nodejs.d.cts",
+        "default": "./dist/open-v1/nodejs.cjs"
+      }
+    },
     "./ollama/nodejs": {
       "import": {
         "types": "./dist/ollama/nodejs.d.mts",
