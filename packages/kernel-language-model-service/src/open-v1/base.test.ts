@@ -296,6 +296,44 @@ describe('OpenV1BaseService', () => {
     });
   });
 
+  describe('listModels', () => {
+    it('gETs /v1/models and returns model IDs', async () => {
+      const modelsFetch = makeMockFetch({
+        data: [{ id: 'model-a' }, { id: 'model-b' }],
+      });
+      const modelsService = new OpenV1BaseService(
+        modelsFetch,
+        'http://localhost:8080',
+        'sk-test',
+      );
+
+      const result = await modelsService.listModels();
+
+      expect(modelsFetch).toHaveBeenCalledWith(
+        'http://localhost:8080/v1/models',
+        expect.any(Object),
+      );
+      expect(result).toStrictEqual(['model-a', 'model-b']);
+    });
+
+    it('includes Authorization header when apiKey is set', async () => {
+      const modelsFetch = makeMockFetch({ data: [{ id: 'model-a' }] });
+      const modelsService = new OpenV1BaseService(
+        modelsFetch,
+        'http://localhost:8080',
+        'sk-key',
+      );
+
+      await modelsService.listModels();
+
+      const [, init] = (modelsFetch as ReturnType<typeof vi.fn>).mock
+        .calls[0] as [string, RequestInit];
+      expect((init.headers as Record<string, string>).Authorization).toBe(
+        'Bearer sk-key',
+      );
+    });
+  });
+
   describe('chat with stream: true', () => {
     it('posts to /v1/chat/completions with stream: true in body', async () => {
       const streamFetch = makeMockStreamFetch([makeStreamChunk('hi')]);
