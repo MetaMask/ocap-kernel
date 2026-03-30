@@ -38,6 +38,24 @@ import type {
 } from '../types.ts';
 
 /**
+ * Extract the last /p2p/ peer ID from a multiaddr, matching the semantics of
+ * the removed `Multiaddr.getPeerId()`. For circuit relay addresses like
+ * `/p2p/relay-id/p2p-circuit/webrtc/p2p/target-id`, this returns `target-id`.
+ *
+ * @param ma - The multiaddr to extract the peer ID from.
+ * @returns The peer ID string, or undefined if no /p2p/ component exists.
+ */
+function getLastPeerId(ma: Multiaddr): string | undefined {
+  let peerId: string | undefined;
+  for (const comp of ma.getComponents()) {
+    if (comp.code === CODE_P2P) {
+      peerId = comp.value;
+    }
+  }
+  return peerId;
+}
+
+/**
  * Returns true if the multiaddr uses plain (unencrypted) WebSocket transport.
  *
  * @param ma - The multiaddr to check.
@@ -167,9 +185,7 @@ export class ConnectionFactory {
     for (const relay of this.#knownRelays) {
       try {
         const ma = multiaddr(relay);
-        const peerId = ma
-          .getComponents()
-          .findLast((comp) => comp.code === CODE_P2P)?.value;
+        const peerId = getLastPeerId(ma);
         if (peerId) {
           this.#relayPeerIds.add(peerId);
           this.#relayMultiaddrs.set(peerId, relay);
@@ -382,11 +398,7 @@ export class ConnectionFactory {
 
     for (const hint of hints) {
       try {
-        if (
-          multiaddr(hint)
-            .getComponents()
-            .findLast((comp) => comp.code === CODE_P2P)?.value === peerId
-        ) {
+        if (getLastPeerId(multiaddr(hint)) === peerId) {
           directAddresses.push(hint);
         } else {
           relayHints.push(hint);
