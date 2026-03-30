@@ -2,13 +2,8 @@ import type { Logger } from '@metamask/logger';
 import { toString as bufToString, fromString } from 'uint8arrays';
 
 import { writeWithTimeout } from './channel-utils.ts';
-import { DEFAULT_WRITE_TIMEOUT_MS } from './constants.ts';
+import { DEFAULT_WRITE_TIMEOUT_MS, HANDSHAKE_TIMEOUT_MS } from './constants.ts';
 import type { Channel } from '../types.ts';
-
-/**
- * Handshake timeout in milliseconds.
- */
-const HANDSHAKE_TIMEOUT_MS = 10_000;
 
 /**
  * Type for handshake protocol messages exchanged during connection establishment.

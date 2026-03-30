@@ -1,9 +1,6 @@
 import { calculateReconnectionBackoff } from '@metamask/kernel-utils';
 
-/**
- * Default threshold for consecutive identical errors before marking as permanently failed.
- */
-export const DEFAULT_CONSECUTIVE_ERROR_THRESHOLD = 5;
+import { DEFAULT_CONSECUTIVE_ERROR_THRESHOLD } from './constants.ts';
 
 /**
  * Error codes that can indicate permanent failure when occurring consecutively.

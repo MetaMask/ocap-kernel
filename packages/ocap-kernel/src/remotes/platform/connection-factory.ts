@@ -22,6 +22,11 @@ import { multiaddr } from '@multiformats/multiaddr';
 import type { Multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p } from 'libp2p';
 
+import {
+  RELAY_RECONNECT_BASE_DELAY_MS,
+  RELAY_RECONNECT_MAX_DELAY_MS,
+  RELAY_RECONNECT_MAX_ATTEMPTS,
+} from './constants.ts';
 import { getHost, getLastPeerId, isPlainWs } from '../../utils/multiaddr.ts';
 import { isPrivateAddress } from '../../utils/network.ts';
 import type {
@@ -30,10 +35,6 @@ import type {
   DirectTransport,
   InboundConnectionHandler,
 } from '../types.ts';
-
-const RELAY_RECONNECT_BASE_DELAY_MS = 5_000;
-const RELAY_RECONNECT_MAX_DELAY_MS = 60_000;
-const RELAY_RECONNECT_MAX_ATTEMPTS = 10;
 
 /**
  * Connection factory for libp2p network operations.
