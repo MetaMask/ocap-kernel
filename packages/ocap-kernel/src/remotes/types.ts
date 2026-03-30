@@ -1,10 +1,11 @@
+import type { Stream } from '@libp2p/interface';
+import type { ByteStream } from '@libp2p/utils';
 import type { Logger } from '@metamask/logger';
-import type { ByteStream } from 'it-byte-stream';
 
 export type InboundConnectionHandler = (channel: Channel) => void;
 
 export type Channel = {
-  msgStream: ByteStream;
+  msgStream: ByteStream<Stream>;
   peerId: string;
 };
 

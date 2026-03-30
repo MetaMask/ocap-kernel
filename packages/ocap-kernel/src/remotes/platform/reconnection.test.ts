@@ -1,9 +1,9 @@
 import * as kernelUtils from '@metamask/kernel-utils';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
+import { DEFAULT_CONSECUTIVE_ERROR_THRESHOLD } from './constants.ts';
 import {
   ReconnectionManager,
-  DEFAULT_CONSECUTIVE_ERROR_THRESHOLD,
   PERMANENT_FAILURE_ERROR_CODES,
 } from './reconnection.ts';
 

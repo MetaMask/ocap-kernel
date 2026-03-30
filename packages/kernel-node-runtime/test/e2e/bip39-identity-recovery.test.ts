@@ -1,12 +1,12 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Kernel } from '@metamask/ocap-kernel';
-import type { KernelStatus } from '@metamask/ocap-kernel';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 import { makeTestKernel } from '../helpers/kernel.ts';
+import { getRemoteCommsPeerId } from '../helpers/remote-comms.ts';
 
 // Valid 12-word test mnemonic (DO NOT use in production)
 const TEST_MNEMONIC =
@@ -19,22 +19,9 @@ const TEST_TIMEOUT = 30_000;
 
 // Dummy relay addresses - not actually connected to, just needed for bootstrap
 // Using localhost addresses that won't conflict with real relay ports
-const DUMMY_RELAYS = ['/ip4/127.0.0.1/tcp/19001/ws/p2p/QmDummyPeerId'];
-
-/**
- * Extract peerId from remoteComms status, returning undefined for disconnected state.
- *
- * @param remoteComms - The remote comms status object.
- * @returns The peer ID string or undefined.
- */
-function getRemoteCommsPeerId(
-  remoteComms: KernelStatus['remoteComms'],
-): string | undefined {
-  if (remoteComms && remoteComms.state !== 'disconnected') {
-    return remoteComms.peerId;
-  }
-  return undefined;
-}
+const DUMMY_RELAYS = [
+  '/ip4/127.0.0.1/tcp/19001/ws/p2p/12D3KooWBTf3S95YAsh6fi5rhohMsk8qaTy19rrpW8X9G69vn6GP',
+];
 
 // Tests for identity recovery using mnemonic
 // Note: These tests verify that the same mnemonic produces the same peer ID

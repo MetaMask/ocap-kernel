@@ -58,7 +58,6 @@ export default defineConfig({
         '**/test/**',
         '**/node_modules/**',
         '**/*.{test,spec}.{ts,tsx,js,jsx}',
-        path.join(import.meta.dirname, './packages/brow-2-brow/**'),
       ],
     },
   },

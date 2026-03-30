@@ -40,14 +40,14 @@ if [ -d node_modules/better-sqlite3 ] && \
     fi
 fi
 
-# Check and rebuild @ipshipyard/node-datachannel
-if [ -d node_modules/@ipshipyard/node-datachannel ] && \
+# Check and rebuild node-datachannel
+if [ -d node_modules/node-datachannel ] && \
    { [ "$FORCE_REBUILD" -eq 1 ] || \
-   [ ! -f node_modules/@ipshipyard/node-datachannel/build/Release/node_datachannel.node ]; \
+   [ ! -f node_modules/node-datachannel/build/Release/node_datachannel.node ]; \
    }; then
-    echo "🔨 Building @ipshipyard/node-datachannel..."
-    if ! npm rebuild @ipshipyard/node-datachannel; then
-        echo "❌ Failed to build @ipshipyard/node-datachannel" >&2
+    echo "🔨 Building node-datachannel..."
+    if ! npm rebuild node-datachannel; then
+        echo "❌ Failed to build node-datachannel" >&2
         BUILD_FAILED=1
     fi
 fi

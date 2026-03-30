@@ -16,6 +16,12 @@ export default defineConfig((args) => {
           fileURLToPath(
             import.meta.resolve('@metamask/kernel-shims/endoify-node'),
           ),
+          fileURLToPath(
+            new URL(
+              './test/e2e/setup-suppress-datachannel-error.ts',
+              import.meta.url,
+            ),
+          ),
         ],
         include: ['./test/e2e/**/*.test.ts'],
         exclude: ['./src/**/*'],

@@ -22,33 +22,10 @@ import {
   sendRemoteMessage,
   setupAliceAndBob,
 } from '../helpers/remote-comms.ts';
+import { stopWithTimeout } from '../helpers/stop-with-timeout.ts';
 
 // Increase timeout for network operations
 const NETWORK_TIMEOUT = 30_000;
-
-/**
- * Stop an operation with a timeout to prevent hangs during cleanup.
- *
- * @param stopFn - The stop function to call.
- * @param timeoutMs - The timeout in milliseconds.
- * @param label - A label for logging.
- */
-async function stopWithTimeout(
-  stopFn: () => Promise<unknown>,
-  timeoutMs: number,
-  label: string,
-): Promise<void> {
-  try {
-    await Promise.race([
-      stopFn(),
-      new Promise<never>((_resolve, reject) =>
-        setTimeout(() => reject(new Error(`${label} timed out`)), timeoutMs),
-      ),
-    ]);
-  } catch {
-    // Ignore timeout errors during cleanup
-  }
-}
 // Test relay configuration
 // The relay peer ID is deterministic based on RELAY_LOCAL_ID = 200 in relay.ts
 const relayPeerId = '12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc';
