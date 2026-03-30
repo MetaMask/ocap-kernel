@@ -3,6 +3,7 @@ import {
   array,
   boolean,
   literal,
+  nullable,
   number,
   object,
   optional,
@@ -40,7 +41,7 @@ const ToolCallStruct = object({
 
 const ChatMessageStruct = object({
   role: ChatRoleStruct,
-  content: string(),
+  content: nullable(string()),
   tool_calls: optional(array(ToolCallStruct)),
   tool_call_id: optional(string()),
 });

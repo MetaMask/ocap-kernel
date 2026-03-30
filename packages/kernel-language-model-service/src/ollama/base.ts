@@ -81,7 +81,10 @@ export class OllamaBaseService<Ollama extends OllamaClient>
     }
     const response = await ollama.chat({
       model,
-      messages: messages.map(({ role, content }) => ({ role, content })),
+      messages: messages.map(({ role, content }) => ({
+        role,
+        content: content ?? '',
+      })),
       stream: false,
       options: ifDefined({
         temperature,

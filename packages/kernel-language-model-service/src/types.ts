@@ -34,7 +34,7 @@ export type Tool = {
  */
 export type ChatMessage = {
   role: ChatRole;
-  content: string;
+  content: string | null;
   tool_calls?: ToolCall[];
   tool_call_id?: string;
 };
@@ -135,7 +135,8 @@ export type ChatResult = {
  * Minimal service interface required by `makeChatClient`.
  */
 export type ChatService = {
-  chat: (params: ChatParams) => Promise<ChatResult>;
+  chat(params: ChatParams & { stream: true }): AsyncIterable<ChatStreamChunk>;
+  chat(params: ChatParams & { stream?: false }): Promise<ChatResult>;
 };
 
 /**
