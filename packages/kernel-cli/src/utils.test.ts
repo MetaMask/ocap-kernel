@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   isErrorWithCode,
   isProcessAlive,
+  parseTimeoutMs,
   readPidFile,
   sendSignal,
   waitFor,
@@ -121,6 +122,28 @@ describe('utils', () => {
       });
       expect(() => sendSignal(1234, 'SIGTERM')).toThrow('EPERM');
     });
+  });
+
+  describe('parseTimeoutMs', () => {
+    it('returns undefined when value is undefined', () => {
+      expect(parseTimeoutMs(undefined)).toBeUndefined();
+    });
+
+    it.each([1, 5, 30, 100])(
+      'converts %i seconds to milliseconds',
+      (seconds) => {
+        expect(parseTimeoutMs(seconds)).toBe(seconds * 1000);
+      },
+    );
+
+    it.each([0, -1, -100, 1.5, 0.1, NaN, Infinity, -Infinity])(
+      'throws for invalid value %s',
+      (value) => {
+        expect(() => parseTimeoutMs(value)).toThrow(
+          '--timeout must be a positive integer',
+        );
+      },
+    );
   });
 
   describe('waitFor', () => {

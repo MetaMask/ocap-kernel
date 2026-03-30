@@ -18,7 +18,7 @@ export default defineConfig((args) => {
       },
       test: {
         name: 'cli',
-        exclude: ['**/test/integration/**'],
+        exclude: ['**/test/integration/**', '**/test/e2e/**'],
       },
     }),
   );

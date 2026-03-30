@@ -4,8 +4,9 @@ import { assertIsJsonRpcResponse } from '@metamask/utils';
 import { randomUUID } from 'node:crypto';
 import { createConnection } from 'node:net';
 import type { Socket } from 'node:net';
-import { homedir } from 'node:os';
 import { join } from 'node:path';
+
+import { getOcapHome } from '../ocap-home.ts';
 
 /**
  * Get the default daemon socket path.
@@ -13,7 +14,7 @@ import { join } from 'node:path';
  * @returns The socket path.
  */
 export function getSocketPath(): string {
-  return join(homedir(), '.ocap', 'daemon.sock');
+  return join(getOcapHome(), 'daemon.sock');
 }
 
 /**
@@ -40,9 +41,9 @@ type SendCommandOptions = {
   socketPath: string;
   /** The RPC method name. */
   method: string;
-  /** Optional method parameters. */
-  params?: Record<string, unknown> | undefined;
-  /** Read timeout in milliseconds (default: 30 000). */
+  /** Optional method parameters (object or positional array). */
+  params?: Record<string, unknown> | unknown[] | undefined;
+  /** Read timeout in milliseconds (default: no timeout). */
   timeoutMs?: number | undefined;
 };
 
@@ -57,14 +58,14 @@ type SendCommandOptions = {
  * @param options.socketPath - The UNIX socket path.
  * @param options.method - The RPC method name.
  * @param options.params - Optional method parameters.
- * @param options.timeoutMs - Read timeout in milliseconds (default: 30 000).
+ * @param options.timeoutMs - Read timeout in milliseconds (default: no timeout).
  * @returns The parsed JSON-RPC response.
  */
 export async function sendCommand({
   socketPath,
   method,
   params,
-  timeoutMs = 30_000,
+  timeoutMs,
 }: SendCommandOptions): Promise<JsonRpcResponse> {
   const id = randomUUID();
   const request = {

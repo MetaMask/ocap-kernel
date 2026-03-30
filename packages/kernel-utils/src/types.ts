@@ -1,7 +1,7 @@
 import type { Primitive } from '@endo/captp';
 import type { PromiseKit } from '@endo/promise-kit';
 import type { Infer, Struct } from '@metamask/superstruct';
-import { array, empty, is, union } from '@metamask/superstruct';
+import { array, empty, is, object, string, union } from '@metamask/superstruct';
 import {
   isObject,
   UnsafeJsonStruct,
@@ -96,17 +96,13 @@ export const isJsonRpcMessage = (value: unknown): value is JsonRpcMessage =>
   is(value, JsonRpcMessageStruct);
 
 /**
- * Check whether a value has the shape of Endo CapData (`{ body: string, slots: unknown[] }`).
+ * Check whether a value has the shape of Endo CapData (`{ body: string, slots: string[] }`).
  *
  * @param value - The value to check.
  * @returns `true` when `value` looks like CapData.
  */
+const CapDataStruct = object({ body: string(), slots: array(string()) });
+
 export const isCapData = (
   value: unknown,
-): value is { body: string; slots: unknown[] } =>
-  typeof value === 'object' &&
-  value !== null &&
-  'body' in value &&
-  typeof (value as { body: unknown }).body === 'string' &&
-  'slots' in value &&
-  Array.isArray((value as { slots: unknown }).slots);
+): value is { body: string; slots: string[] } => is(value, CapDataStruct);
