@@ -218,23 +218,23 @@ while read -r DEL_ID; do
     REVOKE_FAILED=$((REVOKE_FAILED + 1))
     continue
   }
-  # Check if the result is an error object (decoded by prettifySmallcaps).
-  if echo "$REVOKE_OUTPUT" | grep -q '"#error"'; then
+  # prettifySmallcaps converts #error objects to strings like "[TypeError: msg]".
+  # A successful revocation returns a hex userOpHash starting with "0x".
+  # Detect errors by checking if the decoded value is a "[..." error string.
+  IS_ERROR=$(echo "$REVOKE_OUTPUT" | node -e "
+    const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+    process.stdout.write(typeof v === 'string' && v.startsWith('[') ? 'true' : 'false');
+  " 2>/dev/null || echo "false")
+  if [[ "$IS_ERROR" == "true" ]]; then
     ERR_MSG=$(echo "$REVOKE_OUTPUT" | node -e "
-      const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
-      try {
-        const d = JSON.parse(raw);
-        process.stdout.write(d['#error'] || raw);
-      } catch (e) {
-        process.stdout.write(raw || 'Unknown error');
-      }
+      const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+      process.stdout.write(typeof v === 'string' ? v : JSON.stringify(v));
     " 2>/dev/null) || ERR_MSG="Unknown error"
     echo -e "  ${RED}✗${RESET} Failed to revoke delegation $DEL_ID" >&2
     echo -e "     ${DIM}Reason: $ERR_MSG${RESET}" >&2
     REVOKE_FAILED=$((REVOKE_FAILED + 1))
     continue
   fi
-  # The decoded result is the userOpHash string (already unwrapped from CapData).
   USER_OP_HASH=$(echo "$REVOKE_OUTPUT" | node -e "
     const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
     if (typeof v === 'string') process.stdout.write(v);
