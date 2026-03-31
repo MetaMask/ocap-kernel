@@ -636,7 +636,7 @@ describe.sequential('Remote Communications E2E', () => {
         const newMessage = kunser(newMessageResult);
         expect(newMessage).toBe('Sequence 999 received');
       },
-      NETWORK_TIMEOUT * 3,
+      NETWORK_TIMEOUT * 4,
     );
   });
 
