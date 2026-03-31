@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.36% </span>
+                <span class="strong">96.61% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>53/55</span>
+                <span class='fraction'>57/59</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">90.9% </span>
+                <span class="strong">93.33% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>20/22</span>
+                <span class='fraction'>28/30</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.36% </span>
+                <span class="strong">96.61% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>53/55</span>
+                <span class='fraction'>57/59</span>
             </div>
         
             
@@ -264,7 +264,19 @@
 <a name='L199'></a><a href='#L199'>199</a>
 <a name='L200'></a><a href='#L200'>200</a>
 <a name='L201'></a><a href='#L201'>201</a>
-<a name='L202'></a><a href='#L202'>202</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L202'></a><a href='#L202'>202</a>
+<a name='L203'></a><a href='#L203'>203</a>
+<a name='L204'></a><a href='#L204'>204</a>
+<a name='L205'></a><a href='#L205'>205</a>
+<a name='L206'></a><a href='#L206'>206</a>
+<a name='L207'></a><a href='#L207'>207</a>
+<a name='L208'></a><a href='#L208'>208</a>
+<a name='L209'></a><a href='#L209'>209</a>
+<a name='L210'></a><a href='#L210'>210</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -381,6 +393,8 @@
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
@@ -429,6 +443,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-yes">9x</span>
@@ -499,6 +515,10 @@ export type HandshakeDeps = {
   logger: Logger;
   /** Set the incarnation ID for a peer. Returns true if it changed. */
   setRemoteIncarnation: (peerId: string, incarnationId: string) =&gt; boolean;
+  /** Timeout in ms for handshake read operations. Defaults to HANDSHAKE_TIMEOUT_MS. */
+  handshakeTimeoutMs?: number | undefined;
+  /** Timeout in ms for channel write operations. Defaults to DEFAULT_WRITE_TIMEOUT_MS. */
+  writeTimeoutMs?: number | undefined;
 };
 &nbsp;
 /**
@@ -579,6 +599,8 @@ export async function performOutboundHandshake(
   deps: HandshakeDeps,
 ): Promise&lt;HandshakeResult&gt; {
   const { localIncarnationId, logger, setRemoteIncarnation } = deps;
+  const hsTimeout = deps.handshakeTimeoutMs ?? HANDSHAKE_TIMEOUT_MS;
+  const wtTimeout = deps.writeTimeoutMs ?? DEFAULT_WRITE_TIMEOUT_MS;
   const { peerId } = channel;
   const shortPeerId = peerId.slice(0, 8);
   const shortIncarnation = localIncarnationId.slice(0, 8);
@@ -594,12 +616,12 @@ export async function performOutboundHandshake(
   await writeWithTimeout(
     channel,
     fromString(JSON.stringify(handshakeMsg)),
-    DEFAULT_WRITE_TIMEOUT_MS,
+    wtTimeout,
   );
 &nbsp;
   // Wait for handshakeAck
   logger.log(`${shortPeerId}:: waiting for handshakeAck`);
-  const response = await readWithTimeout(channel, HANDSHAKE_TIMEOUT_MS);
+  const response = await readWithTimeout(channel, hsTimeout);
   const parsed = JSON.parse(response);
 &nbsp;
   if (!isHandshakeMessage(parsed) || parsed.method !== 'handshakeAck') {
@@ -631,12 +653,14 @@ export async function performInboundHandshake(
   deps: HandshakeDeps,
 ): Promise&lt;HandshakeResult&gt; {
   const { localIncarnationId, logger, setRemoteIncarnation } = deps;
+  const hsTimeout = deps.handshakeTimeoutMs ?? HANDSHAKE_TIMEOUT_MS;
+  const wtTimeout = deps.writeTimeoutMs ?? DEFAULT_WRITE_TIMEOUT_MS;
   const { peerId } = channel;
   const shortPeerId = peerId.slice(0, 8);
 &nbsp;
   // Wait for handshake
   logger.log(`${shortPeerId}:: waiting for handshake`);
-  const message = await readWithTimeout(channel, HANDSHAKE_TIMEOUT_MS);
+  const message = await readWithTimeout(channel, hsTimeout);
   const parsed = JSON.parse(message);
 &nbsp;
   if (!isHandshakeMessage(parsed) || parsed.method !== 'handshake') {
@@ -659,7 +683,7 @@ export async function performInboundHandshake(
   await writeWithTimeout(
     channel,
     fromString(JSON.stringify(ackMsg)),
-    DEFAULT_WRITE_TIMEOUT_MS,
+    wtTimeout,
   );
 &nbsp;
   const incarnationChanged = setRemoteIncarnation(peerId, remoteIncarnationId);
@@ -673,7 +697,7 @@ export async function performInboundHandshake(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-30T21:41:21.058Z
+                at 2026-03-31T22:48:05.882Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

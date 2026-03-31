@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">82.37% </span>
+                <span class="strong">81.89% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>187/227</span>
+                <span class='fraction'>190/232</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">80.72% </span>
+                <span class="strong">79.77% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>67/83</span>
+                <span class='fraction'>71/89</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">82.37% </span>
+                <span class="strong">81.89% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>187/227</span>
+                <span class='fraction'>190/232</span>
             </div>
         
             
@@ -801,7 +801,26 @@
 <a name='L736'></a><a href='#L736'>736</a>
 <a name='L737'></a><a href='#L737'>737</a>
 <a name='L738'></a><a href='#L738'>738</a>
-<a name='L739'></a><a href='#L739'>739</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L739'></a><a href='#L739'>739</a>
+<a name='L740'></a><a href='#L740'>740</a>
+<a name='L741'></a><a href='#L741'>741</a>
+<a name='L742'></a><a href='#L742'>742</a>
+<a name='L743'></a><a href='#L743'>743</a>
+<a name='L744'></a><a href='#L744'>744</a>
+<a name='L745'></a><a href='#L745'>745</a>
+<a name='L746'></a><a href='#L746'>746</a>
+<a name='L747'></a><a href='#L747'>747</a>
+<a name='L748'></a><a href='#L748'>748</a>
+<a name='L749'></a><a href='#L749'>749</a>
+<a name='L750'></a><a href='#L750'>750</a>
+<a name='L751'></a><a href='#L751'>751</a>
+<a name='L752'></a><a href='#L752'>752</a>
+<a name='L753'></a><a href='#L753'>753</a>
+<a name='L754'></a><a href='#L754'>754</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -898,6 +917,15 @@
 <span class="cline-any cline-yes">84x</span>
 <span class="cline-any cline-yes">84x</span>
 <span class="cline-any cline-yes">84x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">84x</span>
+<span class="cline-any cline-yes">84x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">84x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">84x</span>
 <span class="cline-any cline-yes">84x</span>
 <span class="cline-any cline-yes">84x</span>
@@ -940,6 +968,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -1628,6 +1658,10 @@ export async function initTransport(
     stalePeerTimeoutMs = DEFAULT_STALE_PEER_TIMEOUT_MS,
     maxMessagesPerSecond = DEFAULT_MESSAGE_RATE_LIMIT,
     maxConnectionAttemptsPerMinute = DEFAULT_CONNECTION_RATE_LIMIT,
+    reconnectionBaseDelayMs,
+    reconnectionMaxDelayMs,
+    handshakeTimeoutMs,
+    writeTimeoutMs,
     directTransports,
     allowedWsHosts,
   } = options;
@@ -1636,7 +1670,16 @@ export async function initTransport(
   const { signal } = stopController;
   const logger = new Logger();
   const outputError = makeErrorLogger(logger);
-  const reconnectionManager = new ReconnectionManager();
+  const reconnectionManagerOpts: ConstructorParameters&lt;
+    typeof ReconnectionManager
+  &gt;[0] = {};
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (reconnectionBaseDelayMs !== undefined) {
+<span class="cstat-no" title="statement not covered" >    reconnectionManagerOpts.backoffBaseDelayMs = reconnectionBaseDelayMs;</span>
+  }
+  <span class="missing-if-branch" title="if path not taken" >I</span>if (reconnectionMaxDelayMs !== undefined) {
+<span class="cstat-no" title="statement not covered" >    reconnectionManagerOpts.backoffMaxDelayMs = reconnectionMaxDelayMs;</span>
+  }
+  const reconnectionManager = new ReconnectionManager(reconnectionManagerOpts);
   const peerStateManager = new PeerStateManager(logger, stalePeerTimeoutMs);
   const validateMessageSize = makeMessageSizeValidator(maxMessageSizeBytes);
   const checkConnectionLimit = makeConnectionLimitChecker(
@@ -1678,6 +1721,8 @@ export async function initTransport(
         logger,
         setRemoteIncarnation: (peerId: string, incarnationId: string) =&gt;
           peerStateManager.setRemoteIncarnation(peerId, incarnationId),
+        handshakeTimeoutMs,
+        writeTimeoutMs,
       }
     : undefined;
 &nbsp;
@@ -2077,7 +2122,7 @@ export async function initTransport(
       await writeWithTimeout(
         channel,
         fromString(message),
-        DEFAULT_WRITE_TIMEOUT_MS,
+        writeTimeoutMs ?? DEFAULT_WRITE_TIMEOUT_MS,
       );
       peerStateManager.updateConnectionTime(targetPeerId);
       reconnectionManager.resetBackoff(targetPeerId);
@@ -2284,7 +2329,7 @@ export async function initTransport(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-03-30T21:41:21.058Z
+                at 2026-03-31T22:48:05.882Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
