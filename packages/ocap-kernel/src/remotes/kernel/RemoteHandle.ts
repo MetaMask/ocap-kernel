@@ -40,6 +40,7 @@ type RemoteHandleConstructorProps = {
   locationHints?: string[] | undefined;
   logger?: Logger | undefined;
   onGiveUp?: ((peerId: string) => void) | undefined;
+  ackTimeoutMs?: number | undefined;
 };
 
 type MessageDelivery = ['message', string, Message];
@@ -149,6 +150,9 @@ export class RemoteHandle implements EndpointHandle {
   /** Callback invoked when we give up on this remote (for promise rejection). */
   readonly #onGiveUp: ((peerId: string) => void) | undefined;
 
+  /** How long to wait for ACK before retransmitting (ms). Defaults to ACK_TIMEOUT_MS. */
+  readonly #ackTimeoutMs: number;
+
   /**
    * Construct a new RemoteHandle instance.
    *
@@ -161,6 +165,7 @@ export class RemoteHandle implements EndpointHandle {
    * @param params.locationHints - Possible contact points to reach the other end.
    * @param params.logger - Optional logger for diagnostic output.
    * @param params.onGiveUp - Optional callback when we give up on this remote.
+   * @param params.ackTimeoutMs - Optional ACK timeout in ms. Defaults to ACK_TIMEOUT_MS.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor({
@@ -172,6 +177,7 @@ export class RemoteHandle implements EndpointHandle {
     locationHints,
     logger,
     onGiveUp,
+    ackTimeoutMs,
   }: RemoteHandleConstructorProps) {
     this.remoteId = remoteId;
     this.#peerId = peerId;
@@ -182,6 +188,7 @@ export class RemoteHandle implements EndpointHandle {
     this.#myCrankResult = { didDelivery: remoteId };
     this.#logger = logger ?? new Logger(`RemoteHandle:${peerId.slice(0, 8)}`);
     this.#onGiveUp = onGiveUp;
+    this.#ackTimeoutMs = ackTimeoutMs ?? ACK_TIMEOUT_MS;
   }
 
   /**
@@ -345,7 +352,7 @@ export class RemoteHandle implements EndpointHandle {
     if (this.#hasPendingMessages()) {
       this.#ackTimeoutHandle = setTimeout(() => {
         this.#handleAckTimeout();
-      }, ACK_TIMEOUT_MS);
+      }, this.#ackTimeoutMs);
     }
   }
 
@@ -1002,8 +1009,11 @@ export class RemoteHandle implements EndpointHandle {
     const { promise, resolve, reject } = makePromiseKit<string>();
     this.#pendingRedemptions.set(replyKey, [resolve, reject]);
 
-    // Set up timeout handling with AbortSignal
-    const timeoutSignal = AbortSignal.timeout(30_000);
+    // Set up timeout handling with AbortSignal.
+    // Use (MAX_RETRIES + 1)× ACK timeout as the redemption deadline: enough
+    // time for the full ACK retry cycle (initial + retransmissions) to complete.
+    const redemptionTimeoutMs = this.#ackTimeoutMs * (MAX_RETRIES + 1);
+    const timeoutSignal = AbortSignal.timeout(redemptionTimeoutMs);
     let abortHandler: (() => void) | undefined;
     const timeoutPromise = new Promise<never>((_resolve, _reject) => {
       abortHandler = () => {
@@ -1011,7 +1021,9 @@ export class RemoteHandle implements EndpointHandle {
         if (this.#pendingRedemptions.has(replyKey)) {
           this.#pendingRedemptions.delete(replyKey);
         }
-        _reject(new Error('URL redemption timed out after 30 seconds'));
+        _reject(
+          new Error(`URL redemption timed out after ${redemptionTimeoutMs}ms`),
+        );
       };
       timeoutSignal.addEventListener('abort', abortHandler);
     });

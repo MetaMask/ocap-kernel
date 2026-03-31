@@ -12,6 +12,9 @@ export default defineConfig((args) => {
       test: {
         name: 'nodejs:e2e',
         pool: 'forks',
+        // Run test files sequentially to prevent port conflicts between
+        // relay-dependent test suites (remote-comms, relay-connectivity, quic-transport).
+        fileParallelism: false,
         setupFiles: [
           fileURLToPath(
             import.meta.resolve('@metamask/kernel-shims/endoify-node'),
