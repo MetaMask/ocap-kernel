@@ -146,9 +146,10 @@ async function callWallet(options: WalletCallOptions): Promise<unknown> {
     throw new Error(`Wallet ${method} returned non-JSON output`);
   }
 
-  // prettifySmallcaps converts #error objects to strings like "[TypeError: msg]".
-  // Detect these prettified error strings and throw them as proper errors.
-  if (typeof decoded === 'string' && decoded.startsWith('[')) {
+  // prettifySmallcaps converts #error objects to "[ErrorName: msg]" strings,
+  // but also converts manifest constants to "[undefined]", "[NaN]", etc.
+  // Distinguish errors by checking for the ": " separator after the bracket.
+  if (typeof decoded === 'string' && /^\[.+: /u.test(decoded)) {
     throw new Error(`Wallet ${method} failed: ${decoded}`);
   }
 

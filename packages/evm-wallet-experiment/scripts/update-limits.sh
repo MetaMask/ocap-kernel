@@ -221,12 +221,12 @@ while read -r DEL_ID; do
     REVOKE_FAILED=$((REVOKE_FAILED + 1))
     continue
   }
-  # prettifySmallcaps converts #error objects to strings like "[TypeError: msg]".
-  # A successful revocation returns a hex userOpHash starting with "0x".
-  # Detect errors by checking if the decoded value is a "[..." error string.
+  # prettifySmallcaps converts #error objects to "[ErrorName: msg]" strings,
+  # but also converts manifest constants to "[undefined]", "[NaN]", etc.
+  # Distinguish errors by the ": " separator (errors always have "Name: msg").
   IS_ERROR=$(echo "$REVOKE_OUTPUT" | node -e "
     const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
-    process.stdout.write(typeof v === 'string' && v.startsWith('[') ? 'true' : 'false');
+    process.stdout.write(typeof v === 'string' && /^\[.+: /.test(v) ? 'true' : 'false');
   " 2>/dev/null || echo "false")
   if [[ "$IS_ERROR" == "true" ]]; then
     ERR_MSG=$(echo "$REVOKE_OUTPUT" | node -e "
