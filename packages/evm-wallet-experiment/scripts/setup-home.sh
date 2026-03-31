@@ -253,21 +253,16 @@ if [[ -n "$RELAY_ADDR" ]]; then
 else
   info "Initializing remote comms (direct QUIC on port $QUIC_PORT)..."
 fi
-COMMS_PARAMS="{\"directListenAddresses\":[\"/ip4/0.0.0.0/udp/${QUIC_PORT}/quic-v1\"]"
-if [[ -n "$RELAY_ADDR" ]]; then
-  COMMS_PARAMS="${COMMS_PARAMS},\"relays\":[\"${RELAY_ADDR}\"]"
-  # Extract the relay host (IP or hostname) for the ws:// allowlist.
-  # Plain ws:// to public IPs is denied by default; allowedWsHosts permits it.
-  RELAY_HOST=$(echo "$RELAY_ADDR" | node -e "
-    const addr = require('fs').readFileSync('/dev/stdin','utf8').trim();
-    const m = addr.match(/\\/(?:ip4|ip6|dns4|dns6)\\/([^\\/]+)/);
-    if (m) process.stdout.write(m[1]);
-  ")
-  if [[ -n "$RELAY_HOST" ]]; then
-    COMMS_PARAMS="${COMMS_PARAMS},\"allowedWsHosts\":[\"${RELAY_HOST}\"]"
-  fi
-fi
-COMMS_PARAMS="${COMMS_PARAMS}}"
+COMMS_PARAMS=$(QUIC="$QUIC_PORT" RELAY="$RELAY_ADDR" node -e "
+  const p = { directListenAddresses: ['/ip4/0.0.0.0/udp/' + process.env.QUIC + '/quic-v1'] };
+  const relay = process.env.RELAY;
+  if (relay) {
+    p.relays = [relay];
+    const m = relay.match(/\\/(?:ip4|ip6|dns4|dns6)\\/([^\\/]+)/);
+    if (m) p.allowedWsHosts = [m[1]];
+  }
+  process.stdout.write(JSON.stringify(p));
+")
 daemon_exec initRemoteComms "$COMMS_PARAMS" >/dev/null
 ok "Remote comms initialized"
 
