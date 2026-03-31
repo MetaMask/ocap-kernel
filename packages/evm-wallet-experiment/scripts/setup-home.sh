@@ -173,38 +173,11 @@ info()  { echo -e "${CYAN}→${RESET} $*" >&2; }
 ok()    { echo -e "  ${GREEN}✓${RESET} $*" >&2; }
 fail()  { echo -e "  ${RED}✗${RESET} $*" >&2; exit 1; }
 
-# Parse the value out of Endo CapData JSON ({"body":"#...","slots":[...]}).
-# Simple values only (strings, arrays, objects without slot references).
-parse_capdata() {
+# Decode JSON output — for strings, output the raw value; for other types, output JSON.
+json_value() {
   node -e "
-    const raw = require('fs').readFileSync('/dev/stdin', 'utf8').trim();
-    if (!raw) {
-      process.stderr.write('parse_capdata: empty input\n');
-      process.exit(1);
-    }
-    let data;
-    try { data = JSON.parse(raw); } catch (e) {
-      process.stderr.write('parse_capdata: invalid JSON: ' + raw.slice(0, 200) + '\n');
-      process.exit(1);
-    }
-    if (!data.body || typeof data.body !== 'string') {
-      process.stderr.write('parse_capdata: missing body field: ' + raw.slice(0, 200) + '\n');
-      process.exit(1);
-    }
-    if (!data.body.startsWith('#')) {
-      process.stderr.write('parse_capdata: unexpected body prefix: ' + data.body.slice(0, 200) + '\n');
-      process.exit(1);
-    }
-    if (data.slots && data.slots.length > 0) {
-      process.stderr.write('parse_capdata: cannot handle slot references\n');
-      process.exit(1);
-    }
-    let value;
-    try { value = JSON.parse(data.body.slice(1)); } catch (e) {
-      process.stderr.write('parse_capdata: invalid CapData body: ' + data.body.slice(0, 200) + '\n');
-      process.exit(1);
-    }
-    process.stdout.write(typeof value === 'string' ? value : JSON.stringify(value));
+    const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+    process.stdout.write(typeof v === 'string' ? v : JSON.stringify(v));
   "
 }
 
@@ -221,6 +194,25 @@ daemon_exec() {
   result=$(node "$OCAP_BIN" daemon exec "$@")
   if [[ -n "$result" && "$quiet" == false ]]; then
     echo "  [daemon exec $1] $result" >&2
+  fi
+  echo "$result"
+}
+
+# Run `ocap daemon queueMessage` (auto-decodes CapData via prettifySmallcaps).
+# Usage: daemon_qm [--quiet] [--raw] KREF METHOD [ARGS_JSON] [--timeout N]
+# --quiet suppresses the stderr log line
+# --raw   outputs raw CapData instead of decoded result
+daemon_qm() {
+  local quiet=false
+  if [[ "${1:-}" == "--quiet" ]]; then
+    quiet=true
+    shift
+  fi
+  local method="${2:-}"
+  local result
+  result=$(node "$OCAP_BIN" daemon queueMessage "$@")
+  if [[ -n "$result" && "$quiet" == false ]]; then
+    echo "  [queueMessage $method] $result" >&2
   fi
   echo "$result"
 }
@@ -389,22 +381,20 @@ else
   info "Initializing keyring with SRP..."
 fi
 
-INIT_PARAMS=$(KREF="$ROOT_KREF" SRP="$MNEMONIC" PW="$KEYRING_PASSWORD" node -e "
+INIT_ARGS=$(SRP="$MNEMONIC" PW="$KEYRING_PASSWORD" node -e "
   const opts = { type: 'srp', mnemonic: process.env.SRP };
   if (process.env.PW) {
     opts.password = process.env.PW;
     opts.salt = require('crypto').randomBytes(16).toString('hex');
   }
-  const p = JSON.stringify([process.env.KREF, 'initializeKeyring', [opts]]);
-  process.stdout.write(p);
+  process.stdout.write(JSON.stringify([opts]));
 ")
 
-daemon_exec --quiet queueMessage "$INIT_PARAMS" >/dev/null
+daemon_qm --quiet "$ROOT_KREF" initializeKeyring "$INIT_ARGS" >/dev/null
 ok "Keyring initialized"
 
 info "Verifying accounts..."
-ACCOUNTS_RAW=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"getAccounts\", []]")
-ACCOUNTS=$(echo "$ACCOUNTS_RAW" | parse_capdata)
+ACCOUNTS=$(daemon_qm "$ROOT_KREF" getAccounts)
 ok "Accounts: $ACCOUNTS"
 
 # ---------------------------------------------------------------------------
@@ -413,12 +403,11 @@ ok "Accounts: $ACCOUNTS"
 
 info "Configuring provider ($(chain_name "$CHAIN_ID"), chain $CHAIN_ID)..."
 
-PROVIDER_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" URL="$RPC_URL" node -e "
-  const p = JSON.stringify([process.env.KREF, 'configureProvider', [{ chainId: Number(process.env.CID), rpcUrl: process.env.URL }]]);
-  process.stdout.write(p);
+PROVIDER_ARGS=$(CID="$CHAIN_ID" URL="$RPC_URL" node -e "
+  process.stdout.write(JSON.stringify([{ chainId: Number(process.env.CID), rpcUrl: process.env.URL }]));
 ")
 
-daemon_exec queueMessage "$PROVIDER_PARAMS" >/dev/null
+daemon_qm "$ROOT_KREF" configureProvider "$PROVIDER_ARGS" >/dev/null
 ok "Provider configured — $RPC_URL"
 
 # ---------------------------------------------------------------------------
@@ -430,23 +419,21 @@ if [[ -n "$PIMLICO_KEY" ]]; then
   BUNDLER_URL="${PIMLICO_BASE}?apikey=${PIMLICO_KEY}"
   info "Configuring bundler (Pimlico)..."
 
-  BUNDLER_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" BURL="$BUNDLER_URL" node -e "
-    const p = JSON.stringify([process.env.KREF, 'configureBundler', [{ bundlerUrl: process.env.BURL, chainId: Number(process.env.CID), usePaymaster: true }]]);
-    process.stdout.write(p);
+  BUNDLER_ARGS=$(CID="$CHAIN_ID" BURL="$BUNDLER_URL" node -e "
+    process.stdout.write(JSON.stringify([{ bundlerUrl: process.env.BURL, chainId: Number(process.env.CID), usePaymaster: true }]));
   ")
 
-  daemon_exec queueMessage "$BUNDLER_PARAMS" >/dev/null
+  daemon_qm "$ROOT_KREF" configureBundler "$BUNDLER_ARGS" >/dev/null
   ok "Bundler configured — Pimlico (chain $CHAIN_ID)"
 
   # Promote the EOA to a smart account via EIP-7702 authorization.
   # The EOA's address stays the same — no separate contract, no funding needed.
   info "Setting up smart account (EIP-7702 stateless)..."
-  SA_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" node -e "
-    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ chainId: Number(process.env.CID), implementation: 'stateless7702' }]]);
-    process.stdout.write(p);
+  SA_ARGS=$(CID="$CHAIN_ID" node -e "
+    process.stdout.write(JSON.stringify([{ chainId: Number(process.env.CID), implementation: 'stateless7702' }]));
   ")
-  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 60)
-  HOME_SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
+  SA_RESULT=$(daemon_qm "$ROOT_KREF" createSmartAccount "$SA_ARGS" --timeout 60)
+  HOME_SMART_ACCOUNT=$(echo "$SA_RESULT" | node -e "
     const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
     process.stdout.write(d.address || '');
   " 2>/dev/null || echo "")
@@ -464,8 +451,7 @@ fi
 # ---------------------------------------------------------------------------
 
 info "Issuing OCAP URL for the away device..."
-OCAP_URL_RAW=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"issueOcapUrl\", []]")
-OCAP_URL=$(echo "$OCAP_URL_RAW" | parse_capdata)
+OCAP_URL=$(daemon_qm "$ROOT_KREF" issueOcapUrl | json_value)
 
 # Strip trailing comma (kernel emits ocap:...@peerId, when no relays are known)
 OCAP_URL="${OCAP_URL%,}"
@@ -577,14 +563,12 @@ echo -e "  ${DIM}Or paste the delegate address here to skip waiting.${RESET}" >&
 
 POLL_FAILURES=0
 for i in $(seq 1 300); do
-  DELEGATE_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getDelegateAddress\", []]" 2>/dev/null) || DELEGATE_RAW=""
-  if [[ -n "$DELEGATE_RAW" ]]; then
+  DELEGATE_RESULT=$(daemon_qm --quiet "$ROOT_KREF" getDelegateAddress 2>/dev/null) || DELEGATE_RESULT=""
+  if [[ -n "$DELEGATE_RESULT" ]]; then
     POLL_FAILURES=0
-    DELEGATE_ADDR=$(echo "$DELEGATE_RAW" | node -e "
-      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
-      if (!d.body || !d.body.startsWith('#')) { process.exit(0); }
-      const v = JSON.parse(d.body.slice(1));
-      if (v && typeof v === 'string' && /^0x[\da-fA-F]{40}$/.test(v)) {
+    DELEGATE_ADDR=$(echo "$DELEGATE_RESULT" | node -e "
+      const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+      if (typeof v === 'string' && /^0x[\da-fA-F]{40}$/.test(v)) {
         process.stdout.write(v);
       }
     " 2>/dev/null || echo "")
@@ -595,7 +579,7 @@ for i in $(seq 1 300); do
   else
     POLL_FAILURES=$((POLL_FAILURES + 1))
     if [[ "$POLL_FAILURES" -ge 5 ]]; then
-      fail "Daemon appears to be down (5 consecutive failed polls). Check: tail -f ~/.ocap/daemon.log"
+      fail "Daemon appears to be down (5 consecutive failed polls). Check: tail -f ${OCAP_HOME:-~/.ocap}/daemon.log"
     fi
   fi
   if [[ "$i" -eq 300 ]]; then
@@ -606,7 +590,7 @@ for i in $(seq 1 300); do
 
     if [[ -z "$DELEGATE_ADDR" ]]; then
       echo -e "\n  ${DIM}No delegate address provided. You can create the delegation manually later:${RESET}" >&2
-      echo -e "  ${DIM}yarn ocap daemon exec queueMessage '[\"$ROOT_KREF\", \"createDelegation\", [{\"delegate\": \"0xADDRESS\", \"caveats\": [{\"type\":\"nativeTokenTransferAmount\",\"enforcer\":\"0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320\",\"terms\":\"0x...\"}], \"chainId\": $CHAIN_ID}]]'${RESET}\n" >&2
+      echo -e "  ${DIM}yarn ocap daemon queueMessage $ROOT_KREF createDelegation '[{\"delegate\": \"0xADDRESS\", \"caveats\": [{\"type\":\"nativeTokenTransferAmount\",\"enforcer\":\"0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320\",\"terms\":\"0x...\"}], \"chainId\": $CHAIN_ID}]'${RESET}\n" >&2
       exit 0
     fi
     break
@@ -661,12 +645,10 @@ else
   echo -e "  ${DIM}Caveats: $CAVEATS_JSON${RESET}" >&2
 fi
 
-DEL_PARAMS=$(KREF="$ROOT_KREF" DEL="$DELEGATE_ADDR" CID="$CHAIN_ID" CAVS="$CAVEATS_JSON" node -e "
-  const p = JSON.stringify([process.env.KREF, 'createDelegation', [{ delegate: process.env.DEL, caveats: JSON.parse(process.env.CAVS), chainId: Number(process.env.CID) }]]);
-  process.stdout.write(p);
+DEL_ARGS=$(DEL="$DELEGATE_ADDR" CID="$CHAIN_ID" CAVS="$CAVEATS_JSON" node -e "
+  process.stdout.write(JSON.stringify([{ delegate: process.env.DEL, caveats: JSON.parse(process.env.CAVS), chainId: Number(process.env.CID) }]));
 ")
-DEL_RAW=$(daemon_exec queueMessage "$DEL_PARAMS")
-DEL_INNER=$(echo "$DEL_RAW" | parse_capdata)
+DEL_JSON=$(daemon_qm "$ROOT_KREF" createDelegation "$DEL_ARGS")
 ok "Delegation created"
 
 # ---------------------------------------------------------------------------
@@ -674,11 +656,10 @@ ok "Delegation created"
 # ---------------------------------------------------------------------------
 
 HAS_AWAY="false"
-CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
-if [[ -n "$CAPS_RAW" ]]; then
-  HAS_AWAY=$(echo "$CAPS_RAW" | node -e "
-    const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
-    const v = JSON.parse(d.body.slice(1));
+CAPS_RESULT=$(daemon_qm --quiet "$ROOT_KREF" getCapabilities 2>/dev/null) || CAPS_RESULT=""
+if [[ -n "$CAPS_RESULT" ]]; then
+  HAS_AWAY=$(echo "$CAPS_RESULT" | node -e "
+    const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
     process.stdout.write(String(v.hasAwayWallet === true));
   " 2>&1) || {
     echo -e "  ${YELLOW}Warning: Failed to parse capabilities — cannot auto-push delegation${RESET}" >&2
@@ -690,11 +671,10 @@ fi
 
 if [[ "$HAS_AWAY" == "true" ]]; then
   info "Pushing delegation to away device..."
-  PUSH_PARAMS=$(KREF="$ROOT_KREF" DEL="$DEL_INNER" node -e "
-    const p = JSON.stringify([process.env.KREF, 'pushDelegationToAway', [JSON.parse(process.env.DEL)]]);
-    process.stdout.write(p);
+  PUSH_ARGS=$(DEL="$DEL_JSON" node -e "
+    process.stdout.write(JSON.stringify([JSON.parse(process.env.DEL)]));
   ")
-  PUSH_OUTPUT=$(daemon_exec --quiet queueMessage "$PUSH_PARAMS" --timeout 30 2>&1) && {
+  PUSH_OUTPUT=$(daemon_qm --quiet "$ROOT_KREF" pushDelegationToAway "$PUSH_ARGS" --timeout 30 2>&1) && {
     ok "Delegation pushed to away device"
   } || {
     echo -e "  ${RED}✗${RESET} Push failed — falling back to manual transfer" >&2
@@ -711,14 +691,15 @@ if [[ "$HAS_AWAY" != "true" ]]; then
 $(echo -e "${YELLOW}${BOLD}")  Copy this delegation JSON and paste it into the away device
   script when prompted:$(echo -e "${RESET}")
 
-$(echo -e "${BOLD}")$DEL_RAW$(echo -e "${RESET}")
+$(echo -e "${BOLD}")$DEL_JSON$(echo -e "${RESET}")
 
 EOF
 fi
 
+OCAP_DIR="${OCAP_HOME:-~/.ocap}"
 cat >&2 <<EOF
 
-  Watch daemon logs: $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")
+  Watch daemon logs: $(echo -e "${DIM}")tail -f $OCAP_DIR/daemon.log$(echo -e "${RESET}")
   Stop the daemon:   $(echo -e "${DIM}")yarn ocap daemon stop$(echo -e "${RESET}")
   Purge all state:   $(echo -e "${DIM}")yarn ocap daemon purge --force$(echo -e "${RESET}")
 

@@ -251,7 +251,7 @@ The script will:
 4. Create a Hybrid smart account and fund it if needed (may trigger a MetaMask approval for the funding tx)
 5. Show the OCAP URL and `setup-away.sh` command
 
-Use `--reset` to purge all kernel state and start fresh. The SQLite database is at `~/.ocap/kernel-interactive.sqlite`.
+Use `--reset` to purge all kernel state and start fresh. The SQLite database is at `$OCAP_HOME/kernel-interactive.sqlite` (defaults to `~/.ocap/kernel-interactive.sqlite`).
 
 **Note:** Interactive mode uses a Hybrid smart account (different address from the EOA) instead of EIP-7702 stateless. This is because EIP-7702 requires signing an authorization transaction that MetaMask Mobile does not support. The smart account is auto-funded from the EOA if its balance is below 0.05 ETH.
 
@@ -335,7 +335,7 @@ When creating a delegation manually, add caveats to the `caveats` array. The `te
 
 ```bash
 # Delegation with 0.05 ETH total limit and 0.01 ETH per-transaction limit
-yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{
+yarn ocap daemon queueMessage ko4 createDelegation '[{
   "delegate": "0xAWAY_SMART_ACCOUNT",
   "caveats": [
     {
@@ -350,7 +350,7 @@ yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{
     }
   ],
   "chainId": 11155111
-}]]'
+}]'
 ```
 
 ### Changing limits
@@ -436,7 +436,7 @@ The home device holds the master wallet keys and runs a kernel daemon that the a
 yarn ocap daemon start
 ```
 
-This starts the OCAP daemon at `~/.ocap/daemon.sock` with persistent storage at `~/.ocap/kernel.sqlite`.
+This starts the OCAP daemon at `~/.ocap/daemon.sock` with persistent storage at `~/.ocap/kernel.sqlite`. You can override the `~/.ocap` base directory by setting the `OCAP_HOME` environment variable (e.g. `export OCAP_HOME=/data/ocap`).
 
 ### 2b. Initialize remote comms (QUIC)
 
@@ -495,34 +495,34 @@ Note the `rootKref` from the output (e.g. `ko4`). This is the wallet coordinator
 
 ```bash
 # Initialize with your mnemonic (SRP) — plaintext storage
-yarn ocap daemon exec queueMessage '["ko4", "initializeKeyring", [{"type": "srp", "mnemonic": "your twelve word mnemonic phrase here"}]]'
+yarn ocap daemon queueMessage ko4 initializeKeyring '[{"type": "srp", "mnemonic": "your twelve word mnemonic phrase here"}]'
 
 # Or encrypt the mnemonic at rest with a password:
 SALT="$(node -e "process.stdout.write(require('crypto').randomBytes(16).toString('hex'))")"
-yarn ocap daemon exec queueMessage "[\"ko4\", \"initializeKeyring\", [{\"type\": \"srp\", \"mnemonic\": \"your twelve word mnemonic phrase here\", \"password\": \"your-password\", \"salt\": \"$SALT\"}]]"
+yarn ocap daemon queueMessage ko4 initializeKeyring "[{\"type\": \"srp\", \"mnemonic\": \"your twelve word mnemonic phrase here\", \"password\": \"your-password\", \"salt\": \"$SALT\"}]"
 
 # Verify
-yarn ocap daemon exec queueMessage '["ko4", "getAccounts", []]'
+yarn ocap daemon queueMessage ko4 getAccounts
 ```
 
 When a password is provided, the mnemonic is encrypted with AES-256-GCM (PBKDF2 key derivation). After a daemon restart, the keyring will be locked — unlock it before signing:
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "unlockKeyring", ["your-password"]]'
+yarn ocap daemon queueMessage ko4 unlockKeyring '["your-password"]'
 ```
 
 ### 2e. Configure the provider
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "configureProvider", [{"chainId": 11155111, "rpcUrl": "https://sepolia.infura.io/v3/YOUR_INFURA_KEY"}]]'
+yarn ocap daemon queueMessage ko4 configureProvider '[{"chainId": 11155111, "rpcUrl": "https://sepolia.infura.io/v3/YOUR_INFURA_KEY"}]'
 # For other chains, adjust chainId and rpcUrl:
-# yarn ocap daemon exec queueMessage '["ko4", "configureProvider", [{"chainId": 8453, "rpcUrl": "https://base-mainnet.infura.io/v3/YOUR_INFURA_KEY"}]]'
+# yarn ocap daemon queueMessage ko4 configureProvider '[{"chainId": 8453, "rpcUrl": "https://base-mainnet.infura.io/v3/YOUR_INFURA_KEY"}]'
 ```
 
 ### 2f. Issue an OCAP URL for the away device
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "issueOcapUrl", []]'
+yarn ocap daemon queueMessage ko4 issueOcapUrl
 ```
 
 Save the returned `ocap:...` URL and the listen addresses from `getStatus` above — you'll give both to the away device.
@@ -565,19 +565,19 @@ The away wallet gets a throwaway key (for signing UserOps within delegations). U
 
 ```bash
 ENTROPY="0x$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
-yarn ocap daemon exec queueMessage "[\"ko4\", \"initializeKeyring\", [{\"type\": \"throwaway\", \"entropy\": \"$ENTROPY\"}]]"
+yarn ocap daemon queueMessage ko4 initializeKeyring "[{\"type\": \"throwaway\", \"entropy\": \"$ENTROPY\"}]"
 ```
 
 ### 3f. Connect to the home wallet
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "connectToPeer", ["ocap:zgAu...YOUR_OCAP_URL_HERE"]]'
+yarn ocap daemon queueMessage ko4 connectToPeer '["ocap:zgAu...YOUR_OCAP_URL_HERE"]'
 ```
 
 ### 3g. Verify the connection
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
+yarn ocap daemon queueMessage ko4 getCapabilities
 ```
 
 Should show `hasPeerWallet: true`.
@@ -594,10 +594,10 @@ For manual setup, the steps are:
 
 ```bash
 # Home device (EIP-7702 — EOA becomes the smart account):
-yarn ocap daemon exec queueMessage '["ko4", "createSmartAccount", [{"chainId": 11155111, "implementation": "stateless7702"}]]'
+yarn ocap daemon queueMessage ko4 createSmartAccount '[{"chainId": 11155111, "implementation": "stateless7702"}]'
 
 # Away device (Hybrid — deploys on first UserOp):
-yarn ocap daemon exec queueMessage '["ko4", "createSmartAccount", [{"chainId": 11155111}]]'
+yarn ocap daemon queueMessage ko4 createSmartAccount '[{"chainId": 11155111}]'
 ```
 
 The home EOA's existing ETH balance is used directly for delegated transfers — no separate funding step needed.
@@ -605,32 +605,32 @@ The home EOA's existing ETH balance is used directly for delegated transfers —
 2. Read the delegate address from the away device (sent automatically by the setup flow after peer connection):
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "getDelegateAddress", []]'
+yarn ocap daemon queueMessage ko4 getDelegateAddress
 ```
 
 3. Create the delegation on the home device (delegate = away smart account). See [Spending limits](#spending-limits) for adding caveats:
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{"delegate": "0xAWAY_SMART_ACCOUNT", "caveats": [], "chainId": 11155111}]]'
+yarn ocap daemon queueMessage ko4 createDelegation '[{"delegate": "0xAWAY_SMART_ACCOUNT", "caveats": [], "chainId": 11155111}]'
 ```
 
 4. Push the delegation to the away device (if connected):
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "pushDelegationToAway", [<DELEGATION_JSON>]]'
+yarn ocap daemon queueMessage ko4 pushDelegationToAway '[<DELEGATION_JSON>]'
 ```
 
 Or transfer manually if the away device is offline:
 
 ```bash
 # On the away device:
-yarn ocap daemon exec queueMessage '["ko4", "receiveDelegation", [<DELEGATION_JSON>]]'
+yarn ocap daemon queueMessage ko4 receiveDelegation '[<DELEGATION_JSON>]'
 ```
 
 5. Verify:
 
 ```bash
-yarn ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
+yarn ocap daemon queueMessage ko4 getCapabilities
 # Should show delegationCount: 1
 ```
 
@@ -659,26 +659,26 @@ You can also call the wallet coordinator directly. Replace `ko4` with your `root
 
 ```bash
 # List accounts
-yarn ocap daemon exec queueMessage '["ko4", "getAccounts", []]'
+yarn ocap daemon queueMessage ko4 getAccounts
 
 # Check capabilities (local keys, peer wallet, delegations, bundler)
-yarn ocap daemon exec queueMessage '["ko4", "getCapabilities", []]'
+yarn ocap daemon queueMessage ko4 getCapabilities
 
 # Sign a message
-yarn ocap daemon exec queueMessage '["ko4", "signMessage", ["hello world"]]'
+yarn ocap daemon queueMessage ko4 signMessage '["hello world"]'
 
 # Sign a transaction
-yarn ocap daemon exec queueMessage '["ko4", "signTransaction", [{"to": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8", "value": "0x2386F26FC10000", "chainId": 11155111}]]'
+yarn ocap daemon queueMessage ko4 signTransaction '[{"to": "0x70997970c51812dc3a010c7d01b50e0d17dc79c8", "value": "0x2386F26FC10000", "chainId": 11155111}]'
 
 # Query the chain (eth_getBalance, eth_blockNumber, etc.)
-yarn ocap daemon exec queueMessage '["ko4", "request", ["eth_getBalance", ["0x71fA1599e6c6FE46CD2A798E136f3ba22863cF82", "latest"]]]'
-yarn ocap daemon exec queueMessage '["ko4", "request", ["eth_blockNumber", []]]'
+yarn ocap daemon queueMessage ko4 request '["eth_getBalance", ["0x71fA1599e6c6FE46CD2A798E136f3ba22863cF82", "latest"]]'
+yarn ocap daemon queueMessage ko4 request '["eth_blockNumber", []]'
 
 # Create a delegation for another address
-yarn ocap daemon exec queueMessage '["ko4", "createDelegation", [{"delegate": "0x...", "caveats": [], "chainId": 11155111}]]'
+yarn ocap daemon queueMessage ko4 createDelegation '[{"delegate": "0x...", "caveats": [], "chainId": 11155111}]'
 
 # List active delegations
-yarn ocap daemon exec queueMessage '["ko4", "listDelegations", []]'
+yarn ocap daemon queueMessage ko4 listDelegations
 ```
 
 ## 6. How it works
@@ -690,7 +690,7 @@ Agent (AI)
   ├─ wallet_send     ──→       │
   └─ wallet_sign     ──→       │
                                 │
-                         yarn ocap daemon exec queueMessage
+                         yarn ocap daemon queueMessage
                                 │
                           OCAP Daemon (Unix socket)
                                 │

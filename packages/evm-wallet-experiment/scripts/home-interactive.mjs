@@ -152,7 +152,10 @@ function parseArgs(argv) {
     quicPort: 4002,
     reset: false,
     rpcUrl: '',
-    dbPath: join(homedir(), '.ocap', 'kernel-interactive.sqlite'),
+    dbPath: join(
+      process.env.OCAP_HOME || join(homedir(), '.ocap'),
+      'kernel-interactive.sqlite',
+    ),
   };
 
   for (let i = 2; i < argv.length; i++) {

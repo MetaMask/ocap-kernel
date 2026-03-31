@@ -1,12 +1,12 @@
 /**
  * Daemon communication layer for the OpenClaw wallet plugin.
  *
- * Spawns `ocap daemon exec` commands and decodes Endo CapData responses.
+ * Spawns `ocap daemon queueMessage` commands. The CLI auto-decodes CapData
+ * via prettifySmallcaps, so no manual CapData unwrapping is needed here.
  */
 import { spawn } from 'node:child_process';
 
 type ExecResult = { stdout: string; stderr: string; code: number | null };
-type CapDataLike = { body: string; slots: unknown[] };
 
 export type WalletCallOptions = {
   cliPath: string;
@@ -51,89 +51,25 @@ export function makeWalletCaller(options: {
 }
 
 /**
- * Check if a value looks like Endo CapData.
- *
- * @param value - The parsed JSON value.
- * @returns True when value has CapData shape.
- */
-function isCapDataLike(value: unknown): value is CapDataLike {
-  if (typeof value !== 'object' || value === null) {
-    return false;
-  }
-  if (!('body' in value) || !('slots' in value)) {
-    return false;
-  }
-  const { body } = value as { body?: unknown };
-  const { slots } = value as { slots?: unknown };
-  return typeof body === 'string' && Array.isArray(slots);
-}
-
-/**
- * Decode daemon JSON output, unwrapping Endo CapData.
- *
- * @param raw - Raw stdout from `ocap daemon exec`.
- * @param method - Wallet method name (for better errors).
- * @returns The decoded value.
- */
-function decodeCapData(raw: string, method: string): unknown {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    throw new Error(`Wallet ${method} returned non-JSON output`);
-  }
-
-  if (!isCapDataLike(parsed)) {
-    return parsed;
-  }
-
-  if (!parsed.body.startsWith('#')) {
-    throw new Error(`Wallet ${method} returned invalid CapData body`);
-  }
-
-  const bodyContent = parsed.body.slice(1);
-
-  // Handle error bodies from vat exceptions (e.g. "#error:message")
-  if (bodyContent.startsWith('error:')) {
-    throw new Error(`Wallet ${method} vat error: ${bodyContent.slice(6)}`);
-  }
-
-  let decoded: unknown;
-  try {
-    decoded = JSON.parse(bodyContent);
-  } catch {
-    throw new Error(`Wallet ${method} returned undecodable CapData body`);
-  }
-
-  // Handle Endo CapData error encoding: #{"#error": "message", ...}
-  if (decoded !== null && typeof decoded === 'object' && '#error' in decoded) {
-    const errorMsg = (decoded as Record<string, unknown>)['#error'];
-    throw new Error(
-      `Wallet ${method} failed: ${typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)}`,
-    );
-  }
-
-  return decoded;
-}
-
-/**
- * Run an `ocap daemon exec` command and return its output.
+ * Run an `ocap daemon queueMessage` command and return its output.
  *
  * @param options - Execution options.
  * @param options.cliPath - Path to the ocap CLI.
- * @param options.method - The daemon RPC method.
- * @param options.params - The method parameters.
+ * @param options.walletKref - KRef of the target kernel object.
+ * @param options.method - Method name to invoke.
+ * @param options.argsJson - JSON-encoded array of arguments.
  * @param options.timeoutMs - Timeout in ms.
  * @returns The command result.
  */
-async function runDaemonExec(options: {
+async function runDaemonQueueMessage(options: {
   cliPath: string;
+  walletKref: string;
   method: string;
-  params: unknown;
+  argsJson: string;
   timeoutMs: number;
 }): Promise<ExecResult> {
-  const { cliPath, method, params, timeoutMs } = options;
-  const daemonArgs = ['daemon', 'exec', method, JSON.stringify(params)];
+  const { cliPath, walletKref, method, argsJson, timeoutMs } = options;
+  const daemonArgs = ['daemon', 'queueMessage', walletKref, method, argsJson];
 
   // If cliPath points to a .mjs file, invoke it via node.
   const command = cliPath.endsWith('.mjs') ? 'node' : cliPath;
@@ -160,7 +96,9 @@ async function runDaemonExec(options: {
       try {
         child.kill('SIGKILL');
       } finally {
-        reject(new Error(`ocap daemon exec timed out after ${timeoutMs}ms`));
+        reject(
+          new Error(`ocap daemon queueMessage timed out after ${timeoutMs}ms`),
+        );
       }
     }, timeoutMs);
 
@@ -179,15 +117,19 @@ async function runDaemonExec(options: {
 /**
  * Call a wallet coordinator method via the OCAP daemon.
  *
+ * The CLI's `daemon queueMessage` auto-decodes CapData via prettifySmallcaps,
+ * so the output is already a decoded JSON value.
+ *
  * @param options - Call options.
  * @returns The decoded response value.
  */
 async function callWallet(options: WalletCallOptions): Promise<unknown> {
   const { cliPath, walletKref, method, args, timeoutMs } = options;
-  const result = await runDaemonExec({
+  const result = await runDaemonQueueMessage({
     cliPath,
-    method: 'queueMessage',
-    params: [walletKref, method, args],
+    walletKref,
+    method,
+    argsJson: JSON.stringify(args),
     timeoutMs,
   });
 
@@ -196,5 +138,21 @@ async function callWallet(options: WalletCallOptions): Promise<unknown> {
     throw new Error(`Wallet ${method} failed (exit ${result.code}): ${detail}`);
   }
 
-  return decodeCapData(result.stdout.trim(), method);
+  const raw = result.stdout.trim();
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(raw);
+  } catch {
+    throw new Error(`Wallet ${method} returned non-JSON output`);
+  }
+
+  // Handle error objects from vat exceptions (decoded by prettifySmallcaps)
+  if (decoded !== null && typeof decoded === 'object' && '#error' in decoded) {
+    const errorMsg = (decoded as Record<string, unknown>)['#error'];
+    throw new Error(
+      `Wallet ${method} failed: ${typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)}`,
+    );
+  }
+
+  return decoded;
 }
