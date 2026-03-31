@@ -28,16 +28,16 @@ type MockReadable = EventEmitter & {
 };
 
 /**
- * Encode a value as Endo CapData JSON.
+ * Encode a value as the JSON output of `ocap daemon queueMessage`.
  *
- * @param value - The value to encode.
- * @returns JSON string with `body` and `slots`.
+ * The CLI auto-decodes CapData via prettifySmallcaps, so the output
+ * is plain JSON (not CapData-wrapped).
+ *
+ * @param value - The decoded value the CLI would output.
+ * @returns JSON string.
  */
-function makeCapData(value: unknown): string {
-  return JSON.stringify({
-    body: `#${JSON.stringify(value)}`,
-    slots: [],
-  });
+function makeCliOutput(value: unknown): string {
+  return JSON.stringify(value);
 }
 
 /**
@@ -126,9 +126,9 @@ describe('openclaw wallet plugin', () => {
     expect(tools.has('wallet_token_resolve')).toBe(true);
   });
 
-  it('decodes CapData string response for wallet_balance', async () => {
+  it('decodes CLI JSON response for wallet_balance', async () => {
     mockSpawn.mockImplementationOnce(() =>
-      makeSpawnResult({ stdout: makeCapData('0xde0b6b3a7640000') }),
+      makeSpawnResult({ stdout: makeCliOutput('0xde0b6b3a7640000') }),
     );
     const tools = setupPlugin();
     const tool = tools.get('wallet_balance');
@@ -152,7 +152,7 @@ describe('openclaw wallet plugin', () => {
       smartAccountAddress: account,
     };
     mockSpawn.mockImplementationOnce(() =>
-      makeSpawnResult({ stdout: makeCapData(rawCapabilities) }),
+      makeSpawnResult({ stdout: makeCliOutput(rawCapabilities) }),
     );
 
     const tools = setupPlugin();
@@ -177,22 +177,22 @@ describe('openclaw wallet plugin', () => {
     mockSpawn
       // 1. getAccounts
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData([account]) }),
+        makeSpawnResult({ stdout: makeCliOutput([account]) }),
       )
       // 2. sendTransaction
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData('0xtxhash') }),
+        makeSpawnResult({ stdout: makeCliOutput('0xtxhash') }),
       )
       // 3. getCapabilities (best-effort, for chain ID)
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({ chainId: 11155111 }),
+          stdout: makeCliOutput({ chainId: 11155111 }),
         }),
       )
       // 4. getTransactionReceipt (best-effort, resolve UserOp hash)
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({
+          stdout: makeCliOutput({
             txHash: '0xrealtxhash',
             userOpHash: '0xtxhash',
             success: true,
@@ -216,26 +216,22 @@ describe('openclaw wallet plugin', () => {
     );
     expect(result.content[0]?.text).toContain('UserOp hash: 0xtxhash');
 
-    const sendCallArgs = mockSpawn.mock.calls[1]?.[1];
-    expect(Array.isArray(sendCallArgs)).toBe(true);
-    const daemonArgs = sendCallArgs as string[];
-    const payload = JSON.parse(daemonArgs[3] ?? 'null') as [
-      string,
-      string,
-      unknown[],
-    ];
+    // New CLI format: ['daemon', 'queueMessage', kref, method, argsJson]
+    const sendCallArgs = mockSpawn.mock.calls[1]?.[1] as string[];
+    expect(sendCallArgs[1]).toBe('queueMessage');
+    expect(sendCallArgs[2]).toBe('ko4');
+    expect(sendCallArgs[3]).toBe('sendTransaction');
+    const sendArgs = JSON.parse(sendCallArgs[4] ?? 'null') as unknown[];
 
     // 0.08 ETH = 80000000000000000 wei = 0x11c37937e080000
-    expect(payload).toStrictEqual([
-      'ko4',
-      'sendTransaction',
-      [{ from: account, to: recipient, value: '0x11c37937e080000' }],
+    expect(sendArgs).toStrictEqual([
+      { from: account, to: recipient, value: '0x11c37937e080000' },
     ]);
   });
 
   it('returns error when wallet_send cannot infer a sender', async () => {
     mockSpawn.mockImplementationOnce(() =>
-      makeSpawnResult({ stdout: makeCapData([]) }),
+      makeSpawnResult({ stdout: makeCliOutput([]) }),
     );
 
     const tools = setupPlugin();
@@ -270,23 +266,18 @@ describe('openclaw wallet plugin', () => {
     expect(mockSpawn).not.toHaveBeenCalled();
   });
 
-  it('surfaces CapData error from vat exception', async () => {
-    // Simulate: getAccounts succeeds, sendTransaction returns a CapData error
+  it('surfaces prettified error from vat exception', async () => {
+    // Simulate: getAccounts succeeds, sendTransaction returns a prettified error.
+    // prettifySmallcaps converts #error CapData to strings like "[ErrorName: msg]".
     mockSpawn
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData([account]) }),
+        makeSpawnResult({ stdout: makeCliOutput([account]) }),
       )
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: JSON.stringify({
-            body: `#${JSON.stringify({
-              '#error':
-                'Bundler RPC error -32521: UserOperation reverted during simulation',
-              errorId: 'error:liveSlots:v1#70003',
-              name: 'Error',
-            })}`,
-            slots: [],
-          }),
+          stdout: makeCliOutput(
+            '[Error: Bundler RPC error -32521: UserOperation reverted during simulation]',
+          ),
         }),
       );
 
@@ -313,16 +304,16 @@ describe('openclaw wallet plugin', () => {
     mockSpawn
       // 1. getAccounts (to resolve owner)
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData([account]) }),
+        makeSpawnResult({ stdout: makeCliOutput([account]) }),
       )
       // 2. getTokenBalance
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData('1000000') }),
+        makeSpawnResult({ stdout: makeCliOutput('1000000') }),
       )
       // 3. getTokenMetadata
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({
+          stdout: makeCliOutput({
             name: 'USD Coin',
             symbol: 'USDC',
             decimals: 6,
@@ -345,7 +336,7 @@ describe('openclaw wallet plugin', () => {
       // 1. getTokenMetadata (for decimals)
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({
+          stdout: makeCliOutput({
             name: 'USD Coin',
             symbol: 'USDC',
             decimals: 6,
@@ -354,18 +345,18 @@ describe('openclaw wallet plugin', () => {
       )
       // 2. sendErc20Transfer
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData('0xtokentxhash') }),
+        makeSpawnResult({ stdout: makeCliOutput('0xtokentxhash') }),
       )
       // 3. getCapabilities (best-effort)
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({ chainId: 11155111 }),
+          stdout: makeCliOutput({ chainId: 11155111 }),
         }),
       )
       // 4. getTransactionReceipt (best-effort)
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({ txHash: '0xrealtokentx', success: true }),
+          stdout: makeCliOutput({ txHash: '0xrealtokentx', success: true }),
         }),
       );
 
@@ -388,30 +379,30 @@ describe('openclaw wallet plugin', () => {
     );
 
     // Verify the sendErc20Transfer daemon call
+    // New CLI format: ['daemon', 'queueMessage', kref, method, argsJson]
     const sendCallArgs = mockSpawn.mock.calls[1]?.[1] as string[];
-    const payload = JSON.parse(sendCallArgs[3] ?? 'null');
-    expect(payload[1]).toBe('sendErc20Transfer');
+    expect(sendCallArgs[3]).toBe('sendErc20Transfer');
   });
 
   it('waits for a delayed UserOp receipt before showing tx hash', async () => {
     mockSpawn
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData([account]) }),
+        makeSpawnResult({ stdout: makeCliOutput([account]) }),
       )
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData('0xuserophash') }),
+        makeSpawnResult({ stdout: makeCliOutput('0xuserophash') }),
       )
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({ chainId: 11155111 }),
+          stdout: makeCliOutput({ chainId: 11155111 }),
         }),
       )
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData(null) }),
+        makeSpawnResult({ stdout: makeCliOutput(null) }),
       )
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({
+          stdout: makeCliOutput({
             success: true,
             receipt: { transactionHash: '0xresolvedtx' },
           }),
@@ -437,18 +428,18 @@ describe('openclaw wallet plugin', () => {
   it('reports pending UserOp without tx explorer URL', async () => {
     mockSpawn
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData([account]) }),
+        makeSpawnResult({ stdout: makeCliOutput([account]) }),
       )
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData('0xpendinguserop') }),
+        makeSpawnResult({ stdout: makeCliOutput('0xpendinguserop') }),
       )
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({ chainId: 11155111 }),
+          stdout: makeCliOutput({ chainId: 11155111 }),
         }),
       )
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData(null) }),
+        makeSpawnResult({ stdout: makeCliOutput(null) }),
       )
       .mockImplementationOnce(() =>
         makeSpawnResult({ stderr: 'timed out', code: 1 }),
@@ -476,7 +467,7 @@ describe('openclaw wallet plugin', () => {
 
     mockSpawn.mockImplementationOnce(() =>
       makeSpawnResult({
-        stdout: makeCapData({
+        stdout: makeCliOutput({
           name: 'USD Coin',
           symbol: 'USDC',
           decimals: 6,
@@ -506,7 +497,11 @@ describe('openclaw wallet plugin', () => {
 
     mockSpawn.mockImplementationOnce(() =>
       makeSpawnResult({
-        stdout: makeCapData({ name: 'USD Coin', symbol: 'USDC', decimals: 6 }),
+        stdout: makeCliOutput({
+          name: 'USD Coin',
+          symbol: 'USDC',
+          decimals: 6,
+        }),
       }),
     );
 
@@ -531,21 +526,21 @@ describe('openclaw wallet plugin', () => {
       // 1. getCapabilities (for chain ID during token resolution)
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({ chainId: 1 }),
+          stdout: makeCliOutput({ chainId: 1 }),
         }),
       )
       // 2. getAccounts (to resolve owner)
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData([account]) }),
+        makeSpawnResult({ stdout: makeCliOutput([account]) }),
       )
       // 3. getTokenBalance
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData('1000000') }),
+        makeSpawnResult({ stdout: makeCliOutput('1000000') }),
       )
       // 4. getTokenMetadata
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({
+          stdout: makeCliOutput({
             name: 'USD Coin',
             symbol: 'USDC',
             decimals: 6,
@@ -578,9 +573,10 @@ describe('openclaw wallet plugin', () => {
     expect(result.content[0]?.text).toContain('USDC');
     expect(result.content[0]?.text).toContain('raw: 1000000');
     // Verify the resolved address was used for daemon calls
+    // New CLI format: ['daemon', 'queueMessage', kref, method, argsJson]
     const balanceCallArgs = mockSpawn.mock.calls[2]?.[1] as string[];
-    const balancePayload = JSON.parse(balanceCallArgs[3] ?? 'null');
-    expect(balancePayload[2][0].token).toBe(
+    const balanceArgs = JSON.parse(balanceCallArgs[4] ?? 'null') as unknown[];
+    expect((balanceArgs[0] as Record<string, unknown>).token).toBe(
       '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
     );
     // Single fetch call (MetaMask API returns everything in one request)
@@ -594,7 +590,7 @@ describe('openclaw wallet plugin', () => {
     // getCapabilities for chain ID
     mockSpawn.mockImplementationOnce(() =>
       makeSpawnResult({
-        stdout: makeCapData({ chainId: 11155111 }),
+        stdout: makeCliOutput({ chainId: 11155111 }),
       }),
     );
 
@@ -621,7 +617,7 @@ describe('openclaw wallet plugin', () => {
 
     mockSpawn.mockImplementationOnce(() =>
       makeSpawnResult({
-        stdout: makeCapData({ chainId: 1 }),
+        stdout: makeCliOutput({ chainId: 1 }),
       }),
     );
 
@@ -666,7 +662,7 @@ describe('openclaw wallet plugin', () => {
 
     mockSpawn.mockImplementationOnce(() =>
       makeSpawnResult({
-        stdout: makeCapData({ chainId: 1 }),
+        stdout: makeCliOutput({ chainId: 1 }),
       }),
     );
 
@@ -767,16 +763,20 @@ describe('openclaw wallet plugin', () => {
     mockSpawn
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({ chainId: 1 }),
+          stdout: makeCliOutput({ chainId: 1 }),
         }),
       )
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({ name: 'Tether', symbol: 'USDT', decimals: 6 }),
+          stdout: makeCliOutput({
+            name: 'Tether',
+            symbol: 'USDT',
+            decimals: 6,
+          }),
         }),
       )
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData(quote) }),
+        makeSpawnResult({ stdout: makeCliOutput(quote) }),
       );
 
     const tools = setupPlugin();
@@ -812,25 +812,25 @@ describe('openclaw wallet plugin', () => {
     mockSpawn
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({ chainId: 1 }),
+          stdout: makeCliOutput({ chainId: 1 }),
         }),
       )
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({ decimals: 6, symbol: 'USDT' }),
+          stdout: makeCliOutput({ decimals: 6, symbol: 'USDT' }),
         }),
       )
       .mockImplementationOnce(() =>
-        makeSpawnResult({ stdout: makeCapData(swapResult) }),
+        makeSpawnResult({ stdout: makeCliOutput(swapResult) }),
       )
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({ chainId: 1 }),
+          stdout: makeCliOutput({ chainId: 1 }),
         }),
       )
       .mockImplementationOnce(() =>
         makeSpawnResult({
-          stdout: makeCapData({
+          stdout: makeCliOutput({
             txHash:
               '0xabc123def456abc123def456abc123def456abc123def456abc123def456abc1',
           }),
