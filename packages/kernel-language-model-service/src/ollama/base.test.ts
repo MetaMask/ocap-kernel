@@ -238,6 +238,30 @@ describe('OllamaBaseService', () => {
         ],
       });
     });
+
+    it('rejects when message tool_calls contain invalid JSON arguments', async () => {
+      await expect(
+        service.chat({
+          model: 'llama3',
+          messages: [
+            {
+              role: 'assistant',
+              content: null,
+              tool_calls: [
+                {
+                  id: 'tc-1',
+                  type: 'function',
+                  function: {
+                    name: 'get_time',
+                    arguments: '{not valid json',
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      ).rejects.toThrow('Invalid tool arguments JSON');
+    });
   });
 
   describe('makeInstance', () => {

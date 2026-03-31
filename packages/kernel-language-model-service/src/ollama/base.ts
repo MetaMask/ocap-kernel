@@ -21,6 +21,7 @@ import type {
   OllamaModelOptions,
   OllamaTool,
 } from './types.ts';
+import { parseToolArguments } from '../utils/parse-tool-arguments.ts';
 
 /**
  * Result of a streaming raw token-prediction request.
@@ -92,7 +93,7 @@ export class OllamaBaseService<Ollama extends OllamaClient>
           tool_calls: tool_calls.map(({ function: fn }) => ({
             function: {
               name: fn.name,
-              arguments: JSON.parse(fn.arguments) as Record<string, unknown>,
+              arguments: parseToolArguments(fn.arguments),
             },
           })),
         }),

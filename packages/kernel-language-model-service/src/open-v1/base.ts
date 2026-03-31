@@ -1,7 +1,13 @@
 import { assert } from '@metamask/superstruct';
 
 import type { ChatParams, ChatResult, ChatStreamChunk } from '../types.ts';
-import { ChatParamsStruct } from './types.ts';
+import { checkResponseOk, readAndCheckResponse } from './response-json.ts';
+import {
+  ChatParamsStruct,
+  ChatResultStruct,
+  ChatStreamChunkStruct,
+  ListModelsResponseStruct,
+} from './types.ts';
 
 /**
  * Base service for any Open /v1-compatible HTTP endpoint.
@@ -75,8 +81,10 @@ export class OpenV1BaseService {
       headers: this.#makeHeaders(),
       body: JSON.stringify({ ...params, stream: false }),
     });
-    const result = (await response.json()) as ChatResult;
-    return harden(result);
+    const body = await readAndCheckResponse(response);
+    const json: unknown = JSON.parse(body);
+    assert(json, ChatResultStruct);
+    return harden(json as ChatResult);
   }
 
   /**
@@ -89,6 +97,7 @@ export class OpenV1BaseService {
       headers: this.#makeHeaders(),
       body: JSON.stringify({ ...params, stream: true }),
     });
+    await checkResponseOk(response);
     if (!response.body) {
       throw new Error('No response body for streaming');
     }
@@ -111,7 +120,9 @@ export class OpenV1BaseService {
               return;
             }
             if (data) {
-              yield harden(JSON.parse(data) as ChatStreamChunk);
+              const json: unknown = JSON.parse(data);
+              assert(json, ChatStreamChunkStruct);
+              yield harden(json as ChatStreamChunk);
             }
           }
         }
@@ -133,8 +144,10 @@ export class OpenV1BaseService {
     const response = await this.#fetch(`${this.#baseUrl}/v1/models`, {
       headers: this.#makeHeaders(),
     });
-    const data = (await response.json()) as { data: { id: string }[] };
-    return harden(data.data.map((model) => model.id));
+    const body = await readAndCheckResponse(response);
+    const json: unknown = JSON.parse(body);
+    assert(json, ListModelsResponseStruct);
+    return harden(json.data.map((model) => model.id));
   }
 
   /**

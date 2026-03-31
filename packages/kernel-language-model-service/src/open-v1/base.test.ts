@@ -18,8 +18,24 @@ const makeChatResult = (): ChatResult => ({
   usage: { prompt_tokens: 5, completion_tokens: 3, total_tokens: 8 },
 });
 
-const makeMockFetch = (json: unknown): typeof globalThis.fetch =>
-  vi.fn().mockResolvedValue({ json: vi.fn().mockResolvedValue(json) });
+const makeOkResponse = (init: {
+  text?: () => Promise<string>;
+  // eslint-disable-next-line n/no-unsupported-features/node-builtins -- Response.body type in tests
+  body?: ReadableStream<Uint8Array> | null;
+}): Response =>
+  ({
+    ok: true,
+    status: 200,
+    statusText: 'OK',
+    ...init,
+  }) as Response;
+
+const makeMockFetch = (payload: unknown): typeof globalThis.fetch =>
+  vi.fn().mockResolvedValue(
+    makeOkResponse({
+      text: vi.fn().mockResolvedValue(JSON.stringify(payload)),
+    }),
+  );
 
 const makeSSEStream = (
   chunks: ChatStreamChunk[],
@@ -48,7 +64,7 @@ const makeStreamChunk = (content: string): ChatStreamChunk => ({
 const makeMockStreamFetch = (
   chunks: ChatStreamChunk[],
 ): typeof globalThis.fetch =>
-  vi.fn().mockResolvedValue({ body: makeSSEStream(chunks) });
+  vi.fn().mockResolvedValue(makeOkResponse({ body: makeSSEStream(chunks) }));
 
 describe('OpenV1BaseService', () => {
   let service: OpenV1BaseService;
@@ -64,7 +80,7 @@ describe('OpenV1BaseService', () => {
   });
 
   describe('chat', () => {
-    it('pOSTs to /v1/chat/completions with serialized params', async () => {
+    it('posts to /v1/chat/completions with serialized params', async () => {
       const params = {
         model: MODEL,
         messages: [{ role: 'user' as const, content: 'hello' }],
@@ -171,10 +187,51 @@ describe('OpenV1BaseService', () => {
         expect.any(Object),
       );
     });
+
+    it('throws a clear error when the HTTP status is not ok', async () => {
+      const errFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        statusText: 'Too Many Requests',
+        text: vi.fn().mockResolvedValue('{"error":"rate_limited"}'),
+      } as unknown as Response);
+      const errService = new OpenV1BaseService(
+        errFetch,
+        'http://localhost:8080',
+      );
+
+      await expect(
+        errService.chat({
+          model: MODEL,
+          messages: [{ role: 'user', content: 'hi' }],
+        }),
+      ).rejects.toThrow(
+        'HTTP 429 Too Many Requests — {"error":"rate_limited"}',
+      );
+    });
+
+    it('throws when the response body is not valid JSON', async () => {
+      const badJsonFetch = vi.fn().mockResolvedValue(
+        makeOkResponse({
+          text: vi.fn().mockResolvedValue('not-json'),
+        }),
+      );
+      const badService = new OpenV1BaseService(
+        badJsonFetch,
+        'http://localhost:8080',
+      );
+
+      await expect(
+        badService.chat({
+          model: MODEL,
+          messages: [{ role: 'user', content: 'hi' }],
+        }),
+      ).rejects.toThrow(SyntaxError);
+    });
   });
 
   describe('listModels', () => {
-    it('gETs /v1/models and returns model IDs', async () => {
+    it('gets /v1/models and returns model IDs', async () => {
       const modelsFetch = makeMockFetch({
         data: [{ id: 'model-a' }, { id: 'model-b' }],
       });
@@ -209,10 +266,27 @@ describe('OpenV1BaseService', () => {
         'Bearer sk-key',
       );
     });
+
+    it('throws a clear error when the HTTP status is not ok', async () => {
+      const errFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        statusText: 'Unauthorized',
+        text: vi.fn().mockResolvedValue('invalid key'),
+      } as unknown as Response);
+      const errService = new OpenV1BaseService(
+        errFetch,
+        'http://localhost:8080',
+      );
+
+      await expect(errService.listModels()).rejects.toThrow(
+        'HTTP 401 Unauthorized — invalid key',
+      );
+    });
   });
 
   describe('chat with stream: true', () => {
-    it('pOSTs to /v1/chat/completions with stream: true in body', async () => {
+    it('posts to /v1/chat/completions with stream: true in body', async () => {
       const streamFetch = makeMockStreamFetch([makeStreamChunk('hi')]);
       const streamService = new OpenV1BaseService(
         streamFetch,
@@ -263,7 +337,7 @@ describe('OpenV1BaseService', () => {
     it('throws when response body is null', async () => {
       const nullBodyFetch: typeof globalThis.fetch = vi
         .fn()
-        .mockResolvedValue({ body: null });
+        .mockResolvedValue(makeOkResponse({ body: null }));
       const streamService = new OpenV1BaseService(
         nullBodyFetch,
         'http://localhost:11434',
@@ -279,6 +353,60 @@ describe('OpenV1BaseService', () => {
           // drain
         }
       }).rejects.toThrow('No response body for streaming');
+    });
+
+    it('throws a clear error when the HTTP status is not ok before reading the stream', async () => {
+      const errFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: vi.fn().mockResolvedValue('upstream failure'),
+        body: makeSSEStream([makeStreamChunk('x')]),
+      } as unknown as Response);
+      const errService = new OpenV1BaseService(
+        errFetch,
+        'http://localhost:11434',
+      );
+
+      await expect(async () => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        for await (const _ of errService.chat({
+          model: MODEL,
+          messages: [{ role: 'user', content: 'hi' }],
+          stream: true,
+        })) {
+          // drain
+        }
+      }).rejects.toThrow('HTTP 500 Internal Server Error — upstream failure');
+    });
+
+    it('throws a descriptive error when an SSE data line is not valid JSON', async () => {
+      const encoder = new TextEncoder();
+      // eslint-disable-next-line n/no-unsupported-features/node-builtins
+      const badBody = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode('data: not-json\n\n'));
+          controller.close();
+        },
+      });
+      const badFetch = vi
+        .fn()
+        .mockResolvedValue(makeOkResponse({ body: badBody }));
+      const badService = new OpenV1BaseService(
+        badFetch,
+        'http://localhost:11434',
+      );
+
+      await expect(async () => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        for await (const _ of badService.chat({
+          model: MODEL,
+          messages: [{ role: 'user', content: 'hi' }],
+          stream: true,
+        })) {
+          // drain
+        }
+      }).rejects.toThrow(SyntaxError);
     });
   });
 });

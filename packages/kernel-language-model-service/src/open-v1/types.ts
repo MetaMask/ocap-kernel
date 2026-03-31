@@ -1,5 +1,4 @@
 import {
-  any,
   array,
   boolean,
   literal,
@@ -10,6 +9,7 @@ import {
   size,
   string,
   union,
+  unknown,
 } from '@metamask/superstruct';
 
 export type {
@@ -51,7 +51,7 @@ const ToolStruct = object({
   function: object({
     name: string(),
     description: optional(string()),
-    parameters: optional(any()),
+    parameters: optional(unknown()),
   }),
 });
 
@@ -71,4 +71,54 @@ export const ChatParamsStruct = object({
   seed: optional(number()),
   n: optional(number()),
   stream: optional(boolean()),
+});
+
+const UsageStruct = object({
+  prompt_tokens: number(),
+  completion_tokens: number(),
+  total_tokens: number(),
+});
+
+const ChatChoiceStruct = object({
+  message: ChatMessageStruct,
+  index: number(),
+  finish_reason: nullable(string()),
+});
+
+/**
+ * Superstruct schema for a non-streaming `/v1/chat/completions` response body.
+ */
+export const ChatResultStruct = object({
+  id: string(),
+  model: string(),
+  choices: array(ChatChoiceStruct),
+  usage: UsageStruct,
+});
+
+const ChatStreamDeltaStruct = object({
+  role: optional(ChatRoleStruct),
+  content: optional(string()),
+  tool_calls: optional(array(unknown())),
+});
+
+/**
+ * Superstruct schema for one SSE `data:` JSON object from `/v1/chat/completions` when `stream: true`.
+ */
+export const ChatStreamChunkStruct = object({
+  id: string(),
+  model: string(),
+  choices: array(
+    object({
+      delta: ChatStreamDeltaStruct,
+      index: number(),
+      finish_reason: nullable(string()),
+    }),
+  ),
+});
+
+/**
+ * Superstruct schema for a `/v1/models` response body (only fields we read).
+ */
+export const ListModelsResponseStruct = object({
+  data: array(object({ id: string() })),
 });

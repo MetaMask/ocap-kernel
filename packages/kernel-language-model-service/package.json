@@ -53,6 +53,16 @@
         "default": "./dist/test-utils/index.cjs"
       }
     },
+    "./utils/parse-tool-arguments": {
+      "import": {
+        "types": "./dist/utils/parse-tool-arguments.d.mts",
+        "default": "./dist/utils/parse-tool-arguments.mjs"
+      },
+      "require": {
+        "types": "./dist/utils/parse-tool-arguments.d.cts",
+        "default": "./dist/utils/parse-tool-arguments.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
