@@ -103,6 +103,31 @@ export type RemoteCommsOptions = {
    */
   maxConnectionAttemptsPerMinute?: number | undefined;
   /**
+   * Base delay in milliseconds for reconnection exponential backoff (default: 500ms).
+   * Used as the starting delay that doubles with each subsequent attempt.
+   */
+  reconnectionBaseDelayMs?: number | undefined;
+  /**
+   * Maximum delay in milliseconds for reconnection exponential backoff (default: 10s).
+   * The backoff delay is capped at this value regardless of attempt count.
+   */
+  reconnectionMaxDelayMs?: number | undefined;
+  /**
+   * Timeout in milliseconds for handshake operations (default: 10s).
+   * Controls how long to wait for a handshake or handshakeAck response.
+   */
+  handshakeTimeoutMs?: number | undefined;
+  /**
+   * Timeout in milliseconds for channel write operations (default: 10s).
+   * Controls how long to wait for a message to be written to a channel.
+   */
+  writeTimeoutMs?: number | undefined;
+  /**
+   * Timeout in milliseconds for ACK before retransmitting a message (default: 10s).
+   * When a sent message is not acknowledged within this timeout, it will be retransmitted.
+   */
+  ackTimeoutMs?: number | undefined;
+  /**
    * Hostnames or IP addresses permitted for plain ws:// relay connections,
    * in addition to RFC 1918 / loopback addresses which are always allowed.
    * Defaults to [] (private/loopback addresses only).

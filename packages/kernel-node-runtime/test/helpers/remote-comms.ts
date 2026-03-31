@@ -11,6 +11,12 @@ import type {
 import { makeTestKernel } from './kernel.ts';
 
 /**
+ * Options forwarded to initRemoteComms by restart helpers.
+ * Omits 'relays' which is passed as a separate parameter.
+ */
+type RestartRemoteCommsOptions = Omit<RemoteCommsOptions, 'relays'>;
+
+/**
  * Extract peerId from remoteComms status, returning undefined for
  * disconnected state.
  *
@@ -154,16 +160,18 @@ export async function sendRemoteMessage(
  * @param dbFilename - The database filename to open a fresh connection to.
  * @param resetStorage - Whether to reset storage.
  * @param relays - Array of relay addresses.
+ * @param remoteCommsOptions - Additional options forwarded to initRemoteComms.
  * @returns The restarted kernel.
  */
 export async function restartKernel(
   dbFilename: string,
   resetStorage: boolean,
   relays: string[],
+  remoteCommsOptions?: RestartRemoteCommsOptions,
 ): Promise<Kernel> {
   const kernelDatabase = await makeSQLKernelDatabase({ dbFilename });
   const kernel = await makeTestKernel(kernelDatabase, { resetStorage });
-  await kernel.initRemoteComms({ relays });
+  await kernel.initRemoteComms({ relays, ...remoteCommsOptions });
   return kernel;
 }
 
@@ -174,6 +182,7 @@ export async function restartKernel(
  * @param resetStorage - Whether to reset storage.
  * @param relays - Array of relay addresses.
  * @param config - Cluster configuration for the vat.
+ * @param remoteCommsOptions - Additional options forwarded to initRemoteComms.
  * @returns Object with the restarted kernel and its ocap URL.
  */
 export async function restartKernelAndReloadVat(
@@ -181,8 +190,14 @@ export async function restartKernelAndReloadVat(
   resetStorage: boolean,
   relays: string[],
   config: ClusterConfig,
+  remoteCommsOptions?: RestartRemoteCommsOptions,
 ): Promise<{ kernel: Kernel; url: string }> {
-  const kernel = await restartKernel(dbFilename, resetStorage, relays);
+  const kernel = await restartKernel(
+    dbFilename,
+    resetStorage,
+    relays,
+    remoteCommsOptions,
+  );
   const url = await launchVatAndGetURL(kernel, config);
   return { kernel, url };
 }

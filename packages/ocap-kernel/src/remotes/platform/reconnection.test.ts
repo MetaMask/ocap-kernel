@@ -244,20 +244,36 @@ describe('ReconnectionManager', () => {
 
       // No attempts yet (attemptCount = 0)
       const backoff0 = manager.calculateBackoff('peer1');
-      expect(calculateReconnectionBackoff).toHaveBeenCalledWith(0);
+      expect(calculateReconnectionBackoff).toHaveBeenCalledWith(0, undefined);
       expect(backoff0).toBe(50); // 100 * 2^(-1) = 50
 
       // After first increment (attemptCount = 1)
       manager.incrementAttempt('peer1');
       const backoff1 = manager.calculateBackoff('peer1');
-      expect(calculateReconnectionBackoff).toHaveBeenCalledWith(1);
+      expect(calculateReconnectionBackoff).toHaveBeenCalledWith(1, undefined);
       expect(backoff1).toBe(100);
 
       // After second increment (attemptCount = 2)
       manager.incrementAttempt('peer1');
       const backoff2 = manager.calculateBackoff('peer1');
-      expect(calculateReconnectionBackoff).toHaveBeenCalledWith(2);
+      expect(calculateReconnectionBackoff).toHaveBeenCalledWith(2, undefined);
       expect(backoff2).toBe(200);
+    });
+
+    it('passes custom backoff options to calculateReconnectionBackoff', () => {
+      const { calculateReconnectionBackoff } = vi.mocked(kernelUtils);
+      const customManager = new ReconnectionManager({
+        backoffBaseDelayMs: 10,
+        backoffMaxDelayMs: 50,
+      });
+
+      customManager.incrementAttempt('peer1');
+      customManager.calculateBackoff('peer1');
+
+      expect(calculateReconnectionBackoff).toHaveBeenCalledWith(1, {
+        baseDelayMs: 10,
+        maxDelayMs: 50,
+      });
     });
 
     it('calculates independently for different peers', () => {

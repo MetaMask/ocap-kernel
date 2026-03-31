@@ -87,6 +87,10 @@ export async function initTransport(
     stalePeerTimeoutMs = DEFAULT_STALE_PEER_TIMEOUT_MS,
     maxMessagesPerSecond = DEFAULT_MESSAGE_RATE_LIMIT,
     maxConnectionAttemptsPerMinute = DEFAULT_CONNECTION_RATE_LIMIT,
+    reconnectionBaseDelayMs,
+    reconnectionMaxDelayMs,
+    handshakeTimeoutMs,
+    writeTimeoutMs,
     directTransports,
     allowedWsHosts,
   } = options;
@@ -95,7 +99,16 @@ export async function initTransport(
   const { signal } = stopController;
   const logger = new Logger();
   const outputError = makeErrorLogger(logger);
-  const reconnectionManager = new ReconnectionManager();
+  const reconnectionManagerOpts: ConstructorParameters<
+    typeof ReconnectionManager
+  >[0] = {};
+  if (reconnectionBaseDelayMs !== undefined) {
+    reconnectionManagerOpts.backoffBaseDelayMs = reconnectionBaseDelayMs;
+  }
+  if (reconnectionMaxDelayMs !== undefined) {
+    reconnectionManagerOpts.backoffMaxDelayMs = reconnectionMaxDelayMs;
+  }
+  const reconnectionManager = new ReconnectionManager(reconnectionManagerOpts);
   const peerStateManager = new PeerStateManager(logger, stalePeerTimeoutMs);
   const validateMessageSize = makeMessageSizeValidator(maxMessageSizeBytes);
   const checkConnectionLimit = makeConnectionLimitChecker(
@@ -137,6 +150,8 @@ export async function initTransport(
         logger,
         setRemoteIncarnation: (peerId: string, incarnationId: string) =>
           peerStateManager.setRemoteIncarnation(peerId, incarnationId),
+        handshakeTimeoutMs,
+        writeTimeoutMs,
       }
     : undefined;
 
@@ -536,7 +551,7 @@ export async function initTransport(
       await writeWithTimeout(
         channel,
         fromString(message),
-        DEFAULT_WRITE_TIMEOUT_MS,
+        writeTimeoutMs ?? DEFAULT_WRITE_TIMEOUT_MS,
       );
       peerStateManager.updateConnectionTime(targetPeerId);
       reconnectionManager.resetBackoff(targetPeerId);

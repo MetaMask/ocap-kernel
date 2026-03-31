@@ -818,7 +818,7 @@ describe('RemoteHandle', () => {
       vi.restoreAllMocks();
     });
 
-    it('sets up 30-second timeout using AbortSignal.timeout', async () => {
+    it('sets up redemption timeout derived from ACK timeout and max retries', async () => {
       const remote = makeRemote();
       const mockOcapURL = 'ocap:test@peer';
 
@@ -830,9 +830,9 @@ describe('RemoteHandle', () => {
 
       const urlPromise = remote.redeemOcapURL(mockOcapURL);
 
-      // Verify AbortSignal.timeout was called with 30 seconds
-      expect(AbortSignal.timeout).toHaveBeenCalledWith(30_000);
-      expect(mockSignal?.timeoutMs).toBe(30_000);
+      // Default: ACK_TIMEOUT_MS (10_000) * (MAX_RETRIES (3) + 1) = 40_000
+      expect(AbortSignal.timeout).toHaveBeenCalledWith(40_000);
+      expect(mockSignal?.timeoutMs).toBe(40_000);
 
       // Wait for sendRemoteMessage to be called
       await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
@@ -922,9 +922,9 @@ describe('RemoteHandle', () => {
       // Wait for the abort handler to execute
       await new Promise<void>((resolve) => queueMicrotask(() => resolve()));
 
-      // Verify the promise rejects
+      // Verify the promise rejects with dynamic timeout message
       await expect(urlPromise).rejects.toThrow(
-        'URL redemption timed out after 30 seconds',
+        'URL redemption timed out after 40000ms',
       );
 
       // Verify cleanup happened - trying to handle a reply with the same key should fail

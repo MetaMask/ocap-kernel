@@ -32,6 +32,10 @@ export type HandshakeDeps = {
   logger: Logger;
   /** Set the incarnation ID for a peer. Returns true if it changed. */
   setRemoteIncarnation: (peerId: string, incarnationId: string) => boolean;
+  /** Timeout in ms for handshake read operations. Defaults to HANDSHAKE_TIMEOUT_MS. */
+  handshakeTimeoutMs?: number | undefined;
+  /** Timeout in ms for channel write operations. Defaults to DEFAULT_WRITE_TIMEOUT_MS. */
+  writeTimeoutMs?: number | undefined;
 };
 
 /**
@@ -112,6 +116,8 @@ export async function performOutboundHandshake(
   deps: HandshakeDeps,
 ): Promise<HandshakeResult> {
   const { localIncarnationId, logger, setRemoteIncarnation } = deps;
+  const hsTimeout = deps.handshakeTimeoutMs ?? HANDSHAKE_TIMEOUT_MS;
+  const wtTimeout = deps.writeTimeoutMs ?? DEFAULT_WRITE_TIMEOUT_MS;
   const { peerId } = channel;
   const shortPeerId = peerId.slice(0, 8);
   const shortIncarnation = localIncarnationId.slice(0, 8);
@@ -127,12 +133,12 @@ export async function performOutboundHandshake(
   await writeWithTimeout(
     channel,
     fromString(JSON.stringify(handshakeMsg)),
-    DEFAULT_WRITE_TIMEOUT_MS,
+    wtTimeout,
   );
 
   // Wait for handshakeAck
   logger.log(`${shortPeerId}:: waiting for handshakeAck`);
-  const response = await readWithTimeout(channel, HANDSHAKE_TIMEOUT_MS);
+  const response = await readWithTimeout(channel, hsTimeout);
   const parsed = JSON.parse(response);
 
   if (!isHandshakeMessage(parsed) || parsed.method !== 'handshakeAck') {
@@ -164,12 +170,14 @@ export async function performInboundHandshake(
   deps: HandshakeDeps,
 ): Promise<HandshakeResult> {
   const { localIncarnationId, logger, setRemoteIncarnation } = deps;
+  const hsTimeout = deps.handshakeTimeoutMs ?? HANDSHAKE_TIMEOUT_MS;
+  const wtTimeout = deps.writeTimeoutMs ?? DEFAULT_WRITE_TIMEOUT_MS;
   const { peerId } = channel;
   const shortPeerId = peerId.slice(0, 8);
 
   // Wait for handshake
   logger.log(`${shortPeerId}:: waiting for handshake`);
-  const message = await readWithTimeout(channel, HANDSHAKE_TIMEOUT_MS);
+  const message = await readWithTimeout(channel, hsTimeout);
   const parsed = JSON.parse(message);
 
   if (!isHandshakeMessage(parsed) || parsed.method !== 'handshake') {
@@ -192,7 +200,7 @@ export async function performInboundHandshake(
   await writeWithTimeout(
     channel,
     fromString(JSON.stringify(ackMsg)),
-    DEFAULT_WRITE_TIMEOUT_MS,
+    wtTimeout,
   );
 
   const incarnationChanged = setRemoteIncarnation(peerId, remoteIncarnationId);
