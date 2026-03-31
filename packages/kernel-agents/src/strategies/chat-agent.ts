@@ -4,11 +4,10 @@ import type {
   ChatResult,
   Tool,
 } from '@ocap/kernel-language-model-service';
+import { parseToolArguments } from '@ocap/kernel-language-model-service/utils/parse-tool-arguments';
 
-import {
-  extractCapabilitySchemas,
-  extractCapabilities,
-} from '../capabilities/capability.ts';
+import { extractCapabilitySchemas } from '../capabilities/capability.ts';
+import { validateCapabilityArgs } from '../capabilities/validate-capability-args.ts';
 import type { Agent } from '../types/agent.ts';
 import { Message } from '../types/messages.ts';
 import type { CapabilityRecord, Experience } from '../types.ts';
@@ -25,8 +24,11 @@ class ChatTurn extends Message<string> {
    */
   constructor({ role, content }: ChatMessage) {
     super(role, { content: content ?? '' });
+    harden(this);
   }
 }
+
+harden(ChatTurn);
 
 /**
  * A bound chat function with the model already configured.
@@ -114,7 +116,6 @@ export const makeChatAgent = ({
       const objective = { intent, judgment: effectiveJudgment };
       const context = { capabilities: agentCapabilities };
 
-      const capFunctions = extractCapabilities(agentCapabilities);
       const tools = buildTools(agentCapabilities);
 
       const chatHistory: ChatMessage[] = [{ role: 'user', content: intent }];
@@ -154,8 +155,10 @@ export const makeChatAgent = ({
             const { name, arguments: argsJson } = toolCall.function;
             logger?.info(`Invoking capability: ${name}`);
 
-            const cap = capFunctions[name];
-            if (!cap) {
+            const spec = Object.hasOwn(agentCapabilities, name)
+              ? agentCapabilities[name]
+              : undefined;
+            if (spec === undefined) {
               const errorContent = `Unknown capability "${name}"`;
               const toolMsg: ChatMessage = {
                 role: 'tool',
@@ -169,7 +172,9 @@ export const makeChatAgent = ({
 
             let toolResult: unknown;
             try {
-              toolResult = await cap(JSON.parse(argsJson) as never);
+              const args = parseToolArguments(argsJson);
+              validateCapabilityArgs(args, spec.schema);
+              toolResult = await spec.func(args as never);
             } catch (error) {
               const errorContent = `Error calling ${name}: ${(error as Error).message}`;
               const toolMsg: ChatMessage = {

@@ -196,6 +196,7 @@
     "@metamask/kernel-errors": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
+    "@metamask/superstruct": "^3.2.1",
     "@ocap/kernel-language-model-service": "workspace:^",
     "partial-json": "^0.1.7",
     "ses": "^1.14.0"

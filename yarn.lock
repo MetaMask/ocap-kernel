@@ -3914,6 +3914,7 @@ __metadata:
     "@metamask/kernel-errors": "workspace:^"
     "@metamask/kernel-utils": "workspace:^"
     "@metamask/logger": "workspace:^"
+    "@metamask/superstruct": "npm:^3.2.1"
     "@ocap/kernel-language-model-service": "workspace:^"
     "@ocap/repo-tools": "workspace:^"
     "@ts-bridge/cli": "npm:^0.6.3"
