@@ -105,6 +105,7 @@ export function buildRootObject(
       options: KeyringInitOptions,
       password?: string,
       salt?: string,
+      pbkdf2Iterations?: number,
     ): Promise<void> {
       if (keyring || locked) {
         throw new Error('Keyring already initialized');
@@ -124,6 +125,7 @@ export function buildRootObject(
             mnemonic: options.mnemonic,
             password,
             salt,
+            pbkdf2Iterations,
           }),
           type: 'srp',
         };
@@ -138,7 +140,7 @@ export function buildRootObject(
       }
     },
 
-    async unlock(password: string): Promise<void> {
+    async unlock(password: string, pbkdf2Iterations?: number): Promise<void> {
       if (!locked) {
         throw new Error('Keyring is not locked');
       }
@@ -146,7 +148,11 @@ export function buildRootObject(
         throw new Error('No keyring data in baggage');
       }
       const stored = baggage.get('keyringInit') as EncryptedKeyringInit;
-      const mnemonic = decryptMnemonic({ data: stored, password });
+      const mnemonic = decryptMnemonic({
+        data: stored,
+        password,
+        pbkdf2Iterations,
+      });
       rebuildKeyring({ type: 'srp', mnemonic });
       locked = false;
     },
