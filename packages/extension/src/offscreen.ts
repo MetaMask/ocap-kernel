@@ -71,7 +71,10 @@ async function makeKernelWorker(): Promise<
   });
   workerUrlParams.set('reset-storage', process.env.RESET_STORAGE ?? 'false');
 
-  const workerUrl = new URL('kernel-worker.js', import.meta.url);
+  const workerUrl = new URL(
+    /* @vite-ignore */ 'kernel-worker.js',
+    import.meta.url,
+  );
   workerUrl.search = workerUrlParams.toString();
 
   const worker = new Worker(workerUrl, {
