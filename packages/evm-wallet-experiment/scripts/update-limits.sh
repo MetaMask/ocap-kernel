@@ -68,13 +68,16 @@ ok()    { echo -e "  ${GREEN}✓${RESET} $*" >&2; }
 fail()  { echo -e "  ${RED}✗${RESET} $*" >&2; exit 1; }
 
 # Run `ocap daemon queueMessage` (auto-decodes CapData via prettifySmallcaps).
-# Usage: daemon_qm [--quiet] [--raw] KREF METHOD [ARGS_JSON] [--timeout N]
+# Usage: daemon_qm [--quiet] KREF METHOD [ARGS_JSON] [--timeout N] [--raw]
+# --quiet suppresses the stderr log line
+# Remaining args are passed through to the CLI (including --raw, --timeout).
 daemon_qm() {
   local quiet=false
   if [[ "${1:-}" == "--quiet" ]]; then
     quiet=true
     shift
   fi
+  # $1=kref, $2=method after any --quiet shift
   local method="${2:-}"
   local result
   result=$(node "$OCAP_BIN" daemon queueMessage "$@")

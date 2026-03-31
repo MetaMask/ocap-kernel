@@ -349,34 +349,6 @@ async function main() {
   );
   const { makeWalletClusterConfig } = await import('../src/cluster-config.ts');
 
-  /**
-   * Send a message to the coordinator and return the deserialized result.
-   *
-   * @param kernel
-   * @param target
-   * @param method
-   * @param callArgs
-   */
-  async function call(kernel, target, method, callArgs = []) {
-    const result = await kernel.queueMessage(target, method, callArgs);
-    await waitUntilQuiescent();
-    return kunser(result);
-  }
-
-  /**
-   * Like call(), but also returns the raw CapData for pasting into other scripts.
-   *
-   * @param kernel
-   * @param target
-   * @param method
-   * @param callArgs
-   */
-  async function rawCall(kernel, target, method, callArgs = []) {
-    const raw = await kernel.queueMessage(target, method, callArgs);
-    await waitUntilQuiescent();
-    return { raw, value: kunser(raw) };
-  }
-
   // -----------------------------------------------------------------------
   // 3. Create kernel in-process with SQLite persistence
   // -----------------------------------------------------------------------
@@ -460,6 +432,30 @@ async function main() {
   await waitUntilQuiescent();
   ok(`Subcluster launched — coordinator: ${rootKref}`);
 
+  /**
+   * Send a message to the coordinator and return the deserialized result.
+   *
+   * @param method
+   * @param callArgs
+   */
+  async function call(method, callArgs = []) {
+    const result = await kernel.queueMessage(rootKref, method, callArgs);
+    await waitUntilQuiescent();
+    return kunser(result);
+  }
+
+  /**
+   * Like call(), but also returns the raw CapData for pasting into other scripts.
+   *
+   * @param method
+   * @param callArgs
+   */
+  async function rawCall(method, callArgs = []) {
+    const raw = await kernel.queueMessage(rootKref, method, callArgs);
+    await waitUntilQuiescent();
+    return { raw, value: kunser(raw) };
+  }
+
   // -----------------------------------------------------------------------
   // 6. Register MetaMask signer as kernel service → pass to coordinator
   // -----------------------------------------------------------------------
@@ -470,9 +466,7 @@ async function main() {
     signer,
   );
 
-  await call(kernel, rootKref, 'connectExternalSigner', [
-    kslot(signerKref, 'metamaskSigner'),
-  ]);
+  await call('connectExternalSigner', [kslot(signerKref, 'metamaskSigner')]);
   ok('External signer connected to coordinator');
 
   // -----------------------------------------------------------------------
@@ -480,9 +474,7 @@ async function main() {
   // -----------------------------------------------------------------------
 
   info(`Configuring provider (chain ${args.chainId})...`);
-  await call(kernel, rootKref, 'configureProvider', [
-    { chainId: args.chainId, rpcUrl: RPC_URL },
-  ]);
+  await call('configureProvider', [{ chainId: args.chainId, rpcUrl: RPC_URL }]);
   ok(`Provider configured — ${RPC_URL}`);
 
   // -----------------------------------------------------------------------
@@ -500,7 +492,7 @@ async function main() {
     }
     const bundlerUrl = `https://api.pimlico.io/v2/${pimlicoSlug}/rpc?apikey=${args.pimlicoKey}`;
     info('Configuring bundler (Pimlico)...');
-    await call(kernel, rootKref, 'configureBundler', [
+    await call('configureBundler', [
       {
         bundlerUrl,
         chainId: args.chainId,
@@ -512,7 +504,7 @@ async function main() {
     // Hybrid smart account — uses EIP-712 typed data for UserOp signing,
     // fully compatible with external signers (MetaMask).
     info('Configuring smart account...');
-    const saResult = await call(kernel, rootKref, 'createSmartAccount', [
+    const saResult = await call('createSmartAccount', [
       {
         chainId: args.chainId,
         implementation: 'hybrid',
@@ -635,7 +627,7 @@ async function main() {
   // -----------------------------------------------------------------------
 
   info('Issuing OCAP URL for the away device...');
-  const ocapUrl = await call(kernel, rootKref, 'issueOcapUrl', []);
+  const ocapUrl = await call('issueOcapUrl', []);
   ok('OCAP URL issued');
 
   // -----------------------------------------------------------------------
@@ -873,8 +865,6 @@ ${BOLD}  ./packages/evm-wallet-experiment/scripts/setup-away.sh \\
     }
 
     const { raw: delegationRaw, value: delegation } = await rawCall(
-      kernel,
-      rootKref,
       'createDelegation',
       [
         {

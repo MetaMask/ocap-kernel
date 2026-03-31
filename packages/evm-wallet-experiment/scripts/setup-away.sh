@@ -155,6 +155,7 @@ DIM='\033[2m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 CYAN='\033[0;36m'
+YELLOW='\033[0;33m'
 RESET='\033[0m'
 
 info()  { echo -e "${CYAN}→${RESET} $*" >&2; }
@@ -187,15 +188,16 @@ daemon_exec() {
 }
 
 # Run `ocap daemon queueMessage` (auto-decodes CapData via prettifySmallcaps).
-# Usage: daemon_qm [--quiet] [--raw] KREF METHOD [ARGS_JSON] [--timeout N]
+# Usage: daemon_qm [--quiet] KREF METHOD [ARGS_JSON] [--timeout N] [--raw]
 # --quiet suppresses the stderr log line
-# --raw   outputs raw CapData instead of decoded result
+# Remaining args are passed through to the CLI (including --raw, --timeout).
 daemon_qm() {
   local quiet=false
   if [[ "${1:-}" == "--quiet" ]]; then
     quiet=true
     shift
   fi
+  # $1=kref, $2=method after any --quiet shift
   local method="${2:-}"
   local result
   result=$(node "$OCAP_BIN" daemon queueMessage "$@")
