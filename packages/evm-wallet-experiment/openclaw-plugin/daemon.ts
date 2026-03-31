@@ -146,12 +146,10 @@ async function callWallet(options: WalletCallOptions): Promise<unknown> {
     throw new Error(`Wallet ${method} returned non-JSON output`);
   }
 
-  // Handle error objects from vat exceptions (decoded by prettifySmallcaps)
-  if (decoded !== null && typeof decoded === 'object' && '#error' in decoded) {
-    const errorMsg = (decoded as Record<string, unknown>)['#error'];
-    throw new Error(
-      `Wallet ${method} failed: ${typeof errorMsg === 'string' ? errorMsg : JSON.stringify(errorMsg)}`,
-    );
+  // prettifySmallcaps converts #error objects to strings like "[TypeError: msg]".
+  // Detect these prettified error strings and throw them as proper errors.
+  if (typeof decoded === 'string' && decoded.startsWith('[')) {
+    throw new Error(`Wallet ${method} failed: ${decoded}`);
   }
 
   return decoded;

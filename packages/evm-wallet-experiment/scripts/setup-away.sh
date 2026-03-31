@@ -162,14 +162,6 @@ info()  { echo -e "${CYAN}→${RESET} $*" >&2; }
 ok()    { echo -e "  ${GREEN}✓${RESET} $*" >&2; }
 fail()  { echo -e "  ${RED}✗${RESET} $*" >&2; exit 1; }
 
-# Decode JSON output — for strings, output the raw value; for other types, output JSON.
-json_value() {
-  node -e "
-    const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
-    process.stdout.write(typeof v === 'string' ? v : JSON.stringify(v));
-  "
-}
-
 # Run a daemon exec command and log its output to stderr.
 # Usage: daemon_exec [--quiet] <method> <params> [--timeout <seconds>]
 # Pass --quiet to suppress the stderr log line (for sensitive params).
