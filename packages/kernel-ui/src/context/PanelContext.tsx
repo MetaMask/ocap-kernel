@@ -94,7 +94,13 @@ export const PanelProvider: React.FC<{
   const sendMessageWrapper: CallKernelMethod = useCallback(
     async (payload) => {
       return new Promise((resolve, reject) => {
-        pendingRequests.current.push({ payload, resolve, reject });
+        pendingRequests.current.push({
+          payload,
+          resolve: resolve as (
+            value: Awaited<ReturnType<CallKernelMethod>>,
+          ) => void,
+          reject,
+        });
         if (!isRequestInProgress.current) {
           isRequestInProgress.current = true;
           processRequests().catch((error) => {
