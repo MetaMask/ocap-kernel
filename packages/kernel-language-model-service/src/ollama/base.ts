@@ -19,6 +19,7 @@ import type {
   OllamaModel,
   OllamaClient,
   OllamaModelOptions,
+  OllamaTool,
 } from './types.ts';
 
 /**
@@ -73,7 +74,7 @@ export class OllamaBaseService<Ollama extends OllamaClient>
    * @returns A hardened chat result.
    */
   async chat(params: ChatParams): Promise<ChatResult> {
-    const { model, messages, temperature, seed, stop } = params;
+    const { model, messages, tools, temperature, seed, stop } = params;
     const ollama = await this.#makeClient();
     let stopArr: string[] | undefined;
     if (stop !== undefined) {
@@ -81,10 +82,22 @@ export class OllamaBaseService<Ollama extends OllamaClient>
     }
     const response = await ollama.chat({
       model,
-      messages: messages.map(({ role, content }) => ({
+      // eslint-disable-next-line camelcase
+      messages: messages.map(({ role, content, tool_calls }) => ({
         role,
         content: content ?? '',
+        // eslint-disable-next-line camelcase
+        ...(tool_calls && {
+          // eslint-disable-next-line camelcase
+          tool_calls: tool_calls.map(({ function: fn }) => ({
+            function: {
+              name: fn.name,
+              arguments: JSON.parse(fn.arguments) as Record<string, unknown>,
+            },
+          })),
+        }),
       })),
+      ...(tools && { tools: tools as OllamaTool[] }),
       stream: false,
       options: ifDefined({
         temperature,
@@ -96,6 +109,7 @@ export class OllamaBaseService<Ollama extends OllamaClient>
     });
     const promptTokens = response.prompt_eval_count ?? 0;
     const completionTokens = response.eval_count ?? 0;
+    const { tool_calls: responseToolCalls } = response.message;
     return harden({
       id: 'ollama-chat',
       model: response.model,
@@ -104,6 +118,16 @@ export class OllamaBaseService<Ollama extends OllamaClient>
           message: {
             role: response.message.role as ChatRole,
             content: response.message.content,
+            ...(responseToolCalls && {
+              tool_calls: responseToolCalls.map((tc, index) => ({
+                id: `tool-${index}`,
+                type: 'function' as const,
+                function: {
+                  name: tc.function.name,
+                  arguments: JSON.stringify(tc.function.arguments),
+                },
+              })),
+            }),
           },
           index: 0,
           finish_reason: response.done_reason ?? 'stop',

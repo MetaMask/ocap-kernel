@@ -8,6 +8,7 @@ import type {
   Config,
   ChatRequest,
   ChatResponse,
+  Tool as OllamaTool,
 } from 'ollama';
 
 import type { LanguageModel } from '../types.ts';
@@ -30,6 +31,7 @@ export type {
   GenerateRequest,
   GenerateResponse,
   OllamaClient,
+  OllamaTool,
   ChatRequest,
   ChatResponse,
 };
