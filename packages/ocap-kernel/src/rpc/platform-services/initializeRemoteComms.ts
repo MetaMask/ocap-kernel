@@ -16,6 +16,11 @@ const initializeRemoteCommsParamsStruct = object({
   maxRetryAttempts: optional(number()),
   maxQueue: optional(number()),
   allowedWsHosts: optional(array(string())),
+  reconnectionBaseDelayMs: optional(number()),
+  reconnectionMaxDelayMs: optional(number()),
+  handshakeTimeoutMs: optional(number()),
+  writeTimeoutMs: optional(number()),
+  ackTimeoutMs: optional(number()),
   incarnationId: optional(string()),
 });
 
@@ -25,6 +30,11 @@ type InitializeRemoteCommsParams = {
   maxRetryAttempts?: number;
   maxQueue?: number;
   allowedWsHosts?: string[];
+  reconnectionBaseDelayMs?: number;
+  reconnectionMaxDelayMs?: number;
+  handshakeTimeoutMs?: number;
+  writeTimeoutMs?: number;
+  ackTimeoutMs?: number;
   incarnationId?: string;
 };
 
@@ -73,6 +83,21 @@ export const initializeRemoteCommsHandler: InitializeRemoteCommsHandler = {
     }
     if (params.allowedWsHosts !== undefined) {
       options.allowedWsHosts = params.allowedWsHosts;
+    }
+    if (params.reconnectionBaseDelayMs !== undefined) {
+      options.reconnectionBaseDelayMs = params.reconnectionBaseDelayMs;
+    }
+    if (params.reconnectionMaxDelayMs !== undefined) {
+      options.reconnectionMaxDelayMs = params.reconnectionMaxDelayMs;
+    }
+    if (params.handshakeTimeoutMs !== undefined) {
+      options.handshakeTimeoutMs = params.handshakeTimeoutMs;
+    }
+    if (params.writeTimeoutMs !== undefined) {
+      options.writeTimeoutMs = params.writeTimeoutMs;
+    }
+    if (params.ackTimeoutMs !== undefined) {
+      options.ackTimeoutMs = params.ackTimeoutMs;
     }
     return await initializeRemoteComms(
       params.keySeed,

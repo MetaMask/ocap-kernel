@@ -35,20 +35,34 @@ export class ReconnectionManager {
 
   readonly #consecutiveErrorThreshold: number;
 
+  readonly #backoffBaseDelayMs: number | undefined;
+
+  readonly #backoffMaxDelayMs: number | undefined;
+
   /**
    * Creates a new ReconnectionManager.
    *
    * @param options - Configuration options.
    * @param options.consecutiveErrorThreshold - Number of consecutive identical errors
    *   before marking a peer as permanently failed. Default is 5. Must be at least 1.
+   * @param options.backoffBaseDelayMs - Base delay in ms for exponential backoff.
+   *   If not provided, uses DEFAULT_BASE_DELAY_MS (500ms).
+   * @param options.backoffMaxDelayMs - Maximum delay in ms for exponential backoff.
+   *   If not provided, uses DEFAULT_MAX_DELAY_MS (10s).
    */
-  constructor(options?: { consecutiveErrorThreshold?: number }) {
+  constructor(options?: {
+    consecutiveErrorThreshold?: number;
+    backoffBaseDelayMs?: number;
+    backoffMaxDelayMs?: number;
+  }) {
     const threshold =
       options?.consecutiveErrorThreshold ?? DEFAULT_CONSECUTIVE_ERROR_THRESHOLD;
     if (threshold < 1) {
       throw new Error('consecutiveErrorThreshold must be at least 1');
     }
     this.#consecutiveErrorThreshold = threshold;
+    this.#backoffBaseDelayMs = options?.backoffBaseDelayMs;
+    this.#backoffMaxDelayMs = options?.backoffMaxDelayMs;
   }
 
   /**
@@ -163,7 +177,20 @@ export class ReconnectionManager {
    */
   calculateBackoff(peerId: string): number {
     const state = this.#getState(peerId);
-    return calculateReconnectionBackoff(state.attemptCount);
+    return calculateReconnectionBackoff(
+      state.attemptCount,
+      this.#backoffBaseDelayMs !== undefined ||
+        this.#backoffMaxDelayMs !== undefined
+        ? {
+            ...(this.#backoffBaseDelayMs !== undefined && {
+              baseDelayMs: this.#backoffBaseDelayMs,
+            }),
+            ...(this.#backoffMaxDelayMs !== undefined && {
+              maxDelayMs: this.#backoffMaxDelayMs,
+            }),
+          }
+        : undefined,
+    );
   }
 
   /**

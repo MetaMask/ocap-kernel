@@ -51,6 +51,9 @@ export class RemoteManager {
   /** Optional mnemonic for seed derivation */
   readonly #mnemonic: string | undefined;
 
+  /** Optional ACK timeout override for RemoteHandle instances */
+  #ackTimeoutMs: number | undefined;
+
   /**
    * Unique identifier for this kernel instance.
    * Used to detect when a remote peer has lost its state and reconnected.
@@ -242,6 +245,8 @@ export class RemoteManager {
       mnemonic: options?.mnemonic ?? this.#mnemonic,
     };
 
+    this.#ackTimeoutMs = mergedOptions.ackTimeoutMs;
+
     this.#remoteComms = await initRemoteComms(
       this.#kernelStore,
       this.#platformServices,
@@ -347,6 +352,7 @@ export class RemoteManager {
       locationHints: hints,
       logger: this.#logger,
       onGiveUp: this.#handleRemoteGiveUp.bind(this),
+      ackTimeoutMs: this.#ackTimeoutMs,
     });
     this.#remotes.set(remoteId, remote);
     this.#remotesByPeer.set(peerId, remote);

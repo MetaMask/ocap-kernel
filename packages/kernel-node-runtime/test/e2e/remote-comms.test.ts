@@ -8,7 +8,15 @@ import { delay } from '@ocap/repo-tools/test-utils';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+  afterEach,
+} from 'vitest';
 
 import { makeTestKernel, runTestVats } from '../helpers/kernel.ts';
 import {
@@ -31,6 +39,15 @@ const NETWORK_TIMEOUT = 30_000;
 const relayPeerId = '12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc';
 const testRelays = [`/ip4/127.0.0.1/tcp/9001/ws/p2p/${relayPeerId}`];
 
+// Fast timing options for tests to avoid waiting on real delays
+const testBackoffOptions = {
+  reconnectionBaseDelayMs: 10,
+  reconnectionMaxDelayMs: 50,
+  handshakeTimeoutMs: 3_000,
+  writeTimeoutMs: 3_000,
+  ackTimeoutMs: 2_000,
+};
+
 describe.sequential('Remote Communications E2E', () => {
   let relay: Libp2p;
   let kernel1: Kernel;
@@ -41,12 +58,18 @@ describe.sequential('Remote Communications E2E', () => {
   let kernelStore1: ReturnType<typeof makeKernelStore>;
   let kernelStore2: ReturnType<typeof makeKernelStore>;
 
-  beforeEach(async () => {
-    // Start the relay server
+  beforeAll(async () => {
+    // Start the relay server once for all tests (stateless, reusable)
     relay = await startRelay(console);
-    // Wait for relay to be fully initialized
-    await delay(1000);
+  });
 
+  afterAll(async () => {
+    if (relay) {
+      await relay.stop();
+    }
+  });
+
+  beforeEach(async () => {
     // Create temp directory for database files
     tempDir = await mkdtemp(join(tmpdir(), 'ocap-e2e-'));
     dbFilename1 = join(tempDir, 'kernel1.db');
@@ -69,10 +92,8 @@ describe.sequential('Remote Communications E2E', () => {
 
   afterEach(async () => {
     const STOP_TIMEOUT = 3000;
-    // Stop in parallel to speed up cleanup
+    // Stop kernels in parallel to speed up cleanup
     await Promise.all([
-      relay &&
-        stopWithTimeout(async () => relay.stop(), STOP_TIMEOUT, 'relay.stop'),
       kernel1 &&
         stopWithTimeout(
           async () => kernel1.stop(),
@@ -89,15 +110,20 @@ describe.sequential('Remote Communications E2E', () => {
     if (tempDir) {
       await rm(tempDir, { recursive: true, force: true });
     }
-    await delay(200);
   });
 
   describe('Basic Connectivity', () => {
     it(
       'initializes remote comms on both kernels',
       async () => {
-        await kernel1.initRemoteComms({ relays: testRelays });
-        await kernel2.initRemoteComms({ relays: testRelays });
+        await kernel1.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
+        await kernel2.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
 
         const status1 = await kernel1.getStatus();
         const status2 = await kernel2.getStatus();
@@ -120,6 +146,7 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
+          testBackoffOptions,
         );
 
         const response = await sendRemoteMessage(
@@ -143,6 +170,7 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
+          testBackoffOptions,
         );
 
         const aliceToBob = await sendRemoteMessage(
@@ -172,8 +200,14 @@ describe.sequential('Remote Communications E2E', () => {
       'remote relationships should survive kernel restart',
       async () => {
         // Initialize remote comms
-        await kernel1.initRemoteComms({ relays: testRelays });
-        await kernel2.initRemoteComms({ relays: testRelays });
+        await kernel1.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
+        await kernel2.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
 
         // Launch client vat on kernel1
         const clientConfig = makeMaasClientConfig('client1', true);
@@ -219,7 +253,10 @@ describe.sequential('Remote Communications E2E', () => {
           await makeSQLKernelDatabase({ dbFilename: dbFilename2 }),
           { resetStorage: false },
         );
-        await serverKernel.initRemoteComms({ relays: testRelays });
+        await serverKernel.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
 
         // Tell the client to talk to the server a second time
         expectedCount += 1;
@@ -238,7 +275,10 @@ describe.sequential('Remote Communications E2E', () => {
           await makeSQLKernelDatabase({ dbFilename: dbFilename1 }),
           { resetStorage: false },
         );
-        await clientKernel.initRemoteComms({ relays: testRelays });
+        await clientKernel.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
 
         // Tell the client to talk to the server a third time
         expectedCount += 1;
@@ -269,6 +309,7 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
+          testBackoffOptions,
         );
 
         // Verify initial connectivity
@@ -298,6 +339,7 @@ describe.sequential('Remote Communications E2E', () => {
           false,
           testRelays,
           bobConfig,
+          testBackoffOptions,
         );
         // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
@@ -331,7 +373,10 @@ describe.sequential('Remote Communications E2E', () => {
     it(
       'handles connection failure to non-existent peer',
       async () => {
-        await kernel1.initRemoteComms({ relays: testRelays });
+        await kernel1.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
 
         const aliceConfig = makeRemoteVatConfig('Alice');
         await launchVatAndGetURL(kernel1, aliceConfig);
@@ -368,6 +413,7 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
+          testBackoffOptions,
         );
 
         const initialMessage = await sendRemoteMessage(
@@ -382,8 +428,7 @@ describe.sequential('Remote Communications E2E', () => {
         await kernel2.stop();
 
         // Send a message which will queue and trigger reconnection attempts
-        // The reconnection will use exponential backoff with base delay of 500ms
-        // and max delay of 10s. With jitter, delays will be randomized.
+        // The reconnection will use exponential backoff (with fast test config).
         const messagePromise = kernel1.queueMessage(
           aliceRef,
           'sendRemoteMessage',
@@ -400,6 +445,7 @@ describe.sequential('Remote Communications E2E', () => {
           false,
           testRelays,
           bobConfig,
+          testBackoffOptions,
         );
         // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
@@ -414,10 +460,8 @@ describe.sequential('Remote Communications E2E', () => {
         );
 
         // Verify that reconnection took some time (indicating backoff delays)
-        // With exponential backoff, even with jitter, we expect at least
-        // one delay period (~500ms base) before reconnection succeeds
-        // We allow for some variance due to jitter and network timing
-        expect(totalReconnectTime).toBeGreaterThan(1000);
+        // Even with fast test backoff, kernel restart + reconnection takes measurable time
+        expect(totalReconnectTime).toBeGreaterThan(100);
 
         const followUpMessage = await sendRemoteMessage(
           kernel1,
@@ -436,8 +480,14 @@ describe.sequential('Remote Communications E2E', () => {
     it(
       'queues messages when connection is not established',
       async () => {
-        await kernel1.initRemoteComms({ relays: testRelays });
-        await kernel2.initRemoteComms({ relays: testRelays });
+        await kernel1.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
+        await kernel2.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
 
         const aliceConfig = makeRemoteVatConfig('Alice');
         await launchVatAndGetURL(kernel1, aliceConfig);
@@ -463,6 +513,7 @@ describe.sequential('Remote Communications E2E', () => {
           false,
           testRelays,
           bobConfig,
+          testBackoffOptions,
         );
         // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
@@ -492,6 +543,7 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
+          testBackoffOptions,
         );
 
         // Send multiple messages in sequence using sendSequence
@@ -526,7 +578,11 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
-          { maxMessagesPerSecond: 500, maxConnectionAttemptsPerMinute: 500 },
+          {
+            maxMessagesPerSecond: 500,
+            maxConnectionAttemptsPerMinute: 500,
+            ...testBackoffOptions,
+          },
         );
 
         await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
@@ -551,6 +607,7 @@ describe.sequential('Remote Communications E2E', () => {
           false,
           testRelays,
           bobConfig,
+          testBackoffOptions,
         );
         // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
@@ -595,10 +652,19 @@ describe.sequential('Remote Communications E2E', () => {
         let kernel3: Kernel | undefined;
 
         try {
-          await kernel1.initRemoteComms({ relays: testRelays });
-          await kernel2.initRemoteComms({ relays: testRelays });
+          await kernel1.initRemoteComms({
+            relays: testRelays,
+            ...testBackoffOptions,
+          });
+          await kernel2.initRemoteComms({
+            relays: testRelays,
+            ...testBackoffOptions,
+          });
           kernel3 = await makeTestKernel(kernelDatabase3);
-          await kernel3.initRemoteComms({ relays: testRelays });
+          await kernel3.initRemoteComms({
+            relays: testRelays,
+            ...testBackoffOptions,
+          });
 
           const aliceConfig = makeRemoteVatConfig('Alice');
           const bobConfigInitial = makeRemoteVatConfig('Bob');
@@ -642,6 +708,7 @@ describe.sequential('Remote Communications E2E', () => {
             false,
             testRelays,
             bobConfigRestart,
+            testBackoffOptions,
           );
           // eslint-disable-next-line require-atomic-updates
           kernel2 = restartResult2.kernel;
@@ -652,6 +719,7 @@ describe.sequential('Remote Communications E2E', () => {
               false,
               testRelays,
               charlieConfigRestart,
+              testBackoffOptions,
             )
           ).kernel;
 
@@ -703,6 +771,7 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
+          testBackoffOptions,
         );
 
         const initialMessage = await sendRemoteMessage(
@@ -729,6 +798,7 @@ describe.sequential('Remote Communications E2E', () => {
           false,
           testRelays,
           bobConfig,
+          testBackoffOptions,
         );
         // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
@@ -752,6 +822,7 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
+          testBackoffOptions,
         );
 
         const initialMessage = await sendRemoteMessage(
@@ -773,6 +844,7 @@ describe.sequential('Remote Communications E2E', () => {
           false,
           testRelays,
           bobConfig,
+          testBackoffOptions,
         );
         // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
@@ -800,6 +872,7 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
+          testBackoffOptions,
         );
 
         const initialMessage = await sendRemoteMessage(
@@ -830,7 +903,7 @@ describe.sequential('Remote Communications E2E', () => {
 
         // Manually reconnect
         await kernel1.reconnectPeer(peerId2);
-        await delay(2000);
+        await delay(200);
 
         // Send message after manual reconnect - should succeed
         const messageAfterManualReconnect = await sendRemoteMessage(
@@ -852,12 +925,24 @@ describe.sequential('Remote Communications E2E', () => {
     it(
       'detects incarnation change when peer restarts with fresh state',
       async () => {
-        // Initialize with low retry attempts to trigger give-up on incarnation change
+        // Initialize with low retry attempts to trigger give-up on incarnation change.
+        // Use moderate backoff (not the fast test defaults) so reconnection attempts
+        // don't exhaust before the restarted peer is reachable.
         await kernel1.initRemoteComms({
           relays: testRelays,
           maxRetryAttempts: 2,
+          reconnectionBaseDelayMs: 200,
+          reconnectionMaxDelayMs: 500,
+          handshakeTimeoutMs: 3_000,
+          writeTimeoutMs: 3_000,
         });
-        await kernel2.initRemoteComms({ relays: testRelays });
+        await kernel2.initRemoteComms({
+          relays: testRelays,
+          reconnectionBaseDelayMs: 200,
+          reconnectionMaxDelayMs: 500,
+          handshakeTimeoutMs: 3_000,
+          writeTimeoutMs: 3_000,
+        });
 
         const aliceConfig = makeRemoteVatConfig('Alice');
         const bobConfig = makeRemoteVatConfig('Bob');
@@ -881,7 +966,10 @@ describe.sequential('Remote Communications E2E', () => {
         const freshKernel2 = await makeTestKernel(freshDb2);
         // eslint-disable-next-line require-atomic-updates
         kernel2 = freshKernel2;
-        await kernel2.initRemoteComms({ relays: testRelays });
+        await kernel2.initRemoteComms({
+          relays: testRelays,
+          ...testBackoffOptions,
+        });
 
         // Launch Bob again (fresh vat, no previous state)
         await launchVatAndGetURL(kernel2, bobConfig);
@@ -912,12 +1000,24 @@ describe.sequential('Remote Communications E2E', () => {
     it(
       'rejects promises when remote connection is lost after max retries',
       async () => {
-        // Initialize kernel1 with a low maxRetryAttempts to trigger give-up quickly
+        // Initialize kernel1 with a low maxRetryAttempts to trigger give-up.
+        // Use moderate backoff so reconnection attempts don't exhaust before
+        // the message can be queued and become a pending promise.
         await kernel1.initRemoteComms({
           relays: testRelays,
-          maxRetryAttempts: 1, // Only 1 retry attempt before giving up
+          maxRetryAttempts: 3,
+          reconnectionBaseDelayMs: 200,
+          reconnectionMaxDelayMs: 1_000,
+          handshakeTimeoutMs: 3_000,
+          writeTimeoutMs: 3_000,
         });
-        await kernel2.initRemoteComms({ relays: testRelays });
+        await kernel2.initRemoteComms({
+          relays: testRelays,
+          reconnectionBaseDelayMs: 200,
+          reconnectionMaxDelayMs: 1_000,
+          handshakeTimeoutMs: 3_000,
+          writeTimeoutMs: 3_000,
+        });
 
         // Set up Alice and Bob manually (can't use setupAliceAndBob as it reinitializes comms)
         const aliceConfig = makeRemoteVatConfig('Alice');
@@ -934,13 +1034,9 @@ describe.sequential('Remote Communications E2E', () => {
         // Now stop kernel2 to trigger connection loss
         await kernel2.stop();
 
-        // Wait for connection loss to be detected and reconnection attempts to fail
-        await delay(2000);
-
-        // Send a message that will trigger promise creation and eventual rejection
-        // The message will create a promise with the remote as decider (from URL redemption)
-        // When we give up on the remote, that promise should be rejected
-        // The vat should then propagate that rejection to the promise returned here
+        // Send a message immediately - it will be queued while reconnection is attempted.
+        // With maxRetryAttempts: 3, the reconnection will give up and reject
+        // all pending promises including this message.
         await expect(
           kernel1.queueMessage(aliceRef, 'sendRemoteMessage', [
             bobURL,
@@ -963,6 +1059,7 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
+          testBackoffOptions,
         );
 
         // Send a message that creates a promise with remote as decider
@@ -976,7 +1073,7 @@ describe.sequential('Remote Communications E2E', () => {
         await kernel2.stop();
 
         // Wait a bit for connection loss to be detected
-        await delay(500);
+        await delay(100);
 
         // Restart kernel2 quickly (before max retries, since default is infinite)
         // The promise should remain unresolved and resolve normally after reconnection
@@ -986,12 +1083,13 @@ describe.sequential('Remote Communications E2E', () => {
           false,
           testRelays,
           bobConfig,
+          testBackoffOptions,
         );
         // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
 
         // Wait for reconnection
-        await delay(2000);
+        await delay(200);
 
         // The message should eventually be delivered and resolved
         // The promise was never rejected because retries weren't exhausted
@@ -1012,6 +1110,7 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
+          testBackoffOptions,
         );
 
         // Send a message to create cross-kernel object references
@@ -1038,6 +1137,7 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
+          testBackoffOptions,
         );
 
         // Send a message to create cross-kernel refs
@@ -1051,7 +1151,7 @@ describe.sequential('Remote Communications E2E', () => {
         // and allow the remote to process it and respond
         for (let i = 0; i < 3; i++) {
           await kernel1.queueMessage(aliceRef, 'ping', []);
-          await waitUntilQuiescent(500);
+          await waitUntilQuiescent(100);
         }
 
         // Verify communication still works after DGC
@@ -1076,6 +1176,7 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
+          testBackoffOptions,
         );
 
         // Send messages in both directions to create refs on both sides
@@ -1088,7 +1189,7 @@ describe.sequential('Remote Communications E2E', () => {
         // Trigger cranks to process the reap and allow BOYD to flow
         for (let i = 0; i < 3; i++) {
           await kernel2.queueMessage(bobRef, 'ping', []);
-          await waitUntilQuiescent(500);
+          await waitUntilQuiescent(100);
         }
 
         // Verify communication still works after DGC from both directions
@@ -1122,6 +1223,7 @@ describe.sequential('Remote Communications E2E', () => {
           kernelStore1,
           kernelStore2,
           testRelays,
+          testBackoffOptions,
         );
 
         // Send messages to establish refs on both sides
@@ -1140,7 +1242,7 @@ describe.sequential('Remote Communications E2E', () => {
             kernel1.queueMessage(aliceRef, 'ping', []),
             kernel2.queueMessage(bobRef, 'ping', []),
           ]);
-          await waitUntilQuiescent(500);
+          await waitUntilQuiescent(100);
         }
 
         // Verify continued bidirectional communication works - this proves

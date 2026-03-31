@@ -5,7 +5,7 @@ import { keccak_256 as keccak256 } from '@noble/hashes/sha3';
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
 
-const PBKDF2_ITERATIONS = 600_000;
+const DEFAULT_PBKDF2_ITERATIONS = 600_000;
 
 /**
  * Encrypted mnemonic envelope persisted in baggage.
@@ -81,16 +81,19 @@ function deriveNonce(salt: Uint8Array, key: Uint8Array): Uint8Array {
  * @param options.mnemonic - The mnemonic to encrypt.
  * @param options.password - The password for key derivation.
  * @param options.salt - Optional hex-encoded salt (16 bytes). If omitted, derived from password.
+ * @param options.pbkdf2Iterations - Optional PBKDF2 iteration count. Defaults to 600,000.
  * @returns The encrypted mnemonic envelope.
  */
 export function encryptMnemonic({
   mnemonic,
   password,
   salt: saltEncoded,
+  pbkdf2Iterations = DEFAULT_PBKDF2_ITERATIONS,
 }: {
   mnemonic: string;
   password: string;
   salt?: string;
+  pbkdf2Iterations?: number;
 }): EncryptedMnemonicData {
   const passwordBytes = new TextEncoder().encode(password);
   const salt = saltEncoded
@@ -98,7 +101,7 @@ export function encryptMnemonic({
     : deriveSalt(passwordBytes);
 
   const key = pbkdf2(sha256, passwordBytes, salt, {
-    c: PBKDF2_ITERATIONS,
+    c: pbkdf2Iterations,
     dkLen: 32,
   });
 
@@ -121,14 +124,17 @@ export function encryptMnemonic({
  * @param options - Decryption options.
  * @param options.data - The encrypted mnemonic envelope.
  * @param options.password - The password used during encryption.
+ * @param options.pbkdf2Iterations - Optional PBKDF2 iteration count. Must match the value used during encryption.
  * @returns The decrypted mnemonic string.
  */
 export function decryptMnemonic({
   data,
   password,
+  pbkdf2Iterations = DEFAULT_PBKDF2_ITERATIONS,
 }: {
   data: EncryptedMnemonicData;
   password: string;
+  pbkdf2Iterations?: number;
 }): string {
   const passwordBytes = new TextEncoder().encode(password);
   const salt = hexToBytes(data.salt);
@@ -136,7 +142,7 @@ export function decryptMnemonic({
   const ciphertext = hexToBytes(data.ciphertext);
 
   const key = pbkdf2(sha256, passwordBytes, salt, {
-    c: PBKDF2_ITERATIONS,
+    c: pbkdf2Iterations,
     dkLen: 32,
   });
 

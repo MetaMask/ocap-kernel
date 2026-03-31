@@ -91,7 +91,10 @@ async function makeKernelWorker(): Promise<
   ] satisfies SystemSubclusterConfig[];
   workerUrlParams.set('system-subclusters', JSON.stringify(systemSubclusters));
 
-  const workerUrl = new URL('kernel-worker.js', import.meta.url);
+  const workerUrl = new URL(
+    /* @vite-ignore */ 'kernel-worker.js',
+    import.meta.url,
+  );
   workerUrl.search = workerUrlParams.toString();
 
   const worker = new Worker(workerUrl, {

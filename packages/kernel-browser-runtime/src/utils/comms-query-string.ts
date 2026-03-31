@@ -52,6 +52,11 @@ const NUMBER_PARAM_NAMES = [
   'stalePeerTimeoutMs',
   'maxMessagesPerSecond',
   'maxConnectionAttemptsPerMinute',
+  'reconnectionBaseDelayMs',
+  'reconnectionMaxDelayMs',
+  'handshakeTimeoutMs',
+  'writeTimeoutMs',
+  'ackTimeoutMs',
 ] as const satisfies readonly NumberParamKey[];
 
 const NonNegativeInteger = min(integer(), 0);
