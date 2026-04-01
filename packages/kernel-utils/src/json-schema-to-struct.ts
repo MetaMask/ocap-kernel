@@ -72,18 +72,18 @@ export function jsonSchemaToStruct(schema: JsonSchema): Struct<unknown> {
       return array(jsonSchemaToStruct(schema.items)) as Struct<unknown>;
     case 'object': {
       const { properties } = schema;
-      const required = new Set(schema.required ?? Object.keys(properties));
-      const shape = Object.fromEntries(
-        Object.entries(properties).map(([key, subSchema]) => {
-          const fieldStruct = jsonSchemaToStruct(subSchema);
-          return [key, required.has(key) ? fieldStruct : optional(fieldStruct)];
-        }),
-      );
       if (schema.additionalProperties === false) {
+        const required = new Set(schema.required ?? Object.keys(properties));
+        const shape = Object.fromEntries(
+          Object.entries(properties).map(([key, subSchema]) => {
+            const fieldStruct = jsonSchemaToStruct(subSchema);
+            return [
+              key,
+              required.has(key) ? fieldStruct : optional(fieldStruct),
+            ];
+          }),
+        );
         return object(shape) as Struct<unknown>;
-      }
-      if (Object.keys(properties).length === 0) {
-        return looseObjectStruct(schema);
       }
       return looseObjectStruct(schema);
     }
