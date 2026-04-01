@@ -9,6 +9,9 @@
      */
     "paths": {
       "@metamask/*": ["../*/src"],
+      "@ocap/kernel-language-model-service/open-v1/nodejs": [
+        "../kernel-language-model-service/src/open-v1/nodejs.ts"
+      ],
       "@metamask/kernel-store/sqlite/nodejs": [
         "../kernel-store/src/sqlite/nodejs.ts"
       ],

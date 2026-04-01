@@ -8,9 +8,14 @@
   },
   "references": [
     { "path": "../kernel-agents" },
+    { "path": "../kernel-shims" },
     { "path": "../kernel-agents-repl" },
     { "path": "../kernel-language-model-service" },
+    { "path": "../kernel-store" },
+    { "path": "../kernel-utils" },
     { "path": "../logger" },
+    { "path": "../ocap-kernel" },
+    { "path": "../kernel-node-runtime" },
     { "path": "../repo-tools" }
   ],
   "include": [
@@ -18,6 +23,6 @@
     "./src",
     "./vitest.config.ts",
     "./vitest.config.e2e.ts",
-    "./test/e2e"
+    "./test"
   ]
 }

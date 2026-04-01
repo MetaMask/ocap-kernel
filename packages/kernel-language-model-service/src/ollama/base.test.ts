@@ -1,4 +1,4 @@
-import type { GenerateResponse, ListResponse } from 'ollama';
+import type { ChatResponse, GenerateResponse, ListResponse } from 'ollama';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { OllamaClient, OllamaModelOptions } from './types.ts';
@@ -15,6 +15,7 @@ describe('OllamaBaseService', () => {
     mockClient = {
       list: vi.fn(),
       generate: vi.fn(),
+      chat: vi.fn(),
     };
 
     mockMakeClient = vi.fn().mockResolvedValue(mockClient);
@@ -66,6 +67,200 @@ describe('OllamaBaseService', () => {
       await expect(service.getModels()).rejects.toThrow(
         'Failed to list models',
       );
+    });
+  });
+
+  describe('sample', () => {
+    const mockChunk = {
+      response: 'hello',
+      done: false,
+    } as GenerateResponse;
+
+    it('gETs non-streaming response when stream is omitted', async () => {
+      vi.mocked(mockClient.generate).mockResolvedValue({
+        response: 'hello world',
+      } as GenerateResponse);
+
+      const result = await service.sample({
+        model: 'llama2:7b',
+        prompt: 'Hi',
+      });
+
+      expect(mockClient.generate).toHaveBeenCalledWith(
+        expect.objectContaining({ stream: false, raw: true }),
+      );
+      expect(result).toStrictEqual({ text: 'hello world' });
+    });
+
+    it('passes options sub-object to generate', async () => {
+      vi.mocked(mockClient.generate).mockResolvedValue({
+        response: 'hi',
+      } as GenerateResponse);
+
+      await service.sample({
+        model: 'llama2:7b',
+        prompt: 'Hi',
+        temperature: 0.5,
+        seed: 42,
+      });
+
+      expect(mockClient.generate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          options: expect.objectContaining({ temperature: 0.5, seed: 42 }),
+        }),
+      );
+    });
+
+    it('returns streaming result when stream is true', async () => {
+      vi.mocked(mockClient.generate).mockResolvedValue(
+        makeMockAbortableAsyncIterator([mockChunk]),
+      );
+
+      const { stream, abort } = await service.sample({
+        model: 'llama2:7b',
+        prompt: 'Hi',
+        stream: true,
+      });
+
+      const chunks: GenerateResponse[] = [];
+      for await (const chunk of stream) {
+        chunks.push(chunk);
+      }
+      await abort();
+
+      expect(mockClient.generate).toHaveBeenCalledWith(
+        expect.objectContaining({ stream: true, raw: true }),
+      );
+      expect(chunks).toStrictEqual([mockChunk]);
+    });
+  });
+
+  describe('chat', () => {
+    const makeChatResponse = (
+      overrides: Partial<ChatResponse> = {},
+    ): ChatResponse =>
+      ({
+        model: 'llama3',
+        message: { role: 'assistant', content: 'hello' },
+        done: true,
+        done_reason: 'stop',
+        prompt_eval_count: 5,
+        eval_count: 3,
+        ...overrides,
+      }) as ChatResponse;
+
+    it('forwards tools to the Ollama client', async () => {
+      vi.mocked(mockClient.chat).mockResolvedValue(makeChatResponse());
+
+      await service.chat({
+        model: 'llama3',
+        messages: [{ role: 'user', content: 'hi' }],
+        tools: [
+          {
+            type: 'function',
+            function: { name: 'get_time', description: 'Returns the time' },
+          },
+        ],
+      });
+
+      expect(mockClient.chat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          tools: [
+            {
+              type: 'function',
+              function: { name: 'get_time', description: 'Returns the time' },
+            },
+          ],
+        }),
+      );
+    });
+
+    it('forwards message tool_calls with parsed arguments', async () => {
+      vi.mocked(mockClient.chat).mockResolvedValue(makeChatResponse());
+
+      await service.chat({
+        model: 'llama3',
+        messages: [
+          {
+            role: 'assistant',
+            content: null,
+            tool_calls: [
+              {
+                id: 'tc-1',
+                type: 'function',
+                function: { name: 'get_time', arguments: '{"tz":"UTC"}' },
+              },
+            ],
+          },
+        ],
+      });
+
+      expect(mockClient.chat).toHaveBeenCalledWith(
+        expect.objectContaining({
+          messages: [
+            expect.objectContaining({
+              tool_calls: [
+                { function: { name: 'get_time', arguments: { tz: 'UTC' } } },
+              ],
+            }),
+          ],
+        }),
+      );
+    });
+
+    it('maps response tool_calls back with stringified arguments', async () => {
+      vi.mocked(mockClient.chat).mockResolvedValue(
+        makeChatResponse({
+          message: {
+            role: 'assistant',
+            content: '',
+            tool_calls: [
+              { function: { name: 'get_time', arguments: { tz: 'UTC' } } },
+            ],
+          },
+        }),
+      );
+
+      const result = await service.chat({
+        model: 'llama3',
+        messages: [{ role: 'user', content: 'what time is it?' }],
+      });
+
+      expect(result.choices[0]?.message).toStrictEqual({
+        role: 'assistant',
+        content: '',
+        tool_calls: [
+          {
+            id: 'tool-0',
+            type: 'function',
+            function: { name: 'get_time', arguments: '{"tz":"UTC"}' },
+          },
+        ],
+      });
+    });
+
+    it('rejects when message tool_calls contain invalid JSON arguments', async () => {
+      await expect(
+        service.chat({
+          model: 'llama3',
+          messages: [
+            {
+              role: 'assistant',
+              content: null,
+              tool_calls: [
+                {
+                  id: 'tc-1',
+                  type: 'function',
+                  function: {
+                    name: 'get_time',
+                    arguments: '{not valid json',
+                  },
+                },
+              ],
+            },
+          ],
+        }),
+      ).rejects.toThrow('Invalid tool arguments JSON');
     });
   });
 

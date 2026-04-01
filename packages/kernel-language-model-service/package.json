@@ -23,6 +23,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./open-v1/nodejs": {
+      "import": {
+        "types": "./dist/open-v1/nodejs.d.mts",
+        "default": "./dist/open-v1/nodejs.mjs"
+      },
+      "require": {
+        "types": "./dist/open-v1/nodejs.d.cts",
+        "default": "./dist/open-v1/nodejs.cjs"
+      }
+    },
     "./ollama/nodejs": {
       "import": {
         "types": "./dist/ollama/nodejs.d.mts",
@@ -41,6 +51,16 @@
       "require": {
         "types": "./dist/test-utils/index.d.cts",
         "default": "./dist/test-utils/index.cjs"
+      }
+    },
+    "./utils/parse-tool-arguments": {
+      "import": {
+        "types": "./dist/utils/parse-tool-arguments.d.mts",
+        "default": "./dist/utils/parse-tool-arguments.mjs"
+      },
+      "require": {
+        "types": "./dist/utils/parse-tool-arguments.d.cts",
+        "default": "./dist/utils/parse-tool-arguments.cjs"
       }
     },
     "./package.json": "./package.json"
@@ -104,6 +124,8 @@
     "node": ">=22"
   },
   "dependencies": {
+    "@endo/eventual-send": "^1.3.4",
+    "@metamask/kernel-utils": "workspace:^",
     "@metamask/superstruct": "^3.2.1",
     "ollama": "^0.5.16",
     "ses": "^1.14.0"

@@ -39,6 +39,16 @@
         "default": "./dist/exo.cjs"
       }
     },
+    "./json-schema-to-struct": {
+      "import": {
+        "types": "./dist/json-schema-to-struct.d.mts",
+        "default": "./dist/json-schema-to-struct.mjs"
+      },
+      "require": {
+        "types": "./dist/json-schema-to-struct.d.cts",
+        "default": "./dist/json-schema-to-struct.cjs"
+      }
+    },
     "./discoverable": {
       "import": {
         "types": "./dist/discoverable.d.mts",

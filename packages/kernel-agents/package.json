@@ -33,6 +33,16 @@
         "default": "./dist/strategies/json-agent.cjs"
       }
     },
+    "./chat": {
+      "import": {
+        "types": "./dist/strategies/chat-agent.d.mts",
+        "default": "./dist/strategies/chat-agent.mjs"
+      },
+      "require": {
+        "types": "./dist/strategies/chat-agent.d.cts",
+        "default": "./dist/strategies/chat-agent.cjs"
+      }
+    },
     "./agent": {
       "import": {
         "types": "./dist/agent.d.mts",
@@ -186,6 +196,7 @@
     "@metamask/kernel-errors": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
+    "@metamask/superstruct": "^3.2.1",
     "@ocap/kernel-language-model-service": "workspace:^",
     "partial-json": "^0.1.7",
     "ses": "^1.14.0"

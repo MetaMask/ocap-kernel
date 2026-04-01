@@ -1,4 +1,197 @@
 /**
+ * A role in a chat conversation.
+ */
+export type ChatRole = 'system' | 'user' | 'assistant' | 'tool';
+
+/**
+ * A single tool call made by the model.
+ */
+export type ToolCall = {
+  id: string;
+  type: 'function';
+  index?: number;
+  function: { name: string; arguments: string };
+};
+
+/**
+ * A tool definition passed to the model.
+ */
+export type Tool = {
+  type: 'function';
+  function: {
+    name: string;
+    description?: string;
+    parameters?: {
+      type: 'object';
+      properties?: Record<string, unknown>;
+      required?: string[];
+    };
+  };
+};
+
+/**
+ * Chat message from the model or system (no tool metadata).
+ */
+export type SystemMessage = { role: 'system'; content: string };
+
+/**
+ * End-user turn (no tool metadata).
+ */
+export type UserMessage = { role: 'user'; content: string };
+
+/**
+ * Assistant turn; may include tool calls. `content` may be null when the model
+ * only returns tool calls.
+ */
+export type AssistantMessage = {
+  role: 'assistant';
+  content: string | null;
+  tool_calls?: ToolCall[];
+};
+
+/**
+ * Result of a tool invocation, correlated by {@link ToolCall.id}.
+ */
+export type ToolMessage = {
+  role: 'tool';
+  content: string;
+  tool_call_id: string;
+};
+
+/**
+ * A single message in a chat conversation (discriminated by `role`).
+ */
+export type ChatMessage =
+  | SystemMessage
+  | UserMessage
+  | AssistantMessage
+  | ToolMessage;
+
+/**
+ * Token usage statistics for a completion request.
+ */
+export type Usage = {
+  prompt_tokens: number;
+  completion_tokens: number;
+  total_tokens: number;
+};
+
+/**
+ * Options shared by raw sampling requests.
+ */
+export type SampleOptions = {
+  temperature?: number;
+  top_p?: number;
+  seed?: number;
+  max_tokens?: number;
+  stop?: string | string[];
+};
+
+/**
+ * Parameters for a raw token-prediction request (bypasses chat template).
+ */
+export type SampleParams = {
+  model: string;
+  prompt: string;
+} & SampleOptions;
+
+/**
+ * Result of a raw token-prediction request.
+ */
+export type SampleResult = {
+  text: string;
+};
+
+/**
+ * Parameters for a chat completion request.
+ */
+export type ChatParams = {
+  model: string;
+  messages: ChatMessage[];
+  tools?: Tool[];
+  max_tokens?: number;
+  temperature?: number;
+  top_p?: number;
+  stop?: string | string[];
+  seed?: number;
+  n?: number;
+  /** When `true`, the response is an SSE stream of {@link ChatStreamChunk}s. */
+  stream?: boolean;
+};
+
+/**
+ * Partial tool-call fragment in a streaming completion delta (OpenAI-style SSE).
+ * Fields arrive incrementally across multiple chunks.
+ */
+export type ChatStreamToolCallDelta = {
+  index?: number;
+  id?: string;
+  type?: 'function';
+  function?: { name?: string; arguments?: string };
+};
+
+/**
+ * Assistant fragment from a streaming `/v1/chat/completions` response after
+ * the Open /v1 client normalizes each SSE event. `role` is always `'assistant'`;
+ * `content` / `tool_calls` are present only when the wire event included them.
+ */
+export type AssistantStreamDelta = {
+  role: 'assistant';
+  content?: string;
+  tool_calls?: ChatStreamToolCallDelta[];
+};
+
+/** @alias {@link AssistantStreamDelta} */
+export type ChatStreamDelta = AssistantStreamDelta;
+
+/**
+ * A single chunk from a streaming chat completion response.
+ */
+export type ChatStreamChunk = {
+  id: string;
+  model: string;
+  choices: {
+    delta: AssistantStreamDelta;
+    index: number;
+    finish_reason: string | null;
+  }[];
+};
+
+/**
+ * A single choice in a chat completion response.
+ */
+export type ChatChoice = {
+  message: ChatMessage;
+  index: number;
+  finish_reason: string | null;
+};
+
+/**
+ * Result of a chat completion request.
+ */
+export type ChatResult = {
+  id: string;
+  model: string;
+  choices: ChatChoice[];
+  usage: Usage;
+};
+
+/**
+ * Minimal service interface required by `makeChatClient`.
+ */
+export type ChatService = {
+  chat(params: ChatParams & { stream: true }): AsyncIterable<ChatStreamChunk>;
+  chat(params: ChatParams & { stream?: false }): Promise<ChatResult>;
+};
+
+/**
+ * Minimal service interface required by `makeSampleClient`.
+ */
+export type SampleService = {
+  sample: (params: SampleParams) => Promise<SampleResult>;
+};
+
+/**
  * Configuration information for a language model.
  * Contains the model identifier and optional configuration parameters.
  *

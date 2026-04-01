@@ -3,6 +3,10 @@ export { makeDefaultInterface, makeDefaultExo } from './exo.ts';
 export { GET_DESCRIPTION, makeDiscoverableExo } from './discoverable.ts';
 export type { DiscoverableExo } from './discoverable.ts';
 export type { JsonSchema, MethodSchema } from './schema.ts';
+export {
+  jsonSchemaToStruct,
+  methodArgsToStruct,
+} from './json-schema-to-struct.ts';
 export { fetchValidatedJson } from './fetchValidatedJson.ts';
 export { abortableDelay, delay, ifDefined, makeCounter } from './misc.ts';
 export { stringify } from './stringify.ts';

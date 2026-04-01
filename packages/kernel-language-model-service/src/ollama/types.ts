@@ -6,21 +6,35 @@ import type {
   ListResponse,
   AbortableAsyncIterator,
   Config,
+  ChatRequest,
+  ChatResponse,
+  Tool as OllamaTool,
 } from 'ollama';
 
 import type { LanguageModel } from '../types.ts';
 
 /**
- * Interface for an Ollama client that can list models and generate responses.
+ * Interface for an Ollama client that can list models, generate responses, and chat.
  * Provides the minimal interface required for Ollama operations.
  */
 type OllamaClient = {
   list: () => Promise<ListResponse>;
-  generate: (
-    request: GenerateRequest,
-  ) => Promise<AbortableAsyncIterator<GenerateResponse>>;
+  generate(
+    request: GenerateRequest & { stream: true },
+  ): Promise<AbortableAsyncIterator<GenerateResponse>>;
+  generate(
+    request: GenerateRequest & { stream?: false },
+  ): Promise<GenerateResponse>;
+  chat(request: ChatRequest & { stream?: false }): Promise<ChatResponse>;
 };
-export type { GenerateRequest, GenerateResponse, OllamaClient };
+export type {
+  GenerateRequest,
+  GenerateResponse,
+  OllamaClient,
+  OllamaTool,
+  ChatRequest,
+  ChatResponse,
+};
 
 /**
  * Configuration for creating an Ollama service in a Node.js environment.
