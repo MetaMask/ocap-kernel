@@ -405,7 +405,15 @@ describe('OpenV1BaseService', () => {
         })) {
           // drain
         }
-      }).rejects.toThrow(StructError);
+      }).rejects.toSatisfy((rejection: unknown) => {
+        if (!(rejection instanceof Error)) {
+          return false;
+        }
+        if (!rejection.message.startsWith('Error parsing JSON: ')) {
+          return false;
+        }
+        return rejection.cause instanceof StructError;
+      });
     });
 
     it('throws when response body is null', async () => {
@@ -480,7 +488,15 @@ describe('OpenV1BaseService', () => {
         })) {
           // drain
         }
-      }).rejects.toThrow(SyntaxError);
+      }).rejects.toSatisfy((rejection: unknown) => {
+        if (!(rejection instanceof Error)) {
+          return false;
+        }
+        if (rejection.message !== 'Error parsing JSON: not-json') {
+          return false;
+        }
+        return rejection.cause instanceof SyntaxError;
+      });
     });
   });
 });

@@ -127,13 +127,18 @@ export class OpenV1BaseService {
             if (data === '[DONE]') {
               return;
             }
-            if (data) {
+            if (!data) {
+              continue;
+            }
+            try {
               const json: unknown = JSON.parse(data);
               const stripped = stripChatStreamChunkJson(json);
               assert(stripped, ChatStreamChunkStruct);
               yield harden(
                 normalizeStreamChunk(stripped as ChatStreamChunkWire),
               );
+            } catch (cause: unknown) {
+              throw new Error(`Error parsing JSON: ${data}`, { cause });
             }
           }
         }
