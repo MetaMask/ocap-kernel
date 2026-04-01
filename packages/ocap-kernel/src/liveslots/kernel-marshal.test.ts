@@ -1,7 +1,20 @@
 import { passStyleOf } from '@endo/marshal';
+import {
+  isKernelError,
+  getKernelErrorCode,
+  isFatalKernelError,
+} from '@metamask/kernel-errors';
 import { describe, it, expect } from 'vitest';
 
-import { kslot, krefOf, kser, kunser, makeError } from './kernel-marshal.ts';
+import {
+  kslot,
+  krefOf,
+  kser,
+  kunser,
+  makeError,
+  makeKernelError,
+  makeFatalKernelError,
+} from './kernel-marshal.ts';
 import type { SlotValue } from './kernel-marshal.ts';
 
 describe('kernel-marshal', () => {
@@ -118,6 +131,54 @@ describe('kernel-marshal', () => {
 
       expect(passStyleOf(deserialized.obj)).toBe('remotable');
       expect(passStyleOf(deserialized.promise)).toBe('promise');
+    });
+  });
+
+  describe('makeKernelError', () => {
+    it('serializes an expected kernel error with the correct format', () => {
+      const serialized = makeKernelError('OBJECT_DELETED', 'Target deleted');
+      const deserialized = kunser(serialized);
+
+      expect(deserialized).toBeInstanceOf(Error);
+      expect((deserialized as Error).message).toBe(
+        '[KERNEL:OBJECT_DELETED] Target deleted',
+      );
+    });
+
+    it('round-trips through kernel-errors detection utilities', () => {
+      const serialized = makeKernelError(
+        'CONNECTION_LOST',
+        'Remote connection lost',
+      );
+      const deserialized = kunser(serialized) as Error;
+
+      expect(isKernelError(deserialized)).toBe(true);
+      expect(getKernelErrorCode(deserialized)).toBe('CONNECTION_LOST');
+      expect(isFatalKernelError(deserialized)).toBe(false);
+    });
+  });
+
+  describe('makeFatalKernelError', () => {
+    it('serializes a fatal kernel error with the VAT_FATAL infix', () => {
+      const serialized = makeFatalKernelError('ILLEGAL_SYSCALL', 'Bad syscall');
+      const deserialized = kunser(serialized);
+
+      expect(deserialized).toBeInstanceOf(Error);
+      expect((deserialized as Error).message).toBe(
+        '[KERNEL:VAT_FATAL:ILLEGAL_SYSCALL] Bad syscall',
+      );
+    });
+
+    it('round-trips through kernel-errors detection utilities', () => {
+      const serialized = makeFatalKernelError(
+        'INTERNAL_ERROR',
+        'Something broke',
+      );
+      const deserialized = kunser(serialized) as Error;
+
+      expect(isKernelError(deserialized)).toBe(true);
+      expect(getKernelErrorCode(deserialized)).toBe('INTERNAL_ERROR');
+      expect(isFatalKernelError(deserialized)).toBe(true);
     });
   });
 

@@ -4,6 +4,7 @@ import type {
   VatSyscallObject,
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
+import type { FatalKernelErrorCode } from '@metamask/kernel-errors';
 import { Logger } from '@metamask/logger';
 
 import {
@@ -279,10 +280,7 @@ export class VatSyscall {
    * @param code - The fatal kernel error code.
    * @param detail - A human-readable description of the error.
    */
-  #recordVatFatalSyscall(
-    code: 'ILLEGAL_SYSCALL' | 'INTERNAL_ERROR',
-    detail: string,
-  ): void {
+  #recordVatFatalSyscall(code: FatalKernelErrorCode, detail: string): void {
     this.illegalSyscall = {
       vatId: this.vatId,
       info: makeFatalKernelError(code, detail),
