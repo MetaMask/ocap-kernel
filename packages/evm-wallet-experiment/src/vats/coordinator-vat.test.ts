@@ -1563,11 +1563,7 @@ describe('coordinator-vat', () => {
       ['a number', 42],
     ])(
       'rejects %s as external signer',
-      async (
-        _label: string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        signer: any,
-      ) => {
+      async (_label: string, signer: unknown) => {
         await expect(coordinator.connectExternalSigner(signer)).rejects.toThrow(
           'Invalid external signer',
         );
@@ -1757,11 +1753,7 @@ describe('coordinator-vat', () => {
       ['a number', 42],
     ])(
       'rejects %s as away wallet reference',
-      async (
-        _label: string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ref: any,
-      ) => {
+      async (_label: string, ref: unknown) => {
         await expect(coordinator.registerAwayWallet(ref)).rejects.toThrow(
           'Invalid away wallet reference: must be a non-null object',
         );
@@ -2209,11 +2201,7 @@ describe('coordinator-vat', () => {
       ['null', null],
     ])(
       'rejects %s as delegate address',
-      async (
-        _label: string,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        addr: any,
-      ) => {
+      async (_label: string, addr: unknown) => {
         await expect(coordinator.registerDelegateAddress(addr)).rejects.toThrow(
           'Invalid delegate address',
         );

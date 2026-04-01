@@ -44,10 +44,10 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 REPO_ROOT="$(cd "$PKG_ROOT/../.." && pwd)"
-OCAP_BIN="$REPO_ROOT/packages/cli/dist/app.mjs"
+OCAP_BIN="$REPO_ROOT/packages/kernel-cli/dist/app.mjs"
 
 if [[ ! -f "$OCAP_BIN" ]]; then
-  echo "Error: ocap CLI not found at $OCAP_BIN. Run 'yarn workspace @ocap/cli build' first." >&2
+  echo "Error: ocap CLI not found at $OCAP_BIN. Run 'yarn workspace @metamask/kernel-cli build' first." >&2
   exit 1
 fi
 
@@ -67,42 +67,22 @@ info()  { echo -e "${CYAN}→${RESET} $*" >&2; }
 ok()    { echo -e "  ${GREEN}✓${RESET} $*" >&2; }
 fail()  { echo -e "  ${RED}✗${RESET} $*" >&2; exit 1; }
 
-parse_capdata() {
-  node -e "
-    const raw = require('fs').readFileSync('/dev/stdin', 'utf8').trim();
-    if (!raw) { process.stderr.write('parse_capdata: empty input\n'); process.exit(1); }
-    let data;
-    try { data = JSON.parse(raw); } catch (e) {
-      process.stderr.write('parse_capdata: invalid JSON: ' + raw.slice(0, 200) + '\n');
-      process.exit(1);
-    }
-    if (!data.body || typeof data.body !== 'string') {
-      process.stderr.write('parse_capdata: missing body field: ' + raw.slice(0, 200) + '\n');
-      process.exit(1);
-    }
-    if (!data.body.startsWith('#')) {
-      process.stderr.write('parse_capdata: body does not start with #: ' + data.body.slice(0, 100) + '\n');
-      process.exit(1);
-    }
-    let value;
-    try { value = JSON.parse(data.body.slice(1)); } catch (e) {
-      process.stderr.write('parse_capdata: invalid CapData body: ' + data.body.slice(0, 200) + '\n');
-      process.exit(1);
-    }
-    process.stdout.write(typeof value === 'string' ? value : JSON.stringify(value));
-  "
-}
-
-daemon_exec() {
+# Run `ocap daemon queueMessage` (auto-decodes CapData via prettifySmallcaps).
+# Usage: daemon_qm [--quiet] KREF METHOD [ARGS_JSON] [--timeout N] [--raw]
+# --quiet suppresses the stderr log line
+# Remaining args are passed through to the CLI (including --raw, --timeout).
+daemon_qm() {
   local quiet=false
   if [[ "${1:-}" == "--quiet" ]]; then
     quiet=true
     shift
   fi
+  # $1=kref, $2=method after any --quiet shift
+  local method="${2:-}"
   local result
-  result=$(node "$OCAP_BIN" daemon exec "$@")
+  result=$(node "$OCAP_BIN" daemon queueMessage "$@")
   if [[ -n "$result" && "$quiet" == false ]]; then
-    echo "  [daemon exec $1] $result" >&2
+    echo "  [queueMessage $method] $result" >&2
   fi
   echo "$result"
 }
@@ -112,10 +92,8 @@ daemon_exec() {
 # ---------------------------------------------------------------------------
 
 info "Fetching current delegations..."
-ACCOUNTS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getAccounts\", []]")
-ACCOUNTS=$(echo "$ACCOUNTS_RAW" | parse_capdata)
-DEL_LIST_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"listDelegations\", []]")
-DEL_LIST=$(echo "$DEL_LIST_RAW" | parse_capdata)
+ACCOUNTS=$(daemon_qm --quiet "$ROOT_KREF" getAccounts)
+DEL_LIST=$(daemon_qm --quiet "$ROOT_KREF" listDelegations)
 
 # Show only active (signed) delegations issued by this device
 ACTIVE_INFO=$(ACCTS="$ACCOUNTS" node -e "
@@ -235,7 +213,7 @@ echo -e "  ${DIM}Each revocation submits a UserOp and waits for on-chain confirm
 REVOKE_FAILED=0
 while read -r DEL_ID; do
   echo -e "  ${DIM}Revoking $DEL_ID...${RESET}" >&2
-  REVOKE_OUTPUT=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"revokeDelegation\", [\"$DEL_ID\"]]" --timeout 120) || {
+  REVOKE_OUTPUT=$(daemon_qm --quiet "$ROOT_KREF" revokeDelegation "[\"$DEL_ID\"]" --timeout 120) || {
     echo -e "  ${RED}✗${RESET} Failed to revoke delegation $DEL_ID" >&2
     if [[ -n "$REVOKE_OUTPUT" ]]; then
       echo -e "  ${DIM}Reason: $REVOKE_OUTPUT${RESET}" >&2
@@ -243,26 +221,27 @@ while read -r DEL_ID; do
     REVOKE_FAILED=$((REVOKE_FAILED + 1))
     continue
   }
-  # Check if the daemon returned a CapData-wrapped error (exit code is still 0).
-  # The CapData body contains "#error" as a JSON key; grep the raw output.
-  if echo "$REVOKE_OUTPUT" | grep -q '#error'; then
-    ERR_MSG=$(echo "$REVOKE_OUTPUT" | parse_capdata | node -e "
-      const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
-      try {
-        const d = JSON.parse(raw);
-        process.stdout.write(d['#error'] || raw);
-      } catch (e) {
-        process.stderr.write('Failed to parse error body: ' + e.message + '\n');
-        process.stdout.write(raw || 'Unknown error');
-      }
+  # prettifySmallcaps converts #error objects to "[ErrorName: msg]" strings,
+  # but also converts manifest constants to "[undefined]", "[NaN]", etc.
+  # Distinguish errors by the ": " separator (errors always have "Name: msg").
+  IS_ERROR=$(echo "$REVOKE_OUTPUT" | node -e "
+    const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+    process.stdout.write(typeof v === 'string' && /^\[.+: /.test(v) ? 'true' : 'false');
+  " 2>/dev/null || echo "false")
+  if [[ "$IS_ERROR" == "true" ]]; then
+    ERR_MSG=$(echo "$REVOKE_OUTPUT" | node -e "
+      const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+      process.stdout.write(typeof v === 'string' ? v : JSON.stringify(v));
     " 2>/dev/null) || ERR_MSG="Unknown error"
     echo -e "  ${RED}✗${RESET} Failed to revoke delegation $DEL_ID" >&2
     echo -e "     ${DIM}Reason: $ERR_MSG${RESET}" >&2
     REVOKE_FAILED=$((REVOKE_FAILED + 1))
     continue
   fi
-  # Extract userOpHash from CapData and print explorer link
-  USER_OP_HASH=$(echo "$REVOKE_OUTPUT" | parse_capdata 2>/dev/null) || USER_OP_HASH=""
+  USER_OP_HASH=$(echo "$REVOKE_OUTPUT" | node -e "
+    const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
+    if (typeof v === 'string') process.stdout.write(v);
+  " 2>/dev/null) || USER_OP_HASH=""
   if [[ -n "$USER_OP_HASH" && "$USER_OP_HASH" == 0x* ]]; then
     if [[ "$CHAIN_ID" == "1" ]]; then
       EXPLORER_URL="https://eth.blockscout.com/op/${USER_OP_HASH}"
@@ -291,12 +270,10 @@ else
   echo -e "  ${DIM}Caveats: $CAVEATS_JSON${RESET}" >&2
 fi
 
-DEL_PARAMS=$(KREF="$ROOT_KREF" DEL="$DELEGATE_ADDR" CID="$CHAIN_ID" CAVS="$CAVEATS_JSON" node -e "
-  const p = JSON.stringify([process.env.KREF, 'createDelegation', [{ delegate: process.env.DEL, caveats: JSON.parse(process.env.CAVS), chainId: Number(process.env.CID) }]]);
-  process.stdout.write(p);
+DEL_ARGS=$(DEL="$DELEGATE_ADDR" CID="$CHAIN_ID" CAVS="$CAVEATS_JSON" node -e "
+  process.stdout.write(JSON.stringify([{ delegate: process.env.DEL, caveats: JSON.parse(process.env.CAVS), chainId: Number(process.env.CID) }]));
 ")
-DEL_RAW=$(daemon_exec queueMessage "$DEL_PARAMS")
-DEL_JSON=$(echo "$DEL_RAW" | parse_capdata)
+DEL_JSON=$(daemon_qm "$ROOT_KREF" createDelegation "$DEL_ARGS")
 ok "New delegation created"
 
 # ---------------------------------------------------------------------------
@@ -305,11 +282,10 @@ ok "New delegation created"
 
 # Check if the away device has registered a back-channel
 HAS_AWAY="false"
-CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
-if [[ -n "$CAPS_RAW" ]]; then
-  HAS_AWAY=$(echo "$CAPS_RAW" | node -e "
-    const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
-    const v = JSON.parse(d.body.slice(1));
+CAPS_RESULT=$(daemon_qm --quiet "$ROOT_KREF" getCapabilities 2>/dev/null) || CAPS_RESULT=""
+if [[ -n "$CAPS_RESULT" ]]; then
+  HAS_AWAY=$(echo "$CAPS_RESULT" | node -e "
+    const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
     process.stdout.write(String(v.hasAwayWallet === true));
   " 2>&1) || {
     echo -e "  ${YELLOW}Warning: Failed to parse capabilities — cannot auto-push delegation${RESET}" >&2
@@ -321,11 +297,10 @@ fi
 
 if [[ "$HAS_AWAY" == "true" ]]; then
   info "Pushing delegation to away device..."
-  PUSH_PARAMS=$(KREF="$ROOT_KREF" DEL="$DEL_JSON" OLD="$OLD_IDS" node -e "
-    const p = JSON.stringify([process.env.KREF, 'pushDelegationToAway', [JSON.parse(process.env.DEL), JSON.parse(process.env.OLD)]]);
-    process.stdout.write(p);
+  PUSH_ARGS=$(DEL="$DEL_JSON" OLD="$OLD_IDS" node -e "
+    process.stdout.write(JSON.stringify([JSON.parse(process.env.DEL), JSON.parse(process.env.OLD)]));
   ")
-  PUSH_OUTPUT=$(daemon_exec --quiet queueMessage "$PUSH_PARAMS" --timeout 30 2>&1) && {
+  PUSH_OUTPUT=$(daemon_qm --quiet "$ROOT_KREF" pushDelegationToAway "$PUSH_ARGS" --timeout 30 2>&1) && {
     ok "Delegation pushed to away device"
   } || {
     echo -e "  ${RED}✗${RESET} Push failed — falling back to manual transfer" >&2
@@ -342,13 +317,10 @@ if [[ "$HAS_AWAY" != "true" ]]; then
     const ids = JSON.parse(process.env.IDS);
     const lines = [];
     for (const id of ids) {
-      const args = JSON.stringify([kref, 'revokeDelegationLocally', [id]]);
-      const escaped = args.replace(/'/g, \"'\\\\''\" );
-      lines.push('yarn ocap daemon exec queueMessage ' + \"'\" + escaped + \"'\");
+      lines.push('yarn ocap daemon queueMessage ' + kref + ' revokeDelegationLocally \'[\"' + id + '\"]\'');
     }
-    const recvArgs = JSON.stringify([kref, 'receiveDelegation', [JSON.parse(process.env.DEL)]]);
-    const recvEscaped = recvArgs.replace(/'/g, \"'\\\\''\" );
-    lines.push('yarn ocap daemon exec queueMessage ' + \"'\" + recvEscaped + \"'\");
+    const del = process.env.DEL.replace(/'/g, \"'\\\\''\" );
+    lines.push('yarn ocap daemon queueMessage ' + kref + ' receiveDelegation \'[' + del + ']\'');
     process.stdout.write(lines.join('\n'));
   ")
 

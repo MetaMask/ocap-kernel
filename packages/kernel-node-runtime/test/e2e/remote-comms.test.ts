@@ -636,7 +636,7 @@ describe.sequential('Remote Communications E2E', () => {
         const newMessage = kunser(newMessageResult);
         expect(newMessage).toBe('Sequence 999 received');
       },
-      NETWORK_TIMEOUT * 3,
+      NETWORK_TIMEOUT * 4,
     );
   });
 
@@ -651,10 +651,15 @@ describe.sequential('Remote Communications E2E', () => {
         });
         let kernel3: Kernel | undefined;
 
+        // Use a longer ACK timeout for the initiating kernel — it must redeem
+        // URLs on two peers that restart sequentially through the relay, so the
+        // default 2s × (3+1) = 8s redemption window is too tight for CI.
+        const multiPeerBackoff = { ...testBackoffOptions, ackTimeoutMs: 5_000 };
+
         try {
           await kernel1.initRemoteComms({
             relays: testRelays,
-            ...testBackoffOptions,
+            ...multiPeerBackoff,
           });
           await kernel2.initRemoteComms({
             relays: testRelays,
@@ -757,7 +762,7 @@ describe.sequential('Remote Communications E2E', () => {
           }
         }
       },
-      NETWORK_TIMEOUT * 3,
+      NETWORK_TIMEOUT * 4,
     );
   });
 

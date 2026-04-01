@@ -155,44 +155,12 @@ DIM='\033[2m'
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 CYAN='\033[0;36m'
+YELLOW='\033[0;33m'
 RESET='\033[0m'
 
 info()  { echo -e "${CYAN}→${RESET} $*" >&2; }
 ok()    { echo -e "  ${GREEN}✓${RESET} $*" >&2; }
 fail()  { echo -e "  ${RED}✗${RESET} $*" >&2; exit 1; }
-
-parse_capdata() {
-  node -e "
-    const raw = require('fs').readFileSync('/dev/stdin', 'utf8').trim();
-    if (!raw) {
-      process.stderr.write('parse_capdata: empty input\n');
-      process.exit(1);
-    }
-    let data;
-    try { data = JSON.parse(raw); } catch (e) {
-      process.stderr.write('parse_capdata: invalid JSON: ' + raw.slice(0, 200) + '\n');
-      process.exit(1);
-    }
-    if (!data.body || typeof data.body !== 'string') {
-      process.stderr.write('parse_capdata: missing body field: ' + raw.slice(0, 200) + '\n');
-      process.exit(1);
-    }
-    if (!data.body.startsWith('#')) {
-      process.stderr.write('parse_capdata: unexpected body prefix: ' + data.body.slice(0, 200) + '\n');
-      process.exit(1);
-    }
-    if (data.slots && data.slots.length > 0) {
-      process.stderr.write('parse_capdata: cannot handle slot references\n');
-      process.exit(1);
-    }
-    let value;
-    try { value = JSON.parse(data.body.slice(1)); } catch (e) {
-      process.stderr.write('parse_capdata: invalid CapData body: ' + data.body.slice(0, 200) + '\n');
-      process.exit(1);
-    }
-    process.stdout.write(typeof value === 'string' ? value : JSON.stringify(value));
-  "
-}
 
 # Run a daemon exec command and log its output to stderr.
 # Usage: daemon_exec [--quiet] <method> <params> [--timeout <seconds>]
@@ -207,6 +175,26 @@ daemon_exec() {
   result=$(node "$OCAP_BIN" daemon exec "$@")
   if [[ -n "$result" && "$quiet" == false ]]; then
     echo "  [daemon exec $1] $result" >&2
+  fi
+  echo "$result"
+}
+
+# Run `ocap daemon queueMessage` (auto-decodes CapData via prettifySmallcaps).
+# Usage: daemon_qm [--quiet] KREF METHOD [ARGS_JSON] [--timeout N] [--raw]
+# --quiet suppresses the stderr log line
+# Remaining args are passed through to the CLI (including --raw, --timeout).
+daemon_qm() {
+  local quiet=false
+  if [[ "${1:-}" == "--quiet" ]]; then
+    quiet=true
+    shift
+  fi
+  # $1=kref, $2=method after any --quiet shift
+  local method="${2:-}"
+  local result
+  result=$(node "$OCAP_BIN" daemon queueMessage "$@")
+  if [[ -n "$result" && "$quiet" == false ]]; then
+    echo "  [queueMessage $method] $result" >&2
   fi
   echo "$result"
 }
@@ -246,21 +234,16 @@ if [[ -n "$RELAY_ADDR" ]]; then
 else
   info "Initializing remote comms (direct QUIC on port $QUIC_PORT)..."
 fi
-COMMS_PARAMS="{\"directListenAddresses\":[\"/ip4/0.0.0.0/udp/${QUIC_PORT}/quic-v1\"]"
-if [[ -n "$RELAY_ADDR" ]]; then
-  COMMS_PARAMS="${COMMS_PARAMS},\"relays\":[\"${RELAY_ADDR}\"]"
-  # Extract the relay host (IP or hostname) for the ws:// allowlist.
-  # Plain ws:// to public IPs is denied by default; allowedWsHosts permits it.
-  RELAY_HOST=$(echo "$RELAY_ADDR" | node -e "
-    const addr = require('fs').readFileSync('/dev/stdin','utf8').trim();
-    const m = addr.match(/\\/(?:ip4|ip6|dns4|dns6)\\/([^\\/]+)/);
-    if (m) process.stdout.write(m[1]);
-  ")
-  if [[ -n "$RELAY_HOST" ]]; then
-    COMMS_PARAMS="${COMMS_PARAMS},\"allowedWsHosts\":[\"${RELAY_HOST}\"]"
-  fi
-fi
-COMMS_PARAMS="${COMMS_PARAMS}}"
+COMMS_PARAMS=$(QUIC="$QUIC_PORT" RELAY="$RELAY_ADDR" node -e "
+  const p = { directListenAddresses: ['/ip4/0.0.0.0/udp/' + process.env.QUIC + '/quic-v1'] };
+  const relay = process.env.RELAY;
+  if (relay) {
+    p.relays = [relay];
+    const m = relay.match(/\\/(?:ip4|ip6|dns4|dns6)\\/([^\\/]+)/);
+    if (m) p.allowedWsHosts = [m[1]];
+  }
+  process.stdout.write(JSON.stringify(p));
+")
 daemon_exec initRemoteComms "$COMMS_PARAMS" >/dev/null
 ok "Remote comms initialized"
 
@@ -427,12 +410,14 @@ info "Initializing throwaway keyring..."
 # is unavailable inside vats). The entropy is passed to the keyring vat which uses
 # it as the private key for the throwaway account.
 ENTROPY="0x$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
-daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"initializeKeyring\", [{\"type\":\"throwaway\",\"entropy\":\"$ENTROPY\"}]]" >/dev/null
+INIT_ARGS=$(ENTROPY="$ENTROPY" node -e "
+  process.stdout.write(JSON.stringify([{ type: 'throwaway', entropy: process.env.ENTROPY }]));
+")
+daemon_qm --quiet "$ROOT_KREF" initializeKeyring "$INIT_ARGS" >/dev/null
 ok "Throwaway keyring initialized"
 
 info "Verifying accounts..."
-ACCOUNTS_RAW=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"getAccounts\", []]")
-ACCOUNTS=$(echo "$ACCOUNTS_RAW" | parse_capdata)
+ACCOUNTS=$(daemon_qm "$ROOT_KREF" getAccounts)
 ok "Local throwaway account: $ACCOUNTS"
 
 # ---------------------------------------------------------------------------
@@ -447,12 +432,11 @@ if [[ -n "$INFURA_KEY" ]]; then
   fi
   info "Configuring provider ($(chain_name "$CHAIN_ID"), chain $CHAIN_ID)..."
 
-  PROVIDER_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" URL="$RPC_URL" node -e "
-    const p = JSON.stringify([process.env.KREF, 'configureProvider', [{ chainId: Number(process.env.CID), rpcUrl: process.env.URL }]]);
-    process.stdout.write(p);
+  PROVIDER_ARGS=$(CID="$CHAIN_ID" URL="$RPC_URL" node -e "
+    process.stdout.write(JSON.stringify([{ chainId: Number(process.env.CID), rpcUrl: process.env.URL }]));
   ")
 
-  daemon_exec queueMessage "$PROVIDER_PARAMS" >/dev/null
+  daemon_qm "$ROOT_KREF" configureProvider "$PROVIDER_ARGS" >/dev/null
   ok "Provider configured — $RPC_URL"
 fi
 
@@ -465,12 +449,11 @@ if [[ -n "$PIMLICO_KEY" ]]; then
   BUNDLER_URL="${PIMLICO_BASE}?apikey=${PIMLICO_KEY}"
   info "Configuring bundler (Pimlico)..."
 
-  BUNDLER_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" BURL="$BUNDLER_URL" node -e "
-    const p = JSON.stringify([process.env.KREF, 'configureBundler', [{ bundlerUrl: process.env.BURL, chainId: Number(process.env.CID), usePaymaster: true }]]);
-    process.stdout.write(p);
+  BUNDLER_ARGS=$(CID="$CHAIN_ID" BURL="$BUNDLER_URL" node -e "
+    process.stdout.write(JSON.stringify([{ bundlerUrl: process.env.BURL, chainId: Number(process.env.CID), usePaymaster: true }]));
   ")
 
-  daemon_exec queueMessage "$BUNDLER_PARAMS" >/dev/null
+  daemon_qm "$ROOT_KREF" configureBundler "$BUNDLER_ARGS" >/dev/null
   ok "Bundler configured — Pimlico (chain $CHAIN_ID)"
 
   # Create a Hybrid smart account (counterfactual — no on-chain tx needed).
@@ -478,12 +461,11 @@ if [[ -n "$PIMLICO_KEY" ]]; then
   # The away device can't use stateless7702 because the throwaway EOA has
   # no ETH to pay for the on-chain EIP-7702 authorization tx.
   info "Setting up smart account (Hybrid, counterfactual)..."
-  SA_PARAMS=$(KREF="$ROOT_KREF" CID="$CHAIN_ID" node -e "
-    const p = JSON.stringify([process.env.KREF, 'createSmartAccount', [{ chainId: Number(process.env.CID) }]]);
-    process.stdout.write(p);
+  SA_ARGS=$(CID="$CHAIN_ID" node -e "
+    process.stdout.write(JSON.stringify([{ chainId: Number(process.env.CID) }]));
   ")
-  SA_RAW=$(daemon_exec queueMessage "$SA_PARAMS" --timeout 120)
-  SMART_ACCOUNT=$(echo "$SA_RAW" | parse_capdata | node -e "
+  SA_RESULT=$(daemon_qm "$ROOT_KREF" createSmartAccount "$SA_ARGS" --timeout 120)
+  SMART_ACCOUNT=$(echo "$SA_RESULT" | node -e "
     const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8'));
     process.stdout.write(d.address || '');
   " 2>/dev/null || echo "")
@@ -502,12 +484,11 @@ fi
 
 info "Connecting to home wallet..."
 
-CONNECT_PARAMS=$(KREF="$ROOT_KREF" PEER_URL="$OCAP_URL" node -e "
-  const p = JSON.stringify([process.env.KREF, 'connectToPeer', [process.env.PEER_URL]]);
-  process.stdout.write(p);
+CONNECT_ARGS=$(PEER_URL="$OCAP_URL" node -e "
+  process.stdout.write(JSON.stringify([process.env.PEER_URL]));
 ")
 
-daemon_exec queueMessage "$CONNECT_PARAMS" --timeout 120 >/dev/null
+daemon_qm "$ROOT_KREF" connectToPeer "$CONNECT_ARGS" --timeout 120 >/dev/null
 
 # ---------------------------------------------------------------------------
 # 9. Wait for peer wallet connection
@@ -515,12 +496,11 @@ daemon_exec queueMessage "$CONNECT_PARAMS" --timeout 120 >/dev/null
 
 info "Waiting for peer wallet connection (up to 60s)..."
 for i in $(seq 1 60); do
-  CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
-  if [[ -n "$CAPS_RAW" ]]; then
-    HAS_PEER=$(echo "$CAPS_RAW" | node -e "
+  CAPS_RESULT=$(daemon_qm --quiet "$ROOT_KREF" getCapabilities 2>/dev/null) || CAPS_RESULT=""
+  if [[ -n "$CAPS_RESULT" ]]; then
+    HAS_PEER=$(echo "$CAPS_RESULT" | node -e "
       try {
-        const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
-        const v = JSON.parse(d.body.slice(1));
+        const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
         process.stdout.write(String(v.hasPeerWallet));
       } catch { process.stdout.write('false'); }
     " 2>/dev/null || echo "false")
@@ -540,8 +520,7 @@ ok "Peer wallet connected and verified"
 # ---------------------------------------------------------------------------
 
 info "Caching home device accounts for offline use..."
-CACHED_RAW=$(daemon_exec queueMessage "[\"$ROOT_KREF\", \"refreshPeerAccounts\", []]")
-CACHED_ACCOUNTS=$(echo "$CACHED_RAW" | parse_capdata)
+CACHED_ACCOUNTS=$(daemon_qm "$ROOT_KREF" refreshPeerAccounts)
 ok "Cached peer accounts: $CACHED_ACCOUNTS"
 
 # ---------------------------------------------------------------------------
@@ -563,11 +542,7 @@ fi
 # ---------------------------------------------------------------------------
 
 info "Sending delegate address to home device..."
-SEND_ADDR_PARAMS=$(KREF="$ROOT_KREF" ADDR="$DELEGATE_ADDR" node -e "
-  const p = JSON.stringify([process.env.KREF, 'sendDelegateAddressToPeer', [process.env.ADDR]]);
-  process.stdout.write(p);
-")
-if daemon_exec --quiet queueMessage "$SEND_ADDR_PARAMS" --timeout 15 >/dev/null 2>&1; then
+if daemon_qm --quiet "$ROOT_KREF" sendDelegateAddressToPeer "[\"$DELEGATE_ADDR\"]" --timeout 15 >/dev/null 2>&1; then
   ok "Delegate address sent to home device: $DELEGATE_ADDR"
 else
   echo -e "  ${YELLOW}Could not send delegate address automatically.${RESET}" >&2
@@ -596,12 +571,11 @@ DEL_COUNT="0"
 POLL_FAILURES=0
 MANUAL_SKIP=false
 for i in $(seq 1 300); do
-  CAPS_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_RAW=""
-  if [[ -n "$CAPS_RAW" ]]; then
+  CAPS_RESULT=$(daemon_qm --quiet "$ROOT_KREF" getCapabilities 2>/dev/null) || CAPS_RESULT=""
+  if [[ -n "$CAPS_RESULT" ]]; then
     POLL_FAILURES=0
-    DEL_COUNT=$(echo "$CAPS_RAW" | node -e "
-      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
-      const v = JSON.parse(d.body.slice(1));
+    DEL_COUNT=$(echo "$CAPS_RESULT" | node -e "
+      const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
       process.stdout.write(String(v.delegationCount));
     " 2>/dev/null || echo "0")
     if [[ "$DEL_COUNT" != "0" ]]; then
@@ -611,7 +585,7 @@ for i in $(seq 1 300); do
   else
     POLL_FAILURES=$((POLL_FAILURES + 1))
     if [[ "$POLL_FAILURES" -ge 5 ]]; then
-      fail "Daemon appears to be down (5 consecutive failed polls). Check: tail -f ~/.ocap/daemon.log"
+      fail "Daemon appears to be down (5 consecutive failed polls). Check: tail -f ${OCAP_HOME:-~/.ocap}/daemon.log"
     fi
   fi
   if [[ "$i" -eq 300 ]]; then
@@ -637,6 +611,7 @@ if [[ "$MANUAL_SKIP" == true && "$DEL_COUNT" == "0" ]]; then
     fail "No delegation JSON provided"
   fi
 
+  # Accept both CapData format (from old CLI) and plain JSON (from new CLI)
   DELEGATION_INNER=$(echo "$DELEGATION_JSON" | node -e "
     const raw = require('fs').readFileSync('/dev/stdin', 'utf8').trim();
     let data;
@@ -658,18 +633,16 @@ if [[ "$MANUAL_SKIP" == true && "$DEL_COUNT" == "0" ]]; then
   ")
 
   info "Receiving delegation..."
-  RECEIVE_PARAMS=$(KREF="$ROOT_KREF" DEL="$DELEGATION_INNER" node -e "
-    const p = JSON.stringify([process.env.KREF, 'receiveDelegation', [JSON.parse(process.env.DEL)]]);
-    process.stdout.write(p);
+  RECEIVE_ARGS=$(DEL="$DELEGATION_INNER" node -e "
+    process.stdout.write(JSON.stringify([JSON.parse(process.env.DEL)]));
   ")
-  daemon_exec queueMessage "$RECEIVE_PARAMS" >/dev/null
+  daemon_qm "$ROOT_KREF" receiveDelegation "$RECEIVE_ARGS" >/dev/null
   ok "Delegation received (manual)"
 
-  CAPS_FINAL_RAW=$(daemon_exec --quiet queueMessage "[\"$ROOT_KREF\", \"getCapabilities\", []]" 2>/dev/null) || CAPS_FINAL_RAW=""
-  DEL_COUNT=$(echo "$CAPS_FINAL_RAW" | node -e "
+  CAPS_FINAL=$(daemon_qm --quiet "$ROOT_KREF" getCapabilities 2>/dev/null) || CAPS_FINAL=""
+  DEL_COUNT=$(echo "$CAPS_FINAL" | node -e "
     try {
-      const d = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
-      const v = JSON.parse(d.body.slice(1));
+      const v = JSON.parse(require('fs').readFileSync('/dev/stdin','utf8').trim());
       process.stdout.write(String(v.delegationCount));
     } catch { process.stdout.write('0'); }
   " 2>/dev/null || echo "0")
@@ -692,7 +665,7 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
   $(echo -e "${DIM}")Cached accounts  :$(echo -e "${RESET}") $CACHED_ACCOUNTS
   $(echo -e "${DIM}")Peer connected   :$(echo -e "${RESET}") $(echo -e "${GREEN}")true$(echo -e "${RESET}")
 
-  Watch daemon logs: $(echo -e "${DIM}")tail -f ~/.ocap/daemon.log$(echo -e "${RESET}")
+  Watch daemon logs: $(echo -e "${DIM}")tail -f ${OCAP_HOME:-~/.ocap}/daemon.log$(echo -e "${RESET}")
   Stop the daemon:   $(echo -e "${DIM}")yarn ocap daemon stop$(echo -e "${RESET}")
   Purge all state:   $(echo -e "${DIM}")yarn ocap daemon purge --force$(echo -e "${RESET}")
 
