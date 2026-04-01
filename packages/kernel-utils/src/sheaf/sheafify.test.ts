@@ -448,6 +448,43 @@ describe('sheafify', () => {
     expect(liftCalled).toBe(false);
   });
 
+  it('collapses no-metadata and empty-object metadata as equivalent', async () => {
+    type Meta = Record<string, never>;
+    let liftCalled = false;
+
+    const sections: PresheafSection<Meta>[] = [
+      {
+        exo: makeExo(
+          'Wallet:0',
+          M.interface('Wallet:0', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: (_acct: string) => 100 },
+        ) as unknown as Section,
+      },
+      {
+        exo: makeExo(
+          'Wallet:1',
+          M.interface('Wallet:1', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: (_acct: string) => 42 },
+        ) as unknown as Section,
+        metadata: constant({}),
+      },
+    ];
+
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+      lift: async (_germs) => {
+        liftCalled = true;
+        return Promise.resolve(0);
+      },
+    });
+    await E(wallet).getBalance('alice');
+
+    expect(liftCalled).toBe(false);
+  });
+
   it('mixed sections participate in lift', async () => {
     const argmin: Lift<{ cost: number }> = async (germs) =>
       Promise.resolve(

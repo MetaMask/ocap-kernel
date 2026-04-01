@@ -20,7 +20,6 @@ import {
 } from '@endo/patterns';
 import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
 
-import { ifDefined } from '../misc.ts';
 import { stringify } from '../stringify.ts';
 import { collectSheafGuard } from './guard.ts';
 import type { MethodGuardPayload } from './guard.ts';
@@ -41,15 +40,13 @@ import type {
  * @param metadata - The metadata value to serialize.
  * @returns A string key for equivalence comparison.
  */
-const metadataKey = (metadata: unknown): string => {
-  if (metadata === undefined || metadata === null) {
+const metadataKey = (metadata: Record<string, unknown>): string => {
+  const keys = Object.keys(metadata);
+  if (keys.length === 0) {
     return 'null';
   }
-  if (typeof metadata !== 'object') {
-    return JSON.stringify(metadata);
-  }
-  const entries = Object.entries(metadata as Record<string, unknown>).sort(
-    ([a], [b]) => a.localeCompare(b),
+  const entries = Object.entries(metadata).sort(([a], [b]) =>
+    a.localeCompare(b),
   );
   return JSON.stringify(entries);
 };
@@ -61,7 +58,7 @@ const metadataKey = (metadata: unknown): string => {
  * @param stalk - The stalk entries to collapse.
  * @returns One representative per equivalence class.
  */
-const collapseEquivalent = <MetaData>(
+const collapseEquivalent = <MetaData extends Record<string, unknown>>(
   stalk: EvaluatedSection<MetaData>[],
 ): EvaluatedSection<MetaData>[] => {
   const seen = new Set<string>();
@@ -83,7 +80,7 @@ const collapseEquivalent = <MetaData>(
  * @param stalk - The collapsed stalk entries.
  * @returns Constraints and stripped germs.
  */
-const decomposeMetadata = <MetaData>(
+const decomposeMetadata = <MetaData extends Record<string, unknown>>(
   stalk: EvaluatedSection<MetaData>[],
 ): {
   constraints: Partial<MetaData>;
@@ -91,39 +88,25 @@ const decomposeMetadata = <MetaData>(
 } => {
   const constraints: Record<string, unknown> = {};
 
-  const first = stalk[0]?.metadata;
-  if (first !== undefined && first !== null && typeof first === 'object') {
-    for (const key of Object.keys(first as Record<string, unknown>)) {
-      const val = (first as Record<string, unknown>)[key];
-      const shared = stalk.every((entry) => {
-        if (
-          entry.metadata === undefined ||
-          entry.metadata === null ||
-          typeof entry.metadata !== 'object'
-        ) {
-          return false;
-        }
-        const meta = entry.metadata as Record<string, unknown>;
-        return key in meta && meta[key] === val;
-      });
-      if (shared) {
-        constraints[key] = val;
-      }
+  const head = stalk[0];
+  if (head === undefined) {
+    return { constraints: {} as Partial<MetaData>, stripped: [] };
+  }
+  const first = head.metadata;
+  for (const key of Object.keys(first)) {
+    const val = first[key];
+    const shared = stalk.every((entry) => {
+      const meta = entry.metadata;
+      return key in meta && meta[key] === val;
+    });
+    if (shared) {
+      constraints[key] = val;
     }
   }
 
   const stripped = stalk.map((entry) => {
-    if (
-      entry.metadata === undefined ||
-      entry.metadata === null ||
-      typeof entry.metadata !== 'object'
-    ) {
-      return { exo: entry.exo };
-    }
     const remaining: Record<string, unknown> = {};
-    for (const [key, val] of Object.entries(
-      entry.metadata as Record<string, unknown>,
-    )) {
+    for (const [key, val] of Object.entries(entry.metadata)) {
       if (!(key in constraints)) {
         remaining[key] = val;
       }
@@ -182,12 +165,14 @@ type Grant = {
   isRevoked: () => boolean;
 };
 
-type ResolvedSection<M> = {
+type ResolvedSection<M extends Record<string, unknown>> = {
   exo: Section;
   spec: ResolvedMetaDataSpec<M> | undefined;
 };
 
-export const sheafify = <MetaData = unknown>({
+export const sheafify = <
+  MetaData extends Record<string, unknown> = Record<string, unknown>,
+>({
   name,
   sections,
   compartment,
@@ -233,9 +218,7 @@ export const sheafify = <MetaData = unknown>({
       const evaluatedStalk: EvaluatedSection<MetaData>[] = stalk.map(
         (section) => ({
           exo: section.exo,
-          ...ifDefined({
-            metadata: evaluateMetadata(section.spec, args),
-          }),
+          metadata: evaluateMetadata(section.spec, args),
         }),
       );
       let winner: EvaluatedSection<MetaData>;
