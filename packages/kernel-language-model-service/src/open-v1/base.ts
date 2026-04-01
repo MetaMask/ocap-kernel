@@ -1,6 +1,8 @@
 import { assert } from '@metamask/superstruct';
 
 import type { ChatParams, ChatResult, ChatStreamChunk } from '../types.ts';
+import { normalizeStreamChunk } from './normalize-stream-chunk.ts';
+import type { ChatStreamChunkWire } from './normalize-stream-chunk.ts';
 import { checkResponseOk, readAndCheckResponse } from './response-json.ts';
 import {
   ChatParamsStruct,
@@ -122,7 +124,7 @@ export class OpenV1BaseService {
             if (data) {
               const json: unknown = JSON.parse(data);
               assert(json, ChatStreamChunkStruct);
-              yield harden(json as ChatStreamChunk);
+              yield harden(normalizeStreamChunk(json as ChatStreamChunkWire));
             }
           }
         }

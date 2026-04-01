@@ -13,6 +13,7 @@ import {
 } from '@metamask/superstruct';
 
 export type {
+  AssistantStreamDelta,
   ChatChoice,
   ChatMessage,
   ChatParams,
@@ -122,7 +123,8 @@ const ChatStreamToolCallDeltaStruct = object({
   ),
 });
 
-const ChatStreamDeltaStruct = object({
+/** Wire `delta` before streaming normalization adds `role: 'assistant'`. */
+const ChatStreamDeltaWireStruct = object({
   role: optional(literal('assistant')),
   content: optional(string()),
   tool_calls: optional(array(ChatStreamToolCallDeltaStruct)),
@@ -136,7 +138,7 @@ export const ChatStreamChunkStruct = object({
   model: string(),
   choices: array(
     object({
-      delta: ChatStreamDeltaStruct,
+      delta: ChatStreamDeltaWireStruct,
       index: number(),
       finish_reason: nullable(string()),
     }),

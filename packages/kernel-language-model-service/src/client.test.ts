@@ -74,7 +74,11 @@ describe('makeChatClient', () => {
         id: 'chunk-1',
         model: MODEL,
         choices: [
-          { delta: { content: 'hello' }, index: 0, finish_reason: null },
+          {
+            delta: { role: 'assistant', content: 'hello' },
+            index: 0,
+            finish_reason: null,
+          },
         ],
       };
     }

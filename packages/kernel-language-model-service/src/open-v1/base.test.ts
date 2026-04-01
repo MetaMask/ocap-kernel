@@ -3,6 +3,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { ChatResult, ChatStreamChunk } from '../types.ts';
 import { OpenV1BaseService } from './base.ts';
+import { normalizeStreamChunk } from './normalize-stream-chunk.ts';
+import type {
+  ChatStreamChunkWire,
+  ChatStreamDeltaWire,
+} from './normalize-stream-chunk.ts';
 
 const MODEL = 'glm-4.7-flash';
 
@@ -39,7 +44,7 @@ const makeMockFetch = (payload: unknown): typeof globalThis.fetch =>
   );
 
 const makeSSEStream = (
-  chunks: ChatStreamChunk[],
+  chunks: ChatStreamChunkWire[],
   // eslint-disable-next-line n/no-unsupported-features/node-builtins
 ): ReadableStream<Uint8Array> => {
   const encoder = new TextEncoder();
@@ -56,14 +61,19 @@ const makeSSEStream = (
   });
 };
 
-const makeStreamChunk = (content: string): ChatStreamChunk => ({
+const makeWireStreamChunk = (
+  delta: ChatStreamDeltaWire,
+): ChatStreamChunkWire => ({
   id: 'chat-1',
   model: MODEL,
-  choices: [{ delta: { content }, index: 0, finish_reason: null }],
+  choices: [{ delta, index: 0, finish_reason: null }],
 });
 
+const makeStreamChunk = (content: string): ChatStreamChunkWire =>
+  makeWireStreamChunk({ content });
+
 const makeMockStreamFetch = (
-  chunks: ChatStreamChunk[],
+  chunks: ChatStreamChunkWire[],
 ): typeof globalThis.fetch =>
   vi.fn().mockResolvedValue(makeOkResponse({ body: makeSSEStream(chunks) }));
 
@@ -316,8 +326,9 @@ describe('OpenV1BaseService', () => {
     });
 
     it('yields parsed chunks and stops at [DONE]', async () => {
-      const expected = [makeStreamChunk('Hello'), makeStreamChunk(', world!')];
-      const streamFetch = makeMockStreamFetch(expected);
+      const wire = [makeStreamChunk('Hello'), makeStreamChunk(', world!')];
+      const expected = wire.map((chunk) => normalizeStreamChunk(chunk));
+      const streamFetch = makeMockStreamFetch(wire);
       const streamService = new OpenV1BaseService(
         streamFetch,
         'http://localhost:11434',
@@ -336,28 +347,17 @@ describe('OpenV1BaseService', () => {
     });
 
     it('accepts streaming delta with assistant role and tool_calls fragments', async () => {
-      const toolChunk: ChatStreamChunk = {
-        id: 'chat-1',
-        model: MODEL,
-        choices: [
+      const wireTool = makeWireStreamChunk({
+        tool_calls: [
           {
-            delta: {
-              role: 'assistant',
-              tool_calls: [
-                {
-                  index: 0,
-                  id: 'call_1',
-                  type: 'function',
-                  function: { name: 'fn' },
-                },
-              ],
-            },
             index: 0,
-            finish_reason: null,
+            id: 'call_1',
+            type: 'function',
+            function: { name: 'fn' },
           },
         ],
-      };
-      const streamFetch = makeMockStreamFetch([toolChunk]);
+      });
+      const streamFetch = makeMockStreamFetch([wireTool]);
       const streamService = new OpenV1BaseService(
         streamFetch,
         'http://localhost:11434',
@@ -372,24 +372,25 @@ describe('OpenV1BaseService', () => {
         received.push(chunk);
       }
 
-      expect(received).toStrictEqual([toolChunk]);
+      expect(received).toStrictEqual([normalizeStreamChunk(wireTool)]);
     });
 
     it('rejects streaming chunk when delta role is not assistant', async () => {
-      const badChunk = {
+      const badChunk: ChatStreamChunkWire = {
         id: 'chat-1',
         model: MODEL,
         choices: [
           {
-            delta: { role: 'user', content: 'x' },
+            delta: {
+              role: 'user',
+              content: 'x',
+            } as unknown as ChatStreamDeltaWire,
             index: 0,
             finish_reason: null,
           },
         ],
       };
-      const streamFetch = makeMockStreamFetch([
-        badChunk as unknown as ChatStreamChunk,
-      ]);
+      const streamFetch = makeMockStreamFetch([badChunk]);
       const streamService = new OpenV1BaseService(
         streamFetch,
         'http://localhost:11434',

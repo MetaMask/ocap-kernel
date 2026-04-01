@@ -131,14 +131,18 @@ export type ChatStreamToolCallDelta = {
 };
 
 /**
- * Delta for `/v1/chat/completions` streaming: assistant message fragments only.
- * Each SSE event may include any subset of fields; the full message is accumulated client-side.
+ * Assistant fragment from a streaming `/v1/chat/completions` response after
+ * the Open /v1 client normalizes each SSE event. `role` is always `'assistant'`;
+ * `content` / `tool_calls` are present only when the wire event included them.
  */
-export type ChatStreamDelta = {
-  role?: 'assistant';
+export type AssistantStreamDelta = {
+  role: 'assistant';
   content?: string;
   tool_calls?: ChatStreamToolCallDelta[];
 };
+
+/** @alias {@link AssistantStreamDelta} */
+export type ChatStreamDelta = AssistantStreamDelta;
 
 /**
  * A single chunk from a streaming chat completion response.
@@ -147,7 +151,7 @@ export type ChatStreamChunk = {
   id: string;
   model: string;
   choices: {
-    delta: ChatStreamDelta;
+    delta: AssistantStreamDelta;
     index: number;
     finish_reason: string | null;
   }[];
