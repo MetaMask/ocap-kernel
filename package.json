@@ -12,7 +12,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "turbo run build",
+    "build": "yarn exec turbo run build",
     "build:clean": "yarn clean && yarn build",
     "build:docs": "yarn workspaces foreach --all --exclude @ocap/monorepo --exclude @ocap/extension --parallel --interlaced --verbose run build:docs",
     "changelog:update": "yarn workspaces foreach --all --no-private --parallel --interlaced --verbose run changelog:update",
@@ -29,8 +29,8 @@
     "prepack": "./scripts/prepack.sh",
     "rebuild:native": "./scripts/rebuild-native.sh",
     "test": "vitest run",
-    "test:dev": "turbo run test:dev",
-    "test:dev:quiet": "turbo run test:dev:quiet --output-logs=errors-only",
+    "test:dev": "yarn exec turbo run test:dev",
+    "test:dev:quiet": "yarn exec turbo run test:dev:quiet --output-logs=errors-only",
     "test:e2e": "yarn workspaces foreach --all run test:e2e",
     "test:e2e:ci": "yarn workspaces foreach --all run test:e2e:ci",
     "test:e2e:local": "yarn workspaces foreach --all run test:e2e:local",
