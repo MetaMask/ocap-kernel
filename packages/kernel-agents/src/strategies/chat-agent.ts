@@ -106,7 +106,7 @@ export const makeChatAgent = ({
 }: MakeChatAgentArgs): Agent => {
   const experienceLog: Experience[] = [];
 
-  return {
+  return harden({
     task: async <Result>(
       intent: string,
       judgment?: (result: unknown) => result is Result,
