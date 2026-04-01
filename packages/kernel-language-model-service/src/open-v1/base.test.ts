@@ -1,3 +1,4 @@
+import { StructError } from '@metamask/superstruct';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { ChatResult, ChatStreamChunk } from '../types.ts';
@@ -332,6 +333,78 @@ describe('OpenV1BaseService', () => {
       }
 
       expect(received).toStrictEqual(expected);
+    });
+
+    it('accepts streaming delta with assistant role and tool_calls fragments', async () => {
+      const toolChunk: ChatStreamChunk = {
+        id: 'chat-1',
+        model: MODEL,
+        choices: [
+          {
+            delta: {
+              role: 'assistant',
+              tool_calls: [
+                {
+                  index: 0,
+                  id: 'call_1',
+                  type: 'function',
+                  function: { name: 'fn' },
+                },
+              ],
+            },
+            index: 0,
+            finish_reason: null,
+          },
+        ],
+      };
+      const streamFetch = makeMockStreamFetch([toolChunk]);
+      const streamService = new OpenV1BaseService(
+        streamFetch,
+        'http://localhost:11434',
+      );
+
+      const received: ChatStreamChunk[] = [];
+      for await (const chunk of streamService.chat({
+        model: MODEL,
+        messages: [{ role: 'user', content: 'hi' }],
+        stream: true,
+      })) {
+        received.push(chunk);
+      }
+
+      expect(received).toStrictEqual([toolChunk]);
+    });
+
+    it('rejects streaming chunk when delta role is not assistant', async () => {
+      const badChunk = {
+        id: 'chat-1',
+        model: MODEL,
+        choices: [
+          {
+            delta: { role: 'user', content: 'x' },
+            index: 0,
+            finish_reason: null,
+          },
+        ],
+      };
+      const streamFetch = makeMockStreamFetch([
+        badChunk as unknown as ChatStreamChunk,
+      ]);
+      const streamService = new OpenV1BaseService(
+        streamFetch,
+        'http://localhost:11434',
+      );
+
+      await expect(async () => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        for await (const _ of streamService.chat({
+          model: MODEL,
+          messages: [{ role: 'user', content: 'hi' }],
+          stream: true,
+        })) {
+          // drain
+        }
+      }).rejects.toThrow(StructError);
     });
 
     it('throws when response body is null', async () => {

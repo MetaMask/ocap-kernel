@@ -17,20 +17,13 @@ export type {
   ChatMessage,
   ChatParams,
   ChatResult,
-  ChatRole,
   ChatStreamChunk,
   ChatStreamDelta,
+  ChatStreamToolCallDelta,
   Tool,
   ToolCall,
   Usage,
 } from '../types.ts';
-
-const ChatRoleStruct = union([
-  literal('system'),
-  literal('user'),
-  literal('assistant'),
-  literal('tool'),
-]);
 
 const ToolCallStruct = object({
   id: string(),
@@ -117,10 +110,22 @@ export const ChatResultStruct = object({
   usage: UsageStruct,
 });
 
+const ChatStreamToolCallDeltaStruct = object({
+  index: optional(number()),
+  id: optional(string()),
+  type: optional(literal('function')),
+  function: optional(
+    object({
+      name: optional(string()),
+      arguments: optional(string()),
+    }),
+  ),
+});
+
 const ChatStreamDeltaStruct = object({
-  role: optional(ChatRoleStruct),
+  role: optional(literal('assistant')),
   content: optional(string()),
-  tool_calls: optional(array(unknown())),
+  tool_calls: optional(array(ChatStreamToolCallDeltaStruct)),
 });
 
 /**

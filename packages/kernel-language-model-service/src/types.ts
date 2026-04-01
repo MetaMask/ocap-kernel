@@ -120,11 +120,24 @@ export type ChatParams = {
 };
 
 /**
- * A partial message delta from a streaming chat completion response.
+ * Partial tool-call fragment in a streaming completion delta (OpenAI-style SSE).
+ * Fields arrive incrementally across multiple chunks.
+ */
+export type ChatStreamToolCallDelta = {
+  index?: number;
+  id?: string;
+  type?: 'function';
+  function?: { name?: string; arguments?: string };
+};
+
+/**
+ * Delta for `/v1/chat/completions` streaming: assistant message fragments only.
+ * Each SSE event may include any subset of fields; the full message is accumulated client-side.
  */
 export type ChatStreamDelta = {
-  role?: ChatRole;
+  role?: 'assistant';
   content?: string;
+  tool_calls?: ChatStreamToolCallDelta[];
 };
 
 /**
