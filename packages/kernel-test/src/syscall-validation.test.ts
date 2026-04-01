@@ -98,7 +98,7 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
     await expect(
       kernel.queueMessage(objectKRef, 'getValue', []),
     ).rejects.toMatchObject({
-      body: expect.stringContaining('target object has been revoked'),
+      body: expect.stringContaining('[KERNEL:OBJECT_REVOKED]'),
     });
     // Verify kernel doesn't crash and exporter vat remains operational
     const exporterStatus = await kernel.queueMessage(exporterKRef, 'noop', []);
@@ -146,7 +146,7 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
     await expect(
       kernel.queueMessage(objectKRef, 'getValue', []),
     ).rejects.toMatchObject({
-      body: expect.stringContaining('target object has been revoked'),
+      body: expect.stringContaining('[KERNEL:OBJECT_REVOKED]'),
     });
     // Verify exporter vat is still operational
     const exporterStatus = await kernel.queueMessage(exporterKRef, 'noop', []);
@@ -156,7 +156,7 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
       await expect(
         kernel.queueMessage(objectKRef, 'getValue', []),
       ).rejects.toMatchObject({
-        body: expect.stringContaining('target object has been revoked'),
+        body: expect.stringContaining('[KERNEL:OBJECT_REVOKED]'),
       });
     }
     // Verify kernel remains stable
@@ -218,7 +218,7 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
       await expect(
         kernel.queueMessage(objectKRef, 'getValue', []),
       ).rejects.toMatchObject({
-        body: expect.stringContaining('target object has been revoked'),
+        body: expect.stringContaining('[KERNEL:OBJECT_REVOKED]'),
       });
     }
 

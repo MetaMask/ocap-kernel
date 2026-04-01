@@ -12,7 +12,7 @@ import {
   performExportCleanup,
 } from '../garbage-collection/gc-handlers.ts';
 import type { KernelQueue } from '../KernelQueue.ts';
-import { makeError } from '../liveslots/kernel-marshal.ts';
+import { makeFatalKernelError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import { coerceMessage } from '../types.ts';
 import type { Message, VatId, KRef } from '../types.ts';
@@ -161,7 +161,10 @@ export class VatSyscall {
 
       // This is a safety check - this case should never happen
       if (!this.#kernelStore.isVatActive(this.vatId)) {
-        this.#recordVatFatalSyscall('vat not found');
+        this.#recordVatFatalSyscall(
+          'ILLEGAL_SYSCALL',
+          'Syscall from inactive vat',
+        );
         return harden(['error', 'vat not found']);
       }
 
@@ -259,7 +262,10 @@ export class VatSyscall {
       return harden(['ok', null]);
     } catch (error) {
       this.#logger?.error(`Fatal syscall error in vat ${this.vatId}`, error);
-      this.#recordVatFatalSyscall('syscall translation error: prepare to die');
+      this.#recordVatFatalSyscall(
+        'ILLEGAL_SYSCALL',
+        'Syscall translation error: prepare to die',
+      );
       return harden([
         'error',
         error instanceof Error ? error.message : String(error),
@@ -270,9 +276,16 @@ export class VatSyscall {
   /**
    * Log a fatal syscall error and set the illegalSyscall property.
    *
-   * @param error - The error message to log.
+   * @param code - The fatal kernel error code.
+   * @param detail - A human-readable description of the error.
    */
-  #recordVatFatalSyscall(error: string): void {
-    this.illegalSyscall = { vatId: this.vatId, info: makeError(error) };
+  #recordVatFatalSyscall(
+    code: 'ILLEGAL_SYSCALL' | 'INTERNAL_ERROR',
+    detail: string,
+  ): void {
+    this.illegalSyscall = {
+      vatId: this.vatId,
+      info: makeFatalKernelError(code, detail),
+    };
   }
 }

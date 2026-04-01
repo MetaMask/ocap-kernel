@@ -16,7 +16,7 @@ import { isJsonRpcNotification, isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcNotification, JsonRpcResponse } from '@metamask/utils';
 
 import type { KernelQueue } from '../KernelQueue.ts';
-import { kser, makeError } from '../liveslots/kernel-marshal.ts';
+import { makeError, makeKernelError } from '../liveslots/kernel-marshal.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from '../rpc/index.ts';
 import type { PingVatResult, VatMethod } from '../rpc/index.ts';
 import type { KernelStore } from '../store/index.ts';
@@ -300,7 +300,10 @@ export class VatHandle implements EndpointHandle {
     const terminationError = error ?? new VatDeletedError(this.vatId);
     if (terminating) {
       // Reject promises exported to other vats for which this vat is the decider
-      const failure = kser(terminationError);
+      const failure = makeKernelError(
+        'VAT_TERMINATED',
+        terminationError.message,
+      );
       for (const kpid of this.#kernelStore.getPromisesByDecider(this.vatId)) {
         this.#kernelQueue.resolvePromises(this.vatId, [[kpid, true, failure]]);
       }

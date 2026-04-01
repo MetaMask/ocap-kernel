@@ -2,7 +2,7 @@ import { E } from '@endo/eventual-send';
 import type { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from './KernelQueue.ts';
-import { kser, kunser } from './liveslots/kernel-marshal.ts';
+import { kser, kunser, makeKernelError } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import type { KRef, Message } from './types.ts';
 import { assert } from './utils/assert.ts';
@@ -181,8 +181,10 @@ export class KernelServiceManager {
         })
         .catch((problem: unknown) => {
           if (result) {
+            const detail =
+              problem instanceof Error ? problem.message : String(problem);
             this.#kernelQueue.resolvePromises('kernel', [
-              [result, true, kser(problem)],
+              [result, true, makeKernelError('DELIVERY_FAILED', detail)],
             ]);
           } else {
             this.#logger?.error('Error in kernel service method:', problem);
@@ -191,8 +193,10 @@ export class KernelServiceManager {
     } catch (syncError) {
       // Handle synchronous errors thrown before returning a Promise
       if (result) {
+        const detail =
+          syncError instanceof Error ? syncError.message : String(syncError);
         this.#kernelQueue.resolvePromises('kernel', [
-          [result, true, kser(syncError)],
+          [result, true, makeKernelError('DELIVERY_FAILED', detail)],
         ]);
       } else {
         this.#logger?.error('Error in kernel service method:', syncError);

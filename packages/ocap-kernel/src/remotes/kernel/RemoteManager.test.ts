@@ -760,7 +760,7 @@ describe('RemoteManager', () => {
       onRemoteGiveUp(peerId);
       // Verify pending redemptions were rejected
       expect(rejectPendingRedemptionsSpy).toHaveBeenCalledWith(
-        `Remote connection lost: ${peerId} (max retries reached or non-retryable error)`,
+        'Remote connection lost (max retries reached or non-retryable error)',
       );
     });
 
