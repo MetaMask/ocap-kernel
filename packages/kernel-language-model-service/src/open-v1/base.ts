@@ -5,6 +5,11 @@ import { normalizeStreamChunk } from './normalize-stream-chunk.ts';
 import type { ChatStreamChunkWire } from './normalize-stream-chunk.ts';
 import { checkResponseOk, readAndCheckResponse } from './response-json.ts';
 import {
+  stripChatResultJson,
+  stripChatStreamChunkJson,
+  stripListModelsResponseJson,
+} from './strip-open-v1-json.ts';
+import {
   ChatParamsStruct,
   ChatResultStruct,
   ChatStreamChunkStruct,
@@ -85,8 +90,9 @@ export class OpenV1BaseService {
     });
     const body = await readAndCheckResponse(response);
     const json: unknown = JSON.parse(body);
-    assert(json, ChatResultStruct);
-    return harden(json as ChatResult);
+    const stripped = stripChatResultJson(json);
+    assert(stripped, ChatResultStruct);
+    return harden(stripped as ChatResult);
   }
 
   /**
@@ -123,8 +129,11 @@ export class OpenV1BaseService {
             }
             if (data) {
               const json: unknown = JSON.parse(data);
-              assert(json, ChatStreamChunkStruct);
-              yield harden(normalizeStreamChunk(json as ChatStreamChunkWire));
+              const stripped = stripChatStreamChunkJson(json);
+              assert(stripped, ChatStreamChunkStruct);
+              yield harden(
+                normalizeStreamChunk(stripped as ChatStreamChunkWire),
+              );
             }
           }
         }
@@ -148,8 +157,10 @@ export class OpenV1BaseService {
     });
     const body = await readAndCheckResponse(response);
     const json: unknown = JSON.parse(body);
-    assert(json, ListModelsResponseStruct);
-    return harden(json.data.map((model) => model.id));
+    const stripped = stripListModelsResponseJson(json);
+    assert(stripped, ListModelsResponseStruct);
+    const { data } = stripped as { data: { id: string }[] };
+    return harden(data.map((model) => model.id));
   }
 
   /**
