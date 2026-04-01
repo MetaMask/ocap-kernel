@@ -5,9 +5,47 @@
 import type { MetaDataSpec } from './types.ts';
 
 /** Resolved spec: 'source' has been compiled away; only constant or callable remain. */
-export type ResolvedMetaDataSpec<M> =
+export type ResolvedMetaDataSpec<M extends Record<string, unknown>> =
   | { kind: 'constant'; value: M }
   | { kind: 'callable'; fn: (args: unknown[]) => M };
+
+const metadataPlainObjectHint =
+  'Sheaf metadata must be a plain object; use e.g. { value: myValue } if you need to attach a primitive.';
+
+const isPlainObjectRecord = (value: object): boolean => {
+  const proto = Object.getPrototypeOf(value);
+  return proto === null || proto === Object.prototype;
+};
+
+/**
+ * Normalize evaluated metadata: empty sentinel is `{}`; invalid shapes throw.
+ *
+ * @param raw - Result from constant value or callable, before validation.
+ * @returns A plain object suitable for stalk metadata.
+ */
+const normalizeEvaluatedSheafMetadata = (
+  raw: unknown,
+): Record<string, unknown> => {
+  if (raw === undefined || raw === null) {
+    return {};
+  }
+  if (typeof raw !== 'object') {
+    throw new Error(
+      `sheafify: metadata cannot be a primitive (${typeof raw}). ${metadataPlainObjectHint}`,
+    );
+  }
+  if (Array.isArray(raw)) {
+    throw new Error(
+      `sheafify: metadata cannot be an array. ${metadataPlainObjectHint}`,
+    );
+  }
+  if (!isPlainObjectRecord(raw)) {
+    throw new Error(
+      `sheafify: metadata must be a plain object. ${metadataPlainObjectHint}`,
+    );
+  }
+  return raw as Record<string, unknown>;
+};
 
 /**
  * Wrap a static value as a constant metadata spec.
@@ -15,8 +53,9 @@ export type ResolvedMetaDataSpec<M> =
  * @param value - The static metadata value.
  * @returns A constant MetaDataSpec wrapping the value.
  */
-export const constant = <M>(value: M): MetaDataSpec<M> =>
-  harden({ kind: 'constant', value });
+export const constant = <M extends Record<string, unknown>>(
+  value: M,
+): MetaDataSpec<M> => harden({ kind: 'constant', value });
 
 /**
  * Wrap JS function source. Evaluated in a Compartment at sheafify construction time.
@@ -24,17 +63,19 @@ export const constant = <M>(value: M): MetaDataSpec<M> =>
  * @param src - JS source string of the form `(args) => M`.
  * @returns A source MetaDataSpec wrapping the source string.
  */
-export const source = <M>(src: string): MetaDataSpec<M> =>
-  harden({ kind: 'source', src });
+export const source = <M extends Record<string, unknown>>(
+  src: string,
+): MetaDataSpec<M> => harden({ kind: 'source', src });
 
 /**
  * Wrap a live function as a callable metadata spec.
  *
  * @param fn - Function from invocation args to metadata value.
- * @returns A callable MetaDataSpec wrapping the function.
+ * @returns A callable metadata spec.
  */
-export const callable = <M>(fn: (args: unknown[]) => M): MetaDataSpec<M> =>
-  harden({ kind: 'callable', fn });
+export const callable = <M extends Record<string, unknown>>(
+  fn: (args: unknown[]) => M,
+): MetaDataSpec<M> => harden({ kind: 'callable', fn });
 
 /**
  * Compile a 'source' spec to 'callable' using the supplied compartment.
@@ -45,7 +86,7 @@ export const callable = <M>(fn: (args: unknown[]) => M): MetaDataSpec<M> =>
  * @param compartment.evaluate - Evaluate a JS source string and return the result.
  * @returns A ResolvedMetaDataSpec with no 'source' variant.
  */
-export const resolveMetaDataSpec = <M>(
+export const resolveMetaDataSpec = <M extends Record<string, unknown>>(
   spec: MetaDataSpec<M>,
   compartment?: { evaluate: (src: string) => unknown },
 ): ResolvedMetaDataSpec<M> => {
@@ -65,21 +106,22 @@ export const resolveMetaDataSpec = <M>(
 
 /**
  * Evaluate a resolved metadata spec against the invocation args.
- * Returns undefined if spec is undefined (no metadata on the section).
+ *
+ * Missing spec yields `{}` (no metadata). Callable/constant results must be plain objects;
+ * `undefined`/`null` from the producer normalize to `{}`. Primitives, arrays, and non-plain
+ * objects throw with guidance to use an explicit record such as `{ value: myValue }`.
  *
  * @param spec - The resolved spec to evaluate, or undefined.
  * @param args - The invocation arguments.
- * @returns The evaluated metadata value, or undefined.
+ * @returns The evaluated metadata object (possibly empty).
  */
-export const evaluateMetadata = <M>(
-  spec: ResolvedMetaDataSpec<M> | undefined,
+export const evaluateMetadata = <MetaData extends Record<string, unknown>>(
+  spec: ResolvedMetaDataSpec<MetaData> | undefined,
   args: unknown[],
-): M | undefined => {
+): MetaData => {
   if (spec === undefined) {
-    return undefined;
+    return {} as MetaData;
   }
-  if (spec.kind === 'constant') {
-    return spec.value;
-  }
-  return spec.fn(args);
+  const raw = spec.kind === 'constant' ? spec.value : spec.fn(args);
+  return normalizeEvaluatedSheafMetadata(raw) as MetaData;
 };
