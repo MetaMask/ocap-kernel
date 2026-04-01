@@ -6,9 +6,9 @@ import type {
 } from 'ollama';
 
 import type {
+  AssistantMessage,
   ChatParams,
   ChatResult,
-  ChatRole,
   LanguageModelService,
   SampleParams,
   SampleResult,
@@ -83,21 +83,30 @@ export class OllamaBaseService<Ollama extends OllamaClient>
     }
     const response = await ollama.chat({
       model,
-      // eslint-disable-next-line camelcase
-      messages: messages.map(({ role, content, tool_calls }) => ({
-        role,
-        content: content ?? '',
-        // eslint-disable-next-line camelcase
-        ...(tool_calls && {
-          // eslint-disable-next-line camelcase
-          tool_calls: tool_calls.map(({ function: fn }) => ({
-            function: {
-              name: fn.name,
-              arguments: parseToolArguments(fn.arguments),
-            },
-          })),
-        }),
-      })),
+      messages: messages.map((chatMessage) => {
+        if (chatMessage.role === 'tool') {
+          return {
+            role: 'tool' as const,
+            content: chatMessage.content,
+            tool_call_id: chatMessage.tool_call_id,
+          };
+        }
+        if (chatMessage.role === 'assistant') {
+          return {
+            role: 'assistant' as const,
+            content: chatMessage.content ?? '',
+            ...(chatMessage.tool_calls && {
+              tool_calls: chatMessage.tool_calls.map(({ function: fn }) => ({
+                function: {
+                  name: fn.name,
+                  arguments: parseToolArguments(fn.arguments),
+                },
+              })),
+            }),
+          };
+        }
+        return { role: chatMessage.role, content: chatMessage.content };
+      }),
       ...(tools && { tools: tools as OllamaTool[] }),
       stream: false,
       options: ifDefined({
@@ -111,25 +120,26 @@ export class OllamaBaseService<Ollama extends OllamaClient>
     const promptTokens = response.prompt_eval_count ?? 0;
     const completionTokens = response.eval_count ?? 0;
     const { tool_calls: responseToolCalls } = response.message;
+    const assistantMessage: AssistantMessage = {
+      role: 'assistant',
+      content: response.message.content,
+      ...(responseToolCalls && {
+        tool_calls: responseToolCalls.map((tc, index) => ({
+          id: `tool-${index}`,
+          type: 'function' as const,
+          function: {
+            name: tc.function.name,
+            arguments: JSON.stringify(tc.function.arguments),
+          },
+        })),
+      }),
+    };
     return harden({
       id: 'ollama-chat',
       model: response.model,
       choices: [
         {
-          message: {
-            role: response.message.role as ChatRole,
-            content: response.message.content,
-            ...(responseToolCalls && {
-              tool_calls: responseToolCalls.map((tc, index) => ({
-                id: `tool-${index}`,
-                type: 'function' as const,
-                function: {
-                  name: tc.function.name,
-                  arguments: JSON.stringify(tc.function.arguments),
-                },
-              })),
-            }),
-          },
+          message: assistantMessage,
           index: 0,
           finish_reason: response.done_reason ?? 'stop',
         },

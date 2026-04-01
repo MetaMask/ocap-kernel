@@ -39,12 +39,34 @@ const ToolCallStruct = object({
   function: object({ name: string(), arguments: string() }),
 });
 
-const ChatMessageStruct = object({
-  role: ChatRoleStruct,
+const SystemMessageStruct = object({
+  role: literal('system'),
+  content: string(),
+});
+
+const UserMessageStruct = object({
+  role: literal('user'),
+  content: string(),
+});
+
+const AssistantMessageStruct = object({
+  role: literal('assistant'),
   content: nullable(string()),
   tool_calls: optional(array(ToolCallStruct)),
-  tool_call_id: optional(string()),
 });
+
+const ToolMessageStruct = object({
+  role: literal('tool'),
+  content: string(),
+  tool_call_id: string(),
+});
+
+const ChatMessageStruct = union([
+  SystemMessageStruct,
+  UserMessageStruct,
+  AssistantMessageStruct,
+  ToolMessageStruct,
+]);
 
 const ToolStruct = object({
   type: literal('function'),

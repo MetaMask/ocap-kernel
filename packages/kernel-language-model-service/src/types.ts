@@ -30,14 +30,42 @@ export type Tool = {
 };
 
 /**
- * A single message in a chat conversation.
+ * Chat message from the model or system (no tool metadata).
  */
-export type ChatMessage = {
-  role: ChatRole;
+export type SystemMessage = { role: 'system'; content: string };
+
+/**
+ * End-user turn (no tool metadata).
+ */
+export type UserMessage = { role: 'user'; content: string };
+
+/**
+ * Assistant turn; may include tool calls. `content` may be null when the model
+ * only returns tool calls.
+ */
+export type AssistantMessage = {
+  role: 'assistant';
   content: string | null;
   tool_calls?: ToolCall[];
-  tool_call_id?: string;
 };
+
+/**
+ * Result of a tool invocation, correlated by {@link ToolCall.id}.
+ */
+export type ToolMessage = {
+  role: 'tool';
+  content: string;
+  tool_call_id: string;
+};
+
+/**
+ * A single message in a chat conversation (discriminated by `role`).
+ */
+export type ChatMessage =
+  | SystemMessage
+  | UserMessage
+  | AssistantMessage
+  | ToolMessage;
 
 /**
  * Token usage statistics for a completion request.

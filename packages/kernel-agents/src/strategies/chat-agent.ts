@@ -22,8 +22,12 @@ class ChatTurn extends Message<string> {
    * @param chatMessage.role - The sender role of the message.
    * @param chatMessage.content - The text content of the message.
    */
-  constructor({ role, content }: ChatMessage) {
-    super(role, { content: content ?? '' });
+  constructor(chatMessage: ChatMessage) {
+    const content =
+      chatMessage.role === 'assistant'
+        ? (chatMessage.content ?? '')
+        : chatMessage.content;
+    super(chatMessage.role, { content });
     harden(this);
   }
 }
@@ -132,10 +136,11 @@ export const makeChatAgent = ({
             messages: chatHistory,
             ...(tools.length > 0 && { tools }),
           });
-          const assistantMessage = chatResult.choices[0]?.message;
-          if (!assistantMessage) {
+          const choiceMessage = chatResult.choices[0]?.message;
+          if (!choiceMessage || choiceMessage.role !== 'assistant') {
             throw new Error('No response from model');
           }
+          const assistantMessage = choiceMessage;
 
           chatHistory.push(assistantMessage);
           history.push(new ChatTurn(assistantMessage));
