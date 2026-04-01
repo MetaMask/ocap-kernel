@@ -13,7 +13,7 @@ export type ExpectedKernelErrorCode =
 
 /**
  * Error codes for fatal kernel errors (kernel bugs or illegal operations).
- * These are prefixed with `FATAL:` in the error message.
+ * These are prefixed with `VAT_FATAL:` in the error message.
  */
 export type FatalKernelErrorCode = 'ILLEGAL_SYSCALL' | 'INTERNAL_ERROR';
 
@@ -24,9 +24,9 @@ export type KernelErrorCode = ExpectedKernelErrorCode | FatalKernelErrorCode;
 
 /**
  * Pattern matching kernel error messages.
- * Matches both `[KERNEL:<CODE>]` and `[KERNEL:FATAL:<CODE>]`.
+ * Matches both `[KERNEL:<CODE>]` and `[KERNEL:VAT_FATAL:<CODE>]`.
  */
-export const KERNEL_ERROR_PATTERN = /^\[KERNEL:(?:(FATAL):)?([A-Z_]+)\]/u;
+export const KERNEL_ERROR_PATTERN = /^\[KERNEL:(?:(VAT_FATAL):)?([A-Z_]+)\]/u;
 
 /**
  * Check whether a value is a kernel error (an Error whose message starts with
@@ -55,12 +55,12 @@ export function getKernelErrorCode(error: Error): KernelErrorCode | undefined {
 
 /**
  * Check whether an Error is a fatal kernel error (its message contains the
- * `FATAL:` infix).
+ * `VAT_FATAL:` infix).
  *
  * @param error - The error to inspect.
  * @returns `true` if the error is a fatal kernel error.
  */
 export function isFatalKernelError(error: Error): boolean {
   const match = KERNEL_ERROR_PATTERN.exec(error.message);
-  return match !== null && match[1] === 'FATAL';
+  return match !== null && match[1] === 'VAT_FATAL';
 }

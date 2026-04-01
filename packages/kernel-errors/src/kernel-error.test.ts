@@ -10,7 +10,7 @@ import {
 describe('KERNEL_ERROR_PATTERN', () => {
   it.each([
     ['[KERNEL:OBJECT_REVOKED] Target object has been revoked', true],
-    ['[KERNEL:FATAL:ILLEGAL_SYSCALL] Fatal syscall violation', true],
+    ['[KERNEL:VAT_FATAL:ILLEGAL_SYSCALL] Fatal syscall violation', true],
     ['[KERNEL:CONNECTION_LOST] Remote connection lost', true],
     ['Some other error', false],
     ['KERNEL:OBJECT_REVOKED', false],
@@ -29,7 +29,7 @@ describe('isKernelError', () => {
 
   it('returns true for a fatal kernel error', () => {
     expect(
-      isKernelError(Error('[KERNEL:FATAL:INTERNAL_ERROR] Something broke')),
+      isKernelError(Error('[KERNEL:VAT_FATAL:INTERNAL_ERROR] Something broke')),
     ).toBe(true);
   });
 
@@ -57,10 +57,10 @@ describe('getKernelErrorCode', () => {
 
   it('extracts fatal error codes', () => {
     expect(
-      getKernelErrorCode(Error('[KERNEL:FATAL:ILLEGAL_SYSCALL] bad')),
+      getKernelErrorCode(Error('[KERNEL:VAT_FATAL:ILLEGAL_SYSCALL] bad')),
     ).toBe('ILLEGAL_SYSCALL');
     expect(
-      getKernelErrorCode(Error('[KERNEL:FATAL:INTERNAL_ERROR] broken')),
+      getKernelErrorCode(Error('[KERNEL:VAT_FATAL:INTERNAL_ERROR] broken')),
     ).toBe('INTERNAL_ERROR');
   });
 
@@ -72,7 +72,9 @@ describe('getKernelErrorCode', () => {
 describe('isFatalKernelError', () => {
   it('returns true for fatal kernel errors', () => {
     expect(
-      isFatalKernelError(Error('[KERNEL:FATAL:ILLEGAL_SYSCALL] bad syscall')),
+      isFatalKernelError(
+        Error('[KERNEL:VAT_FATAL:ILLEGAL_SYSCALL] bad syscall'),
+      ),
     ).toBe(true);
   });
 
@@ -103,7 +105,7 @@ describe('round-trip', () => {
   it('constructs and detects a fatal kernel error message', () => {
     const code = 'INTERNAL_ERROR';
     const detail = 'Internal kernel error';
-    const message = `[KERNEL:FATAL:${code}] ${detail}`;
+    const message = `[KERNEL:VAT_FATAL:${code}] ${detail}`;
     const error = Error(message);
 
     expect(isKernelError(error)).toBe(true);

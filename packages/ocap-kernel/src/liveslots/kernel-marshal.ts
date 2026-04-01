@@ -168,7 +168,7 @@ export function makeKernelError(
 
 /**
  * Produce a serialized fatal kernel error with a machine-readable code.
- * The resulting error message has the format `[KERNEL:FATAL:<CODE>] <detail>`.
+ * The resulting error message has the format `[KERNEL:VAT_FATAL:<CODE>] <detail>`.
  *
  * @param code - The fatal kernel error code.
  * @param detail - A human-readable description.
@@ -178,5 +178,5 @@ export function makeFatalKernelError(
   code: FatalKernelErrorCode,
   detail: string,
 ): CapData<KRef> {
-  return kser(Error(`[KERNEL:FATAL:${code}] ${detail}`));
+  return kser(Error(`[KERNEL:VAT_FATAL:${code}] ${detail}`));
 }
