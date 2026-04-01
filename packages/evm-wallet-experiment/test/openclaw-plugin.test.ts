@@ -28,7 +28,7 @@ type MockReadable = EventEmitter & {
 };
 
 /**
- * Encode a value as the JSON output of `ocap daemon queueMessage`.
+ * Encode a value as the JSON output of `ocap daemon exec queueMessage` (decoded payload).
  *
  * The CLI auto-decodes CapData via prettifySmallcaps, so the output
  * is plain JSON (not CapData-wrapped).
@@ -216,12 +216,14 @@ describe('openclaw wallet plugin', () => {
     );
     expect(result.content[0]?.text).toContain('UserOp hash: 0xtxhash');
 
-    // New CLI format: ['daemon', 'queueMessage', kref, method, argsJson]
+    // CLI format: ['daemon', 'exec', 'queueMessage', JSON.stringify([kref, method, args])]
     const sendCallArgs = mockSpawn.mock.calls[1]?.[1] as string[];
-    expect(sendCallArgs[1]).toBe('queueMessage');
-    expect(sendCallArgs[2]).toBe('ko4');
-    expect(sendCallArgs[3]).toBe('sendTransaction');
-    const sendArgs = JSON.parse(sendCallArgs[4] ?? 'null') as unknown[];
+    expect(sendCallArgs[1]).toBe('exec');
+    expect(sendCallArgs[2]).toBe('queueMessage');
+    const queueParams = JSON.parse(sendCallArgs[3] ?? 'null') as unknown[];
+    expect(queueParams[0]).toBe('ko4');
+    expect(queueParams[1]).toBe('sendTransaction');
+    const sendArgs = queueParams[2] as unknown[];
 
     // 0.08 ETH = 80000000000000000 wei = 0x11c37937e080000
     expect(sendArgs).toStrictEqual([
@@ -379,9 +381,11 @@ describe('openclaw wallet plugin', () => {
     );
 
     // Verify the sendErc20Transfer daemon call
-    // New CLI format: ['daemon', 'queueMessage', kref, method, argsJson]
     const sendCallArgs = mockSpawn.mock.calls[1]?.[1] as string[];
-    expect(sendCallArgs[3]).toBe('sendErc20Transfer');
+    expect(sendCallArgs[1]).toBe('exec');
+    expect(sendCallArgs[2]).toBe('queueMessage');
+    const queueParams = JSON.parse(sendCallArgs[3] ?? 'null') as unknown[];
+    expect(queueParams[1]).toBe('sendErc20Transfer');
   });
 
   it('waits for a delayed UserOp receipt before showing tx hash', async () => {
@@ -573,9 +577,13 @@ describe('openclaw wallet plugin', () => {
     expect(result.content[0]?.text).toContain('USDC');
     expect(result.content[0]?.text).toContain('raw: 1000000');
     // Verify the resolved address was used for daemon calls
-    // New CLI format: ['daemon', 'queueMessage', kref, method, argsJson]
     const balanceCallArgs = mockSpawn.mock.calls[2]?.[1] as string[];
-    const balanceArgs = JSON.parse(balanceCallArgs[4] ?? 'null') as unknown[];
+    expect(balanceCallArgs[1]).toBe('exec');
+    expect(balanceCallArgs[2]).toBe('queueMessage');
+    const balanceQueueParams = JSON.parse(
+      balanceCallArgs[3] ?? 'null',
+    ) as unknown[];
+    const balanceArgs = balanceQueueParams[2] as unknown[];
     expect((balanceArgs[0] as Record<string, unknown>).token).toBe(
       '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
     );

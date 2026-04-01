@@ -16,7 +16,12 @@ export default defineConfig((args) => {
             import.meta.resolve('@ocap/repo-tools/test-utils/mock-endoify'),
           ),
         ],
-        exclude: ['test/integration/**'],
+        exclude: [
+          'test/integration/**',
+          // Real `fetch` to localhost (Anvil); incompatible with root vitest-fetch-mock.
+          // Run: yarn test:e2e:docker
+          'test/e2e/docker/**',
+        ],
       },
     }),
   );
