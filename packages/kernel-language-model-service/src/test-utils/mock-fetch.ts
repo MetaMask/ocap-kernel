@@ -14,7 +14,7 @@ export const makeMockOpenV1Fetch = (
   return async (_url, _init) => {
     const content = responses[idx] ?? '';
     idx += 1;
-    const result = harden({
+    const result = {
       id: `chat-${idx}`,
       model,
       choices: [
@@ -25,7 +25,14 @@ export const makeMockOpenV1Fetch = (
         },
       ],
       usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
-    });
-    return { json: async () => result } as unknown as globalThis.Response;
+    };
+    const bodyText = JSON.stringify(result);
+    return {
+      ok: true,
+      status: 200,
+      statusText: 'OK',
+      text: async () => bodyText,
+      json: async () => JSON.parse(bodyText),
+    } as unknown as globalThis.Response;
   };
 };
