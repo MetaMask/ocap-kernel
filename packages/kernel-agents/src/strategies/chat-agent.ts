@@ -215,5 +215,5 @@ export const makeChatAgent = ({
         yield* experienceLog;
       })();
     },
-  };
+  });
 };
