@@ -750,17 +750,14 @@ describe('RemoteManager', () => {
     it('handles remote give up callback when remote exists', () => {
       const peerId = 'peer-to-give-up';
       const remote = remoteManager.establishRemote(peerId);
-      const rejectPendingRedemptionsSpy = vi.spyOn(
-        remote,
-        'rejectPendingRedemptions',
-      );
+      const giveUpSpy = vi.spyOn(remote, 'giveUp');
       // Get the callback that was passed to initRemoteComms
       const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
       const onRemoteGiveUp = initCall?.[6] as (peerId: string) => void;
       onRemoteGiveUp(peerId);
-      // Verify pending redemptions were rejected
-      expect(rejectPendingRedemptionsSpy).toHaveBeenCalledWith(
-        'Remote connection lost (max retries reached or non-retryable error)',
+      // Verify giveUp was called to stop retransmitting and reject pending work
+      expect(giveUpSpy).toHaveBeenCalledWith(
+        `Remote connection lost: ${peerId} (max retries reached or non-retryable error)`,
       );
     });
 

@@ -1065,6 +1065,19 @@ export class RemoteHandle implements EndpointHandle {
   }
 
   /**
+   * Permanently give up on this remote. Stops retransmitting, rejects all
+   * pending messages and URL redemptions. Called by RemoteManager when the
+   * transport layer determines the peer is unreachable.
+   *
+   * @param reason - Human-readable reason for giving up.
+   */
+  giveUp(reason: string): void {
+    this.#clearAckTimeout();
+    this.#rejectAllPending(reason);
+    this.rejectPendingRedemptions(reason);
+  }
+
+  /**
    * Clean up resources held by this RemoteHandle.
    * Clears all timers and rejects pending promises to prevent resource leaks
    * and allow garbage collection. Called by RemoteManager during cleanup.

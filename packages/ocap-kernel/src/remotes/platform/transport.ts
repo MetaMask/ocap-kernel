@@ -1,3 +1,5 @@
+import { StreamResetError } from '@libp2p/interface';
+import type { StreamCloseEvent } from '@libp2p/interface';
 import { AbortError, ResourceLimitError } from '@metamask/kernel-errors';
 import { installWakeDetector } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
@@ -14,6 +16,7 @@ import {
   DEFAULT_STALE_PEER_TIMEOUT_MS,
   DEFAULT_WRITE_TIMEOUT_MS,
   SCTP_USER_INITIATED_ABORT,
+  STREAM_INACTIVITY_TIMEOUT_MS,
 } from './constants.ts';
 import {
   performOutboundHandshake,
@@ -40,6 +43,29 @@ import type {
   OnIncarnationChange,
   RemoteCommsOptions,
 } from '../types.ts';
+
+/**
+ * Detect whether a read error indicates an intentional disconnect.
+ * Checks for the v3 typed `StreamResetError` (fired when the remote explicitly
+ * aborts a stream, e.g. during shutdown) and falls back to legacy SCTP sniffing
+ * for WebRTC user-initiated abort (code 12).
+ *
+ * @param problem - The error thrown by a stream read.
+ * @returns Whether the error represents an intentional disconnect.
+ */
+function isIntentionalDisconnect(problem: unknown): boolean {
+  if (problem instanceof StreamResetError) {
+    return true;
+  }
+  const rtcProblem = problem as {
+    errorDetail?: string;
+    sctpCauseCode?: number;
+  };
+  return (
+    rtcProblem?.errorDetail === 'sctp-failure' &&
+    rtcProblem?.sctpCauseCode === SCTP_USER_INITIATED_ABORT
+  );
+}
 
 /**
  * Initialize the remote comm system with information that must be provided by the kernel.
@@ -91,6 +117,7 @@ export async function initTransport(
     reconnectionMaxDelayMs,
     handshakeTimeoutMs,
     writeTimeoutMs,
+    streamInactivityTimeoutMs,
     directTransports,
     allowedWsHosts,
   } = options;
@@ -253,6 +280,30 @@ export async function initTransport(
     const previousChannel = state.channel;
     state.channel = channel;
     peerStateManager.updateConnectionTime(peerId);
+
+    // Set stream inactivity timeout for detecting dead streams.
+    // This is distinct from the per-write timeout — it covers bidirectional
+    // silence across the stream's lifetime.
+    channel.stream.inactivityTimeout =
+      streamInactivityTimeoutMs ?? STREAM_INACTIVITY_TIMEOUT_MS;
+
+    // Listen for v3 fine-grained close events for diagnostics.
+    channel.stream.addEventListener(
+      'close',
+      (evt: Event) => {
+        const { local, error } = evt as StreamCloseEvent;
+        if (local) {
+          const suffix = error ? `: ${error.message}` : '';
+          logger.log(`${peerId}:: stream closed locally${suffix}`);
+        } else if (error) {
+          logger.log(`${peerId}:: stream reset by remote: ${error.message}`);
+        } else {
+          logger.log(`${peerId}:: stream closed by remote (clean)`);
+        }
+      },
+      { once: true },
+    );
+
     readChannel(channel).catch((problem) => {
       outputError(peerId, errorContext, problem);
     });
@@ -365,15 +416,7 @@ export async function initTransport(
         try {
           readBuf = await channel.msgStream.read();
         } catch (problem) {
-          // Detect graceful disconnect
-          const rtcProblem = problem as {
-            errorDetail?: string;
-            sctpCauseCode?: number;
-          };
-          if (
-            rtcProblem?.errorDetail === 'sctp-failure' &&
-            rtcProblem?.sctpCauseCode === SCTP_USER_INITIATED_ABORT
-          ) {
+          if (isIntentionalDisconnect(problem)) {
             logger.log(`${channel.peerId}:: remote intentionally disconnected`);
             // Mark as intentionally closed and don't trigger reconnection
             peerStateManager.markIntentionallyClosed(channel.peerId);
@@ -632,6 +675,16 @@ export async function initTransport(
     });
   });
 
+  // Safety net for peer-level disconnects (fires when last connection to a peer closes).
+  // Only triggers reconnection if readChannel hasn't already cleaned up.
+  // If a channel still exists, readChannel's own error/finally will handle cleanup.
+  connectionFactory.onPeerDisconnect((peerId) => {
+    const state = peerStateManager.getState(peerId);
+    if (!state.channel) {
+      handleConnectionLoss(peerId);
+    }
+  });
+
   // Install wake detector to reset backoff on sleep/wake
   cleanupWakeDetector = installWakeDetector(handleWakeFromSleep);
 
@@ -710,17 +763,15 @@ export async function initTransport(
       cleanupIntervalId = undefined;
     }
     stopController.abort(); // cancels all delays and dials
-    // Close all active channel streams to unblock pending reads
+    // Gracefully close all active channel streams to unblock pending reads.
+    // Fire-and-forget: close() sends a FIN so the remote sees a clean stream
+    // end (read returns undefined) rather than a reset (StreamResetError).
     for (const state of peerStateManager.getAllStates()) {
       const { channel } = state;
       if (channel) {
-        try {
-          // Close the stream to unblock any pending read operations
-          const stream = channel.msgStream.unwrap() as { close?: () => void };
-          stream.close?.();
-        } catch {
-          // Ignore errors during cleanup
-        }
+        channel.stream.close().catch((closeError) => {
+          outputError(channel.peerId, 'closing stream during stop', closeError);
+        });
         state.channel = undefined;
       }
     }

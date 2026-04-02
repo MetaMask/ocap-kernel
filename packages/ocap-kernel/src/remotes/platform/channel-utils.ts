@@ -43,6 +43,12 @@ export async function writeWithTimeout(
   message: Uint8Array,
   timeoutMs = DEFAULT_WRITE_TIMEOUT_MS,
 ): Promise<void> {
+  // Short-circuit if the underlying stream is already closed/aborted/reset
+  const { status } = channel.stream;
+  if (status !== 'open') {
+    throw Error(`Stream is ${status}, cannot write`);
+  }
+
   const timeoutSignal = AbortSignal.timeout(timeoutMs);
   let abortHandler: (() => void) | undefined;
   const timeoutPromise = new Promise<never>((_resolve, reject) => {
