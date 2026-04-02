@@ -1,0 +1,70 @@
+FROM node:22 AS builder
+
+WORKDIR /build
+
+RUN corepack enable && apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+
+# Copy root workspace config first for layer caching
+COPY package.json yarn.lock .yarnrc.yml tsconfig*.json ./
+
+# Copy all packages (needed for workspace resolution)
+COPY packages/ packages/
+
+# Strip ALL postinstall scripts from root and every workspace package.
+# These (playwright, git-hooks, native rebuilds) fail in Docker and aren't needed.
+RUN node -e " \
+  const fs = require('fs'); \
+  const path = require('path'); \
+  function stripScripts(p) { \
+    const pkg = JSON.parse(fs.readFileSync(p, 'utf8')); \
+    let changed = false; \
+    if (pkg.scripts?.postinstall) { delete pkg.scripts.postinstall; changed = true; } \
+    if (pkg.scripts?.install) { delete pkg.scripts.install; changed = true; } \
+    if (pkg.scripts?.['rebuild:native']) { delete pkg.scripts['rebuild:native']; changed = true; } \
+    if (pkg.lavamoat?.allowScripts) { \
+      for (const k of Object.keys(pkg.lavamoat.allowScripts)) pkg.lavamoat.allowScripts[k] = false; \
+      changed = true; \
+    } \
+    if (changed) fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n'); \
+  } \
+  stripScripts('package.json'); \
+  for (const dir of fs.readdirSync('packages')) { \
+    const p = path.join('packages', dir, 'package.json'); \
+    if (fs.existsSync(p)) stripScripts(p); \
+  }"
+
+RUN yarn install --immutable
+
+# Rebuild native addons required at runtime (QUIC / SQLite / WebRTC). Fail the image
+# build if compilation does not succeed — do not mask errors with || true.
+RUN (cd node_modules/@ipshipyard/node-datachannel && npm run install --ignore-scripts=false) || \
+    npm rebuild @ipshipyard/node-datachannel
+
+# libp2p/webrtc pulls `node-datachannel` (distinct from @ipshipyard); install
+# scripts were stripped above, so compile the N-API addon before kernel-cli build.
+RUN npm rebuild node-datachannel
+
+RUN npm rebuild better-sqlite3
+
+# Build the kernel CLI and wallet bundles
+RUN yarn workspace @metamask/kernel-cli build && \
+    yarn workspace @ocap/evm-wallet-experiment build
+
+# ---------------------------------------------------------------------------
+# Target: kernel — minimal kernel runtime (used by tests)
+# ---------------------------------------------------------------------------
+FROM node:22-slim AS kernel
+
+WORKDIR /app
+
+COPY --from=builder /build /app
+
+RUN mkdir -p /logs /run/ocap
+
+# ---------------------------------------------------------------------------
+# Target: interactive — kernel + OpenClaw + wallet plugin (used interactively)
+# ---------------------------------------------------------------------------
+FROM kernel AS interactive
+
+# OpenClaw loads local plugins as TypeScript via jiti (no extra TS runner in the image).
+RUN npm install -g openclaw@2026.4.1

@@ -3790,6 +3790,7 @@ __metadata:
     eslint-plugin-promise: "npm:^7.2.1"
     prettier: "npm:^3.5.3"
     rimraf: "npm:^6.0.1"
+    tsx: "npm:^4.20.6"
     turbo: "npm:^2.9.1"
     typedoc: "npm:^0.28.1"
     typescript: "npm:~5.8.2"
