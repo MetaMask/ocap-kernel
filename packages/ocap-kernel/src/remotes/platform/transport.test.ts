@@ -595,7 +595,7 @@ describe('transport.initTransport', () => {
       });
     });
 
-    it('treats StreamResetError as intentional disconnect', async () => {
+    it('treats StreamResetError as connection loss, not intentional close', async () => {
       const { StreamResetError: MockStreamResetError } = await import(
         '@libp2p/interface'
       );
@@ -616,13 +616,15 @@ describe('transport.initTransport', () => {
       inboundHandler?.(mockChannel);
 
       await vi.waitFor(() => {
-        // StreamResetError = remote explicitly aborted the stream (e.g. during shutdown)
+        // StreamResetError from the remote triggers reconnection, not
+        // intentional close — a malicious peer could otherwise permanently
+        // suppress the connection by aborting the stream.
         expect(mockLogger.log).toHaveBeenCalledWith(
           'peer-1:: remote intentionally disconnected',
         );
-        expect(
-          mockReconnectionManager.startReconnection,
-        ).not.toHaveBeenCalled();
+        expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
       });
     });
 
@@ -837,6 +839,24 @@ describe('transport.initTransport', () => {
 
       expect(mockConnectionFactory.stop).toHaveBeenCalled();
       expect(mockReconnectionManager.clear).toHaveBeenCalled();
+    });
+
+    it('gracefully closes active channel streams on stop', async () => {
+      const { sendRemoteMessage, stop } = await initTransport(
+        '0x1234',
+        {},
+        vi.fn(),
+      );
+
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      // Establish a channel by sending a message
+      await sendRemoteMessage('peer-1', makeTestMessage('msg'));
+
+      await stop();
+
+      expect(mockChannel.stream.close).toHaveBeenCalled();
     });
 
     it('does not send messages after stop', async () => {
