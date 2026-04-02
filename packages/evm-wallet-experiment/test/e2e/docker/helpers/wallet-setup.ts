@@ -7,6 +7,7 @@
  */
 
 import { randomBytes } from 'node:crypto';
+import { setTimeout as delay } from 'node:timers/promises';
 
 import { callVat, daemonExec, evmRpc, getServiceInfo } from './docker-exec.ts';
 import type { ContractAddresses } from './docker-exec.ts';
@@ -181,6 +182,81 @@ export function connectToPeer(
   ocapUrl: string,
 ): void {
   callVat(service, kref, 'connectToPeer', [ocapUrl]);
+}
+
+/**
+ * Poll until the coordinator reports a peer wallet (matches setup-away.sh step 9).
+ *
+ * @param service - The compose service name.
+ * @param kref - The coordinator kref.
+ * @param options - Optional timeout and poll interval.
+ * @param options.timeoutMs - Max wait in milliseconds (default 60_000).
+ * @param options.pollMs - Delay between polls (default 1000).
+ */
+export async function waitForPeerWallet(
+  service: string,
+  kref: string,
+  options?: { timeoutMs?: number; pollMs?: number },
+): Promise<void> {
+  const timeoutMs = options?.timeoutMs ?? 60_000;
+  const pollMs = options?.pollMs ?? 1000;
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const caps = callVat(service, kref, 'getCapabilities') as {
+      hasPeerWallet?: boolean;
+    };
+    if (caps.hasPeerWallet) {
+      return;
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `Peer wallet not connected after ${timeoutMs}ms (${service})`,
+      );
+    }
+    await delay(pollMs);
+  }
+}
+
+/**
+ * Re-fetch and cache peer accounts (setup-away.sh step 9b).
+ *
+ * @param service - The compose service name.
+ * @param kref - The coordinator kref.
+ */
+export function refreshPeerAccounts(service: string, kref: string): void {
+  callVat(service, kref, 'refreshPeerAccounts', []);
+}
+
+/**
+ * Send this device's delegate address to the connected peer (setup-away.sh step 9c).
+ *
+ * @param service - The compose service name.
+ * @param kref - The coordinator kref.
+ * @param address - Delegate address (0x-prefixed) to register on the home wallet.
+ */
+export function sendDelegateAddressToPeer(
+  service: string,
+  kref: string,
+  address: string,
+): void {
+  callVat(service, kref, 'sendDelegateAddressToPeer', [address]);
+}
+
+/**
+ * Post-connect steps from setup-away.sh: wait for peer, cache accounts, register delegate on home.
+ *
+ * @param service - The compose service name.
+ * @param kref - The coordinator kref.
+ * @param delegateForHome - Smart account address when configured, else the away EOA (peer-relay).
+ */
+export async function finalizeAwayPeerSetup(
+  service: string,
+  kref: string,
+  delegateForHome: string,
+): Promise<void> {
+  await waitForPeerWallet(service, kref);
+  refreshPeerAccounts(service, kref);
+  sendDelegateAddressToPeer(service, kref, delegateForHome);
 }
 
 /**

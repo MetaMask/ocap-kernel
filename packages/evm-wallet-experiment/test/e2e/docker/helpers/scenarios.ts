@@ -10,6 +10,7 @@ import {
   configureProvider,
   connectToPeer,
   createSmartAccount,
+  finalizeAwayPeerSetup,
   fundAddress,
   getServiceInfo,
   initKeyring,
@@ -150,6 +151,8 @@ export async function setup7702Away(
     implementation: 'stateless7702',
   });
 
+  await finalizeAwayPeerSetup('away', kref, smartAccountAddress);
+
   return { kref, delegateAddress, smartAccountAddress };
 }
 
@@ -180,20 +183,25 @@ export async function setupHybridAway(
     await fundAddress(sa.address, 10);
   }
 
+  await finalizeAwayPeerSetup('away', kref, sa.address);
+
   return { kref, delegateAddress, smartAccountAddress: sa.address };
 }
 
 /**
  * Set up away with peer-relay mode (no bundler, no smart account).
+ * After connecting to home, runs the same post-connect steps as setup-away.sh
+ * (wait for peer wallet, refreshPeerAccounts, sendDelegateAddressToPeer).
  *
  * @param contracts - Deployed contract addresses.
  * @param home - Home setup result (for peer connection).
  * @returns Away wallet info.
  */
-export function setupPeerRelayAway(
+export async function setupPeerRelayAway(
   contracts: ContractAddresses,
   home: HomeResult,
-): AwayResult {
+): Promise<AwayResult> {
   const { kref, delegateAddress } = setupAwayBase(contracts, home);
+  await finalizeAwayPeerSetup('away', kref, delegateAddress);
   return { kref, delegateAddress };
 }
