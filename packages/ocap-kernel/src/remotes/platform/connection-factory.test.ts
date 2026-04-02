@@ -1571,6 +1571,24 @@ describe('ConnectionFactory', () => {
         `${channel.peerId}:: aborted channel stream`,
       );
     });
+
+    it('logs error when abort also throws', async () => {
+      factory = await createFactory();
+      const close = vi.fn().mockRejectedValue(new Error('close failed'));
+      const abort = vi.fn().mockImplementation(() => {
+        throw new Error('abort failed');
+      });
+      const channel = {
+        peerId: 'peer-double-fail',
+        stream: { close, abort },
+        msgStream: {},
+      } as unknown as Channel;
+      await factory.closeChannel(channel, channel.peerId);
+      expect(abort).toHaveBeenCalled();
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        expect.stringContaining('closing channel stream'),
+      );
+    });
   });
 
   describe('relay reconnection', () => {

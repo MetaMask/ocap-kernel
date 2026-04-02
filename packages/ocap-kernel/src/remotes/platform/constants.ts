@@ -43,5 +43,8 @@ export const HANDSHAKE_TIMEOUT_MS = 10_000;
 /** Stream inactivity timeout in milliseconds (2 minutes, matches libp2p default) */
 export const STREAM_INACTIVITY_TIMEOUT_MS = 120_000;
 
+/** Minimum allowed stream inactivity timeout (5 seconds) to prevent self-DoS */
+export const MIN_STREAM_INACTIVITY_TIMEOUT_MS = 5_000;
+
 /** Default threshold for consecutive identical errors before marking as permanently failed */
 export const DEFAULT_CONSECUTIVE_ERROR_THRESHOLD = 5;

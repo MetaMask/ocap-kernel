@@ -16,6 +16,7 @@ import {
   DEFAULT_STALE_PEER_TIMEOUT_MS,
   DEFAULT_WRITE_TIMEOUT_MS,
   SCTP_USER_INITIATED_ABORT,
+  MIN_STREAM_INACTIVITY_TIMEOUT_MS,
   STREAM_INACTIVITY_TIMEOUT_MS,
 } from './constants.ts';
 import {
@@ -284,8 +285,10 @@ export async function initTransport(
     // Set stream inactivity timeout for detecting dead streams.
     // This is distinct from the per-write timeout — it covers bidirectional
     // silence across the stream's lifetime.
-    channel.stream.inactivityTimeout =
-      streamInactivityTimeoutMs ?? STREAM_INACTIVITY_TIMEOUT_MS;
+    channel.stream.inactivityTimeout = Math.max(
+      streamInactivityTimeoutMs ?? STREAM_INACTIVITY_TIMEOUT_MS,
+      MIN_STREAM_INACTIVITY_TIMEOUT_MS,
+    );
 
     // Listen for v3 fine-grained close events for diagnostics.
     channel.stream.addEventListener(
@@ -418,8 +421,15 @@ export async function initTransport(
         } catch (problem) {
           if (isIntentionalDisconnect(problem)) {
             logger.log(`${channel.peerId}:: remote intentionally disconnected`);
-            // Mark as intentionally closed and don't trigger reconnection
-            peerStateManager.markIntentionallyClosed(channel.peerId);
+            // Only mark as intentionally closed for locally-initiated resets
+            // (SCTP user abort). A remote-initiated StreamResetError should
+            // trigger normal reconnection — otherwise a malicious peer could
+            // permanently suppress the connection by aborting the stream.
+            if (problem instanceof StreamResetError) {
+              handleConnectionLoss(channel.peerId);
+            } else {
+              peerStateManager.markIntentionallyClosed(channel.peerId);
+            }
           } else {
             outputError(
               channel.peerId,
@@ -679,6 +689,9 @@ export async function initTransport(
   // Only triggers reconnection if readChannel hasn't already cleaned up.
   // If a channel still exists, readChannel's own error/finally will handle cleanup.
   connectionFactory.onPeerDisconnect((peerId) => {
+    if (signal.aborted) {
+      return; // shutting down, don't start spurious reconnection
+    }
     const state = peerStateManager.getState(peerId);
     if (!state.channel) {
       handleConnectionLoss(peerId);
