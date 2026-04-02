@@ -45,6 +45,31 @@ export type AwayResult = {
 };
 
 /**
+ * Address to pass as `delegate` when calling `createDelegation`.
+ *
+ * DelegationManager.redeemDelegations requires `delegations[0].delegate == msg.sender`
+ * (unless delegate is `ANY_DELEGATE`). Away wallets with a bundler redeem with
+ * `msg.sender` = their smart account. Peer-relay redeems on the home device, so
+ * `msg.sender` is the home smart account — the on-chain delegate must match that.
+ *
+ * @param options - Named parameters.
+ * @param options.delegationMode - `bundler-7702`, `bundler-hybrid`, or `peer-relay`.
+ * @param options.home - Home wallet setup result.
+ * @param options.away - Away wallet setup result.
+ * @returns The `delegate` field for `createDelegation`.
+ */
+export function resolveOnChainDelegateAddress(options: {
+  delegationMode: string;
+  home: HomeResult;
+  away: AwayResult;
+}): string {
+  if (options.delegationMode === 'peer-relay') {
+    return options.home.smartAccountAddress;
+  }
+  return options.away.smartAccountAddress ?? options.away.delegateAddress;
+}
+
+/**
  * Set up the home kernel with a full wallet: SRP keyring, provider,
  * bundler, 7702 smart account, and an OCAP URL for peer connection.
  *

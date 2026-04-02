@@ -19,6 +19,31 @@ export function resolveDelegateForAway(awayInfo) {
 }
 
 /**
+ * `delegate` for `createDelegation` given Docker stack mode.
+ * Peer-relay redeems on the home wallet, so DelegationManager sees
+ * `msg.sender` = home; leaf `delegate` must match (see DelegationManager.redeemDelegations).
+ *
+ * @param {object} options - Arguments.
+ * @param {string} options.delegationMode - `bundler-7702`, `bundler-hybrid`, or `peer-relay`.
+ * @param {Record<string, unknown>} options.homeInfo - Parsed `home-info.json`.
+ * @param {Record<string, unknown>} options.awayInfo - Parsed `away-info.json`.
+ * @returns {string} Address to pass as `delegate` to `createDelegation`.
+ */
+export function resolveOnChainDelegateForDockerMode(options) {
+  const { delegationMode, homeInfo, awayInfo } = options;
+  if (delegationMode === 'peer-relay') {
+    const addr = homeInfo.smartAccountAddress || homeInfo.address;
+    if (!addr || typeof addr !== 'string') {
+      throw new Error(
+        'peer-relay requires home-info smartAccountAddress or address',
+      );
+    }
+    return addr;
+  }
+  return resolveDelegateForAway(awayInfo);
+}
+
+/**
  * Build caveat list from env. When `CAVEAT_ETH_LIMIT` is set, caps native-token spend.
  *
  * @returns {Array<Record<string, unknown>>} Caveat objects for `createDelegation`.
@@ -44,15 +69,23 @@ export function buildCaveatsFromEnv() {
  * @param {object} options - Arguments.
  * @param {(method: string, args: unknown[]) => Promise<unknown>} options.callHome - Home coordinator `callVat` wrapper.
  * @param {Record<string, unknown>} options.awayInfo - Parsed `away-info.json`.
+ * @param {Record<string, unknown>} [options.homeInfo] - Parsed `home-info.json` (required for peer-relay).
+ * @param {string} [options.delegationMode] - Defaults to `process.env.DELEGATION_MODE` or `bundler-7702`.
  * @param {Array<Record<string, unknown>>} [options.caveats] - Optional caveats (default none).
  * @returns {Promise<Record<string, unknown>>} Created delegation record from the coordinator.
  */
 export async function createDelegationForDockerStack({
   callHome,
   awayInfo,
+  homeInfo,
+  delegationMode = process.env.DELEGATION_MODE ?? 'bundler-7702',
   caveats = [],
 }) {
-  const delegate = resolveDelegateForAway(awayInfo);
+  const delegate = resolveOnChainDelegateForDockerMode({
+    delegationMode,
+    homeInfo: homeInfo ?? {},
+    awayInfo,
+  });
   return callHome('createDelegation', [
     { delegate, caveats, chainId: dockerConfig.anvilChainId },
   ]);

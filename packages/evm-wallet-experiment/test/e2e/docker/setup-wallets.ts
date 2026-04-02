@@ -10,6 +10,7 @@
 
 import { callVat, readContracts } from './helpers/docker-exec.ts';
 import {
+  resolveOnChainDelegateAddress,
   setup7702Away,
   setupHome,
   setupHybridAway,
@@ -56,9 +57,16 @@ async function main() {
     console.log(`Away SA: ${away.smartAccountAddress}`);
   }
 
-  // Create delegation from home → away so away can spend home's funds
-  const delegate = away.smartAccountAddress ?? away.delegateAddress;
-  console.log(`Creating delegation: home → ${delegate.slice(0, 10)}...`);
+  const delegate = resolveOnChainDelegateAddress({
+    delegationMode: mode,
+    home,
+    away,
+  });
+  console.log(
+    mode === 'peer-relay'
+      ? `Creating delegation: on-chain delegate = home (${delegate.slice(0, 10)}...) for peer-relay redeem`
+      : `Creating delegation: home → away delegate ${delegate.slice(0, 10)}...`,
+  );
 
   // 1000 ETH max spend caveat via the deployed NativeTokenTransferAmountEnforcer
   const maxSpendWei = 1000n * 10n ** 18n;

@@ -9,6 +9,7 @@ import {
 } from './helpers/docker-exec.ts';
 import type { ContractAddresses } from './helpers/docker-exec.ts';
 import {
+  resolveOnChainDelegateAddress,
   setup7702Away,
   setupHome,
   setupHybridAway,
@@ -155,8 +156,11 @@ describe('Docker E2E', () => {
     let delegation: Delegation;
 
     beforeAll(() => {
-      const delegate =
-        awayResult.smartAccountAddress ?? awayResult.delegateAddress;
+      const delegate = resolveOnChainDelegateAddress({
+        delegationMode: DELEGATION_MODE,
+        home: homeResult,
+        away: awayResult,
+      });
 
       delegation = callHome('createDelegation', [
         { delegate, caveats: [], chainId: 31337 },

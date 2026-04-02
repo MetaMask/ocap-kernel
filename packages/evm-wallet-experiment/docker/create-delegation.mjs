@@ -22,7 +22,7 @@ import {
   buildCaveatsFromEnv,
   createDelegationForDockerStack,
   pushDelegationOverPeer,
-  resolveDelegateForAway,
+  resolveOnChainDelegateForDockerMode,
 } from '../test/e2e/docker/helpers/delegation-transfer.mjs';
 
 const HOME_INFO = '/run/ocap/home-info.json';
@@ -32,16 +32,28 @@ const HOME_SOCKET = '/run/ocap/home.sock';
 async function main() {
   const homeInfo = JSON.parse(readFileSync(HOME_INFO, 'utf8'));
   const awayInfo = JSON.parse(readFileSync(AWAY_INFO, 'utf8'));
+  const delegationMode = process.env.DELEGATION_MODE ?? 'bundler-7702';
 
   const home = makeDaemonClient(HOME_SOCKET);
 
   const callHome = (method, args) =>
     home.callVat(homeInfo.coordinatorKref, method, args);
 
-  const delegate = resolveDelegateForAway(awayInfo);
+  const delegate = resolveOnChainDelegateForDockerMode({
+    delegationMode,
+    homeInfo,
+    awayInfo,
+  });
   console.log(`[delegation] home coordinator: ${homeInfo.coordinatorKref}`);
+  console.log(`[delegation] mode: ${delegationMode}`);
   console.log(
-    `[delegation] away delegate: ${delegate}${awayInfo.smartAccountAddress ? ' (smart account)' : ' (EOA)'}`,
+    `[delegation] on-chain delegate: ${delegate}${
+      delegationMode === 'peer-relay'
+        ? ' (home; peer-relay redeem)'
+        : awayInfo.smartAccountAddress
+          ? ' (away smart account)'
+          : ' (away EOA)'
+    }`,
   );
 
   const caveats = buildCaveatsFromEnv();
@@ -56,6 +68,8 @@ async function main() {
   const delegation = await createDelegationForDockerStack({
     callHome,
     awayInfo,
+    homeInfo,
+    delegationMode,
     caveats,
   });
   console.log(`[delegation] id: ${delegation.id}`);
