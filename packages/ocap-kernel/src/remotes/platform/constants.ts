@@ -40,5 +40,8 @@ export const RELAY_RECONNECT_MAX_ATTEMPTS = 10;
 /** Handshake timeout in milliseconds (10 seconds) */
 export const HANDSHAKE_TIMEOUT_MS = 10_000;
 
+/** Stream inactivity timeout in milliseconds (2 minutes, matches libp2p default) */
+export const STREAM_INACTIVITY_TIMEOUT_MS = 120_000;
+
 /** Default threshold for consecutive identical errors before marking as permanently failed */
 export const DEFAULT_CONSECUTIVE_ERROR_THRESHOLD = 5;

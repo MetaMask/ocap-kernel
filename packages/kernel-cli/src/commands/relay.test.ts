@@ -27,7 +27,10 @@ vi.mock('../utils.ts', () => ({
   waitFor: vi.fn(),
 }));
 
-const mockLogger = { info: vi.fn(), error: vi.fn() } as unknown as Logger;
+const mockLogger: Logger = {
+  info: vi.fn(),
+  error: vi.fn(),
+} as unknown as Logger;
 
 const makeLibp2pMock = (
   addrs: string[] = ['/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo'],

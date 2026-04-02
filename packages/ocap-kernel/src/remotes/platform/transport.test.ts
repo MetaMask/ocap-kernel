@@ -67,17 +67,28 @@ vi.mock('./reconnection.ts', () => {
 });
 
 // Mock ConnectionFactory
+type MockStream = {
+  status: string;
+  inactivityTimeout: number;
+  addEventListener: ReturnType<typeof vi.fn>;
+  close: ReturnType<typeof vi.fn>;
+  abort: ReturnType<typeof vi.fn>;
+};
+
 type MockChannel = {
   peerId: string;
+  stream: MockStream;
   msgStream: {
     read: ReturnType<typeof vi.fn>;
     write: ReturnType<typeof vi.fn>;
+    unwrap: ReturnType<typeof vi.fn>;
   };
 };
 
 const mockConnectionFactory = {
   dialIdempotent: vi.fn(),
   onInboundConnection: vi.fn(),
+  onPeerDisconnect: vi.fn(),
   stop: vi.fn().mockResolvedValue(undefined),
   closeChannel: vi.fn().mockResolvedValue(undefined),
   getListenAddresses: vi.fn().mockReturnValue([]),
@@ -215,21 +226,32 @@ describe('transport.initTransport', () => {
     }
   });
 
-  const createMockChannel = (peerId: string): MockChannel => ({
-    peerId,
-    msgStream: {
-      read: vi
-        .fn<() => Promise<Uint8Array | undefined>>()
-        .mockImplementation(async () => {
-          return await new Promise<Uint8Array | undefined>(() => {
-            /* Never resolves by default */
-          });
-        }),
-      write: vi
-        .fn<(buffer: Uint8Array) => Promise<void>>()
-        .mockResolvedValue(undefined),
-    },
-  });
+  const createMockChannel = (peerId: string): MockChannel => {
+    const stream: MockStream = {
+      status: 'open',
+      inactivityTimeout: 0,
+      addEventListener: vi.fn(),
+      close: vi.fn().mockResolvedValue(undefined),
+      abort: vi.fn(),
+    };
+    return {
+      peerId,
+      stream,
+      msgStream: {
+        read: vi
+          .fn<() => Promise<Uint8Array | undefined>>()
+          .mockImplementation(async () => {
+            return await new Promise<Uint8Array | undefined>(() => {
+              /* Never resolves by default */
+            });
+          }),
+        write: vi
+          .fn<(buffer: Uint8Array) => Promise<void>>()
+          .mockResolvedValue(undefined),
+        unwrap: vi.fn(() => stream),
+      },
+    };
+  };
 
   describe('initialization', () => {
     it('passes correct parameters to ConnectionFactory.make', async () => {
@@ -571,6 +593,81 @@ describe('transport.initTransport', () => {
           mockReconnectionManager.startReconnection,
         ).not.toHaveBeenCalled();
       });
+    });
+
+    it('treats StreamResetError as intentional disconnect', async () => {
+      const { StreamResetError: MockStreamResetError } = await import(
+        '@libp2p/interface'
+      );
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler) => {
+          inboundHandler = handler;
+        },
+      );
+
+      await initTransport('0x1234', {}, vi.fn());
+
+      const mockChannel = createMockChannel('peer-1');
+      mockChannel.msgStream.read.mockRejectedValue(
+        new MockStreamResetError('stream reset'),
+      );
+
+      inboundHandler?.(mockChannel);
+
+      await vi.waitFor(() => {
+        // StreamResetError = remote explicitly aborted the stream (e.g. during shutdown)
+        expect(mockLogger.log).toHaveBeenCalledWith(
+          'peer-1:: remote intentionally disconnected',
+        );
+        expect(
+          mockReconnectionManager.startReconnection,
+        ).not.toHaveBeenCalled();
+      });
+    });
+
+    it('starts reconnection on peer:disconnect when no active channel', async () => {
+      let disconnectHandler: ((peerId: string) => void) | undefined;
+      mockConnectionFactory.onPeerDisconnect.mockImplementation(
+        (handler: (peerId: string) => void) => {
+          disconnectHandler = handler;
+        },
+      );
+
+      await initTransport('0x1234', {}, vi.fn());
+
+      // peer-1 has no channel (never connected), so peer:disconnect triggers reconnection
+      disconnectHandler?.('peer-1');
+
+      expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+        'peer-1',
+      );
+    });
+
+    it('does not trigger reconnection on peer:disconnect when channel is active', async () => {
+      let disconnectHandler: ((peerId: string) => void) | undefined;
+      mockConnectionFactory.onPeerDisconnect.mockImplementation(
+        (handler: (peerId: string) => void) => {
+          disconnectHandler = handler;
+        },
+      );
+
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage: send } = await initTransport(
+        '0x1234',
+        {},
+        vi.fn(),
+      );
+
+      // Establish an active channel
+      await send('peer-1', makeTestMessage('msg1'));
+
+      // peer:disconnect fires but channel is still active — readChannel handles cleanup
+      disconnectHandler?.('peer-1');
+
+      expect(mockReconnectionManager.startReconnection).not.toHaveBeenCalled();
     });
 
     it('throws AbortError when signal aborted during read', async () => {
@@ -2183,6 +2280,107 @@ describe('transport.initTransport', () => {
           'peer-1',
         );
       });
+    });
+
+    it('attaches close event listener to underlying stream', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage, stop } = await initTransport(
+        '0x1234',
+        {},
+        vi.fn(),
+      );
+
+      await sendRemoteMessage('peer-1', makeTestMessage('msg1'));
+
+      expect(mockChannel.stream.addEventListener).toHaveBeenCalledWith(
+        'close',
+        expect.any(Function),
+        { once: true },
+      );
+
+      await stop();
+    });
+
+    it('sets default inactivityTimeout on stream when registering channel', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage, stop } = await initTransport(
+        '0x1234',
+        {},
+        vi.fn(),
+      );
+
+      await sendRemoteMessage('peer-1', makeTestMessage('msg1'));
+
+      expect(mockChannel.stream.inactivityTimeout).toBe(120_000);
+
+      await stop();
+    });
+
+    it('uses custom streamInactivityTimeoutMs when provided', async () => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage, stop } = await initTransport(
+        '0x1234',
+        { streamInactivityTimeoutMs: 5_000 },
+        vi.fn(),
+      );
+
+      await sendRemoteMessage('peer-1', makeTestMessage('msg1'));
+
+      expect(mockChannel.stream.inactivityTimeout).toBe(5_000);
+
+      await stop();
+    });
+
+    it.each([
+      {
+        scenario: 'local close without error',
+        event: { local: true },
+        expectedLog: 'peer-1:: stream closed locally',
+      },
+      {
+        scenario: 'local close with error',
+        event: { local: true, error: new Error('write timeout') },
+        expectedLog: 'peer-1:: stream closed locally: write timeout',
+      },
+      {
+        scenario: 'remote close with error',
+        event: { local: false, error: new Error('connection reset') },
+        expectedLog: 'peer-1:: stream reset by remote: connection reset',
+      },
+      {
+        scenario: 'remote clean close',
+        event: {},
+        expectedLog: 'peer-1:: stream closed by remote (clean)',
+      },
+    ])('logs $scenario via close event', async ({ event, expectedLog }) => {
+      const mockChannel = createMockChannel('peer-1');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+
+      const { sendRemoteMessage, stop } = await initTransport(
+        '0x1234',
+        {},
+        vi.fn(),
+      );
+
+      await sendRemoteMessage('peer-1', makeTestMessage('msg1'));
+
+      // Get the close event listener that was attached
+      const closeListener = mockChannel.stream.addEventListener.mock
+        .calls[0]?.[1] as (evt: Event) => void;
+
+      // Fire the close event
+      mockLogger.log.mockClear();
+      closeListener(event as unknown as Event);
+
+      expect(mockLogger.log).toHaveBeenCalledWith(expectedLog);
+
+      await stop();
     });
 
     it('updates lastConnectionTime on each message send', async () => {
