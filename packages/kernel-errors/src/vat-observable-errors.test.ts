@@ -5,7 +5,7 @@ import {
   isKernelError,
   getKernelErrorCode,
   isFatalKernelError,
-} from './kernel-error.ts';
+} from './vat-observable-errors.ts';
 
 describe('KERNEL_ERROR_PATTERN', () => {
   it.each([

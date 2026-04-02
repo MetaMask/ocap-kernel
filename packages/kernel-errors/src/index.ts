@@ -33,10 +33,10 @@ export type {
   ExpectedKernelErrorCode,
   FatalKernelErrorCode,
   KernelErrorCode,
-} from './kernel-error.ts';
+} from './vat-observable-errors.ts';
 export {
   KERNEL_ERROR_PATTERN,
   isKernelError,
   getKernelErrorCode,
   isFatalKernelError,
-} from './kernel-error.ts';
+} from './vat-observable-errors.ts';

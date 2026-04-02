@@ -11,7 +11,6 @@ import {
   krefOf,
   kser,
   kunser,
-  makeError,
   makeKernelError,
   makeFatalKernelError,
 } from './kernel-marshal.ts';
@@ -179,29 +178,6 @@ describe('kernel-marshal', () => {
       expect(isKernelError(deserialized)).toBe(true);
       expect(getKernelErrorCode(deserialized)).toBe('INTERNAL_ERROR');
       expect(isFatalKernelError(deserialized)).toBe(true);
-    });
-  });
-
-  describe('makeError', () => {
-    it('creates serialized error with message', () => {
-      const message = 'Test error message';
-      const serialized = makeError(message);
-      const deserialized = kunser(serialized);
-
-      expect(deserialized).toBeInstanceOf(Error);
-      expect((deserialized as Error).message).toBe(message);
-    });
-
-    it('throws for non-string message', () => {
-      expect(() => makeError(123 as unknown as string)).toThrow(
-        '123 must be a string',
-      );
-      expect(() => makeError(null as unknown as string)).toThrow(
-        'null must be a string',
-      );
-      expect(() => makeError(undefined as unknown as string)).toThrow(
-        '"[undefined]" must be a string',
-      );
     });
   });
 });

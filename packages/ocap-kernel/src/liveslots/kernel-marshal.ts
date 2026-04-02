@@ -140,18 +140,6 @@ export function kunser(serializedValue: CapData<KRef>): unknown {
 }
 
 /**
- * Produce a serialized form of an Error.
- *
- * @param message - The error message to construct the Error with.
- * @returns The resulting error after serialization.
- * @deprecated Use {@link makeKernelError} or {@link makeFatalKernelError} instead.
- */
-export function makeError(message: string): CapData<KRef> {
-  assert.typeof(message, 'string');
-  return kser(Error(message));
-}
-
-/**
  * Produce a serialized expected kernel error with a machine-readable code.
  * The resulting error message has the format `[KERNEL:<CODE>] <detail>`.
  *

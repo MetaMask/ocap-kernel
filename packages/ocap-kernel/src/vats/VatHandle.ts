@@ -16,7 +16,10 @@ import { isJsonRpcNotification, isJsonRpcResponse } from '@metamask/utils';
 import type { JsonRpcNotification, JsonRpcResponse } from '@metamask/utils';
 
 import type { KernelQueue } from '../KernelQueue.ts';
-import { makeError, makeKernelError } from '../liveslots/kernel-marshal.ts';
+import {
+  makeKernelError,
+  makeFatalKernelError,
+} from '../liveslots/kernel-marshal.ts';
 import { vatMethodSpecs, vatSyscallHandlers } from '../rpc/index.ts';
 import type { PingVatResult, VatMethod } from '../rpc/index.ts';
 import type { KernelStore } from '../store/index.ts';
@@ -364,7 +367,10 @@ export class VatHandle implements EndpointHandle {
       results.terminate = { vatId: this.vatId, reject: true, info };
     } else if (this.#vatSyscall.deliveryError) {
       results.abort = true;
-      const info = makeError(this.#vatSyscall.deliveryError);
+      const info = makeFatalKernelError(
+        'INTERNAL_ERROR',
+        this.#vatSyscall.deliveryError,
+      );
       results.terminate = { vatId: this.vatId, reject: true, info };
     } else if (this.#vatSyscall.vatRequestedTermination) {
       if (this.#vatSyscall.vatRequestedTermination.reject) {
