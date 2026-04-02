@@ -376,12 +376,11 @@ export class RemoteHandle implements EndpointHandle {
     }
 
     if (this.#retryCount >= MAX_RETRIES) {
-      // Give up - notify RemoteManager which calls giveUp() to reject
-      // pending messages, URL redemptions, and clear the ACK timer.
+      // Notify RemoteManager, which calls giveUp() to reject pending
+      // messages, URL redemptions, and clear the ACK timer.
       this.#logger.log(
         `${this.#peerId.slice(0, 8)}:: gave up after ${MAX_RETRIES} retries, rejecting ${this.#getPendingCount()} pending messages`,
       );
-      this.giveUp(`not acknowledged after ${MAX_RETRIES} retries`);
       this.#onGiveUp?.(this.#peerId);
       return;
     }

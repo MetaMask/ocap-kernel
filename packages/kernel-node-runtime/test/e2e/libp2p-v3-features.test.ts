@@ -166,9 +166,11 @@ describe.sequential('libp2p v3 Features E2E', () => {
       'recovers communication after idle period exceeds inactivity timeout',
       async () => {
         // Use a short inactivity timeout to test the auto-abort behavior.
+        // Must be >= MIN_STREAM_INACTIVITY_TIMEOUT_MS (5 s) since the
+        // transport clamps lower values.
         const shortTimeoutOptions = {
           ...testBackoffOptions,
-          streamInactivityTimeoutMs: 2_000,
+          streamInactivityTimeoutMs: 6_000,
         };
 
         const { aliceRef, bobURL } = await setupAliceAndBob(
@@ -190,10 +192,10 @@ describe.sequential('libp2p v3 Features E2E', () => {
         );
         expect(initial).toContain('vat Bob got "hello" from Alice');
 
-        // Wait longer than the inactivity timeout (2s + buffer).
+        // Wait longer than the inactivity timeout (6s + buffer).
         // The stream should auto-abort due to inactivityTimeout,
         // triggering connection loss handling and reconnection.
-        await delay(4_000);
+        await delay(8_000);
 
         // Send another message — the transport layer should
         // reconnect since the previous stream was aborted by inactivity.
