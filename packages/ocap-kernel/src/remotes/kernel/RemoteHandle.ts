@@ -382,7 +382,6 @@ export class RemoteHandle implements EndpointHandle {
       this.#logger.log(
         `${this.#peerId.slice(0, 8)}:: gave up after ${MAX_RETRIES} retries, rejecting ${this.#getPendingCount()} pending messages`,
       );
-      this.giveUp(`not acknowledged after ${MAX_RETRIES} retries`);
       this.#onGiveUp?.(this.#peerId);
       return;
     }
