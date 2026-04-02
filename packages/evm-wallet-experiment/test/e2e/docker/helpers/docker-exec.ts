@@ -9,6 +9,8 @@ import { execSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { dockerE2eRequiredComposeServices } from './docker-e2e-kernel-services.ts';
+
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
 const COMPOSE_FILE = resolve(
@@ -61,7 +63,7 @@ export function readContainerJson<T = unknown>(
 /**
  * Call a coordinator vat method via the kernel CLI inside a container.
  *
- * @param service - The compose service name ('home' or 'away').
+ * @param service - Compose kernel service (e.g. `kernel-home-bundler-7702`).
  * @param kref - The coordinator kref (e.g. 'ko4').
  * @param method - The method name.
  * @param args - Method arguments.
@@ -140,7 +142,7 @@ export function isStackHealthy(): boolean {
       .split('\n')
       .filter(Boolean)
       .map((line) => JSON.parse(line) as { Service: string; Health: string });
-    const required = ['evm', 'bundler', 'home', 'away'];
+    const required = dockerE2eRequiredComposeServices();
     return required.every((name) =>
       services.some((svc) => svc.Service === name && svc.Health === 'healthy'),
     );
@@ -186,7 +188,7 @@ export type ServiceInfo = {
 /**
  * Read the readiness file for a kernel service.
  *
- * @param service - The compose service name (e.g. 'home', 'away').
+ * @param service - Compose kernel service name (matches `-ready.json` basename).
  * @returns The parsed readiness info.
  */
 export function getServiceInfo(service: string): ServiceInfo {

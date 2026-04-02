@@ -120,15 +120,27 @@ export function buildRootObject(
             'A random salt is required when encrypting the mnemonic',
           );
         }
-        stored = {
-          ...encryptMnemonic({
-            mnemonic: options.mnemonic,
-            password,
-            salt,
-            pbkdf2Iterations,
-          }),
-          type: 'srp',
-        };
+        stored =
+          options.addressIndex === undefined
+            ? {
+                ...encryptMnemonic({
+                  mnemonic: options.mnemonic,
+                  password,
+                  salt,
+                  pbkdf2Iterations,
+                }),
+                type: 'srp',
+              }
+            : {
+                ...encryptMnemonic({
+                  mnemonic: options.mnemonic,
+                  password,
+                  salt,
+                  pbkdf2Iterations,
+                }),
+                type: 'srp',
+                addressIndex: options.addressIndex,
+              };
       } else {
         stored = options;
       }
@@ -153,7 +165,11 @@ export function buildRootObject(
         password,
         pbkdf2Iterations,
       });
-      rebuildKeyring({ type: 'srp', mnemonic });
+      rebuildKeyring(
+        stored.addressIndex === undefined
+          ? { type: 'srp', mnemonic }
+          : { type: 'srp', mnemonic, addressIndex: stored.addressIndex },
+      );
       locked = false;
     },
 

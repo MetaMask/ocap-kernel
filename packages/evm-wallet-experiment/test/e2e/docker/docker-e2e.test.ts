@@ -1,6 +1,16 @@
 /* eslint-disable n/no-process-env */
+import { mnemonicToAccount } from 'viem/accounts';
 import { beforeAll, describe, expect, it } from 'vitest';
 
+import {
+  DOCKER_E2E_KERNEL_MODES,
+  dockerE2eHomeSrpAddressIndex,
+  dockerKernelServicesForMode,
+} from './helpers/docker-e2e-kernel-services.ts';
+import type {
+  DockerE2eKernelMode,
+  DockerKernelServicePair,
+} from './helpers/docker-e2e-kernel-services.ts';
 import {
   callVat,
   evmRpc,
@@ -17,7 +27,28 @@ import {
 } from './helpers/scenarios.ts';
 import type { AwayResult, HomeResult } from './helpers/scenarios.ts';
 
-const EXPECTED_HOME_ADDRESS = '0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266';
+const DOCKER_E2E_TEST_MNEMONIC =
+  'test test test test test test test test test test test junk';
+
+function expectedDockerHomeEoaAddress(mode: DockerE2eKernelMode): string {
+  return mnemonicToAccount(DOCKER_E2E_TEST_MNEMONIC, {
+    addressIndex: dockerE2eHomeSrpAddressIndex(mode),
+  }).address.toLowerCase();
+}
+
+/**
+ * All parallel-safe modes by default. Set `DELEGATION_MODE` to run one only.
+ *
+ * @returns Modes to execute in this Vitest run.
+ */
+function dockerE2eDelegationModes(): DockerE2eKernelMode[] {
+  const only = process.env.DELEGATION_MODE;
+  if (only !== undefined && only.length > 0) {
+    dockerKernelServicesForMode(only);
+    return [only as DockerE2eKernelMode];
+  }
+  return [...DOCKER_E2E_KERNEL_MODES];
+}
 const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
 
 type Delegation = {
@@ -36,8 +67,6 @@ type Capabilities = {
   localAccounts?: string[];
   autonomy?: string;
 };
-
-const DELEGATION_MODE = process.env.DELEGATION_MODE ?? 'bundler-7702';
 
 type CallAwayFn = (
   method: string,
@@ -76,7 +105,11 @@ function awaitSendIncludedOnChain(
 
 const awaySetupFns: Record<
   string,
-  (c: ContractAddresses, h: HomeResult) => AwayResult | Promise<AwayResult>
+  (
+    services: DockerKernelServicePair,
+    c: ContractAddresses,
+    h: HomeResult,
+  ) => AwayResult | Promise<AwayResult>
 > = {
   'bundler-7702': setup7702Away,
   'bundler-hybrid': setupHybridAway,
@@ -84,185 +117,210 @@ const awaySetupFns: Record<
 };
 
 describe('Docker E2E', () => {
-  let homeResult: HomeResult;
-  let awayResult: AwayResult;
-
-  beforeAll(async () => {
+  beforeAll(() => {
     if (!isStackHealthy()) {
       throw new Error(
         'Docker stack is not running. Start it with: yarn docker:up',
       );
     }
-
-    const contracts = readContracts();
-    homeResult = setupHome(contracts);
-
-    const setupAway = awaySetupFns[DELEGATION_MODE];
-    if (!setupAway) {
-      throw new Error(`Unknown DELEGATION_MODE: ${DELEGATION_MODE}`);
-    }
-    awayResult = await setupAway(contracts, homeResult);
-  }, 180_000);
-
-  const callHome = (
-    method: string,
-    args: unknown[] = [],
-    opts?: { daemonTimeoutSeconds?: number },
-  ) => callVat('home', homeResult.kref, method, args, opts);
-
-  const callAway = (
-    method: string,
-    args: unknown[] = [],
-    opts?: { daemonTimeoutSeconds?: number },
-  ) => callVat('away', awayResult.kref, method, args, opts);
-
-  // ---------------------------------------------------------------------------
-  // Home wallet tests
-  // ---------------------------------------------------------------------------
-
-  describe('home wallet', () => {
-    it('returns accounts', () => {
-      const accounts = callHome('getAccounts') as string[];
-      expect(accounts).toHaveLength(1);
-      expect(accounts[0]?.toLowerCase()).toBe(EXPECTED_HOME_ADDRESS);
-    });
-
-    it('has balance from Anvil', async () => {
-      const balanceHex = (await evmRpc('eth_getBalance', [
-        EXPECTED_HOME_ADDRESS,
-        'latest',
-      ])) as string;
-      const balanceEth = Number(BigInt(balanceHex)) / 1e18;
-      expect(balanceEth).toBeGreaterThan(9000);
-    });
-
-    it('signs a message', () => {
-      const signature = callHome('signMessage', ['Docker E2E test']) as string;
-      expect(signature).toMatch(/^0x[\da-f]{130}$/iu);
-    });
-
-    it('signs typed data (EIP-712)', () => {
-      const typedData = {
-        domain: {
-          name: 'Test',
-          version: '1',
-          chainId: 31337,
-          verifyingContract: '0x0000000000000000000000000000000000000001',
-        },
-        types: {
-          Mail: [
-            { name: 'from', type: 'string' },
-            { name: 'to', type: 'string' },
-          ],
-        },
-        primaryType: 'Mail',
-        message: { from: 'Alice', to: 'Bob' },
-      };
-      const signature = callHome('signTypedData', [typedData]) as string;
-      expect(signature).toMatch(/^0x[\da-f]{130}$/iu);
-    });
-
-    it('queries eth_blockNumber', async () => {
-      const blockNum = (await evmRpc('eth_blockNumber')) as string;
-      expect(blockNum).toMatch(/^0x[\da-f]+$/iu);
-    });
   });
 
-  // ---------------------------------------------------------------------------
-  // away wallet tests
-  // ---------------------------------------------------------------------------
+  describe.each(dockerE2eDelegationModes())(
+    'DELEGATION_MODE %s',
+    (delegationMode) => {
+      let kernelServices!: DockerKernelServicePair;
+      let homeResult: HomeResult;
+      let awayResult: AwayResult;
 
-  describe('away wallet', () => {
-    it('has local keys', () => {
-      const caps = callAway('getCapabilities') as Capabilities;
-      expect(caps.hasLocalKeys).toBe(true);
-    });
+      beforeAll(async () => {
+        kernelServices = dockerKernelServicesForMode(delegationMode);
+        const contracts = readContracts();
+        homeResult = setupHome(kernelServices, contracts, {
+          delegationMode,
+        });
 
-    it('signs a message', () => {
-      const signature = callAway('signMessage', ['Away test']) as string;
-      expect(signature).toMatch(/^0x[\da-f]{130}$/iu);
-    });
+        const setupAway = awaySetupFns[delegationMode];
+        if (!setupAway) {
+          throw new Error(`Unknown DELEGATION_MODE: ${delegationMode}`);
+        }
+        awayResult = await setupAway(kernelServices, contracts, homeResult);
+      }, 180_000);
 
-    it('queries eth_blockNumber', () => {
-      const blockNum = callAway('request', ['eth_blockNumber', []]) as string;
-      expect(blockNum).toMatch(/^0x[\da-f]+$/iu);
-    });
-  });
+      const callHome = (
+        method: string,
+        args: unknown[] = [],
+        opts?: { daemonTimeoutSeconds?: number },
+      ) => callVat(kernelServices.home, homeResult.kref, method, args, opts);
 
-  // ---------------------------------------------------------------------------
-  // Delegation redemption
-  // ---------------------------------------------------------------------------
+      const callAway = (
+        method: string,
+        args: unknown[] = [],
+        opts?: { daemonTimeoutSeconds?: number },
+      ) => callVat(kernelServices.away, awayResult.kref, method, args, opts);
 
-  describe('delegation redemption', () => {
-    let delegation: Delegation;
+      // ---------------------------------------------------------------------------
+      // Home wallet tests
+      // ---------------------------------------------------------------------------
 
-    beforeAll(() => {
-      const delegate = resolveOnChainDelegateAddress({
-        delegationMode: DELEGATION_MODE,
-        home: homeResult,
-        away: awayResult,
+      describe('home wallet', () => {
+        const expectedHomeAddress =
+          expectedDockerHomeEoaAddress(delegationMode);
+
+        it('returns accounts', () => {
+          const accounts = callHome('getAccounts') as string[];
+          expect(accounts).toHaveLength(1);
+          expect(accounts[0]?.toLowerCase()).toBe(expectedHomeAddress);
+        });
+
+        it('has balance from Anvil', async () => {
+          const balanceHex = (await evmRpc('eth_getBalance', [
+            expectedHomeAddress,
+            'latest',
+          ])) as string;
+          const balanceEth = Number(BigInt(balanceHex)) / 1e18;
+          expect(balanceEth).toBeGreaterThan(9000);
+        });
+
+        it('signs a message', () => {
+          const signature = callHome('signMessage', [
+            'Docker E2E test',
+          ]) as string;
+          expect(signature).toMatch(/^0x[\da-f]{130}$/iu);
+        });
+
+        it('signs typed data (EIP-712)', () => {
+          const typedData = {
+            domain: {
+              name: 'Test',
+              version: '1',
+              chainId: 31337,
+              verifyingContract: '0x0000000000000000000000000000000000000001',
+            },
+            types: {
+              Mail: [
+                { name: 'from', type: 'string' },
+                { name: 'to', type: 'string' },
+              ],
+            },
+            primaryType: 'Mail',
+            message: { from: 'Alice', to: 'Bob' },
+          };
+          const signature = callHome('signTypedData', [typedData]) as string;
+          expect(signature).toMatch(/^0x[\da-f]{130}$/iu);
+        });
+
+        it('queries eth_blockNumber', async () => {
+          const blockNum = (await evmRpc('eth_blockNumber')) as string;
+          expect(blockNum).toMatch(/^0x[\da-f]+$/iu);
+        });
       });
 
-      delegation = callHome('createDelegation', [
-        { delegate, caveats: [], chainId: 31337 },
-      ]) as Delegation;
+      // ---------------------------------------------------------------------------
+      // away wallet tests
+      // ---------------------------------------------------------------------------
 
-      callAway('receiveDelegation', [delegation]);
-    });
+      describe('away wallet', () => {
+        it('has local keys', () => {
+          const caps = callAway('getCapabilities') as Capabilities;
+          expect(caps.hasLocalKeys).toBe(true);
+        });
 
-    it('creates a signed delegation', () => {
-      expect(delegation.status).toBe('signed');
-    });
+        it('signs a message', () => {
+          const signature = callAway('signMessage', ['Away test']) as string;
+          expect(signature).toMatch(/^0x[\da-f]{130}$/iu);
+        });
 
-    it('lists delegation on away', () => {
-      const delegations = callAway('listDelegations') as Delegation[];
-      expect(delegations.length).toBeGreaterThanOrEqual(1);
-      expect(delegations[0]?.id).toBe(delegation.id);
-    });
+        it('queries eth_blockNumber', () => {
+          const blockNum = callAway('request', [
+            'eth_blockNumber',
+            [],
+          ]) as string;
+          expect(blockNum).toMatch(/^0x[\da-f]+$/iu);
+        });
+      });
 
-    it('sends ETH via delegated authority', async () => {
-      const homeSA = homeResult.smartAccountAddress;
-      expect(homeSA).toBeDefined();
+      // ---------------------------------------------------------------------------
+      // Delegation redemption
+      // ---------------------------------------------------------------------------
 
-      const balanceBefore = BigInt(
-        (await evmRpc('eth_getBalance', [BURN_ADDRESS, 'latest'])) as string,
-      );
+      describe('delegation redemption', () => {
+        let delegation: Delegation;
 
-      const submitHash = callAway('sendTransaction', [
-        { from: homeSA, to: BURN_ADDRESS, value: '0xDE0B6B3A7640000' },
-      ]) as string;
+        beforeAll(() => {
+          const delegate = resolveOnChainDelegateAddress({
+            delegationMode,
+            home: homeResult,
+            away: awayResult,
+          });
 
-      expect(submitHash).toMatch(/^0x[\da-f]{64}$/iu);
+          delegation = callHome('createDelegation', [
+            { delegate, caveats: [], chainId: 31337 },
+          ]) as Delegation;
 
-      awaitSendIncludedOnChain(DELEGATION_MODE, submitHash, callAway);
+          callAway('receiveDelegation', [delegation]);
+        });
 
-      const balanceAfter = BigInt(
-        (await evmRpc('eth_getBalance', [BURN_ADDRESS, 'latest'])) as string,
-      );
-      expect(balanceAfter).toBeGreaterThan(balanceBefore);
-    });
+        it('creates a signed delegation', () => {
+          expect(delegation.status).toBe('signed');
+        });
 
-    it('reports capabilities consistent with delegation mode', () => {
-      const caps = callAway('getCapabilities') as Capabilities;
+        it('lists delegation on away', () => {
+          const delegations = callAway('listDelegations') as Delegation[];
+          expect(delegations.length).toBeGreaterThanOrEqual(1);
+          expect(delegations[0]?.id).toBe(delegation.id);
+        });
 
-      expect(caps.delegationCount).toBeGreaterThanOrEqual(1);
+        it('sends ETH via delegated authority', async () => {
+          const homeSA = homeResult.smartAccountAddress;
+          expect(homeSA).toBeDefined();
 
-      const expectations: Record<string, () => void> = {
-        'bundler-7702': () => {
-          expect(caps.hasBundlerConfig).toBe(true);
-          expect(caps.smartAccountAddress).toBeDefined();
-        },
-        'bundler-hybrid': () => {
-          expect(caps.hasBundlerConfig).toBe(true);
-          expect(caps.smartAccountAddress).toBeDefined();
-        },
-        'peer-relay': () => {
-          expect(caps.hasBundlerConfig).toBe(false);
-          expect(caps.hasPeerWallet).toBe(true);
-        },
-      };
+          const balanceBefore = BigInt(
+            (await evmRpc('eth_getBalance', [
+              BURN_ADDRESS,
+              'latest',
+            ])) as string,
+          );
 
-      expectations[DELEGATION_MODE]?.();
-    });
-  });
+          const submitHash = callAway('sendTransaction', [
+            { from: homeSA, to: BURN_ADDRESS, value: '0xDE0B6B3A7640000' },
+          ]) as string;
+
+          expect(submitHash).toMatch(/^0x[\da-f]{64}$/iu);
+
+          awaitSendIncludedOnChain(delegationMode, submitHash, callAway);
+
+          const balanceAfter = BigInt(
+            (await evmRpc('eth_getBalance', [
+              BURN_ADDRESS,
+              'latest',
+            ])) as string,
+          );
+          expect(balanceAfter).toBeGreaterThan(balanceBefore);
+        });
+
+        it('reports capabilities consistent with delegation mode', () => {
+          const caps = callAway('getCapabilities') as Capabilities;
+
+          expect(caps.delegationCount).toBeGreaterThanOrEqual(1);
+
+          const expectations: Record<DockerE2eKernelMode, () => void> = {
+            'bundler-7702': () => {
+              expect(caps.hasBundlerConfig).toBe(true);
+              expect(caps.smartAccountAddress).toBeDefined();
+            },
+            'bundler-hybrid': () => {
+              expect(caps.hasBundlerConfig).toBe(true);
+              expect(caps.smartAccountAddress).toBeDefined();
+            },
+            'peer-relay': () => {
+              expect(caps.hasBundlerConfig).toBe(false);
+              expect(caps.hasPeerWallet).toBe(true);
+            },
+          };
+
+          expectations[delegationMode]();
+        });
+      });
+    },
+  );
 });

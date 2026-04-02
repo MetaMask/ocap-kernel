@@ -82,12 +82,28 @@ export function launchWalletSubcluster(
 export function initKeyring(
   service: string,
   kref: string,
-  options: { type: 'srp'; mnemonic: string } | { type: 'throwaway' },
+  options:
+    | { type: 'srp'; mnemonic: string; addressIndex?: number }
+    | { type: 'throwaway' },
 ): string {
-  const keyringOpts =
-    options.type === 'srp'
-      ? { type: 'srp', mnemonic: options.mnemonic }
-      : { type: 'throwaway', entropy: `0x${randomBytes(32).toString('hex')}` };
+  let keyringOpts:
+    | { type: 'srp'; mnemonic: string; addressIndex?: number }
+    | { type: 'throwaway'; entropy: string };
+  if (options.type === 'throwaway') {
+    keyringOpts = {
+      type: 'throwaway',
+      entropy: `0x${randomBytes(32).toString('hex')}`,
+    };
+  } else {
+    keyringOpts =
+      options.addressIndex === undefined
+        ? { type: 'srp', mnemonic: options.mnemonic }
+        : {
+            type: 'srp',
+            mnemonic: options.mnemonic,
+            addressIndex: options.addressIndex,
+          };
+  }
 
   callVat(service, kref, 'initializeKeyring', [keyringOpts]);
 

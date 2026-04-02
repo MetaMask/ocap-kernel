@@ -3,6 +3,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     name: 'evm-wallet:docker-e2e',
+    // docker-e2e.test.ts runs bundler-7702, bundler-hybrid, and peer-relay by default
+    // (set DELEGATION_MODE to run a single mode).
     pool: 'forks',
     include: ['./test/e2e/docker/**/*.test.ts'],
     hookTimeout: 120_000,

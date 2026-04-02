@@ -8,7 +8,10 @@
  * Delegation modes: bundler-7702 (default), bundler-hybrid, peer-relay
  */
 
+import { dockerKernelServicesForMode } from './helpers/docker-e2e-kernel-services.ts';
+import type { DockerE2eKernelMode } from './helpers/docker-e2e-kernel-services.ts';
 import { callVat, readContracts } from './helpers/docker-exec.ts';
+import type { ContractAddresses } from './helpers/docker-exec.ts';
 import {
   resolveOnChainDelegateAddress,
   setup7702Away,
@@ -16,16 +19,21 @@ import {
   setupHybridAway,
   setupPeerRelayAway,
 } from './helpers/scenarios.ts';
-import type { AwayResult } from './helpers/scenarios.ts';
+import type {
+  AwayResult,
+  DockerKernelServicePair,
+  HomeResult,
+} from './helpers/scenarios.ts';
 
 const mode = process.argv[2] ?? process.env.DELEGATION_MODE ?? 'bundler-7702';
 
-const awaySetupFns: Record<
-  string,
-  (
-    ...args: Parameters<typeof setup7702Away>
-  ) => AwayResult | Promise<AwayResult>
-> = {
+type SetupAwayFn = (
+  services: DockerKernelServicePair,
+  contracts: ContractAddresses,
+  home: HomeResult,
+) => AwayResult | Promise<AwayResult>;
+
+const awaySetupFns: Record<string, SetupAwayFn> = {
   'bundler-7702': setup7702Away,
   'bundler-hybrid': setupHybridAway,
   'peer-relay': setupPeerRelayAway,
@@ -41,17 +49,20 @@ async function main() {
 
   console.log(`Setting up wallets (mode: ${mode})...`);
 
+  const kernelServices = dockerKernelServicesForMode(mode);
   const contracts = readContracts();
   console.log(`Contracts: EntryPoint=${contracts.EntryPoint.slice(0, 10)}...`);
 
-  const home = setupHome(contracts);
+  const home = setupHome(kernelServices, contracts, {
+    delegationMode: mode as DockerE2eKernelMode,
+  });
   console.log(
-    `Home: kref=${home.kref} SA=${home.smartAccountAddress.slice(0, 10)}...`,
+    `Home (${kernelServices.home}): kref=${home.kref} SA=${home.smartAccountAddress.slice(0, 10)}...`,
   );
 
-  const away = await setupAway(contracts, home);
+  const away = await setupAway(kernelServices, contracts, home);
   console.log(
-    `Away: kref=${away.kref} delegate=${away.delegateAddress.slice(0, 10)}...`,
+    `Away (${kernelServices.away}): kref=${away.kref} delegate=${away.delegateAddress.slice(0, 10)}...`,
   );
   if (away.smartAccountAddress) {
     console.log(`Away SA: ${away.smartAccountAddress}`);
@@ -79,14 +90,17 @@ async function main() {
   ];
   console.log('Caveat: nativeTokenTransferAmount <= 1000 ETH');
 
-  const delegation = callVat('home', home.kref, 'createDelegation', [
-    { delegate, caveats, chainId: 31337 },
-  ]);
+  const delegation = callVat(
+    kernelServices.home,
+    home.kref,
+    'createDelegation',
+    [{ delegate, caveats, chainId: 31337 }],
+  );
   console.log(
     `Delegation created: ${(delegation as { id: string }).id.slice(0, 20)}...`,
   );
 
-  callVat('away', away.kref, 'receiveDelegation', [delegation]);
+  callVat(kernelServices.away, away.kref, 'receiveDelegation', [delegation]);
   console.log('Delegation received by away.');
 
   console.log('Wallet setup complete.');

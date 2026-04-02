@@ -5,6 +5,11 @@
  * chooses which scenario to run — no branching happens here.
  */
 
+import { dockerE2eHomeSrpAddressIndex } from './docker-e2e-kernel-services.ts';
+import type {
+  DockerE2eKernelMode,
+  DockerKernelServicePair,
+} from './docker-e2e-kernel-services.ts';
 import {
   configureBundler,
   configureProvider,
@@ -44,6 +49,8 @@ export type AwayResult = {
   smartAccountAddress?: string;
 };
 
+export type { DockerKernelServicePair };
+
 /**
  * Address to pass as `delegate` when calling `createDelegation`.
  *
@@ -73,40 +80,56 @@ export function resolveOnChainDelegateAddress(options: {
  * Set up the home kernel with a full wallet: SRP keyring, provider,
  * bundler, 7702 smart account, and an OCAP URL for peer connection.
  *
+ * @param services - Compose service names for this DELEGATION_MODE pair.
  * @param contracts - Deployed contract addresses from the EVM container.
+ * @param options - Per-pair key material (parallel stacks need distinct home EOAs).
+ * @param options.delegationMode - Kernel pair and HD index for the home SRP account.
  * @returns Home wallet info needed by away setup and tests.
  */
-export function setupHome(contracts: ContractAddresses): HomeResult {
-  const info = getServiceInfo('home');
+export function setupHome(
+  services: DockerKernelServicePair,
+  contracts: ContractAddresses,
+  options: { delegationMode: DockerE2eKernelMode },
+): HomeResult {
+  const info = getServiceInfo(services.home);
 
-  const kref = launchWalletSubcluster('home', {
+  const kref = launchWalletSubcluster(services.home, {
     contracts,
     allowedHosts: ALLOWED_HOSTS,
   });
 
-  const address = initKeyring('home', kref, {
+  const homeSrpAddressIndex = dockerE2eHomeSrpAddressIndex(
+    options.delegationMode,
+  );
+
+  const address = initKeyring(services.home, kref, {
     type: 'srp',
     mnemonic: TEST_MNEMONIC,
+    addressIndex: homeSrpAddressIndex,
   });
 
-  configureProvider('home', kref, {
+  configureProvider(services.home, kref, {
     chainId: CHAIN_ID,
     rpcUrl: EVM_RPC_URL,
   });
 
-  configureBundler('home', kref, {
+  configureBundler(services.home, kref, {
     bundlerUrl: BUNDLER_URL,
     chainId: CHAIN_ID,
     entryPoint: contracts.EntryPoint,
     environment: contracts,
   });
 
-  const { address: smartAccountAddress } = createSmartAccount('home', kref, {
-    chainId: CHAIN_ID,
-    implementation: 'stateless7702',
-  });
+  const { address: smartAccountAddress } = createSmartAccount(
+    services.home,
+    kref,
+    {
+      chainId: CHAIN_ID,
+      implementation: 'stateless7702',
+    },
+  );
 
-  const ocapUrl = issueOcapUrl('home', kref);
+  const ocapUrl = issueOcapUrl(services.home, kref);
 
   return {
     kref,
@@ -123,28 +146,32 @@ export function setupHome(contracts: ContractAddresses): HomeResult {
  * launch subcluster, init throwaway keyring, configure provider,
  * register home peer hints, connect to home.
  *
+ * @param services - Compose service names for this pair.
  * @param contracts - Deployed contract addresses.
  * @param home - Home setup result (for peer connection).
  * @returns The coordinator kref and delegate address.
  */
 function setupAwayBase(
+  services: DockerKernelServicePair,
   contracts: ContractAddresses,
   home: HomeResult,
 ): { kref: string; delegateAddress: string } {
-  const kref = launchWalletSubcluster('away', {
+  const kref = launchWalletSubcluster(services.away, {
     contracts,
     allowedHosts: ALLOWED_HOSTS,
   });
 
-  const delegateAddress = initKeyring('away', kref, { type: 'throwaway' });
+  const delegateAddress = initKeyring(services.away, kref, {
+    type: 'throwaway',
+  });
 
-  configureProvider('away', kref, {
+  configureProvider(services.away, kref, {
     chainId: CHAIN_ID,
     rpcUrl: EVM_RPC_URL,
   });
 
-  registerLocationHints('away', home.peerId, home.listenAddresses);
-  connectToPeer('away', kref, home.ocapUrl);
+  registerLocationHints(services.away, home.peerId, home.listenAddresses);
+  connectToPeer(services.away, kref, home.ocapUrl);
 
   return { kref, delegateAddress };
 }
@@ -152,17 +179,19 @@ function setupAwayBase(
 /**
  * Set up away with bundler + EIP-7702 stateless smart account.
  *
+ * @param services - Compose service names for this pair.
  * @param contracts - Deployed contract addresses.
  * @param home - Home setup result (for peer connection).
  * @returns Away wallet info.
  */
 export async function setup7702Away(
+  services: DockerKernelServicePair,
   contracts: ContractAddresses,
   home: HomeResult,
 ): Promise<AwayResult> {
-  const { kref, delegateAddress } = setupAwayBase(contracts, home);
+  const { kref, delegateAddress } = setupAwayBase(services, contracts, home);
 
-  configureBundler('away', kref, {
+  configureBundler(services.away, kref, {
     bundlerUrl: BUNDLER_URL,
     chainId: CHAIN_ID,
     entryPoint: contracts.EntryPoint,
@@ -171,12 +200,16 @@ export async function setup7702Away(
 
   await fundAddress(delegateAddress, 10);
 
-  const { address: smartAccountAddress } = createSmartAccount('away', kref, {
-    chainId: CHAIN_ID,
-    implementation: 'stateless7702',
-  });
+  const { address: smartAccountAddress } = createSmartAccount(
+    services.away,
+    kref,
+    {
+      chainId: CHAIN_ID,
+      implementation: 'stateless7702',
+    },
+  );
 
-  await finalizeAwayPeerSetup('away', kref, smartAccountAddress);
+  await finalizeAwayPeerSetup(services.away, kref, smartAccountAddress);
 
   return { kref, delegateAddress, smartAccountAddress };
 }
@@ -184,31 +217,33 @@ export async function setup7702Away(
 /**
  * Set up away with bundler + factory-deployed HybridDeleGator.
  *
+ * @param services - Compose service names for this pair.
  * @param contracts - Deployed contract addresses.
  * @param home - Home setup result (for peer connection).
  * @returns Away wallet info.
  */
 export async function setupHybridAway(
+  services: DockerKernelServicePair,
   contracts: ContractAddresses,
   home: HomeResult,
 ): Promise<AwayResult> {
-  const { kref, delegateAddress } = setupAwayBase(contracts, home);
+  const { kref, delegateAddress } = setupAwayBase(services, contracts, home);
 
-  configureBundler('away', kref, {
+  configureBundler(services.away, kref, {
     bundlerUrl: BUNDLER_URL,
     chainId: CHAIN_ID,
     entryPoint: contracts.EntryPoint,
     environment: contracts,
   });
 
-  const sa = createSmartAccount('away', kref, { chainId: CHAIN_ID });
+  const sa = createSmartAccount(services.away, kref, { chainId: CHAIN_ID });
 
   if (sa.factory && sa.factoryData) {
     await preDeploySmartAccount(sa.factory, sa.factoryData);
     await fundAddress(sa.address, 10);
   }
 
-  await finalizeAwayPeerSetup('away', kref, sa.address);
+  await finalizeAwayPeerSetup(services.away, kref, sa.address);
 
   return { kref, delegateAddress, smartAccountAddress: sa.address };
 }
@@ -218,15 +253,17 @@ export async function setupHybridAway(
  * After connecting to home, runs the same post-connect steps as setup-away.sh
  * (wait for peer wallet, refreshPeerAccounts, sendDelegateAddressToPeer).
  *
+ * @param services - Compose service names for this pair.
  * @param contracts - Deployed contract addresses.
  * @param home - Home setup result (for peer connection).
  * @returns Away wallet info.
  */
 export async function setupPeerRelayAway(
+  services: DockerKernelServicePair,
   contracts: ContractAddresses,
   home: HomeResult,
 ): Promise<AwayResult> {
-  const { kref, delegateAddress } = setupAwayBase(contracts, home);
-  await finalizeAwayPeerSetup('away', kref, delegateAddress);
+  const { kref, delegateAddress } = setupAwayBase(services, contracts, home);
+  await finalizeAwayPeerSetup(services.away, kref, delegateAddress);
   return { kref, delegateAddress };
 }

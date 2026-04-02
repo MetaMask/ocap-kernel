@@ -1472,14 +1472,26 @@ export function buildRootObject(
       entropy?: Hex;
       password?: string;
       salt?: string;
+      addressIndex?: number;
     }): Promise<void> {
       if (!keyringVat) {
         throw new Error('Keyring vat not available');
       }
-      const initOptions =
-        options.type === 'srp'
-          ? { type: 'srp' as const, mnemonic: options.mnemonic ?? '' }
-          : { type: 'throwaway' as const, entropy: options.entropy };
+      let initOptions:
+        | { type: 'srp'; mnemonic: string; addressIndex?: number }
+        | { type: 'throwaway'; entropy?: Hex };
+      if (options.type === 'throwaway') {
+        initOptions = { type: 'throwaway', entropy: options.entropy };
+      } else {
+        initOptions =
+          options.addressIndex === undefined
+            ? { type: 'srp', mnemonic: options.mnemonic ?? '' }
+            : {
+                type: 'srp',
+                mnemonic: options.mnemonic ?? '',
+                addressIndex: options.addressIndex,
+              };
+      }
 
       const password = options.type === 'srp' ? options.password : undefined;
       await E(keyringVat).initialize(initOptions, password, options.salt);

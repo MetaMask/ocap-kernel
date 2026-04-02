@@ -6,7 +6,7 @@
 # Then run wallet + OpenClaw setup:
 #   yarn docker:interactive:setup
 services:
-  away:
+  kernel-away-bundler-7702:
     build:
       target: interactive
     environment:
