@@ -65,6 +65,8 @@ export function readContainerJson<T = unknown>(
  * @param kref - The coordinator kref (e.g. 'ko4').
  * @param method - The method name.
  * @param args - Method arguments.
+ * @param options - Optional settings.
+ * @param options.daemonTimeoutSeconds - `daemon queueMessage --timeout` (default 60). Use a larger value for long polls (e.g. `waitForUserOpReceipt`).
  * @returns The deserialized result.
  */
 export function callVat(
@@ -72,11 +74,14 @@ export function callVat(
   kref: string,
   method: string,
   args: unknown[] = [],
+  options?: { daemonTimeoutSeconds?: number },
 ): unknown {
+  const daemonTimeout = options?.daemonTimeoutSeconds ?? 60;
+  const execTimeoutMs = daemonTimeout * 1000 + 30_000;
   const argsJson = JSON.stringify(args);
   const raw = execSync(
-    `docker compose -f ${COMPOSE_FILE} exec -T ${service} ${CLI} daemon queueMessage ${shellSingleQuote(kref)} ${shellSingleQuote(method)} ${shellSingleQuote(argsJson)} --timeout 60`,
-    { encoding: 'utf-8', timeout: 90_000 },
+    `docker compose -f ${COMPOSE_FILE} exec -T ${service} ${CLI} daemon queueMessage ${shellSingleQuote(kref)} ${shellSingleQuote(method)} ${shellSingleQuote(argsJson)} --timeout ${daemonTimeout}`,
+    { encoding: 'utf-8', timeout: execTimeoutMs },
   ).trim();
 
   let parsed: unknown;

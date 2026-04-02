@@ -39,6 +39,41 @@ type Capabilities = {
 
 const DELEGATION_MODE = process.env.DELEGATION_MODE ?? 'bundler-7702';
 
+type CallAwayFn = (
+  method: string,
+  args?: unknown[],
+  opts?: { daemonTimeoutSeconds?: number },
+) => unknown;
+
+/**
+ * Hybrid redeems via ERC-4337; sendTransaction returns a UserOp hash. Other
+ * modes return a mined tx hash (7702 direct) or equivalent without UserOp polling.
+ *
+ * @param mode - `DELEGATION_MODE` value.
+ * @param submitHash - Return value from `sendTransaction` (UserOp hash for hybrid).
+ * @param callAway - Away coordinator `callVat` wrapper.
+ */
+function awaitSendIncludedOnChain(
+  mode: string,
+  submitHash: string,
+  callAway: CallAwayFn,
+): void {
+  if (mode !== 'bundler-hybrid') {
+    return;
+  }
+  callAway(
+    'waitForUserOpReceipt',
+    [
+      {
+        userOpHash: submitHash,
+        pollIntervalMs: 500,
+        timeoutMs: 120_000,
+      },
+    ],
+    { daemonTimeoutSeconds: 150 },
+  );
+}
+
 const awaySetupFns: Record<
   string,
   (c: ContractAddresses, h: HomeResult) => AwayResult | Promise<AwayResult>
@@ -69,11 +104,17 @@ describe('Docker E2E', () => {
     awayResult = await setupAway(contracts, homeResult);
   }, 180_000);
 
-  const callHome = (method: string, args: unknown[] = []) =>
-    callVat('home', homeResult.kref, method, args);
+  const callHome = (
+    method: string,
+    args: unknown[] = [],
+    opts?: { daemonTimeoutSeconds?: number },
+  ) => callVat('home', homeResult.kref, method, args, opts);
 
-  const callAway = (method: string, args: unknown[] = []) =>
-    callVat('away', awayResult.kref, method, args);
+  const callAway = (
+    method: string,
+    args: unknown[] = [],
+    opts?: { daemonTimeoutSeconds?: number },
+  ) => callVat('away', awayResult.kref, method, args, opts);
 
   // ---------------------------------------------------------------------------
   // Home wallet tests
@@ -187,11 +228,13 @@ describe('Docker E2E', () => {
         (await evmRpc('eth_getBalance', [BURN_ADDRESS, 'latest'])) as string,
       );
 
-      const txHash = callAway('sendTransaction', [
+      const submitHash = callAway('sendTransaction', [
         { from: homeSA, to: BURN_ADDRESS, value: '0xDE0B6B3A7640000' },
       ]) as string;
 
-      expect(txHash).toMatch(/^0x[\da-f]{64}$/iu);
+      expect(submitHash).toMatch(/^0x[\da-f]{64}$/iu);
+
+      awaitSendIncludedOnChain(DELEGATION_MODE, submitHash, callAway);
 
       const balanceAfter = BigInt(
         (await evmRpc('eth_getBalance', [BURN_ADDRESS, 'latest'])) as string,
