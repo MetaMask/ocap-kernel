@@ -177,7 +177,10 @@ export class RemoteManager {
     const reason = `Remote connection lost: ${peerId} (max retries reached or non-retryable error)`;
     const failure = makeKernelError('CONNECTION_LOST', reason);
 
-    // Stop retransmitting and reject pending messages + URL redemptions
+    // Stop retransmitting and reject pending messages + URL redemptions.
+    // Called from both ACK-timeout and transport give-up paths. The ACK
+    // path calls giveUp() before invoking this callback, but giveUp() is
+    // idempotent so the repeat is harmless and keeps the transport path correct.
     remote.giveUp(reason);
 
     // Reject all promises for which this remote is the decider

@@ -620,7 +620,7 @@ describe('transport.initTransport', () => {
         // intentional close — a malicious peer could otherwise permanently
         // suppress the connection by aborting the stream.
         expect(mockLogger.log).toHaveBeenCalledWith(
-          'peer-1:: remote intentionally disconnected',
+          'peer-1:: stream reset by remote, reconnecting',
         );
         expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
           'peer-1',

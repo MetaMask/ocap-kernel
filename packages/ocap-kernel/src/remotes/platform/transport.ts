@@ -419,17 +419,18 @@ export async function initTransport(
         try {
           readBuf = await channel.msgStream.read();
         } catch (problem) {
-          if (isIntentionalDisconnect(problem)) {
+          if (problem instanceof StreamResetError) {
+            // Remote-initiated stream reset: treat as connection loss and
+            // reconnect. Do NOT mark as intentionally closed — a malicious
+            // peer could otherwise permanently suppress the connection.
+            logger.log(
+              `${channel.peerId}:: stream reset by remote, reconnecting`,
+            );
+            handleConnectionLoss(channel.peerId);
+          } else if (isIntentionalDisconnect(problem)) {
+            // Locally-initiated close (SCTP user abort): honour as intentional.
             logger.log(`${channel.peerId}:: remote intentionally disconnected`);
-            // Only mark as intentionally closed for locally-initiated resets
-            // (SCTP user abort). A remote-initiated StreamResetError should
-            // trigger normal reconnection — otherwise a malicious peer could
-            // permanently suppress the connection by aborting the stream.
-            if (problem instanceof StreamResetError) {
-              handleConnectionLoss(channel.peerId);
-            } else {
-              peerStateManager.markIntentionallyClosed(channel.peerId);
-            }
+            peerStateManager.markIntentionallyClosed(channel.peerId);
           } else {
             outputError(
               channel.peerId,
