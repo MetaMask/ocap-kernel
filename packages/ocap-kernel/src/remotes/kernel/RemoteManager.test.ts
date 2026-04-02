@@ -771,12 +771,31 @@ describe('RemoteManager', () => {
       expect(() => onRemoteGiveUp(peerId)).not.toThrow();
     });
 
-    it('handles remote give up and processes promises when they exist', () => {
+    it('rejects kernel promises with CONNECTION_LOST when remote has promises', () => {
       const peerId = 'peer-with-promises';
-      remoteManager.establishRemote(peerId);
+      const remote = remoteManager.establishRemote(peerId);
+      const { remoteId } = remote;
+
+      // Set up a promise where the remote is the decider
+      const [kpid] = kernelStore.initKernelPromise();
+      kernelStore.setPromiseDecider(kpid, remoteId);
+      kernelKVStore.set(`cle.${remoteId}.p+1`, kpid);
+
+      const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');
+
       const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
       const onRemoteGiveUp = initCall?.[6] as (peerId: string) => void;
-      expect(() => onRemoteGiveUp(peerId)).not.toThrow();
+      onRemoteGiveUp(peerId);
+
+      expect(resolvePromisesSpy).toHaveBeenCalledWith(remoteId, [
+        [
+          kpid,
+          true,
+          expect.objectContaining({
+            body: expect.stringContaining('[KERNEL:CONNECTION_LOST]'),
+          }),
+        ],
+      ]);
     });
 
     it('handles remote give up with no promises', () => {
@@ -829,9 +848,15 @@ describe('RemoteManager', () => {
       const onIncarnationChange = initCall?.[8] as (peerId: string) => void;
       onIncarnationChange(peerId);
 
-      // Should reject the promise with incarnation change error
+      // Should reject the promise with PEER_RESTARTED error
       expect(resolvePromisesSpy).toHaveBeenCalledWith(remoteId, [
-        [kpid, true, expect.objectContaining({ body: expect.any(String) })],
+        [
+          kpid,
+          true,
+          expect.objectContaining({
+            body: expect.stringContaining('[KERNEL:PEER_RESTARTED]'),
+          }),
+        ],
       ]);
     });
 
