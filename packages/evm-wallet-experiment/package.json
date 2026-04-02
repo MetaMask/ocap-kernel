@@ -59,6 +59,7 @@
     "docker:compose": "docker compose -f docker/docker-compose.yml",
     "docker:compose:interactive": "docker compose -f docker/docker-compose.yml -f docker/docker-compose.interactive.yml --profile interactive",
     "docker:build": "yarn docker:compose build",
+    "docker:build:force": "yarn docker:compose build --no-cache",
     "docker:up": "yarn docker:compose up",
     "docker:down": "yarn docker:compose down",
     "docker:interactive:up": "yarn docker:compose:interactive up",
