@@ -13,7 +13,13 @@ import {
 import type { KernelQueue } from '../KernelQueue.ts';
 import { makeError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
-import type { KernelSyscallObject, VatId, KRef } from '../types.ts';
+import type {
+  KernelSyscallObject,
+  KernelMessage,
+  KernelOneResolution,
+  VatId,
+  KRef,
+} from '../types.ts';
 
 type VatSyscallProps = {
   vatId: VatId;

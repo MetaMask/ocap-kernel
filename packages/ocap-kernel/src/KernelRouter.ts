@@ -23,7 +23,7 @@ import type {
 import { assert, Fail } from './utils/assert.ts';
 
 type MessageRoute = {
-  endpointId?: EndpointId;
+  endpointId?: EndpointId | 'kernel';
   target: KRef;
 } | null;
 
@@ -266,13 +266,16 @@ export class KernelRouter {
         }
       }
       if (endpoint) {
+        // endpoint is only set when !isKernelServiceMessage, so endpointId
+        // is narrowed to EndpointId here (TS can't infer this).
+        const eid = endpointId as EndpointId;
         const endpointTarget = this.#kernelStore.translateRefKtoE(
-          endpointId,
+          eid,
           target,
           false,
         );
         const endpointMessage = this.#kernelStore.translateMessageKtoE(
-          endpointId,
+          eid,
           message,
         );
         try {
