@@ -1,12 +1,11 @@
-import type {
-  VatOneResolution,
-  VatSyscallObject,
-} from '@agoric/swingset-liveslots';
+import type { VatSyscallObject } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 
 import { coerceEndpointMessage, isRemoteId, insistERef } from '../../types.ts';
 import type {
   KernelMessage,
+  KernelSyscallObject,
+  KernelOneResolution,
   EndpointMessage,
   VatId,
   EndpointId,
@@ -203,33 +202,25 @@ export function getTranslators(ctx: StoreContext) {
   function translateSyscallVtoK(
     vatId: VatId,
     vso: VatSyscallObject,
-  ): VatSyscallObject {
-    let kso: VatSyscallObject;
+  ): KernelSyscallObject {
     switch (vso[0]) {
       case 'send': {
-        // [VRef, Message];
-        const [op, target, message] = vso;
+        const [, target, message] = vso;
         insistERef(target);
-        kso = [
-          op,
+        return [
+          'send',
           translateRefEtoK(vatId, target),
-          // @ts-expect-error: Agoric's Message type requires `result: string | undefined | null`.
-          // Ours uses `result?: KRef | null` (exactOptionalPropertyTypes).
           translateMessageEtoK(vatId, coerceEndpointMessage(message)),
         ];
-        break;
       }
       case 'subscribe': {
-        // [VRef];
-        const [op, promise] = vso;
+        const [, promise] = vso;
         insistERef(promise);
-        kso = [op, translateRefEtoK(vatId, promise)];
-        break;
+        return ['subscribe', translateRefEtoK(vatId, promise)];
       }
       case 'resolve': {
-        // [VatOneResolution[]];
-        const [op, resolutions] = vso;
-        const kResolutions: VatOneResolution[] = resolutions.map(
+        const [, resolutions] = vso;
+        const kResolutions: KernelOneResolution[] = resolutions.map(
           (resolution) => {
             const [vpid, rejected, data] = resolution;
             insistERef(vpid);
@@ -240,31 +231,26 @@ export function getTranslators(ctx: StoreContext) {
             ];
           },
         );
-        kso = [op, kResolutions];
-        break;
+        return ['resolve', kResolutions];
       }
       case 'exit': {
-        // [boolean, SwingSetCapData];
-        const [op, isFailure, info] = vso;
-        kso = [
-          op,
+        const [, isFailure, info] = vso;
+        return [
+          'exit',
           isFailure,
           translateCapDataEtoK(vatId, info as CapData<VRef>),
         ];
-        break;
       }
       case 'dropImports':
       case 'retireImports':
       case 'retireExports':
       case 'abandonExports': {
-        // [VRef[]];
         const [op, vrefs] = vso;
         const krefs = vrefs.map((ref) => {
           insistERef(ref);
           return translateRefEtoK(vatId, ref);
         });
-        kso = [op, krefs];
-        break;
+        return [op, krefs];
       }
       case 'callNow':
       case 'vatstoreGet':
@@ -280,7 +266,6 @@ export function getTranslators(ctx: StoreContext) {
         throw Error(`vat ${vatId} issued unknown syscall ${vso[0]}`);
       }
     }
-    return kso;
   }
 
   return {

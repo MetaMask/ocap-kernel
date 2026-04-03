@@ -290,18 +290,17 @@ describe('VatSyscall', () => {
   });
 
   describe('invalid or unknown syscalls', () => {
-    it.each([
-      ['vatstoreGet', 'invalid syscall vatstoreGet'],
-      ['vatstoreGetNextKey', 'invalid syscall vatstoreGetNextKey'],
-      ['vatstoreSet', 'invalid syscall vatstoreSet'],
-      ['vatstoreDelete', 'invalid syscall vatstoreDelete'],
-      ['callNow', 'invalid syscall callNow'],
-      ['unknownOp', 'unknown syscall unknownOp'],
-    ])('%s should warn', async (op, message) => {
+    // Invalid syscalls (callNow, vatstoreGet, etc.) are rejected by
+    // translateSyscallVtoK before reaching handleSyscall's switch.
+    // Only truly unknown ops reach the default branch here.
+    it('unknown syscall warns', async () => {
       const spy = vi.spyOn(logger, 'warn');
-      const vso = [op, []] as unknown as VatSyscallObject;
+      const vso = ['unknownOp', []] as unknown as VatSyscallObject;
       vatSys.handleSyscall(vso);
-      expect(spy).toHaveBeenCalledWith(expect.stringContaining(message), vso);
+      expect(spy).toHaveBeenCalledWith(
+        expect.stringContaining('unknown syscall unknownOp'),
+        vso,
+      );
       spy.mockRestore();
     });
   });

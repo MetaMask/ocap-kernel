@@ -165,6 +165,21 @@ export const VatOneResolutionStruct = tuple([
  */
 export type KernelOneResolution = [KRef, boolean, CapData<KRef>];
 
+/**
+ * Kernel-space syscall object, mirroring Agoric's `VatSyscallObject` but with
+ * branded kernel types (KRef, KernelMessage, KernelOneResolution) instead of
+ * plain strings. Produced by `translateSyscallVtoK`.
+ */
+export type KernelSyscallObject =
+  | ['send', KRef, KernelMessage]
+  | ['subscribe', KRef]
+  | ['resolve', KernelOneResolution[]]
+  | ['exit', boolean, SwingSetCapData]
+  | ['dropImports', KRef[]]
+  | ['retireImports', KRef[]]
+  | ['retireExports', KRef[]]
+  | ['abandonExports', KRef[]];
+
 // Kernel-space message: refs are KRefs
 export const KernelCapDataStruct = object({
   body: string(),
