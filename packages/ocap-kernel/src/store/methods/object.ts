@@ -1,14 +1,11 @@
 import { Fail } from '@endo/errors';
 
 import { getBaseMethods } from './base.ts';
-import { ROOT_OBJECT_VREF } from '../../types.ts';
+import { ROOT_OBJECT_VREF, insistEndpointId } from '../../types.ts';
 import type { EndpointId, KRef, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
-import {
-  readOptionalEndpointId,
-  readOptionalKRef,
-} from '../utils/read-branded.ts';
+import { readOptionalKRef } from '../utils/read-branded.ts';
 
 /**
  * Create an object store object that provides functionality for managing kernel objects.
@@ -44,8 +41,13 @@ export function getObjectMethods(ctx: StoreContext) {
    * @param koId - The KRef of the kernel object of interest.
    * @returns The identity of the vat or remote that owns the object.
    */
-  function getOwner(koId: KRef): EndpointId | undefined {
-    return readOptionalEndpointId(ctx.kv, getOwnerKey(koId));
+  function getOwner(koId: KRef): EndpointId | 'kernel' | undefined {
+    const raw = ctx.kv.get(getOwnerKey(koId));
+    if (raw === undefined || raw === 'kernel') {
+      return raw;
+    }
+    insistEndpointId(raw);
+    return raw;
   }
 
   /**
