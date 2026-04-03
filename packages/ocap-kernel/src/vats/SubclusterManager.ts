@@ -27,7 +27,7 @@ type SubclusterManagerOptions = {
   vatManager: VatManager;
   getKernelService: (
     name: string,
-  ) => { kref: string; systemOnly: boolean } | undefined;
+  ) => { kref: KRef; systemOnly: boolean } | undefined;
   queueMessage: (
     target: KRef,
     method: string,
@@ -53,7 +53,7 @@ export class SubclusterManager {
   /** Function to get kernel services */
   readonly #getKernelService: (
     name: string,
-  ) => { kref: string; systemOnly: boolean } | undefined;
+  ) => { kref: KRef; systemOnly: boolean } | undefined;
 
   /** Function to queue messages */
   readonly #queueMessage: (

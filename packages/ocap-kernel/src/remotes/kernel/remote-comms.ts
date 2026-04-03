@@ -6,7 +6,7 @@ import type { Logger } from '@metamask/logger';
 import { base58btc } from 'multiformats/bases/base58';
 
 import type { KernelStore } from '../../store/index.ts';
-import type { PlatformServices } from '../../types.ts';
+import type { KRef, PlatformServices } from '../../types.ts';
 import { mnemonicToSeed } from '../../utils/bip39.ts';
 import type {
   RemoteIdentity,
@@ -164,7 +164,7 @@ export async function initRemoteIdentity(
    *
    * @returns a URL that can later be redeemed for the given object reference.
    */
-  async function issueOcapURL(kref: string): Promise<string> {
+  async function issueOcapURL(kref: KRef): Promise<string> {
     // the libp2p AESCipher salts the plaintext before encrypting, so not bothering to do that here
     const paddedKref = `${kref.padStart(KREF_MIN_LEN)}`;
     const encodedKref = encoder.encode(paddedKref);
@@ -208,7 +208,7 @@ export async function initRemoteIdentity(
    * @returns a promise for the kref encoded by `ocapURL`.
    * @throws if the URL is not local to this kernel.
    */
-  async function redeemLocalOcapURL(ocapURL: string): Promise<string> {
+  async function redeemLocalOcapURL(ocapURL: string): Promise<KRef> {
     const { oid, host } = parseOcapURL(ocapURL);
     if (host !== peerId) {
       throw Error(`ocapURL from a host that's not me`);
@@ -222,7 +222,9 @@ export async function initRemoteIdentity(
       throw Error(`ocapURL has bad object reference`);
     }
     const paddedKref = decoder.decode(encodedKref);
-    const kref = paddedKref.trim();
+    // Safe to cast: issueOcapURL only accepts KRef, and the crypto
+    // round-trip preserves the value.
+    const kref = paddedKref.trim() as KRef;
     return kref;
   }
 

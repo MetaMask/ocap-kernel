@@ -19,7 +19,7 @@ import type {
   KernelOneResolution,
   CrankResult,
 } from '../../types.ts';
-import { insistKRef, insistERef } from '../../types.ts';
+import { insistERef } from '../../types.ts';
 import type { RemoteComms } from '../types.ts';
 
 /** How long to wait for ACK before retransmitting (ms). */
@@ -118,7 +118,7 @@ export class RemoteHandle implements EndpointHandle {
   /** Pending URL redemption requests that have not yet been responded to. */
   readonly #pendingRedemptions: Map<
     string,
-    [(ref: string) => void, (problem: string | Error) => void]
+    [(ref: KRef) => void, (problem: string | Error) => void]
   > = new Map();
 
   /** Generation counter for keys to match URL redemption replies to requests. */
@@ -810,9 +810,7 @@ export class RemoteHandle implements EndpointHandle {
     assert.typeof(replyKey, 'string');
     let kref: KRef;
     try {
-      const krefStr = await this.#remoteComms.redeemLocalOcapURL(url);
-      insistKRef(krefStr);
-      kref = krefStr;
+      kref = await this.#remoteComms.redeemLocalOcapURL(url);
     } catch (error) {
       return { success: false, replyKey, value: `${(error as Error).message}` };
     }
@@ -890,7 +888,10 @@ export class RemoteHandle implements EndpointHandle {
       this.#pendingRedemptions.delete(data.replyKey);
       const [resolve, reject] = handlers;
       if (data.success) {
-        resolve(data.value);
+        // Safe to cast: on success, value is from translateRefEtoK which
+        // returns KRef. The type is widened to string by the shared
+        // deferredCompletion variable.
+        resolve(data.value as KRef);
       } else {
         reject(data.value);
       }
@@ -944,7 +945,11 @@ export class RemoteHandle implements EndpointHandle {
     const savepointName = `receive_${this.remoteId}_${seq}`;
     this.#kernelStore.createSavepoint(savepointName);
 
-    // Deferred completion data - set by redeemURL and redeemURLReply handlers
+    // Deferred completion data - set by redeemURL and redeemURLReply handlers.
+    // The actual type depends on which handler set it: #handleRedeemURLRequest
+    // produces { success, replyKey, value: string (eref or error) }, while
+    // #handleRedeemURLReply produces a discriminated union with KRef on success.
+    // We use the broadest shape here and narrow at each call site.
     let deferredCompletion:
       | { success: boolean; replyKey: string; value: string }
       | undefined;
@@ -1016,10 +1021,10 @@ export class RemoteHandle implements EndpointHandle {
    *
    * @returns a promise for the kref of the object designated by `url`.
    */
-  async redeemOcapURL(url: string): Promise<string> {
+  async redeemOcapURL(url: string): Promise<KRef> {
     const replyKey = `${this.#redemptionCounter}`;
     this.#redemptionCounter += 1;
-    const { promise, resolve, reject } = makePromiseKit<string>();
+    const { promise, resolve, reject } = makePromiseKit<KRef>();
     this.#pendingRedemptions.set(replyKey, [resolve, reject]);
 
     // Set up timeout handling with AbortSignal.

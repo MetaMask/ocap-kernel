@@ -33,7 +33,7 @@ import type {
   EndpointHandle,
   SystemSubclusterConfig,
 } from './types.ts';
-import { isVatId, isRemoteId, isSubclusterId } from './types.ts';
+import { isVatId, isRemoteId } from './types.ts';
 import { SubclusterManager } from './vats/SubclusterManager.ts';
 import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
@@ -405,7 +405,7 @@ export class Kernel {
    * @param url - The OCAP URL to redeem.
    * @returns A promise for the kref of the object referenced by the OCAP URL.
    */
-  async redeemOcapURL(url: string): Promise<string> {
+  async redeemOcapURL(url: string): Promise<KRef> {
     return this.#ocapURLManager.redeemOcapURL(url);
   }
 
@@ -461,10 +461,7 @@ export class Kernel {
    * @returns The subcluster, or undefined if not found.
    * @throws If subclusterId is not a valid subcluster ID format.
    */
-  getSubcluster(subclusterId: string): Subcluster | undefined {
-    if (!isSubclusterId(subclusterId)) {
-      throw new Error(`Invalid subcluster ID: ${String(subclusterId)}`);
-    }
+  getSubcluster(subclusterId: SubclusterId): Subcluster | undefined {
     return this.#subclusterManager.getSubcluster(subclusterId);
   }
 
@@ -497,7 +494,7 @@ export class Kernel {
    * @param iface - The interface name for the slot value.
    * @returns The slot value that will become a presence when marshalled.
    */
-  getPresence(kref: string, iface: string = 'Kernel Object'): SlotValue {
+  getPresence(kref: KRef, iface: string = 'Kernel Object'): SlotValue {
     return kslot(kref, iface);
   }
 

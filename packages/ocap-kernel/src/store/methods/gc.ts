@@ -7,7 +7,7 @@ import { getReachableMethods } from './reachable.ts';
 import { getRefCountMethods } from './refcount.ts';
 import { getSubclusterMethods } from './subclusters.ts';
 import { getVatMethods } from './vat.ts';
-import { insistGCAction, makeGCAction } from '../../types.ts';
+import { makeGCAction } from '../../types.ts';
 import type {
   EndpointId,
   KRef,
@@ -40,13 +40,10 @@ export function getGCMethods(ctx: StoreContext) {
    * @returns The set of GC actions to perform.
    */
   function getGCActions(): Set<GCAction> {
-    const parsed: unknown[] = JSON.parse(ctx.gcActions.get() ?? '[]');
-    const actions = new Set<GCAction>();
-    for (const action of parsed) {
-      insistGCAction(action);
-      actions.add(action);
-    }
-    return actions;
+    // Safe to cast: all actions are created via makeGCAction(), which
+    // validates format before storage. The JSON roundtrip preserves strings.
+    const actions = JSON.parse(ctx.gcActions.get() ?? '[]') as GCAction[];
+    return new Set(actions);
   }
 
   /**

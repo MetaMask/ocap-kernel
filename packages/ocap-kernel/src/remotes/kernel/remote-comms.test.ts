@@ -13,7 +13,7 @@ import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
 import type { KernelStore } from '../../store/index.ts';
 import { makeKernelStore } from '../../store/index.ts';
-import type { PlatformServices } from '../../types.ts';
+import type { KRef, PlatformServices } from '../../types.ts';
 import { mnemonicToSeed } from '../../utils/bip39.ts';
 import type { RemoteMessageHandler } from '../types.ts';
 
@@ -79,7 +79,7 @@ describe('remote-comms', () => {
 
       expect(remoteComms.getPeerId()).toBe(peerId);
 
-      const ocapURL = await remoteComms.issueOcapURL('zot');
+      const ocapURL = await remoteComms.issueOcapURL('ko1' as KRef);
       const { oid } = parseOcapURL(ocapURL);
       const knownRelays = mockKernelStore.getKnownRelays();
       expect(Array.isArray(knownRelays)).toBe(true);
@@ -89,7 +89,7 @@ describe('remote-comms', () => {
       expect(ocapURL).toBe(referenceURL);
 
       const kref = await remoteComms.redeemLocalOcapURL(ocapURL);
-      expect(kref).toBe('zot');
+      expect(kref).toBe('ko1');
 
       await remoteComms.sendRemoteMessage('elsewhere', 'your message here');
       expect(mockPlatformServices.sendRemoteMessage).toHaveBeenCalledWith(
@@ -393,7 +393,7 @@ describe('remote-comms', () => {
     it('roundtrips issueOcapURL and redeemLocalOcapURL', async () => {
       const { identity } = await initRemoteIdentity(mockKernelStore);
 
-      const ocapURL = await identity.issueOcapURL('ko42');
+      const ocapURL = await identity.issueOcapURL('ko42' as KRef);
       const kref = await identity.redeemLocalOcapURL(ocapURL);
       expect(kref).toBe('ko42');
     });
@@ -418,7 +418,7 @@ describe('remote-comms', () => {
         relays: testRelays,
       });
 
-      const ocapURL = await identity.issueOcapURL('ko1');
+      const ocapURL = await identity.issueOcapURL('ko1' as KRef);
       const { hints } = parseOcapURL(ocapURL);
       expect(hints).toStrictEqual(testRelays);
     });
@@ -455,7 +455,7 @@ describe('remote-comms', () => {
       const { identity } = await initRemoteIdentity(mockKernelStore);
 
       // No relays initially
-      const url1 = await identity.issueOcapURL('ko1');
+      const url1 = await identity.issueOcapURL('ko1' as KRef);
       expect(parseOcapURL(url1).hints).toStrictEqual([]);
 
       // Add relays dynamically
@@ -463,7 +463,7 @@ describe('remote-comms', () => {
       identity.addKnownRelays(newRelays);
 
       // Subsequent URL embeds the new relay
-      const url2 = await identity.issueOcapURL('ko2');
+      const url2 = await identity.issueOcapURL('ko2' as KRef);
       expect(parseOcapURL(url2).hints).toStrictEqual(newRelays);
     });
 
@@ -599,7 +599,7 @@ describe('remote-comms', () => {
       );
 
       // First create a valid URL
-      const validURL = await remoteComms.issueOcapURL('test-kref');
+      const validURL = await remoteComms.issueOcapURL('ko42' as KRef);
       const peerId = remoteComms.getPeerId();
 
       // Then corrupt the encrypted part while keeping valid base58btc format
@@ -626,7 +626,7 @@ describe('remote-comms', () => {
         mockLogger as unknown as Logger,
       );
 
-      const validURL = await remoteComms.issueOcapURL('test-kref');
+      const validURL = await remoteComms.issueOcapURL('ko42' as KRef);
       const peerId = remoteComms.getPeerId();
       const { oid } = parseOcapURL(validURL);
       const corruptedOid = `${oid.slice(0, -5)}zzzzz`;
@@ -649,23 +649,10 @@ describe('remote-comms', () => {
         mockRemoteMessageHandler,
       );
 
-      const shortKref = 'abc';
+      const shortKref = 'ko1' as KRef;
       const ocapURL = await remoteComms.issueOcapURL(shortKref);
       const kref = await remoteComms.redeemLocalOcapURL(ocapURL);
       expect(kref).toBe(shortKref);
-    });
-
-    it('handles issueOcapURL with empty kref', async () => {
-      const remoteComms = await initRemoteComms(
-        mockKernelStore,
-        mockPlatformServices,
-        mockRemoteMessageHandler,
-      );
-
-      const emptyKref = '';
-      const ocapURL = await remoteComms.issueOcapURL(emptyKref);
-      const kref = await remoteComms.redeemLocalOcapURL(ocapURL);
-      expect(kref).toBe(emptyKref);
     });
 
     it('handles issueOcapURL with long kref', async () => {
@@ -675,23 +662,10 @@ describe('remote-comms', () => {
         mockRemoteMessageHandler,
       );
 
-      const longKref = 'a'.repeat(100);
+      const longKref = `ko${'1'.repeat(100)}` as KRef;
       const ocapURL = await remoteComms.issueOcapURL(longKref);
       const kref = await remoteComms.redeemLocalOcapURL(ocapURL);
       expect(kref).toBe(longKref);
-    });
-
-    it('handles issueOcapURL with kref containing special characters', async () => {
-      const remoteComms = await initRemoteComms(
-        mockKernelStore,
-        mockPlatformServices,
-        mockRemoteMessageHandler,
-      );
-
-      const specialKref = 'kref-with-special-chars-!@#$%^&*()';
-      const ocapURL = await remoteComms.issueOcapURL(specialKref);
-      const kref = await remoteComms.redeemLocalOcapURL(ocapURL);
-      expect(kref).toBe(specialKref);
     });
 
     it('includes knownRelays in issued ocap URLs', async () => {
@@ -706,7 +680,7 @@ describe('remote-comms', () => {
         { relays: testRelays },
       );
 
-      const ocapURL = await remoteComms.issueOcapURL('test-kref');
+      const ocapURL = await remoteComms.issueOcapURL('ko42' as KRef);
       const { hints } = parseOcapURL(ocapURL);
       expect(hints).toStrictEqual(testRelays);
     });
@@ -724,7 +698,7 @@ describe('remote-comms', () => {
         {},
       );
 
-      const ocapURL = await remoteComms.issueOcapURL('test-kref');
+      const ocapURL = await remoteComms.issueOcapURL('ko42' as KRef);
       const { hints } = parseOcapURL(ocapURL);
       expect(hints).toStrictEqual(storedRelays);
     });

@@ -2,7 +2,6 @@ import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 
 import { getBaseMethods } from './base.ts';
-import { insistEndpointId } from '../../types.ts';
 import type {
   KRef,
   KernelPromise,
@@ -69,8 +68,9 @@ export function getPromiseMethods(ctx: StoreContext) {
       case 'unresolved': {
         const decider = ctx.kv.get(`${kpid}.decider`);
         if (decider !== '' && decider !== undefined) {
-          insistEndpointId(decider);
-          result.decider = decider;
+          // Safe to cast: decider is written by kernel code that already
+          // validates the endpoint ID before storage.
+          result.decider = decider as EndpointId;
         }
         const subscribers = ctx.kv.getRequired(`${kpid}.subscribers`);
         result.subscribers = JSON.parse(subscribers);

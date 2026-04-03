@@ -7,13 +7,9 @@ import type { SlotValue } from './kernel-marshal.ts';
 describe('kernel-marshal', () => {
   describe('kslot', () => {
     it('creates promise standin for promise refs', () => {
-      const promiseRefs = ['p1', 'kp1', 'rp1'];
-
-      for (const ref of promiseRefs) {
-        const standin = kslot(ref);
-        expect(passStyleOf(standin)).toBe('promise');
-        expect(krefOf(standin)).toBe(ref);
-      }
+      const standin = kslot('kp1');
+      expect(passStyleOf(standin)).toBe('promise');
+      expect(krefOf(standin)).toBe('kp1');
     });
 
     it('creates remotable standin for object refs', () => {

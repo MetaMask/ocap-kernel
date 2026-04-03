@@ -4,6 +4,7 @@ import type { CapData } from '@endo/marshal';
 import type { Passable } from '@endo/pass-style';
 import { makeDefaultExo } from '@metamask/kernel-utils';
 
+import { insistKRef } from '../types.ts';
 import type { KRef } from '../types.ts';
 
 // Simple wrapper for serializing and unserializing marshalled values inside the
@@ -13,7 +14,7 @@ import type { KRef } from '../types.ts';
 // agnostic about the internal details of the serialization encoding.
 
 type ObjectStandin = {
-  getKref: () => string;
+  getKref: () => KRef;
   iface: () => string;
 };
 export type SlotValue = ObjectStandin | Promise<unknown>;
@@ -47,11 +48,11 @@ function makeStandinPromise(kref: string): Promise<unknown> {
  *
  * @returns The KRef tag that `promise` carries.
  */
-function getStandinPromiseTag(promise: Promise<unknown>): string {
+function getStandinPromiseTag(promise: Promise<unknown>): KRef {
   const desc = Object.getOwnPropertyDescriptor(promise, toStringTag);
   assert(desc !== undefined, 'promise lacks own @@toStringTag property');
   const kref = desc.value;
-  assert.typeof(kref, 'string');
+  insistKRef(kref);
   return kref;
 }
 
@@ -64,7 +65,7 @@ function getStandinPromiseTag(promise: Promise<unknown>): string {
  * @returns A `kser` serializable value for `kref`.
  */
 export function kslot(kref: string, iface: string = 'undefined'): SlotValue {
-  assert.typeof(kref, 'string');
+  insistKRef(kref);
   if (iface?.startsWith('Alleged: ')) {
     // Encoder prepends "Alleged: " to iface string, but the decoder doesn't strip it
     // Unclear whether it's the decoder or me who is wrong
@@ -76,7 +77,7 @@ export function kslot(kref: string, iface: string = 'undefined'): SlotValue {
   }
   const standinObject = makeDefaultExo(iface, {
     iface: () => iface,
-    getKref: () => `${kref}`,
+    getKref: () => kref,
   });
   return standinObject;
 }
@@ -91,12 +92,12 @@ export function kslot(kref: string, iface: string = 'undefined'): SlotValue {
 export function krefOf(obj: SlotValue): KRef {
   switch (passStyleOf(obj) as string) {
     case 'promise': {
-      return getStandinPromiseTag(obj as Promise<unknown>) as KRef;
+      return getStandinPromiseTag(obj as Promise<unknown>);
     }
     case 'remotable': {
       const { getKref } = obj as ObjectStandin;
       assert.typeof(getKref, 'function', 'object lacks getKref function');
-      return getKref.apply(obj, []) as KRef;
+      return getKref.apply(obj, []);
     }
     default:
       // When krefOf() is called as part of kmarshal.serialize, marshal
