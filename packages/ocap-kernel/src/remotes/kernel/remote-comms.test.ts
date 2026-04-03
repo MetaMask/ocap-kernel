@@ -8,10 +8,11 @@ import {
   initRemoteIdentity,
   initRemoteComms,
   parseOcapURL,
-  getKnownRelays,
 } from './remote-comms.ts';
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
+import { makeMapKernelDatabase } from '../../../test/storage.ts';
 import type { KernelStore } from '../../store/index.ts';
+import { makeKernelStore } from '../../store/index.ts';
 import type { PlatformServices } from '../../types.ts';
 import { mnemonicToSeed } from '../../utils/bip39.ts';
 import type { RemoteMessageHandler } from '../types.ts';
@@ -21,9 +22,12 @@ describe('remote-comms', () => {
   let mockPlatformServices: PlatformServices;
   let mockRemoteMessageHandler: RemoteMessageHandler;
   let mockFactory: ReturnType<typeof createMockRemotesFactory>;
+  let mockKernelDatabase: ReturnType<typeof makeMapKernelDatabase>;
 
   beforeEach(() => {
-    mockFactory = createMockRemotesFactory();
+    mockKernelDatabase = makeMapKernelDatabase();
+    const kernelStore = makeKernelStore(mockKernelDatabase);
+    mockFactory = createMockRemotesFactory({ kernelStore });
     const mocks = mockFactory.makeRemoteCommsMocks();
     mockKernelStore = mocks.kernelStore;
     mockPlatformServices = mocks.platformServices;
@@ -56,17 +60,17 @@ describe('remote-comms', () => {
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
       expect(remoteComms).toHaveProperty('registerLocationHints');
 
-      const keySeed = mockKernelStore.kv.get('keySeed');
+      const keySeed = mockKernelStore.getRemoteIdentityValue('keySeed');
       expect(keySeed).toBe(
         '0100000000000000000000000000000000000000000000000000000000000000',
       );
 
-      const ocapURLKey = mockKernelStore.kv.get('ocapURLKey');
+      const ocapURLKey = mockKernelStore.getRemoteIdentityValue('ocapURLKey');
       expect(ocapURLKey).toBe(
         '0200000000000000000000000000000000000000000000000000000000000000',
       );
 
-      const peerId = mockKernelStore.kv.get('peerId');
+      const peerId = mockKernelStore.getRemoteIdentityValue('peerId');
       const keyPair = await generateKeyPairFromSeed(
         'Ed25519',
         fromHex(keySeed as string),
@@ -77,7 +81,7 @@ describe('remote-comms', () => {
 
       const ocapURL = await remoteComms.issueOcapURL('zot');
       const { oid } = parseOcapURL(ocapURL);
-      const knownRelays = getKnownRelays(mockKernelStore.kv);
+      const knownRelays = mockKernelStore.getKnownRelays();
       expect(Array.isArray(knownRelays)).toBe(true);
       expect(knownRelays.length).toBeGreaterThan(0);
       expect(knownRelays).toStrictEqual(testRelays);
@@ -104,9 +108,9 @@ describe('remote-comms', () => {
       const mockPeerId = 'mockPeerId';
       const mockKeySeed = 'abcdef';
       const mockOcapURLKey = 'mockOcapURLKey';
-      mockKernelStore.kv.set('peerId', mockPeerId);
-      mockKernelStore.kv.set('keySeed', mockKeySeed);
-      mockKernelStore.kv.set('ocapURLKey', mockOcapURLKey);
+      mockKernelStore.setRemoteIdentityValue('peerId', mockPeerId);
+      mockKernelStore.setRemoteIdentityValue('keySeed', mockKeySeed);
+      mockKernelStore.setRemoteIdentityValue('ocapURLKey', mockOcapURLKey);
       const remoteComms = await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
@@ -117,10 +121,14 @@ describe('remote-comms', () => {
       expect(remoteComms).toHaveProperty('redeemLocalOcapURL');
       expect(remoteComms).toHaveProperty('sendRemoteMessage');
       expect(remoteComms).toHaveProperty('registerLocationHints');
-      expect(mockKernelStore.kv.get('peerId')).toBe(mockPeerId);
+      expect(mockKernelStore.getRemoteIdentityValue('peerId')).toBe(mockPeerId);
       expect(remoteComms.getPeerId()).toBe(mockPeerId);
-      expect(mockKernelStore.kv.get('keySeed')).toBe(mockKeySeed);
-      expect(mockKernelStore.kv.get('ocapURLKey')).toBe(mockOcapURLKey);
+      expect(mockKernelStore.getRemoteIdentityValue('keySeed')).toBe(
+        mockKeySeed,
+      );
+      expect(mockKernelStore.getRemoteIdentityValue('ocapURLKey')).toBe(
+        mockOcapURLKey,
+      );
     });
 
     it('passes options object to platformServices.initializeRemoteComms', async () => {
@@ -154,7 +162,7 @@ describe('remote-comms', () => {
         '/dns4/stored-relay1.example/tcp/443/wss/p2p/relay1',
         '/dns4/stored-relay2.example/tcp/443/wss/p2p/relay2',
       ];
-      mockKernelStore.kv.set('knownRelays', JSON.stringify(storedRelays));
+      mockKernelStore.setKnownRelays(storedRelays);
       await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
@@ -250,8 +258,10 @@ describe('remote-comms', () => {
         undefined,
         providedKeySeed,
       );
-      expect(mockKernelStore.kv.get('keySeed')).toBe(providedKeySeed);
-      const peerId = mockKernelStore.kv.get('peerId');
+      expect(mockKernelStore.getRemoteIdentityValue('keySeed')).toBe(
+        providedKeySeed,
+      );
+      const peerId = mockKernelStore.getRemoteIdentityValue('peerId');
       expect(peerId).toBeDefined();
       // Verify peerId matches the provided keySeed
       const keyPair = await generateKeyPairFromSeed(
@@ -268,8 +278,8 @@ describe('remote-comms', () => {
       };
       const mockPeerId = 'existing-peer-id';
       const mockKeySeed = 'abcdef';
-      mockKernelStore.kv.set('peerId', mockPeerId);
-      mockKernelStore.kv.set('keySeed', mockKeySeed);
+      mockKernelStore.setRemoteIdentityValue('peerId', mockPeerId);
+      mockKernelStore.setRemoteIdentityValue('keySeed', mockKeySeed);
       await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
@@ -294,7 +304,7 @@ describe('remote-comms', () => {
         {},
         mockLogger as unknown as Logger,
       );
-      const peerId = mockKernelStore.kv.get('peerId');
+      const peerId = mockKernelStore.getRemoteIdentityValue('peerId');
       expect(mockLogger.log).toHaveBeenCalledWith(
         `comms init: new peer id: ${peerId}`,
       );
@@ -329,14 +339,12 @@ describe('remote-comms', () => {
         mockRemoteMessageHandler,
         { relays: testRelays },
       );
-      expect(mockKernelStore.kv.get('knownRelays')).toBe(
-        JSON.stringify(testRelays),
-      );
+      expect(mockKernelStore.getKnownRelays()).toStrictEqual(testRelays);
     });
 
     it('does not save relays to KV store when empty', async () => {
       const storedRelays = ['/dns4/stored-relay.example/tcp/443/wss/p2p/relay'];
-      mockKernelStore.kv.set('knownRelays', JSON.stringify(storedRelays));
+      mockKernelStore.setKnownRelays(storedRelays);
       await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
@@ -344,9 +352,7 @@ describe('remote-comms', () => {
         {}, // empty relays
       );
       // Should not overwrite existing relays
-      expect(mockKernelStore.kv.get('knownRelays')).toBe(
-        JSON.stringify(storedRelays),
-      );
+      expect(mockKernelStore.getKnownRelays()).toStrictEqual(storedRelays);
     });
   });
 
@@ -358,18 +364,18 @@ describe('remote-comms', () => {
       expect(result.identity).toHaveProperty('issueOcapURL');
       expect(result.identity).toHaveProperty('redeemLocalOcapURL');
 
-      const keySeed = mockKernelStore.kv.get('keySeed');
+      const keySeed = mockKernelStore.getRemoteIdentityValue('keySeed');
       expect(keySeed).toBe(
         '0100000000000000000000000000000000000000000000000000000000000000',
       );
       expect(result.keySeed).toBe(keySeed);
 
-      const ocapURLKey = mockKernelStore.kv.get('ocapURLKey');
+      const ocapURLKey = mockKernelStore.getRemoteIdentityValue('ocapURLKey');
       expect(ocapURLKey).toBe(
         '0200000000000000000000000000000000000000000000000000000000000000',
       );
 
-      const peerId = mockKernelStore.kv.get('peerId');
+      const peerId = mockKernelStore.getRemoteIdentityValue('peerId');
       const keyPair = await generateKeyPairFromSeed(
         'Ed25519',
         fromHex(keySeed as string),
@@ -438,7 +444,7 @@ describe('remote-comms', () => {
         '/dns4/relay1.example/tcp/443/wss/p2p-circuit', // duplicate
       ]);
 
-      const stored = getKnownRelays(mockKernelStore.kv);
+      const stored = mockKernelStore.getKnownRelays();
       expect(stored).toStrictEqual([
         '/dns4/relay1.example/tcp/443/wss/p2p-circuit',
         '/dns4/relay2.example/tcp/443/wss/p2p-circuit',
@@ -469,13 +475,16 @@ describe('remote-comms', () => {
 
       identity.addKnownRelays([]);
 
-      const stored = getKnownRelays(mockKernelStore.kv);
+      const stored = mockKernelStore.getKnownRelays();
       expect(stored).toStrictEqual(initialRelays);
     });
 
     it('throws with mnemonic when identity already exists', async () => {
-      mockKernelStore.kv.set('peerId', 'existing-peer-id');
-      mockKernelStore.kv.set('keySeed', 'abcdef1234567890abcdef1234567890');
+      mockKernelStore.setRemoteIdentityValue('peerId', 'existing-peer-id');
+      mockKernelStore.setRemoteIdentityValue(
+        'keySeed',
+        'abcdef1234567890abcdef1234567890',
+      );
 
       await expect(
         initRemoteIdentity(mockKernelStore, {
@@ -564,40 +573,6 @@ describe('remote-comms', () => {
       ['ocap:oid@', 'empty where part'],
     ])('rejects badly formatted ocap URL: %s', (url, _description) => {
       expect(() => parseOcapURL(url)).toThrow('bad ocap URL');
-    });
-  });
-
-  describe('getKnownRelays', () => {
-    it('returns empty array when no relays are stored', () => {
-      const mockKV = {
-        get: vi.fn(() => undefined),
-        set: vi.fn(),
-        getRequired: vi.fn(),
-        delete: vi.fn(),
-        getNextKey: vi.fn(),
-      };
-
-      const relays = getKnownRelays(mockKV);
-      expect(relays).toStrictEqual([]);
-      expect(mockKV.get).toHaveBeenCalledWith('knownRelays');
-    });
-
-    it('returns parsed relays when they exist', () => {
-      const storedRelays = [
-        '/dns4/relay1.example/tcp/443/wss/p2p/relay1',
-        '/dns4/relay2.example/tcp/443/wss/p2p/relay2',
-      ];
-      const mockKV = {
-        get: vi.fn(() => JSON.stringify(storedRelays)),
-        set: vi.fn(),
-        getRequired: vi.fn(),
-        delete: vi.fn(),
-        getNextKey: vi.fn(),
-      };
-
-      const relays = getKnownRelays(mockKV);
-      expect(relays).toStrictEqual(storedRelays);
-      expect(mockKV.get).toHaveBeenCalledWith('knownRelays');
     });
   });
 
@@ -741,7 +716,7 @@ describe('remote-comms', () => {
         '/dns4/stored-relay1.example/tcp/443/wss/p2p/relay1',
         '/dns4/stored-relay2.example/tcp/443/wss/p2p/relay2',
       ];
-      mockKernelStore.kv.set('knownRelays', JSON.stringify(storedRelays));
+      mockKernelStore.setKnownRelays(storedRelays);
       const remoteComms = await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
@@ -758,7 +733,10 @@ describe('remote-comms', () => {
   describe('cross-incarnation wake detection', () => {
     it('resets backoffs when wake is detected', async () => {
       const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1_000;
-      mockKernelStore.kv.set('lastActiveTime', String(twoHoursAgo));
+      mockKernelDatabase.kernelKVStore.set(
+        'lastActiveTime',
+        String(twoHoursAgo),
+      );
 
       await initRemoteComms(
         mockKernelStore,
@@ -781,7 +759,10 @@ describe('remote-comms', () => {
 
     it('does not reset backoffs when gap is within threshold', async () => {
       const tenMinutesAgo = Date.now() - 10 * 60 * 1_000;
-      mockKernelStore.kv.set('lastActiveTime', String(tenMinutesAgo));
+      mockKernelDatabase.kernelKVStore.set(
+        'lastActiveTime',
+        String(tenMinutesAgo),
+      );
 
       await initRemoteComms(
         mockKernelStore,
@@ -794,7 +775,10 @@ describe('remote-comms', () => {
 
     it('updates lastActiveTime after detection', async () => {
       const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1_000;
-      mockKernelStore.kv.set('lastActiveTime', String(twoHoursAgo));
+      mockKernelDatabase.kernelKVStore.set(
+        'lastActiveTime',
+        String(twoHoursAgo),
+      );
 
       const before = Date.now();
       await initRemoteComms(
@@ -804,7 +788,7 @@ describe('remote-comms', () => {
       );
       const after = Date.now();
 
-      const stored = mockKernelStore.kv.get('lastActiveTime');
+      const stored = mockKernelDatabase.kernelKVStore.get('lastActiveTime');
       expect(stored).toBeDefined();
       const timestamp = Number(stored);
       expect(timestamp).toBeGreaterThanOrEqual(before);
@@ -817,7 +801,10 @@ describe('remote-comms', () => {
         error: vi.fn(),
       };
       const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1_000;
-      mockKernelStore.kv.set('lastActiveTime', String(twoHoursAgo));
+      mockKernelDatabase.kernelKVStore.set(
+        'lastActiveTime',
+        String(twoHoursAgo),
+      );
 
       await initRemoteComms(
         mockKernelStore,
@@ -849,7 +836,7 @@ describe('remote-comms', () => {
         { mnemonic: VALID_12_WORD_MNEMONIC },
       );
 
-      const keySeed = mockKernelStore.kv.get('keySeed');
+      const keySeed = mockKernelStore.getRemoteIdentityValue('keySeed');
       expect(keySeed).toBeDefined();
       // The seed should be derived from the mnemonic
       const expectedSeed = await mnemonicToSeed(VALID_12_WORD_MNEMONIC);
@@ -875,9 +862,9 @@ describe('remote-comms', () => {
       const peerId1 = remoteComms1.getPeerId();
 
       // Reset store
-      mockKernelStore.kv.delete('peerId');
-      mockKernelStore.kv.delete('keySeed');
-      mockKernelStore.kv.delete('ocapURLKey');
+      mockKernelDatabase.kernelKVStore.delete('peerId');
+      mockKernelDatabase.kernelKVStore.delete('keySeed');
+      mockKernelDatabase.kernelKVStore.delete('ocapURLKey');
 
       // Second init with same mnemonic
       const remoteComms2 = await initRemoteComms(
@@ -895,8 +882,8 @@ describe('remote-comms', () => {
       // Set up existing peer ID
       const existingPeerId = 'existing-peer-id';
       const existingKeySeed = 'abcdef1234567890abcdef1234567890';
-      mockKernelStore.kv.set('peerId', existingPeerId);
-      mockKernelStore.kv.set('keySeed', existingKeySeed);
+      mockKernelStore.setRemoteIdentityValue('peerId', existingPeerId);
+      mockKernelStore.setRemoteIdentityValue('keySeed', existingKeySeed);
 
       await expect(
         initRemoteComms(
@@ -948,7 +935,7 @@ describe('remote-comms', () => {
         { mnemonic: VALID_24_WORD_MNEMONIC },
       );
 
-      const keySeed = mockKernelStore.kv.get('keySeed');
+      const keySeed = mockKernelStore.getRemoteIdentityValue('keySeed');
       expect(keySeed).toBeDefined();
       const expectedSeed = await mnemonicToSeed(VALID_24_WORD_MNEMONIC);
       expect(keySeed).toBe(expectedSeed);
@@ -968,7 +955,7 @@ describe('remote-comms', () => {
         providedKeySeed, // This should be ignored in favor of mnemonic
       );
 
-      const storedKeySeed = mockKernelStore.kv.get('keySeed');
+      const storedKeySeed = mockKernelStore.getRemoteIdentityValue('keySeed');
       const expectedSeed = await mnemonicToSeed(VALID_12_WORD_MNEMONIC);
       expect(storedKeySeed).toBe(expectedSeed);
       expect(storedKeySeed).not.toBe(providedKeySeed);

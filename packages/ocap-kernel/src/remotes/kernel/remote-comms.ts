@@ -1,7 +1,6 @@
 import { AES_GCM } from '@libp2p/crypto/ciphers';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { peerIdFromPrivateKey } from '@libp2p/peer-id';
-import type { KVStore } from '@metamask/kernel-store';
 import { toHex, fromHex } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import { base58btc } from 'multiformats/bases/base58';
@@ -76,22 +75,6 @@ async function generateKeyInfo(seedString?: string): Promise<[string, string]> {
   return [seedString, peerId];
 }
 
-/**
- * Produce a list of known libp2p STUN and TURN servers that can be used for
- * NAT hole punching.
- *
- * @param kv - KVStore in which known relay information is kept
- *
- * @returns an array of multiaddrs of known relay services.
- */
-export function getKnownRelays(kv: KVStore): string[] {
-  const knownRelays = kv.get('knownRelays');
-  if (knownRelays) {
-    return JSON.parse(knownRelays);
-  }
-  return [];
-}
-
 // XXX IMPORTANT: All the cryptography here is completely amateur and needs to
 // be vetted and most likely overhauled in its entirety by an actual competent
 // cryptography expert before being unleashed on an unsuspecting public.
@@ -122,15 +105,14 @@ export async function initRemoteIdentity(
   let ocapURLKey: Uint8Array;
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
-  const { kv } = kernelStore;
   const relays = options?.relays ?? [];
   const mnemonic = options?.mnemonic;
   if (relays.length > 0) {
-    kv.set('knownRelays', JSON.stringify(relays));
+    kernelStore.setKnownRelays(relays);
   }
 
   /* eslint-disable no-param-reassign */
-  const possiblePeerId = kv.get('peerId');
+  const possiblePeerId = kernelStore.getRemoteIdentityValue('peerId');
   if (possiblePeerId) {
     // If a mnemonic is provided but identity already exists, throw an error
     // to avoid silently using a different identity than expected
@@ -139,7 +121,7 @@ export async function initRemoteIdentity(
         'Cannot use mnemonic: kernel identity already exists. Use resetStorage to clear existing identity first.',
       );
     }
-    keySeed = kv.getRequired('keySeed');
+    keySeed = kernelStore.getRemoteIdentityValueRequired('keySeed');
     peerId = possiblePeerId;
     logger?.log(`comms init: existing peer id: ${peerId}`);
   } else {
@@ -149,17 +131,17 @@ export async function initRemoteIdentity(
       logger?.log('comms init: using mnemonic for seed recovery');
     }
     [keySeed, peerId] = await generateKeyInfo(keySeed);
-    kv.set('keySeed', keySeed);
-    kv.set('peerId', peerId);
+    kernelStore.setRemoteIdentityValue('keySeed', keySeed);
+    kernelStore.setRemoteIdentityValue('peerId', peerId);
     logger?.log(`comms init: new peer id: ${peerId}`);
   }
-  const possibleOcapURLKey = kv.get('ocapURLKey');
+  const possibleOcapURLKey = kernelStore.getRemoteIdentityValue('ocapURLKey');
   if (possibleOcapURLKey) {
     ocapURLKey = fromHex(possibleOcapURLKey);
   } else {
     // eslint-disable-next-line n/no-unsupported-features/node-builtins
     ocapURLKey = globalThis.crypto.getRandomValues(new Uint8Array(32));
-    kv.set('ocapURLKey', toHex(ocapURLKey));
+    kernelStore.setRemoteIdentityValue('ocapURLKey', toHex(ocapURLKey));
   }
   /* eslint-enable no-param-reassign */
   const cipher = AES_GCM.create();
@@ -188,7 +170,7 @@ export async function initRemoteIdentity(
     const encodedKref = encoder.encode(paddedKref);
     const rawOid = await cipher.encrypt(encodedKref, ocapURLKey);
     const oid = base58btc.encode(rawOid);
-    const currentRelays = getKnownRelays(kv);
+    const currentRelays = kernelStore.getKnownRelays();
     const relaySuffix =
       currentRelays.length > 0 ? `,${currentRelays.join(',')}` : '';
     const ocapURL = `ocap:${oid}@${peerId}${relaySuffix}`;
@@ -204,7 +186,7 @@ export async function initRemoteIdentity(
     if (newRelays.length === 0) {
       return;
     }
-    const existing = getKnownRelays(kv);
+    const existing = kernelStore.getKnownRelays();
     const merged = new Set(existing);
     let changed = false;
     for (const relay of newRelays) {
@@ -214,7 +196,7 @@ export async function initRemoteIdentity(
       }
     }
     if (changed) {
-      kv.set('knownRelays', JSON.stringify([...merged]));
+      kernelStore.setKnownRelays([...merged]);
     }
   }
 
@@ -247,7 +229,7 @@ export async function initRemoteIdentity(
   return {
     identity: { getPeerId, issueOcapURL, redeemLocalOcapURL, addKnownRelays },
     keySeed,
-    knownRelays: getKnownRelays(kv),
+    knownRelays: kernelStore.getKnownRelays(),
   };
 }
 

@@ -76,11 +76,10 @@ export class KernelServiceManager {
     if (this.#kernelServicesByName.has(name)) {
       throw new Error(`Kernel service "${name}" is already registered`);
     }
-    const serviceKey = `kernelService.${name}`;
-    let kref = this.#kernelStore.kv.get(serviceKey) as KRef | undefined;
+    let kref = this.#kernelStore.getKernelServiceKref(name);
     if (!kref) {
       kref = this.#kernelStore.initKernelObject('kernel' as EndpointId);
-      this.#kernelStore.kv.set(serviceKey, kref);
+      this.#kernelStore.setKernelServiceKref(name, kref);
       this.#kernelStore.pinObject(kref);
     }
     const kernelService = { name, kref, service, systemOnly };
@@ -102,7 +101,7 @@ export class KernelServiceManager {
     this.#kernelServicesByName.delete(name);
     this.#kernelServicesByObject.delete(service.kref);
     this.#kernelStore.unpinObject(service.kref);
-    this.#kernelStore.kv.delete(`kernelService.${name}`);
+    this.#kernelStore.deleteKernelServiceKref(name);
   }
 
   /**

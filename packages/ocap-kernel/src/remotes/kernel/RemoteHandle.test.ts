@@ -435,8 +435,7 @@ describe('RemoteHandle', () => {
     // came from there (because it had to come from *somewhere*).
     const koref = mockKernelStore.initKernelObject('v1');
     const [kpref] = mockKernelStore.initKernelPromise();
-    mockKernelStore.kv.set(`e.nextObjectId.${remote.remoteId}`, `1`);
-    mockKernelStore.kv.set(`e.nextPromiseId.${remote.remoteId}`, `1`);
+    mockKernelStore.initEndpoint(remote.remoteId);
 
     // Pretend these refs had earlier been imported into the test remote from
     // our kernel (as if they had, say, appeared in message slots) and thence were
@@ -502,7 +501,7 @@ describe('RemoteHandle', () => {
     // Note that vat v1 does not exist; we're just pretending the test object
     // came from there (because it had to come from *somewhere*).
     const koref = mockKernelStore.initKernelObject('v1');
-    mockKernelStore.kv.set(`e.nextObjectId.${remote.remoteId}`, `1`);
+    mockKernelStore.initEndpoint(remote.remoteId);
 
     // Pretend this ref had earlier been imported into the test remote from our
     // kernel (as if it had, say, appeared in message slots) and thence wwas
@@ -597,7 +596,7 @@ describe('RemoteHandle', () => {
       method: 'redeemURL',
       params: [mockOcapURL, mockReplyKey],
     });
-    mockKernelStore.kv.set(`e.nextObjectId.r0`, `1`); // mock effects of stuff that was never called
+    mockKernelStore.initEndpoint(remote.remoteId); // mock effects of stuff that was never called
     const reply = await remote.handleRemoteMessage(request);
     expect(mockRemoteComms.redeemLocalOcapURL).toHaveBeenCalledWith(
       mockOcapURL,

@@ -182,7 +182,7 @@ describe('KernelServiceManager', () => {
 
       serviceManager.unregisterKernelServiceObject('myService');
 
-      expect(kernelStore.kv.get('kernelService.myService')).toBeUndefined();
+      expect(kernelStore.getKernelServiceKref('myService')).toBeUndefined();
       // Verify it was unpinned by trying to re-register with the same name
       const reregistered = serviceManager.registerKernelServiceObject(
         'myService',

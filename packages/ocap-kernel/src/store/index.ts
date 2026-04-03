@@ -310,7 +310,52 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     createSavepoint,
     releaseSavepoint,
     rollbackSavepoint,
-    kv,
+    // NOTE: kv is intentionally NOT exposed here. All KV access should go
+    // through typed store methods to preserve branded type safety.
+
+    // Initialization
+    isInitialized(): boolean {
+      return kv.get('initialized') === 'true';
+    },
+    markInitialized(): void {
+      kv.set('initialized', 'true');
+    },
+
+    // Kernel service krefs
+    getKernelServiceKref(name: string): KRef | undefined {
+      return kv.get(`kernelService.${name}`) as KRef | undefined;
+    },
+    setKernelServiceKref(name: string, kref: KRef): void {
+      kv.set(`kernelService.${name}`, kref);
+    },
+    deleteKernelServiceKref(name: string): void {
+      kv.delete(`kernelService.${name}`);
+    },
+
+    // Remote identity
+    getRemoteIdentityValue(
+      key: 'peerId' | 'keySeed' | 'ocapURLKey',
+    ): string | undefined {
+      return kv.get(key);
+    },
+    getRemoteIdentityValueRequired(
+      key: 'peerId' | 'keySeed' | 'ocapURLKey',
+    ): string {
+      return kv.getRequired(key);
+    },
+    setRemoteIdentityValue(
+      key: 'peerId' | 'keySeed' | 'ocapURLKey',
+      value: string,
+    ): void {
+      kv.set(key, value);
+    },
+    getKnownRelays(): string[] {
+      const raw = kv.get('knownRelays');
+      return raw ? JSON.parse(raw) : [];
+    },
+    setKnownRelays(relays: string[]): void {
+      kv.set('knownRelays', JSON.stringify(relays));
+    },
   });
 }
 

@@ -26,8 +26,8 @@ describe('kernel store', () => {
 
   describe('initialization', () => {
     it('has a working KV store', () => {
-      const ks = makeKernelStore(mockKernelDatabase);
-      const { kv } = ks;
+      makeKernelStore(mockKernelDatabase);
+      const kv = mockKernelDatabase.kernelKVStore;
       expect(kv.get('foo')).toBeUndefined();
       kv.set('foo', 'some value');
       expect(kv.get('foo')).toBe('some value');
@@ -62,6 +62,7 @@ describe('kernel store', () => {
         'deleteEndpoint',
         'deleteKernelObject',
         'deleteKernelPromise',
+        'deleteKernelServiceKref',
         'deletePendingMessage',
         'deleteRemoteInfo',
         'deleteRemotePendingState',
@@ -88,6 +89,8 @@ describe('kernel store', () => {
         'getImporters',
         'getKernelPromise',
         'getKernelPromiseMessageQueue',
+        'getKernelServiceKref',
+        'getKnownRelays',
         'getKpidsToRetire',
         'getNextObjectId',
         'getNextPromiseId',
@@ -102,6 +105,8 @@ describe('kernel store', () => {
         'getReachableAndVatSlot',
         'getReachableFlag',
         'getRefCount',
+        'getRemoteIdentityValue',
+        'getRemoteIdentityValueRequired',
         'getRemoteInfo',
         'getRemoteSeqState',
         'getRootObject',
@@ -122,6 +127,7 @@ describe('kernel store', () => {
         'initKernelPromise',
         'invertRRef',
         'isInCrank',
+        'isInitialized',
         'isObjectPinned',
         'isRevoked',
         'isRootObject',
@@ -130,8 +136,8 @@ describe('kernel store', () => {
         'kernelRefExists',
         'krefToEref',
         'krefsToExistingErefs',
-        'kv',
         'makeVatStore',
+        'markInitialized',
         'markVatAsTerminated',
         'nextReapAction',
         'nextTerminatedVatCleanup',
@@ -150,10 +156,13 @@ describe('kernel store', () => {
         'runQueueLength',
         'scheduleReap',
         'setGCActions',
+        'setKernelServiceKref',
+        'setKnownRelays',
         'setObjectRefCount',
         'setPendingMessage',
         'setPromiseDecider',
         'setRemoteHighestReceivedSeq',
+        'setRemoteIdentityValue',
         'setRemoteInfo',
         'setRemoteNextSendSeq',
         'setRemoteStartSeq',
@@ -373,10 +382,10 @@ describe('kernel store', () => {
       ks.enqueueRun(tm('test message'));
 
       // Set some custom keys that we want to preserve
-      ks.kv.set('keySeed', 'preserved-seed');
-      ks.kv.set('peerId', 'preserved-peer');
-      ks.kv.set('ocapURLKey', 'preserved-url');
-      ks.kv.set('someOtherKey', 'should-be-cleared');
+      mockKernelDatabase.kernelKVStore.set('keySeed', 'preserved-seed');
+      mockKernelDatabase.kernelKVStore.set('peerId', 'preserved-peer');
+      mockKernelDatabase.kernelKVStore.set('ocapURLKey', 'preserved-url');
+      mockKernelDatabase.kernelKVStore.set('someOtherKey', 'should-be-cleared');
 
       // Reset with except parameter
       ks.reset({ except: ['keySeed', 'peerId', 'ocapURLKey'] });
@@ -390,12 +399,20 @@ describe('kernel store', () => {
       expect(ks.dequeueRun()).toBeUndefined();
 
       // Check that preserved keys are still there
-      expect(ks.kv.get('keySeed')).toBe('preserved-seed');
-      expect(ks.kv.get('peerId')).toBe('preserved-peer');
-      expect(ks.kv.get('ocapURLKey')).toBe('preserved-url');
+      expect(mockKernelDatabase.kernelKVStore.get('keySeed')).toBe(
+        'preserved-seed',
+      );
+      expect(mockKernelDatabase.kernelKVStore.get('peerId')).toBe(
+        'preserved-peer',
+      );
+      expect(mockKernelDatabase.kernelKVStore.get('ocapURLKey')).toBe(
+        'preserved-url',
+      );
 
       // Check that non-preserved keys are cleared
-      expect(ks.kv.get('someOtherKey')).toBeUndefined();
+      expect(
+        mockKernelDatabase.kernelKVStore.get('someOtherKey'),
+      ).toBeUndefined();
     });
 
     it('does not restore keys with undefined values', () => {
@@ -406,7 +423,7 @@ describe('kernel store', () => {
       const koId = ks.initKernelObject('v1');
 
       // Set some keys with values and some without
-      ks.kv.set('existingKey', 'has-value');
+      mockKernelDatabase.kernelKVStore.set('existingKey', 'has-value');
       // Don't set 'undefinedKey' - it will be undefined
       // Don't set 'nullKey' - it will be undefined
 
@@ -418,9 +435,13 @@ describe('kernel store', () => {
       expect(ks.getOwner(koId)).toBeUndefined();
 
       // Check that only keys with values are restored
-      expect(ks.kv.get('existingKey')).toBe('has-value');
-      expect(ks.kv.get('undefinedKey')).toBeUndefined();
-      expect(ks.kv.get('nullKey')).toBeUndefined();
+      expect(mockKernelDatabase.kernelKVStore.get('existingKey')).toBe(
+        'has-value',
+      );
+      expect(
+        mockKernelDatabase.kernelKVStore.get('undefinedKey'),
+      ).toBeUndefined();
+      expect(mockKernelDatabase.kernelKVStore.get('nullKey')).toBeUndefined();
     });
 
     it('resets all keys when no except parameter provided', () => {
@@ -429,7 +450,7 @@ describe('kernel store', () => {
       // Set up some state
       ks.getNextVatId();
       const koId = ks.initKernelObject('v1');
-      ks.kv.set('customKey', 'should-be-cleared');
+      mockKernelDatabase.kernelKVStore.set('customKey', 'should-be-cleared');
 
       // Reset without except parameter
       ks.reset();
@@ -437,7 +458,7 @@ describe('kernel store', () => {
       // Check that everything is reset
       expect(ks.getNextVatId()).toBe('v1');
       expect(ks.getOwner(koId)).toBeUndefined();
-      expect(ks.kv.get('customKey')).toBeUndefined();
+      expect(mockKernelDatabase.kernelKVStore.get('customKey')).toBeUndefined();
     });
   });
 
@@ -449,7 +470,9 @@ describe('kernel store', () => {
 
       expect(typeof incarnationId).toBe('string');
       expect(incarnationId).toHaveLength(36); // UUID format
-      expect(ks.kv.get('incarnationId')).toBe(incarnationId);
+      expect(mockKernelDatabase.kernelKVStore.get('incarnationId')).toBe(
+        incarnationId,
+      );
     });
 
     it('returns the same incarnation ID on subsequent calls', () => {
