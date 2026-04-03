@@ -14,8 +14,7 @@ import {
 import type { KernelQueue } from '../KernelQueue.ts';
 import { makeError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
-import { coerceMessage } from '../types.ts';
-import type { Message, VatId, KRef } from '../types.ts';
+import type { KernelMessage, VatId, KRef } from '../types.ts';
 
 type VatSyscallProps = {
   vatId: VatId;
@@ -79,7 +78,7 @@ export class VatSyscall {
    * @param target - The target of the message send.
    * @param message - The message that was sent.
    */
-  #handleSyscallSend(target: KRef, message: Message): void {
+  #handleSyscallSend(target: KRef, message: KernelMessage): void {
     const immediate = !this.#kernelStore.isInCrank();
     this.#kernelQueue.enqueueSend(target, message, immediate);
   }
@@ -178,7 +177,7 @@ export class VatSyscall {
           this.#logger?.log(
             `@@@@ ${vatId} syscall send ${target}<-${JSON.stringify(message)}`,
           );
-          this.#handleSyscallSend(target as KRef, coerceMessage(message));
+          this.#handleSyscallSend(target as KRef, message as KernelMessage);
           break;
         }
         case 'subscribe': {

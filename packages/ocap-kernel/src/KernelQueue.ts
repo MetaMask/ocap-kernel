@@ -8,7 +8,7 @@ import type { KernelStore } from './store/index.ts';
 import type {
   CrankResult,
   KRef,
-  Message,
+  KernelMessage,
   RunQueueItem,
   RunQueueItemNotify,
   RunQueueItemSend,
@@ -154,10 +154,9 @@ export class KernelQueue {
         queueItem.type === 'send' &&
         queueItem.message.result
       ) {
-        const resultKref = queueItem.message.result as KRef;
-        const subscription = this.subscriptions.get(resultKref);
+        const subscription = this.subscriptions.get(queueItem.message.result);
         if (subscription) {
-          this.subscriptions.delete(resultKref);
+          this.subscriptions.delete(queueItem.message.result);
           subscription.reject(crankResult.terminate.info);
         }
       }
@@ -266,16 +265,13 @@ export class KernelQueue {
    * @param message - The message to be delivered.
    * @param immediate - If true (the default), enqueue immediately; if false, buffer for crank completion.
    */
-  enqueueSend(target: KRef, message: Message, immediate = true): void {
+  enqueueSend(target: KRef, message: KernelMessage, immediate = true): void {
     this.#kernelStore.incrementRefCount(target, 'queue|target');
     if (message.result) {
-      this.#kernelStore.incrementRefCount(
-        message.result as KRef,
-        'queue|result',
-      );
+      this.#kernelStore.incrementRefCount(message.result, 'queue|result');
     }
     for (const slot of message.methargs.slots || []) {
-      this.#kernelStore.incrementRefCount(slot as KRef, 'queue|slot');
+      this.#kernelStore.incrementRefCount(slot, 'queue|slot');
     }
     const item: RunQueueItemSend = { type: 'send', target, message };
     if (immediate) {

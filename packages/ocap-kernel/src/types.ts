@@ -152,6 +152,7 @@ export const VatIdStruct = define<VatId>('VatId', isVatId);
 export const RemoteIdStruct = define<RemoteId>('RemoteId', isRemoteId);
 export const EndpointIdStruct = define<EndpointId>('EndpointId', isEndpointId);
 export const KRefStruct = define<KRef>('KRef', isKRef);
+export const ERefStruct = define<ERef>('ERef', isERef);
 
 export const CapDataStruct = object({
   body: string(),
@@ -164,32 +165,51 @@ export const VatOneResolutionStruct = tuple([
   CapDataStruct,
 ]);
 
-export const MessageStruct = object({
-  methargs: CapDataStruct,
-  result: exactOptional(union([string(), literal(null)])),
+// Kernel-space message: refs are KRefs
+export const KernelCapDataStruct = object({
+  body: string(),
+  slots: array(KRefStruct),
 });
 
-/**
- * JSON-RPC-compatible Message type, originally from @agoric/swingset-liveslots.
- */
-export type Message = Infer<typeof MessageStruct>;
+export const KernelMessageStruct = object({
+  methargs: KernelCapDataStruct,
+  result: exactOptional(union([KRefStruct, literal(null)])),
+});
+
+export type KernelMessage = Infer<typeof KernelMessageStruct>;
+
+// Endpoint-space message: refs are ERefs
+export const EndpointCapDataStruct = object({
+  body: string(),
+  slots: array(ERefStruct),
+});
+
+export const EndpointMessageStruct = object({
+  methargs: EndpointCapDataStruct,
+  result: exactOptional(union([ERefStruct, literal(null)])),
+});
+
+export type EndpointMessage = Infer<typeof EndpointMessageStruct>;
 
 /**
- * Coerce a {@link SwingsetMessage} to our own JSON-RPC-compatible {@link Message}.
+ * Coerce a {@link SwingsetMessage} to an {@link EndpointMessage}.
+ * Agoric's SwingsetMessage comes from vat syscalls (endpoint-space).
  *
  * @param message - The SwingsetMessage to coerce.
- * @returns The coerced Message.
+ * @returns The coerced EndpointMessage.
  */
-export function coerceMessage(message: SwingsetMessage): Message {
+export function coerceEndpointMessage(
+  message: SwingsetMessage,
+): EndpointMessage {
   if (message.result === undefined) {
-    delete (message as Message).result;
+    delete (message as EndpointMessage).result;
   }
-  return message as Message;
+  return message as EndpointMessage;
 }
 
 type JsonVatSyscallObject =
   | Exclude<VatSyscallObject, VatSyscallSend>
-  | ['send', string, Message];
+  | ['send', string, EndpointMessage];
 
 /**
  * Coerce a {@link VatSyscallObject} to a JSON-RPC-compatible {@link JsonVatSyscallObject}.
@@ -201,7 +221,7 @@ export function coerceVatSyscallObject(
   vso: VatSyscallObject,
 ): JsonVatSyscallObject {
   if (vso[0] === 'send') {
-    return ['send', vso[1], coerceMessage(vso[2])];
+    return ['send', vso[1], coerceEndpointMessage(vso[2])];
   }
   return vso as JsonVatSyscallObject;
 }
@@ -209,7 +229,7 @@ export function coerceVatSyscallObject(
 const RunQueueItemSendStruct = object({
   type: literal('send'),
   target: KRefStruct,
-  message: MessageStruct,
+  message: KernelMessageStruct,
 });
 
 export type RunQueueItemSend = Infer<typeof RunQueueItemSendStruct>;
@@ -264,13 +284,15 @@ export const RunQueueItemStruct = union([
 export type RunQueueItem = Infer<typeof RunQueueItemStruct>;
 
 /**
- * Assert that a value is a valid message.
+ * Assert that a value is a valid kernel message.
  *
  * @param value - The value to check.
- * @throws if the value is not a valid message.
+ * @throws if the value is not a valid kernel message.
  */
-export function insistMessage(value: unknown): asserts value is Message {
-  is(value, MessageStruct) || Fail`not a valid message`;
+export function insistKernelMessage(
+  value: unknown,
+): asserts value is KernelMessage {
+  is(value, KernelMessageStruct) || Fail`not a valid kernel message`;
 }
 
 // Per-endpoint persistent state
@@ -697,7 +719,10 @@ export type CrankResult = {
 export type VatDeliveryResult = [VatCheckpoint, string | null];
 
 export type EndpointHandle = {
-  deliverMessage: (target: ERef, message: Message) => Promise<CrankResult>;
+  deliverMessage: (
+    target: ERef,
+    message: EndpointMessage,
+  ) => Promise<CrankResult>;
   deliverNotify: (resolutions: VatOneResolution[]) => Promise<CrankResult>;
   deliverDropExports: (erefs: ERef[]) => Promise<CrankResult>;
   deliverRetireExports: (erefs: ERef[]) => Promise<CrankResult>;

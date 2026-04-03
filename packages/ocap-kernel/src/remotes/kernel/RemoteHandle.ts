@@ -15,7 +15,7 @@ import type {
   ERef,
   KRef,
   EndpointHandle,
-  Message,
+  EndpointMessage,
   CrankResult,
 } from '../../types.ts';
 import { insistKRef, insistERef } from '../../types.ts';
@@ -45,7 +45,7 @@ type RemoteHandleConstructorProps = {
   ackTimeoutMs?: number | undefined;
 };
 
-type MessageDelivery = ['message', ERef, Message];
+type MessageDelivery = ['message', ERef, EndpointMessage];
 type NotifyDelivery = ['notify', VatOneResolution[]];
 type DropExportsDelivery = ['dropExports', ERef[]];
 type RetireExportsDelivery = ['retireExports', ERef[]];
@@ -588,7 +588,10 @@ export class RemoteHandle implements EndpointHandle {
    * @param message - The message to deliver.
    * @returns the crank result.
    */
-  async deliverMessage(target: ERef, message: Message): Promise<CrankResult> {
+  async deliverMessage(
+    target: ERef,
+    message: EndpointMessage,
+  ): Promise<CrankResult> {
     await this.#sendRemoteCommand({
       method: 'deliver',
       params: ['message', target, message],

@@ -1,4 +1,3 @@
-import type { Message } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -6,7 +5,7 @@ import { getBaseMethods } from './base.ts';
 import { getPromiseMethods } from './promise.ts';
 import { getQueueMethods } from './queue.ts';
 import { getRefCountMethods } from './refcount.ts';
-import type { KRef, VatId } from '../../types.ts';
+import type { KRef, KernelMessage, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import * as promiseRefModule from '../utils/promise-ref.ts';
 
@@ -304,8 +303,12 @@ describe('promise store methods', () => {
         body: 'someValue',
         slots: ['o+1', 'o+2'],
       };
-      const message1: Message = { method: 'method1' } as unknown as Message;
-      const message2: Message = { method: 'method2' } as unknown as Message;
+      const message1: KernelMessage = {
+        method: 'method1',
+      } as unknown as KernelMessage;
+      const message2: KernelMessage = {
+        method: 'method2',
+      } as unknown as KernelMessage;
 
       mockKV.set(`${kpid}.state`, 'unresolved');
       mockKV.set(`${kpid}.decider`, 'v1');
@@ -374,8 +377,12 @@ describe('promise store methods', () => {
   describe('getKernelPromiseMessageQueue', () => {
     it('retrieves all messages from the promise queue', () => {
       const kpid = 'kp123';
-      const message1: Message = { method: 'method1' } as unknown as Message;
-      const message2: Message = { method: 'method2' } as unknown as Message;
+      const message1: KernelMessage = {
+        method: 'method1',
+      } as unknown as KernelMessage;
+      const message2: KernelMessage = {
+        method: 'method2',
+      } as unknown as KernelMessage;
 
       mockQueue.dequeue
         .mockReturnValueOnce(message1)

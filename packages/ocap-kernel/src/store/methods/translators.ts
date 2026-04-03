@@ -4,9 +4,10 @@ import type {
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 
-import { coerceMessage, isRemoteId, insistERef } from '../../types.ts';
+import { coerceEndpointMessage, isRemoteId, insistERef } from '../../types.ts';
 import type {
-  Message,
+  KernelMessage,
+  EndpointMessage,
   VatId,
   EndpointId,
   KRef,
@@ -124,20 +125,17 @@ export function getTranslators(ctx: StoreContext) {
    */
   function translateMessageKtoE(
     endpointId: EndpointId,
-    message: Message,
-  ): Message {
-    const methargs = translateCapDataKtoE(
-      endpointId,
-      message.methargs as CapData<KRef>,
-    );
-    let result: ERef | null | undefined;
+    message: KernelMessage,
+  ): EndpointMessage {
+    const methargs = translateCapDataKtoE(endpointId, message.methargs);
     if (typeof message.result === 'string') {
-      result = translateRefKtoE(endpointId, message.result as KRef, true);
-    } else {
-      result = message.result;
+      const result = translateRefKtoE(endpointId, message.result, true);
+      return { methargs, result };
     }
-    const endpointMessage = coerceMessage({ ...message, methargs, result });
-    return endpointMessage;
+    if (message.result === null) {
+      return { methargs, result: null };
+    }
+    return { methargs };
   }
 
   /**
@@ -183,12 +181,9 @@ export function getTranslators(ctx: StoreContext) {
    */
   function translateMessageEtoK(
     endpointId: EndpointId,
-    message: Message,
-  ): Message {
-    const methargs = translateCapDataEtoK(
-      endpointId,
-      message.methargs as CapData<ERef>,
-    );
+    message: EndpointMessage,
+  ): KernelMessage {
+    const methargs = translateCapDataEtoK(endpointId, message.methargs);
     if (typeof message.result !== 'string') {
       throw TypeError(`message result must be a string`);
     }
@@ -218,9 +213,9 @@ export function getTranslators(ctx: StoreContext) {
         kso = [
           op,
           translateRefEtoK(vatId, target),
-          // @ts-expect-error: Agoric's Message type has the property `result: string | undefined | null`.
-          // Ours is `result?: string | null`. We can safely ignore the `undefined` case.
-          translateMessageEtoK(vatId, coerceMessage(message)),
+          // @ts-expect-error: Agoric's Message type requires `result: string | undefined | null`.
+          // Ours uses `result?: KRef | null` (exactOptionalPropertyTypes).
+          translateMessageEtoK(vatId, coerceEndpointMessage(message)),
         ];
         break;
       }

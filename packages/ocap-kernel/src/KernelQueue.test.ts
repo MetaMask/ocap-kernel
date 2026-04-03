@@ -8,7 +8,7 @@ import * as gc from './garbage-collection/garbage-collection.ts';
 import { KernelQueue } from './KernelQueue.ts';
 import type { KernelStore } from './store/index.ts';
 import * as types from './types.ts';
-import type { KRef, Message, RunQueueItem } from './types.ts';
+import type { KRef, KernelMessage, RunQueueItem } from './types.ts';
 
 vi.mock('./garbage-collection/garbage-collection.ts', () => ({
   processGCActionSet: vi.fn().mockReturnValue(null),
@@ -71,7 +71,7 @@ describe('KernelQueue', () => {
       const mockItem: RunQueueItem = {
         type: 'send',
         target: 'ko123',
-        message: {} as Message,
+        message: {} as KernelMessage,
       };
       (
         kernelStore.runQueueLength as unknown as MockInstance
@@ -96,7 +96,7 @@ describe('KernelQueue', () => {
       const mockItem: RunQueueItem = {
         type: 'send',
         target: 'ko123',
-        message: { result: 'kp99' } as Message,
+        message: { result: 'kp99' } as KernelMessage,
       };
       (kernelStore.runQueueLength as unknown as MockInstance)
         .mockReturnValueOnce(1)
@@ -123,7 +123,7 @@ describe('KernelQueue', () => {
       const mockItem: RunQueueItem = {
         type: 'send',
         target: 'ko123',
-        message: {} as Message,
+        message: {} as KernelMessage,
       };
       const terminateInfo = {
         vatId: 'v1',
@@ -206,7 +206,7 @@ describe('KernelQueue', () => {
   describe('enqueueSend', () => {
     it('enqueues a send message and increments reference counts', () => {
       const target = 'ko123';
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: { body: 'method args', slots: ['ko1', 'ko2'] },
         result: 'kp2',
       };
@@ -236,7 +236,7 @@ describe('KernelQueue', () => {
 
     it('handles messages without result or slots', () => {
       const target = 'ko123';
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: { body: 'method args', slots: [] },
         result: null,
       };
@@ -466,7 +466,7 @@ describe('KernelQueue', () => {
       const mockItem: RunQueueItem = {
         type: 'send',
         target: 'ko123',
-        message: { result: 'kp99' } as Message,
+        message: { result: 'kp99' } as KernelMessage,
       };
       const terminateInfo = {
         body: '"vat terminated"',
@@ -503,7 +503,7 @@ describe('KernelQueue', () => {
       const mockItem: RunQueueItem = {
         type: 'send',
         target: 'ko123',
-        message: { result: 'kp99' } as Message,
+        message: { result: 'kp99' } as KernelMessage,
       };
       (kernelStore.runQueueLength as unknown as MockInstance)
         .mockReturnValueOnce(1)
@@ -528,8 +528,8 @@ describe('KernelQueue', () => {
   describe('one-item-per-crank', () => {
     it('calls startCrank/endCrank for each delivered item', async () => {
       const items: RunQueueItem[] = [
-        { type: 'send', target: 'ko1', message: {} as Message },
-        { type: 'send', target: 'ko2', message: {} as Message },
+        { type: 'send', target: 'ko1', message: {} as KernelMessage },
+        { type: 'send', target: 'ko2', message: {} as KernelMessage },
       ];
       let dequeueCount = 0;
       (
@@ -579,7 +579,7 @@ describe('KernelQueue', () => {
       const mockItem: RunQueueItem = {
         type: 'send',
         target: 'ko1',
-        message: {} as Message,
+        message: {} as KernelMessage,
       };
       (kernelStore.runQueueLength as unknown as MockInstance)
         .mockReturnValueOnce(1)
@@ -618,7 +618,7 @@ describe('KernelQueue', () => {
       const mockItem: RunQueueItem = {
         type: 'send',
         target: 'ko1',
-        message: {} as Message,
+        message: {} as KernelMessage,
       };
       (kernelStore.runQueueLength as unknown as MockInstance)
         .mockReturnValueOnce(1)

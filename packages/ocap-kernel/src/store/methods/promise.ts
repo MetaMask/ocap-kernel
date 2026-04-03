@@ -5,7 +5,7 @@ import { getBaseMethods } from './base.ts';
 import type {
   KRef,
   KernelPromise,
-  Message,
+  KernelMessage,
   PromiseState,
   EndpointId,
 } from '../../types.ts';
@@ -153,10 +153,10 @@ export function getPromiseMethods(ctx: StoreContext) {
     kpid: KRef,
     rejected: boolean,
     value: CapData<KRef>,
-  ): [KRef, Message][] {
+  ): [KRef, KernelMessage][] {
     const queue = provideStoredQueue(kpid, false);
     // Collect messages that were queued on this promise
-    const queuedMessages: [KRef, Message][] = [];
+    const queuedMessages: [KRef, KernelMessage][] = [];
     for (const message of getKernelPromiseMessageQueue(kpid)) {
       queuedMessages.push([kpid, message]);
     }
@@ -176,7 +176,7 @@ export function getPromiseMethods(ctx: StoreContext) {
    * @param kpid - The KRef of the promise to enqueue on.
    * @param message - The message to enqueue.
    */
-  function enqueuePromiseMessage(kpid: KRef, message: Message): void {
+  function enqueuePromiseMessage(kpid: KRef, message: KernelMessage): void {
     provideStoredQueue(kpid, false).enqueue(message);
   }
 
@@ -186,11 +186,11 @@ export function getPromiseMethods(ctx: StoreContext) {
    * @param kpid - The KRef of the kernel promise of interest.
    * @returns An array of all the messages in the given promise's message queue.
    */
-  function getKernelPromiseMessageQueue(kpid: KRef): Message[] {
-    const result: Message[] = [];
+  function getKernelPromiseMessageQueue(kpid: KRef): KernelMessage[] {
+    const result: KernelMessage[] = [];
     const queue = provideStoredQueue(kpid, false);
     for (;;) {
-      const message = queue.dequeue() as Message;
+      const message = queue.dequeue() as KernelMessage;
       if (message) {
         result.push(message);
       } else {

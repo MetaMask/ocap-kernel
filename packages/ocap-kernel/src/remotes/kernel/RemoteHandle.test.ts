@@ -8,7 +8,7 @@ import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
 import type { KernelQueue } from '../../KernelQueue.ts';
 import type { KernelStore } from '../../store/index.ts';
 import { parseRef } from '../../store/utils/parse-ref.ts';
-import type { Message, RRef } from '../../types.ts';
+import type { EndpointMessage, RRef } from '../../types.ts';
 import type { RemoteComms } from '../types.ts';
 
 let mockKernelStore: KernelStore;
@@ -60,7 +60,7 @@ describe('RemoteHandle', () => {
   it('deliverMessage calls sendRemoteMessage with correct delivery message', async () => {
     const remote = makeRemote();
     const target: RRef = 'ro+1';
-    const message: Message = {
+    const message: EndpointMessage = {
       methargs: { body: '["method",["arg1","arg2"]]', slots: [] },
       result: 'rp-2',
     };
@@ -383,7 +383,7 @@ describe('RemoteHandle', () => {
     const targetKRef = 'ko1';
     const resultRRef = 'rp+2';
     const resultKRef = 'kp1';
-    const message: Message = {
+    const message: EndpointMessage = {
       methargs: { body: '["method",["arg1","arg2"]]', slots: [] },
       result: resultRRef,
     };

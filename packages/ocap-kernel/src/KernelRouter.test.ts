@@ -5,7 +5,7 @@ import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
-  Message as SwingsetMessage,
+  KernelMessage,
   RunQueueItem,
   RunQueueItemSend,
   RunQueueItemNotify,
@@ -16,12 +16,6 @@ import type {
   CrankResult,
   EndpointHandle,
 } from './types.ts';
-
-// Define Message type for tests that matches the required structure
-type Message = {
-  methargs: { body: string; slots: string[] };
-  result: string | null;
-};
 
 describe('KernelRouter', () => {
   // Mock dependencies
@@ -58,8 +52,7 @@ describe('KernelRouter', () => {
         (_endpointId: string, kref: string) => `translated-${kref}`,
       ) as unknown as MockInstance,
       translateMessageKtoE: vi.fn(
-        (_endpointId: string, message: SwingsetMessage) =>
-          message as unknown as SwingsetMessage,
+        (_endpointId: string, message: KernelMessage) => message,
       ) as unknown as MockInstance,
       enqueuePromiseMessage: vi.fn(),
       erefToKref: vi.fn() as unknown as MockInstance,
@@ -108,14 +101,14 @@ describe('KernelRouter', () => {
         ).mockResolvedValueOnce(mockCrankResult);
 
         // Create a send message
-        const message: Message = {
+        const message: KernelMessage = {
           methargs: { body: 'method args', slots: ['ko1', 'ko2'] },
           result: 'kp1',
         };
         const sendItem: RunQueueItemSend = {
           type: 'send',
           target,
-          message: message as unknown as SwingsetMessage,
+          message,
         };
 
         const result = await kernelRouter.deliver(sendItem);
@@ -153,14 +146,14 @@ describe('KernelRouter', () => {
 
         // Create a send message
         const target = 'ko123';
-        const message: Message = {
+        const message: KernelMessage = {
           methargs: { body: 'method args', slots: ['ko1', 'ko2'] },
           result: 'kp1',
         };
         const sendItem: RunQueueItemSend = {
           type: 'send',
           target,
-          message: message as unknown as SwingsetMessage,
+          message,
         };
         const result = await kernelRouter.deliver(sendItem);
 
@@ -210,14 +203,14 @@ describe('KernelRouter', () => {
 
         // Create a send message
         const target = 'ko123';
-        const message: Message = {
+        const message: KernelMessage = {
           methargs: { body: 'method args', slots: ['ko1', 'ko2'] },
           result: 'kp1',
         };
         const sendItem: RunQueueItemSend = {
           type: 'send',
           target,
-          message: message as unknown as SwingsetMessage,
+          message,
         };
         const result = await kernelRouter.deliver(sendItem);
 
@@ -262,14 +255,14 @@ describe('KernelRouter', () => {
           value: { body: JSON.stringify({ status: 'unresolved' }), slots: [] },
         });
         // Create a send message
-        const message: Message = {
+        const message: KernelMessage = {
           methargs: { body: 'method args', slots: [] },
           result: null,
         };
         const sendItem: RunQueueItemSend = {
           type: 'send',
           target,
-          message: message as unknown as SwingsetMessage,
+          message,
         };
         const result = await kernelRouter.deliver(sendItem);
 
@@ -302,14 +295,14 @@ describe('KernelRouter', () => {
         });
 
         // Create a send message to the promise
-        const message: Message = {
+        const message: KernelMessage = {
           methargs: { body: 'method args', slots: [] },
           result: 'kp2',
         };
         const sendItem: RunQueueItemSend = {
           type: 'send',
           target: promiseId,
-          message: message as unknown as SwingsetMessage,
+          message,
         };
 
         const result = await kernelRouter.deliver(sendItem);
@@ -344,14 +337,14 @@ describe('KernelRouter', () => {
         });
 
         // Create a send message to the promise
-        const message: Message = {
+        const message: KernelMessage = {
           methargs: { body: 'method args', slots: [] },
           result: 'kp2',
         };
         const sendItem: RunQueueItemSend = {
           type: 'send',
           target: promiseId,
-          message: message as unknown as SwingsetMessage,
+          message,
         };
 
         const result = await kernelRouter.deliver(sendItem);

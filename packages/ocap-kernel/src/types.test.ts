@@ -3,8 +3,8 @@ import { describe, it, expect } from 'vitest';
 
 import {
   isVatConfig,
-  insistMessage,
-  coerceMessage,
+  insistKernelMessage,
+  coerceEndpointMessage,
   coerceVatSyscallObject,
   queueTypeFromActionType,
   isGCActionType,
@@ -203,14 +203,14 @@ describe('isVatConfig', () => {
   });
 });
 
-describe('insistMessage', () => {
+describe('insistKernelMessage', () => {
   it('does not throw for valid message objects', () => {
     const validMessage = {
       methargs: { body: 'body content', slots: [] },
       result: 'kp1',
     };
 
-    expect(() => insistMessage(validMessage)).not.toThrow();
+    expect(() => insistKernelMessage(validMessage)).not.toThrow();
   });
 
   it.each([
@@ -219,7 +219,9 @@ describe('insistMessage', () => {
     { name: 'missing slots', value: { methargs: { body: 'body' } } },
     { name: 'missing methargs', value: { result: 'kp1' } },
   ])('throws for $name', ({ value }) => {
-    expect(() => insistMessage(value)).toThrow('not a valid message');
+    expect(() => insistKernelMessage(value)).toThrow(
+      'not a valid kernel message',
+    );
   });
 });
 
@@ -293,14 +295,16 @@ describe('isGCAction', () => {
   });
 });
 
-describe('coerceMessage', () => {
+describe('coerceEndpointMessage', () => {
   it('removes undefined result field', () => {
     const messageWithUndefined = {
       methargs: { body: 'test', slots: [] },
       result: undefined,
     };
 
-    const coerced = coerceMessage(messageWithUndefined as unknown as Message);
+    const coerced = coerceEndpointMessage(
+      messageWithUndefined as unknown as Message,
+    );
     expect(coerced).not.toHaveProperty('result');
     expect(coerced.methargs).toStrictEqual({ body: 'test', slots: [] });
   });
@@ -311,7 +315,7 @@ describe('coerceMessage', () => {
       result: 'kp1',
     };
 
-    const coerced = coerceMessage(messageWithResult);
+    const coerced = coerceEndpointMessage(messageWithResult);
     expect(coerced.result).toBe('kp1');
     expect(coerced.methargs).toStrictEqual({ body: 'test', slots: [] });
   });

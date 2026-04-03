@@ -21,7 +21,7 @@ import { vatMethodSpecs, vatSyscallHandlers } from '../rpc/index.ts';
 import type { PingVatResult, VatMethod } from '../rpc/index.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
-  Message,
+  EndpointMessage,
   VatId,
   VatConfig,
   ERef,
@@ -211,7 +211,10 @@ export class VatHandle implements EndpointHandle {
    * @param message - The message to deliver.
    * @returns The crank result.
    */
-  async deliverMessage(target: ERef, message: Message): Promise<CrankResult> {
+  async deliverMessage(
+    target: ERef,
+    message: EndpointMessage,
+  ): Promise<CrankResult> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['message', target, message],

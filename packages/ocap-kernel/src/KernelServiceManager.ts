@@ -1,11 +1,10 @@
 import { E } from '@endo/eventual-send';
-import type { CapData } from '@endo/marshal';
 import type { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from './KernelQueue.ts';
 import { kser, kunser } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
-import type { KRef, EndpointId, Message } from './types.ts';
+import type { KRef, EndpointId, KernelMessage } from './types.ts';
 import { assert } from './utils/assert.ts';
 
 export type KernelService = {
@@ -146,16 +145,13 @@ export class KernelServiceManager {
    * @param target - The target kref of the service.
    * @param message - The message to invoke the service with.
    */
-  invokeKernelService(target: KRef, message: Message): void {
+  invokeKernelService(target: KRef, message: KernelMessage): void {
     const kernelService = this.#kernelServicesByObject.get(target);
     if (!kernelService) {
       throw Error(`No registered service for ${target}`);
     }
     const { methargs, result } = message;
-    const [method, args] = kunser(methargs as CapData<KRef>) as [
-      string,
-      unknown[],
-    ];
+    const [method, args] = kunser(methargs) as [string, unknown[]];
     assert.typeof(method, 'string');
     if (result) {
       assert.typeof(result, 'string');

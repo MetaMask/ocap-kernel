@@ -12,7 +12,7 @@ import type {
   EndpointId,
   EndpointHandle,
   KRef,
-  Message,
+  KernelMessage,
   RunQueueItem,
   RunQueueItemSend,
   RunQueueItemBringOutYourDead,
@@ -44,7 +44,7 @@ export class KernelRouter {
   readonly #getEndpoint: (endpointId: EndpointId) => EndpointHandle;
 
   /** A function that invokes a method on a kernel service. */
-  readonly #invokeKernelService: (target: KRef, message: Message) => void;
+  readonly #invokeKernelService: (target: KRef, message: KernelMessage) => void;
 
   /** The logger, if any. */
   readonly #logger: Logger | undefined;
@@ -62,7 +62,7 @@ export class KernelRouter {
     kernelStore: KernelStore,
     kernelQueue: KernelQueue,
     getEndpoint: (endpointId: EndpointId) => EndpointHandle,
-    invokeKernelService: (target: KRef, message: Message) => void,
+    invokeKernelService: (target: KRef, message: KernelMessage) => void,
     logger?: Logger,
   ) {
     this.#kernelStore = kernelStore;
@@ -133,10 +133,9 @@ export class KernelRouter {
         // Use the current decider as the resolver. After a crank rollback,
         // the decider may have reverted to the sending vat rather than the
         // (now-terminated) target vat.
-        const resultKref = message.result as KRef;
-        const promise = this.#kernelStore.getKernelPromise(resultKref);
+        const promise = this.#kernelStore.getKernelPromise(message.result);
         this.#kernelQueue.resolvePromises(promise?.decider, [
-          [resultKref, true, error],
+          [message.result, true, error],
         ]);
       }
       return null;
@@ -201,12 +200,12 @@ export class KernelRouter {
       this.#kernelStore.decrementRefCount(item.target, 'deliver|splat|target');
       if (item.message.result) {
         this.#kernelStore.decrementRefCount(
-          item.message.result as KRef,
+          item.message.result,
           'deliver|splat|result',
         );
       }
       for (const slot of item.message.methargs.slots) {
-        this.#kernelStore.decrementRefCount(slot as KRef, 'deliver|splat|slot');
+        this.#kernelStore.decrementRefCount(slot, 'deliver|splat|slot');
       }
       this.#logger?.log(
         `@@@@ message went splat ${item.target}<-${JSON.stringify(item.message)}`,
@@ -232,11 +231,10 @@ export class KernelRouter {
           // Endpoint vanished (e.g., vat terminated but ownership entries not
           // yet cleaned up). Treat the same as a splat.
           if (message.result) {
-            const resultKref = message.result as KRef;
-            const promise = this.#kernelStore.getKernelPromise(resultKref);
+            const promise = this.#kernelStore.getKernelPromise(message.result);
             this.#kernelQueue.resolvePromises(promise.decider, [
               [
-                resultKref,
+                message.result,
                 true,
                 kser(
                   'target endpoint is unreachable (terminated or disconnected)',
@@ -244,16 +242,13 @@ export class KernelRouter {
               ],
             ]);
             this.#kernelStore.decrementRefCount(
-              resultKref,
+              message.result,
               'deliver|splat|result',
             );
           }
           this.#kernelStore.decrementRefCount(target, 'deliver|splat|target');
           for (const slot of message.methargs.slots) {
-            this.#kernelStore.decrementRefCount(
-              slot as KRef,
-              'deliver|splat|slot',
-            );
+            this.#kernelStore.decrementRefCount(slot, 'deliver|splat|slot');
           }
           this.#logger?.log(
             `@@@@ message went splat (endpoint gone) ${target}<-${JSON.stringify(message)}`,
@@ -263,15 +258,9 @@ export class KernelRouter {
       }
       if (endpoint || isKernelServiceMessage) {
         if (message.result) {
-          if (typeof message.result !== 'string') {
-            throw TypeError('message result must be a string');
-          }
-          this.#kernelStore.setPromiseDecider(
-            message.result as KRef,
-            endpointId,
-          );
+          this.#kernelStore.setPromiseDecider(message.result, endpointId);
           this.#kernelStore.decrementRefCount(
-            message.result as KRef,
+            message.result,
             'deliver|send|result',
           );
         }
@@ -302,7 +291,7 @@ export class KernelRouter {
                 : Error(`Delivery failed: ${String(error)}`),
             );
             this.#kernelQueue.resolvePromises(endpointId, [
-              [message.result as KRef, true, failure],
+              [message.result, true, failure],
             ]);
           }
           // Continue processing other messages - don't let one failure crash the queue
@@ -314,7 +303,7 @@ export class KernelRouter {
       }
       this.#kernelStore.decrementRefCount(target, 'deliver|send|target');
       for (const slot of message.methargs.slots) {
-        this.#kernelStore.decrementRefCount(slot as KRef, 'deliver|send|slot');
+        this.#kernelStore.decrementRefCount(slot, 'deliver|send|slot');
       }
     } else {
       this.#kernelStore.enqueuePromiseMessage(target, message);
@@ -330,7 +319,10 @@ export class KernelRouter {
    * @param message - The message to deliver to the service.
    * @returns The crank result indicating the delivery was to the kernel.
    */
-  #deliverKernelServiceMessage(target: KRef, message: Message): CrankResult {
+  #deliverKernelServiceMessage(
+    target: KRef,
+    message: KernelMessage,
+  ): CrankResult {
     this.#invokeKernelService(target, message);
     return { didDelivery: 'kernel' };
   }

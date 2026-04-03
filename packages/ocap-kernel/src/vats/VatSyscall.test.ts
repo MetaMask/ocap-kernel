@@ -1,5 +1,4 @@
 import type {
-  Message,
   VatOneResolution,
   VatSyscallObject,
 } from '@agoric/swingset-liveslots';
@@ -8,8 +7,9 @@ import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelQueue } from '../KernelQueue.ts';
-import { VatSyscall } from './VatSyscall.ts';
 import type { KernelStore } from '../store/index.ts';
+import type { KernelMessage } from '../types.ts';
+import { VatSyscall } from './VatSyscall.ts';
 
 describe('VatSyscall', () => {
   let kernelQueue: KernelQueue;
@@ -46,7 +46,9 @@ describe('VatSyscall', () => {
 
   it('buffers send syscall for crank completion', async () => {
     const target = 'ko1';
-    const message = { methargs: { body: '', slots: [] } } as unknown as Message;
+    const message = {
+      methargs: { body: '', slots: [] },
+    } as unknown as KernelMessage;
     const vso = ['send', target, message] as unknown as VatSyscallObject;
     vatSys.handleSyscall(vso);
     expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
@@ -70,7 +72,9 @@ describe('VatSyscall', () => {
   it('enqueues send immediately when outside a crank', () => {
     (kernelStore.isInCrank as unknown as MockInstance).mockReturnValue(false);
     const target = 'ko1';
-    const message = { methargs: { body: '', slots: [] } } as unknown as Message;
+    const message = {
+      methargs: { body: '', slots: [] },
+    } as unknown as KernelMessage;
     const vso = ['send', target, message] as unknown as VatSyscallObject;
     vatSys.handleSyscall(vso);
     expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(target, message, true);

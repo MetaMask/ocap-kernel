@@ -1,12 +1,17 @@
 import type {
-  Message,
   VatOneResolution,
   VatSyscallObject,
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { VatId, KRef, VRef } from '../../types.ts';
+import type {
+  VatId,
+  KRef,
+  VRef,
+  KernelMessage,
+  EndpointMessage,
+} from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import * as clistModule from './clist.ts';
 import { getTranslators } from './translators.ts';
@@ -109,11 +114,11 @@ describe('getTranslators', () => {
       const resultKref: KRef = 'kp1' as KRef;
       const eref: VRef = 'o+1' as VRef;
       const resultEref: VRef = 'p-1' as VRef;
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: {
           body: 'test method',
           slots: [kref],
-        } as unknown as CapData<KRef>,
+        },
         result: resultKref,
       };
       mockKrefToEref.mockImplementation((_vId, kr) => {
@@ -125,15 +130,14 @@ describe('getTranslators', () => {
         }
         return null;
       });
-      const expectedMessage: Message = {
+      const expectedMessage: EndpointMessage = {
         methargs: {
           body: 'test method',
           slots: [eref],
-        } as unknown as CapData<VRef>,
+        },
         result: resultEref,
       };
       const { translateMessageKtoE } = getTranslators(mockCtx);
-      // @ts-expect-error: Message result is optional
       const result = translateMessageKtoE(vatId, message);
       expect(result).toStrictEqual(expectedMessage);
     });
@@ -142,11 +146,11 @@ describe('getTranslators', () => {
       const vatId: VatId = 'v1';
       const kref: KRef = 'ko1' as KRef;
       const eref: VRef = 'o+1' as VRef;
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: {
           body: 'test method',
           slots: [kref],
-        } as unknown as CapData<KRef>,
+        },
         result: null,
       };
       mockKrefToEref.mockImplementation((_vId, kr) => {
@@ -155,15 +159,14 @@ describe('getTranslators', () => {
         }
         return null;
       });
-      const expectedMessage: Message = {
+      const expectedMessage: EndpointMessage = {
         methargs: {
           body: 'test method',
           slots: [eref],
-        } as unknown as CapData<VRef>,
+        },
         result: null,
       };
       const { translateMessageKtoE } = getTranslators(mockCtx);
-      // @ts-expect-error: Message result is optional
       const result = translateMessageKtoE(vatId, message);
       expect(result).toStrictEqual(expectedMessage);
     });

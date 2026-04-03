@@ -13,7 +13,7 @@ import { UnsafeJsonStruct } from '@metamask/utils';
 import { VatDeliveryResultStruct } from './shared.ts';
 import {
   CapDataStruct,
-  MessageStruct,
+  EndpointMessageStruct,
   VatOneResolutionStruct,
 } from '../../types.ts';
 import type { VatDeliveryResult } from '../../types.ts';
@@ -21,7 +21,7 @@ import type { VatDeliveryResult } from '../../types.ts';
 const MessageDeliveryStruct = tuple([
   literal('message'),
   string(),
-  MessageStruct,
+  EndpointMessageStruct,
 ]);
 
 const NotifyDeliveryStruct = tuple([
