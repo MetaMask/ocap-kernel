@@ -31,7 +31,7 @@ const { toStringTag } = Symbol;
  * @returns A nominal Promise object tagged with `kref`.
  */
 // eslint-disable-next-line @typescript-eslint/promise-function-async
-function makeStandinPromise(kref: string): Promise<unknown> {
+function makeStandinPromise(kref: KRef): Promise<unknown> {
   const standinP = Promise.resolve(`${kref} stand in`);
   // eslint-disable-next-line @typescript-eslint/no-floating-promises
   Object.defineProperty(standinP, toStringTag, {
@@ -64,7 +64,7 @@ function getStandinPromiseTag(promise: Promise<unknown>): KRef {
  *
  * @returns A `kser` serializable value for `kref`.
  */
-export function kslot(kref: string, iface: string = 'undefined'): SlotValue {
+export function kslot(kref: KRef, iface: string = 'undefined'): SlotValue {
   insistKRef(kref);
   if (iface?.startsWith('Alleged: ')) {
     // Encoder prepends "Alleged: " to iface string, but the decoder doesn't strip it
