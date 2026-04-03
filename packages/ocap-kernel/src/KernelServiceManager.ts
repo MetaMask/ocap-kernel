@@ -153,9 +153,6 @@ export class KernelServiceManager {
     const { methargs, result } = message;
     const [method, args] = kunser(methargs) as [string, unknown[]];
     assert.typeof(method, 'string');
-    if (result) {
-      assert.typeof(result, 'string');
-    }
     assert(Array.isArray(args));
 
     // Use E() so this works for both local objects and remote presences

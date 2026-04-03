@@ -159,6 +159,12 @@ export const VatOneResolutionStruct = tuple([
   CapDataStruct,
 ]);
 
+/**
+ * A single kernel-space promise resolution: [promiseKRef, rejected, data].
+ * Kernel-space counterpart of Agoric's `VatOneResolution`.
+ */
+export type KernelOneResolution = [KRef, boolean, CapData<KRef>];
+
 // Kernel-space message: refs are KRefs
 export const KernelCapDataStruct = object({
   body: string(),

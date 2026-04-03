@@ -1,16 +1,15 @@
-import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 
 import { processGCActionSet } from './garbage-collection/garbage-collection.ts';
 import { kser } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
-import { insistKRef } from './types.ts';
 import type {
   CrankResult,
   EndpointId,
   KRef,
   KernelMessage,
+  KernelOneResolution,
   RunQueueItem,
   RunQueueItemNotify,
   RunQueueItemSend,
@@ -323,14 +322,11 @@ export class KernelQueue {
    */
   resolvePromises(
     endpointId: EndpointId | 'kernel' | undefined,
-    resolutions: VatOneResolution[],
+    resolutions: KernelOneResolution[],
     immediate = true,
   ): void {
     for (const resolution of resolutions) {
-      const [kpidRaw, rejected, dataRaw] = resolution;
-      insistKRef(kpidRaw);
-      const kpid = kpidRaw;
-      const data = dataRaw as CapData<KRef>;
+      const [kpid, rejected, data] = resolution;
 
       this.#kernelStore.incrementRefCount(kpid, 'resolve|kpid');
       for (const slot of data.slots || []) {

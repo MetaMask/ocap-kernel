@@ -16,6 +16,7 @@ import type {
   KRef,
   EndpointHandle,
   EndpointMessage,
+  KernelOneResolution,
   CrankResult,
 } from '../../types.ts';
 import { insistKRef, insistERef } from '../../types.ts';
@@ -752,7 +753,7 @@ export class RemoteHandle implements EndpointHandle {
       }
       case 'notify': {
         const [, resolutions] = params;
-        const kResolutions: VatOneResolution[] = resolutions.map(
+        const kResolutions: KernelOneResolution[] = resolutions.map(
           (resolution) => {
             const [rpid, rejected, data] = resolution;
             insistERef(rpid);

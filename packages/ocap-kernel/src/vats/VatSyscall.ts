@@ -1,6 +1,5 @@
 import type {
   SwingSetCapData,
-  VatOneResolution,
   VatSyscallObject,
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
@@ -14,7 +13,12 @@ import {
 import type { KernelQueue } from '../KernelQueue.ts';
 import { makeError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
-import type { KernelMessage, VatId, KRef } from '../types.ts';
+import type {
+  KernelMessage,
+  KernelOneResolution,
+  VatId,
+  KRef,
+} from '../types.ts';
 
 type VatSyscallProps = {
   vatId: VatId;
@@ -91,7 +95,7 @@ export class VatSyscall {
    *
    * @param resolutions - One or more promise resolutions.
    */
-  #handleSyscallResolve(resolutions: VatOneResolution[]): void {
+  #handleSyscallResolve(resolutions: KernelOneResolution[]): void {
     const immediate = !this.#kernelStore.isInCrank();
     this.#kernelQueue.resolvePromises(this.vatId, resolutions, immediate);
   }
@@ -193,7 +197,7 @@ export class VatSyscall {
           this.#logger?.log(
             `@@@@ ${vatId} syscall resolve ${JSON.stringify(resolutions)}`,
           );
-          this.#handleSyscallResolve(resolutions as VatOneResolution[]);
+          this.#handleSyscallResolve(resolutions as KernelOneResolution[]);
           break;
         }
         case 'exit': {
