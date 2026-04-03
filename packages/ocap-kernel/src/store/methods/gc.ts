@@ -14,7 +14,6 @@ import type {
   GCAction,
   RunQueueItemBringOutYourDead,
 } from '../../types.ts';
-import { insistEndpointId, insistGCAction, insistERef } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { parseKernelSlot } from '../utils/kernel-slots.ts';
 
@@ -41,12 +40,7 @@ export function getGCMethods(ctx: StoreContext) {
    */
   function getGCActions(): Set<GCAction> {
     const parsed: string[] = JSON.parse(ctx.gcActions.get() ?? '[]');
-    const actions = new Set<GCAction>();
-    for (const action of parsed) {
-      insistGCAction(action);
-      actions.add(action);
-    }
-    return actions;
+    return new Set(parsed as GCAction[]);
   }
 
   /**
@@ -149,12 +143,12 @@ export function getGCMethods(ctx: StoreContext) {
         const { reachable, recognizable } = getObjectRefCount(kref);
         if (reachable === 0) {
           const ownerKey = getOwnerKey(kref);
-          let ownerVatID = ctx.kv.get(ownerKey);
+          let ownerVatID = ctx.kv.get(ownerKey) as
+            | EndpointId
+            | 'kernel'
+            | undefined;
           if (ownerVatID === 'kernel') {
             continue;
-          }
-          if (ownerVatID !== undefined) {
-            insistEndpointId(ownerVatID);
           }
           const terminated =
             ownerVatID !== undefined && isVatTerminated(ownerVatID as VatId);
@@ -182,7 +176,6 @@ export function getGCMethods(ctx: StoreContext) {
             // would have done, then treat the object as orphaned.
 
             const { vatSlot } = getReachableAndVatSlot(ownerVatID, kref);
-            insistERef(vatSlot);
             // delete directly, not orphanKernelObject(), which
             // would re-submit to maybeFreeKrefs
             ctx.kv.delete(ownerKey);

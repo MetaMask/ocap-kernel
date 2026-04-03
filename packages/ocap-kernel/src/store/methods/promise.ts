@@ -9,7 +9,6 @@ import type {
   PromiseState,
   EndpointId,
 } from '../../types.ts';
-import { insistEndpointId, insistKRef } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { getRefCountMethods } from './refcount.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
@@ -68,8 +67,7 @@ export function getPromiseMethods(ctx: StoreContext) {
       case 'unresolved': {
         const decider = ctx.kv.get(`${kpid}.decider`);
         if (decider !== '' && decider !== undefined) {
-          insistEndpointId(decider);
-          result.decider = decider;
+          result.decider = decider as EndpointId;
         }
         const subscribers = ctx.kv.getRequired(`${kpid}.subscribers`);
         result.subscribers = JSON.parse(subscribers);
@@ -116,7 +114,6 @@ export function getPromiseMethods(ctx: StoreContext) {
    * @param kpid - The KRef of the promise being subscribed to.
    */
   function addPromiseSubscriber(endpointId: EndpointId, kpid: KRef): void {
-    insistEndpointId(endpointId);
     const kp = getKernelPromise(kpid);
     kp.state === 'unresolved' ||
       Fail`attempt to add subscriber to resolved promise ${kpid}`;
@@ -133,10 +130,10 @@ export function getPromiseMethods(ctx: StoreContext) {
    * @param kpid - The KRef of promise whose decider is being set.
    * @param endpointId - The endpoint which will become the decider.
    */
-  function setPromiseDecider(kpid: KRef, endpointId: EndpointId): void {
-    if (endpointId !== 'kernel') {
-      insistEndpointId(endpointId);
-    }
+  function setPromiseDecider(
+    kpid: KRef,
+    endpointId: EndpointId | 'kernel',
+  ): void {
     if (kpid) {
       ctx.kv.set(`${kpid}.decider`, endpointId);
     }
@@ -212,8 +209,7 @@ export function getPromiseMethods(ctx: StoreContext) {
   function* getPromisesByDecider(decider: EndpointId): Generator<KRef> {
     const basePrefix = `cle.${decider}.`;
     for (const key of getPrefixedKeys(`${basePrefix}p`)) {
-      const kpid = ctx.kv.getRequired(key);
-      insistKRef(kpid);
+      const kpid = ctx.kv.getRequired(key) as KRef;
       const kp = getKernelPromise(kpid);
       if (kp.state === 'unresolved' && kp.decider === decider) {
         yield kpid;

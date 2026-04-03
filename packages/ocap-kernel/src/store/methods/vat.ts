@@ -6,12 +6,6 @@ import { getObjectMethods } from './object.ts';
 import { getPromiseMethods } from './promise.ts';
 import { getReachableMethods } from './reachable.ts';
 import { getRefCountMethods } from './refcount.ts';
-import {
-  insistEndpointId,
-  insistVatId,
-  insistKRef,
-  insistERef,
-} from '../../types.ts';
 import type { EndpointId, KRef, VatConfig, VatId, ERef } from '../../types.ts';
 import type { StoreContext, VatCleanupWork } from '../types.ts';
 import { parseRef } from '../utils/parse-ref.ts';
@@ -70,8 +64,7 @@ export function getVatMethods(ctx: StoreContext) {
    */
   function* getAllVatRecords(): Generator<VatRecord> {
     for (const vatKey of getPrefixedKeys(VAT_CONFIG_BASE)) {
-      const vatID = vatKey.slice(VAT_CONFIG_BASE_LEN);
-      insistVatId(vatID);
+      const vatID = vatKey.slice(VAT_CONFIG_BASE_LEN) as VatId;
       const vatConfig = getVatConfig(vatID);
       yield { vatID, vatConfig };
     }
@@ -83,11 +76,9 @@ export function getVatMethods(ctx: StoreContext) {
    * @returns an array of vat IDs.
    */
   function getVatIDs(): VatId[] {
-    return Array.from(getPrefixedKeys(VAT_CONFIG_BASE)).map((vatKey) => {
-      const vatID = vatKey.slice(VAT_CONFIG_BASE_LEN);
-      insistVatId(vatID);
-      return vatID;
-    });
+    return Array.from(getPrefixedKeys(VAT_CONFIG_BASE)).map(
+      (vatKey) => vatKey.slice(VAT_CONFIG_BASE_LEN) as VatId,
+    );
   }
 
   /**
@@ -253,16 +244,14 @@ export function getVatMethods(ctx: StoreContext) {
       assert(key.startsWith(clistPrefix), key);
       const vref = key.slice(clistPrefix.length);
       assert(vref.startsWith('o+'), vref);
-      const kref = ctx.kv.get(key);
+      const kref = ctx.kv.get(key) as KRef;
       assert(kref, key);
-      insistKRef(kref);
       // deletes c-list and .owner, adds to maybeFreeKrefs
       const ownerKey = getOwnerKey(kref);
       const ownerVat = ctx.kv.get(ownerKey);
       ownerVat === vatID || Fail`export ${kref} not owned by old vat`;
       ctx.kv.delete(ownerKey);
       const { vatSlot } = getReachableAndVatSlot(vatID, kref);
-      insistERef(vatSlot);
       ctx.kv.delete(getSlotKey(vatID, kref));
       ctx.kv.delete(getSlotKey(vatID, vatSlot));
       // Decrease refcounts that belonged to the terminating vat
@@ -275,11 +264,9 @@ export function getVatMethods(ctx: StoreContext) {
     for (const key of getPrefixedKeys(importPrefix)) {
       // abandoned imports: delete the clist entry as if the vat did a
       // drop+retire
-      const krefStr = ctx.kv.get(key) ?? Fail`getNextKey ensures get`;
-      insistKRef(krefStr);
+      const krefStr = (ctx.kv.get(key) ?? Fail`getNextKey ensures get`) as KRef;
       assert(key.startsWith(clistPrefix), key);
-      const vref = key.slice(clistPrefix.length);
-      insistERef(vref);
+      const vref = key.slice(clistPrefix.length) as ERef;
       deleteCListEntry(vatID, krefStr, vref);
       // that will also delete both db keys
       work.imports += 1;
@@ -289,11 +276,9 @@ export function getVatMethods(ctx: StoreContext) {
     // so they have already rejected the orphan promises, but those
     // kpids are still present in the dead vat's c-list. Clean those up now.
     for (const key of getPrefixedKeys(promisePrefix)) {
-      const krefStr = ctx.kv.get(key) ?? Fail`getNextKey ensures get`;
-      insistKRef(krefStr);
+      const krefStr = (ctx.kv.get(key) ?? Fail`getNextKey ensures get`) as KRef;
       assert(key.startsWith(clistPrefix), key);
-      const vref = key.slice(clistPrefix.length);
-      insistERef(vref);
+      const vref = key.slice(clistPrefix.length) as ERef;
       // the following will also delete both db keys
       deleteCListEntry(vatID, krefStr, vref);
       // If the dead vat was still the decider, drop the decider’s refcount, too.
@@ -342,7 +327,6 @@ export function getVatMethods(ctx: StoreContext) {
    * @returns the kref corresponding to the export of `eref` from `endpointId`.
    */
   function exportFromEndpoint(endpointId: EndpointId, eref: ERef): KRef {
-    insistEndpointId(endpointId);
     const { isPromise, context, direction } = parseRef(eref);
     assert(context === 'vat' || context === 'remote', `${eref} is not an ERef`);
     assert(direction === 'export', `${eref} is not an export reference`);

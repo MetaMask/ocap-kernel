@@ -4,12 +4,7 @@ import type {
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 
-import {
-  coerceMessage,
-  isRemoteId,
-  insistKRef,
-  insistERef,
-} from '../../types.ts';
+import { coerceMessage, isRemoteId, insistERef } from '../../types.ts';
 import type {
   Message,
   VatId,
@@ -137,8 +132,7 @@ export function getTranslators(ctx: StoreContext) {
     );
     let result: ERef | null | undefined;
     if (typeof message.result === 'string') {
-      insistKRef(message.result);
-      result = translateRefKtoE(endpointId, message.result, true);
+      result = translateRefKtoE(endpointId, message.result as KRef, true);
     } else {
       result = message.result;
     }

@@ -4,7 +4,6 @@ import { passStyleOf } from '@endo/pass-style';
 import { kunser, krefOf } from '../../liveslots/kernel-marshal.ts';
 import type { SlotValue } from '../../liveslots/kernel-marshal.ts';
 import type { KRef } from '../../types.ts';
-import { insistKRef } from '../../types.ts';
 
 /**
  * Obtain the KRef from a simple value represented as a CapData object.
@@ -16,9 +15,7 @@ export function extractSingleRef(data: CapData<KRef>): KRef | null {
   const value = kunser(data) as SlotValue;
   const style: string = passStyleOf(value);
   if (style === 'remotable' || style === 'promise') {
-    const kref = krefOf(value);
-    insistKRef(kref);
-    return kref;
+    return krefOf(value);
   }
   return null;
 }

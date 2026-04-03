@@ -6,7 +6,6 @@ import type { KernelQueue } from './KernelQueue.ts';
 import { kser, kunser } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import type { KRef, EndpointId, Message } from './types.ts';
-import { insistKRef } from './types.ts';
 import { assert } from './utils/assert.ts';
 
 export type KernelService = {
@@ -78,14 +77,12 @@ export class KernelServiceManager {
       throw new Error(`Kernel service "${name}" is already registered`);
     }
     const serviceKey = `kernelService.${name}`;
-    let kref = this.#kernelStore.kv.get(serviceKey);
+    let kref = this.#kernelStore.kv.get(serviceKey) as KRef | undefined;
     if (!kref) {
       kref = this.#kernelStore.initKernelObject('kernel' as EndpointId);
       this.#kernelStore.kv.set(serviceKey, kref);
-      insistKRef(kref);
       this.#kernelStore.pinObject(kref);
     }
-    insistKRef(kref);
     const kernelService = { name, kref, service, systemOnly };
     this.#kernelServicesByName.set(name, kernelService);
     this.#kernelServicesByObject.set(kref, kernelService);

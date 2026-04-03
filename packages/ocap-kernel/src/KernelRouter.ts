@@ -20,7 +20,6 @@ import type {
   RunQueueItemGCAction,
   CrankResult,
 } from './types.ts';
-import { insistEndpointId, insistKRef, insistMessage } from './types.ts';
 import { assert, Fail } from './utils/assert.ts';
 
 type MessageRoute = {
@@ -128,18 +127,16 @@ export class KernelRouter {
    */
   #routeMessage(item: RunQueueItemSend): MessageRoute {
     const { target, message } = item;
-    insistKRef(target);
-    insistMessage(message);
 
     const routeAsSplat = (error?: CapData<KRef>): MessageRoute => {
       if (message.result && error) {
-        insistKRef(message.result);
         // Use the current decider as the resolver. After a crank rollback,
         // the decider may have reverted to the sending vat rather than the
         // (now-terminated) target vat.
-        const promise = this.#kernelStore.getKernelPromise(message.result);
+        const resultKref = message.result as KRef;
+        const promise = this.#kernelStore.getKernelPromise(resultKref);
         this.#kernelQueue.resolvePromises(promise?.decider, [
-          [message.result, true, error],
+          [resultKref, true, error],
         ]);
       }
       return null;
@@ -201,18 +198,15 @@ export class KernelRouter {
 
     // Message went splat
     if (!route) {
-      insistKRef(item.target);
       this.#kernelStore.decrementRefCount(item.target, 'deliver|splat|target');
       if (item.message.result) {
-        insistKRef(item.message.result);
         this.#kernelStore.decrementRefCount(
-          item.message.result,
+          item.message.result as KRef,
           'deliver|splat|result',
         );
       }
       for (const slot of item.message.methargs.slots) {
-        insistKRef(slot);
-        this.#kernelStore.decrementRefCount(slot, 'deliver|splat|slot');
+        this.#kernelStore.decrementRefCount(slot as KRef, 'deliver|splat|slot');
       }
       this.#logger?.log(
         `@@@@ message went splat ${item.target}<-${JSON.stringify(item.message)}`,
@@ -238,11 +232,11 @@ export class KernelRouter {
           // Endpoint vanished (e.g., vat terminated but ownership entries not
           // yet cleaned up). Treat the same as a splat.
           if (message.result) {
-            insistKRef(message.result);
-            const promise = this.#kernelStore.getKernelPromise(message.result);
+            const resultKref = message.result as KRef;
+            const promise = this.#kernelStore.getKernelPromise(resultKref);
             this.#kernelQueue.resolvePromises(promise.decider, [
               [
-                message.result,
+                resultKref,
                 true,
                 kser(
                   'target endpoint is unreachable (terminated or disconnected)',
@@ -250,14 +244,16 @@ export class KernelRouter {
               ],
             ]);
             this.#kernelStore.decrementRefCount(
-              message.result,
+              resultKref,
               'deliver|splat|result',
             );
           }
           this.#kernelStore.decrementRefCount(target, 'deliver|splat|target');
           for (const slot of message.methargs.slots) {
-            insistKRef(slot);
-            this.#kernelStore.decrementRefCount(slot, 'deliver|splat|slot');
+            this.#kernelStore.decrementRefCount(
+              slot as KRef,
+              'deliver|splat|slot',
+            );
           }
           this.#logger?.log(
             `@@@@ message went splat (endpoint gone) ${target}<-${JSON.stringify(message)}`,
@@ -270,10 +266,12 @@ export class KernelRouter {
           if (typeof message.result !== 'string') {
             throw TypeError('message result must be a string');
           }
-          insistKRef(message.result);
-          this.#kernelStore.setPromiseDecider(message.result, endpointId);
+          this.#kernelStore.setPromiseDecider(
+            message.result as KRef,
+            endpointId,
+          );
           this.#kernelStore.decrementRefCount(
-            message.result,
+            message.result as KRef,
             'deliver|send|result',
           );
         }
@@ -298,14 +296,13 @@ export class KernelRouter {
           // so the caller knows the message wasn't delivered.
           this.#logger?.error(`Delivery to ${endpointId} failed:`, error);
           if (message.result) {
-            insistKRef(message.result);
             const failure = kser(
               error instanceof Error
                 ? error
                 : Error(`Delivery failed: ${String(error)}`),
             );
             this.#kernelQueue.resolvePromises(endpointId, [
-              [message.result, true, failure],
+              [message.result as KRef, true, failure],
             ]);
           }
           // Continue processing other messages - don't let one failure crash the queue
@@ -317,8 +314,7 @@ export class KernelRouter {
       }
       this.#kernelStore.decrementRefCount(target, 'deliver|send|target');
       for (const slot of message.methargs.slots) {
-        insistKRef(slot);
-        this.#kernelStore.decrementRefCount(slot, 'deliver|send|slot');
+        this.#kernelStore.decrementRefCount(slot as KRef, 'deliver|send|slot');
       }
     } else {
       this.#kernelStore.enqueuePromiseMessage(target, message);
@@ -336,9 +332,7 @@ export class KernelRouter {
    */
   #deliverKernelServiceMessage(target: KRef, message: Message): CrankResult {
     this.#invokeKernelService(target, message);
-    const endpointId = 'kernel';
-    insistEndpointId(endpointId);
-    return { didDelivery: endpointId };
+    return { didDelivery: 'kernel' };
   }
 
   /**
@@ -349,8 +343,6 @@ export class KernelRouter {
    */
   async #deliverNotify(item: RunQueueItemNotify): Promise<CrankResult> {
     const { endpointId, kpid } = item;
-    insistEndpointId(endpointId);
-    insistKRef(kpid);
     const { context, isPromise } = parseRef(kpid);
     assert(
       context === 'kernel' && isPromise,
@@ -407,12 +399,7 @@ export class KernelRouter {
    * @returns The crank outcome.
    */
   async #deliverGCAction(item: RunQueueItemGCAction): Promise<CrankResult> {
-    const { type, endpointId, krefs: rawKrefs } = item;
-    insistEndpointId(endpointId);
-    const krefs: KRef[] = rawKrefs.map((kref) => {
-      insistKRef(kref);
-      return kref;
-    });
+    const { type, endpointId, krefs } = item;
     this.#logger?.log(
       `@@@@ deliver ${endpointId} ${type} ${JSON.stringify(krefs)}`,
     );
@@ -437,7 +424,6 @@ export class KernelRouter {
     item: RunQueueItemBringOutYourDead,
   ): Promise<CrankResult | undefined> {
     const { endpointId } = item;
-    insistEndpointId(endpointId);
     this.#logger?.log(`@@@@ deliver ${endpointId} bringOutYourDead`);
     const endpoint = this.#getEndpoint(endpointId);
     const crankResult = await endpoint.deliverBringOutYourDead();

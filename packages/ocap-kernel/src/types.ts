@@ -66,166 +66,6 @@ export type Ref = KRef | ERef;
 
 export const ROOT_OBJECT_VREF = 'o+0' as VRef;
 
-export const CapDataStruct = object({
-  body: string(),
-  slots: array(string()),
-});
-
-export const VatOneResolutionStruct = tuple([
-  string(),
-  boolean(),
-  CapDataStruct,
-]);
-
-export const MessageStruct = object({
-  methargs: CapDataStruct,
-  result: exactOptional(union([string(), literal(null)])),
-});
-
-/**
- * JSON-RPC-compatible Message type, originally from @agoric/swingset-liveslots.
- */
-export type Message = Infer<typeof MessageStruct>;
-
-/**
- * Coerce a {@link SwingsetMessage} to our own JSON-RPC-compatible {@link Message}.
- *
- * @param message - The SwingsetMessage to coerce.
- * @returns The coerced Message.
- */
-export function coerceMessage(message: SwingsetMessage): Message {
-  if (message.result === undefined) {
-    delete (message as Message).result;
-  }
-  return message as Message;
-}
-
-type JsonVatSyscallObject =
-  | Exclude<VatSyscallObject, VatSyscallSend>
-  | ['send', string, Message];
-
-/**
- * Coerce a {@link VatSyscallObject} to a JSON-RPC-compatible {@link JsonVatSyscallObject}.
- *
- * @param vso - The VatSyscallObject to coerce.
- * @returns The coerced VatSyscallObject.
- */
-export function coerceVatSyscallObject(
-  vso: VatSyscallObject,
-): JsonVatSyscallObject {
-  if (vso[0] === 'send') {
-    return ['send', vso[1], coerceMessage(vso[2])];
-  }
-  return vso as JsonVatSyscallObject;
-}
-
-const RunQueueItemSendStruct = object({
-  type: literal('send'),
-  target: string(), // KRef
-  message: MessageStruct,
-});
-
-export type RunQueueItemSend = Infer<typeof RunQueueItemSendStruct>;
-
-const RunQueueItemNotifyStruct = object({
-  type: literal('notify'),
-  endpointId: string(),
-  kpid: string(),
-});
-
-export type RunQueueItemNotify = Infer<typeof RunQueueItemNotifyStruct>;
-
-const GCRunQueueTypeStruct = union([
-  literal('dropExports'),
-  literal('retireExports'),
-  literal('retireImports'),
-]);
-
-export type GCRunQueueType = Infer<typeof GCRunQueueTypeStruct>;
-
-export type GCActionType = 'dropExport' | 'retireExport' | 'retireImport';
-export const actionTypePriorities: GCActionType[] = [
-  'dropExport',
-  'retireExport',
-  'retireImport',
-];
-
-const RunQueueItemGCActionStruct = object({
-  type: GCRunQueueTypeStruct,
-  endpointId: string(), // EndpointId
-  krefs: array(string()), // KRefs
-});
-
-export type RunQueueItemGCAction = Infer<typeof RunQueueItemGCActionStruct>;
-
-const RunQueueItemBringOutYourDeadStruct = object({
-  type: literal('bringOutYourDead'),
-  endpointId: string(),
-});
-
-export type RunQueueItemBringOutYourDead = Infer<
-  typeof RunQueueItemBringOutYourDeadStruct
->;
-
-export const RunQueueItemStruct = union([
-  RunQueueItemSendStruct,
-  RunQueueItemNotifyStruct,
-  RunQueueItemGCActionStruct,
-  RunQueueItemBringOutYourDeadStruct,
-]);
-
-export type RunQueueItem = Infer<typeof RunQueueItemStruct>;
-
-/**
- * Assert that a value is a valid message.
- *
- * @param value - The value to check.
- * @throws if the value is not a valid message.
- */
-export function insistMessage(value: unknown): asserts value is Message {
-  is(value, MessageStruct) || Fail`not a valid message`;
-}
-
-// Per-endpoint persistent state
-type EndpointState<IdType> = {
-  name: string;
-  id: IdType;
-  nextExportObjectIdCounter: number;
-  nextExportPromiseIdCounter: number;
-  eRefToKRef: Map<ERef, KRef>;
-  kRefToERef: Map<KRef, ERef>;
-};
-
-type KernelVatState = {
-  messagePort: typeof MessagePort;
-  state: EndpointState<VatId>;
-  source: string;
-  kvTable: Map<string, string>;
-};
-
-type RemoteState = {
-  state: EndpointState<RemoteId>;
-  connectToURL: string;
-  // more here about maintaining connection...
-};
-
-// Kernel persistent state
-
-export type PromiseState = 'unresolved' | 'fulfilled' | 'rejected';
-
-export type KernelPromise = {
-  state: PromiseState;
-  decider?: EndpointId;
-  subscribers?: EndpointId[];
-  value?: CapData<KRef>;
-};
-
-export type KernelState = {
-  vats: Map<VatId, KernelVatState>;
-  remotes: Map<RemoteId, RemoteState>;
-  kernelPromises: Map<KRef, KernelPromise>;
-};
-
 export const isVatId = (value: unknown): value is VatId =>
   typeof value === 'string' &&
   value.at(0) === 'v' &&
@@ -312,6 +152,166 @@ export const VatIdStruct = define<VatId>('VatId', isVatId);
 export const RemoteIdStruct = define<RemoteId>('RemoteId', isRemoteId);
 export const EndpointIdStruct = define<EndpointId>('EndpointId', isEndpointId);
 export const KRefStruct = define<KRef>('KRef', isKRef);
+
+export const CapDataStruct = object({
+  body: string(),
+  slots: array(string()),
+});
+
+export const VatOneResolutionStruct = tuple([
+  string(),
+  boolean(),
+  CapDataStruct,
+]);
+
+export const MessageStruct = object({
+  methargs: CapDataStruct,
+  result: exactOptional(union([string(), literal(null)])),
+});
+
+/**
+ * JSON-RPC-compatible Message type, originally from @agoric/swingset-liveslots.
+ */
+export type Message = Infer<typeof MessageStruct>;
+
+/**
+ * Coerce a {@link SwingsetMessage} to our own JSON-RPC-compatible {@link Message}.
+ *
+ * @param message - The SwingsetMessage to coerce.
+ * @returns The coerced Message.
+ */
+export function coerceMessage(message: SwingsetMessage): Message {
+  if (message.result === undefined) {
+    delete (message as Message).result;
+  }
+  return message as Message;
+}
+
+type JsonVatSyscallObject =
+  | Exclude<VatSyscallObject, VatSyscallSend>
+  | ['send', string, Message];
+
+/**
+ * Coerce a {@link VatSyscallObject} to a JSON-RPC-compatible {@link JsonVatSyscallObject}.
+ *
+ * @param vso - The VatSyscallObject to coerce.
+ * @returns The coerced VatSyscallObject.
+ */
+export function coerceVatSyscallObject(
+  vso: VatSyscallObject,
+): JsonVatSyscallObject {
+  if (vso[0] === 'send') {
+    return ['send', vso[1], coerceMessage(vso[2])];
+  }
+  return vso as JsonVatSyscallObject;
+}
+
+const RunQueueItemSendStruct = object({
+  type: literal('send'),
+  target: KRefStruct,
+  message: MessageStruct,
+});
+
+export type RunQueueItemSend = Infer<typeof RunQueueItemSendStruct>;
+
+const RunQueueItemNotifyStruct = object({
+  type: literal('notify'),
+  endpointId: EndpointIdStruct,
+  kpid: KRefStruct,
+});
+
+export type RunQueueItemNotify = Infer<typeof RunQueueItemNotifyStruct>;
+
+const GCRunQueueTypeStruct = union([
+  literal('dropExports'),
+  literal('retireExports'),
+  literal('retireImports'),
+]);
+
+export type GCRunQueueType = Infer<typeof GCRunQueueTypeStruct>;
+
+export type GCActionType = 'dropExport' | 'retireExport' | 'retireImport';
+export const actionTypePriorities: GCActionType[] = [
+  'dropExport',
+  'retireExport',
+  'retireImport',
+];
+
+const RunQueueItemGCActionStruct = object({
+  type: GCRunQueueTypeStruct,
+  endpointId: EndpointIdStruct,
+  krefs: array(KRefStruct),
+});
+
+export type RunQueueItemGCAction = Infer<typeof RunQueueItemGCActionStruct>;
+
+const RunQueueItemBringOutYourDeadStruct = object({
+  type: literal('bringOutYourDead'),
+  endpointId: EndpointIdStruct,
+});
+
+export type RunQueueItemBringOutYourDead = Infer<
+  typeof RunQueueItemBringOutYourDeadStruct
+>;
+
+export const RunQueueItemStruct = union([
+  RunQueueItemSendStruct,
+  RunQueueItemNotifyStruct,
+  RunQueueItemGCActionStruct,
+  RunQueueItemBringOutYourDeadStruct,
+]);
+
+export type RunQueueItem = Infer<typeof RunQueueItemStruct>;
+
+/**
+ * Assert that a value is a valid message.
+ *
+ * @param value - The value to check.
+ * @throws if the value is not a valid message.
+ */
+export function insistMessage(value: unknown): asserts value is Message {
+  is(value, MessageStruct) || Fail`not a valid message`;
+}
+
+// Per-endpoint persistent state
+type EndpointState<IdType> = {
+  name: string;
+  id: IdType;
+  nextExportObjectIdCounter: number;
+  nextExportPromiseIdCounter: number;
+  eRefToKRef: Map<ERef, KRef>;
+  kRefToERef: Map<KRef, ERef>;
+};
+
+type KernelVatState = {
+  messagePort: typeof MessagePort;
+  state: EndpointState<VatId>;
+  source: string;
+  kvTable: Map<string, string>;
+};
+
+type RemoteState = {
+  state: EndpointState<RemoteId>;
+  connectToURL: string;
+  // more here about maintaining connection...
+};
+
+// Kernel persistent state
+
+export type PromiseState = 'unresolved' | 'fulfilled' | 'rejected';
+
+export type KernelPromise = {
+  state: PromiseState;
+  decider?: EndpointId;
+  subscribers?: EndpointId[];
+  value?: CapData<KRef>;
+};
+
+export type KernelState = {
+  vats: Map<VatId, KernelVatState>;
+  remotes: Map<RemoteId, RemoteState>;
+  kernelPromises: Map<KRef, KernelPromise>;
+};
 
 export const isSubclusterId = (value: unknown): value is SubclusterId =>
   typeof value === 'string' &&

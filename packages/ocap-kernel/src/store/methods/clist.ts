@@ -2,7 +2,6 @@ import { getBaseMethods } from './base.ts';
 import { getReachableMethods } from './reachable.ts';
 import { getRefCountMethods } from './refcount.ts';
 import type { EndpointId, KRef, ERef, Ref } from '../../types.ts';
-import { insistERef, insistKRef } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { parseRef } from '../utils/parse-ref.ts';
 import { isPromiseRef } from '../utils/promise-ref.ts';
@@ -112,11 +111,7 @@ export function getCListMethods(ctx: StoreContext) {
    * if there is no such mapping.
    */
   function erefToKref(endpointId: EndpointId, eref: ERef): KRef | undefined {
-    const value = ctx.kv.get(getSlotKey(endpointId, eref));
-    if (value !== undefined) {
-      insistKRef(value);
-    }
-    return value;
+    return ctx.kv.get(getSlotKey(endpointId, eref)) as KRef | undefined;
   }
 
   /**
@@ -134,7 +129,6 @@ export function getCListMethods(ctx: StoreContext) {
       return undefined;
     }
     const { vatSlot } = parseReachableAndVatSlot(data);
-    insistERef(vatSlot);
     return vatSlot;
   }
 

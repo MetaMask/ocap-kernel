@@ -1,7 +1,7 @@
 import { getBaseMethods } from './base.ts';
 import { getObjectMethods } from './object.ts';
 import { getRefCountMethods } from './refcount.ts';
-import type { EndpointId, KRef } from '../../types.ts';
+import type { EndpointId, ERef, KRef } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { parseRef } from '../utils/parse-ref.ts';
 import {
@@ -47,7 +47,7 @@ export function getReachableMethods(ctx: StoreContext) {
     kref: KRef,
   ): {
     isReachable: boolean;
-    vatSlot: string;
+    vatSlot: ERef;
   } {
     const key = getSlotKey(endpointId, kref);
     const data = ctx.kv.getRequired(key);
