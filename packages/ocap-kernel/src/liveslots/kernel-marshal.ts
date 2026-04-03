@@ -72,7 +72,7 @@ export function kslot(kref: KRef, iface: string = 'undefined'): SlotValue {
     // eslint-disable-next-line no-param-reassign
     iface = iface.slice(9);
   }
-  if (kref.startsWith('p') || kref.startsWith('kp') || kref.startsWith('rp')) {
+  if (kref.startsWith('kp')) {
     return makeStandinPromise(kref);
   }
   const standinObject = makeDefaultExo(iface, {

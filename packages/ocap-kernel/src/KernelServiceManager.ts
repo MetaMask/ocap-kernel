@@ -4,7 +4,7 @@ import type { Logger } from '@metamask/logger';
 import type { KernelQueue } from './KernelQueue.ts';
 import { kser, kunser } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
-import type { KRef, EndpointId, KernelMessage } from './types.ts';
+import type { KRef, KernelMessage } from './types.ts';
 import { assert } from './utils/assert.ts';
 
 export type KernelService = {
@@ -77,7 +77,7 @@ export class KernelServiceManager {
     }
     let kref = this.#kernelStore.getKernelServiceKref(name);
     if (!kref) {
-      kref = this.#kernelStore.initKernelObject('kernel' as EndpointId);
+      kref = this.#kernelStore.initKernelObject('kernel');
       this.#kernelStore.setKernelServiceKref(name, kref);
       this.#kernelStore.pinObject(kref);
     }

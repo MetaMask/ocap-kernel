@@ -25,10 +25,10 @@ export function getObjectMethods(ctx: StoreContext) {
    * corresponds to an object that has just been imported from somewhere. The
    * object is initially unrevoked.
    *
-   * @param owner - The endpoint that is the owner of the new object.
+   * @param owner - The endpoint or 'kernel' that is the owner of the new object.
    * @returns The new object's KRef.
    */
-  function initKernelObject(owner: EndpointId): KRef {
+  function initKernelObject(owner: EndpointId | 'kernel'): KRef {
     const koId = getNextObjectId();
     ctx.kv.set(getOwnerKey(koId), owner);
     setObjectRefCount(koId, { reachable: 1, recognizable: 1 });
