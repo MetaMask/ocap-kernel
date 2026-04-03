@@ -41,18 +41,30 @@ import type {
 } from './remotes/types.ts';
 import { Fail } from './utils/assert.ts';
 
-export type VatId = string;
-export type RemoteId = string;
-export type EndpointId = VatId | RemoteId;
-export type SubclusterId = string;
+declare const VatIdBrand: unique symbol;
+export type VatId = string & { readonly [VatIdBrand]: never };
 
-export type KRef = string;
-export type VRef = string;
-export type RRef = string;
+declare const RemoteIdBrand: unique symbol;
+export type RemoteId = string & { readonly [RemoteIdBrand]: never };
+
+export type EndpointId = VatId | RemoteId;
+
+declare const SubclusterIdBrand: unique symbol;
+export type SubclusterId = string & { readonly [SubclusterIdBrand]: never };
+
+declare const KRefBrand: unique symbol;
+export type KRef = string & { readonly [KRefBrand]: never };
+
+declare const VRefBrand: unique symbol;
+export type VRef = string & { readonly [VRefBrand]: never };
+
+declare const RRefBrand: unique symbol;
+export type RRef = string & { readonly [RRefBrand]: never };
+
 export type ERef = VRef | RRef;
 export type Ref = KRef | ERef;
 
-export const ROOT_OBJECT_VREF: VRef = 'o+0';
+export const ROOT_OBJECT_VREF = 'o+0' as VRef;
 
 export const CapDataStruct = object({
   body: string(),
@@ -229,6 +241,18 @@ export const isEndpointId = (value: unknown): value is EndpointId =>
   (value.at(0) === 'v' || value.at(0) === 'r') &&
   value.slice(1) === String(Number(value.slice(1)));
 
+export const isKRef = (value: unknown): value is KRef =>
+  typeof value === 'string' && /^k[op]\d+$/u.test(value);
+
+export const isVRef = (value: unknown): value is VRef =>
+  typeof value === 'string' && /^[op][+-]\d+$/u.test(value);
+
+export const isRRef = (value: unknown): value is RRef =>
+  typeof value === 'string' && /^r[op][+-]\d+$/u.test(value);
+
+export const isERef = (value: unknown): value is ERef =>
+  isVRef(value) || isRRef(value);
+
 /**
  * Assert that a value is a valid vat id.
  *
@@ -237,6 +261,13 @@ export const isEndpointId = (value: unknown): value is EndpointId =>
  */
 export function insistVatId(value: unknown): asserts value is VatId {
   isVatId(value) || Fail`not a valid VatId ${value}`;
+}
+
+/**
+ * @param value - The value to check.
+ */
+export function insistRemoteId(value: unknown): asserts value is RemoteId {
+  isRemoteId(value) || Fail`not a valid RemoteId: ${value}`;
 }
 
 /**
@@ -249,7 +280,38 @@ export function insistEndpointId(value: unknown): asserts value is EndpointId {
   isEndpointId(value) || Fail`not a valid EndpointId`;
 }
 
+/**
+ * @param value - The value to check.
+ */
+export function insistKRef(value: unknown): asserts value is KRef {
+  isKRef(value) || Fail`not a valid KRef: ${value}`;
+}
+
+/**
+ * @param value - The value to check.
+ */
+export function insistVRef(value: unknown): asserts value is VRef {
+  isVRef(value) || Fail`not a valid VRef: ${value}`;
+}
+
+/**
+ * @param value - The value to check.
+ */
+export function insistRRef(value: unknown): asserts value is RRef {
+  isRRef(value) || Fail`not a valid RRef: ${value}`;
+}
+
+/**
+ * @param value - The value to check.
+ */
+export function insistERef(value: unknown): asserts value is ERef {
+  isERef(value) || Fail`not a valid ERef: ${value}`;
+}
+
 export const VatIdStruct = define<VatId>('VatId', isVatId);
+export const RemoteIdStruct = define<RemoteId>('RemoteId', isRemoteId);
+export const EndpointIdStruct = define<EndpointId>('EndpointId', isEndpointId);
+export const KRefStruct = define<KRef>('KRef', isKRef);
 
 export const isSubclusterId = (value: unknown): value is SubclusterId =>
   typeof value === 'string' &&
@@ -261,7 +323,17 @@ export const SubclusterIdStruct = define<SubclusterId>(
   isSubclusterId,
 );
 
-export type VatMessageId = `m${number}`;
+/**
+ * @param value - The value to check.
+ */
+export function insistSubclusterId(
+  value: unknown,
+): asserts value is SubclusterId {
+  isSubclusterId(value) || Fail`not a valid SubclusterId: ${value}`;
+}
+
+declare const VatMessageIdBrand: unique symbol;
+export type VatMessageId = string & { readonly [VatMessageIdBrand]: never };
 
 export const isVatMessageId = (value: unknown): value is VatMessageId =>
   typeof value === 'string' &&
@@ -508,7 +580,7 @@ export type Subcluster = Infer<typeof SubclusterStruct>;
  */
 export type SubclusterLaunchResult = {
   /** The ID of the launched subcluster. */
-  subclusterId: string;
+  subclusterId: SubclusterId;
   /** The kref of the bootstrap vat's root object. */
   rootKref: KRef;
   /** The CapData result of calling bootstrap() on the root object, if any. */
@@ -586,7 +658,8 @@ export function insistGCActionType(
   isGCActionType(value) || Fail`not a valid GCActionType ${value}`;
 }
 
-export type GCAction = `${EndpointId} ${GCActionType} ${KRef}`;
+declare const GCActionBrand: unique symbol;
+export type GCAction = string & { readonly [GCActionBrand]: never };
 
 export const GCActionStruct = define<GCAction>('GCAction', (value: unknown) => {
   if (typeof value !== 'string') {
@@ -608,8 +681,15 @@ export const GCActionStruct = define<GCAction>('GCAction', (value: unknown) => {
 export const isGCAction = (value: unknown): value is GCAction =>
   is(value, GCActionStruct);
 
+/**
+ * @param value - The value to check.
+ */
+export function insistGCAction(value: unknown): asserts value is GCAction {
+  isGCAction(value) || Fail`not a valid GCAction: ${value}`;
+}
+
 export type CrankResult = {
-  didDelivery?: EndpointId; // the endpoint to which we made a delivery
+  didDelivery?: EndpointId | 'kernel'; // the endpoint to which we made a delivery
   abort?: boolean; // changes should be discarded, not committed
   terminate?: { vatId: VatId; reject: boolean; info: SwingSetCapData };
 };

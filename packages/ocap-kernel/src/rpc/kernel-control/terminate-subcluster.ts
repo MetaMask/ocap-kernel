@@ -1,8 +1,9 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import { object, string, literal } from '@metamask/superstruct';
+import { object, literal } from '@metamask/superstruct';
 
 import type { Kernel } from '../../Kernel.ts';
 import type { SubclusterId } from '../../types.ts';
+import { SubclusterIdStruct } from '../../types.ts';
 
 export const terminateSubclusterSpec: MethodSpec<
   'terminateSubcluster',
@@ -10,7 +11,7 @@ export const terminateSubclusterSpec: MethodSpec<
   Promise<null>
 > = {
   method: 'terminateSubcluster',
-  params: object({ id: string() }),
+  params: object({ id: SubclusterIdStruct }),
   result: literal(null),
 };
 
@@ -20,7 +21,7 @@ export type TerminateSubclusterHooks = {
 
 export const terminateSubclusterHandler: Handler<
   'terminateSubcluster',
-  { id: string },
+  { id: SubclusterId },
   Promise<null>,
   TerminateSubclusterHooks
 > = {
@@ -28,7 +29,7 @@ export const terminateSubclusterHandler: Handler<
   hooks: { kernel: true },
   implementation: async (
     { kernel }: TerminateSubclusterHooks,
-    params: { id: string },
+    params: { id: SubclusterId },
   ): Promise<null> => {
     await kernel.terminateSubcluster(params.id);
     return null;

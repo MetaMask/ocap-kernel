@@ -125,7 +125,10 @@ describe('KernelQueue', () => {
         target: 'ko123',
         message: {} as Message,
       };
-      const terminateInfo = { vatId: 'v1', info: { body: '"test"' } };
+      const terminateInfo = {
+        vatId: 'v1',
+        info: { body: '"test"', slots: [] },
+      };
       (kernelStore.runQueueLength as unknown as MockInstance)
         .mockReturnValueOnce(1)
         .mockReturnValue(0);
@@ -204,8 +207,8 @@ describe('KernelQueue', () => {
     it('enqueues a send message and increments reference counts', () => {
       const target = 'ko123';
       const message: Message = {
-        methargs: { body: 'method args', slots: ['slot1', 'slot2'] },
-        result: 'kp456',
+        methargs: { body: 'method args', slots: ['ko1', 'ko2'] },
+        result: 'kp2',
       };
       kernelQueue.enqueueSend(target, message);
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
@@ -217,11 +220,11 @@ describe('KernelQueue', () => {
         'queue|result',
       );
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
-        'slot1',
+        'ko1',
         'queue|slot',
       );
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
-        'slot2',
+        'ko2',
         'queue|slot',
       );
       expect(kernelStore.enqueueRun).toHaveBeenCalledWith({
@@ -275,7 +278,7 @@ describe('KernelQueue', () => {
       const resolution: VatOneResolution = [
         kpid,
         false,
-        { body: 'resolved value', slots: ['slot1'] } as CapData<KRef>,
+        { body: 'resolved value', slots: ['ko1'] } as CapData<KRef>,
       ];
       (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
         {
@@ -296,7 +299,7 @@ describe('KernelQueue', () => {
         'resolve|kpid',
       );
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
-        'slot1',
+        'ko1',
         'resolve|slot',
       );
       // Notifications are buffered with refcount increments
@@ -317,7 +320,7 @@ describe('KernelQueue', () => {
       expect(kernelStore.resolveKernelPromise).toHaveBeenCalledWith(
         kpid,
         false,
-        { body: 'resolved value', slots: ['slot1'] },
+        { body: 'resolved value', slots: ['ko1'] },
       );
       // Kernel subscription callback is NOT called immediately - deferred to flush
       expect(resolveHandler).not.toHaveBeenCalled();
@@ -330,7 +333,7 @@ describe('KernelQueue', () => {
       const resolution: VatOneResolution = [
         kpid,
         false,
-        { body: 'resolved value', slots: ['slot1'] } as CapData<KRef>,
+        { body: 'resolved value', slots: ['ko1'] } as CapData<KRef>,
       ];
       (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
         {
@@ -353,7 +356,7 @@ describe('KernelQueue', () => {
         'resolve|kpid',
       );
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
-        'slot1',
+        'ko1',
         'resolve|slot',
       );
       // Notification is buffered with refcount increment
@@ -379,7 +382,7 @@ describe('KernelQueue', () => {
 
     it('handles promises with no subscribers', () => {
       const endpointId = 'v1';
-      const kpid = 'kpNoSubscribers';
+      const kpid = 'kp3';
       const resolution: VatOneResolution = [
         kpid,
         false,

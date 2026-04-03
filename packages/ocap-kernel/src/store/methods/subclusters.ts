@@ -7,6 +7,7 @@ import type {
   SubclusterId,
   VatId,
 } from '../../types.ts';
+import { insistSubclusterId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { getBaseMethods } from './base.ts';
 
@@ -70,7 +71,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
    */
   function addSubcluster(config: ClusterConfig): SubclusterId {
     const currentSubclusters = getSubclusters();
-    const newId = `s${incCounter(ctx.nextSubclusterId)}`;
+    const newId = `s${incCounter(ctx.nextSubclusterId)}` as SubclusterId;
     const newSubcluster: Subcluster = {
       id: newId,
       config,
@@ -255,7 +256,11 @@ export function getSubclusterMethods(ctx: StoreContext) {
    * @returns The subcluster ID, or undefined if not found.
    */
   function getSystemSubclusterMapping(name: string): SubclusterId | undefined {
-    return kv.get(`systemSubcluster.${name}`);
+    const value = kv.get(`systemSubcluster.${name}`);
+    if (value !== undefined) {
+      insistSubclusterId(value);
+    }
+    return value;
   }
 
   /**
@@ -293,6 +298,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
       const name = key.slice(prefix.length);
       const subclusterId = kv.get(key);
       if (subclusterId) {
+        insistSubclusterId(subclusterId);
         mappings.set(name, subclusterId);
       }
     }

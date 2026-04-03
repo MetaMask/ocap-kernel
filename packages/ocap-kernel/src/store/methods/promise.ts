@@ -9,7 +9,7 @@ import type {
   PromiseState,
   EndpointId,
 } from '../../types.ts';
-import { insistEndpointId } from '../../types.ts';
+import { insistEndpointId, insistKRef } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { getRefCountMethods } from './refcount.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
@@ -68,6 +68,7 @@ export function getPromiseMethods(ctx: StoreContext) {
       case 'unresolved': {
         const decider = ctx.kv.get(`${kpid}.decider`);
         if (decider !== '' && decider !== undefined) {
+          insistEndpointId(decider);
           result.decider = decider;
         }
         const subscribers = ctx.kv.getRequired(`${kpid}.subscribers`);
@@ -208,10 +209,11 @@ export function getPromiseMethods(ctx: StoreContext) {
    *
    * @yields the kpids of all the unresolved promises decided by `decider`.
    */
-  function* getPromisesByDecider(decider: EndpointId): Generator<string> {
+  function* getPromisesByDecider(decider: EndpointId): Generator<KRef> {
     const basePrefix = `cle.${decider}.`;
     for (const key of getPrefixedKeys(`${basePrefix}p`)) {
       const kpid = ctx.kv.getRequired(key);
+      insistKRef(kpid);
       const kp = getKernelPromise(kpid);
       if (kp.state === 'unresolved' && kp.decider === decider) {
         yield kpid;

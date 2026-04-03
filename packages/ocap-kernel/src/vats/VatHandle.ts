@@ -24,7 +24,7 @@ import type {
   Message,
   VatId,
   VatConfig,
-  VRef,
+  ERef,
   CrankResult,
   VatDeliveryResult,
   EndpointHandle,
@@ -211,7 +211,7 @@ export class VatHandle implements EndpointHandle {
    * @param message - The message to deliver.
    * @returns The crank result.
    */
-  async deliverMessage(target: VRef, message: Message): Promise<CrankResult> {
+  async deliverMessage(target: ERef, message: Message): Promise<CrankResult> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['message', target, message],
@@ -239,7 +239,7 @@ export class VatHandle implements EndpointHandle {
    * @param vrefs - The VRefs of the exports to be dropped.
    * @returns The crank result.
    */
-  async deliverDropExports(vrefs: VRef[]): Promise<CrankResult> {
+  async deliverDropExports(vrefs: ERef[]): Promise<CrankResult> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['dropExports', vrefs],
@@ -253,7 +253,7 @@ export class VatHandle implements EndpointHandle {
    * @param vrefs - The VRefs of the exports to be retired.
    * @returns The crank result.
    */
-  async deliverRetireExports(vrefs: VRef[]): Promise<CrankResult> {
+  async deliverRetireExports(vrefs: ERef[]): Promise<CrankResult> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['retireExports', vrefs],
@@ -267,7 +267,7 @@ export class VatHandle implements EndpointHandle {
    * @param vrefs - The VRefs of the imports to be retired.
    * @returns The crank result.
    */
-  async deliverRetireImports(vrefs: VRef[]): Promise<CrankResult> {
+  async deliverRetireImports(vrefs: ERef[]): Promise<CrankResult> {
     await this.sendVatCommand({
       method: 'deliver',
       params: ['retireImports', vrefs],

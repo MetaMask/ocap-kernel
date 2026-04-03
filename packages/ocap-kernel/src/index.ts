@@ -32,6 +32,9 @@ export type {
 export type { RemoteMessageBase } from './remotes/kernel/RemoteHandle.ts';
 export {
   isVatId,
+  isKRef,
+  insistKRef,
+  insistSubclusterId,
   VatIdStruct,
   isVatConfig,
   VatConfigStruct,

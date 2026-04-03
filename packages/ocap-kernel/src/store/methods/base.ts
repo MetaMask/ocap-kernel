@@ -1,6 +1,6 @@
 import type { KVStore } from '@metamask/kernel-store';
 
-import type { EndpointId, KRef } from '../../types.ts';
+import type { EndpointId, KRef, Ref } from '../../types.ts';
 import type { StoredQueue, StoredValue } from '../types.ts';
 
 /**
@@ -15,11 +15,11 @@ export function getBaseMethods(kv: KVStore) {
    * Get the key for the reachable flag and vatSlot for a given endpoint and kref.
    *
    * @param endpointId - The endpoint for which the reachable flag is being set.
-   * @param kref - The kref.
+   * @param ref - The ref.
    * @returns The key for the reachable flag and vatSlot.
    */
-  function getSlotKey(endpointId: EndpointId, kref: KRef): string {
-    return `${endpointId}.c.${kref}`;
+  function getSlotKey(endpointId: EndpointId, ref: Ref): string {
+    return `${endpointId}.c.${ref}`;
   }
 
   /**

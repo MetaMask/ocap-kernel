@@ -1,6 +1,7 @@
 import { getBaseMethods } from './base.ts';
 import type { RemoteInfo } from '../../remotes/types.ts';
 import type { RemoteId } from '../../types.ts';
+import { insistRemoteId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 
 export type RemoteRecord = {
@@ -41,6 +42,7 @@ export function getRemoteMethods(ctx: StoreContext) {
   function* getAllRemoteRecords(): Generator<RemoteRecord> {
     for (const remoteKey of getPrefixedKeys(REMOTE_INFO_BASE)) {
       const remoteId = remoteKey.slice(REMOTE_INFO_BASE_LEN);
+      insistRemoteId(remoteId);
       const remoteInfo = getRemoteInfo(remoteId);
       yield { remoteId, remoteInfo };
     }

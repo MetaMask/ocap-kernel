@@ -109,7 +109,7 @@ describe('KernelRouter', () => {
 
         // Create a send message
         const message: Message = {
-          methargs: { body: 'method args', slots: ['slot1', 'slot2'] },
+          methargs: { body: 'method args', slots: ['ko1', 'ko2'] },
           result: 'kp1',
         };
         const sendItem: RunQueueItemSend = {
@@ -128,11 +128,11 @@ describe('KernelRouter', () => {
         );
         expect(result).toStrictEqual(mockCrankResult);
         expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
-          'slot1',
+          'ko1',
           'deliver|send|slot',
         );
         expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
-          'slot2',
+          'ko2',
           'deliver|send|slot',
         );
         expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
@@ -154,7 +154,7 @@ describe('KernelRouter', () => {
         // Create a send message
         const target = 'ko123';
         const message: Message = {
-          methargs: { body: 'method args', slots: ['slot1', 'slot2'] },
+          methargs: { body: 'method args', slots: ['ko1', 'ko2'] },
           result: 'kp1',
         };
         const sendItem: RunQueueItemSend = {
@@ -175,11 +175,11 @@ describe('KernelRouter', () => {
           'deliver|splat|target',
         );
         expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
-          'slot1',
+          'ko1',
           'deliver|splat|slot',
         );
         expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
-          'slot2',
+          'ko2',
           'deliver|splat|slot',
         );
         expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
@@ -211,7 +211,7 @@ describe('KernelRouter', () => {
         // Create a send message
         const target = 'ko123';
         const message: Message = {
-          methargs: { body: 'method args', slots: ['slot1', 'slot2'] },
+          methargs: { body: 'method args', slots: ['ko1', 'ko2'] },
           result: 'kp1',
         };
         const sendItem: RunQueueItemSend = {
@@ -232,11 +232,11 @@ describe('KernelRouter', () => {
           'deliver|splat|target',
         );
         expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
-          'slot1',
+          'ko1',
           'deliver|splat|slot',
         );
         expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
-          'slot2',
+          'ko2',
           'deliver|splat|slot',
         );
         expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(

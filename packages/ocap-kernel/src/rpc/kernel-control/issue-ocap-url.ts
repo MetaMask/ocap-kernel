@@ -2,17 +2,19 @@ import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
 import { string, object } from '@metamask/superstruct';
 
 import type { Kernel } from '../../Kernel.ts';
+import type { KRef } from '../../types.ts';
+import { KRefStruct } from '../../types.ts';
 
 /**
  * Issue an OCAP URL for a kernel object.
  */
 export const issueOcapURLSpec: MethodSpec<
   'issueOcapURL',
-  { kref: string },
+  { kref: KRef },
   string
 > = {
   method: 'issueOcapURL',
-  params: object({ kref: string() }),
+  params: object({ kref: KRefStruct }),
   result: string(),
 };
 
@@ -22,7 +24,7 @@ export type IssueOcapURLHooks = {
 
 export const issueOcapURLHandler: Handler<
   'issueOcapURL',
-  { kref: string },
+  { kref: KRef },
   Promise<string>,
   IssueOcapURLHooks
 > = {

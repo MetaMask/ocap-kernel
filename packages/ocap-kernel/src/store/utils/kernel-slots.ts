@@ -1,3 +1,4 @@
+import type { KRef } from '../../types.ts';
 import { assert, Fail } from '../../utils/assert.ts';
 
 // Object/promise references (in the kernel) contain a two-tuple of (type,
@@ -46,12 +47,12 @@ export function parseKernelSlot(slot: string): {
  * @returns the corresponding kernel slot reference string.
  * @throws if type is not one of the above known types.
  */
-export function makeKernelSlot(type: KernelSlotType, id: string): string {
+export function makeKernelSlot(type: KernelSlotType, id: string): KRef {
   if (type === 'object') {
-    return `ko${id}`;
+    return `ko${id}` as KRef;
   }
   if (type === 'promise') {
-    return `kp${id}`;
+    return `kp${id}` as KRef;
   }
   throw Fail`unknown type ${type}`;
 }

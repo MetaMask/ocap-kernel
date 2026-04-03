@@ -11,6 +11,7 @@ import {
   actionTypePriorities,
   insistGCActionType,
   insistEndpointId,
+  insistKRef,
   queueTypeFromActionType,
 } from '../types.ts';
 import { assert } from '../utils/assert.ts';
@@ -35,6 +36,7 @@ function parseAction(action: GCAction): ParsedGCAction {
   insistEndpointId(endpointId);
   insistGCActionType(type);
   insistKernelType('object', kref);
+  insistKRef(kref);
   return harden({ endpointId, type, kref });
 }
 

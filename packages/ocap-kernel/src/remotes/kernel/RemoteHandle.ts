@@ -13,10 +13,12 @@ import type { KernelStore } from '../../store/index.ts';
 import type {
   RemoteId,
   ERef,
+  KRef,
   EndpointHandle,
   Message,
   CrankResult,
 } from '../../types.ts';
+import { insistKRef, insistERef } from '../../types.ts';
 import type { RemoteComms } from '../types.ts';
 
 /** How long to wait for ACK before retransmitting (ms). */
@@ -43,11 +45,11 @@ type RemoteHandleConstructorProps = {
   ackTimeoutMs?: number | undefined;
 };
 
-type MessageDelivery = ['message', string, Message];
+type MessageDelivery = ['message', ERef, Message];
 type NotifyDelivery = ['notify', VatOneResolution[]];
-type DropExportsDelivery = ['dropExports', string[]];
-type RetireExportsDelivery = ['retireExports', string[]];
-type RetireImportsDelivery = ['retireImports', string[]];
+type DropExportsDelivery = ['dropExports', ERef[]];
+type RetireExportsDelivery = ['retireExports', ERef[]];
+type RetireImportsDelivery = ['retireImports', ERef[]];
 type BringOutYourDeadDelivery = ['bringOutYourDead'];
 
 type DeliveryParams =
@@ -750,6 +752,7 @@ export class RemoteHandle implements EndpointHandle {
         const kResolutions: VatOneResolution[] = resolutions.map(
           (resolution) => {
             const [rpid, rejected, data] = resolution;
+            insistERef(rpid);
             return [
               this.#kernelStore.translateRefEtoK(this.remoteId, rpid),
               rejected,
@@ -801,9 +804,11 @@ export class RemoteHandle implements EndpointHandle {
     replyKey: string,
   ): Promise<{ success: boolean; replyKey: string; value: string }> {
     assert.typeof(replyKey, 'string');
-    let kref: string;
+    let kref: KRef;
     try {
-      kref = await this.#remoteComms.redeemLocalOcapURL(url);
+      const krefStr = await this.#remoteComms.redeemLocalOcapURL(url);
+      insistKRef(krefStr);
+      kref = krefStr;
     } catch (error) {
       return { success: false, replyKey, value: `${(error as Error).message}` };
     }
@@ -851,9 +856,13 @@ export class RemoteHandle implements EndpointHandle {
     if (!this.#pendingRedemptions.has(replyKey)) {
       throw Error(`unknown URL redemption reply key ${replyKey}`);
     }
-    const value = success
-      ? this.#kernelStore.translateRefEtoK(this.remoteId, result)
-      : result;
+    let value: string;
+    if (success) {
+      insistERef(result);
+      value = this.#kernelStore.translateRefEtoK(this.remoteId, result);
+    } else {
+      value = result;
+    }
     return { success, replyKey, value };
   }
 

@@ -4,7 +4,12 @@ import type {
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 
-import { coerceMessage, isRemoteId } from '../../types.ts';
+import {
+  coerceMessage,
+  isRemoteId,
+  insistKRef,
+  insistERef,
+} from '../../types.ts';
 import type {
   Message,
   VatId,
@@ -43,7 +48,7 @@ export function getTranslators(ctx: StoreContext) {
     // eslint-disable-next-line require-unicode-regexp
     const parts = rref.match(/^(r[op])([-+])(\d+)$/);
     assert(parts?.length === 4);
-    return `${parts[1]}${parts[2] === '+' ? '-' : '+'}${parts[3]}`;
+    return `${parts[1]}${parts[2] === '+' ? '-' : '+'}${parts[3]}` as RRef;
   }
 
   /**
@@ -90,7 +95,7 @@ export function getTranslators(ctx: StoreContext) {
       // whereas for a VRef the functional composition KtoE(EtoK(ref)) is an
       // identity function, for an RRef it is not, because KtoE reverses the
       // polarity of the RRef but EtoK doesn't.
-      eref = invertRRef(eref);
+      eref = invertRRef(eref as RRef);
     }
     return eref;
   }
@@ -130,9 +135,13 @@ export function getTranslators(ctx: StoreContext) {
       endpointId,
       message.methargs as CapData<KRef>,
     );
-    const result = message.result
-      ? translateRefKtoE(endpointId, message.result, true)
-      : message.result;
+    let result: ERef | null | undefined;
+    if (typeof message.result === 'string') {
+      insistKRef(message.result);
+      result = translateRefKtoE(endpointId, message.result, true);
+    } else {
+      result = message.result;
+    }
     const endpointMessage = coerceMessage({ ...message, methargs, result });
     return endpointMessage;
   }
@@ -189,6 +198,7 @@ export function getTranslators(ctx: StoreContext) {
     if (typeof message.result !== 'string') {
       throw TypeError(`message result must be a string`);
     }
+    insistERef(message.result);
     const result = translateRefEtoK(endpointId, message.result);
     return { methargs, result };
   }
@@ -210,6 +220,7 @@ export function getTranslators(ctx: StoreContext) {
       case 'send': {
         // [VRef, Message];
         const [op, target, message] = vso;
+        insistERef(target);
         kso = [
           op,
           translateRefEtoK(vatId, target),
@@ -222,6 +233,7 @@ export function getTranslators(ctx: StoreContext) {
       case 'subscribe': {
         // [VRef];
         const [op, promise] = vso;
+        insistERef(promise);
         kso = [op, translateRefEtoK(vatId, promise)];
         break;
       }
@@ -231,6 +243,7 @@ export function getTranslators(ctx: StoreContext) {
         const kResolutions: VatOneResolution[] = resolutions.map(
           (resolution) => {
             const [vpid, rejected, data] = resolution;
+            insistERef(vpid);
             return [
               translateRefEtoK(vatId, vpid),
               rejected,
@@ -257,7 +270,10 @@ export function getTranslators(ctx: StoreContext) {
       case 'abandonExports': {
         // [VRef[]];
         const [op, vrefs] = vso;
-        const krefs = vrefs.map((ref) => translateRefEtoK(vatId, ref));
+        const krefs = vrefs.map((ref) => {
+          insistERef(ref);
+          return translateRefEtoK(vatId, ref);
+        });
         kso = [op, krefs];
         break;
       }

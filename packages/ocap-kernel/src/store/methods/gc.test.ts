@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
 import type { GCAction, KRef } from '../../types.ts';
+import { isGCAction } from '../../types.ts';
 import { makeKernelStore } from '../index.ts';
 
 describe('GC methods', () => {
@@ -46,30 +47,23 @@ describe('GC methods', () => {
       expect(actions).toStrictEqual(new Set(remoteActions));
     });
 
-    it('rejects invalid GC actions', () => {
+    it('rejects invalid GC actions at construction time', () => {
       const v1Object = kernelStore.initKernelObject('v1');
 
       // Invalid endpoint ID
-      expect(() => {
-        kernelStore.addGCActions([`x1 dropExport ${v1Object}`]);
-      }).toThrow('not a valid EndpointId');
+      expect(isGCAction(`x1 dropExport ${v1Object}`)).toBe(false);
 
       // Invalid action type
-      expect(() => {
-        kernelStore.addGCActions([
-          `v1 invalidAction ${v1Object}`,
-        ] as GCAction[]);
-      }).toThrow('not a valid GCActionType "invalidAction"');
+      expect(isGCAction(`v1 invalidAction ${v1Object}`)).toBe(false);
 
       // Invalid kref (must be kernel object, not promise)
-      expect(() => {
-        kernelStore.addGCActions(['v1 dropExport kp1']);
-      }).toThrow('kernelSlot "kp1" is not of type "object"');
+      expect(isGCAction('v1 dropExport kp1')).toBe(false);
 
       // Malformed action string
-      expect(() => {
-        kernelStore.addGCActions(['v1 dropExport'] as unknown as GCAction[]);
-      }).toThrow('kernelSlot is undefined');
+      expect(isGCAction('v1 dropExport')).toBe(false);
+
+      // Valid action
+      expect(isGCAction(`v1 dropExport ${v1Object}`)).toBe(true);
     });
 
     it('maintains action order when storing', () => {

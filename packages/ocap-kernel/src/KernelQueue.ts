@@ -5,7 +5,7 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { processGCActionSet } from './garbage-collection/garbage-collection.ts';
 import { kser } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
-import { insistEndpointId } from './types.ts';
+import { insistEndpointId, insistKRef } from './types.ts';
 import type {
   CrankResult,
   KRef,
@@ -155,9 +155,11 @@ export class KernelQueue {
         queueItem.type === 'send' &&
         queueItem.message.result
       ) {
-        const subscription = this.subscriptions.get(queueItem.message.result);
+        const resultKref = queueItem.message.result;
+        insistKRef(resultKref);
+        const subscription = this.subscriptions.get(resultKref);
         if (subscription) {
-          this.subscriptions.delete(queueItem.message.result);
+          this.subscriptions.delete(resultKref);
           subscription.reject(crankResult.terminate.info);
         }
       }
@@ -172,7 +174,10 @@ export class KernelQueue {
     // or by syscall.exit().
     if (crankResult?.terminate) {
       const { vatId, info } = crankResult.terminate;
-      await this.#terminateVat(vatId, info);
+      for (const slot of info.slots) {
+        insistKRef(slot);
+      }
+      await this.#terminateVat(vatId, info as CapData<KRef>);
     }
     this.#kernelStore.collectGarbage();
   }
@@ -202,7 +207,9 @@ export class KernelQueue {
       if (item.type === 'notify') {
         // Invoke kernel subscription callback if any, reading resolution
         // data from the (now committed) promise state
-        this.#invokeKernelSubscription(item.kpid);
+        const { kpid } = item;
+        insistKRef(kpid);
+        this.#invokeKernelSubscription(kpid);
       }
     }
 
@@ -269,9 +276,12 @@ export class KernelQueue {
   enqueueSend(target: KRef, message: Message, immediate = true): void {
     this.#kernelStore.incrementRefCount(target, 'queue|target');
     if (message.result) {
-      this.#kernelStore.incrementRefCount(message.result, 'queue|result');
+      const { result } = message;
+      insistKRef(result);
+      this.#kernelStore.incrementRefCount(result, 'queue|result');
     }
     for (const slot of message.methargs.slots || []) {
+      insistKRef(slot);
       this.#kernelStore.incrementRefCount(slot, 'queue|slot');
     }
     const item: RunQueueItemSend = { type: 'send', target, message };
@@ -322,7 +332,7 @@ export class KernelQueue {
    * @param immediate - If true (the default), enqueue immediately; if false, buffer for crank completion.
    */
   resolvePromises(
-    endpointId: EndpointId | undefined,
+    endpointId: EndpointId | 'kernel' | undefined,
     resolutions: VatOneResolution[],
     immediate = true,
   ): void {
@@ -331,10 +341,12 @@ export class KernelQueue {
     }
     for (const resolution of resolutions) {
       const [kpid, rejected, dataRaw] = resolution;
+      insistKRef(kpid);
       const data = dataRaw as CapData<KRef>;
 
       this.#kernelStore.incrementRefCount(kpid, 'resolve|kpid');
       for (const slot of data.slots || []) {
+        insistKRef(slot);
         this.#kernelStore.incrementRefCount(slot, 'resolve|slot');
       }
 

@@ -14,9 +14,9 @@ import type {
   GCAction,
   RunQueueItemBringOutYourDead,
 } from '../../types.ts';
-import { insistGCActionType, insistEndpointId } from '../../types.ts';
+import { insistEndpointId, insistGCAction, insistERef } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
-import { insistKernelType, parseKernelSlot } from '../utils/kernel-slots.ts';
+import { parseKernelSlot } from '../utils/kernel-slots.ts';
 
 /**
  * Create a store for garbage collection.
@@ -40,7 +40,13 @@ export function getGCMethods(ctx: StoreContext) {
    * @returns The set of GC actions to perform.
    */
   function getGCActions(): Set<GCAction> {
-    return new Set(JSON.parse(ctx.gcActions.get() ?? '[]'));
+    const parsed: string[] = JSON.parse(ctx.gcActions.get() ?? '[]');
+    const actions = new Set<GCAction>();
+    for (const action of parsed) {
+      insistGCAction(action);
+      actions.add(action);
+    }
+    return actions;
   }
 
   /**
@@ -62,11 +68,6 @@ export function getGCMethods(ctx: StoreContext) {
   function addGCActions(newActions: GCAction[]): void {
     const actions = getGCActions();
     for (const action of newActions) {
-      assert.typeof(action, 'string', 'addGCActions given bad action');
-      const [endpointId, type, kref] = action.split(' ');
-      insistEndpointId(endpointId);
-      insistGCActionType(type);
-      insistKernelType('object', kref);
       actions.add(action);
     }
     setGCActions(actions);
@@ -111,7 +112,7 @@ export function getGCMethods(ctx: StoreContext) {
     for (const koid of koids) {
       const importers = getImporters(koid);
       for (const vatID of importers) {
-        newActions.push(`${vatID} retireImport ${koid}`);
+        newActions.push(`${vatID} retireImport ${koid}` as GCAction);
       }
       deleteKernelObject(koid);
     }
@@ -152,7 +153,11 @@ export function getGCMethods(ctx: StoreContext) {
           if (ownerVatID === 'kernel') {
             continue;
           }
-          const terminated = isVatTerminated(ownerVatID as VatId);
+          if (ownerVatID !== undefined) {
+            insistEndpointId(ownerVatID);
+          }
+          const terminated =
+            ownerVatID !== undefined && isVatTerminated(ownerVatID as VatId);
 
           // Some objects that are still owned, but the owning vat
           // might still alive, or might be terminated and in the
@@ -162,12 +167,12 @@ export function getGCMethods(ctx: StoreContext) {
             const vatConsidersReachable = getReachableFlag(ownerVatID, kref);
             if (vatConsidersReachable) {
               // the reachable count is zero, but the vat doesn't realize it
-              actions.add(`${ownerVatID} dropExport ${kref}`);
+              actions.add(`${ownerVatID} dropExport ${kref}` as GCAction);
             }
             if (recognizable === 0) {
               // TODO: rethink this assert
               // assert.equal(vatConsidersReachable, false, `${kref} is reachable but not recognizable`);
-              actions.add(`${ownerVatID} retireExport ${kref}`);
+              actions.add(`${ownerVatID} retireExport ${kref}` as GCAction);
             }
           } else if (ownerVatID && terminated) {
             // When we're slowly deleting a vat, and one of its
@@ -177,6 +182,7 @@ export function getGCMethods(ctx: StoreContext) {
             // would have done, then treat the object as orphaned.
 
             const { vatSlot } = getReachableAndVatSlot(ownerVatID, kref);
+            insistERef(vatSlot);
             // delete directly, not orphanKernelObject(), which
             // would re-submit to maybeFreeKrefs
             ctx.kv.delete(ownerKey);

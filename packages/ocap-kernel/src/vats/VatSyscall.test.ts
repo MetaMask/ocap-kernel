@@ -45,7 +45,7 @@ describe('VatSyscall', () => {
   });
 
   it('buffers send syscall for crank completion', async () => {
-    const target = 'o+1';
+    const target = 'ko1';
     const message = { methargs: { body: '', slots: [] } } as unknown as Message;
     const vso = ['send', target, message] as unknown as VatSyscallObject;
     vatSys.handleSyscall(vso);
@@ -69,7 +69,7 @@ describe('VatSyscall', () => {
 
   it('enqueues send immediately when outside a crank', () => {
     (kernelStore.isInCrank as unknown as MockInstance).mockReturnValue(false);
-    const target = 'o+1';
+    const target = 'ko1';
     const message = { methargs: { body: '', slots: [] } } as unknown as Message;
     const vso = ['send', target, message] as unknown as VatSyscallObject;
     vatSys.handleSyscall(vso);
@@ -259,7 +259,7 @@ describe('VatSyscall', () => {
       (kernelStore.isVatActive as unknown as MockInstance).mockReturnValueOnce(
         false,
       );
-      const vso = ['send', 'o+1', {}] as unknown as VatSyscallObject;
+      const vso = ['send', 'ko1', {}] as unknown as VatSyscallObject;
       const result = vatSys.handleSyscall(vso);
 
       expect(result).toStrictEqual(['error', 'vat not found']);
@@ -274,7 +274,7 @@ describe('VatSyscall', () => {
         throw error;
       });
 
-      const vso = ['send', 'o+1', {}] as unknown as VatSyscallObject;
+      const vso = ['send', 'ko1', {}] as unknown as VatSyscallObject;
       const result = vatSys.handleSyscall(vso);
 
       expect(result).toStrictEqual(['error', 'test error']);
@@ -310,7 +310,7 @@ describe('VatSyscall', () => {
         kernelQueue,
         kernelStore,
       });
-      vatSyscall.handleSyscall(['send', 'o+1', {}] as VatSyscallObject);
+      vatSyscall.handleSyscall(['send', 'ko1', {}] as VatSyscallObject);
       expect(logSpy).not.toHaveBeenCalled();
       expect(logger.log).not.toHaveBeenCalled();
     });

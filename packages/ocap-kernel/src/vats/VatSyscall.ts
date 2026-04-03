@@ -14,7 +14,7 @@ import {
 import type { KernelQueue } from '../KernelQueue.ts';
 import { makeError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
-import { coerceMessage } from '../types.ts';
+import { coerceMessage, insistKRef } from '../types.ts';
 import type { Message, VatId, KRef } from '../types.ts';
 
 type VatSyscallProps = {
@@ -175,6 +175,7 @@ export class VatSyscall {
         case 'send': {
           // [KRef, Message];
           const [, target, message] = kso;
+          insistKRef(target);
           this.#logger?.log(
             `@@@@ ${vatId} syscall send ${target}<-${JSON.stringify(message)}`,
           );
@@ -184,6 +185,7 @@ export class VatSyscall {
         case 'subscribe': {
           // [KRef];
           const [, promise] = kso;
+          insistKRef(promise);
           this.#logger?.log(`@@@@ ${vatId} syscall subscribe ${promise}`);
           this.#handleSyscallSubscribe(promise);
           break;
@@ -209,37 +211,41 @@ export class VatSyscall {
         case 'dropImports': {
           // [KRef[]];
           const [, refs] = kso;
+          const krefs = refs as KRef[];
           this.#logger?.log(
-            `@@@@ ${vatId} syscall dropImports ${JSON.stringify(refs)}`,
+            `@@@@ ${vatId} syscall dropImports ${JSON.stringify(krefs)}`,
           );
-          this.#handleSyscallDropImports(refs);
+          this.#handleSyscallDropImports(krefs);
           break;
         }
         case 'retireImports': {
           // [KRef[]];
           const [, refs] = kso;
+          const krefs = refs as KRef[];
           this.#logger?.log(
-            `@@@@ ${vatId} syscall retireImports ${JSON.stringify(refs)}`,
+            `@@@@ ${vatId} syscall retireImports ${JSON.stringify(krefs)}`,
           );
-          this.#handleSyscallRetireImports(refs);
+          this.#handleSyscallRetireImports(krefs);
           break;
         }
         case 'retireExports': {
           // [KRef[]];
           const [, refs] = kso;
+          const krefs = refs as KRef[];
           this.#logger?.log(
-            `@@@@ ${vatId} syscall retireExports ${JSON.stringify(refs)}`,
+            `@@@@ ${vatId} syscall retireExports ${JSON.stringify(krefs)}`,
           );
-          this.#handleSyscallExportCleanup(refs, true);
+          this.#handleSyscallExportCleanup(krefs, true);
           break;
         }
         case 'abandonExports': {
           // [KRef[]];
           const [, refs] = kso;
+          const krefs = refs as KRef[];
           this.#logger?.log(
-            `@@@@ ${vatId} syscall abandonExports ${JSON.stringify(refs)}`,
+            `@@@@ ${vatId} syscall abandonExports ${JSON.stringify(krefs)}`,
           );
-          this.#handleSyscallExportCleanup(refs, false);
+          this.#handleSyscallExportCleanup(krefs, false);
           break;
         }
         case 'callNow':

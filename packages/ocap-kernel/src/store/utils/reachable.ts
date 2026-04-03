@@ -1,3 +1,5 @@
+import type { ERef } from '../../types.ts';
+import { insistERef } from '../../types.ts';
 import { assert, Fail } from '../../utils/assert.ts';
 
 /**
@@ -8,12 +10,13 @@ import { assert, Fail } from '../../utils/assert.ts';
  */
 export function parseReachableAndVatSlot(value: string): {
   isReachable: boolean;
-  vatSlot: string;
+  vatSlot: ERef;
 } {
   typeof value === 'string' || Fail`non-string value: ${value}`;
   const flag = value.slice(0, 1);
   assert.equal(value.slice(1, 2), ' ');
   const vatSlot = value.slice(2);
+  insistERef(vatSlot);
   let isReachable;
   if (flag === 'R') {
     isReachable = true;

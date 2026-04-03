@@ -9,6 +9,7 @@ import {
   TextColor,
 } from '@metamask/design-system-react';
 import { stringify } from '@metamask/kernel-utils';
+import type { KRef } from '@metamask/ocap-kernel';
 import type { Json } from '@metamask/utils';
 import { useState, useMemo } from 'react';
 
@@ -68,7 +69,7 @@ export const SendMessageForm: React.FC = () => {
       .then(async (args) =>
         callKernelMethod({
           method: 'queueMessage',
-          params: [target, method, args],
+          params: [target as KRef, method, args],
         }),
       )
       .then((response) => {

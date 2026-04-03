@@ -1,5 +1,6 @@
 import { getRefCountMethods } from './refcount.ts';
 import type { KRef } from '../../types.ts';
+import { insistKRef } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 
 /**
@@ -57,7 +58,11 @@ export function getPinMethods(ctx: StoreContext) {
    * @returns An array of KRefs for all pinned objects.
    */
   function getPinnedObjects(): KRef[] {
-    return commaSplit(ctx.kv.get('pinnedObjects'));
+    const items = commaSplit(ctx.kv.get('pinnedObjects'));
+    for (const item of items) {
+      insistKRef(item);
+    }
+    return items as KRef[];
   }
 
   /**

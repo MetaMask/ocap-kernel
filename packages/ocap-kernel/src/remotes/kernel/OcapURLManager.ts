@@ -35,7 +35,7 @@ export class OcapURLManager {
     // Create the OCAP URL issuer service
     this.#ocapURLIssuerService = Far('ocapURLIssuerService', {
       issue: async (obj: SlotValue): Promise<string> => {
-        let kref: string;
+        let kref: KRef;
         try {
           kref = krefOf(obj);
         } catch {

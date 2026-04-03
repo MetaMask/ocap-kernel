@@ -1,7 +1,7 @@
 import { Fail } from '@endo/errors';
 
 import { getBaseMethods } from './base.ts';
-import { ROOT_OBJECT_VREF } from '../../types.ts';
+import { ROOT_OBJECT_VREF, insistEndpointId, insistKRef } from '../../types.ts';
 import type { EndpointId, KRef, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
@@ -41,7 +41,11 @@ export function getObjectMethods(ctx: StoreContext) {
    * @returns The identity of the vat or remote that owns the object.
    */
   function getOwner(koId: KRef): EndpointId | undefined {
-    return ctx.kv.get(getOwnerKey(koId));
+    const value = ctx.kv.get(getOwnerKey(koId));
+    if (value !== undefined) {
+      insistEndpointId(value);
+    }
+    return value;
   }
 
   /**
@@ -51,7 +55,11 @@ export function getObjectMethods(ctx: StoreContext) {
    * @returns The root object for the vat.
    */
   function getRootObject(vatId: VatId): KRef | undefined {
-    return ctx.kv.get(getSlotKey(vatId, ROOT_OBJECT_VREF));
+    const value = ctx.kv.get(getSlotKey(vatId, ROOT_OBJECT_VREF));
+    if (value !== undefined) {
+      insistKRef(value);
+    }
+    return value;
   }
 
   /**

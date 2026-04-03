@@ -7,6 +7,7 @@ import {
   TextVariant,
 } from '@metamask/design-system-react';
 import { stringify } from '@metamask/kernel-utils';
+import type { SubclusterId, VatId } from '@metamask/ocap-kernel';
 import { useMemo, useState } from 'react';
 
 import type { VatRecord } from '../types.ts';
@@ -15,13 +16,13 @@ import { Modal } from './shared/Modal.tsx';
 import { VatTable } from './VatTable.tsx';
 
 export const SubclusterAccordion: React.FC<{
-  id: string;
+  id: SubclusterId;
   vats: VatRecord[];
   config: unknown;
-  onPingVat: (id: string) => void;
-  onRestartVat: (id: string) => void;
-  onTerminateVat: (id: string) => void;
-  onTerminateSubcluster: (id: string) => void;
+  onPingVat: (id: VatId) => void;
+  onRestartVat: (id: VatId) => void;
+  onTerminateVat: (id: VatId) => void;
+  onTerminateSubcluster: (id: SubclusterId) => void;
 }> = ({
   id,
   vats,

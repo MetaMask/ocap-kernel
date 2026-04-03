@@ -88,15 +88,15 @@ export function kslot(kref: string, iface: string = 'undefined'): SlotValue {
  *
  * @returns a KRef string for `obj`.
  */
-export function krefOf(obj: SlotValue): string {
+export function krefOf(obj: SlotValue): KRef {
   switch (passStyleOf(obj) as string) {
     case 'promise': {
-      return getStandinPromiseTag(obj as Promise<unknown>);
+      return getStandinPromiseTag(obj as Promise<unknown>) as KRef;
     }
     case 'remotable': {
       const { getKref } = obj as ObjectStandin;
       assert.typeof(getKref, 'function', 'object lacks getKref function');
-      return getKref.apply(obj, []);
+      return getKref.apply(obj, []) as KRef;
     }
     default:
       // When krefOf() is called as part of kmarshal.serialize, marshal
