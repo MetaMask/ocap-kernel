@@ -67,19 +67,13 @@ export type Ref = KRef | ERef;
 export const ROOT_OBJECT_VREF = 'o+0' as VRef;
 
 export const isVatId = (value: unknown): value is VatId =>
-  typeof value === 'string' &&
-  value.at(0) === 'v' &&
-  value.slice(1) === String(Number(value.slice(1)));
+  typeof value === 'string' && /^v\d+$/u.test(value);
 
 export const isRemoteId = (value: unknown): value is RemoteId =>
-  typeof value === 'string' &&
-  value.at(0) === 'r' &&
-  value.slice(1) === String(Number(value.slice(1)));
+  typeof value === 'string' && /^r\d+$/u.test(value);
 
 export const isEndpointId = (value: unknown): value is EndpointId =>
-  typeof value === 'string' &&
-  (value.at(0) === 'v' || value.at(0) === 'r') &&
-  value.slice(1) === String(Number(value.slice(1)));
+  typeof value === 'string' && /^[vr]\d+$/u.test(value);
 
 export const isKRef = (value: unknown): value is KRef =>
   typeof value === 'string' && /^k[op]\d+$/u.test(value);
@@ -204,6 +198,12 @@ export function coerceEndpointMessage(
   if (message.result === undefined) {
     delete (message as EndpointMessage).result;
   }
+  for (const slot of message.methargs.slots) {
+    insistERef(slot);
+  }
+  if (message.result !== undefined && message.result !== null) {
+    insistERef(message.result);
+  }
   return message as EndpointMessage;
 }
 
@@ -295,6 +295,15 @@ export function insistKernelMessage(
   is(value, KernelMessageStruct) || Fail`not a valid kernel message`;
 }
 
+/**
+ * @param value - The value to check.
+ */
+export function insistEndpointMessage(
+  value: unknown,
+): asserts value is EndpointMessage {
+  is(value, EndpointMessageStruct) || Fail`not a valid endpoint message`;
+}
+
 // Per-endpoint persistent state
 type EndpointState<IdType> = {
   name: string;
@@ -336,9 +345,7 @@ export type KernelState = {
 };
 
 export const isSubclusterId = (value: unknown): value is SubclusterId =>
-  typeof value === 'string' &&
-  value.at(0) === 's' &&
-  value.slice(1) === String(Number(value.slice(1)));
+  typeof value === 'string' && /^s\d+$/u.test(value);
 
 export const SubclusterIdStruct = define<SubclusterId>(
   'SubclusterId',
@@ -358,9 +365,7 @@ declare const VatMessageIdBrand: unique symbol;
 export type VatMessageId = string & { readonly [VatMessageIdBrand]: never };
 
 export const isVatMessageId = (value: unknown): value is VatMessageId =>
-  typeof value === 'string' &&
-  value.at(0) === 'm' &&
-  value.slice(1) === String(Number(value.slice(1)));
+  typeof value === 'string' && /^m\d+$/u.test(value);
 
 export const VatMessageIdStruct = define<VatMessageId>(
   'VatMessageId',
@@ -694,7 +699,7 @@ export const GCActionStruct = define<GCAction>('GCAction', (value: unknown) => {
   if (!isGCActionType(actionType)) {
     return false;
   }
-  if (typeof kref !== 'string' || !kref.startsWith('ko')) {
+  if (!isKRef(kref) || !kref.startsWith('ko')) {
     return false;
   }
   return true;
@@ -708,6 +713,23 @@ export const isGCAction = (value: unknown): value is GCAction =>
  */
 export function insistGCAction(value: unknown): asserts value is GCAction {
   isGCAction(value) || Fail`not a valid GCAction: ${value}`;
+}
+
+/**
+ * Create a validated GCAction string from its components.
+ *
+ * @param endpointId - The endpoint that owns the object.
+ * @param actionType - The type of GC action.
+ * @param kref - The kernel object reference (must start with 'ko').
+ * @returns The branded GCAction string.
+ */
+export function makeGCAction(
+  endpointId: EndpointId,
+  actionType: GCActionType,
+  kref: KRef,
+): GCAction {
+  kref.startsWith('ko') || Fail`GC actions only apply to objects: ${kref}`;
+  return `${endpointId} ${actionType} ${kref}` as GCAction;
 }
 
 export type CrankResult = {

@@ -9,6 +9,7 @@ import {
   buildReachableAndVatSlot,
   parseReachableAndVatSlot,
 } from '../utils/reachable.ts';
+import { readOptionalKRef } from '../utils/read-branded.ts';
 
 /**
  * Get the c-list methods that provide functionality for managing c-lists.
@@ -111,7 +112,7 @@ export function getCListMethods(ctx: StoreContext) {
    * if there is no such mapping.
    */
   function erefToKref(endpointId: EndpointId, eref: ERef): KRef | undefined {
-    return ctx.kv.get(getSlotKey(endpointId, eref)) as KRef | undefined;
+    return readOptionalKRef(ctx.kv, getSlotKey(endpointId, eref));
   }
 
   /**

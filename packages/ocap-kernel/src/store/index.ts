@@ -64,6 +64,7 @@
  *   kernelService.${serviceName} = ${koid}   // kref of kernel service object ${serviceName}
  */
 
+import { Fail } from '@endo/errors';
 import type { KernelDatabase, KVStore, VatStore } from '@metamask/kernel-store';
 import { Logger } from '@metamask/logger';
 
@@ -86,6 +87,7 @@ import { getSubclusterMethods } from './methods/subclusters.ts';
 import { getTranslators } from './methods/translators.ts';
 import { getVatMethods } from './methods/vat.ts';
 import type { StoreContext } from './types.ts';
+import { readOptionalKRef } from './utils/read-branded.ts';
 
 /**
  * Create a new KernelStore object wrapped around a raw kernel database. The
@@ -323,7 +325,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
 
     // Kernel service krefs
     getKernelServiceKref(name: string): KRef | undefined {
-      return kv.get(`kernelService.${name}`) as KRef | undefined;
+      return readOptionalKRef(kv, `kernelService.${name}`);
     },
     setKernelServiceKref(name: string, kref: KRef): void {
       kv.set(`kernelService.${name}`, kref);
@@ -351,7 +353,12 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     },
     getKnownRelays(): string[] {
       const raw = kv.get('knownRelays');
-      return raw ? JSON.parse(raw) : [];
+      if (!raw) {
+        return [];
+      }
+      const parsed: unknown = JSON.parse(raw);
+      Array.isArray(parsed) || Fail`knownRelays must be an array`;
+      return parsed as string[];
     },
     setKnownRelays(relays: string[]): void {
       kv.set('knownRelays', JSON.stringify(relays));

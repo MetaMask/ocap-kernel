@@ -5,15 +5,16 @@ import { makePromiseKit } from '@endo/promise-kit';
 import { processGCActionSet } from './garbage-collection/garbage-collection.ts';
 import { kser } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
+import { insistKRef } from './types.ts';
 import type {
   CrankResult,
+  EndpointId,
   KRef,
   KernelMessage,
   RunQueueItem,
   RunQueueItemNotify,
   RunQueueItemSend,
   VatId,
-  EndpointId,
 } from './types.ts';
 import { Fail } from './utils/assert.ts';
 
@@ -327,7 +328,8 @@ export class KernelQueue {
   ): void {
     for (const resolution of resolutions) {
       const [kpidRaw, rejected, dataRaw] = resolution;
-      const kpid = kpidRaw as KRef;
+      insistKRef(kpidRaw);
+      const kpid = kpidRaw;
       const data = dataRaw as CapData<KRef>;
 
       this.#kernelStore.incrementRefCount(kpid, 'resolve|kpid');

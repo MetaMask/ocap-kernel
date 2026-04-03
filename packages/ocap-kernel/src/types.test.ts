@@ -4,20 +4,34 @@ import { describe, it, expect } from 'vitest';
 import {
   isVatConfig,
   insistKernelMessage,
+  insistEndpointMessage,
   coerceEndpointMessage,
   coerceVatSyscallObject,
   queueTypeFromActionType,
   isGCActionType,
   insistGCActionType,
   isGCAction,
+  insistGCAction,
+  makeGCAction,
   isVatMessageId,
   isSubclusterId,
+  insistSubclusterId,
+  isKRef,
+  insistKRef,
+  isVRef,
+  insistVRef,
+  isRRef,
+  insistRRef,
+  isERef,
+  insistERef,
   isVatId,
   isRemoteId,
+  insistRemoteId,
   isEndpointId,
   insistVatId,
   insistEndpointId,
 } from './types.ts';
+import type { EndpointId, KRef } from './types.ts';
 
 describe('isVatConfig', () => {
   it.each([
@@ -213,14 +227,69 @@ describe('insistKernelMessage', () => {
     expect(() => insistKernelMessage(validMessage)).not.toThrow();
   });
 
+  it('does not throw for message with KRef slots', () => {
+    const validMessage = {
+      methargs: { body: 'body content', slots: ['ko1', 'kp2'] },
+      result: 'ko3',
+    };
+
+    expect(() => insistKernelMessage(validMessage)).not.toThrow();
+  });
+
   it.each([
     { name: 'empty object', value: {} },
     { name: 'incomplete methargs', value: { methargs: {} } },
     { name: 'missing slots', value: { methargs: { body: 'body' } } },
     { name: 'missing methargs', value: { result: 'kp1' } },
+    {
+      name: 'non-KRef slot',
+      value: { methargs: { body: 'body', slots: ['invalid'] } },
+    },
+    {
+      name: 'non-KRef result',
+      value: { methargs: { body: 'body', slots: [] }, result: 'invalid' },
+    },
   ])('throws for $name', ({ value }) => {
     expect(() => insistKernelMessage(value)).toThrow(
       'not a valid kernel message',
+    );
+  });
+});
+
+describe('insistEndpointMessage', () => {
+  it('does not throw for valid message with ERef slots', () => {
+    const validMessage = {
+      methargs: { body: 'body content', slots: ['o+1', 'p-2'] },
+      result: 'o+0',
+    };
+
+    expect(() => insistEndpointMessage(validMessage)).not.toThrow();
+  });
+
+  it('does not throw for message with RRef slots', () => {
+    const validMessage = {
+      methargs: { body: 'body content', slots: ['ro+1', 'rp-2'] },
+    };
+
+    expect(() => insistEndpointMessage(validMessage)).not.toThrow();
+  });
+
+  it.each([
+    {
+      name: 'non-ERef slot',
+      value: { methargs: { body: 'body', slots: ['invalid'] } },
+    },
+    {
+      name: 'KRef slot',
+      value: { methargs: { body: 'body', slots: ['ko1'] } },
+    },
+    {
+      name: 'non-ERef result',
+      value: { methargs: { body: 'body', slots: [] }, result: 'ko1' },
+    },
+  ])('throws for $name', ({ value }) => {
+    expect(() => insistEndpointMessage(value)).toThrow(
+      'not a valid endpoint message',
     );
   });
 });
@@ -311,13 +380,34 @@ describe('coerceEndpointMessage', () => {
 
   it('preserves defined result field', () => {
     const messageWithResult = {
-      methargs: { body: 'test', slots: [] },
-      result: 'kp1',
+      methargs: { body: 'test', slots: ['o+1'] },
+      result: 'p-1',
     };
 
     const coerced = coerceEndpointMessage(messageWithResult);
-    expect(coerced.result).toBe('kp1');
-    expect(coerced.methargs).toStrictEqual({ body: 'test', slots: [] });
+    expect(coerced.result).toBe('p-1');
+    expect(coerced.methargs).toStrictEqual({ body: 'test', slots: ['o+1'] });
+  });
+
+  it('throws for non-ERef slots', () => {
+    const message = {
+      methargs: { body: 'test', slots: ['invalid'] },
+    };
+
+    expect(() => coerceEndpointMessage(message as unknown as Message)).toThrow(
+      'not a valid ERef',
+    );
+  });
+
+  it('throws for non-ERef result', () => {
+    const message = {
+      methargs: { body: 'test', slots: [] },
+      result: 'invalid',
+    };
+
+    expect(() => coerceEndpointMessage(message as unknown as Message)).toThrow(
+      'not a valid ERef',
+    );
   });
 });
 
@@ -476,5 +566,226 @@ describe('isVatMessageId', () => {
     { name: 'array', value: [] },
   ])('returns false for $name', ({ value }) => {
     expect(isVatMessageId(value)).toBe(false);
+  });
+});
+
+describe('isKRef', () => {
+  it.each(['ko0', 'ko1', 'kp42', 'ko123456789'])(
+    'returns true for valid KRef %s',
+    (value) => {
+      expect(isKRef(value)).toBe(true);
+    },
+  );
+
+  it.each([
+    { name: 'missing k prefix', value: 'o1' },
+    { name: 'invalid type char', value: 'kx1' },
+    { name: 'no digits', value: 'ko' },
+    { name: 'non-digit suffix', value: 'ko1abc' },
+    { name: 'float suffix', value: 'ko1.5' },
+    { name: 'number', value: 123 },
+    { name: 'null', value: null },
+  ])('returns false for $name', ({ value }) => {
+    expect(isKRef(value)).toBe(false);
+  });
+});
+
+describe('insistKRef', () => {
+  it.each(['ko0', 'ko1', 'kp42'])(
+    'does not throw for valid KRef %s',
+    (value) => {
+      expect(() => insistKRef(value)).not.toThrow();
+    },
+  );
+
+  it.each([
+    { name: 'invalid format', value: 'invalid' },
+    { name: 'missing digits', value: 'ko' },
+    { name: 'number', value: 123 },
+  ])('throws for $name', ({ value }) => {
+    expect(() => insistKRef(value)).toThrow('not a valid KRef');
+  });
+});
+
+describe('isVRef', () => {
+  it.each(['o+0', 'o-1', 'p+42', 'p-0', 'o+123456789'])(
+    'returns true for valid VRef %s',
+    (value) => {
+      expect(isVRef(value)).toBe(true);
+    },
+  );
+
+  it.each([
+    { name: 'missing sign', value: 'o1' },
+    { name: 'wrong prefix', value: 'x+1' },
+    { name: 'no digits', value: 'o+' },
+    { name: 'non-digit suffix', value: 'o+1abc' },
+    { name: 'kernel ref', value: 'ko1' },
+    { name: 'remote ref', value: 'ro+1' },
+    { name: 'number', value: 123 },
+    { name: 'null', value: null },
+  ])('returns false for $name', ({ value }) => {
+    expect(isVRef(value)).toBe(false);
+  });
+});
+
+describe('insistVRef', () => {
+  it.each(['o+0', 'p-1', 'o+42'])(
+    'does not throw for valid VRef %s',
+    (value) => {
+      expect(() => insistVRef(value)).not.toThrow();
+    },
+  );
+
+  it.each([
+    { name: 'invalid format', value: 'invalid' },
+    { name: 'kernel ref', value: 'ko1' },
+    { name: 'number', value: 123 },
+  ])('throws for $name', ({ value }) => {
+    expect(() => insistVRef(value)).toThrow('not a valid VRef');
+  });
+});
+
+describe('isRRef', () => {
+  it.each(['ro+0', 'ro-1', 'rp+42', 'rp-0', 'ro+123456789'])(
+    'returns true for valid RRef %s',
+    (value) => {
+      expect(isRRef(value)).toBe(true);
+    },
+  );
+
+  it.each([
+    { name: 'missing r prefix', value: 'o+1' },
+    { name: 'missing sign', value: 'ro1' },
+    { name: 'wrong inner char', value: 'rx+1' },
+    { name: 'no digits', value: 'ro+' },
+    { name: 'non-digit suffix', value: 'ro+1abc' },
+    { name: 'kernel ref', value: 'ko1' },
+    { name: 'number', value: 123 },
+    { name: 'null', value: null },
+  ])('returns false for $name', ({ value }) => {
+    expect(isRRef(value)).toBe(false);
+  });
+});
+
+describe('insistRRef', () => {
+  it.each(['ro+0', 'rp-1', 'ro+42'])(
+    'does not throw for valid RRef %s',
+    (value) => {
+      expect(() => insistRRef(value)).not.toThrow();
+    },
+  );
+
+  it.each([
+    { name: 'invalid format', value: 'invalid' },
+    { name: 'vat ref', value: 'o+1' },
+    { name: 'number', value: 123 },
+  ])('throws for $name', ({ value }) => {
+    expect(() => insistRRef(value)).toThrow('not a valid RRef');
+  });
+});
+
+describe('isERef', () => {
+  it.each(['o+0', 'p-1', 'ro+1', 'rp-2'])(
+    'returns true for valid ERef %s',
+    (value) => {
+      expect(isERef(value)).toBe(true);
+    },
+  );
+
+  it.each([
+    { name: 'kernel ref', value: 'ko1' },
+    { name: 'plain string', value: 'invalid' },
+    { name: 'number', value: 123 },
+    { name: 'null', value: null },
+  ])('returns false for $name', ({ value }) => {
+    expect(isERef(value)).toBe(false);
+  });
+});
+
+describe('insistERef', () => {
+  it.each(['o+0', 'p-1', 'ro+1', 'rp-2'])(
+    'does not throw for valid ERef %s',
+    (value) => {
+      expect(() => insistERef(value)).not.toThrow();
+    },
+  );
+
+  it.each([
+    { name: 'kernel ref', value: 'ko1' },
+    { name: 'invalid format', value: 'invalid' },
+    { name: 'number', value: 123 },
+  ])('throws for $name', ({ value }) => {
+    expect(() => insistERef(value)).toThrow('not a valid ERef');
+  });
+});
+
+describe('insistRemoteId', () => {
+  it.each(['r0', 'r1', 'r42'])(
+    'does not throw for valid remote ID %s',
+    (id) => {
+      expect(() => insistRemoteId(id)).not.toThrow();
+    },
+  );
+
+  it.each([
+    { name: 'invalid format', value: 'invalid' },
+    { name: 'wrong prefix', value: 'v1' },
+    { name: 'number', value: 123 },
+  ])('throws for $name', ({ value }) => {
+    expect(() => insistRemoteId(value)).toThrow('not a valid RemoteId');
+  });
+});
+
+describe('insistSubclusterId', () => {
+  it.each(['s0', 's1', 's42'])(
+    'does not throw for valid subcluster ID %s',
+    (id) => {
+      expect(() => insistSubclusterId(id)).not.toThrow();
+    },
+  );
+
+  it.each([
+    { name: 'invalid format', value: 'invalid' },
+    { name: 'wrong prefix', value: 'v1' },
+    { name: 'number', value: 123 },
+  ])('throws for $name', ({ value }) => {
+    expect(() => insistSubclusterId(value)).toThrow('not a valid SubclusterId');
+  });
+});
+
+describe('insistGCAction', () => {
+  it.each([
+    'v1 dropExport ko123',
+    'v2 retireExport ko456',
+    'r1 retireImport ko789',
+  ])('does not throw for valid GC action %s', (value) => {
+    expect(() => insistGCAction(value)).not.toThrow();
+  });
+
+  it.each([
+    { name: 'invalid format', value: 'invalid' },
+    { name: 'invalid vatId', value: 'invalid dropExport ko123' },
+    { name: 'number', value: 123 },
+  ])('throws for $name', ({ value }) => {
+    expect(() => insistGCAction(value)).toThrow('not a valid GCAction');
+  });
+});
+
+describe('makeGCAction', () => {
+  it('creates a valid GCAction from valid inputs', () => {
+    const action = makeGCAction(
+      'v1' as EndpointId,
+      'dropExport',
+      'ko1' as KRef,
+    );
+    expect(action).toBe('v1 dropExport ko1');
+    expect(isGCAction(action)).toBe(true);
+  });
+
+  it('throws for non-object kref', () => {
+    expect(() =>
+      makeGCAction('v1' as EndpointId, 'dropExport', 'kp1' as KRef),
+    ).toThrow('GC actions only apply to objects');
   });
 });

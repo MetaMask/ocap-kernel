@@ -7,10 +7,11 @@ import { getReachableMethods } from './reachable.ts';
 import { getRefCountMethods } from './refcount.ts';
 import { getSubclusterMethods } from './subclusters.ts';
 import { getVatMethods } from './vat.ts';
+import { insistGCAction, makeGCAction } from '../../types.ts';
 import type {
-  VatId,
   EndpointId,
   KRef,
+  VatId,
   GCAction,
   RunQueueItemBringOutYourDead,
 } from '../../types.ts';
@@ -39,8 +40,13 @@ export function getGCMethods(ctx: StoreContext) {
    * @returns The set of GC actions to perform.
    */
   function getGCActions(): Set<GCAction> {
-    const parsed: string[] = JSON.parse(ctx.gcActions.get() ?? '[]');
-    return new Set(parsed as GCAction[]);
+    const parsed: unknown[] = JSON.parse(ctx.gcActions.get() ?? '[]');
+    const actions = new Set<GCAction>();
+    for (const action of parsed) {
+      insistGCAction(action);
+      actions.add(action);
+    }
+    return actions;
   }
 
   /**
@@ -106,7 +112,7 @@ export function getGCMethods(ctx: StoreContext) {
     for (const koid of koids) {
       const importers = getImporters(koid);
       for (const vatID of importers) {
-        newActions.push(`${vatID} retireImport ${koid}` as GCAction);
+        newActions.push(makeGCAction(vatID, 'retireImport', koid));
       }
       deleteKernelObject(koid);
     }
@@ -161,12 +167,12 @@ export function getGCMethods(ctx: StoreContext) {
             const vatConsidersReachable = getReachableFlag(ownerVatID, kref);
             if (vatConsidersReachable) {
               // the reachable count is zero, but the vat doesn't realize it
-              actions.add(`${ownerVatID} dropExport ${kref}` as GCAction);
+              actions.add(makeGCAction(ownerVatID, 'dropExport', kref));
             }
             if (recognizable === 0) {
               // TODO: rethink this assert
               // assert.equal(vatConsidersReachable, false, `${kref} is reachable but not recognizable`);
-              actions.add(`${ownerVatID} retireExport ${kref}` as GCAction);
+              actions.add(makeGCAction(ownerVatID, 'retireExport', kref));
             }
           } else if (ownerVatID && terminated) {
             // When we're slowly deleting a vat, and one of its

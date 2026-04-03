@@ -1,6 +1,7 @@
 import { getRefCountMethods } from './refcount.ts';
 import type { KRef } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
+import { readKRef } from '../utils/read-branded.ts';
 
 /**
  * Split a comma-separated string into an array.
@@ -57,7 +58,7 @@ export function getPinMethods(ctx: StoreContext) {
    * @returns An array of KRefs for all pinned objects.
    */
   function getPinnedObjects(): KRef[] {
-    return commaSplit(ctx.kv.get('pinnedObjects')) as KRef[];
+    return commaSplit(ctx.kv.get('pinnedObjects')).map(readKRef);
   }
 
   /**

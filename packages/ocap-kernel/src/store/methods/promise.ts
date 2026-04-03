@@ -2,6 +2,7 @@ import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 
 import { getBaseMethods } from './base.ts';
+import { insistEndpointId } from '../../types.ts';
 import type {
   KRef,
   KernelPromise,
@@ -14,6 +15,7 @@ import { getRefCountMethods } from './refcount.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
 import { parseRef } from '../utils/parse-ref.ts';
 import { isPromiseRef } from '../utils/promise-ref.ts';
+import { readRequiredKRef } from '../utils/read-branded.ts';
 
 /**
  * Create a promise store object that provides functionality for managing kernel promises.
@@ -67,7 +69,8 @@ export function getPromiseMethods(ctx: StoreContext) {
       case 'unresolved': {
         const decider = ctx.kv.get(`${kpid}.decider`);
         if (decider !== '' && decider !== undefined) {
-          result.decider = decider as EndpointId;
+          insistEndpointId(decider);
+          result.decider = decider;
         }
         const subscribers = ctx.kv.getRequired(`${kpid}.subscribers`);
         result.subscribers = JSON.parse(subscribers);
@@ -209,7 +212,7 @@ export function getPromiseMethods(ctx: StoreContext) {
   function* getPromisesByDecider(decider: EndpointId): Generator<KRef> {
     const basePrefix = `cle.${decider}.`;
     for (const key of getPrefixedKeys(`${basePrefix}p`)) {
-      const kpid = ctx.kv.getRequired(key) as KRef;
+      const kpid = readRequiredKRef(ctx.kv, key);
       const kp = getKernelPromise(kpid);
       if (kp.state === 'unresolved' && kp.decider === decider) {
         yield kpid;

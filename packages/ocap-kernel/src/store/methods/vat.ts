@@ -10,6 +10,7 @@ import type { EndpointId, KRef, VatConfig, VatId, ERef } from '../../types.ts';
 import type { StoreContext, VatCleanupWork } from '../types.ts';
 import { parseRef } from '../utils/parse-ref.ts';
 import { parseReachableAndVatSlot } from '../utils/reachable.ts';
+import { readKRef, readOptionalKRef } from '../utils/read-branded.ts';
 
 type VatRecord = {
   vatID: VatId;
@@ -244,7 +245,7 @@ export function getVatMethods(ctx: StoreContext) {
       assert(key.startsWith(clistPrefix), key);
       const vref = key.slice(clistPrefix.length);
       assert(vref.startsWith('o+'), vref);
-      const kref = ctx.kv.get(key) as KRef;
+      const kref = readOptionalKRef(ctx.kv, key);
       assert(kref, key);
       // deletes c-list and .owner, adds to maybeFreeKrefs
       const ownerKey = getOwnerKey(kref);
@@ -264,7 +265,7 @@ export function getVatMethods(ctx: StoreContext) {
     for (const key of getPrefixedKeys(importPrefix)) {
       // abandoned imports: delete the clist entry as if the vat did a
       // drop+retire
-      const krefStr = (ctx.kv.get(key) ?? Fail`getNextKey ensures get`) as KRef;
+      const krefStr = readKRef(ctx.kv.get(key) ?? Fail`getNextKey ensures get`);
       assert(key.startsWith(clistPrefix), key);
       const vref = key.slice(clistPrefix.length) as ERef;
       deleteCListEntry(vatID, krefStr, vref);
@@ -276,7 +277,7 @@ export function getVatMethods(ctx: StoreContext) {
     // so they have already rejected the orphan promises, but those
     // kpids are still present in the dead vat's c-list. Clean those up now.
     for (const key of getPrefixedKeys(promisePrefix)) {
-      const krefStr = (ctx.kv.get(key) ?? Fail`getNextKey ensures get`) as KRef;
+      const krefStr = readKRef(ctx.kv.get(key) ?? Fail`getNextKey ensures get`);
       assert(key.startsWith(clistPrefix), key);
       const vref = key.slice(clistPrefix.length) as ERef;
       // the following will also delete both db keys
