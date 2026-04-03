@@ -380,34 +380,13 @@ describe('coerceEndpointMessage', () => {
 
   it('preserves defined result field', () => {
     const messageWithResult = {
-      methargs: { body: 'test', slots: ['o+1'] },
-      result: 'p-1',
+      methargs: { body: 'test', slots: [] },
+      result: 'kp1',
     };
 
     const coerced = coerceEndpointMessage(messageWithResult);
-    expect(coerced.result).toBe('p-1');
-    expect(coerced.methargs).toStrictEqual({ body: 'test', slots: ['o+1'] });
-  });
-
-  it('throws for non-ERef slots', () => {
-    const message = {
-      methargs: { body: 'test', slots: ['invalid'] },
-    };
-
-    expect(() => coerceEndpointMessage(message as unknown as Message)).toThrow(
-      'not a valid ERef',
-    );
-  });
-
-  it('throws for non-ERef result', () => {
-    const message = {
-      methargs: { body: 'test', slots: [] },
-      result: 'invalid',
-    };
-
-    expect(() => coerceEndpointMessage(message as unknown as Message)).toThrow(
-      'not a valid ERef',
-    );
+    expect(coerced.result).toBe('kp1');
+    expect(coerced.methargs).toStrictEqual({ body: 'test', slots: [] });
   });
 });
 

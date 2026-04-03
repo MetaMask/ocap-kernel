@@ -204,12 +204,6 @@ export function coerceEndpointMessage(
   if (message.result === undefined) {
     delete (message as EndpointMessage).result;
   }
-  for (const slot of message.methargs.slots) {
-    insistERef(slot);
-  }
-  if (message.result !== undefined && message.result !== null) {
-    insistERef(message.result);
-  }
   return message as EndpointMessage;
 }
 
