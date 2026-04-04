@@ -1,6 +1,5 @@
 import type {
   Baggage,
-  SwingSetCapData,
   Message as SwingsetMessage,
   VatSyscallObject,
   VatSyscallSend,
@@ -11,6 +10,7 @@ import type { PlatformConfig } from '@metamask/kernel-platforms';
 import { platformConfigStruct } from '@metamask/kernel-platforms';
 import type { VatCheckpoint } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
+import { CapDataStruct } from '@metamask/kernel-utils';
 import type { DuplexStream } from '@metamask/streams';
 import {
   assign,
@@ -73,7 +73,7 @@ export const isRemoteId = (value: unknown): value is RemoteId =>
   typeof value === 'string' && /^r\d+$/u.test(value);
 
 export const isEndpointId = (value: unknown): value is EndpointId =>
-  typeof value === 'string' && /^[vr]\d+$/u.test(value);
+  isVatId(value) || isRemoteId(value);
 
 export const isKRef = (value: unknown): value is KRef =>
   typeof value === 'string' && /^k[op]\d+$/u.test(value);
@@ -147,11 +147,7 @@ export const RemoteIdStruct = define<RemoteId>('RemoteId', isRemoteId);
 export const EndpointIdStruct = define<EndpointId>('EndpointId', isEndpointId);
 export const KRefStruct = define<KRef>('KRef', isKRef);
 export const ERefStruct = define<ERef>('ERef', isERef);
-
-export const CapDataStruct = object({
-  body: string(),
-  slots: array(string()),
-});
+export { CapDataStruct };
 
 export const VatOneResolutionStruct = tuple([
   string(),
@@ -174,7 +170,7 @@ export type KernelSyscallObject =
   | ['send', KRef, KernelMessage]
   | ['subscribe', KRef]
   | ['resolve', KernelOneResolution[]]
-  | ['exit', boolean, SwingSetCapData]
+  | ['exit', boolean, CapData<KRef>]
   | ['dropImports', KRef[]]
   | ['retireImports', KRef[]]
   | ['retireExports', KRef[]]
@@ -348,7 +344,7 @@ export type PromiseState = 'unresolved' | 'fulfilled' | 'rejected';
 
 export type KernelPromise = {
   state: PromiseState;
-  decider?: EndpointId;
+  decider?: EndpointId | 'kernel';
   subscribers?: EndpointId[];
   value?: CapData<KRef>;
 };
@@ -750,7 +746,7 @@ export function makeGCAction(
 export type CrankResult = {
   didDelivery?: EndpointId | 'kernel'; // the endpoint to which we made a delivery
   abort?: boolean; // changes should be discarded, not committed
-  terminate?: { vatId: VatId; reject: boolean; info: SwingSetCapData };
+  terminate?: { vatId: VatId; reject: boolean; info: CapData<KRef> };
 };
 
 export type VatDeliveryResult = [VatCheckpoint, string | null];

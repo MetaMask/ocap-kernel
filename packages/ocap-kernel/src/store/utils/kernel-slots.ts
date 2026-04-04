@@ -1,5 +1,5 @@
 import type { KRef } from '../../types.ts';
-import { assert, Fail } from '../../utils/assert.ts';
+import { Fail } from '../../utils/assert.ts';
 
 // Object/promise references (in the kernel) contain a two-tuple of (type,
 // index). All object references point to entries in the kernel Object
@@ -19,11 +19,10 @@ type KernelSlotType = 'object' | 'promise';
  * @returns kernel slot object corresponding to the parameter.
  * @throws if the given string is syntactically incorrect.
  */
-export function parseKernelSlot(slot: string): {
+export function parseKernelSlot(slot: KRef): {
   type: KernelSlotType;
   id: string;
 } {
-  assert.typeof(slot, 'string');
   let type: KernelSlotType;
   let idSuffix: string;
   if (slot.startsWith('ko')) {
@@ -67,8 +66,8 @@ export function makeKernelSlot(type: KernelSlotType, id: string): KRef {
  */
 export function insistKernelType(
   type: KernelSlotType,
-  kernelSlot: string | undefined,
-): asserts kernelSlot is KernelSlotType {
+  kernelSlot: KRef | undefined,
+): asserts kernelSlot is KRef {
   if (kernelSlot === undefined) {
     throw Fail`kernelSlot is undefined`;
   }

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
 import type { GCAction, KRef } from '../../types.ts';
-import { isGCAction } from '../../types.ts';
+import { makeGCAction } from '../../types.ts';
 import { makeKernelStore } from '../index.ts';
 
 describe('GC methods', () => {
@@ -47,23 +47,10 @@ describe('GC methods', () => {
       expect(actions).toStrictEqual(new Set(remoteActions));
     });
 
-    it('rejects invalid GC actions at construction time', () => {
-      const v1Object = kernelStore.initKernelObject('v1');
-
-      // Invalid endpoint ID
-      expect(isGCAction(`x1 dropExport ${v1Object}`)).toBe(false);
-
-      // Invalid action type
-      expect(isGCAction(`v1 invalidAction ${v1Object}`)).toBe(false);
-
-      // Invalid kref (must be kernel object, not promise)
-      expect(isGCAction('v1 dropExport kp1')).toBe(false);
-
-      // Malformed action string
-      expect(isGCAction('v1 dropExport')).toBe(false);
-
-      // Valid action
-      expect(isGCAction(`v1 dropExport ${v1Object}`)).toBe(true);
+    it('rejects promise krefs at construction time', () => {
+      expect(() => makeGCAction('v1', 'dropExport', 'kp1' as KRef)).toThrow(
+        'GC actions only apply to objects',
+      );
     });
 
     it('maintains action order when storing', () => {

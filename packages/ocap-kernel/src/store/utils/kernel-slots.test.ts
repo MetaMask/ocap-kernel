@@ -5,11 +5,12 @@ import {
   makeKernelSlot,
   insistKernelType,
 } from './kernel-slots.ts';
+import type { KRef } from '../../types.ts';
 
 describe('kernel-slots', () => {
   describe('parseKernelSlot', () => {
     it('parses object slots correctly', () => {
-      const result = parseKernelSlot('ko123');
+      const result = parseKernelSlot('ko123' as KRef);
       expect(result).toStrictEqual({
         type: 'object',
         id: '123',
@@ -17,7 +18,7 @@ describe('kernel-slots', () => {
     });
 
     it('parses promise slots correctly', () => {
-      const result = parseKernelSlot('kp456');
+      const result = parseKernelSlot('kp456' as KRef);
       expect(result).toStrictEqual({
         type: 'promise',
         id: '456',
@@ -25,28 +26,15 @@ describe('kernel-slots', () => {
     });
 
     it('throws for invalid slot format', () => {
-      expect(() => parseKernelSlot('invalid')).toThrow(
+      expect(() => parseKernelSlot('invalid' as KRef)).toThrow(
         'invalid kernelSlot "invalid"',
       );
-      expect(() => parseKernelSlot('k123')).toThrow(
+      expect(() => parseKernelSlot('k123' as KRef)).toThrow(
         'invalid kernelSlot "k123"',
       );
-      expect(() => parseKernelSlot('kx123')).toThrow(
+      expect(() => parseKernelSlot('kx123' as KRef)).toThrow(
         'invalid kernelSlot "kx123"',
       );
-    });
-
-    it('throws for non-string input', () => {
-      // @ts-expect-error Testing invalid input
-      expect(() => parseKernelSlot(123)).toThrow('123 must be a string');
-      // @ts-expect-error Testing invalid input
-      expect(() => parseKernelSlot(null)).toThrow('null must be a string');
-      // @ts-expect-error Testing invalid input
-      expect(() => parseKernelSlot(undefined)).toThrow(
-        '"[undefined]" must be a string',
-      );
-      // @ts-expect-error Testing invalid input
-      expect(() => parseKernelSlot({})).toThrow('{} must be a string');
     });
   });
 
@@ -69,27 +57,27 @@ describe('kernel-slots', () => {
 
   describe('insistKernelType', () => {
     it('passes for correct object type', () => {
-      expect(() => insistKernelType('object', 'ko123')).not.toThrow();
+      expect(() => insistKernelType('object', 'ko123' as KRef)).not.toThrow();
     });
 
     it('passes for correct promise type', () => {
-      expect(() => insistKernelType('promise', 'kp456')).not.toThrow();
+      expect(() => insistKernelType('promise', 'kp456' as KRef)).not.toThrow();
     });
 
     it('throws for mismatched type', () => {
-      expect(() => insistKernelType('object', 'kp123')).toThrow(
+      expect(() => insistKernelType('object', 'kp123' as KRef)).toThrow(
         'kernelSlot "kp123" is not of type "object"',
       );
-      expect(() => insistKernelType('promise', 'ko456')).toThrow(
+      expect(() => insistKernelType('promise', 'ko456' as KRef)).toThrow(
         'kernelSlot "ko456" is not of type "promise"',
       );
     });
 
     it('throws for invalid slot format', () => {
-      expect(() => insistKernelType('object', 'invalid')).toThrow(
+      expect(() => insistKernelType('object', 'invalid' as KRef)).toThrow(
         'invalid kernelSlot "invalid"',
       );
-      expect(() => insistKernelType('promise', 'k123')).toThrow(
+      expect(() => insistKernelType('promise', 'k123' as KRef)).toThrow(
         'invalid kernelSlot "k123"',
       );
     });

@@ -171,7 +171,7 @@ export class KernelQueue {
     // or by syscall.exit().
     if (crankResult?.terminate) {
       const { vatId, info } = crankResult.terminate;
-      await this.#terminateVat(vatId, info as CapData<KRef>);
+      await this.#terminateVat(vatId, info);
     }
     this.#kernelStore.collectGarbage();
   }

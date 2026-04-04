@@ -101,7 +101,7 @@ export const isJsonRpcMessage = (value: unknown): value is JsonRpcMessage =>
  * @param value - The value to check.
  * @returns `true` when `value` looks like CapData.
  */
-const CapDataStruct = object({ body: string(), slots: array(string()) });
+export const CapDataStruct = object({ body: string(), slots: array(string()) });
 
 export const isCapData = (
   value: unknown,

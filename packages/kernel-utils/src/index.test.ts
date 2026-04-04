@@ -5,6 +5,7 @@ import * as indexModule from './index.ts';
 describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
+      'CapDataStruct',
       'DEFAULT_BASE_DELAY_MS',
       'DEFAULT_MAX_DELAY_MS',
       'DEFAULT_MAX_RETRY_ATTEMPTS',

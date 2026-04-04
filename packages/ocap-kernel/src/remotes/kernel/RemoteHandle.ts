@@ -19,7 +19,7 @@ import type {
   KernelOneResolution,
   CrankResult,
 } from '../../types.ts';
-import { insistERef } from '../../types.ts';
+import { insistERef, insistKRef } from '../../types.ts';
 import type { RemoteComms } from '../types.ts';
 
 /** How long to wait for ACK before retransmitting (ms). */
@@ -888,10 +888,8 @@ export class RemoteHandle implements EndpointHandle {
       this.#pendingRedemptions.delete(data.replyKey);
       const [resolve, reject] = handlers;
       if (data.success) {
-        // Safe to cast: on success, value is from translateRefEtoK which
-        // returns KRef. The type is widened to string by the shared
-        // deferredCompletion variable.
-        resolve(data.value as KRef);
+        insistKRef(data.value);
+        resolve(data.value);
       } else {
         reject(data.value);
       }

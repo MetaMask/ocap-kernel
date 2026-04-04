@@ -7,11 +7,10 @@ import { getReachableMethods } from './reachable.ts';
 import { getRefCountMethods } from './refcount.ts';
 import { getSubclusterMethods } from './subclusters.ts';
 import { getVatMethods } from './vat.ts';
-import { makeGCAction } from '../../types.ts';
+import { isVatId, makeGCAction } from '../../types.ts';
 import type {
   EndpointId,
   KRef,
-  VatId,
   GCAction,
   RunQueueItemBringOutYourDead,
 } from '../../types.ts';
@@ -28,7 +27,8 @@ import { parseKernelSlot } from '../utils/kernel-slots.ts';
 export function getGCMethods(ctx: StoreContext) {
   const { getSlotKey, getOwnerKey } = getBaseMethods(ctx.kv);
   const { getRefCount, decrementRefCount } = getRefCountMethods(ctx);
-  const { getObjectRefCount, deleteKernelObject } = getObjectMethods(ctx);
+  const { getObjectRefCount, deleteKernelObject, getOwner } =
+    getObjectMethods(ctx);
   const { getKernelPromise, deleteKernelPromise } = getPromiseMethods(ctx);
   const { getImporters, isVatTerminated } = getVatMethods(ctx);
   const { getReachableFlag, getReachableAndVatSlot } = getReachableMethods(ctx);
@@ -145,16 +145,14 @@ export function getGCMethods(ctx: StoreContext) {
       if (type === 'object') {
         const { reachable, recognizable } = getObjectRefCount(kref);
         if (reachable === 0) {
-          const ownerKey = getOwnerKey(kref);
-          let ownerVatID = ctx.kv.get(ownerKey) as
-            | EndpointId
-            | 'kernel'
-            | undefined;
+          let ownerVatID = getOwner(kref);
           if (ownerVatID === 'kernel') {
             continue;
           }
           const terminated =
-            ownerVatID !== undefined && isVatTerminated(ownerVatID as VatId);
+            ownerVatID !== undefined &&
+            isVatId(ownerVatID) &&
+            isVatTerminated(ownerVatID);
 
           // Some objects that are still owned, but the owning vat
           // might still alive, or might be terminated and in the
@@ -181,7 +179,7 @@ export function getGCMethods(ctx: StoreContext) {
             const { vatSlot } = getReachableAndVatSlot(ownerVatID, kref);
             // delete directly, not orphanKernelObject(), which
             // would re-submit to maybeFreeKrefs
-            ctx.kv.delete(ownerKey);
+            ctx.kv.delete(getOwnerKey(kref));
             ctx.kv.delete(getSlotKey(ownerVatID, kref));
             ctx.kv.delete(getSlotKey(ownerVatID, vatSlot));
             // now fall through to the orphaned case

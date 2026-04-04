@@ -6,6 +6,7 @@ import type { Logger } from '@metamask/logger';
 import { base58btc } from 'multiformats/bases/base58';
 
 import type { KernelStore } from '../../store/index.ts';
+import { insistKRef } from '../../types.ts';
 import type { KRef, PlatformServices } from '../../types.ts';
 import { mnemonicToSeed } from '../../utils/bip39.ts';
 import type {
@@ -222,9 +223,8 @@ export async function initRemoteIdentity(
       throw Error(`ocapURL has bad object reference`);
     }
     const paddedKref = decoder.decode(encodedKref);
-    // Safe to cast: issueOcapURL only accepts KRef, and the crypto
-    // round-trip preserves the value.
-    const kref = paddedKref.trim() as KRef;
+    const kref = paddedKref.trim();
+    insistKRef(kref);
     return kref;
   }
 

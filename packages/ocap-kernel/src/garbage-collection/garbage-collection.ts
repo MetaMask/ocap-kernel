@@ -35,8 +35,8 @@ function parseAction(action: GCAction): ParsedGCAction {
   const [endpointId, type, kref] = action.split(' ');
   insistEndpointId(endpointId);
   insistGCActionType(type);
-  insistKernelType('object', kref);
   insistKRef(kref);
+  insistKernelType('object', kref);
   return harden({ endpointId, type, kref });
 }
 
