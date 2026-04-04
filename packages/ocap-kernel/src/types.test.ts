@@ -381,11 +381,11 @@ describe('coerceEndpointMessage', () => {
   it('preserves defined result field', () => {
     const messageWithResult = {
       methargs: { body: 'test', slots: [] },
-      result: 'kp1',
+      result: 'p+1',
     };
 
     const coerced = coerceEndpointMessage(messageWithResult);
-    expect(coerced.result).toBe('kp1');
+    expect(coerced.result).toBe('p+1');
     expect(coerced.methargs).toStrictEqual({ body: 'test', slots: [] });
   });
 });

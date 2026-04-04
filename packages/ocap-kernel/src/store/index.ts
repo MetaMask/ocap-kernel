@@ -356,7 +356,9 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
         return [];
       }
       const parsed: unknown = JSON.parse(raw);
-      Array.isArray(parsed) || Fail`knownRelays must be an array`;
+      (Array.isArray(parsed) &&
+        parsed.every((entry: unknown) => typeof entry === 'string')) ||
+        Fail`knownRelays must be an array of strings`;
       return parsed as string[];
     },
     setKnownRelays(relays: string[]): void {

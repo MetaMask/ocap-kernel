@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
-import type { GCAction, KRef } from '../../types.ts';
+import type { KRef, EndpointId } from '../../types.ts';
 import { makeGCAction } from '../../types.ts';
 import { makeKernelStore } from '../index.ts';
 
@@ -18,10 +18,10 @@ describe('GC methods', () => {
       const v2Object = kernelStore.initKernelObject('v1');
       const v3Object = kernelStore.initKernelObject('v2');
 
-      const validActions: GCAction[] = [
-        `v1 dropExport ${v1Object}`,
-        `v1 retireExport ${v2Object}`,
-        `v2 retireImport ${v3Object}`,
+      const validActions = [
+        makeGCAction('v1' as EndpointId, 'dropExport', v1Object),
+        makeGCAction('v1' as EndpointId, 'retireExport', v2Object),
+        makeGCAction('v2' as EndpointId, 'retireImport', v3Object),
       ];
 
       kernelStore.addGCActions(validActions);
@@ -35,9 +35,9 @@ describe('GC methods', () => {
       const r0Object = kernelStore.initKernelObject('r0');
       const r1Object = kernelStore.initKernelObject('r1');
 
-      const remoteActions: GCAction[] = [
-        `r0 dropExport ${r0Object}`,
-        `r1 retireExport ${r1Object}`,
+      const remoteActions = [
+        makeGCAction('r0' as EndpointId, 'dropExport', r0Object),
+        makeGCAction('r1' as EndpointId, 'retireExport', r1Object),
       ];
 
       kernelStore.addGCActions(remoteActions);
@@ -59,12 +59,12 @@ describe('GC methods', () => {
       const v3Object = kernelStore.initKernelObject('v3');
 
       const actions = [
-        `v3 retireImport ${v3Object}`,
-        `v1 dropExport ${v1Object}`,
-        `v2 retireExport ${v2Object}`,
+        makeGCAction('v3' as EndpointId, 'retireImport', v3Object),
+        makeGCAction('v1' as EndpointId, 'dropExport', v1Object),
+        makeGCAction('v2' as EndpointId, 'retireExport', v2Object),
       ];
 
-      kernelStore.setGCActions(new Set(actions) as Set<GCAction>);
+      kernelStore.setGCActions(new Set(actions));
 
       // Actions should be sorted when retrieved
       const sortedActions = Array.from(kernelStore.getGCActions());

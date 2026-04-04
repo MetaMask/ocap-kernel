@@ -459,7 +459,6 @@ export class Kernel {
    *
    * @param subclusterId - The id of the subcluster.
    * @returns The subcluster, or undefined if not found.
-   * @throws If subclusterId is not a valid subcluster ID format.
    */
   getSubcluster(subclusterId: SubclusterId): Subcluster | undefined {
     return this.#subclusterManager.getSubcluster(subclusterId);

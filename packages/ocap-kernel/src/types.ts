@@ -1,3 +1,24 @@
+/**
+ * Branded types for kernel identifiers.
+ *
+ * ## Trust model
+ *
+ * Branded types are validated at creation time via `insist*()` assertions and
+ * `makeGCAction()`. After construction, the type system carries the invariant
+ * — interior code trusts the brand without re-checking.
+ *
+ * - **External input** (JSON-RPC params, liveslots syscalls): validated at the
+ *   boundary using superstruct definitions (`KRefStruct`, `EndpointIdStruct`,
+ *   `EndpointMessageStruct`, etc.).
+ * - **Translator layer**: validates endpoint-space refs via `insistERef()`
+ *   before translating to kernel-space.
+ * - **Persistence reads**: trusted. Data integrity is the responsibility of the
+ *   persistence layer (`@metamask/kernel-store`); branded types are applied via
+ *   `as` casts on read. See the kernel-store package README for details.
+ * - **Internal construction** (counters, template literals): uses `as` casts
+ *   where the format is controlled by the constructor (e.g., `\`v\${id}\` as VatId`).
+ */
+
 import type {
   Baggage,
   Message as SwingsetMessage,
@@ -98,7 +119,10 @@ export function insistVatId(value: unknown): asserts value is VatId {
 }
 
 /**
+ * Assert that a value is a valid remote id.
+ *
  * @param value - The value to check.
+ * @throws If the value is not a valid remote id.
  */
 export function insistRemoteId(value: unknown): asserts value is RemoteId {
   isRemoteId(value) || Fail`not a valid RemoteId: ${value}`;
@@ -115,28 +139,40 @@ export function insistEndpointId(value: unknown): asserts value is EndpointId {
 }
 
 /**
+ * Assert that a value is a valid kernel reference.
+ *
  * @param value - The value to check.
+ * @throws If the value is not a valid kernel reference.
  */
 export function insistKRef(value: unknown): asserts value is KRef {
   isKRef(value) || Fail`not a valid KRef: ${value}`;
 }
 
 /**
+ * Assert that a value is a valid vat reference.
+ *
  * @param value - The value to check.
+ * @throws If the value is not a valid vat reference.
  */
 export function insistVRef(value: unknown): asserts value is VRef {
   isVRef(value) || Fail`not a valid VRef: ${value}`;
 }
 
 /**
+ * Assert that a value is a valid remote reference.
+ *
  * @param value - The value to check.
+ * @throws If the value is not a valid remote reference.
  */
 export function insistRRef(value: unknown): asserts value is RRef {
   isRRef(value) || Fail`not a valid RRef: ${value}`;
 }
 
 /**
+ * Assert that a value is a valid endpoint reference.
+ *
  * @param value - The value to check.
+ * @throws If the value is not a valid endpoint reference.
  */
 export function insistERef(value: unknown): asserts value is ERef {
   isERef(value) || Fail`not a valid ERef: ${value}`;
@@ -215,7 +251,8 @@ export function coerceEndpointMessage(
   if (message.result === undefined) {
     delete (message as EndpointMessage).result;
   }
-  return message as EndpointMessage;
+  insistEndpointMessage(message);
+  return message;
 }
 
 type JsonVatSyscallObject =
@@ -307,7 +344,10 @@ export function insistKernelMessage(
 }
 
 /**
+ * Assert that a value is a valid endpoint message.
+ *
  * @param value - The value to check.
+ * @throws If the value is not a valid endpoint message.
  */
 export function insistEndpointMessage(
   value: unknown,
@@ -364,7 +404,10 @@ export const SubclusterIdStruct = define<SubclusterId>(
 );
 
 /**
+ * Assert that a value is a valid subcluster id.
+ *
  * @param value - The value to check.
+ * @throws If the value is not a valid subcluster id.
  */
 export function insistSubclusterId(
   value: unknown,
@@ -720,7 +763,10 @@ export const isGCAction = (value: unknown): value is GCAction =>
   is(value, GCActionStruct);
 
 /**
+ * Assert that a value is a valid GC action.
+ *
  * @param value - The value to check.
+ * @throws If the value is not a valid GC action.
  */
 export function insistGCAction(value: unknown): asserts value is GCAction {
   isGCAction(value) || Fail`not a valid GCAction: ${value}`;
