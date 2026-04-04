@@ -5,7 +5,6 @@ import { ROOT_OBJECT_VREF, insistEndpointId } from '../../types.ts';
 import type { EndpointId, KRef, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
-import { readOptionalKRef } from '../utils/read-branded.ts';
 
 /**
  * Create an object store object that provides functionality for managing kernel objects.
@@ -57,7 +56,7 @@ export function getObjectMethods(ctx: StoreContext) {
    * @returns The root object for the vat.
    */
   function getRootObject(vatId: VatId): KRef | undefined {
-    return readOptionalKRef(ctx.kv, getSlotKey(vatId, ROOT_OBJECT_VREF));
+    return ctx.kv.get<KRef>(getSlotKey(vatId, ROOT_OBJECT_VREF));
   }
 
   /**

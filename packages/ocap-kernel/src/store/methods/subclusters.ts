@@ -9,7 +9,6 @@ import type {
 } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { getBaseMethods } from './base.ts';
-import { readOptionalSubclusterId } from '../utils/read-branded.ts';
 
 /**
  * Get a subcluster store object that provides functionality for managing subcluster records.
@@ -256,7 +255,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
    * @returns The subcluster ID, or undefined if not found.
    */
   function getSystemSubclusterMapping(name: string): SubclusterId | undefined {
-    return readOptionalSubclusterId(kv, `systemSubcluster.${name}`);
+    return ctx.kv.get<SubclusterId>(`systemSubcluster.${name}`);
   }
 
   /**
@@ -292,7 +291,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
     const mappings = new Map<string, SubclusterId>();
     for (const key of getPrefixedKeys(prefix)) {
       const name = key.slice(prefix.length);
-      const subclusterId = readOptionalSubclusterId(kv, key);
+      const subclusterId = ctx.kv.get<SubclusterId>(key);
       if (subclusterId) {
         mappings.set(name, subclusterId);
       }

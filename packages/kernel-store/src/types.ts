@@ -1,6 +1,6 @@
 export type KVStore = {
-  get(key: string): string | undefined;
-  getRequired(key: string): string;
+  get<Value extends string = string>(key: string): Value | undefined;
+  getRequired<Value extends string = string>(key: string): Value;
   getNextKey(previousKey: string): string | undefined;
   set(key: string, value: string): void;
   delete(key: string): void;

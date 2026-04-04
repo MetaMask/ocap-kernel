@@ -14,7 +14,6 @@ import { getRefCountMethods } from './refcount.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
 import { parseRef } from '../utils/parse-ref.ts';
 import { isPromiseRef } from '../utils/promise-ref.ts';
-import { readRequiredKRef } from '../utils/read-branded.ts';
 
 /**
  * Create a promise store object that provides functionality for managing kernel promises.
@@ -212,7 +211,7 @@ export function getPromiseMethods(ctx: StoreContext) {
   function* getPromisesByDecider(decider: EndpointId): Generator<KRef> {
     const basePrefix = `cle.${decider}.`;
     for (const key of getPrefixedKeys(`${basePrefix}p`)) {
-      const kpid = readRequiredKRef(ctx.kv, key);
+      const kpid = ctx.kv.getRequired<KRef>(key);
       const kp = getKernelPromise(kpid);
       if (kp.state === 'unresolved' && kp.decider === decider) {
         yield kpid;

@@ -87,7 +87,6 @@ import { getSubclusterMethods } from './methods/subclusters.ts';
 import { getTranslators } from './methods/translators.ts';
 import { getVatMethods } from './methods/vat.ts';
 import type { StoreContext } from './types.ts';
-import { readOptionalKRef } from './utils/read-branded.ts';
 
 /**
  * Create a new KernelStore object wrapped around a raw kernel database. The
@@ -325,7 +324,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
 
     // Kernel service krefs
     getKernelServiceKref(name: string): KRef | undefined {
-      return readOptionalKRef(kv, `kernelService.${name}`);
+      return kv.get<KRef>(`kernelService.${name}`);
     },
     setKernelServiceKref(name: string, kref: KRef): void {
       kv.set(`kernelService.${name}`, kref);

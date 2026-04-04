@@ -19,13 +19,13 @@ export function makeVatKVStore(state: Map<string, string>): VatKVStore {
   let lastNextKeyIndex: number = -1;
 
   return {
-    get(key: string): string | undefined {
-      return state.get(key);
+    get<Value extends string = string>(key: string): Value | undefined {
+      return state.get(key) as Value | undefined;
     },
-    getRequired(key: string): string {
+    getRequired<Value extends string = string>(key: string): Value {
       const result = state.get(key);
       if (result) {
-        return result;
+        return result as Value;
       }
       throw Error(`no value matching key '${key}'`);
     },
