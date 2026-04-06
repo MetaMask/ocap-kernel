@@ -3,7 +3,7 @@ import type { CapData } from '@endo/marshal';
 import { Logger } from '@metamask/logger';
 
 import { KernelQueue } from './KernelQueue.ts';
-import { kser } from './liveslots/kernel-marshal.ts';
+import { makeKernelError } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import { extractSingleRef } from './store/utils/extract-ref.ts';
 import { parseRef } from './store/utils/parse-ref.ts';
@@ -142,12 +142,17 @@ export class KernelRouter {
     };
     const routeAsSend = (targetObject: KRef): MessageRoute => {
       if (this.#kernelStore.isRevoked(targetObject)) {
-        return routeAsSplat(kser('target object has been revoked'));
+        return routeAsSplat(
+          makeKernelError('OBJECT_REVOKED', 'Target object has been revoked'),
+        );
       }
       const endpointId = this.#kernelStore.getOwner(targetObject);
       if (!endpointId) {
         return routeAsSplat(
-          kser('target object has no owner; it may have been deleted'),
+          makeKernelError(
+            'OBJECT_DELETED',
+            'Target object has no owner; it may have been deleted',
+          ),
         );
       }
       return { endpointId, target: targetObject };
@@ -170,7 +175,10 @@ export class KernelRouter {
             }
           }
           return routeAsSplat(
-            kser('promise fulfilled but did not contain an object reference'),
+            makeKernelError(
+              'BAD_PROMISE_RESOLUTION',
+              'Promise fulfilled but did not contain an object reference',
+            ),
           );
         }
         case 'rejected':
@@ -236,8 +244,9 @@ export class KernelRouter {
               [
                 message.result,
                 true,
-                kser(
-                  'target endpoint is unreachable (terminated or disconnected)',
+                makeKernelError(
+                  'ENDPOINT_UNREACHABLE',
+                  'Target endpoint is unreachable (terminated or disconnected)',
                 ),
               ],
             ]);
@@ -288,13 +297,14 @@ export class KernelRouter {
           // so the caller knows the message wasn't delivered.
           this.#logger?.error(`Delivery to ${endpointId} failed:`, error);
           if (message.result) {
-            const failure = kser(
-              error instanceof Error
-                ? error
-                : Error(`Delivery failed: ${String(error)}`),
-            );
+            const detail =
+              error instanceof Error ? error.message : String(error);
             this.#kernelQueue.resolvePromises(endpointId, [
-              [message.result, true, failure],
+              [
+                message.result,
+                true,
+                makeKernelError('DELIVERY_FAILED', detail),
+              ],
             ]);
           }
           // Continue processing other messages - don't let one failure crash the queue

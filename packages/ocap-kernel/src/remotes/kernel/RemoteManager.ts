@@ -3,7 +3,7 @@ import type { Logger } from '@metamask/logger';
 import { initRemoteComms, initRemoteIdentity } from './remote-comms.ts';
 import { RemoteHandle } from './RemoteHandle.ts';
 import type { KernelQueue } from '../../KernelQueue.ts';
-import { kser } from '../../liveslots/kernel-marshal.ts';
+import { makeKernelError } from '../../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../../store/index.ts';
 import type { PlatformServices, RemoteId } from '../../types.ts';
 import type {
@@ -174,16 +174,15 @@ export class RemoteManager {
     }
 
     const { remoteId } = remote;
-    const failure = kser(
-      Error(
-        `Remote connection lost: ${peerId} (max retries reached or non-retryable error)`,
-      ),
+    const failure = makeKernelError(
+      'CONNECTION_LOST',
+      'Remote connection lost (max retries reached or non-retryable error)',
     );
 
     // Reject pending URL redemptions in the RemoteHandle
     // These are JavaScript promises that will propagate rejection to kernel promises
     remote.rejectPendingRedemptions(
-      `Remote connection lost: ${peerId} (max retries reached or non-retryable error)`,
+      'Remote connection lost (max retries reached or non-retryable error)',
     );
 
     // Reject all promises for which this remote is the decider
@@ -218,8 +217,9 @@ export class RemoteManager {
     // Reject all kernel promises where this remote is the decider
     // The restarted peer has lost its state and won't resolve these promises
     const { remoteId } = remote;
-    const failure = kser(
-      Error(`Remote peer restarted: ${peerId} (incarnation changed)`),
+    const failure = makeKernelError(
+      'PEER_RESTARTED',
+      'Remote peer restarted (incarnation changed)',
     );
     for (const kpid of this.#kernelStore.getPromisesByDecider(remoteId)) {
       this.#kernelQueue.resolvePromises(remoteId, [[kpid, true, failure]]);

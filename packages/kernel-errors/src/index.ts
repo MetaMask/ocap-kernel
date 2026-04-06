@@ -29,3 +29,14 @@ export { isMarshaledOcapError } from './marshal/isMarshaledOcapError.ts';
 export { isRetryableNetworkError } from './utils/isRetryableNetworkError.ts';
 export { getNetworkErrorCode } from './utils/getNetworkErrorCode.ts';
 export { isResourceLimitError } from './utils/isResourceLimitError.ts';
+export type {
+  ExpectedKernelErrorCode,
+  FatalKernelErrorCode,
+  KernelErrorCode,
+} from './vat-observable-errors.ts';
+export {
+  KERNEL_ERROR_PATTERN,
+  isKernelError,
+  getKernelErrorCode,
+  isFatalKernelError,
+} from './vat-observable-errors.ts';

@@ -44,7 +44,7 @@ describe('orphaned ephemeral exo', () => {
     await expect(
       kernel.queueMessage(rootKref, 'useEphemeral', []),
     ).rejects.toMatchObject({
-      body: expect.stringContaining('has no owner'),
+      body: expect.stringContaining('[KERNEL:OBJECT_DELETED]'),
     });
   });
 });
