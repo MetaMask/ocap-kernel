@@ -341,7 +341,19 @@
 <a name='L276'></a><a href='#L276'>276</a>
 <a name='L277'></a><a href='#L277'>277</a>
 <a name='L278'></a><a href='#L278'>278</a>
-<a name='L279'></a><a href='#L279'>279</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a>
+<a name='L283'></a><a href='#L283'>283</a>
+<a name='L284'></a><a href='#L284'>284</a>
+<a name='L285'></a><a href='#L285'>285</a>
+<a name='L286'></a><a href='#L286'>286</a>
+<a name='L287'></a><a href='#L287'>287</a>
+<a name='L288'></a><a href='#L288'>288</a>
+<a name='L289'></a><a href='#L289'>289</a>
+<a name='L290'></a><a href='#L290'>290</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -505,6 +517,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">497x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -603,7 +618,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -619,12 +638,16 @@
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type {
   SwingSetCapData,
   VatOneResolution,
   VatSyscallObject,
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
+import type { FatalKernelErrorCode } from '@metamask/kernel-errors';
 import { Logger } from '@metamask/logger';
 &nbsp;
 import {
@@ -633,7 +656,7 @@ import {
   performExportCleanup,
 } from '../garbage-collection/gc-handlers.ts';
 import type { KernelQueue } from '../KernelQueue.ts';
-import { makeError } from '../liveslots/kernel-marshal.ts';
+import { makeFatalKernelError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import { coerceMessage } from '../types.ts';
 import type { Message, VatId, KRef } from '../types.ts';
@@ -782,7 +805,10 @@ export class VatSyscall {
 &nbsp;
       // This is a safety check - this case should never happen
       if (!this.#kernelStore.isVatActive(this.vatId)) {
-        this.#recordVatFatalSyscall('vat not found');
+        this.#recordVatFatalSyscall(
+          'ILLEGAL_SYSCALL',
+          'Syscall from inactive vat',
+        );
         return harden(['error', 'vat not found']);
       }
 &nbsp;
@@ -880,7 +906,10 @@ export class VatSyscall {
       return harden(['ok', null]);
     } catch (error) {
       this.#logger?.error(`Fatal syscall error in vat ${this.vatId}`, error);
-      this.#recordVatFatalSyscall('syscall translation error: prepare to die');
+      this.#recordVatFatalSyscall(
+        'ILLEGAL_SYSCALL',
+        'Syscall translation error: prepare to die',
+      );
       return harden([
         'error',
         error instanceof Error ? error.message : <span class="branch-1 cbranch-no" title="branch not covered" >String(error),</span>
@@ -891,10 +920,14 @@ export class VatSyscall {
   /**
    * Log a fatal syscall error and set the illegalSyscall property.
    *
-   * @param error - The error message to log.
+   * @param code - The fatal kernel error code.
+   * @param detail - A human-readable description of the error.
    */
-  #recordVatFatalSyscall(error: string): void {
-    this.illegalSyscall = { vatId: this.vatId, info: makeError(error) };
+  #recordVatFatalSyscall(code: FatalKernelErrorCode, detail: string): void {
+    this.illegalSyscall = {
+      vatId: this.vatId,
+      info: makeFatalKernelError(code, detail),
+    };
   }
 }
 &nbsp;</pre></td></tr></table></pre>
@@ -904,7 +937,7 @@ export class VatSyscall {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-01T17:59:06.604Z
+                at 2026-04-06T16:30:36.921Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
