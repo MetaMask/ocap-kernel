@@ -300,7 +300,7 @@ export async function fundAddress(
   address: string,
   ethAmount: number,
 ): Promise<void> {
-  const weiHex = `0x${(BigInt(Math.floor(ethAmount)) * 10n ** 18n).toString(16)}`;
+  const weiHex = `0x${BigInt(Math.round(ethAmount * 1e18)).toString(16)}`;
   await evmRpc('eth_sendTransaction', [
     { from: ANVIL_FUNDER, to: address, value: weiHex },
   ]);
