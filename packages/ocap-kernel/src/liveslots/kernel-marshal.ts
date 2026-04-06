@@ -2,6 +2,10 @@ import { assert, Fail } from '@endo/errors';
 import { passStyleOf, makeMarshal } from '@endo/marshal';
 import type { CapData } from '@endo/marshal';
 import type { Passable } from '@endo/pass-style';
+import type {
+  ExpectedKernelErrorCode,
+  FatalKernelErrorCode,
+} from '@metamask/kernel-errors';
 import { makeDefaultExo } from '@metamask/kernel-utils';
 
 import type { KRef } from '../types.ts';
@@ -136,13 +140,31 @@ export function kunser(serializedValue: CapData<KRef>): unknown {
 }
 
 /**
- * Produce a serialized form of an Error.
+ * Produce a serialized expected kernel error with a machine-readable code.
+ * The resulting error message has the format `[KERNEL:<CODE>] <detail>`.
  *
- * @param message - The error message to construct the Error with.
- *
- * @returns The resulting error after serialization.
+ * @param code - The expected kernel error code.
+ * @param detail - A human-readable description.
+ * @returns The serialized error.
  */
-export function makeError(message: string): CapData<KRef> {
-  assert.typeof(message, 'string');
-  return kser(Error(message));
+export function makeKernelError(
+  code: ExpectedKernelErrorCode,
+  detail: string,
+): CapData<KRef> {
+  return kser(Error(`[KERNEL:${code}] ${detail}`));
+}
+
+/**
+ * Produce a serialized fatal kernel error with a machine-readable code.
+ * The resulting error message has the format `[KERNEL:VAT_FATAL:<CODE>] <detail>`.
+ *
+ * @param code - The fatal kernel error code.
+ * @param detail - A human-readable description.
+ * @returns The serialized error.
+ */
+export function makeFatalKernelError(
+  code: FatalKernelErrorCode,
+  detail: string,
+): CapData<KRef> {
+  return kser(Error(`[KERNEL:VAT_FATAL:${code}] ${detail}`));
 }

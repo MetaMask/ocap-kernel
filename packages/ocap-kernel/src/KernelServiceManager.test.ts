@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import type { KernelQueue } from './KernelQueue.ts';
 import { KernelServiceManager } from './KernelServiceManager.ts';
-import { kser } from './liveslots/kernel-marshal.ts';
+import { kser, makeKernelError } from './liveslots/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { Message } from './types.ts';
 import { makeMapKernelDatabase } from '../test/storage.ts';
@@ -355,7 +355,7 @@ describe('KernelServiceManager', () => {
       await delay();
 
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
-        ['kp123', true, kser(testError)],
+        ['kp123', true, makeKernelError('DELIVERY_FAILED', testError.message)],
       ]);
     });
 

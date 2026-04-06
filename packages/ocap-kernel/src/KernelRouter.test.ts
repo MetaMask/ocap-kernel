@@ -194,7 +194,7 @@ describe('KernelRouter', () => {
               'kp1',
               true,
               expect.objectContaining({
-                body: expect.stringContaining('target object has been revoked'),
+                body: expect.stringContaining('[KERNEL:OBJECT_REVOKED]'),
                 slots: [],
               }),
             ]),
@@ -243,11 +243,18 @@ describe('KernelRouter', () => {
           'kp1',
           'deliver|splat|result',
         );
-        // Verify the promise was rejected with 'no vat'
+        // Verify the promise was rejected with OBJECT_DELETED
         expect(kernelQueue.resolvePromises).toHaveBeenCalledWith(
           undefined,
           expect.arrayContaining([
-            expect.arrayContaining(['kp1', true, expect.anything()]),
+            expect.arrayContaining([
+              'kp1',
+              true,
+              expect.objectContaining({
+                body: expect.stringContaining('[KERNEL:OBJECT_DELETED]'),
+                slots: [],
+              }),
+            ]),
           ]),
         );
       });
@@ -319,11 +326,19 @@ describe('KernelRouter', () => {
         expect(endpointHandle.deliverMessage).not.toHaveBeenCalled();
         expect(result).toBeUndefined();
 
-        // Verify the result promise was rejected
+        // Verify the result promise was rejected with BAD_PROMISE_RESOLUTION
         expect(kernelQueue.resolvePromises).toHaveBeenCalledWith(
           undefined,
           expect.arrayContaining([
-            expect.arrayContaining(['kp2', true, expect.anything()]),
+            expect.arrayContaining([
+              'kp2',
+              true,
+              expect.objectContaining({
+                body: expect.stringContaining(
+                  '[KERNEL:BAD_PROMISE_RESOLUTION]',
+                ),
+              }),
+            ]),
           ]),
         );
       });
@@ -366,6 +381,83 @@ describe('KernelRouter', () => {
           undefined,
           expect.arrayContaining([
             expect.arrayContaining(['kp2', true, rejection]),
+          ]),
+        );
+      });
+
+      it('splats message with ENDPOINT_UNREACHABLE when endpoint vanishes', async () => {
+        const endpointId = 'v1';
+        const target = 'ko123';
+        (kernelStore.getOwner as unknown as MockInstance).mockReturnValueOnce(
+          endpointId,
+        );
+        // getEndpoint throws (endpoint gone)
+        (getEndpoint as unknown as MockInstance).mockImplementationOnce(() => {
+          throw new Error('vat not found');
+        });
+        (
+          kernelStore.getKernelPromise as unknown as MockInstance
+        ).mockReturnValueOnce({ decider: endpointId });
+
+        const message: Message = {
+          methargs: { body: 'method args', slots: [] },
+          result: 'kp1',
+        };
+        const sendItem: RunQueueItemSend = {
+          type: 'send',
+          target,
+          message: message as unknown as SwingsetMessage,
+        };
+
+        const result = await kernelRouter.deliver(sendItem);
+
+        expect(result).toBeUndefined();
+        expect(kernelQueue.resolvePromises).toHaveBeenCalledWith(
+          endpointId,
+          expect.arrayContaining([
+            expect.arrayContaining([
+              'kp1',
+              true,
+              expect.objectContaining({
+                body: expect.stringContaining('[KERNEL:ENDPOINT_UNREACHABLE]'),
+              }),
+            ]),
+          ]),
+        );
+      });
+
+      it('rejects with DELIVERY_FAILED when endpoint.deliverMessage throws', async () => {
+        const endpointId = 'v1';
+        const target = 'ko123';
+        (kernelStore.getOwner as unknown as MockInstance).mockReturnValueOnce(
+          endpointId,
+        );
+        (
+          endpointHandle.deliverMessage as unknown as MockInstance
+        ).mockRejectedValueOnce(new Error('queue full'));
+
+        const message: Message = {
+          methargs: { body: 'method args', slots: [] },
+          result: 'kp1',
+        };
+        const sendItem: RunQueueItemSend = {
+          type: 'send',
+          target,
+          message: message as unknown as SwingsetMessage,
+        };
+
+        await kernelRouter.deliver(sendItem);
+
+        expect(kernelQueue.resolvePromises).toHaveBeenCalledWith(
+          endpointId,
+          expect.arrayContaining([
+            expect.arrayContaining([
+              'kp1',
+              true,
+              expect.objectContaining({
+                body: expect.stringContaining('[KERNEL:DELIVERY_FAILED]'),
+              }),
+            ]),
           ]),
         );
       });

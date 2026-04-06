@@ -1,7 +1,19 @@
 import { passStyleOf } from '@endo/marshal';
+import {
+  isKernelError,
+  getKernelErrorCode,
+  isFatalKernelError,
+} from '@metamask/kernel-errors';
 import { describe, it, expect } from 'vitest';
 
-import { kslot, krefOf, kser, kunser, makeError } from './kernel-marshal.ts';
+import {
+  kslot,
+  krefOf,
+  kser,
+  kunser,
+  makeKernelError,
+  makeFatalKernelError,
+} from './kernel-marshal.ts';
 import type { SlotValue } from './kernel-marshal.ts';
 
 describe('kernel-marshal', () => {
@@ -121,26 +133,51 @@ describe('kernel-marshal', () => {
     });
   });
 
-  describe('makeError', () => {
-    it('creates serialized error with message', () => {
-      const message = 'Test error message';
-      const serialized = makeError(message);
+  describe('makeKernelError', () => {
+    it('serializes an expected kernel error with the correct format', () => {
+      const serialized = makeKernelError('OBJECT_DELETED', 'Target deleted');
       const deserialized = kunser(serialized);
 
       expect(deserialized).toBeInstanceOf(Error);
-      expect((deserialized as Error).message).toBe(message);
+      expect((deserialized as Error).message).toBe(
+        '[KERNEL:OBJECT_DELETED] Target deleted',
+      );
     });
 
-    it('throws for non-string message', () => {
-      expect(() => makeError(123 as unknown as string)).toThrow(
-        '123 must be a string',
+    it('round-trips through kernel-errors detection utilities', () => {
+      const serialized = makeKernelError(
+        'CONNECTION_LOST',
+        'Remote connection lost',
       );
-      expect(() => makeError(null as unknown as string)).toThrow(
-        'null must be a string',
+      const deserialized = kunser(serialized) as Error;
+
+      expect(isKernelError(deserialized)).toBe(true);
+      expect(getKernelErrorCode(deserialized)).toBe('CONNECTION_LOST');
+      expect(isFatalKernelError(deserialized)).toBe(false);
+    });
+  });
+
+  describe('makeFatalKernelError', () => {
+    it('serializes a fatal kernel error with the VAT_FATAL infix', () => {
+      const serialized = makeFatalKernelError('ILLEGAL_SYSCALL', 'Bad syscall');
+      const deserialized = kunser(serialized);
+
+      expect(deserialized).toBeInstanceOf(Error);
+      expect((deserialized as Error).message).toBe(
+        '[KERNEL:VAT_FATAL:ILLEGAL_SYSCALL] Bad syscall',
       );
-      expect(() => makeError(undefined as unknown as string)).toThrow(
-        '"[undefined]" must be a string',
+    });
+
+    it('round-trips through kernel-errors detection utilities', () => {
+      const serialized = makeFatalKernelError(
+        'INTERNAL_ERROR',
+        'Something broke',
       );
+      const deserialized = kunser(serialized) as Error;
+
+      expect(isKernelError(deserialized)).toBe(true);
+      expect(getKernelErrorCode(deserialized)).toBe('INTERNAL_ERROR');
+      expect(isFatalKernelError(deserialized)).toBe(true);
     });
   });
 });

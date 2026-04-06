@@ -135,7 +135,7 @@ describe('Vat Lifecycle', { timeout: 30_000 }, () => {
     await expect(
       kernel.queueMessage(deadRootObject, 'resume', []),
     ).rejects.toMatchObject({
-      body: expect.stringContaining('has no owner'),
+      body: expect.stringContaining('[KERNEL:OBJECT_DELETED]'),
     });
 
     // Verify that messaging works as expected
