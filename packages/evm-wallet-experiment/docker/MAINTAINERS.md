@@ -1,6 +1,6 @@
 # Docker stack — maintainer notes
 
-Local E2E stack for `@ocap/evm-wallet-experiment`: Anvil + deployed contracts, Pimlico Alto, and two kernel containers (`home`, `away`). See `package.json` scripts (`docker:compose`, `test:e2e:docker`, etc.).
+Local E2E stack for `@ocap/evm-wallet-experiment`: Anvil + deployed contracts, Pimlico Alto, and six kernel containers (three `kernel-home-*` / `kernel-away-*` pairs). See `package.json` scripts (`docker:compose`, `test:e2e:docker`, etc.).
 
 ## Startup order
 
@@ -8,7 +8,7 @@ Compose encodes this dependency chain:
 
 1. **`evm`** becomes healthy when `/run/ocap/contracts.json` exists (written only after `deploy-contracts.mjs` finishes).
 2. **`bundler`** waits on that file, reads `EntryPoint`, then starts Alto.
-3. **`home` and `away`** wait on **both** `evm` and **`bundler` healthy** so wallet setup does not race Alto boot.
+3. **Kernel services** wait on **both** `evm` and **`bundler` healthy** so wallet setup does not race Alto boot.
 
 If you add a service that kernels need before they are ready, extend `depends_on` and healthchecks accordingly.
 
@@ -48,7 +48,6 @@ Host-side scripts (e.g. `yarn docker:setup:wallets`) use the workspace **`tsx`**
 
 - **`evm`**: File-based (`contracts.json`). The image itself does not define `HEALTHCHECK`; Compose is the source of truth.
 - **`bundler`**: JSON-RPC `eth_supportedEntryPoints` must return a **non-empty** array. If Alto changes RPC surface, adjust the probe in `docker-compose.yml`.
-- **`llm`**: HTTP GET `/` on the proxy; **5xx** (e.g. upstream unreachable) marks the service unhealthy.
 
 ## Kernel image build (`Dockerfile.kernel-base`)
 
@@ -59,11 +58,18 @@ Host-side scripts (e.g. `yarn docker:setup:wallets`) use the workspace **`tsx`**
 
 `docker-compose.yml` embeds **well-known Anvil private keys** for Alto. That is intentional for an isolated local chain. **Do not reuse this pattern** for any network that is exposed or shared.
 
-## Interactive profile
+## Interactive stack (`docker-compose.interactive.yml`)
 
-- **`llm`** defaults `LLM_UPSTREAM` to `http://host.docker.internal:8080`. On **Linux**, `host.docker.internal` may be missing unless you add `extra_hosts` or another reachability strategy; document any project-standard workaround here when you add one.
-- **`docker-compose.interactive.yml`** overrides `away` (OpenClaw + LLM). Ensure the **`interactive`** profile is used when you expect those services.
+- Requires **Docker Compose v2.38+** and [**Docker Model Runner**](https://docs.docker.com/ai/model-runner/) enabled.
+- Merges over **`kernel-away-bundler-7702`**: **`interactive`** image target (OpenClaw) and Compose [**`models`**](https://docs.docker.com/ai/compose/models-and-compose/) binding **`llm`** → **`ai/qwen3.5:4B-UD-Q4_K_XL`** with **`context_size: 32768`** (DMR’s default 4096 is too small for OpenClaw + tool prompts). Larger context uses more RAM.
+- Run **`yarn docker:compose:interactive`**. Pull the model first if needed: **`docker model pull ai/qwen3.5:4B-UD-Q4_K_XL`**.
+- **`compose.interactive.yml`** sets **`context_size`** and **`runtime_flags: ['--ctx-size','32768']`** so llama.cpp does not stay at the 4096 default. If requests still fail with 4096, run on the host: **`docker model configure --context-size 32768 ai/qwen3.5:4B-UD-Q4_K_XL`**, then recreate the stack.
+- OpenClaw UI history lives under **`$HOME/.openclaw`** in the away container (on the **`ocap-run`** named volume). Rebuilding images does **not** clear it. Use **`yarn docker:interactive:reset-openclaw`**, then **`yarn docker:interactive:setup`**, or **`docker compose … down -v`** (wipes **all** kernel/contract state on that volume — use with care).
+
+## Optional **`ollama`** profile
+
+- Service **`ollama`** uses profile **`ollama`** for an in-stack Ollama server. Interactive OpenClaw uses **DMR via Compose `models`**, not this service, unless you change the stack.
 
 ## Ports and conflicts
 
-Published ports include **8545**, **4337**, **11434** (profile), and **UDP 4001/4002**. They can clash with other stacks on the host; use Compose [profiles](https://docs.docker.com/compose/profiles/) or alternate port mappings if needed.
+Published TCP ports include **8545** (Anvil), **4337** (bundler). Kernels publish **UDP 4011–4032** (QUIC, three pairs). The **`ollama`** profile does not publish **11434** to the host by default in the current compose file; check `docker-compose.yml` if that changes. Use alternate mappings if these clash with other stacks.

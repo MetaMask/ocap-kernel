@@ -13,7 +13,6 @@ const jsonPath = join(dir, 'docker-e2e-stack-constants.json');
 
 /**
  * @typedef {object} DockerStackConfig
- * @property {{ upstreamOllama: string, baseUrl: string, model: string, apiType: string }} llm - Defaults for LLM proxy and OpenClaw provider.
  * @property {number} anvilChainId - Chain ID for the local Anvil stack in Docker E2E.
  * @property {string} openclawPluginPathContainer - Wallet plugin path inside the kernel container.
  */

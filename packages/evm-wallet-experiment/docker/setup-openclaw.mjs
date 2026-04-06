@@ -7,10 +7,11 @@
  * This replaces the fragile sequence of `openclaw onboard` +
  * `openclaw config set` calls that broke on every OpenClaw release.
  *
- * Env vars (all optional, with Docker-friendly defaults):
- *   LLM_BASE_URL   — LLM provider base URL (default: http://llm:11434)
- *   LLM_MODEL      — Model ID (default: qwen2.5:0.5b)
- *   LLM_API_TYPE   — OpenClaw API type: ollama | openai-completions | … (default: ollama)
+ * Expects Docker Compose **models** + Docker Model Runner to inject:
+ *   LLM_URL   — OpenAI-compatible API base (normalized to end with `/v1` below)
+ *   LLM_MODEL — Model id for requests
+ *
+ * @see https://docs.docker.com/ai/compose/models-and-compose/
  *
  * Usage:
  *   node /app/packages/evm-wallet-experiment/docker/setup-openclaw.mjs
@@ -25,9 +26,33 @@ import { dockerConfig } from './docker-e2e-stack-constants.mjs';
 const home = process.env.HOME || '/run/ocap/away';
 const ocDir = resolve(home, '.openclaw');
 
-const llmBaseUrl = process.env.LLM_BASE_URL || dockerConfig.llm.baseUrl;
-const llmModel = process.env.LLM_MODEL || dockerConfig.llm.model;
-const llmApiType = process.env.LLM_API_TYPE || dockerConfig.llm.apiType;
+const llmUrlRaw = process.env.LLM_URL;
+const llmModel = process.env.LLM_MODEL;
+
+if (!llmUrlRaw || !llmModel) {
+  throw new Error(
+    'openclaw-setup: LLM_URL and LLM_MODEL must be set. ' +
+      'Use docker-compose.interactive.yml with top-level `models:` and Docker Model Runner enabled.',
+  );
+}
+
+/**
+ * OpenClaw `openai-completions` expects a base URL whose paths resolve under `/v1/...`.
+ *
+ * @param {string} url - Injected model runner URL (may omit `/v1`).
+ * @returns {string} Normalized base URL ending with `/v1` (no trailing slash after v1).
+ */
+function openAiCompletionsBaseUrl(url) {
+  const trimmed = url.replace(/\/+$/u, '');
+  if (trimmed.endsWith('/v1')) {
+    return trimmed;
+  }
+  return `${trimmed}/v1`;
+}
+
+const llmBaseUrl = openAiCompletionsBaseUrl(llmUrlRaw);
+/** DMR serves an OpenAI-shaped API alongside Ollama compatibility. */
+const llmApiType = 'openai-completions';
 const providerId = 'llm';
 const pluginPath = dockerConfig.openclawPluginPathContainer;
 
@@ -109,7 +134,7 @@ const config = {
 const cfgPath = resolve(ocDir, 'openclaw.json');
 writeFileSync(cfgPath, JSON.stringify(config, null, 2));
 console.log(
-  `[openclaw-setup] config written: ${providerId}/${llmModel} (api: ${llmApiType})`,
+  `[openclaw-setup] config written: ${providerId}/${llmModel} (api: ${llmApiType}, base: ${llmBaseUrl})`,
 );
 
 // -- Write auth profiles for the provider --

@@ -51,30 +51,6 @@ services:
       timeout: 5s
       retries: 20
 
-  llm:
-    profiles: [interactive]
-    build:
-      context: ../../../
-      dockerfile: packages/evm-wallet-experiment/docker/Dockerfile.kernel-base
-      target: kernel
-    environment:
-      - LLM_UPSTREAM=${LLM_UPSTREAM:-http://host.docker.internal:8080}
-    networks: [ocap-e2e]
-    ports: ['11434:11434']
-    entrypoint:
-      - node
-      - /app/packages/evm-wallet-experiment/docker/entrypoint-llm-proxy.mjs
-    healthcheck:
-      test:
-        - CMD
-        - node
-        - -e
-        - >-
-          fetch("http://127.0.0.1:11434/").then((r)=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))
-      interval: 3s
-      timeout: 5s
-      retries: 10
-
   ollama:
     profiles: [ollama]
     image: ollama/ollama
