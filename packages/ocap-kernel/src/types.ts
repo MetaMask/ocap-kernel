@@ -1,24 +1,3 @@
-/**
- * Branded types for kernel identifiers.
- *
- * ## Trust model
- *
- * Branded types are validated at creation time via `insist*()` assertions and
- * `makeGCAction()`. After construction, the type system carries the invariant
- * — interior code trusts the brand without re-checking.
- *
- * - **External input** (JSON-RPC params, liveslots syscalls): validated at the
- *   boundary using superstruct definitions (`KRefStruct`, `EndpointIdStruct`,
- *   `EndpointMessageStruct`, etc.).
- * - **Translator layer**: validates endpoint-space refs via `insistERef()`
- *   before translating to kernel-space.
- * - **Persistence reads**: trusted. Data integrity is the responsibility of the
- *   persistence layer (`@metamask/kernel-store`); branded types are applied via
- *   `as` casts on read. See the kernel-store package README for details.
- * - **Internal construction** (counters, template literals): uses `as` casts
- *   where the format is controlled by the constructor (e.g., `\`v\${id}\` as VatId`).
- */
-
 import type {
   Baggage,
   Message as SwingsetMessage,
@@ -62,11 +41,30 @@ import type {
 } from './remotes/types.ts';
 import { Fail } from './utils/assert.ts';
 
-// Branded string types intentionally use plain `string &` rather than template
-// literal types (e.g. `v${number}`). The brands already prevent cross-type
-// confusion, and the format is enforced at runtime by `insist*()` / `is*()`
-// validators. Template literals would add friction to the `as` casts used for
-// persistence reads and internal construction without meaningful extra safety.
+/**
+ * # Branded types
+ *
+ * Branded types are validated at creation time via `insist*()` assertions and
+ * `makeGCAction()`. After construction, the type system carries the invariant;
+ * interior code trusts the brand without re-checking.
+ *
+ * - **External input** (JSON-RPC params, liveslots syscalls): validated at the
+ *   boundary using superstruct definitions (`KRefStruct`, `EndpointIdStruct`,
+ *   `EndpointMessageStruct`, etc.).
+ * - **Translator layer**: validates endpoint-space refs via `insistERef()`
+ *   before translating to kernel-space.
+ * - **Persistence reads**: trusted. Data integrity is the responsibility of the
+ *   persistence layer (`@metamask/kernel-store`); branded types are applied via
+ *   `as` casts on read. See `./store/README.md` for details.
+ * - **Internal construction** (counters, template literals): uses `as` casts
+ *   where the format is controlled by the constructor (e.g., `"v1" as VatId`).
+ *
+ * Branded string types intentionally use plain `string &` rather than template
+ * literal types (e.g. `v${number}`). The brands already prevent cross-type
+ * confusion, and the format is enforced at runtime by `insist*()` / `is*()`
+ * validators. Template literals would add friction to the `as` casts used for
+ * persistence reads and internal construction without meaningful extra safety.
+ */
 
 declare const VatIdBrand: unique symbol;
 /**
