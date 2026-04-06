@@ -62,27 +62,66 @@ import type {
 } from './remotes/types.ts';
 import { Fail } from './utils/assert.ts';
 
+// Branded string types intentionally use plain `string &` rather than template
+// literal types (e.g. `v${number}`). The brands already prevent cross-type
+// confusion, and the format is enforced at runtime by `insist*()` / `is*()`
+// validators. Template literals would add friction to the `as` casts used for
+// persistence reads and internal construction without meaningful extra safety.
+
 declare const VatIdBrand: unique symbol;
+/**
+ * Vat identifier. Format: `v${number}`.
+ * E.g. `"v1"`, `"v42"`.
+ */
 export type VatId = string & { readonly [VatIdBrand]: never };
 
 declare const RemoteIdBrand: unique symbol;
+/**
+ * Remote identifier. Format: `r${number}`.
+ * E.g. `"r0"`, `"r3"`.
+ */
 export type RemoteId = string & { readonly [RemoteIdBrand]: never };
 
+/** An endpoint is either a vat or a remote. */
 export type EndpointId = VatId | RemoteId;
 
 declare const SubclusterIdBrand: unique symbol;
+/**
+ * Subcluster identifier. Format: `s${number}`.
+ * E.g. `"s0"`, `"s5"`.
+ */
 export type SubclusterId = string & { readonly [SubclusterIdBrand]: never };
 
 declare const KRefBrand: unique symbol;
+/**
+ * Kernel-space reference. Format: `k${'o'|'p'}${number}`.
+ * E.g. `"ko12"`, `"kp3"`.
+ */
 export type KRef = string & { readonly [KRefBrand]: never };
 
 declare const VRefBrand: unique symbol;
+/**
+ * Vat-space reference. Format: `${'o'|'p'}${'+' | '-'}${number}`.
+ * E.g. `"o+0"`, `"p-7"`.
+ */
 export type VRef = string & { readonly [VRefBrand]: never };
 
 declare const RRefBrand: unique symbol;
+/**
+ * Remote-space reference. Format: `r${'o'|'p'}${'+' | '-'}${number}`.
+ * E.g. `"ro+1"`, `"rp-2"`.
+ */
 export type RRef = string & { readonly [RRefBrand]: never };
 
+/**
+ * Endpoint-space reference (vat or remote).
+ * E.g. `"o+0"`, `"p-7"`, `"ro+1"`, `"rp-2"`.
+ */
 export type ERef = VRef | RRef;
+/**
+ * Any reference (kernel-space or endpoint-space).
+ * E.g. `"ko12"`, `"kp3"`, `"o+0"`, `"ro+1"`.
+ */
 export type Ref = KRef | ERef;
 
 export const ROOT_OBJECT_VREF = 'o+0' as VRef;
@@ -416,6 +455,10 @@ export function insistSubclusterId(
 }
 
 declare const VatMessageIdBrand: unique symbol;
+/**
+ * Vat message identifier. Format: `m${number}`.
+ * E.g. `"m0"`, `"m15"`.
+ */
 export type VatMessageId = string & { readonly [VatMessageIdBrand]: never };
 
 export const isVatMessageId = (value: unknown): value is VatMessageId =>
@@ -740,6 +783,10 @@ export function insistGCActionType(
 }
 
 declare const GCActionBrand: unique symbol;
+/**
+ * GC action key. Format: `${EndpointId} ${GCActionType} ${KRef}`.
+ * E.g. `"v1 dropExport ko5"`.
+ */
 export type GCAction = string & { readonly [GCActionBrand]: never };
 
 export const GCActionStruct = define<GCAction>('GCAction', (value: unknown) => {
