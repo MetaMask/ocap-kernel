@@ -1,4 +1,4 @@
-/* eslint-disable n/no-process-env, n/no-process-exit */
+/* eslint-disable n/no-process-env, n/no-process-exit, n/no-sync */
 /**
  * Host-side script to set up wallet subclusters on running Docker containers.
  *
@@ -6,11 +6,24 @@
  *   yarn tsx test/e2e/docker/setup-wallets.ts [delegation-mode]
  *
  * Delegation modes: bundler-7702 (default), bundler-hybrid, peer-relay
+ *
+ * After setup, writes `/run/ocap/docker-delegation-{home,away}.json` on the shared
+ * volume (via `docker compose cp`) so `yarn docker:delegate` can run inside a kernel
+ * container with matching coordinator krefs and socket path.
  */
+
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { dockerKernelServicesForMode } from './helpers/docker-e2e-kernel-services.ts';
 import type { DockerE2eKernelMode } from './helpers/docker-e2e-kernel-services.ts';
-import { callVat, readContracts } from './helpers/docker-exec.ts';
+import {
+  callVat,
+  dockerComposeCp,
+  getServiceInfo,
+  readContracts,
+} from './helpers/docker-exec.ts';
 import type { ContractAddresses } from './helpers/docker-exec.ts';
 import {
   resolveOnChainDelegateAddress,
@@ -38,6 +51,50 @@ const awaySetupFns: Record<string, SetupAwayFn> = {
   'bundler-hybrid': setupHybridAway,
   'peer-relay': setupPeerRelayAway,
 };
+
+function writeDockerDelegationContextFiles(
+  homeService: string,
+  home: HomeResult,
+  away: AwayResult,
+): void {
+  const { socketPath } = getServiceInfo(homeService);
+  const homeCtx = {
+    socketPath,
+    kref: home.kref,
+    coordinatorKref: home.kref,
+    smartAccountAddress: home.smartAccountAddress,
+    address: home.address,
+    ocapUrl: home.ocapUrl,
+  };
+  const awayCtx = {
+    delegateAddress: away.delegateAddress,
+    ...(away.smartAccountAddress === undefined
+      ? {}
+      : { smartAccountAddress: away.smartAccountAddress }),
+  };
+  const dir = mkdtempSync(join(tmpdir(), 'ocap-docker-delegation-'));
+  try {
+    const homeFile = join(dir, 'docker-delegation-home.json');
+    const awayFile = join(dir, 'docker-delegation-away.json');
+    writeFileSync(homeFile, `${JSON.stringify(homeCtx, null, 2)}\n`);
+    writeFileSync(awayFile, `${JSON.stringify(awayCtx, null, 2)}\n`);
+    dockerComposeCp(
+      homeFile,
+      homeService,
+      '/run/ocap/docker-delegation-home.json',
+    );
+    dockerComposeCp(
+      awayFile,
+      homeService,
+      '/run/ocap/docker-delegation-away.json',
+    );
+  } finally {
+    rmSync(dir, { recursive: true });
+  }
+  console.log(
+    'Wrote /run/ocap/docker-delegation-{home,away}.json for yarn docker:delegate.',
+  );
+}
 
 async function main() {
   const setupAway = awaySetupFns[mode];
@@ -102,6 +159,8 @@ async function main() {
 
   callVat(kernelServices.away, away.kref, 'receiveDelegation', [delegation]);
   console.log('Delegation received by away.');
+
+  writeDockerDelegationContextFiles(kernelServices.home, home, away);
 
   console.log('Wallet setup complete.');
 }

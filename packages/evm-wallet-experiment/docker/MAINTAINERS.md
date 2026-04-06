@@ -38,7 +38,7 @@ Host-side scripts (e.g. `yarn docker:setup:wallets`) use the workspace **`tsx`**
 
 ### EVM deploy image (`Dockerfile.evm`)
 
-`viem` and `@metamask/smart-accounts-kit` are installed with **exact versions** that should match **`yarn.lock`** for `@ocap/evm-wallet-experiment`. When you bump those dependencies in the workspace, update the `npm install …@version` line in `Dockerfile.evm` in the same change (or CI/docker builds may diverge from monorepo behavior).
+`viem` and `@metamask/smart-accounts-kit` are installed with **exact versions** that should match **`yarn.lock`** for `@ocap/evm-wallet-experiment`. When you bump those dependencies in the workspace, update the `npm install …@version` line in `Dockerfile.evm` in the same change (or CI/docker builds may diverge from monorepo behavior). Do not pipe **`npm install`** through **`tail`** (or other pipeline tails): **`sh`** uses the last command’s exit status, which would hide install failures.
 
 ### Foundry base (`Dockerfile.evm`)
 
@@ -72,6 +72,10 @@ Host-side scripts (e.g. `yarn docker:setup:wallets`) use the workspace **`tsx`**
 - OpenClaw UI history for 7702 lives under **`$HOME/.openclaw`** on the **`ocap-run`** volume; use **`yarn docker:interactive:reset-openclaw`** then **`yarn docker:interactive:setup`**, or **`docker compose … down -v`** for a full volume wipe. LLM wiring is **only** in **`docker-compose.yml`** (**`models:`**).
 
 **Raw `docker compose -f docker/docker-compose.yml up`** without **`--profile`** starts **evm** and **bundler** only (no kernels). Prefer **`yarn docker:up`** or the interactive scripts above.
+
+## `yarn docker:delegate`
+
+Runs **`create-delegation.mjs`** inside **`kernel-home-bundler-7702`**. It reads **`/run/ocap/docker-delegation-home.json`** and **`docker-delegation-away.json`** (coordinator **`kref`**, daemon **`socketPath`**, delegate addresses) written by **`yarn docker:setup:wallets`** on the shared **`ocap-run`** volume. Run wallet setup first for the delegation mode / pair you use.
 
 ## Ports and conflicts
 

@@ -11,11 +11,15 @@
  *
  * Options (env vars):
  *   CAVEAT_ETH_LIMIT  — total native-token transfer limit in ETH (default: unlimited)
+ *
+ * Expects `/run/ocap/docker-delegation-{home,away}.json` on the shared volume
+ * (written by `yarn docker:setup:wallets`). Kernel `*-ready.json` files only
+ * expose `socketPath`, not coordinator krefs or wallet addresses.
  */
 
 import '@metamask/kernel-shims/endoify-node';
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 import { makeDaemonClient } from '../test/e2e/docker/helpers/daemon-client.mjs';
 import {
@@ -25,26 +29,45 @@ import {
   resolveOnChainDelegateForDockerMode,
 } from '../test/e2e/docker/helpers/delegation-transfer.mjs';
 
-const HOME_INFO = '/run/ocap/home-info.json';
-const AWAY_INFO = '/run/ocap/away-info.json';
-const HOME_SOCKET = '/run/ocap/home.sock';
+const HOME_CTX = '/run/ocap/docker-delegation-home.json';
+const AWAY_CTX = '/run/ocap/docker-delegation-away.json';
 
 async function main() {
-  const homeInfo = JSON.parse(readFileSync(HOME_INFO, 'utf8'));
-  const awayInfo = JSON.parse(readFileSync(AWAY_INFO, 'utf8'));
+  if (!existsSync(HOME_CTX) || !existsSync(AWAY_CTX)) {
+    console.error(
+      '[delegation] Missing docker-delegation context files. Run on the host first:',
+    );
+    console.error('  yarn docker:setup:wallets');
+    process.exit(1);
+  }
+  const homeInfo = JSON.parse(readFileSync(HOME_CTX, 'utf8'));
+  const awayInfo = JSON.parse(readFileSync(AWAY_CTX, 'utf8'));
   const delegationMode = process.env.DELEGATION_MODE ?? 'bundler-7702';
 
-  const home = makeDaemonClient(HOME_SOCKET);
+  const coordinatorKref = homeInfo.coordinatorKref ?? homeInfo.kref;
+  if (typeof coordinatorKref !== 'string' || !coordinatorKref) {
+    throw new Error(
+      `${HOME_CTX} must include coordinatorKref or kref (run docker:setup:wallets).`,
+    );
+  }
+  const socketPath = homeInfo.socketPath;
+  if (typeof socketPath !== 'string' || !socketPath) {
+    throw new Error(
+      `${HOME_CTX} must include socketPath (run docker:setup:wallets).`,
+    );
+  }
+
+  const home = makeDaemonClient(socketPath);
 
   const callHome = (method, args) =>
-    home.callVat(homeInfo.coordinatorKref, method, args);
+    home.callVat(coordinatorKref, method, args);
 
   const delegate = resolveOnChainDelegateForDockerMode({
     delegationMode,
     homeInfo,
     awayInfo,
   });
-  console.log(`[delegation] home coordinator: ${homeInfo.coordinatorKref}`);
+  console.log(`[delegation] home coordinator: ${coordinatorKref}`);
   console.log(`[delegation] mode: ${delegationMode}`);
   console.log(
     `[delegation] on-chain delegate: ${delegate}${

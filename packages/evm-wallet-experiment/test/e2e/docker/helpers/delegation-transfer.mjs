@@ -11,7 +11,7 @@ const NATIVE_TRANSFER_ENFORCER = '0xF71af580b9c3078fbc2BBF16FbB8EEd82b330320';
 /**
  * Prefer smart-account delegate when present, else EOA delegate from away info.
  *
- * @param {Record<string, unknown>} awayInfo - Parsed `away-info.json`.
+ * @param {Record<string, unknown>} awayInfo - Parsed `docker-delegation-away.json`.
  * @returns {string} On-chain delegate address for the away wallet.
  */
 export function resolveDelegateForAway(awayInfo) {
@@ -25,8 +25,8 @@ export function resolveDelegateForAway(awayInfo) {
  *
  * @param {object} options - Arguments.
  * @param {string} options.delegationMode - `bundler-7702`, `bundler-hybrid`, or `peer-relay`.
- * @param {Record<string, unknown>} options.homeInfo - Parsed `home-info.json`.
- * @param {Record<string, unknown>} options.awayInfo - Parsed `away-info.json`.
+ * @param {Record<string, unknown>} options.homeInfo - Parsed `docker-delegation-home.json`.
+ * @param {Record<string, unknown>} options.awayInfo - Parsed `docker-delegation-away.json`.
  * @returns {string} Address to pass as `delegate` to `createDelegation`.
  */
 export function resolveOnChainDelegateForDockerMode(options) {
@@ -35,7 +35,7 @@ export function resolveOnChainDelegateForDockerMode(options) {
     const addr = homeInfo.smartAccountAddress || homeInfo.address;
     if (!addr || typeof addr !== 'string') {
       throw new Error(
-        'peer-relay requires home-info smartAccountAddress or address',
+        'peer-relay requires home delegation context smartAccountAddress or address',
       );
     }
     return addr;
@@ -68,8 +68,8 @@ export function buildCaveatsFromEnv() {
  *
  * @param {object} options - Arguments.
  * @param {(method: string, args: unknown[]) => Promise<unknown>} options.callHome - Home coordinator `callVat` wrapper.
- * @param {Record<string, unknown>} options.awayInfo - Parsed `away-info.json`.
- * @param {Record<string, unknown>} [options.homeInfo] - Parsed `home-info.json` (required for peer-relay).
+ * @param {Record<string, unknown>} options.awayInfo - Parsed `docker-delegation-away.json`.
+ * @param {Record<string, unknown>} [options.homeInfo] - Parsed `docker-delegation-home.json` (required for peer-relay).
  * @param {string} [options.delegationMode] - Defaults to `process.env.DELEGATION_MODE` or `bundler-7702`.
  * @param {Array<Record<string, unknown>>} [options.caveats] - Optional caveats (default none).
  * @returns {Promise<Record<string, unknown>>} Created delegation record from the coordinator.

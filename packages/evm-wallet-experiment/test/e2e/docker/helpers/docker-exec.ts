@@ -31,6 +31,25 @@ const COMPOSE_E2E_PROFILE_ARGS = [
 const composePrefix = () =>
   ['compose', '-f', COMPOSE_FILE, ...COMPOSE_E2E_PROFILE_ARGS].join(' ');
 
+/**
+ * Copy a host file into a compose service (paths under the shared `ocap-run` volume are visible to every kernel).
+ *
+ * @param localPath - Absolute path on the host.
+ * @param service - Compose service name.
+ * @param remotePath - Absolute path inside the container.
+ */
+export function dockerComposeCp(
+  localPath: string,
+  service: string,
+  remotePath: string,
+): void {
+  const dest = `${service}:${remotePath}`;
+  execSync(
+    `docker ${composePrefix()} cp ${shellSingleQuote(localPath)} ${shellSingleQuote(dest)}`,
+    { encoding: 'utf-8', stdio: 'pipe', timeout: 60_000 },
+  );
+}
+
 const CLI = 'node /app/packages/kernel-cli/dist/app.mjs';
 
 const EVM_RPC = 'http://localhost:8545';
