@@ -15,12 +15,26 @@ database.
 This is intentional; we type our writes and assume that the persistence layer
 maintains its integrity. Ad hoc runtime type assertions on individual reads do not
 meaningfully improve safety: if the persistence layer silently corrupts data,
-spot-checking a subset of reads cannot provide a reliable guarantee. Data
-integrity is instead enforced structurally:
+spot-checking a subset of reads cannot provide a reliable guarantee.
 
-- The database engine's own integrity mechanisms (transactions, WAL, checksums).
-- Validated writes: all values entering the store pass through typed store
-  methods or validated constructors (e.g., `makeGCAction()`).
+Today, `@metamask/kernel-store` is backed by SQLite (`better-sqlite3` /
+`@sqlite.org/sqlite-wasm`). The only integrity mechanism currently in place is
+SQLite's ACID transaction support (including savepoints for crank rollback).
+There is no WAL configuration, no checksums, no `PRAGMA integrity_check`, and
+no schema-level validation beyond primary key constraints.
+
+More work is needed to provide real data integrity guarantees. That work belongs
+in the database and storage layers (`@metamask/kernel-store` and its backing
+store), not in the application-layer read path. Possible directions include
+configuring WAL mode, periodic integrity checks, application-level checksums,
+and stricter schema constraints.
+
+### Write-side safety
+
+Validated writes are the first line of defense:
+
+- All values entering the store pass through typed store methods or validated
+  constructors (e.g., `makeGCAction()`).
 - Migration correctness: schema changes must transform all affected keys.
 
 See the trust model documentation at the top of `../types.ts` for how branded
