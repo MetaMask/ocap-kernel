@@ -19,9 +19,14 @@ export function makeVatKVStore(state: Map<string, string>): VatKVStore {
   let lastNextKeyIndex: number = -1;
 
   return {
+    // The generic parameter lets callers opt into a branded return type
+    // (e.g. `get<KRef>(key)`). The cast is unsound — the store holds plain
+    // strings and we trust callers to request the correct type. See the
+    // trust model in types.ts for why persistence reads are not validated.
     get<Value extends string = string>(key: string): Value | undefined {
       return state.get(key) as Value | undefined;
     },
+    // Same trust-the-caller cast as `get`; throws if the key is absent.
     getRequired<Value extends string = string>(key: string): Value {
       const result = state.get(key);
       if (result) {
