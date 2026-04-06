@@ -1,13 +1,12 @@
 import type { CapData } from '@endo/marshal';
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
 import { object, nullable, type as structType } from '@metamask/superstruct';
-import type { Struct } from '@metamask/superstruct';
 
 import type { Kernel } from '../../Kernel.ts';
 import type { ClusterConfig, KRef, SubclusterId } from '../../types.ts';
 import {
   ClusterConfigStruct,
-  CapDataStruct,
+  KernelCapDataStruct,
   SubclusterIdStruct,
   KRefStruct,
 } from '../../types.ts';
@@ -25,7 +24,7 @@ type LaunchSubclusterRpcResult = {
 const LaunchSubclusterRpcResultStruct = structType({
   subclusterId: SubclusterIdStruct,
   rootKref: KRefStruct,
-  bootstrapResult: nullable(CapDataStruct),
+  bootstrapResult: nullable(KernelCapDataStruct),
 });
 
 export const launchSubclusterSpec: MethodSpec<
@@ -35,10 +34,7 @@ export const launchSubclusterSpec: MethodSpec<
 > = {
   method: 'launchSubcluster',
   params: object({ config: ClusterConfigStruct }),
-  result: LaunchSubclusterRpcResultStruct as unknown as Struct<
-    LaunchSubclusterRpcResult,
-    unknown
-  >,
+  result: LaunchSubclusterRpcResultStruct,
 };
 
 export type LaunchSubclusterHooks = {
