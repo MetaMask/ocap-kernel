@@ -1,6 +1,8 @@
 /**
  * Compose service names for parallel Docker E2E kernels (one home/away pair per
  * DELEGATION_MODE). Shared `evm` + `bundler`; isolated QUIC ports per pair.
+ *
+ * Delegation-mode strings match `docker/interactive-compose-lib.mjs` (`OCAP_INTERACTIVE_PAIR` / `--pair`).
  */
 
 export type DockerKernelServicePair = {

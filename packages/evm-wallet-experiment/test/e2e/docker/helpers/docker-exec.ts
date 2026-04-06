@@ -17,6 +17,20 @@ const COMPOSE_FILE = resolve(
   currentDir,
   '../../../../docker/docker-compose.yml',
 );
+
+/** Matches `package.json` `docker:compose` — kernels are profile-gated. */
+const COMPOSE_E2E_PROFILE_ARGS = [
+  '--profile',
+  '7702',
+  '--profile',
+  '4337',
+  '--profile',
+  'relay',
+] as const;
+
+const composePrefix = () =>
+  ['compose', '-f', COMPOSE_FILE, ...COMPOSE_E2E_PROFILE_ARGS].join(' ');
+
 const CLI = 'node /app/packages/kernel-cli/dist/app.mjs';
 
 const EVM_RPC = 'http://localhost:8545';
@@ -39,10 +53,10 @@ function shellSingleQuote(value: string): string {
  * @returns stdout as a string.
  */
 export function dockerExec(service: string, command: string): string {
-  return execSync(
-    `docker compose -f ${COMPOSE_FILE} exec -T ${service} ${command}`,
-    { encoding: 'utf-8', timeout: 60_000 },
-  ).trim();
+  return execSync(`docker ${composePrefix()} exec -T ${service} ${command}`, {
+    encoding: 'utf-8',
+    timeout: 60_000,
+  }).trim();
 }
 
 /**
@@ -82,7 +96,7 @@ export function callVat(
   const execTimeoutMs = daemonTimeout * 1000 + 30_000;
   const argsJson = JSON.stringify(args);
   const raw = execSync(
-    `docker compose -f ${COMPOSE_FILE} exec -T ${service} ${CLI} daemon queueMessage ${shellSingleQuote(kref)} ${shellSingleQuote(method)} ${shellSingleQuote(argsJson)} --timeout ${daemonTimeout}`,
+    `docker ${composePrefix()} exec -T ${service} ${CLI} daemon queueMessage ${shellSingleQuote(kref)} ${shellSingleQuote(method)} ${shellSingleQuote(argsJson)} --timeout ${daemonTimeout}`,
     { encoding: 'utf-8', timeout: execTimeoutMs },
   ).trim();
 
@@ -133,10 +147,10 @@ export async function evmRpc(
  */
 export function isStackHealthy(): boolean {
   try {
-    const output = execSync(
-      `docker compose -f ${COMPOSE_FILE} ps --format json`,
-      { encoding: 'utf-8', timeout: 10_000 },
-    );
+    const output = execSync(`docker ${composePrefix()} ps --format json`, {
+      encoding: 'utf-8',
+      timeout: 10_000,
+    });
     const services = output
       .trim()
       .split('\n')
@@ -173,7 +187,7 @@ export function daemonExec(
       ? method
       : `${method} '${JSON.stringify(params).replace(/'/gu, "'\\''")}'`;
   const raw = execSync(
-    `docker compose -f ${COMPOSE_FILE} exec -T ${service} ${CLI} daemon exec ${args} --timeout 60`,
+    `docker ${composePrefix()} exec -T ${service} ${CLI} daemon exec ${args} --timeout 60`,
     { encoding: 'utf-8', timeout: 90_000 },
   ).trim();
   return JSON.parse(raw) as unknown;

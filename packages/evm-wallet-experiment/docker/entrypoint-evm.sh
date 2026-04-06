@@ -3,6 +3,11 @@
 # delegation framework contracts, then keeps Anvil running.
 set -e
 
+# Drop any contracts.json left on the shared volume from a prior stack run. Otherwise
+# Compose marks evm healthy before this deploy finishes, bundler reads stale EntryPoint
+# addresses, and Alto exits with "entry point ... does not exist" on the fresh chain.
+rm -f /run/ocap/contracts.json
+
 echo "[evm] Starting Anvil (Prague hardfork)..."
 anvil \
   --host 0.0.0.0 \

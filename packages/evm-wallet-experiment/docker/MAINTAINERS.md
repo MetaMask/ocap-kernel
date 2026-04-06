@@ -1,12 +1,12 @@
 # Docker stack — maintainer notes
 
-Local E2E stack for `@ocap/evm-wallet-experiment`: Anvil + deployed contracts, Pimlico Alto, and six kernel containers (three `kernel-home-*` / `kernel-away-*` pairs). See `package.json` scripts (`docker:compose`, `test:e2e:docker`, etc.).
+Local E2E stack for `@ocap/evm-wallet-experiment`: Anvil + deployed contracts, Pimlico Alto, and six kernel containers (three `kernel-home-*` / `kernel-away-*` pairs). See `package.json` scripts (`docker:compose`, `test:e2e:docker`, etc.). Each pair is gated by a Compose **profile** (**`7702`**, **`4337`**, **`relay`**); **`yarn docker:up`** / **`docker:compose`** pass **all three** so Vitest Docker E2E and full-stack dev see every kernel. **`yarn docker:interactive:up`** enables **one** profile (default **`bundler-7702`** delegation mode → profile **`7702`**). Shared kernel **build / volumes / entrypoint / depends_on** live in root **`x-kernel-standard`**; **`x-kernel-build-core`** holds **`context`** / **`dockerfile`** so **`kernel-away-bundler-7702`** can set **`build.target`** from **`${KERNEL_AWAY_7702_TARGET:-kernel}`**. Per-pair **ports**, **`environment`**, and **`healthcheck.test`** stay explicit.
 
 ## Startup order
 
 Compose encodes this dependency chain:
 
-1. **`evm`** becomes healthy when `/run/ocap/contracts.json` exists (written only after `deploy-contracts.mjs` finishes).
+1. **`evm`** becomes healthy when `/run/ocap/contracts.json` exists (written only after `deploy-contracts.mjs` finishes). **`entrypoint-evm.sh`** removes a previous **`contracts.json`** on the shared volume first so a stale file does not satisfy the healthcheck while Anvil is redeploying (bundler would otherwise start with dead EntryPoint addresses and exit).
 2. **`bundler`** waits on that file, reads `EntryPoint`, then starts Alto.
 3. **Kernel services** wait on **both** `evm` and **`bundler` healthy** so wallet setup does not race Alto boot.
 
@@ -58,18 +58,21 @@ Host-side scripts (e.g. `yarn docker:setup:wallets`) use the workspace **`tsx`**
 
 `docker-compose.yml` embeds **well-known Anvil private keys** for Alto. That is intentional for an isolated local chain. **Do not reuse this pattern** for any network that is exposed or shared.
 
-## Interactive stack (`docker-compose.interactive.yml`)
+## Docker Model Runner + Compose `models` (base `docker-compose.yml`)
 
-- Requires **Docker Compose v2.38+** and [**Docker Model Runner**](https://docs.docker.com/ai/model-runner/) enabled.
-- Merges over **`kernel-away-bundler-7702`**: **`interactive`** image target (OpenClaw) and Compose [**`models`**](https://docs.docker.com/ai/compose/models-and-compose/) binding **`llm`** → **`ai/qwen3.5:4B-UD-Q4_K_XL`** with **`context_size: 32768`** (DMR’s default 4096 is too small for OpenClaw + tool prompts). Larger context uses more RAM.
-- Run **`yarn docker:compose:interactive`**. Pull the model first if needed: **`docker model pull ai/qwen3.5:4B-UD-Q4_K_XL`**.
-- **`compose.interactive.yml`** sets **`context_size`** and **`runtime_flags: ['--ctx-size','32768']`** so llama.cpp does not stay at the 4096 default. If requests still fail with 4096, run on the host: **`docker model configure --context-size 32768 ai/qwen3.5:4B-UD-Q4_K_XL`**, then recreate the stack.
-- OpenClaw UI history lives under **`$HOME/.openclaw`** in the away container (on the **`ocap-run`** named volume). Rebuilding images does **not** clear it. Use **`yarn docker:interactive:reset-openclaw`**, then **`yarn docker:interactive:setup`**, or **`docker compose … down -v`** (wipes **all** kernel/contract state on that volume — use with care).
+- **`yarn docker:up`** and **`yarn test:e2e:docker`** expect the full stack, including [**Compose `models`**](https://docs.docker.com/ai/compose/models-and-compose/) on each **`kernel-away-*`** service. That requires **Docker Compose v2.38+** and [**Docker Model Runner**](https://docs.docker.com/ai/model-runner/) enabled.
+- Top-level **`models.llm`** pins **`ai/qwen3.5:4B-UD-Q4_K_XL`** with **`context_size: 32768`** and **`runtime_flags: ['--ctx-size','32768']`** so llama.cpp does not stay at DMR’s 4096 default (OpenClaw + tools need more). Pull if needed: **`docker model pull ai/qwen3.5:4B-UD-Q4_K_XL`**. If requests still hit 4096, run **`docker model configure --context-size 32768 ai/qwen3.5:4B-UD-Q4_K_XL`** on the host and recreate containers.
+- Vitest Docker E2E does **not** call the LLM today, but away containers still receive **`LLM_URL`** / **`LLM_MODEL`** for consistency with interactive OpenClaw and future tests.
 
-## Optional **`ollama`** profile
+## Interactive stack (`docker/.env.interactive` + one pair profile)
 
-- Service **`ollama`** uses profile **`ollama`** for an in-stack Ollama server. Interactive OpenClaw uses **DMR via Compose `models`**, not this service, unless you change the stack.
+- **`yarn docker:compose:interactive`** runs **`node docker/run-interactive-compose.mjs`**, which passes **`--env-file docker/.env.interactive`** ( **`KERNEL_AWAY_7702_TARGET=interactive`** for the 7702 away image) and **one** **`--profile`** (**`7702`**, **`4337`**, or **`relay`**). Default delegation mode is **`bundler-7702`** → profile **`7702`** (same mode strings as Docker E2E **`DELEGATION_MODE`**).
+- **Choose the pair**: set **`OCAP_INTERACTIVE_PAIR`** to **`bundler-7702`**, **`bundler-hybrid`**, or **`peer-relay`**, or pass **`--pair <value>`** before compose subcommands (after **`yarn … --`** if needed), e.g. **`yarn docker:interactive:up -- --pair bundler-hybrid`**.
+- **`yarn docker:interactive:setup`** runs wallet setup; OpenClaw **`setup-openclaw.mjs`** + gateway run **only** when the pair is **`bundler-7702`** (the image with OpenClaw). Other pairs skip those steps with a short log line.
+- OpenClaw UI history for 7702 lives under **`$HOME/.openclaw`** on the **`ocap-run`** volume; use **`yarn docker:interactive:reset-openclaw`** then **`yarn docker:interactive:setup`**, or **`docker compose … down -v`** for a full volume wipe. LLM wiring is **only** in **`docker-compose.yml`** (**`models:`**).
+
+**Raw `docker compose -f docker/docker-compose.yml up`** without **`--profile`** starts **evm** and **bundler** only (no kernels). Prefer **`yarn docker:up`** or the interactive scripts above.
 
 ## Ports and conflicts
 
-Published TCP ports include **8545** (Anvil), **4337** (bundler). Kernels publish **UDP 4011–4032** (QUIC, three pairs). The **`ollama`** profile does not publish **11434** to the host by default in the current compose file; check `docker-compose.yml` if that changes. Use alternate mappings if these clash with other stacks.
+Published TCP ports include **8545** (Anvil), **4337** (bundler). Kernels publish **UDP 4011–4032** (QUIC, three pairs). Use alternate mappings if these clash with other stacks.

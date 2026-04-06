@@ -32,7 +32,7 @@ const llmModel = process.env.LLM_MODEL;
 if (!llmUrlRaw || !llmModel) {
   throw new Error(
     'openclaw-setup: LLM_URL and LLM_MODEL must be set. ' +
-      'Use docker-compose.interactive.yml with top-level `models:` and Docker Model Runner enabled.',
+      'Use `docker-compose.yml` top-level `models:` + Docker Model Runner (Compose v2.38+).',
   );
 }
 
