@@ -292,24 +292,26 @@ openclaw tui
 
 From here, the agent handles everything. An example conversation:
 
+1. **User**: We need to connect you to my MetaMask wallet. Do you have an ocap url, and do you know what that means?
+
 1. **Agent**: "I don't have a connection to your MetaMask wallet yet. Could
    you provide the OCAP URL?"
 
    - Copy the OCAP URL from Part 1 and paste it into the chat
    - **Agent**: calls `metamask_obtain_vendor` to redeem the URL
 
-2. **You**: "I want you to be able to sign messages with my wallet"
+1. **You**: "I want you to be able to sign messages with my wallet"
 
    - **Agent**: calls `metamask_request_capability` with your description
    - The vendor returns a `PersonalMessageSigner` capability
    - **Approve the capability request** in the MetaMask extension popup
 
-3. **You**: "What accounts are available?"
+1. **You**: "What accounts are available?"
 
    - **Agent**: calls `metamask_call_capability` with method `getAccounts`
    - Returns the list of addresses
 
-4. **You**: "Sign 'hello, agentic metamask' with the first account"
+1. **You**: "Sign 'hello, agentic metamask' with the first account"
    - **Agent**: calls `metamask_call_capability` with method `signMessage`,
      passing the address, message, and chain ID
    - **Approve the signing request** in the MetaMask extension popup
