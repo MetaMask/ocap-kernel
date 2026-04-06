@@ -1,7 +1,12 @@
 import type { VatSyscallObject } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 
-import { coerceEndpointMessage, isRemoteId, insistERef } from '../../types.ts';
+import {
+  coerceEndpointMessage,
+  isRemoteId,
+  insistERef,
+  insistRRef,
+} from '../../types.ts';
 import type {
   KernelMessage,
   KernelSyscallObject,
@@ -90,7 +95,8 @@ export function getTranslators(ctx: StoreContext) {
       // whereas for a VRef the functional composition KtoE(EtoK(ref)) is an
       // identity function, for an RRef it is not, because KtoE reverses the
       // polarity of the RRef but EtoK doesn't.
-      eref = invertRRef(eref as RRef);
+      insistRRef(eref);
+      eref = invertRRef(eref);
     }
     return eref;
   }
