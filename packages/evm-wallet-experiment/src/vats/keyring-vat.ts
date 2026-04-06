@@ -70,7 +70,9 @@ export function buildRootObject(
     keyring = makeKeyring(initOptions);
     if (baggage.has('accountCount')) {
       const count = baggage.get('accountCount') as number;
-      for (let i = 1; i < count; i++) {
+      const startIndex =
+        initOptions.type === 'srp' ? (initOptions.addressIndex ?? 0) : 0;
+      for (let i = startIndex + 1; i < startIndex + count; i++) {
         keyring.deriveAccount(i);
       }
     }
