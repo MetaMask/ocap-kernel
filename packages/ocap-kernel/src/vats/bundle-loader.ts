@@ -38,19 +38,18 @@ export function loadBundle(
   const compartment = new Compartment({
     // SES globals that may be used by bundled code
     harden: globalThis.harden,
-    // Rolldown adds `Object.defineProperty(exports, Symbol.toStringTag, ...)` to
-    // IIFE bundles for modules with no named exports. Provide an empty object so
-    // that call does not throw in the Compartment.
-    exports: {},
     ...endowments,
     ...inescapableGlobalProperties,
+    // Rolldown adds `Object.defineProperty(exports, Symbol.toStringTag, ...)` to
+    // IIFE bundles as part of ESM interop. This MUST come after endowment spreads
+    // to ensure it is not accidentally overridden.
+    exports: {},
   });
   // Rolldown-generated CJS helpers use `var localThis = globalThis`, and
   // some bundled libraries (e.g. lodash) detect the global via
-  // `typeof global == "object" && global` or `Function("return this")()`.
-  // None of these work in a SES Compartment out of the box:
-  //   - `global` / `self` are not compartment bindings
-  //   - `Function("return this")()` returns `undefined` in strict mode
+  // `typeof global == "object" && global`.
+  // Neither `globalThis` nor `global` are available in a SES Compartment by
+  // default — only hardened intrinsics are exposed as named bindings.
   // Inject these properties on the compartment's own global so that both
   // patterns resolve to the compartment's global (which has all the intrinsics).
   const cg = compartment.globalThis as Record<string, unknown>;

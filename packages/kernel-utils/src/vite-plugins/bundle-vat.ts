@@ -1,3 +1,4 @@
+import { makePromiseKit } from '@endo/promise-kit';
 import type {
   OutputChunk,
   Plugin as RolldownPlugin,
@@ -21,14 +22,18 @@ export type { VatBundle } from '../vat-bundle.ts';
  * dynamic imports from the code so that Rolldown accepts the IIFE format.
  *
  * Pattern transformed:
- *   `import('specifier')` → `Promise.resolve({})`
+ *   `import('specifier')` / `import("specifier")` / `` import(`specifier`) ``
+ *   → `Promise.resolve({})`
+ *
+ * Only replaces calls with literal string specifiers. Dynamic expressions
+ * like `import(variable)` are left untouched.
  *
  * @returns A Rolldown plugin.
  */
-function removeDynamicImportsPlugin(): RolldownPlugin {
+export function removeDynamicImportsPlugin(): RolldownPlugin {
   return {
     name: 'ocap-kernel:remove-dynamic-imports',
-    transform(code) {
+    transform(code, id) {
       if (!/\bimport\s*\(/u.test(code)) {
         return null;
       }
@@ -39,6 +44,10 @@ function removeDynamicImportsPlugin(): RolldownPlugin {
       );
 
       if (transformed === code) {
+        this.warn(
+          `Module "${id}" contains dynamic import() expressions that could not ` +
+            `be replaced (e.g. computed specifiers). Rolldown may reject IIFE output.`,
+        );
         return null;
       }
 
@@ -66,10 +75,8 @@ export async function bundleVat(sourcePath: string): Promise<VatBundle> {
   // Wait for any in-flight build to finish before starting ours, then
   // register a slot so the next caller waits for us.
   const prevQueue = buildQueue;
-  let releaseLock!: () => void;
-  buildQueue = new Promise<void>((resolve) => {
-    releaseLock = resolve;
-  });
+  const { promise, resolve: releaseLock } = makePromiseKit<void>();
+  buildQueue = promise;
 
   let result: Awaited<ReturnType<typeof build>>;
   try {
