@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- refactor(ocap-kernel): branded kernel identifiers with runtime validation ([#917](https://github.com/MetaMask/ocap-kernel/pull/917))
+- chore: fix type error, upgrade turbo, suppress warnings ([#908](https://github.com/MetaMask/ocap-kernel/pull/908))
+
 ## [0.5.0]
 
 ### Added

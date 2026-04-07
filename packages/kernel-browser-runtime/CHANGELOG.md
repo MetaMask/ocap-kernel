@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- feat(ocap-kernel): leverage libp2p v3 features in remote communications ([#915](https://github.com/MetaMask/ocap-kernel/pull/915))
+- chore: fix type error, upgrade turbo, suppress warnings ([#908](https://github.com/MetaMask/ocap-kernel/pull/908))
+- perf: reduce remote-comms e2e test execution time ([#906](https://github.com/MetaMask/ocap-kernel/pull/906))
+- feat(kernel-browser-runtime): pass full RemoteCommsOptions via worker URL ([#881](https://github.com/MetaMask/ocap-kernel/pull/881))
+- feat: patch-package for SES-compat patches; root patches/ as single source of truth ([#874](https://github.com/MetaMask/ocap-kernel/pull/874))
+- feat(ocap-kernel): use E() for kernel service invocation to support remote presences ([#872](https://github.com/MetaMask/ocap-kernel/pull/872))
+
 ## [0.5.0]
 
 ### Added

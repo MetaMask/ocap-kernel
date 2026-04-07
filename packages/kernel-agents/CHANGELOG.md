@@ -7,4 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- feat(kernel-language-model-service): Add language model client ([#876](https://github.com/MetaMask/ocap-kernel/pull/876))
+- chore: fix type error, upgrade turbo, suppress warnings ([#908](https://github.com/MetaMask/ocap-kernel/pull/908))
+- refactor(kernel-utils): rename `describe()` to `__getDescription__()` d… ([#869](https://github.com/MetaMask/ocap-kernel/pull/869))
+
 [Unreleased]: https://github.com/MetaMask/ocap-kernel/

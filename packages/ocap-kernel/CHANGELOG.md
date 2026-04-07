@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- fix(kernel-ui): validate branded KRef values instead of unsafe casts ([#921](https://github.com/MetaMask/ocap-kernel/pull/921))
+- refactor(ocap-kernel): branded kernel identifiers with runtime validation ([#917](https://github.com/MetaMask/ocap-kernel/pull/917))
+- fix(ocap-kernel): schedule relay reconnect for relays unreachable on startup ([#918](https://github.com/MetaMask/ocap-kernel/pull/918))
+- feat(ocap-kernel): leverage libp2p v3 features in remote communications ([#915](https://github.com/MetaMask/ocap-kernel/pull/915))
+- feat(kernel-errors): standardize kernel errors observable in vat-land ([#913](https://github.com/MetaMask/ocap-kernel/pull/913))
+- chore: fix type error, upgrade turbo, suppress warnings ([#908](https://github.com/MetaMask/ocap-kernel/pull/908))
+- perf: reduce remote-comms e2e test execution time ([#906](https://github.com/MetaMask/ocap-kernel/pull/906))
+- feat: upgrade libp2p v2 to v3 ([#900](https://github.com/MetaMask/ocap-kernel/pull/900))
+- feat(ocap-kernel): propagate relay hints from redeemed ocap URLs ([#887](https://github.com/MetaMask/ocap-kernel/pull/887))
+- fix(ocap-kernel): enforce one delivery per crank, fix rollback cache staleness ([#879](https://github.com/MetaMask/ocap-kernel/pull/879))
+- feat(kernel-browser-runtime): pass full RemoteCommsOptions via worker URL ([#881](https://github.com/MetaMask/ocap-kernel/pull/881))
+- feat(ocap-kernel): add allowedWsHosts param to initializeRemoteComms ([#878](https://github.com/MetaMask/ocap-kernel/pull/878))
+- feat: patch-package for SES-compat patches; root patches/ as single source of truth ([#874](https://github.com/MetaMask/ocap-kernel/pull/874))
+- feat(ocap-kernel): use E() for kernel service invocation to support remote presences ([#872](https://github.com/MetaMask/ocap-kernel/pull/872))
+
 ## [0.6.0]
 
 ### Added

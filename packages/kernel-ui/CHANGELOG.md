@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- fix(kernel-ui): validate branded KRef values instead of unsafe casts ([#921](https://github.com/MetaMask/ocap-kernel/pull/921))
+- refactor(ocap-kernel): branded kernel identifiers with runtime validation ([#917](https://github.com/MetaMask/ocap-kernel/pull/917))
+- chore: fix type error, upgrade turbo, suppress warnings ([#908](https://github.com/MetaMask/ocap-kernel/pull/908))
+- chore: Bump @metamask/design-system-react ([#885](https://github.com/MetaMask/ocap-kernel/pull/885))
+- fix(ocap-kernel): enforce one delivery per crank, fix rollback cache staleness ([#879](https://github.com/MetaMask/ocap-kernel/pull/879))
+- feat: patch-package for SES-compat patches; root patches/ as single source of truth ([#874](https://github.com/MetaMask/ocap-kernel/pull/874))
+
 ## [0.4.0]
 
 ### Added

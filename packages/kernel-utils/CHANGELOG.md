@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Uncategorized
+
+- refactor(ocap-kernel): branded kernel identifiers with runtime validation ([#917](https://github.com/MetaMask/ocap-kernel/pull/917))
+- feat(kernel-language-model-service): Add language model client ([#876](https://github.com/MetaMask/ocap-kernel/pull/876))
+- chore: fix type error, upgrade turbo, suppress warnings ([#908](https://github.com/MetaMask/ocap-kernel/pull/908))
+- feat: upgrade libp2p v2 to v3 ([#900](https://github.com/MetaMask/ocap-kernel/pull/900))
+- feat(kernel-cli): queueMessage, redeem-url, OCAP_HOME, e2e tests ([#896](https://github.com/MetaMask/ocap-kernel/pull/896))
+- fix(kernel-utils): add `patch-package` as a dev dependency ([#893](https://github.com/MetaMask/ocap-kernel/pull/893))
+- fix(ocap-kernel): enforce one delivery per crank, fix rollback cache staleness ([#879](https://github.com/MetaMask/ocap-kernel/pull/879))
+- feat: patch-package for SES-compat patches; root patches/ as single source of truth ([#874](https://github.com/MetaMask/ocap-kernel/pull/874))
+- refactor(kernel-utils): rename `describe()` to `__getDescription__()` d… ([#869](https://github.com/MetaMask/ocap-kernel/pull/869))
+
 ### Added
 
 - Add `./vite-plugins` export with `bundleVat` and `bundleVats` vat bundling utilities (moved from `@ocap/repo-tools`) ([#875](https://github.com/MetaMask/ocap-kernel/pull/875))
