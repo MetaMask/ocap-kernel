@@ -103,7 +103,9 @@ export default defineConfig(({ mode }) => {
       jsTrustedPrelude({ trustedPreludes }),
       viteStaticCopy({
         targets: staticCopyTargets.map((src) =>
-          typeof src === 'string' ? { src, dest: './' } : src,
+          typeof src === 'string'
+            ? { src, dest: './', rename: { stripBase: true } }
+            : src,
         ),
         watch: { reloadPageOnChange: true },
         silent: isDev,
