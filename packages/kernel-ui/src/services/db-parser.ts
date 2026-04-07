@@ -1,3 +1,4 @@
+import { insistKRef } from '@metamask/ocap-kernel';
 import type { KRef } from '@metamask/ocap-kernel';
 
 import type {
@@ -79,8 +80,8 @@ export function parseObjectRegistry(
     if ((matches = key.match(/^(v\d+)\.c\.(ko\d+)$/u))) {
       matches[1] &&
         objCList.push({
-          vat: matches[1] ?? '',
-          kref: (matches[2] ?? '') as KRef,
+          vat: matches[1],
+          kref: matches[2] as KRef,
           eref: value.replace(/^R\s*/u, ''),
         });
       continue;
@@ -88,8 +89,8 @@ export function parseObjectRegistry(
     if ((matches = key.match(/^(v\d+)\.c\.(kp\d+)$/u))) {
       matches[1] &&
         prmCList.push({
-          vat: matches[1] ?? '',
-          kref: (matches[2] ?? '') as KRef,
+          vat: matches[1],
+          kref: matches[2] as KRef,
           eref: value.replace(/^R\s*/u, ''),
         });
       continue;
@@ -113,9 +114,10 @@ export function parseObjectRegistry(
 
   // Helper to resolve slots
   const resolveSlot = (kref: string): SlotInfo => {
+    insistKRef(kref);
     const entry = objCList.find((item) => item.kref === kref);
     return {
-      kref: kref as KRef,
+      kref,
       eref: entry?.eref ?? null,
       vat: entry?.vat ?? null,
     };

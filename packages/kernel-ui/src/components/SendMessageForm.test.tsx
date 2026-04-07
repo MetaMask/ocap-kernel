@@ -27,7 +27,8 @@ vi.mock('../hooks/useRegistry.ts', () => ({
   useRegistry: vi.fn(),
 }));
 
-vi.mock('@metamask/kernel-utils', () => ({
+vi.mock('@metamask/kernel-utils', async (importOriginal) => ({
+  ...(await importOriginal()),
   stringify: vi.fn(),
 }));
 
@@ -45,14 +46,14 @@ describe('SendMessageForm Component', () => {
         overview: { name: 'TestVat1', bundleSpec: '' },
         ownedObjects: [
           {
-            kref: 'kref1',
+            kref: 'ko1',
             eref: 'eref1',
             refCount: '1',
             toVats: [],
             revoked: 'false',
           },
           {
-            kref: 'kref2',
+            kref: 'ko2',
             eref: 'eref2',
             refCount: '1',
             toVats: [],
@@ -67,7 +68,7 @@ describe('SendMessageForm Component', () => {
         overview: { name: 'TestVat2', bundleSpec: '' },
         ownedObjects: [
           {
-            kref: 'kref3',
+            kref: 'ko3',
             eref: 'eref3',
             refCount: '1',
             toVats: [],
@@ -76,7 +77,7 @@ describe('SendMessageForm Component', () => {
         ],
         importedObjects: [
           {
-            kref: 'kref4',
+            kref: 'ko4',
             eref: 'eref4',
             refCount: '1',
             fromVat: 'vat1',
@@ -144,10 +145,10 @@ describe('SendMessageForm Component', () => {
     expect(options).toHaveLength(5); // 1 placeholder + 4 options from mock registry
 
     // Check dropdown options include objects from the registry
-    expect(screen.getByText('kref1 (TestVat1)')).toBeInTheDocument();
-    expect(screen.getByText('kref2 (TestVat1)')).toBeInTheDocument();
-    expect(screen.getByText('kref3 (TestVat2)')).toBeInTheDocument();
-    expect(screen.getByText('kref4 (TestVat1)')).toBeInTheDocument();
+    expect(screen.getByText('ko1 (TestVat1)')).toBeInTheDocument();
+    expect(screen.getByText('ko2 (TestVat1)')).toBeInTheDocument();
+    expect(screen.getByText('ko3 (TestVat2)')).toBeInTheDocument();
+    expect(screen.getByText('ko4 (TestVat1)')).toBeInTheDocument();
   });
 
   it('updates form values when inputs change', async () => {
@@ -155,8 +156,8 @@ describe('SendMessageForm Component', () => {
 
     // Change target
     const targetSelect = getByTestId('message-target');
-    fireEvent.change(targetSelect, { target: { value: 'kref1' } });
-    expect(targetSelect).toHaveValue('kref1');
+    fireEvent.change(targetSelect, { target: { value: 'ko1' } });
+    expect(targetSelect).toHaveValue('ko1');
 
     // Change method
     const methodInput = getByTestId('message-method');
@@ -179,7 +180,7 @@ describe('SendMessageForm Component', () => {
 
     // Select a target
     const targetSelect = getByTestId('message-target');
-    fireEvent.change(targetSelect, { target: { value: 'kref1' } });
+    fireEvent.change(targetSelect, { target: { value: 'ko1' } });
 
     // Button should now be enabled
     expect(sendButton).not.toBeDisabled();
@@ -197,7 +198,7 @@ describe('SendMessageForm Component', () => {
 
     // Set up form values
     const targetSelect = getByTestId('message-target');
-    fireEvent.change(targetSelect, { target: { value: 'kref1' } });
+    fireEvent.change(targetSelect, { target: { value: 'ko1' } });
 
     const methodInput = getByTestId('message-method');
     fireEvent.change(methodInput, { target: { value: 'testMethod' } });
@@ -215,7 +216,7 @@ describe('SendMessageForm Component', () => {
     // Check if callKernelMethod was called with correct parameters
     expect(callKernelMethod).toHaveBeenCalledWith({
       method: 'queueMessage',
-      params: ['kref1', 'testMethod', expectedArgs],
+      params: ['ko1', 'testMethod', expectedArgs],
     });
 
     // Check if fetchObjectRegistry was called
@@ -232,7 +233,7 @@ describe('SendMessageForm Component', () => {
 
     // Set up form values and submit
     const targetSelect = getByTestId('message-target');
-    fireEvent.change(targetSelect, { target: { value: 'kref1' } });
+    fireEvent.change(targetSelect, { target: { value: 'ko1' } });
 
     const sendButton = getByTestId('message-send-button');
     await userEvent.click(sendButton);
@@ -255,7 +256,7 @@ describe('SendMessageForm Component', () => {
 
     // Set up form values and submit
     const targetSelect = getByTestId('message-target');
-    fireEvent.change(targetSelect, { target: { value: 'kref1' } });
+    fireEvent.change(targetSelect, { target: { value: 'ko1' } });
 
     const sendButton = getByTestId('message-send-button');
     await userEvent.click(sendButton);
@@ -277,7 +278,7 @@ describe('SendMessageForm Component', () => {
 
     // Set up form values with invalid JSON
     const targetSelect = getByTestId('message-target');
-    fireEvent.change(targetSelect, { target: { value: 'kref1' } });
+    fireEvent.change(targetSelect, { target: { value: 'ko1' } });
 
     const paramsInput = getByTestId('message-params');
     fireEvent.change(paramsInput, { target: { value: 'invalid json' } });
@@ -300,7 +301,7 @@ describe('SendMessageForm Component', () => {
 
     // Set up form values - we need a valid target and valid JSON
     const targetSelect = getByTestId('message-target');
-    fireEvent.change(targetSelect, { target: { value: 'kref1' } });
+    fireEvent.change(targetSelect, { target: { value: 'ko1' } });
 
     // Ensure we have valid JSON in the params field
     const paramsInput = getByTestId('message-params');

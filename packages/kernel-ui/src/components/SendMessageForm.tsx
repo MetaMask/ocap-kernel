@@ -9,7 +9,7 @@ import {
   TextColor,
 } from '@metamask/design-system-react';
 import { stringify } from '@metamask/kernel-utils';
-import type { KRef } from '@metamask/ocap-kernel';
+import { isKRef } from '@metamask/ocap-kernel';
 import type { Json } from '@metamask/utils';
 import { useState, useMemo } from 'react';
 
@@ -64,12 +64,16 @@ export const SendMessageForm: React.FC = () => {
   }, [objectRegistry]);
 
   const handleSend = (): void => {
+    if (!isKRef(target)) {
+      logMessage('Invalid target', 'error');
+      return;
+    }
     Promise.resolve()
       .then(() => JSON.parse(paramsText) as Json[])
       .then(async (args) =>
         callKernelMethod({
           method: 'queueMessage',
-          params: [target as KRef, method, args],
+          params: [target, method, args],
         }),
       )
       .then((response) => {
