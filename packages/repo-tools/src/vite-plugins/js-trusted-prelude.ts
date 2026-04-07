@@ -36,7 +36,7 @@ export function jsTrustedPrelude(pluginConfig: {
     config() {
       return {
         build: {
-          rollupOptions: {
+          rolldownOptions: {
             external: Object.values(trustedPreludes)
               .filter((prelude) => 'path' in prelude)
               .map((prelude) => prelude.path),
@@ -54,7 +54,7 @@ export function jsTrustedPrelude(pluginConfig: {
      */
     configResolved(config: ResolvedConfig) {
       entryPoints = new Set(
-        Object.keys(config.build.rollupOptions.input ?? {}),
+        Object.keys(config.build.rolldownOptions?.input ?? {}),
       );
 
       for (const key of Object.keys(trustedPreludes)) {

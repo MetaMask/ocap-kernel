@@ -38,7 +38,7 @@ export default defineConfig(({ mode }) => {
           return `${entryName}.${ext}`;
         },
       },
-      rollupOptions: {
+      rolldownOptions: {
         external: (id) =>
           id === 'react' ||
           id === 'react-dom' ||

@@ -10,7 +10,7 @@ export default defineConfig((args) => {
     defineProject({
       build: {
         ssr: true,
-        rollupOptions: {
+        rolldownOptions: {
           output: {
             esModule: true,
           },

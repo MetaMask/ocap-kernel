@@ -1,11 +1,55 @@
+import type {
+  OutputChunk,
+  Plugin as RolldownPlugin,
+  RolldownOutput,
+} from 'rolldown';
 import { build } from 'vite';
-import type { Rollup } from 'vite';
 
 import type { VatBundle } from '../vat-bundle.ts';
 import { exportMetadataPlugin } from './export-metadata-plugin.ts';
 import { stripCommentsPlugin } from './strip-comments-plugin.ts';
 
 export type { VatBundle } from '../vat-bundle.ts';
+
+/**
+ * A Rolldown plugin that replaces dynamic `import()` calls with `Promise.resolve({})`.
+ *
+ * Rolldown does not support IIFE format when any module in the bundle graph
+ * contains dynamic imports, even when `output.codeSplitting` is false.
+ * Some third-party packages (e.g. viem) use lazy `await import(x)` inside
+ * utility functions that vats never actually call. This plugin removes those
+ * dynamic imports from the code so that Rolldown accepts the IIFE format.
+ *
+ * Pattern transformed:
+ *   `import('specifier')` → `Promise.resolve({})`
+ *
+ * @returns A Rolldown plugin.
+ */
+function removeDynamicImportsPlugin(): RolldownPlugin {
+  return {
+    name: 'ocap-kernel:remove-dynamic-imports',
+    transform(code) {
+      if (!code.includes('import(')) {
+        return null;
+      }
+
+      const transformed = code.replace(
+        /\bimport\s*\(\s*(['"`])[^'"`]+\1\s*\)/gu,
+        'Promise.resolve({})',
+      );
+
+      if (transformed === code) {
+        return null;
+      }
+
+      return { code: transformed, map: null };
+    },
+  };
+}
+
+// Rolldown has global state that is corrupted when multiple build() calls run
+// concurrently with IIFE format. Serialize all bundleVat calls to avoid this.
+let buildQueue: Promise<void> = Promise.resolve();
 
 /**
  * Bundle a vat source file using vite.
@@ -19,36 +63,54 @@ export type { VatBundle } from '../vat-bundle.ts';
 export async function bundleVat(sourcePath: string): Promise<VatBundle> {
   const metadataPlugin = exportMetadataPlugin();
 
-  const result = await build({
-    configFile: false,
-    logLevel: 'silent',
-    // TODO: Remove this define block and add a process shim to VatSupervisor
-    // workerEndowments instead. This injects into ALL bundles but is only needed
-    // for libraries like immer that check process.env.NODE_ENV.
-    define: {
-      'process.env.NODE_ENV': JSON.stringify('production'),
-    },
-    build: {
-      write: false,
-      lib: {
-        entry: sourcePath,
-        formats: ['iife'],
-        name: '__vatExports__',
-      },
-      rollupOptions: {
-        output: {
-          exports: 'named',
-          inlineDynamicImports: true,
-        },
-        plugins: [stripCommentsPlugin(), metadataPlugin],
-      },
-      minify: false,
-    },
+  // Wait for any in-flight build to finish before starting ours, then
+  // register a slot so the next caller waits for us.
+  const prevQueue = buildQueue;
+  let releaseLock!: () => void;
+  buildQueue = new Promise<void>((resolve) => {
+    releaseLock = resolve;
   });
 
+  let result: Awaited<ReturnType<typeof build>>;
+  try {
+    await prevQueue;
+    result = await build({
+      configFile: false,
+      logLevel: 'silent',
+      // TODO: Remove this define block and add a process shim to VatSupervisor
+      // workerEndowments instead. This injects into ALL bundles but is only needed
+      // for libraries like immer that check process.env.NODE_ENV.
+      define: {
+        'process.env.NODE_ENV': JSON.stringify('production'),
+      },
+      build: {
+        write: false,
+        minify: false,
+        lib: {
+          entry: sourcePath,
+          formats: ['iife'],
+          name: '__vatExports__',
+        },
+        rolldownOptions: {
+          output: {
+            exports: 'named',
+            codeSplitting: false,
+          },
+          plugins: [
+            removeDynamicImportsPlugin(),
+            stripCommentsPlugin(),
+            metadataPlugin,
+          ],
+        },
+      },
+    });
+  } finally {
+    releaseLock();
+  }
+
   const output = Array.isArray(result) ? result[0] : result;
-  const chunk = (output as Rollup.RollupOutput).output.find(
-    (item): item is Rollup.OutputChunk => item.type === 'chunk' && item.isEntry,
+  const chunk = (output as RolldownOutput).output.find(
+    (item): item is OutputChunk => item.type === 'chunk' && item.isEntry,
   );
 
   if (!chunk) {

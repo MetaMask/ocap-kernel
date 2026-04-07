@@ -38,6 +38,10 @@ export function loadBundle(
   const compartment = new Compartment({
     // SES globals that may be used by bundled code
     harden: globalThis.harden,
+    // Rolldown adds `Object.defineProperty(exports, Symbol.toStringTag, ...)` to
+    // IIFE bundles for modules with no named exports. Provide an empty object so
+    // that call does not throw in the Compartment.
+    exports: {},
     ...endowments,
     ...inescapableGlobalProperties,
   });

@@ -1,7 +1,11 @@
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import tsconfigPathsPlugin from 'vite-tsconfig-paths';
 import { defineConfig } from 'vitest/config';
+
+const endoifySourcePath = path.join(
+  import.meta.dirname,
+  './packages/kernel-shims/src/endoify.js',
+);
 
 export default defineConfig({
   optimizeDeps: {
@@ -10,10 +14,24 @@ export default defineConfig({
   },
 
   plugins: [
-    // Resolve imports using the "paths" property of the relevant tsconfig.json,
-    // if possible.
-    tsconfigPathsPlugin(),
+    // Redirect @metamask/kernel-shims/endoify to the source file and mark it
+    // external so it is not bundled into the test runner.
+    {
+      name: 'kernel-shims-endoify-resolver',
+      enforce: 'pre',
+      resolveId(id) {
+        if (id === '@metamask/kernel-shims/endoify') {
+          return { id: endoifySourcePath, external: true };
+        }
+        return undefined;
+      },
+    },
   ],
+
+  resolve: {
+    // Resolve imports using the "paths" property of the relevant tsconfig.json.
+    tsconfigPaths: true,
+  },
 
   test: {
     environment: 'node',
@@ -35,16 +53,6 @@ export default defineConfig({
       fileURLToPath(
         import.meta.resolve('@ocap/repo-tools/test-utils/fetch-mock'),
       ),
-    ],
-    alias: [
-      {
-        find: '@metamask/kernel-shims/endoify',
-        replacement: path.join(
-          import.meta.dirname,
-          './packages/kernel-shims/src/endoify.js',
-        ),
-        customResolver: (id) => ({ external: true, id }),
-      },
     ],
     coverage: {
       enabled: true,

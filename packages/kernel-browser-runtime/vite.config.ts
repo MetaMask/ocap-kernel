@@ -26,7 +26,11 @@ export const trustedPreludes: PreludeRecord = {
  * Paths are relative from the project root directory.
  */
 const staticCopyTargets: readonly (string | Target)[] = [
-  '../../kernel-shims/dist/endoify.js',
+  {
+    src: '../../kernel-shims/dist/endoify.js',
+    dest: './',
+    rename: { stripBase: true },
+  },
 ];
 
 const sourceDir = path.resolve(import.meta.dirname, 'src');
@@ -53,7 +57,7 @@ export default defineConfig(({ mode }) => {
       outDir: buildDir,
       // Disable Vite's module preload, which may cause SES-dependent code to run before lockdown.
       modulePreload: false,
-      rollupOptions: {
+      rolldownOptions: {
         input: {
           'kernel-worker': path.resolve(
             sourceDir,
