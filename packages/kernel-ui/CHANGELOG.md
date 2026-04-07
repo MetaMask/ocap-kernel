@@ -9,14 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.5.0]
 
-### Uncategorized
+### Changed
 
-- fix(kernel-ui): validate branded KRef values instead of unsafe casts ([#921](https://github.com/MetaMask/ocap-kernel/pull/921))
-- refactor(ocap-kernel): branded kernel identifiers with runtime validation ([#917](https://github.com/MetaMask/ocap-kernel/pull/917))
-- chore: fix type error, upgrade turbo, suppress warnings ([#908](https://github.com/MetaMask/ocap-kernel/pull/908))
-- chore: Bump @metamask/design-system-react ([#885](https://github.com/MetaMask/ocap-kernel/pull/885))
-- fix(ocap-kernel): enforce one delivery per crank, fix rollback cache staleness ([#879](https://github.com/MetaMask/ocap-kernel/pull/879))
-- feat: patch-package for SES-compat patches; root patches/ as single source of truth ([#874](https://github.com/MetaMask/ocap-kernel/pull/874))
+- **BREAKING:** Adopt branded string types for kernel identifiers ([#917](https://github.com/MetaMask/ocap-kernel/pull/917), [#921](https://github.com/MetaMask/ocap-kernel/pull/921))
+- Bump `@metamask/design-system-react` to `^0.10.0` ([#885](https://github.com/MetaMask/ocap-kernel/pull/885))
+- Improve `SendMessageForm` error display ([#879](https://github.com/MetaMask/ocap-kernel/pull/879))
+
+### Fixed
+
+- Fix type error in `PanelContext` pending request queue ([#908](https://github.com/MetaMask/ocap-kernel/pull/908))
 
 ## [0.4.0]
 

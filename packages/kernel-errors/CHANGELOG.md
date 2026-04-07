@@ -9,11 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.0]
 
-### Uncategorized
+### Added
 
-- feat(kernel-errors): standardize kernel errors observable in vat-land ([#913](https://github.com/MetaMask/ocap-kernel/pull/913))
-- chore: fix type error, upgrade turbo, suppress warnings ([#908](https://github.com/MetaMask/ocap-kernel/pull/908))
-- feat: upgrade libp2p v2 to v3 ([#900](https://github.com/MetaMask/ocap-kernel/pull/900))
+- Standardize vat-observable kernel errors ([#913](https://github.com/MetaMask/ocap-kernel/pull/913))
 
 ## [0.5.0]
 

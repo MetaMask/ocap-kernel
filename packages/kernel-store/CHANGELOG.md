@@ -9,10 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [0.6.0]
 
-### Uncategorized
+### Changed
 
-- refactor(ocap-kernel): branded kernel identifiers with runtime validation ([#917](https://github.com/MetaMask/ocap-kernel/pull/917))
-- chore: fix type error, upgrade turbo, suppress warnings ([#908](https://github.com/MetaMask/ocap-kernel/pull/908))
+- **BREAKING:** Remove `store.kv` property and adopt branded string types for kernel identifiers ([#917](https://github.com/MetaMask/ocap-kernel/pull/917))
 
 ## [0.5.0]
 
