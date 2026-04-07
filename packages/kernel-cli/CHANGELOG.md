@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0]
+
 ### Uncategorized
 
 - feat(ocap-kernel): leverage libp2p v3 features in remote communications ([#915](https://github.com/MetaMask/ocap-kernel/pull/915))
@@ -21,4 +23,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Replace `@ocap/repo-tools/vite-plugins` dependency with `@metamask/kernel-utils/vite-plugins` ([#875](https://github.com/MetaMask/ocap-kernel/pull/875))
 - Replace `@ocap/nodejs` dependency with `@metamask/kernel-node-runtime` ([#875](https://github.com/MetaMask/ocap-kernel/pull/875))
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-cli@0.1.0...HEAD
+[0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/kernel-cli@0.1.0
