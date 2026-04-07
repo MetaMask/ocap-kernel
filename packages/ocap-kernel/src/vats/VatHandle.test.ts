@@ -11,7 +11,12 @@ import type { MockInstance } from 'vitest';
 import type { KernelQueue } from '../KernelQueue.ts';
 import { makeKernelStore } from '../store/index.ts';
 import type { KernelStore } from '../store/index.ts';
-import type { VRef, EndpointMessage, VatDeliveryResult } from '../types.ts';
+import type {
+  VRef,
+  ERef,
+  EndpointMessage,
+  VatDeliveryResult,
+} from '../types.ts';
 import { VatHandle } from './VatHandle.ts';
 import { makeMapKernelDatabase } from '../../test/storage.ts';
 
@@ -147,10 +152,10 @@ describe('VatHandle', () => {
       sendVatCommandMock.mockReset();
       const mockResult: VatDeliveryResult = [[[], []], null];
       sendVatCommandMock.mockResolvedValueOnce(mockResult);
-      const target = 'kp1' as VRef;
+      const target = 'o+0' as VRef;
       const message: EndpointMessage = {
         methargs: { body: '["arg1","arg2"]', slots: [] },
-        result: 'kp123',
+        result: 'p+1' as ERef,
       };
       await vat.deliverMessage(target, message);
       expect(sendVatCommandMock).toHaveBeenCalledTimes(1);
