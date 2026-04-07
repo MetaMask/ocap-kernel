@@ -74,7 +74,7 @@ export async function bundleVat(sourcePath: string): Promise<VatBundle> {
   // Wait for any in-flight build to finish before starting ours, then
   // register a slot so the next caller waits for us.
   const prevQueue = buildQueue;
-  let releaseLock: () => void;
+  let releaseLock!: () => void;
   buildQueue = new Promise<void>((resolve) => {
     releaseLock = resolve;
   });
