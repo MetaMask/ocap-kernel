@@ -174,16 +174,14 @@ export class RemoteManager {
     }
 
     const { remoteId } = remote;
-    const failure = makeKernelError(
-      'CONNECTION_LOST',
-      'Remote connection lost (max retries reached or non-retryable error)',
-    );
+    const reason = `Remote connection lost: ${peerId} (max retries reached or non-retryable error)`;
+    const failure = makeKernelError('CONNECTION_LOST', reason);
 
-    // Reject pending URL redemptions in the RemoteHandle
-    // These are JavaScript promises that will propagate rejection to kernel promises
-    remote.rejectPendingRedemptions(
-      'Remote connection lost (max retries reached or non-retryable error)',
-    );
+    // Stop retransmitting and reject pending messages + URL redemptions.
+    // Called from both ACK-timeout and transport give-up paths. The ACK
+    // path calls giveUp() before invoking this callback, but giveUp() is
+    // idempotent so the repeat is harmless and keeps the transport path correct.
+    remote.giveUp(reason);
 
     // Reject all promises for which this remote is the decider
     for (const kpid of this.#kernelStore.getPromisesByDecider(remoteId)) {

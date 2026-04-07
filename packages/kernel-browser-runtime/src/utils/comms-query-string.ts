@@ -57,6 +57,7 @@ const NUMBER_PARAM_NAMES = [
   'handshakeTimeoutMs',
   'writeTimeoutMs',
   'ackTimeoutMs',
+  'streamInactivityTimeoutMs',
 ] as const satisfies readonly NumberParamKey[];
 
 const NonNegativeInteger = min(integer(), 0);

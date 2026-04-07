@@ -722,6 +722,31 @@ describe('RemoteHandle', () => {
     expect(() => remote.rejectPendingRedemptions(errorMessage)).not.toThrow();
   });
 
+  it('giveUp rejects pending messages and redemptions', async () => {
+    const remote = makeRemote();
+    const reason = 'transport gave up';
+
+    // Send a message to create pending state
+    const resolutions: VatOneResolution[] = [
+      ['rp+3', false, { body: '"value"', slots: [] }],
+    ];
+    await remote.deliverNotify(resolutions);
+
+    // Start a URL redemption
+    const redeemPromise = remote.redeemOcapURL('ocap:test@peer');
+
+    remote.giveUp(reason);
+
+    // Pending redemption was rejected
+    await expect(redeemPromise).rejects.toThrow(reason);
+
+    // Pending messages were discarded (startSeq advanced past all pending).
+    // deliverNotify used seq 1, redeemOcapURL used seq 2, so nextSendSeq = 2
+    // and startSeq is set to nextSendSeq + 1 = 3.
+    const seqState = mockKernelStore.getRemoteSeqState(mockRemoteId);
+    expect(seqState?.startSeq).toBe(3);
+  });
+
   it('redeemOcapURL increments redemption counter for multiple redemptions', async () => {
     const remote = makeRemote();
     const mockOcapURL1 = 'url1';

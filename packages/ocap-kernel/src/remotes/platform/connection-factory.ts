@@ -4,7 +4,10 @@ import { bootstrap } from '@libp2p/bootstrap';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
-import { MuxerClosedError } from '@libp2p/interface';
+import {
+  MuxerClosedError,
+  TooManyOutboundProtocolStreamsError,
+} from '@libp2p/interface';
 import type { PrivateKey, Libp2p } from '@libp2p/interface';
 import { ping } from '@libp2p/ping';
 import { byteStream } from '@libp2p/utils';
@@ -34,6 +37,7 @@ import type {
   ConnectionFactoryOptions,
   DirectTransport,
   InboundConnectionHandler,
+  PeerDisconnectHandler,
 } from '../types.ts';
 
 /**
@@ -71,6 +75,8 @@ export class ConnectionFactory {
   #stopped = false;
 
   #inboundHandler?: InboundConnectionHandler;
+
+  #disconnectHandler?: PeerDisconnectHandler;
 
   /**
    * Constructor for the ConnectionFactory.
@@ -210,17 +216,21 @@ export class ConnectionFactory {
     });
 
     // Set up inbound handler
-    await this.#libp2p.handle('whatever', (stream, connection) => {
+    await this.#libp2p.handle('whatever', async (stream, connection) => {
       const msgStream = byteStream(stream);
       const remotePeerId = connection.remotePeer.toString();
-      this.#logger.log(`inbound connection from peerId:${remotePeerId}`);
+      const connType = connection.direct ? 'direct' : 'relayed';
+      this.#logger.log(
+        `inbound ${connType} connection from peerId:${remotePeerId}`,
+      );
 
       const channel: Channel = {
         msgStream,
+        stream,
         peerId: remotePeerId,
       };
 
-      this.#inboundHandler?.(channel);
+      await this.#inboundHandler?.(channel);
     });
 
     // Start libp2p
@@ -243,6 +253,17 @@ export class ConnectionFactory {
       }
     });
 
+    this.#libp2p.addEventListener('peer:disconnect', (evt) => {
+      const remotePeerId = evt.detail.toString();
+      this.#logger.log(
+        `peer disconnected (all connections closed): ${remotePeerId}`,
+      );
+      // Don't forward relay disconnects — handled by #scheduleRelayReconnect
+      if (!this.#relayPeerIds.has(remotePeerId)) {
+        this.#disconnectHandler?.(remotePeerId);
+      }
+    });
+
     await this.#libp2p.start();
   }
 
@@ -253,6 +274,16 @@ export class ConnectionFactory {
    */
   onInboundConnection(handler: InboundConnectionHandler): void {
     this.#inboundHandler = handler;
+  }
+
+  /**
+   * Set the handler for peer disconnect events.
+   * Fires when all connections to a peer are closed.
+   *
+   * @param handler - The handler for peer disconnects.
+   */
+  onPeerDisconnect(handler: PeerDisconnectHandler): void {
+    this.#disconnectHandler = handler;
   }
 
   /**
@@ -358,7 +389,7 @@ export class ConnectionFactory {
           `successfully connected to ${peerId} via ${addressString}`,
         );
         const msgStream = byteStream(stream);
-        const channel: Channel = { msgStream, peerId };
+        const channel: Channel = { msgStream, stream, peerId };
         this.#logger.log(`opened channel to ${peerId}`);
         return channel;
       } catch (problem) {
@@ -372,6 +403,14 @@ export class ConnectionFactory {
             `yamux muxer issue contacting via ${addressString}`,
             problem,
           );
+        } else if (problem instanceof TooManyOutboundProtocolStreamsError) {
+          // Local stream limit hit — trying other addresses won't help
+          this.#outputError(
+            peerId,
+            `too many outbound streams via ${addressString}`,
+            problem,
+          );
+          throw problem;
         } else if (signalTimeout.aborted) {
           this.#outputError(peerId, `timed out opening channel`, problem);
         } else {
@@ -443,40 +482,24 @@ export class ConnectionFactory {
    * @param peerId - The peer ID for logging.
    */
   async closeChannel(channel: Channel, peerId: string): Promise<void> {
+    const closeResult = await channel.stream.close().then(
+      () => 'closed' as const,
+      (error: unknown) => error,
+    );
+
+    if (closeResult === 'closed') {
+      this.#logger.log(`${peerId}:: closed channel stream`);
+      return;
+    }
+
+    // Graceful close failed -- force abort with the original error.
     try {
-      // ByteStream.unwrap() returns the underlying libp2p stream.
-      const maybeWrapper = channel.msgStream as unknown as {
-        unwrap?: () => unknown;
-      };
-      const underlying =
-        typeof maybeWrapper.unwrap === 'function'
-          ? maybeWrapper.unwrap()
-          : undefined;
-
-      const closable = underlying as
-        | { close?: () => Promise<void> }
-        | undefined;
-      if (closable?.close) {
-        await closable.close();
-        this.#logger.log(`${peerId}:: closed channel stream`);
-        return;
-      }
-
-      const abortable = underlying as
-        | { abort?: (error?: Error) => void }
-        | undefined;
-      if (abortable?.abort) {
-        abortable.abort(new AbortError());
-        this.#logger.log(`${peerId}:: aborted channel stream`);
-        return;
-      }
-
-      // If we cannot explicitly close/abort, log and rely on natural closure.
-      this.#logger.log(
-        `${peerId}:: channel stream lacks close/abort, relying on natural closure`,
+      channel.stream.abort(
+        closeResult instanceof Error ? closeResult : new AbortError(),
       );
-    } catch (problem) {
-      this.#outputError(peerId, 'closing channel stream', problem);
+      this.#logger.log(`${peerId}:: aborted channel stream`);
+    } catch (abortProblem) {
+      this.#outputError(peerId, 'closing channel stream', abortProblem);
     }
   }
 

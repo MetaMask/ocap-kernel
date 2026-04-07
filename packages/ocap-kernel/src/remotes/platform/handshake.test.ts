@@ -99,6 +99,7 @@ describe('handshake', () => {
 
       mockChannel = {
         peerId: 'test-peer-id',
+        stream: { status: 'open' },
         msgStream: {
           write: vi.fn().mockResolvedValue(undefined),
           read: vi.fn(),
@@ -208,6 +209,7 @@ describe('handshake', () => {
 
       mockChannel = {
         peerId: 'test-peer-id',
+        stream: { status: 'open' },
         msgStream: {
           write: vi.fn().mockResolvedValue(undefined),
           read: vi.fn(),
