@@ -2,8 +2,10 @@
 
 The kernel store (`makeKernelStore` in `index.ts`) wraps the raw
 `KernelDatabase` from `@metamask/kernel-store` and exposes typed methods for
-all kernel-state access. Raw `kv` is intentionally not exposed — all reads and
-writes go through these methods to preserve branded type safety.
+all kernel-state access. The raw `kv` store is not exposed through
+`KernelStore` — production code reads and writes go through typed methods to
+preserve branded type safety. (Test code may access `database.kernelKVStore`
+directly.)
 
 ## Data integrity
 
@@ -35,7 +37,8 @@ Validated writes are the first line of defense:
 
 - All values entering the store pass through typed store methods or validated
   constructors (e.g., `makeGCAction()`).
-- Migration correctness: schema changes must transform all affected keys.
+- Any future schema migrations must transform all affected keys to maintain
+  typed invariants.
 
 See the trust model documentation at the top of `../types.ts` for how branded
 types are validated at other boundaries (external input, translators, internal

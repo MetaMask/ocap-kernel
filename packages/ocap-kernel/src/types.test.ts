@@ -429,6 +429,8 @@ describe('isVatId', () => {
     { name: 'missing number part', value: 'v' },
     { name: 'non-numeric suffix', value: 'va' },
     { name: 'mixed suffix', value: 'v1a' },
+    { name: 'float suffix', value: 'v1.5' },
+    { name: 'negative', value: 'v-1' },
     { name: 'number', value: 123 },
     { name: 'null', value: null },
   ])('returns false for $name', ({ value }) => {
@@ -745,6 +747,7 @@ describe('insistGCAction', () => {
   it.each([
     { name: 'invalid format', value: 'invalid' },
     { name: 'invalid vatId', value: 'invalid dropExport ko123' },
+    { name: 'invalid action type', value: 'v1 invalidAction ko123' },
     { name: 'number', value: 123 },
   ])('throws for $name', ({ value }) => {
     expect(() => insistGCAction(value)).toThrow('not a valid GCAction');

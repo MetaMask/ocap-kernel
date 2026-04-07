@@ -15,6 +15,7 @@ type ResetMocks = () => void;
 type SetMockBehavior = (options: {
   isVatConfig?: boolean;
   isVatId?: boolean;
+  isKRef?: boolean;
 }) => void;
 
 export const setupOcapKernelMock = (): {
@@ -23,6 +24,7 @@ export const setupOcapKernelMock = (): {
 } => {
   let isVatConfigMock = true;
   let isVatIdMock = true;
+  let isKRefMock = true;
   // Mock implementation
   vi.doMock('@metamask/ocap-kernel', () => {
     const VatIdStruct = define<unknown>('VatId', () => isVatIdMock);
@@ -40,9 +42,18 @@ export const setupOcapKernelMock = (): {
       vats: array(VatIdStruct),
     });
 
+    const KRefStruct = define<unknown>('KRef', () => isKRefMock);
+
     return {
       isVatId: () => isVatIdMock,
       isVatConfig: () => isVatConfigMock,
+      isKRef: () => isKRefMock,
+      insistKRef: (value: unknown) => {
+        if (!isKRefMock) {
+          throw new Error(`Expected KRef, got ${String(value)}`);
+        }
+      },
+      KRefStruct,
       VatIdStruct,
       VatConfigStruct,
       SubclusterIdStruct,
@@ -81,16 +92,21 @@ export const setupOcapKernelMock = (): {
     resetMocks: (): void => {
       isVatConfigMock = true;
       isVatIdMock = true;
+      isKRefMock = true;
     },
     setMockBehavior: (options: {
       isVatConfig?: boolean;
       isVatId?: boolean;
+      isKRef?: boolean;
     }): void => {
       if (typeof options.isVatConfig === 'boolean') {
         isVatConfigMock = options.isVatConfig;
       }
       if (typeof options.isVatId === 'boolean') {
         isVatIdMock = options.isVatId;
+      }
+      if (typeof options.isKRef === 'boolean') {
+        isKRefMock = options.isKRef;
       }
     },
   };
