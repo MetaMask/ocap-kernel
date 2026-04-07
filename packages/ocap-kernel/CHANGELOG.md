@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING:** Adopt branded string types for kernel identifiers ([#917](https://github.com/MetaMask/ocap-kernel/pull/917), [#921](https://github.com/MetaMask/ocap-kernel/pull/921))
 - Standardize vat-observable kernel errors ([#913](https://github.com/MetaMask/ocap-kernel/pull/913))
 - Upgrade libp2p to v3 and improve remote communication reliability ([#900](https://github.com/MetaMask/ocap-kernel/pull/900), [#915](https://github.com/MetaMask/ocap-kernel/pull/915))
-- Replace relay-only query string helpers with typed `CommsQueryParams` utilities that pass full `RemoteCommsOptions` via worker URL ([#881](https://github.com/MetaMask/ocap-kernel/pull/881))
+- Auto-extract `allowedWsHosts` from plain `ws://` relay multiaddrs in `ConnectionFactory` ([#881](https://github.com/MetaMask/ocap-kernel/pull/881))
 - Use `E()` for kernel service invocation to support remote presences as services ([#872](https://github.com/MetaMask/ocap-kernel/pull/872))
 
 ### Fixed
