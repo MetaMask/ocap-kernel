@@ -265,6 +265,19 @@ export class ConnectionFactory {
     });
 
     await this.#libp2p.start();
+
+    // Schedule reconnection for any relay that was not reachable on startup.
+    const startupConnectedPeerIds = new Set(
+      this.#libp2p.getConnections().map((conn) => conn.remotePeer.toString()),
+    );
+    for (const relayPeerId of this.#relayPeerIds) {
+      if (!startupConnectedPeerIds.has(relayPeerId)) {
+        this.#logger.log(
+          `relay ${relayPeerId} not connected after startup, scheduling reconnect`,
+        );
+        this.#scheduleRelayReconnect(relayPeerId);
+      }
+    }
   }
 
   /**
