@@ -384,6 +384,13 @@ export function buildRootObject(
         chainId: number;
         usePaymaster?: boolean;
         sponsorshipPolicyId?: string;
+        environment?: {
+          EntryPoint: Hex;
+          DelegationManager: Hex;
+          SimpleFactory: Hex;
+          implementations: Record<string, Hex>;
+          caveatEnforcers: Record<string, Hex>;
+        };
       }
     | undefined;
 
@@ -422,6 +429,9 @@ export function buildRootObject(
   peerWallet = restoreFromBaggage<PeerWalletFacet>('peerWallet');
   externalSigner = restoreFromBaggage<ExternalSignerFacet>('externalSigner');
   bundlerConfig = restoreFromBaggage<typeof bundlerConfig>('bundlerConfig');
+  if (bundlerConfig?.environment) {
+    registerEnvironment(bundlerConfig.chainId, bundlerConfig.environment);
+  }
   smartAccountConfig =
     restoreFromBaggage<SmartAccountConfig>('smartAccountConfig');
   awayWallet = restoreFromBaggage<AwayWalletFacet>('awayWallet');
@@ -1586,6 +1596,7 @@ export function buildRootObject(
         chainId: config.chainId,
         usePaymaster: config.usePaymaster,
         sponsorshipPolicyId: config.sponsorshipPolicyId,
+        environment: config.environment,
       });
       persistBaggage('bundlerConfig', bundlerConfig);
       logger.info('bundler configured', {
