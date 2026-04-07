@@ -262,7 +262,7 @@ exec "${process.execPath}" "${ocapCliEntrypoint}" "$@"
       ]);
 
       tools = new Map<string, ToolDefinition>();
-      register({
+      register.register({
         pluginConfig: {
           ocapCliPath,
           walletKref: rootKref,

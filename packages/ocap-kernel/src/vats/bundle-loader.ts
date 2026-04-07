@@ -45,6 +45,17 @@ export function loadBundle(
     ...endowments,
     ...inescapableGlobalProperties,
   });
+  // Rolldown-generated CJS helpers use `var localThis = globalThis`, and
+  // some bundled libraries (e.g. lodash) detect the global via
+  // `typeof global == "object" && global` or `Function("return this")()`.
+  // None of these work in a SES Compartment out of the box:
+  //   - `global` / `self` are not compartment bindings
+  //   - `Function("return this")()` returns `undefined` in strict mode
+  // Inject these properties on the compartment's own global so that both
+  // patterns resolve to the compartment's global (which has all the intrinsics).
+  const cg = compartment.globalThis as Record<string, unknown>;
+  cg.globalThis = compartment.globalThis;
+  cg.global = compartment.globalThis;
   // The code declares `var __vatExports__ = (function(){...})({});`
   // We wrap it in an IIFE to capture and return the result.
   const vatExports = compartment.evaluate(
