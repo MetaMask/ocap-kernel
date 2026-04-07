@@ -12,14 +12,14 @@ describe('queueMessageSpec', () => {
   it('should define the correct parameter structure', () => {
     // Valid parameters should pass validation
     const validParams = [
-      'target123',
+      'ko123',
       'methodName',
       [1, 'string', { key: 'value' }],
     ];
     expect(() => queueMessageSpec.params.create(validParams)).not.toThrow();
 
     // Invalid parameters should fail validation
-    const invalidParams = ['target123', 123, [1, 'string']];
+    const invalidParams = ['ko123', 123, [1, 'string']];
     expect(() => queueMessageSpec.params.create(invalidParams)).toThrow(
       'Expected a string',
     );

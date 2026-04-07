@@ -12,7 +12,7 @@ import type {
   EndpointId,
   EndpointHandle,
   KRef,
-  Message,
+  KernelMessage,
   RunQueueItem,
   RunQueueItemSend,
   RunQueueItemBringOutYourDead,
@@ -20,11 +20,10 @@ import type {
   RunQueueItemGCAction,
   CrankResult,
 } from './types.ts';
-import { insistEndpointId, insistMessage } from './types.ts';
 import { assert, Fail } from './utils/assert.ts';
 
 type MessageRoute = {
-  endpointId?: EndpointId;
+  endpointId?: EndpointId | 'kernel';
   target: KRef;
 } | null;
 
@@ -45,7 +44,7 @@ export class KernelRouter {
   readonly #getEndpoint: (endpointId: EndpointId) => EndpointHandle;
 
   /** A function that invokes a method on a kernel service. */
-  readonly #invokeKernelService: (target: KRef, message: Message) => void;
+  readonly #invokeKernelService: (target: KRef, message: KernelMessage) => void;
 
   /** The logger, if any. */
   readonly #logger: Logger | undefined;
@@ -63,7 +62,7 @@ export class KernelRouter {
     kernelStore: KernelStore,
     kernelQueue: KernelQueue,
     getEndpoint: (endpointId: EndpointId) => EndpointHandle,
-    invokeKernelService: (target: KRef, message: Message) => void,
+    invokeKernelService: (target: KRef, message: KernelMessage) => void,
     logger?: Logger,
   ) {
     this.#kernelStore = kernelStore;
@@ -128,7 +127,6 @@ export class KernelRouter {
    */
   #routeMessage(item: RunQueueItemSend): MessageRoute {
     const { target, message } = item;
-    insistMessage(message);
 
     const routeAsSplat = (error?: CapData<KRef>): MessageRoute => {
       if (message.result && error) {
@@ -269,9 +267,6 @@ export class KernelRouter {
       }
       if (endpoint || isKernelServiceMessage) {
         if (message.result) {
-          if (typeof message.result !== 'string') {
-            throw TypeError('message result must be a string');
-          }
           this.#kernelStore.setPromiseDecider(message.result, endpointId);
           this.#kernelStore.decrementRefCount(
             message.result,
@@ -280,13 +275,16 @@ export class KernelRouter {
         }
       }
       if (endpoint) {
+        // endpoint is only set when !isKernelServiceMessage, so endpointId
+        // is narrowed to EndpointId here (TS can't infer this).
+        const eid = endpointId as EndpointId;
         const endpointTarget = this.#kernelStore.translateRefKtoE(
-          endpointId,
+          eid,
           target,
           false,
         );
         const endpointMessage = this.#kernelStore.translateMessageKtoE(
-          endpointId,
+          eid,
           message,
         );
         try {
@@ -334,7 +332,10 @@ export class KernelRouter {
    * @param message - The message to deliver to the service.
    * @returns The crank result indicating the delivery was to the kernel.
    */
-  #deliverKernelServiceMessage(target: KRef, message: Message): CrankResult {
+  #deliverKernelServiceMessage(
+    target: KRef,
+    message: KernelMessage,
+  ): CrankResult {
     this.#invokeKernelService(target, message);
     return { didDelivery: 'kernel' };
   }
@@ -347,7 +348,6 @@ export class KernelRouter {
    */
   async #deliverNotify(item: RunQueueItemNotify): Promise<CrankResult> {
     const { endpointId, kpid } = item;
-    insistEndpointId(endpointId);
     const { context, isPromise } = parseRef(kpid);
     assert(
       context === 'kernel' && isPromise,

@@ -1,12 +1,17 @@
 import type {
-  Message,
   VatOneResolution,
   VatSyscallObject,
 } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import type { VatId, KRef, VRef } from '../../types.ts';
+import type {
+  VatId,
+  KRef,
+  VRef,
+  KernelMessage,
+  EndpointMessage,
+} from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import * as clistModule from './clist.ts';
 import { getTranslators } from './translators.ts';
@@ -36,8 +41,8 @@ describe('getTranslators', () => {
   describe('translateRefKtoE', () => {
     it('returns existing eref when found', () => {
       const vatId: VatId = 'v1';
-      const kref: KRef = 'k1';
-      const expectedEref: VRef = 'e1';
+      const kref: KRef = 'ko1' as KRef;
+      const expectedEref: VRef = 'o+1' as VRef;
       mockKrefToEref.mockReturnValue(expectedEref);
       const { translateRefKtoE } = getTranslators(mockCtx);
       const result = translateRefKtoE(vatId, kref, false);
@@ -48,8 +53,8 @@ describe('getTranslators', () => {
 
     it('allocates new eref when not found and importIfNeeded is true', () => {
       const vatId: VatId = 'v1';
-      const kref: KRef = 'k1';
-      const expectedEref: VRef = 'e1';
+      const kref: KRef = 'ko1' as KRef;
+      const expectedEref: VRef = 'o+1' as VRef;
       mockKrefToEref.mockReturnValue(null);
       mockAllocateErefForKref.mockReturnValue(expectedEref);
       const { translateRefKtoE } = getTranslators(mockCtx);
@@ -61,7 +66,7 @@ describe('getTranslators', () => {
 
     it('throws error when not found and importIfNeeded is false', () => {
       const vatId: VatId = 'v1';
-      const kref: KRef = 'k1';
+      const kref: KRef = 'ko1' as KRef;
       mockKrefToEref.mockReturnValue(null);
       const { translateRefKtoE } = getTranslators(mockCtx);
       expect(() => translateRefKtoE(vatId, kref, false)).toThrow(
@@ -73,10 +78,10 @@ describe('getTranslators', () => {
   describe('translateCapDataKtoE', () => {
     it('translates capdata from kernel to vat space', () => {
       const vatId: VatId = 'v1';
-      const kref1: KRef = 'k1';
-      const kref2: KRef = 'k2';
-      const eref1: VRef = 'e1';
-      const eref2: VRef = 'e2';
+      const kref1: KRef = 'ko1' as KRef;
+      const kref2: KRef = 'ko2' as KRef;
+      const eref1: VRef = 'o+1' as VRef;
+      const eref2: VRef = 'o+2' as VRef;
       const capdata: CapData<KRef> = {
         body: 'test body',
         slots: [kref1, kref2],
@@ -105,15 +110,15 @@ describe('getTranslators', () => {
   describe('translateMessageKtoE', () => {
     it('translates message from kernel to vat space', () => {
       const vatId: VatId = 'v1';
-      const kref: KRef = 'k1';
-      const resultKref: KRef = 'kr';
-      const eref: VRef = 'e1';
-      const resultEref: VRef = 'er';
-      const message: Message = {
+      const kref: KRef = 'ko1' as KRef;
+      const resultKref: KRef = 'kp1' as KRef;
+      const eref: VRef = 'o+1' as VRef;
+      const resultEref: VRef = 'p-1' as VRef;
+      const message: KernelMessage = {
         methargs: {
           body: 'test method',
           slots: [kref],
-        } as unknown as CapData<KRef>,
+        },
         result: resultKref,
       };
       mockKrefToEref.mockImplementation((_vId, kr) => {
@@ -125,28 +130,27 @@ describe('getTranslators', () => {
         }
         return null;
       });
-      const expectedMessage: Message = {
+      const expectedMessage: EndpointMessage = {
         methargs: {
           body: 'test method',
           slots: [eref],
-        } as unknown as CapData<VRef>,
+        },
         result: resultEref,
       };
       const { translateMessageKtoE } = getTranslators(mockCtx);
-      // @ts-expect-error: Message result is optional
       const result = translateMessageKtoE(vatId, message);
       expect(result).toStrictEqual(expectedMessage);
     });
 
     it('handles null result in message', () => {
       const vatId: VatId = 'v1';
-      const kref: KRef = 'k1';
-      const eref: VRef = 'e1';
-      const message: Message = {
+      const kref: KRef = 'ko1' as KRef;
+      const eref: VRef = 'o+1' as VRef;
+      const message: KernelMessage = {
         methargs: {
           body: 'test method',
           slots: [kref],
-        } as unknown as CapData<KRef>,
+        },
         result: null,
       };
       mockKrefToEref.mockImplementation((_vId, kr) => {
@@ -155,15 +159,14 @@ describe('getTranslators', () => {
         }
         return null;
       });
-      const expectedMessage: Message = {
+      const expectedMessage: EndpointMessage = {
         methargs: {
           body: 'test method',
           slots: [eref],
-        } as unknown as CapData<VRef>,
+        },
         result: null,
       };
       const { translateMessageKtoE } = getTranslators(mockCtx);
-      // @ts-expect-error: Message result is optional
       const result = translateMessageKtoE(vatId, message);
       expect(result).toStrictEqual(expectedMessage);
     });
@@ -174,14 +177,14 @@ describe('getTranslators', () => {
 
     beforeEach(() => {
       mockErefToKref.mockImplementation((_vId, vr) => {
-        if (vr === 'v1') {
-          return 'k1';
+        if (vr === 'o+1') {
+          return 'ko1';
         }
-        if (vr === 'v2') {
-          return 'k2';
+        if (vr === 'o+2') {
+          return 'ko2';
         }
-        if (vr === 'v3') {
-          return 'k3';
+        if (vr === 'p-1') {
+          return 'kp1';
         }
         return null;
       });
@@ -191,17 +194,17 @@ describe('getTranslators', () => {
     });
 
     it('translates "send" syscall', () => {
-      const vref: VRef = 'v1';
-      const kref: KRef = 'k1';
+      const vref: VRef = 'o+1' as VRef;
+      const kref: KRef = 'ko1' as KRef;
       const vso: VatSyscallObject = [
         'send',
         vref,
         {
           methargs: {
             body: 'test method',
-            slots: ['v2'],
+            slots: ['o+2'],
           },
-          result: 'v3',
+          result: 'p-1',
         },
       ] as VatSyscallObject;
       const expectedKso: VatSyscallObject = [
@@ -210,9 +213,9 @@ describe('getTranslators', () => {
         {
           methargs: {
             body: 'test method',
-            slots: ['k2'],
+            slots: ['ko2'],
           },
-          result: 'k3',
+          result: 'kp1',
         },
       ] as VatSyscallObject;
       const { translateSyscallVtoK } = getTranslators(mockCtx);
@@ -221,14 +224,14 @@ describe('getTranslators', () => {
     });
 
     it('throws TypeError when message.result in "send" syscall is not a string', () => {
-      const vref: VRef = 'v1';
+      const vref: VRef = 'o+1' as VRef;
       const vso: VatSyscallObject = [
         'send',
         vref,
         {
           methargs: {
             body: 'test method',
-            slots: ['v2'],
+            slots: ['o+2'],
           },
           result: null,
         },
@@ -241,8 +244,8 @@ describe('getTranslators', () => {
     });
 
     it('translates "subscribe" syscall', () => {
-      const vref: VRef = 'v1';
-      const kref: KRef = 'k1';
+      const vref: VRef = 'p-1' as VRef;
+      const kref: KRef = 'kp1' as KRef;
       const vso: VatSyscallObject = ['subscribe', vref];
       const expectedKso: VatSyscallObject = ['subscribe', kref];
       const { translateSyscallVtoK } = getTranslators(mockCtx);
@@ -253,13 +256,13 @@ describe('getTranslators', () => {
     it('translates "resolve" syscall', () => {
       const vresolutions: VatOneResolution[] = [
         [
-          'v1',
+          'p-1',
           false,
-          { body: 'data', slots: ['v2'] } as unknown as CapData<VRef>,
+          { body: 'data', slots: ['o+2'] } as unknown as CapData<VRef>,
         ],
       ];
       const kresoltuions: VatOneResolution[] = [
-        ['k1', false, { body: 'data', slots: ['k2'] }],
+        ['kp1', false, { body: 'data', slots: ['ko2'] }],
       ];
       const vso: VatSyscallObject = ['resolve', vresolutions];
       const expectedKso: VatSyscallObject = ['resolve', kresoltuions];
@@ -271,11 +274,11 @@ describe('getTranslators', () => {
     it('translates "exit" syscall', () => {
       const vcapdata: CapData<VRef> = {
         body: 'exit info',
-        slots: ['v1'],
+        slots: ['o+1'],
       };
       const kcapdata: CapData<KRef> = {
         body: 'exit info',
-        slots: ['k1'],
+        slots: ['ko1'],
       };
       const vso: VatSyscallObject = ['exit', true, vcapdata];
       const expectedKso: VatSyscallObject = ['exit', true, kcapdata];
@@ -290,8 +293,8 @@ describe('getTranslators', () => {
       'retireExports',
       'abandonExports',
     ])('translates "%s" syscall', (op) => {
-      const vrefs: VRef[] = ['v1', 'v2'];
-      const krefs: KRef[] = ['k1', 'k2'];
+      const vrefs: VRef[] = ['o+1' as VRef, 'o+2' as VRef];
+      const krefs: KRef[] = ['ko1' as KRef, 'ko2' as KRef];
       const vso: VatSyscallObject = [op, vrefs] as VatSyscallObject;
       const expectedKso: VatSyscallObject = [op, krefs] as VatSyscallObject;
       const { translateSyscallVtoK } = getTranslators(mockCtx);

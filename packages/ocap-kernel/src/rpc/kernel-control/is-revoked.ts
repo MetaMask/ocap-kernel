@@ -1,15 +1,16 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import { string, object, boolean } from '@metamask/superstruct';
+import { object, boolean } from '@metamask/superstruct';
 
 import type { Kernel } from '../../Kernel.ts';
 import type { KRef } from '../../types.ts';
+import { KRefStruct } from '../../types.ts';
 
 /**
  * Check if a kernel object has been revoked.
  */
 export const isRevokedSpec: MethodSpec<'isRevoked', { kref: KRef }, boolean> = {
   method: 'isRevoked',
-  params: object({ kref: string() }), // KRef
+  params: object({ kref: KRefStruct }),
   result: boolean(),
   // Using the boolean struct results in `Struct<true, unknown> | Struct<false, unknown>`,
   // which is not what we want.

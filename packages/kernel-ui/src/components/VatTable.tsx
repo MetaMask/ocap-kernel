@@ -5,6 +5,7 @@ import {
   IconName,
   ButtonIcon,
 } from '@metamask/design-system-react';
+import type { VatId } from '@metamask/ocap-kernel';
 
 import type { VatRecord } from '../types.ts';
 import {
@@ -17,9 +18,9 @@ import {
 
 export const VatTable: React.FC<{
   vats: VatRecord[];
-  onPingVat: (id: string) => void;
-  onRestartVat: (id: string) => void;
-  onTerminateVat: (id: string) => void;
+  onPingVat: (id: VatId) => void;
+  onRestartVat: (id: VatId) => void;
+  onTerminateVat: (id: VatId) => void;
 }> = ({ vats, onPingVat, onRestartVat, onTerminateVat }) => {
   if (vats.length === 0) {
     return null;

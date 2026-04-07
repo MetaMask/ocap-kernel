@@ -1,3 +1,5 @@
+import type { KRef } from '@metamask/ocap-kernel';
+
 import type {
   ObjectRegistry,
   VatSnapshot,
@@ -22,8 +24,8 @@ export function parseObjectRegistry(
   const kpValueRaw: Record<string, { body: string; slots: string[] }> = {};
   const vatConfigs: Record<string, { name: string; bundleSpec: string }> = {};
   // C-lists
-  const objCList: { vat: string; kref: string; eref: string }[] = [];
-  const prmCList: { vat: string; kref: string; eref: string }[] = [];
+  const objCList: { vat: string; kref: KRef; eref: string }[] = [];
+  const prmCList: { vat: string; kref: KRef; eref: string }[] = [];
 
   let gcActions = '';
   let reapQueue = '';
@@ -78,7 +80,7 @@ export function parseObjectRegistry(
       matches[1] &&
         objCList.push({
           vat: matches[1] ?? '',
-          kref: matches[2] ?? '',
+          kref: (matches[2] ?? '') as KRef,
           eref: value.replace(/^R\s*/u, ''),
         });
       continue;
@@ -87,7 +89,7 @@ export function parseObjectRegistry(
       matches[1] &&
         prmCList.push({
           vat: matches[1] ?? '',
-          kref: matches[2] ?? '',
+          kref: (matches[2] ?? '') as KRef,
           eref: value.replace(/^R\s*/u, ''),
         });
       continue;
@@ -112,7 +114,11 @@ export function parseObjectRegistry(
   // Helper to resolve slots
   const resolveSlot = (kref: string): SlotInfo => {
     const entry = objCList.find((item) => item.kref === kref);
-    return { kref, eref: entry?.eref ?? null, vat: entry?.vat ?? null };
+    return {
+      kref: kref as KRef,
+      eref: entry?.eref ?? null,
+      vat: entry?.vat ?? null,
+    };
   };
 
   // 3) Populate objects

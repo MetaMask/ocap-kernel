@@ -13,10 +13,13 @@ import type { KernelStore } from '../../store/index.ts';
 import type {
   RemoteId,
   ERef,
+  KRef,
   EndpointHandle,
-  Message,
+  EndpointMessage,
+  KernelOneResolution,
   CrankResult,
 } from '../../types.ts';
+import { insistERef } from '../../types.ts';
 import type { RemoteComms } from '../types.ts';
 
 /** How long to wait for ACK before retransmitting (ms). */
@@ -43,11 +46,11 @@ type RemoteHandleConstructorProps = {
   ackTimeoutMs?: number | undefined;
 };
 
-type MessageDelivery = ['message', string, Message];
+type MessageDelivery = ['message', ERef, EndpointMessage];
 type NotifyDelivery = ['notify', VatOneResolution[]];
-type DropExportsDelivery = ['dropExports', string[]];
-type RetireExportsDelivery = ['retireExports', string[]];
-type RetireImportsDelivery = ['retireImports', string[]];
+type DropExportsDelivery = ['dropExports', ERef[]];
+type RetireExportsDelivery = ['retireExports', ERef[]];
+type RetireImportsDelivery = ['retireImports', ERef[]];
 type BringOutYourDeadDelivery = ['bringOutYourDead'];
 
 type DeliveryParams =
@@ -74,6 +77,16 @@ type RedeemURLReply = {
 };
 
 export type RemoteMessageBase = Delivery | RedeemURLRequest | RedeemURLReply;
+
+type DeferredRedeemURLRequest =
+  | { type: 'redeemURL'; replyKey: string; ref: ERef }
+  | { type: 'redeemURL'; replyKey: string; error: string };
+
+type DeferredRedeemURLReply =
+  | { type: 'redeemURLReply'; replyKey: string; ref: KRef }
+  | { type: 'redeemURLReply'; replyKey: string; error: string };
+
+type DeferredCompletion = DeferredRedeemURLRequest | DeferredRedeemURLReply;
 
 type RemoteCommand = {
   seq: number;
@@ -115,7 +128,7 @@ export class RemoteHandle implements EndpointHandle {
   /** Pending URL redemption requests that have not yet been responded to. */
   readonly #pendingRedemptions: Map<
     string,
-    [(ref: string) => void, (problem: string | Error) => void]
+    [(ref: KRef) => void, (problem: string | Error) => void]
   > = new Map();
 
   /** Generation counter for keys to match URL redemption replies to requests. */
@@ -585,7 +598,10 @@ export class RemoteHandle implements EndpointHandle {
    * @param message - The message to deliver.
    * @returns the crank result.
    */
-  async deliverMessage(target: ERef, message: Message): Promise<CrankResult> {
+  async deliverMessage(
+    target: ERef,
+    message: EndpointMessage,
+  ): Promise<CrankResult> {
     await this.#sendRemoteCommand({
       method: 'deliver',
       params: ['message', target, message],
@@ -746,9 +762,10 @@ export class RemoteHandle implements EndpointHandle {
       }
       case 'notify': {
         const [, resolutions] = params;
-        const kResolutions: VatOneResolution[] = resolutions.map(
+        const kResolutions: KernelOneResolution[] = resolutions.map(
           (resolution) => {
             const [rpid, rejected, data] = resolution;
+            insistERef(rpid);
             return [
               this.#kernelStore.translateRefEtoK(this.remoteId, rpid),
               rejected,
@@ -798,35 +815,36 @@ export class RemoteHandle implements EndpointHandle {
   async #handleRedeemURLRequest(
     url: string,
     replyKey: string,
-  ): Promise<{ success: boolean; replyKey: string; value: string }> {
+  ): Promise<DeferredRedeemURLRequest> {
     assert.typeof(replyKey, 'string');
-    let kref: string;
+    let kref: KRef;
     try {
       kref = await this.#remoteComms.redeemLocalOcapURL(url);
     } catch (error) {
-      return { success: false, replyKey, value: `${(error as Error).message}` };
+      return {
+        type: 'redeemURL',
+        replyKey,
+        error: `${(error as Error).message}`,
+      };
     }
-    const eref = this.#kernelStore.translateRefKtoE(this.remoteId, kref, true);
-    return { success: true, replyKey, value: eref };
+    const ref = this.#kernelStore.translateRefKtoE(this.remoteId, kref, true);
+    return { type: 'redeemURL', replyKey, ref };
   }
 
   /**
    * Complete handling of an incoming redeemURL message by sending the reply.
    *
    * @param data - The data from #handleRedeemURLRequest.
-   * @param data.success - Whether the redemption was successful.
-   * @param data.replyKey - The reply key from the request.
-   * @param data.value - The eref (on success) or error message (on failure).
    */
-  async #completeHandleRedeemURLRequest(data: {
-    success: boolean;
-    replyKey: string;
-    value: string;
-  }): Promise<void> {
+  async #completeHandleRedeemURLRequest(
+    data: DeferredRedeemURLRequest,
+  ): Promise<void> {
+    const success = 'ref' in data;
+    const value = success ? data.ref : data.error;
     await this.#sendRemoteCommand(
       {
         method: 'redeemURLReply',
-        params: [data.success, data.replyKey, data.value],
+        params: [success, data.replyKey, value],
       },
       true, // exempt from capacity limit - this a reply that mustn't fail and is not vat-initiated
     );
@@ -846,14 +864,16 @@ export class RemoteHandle implements EndpointHandle {
     success: boolean,
     replyKey: string,
     result: string,
-  ): { success: boolean; replyKey: string; value: string } {
+  ): DeferredRedeemURLReply {
     if (!this.#pendingRedemptions.has(replyKey)) {
       throw Error(`unknown URL redemption reply key ${replyKey}`);
     }
-    const value = success
-      ? this.#kernelStore.translateRefEtoK(this.remoteId, result)
-      : result;
-    return { success, replyKey, value };
+    if (success) {
+      insistERef(result);
+      const ref = this.#kernelStore.translateRefEtoK(this.remoteId, result);
+      return { type: 'redeemURLReply', replyKey, ref };
+    }
+    return { type: 'redeemURLReply', replyKey, error: result };
   }
 
   /**
@@ -861,24 +881,17 @@ export class RemoteHandle implements EndpointHandle {
    * pending promise.
    *
    * @param data - The data from #handleRedeemURLReply.
-   * @param data.success - Whether the redemption was successful.
-   * @param data.replyKey - The reply key for matching to pending redemption.
-   * @param data.value - The translated kref (on success) or error message (on failure).
    */
-  #completeHandleRedeemURLReply(data: {
-    success: boolean;
-    replyKey: string;
-    value: string;
-  }): void {
+  #completeHandleRedeemURLReply(data: DeferredRedeemURLReply): void {
     const handlers = this.#pendingRedemptions.get(data.replyKey);
     // handlers should exist since we validated in prepare, but check for safety
     if (handlers) {
       this.#pendingRedemptions.delete(data.replyKey);
       const [resolve, reject] = handlers;
-      if (data.success) {
-        resolve(data.value);
+      if ('ref' in data) {
+        resolve(data.ref);
       } else {
-        reject(data.value);
+        reject(data.error);
       }
     }
   }
@@ -930,10 +943,7 @@ export class RemoteHandle implements EndpointHandle {
     const savepointName = `receive_${this.remoteId}_${seq}`;
     this.#kernelStore.createSavepoint(savepointName);
 
-    // Deferred completion data - set by redeemURL and redeemURLReply handlers
-    let deferredCompletion:
-      | { success: boolean; replyKey: string; value: string }
-      | undefined;
+    let deferredCompletion: DeferredCompletion | undefined;
 
     try {
       switch (method) {
@@ -976,17 +986,17 @@ export class RemoteHandle implements EndpointHandle {
 
     // Complete deferred operations
     if (deferredCompletion) {
-      switch (method) {
+      switch (deferredCompletion.type) {
         case 'redeemURL':
           await this.#completeHandleRedeemURLRequest(deferredCompletion);
           break;
         case 'redeemURLReply':
           this.#completeHandleRedeemURLReply(deferredCompletion);
           break;
-        case 'deliver':
         default:
-          // deliver doesn't set deferredCompletion, so this is unreachable
-          break;
+          throw Error(
+            `unknown deferred completion type: ${(deferredCompletion as DeferredCompletion).type}`,
+          );
       }
     }
 
@@ -1002,10 +1012,10 @@ export class RemoteHandle implements EndpointHandle {
    *
    * @returns a promise for the kref of the object designated by `url`.
    */
-  async redeemOcapURL(url: string): Promise<string> {
+  async redeemOcapURL(url: string): Promise<KRef> {
     const replyKey = `${this.#redemptionCounter}`;
     this.#redemptionCounter += 1;
-    const { promise, resolve, reject } = makePromiseKit<string>();
+    const { promise, resolve, reject } = makePromiseKit<KRef>();
     this.#pendingRedemptions.set(replyKey, [resolve, reject]);
 
     // Set up timeout handling with AbortSignal.

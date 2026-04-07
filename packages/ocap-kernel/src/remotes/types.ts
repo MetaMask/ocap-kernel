@@ -2,6 +2,8 @@ import type { Stream } from '@libp2p/interface';
 import type { ByteStream } from '@libp2p/utils';
 import type { Logger } from '@metamask/logger';
 
+import type { KRef } from '../types.ts';
+
 export type InboundConnectionHandler = (
   channel: Channel,
 ) => Promise<void> | void;
@@ -25,8 +27,8 @@ export type StopRemoteComms = () => Promise<void>;
 
 export type RemoteIdentity = {
   getPeerId: () => string;
-  issueOcapURL: (kref: string) => Promise<string>;
-  redeemLocalOcapURL: (ocapURL: string) => Promise<string>;
+  issueOcapURL: (kref: KRef) => Promise<string>;
+  redeemLocalOcapURL: (ocapURL: string) => Promise<KRef>;
   addKnownRelays: (relays: string[]) => void;
 };
 

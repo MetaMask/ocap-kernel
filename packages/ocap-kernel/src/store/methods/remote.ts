@@ -40,7 +40,7 @@ export function getRemoteMethods(ctx: StoreContext) {
    */
   function* getAllRemoteRecords(): Generator<RemoteRecord> {
     for (const remoteKey of getPrefixedKeys(REMOTE_INFO_BASE)) {
-      const remoteId = remoteKey.slice(REMOTE_INFO_BASE_LEN);
+      const remoteId = remoteKey.slice(REMOTE_INFO_BASE_LEN) as RemoteId;
       const remoteInfo = getRemoteInfo(remoteId);
       yield { remoteId, remoteInfo };
     }

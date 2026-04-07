@@ -6,7 +6,6 @@ import { getObjectMethods } from './object.ts';
 import { getPromiseMethods } from './promise.ts';
 import { getReachableMethods } from './reachable.ts';
 import { getRefCountMethods } from './refcount.ts';
-import { insistEndpointId } from '../../types.ts';
 import type { EndpointId, KRef, VatConfig, VatId, ERef } from '../../types.ts';
 import type { StoreContext, VatCleanupWork } from '../types.ts';
 import { parseRef } from '../utils/parse-ref.ts';
@@ -65,7 +64,7 @@ export function getVatMethods(ctx: StoreContext) {
    */
   function* getAllVatRecords(): Generator<VatRecord> {
     for (const vatKey of getPrefixedKeys(VAT_CONFIG_BASE)) {
-      const vatID = vatKey.slice(VAT_CONFIG_BASE_LEN);
+      const vatID = vatKey.slice(VAT_CONFIG_BASE_LEN) as VatId;
       const vatConfig = getVatConfig(vatID);
       yield { vatID, vatConfig };
     }
@@ -77,8 +76,8 @@ export function getVatMethods(ctx: StoreContext) {
    * @returns an array of vat IDs.
    */
   function getVatIDs(): VatId[] {
-    return Array.from(getPrefixedKeys(VAT_CONFIG_BASE)).map((vatKey) =>
-      vatKey.slice(VAT_CONFIG_BASE_LEN),
+    return Array.from(getPrefixedKeys(VAT_CONFIG_BASE)).map(
+      (vatKey) => vatKey.slice(VAT_CONFIG_BASE_LEN) as VatId,
     );
   }
 
@@ -245,7 +244,7 @@ export function getVatMethods(ctx: StoreContext) {
       assert(key.startsWith(clistPrefix), key);
       const vref = key.slice(clistPrefix.length);
       assert(vref.startsWith('o+'), vref);
-      const kref = ctx.kv.get(key);
+      const kref = ctx.kv.get<KRef>(key);
       assert(kref, key);
       // deletes c-list and .owner, adds to maybeFreeKrefs
       const ownerKey = getOwnerKey(kref);
@@ -265,10 +264,10 @@ export function getVatMethods(ctx: StoreContext) {
     for (const key of getPrefixedKeys(importPrefix)) {
       // abandoned imports: delete the clist entry as if the vat did a
       // drop+retire
-      const kref = ctx.kv.get(key) ?? Fail`getNextKey ensures get`;
+      const krefStr = ctx.kv.get<KRef>(key) ?? Fail`getNextKey ensures get`;
       assert(key.startsWith(clistPrefix), key);
-      const vref = key.slice(clistPrefix.length);
-      deleteCListEntry(vatID, kref, vref);
+      const vref = key.slice(clistPrefix.length) as ERef;
+      deleteCListEntry(vatID, krefStr, vref);
       // that will also delete both db keys
       work.imports += 1;
     }
@@ -277,15 +276,15 @@ export function getVatMethods(ctx: StoreContext) {
     // so they have already rejected the orphan promises, but those
     // kpids are still present in the dead vat's c-list. Clean those up now.
     for (const key of getPrefixedKeys(promisePrefix)) {
-      const kref = ctx.kv.get(key) ?? Fail`getNextKey ensures get`;
+      const krefStr = ctx.kv.get<KRef>(key) ?? Fail`getNextKey ensures get`;
       assert(key.startsWith(clistPrefix), key);
-      const vref = key.slice(clistPrefix.length);
+      const vref = key.slice(clistPrefix.length) as ERef;
       // the following will also delete both db keys
-      deleteCListEntry(vatID, kref, vref);
+      deleteCListEntry(vatID, krefStr, vref);
       // If the dead vat was still the decider, drop the decider’s refcount, too.
-      const kp = getKernelPromise(kref);
+      const kp = getKernelPromise(krefStr);
       if (kp.decider === vatID) {
-        decrementRefCount(kref, 'cleanup|promise|decider');
+        decrementRefCount(krefStr, 'cleanup|promise|decider');
       }
       work.promises += 1;
     }
@@ -328,7 +327,6 @@ export function getVatMethods(ctx: StoreContext) {
    * @returns the kref corresponding to the export of `eref` from `endpointId`.
    */
   function exportFromEndpoint(endpointId: EndpointId, eref: ERef): KRef {
-    insistEndpointId(endpointId);
     const { isPromise, context, direction } = parseRef(eref);
     assert(context === 'vat' || context === 'remote', `${eref} is not an ERef`);
     assert(direction === 'export', `${eref} is not an export reference`);

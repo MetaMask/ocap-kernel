@@ -1,9 +1,8 @@
 import type {
-  SwingSetCapData,
-  VatOneResolution,
   VatSyscallObject,
   VatSyscallResult,
 } from '@agoric/swingset-liveslots';
+import type { CapData } from '@endo/marshal';
 import type { FatalKernelErrorCode } from '@metamask/kernel-errors';
 import { Logger } from '@metamask/logger';
 
@@ -15,8 +14,13 @@ import {
 import type { KernelQueue } from '../KernelQueue.ts';
 import { makeFatalKernelError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
-import { coerceMessage } from '../types.ts';
-import type { Message, VatId, KRef } from '../types.ts';
+import type {
+  KernelSyscallObject,
+  KernelMessage,
+  KernelOneResolution,
+  VatId,
+  KRef,
+} from '../types.ts';
 
 type VatSyscallProps = {
   vatId: VatId;
@@ -45,15 +49,13 @@ export class VatSyscall {
   readonly #logger: Logger | undefined;
 
   /** The illegal syscall that was received */
-  illegalSyscall: { vatId: VatId; info: SwingSetCapData } | undefined;
+  illegalSyscall: { vatId: VatId; info: CapData<KRef> } | undefined;
 
   /** The error when delivery failed */
   deliveryError: string | undefined;
 
   /** The termination request that was received from the vat with syscall.exit() */
-  vatRequestedTermination:
-    | { reject: boolean; info: SwingSetCapData }
-    | undefined;
+  vatRequestedTermination: { reject: boolean; info: CapData<KRef> } | undefined;
 
   /**
    * Construct a new VatSyscall instance.
@@ -80,7 +82,7 @@ export class VatSyscall {
    * @param target - The target of the message send.
    * @param message - The message that was sent.
    */
-  #handleSyscallSend(target: KRef, message: Message): void {
+  #handleSyscallSend(target: KRef, message: KernelMessage): void {
     const immediate = !this.#kernelStore.isInCrank();
     this.#kernelQueue.enqueueSend(target, message, immediate);
   }
@@ -93,7 +95,7 @@ export class VatSyscall {
    *
    * @param resolutions - One or more promise resolutions.
    */
-  #handleSyscallResolve(resolutions: VatOneResolution[]): void {
+  #handleSyscallResolve(resolutions: KernelOneResolution[]): void {
     const immediate = !this.#kernelStore.isInCrank();
     this.#kernelQueue.resolvePromises(this.vatId, resolutions, immediate);
   }
@@ -169,7 +171,7 @@ export class VatSyscall {
         return harden(['error', 'vat not found']);
       }
 
-      const kso: VatSyscallObject = this.#kernelStore.translateSyscallVtoK(
+      const kso: KernelSyscallObject = this.#kernelStore.translateSyscallVtoK(
         this.vatId,
         vso,
       );
@@ -177,32 +179,28 @@ export class VatSyscall {
       const { vatId } = this;
       switch (op) {
         case 'send': {
-          // [KRef, Message];
           const [, target, message] = kso;
           this.#logger?.log(
             `@@@@ ${vatId} syscall send ${target}<-${JSON.stringify(message)}`,
           );
-          this.#handleSyscallSend(target, coerceMessage(message));
+          this.#handleSyscallSend(target, message);
           break;
         }
         case 'subscribe': {
-          // [KRef];
           const [, promise] = kso;
           this.#logger?.log(`@@@@ ${vatId} syscall subscribe ${promise}`);
           this.#handleSyscallSubscribe(promise);
           break;
         }
         case 'resolve': {
-          // [VatOneResolution[]];
           const [, resolutions] = kso;
           this.#logger?.log(
             `@@@@ ${vatId} syscall resolve ${JSON.stringify(resolutions)}`,
           );
-          this.#handleSyscallResolve(resolutions as VatOneResolution[]);
+          this.#handleSyscallResolve(resolutions);
           break;
         }
         case 'exit': {
-          // [boolean, SwingSetCapData];
           const [, isFailure, info] = kso;
           this.#logger?.log(
             `@@@@ ${vatId} syscall exit fail=${isFailure} ${JSON.stringify(info)}`,
@@ -211,47 +209,35 @@ export class VatSyscall {
           break;
         }
         case 'dropImports': {
-          // [KRef[]];
-          const [, refs] = kso;
+          const [, krefs] = kso;
           this.#logger?.log(
-            `@@@@ ${vatId} syscall dropImports ${JSON.stringify(refs)}`,
+            `@@@@ ${vatId} syscall dropImports ${JSON.stringify(krefs)}`,
           );
-          this.#handleSyscallDropImports(refs);
+          this.#handleSyscallDropImports(krefs);
           break;
         }
         case 'retireImports': {
-          // [KRef[]];
-          const [, refs] = kso;
+          const [, krefs] = kso;
           this.#logger?.log(
-            `@@@@ ${vatId} syscall retireImports ${JSON.stringify(refs)}`,
+            `@@@@ ${vatId} syscall retireImports ${JSON.stringify(krefs)}`,
           );
-          this.#handleSyscallRetireImports(refs);
+          this.#handleSyscallRetireImports(krefs);
           break;
         }
         case 'retireExports': {
-          // [KRef[]];
-          const [, refs] = kso;
+          const [, krefs] = kso;
           this.#logger?.log(
-            `@@@@ ${vatId} syscall retireExports ${JSON.stringify(refs)}`,
+            `@@@@ ${vatId} syscall retireExports ${JSON.stringify(krefs)}`,
           );
-          this.#handleSyscallExportCleanup(refs, true);
+          this.#handleSyscallExportCleanup(krefs, true);
           break;
         }
         case 'abandonExports': {
-          // [KRef[]];
-          const [, refs] = kso;
+          const [, krefs] = kso;
           this.#logger?.log(
-            `@@@@ ${vatId} syscall abandonExports ${JSON.stringify(refs)}`,
+            `@@@@ ${vatId} syscall abandonExports ${JSON.stringify(krefs)}`,
           );
-          this.#handleSyscallExportCleanup(refs, false);
-          break;
-        }
-        case 'callNow':
-        case 'vatstoreGet':
-        case 'vatstoreGetNextKey':
-        case 'vatstoreSet':
-        case 'vatstoreDelete': {
-          this.#logger?.warn(`vat ${vatId} issued invalid syscall ${op} `, vso);
+          this.#handleSyscallExportCleanup(krefs, false);
           break;
         }
         default:

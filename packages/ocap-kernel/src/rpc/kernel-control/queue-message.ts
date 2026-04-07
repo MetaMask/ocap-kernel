@@ -5,19 +5,20 @@ import { UnsafeJsonStruct } from '@metamask/utils';
 import type { Json } from '@metamask/utils';
 
 import type { Kernel } from '../../Kernel.ts';
-import { CapDataStruct } from '../../types.ts';
+import type { KRef } from '../../types.ts';
+import { KernelCapDataStruct, KRefStruct } from '../../types.ts';
 
 /**
  * Enqueue a message to a vat via the kernel's crank queue.
  */
 export const queueMessageSpec: MethodSpec<
   'queueMessage',
-  [string, string, Json[]],
-  CapData<string>
+  [KRef, string, Json[]],
+  CapData<KRef>
 > = {
   method: 'queueMessage',
-  params: tuple([string(), string(), array(UnsafeJsonStruct)]),
-  result: CapDataStruct,
+  params: tuple([KRefStruct, string(), array(UnsafeJsonStruct)]),
+  result: KernelCapDataStruct,
 };
 
 export type QueueMessageHooks = {
@@ -26,8 +27,8 @@ export type QueueMessageHooks = {
 
 export const queueMessageHandler: Handler<
   'queueMessage',
-  [string, string, Json[]],
-  Promise<CapData<string>>,
+  [KRef, string, Json[]],
+  Promise<CapData<KRef>>,
   QueueMessageHooks
 > = {
   ...queueMessageSpec,
@@ -35,7 +36,7 @@ export const queueMessageHandler: Handler<
   implementation: async (
     { kernel }: QueueMessageHooks,
     [target, method, args],
-  ): Promise<CapData<string>> => {
+  ): Promise<CapData<KRef>> => {
     return kernel.queueMessage(target, method, args);
   },
 };

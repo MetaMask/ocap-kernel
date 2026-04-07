@@ -482,15 +482,6 @@ describe('vat store methods', () => {
       });
     });
 
-    it('throws an error for invalid vat ID', () => {
-      const vatId = 'invalid' as VatId;
-      const vref = 'o+42';
-
-      expect(() => vatMethods.exportFromEndpoint(vatId, vref)).toThrow(
-        'not a valid EndpointId',
-      );
-    });
-
     it('throws an error for non-export reference', () => {
       const vatId = 'v1' as VatId;
       const vref = 'o-42'; // Import reference, not export

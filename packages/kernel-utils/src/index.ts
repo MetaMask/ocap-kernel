@@ -21,6 +21,7 @@ export type {
   TypeGuard,
 } from './types.ts';
 export {
+  CapDataStruct,
   EmptyJsonArray,
   isCapData,
   isPrimitive,

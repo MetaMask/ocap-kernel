@@ -11,7 +11,7 @@ import type { MockInstance } from 'vitest';
 import type { KernelQueue } from '../KernelQueue.ts';
 import { makeKernelStore } from '../store/index.ts';
 import type { KernelStore } from '../store/index.ts';
-import type { VRef, Message, VatDeliveryResult } from '../types.ts';
+import type { VRef, EndpointMessage, VatDeliveryResult } from '../types.ts';
 import { VatHandle } from './VatHandle.ts';
 import { makeMapKernelDatabase } from '../../test/storage.ts';
 
@@ -148,7 +148,7 @@ describe('VatHandle', () => {
       const mockResult: VatDeliveryResult = [[[], []], null];
       sendVatCommandMock.mockResolvedValueOnce(mockResult);
       const target = 'kp1' as VRef;
-      const message: Message = {
+      const message: EndpointMessage = {
         methargs: { body: '["arg1","arg2"]', slots: [] },
         result: 'kp123',
       };

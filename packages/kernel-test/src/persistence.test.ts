@@ -1,7 +1,7 @@
 import type { CapData } from '@endo/marshal';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
-import { kunser, makeKernelStore } from '@metamask/ocap-kernel';
+import { kunser } from '@metamask/ocap-kernel';
 import { unlink } from 'node:fs/promises';
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
@@ -153,7 +153,7 @@ describe('persistent storage', { timeout: 20_000 }, () => {
 
   it('handles messages in queue after kernel restart', async () => {
     const database1 = await makeSQLKernelDatabase({ dbFilename: databasePath });
-    const kernelStore1 = makeKernelStore(database1);
+    const kv1 = database1.kernelKVStore;
     const kernel1 = await makeKernel(
       database1,
       false,
@@ -168,23 +168,23 @@ describe('persistent storage', { timeout: 20_000 }, () => {
     const result1 = await kernel1.queueMessage(v1Root, 'resume', []);
     expect(kunser(result1)).toBe('Counter incremented to: 2');
     // Enqueue a send message into the database
-    kernelStore1.kv.set('queue.run.head', '4');
-    kernelStore1.kv.set('nextPromiseId', '4');
-    kernelStore1.kv.set(`${v1Root}.refCount`, '3,3');
-    kernelStore1.kv.set('queue.kp3.head', '1');
-    kernelStore1.kv.set('queue.kp3.tail', '1');
-    kernelStore1.kv.set('kp3.state', 'unresolved');
-    kernelStore1.kv.set('kp3.subscribers', '[]');
-    kernelStore1.kv.set('kp3.refCount', '2');
-    kernelStore1.kv.set(
+    kv1.set('queue.run.head', '4');
+    kv1.set('nextPromiseId', '4');
+    kv1.set(`${v1Root}.refCount`, '3,3');
+    kv1.set('queue.kp3.head', '1');
+    kv1.set('queue.kp3.tail', '1');
+    kv1.set('kp3.state', 'unresolved');
+    kv1.set('kp3.subscribers', '[]');
+    kv1.set('kp3.refCount', '2');
+    kv1.set(
       'queue.run.3',
       `{"type":"send","target":"${v1Root}","message":{"methargs":{"body":"#[\\"resume\\",[]]","slots":[]},"result":"kp3"}}`,
     );
     await kernel1.stop();
     // Open a fresh connection to verify the message is in the database
     const database2 = await makeSQLKernelDatabase({ dbFilename: databasePath });
-    const kernelStore2 = makeKernelStore(database2);
-    expect(kernelStore2.kv.get('queue.run.3')).toBeDefined();
+    const kv2 = database2.kernelKVStore;
+    expect(kv2.get('queue.run.3')).toBeDefined();
     // restart the kernel
     const kernel2 = await makeKernel(
       database2,
@@ -192,7 +192,7 @@ describe('persistent storage', { timeout: 20_000 }, () => {
       logger.logger.subLogger({ tags: ['test'] }),
     );
     // verify that the run queue is empty
-    expect(kernelStore2.kv.get('queue.run.3')).toBeUndefined();
+    expect(kv2.get('queue.run.3')).toBeUndefined();
     // verify that the message is processed and the counter is incremented
     const result2 = await kernel2.queueMessage(v1Root, 'resume', []);
     expect(kunser(result2)).toBe('Counter incremented to: 4');

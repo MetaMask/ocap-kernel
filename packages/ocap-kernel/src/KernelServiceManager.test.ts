@@ -6,7 +6,7 @@ import type { KernelQueue } from './KernelQueue.ts';
 import { KernelServiceManager } from './KernelServiceManager.ts';
 import { kser, makeKernelError } from './liveslots/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
-import type { Message } from './types.ts';
+import type { KernelMessage } from './types.ts';
 import { makeMapKernelDatabase } from '../test/storage.ts';
 
 /**
@@ -182,7 +182,7 @@ describe('KernelServiceManager', () => {
 
       serviceManager.unregisterKernelServiceObject('myService');
 
-      expect(kernelStore.kv.get('kernelService.myService')).toBeUndefined();
+      expect(kernelStore.getKernelServiceKref('myService')).toBeUndefined();
       // Verify it was unpinned by trying to re-register with the same name
       const reregistered = serviceManager.registerKernelServiceObject(
         'myService',
@@ -298,7 +298,7 @@ describe('KernelServiceManager', () => {
         testService,
       );
 
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: kser(['testMethod', ['arg1', 'arg2']]),
       };
 
@@ -320,7 +320,7 @@ describe('KernelServiceManager', () => {
         testService,
       );
 
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: kser(['testMethod', ['arg1']]),
         result: 'kp123',
       };
@@ -346,7 +346,7 @@ describe('KernelServiceManager', () => {
         testService,
       );
 
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: kser(['testMethod', []]),
         result: 'kp123',
       };
@@ -372,7 +372,7 @@ describe('KernelServiceManager', () => {
         testService,
       );
 
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: kser(['testMethod', []]),
       };
 
@@ -387,7 +387,7 @@ describe('KernelServiceManager', () => {
     });
 
     it('throws error for non-existent service', () => {
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: kser(['testMethod', []]),
       };
 
@@ -406,7 +406,7 @@ describe('KernelServiceManager', () => {
         testService,
       );
 
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: kser(['unknownMethod', []]),
         result: 'kp123',
       };
@@ -436,7 +436,7 @@ describe('KernelServiceManager', () => {
         testService,
       );
 
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: kser(['unknownMethod', []]),
       };
 
@@ -460,7 +460,7 @@ describe('KernelServiceManager', () => {
         emptyService,
       );
 
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: kser(['anyMethod', []]),
         result: 'kp123',
       };
@@ -500,7 +500,7 @@ describe('KernelServiceManager', () => {
         proxyService,
       );
 
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: kser(['testMethod', ['arg1']]),
         result: 'kp123',
       };
@@ -524,7 +524,7 @@ describe('KernelServiceManager', () => {
         testService,
       );
 
-      const message: Message = {
+      const message: KernelMessage = {
         methargs: kser(['voidMethod', []]),
         result: 'kp123',
       };

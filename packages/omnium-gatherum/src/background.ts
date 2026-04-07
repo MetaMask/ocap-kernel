@@ -11,7 +11,8 @@ import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import type { KernelFacet } from '@metamask/ocap-kernel';
+import type { KernelFacet, KRef } from '@metamask/ocap-kernel';
+import { insistKRef } from '@metamask/ocap-kernel';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 
 import type { CapletManifest } from './controllers/index.ts';
@@ -153,7 +154,7 @@ type GlobalSetters = {
  * @returns A device for setting the global values.
  */
 function defineGlobals(): GlobalSetters {
-  let controllerVatKref: string;
+  let controllerVatKref: KRef;
 
   /**
    * Call a method on the controller vat via queueMessage.
@@ -234,12 +235,13 @@ function defineGlobals(): GlobalSetters {
     return { manifest, bundle };
   };
 
-  const getCapletRoot = async (capletId: string): Promise<string> => {
+  const getCapletRoot = async (capletId: string): Promise<KRef> => {
     const { slots } = await callController('getCapletRoot', [capletId]);
     const rootKref = slots[0];
     if (!rootKref) {
       throw new Error(`Caplet "${capletId}" has no root kref`);
     }
+    insistKRef(rootKref);
     return rootKref;
   };
 
@@ -271,7 +273,8 @@ function defineGlobals(): GlobalSetters {
     setKernel: (kernel) => {
       globalThis.kernel = kernel;
     },
-    setControllerVatKref: (kref) => {
+    setControllerVatKref: (kref: string) => {
+      insistKRef(kref);
       controllerVatKref = kref;
     },
   };

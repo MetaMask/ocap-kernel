@@ -162,7 +162,7 @@ describe('SubclusterManager', () => {
         services: ['testService'],
       };
       (mockGetKernelService as ReturnType<typeof vi.fn>).mockReturnValue({
-        kref: 'ko-service',
+        kref: 'ko99',
         systemOnly: false,
       });
 
@@ -184,7 +184,7 @@ describe('SubclusterManager', () => {
         services: ['kernelFacet'],
       };
       (mockGetKernelService as ReturnType<typeof vi.fn>).mockReturnValue({
-        kref: 'ko-service',
+        kref: 'ko99',
         systemOnly: true,
       });
 
@@ -202,7 +202,7 @@ describe('SubclusterManager', () => {
         services: ['kernelFacet'],
       };
       (mockGetKernelService as ReturnType<typeof vi.fn>).mockReturnValue({
-        kref: 'ko-service',
+        kref: 'ko99',
         systemOnly: true,
       });
 
@@ -406,9 +406,9 @@ describe('SubclusterManager', () => {
       // Simulate launchVat returning undefined (which shouldn't happen normally)
       mockVatManager.launchVat.mockResolvedValue(undefined as unknown as KRef);
 
-      // This will throw because kslot expects a string
+      // This will throw because kslot validates with insistKRef
       await expect(subclusterManager.launchSubcluster(config)).rejects.toThrow(
-        '"[undefined]" must be a string',
+        'not a valid KRef',
       );
     });
 

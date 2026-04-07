@@ -57,7 +57,7 @@ export function getPinMethods(ctx: StoreContext) {
    * @returns An array of KRefs for all pinned objects.
    */
   function getPinnedObjects(): KRef[] {
-    return commaSplit(ctx.kv.get('pinnedObjects'));
+    return commaSplit(ctx.kv.get('pinnedObjects')) as KRef[];
   }
 
   /**

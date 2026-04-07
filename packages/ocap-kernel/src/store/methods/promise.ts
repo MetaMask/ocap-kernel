@@ -2,14 +2,14 @@ import { Fail } from '@endo/errors';
 import type { CapData } from '@endo/marshal';
 
 import { getBaseMethods } from './base.ts';
+import { insistEndpointId } from '../../types.ts';
 import type {
   KRef,
   KernelPromise,
-  Message,
+  KernelMessage,
   PromiseState,
   EndpointId,
 } from '../../types.ts';
-import { insistEndpointId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { getRefCountMethods } from './refcount.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
@@ -68,6 +68,9 @@ export function getPromiseMethods(ctx: StoreContext) {
       case 'unresolved': {
         const decider = ctx.kv.get(`${kpid}.decider`);
         if (decider !== '' && decider !== undefined) {
+          if (decider !== 'kernel') {
+            insistEndpointId(decider);
+          }
           result.decider = decider;
         }
         const subscribers = ctx.kv.getRequired(`${kpid}.subscribers`);
@@ -115,7 +118,6 @@ export function getPromiseMethods(ctx: StoreContext) {
    * @param kpid - The KRef of the promise being subscribed to.
    */
   function addPromiseSubscriber(endpointId: EndpointId, kpid: KRef): void {
-    insistEndpointId(endpointId);
     const kp = getKernelPromise(kpid);
     kp.state === 'unresolved' ||
       Fail`attempt to add subscriber to resolved promise ${kpid}`;
@@ -132,10 +134,10 @@ export function getPromiseMethods(ctx: StoreContext) {
    * @param kpid - The KRef of promise whose decider is being set.
    * @param endpointId - The endpoint which will become the decider.
    */
-  function setPromiseDecider(kpid: KRef, endpointId: EndpointId): void {
-    if (endpointId !== 'kernel') {
-      insistEndpointId(endpointId);
-    }
+  function setPromiseDecider(
+    kpid: KRef,
+    endpointId: EndpointId | 'kernel',
+  ): void {
     if (kpid) {
       ctx.kv.set(`${kpid}.decider`, endpointId);
     }
@@ -155,10 +157,10 @@ export function getPromiseMethods(ctx: StoreContext) {
     kpid: KRef,
     rejected: boolean,
     value: CapData<KRef>,
-  ): [KRef, Message][] {
+  ): [KRef, KernelMessage][] {
     const queue = provideStoredQueue(kpid, false);
     // Collect messages that were queued on this promise
-    const queuedMessages: [KRef, Message][] = [];
+    const queuedMessages: [KRef, KernelMessage][] = [];
     for (const message of getKernelPromiseMessageQueue(kpid)) {
       queuedMessages.push([kpid, message]);
     }
@@ -178,7 +180,7 @@ export function getPromiseMethods(ctx: StoreContext) {
    * @param kpid - The KRef of the promise to enqueue on.
    * @param message - The message to enqueue.
    */
-  function enqueuePromiseMessage(kpid: KRef, message: Message): void {
+  function enqueuePromiseMessage(kpid: KRef, message: KernelMessage): void {
     provideStoredQueue(kpid, false).enqueue(message);
   }
 
@@ -188,11 +190,11 @@ export function getPromiseMethods(ctx: StoreContext) {
    * @param kpid - The KRef of the kernel promise of interest.
    * @returns An array of all the messages in the given promise's message queue.
    */
-  function getKernelPromiseMessageQueue(kpid: KRef): Message[] {
-    const result: Message[] = [];
+  function getKernelPromiseMessageQueue(kpid: KRef): KernelMessage[] {
+    const result: KernelMessage[] = [];
     const queue = provideStoredQueue(kpid, false);
     for (;;) {
-      const message = queue.dequeue() as Message;
+      const message = queue.dequeue() as KernelMessage;
       if (message) {
         result.push(message);
       } else {
@@ -208,10 +210,10 @@ export function getPromiseMethods(ctx: StoreContext) {
    *
    * @yields the kpids of all the unresolved promises decided by `decider`.
    */
-  function* getPromisesByDecider(decider: EndpointId): Generator<string> {
+  function* getPromisesByDecider(decider: EndpointId): Generator<KRef> {
     const basePrefix = `cle.${decider}.`;
     for (const key of getPrefixedKeys(`${basePrefix}p`)) {
-      const kpid = ctx.kv.getRequired(key);
+      const kpid = ctx.kv.getRequired<KRef>(key);
       const kp = getKernelPromise(kpid);
       if (kp.state === 'unresolved' && kp.decider === decider) {
         yield kpid;

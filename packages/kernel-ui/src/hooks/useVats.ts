@@ -2,6 +2,7 @@ import { stringify } from '@metamask/kernel-utils';
 import type {
   VatConfig,
   VatId,
+  SubclusterId,
   Subcluster,
   KernelStatus,
 } from '@metamask/ocap-kernel';
@@ -45,7 +46,7 @@ export const useVats = (): {
   pingVat: (id: VatId) => void;
   restartVat: (id: VatId) => void;
   terminateVat: (id: VatId) => void;
-  terminateSubcluster: (id: string) => void;
+  terminateSubcluster: (id: SubclusterId) => void;
   hasVats: boolean;
 } => {
   const { callKernelMethod, status, logMessage } = usePanelContext();
@@ -120,7 +121,7 @@ export const useVats = (): {
   );
 
   const terminateSubcluster = useCallback(
-    (id: string) => {
+    (id: SubclusterId) => {
       callKernelMethod({
         method: 'terminateSubcluster',
         params: { id },

@@ -108,9 +108,11 @@ function makeKVStore(db: Database): KVStore {
   }
 
   return {
-    get: (key) => kvGet(key, false),
+    get: <Value extends string = string>(key: string) =>
+      kvGet(key, false) as Value | undefined,
     getNextKey: kvGetNextKey,
-    getRequired: (key) => kvGet(key, true) as string,
+    getRequired: <Value extends string = string>(key: string) =>
+      kvGet(key, true) as Value,
     set: kvSet,
     delete: kvDelete,
   };

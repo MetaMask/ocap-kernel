@@ -8,6 +8,7 @@ import type {
 } from '@metamask/kernel-errors';
 import { makeDefaultExo } from '@metamask/kernel-utils';
 
+import { insistKRef } from '../types.ts';
 import type { KRef } from '../types.ts';
 
 // Simple wrapper for serializing and unserializing marshalled values inside the
@@ -17,7 +18,7 @@ import type { KRef } from '../types.ts';
 // agnostic about the internal details of the serialization encoding.
 
 type ObjectStandin = {
-  getKref: () => string;
+  getKref: () => KRef;
   iface: () => string;
 };
 export type SlotValue = ObjectStandin | Promise<unknown>;
@@ -34,7 +35,7 @@ const { toStringTag } = Symbol;
  * @returns A nominal Promise object tagged with `kref`.
  */
 // eslint-disable-next-line @typescript-eslint/promise-function-async
-function makeStandinPromise(kref: string): Promise<unknown> {
+function makeStandinPromise(kref: KRef): Promise<unknown> {
   const standinP = Promise.resolve(`${kref} stand in`);
   // eslint-disable-next-line @typescript-eslint/no-floating-promises
   Object.defineProperty(standinP, toStringTag, {
@@ -51,11 +52,11 @@ function makeStandinPromise(kref: string): Promise<unknown> {
  *
  * @returns The KRef tag that `promise` carries.
  */
-function getStandinPromiseTag(promise: Promise<unknown>): string {
+function getStandinPromiseTag(promise: Promise<unknown>): KRef {
   const desc = Object.getOwnPropertyDescriptor(promise, toStringTag);
   assert(desc !== undefined, 'promise lacks own @@toStringTag property');
   const kref = desc.value;
-  assert.typeof(kref, 'string');
+  insistKRef(kref);
   return kref;
 }
 
@@ -67,20 +68,20 @@ function getStandinPromiseTag(promise: Promise<unknown>): string {
  *
  * @returns A `kser` serializable value for `kref`.
  */
-export function kslot(kref: string, iface: string = 'undefined'): SlotValue {
-  assert.typeof(kref, 'string');
+export function kslot(kref: KRef, iface: string = 'undefined'): SlotValue {
+  insistKRef(kref);
   if (iface?.startsWith('Alleged: ')) {
     // Encoder prepends "Alleged: " to iface string, but the decoder doesn't strip it
     // Unclear whether it's the decoder or me who is wrong
     // eslint-disable-next-line no-param-reassign
     iface = iface.slice(9);
   }
-  if (kref.startsWith('p') || kref.startsWith('kp') || kref.startsWith('rp')) {
+  if (kref.startsWith('kp')) {
     return makeStandinPromise(kref);
   }
   const standinObject = makeDefaultExo(iface, {
     iface: () => iface,
-    getKref: () => `${kref}`,
+    getKref: () => kref,
   });
   return standinObject;
 }
@@ -92,7 +93,7 @@ export function kslot(kref: string, iface: string = 'undefined'): SlotValue {
  *
  * @returns a KRef string for `obj`.
  */
-export function krefOf(obj: SlotValue): string {
+export function krefOf(obj: SlotValue): KRef {
   switch (passStyleOf(obj) as string) {
     case 'promise': {
       return getStandinPromiseTag(obj as Promise<unknown>);

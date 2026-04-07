@@ -9,7 +9,13 @@ import { Logger, splitLoggerStream } from '@metamask/logger';
 
 import type { KernelQueue } from '../KernelQueue.ts';
 import type { KernelStore } from '../store/index.ts';
-import type { VatId, VatConfig, KRef, PlatformServices } from '../types.ts';
+import type {
+  VatId,
+  VatConfig,
+  KRef,
+  SubclusterId,
+  PlatformServices,
+} from '../types.ts';
 import { ROOT_OBJECT_VREF } from '../types.ts';
 import { VatHandle } from './VatHandle.ts';
 import type { PingVatResult } from '../rpc/index.ts';
@@ -88,7 +94,7 @@ export class VatManager {
   async launchVat(
     vatConfig: VatConfig,
     vatName: string,
-    subclusterId?: string,
+    subclusterId?: SubclusterId,
   ): Promise<KRef> {
     const vatId = this.#kernelStore.getNextVatId();
     await this.runVat(vatId, vatConfig);
@@ -244,7 +250,7 @@ export class VatManager {
   getVats(): {
     id: VatId;
     config: VatConfig;
-    subclusterId: string;
+    subclusterId: SubclusterId;
   }[] {
     return Array.from(this.#vats.values()).map((vat) => {
       const subclusterId = this.#kernelStore.getVatSubcluster(vat.vatId);

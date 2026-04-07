@@ -11,11 +11,11 @@ import type { Infer } from '@metamask/superstruct';
 
 import {
   CapDataStruct,
-  MessageStruct,
+  EndpointMessageStruct,
   VatOneResolutionStruct,
 } from '../../types.ts';
 
-const SendStruct = tuple([literal('send'), string(), MessageStruct]);
+const SendStruct = tuple([literal('send'), string(), EndpointMessageStruct]);
 const SubscribeStruct = tuple([literal('subscribe'), string()]);
 const ResolveStruct = tuple([
   literal('resolve'),

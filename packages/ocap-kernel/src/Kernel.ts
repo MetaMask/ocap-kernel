@@ -22,6 +22,7 @@ import type {
   VatId,
   RemoteId,
   EndpointId,
+  SubclusterId,
   KRef,
   PlatformServices,
   ClusterConfig,
@@ -32,7 +33,7 @@ import type {
   EndpointHandle,
   SystemSubclusterConfig,
 } from './types.ts';
-import { isVatId, isRemoteId, isSubclusterId } from './types.ts';
+import { isVatId, isRemoteId } from './types.ts';
 import { SubclusterManager } from './vats/SubclusterManager.ts';
 import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
@@ -118,8 +119,8 @@ export class Kernel {
     this.#kernelDatabase = kernelDatabase;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase, this.#logger);
-    if (!this.#kernelStore.kv.get('initialized')) {
-      this.#kernelStore.kv.set('initialized', 'true');
+    if (!this.#kernelStore.isInitialized()) {
+      this.#kernelStore.markInitialized();
     }
 
     if (options.resetStorage) {
@@ -394,7 +395,7 @@ export class Kernel {
    * @param kref - The kref of the object to issue an OCAP URL for.
    * @returns A promise for the OCAP URL.
    */
-  async issueOcapURL(kref: string): Promise<string> {
+  async issueOcapURL(kref: KRef): Promise<string> {
     return this.#ocapURLManager.issueOcapURL(kref);
   }
 
@@ -404,7 +405,7 @@ export class Kernel {
    * @param url - The OCAP URL to redeem.
    * @returns A promise for the kref of the object referenced by the OCAP URL.
    */
-  async redeemOcapURL(url: string): Promise<string> {
+  async redeemOcapURL(url: string): Promise<KRef> {
     return this.#ocapURLManager.redeemOcapURL(url);
   }
 
@@ -449,7 +450,7 @@ export class Kernel {
    * @param subclusterId - The id of the subcluster to terminate.
    * @returns A promise that resolves when termination is complete.
    */
-  async terminateSubcluster(subclusterId: string): Promise<void> {
+  async terminateSubcluster(subclusterId: SubclusterId): Promise<void> {
     return this.#subclusterManager.terminateSubcluster(subclusterId);
   }
 
@@ -458,12 +459,8 @@ export class Kernel {
    *
    * @param subclusterId - The id of the subcluster.
    * @returns The subcluster, or undefined if not found.
-   * @throws If subclusterId is not a valid subcluster ID format.
    */
-  getSubcluster(subclusterId: string): Subcluster | undefined {
-    if (!isSubclusterId(subclusterId)) {
-      throw new Error(`Invalid subcluster ID: ${String(subclusterId)}`);
-    }
+  getSubcluster(subclusterId: SubclusterId): Subcluster | undefined {
     return this.#subclusterManager.getSubcluster(subclusterId);
   }
 
@@ -496,7 +493,7 @@ export class Kernel {
    * @param iface - The interface name for the slot value.
    * @returns The slot value that will become a presence when marshalled.
    */
-  getPresence(kref: string, iface: string = 'Kernel Object'): SlotValue {
+  getPresence(kref: KRef, iface: string = 'Kernel Object'): SlotValue {
     return kslot(kref, iface);
   }
 
@@ -507,7 +504,7 @@ export class Kernel {
    * @param subclusterId - The ID of the subcluster to check membership against.
    * @returns True if the vat belongs to the specified subcluster, false otherwise.
    */
-  isVatInSubcluster(vatId: VatId, subclusterId: string): boolean {
+  isVatInSubcluster(vatId: VatId, subclusterId: SubclusterId): boolean {
     return this.#subclusterManager.isVatInSubcluster(vatId, subclusterId);
   }
 
@@ -517,7 +514,7 @@ export class Kernel {
    * @param subclusterId - The ID of the subcluster to retrieve vat IDs from.
    * @returns An array of vat IDs belonging to the specified subcluster.
    */
-  getSubclusterVats(subclusterId: string): VatId[] {
+  getSubclusterVats(subclusterId: SubclusterId): VatId[] {
     return this.#subclusterManager.getSubclusterVats(subclusterId);
   }
 
@@ -585,7 +582,7 @@ export class Kernel {
   getVats(): {
     id: VatId;
     config: VatConfig;
-    subclusterId: string;
+    subclusterId: SubclusterId;
   }[] {
     return this.#vatManager.getVats();
   }

@@ -1,5 +1,4 @@
 import type {
-  Message,
   VatOneResolution,
   VatSyscallObject,
 } from '@agoric/swingset-liveslots';
@@ -8,8 +7,9 @@ import type { MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelQueue } from '../KernelQueue.ts';
-import { VatSyscall } from './VatSyscall.ts';
 import type { KernelStore } from '../store/index.ts';
+import type { KernelMessage, VatId } from '../types.ts';
+import { VatSyscall } from './VatSyscall.ts';
 
 describe('VatSyscall', () => {
   let kernelQueue: KernelQueue;
@@ -41,13 +41,20 @@ describe('VatSyscall', () => {
       warn: vi.fn(),
       subLogger: vi.fn(() => logger),
     } as unknown as Logger;
-    vatSys = new VatSyscall({ vatId: 'v1', kernelQueue, kernelStore, logger });
+    vatSys = new VatSyscall({
+      vatId: 'v1' as VatId,
+      kernelQueue,
+      kernelStore,
+      logger,
+    });
   });
 
   it('buffers send syscall for crank completion', async () => {
-    const target = 'o+1';
-    const message = { methargs: { body: '', slots: [] } } as unknown as Message;
-    const vso = ['send', target, message] as unknown as VatSyscallObject;
+    const target = 'ko1';
+    const message = {
+      methargs: { body: '', slots: [] },
+    } as KernelMessage;
+    const vso = ['send', target, message] as VatSyscallObject;
     vatSys.handleSyscall(vso);
     expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(
       target,
@@ -57,8 +64,8 @@ describe('VatSyscall', () => {
   });
 
   it('calls resolvePromises for resolve syscall', async () => {
-    const resolution = ['kp1', false, {}] as unknown as VatOneResolution;
-    const vso = ['resolve', [resolution]] as unknown as VatSyscallObject;
+    const resolution = ['kp1', false, {}] as VatOneResolution;
+    const vso = ['resolve', [resolution]] as VatSyscallObject;
     vatSys.handleSyscall(vso);
     expect(kernelQueue.resolvePromises).toHaveBeenCalledWith(
       'v1',
@@ -69,17 +76,19 @@ describe('VatSyscall', () => {
 
   it('enqueues send immediately when outside a crank', () => {
     (kernelStore.isInCrank as unknown as MockInstance).mockReturnValue(false);
-    const target = 'o+1';
-    const message = { methargs: { body: '', slots: [] } } as unknown as Message;
-    const vso = ['send', target, message] as unknown as VatSyscallObject;
+    const target = 'ko1';
+    const message = {
+      methargs: { body: '', slots: [] },
+    } as KernelMessage;
+    const vso = ['send', target, message] as VatSyscallObject;
     vatSys.handleSyscall(vso);
     expect(kernelQueue.enqueueSend).toHaveBeenCalledWith(target, message, true);
   });
 
   it('resolves promises immediately when outside a crank', () => {
     (kernelStore.isInCrank as unknown as MockInstance).mockReturnValue(false);
-    const resolution = ['kp1', false, {}] as unknown as VatOneResolution;
-    const vso = ['resolve', [resolution]] as unknown as VatSyscallObject;
+    const resolution = ['kp1', false, {}] as VatOneResolution;
+    const vso = ['resolve', [resolution]] as VatSyscallObject;
     vatSys.handleSyscall(vso);
     expect(kernelQueue.resolvePromises).toHaveBeenCalledWith(
       'v1',
@@ -95,7 +104,7 @@ describe('VatSyscall', () => {
       ).mockReturnValueOnce({
         state: 'unresolved',
       });
-      const vso = ['subscribe', 'kp1'] as unknown as VatSyscallObject;
+      const vso = ['subscribe', 'kp1'] as VatSyscallObject;
       vatSys.handleSyscall(vso);
       expect(kernelStore.addPromiseSubscriber).toHaveBeenCalledWith(
         'v1',
@@ -109,7 +118,7 @@ describe('VatSyscall', () => {
       ).mockReturnValueOnce({
         state: 'fulfilled',
       });
-      const vso = ['subscribe', 'kp1'] as unknown as VatSyscallObject;
+      const vso = ['subscribe', 'kp1'] as VatSyscallObject;
       vatSys.handleSyscall(vso);
       expect(kernelQueue.enqueueNotify).toHaveBeenCalledWith(
         'v1',
@@ -125,7 +134,7 @@ describe('VatSyscall', () => {
       ).mockReturnValueOnce({
         state: 'fulfilled',
       });
-      const vso = ['subscribe', 'kp1'] as unknown as VatSyscallObject;
+      const vso = ['subscribe', 'kp1'] as VatSyscallObject;
       vatSys.handleSyscall(vso);
       expect(kernelQueue.enqueueNotify).toHaveBeenCalledWith('v1', 'kp1', true);
     });
@@ -133,10 +142,7 @@ describe('VatSyscall', () => {
 
   describe('dropImports syscall', () => {
     it('clears reachable flags for valid imports', async () => {
-      const vso = [
-        'dropImports',
-        ['o-1', 'o-2'],
-      ] as unknown as VatSyscallObject;
+      const vso = ['dropImports', ['o-1', 'o-2']] as VatSyscallObject;
       vatSys.handleSyscall(vso);
       expect(kernelStore.clearReachableFlag).toHaveBeenCalledWith('v1', 'o-1');
       expect(kernelStore.clearReachableFlag).toHaveBeenCalledWith('v1', 'o-2');
@@ -151,7 +157,7 @@ describe('VatSyscall', () => {
       ).mockImplementationOnce(() => {
         throw new Error(errMsg);
       });
-      const vso = ['dropImports', [ref]] as unknown as VatSyscallObject;
+      const vso = ['dropImports', [ref]] as VatSyscallObject;
       const result = vatSys.handleSyscall(vso);
       expect(result).toStrictEqual(['error', errMsg]);
     });
@@ -162,7 +168,7 @@ describe('VatSyscall', () => {
       (
         kernelStore.getReachableFlag as unknown as MockInstance
       ).mockReturnValueOnce(false);
-      const vso = ['retireImports', ['o-1']] as unknown as VatSyscallObject;
+      const vso = ['retireImports', ['o-1']] as VatSyscallObject;
       vatSys.handleSyscall(vso);
       expect(kernelStore.forgetKref).toHaveBeenCalledWith('v1', 'o-1');
     });
@@ -176,7 +182,7 @@ describe('VatSyscall', () => {
         ).mockReturnValueOnce(true);
         throw new Error('syscall.retireImports but o-1 is still reachable');
       });
-      const vso = ['retireImports', ['o-1']] as unknown as VatSyscallObject;
+      const vso = ['retireImports', ['o-1']] as VatSyscallObject;
       const result = vatSys.handleSyscall(vso);
       expect(result).toStrictEqual([
         'error',
@@ -190,7 +196,7 @@ describe('VatSyscall', () => {
       (
         kernelStore.getReachableFlag as unknown as MockInstance
       ).mockReturnValueOnce(false);
-      const vso = ['retireExports', ['o+1']] as unknown as VatSyscallObject;
+      const vso = ['retireExports', ['o+1']] as VatSyscallObject;
       vatSys.handleSyscall(vso);
       expect(kernelStore.forgetKref).toHaveBeenCalledWith('v1', 'o+1');
       expect(logger.debug).toHaveBeenCalledWith(
@@ -207,7 +213,7 @@ describe('VatSyscall', () => {
         ).mockReturnValueOnce(true);
         throw new Error('syscall.retireExports but o+1 is still reachable');
       });
-      const vso = ['retireExports', ['o+1']] as unknown as VatSyscallObject;
+      const vso = ['retireExports', ['o+1']] as VatSyscallObject;
       const result = vatSys.handleSyscall(vso);
       expect(result).toStrictEqual([
         'error',
@@ -216,7 +222,7 @@ describe('VatSyscall', () => {
     });
 
     it('abandons exports without reachability check', async () => {
-      const vso = ['abandonExports', ['o+1']] as unknown as VatSyscallObject;
+      const vso = ['abandonExports', ['o+1']] as VatSyscallObject;
       vatSys.handleSyscall(vso);
       expect(kernelStore.forgetKref).toHaveBeenCalledWith('v1', 'o+1');
       expect(logger.debug).toHaveBeenCalledWith(
@@ -230,7 +236,7 @@ describe('VatSyscall', () => {
       ).mockImplementationOnce(() => {
         throw new Error('vat v1 issued invalid syscall abandonExports for o-1');
       });
-      const vso = ['abandonExports', ['o-1']] as unknown as VatSyscallObject;
+      const vso = ['abandonExports', ['o-1']] as VatSyscallObject;
       const result = vatSys.handleSyscall(vso);
       expect(result).toStrictEqual([
         'error',
@@ -259,7 +265,7 @@ describe('VatSyscall', () => {
       (kernelStore.isVatActive as unknown as MockInstance).mockReturnValueOnce(
         false,
       );
-      const vso = ['send', 'o+1', {}] as unknown as VatSyscallObject;
+      const vso = ['send', 'ko1', {}] as VatSyscallObject;
       const result = vatSys.handleSyscall(vso);
 
       expect(result).toStrictEqual(['error', 'vat not found']);
@@ -274,7 +280,7 @@ describe('VatSyscall', () => {
         throw error;
       });
 
-      const vso = ['send', 'o+1', {}] as unknown as VatSyscallObject;
+      const vso = ['send', 'ko1', {}] as VatSyscallObject;
       const result = vatSys.handleSyscall(vso);
 
       expect(result).toStrictEqual(['error', 'test error']);
@@ -286,18 +292,17 @@ describe('VatSyscall', () => {
   });
 
   describe('invalid or unknown syscalls', () => {
-    it.each([
-      ['vatstoreGet', 'invalid syscall vatstoreGet'],
-      ['vatstoreGetNextKey', 'invalid syscall vatstoreGetNextKey'],
-      ['vatstoreSet', 'invalid syscall vatstoreSet'],
-      ['vatstoreDelete', 'invalid syscall vatstoreDelete'],
-      ['callNow', 'invalid syscall callNow'],
-      ['unknownOp', 'unknown syscall unknownOp'],
-    ])('%s should warn', async (op, message) => {
+    // Invalid syscalls (callNow, vatstoreGet, etc.) are rejected by
+    // translateSyscallVtoK before reaching handleSyscall's switch.
+    // Only truly unknown ops reach the default branch here.
+    it('unknown syscall warns', async () => {
       const spy = vi.spyOn(logger, 'warn');
-      const vso = [op, []] as unknown as VatSyscallObject;
+      const vso = ['unknownOp', []] as unknown as VatSyscallObject;
       vatSys.handleSyscall(vso);
-      expect(spy).toHaveBeenCalledWith(expect.stringContaining(message), vso);
+      expect(spy).toHaveBeenCalledWith(
+        expect.stringContaining('unknown syscall unknownOp'),
+        vso,
+      );
       spy.mockRestore();
     });
   });
@@ -306,11 +311,11 @@ describe('VatSyscall', () => {
     it('is disabled if logger is undefined', async () => {
       const logSpy = vi.spyOn(console, 'log');
       const vatSyscall = new VatSyscall({
-        vatId: 'v1',
+        vatId: 'v1' as VatId,
         kernelQueue,
         kernelStore,
       });
-      vatSyscall.handleSyscall(['send', 'o+1', {}] as VatSyscallObject);
+      vatSyscall.handleSyscall(['send', 'ko1', {}] as VatSyscallObject);
       expect(logSpy).not.toHaveBeenCalled();
       expect(logger.log).not.toHaveBeenCalled();
     });

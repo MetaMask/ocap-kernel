@@ -12,6 +12,7 @@ import type { KernelStore } from '../store/index.ts';
 import type {
   VatId,
   KRef,
+  SubclusterId,
   ClusterConfig,
   Subcluster,
   SubclusterLaunchResult,
@@ -26,7 +27,7 @@ type SubclusterManagerOptions = {
   vatManager: VatManager;
   getKernelService: (
     name: string,
-  ) => { kref: string; systemOnly: boolean } | undefined;
+  ) => { kref: KRef; systemOnly: boolean } | undefined;
   queueMessage: (
     target: KRef,
     method: string,
@@ -52,7 +53,7 @@ export class SubclusterManager {
   /** Function to get kernel services */
   readonly #getKernelService: (
     name: string,
-  ) => { kref: string; systemOnly: boolean } | undefined;
+  ) => { kref: KRef; systemOnly: boolean } | undefined;
 
   /** Function to queue messages */
   readonly #queueMessage: (
@@ -164,7 +165,7 @@ export class SubclusterManager {
    * @param subclusterId - The id of the subcluster to terminate.
    * @returns A promise that resolves when termination is complete.
    */
-  async terminateSubcluster(subclusterId: string): Promise<void> {
+  async terminateSubcluster(subclusterId: SubclusterId): Promise<void> {
     await this.#kernelQueue.waitForCrank();
     if (!this.#kernelStore.getSubcluster(subclusterId)) {
       throw new SubclusterNotFoundError(subclusterId);
@@ -205,7 +206,7 @@ export class SubclusterManager {
    * @param subclusterId - The id of the subcluster.
    * @returns The subcluster, or undefined if not found.
    */
-  getSubcluster(subclusterId: string): Subcluster | undefined {
+  getSubcluster(subclusterId: SubclusterId): Subcluster | undefined {
     return this.#kernelStore.getSubcluster(subclusterId);
   }
 
@@ -225,7 +226,7 @@ export class SubclusterManager {
    * @param subclusterId - The ID of the subcluster to check against.
    * @returns True if the vat belongs to the specified subcluster, false otherwise.
    */
-  isVatInSubcluster(vatId: VatId, subclusterId: string): boolean {
+  isVatInSubcluster(vatId: VatId, subclusterId: SubclusterId): boolean {
     return this.#kernelStore.getVatSubcluster(vatId) === subclusterId;
   }
 
@@ -235,7 +236,7 @@ export class SubclusterManager {
    * @param subclusterId - The ID of the subcluster to get vats for.
    * @returns An array of vat IDs that belong to the specified subcluster.
    */
-  getSubclusterVats(subclusterId: string): VatId[] {
+  getSubclusterVats(subclusterId: SubclusterId): VatId[] {
     return this.#kernelStore.getSubclusterVats(subclusterId);
   }
 
@@ -245,7 +246,7 @@ export class SubclusterManager {
    *
    * @param subclusterId - The ID of the subcluster to delete.
    */
-  deleteSubcluster(subclusterId: string): void {
+  deleteSubcluster(subclusterId: SubclusterId): void {
     const subcluster = this.#kernelStore.getSubcluster(subclusterId);
     if (!subcluster) {
       return;
@@ -296,7 +297,7 @@ export class SubclusterManager {
    * @returns A promise for the bootstrap root kref and bootstrap result.
    */
   async #launchVatsForSubcluster(
-    subclusterId: string,
+    subclusterId: SubclusterId,
     config: ClusterConfig,
   ): Promise<{
     rootKref: KRef;

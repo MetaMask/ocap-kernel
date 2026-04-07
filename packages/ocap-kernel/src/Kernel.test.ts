@@ -337,16 +337,6 @@ describe('Kernel', () => {
       // Use valid subcluster ID format (s + number) that doesn't exist
       expect(kernel.getSubcluster('s999')).toBeUndefined();
     });
-
-    it('throws for invalid subcluster ID format', async () => {
-      const kernel = await Kernel.make(
-        mockPlatformServices,
-        mockKernelDatabase,
-      );
-      expect(() => kernel.getSubcluster('non-existent')).toThrow(
-        'Invalid subcluster ID: non-existent',
-      );
-    });
   });
 
   describe('isVatInSubcluster()', () => {

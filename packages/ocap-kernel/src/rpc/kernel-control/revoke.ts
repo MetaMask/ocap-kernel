@@ -1,15 +1,16 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import { string, literal, object } from '@metamask/superstruct';
+import { literal, object } from '@metamask/superstruct';
 
 import type { Kernel } from '../../Kernel.ts';
 import type { KRef } from '../../types.ts';
+import { KRefStruct } from '../../types.ts';
 
 /**
  * Revoke a kernel object.
  */
 export const revokeSpec: MethodSpec<'revoke', { kref: KRef }, null> = {
   method: 'revoke',
-  params: object({ kref: string() }), // KRef
+  params: object({ kref: KRefStruct }),
   result: literal(null),
 };
 

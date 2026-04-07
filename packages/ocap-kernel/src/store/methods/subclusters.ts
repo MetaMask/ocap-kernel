@@ -70,7 +70,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
    */
   function addSubcluster(config: ClusterConfig): SubclusterId {
     const currentSubclusters = getSubclusters();
-    const newId = `s${incCounter(ctx.nextSubclusterId)}`;
+    const newId = `s${incCounter(ctx.nextSubclusterId)}` as SubclusterId;
     const newSubcluster: Subcluster = {
       id: newId,
       config,
@@ -255,7 +255,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
    * @returns The subcluster ID, or undefined if not found.
    */
   function getSystemSubclusterMapping(name: string): SubclusterId | undefined {
-    return kv.get(`systemSubcluster.${name}`);
+    return ctx.kv.get<SubclusterId>(`systemSubcluster.${name}`);
   }
 
   /**
@@ -291,7 +291,7 @@ export function getSubclusterMethods(ctx: StoreContext) {
     const mappings = new Map<string, SubclusterId>();
     for (const key of getPrefixedKeys(prefix)) {
       const name = key.slice(prefix.length);
-      const subclusterId = kv.get(key);
+      const subclusterId = ctx.kv.get<SubclusterId>(key);
       if (subclusterId) {
         mappings.set(name, subclusterId);
       }

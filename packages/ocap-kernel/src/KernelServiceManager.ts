@@ -4,12 +4,12 @@ import type { Logger } from '@metamask/logger';
 import type { KernelQueue } from './KernelQueue.ts';
 import { kser, kunser, makeKernelError } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
-import type { KRef, Message } from './types.ts';
+import type { KRef, KernelMessage } from './types.ts';
 import { assert } from './utils/assert.ts';
 
 export type KernelService = {
   name: string;
-  kref: string;
+  kref: KRef;
   service: object;
   systemOnly: boolean;
 };
@@ -37,7 +37,7 @@ export class KernelServiceManager {
   readonly #kernelServicesByName: Map<string, KernelService> = new Map();
 
   /** Objects providing custom or kernel-privileged services to vats, indexed by kref */
-  readonly #kernelServicesByObject: Map<string, KernelService> = new Map();
+  readonly #kernelServicesByObject: Map<KRef, KernelService> = new Map();
 
   /**
    * Creates a new KernelServiceManager instance.
@@ -75,11 +75,10 @@ export class KernelServiceManager {
     if (this.#kernelServicesByName.has(name)) {
       throw new Error(`Kernel service "${name}" is already registered`);
     }
-    const serviceKey = `kernelService.${name}`;
-    let kref = this.#kernelStore.kv.get(serviceKey);
+    let kref = this.#kernelStore.getKernelServiceKref(name);
     if (!kref) {
       kref = this.#kernelStore.initKernelObject('kernel');
-      this.#kernelStore.kv.set(serviceKey, kref);
+      this.#kernelStore.setKernelServiceKref(name, kref);
       this.#kernelStore.pinObject(kref);
     }
     const kernelService = { name, kref, service, systemOnly };
@@ -101,7 +100,7 @@ export class KernelServiceManager {
     this.#kernelServicesByName.delete(name);
     this.#kernelServicesByObject.delete(service.kref);
     this.#kernelStore.unpinObject(service.kref);
-    this.#kernelStore.kv.delete(`kernelService.${name}`);
+    this.#kernelStore.deleteKernelServiceKref(name);
   }
 
   /**
@@ -120,7 +119,7 @@ export class KernelServiceManager {
    * @param kref - The kref of the service.
    * @returns The kernel service or undefined if not found.
    */
-  getKernelServiceByKref(kref: string): KernelService | undefined {
+  getKernelServiceByKref(kref: KRef): KernelService | undefined {
     return this.#kernelServicesByObject.get(kref);
   }
 
@@ -130,7 +129,7 @@ export class KernelServiceManager {
    * @param kref - The kref to check.
    * @returns True if the kref refers to a kernel service, false otherwise.
    */
-  isKernelService(kref: string): boolean {
+  isKernelService(kref: KRef): boolean {
     return this.#kernelServicesByObject.has(kref);
   }
 
@@ -146,7 +145,7 @@ export class KernelServiceManager {
    * @param target - The target kref of the service.
    * @param message - The message to invoke the service with.
    */
-  invokeKernelService(target: KRef, message: Message): void {
+  invokeKernelService(target: KRef, message: KernelMessage): void {
     const kernelService = this.#kernelServicesByObject.get(target);
     if (!kernelService) {
       throw Error(`No registered service for ${target}`);
@@ -154,9 +153,6 @@ export class KernelServiceManager {
     const { methargs, result } = message;
     const [method, args] = kunser(methargs) as [string, unknown[]];
     assert.typeof(method, 'string');
-    if (result) {
-      assert.typeof(result, 'string');
-    }
     assert(Array.isArray(args));
 
     // Use E() so this works for both local objects and remote presences

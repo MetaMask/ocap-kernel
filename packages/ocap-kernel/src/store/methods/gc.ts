@@ -7,16 +7,15 @@ import { getReachableMethods } from './reachable.ts';
 import { getRefCountMethods } from './refcount.ts';
 import { getSubclusterMethods } from './subclusters.ts';
 import { getVatMethods } from './vat.ts';
+import { isVatId, makeGCAction } from '../../types.ts';
 import type {
-  VatId,
   EndpointId,
   KRef,
   GCAction,
   RunQueueItemBringOutYourDead,
 } from '../../types.ts';
-import { insistGCActionType, insistEndpointId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
-import { insistKernelType, parseKernelSlot } from '../utils/kernel-slots.ts';
+import { parseKernelSlot } from '../utils/kernel-slots.ts';
 
 /**
  * Create a store for garbage collection.
@@ -28,7 +27,8 @@ import { insistKernelType, parseKernelSlot } from '../utils/kernel-slots.ts';
 export function getGCMethods(ctx: StoreContext) {
   const { getSlotKey, getOwnerKey } = getBaseMethods(ctx.kv);
   const { getRefCount, decrementRefCount } = getRefCountMethods(ctx);
-  const { getObjectRefCount, deleteKernelObject } = getObjectMethods(ctx);
+  const { getObjectRefCount, deleteKernelObject, getOwner } =
+    getObjectMethods(ctx);
   const { getKernelPromise, deleteKernelPromise } = getPromiseMethods(ctx);
   const { getImporters, isVatTerminated } = getVatMethods(ctx);
   const { getReachableFlag, getReachableAndVatSlot } = getReachableMethods(ctx);
@@ -40,7 +40,10 @@ export function getGCMethods(ctx: StoreContext) {
    * @returns The set of GC actions to perform.
    */
   function getGCActions(): Set<GCAction> {
-    return new Set(JSON.parse(ctx.gcActions.get() ?? '[]'));
+    // Safe to cast: all actions are created via makeGCAction(), which
+    // validates format before storage. The JSON roundtrip preserves strings.
+    const actions = JSON.parse(ctx.gcActions.get() ?? '[]') as GCAction[];
+    return new Set(actions);
   }
 
   /**
@@ -62,11 +65,6 @@ export function getGCMethods(ctx: StoreContext) {
   function addGCActions(newActions: GCAction[]): void {
     const actions = getGCActions();
     for (const action of newActions) {
-      assert.typeof(action, 'string', 'addGCActions given bad action');
-      const [endpointId, type, kref] = action.split(' ');
-      insistEndpointId(endpointId);
-      insistGCActionType(type);
-      insistKernelType('object', kref);
       actions.add(action);
     }
     setGCActions(actions);
@@ -111,7 +109,7 @@ export function getGCMethods(ctx: StoreContext) {
     for (const koid of koids) {
       const importers = getImporters(koid);
       for (const vatID of importers) {
-        newActions.push(`${vatID} retireImport ${koid}`);
+        newActions.push(makeGCAction(vatID, 'retireImport', koid));
       }
       deleteKernelObject(koid);
     }
@@ -147,12 +145,14 @@ export function getGCMethods(ctx: StoreContext) {
       if (type === 'object') {
         const { reachable, recognizable } = getObjectRefCount(kref);
         if (reachable === 0) {
-          const ownerKey = getOwnerKey(kref);
-          let ownerVatID = ctx.kv.get(ownerKey);
+          let ownerVatID = getOwner(kref);
           if (ownerVatID === 'kernel') {
             continue;
           }
-          const terminated = isVatTerminated(ownerVatID as VatId);
+          const terminated =
+            ownerVatID !== undefined &&
+            isVatId(ownerVatID) &&
+            isVatTerminated(ownerVatID);
 
           // Some objects that are still owned, but the owning vat
           // might still alive, or might be terminated and in the
@@ -162,12 +162,12 @@ export function getGCMethods(ctx: StoreContext) {
             const vatConsidersReachable = getReachableFlag(ownerVatID, kref);
             if (vatConsidersReachable) {
               // the reachable count is zero, but the vat doesn't realize it
-              actions.add(`${ownerVatID} dropExport ${kref}`);
+              actions.add(makeGCAction(ownerVatID, 'dropExport', kref));
             }
             if (recognizable === 0) {
               // TODO: rethink this assert
               // assert.equal(vatConsidersReachable, false, `${kref} is reachable but not recognizable`);
-              actions.add(`${ownerVatID} retireExport ${kref}`);
+              actions.add(makeGCAction(ownerVatID, 'retireExport', kref));
             }
           } else if (ownerVatID && terminated) {
             // When we're slowly deleting a vat, and one of its
@@ -179,7 +179,7 @@ export function getGCMethods(ctx: StoreContext) {
             const { vatSlot } = getReachableAndVatSlot(ownerVatID, kref);
             // delete directly, not orphanKernelObject(), which
             // would re-submit to maybeFreeKrefs
-            ctx.kv.delete(ownerKey);
+            ctx.kv.delete(getOwnerKey(kref));
             ctx.kv.delete(getSlotKey(ownerVatID, kref));
             ctx.kv.delete(getSlotKey(ownerVatID, vatSlot));
             // now fall through to the orphaned case

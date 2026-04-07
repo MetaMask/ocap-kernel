@@ -1,11 +1,11 @@
-import type { VatId } from '@metamask/ocap-kernel';
+import type { KRef, SubclusterId, VatId } from '@metamask/ocap-kernel';
 
 export type VatRecord = {
   id: VatId;
   source: string;
   parameters: string;
   creationOptions: string;
-  subclusterId: string;
+  subclusterId: SubclusterId;
 };
 
 /**
@@ -37,7 +37,7 @@ export type VatSnapshot = {
 };
 
 export type ObjectBinding = {
-  kref: string;
+  kref: KRef;
   eref: string;
   refCount: string;
 };
@@ -52,7 +52,7 @@ export type ObjectBindingWithTargets = {
 } & ObjectBinding;
 
 export type PromiseBinding = {
-  kref: string;
+  kref: KRef;
   eref: string;
   state: string;
   value: { body: string; slots: SlotInfo[] };
@@ -67,7 +67,7 @@ export type PromiseBindingWithTargets = {
 } & PromiseBinding;
 
 export type SlotInfo = {
-  kref: string;
+  kref: KRef;
   eref: string | null;
   vat: string | null;
 };

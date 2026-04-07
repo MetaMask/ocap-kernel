@@ -19,7 +19,7 @@ export function getIdMethods(ctx: StoreContext) {
    * @returns The next VatID use.
    */
   function getNextVatId(): VatId {
-    return `v${incCounter(ctx.nextVatId)}`;
+    return `v${incCounter(ctx.nextVatId)}` as VatId;
   }
 
   /**
@@ -28,7 +28,7 @@ export function getIdMethods(ctx: StoreContext) {
    * @returns The next remote ID use.
    */
   function getNextRemoteId(): RemoteId {
-    return `r${incCounter(ctx.nextRemoteId)}`;
+    return `r${incCounter(ctx.nextRemoteId)}` as RemoteId;
   }
 
   /**

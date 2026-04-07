@@ -9,7 +9,8 @@ export type {
   IOConfig,
   IOSpec,
   KRef,
-  Message,
+  KernelMessage,
+  EndpointMessage,
   VatId,
   VatPowers,
   PlatformServices,
@@ -32,6 +33,9 @@ export type {
 export type { RemoteMessageBase } from './remotes/kernel/RemoteHandle.ts';
 export {
   isVatId,
+  isKRef,
+  insistKRef,
+  insistSubclusterId,
   VatIdStruct,
   isVatConfig,
   VatConfigStruct,

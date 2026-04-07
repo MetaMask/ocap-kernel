@@ -1,12 +1,17 @@
-import type {
-  VatOneResolution,
-  VatSyscallObject,
-} from '@agoric/swingset-liveslots';
+import type { VatSyscallObject } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 
-import { coerceMessage, isRemoteId } from '../../types.ts';
+import {
+  coerceEndpointMessage,
+  isRemoteId,
+  insistERef,
+  insistRRef,
+} from '../../types.ts';
 import type {
-  Message,
+  KernelMessage,
+  KernelSyscallObject,
+  KernelOneResolution,
+  EndpointMessage,
   VatId,
   EndpointId,
   KRef,
@@ -43,7 +48,7 @@ export function getTranslators(ctx: StoreContext) {
     // eslint-disable-next-line require-unicode-regexp
     const parts = rref.match(/^(r[op])([-+])(\d+)$/);
     assert(parts?.length === 4);
-    return `${parts[1]}${parts[2] === '+' ? '-' : '+'}${parts[3]}`;
+    return `${parts[1]}${parts[2] === '+' ? '-' : '+'}${parts[3]}` as RRef;
   }
 
   /**
@@ -90,6 +95,7 @@ export function getTranslators(ctx: StoreContext) {
       // whereas for a VRef the functional composition KtoE(EtoK(ref)) is an
       // identity function, for an RRef it is not, because KtoE reverses the
       // polarity of the RRef but EtoK doesn't.
+      insistRRef(eref);
       eref = invertRRef(eref);
     }
     return eref;
@@ -124,17 +130,17 @@ export function getTranslators(ctx: StoreContext) {
    */
   function translateMessageKtoE(
     endpointId: EndpointId,
-    message: Message,
-  ): Message {
-    const methargs = translateCapDataKtoE(
-      endpointId,
-      message.methargs as CapData<KRef>,
-    );
-    const result = message.result
-      ? translateRefKtoE(endpointId, message.result, true)
-      : message.result;
-    const endpointMessage = coerceMessage({ ...message, methargs, result });
-    return endpointMessage;
+    message: KernelMessage,
+  ): EndpointMessage {
+    const methargs = translateCapDataKtoE(endpointId, message.methargs);
+    if (typeof message.result === 'string') {
+      const result = translateRefKtoE(endpointId, message.result, true);
+      return { methargs, result };
+    }
+    if (message.result === null) {
+      return { methargs, result: null };
+    }
+    return { methargs };
   }
 
   /**
@@ -180,15 +186,13 @@ export function getTranslators(ctx: StoreContext) {
    */
   function translateMessageEtoK(
     endpointId: EndpointId,
-    message: Message,
-  ): Message {
-    const methargs = translateCapDataEtoK(
-      endpointId,
-      message.methargs as CapData<ERef>,
-    );
+    message: EndpointMessage,
+  ): KernelMessage {
+    const methargs = translateCapDataEtoK(endpointId, message.methargs);
     if (typeof message.result !== 'string') {
       throw TypeError(`message result must be a string`);
     }
+    insistERef(message.result);
     const result = translateRefEtoK(endpointId, message.result);
     return { methargs, result };
   }
@@ -204,33 +208,28 @@ export function getTranslators(ctx: StoreContext) {
   function translateSyscallVtoK(
     vatId: VatId,
     vso: VatSyscallObject,
-  ): VatSyscallObject {
-    let kso: VatSyscallObject;
+  ): KernelSyscallObject {
     switch (vso[0]) {
       case 'send': {
-        // [VRef, Message];
-        const [op, target, message] = vso;
-        kso = [
-          op,
+        const [, target, message] = vso;
+        insistERef(target);
+        return [
+          'send',
           translateRefEtoK(vatId, target),
-          // @ts-expect-error: Agoric's Message type has the property `result: string | undefined | null`.
-          // Ours is `result?: string | null`. We can safely ignore the `undefined` case.
-          translateMessageEtoK(vatId, coerceMessage(message)),
+          translateMessageEtoK(vatId, coerceEndpointMessage(message)),
         ];
-        break;
       }
       case 'subscribe': {
-        // [VRef];
-        const [op, promise] = vso;
-        kso = [op, translateRefEtoK(vatId, promise)];
-        break;
+        const [, promise] = vso;
+        insistERef(promise);
+        return ['subscribe', translateRefEtoK(vatId, promise)];
       }
       case 'resolve': {
-        // [VatOneResolution[]];
-        const [op, resolutions] = vso;
-        const kResolutions: VatOneResolution[] = resolutions.map(
+        const [, resolutions] = vso;
+        const kResolutions: KernelOneResolution[] = resolutions.map(
           (resolution) => {
             const [vpid, rejected, data] = resolution;
+            insistERef(vpid);
             return [
               translateRefEtoK(vatId, vpid),
               rejected,
@@ -238,28 +237,26 @@ export function getTranslators(ctx: StoreContext) {
             ];
           },
         );
-        kso = [op, kResolutions];
-        break;
+        return ['resolve', kResolutions];
       }
       case 'exit': {
-        // [boolean, SwingSetCapData];
-        const [op, isFailure, info] = vso;
-        kso = [
-          op,
+        const [, isFailure, info] = vso;
+        return [
+          'exit',
           isFailure,
           translateCapDataEtoK(vatId, info as CapData<VRef>),
         ];
-        break;
       }
       case 'dropImports':
       case 'retireImports':
       case 'retireExports':
       case 'abandonExports': {
-        // [VRef[]];
         const [op, vrefs] = vso;
-        const krefs = vrefs.map((ref) => translateRefEtoK(vatId, ref));
-        kso = [op, krefs];
-        break;
+        const krefs = vrefs.map((ref) => {
+          insistERef(ref);
+          return translateRefEtoK(vatId, ref);
+        });
+        return [op, krefs];
       }
       case 'callNow':
       case 'vatstoreGet':
@@ -275,7 +272,6 @@ export function getTranslators(ctx: StoreContext) {
         throw Error(`vat ${vatId} issued unknown syscall ${vso[0]}`);
       }
     }
-    return kso;
   }
 
   return {

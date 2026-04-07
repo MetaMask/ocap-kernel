@@ -1,7 +1,7 @@
 import { Fail } from '@endo/errors';
 
 import { getBaseMethods } from './base.ts';
-import { ROOT_OBJECT_VREF } from '../../types.ts';
+import { ROOT_OBJECT_VREF, insistEndpointId } from '../../types.ts';
 import type { EndpointId, KRef, VatId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { makeKernelSlot } from '../utils/kernel-slots.ts';
@@ -24,10 +24,10 @@ export function getObjectMethods(ctx: StoreContext) {
    * corresponds to an object that has just been imported from somewhere. The
    * object is initially unrevoked.
    *
-   * @param owner - The endpoint that is the owner of the new object.
+   * @param owner - The endpoint or 'kernel' that is the owner of the new object.
    * @returns The new object's KRef.
    */
-  function initKernelObject(owner: EndpointId): KRef {
+  function initKernelObject(owner: EndpointId | 'kernel'): KRef {
     const koId = getNextObjectId();
     ctx.kv.set(getOwnerKey(koId), owner);
     setObjectRefCount(koId, { reachable: 1, recognizable: 1 });
@@ -40,8 +40,13 @@ export function getObjectMethods(ctx: StoreContext) {
    * @param koId - The KRef of the kernel object of interest.
    * @returns The identity of the vat or remote that owns the object.
    */
-  function getOwner(koId: KRef): EndpointId | undefined {
-    return ctx.kv.get(getOwnerKey(koId));
+  function getOwner(koId: KRef): EndpointId | 'kernel' | undefined {
+    const raw = ctx.kv.get(getOwnerKey(koId));
+    if (raw === undefined || raw === 'kernel') {
+      return raw;
+    }
+    insistEndpointId(raw);
+    return raw;
   }
 
   /**
@@ -51,7 +56,7 @@ export function getObjectMethods(ctx: StoreContext) {
    * @returns The root object for the vat.
    */
   function getRootObject(vatId: VatId): KRef | undefined {
-    return ctx.kv.get(getSlotKey(vatId, ROOT_OBJECT_VREF));
+    return ctx.kv.get<KRef>(getSlotKey(vatId, ROOT_OBJECT_VREF));
   }
 
   /**

@@ -1,20 +1,19 @@
-import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 
 import { processGCActionSet } from './garbage-collection/garbage-collection.ts';
 import { kser } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
-import { insistEndpointId } from './types.ts';
 import type {
   CrankResult,
+  EndpointId,
   KRef,
-  Message,
+  KernelMessage,
+  KernelOneResolution,
   RunQueueItem,
   RunQueueItemNotify,
   RunQueueItemSend,
   VatId,
-  EndpointId,
 } from './types.ts';
 import { Fail } from './utils/assert.ts';
 
@@ -266,7 +265,7 @@ export class KernelQueue {
    * @param message - The message to be delivered.
    * @param immediate - If true (the default), enqueue immediately; if false, buffer for crank completion.
    */
-  enqueueSend(target: KRef, message: Message, immediate = true): void {
+  enqueueSend(target: KRef, message: KernelMessage, immediate = true): void {
     this.#kernelStore.incrementRefCount(target, 'queue|target');
     if (message.result) {
       this.#kernelStore.incrementRefCount(message.result, 'queue|result');
@@ -322,16 +321,12 @@ export class KernelQueue {
    * @param immediate - If true (the default), enqueue immediately; if false, buffer for crank completion.
    */
   resolvePromises(
-    endpointId: EndpointId | undefined,
-    resolutions: VatOneResolution[],
+    endpointId: EndpointId | 'kernel' | undefined,
+    resolutions: KernelOneResolution[],
     immediate = true,
   ): void {
-    if (endpointId && endpointId !== 'kernel') {
-      insistEndpointId(endpointId);
-    }
     for (const resolution of resolutions) {
-      const [kpid, rejected, dataRaw] = resolution;
-      const data = dataRaw as CapData<KRef>;
+      const [kpid, rejected, data] = resolution;
 
       this.#kernelStore.incrementRefCount(kpid, 'resolve|kpid');
       for (const slot of data.slots || []) {

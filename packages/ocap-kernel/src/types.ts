@@ -1,6 +1,5 @@
 import type {
   Baggage,
-  SwingSetCapData,
   Message as SwingsetMessage,
   VatSyscallObject,
   VatSyscallSend,
@@ -11,6 +10,7 @@ import type { PlatformConfig } from '@metamask/kernel-platforms';
 import { platformConfigStruct } from '@metamask/kernel-platforms';
 import type { VatCheckpoint } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
+import { CapDataStruct } from '@metamask/kernel-utils';
 import type { DuplexStream } from '@metamask/streams';
 import {
   assign,
@@ -41,23 +41,186 @@ import type {
 } from './remotes/types.ts';
 import { Fail } from './utils/assert.ts';
 
-export type VatId = string;
-export type RemoteId = string;
-export type EndpointId = VatId | RemoteId;
-export type SubclusterId = string;
+/**
+ * # Branded types
+ *
+ * Branded types are validated at creation time via `insist*()` assertions and
+ * `makeGCAction()`. After construction, the type system carries the invariant;
+ * interior code trusts the brand without re-checking.
+ *
+ * - **External input** (JSON-RPC params, liveslots syscalls): validated at the
+ *   boundary using superstruct definitions (`KRefStruct`, `EndpointIdStruct`,
+ *   `EndpointMessageStruct`, etc.).
+ * - **Translator layer**: validates endpoint-space refs via `insistERef()`
+ *   before translating to kernel-space.
+ * - **Persistence reads**: trusted. Data integrity is the responsibility of the
+ *   persistence layer (`@metamask/kernel-store`); branded types are applied via
+ *   `as` casts on read. See `./store/README.md` for details.
+ * - **Internal construction** (counters, template literals): uses `as` casts
+ *   where the format is controlled by the constructor (e.g., `"v1" as VatId`).
+ *
+ * Branded string types intentionally use plain `string &` rather than template
+ * literal types (e.g. `v${number}`). The brands already prevent cross-type
+ * confusion, and the format is enforced at runtime by `insist*()` / `is*()`
+ * validators. Template literals would add friction to the `as` casts used for
+ * persistence reads and internal construction without meaningful extra safety.
+ */
 
-export type KRef = string;
-export type VRef = string;
-export type RRef = string;
+declare const VatIdBrand: unique symbol;
+/**
+ * Vat identifier. Format: `v${number}`.
+ * E.g. `"v1"`, `"v42"`.
+ */
+export type VatId = string & { readonly [VatIdBrand]: never };
+
+declare const RemoteIdBrand: unique symbol;
+/**
+ * Remote identifier. Format: `r${number}`.
+ * E.g. `"r0"`, `"r3"`.
+ */
+export type RemoteId = string & { readonly [RemoteIdBrand]: never };
+
+/** An endpoint is either a vat or a remote. */
+export type EndpointId = VatId | RemoteId;
+
+declare const SubclusterIdBrand: unique symbol;
+/**
+ * Subcluster identifier. Format: `s${number}`.
+ * E.g. `"s0"`, `"s5"`.
+ */
+export type SubclusterId = string & { readonly [SubclusterIdBrand]: never };
+
+declare const KRefBrand: unique symbol;
+/**
+ * Kernel-space reference. Format: `k${'o'|'p'}${number}`.
+ * E.g. `"ko12"`, `"kp3"`.
+ */
+export type KRef = string & { readonly [KRefBrand]: never };
+
+declare const VRefBrand: unique symbol;
+/**
+ * Vat-space reference. Format: `${'o'|'p'}${'+' | '-'}${number}`.
+ * E.g. `"o+0"`, `"p-7"`.
+ */
+export type VRef = string & { readonly [VRefBrand]: never };
+
+declare const RRefBrand: unique symbol;
+/**
+ * Remote-space reference. Format: `r${'o'|'p'}${'+' | '-'}${number}`.
+ * E.g. `"ro+1"`, `"rp-2"`.
+ */
+export type RRef = string & { readonly [RRefBrand]: never };
+
+/**
+ * Endpoint-space reference (vat or remote).
+ * E.g. `"o+0"`, `"p-7"`, `"ro+1"`, `"rp-2"`.
+ */
 export type ERef = VRef | RRef;
+/**
+ * Any reference (kernel-space or endpoint-space).
+ * E.g. `"ko12"`, `"kp3"`, `"o+0"`, `"ro+1"`.
+ */
 export type Ref = KRef | ERef;
 
-export const ROOT_OBJECT_VREF: VRef = 'o+0';
+export const ROOT_OBJECT_VREF = 'o+0' as VRef;
 
-export const CapDataStruct = object({
-  body: string(),
-  slots: array(string()),
-});
+export const isVatId = (value: unknown): value is VatId =>
+  typeof value === 'string' && /^v\d+$/u.test(value);
+
+export const isRemoteId = (value: unknown): value is RemoteId =>
+  typeof value === 'string' && /^r\d+$/u.test(value);
+
+export const isEndpointId = (value: unknown): value is EndpointId =>
+  isVatId(value) || isRemoteId(value);
+
+export const isKRef = (value: unknown): value is KRef =>
+  typeof value === 'string' && /^k[op]\d+$/u.test(value);
+
+export const isVRef = (value: unknown): value is VRef =>
+  typeof value === 'string' && /^[op][+-]\d+$/u.test(value);
+
+export const isRRef = (value: unknown): value is RRef =>
+  typeof value === 'string' && /^r[op][+-]\d+$/u.test(value);
+
+export const isERef = (value: unknown): value is ERef =>
+  isVRef(value) || isRRef(value);
+
+/**
+ * Assert that a value is a valid vat id.
+ *
+ * @param value - The value to check.
+ * @throws if the value is not a valid vat id.
+ */
+export function insistVatId(value: unknown): asserts value is VatId {
+  isVatId(value) || Fail`not a valid VatId ${value}`;
+}
+
+/**
+ * Assert that a value is a valid remote id.
+ *
+ * @param value - The value to check.
+ * @throws If the value is not a valid remote id.
+ */
+export function insistRemoteId(value: unknown): asserts value is RemoteId {
+  isRemoteId(value) || Fail`not a valid RemoteId: ${value}`;
+}
+
+/**
+ * Assert that a value is a valid endpoint id.
+ *
+ * @param value - The value to check.
+ * @throws if the value is not a valid endpoint id.
+ */
+export function insistEndpointId(value: unknown): asserts value is EndpointId {
+  isEndpointId(value) || Fail`not a valid EndpointId`;
+}
+
+/**
+ * Assert that a value is a valid kernel reference.
+ *
+ * @param value - The value to check.
+ * @throws If the value is not a valid kernel reference.
+ */
+export function insistKRef(value: unknown): asserts value is KRef {
+  isKRef(value) || Fail`not a valid KRef: ${value}`;
+}
+
+/**
+ * Assert that a value is a valid vat reference.
+ *
+ * @param value - The value to check.
+ * @throws If the value is not a valid vat reference.
+ */
+export function insistVRef(value: unknown): asserts value is VRef {
+  isVRef(value) || Fail`not a valid VRef: ${value}`;
+}
+
+/**
+ * Assert that a value is a valid remote reference.
+ *
+ * @param value - The value to check.
+ * @throws If the value is not a valid remote reference.
+ */
+export function insistRRef(value: unknown): asserts value is RRef {
+  isRRef(value) || Fail`not a valid RRef: ${value}`;
+}
+
+/**
+ * Assert that a value is a valid endpoint reference.
+ *
+ * @param value - The value to check.
+ * @throws If the value is not a valid endpoint reference.
+ */
+export function insistERef(value: unknown): asserts value is ERef {
+  isERef(value) || Fail`not a valid ERef: ${value}`;
+}
+
+export const VatIdStruct = define<VatId>('VatId', isVatId);
+export const RemoteIdStruct = define<RemoteId>('RemoteId', isRemoteId);
+export const EndpointIdStruct = define<EndpointId>('EndpointId', isEndpointId);
+export const KRefStruct = define<KRef>('KRef', isKRef);
+export const ERefStruct = define<ERef>('ERef', isERef);
+export { CapDataStruct };
 
 export const VatOneResolutionStruct = tuple([
   string(),
@@ -65,32 +228,73 @@ export const VatOneResolutionStruct = tuple([
   CapDataStruct,
 ]);
 
-export const MessageStruct = object({
-  methargs: CapDataStruct,
-  result: exactOptional(union([string(), literal(null)])),
+/**
+ * A single kernel-space promise resolution: [promiseKRef, rejected, data].
+ * Kernel-space counterpart of Agoric's `VatOneResolution`.
+ */
+export type KernelOneResolution = [KRef, boolean, CapData<KRef>];
+
+/**
+ * Kernel-space syscall object, mirroring Agoric's `VatSyscallObject` but with
+ * branded kernel types (KRef, KernelMessage, KernelOneResolution) instead of
+ * plain strings. Produced by `translateSyscallVtoK`.
+ */
+export type KernelSyscallObject =
+  | ['send', KRef, KernelMessage]
+  | ['subscribe', KRef]
+  | ['resolve', KernelOneResolution[]]
+  | ['exit', boolean, CapData<KRef>]
+  | ['dropImports', KRef[]]
+  | ['retireImports', KRef[]]
+  | ['retireExports', KRef[]]
+  | ['abandonExports', KRef[]];
+
+// Kernel-space message: refs are KRefs
+export const KernelCapDataStruct = object({
+  body: string(),
+  slots: array(KRefStruct),
 });
 
-/**
- * JSON-RPC-compatible Message type, originally from @agoric/swingset-liveslots.
- */
-export type Message = Infer<typeof MessageStruct>;
+export const KernelMessageStruct = object({
+  methargs: KernelCapDataStruct,
+  result: exactOptional(union([KRefStruct, literal(null)])),
+});
+
+export type KernelMessage = Infer<typeof KernelMessageStruct>;
+
+// Endpoint-space message: refs are ERefs
+export const EndpointCapDataStruct = object({
+  body: string(),
+  slots: array(ERefStruct),
+});
+
+export const EndpointMessageStruct = object({
+  methargs: EndpointCapDataStruct,
+  result: exactOptional(union([ERefStruct, literal(null)])),
+});
+
+export type EndpointMessage = Infer<typeof EndpointMessageStruct>;
 
 /**
- * Coerce a {@link SwingsetMessage} to our own JSON-RPC-compatible {@link Message}.
+ * Coerce a {@link SwingsetMessage} to an {@link EndpointMessage}.
+ * Agoric's SwingsetMessage comes from vat syscalls (endpoint-space).
  *
  * @param message - The SwingsetMessage to coerce.
- * @returns The coerced Message.
+ * @returns The coerced EndpointMessage.
  */
-export function coerceMessage(message: SwingsetMessage): Message {
+export function coerceEndpointMessage(
+  message: SwingsetMessage,
+): EndpointMessage {
   if (message.result === undefined) {
-    delete (message as Message).result;
+    delete (message as EndpointMessage).result;
   }
-  return message as Message;
+  insistEndpointMessage(message);
+  return message;
 }
 
 type JsonVatSyscallObject =
   | Exclude<VatSyscallObject, VatSyscallSend>
-  | ['send', string, Message];
+  | ['send', string, EndpointMessage];
 
 /**
  * Coerce a {@link VatSyscallObject} to a JSON-RPC-compatible {@link JsonVatSyscallObject}.
@@ -102,23 +306,23 @@ export function coerceVatSyscallObject(
   vso: VatSyscallObject,
 ): JsonVatSyscallObject {
   if (vso[0] === 'send') {
-    return ['send', vso[1], coerceMessage(vso[2])];
+    return ['send', vso[1], coerceEndpointMessage(vso[2])];
   }
   return vso as JsonVatSyscallObject;
 }
 
 const RunQueueItemSendStruct = object({
   type: literal('send'),
-  target: string(), // KRef
-  message: MessageStruct,
+  target: KRefStruct,
+  message: KernelMessageStruct,
 });
 
 export type RunQueueItemSend = Infer<typeof RunQueueItemSendStruct>;
 
 const RunQueueItemNotifyStruct = object({
   type: literal('notify'),
-  endpointId: string(),
-  kpid: string(),
+  endpointId: EndpointIdStruct,
+  kpid: KRefStruct,
 });
 
 export type RunQueueItemNotify = Infer<typeof RunQueueItemNotifyStruct>;
@@ -140,15 +344,15 @@ export const actionTypePriorities: GCActionType[] = [
 
 const RunQueueItemGCActionStruct = object({
   type: GCRunQueueTypeStruct,
-  endpointId: string(), // EndpointId
-  krefs: array(string()), // KRefs
+  endpointId: EndpointIdStruct,
+  krefs: array(KRefStruct),
 });
 
 export type RunQueueItemGCAction = Infer<typeof RunQueueItemGCActionStruct>;
 
 const RunQueueItemBringOutYourDeadStruct = object({
   type: literal('bringOutYourDead'),
-  endpointId: string(),
+  endpointId: EndpointIdStruct,
 });
 
 export type RunQueueItemBringOutYourDead = Infer<
@@ -165,13 +369,27 @@ export const RunQueueItemStruct = union([
 export type RunQueueItem = Infer<typeof RunQueueItemStruct>;
 
 /**
- * Assert that a value is a valid message.
+ * Assert that a value is a valid kernel message.
  *
  * @param value - The value to check.
- * @throws if the value is not a valid message.
+ * @throws if the value is not a valid kernel message.
  */
-export function insistMessage(value: unknown): asserts value is Message {
-  is(value, MessageStruct) || Fail`not a valid message`;
+export function insistKernelMessage(
+  value: unknown,
+): asserts value is KernelMessage {
+  is(value, KernelMessageStruct) || Fail`not a valid kernel message`;
+}
+
+/**
+ * Assert that a value is a valid endpoint message.
+ *
+ * @param value - The value to check.
+ * @throws If the value is not a valid endpoint message.
+ */
+export function insistEndpointMessage(
+  value: unknown,
+): asserts value is EndpointMessage {
+  is(value, EndpointMessageStruct) || Fail`not a valid endpoint message`;
 }
 
 // Per-endpoint persistent state
@@ -203,7 +421,7 @@ export type PromiseState = 'unresolved' | 'fulfilled' | 'rejected';
 
 export type KernelPromise = {
   state: PromiseState;
-  decider?: EndpointId;
+  decider?: EndpointId | 'kernel';
   subscribers?: EndpointId[];
   value?: CapData<KRef>;
 };
@@ -214,59 +432,35 @@ export type KernelState = {
   kernelPromises: Map<KRef, KernelPromise>;
 };
 
-export const isVatId = (value: unknown): value is VatId =>
-  typeof value === 'string' &&
-  value.at(0) === 'v' &&
-  value.slice(1) === String(Number(value.slice(1)));
-
-export const isRemoteId = (value: unknown): value is RemoteId =>
-  typeof value === 'string' &&
-  value.at(0) === 'r' &&
-  value.slice(1) === String(Number(value.slice(1)));
-
-export const isEndpointId = (value: unknown): value is EndpointId =>
-  typeof value === 'string' &&
-  (value.at(0) === 'v' || value.at(0) === 'r') &&
-  value.slice(1) === String(Number(value.slice(1)));
-
-/**
- * Assert that a value is a valid vat id.
- *
- * @param value - The value to check.
- * @throws if the value is not a valid vat id.
- */
-export function insistVatId(value: unknown): asserts value is VatId {
-  isVatId(value) || Fail`not a valid VatId ${value}`;
-}
-
-/**
- * Assert that a value is a valid endpoint id.
- *
- * @param value - The value to check.
- * @throws if the value is not a valid endpoint id.
- */
-export function insistEndpointId(value: unknown): asserts value is EndpointId {
-  isEndpointId(value) || Fail`not a valid EndpointId`;
-}
-
-export const VatIdStruct = define<VatId>('VatId', isVatId);
-
 export const isSubclusterId = (value: unknown): value is SubclusterId =>
-  typeof value === 'string' &&
-  value.at(0) === 's' &&
-  value.slice(1) === String(Number(value.slice(1)));
+  typeof value === 'string' && /^s\d+$/u.test(value);
 
 export const SubclusterIdStruct = define<SubclusterId>(
   'SubclusterId',
   isSubclusterId,
 );
 
-export type VatMessageId = `m${number}`;
+/**
+ * Assert that a value is a valid subcluster id.
+ *
+ * @param value - The value to check.
+ * @throws If the value is not a valid subcluster id.
+ */
+export function insistSubclusterId(
+  value: unknown,
+): asserts value is SubclusterId {
+  isSubclusterId(value) || Fail`not a valid SubclusterId: ${value}`;
+}
+
+declare const VatMessageIdBrand: unique symbol;
+/**
+ * Vat message identifier. Format: `m${number}`.
+ * E.g. `"m0"`, `"m15"`.
+ */
+export type VatMessageId = string & { readonly [VatMessageIdBrand]: never };
 
 export const isVatMessageId = (value: unknown): value is VatMessageId =>
-  typeof value === 'string' &&
-  value.at(0) === 'm' &&
-  value.slice(1) === String(Number(value.slice(1)));
+  typeof value === 'string' && /^m\d+$/u.test(value);
 
 export const VatMessageIdStruct = define<VatMessageId>(
   'VatMessageId',
@@ -508,7 +702,7 @@ export type Subcluster = Infer<typeof SubclusterStruct>;
  */
 export type SubclusterLaunchResult = {
   /** The ID of the launched subcluster. */
-  subclusterId: string;
+  subclusterId: SubclusterId;
   /** The kref of the bootstrap vat's root object. */
   rootKref: KRef;
   /** The CapData result of calling bootstrap() on the root object, if any. */
@@ -586,7 +780,12 @@ export function insistGCActionType(
   isGCActionType(value) || Fail`not a valid GCActionType ${value}`;
 }
 
-export type GCAction = `${EndpointId} ${GCActionType} ${KRef}`;
+declare const GCActionBrand: unique symbol;
+/**
+ * GC action key. Format: `${EndpointId} ${GCActionType} ${KRef}`.
+ * E.g. `"v1 dropExport ko5"`.
+ */
+export type GCAction = string & { readonly [GCActionBrand]: never };
 
 export const GCActionStruct = define<GCAction>('GCAction', (value: unknown) => {
   if (typeof value !== 'string') {
@@ -599,7 +798,7 @@ export const GCActionStruct = define<GCAction>('GCAction', (value: unknown) => {
   if (!isGCActionType(actionType)) {
     return false;
   }
-  if (typeof kref !== 'string' || !kref.startsWith('ko')) {
+  if (!isKRef(kref) || !kref.startsWith('ko')) {
     return false;
   }
   return true;
@@ -608,16 +807,46 @@ export const GCActionStruct = define<GCAction>('GCAction', (value: unknown) => {
 export const isGCAction = (value: unknown): value is GCAction =>
   is(value, GCActionStruct);
 
+/**
+ * Assert that a value is a valid GC action.
+ *
+ * @param value - The value to check.
+ * @throws If the value is not a valid GC action.
+ */
+export function insistGCAction(value: unknown): asserts value is GCAction {
+  isGCAction(value) || Fail`not a valid GCAction: ${value}`;
+}
+
+/**
+ * Create a validated GCAction string from its components.
+ *
+ * @param endpointId - The endpoint that owns the object.
+ * @param actionType - The type of GC action.
+ * @param kref - The kernel object reference (must start with 'ko').
+ * @returns The branded GCAction string.
+ */
+export function makeGCAction(
+  endpointId: EndpointId,
+  actionType: GCActionType,
+  kref: KRef,
+): GCAction {
+  kref.startsWith('ko') || Fail`GC actions only apply to objects: ${kref}`;
+  return `${endpointId} ${actionType} ${kref}` as GCAction;
+}
+
 export type CrankResult = {
-  didDelivery?: EndpointId; // the endpoint to which we made a delivery
+  didDelivery?: EndpointId | 'kernel'; // the endpoint to which we made a delivery
   abort?: boolean; // changes should be discarded, not committed
-  terminate?: { vatId: VatId; reject: boolean; info: SwingSetCapData };
+  terminate?: { vatId: VatId; reject: boolean; info: CapData<KRef> };
 };
 
 export type VatDeliveryResult = [VatCheckpoint, string | null];
 
 export type EndpointHandle = {
-  deliverMessage: (target: ERef, message: Message) => Promise<CrankResult>;
+  deliverMessage: (
+    target: ERef,
+    message: EndpointMessage,
+  ) => Promise<CrankResult>;
   deliverNotify: (resolutions: VatOneResolution[]) => Promise<CrankResult>;
   deliverDropExports: (erefs: ERef[]) => Promise<CrankResult>;
   deliverRetireExports: (erefs: ERef[]) => Promise<CrankResult>;

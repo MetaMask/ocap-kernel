@@ -35,7 +35,7 @@ export class OcapURLManager {
     // Create the OCAP URL issuer service
     this.#ocapURLIssuerService = Far('ocapURLIssuerService', {
       issue: async (obj: SlotValue): Promise<string> => {
-        let kref: string;
+        let kref: KRef;
         try {
           kref = krefOf(obj);
         } catch {
@@ -112,7 +112,7 @@ export class OcapURLManager {
    * @returns a promise for the kref of the object referenced by the OCAP URL.
    * @throws if the URL is invalid or remote identity is not initialized.
    */
-  async redeemOcapURL(url: string): Promise<string> {
+  async redeemOcapURL(url: string): Promise<KRef> {
     const identity = this.#remoteManager.getRemoteIdentity();
     const { host, hints } = parseOcapURL(url);
 
