@@ -29,7 +29,7 @@ function removeDynamicImportsPlugin(): RolldownPlugin {
   return {
     name: 'ocap-kernel:remove-dynamic-imports',
     transform(code) {
-      if (!code.includes('import(')) {
+      if (!/\bimport\s*\(/u.test(code)) {
         return null;
       }
 
