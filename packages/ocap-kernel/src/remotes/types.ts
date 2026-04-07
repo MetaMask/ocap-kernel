@@ -4,10 +4,15 @@ import type { Logger } from '@metamask/logger';
 
 import type { KRef } from '../types.ts';
 
-export type InboundConnectionHandler = (channel: Channel) => void;
+export type InboundConnectionHandler = (
+  channel: Channel,
+) => Promise<void> | void;
+
+export type PeerDisconnectHandler = (peerId: string) => void;
 
 export type Channel = {
   msgStream: ByteStream<Stream>;
+  stream: Stream;
   peerId: string;
 };
 
@@ -129,6 +134,12 @@ export type RemoteCommsOptions = {
    * When a sent message is not acknowledged within this timeout, it will be retransmitted.
    */
   ackTimeoutMs?: number | undefined;
+  /**
+   * Timeout in milliseconds for stream inactivity (default: 120s).
+   * If no data flows in either direction for this duration, the stream is
+   * automatically aborted with an InactivityTimeoutError.
+   */
+  streamInactivityTimeoutMs?: number | undefined;
   /**
    * Hostnames or IP addresses permitted for plain ws:// relay connections,
    * in addition to RFC 1918 / loopback addresses which are always allowed.

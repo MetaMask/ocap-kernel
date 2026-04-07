@@ -389,14 +389,13 @@ export class RemoteHandle implements EndpointHandle {
     }
 
     if (this.#retryCount >= MAX_RETRIES) {
-      // Give up - reject all pending messages, URL redemptions, and notify RemoteManager
+      // Clean up locally first (unconditional), then notify RemoteManager
+      // to reject kernel promises. giveUp() must run even when #onGiveUp
+      // is unset, otherwise pending messages and redemptions leak.
       this.#logger.log(
         `${this.#peerId.slice(0, 8)}:: gave up after ${MAX_RETRIES} retries, rejecting ${this.#getPendingCount()} pending messages`,
       );
-      this.#rejectAllPending(`not acknowledged after ${MAX_RETRIES} retries`);
-      this.rejectPendingRedemptions(
-        `Remote connection lost after ${MAX_RETRIES} failed retries`,
-      );
+      this.giveUp(`not acknowledged after ${MAX_RETRIES} retries`);
       this.#onGiveUp?.(this.#peerId);
       return;
     }
@@ -1072,6 +1071,19 @@ export class RemoteHandle implements EndpointHandle {
       reject(error);
     }
     this.#pendingRedemptions.clear();
+  }
+
+  /**
+   * Permanently give up on this remote. Stops retransmitting, rejects all
+   * pending messages and URL redemptions. Called by RemoteManager when the
+   * transport layer determines the peer is unreachable.
+   *
+   * @param reason - Human-readable reason for giving up.
+   */
+  giveUp(reason: string): void {
+    this.#clearAckTimeout();
+    this.#rejectAllPending(reason);
+    this.rejectPendingRedemptions(reason);
   }
 
   /**

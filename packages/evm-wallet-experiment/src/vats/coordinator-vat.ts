@@ -24,7 +24,9 @@ import {
   computeSmartAccountAddress,
   isEip7702Delegated,
   prepareUserOpTypedData,
+  registerEnvironment,
   resolveEnvironment,
+  setSdkLogger,
 } from '../lib/sdk.ts';
 import { ENTRY_POINT_V07 } from '../lib/userop.ts';
 import type {
@@ -349,6 +351,15 @@ export function buildRootObject(
     tags: ['coordinator-vat'],
   });
 
+  // Wire SDK logger so resolveEnvironment/registerEnvironment are visible
+  setSdkLogger((level, message, data) => {
+    if (level === 'info') {
+      logger.info(message, data);
+    } else {
+      logger.debug(message, data);
+    }
+  });
+
   // References to other vats (set during bootstrap)
   let keyringVat: KeyringFacet | undefined;
   let providerVat: ProviderFacet | undefined;
@@ -373,6 +384,13 @@ export function buildRootObject(
         chainId: number;
         usePaymaster?: boolean;
         sponsorshipPolicyId?: string;
+        environment?: {
+          EntryPoint: Hex;
+          DelegationManager: Hex;
+          SimpleFactory: Hex;
+          implementations: Record<string, Hex>;
+          caveatEnforcers: Record<string, Hex>;
+        };
       }
     | undefined;
 
@@ -411,6 +429,9 @@ export function buildRootObject(
   peerWallet = restoreFromBaggage<PeerWalletFacet>('peerWallet');
   externalSigner = restoreFromBaggage<ExternalSignerFacet>('externalSigner');
   bundlerConfig = restoreFromBaggage<typeof bundlerConfig>('bundlerConfig');
+  if (bundlerConfig?.environment) {
+    registerEnvironment(bundlerConfig.chainId, bundlerConfig.environment);
+  }
   smartAccountConfig =
     restoreFromBaggage<SmartAccountConfig>('smartAccountConfig');
   awayWallet = restoreFromBaggage<AwayWalletFacet>('awayWallet');
@@ -1444,6 +1465,11 @@ export function buildRootObject(
       if (delegationVat) {
         persistBaggage('delegationVat', delegationVat);
       }
+      logger.info('bootstrap complete', {
+        hasKeyring: Boolean(keyringVat),
+        hasProvider: Boolean(providerVat),
+        hasDelegation: Boolean(delegationVat),
+      });
     },
 
     // ------------------------------------------------------------------
@@ -1456,14 +1482,26 @@ export function buildRootObject(
       entropy?: Hex;
       password?: string;
       salt?: string;
+      addressIndex?: number;
     }): Promise<void> {
       if (!keyringVat) {
         throw new Error('Keyring vat not available');
       }
-      const initOptions =
-        options.type === 'srp'
-          ? { type: 'srp' as const, mnemonic: options.mnemonic ?? '' }
-          : { type: 'throwaway' as const, entropy: options.entropy };
+      let initOptions:
+        | { type: 'srp'; mnemonic: string; addressIndex?: number }
+        | { type: 'throwaway'; entropy?: Hex };
+      if (options.type === 'throwaway') {
+        initOptions = { type: 'throwaway', entropy: options.entropy };
+      } else {
+        initOptions =
+          options.addressIndex === undefined
+            ? { type: 'srp', mnemonic: options.mnemonic ?? '' }
+            : {
+                type: 'srp',
+                mnemonic: options.mnemonic ?? '',
+                addressIndex: options.addressIndex,
+              };
+      }
 
       const password = options.type === 'srp' ? options.password : undefined;
       await E(keyringVat).initialize(initOptions, password, options.salt);
@@ -1525,6 +1563,13 @@ export function buildRootObject(
       chainId: number;
       usePaymaster?: boolean;
       sponsorshipPolicyId?: string;
+      environment?: {
+        EntryPoint: Hex;
+        DelegationManager: Hex;
+        SimpleFactory: Hex;
+        implementations: Record<string, Hex>;
+        caveatEnforcers: Record<string, Hex>;
+      };
     }): Promise<void> {
       // Validate bundler URL (regex — URL constructor unavailable under SES)
       if (!/^https?:\/\/.+/u.test(config.bundlerUrl)) {
@@ -1539,14 +1584,27 @@ export function buildRootObject(
         );
       }
 
+      // Register a custom SDK environment for chains not in the SDK's built-in
+      // registry (e.g. local Anvil at chain 31337).
+      if (config.environment) {
+        registerEnvironment(config.chainId, config.environment);
+      }
+
       bundlerConfig = harden({
         bundlerUrl: config.bundlerUrl,
         entryPoint: config.entryPoint ?? ENTRY_POINT_V07,
         chainId: config.chainId,
         usePaymaster: config.usePaymaster,
         sponsorshipPolicyId: config.sponsorshipPolicyId,
+        environment: config.environment,
       });
       persistBaggage('bundlerConfig', bundlerConfig);
+      logger.info('bundler configured', {
+        bundlerUrl: config.bundlerUrl,
+        chainId: config.chainId,
+        entryPoint: bundlerConfig.entryPoint,
+        hasEnvironment: Boolean(config.environment),
+      });
 
       if (!providerVat) {
         throw new Error(
@@ -1682,6 +1740,13 @@ export function buildRootObject(
       if (!providerVat) {
         throw new Error('Provider not configured');
       }
+      logger.debug('sendTransaction', {
+        from: tx.from,
+        to: tx.to,
+        value: tx.value,
+        hasDelegationVat: Boolean(delegationVat),
+        hasBundlerConfig: Boolean(bundlerConfig),
+      });
 
       // Enforce delegations whenever the delegation vat exists (bundler optional
       // for 7702). Delegations are a security boundary — if we cannot resolve the
@@ -1701,6 +1766,12 @@ export function buildRootObject(
         );
 
         if (delegation) {
+          logger.debug('delegation matched', {
+            delegationId: delegation.id,
+            delegate: delegation.delegate,
+            sender: smartAccountConfig?.address,
+            status: delegation.status,
+          });
           if (delegation.status !== 'signed') {
             throw new Error(
               `Found delegation ${delegation.id} but its status is '${delegation.status}' (expected 'signed'). ` +
@@ -1720,6 +1791,7 @@ export function buildRootObject(
         }
 
         // No delegation matched — explain why before falling through
+        logger.debug('no delegation matched, checking explanations');
         const explanations = await E(delegationVat).explainActionMatch(
           action,
           walletChainId,
@@ -1738,6 +1810,7 @@ export function buildRootObject(
         }
       }
 
+      logger.debug('sendTransaction: no delegation path, using direct send');
       // Estimate missing gas fields for direct (non-delegation) sends
       const filledTx = { ...tx };
 
@@ -2022,6 +2095,12 @@ export function buildRootObject(
       const signature = await signTypedDataFn(typedData);
 
       await E(delegationVat).storeSigned(delegation.id, signature);
+      logger.info('delegation created', {
+        id: delegation.id,
+        delegator,
+        delegate: opts.delegate,
+        caveats: opts.caveats?.length ?? 0,
+      });
 
       return E(delegationVat).getDelegation(delegation.id);
     },
@@ -2666,6 +2745,11 @@ export function buildRootObject(
       delegation: Delegation,
       revokeIds?: string[],
     ): Promise<void> {
+      logger.info('pushDelegationToAway', {
+        delegationId: delegation.id,
+        revokeCount: revokeIds?.length ?? 0,
+        hasAwayWallet: Boolean(awayWallet),
+      });
       if (!awayWallet) {
         throw new Error(
           'No away wallet registered. The away device must connect first.',

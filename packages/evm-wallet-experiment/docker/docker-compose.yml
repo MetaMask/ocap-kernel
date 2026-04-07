@@ -1,0 +1,214 @@
+# Extension fields (ignored as services; hold YAML anchors for kernel DRY).
+# Three pairs: bundler-7702 (4011/4012), bundler-hybrid (4021/4022), peer-relay (4031/4032).
+# Each pair is behind a Compose profile so `yarn docker:interactive:up` can start one pair;
+# E2E / `yarn docker:up` pass all three `--profile` flags: 7702, 4337, relay (see package.json `docker:compose`).
+x-kernel-build-core: &kernel-build-core
+  context: ../../../
+  dockerfile: packages/evm-wallet-experiment/docker/Dockerfile.kernel-base
+
+x-kernel-standard: &kernel-standard
+  build:
+    <<: *kernel-build-core
+    target: kernel
+  networks: [ocap-e2e]
+  volumes:
+    - ocap-run:/run/ocap
+    - ocap-logs:/logs
+  entrypoint:
+    - node
+    - '--conditions'
+    - development
+    - /app/packages/evm-wallet-experiment/docker/entrypoint-kernel.mjs
+  depends_on:
+    evm:
+      condition: service_healthy
+    bundler:
+      condition: service_healthy
+
+x-kernel-health-home: &kernel-health-home
+  interval: 3s
+  timeout: 5s
+  retries: 60
+  start_period: 30s
+
+x-kernel-health-away: &kernel-health-away
+  interval: 3s
+  timeout: 5s
+  retries: 60
+  start_period: 60s
+
+services:
+  evm:
+    build:
+      context: ../../../
+      dockerfile: packages/evm-wallet-experiment/docker/Dockerfile.evm
+    networks: [ocap-e2e]
+    ports: ['8545:8545']
+    volumes:
+      - ocap-run:/run/ocap
+      - ocap-logs:/logs
+    healthcheck:
+      test: ['CMD', 'test', '-f', '/run/ocap/contracts.json']
+      interval: 3s
+      timeout: 5s
+      retries: 30
+
+  bundler:
+    # Multi-arch index digest — refresh: docker buildx imagetools inspect ghcr.io/pimlicolabs/alto:latest
+    image: ghcr.io/pimlicolabs/alto@sha256:8420c602c1b4618d4e244e693f8d4cfd28fc86fd5808b74fdd185730f934e29e
+    networks: [ocap-e2e]
+    ports: ['4337:4337']
+    volumes:
+      - ocap-run:/run/ocap
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        echo "Waiting for contracts..."
+        while [ ! -f /run/ocap/contracts.json ]; do sleep 1; done
+        ENTRYPOINT=$$(node -e "console.log(JSON.parse(require('fs').readFileSync('/run/ocap/contracts.json','utf8')).EntryPoint)")
+        echo "EntryPoint: $$ENTRYPOINT"
+        exec npm start -- \
+          --port 4337 \
+          --rpc-url http://evm:8545 \
+          --entrypoints "$$ENTRYPOINT" \
+          --executor-private-keys "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d" \
+          --utility-private-key "0x2a871d0798f97d79848a013d4936a73bf4cc922c825d33c1cf7073dff6d409c6" \
+          --safe-mode false \
+          --balance-override true
+    depends_on:
+      evm:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          fetch("http://localhost:4337",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({jsonrpc:"2.0",id:1,method:"eth_supportedEntryPoints",params:[]})}).then(async(r)=>{if(!r.ok)return process.exit(1);const j=await r.json();process.exit(!j.error&&Array.isArray(j.result)&&j.result.length>0?0:1)}).catch(()=>process.exit(1))
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  # Three home/away pairs so DELEGATION_MODE suites can run in parallel (shared evm + bundler).
+  kernel-home-bundler-7702:
+    <<: *kernel-standard
+    profiles:
+      - '7702'
+    environment:
+      - SERVICE_NAME=kernel-home-bundler-7702
+      - HOME=/run/ocap/kernel-home-bundler-7702
+      - SOCKET_PATH=/run/ocap/kernel-home-bundler-7702/.ocap/daemon.sock
+      - QUIC_LISTEN_ADDRESS=/ip4/0.0.0.0/udp/4011/quic-v1
+      - READY_FILE=/run/ocap/kernel-home-bundler-7702-ready.json
+    ports: ['4011:4011/udp']
+    healthcheck:
+      <<: *kernel-health-home
+      test:
+        ['CMD', 'test', '-f', '/run/ocap/kernel-home-bundler-7702-ready.json']
+
+  # Default target is `kernel` (E2E). Interactive: `docker/.env.interactive` sets KERNEL_AWAY_7702_TARGET=interactive.
+  kernel-away-bundler-7702:
+    <<: *kernel-standard
+    profiles:
+      - '7702'
+    environment:
+      - SERVICE_NAME=kernel-away-bundler-7702
+      - HOME=/run/ocap/kernel-away-bundler-7702
+      - SOCKET_PATH=/run/ocap/kernel-away-bundler-7702/.ocap/daemon.sock
+      - QUIC_LISTEN_ADDRESS=/ip4/0.0.0.0/udp/4012/quic-v1
+      - READY_FILE=/run/ocap/kernel-away-bundler-7702-ready.json
+    ports: ['4012:4012/udp']
+    models:
+      - llm
+    healthcheck:
+      <<: *kernel-health-away
+      test:
+        ['CMD', 'test', '-f', '/run/ocap/kernel-away-bundler-7702-ready.json']
+    build:
+      <<: *kernel-build-core
+      target: ${KERNEL_AWAY_7702_TARGET:-kernel}
+
+  kernel-home-bundler-hybrid:
+    <<: *kernel-standard
+    profiles:
+      - '4337'
+    environment:
+      - SERVICE_NAME=kernel-home-bundler-hybrid
+      - HOME=/run/ocap/kernel-home-bundler-hybrid
+      - SOCKET_PATH=/run/ocap/kernel-home-bundler-hybrid/.ocap/daemon.sock
+      - QUIC_LISTEN_ADDRESS=/ip4/0.0.0.0/udp/4021/quic-v1
+      - READY_FILE=/run/ocap/kernel-home-bundler-hybrid-ready.json
+    ports: ['4021:4021/udp']
+    healthcheck:
+      <<: *kernel-health-home
+      test:
+        ['CMD', 'test', '-f', '/run/ocap/kernel-home-bundler-hybrid-ready.json']
+
+  kernel-away-bundler-hybrid:
+    <<: *kernel-standard
+    profiles:
+      - '4337'
+    environment:
+      - SERVICE_NAME=kernel-away-bundler-hybrid
+      - HOME=/run/ocap/kernel-away-bundler-hybrid
+      - SOCKET_PATH=/run/ocap/kernel-away-bundler-hybrid/.ocap/daemon.sock
+      - QUIC_LISTEN_ADDRESS=/ip4/0.0.0.0/udp/4022/quic-v1
+      - READY_FILE=/run/ocap/kernel-away-bundler-hybrid-ready.json
+    ports: ['4022:4022/udp']
+    models:
+      - llm
+    healthcheck:
+      <<: *kernel-health-away
+      test:
+        ['CMD', 'test', '-f', '/run/ocap/kernel-away-bundler-hybrid-ready.json']
+
+  kernel-home-peer-relay:
+    <<: *kernel-standard
+    profiles:
+      - relay
+    environment:
+      - SERVICE_NAME=kernel-home-peer-relay
+      - HOME=/run/ocap/kernel-home-peer-relay
+      - SOCKET_PATH=/run/ocap/kernel-home-peer-relay/.ocap/daemon.sock
+      - QUIC_LISTEN_ADDRESS=/ip4/0.0.0.0/udp/4031/quic-v1
+      - READY_FILE=/run/ocap/kernel-home-peer-relay-ready.json
+    ports: ['4031:4031/udp']
+    healthcheck:
+      <<: *kernel-health-home
+      test: ['CMD', 'test', '-f', '/run/ocap/kernel-home-peer-relay-ready.json']
+
+  kernel-away-peer-relay:
+    <<: *kernel-standard
+    profiles:
+      - relay
+    environment:
+      - SERVICE_NAME=kernel-away-peer-relay
+      - HOME=/run/ocap/kernel-away-peer-relay
+      - SOCKET_PATH=/run/ocap/kernel-away-peer-relay/.ocap/daemon.sock
+      - QUIC_LISTEN_ADDRESS=/ip4/0.0.0.0/udp/4032/quic-v1
+      - READY_FILE=/run/ocap/kernel-away-peer-relay-ready.json
+    ports: ['4032:4032/udp']
+    models:
+      - llm
+    healthcheck:
+      <<: *kernel-health-away
+      test: ['CMD', 'test', '-f', '/run/ocap/kernel-away-peer-relay-ready.json']
+
+# Docker Model Runner: Compose injects LLM_URL + LLM_MODEL into each `kernel-away-*` service.
+# Requires Docker Compose v2.38+ and DMR enabled (`docker model pull ai/qwen3.5:4B-UD-Q4_K_XL`).
+models:
+  llm:
+    model: ai/qwen3.5:4B-UD-Q4_K_XL
+    context_size: 32768
+    runtime_flags:
+      - '--ctx-size'
+      - '32768'
+
+networks:
+  ocap-e2e:
+    driver: bridge
+
+volumes:
+  ocap-run:
+  ocap-logs:

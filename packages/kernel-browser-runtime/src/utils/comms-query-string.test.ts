@@ -68,6 +68,7 @@ describe('comms-query-string', () => {
         allowedWsHosts: ['relay.example.com'],
         maxRetryAttempts: 5,
         maxQueue: 200,
+        streamInactivityTimeoutMs: 60000,
       };
       const params = createCommsQueryString(options);
       expect(parseCommsQueryString(`?${params.toString()}`)).toStrictEqual(

@@ -7,12 +7,14 @@ import type { Channel } from '../types.ts';
 // Mock heavy/libp2p related deps with minimal shims we can assert against.
 
 // Track state shared between mocks and tests
+type MockConnection = {
+  remotePeer: { toString: () => string };
+  direct: boolean;
+};
+
 const libp2pState: {
   handler?:
-    | ((
-        stream: object,
-        connection: { remotePeer: { toString: () => string } },
-      ) => void | Promise<void>)
+    | ((stream: object, connection: MockConnection) => void | Promise<void>)
     | undefined;
   dials: {
     addr: string;
@@ -286,6 +288,10 @@ describe('ConnectionFactory', () => {
         },
       ),
       dial: vi.fn(async () => ({})),
+      getConnections: vi.fn(() => [
+        { remotePeer: { toString: () => 'relay1' } },
+        { remotePeer: { toString: () => 'relay2' } },
+      ]),
       getMultiaddrs: vi.fn(() => [
         { toString: () => '/ip4/127.0.0.1/udp/12345/quic-v1/p2p/test-peer-id' },
         { toString: () => '/ip4/127.0.0.1/tcp/9001/ws/p2p/test-peer-id' },
@@ -306,7 +312,7 @@ describe('ConnectionFactory', () => {
           _protocol: string,
           handler?: (
             stream: object,
-            connection: { remotePeer: { toString: () => string } },
+            connection: MockConnection,
           ) => void | Promise<void>,
         ) => {
           libp2pState.handler = handler;
@@ -549,6 +555,10 @@ describe('ConnectionFactory', () => {
         peerId: { toString: () => 'test-peer-id' },
         addEventListener: mockAddEventListener,
         dialProtocol: vi.fn(),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -569,6 +579,81 @@ describe('ConnectionFactory', () => {
         expect.stringContaining('Peer update:'),
       );
     });
+
+    it('registers peer:disconnect event listener', async () => {
+      const mockAddEventListener = vi.fn();
+      createLibp2p.mockImplementation(async () => ({
+        start: vi.fn(),
+        stop: vi.fn(),
+        peerId: { toString: () => 'test-peer-id' },
+        addEventListener: mockAddEventListener,
+        dialProtocol: vi.fn(),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
+        handle: vi.fn(),
+      }));
+
+      factory = await createFactory();
+
+      expect(mockAddEventListener).toHaveBeenCalledWith(
+        'peer:disconnect',
+        expect.any(Function),
+      );
+    });
+
+    it('calls disconnect handler on peer:disconnect event', async () => {
+      factory = await createFactory();
+
+      const disconnectHandler = vi.fn();
+      factory.onPeerDisconnect(disconnectHandler);
+
+      // Fire peer:disconnect event
+      for (const listener of libp2pState.eventListeners['peer:disconnect'] ??
+        []) {
+        listener({ detail: { toString: () => 'disconnected-peer' } });
+      }
+
+      expect(disconnectHandler).toHaveBeenCalledWith('disconnected-peer');
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        'peer disconnected (all connections closed): disconnected-peer',
+      );
+    });
+
+    it('does not call disconnect handler for relay peer IDs', async () => {
+      factory = await createFactory();
+
+      const disconnectHandler = vi.fn();
+      factory.onPeerDisconnect(disconnectHandler);
+
+      // Fire peer:disconnect for a relay peer (relay1 is in knownRelays)
+      for (const listener of libp2pState.eventListeners['peer:disconnect'] ??
+        []) {
+        listener({ detail: { toString: () => 'relay1' } });
+      }
+
+      // Should log the disconnect but NOT call the handler
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        'peer disconnected (all connections closed): relay1',
+      );
+      expect(disconnectHandler).not.toHaveBeenCalled();
+    });
+
+    it('logs connection type as direct or relayed for inbound', async () => {
+      factory = await createFactory();
+      factory.onInboundConnection(vi.fn());
+
+      const inboundStream = {};
+      await libp2pState.handler?.(inboundStream, {
+        remotePeer: { toString: () => 'direct-peer' },
+        direct: true,
+      });
+
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        'inbound direct connection from peerId:direct-peer',
+      );
+    });
   });
 
   describe('onInboundConnection', () => {
@@ -582,6 +667,7 @@ describe('ConnectionFactory', () => {
       const inboundStream = {};
       await libp2pState.handler?.(inboundStream, {
         remotePeer: { toString: () => 'remote-peer' },
+        direct: false,
       });
 
       expect(handler).toHaveBeenCalledWith(
@@ -602,11 +688,45 @@ describe('ConnectionFactory', () => {
       const inboundStream = {};
       await libp2pState.handler?.(inboundStream, {
         remotePeer: { toString: () => 'inbound-peer' },
+        direct: false,
       });
 
       expect(capturedChannel).toBeDefined();
       expect(capturedChannel?.msgStream).toBeDefined();
       expect(capturedChannel?.peerId).toBe('inbound-peer');
+    });
+
+    it('awaits async inbound handler for auto-abort on rejection', async () => {
+      factory = await createFactory();
+
+      const handlerError = new Error('handler setup failed');
+      factory.onInboundConnection(async () => {
+        throw handlerError;
+      });
+
+      const inboundStream = {};
+      await expect(
+        libp2pState.handler?.(inboundStream, {
+          remotePeer: { toString: () => 'failing-peer' },
+          direct: false,
+        }),
+      ).rejects.toThrow('handler setup failed');
+    });
+
+    it('handles sync inbound handler without rejection', async () => {
+      factory = await createFactory();
+
+      const handler = vi.fn();
+      factory.onInboundConnection(handler);
+
+      const inboundStream = {};
+      const result = await libp2pState.handler?.(inboundStream, {
+        remotePeer: { toString: () => 'sync-peer' },
+        direct: false,
+      });
+
+      expect(result).toBeUndefined();
+      expect(handler).toHaveBeenCalled();
     });
   });
 
@@ -702,6 +822,10 @@ describe('ConnectionFactory', () => {
           });
           return stream;
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -744,6 +868,10 @@ describe('ConnectionFactory', () => {
             throw new Error('Connection failed again');
           }
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -764,6 +892,10 @@ describe('ConnectionFactory', () => {
         dialProtocol: vi.fn(async () => {
           throw new MuxerClosedError('Muxer closed');
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -773,6 +905,34 @@ describe('ConnectionFactory', () => {
         MuxerClosedError,
       );
       expect(libp2pState.dials).toHaveLength(0);
+    });
+
+    it('handles TooManyOutboundProtocolStreamsError gracefully', async () => {
+      const { TooManyOutboundProtocolStreamsError: TooManyStreams } =
+        await import('@libp2p/interface');
+      createLibp2p.mockImplementation(async () => ({
+        start: vi.fn(),
+        stop: vi.fn(),
+        peerId: { toString: () => 'test-peer' },
+        addEventListener: vi.fn(),
+        dialProtocol: vi.fn(async () => {
+          throw new TooManyStreams('Too many streams');
+        }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
+        handle: vi.fn(),
+      }));
+
+      factory = await createFactory();
+
+      await expect(factory.openChannelOnce('peer123')).rejects.toThrow(
+        TooManyStreams,
+      );
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        expect.stringContaining('too many outbound streams via'),
+      );
     });
 
     it('handles timeout errors', async () => {
@@ -796,6 +956,10 @@ describe('ConnectionFactory', () => {
           }
           throw new Error('Should not reach here');
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -815,6 +979,10 @@ describe('ConnectionFactory', () => {
         dialProtocol: vi.fn(async () => {
           throw new Error('Final connection error');
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -837,6 +1005,10 @@ describe('ConnectionFactory', () => {
           // eslint-disable-next-line @typescript-eslint/only-throw-error
           throw null;
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -898,6 +1070,10 @@ describe('ConnectionFactory', () => {
           const stream = {};
           return stream;
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -920,6 +1096,10 @@ describe('ConnectionFactory', () => {
           attemptCount += 1;
           throw new Error('Non-retryable error');
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -981,6 +1161,10 @@ describe('ConnectionFactory', () => {
           }
           return {};
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -1030,6 +1214,10 @@ describe('ConnectionFactory', () => {
         dialProtocol: vi.fn(async () => {
           return {};
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -1082,6 +1270,10 @@ describe('ConnectionFactory', () => {
         dialProtocol: vi.fn(async () => {
           return {};
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -1122,6 +1314,10 @@ describe('ConnectionFactory', () => {
           await new Promise((resolve) => setTimeout(resolve, 50));
           return {};
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -1148,6 +1344,10 @@ describe('ConnectionFactory', () => {
           dialCount += 1;
           return {};
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -1173,6 +1373,10 @@ describe('ConnectionFactory', () => {
           dialCount += 1;
           return {};
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -1203,6 +1407,10 @@ describe('ConnectionFactory', () => {
           }
           return {};
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -1221,6 +1429,10 @@ describe('ConnectionFactory', () => {
         dialProtocol: vi.fn(async () => {
           throw new Error('Dial failed');
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -1248,6 +1460,10 @@ describe('ConnectionFactory', () => {
         dialProtocol: vi.fn(async () => {
           throw new Error('test error');
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -1273,6 +1489,10 @@ describe('ConnectionFactory', () => {
           // eslint-disable-next-line @typescript-eslint/only-throw-error
           throw null;
         }),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -1298,6 +1518,10 @@ describe('ConnectionFactory', () => {
         peerId: { toString: () => 'test-peer' },
         addEventListener: vi.fn(),
         dialProtocol: vi.fn(),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -1351,6 +1575,10 @@ describe('ConnectionFactory', () => {
         peerId: { toString: () => 'test-peer' },
         addEventListener: vi.fn(),
         dialProtocol: vi.fn(),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
       }));
 
@@ -1375,6 +1603,7 @@ describe('ConnectionFactory', () => {
         peerId: { toString: () => 'test-peer' },
         addEventListener: vi.fn(),
         dialProtocol: vi.fn(),
+        dial: vi.fn().mockResolvedValue({}),
         handle: vi.fn(),
         getConnections: vi.fn(() => []),
       }));
@@ -1392,6 +1621,7 @@ describe('ConnectionFactory', () => {
         peerId: { toString: () => 'test-peer' },
         addEventListener: vi.fn(),
         dialProtocol: vi.fn(),
+        dial: vi.fn().mockResolvedValue({}),
         handle: vi.fn(),
         getConnections: vi.fn(() => []),
       }));
@@ -1406,14 +1636,13 @@ describe('ConnectionFactory', () => {
   });
 
   describe('closeChannel', () => {
-    it('closes underlying stream when close is available', async () => {
+    it('closes stream gracefully', async () => {
       factory = await createFactory();
       const close = vi.fn().mockResolvedValue(undefined);
       const channel = {
         peerId: 'peer-close',
-        msgStream: {
-          unwrap: () => ({ close }),
-        },
+        stream: { close, abort: vi.fn() },
+        msgStream: {},
       } as unknown as Channel;
       await factory.closeChannel(channel, channel.peerId);
       expect(close).toHaveBeenCalled();
@@ -1422,33 +1651,40 @@ describe('ConnectionFactory', () => {
       );
     });
 
-    it('aborts underlying stream when abort is available', async () => {
+    it('aborts stream when graceful close fails', async () => {
       factory = await createFactory();
+      const closeError = new Error('close failed');
+      const close = vi.fn().mockRejectedValue(closeError);
       const abort = vi.fn();
       const channel = {
         peerId: 'peer-abort',
-        msgStream: {
-          unwrap: () => ({ abort }),
-        },
+        stream: { close, abort },
+        msgStream: {},
       } as unknown as Channel;
       await factory.closeChannel(channel, channel.peerId);
-      expect(abort).toHaveBeenCalledWith(expect.any(AbortError));
+      // close() must be attempted before falling back to abort()
+      expect(close).toHaveBeenCalled();
+      expect(abort).toHaveBeenCalledWith(closeError);
       expect(mockLoggerLog).toHaveBeenCalledWith(
         `${channel.peerId}:: aborted channel stream`,
       );
     });
 
-    it('logs when underlying stream lacks close and abort', async () => {
+    it('logs error when abort also throws', async () => {
       factory = await createFactory();
+      const close = vi.fn().mockRejectedValue(new Error('close failed'));
+      const abort = vi.fn().mockImplementation(() => {
+        throw new Error('abort failed');
+      });
       const channel = {
-        peerId: 'peer-none',
-        msgStream: {
-          unwrap: () => ({}),
-        },
+        peerId: 'peer-double-fail',
+        stream: { close, abort },
+        msgStream: {},
       } as unknown as Channel;
       await factory.closeChannel(channel, channel.peerId);
+      expect(abort).toHaveBeenCalled();
       expect(mockLoggerLog).toHaveBeenCalledWith(
-        `${channel.peerId}:: channel stream lacks close/abort, relying on natural closure`,
+        expect.stringContaining('closing channel stream'),
       );
     });
   });
@@ -1526,8 +1762,15 @@ describe('ConnectionFactory', () => {
      * Create a libp2p mock that captures event listeners and exposes a dial spy.
      *
      * @param mockDial - The dial mock to use.
+     * @param getConnections - Mock for getConnections; defaults to returning both relays as connected.
      */
-    function setupRelayMock(mockDial: ReturnType<typeof vi.fn>) {
+    function setupRelayMock(
+      mockDial: ReturnType<typeof vi.fn>,
+      getConnections: ReturnType<typeof vi.fn> = vi.fn(() => [
+        { remotePeer: { toString: () => 'relay1' } },
+        { remotePeer: { toString: () => 'relay2' } },
+      ]),
+    ) {
       createLibp2p.mockImplementation(async () => ({
         start: vi.fn(),
         stop: vi.fn(),
@@ -1542,6 +1785,7 @@ describe('ConnectionFactory', () => {
         dialProtocol: vi.fn(async () => ({})),
         handle: vi.fn(),
         dial: mockDial,
+        getConnections,
       }));
     }
 
@@ -1654,6 +1898,10 @@ describe('ConnectionFactory', () => {
         ),
         getMultiaddrs: vi.fn(() => []),
         dialProtocol: vi.fn(async () => ({})),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
         handle: vi.fn(),
         dial: mockDial,
       }));
@@ -1741,6 +1989,77 @@ describe('ConnectionFactory', () => {
       // The pending entry must be removed so future reconnects are not blocked.
       mockLoggerLog.mockReset();
       fireConnectionClose('relay1');
+      expect(pendingTimers).toHaveLength(1);
+    });
+
+    it('schedules reconnect for relay not connected on startup', async () => {
+      const mockDial = vi.fn().mockResolvedValue({});
+      // relay2 is connected, relay1 is not
+      setupRelayMock(
+        mockDial,
+        vi.fn(() => [{ remotePeer: { toString: () => 'relay2' } }]),
+      );
+
+      factory = await createFactory();
+
+      expect(pendingTimers).toHaveLength(1);
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        'relay relay1 not connected after startup, scheduling reconnect',
+      );
+    });
+
+    it('schedules reconnect for all relays when none are connected on startup', async () => {
+      const mockDial = vi.fn().mockResolvedValue({});
+      setupRelayMock(
+        mockDial,
+        vi.fn(() => []),
+      );
+
+      factory = await createFactory();
+
+      expect(pendingTimers).toHaveLength(2);
+    });
+
+    it('recovers relay that was down on startup once it comes back up', async () => {
+      const mockDial = vi.fn().mockResolvedValue({});
+      setupRelayMock(
+        mockDial,
+        vi.fn(() => []),
+      );
+
+      factory = await createFactory();
+
+      // Two startup reconnect timers (relay1 and relay2)
+      expect(pendingTimers).toHaveLength(2);
+
+      await runAllTimers();
+
+      expect(mockDial).toHaveBeenCalledTimes(2);
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        expect.stringContaining('relay relay1 reconnected'),
+      );
+      expect(mockLoggerLog).toHaveBeenCalledWith(
+        expect.stringContaining('relay relay2 reconnected'),
+      );
+    });
+
+    it('does not schedule duplicate startup reconnect when relay also fires connection:close', async () => {
+      const mockDial = vi.fn().mockResolvedValue({});
+      // relay1 not connected on startup
+      setupRelayMock(
+        mockDial,
+        vi.fn(() => [{ remotePeer: { toString: () => 'relay2' } }]),
+      );
+
+      factory = await createFactory();
+
+      // 1 timer from startup reconnect for relay1
+      expect(pendingTimers).toHaveLength(1);
+
+      // connection:close for relay1 fires while startup reconnect is pending
+      fireConnectionClose('relay1');
+
+      // Still just 1 timer — #scheduleRelayReconnect deduplicates
       expect(pendingTimers).toHaveLength(1);
     });
 
@@ -1845,6 +2164,7 @@ describe('ConnectionFactory', () => {
       const inboundStream = {};
       await libp2pState.handler?.(inboundStream, {
         remotePeer: { toString: () => 'inbound-peer' },
+        direct: false,
       });
 
       // Make outbound connection

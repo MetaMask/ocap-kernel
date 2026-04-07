@@ -712,6 +712,8 @@ yarn workspace @ocap/evm-wallet-experiment build
 yarn workspace @ocap/evm-wallet-experiment lint:fix
 ```
 
+For Docker Compose setup (interactive simulation and E2E tests), see [docs/docker.md](./docs/docker.md). Docker Model Runner with `ai/qwen3.5:4B-UD-Q4_K_XL` is required for the interactive simulation's OpenClaw AI agent.
+
 ## Testing
 
 The package has four tiers of tests, each exercising a progressively larger slice of the stack.
@@ -783,6 +785,25 @@ yarn workspace @ocap/evm-wallet-experiment test:integration
 ```
 
 Vitest-based peer wallet tests in `test/integration/peer-wallet.test.ts`. Requires building bundles first (`yarn build`). Tests OCAP URL connection, remote message/transaction signing via CapTP, no-authority errors, and capabilities reporting across two kernels.
+
+### Docker E2E (3 delegation modes × home/away pair)
+
+```bash
+# Start the full stack (Anvil + bundler + 6 kernel containers)
+yarn workspace @ocap/evm-wallet-experiment docker:up
+
+# Run all three delegation modes in parallel
+yarn workspace @ocap/evm-wallet-experiment test:e2e:docker
+
+# Run a single mode
+DELEGATION_MODE=bundler-7702 yarn workspace @ocap/evm-wallet-experiment test:e2e:docker
+# or: bundler-hybrid, peer-relay
+
+# Tear down
+yarn workspace @ocap/evm-wallet-experiment docker:down
+```
+
+Full home/away delegation flow across three delegation modes (`bundler-7702`, `bundler-hybrid`, `peer-relay`) running in parallel. The stack requires Docker Model Runner. See [docs/docker.md](./docs/docker.md) for prerequisites, stack details, and troubleshooting. For manual interactive simulation, see [docs/simulation.md](./docs/simulation.md).
 
 ## Supported Chains
 

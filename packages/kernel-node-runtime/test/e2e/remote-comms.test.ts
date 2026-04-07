@@ -651,24 +651,32 @@ describe.sequential('Remote Communications E2E', () => {
         });
         let kernel3: Kernel | undefined;
 
-        // Use a longer ACK timeout for the initiating kernel — it must redeem
-        // URLs on two peers that restart sequentially through the relay, so the
-        // default 2s × (3+1) = 8s redemption window is too tight for CI.
-        const multiPeerBackoff = { ...testBackoffOptions, ackTimeoutMs: 5_000 };
+        // The ACK give-up fires after ackTimeoutMs × (MAX_RETRIES + 1).
+        // kernel2 and kernel3 restart in parallel below, but each restart
+        // (new kernel + libp2p connect + vat launch) still takes several
+        // seconds. A 5 s ACK timeout gives a 20 s redemption window.
+        // maxConnectionAttemptsPerMinute is raised because the fast test
+        // backoff (10-50 ms) exhausts the default 10/min rate limit before
+        // the peers finish restarting, blocking reconnection for ~60 s.
+        const multiPeerOptions = {
+          ...testBackoffOptions,
+          ackTimeoutMs: 5_000,
+          maxConnectionAttemptsPerMinute: 500,
+        };
 
         try {
           await kernel1.initRemoteComms({
             relays: testRelays,
-            ...multiPeerBackoff,
+            ...multiPeerOptions,
           });
           await kernel2.initRemoteComms({
             relays: testRelays,
-            ...testBackoffOptions,
+            ...multiPeerOptions,
           });
           kernel3 = await makeTestKernel(kernelDatabase3);
           await kernel3.initRemoteComms({
             relays: testRelays,
-            ...testBackoffOptions,
+            ...multiPeerOptions,
           });
 
           const aliceConfig = makeRemoteVatConfig('Alice');
@@ -706,27 +714,30 @@ describe.sequential('Remote Communications E2E', () => {
             [charlieURL, 'hello', ['Alice']],
           );
 
+          // Restart both peers in parallel to fit within the 20 s redemption
+          // window. Sequential restarts doubled the wall-clock time.
           const bobConfigRestart = makeRemoteVatConfig('Bob');
           const charlieConfigRestart = makeRemoteVatConfig('Charlie');
-          const restartResult2 = await restartKernelAndReloadVat(
-            dbFilename2,
-            false,
-            testRelays,
-            bobConfigRestart,
-            testBackoffOptions,
-          );
-          // eslint-disable-next-line require-atomic-updates
-          kernel2 = restartResult2.kernel;
-
-          kernel3 = (
-            await restartKernelAndReloadVat(
+          const [restartResult2, restartResult3] = await Promise.all([
+            restartKernelAndReloadVat(
+              dbFilename2,
+              false,
+              testRelays,
+              bobConfigRestart,
+              multiPeerOptions,
+            ),
+            restartKernelAndReloadVat(
               dbFilename3,
               false,
               testRelays,
               charlieConfigRestart,
-              testBackoffOptions,
-            )
-          ).kernel;
+              multiPeerOptions,
+            ),
+          ]);
+          // eslint-disable-next-line require-atomic-updates
+          kernel2 = restartResult2.kernel;
+
+          kernel3 = restartResult3.kernel;
 
           // Both messages should be delivered successfully
           const bobResult = await bobMessagePromise;
