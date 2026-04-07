@@ -17,7 +17,7 @@ import { useRegistry } from '../hooks/useRegistry.ts';
 import type { ObjectRegistry } from '../types.ts';
 import { SendMessageForm } from './SendMessageForm.tsx';
 
-setupOcapKernelMock();
+const { setMockBehavior } = setupOcapKernelMock();
 
 vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
@@ -191,6 +191,20 @@ describe('SendMessageForm Component', () => {
 
     // Button should be disabled again
     expect(sendButton).toBeDisabled();
+  });
+
+  it('does not set target when value fails KRef validation', async () => {
+    setMockBehavior({ isKRef: false });
+    const { getByTestId } = render(<SendMessageForm />);
+
+    const targetSelect = getByTestId('message-target');
+    fireEvent.change(targetSelect, { target: { value: 'not-a-kref' } });
+
+    // Target should remain unset, button stays disabled
+    expect(targetSelect).toHaveValue('');
+    expect(getByTestId('message-send-button')).toBeDisabled();
+
+    setMockBehavior({ isKRef: true });
   });
 
   it('calls callKernelMethod with correct parameters when Send button is clicked', async () => {

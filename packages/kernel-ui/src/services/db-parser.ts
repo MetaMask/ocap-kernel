@@ -81,6 +81,7 @@ export function parseObjectRegistry(
       matches[1] &&
         objCList.push({
           vat: matches[1],
+          // Safe cast: regex capture group guarantees KRef format
           kref: matches[2] as KRef,
           eref: value.replace(/^R\s*/u, ''),
         });
@@ -90,6 +91,7 @@ export function parseObjectRegistry(
       matches[1] &&
         prmCList.push({
           vat: matches[1],
+          // Safe cast: regex capture group guarantees KRef format
           kref: matches[2] as KRef,
           eref: value.replace(/^R\s*/u, ''),
         });

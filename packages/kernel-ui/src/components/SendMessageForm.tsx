@@ -10,6 +10,7 @@ import {
 } from '@metamask/design-system-react';
 import { stringify } from '@metamask/kernel-utils';
 import { isKRef } from '@metamask/ocap-kernel';
+import type { KRef } from '@metamask/ocap-kernel';
 import type { Json } from '@metamask/utils';
 import { useState, useMemo } from 'react';
 
@@ -27,7 +28,7 @@ const inputStyle =
 export const SendMessageForm: React.FC = () => {
   const { callKernelMethod, logMessage, objectRegistry } = usePanelContext();
   const { fetchObjectRegistry } = useRegistry();
-  const [target, setTarget] = useState('');
+  const [target, setTarget] = useState<KRef | null>(null);
   const [method, setMethod] = useState('__getMethodNames__');
   const [paramsText, setParamsText] = useState('[]');
   const [result, setResult] = useState<Json | null>(null);
@@ -64,8 +65,7 @@ export const SendMessageForm: React.FC = () => {
   }, [objectRegistry]);
 
   const handleSend = (): void => {
-    if (!isKRef(target)) {
-      logMessage('Invalid target', 'error');
+    if (!target) {
       return;
     }
     Promise.resolve()
@@ -121,8 +121,11 @@ export const SendMessageForm: React.FC = () => {
           </label>
           <select
             id="message-target"
-            value={target}
-            onChange={(event) => setTarget(event.target.value)}
+            value={target ?? ''}
+            onChange={(event) => {
+              const { value } = event.target;
+              setTarget(isKRef(value) ? value : null);
+            }}
             data-testid="message-target"
             className={`${inputStyle} cursor-pointer`}
           >
@@ -176,7 +179,7 @@ export const SendMessageForm: React.FC = () => {
             variant={ButtonVariant.Primary}
             size={ButtonSize.Sm}
             onClick={handleSend}
-            isDisabled={!(target.trim() && method.trim())}
+            isDisabled={!(target && method.trim())}
             className="h-9 rounded-md"
             data-testid="message-send-button"
           >
