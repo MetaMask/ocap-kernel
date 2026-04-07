@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.73% </span>
+                <span class="strong">96.77% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>89/92</span>
+                <span class='fraction'>90/93</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">80.64% </span>
+                <span class="strong">83.52% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>75/93</span>
+                <span class='fraction'>71/85</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">96.7% </span>
+                <span class="strong">96.73% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>88/91</span>
+                <span class='fraction'>89/92</span>
             </div>
         
             
@@ -277,7 +277,20 @@
 <a name='L212'></a><a href='#L212'>212</a>
 <a name='L213'></a><a href='#L213'>213</a>
 <a name='L214'></a><a href='#L214'>214</a>
-<a name='L215'></a><a href='#L215'>215</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L215'></a><a href='#L215'>215</a>
+<a name='L216'></a><a href='#L216'>216</a>
+<a name='L217'></a><a href='#L217'>217</a>
+<a name='L218'></a><a href='#L218'>218</a>
+<a name='L219'></a><a href='#L219'>219</a>
+<a name='L220'></a><a href='#L220'>220</a>
+<a name='L221'></a><a href='#L221'>221</a>
+<a name='L222'></a><a href='#L222'>222</a>
+<a name='L223'></a><a href='#L223'>223</a>
+<a name='L224'></a><a href='#L224'>224</a>
+<a name='L225'></a><a href='#L225'>225</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -360,10 +373,12 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">42x</span>
 <span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -390,8 +405,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -491,7 +511,10 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type {
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { insistKRef } from '@metamask/ocap-kernel';
+import type { KRef } from '@metamask/ocap-kernel';
+&nbsp;
+import type {
   ObjectRegistry,
   VatSnapshot,
   SlotInfo,
@@ -515,8 +538,8 @@ export function parseObjectRegistry(
   const kpValueRaw: Record&lt;string, { body: string; slots: string[] }&gt; = {};
   const vatConfigs: Record&lt;string, { name: string; bundleSpec: string }&gt; = {};
   // C-lists
-  const objCList: { vat: string; kref: string; eref: string }[] = [];
-  const prmCList: { vat: string; kref: string; eref: string }[] = [];
+  const objCList: { vat: string; kref: KRef; eref: string }[] = [];
+  const prmCList: { vat: string; kref: KRef; eref: string }[] = [];
 &nbsp;
   let gcActions = '';
   let reapQueue = '';
@@ -570,8 +593,9 @@ export function parseObjectRegistry(
     if ((matches = key.match(/^(v\d+)\.c\.(ko\d+)$/u))) {
       matches[1] &amp;&amp;
         objCList.push({
-          vat: matches[1] ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-          kref: matches[2] ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+          vat: matches[1],
+          // Safe cast: regex capture group guarantees KRef format
+          kref: matches[2] as KRef,
           eref: value.replace(/^R\s*/u, ''),
         });
       continue;
@@ -579,8 +603,9 @@ export function parseObjectRegistry(
     if ((matches = key.match(/^(v\d+)\.c\.(kp\d+)$/u))) {
       matches[1] &amp;&amp;
         prmCList.push({
-          vat: matches[1] ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
-          kref: matches[2] ?? <span class="branch-1 cbranch-no" title="branch not covered" >'',</span>
+          vat: matches[1],
+          // Safe cast: regex capture group guarantees KRef format
+          kref: matches[2] as KRef,
           eref: value.replace(/^R\s*/u, ''),
         });
       continue;
@@ -604,8 +629,13 @@ export function parseObjectRegistry(
 &nbsp;
   // Helper to resolve slots
   const resolveSlot = (kref: string): SlotInfo =&gt; {
+    insistKRef(kref);
     const entry = objCList.find((item) =&gt; item.kref === kref);
-    return { kref, eref: entry?.eref ?? <span class="branch-1 cbranch-no" title="branch not covered" >null, v</span>at: entry?.vat ?? <span class="branch-1 cbranch-no" title="branch not covered" >null }</span>;
+    return {
+      kref,
+      eref: entry?.eref ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+      vat: entry?.vat ?? <span class="branch-1 cbranch-no" title="branch not covered" >null,</span>
+    };
   };
 &nbsp;
   // 3) Populate objects
@@ -712,7 +742,7 @@ export function parseObjectRegistry(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-07T19:27:52.832Z
+                at 2026-04-07T20:47:38.361Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

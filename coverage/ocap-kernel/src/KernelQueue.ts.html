@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">98.23% </span>
+                <span class="strong">98.18% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>111/113</span>
+                <span class='fraction'>108/110</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">90.62% </span>
+                <span class="strong">90% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>58/64</span>
+                <span class='fraction'>54/60</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">98.23% </span>
+                <span class="strong">98.18% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>111/113</span>
+                <span class='fraction'>108/110</span>
             </div>
         
             
@@ -439,13 +439,7 @@
 <a name='L374'></a><a href='#L374'>374</a>
 <a name='L375'></a><a href='#L375'>375</a>
 <a name='L376'></a><a href='#L376'>376</a>
-<a name='L377'></a><a href='#L377'>377</a>
-<a name='L378'></a><a href='#L378'>378</a>
-<a name='L379'></a><a href='#L379'>379</a>
-<a name='L380'></a><a href='#L380'>380</a>
-<a name='L381'></a><a href='#L381'>381</a>
-<a name='L382'></a><a href='#L382'>382</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L377'></a><a href='#L377'>377</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -773,10 +767,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">272x</span>
-<span class="cline-any cline-yes">246x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">272x</span>
-<span class="cline-any cline-yes">273x</span>
 <span class="cline-any cline-yes">273x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">273x</span>
@@ -825,23 +815,22 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { VatOneResolution } from '@agoric/swingset-liveslots';
-import type { CapData } from '@endo/marshal';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
 &nbsp;
 import { processGCActionSet } from './garbage-collection/garbage-collection.ts';
 import { kser } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
-import { insistEndpointId } from './types.ts';
 import type {
   CrankResult,
+  EndpointId,
   KRef,
-  Message,
+  KernelMessage,
+  KernelOneResolution,
   RunQueueItem,
   RunQueueItemNotify,
   RunQueueItemSend,
   VatId,
-  EndpointId,
 } from './types.ts';
 import { Fail } from './utils/assert.ts';
 &nbsp;
@@ -1093,7 +1082,7 @@ export class KernelQueue {
    * @param message - The message to be delivered.
    * @param immediate - If true (the default), enqueue immediately; if false, buffer for crank completion.
    */
-  enqueueSend(target: KRef, message: Message, immediate = true): void {
+  enqueueSend(target: KRef, message: KernelMessage, immediate = true): void {
     this.#kernelStore.incrementRefCount(target, 'queue|target');
     if (message.result) {
       this.#kernelStore.incrementRefCount(message.result, 'queue|result');
@@ -1149,16 +1138,12 @@ export class KernelQueue {
    * @param immediate - If true (the default), enqueue immediately; if false, buffer for crank completion.
    */
   resolvePromises(
-    endpointId: EndpointId | undefined,
-    resolutions: VatOneResolution[],
+    endpointId: EndpointId | 'kernel' | undefined,
+    resolutions: KernelOneResolution[],
     immediate = true,
   ): void {
-    if (endpointId &amp;&amp; endpointId !== 'kernel') {
-      insistEndpointId(endpointId);
-    }
     for (const resolution of resolutions) {
-      const [kpid, rejected, dataRaw] = resolution;
-      const data = dataRaw as CapData&lt;KRef&gt;;
+      const [kpid, rejected, data] = resolution;
 &nbsp;
       this.#kernelStore.incrementRefCount(kpid, 'resolve|kpid');
       for (const slot of data.slots || <span class="branch-1 cbranch-no" title="branch not covered" >[]) {</span>
@@ -1213,7 +1198,7 @@ export class KernelQueue {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-07T19:27:52.832Z
+                at 2026-04-07T20:47:38.361Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

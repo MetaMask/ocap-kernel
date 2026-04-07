@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>18/18</span>
+                <span class='fraction'>17/17</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>18/18</span>
+                <span class='fraction'>17/17</span>
             </div>
         
             
@@ -163,20 +163,20 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">99x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">99x</span>
-<span class="cline-any cline-yes">80x</span>
-<span class="cline-any cline-yes">80x</span>
-<span class="cline-any cline-yes">15x</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">70x</span>
+<span class="cline-any cline-yes">56x</span>
+<span class="cline-any cline-yes">56x</span>
+<span class="cline-any cline-yes">14x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">90x</span>
-<span class="cline-any cline-yes">90x</span>
+<span class="cline-any cline-yes">65x</span>
+<span class="cline-any cline-yes">65x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -188,8 +188,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">946x</span>
-<span class="cline-any cline-yes">651x</span>
+<span class="cline-any cline-yes">942x</span>
+<span class="cline-any cline-yes">647x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">295x</span>
 <span class="cline-any cline-yes">294x</span>
@@ -209,13 +209,14 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">72x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">46x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">70x</span>
+<span class="cline-any cline-yes">45x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { assert, Fail } from '../../utils/assert.ts';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { KRef } from '../../types.ts';
+import { Fail } from '../../utils/assert.ts';
 &nbsp;
 // Object/promise references (in the kernel) contain a two-tuple of (type,
 // index). All object references point to entries in the kernel Object
@@ -235,11 +236,10 @@ type KernelSlotType = 'object' | 'promise';
  * @returns kernel slot object corresponding to the parameter.
  * @throws if the given string is syntactically incorrect.
  */
-export function parseKernelSlot(slot: string): {
+export function parseKernelSlot(slot: KRef): {
   type: KernelSlotType;
   id: string;
 } {
-  assert.typeof(slot, 'string');
   let type: KernelSlotType;
   let idSuffix: string;
   if (slot.startsWith('ko')) {
@@ -263,12 +263,12 @@ export function parseKernelSlot(slot: string): {
  * @returns the corresponding kernel slot reference string.
  * @throws if type is not one of the above known types.
  */
-export function makeKernelSlot(type: KernelSlotType, id: string): string {
+export function makeKernelSlot(type: KernelSlotType, id: string): KRef {
   if (type === 'object') {
-    return `ko${id}`;
+    return `ko${id}` as KRef;
   }
   if (type === 'promise') {
-    return `kp${id}`;
+    return `kp${id}` as KRef;
   }
   throw Fail`unknown type ${type}`;
 }
@@ -283,8 +283,8 @@ export function makeKernelSlot(type: KernelSlotType, id: string): string {
  */
 export function insistKernelType(
   type: KernelSlotType,
-  kernelSlot: string | undefined,
-): asserts kernelSlot is KernelSlotType {
+  kernelSlot: KRef | undefined,
+): asserts kernelSlot is KRef {
   if (kernelSlot === undefined) {
     throw Fail`kernelSlot is undefined`;
   }
@@ -298,7 +298,7 @@ export function insistKernelType(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-07T19:27:52.832Z
+                at 2026-04-07T20:47:38.361Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>

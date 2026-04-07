@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/89</span>
+                <span class='fraction'>0/91</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/89</span>
+                <span class='fraction'>0/91</span>
             </div>
         
             
@@ -341,7 +341,10 @@
 <a name='L276'></a><a href='#L276'>276</a>
 <a name='L277'></a><a href='#L277'>277</a>
 <a name='L278'></a><a href='#L278'>278</a>
-<a name='L279'></a><a href='#L279'>279</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L279'></a><a href='#L279'>279</a>
+<a name='L280'></a><a href='#L280'>280</a>
+<a name='L281'></a><a href='#L281'>281</a>
+<a name='L282'></a><a href='#L282'>282</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -361,6 +364,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -584,6 +588,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -615,6 +620,7 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -632,7 +638,8 @@ import type { CapTPMessage } from '@metamask/kernel-browser-runtime';
 import { delay, isJsonRpcMessage, stringify } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
-import type { KernelFacet } from '@metamask/ocap-kernel';
+import type { KernelFacet, KRef } from '@metamask/ocap-kernel';
+import { insistKRef } from '@metamask/ocap-kernel';
 import { ChromeRuntimeDuplexStream } from '@metamask/streams/browser';
 &nbsp;
 import type { CapletManifest } from './controllers/index.ts';
@@ -774,7 +781,7 @@ type GlobalSetters = {
  * @returns A device for setting the global values.
  */
 function <span class="fstat-no" title="function not covered" >defineGlobals(): GlobalSetters {</span>
-  let controllerVatKref: string;
+  let controllerVatKref: KRef;
 &nbsp;
   /**
    * Call a method on the controller vat via queueMessage.
@@ -855,12 +862,13 @@ function <span class="fstat-no" title="function not covered" >defineGlobals(): G
 <span class="cstat-no" title="statement not covered" >    return { manifest, bundle };</span>
   };
 &nbsp;
-  const getCapletRoot = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >async (c</span>apletId: string): Promise&lt;string&gt; =&gt; {</span>
+  const getCapletRoot = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >async (c</span>apletId: string): Promise&lt;KRef&gt; =&gt; {</span>
     const { slots } = <span class="cstat-no" title="statement not covered" >await callController('getCapletRoot', [capletId]);</span>
     const rootKref = <span class="cstat-no" title="statement not covered" >slots[0];</span>
 <span class="cstat-no" title="statement not covered" >    if (!rootKref) {</span>
 <span class="cstat-no" title="statement not covered" >      throw new Error(`Caplet "${capletId}" has no root kref`);</span>
     }
+<span class="cstat-no" title="statement not covered" >    insistKRef(rootKref);</span>
 <span class="cstat-no" title="statement not covered" >    return rootKref;</span>
   };
 &nbsp;
@@ -892,7 +900,8 @@ function <span class="fstat-no" title="function not covered" >defineGlobals(): G
     setKernel: <span class="fstat-no" title="function not covered" >(k</span>ernel) =&gt; {
 <span class="cstat-no" title="statement not covered" >      globalThis.kernel = kernel;</span>
     },
-    setControllerVatKref: <span class="fstat-no" title="function not covered" >(k</span>ref) =&gt; {
+    setControllerVatKref: <span class="fstat-no" title="function not covered" >(k</span>ref: string) =&gt; {
+<span class="cstat-no" title="statement not covered" >      insistKRef(kref);</span>
 <span class="cstat-no" title="statement not covered" >      controllerVatKref = kref;</span>
     },
   };
@@ -904,7 +913,7 @@ function <span class="fstat-no" title="function not covered" >defineGlobals(): G
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-07T19:27:52.832Z
+                at 2026-04-07T20:47:38.361Z
             </div>
         <script src="../../prettify.js"></script>
         <script>
