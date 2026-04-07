@@ -70,7 +70,9 @@ export function buildRootObject(
     keyring = makeKeyring(initOptions);
     if (baggage.has('accountCount')) {
       const count = baggage.get('accountCount') as number;
-      for (let i = 1; i < count; i++) {
+      const startIndex =
+        initOptions.type === 'srp' ? (initOptions.addressIndex ?? 0) : 0;
+      for (let i = startIndex + 1; i < startIndex + count; i++) {
         keyring.deriveAccount(i);
       }
     }
@@ -120,15 +122,27 @@ export function buildRootObject(
             'A random salt is required when encrypting the mnemonic',
           );
         }
-        stored = {
-          ...encryptMnemonic({
-            mnemonic: options.mnemonic,
-            password,
-            salt,
-            pbkdf2Iterations,
-          }),
-          type: 'srp',
-        };
+        stored =
+          options.addressIndex === undefined
+            ? {
+                ...encryptMnemonic({
+                  mnemonic: options.mnemonic,
+                  password,
+                  salt,
+                  pbkdf2Iterations,
+                }),
+                type: 'srp',
+              }
+            : {
+                ...encryptMnemonic({
+                  mnemonic: options.mnemonic,
+                  password,
+                  salt,
+                  pbkdf2Iterations,
+                }),
+                type: 'srp',
+                addressIndex: options.addressIndex,
+              };
       } else {
         stored = options;
       }
@@ -153,7 +167,11 @@ export function buildRootObject(
         password,
         pbkdf2Iterations,
       });
-      rebuildKeyring({ type: 'srp', mnemonic });
+      rebuildKeyring(
+        stored.addressIndex === undefined
+          ? { type: 'srp', mnemonic }
+          : { type: 'srp', mnemonic, addressIndex: stored.addressIndex },
+      );
       locked = false;
     },
 

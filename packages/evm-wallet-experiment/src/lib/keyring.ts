@@ -16,7 +16,7 @@ const harden = globalThis.harden ?? (<T>(value: T): T => value);
  * Options for initializing a keyring.
  */
 export type KeyringInitOptions =
-  | { type: 'srp'; mnemonic: string }
+  | { type: 'srp'; mnemonic: string; addressIndex?: number }
   | { type: 'throwaway'; entropy?: Hex };
 
 /**
@@ -24,6 +24,8 @@ export type KeyringInitOptions =
  */
 export type EncryptedKeyringInit = EncryptedMnemonicData & {
   type: 'srp';
+  /** BIP-44 address index used when the keyring was first initialized. */
+  addressIndex?: number;
 };
 
 /**
@@ -54,8 +56,8 @@ export function makeKeyring(options: KeyringInitOptions): Keyring {
 
   if (options.type === 'srp') {
     mnemonic = options.mnemonic;
-    // Derive the first account by default
-    deriveAccountInternal(0);
+    const startIndex = options.addressIndex ?? 0;
+    deriveAccountInternal(startIndex);
   } else {
     let privateKey: Hex;
     if (options.entropy) {

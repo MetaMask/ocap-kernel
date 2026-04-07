@@ -311,7 +311,7 @@ if [[ -n "$RELAY_ADDR" ]]; then
   if [[ "$RELAY_OK" == "true" ]]; then
     ok "Relay reservation active"
   else
-    fail "Relay reservation not established after 30s. Is the relay running? Check: ssh VPS 'sudo systemctl status ocap-relay.service'"
+    fail "Relay reservation not established after 30s. Is the relay running? Check: ssh away 'sudo systemctl status ocap-relay.service'"
   fi
 fi
 
@@ -525,7 +525,7 @@ $(echo -e "${GREEN}${BOLD}")═════════════════�
   $(echo -e "${DIM}")RPC URL          :$(echo -e "${RESET}") $RPC_URL
   $(echo -e "${DIM}")Accounts         :$(echo -e "${RESET}") $ACCOUNTS
 
-$(echo -e "${YELLOW}${BOLD}")  Run this on the away device (VPS):$(echo -e "${RESET}")
+$(echo -e "${YELLOW}${BOLD}")  Run this on the away device:$(echo -e "${RESET}")
 
 $(echo -e "${BOLD}")  ./packages/evm-wallet-experiment/scripts/setup-away.sh \\
     --ocap-url "$OCAP_URL" \\

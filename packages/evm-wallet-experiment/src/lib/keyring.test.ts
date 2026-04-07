@@ -1,3 +1,4 @@
+import { mnemonicToAccount } from 'viem/accounts';
 import { describe, it, expect, vi } from 'vitest';
 
 import { makeKeyring, generateMnemonicPhrase } from './keyring.ts';
@@ -15,6 +16,19 @@ describe('lib/keyring', () => {
         const accounts = keyring.getAccounts();
         expect(accounts).toHaveLength(1);
         expect(accounts[0]).toMatch(/^0x[\da-f]{40}$/iu);
+      });
+
+      it('derives the initial account at an optional BIP-44 address index', () => {
+        const keyring = makeKeyring({
+          type: 'srp',
+          mnemonic: TEST_MNEMONIC,
+          addressIndex: 2,
+        });
+        const expected = mnemonicToAccount(TEST_MNEMONIC, {
+          addressIndex: 2,
+        }).address.toLowerCase();
+
+        expect(keyring.getAccounts()[0]?.toLowerCase()).toBe(expected);
       });
 
       it('returns consistent addresses for the same mnemonic', () => {
