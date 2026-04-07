@@ -1603,6 +1603,7 @@ describe('ConnectionFactory', () => {
         peerId: { toString: () => 'test-peer' },
         addEventListener: vi.fn(),
         dialProtocol: vi.fn(),
+        dial: vi.fn().mockResolvedValue({}),
         handle: vi.fn(),
         getConnections: vi.fn(() => []),
       }));
@@ -1620,6 +1621,7 @@ describe('ConnectionFactory', () => {
         peerId: { toString: () => 'test-peer' },
         addEventListener: vi.fn(),
         dialProtocol: vi.fn(),
+        dial: vi.fn().mockResolvedValue({}),
         handle: vi.fn(),
         getConnections: vi.fn(() => []),
       }));
