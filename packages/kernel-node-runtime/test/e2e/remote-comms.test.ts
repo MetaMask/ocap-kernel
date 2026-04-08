@@ -569,20 +569,25 @@ describe.sequential('Remote Communications E2E', () => {
     it(
       'rejects new messages when queue reaches MAX_QUEUE limit',
       async () => {
-        // Use high rate limits to avoid rate limiting interference with queue limit test
+        // Use high rate limits to avoid rate limiting interference with queue limit test.
         // maxConnectionAttemptsPerMinute is needed because async kernel service invocations
-        // can cause multiple concurrent connection attempts when processing many messages
+        // can cause multiple concurrent connection attempts when processing many messages.
+        // ackTimeoutMs must be long enough for kernel2 to restart + reconnect before
+        // the RemoteHandle gives up (give-up fires after ackTimeoutMs × (MAX_RETRIES + 1)).
+        const queueTestOptions = {
+          ...testBackoffOptions,
+          maxMessagesPerSecond: 500,
+          maxConnectionAttemptsPerMinute: 500,
+          ackTimeoutMs: 5_000,
+        };
+
         const { aliceRef, bobURL } = await setupAliceAndBob(
           kernel1,
           kernel2,
           kernelStore1,
           kernelStore2,
           testRelays,
-          {
-            maxMessagesPerSecond: 500,
-            maxConnectionAttemptsPerMinute: 500,
-            ...testBackoffOptions,
-          },
+          queueTestOptions,
         );
 
         await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
@@ -607,7 +612,7 @@ describe.sequential('Remote Communications E2E', () => {
           false,
           testRelays,
           bobConfig,
-          testBackoffOptions,
+          queueTestOptions,
         );
         // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
@@ -1069,29 +1074,37 @@ describe.sequential('Remote Communications E2E', () => {
     it(
       'resolves promise after reconnection when retries have not been exhausted',
       async () => {
+        // Use a longer ACK timeout so the RemoteHandle doesn't give up before
+        // kernel2 can restart and reconnect (give-up = ackTimeoutMs × 4).
+        const reconnectOptions = {
+          ...testBackoffOptions,
+          ackTimeoutMs: 5_000,
+        };
+
         const { aliceRef, bobURL } = await setupAliceAndBob(
           kernel1,
           kernel2,
           kernelStore1,
           kernelStore2,
           testRelays,
-          testBackoffOptions,
+          reconnectOptions,
         );
 
-        // Send a message that creates a promise with remote as decider
+        // Establish the connection and complete URL redemption first so that
+        // the subsequent message doesn't race URL redemption against kernel2.stop().
+        await sendRemoteMessage(kernel1, aliceRef, bobURL, 'hello', ['Alice']);
+
+        // Stop kernel2 so the next message is guaranteed to be pending
+        await kernel2.stop();
+
+        // Send a message while kernel2 is down - it will be queued
         const messagePromise = kernel1.queueMessage(
           aliceRef,
           'sendRemoteMessage',
           [bobURL, 'hello', ['Alice']],
         );
 
-        // Stop kernel2 before it can respond
-        await kernel2.stop();
-
-        // Wait a bit for connection loss to be detected
-        await delay(100);
-
-        // Restart kernel2 quickly (before max retries, since default is infinite)
+        // Restart kernel2 (before max retries, since default is infinite)
         // The promise should remain unresolved and resolve normally after reconnection
         const bobConfig = makeRemoteVatConfig('Bob');
         const restartResult = await restartKernelAndReloadVat(
@@ -1099,13 +1112,10 @@ describe.sequential('Remote Communications E2E', () => {
           false,
           testRelays,
           bobConfig,
-          testBackoffOptions,
+          reconnectOptions,
         );
         // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;
-
-        // Wait for reconnection
-        await delay(200);
 
         // The message should eventually be delivered and resolved
         // The promise was never rejected because retries weren't exhausted
