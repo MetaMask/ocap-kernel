@@ -59,11 +59,15 @@ let saltCounter = 0;
  * Generate a random salt for delegation uniqueness.
  *
  * Prefers crypto.getRandomValues when available. In SES compartments
- * where crypto is not endowed, falls back to keccak256(counter).
+ * where crypto is not endowed, falls back to keccak256(entropy + counter)
+ * when entropy is provided, or keccak256(counter) otherwise.
  *
+ * @param entropy - Optional caller-supplied entropy hex string. When provided
+ *   and crypto is unavailable, mixed into the counter hash so that separate
+ *   vat instances (each with counter starting at 0) produce distinct salts.
  * @returns A hex-encoded random salt.
  */
-export function generateSalt(): Hex {
+export function generateSalt(entropy?: Hex): Hex {
   // eslint-disable-next-line n/no-unsupported-features/node-builtins
   if (globalThis.crypto?.getRandomValues) {
     const bytes = new Uint8Array(32);
@@ -72,10 +76,14 @@ export function generateSalt(): Hex {
     return toHex(bytes);
   }
 
-  // SES fallback: keccak256(counter). Unique per vat lifetime but not
-  // cryptographically random. The salt only needs uniqueness, not
-  // unpredictability.
+  // SES fallback: unique per vat lifetime but not cryptographically random.
+  // The salt only needs uniqueness, not unpredictability.
   saltCounter += 1;
+  if (entropy !== undefined) {
+    return keccak256(
+      encodePacked(['bytes', 'uint256'], [entropy, BigInt(saltCounter)]),
+    );
+  }
   return keccak256(encodePacked(['uint256'], [BigInt(saltCounter)]));
 }
 
@@ -88,6 +96,8 @@ export function generateSalt(): Hex {
  * @param options.caveats - The caveats restricting the delegation.
  * @param options.chainId - The chain ID.
  * @param options.salt - Optional salt (generated if omitted).
+ * @param options.entropy - Optional entropy hex string forwarded to
+ *   {@link generateSalt} when no explicit salt is provided.
  * @param options.authority - Optional parent delegation hash (root if omitted).
  * @returns The unsigned Delegation struct.
  */
@@ -97,9 +107,10 @@ export function makeDelegation(options: {
   caveats: Caveat[];
   chainId: number;
   salt?: Hex;
+  entropy?: Hex;
   authority?: Hex;
 }): Delegation {
-  const salt = options.salt ?? generateSalt();
+  const salt = options.salt ?? generateSalt(options.entropy);
   const authority = options.authority ?? ROOT_AUTHORITY;
 
   const id = computeDelegationId({
@@ -192,10 +203,12 @@ export function explainDelegationMatch(
   // Check each caveat - all must pass for the delegation to match
   for (const caveat of delegation.caveats) {
     if (caveat.type === 'allowedTargets') {
-      const [targets] = decodeAbiParameters(
-        parseAbiParameters('address[]'),
-        caveat.terms,
-      );
+      // Packed 20-byte addresses (40 hex chars each, after '0x' prefix).
+      const termsBody = caveat.terms.slice(2);
+      const targets: string[] = [];
+      for (let i = 0; i < termsBody.length; i += 40) {
+        targets.push(`0x${termsBody.slice(i, i + 40)}`);
+      }
       const match = targets.some(
         (target) => target.toLowerCase() === action.to.toLowerCase(),
       );
@@ -210,10 +223,12 @@ export function explainDelegationMatch(
 
     if (caveat.type === 'allowedMethods' && action.data) {
       const selector = action.data.slice(0, 10).toLowerCase() as Hex;
-      const [methods] = decodeAbiParameters(
-        parseAbiParameters('bytes4[]'),
-        caveat.terms,
-      );
+      // Packed 4-byte selectors (8 hex chars each, after '0x' prefix).
+      const termsBody = caveat.terms.slice(2);
+      const methods: string[] = [];
+      for (let i = 0; i < termsBody.length; i += 8) {
+        methods.push(`0x${termsBody.slice(i, i + 8)}`);
+      }
       const match = methods.some((method) => method.toLowerCase() === selector);
       if (!match) {
         return {
@@ -273,10 +288,10 @@ export function explainDelegationMatch(
     }
 
     if (caveat.type === 'erc20TransferAmount') {
-      const [token, maxAmount] = decodeAbiParameters(
-        parseAbiParameters('address, uint256'),
-        caveat.terms,
-      );
+      // Packed: 20-byte address (40 hex chars) + 32-byte uint256 (64 hex chars).
+      const erc20Hex = caveat.terms.slice(2);
+      const token = `0x${erc20Hex.slice(0, 40)}`;
+      const maxAmount = BigInt(`0x${erc20Hex.slice(40, 104)}`);
       if (action.to.toLowerCase() !== token.toLowerCase()) {
         return {
           matches: false,

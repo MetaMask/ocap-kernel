@@ -21,11 +21,11 @@ describe('lib/caveats', () => {
       const encoded = encodeAllowedTargets([target]);
 
       expect(encoded).toMatch(/^0x/u);
-      const [decoded] = decodeAbiParameters(
-        parseAbiParameters('address[]'),
-        encoded,
+      // Packed: 20 bytes per address
+      expect(encoded).toHaveLength(2 + 40);
+      expect(encoded.slice(2).toLowerCase()).toBe(
+        target.slice(2).toLowerCase(),
       );
-      expect(decoded.map((a) => a.toLowerCase())).toStrictEqual([target]);
     });
 
     it('encodes multiple target addresses', () => {
@@ -35,10 +35,12 @@ describe('lib/caveats', () => {
       ];
       const encoded = encodeAllowedTargets(targets);
 
-      const [decoded] = decodeAbiParameters(
-        parseAbiParameters('address[]'),
-        encoded,
-      );
+      // Packed: 20 bytes × 2 addresses
+      expect(encoded).toHaveLength(2 + 80);
+      const decoded = [
+        `0x${encoded.slice(2, 42)}`,
+        `0x${encoded.slice(42, 82)}`,
+      ];
       expect(decoded.map((a) => a.toLowerCase())).toStrictEqual(targets);
     });
   });
@@ -49,11 +51,10 @@ describe('lib/caveats', () => {
       const encoded = encodeAllowedMethods(selectors);
 
       expect(encoded).toMatch(/^0x/u);
-      const [decoded] = decodeAbiParameters(
-        parseAbiParameters('bytes4[]'),
-        encoded,
-      );
-      expect(decoded).toHaveLength(2);
+      // Packed: 4 bytes per selector
+      expect(encoded).toHaveLength(2 + 16);
+      expect(encoded.slice(2, 10).toLowerCase()).toBe('a9059cbb');
+      expect(encoded.slice(10, 18).toLowerCase()).toBe('095ea7b3');
     });
   });
 
@@ -89,10 +90,10 @@ describe('lib/caveats', () => {
       const amount = 1000000n; // 1 USDC (6 decimals)
       const encoded = encodeErc20TransferAmount({ token, amount });
 
-      const [decodedToken, decodedAmount] = decodeAbiParameters(
-        parseAbiParameters('address, uint256'),
-        encoded,
-      );
+      // Packed: 20-byte address (40 hex chars) + 32-byte uint256 (64 hex chars) = 52 bytes
+      expect(encoded).toHaveLength(2 + 104);
+      const decodedToken = `0x${encoded.slice(2, 42)}`;
+      const decodedAmount = BigInt(`0x${encoded.slice(42, 106)}`);
       expect(decodedToken.toLowerCase()).toBe(token);
       expect(decodedAmount).toBe(amount);
     });
