@@ -8,7 +8,13 @@ import {
 } from './caveats.ts';
 import { makeDelegation } from './delegation.ts';
 import { ERC20_APPROVE_SELECTOR, ERC20_TRANSFER_SELECTOR } from './erc20.ts';
-import type { Address, Caveat, CaveatSpec, DelegationGrant } from '../types.ts';
+import type {
+  Address,
+  Caveat,
+  CaveatSpec,
+  DelegationGrant,
+  Hex,
+} from '../types.ts';
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
 
@@ -19,6 +25,7 @@ type TransferOptions = {
   max: bigint;
   chainId: number;
   validUntil?: number;
+  entropy?: Hex;
 };
 
 type ApproveOptions = {
@@ -28,6 +35,7 @@ type ApproveOptions = {
   max: bigint;
   chainId: number;
   validUntil?: number;
+  entropy?: Hex;
 };
 
 type CallOptions = {
@@ -37,6 +45,7 @@ type CallOptions = {
   chainId: number;
   maxValue?: bigint;
   validUntil?: number;
+  entropy?: Hex;
 };
 
 export function buildDelegationGrant(
@@ -81,7 +90,8 @@ export function buildDelegationGrant(
  * @returns An unsigned DelegationGrant for ERC-20 transfers.
  */
 function buildTransferGrant(options: TransferOptions): DelegationGrant {
-  const { delegator, delegate, token, max, chainId, validUntil } = options;
+  const { delegator, delegate, token, max, chainId, validUntil, entropy } =
+    options;
   const caveats: Caveat[] = [
     makeCaveat({
       type: 'allowedTargets',
@@ -117,7 +127,13 @@ function buildTransferGrant(options: TransferOptions): DelegationGrant {
     });
   }
 
-  const delegation = makeDelegation({ delegator, delegate, caveats, chainId });
+  const delegation = makeDelegation({
+    delegator,
+    delegate,
+    caveats,
+    chainId,
+    entropy,
+  });
 
   return harden({ delegation, methodName: 'transfer', caveatSpecs, token });
 }
@@ -129,7 +145,8 @@ function buildTransferGrant(options: TransferOptions): DelegationGrant {
  * @returns An unsigned DelegationGrant for ERC-20 approvals.
  */
 function buildApproveGrant(options: ApproveOptions): DelegationGrant {
-  const { delegator, delegate, token, max, chainId, validUntil } = options;
+  const { delegator, delegate, token, max, chainId, validUntil, entropy } =
+    options;
   const caveats: Caveat[] = [
     makeCaveat({
       type: 'allowedTargets',
@@ -165,7 +182,13 @@ function buildApproveGrant(options: ApproveOptions): DelegationGrant {
     });
   }
 
-  const delegation = makeDelegation({ delegator, delegate, caveats, chainId });
+  const delegation = makeDelegation({
+    delegator,
+    delegate,
+    caveats,
+    chainId,
+    entropy,
+  });
 
   return harden({ delegation, methodName: 'approve', caveatSpecs, token });
 }
@@ -177,8 +200,15 @@ function buildApproveGrant(options: ApproveOptions): DelegationGrant {
  * @returns An unsigned DelegationGrant for raw calls.
  */
 function buildCallGrant(options: CallOptions): DelegationGrant {
-  const { delegator, delegate, targets, chainId, maxValue, validUntil } =
-    options;
+  const {
+    delegator,
+    delegate,
+    targets,
+    chainId,
+    maxValue,
+    validUntil,
+    entropy,
+  } = options;
   const caveats: Caveat[] = [
     makeCaveat({
       type: 'allowedTargets',
@@ -186,6 +216,8 @@ function buildCallGrant(options: CallOptions): DelegationGrant {
       chainId,
     }),
   ];
+
+  const caveatSpecs: CaveatSpec[] = [];
 
   if (maxValue !== undefined) {
     caveats.push(
@@ -195,6 +227,7 @@ function buildCallGrant(options: CallOptions): DelegationGrant {
         chainId,
       }),
     );
+    caveatSpecs.push({ type: 'valueLte', max: maxValue });
   }
 
   if (validUntil !== undefined) {
@@ -207,7 +240,13 @@ function buildCallGrant(options: CallOptions): DelegationGrant {
     );
   }
 
-  const delegation = makeDelegation({ delegator, delegate, caveats, chainId });
+  const delegation = makeDelegation({
+    delegator,
+    delegate,
+    caveats,
+    chainId,
+    entropy,
+  });
 
-  return harden({ delegation, methodName: 'call', caveatSpecs: [] });
+  return harden({ delegation, methodName: 'call', caveatSpecs });
 }
