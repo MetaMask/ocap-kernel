@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0]
+
+### Added
+
+- Add various configurable timeouts for remote communications ([#906](https://github.com/MetaMask/ocap-kernel/pull/906))
+- Propagate relay hints from redeemed ocap URLs ([#887](https://github.com/MetaMask/ocap-kernel/pull/887))
+- Add `allowedWsHosts` parameter to `initializeRemoteComms()` ([#878](https://github.com/MetaMask/ocap-kernel/pull/878))
+
+### Changed
+
+- **BREAKING:** Adopt branded string types for kernel identifiers ([#917](https://github.com/MetaMask/ocap-kernel/pull/917), [#921](https://github.com/MetaMask/ocap-kernel/pull/921))
+- Standardize vat-observable kernel errors ([#913](https://github.com/MetaMask/ocap-kernel/pull/913))
+- Upgrade libp2p to v3 and improve remote communication reliability ([#900](https://github.com/MetaMask/ocap-kernel/pull/900), [#915](https://github.com/MetaMask/ocap-kernel/pull/915))
+- Auto-extract `allowedWsHosts` from plain `ws://` relay multiaddrs in `ConnectionFactory` ([#881](https://github.com/MetaMask/ocap-kernel/pull/881))
+- Use `E()` for kernel service invocation to support remote presences as services ([#872](https://github.com/MetaMask/ocap-kernel/pull/872))
+
+### Fixed
+
+- Attempt to reconnect to unreachable relays on startup ([#918](https://github.com/MetaMask/ocap-kernel/pull/918))
+- Restore single-delivery guarantee per crank and prevent rollback cache staleness ([#879](https://github.com/MetaMask/ocap-kernel/pull/879))
+
 ## [0.6.0]
 
 ### Added
@@ -131,7 +152,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/ocap-kernel@0.6.0...HEAD
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/ocap-kernel@0.7.0...HEAD
+[0.7.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/ocap-kernel@0.6.0...@metamask/ocap-kernel@0.7.0
 [0.6.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/ocap-kernel@0.5.0...@metamask/ocap-kernel@0.6.0
 [0.5.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/ocap-kernel@0.4.0...@metamask/ocap-kernel@0.5.0
 [0.4.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/ocap-kernel@0.3.0...@metamask/ocap-kernel@0.4.0

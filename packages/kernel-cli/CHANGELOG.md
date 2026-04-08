@@ -7,10 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Changed
+## [0.1.0]
 
-- **BREAKING:** Rename package from `@ocap/cli` to `@metamask/kernel-cli` and make it public ([#875](https://github.com/MetaMask/ocap-kernel/pull/875))
-- Replace `@ocap/repo-tools/vite-plugins` dependency with `@metamask/kernel-utils/vite-plugins` ([#875](https://github.com/MetaMask/ocap-kernel/pull/875))
-- Replace `@ocap/nodejs` dependency with `@metamask/kernel-node-runtime` ([#875](https://github.com/MetaMask/ocap-kernel/pull/875))
+### Added
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/
+- Initial release.
+
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-cli@0.1.0...HEAD
+[0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/kernel-cli@0.1.0
