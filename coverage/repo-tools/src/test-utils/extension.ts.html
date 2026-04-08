@@ -656,7 +656,7 @@ export const sessionPath = <span class="cstat-no" title="statement not covered" 
 &nbsp;
 // Run ID is generated once per Playwright invocation (per worker process)
 // This allows associating all test log files from the same run
-const <span class="cstat-no" title="statement not covered" >runId = new Date()</span>
+const runId = <span class="cstat-no" title="statement not covered" >new Date()</span>
   .toISOString()
   .slice(0, -5) // Remove ".123Z"
   .replace(/[:.]/gu, '-'); // Make filename-safe
@@ -696,7 +696,7 @@ export const makeLoadExtension = <span class="cstat-no" title="statement not cov
 <span class="cstat-no" title="statement not covered" >  await rm(userDataDir, { recursive: true, force: true });</span>
 &nbsp;
   // Set up log file for capturing console output from extension contexts
-  const packageRoot = <span class="cstat-no" title="statement not covered" >path.dirname(extensionPath); // extensionPath is &lt;package&gt;/dist</span>
+  const packageRoot = <span class="cstat-no" title="statement not covered" >path.dirname(extensionPath);</span> // extensionPath is &lt;package&gt;/dist
   const logsDir = <span class="cstat-no" title="statement not covered" >path.join(packageRoot, 'logs');</span>
 <span class="cstat-no" title="statement not covered" >  await mkdir(logsDir, { recursive: true });</span>
   const testTitle = <span class="cstat-no" title="statement not covered" >test</span>
@@ -729,8 +729,8 @@ export const makeLoadExtension = <span class="cstat-no" title="statement not cov
    * @param type - The console method type.
    * @param text - The log message text.
    */
-  const writeRawLog = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(s</span>ource: string, type: string, text: string): void =&gt; {</span>
-    const <span class="cstat-no" title="statement not covered" >logTimestamp = new Date().toISOString().slice(0, -5);</span>
+  const <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >writeRawLog = (s</span>ource: string, type: string, text: string): void =&gt; {</span>
+    const logTimestamp = <span class="cstat-no" title="statement not covered" >new Date().toISOString().slice(0, -5);</span>
     // eslint-disable-next-line n/no-sync
 <span class="cstat-no" title="statement not covered" >    appendFileSync(</span>
       logFilePath,
@@ -738,7 +738,7 @@ export const makeLoadExtension = <span class="cstat-no" title="statement not cov
     );
   };
 &nbsp;
-  const writeLog = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(s</span>ource: string, consoleMessage: ConsoleMessage): void =&gt; {</span>
+  const <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >writeLog = (s</span>ource: string, consoleMessage: ConsoleMessage): void =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    writeRawLog(source, consoleMessage.type(), consoleMessage.text());</span>
   };
 &nbsp;
@@ -761,24 +761,24 @@ export const makeLoadExtension = <span class="cstat-no" title="statement not cov
   });
 &nbsp;
   // Capture background service worker console logs
-<span class="cstat-no" title="statement not covered" >  browserContext.on('serviceworker', <span class="fstat-no" title="function not covered" >(w</span>orker) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    worker.on('console', <span class="fstat-no" title="function not covered" >(c</span>onsoleMessage) =&gt;</span>
+<span class="cstat-no" title="statement not covered" >  browserContext.on(<span class="fstat-no" title="function not covered" >'serviceworker', (w</span>orker) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    worker.on(<span class="fstat-no" title="function not covered" >'console', (c</span>onsoleMessage) =&gt;</span>
 <span class="cstat-no" title="statement not covered" >      writeLog('background', consoleMessage),</span>
     );
   });
 &nbsp;
   // Capture console logs from extension pages (offscreen document, etc.)
   // Note: Pages may start at about:blank, so we attach the listener and check URL in the handler
-<span class="cstat-no" title="statement not covered" >  browserContext.on('page', <span class="fstat-no" title="function not covered" >(p</span>age) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >    page.on('console', <span class="fstat-no" title="function not covered" >(c</span>onsoleMessage) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  browserContext.on(<span class="fstat-no" title="function not covered" >'page', (p</span>age) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    page.on(<span class="fstat-no" title="function not covered" >'console', (c</span>onsoleMessage) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      if (page.url().includes('offscreen.html')) {</span>
 <span class="cstat-no" title="statement not covered" >        writeLog('offscreen', consoleMessage);</span>
       }
     });
 &nbsp;
     // Capture Web Worker console logs (e.g., kernel worker)
-<span class="cstat-no" title="statement not covered" >    page.on('worker', <span class="fstat-no" title="function not covered" >(w</span>orker) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >      worker.on('console', <span class="fstat-no" title="function not covered" >(c</span>onsoleMessage) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    page.on(<span class="fstat-no" title="function not covered" >'worker', (w</span>orker) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      worker.on(<span class="fstat-no" title="function not covered" >'console', (c</span>onsoleMessage) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        writeLog('kernel-worker', consoleMessage);</span>
       });
     });
@@ -787,12 +787,12 @@ export const makeLoadExtension = <span class="cstat-no" title="statement not cov
     // We need to do this because Playwright doesn't have frame.on('console')
 <span class="cstat-no" title="statement not covered" >    setupCdpForIframeConsoleLogs(page, writeRawLog).catch(</span>
       // eslint-disable-next-line no-console
-<span class="fstat-no" title="function not covered" >      (e</span>rror) =&gt; <span class="cstat-no" title="statement not covered" >console.warn('Failed to set up CDP for iframe logs:', error),</span>
+      (<span class="fstat-no" title="function not covered" >error) =&gt; <span class="cstat-no" title="statement not covered" >c</span>onsole.warn('Failed to set up CDP for iframe logs:', error),</span>
     );
   });
 &nbsp;
   // Wait for the extension to be loaded
-<span class="cstat-no" title="statement not covered" >  await new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve) =&gt; <span class="cstat-no" title="statement not covered" >setTimeout(resolve, 1000))</span>;</span>
+<span class="cstat-no" title="statement not covered" >  await new <span class="fstat-no" title="function not covered" >Promise((r</span>esolve) =&gt; <span class="cstat-no" title="statement not covered" >setTimeout(resolve, 1000))</span>;</span>
 &nbsp;
   const chromeExtensionURLIdMatcher = <span class="cstat-no" title="statement not covered" >/^chrome-extension:\/\/([^/]+)/u;</span>
   const serviceWorkers = <span class="cstat-no" title="statement not covered" >browserContext.serviceWorkers();</span>
@@ -805,7 +805,7 @@ export const makeLoadExtension = <span class="cstat-no" title="statement not cov
   }
 &nbsp;
   const popupPage = <span class="cstat-no" title="statement not covered" >await browserContext.newPage();</span>
-<span class="cstat-no" title="statement not covered" >  popupPage.on('console', <span class="fstat-no" title="function not covered" >(c</span>onsoleMessage) =&gt;</span>
+<span class="cstat-no" title="statement not covered" >  popupPage.on(<span class="fstat-no" title="function not covered" >'console', (c</span>onsoleMessage) =&gt;</span>
 <span class="cstat-no" title="statement not covered" >    writeLog('popup', consoleMessage),</span>
   );
 <span class="cstat-no" title="statement not covered" >  await popupPage.goto(`chrome-extension://${extensionId}/popup.html`);</span>
@@ -849,8 +849,8 @@ async function <span class="fstat-no" title="function not covered" >setupCdpForI
 &nbsp;
   // Listen for new execution contexts (iframes get their own context)
 <span class="cstat-no" title="statement not covered" >  cdpSession.on(</span>
-    'Runtime.executionContextCreated',
-<span class="fstat-no" title="function not covered" >    (e</span>vent: CdpExecutionContextCreatedEvent) =&gt; {
+<span class="fstat-no" title="function not covered" >    'Runtime.executionContextCreated',</span>
+    (event: CdpExecutionContextCreatedEvent) =&gt; {
       const { id, origin, auxData } = <span class="cstat-no" title="statement not covered" >event.context;</span>
       const frameId = <span class="cstat-no" title="statement not covered" >auxData?.frameId;</span>
 &nbsp;
@@ -872,8 +872,8 @@ async function <span class="fstat-no" title="function not covered" >setupCdpForI
 &nbsp;
   // Listen for console API calls from all contexts (including iframes)
 <span class="cstat-no" title="statement not covered" >  cdpSession.on(</span>
-    'Runtime.consoleAPICalled',
-<span class="fstat-no" title="function not covered" >    (e</span>vent: CdpConsoleAPICalledEvent) =&gt; {
+<span class="fstat-no" title="function not covered" >    'Runtime.consoleAPICalled',</span>
+    (event: CdpConsoleAPICalledEvent) =&gt; {
       const { type, args, executionContextId } = <span class="cstat-no" title="statement not covered" >event;</span>
 &nbsp;
       // Skip main frame logs - they're already captured via page.on('console')
@@ -883,7 +883,7 @@ async function <span class="fstat-no" title="function not covered" >setupCdpForI
 &nbsp;
       // Format args into a readable string
       const text = <span class="cstat-no" title="statement not covered" >args</span>
-        .map(<span class="fstat-no" title="function not covered" >(a</span>rg) =&gt; {
+        .<span class="fstat-no" title="function not covered" >map((a</span>rg) =&gt; {
 <span class="cstat-no" title="statement not covered" >          if (arg.value !== undefined) {</span>
 <span class="cstat-no" title="statement not covered" >            return typeof arg.value === 'string'</span>
               ? arg.value
@@ -910,7 +910,7 @@ async function <span class="fstat-no" title="function not covered" >setupCdpForI
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-08T09:15:12.238Z
+                at 2026-04-08T19:34:46.186Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

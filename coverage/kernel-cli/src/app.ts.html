@@ -977,8 +977,8 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
   .strict()
   .command(
     'bundle &lt;targets..&gt;',
-    'Bundle user code to be used in a vat',
-<span class="fstat-no" title="function not covered" >    (_</span>yargs) =&gt;
+<span class="fstat-no" title="function not covered" >    'Bundle user code to be used in a vat',</span>
+    (_yargs) =&gt;
 <span class="cstat-no" title="statement not covered" >      _yargs.option('targets', {</span>
         type: 'string',
         file: true,
@@ -995,8 +995,8 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
   )
   .command(
     'serve &lt;dir&gt; [options]',
-    'Serve bundled user code by filename',
-<span class="fstat-no" title="function not covered" >    (_</span>yargs) =&gt;
+<span class="fstat-no" title="function not covered" >    'Serve bundled user code by filename',</span>
+    (_yargs) =&gt;
 <span class="cstat-no" title="statement not covered" >      _yargs</span>
         .option('dir', {
           type: 'string',
@@ -1026,20 +1026,20 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
   )
   .command(
     'watch &lt;dir&gt;',
-    'Bundle all .js files in the target dirs and rebundle on change.',
-<span class="fstat-no" title="function not covered" >    (_</span>yargs) =&gt;
+<span class="fstat-no" title="function not covered" >    'Bundle all .js files in the target dirs and rebundle on change.',</span>
+    (_yargs) =&gt;
 <span class="cstat-no" title="statement not covered" >      _yargs.option('dir', {</span>
         type: 'string',
         dir: true,
         required: true,
         describe: 'The directory to watch',
-      }),
-<span class="fstat-no" title="function not covered" >    (a</span>rgs) =&gt; {
-      const { ready, error <span class="cstat-no" title="statement not covered" >} = watchDir(args.dir, logger);</span>
+      })<span class="fstat-no" title="function not covered" >,</span>
+    (args) =&gt; {
+      const { ready, <span class="cstat-no" title="statement not covered" >error } = watchDir(args.dir, logger);</span>
       let handleClose: undefined | (() =&gt; Promise&lt;void&gt;);
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      ready</span>
-        .then(<span class="fstat-no" title="function not covered" >(c</span>lose) =&gt; {
+        .<span class="fstat-no" title="function not covered" >then((c</span>lose) =&gt; {
 <span class="cstat-no" title="statement not covered" >          handleClose = close;</span>
 <span class="cstat-no" title="statement not covered" >          logger.info(`Watching ${args.dir}...`);</span>
 <span class="cstat-no" title="statement not covered" >          return undefined;</span>
@@ -1055,8 +1055,8 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
   )
   .command(
     'start &lt;dir&gt; [-p port]',
-    'Watch the target directory and serve from it on the given port.',
-<span class="fstat-no" title="function not covered" >    (_</span>yargs) =&gt;
+<span class="fstat-no" title="function not covered" >    'Watch the target directory and serve from it on the given port.',</span>
+    (_yargs) =&gt;
 <span class="cstat-no" title="statement not covered" >      _yargs</span>
         .option('dir', {
           type: 'string',
@@ -1079,7 +1079,7 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
         );
       };
 &nbsp;
-      const { ready: watchReady, error: watchError <span class="cstat-no" title="statement not covered" >} = watchDir(</span>
+      const { ready: watchReady, error: <span class="cstat-no" title="statement not covered" >watchError } = watchDir(</span>
         resolvedDir,
         logger,
       );
@@ -1109,29 +1109,29 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
   )
   .command(
     'relay',
-    'Manage the relay server',
-<span class="fstat-no" title="function not covered" >    (_</span>yargs) =&gt;
+<span class="fstat-no" title="function not covered" >    'Manage the relay server',</span>
+    (_yargs) =&gt;
 <span class="cstat-no" title="statement not covered" >      _yargs</span>
         .command(
           ['start', '$0'],
-          'Start the relay server',
-<span class="fstat-no" title="function not covered" >          (_</span>y) =&gt; <span class="cstat-no" title="statement not covered" >_y,</span>
+<span class="fstat-no" title="function not covered" >          'Start the relay server',</span>
+          (_y) =&gt; <span class="cstat-no" title="statement not covered" >_y,</span>
 <span class="fstat-no" title="function not covered" >          async () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >            await startRelayWithBookkeeping(logger);</span>
           },
         )
         .command(
           'status',
-          'Print whether the relay is running',
-<span class="fstat-no" title="function not covered" >          (_</span>y) =&gt; <span class="cstat-no" title="statement not covered" >_y,</span>
+<span class="fstat-no" title="function not covered" >          'Print whether the relay is running',</span>
+          (_y) =&gt; <span class="cstat-no" title="statement not covered" >_y,</span>
 <span class="fstat-no" title="function not covered" >          async () =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >            await printRelayStatus();</span>
           },
         )
         .command(
           'stop',
-          'Stop the relay server',
-<span class="fstat-no" title="function not covered" >          (_</span>y) =&gt;
+<span class="fstat-no" title="function not covered" >          'Stop the relay server',</span>
+          (_y) =&gt;
 <span class="cstat-no" title="statement not covered" >            _y.option('force', {</span>
               type: 'boolean',
               default: false,
@@ -1143,22 +1143,22 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
 <span class="cstat-no" title="statement not covered" >              process.exitCode = 1;</span>
             }
           },
-        ),
-<span class="fstat-no" title="function not covered" >    () =&gt; {</span>
+        )<span class="fstat-no" title="function not covered" >,</span>
+    () =&gt; {
       // Handled by subcommands.
     },
   )
   .command(
     'daemon',
-    'Manage the OCAP daemon process',
-<span class="fstat-no" title="function not covered" >    (_</span>yargs) =&gt; {
+<span class="fstat-no" title="function not covered" >    'Manage the OCAP daemon process',</span>
+    (_yargs) =&gt; {
       const <span class="cstat-no" title="statement not covered" >socketPath = getSocketPath();</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      return _yargs</span>
         .command(
           ['start', '$0'],
-          'Start the daemon (or confirm it is running)',
-<span class="fstat-no" title="function not covered" >          (_</span>y) =&gt;
+<span class="fstat-no" title="function not covered" >          'Start the daemon (or confirm it is running)',</span>
+          (_y) =&gt;
 <span class="cstat-no" title="statement not covered" >            _y.option('local-relay', {</span>
               type: 'boolean',
               default: false,
@@ -1173,8 +1173,8 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
         )
         .command(
           'stop',
-          'Stop the daemon',
-<span class="fstat-no" title="function not covered" >          (_</span>y) =&gt; <span class="cstat-no" title="statement not covered" >_y,</span>
+<span class="fstat-no" title="function not covered" >          'Stop the daemon',</span>
+          (_y) =&gt; <span class="cstat-no" title="statement not covered" >_y,</span>
 <span class="fstat-no" title="function not covered" >          async () =&gt; {</span>
             const stopped = <span class="cstat-no" title="statement not covered" >await stopDaemon(socketPath);</span>
 <span class="cstat-no" title="statement not covered" >            if (!stopped) {</span>
@@ -1184,8 +1184,8 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
         )
         .command(
           ['purge', 'begone'],
-          'Stop the daemon and delete all state',
-<span class="fstat-no" title="function not covered" >          (_</span>y) =&gt;
+<span class="fstat-no" title="function not covered" >          'Stop the daemon and delete all state',</span>
+          (_y) =&gt;
 <span class="cstat-no" title="statement not covered" >            _y.option('force', {</span>
               describe: 'Confirm state deletion',
               type: 'boolean',
@@ -1205,8 +1205,8 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
         )
         .command(
           'exec [method] [params-json]',
-          'Send an RPC method call to the daemon',
-<span class="fstat-no" title="function not covered" >          (_</span>y) =&gt;
+<span class="fstat-no" title="function not covered" >          'Send an RPC method call to the daemon',</span>
+          (_y) =&gt;
 <span class="cstat-no" title="statement not covered" >            _y</span>
               .positional('method', {
                 describe: 'RPC method name (defaults to getStatus)',
@@ -1256,8 +1256,8 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
         )
         .command(
           'redeem-url &lt;url&gt;',
-          'Redeem an OCAP URL and print the resulting kref',
-<span class="fstat-no" title="function not covered" >          (_</span>y) =&gt;
+<span class="fstat-no" title="function not covered" >          'Redeem an OCAP URL and print the resulting kref',</span>
+          (_y) =&gt;
 <span class="cstat-no" title="statement not covered" >            _y</span>
               .positional('url', {
                 describe: 'The OCAP URL to redeem (e.g., ocap:...@...)',
@@ -1281,8 +1281,8 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
         )
         .command(
           'queueMessage &lt;target&gt; &lt;method&gt; [args-json]',
-          'Send a message to a kernel object and decode the CapData result',
-<span class="fstat-no" title="function not covered" >          (_</span>y) =&gt;
+<span class="fstat-no" title="function not covered" >          'Send a message to a kernel object and decode the CapData result',</span>
+          (_y) =&gt;
 <span class="cstat-no" title="statement not covered" >            _y</span>
               .positional('target', {
                 describe: 'KRef of the target object',
@@ -1350,7 +1350,7 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
           },
         );
     },
-<span class="fstat-no" title="function not covered" >    () =&gt; {</span>
+    () =&gt; <span class="fstat-no" title="function not covered" >{</span>
       // Handled by subcommands.
     },
   );
@@ -1363,7 +1363,7 @@ const <span class="cstat-no" title="statement not covered" >yargsInstance = yarg
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-08T09:15:12.238Z
+                at 2026-04-08T19:34:46.186Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

@@ -652,38 +652,38 @@ const globals = <span class="cstat-no" title="statement not covered" >defineGlob
 let bootPromise: Promise&lt;void&gt; | null = <span class="cstat-no" title="statement not covered" >null;</span>
 &nbsp;
 // With this we can click the extension action button to wake up the service worker.
-<span class="cstat-no" title="statement not covered" >chrome.action.onClicked.addListener(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >chrome.action.onClicked.<span class="fstat-no" title="function not covered" >addListener(() =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >  globalThis.kernel !== undefined &amp;&amp;</span>
     E(globalThis.kernel).ping().catch(logger.error);
 });
 &nbsp;
 // Install/update
-<span class="cstat-no" title="statement not covered" >chrome.runtime.onInstalled.addListener(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >chrome.runtime.onInstalled.<span class="fstat-no" title="function not covered" >addListener(() =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >  start();</span>
 });
 &nbsp;
 // Browser restart / profile startup
-<span class="cstat-no" title="statement not covered" >chrome.runtime.onStartup.addListener(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >chrome.runtime.onStartup.<span class="fstat-no" title="function not covered" >addListener(() =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >  start();</span>
 });
 &nbsp;
 // Messages or connections can also kick us awake
-<span class="cstat-no" title="statement not covered" >chrome.runtime.onMessage.addListener(<span class="fstat-no" title="function not covered" >(_</span>msg, _sender, sendResponse) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >chrome.runtime.onMessage.<span class="fstat-no" title="function not covered" >addListener((_</span>msg, _sender, sendResponse) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >  start();</span>
 <span class="cstat-no" title="statement not covered" >  sendResponse(true);</span>
 <span class="cstat-no" title="statement not covered" >  return false;</span>
 });
-<span class="cstat-no" title="statement not covered" >chrome.runtime.onConnect.addListener(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >chrome.runtime.onConnect.<span class="fstat-no" title="function not covered" >addListener(() =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >  start();</span>
 });
 &nbsp;
 /** Idempotent starter used by all triggers */
 function <span class="fstat-no" title="function not covered" >start(): void {</span>
 <span class="cstat-no" title="statement not covered" >  bootPromise ??= main()</span>
-    .catch(<span class="fstat-no" title="function not covered" >(e</span>rror) =&gt; {
+    .<span class="fstat-no" title="function not covered" >catch((e</span>rror) =&gt; {
 <span class="cstat-no" title="statement not covered" >      logger.error(error);</span>
     })
-    .finally(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+    .<span class="fstat-no" title="function not covered" >finally(() =&gt; {</span>
       // Let future triggers re-run main() if needed
 <span class="cstat-no" title="statement not covered" >      bootPromise = null;</span>
     });
@@ -726,9 +726,9 @@ async function <span class="fstat-no" title="function not covered" >main(): Prom
   &gt;(chrome.runtime, 'background', 'offscreen', isJsonRpcMessage);
 &nbsp;
   const <span class="cstat-no" title="statement not covered" >backgroundCapTP = makeBackgroundCapTP({</span>
-    send: <span class="fstat-no" title="function not covered" >(c</span>aptpMessage: CapTPMessage) =&gt; {
+<span class="fstat-no" title="function not covered" >    send: (c</span>aptpMessage: CapTPMessage) =&gt; {
       const <span class="cstat-no" title="statement not covered" >notification = makeCapTPNotification(captpMessage);</span>
-<span class="cstat-no" title="statement not covered" >      offscreenStream.write(notification).catch(<span class="fstat-no" title="function not covered" >(e</span>rror) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      offscreenStream.write(notification).<span class="fstat-no" title="function not covered" >catch((e</span>rror) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        logger.error('Failed to send CapTP message:', error);</span>
       });
     },
@@ -740,20 +740,20 @@ async function <span class="fstat-no" title="function not covered" >main(): Prom
   // Set up controller vat initialization (runs concurrently with stream drain)
 <span class="cstat-no" title="statement not covered" >  E(kernelP)</span>
     .getSystemSubclusterRoot('omnium-controllers')
-    .then(<span class="fstat-no" title="function not covered" >(k</span>ref) =&gt; {
+    .<span class="fstat-no" title="function not covered" >then((k</span>ref) =&gt; {
 <span class="cstat-no" title="statement not covered" >      globals.setControllerVatKref(kref);</span>
 <span class="cstat-no" title="statement not covered" >      logger.info('Controller vat initialized');</span>
 <span class="cstat-no" title="statement not covered" >      return undefined;</span>
     })
-    .catch(<span class="fstat-no" title="function not covered" >(e</span>rror) =&gt; {
+    .<span class="fstat-no" title="function not covered" >catch((e</span>rror) =&gt; {
 <span class="cstat-no" title="statement not covered" >      logger.error('Failed to initialize controller vat:', error);</span>
     });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  try {</span>
-<span class="cstat-no" title="statement not covered" >    await offscreenStream.drain(<span class="fstat-no" title="function not covered" >(m</span>essage) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    await offscreenStream.<span class="fstat-no" title="function not covered" >drain((m</span>essage) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      if (isConsoleForwardMessage(message)) {</span>
 <span class="cstat-no" title="statement not covered" >        handleConsoleForwardMessage(message);</span>
-<span class="cstat-no" title="statement not covered" >      } else if (isCapTPNotification(message)) {</span>
+      } else if (<span class="cstat-no" title="statement not covered" >isCapTPNotification(message)) {</span>
         const <span class="cstat-no" title="statement not covered" >captpMessage = getCapTPMessage(message);</span>
 <span class="cstat-no" title="statement not covered" >        backgroundCapTP.dispatch(captpMessage);</span>
       } else {
@@ -843,7 +843,7 @@ function <span class="fstat-no" title="function not covered" >defineGlobals(): G
 <span class="cstat-no" title="statement not covered" >    if (!manifestResponse.ok) {</span>
 <span class="cstat-no" title="statement not covered" >      throw new Error(`Failed to fetch manifest for caplet "${id}"`);</span>
     }
-    const manifestData = (<span class="cstat-no" title="statement not covered" >await manifestResponse.json()) as CapletManifest;</span>
+    const manifestData = (<span class="cstat-no" title="statement not covered" >await manifestResponse.json())</span> as CapletManifest;
 &nbsp;
     // Resolve bundleSpec to absolute URL
     const bundleSpec = <span class="cstat-no" title="statement not covered" >`${capletBaseUrl}${manifestData.bundleSpec}`;</span>
@@ -897,10 +897,10 @@ function <span class="fstat-no" title="function not covered" >defineGlobals(): G
 <span class="cstat-no" title="statement not covered" >  harden(globalThis.omnium);</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  return {</span>
-    setKernel: <span class="fstat-no" title="function not covered" >(k</span>ernel) =&gt; {
+<span class="fstat-no" title="function not covered" >    setKernel: (k</span>ernel) =&gt; {
 <span class="cstat-no" title="statement not covered" >      globalThis.kernel = kernel;</span>
     },
-    setControllerVatKref: <span class="fstat-no" title="function not covered" >(k</span>ref: string) =&gt; {
+<span class="fstat-no" title="function not covered" >    setControllerVatKref: (k</span>ref: string) =&gt; {
 <span class="cstat-no" title="statement not covered" >      insistKRef(kref);</span>
 <span class="cstat-no" title="statement not covered" >      controllerVatKref = kref;</span>
     },
@@ -913,7 +913,7 @@ function <span class="fstat-no" title="function not covered" >defineGlobals(): G
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-08T09:15:12.238Z
+                at 2026-04-08T19:34:46.186Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

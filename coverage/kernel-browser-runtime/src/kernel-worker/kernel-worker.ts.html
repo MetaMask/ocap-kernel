@@ -321,9 +321,9 @@ const DB_FILENAME = <span class="cstat-no" title="statement not covered" >'store
  * Run the kernel.
  */
 async function <span class="fstat-no" title="function not covered" >main(): Promise&lt;void&gt; {</span>
-  const port = <span class="cstat-no" title="statement not covered" >await receiveMessagePort(</span>
-<span class="fstat-no" title="function not covered" >    (l</span>istener) =&gt; <span class="cstat-no" title="statement not covered" >globalThis.addEventListener('message', listener),</span>
-<span class="fstat-no" title="function not covered" >    (l</span>istener) =&gt; <span class="cstat-no" title="statement not covered" >globalThis.removeEventListener('message', listener),</span>
+  const port = <span class="cstat-no" title="statement not covered" >await <span class="fstat-no" title="function not covered" >receiveMessagePort(</span></span>
+    (listener) =&gt; <span class="cstat-no" title="statement not covered" >globalThis.addEventListener('message', listener)<span class="fstat-no" title="function not covered" >,</span></span>
+    (listener) =&gt; <span class="cstat-no" title="statement not covered" >globalThis.removeEventListener('message', listener),</span>
   );
 &nbsp;
   const [messageStream, platformServicesClient, kernelDatabase] =
@@ -338,8 +338,8 @@ async function <span class="fstat-no" title="function not covered" >main(): Prom
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  setupConsoleForwarding({</span>
     source: 'kernel-worker',
-    onMessage: <span class="fstat-no" title="function not covered" >(m</span>essage) =&gt; {
-<span class="cstat-no" title="statement not covered" >      messageStream.write(message).catch(<span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >u</span>ndefined)</span>;</span>
+<span class="fstat-no" title="function not covered" >    onMessage: (m</span>essage) =&gt; {
+<span class="cstat-no" title="statement not covered" >      messageStream.write(message).<span class="fstat-no" title="function not covered" >catch(() =&gt; <span class="cstat-no" title="statement not covered" >u</span>ndefined);</span></span>
     },
   });
 &nbsp;
@@ -355,7 +355,7 @@ async function <span class="fstat-no" title="function not covered" >main(): Prom
     systemSubclusters,
   });
 &nbsp;
-  const handlerP = <span class="cstat-no" title="statement not covered" >kernelP.then(<span class="fstat-no" title="function not covered" >(k</span>ernel) =&gt; {</span>
+  const handlerP = <span class="cstat-no" title="statement not covered" >kernelP.<span class="fstat-no" title="function not covered" >then((k</span>ernel) =&gt; {</span>
     const server = <span class="cstat-no" title="statement not covered" >new JsonRpcServer({</span>
       middleware: [
         makeLoggingMiddleware(logger.subLogger('internal-rpc')),
@@ -374,16 +374,16 @@ async function <span class="fstat-no" title="function not covered" >main(): Prom
 &nbsp;
   const <span class="cstat-no" title="statement not covered" >kernelCapTP = makeKernelCapTP({</span>
     kernel,
-    send: <span class="fstat-no" title="function not covered" >(c</span>aptpMessage: CapTPMessage) =&gt; {
+<span class="fstat-no" title="function not covered" >    send: (c</span>aptpMessage: CapTPMessage) =&gt; {
       const <span class="cstat-no" title="statement not covered" >notification = makeCapTPNotification(captpMessage);</span>
-<span class="cstat-no" title="statement not covered" >      messageStream.write(notification).catch(<span class="fstat-no" title="function not covered" >(e</span>rror) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      messageStream.write(notification).<span class="fstat-no" title="function not covered" >catch((e</span>rror) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >        logger.error('Failed to send CapTP message:', error);</span>
       });
     },
   });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  messageStream</span>
-    .drain(<span class="fstat-no" title="function not covered" >(m</span>essage) =&gt; {
+    .<span class="fstat-no" title="function not covered" >drain((m</span>essage) =&gt; {
 <span class="cstat-no" title="statement not covered" >      if (isCapTPNotification(message)) {</span>
         const captpMessage = <span class="cstat-no" title="statement not covered" >message.params[0];</span>
 <span class="cstat-no" title="statement not covered" >        kernelCapTP.dispatch(captpMessage);</span>
@@ -391,7 +391,7 @@ async function <span class="fstat-no" title="function not covered" >main(): Prom
 <span class="cstat-no" title="statement not covered" >        throw new Error(`Unexpected message: ${stringify(message)}`);</span>
       }
     })
-    .catch(<span class="fstat-no" title="function not covered" >(e</span>rror) =&gt; {
+    .<span class="fstat-no" title="function not covered" >catch((e</span>rror) =&gt; {
 <span class="cstat-no" title="statement not covered" >      kernelCapTP.abort(error);</span>
 <span class="cstat-no" title="statement not covered" >      logger.error('Message stream error:', error);</span>
     });
@@ -406,7 +406,7 @@ async function <span class="fstat-no" title="function not covered" >main(): Prom
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-08T09:15:12.238Z
+                at 2026-04-08T19:34:46.186Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

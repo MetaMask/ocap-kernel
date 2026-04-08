@@ -431,7 +431,7 @@ export async function <span class="fstat-no" title="function not covered" >start
   });
 &nbsp;
   // Set up connection event listeners for logging
-<span class="cstat-no" title="statement not covered" >  libp2p.addEventListener('connection:open', <span class="fstat-no" title="function not covered" >(e</span>vt) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  libp2p.addEventListener(<span class="fstat-no" title="function not covered" >'connection:open', (e</span>vt) =&gt; {</span>
     const connection = <span class="cstat-no" title="statement not covered" >evt.detail;</span>
 <span class="cstat-no" title="statement not covered" >    logger.log(</span>
       `[CONNECTION] New connection from ${connection.remotePeer.toString()}`,
@@ -441,7 +441,7 @@ export async function <span class="fstat-no" title="function not covered" >start
 <span class="cstat-no" title="statement not covered" >    logger.log(`  Status: ${connection.status}`);</span>
   });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  libp2p.addEventListener('connection:close', <span class="fstat-no" title="function not covered" >(e</span>vt) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  libp2p.addEventListener(<span class="fstat-no" title="function not covered" >'connection:close', (e</span>vt) =&gt; {</span>
     const connection = <span class="cstat-no" title="statement not covered" >evt.detail;</span>
 <span class="cstat-no" title="statement not covered" >    logger.log(</span>
       `[CONNECTION] Closed connection with ${connection.remotePeer.toString()}`,
@@ -449,7 +449,7 @@ export async function <span class="fstat-no" title="function not covered" >start
   });
 &nbsp;
   // Log peer discovery events
-<span class="cstat-no" title="statement not covered" >  libp2p.addEventListener('peer:discovery', <span class="fstat-no" title="function not covered" >(e</span>vt) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  libp2p.addEventListener(<span class="fstat-no" title="function not covered" >'peer:discovery', (e</span>vt) =&gt; {</span>
     const peerInfo = <span class="cstat-no" title="statement not covered" >evt.detail;</span>
 <span class="cstat-no" title="statement not covered" >    logger.log(`[DISCOVERY] Found peer ${peerInfo.id.toString()}`);</span>
   });
@@ -457,22 +457,22 @@ export async function <span class="fstat-no" title="function not covered" >start
   // Log circuit relay specific events
 <span class="cstat-no" title="statement not covered" >  if (libp2p.services.relay) {</span>
     // Log when a reservation is made
-<span class="cstat-no" title="statement not covered" >    libp2p.addEventListener('peer:connect', <span class="fstat-no" title="function not covered" >(e</span>vt) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    libp2p.addEventListener(<span class="fstat-no" title="function not covered" >'peer:connect', (e</span>vt) =&gt; {</span>
       const peerId = <span class="cstat-no" title="statement not covered" >evt.detail;</span>
 <span class="cstat-no" title="statement not covered" >      logger.log(`[RELAY] Peer connected: ${peerId.toString()}`);</span>
     });
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    libp2p.addEventListener('peer:disconnect', <span class="fstat-no" title="function not covered" >(e</span>vt) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >    libp2p.addEventListener(<span class="fstat-no" title="function not covered" >'peer:disconnect', (e</span>vt) =&gt; {</span>
       const peerId = <span class="cstat-no" title="statement not covered" >evt.detail;</span>
 <span class="cstat-no" title="statement not covered" >      logger.log(`[RELAY] Peer disconnected: ${peerId.toString()}`);</span>
     });
   }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  await new Promise&lt;void&gt;(<span class="fstat-no" title="function not covered" >(r</span>esolve) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  await new <span class="fstat-no" title="function not covered" >Promise&lt;void&gt;((r</span>esolve) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (libp2p.status === 'started') {</span>
 <span class="cstat-no" title="statement not covered" >      resolve();</span>
     } else {
-<span class="cstat-no" title="statement not covered" >      libp2p.addEventListener('start', <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >r</span>esolve())</span>;</span>
+<span class="cstat-no" title="statement not covered" >      libp2p.addEventListener(<span class="fstat-no" title="function not covered" >'start', () =&gt; <span class="cstat-no" title="statement not covered" >r</span>esolve())</span>;</span>
     }
   });
 &nbsp;
@@ -517,7 +517,7 @@ async function <span class="fstat-no" title="function not covered" >generateKeyP
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-08T09:15:12.238Z
+                at 2026-04-08T19:34:46.186Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

@@ -569,13 +569,13 @@ export async function <span class="fstat-no" title="function not covered" >start
 }): Promise&lt;RpcSocketServerHandle&gt; {
   const rpcService = <span class="cstat-no" title="statement not covered" >new RpcService(rpcHandlers, {</span>
     kernel,
-    executeDBQuery: <span class="fstat-no" title="function not covered" >(s</span>ql: string) =&gt; <span class="cstat-no" title="statement not covered" >kernelDatabase.executeQuery(sql),</span>
+<span class="fstat-no" title="function not covered" >    executeDBQuery: (s</span>ql: string) =&gt; <span class="cstat-no" title="statement not covered" >kernelDatabase.executeQuery(sql),</span>
   });
 &nbsp;
-  const <span class="cstat-no" title="statement not covered" >server = createServer(<span class="fstat-no" title="function not covered" >(s</span>ocket) =&gt; {</span>
+  const <span class="cstat-no" title="statement not covered" >server = <span class="fstat-no" title="function not covered" >createServer((s</span>ocket) =&gt; {</span>
     let buffer = <span class="cstat-no" title="statement not covered" >'';</span>
 &nbsp;
-    const onData = <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >(d</span>ata: Buffer): void =&gt; {</span>
+    const <span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >onData = (d</span>ata: Buffer): void =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >      buffer += data.toString();</span>
       const idx = <span class="cstat-no" title="statement not covered" >buffer.indexOf('\n');</span>
 <span class="cstat-no" title="statement not covered" >      if (idx === -1) {</span>
@@ -597,11 +597,11 @@ export async function <span class="fstat-no" title="function not covered" >start
       }
 &nbsp;
 <span class="cstat-no" title="statement not covered" >      handleRequest(rpcService, line, onShutdown)</span>
-        .then(<span class="fstat-no" title="function not covered" >(r</span>esponse) =&gt; {
+        .<span class="fstat-no" title="function not covered" >then((r</span>esponse) =&gt; {
 <span class="cstat-no" title="statement not covered" >          socket.end(`${JSON.stringify(response)}\n`);</span>
 <span class="cstat-no" title="statement not covered" >          return undefined;</span>
         })
-        .catch(<span class="fstat-no" title="function not covered" >() =&gt; {</span>
+        .<span class="fstat-no" title="function not covered" >catch(() =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >          socket.end(</span>
             `${JSON.stringify({ jsonrpc: '2.0', id: null, error: { code: -32603, message: 'Internal error' } })}\n`,
           );
@@ -609,7 +609,7 @@ export async function <span class="fstat-no" title="function not covered" >start
     };
 <span class="cstat-no" title="statement not covered" >    socket.on('data', onData);</span>
 &nbsp;
-<span class="cstat-no" title="statement not covered" >    socket.on('error', <span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >    socket.on(<span class="fstat-no" title="function not covered" >'error', () =&gt; {</span></span>
       // Ignore client socket errors (e.g. broken pipe from probe connections)
     });
   });
@@ -618,8 +618,8 @@ export async function <span class="fstat-no" title="function not covered" >start
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  return {</span>
     close: <span class="fstat-no" title="function not covered" >async () =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >      await new Promise&lt;void&gt;(<span class="fstat-no" title="function not covered" >(r</span>esolve, reject) =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >        server.close(<span class="fstat-no" title="function not covered" >(e</span>rror) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      await new <span class="fstat-no" title="function not covered" >Promise&lt;void&gt;((r</span>esolve, reject) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >        server.<span class="fstat-no" title="function not covered" >close((e</span>rror) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >          if (error) {</span>
 <span class="cstat-no" title="statement not covered" >            reject(error);</span>
           } else {
@@ -649,7 +649,7 @@ async function <span class="fstat-no" title="function not covered" >handleReques
   onShutdown?: () =&gt; Promise&lt;void&gt;,
 ): Promise&lt;Record&lt;string, unknown&gt;&gt; {
 <span class="cstat-no" title="statement not covered" >  try {</span>
-    const request = <span class="cstat-no" title="statement not covered" >JSON.parse(line) as {</span>
+    const request = <span class="cstat-no" title="statement not covered" >JSON.parse(line) </span>as {
       id?: unknown;
       method?: string;
     };
@@ -658,8 +658,8 @@ async function <span class="fstat-no" title="function not covered" >handleReques
       const id = <span class="cstat-no" title="statement not covered" >request.id ?? null;</span>
       // Schedule shutdown after responding to the client.
 <span class="cstat-no" title="statement not covered" >      if (onShutdown) {</span>
-<span class="cstat-no" title="statement not covered" >        setTimeout(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
-<span class="cstat-no" title="statement not covered" >          onShutdown().catch(<span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" ><span class="fstat-no" title="function not covered" >        setTimeout(() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >          onShutdown().<span class="fstat-no" title="function not covered" >catch(() =&gt; {</span></span>
             // Best-effort shutdown — errors are logged by the caller.
           });
         }, 0);
@@ -687,7 +687,7 @@ async function <span class="fstat-no" title="function not covered" >processReque
   let id: unknown = <span class="cstat-no" title="statement not covered" >null;</span>
 &nbsp;
 <span class="cstat-no" title="statement not covered" >  try {</span>
-    const request = <span class="cstat-no" title="statement not covered" >JSON.parse(line) as {</span>
+    const request = <span class="cstat-no" title="statement not covered" >JSON.parse(line) </span>as {
       jsonrpc?: string;
       id?: unknown;
       method?: string;
@@ -748,9 +748,9 @@ async function <span class="fstat-no" title="function not covered" >listen(s</sp
     // Ignore — file may not exist.
   }
 &nbsp;
-<span class="cstat-no" title="statement not covered" >  return new Promise(<span class="fstat-no" title="function not covered" >(r</span>esolve, reject) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  return new <span class="fstat-no" title="function not covered" >Promise((r</span>esolve, reject) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    server.on('error', reject);</span>
-<span class="cstat-no" title="statement not covered" >    server.listen(socketPath, <span class="fstat-no" title="function not covered" >() =&gt; {</span></span>
+<span class="cstat-no" title="statement not covered" >    server.listen(<span class="fstat-no" title="function not covered" >socketPath, () =&gt; {</span></span>
 <span class="cstat-no" title="statement not covered" >      server.removeListener('error', reject);</span>
 <span class="cstat-no" title="statement not covered" >      resolve();</span>
     });
@@ -763,7 +763,7 @@ async function <span class="fstat-no" title="function not covered" >listen(s</sp
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-08T09:15:12.238Z
+                at 2026-04-08T19:34:46.186Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

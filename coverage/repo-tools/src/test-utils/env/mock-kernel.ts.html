@@ -23,9 +23,9 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">56.25% </span>
+                <span class="strong">65.62% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>18/32</span>
+                <span class='fraction'>21/32</span>
             </div>
         
             
@@ -37,16 +37,16 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">30.76% </span>
+                <span class="strong">38.46% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>4/13</span>
+                <span class='fraction'>5/13</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">64.28% </span>
+                <span class="strong">75% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>18/28</span>
+                <span class='fraction'>21/28</span>
             </div>
         
             
@@ -268,23 +268,23 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -318,9 +318,9 @@ export const setupOcapKernelMock = (): {
   let isKRefMock = true;
   // Mock implementation
   vi.doMock('@metamask/ocap-kernel', () =&gt; {
-    const VatIdStruct = define&lt;unknown&gt;('VatId', <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >i</span>sVatIdMock)</span>;
-    const VatConfigStruct = define&lt;unknown&gt;('VatConfig', <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >i</span>sVatConfigMock)</span>;
-    const SubclusterIdStruct = define&lt;unknown&gt;('SubclusterId', <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >t</span>rue)</span>;
+    const VatIdStruct = define&lt;unknown&gt;(<span class="fstat-no" title="function not covered" >'VatId', () =&gt; <span class="cstat-no" title="statement not covered" >i</span>sVatIdMock);</span>
+    const VatConfigStruct = define&lt;unknown&gt;(<span class="fstat-no" title="function not covered" >'VatConfig', () =&gt; <span class="cstat-no" title="statement not covered" >i</span>sVatConfigMock);</span>
+    const SubclusterIdStruct = define&lt;unknown&gt;(<span class="fstat-no" title="function not covered" >'SubclusterId', () =&gt; <span class="cstat-no" title="statement not covered" >t</span>rue);</span>
     const ClusterConfigStruct = object({
       bootstrap: string(),
       forceReset: exactOptional(boolean()),
@@ -333,13 +333,13 @@ export const setupOcapKernelMock = (): {
       vats: array(VatIdStruct),
     });
 &nbsp;
-    const KRefStruct = define&lt;unknown&gt;('KRef', <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >i</span>sKRefMock)</span>;
+    const KRefStruct = define&lt;unknown&gt;(<span class="fstat-no" title="function not covered" >'KRef', () =&gt; <span class="cstat-no" title="statement not covered" >i</span>sKRefMock);</span>
 &nbsp;
     return {
-      isVatId: <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >i</span>sVatIdMock,</span>
-      isVatConfig: <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >i</span>sVatConfigMock,</span>
-      isKRef: <span class="fstat-no" title="function not covered" >() =&gt; <span class="cstat-no" title="statement not covered" >i</span>sKRefMock,</span>
-      insistKRef: <span class="fstat-no" title="function not covered" >(v</span>alue: unknown) =&gt; {
+<span class="fstat-no" title="function not covered" >      isVatId: () =&gt; <span class="cstat-no" title="statement not covered" >i</span>sVatIdMock,</span>
+<span class="fstat-no" title="function not covered" >      isVatConfig: () =&gt; <span class="cstat-no" title="statement not covered" >i</span>sVatConfigMock,</span>
+<span class="fstat-no" title="function not covered" >      isKRef: () =&gt; <span class="cstat-no" title="statement not covered" >i</span>sKRefMock,</span>
+<span class="fstat-no" title="function not covered" >      insistKRef: (v</span>alue: unknown) =&gt; {
 <span class="cstat-no" title="statement not covered" >        if (!isKRefMock) {</span>
 <span class="cstat-no" title="statement not covered" >          throw new Error(`Expected KRef, got ${String(value)}`);</span>
         }
@@ -380,10 +380,10 @@ export const setupOcapKernelMock = (): {
   });
 &nbsp;
   return {
-    resetMocks: <span class="fstat-no" title="function not covered" >(): void =&gt; {</span>
-<span class="cstat-no" title="statement not covered" >      isVatConfigMock = true;</span>
-<span class="cstat-no" title="statement not covered" >      isVatIdMock = true;</span>
-<span class="cstat-no" title="statement not covered" >      isKRefMock = true;</span>
+    resetMocks: (): void =&gt; {
+      isVatConfigMock = true;
+      isVatIdMock = true;
+      isKRefMock = true;
     },
     setMockBehavior: (options: {
       isVatConfig?: boolean;
@@ -409,7 +409,7 @@ export const setupOcapKernelMock = (): {
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-08T09:15:12.238Z
+                at 2026-04-08T19:34:46.186Z
             </div>
         <script src="../../../../prettify.js"></script>
         <script>
