@@ -17,7 +17,7 @@ import { useRegistry } from '../hooks/useRegistry.ts';
 import type { ObjectRegistry } from '../types.ts';
 import { SendMessageForm } from './SendMessageForm.tsx';
 
-const { setMockBehavior } = setupOcapKernelMock();
+const { resetMocks, setMockBehavior } = setupOcapKernelMock();
 
 vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
@@ -109,6 +109,7 @@ describe('SendMessageForm Component', () => {
 
   afterEach(() => {
     cleanup();
+    resetMocks();
     vi.resetModules();
   });
 
@@ -203,8 +204,6 @@ describe('SendMessageForm Component', () => {
     // Target should remain unset, button stays disabled
     expect(targetSelect).toHaveValue('');
     expect(getByTestId('message-send-button')).toBeDisabled();
-
-    setMockBehavior({ isKRef: true });
   });
 
   it('calls callKernelMethod with correct parameters when Send button is clicked', async () => {

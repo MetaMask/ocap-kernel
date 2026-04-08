@@ -3,6 +3,7 @@ dist/
 coverage/
 docs/*
 !docs/*.md
+!docs/contributing
 
 # Logs
 logs
