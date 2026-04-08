@@ -157,8 +157,23 @@ async function main() {
     `Delegation created: ${(delegation as { id: string }).id.slice(0, 20)}...`,
   );
 
-  callVat(kernelServices.away, away.kref, 'receiveDelegation', [delegation]);
-  console.log('Delegation received by away.');
+  const grant = {
+    delegation,
+    methodName: 'call',
+    // max is passed as a string because JSON cannot carry BigInt;
+    // coordinator-vat's provisionTwin coerces it back to BigInt.
+    caveatSpecs: [
+      {
+        type: 'cumulativeSpend',
+        token: '0x0000000000000000000000000000000000000000',
+        max: maxSpendWei.toString(),
+      },
+    ],
+  };
+  callVat(kernelServices.away, away.kref, 'provisionTwin', [grant]);
+  console.log(
+    'Delegation twin provisioned on away (cumulativeSpend <= 1000 ETH).',
+  );
 
   writeDockerDelegationContextFiles(kernelServices.home, home, away);
 

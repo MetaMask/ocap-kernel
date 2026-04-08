@@ -3,7 +3,14 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import { Logger } from '@metamask/logger';
 import type { Baggage } from '@metamask/ocap-kernel';
 
+import {
+  ENFORCER_CONTRACT_KEY_MAP,
+  PLACEHOLDER_CONTRACTS,
+  registerChainContracts,
+} from '../constants.ts';
+import type { ChainContracts } from '../constants.ts';
 import { buildDelegationGrant } from '../lib/delegation-grant.ts';
+import { makeDelegationTwin } from '../lib/delegation-twin.ts';
 import {
   decodeAllowanceResult,
   decodeBalanceOfResult,
@@ -367,6 +374,14 @@ export function buildRootObject(
   let keyringVat: KeyringFacet | undefined;
   let providerVat: ProviderFacet | undefined;
   let delegationVat: DelegationFacet | undefined;
+
+  // Twins provisioned via provisionTwin(), keyed by delegation ID.
+  // redeemFn/readFn closures cannot cross the CapTP vat boundary, so twins
+  // live here rather than in the delegation vat.
+  const coordinatorTwins = new Map<
+    string,
+    ReturnType<typeof makeDelegationTwin>
+  >();
   let issuerService: OcapURLIssuerFacet | undefined;
   let redemptionService: OcapURLRedemptionFacet | undefined;
 
@@ -1591,6 +1606,21 @@ export function buildRootObject(
       // registry (e.g. local Anvil at chain 31337).
       if (config.environment) {
         registerEnvironment(config.chainId, config.environment);
+
+        // Also register in our own getChainContracts() registry so that
+        // makeDelegationGrant() can build caveats for this chain.
+        const rawEnforcers = config.environment.caveatEnforcers ?? {};
+        const enforcers = { ...PLACEHOLDER_CONTRACTS.enforcers };
+        for (const [key, addr] of Object.entries(rawEnforcers)) {
+          const caveatType = ENFORCER_CONTRACT_KEY_MAP[key];
+          if (caveatType !== undefined) {
+            enforcers[caveatType] = addr;
+          }
+        }
+        registerChainContracts(config.chainId, {
+          delegationManager: config.environment.DelegationManager,
+          enforcers,
+        } as ChainContracts);
       }
 
       bundlerConfig = harden({
@@ -1779,6 +1809,16 @@ export function buildRootObject(
             throw new Error(
               `Found delegation ${delegation.id} but its status is '${delegation.status}' (expected 'signed'). ` +
                 `Direct signing is not used when a delegation exists, to avoid bypassing caveats.`,
+            );
+          }
+          // Route through the provisioned twin when one exists so that local
+          // caveat checks (e.g. cumulativeSpend) fire before hitting the chain.
+          const twin = coordinatorTwins.get(delegation.id);
+          if (twin) {
+            return E(twin).call(
+              tx.to,
+              tx.value ?? ('0x0' as Hex),
+              tx.data ?? ('0x' as Hex),
             );
           }
           return submitDelegationUserOp({
@@ -2249,10 +2289,23 @@ export function buildRootObject(
       const delegator =
         smartAccountConfig?.address ?? (await resolveOwnerAddress());
 
-      const grant = buildDelegationGrant(method, {
-        delegator,
-        ...options,
-      } as Parameters<typeof buildDelegationGrant>[1]);
+      // Coerce numeric options that arrive as strings over the JSON-RPC boundary
+      // (the daemon queueMessage protocol only carries plain JSON).
+      const rawOptions = { delegator, ...options };
+      const coercedOptions = {
+        ...rawOptions,
+        ...(rawOptions.max !== undefined && {
+          max: BigInt(rawOptions.max as string | number | bigint),
+        }),
+        ...(rawOptions.maxValue !== undefined && {
+          maxValue: BigInt(rawOptions.maxValue as string | number | bigint),
+        }),
+      };
+
+      const grant = buildDelegationGrant(
+        method,
+        coercedOptions as Parameters<typeof buildDelegationGrant>[1],
+      );
 
       // Sign the delegation via the existing create → prepare → sign → store flow
       const { delegation } = grant;
@@ -2313,7 +2366,37 @@ export function buildRootObject(
         throw new Error('Delegation vat not available');
       }
 
-      const { delegation } = grant;
+      // Coerce BigInt fields in caveatSpecs — they arrive as strings when the
+      // grant crosses the daemon JSON-RPC boundary.
+      const coercedGrant: DelegationGrant = harden({
+        ...grant,
+        caveatSpecs: grant.caveatSpecs.map((spec) => {
+          if (spec.type === 'cumulativeSpend') {
+            return harden({
+              ...spec,
+              max: BigInt(spec.max as unknown as string | number | bigint),
+            });
+          }
+          if (spec.type === 'blockWindow') {
+            return harden({
+              ...spec,
+              after: BigInt(spec.after as unknown as string | number | bigint),
+              before: BigInt(
+                spec.before as unknown as string | number | bigint,
+              ),
+            });
+          }
+          if (spec.type === 'valueLte') {
+            return harden({
+              ...spec,
+              max: BigInt(spec.max as unknown as string | number | bigint),
+            });
+          }
+          return spec;
+        }),
+      });
+
+      const { delegation } = coercedGrant;
 
       // Build redeemFn closure that submits a delegation UserOp
       const redeemFn = async (execution: Execution): Promise<Hex> => {
@@ -2338,7 +2421,17 @@ export function buildRootObject(
         };
       }
 
-      return E(delegationVat).addDelegation(grant, redeemFn, readFn);
+      // Create the twin locally — redeemFn/readFn are closures that cannot
+      // cross the CapTP vat boundary, so we build the twin here and store
+      // the delegation in the delegation vat via a plain-data call.
+      await E(delegationVat).storeDelegation(coercedGrant);
+      const twin = makeDelegationTwin({
+        grant: coercedGrant,
+        redeemFn,
+        readFn,
+      });
+      coordinatorTwins.set(coercedGrant.delegation.id, twin);
+      return twin;
     },
 
     // ------------------------------------------------------------------
