@@ -207,6 +207,12 @@ export function buildRootObject(
       persistDelegations();
     },
 
+    async storeDelegation(grant: DelegationGrant): Promise<void> {
+      const { delegation } = grant;
+      delegations.set(delegation.id, delegation);
+      persistDelegations();
+    },
+
     async addDelegation(
       grant: DelegationGrant,
       redeemFn: (execution: Execution) => Promise<Hex>,
