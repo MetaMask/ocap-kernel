@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Deserialize CapData rejections in `Kernel.queueMessage` so vat errors surface as plain `Error` objects to all callers ([#928](https://github.com/MetaMask/ocap-kernel/pull/928))
+
 ## [0.7.0]
 
 ### Added
