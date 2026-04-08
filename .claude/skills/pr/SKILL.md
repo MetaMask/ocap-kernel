@@ -107,9 +107,15 @@ Otherwise, after all launched subagents complete:
    - Abort
 4. If there are no blockers, briefly summarize the findings and proceed.
 
-## Phase 4: Create the PR
+## Phase 4: Update changelogs
 
-5. Run `gh pr create` to create a pull request. The PR body should include:
+**MANDATORY — DO NOT SKIP.** Each PR must update changelogs for all packages with consumer-facing changes.
+Read the instructions in [`docs/contributing/updating-changelogs.md`](../../../docs/contributing/updating-changelogs.md) and follow them to the letter.
+Commit the changes to the current branch with the commit message "docs: Update changelogs" before creating the PR.
+
+## Phase 5: Create the PR
+
+1. Run `gh pr create` to create a pull request. The PR body should include:
 
    - A brief narrative description of the PR
    - A summary of the changes (bullet points)
@@ -117,4 +123,4 @@ Otherwise, after all launched subagents complete:
 
    **If this is a stacked PR**, add `--draft` to create it as a draft PR.
 
-6. Return the PR URL and any relevant information. If a review was performed, include the review summary.
+2. Return the PR URL and any relevant information. If a review was performed, include the review summary.
