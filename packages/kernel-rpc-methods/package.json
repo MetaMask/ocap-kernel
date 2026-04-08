@@ -1,6 +1,6 @@
 {
   "name": "@metamask/kernel-rpc-methods",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Utilities for implementing Ocap Kernel JSON-RPC methods",
   "keywords": [
     "MetaMask",

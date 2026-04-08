@@ -7,10 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0]
+
 ### Added
 
 - Add `./vite-plugins` export with `bundleVat` and `bundleVats` vat bundling utilities (moved from `@ocap/repo-tools`) ([#875](https://github.com/MetaMask/ocap-kernel/pull/875))
 - Add `vite` as an optional peer dependency for the `./vite-plugins` subpath ([#875](https://github.com/MetaMask/ocap-kernel/pull/875))
+- Add `CapDataStruct` export ([#917](https://github.com/MetaMask/ocap-kernel/pull/917))
+- Add JSON Schema to superstruct utilities ([#876](https://github.com/MetaMask/ocap-kernel/pull/876))
+- Add `@metamask/kernel-cli` utilities ([#896](https://github.com/MetaMask/ocap-kernel/pull/896))
+  - `getOcapHome()` for obtaining the CLI config dir
+  - `prettifySmallcaps()` for formatting smallcaps values for display
+- Add `isCapData()` utility ([#879](https://github.com/MetaMask/ocap-kernel/pull/879))
+
+### Changed
+
+- **BREAKING:** Rename discoverable exo `describe()` method to `__getDescription__()` ([#869](https://github.com/MetaMask/ocap-kernel/pull/869))
 
 ## [0.4.0]
 
@@ -47,7 +59,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-utils@0.4.0...HEAD
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-utils@0.5.0...HEAD
+[0.5.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-utils@0.4.0...@metamask/kernel-utils@0.5.0
 [0.4.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-utils@0.3.0...@metamask/kernel-utils@0.4.0
 [0.3.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-utils@0.2.0...@metamask/kernel-utils@0.3.0
 [0.2.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-utils@0.1.0...@metamask/kernel-utils@0.2.0

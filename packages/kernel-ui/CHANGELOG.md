@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0]
+
+### Changed
+
+- **BREAKING:** Adopt branded string types for kernel identifiers ([#917](https://github.com/MetaMask/ocap-kernel/pull/917), [#921](https://github.com/MetaMask/ocap-kernel/pull/921))
+- Bump `@metamask/design-system-react` to `^0.10.0` ([#885](https://github.com/MetaMask/ocap-kernel/pull/885))
+- Improve `SendMessageForm` error display ([#879](https://github.com/MetaMask/ocap-kernel/pull/879))
+
+### Fixed
+
+- Fix type error in `PanelContext` pending request queue ([#908](https://github.com/MetaMask/ocap-kernel/pull/908))
+
 ## [0.4.0]
 
 ### Added
@@ -50,7 +62,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Initial release.
 
-[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-ui@0.4.0...HEAD
+[Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-ui@0.5.0...HEAD
+[0.5.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-ui@0.4.0...@metamask/kernel-ui@0.5.0
 [0.4.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-ui@0.3.0...@metamask/kernel-ui@0.4.0
 [0.3.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-ui@0.2.0...@metamask/kernel-ui@0.3.0
 [0.2.0]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/kernel-ui@0.1.0...@metamask/kernel-ui@0.2.0

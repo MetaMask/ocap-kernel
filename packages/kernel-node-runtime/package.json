@@ -1,6 +1,6 @@
 {
   "name": "@metamask/kernel-node-runtime",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "For running Ocap Kernel experiments in a Node.js environment",
   "keywords": [
     "MetaMask",
