@@ -85,5 +85,32 @@ describe('loadBundle', () => {
       });
       expect(result).toStrictEqual({ inescapableValue: 'test' });
     });
+
+    it('provides exports object to compartment', () => {
+      const content = JSON.stringify({
+        moduleFormat: 'iife',
+        code: 'Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" }); var __vatExports__ = { ok: true };',
+      });
+      const result = loadBundle(content);
+      expect(result).toStrictEqual({ ok: true });
+    });
+
+    it('provides globalThis on compartment global', () => {
+      const content = JSON.stringify({
+        moduleFormat: 'iife',
+        code: 'var __vatExports__ = { hasGlobalThis: typeof globalThis === "object" && globalThis !== undefined };',
+      });
+      const result = loadBundle(content);
+      expect(result).toStrictEqual({ hasGlobalThis: true });
+    });
+
+    it('provides global on compartment global', () => {
+      const content = JSON.stringify({
+        moduleFormat: 'iife',
+        code: 'var __vatExports__ = { hasGlobal: typeof global === "object" && global !== undefined };',
+      });
+      const result = loadBundle(content);
+      expect(result).toStrictEqual({ hasGlobal: true });
+    });
   });
 });

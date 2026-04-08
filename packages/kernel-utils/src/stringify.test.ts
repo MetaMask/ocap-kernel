@@ -39,11 +39,10 @@ describe('stringify', () => {
   });
 
   it('stringifies functions', () => {
-    expect(
-      stringify(function example(): string {
-        return 'hello';
-      }),
-    ).toBe('function example() {\n        return "hello";\n      }');
+    const fn = function fn(): string {
+      return 'hello';
+    };
+    expect(stringify(fn)).toBe(String(fn));
   });
 
   it.each([

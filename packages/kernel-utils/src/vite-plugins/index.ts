@@ -2,7 +2,7 @@ import type { Plugin } from 'vite';
 
 import { bundleVat } from './bundle-vat.ts';
 
-export { bundleVat } from './bundle-vat.ts';
+export { bundleVat, removeDynamicImportsPlugin } from './bundle-vat.ts';
 export type { VatBundle } from './bundle-vat.ts';
 
 type VatEntry = {

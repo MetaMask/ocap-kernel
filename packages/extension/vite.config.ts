@@ -64,7 +64,7 @@ export default defineConfig(({ mode }) => {
       outDir,
       minify: !isDev,
       sourcemap: isDev ? 'inline' : false,
-      rollupOptions: {
+      rolldownOptions: {
         input: {
           background: path.resolve(sourceDir, 'background.ts'),
           offscreen: path.resolve(sourceDir, 'offscreen.html'),
@@ -79,13 +79,7 @@ export default defineConfig(({ mode }) => {
         },
         output: {
           entryFileNames: '[name].js',
-          chunkFileNames: (chunkInfo) => {
-            // Rename _commonjsHelpers to avoid underscore prefix extension issues
-            if (chunkInfo.name === '_commonjsHelpers') {
-              return 'commonjsHelpers.js';
-            }
-            return '[name].js';
-          },
+          chunkFileNames: '[name].js',
           assetFileNames: '[name].[ext]',
         },
       },
@@ -107,7 +101,9 @@ export default defineConfig(({ mode }) => {
       jsTrustedPrelude({ trustedPreludes }),
       viteStaticCopy({
         targets: staticCopyTargets.map((src) =>
-          typeof src === 'string' ? { src, dest: './' } : src,
+          typeof src === 'string'
+            ? { src, dest: './', rename: { stripBase: true } }
+            : src,
         ),
         watch: { reloadPageOnChange: true },
         silent: isDev,

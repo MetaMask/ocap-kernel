@@ -72,8 +72,8 @@
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",
-    "@vitest/coverage-v8": "^4.0.16",
-    "@vitest/eslint-plugin": "^1.6.5",
+    "@vitest/coverage-v8": "^4.1.3",
+    "@vitest/eslint-plugin": "^1.6.14",
     "@yarnpkg/types": "^4.0.1",
     "depcheck": "^1.4.7",
     "eslint": "^9.23.0",
@@ -90,7 +90,7 @@
     "lint-staged": "^15.5.0",
     "lodash": "^4.17.21",
     "patch-package": "^8.0.0",
-    "playwright": "^1.58.2",
+    "playwright": "^1.59.1",
     "prettier": "^3.5.3",
     "prettier-plugin-packagejson": "^2.5.10",
     "rimraf": "^6.0.1",
@@ -101,9 +101,8 @@
     "typedoc": "^0.28.1",
     "typescript": "~5.8.2",
     "typescript-eslint": "^8.29.0",
-    "vite": "^7.3.0",
-    "vite-tsconfig-paths": "^6.0.3",
-    "vitest": "^4.0.16",
+    "vite": "^8.0.6",
+    "vitest": "^4.1.3",
     "vitest-fetch-mock": "^0.4.5"
   },
   "packageManager": "yarn@4.12.0",
@@ -130,7 +129,9 @@
       "@metamask/kernel-cli>@metamask/kernel-shims>@libp2p/webrtc>node-datachannel": false,
       "@metamask/kernel-cli>@metamask/kernel-utils": false,
       "vitest>jsdom>ws>bufferutil": false,
-      "vitest>jsdom>ws>utf-8-validate": false
+      "vitest>jsdom>ws>utf-8-validate": false,
+      "@vitest/coverage-v8>@vitest/browser>ws>bufferutil": false,
+      "@vitest/coverage-v8>@vitest/browser>ws>utf-8-validate": false
     }
   },
   "resolutions": {
