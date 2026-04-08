@@ -161,6 +161,39 @@ export const CHAIN_CONTRACTS: Readonly<Record<number, ChainContracts>> = harden(
 );
 
 /**
+ * Maps the PascalCase enforcer contract keys from a deployed `contracts.json`
+ * environment to our camelCase `CaveatType` names.
+ */
+export const ENFORCER_CONTRACT_KEY_MAP: Readonly<Record<string, CaveatType>> =
+  harden({
+    AllowedCalldataEnforcer: 'allowedCalldata',
+    AllowedMethodsEnforcer: 'allowedMethods',
+    AllowedTargetsEnforcer: 'allowedTargets',
+    ERC20TransferAmountEnforcer: 'erc20TransferAmount',
+    LimitedCallsEnforcer: 'limitedCalls',
+    TimestampEnforcer: 'timestamp',
+    ValueLteEnforcer: 'valueLte',
+    NativeTokenTransferAmountEnforcer: 'nativeTokenTransferAmount',
+  });
+
+/** Dynamic registry for chains not listed in {@link CHAIN_CONTRACTS}. */
+const customChainContracts = new Map<number, ChainContracts>();
+
+/**
+ * Register contract addresses for a chain at runtime.  Used to add local
+ * devnet chains (e.g. Anvil at 31337) that are not in the static registry.
+ *
+ * @param chainId - The chain ID to register.
+ * @param contracts - The contract addresses for that chain.
+ */
+export function registerChainContracts(
+  chainId: number,
+  contracts: ChainContracts,
+): void {
+  customChainContracts.set(chainId, contracts);
+}
+
+/**
  * Get the contract addresses for a chain, falling back to placeholders.
  *
  * @param chainId - The chain ID to look up.
@@ -168,6 +201,10 @@ export const CHAIN_CONTRACTS: Readonly<Record<number, ChainContracts>> = harden(
  */
 export function getChainContracts(chainId?: number): ChainContracts {
   if (chainId !== undefined) {
+    const custom = customChainContracts.get(chainId);
+    if (custom !== undefined) {
+      return custom;
+    }
     const entry = CHAIN_CONTRACTS[chainId];
     if (entry !== undefined) {
       return entry;
