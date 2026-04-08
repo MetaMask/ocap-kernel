@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import pluginEntry from '../openclaw-plugin/index.ts';
+import { register } from '../openclaw-plugin/index.ts';
 
 vi.mock('node:child_process', () => ({ spawn: vi.fn() }));
 
@@ -107,7 +107,7 @@ function setupPlugin(): Map<string, ToolDefinition> {
     },
   };
 
-  pluginEntry.register(api);
+  register(api);
   return tools;
 }
 

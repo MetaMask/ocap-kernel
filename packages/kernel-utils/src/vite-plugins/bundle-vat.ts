@@ -42,11 +42,14 @@ export function removeDynamicImportsPlugin(): RolldownPlugin {
         'Promise.resolve({})',
       );
 
-      if (transformed === code) {
+      if (/\bimport\s*\(/u.test(transformed)) {
         this.warn(
           `Module "${id}" contains dynamic import() expressions that could not ` +
             `be replaced (e.g. computed specifiers). Rolldown may reject IIFE output.`,
         );
+      }
+
+      if (transformed === code) {
         return null;
       }
 

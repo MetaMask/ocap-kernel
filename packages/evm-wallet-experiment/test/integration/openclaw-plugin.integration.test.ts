@@ -6,7 +6,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import register from '../../openclaw-plugin/index.ts';
+import { register } from '../../openclaw-plugin/index.ts';
 import { makeWalletClusterConfig } from '../../src/cluster-config.ts';
 
 type ToolResponse = {
@@ -262,7 +262,7 @@ exec "${process.execPath}" "${ocapCliEntrypoint}" "$@"
       ]);
 
       tools = new Map<string, ToolDefinition>();
-      register.register({
+      register({
         pluginConfig: {
           ocapCliPath,
           walletKref: rootKref,

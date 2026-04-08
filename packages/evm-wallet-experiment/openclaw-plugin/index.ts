@@ -140,4 +140,5 @@ const entry: PluginEntry = {
   register,
 };
 
+export { register };
 export default entry;
