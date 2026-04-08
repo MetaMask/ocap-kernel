@@ -62,9 +62,40 @@ purposes only.
 
 See [`packages/create-package/README.md`](packages/create-package/README.md).
 
+### Updating changelogs
+
+Each package in this repo has a file named `CHANGELOG.md` which is used to
+record consumer-facing changes that have been published over time. All
+changelogs follow the ["Keep a Changelog"](https://keepachangelog.com/)
+specification (enforced by `@metamask/auto-changelog`).
+
+If a PR introduces a consumer-facing change to one or more packages, their changelogs must
+be updated. This is enforced by CI. When updating changelogs, keep the following in mind:
+
+- A changelog is not a git history; it is a summary of consumer-facing changes introduced by
+  a particular release.
+  - Consider each PR from the perspective of a consumer of an individual package. Changelog
+    entries may differ between packages.
+  - For example, if you're introducing feature X to package A, and it contains an incidental
+    change Y to package B, the package changelogs should reflect this.
+- Place new entries under the "Unreleased" section.
+- Place changes into categories. Consult the ["Keep a Changelog"](https://keepachangelog.com/en/1.1.0/#how) specification for the list.
+- Highlight breaking changes by prefixing them with `**BREAKING:**`.
+- Omit non-consumer facing changes from the changelog.
+- Do not simply reuse the commit message, but describe exact changes to the API or usable
+  surface area of the project.
+- Use a list nested under a changelog entry to enumerate more details about a change if need be.
+- Include links (e.g. `#123) to the pull request(s) that introduced each change.
+- Combine like changes from multiple pull requests into a single changelog entry if necessary.
+- Split disparate changes from the same pull request into multiple entries if necessary.
+- Omit reverted changes from the changelog.
+
+If your PR does not contain any consumer-facing changes, add the label `no-changelog`, and the
+changelog validation CI job will be skipped.
+
 ### Releasing
 
-For information on creating releases, see the [MetaMask/core release documentation](https://github.com/MetaMask/core/blob/main/docs/contributing.md#releasing-changes).
+For information on creating releases, see the [MetaMask/core release documentation](https://github.com/MetaMask/core/blob/d6ce6e1c917b1a05356df365281a5db83f500210/docs/processes/releasing.md).
 
 ### Patches
 
