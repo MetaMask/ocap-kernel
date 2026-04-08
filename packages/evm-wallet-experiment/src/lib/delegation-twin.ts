@@ -96,13 +96,35 @@ export function makeDelegationTwin(
   }
 
   const tracker = findSpendTracker(caveatSpecs);
+  const valueLteSpec = caveatSpecs.find(
+    (cs): cs is CaveatSpec & { type: 'valueLte' } => cs.type === 'valueLte',
+  );
   const { token } = grant;
   const idPrefix = delegation.id.slice(0, 12);
 
   const primaryMethod = async (...args: unknown[]): Promise<Hex> => {
+    // Coerce args[1] (amount/value) to BigInt for transfer, approve, and call
+    // — necessary when args arrive as strings over the daemon JSON-RPC boundary.
+    const normalizedArgs =
+      args.length > 1
+        ? [
+            args[0],
+            BigInt(args[1] as string | number | bigint),
+            ...args.slice(2),
+          ]
+        : args;
+
+    // Local valueLte check for call twins (mirrors on-chain ValueLteEnforcer).
+    if (valueLteSpec !== undefined) {
+      const value = normalizedArgs[1] as bigint;
+      if (value > valueLteSpec.max) {
+        throw new Error(`Value ${value} exceeds limit ${valueLteSpec.max}`);
+      }
+    }
+
     let trackAmount: bigint | undefined;
     if (tracker) {
-      trackAmount = args[1] as bigint;
+      trackAmount = normalizedArgs[1] as bigint;
       if (trackAmount > tracker.remaining()) {
         throw new Error(
           `Insufficient budget: requested ${trackAmount}, remaining ${tracker.remaining()}`,
@@ -110,7 +132,10 @@ export function makeDelegationTwin(
       }
     }
 
-    const execution = entry.buildExecution(token ?? ('' as Address), args);
+    const execution = entry.buildExecution(
+      token ?? ('' as Address),
+      normalizedArgs,
+    );
 
     const txHash = await redeemFn(execution);
     if (tracker && trackAmount !== undefined) {

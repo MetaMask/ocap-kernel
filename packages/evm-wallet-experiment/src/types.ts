@@ -342,6 +342,10 @@ export const CaveatSpecStruct = union([
     after: BigIntStruct,
     before: BigIntStruct,
   }),
+  object({
+    type: literal('valueLte'),
+    max: BigIntStruct,
+  }),
 ]);
 
 export type CaveatSpec = Infer<typeof CaveatSpecStruct>;
