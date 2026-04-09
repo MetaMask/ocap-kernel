@@ -8,7 +8,11 @@ import {
   makeCaveat,
 } from './caveats.ts';
 import { makeDelegation } from './delegation.ts';
-import { ERC20_APPROVE_SELECTOR, ERC20_TRANSFER_SELECTOR } from './erc20.ts';
+import {
+  ERC20_APPROVE_SELECTOR,
+  ERC20_TRANSFER_SELECTOR,
+  FIRST_ARG_OFFSET,
+} from './erc20.ts';
 import type {
   Address,
   Caveat,
@@ -18,12 +22,6 @@ import type {
 } from '../types.ts';
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
-
-/**
- * Byte offset of the first argument in ABI-encoded calldata (after the
- * 4-byte function selector).
- */
-const FIRST_ARG_OFFSET = 4;
 
 /**
  * Encode an address as a 32-byte ABI-encoded word (left-padded with zeros).
@@ -102,23 +100,47 @@ export function buildDelegationGrant(
   }
 }
 
+type Erc20GrantOptions = {
+  methodName: 'transfer' | 'approve';
+  selector: Hex;
+  delegator: Address;
+  delegate: Address;
+  token: Address;
+  max: bigint;
+  chainId: number;
+  validUntil?: number;
+  restrictedAddress?: Address;
+  entropy?: Hex;
+};
+
 /**
- * Build a transfer delegation grant.
+ * Build a delegation grant for an ERC-20 method (transfer or approve).
  *
- * @param options - Transfer grant options.
- * @returns An unsigned DelegationGrant for ERC-20 transfers.
+ * @param options - ERC-20 grant options.
+ * @param options.methodName - The catalog method name ('transfer' or 'approve').
+ * @param options.selector - The ERC-20 function selector.
+ * @param options.delegator - The delegating account address.
+ * @param options.delegate - The delegate account address.
+ * @param options.token - The ERC-20 token contract address.
+ * @param options.max - The maximum token amount allowed.
+ * @param options.chainId - The chain ID.
+ * @param options.validUntil - Optional Unix timestamp after which the delegation expires.
+ * @param options.restrictedAddress - Optional address to lock the first argument to.
+ * @param options.entropy - Optional entropy for delegation salt.
+ * @returns An unsigned DelegationGrant for the given ERC-20 method.
  */
-function buildTransferGrant(options: TransferOptions): DelegationGrant {
-  const {
-    delegator,
-    delegate,
-    token,
-    max,
-    chainId,
-    validUntil,
-    recipient,
-    entropy,
-  } = options;
+function buildErc20Grant({
+  methodName,
+  selector,
+  delegator,
+  delegate,
+  token,
+  max,
+  chainId,
+  validUntil,
+  restrictedAddress,
+  entropy,
+}: Erc20GrantOptions): DelegationGrant {
   const caveats: Caveat[] = [
     makeCaveat({
       type: 'allowedTargets',
@@ -127,7 +149,7 @@ function buildTransferGrant(options: TransferOptions): DelegationGrant {
     }),
     makeCaveat({
       type: 'allowedMethods',
-      terms: encodeAllowedMethods([ERC20_TRANSFER_SELECTOR]),
+      terms: encodeAllowedMethods([selector]),
       chainId,
     }),
     makeCaveat({
@@ -139,8 +161,8 @@ function buildTransferGrant(options: TransferOptions): DelegationGrant {
 
   const caveatSpecs: CaveatSpec[] = [{ type: 'cumulativeSpend', token, max }];
 
-  if (recipient !== undefined) {
-    const value = abiEncodeAddress(recipient);
+  if (restrictedAddress !== undefined) {
+    const value = abiEncodeAddress(restrictedAddress);
     caveats.push(
       makeCaveat({
         type: 'allowedCalldata',
@@ -178,7 +200,22 @@ function buildTransferGrant(options: TransferOptions): DelegationGrant {
     entropy,
   });
 
-  return harden({ delegation, methodName: 'transfer', caveatSpecs, token });
+  return harden({ delegation, methodName, caveatSpecs, token });
+}
+
+/**
+ * Build a transfer delegation grant.
+ *
+ * @param options - Transfer grant options.
+ * @returns An unsigned DelegationGrant for ERC-20 transfers.
+ */
+function buildTransferGrant(options: TransferOptions): DelegationGrant {
+  return buildErc20Grant({
+    ...options,
+    methodName: 'transfer',
+    selector: ERC20_TRANSFER_SELECTOR,
+    restrictedAddress: options.recipient,
+  });
 }
 
 /**
@@ -188,76 +225,12 @@ function buildTransferGrant(options: TransferOptions): DelegationGrant {
  * @returns An unsigned DelegationGrant for ERC-20 approvals.
  */
 function buildApproveGrant(options: ApproveOptions): DelegationGrant {
-  const {
-    delegator,
-    delegate,
-    token,
-    max,
-    chainId,
-    validUntil,
-    spender,
-    entropy,
-  } = options;
-  const caveats: Caveat[] = [
-    makeCaveat({
-      type: 'allowedTargets',
-      terms: encodeAllowedTargets([token]),
-      chainId,
-    }),
-    makeCaveat({
-      type: 'allowedMethods',
-      terms: encodeAllowedMethods([ERC20_APPROVE_SELECTOR]),
-      chainId,
-    }),
-    makeCaveat({
-      type: 'erc20TransferAmount',
-      terms: encodeErc20TransferAmount({ token, amount: max }),
-      chainId,
-    }),
-  ];
-
-  const caveatSpecs: CaveatSpec[] = [{ type: 'cumulativeSpend', token, max }];
-
-  if (spender !== undefined) {
-    const value = abiEncodeAddress(spender);
-    caveats.push(
-      makeCaveat({
-        type: 'allowedCalldata',
-        terms: encodeAllowedCalldata({ dataStart: FIRST_ARG_OFFSET, value }),
-        chainId,
-      }),
-    );
-    caveatSpecs.push({
-      type: 'allowedCalldata',
-      dataStart: FIRST_ARG_OFFSET,
-      value,
-    });
-  }
-
-  if (validUntil !== undefined) {
-    caveats.push(
-      makeCaveat({
-        type: 'timestamp',
-        terms: encodeTimestamp({ after: 0, before: validUntil }),
-        chainId,
-      }),
-    );
-    caveatSpecs.push({
-      type: 'blockWindow',
-      after: 0n,
-      before: BigInt(validUntil),
-    });
-  }
-
-  const delegation = makeDelegation({
-    delegator,
-    delegate,
-    caveats,
-    chainId,
-    entropy,
+  return buildErc20Grant({
+    ...options,
+    methodName: 'approve',
+    selector: ERC20_APPROVE_SELECTOR,
+    restrictedAddress: options.spender,
   });
-
-  return harden({ delegation, methodName: 'approve', caveatSpecs, token });
 }
 
 /**

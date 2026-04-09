@@ -13,6 +13,11 @@ const harden = globalThis.harden ?? (<T>(value: T): T => value);
 // ---------------------------------------------------------------------------
 
 /**
+ * Byte offset of the first argument in ABI-encoded calldata (after the 4-byte selector).
+ */
+export const FIRST_ARG_OFFSET = 4;
+
+/**
  * Function selector for ERC-20 `transfer(address,uint256)`.
  */
 export const ERC20_TRANSFER_SELECTOR = '0xa9059cbb' as Hex;

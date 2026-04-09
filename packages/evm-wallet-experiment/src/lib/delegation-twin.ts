@@ -2,7 +2,11 @@ import { M } from '@endo/patterns';
 import type { MethodSchema } from '@metamask/kernel-utils';
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 
-import { decodeBalanceOfResult, encodeBalanceOf } from './erc20.ts';
+import {
+  decodeBalanceOfResult,
+  encodeBalanceOf,
+  FIRST_ARG_OFFSET,
+} from './erc20.ts';
 import { GET_BALANCE_SCHEMA, METHOD_CATALOG } from './method-catalog.ts';
 import type { CatalogMethodName } from './method-catalog.ts';
 import type {
@@ -12,13 +16,6 @@ import type {
   Execution,
   Hex,
 } from '../types.ts';
-
-/**
- * Byte offset of the first argument in ABI-encoded calldata (after the
- * 4-byte function selector). An `allowedCalldata` caveat spec at this offset
- * pins the address argument for transfer/approve.
- */
-const FIRST_ARG_OFFSET = 4;
 
 const METHODS_WITH_ADDRESS_ARG: ReadonlySet<string> = new Set([
   'transfer',
@@ -64,9 +61,9 @@ function buildMethodGuard(
   switch (methodName) {
     case 'transfer':
     case 'approve':
-      return M.callWhen(addrGuard, M.scalar()).returns(M.any());
+      return M.callWhen(addrGuard, M.scalar()).returns(M.string());
     case 'call':
-      return M.callWhen(M.string(), M.scalar(), M.string()).returns(M.any());
+      return M.callWhen(M.string(), M.scalar(), M.string()).returns(M.string());
     default:
       throw new Error(`Unknown catalog method: ${String(methodName)}`);
   }
@@ -140,7 +137,7 @@ export function makeDelegationTwin(
   const { grant, redeemFn, readFn } = options;
   const { methodName, caveatSpecs, delegation } = grant;
 
-  const entry = METHOD_CATALOG[methodName as keyof typeof METHOD_CATALOG];
+  const entry = METHOD_CATALOG[methodName as CatalogMethodName];
   if (!entry) {
     throw new Error(`Unknown method in grant: ${methodName}`);
   }
@@ -219,7 +216,7 @@ export function makeDelegationTwin(
       return decodeBalanceOfResult(result);
     };
     schema.getBalance = GET_BALANCE_SCHEMA;
-    methodGuards.getBalance = M.callWhen().returns(M.any());
+    methodGuards.getBalance = M.callWhen().returns(M.bigint());
   }
 
   const interfaceGuard = M.interface(
