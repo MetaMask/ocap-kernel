@@ -58,7 +58,7 @@
     "test:node:spending-limits": "yarn build && node --conditions development test/e2e/run-spending-limits-e2e.mjs",
     "docker:compose": "docker compose -f docker/docker-compose.yml --profile 7702 --profile 4337 --profile relay",
     "docker:compose:interactive": "node docker/run-interactive-compose.mjs",
-    "docker:build": "yarn docker:compose build",
+    "docker:build": "yarn workspace @ocap/monorepo build && yarn docker:compose build",
     "docker:build:force": "yarn docker:compose build --no-cache",
     "docker:ensure-logs": "mkdir -p logs",
     "docker:up": "yarn docker:ensure-logs && yarn docker:compose up",
