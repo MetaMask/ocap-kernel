@@ -46,10 +46,10 @@ async function callVat(socketPath, target, method, args = []) {
 async function callVatExpectError(socketPath, target, method, args = []) {
   const response = await rpc(socketPath, 'queueMessage', [target, method, args]);
   if (response.error) {
-    return JSON.stringify(response.error);
+    return response.error.message;
   }
   await waitUntilQuiescent();
-  return response.result.body;
+  throw new Error(`Expected error but call succeeded: ${JSON.stringify(response.result)}`);
 }
 
 /**
