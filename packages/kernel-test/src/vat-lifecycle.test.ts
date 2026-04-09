@@ -134,9 +134,7 @@ describe('Vat Lifecycle', { timeout: 30_000 }, () => {
     // Try to send a message to the terminated vat's root object — rejects
     await expect(
       kernel.queueMessage(deadRootObject, 'resume', []),
-    ).rejects.toMatchObject({
-      body: expect.stringContaining('[KERNEL:OBJECT_DELETED]'),
-    });
+    ).rejects.toThrow('[KERNEL:OBJECT_DELETED]');
 
     // Verify that messaging works as expected
     expect(await runResume(kernel, liveRootObject)).toBe(

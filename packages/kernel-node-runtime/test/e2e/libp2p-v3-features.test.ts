@@ -241,11 +241,7 @@ describe.sequential('libp2p v3 Features E2E', () => {
             'hello',
             ['Alice'],
           ]),
-        ).rejects.toMatchObject({
-          body: expect.stringContaining(
-            'Message delivery failed after intentional close',
-          ),
-        });
+        ).rejects.toThrow('Message delivery failed after intentional close');
         const elapsed = Date.now() - start;
 
         // Should fail well under the write timeout

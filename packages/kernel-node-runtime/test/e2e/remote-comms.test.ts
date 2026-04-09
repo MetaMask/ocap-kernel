@@ -825,11 +825,9 @@ describe.sequential('Remote Communications E2E', () => {
         kernel2 = restartResult.kernel;
 
         // The message should not have been delivered because we didn't reconnect
-        await expect(messageAfterClose).rejects.toMatchObject({
-          body: expect.stringContaining(
-            'Message delivery failed after intentional close',
-          ),
-        });
+        await expect(messageAfterClose).rejects.toThrow(
+          'Message delivery failed after intentional close',
+        );
       },
       NETWORK_TIMEOUT * 2,
     );
@@ -916,11 +914,7 @@ describe.sequential('Remote Communications E2E', () => {
             'hello',
             ['Alice'],
           ]),
-        ).rejects.toMatchObject({
-          body: expect.stringContaining(
-            'Message delivery failed after intentional close',
-          ),
-        });
+        ).rejects.toThrow('Message delivery failed after intentional close');
 
         // Manually reconnect
         await kernel1.reconnectPeer(peerId2);
@@ -1009,9 +1003,7 @@ describe.sequential('Remote Communications E2E', () => {
             'hello',
             ['Alice'],
           ]),
-        ).rejects.toMatchObject({
-          body: expect.stringMatching(/Remote connection lost/u),
-        });
+        ).rejects.toThrow(/Remote connection lost/u);
       },
       NETWORK_TIMEOUT * 3,
     );
@@ -1064,9 +1056,7 @@ describe.sequential('Remote Communications E2E', () => {
             'hello',
             ['Alice'],
           ]),
-        ).rejects.toMatchObject({
-          body: expect.stringContaining('Remote connection lost'),
-        });
+        ).rejects.toThrow('Remote connection lost');
       },
       NETWORK_TIMEOUT * 2,
     );
