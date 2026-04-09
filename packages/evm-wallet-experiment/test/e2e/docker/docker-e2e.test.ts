@@ -336,11 +336,23 @@ describe('Docker E2E', () => {
           });
           const scriptPath =
             '/app/packages/evm-wallet-experiment/test/e2e/docker/run-delegation-twin-e2e.mjs';
-          const output = dockerExec(
-            kernelServices.away,
-            `node --conditions development ${scriptPath} ${delegationMode} ${homeResult.kref} ${awayResult.kref} ${delegate}`,
-          );
-          expect(output).toContain('All delegation twin tests passed');
+          const logFile = `logs/${kernelServices.away}.log`;
+          let output = '';
+          try {
+            output = dockerExec(
+              kernelServices.away,
+              `node --conditions development ${scriptPath} ${delegationMode} ${homeResult.kref} ${awayResult.kref} ${delegate}`,
+            );
+          } catch (error) {
+            throw new Error(
+              `Delegation twin e2e script failed — see ${logFile}\n` +
+                `${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+          expect(
+            output,
+            `Assertions failed — see ${logFile} and logs/test-results.json`,
+          ).toContain('All delegation twin tests passed');
         }, 180_000);
       });
     },
