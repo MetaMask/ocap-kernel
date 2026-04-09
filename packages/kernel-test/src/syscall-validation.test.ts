@@ -97,9 +97,7 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
     // Try to send message to revoked object — kernel rejects the promise
     await expect(
       kernel.queueMessage(objectKRef, 'getValue', []),
-    ).rejects.toMatchObject({
-      body: expect.stringContaining('[KERNEL:OBJECT_REVOKED]'),
-    });
+    ).rejects.toThrow('[KERNEL:OBJECT_REVOKED]');
     // Verify kernel doesn't crash and exporter vat remains operational
     const exporterStatus = await kernel.queueMessage(exporterKRef, 'noop', []);
     expect(exporterStatus.body).toContain('noop');
@@ -145,9 +143,7 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
     // Send message to revoked object — kernel rejects the promise
     await expect(
       kernel.queueMessage(objectKRef, 'getValue', []),
-    ).rejects.toMatchObject({
-      body: expect.stringContaining('[KERNEL:OBJECT_REVOKED]'),
-    });
+    ).rejects.toThrow('[KERNEL:OBJECT_REVOKED]');
     // Verify exporter vat is still operational
     const exporterStatus = await kernel.queueMessage(exporterKRef, 'noop', []);
     expect(exporterStatus.body).toContain('noop');
@@ -155,9 +151,7 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
     for (let i = 0; i < 5; i++) {
       await expect(
         kernel.queueMessage(objectKRef, 'getValue', []),
-      ).rejects.toMatchObject({
-        body: expect.stringContaining('[KERNEL:OBJECT_REVOKED]'),
-      });
+      ).rejects.toThrow('[KERNEL:OBJECT_REVOKED]');
     }
     // Verify kernel remains stable
     const finalStatus = await kernel.queueMessage(exporterKRef, 'noop', []);
@@ -217,9 +211,7 @@ describe('Syscall Validation & Revoked Objects', { timeout: 30_000 }, () => {
     for (const objectKRef of objectKRefs) {
       await expect(
         kernel.queueMessage(objectKRef, 'getValue', []),
-      ).rejects.toMatchObject({
-        body: expect.stringContaining('[KERNEL:OBJECT_REVOKED]'),
-      });
+      ).rejects.toThrow('[KERNEL:OBJECT_REVOKED]');
     }
 
     // Verify exporter vat is still operational

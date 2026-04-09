@@ -1,5 +1,6 @@
 import type { CapData } from '@endo/marshal';
 import type { KernelDatabase } from '@metamask/kernel-store';
+import { isCapData } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 
 import { IOManager } from './io/IOManager.ts';
@@ -10,8 +11,8 @@ import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import { KernelServiceManager } from './KernelServiceManager.ts';
 import type { KernelService } from './KernelServiceManager.ts';
+import { kslot, kunser } from './liveslots/kernel-marshal.ts';
 import type { SlotValue } from './liveslots/kernel-marshal.ts';
-import { kslot } from './liveslots/kernel-marshal.ts';
 import { OcapURLManager } from './remotes/kernel/OcapURLManager.ts';
 import { RemoteManager } from './remotes/kernel/RemoteManager.ts';
 import type { RemoteCommsOptions } from './remotes/types.ts';
@@ -386,7 +387,14 @@ export class Kernel {
     method: string,
     args: unknown[],
   ): Promise<CapData<KRef>> {
-    return this.#kernelQueue.enqueueMessage(target, method, args);
+    try {
+      return await this.#kernelQueue.enqueueMessage(target, method, args);
+    } catch (rejection) {
+      if (isCapData(rejection)) {
+        throw kunser(rejection as CapData<KRef>);
+      }
+      throw rejection;
+    }
   }
 
   /**

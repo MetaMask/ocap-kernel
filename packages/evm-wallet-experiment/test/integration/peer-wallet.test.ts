@@ -265,11 +265,7 @@ describe.sequential('Peer wallet integration', () => {
         // keys so this should reject, not forward to kernel1.
         await expect(
           kernel2.queueMessage(coordinatorKref2, 'signTransaction', [tx]),
-        ).rejects.toMatchObject({
-          body: expect.stringContaining(
-            'No authority to sign this transaction',
-          ),
-        });
+        ).rejects.toThrow('No authority to sign this transaction');
       },
       NETWORK_TIMEOUT,
     );
@@ -284,9 +280,7 @@ describe.sequential('Peer wallet integration', () => {
           kernel2.queueMessage(coordinatorKref2, 'signMessage', [
             'should fail',
           ]),
-        ).rejects.toMatchObject({
-          body: expect.stringContaining('No authority to sign message'),
-        });
+        ).rejects.toThrow('No authority to sign message');
       },
       NETWORK_TIMEOUT,
     );

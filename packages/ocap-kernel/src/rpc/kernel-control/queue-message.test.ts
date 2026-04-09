@@ -64,7 +64,7 @@ describe('queueMessageHandler', () => {
     expect(result).toStrictEqual(expectedResult);
   });
 
-  it('should propagate errors from kernel.queueMessage', async () => {
+  it('propagates rejections from kernel.queueMessage', async () => {
     const error = new Error('Queue message failed');
     vi.mocked(mockKernel.queueMessage).mockRejectedValueOnce(error);
 

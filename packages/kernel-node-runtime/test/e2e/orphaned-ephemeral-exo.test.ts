@@ -58,9 +58,7 @@ describe('Orphaned ephemeral exo', { timeout: 30_000 }, () => {
         // This is surfaced to the caller as an OBJECT_DELETED kernel error.
         await expect(
           kernel.queueMessage(rootKref, 'useEphemeral', []),
-        ).rejects.toMatchObject({
-          body: expect.stringContaining('[KERNEL:OBJECT_DELETED]'),
-        });
+        ).rejects.toThrow('[KERNEL:OBJECT_DELETED]');
       } finally {
         await kernel.stop();
       }

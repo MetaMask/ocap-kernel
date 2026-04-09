@@ -43,8 +43,6 @@ describe('orphaned ephemeral exo', () => {
     // crank, but the endpoint is gone — so it splats and rejects.
     await expect(
       kernel.queueMessage(rootKref, 'useEphemeral', []),
-    ).rejects.toMatchObject({
-      body: expect.stringContaining('[KERNEL:OBJECT_DELETED]'),
-    });
+    ).rejects.toThrow('[KERNEL:OBJECT_DELETED]');
   });
 });

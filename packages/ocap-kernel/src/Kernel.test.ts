@@ -7,6 +7,7 @@ import type { Mocked, MockInstance } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { Kernel } from './Kernel.ts';
+import { kser } from './liveslots/kernel-marshal.ts';
 import type {
   VatId,
   VatConfig,
@@ -213,6 +214,33 @@ describe('Kernel', () => {
       await kernel.launchSubcluster(makeSingleVatClusterConfig());
       const result = await kernel.queueMessage('ko1', 'hello', []);
       expect(result).toStrictEqual({ body: '{"result":"ok"}', slots: [] });
+    });
+
+    it('deserializes CapData rejections into Errors', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      mocks.KernelQueue.lastInstance.enqueueMessage.mockRejectedValueOnce(
+        kser(new Error('vat rejection message')),
+      );
+      await expect(kernel.queueMessage('ko1', 'hello', [])).rejects.toThrow(
+        'vat rejection message',
+      );
+    });
+
+    it('propagates non-CapData rejections as-is', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      const internalError = new Error('internal kernel error');
+      mocks.KernelQueue.lastInstance.enqueueMessage.mockRejectedValueOnce(
+        internalError,
+      );
+      await expect(kernel.queueMessage('ko1', 'hello', [])).rejects.toThrow(
+        'internal kernel error',
+      );
     });
   });
 
