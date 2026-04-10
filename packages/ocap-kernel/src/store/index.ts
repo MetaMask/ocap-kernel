@@ -286,6 +286,46 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     kdb.rollbackSavepoint(name);
   }
 
+  /**
+   * Read relay entries from storage, auto-migrating from the legacy
+   * `string[]` format if necessary.
+   *
+   * @returns The relay entries.
+   */
+  function getRelayEntries(): RelayEntry[] {
+    const raw = kv.get('knownRelays');
+    if (!raw) {
+      return [];
+    }
+    const parsed: unknown = JSON.parse(raw);
+    Array.isArray(parsed) || Fail`knownRelays must be an array`;
+
+    // Migrate legacy string[] format → RelayEntry[] (persisted back to storage)
+    if (parsed.length > 0 && typeof parsed[0] === 'string') {
+      if (!parsed.every((entry: unknown) => typeof entry === 'string')) {
+        Fail`knownRelays legacy format must be all strings`;
+      }
+      const migrated: RelayEntry[] = (parsed as string[]).map((addr) => ({
+        addr,
+        lastSeen: 0,
+        isBootstrap: false,
+      }));
+      kv.set('knownRelays', JSON.stringify(migrated));
+      return migrated;
+    }
+
+    // New RelayEntry[] format
+    for (const entry of parsed) {
+      (typeof entry === 'object' &&
+        entry !== null &&
+        typeof (entry as RelayEntry).addr === 'string' &&
+        typeof (entry as RelayEntry).lastSeen === 'number' &&
+        typeof (entry as RelayEntry).isBootstrap === 'boolean') ||
+        Fail`knownRelays entries must have addr, lastSeen, isBootstrap`;
+    }
+    return parsed as RelayEntry[];
+  }
+
   return harden({
     ...id,
     ...queue,
@@ -350,45 +390,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     ): void {
       kv.set(key, value);
     },
-    /**
-     * Read relay entries from storage, auto-migrating from the legacy
-     * `string[]` format if necessary.
-     *
-     * @returns The relay entries.
-     */
-    getRelayEntries(): RelayEntry[] {
-      const raw = kv.get('knownRelays');
-      if (!raw) {
-        return [];
-      }
-      const parsed: unknown = JSON.parse(raw);
-      Array.isArray(parsed) || Fail`knownRelays must be an array`;
-
-      // Migrate legacy string[] format → RelayEntry[]
-      if (parsed.length > 0 && typeof parsed[0] === 'string') {
-        if (!parsed.every((entry: unknown) => typeof entry === 'string')) {
-          Fail`knownRelays legacy format must be all strings`;
-        }
-        const migrated: RelayEntry[] = (parsed as string[]).map((addr) => ({
-          addr,
-          lastSeen: 0,
-          isBootstrap: false,
-        }));
-        kv.set('knownRelays', JSON.stringify(migrated));
-        return migrated;
-      }
-
-      // New RelayEntry[] format
-      for (const entry of parsed) {
-        (typeof entry === 'object' &&
-          entry !== null &&
-          typeof (entry as RelayEntry).addr === 'string' &&
-          typeof (entry as RelayEntry).lastSeen === 'number' &&
-          typeof (entry as RelayEntry).isBootstrap === 'boolean') ||
-          Fail`knownRelays entries must have addr, lastSeen, isBootstrap`;
-      }
-      return parsed as RelayEntry[];
-    },
+    getRelayEntries,
 
     /**
      * Persist relay entries to storage.
@@ -405,7 +407,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
      * @returns The relay addresses.
      */
     getKnownRelayAddresses(): string[] {
-      return this.getRelayEntries().map((entry) => entry.addr);
+      return getRelayEntries().map((entry) => entry.addr);
     },
   });
 }

@@ -124,9 +124,10 @@ export async function initRemoteIdentity(
       byAddr.set(addr, { addr, lastSeen: now, isBootstrap: true });
     }
     // Clear bootstrap flag on entries no longer in the current bootstrap set
-    for (const entry of byAddr.values()) {
-      if (entry.isBootstrap && !bootstrapSet.has(entry.addr)) {
-        entry.isBootstrap = false;
+    // (create new objects to avoid mutating potentially-hardened entries)
+    for (const [addr, entry] of byAddr.entries()) {
+      if (entry.isBootstrap && !bootstrapSet.has(addr)) {
+        byAddr.set(addr, { ...entry, isBootstrap: false });
       }
     }
     let merged = [...byAddr.values()];

@@ -591,6 +591,49 @@ describe('remote-comms', () => {
       expect(secondSeen).toBeGreaterThan(firstSeen);
     });
 
+    it('init clears bootstrap flag on relays removed from the bootstrap set', async () => {
+      await initRemoteIdentity(mockKernelStore, {
+        relays: ['/dns4/relayA.example/tcp/443/wss/p2p-circuit'],
+      });
+
+      // Re-init with a different bootstrap set
+      await initRemoteIdentity(mockKernelStore, {
+        relays: ['/dns4/relayB.example/tcp/443/wss/p2p-circuit'],
+      });
+
+      const entries = mockKernelStore.getRelayEntries();
+      expect(
+        entries.find((entry) => entry.addr.includes('relayA'))?.isBootstrap,
+      ).toBe(false);
+      expect(
+        entries.find((entry) => entry.addr.includes('relayB'))?.isBootstrap,
+      ).toBe(true);
+    });
+
+    it('init enforces MAX_KNOWN_RELAYS pool cap', async () => {
+      // Pre-seed MAX_KNOWN_RELAYS learned relays
+      mockKernelStore.setRelayEntries(
+        Array.from({ length: MAX_KNOWN_RELAYS }, (_, i) => ({
+          addr: `/dns4/learned${i}.example/tcp/443/wss/p2p-circuit`,
+          lastSeen: 100,
+          isBootstrap: false,
+        })),
+      );
+
+      const bootstrapRelays = Array.from(
+        { length: 5 },
+        (_, i) => `/dns4/bootstrap${i}.example/tcp/443/wss/p2p-circuit`,
+      );
+      await initRemoteIdentity(mockKernelStore, { relays: bootstrapRelays });
+
+      const entries = mockKernelStore.getRelayEntries();
+      expect(entries).toHaveLength(MAX_KNOWN_RELAYS);
+      // All bootstrap relays must survive
+      for (const addr of bootstrapRelays) {
+        expect(entries.some((entry) => entry.addr === addr)).toBe(true);
+      }
+    });
+
     it('init marks bootstrap relays and preserves learned relays', async () => {
       // Pre-seed a learned relay
       mockKernelStore.setRelayEntries([
