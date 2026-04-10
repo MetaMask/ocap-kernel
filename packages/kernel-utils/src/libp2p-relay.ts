@@ -118,11 +118,16 @@ export async function startRelay(logger: RelayLogger): Promise<Libp2p> {
   libp2p.addEventListener('connection:open', (evt) => {
     const connection = evt.detail;
     const peer = tersePeer(connection.remotePeer);
-    logger.log(`[CONNECTION] New connection from ${peer}`);
     activePeers.add(peer);
+    /*
+    logger.log(`[CONNECTION] New connection from ${peer}`);
     logger.log(`  Remote addr: ${terseAddr(connection.remoteAddr)}`);
     logger.log(`  Direction: ${connection.direction}`);
     logger.log(`  Status: ${connection.status}`);
+    */
+    logger.log(
+      `[CONNECTION] New connection from ${terseAddr(connection.remoteAddr)}`,
+    );
     dumpPeers();
   });
 
@@ -134,6 +139,7 @@ export async function startRelay(logger: RelayLogger): Promise<Libp2p> {
     dumpPeers();
   });
 
+  /*
   // Log peer discovery events
   libp2p.addEventListener('peer:discovery', (evt) => {
     const peerInfo = evt.detail;
@@ -153,6 +159,7 @@ export async function startRelay(logger: RelayLogger): Promise<Libp2p> {
       logger.log(`[RELAY] Peer disconnected: ${tersePeer(peerId)}`);
     });
   }
+  */
 
   await new Promise<void>((resolve) => {
     if (libp2p.status === 'started') {
