@@ -90,7 +90,7 @@ describe('kernel store', () => {
         'getKernelPromise',
         'getKernelPromiseMessageQueue',
         'getKernelServiceKref',
-        'getKnownRelays',
+        'getKnownRelayAddresses',
         'getKpidsToRetire',
         'getNextObjectId',
         'getNextPromiseId',
@@ -105,6 +105,7 @@ describe('kernel store', () => {
         'getReachableAndVatSlot',
         'getReachableFlag',
         'getRefCount',
+        'getRelayEntries',
         'getRemoteIdentityValue',
         'getRemoteIdentityValueRequired',
         'getRemoteInfo',
@@ -157,10 +158,10 @@ describe('kernel store', () => {
         'scheduleReap',
         'setGCActions',
         'setKernelServiceKref',
-        'setKnownRelays',
         'setObjectRefCount',
         'setPendingMessage',
         'setPromiseDecider',
+        'setRelayEntries',
         'setRemoteHighestReceivedSeq',
         'setRemoteIdentityValue',
         'setRemoteInfo',
@@ -523,31 +524,56 @@ describe('kernel store', () => {
     });
   });
 
-  describe('getKnownRelays', () => {
+  describe('relay entries', () => {
     it('returns empty array when no relays are stored', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      expect(ks.getKnownRelays()).toStrictEqual([]);
+      expect(ks.getRelayEntries()).toStrictEqual([]);
+      expect(ks.getKnownRelayAddresses()).toStrictEqual([]);
     });
 
-    it('returns stored relays', () => {
+    it('stores and retrieves relay entries', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      ks.setKnownRelays(['peer1', 'peer2']);
-      expect(ks.getKnownRelays()).toStrictEqual(['peer1', 'peer2']);
+      const entries = [
+        { addr: 'relay1', lastSeen: 100, isBootstrap: true },
+        { addr: 'relay2', lastSeen: 200, isBootstrap: false },
+      ];
+      ks.setRelayEntries(entries);
+      expect(ks.getRelayEntries()).toStrictEqual(entries);
+      expect(ks.getKnownRelayAddresses()).toStrictEqual(['relay1', 'relay2']);
+    });
+
+    it('auto-migrates legacy string[] format to RelayEntry[]', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      mockKernelDatabase.kernelKVStore.set(
+        'knownRelays',
+        JSON.stringify(['peer1', 'peer2']),
+      );
+      const entries = ks.getRelayEntries();
+      expect(entries).toStrictEqual([
+        { addr: 'peer1', lastSeen: 0, isBootstrap: false },
+        { addr: 'peer2', lastSeen: 0, isBootstrap: false },
+      ]);
+      // Migration should persist the new format
+      const raw = mockKernelDatabase.kernelKVStore.get('knownRelays');
+      expect(JSON.parse(raw as string)).toStrictEqual(entries);
     });
 
     it('throws when stored knownRelays is not a JSON array', () => {
       const ks = makeKernelStore(mockKernelDatabase);
       mockKernelDatabase.kernelKVStore.set('knownRelays', '"not-an-array"');
-      expect(() => ks.getKnownRelays()).toThrow(
-        'knownRelays must be an array of strings',
+      expect(() => ks.getRelayEntries()).toThrow(
+        'knownRelays must be an array',
       );
     });
 
-    it('throws when stored knownRelays contains non-string entries', () => {
+    it('throws when relay entries have invalid shape', () => {
       const ks = makeKernelStore(mockKernelDatabase);
-      mockKernelDatabase.kernelKVStore.set('knownRelays', '[1, 2, 3]');
-      expect(() => ks.getKnownRelays()).toThrow(
-        'knownRelays must be an array of strings',
+      mockKernelDatabase.kernelKVStore.set(
+        'knownRelays',
+        JSON.stringify([{ addr: 'ok', lastSeen: 'bad', isBootstrap: false }]),
+      );
+      expect(() => ks.getRelayEntries()).toThrow(
+        'knownRelays entries must have addr, lastSeen, isBootstrap',
       );
     });
   });

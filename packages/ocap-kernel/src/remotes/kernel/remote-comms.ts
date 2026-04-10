@@ -24,6 +24,12 @@ export type OcapURLParts = {
   hints: string[];
 };
 
+/** Maximum number of relay hints embedded in a single OCAP URL. */
+export const MAX_URL_RELAY_HINTS = 3;
+
+/** Maximum number of relay entries stored in the kernel's relay pool. */
+export const MAX_KNOWN_RELAYS = 20;
+
 /**
  * Break down an ocap URL string into its constituent parts.
  *
@@ -109,7 +115,30 @@ export async function initRemoteIdentity(
   const relays = options?.relays ?? [];
   const mnemonic = options?.mnemonic;
   if (relays.length > 0) {
-    kernelStore.setKnownRelays(relays);
+    const now = Date.now();
+    const bootstrapSet = new Set(relays);
+    // Merge with existing entries: mark bootstrap relays, preserve learned ones
+    const existing = kernelStore.getRelayEntries();
+    const byAddr = new Map(existing.map((entry) => [entry.addr, entry]));
+    for (const addr of relays) {
+      byAddr.set(addr, { addr, lastSeen: now, isBootstrap: true });
+    }
+    // Clear bootstrap flag on entries no longer in the current bootstrap set
+    for (const entry of byAddr.values()) {
+      if (entry.isBootstrap && !bootstrapSet.has(entry.addr)) {
+        entry.isBootstrap = false;
+      }
+    }
+    let merged = [...byAddr.values()];
+    // Enforce pool cap: keep all bootstrap, then newest non-bootstrap
+    if (merged.length > MAX_KNOWN_RELAYS) {
+      const bootstrap = merged.filter((entry) => entry.isBootstrap);
+      const nonBootstrap = merged
+        .filter((entry) => !entry.isBootstrap)
+        .sort((a, b) => b.lastSeen - a.lastSeen);
+      merged = [...bootstrap, ...nonBootstrap].slice(0, MAX_KNOWN_RELAYS);
+    }
+    kernelStore.setRelayEntries(merged);
   }
 
   /* eslint-disable no-param-reassign */
@@ -171,15 +200,26 @@ export async function initRemoteIdentity(
     const encodedKref = encoder.encode(paddedKref);
     const rawOid = await cipher.encrypt(encodedKref, ocapURLKey);
     const oid = base58btc.encode(rawOid);
-    const currentRelays = kernelStore.getKnownRelays();
-    const relaySuffix =
-      currentRelays.length > 0 ? `,${currentRelays.join(',')}` : '';
+    const entries = kernelStore.getRelayEntries();
+    // Select top relays: bootstrap first, then most recently seen
+    const sorted = [...entries].sort((a, b) => {
+      if (a.isBootstrap !== b.isBootstrap) {
+        return a.isBootstrap ? -1 : 1;
+      }
+      return b.lastSeen - a.lastSeen;
+    });
+    const selected = sorted
+      .slice(0, MAX_URL_RELAY_HINTS)
+      .map((entry) => entry.addr);
+    const relaySuffix = selected.length > 0 ? `,${selected.join(',')}` : '';
     const ocapURL = `ocap:${oid}@${peerId}${relaySuffix}`;
     return ocapURL;
   }
 
   /**
-   * Add relay addresses to the kernel's known relay pool, deduplicating.
+   * Add relay addresses to the kernel's known relay pool.
+   * Deduplicates, updates lastSeen on re-observation, and enforces
+   * {@link MAX_KNOWN_RELAYS} by evicting the oldest non-bootstrap entries.
    *
    * @param newRelays - Relay multiaddrs to add.
    */
@@ -187,18 +227,42 @@ export async function initRemoteIdentity(
     if (newRelays.length === 0) {
       return;
     }
-    const existing = kernelStore.getKnownRelays();
-    const merged = new Set(existing);
+    const now = Date.now();
+    const existing = kernelStore.getRelayEntries();
+    const byAddr = new Map(existing.map((entry) => [entry.addr, entry]));
     let changed = false;
-    for (const relay of newRelays) {
-      if (!merged.has(relay)) {
-        merged.add(relay);
+
+    for (const addr of newRelays) {
+      const entry = byAddr.get(addr);
+      if (entry) {
+        // Update lastSeen on re-observation (create new object to avoid
+        // mutating potentially-hardened deserialized entries)
+        if (entry.lastSeen !== now) {
+          byAddr.set(addr, { ...entry, lastSeen: now });
+          changed = true;
+        }
+      } else {
+        byAddr.set(addr, { addr, lastSeen: now, isBootstrap: false });
         changed = true;
       }
     }
-    if (changed) {
-      kernelStore.setKnownRelays([...merged]);
+
+    if (!changed) {
+      return;
     }
+
+    let entries = [...byAddr.values()];
+
+    // Enforce pool cap by evicting oldest non-bootstrap entries
+    if (entries.length > MAX_KNOWN_RELAYS) {
+      const bootstrap = entries.filter((entry) => entry.isBootstrap);
+      const nonBootstrap = entries
+        .filter((entry) => !entry.isBootstrap)
+        .sort((a, b) => b.lastSeen - a.lastSeen);
+      entries = [...bootstrap, ...nonBootstrap].slice(0, MAX_KNOWN_RELAYS);
+    }
+
+    kernelStore.setRelayEntries(entries);
   }
 
   /**
@@ -231,7 +295,7 @@ export async function initRemoteIdentity(
   return {
     identity: { getPeerId, issueOcapURL, redeemLocalOcapURL, addKnownRelays },
     keySeed,
-    knownRelays: kernelStore.getKnownRelays(),
+    knownRelays: kernelStore.getKnownRelayAddresses(),
   };
 }
 

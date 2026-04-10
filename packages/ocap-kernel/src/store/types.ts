@@ -47,3 +47,15 @@ export type VatCleanupWork = {
   promises: number;
   kv: number;
 };
+
+/**
+ * A relay entry with metadata for prioritized selection and bounded storage.
+ */
+export type RelayEntry = {
+  /** Relay multiaddr string. */
+  addr: string;
+  /** Epoch ms when the relay was last added or re-observed. */
+  lastSeen: number;
+  /** True if provided at kernel initialization (prioritized during eviction). */
+  isBootstrap: boolean;
+};

@@ -86,7 +86,7 @@ import { getRevocationMethods } from './methods/revocation.ts';
 import { getSubclusterMethods } from './methods/subclusters.ts';
 import { getTranslators } from './methods/translators.ts';
 import { getVatMethods } from './methods/vat.ts';
-import type { StoreContext } from './types.ts';
+import type { RelayEntry, StoreContext } from './types.ts';
 
 /**
  * Create a new KernelStore object wrapped around a raw kernel database. The
@@ -350,21 +350,65 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     ): void {
       kv.set(key, value);
     },
-    getKnownRelays(): string[] {
+    /**
+     * Read relay entries from storage, auto-migrating from the legacy
+     * `string[]` format if necessary.
+     *
+     * @returns The relay entries.
+     */
+    getRelayEntries(): RelayEntry[] {
       const raw = kv.get('knownRelays');
       if (!raw) {
         return [];
       }
       const parsed: unknown = JSON.parse(raw);
-      (Array.isArray(parsed) &&
-        parsed.every((entry: unknown) => typeof entry === 'string')) ||
-        Fail`knownRelays must be an array of strings`;
-      return parsed as string[];
+      Array.isArray(parsed) || Fail`knownRelays must be an array`;
+
+      // Migrate legacy string[] format → RelayEntry[]
+      if (parsed.length > 0 && typeof parsed[0] === 'string') {
+        if (!parsed.every((entry: unknown) => typeof entry === 'string')) {
+          Fail`knownRelays legacy format must be all strings`;
+        }
+        const migrated: RelayEntry[] = (parsed as string[]).map((addr) => ({
+          addr,
+          lastSeen: 0,
+          isBootstrap: false,
+        }));
+        kv.set('knownRelays', JSON.stringify(migrated));
+        return migrated;
+      }
+
+      // New RelayEntry[] format
+      for (const entry of parsed) {
+        (typeof entry === 'object' &&
+          entry !== null &&
+          typeof (entry as RelayEntry).addr === 'string' &&
+          typeof (entry as RelayEntry).lastSeen === 'number' &&
+          typeof (entry as RelayEntry).isBootstrap === 'boolean') ||
+          Fail`knownRelays entries must have addr, lastSeen, isBootstrap`;
+      }
+      return parsed as RelayEntry[];
     },
-    setKnownRelays(relays: string[]): void {
-      kv.set('knownRelays', JSON.stringify(relays));
+
+    /**
+     * Persist relay entries to storage.
+     *
+     * @param entries - The relay entries to persist.
+     */
+    setRelayEntries(entries: RelayEntry[]): void {
+      kv.set('knownRelays', JSON.stringify(entries));
+    },
+
+    /**
+     * Convenience: return only relay addresses (for ConnectionFactory, etc.).
+     *
+     * @returns The relay addresses.
+     */
+    getKnownRelayAddresses(): string[] {
+      return this.getRelayEntries().map((entry) => entry.addr);
     },
   });
 }
 
 export type KernelStore = ReturnType<typeof makeKernelStore>;
+export type { RelayEntry } from './types.ts';
