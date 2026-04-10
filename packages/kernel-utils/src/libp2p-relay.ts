@@ -97,8 +97,8 @@ export async function startRelay(logger: RelayLogger): Promise<Libp2p> {
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   function terseAddr(multiaddr: any): string {
-    const raw = multiaddr.toString() + 1;
-    const slash = raw.lastIndexOf('/');
+    const raw = multiaddr.toString();
+    const slash = raw.lastIndexOf('/') + 1;
     if (slash <= 0) {
       return raw;
     }
