@@ -19,13 +19,31 @@ import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import { startRpcSocketServer } from '@metamask/kernel-node-runtime/daemon';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Kernel } from '@metamask/ocap-kernel';
-import { mkdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  createWriteStream,
+  mkdirSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname } from 'node:path';
 
 const NAME = process.env.SERVICE_NAME ?? 'kernel';
 const { SOCKET_PATH } = process.env;
 const QUIC_ADDR = process.env.QUIC_LISTEN_ADDRESS;
 const { READY_FILE } = process.env;
+
+// Tee stdout/stderr to a file so logs are accessible on the host via the
+// bind-mounted logs directory even after the container exits.
+mkdirSync('/logs', { recursive: true });
+const logStream = createWriteStream(`/logs/${NAME}.log`, { flags: 'w' });
+for (const stream of [process.stdout, process.stderr]) {
+  const original = stream.write.bind(stream);
+  // eslint-disable-next-line jsdoc/require-jsdoc
+  stream.write = (chunk, ...args) => {
+    logStream.write(chunk);
+    return original(chunk, ...args);
+  };
+}
 
 if (!SOCKET_PATH) {
   console.error(`[${NAME}] FATAL: SOCKET_PATH is required`);

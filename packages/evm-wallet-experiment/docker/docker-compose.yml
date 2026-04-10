@@ -13,7 +13,7 @@ x-kernel-standard: &kernel-standard
   networks: [ocap-e2e]
   volumes:
     - ocap-run:/run/ocap
-    - ocap-logs:/logs
+    - ../logs:/logs
   entrypoint:
     - node
     - '--conditions'
@@ -46,7 +46,7 @@ services:
     ports: ['8545:8545']
     volumes:
       - ocap-run:/run/ocap
-      - ocap-logs:/logs
+      - ../logs:/logs
     healthcheck:
       test: ['CMD', 'test', '-f', '/run/ocap/contracts.json']
       interval: 3s
@@ -211,4 +211,3 @@ networks:
 
 volumes:
   ocap-run:
-  ocap-logs:
