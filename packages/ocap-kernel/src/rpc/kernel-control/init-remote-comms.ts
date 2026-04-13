@@ -1,4 +1,5 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
+import { ifDefined } from '@metamask/kernel-utils';
 import {
   object,
   literal,
@@ -59,13 +60,11 @@ export const initRemoteCommsHandler: Handler<
   ...initRemoteCommsSpec,
   hooks: { kernel: true },
   implementation: async ({ kernel }, params): Promise<null> => {
-    // Build options from only the defined RPC params. Superstruct has
-    // already validated the shape; stripping undefined keeps the bag sparse.
-    // Note: sensitive fields like `mnemonic` and internal fields like
-    // `directTransports` are intentionally excluded from the RPC struct.
-    const options: RemoteCommsOptions = Object.fromEntries(
-      Object.entries(params).filter(([, value]) => value !== undefined),
-    );
+    // Strip undefined values so the options bag is sparse. Superstruct has
+    // already validated the shape. Sensitive fields like `mnemonic` and
+    // internal fields like `directTransports` are intentionally excluded
+    // from the RPC struct.
+    const options: RemoteCommsOptions = ifDefined(params);
     await kernel.initRemoteComms(options);
     return null;
   },
