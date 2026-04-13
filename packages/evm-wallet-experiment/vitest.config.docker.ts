@@ -14,5 +14,10 @@ export default defineConfig({
     testTimeout: 180_000,
     // No setupFiles — we need real fetch (not mocked) and no lockdown shims.
     setupFiles: [],
+    // Write structured results to logs/ so agents and CI can inspect failures
+    // without parsing terminal output. Kernel service logs land alongside in
+    // logs/<service-name>.log via the entrypoint tee.
+    reporters: ['default', 'json'],
+    outputFile: 'logs/test-results.json',
   },
 });
