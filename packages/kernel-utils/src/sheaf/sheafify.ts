@@ -21,6 +21,7 @@ import {
 import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
 
 import { stringify } from '../stringify.ts';
+import { driveLift } from './drive.ts';
 import { collectSheafGuard } from './guard.ts';
 import type { MethodGuardPayload } from './guard.ts';
 import { evaluateMetadata, resolveMetaDataSpec } from './metadata.ts';
@@ -158,6 +159,23 @@ const asyncifyMethodGuards = (
   return asyncMethodGuards;
 };
 
+/**
+ * Invoke a method on a section exo, throwing if the handler is missing.
+ *
+ * @param exo - The section exo to invoke.
+ * @param method - The method name to call.
+ * @param args - The positional arguments.
+ * @returns The synchronous return value of the method (typically a Promise).
+ */
+const invokeExo = (exo: Section, method: string, args: unknown[]): unknown => {
+  const obj = exo as Record<string, (...a: unknown[]) => unknown>;
+  const fn = obj[method];
+  if (fn === undefined) {
+    throw new Error(`Section has guard for '${method}' but no handler`);
+  }
+  return fn.call(obj, ...args);
+};
+
 type Grant = {
   exo: Section;
   guard: InterfaceGuard;
@@ -221,32 +239,45 @@ export const sheafify = <
           metadata: evaluateMetadata(section.spec, args),
         }),
       );
-      let winner: EvaluatedSection<MetaData>;
       switch (evaluatedStalk.length) {
         case 0:
           throw new Error(`No section covers ${method}(${stringify(args, 0)})`);
         case 1:
-          winner = evaluatedStalk[0] as EvaluatedSection<MetaData>;
-          break;
+          return invokeExo(
+            (evaluatedStalk[0] as EvaluatedSection<MetaData>).exo,
+            method,
+            args,
+          );
         default: {
           const collapsed = collapseEquivalent(evaluatedStalk);
           if (collapsed.length === 1) {
-            winner = collapsed[0] as EvaluatedSection<MetaData>;
-            break;
+            return invokeExo(
+              (collapsed[0] as EvaluatedSection<MetaData>).exo,
+              method,
+              args,
+            );
           }
           const { constraints, stripped } = decomposeMetadata(collapsed);
-          const index = await lift(stripped, { method, args, constraints });
-          winner = collapsed[index] as EvaluatedSection<MetaData>;
-          break;
+          const strippedToCollapsed = new Map(
+            stripped.map((strippedGerm, i) => [
+              strippedGerm,
+              collapsed[i] as EvaluatedSection<MetaData>,
+            ]),
+          );
+          return driveLift(
+            lift,
+            stripped,
+            { method, args, constraints },
+            async (germ) => {
+              const section = strippedToCollapsed.get(germ);
+              if (section === undefined) {
+                throw new Error('lift yielded an unknown germ');
+              }
+              return invokeExo(section.exo, method, args);
+            },
+          );
         }
       }
-
-      const obj = winner.exo as Record<string, (...a: unknown[]) => unknown>;
-      const fn = obj[method];
-      if (fn === undefined) {
-        throw new Error(`Section has guard for '${method}' but no handler`);
-      }
-      return fn.call(obj, ...args);
     };
 
     const handlers: Record<string, (...args: unknown[]) => Promise<unknown>> =
