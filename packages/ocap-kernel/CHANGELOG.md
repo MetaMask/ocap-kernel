@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Bound relay hints in OCAP URLs to a maximum of 3 and cap the relay pool at 20 entries with eviction of oldest non-bootstrap relays ([#929](https://github.com/MetaMask/ocap-kernel/pull/929))
+
 ### Fixed
 
 - Deserialize CapData rejections in `Kernel.queueMessage` so vat errors surface as plain `Error` objects to all callers ([#928](https://github.com/MetaMask/ocap-kernel/pull/928))

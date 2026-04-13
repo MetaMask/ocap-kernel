@@ -90,7 +90,7 @@ describe('kernel store', () => {
         'getKernelPromise',
         'getKernelPromiseMessageQueue',
         'getKernelServiceKref',
-        'getKnownRelays',
+        'getKnownRelayAddresses',
         'getKpidsToRetire',
         'getNextObjectId',
         'getNextPromiseId',
@@ -105,6 +105,7 @@ describe('kernel store', () => {
         'getReachableAndVatSlot',
         'getReachableFlag',
         'getRefCount',
+        'getRelayEntries',
         'getRemoteIdentityValue',
         'getRemoteIdentityValueRequired',
         'getRemoteInfo',
@@ -157,10 +158,10 @@ describe('kernel store', () => {
         'scheduleReap',
         'setGCActions',
         'setKernelServiceKref',
-        'setKnownRelays',
         'setObjectRefCount',
         'setPendingMessage',
         'setPromiseDecider',
+        'setRelayEntries',
         'setRemoteHighestReceivedSeq',
         'setRemoteIdentityValue',
         'setRemoteInfo',
@@ -520,35 +521,6 @@ describe('kernel store', () => {
       const preserved = ks.provideIncarnationId();
 
       expect(preserved).toBe(original);
-    });
-  });
-
-  describe('getKnownRelays', () => {
-    it('returns empty array when no relays are stored', () => {
-      const ks = makeKernelStore(mockKernelDatabase);
-      expect(ks.getKnownRelays()).toStrictEqual([]);
-    });
-
-    it('returns stored relays', () => {
-      const ks = makeKernelStore(mockKernelDatabase);
-      ks.setKnownRelays(['peer1', 'peer2']);
-      expect(ks.getKnownRelays()).toStrictEqual(['peer1', 'peer2']);
-    });
-
-    it('throws when stored knownRelays is not a JSON array', () => {
-      const ks = makeKernelStore(mockKernelDatabase);
-      mockKernelDatabase.kernelKVStore.set('knownRelays', '"not-an-array"');
-      expect(() => ks.getKnownRelays()).toThrow(
-        'knownRelays must be an array of strings',
-      );
-    });
-
-    it('throws when stored knownRelays contains non-string entries', () => {
-      const ks = makeKernelStore(mockKernelDatabase);
-      mockKernelDatabase.kernelKVStore.set('knownRelays', '[1, 2, 3]');
-      expect(() => ks.getKnownRelays()).toThrow(
-        'knownRelays must be an array of strings',
-      );
     });
   });
 });

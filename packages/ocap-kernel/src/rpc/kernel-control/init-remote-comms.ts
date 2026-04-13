@@ -1,4 +1,5 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
+import { ifDefined } from '@metamask/kernel-utils';
 import {
   object,
   literal,
@@ -19,6 +20,8 @@ const initRemoteCommsParamsStruct = object({
   directListenAddresses: optional(array(string())),
   maxRetryAttempts: optional(min(integer(), 0)),
   maxQueue: optional(min(integer(), 0)),
+  maxUrlRelayHints: optional(min(integer(), 1)),
+  maxKnownRelays: optional(min(integer(), 1)),
   allowedWsHosts: optional(array(string())),
 });
 
@@ -57,22 +60,11 @@ export const initRemoteCommsHandler: Handler<
   ...initRemoteCommsSpec,
   hooks: { kernel: true },
   implementation: async ({ kernel }, params): Promise<null> => {
-    const options: RemoteCommsOptions = {};
-    if (params.relays !== undefined) {
-      options.relays = params.relays;
-    }
-    if (params.directListenAddresses !== undefined) {
-      options.directListenAddresses = params.directListenAddresses;
-    }
-    if (params.maxRetryAttempts !== undefined) {
-      options.maxRetryAttempts = params.maxRetryAttempts;
-    }
-    if (params.maxQueue !== undefined) {
-      options.maxQueue = params.maxQueue;
-    }
-    if (params.allowedWsHosts !== undefined) {
-      options.allowedWsHosts = params.allowedWsHosts;
-    }
+    // Strip undefined values so the options bag is sparse. Superstruct has
+    // already validated the shape. Sensitive fields like `mnemonic` and
+    // internal fields like `directTransports` are intentionally excluded
+    // from the RPC struct.
+    const options: RemoteCommsOptions = ifDefined(params);
     await kernel.initRemoteComms(options);
     return null;
   },

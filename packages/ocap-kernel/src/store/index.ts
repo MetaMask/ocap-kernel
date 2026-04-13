@@ -64,7 +64,6 @@
  *   kernelService.${serviceName} = ${koid}   // kref of kernel service object ${serviceName}
  */
 
-import { Fail } from '@endo/errors';
 import type { KernelDatabase, KVStore, VatStore } from '@metamask/kernel-store';
 import { Logger } from '@metamask/logger';
 
@@ -81,6 +80,7 @@ import { getPromiseMethods } from './methods/promise.ts';
 import { getQueueMethods } from './methods/queue.ts';
 import { getReachableMethods } from './methods/reachable.ts';
 import { getRefCountMethods } from './methods/refcount.ts';
+import { getRelayMethods } from './methods/relay.ts';
 import { getRemoteMethods } from './methods/remote.ts';
 import { getRevocationMethods } from './methods/revocation.ts';
 import { getSubclusterMethods } from './methods/subclusters.ts';
@@ -172,6 +172,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
   const crank = getCrankMethods(context, kdb);
   const subclusters = getSubclusterMethods(context);
   const activity = getActivityMethods(kv);
+  const relay = getRelayMethods({ kv, logger: context.logger });
 
   /**
    * Create a new VatStore for a vat.
@@ -303,6 +304,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     ...crank,
     ...subclusters,
     ...activity,
+    ...relay,
     makeVatStore,
     deleteVat,
     clear,
@@ -332,39 +334,8 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     deleteKernelServiceKref(name: string): void {
       kv.delete(`kernelService.${name}`);
     },
-
-    // Remote identity
-    getRemoteIdentityValue(
-      key: 'peerId' | 'keySeed' | 'ocapURLKey',
-    ): string | undefined {
-      return kv.get(key);
-    },
-    getRemoteIdentityValueRequired(
-      key: 'peerId' | 'keySeed' | 'ocapURLKey',
-    ): string {
-      return kv.getRequired(key);
-    },
-    setRemoteIdentityValue(
-      key: 'peerId' | 'keySeed' | 'ocapURLKey',
-      value: string,
-    ): void {
-      kv.set(key, value);
-    },
-    getKnownRelays(): string[] {
-      const raw = kv.get('knownRelays');
-      if (!raw) {
-        return [];
-      }
-      const parsed: unknown = JSON.parse(raw);
-      (Array.isArray(parsed) &&
-        parsed.every((entry: unknown) => typeof entry === 'string')) ||
-        Fail`knownRelays must be an array of strings`;
-      return parsed as string[];
-    },
-    setKnownRelays(relays: string[]): void {
-      kv.set('knownRelays', JSON.stringify(relays));
-    },
   });
 }
 
 export type KernelStore = ReturnType<typeof makeKernelStore>;
+export type { RelayEntry } from './types.ts';

@@ -50,12 +50,38 @@ describe('initRemoteCommsHandler', () => {
     expect(result).toBeNull();
   });
 
+  it('passes maxUrlRelayHints option', async () => {
+    const result = await initRemoteCommsHandler.implementation(
+      { kernel: mockKernel },
+      { maxUrlRelayHints: 5 },
+    );
+
+    expect(mockKernel.initRemoteComms).toHaveBeenCalledWith({
+      maxUrlRelayHints: 5,
+    });
+    expect(result).toBeNull();
+  });
+
+  it('passes maxKnownRelays option', async () => {
+    const result = await initRemoteCommsHandler.implementation(
+      { kernel: mockKernel },
+      { maxKnownRelays: 30 },
+    );
+
+    expect(mockKernel.initRemoteComms).toHaveBeenCalledWith({
+      maxKnownRelays: 30,
+    });
+    expect(result).toBeNull();
+  });
+
   it('passes all options', async () => {
     const params = {
       relays: ['relay1'],
       directListenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
       maxRetryAttempts: 5,
       maxQueue: 100,
+      maxUrlRelayHints: 3,
+      maxKnownRelays: 20,
     };
 
     const result = await initRemoteCommsHandler.implementation(
@@ -68,6 +94,8 @@ describe('initRemoteCommsHandler', () => {
       directListenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
       maxRetryAttempts: 5,
       maxQueue: 100,
+      maxUrlRelayHints: 3,
+      maxKnownRelays: 20,
     });
     expect(result).toBeNull();
   });
@@ -105,6 +133,36 @@ describe('initRemoteCommsHandler', () => {
       'rejects invalid maxQueue value: %s',
       (value) => {
         expect(is({ maxQueue: value }, initRemoteCommsSpec.params)).toBe(false);
+      },
+    );
+
+    it.each([1, 3, 10])('accepts valid maxUrlRelayHints value: %s', (value) => {
+      expect(is({ maxUrlRelayHints: value }, initRemoteCommsSpec.params)).toBe(
+        true,
+      );
+    });
+
+    it.each([0, -1, -100, 1.5, 3.14])(
+      'rejects invalid maxUrlRelayHints value: %s',
+      (value) => {
+        expect(
+          is({ maxUrlRelayHints: value }, initRemoteCommsSpec.params),
+        ).toBe(false);
+      },
+    );
+
+    it.each([1, 20, 100])('accepts valid maxKnownRelays value: %s', (value) => {
+      expect(is({ maxKnownRelays: value }, initRemoteCommsSpec.params)).toBe(
+        true,
+      );
+    });
+
+    it.each([0, -1, -100, 1.5, 3.14])(
+      'rejects invalid maxKnownRelays value: %s',
+      (value) => {
+        expect(is({ maxKnownRelays: value }, initRemoteCommsSpec.params)).toBe(
+          false,
+        );
       },
     );
   });
