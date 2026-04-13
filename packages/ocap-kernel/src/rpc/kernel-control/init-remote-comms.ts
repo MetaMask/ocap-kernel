@@ -19,6 +19,8 @@ const initRemoteCommsParamsStruct = object({
   directListenAddresses: optional(array(string())),
   maxRetryAttempts: optional(min(integer(), 0)),
   maxQueue: optional(min(integer(), 0)),
+  maxUrlRelayHints: optional(min(integer(), 1)),
+  maxKnownRelays: optional(min(integer(), 1)),
   allowedWsHosts: optional(array(string())),
 });
 
@@ -69,6 +71,12 @@ export const initRemoteCommsHandler: Handler<
     }
     if (params.maxQueue !== undefined) {
       options.maxQueue = params.maxQueue;
+    }
+    if (params.maxUrlRelayHints !== undefined) {
+      options.maxUrlRelayHints = params.maxUrlRelayHints;
+    }
+    if (params.maxKnownRelays !== undefined) {
+      options.maxKnownRelays = params.maxKnownRelays;
     }
     if (params.allowedWsHosts !== undefined) {
       options.allowedWsHosts = params.allowedWsHosts;

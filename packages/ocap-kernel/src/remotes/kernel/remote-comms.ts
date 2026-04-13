@@ -5,7 +5,7 @@ import { toHex, fromHex } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import { base58btc } from 'multiformats/bases/base58';
 
-import type { KernelStore } from '../../store/index.ts';
+import type { KernelStore, RelayEntry } from '../../store/index.ts';
 import { insistKRef } from '../../types.ts';
 import type { KRef, PlatformServices } from '../../types.ts';
 import { mnemonicToSeed } from '../../utils/bip39.ts';
@@ -24,11 +24,38 @@ export type OcapURLParts = {
   hints: string[];
 };
 
-/** Maximum number of relay hints embedded in a single OCAP URL. */
-export const MAX_URL_RELAY_HINTS = 3;
+/**
+ * Default maximum number of relay hints embedded in a single OCAP URL.
+ * 3 balances URL length against connectivity resilience — most relay
+ * topologies have fewer than 3 distinct relays available to a peer.
+ */
+export const DEFAULT_MAX_URL_RELAY_HINTS = 3;
 
-/** Maximum number of relay entries stored in the kernel's relay pool. */
-export const MAX_KNOWN_RELAYS = 20;
+/**
+ * Default maximum relay entries stored in the kernel's relay pool.
+ * 20 bounds storage overhead while accommodating typical bootstrap sets
+ * (2–5) plus learned relays discovered through peer exchange.
+ */
+export const DEFAULT_MAX_KNOWN_RELAYS = 20;
+
+/**
+ * Enforce the relay pool cap by keeping all bootstrap entries and the newest
+ * non-bootstrap entries, up to `cap`.
+ *
+ * @param entries - The full set of relay entries.
+ * @param cap - The maximum pool size.
+ * @returns The entries trimmed to the pool cap.
+ */
+function enforcePoolCap(entries: RelayEntry[], cap: number): RelayEntry[] {
+  if (entries.length <= cap) {
+    return entries;
+  }
+  const bootstrap = entries.filter((entry) => entry.isBootstrap);
+  const nonBootstrap = entries
+    .filter((entry) => !entry.isBootstrap)
+    .sort((a, b) => b.lastSeen - a.lastSeen);
+  return [...bootstrap, ...nonBootstrap].slice(0, cap);
+}
 
 /**
  * Break down an ocap URL string into its constituent parts.
@@ -92,15 +119,25 @@ async function generateKeyInfo(seedString?: string): Promise<[string, string]> {
  *
  * @param kernelStore - The kernel store, for storing persistent key info.
  * @param options - Options for identity initialization.
- * @param options.relays - Relay addresses to embed in issued OCAP URLs.
+ * @param options.relays - Bootstrap relay addresses. These are merged into
+ *   the relay pool, marked as bootstrap (prioritized during eviction and URL
+ *   selection), and persisted. Relays previously marked as bootstrap that are
+ *   no longer in this list have their bootstrap flag cleared.
  * @param options.mnemonic - BIP39 mnemonic for seed recovery.
+ * @param options.maxUrlRelayHints - Cap on relay hints per OCAP URL.
+ * @param options.maxKnownRelays - Cap on the stored relay pool.
  * @param logger - The logger to use.
  * @param keySeed - Optional seed for key generation.
  * @returns the identity object, the key seed, and known relays.
  */
 export async function initRemoteIdentity(
   kernelStore: KernelStore,
-  options?: { relays?: string[] | undefined; mnemonic?: string | undefined },
+  options?: {
+    relays?: string[] | undefined;
+    mnemonic?: string | undefined;
+    maxUrlRelayHints?: number | undefined;
+    maxKnownRelays?: number | undefined;
+  },
   logger?: Logger,
   keySeed?: string,
 ): Promise<{
@@ -114,13 +151,26 @@ export async function initRemoteIdentity(
   const decoder = new TextDecoder();
   const relays = options?.relays ?? [];
   const mnemonic = options?.mnemonic;
+  const maxUrlRelayHints =
+    options?.maxUrlRelayHints ?? DEFAULT_MAX_URL_RELAY_HINTS;
+  const maxKnownRelays = options?.maxKnownRelays ?? DEFAULT_MAX_KNOWN_RELAYS;
+
   if (relays.length > 0) {
+    // Date.now() is available under SES lockdown (on the intrinsics allow-list).
     const now = Date.now();
     const bootstrapSet = new Set(relays);
+
+    if (relays.length > maxKnownRelays) {
+      logger?.log(
+        `relay init: bootstrap relay count (${relays.length}) exceeds maxKnownRelays (${maxKnownRelays}); pool will be truncated`,
+      );
+    }
+
     // Merge with existing entries: mark bootstrap relays, preserve learned ones
     const existing = kernelStore.getRelayEntries();
     const byAddr = new Map(existing.map((entry) => [entry.addr, entry]));
     for (const addr of relays) {
+      // Bootstrap relays always get a fresh lastSeen timestamp on (re-)init
       byAddr.set(addr, { addr, lastSeen: now, isBootstrap: true });
     }
     // Clear bootstrap flag on entries no longer in the current bootstrap set
@@ -130,14 +180,12 @@ export async function initRemoteIdentity(
         byAddr.set(addr, { ...entry, isBootstrap: false });
       }
     }
-    let merged = [...byAddr.values()];
-    // Enforce pool cap: keep all bootstrap, then newest non-bootstrap
-    if (merged.length > MAX_KNOWN_RELAYS) {
-      const bootstrap = merged.filter((entry) => entry.isBootstrap);
-      const nonBootstrap = merged
-        .filter((entry) => !entry.isBootstrap)
-        .sort((a, b) => b.lastSeen - a.lastSeen);
-      merged = [...bootstrap, ...nonBootstrap].slice(0, MAX_KNOWN_RELAYS);
+    const preCapCount = byAddr.size;
+    const merged = enforcePoolCap([...byAddr.values()], maxKnownRelays);
+    if (merged.length < preCapCount) {
+      logger?.log(
+        `relay init: evicted ${preCapCount - merged.length} relays to enforce pool cap (${maxKnownRelays})`,
+      );
     }
     kernelStore.setRelayEntries(merged);
   }
@@ -202,7 +250,8 @@ export async function initRemoteIdentity(
     const rawOid = await cipher.encrypt(encodedKref, ocapURLKey);
     const oid = base58btc.encode(rawOid);
     const entries = kernelStore.getRelayEntries();
-    // Select top relays: bootstrap first, then most recently seen
+    // Select top relays: bootstrap first (operator-configured, most reliable),
+    // then most recently seen (likeliest to be online)
     const sorted = [...entries].sort((a, b) => {
       if (a.isBootstrap !== b.isBootstrap) {
         return a.isBootstrap ? -1 : 1;
@@ -210,7 +259,7 @@ export async function initRemoteIdentity(
       return b.lastSeen - a.lastSeen;
     });
     const selected = sorted
-      .slice(0, MAX_URL_RELAY_HINTS)
+      .slice(0, maxUrlRelayHints)
       .map((entry) => entry.addr);
     const relaySuffix = selected.length > 0 ? `,${selected.join(',')}` : '';
     const ocapURL = `ocap:${oid}@${peerId}${relaySuffix}`;
@@ -228,6 +277,7 @@ export async function initRemoteIdentity(
     if (newRelays.length === 0) {
       return;
     }
+    // Date.now() is available under SES lockdown (on the intrinsics allow-list).
     const now = Date.now();
     const existing = kernelStore.getRelayEntries();
     const byAddr = new Map(existing.map((entry) => [entry.addr, entry]));
@@ -252,18 +302,14 @@ export async function initRemoteIdentity(
       return;
     }
 
-    let entries = [...byAddr.values()];
-
-    // Enforce pool cap by evicting oldest non-bootstrap entries
-    if (entries.length > MAX_KNOWN_RELAYS) {
-      const bootstrap = entries.filter((entry) => entry.isBootstrap);
-      const nonBootstrap = entries
-        .filter((entry) => !entry.isBootstrap)
-        .sort((a, b) => b.lastSeen - a.lastSeen);
-      entries = [...bootstrap, ...nonBootstrap].slice(0, MAX_KNOWN_RELAYS);
+    const preCapCount = byAddr.size;
+    const capped = enforcePoolCap([...byAddr.values()], maxKnownRelays);
+    if (capped.length < preCapCount) {
+      logger?.log(
+        `addKnownRelays: evicted ${preCapCount - capped.length} relays to enforce pool cap (${maxKnownRelays})`,
+      );
     }
-
-    kernelStore.setRelayEntries(entries);
+    kernelStore.setRelayEntries(capped);
   }
 
   /**
@@ -327,13 +373,15 @@ export async function initRemoteComms(
   incarnationId?: string,
   onIncarnationChange?: OnIncarnationChange,
 ): Promise<RemoteComms> {
-  const { relays = [], mnemonic } = options;
+  const { relays = [], mnemonic, maxUrlRelayHints, maxKnownRelays } = options;
 
   const result = await initRemoteIdentity(
     kernelStore,
     {
       relays,
       ...(mnemonic === undefined ? {} : { mnemonic }),
+      maxUrlRelayHints,
+      maxKnownRelays,
     },
     logger,
     keySeed,

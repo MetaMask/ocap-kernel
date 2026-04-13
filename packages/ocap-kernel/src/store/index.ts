@@ -64,7 +64,6 @@
  *   kernelService.${serviceName} = ${koid}   // kref of kernel service object ${serviceName}
  */
 
-import { Fail } from '@endo/errors';
 import type { KernelDatabase, KVStore, VatStore } from '@metamask/kernel-store';
 import { Logger } from '@metamask/logger';
 
@@ -81,12 +80,13 @@ import { getPromiseMethods } from './methods/promise.ts';
 import { getQueueMethods } from './methods/queue.ts';
 import { getReachableMethods } from './methods/reachable.ts';
 import { getRefCountMethods } from './methods/refcount.ts';
+import { getRelayMethods } from './methods/relay.ts';
 import { getRemoteMethods } from './methods/remote.ts';
 import { getRevocationMethods } from './methods/revocation.ts';
 import { getSubclusterMethods } from './methods/subclusters.ts';
 import { getTranslators } from './methods/translators.ts';
 import { getVatMethods } from './methods/vat.ts';
-import type { RelayEntry, StoreContext } from './types.ts';
+import type { StoreContext } from './types.ts';
 
 /**
  * Create a new KernelStore object wrapped around a raw kernel database. The
@@ -172,6 +172,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
   const crank = getCrankMethods(context, kdb);
   const subclusters = getSubclusterMethods(context);
   const activity = getActivityMethods(kv);
+  const relay = getRelayMethods({ kv, logger: context.logger });
 
   /**
    * Create a new VatStore for a vat.
@@ -286,46 +287,6 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     kdb.rollbackSavepoint(name);
   }
 
-  /**
-   * Read relay entries from storage, auto-migrating from the legacy
-   * `string[]` format if necessary.
-   *
-   * @returns The relay entries.
-   */
-  function getRelayEntries(): RelayEntry[] {
-    const raw = kv.get('knownRelays');
-    if (!raw) {
-      return [];
-    }
-    const parsed: unknown = JSON.parse(raw);
-    Array.isArray(parsed) || Fail`knownRelays must be an array`;
-
-    // Migrate legacy string[] format → RelayEntry[] (persisted back to storage)
-    if (parsed.length > 0 && typeof parsed[0] === 'string') {
-      if (!parsed.every((entry: unknown) => typeof entry === 'string')) {
-        Fail`knownRelays legacy format must be all strings`;
-      }
-      const migrated: RelayEntry[] = (parsed as string[]).map((addr) => ({
-        addr,
-        lastSeen: 0,
-        isBootstrap: false,
-      }));
-      kv.set('knownRelays', JSON.stringify(migrated));
-      return migrated;
-    }
-
-    // New RelayEntry[] format
-    for (const entry of parsed) {
-      (typeof entry === 'object' &&
-        entry !== null &&
-        typeof (entry as RelayEntry).addr === 'string' &&
-        typeof (entry as RelayEntry).lastSeen === 'number' &&
-        typeof (entry as RelayEntry).isBootstrap === 'boolean') ||
-        Fail`knownRelays entries must have addr, lastSeen, isBootstrap`;
-    }
-    return parsed as RelayEntry[];
-  }
-
   return harden({
     ...id,
     ...queue,
@@ -343,6 +304,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     ...crank,
     ...subclusters,
     ...activity,
+    ...relay,
     makeVatStore,
     deleteVat,
     clear,
@@ -371,43 +333,6 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     },
     deleteKernelServiceKref(name: string): void {
       kv.delete(`kernelService.${name}`);
-    },
-
-    // Remote identity
-    getRemoteIdentityValue(
-      key: 'peerId' | 'keySeed' | 'ocapURLKey',
-    ): string | undefined {
-      return kv.get(key);
-    },
-    getRemoteIdentityValueRequired(
-      key: 'peerId' | 'keySeed' | 'ocapURLKey',
-    ): string {
-      return kv.getRequired(key);
-    },
-    setRemoteIdentityValue(
-      key: 'peerId' | 'keySeed' | 'ocapURLKey',
-      value: string,
-    ): void {
-      kv.set(key, value);
-    },
-    getRelayEntries,
-
-    /**
-     * Persist relay entries to storage.
-     *
-     * @param entries - The relay entries to persist.
-     */
-    setRelayEntries(entries: RelayEntry[]): void {
-      kv.set('knownRelays', JSON.stringify(entries));
-    },
-
-    /**
-     * Convenience: return only relay addresses (for ConnectionFactory, etc.).
-     *
-     * @returns The relay addresses.
-     */
-    getKnownRelayAddresses(): string[] {
-      return getRelayEntries().map((entry) => entry.addr);
     },
   });
 }

@@ -141,6 +141,18 @@ export type RemoteCommsOptions = {
    */
   streamInactivityTimeoutMs?: number | undefined;
   /**
+   * Maximum number of relay hints embedded in a single OCAP URL (default: 3).
+   * Higher values produce longer URLs but improve connectivity resilience for
+   * peers with stale relay information.
+   */
+  maxUrlRelayHints?: number | undefined;
+  /**
+   * Maximum number of relay entries stored in the kernel's relay pool
+   * (default: 20). The pool retains all bootstrap relays; when the cap is
+   * reached, the oldest non-bootstrap (learned) entries are evicted first.
+   */
+  maxKnownRelays?: number | undefined;
+  /**
    * Hostnames or IP addresses permitted for plain ws:// relay connections,
    * in addition to RFC 1918 / loopback addresses which are always allowed.
    * Defaults to [] (private/loopback addresses only).

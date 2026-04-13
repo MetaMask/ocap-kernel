@@ -1,5 +1,6 @@
 import type { KVStore } from '@metamask/kernel-store';
 import type { Logger } from '@metamask/logger';
+import { object, string, number, boolean } from '@metamask/superstruct';
 
 import type { KRef, RunQueueItemNotify, RunQueueItemSend } from '../types.ts';
 
@@ -49,12 +50,31 @@ export type VatCleanupWork = {
 };
 
 /**
+ * Superstruct schema for {@link RelayEntry}, used for runtime validation on
+ * both read and write paths of the relay store.
+ */
+export const RelayEntryStruct = object({
+  addr: string(),
+  lastSeen: number(),
+  isBootstrap: boolean(),
+});
+
+/**
  * A relay entry with metadata for prioritized selection and bounded storage.
+ *
+ * Migration from the legacy `string[]` format is handled by `getRelayEntries()`
+ * in `store/methods/relay.ts`. The migration path can be removed once all
+ * deployed kernels have been initialized at least once on a version that
+ * includes RelayEntry support.
  */
 export type RelayEntry = {
   /** Relay multiaddr string. */
   addr: string;
-  /** Epoch ms when the relay was last added or re-observed. */
+  /**
+   * Epoch ms when the relay was last added or re-observed. A value of `0`
+   * indicates a legacy-migrated entry with unknown observation time; these
+   * sort last during recency-based eviction.
+   */
   lastSeen: number;
   /** True if provided at kernel initialization (prioritized during eviction). */
   isBootstrap: boolean;
