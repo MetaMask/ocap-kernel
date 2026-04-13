@@ -1,6 +1,6 @@
 import type { KVStore } from '@metamask/kernel-store';
 import type { Logger } from '@metamask/logger';
-import { object, string, number, boolean } from '@metamask/superstruct';
+import { object, string, number, boolean, refine } from '@metamask/superstruct';
 
 import type { KRef, RunQueueItemNotify, RunQueueItemSend } from '../types.ts';
 
@@ -54,8 +54,12 @@ export type VatCleanupWork = {
  * both read and write paths of the relay store.
  */
 export const RelayEntryStruct = object({
-  addr: string(),
-  lastSeen: number(),
+  addr: refine(string(), 'non-empty string', (value) => value.length > 0),
+  lastSeen: refine(
+    number(),
+    'non-negative finite number',
+    (value) => Number.isFinite(value) && value >= 0,
+  ),
   isBootstrap: boolean(),
 });
 

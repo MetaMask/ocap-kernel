@@ -148,8 +148,10 @@ export type RemoteCommsOptions = {
   maxUrlRelayHints?: number | undefined;
   /**
    * Maximum number of relay entries stored in the kernel's relay pool
-   * (default: 20). The pool retains all bootstrap relays; when the cap is
-   * reached, the oldest non-bootstrap (learned) entries are evicted first.
+   * (default: 20). Bootstrap relays are prioritized during eviction; when
+   * the cap is reached, the oldest non-bootstrap (learned) entries are
+   * evicted first. If bootstrap relays alone exceed the cap, the pool is
+   * truncated to the cap.
    */
   maxKnownRelays?: number | undefined;
   /**

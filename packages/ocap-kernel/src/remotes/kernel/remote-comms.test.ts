@@ -581,7 +581,8 @@ describe('remote-comms', () => {
       identity.addKnownRelays(['/dns4/relay.example/tcp/443/wss/p2p-circuit']);
       const firstSeen = mockKernelStore.getRelayEntries()[0]?.lastSeen ?? 0;
 
-      // SES lockdown prevents mocking Date.now; use a real delay instead
+      // SES lockdown freezes Date, preventing vi.useFakeTimers(); use a
+      // real delay to guarantee a different Date.now() value.
       await new Promise((resolve) => {
         setTimeout(resolve, 50);
       });
@@ -589,6 +590,19 @@ describe('remote-comms', () => {
       const secondSeen = mockKernelStore.getRelayEntries()[0]?.lastSeen ?? 0;
 
       expect(secondSeen).toBeGreaterThan(firstSeen);
+    });
+
+    it('addKnownRelays does not add duplicate entries on re-observation', async () => {
+      const { identity } = await initRemoteIdentity(mockKernelStore);
+
+      const relay = '/dns4/relay.example/tcp/443/wss/p2p-circuit';
+      identity.addKnownRelays([relay]);
+      expect(mockKernelStore.getRelayEntries()).toHaveLength(1);
+
+      // Re-add the same relay — entry count must stay at 1
+      identity.addKnownRelays([relay, relay]);
+      expect(mockKernelStore.getRelayEntries()).toHaveLength(1);
+      expect(mockKernelStore.getRelayEntries()[0]?.addr).toBe(relay);
     });
 
     it('init clears bootstrap flag on relays removed from the bootstrap set', async () => {
@@ -774,6 +788,53 @@ describe('remote-comms', () => {
         expect.stringContaining('evicted'),
       );
     });
+
+    it('init truncates pool when bootstrap count exceeds maxKnownRelays', async () => {
+      const bootstrapRelays = Array.from(
+        { length: 5 },
+        (_, i) => `/dns4/bootstrap${i}.example/tcp/443/wss/p2p-circuit`,
+      );
+      await initRemoteIdentity(mockKernelStore, {
+        relays: bootstrapRelays,
+        maxKnownRelays: 3,
+      });
+
+      const entries = mockKernelStore.getRelayEntries();
+      // Pool must be capped at maxKnownRelays even when all entries are bootstrap
+      expect(entries).toHaveLength(3);
+      // All surviving entries should still be marked as bootstrap
+      expect(entries.every((entry) => entry.isBootstrap)).toBe(true);
+    });
+
+    it('issueOcapURL includes all relays when count equals maxUrlRelayHints', async () => {
+      const relays = Array.from(
+        { length: DEFAULT_MAX_URL_RELAY_HINTS },
+        (_, i) => `/dns4/relay${i}.example/tcp/443/wss/p2p-circuit`,
+      );
+      const { identity } = await initRemoteIdentity(mockKernelStore, {
+        relays,
+      });
+      const ocapURL = await identity.issueOcapURL('ko1' as KRef);
+      const { hints } = parseOcapURL(ocapURL);
+      expect(hints).toHaveLength(DEFAULT_MAX_URL_RELAY_HINTS);
+      expect(hints).toStrictEqual(relays);
+    });
+
+    it.each([
+      ['maxUrlRelayHints', { maxUrlRelayHints: 0 }],
+      ['maxUrlRelayHints', { maxUrlRelayHints: 1.5 }],
+      ['maxUrlRelayHints', { maxUrlRelayHints: -1 }],
+      ['maxKnownRelays', { maxKnownRelays: 0 }],
+      ['maxKnownRelays', { maxKnownRelays: 1.5 }],
+      ['maxKnownRelays', { maxKnownRelays: -1 }],
+    ] as const)(
+      'throws when %s is not a positive integer (%o)',
+      async (_label, opts) => {
+        await expect(initRemoteIdentity(mockKernelStore, opts)).rejects.toThrow(
+          /must be positive integers/u,
+        );
+      },
+    );
 
     it('throws with mnemonic when identity already exists', async () => {
       mockKernelStore.setRemoteIdentityValue('peerId', 'existing-peer-id');

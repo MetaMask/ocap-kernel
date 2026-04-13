@@ -23,7 +23,8 @@ export function getRelayMethods(ctx: {
   const { kv, logger } = ctx;
 
   /**
-   * Parse a JSON string, wrapping errors with a contextual message.
+   * Parse the knownRelays JSON string from storage, wrapping errors with
+   * a contextual message.
    *
    * @param raw - The raw JSON string to parse.
    * @returns The parsed value.
@@ -36,6 +37,7 @@ export function getRelayMethods(ctx: {
         `Failed to parse knownRelays from store (value may be corrupted): ${
           error instanceof Error ? error.message : String(error)
         }`,
+        { cause: error },
       );
     }
   }
@@ -78,12 +80,7 @@ export function getRelayMethods(ctx: {
     // Validate each entry against the RelayEntry schema (entries deserialized
     // from storage may have been written by an older version or corrupted)
     for (const entry of parsed) {
-      (typeof entry === 'object' &&
-        entry !== null &&
-        typeof (entry as RelayEntry).addr === 'string' &&
-        typeof (entry as RelayEntry).lastSeen === 'number' &&
-        typeof (entry as RelayEntry).isBootstrap === 'boolean') ||
-        Fail`knownRelays entries must have addr, lastSeen, isBootstrap`;
+      assert(entry, RelayEntryStruct, 'Invalid stored relay entry');
     }
     return parsed as RelayEntry[];
   }

@@ -59,28 +59,13 @@ export const initRemoteCommsHandler: Handler<
   ...initRemoteCommsSpec,
   hooks: { kernel: true },
   implementation: async ({ kernel }, params): Promise<null> => {
-    const options: RemoteCommsOptions = {};
-    if (params.relays !== undefined) {
-      options.relays = params.relays;
-    }
-    if (params.directListenAddresses !== undefined) {
-      options.directListenAddresses = params.directListenAddresses;
-    }
-    if (params.maxRetryAttempts !== undefined) {
-      options.maxRetryAttempts = params.maxRetryAttempts;
-    }
-    if (params.maxQueue !== undefined) {
-      options.maxQueue = params.maxQueue;
-    }
-    if (params.maxUrlRelayHints !== undefined) {
-      options.maxUrlRelayHints = params.maxUrlRelayHints;
-    }
-    if (params.maxKnownRelays !== undefined) {
-      options.maxKnownRelays = params.maxKnownRelays;
-    }
-    if (params.allowedWsHosts !== undefined) {
-      options.allowedWsHosts = params.allowedWsHosts;
-    }
+    // Build options from only the defined RPC params. Superstruct has
+    // already validated the shape; stripping undefined keeps the bag sparse.
+    // Note: sensitive fields like `mnemonic` and internal fields like
+    // `directTransports` are intentionally excluded from the RPC struct.
+    const options: RemoteCommsOptions = Object.fromEntries(
+      Object.entries(params).filter(([, value]) => value !== undefined),
+    );
     await kernel.initRemoteComms(options);
     return null;
   },

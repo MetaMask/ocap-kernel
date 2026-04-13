@@ -39,8 +39,10 @@ export const DEFAULT_MAX_URL_RELAY_HINTS = 3;
 export const DEFAULT_MAX_KNOWN_RELAYS = 20;
 
 /**
- * Enforce the relay pool cap by keeping all bootstrap entries and the newest
- * non-bootstrap entries, up to `cap`.
+ * Enforce the relay pool cap by prioritizing bootstrap entries, then the
+ * newest non-bootstrap entries, up to `cap`. If bootstrap entries alone
+ * exceed the cap, the result is truncated to `cap` (some bootstrap entries
+ * may be dropped).
  *
  * @param entries - The full set of relay entries.
  * @param cap - The maximum pool size.
@@ -118,14 +120,14 @@ async function generateKeyInfo(seedString?: string): Promise<[string, string]> {
  * operations) without starting any network communications.
  *
  * @param kernelStore - The kernel store, for storing persistent key info.
- * @param options - Options for identity initialization.
- * @param options.relays - Bootstrap relay addresses. These are merged into
+ * @param [options] - Options for identity initialization.
+ * @param [options.relays] - Bootstrap relay addresses. These are merged into
  *   the relay pool, marked as bootstrap (prioritized during eviction and URL
  *   selection), and persisted. Relays previously marked as bootstrap that are
  *   no longer in this list have their bootstrap flag cleared.
- * @param options.mnemonic - BIP39 mnemonic for seed recovery.
- * @param options.maxUrlRelayHints - Cap on relay hints per OCAP URL.
- * @param options.maxKnownRelays - Cap on the stored relay pool.
+ * @param [options.mnemonic] - BIP39 mnemonic for seed recovery.
+ * @param [options.maxUrlRelayHints] - Cap on relay hints per OCAP URL.
+ * @param [options.maxKnownRelays] - Cap on the stored relay pool.
  * @param logger - The logger to use.
  * @param keySeed - Optional seed for key generation.
  * @returns the identity object, the key seed, and known relays.
@@ -155,8 +157,20 @@ export async function initRemoteIdentity(
     options?.maxUrlRelayHints ?? DEFAULT_MAX_URL_RELAY_HINTS;
   const maxKnownRelays = options?.maxKnownRelays ?? DEFAULT_MAX_KNOWN_RELAYS;
 
+  if (
+    !Number.isInteger(maxUrlRelayHints) ||
+    maxUrlRelayHints < 1 ||
+    !Number.isInteger(maxKnownRelays) ||
+    maxKnownRelays < 1
+  ) {
+    throw Error(
+      `maxUrlRelayHints (${maxUrlRelayHints}) and maxKnownRelays (${maxKnownRelays}) must be positive integers`,
+    );
+  }
+
   if (relays.length > 0) {
-    // Date.now() is available under SES lockdown (on the intrinsics allow-list).
+    // Date.now() works here because this code runs in the start compartment,
+    // which retains the original Date constructor (%InitialDate%).
     const now = Date.now();
     const bootstrapSet = new Set(relays);
 
@@ -174,7 +188,7 @@ export async function initRemoteIdentity(
       byAddr.set(addr, { addr, lastSeen: now, isBootstrap: true });
     }
     // Clear bootstrap flag on entries no longer in the current bootstrap set
-    // (create new objects to avoid mutating potentially-hardened entries)
+    // (create new objects to follow immutability conventions)
     for (const [addr, entry] of byAddr.entries()) {
       if (entry.isBootstrap && !bootstrapSet.has(addr)) {
         byAddr.set(addr, { ...entry, isBootstrap: false });
@@ -269,7 +283,8 @@ export async function initRemoteIdentity(
   /**
    * Add relay addresses to the kernel's known relay pool.
    * Deduplicates, updates lastSeen on re-observation, and enforces
-   * {@link MAX_KNOWN_RELAYS} by evicting the oldest non-bootstrap entries.
+   * the configured `maxKnownRelays` cap by evicting the oldest
+   * non-bootstrap entries.
    *
    * @param newRelays - Relay multiaddrs to add.
    */
@@ -277,7 +292,8 @@ export async function initRemoteIdentity(
     if (newRelays.length === 0) {
       return;
     }
-    // Date.now() is available under SES lockdown (on the intrinsics allow-list).
+    // Date.now() works here because this code runs in the start compartment,
+    // which retains the original Date constructor (%InitialDate%).
     const now = Date.now();
     const existing = kernelStore.getRelayEntries();
     const byAddr = new Map(existing.map((entry) => [entry.addr, entry]));
@@ -286,8 +302,8 @@ export async function initRemoteIdentity(
     for (const addr of newRelays) {
       const entry = byAddr.get(addr);
       if (entry) {
-        // Update lastSeen on re-observation (create new object to avoid
-        // mutating potentially-hardened deserialized entries)
+        // Update lastSeen on re-observation (create new object to follow
+        // immutability conventions)
         if (entry.lastSeen !== now) {
           byAddr.set(addr, { ...entry, lastSeen: now });
           changed = true;
@@ -339,11 +355,16 @@ export async function initRemoteIdentity(
     return kref;
   }
 
-  return {
-    identity: { getPeerId, issueOcapURL, redeemLocalOcapURL, addKnownRelays },
+  return harden({
+    identity: harden({
+      getPeerId,
+      issueOcapURL,
+      redeemLocalOcapURL,
+      addKnownRelays,
+    }),
     keySeed,
     knownRelays: kernelStore.getKnownRelayAddresses(),
-  };
+  });
 }
 
 /**
@@ -352,7 +373,7 @@ export async function initRemoteIdentity(
  * @param kernelStore - The kernel store, for storing persistent key info.
  * @param platformServices - The platform services, for accessing network I/O
  *   operations that are not available within the web worker that the kernel runs in.
- * @param remoteMessageHandler - Handler to process received inbound communcations.
+ * @param remoteMessageHandler - Handler to process received inbound communications.
  * @param options - Options for remote communications initialization.
  * @param logger - The logger to use.
  * @param keySeed - Optional seed for libp2p key generation.
@@ -373,16 +394,17 @@ export async function initRemoteComms(
   incarnationId?: string,
   onIncarnationChange?: OnIncarnationChange,
 ): Promise<RemoteComms> {
-  const { relays = [], mnemonic, maxUrlRelayHints, maxKnownRelays } = options;
+  const {
+    relays = [],
+    mnemonic,
+    maxUrlRelayHints,
+    maxKnownRelays,
+    ...platformOptions
+  } = options;
 
   const result = await initRemoteIdentity(
     kernelStore,
-    {
-      relays,
-      ...(mnemonic === undefined ? {} : { mnemonic }),
-      maxUrlRelayHints,
-      maxKnownRelays,
-    },
+    { relays, mnemonic, maxUrlRelayHints, maxKnownRelays },
     logger,
     keySeed,
   );
@@ -395,9 +417,11 @@ export async function initRemoteComms(
   // called before initializeRemoteComms to capture the pre-restart timestamp.
   const wakeDetected = kernelStore.detectWake();
 
+  // Omit mnemonic (sensitive key material) from the options passed to
+  // platform services, which only needs network-level configuration.
   await platformServices.initializeRemoteComms(
     result.keySeed,
-    { ...options, relays: knownRelays },
+    { ...platformOptions, relays: knownRelays },
     remoteMessageHandler,
     onRemoteGiveUp,
     incarnationId,

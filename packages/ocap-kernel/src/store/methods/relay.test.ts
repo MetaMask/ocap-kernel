@@ -91,9 +91,13 @@ describe('getRelayMethods', () => {
         'knownRelays',
         JSON.stringify([{ addr: 'ok', lastSeen: 'bad', isBootstrap: false }]),
       );
-      expect(() => methods.getRelayEntries()).toThrow(
-        'knownRelays entries must have addr, lastSeen, isBootstrap',
-      );
+      expect(() => methods.getRelayEntries()).toThrow(/Invalid stored relay/u);
+    });
+
+    it('returns empty array when stored value is an empty JSON array', () => {
+      const { kv, methods } = makeCtx();
+      kv.set('knownRelays', '[]');
+      expect(methods.getRelayEntries()).toStrictEqual([]);
     });
   });
 
@@ -105,6 +109,24 @@ describe('getRelayMethods', () => {
           { addr: 123 as unknown as string, lastSeen: 0, isBootstrap: false },
         ]),
       ).toThrow(/Invalid relay entry/u);
+    });
+
+    it.each([
+      ['empty addr', { addr: '', lastSeen: 0, isBootstrap: false }],
+      [
+        'negative lastSeen',
+        { addr: 'relay1', lastSeen: -1, isBootstrap: false },
+      ],
+      ['NaN lastSeen', { addr: 'relay1', lastSeen: NaN, isBootstrap: false }],
+      [
+        'Infinity lastSeen',
+        { addr: 'relay1', lastSeen: Infinity, isBootstrap: false },
+      ],
+    ])('rejects entry with %s', (_label, entry) => {
+      const { methods } = makeCtx();
+      expect(() => methods.setRelayEntries([entry])).toThrow(
+        /Invalid relay entry/u,
+      );
     });
   });
 
