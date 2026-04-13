@@ -18,17 +18,12 @@ const E = (obj: unknown) =>
 
 describe('e2e: cost-optimal routing', () => {
   it('argmin picks cheapest section, re-sheafification expands landscape', async () => {
-    const argmin: Lift<{ cost: number }> = async (germs) =>
-      Promise.resolve(
-        germs.reduce(
-          (bestIdx, entry, idx) =>
-            (entry.metadata?.cost ?? Infinity) <
-            (germs[bestIdx]!.metadata?.cost ?? Infinity)
-              ? idx
-              : bestIdx,
-          0,
-        ),
+    const argmin: Lift<{ cost: number }> = async function* (germs) {
+      yield* [...germs].sort(
+        (a, b) =>
+          (a.metadata?.cost ?? Infinity) - (b.metadata?.cost ?? Infinity),
       );
+    };
 
     const remote0GetBalance = vi.fn((_acct: string): number => 0);
     const local1GetBalance = vi.fn((_acct: string): number => 0);
@@ -117,17 +112,13 @@ describe('e2e: multi-tier capability routing', () => {
 
   type Tier = { latencyMs: number; label: string };
 
-  const fastest: Lift<Tier> = async (germs) =>
-    Promise.resolve(
-      germs.reduce(
-        (bestIdx, entry, idx) =>
-          (entry.metadata?.latencyMs ?? Infinity) <
-          (germs[bestIdx]!.metadata?.latencyMs ?? Infinity)
-            ? idx
-            : bestIdx,
-        0,
-      ),
+  const fastest: Lift<Tier> = async function* (germs) {
+    yield* [...germs].sort(
+      (a, b) =>
+        (a.metadata?.latencyMs ?? Infinity) -
+        (b.metadata?.latencyMs ?? Infinity),
     );
+  };
 
   it('routes reads to the fastest matching tier and writes to the only capable section', async () => {
     // Shared ledger — all sections read from this, so the sheaf condition
@@ -333,17 +324,11 @@ describe('e2e: multi-tier capability routing', () => {
     mirrorGetBalance.mockClear();
 
     // Policy B: highest latency wins (simulate "prefer-canonical-source").
-    const slowest: Lift<Tier> = async (germs) =>
-      Promise.resolve(
-        germs.reduce(
-          (bestIdx, entry, idx) =>
-            (entry.metadata?.latencyMs ?? 0) >
-            (germs[bestIdx]!.metadata?.latencyMs ?? 0)
-              ? idx
-              : bestIdx,
-          0,
-        ),
+    const slowest: Lift<Tier> = async function* (germs) {
+      yield* [...germs].sort(
+        (a, b) => (b.metadata?.latencyMs ?? 0) - (a.metadata?.latencyMs ?? 0),
       );
+    };
     const walletB = sheafify({
       name: 'Wallet',
       sections: makeSections(),
@@ -360,10 +345,9 @@ describe('e2e: multi-tier capability routing', () => {
 
 describe('e2e: preferAutonomous recovered as degenerate case', () => {
   it('binary push metadata recovers push-pull lift rule', async () => {
-    // Binary metadata: constant({ push: true }) = push section, { push: false } = pull
-    const preferPush: Lift<{ push: boolean }> = async (germs) => {
-      const pushIdx = germs.findIndex((entry) => entry.metadata?.push);
-      return Promise.resolve(pushIdx >= 0 ? pushIdx : 0);
+    const preferPush: Lift<{ push: boolean }> = async function* (germs) {
+      yield* germs.filter((germ) => germ.metadata?.push);
+      yield* germs.filter((germ) => !germ.metadata?.push);
     };
 
     const pullGetBalance = vi.fn((_acct: string): number => 0);
@@ -422,17 +406,11 @@ describe('e2e: callable metadata — cost varies with invocation args', () => {
 
   type SwapCost = { cost: number };
 
-  const cheapest: Lift<SwapCost> = async (germs) =>
-    Promise.resolve(
-      germs.reduce(
-        (bestIdx, entry, idx) =>
-          (entry.metadata?.cost ?? Infinity) <
-          (germs[bestIdx]!.metadata?.cost ?? Infinity)
-            ? idx
-            : bestIdx,
-        0,
-      ),
+  const cheapest: Lift<SwapCost> = async function* (germs) {
+    yield* [...germs].sort(
+      (a, b) => (a.metadata?.cost ?? Infinity) - (b.metadata?.cost ?? Infinity),
     );
+  };
 
   it('routes swap(50) to A and swap(100) to B based on callable cost metadata', async () => {
     const swapAFn = vi.fn(

@@ -63,18 +63,25 @@ export type LiftContext<MetaData extends Record<string, unknown>> = {
 };
 
 /**
- * Lift: selects one germ from the stalk when multiple germs remain after
- * collapsing equivalent presheaf sections.
+ * Lift: a coroutine that yields candidates in preference order and receives
+ * the accumulated error list after each failed attempt.
  *
  * Each germ carries only distinguishing metadata (options); shared metadata
  * (constraints) is delivered separately in the context.
  *
- * Returns a Promise<number> — the index into the germs array.
+ * The sheaf calls gen.next([]) to prime the coroutine, then gen.next(errors)
+ * after each failure, where errors is the ordered list of every error
+ * encountered so far. The generator can inspect the history to decide whether
+ * to yield another candidate or return (signal exhaustion). The sheaf
+ * rethrows the last error when the generator is done.
+ *
+ * Simple lifts that do not need retry logic can ignore the error input:
+ *   async function*(germs) { yield* [...germs].sort(comparator); }
  */
 export type Lift<MetaData extends Record<string, unknown>> = (
   germs: EvaluatedSection<Partial<MetaData>>[],
   context: LiftContext<MetaData>,
-) => Promise<number>;
+) => AsyncGenerator<EvaluatedSection<Partial<MetaData>>, void, unknown[]>;
 
 /**
  * A presheaf: a plain array of presheaf sections.

@@ -17,6 +17,7 @@ describe('index', () => {
       'collectSheafGuard',
       'constant',
       'delay',
+      'fallthrough',
       'fetchValidatedJson',
       'fromHex',
       'getStalk',
@@ -38,6 +39,7 @@ describe('index', () => {
       'mergeDisjointRecords',
       'methodArgsToStruct',
       'prettifySmallcaps',
+      'proxyLift',
       'retry',
       'retryWithBackoff',
       'sheafify',
@@ -45,6 +47,8 @@ describe('index', () => {
       'stringify',
       'toHex',
       'waitUntilQuiescent',
+      'withFilter',
+      'withRanking',
     ]);
   });
 });
