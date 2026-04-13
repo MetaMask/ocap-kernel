@@ -25,9 +25,10 @@ const E = (obj: unknown) =>
 describe('sheafify', () => {
   it('single-section bypass: lift not invoked', async () => {
     let liftCalled = false;
-    const lift: Lift<{ cost: number }> = async (_germs) => {
+    // eslint-disable-next-line require-yield
+    const lift: Lift<{ cost: number }> = async function* (_germs) {
       liftCalled = true;
-      return Promise.resolve(0);
+      // unreachable — fast path bypasses lift for single section
     };
 
     const sections: PresheafSection<{ cost: number }>[] = [
@@ -65,7 +66,9 @@ describe('sheafify', () => {
     ];
 
     const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
-      lift: async (_germs) => Promise.resolve(0),
+      async *lift(_germs) {
+        // unreachable — zero-coverage path throws before reaching lift
+      },
     });
     await expect(E(wallet).getBalance('bob')).rejects.toThrow(
       'No section covers',
@@ -73,17 +76,12 @@ describe('sheafify', () => {
   });
 
   it('lift receives metadata and picks winner', async () => {
-    const argmin: Lift<{ cost: number }> = async (germs) =>
-      Promise.resolve(
-        germs.reduce(
-          (bestIdx, entry, idx) =>
-            (entry.metadata?.cost ?? Infinity) <
-            (germs[bestIdx]!.metadata?.cost ?? Infinity)
-              ? idx
-              : bestIdx,
-          0,
-        ),
+    const argmin: Lift<{ cost: number }> = async function* (germs) {
+      yield* [...germs].sort(
+        (a, b) =>
+          (a.metadata?.cost ?? Infinity) - (b.metadata?.cost ?? Infinity),
       );
+    };
 
     const sections: PresheafSection<{ cost: number }>[] = [
       {
@@ -141,7 +139,9 @@ describe('sheafify', () => {
     ];
 
     const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
-      lift: async (_germs) => Promise.resolve(0),
+      async *lift(germs) {
+        yield germs[0]!;
+      },
     });
     const guard = wallet[GET_INTERFACE_GUARD]();
     expect(guard).toBeDefined();
@@ -151,17 +151,12 @@ describe('sheafify', () => {
   });
 
   it('re-sheafification picks up new sections and methods', async () => {
-    const argmin: Lift<{ cost: number }> = async (germs) =>
-      Promise.resolve(
-        germs.reduce(
-          (bestIdx, entry, idx) =>
-            (entry.metadata?.cost ?? Infinity) <
-            (germs[bestIdx]!.metadata?.cost ?? Infinity)
-              ? idx
-              : bestIdx,
-          0,
-        ),
+    const argmin: Lift<{ cost: number }> = async function* (germs) {
+      yield* [...germs].sort(
+        (a, b) =>
+          (a.metadata?.cost ?? Infinity) - (b.metadata?.cost ?? Infinity),
       );
+    };
 
     const sections: PresheafSection<{ cost: number }>[] = [
       {
@@ -225,23 +220,20 @@ describe('sheafify', () => {
     ];
 
     const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
-      lift: async (_germs) => Promise.resolve(0),
+      async *lift(germs) {
+        yield germs[0]!;
+      },
     });
     expect(await E(wallet).getBalance('alice')).toBe(42);
   });
 
   it('re-sheafification with pre-built exo picks up new methods', async () => {
-    const argmin: Lift<{ cost: number }> = async (germs) =>
-      Promise.resolve(
-        germs.reduce(
-          (bestIdx, entry, idx) =>
-            (entry.metadata?.cost ?? Infinity) <
-            (germs[bestIdx]!.metadata?.cost ?? Infinity)
-              ? idx
-              : bestIdx,
-          0,
-        ),
+    const argmin: Lift<{ cost: number }> = async function* (germs) {
+      yield* [...germs].sort(
+        (a, b) =>
+          (a.metadata?.cost ?? Infinity) - (b.metadata?.cost ?? Infinity),
       );
+    };
 
     const sections: PresheafSection<{ cost: number }>[] = [
       {
@@ -306,7 +298,9 @@ describe('sheafify', () => {
     ];
 
     const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
-      lift: async (_germs) => Promise.resolve(0),
+      async *lift(germs) {
+        yield germs[0]!;
+      },
     });
     const guard = wallet[GET_INTERFACE_GUARD]();
     expect(guard).toBeDefined();
@@ -320,10 +314,10 @@ describe('sheafify', () => {
     let capturedGerms: EvaluatedSection<Partial<Meta>>[] = [];
     let capturedContext: LiftContext<Meta> | undefined;
 
-    const spy: Lift<Meta> = async (germs, context) => {
+    const spy: Lift<Meta> = async function* (germs, context) {
       capturedGerms = germs;
       capturedContext = context;
-      return Promise.resolve(0);
+      yield germs[0]!;
     };
 
     const sections: PresheafSection<Meta>[] = [
@@ -370,10 +364,10 @@ describe('sheafify', () => {
     let capturedGerms: EvaluatedSection<Partial<Meta>>[] = [];
     let capturedContext: LiftContext<Meta> | undefined;
 
-    const spy: Lift<Meta> = async (germs, context) => {
+    const spy: Lift<Meta> = async function* (germs, context) {
       capturedGerms = germs;
       capturedContext = context;
-      return Promise.resolve(0);
+      yield germs[0]!;
     };
 
     const sections: PresheafSection<Meta>[] = [
@@ -437,9 +431,9 @@ describe('sheafify', () => {
     ];
 
     const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
-      lift: async (_germs) => {
+      // eslint-disable-next-line require-yield
+      async *lift(_germs) {
         liftCalled = true;
-        return Promise.resolve(0);
       },
     });
     await E(wallet).getBalance('alice');
@@ -475,9 +469,9 @@ describe('sheafify', () => {
     ];
 
     const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
-      lift: async (_germs) => {
+      // eslint-disable-next-line require-yield
+      async *lift(_germs) {
         liftCalled = true;
-        return Promise.resolve(0);
       },
     });
     await E(wallet).getBalance('alice');
@@ -486,17 +480,12 @@ describe('sheafify', () => {
   });
 
   it('mixed sections participate in lift', async () => {
-    const argmin: Lift<{ cost: number }> = async (germs) =>
-      Promise.resolve(
-        germs.reduce(
-          (bestIdx, entry, idx) =>
-            (entry.metadata?.cost ?? Infinity) <
-            (germs[bestIdx]!.metadata?.cost ?? Infinity)
-              ? idx
-              : bestIdx,
-          0,
-        ),
+    const argmin: Lift<{ cost: number }> = async function* (germs) {
+      yield* [...germs].sort(
+        (a, b) =>
+          (a.metadata?.cost ?? Infinity) - (b.metadata?.cost ?? Infinity),
       );
+    };
 
     const exo = makeExo(
       'cheap',
@@ -546,7 +535,9 @@ describe('sheafify', () => {
 
     const sheaf = sheafify({ name: 'Wallet', sections });
     const wallet = sheaf.getGlobalSection({
-      lift: async () => Promise.resolve(0),
+      async *lift(germs) {
+        yield germs[0]!;
+      },
     });
 
     expect(await E(wallet).getBalance('alice')).toBe(42);
@@ -578,7 +569,9 @@ describe('sheafify', () => {
 
     const sheaf = sheafify({ name: 'Wallet', sections });
     const wallet = sheaf.getGlobalSection({
-      lift: async () => Promise.resolve(0),
+      async *lift(germs) {
+        yield germs[0]!;
+      },
     });
 
     expect(await E(wallet).getBalance('alice')).toBe(42);
@@ -609,7 +602,11 @@ describe('sheafify', () => {
     // No sections granted yet
     expect(sheaf.getExported()).toBeUndefined();
 
-    sheaf.getGlobalSection({ lift: async () => Promise.resolve(0) });
+    sheaf.getGlobalSection({
+      async *lift(germs) {
+        yield germs[0]!;
+      },
+    });
 
     const exported = sheaf.getExported();
     expect(exported).toBeDefined();
@@ -632,7 +629,11 @@ describe('sheafify', () => {
     ];
 
     const sheaf = sheafify({ name: 'Wallet', sections });
-    sheaf.getGlobalSection({ lift: async () => Promise.resolve(0) });
+    sheaf.getGlobalSection({
+      async *lift(germs) {
+        yield germs[0]!;
+      },
+    });
 
     expect(sheaf.getExported()).toBeDefined();
 

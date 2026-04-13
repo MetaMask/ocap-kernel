@@ -38,17 +38,11 @@ describe('e2e: source metadata — compartment evaluates cost function', () => {
 
   type SwapCost = { cost: number };
 
-  const cheapest: Lift<SwapCost> = async (germs) =>
-    Promise.resolve(
-      germs.reduce(
-        (bestIdx, entry, idx) =>
-          (entry.metadata?.cost ?? Infinity) <
-          (germs[bestIdx]!.metadata?.cost ?? Infinity)
-            ? idx
-            : bestIdx,
-        0,
-      ),
+  const cheapest: Lift<SwapCost> = async function* (germs) {
+    yield* [...germs].sort(
+      (a, b) => (a.metadata?.cost ?? Infinity) - (b.metadata?.cost ?? Infinity),
     );
+  };
 
   it('routes swap(50) to A and swap(100) to B using source-kind metadata', async () => {
     const swapAFn = vi.fn(
