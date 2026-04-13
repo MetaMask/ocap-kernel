@@ -5,7 +5,8 @@ import type { EvaluatedSection, Lift, LiftContext } from './types.ts';
  *
  * Primes the generator with gen.next([]), then calls gen.next(errors) after
  * each failed attempt where errors is the full ordered history. Returns the
- * first successful result, or rethrows the last error when exhausted.
+ * first successful result, or throws a new error with all accumulated errors
+ * as the cause when exhausted.
  *
  * @param lift - The lift coroutine to drive.
  * @param germs - The evaluated sections to pass to the lift.
@@ -33,11 +34,7 @@ export const driveLift = async <M extends Record<string, unknown>>(
       next = await gen.next(errors);
     }
   }
-  const lastError = errors.at(-1);
-  if (lastError instanceof Error) {
-    throw lastError;
-  }
   throw new Error(`No viable section for ${context.method}`, {
-    cause: lastError,
+    cause: errors,
   });
 };
