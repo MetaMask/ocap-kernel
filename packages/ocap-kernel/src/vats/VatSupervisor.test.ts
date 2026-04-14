@@ -7,6 +7,7 @@ import { TestDuplexStream } from '@ocap/repo-tools/test-utils/streams';
 import { describe, it, expect, vi } from 'vitest';
 
 import { VatSupervisor } from './VatSupervisor.ts';
+import type { FetchBlob } from './VatSupervisor.ts';
 
 vi.mock('./syscall.ts', () => ({
   makeSupervisorSyscall: vi.fn(() => ({
@@ -28,12 +29,16 @@ const makeVatSupervisor = async ({
   vatPowers,
   makePlatform,
   platformOptions,
+  allowedGlobals,
+  fetchBlob,
 }: {
   dispatch?: (input: unknown) => void | Promise<void>;
   logger?: Logger;
   vatPowers?: Record<string, unknown>;
   makePlatform?: PlatformFactory;
   platformOptions?: Record<string, unknown>;
+  allowedGlobals?: Record<string, unknown>;
+  fetchBlob?: FetchBlob;
 } = {}): Promise<{
   supervisor: VatSupervisor;
   stream: TestDuplexStream<JsonRpcMessage, JsonRpcMessage>;
@@ -54,6 +59,8 @@ const makeVatSupervisor = async ({
       vatPowers: vatPowers ?? {},
       makePlatform: makePlatform ?? defaultMakePlatform,
       platformOptions: platformOptions ?? {},
+      allowedGlobals,
+      fetchBlob,
     }),
     stream: kernelStream,
   };
@@ -161,6 +168,54 @@ describe('VatSupervisor', () => {
       });
 
       expect(supervisor).toBeInstanceOf(VatSupervisor);
+    });
+  });
+
+  describe('allowedGlobals configuration', () => {
+    it('accepts a custom allowedGlobals parameter', async () => {
+      const { supervisor } = await makeVatSupervisor({
+        allowedGlobals: { CustomGlobal: 'custom-value' },
+      });
+      expect(supervisor).toBeInstanceOf(VatSupervisor);
+    });
+
+    it('throws when a vat requests an unknown global', async () => {
+      const dispatch = vi.fn();
+
+      const mockFetchBlob: FetchBlob = vi.fn().mockResolvedValue({
+        ok: true,
+        text: vi.fn().mockResolvedValue(''),
+      });
+
+      const { stream } = await makeVatSupervisor({
+        dispatch,
+        allowedGlobals: { Date: globalThis.Date },
+        fetchBlob: mockFetchBlob,
+      });
+
+      await stream.receiveInput({
+        id: 'test-init',
+        method: 'initVat',
+        params: {
+          vatConfig: {
+            bundleSpec: 'test.bundle',
+            parameters: {},
+            globals: ['Date', 'UnknownThing'],
+          },
+          state: [],
+        },
+        jsonrpc: '2.0',
+      });
+      await delay(50);
+
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'test-init',
+          error: expect.objectContaining({
+            message: expect.stringContaining('unknown global "UnknownThing"'),
+          }),
+        }),
+      );
     });
   });
 });

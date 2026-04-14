@@ -103,6 +103,7 @@ export class Kernel {
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
    * @param options.ioChannelFactory - Optional factory for creating IO channels.
+   * @param options.allowedGlobalNames - Optional list of allowed global names for vat endowments.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
@@ -114,6 +115,7 @@ export class Kernel {
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
       ioChannelFactory?: IOChannelFactory;
+      allowedGlobalNames?: string[];
     } = {},
   ) {
     this.#platformServices = platformServices;
@@ -145,6 +147,7 @@ export class Kernel {
       kernelStore: this.#kernelStore,
       kernelQueue: this.#kernelQueue,
       logger: this.#logger.subLogger({ tags: ['VatManager'] }),
+      allowedGlobalNames: options.allowedGlobalNames,
     });
 
     this.#remoteManager = new RemoteManager({
@@ -229,6 +232,7 @@ export class Kernel {
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
    * @param options.ioChannelFactory - Optional factory for creating IO channels.
    * @param options.systemSubclusters - Optional array of system subcluster configurations.
+   * @param options.allowedGlobalNames - Optional list of allowed global names for vat endowments. When set, only these names from DEFAULT_ALLOWED_GLOBALS are available to vats.
    * @returns A promise for the new kernel instance.
    */
   static async make(
@@ -241,6 +245,7 @@ export class Kernel {
       mnemonic?: string | undefined;
       ioChannelFactory?: IOChannelFactory;
       systemSubclusters?: SystemSubclusterConfig[];
+      allowedGlobalNames?: string[];
     } = {},
   ): Promise<Kernel> {
     const kernel = new Kernel(platformServices, kernelDatabase, options);
