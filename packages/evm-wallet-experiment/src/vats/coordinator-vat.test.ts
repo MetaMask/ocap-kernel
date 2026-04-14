@@ -704,6 +704,49 @@ describe('coordinator-vat', () => {
         expect(result).toBe('0xuserophash');
       });
 
+      it('rejects with a clear error when calldata is missing for a transfer twin', async () => {
+        // delegationMatchesAction skips the allowedMethods check when
+        // action.data is falsy, and skips erc20TransferAmount when the
+        // delegation doesn't have that caveat. A delegation with only
+        // allowedTargets therefore matches a no-calldata tx. The decode path
+        // must validate length before slicing or BigInt('0x') throws a
+        // SyntaxError with no useful context.
+        const accounts = await coordinator.getAccounts();
+
+        // Create a delegation with only allowedTargets (no erc20TransferAmount)
+        // so it will match the no-data tx below.
+        const delegation = await coordinator.createDelegation({
+          delegate: accounts[0],
+          caveats: [
+            makeCaveat({
+              type: 'allowedTargets',
+              terms: encodeAllowedTargets([TOKEN]),
+            }),
+          ],
+          chainId: 1,
+        });
+
+        // Build the grant manually to attach a transfer twin without the
+        // erc20TransferAmount caveat that would otherwise guard the decode path.
+        const grant = {
+          delegation,
+          methodName: 'transfer',
+          caveatSpecs: [],
+          token: TOKEN,
+        };
+        await coordinator.provisionTwin(grant);
+
+        await expect(
+          coordinator.sendTransaction({
+            from: accounts[0],
+            to: TOKEN,
+            // no data — delegation matches, twin found, decode must not crash
+            value: '0x0' as Hex,
+            chainId: 1,
+          }),
+        ).rejects.toThrow('calldata too short');
+      });
+
       it('routes through a call twin using the call method', async () => {
         const accounts = await coordinator.getAccounts();
         const grant = await coordinator.makeDelegationGrant('call', {
