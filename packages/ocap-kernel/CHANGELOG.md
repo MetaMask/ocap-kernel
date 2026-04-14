@@ -9,10 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Export `DEFAULT_ALLOWED_GLOBALS` constant containing the default set of host/Web API endowments available to vats ([#933](https://github.com/MetaMask/ocap-kernel/pull/933))
-- Add configurable `allowedGlobals` parameter to `VatSupervisor` constructor, defaulting to `DEFAULT_ALLOWED_GLOBALS` ([#933](https://github.com/MetaMask/ocap-kernel/pull/933))
-- Expand available vat endowments with `URL`, `URLSearchParams`, `atob`, `btoa`, `AbortController`, and `AbortSignal` ([#933](https://github.com/MetaMask/ocap-kernel/pull/933))
-- Log a warning when a vat requests an unknown global ([#933](https://github.com/MetaMask/ocap-kernel/pull/933))
+- Make vat global allowlist configurable and expand available endowments ([#933](https://github.com/MetaMask/ocap-kernel/pull/933))
+  - Export `DEFAULT_ALLOWED_GLOBALS` with `URL`, `URLSearchParams`, `atob`, `btoa`, `AbortController`, and `AbortSignal` in addition to the existing globals
+  - Accept optional `allowedGlobals` on `VatSupervisor` for custom allowlists
+  - Log a warning when a vat requests an unknown global
 
 ### Changed
 
