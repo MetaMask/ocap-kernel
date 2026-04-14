@@ -4,6 +4,7 @@ import { buildRootObject as buildDelegationRoot } from './delegation-vat.ts';
 import { buildRootObject as buildKeyringRoot } from './keyring-vat.ts';
 import { makeMockBaggage } from '../../test/helpers.ts';
 import { encodeAllowedTargets, makeCaveat } from '../lib/caveats.ts';
+import { encodeTransfer } from '../lib/erc20.ts';
 import { ENTRY_POINT_V07 } from '../lib/userop.ts';
 import type {
   Address,
@@ -665,6 +666,62 @@ describe('coordinator-vat', () => {
         'No authority to sign this transaction',
       );
       expect(mockPeerWallet.handleSigningRequest).not.toHaveBeenCalled();
+    });
+
+    describe('provisioned twin routing', () => {
+      const TOKEN = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address;
+      const RECIPIENT = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const AMOUNT = 5n;
+
+      beforeEach(async () => {
+        await coordinator.initializeKeyring({
+          type: 'srp',
+          mnemonic: TEST_MNEMONIC,
+        });
+        await coordinator.configureBundler({
+          bundlerUrl: 'https://bundler.example.com',
+          chainId: 1,
+        });
+      });
+
+      it('routes through a transfer twin using the transfer method', async () => {
+        const accounts = await coordinator.getAccounts();
+        const grant = await coordinator.makeDelegationGrant('transfer', {
+          delegate: accounts[0],
+          token: TOKEN,
+          max: AMOUNT * 2n,
+          chainId: 1,
+        });
+        await coordinator.provisionTwin(grant);
+
+        const result = await coordinator.sendTransaction({
+          from: accounts[0],
+          to: TOKEN,
+          data: encodeTransfer(RECIPIENT, AMOUNT),
+          value: '0x0' as Hex,
+          chainId: 1,
+        });
+        expect(result).toBe('0xuserophash');
+      });
+
+      it('routes through a call twin using the call method', async () => {
+        const accounts = await coordinator.getAccounts();
+        const grant = await coordinator.makeDelegationGrant('call', {
+          delegate: accounts[0],
+          targets: [TARGET],
+          chainId: 1,
+        });
+        await coordinator.provisionTwin(grant);
+
+        const result = await coordinator.sendTransaction({
+          from: accounts[0],
+          to: TARGET,
+          data: '0xdeadbeef' as Hex,
+          value: '0x0' as Hex,
+          chainId: 1,
+        });
+        expect(result).toBe('0xuserophash');
+      });
     });
   });
 
