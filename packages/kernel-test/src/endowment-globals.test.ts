@@ -158,42 +158,39 @@ describe('global endowments', () => {
   });
 
   describe('kernel-level allowedGlobalNames restriction', () => {
-    it('blocks a global when the kernel excludes it from allowedGlobalNames', async () => {
-      // Kernel only allows TextEncoder/TextDecoder — vat requests URL too
+    it('throws when a vat requests a global excluded by the kernel', async () => {
+      // Kernel only allows TextEncoder/TextDecoder — vat also requests URL
+      await expect(
+        setup({
+          globals: ['TextEncoder', 'TextDecoder', 'URL'],
+          allowedGlobalNames: ['TextEncoder', 'TextDecoder'],
+        }),
+      ).rejects.toThrow('unknown global "URL"');
+    });
+
+    it('initializes when all vat globals are within allowedGlobalNames', async () => {
       const { kernel, entries } = await setup({
-        globals: ['TextEncoder', 'TextDecoder', 'URL'],
+        globals: ['TextEncoder', 'TextDecoder'],
         allowedGlobalNames: ['TextEncoder', 'TextDecoder'],
       });
 
-      // TextEncoder works (allowed by kernel)
       await kernel.queueMessage(v1Root, 'testTextCodec', []);
       await waitUntilQuiescent();
 
       const logs = extractTestLogs(entries, vatId);
       expect(logs).toContain('textCodec: hello');
-
-      // URL is absent (kernel excluded it even though vat requested it)
-      await kernel.queueMessage(v1Root, 'checkGlobal', ['URL']);
-      await waitUntilQuiescent();
-
-      const logsAfter = extractTestLogs(entries, vatId);
-      expect(logsAfter).toContain('checkGlobal: URL=false');
     });
 
     it('allows all globals when allowedGlobalNames is omitted', async () => {
-      // No kernel restriction — vat gets everything it asks for
       const { kernel, entries } = await setup({
-        globals: ['URL', 'TextEncoder'],
+        globals: ['URL', 'URLSearchParams'],
       });
 
-      await kernel.queueMessage(v1Root, 'checkGlobal', ['URL']);
-      await waitUntilQuiescent();
-      await kernel.queueMessage(v1Root, 'checkGlobal', ['TextEncoder']);
+      await kernel.queueMessage(v1Root, 'testUrl', []);
       await waitUntilQuiescent();
 
       const logs = extractTestLogs(entries, vatId);
-      expect(logs).toContain('checkGlobal: URL=true');
-      expect(logs).toContain('checkGlobal: TextEncoder=true');
+      expect(logs).toContain('url: /path params: 10');
     });
   });
 });
