@@ -6,7 +6,6 @@ import { rpcErrors } from '@metamask/rpc-errors';
 import { TestDuplexStream } from '@ocap/repo-tools/test-utils/streams';
 import { describe, it, expect, vi } from 'vitest';
 
-import { DEFAULT_ALLOWED_GLOBALS } from './endowments.ts';
 import { VatSupervisor } from './VatSupervisor.ts';
 import type { FetchBlob } from './VatSupervisor.ts';
 
@@ -172,34 +171,48 @@ describe('VatSupervisor', () => {
     });
   });
 
-  describe('DEFAULT_ALLOWED_GLOBALS', () => {
-    it('contains the expected global names', () => {
-      expect(Object.keys(DEFAULT_ALLOWED_GLOBALS).sort()).toStrictEqual([
-        'AbortController',
-        'AbortSignal',
-        'Date',
-        'TextDecoder',
-        'TextEncoder',
-        'URL',
-        'URLSearchParams',
-        'atob',
-        'btoa',
-        'clearTimeout',
-        'setTimeout',
-      ]);
-    });
-
-    it('is frozen', () => {
-      expect(Object.isFrozen(DEFAULT_ALLOWED_GLOBALS)).toBe(true);
-    });
-  });
-
   describe('allowedGlobals configuration', () => {
     it('accepts a custom allowedGlobals parameter', async () => {
       const { supervisor } = await makeVatSupervisor({
         allowedGlobals: { CustomGlobal: 'custom-value' },
       });
       expect(supervisor).toBeInstanceOf(VatSupervisor);
+    });
+
+    it('does not warn when all requested globals are known', async () => {
+      const logger = {
+        warn: vi.fn(),
+        error: vi.fn(),
+        subLogger: vi.fn(() => logger),
+      } as unknown as Logger;
+
+      const mockFetchBlob: FetchBlob = vi.fn().mockResolvedValue({
+        ok: true,
+        text: vi.fn().mockResolvedValue(''),
+      });
+
+      const { stream } = await makeVatSupervisor({
+        logger,
+        allowedGlobals: { Date: globalThis.Date },
+        fetchBlob: mockFetchBlob,
+      });
+
+      await stream.receiveInput({
+        id: 'test-init',
+        method: 'initVat',
+        params: {
+          vatConfig: {
+            bundleSpec: 'test.bundle',
+            parameters: {},
+            globals: ['Date'],
+          },
+          state: [],
+        },
+        jsonrpc: '2.0',
+      });
+      await delay(50);
+
+      expect(logger.warn).not.toHaveBeenCalled();
     });
 
     it('logs a warning when a vat requests an unknown global', async () => {

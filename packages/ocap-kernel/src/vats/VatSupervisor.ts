@@ -144,7 +144,7 @@ export class VatSupervisor {
     this.#fetchBlob = fetchBlob ?? defaultFetchBlob;
     this.#platformOptions = platformOptions ?? {};
     this.#makePlatform = makePlatform;
-    this.#allowedGlobals = allowedGlobals;
+    this.#allowedGlobals = harden(allowedGlobals);
 
     this.#rpcClient = new RpcClient(
       vatSyscallMethodSpecs,

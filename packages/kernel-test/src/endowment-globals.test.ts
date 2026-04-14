@@ -124,5 +124,13 @@ describe('global endowments', () => {
       const logs = extractTestLogs(entries, vatId);
       expect(logs).toContain(`checkGlobal: ${name}=false`);
     });
+
+    it('throws when calling tamed Date.now without endowing Date', async () => {
+      const { kernel } = await setup([]);
+
+      await expect(kernel.queueMessage(v1Root, 'testDate', [])).rejects.toThrow(
+        'secure mode',
+      );
+    });
   });
 });
