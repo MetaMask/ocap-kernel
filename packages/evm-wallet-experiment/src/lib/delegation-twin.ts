@@ -217,7 +217,7 @@ export function makeDelegationTwin(
     methods.getBalance = async (): Promise<bigint> => {
       const result = await readFn({
         to: token,
-        data: encodeBalanceOf(delegation.delegate),
+        data: encodeBalanceOf(delegation.delegator),
       });
       return decodeBalanceOfResult(result);
     };
