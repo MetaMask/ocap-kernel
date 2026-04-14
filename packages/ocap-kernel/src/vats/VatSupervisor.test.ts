@@ -6,7 +6,9 @@ import { rpcErrors } from '@metamask/rpc-errors';
 import { TestDuplexStream } from '@ocap/repo-tools/test-utils/streams';
 import { describe, it, expect, vi } from 'vitest';
 
+import { DEFAULT_ALLOWED_GLOBALS } from './endowments.ts';
 import { VatSupervisor } from './VatSupervisor.ts';
+import type { FetchBlob } from './VatSupervisor.ts';
 
 vi.mock('./syscall.ts', () => ({
   makeSupervisorSyscall: vi.fn(() => ({
@@ -28,12 +30,16 @@ const makeVatSupervisor = async ({
   vatPowers,
   makePlatform,
   platformOptions,
+  allowedGlobals,
+  fetchBlob,
 }: {
   dispatch?: (input: unknown) => void | Promise<void>;
   logger?: Logger;
   vatPowers?: Record<string, unknown>;
   makePlatform?: PlatformFactory;
   platformOptions?: Record<string, unknown>;
+  allowedGlobals?: Record<string, unknown>;
+  fetchBlob?: FetchBlob;
 } = {}): Promise<{
   supervisor: VatSupervisor;
   stream: TestDuplexStream<JsonRpcMessage, JsonRpcMessage>;
@@ -54,6 +60,8 @@ const makeVatSupervisor = async ({
       vatPowers: vatPowers ?? {},
       makePlatform: makePlatform ?? defaultMakePlatform,
       platformOptions: platformOptions ?? {},
+      allowedGlobals,
+      fetchBlob,
     }),
     stream: kernelStream,
   };
@@ -161,6 +169,75 @@ describe('VatSupervisor', () => {
       });
 
       expect(supervisor).toBeInstanceOf(VatSupervisor);
+    });
+  });
+
+  describe('DEFAULT_ALLOWED_GLOBALS', () => {
+    it('contains the expected global names', () => {
+      expect(Object.keys(DEFAULT_ALLOWED_GLOBALS).sort()).toStrictEqual([
+        'AbortController',
+        'AbortSignal',
+        'Date',
+        'TextDecoder',
+        'TextEncoder',
+        'URL',
+        'URLSearchParams',
+        'atob',
+        'btoa',
+        'clearTimeout',
+        'setTimeout',
+      ]);
+    });
+
+    it('is frozen', () => {
+      expect(Object.isFrozen(DEFAULT_ALLOWED_GLOBALS)).toBe(true);
+    });
+  });
+
+  describe('allowedGlobals configuration', () => {
+    it('accepts a custom allowedGlobals parameter', async () => {
+      const { supervisor } = await makeVatSupervisor({
+        allowedGlobals: { CustomGlobal: 'custom-value' },
+      });
+      expect(supervisor).toBeInstanceOf(VatSupervisor);
+    });
+
+    it('logs a warning when a vat requests an unknown global', async () => {
+      const logger = {
+        warn: vi.fn(),
+        error: vi.fn(),
+        subLogger: vi.fn(() => logger),
+      } as unknown as Logger;
+
+      const mockFetchBlob: FetchBlob = vi.fn().mockResolvedValue({
+        ok: true,
+        text: vi.fn().mockResolvedValue(''),
+      });
+
+      const { stream } = await makeVatSupervisor({
+        logger,
+        allowedGlobals: { Date: globalThis.Date },
+        fetchBlob: mockFetchBlob,
+      });
+
+      await stream.receiveInput({
+        id: 'test-init',
+        method: 'initVat',
+        params: {
+          vatConfig: {
+            bundleSpec: 'test.bundle',
+            parameters: {},
+            globals: ['Date', 'UnknownThing'],
+          },
+          state: [],
+        },
+        jsonrpc: '2.0',
+      });
+      await delay(50);
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        'Vat "test-id" requested unknown global "UnknownThing"',
+      );
     });
   });
 });
