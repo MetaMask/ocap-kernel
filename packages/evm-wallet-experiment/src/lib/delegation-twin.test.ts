@@ -142,6 +142,36 @@ describe('makeDelegationTwin', () => {
       const result = await twin.transfer(BOB, 1000n);
       expect(result).toBe(TX_HASH);
     });
+
+    it('does not allow concurrent calls to exceed the budget', async () => {
+      // Two calls issued concurrently both pass the budget check before either
+      // commits — unless the budget is reserved before the await. With a max of
+      // 5 and two concurrent calls for 3, the second must be rejected even
+      // though the first hasn't settled yet.
+      let resolveFirst!: (hash: Hex) => void;
+      const redeemFn = vi
+        .fn()
+        .mockImplementationOnce(
+          async () =>
+            new Promise<Hex>((resolve) => {
+              resolveFirst = resolve;
+            }),
+        )
+        .mockResolvedValue(TX_HASH);
+
+      const twin = makeDelegationTwin({
+        grant: makeTransferGrant(5n),
+        redeemFn,
+      }) as Record<string, (...args: unknown[]) => Promise<Hex>>;
+
+      const first = twin.transfer(BOB, 3n);
+      // Second call issued before first resolves — must see only 2 remaining.
+      await expect(twin.transfer(BOB, 3n)).rejects.toThrow(
+        'Insufficient budget',
+      );
+      resolveFirst(TX_HASH);
+      expect(await first).toBe(TX_HASH);
+    });
   });
 
   describe('discoverability', () => {
