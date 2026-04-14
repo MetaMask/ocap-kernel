@@ -117,9 +117,7 @@ Otherwise, after all launched subagents complete:
 
    **If this is a stacked PR**, add `--draft` to create it as a draft PR.
 
-2. Note the PR number from the created PR URL — it is needed for changelog entries.
-
-3. Return the PR URL and any relevant information. If a review was performed, include the review summary.
+2. Note the PR number from the created PR URL — it is needed for changelog entries. Proceed to Phase 5 before presenting results to the user.
 
 ## Phase 5: Update changelogs
 
@@ -136,3 +134,7 @@ Read the instructions in [`docs/contributing/updating-changelogs.md`](../../../d
 - **Link the PR.** Use the PR number from Phase 4 in each entry (e.g. `([#123](https://github.com/.../pull/123))`).
 
 Commit the changelog updates to the current branch with the message "docs: Update changelogs" and push.
+
+## Done
+
+Present the PR URL and any relevant information to the user. If a review was performed, include the review summary.
