@@ -179,12 +179,8 @@ describe('VatSupervisor', () => {
       expect(supervisor).toBeInstanceOf(VatSupervisor);
     });
 
-    it('does not warn when all requested globals are known', async () => {
-      const logger = {
-        warn: vi.fn(),
-        error: vi.fn(),
-        subLogger: vi.fn(() => logger),
-      } as unknown as Logger;
+    it('throws when a vat requests an unknown global', async () => {
+      const dispatch = vi.fn();
 
       const mockFetchBlob: FetchBlob = vi.fn().mockResolvedValue({
         ok: true,
@@ -192,43 +188,7 @@ describe('VatSupervisor', () => {
       });
 
       const { stream } = await makeVatSupervisor({
-        logger,
-        allowedGlobals: { Date: globalThis.Date },
-        fetchBlob: mockFetchBlob,
-      });
-
-      await stream.receiveInput({
-        id: 'test-init',
-        method: 'initVat',
-        params: {
-          vatConfig: {
-            bundleSpec: 'test.bundle',
-            parameters: {},
-            globals: ['Date'],
-          },
-          state: [],
-        },
-        jsonrpc: '2.0',
-      });
-      await delay(50);
-
-      expect(logger.warn).not.toHaveBeenCalled();
-    });
-
-    it('logs a warning when a vat requests an unknown global', async () => {
-      const logger = {
-        warn: vi.fn(),
-        error: vi.fn(),
-        subLogger: vi.fn(() => logger),
-      } as unknown as Logger;
-
-      const mockFetchBlob: FetchBlob = vi.fn().mockResolvedValue({
-        ok: true,
-        text: vi.fn().mockResolvedValue(''),
-      });
-
-      const { stream } = await makeVatSupervisor({
-        logger,
+        dispatch,
         allowedGlobals: { Date: globalThis.Date },
         fetchBlob: mockFetchBlob,
       });
@@ -248,8 +208,13 @@ describe('VatSupervisor', () => {
       });
       await delay(50);
 
-      expect(logger.warn).toHaveBeenCalledWith(
-        'Vat "test-id" requested unknown global "UnknownThing"',
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'test-init',
+          error: expect.objectContaining({
+            message: expect.stringContaining('unknown global "UnknownThing"'),
+          }),
+        }),
       );
     });
   });

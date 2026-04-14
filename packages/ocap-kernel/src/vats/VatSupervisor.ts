@@ -324,7 +324,7 @@ export class VatSupervisor {
         if (hasProperty(effectiveAllowedGlobals, name)) {
           requestedGlobals[name] = effectiveAllowedGlobals[name];
         } else {
-          this.#logger.warn(
+          throw new Error(
             `Vat "${this.id}" requested unknown global "${name}"`,
           );
         }
