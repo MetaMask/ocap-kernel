@@ -1833,7 +1833,15 @@ export function buildRootObject(
             if (twinMethod === 'transfer' || twinMethod === 'approve') {
               // Decode the ABI-encoded (address, uint256) calldata args.
               // Layout (after '0x'): 8 selector + 64 address word + 64 amount word
+              // = 138 chars total. Validate before slicing to avoid BigInt('0x')
+              // SyntaxError when calldata is missing or truncated.
               const data = tx.data ?? ('0x' as Hex);
+              if (data.length < 138) {
+                throw new Error(
+                  `Cannot route through ${twinMethod} twin: calldata too short ` +
+                    `(${data.length} chars, need 138)`,
+                );
+              }
               const addrArg = `0x${data.slice(34, 74)}`;
               const amountArg = BigInt(`0x${data.slice(74, 138)}`);
               return E(twin)[twinMethod](addrArg, amountArg);
