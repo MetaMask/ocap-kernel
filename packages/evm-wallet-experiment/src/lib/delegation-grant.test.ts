@@ -155,6 +155,23 @@ describe('buildDelegationGrant', () => {
       const caveatTypes = grant.delegation.caveats.map((cv) => cv.type);
       expect(caveatTypes).not.toContain('valueLte');
     });
+
+    it('includes blockWindow caveatSpec when validUntil provided', () => {
+      const grant = buildDelegationGrant('call', {
+        delegator: ALICE,
+        delegate: BOB,
+        targets: [TOKEN],
+        chainId: CHAIN_ID,
+        validUntil: 1700000000,
+      });
+
+      expect(grant.delegation.caveats.map((cv) => cv.type)).toContain(
+        'timestamp',
+      );
+      expect(grant.caveatSpecs).toStrictEqual([
+        { type: 'blockWindow', after: 0n, before: 1700000000n },
+      ]);
+    });
   });
 });
 

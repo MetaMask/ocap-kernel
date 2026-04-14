@@ -344,6 +344,11 @@ function buildCallGrant(
         chainId,
       }),
     );
+    caveatSpecs.push({
+      type: 'blockWindow',
+      after: 0n,
+      before: BigInt(validUntil),
+    });
   }
 
   const delegation = makeDelegation({
