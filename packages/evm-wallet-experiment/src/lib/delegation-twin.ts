@@ -177,6 +177,9 @@ export function makeDelegationTwin(
           `Insufficient budget: requested ${trackAmount}, remaining ${tracker.remaining()}`,
         );
       }
+      // Reserve before the await so concurrent calls see the updated budget
+      // and cannot both pass the check. Roll back if redeemFn fails.
+      tracker.commit(trackAmount);
     }
 
     const execution = entry.buildExecution(
@@ -184,11 +187,14 @@ export function makeDelegationTwin(
       normalizedArgs,
     );
 
-    const txHash = await redeemFn(execution);
-    if (tracker && trackAmount !== undefined) {
-      tracker.commit(trackAmount);
+    try {
+      return await redeemFn(execution);
+    } catch (error) {
+      if (tracker && trackAmount !== undefined) {
+        tracker.rollback(trackAmount);
+      }
+      throw error;
     }
-    return txHash;
   };
 
   const methods: Record<string, (...args: unknown[]) => unknown> = {
