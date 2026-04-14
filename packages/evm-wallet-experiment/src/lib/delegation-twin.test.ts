@@ -232,7 +232,7 @@ describe('makeDelegationTwin', () => {
       expect(balance).toBe(1000000n);
       expect(readFn).toHaveBeenCalledWith({
         to: TOKEN,
-        data: encodeBalanceOf(BOB),
+        data: encodeBalanceOf(ALICE),
       });
     });
   });
