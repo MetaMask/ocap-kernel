@@ -393,6 +393,9 @@ export function buildRootObject(
     string,
     ReturnType<typeof makeDelegationTwin>
   >();
+  // Method name for each provisioned twin, used by sendTransaction to dispatch
+  // to the correct method (transfer/approve twins don't expose .call()).
+  const coordinatorTwinMethods = new Map<string, CatalogMethodName>();
   let issuerService: OcapURLIssuerFacet | undefined;
   let redemptionService: OcapURLRedemptionFacet | undefined;
 
@@ -1826,6 +1829,15 @@ export function buildRootObject(
           // caveat checks (e.g. cumulativeSpend) fire before hitting the chain.
           const twin = coordinatorTwins.get(delegation.id);
           if (twin) {
+            const twinMethod = coordinatorTwinMethods.get(delegation.id);
+            if (twinMethod === 'transfer' || twinMethod === 'approve') {
+              // Decode the ABI-encoded (address, uint256) calldata args.
+              // Layout (after '0x'): 8 selector + 64 address word + 64 amount word
+              const data = tx.data ?? ('0x' as Hex);
+              const addrArg = `0x${data.slice(34, 74)}`;
+              const amountArg = BigInt(`0x${data.slice(74, 138)}`);
+              return E(twin)[twinMethod](addrArg, amountArg);
+            }
             return E(twin).call(
               tx.to,
               tx.value ?? ('0x0' as Hex),
@@ -2442,6 +2454,10 @@ export function buildRootObject(
         readFn,
       });
       coordinatorTwins.set(coercedGrant.delegation.id, twin);
+      coordinatorTwinMethods.set(
+        coercedGrant.delegation.id,
+        coercedGrant.methodName as CatalogMethodName,
+      );
       return twin;
     },
 
