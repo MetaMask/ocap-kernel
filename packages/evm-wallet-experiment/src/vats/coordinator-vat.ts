@@ -9,8 +9,12 @@ import {
   registerChainContracts,
 } from '../constants.ts';
 import type { ChainContracts } from '../constants.ts';
-import { buildDelegationGrant } from '../lib/delegation-grant.ts';
+import {
+  buildDelegationGrant,
+  makeDelegationGrantBuilder,
+} from '../lib/delegation-grant.ts';
 import { makeDelegationTwin } from '../lib/delegation-twin.ts';
+import { makeSaltGenerator } from '../lib/delegation.ts';
 import {
   decodeAllowanceResult,
   decodeBalanceOfResult,
@@ -368,6 +372,13 @@ export function buildRootObject(
     } else {
       logger.debug(message, data);
     }
+  });
+
+  // Per-vat salt generator: each vat instance gets its own counter so that
+  // delegations created in separate vat lifetimes (or parallel vats) do not
+  // collide even when crypto.getRandomValues is unavailable (SES fallback).
+  const grantBuilder = makeDelegationGrantBuilder({
+    saltGenerator: makeSaltGenerator(),
   });
 
   // References to other vats (set during bootstrap)
@@ -2302,7 +2313,7 @@ export function buildRootObject(
         }),
       };
 
-      const grant = buildDelegationGrant(
+      const grant = grantBuilder.buildDelegationGrant(
         method,
         coercedOptions as Parameters<typeof buildDelegationGrant>[1],
       );

@@ -7,7 +7,8 @@ import {
   encodeValueLte,
   makeCaveat,
 } from './caveats.ts';
-import { makeDelegation } from './delegation.ts';
+import { generateSalt, makeDelegation } from './delegation.ts';
+import type { SaltGenerator } from './delegation.ts';
 import {
   ERC20_APPROVE_SELECTOR,
   ERC20_TRANSFER_SELECTOR,
@@ -41,7 +42,6 @@ type TransferOptions = {
   chainId: number;
   validUntil?: number;
   recipient?: Address;
-  entropy?: Hex;
 };
 
 type ApproveOptions = {
@@ -52,7 +52,6 @@ type ApproveOptions = {
   chainId: number;
   validUntil?: number;
   spender?: Address;
-  entropy?: Hex;
 };
 
 type CallOptions = {
@@ -62,7 +61,6 @@ type CallOptions = {
   chainId: number;
   maxValue?: bigint;
   validUntil?: number;
-  entropy?: Hex;
 };
 
 export function buildDelegationGrant(
@@ -80,6 +78,10 @@ export function buildDelegationGrant(
 /**
  * Build an unsigned delegation grant for the given method.
  *
+ * Uses {@link generateSalt} (module-level fallback) for salt generation.
+ * For vat usage where per-instance salt isolation matters, prefer
+ * {@link makeDelegationGrantBuilder} with a {@link makeSaltGenerator} instance.
+ *
  * @param method - The catalog method name.
  * @param options - Method-specific options.
  * @returns An unsigned DelegationGrant.
@@ -88,13 +90,70 @@ export function buildDelegationGrant(
   method: 'transfer' | 'approve' | 'call',
   options: TransferOptions | ApproveOptions | CallOptions,
 ): DelegationGrant {
+  return dispatchGrant(method, options, generateSalt);
+}
+
+/**
+ * Create a delegation grant builder with an injected salt generator.
+ *
+ * The returned builder exposes the same {@link buildDelegationGrant} overloads
+ * but uses the provided {@link SaltGenerator} for every grant it builds.
+ * Instantiate once per vat (or per logical context) so that the generator's
+ * internal counter is isolated from other instances.
+ *
+ * @param options - Builder options.
+ * @param options.saltGenerator - The salt generator to use for all grants.
+ * @returns An object with a {@link buildDelegationGrant} method.
+ */
+export function makeDelegationGrantBuilder(options: {
+  saltGenerator: SaltGenerator;
+}): {
+  buildDelegationGrant(
+    method: 'transfer',
+    opts: TransferOptions,
+  ): DelegationGrant;
+  buildDelegationGrant(
+    method: 'approve',
+    opts: ApproveOptions,
+  ): DelegationGrant;
+  buildDelegationGrant(method: 'call', opts: CallOptions): DelegationGrant;
+} {
+  const { saltGenerator } = options;
+  function build(method: 'transfer', opts: TransferOptions): DelegationGrant;
+  function build(method: 'approve', opts: ApproveOptions): DelegationGrant;
+  function build(method: 'call', opts: CallOptions): DelegationGrant;
+  /**
+   * @param method - The catalog method name.
+   * @param opts - Method-specific grant options.
+   * @returns An unsigned DelegationGrant.
+   */
+  function build(
+    method: 'transfer' | 'approve' | 'call',
+    opts: TransferOptions | ApproveOptions | CallOptions,
+  ): DelegationGrant {
+    return dispatchGrant(method, opts, saltGenerator);
+  }
+  return harden({ buildDelegationGrant: build });
+}
+
+/**
+ * @param method - The catalog method name.
+ * @param options - Method-specific grant options.
+ * @param saltGenerator - Salt generator for delegation uniqueness.
+ * @returns An unsigned DelegationGrant.
+ */
+function dispatchGrant(
+  method: 'transfer' | 'approve' | 'call',
+  options: TransferOptions | ApproveOptions | CallOptions,
+  saltGenerator: SaltGenerator,
+): DelegationGrant {
   switch (method) {
     case 'transfer':
-      return buildTransferGrant(options as TransferOptions);
+      return buildTransferGrant(options as TransferOptions, saltGenerator);
     case 'approve':
-      return buildApproveGrant(options as ApproveOptions);
+      return buildApproveGrant(options as ApproveOptions, saltGenerator);
     case 'call':
-      return buildCallGrant(options as CallOptions);
+      return buildCallGrant(options as CallOptions, saltGenerator);
     default:
       throw new Error(`Unknown method: ${String(method)}`);
   }
@@ -110,7 +169,7 @@ type Erc20GrantOptions = {
   chainId: number;
   validUntil?: number;
   restrictedAddress?: Address;
-  entropy?: Hex;
+  saltGenerator: SaltGenerator;
 };
 
 /**
@@ -126,7 +185,7 @@ type Erc20GrantOptions = {
  * @param options.chainId - The chain ID.
  * @param options.validUntil - Optional Unix timestamp after which the delegation expires.
  * @param options.restrictedAddress - Optional address to lock the first argument to.
- * @param options.entropy - Optional entropy for delegation salt.
+ * @param options.saltGenerator - Salt generator for delegation uniqueness.
  * @returns An unsigned DelegationGrant for the given ERC-20 method.
  */
 function buildErc20Grant({
@@ -139,7 +198,7 @@ function buildErc20Grant({
   chainId,
   validUntil,
   restrictedAddress,
-  entropy,
+  saltGenerator,
 }: Erc20GrantOptions): DelegationGrant {
   const caveats: Caveat[] = [
     makeCaveat({
@@ -197,7 +256,7 @@ function buildErc20Grant({
     delegate,
     caveats,
     chainId,
-    entropy,
+    saltGenerator,
   });
 
   return harden({ delegation, methodName, caveatSpecs, token });
@@ -207,14 +266,19 @@ function buildErc20Grant({
  * Build a transfer delegation grant.
  *
  * @param options - Transfer grant options.
+ * @param saltGenerator - Salt generator for delegation uniqueness.
  * @returns An unsigned DelegationGrant for ERC-20 transfers.
  */
-function buildTransferGrant(options: TransferOptions): DelegationGrant {
+function buildTransferGrant(
+  options: TransferOptions,
+  saltGenerator: SaltGenerator,
+): DelegationGrant {
   return buildErc20Grant({
     ...options,
     methodName: 'transfer',
     selector: ERC20_TRANSFER_SELECTOR,
     restrictedAddress: options.recipient,
+    saltGenerator,
   });
 }
 
@@ -222,14 +286,19 @@ function buildTransferGrant(options: TransferOptions): DelegationGrant {
  * Build an approve delegation grant.
  *
  * @param options - Approve grant options.
+ * @param saltGenerator - Salt generator for delegation uniqueness.
  * @returns An unsigned DelegationGrant for ERC-20 approvals.
  */
-function buildApproveGrant(options: ApproveOptions): DelegationGrant {
+function buildApproveGrant(
+  options: ApproveOptions,
+  saltGenerator: SaltGenerator,
+): DelegationGrant {
   return buildErc20Grant({
     ...options,
     methodName: 'approve',
     selector: ERC20_APPROVE_SELECTOR,
     restrictedAddress: options.spender,
+    saltGenerator,
   });
 }
 
@@ -237,18 +306,15 @@ function buildApproveGrant(options: ApproveOptions): DelegationGrant {
  * Build a raw call delegation grant.
  *
  * @param options - Call grant options.
+ * @param saltGenerator - Salt generator for delegation uniqueness.
  * @returns An unsigned DelegationGrant for raw calls.
  */
-function buildCallGrant(options: CallOptions): DelegationGrant {
-  const {
-    delegator,
-    delegate,
-    targets,
-    chainId,
-    maxValue,
-    validUntil,
-    entropy,
-  } = options;
+function buildCallGrant(
+  options: CallOptions,
+  saltGenerator: SaltGenerator,
+): DelegationGrant {
+  const { delegator, delegate, targets, chainId, maxValue, validUntil } =
+    options;
   const caveats: Caveat[] = [
     makeCaveat({
       type: 'allowedTargets',
@@ -285,7 +351,7 @@ function buildCallGrant(options: CallOptions): DelegationGrant {
     delegate,
     caveats,
     chainId,
-    entropy,
+    saltGenerator,
   });
 
   return harden({ delegation, methodName: 'call', caveatSpecs });

@@ -108,7 +108,9 @@ export {
   finalizeDelegation,
   computeDelegationId,
   generateSalt,
+  makeSaltGenerator,
 } from './lib/delegation.ts';
+export type { SaltGenerator } from './lib/delegation.ts';
 
 // UserOperation utilities
 export {
@@ -181,7 +183,10 @@ export { METHOD_CATALOG } from './lib/method-catalog.ts';
 export type { CatalogMethodName } from './lib/method-catalog.ts';
 
 // Grant builder
-export { buildDelegationGrant } from './lib/delegation-grant.ts';
+export {
+  buildDelegationGrant,
+  makeDelegationGrantBuilder,
+} from './lib/delegation-grant.ts';
 
 // Twin factory
 export { makeDelegationTwin } from './lib/delegation-twin.ts';

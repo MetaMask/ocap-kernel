@@ -61,7 +61,7 @@
     "docker:build": "yarn workspace @ocap/monorepo build && yarn docker:compose build",
     "docker:build:force": "yarn docker:compose build --no-cache",
     "docker:ensure-logs": "mkdir -p logs",
-    "docker:up": "yarn docker:ensure-logs && yarn docker:compose up",
+    "docker:up": "yarn docker:ensure-logs && yarn docker:compose up --build",
     "docker:down": "yarn docker:compose down",
     "docker:interactive:up": "yarn docker:ensure-logs && node docker/run-interactive-compose.mjs up --build",
     "docker:interactive:down": "node docker/run-interactive-compose.mjs down",

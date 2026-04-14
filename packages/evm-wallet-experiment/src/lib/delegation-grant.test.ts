@@ -1,7 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import type { Address } from '../types.ts';
-import { buildDelegationGrant } from './delegation-grant.ts';
+import {
+  buildDelegationGrant,
+  makeDelegationGrantBuilder,
+} from './delegation-grant.ts';
+import { makeSaltGenerator } from './delegation.ts';
 
 const ALICE = '0x1111111111111111111111111111111111111111' as Address;
 const BOB = '0x2222222222222222222222222222222222222222' as Address;
@@ -151,5 +155,49 @@ describe('buildDelegationGrant', () => {
       const caveatTypes = grant.delegation.caveats.map((cv) => cv.type);
       expect(caveatTypes).not.toContain('valueLte');
     });
+  });
+});
+
+describe('makeDelegationGrantBuilder', () => {
+  it('produces grants with the injected salt generator', () => {
+    let counter = 0;
+    const fixedSalt = `0x${'ab'.repeat(32)}`;
+    const saltGenerator = () => {
+      counter += 1;
+      return fixedSalt;
+    };
+    const builder = makeDelegationGrantBuilder({ saltGenerator });
+
+    const grant = builder.buildDelegationGrant('transfer', {
+      delegator: ALICE,
+      delegate: BOB,
+      token: TOKEN,
+      max: 100n,
+      chainId: CHAIN_ID,
+    });
+
+    expect(grant.delegation.salt).toBe(fixedSalt);
+    expect(counter).toBe(1);
+  });
+
+  it('two builders with independent generators produce different salts', () => {
+    const gen1 = makeSaltGenerator('0x01' as `0x${string}`);
+    const gen2 = makeSaltGenerator('0x02' as `0x${string}`);
+    const builder1 = makeDelegationGrantBuilder({ saltGenerator: gen1 });
+    const builder2 = makeDelegationGrantBuilder({ saltGenerator: gen2 });
+
+    const baseOpts = {
+      delegator: ALICE,
+      delegate: BOB,
+      token: TOKEN,
+      max: 100n,
+      chainId: CHAIN_ID,
+    };
+
+    const grant1 = builder1.buildDelegationGrant('transfer', baseOpts);
+    const grant2 = builder2.buildDelegationGrant('transfer', baseOpts);
+
+    expect(grant1.delegation.salt).not.toBe(grant2.delegation.salt);
+    expect(grant1.delegation.id).not.toBe(grant2.delegation.id);
   });
 });
