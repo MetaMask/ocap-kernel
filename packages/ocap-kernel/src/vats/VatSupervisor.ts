@@ -263,12 +263,13 @@ export class VatSupervisor {
    *
    * @param vatConfig - Configuration object describing the vat to be intialized.
    * @param state - A Map representing the current persistent state of the vat.
-   *
+   * @param allowedGlobalNames - Optional list of allowed global names to restrict the available endowments.
    * @returns a promise for a checkpoint of the new vat.
    */
   async #initVat(
     vatConfig: VatConfig,
     state: Map<string, string>,
+    allowedGlobalNames: string[] | undefined,
   ): Promise<VatDeliveryResult> {
     if (this.#loaded) {
       throw Error(
@@ -306,12 +307,22 @@ export class VatSupervisor {
 
     const { bundleSpec, parameters, platformConfig, globals } = vatConfig;
 
+    // If the kernel specified a restricted set of allowed global names,
+    // filter the full allowlist down to only those names.
+    const effectiveAllowedGlobals = allowedGlobalNames
+      ? Object.fromEntries(
+          allowedGlobalNames
+            .filter((name) => hasProperty(this.#allowedGlobals, name))
+            .map((name) => [name, this.#allowedGlobals[name]]),
+        )
+      : this.#allowedGlobals;
+
     // Build additional endowments from globals list
     const requestedGlobals: Record<string, unknown> = {};
     if (globals) {
       for (const name of globals) {
-        if (hasProperty(this.#allowedGlobals, name)) {
-          requestedGlobals[name] = this.#allowedGlobals[name];
+        if (hasProperty(effectiveAllowedGlobals, name)) {
+          requestedGlobals[name] = effectiveAllowedGlobals[name];
         } else {
           this.#logger.warn(
             `Vat "${this.id}" requested unknown global "${name}"`,
