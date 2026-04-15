@@ -1,13 +1,12 @@
 import { describe, it, expect } from 'vitest';
 
 import { makeWalletClusterConfig } from './cluster-config.ts';
-import type { Address } from './types.ts';
 
 const BUNDLE_BASE_URL = 'http://localhost:3000';
 
 describe('cluster-config', () => {
   describe('makeWalletClusterConfig', () => {
-    it('creates a valid ClusterConfig', () => {
+    it('defaults to home role', () => {
       const config = makeWalletClusterConfig({
         bundleBaseUrl: BUNDLE_BASE_URL,
       });
@@ -17,7 +16,34 @@ describe('cluster-config', () => {
       expect(config.vats).toHaveProperty('coordinator');
       expect(config.vats).toHaveProperty('keyring');
       expect(config.vats).toHaveProperty('provider');
-      expect(config.vats).toHaveProperty('delegation');
+      expect(config.vats).toHaveProperty('delegator');
+      expect(config.vats).not.toHaveProperty('redeemer');
+    });
+
+    it('uses home-coordinator.bundle for home role', () => {
+      const config = makeWalletClusterConfig({
+        bundleBaseUrl: BUNDLE_BASE_URL,
+        role: 'home',
+      });
+
+      const coordConfig = config.vats.coordinator as { bundleSpec: string };
+      expect(coordConfig.bundleSpec).toBe(
+        `${BUNDLE_BASE_URL}/home-coordinator.bundle`,
+      );
+    });
+
+    it('uses away-coordinator.bundle for away role', () => {
+      const config = makeWalletClusterConfig({
+        bundleBaseUrl: BUNDLE_BASE_URL,
+        role: 'away',
+      });
+
+      const coordConfig = config.vats.coordinator as { bundleSpec: string };
+      expect(coordConfig.bundleSpec).toBe(
+        `${BUNDLE_BASE_URL}/away-coordinator.bundle`,
+      );
+      expect(config.vats).toHaveProperty('redeemer');
+      expect(config.vats).not.toHaveProperty('delegator');
     });
 
     it('includes OCAP URL services by default', () => {
@@ -40,23 +66,10 @@ describe('cluster-config', () => {
       expect(config.services).toStrictEqual(['customService']);
     });
 
-    it('sets delegation manager address as parameter', () => {
-      const address = '0xcccccccccccccccccccccccccccccccccccccccc' as Address;
+    it('has four vats for home role', () => {
       const config = makeWalletClusterConfig({
         bundleBaseUrl: BUNDLE_BASE_URL,
-        delegationManagerAddress: address,
-      });
-
-      expect(config.vats.delegation).toHaveProperty('parameters');
-      expect(
-        (config.vats.delegation as { parameters: Record<string, unknown> })
-          .parameters.delegationManagerAddress,
-      ).toBe(address);
-    });
-
-    it('has four vats with bundleSpec', () => {
-      const config = makeWalletClusterConfig({
-        bundleBaseUrl: BUNDLE_BASE_URL,
+        role: 'home',
       });
       const vatNames = Object.keys(config.vats);
 
@@ -64,16 +77,23 @@ describe('cluster-config', () => {
         'coordinator',
         'keyring',
         'provider',
-        'delegation',
+        'delegator',
       ]);
+    });
 
-      for (const vatName of vatNames) {
-        const vatConfig = config.vats[vatName] as { bundleSpec: string };
-        expect(vatConfig).toHaveProperty('bundleSpec');
-        expect(vatConfig.bundleSpec).toBe(
-          `${BUNDLE_BASE_URL}/${vatName}-vat.bundle`,
-        );
-      }
+    it('has four vats for away role', () => {
+      const config = makeWalletClusterConfig({
+        bundleBaseUrl: BUNDLE_BASE_URL,
+        role: 'away',
+      });
+      const vatNames = Object.keys(config.vats);
+
+      expect(vatNames).toStrictEqual([
+        'coordinator',
+        'keyring',
+        'provider',
+        'redeemer',
+      ]);
     });
 
     it('requests required globals for all vats', () => {
@@ -82,12 +102,11 @@ describe('cluster-config', () => {
       });
 
       const baseGlobals = ['TextEncoder', 'TextDecoder'];
-      for (const vatName of ['keyring', 'provider', 'delegation']) {
+      for (const vatName of ['keyring', 'provider', 'delegator']) {
         const vatConfig = config.vats[vatName] as { globals?: string[] };
         expect(vatConfig.globals).toStrictEqual(baseGlobals);
       }
 
-      // Coordinator additionally needs Date and setTimeout
       const coordConfig = config.vats.coordinator as { globals?: string[] };
       expect(coordConfig.globals).toStrictEqual([
         'TextEncoder',

@@ -29,7 +29,7 @@
     "dist/"
   ],
   "scripts": {
-    "build": "ocap bundle src/vats/coordinator-vat.ts src/vats/keyring-vat.ts src/vats/provider-vat.ts src/vats/delegation-vat.ts",
+    "build": "ocap bundle src/vats/home-coordinator.ts src/vats/away-coordinator.ts src/vats/keyring-vat.ts src/vats/provider-vat.ts",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/evm-wallet-experiment",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",

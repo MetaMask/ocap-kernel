@@ -27,7 +27,6 @@ export type {
   Address,
   Action,
   Caveat,
-  CaveatSpec,
   CaveatType,
   ChainConfig,
   CreateDelegationOptions,
@@ -44,18 +43,18 @@ export type {
   SwapQuote,
   SwapResult,
   TransactionRequest,
+  TransferFungibleGrant,
+  TransferNativeGrant,
   UserOperation,
   WalletCapabilities,
 } from './types.ts';
 
 export {
   ActionStruct,
-  CaveatSpecStruct,
   CaveatStruct,
   CaveatTypeValues,
   ChainConfigStruct,
   CreateDelegationOptionsStruct,
-  DelegationGrantStruct,
   DelegationStatusValues,
   DelegationStruct,
   Eip712DomainStruct,
@@ -181,12 +180,6 @@ export type {
 // Method catalog
 export { METHOD_CATALOG } from './lib/method-catalog.ts';
 export type { CatalogMethodName } from './lib/method-catalog.ts';
-
-// Grant builder
-export {
-  buildDelegationGrant,
-  makeDelegationGrantBuilder,
-} from './lib/delegation-grant.ts';
 
 // Twin factory
 export { makeDelegationTwin } from './lib/delegation-twin.ts';
