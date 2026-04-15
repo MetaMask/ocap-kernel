@@ -2,6 +2,12 @@ import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
 
 import {
+  ENFORCER_CONTRACT_KEY_MAP,
+  PLACEHOLDER_CONTRACTS,
+  registerChainContracts,
+} from '../constants.ts';
+import type { ChainContracts } from '../constants.ts';
+import {
   makeCaveat,
   encodeValueLte,
   encodeAllowedTargets,
@@ -173,6 +179,37 @@ export function buildRootObject(
         ...(maxAmount !== undefined && { maxAmount }),
         delegation,
       });
+    },
+
+    /**
+     * Register contract addresses for a chain so caveat builders can look up
+     * enforcer addresses. Called by the home coordinator after configureBundler
+     * and on resuscitation so this vat's module-level Map stays in sync.
+     *
+     * @param chainId - The chain ID to register.
+     * @param environment - The deployed contract addresses for this chain.
+     * @param environment.DelegationManager - DelegationManager address.
+     * @param environment.caveatEnforcers - Enforcer contract addresses.
+     */
+    async registerContracts(
+      chainId: number,
+      environment: {
+        DelegationManager: Hex;
+        caveatEnforcers?: Record<string, Hex>;
+      },
+    ): Promise<void> {
+      const rawEnforcers = environment.caveatEnforcers ?? {};
+      const enforcers = { ...PLACEHOLDER_CONTRACTS.enforcers };
+      for (const [key, addr] of Object.entries(rawEnforcers)) {
+        const caveatType = ENFORCER_CONTRACT_KEY_MAP[key];
+        if (caveatType !== undefined) {
+          enforcers[caveatType] = addr;
+        }
+      }
+      registerChainContracts(chainId, {
+        delegationManager: environment.DelegationManager,
+        enforcers,
+      } as ChainContracts);
     },
 
     async storeGrant(grant: DelegationGrant): Promise<void> {
