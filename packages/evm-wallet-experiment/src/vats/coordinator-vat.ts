@@ -157,12 +157,12 @@ function describeCaveat(caveat: Caveat): string {
     case 'timestamp':
       return 'time-limited';
     case 'erc20TransferAmount': {
-      // ABI-encoded (address, uint256): 12 bytes padding + 20 bytes address + 32 bytes uint256
-      // In hex string: '0x' + 24 pad chars + 40 address chars + 64 amount chars = 130 chars
-      if (caveat.terms.length >= 130) {
+      // Packed encoding: 20-byte address + 32-byte uint256 = 52 bytes
+      // In hex string: '0x' + 40 address chars + 64 amount chars = 106 chars
+      if (caveat.terms.length >= 106) {
         try {
-          const token = `0x${caveat.terms.slice(26, 66)}`;
-          const amount = BigInt(`0x${caveat.terms.slice(66)}`);
+          const token = `0x${caveat.terms.slice(2, 42)}`;
+          const amount = BigInt(`0x${caveat.terms.slice(42)}`);
           return `ERC-20 transfer limit: ${amount.toString()} units on ${token}`;
         } catch {
           // Fall through to generic description
