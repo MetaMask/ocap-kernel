@@ -25,6 +25,7 @@ type VatManagerOptions = {
   kernelStore: KernelStore;
   kernelQueue: KernelQueue;
   logger?: Logger;
+  allowedGlobalNames?: string[] | undefined;
 };
 
 /**
@@ -46,6 +47,9 @@ export class VatManager {
   /** Logger for outputting messages (such as errors) to the console */
   readonly #logger: Logger;
 
+  /** Optional list of allowed global names for vat endowments */
+  readonly #allowedGlobalNames: string[] | undefined;
+
   /**
    * Creates a new VatManager instance.
    *
@@ -54,18 +58,21 @@ export class VatManager {
    * @param options.kernelStore - The kernel's persistent state store.
    * @param options.kernelQueue - The kernel's message queue for scheduling deliveries.
    * @param options.logger - Logger instance for debugging and diagnostics.
+   * @param options.allowedGlobalNames - Optional list of allowed global names for vat endowments.
    */
   constructor({
     platformServices,
     kernelStore,
     kernelQueue,
     logger,
+    allowedGlobalNames,
   }: VatManagerOptions) {
     this.#vats = new Map();
     this.#platformServices = platformServices;
     this.#kernelStore = kernelStore;
     this.#kernelQueue = kernelQueue;
     this.#logger = logger ?? new Logger('VatManager');
+    this.#allowedGlobalNames = allowedGlobalNames;
     harden(this);
   }
 
@@ -134,6 +141,7 @@ export class VatManager {
       kernelStore: this.#kernelStore,
       kernelQueue: this.#kernelQueue,
       logger: vatLogger,
+      allowedGlobalNames: this.#allowedGlobalNames,
     });
     this.#vats.set(vatId, vat);
   }

@@ -125,7 +125,8 @@ async function callVat(socketPath, target, method, args = []) {
 }
 
 /**
- * Send a queueMessage RPC expecting it to return an error CapData.
+ * Send a queueMessage RPC expecting it to fail, and return the error message.
+ * Throws if the call unexpectedly succeeds.
  *
  * @param {string} socketPath
  * @param {string} target
@@ -140,12 +141,12 @@ async function callVatExpectError(socketPath, target, method, args = []) {
     args,
   ]);
   if (response.error) {
-    // RPC-level error (method dispatch failed)
-    return JSON.stringify(response.error);
+    return response.error.message;
   }
-  // Vat-level error (method threw, encoded as CapData)
   await waitUntilQuiescent();
-  return response.result.body;
+  throw new Error(
+    `Expected error but call succeeded: ${JSON.stringify(response.result)}`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -315,10 +316,7 @@ async function main() {
     'signMessage',
     ['should fail'],
   );
-  assert(
-    errorBody.includes('#error') || errorBody.includes('No authority'),
-    'error surfaces through daemon',
-  );
+  assert(errorBody.includes('No authority'), 'error surfaces through daemon');
 
   // -----------------------------------------------------------------------
   // Test 10: Terminate subcluster via daemon

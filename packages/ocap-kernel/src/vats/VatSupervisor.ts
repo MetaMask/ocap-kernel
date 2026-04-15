@@ -28,6 +28,7 @@ import {
 } from '@metamask/utils';
 
 import { loadBundle } from './bundle-loader.ts';
+import { DEFAULT_ALLOWED_GLOBALS } from './endowments.ts';
 import { makeGCAndFinalize } from '../garbage-collection/gc-finalize.ts';
 import { makeDummyMeterControl } from '../liveslots/meter-control.ts';
 import { makeSupervisorSyscall } from '../liveslots/syscall.ts';
@@ -58,6 +59,7 @@ type SupervisorConstructorProps = {
   platformOptions?: Record<string, unknown>;
   vatPowers?: Record<string, unknown> | undefined;
   fetchBlob?: FetchBlob;
+  allowedGlobals?: Record<string, unknown>;
 };
 
 const marshal = makeMarshal(undefined, undefined, {
@@ -104,6 +106,9 @@ export class VatSupervisor {
   /** Options to pass to the makePlatform function. */
   readonly #platformOptions: Record<string, unknown>;
 
+  /** The set of globals that vats are allowed to request. */
+  readonly #allowedGlobals: Record<string, unknown>;
+
   /**
    * Construct a new VatSupervisor instance.
    *
@@ -115,6 +120,7 @@ export class VatSupervisor {
    * @param params.fetchBlob - Function to fetch the user code bundle for this vat.
    * @param params.makePlatform - Function to create the platform for this vat.
    * @param params.platformOptions - Options to pass to the makePlatform function.
+   * @param params.allowedGlobals - Map of allowed globals. Defaults to {@link DEFAULT_ALLOWED_GLOBALS}.
    */
   constructor({
     id,
@@ -126,6 +132,7 @@ export class VatSupervisor {
     },
     platformOptions,
     fetchBlob,
+    allowedGlobals = DEFAULT_ALLOWED_GLOBALS,
   }: SupervisorConstructorProps) {
     this.id = id;
     this.#kernelStream = kernelStream;
@@ -137,6 +144,7 @@ export class VatSupervisor {
     this.#fetchBlob = fetchBlob ?? defaultFetchBlob;
     this.#platformOptions = platformOptions ?? {};
     this.#makePlatform = makePlatform;
+    this.#allowedGlobals = harden(allowedGlobals);
 
     this.#rpcClient = new RpcClient(
       vatSyscallMethodSpecs,
@@ -255,12 +263,13 @@ export class VatSupervisor {
    *
    * @param vatConfig - Configuration object describing the vat to be intialized.
    * @param state - A Map representing the current persistent state of the vat.
-   *
+   * @param allowedGlobalNames - Optional list of allowed global names to restrict the available endowments.
    * @returns a promise for a checkpoint of the new vat.
    */
   async #initVat(
     vatConfig: VatConfig,
     state: Map<string, string>,
+    allowedGlobalNames: string[] | undefined,
   ): Promise<VatDeliveryResult> {
     if (this.#loaded) {
       throw Error(
@@ -298,21 +307,26 @@ export class VatSupervisor {
 
     const { bundleSpec, parameters, platformConfig, globals } = vatConfig;
 
-    // Map of allowed global names to their values
-    const allowedGlobals: Record<string, unknown> = {
-      Date: globalThis.Date,
-      TextEncoder: globalThis.TextEncoder,
-      TextDecoder: globalThis.TextDecoder,
-      setTimeout: globalThis.setTimeout.bind(globalThis),
-      clearTimeout: globalThis.clearTimeout.bind(globalThis),
-    };
+    // If the kernel specified a restricted set of allowed global names,
+    // filter the full allowlist down to only those names.
+    const effectiveAllowedGlobals = allowedGlobalNames
+      ? Object.fromEntries(
+          allowedGlobalNames
+            .filter((name) => hasProperty(this.#allowedGlobals, name))
+            .map((name) => [name, this.#allowedGlobals[name]]),
+        )
+      : this.#allowedGlobals;
 
     // Build additional endowments from globals list
     const requestedGlobals: Record<string, unknown> = {};
     if (globals) {
       for (const name of globals) {
-        if (hasProperty(allowedGlobals, name)) {
-          requestedGlobals[name] = allowedGlobals[name];
+        if (hasProperty(effectiveAllowedGlobals, name)) {
+          requestedGlobals[name] = effectiveAllowedGlobals[name];
+        } else {
+          throw new Error(
+            `Vat "${this.id}" requested unknown global "${name}"`,
+          );
         }
       }
     }

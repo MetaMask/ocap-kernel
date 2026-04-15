@@ -26,7 +26,7 @@ async function rpc(socketPath, method, params) {
       method,
       ...(params === undefined ? {} : { params }),
     };
-    await writeLine(socket, JSON.stringify(request));
+    await writeLine(socket, JSON.stringify(request, (_k, v) => typeof v === 'bigint' ? String(v) : v));
     const responseLine = await readLine(socket);
     return JSON.parse(responseLine);
   } finally {
@@ -46,10 +46,10 @@ async function callVat(socketPath, target, method, args = []) {
 async function callVatExpectError(socketPath, target, method, args = []) {
   const response = await rpc(socketPath, 'queueMessage', [target, method, args]);
   if (response.error) {
-    return JSON.stringify(response.error);
+    return response.error.message;
   }
   await waitUntilQuiescent();
-  return response.result.body;
+  throw new Error(`Expected error but call succeeded: ${JSON.stringify(response.result)}`);
 }
 
 /**

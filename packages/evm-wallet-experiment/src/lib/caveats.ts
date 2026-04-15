@@ -1,4 +1,4 @@
-import { encodeAbiParameters, parseAbiParameters } from 'viem';
+import { encodeAbiParameters, encodePacked, parseAbiParameters } from 'viem';
 
 import { getChainContracts } from '../constants.ts';
 import type { Address, Caveat, CaveatType, Hex } from '../types.ts';
@@ -11,7 +11,30 @@ import type { Address, Caveat, CaveatType, Hex } from '../types.ts';
  * @returns The ABI-encoded terms.
  */
 export function encodeAllowedTargets(targets: Address[]): Hex {
-  return encodeAbiParameters(parseAbiParameters('address[]'), [targets]);
+  // AllowedTargetsEnforcer expects packed 20-byte addresses (not ABI-encoded).
+  return encodePacked(
+    targets.map(() => 'address' as const),
+    targets,
+  );
+}
+
+/**
+ * Encode caveat terms for the AllowedCalldata enforcer.
+ * Restricts a byte range of the execution calldata to an expected value.
+ * Commonly used to pin a function argument (e.g. a recipient address).
+ *
+ * @param options - Options for the caveat.
+ * @param options.dataStart - Byte offset into calldata where the check begins.
+ * @param options.value - The expected byte value at that offset.
+ * @returns The packed terms (32-byte offset ++ value bytes).
+ */
+export function encodeAllowedCalldata(options: {
+  dataStart: number;
+  value: Hex;
+}): Hex {
+  const startHex = options.dataStart.toString(16).padStart(64, '0');
+  // Strip the 0x prefix from value and concatenate
+  return `0x${startHex}${options.value.slice(2)}`;
 }
 
 /**
@@ -22,7 +45,11 @@ export function encodeAllowedTargets(targets: Address[]): Hex {
  * @returns The ABI-encoded terms.
  */
 export function encodeAllowedMethods(selectors: Hex[]): Hex {
-  return encodeAbiParameters(parseAbiParameters('bytes4[]'), [selectors]);
+  // AllowedMethodsEnforcer expects packed 4-byte selectors (not ABI-encoded).
+  return encodePacked(
+    selectors.map(() => 'bytes4' as const),
+    selectors,
+  );
 }
 
 /**
@@ -61,10 +88,9 @@ export function encodeErc20TransferAmount(options: {
   token: Address;
   amount: bigint;
 }): Hex {
-  return encodeAbiParameters(parseAbiParameters('address, uint256'), [
-    options.token,
-    options.amount,
-  ]);
+  // ERC20TransferAmountEnforcer expects packed address (20 bytes) + uint256
+  // (32 bytes) = 52 bytes total.
+  return encodePacked(['address', 'uint256'], [options.token, options.amount]);
 }
 
 /**

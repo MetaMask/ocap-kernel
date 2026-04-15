@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Make vat global allowlist configurable and expand available endowments ([#933](https://github.com/MetaMask/ocap-kernel/pull/933))
+  - Export `DEFAULT_ALLOWED_GLOBALS` with `URL`, `URLSearchParams`, `atob`, `btoa`, `AbortController`, and `AbortSignal` in addition to the existing globals
+  - Accept optional `allowedGlobals` on `VatSupervisor` for custom allowlists
+  - Log a warning when a vat requests an unknown global
+
 ### Changed
 
 - Bound relay hints in OCAP URLs to a maximum of 3 and cap the relay pool at 20 entries with eviction of oldest non-bootstrap relays ([#929](https://github.com/MetaMask/ocap-kernel/pull/929))

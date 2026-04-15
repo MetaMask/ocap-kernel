@@ -45,6 +45,7 @@ type VatConstructorProps = {
   kernelStore: KernelStore;
   kernelQueue: KernelQueue;
   logger?: Logger | undefined;
+  allowedGlobalNames?: string[] | undefined;
 };
 
 /**
@@ -62,6 +63,9 @@ export class VatHandle implements EndpointHandle {
 
   /** Logger for outputting messages (such as errors) to the console */
   readonly #logger: Logger | undefined;
+
+  /** Optional list of allowed global names for vat endowments */
+  readonly #allowedGlobalNames: string[] | undefined;
 
   /** Storage holding the kernel's persistent state */
   readonly #kernelStore: KernelStore;
@@ -89,6 +93,7 @@ export class VatHandle implements EndpointHandle {
    * @param params.kernelStore - The kernel's persistent state store.
    * @param params.kernelQueue - The kernel's queue.
    * @param params.logger - Optional logger for error and diagnostic output.
+   * @param params.allowedGlobalNames - Optional list of allowed global names for vat endowments.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor({
@@ -98,10 +103,12 @@ export class VatHandle implements EndpointHandle {
     kernelStore,
     kernelQueue,
     logger,
+    allowedGlobalNames,
   }: VatConstructorProps) {
     this.vatId = vatId;
     this.config = vatConfig;
     this.#logger = logger;
+    this.#allowedGlobalNames = allowedGlobalNames;
     this.#vatStream = vatStream;
     this.#kernelStore = kernelStore;
     this.#vatStore = kernelStore.makeVatStore(vatId);
@@ -171,6 +178,9 @@ export class VatHandle implements EndpointHandle {
       params: {
         vatConfig: this.config,
         state: this.#vatStore.getKVData(),
+        ...(this.#allowedGlobalNames
+          ? { allowedGlobalNames: this.#allowedGlobalNames }
+          : {}),
       },
     });
   }
