@@ -32,7 +32,6 @@
 
 import '@metamask/kernel-shims/endoify-node';
 
-import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 
 import { makeDaemonClient } from './helpers/daemon-client.mjs';
@@ -99,10 +98,6 @@ function assert(condition, label) {
 
 console.log(`\n=== Delegation Twin E2E (${mode}) ===\n`);
 
-// Per-run entropy so each test run produces unique delegation hashes even when
-// the coordinator vat is freshly instantiated (counter reset to 0).
-const entropy = `0x${randomBytes(32).toString('hex')}`;
-
 // ── Test 1: Twin enforces cumulative spend locally ─────────────────────────
 
 console.log('--- Transfer twin: spend tracking ---');
@@ -119,7 +114,6 @@ const transferGrant = await homeClient.callVat(
       // JSON; coordinator-vat coerces it to BigInt before buildDelegationGrant.
       max: '5',
       chainId: CHAIN_ID,
-      entropy,
     },
   ],
 );
@@ -189,7 +183,6 @@ const expiredGrant = await homeClient.callVat(homeKref, 'makeDelegationGrant', [
     targets: [BURN_ADDRESS],
     chainId: CHAIN_ID,
     validUntil: expiredAt,
-    entropy,
   },
 ]);
 
