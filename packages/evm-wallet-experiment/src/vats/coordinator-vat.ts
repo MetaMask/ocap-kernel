@@ -374,9 +374,10 @@ export function buildRootObject(
     }
   });
 
-  // Per-vat salt generator: each vat instance gets its own counter so that
-  // delegations created in separate vat lifetimes (or parallel vats) do not
-  // collide even when crypto.getRandomValues is unavailable (SES fallback).
+  // Per-vat salt generator so each vat instance has an independent counter
+  // rather than sharing the module-level one. When crypto.getRandomValues is
+  // available (Node.js, browsers) salts are random; the counter fallback is
+  // only used in strict SES compartments that do not endow crypto.
   const grantBuilder = makeDelegationGrantBuilder({
     saltGenerator: makeSaltGenerator(),
   });
