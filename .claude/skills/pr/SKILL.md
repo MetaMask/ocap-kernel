@@ -107,13 +107,7 @@ Otherwise, after all launched subagents complete:
    - Abort
 4. If there are no blockers, briefly summarize the findings and proceed.
 
-## Phase 4: Update changelogs
-
-**MANDATORY — DO NOT SKIP.** Each PR must update changelogs for all packages with consumer-facing changes.
-Read the instructions in [`docs/contributing/updating-changelogs.md`](../../../docs/contributing/updating-changelogs.md) and follow them to the letter.
-Commit the changes to the current branch with the commit message "docs: Update changelogs" before creating the PR.
-
-## Phase 5: Create the PR
+## Phase 4: Create the PR
 
 1. Run `gh pr create` to create a pull request. The PR body should include:
 
@@ -123,4 +117,24 @@ Commit the changes to the current branch with the commit message "docs: Update c
 
    **If this is a stacked PR**, add `--draft` to create it as a draft PR.
 
-2. Return the PR URL and any relevant information. If a review was performed, include the review summary.
+2. Note the PR number from the created PR URL — it is needed for changelog entries. Proceed to Phase 5 before presenting results to the user.
+
+## Phase 5: Update changelogs
+
+**MANDATORY — DO NOT SKIP.** Analyze the diff and determine whether any changes are consumer-facing (i.e., affect the behavior or API of a published or private package).
+
+- **If there are NO consumer-facing changes** (e.g., docs-only, CI, tooling, skill definitions, dev scripts): add the `no-changelog` label to the PR via `gh pr edit <number> --add-label no-changelog` and skip the rest of this phase.
+- **If there ARE consumer-facing changes**: update changelogs as described below.
+
+Read the instructions in [`docs/contributing/updating-changelogs.md`](../../../docs/contributing/updating-changelogs.md) and follow them **to the letter**. In particular:
+
+- **Think from the consumer's perspective.** A changelog is not a git history. For each affected package, ask: "What changed for someone who depends on this package?" Describe changes in natural language; do not simply reuse commit messages.
+- **Combine like changes.** If multiple commits contribute to a single logical change within one package, write one changelog entry — not one per commit.
+- **Split disparate changes.** If one commit touches unrelated concerns in a single package, write separate entries.
+- **Link the PR.** Use the PR number from Phase 4 in each entry (e.g. `([#123](https://github.com/.../pull/123))`).
+
+Commit the changelog updates to the current branch with the message "docs: Update changelogs" and push.
+
+## Done
+
+Present the PR URL and any relevant information to the user. If a review was performed, include the review summary.
