@@ -13,6 +13,7 @@ import type {
 } from './helpers/docker-e2e-kernel-services.ts';
 import {
   callVat,
+  dockerExec,
   evmRpc,
   isStackHealthy,
   readContracts,
@@ -320,6 +321,39 @@ describe('Docker E2E', () => {
 
           expectations[delegationMode]();
         });
+      });
+
+      // -------------------------------------------------------------------------
+      // Delegation twin
+      // -------------------------------------------------------------------------
+
+      describe('delegation twin', () => {
+        it('enforces cumulativeSpend locally; chain enforces expired timestamp', () => {
+          const delegate = resolveOnChainDelegateAddress({
+            delegationMode,
+            home: homeResult,
+            away: awayResult,
+          });
+          const scriptPath =
+            '/app/packages/evm-wallet-experiment/test/e2e/docker/run-delegation-twin-e2e.mjs';
+          const logFile = `logs/${kernelServices.away}.log`;
+          let output = '';
+          try {
+            output = dockerExec(
+              kernelServices.away,
+              `node --conditions development ${scriptPath} ${delegationMode} ${homeResult.kref} ${awayResult.kref} ${delegate}`,
+            );
+          } catch (error) {
+            throw new Error(
+              `Delegation twin e2e script failed — see ${logFile}\n` +
+                `${error instanceof Error ? error.message : String(error)}`,
+            );
+          }
+          expect(
+            output,
+            `Assertions failed — see ${logFile} and logs/test-results.json`,
+          ).toContain('All delegation twin tests passed');
+        }, 180_000);
       });
     },
   );

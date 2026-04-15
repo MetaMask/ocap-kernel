@@ -4,6 +4,18 @@ import { Logger } from '@metamask/logger';
 import type { Baggage } from '@metamask/ocap-kernel';
 
 import {
+  ENFORCER_CONTRACT_KEY_MAP,
+  PLACEHOLDER_CONTRACTS,
+  registerChainContracts,
+} from '../constants.ts';
+import type { ChainContracts } from '../constants.ts';
+import {
+  buildDelegationGrant,
+  makeDelegationGrantBuilder,
+} from '../lib/delegation-grant.ts';
+import { makeDelegationTwin } from '../lib/delegation-twin.ts';
+import { makeSaltGenerator } from '../lib/delegation.ts';
+import {
   decodeAllowanceResult,
   decodeBalanceOfResult,
   decodeDecimalsResult,
@@ -16,6 +28,7 @@ import {
   encodeSymbol,
   encodeTransfer,
 } from '../lib/erc20.ts';
+import type { CatalogMethodName } from '../lib/method-catalog.ts';
 import {
   buildBatchExecuteCallData,
   buildSdkBatchRedeemCallData,
@@ -36,6 +49,7 @@ import type {
   ChainConfig,
   CreateDelegationOptions,
   Delegation,
+  DelegationGrant,
   DelegationMatchResult,
   Eip712TypedData,
   Execution,
@@ -143,12 +157,12 @@ function describeCaveat(caveat: Caveat): string {
     case 'timestamp':
       return 'time-limited';
     case 'erc20TransferAmount': {
-      // ABI-encoded (address, uint256): 12 bytes padding + 20 bytes address + 32 bytes uint256
-      // In hex string: '0x' + 24 pad chars + 40 address chars + 64 amount chars = 130 chars
-      if (caveat.terms.length >= 130) {
+      // Packed encoding: 20-byte address + 32-byte uint256 = 52 bytes
+      // In hex string: '0x' + 40 address chars + 64 amount chars = 106 chars
+      if (caveat.terms.length >= 106) {
         try {
-          const token = `0x${caveat.terms.slice(26, 66)}`;
-          const amount = BigInt(`0x${caveat.terms.slice(66)}`);
+          const token = `0x${caveat.terms.slice(2, 42)}`;
+          const amount = BigInt(`0x${caveat.terms.slice(42)}`);
           return `ERC-20 transfer limit: ${amount.toString()} units on ${token}`;
         } catch {
           // Fall through to generic description
@@ -360,10 +374,29 @@ export function buildRootObject(
     }
   });
 
+  // Per-vat salt generator so each vat instance has an independent counter
+  // rather than sharing the module-level one. When crypto.getRandomValues is
+  // available (Node.js, browsers) salts are random; the counter fallback is
+  // only used in strict SES compartments that do not endow crypto.
+  const grantBuilder = makeDelegationGrantBuilder({
+    saltGenerator: makeSaltGenerator(),
+  });
+
   // References to other vats (set during bootstrap)
   let keyringVat: KeyringFacet | undefined;
   let providerVat: ProviderFacet | undefined;
   let delegationVat: DelegationFacet | undefined;
+
+  // Twins provisioned via provisionTwin(), keyed by delegation ID.
+  // redeemFn/readFn closures cannot cross the CapTP vat boundary, so twins
+  // live here rather than in the delegation vat.
+  const coordinatorTwins = new Map<
+    string,
+    ReturnType<typeof makeDelegationTwin>
+  >();
+  // Method name for each provisioned twin, used by sendTransaction to dispatch
+  // to the correct method (transfer/approve twins don't expose .call()).
+  const coordinatorTwinMethods = new Map<string, CatalogMethodName>();
   let issuerService: OcapURLIssuerFacet | undefined;
   let redemptionService: OcapURLRedemptionFacet | undefined;
 
@@ -1588,6 +1621,21 @@ export function buildRootObject(
       // registry (e.g. local Anvil at chain 31337).
       if (config.environment) {
         registerEnvironment(config.chainId, config.environment);
+
+        // Also register in our own getChainContracts() registry so that
+        // makeDelegationGrant() can build caveats for this chain.
+        const rawEnforcers = config.environment.caveatEnforcers ?? {};
+        const enforcers = { ...PLACEHOLDER_CONTRACTS.enforcers };
+        for (const [key, addr] of Object.entries(rawEnforcers)) {
+          const caveatType = ENFORCER_CONTRACT_KEY_MAP[key];
+          if (caveatType !== undefined) {
+            enforcers[caveatType] = addr;
+          }
+        }
+        registerChainContracts(config.chainId, {
+          delegationManager: config.environment.DelegationManager,
+          enforcers,
+        } as ChainContracts);
       }
 
       bundlerConfig = harden({
@@ -1776,6 +1824,33 @@ export function buildRootObject(
             throw new Error(
               `Found delegation ${delegation.id} but its status is '${delegation.status}' (expected 'signed'). ` +
                 `Direct signing is not used when a delegation exists, to avoid bypassing caveats.`,
+            );
+          }
+          // Route through the provisioned twin when one exists so that local
+          // caveat checks (e.g. cumulativeSpend) fire before hitting the chain.
+          const twin = coordinatorTwins.get(delegation.id);
+          if (twin) {
+            const twinMethod = coordinatorTwinMethods.get(delegation.id);
+            if (twinMethod === 'transfer' || twinMethod === 'approve') {
+              // Decode the ABI-encoded (address, uint256) calldata args.
+              // Layout (after '0x'): 8 selector + 64 address word + 64 amount word
+              // = 138 chars total. Validate before slicing to avoid BigInt('0x')
+              // SyntaxError when calldata is missing or truncated.
+              const data = tx.data ?? ('0x' as Hex);
+              if (data.length < 138) {
+                throw new Error(
+                  `Cannot route through ${twinMethod} twin: calldata too short ` +
+                    `(${data.length} chars, need 138)`,
+                );
+              }
+              const addrArg = `0x${data.slice(34, 74)}`;
+              const amountArg = BigInt(`0x${data.slice(74, 138)}`);
+              return E(twin)[twinMethod](addrArg, amountArg);
+            }
+            return E(twin).call(
+              tx.to,
+              tx.value ?? ('0x0' as Hex),
+              tx.data ?? ('0x' as Hex),
             );
           }
           return submitDelegationUserOp({
@@ -2228,6 +2303,171 @@ export function buildRootObject(
         throw new Error('Delegation vat not available');
       }
       return E(delegationVat).listDelegations();
+    },
+
+    // ------------------------------------------------------------------
+    // Delegation twins
+    // ------------------------------------------------------------------
+
+    async makeDelegationGrant(
+      method: CatalogMethodName,
+      options: Record<string, unknown>,
+    ): Promise<DelegationGrant> {
+      if (!delegationVat) {
+        throw new Error('Delegation vat not available');
+      }
+
+      // Resolve delegator: smart account address if configured, else first local account
+      const delegator =
+        smartAccountConfig?.address ?? (await resolveOwnerAddress());
+
+      // Coerce numeric options that arrive as strings over the JSON-RPC boundary
+      // (the daemon queueMessage protocol only carries plain JSON).
+      const rawOptions = { delegator, ...options };
+      const coercedOptions = {
+        ...rawOptions,
+        ...(rawOptions.max !== undefined && {
+          max: BigInt(rawOptions.max as string | number | bigint),
+        }),
+        ...(rawOptions.maxValue !== undefined && {
+          maxValue: BigInt(rawOptions.maxValue as string | number | bigint),
+        }),
+      };
+
+      const grant = grantBuilder.buildDelegationGrant(
+        method,
+        coercedOptions as Parameters<typeof buildDelegationGrant>[1],
+      );
+
+      // Sign the delegation via the existing create → prepare → sign → store flow
+      const { delegation } = grant;
+
+      // Determine signing function (same logic as createDelegation)
+      let signTypedDataFn:
+        | ((data: Eip712TypedData) => Promise<Hex>)
+        | undefined;
+
+      if (keyringVat) {
+        const accounts = await E(keyringVat).getAccounts();
+        if (accounts.length > 0) {
+          const kv = keyringVat;
+          signTypedDataFn = async (data: Eip712TypedData) =>
+            E(kv).signTypedData(data);
+        }
+      }
+
+      if (!signTypedDataFn && externalSigner) {
+        const accounts = await E(externalSigner).getAccounts();
+        if (accounts.length > 0) {
+          const ext = externalSigner;
+          const from = accounts[0];
+          signTypedDataFn = async (data: Eip712TypedData) =>
+            E(ext).signTypedData(data, from);
+        }
+      }
+
+      if (!signTypedDataFn) {
+        throw new Error('No signing authority available');
+      }
+
+      // Store, prepare, sign, and finalize the delegation
+      const stored = await E(delegationVat).createDelegation({
+        delegate: delegation.delegate,
+        caveats: delegation.caveats,
+        chainId: delegation.chainId,
+        salt: delegation.salt,
+        delegator,
+      });
+
+      const typedData = await E(delegationVat).prepareDelegationForSigning(
+        stored.id,
+      );
+      const signature = await signTypedDataFn(typedData);
+      await E(delegationVat).storeSigned(stored.id, signature);
+
+      const signedDelegation = await E(delegationVat).getDelegation(stored.id);
+
+      return harden({
+        ...grant,
+        delegation: signedDelegation,
+      });
+    },
+
+    async provisionTwin(grant: DelegationGrant): Promise<unknown> {
+      if (!delegationVat) {
+        throw new Error('Delegation vat not available');
+      }
+
+      // Coerce BigInt fields in caveatSpecs — they arrive as strings when the
+      // grant crosses the daemon JSON-RPC boundary.
+      const coercedGrant: DelegationGrant = harden({
+        ...grant,
+        caveatSpecs: grant.caveatSpecs.map((spec) => {
+          if (spec.type === 'cumulativeSpend') {
+            return harden({
+              ...spec,
+              max: BigInt(spec.max as unknown as string | number | bigint),
+            });
+          }
+          if (spec.type === 'blockWindow') {
+            return harden({
+              ...spec,
+              after: BigInt(spec.after as unknown as string | number | bigint),
+              before: BigInt(
+                spec.before as unknown as string | number | bigint,
+              ),
+            });
+          }
+          if (spec.type === 'valueLte') {
+            return harden({
+              ...spec,
+              max: BigInt(spec.max as unknown as string | number | bigint),
+            });
+          }
+          return spec;
+        }),
+      });
+
+      const { delegation } = coercedGrant;
+
+      // Build redeemFn closure that submits a delegation UserOp
+      const redeemFn = async (execution: Execution): Promise<Hex> => {
+        return submitDelegationUserOp({
+          delegations: [delegation],
+          execution,
+        });
+      };
+
+      // Build readFn closure if provider is available
+      let readFn:
+        | ((opts: { to: Address; data: Hex }) => Promise<Hex>)
+        | undefined;
+      if (providerVat) {
+        const pv = providerVat;
+        readFn = async (opts: { to: Address; data: Hex }): Promise<Hex> => {
+          const result = await E(pv).request('eth_call', [
+            { to: opts.to, data: opts.data },
+            'latest',
+          ]);
+          return result as Hex;
+        };
+      }
+
+      // Create the twin locally — redeemFn/readFn are closures that cannot
+      // cross the CapTP vat boundary, so we build the twin here and store
+      // the delegation in the delegation vat via a plain-data call.
+      await E(delegationVat).storeDelegation(coercedGrant);
+      const twin = makeDelegationTwin({
+        grant: coercedGrant,
+        redeemFn,
+        readFn,
+      });
+      coordinatorTwins.set(coercedGrant.delegation.id, twin);
+      coordinatorTwinMethods.set(
+        coercedGrant.delegation.id,
+        coercedGrant.methodName as CatalogMethodName,
+      );
+      return twin;
     },
 
     // ------------------------------------------------------------------

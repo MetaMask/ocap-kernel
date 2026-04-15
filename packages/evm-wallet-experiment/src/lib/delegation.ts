@@ -48,36 +48,63 @@ export function computeDelegationId(delegation: {
   );
 }
 
-// Monotonic counter for salt uniqueness in SES compartments where
-// neither crypto.getRandomValues nor Math.random is available.
-// This is intentionally module-level: generateSalt() is a standalone
-// exported function (not part of a factory), so the counter must persist
-// across calls for the lifetime of the module/compartment.
-let saltCounter = 0;
+/**
+ * A function that generates a unique delegation salt on each call.
+ */
+export type SaltGenerator = () => Hex;
+
+/**
+ * Create a salt generator for delegation uniqueness.
+ *
+ * Prefers crypto.getRandomValues when available. In SES compartments
+ * where crypto is not endowed, falls back to a closure-local counter
+ * hashed with optional caller-supplied entropy. Each call to
+ * makeSaltGenerator produces an independent counter, so two vat instances
+ * each get their own sequence rather than sharing module-level state.
+ *
+ * @param entropy - Optional caller-supplied entropy hex string. When provided
+ *   and crypto is unavailable, mixed into the counter hash so that separate
+ *   vat instances produce distinct salts even though both start at counter 1.
+ * @returns A salt generator function.
+ */
+export function makeSaltGenerator(entropy?: Hex): SaltGenerator {
+  // eslint-disable-next-line n/no-unsupported-features/node-builtins
+  if (globalThis.crypto?.getRandomValues) {
+    return () => {
+      const bytes = new Uint8Array(32);
+      // eslint-disable-next-line n/no-unsupported-features/node-builtins
+      globalThis.crypto.getRandomValues(bytes);
+      return toHex(bytes);
+    };
+  }
+
+  // SES fallback: unique per generator lifetime but not cryptographically random.
+  // The salt only needs uniqueness, not unpredictability.
+  let counter = 0;
+  if (entropy !== undefined) {
+    return () => {
+      counter += 1;
+      return keccak256(
+        encodePacked(['bytes', 'uint256'], [entropy, BigInt(counter)]),
+      );
+    };
+  }
+  return () => {
+    counter += 1;
+    return keccak256(encodePacked(['uint256'], [BigInt(counter)]));
+  };
+}
 
 /**
  * Generate a random salt for delegation uniqueness.
  *
- * Prefers crypto.getRandomValues when available. In SES compartments
- * where crypto is not endowed, falls back to keccak256(counter).
+ * Uses a module-level counter as the SES fallback. Prefer
+ * {@link makeSaltGenerator} when creating delegations in a vat, since it
+ * gives each vat instance an independent counter.
  *
  * @returns A hex-encoded random salt.
  */
-export function generateSalt(): Hex {
-  // eslint-disable-next-line n/no-unsupported-features/node-builtins
-  if (globalThis.crypto?.getRandomValues) {
-    const bytes = new Uint8Array(32);
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins
-    globalThis.crypto.getRandomValues(bytes);
-    return toHex(bytes);
-  }
-
-  // SES fallback: keccak256(counter). Unique per vat lifetime but not
-  // cryptographically random. The salt only needs uniqueness, not
-  // unpredictability.
-  saltCounter += 1;
-  return keccak256(encodePacked(['uint256'], [BigInt(saltCounter)]));
-}
+export const generateSalt: SaltGenerator = makeSaltGenerator();
 
 /**
  * Create a new unsigned delegation struct.
@@ -88,6 +115,8 @@ export function generateSalt(): Hex {
  * @param options.caveats - The caveats restricting the delegation.
  * @param options.chainId - The chain ID.
  * @param options.salt - Optional salt (generated if omitted).
+ * @param options.saltGenerator - Optional salt generator to use when no
+ *   explicit salt is provided. Defaults to {@link generateSalt}.
  * @param options.authority - Optional parent delegation hash (root if omitted).
  * @returns The unsigned Delegation struct.
  */
@@ -97,9 +126,10 @@ export function makeDelegation(options: {
   caveats: Caveat[];
   chainId: number;
   salt?: Hex;
+  saltGenerator?: SaltGenerator;
   authority?: Hex;
 }): Delegation {
-  const salt = options.salt ?? generateSalt();
+  const salt = options.salt ?? (options.saltGenerator ?? generateSalt)();
   const authority = options.authority ?? ROOT_AUTHORITY;
 
   const id = computeDelegationId({
@@ -192,10 +222,12 @@ export function explainDelegationMatch(
   // Check each caveat - all must pass for the delegation to match
   for (const caveat of delegation.caveats) {
     if (caveat.type === 'allowedTargets') {
-      const [targets] = decodeAbiParameters(
-        parseAbiParameters('address[]'),
-        caveat.terms,
-      );
+      // Packed 20-byte addresses (40 hex chars each, after '0x' prefix).
+      const termsBody = caveat.terms.slice(2);
+      const targets: string[] = [];
+      for (let i = 0; i < termsBody.length; i += 40) {
+        targets.push(`0x${termsBody.slice(i, i + 40)}`);
+      }
       const match = targets.some(
         (target) => target.toLowerCase() === action.to.toLowerCase(),
       );
@@ -210,10 +242,12 @@ export function explainDelegationMatch(
 
     if (caveat.type === 'allowedMethods' && action.data) {
       const selector = action.data.slice(0, 10).toLowerCase() as Hex;
-      const [methods] = decodeAbiParameters(
-        parseAbiParameters('bytes4[]'),
-        caveat.terms,
-      );
+      // Packed 4-byte selectors (8 hex chars each, after '0x' prefix).
+      const termsBody = caveat.terms.slice(2);
+      const methods: string[] = [];
+      for (let i = 0; i < termsBody.length; i += 8) {
+        methods.push(`0x${termsBody.slice(i, i + 8)}`);
+      }
       const match = methods.some((method) => method.toLowerCase() === selector);
       if (!match) {
         return {
@@ -273,10 +307,10 @@ export function explainDelegationMatch(
     }
 
     if (caveat.type === 'erc20TransferAmount') {
-      const [token, maxAmount] = decodeAbiParameters(
-        parseAbiParameters('address, uint256'),
-        caveat.terms,
-      );
+      // Packed: 20-byte address (40 hex chars) + 32-byte uint256 (64 hex chars).
+      const erc20Hex = caveat.terms.slice(2);
+      const token = `0x${erc20Hex.slice(0, 40)}`;
+      const maxAmount = BigInt(`0x${erc20Hex.slice(40, 104)}`);
       if (action.to.toLowerCase() !== token.toLowerCase()) {
         return {
           matches: false,

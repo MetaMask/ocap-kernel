@@ -4,6 +4,7 @@ import { buildRootObject as buildDelegationRoot } from './delegation-vat.ts';
 import { buildRootObject as buildKeyringRoot } from './keyring-vat.ts';
 import { makeMockBaggage } from '../../test/helpers.ts';
 import { encodeAllowedTargets, makeCaveat } from '../lib/caveats.ts';
+import { encodeTransfer } from '../lib/erc20.ts';
 import { ENTRY_POINT_V07 } from '../lib/userop.ts';
 import type {
   Address,
@@ -665,6 +666,105 @@ describe('coordinator-vat', () => {
         'No authority to sign this transaction',
       );
       expect(mockPeerWallet.handleSigningRequest).not.toHaveBeenCalled();
+    });
+
+    describe('provisioned twin routing', () => {
+      const TOKEN = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address;
+      const RECIPIENT = '0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb' as Address;
+      const AMOUNT = 5n;
+
+      beforeEach(async () => {
+        await coordinator.initializeKeyring({
+          type: 'srp',
+          mnemonic: TEST_MNEMONIC,
+        });
+        await coordinator.configureBundler({
+          bundlerUrl: 'https://bundler.example.com',
+          chainId: 1,
+        });
+      });
+
+      it('routes through a transfer twin using the transfer method', async () => {
+        const accounts = await coordinator.getAccounts();
+        const grant = await coordinator.makeDelegationGrant('transfer', {
+          delegate: accounts[0],
+          token: TOKEN,
+          max: AMOUNT * 2n,
+          chainId: 1,
+        });
+        await coordinator.provisionTwin(grant);
+
+        const result = await coordinator.sendTransaction({
+          from: accounts[0],
+          to: TOKEN,
+          data: encodeTransfer(RECIPIENT, AMOUNT),
+          value: '0x0' as Hex,
+          chainId: 1,
+        });
+        expect(result).toBe('0xuserophash');
+      });
+
+      it('rejects with a clear error when calldata is missing for a transfer twin', async () => {
+        // delegationMatchesAction skips the allowedMethods check when
+        // action.data is falsy, and skips erc20TransferAmount when the
+        // delegation doesn't have that caveat. A delegation with only
+        // allowedTargets therefore matches a no-calldata tx. The decode path
+        // must validate length before slicing or BigInt('0x') throws a
+        // SyntaxError with no useful context.
+        const accounts = await coordinator.getAccounts();
+
+        // Create a delegation with only allowedTargets (no erc20TransferAmount)
+        // so it will match the no-data tx below.
+        const delegation = await coordinator.createDelegation({
+          delegate: accounts[0],
+          caveats: [
+            makeCaveat({
+              type: 'allowedTargets',
+              terms: encodeAllowedTargets([TOKEN]),
+            }),
+          ],
+          chainId: 1,
+        });
+
+        // Build the grant manually to attach a transfer twin without the
+        // erc20TransferAmount caveat that would otherwise guard the decode path.
+        const grant = {
+          delegation,
+          methodName: 'transfer',
+          caveatSpecs: [],
+          token: TOKEN,
+        };
+        await coordinator.provisionTwin(grant);
+
+        await expect(
+          coordinator.sendTransaction({
+            from: accounts[0],
+            to: TOKEN,
+            // no data — delegation matches, twin found, decode must not crash
+            value: '0x0' as Hex,
+            chainId: 1,
+          }),
+        ).rejects.toThrow('calldata too short');
+      });
+
+      it('routes through a call twin using the call method', async () => {
+        const accounts = await coordinator.getAccounts();
+        const grant = await coordinator.makeDelegationGrant('call', {
+          delegate: accounts[0],
+          targets: [TARGET],
+          chainId: 1,
+        });
+        await coordinator.provisionTwin(grant);
+
+        const result = await coordinator.sendTransaction({
+          from: accounts[0],
+          to: TARGET,
+          data: '0xdeadbeef' as Hex,
+          value: '0x0' as Hex,
+          chainId: 1,
+        });
+        expect(result).toBe('0xuserophash');
+      });
     });
   });
 

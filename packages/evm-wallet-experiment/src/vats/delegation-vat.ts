@@ -16,6 +16,7 @@ import type {
   Address,
   CreateDelegationOptions,
   Delegation,
+  DelegationGrant,
   DelegationMatchResult,
   Eip712TypedData,
   Hex,
@@ -198,6 +199,12 @@ export function buildRootObject(
         id,
         harden({ ...delegation, status: 'revoked' as const }),
       );
+      persistDelegations();
+    },
+
+    async storeDelegation(grant: DelegationGrant): Promise<void> {
+      const { delegation } = grant;
+      delegations.set(delegation.id, delegation);
       persistDelegations();
     },
   });
