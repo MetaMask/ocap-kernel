@@ -324,46 +324,31 @@ export type DelegationMatchResult = {
 };
 
 // ---------------------------------------------------------------------------
-// Delegation grant (twin construction input)
+// Semantic delegation grants (twin construction input — post-decoded)
 // ---------------------------------------------------------------------------
 
-const BigIntStruct = define<bigint>(
-  'BigInt',
-  (value) => typeof value === 'bigint',
-);
+export type TransferNativeGrant = {
+  method: 'transferNative';
+  /** Restricted recipient; enforced by AllowedTargetsEnforcer on-chain. */
+  to?: Address;
+  /** Per-call ETH value limit; from ValueLteEnforcer. */
+  maxAmount?: bigint;
+  delegation: Delegation;
+};
 
-export const CaveatSpecStruct = union([
-  object({
-    type: literal('cumulativeSpend'),
-    token: AddressStruct,
-    max: BigIntStruct,
-  }),
-  object({
-    type: literal('blockWindow'),
-    after: BigIntStruct,
-    before: BigIntStruct,
-  }),
-  object({
-    type: literal('allowedCalldata'),
-    dataStart: number(),
-    value: HexStruct,
-  }),
-  object({
-    type: literal('valueLte'),
-    max: BigIntStruct,
-  }),
-]);
+export type TransferFungibleGrant = {
+  method: 'transferFungible';
+  /** ERC-20 token contract; from AllowedTargetsEnforcer. Always present. */
+  token: Address;
+  /** Restricted recipient; from AllowedCalldataEnforcer. */
+  to?: Address;
+  /** Cumulative transfer cap; from ERC20TransferAmountEnforcer. */
+  maxAmount?: bigint;
+  delegation: Delegation;
+};
 
-export type CaveatSpec = Infer<typeof CaveatSpecStruct>;
-
-export const DelegationGrantStruct = object({
-  delegation: DelegationStruct,
-  methodName: string(),
-  caveatSpecs: array(CaveatSpecStruct),
-  token: optional(AddressStruct),
-});
-
-export type DelegationGrant = Infer<typeof DelegationGrantStruct>;
+/** Discriminated union of all supported semantic delegation grant types. */
+export type DelegationGrant = TransferNativeGrant | TransferFungibleGrant;
 
 // ---------------------------------------------------------------------------
 // Swap types (MetaSwap API)
