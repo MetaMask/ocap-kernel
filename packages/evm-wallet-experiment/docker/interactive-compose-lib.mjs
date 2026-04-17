@@ -38,6 +38,19 @@ export function awayServiceForInteractivePair(pair) {
   throw new Error(`Unknown interactive pair: ${pair}`);
 }
 
+export function homeServiceForInteractivePair(pair) {
+  if (pair === 'bundler-7702') {
+    return 'kernel-home-bundler-7702';
+  }
+  if (pair === 'bundler-hybrid') {
+    return 'kernel-home-bundler-hybrid';
+  }
+  if (pair === 'peer-relay') {
+    return 'kernel-home-peer-relay';
+  }
+  throw new Error(`Unknown interactive pair: ${pair}`);
+}
+
 export function parseInteractiveComposeArgv(argv) {
   let pair = process.env.OCAP_INTERACTIVE_PAIR ?? DEFAULT_INTERACTIVE_PAIR;
   const rest = [...argv];

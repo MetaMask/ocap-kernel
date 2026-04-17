@@ -68,6 +68,8 @@
     "docker:setup:wallets": "yarn tsx test/e2e/docker/setup-wallets.ts",
     "docker:interactive:setup": "node docker/interactive-setup.mjs",
     "docker:interactive:reset-openclaw": "node docker/interactive-reset-openclaw.mjs",
+    "docker:attach:away": "node docker/attach.mjs away",
+    "docker:attach:home": "node docker/attach.mjs home",
     "docker:delegate": "yarn docker:compose cp docker/create-delegation.mjs kernel-home-bundler-7702:/app/packages/evm-wallet-experiment/docker/create-delegation.mjs && yarn docker:compose exec kernel-home-bundler-7702 node --conditions development /app/packages/evm-wallet-experiment/docker/create-delegation.mjs",
     "docker:logs": "yarn docker:compose logs -f --tail=100",
     "test:e2e:docker": "vitest run --config vitest.config.docker.ts"
