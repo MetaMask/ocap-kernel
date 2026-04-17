@@ -64,5 +64,5 @@ if (gateway.status !== 0) {
 }
 
 console.log(
-  `OpenClaw configured + gateway started (${away}). Shell: OCAP_INTERACTIVE_PAIR=${pair} yarn docker:compose:interactive -- exec ${away} bash`,
+  `OpenClaw configured + gateway started (${away}). Shell: OCAP_INTERACTIVE_PAIR=${pair} yarn docker:demo:attach:away`,
 );

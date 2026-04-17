@@ -67,6 +67,6 @@ RUN mkdir -p /logs /run/ocap
 FROM kernel AS interactive
 
 # OpenClaw loads local plugins as TypeScript via jiti (no extra TS runner in the image).
-# `package.json` docker:interactive:setup starts the gateway via
+# `package.json` docker:demo:setup starts the gateway via
 # `node /usr/local/lib/node_modules/openclaw/openclaw.mjs` (global bin PATH is unreliable under `docker exec`).
 RUN npm install -g openclaw@2026.4.1

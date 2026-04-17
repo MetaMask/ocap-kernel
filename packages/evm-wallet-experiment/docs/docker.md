@@ -33,7 +33,7 @@ The away kernel for `bundler-7702` has two Dockerfile targets:
 | `kernel`      | E2E tests (default) | Kernel daemon only           |
 | `interactive` | Interactive mode    | Kernel daemon + OpenClaw CLI |
 
-The `interactive` target is activated automatically by `docker:interactive:up` via `docker/.env.interactive`.
+The `interactive` target is activated automatically by `docker:demo:up` via `docker/.env.interactive`.
 
 ---
 
@@ -71,7 +71,7 @@ Interactive mode activates one profile at a time. E2E test mode (`docker:up`) ac
 | `ocap-run` (named volume)                           | `/run/ocap` | Kernel databases, daemon sockets, contract addresses, delegation context, OpenClaw state                 |
 | `packages/evm-wallet-experiment/logs/` (bind-mount) | `/logs`     | Per-service log files (`<service-name>.log`); persists across restarts and readable directly on the host |
 
-The `logs/` directory is created automatically by `docker:up` and `docker:interactive:up` via the `docker:ensure-logs` script. Each container's entrypoint tees its stdout/stderr to `/logs/<service-name>.log`.
+The `logs/` directory is created automatically by `docker:up` and `docker:demo:up` via the `docker:ensure-logs` script. Each container's entrypoint tees its stdout/stderr to `/logs/<service-name>.log`.
 
 ---
 
@@ -132,7 +132,7 @@ cat packages/evm-wallet-experiment/logs/kernel-home-bundler-7702.log
 cat packages/evm-wallet-experiment/logs/test-results.json
 
 # Check container health
-docker compose -f packages/evm-wallet-experiment/docker/docker-compose.yml --profile 7702 ps
+yarn workspace @ocap/evm-wallet-experiment docker:ps
 ```
 
 Kernel containers write a readiness JSON file to `/run/ocap/<service>-ready.json` when the daemon is up. The host-side setup scripts poll this before proceeding.
@@ -160,5 +160,5 @@ After `test:e2e:docker` completes, structured pass/fail results are written to `
 
 **Volume state is corrupted or stale**
 
-- Full wipe: `docker compose -f packages/evm-wallet-experiment/docker/docker-compose.yml down -v`
+- Full wipe: `yarn workspace @ocap/evm-wallet-experiment docker:down:volumes`
 - Rebuild: `yarn workspace @ocap/evm-wallet-experiment docker:build:force`

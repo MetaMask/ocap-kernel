@@ -30,5 +30,5 @@ if (spawned.status !== 0) {
 }
 
 console.log(
-  `OpenClaw state removed at ${openclawDir} on ocap-run volume. Run: yarn docker:interactive:setup`,
+  `OpenClaw state removed at ${openclawDir} on ocap-run volume. Run: yarn docker:demo:setup`,
 );

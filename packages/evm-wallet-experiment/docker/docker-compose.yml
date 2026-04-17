@@ -1,6 +1,6 @@
 # Extension fields (ignored as services; hold YAML anchors for kernel DRY).
 # Three pairs: bundler-7702 (4011/4012), bundler-hybrid (4021/4022), peer-relay (4031/4032).
-# Each pair is behind a Compose profile so `yarn docker:interactive:up` can start one pair;
+# Each pair is behind a Compose profile so `yarn docker:demo:up` can start one pair;
 # E2E / `yarn docker:up` pass all three `--profile` flags: 7702, 4337, relay (see package.json `docker:compose`).
 x-kernel-build-core: &kernel-build-core
   context: ../../../
