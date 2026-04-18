@@ -1,14 +1,14 @@
-# `@ocap/service-discovery-types`
+# `@metamask/service-discovery-types`
 
 Type definitions and runtime validators for the ocap service discovery model
 
 ## Installation
 
-`yarn add @ocap/service-discovery-types`
+`yarn add @metamask/service-discovery-types`
 
 or
 
-`npm install @ocap/service-discovery-types`
+`npm install @metamask/service-discovery-types`
 
 ## Contributing
 

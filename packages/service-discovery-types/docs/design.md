@@ -91,7 +91,7 @@ this:
 import {
   methodsToRemotableSpec,
   type ServiceDescription,
-} from '@ocap/service-discovery-types';
+} from '@metamask/service-discovery-types';
 
 const methods = await E(serviceExo)[GET_DESCRIPTION](); // existing API
 const apiSpec: ObjectSpec = {

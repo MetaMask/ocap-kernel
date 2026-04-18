@@ -1,5 +1,5 @@
 {
-  "name": "@ocap/service-discovery-types",
+  "name": "@metamask/service-discovery-types",
   "version": "0.0.0",
   "private": true,
   "description": "Type definitions and runtime validators for the ocap service discovery model",
@@ -31,7 +31,7 @@
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/service-discovery-types",
+    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/service-discovery-types",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck --quiet",
