@@ -1,9 +1,10 @@
 import { E } from '@endo/eventual-send';
+import { sheafify, constant, makeRemoteSection } from '@metamask/kernel-utils';
+import type { Lift, PresheafSection, Sheaf } from '@metamask/kernel-utils';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import { Logger } from '@metamask/logger';
 import type { Baggage } from '@metamask/ocap-kernel';
 
-import type { DelegationSection } from '../lib/delegation-twin.ts';
 import { makeDelegationTwin } from '../lib/delegation-twin.ts';
 import {
   decodeBalanceOfResult,
@@ -15,6 +16,7 @@ import {
   encodeName,
   encodeSymbol,
 } from '../lib/erc20.ts';
+import { METHOD_CATALOG } from '../lib/method-catalog.ts';
 import {
   registerEnvironment,
   resolveEnvironment,
@@ -45,6 +47,13 @@ import type {
 } from '../types.ts';
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
+
+// ---------------------------------------------------------------------------
+// Local metadata type
+// ---------------------------------------------------------------------------
+
+type AwayMetadata = { mode: string; delegationId?: string };
+
 
 /**
  * Convert a wei amount in hex to a human-readable ETH string.
@@ -192,17 +201,33 @@ type OcapURLRedemptionFacet = {
 };
 
 // ---------------------------------------------------------------------------
+// Module-level awayLift (preference: delegation > call-home)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lift coroutine for the away sheaf.
+ * Tries all matching delegation twins before falling back to phoning home.
+ *
+ * @param germs - Evaluated sections with partial metadata, one per matching presheaf section.
+ * @yields The next candidate section to attempt dispatch on.
+ */
+const awayLift: Lift<AwayMetadata> = async function* (germs) {
+  yield* germs.filter((germ) => germ.metadata?.mode === 'delegation');
+  yield* germs.filter((germ) => germ.metadata?.mode === 'call-home');
+};
+
+// ---------------------------------------------------------------------------
 // buildRootObject
 // ---------------------------------------------------------------------------
 
 /**
  * Build the root object for the away coordinator vat.
  *
- * The away coordinator manages routing for the semantic wallet API on the away
- * (agent) side. It keeps execution infrastructure (provider, bundler, smart
- * account, tx submission, ERC-20 queries) and routes semantic calls
- * (`transferNative`, `transferFungible`) through delegation twins first, then
- * falls back to calling home.
+ * The away coordinator handles sheaf-based capability routing for the semantic
+ * wallet API on the away (agent) side. It keeps execution infrastructure
+ * (provider, bundler, smart account, tx submission, ERC-20 queries) and routes
+ * semantic calls (`transferNative`, `transferFungible`) via the away sheaf to
+ * either a delegation twin (autonomous) or the call-home section (ask home).
  *
  * @param vatPowers - Special powers granted to this vat.
  * @param _parameters - Initialization parameters (role: 'away').
@@ -266,12 +291,12 @@ export function buildRootObject(
   // OCAP URL redemption service (wired from services in bootstrap)
   let redemptionService: OcapURLRedemptionFacet | undefined;
 
-  // Routing state
+  // Sheaf state
+  let redeemerVatRef: RedeemerFacet | undefined; // alias kept for clarity in sheaf rebuild
   let homeSection: object | undefined; // remote ref to home's homeSection exo
   let homeCoordRef: object | undefined; // remote ref to home coordinator (for delegate registration)
-  let delegationSections: DelegationSection[] = [];
-  // Keyed by delegation.id so rebuildRouting preserves in-memory spend counters.
-  const delegationTwinMap = new Map<string, DelegationSection>();
+  let awaySheaf: Sheaf<AwayMetadata> | undefined;
+  let currentSection: object | undefined;
 
   // -------------------------------------------------------------------------
   // Baggage helpers
@@ -308,6 +333,7 @@ export function buildRootObject(
   keyringVat = restoreFromBaggage<KeyringFacet>('keyringVat');
   providerVat = restoreFromBaggage<ProviderFacet>('providerVat');
   redeemerVat = restoreFromBaggage<RedeemerFacet>('redeemerVat');
+  redeemerVatRef = redeemerVat;
   externalSigner = restoreFromBaggage<ExternalSignerFacet>('externalSigner');
   bundlerConfig = restoreFromBaggage<typeof bundlerConfig>('bundlerConfig');
   if (bundlerConfig?.environment) {
@@ -1022,7 +1048,7 @@ export function buildRootObject(
   }
 
   // -------------------------------------------------------------------------
-  // Routing helpers
+  // Sheaf helpers
   // -------------------------------------------------------------------------
 
   /**
@@ -1049,32 +1075,44 @@ export function buildRootObject(
   }
 
   /**
-   * Rebuild the delegation sections from current redeemer grants.
+   * Rebuild the away sheaf from current redeemer grants and homeSection state.
    * Called after `receiveDelegation` or `connectToPeer`.
    */
-  async function rebuildRouting(): Promise<void> {
-    const grants = redeemerVat ? await E(redeemerVat).listGrants() : [];
-    const currentIds = new Set(grants.map((grant) => grant.delegation.id));
-    for (const id of delegationTwinMap.keys()) {
-      if (!currentIds.has(id)) {
-        delegationTwinMap.delete(id);
-      }
-    }
-    for (const grant of grants) {
-      if (!delegationTwinMap.has(grant.delegation.id)) {
-        delegationTwinMap.set(
-          grant.delegation.id,
-          makeDelegationTwin({
-            grant,
-            redeemFn: makeRedeemFn(grant.delegation),
-          }),
-        );
-      }
-    }
-    delegationSections = grants.map(
+  async function rebuildAwaySheaf(): Promise<void> {
+    const grants = redeemerVatRef ? await E(redeemerVatRef).listGrants() : [];
+
+    const delegationSections: PresheafSection<AwayMetadata>[] = grants.map(
       (grant) =>
-        delegationTwinMap.get(grant.delegation.id) as DelegationSection,
+        makeDelegationTwin({
+          grant,
+          redeemFn: makeRedeemFn(grant.delegation),
+        }),
     );
+
+    const sections: PresheafSection<AwayMetadata>[] = [...delegationSections];
+
+    if (homeSection) {
+      sections.push(
+        await makeRemoteSection(
+          'CallHome',
+          homeSection,
+          constant({ mode: 'call-home' }),
+        ),
+      );
+    }
+
+    if (sections.length === 0) {
+      // No sections yet — currentSection remains undefined
+      awaySheaf = undefined;
+      currentSection = undefined;
+      return;
+    }
+
+    awaySheaf = sheafify({ name: 'AwayWallet', sections });
+    currentSection = awaySheaf.getDiscoverableGlobalSection({
+      lift: awayLift,
+      schema: METHOD_CATALOG,
+    });
   }
 
   // -------------------------------------------------------------------------
@@ -1097,6 +1135,7 @@ export function buildRootObject(
       keyringVat = vats.keyring as KeyringFacet | undefined;
       providerVat = vats.provider as ProviderFacet | undefined;
       redeemerVat = vats.redeemer as RedeemerFacet | undefined;
+      redeemerVatRef = redeemerVat;
       redemptionService = services.ocapURLRedemptionService as
         | OcapURLRedemptionFacet
         | undefined;
@@ -1117,10 +1156,10 @@ export function buildRootObject(
         hasRedeemer: Boolean(redeemerVat),
       });
 
-      // Rebuild routing from persisted state (e.g. after kernel restart).
+      // Rebuild sheaf from persisted state (e.g. after kernel restart).
       // homeSection is already restored from baggage; grants come from redeemerVat.
       if (redeemerVat || homeSection) {
-        await rebuildRouting();
+        await rebuildAwaySheaf();
       }
     },
 
@@ -1484,7 +1523,7 @@ export function buildRootObject(
 
     /**
      * Send a transaction using the direct path only (no delegation matching).
-     * Away's delegation routing goes through transferNative/transferFungible, not sendTransaction.
+     * Away's delegation routing goes through the sheaf, not sendTransaction.
      *
      * @param tx - The transaction request.
      * @returns The transaction hash.
@@ -1784,55 +1823,30 @@ export function buildRootObject(
     // ------------------------------------------------------------------
 
     /**
-     * Transfer native ETH.
-     * Tries each matching delegation twin in order; the first success is
-     * returned. If all matched twins fail, throws with all collected errors
-     * as the cause array; does not fall through to the home section.
+     * Transfer native ETH via the away sheaf.
+     * Routes to the best matching delegation twin (autonomous) or the
+     * call-home section (ask home) based on the awayLift preference order.
      *
      * @param to - Recipient address.
      * @param amount - Amount in wei.
      * @returns The transaction hash.
      */
-    async transferNative(
-      to: Address,
-      amount: string | number | bigint,
-    ): Promise<Hex> {
-      // Coerce at the JSON boundary — CLI callers pass numeric strings.
-      const amt = BigInt(amount);
-      const matching = delegationSections.filter(
-        (sec) => sec.method === 'transferNative',
-      );
-      if (matching.length > 0) {
-        const errors: unknown[] = [];
-        for (const section of matching) {
-          try {
-            return await E(section.exo).transferNative(to, amt);
-          } catch (error) {
-            errors.push(error);
-          }
-        }
+    async transferNative(to: Address, amount: bigint): Promise<Hex> {
+      if (!currentSection) {
         throw new Error(
-          `All delegation twins failed: ${errors
-            .map((cause) =>
-              cause instanceof Error ? cause.message : String(cause),
-            )
-            .join('; ')}`,
-          { cause: errors },
+          'Away sheaf not ready — call connectToPeer first or receive a delegation',
         );
       }
-      if (homeSection) {
-        return E(homeSection).transferNative(to, amt);
-      }
-      throw new Error(
-        'No routing available — call connectToPeer first or receive a delegation',
+      return E(currentSection).transferNative(
+        to,
+        BigInt(amount as unknown as string | number | bigint),
       );
     },
 
     /**
-     * Transfer ERC-20 tokens.
-     * Tries each matching delegation twin in order; the first success is
-     * returned. If all matched twins fail, throws with all collected errors
-     * as the cause array; does not fall through to the home section.
+     * Transfer ERC-20 tokens via the away sheaf.
+     * Routes to the best matching delegation twin (autonomous) or the
+     * call-home section (ask home) based on the awayLift preference order.
      *
      * @param token - ERC-20 token contract address.
      * @param to - Recipient address.
@@ -1844,41 +1858,21 @@ export function buildRootObject(
       to: Address,
       amount: string | number | bigint,
     ): Promise<Hex> {
-      // Coerce at the JSON boundary — CLI callers pass numeric strings.
-      const amt = BigInt(amount);
-      const tokenLower = token.toLowerCase() as Address;
-      const matching = delegationSections.filter(
-        (sec) => sec.method === 'transferFungible' && sec.token === tokenLower,
-      );
-      if (matching.length > 0) {
-        const errors: unknown[] = [];
-        for (const section of matching) {
-          try {
-            return await E(section.exo).transferFungible(tokenLower, to, amt);
-          } catch (error) {
-            errors.push(error);
-          }
-        }
+      if (!currentSection) {
         throw new Error(
-          `All delegation twins failed: ${errors
-            .map((cause) =>
-              cause instanceof Error ? cause.message : String(cause),
-            )
-            .join('; ')}`,
-          { cause: errors },
+          'Away sheaf not ready — call connectToPeer first or receive a delegation',
         );
       }
-      if (homeSection) {
-        return E(homeSection).transferFungible(token, to, amt);
-      }
-      throw new Error(
-        'No routing available — call connectToPeer first or receive a delegation',
+      return E(currentSection).transferFungible(
+        token,
+        to,
+        BigInt(amount as unknown as string | number | bigint),
       );
     },
 
     /**
      * Receive a delegation grant from home and persist it to the redeemer vat.
-     * Rebuilds the delegation sections to incorporate the new grant.
+     * Rebuilds the away sheaf to incorporate the new grant.
      *
      * @param grant - The semantic delegation grant to store.
      */
@@ -1887,7 +1881,7 @@ export function buildRootObject(
         throw new Error('Redeemer vat not available');
       }
       await E(redeemerVat).receiveGrant(grant);
-      await rebuildRouting();
+      await rebuildAwaySheaf();
     },
 
     /**
@@ -1905,8 +1899,8 @@ export function buildRootObject(
     /**
      * Connect to the home coordinator via an OCAP URL.
      * Redeems the URL to obtain a remote reference to the home coordinator,
-     * then fetches the home section exo for the call-home fallback path.
-     * Persists homeCoordRef and homeSection and rebuilds routing.
+     * then fetches the home section exo for the call-home sheaf path.
+     * Persists the homeSection reference and rebuilds the away sheaf.
      *
      * @param ocapUrl - The OCAP URL issued by the home coordinator.
      */
@@ -1918,7 +1912,7 @@ export function buildRootObject(
       homeSection = await E(homeCoordRef).getHomeSection();
       persistBaggage('homeCoordRef', homeCoordRef);
       persistBaggage('homeSection', homeSection);
-      await rebuildRouting();
+      await rebuildAwaySheaf();
     },
 
     /**

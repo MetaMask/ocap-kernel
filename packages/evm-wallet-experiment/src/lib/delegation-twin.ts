@@ -1,13 +1,13 @@
 import { M } from '@endo/patterns';
+import { constant } from '@metamask/kernel-utils';
+import type { PresheafSection } from '@metamask/kernel-utils';
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 
 import { encodeTransfer } from './erc20.ts';
 import { METHOD_CATALOG } from './method-catalog.ts';
 import type { Address, DelegationGrant, Execution, Hex } from '../types.ts';
 
-export type DelegationSection =
-  | { exo: object; method: 'transferNative' }
-  | { exo: object; method: 'transferFungible'; token: Address };
+type AwayMetadata = { mode: string; delegationId?: string };
 
 type DelegationTwinOptions = {
   grant: DelegationGrant;
@@ -15,18 +15,18 @@ type DelegationTwinOptions = {
 };
 
 /**
- * Build a DelegationSection for a delegation grant.
+ * Build a PresheafSection for a delegation grant.
  * The resulting exo exposes the method covered by the grant, enforcing
  * local guards and (for transferFungible) a local budget tracker.
  *
  * @param options - Twin construction options.
  * @param options.grant - The semantic delegation grant to wrap.
  * @param options.redeemFn - Submits an Execution to the delegation framework.
- * @returns A DelegationSection wrapping the delegation exo.
+ * @returns A PresheafSection with constant delegation metadata.
  */
 export function makeDelegationTwin(
   options: DelegationTwinOptions,
-): DelegationSection {
+): PresheafSection<AwayMetadata> {
   const { grant, redeemFn } = options;
   const { delegation } = grant;
   const idPrefix = delegation.id.slice(0, 12);
@@ -90,7 +90,10 @@ export function makeDelegationTwin(
       interfaceGuard,
     );
 
-    return { exo, method: 'transferNative' };
+    return {
+      exo,
+      metadata: constant({ mode: 'delegation', delegationId: delegation.id }),
+    };
   }
 
   // transferFungible — normalize token address to lowercase for consistent matching.
@@ -152,5 +155,8 @@ export function makeDelegationTwin(
     interfaceGuard,
   );
 
-  return { exo, method: 'transferFungible', token };
+  return {
+    exo,
+    metadata: constant({ mode: 'delegation', delegationId: delegation.id }),
+  };
 }
