@@ -341,6 +341,9 @@ export function buildRootObject(
   // OcapURL service references
   let issuerService: OcapURLIssuerFacet | undefined;
 
+  // Away wallet's delegate address, registered via registerDelegateAddress
+  let delegateAddress: string | undefined;
+
   /**
    * Typed helper for restoring values from baggage (resuscitation).
    *
@@ -376,6 +379,7 @@ export function buildRootObject(
   }
   smartAccountConfig =
     restoreFromBaggage<SmartAccountConfig>('smartAccountConfig');
+  delegateAddress = restoreFromBaggage<string>('delegateAddress');
 
   /** Chain ID from the last `configureProvider` call (avoids RPC on every send). */
   let cachedProviderChainId: number | undefined = restoreFromBaggage<number>(
@@ -1748,7 +1752,7 @@ export function buildRootObject(
     async buildTransferNativeGrant(options: {
       delegate: Address;
       to?: Address;
-      maxAmount?: bigint;
+      maxAmount?: bigint | string;
       chainId: number;
     }): Promise<TransferNativeGrant> {
       if (!delegatorVat) {
@@ -1756,9 +1760,12 @@ export function buildRootObject(
       }
       const delegator =
         smartAccountConfig?.address ?? (await resolveOwnerAddress());
+      const maxAmount =
+        options.maxAmount === undefined ? undefined : BigInt(options.maxAmount);
       const unsignedGrant = await E(delegatorVat).buildTransferNativeGrant({
         delegator,
         ...options,
+        maxAmount,
       });
       const signedGrant = await signDelegationInGrant(unsignedGrant);
       await E(delegatorVat).storeGrant(signedGrant);
@@ -1784,7 +1791,7 @@ export function buildRootObject(
       delegate: Address;
       token: Address;
       to?: Address;
-      maxAmount?: bigint;
+      maxAmount?: bigint | string;
       chainId: number;
     }): Promise<TransferFungibleGrant> {
       if (!delegatorVat) {
@@ -1792,9 +1799,12 @@ export function buildRootObject(
       }
       const delegator =
         smartAccountConfig?.address ?? (await resolveOwnerAddress());
+      const maxAmount =
+        options.maxAmount === undefined ? undefined : BigInt(options.maxAmount);
       const unsignedGrant = await E(delegatorVat).buildTransferFungibleGrant({
         delegator,
         ...options,
+        maxAmount,
       });
       const signedGrant = await signDelegationInGrant(unsignedGrant);
       await E(delegatorVat).storeGrant(signedGrant);
@@ -2300,6 +2310,31 @@ export function buildRootObject(
       timeoutMs?: number;
     }): Promise<{ success: boolean }> {
       return pollTransactionReceipt(options);
+    },
+
+    // ------------------------------------------------------------------
+    // Peer delegate address registration
+    // ------------------------------------------------------------------
+
+    /**
+     * Register the away wallet's on-chain delegate address.
+     * Called by the away coordinator after connecting to report which address
+     * will appear as `msg.sender` when redeeming delegations.
+     *
+     * @param address - The away wallet's delegate address (0x-prefixed).
+     */
+    async registerDelegateAddress(address: string): Promise<void> {
+      delegateAddress = address;
+      persistBaggage('delegateAddress', delegateAddress);
+    },
+
+    /**
+     * Return the registered away wallet delegate address, if any.
+     *
+     * @returns The delegate address, or undefined if not yet registered.
+     */
+    async getDelegateAddress(): Promise<string | undefined> {
+      return delegateAddress;
     },
 
     // ------------------------------------------------------------------
