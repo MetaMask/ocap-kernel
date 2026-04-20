@@ -27,10 +27,6 @@ vi.mock('@metamask/kernel-utils/discoverable', () => ({
   },
 }));
 
-vi.mock('@metamask/kernel-utils', () => ({
-  constant: (value: unknown) => ({ kind: 'constant', value }),
-}));
-
 const ALICE = '0x1111111111111111111111111111111111111111' as Address;
 const BOB = '0x2222222222222222222222222222222222222222' as Address;
 const TOKEN = '0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' as Address;
@@ -122,21 +118,6 @@ describe('makeDelegationTwin', () => {
       await expect(exo.transferNative(BOB, 101n)).rejects.toThrow(
         /exceeds limit/u,
       );
-    });
-
-    it('attaches constant delegation metadata', () => {
-      const redeemFn = vi.fn();
-      const section = makeDelegationTwin({
-        grant: makeTransferNativeGrant(),
-        redeemFn,
-      });
-      expect(section.metadata).toStrictEqual({
-        kind: 'constant',
-        value: {
-          mode: 'delegation',
-          delegationId: BASE_DELEGATION.id,
-        },
-      });
     });
   });
 

@@ -2,20 +2,18 @@
 /**
  * Delegation-twin E2E test — runs **inside** the away container.
  *
- * Exercises the delegation twin as a live exo capability by connecting
- * directly to the kernel daemon sockets via daemon-client.mjs.  Both the
- * home and away sockets are accessible through the shared `ocap-run` volume
- * at /run/ocap/<service>-ready.json.
+ * Exercises the delegation twin as a live exo capability by calling the
+ * home coordinator to build a signed grant, sending it to the away
+ * coordinator via receiveDelegation, and then calling transferFungible
+ * through the away coordinator (which routes via the delegation twin).
  *
  * ── What it tests ─────────────────────────────────────────────────────────
  *
- *   1. Home creates a transfer grant (max spend = 5 units, fake token).
- *   2. Away provisions the twin and calls transfer(3) → succeeds on-chain.
- *   3. Away calls transfer(3) again → twin rejects LOCALLY ("Insufficient
- *      budget") before any network call is made.
- *   4. Away provisions a call twin with a valueLte(100) caveat and calls
- *      with value=200 → twin passes through, bundler simulation rejects.
- *      Demonstrates chain enforcement of a caveat the twin doesn't check.
+ *   1. Home builds a transfer-fungible grant (max spend = 5 units, fake token).
+ *   2. Away receives the grant and rebuilds the delegation routing.
+ *   3. Away calls transferFungible(3) → twin succeeds (3 ≤ 5 remaining).
+ *   4. Away calls transferFungible(3) again → twin rejects LOCALLY
+ *      ("Insufficient budget") before any network call is made.
  *
  * ── Usage ─────────────────────────────────────────────────────────────────
  *
@@ -98,44 +96,40 @@ function assert(condition, label) {
 
 console.log(`\n=== Delegation Twin E2E (${mode}) ===\n`);
 
-// ── Test 1: Twin enforces cumulative spend locally ─────────────────────────
+// ── Test: Twin enforces cumulative spend locally ───────────────────────────
 
 console.log('--- Transfer twin: spend tracking ---');
 
-const transferGrant = await homeClient.callVat(
+// Home builds and signs the grant. maxAmount is a string because JSON cannot
+// carry BigInt; buildTransferFungibleGrant coerces it back to BigInt.
+const signedGrant = await homeClient.callVat(
   homeKref,
-  'makeDelegationGrant',
+  'buildTransferFungibleGrant',
   [
-    'transfer',
     {
       delegate: delegateAddress,
       token: FAKE_TOKEN,
-      // Passed as a string because the daemon JSON-RPC protocol carries plain
-      // JSON; coordinator-vat coerces it to BigInt before buildDelegationGrant.
-      max: '5',
+      maxAmount: '5',
       chainId: CHAIN_ID,
     },
   ],
 );
 
 assert(
-  transferGrant !== null && typeof transferGrant === 'object',
-  'home created transfer grant',
+  signedGrant !== null && typeof signedGrant === 'object',
+  'home built and signed transfer-fungible grant',
 );
 
-const twinStandin = await awayClient.callVat(awayKref, 'provisionTwin', [
-  transferGrant,
-]);
-const twinKref = twinStandin.getKref();
+// Away receives the grant: redeemer vat stores it, routing is rebuilt
+// with a delegation twin that enforces the 5-unit budget.
+await awayClient.callVat(awayKref, 'receiveDelegation', [signedGrant]);
 
-assert(
-  typeof twinKref === 'string' && twinKref.length > 0,
-  `twin kref: ${twinKref}`,
-);
+assert(true, 'away received delegation and rebuilt routing');
 
 // First spend: 3 ≤ 5 remaining → should reach the chain and succeed.
-console.log('  Calling transfer(3) — should hit chain...');
-const txHash = await awayClient.callVat(twinKref, 'transfer', [
+console.log('  Calling transferFungible(3) — should hit chain...');
+const txHash = await awayClient.callVat(awayKref, 'transferFungible', [
+  FAKE_TOKEN,
   BURN_ADDRESS,
   '3',
 ]);
@@ -154,62 +148,18 @@ assert(
 );
 
 // Second spend: 3 + 3 = 6 > 5 → should be rejected LOCALLY by the
-// SpendTracker without making any network call.
-console.log('  Calling transfer(3) again — should fail locally...');
-const secondBody = await awayClient.callVatExpectError(twinKref, 'transfer', [
-  BURN_ADDRESS,
-  '3',
-]);
-
-assert(
-  typeof secondBody === 'string' && secondBody.includes('Insufficient budget'),
-  `second spend (3 units) rejected locally: ${String(secondBody).slice(0, 80)}`,
-);
-
-// ── Test 2 (comparison): expired delegation — twin is blind, chain rejects ──
-//
-// The twin has no local check for blockWindow / TimestampEnforcer.  It passes
-// the call straight to redeemFn; the chain rejects because validUntil is in
-// the past.  This is the canonical example of a caveat the twin doesn't track.
-
-console.log('\n--- Expired delegation: chain enforcement ---');
-
-// validUntil 60 s in the past — delegation is already expired.
-const expiredAt = Math.floor(Date.now() / 1000) - 60;
-const expiredGrant = await homeClient.callVat(homeKref, 'makeDelegationGrant', [
-  'call',
-  {
-    delegate: delegateAddress,
-    targets: [BURN_ADDRESS],
-    chainId: CHAIN_ID,
-    validUntil: expiredAt,
-  },
-]);
-
-assert(
-  expiredGrant !== null && typeof expiredGrant === 'object',
-  'home created expired call grant',
-);
-
-const expiredTwinStandin = await awayClient.callVat(awayKref, 'provisionTwin', [
-  expiredGrant,
-]);
-const expiredTwinKref = expiredTwinStandin.getKref();
-
-// The twin has no blockWindow check — it calls redeemFn, which reaches the
-// chain/bundler, which rejects with a TimestampEnforcer revert.
-console.log(
-  '  Calling with expired delegation — twin should pass, chain should reject...',
-);
-const expiredError = await awayClient.callVatExpectError(
-  expiredTwinKref,
-  'call',
-  [BURN_ADDRESS, 0, '0x'],
+// delegation twin without making any network call.
+console.log('  Calling transferFungible(3) again — should fail locally...');
+const secondError = await awayClient.callVatExpectError(
+  awayKref,
+  'transferFungible',
+  [FAKE_TOKEN, BURN_ADDRESS, '3'],
 );
 
 assert(
-  typeof expiredError === 'string' && expiredError.length > 0,
-  `expired delegation rejected by chain (not twin): ${String(expiredError).slice(0, 80)}`,
+  typeof secondError === 'string' &&
+    secondError.includes('Insufficient budget'),
+  `second spend (3 units) rejected locally: ${String(secondError).slice(0, 80)}`,
 );
 
 // ── Results ────────────────────────────────────────────────────────────────

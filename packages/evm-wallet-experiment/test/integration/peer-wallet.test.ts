@@ -128,15 +128,20 @@ describe.sequential('Peer wallet integration', () => {
     await kernel2.registerLocationHints(info1.peerId, info1.quicAddresses);
 
     // Launch wallet subclusters on each kernel
-    const walletConfig = makeWalletClusterConfig({
+    const homeConfig = makeWalletClusterConfig({
       bundleBaseUrl: BUNDLE_BASE_URL,
+      role: 'home',
+    });
+    const awayConfig = makeWalletClusterConfig({
+      bundleBaseUrl: BUNDLE_BASE_URL,
+      role: 'away',
     });
 
-    const result1 = await kernel1.launchSubcluster(walletConfig);
+    const result1 = await kernel1.launchSubcluster(homeConfig);
     await waitUntilQuiescent();
     coordinatorKref1 = result1.rootKref;
 
-    const result2 = await kernel2.launchSubcluster(walletConfig);
+    const result2 = await kernel2.launchSubcluster(awayConfig);
     await waitUntilQuiescent();
     coordinatorKref2 = result2.rootKref;
   }, NETWORK_TIMEOUT);
@@ -201,32 +206,14 @@ describe.sequential('Peer wallet integration', () => {
   });
 
   describe('remote signing via peer wallet', () => {
-    /**
-     * Set up the peer wallet connection between kernel1 (owner) and kernel2 (delegate).
-     */
-    async function setupPeerConnection(): Promise<void> {
-      // Initialize keyring on kernel1
-      await callVatMethod(kernel1, coordinatorKref1, 'initializeKeyring', [
-        { type: 'srp', mnemonic: TEST_MNEMONIC },
-      ]);
-
-      // Issue + connect
-      const ocapUrl = (await callVatMethod(
-        kernel1,
-        coordinatorKref1,
-        'issueOcapUrl',
-      )) as string;
-      await callVatMethod(kernel2, coordinatorKref2, 'connectToPeer', [
-        ocapUrl,
-      ]);
-    }
-
     it(
-      'forwards message signing to peer wallet',
+      'signs messages with local keys on away coordinator',
       async () => {
-        await setupPeerConnection();
+        // Initialize keyring on kernel2 (away) so it has local signing authority
+        await callVatMethod(kernel2, coordinatorKref2, 'initializeKeyring', [
+          { type: 'srp', mnemonic: TEST_MNEMONIC },
+        ]);
 
-        // Kernel2 has no local keys; signing should forward to kernel1
         const signature = (await callVatMethod(
           kernel2,
           coordinatorKref2,
@@ -241,18 +228,11 @@ describe.sequential('Peer wallet integration', () => {
     );
 
     it(
-      'rejects remote transaction signing (no peer fallback)',
+      'rejects transaction signing when away coordinator has no local keys',
       async () => {
-        await setupPeerConnection();
-
-        const accounts = (await callVatMethod(
-          kernel1,
-          coordinatorKref1,
-          'getAccounts',
-        )) as Address[];
-
+        // kernel2 (away) has no local keys — signTransaction should reject.
         const tx: TransactionRequest = {
-          from: accounts[0] as Address,
+          from: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address,
           to: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8' as Address,
           value: '0xde0b6b3a7640000' as Hex,
           chainId: 1,
@@ -261,8 +241,6 @@ describe.sequential('Peer wallet integration', () => {
           maxPriorityFeePerGas: '0x3b9aca00' as Hex,
         };
 
-        // Transaction signing has no peer fallback — kernel2 has no local
-        // keys so this should reject, not forward to kernel1.
         await expect(
           kernel2.queueMessage(coordinatorKref2, 'signTransaction', [tx]),
         ).rejects.toThrow('No authority to sign this transaction');
@@ -312,14 +290,14 @@ describe.sequential('Peer wallet integration', () => {
             expect.stringMatching(/^0x[\da-f]{40}$/iu),
           ]),
           delegationCount: 0,
-          delegations: [],
+          delegations: undefined,
           hasPeerWallet: false,
           hasExternalSigner: false,
           hasBundlerConfig: false,
           smartAccountAddress: undefined,
           chainId: undefined,
           signingMode: 'local',
-          autonomy: 'no signing authority',
+          autonomy: 'EOA signing',
           peerAccountsCached: false,
           cachedPeerAccounts: [],
           hasAwayWallet: false,
@@ -340,7 +318,6 @@ describe.sequential('Peer wallet integration', () => {
           hasLocalKeys: false,
           localAccounts: [],
           delegationCount: 0,
-          delegations: [],
           hasPeerWallet: false,
           hasExternalSigner: false,
           hasBundlerConfig: false,
@@ -348,9 +325,6 @@ describe.sequential('Peer wallet integration', () => {
           chainId: undefined,
           signingMode: 'none',
           autonomy: 'no signing authority',
-          peerAccountsCached: false,
-          cachedPeerAccounts: [],
-          hasAwayWallet: false,
         });
       },
       NETWORK_TIMEOUT,

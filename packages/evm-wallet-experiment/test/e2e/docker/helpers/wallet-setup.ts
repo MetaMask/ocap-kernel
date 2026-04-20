@@ -21,6 +21,7 @@ const ANVIL_FUNDER = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
  *
  * @param service - The compose service name.
  * @param options - Subcluster configuration.
+ * @param options.role - Whether this is a 'home' or 'away' coordinator.
  * @param options.contracts - Deployed contract addresses.
  * @param options.allowedHosts - Hostnames the provider vat may fetch from.
  * @returns The root coordinator kref (e.g. 'ko4').
@@ -28,18 +29,40 @@ const ANVIL_FUNDER = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 export function launchWalletSubcluster(
   service: string,
   options: {
+    role: 'home' | 'away';
     contracts: ContractAddresses;
     allowedHosts: string[];
   },
 ): string {
-  const { contracts, allowedHosts } = options;
+  const { role, allowedHosts } = options;
+
+  const coordinatorBundle =
+    role === 'home'
+      ? `${BUNDLE_BASE}/home-coordinator.bundle`
+      : `${BUNDLE_BASE}/away-coordinator.bundle`;
+
+  const auxiliaryVat =
+    role === 'home'
+      ? {
+          delegator: {
+            bundleSpec: `${BUNDLE_BASE}/delegator-vat.bundle`,
+            globals: ['TextEncoder', 'TextDecoder'],
+          },
+        }
+      : {
+          redeemer: {
+            bundleSpec: `${BUNDLE_BASE}/redeemer-vat.bundle`,
+            globals: ['TextEncoder', 'TextDecoder'],
+          },
+        };
+
   const config = {
     bootstrap: 'coordinator',
     forceReset: false,
     services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
     vats: {
       coordinator: {
-        bundleSpec: `${BUNDLE_BASE}/coordinator-vat.bundle`,
+        bundleSpec: coordinatorBundle,
         globals: ['TextEncoder', 'TextDecoder', 'Date', 'setTimeout'],
       },
       keyring: {
@@ -51,17 +74,7 @@ export function launchWalletSubcluster(
         globals: ['TextEncoder', 'TextDecoder'],
         platformConfig: { fetch: { allowedHosts } },
       },
-      delegation: {
-        bundleSpec: `${BUNDLE_BASE}/delegation-vat.bundle`,
-        globals: ['TextEncoder', 'TextDecoder'],
-        ...(contracts.DelegationManager
-          ? {
-              parameters: {
-                delegationManagerAddress: contracts.DelegationManager,
-              },
-            }
-          : {}),
-      },
+      ...auxiliaryVat,
     },
   };
 

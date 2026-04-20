@@ -52,11 +52,15 @@ function dockerE2eDelegationModes(): DockerE2eKernelMode[] {
 }
 const BURN_ADDRESS = '0x000000000000000000000000000000000000dEaD';
 
-type Delegation = {
-  id: string;
-  delegate: string;
-  delegator: string;
-  status: string;
+type DelegationGrant = {
+  method: string;
+  delegation: {
+    id: string;
+    delegate: string;
+    delegator: string;
+    status: string;
+    chainId: number;
+  };
 };
 
 type Capabilities = {
@@ -245,7 +249,7 @@ describe('Docker E2E', () => {
       // ---------------------------------------------------------------------------
 
       describe('delegation redemption', () => {
-        let delegation: Delegation;
+        let grant: DelegationGrant;
 
         beforeAll(() => {
           const delegate = resolveOnChainDelegateAddress({
@@ -254,27 +258,26 @@ describe('Docker E2E', () => {
             away: awayResult,
           });
 
-          delegation = callHome('createDelegation', [
-            { delegate, caveats: [], chainId: 31337 },
-          ]) as Delegation;
+          // Build and sign a transfer-native grant on home (1 ETH max spend).
+          // maxAmount is a string because JSON cannot carry BigInt.
+          grant = callHome('buildTransferNativeGrant', [
+            { delegate, maxAmount: '1000000000000000000', chainId: 31337 },
+          ]) as DelegationGrant;
 
-          callAway('receiveDelegation', [delegation]);
+          callAway('receiveDelegation', [grant]);
         });
 
-        it('creates a signed delegation', () => {
-          expect(delegation.status).toBe('signed');
+        it('creates a signed grant', () => {
+          expect(grant.delegation.status).toBe('signed');
         });
 
-        it('lists delegation on away', () => {
-          const delegations = callAway('listDelegations') as Delegation[];
-          expect(delegations.length).toBeGreaterThanOrEqual(1);
-          expect(delegations[0]?.id).toBe(delegation.id);
+        it('lists grant on away', () => {
+          const grants = callAway('listGrants') as DelegationGrant[];
+          expect(grants.length).toBeGreaterThanOrEqual(1);
+          expect(grants[0]?.delegation.id).toBe(grant.delegation.id);
         });
 
         it('sends ETH via delegated authority', async () => {
-          const homeSA = homeResult.smartAccountAddress;
-          expect(homeSA).toBeDefined();
-
           const balanceBefore = BigInt(
             (await evmRpc('eth_getBalance', [
               BURN_ADDRESS,
@@ -282,8 +285,11 @@ describe('Docker E2E', () => {
             ])) as string,
           );
 
-          const submitHash = callAway('sendTransaction', [
-            { from: homeSA, to: BURN_ADDRESS, value: '0xDE0B6B3A7640000' },
+          // transferNative routes through the away coordinator → delegation twin
+          const submitHash = callAway('transferNative', [
+            BURN_ADDRESS,
+            // 0.1 ETH as a string (BigInt not supported in JSON)
+            '100000000000000000',
           ]) as string;
 
           expect(submitHash).toMatch(/^0x[\da-f]{64}$/iu);
