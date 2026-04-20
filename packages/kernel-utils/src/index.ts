@@ -63,4 +63,5 @@ export {
   fallthrough,
 } from './sheaf/compose.ts';
 export { collectSheafGuard } from './sheaf/guard.ts';
+export { makeRemoteSection } from './sheaf/remote.ts';
 export { getStalk, guardCoversPoint } from './sheaf/stalk.ts';

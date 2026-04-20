@@ -36,6 +36,7 @@ describe('index', () => {
       'makeDefaultExo',
       'makeDefaultInterface',
       'makeDiscoverableExo',
+      'makeRemoteSection',
       'mergeDisjointRecords',
       'methodArgsToStruct',
       'prettifySmallcaps',
