@@ -2,6 +2,7 @@ import { makeExo, GET_INTERFACE_GUARD } from '@endo/exo';
 import { M, getInterfaceGuardPayload } from '@endo/patterns';
 import { describe, it, expect } from 'vitest';
 
+import { GET_DESCRIPTION } from '../discoverable.ts';
 import { constant } from './metadata.ts';
 import { sheafify } from './sheafify.ts';
 import type {
@@ -612,6 +613,63 @@ describe('sheafify', () => {
     expect(exported).toBeDefined();
     const { methodGuards } = getInterfaceGuardPayload(exported!);
     expect(methodGuards).toHaveProperty('getBalance');
+  });
+
+  it('getDiscoverableGlobalSection exposes __getDescription__', async () => {
+    const schema = {
+      getBalance: {
+        description: 'Get account balance.',
+        args: { acct: { type: 'string' as const, description: 'Account id.' } },
+        returns: { type: 'number' as const, description: 'Balance.' },
+      },
+    };
+    const sections: PresheafSection<Record<string, never>>[] = [
+      {
+        exo: makeExo(
+          'Wallet:0',
+          M.interface('Wallet:0', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: (_acct: string) => 42 },
+        ) as unknown as Section,
+      },
+    ];
+
+    const section = sheafify({
+      name: 'Wallet',
+      sections,
+    }).getDiscoverableGlobalSection({
+      async *lift(germs) {
+        yield germs[0]!;
+      },
+      schema,
+    });
+
+    expect(E(section)[GET_DESCRIPTION]()).toStrictEqual(schema);
+  });
+
+  it('getSection does not expose __getDescription__', () => {
+    const sections: PresheafSection<Record<string, never>>[] = [
+      {
+        exo: makeExo(
+          'Wallet:0',
+          M.interface('Wallet:0', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: (_acct: string) => 42 },
+        ) as unknown as Section,
+      },
+    ];
+
+    const section = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+      async *lift(germs) {
+        yield germs[0]!;
+      },
+    });
+
+    expect(
+      (section as Record<string, unknown>)[GET_DESCRIPTION],
+    ).toBeUndefined();
   });
 
   it('getExported excludes revoked sections', () => {
