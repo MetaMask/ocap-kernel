@@ -20,6 +20,8 @@ import {
 } from '@endo/patterns';
 import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
 
+import { makeDiscoverableExo } from '../discoverable.ts';
+import type { MethodSchema } from '../schema.ts';
 import { stringify } from '../stringify.ts';
 import { driveLift } from './drive.ts';
 import { collectSheafGuard } from './guard.ts';
@@ -210,12 +212,14 @@ export const sheafify = <
   );
   const grants: Grant[] = [];
 
-  const getSection = ({
+  const buildSection = ({
     guard,
     lift,
+    schema,
   }: {
     guard: InterfaceGuard;
     lift: Lift<MetaData>;
+    schema?: Record<string, MethodSchema>;
   }): object => {
     const resolvedGuard = guard;
 
@@ -286,11 +290,14 @@ export const sheafify = <
       handlers[method] = async (...args: unknown[]) => dispatch(method, args);
     }
 
-    const exo = makeExo(
-      `${name}:section`,
-      asyncGuard,
-      handlers,
-    ) as unknown as Section;
+    const exo = (schema === undefined
+      ? makeExo(`${name}:section`, asyncGuard, handlers)
+      : makeDiscoverableExo(
+          `${name}:section`,
+          handlers,
+          schema,
+          asyncGuard,
+        )) as unknown as Section;
 
     grants.push({
       exo,
@@ -304,15 +311,40 @@ export const sheafify = <
     return exo;
   };
 
-  const getGlobalSection = ({ lift }: { lift: Lift<MetaData> }): object => {
-    return getSection({
-      guard: collectSheafGuard(
-        name,
-        frozenSections.map(({ exo }) => exo),
-      ),
-      lift,
-    });
-  };
+  const unionGuard = (): InterfaceGuard =>
+    collectSheafGuard(
+      name,
+      frozenSections.map(({ exo }) => exo),
+    );
+
+  const getSection = ({
+    guard,
+    lift,
+  }: {
+    guard: InterfaceGuard;
+    lift: Lift<MetaData>;
+  }): object => buildSection({ guard, lift });
+
+  const getDiscoverableSection = ({
+    guard,
+    lift,
+    schema,
+  }: {
+    guard: InterfaceGuard;
+    lift: Lift<MetaData>;
+    schema: Record<string, MethodSchema>;
+  }): object => buildSection({ guard, lift, schema });
+
+  const getGlobalSection = ({ lift }: { lift: Lift<MetaData> }): object =>
+    buildSection({ guard: unionGuard(), lift });
+
+  const getDiscoverableGlobalSection = ({
+    lift,
+    schema,
+  }: {
+    lift: Lift<MetaData>;
+    schema: Record<string, MethodSchema>;
+  }): object => buildSection({ guard: unionGuard(), lift, schema });
 
   const revokePoint = (method: string, ...args: unknown[]): void => {
     for (const grant of grants) {
@@ -342,7 +374,9 @@ export const sheafify = <
 
   return {
     getSection,
+    getDiscoverableSection,
     getGlobalSection,
+    getDiscoverableGlobalSection,
     revokePoint,
     getExported,
     revokeAll,
