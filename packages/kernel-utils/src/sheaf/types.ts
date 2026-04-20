@@ -10,6 +10,8 @@
 import type { GET_INTERFACE_GUARD, Methods } from '@endo/exo';
 import type { InterfaceGuard } from '@endo/patterns';
 
+import type { MethodSchema } from '../schema.ts';
+
 /** A section: a capability covering a region of the interface topology. */
 export type Section<Core extends Methods = Methods> = Partial<Core> & {
   [K in typeof GET_INTERFACE_GUARD]?: (() => InterfaceGuard) | undefined;
@@ -98,8 +100,27 @@ export type Presheaf<MetaData extends Record<string, unknown>> =
 export type Sheaf<MetaData extends Record<string, unknown>> = {
   /** Produce a revocable dispatch exo over the given guard. */
   getSection: (opts: { guard: InterfaceGuard; lift: Lift<MetaData> }) => object;
-  /** Produce a revocable dispatch exo over the full union guard of all presheaf sections. */
+  /** Produce a revocable discoverable dispatch exo over the given guard. */
+  getDiscoverableSection: (opts: {
+    guard: InterfaceGuard;
+    lift: Lift<MetaData>;
+    schema: Record<string, MethodSchema>;
+  }) => object;
+  /**
+   * Produce a revocable dispatch exo over the full union guard of all presheaf sections.
+   *
+   * @deprecated Provide an explicit guard via getSection instead.
+   */
   getGlobalSection: (opts: { lift: Lift<MetaData> }) => object;
+  /**
+   * Produce a revocable discoverable dispatch exo over the full union guard of all presheaf sections.
+   *
+   * @deprecated Provide an explicit guard via getDiscoverableSection instead.
+   */
+  getDiscoverableGlobalSection: (opts: {
+    lift: Lift<MetaData>;
+    schema: Record<string, MethodSchema>;
+  }) => object;
   /** Revoke every granted section whose guard covers the point (method, ...args). */
   revokePoint: (method: string, ...args: unknown[]) => void;
   /** Union guard of all active (non-revoked) granted sections, or undefined. */
