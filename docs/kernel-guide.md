@@ -153,13 +153,28 @@ Only names in the vat's `globals` array are installed in the vat's compartment. 
 
 ### Default allowed globals
 
-The kernel ships with a default set sourced from `@metamask/snaps-execution-environments` — timers (`setTimeout`/`clearTimeout`/`setInterval`/`clearInterval`), `Date`, `Math`, `crypto`/`SubtleCrypto`, text codecs, URL helpers, base64, and abort controllers. The attenuated factories provide per-vat isolation (one vat cannot clear another vat's timers) and lifecycle teardown (pending timers and open connections are released when the vat terminates).
+The kernel ships with the following set, sourced from `@metamask/snaps-execution-environments`:
 
-Notable attenuations (not drop-in replacements for the browser/Node versions):
+| Name              | Category           | Notes                                                                                                                                                   |
+| ----------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `setTimeout`      | Timer (attenuated) | Isolated per vat. Cancelled automatically on vat termination.                                                                                           |
+| `clearTimeout`    | Timer (attenuated) | Only clears timers created by the same vat.                                                                                                             |
+| `setInterval`     | Timer (attenuated) | Isolated per vat. Cancelled automatically on vat termination.                                                                                           |
+| `clearInterval`   | Timer (attenuated) | Only clears intervals created by the same vat.                                                                                                          |
+| `Date`            | Tamed (attenuated) | `Date.now()` is monotonically clamped with random jitter — repeated calls within the same millisecond return the same value.                            |
+| `Math`            | Tamed (attenuated) | `Math.random()` is sourced from `crypto.getRandomValues`. **Not a CSPRNG** per the upstream NOTE — defends against stock-RNG timing side channels only. |
+| `crypto`          | Web Crypto         | Hardened Web Crypto API.                                                                                                                                |
+| `SubtleCrypto`    | Web Crypto         | Hardened Web Crypto API.                                                                                                                                |
+| `TextEncoder`     | Text codec         | Plain hardened.                                                                                                                                         |
+| `TextDecoder`     | Text codec         | Plain hardened.                                                                                                                                         |
+| `URL`             | URL                | Plain hardened.                                                                                                                                         |
+| `URLSearchParams` | URL                | Plain hardened.                                                                                                                                         |
+| `atob`            | Base64             | Plain hardened.                                                                                                                                         |
+| `btoa`            | Base64             | Plain hardened.                                                                                                                                         |
+| `AbortController` | Abort              | Plain hardened.                                                                                                                                         |
+| `AbortSignal`     | Abort              | Plain hardened.                                                                                                                                         |
 
-- **`Date.now()`** is monotonically clamped with random jitter — repeated calls within the same millisecond return the same value.
-- **`Math.random()`** is sourced from `crypto.getRandomValues`. This is _not_ a cryptographically-secure RNG per the upstream NOTE; it exists to avoid timing side channels in the stock engine RNG.
-- **Timers** are isolated per vat and cleared automatically when the `VatSupervisor` terminates.
+"Plain hardened" means the value is the host's implementation wrapped with `harden()` — it behaves identically to the browser/Node version. "Attenuated" means the value is a deliberate reimplementation with different semantics; the Notes column flags the relevant differences. The canonical list lives in [`endowments.ts`](../packages/ocap-kernel/src/vats/endowments.ts).
 
 ### Restricting or replacing the allowed set
 
