@@ -13,5 +13,13 @@
   },
   "enabledPlugins": {
     "typescript-lsp@claude-plugins-official": true
+  },
+  "sandbox": {
+    "filesystem": {
+      "allowWrite": ["~/.yarn"]
+    },
+    "network": {
+      "allowedDomains": ["registry.yarnpkg.com", "registry.npmjs.org"]
+    }
   }
 }
