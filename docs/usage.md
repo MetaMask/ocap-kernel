@@ -193,6 +193,22 @@ The `bundleSpec` can be:
 - A file path for Node.js (e.g., `file:///path/to/sample-vat.bundle`)
 - A data URL containing the bundle content
 
+A vat can also request host/Web API globals (timers, `Date`, `crypto`, `URL`, …) via the `globals` field. SES Compartments do not expose these by default, so anything the vat needs must be named explicitly:
+
+```json
+{
+  "bootstrap": "alice",
+  "vats": {
+    "alice": {
+      "bundleSpec": "http://localhost:3000/sample-vat.bundle",
+      "globals": ["setTimeout", "clearTimeout", "Date", "crypto"]
+    }
+  }
+}
+```
+
+See [Vat Endowments](./kernel-guide.md#vat-endowments) in the kernel guide for the full list and for how to narrow the set with `Kernel.make({ allowedGlobalNames })`.
+
 ## Kernel API
 
 The kernel exposes several methods for managing vats and sending messages:

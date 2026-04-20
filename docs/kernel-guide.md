@@ -9,13 +9,14 @@ This document explains the parts of the ocap kernel that are relevant to buildin
 1. [Core Concepts](#core-concepts)
 2. [The Kernel API](#the-kernel-api)
 3. [Writing Vat Code](#writing-vat-code)
-4. [Kernel Services](#kernel-services)
-5. [System Subclusters](#system-subclusters)
-6. [Eventual Send with E()](#eventual-send-with-e)
-7. [Exos (Remotable Objects)](#exos-remotable-objects)
-8. [Baggage (Persistent State)](#baggage-persistent-state)
-9. [Revocation](#revocation)
-10. [Glossary and Key Types](#glossary-and-key-types)
+4. [Vat Endowments](#vat-endowments)
+5. [Kernel Services](#kernel-services)
+6. [System Subclusters](#system-subclusters)
+7. [Eventual Send with E()](#eventual-send-with-e)
+8. [Exos (Remotable Objects)](#exos-remotable-objects)
+9. [Baggage (Persistent State)](#baggage-persistent-state)
+10. [Revocation](#revocation)
+11. [Glossary and Key Types](#glossary-and-key-types)
 
 ---
 
@@ -124,6 +125,76 @@ async bootstrap(
 ```
 
 After a vat restart (resuscitation), `bootstrap` is **not** called again. The vat must restore its state from baggage.
+
+---
+
+## Vat Endowments
+
+SES Compartments do not expose host or Web APIs by default — `setTimeout`, `Date.now()`, `crypto`, `Math.random()`, `URL`, and friends are either absent or deliberately tamed (e.g., `Date.now()` and `Math.random()` throw in secure mode). Vats that need them must request them explicitly through the `globals` field on their `VatConfig`.
+
+### Requesting endowments from a vat
+
+Name the host/Web APIs the vat needs in its cluster config:
+
+```ts
+await kernel.launchSubcluster({
+  bootstrap: 'worker',
+  vats: {
+    worker: {
+      bundleSpec: '...',
+      parameters: {},
+      globals: ['setTimeout', 'clearTimeout', 'Date', 'crypto', 'URL'],
+    },
+  },
+});
+```
+
+Only names in the vat's `globals` array are installed in the vat's compartment. Names not in the kernel's allowed set cause `initVat` to fail with `Vat "<id>" requested unknown global "<name>"`.
+
+### Default allowed globals
+
+The kernel ships with a default set sourced from `@metamask/snaps-execution-environments` — timers (`setTimeout`/`clearTimeout`/`setInterval`/`clearInterval`), `Date`, `Math`, `crypto`/`SubtleCrypto`, text codecs, URL helpers, base64, and abort controllers. The attenuated factories provide per-vat isolation (one vat cannot clear another vat's timers) and lifecycle teardown (pending timers and open connections are released when the vat terminates).
+
+Notable attenuations (not drop-in replacements for the browser/Node versions):
+
+- **`Date.now()`** is monotonically clamped with random jitter — repeated calls within the same millisecond return the same value.
+- **`Math.random()`** is sourced from `crypto.getRandomValues`. This is _not_ a cryptographically-secure RNG per the upstream NOTE; it exists to avoid timing side channels in the stock engine RNG.
+- **Timers** are isolated per vat and cleared automatically when the `VatSupervisor` terminates.
+
+### Restricting or replacing the allowed set
+
+Two levers, applied at different layers:
+
+**1. Kernel-level allowlist via `Kernel.make({ allowedGlobalNames })`.** Restrict the set of globals any vat is permitted to request. Names outside this list cause `initVat` to fail even if the vat asks for them.
+
+```ts
+const kernel = await Kernel.make(platformServices, db, {
+  allowedGlobalNames: ['TextEncoder', 'TextDecoder', 'URL'],
+});
+```
+
+Omit the option to allow the full default set.
+
+**2. Supervisor-level factory via `VatSupervisor({ makeAllowedGlobals })`.** Replace the endowment factory entirely — useful for tests or host applications that need custom attenuations. The factory is invoked once per supervisor and must return `{ globals, teardown }`, where `teardown` releases any resources the custom endowments hold.
+
+```ts
+import type { VatEndowments } from '@metamask/ocap-kernel';
+
+const makeAllowedGlobals = (): VatEndowments =>
+  harden({
+    globals: harden({ Date: globalThis.Date }),
+    teardown: async () => undefined,
+  });
+
+new VatSupervisor({
+  id,
+  kernelStream,
+  logger,
+  makeAllowedGlobals,
+});
+```
+
+Most host applications should stick with the default `createDefaultEndowments()` factory; override only when you need bespoke attenuations.
 
 ---
 
@@ -451,7 +522,7 @@ type VatConfig = {
   creationOptions?: Record<string, Json>; // Options for vat creation
   parameters?: Record<string, Json>; // Static parameters passed to buildRootObject
   platformConfig?: Partial<PlatformConfig>; // Platform-specific configuration
-  globals?: string[]; // Additional globals to allow in the vat
+  globals?: string[]; // Host/Web API globals the vat requests — see [Vat Endowments](#vat-endowments)
 };
 
 // Configuration for a system subcluster
