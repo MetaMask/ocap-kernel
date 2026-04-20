@@ -62,11 +62,43 @@ export function buildRootObject(vatPowers: TestPowers) {
       });
     },
 
+    testInterval: async () => {
+      return new Promise((resolve) => {
+        let tickCount = 0;
+        const handle = setInterval(() => {
+          tickCount += 1;
+          if (tickCount >= 2) {
+            clearInterval(handle);
+            tlog(`interval: ticks=${tickCount}`);
+            resolve(tickCount);
+          }
+        }, 10);
+      });
+    },
+
     testDate: () => {
       const now = Date.now();
       const isReal = !Number.isNaN(now) && now > 0;
       tlog(`date: isReal=${String(isReal)}`);
       return isReal;
+    },
+
+    testCrypto: () => {
+      // A 16-byte buffer makes the all-zero coincidence vanishingly small
+      // (2^-128); a 4-byte buffer has a ~1-in-4-billion false-negative rate.
+      const buffer = new Uint8Array(16);
+      // eslint-disable-next-line n/no-unsupported-features/node-builtins -- `crypto` here is the vat endowment, not the Node global; the rule's engines check does not apply inside a SES Compartment.
+      crypto.getRandomValues(buffer);
+      const hasRandomBytes = buffer.some((byte) => byte !== 0);
+      tlog(`crypto: hasRandomBytes=${String(hasRandomBytes)}`);
+      return hasRandomBytes;
+    },
+
+    testMath: () => {
+      const value = Math.random();
+      const inRange = value >= 0 && value < 1;
+      tlog(`math: inRange=${String(inRange)}`);
+      return inRange;
     },
 
     checkGlobal: (name: string) => {

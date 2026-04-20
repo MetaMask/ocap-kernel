@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Integrate Snaps attenuated endowment factories into vat globals ([#935](https://github.com/MetaMask/ocap-kernel/pull/935))
+  - Add `setInterval`, `clearInterval`, `crypto`, `SubtleCrypto`, and `Math` (crypto-backed `Math.random`) to the default vat endowments
+  - Swap raw `setTimeout`/`clearTimeout` and `Date` for attenuated versions from `@metamask/snaps-execution-environments`
+  - Wire factory `teardownFunction`s into `VatSupervisor.terminate()` so pending timers and other resources are released on vat termination
+  - Replace exported `DEFAULT_ALLOWED_GLOBALS` constant with `createDefaultEndowments()` factory and `VatEndowments` type; `VatSupervisor` now accepts `makeAllowedGlobals` in place of `allowedGlobals`
 - Make vat global allowlist configurable and expand available endowments ([#933](https://github.com/MetaMask/ocap-kernel/pull/933))
   - Export `DEFAULT_ALLOWED_GLOBALS` with `URL`, `URLSearchParams`, `atob`, `btoa`, `AbortController`, and `AbortSignal` in addition to the existing globals
   - Accept optional `allowedGlobals` on `VatSupervisor` for custom allowlists

@@ -1,7 +1,8 @@
 export { Kernel } from './Kernel.ts';
 export { VatHandle } from './vats/VatHandle.ts';
 export { VatSupervisor } from './vats/VatSupervisor.ts';
-export { DEFAULT_ALLOWED_GLOBALS } from './vats/endowments.ts';
+export { createDefaultEndowments } from './vats/endowments.ts';
+export type { VatEndowments } from './vats/endowments.ts';
 export { initTransport } from './remotes/platform/transport.ts';
 export type { IOChannel, IOChannelFactory } from './io/types.ts';
 export type {

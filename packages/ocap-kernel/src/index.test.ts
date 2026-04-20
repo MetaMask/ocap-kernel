@@ -7,7 +7,6 @@ describe('index', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'CapDataStruct',
       'ClusterConfigStruct',
-      'DEFAULT_ALLOWED_GLOBALS',
       'Kernel',
       'KernelStatusStruct',
       'SubclusterStruct',
@@ -15,6 +14,7 @@ describe('index', () => {
       'VatHandle',
       'VatIdStruct',
       'VatSupervisor',
+      'createDefaultEndowments',
       'generateMnemonic',
       'initTransport',
       'insistKRef',

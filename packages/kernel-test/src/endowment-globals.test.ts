@@ -113,6 +113,18 @@ describe('global endowments', () => {
     expect(logs).toContain('timer: fired');
   });
 
+  it('can use setInterval and clearInterval', async () => {
+    const { kernel, entries } = await setup({
+      globals: ['setInterval', 'clearInterval'],
+    });
+
+    await kernel.queueMessage(v1Root, 'testInterval', []);
+    await waitUntilQuiescent();
+
+    const logs = extractTestLogs(entries, vatId);
+    expect(logs).toContain('interval: ticks=2');
+  });
+
   it('can use real Date (not tamed)', async () => {
     const { kernel, entries } = await setup({ globals: ['Date'] });
 
@@ -121,6 +133,28 @@ describe('global endowments', () => {
 
     const logs = extractTestLogs(entries, vatId);
     expect(logs).toContain('date: isReal=true');
+  });
+
+  it('can use crypto.getRandomValues', async () => {
+    const { kernel, entries } = await setup({
+      globals: ['crypto', 'SubtleCrypto'],
+    });
+
+    await kernel.queueMessage(v1Root, 'testCrypto', []);
+    await waitUntilQuiescent();
+
+    const logs = extractTestLogs(entries, vatId);
+    expect(logs).toContain('crypto: hasRandomBytes=true');
+  });
+
+  it('can use Math.random sourced from crypto.getRandomValues', async () => {
+    const { kernel, entries } = await setup({ globals: ['Math'] });
+
+    await kernel.queueMessage(v1Root, 'testMath', []);
+    await waitUntilQuiescent();
+
+    const logs = extractTestLogs(entries, vatId);
+    expect(logs).toContain('math: inRange=true');
   });
 
   describe('host APIs are absent when not endowed', () => {
@@ -137,6 +171,10 @@ describe('global endowments', () => {
       'AbortSignal',
       'setTimeout',
       'clearTimeout',
+      'setInterval',
+      'clearInterval',
+      'crypto',
+      'SubtleCrypto',
     ])('does not have %s without endowing it', async (name) => {
       // Launch with no globals at all
       const { kernel, entries } = await setup({ globals: [] });
@@ -152,6 +190,14 @@ describe('global endowments', () => {
       const { kernel } = await setup({ globals: [] });
 
       await expect(kernel.queueMessage(v1Root, 'testDate', [])).rejects.toThrow(
+        'secure mode',
+      );
+    });
+
+    it('throws when calling tamed Math.random without endowing Math', async () => {
+      const { kernel } = await setup({ globals: [] });
+
+      await expect(kernel.queueMessage(v1Root, 'testMath', [])).rejects.toThrow(
         'secure mode',
       );
     });
