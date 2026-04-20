@@ -324,6 +324,8 @@ export function buildRootObject(
   let homeSection: object | undefined; // remote ref to home's homeSection exo
   let homeCoordRef: object | undefined; // remote ref to home coordinator (for delegate registration)
   let delegationSections: DelegationSection[] = [];
+  // Keyed by delegation.id so rebuildRouting preserves in-memory spend counters.
+  const delegationTwinMap = new Map<string, DelegationSection>();
 
   // -------------------------------------------------------------------------
   // Baggage helpers
@@ -1101,11 +1103,26 @@ export function buildRootObject(
    */
   async function rebuildRouting(): Promise<void> {
     const grants = redeemerVat ? await E(redeemerVat).listGrants() : [];
-    delegationSections = grants.map((grant) =>
-      makeDelegationTwin({
-        grant,
-        redeemFn: makeRedeemFn(grant.delegation),
-      }),
+    const currentIds = new Set(grants.map((grant) => grant.delegation.id));
+    for (const id of delegationTwinMap.keys()) {
+      if (!currentIds.has(id)) {
+        delegationTwinMap.delete(id);
+      }
+    }
+    for (const grant of grants) {
+      if (!delegationTwinMap.has(grant.delegation.id)) {
+        delegationTwinMap.set(
+          grant.delegation.id,
+          makeDelegationTwin({
+            grant,
+            redeemFn: makeRedeemFn(grant.delegation),
+          }),
+        );
+      }
+    }
+    delegationSections = grants.map(
+      (grant) =>
+        delegationTwinMap.get(grant.delegation.id) as DelegationSection,
     );
   }
 
@@ -1850,8 +1867,9 @@ export function buildRootObject(
       amount: bigint,
     ): Promise<Hex> {
       const amt = BigInt(amount as unknown as string | number | bigint);
+      const tokenLower = token.toLowerCase() as Address;
       const matching = delegationSections.filter(
-        (sec) => sec.method === 'transferFungible' && sec.token === token,
+        (sec) => sec.method === 'transferFungible' && sec.token === tokenLower,
       );
       if (matching.length > 0) {
         let lastError: unknown;

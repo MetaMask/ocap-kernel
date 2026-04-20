@@ -79,8 +79,9 @@ export function makeDelegationTwin(
     return { exo, method: 'transferNative' };
   }
 
-  // transferFungible
-  const { token, to } = grant;
+  // transferFungible — normalize token address to lowercase for consistent matching.
+  const { to } = grant;
+  const token = grant.token.toLowerCase() as Address;
   // maxAmount may arrive as a string when the grant crosses a JSON boundary.
   // Normalize to bigint so arithmetic and M.lte comparisons work correctly.
   const maxAmount =
