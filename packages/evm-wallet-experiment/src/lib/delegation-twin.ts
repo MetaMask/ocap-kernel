@@ -38,6 +38,8 @@ export function makeDelegationTwin(
     // method body comparison work correctly regardless of the source.
     const maxAmount =
       grant.maxAmount === undefined ? undefined : BigInt(grant.maxAmount);
+    const totalLimit =
+      grant.totalLimit === undefined ? undefined : BigInt(grant.totalLimit);
 
     const toGuard = to === undefined ? M.string() : M.eq(to);
     const amountGuard = maxAmount === undefined ? M.bigint() : M.lte(maxAmount);
@@ -50,6 +52,9 @@ export function makeDelegationTwin(
       { defaultGuards: 'passable' },
     );
 
+    let spent = 0n;
+    const cumulativeMax = totalLimit ?? 2n ** 256n - 1n;
+
     const exo = makeDiscoverableExo(
       `DelegationTwin:transferNative:${idPrefix}`,
       {
@@ -57,6 +62,14 @@ export function makeDelegationTwin(
           if (maxAmount !== undefined && amount > maxAmount) {
             throw new Error(`Amount ${amount} exceeds limit ${maxAmount}`);
           }
+          if (amount > cumulativeMax - spent) {
+            throw new Error(
+              `Insufficient budget: requested ${amount}, remaining ${cumulativeMax - spent}`,
+            );
+          }
+
+          // Reserve before the await so concurrent calls see the updated budget.
+          spent += amount;
 
           const execution: Execution = {
             target: recipient,
@@ -64,7 +77,13 @@ export function makeDelegationTwin(
             callData: '0x' as Hex,
           };
 
-          return redeemFn(execution);
+          try {
+            return await redeemFn(execution);
+          } catch (error) {
+            // Roll back on redeemFn failure.
+            spent -= amount;
+            throw error;
+          }
         },
       },
       { transferNative: METHOD_CATALOG.transferNative },
