@@ -2,7 +2,11 @@ export { Kernel } from './Kernel.ts';
 export { VatHandle } from './vats/VatHandle.ts';
 export { VatSupervisor } from './vats/VatSupervisor.ts';
 export { createDefaultEndowments } from './vats/endowments.ts';
-export type { VatEndowments } from './vats/endowments.ts';
+export type {
+  AllowedGlobalName,
+  MakeAllowedGlobals,
+  VatEndowments,
+} from './vats/endowments.ts';
 export { initTransport } from './remotes/platform/transport.ts';
 export type { IOChannel, IOChannelFactory } from './io/types.ts';
 export type {
@@ -46,6 +50,7 @@ export {
   KernelStatusStruct,
   SubclusterStruct,
 } from './types.ts';
+export { AllowedGlobalNameStruct } from './vats/endowments.ts';
 export { kunser, kser, kslot, krefOf } from './liveslots/kernel-marshal.ts';
 export type { SlotValue } from './liveslots/kernel-marshal.ts';
 export type { KernelFacet } from './kernel-facet.ts';

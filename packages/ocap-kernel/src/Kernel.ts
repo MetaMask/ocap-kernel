@@ -35,6 +35,7 @@ import type {
   SystemSubclusterConfig,
 } from './types.ts';
 import { isVatId, isRemoteId } from './types.ts';
+import type { AllowedGlobalName } from './vats/endowments.ts';
 import { SubclusterManager } from './vats/SubclusterManager.ts';
 import type { VatHandle } from './vats/VatHandle.ts';
 import { VatManager } from './vats/VatManager.ts';
@@ -115,7 +116,7 @@ export class Kernel {
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
       ioChannelFactory?: IOChannelFactory;
-      allowedGlobalNames?: string[];
+      allowedGlobalNames?: AllowedGlobalName[];
     } = {},
   ) {
     this.#platformServices = platformServices;
@@ -245,7 +246,7 @@ export class Kernel {
       mnemonic?: string | undefined;
       ioChannelFactory?: IOChannelFactory;
       systemSubclusters?: SystemSubclusterConfig[];
-      allowedGlobalNames?: string[];
+      allowedGlobalNames?: AllowedGlobalName[];
     } = {},
   ): Promise<Kernel> {
     const kernel = new Kernel(platformServices, kernelDatabase, options);

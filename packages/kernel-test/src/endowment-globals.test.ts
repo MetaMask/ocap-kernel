@@ -8,7 +8,7 @@ import {
 } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
 import { Kernel } from '@metamask/ocap-kernel';
-import type { KRef, VatId } from '@metamask/ocap-kernel';
+import type { AllowedGlobalName, KRef, VatId } from '@metamask/ocap-kernel';
 import { getWorkerFile } from '@ocap/nodejs-test-workers';
 import { describe, expect, it } from 'vitest';
 
@@ -22,8 +22,8 @@ describe('global endowments', () => {
     globals,
     allowedGlobalNames,
   }: {
-    globals: string[];
-    allowedGlobalNames?: string[];
+    globals: AllowedGlobalName[];
+    allowedGlobalNames?: AllowedGlobalName[];
   }) => {
     const entries: LogEntry[] = [];
     const logger = new Logger({
@@ -248,17 +248,22 @@ describe('global endowments', () => {
       ).rejects.toThrow('unknown global "TextEncoder"');
     });
 
-    it('silently drops unknown names in allowedGlobalNames without affecting valid ones', async () => {
-      const { kernel, entries } = await setup({
-        globals: ['TextEncoder', 'TextDecoder'],
-        allowedGlobalNames: ['TextEncoder', 'TextDecoder', 'NotARealGlobal'],
-      });
-
-      await kernel.queueMessage(v1Root, 'testTextCodec', []);
-      await waitUntilQuiescent();
-
-      const logs = extractTestLogs(entries, vatId);
-      expect(logs).toContain('textCodec: hello');
+    it('rejects unknown names in allowedGlobalNames at the RPC boundary', async () => {
+      // Callers on the typed API get a compile-time error. This test covers
+      // the runtime check: the `initVat` RPC struct (`AllowedGlobalNameStruct`)
+      // rejects any name outside the literal union, so a caller that bypasses
+      // the type system (e.g., JS client, cast) still cannot smuggle bad names
+      // through.
+      await expect(
+        setup({
+          globals: ['TextEncoder', 'TextDecoder'],
+          allowedGlobalNames: [
+            'TextEncoder',
+            'TextDecoder',
+            'NotARealGlobal' as AllowedGlobalName,
+          ],
+        }),
+      ).rejects.toThrow(/Invalid params/u);
     });
   });
 });

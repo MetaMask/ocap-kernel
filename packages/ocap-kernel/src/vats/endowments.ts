@@ -1,4 +1,12 @@
 import { buildCommonEndowments } from '@metamask/snaps-execution-environments/endowments';
+import {
+  enums,
+  func,
+  object,
+  record,
+  string,
+  unknown,
+} from '@metamask/superstruct';
 
 /**
  * The names of host/Web API globals that vats may request as endowments.
@@ -17,7 +25,7 @@ import { buildCommonEndowments } from '@metamask/snaps-execution-environments/en
  * requires adjusting {@link createDefaultEndowments} to pass the right
  * options through — see ocap-kernel issue #936 for the network case.
  */
-const ALLOWED_GLOBAL_NAMES = new Set<string>([
+const ALLOWED_GLOBAL_NAMES = [
   // Attenuated timer factories — isolated per vat, with teardown for
   // cancelling pending callbacks on termination.
   'setTimeout',
@@ -50,7 +58,20 @@ const ALLOWED_GLOBAL_NAMES = new Set<string>([
   'btoa',
   'AbortController',
   'AbortSignal',
-]);
+] as const;
+
+/**
+ * A global name that vats may request as an endowment. Callers that accept
+ * this type get typo-checking at compile time, and the {@link AllowedGlobalNameStruct}
+ * enforces the same invariant at RPC boundaries.
+ */
+export type AllowedGlobalName = (typeof ALLOWED_GLOBAL_NAMES)[number];
+
+export const AllowedGlobalNameStruct = enums(ALLOWED_GLOBAL_NAMES);
+
+const ALLOWED_GLOBAL_NAMES_SET: ReadonlySet<string> = new Set(
+  ALLOWED_GLOBAL_NAMES,
+);
 
 /**
  * The endowments produced for a single vat.
@@ -68,6 +89,30 @@ export type VatEndowments = {
   globals: Record<string, unknown>;
   teardown: () => Promise<void>;
 };
+
+/**
+ * Shape-only validator used to guard the `VatSupervisor` boundary against
+ * custom `MakeAllowedGlobals` factories returning malformed values. It checks
+ * that `globals` is a record and `teardown` is a function; it does not and
+ * cannot verify that `teardown` returns a promise.
+ *
+ * The `globals` key is validated as `string` rather than {@link AllowedGlobalNameStruct}
+ * so factories may surface extras from upstream sources (e.g., Snaps'
+ * `buildCommonEndowments`) without tripping the assertion. Extras are dropped
+ * when a vat's config is resolved — only names in {@link ALLOWED_GLOBAL_NAMES}
+ * can actually be requested.
+ */
+export const VatEndowmentsStruct = object({
+  globals: record(string(), unknown()),
+  teardown: func(),
+});
+
+/**
+ * Factory that produces a fresh {@link VatEndowments} for a single vat.
+ * Consumers supply this to a `VatSupervisor` to override the default
+ * endowment set (see {@link createDefaultEndowments}).
+ */
+export type MakeAllowedGlobals = () => VatEndowments;
 
 /**
  * Build a fresh set of vat endowments from the Snaps attenuated factories,
@@ -91,7 +136,7 @@ export function createDefaultEndowments(): VatEndowments {
   const teardowns: (() => Promise<void> | void)[] = [];
 
   for (const { names, factory } of buildCommonEndowments()) {
-    if (!names.some((name) => ALLOWED_GLOBAL_NAMES.has(name))) {
+    if (!names.some((name) => ALLOWED_GLOBAL_NAMES_SET.has(name))) {
       continue;
     }
     let result;
@@ -106,7 +151,7 @@ export function createDefaultEndowments(): VatEndowments {
     }
     const { teardownFunction, ...values } = result;
     for (const [key, value] of Object.entries(values)) {
-      if (ALLOWED_GLOBAL_NAMES.has(key)) {
+      if (ALLOWED_GLOBAL_NAMES_SET.has(key)) {
         globals[key] = value;
       }
     }

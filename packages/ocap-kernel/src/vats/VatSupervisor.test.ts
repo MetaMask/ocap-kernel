@@ -290,7 +290,10 @@ describe('VatSupervisor', () => {
       expect(factory).toHaveBeenCalledTimes(1);
     });
 
-    it('throws when a vat requests an unknown global', async () => {
+    it('rejects an unknown global at the initVat RPC boundary', async () => {
+      // VatConfig.globals is now typed as AllowedGlobalName[] and validated by
+      // AllowedGlobalNameStruct at the RPC boundary, so an unknown name is
+      // rejected before reaching the VatSupervisor's per-name check.
       const dispatch = vi.fn();
 
       const mockFetchBlob: FetchBlob = vi.fn().mockResolvedValue({
@@ -323,7 +326,7 @@ describe('VatSupervisor', () => {
         expect.objectContaining({
           id: 'test-init',
           error: expect.objectContaining({
-            message: expect.stringContaining('unknown global "UnknownThing"'),
+            message: expect.stringContaining('Invalid params'),
           }),
         }),
       );

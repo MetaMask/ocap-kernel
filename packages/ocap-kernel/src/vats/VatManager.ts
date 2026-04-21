@@ -17,6 +17,7 @@ import type {
   PlatformServices,
 } from '../types.ts';
 import { ROOT_OBJECT_VREF } from '../types.ts';
+import type { AllowedGlobalName } from './endowments.ts';
 import { VatHandle } from './VatHandle.ts';
 import type { PingVatResult } from '../rpc/index.ts';
 
@@ -25,7 +26,7 @@ type VatManagerOptions = {
   kernelStore: KernelStore;
   kernelQueue: KernelQueue;
   logger?: Logger;
-  allowedGlobalNames?: string[] | undefined;
+  allowedGlobalNames?: AllowedGlobalName[] | undefined;
 };
 
 /**
@@ -48,7 +49,7 @@ export class VatManager {
   readonly #logger: Logger;
 
   /** Optional list of allowed global names for vat endowments */
-  readonly #allowedGlobalNames: string[] | undefined;
+  readonly #allowedGlobalNames: AllowedGlobalName[] | undefined;
 
   /**
    * Creates a new VatManager instance.
