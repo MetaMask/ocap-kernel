@@ -155,7 +155,8 @@ export class VatSupervisor {
     this.#platformOptions = platformOptions ?? {};
     this.#makePlatform = makePlatform;
     const { globals, teardown } = makeAllowedGlobals();
-    this.#allowedGlobals = globals;
+    // Defense in depth: custom `makeAllowedGlobals` factories may skip hardening.
+    this.#allowedGlobals = harden(globals);
     this.#endowmentsTeardown = teardown;
 
     this.#rpcClient = new RpcClient(
