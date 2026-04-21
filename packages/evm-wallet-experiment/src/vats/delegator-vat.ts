@@ -1,5 +1,6 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { Baggage } from '@metamask/ocap-kernel';
+import { create } from '@metamask/superstruct';
 
 import {
   ENFORCER_CONTRACT_KEY_MAP,
@@ -25,6 +26,7 @@ import type {
   TransferFungibleGrant,
   TransferNativeGrant,
 } from '../types.ts';
+import { DelegationGrantStruct } from '../types.ts';
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
 
@@ -53,8 +55,8 @@ export function buildRootObject(
 ): object {
   const grants: Map<string, DelegationGrant> = baggage.has('grants')
     ? new Map(
-        Object.entries(
-          baggage.get('grants') as Record<string, DelegationGrant>,
+        Object.entries(baggage.get('grants') as Record<string, unknown>).map(
+          ([id, raw]) => [id, create(raw, DelegationGrantStruct)],
         ),
       )
     : new Map();

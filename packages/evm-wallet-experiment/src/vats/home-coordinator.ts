@@ -1089,21 +1089,10 @@ export function buildRootObject(
   // homeSection exo — built once, after all internal functions are defined
   // ---------------------------------------------------------------------------
 
-  // Demo limit: each method throws after 2 uses
-  let transferNativeUses = 0;
-  let transferFungibleUses = 0;
-  const HOME_SECTION_LIMIT = 2;
-
   const homeSection = makeDiscoverableExo(
     'HomeWallet',
     {
       async transferNative(to: Address, amount: bigint): Promise<Hex> {
-        if (transferNativeUses >= HOME_SECTION_LIMIT) {
-          throw new Error(
-            `Home transferNative limit (${HOME_SECTION_LIMIT}) exhausted`,
-          );
-        }
-        transferNativeUses += 1;
         const from = await resolveOwnerAddress();
         const amountHex: Hex = `0x${amount.toString(16)}`;
         if (!providerVat) {
@@ -1138,20 +1127,11 @@ export function buildRootObject(
         to: Address,
         amount: bigint,
       ): Promise<Hex> {
-        if (transferFungibleUses >= HOME_SECTION_LIMIT) {
-          throw new Error(
-            `Home transferFungible limit (${HOME_SECTION_LIMIT}) exhausted`,
-          );
-        }
-        transferFungibleUses += 1;
         const from = await resolveOwnerAddress();
         if (!providerVat) {
           throw new Error('Provider not configured');
         }
-        const callData = encodeTransfer(
-          to,
-          BigInt(amount as unknown as string | number | bigint),
-        );
+        const callData = encodeTransfer(to, amount);
         const chainId = await resolveChainId();
         const nonce = await E(providerVat).getNonce(from);
         const fees = await E(providerVat).getGasFees();

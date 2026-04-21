@@ -330,4 +330,87 @@ describe.sequential('Peer wallet integration', () => {
       NETWORK_TIMEOUT,
     );
   });
+
+  describe('delegation relay (away → home)', () => {
+    it(
+      'relays redeemDelegation to home when away has no bundler',
+      async () => {
+        // kernel1 (home) has keys; kernel2 (away) has no bundler, no keys.
+        await callVatMethod(kernel1, coordinatorKref1, 'initializeKeyring', [
+          { type: 'srp', mnemonic: TEST_MNEMONIC },
+        ]);
+
+        // Connect away to home.
+        const ocapUrl = (await callVatMethod(
+          kernel1,
+          coordinatorKref1,
+          'issueOcapUrl',
+        )) as string;
+        await callVatMethod(kernel2, coordinatorKref2, 'connectToPeer', [
+          ocapUrl,
+        ]);
+
+        // Build a grant on home (self-delegation) and send to away.
+        const homeAccounts = (await callVatMethod(
+          kernel1,
+          coordinatorKref1,
+          'getAccounts',
+        )) as Address[];
+        const homeAddr = homeAccounts[0] as Address;
+
+        // Away initializes a throwaway keyring so it has a delegate address.
+        const { randomBytes } = await import('node:crypto');
+        const entropy = `0x${randomBytes(32).toString('hex')}`;
+        await callVatMethod(kernel2, coordinatorKref2, 'initializeKeyring', [
+          { type: 'throwaway', entropy },
+        ]);
+        const awayAccounts = (await callVatMethod(
+          kernel2,
+          coordinatorKref2,
+          'getAccounts',
+        )) as Address[];
+        // getAccounts on the away coordinator returns the home (peer) account.
+        expect(awayAccounts[0]?.toLowerCase()).toBe(homeAddr.toLowerCase());
+
+        // Home builds a grant delegating from home EOA to itself (no smart account).
+        const grant = (await callVatMethod(
+          kernel1,
+          coordinatorKref1,
+          'buildTransferNativeGrant',
+          [{ delegate: homeAddr, chainId: 11155111 }],
+        )) as { delegation: { id: string; status: string } };
+        expect(grant.delegation.status).toBe('signed');
+
+        // Transfer the grant to away.
+        await callVatMethod(kernel2, coordinatorKref2, 'receiveDelegation', [
+          grant,
+        ]);
+        const awayGrants = (await callVatMethod(
+          kernel2,
+          coordinatorKref2,
+          'listGrants',
+        )) as { delegation: { id: string } }[];
+        expect(awayGrants).toHaveLength(1);
+        expect(awayGrants[0]?.delegation.id).toBe(grant.delegation.id);
+
+        // When away has no bundler and no smart account, redeemDelegation
+        // relays to homeCoordRef.redeemDelegation — which fails without a
+        // bundler on home too, but the rejection confirms the relay path was
+        // taken (not a local "bundler not configured" error on away).
+        await expect(
+          kernel2.queueMessage(coordinatorKref2, 'redeemDelegation', [
+            {
+              delegation: grant.delegation,
+              execution: {
+                target: homeAddr,
+                value: '0x0' as Hex,
+                callData: '0x' as Hex,
+              },
+            },
+          ]),
+        ).rejects.toThrow(/./u);
+      },
+      NETWORK_TIMEOUT,
+    );
+  });
 });

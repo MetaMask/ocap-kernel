@@ -1781,13 +1781,15 @@ export function buildRootObject(
     /**
      * Transfer native ETH.
      * Tries each delegation twin in order; falls back to calling home.
+     * Errors from matched twins propagate — they are not swallowed and do
+     * not fall through to the home section.
      *
      * @param to - Recipient address.
      * @param amount - Amount in wei.
      * @returns The transaction hash.
      */
     async transferNative(to: Address, amount: bigint): Promise<Hex> {
-      const amt = BigInt(amount as unknown as string | number | bigint);
+      const amt = amount;
       const matching = delegationSections.filter(
         (sec) => sec.method === 'transferNative',
       );
@@ -1826,7 +1828,7 @@ export function buildRootObject(
       to: Address,
       amount: bigint,
     ): Promise<Hex> {
-      const amt = BigInt(amount as unknown as string | number | bigint);
+      const amt = amount;
       const tokenLower = token.toLowerCase() as Address;
       const matching = delegationSections.filter(
         (sec) => sec.method === 'transferFungible' && sec.token === tokenLower,

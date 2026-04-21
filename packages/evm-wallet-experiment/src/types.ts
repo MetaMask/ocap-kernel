@@ -349,6 +349,32 @@ export type TransferFungibleGrant = {
   delegation: Delegation;
 };
 
+const BigintStruct = define<bigint>(
+  'bigint',
+  (value) => typeof value === 'bigint',
+);
+
+export const TransferNativeGrantStruct = object({
+  method: literal('transferNative'),
+  to: optional(AddressStruct),
+  maxAmount: optional(BigintStruct),
+  totalLimit: optional(BigintStruct),
+  delegation: DelegationStruct,
+});
+
+export const TransferFungibleGrantStruct = object({
+  method: literal('transferFungible'),
+  token: AddressStruct,
+  to: optional(AddressStruct),
+  maxAmount: optional(BigintStruct),
+  delegation: DelegationStruct,
+});
+
+export const DelegationGrantStruct = union([
+  TransferNativeGrantStruct,
+  TransferFungibleGrantStruct,
+]);
+
 /** Discriminated union of all supported semantic delegation grant types. */
 export type DelegationGrant = TransferNativeGrant | TransferFungibleGrant;
 

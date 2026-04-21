@@ -53,19 +53,14 @@ export function makeDelegationTwin(
     const exo = makeDiscoverableExo(
       `DelegationTwin:transferNative:${idPrefix}`,
       {
-        async transferNative(
-          recipient: Address,
-          amount: string | number | bigint,
-        ): Promise<Hex> {
-          const amt = BigInt(amount);
-
-          if (maxAmount !== undefined && amt > maxAmount) {
-            throw new Error(`Amount ${amt} exceeds limit ${maxAmount}`);
+        async transferNative(recipient: Address, amount: bigint): Promise<Hex> {
+          if (maxAmount !== undefined && amount > maxAmount) {
+            throw new Error(`Amount ${amount} exceeds limit ${maxAmount}`);
           }
 
           const execution: Execution = {
             target: recipient,
-            value: `0x${amt.toString(16)}`,
+            value: `0x${amount.toString(16)}`,
             callData: '0x' as Hex,
           };
 
@@ -108,30 +103,28 @@ export function makeDelegationTwin(
       async transferFungible(
         tokenAddress: Address,
         recipient: Address,
-        amount: string | number | bigint,
+        amount: bigint,
       ): Promise<Hex> {
-        const amt = BigInt(amount);
-
-        if (amt > max - spent) {
+        if (amount > max - spent) {
           throw new Error(
-            `Insufficient budget: requested ${amt}, remaining ${max - spent}`,
+            `Insufficient budget: requested ${amount}, remaining ${max - spent}`,
           );
         }
 
         // Reserve before the await so concurrent calls see the updated budget.
-        spent += amt;
+        spent += amount;
 
         const execution: Execution = {
           target: tokenAddress,
           value: '0x0' as Hex,
-          callData: encodeTransfer(recipient, amt),
+          callData: encodeTransfer(recipient, amount),
         };
 
         try {
           return await redeemFn(execution);
         } catch (error) {
           // Roll back on redeemFn failure.
-          spent -= amt;
+          spent -= amount;
           throw error;
         }
       },
