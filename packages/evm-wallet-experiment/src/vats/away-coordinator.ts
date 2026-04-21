@@ -1788,8 +1788,12 @@ export function buildRootObject(
      * @param amount - Amount in wei.
      * @returns The transaction hash.
      */
-    async transferNative(to: Address, amount: bigint): Promise<Hex> {
-      const amt = amount;
+    async transferNative(
+      to: Address,
+      amount: string | number | bigint,
+    ): Promise<Hex> {
+      // Coerce at the JSON boundary — CLI callers pass numeric strings.
+      const amt = BigInt(amount);
       const matching = delegationSections.filter(
         (sec) => sec.method === 'transferNative',
       );
@@ -1826,9 +1830,10 @@ export function buildRootObject(
     async transferFungible(
       token: Address,
       to: Address,
-      amount: bigint,
+      amount: string | number | bigint,
     ): Promise<Hex> {
-      const amt = amount;
+      // Coerce at the JSON boundary — CLI callers pass numeric strings.
+      const amt = BigInt(amount);
       const tokenLower = token.toLowerCase() as Address;
       const matching = delegationSections.filter(
         (sec) => sec.method === 'transferFungible' && sec.token === tokenLower,
