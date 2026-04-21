@@ -5,11 +5,14 @@
  * Uses `docker compose exec` to run commands inside containers and
  * `fetch` against exposed ports for direct RPC.
  */
+import { array, is, object, string } from '@metamask/superstruct';
 import { execSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { dockerE2eRequiredComposeServices } from './docker-e2e-kernel-services.ts';
+
+const CapDataStruct = object({ body: string(), slots: array(string()) });
 
 /**
  * Decode a smallcaps CapData value into a plain JS value safe for use as RPC
@@ -193,15 +196,8 @@ export function callVat(
     throw new Error(parsed);
   }
 
-  if (
-    typeof parsed === 'object' &&
-    parsed !== null &&
-    'body' in parsed &&
-    'slots' in parsed &&
-    typeof (parsed as { body: unknown }).body === 'string' &&
-    Array.isArray((parsed as { slots: unknown }).slots)
-  ) {
-    return decodeCapDataForRpc(parsed as { body: string; slots: string[] });
+  if (is(parsed, CapDataStruct)) {
+    return decodeCapDataForRpc(parsed);
   }
   return parsed;
 }
