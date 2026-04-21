@@ -130,7 +130,7 @@ export function createDefaultEndowments(): VatEndowments {
       if (failures.length > 0) {
         throw new AggregateError(
           failures,
-          `Endowment teardown failed (${failures.length}/${teardowns.length})`,
+          `One or more endowment teardowns failed (${failures.length}/${teardowns.length})`,
         );
       }
     },
