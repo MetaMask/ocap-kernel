@@ -407,13 +407,22 @@ describe.sequential('Remote Communications E2E', () => {
     it(
       'handles reconnection with exponential backoff',
       async () => {
+        // ackTimeoutMs must be long enough for kernel2 to restart + reconnect
+        // before Alice's URL redemption gives up (fires after
+        // ackTimeoutMs × (MAX_RETRIES + 1)). See PR #927 for the same fix
+        // applied to sibling tests with this pattern.
+        const reconnectOptions = {
+          ...testBackoffOptions,
+          ackTimeoutMs: 5_000,
+        };
+
         const { aliceRef, bobURL } = await setupAliceAndBob(
           kernel1,
           kernel2,
           kernelStore1,
           kernelStore2,
           testRelays,
-          testBackoffOptions,
+          reconnectOptions,
         );
 
         const initialMessage = await sendRemoteMessage(
@@ -445,7 +454,7 @@ describe.sequential('Remote Communications E2E', () => {
           false,
           testRelays,
           bobConfig,
-          testBackoffOptions,
+          reconnectOptions,
         );
         // eslint-disable-next-line require-atomic-updates
         kernel2 = restartResult.kernel;

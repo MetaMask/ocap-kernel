@@ -6,6 +6,7 @@ import { rpcErrors } from '@metamask/rpc-errors';
 import { TestDuplexStream } from '@ocap/repo-tools/test-utils/streams';
 import { describe, it, expect, vi } from 'vitest';
 
+import type { VatEndowments } from './endowments.ts';
 import { VatSupervisor } from './VatSupervisor.ts';
 import type { FetchBlob } from './VatSupervisor.ts';
 
@@ -23,22 +24,32 @@ vi.mock('@agoric/swingset-liveslots', () => ({
   })),
 }));
 
+const makeVatEndowments = (
+  globals: Record<string, unknown>,
+  teardown: () => Promise<void> = async () => undefined,
+): VatEndowments => ({
+  globals: harden({ ...globals }),
+  teardown,
+});
+
 const makeVatSupervisor = async ({
   dispatch,
   logger,
   vatPowers,
   makePlatform,
   platformOptions,
-  allowedGlobals,
+  makeAllowedGlobals,
   fetchBlob,
+  writerOnEnd,
 }: {
   dispatch?: (input: unknown) => void | Promise<void>;
   logger?: Logger;
   vatPowers?: Record<string, unknown>;
   makePlatform?: PlatformFactory;
   platformOptions?: Record<string, unknown>;
-  allowedGlobals?: Record<string, unknown>;
+  makeAllowedGlobals?: () => VatEndowments;
   fetchBlob?: FetchBlob;
+  writerOnEnd?: () => void;
 } = {}): Promise<{
   supervisor: VatSupervisor;
   stream: TestDuplexStream<JsonRpcMessage, JsonRpcMessage>;
@@ -46,7 +57,10 @@ const makeVatSupervisor = async ({
   const kernelStream = await TestDuplexStream.make<
     JsonRpcMessage,
     JsonRpcMessage
-  >(dispatch ?? (() => undefined), { validateInput: isJsonRpcMessage });
+  >(dispatch ?? (() => undefined), {
+    validateInput: isJsonRpcMessage,
+    writerOnEnd,
+  });
 
   // Provide a default makePlatform if none is specified
   const defaultMakePlatform: PlatformFactory = vi.fn().mockResolvedValue({});
@@ -59,7 +73,7 @@ const makeVatSupervisor = async ({
       vatPowers: vatPowers ?? {},
       makePlatform: makePlatform ?? defaultMakePlatform,
       platformOptions: platformOptions ?? {},
-      allowedGlobals,
+      makeAllowedGlobals,
       fetchBlob,
     }),
     stream: kernelStream,
@@ -143,6 +157,99 @@ describe('VatSupervisor', () => {
         value: undefined,
       });
     });
+
+    it('calls the endowments teardown before closing the stream', async () => {
+      // The stream is hardened, so we can't vi.spyOn(stream, 'end'). Instead,
+      // observe the writer's onEnd callback, which fires as part of stream.end().
+      const teardown = vi.fn().mockResolvedValue(undefined);
+      const writerOnEnd = vi.fn();
+      const { supervisor } = await makeVatSupervisor({
+        makeAllowedGlobals: () => makeVatEndowments({}, teardown),
+        writerOnEnd,
+      });
+
+      await supervisor.terminate();
+
+      expect(teardown).toHaveBeenCalledTimes(1);
+      expect(writerOnEnd).toHaveBeenCalledTimes(1);
+      expect(teardown.mock.invocationCallOrder[0]).toBeLessThan(
+        writerOnEnd.mock.invocationCallOrder[0] as number,
+      );
+    });
+
+    it('closes the stream and logs when teardown rejects', async () => {
+      const logger = {
+        error: vi.fn(),
+        subLogger: vi.fn(() => logger),
+      } as unknown as Logger;
+      const teardownError = new Error('boom');
+      const { supervisor, stream } = await makeVatSupervisor({
+        logger,
+        makeAllowedGlobals: () =>
+          makeVatEndowments({}, async () => {
+            throw teardownError;
+          }),
+      });
+
+      await supervisor.terminate();
+
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Endowment teardown failed'),
+        teardownError,
+      );
+      expect(await stream.next()).toStrictEqual({
+        done: true,
+        value: undefined,
+      });
+    });
+
+    it('is safe to call twice and runs teardown only once', async () => {
+      const teardown = vi.fn().mockResolvedValue(undefined);
+      const { supervisor } = await makeVatSupervisor({
+        makeAllowedGlobals: () => makeVatEndowments({}, teardown),
+      });
+
+      await supervisor.terminate();
+      expect(await supervisor.terminate()).toBeUndefined();
+      expect(teardown).toHaveBeenCalledTimes(1);
+    });
+
+    it('logs each sub-error when teardown rejects with an AggregateError', async () => {
+      const logger = {
+        error: vi.fn(),
+        subLogger: vi.fn(() => logger),
+      } as unknown as Logger;
+      const subErrorA = new Error('timer teardown failed');
+      const subErrorB = new Error('network teardown failed');
+      const { supervisor, stream } = await makeVatSupervisor({
+        logger,
+        makeAllowedGlobals: () =>
+          makeVatEndowments({}, async () => {
+            throw new AggregateError(
+              [subErrorA, subErrorB],
+              'Endowment teardown failed (2/2)',
+            );
+          }),
+      });
+
+      await supervisor.terminate();
+
+      expect(logger.error).toHaveBeenCalledTimes(2);
+      expect(logger.error).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('Endowment teardown failed'),
+        subErrorA,
+      );
+      expect(logger.error).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('Endowment teardown failed'),
+        subErrorB,
+      );
+      expect(await stream.next()).toStrictEqual({
+        done: true,
+        value: undefined,
+      });
+    });
   });
 
   describe('platform configuration', () => {
@@ -171,12 +278,16 @@ describe('VatSupervisor', () => {
     });
   });
 
-  describe('allowedGlobals configuration', () => {
-    it('accepts a custom allowedGlobals parameter', async () => {
+  describe('makeAllowedGlobals configuration', () => {
+    it('invokes the factory exactly once at construction', async () => {
+      const factory = vi.fn(() =>
+        makeVatEndowments({ CustomGlobal: 'custom-value' }),
+      );
       const { supervisor } = await makeVatSupervisor({
-        allowedGlobals: { CustomGlobal: 'custom-value' },
+        makeAllowedGlobals: factory,
       });
       expect(supervisor).toBeInstanceOf(VatSupervisor);
+      expect(factory).toHaveBeenCalledTimes(1);
     });
 
     it('throws when a vat requests an unknown global', async () => {
@@ -189,7 +300,7 @@ describe('VatSupervisor', () => {
 
       const { stream } = await makeVatSupervisor({
         dispatch,
-        allowedGlobals: { Date: globalThis.Date },
+        makeAllowedGlobals: () => makeVatEndowments({ Date: globalThis.Date }),
         fetchBlob: mockFetchBlob,
       });
 

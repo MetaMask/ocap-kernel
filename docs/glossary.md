@@ -57,6 +57,17 @@ A kernel-space component that manages the lifecycle and communication of a [vat]
 The [VatSupervisor](../packages/ocap-kernel/src/VatSupervisor.ts) handles [message
 delivery](#delivery), [syscalls](#syscall), and vat initialization.
 
+### endowment
+
+A host/Web API value — `setTimeout`, `Date`, `crypto`, `URL`, etc. — that is installed in
+a [vat's](#vat) SES Compartment at initialization. Compartments do not expose these
+APIs by default; vats request them by name via the `globals` field in their `VatConfig`.
+Many endowments are _attenuated_ for security or isolation (e.g., per-vat timer queues
+so one vat cannot clear another's timers, monotonically-clamped `Date.now()`) — they
+are callable but deliberately differ from host semantics. See [Vat
+Endowments](../docs/kernel-guide.md#vat-endowments) and the default factory in
+[endowments.ts](../packages/ocap-kernel/src/vats/endowments.ts).
+
 ### liveslots
 
 A framework for managing object lifecycles within [vats](#vat). Liveslots provides the

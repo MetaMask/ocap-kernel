@@ -94,6 +94,7 @@
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
     "@metamask/rpc-errors": "^7.0.3",
+    "@metamask/snaps-execution-environments": "^11.1.0",
     "@metamask/streams": "workspace:^",
     "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.9.0",

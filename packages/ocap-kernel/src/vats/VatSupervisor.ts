@@ -28,7 +28,8 @@ import {
 } from '@metamask/utils';
 
 import { loadBundle } from './bundle-loader.ts';
-import { DEFAULT_ALLOWED_GLOBALS } from './endowments.ts';
+import { createDefaultEndowments } from './endowments.ts';
+import type { VatEndowments } from './endowments.ts';
 import { makeGCAndFinalize } from '../garbage-collection/gc-finalize.ts';
 import { makeDummyMeterControl } from '../liveslots/meter-control.ts';
 import { makeSupervisorSyscall } from '../liveslots/syscall.ts';
@@ -59,7 +60,7 @@ type SupervisorConstructorProps = {
   platformOptions?: Record<string, unknown>;
   vatPowers?: Record<string, unknown> | undefined;
   fetchBlob?: FetchBlob;
-  allowedGlobals?: Record<string, unknown>;
+  makeAllowedGlobals?: () => VatEndowments;
 };
 
 const marshal = makeMarshal(undefined, undefined, {
@@ -110,6 +111,21 @@ export class VatSupervisor {
   readonly #allowedGlobals: Record<string, unknown>;
 
   /**
+   * Releases resources held by the endowment factories (e.g. pending timers,
+   * open network connections). Invoked from {@link terminate} before closing
+   * the kernel stream; failures are logged but do not prevent stream closure.
+   */
+  readonly #endowmentsTeardown: () => Promise<void>;
+
+  /**
+   * Promise of the in-flight termination, or `null` if not yet started.
+   * Concurrent callers share this promise so they all await the same
+   * teardown + stream-close completion rather than getting a premature
+   * resolution from an early-return guard.
+   */
+  #terminationPromise: Promise<void> | null = null;
+
+  /**
    * Construct a new VatSupervisor instance.
    *
    * @param params - Named constructor parameters.
@@ -120,7 +136,9 @@ export class VatSupervisor {
    * @param params.fetchBlob - Function to fetch the user code bundle for this vat.
    * @param params.makePlatform - Function to create the platform for this vat.
    * @param params.platformOptions - Options to pass to the makePlatform function.
-   * @param params.allowedGlobals - Map of allowed globals. Defaults to {@link DEFAULT_ALLOWED_GLOBALS}.
+   * @param params.makeAllowedGlobals - Factory invoked exactly once at
+   * construction to produce this vat's isolated endowments and an aggregate
+   * teardown function. Defaults to {@link createDefaultEndowments}.
    */
   constructor({
     id,
@@ -132,7 +150,7 @@ export class VatSupervisor {
     },
     platformOptions,
     fetchBlob,
-    allowedGlobals = DEFAULT_ALLOWED_GLOBALS,
+    makeAllowedGlobals = createDefaultEndowments,
   }: SupervisorConstructorProps) {
     this.id = id;
     this.#kernelStream = kernelStream;
@@ -144,7 +162,10 @@ export class VatSupervisor {
     this.#fetchBlob = fetchBlob ?? defaultFetchBlob;
     this.#platformOptions = platformOptions ?? {};
     this.#makePlatform = makePlatform;
-    this.#allowedGlobals = harden(allowedGlobals);
+    const { globals, teardown } = makeAllowedGlobals();
+    // Defense in depth: custom `makeAllowedGlobals` factories may skip hardening.
+    this.#allowedGlobals = harden(globals);
+    this.#endowmentsTeardown = teardown;
 
     this.#rpcClient = new RpcClient(
       vatSyscallMethodSpecs,
@@ -174,9 +195,42 @@ export class VatSupervisor {
   /**
    * Terminate the VatSupervisor.
    *
+   * Endowment teardown runs first so pending timers and other resources are
+   * released before the kernel stream closes. Teardown failures are logged
+   * but never block stream closure — the original `error` (if any) must
+   * always reach the kernel. Subsequent calls share the first call's
+   * termination promise, so every caller observes the same completion.
+   *
    * @param error - The error to terminate the VatSupervisor with.
+   * @returns A promise that resolves once the vat is fully shut down.
    */
   async terminate(error?: Error): Promise<void> {
+    if (this.#terminationPromise) {
+      return this.#terminationPromise;
+    }
+    this.#terminationPromise = this.#doTerminate(error);
+    return this.#terminationPromise;
+  }
+
+  /**
+   * Performs the actual termination work; referenced by {@link terminate}
+   * via the shared promise guard.
+   *
+   * @param error - The error to terminate the VatSupervisor with.
+   */
+  async #doTerminate(error?: Error): Promise<void> {
+    try {
+      await this.#endowmentsTeardown();
+    } catch (teardownError) {
+      const message = `Endowment teardown failed during terminate of vat "${this.id}"`;
+      if (teardownError instanceof AggregateError) {
+        for (const subError of teardownError.errors) {
+          this.#logger.error(message, subError);
+        }
+      } else {
+        this.#logger.error(message, teardownError);
+      }
+    }
     await this.#kernelStream.end(error);
   }
 
