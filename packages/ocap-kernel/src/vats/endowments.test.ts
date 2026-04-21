@@ -49,17 +49,14 @@ describe('createDefaultEndowments', () => {
   });
 
   it('teardown cancels pending timers', async () => {
-    vi.useFakeTimers();
-    try {
-      const { globals, teardown } = createDefaultEndowments();
-      const setTimeoutFn = globals.setTimeout as typeof globalThis.setTimeout;
-      const callback = vi.fn();
-      setTimeoutFn(callback, 10);
-      await teardown();
-      vi.advanceTimersByTime(100);
-      expect(callback).not.toHaveBeenCalled();
-    } finally {
-      vi.useRealTimers();
-    }
+    // SES lockdown freezes Date, preventing vi.useFakeTimers(); use a real
+    // delay that exceeds the factory's 10ms MINIMUM_TIMEOUT.
+    const { globals, teardown } = createDefaultEndowments();
+    const setTimeoutFn = globals.setTimeout as typeof globalThis.setTimeout;
+    const callback = vi.fn();
+    setTimeoutFn(callback, 10);
+    await teardown();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    expect(callback).not.toHaveBeenCalled();
   });
 });
