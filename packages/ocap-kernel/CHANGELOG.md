@@ -9,10 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **BREAKING:** Narrow the vat-endowments allowlist type to a literal union across `Kernel.make`, `VatManager`, `VatHandle`, the `initVat` RPC spec, and `VatConfig.globals` ([#941](https://github.com/MetaMask/ocap-kernel/pull/941))
-  - Export `AllowedGlobalName`, `AllowedGlobalNameStruct`, `MakeAllowedGlobals`, and `VatEndowmentsStruct` from the package index
-  - Reject unknown global names at the `initVat` RPC boundary via `AllowedGlobalNameStruct` instead of silently dropping them
-  - Assert `VatEndowmentsStruct` against the `makeAllowedGlobals()` return value in the `VatSupervisor` constructor so malformed custom factories fail fast
+- **BREAKING:** Type `VatConfig.globals` and `Kernel.make`'s `allowedGlobalNames` as `AllowedGlobalName[]` (a literal union) instead of `string[]`; unknown names are now rejected at the `initVat` RPC boundary ([#941](https://github.com/MetaMask/ocap-kernel/pull/941))
+  - Exports: `AllowedGlobalName`, `AllowedGlobalNameStruct`, `MakeAllowedGlobals`, `VatEndowmentsStruct`
 
 ### Added
 
