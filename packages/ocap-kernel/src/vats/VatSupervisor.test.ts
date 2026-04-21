@@ -203,7 +203,7 @@ describe('VatSupervisor', () => {
       });
     });
 
-    it('is safe to call twice', async () => {
+    it('is safe to call twice and runs teardown only once', async () => {
       const teardown = vi.fn().mockResolvedValue(undefined);
       const { supervisor } = await makeVatSupervisor({
         makeAllowedGlobals: () => makeVatEndowments({}, teardown),
@@ -211,7 +211,44 @@ describe('VatSupervisor', () => {
 
       await supervisor.terminate();
       expect(await supervisor.terminate()).toBeUndefined();
-      expect(teardown).toHaveBeenCalledTimes(2);
+      expect(teardown).toHaveBeenCalledTimes(1);
+    });
+
+    it('logs each sub-error when teardown rejects with an AggregateError', async () => {
+      const logger = {
+        error: vi.fn(),
+        subLogger: vi.fn(() => logger),
+      } as unknown as Logger;
+      const subErrorA = new Error('timer teardown failed');
+      const subErrorB = new Error('network teardown failed');
+      const { supervisor, stream } = await makeVatSupervisor({
+        logger,
+        makeAllowedGlobals: () =>
+          makeVatEndowments({}, async () => {
+            throw new AggregateError(
+              [subErrorA, subErrorB],
+              'Endowment teardown failed (2/2)',
+            );
+          }),
+      });
+
+      await supervisor.terminate();
+
+      expect(logger.error).toHaveBeenCalledTimes(2);
+      expect(logger.error).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('Endowment teardown failed'),
+        subErrorA,
+      );
+      expect(logger.error).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('Endowment teardown failed'),
+        subErrorB,
+      );
+      expect(await stream.next()).toStrictEqual({
+        done: true,
+        value: undefined,
+      });
     });
   });
 

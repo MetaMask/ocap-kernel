@@ -238,5 +238,27 @@ describe('global endowments', () => {
       const logs = extractTestLogs(entries, vatId);
       expect(logs).toContain('url: /path params: 10');
     });
+
+    it('rejects every vat global when allowedGlobalNames is empty', async () => {
+      await expect(
+        setup({
+          globals: ['TextEncoder'],
+          allowedGlobalNames: [],
+        }),
+      ).rejects.toThrow('unknown global "TextEncoder"');
+    });
+
+    it('silently drops unknown names in allowedGlobalNames without affecting valid ones', async () => {
+      const { kernel, entries } = await setup({
+        globals: ['TextEncoder', 'TextDecoder'],
+        allowedGlobalNames: ['TextEncoder', 'TextDecoder', 'NotARealGlobal'],
+      });
+
+      await kernel.queueMessage(v1Root, 'testTextCodec', []);
+      await waitUntilQuiescent();
+
+      const logs = extractTestLogs(entries, vatId);
+      expect(logs).toContain('textCodec: hello');
+    });
   });
 });

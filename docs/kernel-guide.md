@@ -161,8 +161,8 @@ The kernel ships with the following set, sourced from `@metamask/snaps-execution
 | `clearTimeout`    | Timer (attenuated) | Only clears timers created by the same vat.                                                                                                             |
 | `setInterval`     | Timer (attenuated) | Isolated per vat. Cancelled automatically on vat termination.                                                                                           |
 | `clearInterval`   | Timer (attenuated) | Only clears intervals created by the same vat.                                                                                                          |
-| `Date`            | Tamed (attenuated) | `Date.now()` is monotonically clamped with random jitter — repeated calls within the same millisecond return the same value.                            |
-| `Math`            | Tamed (attenuated) | `Math.random()` is sourced from `crypto.getRandomValues`. **Not a CSPRNG** per the upstream NOTE — defends against stock-RNG timing side channels only. |
+| `Date`            | Attenuated         | Each `Date.now()` read adds up to 1 ms of random jitter, clamped monotonic non-decreasing; precise sub-millisecond timing cannot leak through.          |
+| `Math`            | Attenuated         | `Math.random()` is sourced from `crypto.getRandomValues`. **Not a CSPRNG** per the upstream NOTE — defends against stock-RNG timing side channels only. |
 | `crypto`          | Web Crypto         | Hardened Web Crypto API.                                                                                                                                |
 | `SubtleCrypto`    | Web Crypto         | Hardened Web Crypto API.                                                                                                                                |
 | `TextEncoder`     | Text codec         | Plain hardened.                                                                                                                                         |

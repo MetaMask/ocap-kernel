@@ -10,7 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Integrate Snaps attenuated endowment factories into vat globals ([#937](https://github.com/MetaMask/ocap-kernel/pull/937))
-  - Add `setInterval`, `clearInterval`, `crypto`, `SubtleCrypto`, and `Math` (crypto-backed `Math.random`) to the default vat endowments; `setTimeout`/`clearTimeout` and `Date` are now attenuated (10 ms minimum for timers; `Date.now()` monotonically clamped)
+  - Add `setInterval`, `clearInterval`, `crypto`, `SubtleCrypto`, and `Math` (crypto-backed `Math.random`) to the default vat endowments
+  - **BREAKING:** `setTimeout` now enforces a 10 ms minimum delay (upstream Snaps `MINIMUM_TIMEOUT`); shorter delays are silently coerced to 10 ms
+  - **BREAKING:** `Date.now()` is attenuated — each read adds up to 1 ms of random jitter, clamped monotonic non-decreasing; precise sub-millisecond timing no longer leaks through
+  - **BREAKING:** `clearTimeout`/`clearInterval` only clear handles created by the same vat's `setTimeout`/`setInterval`; passing a host-format handle is a no-op
   - **BREAKING:** replace exported `DEFAULT_ALLOWED_GLOBALS` constant with `createDefaultEndowments()` factory and `VatEndowments` type; `VatSupervisor` now accepts `makeAllowedGlobals` in place of `allowedGlobals`
 - Make vat global allowlist configurable and expand available endowments ([#933](https://github.com/MetaMask/ocap-kernel/pull/933))
   - Export `DEFAULT_ALLOWED_GLOBALS` with `URL`, `URLSearchParams`, `atob`, `btoa`, `AbortController`, and `AbortSignal` in addition to the existing globals

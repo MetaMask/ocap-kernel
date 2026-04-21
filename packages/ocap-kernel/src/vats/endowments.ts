@@ -25,9 +25,9 @@ const ALLOWED_GLOBAL_NAMES = new Set<string>([
   'setInterval',
   'clearInterval',
 
-  // Attenuated `Date` — monotonically clamped with random jitter to
-  // coarsen timestamps (not merely ~1ms noise; repeated calls within
-  // the same millisecond return the same value).
+  // Attenuated `Date` — each read adds up to 1 ms of random jitter and
+  // the result is clamped to be monotonic non-decreasing, so precise
+  // sub-millisecond timing cannot leak through `Date.now()`.
   'Date',
 
   // Attenuated `Math` — only `Math.random` differs from the tamed
@@ -94,7 +94,17 @@ export function createDefaultEndowments(): VatEndowments {
     if (!names.some((name) => ALLOWED_GLOBAL_NAMES.has(name))) {
       continue;
     }
-    const { teardownFunction, ...values } = factory();
+    let result;
+    try {
+      result = factory();
+    } catch (error) {
+      const cause = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Failed to construct endowment factory for [${names.join(', ')}]: ${cause}`,
+        { cause: error },
+      );
+    }
+    const { teardownFunction, ...values } = result;
     for (const [key, value] of Object.entries(values)) {
       if (ALLOWED_GLOBAL_NAMES.has(key)) {
         globals[key] = value;
