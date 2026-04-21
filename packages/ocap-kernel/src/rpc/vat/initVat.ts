@@ -11,11 +11,13 @@ import type { Infer } from '@metamask/superstruct';
 import { VatDeliveryResultStruct } from './shared.ts';
 import { VatConfigStruct } from '../../types.ts';
 import type { VatConfig, VatDeliveryResult } from '../../types.ts';
+import { AllowedGlobalNameStruct } from '../../vats/endowments.ts';
+import type { AllowedGlobalName } from '../../vats/endowments.ts';
 
 const paramsStruct = object({
   vatConfig: VatConfigStruct,
   state: array(tuple([string(), string()])),
-  allowedGlobalNames: exactOptional(array(string())),
+  allowedGlobalNames: exactOptional(array(AllowedGlobalNameStruct)),
 });
 
 type Params = Infer<typeof paramsStruct>;
@@ -35,7 +37,7 @@ export const initVatSpec: InitVatSpec = {
 export type InitVat = (
   vatConfig: VatConfig,
   state: Map<string, string>,
-  allowedGlobalNames: string[] | undefined,
+  allowedGlobalNames: AllowedGlobalName[] | undefined,
 ) => Promise<VatDeliveryResult>;
 
 type InitVatHooks = {

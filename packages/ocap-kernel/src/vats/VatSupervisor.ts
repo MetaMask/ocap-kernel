@@ -21,6 +21,7 @@ import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import { serializeError } from '@metamask/rpc-errors';
 import type { DuplexStream } from '@metamask/streams';
+import { assert } from '@metamask/superstruct';
 import {
   hasProperty,
   isJsonRpcRequest,
@@ -28,8 +29,8 @@ import {
 } from '@metamask/utils';
 
 import { loadBundle } from './bundle-loader.ts';
-import { createDefaultEndowments } from './endowments.ts';
-import type { VatEndowments } from './endowments.ts';
+import { createDefaultEndowments, VatEndowmentsStruct } from './endowments.ts';
+import type { AllowedGlobalName, MakeAllowedGlobals } from './endowments.ts';
 import { makeGCAndFinalize } from '../garbage-collection/gc-finalize.ts';
 import { makeDummyMeterControl } from '../liveslots/meter-control.ts';
 import { makeSupervisorSyscall } from '../liveslots/syscall.ts';
@@ -60,7 +61,7 @@ type SupervisorConstructorProps = {
   platformOptions?: Record<string, unknown>;
   vatPowers?: Record<string, unknown> | undefined;
   fetchBlob?: FetchBlob;
-  makeAllowedGlobals?: () => VatEndowments;
+  makeAllowedGlobals?: MakeAllowedGlobals;
 };
 
 const marshal = makeMarshal(undefined, undefined, {
@@ -162,10 +163,18 @@ export class VatSupervisor {
     this.#fetchBlob = fetchBlob ?? defaultFetchBlob;
     this.#platformOptions = platformOptions ?? {};
     this.#makePlatform = makePlatform;
-    const { globals, teardown } = makeAllowedGlobals();
-    // Defense in depth: custom `makeAllowedGlobals` factories may skip hardening.
-    this.#allowedGlobals = harden(globals);
-    this.#endowmentsTeardown = teardown;
+    const endowments = makeAllowedGlobals();
+    // Defense in depth: custom `MakeAllowedGlobals` factories may return the
+    // wrong shape (e.g., no `teardown` callable) — assert before use so the
+    // failure surfaces at construction rather than during termination.
+    assert(
+      endowments,
+      VatEndowmentsStruct,
+      `makeAllowedGlobals returned an invalid VatEndowments value for vat "${id}"`,
+    );
+    // Defense in depth: custom `MakeAllowedGlobals` factories may skip hardening.
+    this.#allowedGlobals = harden(endowments.globals);
+    this.#endowmentsTeardown = endowments.teardown;
 
     this.#rpcClient = new RpcClient(
       vatSyscallMethodSpecs,
@@ -323,7 +332,7 @@ export class VatSupervisor {
   async #initVat(
     vatConfig: VatConfig,
     state: Map<string, string>,
-    allowedGlobalNames: string[] | undefined,
+    allowedGlobalNames: AllowedGlobalName[] | undefined,
   ): Promise<VatDeliveryResult> {
     if (this.#loaded) {
       throw Error(

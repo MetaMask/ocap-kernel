@@ -32,6 +32,7 @@ import type {
   VatDeliveryResult,
   EndpointHandle,
 } from '../types.ts';
+import type { AllowedGlobalName } from './endowments.ts';
 import { VatSyscall } from './VatSyscall.ts';
 
 type MessageFromVat = JsonRpcResponse | JsonRpcNotification;
@@ -45,7 +46,7 @@ type VatConstructorProps = {
   kernelStore: KernelStore;
   kernelQueue: KernelQueue;
   logger?: Logger | undefined;
-  allowedGlobalNames?: string[] | undefined;
+  allowedGlobalNames?: AllowedGlobalName[] | undefined;
 };
 
 /**
@@ -65,7 +66,7 @@ export class VatHandle implements EndpointHandle {
   readonly #logger: Logger | undefined;
 
   /** Optional list of allowed global names for vat endowments */
-  readonly #allowedGlobalNames: string[] | undefined;
+  readonly #allowedGlobalNames: AllowedGlobalName[] | undefined;
 
   /** Storage holding the kernel's persistent state */
   readonly #kernelStore: KernelStore;

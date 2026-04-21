@@ -40,6 +40,8 @@ import type {
   RemoteCommsOptions,
 } from './remotes/types.ts';
 import { Fail } from './utils/assert.ts';
+import { AllowedGlobalNameStruct } from './vats/endowments.ts';
+import type { AllowedGlobalName } from './vats/endowments.ts';
 
 /**
  * # Branded types
@@ -588,7 +590,7 @@ export type VatConfig = UserCodeSpec & {
   creationOptions?: Record<string, Json>;
   parameters?: Record<string, Json>;
   platformConfig?: Partial<PlatformConfig>;
-  globals?: string[];
+  globals?: AllowedGlobalName[];
 };
 
 const UserCodeSpecStruct = union([
@@ -618,7 +620,7 @@ export const VatConfigStruct = define<VatConfig>('VatConfig', (value) => {
     (!creationOptions || is(creationOptions, UnsafeJsonStruct)) &&
     (!parameters || is(parameters, UnsafeJsonStruct)) &&
     (!platformConfig || is(platformConfig, platformConfigStruct)) &&
-    (!globals || is(globals, array(string())))
+    (!globals || is(globals, array(AllowedGlobalNameStruct)))
   );
 });
 
