@@ -10,6 +10,7 @@ import type { ChainContracts } from '../constants.ts';
 import {
   makeCaveat,
   encodeValueLte,
+  encodeNativeTokenTransferAmount,
   encodeAllowedTargets,
   encodeAllowedMethods,
   encodeErc20TransferAmount,
@@ -78,9 +79,11 @@ export function buildRootObject(
       delegate: Address;
       to?: Address;
       maxAmount?: bigint;
+      totalLimit?: bigint;
       chainId: number;
     }): Promise<TransferNativeGrant> {
-      const { delegator, delegate, to, maxAmount, chainId } = options;
+      const { delegator, delegate, to, maxAmount, totalLimit, chainId } =
+        options;
       const caveats = [];
 
       if (to !== undefined) {
@@ -88,6 +91,16 @@ export function buildRootObject(
           makeCaveat({
             type: 'allowedTargets',
             terms: encodeAllowedTargets([to]),
+            chainId,
+          }),
+        );
+      }
+
+      if (totalLimit !== undefined) {
+        caveats.push(
+          makeCaveat({
+            type: 'nativeTokenTransferAmount',
+            terms: encodeNativeTokenTransferAmount(totalLimit),
             chainId,
           }),
         );
@@ -115,6 +128,7 @@ export function buildRootObject(
         method: 'transferNative',
         ...(to !== undefined && { to }),
         ...(maxAmount !== undefined && { maxAmount }),
+        ...(totalLimit !== undefined && { totalLimit }),
         delegation,
       });
     },

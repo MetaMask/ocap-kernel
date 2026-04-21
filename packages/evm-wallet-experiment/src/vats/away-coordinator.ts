@@ -406,6 +406,10 @@ export function buildRootObject(
       }
     }
 
+    if (homeCoordRef) {
+      return E(homeCoordRef).signTypedData(data);
+    }
+
     throw new Error('No authority to sign typed data');
   }
 
@@ -1400,6 +1404,13 @@ export function buildRootObject(
      * @returns Array of Ethereum addresses.
      */
     async getAccounts(): Promise<Address[]> {
+      // Peer (home) accounts take priority — they are the identity visible to
+      // the outside world. Local throwaway keys are exposed only via
+      // getCapabilities().localAccounts, not here.
+      if (homeCoordRef) {
+        return E(homeCoordRef).getAccounts();
+      }
+
       const localAccounts: Address[] = keyringVat
         ? await E(keyringVat).getAccounts()
         : [];
@@ -1449,6 +1460,9 @@ export function buildRootObject(
         if (accounts.length > 0) {
           return E(externalSigner).signMessage(message, accounts[0] as Address);
         }
+      }
+      if (homeCoordRef) {
+        return E(homeCoordRef).signMessage(message);
       }
       throw new Error('No authority to sign message');
     },

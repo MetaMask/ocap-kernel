@@ -1692,6 +1692,7 @@ export function buildRootObject(
      * @param options.delegate - The delegate address.
      * @param options.to - Optional restricted recipient.
      * @param options.maxAmount - Optional per-call ETH value limit (wei).
+     * @param options.totalLimit - Optional cumulative ETH transfer cap (wei).
      * @param options.chainId - The chain ID.
      * @returns The signed TransferNativeGrant.
      */
@@ -1699,6 +1700,7 @@ export function buildRootObject(
       delegate: Address;
       to?: Address;
       maxAmount?: bigint | string;
+      totalLimit?: bigint | string;
       chainId: number;
     }): Promise<TransferNativeGrant> {
       if (!delegatorVat) {
@@ -1708,10 +1710,15 @@ export function buildRootObject(
         smartAccountConfig?.address ?? (await resolveOwnerAddress());
       const maxAmount =
         options.maxAmount === undefined ? undefined : BigInt(options.maxAmount);
+      const totalLimit =
+        options.totalLimit === undefined
+          ? undefined
+          : BigInt(options.totalLimit);
       const unsignedGrant = await E(delegatorVat).buildTransferNativeGrant({
         delegator,
         ...options,
         maxAmount,
+        totalLimit,
       });
       const signedGrant = await signDelegationInGrant(unsignedGrant);
       await E(delegatorVat).storeGrant(signedGrant);

@@ -331,8 +331,10 @@ export type TransferNativeGrant = {
   method: 'transferNative';
   /** Restricted recipient; enforced by AllowedTargetsEnforcer on-chain. */
   to?: Address;
-  /** Per-call ETH value limit; from ValueLteEnforcer. */
+  /** Per-call ETH value limit; enforced by ValueLteEnforcer on-chain. */
   maxAmount?: bigint;
+  /** Cumulative ETH transfer cap; enforced by NativeTokenTransferAmountEnforcer on-chain. */
+  totalLimit?: bigint;
   delegation: Delegation;
 };
 

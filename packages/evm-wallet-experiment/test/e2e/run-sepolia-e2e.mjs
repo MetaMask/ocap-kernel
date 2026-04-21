@@ -162,37 +162,36 @@ async function main() {
   assert(smartConfig.implementation === 'hybrid', 'implementation: hybrid');
   assert(smartConfig.deployed === false, 'not yet deployed');
 
-  // -- 5. Create a delegation (smart account → smart account, no caveats) --
-  console.log('\n--- Create delegation ---');
-  const delegation = await call(kernel, rootKref, 'createDelegation', [
+  // -- 5. Build a native-transfer delegation grant (smart account → smart account) --
+  console.log('\n--- Build delegation grant ---');
+  const grant = await call(kernel, rootKref, 'buildTransferNativeGrant', [
     {
       delegate: smartConfig.address,
-      caveats: [],
       chainId: SEPOLIA_CHAIN_ID,
     },
   ]);
-  assert(delegation.status === 'signed', 'delegation signed');
+  assert(grant.delegation.status === 'signed', 'delegation signed');
   assert(
-    delegation.delegator === smartConfig.address,
+    grant.delegation.delegator === smartConfig.address,
     'delegator is smart account',
   );
   assert(
-    delegation.delegate === smartConfig.address,
+    grant.delegation.delegate === smartConfig.address,
     'delegate is smart account',
   );
-  console.log(`  Delegation ID: ${delegation.id.slice(0, 20)}...`);
+  console.log(`  Delegation ID: ${grant.delegation.id.slice(0, 20)}...`);
 
   // -- 6. Redeem the delegation via UserOp --
   console.log('\n--- Redeem delegation (submit UserOp) ---');
   console.log('  Submitting to Pimlico bundler...');
   const userOpHash = await call(kernel, rootKref, 'redeemDelegation', [
     {
+      delegation: grant.delegation,
       execution: {
         target: smartConfig.address,
         value: '0x0',
         callData: '0x',
       },
-      delegationId: delegation.id,
     },
   ]);
   assert(

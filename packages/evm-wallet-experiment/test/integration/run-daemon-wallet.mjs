@@ -258,25 +258,29 @@ async function main() {
   assert(signedTx.length > 100, `signed tx: ${signedTx.length} chars`);
 
   // -----------------------------------------------------------------------
-  // Test 6: Create delegation via daemon
+  // Test 6: Build delegation grant via daemon
   // -----------------------------------------------------------------------
 
-  console.log('\n--- Create delegation via daemon ---');
-  const delegation = await callVat(socketPath, rootKref, 'createDelegation', [
-    {
-      delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
-      caveats: [],
-      chainId: 1,
-    },
-  ]);
-  assert(delegation.status === 'signed', 'delegation signed via daemon');
+  console.log('\n--- Build delegation grant via daemon ---');
+  const grant = await callVat(
+    socketPath,
+    rootKref,
+    'buildTransferNativeGrant',
+    [
+      {
+        delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
+        chainId: 1,
+      },
+    ],
+  );
+  assert(grant.delegation.status === 'signed', 'delegation signed via daemon');
   assert(
-    typeof delegation.id === 'string',
-    `delegation id: ${delegation.id.slice(0, 20)}...`,
+    typeof grant.delegation.id === 'string',
+    `delegation id: ${grant.delegation.id.slice(0, 20)}...`,
   );
 
-  const delegations = await callVat(socketPath, rootKref, 'listDelegations');
-  assert(delegations.length === 1, 'one delegation listed via daemon');
+  const grants = await callVat(socketPath, rootKref, 'listGrants');
+  assert(grants.length === 1, 'one grant listed via daemon');
 
   // -----------------------------------------------------------------------
   // Test 7: Get capabilities via daemon

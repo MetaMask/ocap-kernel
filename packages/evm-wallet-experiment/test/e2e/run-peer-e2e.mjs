@@ -4,8 +4,13 @@
  *
  * Exercises the complete two-kernel delegation flow: two kernels connected
  * via QUIC, peer wallet signing forwarded via CapTP, provider queries,
- * delegation creation/transfer/redemption via UserOp, and smart account
- * creation — all against the Sepolia testnet.
+ * delegation grant creation/transfer, smart account creation, and UserOp
+ * redemption — all against the Sepolia testnet.
+ *
+ * ── Architecture ───────────────────────────────────────────────────────
+ *
+ *   kernel1 = home coordinator  (holds keys, manages delegations)
+ *   kernel2 = away coordinator  (autonomous agent, receives delegation grants)
  *
  * ── What it tests ──────────────────────────────────────────────────────
  *
@@ -13,9 +18,9 @@
  *   2. OCAP URL issuance (kernel1) and redemption (kernel2)
  *   3. Remote message + transaction signing forwarded via CapTP
  *   4. Provider RPC queries (eth_blockNumber, eth_getBalance) through kernel2
- *   5. Cross-kernel delegation creation, transfer, and revocation
- *   6. Smart account creation (counterfactual Hybrid via Delegation Framework)
- *   7. Self-delegation redemption via ERC-4337 UserOp submitted to Pimlico
+ *   5. Cross-kernel delegation grant creation (home) and transfer (away)
+ *   6. Smart account creation on home (counterfactual Hybrid via Delegation Framework)
+ *   7. Self-delegation redemption via ERC-4337 UserOp submitted to Pimlico (home)
  *   8. On-chain inclusion verified by polling the bundler for the receipt
  *
  * ── Environment variables (required) ───────────────────────────────────
@@ -221,6 +226,7 @@ async function main() {
   });
   const walletConfig2 = makeWalletClusterConfig({
     bundleBaseUrl: BUNDLE_BASE_URL,
+    role: 'away',
     allowedHosts: ['sepolia.infura.io', 'api.pimlico.io'],
     delegationManagerAddress,
   });
@@ -276,10 +282,20 @@ async function main() {
   assert(true, 'kernel2 provider configured');
 
   // =====================================================================
-  // 3. Configure bundler on kernel2 (Pimlico)
+  // 3. Configure bundler on both kernels (Pimlico)
   // =====================================================================
 
-  console.log('\n--- Configure Pimlico bundler (kernel2) ---');
+  console.log('\n--- Configure Pimlico bundler (both kernels) ---');
+  await call(kernel1, coord1, 'configureBundler', [
+    {
+      bundlerUrl,
+      chainId: SEPOLIA_CHAIN_ID,
+      usePaymaster: true,
+      sponsorshipPolicyId: 'sp_young_killmonger',
+    },
+  ]);
+  assert(true, 'kernel1 bundler configured');
+
   await call(kernel2, coord2, 'configureBundler', [
     {
       bundlerUrl,
@@ -340,14 +356,16 @@ async function main() {
     maxFeePerGas: '0x3b9aca00',
     maxPriorityFeePerGas: '0x3b9aca00',
   };
-  const txResult = await kernel2.queueMessage(coord2, 'signTransaction', [tx]);
+  let txSignError;
+  try {
+    await kernel2.queueMessage(coord2, 'signTransaction', [tx]);
+  } catch (error) {
+    txSignError = error;
+  }
   await waitUntilQuiescent();
+  assert(txSignError instanceof Error, 'remote tx signing returned error');
   assert(
-    typeof txResult.body === 'string' && txResult.body.includes('#error'),
-    'remote tx signing returned error',
-  );
-  assert(
-    txResult.body.includes('No authority to sign this transaction'),
+    txSignError.message.includes('No authority to sign this transaction'),
     'remote tx signing rejected (no peer fallback)',
   );
 
@@ -406,60 +424,72 @@ async function main() {
   console.log(`  Throwaway: ${throwawayAddr}`);
 
   // =====================================================================
-  // 8. Delegation transfer (home → away)
-  //    Tests cross-kernel delegation creation and transfer via CapTP.
+  // 8. Delegation grant transfer (home → away)
+  //    Home creates a TransferNativeGrant for the throwaway delegate;
+  //    away receives it and verifies routing is set up.
   // =====================================================================
 
-  console.log('\n--- Create delegation (kernel1 → kernel2 throwaway) ---');
-  const xferDelegation = await call(kernel1, coord1, 'createDelegation', [
+  console.log('\n--- Build delegation grant (kernel1 → kernel2 throwaway) ---');
+  const xferGrant = await call(kernel1, coord1, 'buildTransferNativeGrant', [
     {
       delegate: throwawayAddr,
-      caveats: [],
       chainId: SEPOLIA_CHAIN_ID,
     },
   ]);
-  assert(xferDelegation.status === 'signed', 'transfer delegation signed');
   assert(
-    xferDelegation.delegator.toLowerCase() === homeAddr.toLowerCase(),
+    xferGrant.delegation.status === 'signed',
+    'transfer delegation signed',
+  );
+  assert(
+    xferGrant.delegation.delegator.toLowerCase() === homeAddr.toLowerCase(),
     'delegator is home EOA',
   );
   assert(
-    xferDelegation.delegate.toLowerCase() === throwawayAddr.toLowerCase(),
+    xferGrant.delegation.delegate.toLowerCase() === throwawayAddr.toLowerCase(),
     'delegate is throwaway',
   );
-  console.log(`  Delegation ID: ${xferDelegation.id.slice(0, 20)}...`);
+  console.log(`  Delegation ID: ${xferGrant.delegation.id.slice(0, 20)}...`);
 
-  console.log('\n--- Transfer delegation to kernel2 ---');
-  await call(kernel2, coord2, 'receiveDelegation', [xferDelegation]);
-  const awayDelegations = await call(kernel2, coord2, 'listDelegations');
-  assert(awayDelegations.length === 1, 'away received one delegation');
-  assert(awayDelegations[0].id === xferDelegation.id, 'correct delegation id');
-  assert(awayDelegations[0].status === 'signed', 'delegation status: signed');
+  console.log('\n--- Transfer grant to kernel2 ---');
+  await call(kernel2, coord2, 'receiveDelegation', [xferGrant]);
+  const awayGrants = await call(kernel2, coord2, 'listGrants');
+  assert(awayGrants.length === 1, 'away received one grant');
+  assert(
+    awayGrants[0].delegation.id === xferGrant.delegation.id,
+    'correct delegation id',
+  );
+  assert(
+    awayGrants[0].delegation.status === 'signed',
+    'delegation status: signed',
+  );
 
   const caps2Deleg = await call(kernel2, coord2, 'getCapabilities');
   assert(caps2Deleg.delegationCount === 1, 'away: delegationCount === 1');
 
   // =====================================================================
-  // 9. Delegation revocation (kernel2)
+  // 9. Verify home grant list
+  //    On-chain revocation is a home-side operation (revokeGrant). Verify
+  //    the grant issued in section 8 appears in coord1's list.
   // =====================================================================
 
-  console.log('\n--- Revoke transferred delegation (kernel2) ---');
-  await call(kernel2, coord2, 'revokeDelegation', [xferDelegation.id]);
-  const postRevokeDelegations = await call(kernel2, coord2, 'listDelegations');
-  assert(postRevokeDelegations.length === 1, 'still one delegation entry');
+  console.log('\n--- Verify home grant list (kernel1) ---');
+  const homeGrants = await call(kernel1, coord1, 'listGrants');
+  assert(homeGrants.length === 1, 'home: one grant issued');
   assert(
-    postRevokeDelegations[0].status === 'revoked',
-    'delegation status: revoked',
+    homeGrants[0].delegation.id === xferGrant.delegation.id,
+    'home grant matches transferred delegation',
   );
 
   // =====================================================================
-  // 10. Smart account + self-delegation + UserOp redemption (kernel2)
+  // 10. Smart account + self-delegation + UserOp redemption (kernel1)
   //     On-chain redemption requires the delegator to be the calling
   //     DeleGator smart account, so we use a self-delegation here.
+  //     Redemption is a home-side operation; the away coordinator routes
+  //     transfers internally via the delegation twin.
   // =====================================================================
 
-  console.log('\n--- Create smart account (kernel2) ---');
-  const smartConfig = await call(kernel2, coord2, 'createSmartAccount', [
+  console.log('\n--- Create smart account (kernel1) ---');
+  const smartConfig = await call(kernel1, coord1, 'createSmartAccount', [
     { deploySalt: DEPLOY_SALT, chainId: SEPOLIA_CHAIN_ID },
   ]);
   assert(
@@ -470,36 +500,36 @@ async function main() {
   assert(smartConfig.implementation === 'hybrid', 'implementation: hybrid');
   assert(smartConfig.deployed === false, 'not yet deployed');
 
-  console.log('\n--- Create self-delegation (kernel2 smart account) ---');
-  const selfDelegation = await call(kernel2, coord2, 'createDelegation', [
+  console.log('\n--- Build self-delegation grant (kernel1 smart account) ---');
+  const selfGrant = await call(kernel1, coord1, 'buildTransferNativeGrant', [
     {
       delegate: smartConfig.address,
-      caveats: [],
       chainId: SEPOLIA_CHAIN_ID,
     },
   ]);
-  assert(selfDelegation.status === 'signed', 'self-delegation signed');
+  assert(selfGrant.delegation.status === 'signed', 'self-delegation signed');
   assert(
-    selfDelegation.delegator.toLowerCase() ===
+    selfGrant.delegation.delegator.toLowerCase() ===
       smartConfig.address.toLowerCase(),
     'delegator is smart account',
   );
   assert(
-    selfDelegation.delegate.toLowerCase() === smartConfig.address.toLowerCase(),
+    selfGrant.delegation.delegate.toLowerCase() ===
+      smartConfig.address.toLowerCase(),
     'delegate is smart account',
   );
-  console.log(`  Delegation ID: ${selfDelegation.id.slice(0, 20)}...`);
+  console.log(`  Delegation ID: ${selfGrant.delegation.id.slice(0, 20)}...`);
 
   console.log('\n--- Redeem self-delegation (submit UserOp) ---');
   console.log('  Submitting to Pimlico bundler...');
-  const userOpHash = await call(kernel2, coord2, 'redeemDelegation', [
+  const userOpHash = await call(kernel1, coord1, 'redeemDelegation', [
     {
+      delegation: selfGrant.delegation,
       execution: {
         target: smartConfig.address,
         value: '0x0',
         callData: '0x',
       },
-      delegationId: selfDelegation.id,
     },
   ]);
   assert(
@@ -544,9 +574,9 @@ async function main() {
 
   // -- Verify smart account persisted --
   console.log('\n--- Verify post-redemption state ---');
-  const caps2Post = await call(kernel2, coord2, 'getCapabilities');
+  const caps1Post = await call(kernel1, coord1, 'getCapabilities');
   assert(
-    caps2Post.smartAccountAddress === smartConfig.address,
+    caps1Post.smartAccountAddress === smartConfig.address,
     'smart account address persisted',
   );
 

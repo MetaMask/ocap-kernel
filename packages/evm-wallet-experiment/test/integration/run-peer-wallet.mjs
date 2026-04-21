@@ -53,9 +53,14 @@ async function call(kernel, target, method, args = []) {
 }
 
 async function callExpectError(kernel, target, method, args = []) {
-  const result = await kernel.queueMessage(target, method, args);
-  await waitUntilQuiescent();
-  return result.body;
+  try {
+    await kernel.queueMessage(target, method, args);
+    await waitUntilQuiescent();
+    return null;
+  } catch (error) {
+    await waitUntilQuiescent();
+    return error;
+  }
 }
 
 async function getConnectedInfo(kernel) {
@@ -120,17 +125,21 @@ async function main() {
 
   // -- Launch wallet subclusters --
   console.log('Launching wallet subclusters...');
-  const walletConfig = makeWalletClusterConfig({
+  const walletConfig1 = makeWalletClusterConfig({
     bundleBaseUrl: BUNDLE_BASE_URL,
+  });
+  const walletConfig2 = makeWalletClusterConfig({
+    bundleBaseUrl: BUNDLE_BASE_URL,
+    role: 'away',
   });
 
   let coord1, coord2;
   try {
-    const r1 = await kernel1.launchSubcluster(walletConfig);
+    const r1 = await kernel1.launchSubcluster(walletConfig1);
     await waitUntilQuiescent();
     coord1 = r1.rootKref;
 
-    const r2 = await kernel2.launchSubcluster(walletConfig);
+    const r2 = await kernel2.launchSubcluster(walletConfig2);
     await waitUntilQuiescent();
     coord2 = r2.rootKref;
     console.log(`  Wallet 1: ${coord1}, Wallet 2: ${coord2}\n`);
@@ -203,14 +212,14 @@ async function main() {
     maxFeePerGas: '0x3b9aca00',
     maxPriorityFeePerGas: '0x3b9aca00',
   };
-  const txErrorBody = await callExpectError(
+  const txSignError = await callExpectError(
     kernel2,
     coord2,
     'signTransaction',
     [tx],
   );
   assert(
-    typeof txErrorBody === 'string' && txErrorBody.includes('error'),
+    txSignError instanceof Error,
     'remote tx signing rejected (no peer fallback)',
   );
 
@@ -246,27 +255,26 @@ async function main() {
     'remote typed data signature matches home wallet',
   );
 
-  // -- Delegation transfer --
-  console.log('\n--- Delegation transfer (home → away) ---');
-  const delegation = await call(kernel1, coord1, 'createDelegation', [
+  // -- Delegation grant transfer --
+  console.log('\n--- Delegation grant transfer (home → away) ---');
+  const grant = await call(kernel1, coord1, 'buildTransferNativeGrant', [
     {
       delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
-      caveats: [],
       chainId: 1,
     },
   ]);
-  assert(delegation.status === 'signed', 'home delegation is signed');
-  assert(typeof delegation.id === 'string', 'delegation has id');
+  assert(grant.delegation.status === 'signed', 'home delegation is signed');
+  assert(typeof grant.delegation.id === 'string', 'delegation has id');
 
-  await call(kernel2, coord2, 'receiveDelegation', [delegation]);
-  const awayDelegations = await call(kernel2, coord2, 'listDelegations');
-  assert(awayDelegations.length === 1, 'away wallet received one delegation');
+  await call(kernel2, coord2, 'receiveDelegation', [grant]);
+  const awayGrants = await call(kernel2, coord2, 'listGrants');
+  assert(awayGrants.length === 1, 'away wallet received one grant');
   assert(
-    awayDelegations[0].id === delegation.id,
-    'away wallet has the correct delegation',
+    awayGrants[0].delegation.id === grant.delegation.id,
+    'away wallet has the correct grant',
   );
   assert(
-    awayDelegations[0].status === 'signed',
+    awayGrants[0].delegation.status === 'signed',
     'away delegation is still signed',
   );
 
@@ -296,11 +304,11 @@ async function main() {
   );
   await waitUntilQuiescent();
   const coord3 = r3.rootKref;
-  const errorBody = await callExpectError(kernel1, coord3, 'signMessage', [
+  const signError = await callExpectError(kernel1, coord3, 'signMessage', [
     'should fail',
   ]);
   assert(
-    errorBody.includes('#error') || errorBody.includes('No authority'),
+    signError instanceof Error && signError.message.includes('No authority'),
     'error when no authority and no peer',
   );
 
