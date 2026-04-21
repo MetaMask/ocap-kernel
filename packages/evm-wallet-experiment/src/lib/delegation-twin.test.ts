@@ -122,6 +122,22 @@ describe('makeDelegationTwin', () => {
   });
 
   describe('transferFungible twin', () => {
+    it('normalizes checksummed token address to lowercase in section.token', () => {
+      const CHECKSUMMED_TOKEN =
+        '0xAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAa' as Address;
+      const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
+      const section = makeDelegationTwin({
+        grant: {
+          method: 'transferFungible',
+          token: CHECKSUMMED_TOKEN,
+          delegation: BASE_DELEGATION,
+          maxAmount: 1000n,
+        },
+        redeemFn,
+      });
+      expect(section.token).toBe(CHECKSUMMED_TOKEN.toLowerCase());
+    });
+
     it('exposes transferFungible method', () => {
       const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
       const section = makeDelegationTwin({

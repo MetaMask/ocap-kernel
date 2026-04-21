@@ -1821,7 +1821,7 @@ export function buildRootObject(
         let lastError: unknown;
         for (const section of matching) {
           try {
-            return await E(section.exo).transferFungible(token, to, amt);
+            return await E(section.exo).transferFungible(tokenLower, to, amt);
           } catch (error) {
             lastError = error;
           }
