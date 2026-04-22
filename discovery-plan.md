@@ -160,3 +160,19 @@ generalizing (not forking) the current metamask plugin.
   after Phase 4.
 - `TypeSpec` ↔ `MethodSchema` mapping may reveal edge cases in existing
   discoverable exos; track as they appear.
+
+## Follow-ups
+
+### Stable matcher OCAP URL across restarts
+
+Today each `start-matcher.sh` run yields a fresh matcher URL, because
+`launchSubcluster` unconditionally creates a new subcluster, and the
+default purge wipes peer ID and crypto keys on top of that.
+
+**Fix direction:** put the matcher's public facet in the vat's baggage.
+With durable exo machinery, the same kref is restored on vat
+reincarnation; combined with persisted peer ID and OCAP-URL encryption
+key (already the default with `--keep-state`), the URL becomes stable.
+Launcher updates needed on top of that: detect an existing matcher
+subcluster and skip re-launch, and expose a way to query the current
+matcher URL without calling `launchSubcluster`.
