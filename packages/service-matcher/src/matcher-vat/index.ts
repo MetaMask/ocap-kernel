@@ -48,11 +48,12 @@ type Services = {
  * @returns The vat root exo, exposing `bootstrap`, `getPublicFacet`,
  * `listAll`, and `unregister`.
  */
+// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject(
   _vatPowers: unknown,
   _parameters: Record<string, unknown>,
   _baggage: Baggage,
-): ReturnType<typeof makeDefaultExo> {
+) {
   const registry = new Map<string, RegisteredService>();
   let nextId = 0;
   let services: Services;
