@@ -1964,7 +1964,7 @@ export function buildRootObject(
           )
           .map(
             (grant) =>
-              `max ${weiToEth(`0x${(grant.maxAmount ?? 0n).toString(16)}`)} per tx`,
+              `max ${weiToEth(`0x${BigInt(grant.maxAmount ?? 0n).toString(16)}`)} per tx`,
           );
         const limitSuffix =
           limitParts.length > 0 ? ` (${limitParts.join('; ')})` : '';
