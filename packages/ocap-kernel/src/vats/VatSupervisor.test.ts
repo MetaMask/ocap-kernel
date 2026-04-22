@@ -47,7 +47,7 @@ const makeVatSupervisor = async ({
   vatPowers?: Record<string, unknown>;
   makePlatform?: PlatformFactory;
   platformOptions?: Record<string, unknown>;
-  makeAllowedGlobals?: () => VatEndowments;
+  makeAllowedGlobals?: (options: { logger: Logger }) => VatEndowments;
   fetchBlob?: FetchBlob;
   writerOnEnd?: () => void;
 } = {}): Promise<{
@@ -255,7 +255,7 @@ describe('VatSupervisor', () => {
   describe('platform configuration', () => {
     it('accepts makePlatform and platformOptions parameters', async () => {
       const makePlatform = vi.fn().mockResolvedValue({});
-      const platformOptions = { fetch: { fromFetch: globalThis.fetch } };
+      const platformOptions = { fs: { rootDir: '/tmp' } };
 
       const { supervisor } = await makeVatSupervisor({
         makePlatform,
@@ -288,6 +288,51 @@ describe('VatSupervisor', () => {
       });
       expect(supervisor).toBeInstanceOf(VatSupervisor);
       expect(factory).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects fetch requests without network.allowedHosts', async () => {
+      const dispatch = vi.fn();
+      const mockFetchBlob: FetchBlob = vi.fn().mockResolvedValue({
+        ok: true,
+        text: vi.fn().mockResolvedValue(''),
+      });
+
+      // Use a plain function, not vi.fn(), since `makeVatEndowments`
+      // hardens the globals record transitively — a vi.fn() here would
+      // freeze the mock's internals and break unrelated tests that mock-reset
+      // afterwards.
+      const stubFetch = (() => undefined) as unknown as typeof fetch;
+      const { stream } = await makeVatSupervisor({
+        dispatch,
+        makeAllowedGlobals: () => makeVatEndowments({ fetch: stubFetch }),
+        fetchBlob: mockFetchBlob,
+      });
+
+      await stream.receiveInput({
+        id: 'test-init',
+        method: 'initVat',
+        params: {
+          vatConfig: {
+            bundleSpec: 'test.bundle',
+            parameters: {},
+            globals: ['fetch'],
+          },
+          state: [],
+        },
+        jsonrpc: '2.0',
+      });
+      await delay(50);
+
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'test-init',
+          error: expect.objectContaining({
+            message: expect.stringContaining(
+              'requested "fetch" but no network.allowedHosts',
+            ),
+          }),
+        }),
+      );
     });
 
     it('rejects an unknown global at the initVat RPC boundary', async () => {

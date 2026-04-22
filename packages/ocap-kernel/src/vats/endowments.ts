@@ -1,4 +1,6 @@
+import type { Logger } from '@metamask/logger';
 import { buildCommonEndowments } from '@metamask/snaps-execution-environments/endowments';
+import type { NotifyFunction } from '@metamask/snaps-execution-environments/endowments';
 import {
   enums,
   func,
@@ -19,11 +21,10 @@ import {
  * `Date.now()` or `Math.random()` throws in secure mode unless a working
  * replacement is endowed.
  *
- * NOTE: adding `fetch`, `Request`, `Response`, `Headers`, or `console` here
- * will pull in a Snaps factory that requires runtime options (`notify` or
- * `sourceLabel`) and will throw when called without them. Integrating those
- * requires adjusting {@link createDefaultEndowments} to pass the right
- * options through — see ocap-kernel issue #936 for the network case.
+ * NOTE: adding `console` here will pull in a Snaps factory that requires
+ * a `sourceLabel` option and will throw when called without it. Integrating
+ * that requires adjusting {@link createDefaultEndowments} to pass the
+ * option through.
  */
 const ALLOWED_GLOBAL_NAMES = [
   // Attenuated timer factories — isolated per vat, with teardown for
@@ -48,6 +49,17 @@ const ALLOWED_GLOBAL_NAMES = [
   // Attenuated Web Crypto.
   'crypto',
   'SubtleCrypto',
+
+  // Attenuated network. The Snaps factory wraps `fetch` so teardown can
+  // abort in-flight requests and cancel open body streams; `Request`,
+  // `Headers`, and `Response` are hardened constructors surfaced alongside
+  // it so vat code can build requests/headers before calling `fetch`.
+  // Host restriction is applied by `VatSupervisor` per-vat using
+  // `makeHostCaveat` — the factory itself accepts no allowlist.
+  'fetch',
+  'Request',
+  'Headers',
+  'Response',
 
   // Plain hardened Web APIs (no attenuation).
   'TextEncoder',
@@ -108,30 +120,78 @@ export const VatEndowmentsStruct = object({
 });
 
 /**
+ * Options consumed by {@link MakeAllowedGlobals} factories.
+ */
+export type MakeAllowedGlobalsOptions = {
+  /**
+   * Logger used by stateful endowments for observability — e.g. the network
+   * factory emits `OutboundRequest`/`OutboundResponse` notifications through
+   * it at debug level. Sub-scope with `subLogger` beforehand if caller wants
+   * a dedicated tag.
+   */
+  logger: Logger;
+};
+
+/**
  * Factory that produces a fresh {@link VatEndowments} for a single vat.
  * Consumers supply this to a `VatSupervisor` to override the default
  * endowment set (see {@link createDefaultEndowments}).
  */
-export type MakeAllowedGlobals = () => VatEndowments;
+export type MakeAllowedGlobals = (
+  options: MakeAllowedGlobalsOptions,
+) => VatEndowments;
+
+/**
+ * Build a `notify` callback for the Snaps network factory that routes
+ * outbound request/response lifecycle events to the vat logger at debug
+ * level.
+ *
+ * The callback is awaited inside the factory's fetch implementation, so a
+ * throw here would propagate into the vat's `fetch` call. The try/catch is
+ * defensive: the logger's own methods don't throw today, but we don't want
+ * an accidental transport failure to turn into a vat-visible fetch error.
+ *
+ * @param logger - The logger to route notifications through.
+ * @returns A notify callback suitable for the Snaps network factory.
+ */
+const makeLoggerNotify = (logger: Logger): NotifyFunction => {
+  return async ({ method, params }) => {
+    try {
+      logger.debug(`network:${method}`, params);
+    } catch {
+      // swallow — observability should never break fetch
+    }
+  };
+};
 
 /**
  * Build a fresh set of vat endowments from the Snaps attenuated factories,
  * filtered to the names in {@link ALLOWED_GLOBAL_NAMES}. Each call produces
- * an isolated instance — timers and other stateful endowments are not shared
- * across vats, so one vat cannot clear another vat's timers.
+ * an isolated instance — timers, network state, and other stateful
+ * endowments are not shared across vats, so one vat cannot clear another
+ * vat's timers or abort another vat's in-flight fetches.
  *
- * Snaps' `buildCommonEndowments()` also ships `fetch`, `console`,
- * `WebAssembly`, typed arrays, `Intl`, etc. Those are either SES intrinsics
- * already present in every Compartment (so endowing is redundant) or
- * deliberately withheld from vats (e.g., unattenuated network access).
+ * Snaps' `buildCommonEndowments()` also ships `console`, `WebAssembly`,
+ * typed arrays, `Intl`, etc. Those are either SES intrinsics already present
+ * in every Compartment (so endowing is redundant) or deliberately withheld
+ * from vats.
+ *
+ * The `fetch` produced here is NOT host-restricted. `VatSupervisor` wraps
+ * it with a `makeHostCaveat` before handing it to a Compartment, reading
+ * the allowlist from the vat's own `VatConfig.network.allowedHosts`.
  *
  * The aggregate `teardown` uses `Promise.allSettled` so one failing factory
  * does not silently mask failures in others; all rejections are surfaced as
  * an {@link AggregateError}.
  *
+ * @param options - Factory options; see {@link MakeAllowedGlobalsOptions}.
+ * @param options.logger - The logger to route notifications through.
  * @returns The endowment globals and an aggregate teardown function.
  */
-export function createDefaultEndowments(): VatEndowments {
+export function createDefaultEndowments({
+  logger,
+}: MakeAllowedGlobalsOptions): VatEndowments {
+  const notify = makeLoggerNotify(logger);
   const globals: Record<string, unknown> = {};
   const teardowns: (() => Promise<void> | void)[] = [];
 
@@ -141,7 +201,7 @@ export function createDefaultEndowments(): VatEndowments {
     }
     let result;
     try {
-      result = factory();
+      result = factory({ notify });
     } catch (error) {
       const cause = error instanceof Error ? error.message : String(error);
       throw new Error(

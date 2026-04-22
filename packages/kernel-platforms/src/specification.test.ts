@@ -1,43 +1,43 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { superstructValidationError } from '../test/utils.ts';
-import { fetchConfigStruct } from './capabilities/fetch/types.ts';
-import type { FetchConfig } from './capabilities/fetch/types.ts';
+import { fsConfigStruct } from './capabilities/fs/types.ts';
+import type { FsConfig } from './capabilities/fs/types.ts';
 import { makeCapabilitySpecification } from './specification.ts';
 
 describe('makeCapabilitySpecification', () => {
   it('creates specification with configStruct and capabilityFactory', () => {
     const mockCapabilityFactory = vi.fn();
     const specification = makeCapabilitySpecification(
-      fetchConfigStruct,
+      fsConfigStruct,
       mockCapabilityFactory,
     );
 
     expect(specification).toHaveProperty('configStruct');
     expect(specification).toHaveProperty('capabilityFactory');
-    expect(specification.configStruct).toBe(fetchConfigStruct);
+    expect(specification.configStruct).toBe(fsConfigStruct);
     expect(specification.capabilityFactory).toBe(mockCapabilityFactory);
   });
 
   it('validates config using configStruct', () => {
     const mockCapabilityFactory = vi.fn();
     const specification = makeCapabilitySpecification(
-      fetchConfigStruct,
+      fsConfigStruct,
       mockCapabilityFactory,
     );
 
-    const validConfig: FetchConfig = { allowedHosts: ['example.test'] };
+    const validConfig: FsConfig = { rootDir: '/tmp' };
     expect(() => specification.configStruct.create(validConfig)).not.toThrow();
   });
 
   it('rejects invalid config using configStruct', () => {
     const mockCapabilityFactory = vi.fn();
     const specification = makeCapabilitySpecification(
-      fetchConfigStruct,
+      fsConfigStruct,
       mockCapabilityFactory,
     );
 
-    const invalidConfig = { allowedHosts: 'not-an-array' };
+    const invalidConfig = { rootDir: 123 };
     expect(() => specification.configStruct.create(invalidConfig)).toThrow(
       superstructValidationError,
     );
@@ -46,11 +46,11 @@ describe('makeCapabilitySpecification', () => {
   it('calls capabilityFactory with config and options', () => {
     const mockCapabilityFactory = vi.fn().mockReturnValue('mock-capability');
     const specification = makeCapabilitySpecification(
-      fetchConfigStruct,
+      fsConfigStruct,
       mockCapabilityFactory,
     );
 
-    const config: FetchConfig = { allowedHosts: ['example.test'] };
+    const config: FsConfig = { rootDir: '/tmp' };
     const options = { timeout: 5000 };
 
     const result = specification.capabilityFactory(config, options);
@@ -62,11 +62,11 @@ describe('makeCapabilitySpecification', () => {
   it('calls capabilityFactory with config only', () => {
     const mockCapabilityFactory = vi.fn().mockReturnValue('mock-capability');
     const specification = makeCapabilitySpecification(
-      fetchConfigStruct,
+      fsConfigStruct,
       mockCapabilityFactory,
     );
 
-    const config: FetchConfig = { allowedHosts: ['example.test'] };
+    const config: FsConfig = { rootDir: '/tmp' };
 
     const result = specification.capabilityFactory(config);
 

@@ -155,26 +155,55 @@ Only names in the vat's `globals` array are installed in the vat's compartment. 
 
 The kernel ships with the following set, sourced from `@metamask/snaps-execution-environments`:
 
-| Name              | Category           | Notes                                                                                                                                                   |
-| ----------------- | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `setTimeout`      | Timer (attenuated) | Isolated per vat. Cancelled automatically on vat termination.                                                                                           |
-| `clearTimeout`    | Timer (attenuated) | Only clears timers created by the same vat.                                                                                                             |
-| `setInterval`     | Timer (attenuated) | Isolated per vat. Cancelled automatically on vat termination.                                                                                           |
-| `clearInterval`   | Timer (attenuated) | Only clears intervals created by the same vat.                                                                                                          |
-| `Date`            | Attenuated         | Each `Date.now()` read adds up to 1 ms of random jitter, clamped monotonic non-decreasing; precise sub-millisecond timing cannot leak through.          |
-| `Math`            | Attenuated         | `Math.random()` is sourced from `crypto.getRandomValues`. **Not a CSPRNG** per the upstream NOTE — defends against stock-RNG timing side channels only. |
-| `crypto`          | Web Crypto         | Hardened Web Crypto API.                                                                                                                                |
-| `SubtleCrypto`    | Web Crypto         | Hardened Web Crypto API.                                                                                                                                |
-| `TextEncoder`     | Text codec         | Plain hardened.                                                                                                                                         |
-| `TextDecoder`     | Text codec         | Plain hardened.                                                                                                                                         |
-| `URL`             | URL                | Plain hardened.                                                                                                                                         |
-| `URLSearchParams` | URL                | Plain hardened.                                                                                                                                         |
-| `atob`            | Base64             | Plain hardened.                                                                                                                                         |
-| `btoa`            | Base64             | Plain hardened.                                                                                                                                         |
-| `AbortController` | Abort              | Plain hardened.                                                                                                                                         |
-| `AbortSignal`     | Abort              | Plain hardened.                                                                                                                                         |
+| Name              | Category             | Notes                                                                                                                                                                                                         |
+| ----------------- | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `setTimeout`      | Timer (attenuated)   | Isolated per vat. Cancelled automatically on vat termination.                                                                                                                                                 |
+| `clearTimeout`    | Timer (attenuated)   | Only clears timers created by the same vat.                                                                                                                                                                   |
+| `setInterval`     | Timer (attenuated)   | Isolated per vat. Cancelled automatically on vat termination.                                                                                                                                                 |
+| `clearInterval`   | Timer (attenuated)   | Only clears intervals created by the same vat.                                                                                                                                                                |
+| `Date`            | Attenuated           | Each `Date.now()` read adds up to 1 ms of random jitter, clamped monotonic non-decreasing; precise sub-millisecond timing cannot leak through.                                                                |
+| `Math`            | Attenuated           | `Math.random()` is sourced from `crypto.getRandomValues`. **Not a CSPRNG** per the upstream NOTE — defends against stock-RNG timing side channels only.                                                       |
+| `crypto`          | Web Crypto           | Hardened Web Crypto API.                                                                                                                                                                                      |
+| `SubtleCrypto`    | Web Crypto           | Hardened Web Crypto API.                                                                                                                                                                                      |
+| `fetch`           | Network (attenuated) | Wrapped by the Snaps network factory; teardown aborts in-flight requests and cancels open body streams on vat termination. **Requires `network.allowedHosts`** — see [Network endowment](#network-endowment). |
+| `Request`         | Network              | Hardened constructor surfaced alongside `fetch` so vat code can build requests before calling it.                                                                                                             |
+| `Headers`         | Network              | Hardened constructor.                                                                                                                                                                                         |
+| `Response`        | Network              | Hardened constructor; overrides `[Symbol.hasInstance]` so wrapped fetch results still pass `instanceof Response`.                                                                                             |
+| `TextEncoder`     | Text codec           | Plain hardened.                                                                                                                                                                                               |
+| `TextDecoder`     | Text codec           | Plain hardened.                                                                                                                                                                                               |
+| `URL`             | URL                  | Plain hardened.                                                                                                                                                                                               |
+| `URLSearchParams` | URL                  | Plain hardened.                                                                                                                                                                                               |
+| `atob`            | Base64               | Plain hardened.                                                                                                                                                                                               |
+| `btoa`            | Base64               | Plain hardened.                                                                                                                                                                                               |
+| `AbortController` | Abort                | Plain hardened.                                                                                                                                                                                               |
+| `AbortSignal`     | Abort                | Plain hardened.                                                                                                                                                                                               |
 
 "Plain hardened" means the value is the host's implementation wrapped with `harden()` — it behaves identically to the browser/Node version. "Attenuated" means the value is a deliberate reimplementation with different semantics; the Notes column flags the relevant differences. The canonical list lives in [`endowments.ts`](../packages/ocap-kernel/src/vats/endowments.ts).
+
+### Network endowment
+
+`fetch`, `Request`, `Headers`, and `Response` are only available when the vat also declares a per-vat host allowlist in `VatConfig.network.allowedHosts`:
+
+```ts
+await kernel.launchSubcluster({
+  bootstrap: 'worker',
+  vats: {
+    worker: {
+      bundleSpec: '...',
+      globals: ['fetch', 'Request', 'Headers', 'Response'],
+      network: { allowedHosts: ['api.example.com', 'api.github.com'] },
+    },
+  },
+});
+```
+
+Requesting `'fetch'` without an `allowedHosts` entry (or with an absent `network` block) fails `initVat` with `Vat "<id>" requested "fetch" but no network.allowedHosts was specified`. There is no implicit allow-all; an empty `allowedHosts: []` is legal but rejects every outbound host. `file://` URLs bypass the host check (they have no host component) and are allowed when the underlying platform supports them.
+
+Lifecycle notes:
+
+- The network factory reads `globalThis.fetch` at call time — host applications that need to stub it (e.g., tests) should override the global before constructing the `VatSupervisor`.
+- Teardown cancels in-flight requests and open body streams. It runs as part of `VatSupervisor.terminate()` alongside timer teardown.
+- `fetch` returns a `ResponseWrapper` rather than the raw `Response`; the endowed `Response` constructor is patched so `instanceof Response` still returns `true` for wrapper instances.
 
 ### Restricting or replacing the allowed set
 
@@ -536,8 +565,9 @@ type VatConfig = {
   bundleName?: string; // Name of a pre-registered bundle
   creationOptions?: Record<string, Json>; // Options for vat creation
   parameters?: Record<string, Json>; // Static parameters passed to buildRootObject
-  platformConfig?: Partial<PlatformConfig>; // Platform-specific configuration
-  globals?: string[]; // Host/Web API globals the vat requests — see [Vat Endowments](#vat-endowments)
+  platformConfig?: Partial<PlatformConfig>; // Platform-specific configuration (currently `fs` only)
+  globals?: AllowedGlobalName[]; // Host/Web API globals the vat requests — see [Vat Endowments](#vat-endowments)
+  network?: { allowedHosts: string[] }; // Host allowlist required when requesting `fetch`
 };
 
 // Configuration for a system subcluster

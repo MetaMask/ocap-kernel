@@ -472,8 +472,8 @@ yarn ocap daemon exec launchSubcluster '{
       },
       "provider": {
         "bundleSpec": "packages/evm-wallet-experiment/src/vats/provider-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder"],
-        "platformConfig": { "fetch": { "allowedHosts": ["<chain>.infura.io", "api.pimlico.io", "swap.api.cx.metamask.io"] } }
+        "globals": ["TextEncoder", "TextDecoder", "fetch", "Request", "Headers", "Response"],
+        "network": { "allowedHosts": ["<chain>.infura.io", "api.pimlico.io", "swap.api.cx.metamask.io"] }
       },
       "delegation": {
         "bundleSpec": "packages/evm-wallet-experiment/src/vats/delegation-vat.bundle",

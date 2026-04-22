@@ -123,7 +123,7 @@ describe('isVatConfig', () => {
       config: {
         bundleSpec: 'bundle.js',
         platformConfig: {
-          fetch: { allowedHosts: ['api.github.com'] },
+          fs: { rootDir: '/tmp' },
         },
       },
       expected: true,
@@ -135,9 +135,17 @@ describe('isVatConfig', () => {
         creationOptions: { foo: 'bar' },
         parameters: { baz: 123 },
         platformConfig: {
-          fetch: { allowedHosts: ['api.github.test'] },
           fs: { rootDir: '/tmp', existsSync: true },
         },
+      },
+      expected: true,
+    },
+    {
+      name: 'with valid network config',
+      config: {
+        bundleSpec: 'bundle.js',
+        globals: ['fetch'],
+        network: { allowedHosts: ['api.github.com'] },
       },
       expected: true,
     },
@@ -151,17 +159,22 @@ describe('isVatConfig', () => {
       config: {
         bundleSpec: 'bundle.js',
         platformConfig: {
-          fetch: { allowedHosts: 'not-an-array' },
+          fs: { rootDir: 123 },
         },
       },
     },
     {
-      name: 'invalid platformConfig fetch config',
+      name: 'network.allowedHosts not an array',
       config: {
         bundleSpec: 'bundle.js',
-        platformConfig: {
-          fetch: { invalidField: 'value' },
-        },
+        network: { allowedHosts: 'not-an-array' },
+      },
+    },
+    {
+      name: 'network.allowedHosts contains non-strings',
+      config: {
+        bundleSpec: 'bundle.js',
+        network: { allowedHosts: ['ok.test', 123] },
       },
     },
   ])('rejects configs with $name', ({ config }) => {

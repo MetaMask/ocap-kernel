@@ -5,7 +5,6 @@ import type { PlatformConfig, PlatformFactory } from './types.ts';
 
 describe('makePlatformFactory', () => {
   const createMockFactories = () => ({
-    fetch: vi.fn().mockReturnValue({ request: vi.fn() }),
     fs: vi.fn().mockReturnValue({ readFile: vi.fn() }),
   });
 
@@ -18,21 +17,15 @@ describe('makePlatformFactory', () => {
   it.each([
     {
       name: 'single capability',
-      config: { fetch: {} },
-      expectedCapabilities: ['fetch'],
-      expectedOptions: {},
-    },
-    {
-      name: 'multiple capabilities',
-      config: { fetch: {}, fs: { rootDir: '/tmp' } },
-      expectedCapabilities: ['fetch', 'fs'],
+      config: { fs: { rootDir: '/tmp' } },
+      expectedCapabilities: ['fs'] as const,
       expectedOptions: {},
     },
     {
       name: 'with options',
-      config: { fetch: {} },
-      expectedCapabilities: ['fetch'],
-      expectedOptions: { fetch: { timeout: 5000 } },
+      config: { fs: { rootDir: '/tmp' } },
+      expectedCapabilities: ['fs'] as const,
+      expectedOptions: { fs: { timeout: 5000 } },
     },
   ])(
     'creates platform with $name',
@@ -60,30 +53,22 @@ describe('makePlatformFactory', () => {
   it('creates platform with partial config', async () => {
     const mockFactories = createMockFactories();
     const platformFactory = makePlatformFactory(mockFactories);
-    const config = { fetch: {} };
+    const config = { fs: { rootDir: '/tmp' } };
 
     const platform = await platformFactory(config);
 
-    expect(platform.fetch).toBeDefined();
-    expect(platform.fs).toBeUndefined();
+    expect(platform.fs).toBeDefined();
   });
 
-  it.each([
-    {
-      name: 'unregistered capability',
-      factories: { fetch: vi.fn() },
-      config: { fetch: {}, unknown: {} } as Partial<PlatformConfig>,
-      expectedError:
-        'Config provided entry for unregistered capability: unknown',
-    },
-    {
-      name: 'missing factory',
-      factories: { fetch: vi.fn() },
-      config: { fetch: {}, fs: { rootDir: '/tmp' } },
-      expectedError: 'Config provided entry for unregistered capability: fs',
-    },
-  ])('throws error for $name', async ({ factories, config, expectedError }) => {
+  it('throws for unregistered capability', async () => {
+    const factories = { fs: vi.fn() };
     const platformFactory = makePlatformFactory(factories);
-    await expect(platformFactory(config)).rejects.toThrow(expectedError);
+    const config = {
+      fs: { rootDir: '/tmp' },
+      unknown: {},
+    } as Partial<PlatformConfig>;
+    await expect(platformFactory(config)).rejects.toThrow(
+      'Config provided entry for unregistered capability: unknown',
+    );
   });
 });

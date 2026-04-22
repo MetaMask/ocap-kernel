@@ -32,10 +32,9 @@ describe('endowments', () => {
         main: {
           bundleSpec: getBundleSpec('endowment-fetch'),
           parameters: {},
-          platformConfig: {
-            fetch: {
-              allowedHosts: [goodHost],
-            },
+          globals: ['fetch', 'Request', 'Headers', 'Response'],
+          network: {
+            allowedHosts: [goodHost],
           },
         },
       },
@@ -60,6 +59,9 @@ describe('endowments', () => {
       'buildRootObject',
       'bootstrap',
       `response: ${expectedResponse}`,
+      `Request constructor: ok`,
+      `Headers constructor: ok`,
+      `Response constructor: ok`,
       `error: Error: Invalid host: ${badHost}`,
     ]);
   });
