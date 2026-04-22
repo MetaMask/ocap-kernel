@@ -21,7 +21,15 @@ yarn workspace @ocap/evm-wallet-experiment docker:build 2>&1 | tail -30
 
 This builds the full monorepo then builds the Docker images. It may take a few minutes. Report any errors from the tail output.
 
-## 3. Start the stack in detached mode
+## 3. Tear down any existing stack, then start fresh
+
+Always bring the stack down first to avoid stale container state (e.g. spent delegation budgets from a previous run leaking into the new run).
+
+```bash
+yarn workspace @ocap/evm-wallet-experiment docker:down 2>&1 | tail -10
+```
+
+Then start the stack:
 
 ```bash
 yarn workspace @ocap/evm-wallet-experiment docker:ensure-logs && \
