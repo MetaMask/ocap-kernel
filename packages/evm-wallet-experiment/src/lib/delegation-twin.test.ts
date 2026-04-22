@@ -131,7 +131,7 @@ describe('makeDelegationTwin', () => {
           method: 'transferFungible',
           token: CHECKSUMMED_TOKEN,
           delegation: BASE_DELEGATION,
-          maxAmount: 1000n,
+          totalLimit: 1000n,
         },
         redeemFn,
       });
