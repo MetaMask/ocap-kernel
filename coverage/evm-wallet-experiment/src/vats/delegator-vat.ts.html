@@ -3,7 +3,7 @@
 <html lang="en">
 
 <head>
-    <title>Code coverage report for evm-wallet-experiment/src/lib/delegation-grant.ts</title>
+    <title>Code coverage report for evm-wallet-experiment/src/vats/delegator-vat.ts</title>
     <meta charset="utf-8" />
     <link rel="stylesheet" href="../../../prettify.css" />
     <link rel="stylesheet" href="../../../base.css" />
@@ -19,34 +19,34 @@
 <body>
 <div class='wrapper'>
     <div class='pad1'>
-        <h1><a href="../../../index.html">All files</a> / <a href="index.html">evm-wallet-experiment/src/lib</a> delegation-grant.ts</h1>
+        <h1><a href="../../../index.html">All files</a> / <a href="index.html">evm-wallet-experiment/src/vats</a> delegator-vat.ts</h1>
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">83.33% </span>
+                <span class="strong">78.04% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>30/36</span>
+                <span class='fraction'>32/41</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">78.57% </span>
+                <span class="strong">76.66% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>11/14</span>
+                <span class='fraction'>23/30</span>
+            </div>
+        
+            
+            <div class='fl pad1y space-right2'>
+                <span class="strong">81.81% </span>
+                <span class="quiet">Functions</span>
+                <span class='fraction'>9/11</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">80% </span>
-                <span class="quiet">Functions</span>
-                <span class='fraction'>8/10</span>
-            </div>
-        
-            
-            <div class='fl pad1y space-right2'>
-                <span class="strong">85.71% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>30/35</span>
+                <span class='fraction'>32/40</span>
             </div>
         
             
@@ -61,7 +61,7 @@
             </div>
         </template>
     </div>
-    <div class='status-line high'></div>
+    <div class='status-line medium'></div>
     <pre><table class="coverage">
 <tr><td class="line-count quiet"><a name='L1'></a><a href='#L1'>1</a>
 <a name='L2'></a><a href='#L2'>2</a>
@@ -308,125 +308,7 @@
 <a name='L243'></a><a href='#L243'>243</a>
 <a name='L244'></a><a href='#L244'>244</a>
 <a name='L245'></a><a href='#L245'>245</a>
-<a name='L246'></a><a href='#L246'>246</a>
-<a name='L247'></a><a href='#L247'>247</a>
-<a name='L248'></a><a href='#L248'>248</a>
-<a name='L249'></a><a href='#L249'>249</a>
-<a name='L250'></a><a href='#L250'>250</a>
-<a name='L251'></a><a href='#L251'>251</a>
-<a name='L252'></a><a href='#L252'>252</a>
-<a name='L253'></a><a href='#L253'>253</a>
-<a name='L254'></a><a href='#L254'>254</a>
-<a name='L255'></a><a href='#L255'>255</a>
-<a name='L256'></a><a href='#L256'>256</a>
-<a name='L257'></a><a href='#L257'>257</a>
-<a name='L258'></a><a href='#L258'>258</a>
-<a name='L259'></a><a href='#L259'>259</a>
-<a name='L260'></a><a href='#L260'>260</a>
-<a name='L261'></a><a href='#L261'>261</a>
-<a name='L262'></a><a href='#L262'>262</a>
-<a name='L263'></a><a href='#L263'>263</a>
-<a name='L264'></a><a href='#L264'>264</a>
-<a name='L265'></a><a href='#L265'>265</a>
-<a name='L266'></a><a href='#L266'>266</a>
-<a name='L267'></a><a href='#L267'>267</a>
-<a name='L268'></a><a href='#L268'>268</a>
-<a name='L269'></a><a href='#L269'>269</a>
-<a name='L270'></a><a href='#L270'>270</a>
-<a name='L271'></a><a href='#L271'>271</a>
-<a name='L272'></a><a href='#L272'>272</a>
-<a name='L273'></a><a href='#L273'>273</a>
-<a name='L274'></a><a href='#L274'>274</a>
-<a name='L275'></a><a href='#L275'>275</a>
-<a name='L276'></a><a href='#L276'>276</a>
-<a name='L277'></a><a href='#L277'>277</a>
-<a name='L278'></a><a href='#L278'>278</a>
-<a name='L279'></a><a href='#L279'>279</a>
-<a name='L280'></a><a href='#L280'>280</a>
-<a name='L281'></a><a href='#L281'>281</a>
-<a name='L282'></a><a href='#L282'>282</a>
-<a name='L283'></a><a href='#L283'>283</a>
-<a name='L284'></a><a href='#L284'>284</a>
-<a name='L285'></a><a href='#L285'>285</a>
-<a name='L286'></a><a href='#L286'>286</a>
-<a name='L287'></a><a href='#L287'>287</a>
-<a name='L288'></a><a href='#L288'>288</a>
-<a name='L289'></a><a href='#L289'>289</a>
-<a name='L290'></a><a href='#L290'>290</a>
-<a name='L291'></a><a href='#L291'>291</a>
-<a name='L292'></a><a href='#L292'>292</a>
-<a name='L293'></a><a href='#L293'>293</a>
-<a name='L294'></a><a href='#L294'>294</a>
-<a name='L295'></a><a href='#L295'>295</a>
-<a name='L296'></a><a href='#L296'>296</a>
-<a name='L297'></a><a href='#L297'>297</a>
-<a name='L298'></a><a href='#L298'>298</a>
-<a name='L299'></a><a href='#L299'>299</a>
-<a name='L300'></a><a href='#L300'>300</a>
-<a name='L301'></a><a href='#L301'>301</a>
-<a name='L302'></a><a href='#L302'>302</a>
-<a name='L303'></a><a href='#L303'>303</a>
-<a name='L304'></a><a href='#L304'>304</a>
-<a name='L305'></a><a href='#L305'>305</a>
-<a name='L306'></a><a href='#L306'>306</a>
-<a name='L307'></a><a href='#L307'>307</a>
-<a name='L308'></a><a href='#L308'>308</a>
-<a name='L309'></a><a href='#L309'>309</a>
-<a name='L310'></a><a href='#L310'>310</a>
-<a name='L311'></a><a href='#L311'>311</a>
-<a name='L312'></a><a href='#L312'>312</a>
-<a name='L313'></a><a href='#L313'>313</a>
-<a name='L314'></a><a href='#L314'>314</a>
-<a name='L315'></a><a href='#L315'>315</a>
-<a name='L316'></a><a href='#L316'>316</a>
-<a name='L317'></a><a href='#L317'>317</a>
-<a name='L318'></a><a href='#L318'>318</a>
-<a name='L319'></a><a href='#L319'>319</a>
-<a name='L320'></a><a href='#L320'>320</a>
-<a name='L321'></a><a href='#L321'>321</a>
-<a name='L322'></a><a href='#L322'>322</a>
-<a name='L323'></a><a href='#L323'>323</a>
-<a name='L324'></a><a href='#L324'>324</a>
-<a name='L325'></a><a href='#L325'>325</a>
-<a name='L326'></a><a href='#L326'>326</a>
-<a name='L327'></a><a href='#L327'>327</a>
-<a name='L328'></a><a href='#L328'>328</a>
-<a name='L329'></a><a href='#L329'>329</a>
-<a name='L330'></a><a href='#L330'>330</a>
-<a name='L331'></a><a href='#L331'>331</a>
-<a name='L332'></a><a href='#L332'>332</a>
-<a name='L333'></a><a href='#L333'>333</a>
-<a name='L334'></a><a href='#L334'>334</a>
-<a name='L335'></a><a href='#L335'>335</a>
-<a name='L336'></a><a href='#L336'>336</a>
-<a name='L337'></a><a href='#L337'>337</a>
-<a name='L338'></a><a href='#L338'>338</a>
-<a name='L339'></a><a href='#L339'>339</a>
-<a name='L340'></a><a href='#L340'>340</a>
-<a name='L341'></a><a href='#L341'>341</a>
-<a name='L342'></a><a href='#L342'>342</a>
-<a name='L343'></a><a href='#L343'>343</a>
-<a name='L344'></a><a href='#L344'>344</a>
-<a name='L345'></a><a href='#L345'>345</a>
-<a name='L346'></a><a href='#L346'>346</a>
-<a name='L347'></a><a href='#L347'>347</a>
-<a name='L348'></a><a href='#L348'>348</a>
-<a name='L349'></a><a href='#L349'>349</a>
-<a name='L350'></a><a href='#L350'>350</a>
-<a name='L351'></a><a href='#L351'>351</a>
-<a name='L352'></a><a href='#L352'>352</a>
-<a name='L353'></a><a href='#L353'>353</a>
-<a name='L354'></a><a href='#L354'>354</a>
-<a name='L355'></a><a href='#L355'>355</a>
-<a name='L356'></a><a href='#L356'>356</a>
-<a name='L357'></a><a href='#L357'>357</a>
-<a name='L358'></a><a href='#L358'>358</a>
-<a name='L359'></a><a href='#L359'>359</a>
-<a name='L360'></a><a href='#L360'>360</a>
-<a name='L361'></a><a href='#L361'>361</a>
-<a name='L362'></a><a href='#L362'>362</a>
-<a name='L363'></a><a href='#L363'>363</a>
-<a name='L364'></a><a href='#L364'>364</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L246'></a><a href='#L246'>246</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -442,6 +324,21 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -459,7 +356,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -467,105 +363,29 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">259x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">259x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">25x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -576,13 +396,19 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -592,6 +418,8 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -600,6 +428,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -607,11 +436,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">15x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -629,35 +454,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">10x</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -672,6 +475,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -679,6 +485,11 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">10x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -701,7 +512,6 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">9x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -714,443 +524,279 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">7x</span>
+<span class="cline-any cline-yes">7x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">5x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import {
-  encodeAllowedCalldata,
-  encodeAllowedMethods,
-  encodeAllowedTargets,
-  encodeErc20TransferAmount,
-  encodeTimestamp,
-  encodeValueLte,
-  makeCaveat,
-} from './caveats.ts';
-import { generateSalt, makeDelegation } from './delegation.ts';
-import type { SaltGenerator } from './delegation.ts';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import type { Baggage } from '@metamask/ocap-kernel';
+import { create } from '@metamask/superstruct';
+&nbsp;
 import {
-  ERC20_APPROVE_SELECTOR,
-  ERC20_TRANSFER_SELECTOR,
-  FIRST_ARG_OFFSET,
-} from './erc20.ts';
+  ENFORCER_CONTRACT_KEY_MAP,
+  PLACEHOLDER_CONTRACTS,
+  registerChainContracts,
+} from '../constants.ts';
+import type { ChainContracts } from '../constants.ts';
+import {
+  makeCaveat,
+  encodeValueLte,
+  encodeNativeTokenTransferAmount,
+  encodeAllowedTargets,
+  encodeAllowedMethods,
+  encodeErc20TransferAmount,
+  encodeAllowedCalldata,
+} from '../lib/caveats.ts';
+import { makeDelegation, makeSaltGenerator } from '../lib/delegation.ts';
+import { ERC20_TRANSFER_SELECTOR, FIRST_ARG_OFFSET } from '../lib/erc20.ts';
 import type {
   Address,
-  Caveat,
-  CaveatSpec,
   DelegationGrant,
   Hex,
+  TransferFungibleGrant,
+  TransferNativeGrant,
 } from '../types.ts';
+import { DelegationGrantStruct } from '../types.ts';
 &nbsp;
 const harden = globalThis.<span class="fstat-no" title="function not covered" ><span class="branch-1 cbranch-no" title="branch not covered" >harden ?? (&lt;T&gt;(v</span>alue: T): T =&gt; <span class="cstat-no" title="statement not covered" >value);</span></span>
 &nbsp;
 /**
- * Encode an address as a 32-byte ABI-encoded word (left-padded with zeros).
+ * ABI-encode an Ethereum address as a 32-byte padded hex value.
  *
  * @param address - The Ethereum address to encode.
- * @returns The 0x-prefixed 32-byte hex string.
+ * @returns A 0x-prefixed 64-character hex string.
  */
-function <span class="fstat-no" title="function not covered" >abiEncodeAddress(a</span>ddress: Address): Hex {
-<span class="cstat-no" title="statement not covered" >  return `0x${address.slice(2).toLowerCase().padStart(64, '0')}`;</span>
-}
-&nbsp;
-type TransferOptions = {
-  delegator: Address;
-  delegate: Address;
-  token: Address;
-  max: bigint;
-  chainId: number;
-  validUntil?: number;
-  recipient?: Address;
-};
-&nbsp;
-type ApproveOptions = {
-  delegator: Address;
-  delegate: Address;
-  token: Address;
-  max: bigint;
-  chainId: number;
-  validUntil?: number;
-  spender?: Address;
-};
-&nbsp;
-type CallOptions = {
-  delegator: Address;
-  delegate: Address;
-  targets: Address[];
-  chainId: number;
-  maxValue?: bigint;
-  validUntil?: number;
-};
-&nbsp;
-export function buildDelegationGrant(
-  method: 'transfer',
-  options: TransferOptions,
-): DelegationGrant;
-export function buildDelegationGrant(
-  method: 'approve',
-  options: ApproveOptions,
-): DelegationGrant;
-export function buildDelegationGrant(
-  method: 'call',
-  options: CallOptions,
-): DelegationGrant;
-/**
- * Build an unsigned delegation grant for the given method.
- *
- * Uses {@link generateSalt} (module-level fallback) for salt generation.
- * For vat usage where per-instance salt isolation matters, prefer
- * {@link makeDelegationGrantBuilder} with a {@link makeSaltGenerator} instance.
- *
- * @param method - The catalog method name.
- * @param options - Method-specific options.
- * @returns An unsigned DelegationGrant.
- */
-export function buildDelegationGrant(
-  method: 'transfer' | 'approve' | 'call',
-  options: TransferOptions | ApproveOptions | CallOptions,
-): DelegationGrant {
-  return dispatchGrant(method, options, generateSalt);
+function abiEncodeAddress(address: Address): Hex {
+  return `0x${address.slice(2).toLowerCase().padStart(64, '0')}`;
 }
 &nbsp;
 /**
- * Create a delegation grant builder with an injected salt generator.
+ * Build the root object for the delegator vat.
  *
- * The returned builder exposes the same {@link buildDelegationGrant} overloads
- * but uses the provided {@link SaltGenerator} for every grant it builds.
- * Instantiate once per vat (or per logical context) so that the generator's
- * internal counter is isolated from other instances.
- *
- * @param options - Builder options.
- * @param options.saltGenerator - The salt generator to use for all grants.
- * @returns An object with a {@link buildDelegationGrant} method.
+ * @param _vatPowers - Special powers granted to this vat (unused).
+ * @param _parameters - Initialization parameters (unused).
+ * @param baggage - Root of vat's persistent state.
+ * @returns The root object for the delegator vat.
  */
-export function makeDelegationGrantBuilder(options: {
-  saltGenerator: SaltGenerator;
-}): {
-  buildDelegationGrant(
-    method: 'transfer',
-    opts: TransferOptions,
-  ): DelegationGrant;
-  buildDelegationGrant(
-    method: 'approve',
-    opts: ApproveOptions,
-  ): DelegationGrant;
-  buildDelegationGrant(method: 'call', opts: CallOptions): DelegationGrant;
-} {
-  const { saltGenerator } = options;
-  function build(method: 'transfer', opts: TransferOptions): DelegationGrant;
-  function build(method: 'approve', opts: ApproveOptions): DelegationGrant;
-  function build(method: 'call', opts: CallOptions): DelegationGrant;
+export function buildRootObject(
+  _vatPowers: unknown,
+  _parameters: unknown,
+  baggage: Baggage,
+): object {
+  const grants: Map&lt;string, DelegationGrant&gt; = baggage.has('grants')
+    ? new Map(
+        Object.entries(baggage.get('grants') as Record&lt;string, unknown&gt;).map(
+          ([id, raw]) =&gt; [id, create(raw, DelegationGrantStruct)],
+        ),
+      )
+    : new Map();
+&nbsp;
+  const saltGenerator = makeSaltGenerator();
+&nbsp;
   /**
-   * @param method - The catalog method name.
-   * @param opts - Method-specific grant options.
-   * @returns An unsigned DelegationGrant.
+   * Persist grants map to baggage (handles both init and update).
    */
-  function build(
-    method: 'transfer' | 'approve' | 'call',
-    opts: TransferOptions | ApproveOptions | CallOptions,
-  ): DelegationGrant {
-    return dispatchGrant(method, opts, saltGenerator);
+  function persistGrants(): void {
+    const serialized = harden(Object.fromEntries(grants));
+    if (baggage.has('grants')) {
+      baggage.set('grants', serialized);
+    } else {
+      baggage.init('grants', serialized);
+    }
   }
-  return harden({ buildDelegationGrant: build });
-}
 &nbsp;
-/**
- * @param method - The catalog method name.
- * @param options - Method-specific grant options.
- * @param saltGenerator - Salt generator for delegation uniqueness.
- * @returns An unsigned DelegationGrant.
- */
-function dispatchGrant(
-  method: 'transfer' | 'approve' | 'call',
-  options: TransferOptions | ApproveOptions | CallOptions,
-  saltGenerator: SaltGenerator,
-): DelegationGrant {
-  switch (method) {
-    case 'transfer':
-      return buildTransferGrant(options as TransferOptions, saltGenerator);
-    case 'approve':
-      return buildApproveGrant(options as ApproveOptions, saltGenerator);
-    case 'call':
-      return buildCallGrant(options as CallOptions, saltGenerator);
-<span class="branch-3 cbranch-no" title="branch not covered" >    default:</span>
-<span class="cstat-no" title="statement not covered" >      throw new Error(`Unknown method: ${String(method)}`);</span>
-  }
-}
+  return makeDefaultExo('walletDelegator', {
+    async buildTransferNativeGrant(options: {
+      delegator: Address;
+      delegate: Address;
+      to?: Address;
+      maxAmount?: bigint;
+      totalLimit?: bigint;
+      chainId: number;
+    }): Promise&lt;TransferNativeGrant&gt; {
+      const { delegator, delegate, to, maxAmount, totalLimit, chainId } =
+        options;
+      const caveats = [];
 &nbsp;
-type Erc20GrantOptions = {
-  methodName: 'transfer' | 'approve';
-  selector: Hex;
-  delegator: Address;
-  delegate: Address;
-  token: Address;
-  max: bigint;
-  chainId: number;
-  validUntil?: number;
-  restrictedAddress?: Address;
-  saltGenerator: SaltGenerator;
-};
+      if (to !== undefined) {
+        caveats.push(
+          makeCaveat({
+            type: 'allowedTargets',
+            terms: encodeAllowedTargets([to]),
+            chainId,
+          }),
+        );
+      }
 &nbsp;
-/**
- * Build a delegation grant for an ERC-20 method (transfer or approve).
- *
- * @param options - ERC-20 grant options.
- * @param options.methodName - The catalog method name ('transfer' or 'approve').
- * @param options.selector - The ERC-20 function selector.
- * @param options.delegator - The delegating account address.
- * @param options.delegate - The delegate account address.
- * @param options.token - The ERC-20 token contract address.
- * @param options.max - The maximum token amount allowed.
- * @param options.chainId - The chain ID.
- * @param options.validUntil - Optional Unix timestamp after which the delegation expires.
- * @param options.restrictedAddress - Optional address to lock the first argument to.
- * @param options.saltGenerator - Salt generator for delegation uniqueness.
- * @returns An unsigned DelegationGrant for the given ERC-20 method.
- */
-function buildErc20Grant({
-  methodName,
-  selector,
-  delegator,
-  delegate,
-  token,
-  max,
-  chainId,
-  validUntil,
-  restrictedAddress,
-  saltGenerator,
-}: Erc20GrantOptions): DelegationGrant {
-  const caveats: Caveat[] = [
-    makeCaveat({
-      type: 'allowedTargets',
-      terms: encodeAllowedTargets([token]),
-      chainId,
-    }),
-    makeCaveat({
-      type: 'allowedMethods',
-      terms: encodeAllowedMethods([selector]),
-      chainId,
-    }),
-    makeCaveat({
-      type: 'erc20TransferAmount',
-      terms: encodeErc20TransferAmount({ token, amount: max }),
-      chainId,
-    }),
-  ];
+      <span class="missing-if-branch" title="if path not taken" >I</span>if (totalLimit !== undefined) {
+<span class="cstat-no" title="statement not covered" >        caveats.push(</span>
+          makeCaveat({
+            type: 'nativeTokenTransferAmount',
+            terms: encodeNativeTokenTransferAmount(totalLimit),
+            chainId,
+          }),
+        );
+      }
 &nbsp;
-  const caveatSpecs: CaveatSpec[] = [{ type: 'cumulativeSpend', token, max }];
+      if (maxAmount !== undefined) {
+        caveats.push(
+          makeCaveat({
+            type: 'valueLte',
+            terms: encodeValueLte(maxAmount),
+            chainId,
+          }),
+        );
+      }
 &nbsp;
-  <span class="missing-if-branch" title="if path not taken" >I</span>if (restrictedAddress !== undefined) {
-    const value = <span class="cstat-no" title="statement not covered" >abiEncodeAddress(restrictedAddress);</span>
-<span class="cstat-no" title="statement not covered" >    caveats.push(</span>
-      makeCaveat({
-        type: 'allowedCalldata',
-        terms: encodeAllowedCalldata({ dataStart: FIRST_ARG_OFFSET, value }),
+      const delegation = makeDelegation({
+        delegator,
+        delegate,
+        caveats,
         chainId,
-      }),
-    );
-<span class="cstat-no" title="statement not covered" >    caveatSpecs.push({</span>
-      type: 'allowedCalldata',
-      dataStart: FIRST_ARG_OFFSET,
-      value,
-    });
-  }
+        saltGenerator,
+      });
 &nbsp;
-  if (validUntil !== undefined) {
-    caveats.push(
-      makeCaveat({
-        type: 'timestamp',
-        terms: encodeTimestamp({ after: 0, before: validUntil }),
+      return harden({
+        method: 'transferNative',
+        ...(to !== undefined &amp;&amp; { to }),
+        ...(maxAmount !== undefined &amp;&amp; { maxAmount }),
+        ...(totalLimit !== undefined &amp;&amp; <span class="branch-1 cbranch-no" title="branch not covered" >{ totalLimit })</span>,
+        delegation,
+      });
+    },
+&nbsp;
+    async buildTransferFungibleGrant(options: {
+      delegator: Address;
+      delegate: Address;
+      token: Address;
+      to?: Address;
+      totalLimit?: bigint;
+      chainId: number;
+    }): Promise&lt;TransferFungibleGrant&gt; {
+      const { delegator, delegate, token, to, totalLimit, chainId } = options;
+      const caveats = [
+        makeCaveat({
+          type: 'allowedTargets',
+          terms: encodeAllowedTargets([token]),
+          chainId,
+        }),
+        makeCaveat({
+          type: 'allowedMethods',
+          terms: encodeAllowedMethods([ERC20_TRANSFER_SELECTOR]),
+          chainId,
+        }),
+      ];
+&nbsp;
+      if (totalLimit !== undefined) {
+        caveats.push(
+          makeCaveat({
+            type: 'erc20TransferAmount',
+            terms: encodeErc20TransferAmount({ token, amount: totalLimit }),
+            chainId,
+          }),
+        );
+      }
+&nbsp;
+      if (to !== undefined) {
+        caveats.push(
+          makeCaveat({
+            type: 'allowedCalldata',
+            terms: encodeAllowedCalldata({
+              dataStart: FIRST_ARG_OFFSET,
+              value: abiEncodeAddress(to),
+            }),
+            chainId,
+          }),
+        );
+      }
+&nbsp;
+      const delegation = makeDelegation({
+        delegator,
+        delegate,
+        caveats,
         chainId,
-      }),
-    );
-    caveatSpecs.push({
-      type: 'blockWindow',
-      after: 0n,
-      before: BigInt(validUntil),
-    });
-  }
+        saltGenerator,
+      });
 &nbsp;
-  const delegation = makeDelegation({
-    delegator,
-    delegate,
-    caveats,
-    chainId,
-    saltGenerator,
+      return harden({
+        method: 'transferFungible',
+        token,
+        ...(to !== undefined &amp;&amp; { to }),
+        ...(totalLimit !== undefined &amp;&amp; { totalLimit }),
+        delegation,
+      });
+    },
+&nbsp;
+    /**
+     * Register contract addresses for a chain so caveat builders can look up
+     * enforcer addresses. Called by the home coordinator after configureBundler
+     * and on resuscitation so this vat's module-level Map stays in sync.
+     *
+     * @param chainId - The chain ID to register.
+     * @param environment - The deployed contract addresses for this chain.
+     * @param environment.DelegationManager - DelegationManager address.
+     * @param environment.caveatEnforcers - Enforcer contract addresses.
+     */
+    async <span class="fstat-no" title="function not covered" >registerContracts(</span>
+      chainId: number,
+      environment: {
+        DelegationManager: Hex;
+        caveatEnforcers?: Record&lt;string, Hex&gt;;
+      },
+    ): Promise&lt;void&gt; {
+      const rawEnforcers = <span class="cstat-no" title="statement not covered" >environment.caveatEnforcers ?? {};</span>
+      const enforcers = <span class="cstat-no" title="statement not covered" >{ ...PLACEHOLDER_CONTRACTS.enforcers };</span>
+<span class="cstat-no" title="statement not covered" >      for (const [key, addr] of Object.entries(rawEnforcers)) {</span>
+        const caveatType = <span class="cstat-no" title="statement not covered" >ENFORCER_CONTRACT_KEY_MAP[key];</span>
+<span class="cstat-no" title="statement not covered" >        if (caveatType !== undefined) {</span>
+<span class="cstat-no" title="statement not covered" >          enforcers[caveatType] = addr;</span>
+        }
+      }
+<span class="cstat-no" title="statement not covered" >      registerChainContracts(chainId, {</span>
+        delegationManager: environment.DelegationManager,
+        enforcers,
+      } as ChainContracts);
+    },
+&nbsp;
+    async storeGrant(grant: DelegationGrant): Promise&lt;void&gt; {
+      grants.set(grant.delegation.id, grant);
+      persistGrants();
+    },
+&nbsp;
+    async removeGrant(id: string): Promise&lt;void&gt; {
+      grants.delete(id);
+      persistGrants();
+    },
+&nbsp;
+    async listGrants(): Promise&lt;DelegationGrant[]&gt; {
+      return harden([...grants.values()]);
+    },
   });
-&nbsp;
-  return harden({ delegation, methodName, caveatSpecs, token });
-}
-&nbsp;
-/**
- * Build a transfer delegation grant.
- *
- * @param options - Transfer grant options.
- * @param saltGenerator - Salt generator for delegation uniqueness.
- * @returns An unsigned DelegationGrant for ERC-20 transfers.
- */
-function buildTransferGrant(
-  options: TransferOptions,
-  saltGenerator: SaltGenerator,
-): DelegationGrant {
-  return buildErc20Grant({
-    ...options,
-    methodName: 'transfer',
-    selector: ERC20_TRANSFER_SELECTOR,
-    restrictedAddress: options.recipient,
-    saltGenerator,
-  });
-}
-&nbsp;
-/**
- * Build an approve delegation grant.
- *
- * @param options - Approve grant options.
- * @param saltGenerator - Salt generator for delegation uniqueness.
- * @returns An unsigned DelegationGrant for ERC-20 approvals.
- */
-function buildApproveGrant(
-  options: ApproveOptions,
-  saltGenerator: SaltGenerator,
-): DelegationGrant {
-  return buildErc20Grant({
-    ...options,
-    methodName: 'approve',
-    selector: ERC20_APPROVE_SELECTOR,
-    restrictedAddress: options.spender,
-    saltGenerator,
-  });
-}
-&nbsp;
-/**
- * Build a raw call delegation grant.
- *
- * @param options - Call grant options.
- * @param saltGenerator - Salt generator for delegation uniqueness.
- * @returns An unsigned DelegationGrant for raw calls.
- */
-function buildCallGrant(
-  options: CallOptions,
-  saltGenerator: SaltGenerator,
-): DelegationGrant {
-  const { delegator, delegate, targets, chainId, maxValue, validUntil } =
-    options;
-  const caveats: Caveat[] = [
-    makeCaveat({
-      type: 'allowedTargets',
-      terms: encodeAllowedTargets(targets),
-      chainId,
-    }),
-  ];
-&nbsp;
-  const caveatSpecs: CaveatSpec[] = [];
-&nbsp;
-  if (maxValue !== undefined) {
-    caveats.push(
-      makeCaveat({
-        type: 'valueLte',
-        terms: encodeValueLte(maxValue),
-        chainId,
-      }),
-    );
-    caveatSpecs.push({ type: 'valueLte', max: maxValue });
-  }
-&nbsp;
-  if (validUntil !== undefined) {
-    caveats.push(
-      makeCaveat({
-        type: 'timestamp',
-        terms: encodeTimestamp({ after: 0, before: validUntil }),
-        chainId,
-      }),
-    );
-    caveatSpecs.push({
-      type: 'blockWindow',
-      after: 0n,
-      before: BigInt(validUntil),
-    });
-  }
-&nbsp;
-  const delegation = makeDelegation({
-    delegator,
-    delegate,
-    caveats,
-    chainId,
-    saltGenerator,
-  });
-&nbsp;
-  return harden({ delegation, methodName: 'call', caveatSpecs });
 }
 &nbsp;</pre></td></tr></table></pre>
 
@@ -1159,7 +805,7 @@ function buildCallGrant(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-21T20:04:29.295Z
+                at 2026-04-22T15:20:58.124Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
