@@ -1781,9 +1781,9 @@ export function buildRootObject(
 
     /**
      * Transfer native ETH.
-     * Tries each delegation twin in order; falls back to calling home.
-     * Errors from matched twins propagate — they are not swallowed and do
-     * not fall through to the home section.
+     * Tries each matching delegation twin in order; the first success is
+     * returned. If all matched twins fail, the last error is thrown and the
+     * call does not fall through to the home section.
      *
      * @param to - Recipient address.
      * @param amount - Amount in wei.
@@ -1819,9 +1819,9 @@ export function buildRootObject(
 
     /**
      * Transfer ERC-20 tokens.
-     * Tries delegation twins for this token first; if none match, falls back to
-     * calling home. Errors from matched twins propagate — they are not swallowed
-     * and do not fall through to the home section.
+     * Tries each matching delegation twin in order; the first success is
+     * returned. If all matched twins fail, the last error is thrown and the
+     * call does not fall through to the home section.
      *
      * @param token - ERC-20 token contract address.
      * @param to - Recipient address.
