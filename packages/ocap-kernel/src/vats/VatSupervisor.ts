@@ -305,6 +305,11 @@ export class VatSupervisor {
       TextDecoder: globalThis.TextDecoder,
       setTimeout: globalThis.setTimeout.bind(globalThis),
       clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      // Web Crypto API — safe to endow: pure functions plus a randomness
+      // source, no filesystem/network authority. Opted into per-vat via
+      // `globals: ['crypto']` in the vat config.
+      // eslint-disable-next-line n/no-unsupported-features/node-builtins
+      crypto: globalThis.crypto,
     };
 
     // Build additional endowments from globals list
