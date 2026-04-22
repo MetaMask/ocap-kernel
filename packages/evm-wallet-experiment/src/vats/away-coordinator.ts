@@ -315,6 +315,7 @@ export function buildRootObject(
   }
   smartAccountConfig =
     restoreFromBaggage<SmartAccountConfig>('smartAccountConfig');
+  homeCoordRef = restoreFromBaggage<object>('homeCoordRef');
   homeSection = restoreFromBaggage<object>('homeSection');
 
   /** Chain ID from the last `configureProvider` call (avoids RPC on every send). */
@@ -1887,7 +1888,7 @@ export function buildRootObject(
      * Connect to the home coordinator via an OCAP URL.
      * Redeems the URL to obtain a remote reference to the home coordinator,
      * then fetches the home section exo for the call-home fallback path.
-     * Persists the homeSection reference and rebuilds routing.
+     * Persists homeCoordRef and homeSection and rebuilds routing.
      *
      * @param ocapUrl - The OCAP URL issued by the home coordinator.
      */
@@ -1897,6 +1898,7 @@ export function buildRootObject(
       }
       homeCoordRef = await E(redemptionService).redeem(ocapUrl);
       homeSection = await E(homeCoordRef).getHomeSection();
+      persistBaggage('homeCoordRef', homeCoordRef);
       persistBaggage('homeSection', homeSection);
       await rebuildRouting();
     },
