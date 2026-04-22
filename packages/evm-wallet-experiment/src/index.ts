@@ -55,6 +55,7 @@ export {
   CaveatTypeValues,
   ChainConfigStruct,
   CreateDelegationOptionsStruct,
+  DelegationGrantStruct,
   DelegationStatusValues,
   DelegationStruct,
   Eip712DomainStruct,
@@ -65,6 +66,8 @@ export {
   SmartAccountConfigStruct,
   SwapQuoteStruct,
   TransactionRequestStruct,
+  TransferFungibleGrantStruct,
+  TransferNativeGrantStruct,
   UserOperationStruct,
   WalletCapabilitiesStruct,
 } from './types.ts';

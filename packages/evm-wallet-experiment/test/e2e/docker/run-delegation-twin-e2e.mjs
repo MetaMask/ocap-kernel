@@ -100,7 +100,7 @@ console.log(`\n=== Delegation Twin E2E (${mode}) ===\n`);
 
 console.log('--- Transfer twin: spend tracking ---');
 
-// Home builds and signs the grant. maxAmount is a string because JSON cannot
+// Home builds and signs the grant. totalLimit is a string because JSON cannot
 // carry BigInt; buildTransferFungibleGrant coerces it back to BigInt.
 const signedGrant = await homeClient.callVat(
   homeKref,
@@ -109,7 +109,7 @@ const signedGrant = await homeClient.callVat(
     {
       delegate: delegateAddress,
       token: FAKE_TOKEN,
-      maxAmount: '5',
+      totalLimit: '5',
       chainId: CHAIN_ID,
     },
   ],

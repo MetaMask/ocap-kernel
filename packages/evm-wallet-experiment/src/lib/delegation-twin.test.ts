@@ -59,14 +59,14 @@ function makeTransferNativeGrant(opts?: {
 
 function makeTransferFungibleGrant(opts?: {
   to?: Address;
-  maxAmount?: bigint;
+  totalLimit?: bigint;
 }): TransferFungibleGrant {
   return {
     method: 'transferFungible',
     token: TOKEN,
     delegation: BASE_DELEGATION,
     ...(opts?.to !== undefined && { to: opts.to }),
-    ...(opts?.maxAmount !== undefined && { maxAmount: opts.maxAmount }),
+    ...(opts?.totalLimit !== undefined && { totalLimit: opts.totalLimit }),
   };
 }
 
@@ -141,7 +141,7 @@ describe('makeDelegationTwin', () => {
     it('exposes transferFungible method', () => {
       const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
       const section = makeDelegationTwin({
-        grant: makeTransferFungibleGrant({ maxAmount: 10000n }),
+        grant: makeTransferFungibleGrant({ totalLimit: 10000n }),
         redeemFn,
       });
       expect(
@@ -152,7 +152,7 @@ describe('makeDelegationTwin', () => {
     it('tracks cumulative spend across calls', async () => {
       const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
       const section = makeDelegationTwin({
-        grant: makeTransferFungibleGrant({ maxAmount: 1000n }),
+        grant: makeTransferFungibleGrant({ totalLimit: 1000n }),
         redeemFn,
       });
       const exo = section.exo as Record<
@@ -170,7 +170,7 @@ describe('makeDelegationTwin', () => {
     it('does not commit on redeemFn failure', async () => {
       const redeemFn = vi.fn().mockRejectedValue(new Error('tx reverted'));
       const section = makeDelegationTwin({
-        grant: makeTransferFungibleGrant({ maxAmount: 1000n }),
+        grant: makeTransferFungibleGrant({ totalLimit: 1000n }),
         redeemFn,
       });
       const exo = section.exo as Record<
@@ -199,7 +199,7 @@ describe('makeDelegationTwin', () => {
         .mockResolvedValue(TX_HASH);
 
       const section = makeDelegationTwin({
-        grant: makeTransferFungibleGrant({ maxAmount: 5n }),
+        grant: makeTransferFungibleGrant({ totalLimit: 5n }),
         redeemFn,
       });
       const exo = section.exo as Record<
@@ -251,7 +251,7 @@ describe('makeDelegationTwin', () => {
     it('returns method schemas from __getDescription__ for transferFungible', () => {
       const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
       const section = makeDelegationTwin({
-        grant: makeTransferFungibleGrant({ maxAmount: 1000n }),
+        grant: makeTransferFungibleGrant({ totalLimit: 1000n }),
         redeemFn,
       });
       const exo = section.exo as Record<string, unknown>;
@@ -277,7 +277,7 @@ describe('makeDelegationTwin', () => {
     it('passes an InterfaceGuard to makeDiscoverableExo for transferFungible', () => {
       const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
       makeDelegationTwin({
-        grant: makeTransferFungibleGrant({ maxAmount: 1000n }),
+        grant: makeTransferFungibleGrant({ totalLimit: 1000n }),
         redeemFn,
       });
       expect(lastInterfaceGuard).toBeDefined();

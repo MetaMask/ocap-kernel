@@ -203,7 +203,7 @@ type DelegatorFacet = {
     delegate: Address;
     token: Address;
     to?: Address;
-    maxAmount?: bigint;
+    totalLimit?: bigint;
     chainId: number;
   }) => Promise<TransferFungibleGrant>;
   storeGrant: (grant: DelegationGrant) => Promise<void>;
@@ -1716,7 +1716,7 @@ export function buildRootObject(
      * @param options.delegate - The delegate address.
      * @param options.token - The ERC-20 token contract address.
      * @param options.to - Optional restricted recipient.
-     * @param options.maxAmount - Optional cumulative transfer cap (token units).
+     * @param options.totalLimit - Optional cumulative transfer cap (token units).
      * @param options.chainId - The chain ID.
      * @returns The signed TransferFungibleGrant.
      */
@@ -1724,7 +1724,7 @@ export function buildRootObject(
       delegate: Address;
       token: Address;
       to?: Address;
-      maxAmount?: bigint | string;
+      totalLimit?: bigint | string;
       chainId: number;
     }): Promise<TransferFungibleGrant> {
       if (!delegatorVat) {
@@ -1732,12 +1732,14 @@ export function buildRootObject(
       }
       const delegator =
         smartAccountConfig?.address ?? (await resolveOwnerAddress());
-      const maxAmount =
-        options.maxAmount === undefined ? undefined : BigInt(options.maxAmount);
+      const totalLimit =
+        options.totalLimit === undefined
+          ? undefined
+          : BigInt(options.totalLimit);
       const unsignedGrant = await E(delegatorVat).buildTransferFungibleGrant({
         delegator,
         ...options,
-        maxAmount,
+        totalLimit,
       });
       const signedGrant = await signDelegationInGrant(unsignedGrant);
       await E(delegatorVat).storeGrant(signedGrant);

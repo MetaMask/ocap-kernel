@@ -42,7 +42,7 @@ const FUNGIBLE_GRANT: TransferFungibleGrant = {
   method: 'transferFungible',
   token: '0x3333333333333333333333333333333333333333' as Address,
   to: '0x4444444444444444444444444444444444444444' as Address,
-  maxAmount: 5000n,
+  totalLimit: 5000n,
   delegation: {
     id: '0xbbbb',
     delegator: '0x1111111111111111111111111111111111111111' as Address,

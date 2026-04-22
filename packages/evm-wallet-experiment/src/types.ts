@@ -345,7 +345,7 @@ export type TransferFungibleGrant = {
   /** Restricted recipient; from AllowedCalldataEnforcer. */
   to?: Address;
   /** Cumulative transfer cap; from ERC20TransferAmountEnforcer. */
-  maxAmount?: bigint;
+  totalLimit?: bigint;
   delegation: Delegation;
 };
 
@@ -366,7 +366,7 @@ export const TransferFungibleGrantStruct = object({
   method: literal('transferFungible'),
   token: AddressStruct,
   to: optional(AddressStruct),
-  maxAmount: optional(BigintStruct),
+  totalLimit: optional(BigintStruct),
   delegation: DelegationStruct,
 });
 

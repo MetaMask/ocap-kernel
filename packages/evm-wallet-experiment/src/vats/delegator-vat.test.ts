@@ -223,19 +223,19 @@ describe('delegator-vat', () => {
       expect(types).not.toContain('erc20TransferAmount');
     });
 
-    it('includes erc20TransferAmount caveat when maxAmount is provided', async () => {
+    it('includes erc20TransferAmount caveat when totalLimit is provided', async () => {
       const { root } = makeRoot();
       const grant: TransferFungibleGrant =
         await root.buildTransferFungibleGrant({
           delegator: DELEGATOR,
           delegate: DELEGATE,
           token: TOKEN,
-          maxAmount: 5000n,
+          totalLimit: 5000n,
           chainId: CHAIN_ID,
         });
       const types = grant.delegation.caveats.map((caveat) => caveat.type);
       expect(types).toContain('erc20TransferAmount');
-      expect(grant.maxAmount).toBe(5000n);
+      expect(grant.totalLimit).toBe(5000n);
     });
 
     it('does not include allowedCalldata caveat when to is not provided', async () => {
@@ -266,7 +266,7 @@ describe('delegator-vat', () => {
       expect(grant.to).toBe(RECIPIENT);
     });
 
-    it('includes all caveats when to and maxAmount are provided', async () => {
+    it('includes all caveats when to and totalLimit are provided', async () => {
       const { root } = makeRoot();
       const grant: TransferFungibleGrant =
         await root.buildTransferFungibleGrant({
@@ -274,7 +274,7 @@ describe('delegator-vat', () => {
           delegate: DELEGATE,
           token: TOKEN,
           to: RECIPIENT,
-          maxAmount: 5000n,
+          totalLimit: 5000n,
           chainId: CHAIN_ID,
         });
       const types = grant.delegation.caveats.map((caveat) => caveat.type);

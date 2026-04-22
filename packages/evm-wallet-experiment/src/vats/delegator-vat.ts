@@ -140,10 +140,10 @@ export function buildRootObject(
       delegate: Address;
       token: Address;
       to?: Address;
-      maxAmount?: bigint;
+      totalLimit?: bigint;
       chainId: number;
     }): Promise<TransferFungibleGrant> {
-      const { delegator, delegate, token, to, maxAmount, chainId } = options;
+      const { delegator, delegate, token, to, totalLimit, chainId } = options;
       const caveats = [
         makeCaveat({
           type: 'allowedTargets',
@@ -157,11 +157,11 @@ export function buildRootObject(
         }),
       ];
 
-      if (maxAmount !== undefined) {
+      if (totalLimit !== undefined) {
         caveats.push(
           makeCaveat({
             type: 'erc20TransferAmount',
-            terms: encodeErc20TransferAmount({ token, amount: maxAmount }),
+            terms: encodeErc20TransferAmount({ token, amount: totalLimit }),
             chainId,
           }),
         );
@@ -192,7 +192,7 @@ export function buildRootObject(
         method: 'transferFungible',
         token,
         ...(to !== undefined && { to }),
-        ...(maxAmount !== undefined && { maxAmount }),
+        ...(totalLimit !== undefined && { totalLimit }),
         delegation,
       });
     },

@@ -96,13 +96,13 @@ export function makeDelegationTwin(
   // transferFungible — normalize token address to lowercase for consistent matching.
   const { to } = grant;
   const token = grant.token.toLowerCase() as Address;
-  // maxAmount may arrive as a string when the grant crosses a JSON boundary.
-  // Normalize to bigint so arithmetic and M.lte comparisons work correctly.
-  const maxAmount =
-    grant.maxAmount === undefined ? undefined : BigInt(grant.maxAmount);
+  // totalLimit may arrive as a string when the grant crosses a JSON boundary.
+  // Normalize to bigint so arithmetic comparisons work correctly.
+  const totalLimit =
+    grant.totalLimit === undefined ? undefined : BigInt(grant.totalLimit);
 
   let spent = 0n;
-  const max = maxAmount ?? 2n ** 256n - 1n;
+  const max = totalLimit ?? 2n ** 256n - 1n;
 
   const toGuard = to === undefined ? M.string() : M.eq(to);
 
