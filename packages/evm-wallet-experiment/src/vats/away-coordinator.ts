@@ -1807,7 +1807,14 @@ export function buildRootObject(
             errors.push(error);
           }
         }
-        throw new Error('All delegation twins failed', { cause: errors });
+        const causes = errors
+          .map((twinError) =>
+            twinError instanceof Error ? twinError.message : String(twinError),
+          )
+          .join('; ');
+        throw new Error(`All delegation twins failed: ${causes}`, {
+          cause: errors,
+        });
       }
       if (homeSection) {
         return E(homeSection).transferNative(to, amt);
@@ -1848,7 +1855,14 @@ export function buildRootObject(
             errors.push(error);
           }
         }
-        throw new Error('All delegation twins failed', { cause: errors });
+        const causes = errors
+          .map((twinError) =>
+            twinError instanceof Error ? twinError.message : String(twinError),
+          )
+          .join('; ');
+        throw new Error(`All delegation twins failed: ${causes}`, {
+          cause: errors,
+        });
       }
       if (homeSection) {
         return E(homeSection).transferFungible(token, to, amt);
