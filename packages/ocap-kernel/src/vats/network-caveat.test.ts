@@ -45,14 +45,25 @@ describe('makeHostCaveat', () => {
   });
 
   it.each([
-    { scheme: 'file:', input: 'file:///etc/passwd' },
-    { scheme: 'file: via Request', input: new Request('file:///etc/passwd') },
-  ])('rejects $scheme URLs with an fs-capability hint', async ({ input }) => {
+    { label: 'file: string input', input: 'file:///etc/passwd' },
+    { label: 'file: Request input', input: new Request('file:///etc/passwd') },
+  ])('rejects $label with an fs-capability hint', async ({ input }) => {
     const caveat = makeHostCaveat(['example.test']);
     await expect(caveat(input)).rejects.toThrow(
       /fetch cannot target file:\/\/ URLs.*fs platform capability/u,
     );
   });
+
+  it.each([
+    { label: 'data:', input: 'data:text/plain,hello' },
+    { label: 'blob:', input: 'blob:https://example.test/abc123' },
+  ])(
+    'rejects $label URLs via the hostname check (opaque origin has empty hostname)',
+    async ({ input }) => {
+      const caveat = makeHostCaveat(['example.test']);
+      await expect(caveat(input)).rejects.toThrow('Invalid host:');
+    },
+  );
 
   it.each([
     {

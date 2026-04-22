@@ -33,6 +33,8 @@ describe('createDefaultEndowments', () => {
   // frozen mock, and the resulting error surfaces on the NEXT test.
   afterEach(() => {
     state.override = null;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('produces the expected global names', () => {
@@ -187,11 +189,15 @@ describe('createDefaultEndowments', () => {
     });
   });
 
-  it('swallows logger errors inside notify so fetch is not blocked', async () => {
+  it('swallows logger errors inside notify and surfaces them via console.error', async () => {
     const logger = makeLogger();
+    const transportError = new Error('transport broke');
     vi.spyOn(logger, 'debug').mockImplementation(() => {
-      throw new Error('transport broke');
+      throw transportError;
     });
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => undefined);
     let capturedNotify:
       | ((n: { method: string; params: unknown }) => Promise<void>)
       | undefined;
@@ -215,6 +221,11 @@ describe('createDefaultEndowments', () => {
         params: { source: 'fetch' },
       }),
     ).toBeUndefined();
+
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[ocap-kernel] network endowment logger transport failed',
+      transportError,
+    );
   });
 
   it('teardown aborts in-flight fetches started by the network factory', async () => {
@@ -223,40 +234,36 @@ describe('createDefaultEndowments', () => {
     // than rejects — the vat-visible fetch promise once teardown runs, so
     // the meaningful assertions are (1) the abort signal propagated into
     // the base fetch and (2) teardown returns cleanly without hanging on
-    // the open connection.
-    const originalFetch = globalThis.fetch;
+    // the open connection. `vi.stubGlobal` + `unstubAllGlobals` in afterEach
+    // keeps the global mutation scoped to this test.
     let abortReceived = false;
-    globalThis.fetch = (async (_input, init) => {
-      return await new Promise((_resolve, reject) => {
-        const signal = init?.signal;
-        signal?.addEventListener('abort', () => {
-          abortReceived = true;
-          reject(new Error('aborted'));
-        });
-      });
-    }) as typeof fetch;
+    vi.stubGlobal(
+      'fetch',
+      (async (_input: unknown, init?: RequestInit) =>
+        await new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener('abort', () => {
+            abortReceived = true;
+            reject(new Error('aborted'));
+          });
+        })) as typeof fetch,
+    );
 
-    try {
-      const { globals, teardown } = createDefaultEndowments({
-        logger: makeLogger(),
-      });
-      const fetchFn = globals.fetch as typeof fetch;
+    const { globals, teardown } = createDefaultEndowments({
+      logger: makeLogger(),
+    });
+    const fetchFn = globals.fetch as typeof fetch;
 
-      const inFlight = fetchFn('https://example.test/slow');
-      // Suppress unhandled-rejection noise — the Snaps factory drops this
-      // promise on teardown (neither resolves nor rejects it).
-      inFlight.catch(() => undefined);
+    const inFlight = fetchFn('https://example.test/slow');
+    // Suppress unhandled-rejection noise — the Snaps factory drops this
+    // promise on teardown (neither resolves nor rejects it).
+    inFlight.catch(() => undefined);
 
-      // Give the factory a microtask to register the open connection.
-      await new Promise((resolve) => setTimeout(resolve, 0));
+    // Give the factory a microtask to register the open connection.
+    await new Promise((resolve) => setTimeout(resolve, 0));
 
-      await teardown();
+    await teardown();
 
-      expect(abortReceived).toBe(true);
-    } finally {
-      // eslint-disable-next-line require-atomic-updates
-      globalThis.fetch = originalFetch;
-    }
+    expect(abortReceived).toBe(true);
   });
 
   it('teardown cancels pending timers', async () => {

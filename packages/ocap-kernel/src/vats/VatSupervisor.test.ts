@@ -369,6 +369,15 @@ describe('VatSupervisor', () => {
       });
       await delay(50);
 
+      // With makeLiveSlots mocked, init completes and dispatch receives
+      // the delivery result — assert that positive shape directly so the
+      // test doesn't pass vacuously if init were to short-circuit.
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'test-init',
+          result: expect.anything(),
+        }),
+      );
       expect(dispatch).not.toHaveBeenCalledWith(
         expect.objectContaining({
           id: 'test-init',
