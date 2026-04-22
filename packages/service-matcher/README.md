@@ -1,4 +1,4 @@
-# `@metamask/service-matcher`
+# `@ocap/service-matcher`
 
 Ocap kernel vat implementing the service matcher from
 `@metamask/service-discovery-types`.

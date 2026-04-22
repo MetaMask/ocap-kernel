@@ -100,9 +100,9 @@ if $SKIP_BUILD; then
   [[ -f "$BUNDLE_FILE" ]] || fail "Bundle not found at $BUNDLE_FILE. Remove --no-build or build first."
 else
   info "Building service-matcher package..."
-  (cd "$REPO_ROOT" && yarn workspace @metamask/service-matcher build >&2)
+  (cd "$REPO_ROOT" && yarn workspace @ocap/service-matcher build >&2)
   info "Bundling matcher vat..."
-  (cd "$REPO_ROOT" && yarn workspace @metamask/service-matcher bundle-vat >&2)
+  (cd "$REPO_ROOT" && yarn workspace @ocap/service-matcher bundle-vat >&2)
 fi
 
 # ---------------------------------------------------------------------------
