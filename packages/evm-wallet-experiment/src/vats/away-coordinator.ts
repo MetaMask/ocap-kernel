@@ -1782,8 +1782,8 @@ export function buildRootObject(
     /**
      * Transfer native ETH.
      * Tries each matching delegation twin in order; the first success is
-     * returned. If all matched twins fail, the last error is thrown and the
-     * call does not fall through to the home section.
+     * returned. If all matched twins fail, throws with all collected errors
+     * as the cause array; does not fall through to the home section.
      *
      * @param to - Recipient address.
      * @param amount - Amount in wei.
@@ -1799,15 +1799,15 @@ export function buildRootObject(
         (sec) => sec.method === 'transferNative',
       );
       if (matching.length > 0) {
-        let lastError: unknown;
+        const errors: unknown[] = [];
         for (const section of matching) {
           try {
             return await E(section.exo).transferNative(to, amt);
           } catch (error) {
-            lastError = error;
+            errors.push(error);
           }
         }
-        throw lastError;
+        throw new Error('All delegation twins failed', { cause: errors });
       }
       if (homeSection) {
         return E(homeSection).transferNative(to, amt);
@@ -1820,8 +1820,8 @@ export function buildRootObject(
     /**
      * Transfer ERC-20 tokens.
      * Tries each matching delegation twin in order; the first success is
-     * returned. If all matched twins fail, the last error is thrown and the
-     * call does not fall through to the home section.
+     * returned. If all matched twins fail, throws with all collected errors
+     * as the cause array; does not fall through to the home section.
      *
      * @param token - ERC-20 token contract address.
      * @param to - Recipient address.
@@ -1840,15 +1840,15 @@ export function buildRootObject(
         (sec) => sec.method === 'transferFungible' && sec.token === tokenLower,
       );
       if (matching.length > 0) {
-        let lastError: unknown;
+        const errors: unknown[] = [];
         for (const section of matching) {
           try {
             return await E(section.exo).transferFungible(tokenLower, to, amt);
           } catch (error) {
-            lastError = error;
+            errors.push(error);
           }
         }
-        throw lastError;
+        throw new Error('All delegation twins failed', { cause: errors });
       }
       if (homeSection) {
         return E(homeSection).transferFungible(token, to, amt);
