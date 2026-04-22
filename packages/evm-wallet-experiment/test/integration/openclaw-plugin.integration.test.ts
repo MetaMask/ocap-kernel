@@ -1,3 +1,4 @@
+import { array, assert, object, string } from '@metamask/superstruct';
 import { randomBytes } from 'node:crypto';
 import { access, chmod, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
@@ -8,6 +9,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { register } from '../../openclaw-plugin/index.ts';
 import { makeWalletClusterConfig } from '../../src/cluster-config.ts';
+
+const CapDataStruct = object({ body: string(), slots: array(string()) });
 
 type ToolResponse = {
   content: { type: 'text'; text: string }[];
@@ -113,14 +116,11 @@ async function runOcapJson(
  * @returns Decoded value.
  */
 function decodeCapData(capData: unknown): unknown {
-  const payload = capData as { body?: string; slots?: unknown[] };
-  if (typeof payload.body !== 'string' || !Array.isArray(payload.slots)) {
-    throw new Error('Expected CapData result from queueMessage');
-  }
-  if (!payload.body.startsWith('#')) {
+  assert(capData, CapDataStruct);
+  if (!capData.body.startsWith('#')) {
     throw new Error('Invalid CapData body');
   }
-  return JSON.parse(payload.body.slice(1));
+  return JSON.parse(capData.body.slice(1));
 }
 
 /**

@@ -5,11 +5,75 @@
  * Uses `docker compose exec` to run commands inside containers and
  * `fetch` against exposed ports for direct RPC.
  */
+import { array, is, object, string } from '@metamask/superstruct';
 import { execSync } from 'node:child_process';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { dockerE2eRequiredComposeServices } from './docker-e2e-kernel-services.ts';
+
+const CapDataStruct = object({ body: string(), slots: array(string()) });
+
+/**
+ * Decode a smallcaps CapData value into a plain JS value safe for use as RPC
+ * arguments. BigInts encoded as "+N" are returned as decimal strings "N" so
+ * downstream BigInt("N") calls succeed without a trailing-n error.
+ *
+ * This is intentionally a subset of full kunser: it does not reconstruct
+ * remotables or promises — only plain data structures appear in grant objects.
+ *
+ * @param value - The parsed JSON value from the smallcaps body.
+ * @returns The decoded value.
+ */
+function decodeSmallcapsValue(value: unknown): unknown {
+  if (typeof value === 'string') {
+    if (value.startsWith('+')) {
+      return value.slice(1);
+    } // non-negative bigint → decimal string
+    if (value.startsWith('-')) {
+      return value;
+    } // negative bigint stays as-is (valid for BigInt())
+    if (value.startsWith('!')) {
+      return value.slice(1);
+    } // escaped string
+    return value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(decodeSmallcapsValue);
+  }
+  if (typeof value === 'object' && value !== null) {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      const unescapedKey = key.startsWith('!') ? key.slice(1) : key;
+      result[unescapedKey] = decodeSmallcapsValue(val);
+    }
+    return result;
+  }
+  return value;
+}
+
+/**
+ * Decode a raw CapData object (as produced by the CLI with --raw) into a
+ * plain JS value suitable for passing as RPC arguments.
+ *
+ * @param capData - The CapData object with body and slots.
+ * @param capData.body - Smallcaps-encoded body string (prefixed with `#`).
+ * @param capData.slots - Slot KRefs (unused for plain-data objects).
+ * @returns The decoded value.
+ */
+function decodeCapDataForRpc(capData: {
+  body: string;
+  slots: string[];
+}): unknown {
+  const { body } = capData;
+  if (!body.startsWith('#')) {
+    throw new Error(
+      `Unexpected CapData body format (missing # prefix): ${body.slice(0, 40)}`,
+    );
+  }
+  const parsed: unknown = JSON.parse(body.slice(1));
+  return decodeSmallcapsValue(parsed);
+}
 
 const currentDir = dirname(fileURLToPath(import.meta.url));
 
@@ -113,9 +177,11 @@ export function callVat(
 ): unknown {
   const daemonTimeout = options?.daemonTimeoutSeconds ?? 60;
   const execTimeoutMs = daemonTimeout * 1000 + 30_000;
-  const argsJson = JSON.stringify(args);
+  const argsJson = JSON.stringify(args, (_key, value: unknown) =>
+    typeof value === 'bigint' ? String(value) : value,
+  );
   const raw = execSync(
-    `docker ${composePrefix()} exec -T ${service} ${CLI} daemon queueMessage ${shellSingleQuote(kref)} ${shellSingleQuote(method)} ${shellSingleQuote(argsJson)} --timeout ${daemonTimeout}`,
+    `docker ${composePrefix()} exec -T ${service} ${CLI} daemon queueMessage ${shellSingleQuote(kref)} ${shellSingleQuote(method)} ${shellSingleQuote(argsJson)} --raw --timeout ${daemonTimeout}`,
     { encoding: 'utf-8', timeout: execTimeoutMs },
   ).trim();
 
@@ -130,6 +196,9 @@ export function callVat(
     throw new Error(parsed);
   }
 
+  if (is(parsed, CapDataStruct)) {
+    return decodeCapDataForRpc(parsed);
+  }
   return parsed;
 }
 

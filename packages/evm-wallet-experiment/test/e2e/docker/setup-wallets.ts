@@ -136,44 +136,24 @@ async function main() {
       : `Creating delegation: home → away delegate ${delegate.slice(0, 10)}...`,
   );
 
-  // 1000 ETH max spend caveat via the deployed NativeTokenTransferAmountEnforcer
-  const maxSpendWei = 1000n * 10n ** 18n;
-  const caveats = [
-    {
-      type: 'nativeTokenTransferAmount',
-      enforcer: contracts.caveatEnforcers.NativeTokenTransferAmountEnforcer,
-      terms: `0x${maxSpendWei.toString(16).padStart(64, '0')}`,
-    },
-  ];
-  console.log('Caveat: nativeTokenTransferAmount <= 1000 ETH');
+  // Build a transfer-native grant with 1000 ETH max spend.
+  // maxAmount is passed as a string because JSON cannot carry BigInt;
+  // buildTransferNativeGrant coerces it back to BigInt.
+  const maxSpendWei = (1000n * 10n ** 18n).toString();
+  console.log('Building transfer-native grant: maxAmount = 1000 ETH');
 
-  const delegation = callVat(
+  const signedGrant = callVat(
     kernelServices.home,
     home.kref,
-    'createDelegation',
-    [{ delegate, caveats, chainId: 31337 }],
+    'buildTransferNativeGrant',
+    [{ delegate, maxAmount: maxSpendWei, chainId: 31337 }],
   );
   console.log(
-    `Delegation created: ${(delegation as { id: string }).id.slice(0, 20)}...`,
+    `Grant signed: ${(signedGrant as { delegation: { id: string } }).delegation.id.slice(0, 20)}...`,
   );
 
-  const grant = {
-    delegation,
-    methodName: 'call',
-    // max is passed as a string because JSON cannot carry BigInt;
-    // coordinator-vat's provisionTwin coerces it back to BigInt.
-    caveatSpecs: [
-      {
-        type: 'cumulativeSpend',
-        token: '0x0000000000000000000000000000000000000000',
-        max: maxSpendWei.toString(),
-      },
-    ],
-  };
-  callVat(kernelServices.away, away.kref, 'provisionTwin', [grant]);
-  console.log(
-    'Delegation twin provisioned on away (cumulativeSpend <= 1000 ETH).',
-  );
+  callVat(kernelServices.away, away.kref, 'receiveDelegation', [signedGrant]);
+  console.log('Grant received by away wallet; delegation twin active.');
 
   writeDockerDelegationContextFiles(kernelServices.home, home, away);
 

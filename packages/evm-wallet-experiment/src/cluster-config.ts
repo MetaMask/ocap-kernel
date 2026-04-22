@@ -1,14 +1,11 @@
 import type { ClusterConfig } from '@metamask/ocap-kernel';
 
-import type { Address } from './types.ts';
-
 /**
  * Options for creating a wallet cluster configuration.
  */
 export type WalletClusterConfigOptions = {
   bundleBaseUrl: string;
-  delegationManagerAddress?: Address;
-  chainId?: number;
+  role?: 'home' | 'away';
   forceReset?: boolean;
   services?: string[];
   allowedHosts?: string[];
@@ -25,10 +22,30 @@ export function makeWalletClusterConfig(
 ): ClusterConfig {
   const {
     bundleBaseUrl,
-    delegationManagerAddress,
+    role = 'home',
     services = ['ocapURLIssuerService', 'ocapURLRedemptionService'],
     allowedHosts,
   } = options;
+
+  const coordinatorBundle =
+    role === 'home'
+      ? `${bundleBaseUrl}/home-coordinator.bundle`
+      : `${bundleBaseUrl}/away-coordinator.bundle`;
+
+  const auxiliaryVat =
+    role === 'home'
+      ? {
+          delegator: {
+            bundleSpec: `${bundleBaseUrl}/delegator-vat.bundle`,
+            globals: ['TextEncoder', 'TextDecoder'],
+          },
+        }
+      : {
+          redeemer: {
+            bundleSpec: `${bundleBaseUrl}/redeemer-vat.bundle`,
+            globals: ['TextEncoder', 'TextDecoder'],
+          },
+        };
 
   return {
     bootstrap: 'coordinator',
@@ -36,7 +53,7 @@ export function makeWalletClusterConfig(
     services,
     vats: {
       coordinator: {
-        bundleSpec: `${bundleBaseUrl}/coordinator-vat.bundle`,
+        bundleSpec: coordinatorBundle,
         globals: ['TextEncoder', 'TextDecoder', 'Date', 'setTimeout'],
       },
       keyring: {
@@ -50,13 +67,7 @@ export function makeWalletClusterConfig(
           fetch: allowedHosts ? { allowedHosts } : {},
         },
       },
-      delegation: {
-        bundleSpec: `${bundleBaseUrl}/delegation-vat.bundle`,
-        globals: ['TextEncoder', 'TextDecoder'],
-        ...(delegationManagerAddress
-          ? { parameters: { delegationManagerAddress } }
-          : {}),
-      },
+      ...auxiliaryVat,
     },
   };
 }

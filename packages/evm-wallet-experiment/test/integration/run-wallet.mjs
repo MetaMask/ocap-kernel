@@ -75,9 +75,14 @@ async function call(kernel, target, method, args = []) {
  * @returns {Promise<string>}
  */
 async function callExpectError(kernel, target, method, args = []) {
-  const result = await kernel.queueMessage(target, method, args);
-  await waitUntilQuiescent();
-  return result.body;
+  try {
+    await kernel.queueMessage(target, method, args);
+    await waitUntilQuiescent();
+    return null;
+  } catch (error) {
+    await waitUntilQuiescent();
+    return error;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -204,38 +209,42 @@ async function main() {
     `typed data sig is 65 bytes (got ${typedSig.length})`,
   );
 
-  // -- Create delegation --
-  console.log('\n--- Create delegation ---');
-  const delegation = await call(kernel, coordinatorKref, 'createDelegation', [
-    {
-      delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
-      caveats: [],
-      chainId: 1,
-    },
-  ]);
-  assert(
-    typeof delegation === 'object' && delegation !== null,
-    'delegation is an object',
+  // -- Build delegation grant --
+  console.log('\n--- Build delegation grant ---');
+  const grant = await call(
+    kernel,
+    coordinatorKref,
+    'buildTransferNativeGrant',
+    [
+      {
+        delegate: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
+        chainId: 1,
+      },
+    ],
   );
-  assert(typeof delegation.id === 'string', 'delegation has an id');
-  assert(delegation.status === 'signed', 'delegation is signed');
-  assert(delegation.signature.startsWith('0x'), 'delegation has a signature');
+  assert(typeof grant === 'object' && grant !== null, 'grant is an object');
+  assert(typeof grant.delegation.id === 'string', 'delegation has an id');
+  assert(grant.delegation.status === 'signed', 'delegation is signed');
   assert(
-    delegation.delegator.toLowerCase() === accounts[0].toLowerCase(),
+    grant.delegation.signature.startsWith('0x'),
+    'delegation has a signature',
+  );
+  assert(
+    grant.delegation.delegator.toLowerCase() === accounts[0].toLowerCase(),
     'delegator is our account',
   );
   assert(
-    delegation.delegate.toLowerCase() ===
+    grant.delegation.delegate.toLowerCase() ===
       '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
     'delegate matches',
   );
 
-  // -- List delegations --
-  console.log('\n--- List delegations ---');
-  const delegations = await call(kernel, coordinatorKref, 'listDelegations');
-  assert(Array.isArray(delegations), 'listDelegations returns array');
-  assert(delegations.length === 1, 'one delegation');
-  assert(delegations[0].id === delegation.id, 'correct delegation');
+  // -- List grants --
+  console.log('\n--- List grants ---');
+  const grants = await call(kernel, coordinatorKref, 'listGrants');
+  assert(Array.isArray(grants), 'listGrants returns array');
+  assert(grants.length === 1, 'one grant');
+  assert(grants[0].delegation.id === grant.delegation.id, 'correct grant');
 
   // -- No authority error --
   console.log('\n--- No authority error ---');
@@ -245,11 +254,11 @@ async function main() {
   const result2 = await kernel.launchSubcluster(walletConfig2);
   await waitUntilQuiescent();
   const coordinator2 = result2.rootKref;
-  const errorBody = await callExpectError(kernel, coordinator2, 'signMessage', [
+  const signError = await callExpectError(kernel, coordinator2, 'signMessage', [
     'should fail',
   ]);
   assert(
-    errorBody.includes('#error') || errorBody.includes('No authority'),
+    signError instanceof Error && signError.message.includes('No authority'),
     'error when no authority to sign',
   );
 

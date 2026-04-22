@@ -121,24 +121,23 @@ async function main() {
   );
   assert(accounts[0] === smartConfig.address, 'same address as EOA');
 
-  const delegation = await call(kernel, rootKref, 'createDelegation', [
+  const grant = await call(kernel, rootKref, 'buildTransferNativeGrant', [
     {
       delegate: smartConfig.address,
-      caveats: [],
       chainId: SEPOLIA_CHAIN_ID,
     },
   ]);
-  assert(delegation.status === 'signed', 'delegation signed');
+  assert(grant.delegation.status === 'signed', 'delegation signed');
 
   console.log('\n--- Redeem via direct tx (no bundler) ---');
   const txHash = await call(kernel, rootKref, 'redeemDelegation', [
     {
+      delegation: grant.delegation,
       execution: {
         target: smartConfig.address,
         value: '0x0',
         callData: '0x',
       },
-      delegationId: delegation.id,
     },
   ]);
   assert(

@@ -52,7 +52,8 @@ export type AwayResult = {
 export type { DockerKernelServicePair };
 
 /**
- * Address to pass as `delegate` when calling `createDelegation`.
+ * Address to pass as `delegate` when calling `buildTransferNativeGrant` or
+ * `buildTransferFungibleGrant`.
  *
  * DelegationManager.redeemDelegations requires `delegations[0].delegate == msg.sender`
  * (unless delegate is `ANY_DELEGATE`). Away wallets with a bundler redeem with
@@ -63,7 +64,7 @@ export type { DockerKernelServicePair };
  * @param options.delegationMode - `bundler-7702`, `bundler-hybrid`, or `peer-relay`.
  * @param options.home - Home wallet setup result.
  * @param options.away - Away wallet setup result.
- * @returns The `delegate` field for `createDelegation`.
+ * @returns The `delegate` field for grant creation.
  */
 export function resolveOnChainDelegateAddress(options: {
   delegationMode: string;
@@ -94,6 +95,7 @@ export function setupHome(
   const info = getServiceInfo(services.home);
 
   const kref = launchWalletSubcluster(services.home, {
+    role: 'home',
     contracts,
     allowedHosts: ALLOWED_HOSTS,
   });
@@ -157,6 +159,7 @@ function setupAwayBase(
   home: HomeResult,
 ): { kref: string; delegateAddress: string } {
   const kref = launchWalletSubcluster(services.away, {
+    role: 'away',
     contracts,
     allowedHosts: ALLOWED_HOSTS,
   });

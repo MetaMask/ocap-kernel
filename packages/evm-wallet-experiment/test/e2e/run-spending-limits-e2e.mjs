@@ -72,8 +72,10 @@ const USEROP_TIMEOUT = 120_000;
 const delegationManagerAddress = getDelegationManagerAddress(SEPOLIA_CHAIN_ID);
 const bundlerUrl = `https://api.pimlico.io/v2/sepolia/rpc?apikey=${PIMLICO_API_KEY}`;
 
-// Spending limits for the test delegation
-const TOTAL_LIMIT_WEI = 20_000_000_000_000n; // 0.00002 ETH
+// Spending limits for the test delegation.
+// TOTAL = 1.5 × PER_TX so that after spending WITHIN (0.5 × PER_TX) the
+// remaining budget (1 × PER_TX) fits within a single per-tx send.
+const TOTAL_LIMIT_WEI = 15_000_000_000_000n; // 0.000015 ETH
 const PER_TX_LIMIT_WEI = 10_000_000_000_000n; // 0.00001 ETH
 const WITHIN_LIMIT_WEI = 5_000_000_000_000n; // 0.000005 ETH (half of per-tx)
 const OVER_TX_LIMIT_WEI = 15_000_000_000_000n; // 0.000015 ETH (exceeds per-tx)
@@ -135,6 +137,33 @@ async function callExpectError(kernel, target, method, args = []) {
   } catch (error) {
     return error.message || String(error);
   }
+}
+
+async function waitForTxReceipt(txHash) {
+  console.log(`  Polling for receipt (timeout: ${USEROP_TIMEOUT / 1000}s)...`);
+  const deadline = Date.now() + USEROP_TIMEOUT;
+  while (Date.now() < deadline) {
+    try {
+      const resp = await fetch(SEPOLIA_RPC_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'eth_getTransactionReceipt',
+          params: [txHash],
+        }),
+      });
+      const json = await resp.json();
+      if (json.result) {
+        return json.result;
+      }
+    } catch {
+      // ignore fetch errors during polling
+    }
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+  }
+  return null;
 }
 
 async function waitForUserOpReceipt(userOpHash) {
@@ -231,6 +260,37 @@ async function main() {
   );
 
   // =====================================================================
+  // 2.5. Fund smart account with ETH
+  //
+  // Delegation executions send ETH *from* the smart account; without a
+  // balance the on-chain execution reverts even though gas is sponsored.
+  // Fund with slightly more than the total limit so the account can cover
+  // all test sends (each is a self-send so the balance never decreases).
+  // =====================================================================
+
+  console.log('\n--- Fund smart account ---');
+  const FUND_AMOUNT_WEI = TOTAL_LIMIT_WEI + 5_000_000_000_000n;
+  const fundValueHex = `0x${FUND_AMOUNT_WEI.toString(16)}`;
+  console.log(
+    `  Sending ${Number(FUND_AMOUNT_WEI) / 1e18} ETH from EOA (${accounts[0]}) to ${smartConfig.address}...`,
+  );
+  const fundTxHash = await call(kernel, rootKref, 'sendTransaction', [
+    {
+      from: accounts[0],
+      to: smartConfig.address,
+      value: fundValueHex,
+    },
+  ]);
+  assert(
+    typeof fundTxHash === 'string' && fundTxHash.startsWith('0x'),
+    `fund tx hash: ${fundTxHash}`,
+  );
+  const fundReceipt = await waitForTxReceipt(fundTxHash);
+  assert(fundReceipt !== null, 'fund tx receipt received');
+  assert(fundReceipt?.status === '0x1', 'fund tx succeeded');
+  console.log(`  Funded: https://sepolia.etherscan.io/tx/${fundTxHash}`);
+
+  // =====================================================================
   // 3. Build spending-limit caveats
   // =====================================================================
 
@@ -264,41 +324,44 @@ async function main() {
   );
   assert(perTxCaveat.type === 'valueLte', 'per-tx caveat type');
 
-  const caveats = [totalLimitCaveat, perTxCaveat];
   console.log(
     `  Total limit: ${Number(TOTAL_LIMIT_WEI) / 1e18} ETH, Per-tx limit: ${Number(PER_TX_LIMIT_WEI) / 1e18} ETH`,
   );
 
   // =====================================================================
-  // 4. Create delegation with spending limits
+  // 4. Build delegation grant with spending limits
   // =====================================================================
 
-  console.log('\n--- Create delegation with spending limits ---');
-  const delegation = await call(kernel, rootKref, 'createDelegation', [
+  console.log('\n--- Build delegation grant with spending limits ---');
+  const grant = await call(kernel, rootKref, 'buildTransferNativeGrant', [
     {
       delegate: smartConfig.address,
-      caveats,
+      totalLimit: TOTAL_LIMIT_WEI,
+      maxAmount: PER_TX_LIMIT_WEI,
       chainId: SEPOLIA_CHAIN_ID,
     },
   ]);
-  assert(delegation.status === 'signed', 'delegation signed');
-  assert(delegation.caveats.length === 2, 'delegation has 2 caveats');
+  assert(grant.delegation.status === 'signed', 'delegation signed');
+  assert(grant.delegation.caveats.length === 2, 'delegation has 2 caveats');
   assert(
-    delegation.caveats[0].type === 'nativeTokenTransferAmount',
+    grant.delegation.caveats[0].type === 'nativeTokenTransferAmount',
     'first caveat: nativeTokenTransferAmount',
   );
-  assert(delegation.caveats[1].type === 'valueLte', 'second caveat: valueLte');
   assert(
-    delegation.caveats[0].enforcer.toLowerCase() ===
+    grant.delegation.caveats[1].type === 'valueLte',
+    'second caveat: valueLte',
+  );
+  assert(
+    grant.delegation.caveats[0].enforcer.toLowerCase() ===
       sepoliaContracts.enforcers.nativeTokenTransferAmount.toLowerCase(),
     'first caveat uses correct enforcer address',
   );
   assert(
-    delegation.caveats[1].enforcer.toLowerCase() ===
+    grant.delegation.caveats[1].enforcer.toLowerCase() ===
       sepoliaContracts.enforcers.valueLte.toLowerCase(),
     'second caveat uses correct enforcer address',
   );
-  console.log(`  Delegation ID: ${delegation.id.slice(0, 20)}...`);
+  console.log(`  Delegation ID: ${grant.delegation.id.slice(0, 20)}...`);
 
   // =====================================================================
   // 5. Redeem within limits (should succeed)
@@ -311,12 +374,12 @@ async function main() {
   );
   const userOpHash = await call(kernel, rootKref, 'redeemDelegation', [
     {
+      delegation: grant.delegation,
       execution: {
         target: smartConfig.address,
         value: withinValueHex,
         callData: '0x',
       },
-      delegationId: delegation.id,
     },
   ]);
   assert(
@@ -348,12 +411,12 @@ async function main() {
     'redeemDelegation',
     [
       {
+        delegation: grant.delegation,
         execution: {
           target: smartConfig.address,
           value: overTxHex,
           callData: '0x',
         },
-        delegationId: delegation.id,
       },
     ],
   );
@@ -378,12 +441,12 @@ async function main() {
 
   const exhaustHash = await call(kernel, rootKref, 'redeemDelegation', [
     {
+      delegation: grant.delegation,
       execution: {
         target: smartConfig.address,
         value: remainingHex,
         callData: '0x',
       },
-      delegationId: delegation.id,
     },
   ]);
 
@@ -405,12 +468,12 @@ async function main() {
       'redeemDelegation',
       [
         {
+          delegation: grant.delegation,
           execution: {
             target: smartConfig.address,
             value: '0x1',
             callData: '0x',
           },
-          delegationId: delegation.id,
         },
       ],
     );

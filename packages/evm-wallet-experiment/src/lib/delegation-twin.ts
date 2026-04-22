@@ -1,240 +1,156 @@
 import { M } from '@endo/patterns';
-import type { MethodSchema } from '@metamask/kernel-utils';
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 
-import {
-  decodeBalanceOfResult,
-  encodeBalanceOf,
-  FIRST_ARG_OFFSET,
-} from './erc20.ts';
-import { GET_BALANCE_SCHEMA, METHOD_CATALOG } from './method-catalog.ts';
-import type { CatalogMethodName } from './method-catalog.ts';
-import type {
-  Address,
-  CaveatSpec,
-  DelegationGrant,
-  Execution,
-  Hex,
-} from '../types.ts';
+import { encodeTransfer } from './erc20.ts';
+import { METHOD_CATALOG } from './method-catalog.ts';
+import type { Address, DelegationGrant, Execution, Hex } from '../types.ts';
 
-const METHODS_WITH_ADDRESS_ARG: ReadonlySet<string> = new Set([
-  'transfer',
-  'approve',
-]);
-
-/**
- * Extract a restricted address from an `allowedCalldata` caveat spec that
- * pins the first argument (offset 4, 32-byte ABI-encoded address).
- *
- * @param caveatSpecs - The caveat specs to search.
- * @returns The restricted address, or undefined if none found.
- */
-function findRestrictedAddress(caveatSpecs: CaveatSpec[]): Address | undefined {
-  const spec = caveatSpecs.find(
-    (cs): cs is CaveatSpec & { type: 'allowedCalldata' } =>
-      cs.type === 'allowedCalldata' && cs.dataStart === FIRST_ARG_OFFSET,
-  );
-  if (!spec) {
-    return undefined;
-  }
-  // The value is a 32-byte ABI-encoded address; extract the last 40 hex chars.
-  return `0x${spec.value.slice(-40)}`;
-}
-
-/**
- * Build the method guard for a catalog method, optionally restricting the
- * first (address) argument to a single literal value.
- *
- * @param methodName - The catalog method name.
- * @param restrictAddress - If provided, lock the first arg to this literal.
- * @returns A method guard for use in an InterfaceGuard.
- */
-function buildMethodGuard(
-  methodName: CatalogMethodName,
-  restrictAddress?: Address,
-): ReturnType<typeof M.callWhen> {
-  const addrGuard =
-    restrictAddress !== undefined && METHODS_WITH_ADDRESS_ARG.has(methodName)
-      ? restrictAddress
-      : M.string();
-
-  switch (methodName) {
-    case 'transfer':
-    case 'approve':
-      return M.callWhen(addrGuard, M.scalar()).returns(M.string());
-    case 'call':
-      return M.callWhen(M.string(), M.scalar(), M.string()).returns(M.string());
-    default:
-      throw new Error(`Unknown catalog method: ${String(methodName)}`);
-  }
-}
-
-type SpendTracker = {
-  spent: bigint;
-  max: bigint;
-  remaining: () => bigint;
-  commit: (amount: bigint) => void;
-  rollback: (amount: bigint) => void;
-};
-
-/**
- * Create a spend tracker for a cumulative-spend caveat spec.
- *
- * @param spec - The cumulative-spend caveat spec.
- * @returns A spend tracker with commit/rollback semantics.
- */
-function makeSpendTracker(
-  spec: CaveatSpec & { type: 'cumulativeSpend' },
-): SpendTracker {
-  let spent = 0n;
-  return {
-    get spent() {
-      return spent;
-    },
-    max: spec.max,
-    remaining: () => spec.max - spent,
-    commit: (amount: bigint) => {
-      spent += amount;
-    },
-    rollback: (amount: bigint) => {
-      spent -= amount;
-    },
-  };
-}
-
-/**
- * Find and create a spend tracker from a list of caveat specs.
- *
- * @param caveatSpecs - The caveat specs to search.
- * @returns A spend tracker if a cumulative-spend spec is found.
- */
-function findSpendTracker(caveatSpecs: CaveatSpec[]): SpendTracker | undefined {
-  const spec = caveatSpecs.find(
-    (cs): cs is CaveatSpec & { type: 'cumulativeSpend' } =>
-      cs.type === 'cumulativeSpend',
-  );
-  return spec ? makeSpendTracker(spec) : undefined;
-}
+export type DelegationSection =
+  | { exo: object; method: 'transferNative' }
+  | { exo: object; method: 'transferFungible'; token: Address };
 
 type DelegationTwinOptions = {
   grant: DelegationGrant;
   redeemFn: (execution: Execution) => Promise<Hex>;
-  readFn?: (opts: { to: Address; data: Hex }) => Promise<Hex>;
 };
 
 /**
- * Create a discoverable exo twin for a delegation grant.
+ * Build a DelegationSection for a delegation grant.
+ * The resulting exo exposes the method covered by the grant, enforcing
+ * local guards and (for transferFungible) a local budget tracker.
  *
  * @param options - Twin construction options.
- * @param options.grant - The delegation grant to wrap.
- * @param options.redeemFn - Function to redeem a delegation execution.
- * @param options.readFn - Optional function for read-only calls.
- * @returns A discoverable exo with delegation methods.
+ * @param options.grant - The semantic delegation grant to wrap.
+ * @param options.redeemFn - Submits an Execution to the delegation framework.
+ * @returns A DelegationSection wrapping the delegation exo.
  */
 export function makeDelegationTwin(
   options: DelegationTwinOptions,
-): ReturnType<typeof makeDiscoverableExo> {
-  const { grant, redeemFn, readFn } = options;
-  const { methodName, caveatSpecs, delegation } = grant;
-
-  const entry = METHOD_CATALOG[methodName as CatalogMethodName];
-  if (!entry) {
-    throw new Error(`Unknown method in grant: ${methodName}`);
-  }
-
-  const tracker = findSpendTracker(caveatSpecs);
-  const valueLteSpec = caveatSpecs.find(
-    (cs): cs is CaveatSpec & { type: 'valueLte' } => cs.type === 'valueLte',
-  );
-  const { token } = grant;
+): DelegationSection {
+  const { grant, redeemFn } = options;
+  const { delegation } = grant;
   const idPrefix = delegation.id.slice(0, 12);
 
-  const primaryMethod = async (...args: unknown[]): Promise<Hex> => {
-    // Coerce args[1] (amount/value) to BigInt for transfer, approve, and call
-    // — necessary when args arrive as strings over the daemon JSON-RPC boundary.
-    const normalizedArgs =
-      args.length > 1
-        ? [
-            args[0],
-            BigInt(args[1] as string | number | bigint),
-            ...args.slice(2),
-          ]
-        : args;
+  if (grant.method === 'transferNative') {
+    const { to } = grant;
+    // maxAmount may arrive as a string when the grant crosses a JSON boundary
+    // (e.g. CLI args or test helpers). Normalize to bigint so M.lte() and the
+    // method body comparison work correctly regardless of the source.
+    const maxAmount =
+      grant.maxAmount === undefined ? undefined : BigInt(grant.maxAmount);
+    const totalLimit =
+      grant.totalLimit === undefined ? undefined : BigInt(grant.totalLimit);
 
-    // Local valueLte check for call twins (mirrors on-chain ValueLteEnforcer).
-    if (valueLteSpec !== undefined) {
-      const value = normalizedArgs[1] as bigint;
-      if (value > valueLteSpec.max) {
-        throw new Error(`Value ${value} exceeds limit ${valueLteSpec.max}`);
-      }
-    }
+    const toGuard = to === undefined ? M.string() : M.eq(to);
+    const amountGuard = maxAmount === undefined ? M.bigint() : M.lte(maxAmount);
 
-    let trackAmount: bigint | undefined;
-    if (tracker) {
-      trackAmount = normalizedArgs[1] as bigint;
-      if (trackAmount > tracker.remaining()) {
-        throw new Error(
-          `Insufficient budget: requested ${trackAmount}, remaining ${tracker.remaining()}`,
-        );
-      }
-      // Reserve before the await so concurrent calls see the updated budget
-      // and cannot both pass the check. Roll back if redeemFn fails.
-      tracker.commit(trackAmount);
-    }
-
-    const execution = entry.buildExecution(
-      token ?? ('' as Address),
-      normalizedArgs,
+    const interfaceGuard = M.interface(
+      `DelegationTwin:transferNative:${idPrefix}`,
+      {
+        transferNative: M.callWhen(toGuard, amountGuard).returns(M.string()),
+      },
+      { defaultGuards: 'passable' },
     );
 
-    try {
-      return await redeemFn(execution);
-    } catch (error) {
-      if (tracker && trackAmount !== undefined) {
-        tracker.rollback(trackAmount);
-      }
-      throw error;
-    }
-  };
+    let spent = 0n;
+    const cumulativeMax = totalLimit ?? 2n ** 256n - 1n;
 
-  const methods: Record<string, (...args: unknown[]) => unknown> = {
-    [methodName]: primaryMethod,
-  };
-  const schema: Record<string, MethodSchema> = {
-    [methodName]: entry.schema,
-  };
+    const exo = makeDiscoverableExo(
+      `DelegationTwin:transferNative:${idPrefix}`,
+      {
+        async transferNative(recipient: Address, amount: bigint): Promise<Hex> {
+          if (maxAmount !== undefined && amount > maxAmount) {
+            throw new Error(`Amount ${amount} exceeds limit ${maxAmount}`);
+          }
+          if (amount > cumulativeMax - spent) {
+            throw new Error(
+              `Insufficient budget: requested ${amount}, remaining ${cumulativeMax - spent}`,
+            );
+          }
 
-  const restrictedAddress = findRestrictedAddress(caveatSpecs);
+          // Reserve before the await so concurrent calls see the updated budget.
+          spent += amount;
 
-  const methodGuards: Record<string, ReturnType<typeof M.callWhen>> = {
-    [methodName]: buildMethodGuard(
-      methodName as CatalogMethodName,
-      restrictedAddress,
-    ),
-  };
+          const execution: Execution = {
+            target: recipient,
+            value: `0x${amount.toString(16)}`,
+            callData: '0x' as Hex,
+          };
 
-  if (readFn && token) {
-    methods.getBalance = async (): Promise<bigint> => {
-      const result = await readFn({
-        to: token,
-        data: encodeBalanceOf(delegation.delegator),
-      });
-      return decodeBalanceOfResult(result);
-    };
-    schema.getBalance = GET_BALANCE_SCHEMA;
-    methodGuards.getBalance = M.callWhen().returns(M.bigint());
+          try {
+            return await redeemFn(execution);
+          } catch (error) {
+            // Roll back on redeemFn failure.
+            spent -= amount;
+            throw error;
+          }
+        },
+      },
+      { transferNative: METHOD_CATALOG.transferNative },
+      interfaceGuard,
+    );
+
+    return { exo, method: 'transferNative' };
   }
 
+  // transferFungible — normalize token address to lowercase for consistent matching.
+  const { to } = grant;
+  const token = grant.token.toLowerCase() as Address;
+  // totalLimit may arrive as a string when the grant crosses a JSON boundary.
+  // Normalize to bigint so arithmetic comparisons work correctly.
+  const totalLimit =
+    grant.totalLimit === undefined ? undefined : BigInt(grant.totalLimit);
+
+  let spent = 0n;
+  const max = totalLimit ?? 2n ** 256n - 1n;
+
+  const toGuard = to === undefined ? M.string() : M.eq(to);
+
   const interfaceGuard = M.interface(
-    `DelegationTwin:${methodName}:${idPrefix}`,
-    methodGuards,
+    `DelegationTwin:transferFungible:${idPrefix}`,
+    {
+      transferFungible: M.callWhen(M.eq(token), toGuard, M.bigint()).returns(
+        M.string(),
+      ),
+    },
     { defaultGuards: 'passable' },
   );
 
-  return makeDiscoverableExo(
-    `DelegationTwin:${methodName}:${idPrefix}`,
-    methods,
-    schema,
+  const exo = makeDiscoverableExo(
+    `DelegationTwin:transferFungible:${idPrefix}`,
+    {
+      async transferFungible(
+        tokenAddress: Address,
+        recipient: Address,
+        amount: bigint,
+      ): Promise<Hex> {
+        if (amount > max - spent) {
+          throw new Error(
+            `Insufficient budget: requested ${amount}, remaining ${max - spent}`,
+          );
+        }
+
+        // Reserve before the await so concurrent calls see the updated budget.
+        spent += amount;
+
+        const execution: Execution = {
+          target: tokenAddress,
+          value: '0x0' as Hex,
+          callData: encodeTransfer(recipient, amount),
+        };
+
+        try {
+          return await redeemFn(execution);
+        } catch (error) {
+          // Roll back on redeemFn failure.
+          spent -= amount;
+          throw error;
+        }
+      },
+    },
+    { transferFungible: METHOD_CATALOG.transferFungible },
     interfaceGuard,
   );
+
+  return { exo, method: 'transferFungible', token };
 }

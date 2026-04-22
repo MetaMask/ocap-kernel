@@ -324,46 +324,59 @@ export type DelegationMatchResult = {
 };
 
 // ---------------------------------------------------------------------------
-// Delegation grant (twin construction input)
+// Semantic delegation grants (twin construction input — post-decoded)
 // ---------------------------------------------------------------------------
 
-const BigIntStruct = define<bigint>(
-  'BigInt',
+export type TransferNativeGrant = {
+  method: 'transferNative';
+  /** Restricted recipient; enforced by AllowedTargetsEnforcer on-chain. */
+  to?: Address;
+  /** Per-call ETH value limit; enforced by ValueLteEnforcer on-chain. */
+  maxAmount?: bigint;
+  /** Cumulative ETH transfer cap; enforced by NativeTokenTransferAmountEnforcer on-chain. */
+  totalLimit?: bigint;
+  delegation: Delegation;
+};
+
+export type TransferFungibleGrant = {
+  method: 'transferFungible';
+  /** ERC-20 token contract; from AllowedTargetsEnforcer. Always present. */
+  token: Address;
+  /** Restricted recipient; from AllowedCalldataEnforcer. */
+  to?: Address;
+  /** Cumulative transfer cap; from ERC20TransferAmountEnforcer. */
+  totalLimit?: bigint;
+  delegation: Delegation;
+};
+
+const BigintStruct = define<bigint>(
+  'bigint',
   (value) => typeof value === 'bigint',
 );
 
-export const CaveatSpecStruct = union([
-  object({
-    type: literal('cumulativeSpend'),
-    token: AddressStruct,
-    max: BigIntStruct,
-  }),
-  object({
-    type: literal('blockWindow'),
-    after: BigIntStruct,
-    before: BigIntStruct,
-  }),
-  object({
-    type: literal('allowedCalldata'),
-    dataStart: number(),
-    value: HexStruct,
-  }),
-  object({
-    type: literal('valueLte'),
-    max: BigIntStruct,
-  }),
-]);
-
-export type CaveatSpec = Infer<typeof CaveatSpecStruct>;
-
-export const DelegationGrantStruct = object({
+export const TransferNativeGrantStruct = object({
+  method: literal('transferNative'),
+  to: optional(AddressStruct),
+  maxAmount: optional(BigintStruct),
+  totalLimit: optional(BigintStruct),
   delegation: DelegationStruct,
-  methodName: string(),
-  caveatSpecs: array(CaveatSpecStruct),
-  token: optional(AddressStruct),
 });
 
-export type DelegationGrant = Infer<typeof DelegationGrantStruct>;
+export const TransferFungibleGrantStruct = object({
+  method: literal('transferFungible'),
+  token: AddressStruct,
+  to: optional(AddressStruct),
+  totalLimit: optional(BigintStruct),
+  delegation: DelegationStruct,
+});
+
+export const DelegationGrantStruct = union([
+  TransferNativeGrantStruct,
+  TransferFungibleGrantStruct,
+]);
+
+/** Discriminated union of all supported semantic delegation grant types. */
+export type DelegationGrant = TransferNativeGrant | TransferFungibleGrant;
 
 // ---------------------------------------------------------------------------
 // Swap types (MetaSwap API)
