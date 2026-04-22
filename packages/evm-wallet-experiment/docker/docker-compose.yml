@@ -107,7 +107,7 @@ services:
       test:
         ['CMD', 'test', '-f', '/run/ocap/kernel-home-bundler-7702-ready.json']
 
-  # Default target is `kernel` (E2E). Interactive: `docker/.env.interactive` sets KERNEL_AWAY_7702_TARGET=interactive.
+  # Default target is `kernel` (E2E). Demo: `docker/.env.demo` sets KERNEL_AWAY_7702_TARGET=demo.
   kernel-away-bundler-7702:
     <<: *kernel-standard
     profiles:

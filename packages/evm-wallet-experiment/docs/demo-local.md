@@ -35,18 +35,18 @@ The Docker Compose stack mimics a real deployment:
 
 Two modes of operation:
 
-| Mode            | What runs                      | When to use                                      |
-| --------------- | ------------------------------ | ------------------------------------------------ |
-| **Interactive** | One home/away pair             | Manual testing, development, AI agent simulation |
-| **E2E test**    | All three pairs simultaneously | `yarn test:e2e:docker` automated tests           |
+| Mode         | What runs                      | When to use                                      |
+| ------------ | ------------------------------ | ------------------------------------------------ |
+| **Demo**     | One home/away pair             | Manual testing, development, AI agent simulation |
+| **E2E test** | All three pairs simultaneously | `yarn test:e2e:docker` automated tests           |
 
-This guide covers interactive mode.
+This guide covers demo mode.
 
 ---
 
 ## Delegation modes
 
-Interactive mode supports three delegation strategies. Choose one per session.
+Demo mode supports three delegation strategies. Choose one per session.
 
 | Mode                     | Home account type                   | How away redeems                                | QUIC ports  |
 | ------------------------ | ----------------------------------- | ----------------------------------------------- | ----------- |
@@ -69,12 +69,12 @@ yarn workspace @ocap/evm-wallet-experiment docker:demo:up -- --pair bundler-hybr
 ```
 
 Starts the EVM, bundler, and one home/away kernel pair. Builds containers if needed.
-The away container for `bundler-7702` is built with the `interactive` Dockerfile target, which includes the OpenClaw CLI.
+The away container for `bundler-7702` is built with the `demo` Dockerfile target, which includes the OpenClaw CLI.
 
-Set `OCAP_INTERACTIVE_PAIR` to avoid passing `--pair` every time:
+Set `OCAP_DEMO_PAIR` to avoid passing `--pair` every time:
 
 ```bash
-export OCAP_INTERACTIVE_PAIR=peer-relay
+export OCAP_DEMO_PAIR=peer-relay
 yarn workspace @ocap/evm-wallet-experiment docker:demo:up
 ```
 

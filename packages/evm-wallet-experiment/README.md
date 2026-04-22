@@ -712,7 +712,7 @@ yarn workspace @ocap/evm-wallet-experiment build
 yarn workspace @ocap/evm-wallet-experiment lint:fix
 ```
 
-For Docker Compose setup (interactive simulation and E2E tests), see [docs/docker.md](./docs/docker.md). Docker Model Runner with `ai/qwen3.5:4B-UD-Q4_K_XL` is required for the interactive simulation's OpenClaw AI agent.
+For Docker Compose setup (local demo and E2E tests), see [docs/docker.md](./docs/docker.md). Docker Model Runner with `ai/qwen3.5:4B-UD-Q4_K_XL` is required for the local demo's OpenClaw AI agent.
 
 ## Testing
 
