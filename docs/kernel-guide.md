@@ -197,7 +197,7 @@ await kernel.launchSubcluster({
 });
 ```
 
-Requesting `'fetch'` without an `allowedHosts` entry (or with an absent `network` block) fails `initVat` with `Vat "<id>" requested "fetch" but no network.allowedHosts was specified`. There is no implicit allow-all; an empty `allowedHosts: []` is legal but rejects every outbound host. `file://` URLs bypass the host check (they have no host component) and are allowed when the underlying platform supports them.
+Requesting `'fetch'` without an `allowedHosts` entry (or with an absent `network` block) fails `initVat` with `Vat "<id>" requested "fetch" but no network.allowedHosts was specified`. There is no implicit allow-all; an empty `allowedHosts: []` is legal but rejects every outbound host. Host matching is a case-sensitive exact comparison against `URL.hostname` — ports and schemes are not considered, so `allowedHosts: ['api.example.com']` accepts both `http://api.example.com` and `https://api.example.com:8443`. `file://` URLs are **rejected** by fetch — use the `fs` platform capability for filesystem access.
 
 Lifecycle notes:
 

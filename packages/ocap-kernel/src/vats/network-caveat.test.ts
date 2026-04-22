@@ -19,25 +19,39 @@ describe('resolveUrl', () => {
     expect(result).toBeInstanceOf(URL);
     expect(result.href).toBe('https://example.test/path');
   });
+
+  it('throws for malformed string URLs', () => {
+    expect(() => resolveUrl('not a url')).toThrow(/Invalid URL/u);
+  });
 });
 
 describe('makeHostCaveat', () => {
-  it('allows allowed hosts', async () => {
+  it('allows allowed hostnames', async () => {
     const caveat = makeHostCaveat(['example.test', 'api.github.com']);
     expect(await caveat('https://example.test/path')).toBeUndefined();
     expect(await caveat('https://api.github.com/users')).toBeUndefined();
   });
 
-  it('rejects disallowed hosts', async () => {
+  it('rejects disallowed hostnames', async () => {
     const caveat = makeHostCaveat(['example.test']);
     await expect(caveat('https://malicious.test/path')).rejects.toThrow(
       'Invalid host: malicious.test',
     );
   });
 
-  it('passes file:// URLs through', async () => {
-    const caveat = makeHostCaveat([]);
-    expect(await caveat('file:///tmp/data.json')).toBeUndefined();
+  it('ignores port when matching hostnames', async () => {
+    const caveat = makeHostCaveat(['api.example.test']);
+    expect(await caveat('https://api.example.test:8443/path')).toBeUndefined();
+  });
+
+  it.each([
+    { scheme: 'file:', input: 'file:///etc/passwd' },
+    { scheme: 'file: via Request', input: new Request('file:///etc/passwd') },
+  ])('rejects $scheme URLs with an fs-capability hint', async ({ input }) => {
+    const caveat = makeHostCaveat(['example.test']);
+    await expect(caveat(input)).rejects.toThrow(
+      /fetch cannot target file:\/\/ URLs.*fs platform capability/u,
+    );
   });
 
   it.each([
@@ -49,6 +63,11 @@ describe('makeHostCaveat', () => {
   ])('handles $name', async ({ input }) => {
     const caveat = makeHostCaveat(['example.test']);
     expect(await caveat(input)).toBeUndefined();
+  });
+
+  it('rejects malformed URLs by propagating the URL constructor error', async () => {
+    const caveat = makeHostCaveat(['example.test']);
+    await expect(caveat('not a url')).rejects.toThrow(/Invalid URL/u);
   });
 });
 
@@ -87,5 +106,22 @@ describe('makeCaveatedFetch', () => {
 
     expect(caveat).toHaveBeenCalledWith('https://example.test/path', init);
     expect(baseFetch).toHaveBeenCalledWith('https://example.test/path', init);
+  });
+
+  it('composes host caveat with base fetch end-to-end', async () => {
+    const baseFetch = vi.fn().mockResolvedValue(new Response('ok'));
+    const caveated = makeCaveatedFetch(
+      baseFetch,
+      makeHostCaveat(['example.test']),
+    );
+
+    const response = await caveated('https://example.test/data');
+    expect(await response.text()).toBe('ok');
+    expect(baseFetch).toHaveBeenCalledTimes(1);
+
+    await expect(caveated('https://evil.test/data')).rejects.toThrow(
+      'Invalid host: evil.test',
+    );
+    expect(baseFetch).toHaveBeenCalledTimes(1);
   });
 });

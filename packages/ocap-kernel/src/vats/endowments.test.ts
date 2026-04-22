@@ -217,6 +217,48 @@ describe('createDefaultEndowments', () => {
     ).toBeUndefined();
   });
 
+  it('teardown aborts in-flight fetches started by the network factory', async () => {
+    // Stub globalThis.fetch with a never-resolving promise that respects
+    // AbortSignal. The Snaps factory's `withTeardown` helper drops — rather
+    // than rejects — the vat-visible fetch promise once teardown runs, so
+    // the meaningful assertions are (1) the abort signal propagated into
+    // the base fetch and (2) teardown returns cleanly without hanging on
+    // the open connection.
+    const originalFetch = globalThis.fetch;
+    let abortReceived = false;
+    globalThis.fetch = (async (_input, init) => {
+      return await new Promise((_resolve, reject) => {
+        const signal = init?.signal;
+        signal?.addEventListener('abort', () => {
+          abortReceived = true;
+          reject(new Error('aborted'));
+        });
+      });
+    }) as typeof fetch;
+
+    try {
+      const { globals, teardown } = createDefaultEndowments({
+        logger: makeLogger(),
+      });
+      const fetchFn = globals.fetch as typeof fetch;
+
+      const inFlight = fetchFn('https://example.test/slow');
+      // Suppress unhandled-rejection noise — the Snaps factory drops this
+      // promise on teardown (neither resolves nor rejects it).
+      inFlight.catch(() => undefined);
+
+      // Give the factory a microtask to register the open connection.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      await teardown();
+
+      expect(abortReceived).toBe(true);
+    } finally {
+      // eslint-disable-next-line require-atomic-updates
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it('teardown cancels pending timers', async () => {
     // SES lockdown freezes Date, preventing vi.useFakeTimers(); use a real
     // delay that exceeds the factory's 10ms MINIMUM_TIMEOUT.

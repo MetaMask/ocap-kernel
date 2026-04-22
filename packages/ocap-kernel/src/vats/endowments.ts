@@ -150,6 +150,8 @@ export type MakeAllowedGlobals = (
  * throw here would propagate into the vat's `fetch` call. The try/catch is
  * defensive: the logger's own methods don't throw today, but we don't want
  * an accidental transport failure to turn into a vat-visible fetch error.
+ * When the logger does fail, surface it via `console.error` so the outage
+ * is visible — silent swallow would hide a broken audit trail.
  *
  * @param logger - The logger to route notifications through.
  * @returns A notify callback suitable for the Snaps network factory.
@@ -158,8 +160,16 @@ const makeLoggerNotify = (logger: Logger): NotifyFunction => {
   return async ({ method, params }) => {
     try {
       logger.debug(`network:${method}`, params);
-    } catch {
-      // swallow — observability should never break fetch
+    } catch (error) {
+      try {
+        // eslint-disable-next-line no-console
+        console.error(
+          '[ocap-kernel] network endowment logger transport failed',
+          error,
+        );
+      } catch {
+        // fetch must not break on a broken host console either
+      }
     }
   };
 };

@@ -335,6 +335,52 @@ describe('VatSupervisor', () => {
       );
     });
 
+    it('proceeds past the fetch-allowlist guard when network.allowedHosts is supplied', async () => {
+      // If the guard mis-fires, dispatch would receive the specific
+      // 'requested "fetch" but no network.allowedHosts' error. Asserting
+      // its absence proves the caveat wrap ran and init moved on (any
+      // later error, e.g., bundle load, is acceptable).
+      const dispatch = vi.fn();
+      const mockFetchBlob: FetchBlob = vi.fn().mockResolvedValue({
+        ok: true,
+        text: vi.fn().mockResolvedValue(''),
+      });
+
+      const stubFetch = (() => undefined) as unknown as typeof fetch;
+      const { stream } = await makeVatSupervisor({
+        dispatch,
+        makeAllowedGlobals: () => makeVatEndowments({ fetch: stubFetch }),
+        fetchBlob: mockFetchBlob,
+      });
+
+      await stream.receiveInput({
+        id: 'test-init',
+        method: 'initVat',
+        params: {
+          vatConfig: {
+            bundleSpec: 'test.bundle',
+            parameters: {},
+            globals: ['fetch'],
+            network: { allowedHosts: ['example.test'] },
+          },
+          state: [],
+        },
+        jsonrpc: '2.0',
+      });
+      await delay(50);
+
+      expect(dispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'test-init',
+          error: expect.objectContaining({
+            message: expect.stringMatching(
+              /requested "fetch" but no network\.allowedHosts/u,
+            ),
+          }),
+        }),
+      );
+    });
+
     it('rejects an unknown global at the initVat RPC boundary', async () => {
       // VatConfig.globals is now typed as AllowedGlobalName[] and validated by
       // AllowedGlobalNameStruct at the RPC boundary, so an unknown name is

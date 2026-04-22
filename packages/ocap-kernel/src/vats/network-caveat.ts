@@ -1,8 +1,6 @@
 export type FetchCapability = typeof fetch;
 
-export type FetchCaveat = (
-  ...args: Parameters<FetchCapability>
-) => Promise<void>;
+type FetchCaveat = (...args: Parameters<FetchCapability>) => Promise<void>;
 
 /**
  * Resolve the target URL from a fetch input argument. Accepts the same input
@@ -15,20 +13,31 @@ export const resolveUrl = (arg: Parameters<typeof fetch>[0]): URL =>
   new URL(arg instanceof Request ? arg.url : arg);
 
 /**
- * Build a caveat that rejects fetches whose host is not in `allowedHosts`.
- * `file://` URLs are passed through since they have no host component.
+ * Build a caveat that rejects fetches whose hostname is not in
+ * `allowedHosts`. Matching is a case-sensitive exact comparison against
+ * `URL.hostname` — **ports and schemes are not considered**, so
+ * `allowedHosts: ['api.example.com']` accepts `http://api.example.com`,
+ * `https://api.example.com`, and `https://api.example.com:8443` alike.
  *
- * @param allowedHosts - The allowed hosts.
- * @returns A caveat that restricts fetch to the allowed hosts.
+ * `file://` URLs are rejected outright: vats that need local file access
+ * must use the `fs` platform capability, not fetch. This avoids the footgun
+ * where a vat that opts into `fetch` for HTTP requests inadvertently gains
+ * unrestricted filesystem read access.
+ *
+ * @param allowedHosts - The allowed hostnames.
+ * @returns A caveat that restricts fetch to the allowed hostnames.
  */
 export const makeHostCaveat = (allowedHosts: string[]): FetchCaveat => {
   return harden(async (...args: Parameters<typeof fetch>) => {
-    const { host, protocol } = resolveUrl(args[0]);
+    const { hostname, protocol } = resolveUrl(args[0]);
     if (protocol === 'file:') {
-      return;
+      throw new Error(
+        `fetch cannot target file:// URLs. Use the fs platform capability ` +
+          `(VatConfig.platformConfig.fs) for filesystem access.`,
+      );
     }
-    if (!allowedHosts.includes(host)) {
-      throw new Error(`Invalid host: ${host}`);
+    if (!allowedHosts.includes(hostname)) {
+      throw new Error(`Invalid host: ${hostname}`);
     }
   });
 };
