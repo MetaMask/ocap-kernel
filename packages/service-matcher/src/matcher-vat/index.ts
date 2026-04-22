@@ -58,6 +58,13 @@ export function buildRootObject(
   let nextId = 0;
   let services: Services;
 
+  const log = (...args: unknown[]): void => {
+    // Forwarded to the daemon's log file via the kernel's console
+    // plumbing. Prefix tags the source so it's easy to grep.
+    // eslint-disable-next-line no-console
+    console.log('[matcher]', ...args);
+  };
+
   /**
    * Validate the registration token with the provider's contact endpoint.
    *
@@ -68,7 +75,12 @@ export function buildRootObject(
     contact: ContactPoint,
     token: RegistrationToken,
   ): Promise<void> {
-    await E(contact).confirmServiceRegistration(token);
+    try {
+      await E(contact).confirmServiceRegistration(token);
+    } catch (cause) {
+      log('registration rejected by contact:', cause);
+      throw cause;
+    }
   }
 
   /**
@@ -85,6 +97,7 @@ export function buildRootObject(
     const id = `svc:${nextId}`;
     nextId += 1;
     registry.set(id, { id, description, contact });
+    log(`registered ${id}: ${description.description.slice(0, 80)}`);
     return id;
   }
 
@@ -134,14 +147,18 @@ export function buildRootObject(
       store(description, contact);
     },
 
-    async findServices(_query: ServiceQuery): Promise<ServiceMatch[]> {
+    async findServices(query: ServiceQuery): Promise<ServiceMatch[]> {
       // Phase 2: naive — return every registered description, unranked.
       // Ranking will be added in a follow-on once an LLM backend is wired
       // up. The query argument is accepted and ignored for now so the
       // wire protocol is stable.
-      return [...registry.values()].map((entry) =>
+      const matches = [...registry.values()].map((entry) =>
         harden({ description: entry.description }),
       );
+      log(
+        `findServices("${query.description.slice(0, 80)}") → ${matches.length} match(es)`,
+      );
+      return matches;
     },
   });
 
@@ -157,6 +174,7 @@ export function buildRootObject(
       const matcherUrl = await E(services.ocapURLIssuerService).issue(
         publicFacet,
       );
+      log(`bootstrap complete; matcherUrl=${matcherUrl}`);
       return harden({ matcherUrl });
     },
 
@@ -185,7 +203,11 @@ export function buildRootObject(
      * @returns True if an entry was removed, false if no such id existed.
      */
     unregister(id: string): boolean {
-      return registry.delete(id);
+      const removed = registry.delete(id);
+      if (removed) {
+        log(`unregistered ${id}`);
+      }
+      return removed;
     },
   });
 }
