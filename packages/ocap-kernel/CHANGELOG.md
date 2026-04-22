@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `fetch`, `Request`, `Headers`, and `Response` to the default vat endowments ([#936](https://github.com/MetaMask/ocap-kernel/issues/936))
+- Add `fetch`, `Request`, `Headers`, and `Response` to the default vat endowments ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
   - Add `VatConfig.network: { allowedHosts: string[] }`; requesting `'fetch'` without it rejects `initVat`
   - **BREAKING:** remove `VatConfig.platformConfig.fetch` — migrate to `globals: ['fetch', ...]` + `network.allowedHosts`
   - **BREAKING:** `MakeAllowedGlobals` now takes a `{ logger }` options bag
