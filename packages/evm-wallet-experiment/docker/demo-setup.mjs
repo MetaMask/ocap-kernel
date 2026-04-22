@@ -5,7 +5,7 @@ import {
   awayServiceForInteractivePair,
   interactiveDockerComposeArgs,
   INTERACTIVE_PACKAGE_ROOT,
-} from './interactive-compose-lib.mjs';
+} from './demo-compose-lib.mjs';
 
 const argv = process.argv.slice(2);
 const { pair, dockerArgs } = interactiveDockerComposeArgs(argv);

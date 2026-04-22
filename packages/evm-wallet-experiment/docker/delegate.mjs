@@ -5,7 +5,7 @@ import {
   homeServiceForInteractivePair,
   interactiveDockerComposeArgs,
   INTERACTIVE_PACKAGE_ROOT,
-} from './interactive-compose-lib.mjs';
+} from './demo-compose-lib.mjs';
 
 const SCRIPT_ON_HOST = 'docker/create-delegation.mjs';
 const SCRIPT_IN_CONTAINER =

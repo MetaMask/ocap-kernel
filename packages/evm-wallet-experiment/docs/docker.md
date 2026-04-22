@@ -1,6 +1,6 @@
 # Docker Compose Setup
 
-Reference for the Docker Compose stack used by both the [interactive simulation](./simulation.md) and the automated Docker E2E tests.
+Reference for the Docker Compose stack used by both the [interactive simulation](./demo-local.md) and the automated Docker E2E tests.
 
 ---
 

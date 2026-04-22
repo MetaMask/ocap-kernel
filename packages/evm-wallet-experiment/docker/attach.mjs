@@ -6,7 +6,7 @@ import {
   homeServiceForInteractivePair,
   interactiveDockerComposeArgs,
   INTERACTIVE_PACKAGE_ROOT,
-} from './interactive-compose-lib.mjs';
+} from './demo-compose-lib.mjs';
 
 const [side, ...rest] = process.argv.slice(2);
 

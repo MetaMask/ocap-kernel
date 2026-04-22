@@ -803,7 +803,7 @@ DELEGATION_MODE=bundler-7702 yarn workspace @ocap/evm-wallet-experiment test:e2e
 yarn workspace @ocap/evm-wallet-experiment docker:down
 ```
 
-Full home/away delegation flow across three delegation modes (`bundler-7702`, `bundler-hybrid`, `peer-relay`) running in parallel. The stack requires Docker Model Runner. See [docs/docker.md](./docs/docker.md) for prerequisites, stack details, and troubleshooting. For manual interactive simulation, see [docs/simulation.md](./docs/simulation.md).
+Full home/away delegation flow across three delegation modes (`bundler-7702`, `bundler-hybrid`, `peer-relay`) running in parallel. The stack requires Docker Model Runner. See [docs/docker.md](./docs/docker.md) for prerequisites, stack details, and troubleshooting. For manual interactive simulation, see [docs/demo-local.md](./docs/demo-local.md).
 
 ## Supported Chains
 
