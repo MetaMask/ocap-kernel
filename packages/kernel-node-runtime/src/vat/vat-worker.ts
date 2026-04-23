@@ -22,7 +22,6 @@ async function main(): Promise<void> {
   const { logger: streamLogger } = await makeNodeJsVatSupervisor(
     vatId,
     LOG_TAG,
-    { fetch: { fromFetch: fetch } },
   );
   logger = streamLogger;
   logger.debug('vat-worker main');

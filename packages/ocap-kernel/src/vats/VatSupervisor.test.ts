@@ -47,7 +47,7 @@ const makeVatSupervisor = async ({
   vatPowers?: Record<string, unknown>;
   makePlatform?: PlatformFactory;
   platformOptions?: Record<string, unknown>;
-  makeAllowedGlobals?: () => VatEndowments;
+  makeAllowedGlobals?: (options: { logger: Logger }) => VatEndowments;
   fetchBlob?: FetchBlob;
   writerOnEnd?: () => void;
 } = {}): Promise<{
@@ -255,7 +255,7 @@ describe('VatSupervisor', () => {
   describe('platform configuration', () => {
     it('accepts makePlatform and platformOptions parameters', async () => {
       const makePlatform = vi.fn().mockResolvedValue({});
-      const platformOptions = { fetch: { fromFetch: globalThis.fetch } };
+      const platformOptions = { fs: { rootDir: '/tmp' } };
 
       const { supervisor } = await makeVatSupervisor({
         makePlatform,
@@ -288,6 +288,106 @@ describe('VatSupervisor', () => {
       });
       expect(supervisor).toBeInstanceOf(VatSupervisor);
       expect(factory).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects fetch requests without network.allowedHosts', async () => {
+      const dispatch = vi.fn();
+      const mockFetchBlob: FetchBlob = vi.fn().mockResolvedValue({
+        ok: true,
+        text: vi.fn().mockResolvedValue(''),
+      });
+
+      // Use a plain function, not vi.fn(), since `makeVatEndowments`
+      // hardens the globals record transitively — a vi.fn() here would
+      // freeze the mock's internals and break unrelated tests that mock-reset
+      // afterwards.
+      const stubFetch = (() => undefined) as unknown as typeof fetch;
+      const { stream } = await makeVatSupervisor({
+        dispatch,
+        makeAllowedGlobals: () => makeVatEndowments({ fetch: stubFetch }),
+        fetchBlob: mockFetchBlob,
+      });
+
+      await stream.receiveInput({
+        id: 'test-init',
+        method: 'initVat',
+        params: {
+          vatConfig: {
+            bundleSpec: 'test.bundle',
+            parameters: {},
+            globals: ['fetch'],
+          },
+          state: [],
+        },
+        jsonrpc: '2.0',
+      });
+      await delay(50);
+
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'test-init',
+          error: expect.objectContaining({
+            message: expect.stringContaining(
+              'requested "fetch" but no network.allowedHosts',
+            ),
+          }),
+        }),
+      );
+    });
+
+    it('proceeds past the fetch-allowlist guard when network.allowedHosts is supplied', async () => {
+      // If the guard mis-fires, dispatch would receive the specific
+      // 'requested "fetch" but no network.allowedHosts' error. Asserting
+      // its absence proves the caveat wrap ran and init moved on (any
+      // later error, e.g., bundle load, is acceptable).
+      const dispatch = vi.fn();
+      const mockFetchBlob: FetchBlob = vi.fn().mockResolvedValue({
+        ok: true,
+        text: vi.fn().mockResolvedValue(''),
+      });
+
+      const stubFetch = (() => undefined) as unknown as typeof fetch;
+      const { stream } = await makeVatSupervisor({
+        dispatch,
+        makeAllowedGlobals: () => makeVatEndowments({ fetch: stubFetch }),
+        fetchBlob: mockFetchBlob,
+      });
+
+      await stream.receiveInput({
+        id: 'test-init',
+        method: 'initVat',
+        params: {
+          vatConfig: {
+            bundleSpec: 'test.bundle',
+            parameters: {},
+            globals: ['fetch'],
+            network: { allowedHosts: ['example.test'] },
+          },
+          state: [],
+        },
+        jsonrpc: '2.0',
+      });
+      await delay(50);
+
+      // With makeLiveSlots mocked, init completes and dispatch receives
+      // the delivery result — assert that positive shape directly so the
+      // test doesn't pass vacuously if init were to short-circuit.
+      expect(dispatch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'test-init',
+          result: expect.anything(),
+        }),
+      );
+      expect(dispatch).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'test-init',
+          error: expect.objectContaining({
+            message: expect.stringMatching(
+              /requested "fetch" but no network\.allowedHosts/u,
+            ),
+          }),
+        }),
+      );
     });
 
     it('rejects an unknown global at the initVat RPC boundary', async () => {

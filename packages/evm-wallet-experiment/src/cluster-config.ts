@@ -62,10 +62,17 @@ export function makeWalletClusterConfig(
       },
       provider: {
         bundleSpec: `${bundleBaseUrl}/provider-vat.bundle`,
-        globals: ['TextEncoder', 'TextDecoder'],
-        platformConfig: {
-          fetch: allowedHosts ? { allowedHosts } : {},
-        },
+        globals: allowedHosts
+          ? [
+              'TextEncoder',
+              'TextDecoder',
+              'fetch',
+              'Request',
+              'Headers',
+              'Response',
+            ]
+          : ['TextEncoder', 'TextDecoder'],
+        ...(allowedHosts ? { network: { allowedHosts } } : {}),
       },
       ...auxiliaryVat,
     },

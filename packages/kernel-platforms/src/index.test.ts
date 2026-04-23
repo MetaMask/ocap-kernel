@@ -10,17 +10,14 @@ describe('kernel-platforms index', () => {
   });
 
   it('exports type definitions', () => {
-    // Test that types are properly exported by using them
-    const capabilityName: CapabilityName = 'fetch';
-    expect(capabilityName).toBe('fetch');
+    const capabilityName: CapabilityName = 'fs';
+    expect(capabilityName).toBe('fs');
 
-    // Test that we can use the generic types
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    type TestCapability = Capability<'fetch'>;
+    type TestCapability = Capability<'fs'>;
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    type TestConfig = CapabilityConfig<'fetch'>;
+    type TestConfig = CapabilityConfig<'fs'>;
 
-    // This test passes if TypeScript compilation succeeds
     expect(true).toBe(true);
   });
 });

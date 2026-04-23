@@ -71,8 +71,15 @@ export function launchWalletSubcluster(
       },
       provider: {
         bundleSpec: `${BUNDLE_BASE}/provider-vat.bundle`,
-        globals: ['TextEncoder', 'TextDecoder'],
-        platformConfig: { fetch: { allowedHosts } },
+        globals: [
+          'TextEncoder',
+          'TextDecoder',
+          'fetch',
+          'Request',
+          'Headers',
+          'Response',
+        ],
+        network: { allowedHosts },
       },
       ...auxiliaryVat,
     },
