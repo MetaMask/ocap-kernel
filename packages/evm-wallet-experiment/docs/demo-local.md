@@ -10,16 +10,16 @@ See [Docker setup](./docker.md) for prerequisites, build commands, and general t
 
 ```bash
 # 1. Start the stack (default pair: bundler-7702)
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:up
+yarn workspace @ocap/evm-wallet-experiment docker:demo:up
 
 # 2. Initialize wallets and configure OpenClaw (once containers are healthy)
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:setup
+yarn workspace @ocap/evm-wallet-experiment docker:demo:setup
 
 # 3. Create a delegation from home to away and push it over the peer connection
 yarn workspace @ocap/evm-wallet-experiment docker:delegate
 
 # 4. Stop everything
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:down
+yarn workspace @ocap/evm-wallet-experiment docker:demo:down
 ```
 
 ---
@@ -35,18 +35,18 @@ The Docker Compose stack mimics a real deployment:
 
 Two modes of operation:
 
-| Mode            | What runs                      | When to use                                      |
-| --------------- | ------------------------------ | ------------------------------------------------ |
-| **Interactive** | One home/away pair             | Manual testing, development, AI agent simulation |
-| **E2E test**    | All three pairs simultaneously | `yarn test:e2e:docker` automated tests           |
+| Mode         | What runs                      | When to use                                      |
+| ------------ | ------------------------------ | ------------------------------------------------ |
+| **Demo**     | One home/away pair             | Manual testing, development, AI agent simulation |
+| **E2E test** | All three pairs simultaneously | `yarn test:e2e:docker` automated tests           |
 
-This guide covers interactive mode.
+This guide covers demo mode.
 
 ---
 
 ## Delegation modes
 
-Interactive mode supports three delegation strategies. Choose one per session.
+Demo mode supports three delegation strategies. Choose one per session.
 
 | Mode                     | Home account type                   | How away redeems                                | QUIC ports  |
 | ------------------------ | ----------------------------------- | ----------------------------------------------- | ----------- |
@@ -60,44 +60,44 @@ The OpenClaw AI agent is only available on the `bundler-7702` pair.
 
 ## Commands
 
-### `docker:interactive:up`
+### `docker:demo:up`
 
 ```bash
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:up
+yarn workspace @ocap/evm-wallet-experiment docker:demo:up
 # or with a specific pair:
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:up -- --pair bundler-hybrid
+yarn workspace @ocap/evm-wallet-experiment docker:demo:up -- --pair bundler-hybrid
 ```
 
 Starts the EVM, bundler, and one home/away kernel pair. Builds containers if needed.
-The away container for `bundler-7702` is built with the `interactive` Dockerfile target, which includes the OpenClaw CLI.
+The away container for `bundler-7702` is built with the `demo` Dockerfile target, which includes the OpenClaw CLI.
 
-Set `OCAP_INTERACTIVE_PAIR` to avoid passing `--pair` every time:
+Set `OCAP_DEMO_PAIR` to avoid passing `--pair` every time:
 
 ```bash
-export OCAP_INTERACTIVE_PAIR=peer-relay
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:up
+export OCAP_DEMO_PAIR=peer-relay
+yarn workspace @ocap/evm-wallet-experiment docker:demo:up
 ```
 
 The `--pair` flag takes precedence over the environment variable.
 
-### `docker:interactive:down`
+### `docker:demo:down`
 
 ```bash
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:down
+yarn workspace @ocap/evm-wallet-experiment docker:demo:down
 ```
 
-Stops and removes containers. The `ocap-run` (state) and `ocap-logs` volumes are preserved, so the next `docker:interactive:up` resumes where it left off.
+Stops and removes containers. The `ocap-run` (state) and `ocap-logs` volumes are preserved, so the next `docker:demo:up` resumes where it left off.
 
 To do a full wipe including volumes:
 
 ```bash
-docker compose -f packages/evm-wallet-experiment/docker/docker-compose.yml down -v
+yarn workspace @ocap/evm-wallet-experiment docker:down:volumes
 ```
 
-### `docker:interactive:setup`
+### `docker:demo:setup`
 
 ```bash
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:setup
+yarn workspace @ocap/evm-wallet-experiment docker:demo:setup
 ```
 
 Runs after containers are healthy. Does the following in order:
@@ -118,7 +118,7 @@ yarn workspace @ocap/evm-wallet-experiment docker:delegate
 
 Copies `docker/create-delegation.mjs` into the home kernel container and executes it there. The script:
 
-1. Reads the delegation context files written by `docker:interactive:setup`
+1. Reads the delegation context files written by `docker:demo:setup`
 2. Resolves the correct delegate address for the chosen mode:
    - `bundler-*`: away's smart account (or EOA fallback)
    - `peer-relay`: home's smart account (redeems on behalf of home)
@@ -126,7 +126,7 @@ Copies `docker/create-delegation.mjs` into the home kernel container and execute
 4. Calls `createDelegation()` on the home coordinator
 5. Pushes the signed delegation to the away kernel over the live CapTP connection
 
-Requires `docker:interactive:setup` to have been run first.
+Requires `docker:demo:setup` to have been run first.
 
 ### `docker:setup:wallets`
 
@@ -134,15 +134,15 @@ Requires `docker:interactive:setup` to have been run first.
 yarn workspace @ocap/evm-wallet-experiment docker:setup:wallets
 ```
 
-Runs only the wallet initialization step from `docker:interactive:setup` (no OpenClaw). Useful if you want to reinitialize wallet state without touching OpenClaw config.
+Runs only the wallet initialization step from `docker:demo:setup` (no OpenClaw). Useful if you want to reinitialize wallet state without touching OpenClaw config.
 
-### `docker:interactive:reset-openclaw`
+### `docker:demo:reset-openclaw`
 
 ```bash
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:reset-openclaw
+yarn workspace @ocap/evm-wallet-experiment docker:demo:reset-openclaw
 ```
 
-Removes the `.openclaw/` state directory from the away container (conversation history, agent workspace). Only applies to the `bundler-7702` pair; other pairs print a message and exit. Does not stop containers or touch wallet state. Re-run `docker:interactive:setup` after this to reinitialize.
+Removes the `.openclaw/` state directory from the away container (conversation history, agent workspace). Only applies to the `bundler-7702` pair; other pairs print a message and exit. Does not stop containers or touch wallet state. Re-run `docker:demo:setup` after this to reinitialize.
 
 ### `docker:logs`
 
@@ -158,13 +158,13 @@ Tails logs from all running Compose services. Useful for watching delegation red
 
 ```bash
 # Stop the current pair
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:down
+yarn workspace @ocap/evm-wallet-experiment docker:demo:down
 
 # Start a different pair
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:up -- --pair peer-relay
+yarn workspace @ocap/evm-wallet-experiment docker:demo:up -- --pair peer-relay
 
 # Re-initialize wallets for the new pair
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:setup
+yarn workspace @ocap/evm-wallet-experiment docker:demo:setup
 
 # Create a delegation
 yarn workspace @ocap/evm-wallet-experiment docker:delegate
@@ -176,7 +176,7 @@ Each pair uses a different BIP-44 address index on the shared test mnemonic (`te
 
 ## OpenClaw AI agent (`bundler-7702` only)
 
-When the stack is started with `bundler-7702` (the default) and `docker:interactive:setup` has run, the away container hosts an OpenClaw gateway that exposes wallet operations as AI tools.
+When the stack is started with `bundler-7702` (the default) and `docker:demo:setup` has run, the away container hosts an OpenClaw gateway that exposes wallet operations as AI tools.
 
 The OpenClaw gateway runs on `localhost:18789` inside the away container and uses the Docker Model Runner LLM (`ai/qwen3.5:4B-UD-Q4_K_XL` by default, injected via Compose's `models` feature).
 
@@ -199,8 +199,8 @@ Available wallet tools via the OpenClaw plugin:
 To reset conversation history without restarting:
 
 ```bash
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:reset-openclaw
-yarn workspace @ocap/evm-wallet-experiment docker:interactive:setup
+yarn workspace @ocap/evm-wallet-experiment docker:demo:reset-openclaw
+yarn workspace @ocap/evm-wallet-experiment docker:demo:setup
 ```
 
 ---
@@ -231,19 +231,19 @@ After setup, the `ocap-run` Docker volume (mounted at `/run/ocap` inside contain
 
 ## Troubleshooting
 
-**`docker:interactive:setup` fails**
+**`docker:demo:setup` fails**
 
 - Containers may still be starting up — wait until all services are healthy, then retry
-- Check with: `docker compose -f packages/evm-wallet-experiment/docker/docker-compose.yml --profile 7702 ps`
+- Check with: `yarn workspace @ocap/evm-wallet-experiment docker:ps`
 
 **`docker:delegate` fails with "context not found"**
 
-- `docker:interactive:setup` must complete successfully before running `docker:delegate`
+- `docker:demo:setup` must complete successfully before running `docker:delegate`
 - The context files (`docker-delegation-home.json`, `docker-delegation-away.json`) must exist in the shared volume
 
 **OpenClaw gateway not responding**
 
 - Only available on `bundler-7702`; other pairs do not start the gateway
-- Run `docker:interactive:reset-openclaw` then `docker:interactive:setup` to reinitialize
+- Run `docker:demo:reset-openclaw` then `docker:demo:setup` to reinitialize
 
 For general Docker issues (build failures, port conflicts, volume corruption), see [Docker setup](./docker.md#troubleshooting).

@@ -1,6 +1,6 @@
 # @ocap/evm-wallet-experiment
 
-A capability-driven EVM wallet implemented as an OCAP kernel subcluster. It uses the [MetaMask Delegation Framework (Gator)](https://github.com/MetaMask/delegation-framework) for delegated transaction authority. **Hybrid** smart accounts submit ERC-4337 UserOperations through a bundler; **stateless EIP-7702** home accounts (mnemonic path) redeem delegations with normal EIP-1559 transactions via your JSON-RPC provider (e.g. Infura), without a bundler. The wallet subcluster isolates key management, Ethereum RPC communication, and delegation lifecycle into separate vats, enforcing the principle of least authority across the entire signing pipeline.
+A capability-driven EVM wallet, implemented as an OCAP kernel subcluster. It uses the [MetaMask Delegation Framework (Gator)](https://github.com/MetaMask/delegation-framework) for delegated transaction authority. **Hybrid** smart accounts submit ERC-4337 UserOperations through a bundler; **stateless EIP-7702** home accounts (mnemonic path) redeem delegations with normal EIP-1559 transactions via your JSON-RPC provider (e.g. Infura), without a bundler. The wallet subcluster isolates key management, Ethereum RPC communication, and delegation lifecycle into separate vats, enforcing the principle of least authority across the entire signing pipeline.
 
 For a deeper explanation of the components and data flow, see [How It Works](./docs/how-it-works.md). For deploying the wallet on a home device + VPS with OpenClaw, see the [Setup Guide](./docs/setup-guide.md).
 
@@ -712,7 +712,7 @@ yarn workspace @ocap/evm-wallet-experiment build
 yarn workspace @ocap/evm-wallet-experiment lint:fix
 ```
 
-For Docker Compose setup (interactive simulation and E2E tests), see [docs/docker.md](./docs/docker.md). Docker Model Runner with `ai/qwen3.5:4B-UD-Q4_K_XL` is required for the interactive simulation's OpenClaw AI agent.
+For Docker Compose setup (local demo and E2E tests), see [docs/docker.md](./docs/docker.md). Docker Model Runner with `ai/qwen3.5:4B-UD-Q4_K_XL` is required for the local demo's OpenClaw AI agent.
 
 ## Testing
 
@@ -803,7 +803,7 @@ DELEGATION_MODE=bundler-7702 yarn workspace @ocap/evm-wallet-experiment test:e2e
 yarn workspace @ocap/evm-wallet-experiment docker:down
 ```
 
-Full home/away delegation flow across three delegation modes (`bundler-7702`, `bundler-hybrid`, `peer-relay`) running in parallel. The stack requires Docker Model Runner. See [docs/docker.md](./docs/docker.md) for prerequisites, stack details, and troubleshooting. For manual interactive simulation, see [docs/simulation.md](./docs/simulation.md).
+Full home/away delegation flow across three delegation modes (`bundler-7702`, `bundler-hybrid`, `peer-relay`) running in parallel. The stack requires Docker Model Runner. See [docs/docker.md](./docs/docker.md) for prerequisites, stack details, and troubleshooting. For manual interactive simulation, see [docs/demo-local.md](./docs/demo-local.md).
 
 ## Supported Chains
 
