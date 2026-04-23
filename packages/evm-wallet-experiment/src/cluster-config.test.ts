@@ -113,7 +113,6 @@ describe('cluster-config', () => {
           'TextEncoder',
           'TextDecoder',
           'crypto',
-          'SubtleCrypto',
         ]);
       }
 

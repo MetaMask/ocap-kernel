@@ -37,7 +37,7 @@ export function makeWalletClusterConfig(
       ? {
           delegator: {
             bundleSpec: `${bundleBaseUrl}/delegator-vat.bundle`,
-            globals: ['TextEncoder', 'TextDecoder', 'crypto', 'SubtleCrypto'],
+            globals: ['TextEncoder', 'TextDecoder', 'crypto'],
           },
         }
       : {
@@ -58,7 +58,7 @@ export function makeWalletClusterConfig(
       },
       keyring: {
         bundleSpec: `${bundleBaseUrl}/keyring-vat.bundle`,
-        globals: ['TextEncoder', 'TextDecoder', 'crypto', 'SubtleCrypto'],
+        globals: ['TextEncoder', 'TextDecoder', 'crypto'],
       },
       provider: {
         bundleSpec: `${bundleBaseUrl}/provider-vat.bundle`,

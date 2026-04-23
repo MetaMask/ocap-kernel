@@ -45,7 +45,7 @@ export function launchWalletSubcluster(
       ? {
           delegator: {
             bundleSpec: `${BUNDLE_BASE}/delegator-vat.bundle`,
-            globals: ['TextEncoder', 'TextDecoder', 'crypto', 'SubtleCrypto'],
+            globals: ['TextEncoder', 'TextDecoder', 'crypto'],
           },
         }
       : {
@@ -66,7 +66,7 @@ export function launchWalletSubcluster(
       },
       keyring: {
         bundleSpec: `${BUNDLE_BASE}/keyring-vat.bundle`,
-        globals: ['TextEncoder', 'TextDecoder', 'crypto', 'SubtleCrypto'],
+        globals: ['TextEncoder', 'TextDecoder', 'crypto'],
       },
       provider: {
         bundleSpec: `${BUNDLE_BASE}/provider-vat.bundle`,

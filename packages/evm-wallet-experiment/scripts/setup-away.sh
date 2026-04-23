@@ -373,7 +373,7 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$AWAY_RPC_H
         },
         keyring: {
           bundleSpec: bd + '/keyring-vat.bundle',
-          globals: ['TextEncoder', 'TextDecoder', 'crypto', 'SubtleCrypto']
+          globals: ['TextEncoder', 'TextDecoder', 'crypto']
         },
         provider: {
           bundleSpec: bd + '/provider-vat.bundle',
