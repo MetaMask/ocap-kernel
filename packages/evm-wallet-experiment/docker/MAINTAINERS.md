@@ -1,6 +1,6 @@
 # Docker stack — maintainer notes
 
-Local E2E stack for `@ocap/evm-wallet-experiment`: Anvil + deployed contracts, Pimlico Alto, and six kernel containers (three `kernel-home-*` / `kernel-away-*` pairs). See `package.json` scripts (`docker:compose`, `test:e2e:docker`, etc.). Each pair is gated by a Compose **profile** (**`7702`**, **`4337`**, **`relay`**); **`yarn docker:up`** / **`docker:compose`** pass **all three** so Vitest Docker E2E and full-stack dev see every kernel. **`yarn docker:interactive:up`** enables **one** profile (default **`bundler-7702`** delegation mode → profile **`7702`**). Shared kernel **build / volumes / entrypoint / depends_on** live in root **`x-kernel-standard`**; **`x-kernel-build-core`** holds **`context`** / **`dockerfile`** so **`kernel-away-bundler-7702`** can set **`build.target`** from **`${KERNEL_AWAY_7702_TARGET:-kernel}`**. Per-pair **ports**, **`environment`**, and **`healthcheck.test`** stay explicit.
+Local E2E stack for `@ocap/evm-wallet-experiment`: Anvil + deployed contracts, Pimlico Alto, and six kernel containers (three `kernel-home-*` / `kernel-away-*` pairs). See `package.json` scripts (`docker:compose`, `test:e2e:docker`, etc.). Each pair is gated by a Compose **profile** (**`7702`**, **`4337`**, **`relay`**); **`yarn docker:up`** / **`docker:compose`** pass **all three** so Vitest Docker E2E and full-stack dev see every kernel. **`yarn docker:demo:up`** enables **one** profile (default **`bundler-7702`** delegation mode → profile **`7702`**). Shared kernel **build / volumes / entrypoint / depends_on** live in root **`x-kernel-standard`**; **`x-kernel-build-core`** holds **`context`** / **`dockerfile`** so **`kernel-away-bundler-7702`** can set **`build.target`** from **`${KERNEL_AWAY_7702_TARGET:-kernel}`**. Per-pair **ports**, **`environment`**, and **`healthcheck.test`** stay explicit.
 
 ## Startup order
 
@@ -30,7 +30,7 @@ Copy the top-level **Digest** (index), then set in `docker-compose.yml`:
 
 Keep the comment above that line in sync with the command you used.
 
-### OpenClaw (interactive image only)
+### OpenClaw (demo image only)
 
 `Dockerfile.kernel-base` installs a **fixed** global CLI version (`openclaw@…`). The gateway loads **`openclaw-plugin/index.ts`** via **jiti**; nothing in the image invokes `tsx`. Bump OpenClaw deliberately when you want new gateway behavior; avoid `@latest` here.
 
@@ -62,16 +62,16 @@ Host-side scripts (e.g. `yarn docker:setup:wallets`) use the workspace **`tsx`**
 
 - **`yarn docker:up`** and **`yarn test:e2e:docker`** expect the full stack, including [**Compose `models`**](https://docs.docker.com/ai/compose/models-and-compose/) on each **`kernel-away-*`** service. That requires **Docker Compose v2.38+** and [**Docker Model Runner**](https://docs.docker.com/ai/model-runner/) enabled.
 - Top-level **`models.llm`** pins **`ai/qwen3.5:4B-UD-Q4_K_XL`** with **`context_size: 32768`** and **`runtime_flags: ['--ctx-size','32768']`** so llama.cpp does not stay at DMR’s 4096 default (OpenClaw + tools need more). Pull if needed: **`docker model pull ai/qwen3.5:4B-UD-Q4_K_XL`**. If requests still hit 4096, run **`docker model configure --context-size 32768 ai/qwen3.5:4B-UD-Q4_K_XL`** on the host and recreate containers.
-- Vitest Docker E2E does **not** call the LLM today, but away containers still receive **`LLM_URL`** / **`LLM_MODEL`** for consistency with interactive OpenClaw and future tests.
+- Vitest Docker E2E does **not** call the LLM today, but away containers still receive **`LLM_URL`** / **`LLM_MODEL`** for consistency with the demo OpenClaw stack and future tests.
 
-## Interactive stack (`docker/.env.interactive` + one pair profile)
+## Demo stack (`docker/.env.demo` + one pair profile)
 
-- **`yarn docker:compose:interactive`** runs **`node docker/run-interactive-compose.mjs`**, which passes **`--env-file docker/.env.interactive`** ( **`KERNEL_AWAY_7702_TARGET=interactive`** for the 7702 away image) and **one** **`--profile`** (**`7702`**, **`4337`**, or **`relay`**). Default delegation mode is **`bundler-7702`** → profile **`7702`** (same mode strings as Docker E2E **`DELEGATION_MODE`**).
-- **Choose the pair**: set **`OCAP_INTERACTIVE_PAIR`** to **`bundler-7702`**, **`bundler-hybrid`**, or **`peer-relay`**, or pass **`--pair <value>`** before compose subcommands (after **`yarn … --`** if needed), e.g. **`yarn docker:interactive:up -- --pair bundler-hybrid`**.
-- **`yarn docker:interactive:setup`** runs wallet setup; OpenClaw **`setup-openclaw.mjs`** + gateway run **only** when the pair is **`bundler-7702`** (the image with OpenClaw). Other pairs skip those steps with a short log line.
-- OpenClaw UI history for 7702 lives under **`$HOME/.openclaw`** on the **`ocap-run`** volume; use **`yarn docker:interactive:reset-openclaw`** then **`yarn docker:interactive:setup`**, or **`docker compose … down -v`** for a full volume wipe. LLM wiring is **only** in **`docker-compose.yml`** (**`models:`**).
+- **`yarn docker:compose:demo`** runs **`node docker/run-demo-compose.mjs`**, which passes **`--env-file docker/.env.demo`** ( **`KERNEL_AWAY_7702_TARGET=demo`** for the 7702 away image) and **one** **`--profile`** (**`7702`**, **`4337`**, or **`relay`**). Default delegation mode is **`bundler-7702`** → profile **`7702`** (same mode strings as Docker E2E **`DELEGATION_MODE`**).
+- **Choose the pair**: set **`OCAP_DEMO_PAIR`** to **`bundler-7702`**, **`bundler-hybrid`**, or **`peer-relay`**, or pass **`--pair <value>`** before compose subcommands (after **`yarn … --`** if needed), e.g. **`yarn docker:demo:up -- --pair bundler-hybrid`**.
+- **`yarn docker:demo:setup`** runs wallet setup; OpenClaw **`setup-openclaw.mjs`** + gateway run **only** when the pair is **`bundler-7702`** (the image with OpenClaw). Other pairs skip those steps with a short log line.
+- OpenClaw UI history for 7702 lives under **`$HOME/.openclaw`** on the **`ocap-run`** volume; use **`yarn docker:demo:reset-openclaw`** then **`yarn docker:demo:setup`**, or **`docker compose … down -v`** for a full volume wipe. LLM wiring is **only** in **`docker-compose.yml`** (**`models:`**).
 
-**Raw `docker compose -f docker/docker-compose.yml up`** without **`--profile`** starts **evm** and **bundler** only (no kernels). Prefer **`yarn docker:up`** or the interactive scripts above.
+**Raw `docker compose -f docker/docker-compose.yml up`** without **`--profile`** starts **evm** and **bundler** only (no kernels). Prefer **`yarn docker:up`** or the demo scripts above.
 
 ## `yarn docker:delegate`
 

@@ -2,19 +2,19 @@
 import { spawnSync } from 'node:child_process';
 
 import {
-  awayServiceForInteractivePair,
-  interactiveDockerComposeArgs,
-  INTERACTIVE_PACKAGE_ROOT,
-} from './interactive-compose-lib.mjs';
+  awayServiceForDemoPair,
+  demoDockerComposeArgs,
+  DEMO_PACKAGE_ROOT,
+} from './demo-compose-lib.mjs';
 
 const argv = process.argv.slice(2);
-const { pair, dockerArgs } = interactiveDockerComposeArgs(argv);
+const { pair, dockerArgs } = demoDockerComposeArgs(argv);
 
 const wallets = spawnSync(
   'yarn',
   ['tsx', 'test/e2e/docker/setup-wallets.ts', pair],
   {
-    cwd: INTERACTIVE_PACKAGE_ROOT,
+    cwd: DEMO_PACKAGE_ROOT,
     stdio: 'inherit',
     env: process.env,
   },
@@ -22,11 +22,11 @@ const wallets = spawnSync(
 if (wallets.status !== 0) {
   process.exit(wallets.status ?? 1);
 }
-const away = awayServiceForInteractivePair(pair);
+const away = awayServiceForDemoPair(pair);
 
 if (pair !== 'bundler-7702') {
   console.log(
-    'OpenClaw setup skipped (interactive Dockerfile target + OpenClaw run only on kernel-away-bundler-7702).',
+    'OpenClaw setup skipped (demo Dockerfile target + OpenClaw run only on kernel-away-bundler-7702).',
   );
   process.exit(0);
 }
@@ -40,7 +40,7 @@ const setupOpenclaw = spawnSync(
     'node',
     '/app/packages/evm-wallet-experiment/docker/setup-openclaw.mjs',
   ],
-  { cwd: INTERACTIVE_PACKAGE_ROOT, stdio: 'inherit', env: process.env },
+  { cwd: DEMO_PACKAGE_ROOT, stdio: 'inherit', env: process.env },
 );
 if (setupOpenclaw.status !== 0) {
   process.exit(setupOpenclaw.status ?? 1);
@@ -57,12 +57,12 @@ const gateway = spawnSync(
     '/usr/local/lib/node_modules/openclaw/openclaw.mjs',
     'gateway',
   ],
-  { cwd: INTERACTIVE_PACKAGE_ROOT, stdio: 'inherit', env: process.env },
+  { cwd: DEMO_PACKAGE_ROOT, stdio: 'inherit', env: process.env },
 );
 if (gateway.status !== 0) {
   process.exit(gateway.status ?? 1);
 }
 
 console.log(
-  `OpenClaw configured + gateway started (${away}). Shell: OCAP_INTERACTIVE_PAIR=${pair} yarn docker:compose:interactive -- exec ${away} bash`,
+  `OpenClaw configured + gateway started (${away}). Shell: OCAP_DEMO_PAIR=${pair} yarn docker:demo:attach:away`,
 );

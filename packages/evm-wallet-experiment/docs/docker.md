@@ -1,6 +1,6 @@
 # Docker Compose Setup
 
-Reference for the Docker Compose stack used by both the [interactive simulation](./simulation.md) and the automated Docker E2E tests.
+Reference for the Docker Compose stack used by both the [local demo](./demo-local.md) and the automated Docker E2E tests.
 
 ---
 
@@ -8,7 +8,7 @@ Reference for the Docker Compose stack used by both the [interactive simulation]
 
 - **Docker** with Compose v2.38+
 - **Node.js 22** and **Yarn** (for host-side setup commands)
-- **Docker Model Runner** with `ai/qwen3.5:4B-UD-Q4_K_XL` pulled — required for the OpenClaw AI agent on the `bundler-7702` interactive pair
+- **Docker Model Runner** with `ai/qwen3.5:4B-UD-Q4_K_XL` pulled — required for the OpenClaw AI agent on the `bundler-7702` demo pair
 
   ```bash
   docker model pull ai/qwen3.5:4B-UD-Q4_K_XL
@@ -28,12 +28,12 @@ yarn workspace @ocap/evm-wallet-experiment docker:build:force
 
 The away kernel for `bundler-7702` has two Dockerfile targets:
 
-| Target        | Used by             | Includes                     |
-| ------------- | ------------------- | ---------------------------- |
-| `kernel`      | E2E tests (default) | Kernel daemon only           |
-| `interactive` | Interactive mode    | Kernel daemon + OpenClaw CLI |
+| Target   | Used by             | Includes                     |
+| -------- | ------------------- | ---------------------------- |
+| `kernel` | E2E tests (default) | Kernel daemon only           |
+| `demo`   | Demo mode           | Kernel daemon + OpenClaw CLI |
 
-The `interactive` target is activated automatically by `docker:interactive:up` via `docker/.env.interactive`.
+The `demo` target is activated automatically by `docker:demo:up` via `docker/.env.demo`.
 
 ---
 
@@ -41,16 +41,16 @@ The `interactive` target is activated automatically by `docker:interactive:up` v
 
 ### Services
 
-| Service                      | Image                | Purpose                                                                       |
-| ---------------------------- | -------------------- | ----------------------------------------------------------------------------- |
-| `evm`                        | Anvil (Foundry)      | Local EVM chain; deploys Delegation Framework contracts on startup; port 8545 |
-| `bundler`                    | Alto                 | ERC-4337 bundler pointing at `evm`; port 4337                                 |
-| `kernel-home-bundler-7702`   | kernel               | Home kernel, SRP keyring, 7702 smart account; QUIC port 4011                  |
-| `kernel-away-bundler-7702`   | kernel / interactive | Away kernel, throwaway keyring; QUIC port 4012                                |
-| `kernel-home-bundler-hybrid` | kernel               | Home kernel, hybrid smart account; QUIC port 4021                             |
-| `kernel-away-bundler-hybrid` | kernel               | Away kernel; QUIC port 4022                                                   |
-| `kernel-home-peer-relay`     | kernel               | Home kernel, 7702 smart account; QUIC port 4031                               |
-| `kernel-away-peer-relay`     | kernel               | Away kernel, no bundler (relays to home); QUIC port 4032                      |
+| Service                      | Image           | Purpose                                                                       |
+| ---------------------------- | --------------- | ----------------------------------------------------------------------------- |
+| `evm`                        | Anvil (Foundry) | Local EVM chain; deploys Delegation Framework contracts on startup; port 8545 |
+| `bundler`                    | Alto            | ERC-4337 bundler pointing at `evm`; port 4337                                 |
+| `kernel-home-bundler-7702`   | kernel          | Home kernel, SRP keyring, 7702 smart account; QUIC port 4011                  |
+| `kernel-away-bundler-7702`   | kernel / demo   | Away kernel, throwaway keyring; QUIC port 4012                                |
+| `kernel-home-bundler-hybrid` | kernel          | Home kernel, hybrid smart account; QUIC port 4021                             |
+| `kernel-away-bundler-hybrid` | kernel          | Away kernel; QUIC port 4022                                                   |
+| `kernel-home-peer-relay`     | kernel          | Home kernel, 7702 smart account; QUIC port 4031                               |
+| `kernel-away-peer-relay`     | kernel          | Away kernel, no bundler (relays to home); QUIC port 4032                      |
 
 ### Profiles
 
@@ -62,7 +62,7 @@ Profiles control which home/away pair is started:
 | `4337`  | bundler-hybrid | `--profile 4337`  |
 | `relay` | peer-relay     | `--profile relay` |
 
-Interactive mode activates one profile at a time. E2E test mode (`docker:up`) activates all three simultaneously.
+Demo mode activates one profile at a time. E2E test mode (`docker:up`) activates all three simultaneously.
 
 ### Volumes
 
@@ -71,7 +71,7 @@ Interactive mode activates one profile at a time. E2E test mode (`docker:up`) ac
 | `ocap-run` (named volume)                           | `/run/ocap` | Kernel databases, daemon sockets, contract addresses, delegation context, OpenClaw state                 |
 | `packages/evm-wallet-experiment/logs/` (bind-mount) | `/logs`     | Per-service log files (`<service-name>.log`); persists across restarts and readable directly on the host |
 
-The `logs/` directory is created automatically by `docker:up` and `docker:interactive:up` via the `docker:ensure-logs` script. Each container's entrypoint tees its stdout/stderr to `/logs/<service-name>.log`.
+The `logs/` directory is created automatically by `docker:up` and `docker:demo:up` via the `docker:ensure-logs` script. Each container's entrypoint tees its stdout/stderr to `/logs/<service-name>.log`.
 
 ---
 
@@ -108,14 +108,14 @@ The test suite covers: wallet setup on both kernels, delegation creation and tra
 
 ## Environment variables
 
-| Variable                         | Default                        | Description                                                                                    |
-| -------------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `OCAP_INTERACTIVE_PAIR`          | `bundler-7702`                 | Which home/away pair to start in interactive mode; overridden by `--pair` flag                 |
-| `DELEGATION_MODE`                | `bundler-7702`                 | Which mode to run in `test:e2e:docker`; also controls delegate resolution in `docker:delegate` |
-| `CAVEAT_ETH_LIMIT`               | _(none)_                       | Wei cap on native-token transfers when running `docker:delegate` (default setup uses 1000 ETH) |
-| `LLM_URL`                        | _(injected by Compose models)_ | OpenAI-compatible LLM base URL for the OpenClaw gateway                                        |
-| `LLM_MODEL`                      | `ai/qwen3.5:4B-UD-Q4_K_XL`     | Model ID written to the OpenClaw config                                                        |
-| `DEBUG_OCAP_INTERACTIVE_COMPOSE` | _(unset)_                      | Print pair and profile resolution details during interactive compose operations                |
+| Variable                  | Default                        | Description                                                                                    |
+| ------------------------- | ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `OCAP_DEMO_PAIR`          | `bundler-7702`                 | Which home/away pair to start in demo mode; overridden by `--pair` flag                        |
+| `DELEGATION_MODE`         | `bundler-7702`                 | Which mode to run in `test:e2e:docker`; also controls delegate resolution in `docker:delegate` |
+| `CAVEAT_ETH_LIMIT`        | _(none)_                       | Wei cap on native-token transfers when running `docker:delegate` (default setup uses 1000 ETH) |
+| `LLM_URL`                 | _(injected by Compose models)_ | OpenAI-compatible LLM base URL for the OpenClaw gateway                                        |
+| `LLM_MODEL`               | `ai/qwen3.5:4B-UD-Q4_K_XL`     | Model ID written to the OpenClaw config                                                        |
+| `DEBUG_OCAP_DEMO_COMPOSE` | _(unset)_                      | Print pair and profile resolution details during demo compose operations                       |
 
 ---
 
@@ -132,7 +132,7 @@ cat packages/evm-wallet-experiment/logs/kernel-home-bundler-7702.log
 cat packages/evm-wallet-experiment/logs/test-results.json
 
 # Check container health
-docker compose -f packages/evm-wallet-experiment/docker/docker-compose.yml --profile 7702 ps
+yarn workspace @ocap/evm-wallet-experiment docker:ps
 ```
 
 Kernel containers write a readiness JSON file to `/run/ocap/<service>-ready.json` when the daemon is up. The host-side setup scripts poll this before proceeding.
@@ -160,5 +160,5 @@ After `test:e2e:docker` completes, structured pass/fail results are written to `
 
 **Volume state is corrupted or stale**
 
-- Full wipe: `docker compose -f packages/evm-wallet-experiment/docker/docker-compose.yml down -v`
+- Full wipe: `yarn workspace @ocap/evm-wallet-experiment docker:down:volumes`
 - Rebuild: `yarn workspace @ocap/evm-wallet-experiment docker:build:force`
