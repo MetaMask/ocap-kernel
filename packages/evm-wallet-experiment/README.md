@@ -1,6 +1,6 @@
 # @ocap/evm-wallet-experiment
 
-A capability-driven EVM wallet implemented as an OCAP kernel subcluster. It uses the [MetaMask Delegation Framework (Gator)](https://github.com/MetaMask/delegation-framework) for delegated transaction authority. **Hybrid** smart accounts submit ERC-4337 UserOperations through a bundler; **stateless EIP-7702** home accounts (mnemonic path) redeem delegations with normal EIP-1559 transactions via your JSON-RPC provider (e.g. Infura), without a bundler. The wallet subcluster isolates key management, Ethereum RPC communication, and delegation lifecycle into separate vats, enforcing the principle of least authority across the entire signing pipeline.
+A capability-driven EVM wallet, implemented as an OCAP kernel subcluster. It uses the [MetaMask Delegation Framework (Gator)](https://github.com/MetaMask/delegation-framework) for delegated transaction authority. **Hybrid** smart accounts submit ERC-4337 UserOperations through a bundler; **stateless EIP-7702** home accounts (mnemonic path) redeem delegations with normal EIP-1559 transactions via your JSON-RPC provider (e.g. Infura), without a bundler. The wallet subcluster isolates key management, Ethereum RPC communication, and delegation lifecycle into separate vats, enforcing the principle of least authority across the entire signing pipeline.
 
 For a deeper explanation of the components and data flow, see [How It Works](./docs/how-it-works.md). For deploying the wallet on a home device + VPS with OpenClaw, see the [Setup Guide](./docs/setup-guide.md).
 
