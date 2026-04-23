@@ -91,6 +91,16 @@ export class VatManager {
     subclusterId?: string,
   ): Promise<KRef> {
     const vatId = this.#kernelStore.getNextVatId();
+    // Register the vat with its subcluster BEFORE awaiting `runVat`.
+    // `runVat` yields to the kernel event loop (loading the bundle,
+    // negotiating with the vat worker); any crank that runs during that
+    // window ends with `collectGarbage()` → `clearEmptySubclusters()`,
+    // which would otherwise delete the just-created, still-empty
+    // subcluster out from under us. Associating the vat first makes the
+    // subcluster non-empty for GC.
+    if (subclusterId) {
+      this.#kernelStore.addSubclusterVat(subclusterId, vatName, vatId);
+    }
     await this.runVat(vatId, vatConfig);
     this.#kernelStore.initEndpoint(vatId);
     const rootRef = this.#kernelStore.exportFromEndpoint(
@@ -98,9 +108,6 @@ export class VatManager {
       ROOT_OBJECT_VREF,
     );
     this.#kernelStore.setVatConfig(vatId, vatConfig);
-    if (subclusterId) {
-      this.#kernelStore.addSubclusterVat(subclusterId, vatName, vatId);
-    }
     return rootRef;
   }
 
