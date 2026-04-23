@@ -56,51 +56,19 @@ export type SaltGenerator = () => Hex;
 /**
  * Create a salt generator for delegation uniqueness.
  *
- * Prefers crypto.getRandomValues when available. In SES compartments
- * where crypto is not endowed, falls back to a closure-local counter
- * hashed with optional caller-supplied entropy. Each call to
- * makeSaltGenerator produces an independent counter, so two vat instances
- * each get their own sequence rather than sharing module-level state.
- *
- * @param entropy - Optional caller-supplied entropy hex string. When provided
- *   and crypto is unavailable, mixed into the counter hash so that separate
- *   vat instances produce distinct salts even though both start at counter 1.
- * @returns A salt generator function.
+ * @returns A salt generator function backed by `crypto.getRandomValues`.
  */
-export function makeSaltGenerator(entropy?: Hex): SaltGenerator {
-  // eslint-disable-next-line n/no-unsupported-features/node-builtins
-  if (globalThis.crypto?.getRandomValues) {
-    return () => {
-      const bytes = new Uint8Array(32);
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
-      globalThis.crypto.getRandomValues(bytes);
-      return toHex(bytes);
-    };
-  }
-
-  // SES fallback: unique per generator lifetime but not cryptographically random.
-  // The salt only needs uniqueness, not unpredictability.
-  let counter = 0;
-  if (entropy !== undefined) {
-    return () => {
-      counter += 1;
-      return keccak256(
-        encodePacked(['bytes', 'uint256'], [entropy, BigInt(counter)]),
-      );
-    };
-  }
+export function makeSaltGenerator(): SaltGenerator {
   return () => {
-    counter += 1;
-    return keccak256(encodePacked(['uint256'], [BigInt(counter)]));
+    const bytes = new Uint8Array(32);
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    globalThis.crypto.getRandomValues(bytes);
+    return toHex(bytes);
   };
 }
 
 /**
  * Generate a random salt for delegation uniqueness.
- *
- * Uses a module-level counter as the SES fallback. Prefer
- * {@link makeSaltGenerator} when creating delegations in a vat, since it
- * gives each vat instance an independent counter.
  *
  * @returns A hex-encoded random salt.
  */

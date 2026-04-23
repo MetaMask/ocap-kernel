@@ -52,21 +52,10 @@ describe('lib/delegation', () => {
       expect(generate()).not.toBe(generate());
     });
 
-    it('two generators produce independent sequences', () => {
+    it('produces distinct salts from independent generators', () => {
       const gen1 = makeSaltGenerator();
       const gen2 = makeSaltGenerator();
-      // Each generator's counter is independent — advance gen1 several times
-      // without touching gen2 and verify gen2 still produces valid salts.
-      gen1();
-      gen1();
-      gen1();
-      expect(gen2()).toMatch(/^0x[\da-f]{64}$/iu);
-    });
-
-    it('accepts entropy without throwing', () => {
-      const entropy = '0xdeadbeef' as `0x${string}`;
-      const generate = makeSaltGenerator(entropy);
-      expect(generate()).toMatch(/^0x[\da-f]{64}$/iu);
+      expect(gen1()).not.toBe(gen2());
     });
   });
 

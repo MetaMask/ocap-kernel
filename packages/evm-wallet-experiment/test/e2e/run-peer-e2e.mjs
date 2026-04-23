@@ -86,7 +86,6 @@ import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
-import { randomBytes } from 'node:crypto';
 
 import { makeWalletClusterConfig } from '../../src/cluster-config.ts';
 import { getDelegationManagerAddress } from '../../src/lib/sdk.ts';
@@ -397,10 +396,7 @@ async function main() {
   // =====================================================================
 
   console.log('\n--- Initialize throwaway keyring (kernel2) ---');
-  const throwawayEntropy = `0x${randomBytes(32).toString('hex')}`;
-  await call(kernel2, coord2, 'initializeKeyring', [
-    { type: 'throwaway', entropy: throwawayEntropy },
-  ]);
+  await call(kernel2, coord2, 'initializeKeyring', [{ type: 'throwaway' }]);
 
   // getAccounts returns only peer (home) accounts — throwaway is hidden
   const awayAccounts = await call(kernel2, coord2, 'getAccounts');

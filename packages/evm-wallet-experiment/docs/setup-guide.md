@@ -561,11 +561,10 @@ yarn ocap daemon exec launchSubcluster '{"config": { ... }}'
 
 ### 3e. Initialize with a throwaway key
 
-The away wallet gets a throwaway key (for signing UserOps within delegations). Under SES lockdown, `crypto.getRandomValues` is unavailable in vat compartments, so you must generate entropy externally:
+The away wallet gets a throwaway key (for signing UserOps within delegations):
 
 ```bash
-ENTROPY="0x$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
-yarn ocap daemon queueMessage ko4 initializeKeyring "[{\"type\": \"throwaway\", \"entropy\": \"$ENTROPY\"}]"
+yarn ocap daemon queueMessage ko4 initializeKeyring '[{"type":"throwaway"}]'
 ```
 
 ### 3f. Connect to the home wallet

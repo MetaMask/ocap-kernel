@@ -123,9 +123,6 @@ async function jsonRpcOnce(
 /**
  * Create a JSON-RPC provider for the given chain.
  *
- * Uses raw fetch instead of viem's createPublicClient to avoid
- * Math.random() usage that is blocked under SES lockdown.
- *
  * @param config - The chain configuration.
  * @returns The provider instance.
  */

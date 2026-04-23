@@ -373,7 +373,7 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$AWAY_RPC_H
         },
         keyring: {
           bundleSpec: bd + '/keyring-vat.bundle',
-          globals: ['TextEncoder', 'TextDecoder']
+          globals: ['TextEncoder', 'TextDecoder', 'crypto', 'SubtleCrypto']
         },
         provider: {
           bundleSpec: bd + '/provider-vat.bundle',
@@ -407,14 +407,7 @@ ok "Subcluster launched — coordinator: $ROOT_KREF"
 # ---------------------------------------------------------------------------
 
 info "Initializing throwaway keyring..."
-# Generate 32 bytes of entropy outside the SES compartment (crypto.getRandomValues
-# is unavailable inside vats). The entropy is passed to the keyring vat which uses
-# it as the private key for the throwaway account.
-ENTROPY="0x$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
-INIT_ARGS=$(ENTROPY="$ENTROPY" node -e "
-  process.stdout.write(JSON.stringify([{ type: 'throwaway', entropy: process.env.ENTROPY }]));
-")
-daemon_qm --quiet "$ROOT_KREF" initializeKeyring "$INIT_ARGS" >/dev/null
+daemon_qm --quiet "$ROOT_KREF" initializeKeyring '[{"type":"throwaway"}]' >/dev/null
 ok "Throwaway keyring initialized"
 
 info "Verifying accounts..."

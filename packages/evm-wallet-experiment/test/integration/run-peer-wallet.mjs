@@ -15,7 +15,6 @@ import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
-import { randomBytes } from 'node:crypto';
 
 import { makeWalletClusterConfig } from '../../src/cluster-config.ts';
 
@@ -280,10 +279,7 @@ async function main() {
 
   // -- Away wallet with throwaway key + peer --
   console.log('\n--- Away wallet with throwaway key + peer ---');
-  const entropy = `0x${randomBytes(32).toString('hex')}`;
-  await call(kernel2, coord2, 'initializeKeyring', [
-    { type: 'throwaway', entropy },
-  ]);
+  await call(kernel2, coord2, 'initializeKeyring', [{ type: 'throwaway' }]);
   const caps2Full = await call(kernel2, coord2, 'getCapabilities');
   assert(caps2Full.hasLocalKeys === true, 'away wallet: now has local keys');
   assert(caps2Full.hasPeerWallet === true, 'away wallet: still has peer');

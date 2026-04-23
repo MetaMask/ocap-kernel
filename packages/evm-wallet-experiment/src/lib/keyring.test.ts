@@ -1,5 +1,5 @@
 import { mnemonicToAccount } from 'viem/accounts';
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 import { makeKeyring, generateMnemonicPhrase } from './keyring.ts';
 
@@ -110,46 +110,6 @@ describe('lib/keyring', () => {
         const keyring = makeKeyring({ type: 'throwaway' });
         expect(keyring.getMnemonic()).toBeUndefined();
       });
-
-      it('requires secure randomness when creating throwaway keys without entropy', () => {
-        vi.stubGlobal('crypto', undefined);
-        try {
-          expect(() => makeKeyring({ type: 'throwaway' })).toThrow(
-            'Throwaway keyring requires crypto.getRandomValues or caller-provided entropy',
-          );
-        } finally {
-          vi.unstubAllGlobals();
-        }
-      });
-
-      it('accepts caller-provided entropy for throwaway keys', () => {
-        vi.stubGlobal('crypto', undefined);
-        try {
-          const entropy =
-            '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-          const keyring = makeKeyring({
-            type: 'throwaway',
-            entropy: entropy as `0x${string}`,
-          });
-          const accounts = keyring.getAccounts();
-          expect(accounts).toHaveLength(1);
-          expect(accounts[0]).toMatch(/^0x[\da-f]{40}$/u);
-        } finally {
-          vi.unstubAllGlobals();
-        }
-      });
-
-      it.each(['0xshort', '0x', 'not-hex', `0x${'ff'.repeat(33)}`])(
-        'rejects invalid entropy: %s',
-        (badEntropy) => {
-          expect(() =>
-            makeKeyring({
-              type: 'throwaway',
-              entropy: badEntropy as `0x${string}`,
-            }),
-          ).toThrow('Invalid entropy');
-        },
-      );
     });
   });
 

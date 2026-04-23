@@ -359,10 +359,8 @@ describe.sequential('Peer wallet integration', () => {
         const homeAddr = homeAccounts[0] as Address;
 
         // Away initializes a throwaway keyring so it has a delegate address.
-        const { randomBytes } = await import('node:crypto');
-        const entropy = `0x${randomBytes(32).toString('hex')}`;
         await callVatMethod(kernel2, coordinatorKref2, 'initializeKeyring', [
-          { type: 'throwaway', entropy },
+          { type: 'throwaway' },
         ]);
         const awayAccounts = (await callVatMethod(
           kernel2,

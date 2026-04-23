@@ -1223,7 +1223,6 @@ export function buildRootObject(
     async initializeKeyring(options: {
       type: 'srp' | 'throwaway';
       mnemonic?: string;
-      entropy?: Hex;
       password?: string;
       salt?: string;
       addressIndex?: number;
@@ -1231,21 +1230,18 @@ export function buildRootObject(
       if (!keyringVat) {
         throw new Error('Keyring vat not available');
       }
-      let initOptions:
+      const initOptions:
         | { type: 'srp'; mnemonic: string; addressIndex?: number }
-        | { type: 'throwaway'; entropy?: Hex };
-      if (options.type === 'throwaway') {
-        initOptions = { type: 'throwaway', entropy: options.entropy };
-      } else {
-        initOptions =
-          options.addressIndex === undefined
-            ? { type: 'srp', mnemonic: options.mnemonic ?? '' }
-            : {
-                type: 'srp',
-                mnemonic: options.mnemonic ?? '',
+        | { type: 'throwaway' } =
+        options.type === 'throwaway'
+          ? { type: 'throwaway' }
+          : {
+              type: 'srp',
+              mnemonic: options.mnemonic ?? '',
+              ...(options.addressIndex !== undefined && {
                 addressIndex: options.addressIndex,
-              };
-      }
+              }),
+            };
 
       const password = options.type === 'srp' ? options.password : undefined;
       await E(keyringVat).initialize(initOptions, password, options.salt);
