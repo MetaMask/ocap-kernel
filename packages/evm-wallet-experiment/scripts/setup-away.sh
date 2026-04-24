@@ -382,7 +382,7 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$AWAY_RPC_H
         },
         delegation: {
           bundleSpec: bd + '/delegation-vat.bundle',
-          globals: ['TextEncoder', 'TextDecoder'],
+          globals: ['TextEncoder', 'TextDecoder', 'crypto'],
           parameters: { delegationManagerAddress: dm }
         }
       }
