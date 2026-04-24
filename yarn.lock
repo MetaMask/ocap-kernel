@@ -2639,6 +2639,7 @@ __metadata:
     "@chainsafe/libp2p-yamux": "npm:8.0.1"
     "@endo/captp": "npm:^4.4.8"
     "@endo/errors": "npm:^1.2.13"
+    "@endo/eventual-send": "npm:^1.3.4"
     "@endo/exo": "npm:^1.5.12"
     "@endo/patterns": "npm:^1.7.0"
     "@endo/promise-kit": "npm:^1.1.13"

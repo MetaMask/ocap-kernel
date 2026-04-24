@@ -3,7 +3,8 @@ import { GET_INTERFACE_GUARD, makeExo } from '@endo/exo';
 import { getInterfaceGuardPayload } from '@endo/patterns';
 import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
 
-import type { MetaDataSpec, PresheafSection } from './types.ts';
+import { ifDefined } from '../misc.ts';
+import type { MetaDataSpec, PresheafSection, Section } from './types.ts';
 
 /**
  * Wrap a remote (CapTP) reference as a PresheafSection.
@@ -24,10 +25,10 @@ export const makeRemoteSection = async <M extends Record<string, unknown>>(
   remoteRef: object,
   metadata?: MetaDataSpec<M>,
 ): Promise<PresheafSection<M>> => {
-  const eProxy = E(remoteRef);
-
   const interfaceGuard: InterfaceGuard = await (
-    eProxy as unknown as { [GET_INTERFACE_GUARD](): Promise<InterfaceGuard> }
+    E(remoteRef) as unknown as {
+      [GET_INTERFACE_GUARD](): Promise<InterfaceGuard>;
+    }
   )[GET_INTERFACE_GUARD]();
 
   const { methodGuards } = getInterfaceGuardPayload(
@@ -36,15 +37,18 @@ export const makeRemoteSection = async <M extends Record<string, unknown>>(
     methodGuards: Record<string, MethodGuard>;
   };
 
-  const remote = eProxy as unknown as Record<
+  const remote = remoteRef as unknown as Record<
     string,
     (...args: unknown[]) => Promise<unknown>
   >;
   const handlers: Record<string, (...args: unknown[]) => Promise<unknown>> = {};
   for (const method of Object.keys(methodGuards)) {
-    handlers[method] = async (...args: unknown[]) => remote[method](...args);
+    handlers[method] = async (...args: unknown[]) =>
+      (E(remote) as Record<string, (...a: unknown[]) => Promise<unknown>>)[
+        method
+      ](...args);
   }
 
-  const exo = makeExo(name, interfaceGuard, handlers);
-  return { exo, metadata };
+  const exo = makeExo(name, interfaceGuard, handlers) as unknown as Section;
+  return ifDefined({ exo, metadata }) as PresheafSection<M>;
 };
