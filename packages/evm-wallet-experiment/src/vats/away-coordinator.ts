@@ -986,7 +986,7 @@ export function buildRootObject(
     if (typeof globalThis.setTimeout !== 'function') {
       throw new Error(
         'EIP-7702 confirmation polling requires setTimeout ' +
-          '(not available in SES compartments without timer endowments)',
+          "(add the missing globals to this vat's globals in cluster-config.ts)",
       );
     }
     const maxAttempts = 45;
@@ -1129,12 +1129,11 @@ export function buildRootObject(
     // ------------------------------------------------------------------
 
     /**
-     * Initialize the keyring vat with a seed phrase or throwaway entropy.
+     * Initialize the keyring vat with a seed phrase or a throwaway key.
      *
      * @param options - Keyring initialization options.
      * @param options.type - 'srp' for a seed phrase, 'throwaway' for ephemeral key.
      * @param options.mnemonic - BIP-39 mnemonic (srp only).
-     * @param options.entropy - Random entropy hex (throwaway only).
      * @param options.password - Encryption password (srp only).
      * @param options.salt - Encryption salt (srp only).
      * @param options.addressIndex - HD derivation index (srp only).
@@ -1142,7 +1141,6 @@ export function buildRootObject(
     async initializeKeyring(options: {
       type: 'srp' | 'throwaway';
       mnemonic?: string;
-      entropy?: Hex;
       password?: string;
       salt?: string;
       addressIndex?: number;
@@ -1150,24 +1148,30 @@ export function buildRootObject(
       if (!keyringVat) {
         throw new Error('Keyring vat not available');
       }
-      let initOptions:
-        | { type: 'srp'; mnemonic: string; addressIndex?: number }
-        | { type: 'throwaway'; entropy?: Hex };
       if (options.type === 'throwaway') {
-        initOptions = { type: 'throwaway', entropy: options.entropy };
-      } else {
-        initOptions =
-          options.addressIndex === undefined
-            ? { type: 'srp', mnemonic: options.mnemonic ?? '' }
-            : {
-                type: 'srp',
-                mnemonic: options.mnemonic ?? '',
-                addressIndex: options.addressIndex,
-              };
+        await E(keyringVat).initialize(
+          { type: 'throwaway' },
+          undefined,
+          options.salt,
+        );
+        return;
       }
-
-      const password = options.type === 'srp' ? options.password : undefined;
-      await E(keyringVat).initialize(initOptions, password, options.salt);
+      const initOptions: {
+        type: 'srp';
+        mnemonic: string;
+        addressIndex?: number;
+      } = {
+        type: 'srp',
+        mnemonic: options.mnemonic ?? '',
+      };
+      if (options.addressIndex !== undefined) {
+        initOptions.addressIndex = options.addressIndex;
+      }
+      await E(keyringVat).initialize(
+        initOptions,
+        options.password,
+        options.salt,
+      );
     },
 
     /**
@@ -1622,7 +1626,7 @@ export function buildRootObject(
       ) {
         throw new Error(
           'waitForUserOpReceipt requires Date.now and setTimeout ' +
-            '(not available in SES compartments without timer endowments)',
+            "(add the missing globals to this vat's globals in cluster-config.ts)",
         );
       }
 

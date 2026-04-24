@@ -38,7 +38,6 @@ LISTEN_ADDRS=""
 RELAY_ADDR=""
 SKIP_BUILD=false
 QUIC_PORT=4002
-DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
 CUSTOM_RPC_URL=""
 NON_INTERACTIVE=false
 
@@ -215,7 +214,7 @@ if [[ "$SKIP_BUILD" == false ]]; then
   ok "Build complete"
 else
   info "Skipping build (--no-build)"
-  if [[ ! -f "$BUNDLE_DIR/coordinator-vat.bundle" ]]; then
+  if [[ ! -f "$BUNDLE_DIR/away-coordinator.bundle" ]]; then
     fail "Bundle files not found in $BUNDLE_DIR. Remove --no-build to build first."
   fi
 fi
@@ -355,9 +354,8 @@ elif [[ -n "$INFURA_KEY" ]]; then
   ")
 fi
 
-CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$AWAY_RPC_HOST" node -e "
+CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" RPC_HOST="$AWAY_RPC_HOST" node -e "
   const bd = process.env.BUNDLE_DIR;
-  const dm = process.env.DM;
   const rpcHost = process.env.RPC_HOST;
   const extra = (process.env.EXTRA_ALLOWED_HOSTS || '').split(',').filter(Boolean);
   const hosts = [rpcHost, 'api.pimlico.io', 'swap.api.cx.metamask.io', ...extra].filter(Boolean);
@@ -368,22 +366,21 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$AWAY_RPC_H
       services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
       vats: {
         coordinator: {
-          bundleSpec: bd + '/coordinator-vat.bundle',
+          bundleSpec: bd + '/away-coordinator.bundle',
           globals: ['TextEncoder', 'TextDecoder', 'Date', 'setTimeout']
         },
         keyring: {
           bundleSpec: bd + '/keyring-vat.bundle',
-          globals: ['TextEncoder', 'TextDecoder']
+          globals: ['TextEncoder', 'TextDecoder', 'crypto']
         },
         provider: {
           bundleSpec: bd + '/provider-vat.bundle',
-          globals: ['TextEncoder', 'TextDecoder'],
-          platformConfig: { fetch: { allowedHosts: hosts } }
+          globals: ['TextEncoder', 'TextDecoder', 'fetch', 'Request', 'Headers', 'Response'],
+          network: { allowedHosts: hosts }
         },
-        delegation: {
-          bundleSpec: bd + '/delegation-vat.bundle',
-          globals: ['TextEncoder', 'TextDecoder'],
-          parameters: { delegationManagerAddress: dm }
+        redeemer: {
+          bundleSpec: bd + '/redeemer-vat.bundle',
+          globals: ['TextEncoder', 'TextDecoder']
         }
       }
     }
@@ -407,14 +404,7 @@ ok "Subcluster launched — coordinator: $ROOT_KREF"
 # ---------------------------------------------------------------------------
 
 info "Initializing throwaway keyring..."
-# Generate 32 bytes of entropy outside the SES compartment (crypto.getRandomValues
-# is unavailable inside vats). The entropy is passed to the keyring vat which uses
-# it as the private key for the throwaway account.
-ENTROPY="0x$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
-INIT_ARGS=$(ENTROPY="$ENTROPY" node -e "
-  process.stdout.write(JSON.stringify([{ type: 'throwaway', entropy: process.env.ENTROPY }]));
-")
-daemon_qm --quiet "$ROOT_KREF" initializeKeyring "$INIT_ARGS" >/dev/null
+daemon_qm --quiet "$ROOT_KREF" initializeKeyring '[{"type":"throwaway"}]' >/dev/null
 ok "Throwaway keyring initialized"
 
 info "Verifying accounts..."

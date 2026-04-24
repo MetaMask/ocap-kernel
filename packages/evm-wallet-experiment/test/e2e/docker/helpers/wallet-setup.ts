@@ -6,7 +6,6 @@
  * are made by the caller — these helpers never branch or self-discover.
  */
 
-import { randomBytes } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { callVat, daemonExec, evmRpc, getServiceInfo } from './docker-exec.ts';
@@ -46,7 +45,7 @@ export function launchWalletSubcluster(
       ? {
           delegator: {
             bundleSpec: `${BUNDLE_BASE}/delegator-vat.bundle`,
-            globals: ['TextEncoder', 'TextDecoder'],
+            globals: ['TextEncoder', 'TextDecoder', 'crypto'],
           },
         }
       : {
@@ -67,7 +66,7 @@ export function launchWalletSubcluster(
       },
       keyring: {
         bundleSpec: `${BUNDLE_BASE}/keyring-vat.bundle`,
-        globals: ['TextEncoder', 'TextDecoder'],
+        globals: ['TextEncoder', 'TextDecoder', 'crypto'],
       },
       provider: {
         bundleSpec: `${BUNDLE_BASE}/provider-vat.bundle`,
@@ -106,26 +105,7 @@ export function initKeyring(
     | { type: 'srp'; mnemonic: string; addressIndex?: number }
     | { type: 'throwaway' },
 ): string {
-  let keyringOpts:
-    | { type: 'srp'; mnemonic: string; addressIndex?: number }
-    | { type: 'throwaway'; entropy: string };
-  if (options.type === 'throwaway') {
-    keyringOpts = {
-      type: 'throwaway',
-      entropy: `0x${randomBytes(32).toString('hex')}`,
-    };
-  } else {
-    keyringOpts =
-      options.addressIndex === undefined
-        ? { type: 'srp', mnemonic: options.mnemonic }
-        : {
-            type: 'srp',
-            mnemonic: options.mnemonic,
-            addressIndex: options.addressIndex,
-          };
-  }
-
-  callVat(service, kref, 'initializeKeyring', [keyringOpts]);
+  callVat(service, kref, 'initializeKeyring', [options]);
 
   const accounts = callVat(service, kref, 'getAccounts') as string[];
   return accounts[0] as string;

@@ -101,10 +101,19 @@ describe('cluster-config', () => {
         bundleBaseUrl: BUNDLE_BASE_URL,
       });
 
-      const baseGlobals = ['TextEncoder', 'TextDecoder'];
-      for (const vatName of ['keyring', 'provider', 'delegator']) {
+      const providerConfig = config.vats.provider as { globals?: string[] };
+      expect(providerConfig.globals).toStrictEqual([
+        'TextEncoder',
+        'TextDecoder',
+      ]);
+
+      for (const vatName of ['keyring', 'delegator']) {
         const vatConfig = config.vats[vatName] as { globals?: string[] };
-        expect(vatConfig.globals).toStrictEqual(baseGlobals);
+        expect(vatConfig.globals).toStrictEqual([
+          'TextEncoder',
+          'TextDecoder',
+          'crypto',
+        ]);
       }
 
       const coordConfig = config.vats.coordinator as { globals?: string[] };

@@ -463,21 +463,21 @@ yarn ocap daemon exec launchSubcluster '{
     "services": ["ocapURLIssuerService", "ocapURLRedemptionService"],
     "vats": {
       "coordinator": {
-        "bundleSpec": "packages/evm-wallet-experiment/src/vats/coordinator-vat.bundle",
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/home-coordinator.bundle",
         "globals": ["TextEncoder", "TextDecoder", "Date", "setTimeout"]
       },
       "keyring": {
         "bundleSpec": "packages/evm-wallet-experiment/src/vats/keyring-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder"]
+        "globals": ["TextEncoder", "TextDecoder", "crypto"]
       },
       "provider": {
         "bundleSpec": "packages/evm-wallet-experiment/src/vats/provider-vat.bundle",
         "globals": ["TextEncoder", "TextDecoder", "fetch", "Request", "Headers", "Response"],
         "network": { "allowedHosts": ["<chain>.infura.io", "api.pimlico.io", "swap.api.cx.metamask.io"] }
       },
-      "delegation": {
-        "bundleSpec": "packages/evm-wallet-experiment/src/vats/delegation-vat.bundle",
-        "globals": ["TextEncoder", "TextDecoder"],
+      "delegator": {
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/delegator-vat.bundle",
+        "globals": ["TextEncoder", "TextDecoder", "crypto"],
         "parameters": { "delegationManagerAddress": "0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3" }
       }
     }
@@ -553,19 +553,43 @@ yarn ocap daemon exec registerLocationHints '{"peerId": "HOME_PEER_ID", "hints":
 
 ### 3d. Launch the wallet subcluster
 
-Same as the home device (see section 2c), but with the VPS's allowed hosts:
+The away role uses `away-coordinator.bundle` and pairs it with a `redeemer` vat (not `delegator`); the home role is the one that signs delegations, so the away kernel only needs the redeeming half. Set `allowedHosts` to the chain's RPC endpoints this VPS is permitted to reach.
 
 ```bash
-yarn ocap daemon exec launchSubcluster '{"config": { ... }}'
+yarn ocap daemon exec launchSubcluster '{
+  "config": {
+    "bootstrap": "coordinator",
+    "forceReset": true,
+    "services": ["ocapURLIssuerService", "ocapURLRedemptionService"],
+    "vats": {
+      "coordinator": {
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/away-coordinator.bundle",
+        "globals": ["TextEncoder", "TextDecoder", "Date", "setTimeout"]
+      },
+      "keyring": {
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/keyring-vat.bundle",
+        "globals": ["TextEncoder", "TextDecoder", "crypto"]
+      },
+      "provider": {
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/provider-vat.bundle",
+        "globals": ["TextEncoder", "TextDecoder", "fetch", "Request", "Headers", "Response"],
+        "network": { "allowedHosts": ["<chain>.infura.io", "api.pimlico.io", "swap.api.cx.metamask.io"] }
+      },
+      "redeemer": {
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/redeemer-vat.bundle",
+        "globals": ["TextEncoder", "TextDecoder"]
+      }
+    }
+  }
+}'
 ```
 
 ### 3e. Initialize with a throwaway key
 
-The away wallet gets a throwaway key (for signing UserOps within delegations). Under SES lockdown, `crypto.getRandomValues` is unavailable in vat compartments, so you must generate entropy externally:
+The away wallet gets a throwaway key (for signing UserOps within delegations):
 
 ```bash
-ENTROPY="0x$(node -e "process.stdout.write(require('crypto').randomBytes(32).toString('hex'))")"
-yarn ocap daemon queueMessage ko4 initializeKeyring "[{\"type\": \"throwaway\", \"entropy\": \"$ENTROPY\"}]"
+yarn ocap daemon queueMessage ko4 initializeKeyring '[{"type":"throwaway"}]'
 ```
 
 ### 3f. Connect to the home wallet

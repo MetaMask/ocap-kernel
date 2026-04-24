@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import {
   encodeAllowedTargets,
@@ -12,7 +12,6 @@ import {
 import {
   computeDelegationId,
   makeDelegation,
-  makeSaltGenerator,
   prepareDelegationTypedData,
   delegationMatchesAction,
   explainDelegationMatch,
@@ -34,39 +33,19 @@ describe('lib/delegation', () => {
       expect(salt).toMatch(/^0x[\da-f]{64}$/iu);
     });
 
-    it('generates unique salts', () => {
-      const salt1 = generateSalt();
-      const salt2 = generateSalt();
-      expect(salt1).not.toBe(salt2);
-    });
-  });
-
-  describe('makeSaltGenerator', () => {
-    it('returns a function that generates 32-byte hex salts', () => {
-      const generate = makeSaltGenerator();
-      expect(generate()).toMatch(/^0x[\da-f]{64}$/iu);
+    it('generates unique salts on each call', () => {
+      expect(generateSalt()).not.toBe(generateSalt());
     });
 
-    it('generates unique salts across sequential calls', () => {
-      const generate = makeSaltGenerator();
-      expect(generate()).not.toBe(generate());
-    });
-
-    it('two generators produce independent sequences', () => {
-      const gen1 = makeSaltGenerator();
-      const gen2 = makeSaltGenerator();
-      // Each generator's counter is independent — advance gen1 several times
-      // without touching gen2 and verify gen2 still produces valid salts.
-      gen1();
-      gen1();
-      gen1();
-      expect(gen2()).toMatch(/^0x[\da-f]{64}$/iu);
-    });
-
-    it('accepts entropy without throwing', () => {
-      const entropy = '0xdeadbeef' as `0x${string}`;
-      const generate = makeSaltGenerator(entropy);
-      expect(generate()).toMatch(/^0x[\da-f]{64}$/iu);
+    it('throws an actionable error when crypto endowment is missing', () => {
+      vi.stubGlobal('crypto', undefined);
+      try {
+        expect(() => generateSalt()).toThrow(
+          /add 'crypto' to this vat's globals/u,
+        );
+      } finally {
+        vi.unstubAllGlobals();
+      }
     });
   });
 

@@ -8,16 +8,21 @@ import {
 import type { HDAccount, LocalAccount } from 'viem/accounts';
 
 import type { EncryptedMnemonicData } from './mnemonic-crypto.ts';
-import type { Address, Hex } from '../types.ts';
+import type { Address } from '../types.ts';
 
 const harden = globalThis.harden ?? (<T>(value: T): T => value);
 
 /**
  * Options for initializing a keyring.
+ *
+ * Throwaway keyrings are intentionally ephemeral: each call to `makeKeyring`
+ * generates a fresh private key, so the key does not survive a vat restart.
+ * Baggage only persists `{ type: 'throwaway' }`; callers that need key
+ * stability across restarts must use `type: 'srp'`.
  */
 export type KeyringInitOptions =
   | { type: 'srp'; mnemonic: string; addressIndex?: number }
-  | { type: 'throwaway'; entropy?: Hex };
+  | { type: 'throwaway' };
 
 /**
  * Encrypted keyring init data stored in baggage when a password is used.
@@ -59,27 +64,14 @@ export function makeKeyring(options: KeyringInitOptions): Keyring {
     const startIndex = options.addressIndex ?? 0;
     deriveAccountInternal(startIndex);
   } else {
-    let privateKey: Hex;
-    if (options.entropy) {
-      // Caller-provided entropy (for SES compartments without crypto global).
-      // The caller is responsible for providing cryptographically secure bytes.
-      if (!/^0x[\da-f]{64}$/iu.test(options.entropy)) {
-        throw new Error(
-          'Invalid entropy: expected a 0x-prefixed 32-byte hex string' +
-            ` (got ${String(options.entropy).length} chars)`,
-        );
-      }
-      privateKey = options.entropy;
-    } else {
-      // eslint-disable-next-line n/no-unsupported-features/node-builtins
-      if (!globalThis.crypto?.getRandomValues) {
-        throw new Error(
-          'Throwaway keyring requires crypto.getRandomValues or caller-provided entropy',
-        );
-      }
-      privateKey = generatePrivateKey();
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    if (!globalThis.crypto?.getRandomValues) {
+      throw new Error(
+        'Throwaway keyring requires the "crypto" global endowment; ' +
+          "add 'crypto' to this vat's globals in cluster-config.ts",
+      );
     }
-    const account = privateKeyToAccount(privateKey);
+    const account = privateKeyToAccount(generatePrivateKey());
     accounts.set(account.address.toLowerCase() as Address, account);
   }
 

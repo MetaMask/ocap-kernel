@@ -1,9 +1,6 @@
 /**
  * Bundler client using raw fetch for ERC-4337 interactions.
  *
- * Avoids viem's createClient/http which use Math.random() (blocked under
- * SES lockdown). All methods are simple JSON-RPC calls over fetch.
- *
  * @module lib/bundler-client
  */
 
@@ -188,9 +185,6 @@ async function bundlerRpcOnce(
 /**
  * Create a bundler client for ERC-4337 operations.
  *
- * Uses raw fetch instead of viem's createClient to avoid Math.random()
- * usage that is blocked under SES lockdown.
- *
  * @param config - Bundler configuration.
  * @returns A bundler client with ERC-4337 actions.
  */
@@ -292,7 +286,7 @@ export function makeBundlerClient(
       if (!hasTimers) {
         throw new Error(
           'waitForUserOperationReceipt requires timer support ' +
-            '(not available in SES compartments)',
+            "(add 'setTimeout' and 'Date' to this vat's globals in cluster-config.ts)",
         );
       }
       const { pollingInterval = 2000, timeout = 60000 } = options;

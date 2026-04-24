@@ -9,7 +9,6 @@ For a deeper explanation of the components and data flow, see [How It Works](./d
 - **Peer signing has no interactive approval for message/typed-data requests.** Transaction signing over peer requests is now disabled and peer-connected wallets must use delegation redemption for sends, but message and typed-data peer signing still execute immediately without an approval prompt.
 - **`revokeDelegation()` and hybrid redemption require a bundler or peer relay.** Hybrid accounts submit on-chain `disableDelegation` / redemption via ERC-4337 UserOps; configure a bundler (and optional paymaster). **Stateless 7702** accounts use a direct EIP-1559 transaction instead; only the JSON-RPC provider must be configured. **Away wallets without a bundler** relay delegation redemptions to the home wallet via CapTP (requires the home wallet to be online). If the on-chain transaction fails, the local delegation status is not changed.
 - **Mnemonic encryption is optional.** The keyring vat can encrypt the mnemonic at rest using AES-256-GCM with a PBKDF2-derived key. Pass a `password` and `salt` to `initializeKeyring()` to enable encryption. Without a password, the mnemonic is stored in plaintext. When encrypted, the keyring starts in a locked state on daemon restart and must be unlocked with `unlockKeyring(password)` before signing operations work.
-- **Throwaway keyring needs secure entropy.** `initializeKeyring({ type: 'throwaway' })` requires either `crypto.getRandomValues` in the runtime or caller-provided entropy via `{ type: 'throwaway', entropy: '0x...' }`. Under SES lockdown (where `crypto` is unavailable inside vat compartments), the caller must generate 32 bytes of entropy externally and pass it in.
 
 ## Architecture
 
@@ -126,9 +125,7 @@ import { makeWalletClusterConfig } from '@ocap/evm-wallet-experiment';
 // 1. Launch the wallet subcluster with a throwaway keyring
 const config = makeWalletClusterConfig({ bundleBaseUrl: '/bundles' });
 const { rootKref } = await kernel.launchSubcluster(config);
-// Under SES lockdown, pass entropy generated outside the vat:
-const entropy = `0x${Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex')}`;
-await coordinator.initializeKeyring({ type: 'throwaway', entropy });
+await coordinator.initializeKeyring({ type: 'throwaway' });
 
 // 2. Connect to the home kernel via the OCAP URL
 // This automatically:
@@ -315,15 +312,15 @@ const userOpHash = await coordinator.redeemDelegation({
 
 ### Coordinator -- Lifecycle
 
-| Method                           | Description                                                                                                                                                                                                                                                                                                 |
-| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `bootstrap(vats, services)`      | Called by the kernel during subcluster launch. Wires up vat references.                                                                                                                                                                                                                                     |
-| `initializeKeyring(options)`     | Initialize the keyring vat. Options: `{ type: 'srp', mnemonic, password?, salt? }` or `{ type: 'throwaway', entropy? }`. Under SES lockdown, pass `entropy` (32-byte hex) for throwaway keys. When `password` is provided for SRP, the mnemonic is encrypted at rest (requires a random `salt` hex string). |
-| `unlockKeyring(password)`        | Unlock an encrypted keyring after daemon restart. Required before any signing operations when the mnemonic was encrypted with a password.                                                                                                                                                                   |
-| `isKeyringLocked()`              | Returns `true` if the keyring is encrypted and has not been unlocked yet.                                                                                                                                                                                                                                   |
-| `configureProvider(chainConfig)` | Configure the provider vat with an RPC URL and chain ID.                                                                                                                                                                                                                                                    |
-| `connectExternalSigner(signer)`  | Connect an external signing backend (e.g., MetaMask).                                                                                                                                                                                                                                                       |
-| `configureBundler(config)`       | Configure the ERC-4337 bundler. Accepts `{ bundlerUrl, chainId, entryPoint?, usePaymaster?, sponsorshipPolicyId? }`.                                                                                                                                                                                        |
+| Method                           | Description                                                                                                                                                                                                                  |
+| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `bootstrap(vats, services)`      | Called by the kernel during subcluster launch. Wires up vat references.                                                                                                                                                      |
+| `initializeKeyring(options)`     | Initialize the keyring vat. Options: `{ type: 'srp', mnemonic, password?, salt? }` or `{ type: 'throwaway' }`. When `password` is provided for SRP, the mnemonic is encrypted at rest (requires a random `salt` hex string). |
+| `unlockKeyring(password)`        | Unlock an encrypted keyring after daemon restart. Required before any signing operations when the mnemonic was encrypted with a password.                                                                                    |
+| `isKeyringLocked()`              | Returns `true` if the keyring is encrypted and has not been unlocked yet.                                                                                                                                                    |
+| `configureProvider(chainConfig)` | Configure the provider vat with an RPC URL and chain ID.                                                                                                                                                                     |
+| `connectExternalSigner(signer)`  | Connect an external signing backend (e.g., MetaMask).                                                                                                                                                                        |
+| `configureBundler(config)`       | Configure the ERC-4337 bundler. Accepts `{ bundlerUrl, chainId, entryPoint?, usePaymaster?, sponsorshipPolicyId? }`.                                                                                                         |
 
 ### Coordinator -- Signing
 
@@ -691,7 +688,7 @@ const config = makeWalletClusterConfig({
 const { rootKref } = await kernel.launchSubcluster(config);
 ```
 
-The configuration creates four vats (`coordinator`, `keyring`, `provider`, `delegation`) and registers the coordinator as the bootstrap vat. The `keyring`, `provider`, and `delegation` vats receive `TextEncoder` and `TextDecoder` as globals since they perform binary encoding.
+The configuration creates four vats: `coordinator`, `keyring`, `provider`, and either `delegator` (home role — default) or `redeemer` (away role). The coordinator is registered as the bootstrap vat. Every vat receives `TextEncoder` and `TextDecoder` for binary encoding. The `keyring` vat additionally receives `crypto` for throwaway-key generation; the `delegator` vat receives `crypto` for delegation-salt generation (the `redeemer` vat does not). The `coordinator` vat receives `Date` and `setTimeout` for on-chain confirmation polling.
 
 ## SES Compatibility
 
@@ -849,6 +846,7 @@ The package exports chain contract addresses used by the Delegation Framework:
 - **Error handling** -- Decryption with a wrong password now returns a clear error message. EIP-7702 gas estimation failures are no longer silently swallowed for all error types.
 - **Timer cleanup** -- The internal `raceWithTimeout` helper (used for peer communication timeouts) now properly cleans up timers to prevent resource leaks.
 - **SES lockdown compliance** -- Module-level counters (`bundlerRequestId`, `rpcRequestId`) have been moved into per-client-instance closures, eliminating shared mutable state that conflicts with SES lockdown requirements.
+- **Explicit vat endowments** -- Throwaway keyrings and delegation salts now use `crypto.getRandomValues` directly, enabled by adding `crypto` to the `keyring` and `delegator` vats' globals. Removes the prior caller-supplied `entropy` escape hatch and the counter-based salt fallback.
 
 ## Disclaimer
 
