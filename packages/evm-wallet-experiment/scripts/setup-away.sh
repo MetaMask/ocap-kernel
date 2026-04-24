@@ -38,7 +38,6 @@ LISTEN_ADDRS=""
 RELAY_ADDR=""
 SKIP_BUILD=false
 QUIC_PORT=4002
-DELEGATION_MANAGER="0xdb9B1e94B5b69Df7e401DDbedE43491141047dB3"
 CUSTOM_RPC_URL=""
 NON_INTERACTIVE=false
 
@@ -355,9 +354,8 @@ elif [[ -n "$INFURA_KEY" ]]; then
   ")
 fi
 
-CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$AWAY_RPC_HOST" node -e "
+CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" RPC_HOST="$AWAY_RPC_HOST" node -e "
   const bd = process.env.BUNDLE_DIR;
-  const dm = process.env.DM;
   const rpcHost = process.env.RPC_HOST;
   const extra = (process.env.EXTRA_ALLOWED_HOSTS || '').split(',').filter(Boolean);
   const hosts = [rpcHost, 'api.pimlico.io', 'swap.api.cx.metamask.io', ...extra].filter(Boolean);
@@ -380,10 +378,9 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$AWAY_RPC_H
           globals: ['TextEncoder', 'TextDecoder'],
           platformConfig: { fetch: { allowedHosts: hosts } }
         },
-        delegator: {
-          bundleSpec: bd + '/delegator-vat.bundle',
-          globals: ['TextEncoder', 'TextDecoder', 'crypto'],
-          parameters: { delegationManagerAddress: dm }
+        redeemer: {
+          bundleSpec: bd + '/redeemer-vat.bundle',
+          globals: ['TextEncoder', 'TextDecoder']
         }
       }
     }

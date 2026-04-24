@@ -553,10 +553,35 @@ yarn ocap daemon exec registerLocationHints '{"peerId": "HOME_PEER_ID", "hints":
 
 ### 3d. Launch the wallet subcluster
 
-Same as the home device (see section 2c), but with the VPS's allowed hosts:
+The away role uses `away-coordinator.bundle` and pairs it with a `redeemer` vat (not `delegator`); the home role is the one that signs delegations, so the away kernel only needs the redeeming half. Set `allowedHosts` to the chain's RPC endpoints this VPS is permitted to reach.
 
 ```bash
-yarn ocap daemon exec launchSubcluster '{"config": { ... }}'
+yarn ocap daemon exec launchSubcluster '{
+  "config": {
+    "bootstrap": "coordinator",
+    "forceReset": true,
+    "services": ["ocapURLIssuerService", "ocapURLRedemptionService"],
+    "vats": {
+      "coordinator": {
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/away-coordinator.bundle",
+        "globals": ["TextEncoder", "TextDecoder", "Date", "setTimeout"]
+      },
+      "keyring": {
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/keyring-vat.bundle",
+        "globals": ["TextEncoder", "TextDecoder", "crypto"]
+      },
+      "provider": {
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/provider-vat.bundle",
+        "globals": ["TextEncoder", "TextDecoder", "fetch", "Request", "Headers", "Response"],
+        "network": { "allowedHosts": ["<chain>.infura.io", "api.pimlico.io", "swap.api.cx.metamask.io"] }
+      },
+      "redeemer": {
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/redeemer-vat.bundle",
+        "globals": ["TextEncoder", "TextDecoder"]
+      }
+    }
+  }
+}'
 ```
 
 ### 3e. Initialize with a throwaway key
