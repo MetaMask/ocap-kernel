@@ -345,8 +345,8 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$RPC_HOST" 
           globals: ['TextEncoder', 'TextDecoder'],
           platformConfig: { fetch: { allowedHosts: hosts } }
         },
-        delegation: {
-          bundleSpec: bd + '/delegation-vat.bundle',
+        delegator: {
+          bundleSpec: bd + '/delegator-vat.bundle',
           globals: ['TextEncoder', 'TextDecoder', 'crypto'],
           parameters: { delegationManagerAddress: dm }
         }

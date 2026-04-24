@@ -688,7 +688,7 @@ const config = makeWalletClusterConfig({
 const { rootKref } = await kernel.launchSubcluster(config);
 ```
 
-The configuration creates four vats (`coordinator`, `keyring`, `provider`, `delegation`) and registers the coordinator as the bootstrap vat. The `keyring`, `provider`, and `delegation` vats receive `TextEncoder` and `TextDecoder` as globals since they perform binary encoding.
+The configuration creates four vats (`coordinator`, `keyring`, `provider`, `delegator`) and registers the coordinator as the bootstrap vat. Every vat receives `TextEncoder` and `TextDecoder` for binary encoding. The `keyring` and `delegator` vats additionally receive `crypto` for secure random generation (throwaway keys and delegation salts). The `coordinator` vat receives `Date` and `setTimeout` for on-chain confirmation polling.
 
 ## SES Compatibility
 
@@ -846,6 +846,7 @@ The package exports chain contract addresses used by the Delegation Framework:
 - **Error handling** -- Decryption with a wrong password now returns a clear error message. EIP-7702 gas estimation failures are no longer silently swallowed for all error types.
 - **Timer cleanup** -- The internal `raceWithTimeout` helper (used for peer communication timeouts) now properly cleans up timers to prevent resource leaks.
 - **SES lockdown compliance** -- Module-level counters (`bundlerRequestId`, `rpcRequestId`) have been moved into per-client-instance closures, eliminating shared mutable state that conflicts with SES lockdown requirements.
+- **Explicit vat endowments** -- Throwaway keyrings and delegation salts now use `crypto.getRandomValues` directly, enabled by adding `crypto` to the `keyring` and `delegator` vats' globals. Removes the prior caller-supplied `entropy` escape hatch and the counter-based salt fallback.
 
 ## Disclaimer
 
