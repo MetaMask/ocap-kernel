@@ -231,7 +231,7 @@ if [[ "$SKIP_BUILD" == false ]]; then
   ok "Build complete"
 else
   info "Skipping build (--no-build)"
-  if [[ ! -f "$BUNDLE_DIR/coordinator-vat.bundle" ]]; then
+  if [[ ! -f "$BUNDLE_DIR/home-coordinator.bundle" ]]; then
     fail "Bundle files not found in $BUNDLE_DIR. Remove --no-build to build first."
   fi
 fi
@@ -333,7 +333,7 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" DM="$DELEGATION_MANAGER" RPC_HOST="$RPC_HOST" 
       services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
       vats: {
         coordinator: {
-          bundleSpec: bd + '/coordinator-vat.bundle',
+          bundleSpec: bd + '/home-coordinator.bundle',
           globals: ['TextEncoder', 'TextDecoder', 'Date', 'setTimeout']
         },
         keyring: {

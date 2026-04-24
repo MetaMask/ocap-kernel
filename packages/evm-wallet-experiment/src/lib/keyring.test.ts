@@ -1,5 +1,5 @@
 import { mnemonicToAccount } from 'viem/accounts';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import { makeKeyring, generateMnemonicPhrase } from './keyring.ts';
 
@@ -109,6 +109,17 @@ describe('lib/keyring', () => {
       it('does not expose a mnemonic', () => {
         const keyring = makeKeyring({ type: 'throwaway' });
         expect(keyring.getMnemonic()).toBeUndefined();
+      });
+
+      it('throws an actionable error when crypto endowment is missing', () => {
+        vi.stubGlobal('crypto', undefined);
+        try {
+          expect(() => makeKeyring({ type: 'throwaway' })).toThrow(
+            /add 'crypto' to this vat's globals/u,
+          );
+        } finally {
+          vi.unstubAllGlobals();
+        }
       });
     });
   });

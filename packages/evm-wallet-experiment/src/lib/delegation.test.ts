@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 import {
   encodeAllowedTargets,
@@ -35,6 +35,17 @@ describe('lib/delegation', () => {
 
     it('generates unique salts on each call', () => {
       expect(generateSalt()).not.toBe(generateSalt());
+    });
+
+    it('throws an actionable error when crypto endowment is missing', () => {
+      vi.stubGlobal('crypto', undefined);
+      try {
+        expect(() => generateSalt()).toThrow(
+          /add 'crypto' to this vat's globals/u,
+        );
+      } finally {
+        vi.unstubAllGlobals();
+      }
     });
   });
 

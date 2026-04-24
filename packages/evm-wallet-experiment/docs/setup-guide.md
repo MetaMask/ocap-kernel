@@ -463,7 +463,7 @@ yarn ocap daemon exec launchSubcluster '{
     "services": ["ocapURLIssuerService", "ocapURLRedemptionService"],
     "vats": {
       "coordinator": {
-        "bundleSpec": "packages/evm-wallet-experiment/src/vats/coordinator-vat.bundle",
+        "bundleSpec": "packages/evm-wallet-experiment/src/vats/home-coordinator.bundle",
         "globals": ["TextEncoder", "TextDecoder", "Date", "setTimeout"]
       },
       "keyring": {
