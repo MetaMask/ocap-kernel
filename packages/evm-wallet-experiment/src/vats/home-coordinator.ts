@@ -1230,21 +1230,30 @@ export function buildRootObject(
       if (!keyringVat) {
         throw new Error('Keyring vat not available');
       }
-      const initOptions:
-        | { type: 'srp'; mnemonic: string; addressIndex?: number }
-        | { type: 'throwaway' } =
-        options.type === 'throwaway'
-          ? { type: 'throwaway' }
-          : {
-              type: 'srp',
-              mnemonic: options.mnemonic ?? '',
-              ...(options.addressIndex !== undefined && {
-                addressIndex: options.addressIndex,
-              }),
-            };
-
-      const password = options.type === 'srp' ? options.password : undefined;
-      await E(keyringVat).initialize(initOptions, password, options.salt);
+      if (options.type === 'throwaway') {
+        await E(keyringVat).initialize(
+          { type: 'throwaway' },
+          undefined,
+          options.salt,
+        );
+        return;
+      }
+      const initOptions: {
+        type: 'srp';
+        mnemonic: string;
+        addressIndex?: number;
+      } = {
+        type: 'srp',
+        mnemonic: options.mnemonic ?? '',
+      };
+      if (options.addressIndex !== undefined) {
+        initOptions.addressIndex = options.addressIndex;
+      }
+      await E(keyringVat).initialize(
+        initOptions,
+        options.password,
+        options.salt,
+      );
     },
 
     async unlockKeyring(password: string): Promise<void> {

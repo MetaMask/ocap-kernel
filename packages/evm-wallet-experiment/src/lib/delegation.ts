@@ -49,30 +49,26 @@ export function computeDelegationId(delegation: {
 }
 
 /**
- * A function that generates a unique delegation salt on each call.
- */
-export type SaltGenerator = () => Hex;
-
-/**
- * Create a salt generator for delegation uniqueness.
+ * Generate a random 32-byte hex salt for delegation uniqueness.
  *
- * @returns A salt generator function backed by `crypto.getRandomValues`.
- */
-export function makeSaltGenerator(): SaltGenerator {
-  return () => {
-    const bytes = new Uint8Array(32);
-    // eslint-disable-next-line n/no-unsupported-features/node-builtins
-    globalThis.crypto.getRandomValues(bytes);
-    return toHex(bytes);
-  };
-}
-
-/**
- * Generate a random salt for delegation uniqueness.
+ * Requires the `crypto` global; in vats, add `'crypto'` to the vat's
+ * `globals` list in `cluster-config.ts`.
  *
  * @returns A hex-encoded random salt.
  */
-export const generateSalt: SaltGenerator = makeSaltGenerator();
+export function generateSalt(): Hex {
+  // eslint-disable-next-line n/no-unsupported-features/node-builtins
+  if (!globalThis.crypto?.getRandomValues) {
+    throw new Error(
+      'generateSalt requires the "crypto" global endowment; ' +
+        "add 'crypto' to this vat's globals in cluster-config.ts",
+    );
+  }
+  const bytes = new Uint8Array(32);
+  // eslint-disable-next-line n/no-unsupported-features/node-builtins
+  globalThis.crypto.getRandomValues(bytes);
+  return toHex(bytes);
+}
 
 /**
  * Create a new unsigned delegation struct.
@@ -82,9 +78,7 @@ export const generateSalt: SaltGenerator = makeSaltGenerator();
  * @param options.delegate - The account receiving the delegation.
  * @param options.caveats - The caveats restricting the delegation.
  * @param options.chainId - The chain ID.
- * @param options.salt - Optional salt (generated if omitted).
- * @param options.saltGenerator - Optional salt generator to use when no
- *   explicit salt is provided. Defaults to {@link generateSalt}.
+ * @param options.salt - Optional salt (generated via {@link generateSalt} if omitted).
  * @param options.authority - Optional parent delegation hash (root if omitted).
  * @returns The unsigned Delegation struct.
  */
@@ -94,10 +88,9 @@ export function makeDelegation(options: {
   caveats: Caveat[];
   chainId: number;
   salt?: Hex;
-  saltGenerator?: SaltGenerator;
   authority?: Hex;
 }): Delegation {
-  const salt = options.salt ?? (options.saltGenerator ?? generateSalt)();
+  const salt = options.salt ?? generateSalt();
   const authority = options.authority ?? ROOT_AUTHORITY;
 
   const id = computeDelegationId({
@@ -254,7 +247,7 @@ export function explainDelegationMatch(
           matches: false,
           failedCaveat: 'timestamp',
           reason:
-            'Cannot evaluate timestamp caveat: Date.now() is not available (SES compartment) and no currentTime was provided',
+            'Cannot evaluate timestamp caveat: Date is not endowed to this vat and no currentTime was provided',
         };
       }
       const now = BigInt(Math.floor((currentTime ?? Date.now()) / 1000));

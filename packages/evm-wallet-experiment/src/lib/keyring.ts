@@ -64,6 +64,13 @@ export function makeKeyring(options: KeyringInitOptions): Keyring {
     const startIndex = options.addressIndex ?? 0;
     deriveAccountInternal(startIndex);
   } else {
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    if (!globalThis.crypto?.getRandomValues) {
+      throw new Error(
+        'Throwaway keyring requires the "crypto" global endowment; ' +
+          "add 'crypto' to this vat's globals in cluster-config.ts",
+      );
+    }
     const account = privateKeyToAccount(generatePrivateKey());
     accounts.set(account.address.toLowerCase() as Address, account);
   }

@@ -110,9 +110,7 @@ export {
   finalizeDelegation,
   computeDelegationId,
   generateSalt,
-  makeSaltGenerator,
 } from './lib/delegation.ts';
-export type { SaltGenerator } from './lib/delegation.ts';
 
 // UserOperation utilities
 export {

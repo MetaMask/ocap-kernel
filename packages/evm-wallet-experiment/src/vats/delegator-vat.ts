@@ -17,7 +17,7 @@ import {
   encodeErc20TransferAmount,
   encodeAllowedCalldata,
 } from '../lib/caveats.ts';
-import { makeDelegation, makeSaltGenerator } from '../lib/delegation.ts';
+import { makeDelegation } from '../lib/delegation.ts';
 import { ERC20_TRANSFER_SELECTOR, FIRST_ARG_OFFSET } from '../lib/erc20.ts';
 import type {
   Address,
@@ -60,8 +60,6 @@ export function buildRootObject(
         ),
       )
     : new Map();
-
-  const saltGenerator = makeSaltGenerator();
 
   /**
    * Persist grants map to baggage (handles both init and update).
@@ -123,7 +121,6 @@ export function buildRootObject(
         delegate,
         caveats,
         chainId,
-        saltGenerator,
       });
 
       return harden({
@@ -185,7 +182,6 @@ export function buildRootObject(
         delegate,
         caveats,
         chainId,
-        saltGenerator,
       });
 
       return harden({

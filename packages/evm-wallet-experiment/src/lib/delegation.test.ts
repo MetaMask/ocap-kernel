@@ -12,7 +12,6 @@ import {
 import {
   computeDelegationId,
   makeDelegation,
-  makeSaltGenerator,
   prepareDelegationTypedData,
   delegationMatchesAction,
   explainDelegationMatch,
@@ -34,28 +33,8 @@ describe('lib/delegation', () => {
       expect(salt).toMatch(/^0x[\da-f]{64}$/iu);
     });
 
-    it('generates unique salts', () => {
-      const salt1 = generateSalt();
-      const salt2 = generateSalt();
-      expect(salt1).not.toBe(salt2);
-    });
-  });
-
-  describe('makeSaltGenerator', () => {
-    it('returns a function that generates 32-byte hex salts', () => {
-      const generate = makeSaltGenerator();
-      expect(generate()).toMatch(/^0x[\da-f]{64}$/iu);
-    });
-
-    it('generates unique salts across sequential calls', () => {
-      const generate = makeSaltGenerator();
-      expect(generate()).not.toBe(generate());
-    });
-
-    it('produces distinct salts from independent generators', () => {
-      const gen1 = makeSaltGenerator();
-      const gen2 = makeSaltGenerator();
-      expect(gen1()).not.toBe(gen2());
+    it('generates unique salts on each call', () => {
+      expect(generateSalt()).not.toBe(generateSalt());
     });
   });
 
