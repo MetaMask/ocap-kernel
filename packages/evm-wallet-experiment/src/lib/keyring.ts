@@ -14,6 +14,11 @@ const harden = globalThis.harden ?? (<T>(value: T): T => value);
 
 /**
  * Options for initializing a keyring.
+ *
+ * Throwaway keyrings are intentionally ephemeral: each call to `makeKeyring`
+ * generates a fresh private key, so the key does not survive a vat restart.
+ * Baggage only persists `{ type: 'throwaway' }`; callers that need key
+ * stability across restarts must use `type: 'srp'`.
  */
 export type KeyringInitOptions =
   | { type: 'srp'; mnemonic: string; addressIndex?: number }
