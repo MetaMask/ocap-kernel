@@ -133,12 +133,18 @@ function shellSingleQuote(value: string): string {
  *
  * @param service - The compose service name.
  * @param command - The command to run.
+ * @param options - Options bag.
+ * @param options.timeoutMs - Timeout in milliseconds (default 60_000).
  * @returns stdout as a string.
  */
-export function dockerExec(service: string, command: string): string {
+export function dockerExec(
+  service: string,
+  command: string,
+  options: { timeoutMs?: number } = {},
+): string {
   return execSync(`docker ${composePrefix()} exec -T ${service} ${command}`, {
     encoding: 'utf-8',
-    timeout: 60_000,
+    timeout: options.timeoutMs ?? 60_000,
   }).trim();
 }
 
