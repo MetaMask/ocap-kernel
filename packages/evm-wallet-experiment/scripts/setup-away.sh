@@ -375,8 +375,8 @@ CONFIG=$(BUNDLE_DIR="$BUNDLE_DIR" RPC_HOST="$AWAY_RPC_HOST" node -e "
         },
         provider: {
           bundleSpec: bd + '/provider-vat.bundle',
-          globals: ['TextEncoder', 'TextDecoder'],
-          platformConfig: { fetch: { allowedHosts: hosts } }
+          globals: ['TextEncoder', 'TextDecoder', 'fetch', 'Request', 'Headers', 'Response'],
+          network: { allowedHosts: hosts }
         },
         redeemer: {
           bundleSpec: bd + '/redeemer-vat.bundle',

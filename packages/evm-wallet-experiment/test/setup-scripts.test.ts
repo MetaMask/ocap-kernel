@@ -100,4 +100,24 @@ describe('setup scripts match canonical cluster config', () => {
     expect(redeemerBlock).not.toBeNull();
     expect(redeemerBlock![0]).not.toContain("'crypto'");
   });
+
+  it.each([
+    { role: 'home', scriptPath: HOME_SCRIPT },
+    { role: 'away', scriptPath: AWAY_SCRIPT },
+  ])(
+    '$role script wires the provider vat for network fetch',
+    async ({ scriptPath }) => {
+      const scriptText = await readFile(scriptPath, 'utf-8');
+      const providerBlock = /provider: \{[\s\S]*?^\s{8}\},/mu.exec(scriptText);
+      expect(providerBlock).not.toBeNull();
+      // `fetch` globals must be endowed, matching cluster-config.ts
+      for (const globalName of ['fetch', 'Request', 'Headers', 'Response']) {
+        expect(providerBlock![0]).toContain(`'${globalName}'`);
+      }
+      // `network.allowedHosts` is the canonical field; `platformConfig.fetch`
+      // is not a valid kernel config shape (kernel-platforms only accepts `fs`).
+      expect(providerBlock![0]).toMatch(/network: \{ allowedHosts:/u);
+      expect(providerBlock![0]).not.toContain('platformConfig');
+    },
+  );
 });
