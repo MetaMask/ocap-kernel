@@ -1,0 +1,44 @@
+{
+  "id": "discovery",
+  "name": "Service Discovery",
+  "description": "Find and consume services via a service matcher plus the contact protocol defined in @metamask/service-discovery-types.",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "ocapCliPath": {
+        "type": "string",
+        "description": "Absolute path to the ocap CLI entry point (.mjs file or binary)."
+      },
+      "matcherUrl": {
+        "type": "string",
+        "description": "OCAP URL for the service matcher (e.g., ocap:abc123@12D3KooW...,/ip4/...)."
+      },
+      "timeoutMs": {
+        "type": "number",
+        "description": "Timeout for daemon calls in ms (default: 60000)."
+      },
+      "resetState": {
+        "type": "boolean",
+        "description": "Clear all plugin state on each register() call (default: false)."
+      }
+    }
+  },
+  "uiHints": {
+    "matcherUrl": {
+      "label": "Matcher OCAP URL",
+      "placeholder": "ocap:abc123@12D3KooW...,/ip4/..."
+    },
+    "ocapCliPath": {
+      "label": "OCAP CLI Path",
+      "placeholder": "~/ocap-kernel/packages/kernel-cli/dist/app.mjs"
+    },
+    "timeoutMs": {
+      "label": "Timeout (ms)",
+      "placeholder": "60000"
+    },
+    "resetState": {
+      "label": "Reset State on Register",
+      "placeholder": "false"
+    }
+  }
+}
