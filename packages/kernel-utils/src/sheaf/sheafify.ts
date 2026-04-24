@@ -224,7 +224,12 @@ export const sheafify = <
     const resolvedGuard = guard;
 
     const asyncMethodGuards = asyncifyMethodGuards(resolvedGuard);
-    const asyncGuard = M.interface(`${name}:section`, asyncMethodGuards);
+    const asyncGuard =
+      schema === undefined
+        ? M.interface(`${name}:section`, asyncMethodGuards)
+        : M.interface(`${name}:section`, asyncMethodGuards, {
+            defaultGuards: 'passable',
+          });
 
     let revoked = false;
 
