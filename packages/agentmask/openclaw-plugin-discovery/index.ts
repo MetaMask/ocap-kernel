@@ -31,6 +31,7 @@ const DEFAULT_TIMEOUT_MS = 60_000;
 
 const KNOWN_KEYS = new Set([
   'ocapCliPath',
+  'ocapHome',
   'matcherUrl',
   'timeoutMs',
   'resetState',
@@ -63,6 +64,14 @@ const configSchema: PluginConfigSchema = {
         success: false,
         error: {
           issues: [{ path: ['ocapCliPath'], message: 'must be a string' }],
+        },
+      };
+    }
+    if ('ocapHome' in obj && typeof obj.ocapHome !== 'string') {
+      return {
+        success: false,
+        error: {
+          issues: [{ path: ['ocapHome'], message: 'must be a string' }],
         },
       };
     }
@@ -99,6 +108,12 @@ const configSchema: PluginConfigSchema = {
         type: 'string',
         description:
           'Absolute path to the ocap CLI entry point (.mjs file or binary).',
+      },
+      ocapHome: {
+        type: 'string',
+        description:
+          'OCAP home directory for the daemon this plugin should target. ' +
+          'Passed as `--home` on every spawned `ocap` invocation. Default: ~/.ocap.',
       },
       matcherUrl: {
         type: 'string',
@@ -155,6 +170,13 @@ function register(api: OpenClawPluginApi): void {
       }) ?? ''
     ).trim() || DEFAULT_CLI;
 
+  const ocapHome = (
+    resolveConfig<string>({
+      pluginValue: pluginConfig?.ocapHome,
+      envVar: 'OCAP_HOME',
+    }) ?? ''
+  ).trim();
+
   const preconfiguredMatcherUrl = (
     resolveConfig<string>({
       pluginValue: pluginConfig?.matcherUrl,
@@ -182,7 +204,11 @@ function register(api: OpenClawPluginApi): void {
     console.info('[discovery plugin] State reset enabled — starting clean.');
   }
 
-  const daemon = makeDaemonCaller({ cliPath, timeoutMs });
+  const daemon = makeDaemonCaller({
+    cliPath,
+    ocapHome: ocapHome || undefined,
+    timeoutMs,
+  });
 
   registerRedeemMatcherTool({ api, daemon, state });
   registerFindServicesTool({ api, daemon, state });

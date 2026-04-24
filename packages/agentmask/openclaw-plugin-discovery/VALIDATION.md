@@ -28,10 +28,13 @@ Phase 2 matcher (daemon on VPS). Everything lives on a single VPS.
         registered against the matcher
 ```
 
-Two daemons live on the same VPS with different `OCAP_HOME`
-directories so they don't clobber each other's state. Matcher and
-consumer talk to each other over the relay, same as they would across
-machines — the shared VPS is purely for convenience during dev.
+Two daemons live on the same VPS with different home directories so
+they don't clobber each other's state. Each `ocap` invocation that
+needs to talk to one of them passes `--home <dir>` explicitly, so
+there is no shell-state contamination across context switches.
+Matcher and consumer talk to each other over the relay, same as they
+would across machines — the shared VPS is purely for convenience
+during dev.
 
 ## Prerequisites
 
@@ -51,22 +54,28 @@ Three things must be live before starting this validation:
 
 ## Stage A — Install the discovery plugin
 
-### A.1. Start the consumer daemon (separate `OCAP_HOME`)
+### A.1. Start the consumer daemon under its own home
+
+The matcher daemon is already running under the default
+`~/.ocap`. Start the consumer daemon under `~/.ocap-consumer`:
 
 ```bash
-# New shell on the VPS:
-export OCAP_HOME=~/.ocap-consumer
-export OCAP_SOCKET_PATH=~/.ocap-consumer/daemon.sock
-mkdir -p "$OCAP_HOME"
-
-# Start it and wire up remote comms via the relay (same relay the
-# matcher uses; read the address from the shared location).
-yarn ocap daemon start
-yarn ocap daemon exec initRemoteComms "{\"relays\": [\"$(cat ~/.ocap/relay.addr)\"]}"
+mkdir -p ~/.ocap-consumer
+yarn ocap --home ~/.ocap-consumer daemon start
+yarn ocap --home ~/.ocap-consumer daemon exec initRemoteComms \
+  "{\"relays\": [\"$(cat ~/.ocap/relay.addr)\"]}"
 ```
 
-Confirm `getStatus` shows `remoteComms.state === "connected"` before
-proceeding.
+Every subsequent `yarn ocap` invocation that wants to talk to the
+consumer daemon must include `--home ~/.ocap-consumer`. Without it,
+`yarn ocap` defaults to `~/.ocap` and addresses the matcher daemon
+instead.
+
+Confirm `getStatus` shows `remoteComms.state === "connected"`:
+
+```bash
+yarn ocap --home ~/.ocap-consumer daemon exec getStatus
+```
 
 ### A.2. Install and enable the plugin
 
@@ -80,22 +89,18 @@ openclaw config set tools.allow '["discovery"]'
 
 ### A.3. Point the plugin at the consumer daemon + matcher URL
 
-Two options for supplying the matcher URL and daemon socket path:
-
-**Plugin config:**
+Use plugin config so the settings are durable across shells (no env
+juggling required):
 
 ```bash
-openclaw config set 'plugins.discovery.matcherUrl' 'ocap:…'
+openclaw config set 'plugins.discovery.ocapHome' "$HOME/.ocap-consumer"
 openclaw config set 'plugins.discovery.ocapCliPath' '/abs/path/to/ocap-kernel/packages/kernel-cli/dist/app.mjs'
+openclaw config set 'plugins.discovery.matcherUrl' 'ocap:…'
 ```
 
-**Or environment:**
-
-```bash
-export OCAP_MATCHER_URL='ocap:…'
-export OCAP_SOCKET_PATH=~/.ocap-consumer/daemon.sock
-export OCAP_CLI_PATH=/abs/path/to/ocap-kernel/packages/kernel-cli/dist/app.mjs
-```
+`ocapHome` is what makes the plugin pass `--home ~/.ocap-consumer` on
+every spawned `ocap` invocation, so it talks to the consumer daemon
+rather than the matcher's default-home daemon.
 
 If `matcherUrl` is supplied, the plugin redeems it eagerly at
 register-time. Otherwise the first action is
