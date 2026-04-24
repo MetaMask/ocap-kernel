@@ -286,7 +286,7 @@ export function makeBundlerClient(
       if (!hasTimers) {
         throw new Error(
           'waitForUserOperationReceipt requires timer support ' +
-            '(not available in SES compartments)',
+            "(add 'setTimeout' and 'Date' to this vat's globals in cluster-config.ts)",
         );
       }
       const { pollingInterval = 2000, timeout = 60000 } = options;

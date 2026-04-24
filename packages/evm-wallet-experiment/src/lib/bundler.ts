@@ -155,7 +155,7 @@ export async function waitForUserOp(
 ): Promise<UserOpReceipt> {
   if (typeof globalThis.setTimeout !== 'function') {
     throw new Error(
-      'waitForUserOp requires timer support (not available in SES compartments)',
+      "waitForUserOp requires timer support (add 'setTimeout' to this vat's globals in cluster-config.ts)",
     );
   }
   const { pollIntervalMs = 2000, timeoutMs = 60000 } = options;

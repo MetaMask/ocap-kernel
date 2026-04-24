@@ -986,7 +986,7 @@ export function buildRootObject(
     if (typeof globalThis.setTimeout !== 'function') {
       throw new Error(
         'EIP-7702 confirmation polling requires setTimeout ' +
-          '(not available in SES compartments without timer endowments)',
+          "(add the missing globals to this vat's globals in cluster-config.ts)",
       );
     }
     const maxAttempts = 45;
@@ -1626,7 +1626,7 @@ export function buildRootObject(
       ) {
         throw new Error(
           'waitForUserOpReceipt requires Date.now and setTimeout ' +
-            '(not available in SES compartments without timer endowments)',
+            "(add the missing globals to this vat's globals in cluster-config.ts)",
         );
       }
 
