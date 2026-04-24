@@ -19,7 +19,8 @@
       "allowWrite": ["~/.yarn"]
     },
     "network": {
-      "allowedDomains": ["registry.yarnpkg.com", "registry.npmjs.org"]
+      "allowedDomains": ["registry.yarnpkg.com", "registry.npmjs.org"],
+      "allowUnixSockets": ["/tmp/claude-*/tsx-*/*.pipe"]
     }
   }
 }
