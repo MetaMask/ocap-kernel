@@ -54,7 +54,6 @@ const harden = globalThis.harden ?? (<T>(value: T): T => value);
 
 type AwayMetadata = { mode: string; delegationId?: string };
 
-
 /**
  * Convert a wei amount in hex to a human-readable ETH string.
  *
@@ -1864,7 +1863,7 @@ export function buildRootObject(
         );
       }
       return E(currentSection).transferFungible(
-        token,
+        token.toLowerCase() as Address,
         to,
         BigInt(amount as unknown as string | number | bigint),
       );
