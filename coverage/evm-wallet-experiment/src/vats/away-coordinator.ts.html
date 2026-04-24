@@ -25,28 +25,28 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/464</span>
+                <span class='fraction'>0/466</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/337</span>
+                <span class='fraction'>0/341</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Functions</span>
-                <span class='fraction'>0/60</span>
+                <span class='fraction'>0/62</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/456</span>
+                <span class='fraction'>0/458</span>
             </div>
         
             
@@ -2066,7 +2066,21 @@
 <a name='L2001'></a><a href='#L2001'>2001</a>
 <a name='L2002'></a><a href='#L2002'>2002</a>
 <a name='L2003'></a><a href='#L2003'>2003</a>
-<a name='L2004'></a><a href='#L2004'>2004</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L2004'></a><a href='#L2004'>2004</a>
+<a name='L2005'></a><a href='#L2005'>2005</a>
+<a name='L2006'></a><a href='#L2006'>2006</a>
+<a name='L2007'></a><a href='#L2007'>2007</a>
+<a name='L2008'></a><a href='#L2008'>2008</a>
+<a name='L2009'></a><a href='#L2009'>2009</a>
+<a name='L2010'></a><a href='#L2010'>2010</a>
+<a name='L2011'></a><a href='#L2011'>2011</a>
+<a name='L2012'></a><a href='#L2012'>2012</a>
+<a name='L2013'></a><a href='#L2013'>2013</a>
+<a name='L2014'></a><a href='#L2014'>2014</a>
+<a name='L2015'></a><a href='#L2015'>2015</a>
+<a name='L2016'></a><a href='#L2016'>2016</a>
+<a name='L2017'></a><a href='#L2017'>2017</a>
+<a name='L2018'></a><a href='#L2018'>2018</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -3881,6 +3895,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -3921,6 +3942,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -5882,7 +5910,14 @@ export function <span class="fstat-no" title="function not covered" >buildRootOb
 <span class="cstat-no" title="statement not covered" >            errors.push(error);</span>
           }
         }
-<span class="cstat-no" title="statement not covered" >        throw new Error('All delegation twins failed', { cause: errors });</span>
+<span class="cstat-no" title="statement not covered" >        throw new Error(</span>
+          `All delegation twins failed: ${errors
+            .<span class="fstat-no" title="function not covered" >map((c</span>ause) =&gt;
+<span class="cstat-no" title="statement not covered" >              cause instanceof Error ? cause.message : String(cause),</span>
+            )
+            .join('; ')}`,
+          { cause: errors },
+        );
       }
 <span class="cstat-no" title="statement not covered" >      if (homeSection) {</span>
 <span class="cstat-no" title="statement not covered" >        return E(homeSection).transferNative(to, amt);</span>
@@ -5923,7 +5958,14 @@ export function <span class="fstat-no" title="function not covered" >buildRootOb
 <span class="cstat-no" title="statement not covered" >            errors.push(error);</span>
           }
         }
-<span class="cstat-no" title="statement not covered" >        throw new Error('All delegation twins failed', { cause: errors });</span>
+<span class="cstat-no" title="statement not covered" >        throw new Error(</span>
+          `All delegation twins failed: ${errors
+            .<span class="fstat-no" title="function not covered" >map((c</span>ause) =&gt;
+<span class="cstat-no" title="statement not covered" >              cause instanceof Error ? cause.message : String(cause),</span>
+            )
+            .join('; ')}`,
+          { cause: errors },
+        );
       }
 <span class="cstat-no" title="statement not covered" >      if (homeSection) {</span>
 <span class="cstat-no" title="statement not covered" >        return E(homeSection).transferFungible(token, to, amt);</span>
@@ -6079,7 +6121,7 @@ export function <span class="fstat-no" title="function not covered" >buildRootOb
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-24T17:52:57.068Z
+                at 2026-04-24T18:14:10.766Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
