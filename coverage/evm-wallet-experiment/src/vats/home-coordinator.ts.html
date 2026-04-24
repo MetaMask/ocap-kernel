@@ -23,16 +23,16 @@
         <div class='clearfix'>
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">9.04% </span>
+                <span class="strong">9.01% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>53/586</span>
+                <span class='fraction'>53/588</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">6.77% </span>
+                <span class="strong">6.83% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>30/443</span>
+                <span class='fraction'>30/439</span>
             </div>
         
             
@@ -44,9 +44,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">9.01% </span>
+                <span class="strong">8.98% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>52/577</span>
+                <span class='fraction'>52/579</span>
             </div>
         
             
@@ -2451,7 +2451,12 @@
 <a name='L2386'></a><a href='#L2386'>2386</a>
 <a name='L2387'></a><a href='#L2387'>2387</a>
 <a name='L2388'></a><a href='#L2388'>2388</a>
-<a name='L2389'></a><a href='#L2389'>2389</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L2389'></a><a href='#L2389'>2389</a>
+<a name='L2390'></a><a href='#L2390'>2390</a>
+<a name='L2391'></a><a href='#L2391'>2391</a>
+<a name='L2392'></a><a href='#L2392'>2392</a>
+<a name='L2393'></a><a href='#L2393'>2393</a>
+<a name='L2394'></a><a href='#L2394'>2394</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -3680,28 +3685,33 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -5856,7 +5866,7 @@ export function buildRootObject(
 <span class="cstat-no" title="statement not covered" >    if (typeof globalThis.setTimeout !== 'function') {</span>
 <span class="cstat-no" title="statement not covered" >      throw new Error(</span>
         'EIP-7702 confirmation polling requires setTimeout ' +
-          '(not available in SES compartments without timer endowments)',
+          "(add the missing globals to this vat's globals in cluster-config.ts)",
       );
     }
     const maxAttempts = <span class="cstat-no" title="statement not covered" >45;</span>
@@ -6064,7 +6074,6 @@ export function buildRootObject(
     async <span class="fstat-no" title="function not covered" >initializeKeyring(o</span>ptions: {
       type: 'srp' | 'throwaway';
       mnemonic?: string;
-      entropy?: Hex;
       password?: string;
       salt?: string;
       addressIndex?: number;
@@ -6072,24 +6081,30 @@ export function buildRootObject(
 <span class="cstat-no" title="statement not covered" >      if (!keyringVat) {</span>
 <span class="cstat-no" title="statement not covered" >        throw new Error('Keyring vat not available');</span>
       }
-      let initOptions:
-        | { type: 'srp'; mnemonic: string; addressIndex?: number }
-        | { type: 'throwaway'; entropy?: Hex };
 <span class="cstat-no" title="statement not covered" >      if (options.type === 'throwaway') {</span>
-<span class="cstat-no" title="statement not covered" >        initOptions = { type: 'throwaway', entropy: options.entropy };</span>
-      } else {
-<span class="cstat-no" title="statement not covered" >        initOptions =</span>
-          options.addressIndex === undefined
-            ? { type: 'srp', mnemonic: options.mnemonic ?? '' }
-            : {
-                type: 'srp',
-                mnemonic: options.mnemonic ?? '',
-                addressIndex: options.addressIndex,
-              };
+<span class="cstat-no" title="statement not covered" >        await E(keyringVat).initialize(</span>
+          { type: 'throwaway' },
+          undefined,
+          options.salt,
+        );
+<span class="cstat-no" title="statement not covered" >        return;</span>
       }
-&nbsp;
-      const password = <span class="cstat-no" title="statement not covered" >options.type === 'srp' ? options.password : undefined;</span>
-<span class="cstat-no" title="statement not covered" >      await E(keyringVat).initialize(initOptions, password, options.salt);</span>
+      const initOptions: {
+        type: 'srp';
+        mnemonic: string;
+        addressIndex?: number;
+      } = <span class="cstat-no" title="statement not covered" >{</span>
+        type: 'srp',
+        mnemonic: options.mnemonic ?? '',
+      };
+<span class="cstat-no" title="statement not covered" >      if (options.addressIndex !== undefined) {</span>
+<span class="cstat-no" title="statement not covered" >        initOptions.addressIndex = options.addressIndex;</span>
+      }
+<span class="cstat-no" title="statement not covered" >      await E(keyringVat).initialize(</span>
+        initOptions,
+        options.password,
+        options.salt,
+      );
     },
 &nbsp;
     async <span class="fstat-no" title="function not covered" >unlockKeyring(p</span>assword: string): Promise&lt;void&gt; {
@@ -7047,7 +7062,7 @@ export function buildRootObject(
       ) {
 <span class="cstat-no" title="statement not covered" >        throw new Error(</span>
           'waitForUserOpReceipt requires Date.now and setTimeout ' +
-            '(not available in SES compartments without timer endowments)',
+            "(add the missing globals to this vat's globals in cluster-config.ts)",
         );
       }
 &nbsp;
@@ -7234,7 +7249,7 @@ export function buildRootObject(
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-23T22:12:13.087Z
+                at 2026-04-24T17:52:57.068Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

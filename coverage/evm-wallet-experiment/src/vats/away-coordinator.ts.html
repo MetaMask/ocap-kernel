@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/462</span>
+                <span class='fraction'>0/464</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/341</span>
+                <span class='fraction'>0/337</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/454</span>
+                <span class='fraction'>0/456</span>
             </div>
         
             
@@ -2062,7 +2062,11 @@
 <a name='L1997'></a><a href='#L1997'>1997</a>
 <a name='L1998'></a><a href='#L1998'>1998</a>
 <a name='L1999'></a><a href='#L1999'>1999</a>
-<a name='L2000'></a><a href='#L2000'>2000</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L2000'></a><a href='#L2000'>2000</a>
+<a name='L2001'></a><a href='#L2001'>2001</a>
+<a name='L2002'></a><a href='#L2002'>2002</a>
+<a name='L2003'></a><a href='#L2003'>2003</a>
+<a name='L2004'></a><a href='#L2004'>2004</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -3209,29 +3213,33 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -5049,7 +5057,7 @@ export function <span class="fstat-no" title="function not covered" >buildRootOb
 <span class="cstat-no" title="statement not covered" >    if (typeof globalThis.setTimeout !== 'function') {</span>
 <span class="cstat-no" title="statement not covered" >      throw new Error(</span>
         'EIP-7702 confirmation polling requires setTimeout ' +
-          '(not available in SES compartments without timer endowments)',
+          "(add the missing globals to this vat's globals in cluster-config.ts)",
       );
     }
     const maxAttempts = <span class="cstat-no" title="statement not covered" >45;</span>
@@ -5192,12 +5200,11 @@ export function <span class="fstat-no" title="function not covered" >buildRootOb
     // ------------------------------------------------------------------
 &nbsp;
     /**
-     * Initialize the keyring vat with a seed phrase or throwaway entropy.
+     * Initialize the keyring vat with a seed phrase or a throwaway key.
      *
      * @param options - Keyring initialization options.
      * @param options.type - 'srp' for a seed phrase, 'throwaway' for ephemeral key.
      * @param options.mnemonic - BIP-39 mnemonic (srp only).
-     * @param options.entropy - Random entropy hex (throwaway only).
      * @param options.password - Encryption password (srp only).
      * @param options.salt - Encryption salt (srp only).
      * @param options.addressIndex - HD derivation index (srp only).
@@ -5205,7 +5212,6 @@ export function <span class="fstat-no" title="function not covered" >buildRootOb
     async <span class="fstat-no" title="function not covered" >initializeKeyring(o</span>ptions: {
       type: 'srp' | 'throwaway';
       mnemonic?: string;
-      entropy?: Hex;
       password?: string;
       salt?: string;
       addressIndex?: number;
@@ -5213,24 +5219,30 @@ export function <span class="fstat-no" title="function not covered" >buildRootOb
 <span class="cstat-no" title="statement not covered" >      if (!keyringVat) {</span>
 <span class="cstat-no" title="statement not covered" >        throw new Error('Keyring vat not available');</span>
       }
-      let initOptions:
-        | { type: 'srp'; mnemonic: string; addressIndex?: number }
-        | { type: 'throwaway'; entropy?: Hex };
 <span class="cstat-no" title="statement not covered" >      if (options.type === 'throwaway') {</span>
-<span class="cstat-no" title="statement not covered" >        initOptions = { type: 'throwaway', entropy: options.entropy };</span>
-      } else {
-<span class="cstat-no" title="statement not covered" >        initOptions =</span>
-          options.addressIndex === undefined
-            ? { type: 'srp', mnemonic: options.mnemonic ?? '' }
-            : {
-                type: 'srp',
-                mnemonic: options.mnemonic ?? '',
-                addressIndex: options.addressIndex,
-              };
+<span class="cstat-no" title="statement not covered" >        await E(keyringVat).initialize(</span>
+          { type: 'throwaway' },
+          undefined,
+          options.salt,
+        );
+<span class="cstat-no" title="statement not covered" >        return;</span>
       }
-&nbsp;
-      const password = <span class="cstat-no" title="statement not covered" >options.type === 'srp' ? options.password : undefined;</span>
-<span class="cstat-no" title="statement not covered" >      await E(keyringVat).initialize(initOptions, password, options.salt);</span>
+      const initOptions: {
+        type: 'srp';
+        mnemonic: string;
+        addressIndex?: number;
+      } = <span class="cstat-no" title="statement not covered" >{</span>
+        type: 'srp',
+        mnemonic: options.mnemonic ?? '',
+      };
+<span class="cstat-no" title="statement not covered" >      if (options.addressIndex !== undefined) {</span>
+<span class="cstat-no" title="statement not covered" >        initOptions.addressIndex = options.addressIndex;</span>
+      }
+<span class="cstat-no" title="statement not covered" >      await E(keyringVat).initialize(</span>
+        initOptions,
+        options.password,
+        options.salt,
+      );
     },
 &nbsp;
     /**
@@ -5685,7 +5697,7 @@ export function <span class="fstat-no" title="function not covered" >buildRootOb
       ) {
 <span class="cstat-no" title="statement not covered" >        throw new Error(</span>
           'waitForUserOpReceipt requires Date.now and setTimeout ' +
-            '(not available in SES compartments without timer endowments)',
+            "(add the missing globals to this vat's globals in cluster-config.ts)",
         );
       }
 &nbsp;
@@ -6067,7 +6079,7 @@ export function <span class="fstat-no" title="function not covered" >buildRootOb
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-04-23T22:12:13.087Z
+                at 2026-04-24T17:52:57.068Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
