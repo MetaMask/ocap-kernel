@@ -233,7 +233,7 @@ exec "${process.execPath}" "${ocapCliEntrypoint}" "$@"
         throw new Error('Failed to start test RPC server');
       }
       rpcUrl = `http://127.0.0.1:${String(address.port)}`;
-      const allowedRpcHost = new URL(rpcUrl).host;
+      const allowedRpcHost = new URL(rpcUrl).hostname;
 
       await runOcap(['daemon', 'start']);
       const launchResponse = (await runOcapJson([
