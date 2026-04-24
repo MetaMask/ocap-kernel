@@ -233,6 +233,25 @@ describe('keyring-vat', () => {
       const accountsAfter = await (restoredRoot as any).getAccounts();
       expect(accountsAfter).toStrictEqual(accountsBefore);
     });
+
+    it('rebuilds throwaway keyrings with a new address after resuscitation', async () => {
+      // Throwaway keys are intentionally ephemeral — baggage only stores
+      // `{ type: 'throwaway' }`, so restart produces a fresh random key.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (root as any).initialize({ type: 'throwaway' });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const accountsBefore = await (root as any).getAccounts();
+      expect(accountsBefore).toHaveLength(1);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const restoredRoot = buildRootObject({}, undefined, baggage as any);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const accountsAfter = await (restoredRoot as any).getAccounts();
+
+      expect(accountsAfter).toHaveLength(1);
+      expect(accountsAfter[0]).toMatch(/^0x[\da-f]{40}$/iu);
+      expect(accountsAfter).not.toStrictEqual(accountsBefore);
+    });
   });
 
   describe('password encryption', () => {
