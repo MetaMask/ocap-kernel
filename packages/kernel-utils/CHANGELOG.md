@@ -11,6 +11,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `getLibp2pRelayHome()` to the `./nodejs` exports, returning the libp2p relay's bookkeeping directory (default `~/.libp2p-relay`, overridable via `$LIBP2P_RELAY_HOME`) — kept separate from `$OCAP_HOME` so one relay can serve daemons with different OCAP_HOMEs ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 - `startRelay()` accepts an optional `publicIp` that is fed to libp2p's `appendAnnounce`, so a relay running on a NAT-backed host can announce its publicly-reachable IPv4 alongside its bound NIC addresses ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
+- Add sheaf programming module ([#870](https://github.com/MetaMask/ocap-kernel/pull/870))
+  - `sheafify()` for building a `Sheaf` capability authority from a collection of `PresheafSection`s, each an exo with optional invocation-dependent metadata
+  - `constant()`, `source()`, `callable()` for constructing metadata specs (static value, compartment-evaluated code string, and per-call function respectively)
+  - `proxyLift()`, `withFilter()`, `withRanking()`, `fallthrough()` for composing lifts to route and rank sections at dispatch time
+  - `collectSheafGuard()` for deriving a combined `InterfaceGuard` from all sections in a sheaf
+  - `getStalk()`, `guardCoversPoint()` for section lookup and guard checks
+  - `makeRemoteSection()` for wrapping a remote CapTP reference as a `PresheafSection`, fetching its interface guard once at construction and forwarding method calls via `E()`
+  - Types: `Sheaf<M>`, `Section<Core>`, `PresheafSection<M>`, `EvaluatedSection<M>`, `MetaDataSpec<M>`, `Lift<M>`, `LiftContext`, `Presheaf`
 
 ## [0.5.0]
 
