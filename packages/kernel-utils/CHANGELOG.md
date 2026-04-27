@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `@metamask/kernel-utils/sheaf` subpath export ([#870](https://github.com/MetaMask/ocap-kernel/pull/870))
+  - `sheafify()` for building a `Sheaf` capability authority from a collection of `PresheafSection`s, each an exo with optional invocation-dependent metadata
+  - `constant()`, `source()`, `callable()` for constructing metadata specs (static value, compartment-evaluated code string, and per-call function respectively)
+  - `noopLift()`, `proxyLift()`, `withFilter()`, `withRanking()`, `fallthrough()` for composing lifts to route and rank sections at dispatch time
+  - `makeSection()` for constructing a typed exo section from a guard and handler map
+  - `makeRemoteSection()` for wrapping a remote CapTP reference as a `PresheafSection`, fetching its interface guard once at construction and forwarding method calls via `E()`
+  - Types: `Sheaf<M>`, `Section`, `PresheafSection<M>`, `EvaluatedSection<M>`, `MetadataSpec<M>`, `Lift<M>`, `LiftContext<M>`
+
 ## [0.5.0]
 
 ### Added
