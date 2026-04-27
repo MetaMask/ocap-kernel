@@ -86,12 +86,6 @@ export type Lift<MetaData extends Record<string, unknown>> = (
 ) => AsyncGenerator<EvaluatedSection<Partial<MetaData>>, void, unknown[]>;
 
 /**
- * A presheaf: a plain array of presheaf sections.
- */
-export type Presheaf<MetaData extends Record<string, unknown>> =
-  PresheafSection<MetaData>[];
-
-/**
  * A sheaf: an authority manager over a presheaf.
  *
  * Produces revocable dispatch sections via `getSection` and tracks all
