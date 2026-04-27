@@ -92,9 +92,20 @@ export type Lift<MetaData extends Record<string, unknown>> = (
  * granted authority for auditing and revocation.
  */
 export type Sheaf<MetaData extends Record<string, unknown>> = {
-  /** Produce a revocable dispatch exo over the given guard. */
+  /**
+   * Produce a revocable dispatch exo over the given guard.
+   *
+   * Returns `object` rather than a typed exo because the guard is passed
+   * dynamically at call time — TypeScript cannot propagate the method
+   * signatures through `Sheaf<M>` without knowing the specific guard.
+   * Cast to the interface type at the call site once you know the guard.
+   */
   getSection: (opts: { guard: InterfaceGuard; lift: Lift<MetaData> }) => object;
-  /** Produce a revocable discoverable dispatch exo over the given guard. */
+  /**
+   * Produce a revocable discoverable dispatch exo over the given guard.
+   *
+   * Returns `object` for the same reason as `getSection`.
+   */
   getDiscoverableSection: (opts: {
     guard: InterfaceGuard;
     lift: Lift<MetaData>;
