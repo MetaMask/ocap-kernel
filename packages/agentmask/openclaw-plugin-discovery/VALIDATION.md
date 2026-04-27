@@ -84,7 +84,25 @@ cd ~/GitRepos/ocap-kernel
 openclaw plugins install -l ./packages/agentmask/openclaw-plugin-discovery
 openclaw plugins enable discovery
 openclaw config set plugins.allow '["discovery"]'
-openclaw config set tools.allow '["discovery"]'
+# tools.allow matches tool names, not plugin ids: list each tool the
+# plugin exposes. (`openclaw config unset tools.allow` to allow all
+# tools is also fine for development.)
+openclaw config set tools.allow '[
+  "discovery_redeem_matcher",
+  "discovery_find_services",
+  "service_get_description",
+  "service_initiate_contact",
+  "service_call",
+  "discovery_list_tracked"
+]'
+```
+
+For this validation, also disable the older metamask plugin if it was
+previously installed — its SKILL.md primes the agent toward
+wallet-specific behavior and competes with discovery:
+
+```bash
+openclaw plugins disable metamask
 ```
 
 ### A.3. Point the plugin at the consumer daemon + matcher URL
