@@ -7,6 +7,9 @@ over a presheaf of capabilities. The sheaf grants revocable dispatch sections
 via `getSection`, tracks all delegated authority, and supports point-wise
 revocation.
 
+See [USAGE.md](./USAGE.md) for annotated examples and [LIFT.md](./LIFT.md) for
+the lift coroutine protocol and semantic equivalence assumption.
+
 ## Concepts
 
 **Presheaf section** (`PresheafSection`) — The input data: a capability (exo)
@@ -33,7 +36,11 @@ entries.
 > Stalk at `("getBalance", "alice")` might contain two germs (cost 1 vs 100);
 > stalk at `("transfer", ...)` might contain one.
 
-**Lift** — An async function that selects one germ from a multi-germ stalk.
+**Lift** — An `async function*` coroutine that yields candidates from a
+multi-germ stalk in preference order. See [LIFT.md](./LIFT.md) for the
+coroutine protocol, `LiftContext`, and the semantic equivalence assumption
+required of all lifts.
+
 At dispatch time, metadata is decomposed into **constraints** (keys with the
 same value across every germ — topologically determined, not a choice) and
 **options** (the remaining keys — the lift's actual decision space). The lift
@@ -41,7 +48,9 @@ receives only options on each germ; constraints arrive separately in the
 context.
 
 > `argmin` by cost, `argmin` by latency, or any custom selection logic. The
-> lift is never invoked for single-germ stalks.
+> lift is never invoked when the stalk resolves to a single germ — either
+> because only one section matched, or because all matching sections had
+> identical metadata and collapsed to one representative.
 
 **Sheaf** — The authority manager returned by `sheafify`. Holds the presheaf
 data (captured at construction time) and a registry of all granted sections.
@@ -50,7 +59,8 @@ data (captured at construction time) and a registry of all granted sections.
 const sheaf = sheafify({ name: 'Wallet', sections });
 ```
 
-- `sheaf.getSection({ guard?, lift })` — produce a revocable dispatch exo
+- `sheaf.getSection({ guard, lift })` — produce a revocable dispatch exo
+- `sheaf.getDiscoverableSection({ guard, lift, schema })` — same, but the exo exposes its guard
 - `sheaf.revokePoint(method, ...args)` — revoke every granted section whose
   guard covers the point
 - `sheaf.getExported()` — union guard of all active (non-revoked) sections
@@ -62,12 +72,24 @@ At each invocation point `(method, args)` within a granted section:
 
 ```
 getStalk(sections, method, args)     presheaf → stalk (filter by guard)
+evaluateMetadata(stalk, args)        metadata specs → concrete values
 collapseEquivalent(stalk)            locality condition (quotient by metadata)
 decomposeMetadata(collapsed)         restriction map (constraints / options)
 lift(stripped, { method, args,       operational selection (extra-theoretic)
                 constraints })
-dispatch to collapsed[index].exo     evaluation
+dispatch to chosen.exo               evaluation
 ```
+
+The pipeline short-circuits at two points: if only one section matches the
+guard, it is invoked directly without evaluate/collapse/lift; if all matching
+sections collapse to an identical germ, the single representative is invoked
+without calling the lift.
+
+`callable` and `source` metadata specs make the stalk shape depend on the
+invocation arguments. A `swap(amount)` section can produce `{ cost: 'low' }`
+for small amounts and `{ cost: 'high' }` for large ones, yielding a different
+set of germs — and potentially a different lift outcome — for the same method
+called with different arguments.
 
 ## Design choices
 
