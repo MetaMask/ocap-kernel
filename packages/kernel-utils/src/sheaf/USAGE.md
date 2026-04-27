@@ -9,11 +9,7 @@ as a placeholder:
 ```ts
 import { M } from '@endo/patterns';
 import { makeDefaultExo } from '<internal>';
-import { sheafify } from '@metamask/kernel-utils';
-
-const noop = async function* (germs) {
-  yield* germs;
-};
+import { sheafify, noopLift } from '@metamask/kernel-utils';
 
 const priceGuard = M.interface('PriceService', {
   getPrice: M.callWhen(M.await(M.string())).returns(M.await(M.number())),
@@ -30,7 +26,7 @@ const sheaf = sheafify({
   sections: [{ exo: priceExo }],
 });
 
-const section = sheaf.getSection({ guard: priceGuard, lift: noop });
+const section = sheaf.getSection({ guard: priceGuard, lift: noopLift });
 // section is a dispatch exo; call it like any capability
 const price = await E(section).getPrice('ETH');
 ```
