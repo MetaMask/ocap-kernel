@@ -51,7 +51,6 @@ export type {
   MetadataSpec,
   Lift,
   LiftContext,
-  Presheaf,
   Sheaf,
 } from './sheaf/types.ts';
 export { constant, source, callable } from './sheaf/metadata.ts';
