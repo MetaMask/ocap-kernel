@@ -19,7 +19,6 @@ import type { InterfaceGuard } from '@endo/patterns';
 import { makeDiscoverableExo } from '../discoverable.ts';
 import type { MethodSchema } from '../schema.ts';
 import { stringify } from '../stringify.ts';
-import { driveLift } from './drive.ts';
 import { asyncifyMethodGuards, collectSheafGuard } from './guard.ts';
 import { evaluateMetadata, resolveMetaDataSpec } from './metadata.ts';
 import type { ResolvedMetaDataSpec } from './metadata.ts';
@@ -27,6 +26,7 @@ import { getStalk } from './stalk.ts';
 import type {
   EvaluatedSection,
   Lift,
+  LiftContext,
   PresheafSection,
   Section,
   Sheaf,
@@ -135,6 +135,30 @@ const invokeExo = (exo: Section, method: string, args: unknown[]): unknown => {
 type ResolvedSection<M extends Record<string, unknown>> = {
   exo: Section;
   spec: ResolvedMetaDataSpec<M> | undefined;
+};
+
+const driveLift = async <M extends Record<string, unknown>>(
+  lift: Lift<M>,
+  germs: EvaluatedSection<Partial<M>>[],
+  context: LiftContext<M>,
+  invoke: (germ: EvaluatedSection<Partial<M>>) => Promise<unknown>,
+): Promise<unknown> => {
+  const errors: unknown[] = [];
+  const gen = lift(germs, context);
+  let next = await gen.next(errors);
+  while (!next.done) {
+    try {
+      const result = await invoke(next.value);
+      await gen.return(undefined);
+      return result;
+    } catch (error) {
+      errors.push(error);
+      next = await gen.next(errors);
+    }
+  }
+  throw new Error(`No viable section for ${context.method}`, {
+    cause: errors,
+  });
 };
 
 export const sheafify = <
