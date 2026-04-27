@@ -79,6 +79,16 @@
         "default": "./dist/nodejs/index.cjs"
       }
     },
+    "./sheaf": {
+      "import": {
+        "types": "./dist/sheaf/index.d.mts",
+        "default": "./dist/sheaf/index.mjs"
+      },
+      "require": {
+        "types": "./dist/sheaf/index.d.cts",
+        "default": "./dist/sheaf/index.cjs"
+      }
+    },
     "./vite-plugins": {
       "import": {
         "types": "./dist/vite-plugins/index.d.mts",
