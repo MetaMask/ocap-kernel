@@ -534,6 +534,53 @@ describe('e2e: lift retry on handler failure', () => {
     expect(errorCountsSeenByLift[0]).toBe(1);
   });
 
+  it('lift receives error snapshots not live references', async () => {
+    type RouteMeta = { priority: number };
+
+    const handlers = [
+      vi.fn((_acct: string): number => {
+        throw new Error('handler 0 failed');
+      }),
+      vi.fn((_acct: string): number => {
+        throw new Error('handler 1 failed');
+      }),
+      vi.fn((_acct: string): number => 99),
+    ];
+
+    const sections: PresheafSection<RouteMeta>[] = handlers.map((fn, i) => ({
+      exo: makeSection(
+        `Section:${i}`,
+        M.interface(`Section:${i}`, {
+          getBalance: M.call(M.string()).returns(M.number()),
+        }),
+        { getBalance: fn },
+      ),
+      metadata: constant({ priority: i }),
+    }));
+
+    let errorsAfterFirst: unknown[] | undefined;
+    const priorityFirst: Lift<RouteMeta> = async function* (germs) {
+      const ordered = [...germs].sort(
+        (a, b) => (a.metadata?.priority ?? 0) - (b.metadata?.priority ?? 0),
+      );
+      for (const germ of ordered) {
+        const errors: unknown[] = yield germ;
+        errorsAfterFirst ??= errors;
+      }
+    };
+
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+      lift: priorityFirst,
+    });
+
+    await E(wallet).getBalance('alice');
+
+    // After the first handler fails and the second handler is attempted,
+    // the errors array grows. errorsAfterFirst should be a snapshot with
+    // exactly one entry — not a live reference that was later mutated to two.
+    expect(errorsAfterFirst).toHaveLength(1);
+  });
+
   it('throws accumulated errors when all candidates fail', async () => {
     type RouteMeta = { priority: number };
 

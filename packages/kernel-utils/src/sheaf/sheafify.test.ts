@@ -443,6 +443,44 @@ describe('sheafify', () => {
     expect(liftCalled).toBe(false);
   });
 
+  it('does not collapse Infinity and null metadata as equivalent', async () => {
+    type Meta = { cost: number | null };
+    let germCount = 0;
+
+    const sections: PresheafSection<Meta>[] = [
+      {
+        exo: makeSection(
+          'Wallet:0',
+          M.interface('Wallet:0', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: (_acct: string) => 0 },
+        ),
+        metadata: constant({ cost: Infinity }),
+      },
+      {
+        exo: makeSection(
+          'Wallet:1',
+          M.interface('Wallet:1', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: (_acct: string) => 0 },
+        ),
+        metadata: constant({ cost: null }),
+      },
+    ];
+
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+      async *lift(germs) {
+        germCount = germs.length;
+        yield germs[0]!;
+      },
+    });
+
+    await E(wallet).getBalance('alice');
+    expect(germCount).toBe(2);
+  });
+
   it('collapses no-metadata and empty-object metadata as equivalent', async () => {
     type Meta = Record<string, never>;
     let liftCalled = false;
