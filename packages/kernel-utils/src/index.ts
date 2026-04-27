@@ -44,23 +44,3 @@ export {
   DEFAULT_MAX_DELAY_MS,
 } from './retry.ts';
 export type { RetryBackoffOptions, RetryOnRetryInfo } from './retry.ts';
-export type {
-  Section,
-  PresheafSection,
-  EvaluatedSection,
-  MetadataSpec,
-  Lift,
-  LiftContext,
-  Sheaf,
-} from './sheaf/types.ts';
-export { constant, source, callable } from './sheaf/metadata.ts';
-export { sheafify } from './sheaf/sheafify.ts';
-export {
-  noopLift,
-  proxyLift,
-  withFilter,
-  withRanking,
-  fallthrough,
-} from './sheaf/compose.ts';
-export { makeRemoteSection } from './sheaf/remote.ts';
-export { makeSection } from './sheaf/section.ts';
