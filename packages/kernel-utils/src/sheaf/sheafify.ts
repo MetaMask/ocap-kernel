@@ -20,8 +20,8 @@ import { makeDiscoverableExo } from '../discoverable.ts';
 import type { MethodSchema } from '../schema.ts';
 import { stringify } from '../stringify.ts';
 import { asyncifyMethodGuards, collectSheafGuard } from './guard.ts';
-import { evaluateMetadata, resolveMetaDataSpec } from './metadata.ts';
-import type { ResolvedMetaDataSpec } from './metadata.ts';
+import { evaluateMetadata, resolveMetadataSpec } from './metadata.ts';
+import type { ResolvedMetadataSpec } from './metadata.ts';
 import { getStalk } from './stalk.ts';
 import type {
   EvaluatedSection,
@@ -134,7 +134,7 @@ const invokeExo = (exo: Section, method: string, args: unknown[]): unknown => {
 
 type ResolvedSection<M extends Record<string, unknown>> = {
   exo: Section;
-  spec: ResolvedMetaDataSpec<M> | undefined;
+  spec: ResolvedMetadataSpec<M> | undefined;
 };
 
 const driveLift = async <M extends Record<string, unknown>>(
@@ -178,7 +178,7 @@ export const sheafify = <
       spec:
         section.metadata === undefined
           ? undefined
-          : resolveMetaDataSpec(section.metadata, compartment),
+          : resolveMetadataSpec(section.metadata, compartment),
     })),
   );
   const buildSection = ({
