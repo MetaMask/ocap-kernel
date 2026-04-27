@@ -40,11 +40,28 @@ export type RemoteComms = RemoteIdentity & {
 export type OnRemoteGiveUp = (peerId: string) => void;
 
 /**
- * Callback invoked when a remote peer's incarnation ID changes (peer restarted).
+ * Callback invoked after every successful handshake with a remote peer,
+ * carrying the incarnationId the peer just reported.
  *
- * @param peerId - The peer ID whose incarnation changed.
+ * Fires unconditionally (not only on detected change) so the kernel layer can
+ * compare the observed value against persisted state and detect a peer
+ * restart even when the in-memory PeerStateManager has been rebuilt empty
+ * (e.g. after a receiver restart or stale-peer cleanup).
+ *
+ * Returns `true` if the kernel detected an actual restart (and reset its
+ * RemoteHandle state). The transport uses this to suppress stale outbound
+ * messages on the same connection — the in-memory PSM check is unreliable
+ * across receiver-side state loss. May return synchronously (in-process) or
+ * asynchronously (across a platform-services RPC boundary).
+ *
+ * @param peerId - The peer ID that completed the handshake.
+ * @param observedIncarnation - The incarnationId the peer reported.
+ * @returns Whether the peer was determined to have restarted.
  */
-export type OnIncarnationChange = (peerId: string) => void;
+export type OnIncarnationChange = (
+  peerId: string,
+  observedIncarnation: string,
+) => boolean | Promise<boolean>;
 
 /**
  * Options for initializing remote communications.

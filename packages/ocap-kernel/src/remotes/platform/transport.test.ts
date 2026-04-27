@@ -2843,7 +2843,7 @@ describe('transport.initTransport', () => {
       );
     });
 
-    it('calls onIncarnationChange when incarnation changes', async () => {
+    it('reports the observed incarnation to onIncarnationChange after every handshake', async () => {
       let inboundHandler: ((channel: MockChannel) => void) | undefined;
       mockConnectionFactory.onInboundConnection.mockImplementation(
         (handler: (channel: MockChannel) => void) => {
@@ -2878,15 +2878,15 @@ describe('transport.initTransport', () => {
 
       inboundHandler?.(mockInboundChannel1);
 
-      // Wait for first handshake to be processed
+      // Fires on every successful handshake — the kernel layer is the
+      // authoritative comparator against persisted state.
       await vi.waitFor(() => {
-        expect(mockLogger.log).toHaveBeenCalledWith(
-          expect.stringContaining('first incarnation ID received'),
+        expect(onIncarnationChange).toHaveBeenCalledWith(
+          'remote-peer',
+          'incarnation-1',
         );
       });
-
-      // First incarnation should not trigger onIncarnationChange
-      expect(onIncarnationChange).not.toHaveBeenCalled();
+      expect(onIncarnationChange).toHaveBeenCalledTimes(1);
 
       // Second handshake with different incarnation (simulating peer restart)
       const mockInboundChannel2 = createMockChannel('remote-peer');
@@ -2904,15 +2904,15 @@ describe('transport.initTransport', () => {
 
       inboundHandler?.(mockInboundChannel2);
 
-      // Wait for second handshake to be processed
       await vi.waitFor(() => {
-        expect(mockLogger.log).toHaveBeenCalledWith(
-          expect.stringContaining('incarnation changed'),
+        expect(onIncarnationChange).toHaveBeenCalledWith(
+          'remote-peer',
+          'incarnation-2',
         );
       });
-
-      // Changed incarnation should trigger onIncarnationChange
-      expect(onIncarnationChange).toHaveBeenCalledWith('remote-peer');
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('incarnation changed'),
+      );
     });
 
     it('passes regular messages to remoteMessageHandler after handshake', async () => {

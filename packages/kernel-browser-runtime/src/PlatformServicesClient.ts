@@ -329,16 +329,27 @@ export class PlatformServicesClient implements PlatformServices {
   }
 
   /**
-   * Handle a remote incarnation change notification from the server.
+   * Forward an incarnationId observed during a peer handshake to the kernel
+   * layer. Fires on every successful handshake; the kernel decides whether
+   * it represents a peer restart and returns the verdict so the transport
+   * can suppress stale outbound messages.
    *
-   * @param peerId - The peer ID of the remote that restarted.
-   * @returns A promise that resolves when handling is complete.
+   * @param peerId - The peer that completed the handshake.
+   * @param observedIncarnation - The incarnationId reported by the peer.
+   * @returns Whether the kernel detected a peer restart.
    */
-  async #remoteIncarnationChange(peerId: string): Promise<null> {
-    if (this.#remoteIncarnationChangeHandler) {
-      this.#remoteIncarnationChangeHandler(peerId);
+  async #remoteIncarnationChange(
+    peerId: string,
+    observedIncarnation: string,
+  ): Promise<boolean> {
+    if (!this.#remoteIncarnationChangeHandler) {
+      return false;
     }
-    return null;
+    const verdict = await this.#remoteIncarnationChangeHandler(
+      peerId,
+      observedIncarnation,
+    );
+    return verdict;
   }
 
   /**

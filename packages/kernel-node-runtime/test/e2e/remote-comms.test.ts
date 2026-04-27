@@ -1037,7 +1037,7 @@ describe.sequential('Remote Communications E2E', () => {
         // changing the peerId — that's the precondition that exposes the
         // dedup-vs-incarnation lifetime mismatch.
         const k2Mnemonic =
-          'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+          'legal winner thank year wave sausage worth useful legal winner thank yellow';
         const opts = {
           relays: testRelays,
           reconnectionBaseDelayMs: 50,
@@ -1067,6 +1067,12 @@ describe.sequential('Remote Communications E2E', () => {
           ['Bob-before'],
         );
         expect(phase1).toContain('vat Alice got "hello" from Bob-before');
+
+        // Allow K2's standalone ACK to settle before stopping K1, otherwise
+        // K1 would persist a stale pending notify and retransmit it on
+        // restart — a separate failure mode unrelated to seq dedup. The
+        // delayed-ACK timer fires at 50ms.
+        await delay(150);
 
         // Restart the receiver keeping its DB. PeerStateManager rebuilds
         // empty; RemoteHandles are restored from KV with their seq state.

@@ -429,20 +429,32 @@ export class PlatformServicesServer {
   }
 
   /**
-   * Handle when a remote peer's incarnation changes (peer restarted).
-   * Notifies the kernel worker via RPC to reset the RemoteHandle state.
+   * Forward the incarnationId observed during a peer handshake to the kernel
+   * worker, and return its determination of whether the peer truly restarted.
+   * The transport awaits this so it can suppress stale outbound messages on
+   * the same connection.
    *
-   * @param peerId - The peer ID of the remote that restarted.
+   * @param peerId - The peer that completed the handshake.
+   * @param observedIncarnation - The incarnationId reported by the peer.
+   * @returns Whether the kernel detected a peer restart.
    */
-  #handleRemoteIncarnationChange(peerId: string): void {
-    this.#rpcClient
-      .call('remoteIncarnationChange', { peerId })
-      .catch((error) => {
-        this.#logger.error(
-          'Error notifying kernel of remote incarnation change:',
-          error,
-        );
+  async #handleRemoteIncarnationChange(
+    peerId: string,
+    observedIncarnation: string,
+  ): Promise<boolean> {
+    try {
+      const result = await this.#rpcClient.call('remoteIncarnationChange', {
+        peerId,
+        observedIncarnation,
       });
+      return result;
+    } catch (error) {
+      this.#logger.error(
+        'Error notifying kernel of remote incarnation change:',
+        error,
+      );
+      return false;
+    }
   }
 }
 harden(PlatformServicesServer);

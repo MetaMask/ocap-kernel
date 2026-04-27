@@ -202,16 +202,23 @@ export async function initTransport(
       outputError(channel.peerId, 'outbound handshake', problem);
       return { success: false, incarnationChanged: false };
     }
-    // Handle incarnation change outside try-catch so callback errors
-    // don't incorrectly mark the handshake as failed
-    if (result.incarnationChanged) {
+    // The PSM-detected change is unreliable across receiver-side state loss;
+    // the kernel-side callback (backed by persistent storage) is the
+    // authoritative source. Take the OR of both so callers' stale-message
+    // guards trip whenever either layer detected a restart.
+    const kernelDetectedRestart =
+      (await onIncarnationChange?.(
+        channel.peerId,
+        result.remoteIncarnationId,
+      )) ?? false;
+    const incarnationChanged =
+      result.incarnationChanged || kernelDetectedRestart;
+    if (incarnationChanged) {
       logger.log(
         `${channel.peerId.slice(0, 8)}:: incarnation changed during outbound handshake, resetting remote state`,
       );
-      // Call incarnation change callback first to reset RemoteHandle state
-      onIncarnationChange?.(channel.peerId);
     }
-    return { success: true, incarnationChanged: result.incarnationChanged };
+    return { success: true, incarnationChanged };
   }
 
   /**
@@ -232,14 +239,15 @@ export async function initTransport(
       outputError(channel.peerId, 'inbound handshake', problem);
       return false;
     }
-    // Handle incarnation change outside try-catch so callback errors
-    // don't incorrectly mark the handshake as failed
-    if (result.incarnationChanged) {
+    const kernelDetectedRestart =
+      (await onIncarnationChange?.(
+        channel.peerId,
+        result.remoteIncarnationId,
+      )) ?? false;
+    if (result.incarnationChanged || kernelDetectedRestart) {
       logger.log(
         `${channel.peerId.slice(0, 8)}:: incarnation changed during inbound handshake, resetting remote state`,
       );
-      // Call incarnation change callback first to reset RemoteHandle state
-      onIncarnationChange?.(channel.peerId);
     }
     return true;
   }
@@ -586,8 +594,21 @@ export async function initTransport(
             throw Error('Handshake failed');
           }
           if (handshakeResult.incarnationChanged) {
-            // Peer restarted - don't send stale message, let caller retry with fresh state
-            registerChannel(targetPeerId, channel, 'reading channel to');
+            // Peer restarted: close this freshly-dialed channel without
+            // registering it. Subsequent sends re-dial; that next handshake
+            // sees the now-persisted incarnation and proceeds normally.
+            // Registering here would let concurrent in-flight sends bypass
+            // the handshake check and write pre-restart payloads on the
+            // same channel.
+            try {
+              await connectionFactory.closeChannel(channel, targetPeerId);
+            } catch (closeError) {
+              outputError(
+                targetPeerId,
+                'closing channel after peer restart',
+                closeError,
+              );
+            }
             throw Error(
               'Remote peer restarted: message not sent to avoid stale delivery',
             );

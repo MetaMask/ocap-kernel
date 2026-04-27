@@ -405,24 +405,35 @@ export class RemoteHandle implements EndpointHandle {
     this.#logger.log(
       `${this.#peerId.slice(0, 8)}:: retransmitting ${this.#getPendingCount()} pending messages (attempt ${this.#retryCount + 1})`,
     );
-    this.#retransmitPending();
+    this.#retransmitPending().catch((error) => {
+      this.#logger.error('Error during pending message retransmission:', error);
+    });
   }
 
   /**
    * Retransmit all pending messages.
+   *
+   * Sends sequentially so a peer-restart detection during the first send can
+   * short-circuit the rest: handlePeerRestart resets `#startSeq`/`#nextSendSeq`
+   * and clears persisted pending state, and the loop bound + per-iteration
+   * `getPendingMessage` check pick that up immediately. Sending in parallel
+   * here is unsafe because once the first send registers the channel post-
+   * restart, parallel iterations would see `state.channel` set and bypass the
+   * outbound handshake's stale-delivery guard, writing pre-restart payloads.
    */
-  #retransmitPending(): void {
+  async #retransmitPending(): Promise<void> {
     for (let seq = this.#startSeq; seq <= this.#nextSendSeq; seq += 1) {
       const messageString = this.#kernelStore.getPendingMessage(
         this.remoteId,
         seq,
       );
-      if (messageString) {
-        this.#remoteComms
-          .sendRemoteMessage(this.#peerId, messageString)
-          .catch((error) => {
-            this.#logger.error('Error retransmitting message:', error);
-          });
+      if (!messageString) {
+        continue;
+      }
+      try {
+        await this.#remoteComms.sendRemoteMessage(this.#peerId, messageString);
+      } catch (error) {
+        this.#logger.error('Error retransmitting message:', error);
       }
     }
     this.#startAckTimeout();
@@ -1132,5 +1143,12 @@ export class RemoteHandle implements EndpointHandle {
 
     // Clear persisted sequence state
     this.#kernelStore.clearRemoteSeqState(this.remoteId);
+
+    // Drop c-list entries that were the peer's exports (erefs they allocated).
+    // The kernel objects/promises behind those mappings are dead now — leaving
+    // them in place would route a fresh incarnation's reused eref labels back
+    // to stale kernel state, e.g. already-resolved promises that can't be
+    // resolved a second time.
+    this.#kernelStore.forgetEndpointImports(this.remoteId);
   }
 }
