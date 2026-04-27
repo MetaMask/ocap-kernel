@@ -526,4 +526,138 @@ describe('vat store methods', () => {
       expect(result).toBe(false);
     });
   });
+
+  describe('forgetEndpointImports', () => {
+    const endpointId = 'r1' as VatId;
+
+    /**
+     * Seed the c-list-keyed entries the function iterates and
+     * arrange `getPrefixedKeys` to return them in the order they would
+     * appear in storage.
+     *
+     * @param erefs - Pairs of [eref, kref] to seed, in lexicographic order.
+     */
+    function seedClist(erefs: [string, string][]): void {
+      for (const [eref, kref] of erefs) {
+        mockKV.set(`slot.${endpointId}.${eref}`, kref);
+        mockKV.set(`slot.${endpointId}.${kref}`, eref);
+      }
+      mockGetPrefixedKeys.mockImplementation((prefix: string) => {
+        if (prefix === `${endpointId}.c.`) {
+          // Emit both eref-keyed and kref-keyed entries so the function's
+          // "skip kref-keyed" branch is exercised.
+          return erefs.flatMap(([eref, kref]) => [
+            `${endpointId}.c.${eref}`,
+            `${endpointId}.c.${kref}`,
+          ]);
+        }
+        return [];
+      });
+    }
+
+    it("decrements the decider refcount for the peer's promise exports", () => {
+      seedClist([['p+1', 'kp123']]);
+      mockGetKernelPromise.mockReturnValue({ decider: endpointId });
+
+      vatMethods.forgetEndpointImports(endpointId);
+
+      expect(mockDeleteCListEntry).toHaveBeenCalledWith(
+        endpointId,
+        'kp123',
+        'p+1',
+      );
+      expect(mockDecrementRefCount).toHaveBeenCalledWith(
+        'kp123',
+        'cleanup|peerRestart|promise|decider',
+      );
+    });
+
+    it('skips the decider decrement when the peer is no longer the decider', () => {
+      seedClist([['p+1', 'kp123']]);
+      mockGetKernelPromise.mockReturnValue({ decider: 'someoneElse' });
+
+      vatMethods.forgetEndpointImports(endpointId);
+
+      expect(mockDeleteCListEntry).toHaveBeenCalledWith(
+        endpointId,
+        'kp123',
+        'p+1',
+      );
+      expect(mockDecrementRefCount).not.toHaveBeenCalled();
+    });
+
+    it("releases the peer's object exports: owner, c-list, baseline refcount, GC", () => {
+      seedClist([['o+7', 'ko42']]);
+      mockKV.set(`owner.ko42`, endpointId);
+      mockGetReachableAndVatSlot.mockReturnValue({ vatSlot: 'o+7' });
+
+      vatMethods.forgetEndpointImports(endpointId);
+
+      expect(mockKV.has(`owner.ko42`)).toBe(false);
+      expect(mockKV.has(`slot.${endpointId}.ko42`)).toBe(false);
+      expect(mockKV.has(`slot.${endpointId}.o+7`)).toBe(false);
+      expect(mockDecrementRefCount).toHaveBeenCalledWith(
+        'ko42',
+        'cleanup|peerRestart|export|baseline',
+      );
+      expect(mockMaybeFreeKrefs.add).toHaveBeenCalledWith('ko42');
+      // Object-export tear-down handles the c-list pair directly; we don't
+      // also call deleteCListEntry (which uses the recognizable-only path
+      // and would corrupt the count).
+      expect(mockDeleteCListEntry).not.toHaveBeenCalled();
+    });
+
+    it('does not delete a kernel object owner that the peer no longer owns', () => {
+      seedClist([['o+7', 'ko42']]);
+      mockKV.set(`owner.ko42`, 'someoneElse');
+      mockGetReachableAndVatSlot.mockReturnValue({ vatSlot: 'o+7' });
+
+      vatMethods.forgetEndpointImports(endpointId);
+
+      // Foreign owner survives, but the c-list pair and refcount still go.
+      expect(mockKV.get(`owner.ko42`)).toBe('someoneElse');
+      expect(mockKV.has(`slot.${endpointId}.ko42`)).toBe(false);
+      expect(mockKV.has(`slot.${endpointId}.o+7`)).toBe(false);
+      expect(mockDecrementRefCount).toHaveBeenCalledWith(
+        'ko42',
+        'cleanup|peerRestart|export|baseline',
+      );
+    });
+
+    it('preserves our exports to the peer (import-direction entries)', () => {
+      seedClist([['o-3', 'ko99']]);
+
+      vatMethods.forgetEndpointImports(endpointId);
+
+      expect(mockDeleteCListEntry).not.toHaveBeenCalled();
+      expect(mockDecrementRefCount).not.toHaveBeenCalled();
+      expect(mockMaybeFreeKrefs.add).not.toHaveBeenCalled();
+      // Mappings stay so a fresh incarnation can keep referring to alice etc.
+      expect(mockKV.get(`slot.${endpointId}.o-3`)).toBe('ko99');
+      expect(mockKV.get(`slot.${endpointId}.ko99`)).toBe('o-3');
+    });
+
+    it('processes mixed entries in one pass without disturbing imports', () => {
+      seedClist([
+        ['o+7', 'ko42'], // peer's object export — clean up
+        ['o-3', 'ko99'], // our export to the peer — keep
+        ['p+1', 'kp123'], // peer's promise export — clean up
+      ]);
+      mockKV.set(`owner.ko42`, endpointId);
+      mockGetKernelPromise.mockReturnValue({ decider: endpointId });
+      mockGetReachableAndVatSlot.mockReturnValue({ vatSlot: 'o+7' });
+
+      vatMethods.forgetEndpointImports(endpointId);
+
+      // Peer's exports gone.
+      expect(mockKV.has(`slot.${endpointId}.o+7`)).toBe(false);
+      expect(mockDeleteCListEntry).toHaveBeenCalledWith(
+        endpointId,
+        'kp123',
+        'p+1',
+      );
+      // Our export retained.
+      expect(mockKV.get(`slot.${endpointId}.o-3`)).toBe('ko99');
+    });
+  });
 });
