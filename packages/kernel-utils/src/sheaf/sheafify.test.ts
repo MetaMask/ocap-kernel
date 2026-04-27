@@ -573,3 +573,110 @@ describe('sheafify', () => {
     ).toBeUndefined();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Unit: getSection with explicit guard
+// ---------------------------------------------------------------------------
+
+describe('getSection with explicit guard', () => {
+  it('dispatches calls that fall within the explicit guard', async () => {
+    const sections: PresheafSection<Record<string, never>>[] = [
+      {
+        exo: makeSection(
+          'Wallet:0',
+          M.interface('Wallet:0', {
+            getBalance: M.call(M.string()).returns(M.number()),
+            transfer: M.call(M.string(), M.number()).returns(M.boolean()),
+          }),
+          {
+            getBalance: (_acct: string) => 42,
+            transfer: (_to: string, _amt: number) => true,
+          },
+        ),
+      },
+    ];
+
+    const readGuard = M.interface('ReadOnly', {
+      getBalance: M.call(M.string()).returns(M.number()),
+    });
+
+    const section = sheafify({ name: 'Wallet', sections }).getSection({
+      guard: readGuard,
+      async *lift(germs) {
+        yield germs[0]!;
+      },
+    });
+
+    expect(await E(section).getBalance('alice')).toBe(42);
+  });
+
+  it('rejects method calls outside the explicit guard', async () => {
+    const sections: PresheafSection<Record<string, never>>[] = [
+      {
+        exo: makeSection(
+          'Wallet:0',
+          M.interface('Wallet:0', {
+            getBalance: M.call(M.string()).returns(M.number()),
+            transfer: M.call(M.string(), M.number()).returns(M.boolean()),
+          }),
+          {
+            getBalance: (_acct: string) => 42,
+            transfer: (_to: string, _amt: number) => true,
+          },
+        ),
+      },
+    ];
+
+    const readGuard = M.interface('ReadOnly', {
+      getBalance: M.call(M.string()).returns(M.number()),
+    });
+
+    const section = sheafify({ name: 'Wallet', sections }).getSection({
+      guard: readGuard,
+      async *lift(germs) {
+        yield germs[0]!;
+      },
+    });
+
+    // makeExo only places methods from the guard on the object — transfer is absent
+    expect((section as Record<string, unknown>).transfer).toBeUndefined();
+  });
+
+  it('getDiscoverableSection exposes __getDescription__ and obeys explicit guard', async () => {
+    const sections: PresheafSection<Record<string, never>>[] = [
+      {
+        exo: makeSection(
+          'Wallet:0',
+          M.interface('Wallet:0', {
+            getBalance: M.call(M.string()).returns(M.number()),
+            transfer: M.call(M.string(), M.number()).returns(M.boolean()),
+          }),
+          {
+            getBalance: (_acct: string) => 42,
+            transfer: (_to: string, _amt: number) => true,
+          },
+        ),
+      },
+    ];
+
+    const readGuard = M.interface('ReadOnly', {
+      getBalance: M.call(M.string()).returns(M.number()),
+    });
+
+    const schema = { getBalance: { description: 'Get account balance.' } };
+
+    const section = sheafify({
+      name: 'Wallet',
+      sections,
+    }).getDiscoverableSection({
+      guard: readGuard,
+      async *lift(germs) {
+        yield germs[0]!;
+      },
+      schema,
+    });
+
+    expect(E(section)[GET_DESCRIPTION]()).toStrictEqual(schema);
+    expect(await E(section).getBalance('alice')).toBe(42);
+  });
+});
