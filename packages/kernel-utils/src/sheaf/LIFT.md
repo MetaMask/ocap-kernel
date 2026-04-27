@@ -33,7 +33,8 @@ The sheaf drives it with the following protocol:
    of every error thrown so far (cumulative, not just the last). The coroutine
    receives this as the resolved value of its `yield` expression.
 6. **Exhausted** — if the generator returns without yielding, the sheaf
-   rethrows the last error.
+   throws `new Error('No viable section for <method>', { cause: errors })`
+   where `errors` is the full accumulated list of every failure so far.
 
 Most lifts express a fixed priority order and can ignore the error input:
 

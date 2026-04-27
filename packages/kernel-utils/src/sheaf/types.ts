@@ -88,12 +88,12 @@ export type Lift<MetaData extends Record<string, unknown>> = (
 /**
  * A sheaf: an authority manager over a presheaf.
  *
- * Produces revocable dispatch sections via `getSection` and tracks all
- * granted authority for auditing and revocation.
+ * Produces dispatch sections via `getSection`, each routing invocations
+ * through the presheaf sections supplied at construction time.
  */
 export type Sheaf<MetaData extends Record<string, unknown>> = {
   /**
-   * Produce a revocable dispatch exo over the given guard.
+   * Produce a dispatch exo over the given guard.
    *
    * Returns `object` rather than a typed exo because the guard is passed
    * dynamically at call time — TypeScript cannot propagate the method
@@ -102,7 +102,7 @@ export type Sheaf<MetaData extends Record<string, unknown>> = {
    */
   getSection: (opts: { guard: InterfaceGuard; lift: Lift<MetaData> }) => object;
   /**
-   * Produce a revocable discoverable dispatch exo over the given guard.
+   * Produce a discoverable dispatch exo over the given guard.
    *
    * Returns `object` for the same reason as `getSection`.
    */
@@ -112,13 +112,22 @@ export type Sheaf<MetaData extends Record<string, unknown>> = {
     schema: Record<string, MethodSchema>;
   }) => object;
   /**
-   * Produce a revocable dispatch exo over the full union guard of all presheaf sections.
+   * Produce a dispatch exo over the full union guard of all presheaf sections.
+   *
+   * Prefer `getSection` with an explicit guard when the guard is statically
+   * known — it makes the capability's scope visible at the call site. Use the
+   * global variant when sections are assembled dynamically at runtime and the
+   * union guard is not known until after `sheafify` runs.
    *
    * @deprecated Provide an explicit guard via getSection instead.
    */
   getGlobalSection: (opts: { lift: Lift<MetaData> }) => object;
   /**
-   * Produce a revocable discoverable dispatch exo over the full union guard of all presheaf sections.
+   * Produce a discoverable dispatch exo over the full union guard of all presheaf sections.
+   *
+   * Prefer `getDiscoverableSection` with an explicit guard when the guard is
+   * statically known. Use the global variant when sections are assembled
+   * dynamically and the union guard is not known until after `sheafify` runs.
    *
    * @deprecated Provide an explicit guard via getDiscoverableSection instead.
    */
