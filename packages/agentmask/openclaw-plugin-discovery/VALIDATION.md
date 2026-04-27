@@ -87,14 +87,17 @@ openclaw config set plugins.allow '["discovery"]'
 # tools.allow matches tool names, not plugin ids: list each tool the
 # plugin exposes. (`openclaw config unset tools.allow` to allow all
 # tools is also fine for development.)
-openclaw config set tools.allow '[
-  "discovery_redeem_matcher",
-  "discovery_find_services",
-  "service_get_description",
-  "service_initiate_contact",
-  "service_call",
-  "discovery_list_tracked"
-]'
+openclaw config set tools.allow '["discovery_redeem_matcher","discovery_find_services","service_get_description","service_initiate_contact","service_call","discovery_list_tracked"]'
+```
+
+`tools.profile` filters tool visibility _independently_ of `tools.allow`.
+The default `coding` profile excludes the discovery tools entirely, so
+the LLM sees zero discovery surface even with `tools.allow` correctly
+populated. Drop the profile (or pick one that includes plugin tools):
+
+```bash
+openclaw config unset tools.profile
+openclaw config get tools     # confirm: no "profile" field
 ```
 
 For this validation, also disable the older metamask plugin if it was
@@ -104,6 +107,9 @@ wallet-specific behavior and competes with discovery:
 ```bash
 openclaw plugins disable metamask
 ```
+
+After any of the above changes, restart the openclaw gateway service
+(`openclaw config set` prompts for this).
 
 ### A.3. Point the plugin at the consumer daemon + matcher URL
 
@@ -135,6 +141,18 @@ agent's conversation is the script; the listed tool calls are what
 the agent should end up making. Paste the matcher OCAP URL in
 response to the agent's first question if `matcherUrl` was not
 pre-configured.
+
+> **TUI tips, learned the hard way:**
+>
+> - To clear conversation context inside the running TUI, the slash
+>   command is `/reset`. (`/clear` and `/new` are not recognized.)
+>   Conversation history persists across `tui` restarts; if you want a
+>   genuinely clean state, `/reset` is the easiest path.
+> - As a sanity check before continuing, ask the agent:
+>   _"Without taking any action, list every tool whose name starts
+>   with `discovery_` or `service_`."_
+>   It should list all six. If it lists fewer or none, revisit
+>   `tools.allow` and `tools.profile` in stage A.2.
 
 1. **Connect to matcher.**
 
