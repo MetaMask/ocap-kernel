@@ -32,8 +32,34 @@ import type {
   Sheaf,
 } from './types.ts';
 
+type EncodedEntry = [key: string, type: string, value: unknown];
+
+const encodeMetadataEntry = (key: string, value: unknown): EncodedEntry => {
+  if (value === undefined) {
+    return [key, 'undefined', null];
+  }
+  if (typeof value === 'bigint') {
+    return [key, 'bigint', String(value)];
+  }
+  if (typeof value === 'number') {
+    if (Number.isNaN(value)) {
+      return [key, 'NaN', null];
+    }
+    if (value === Infinity) {
+      return [key, '+Infinity', null];
+    }
+    if (value === -Infinity) {
+      return [key, '-Infinity', null];
+    }
+  }
+  return [key, typeof value, value];
+};
+
 /**
  * Serialize metadata for equivalence-class keying (collapse step).
+ *
+ * Uses type-tagged encoding so that values JSON.stringify conflates
+ * (undefined, null, NaN, Infinity, -Infinity) produce distinct keys.
  *
  * @param metadata - The metadata value to serialize.
  * @returns A string key for equivalence comparison.
@@ -43,9 +69,9 @@ const metadataKey = (metadata: Record<string, unknown>): string => {
   if (keys.length === 0) {
     return 'null';
   }
-  const entries = Object.entries(metadata).sort(([a], [b]) =>
-    a.localeCompare(b),
-  );
+  const entries = Object.entries(metadata)
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, val]) => encodeMetadataEntry(key, val));
   return JSON.stringify(entries);
 };
 
