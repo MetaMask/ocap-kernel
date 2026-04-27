@@ -17,6 +17,38 @@ export type MethodGuardPayload = {
 };
 
 /**
+ * Assemble a MethodGuard from its components.
+ *
+ * The @endo/patterns builder API requires a strict chain order:
+ * callWhen → optional → rest → returns. All four combinations of
+ * optional/rest presence are handled here so callers don't repeat this logic.
+ *
+ * @param base - Result of M.callWhen(...requiredArgs).
+ * @param optionals - Optional positional arg guards (may be empty).
+ * @param restGuard - Rest arg guard, or undefined if none.
+ * @param returnGuard - Return value guard.
+ * @returns The assembled MethodGuard.
+ */
+export const buildMethodGuard = (
+  base: ReturnType<typeof M.callWhen>,
+  optionals: Pattern[],
+  restGuard: Pattern | undefined,
+  returnGuard: Pattern,
+): MethodGuard => {
+  if (optionals.length > 0 && restGuard !== undefined) {
+    return base
+      .optional(...optionals)
+      .rest(restGuard)
+      .returns(returnGuard);
+  } else if (optionals.length > 0) {
+    return base.optional(...optionals).returns(returnGuard);
+  } else if (restGuard === undefined) {
+    return base.returns(returnGuard);
+  }
+  return base.rest(restGuard).returns(returnGuard);
+};
+
+/**
  * Naive union of guards via M.or — no pattern canonicalization.
  *
  * @param guards - Guards to union.
@@ -121,23 +153,12 @@ export const collectSheafGuard = <Core extends Methods>(
       payloads.map((payload) => payload.returnGuard),
     );
 
-    const base = M.callWhen(...requiredArgGuards);
-    if (optionalArgGuards.length > 0 && unionRestArgGuard !== undefined) {
-      unionMethodGuards[methodName] = base
-        .optional(...optionalArgGuards)
-        .rest(unionRestArgGuard)
-        .returns(returnGuard);
-    } else if (optionalArgGuards.length > 0) {
-      unionMethodGuards[methodName] = base
-        .optional(...optionalArgGuards)
-        .returns(returnGuard);
-    } else if (unionRestArgGuard === undefined) {
-      unionMethodGuards[methodName] = base.returns(returnGuard);
-    } else {
-      unionMethodGuards[methodName] = base
-        .rest(unionRestArgGuard)
-        .returns(returnGuard);
-    }
+    unionMethodGuards[methodName] = buildMethodGuard(
+      M.callWhen(...requiredArgGuards),
+      optionalArgGuards,
+      unionRestArgGuard,
+      returnGuard,
+    );
   }
 
   return M.interface(name, unionMethodGuards);
