@@ -443,6 +443,53 @@ describe('sheafify', () => {
     expect(liftCalled).toBe(false);
   });
 
+  it('extracts shared NaN metadata values into constraints', async () => {
+    type Meta = { cost: number; priority: number };
+    let capturedGerms: EvaluatedSection<Partial<Meta>>[] = [];
+    let capturedContext: LiftContext<Meta> | undefined;
+
+    const sections: PresheafSection<Meta>[] = [
+      {
+        exo: makeSection(
+          'Wallet:0',
+          M.interface('Wallet:0', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: (_acct: string) => 0 },
+        ),
+        metadata: constant({ cost: NaN, priority: 0 }),
+      },
+      {
+        exo: makeSection(
+          'Wallet:1',
+          M.interface('Wallet:1', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: (_acct: string) => 0 },
+        ),
+        metadata: constant({ cost: NaN, priority: 1 }),
+      },
+    ];
+
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+      async *lift(germs, context) {
+        capturedGerms = germs;
+        capturedContext = context;
+        yield germs[0]!;
+      },
+    });
+
+    await E(wallet).getBalance('alice');
+
+    // NaN is shared across all germs, so it should be extracted as a constraint
+    // — not left as distinguishing metadata in each germ's options.
+    expect(Number.isNaN(capturedContext?.constraints.cost)).toBe(true);
+    expect(capturedGerms.map((germ) => germ.metadata)).toStrictEqual([
+      { priority: 0 },
+      { priority: 1 },
+    ]);
+  });
+
   it('does not collapse Infinity and null metadata as equivalent', async () => {
     type Meta = { cost: number | null };
     let germCount = 0;
