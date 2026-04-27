@@ -2,7 +2,7 @@
  * Sheafify a presheaf into an authority manager.
  *
  * `sheafify({ name, sections })` returns a `Sheaf` — an immutable object
- * that tracks granted authority and produces revocable dispatch sections.
+ * that produces dispatch sections over a fixed presheaf.
  *
  * Each dispatch through a granted section:
  *   1. Computes the stalk (getStalk — presheaf sections matching the point)
@@ -28,7 +28,7 @@ import { collectSheafGuard } from './guard.ts';
 import type { MethodGuardPayload } from './guard.ts';
 import { evaluateMetadata, resolveMetaDataSpec } from './metadata.ts';
 import type { ResolvedMetaDataSpec } from './metadata.ts';
-import { getStalk, guardCoversPoint } from './stalk.ts';
+import { getStalk } from './stalk.ts';
 import type {
   EvaluatedSection,
   Lift,
@@ -178,13 +178,6 @@ const invokeExo = (exo: Section, method: string, args: unknown[]): unknown => {
   return fn.call(obj, ...args);
 };
 
-type Grant = {
-  exo: Section;
-  guard: InterfaceGuard;
-  revoke: () => void;
-  isRevoked: () => boolean;
-};
-
 type ResolvedSection<M extends Record<string, unknown>> = {
   exo: Section;
   spec: ResolvedMetaDataSpec<M> | undefined;
@@ -210,8 +203,6 @@ export const sheafify = <
           : resolveMetaDataSpec(section.metadata, compartment),
     })),
   );
-  const grants: Grant[] = [];
-
   const buildSection = ({
     guard,
     lift,
@@ -231,16 +222,10 @@ export const sheafify = <
             defaultGuards: 'passable',
           });
 
-    let revoked = false;
-
     const dispatch = async (
       method: string,
       args: unknown[],
     ): Promise<unknown> => {
-      if (revoked) {
-        throw new Error(`Section revoked: ${name}`);
-      }
-
       const stalk = getStalk(frozenSections, method, args);
       const evaluatedStalk: EvaluatedSection<MetaData>[] = stalk.map(
         (section) => ({
@@ -304,15 +289,6 @@ export const sheafify = <
           asyncGuard,
         )) as unknown as Section;
 
-    grants.push({
-      exo,
-      guard: resolvedGuard,
-      revoke: () => {
-        revoked = true;
-      },
-      isRevoked: () => revoked,
-    });
-
     return exo;
   };
 
@@ -351,39 +327,10 @@ export const sheafify = <
     schema: Record<string, MethodSchema>;
   }): object => buildSection({ guard: unionGuard(), lift, schema });
 
-  const revokePoint = (method: string, ...args: unknown[]): void => {
-    for (const grant of grants) {
-      if (!grant.isRevoked() && guardCoversPoint(grant.guard, method, args)) {
-        grant.revoke();
-      }
-    }
-  };
-
-  const getExported = (): InterfaceGuard | undefined => {
-    const activeExos = grants
-      .filter((grant) => !grant.isRevoked())
-      .map((grant) => grant.exo);
-    if (activeExos.length === 0) {
-      return undefined;
-    }
-    return collectSheafGuard(`${name}:exported`, activeExos);
-  };
-
-  const revokeAll = (): void => {
-    for (const grant of grants) {
-      if (!grant.isRevoked()) {
-        grant.revoke();
-      }
-    }
-  };
-
   return {
     getSection,
     getDiscoverableSection,
     getGlobalSection,
     getDiscoverableGlobalSection,
-    revokePoint,
-    getExported,
-    revokeAll,
   };
 };
