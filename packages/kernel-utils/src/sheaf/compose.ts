@@ -1,6 +1,22 @@
 import type { EvaluatedSection, Lift, LiftContext } from './types.ts';
 
 /**
+ * A lift that yields all germs in their original order without filtering.
+ *
+ * Use as a placeholder when the sheaf always has a single-section stalk
+ * (the lift is never actually called) or to express "try everything in
+ * declaration order" as an explicit policy.
+ *
+ * @param germs - Evaluated sections to yield in order.
+ * @yields Each germ in the original array order.
+ */
+export async function* noopLift<M extends Record<string, unknown>>(
+  germs: EvaluatedSection<Partial<M>>[],
+): AsyncGenerator<EvaluatedSection<Partial<M>>, void, unknown[]> {
+  yield* germs;
+}
+
+/**
  * Proxy a lift coroutine, forwarding yielded candidates up and received
  * error arrays down to the inner generator.
  *

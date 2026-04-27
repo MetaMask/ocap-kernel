@@ -57,6 +57,7 @@ export type {
 export { constant, source, callable } from './sheaf/metadata.ts';
 export { sheafify } from './sheaf/sheafify.ts';
 export {
+  noopLift,
   proxyLift,
   withFilter,
   withRanking,
