@@ -26,6 +26,7 @@ import {
   makeMaasClientConfig,
   makeMaasServerConfig,
   makeRemoteVatConfig,
+  restartKernel,
   restartKernelAndReloadVat,
   sendRemoteMessage,
   setupAliceAndBob,
@@ -1013,6 +1014,95 @@ describe.sequential('Remote Communications E2E', () => {
             ['Alice'],
           ]),
         ).rejects.toThrow(/Remote connection lost/u);
+      },
+      NETWORK_TIMEOUT * 3,
+    );
+
+    it(
+      'preserves seq dedup when receiver loses peer-incarnation memory',
+      async () => {
+        // Reproduces issue #944. A peer's incarnationId is held only in the
+        // receiver's in-memory PeerStateManager, but RemoteHandle's
+        // #highestReceivedSeq is persisted in KV. When PSM loses the entry
+        // (e.g. receiver restart, or stale-peer cleanup) and the sender
+        // comes back with the same peerId but a fresh incarnation, the
+        // handshake mis-classifies the reconnect as a "first connection"
+        // (previousIncarnation undefined → setRemoteIncarnation returns
+        // false → handlePeerRestart is never called) and the sender's
+        // fresh seq=1 messages are silently dropped against the stale
+        // persisted dedup state.
+        //
+        // Fix the sender's libp2p key with a mnemonic so that wiping its
+        // storage gives a fresh incarnation and seq counter without also
+        // changing the peerId — that's the precondition that exposes the
+        // dedup-vs-incarnation lifetime mismatch.
+        const k2Mnemonic =
+          'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
+        const opts = {
+          relays: testRelays,
+          reconnectionBaseDelayMs: 50,
+          reconnectionMaxDelayMs: 200,
+          handshakeTimeoutMs: 3_000,
+          writeTimeoutMs: 3_000,
+          ackTimeoutMs: 500,
+          maxRetryAttempts: 4,
+        };
+
+        await kernel1.initRemoteComms({ ...opts });
+        await kernel2.initRemoteComms({ ...opts, mnemonic: k2Mnemonic });
+        const aliceURL = await launchVatAndGetURL(
+          kernel1,
+          makeRemoteVatConfig('Alice'),
+        );
+        await launchVatAndGetURL(kernel2, makeRemoteVatConfig('Bob'));
+        const bobRef = getVatRootRef(kernel2, kernelStore2, 'Bob');
+
+        // Bob (K2) sends to Alice (K1) once, advancing K1's persisted
+        // #highestReceivedSeq for K2's peer past 0.
+        const phase1 = await sendRemoteMessage(
+          kernel2,
+          bobRef,
+          aliceURL,
+          'hello',
+          ['Bob-before'],
+        );
+        expect(phase1).toContain('vat Alice got "hello" from Bob-before');
+
+        // Restart the receiver keeping its DB. PeerStateManager rebuilds
+        // empty; RemoteHandles are restored from KV with their seq state.
+        await stopWithTimeout(async () => kernel1.stop(), 3000, 'kernel1.stop');
+        // eslint-disable-next-line require-atomic-updates
+        kernel1 = await restartKernel(dbFilename1, false, testRelays, opts);
+
+        // Restart the sender with a FRESH DB but the same mnemonic — same
+        // peerId, but fresh incarnationId and a seq counter starting from 0.
+        await stopWithTimeout(async () => kernel2.stop(), 3000, 'kernel2.stop');
+        const freshDb2 = await makeSQLKernelDatabase({
+          dbFilename: join(tempDir, 'kernel2-fresh.db'),
+        });
+        // eslint-disable-next-line require-atomic-updates
+        kernelStore2 = makeKernelStore(freshDb2);
+        // eslint-disable-next-line require-atomic-updates
+        kernel2 = await makeTestKernel(freshDb2);
+        await kernel2.initRemoteComms({ ...opts, mnemonic: k2Mnemonic });
+        await launchVatAndGetURL(kernel2, makeRemoteVatConfig('Bob'));
+        const newBobRef = getVatRootRef(kernel2, kernelStore2, 'Bob');
+
+        // Fresh K2 sends seq=1 to the same alice URL. K1's PSM has no entry
+        // for K2's peer, so setRemoteIncarnation returns false, no reset
+        // happens, and K1's persisted #highestReceivedSeq >= 1 silently
+        // drops the message. Without the fix this send fails after
+        // maxRetryAttempts × ackTimeoutMs.
+        const phase4 = await sendRemoteMessage(
+          kernel2,
+          newBobRef,
+          aliceURL,
+          'hello',
+          ['Bob-after-restart'],
+        );
+        expect(phase4).toContain(
+          'vat Alice got "hello" from Bob-after-restart',
+        );
       },
       NETWORK_TIMEOUT * 3,
     );
