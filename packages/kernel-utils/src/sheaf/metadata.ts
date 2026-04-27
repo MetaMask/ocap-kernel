@@ -1,11 +1,11 @@
 /**
- * MetaDataSpec constructors and evaluation helpers.
+ * MetadataSpec constructors and evaluation helpers.
  */
 
-import type { MetaDataSpec } from './types.ts';
+import type { MetadataSpec } from './types.ts';
 
 /** Resolved spec: 'source' has been compiled away; only constant or callable remain. */
-export type ResolvedMetaDataSpec<M extends Record<string, unknown>> =
+export type ResolvedMetadataSpec<M extends Record<string, unknown>> =
   | { kind: 'constant'; value: M }
   | { kind: 'callable'; fn: (args: unknown[]) => M };
 
@@ -51,11 +51,11 @@ const normalizeEvaluatedSheafMetadata = (
  * Wrap a static value as a constant metadata spec.
  *
  * @param value - The static metadata value.
- * @returns A constant MetaDataSpec wrapping the value.
+ * @returns A constant MetadataSpec wrapping the value.
  */
 export const constant = <M extends Record<string, unknown>>(
   value: M,
-): MetaDataSpec<M> => harden({ kind: 'constant', value });
+): MetadataSpec<M> => harden({ kind: 'constant', value });
 
 /**
  * Wrap JS function source. Evaluated in a Compartment at sheafify construction time.
@@ -65,11 +65,11 @@ export const constant = <M extends Record<string, unknown>>(
  * deserializing from storage. Requires a `compartment` passed to `sheafify`.
  *
  * @param src - JS source string of the form `(args) => M`.
- * @returns A source MetaDataSpec wrapping the source string.
+ * @returns A source MetadataSpec wrapping the source string.
  */
 export const source = <M extends Record<string, unknown>>(
   src: string,
-): MetaDataSpec<M> => harden({ kind: 'source', src });
+): MetadataSpec<M> => harden({ kind: 'source', src });
 
 /**
  * Wrap a live function as a callable metadata spec.
@@ -79,21 +79,21 @@ export const source = <M extends Record<string, unknown>>(
  */
 export const callable = <M extends Record<string, unknown>>(
   fn: (args: unknown[]) => M,
-): MetaDataSpec<M> => harden({ kind: 'callable', fn });
+): MetadataSpec<M> => harden({ kind: 'callable', fn });
 
 /**
  * Compile a 'source' spec to 'callable' using the supplied compartment.
  * 'constant' and 'callable' pass through unchanged.
  *
- * @param spec - The MetaDataSpec to resolve.
+ * @param spec - The MetadataSpec to resolve.
  * @param compartment - Compartment used to evaluate 'source' specs. Required when spec is 'source'.
  * @param compartment.evaluate - Evaluate a JS source string and return the result.
- * @returns A ResolvedMetaDataSpec with no 'source' variant.
+ * @returns A ResolvedMetadataSpec with no 'source' variant.
  */
-export const resolveMetaDataSpec = <M extends Record<string, unknown>>(
-  spec: MetaDataSpec<M>,
+export const resolveMetadataSpec = <M extends Record<string, unknown>>(
+  spec: MetadataSpec<M>,
   compartment?: { evaluate: (src: string) => unknown },
-): ResolvedMetaDataSpec<M> => {
+): ResolvedMetadataSpec<M> => {
   if (spec.kind === 'source') {
     if (!compartment) {
       throw new Error(
@@ -120,7 +120,7 @@ export const resolveMetaDataSpec = <M extends Record<string, unknown>>(
  * @returns The evaluated metadata object (possibly empty).
  */
 export const evaluateMetadata = <MetaData extends Record<string, unknown>>(
-  spec: ResolvedMetaDataSpec<MetaData> | undefined,
+  spec: ResolvedMetadataSpec<MetaData> | undefined,
   args: unknown[],
 ): MetaData => {
   if (spec === undefined) {

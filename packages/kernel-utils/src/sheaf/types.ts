@@ -23,7 +23,7 @@ export type Section<Core extends Methods = Methods> = Partial<Core> & {
  * Evaluated metadata must be a plain object (`{}` means no metadata; primitives
  * must be wrapped, e.g. `{ value: n }`).
  */
-export type MetaDataSpec<M extends Record<string, unknown>> =
+export type MetadataSpec<M extends Record<string, unknown>> =
   | { kind: 'constant'; value: M }
   | { kind: 'source'; src: string }
   | { kind: 'callable'; fn: (args: unknown[]) => M };
@@ -36,7 +36,7 @@ export type MetaDataSpec<M extends Record<string, unknown>> =
  */
 export type PresheafSection<MetaData extends Record<string, unknown>> = {
   exo: Section;
-  metadata?: MetaDataSpec<MetaData>;
+  metadata?: MetadataSpec<MetaData>;
 };
 
 /**
