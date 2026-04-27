@@ -65,4 +65,5 @@ export {
 } from './sheaf/compose.ts';
 export { collectSheafGuard } from './sheaf/guard.ts';
 export { makeRemoteSection } from './sheaf/remote.ts';
+export { makeSection } from './sheaf/section.ts';
 export { getStalk, guardCoversPoint } from './sheaf/stalk.ts';

@@ -1,16 +1,16 @@
-import { makeExo, GET_INTERFACE_GUARD } from '@endo/exo';
+import { GET_INTERFACE_GUARD } from '@endo/exo';
 import { M, getInterfaceGuardPayload } from '@endo/patterns';
 import { describe, it, expect } from 'vitest';
 
 import { GET_DESCRIPTION } from '../discoverable.ts';
 import { constant } from './metadata.ts';
+import { makeSection } from './section.ts';
 import { sheafify } from './sheafify.ts';
 import type {
   EvaluatedSection,
   Lift,
   LiftContext,
   PresheafSection,
-  Section,
 } from './types.ts';
 
 // Thin cast for calling exo methods directly in tests without going through
@@ -34,13 +34,13 @@ describe('sheafify', () => {
 
     const sections: PresheafSection<{ cost: number }>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 42 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ cost: 1 }),
       },
     ];
@@ -55,13 +55,13 @@ describe('sheafify', () => {
   it('zero-coverage throws', async () => {
     const sections: PresheafSection<{ cost: number }>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.eq('alice')).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 42 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ cost: 1 }),
       },
     ];
@@ -86,23 +86,23 @@ describe('sheafify', () => {
 
     const sections: PresheafSection<{ cost: number }>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 100 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ cost: 100 }),
       },
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 42 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ cost: 1 }),
       },
     ];
@@ -118,23 +118,23 @@ describe('sheafify', () => {
   it('GET_INTERFACE_GUARD returns collected guard', () => {
     const sections: PresheafSection<{ cost: number }>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.eq('alice')).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 100 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ cost: 100 }),
       },
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.eq('bob')).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 50 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ cost: 1 }),
       },
     ];
@@ -161,13 +161,13 @@ describe('sheafify', () => {
 
     const sections: PresheafSection<{ cost: number }>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 100 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ cost: 100 }),
       },
     ];
@@ -179,7 +179,7 @@ describe('sheafify', () => {
 
     // Add a cheaper section with a new method to the sections array, re-sheafify.
     sections.push({
-      exo: makeExo(
+      exo: makeSection(
         'Wallet:1',
         M.interface('Wallet:1', {
           getBalance: M.call(M.string()).returns(M.number()),
@@ -191,7 +191,7 @@ describe('sheafify', () => {
           getBalance: (_acct: string) => 42,
           transfer: (_from: string, _to: string, _amt: number) => true,
         },
-      ) as unknown as Section,
+      ),
       metadata: constant({ cost: 1 }),
     });
     wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
@@ -209,7 +209,7 @@ describe('sheafify', () => {
   });
 
   it('pre-built exo dispatches correctly', async () => {
-    const exo = makeExo(
+    const exo = makeSection(
       'bal',
       M.interface('bal', {
         getBalance: M.call(M.string()).returns(M.number()),
@@ -217,7 +217,7 @@ describe('sheafify', () => {
       { getBalance: (_acct: string) => 42 },
     );
     const sections: PresheafSection<{ cost: number }>[] = [
-      { exo: exo as unknown as Section, metadata: constant({ cost: 1 }) },
+      { exo, metadata: constant({ cost: 1 }) },
     ];
 
     const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
@@ -238,13 +238,13 @@ describe('sheafify', () => {
 
     const sections: PresheafSection<{ cost: number }>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 100 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ cost: 100 }),
       },
     ];
@@ -255,7 +255,7 @@ describe('sheafify', () => {
     expect(await E(wallet).getBalance('alice')).toBe(100);
 
     // Add a pre-built exo with a cheaper getBalance + new transfer method
-    const exo = makeExo(
+    const exo = makeSection(
       'cheap',
       M.interface('cheap', {
         getBalance: M.call(M.string()).returns(M.number()),
@@ -269,7 +269,7 @@ describe('sheafify', () => {
       },
     );
     sections.push({
-      exo: exo as unknown as Section,
+      exo,
       metadata: constant({ cost: 1 }),
     });
     wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
@@ -287,7 +287,7 @@ describe('sheafify', () => {
   });
 
   it('guard reflected in GET_INTERFACE_GUARD for pre-built exo', () => {
-    const exo = makeExo(
+    const exo = makeSection(
       'bal',
       M.interface('bal', {
         getBalance: M.call(M.string()).returns(M.number()),
@@ -295,7 +295,7 @@ describe('sheafify', () => {
       { getBalance: (_acct: string) => 42 },
     );
     const sections: PresheafSection<{ cost: number }>[] = [
-      { exo: exo as unknown as Section, metadata: constant({ cost: 1 }) },
+      { exo, metadata: constant({ cost: 1 }) },
     ];
 
     const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
@@ -323,23 +323,23 @@ describe('sheafify', () => {
 
     const sections: PresheafSection<Meta>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 100 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ region: 'us', cost: 100 }),
       },
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 42 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ region: 'us', cost: 1 }),
       },
     ];
@@ -373,23 +373,23 @@ describe('sheafify', () => {
 
     const sections: PresheafSection<Meta>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 100 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ region: 'us' }),
       },
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 42 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ region: 'us' }),
       },
     ];
@@ -410,23 +410,23 @@ describe('sheafify', () => {
 
     const sections: PresheafSection<Meta>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 100 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ cost: 1 }),
       },
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 42 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ cost: 1 }),
       },
     ];
@@ -449,22 +449,22 @@ describe('sheafify', () => {
 
     const sections: PresheafSection<Meta>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 100 },
-        ) as unknown as Section,
+        ),
       },
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 42 },
-        ) as unknown as Section,
+        ),
         metadata: constant({}),
       },
     ];
@@ -488,7 +488,7 @@ describe('sheafify', () => {
       );
     };
 
-    const exo = makeExo(
+    const exo = makeSection(
       'cheap',
       M.interface('cheap', {
         getBalance: M.call(M.string()).returns(M.number()),
@@ -497,16 +497,16 @@ describe('sheafify', () => {
     );
     const sections: PresheafSection<{ cost: number }>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 100 },
-        ) as unknown as Section,
+        ),
         metadata: constant({ cost: 100 }),
       },
-      { exo: exo as unknown as Section, metadata: constant({ cost: 1 }) },
+      { exo, metadata: constant({ cost: 1 }) },
     ];
 
     const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
@@ -526,13 +526,13 @@ describe('sheafify', () => {
     };
     const sections: PresheafSection<Record<string, never>>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 42 },
-        ) as unknown as Section,
+        ),
       },
     ];
 
@@ -552,13 +552,13 @@ describe('sheafify', () => {
   it('getSection does not expose __getDescription__', () => {
     const sections: PresheafSection<Record<string, never>>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: (_acct: string) => 42 },
-        ) as unknown as Section,
+        ),
       },
     ];
 
