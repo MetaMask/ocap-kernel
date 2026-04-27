@@ -8,14 +8,13 @@ as a placeholder:
 
 ```ts
 import { M } from '@endo/patterns';
-import { makeDefaultExo } from '<internal>';
-import { sheafify, noopLift } from '@metamask/kernel-utils';
+import { sheafify, makeSection, noopLift } from '@metamask/kernel-utils';
 
 const priceGuard = M.interface('PriceService', {
   getPrice: M.callWhen(M.await(M.string())).returns(M.await(M.number())),
 });
 
-const priceExo = makeDefaultExo('PriceService', priceGuard, {
+const priceExo = makeSection('PriceService', priceGuard, {
   async getPrice(token) {
     return fetchPrice(token);
   },
@@ -161,5 +160,8 @@ import {
   before passing to `inner`
 - **`fallthrough(liftA, liftB)`** — try all candidates from `liftA` first;
   if all fail, try `liftB`
-- **`proxyLift(inner)`** — forward yielded candidates up and error arrays down;
-  useful when wrapping a lift in middleware
+- **`proxyLift(gen)`** — forward yielded candidates up and error arrays down
+  to an already-started generator; useful when you need to add logic between
+  yields (logging, counting, conditional abort). For simple sequential
+  composition (`fallthrough`, `withFilter`) you do not need `proxyLift` —
+  `yield*` forwards `.next(value)` to the delegated iterator automatically.

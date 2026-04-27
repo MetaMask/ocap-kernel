@@ -3,8 +3,8 @@
 Runtime capability routing adapted from sheaf theory in algebraic topology.
 
 `sheafify({ name, sections })` produces a **sheaf** — an authority manager
-over a presheaf of capabilities. The sheaf grants dispatch sections via
-`getSection` and tracks all delegated authority.
+over a presheaf of capabilities. The sheaf produces dispatch sections via
+`getSection`, each of which routes invocations through the presheaf.
 
 See [USAGE.md](./USAGE.md) for annotated examples and [LIFT.md](./LIFT.md) for
 the lift coroutine protocol and semantic equivalence assumption.
@@ -52,7 +52,8 @@ context.
 > identical metadata and collapsed to one representative.
 
 **Sheaf** — The authority manager returned by `sheafify`. Holds the presheaf
-data (captured at construction time) and a registry of all granted sections.
+data (sections frozen at construction time) and exposes factory methods that
+produce dispatch exos on demand.
 
 ```
 const sheaf = sheafify({ name: 'Wallet', sections });
