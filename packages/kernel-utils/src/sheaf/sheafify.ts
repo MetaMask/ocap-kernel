@@ -183,7 +183,7 @@ export const sheafify = <
   sections: PresheafSection<MetaData>[];
   compartment?: { evaluate: (src: string) => unknown };
 }): Sheaf<MetaData> => {
-  const frozenSections: readonly ResolvedSection<MetaData>[] = Object.freeze(
+  const frozenSections: readonly ResolvedSection<MetaData>[] = harden(
     sections.map((section) => ({
       exo: section.exo,
       spec:
@@ -316,10 +316,10 @@ export const sheafify = <
     schema: Record<string, MethodSchema>;
   }): object => buildSection({ guard: unionGuard(), lift, schema });
 
-  return {
+  return harden({
     getSection,
     getDiscoverableSection,
     getGlobalSection,
     getDiscoverableGlobalSection,
-  };
+  });
 };
