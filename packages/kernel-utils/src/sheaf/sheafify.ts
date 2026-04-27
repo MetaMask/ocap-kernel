@@ -24,7 +24,7 @@ import { makeDiscoverableExo } from '../discoverable.ts';
 import type { MethodSchema } from '../schema.ts';
 import { stringify } from '../stringify.ts';
 import { driveLift } from './drive.ts';
-import { collectSheafGuard } from './guard.ts';
+import { buildMethodGuard, collectSheafGuard } from './guard.ts';
 import type { MethodGuardPayload } from './guard.ts';
 import { evaluateMetadata, resolveMetaDataSpec } from './metadata.ts';
 import type { ResolvedMetaDataSpec } from './metadata.ts';
@@ -140,23 +140,12 @@ const asyncifyMethodGuards = (
     const { argGuards, optionalArgGuards, restArgGuard, returnGuard } =
       getMethodGuardPayload(methodGuard) as unknown as MethodGuardPayload;
     const optionals = optionalArgGuards ?? [];
-    const base = M.callWhen(...argGuards);
-    if (optionals.length > 0 && restArgGuard !== undefined) {
-      asyncMethodGuards[methodName] = base
-        .optional(...optionals)
-        .rest(restArgGuard)
-        .returns(returnGuard);
-    } else if (optionals.length > 0) {
-      asyncMethodGuards[methodName] = base
-        .optional(...optionals)
-        .returns(returnGuard);
-    } else if (restArgGuard === undefined) {
-      asyncMethodGuards[methodName] = base.returns(returnGuard);
-    } else {
-      asyncMethodGuards[methodName] = base
-        .rest(restArgGuard)
-        .returns(returnGuard);
-    }
+    asyncMethodGuards[methodName] = buildMethodGuard(
+      M.callWhen(...argGuards),
+      optionals,
+      restArgGuard,
+      returnGuard,
+    );
   }
   return asyncMethodGuards;
 };
