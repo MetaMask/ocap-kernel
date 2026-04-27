@@ -14,7 +14,6 @@ describe('index', () => {
       'abortableDelay',
       'calculateReconnectionBackoff',
       'callable',
-      'collectSheafGuard',
       'constant',
       'delay',
       'fallthrough',
