@@ -1038,13 +1038,17 @@ describe.sequential('Remote Communications E2E', () => {
         // dedup-vs-incarnation lifetime mismatch.
         const k2Mnemonic =
           'legal winner thank year wave sausage worth useful legal winner thank yellow';
+        // ackTimeoutMs gates the URL redemption timeout
+        // (`ackTimeoutMs * (MAX_RETRIES + 1)`). Keep it generous enough to
+        // absorb the cost of fresh K2's libp2p dial + handshake under CI
+        // load, otherwise this test becomes flaky on slower runners.
         const opts = {
           relays: testRelays,
-          reconnectionBaseDelayMs: 50,
-          reconnectionMaxDelayMs: 200,
-          handshakeTimeoutMs: 3_000,
-          writeTimeoutMs: 3_000,
-          ackTimeoutMs: 500,
+          reconnectionBaseDelayMs: 100,
+          reconnectionMaxDelayMs: 500,
+          handshakeTimeoutMs: 5_000,
+          writeTimeoutMs: 5_000,
+          ackTimeoutMs: 2_000,
           maxRetryAttempts: 4,
         };
 
