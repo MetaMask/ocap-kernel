@@ -121,7 +121,7 @@ const decomposeMetadata = <MetaData extends Record<string, unknown>>(
     const val = first[key];
     const shared = stalk.every((entry) => {
       const meta = entry.metadata;
-      return key in meta && meta[key] === val;
+      return key in meta && Object.is(meta[key], val);
     });
     if (shared) {
       constraints[key] = val;
