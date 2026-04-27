@@ -60,6 +60,10 @@ export const constant = <M extends Record<string, unknown>>(
 /**
  * Wrap JS function source. Evaluated in a Compartment at sheafify construction time.
  *
+ * Prefer `callable` unless the metadata function must be supplied as a
+ * serializable source string — for example, when crossing a trust boundary or
+ * deserializing from storage. Requires a `compartment` passed to `sheafify`.
+ *
  * @param src - JS source string of the form `(args) => M`.
  * @returns A source MetaDataSpec wrapping the source string.
  */
