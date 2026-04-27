@@ -4,7 +4,7 @@ import {
   callable,
   constant,
   evaluateMetadata,
-  resolveMetaDataSpec,
+  resolveMetadataSpec,
   source,
 } from './metadata.ts';
 
@@ -17,7 +17,7 @@ describe('constant', () => {
   });
 
   it('evaluateMetadata returns the value regardless of args', () => {
-    const spec = resolveMetaDataSpec(constant({ cost: 7 }));
+    const spec = resolveMetadataSpec(constant({ cost: 7 }));
     expect(evaluateMetadata(spec, [])).toStrictEqual({ cost: 7 });
     expect(evaluateMetadata(spec, [1, 2, 3])).toStrictEqual({ cost: 7 });
   });
@@ -34,7 +34,7 @@ describe('callable', () => {
     const fn = vi.fn((args: unknown[]) => ({
       value: (args[0] as number) * 2,
     }));
-    const spec = resolveMetaDataSpec(callable(fn));
+    const spec = resolveMetadataSpec(callable(fn));
     expect(evaluateMetadata(spec, [5])).toStrictEqual({ value: 10 });
     expect(fn).toHaveBeenCalledWith([5]);
   });
@@ -48,10 +48,10 @@ describe('source', () => {
     });
   });
 
-  it('resolveMetaDataSpec compiles source to callable via compartment', () => {
+  it('resolveMetadataSpec compiles source to callable via compartment', () => {
     const mockFn = (args: unknown[]) => ({ value: args[0] as number });
     const compartment = { evaluate: vi.fn(() => mockFn) };
-    const spec = resolveMetaDataSpec(
+    const spec = resolveMetadataSpec(
       source<{ value: number }>('(args) => ({ value: args[0] })'),
       compartment,
     );
@@ -63,20 +63,20 @@ describe('source', () => {
   });
 });
 
-describe('resolveMetaDataSpec', () => {
+describe('resolveMetadataSpec', () => {
   it('passes constant spec through unchanged', () => {
     const spec = constant({ answer: 42 });
-    expect(resolveMetaDataSpec(spec)).toStrictEqual(spec);
+    expect(resolveMetadataSpec(spec)).toStrictEqual(spec);
   });
 
   it('passes callable spec through unchanged', () => {
     const fn = (_args: unknown[]) => ({ count: 0 });
     const spec = callable(fn);
-    expect(resolveMetaDataSpec(spec)).toStrictEqual(spec);
+    expect(resolveMetadataSpec(spec)).toStrictEqual(spec);
   });
 
   it("throws if kind is 'source' and no compartment supplied", () => {
-    expect(() => resolveMetaDataSpec(source('() => ({})'))).toThrow(
+    expect(() => resolveMetadataSpec(source('() => ({})'))).toThrow(
       "compartment required to evaluate 'source' metadata",
     );
   });
@@ -89,7 +89,7 @@ describe('evaluateMetadata', () => {
   });
 
   it('normalizes null from callable to empty object', () => {
-    const spec = resolveMetaDataSpec(
+    const spec = resolveMetadataSpec(
       callable(
         ((_args: unknown[]) => null) as unknown as (
           args: unknown[],
@@ -100,7 +100,7 @@ describe('evaluateMetadata', () => {
   });
 
   it('throws when callable returns a primitive', () => {
-    const spec = resolveMetaDataSpec(
+    const spec = resolveMetadataSpec(
       callable(
         ((_args: unknown[]) => 7) as unknown as (
           args: unknown[],
@@ -112,7 +112,7 @@ describe('evaluateMetadata', () => {
   });
 
   it('throws when callable returns an array', () => {
-    const spec = resolveMetaDataSpec(
+    const spec = resolveMetadataSpec(
       callable(((_args: unknown[]) => [1, 2]) as unknown as (
         args: unknown[],
       ) => Record<string, unknown>),
@@ -121,7 +121,7 @@ describe('evaluateMetadata', () => {
   });
 
   it('throws when callable returns a Date', () => {
-    const spec = resolveMetaDataSpec(
+    const spec = resolveMetadataSpec(
       callable(
         ((_args: unknown[]) => new Date()) as unknown as (
           args: unknown[],

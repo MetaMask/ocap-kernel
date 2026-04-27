@@ -5,7 +5,7 @@ import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
 
 import { ifDefined } from '../misc.ts';
 import { makeSection } from './section.ts';
-import type { MetaDataSpec, PresheafSection } from './types.ts';
+import type { MetadataSpec, PresheafSection } from './types.ts';
 
 /**
  * Wrap a remote (CapTP) reference as a PresheafSection.
@@ -24,7 +24,7 @@ import type { MetaDataSpec, PresheafSection } from './types.ts';
 export const makeRemoteSection = async <M extends Record<string, unknown>>(
   name: string,
   remoteRef: object,
-  metadata?: MetaDataSpec<M>,
+  metadata?: MetadataSpec<M>,
 ): Promise<PresheafSection<M>> => {
   const interfaceGuard: InterfaceGuard = await (
     E(remoteRef) as unknown as {

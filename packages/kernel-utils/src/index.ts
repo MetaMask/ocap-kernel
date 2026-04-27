@@ -48,7 +48,7 @@ export type {
   Section,
   PresheafSection,
   EvaluatedSection,
-  MetaDataSpec,
+  MetadataSpec,
   Lift,
   LiftContext,
   Presheaf,
