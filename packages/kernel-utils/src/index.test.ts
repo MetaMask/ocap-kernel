@@ -39,6 +39,7 @@ describe('index', () => {
       'makeRemoteSection',
       'mergeDisjointRecords',
       'methodArgsToStruct',
+      'noopLift',
       'prettifySmallcaps',
       'proxyLift',
       'retry',
