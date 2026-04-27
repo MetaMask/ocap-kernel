@@ -121,10 +121,4 @@ export type Sheaf<MetaData extends Record<string, unknown>> = {
     lift: Lift<MetaData>;
     schema: Record<string, MethodSchema>;
   }) => object;
-  /** Revoke every granted section whose guard covers the point (method, ...args). */
-  revokePoint: (method: string, ...args: unknown[]) => void;
-  /** Union guard of all active (non-revoked) granted sections, or undefined. */
-  getExported: () => InterfaceGuard | undefined;
-  /** Revoke all granted sections. */
-  revokeAll: () => void;
 };
