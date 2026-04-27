@@ -18,7 +18,7 @@ import {
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getCListMethods(ctx: StoreContext) {
-  const { getSlotKey, getPrefixedKeys } = getBaseMethods(ctx.kv);
+  const { getSlotKey } = getBaseMethods(ctx.kv);
   const { clearReachableFlag } = getReachableMethods(ctx);
   const { decrementRefCount } = getRefCountMethods(ctx);
 
@@ -171,41 +171,6 @@ export function getCListMethods(ctx: StoreContext) {
     }
   }
 
-  /**
-   * Remove c-list entries that came from the endpoint's side of the
-   * import/export relationship — i.e. erefs the endpoint allocated and shared
-   * with us. The kernel objects/promises behind these mappings are dead once
-   * the endpoint restarts, and reusing the mappings would route fresh
-   * incarnations' messages to stale kernel state (e.g. already-resolved
-   * promises). Mappings we allocated for this endpoint stay so our exports
-   * (alice's root, etc.) remain reachable across the restart.
-   *
-   * Entries are removed pair by pair via deleteCListEntry, which adjusts
-   * refcounts; orphan kernel state held by the removed krefs is left to the
-   * normal GC path.
-   *
-   * @param endpointId - The endpoint whose imported entries are to be cleared.
-   */
-  function forgetEndpointImports(endpointId: EndpointId): void {
-    const prefix = `${endpointId}.c.`;
-    const erefsToForget: ERef[] = [];
-    for (const key of getPrefixedKeys(prefix)) {
-      const ref = key.slice(prefix.length);
-      // Only consider eref-keyed entries (avoid double-processing the
-      // companion kref-keyed entry, which deleteCListEntry handles).
-      if (ref.startsWith('k')) {
-        continue;
-      }
-      const { direction } = parseRef(ref);
-      if (direction === 'export') {
-        erefsToForget.push(ref as ERef);
-      }
-    }
-    for (const eref of erefsToForget) {
-      forgetEref(endpointId, eref);
-    }
-  }
-
   return {
     // C-List entries
     addCListEntry,
@@ -217,7 +182,6 @@ export function getCListMethods(ctx: StoreContext) {
     krefToEref,
     forgetEref,
     forgetKref,
-    forgetEndpointImports,
     krefsToExistingErefs,
   };
 }

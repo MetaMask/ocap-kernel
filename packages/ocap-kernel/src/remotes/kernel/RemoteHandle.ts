@@ -1144,11 +1144,12 @@ export class RemoteHandle implements EndpointHandle {
     // Clear persisted sequence state
     this.#kernelStore.clearRemoteSeqState(this.remoteId);
 
-    // Drop c-list entries that were the peer's exports (erefs they allocated).
-    // The kernel objects/promises behind those mappings are dead now — leaving
-    // them in place would route a fresh incarnation's reused eref labels back
-    // to stale kernel state, e.g. already-resolved promises that can't be
-    // resolved a second time.
+    // Drop the peer's contributions to our c-list (erefs they allocated)
+    // along with the owner / refcount / decider bookkeeping the kernel was
+    // holding on their behalf. Without this, fresh incarnations' reused eref
+    // labels would route into stale kernel state — e.g. an already-resolved
+    // promise from before the restart — and dead kernel objects would never
+    // be GC'd.
     this.#kernelStore.forgetEndpointImports(this.remoteId);
   }
 }
