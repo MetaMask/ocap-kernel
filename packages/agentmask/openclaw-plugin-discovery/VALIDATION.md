@@ -93,10 +93,14 @@ Use plugin config so the settings are durable across shells (no env
 juggling required):
 
 ```bash
-openclaw config set 'plugins.discovery.ocapHome' "$HOME/.ocap-consumer"
-openclaw config set 'plugins.discovery.ocapCliPath' '/abs/path/to/ocap-kernel/packages/kernel-cli/dist/app.mjs'
-openclaw config set 'plugins.discovery.matcherUrl' 'ocap:…'
+openclaw config set 'plugins.entries.discovery.config.ocapHome' "$HOME/.ocap-consumer"
+openclaw config set 'plugins.entries.discovery.config.ocapCliPath' '/abs/path/to/ocap-kernel/packages/kernel-cli/dist/app.mjs'
+openclaw config set 'plugins.entries.discovery.config.matcherUrl' 'ocap:…'
 ```
+
+(The path is `plugins.entries.<plugin-id>.config.<key>` — the
+`plugins.discovery.<key>` shorthand does not exist in the openclaw
+config schema.)
 
 `ocapHome` is what makes the plugin pass `--home ~/.ocap-consumer` on
 every spawned `ocap` invocation, so it talks to the consumer daemon
