@@ -3,9 +3,8 @@
 Runtime capability routing adapted from sheaf theory in algebraic topology.
 
 `sheafify({ name, sections })` produces a **sheaf** — an authority manager
-over a presheaf of capabilities. The sheaf grants revocable dispatch sections
-via `getSection`, tracks all delegated authority, and supports point-wise
-revocation.
+over a presheaf of capabilities. The sheaf grants dispatch sections via
+`getSection` and tracks all delegated authority.
 
 See [USAGE.md](./USAGE.md) for annotated examples and [LIFT.md](./LIFT.md) for
 the lift coroutine protocol and semantic equivalence assumption.
@@ -59,12 +58,8 @@ data (captured at construction time) and a registry of all granted sections.
 const sheaf = sheafify({ name: 'Wallet', sections });
 ```
 
-- `sheaf.getSection({ guard, lift })` — produce a revocable dispatch exo
+- `sheaf.getSection({ guard, lift })` — produce a dispatch exo
 - `sheaf.getDiscoverableSection({ guard, lift, schema })` — same, but the exo exposes its guard
-- `sheaf.revokePoint(method, ...args)` — revoke every granted section whose
-  guard covers the point
-- `sheaf.getExported()` — union guard of all active (non-revoked) sections
-- `sheaf.revokeAll()` — revoke every granted section
 
 ## Dispatch pipeline
 

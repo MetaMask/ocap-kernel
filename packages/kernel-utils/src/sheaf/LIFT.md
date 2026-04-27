@@ -21,7 +21,10 @@ The sheaf drives it with the following protocol:
 
 1. **Prime** — `gen.next([])` starts the coroutine. The empty array is
    discarded; it exists only to satisfy the generator type.
-2. **Yield** — the coroutine yields a candidate germ to try next.
+2. **Yield** — the coroutine yields a candidate germ to try next. The yielded
+   value must be an element of the `germs` array received on entry — the sheaf
+   uses object identity to map it back to the original section, so constructing
+   a new object with the same shape will produce "lift yielded an unknown germ".
 3. **Attempt** — the sheaf calls the candidate's exo method.
 4. **Success** — the result is returned; the generator is abandoned.
 5. **Failure** — the sheaf calls `gen.next(errors)`, passing the ordered list
