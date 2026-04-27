@@ -1,3 +1,9 @@
+import {
+  matches,
+  getInterfaceGuardPayload,
+  getMethodGuardPayload,
+} from '@endo/patterns';
+import type { InterfaceGuard, MethodGuard, Pattern } from '@endo/patterns';
 import { describe, expect, it, vi } from 'vitest';
 
 import type {
@@ -122,11 +128,11 @@ describe('makeDelegationTwin', () => {
   });
 
   describe('transferFungible twin', () => {
-    it('normalizes checksummed token address to lowercase in section.token', () => {
+    it('normalizes checksummed token address to lowercase in transferFungible guard', () => {
       const CHECKSUMMED_TOKEN =
         '0xAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAaAa' as Address;
       const redeemFn = vi.fn().mockResolvedValue(TX_HASH);
-      const section = makeDelegationTwin({
+      makeDelegationTwin({
         grant: {
           method: 'transferFungible',
           token: CHECKSUMMED_TOKEN,
@@ -135,7 +141,18 @@ describe('makeDelegationTwin', () => {
         },
         redeemFn,
       });
-      expect(section.token).toBe(CHECKSUMMED_TOKEN.toLowerCase());
+      // The guard's first arg for transferFungible is M.eq(token.toLowerCase()).
+      // If the token is not normalized here, incoming calls with the canonical
+      // lowercase address would be rejected by the guard at dispatch time.
+      const ifacePayload = getInterfaceGuardPayload(
+        lastInterfaceGuard as InterfaceGuard,
+      ) as unknown as { methodGuards: Record<string, MethodGuard> };
+      const methodPayload = getMethodGuardPayload(
+        ifacePayload.methodGuards.transferFungible,
+      ) as unknown as { argGuards: Pattern[] };
+      const tokenGuard = methodPayload.argGuards[0];
+      expect(matches(CHECKSUMMED_TOKEN.toLowerCase(), tokenGuard)).toBe(true);
+      expect(matches(CHECKSUMMED_TOKEN, tokenGuard)).toBe(false);
     });
 
     it('exposes transferFungible method', () => {
