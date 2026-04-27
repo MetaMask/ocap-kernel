@@ -20,8 +20,6 @@ describe('index', () => {
       'fallthrough',
       'fetchValidatedJson',
       'fromHex',
-      'getStalk',
-      'guardCoversPoint',
       'ifDefined',
       'installWakeDetector',
       'isCapData',
