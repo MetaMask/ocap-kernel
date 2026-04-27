@@ -1,13 +1,11 @@
-import {
-  M,
-  matches,
-  getInterfaceGuardPayload,
-  getMethodGuardPayload,
-} from '@endo/patterns';
-import type { MethodGuard, Pattern } from '@endo/patterns';
+import { M, matches } from '@endo/patterns';
 import { describe, it, expect } from 'vitest';
 
-import { collectSheafGuard } from './guard.ts';
+import {
+  collectSheafGuard,
+  getInterfaceMethodGuards,
+  getMethodPayload,
+} from './guard.ts';
 import { makeSection } from './section.ts';
 import { guardCoversPoint } from './stalk.ts';
 
@@ -36,13 +34,8 @@ describe('collectSheafGuard', () => {
     ];
 
     const guard = collectSheafGuard('Calc', sections);
-    const { methodGuards } = getInterfaceGuardPayload(guard) as unknown as {
-      methodGuards: Record<string, MethodGuard>;
-    };
-    const payload = getMethodGuardPayload(methodGuards.add) as unknown as {
-      argGuards: Pattern[];
-      optionalArgGuards?: Pattern[];
-    };
+    const methodGuards = getInterfaceMethodGuards(guard);
+    const payload = getMethodPayload(methodGuards.add!);
 
     // 1 required arg (present in all), 2 optional (variable arity)
     expect(payload.argGuards).toHaveLength(1);
@@ -64,12 +57,8 @@ describe('collectSheafGuard', () => {
     ];
 
     const guard = collectSheafGuard('S', sections);
-    const { methodGuards } = getInterfaceGuardPayload(guard) as unknown as {
-      methodGuards: Record<string, MethodGuard>;
-    };
-    const { returnGuard } = getMethodGuardPayload(
-      methodGuards.f,
-    ) as unknown as { returnGuard: Pattern };
+    const methodGuards = getInterfaceMethodGuards(guard);
+    const { returnGuard } = getMethodPayload(methodGuards.f!);
 
     // Return guard is union of eq(0) and eq(1)
     expect(matches(0, returnGuard)).toBe(true);
@@ -90,13 +79,8 @@ describe('collectSheafGuard', () => {
     ];
 
     const guard = collectSheafGuard('Greeter', sections);
-    const { methodGuards } = getInterfaceGuardPayload(guard) as unknown as {
-      methodGuards: Record<string, MethodGuard>;
-    };
-    const payload = getMethodGuardPayload(methodGuards.greet) as unknown as {
-      argGuards: Pattern[];
-      optionalArgGuards?: Pattern[];
-    };
+    const methodGuards = getInterfaceMethodGuards(guard);
+    const payload = getMethodPayload(methodGuards.greet!);
 
     expect(payload.argGuards).toHaveLength(1);
     expect(payload.optionalArgGuards).toHaveLength(1);
@@ -114,14 +98,8 @@ describe('collectSheafGuard', () => {
     ];
 
     const guard = collectSheafGuard('Logger', sections);
-    const { methodGuards } = getInterfaceGuardPayload(guard) as unknown as {
-      methodGuards: Record<string, MethodGuard>;
-    };
-    const payload = getMethodGuardPayload(methodGuards.log) as unknown as {
-      argGuards: Pattern[];
-      optionalArgGuards?: Pattern[];
-      restArgGuard?: Pattern;
-    };
+    const methodGuards = getInterfaceMethodGuards(guard);
+    const payload = getMethodPayload(methodGuards.log!);
 
     expect(payload.argGuards).toHaveLength(1);
     expect(payload.optionalArgGuards ?? []).toHaveLength(0);
@@ -147,12 +125,8 @@ describe('collectSheafGuard', () => {
     ];
 
     const guard = collectSheafGuard('AB', sections);
-    const { methodGuards } = getInterfaceGuardPayload(guard) as unknown as {
-      methodGuards: Record<string, MethodGuard>;
-    };
-    const { restArgGuard } = getMethodGuardPayload(
-      methodGuards.log,
-    ) as unknown as { restArgGuard?: Pattern };
+    const methodGuards = getInterfaceMethodGuards(guard);
+    const { restArgGuard } = getMethodPayload(methodGuards.log!);
 
     expect(matches('hello', restArgGuard)).toBe(true);
     expect(matches(42, restArgGuard)).toBe(true);
@@ -207,9 +181,7 @@ describe('collectSheafGuard', () => {
     ];
 
     const guard = collectSheafGuard('Multi', sections);
-    const { methodGuards } = getInterfaceGuardPayload(guard) as unknown as {
-      methodGuards: Record<string, MethodGuard>;
-    };
+    const methodGuards = getInterfaceMethodGuards(guard);
     expect('translate' in methodGuards).toBe(true);
     expect('summarize' in methodGuards).toBe(true);
   });

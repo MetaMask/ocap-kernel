@@ -13,19 +13,14 @@
  */
 
 import { makeExo } from '@endo/exo';
-import {
-  M,
-  getInterfaceGuardPayload,
-  getMethodGuardPayload,
-} from '@endo/patterns';
-import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
+import { M } from '@endo/patterns';
+import type { InterfaceGuard } from '@endo/patterns';
 
 import { makeDiscoverableExo } from '../discoverable.ts';
 import type { MethodSchema } from '../schema.ts';
 import { stringify } from '../stringify.ts';
 import { driveLift } from './drive.ts';
-import { buildMethodGuard, collectSheafGuard } from './guard.ts';
-import type { MethodGuardPayload } from './guard.ts';
+import { asyncifyMethodGuards, collectSheafGuard } from './guard.ts';
 import { evaluateMetadata, resolveMetaDataSpec } from './metadata.ts';
 import type { ResolvedMetaDataSpec } from './metadata.ts';
 import { getStalk } from './stalk.ts';
@@ -118,36 +113,6 @@ const decomposeMetadata = <MetaData extends Record<string, unknown>>(
   });
 
   return { constraints: constraints as Partial<MetaData>, stripped };
-};
-
-/**
- * Upgrade all method guards to M.callWhen for async dispatch.
- *
- * @param resolvedGuard - The interface guard to upgrade.
- * @returns A record of async method guards.
- */
-const asyncifyMethodGuards = (
-  resolvedGuard: InterfaceGuard,
-): Record<string, MethodGuard> => {
-  const { methodGuards: resolvedMethodGuards } = getInterfaceGuardPayload(
-    resolvedGuard,
-  ) as unknown as { methodGuards: Record<string, MethodGuard> };
-
-  const asyncMethodGuards: Record<string, MethodGuard> = {};
-  for (const [methodName, methodGuard] of Object.entries(
-    resolvedMethodGuards,
-  )) {
-    const { argGuards, optionalArgGuards, restArgGuard, returnGuard } =
-      getMethodGuardPayload(methodGuard) as unknown as MethodGuardPayload;
-    const optionals = optionalArgGuards ?? [];
-    asyncMethodGuards[methodName] = buildMethodGuard(
-      M.callWhen(...argGuards),
-      optionals,
-      restArgGuard,
-      returnGuard,
-    );
-  }
-  return asyncMethodGuards;
 };
 
 /**

@@ -17,6 +17,30 @@ export type MethodGuardPayload = {
 };
 
 /**
+ * Extract the typed method guard map from an interface guard.
+ *
+ * @param guard - The interface guard to inspect.
+ * @returns A record mapping method names to their guards.
+ */
+export const getInterfaceMethodGuards = (
+  guard: InterfaceGuard,
+): Record<string, MethodGuard> =>
+  (
+    getInterfaceGuardPayload(guard) as unknown as {
+      methodGuards: Record<string, MethodGuard>;
+    }
+  ).methodGuards;
+
+/**
+ * Extract the typed payload from a method guard.
+ *
+ * @param guard - The method guard to inspect.
+ * @returns The guard's argument and return guard components.
+ */
+export const getMethodPayload = (guard: MethodGuard): MethodGuardPayload =>
+  getMethodGuardPayload(guard) as unknown as MethodGuardPayload;
+
+/**
  * Assemble a MethodGuard from its components.
  *
  * The @endo/patterns builder API requires a strict chain order:
@@ -162,4 +186,31 @@ export const collectSheafGuard = <Core extends Methods>(
   }
 
   return M.interface(name, unionMethodGuards);
+};
+
+/**
+ * Upgrade all method guards in an interface guard to M.callWhen for async dispatch.
+ *
+ * @param resolvedGuard - The interface guard whose methods should be upgraded.
+ * @returns A record of async method guards keyed by method name.
+ */
+export const asyncifyMethodGuards = (
+  resolvedGuard: InterfaceGuard,
+): Record<string, MethodGuard> => {
+  const resolvedMethodGuards = getInterfaceMethodGuards(resolvedGuard);
+  const asyncMethodGuards: Record<string, MethodGuard> = {};
+  for (const [methodName, methodGuard] of Object.entries(
+    resolvedMethodGuards,
+  )) {
+    const { argGuards, optionalArgGuards, restArgGuard, returnGuard } =
+      getMethodPayload(methodGuard);
+    const optionals = optionalArgGuards ?? [];
+    asyncMethodGuards[methodName] = buildMethodGuard(
+      M.callWhen(...argGuards),
+      optionals,
+      restArgGuard,
+      returnGuard,
+    );
+  }
+  return asyncMethodGuards;
 };

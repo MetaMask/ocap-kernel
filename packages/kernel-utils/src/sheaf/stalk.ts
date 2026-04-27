@@ -3,14 +3,10 @@
  */
 
 import { GET_INTERFACE_GUARD } from '@endo/exo';
-import {
-  matches,
-  getInterfaceGuardPayload,
-  getMethodGuardPayload,
-} from '@endo/patterns';
-import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
+import { matches } from '@endo/patterns';
+import type { InterfaceGuard } from '@endo/patterns';
 
-import type { MethodGuardPayload } from './guard.ts';
+import { getInterfaceMethodGuards, getMethodPayload } from './guard.ts';
 import type { Section } from './types.ts';
 
 /**
@@ -26,9 +22,7 @@ export const guardCoversPoint = (
   method: string,
   args: unknown[],
 ): boolean => {
-  const { methodGuards } = getInterfaceGuardPayload(guard) as unknown as {
-    methodGuards: Record<string, MethodGuard>;
-  };
+  const methodGuards = getInterfaceMethodGuards(guard);
   if (!(method in methodGuards)) {
     return false;
   }
@@ -36,9 +30,8 @@ export const guardCoversPoint = (
   if (!methodGuard) {
     return false;
   }
-  const { argGuards, optionalArgGuards, restArgGuard } = getMethodGuardPayload(
-    methodGuard,
-  ) as unknown as MethodGuardPayload;
+  const { argGuards, optionalArgGuards, restArgGuard } =
+    getMethodPayload(methodGuard);
   const optionals = optionalArgGuards ?? [];
   const maxFixedArgs = argGuards.length + optionals.length;
   return (
