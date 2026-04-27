@@ -1,4 +1,3 @@
-import { makeExo } from '@endo/exo';
 import {
   M,
   matches,
@@ -9,36 +8,29 @@ import type { MethodGuard, Pattern } from '@endo/patterns';
 import { describe, it, expect } from 'vitest';
 
 import { collectSheafGuard } from './guard.ts';
+import { makeSection } from './section.ts';
 import { guardCoversPoint } from './stalk.ts';
-import type { Section } from './types.ts';
-
-const makeSection = (
-  tag: string,
-  guards: Record<string, MethodGuard>,
-  methods: Record<string, (...args: unknown[]) => unknown>,
-): Section => {
-  const interfaceGuard = M.interface(tag, guards);
-  return makeExo(tag, interfaceGuard, methods) as unknown as Section;
-};
 
 describe('collectSheafGuard', () => {
   it('variable arity: add with 1, 2, and 3 args', () => {
     const sections = [
       makeSection(
         'Calc:0',
-        { add: M.call(M.number()).returns(M.number()) },
+        M.interface('Calc:0', { add: M.call(M.number()).returns(M.number()) }),
         { add: (a: number) => a },
       ),
       makeSection(
         'Calc:1',
-        { add: M.call(M.number(), M.number()).returns(M.number()) },
+        M.interface('Calc:1', {
+          add: M.call(M.number(), M.number()).returns(M.number()),
+        }),
         { add: (a: number, b: number) => a + b },
       ),
       makeSection(
         'Calc:2',
-        {
+        M.interface('Calc:2', {
           add: M.call(M.number(), M.number(), M.number()).returns(M.number()),
-        },
+        }),
         { add: (a: number, b: number, cc: number) => a + b + cc },
       ),
     ];
@@ -61,12 +53,12 @@ describe('collectSheafGuard', () => {
     const sections = [
       makeSection(
         'S:0',
-        { f: M.call(M.eq(0)).returns(M.eq(0)) },
+        M.interface('S:0', { f: M.call(M.eq(0)).returns(M.eq(0)) }),
         { f: (_: number) => 0 },
       ),
       makeSection(
         'S:1',
-        { f: M.call(M.eq(1)).returns(M.eq(1)) },
+        M.interface('S:1', { f: M.call(M.eq(1)).returns(M.eq(1)) }),
         { f: (_: number) => 1 },
       ),
     ];
@@ -88,11 +80,11 @@ describe('collectSheafGuard', () => {
     const sections = [
       makeSection(
         'Greeter',
-        {
+        M.interface('Greeter', {
           greet: M.callWhen(M.string())
             .optional(M.string())
             .returns(M.string()),
-        },
+        }),
         { greet: (name: string, _greeting?: string) => `hello ${name}` },
       ),
     ];
@@ -114,7 +106,9 @@ describe('collectSheafGuard', () => {
     const sections = [
       makeSection(
         'Logger',
-        { log: M.call(M.string()).rest(M.string()).returns(M.any()) },
+        M.interface('Logger', {
+          log: M.call(M.string()).rest(M.string()).returns(M.any()),
+        }),
         { log: (..._args: string[]) => undefined },
       ),
     ];
@@ -138,12 +132,16 @@ describe('collectSheafGuard', () => {
     const sections = [
       makeSection(
         'A',
-        { log: M.call(M.string()).rest(M.string()).returns(M.any()) },
+        M.interface('A', {
+          log: M.call(M.string()).rest(M.string()).returns(M.any()),
+        }),
         { log: (..._args: string[]) => undefined },
       ),
       makeSection(
         'B',
-        { log: M.call(M.string()).rest(M.number()).returns(M.any()) },
+        M.interface('B', {
+          log: M.call(M.string()).rest(M.number()).returns(M.any()),
+        }),
         { log: (..._args: unknown[]) => undefined },
       ),
     ];
@@ -167,12 +165,12 @@ describe('collectSheafGuard', () => {
     const sections = [
       makeSection(
         'AB:0',
-        { f: M.call(M.number()).returns(M.any()) },
+        M.interface('AB:0', { f: M.call(M.number()).returns(M.any()) }),
         { f: (_: number) => undefined },
       ),
       makeSection(
         'AB:1',
-        { f: M.call().rest(M.string()).returns(M.any()) },
+        M.interface('AB:1', { f: M.call().rest(M.string()).returns(M.any()) }),
         { f: (..._args: string[]) => undefined },
       ),
     ];
@@ -188,19 +186,19 @@ describe('collectSheafGuard', () => {
     const sections = [
       makeSection(
         'Multi:0',
-        {
+        M.interface('Multi:0', {
           translate: M.call(M.string(), M.string()).returns(M.string()),
-        },
+        }),
         {
           translate: (from: string, to: string) => `${from}->${to}`,
         },
       ),
       makeSection(
         'Multi:1',
-        {
+        M.interface('Multi:1', {
           translate: M.call(M.string(), M.string()).returns(M.string()),
           summarize: M.call(M.string()).returns(M.string()),
-        },
+        }),
         {
           translate: (from: string, to: string) => `${from}->${to}`,
           summarize: (text: string) => `summary: ${text}`,

@@ -1,10 +1,10 @@
-import { GET_INTERFACE_GUARD, makeExo } from '@endo/exo';
+import { GET_INTERFACE_GUARD } from '@endo/exo';
 import { M } from '@endo/patterns';
 import { describe, it, expect, vi } from 'vitest';
 
 import { constant } from './metadata.ts';
 import { makeRemoteSection } from './remote.ts';
-import type { Section } from './types.ts';
+import { makeSection } from './section.ts';
 
 // Mirrors the local-E pattern used throughout sheaf tests: the test
 // environment has no HandledPromise, so we mock E as a transparent cast.
@@ -15,7 +15,7 @@ vi.mock('@endo/eventual-send', () => ({
 }));
 
 const makeRemoteExo = (tag: string) =>
-  makeExo(
+  makeSection(
     tag,
     M.interface(
       tag,
@@ -29,7 +29,7 @@ const makeRemoteExo = (tag: string) =>
       greet: async (name: string) => `Hello, ${name}!`,
       add: async (a: number, b: number) => a + b,
     },
-  ) as unknown as Section;
+  );
 
 describe('makeRemoteSection', () => {
   it('fetches the interface guard from the remote ref', async () => {
@@ -42,7 +42,7 @@ describe('makeRemoteSection', () => {
 
   it('forwards method calls to the remote ref', async () => {
     const greet = vi.fn(async (name: string) => `Hello, ${name}!`);
-    const remoteExo = makeExo(
+    const remoteExo = makeSection(
       'Remote',
       M.interface(
         'Remote',
@@ -50,7 +50,7 @@ describe('makeRemoteSection', () => {
         { defaultGuards: 'passable' },
       ),
       { greet },
-    ) as unknown as Section;
+    );
 
     const { exo } = await makeRemoteSection('Wrapper', remoteExo);
     const wrapper = exo as Record<
@@ -66,7 +66,7 @@ describe('makeRemoteSection', () => {
   it('forwards all methods declared in the guard', async () => {
     const greet = vi.fn(async (_: string) => '');
     const add = vi.fn(async (a: number, b: number) => a + b);
-    const remoteExo = makeExo(
+    const remoteExo = makeSection(
       'Remote',
       M.interface(
         'Remote',
@@ -77,7 +77,7 @@ describe('makeRemoteSection', () => {
         { defaultGuards: 'passable' },
       ),
       { greet, add },
-    ) as unknown as Section;
+    );
 
     const { exo } = await makeRemoteSection('Wrapper', remoteExo);
     const wrapper = exo as Record<

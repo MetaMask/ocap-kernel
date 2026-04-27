@@ -37,6 +37,7 @@ describe('index', () => {
       'makeDefaultInterface',
       'makeDiscoverableExo',
       'makeRemoteSection',
+      'makeSection',
       'mergeDisjointRecords',
       'methodArgsToStruct',
       'noopLift',

@@ -10,13 +10,13 @@
 // The functional properties under test are identical regardless of which
 // Compartment implementation compiles the source string.
 
-import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
 import { describe, it, expect, vi } from 'vitest';
 
 import { source } from './metadata.ts';
+import { makeSection } from './section.ts';
 import { sheafify } from './sheafify.ts';
-import type { Lift, PresheafSection, Section } from './types.ts';
+import type { Lift, PresheafSection } from './types.ts';
 
 // Thin cast for calling exo methods directly in tests without going through
 // HandledPromise (which is not available in the test environment).
@@ -54,7 +54,7 @@ describe('e2e: source metadata — compartment evaluates cost function', () => {
 
     const sections: PresheafSection<SwapCost>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'SwapA',
           M.interface('SwapA', {
             swap: M.call(M.number(), M.string(), M.string()).returns(
@@ -62,12 +62,12 @@ describe('e2e: source metadata — compartment evaluates cost function', () => {
             ),
           }),
           { swap: swapAFn },
-        ) as unknown as Section,
+        ),
         // cost(amount) = 1 + 0.1 * amount
         metadata: source(`(args) => ({ cost: 1 + 0.1 * args[0] })`),
       },
       {
-        exo: makeExo(
+        exo: makeSection(
           'SwapB',
           M.interface('SwapB', {
             swap: M.call(M.number(), M.string(), M.string()).returns(
@@ -75,7 +75,7 @@ describe('e2e: source metadata — compartment evaluates cost function', () => {
             ),
           }),
           { swap: swapBFn },
-        ) as unknown as Section,
+        ),
         // cost(amount) = 10 + 0.001 * amount
         metadata: source(`(args) => ({ cost: 10 + 0.001 * args[0] })`),
       },

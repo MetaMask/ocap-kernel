@@ -1,10 +1,10 @@
-import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
 import { describe, expect, it, vi } from 'vitest';
 
 import { callable, constant } from './metadata.ts';
+import { makeSection } from './section.ts';
 import { sheafify } from './sheafify.ts';
-import type { Lift, PresheafSection, Section } from './types.ts';
+import type { Lift, PresheafSection } from './types.ts';
 
 // Thin cast for calling exo methods directly in tests without going through
 // HandledPromise (which is not available in the test environment).
@@ -31,24 +31,24 @@ describe('e2e: cost-optimal routing', () => {
     const sections: PresheafSection<{ cost: number }>[] = [
       {
         // Remote: covers all accounts, expensive
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: remote0GetBalance },
-        ) as unknown as Section,
+        ),
         metadata: constant({ cost: 100 }),
       },
       {
         // Local cache: covers only 'alice', cheap
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.eq('alice')).returns(M.number()),
           }),
           { getBalance: local1GetBalance },
-        ) as unknown as Section,
+        ),
         metadata: constant({ cost: 1 }),
       },
     ];
@@ -72,13 +72,13 @@ describe('e2e: cost-optimal routing', () => {
     // Expand with a broader local cache (cost=2), re-sheafify.
     const local2GetBalance = vi.fn((_acct: string): number => 0);
     sections.push({
-      exo: makeExo(
+      exo: makeSection(
         'Wallet:2',
         M.interface('Wallet:2', {
           getBalance: M.call(M.string()).returns(M.number()),
         }),
         { getBalance: local2GetBalance },
-      ) as unknown as Section,
+      ),
       metadata: constant({ cost: 2 }),
     });
     wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
@@ -154,13 +154,13 @@ describe('e2e: multi-tier capability routing', () => {
     // ── Tier 1: Network RPC ──────────────────────────────────
     // Covers ALL accounts (M.string()), but slow (500ms).
     sections.push({
-      exo: makeExo(
+      exo: makeSection(
         'Wallet:0',
         M.interface('Wallet:0', {
           getBalance: M.call(M.string()).returns(M.number()),
         }),
         { getBalance: networkGetBalance },
-      ) as unknown as Section,
+      ),
       metadata: constant({ latencyMs: 500, label: 'network' }),
     });
 
@@ -181,13 +181,13 @@ describe('e2e: multi-tier capability routing', () => {
     // ── Tier 2: Local state for owned account ────────────────
     // Only covers 'alice' (M.eq), 1ms.
     sections.push({
-      exo: makeExo(
+      exo: makeSection(
         'Wallet:1',
         M.interface('Wallet:1', {
           getBalance: M.call(M.eq('alice')).returns(M.number()),
         }),
         { getBalance: localGetBalance },
-      ) as unknown as Section,
+      ),
       metadata: constant({ latencyMs: 1, label: 'local' }),
     });
     wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
@@ -207,7 +207,7 @@ describe('e2e: multi-tier capability routing', () => {
     // ── Tier 3: In-memory cache for specific accounts ────────
     // Covers bob and carol via M.or, instant (0ms).
     sections.push({
-      exo: makeExo(
+      exo: makeSection(
         'Wallet:2',
         M.interface('Wallet:2', {
           getBalance: M.call(M.or(M.eq('bob'), M.eq('carol'))).returns(
@@ -215,7 +215,7 @@ describe('e2e: multi-tier capability routing', () => {
           ),
         }),
         { getBalance: cacheGetBalance },
-      ) as unknown as Section,
+      ),
       metadata: constant({ latencyMs: 0, label: 'cache' }),
     });
     wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
@@ -243,7 +243,7 @@ describe('e2e: multi-tier capability routing', () => {
     // read-only tiers above declared it, so writes route here
     // automatically — the guard algebra handles it, no config needed.
     sections.push({
-      exo: makeExo(
+      exo: makeSection(
         'Wallet:3',
         M.interface('Wallet:3', {
           getBalance: M.call(M.string()).returns(M.number()),
@@ -255,7 +255,7 @@ describe('e2e: multi-tier capability routing', () => {
           getBalance: writeBackendGetBalance,
           transfer: writeBackendTransfer,
         },
-      ) as unknown as Section,
+      ),
       metadata: constant({ latencyMs: 200, label: 'write-backend' }),
     });
     wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
@@ -292,23 +292,23 @@ describe('e2e: multi-tier capability routing', () => {
 
     const makeSections = (): PresheafSection<Tier>[] => [
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: networkGetBalance },
-        ) as unknown as Section,
+        ),
         metadata: constant({ latencyMs: 500, label: 'network' }),
       },
       {
-        exo: makeExo(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: mirrorGetBalance },
-        ) as unknown as Section,
+        ),
         metadata: constant({ latencyMs: 50, label: 'mirror' }),
       },
     ];
@@ -356,24 +356,24 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
     const sections: PresheafSection<{ push: boolean }>[] = [
       {
         // Pull section: M.string() guards, push=false
-        exo: makeExo(
+        exo: makeSection(
           'PushPull:0',
           M.interface('PushPull:0', {
             getBalance: M.call(M.string()).returns(M.number()),
           }),
           { getBalance: pullGetBalance },
-        ) as unknown as Section,
+        ),
         metadata: constant({ push: false }),
       },
       {
         // Push section: narrow guard, push=true
-        exo: makeExo(
+        exo: makeSection(
           'PushPull:1',
           M.interface('PushPull:1', {
             getBalance: M.call(M.eq('alice')).returns(M.number()),
           }),
           { getBalance: pushGetBalance },
-        ) as unknown as Section,
+        ),
         metadata: constant({ push: true }),
       },
     ];
@@ -422,7 +422,7 @@ describe('e2e: callable metadata — cost varies with invocation args', () => {
 
     const sections: PresheafSection<SwapCost>[] = [
       {
-        exo: makeExo(
+        exo: makeSection(
           'SwapA',
           M.interface('SwapA', {
             swap: M.call(M.number(), M.string(), M.string()).returns(
@@ -430,14 +430,14 @@ describe('e2e: callable metadata — cost varies with invocation args', () => {
             ),
           }),
           { swap: swapAFn },
-        ) as unknown as Section,
+        ),
         // cost(amount) = 1 + 0.1 * amount
         metadata: callable((args) => ({
           cost: 1 + 0.1 * (args[0] as number),
         })),
       },
       {
-        exo: makeExo(
+        exo: makeSection(
           'SwapB',
           M.interface('SwapB', {
             swap: M.call(M.number(), M.string(), M.string()).returns(
@@ -445,7 +445,7 @@ describe('e2e: callable metadata — cost varies with invocation args', () => {
             ),
           }),
           { swap: swapBFn },
-        ) as unknown as Section,
+        ),
         // cost(amount) = 10 + 0.001 * amount
         metadata: callable((args) => ({
           cost: 10 + 0.001 * (args[0] as number),
