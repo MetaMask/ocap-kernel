@@ -145,7 +145,7 @@ const driveLift = async <M extends Record<string, unknown>>(
 ): Promise<unknown> => {
   const errors: unknown[] = [];
   const gen = lift(germs, context);
-  let next = await gen.next(errors);
+  let next = await gen.next([...errors]);
   while (!next.done) {
     try {
       const result = await invoke(next.value);
@@ -153,7 +153,7 @@ const driveLift = async <M extends Record<string, unknown>>(
       return result;
     } catch (error) {
       errors.push(error);
-      next = await gen.next(errors);
+      next = await gen.next([...errors]);
     }
   }
   throw new Error(`No viable section for ${context.method}`, {
