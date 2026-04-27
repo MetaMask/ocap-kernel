@@ -469,3 +469,115 @@ describe('e2e: callable metadata — cost varies with invocation args', () => {
     expect(swapAFn).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// E2E: lift retry — first candidate throws, sheaf recovers to fallback
+// ---------------------------------------------------------------------------
+
+describe('e2e: lift retry on handler failure', () => {
+  it('recovers to next candidate when first throws, lift receives non-empty errors', async () => {
+    type RouteMeta = { priority: number };
+
+    const primaryFn = vi.fn((_acct: string): number => {
+      throw new Error('primary unavailable');
+    });
+    const fallbackFn = vi.fn((_acct: string): number => 99);
+
+    const sections: PresheafSection<RouteMeta>[] = [
+      {
+        exo: makeSection(
+          'Primary',
+          M.interface('Primary', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: primaryFn },
+        ),
+        metadata: constant({ priority: 0 }),
+      },
+      {
+        exo: makeSection(
+          'Fallback',
+          M.interface('Fallback', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: fallbackFn },
+        ),
+        metadata: constant({ priority: 1 }),
+      },
+    ];
+
+    // Track the error-array length the lift receives after each failed attempt.
+    const errorCountsSeenByLift: number[] = [];
+    const priorityFirst: Lift<RouteMeta> = async function* (germs) {
+      const ordered = [...germs].sort(
+        (a, b) => (a.metadata?.priority ?? 0) - (b.metadata?.priority ?? 0),
+      );
+      for (const germ of ordered) {
+        const errors: unknown[] = yield germ;
+        errorCountsSeenByLift.push(errors.length);
+      }
+    };
+
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+      lift: priorityFirst,
+    });
+
+    const result = await E(wallet).getBalance('alice');
+
+    // fallback succeeded and both handlers were invoked
+    expect(result).toBe(99);
+    expect(primaryFn).toHaveBeenCalledWith('alice');
+    expect(fallbackFn).toHaveBeenCalledWith('alice');
+
+    // after the primary failed the lift received an errors array with one entry
+    expect(errorCountsSeenByLift).toHaveLength(1);
+    expect(errorCountsSeenByLift[0]).toBe(1);
+  });
+
+  it('throws accumulated errors when all candidates fail', async () => {
+    type RouteMeta = { priority: number };
+
+    const sections: PresheafSection<RouteMeta>[] = [
+      {
+        exo: makeSection(
+          'A',
+          M.interface('A', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          {
+            getBalance: (_acct: string): number => {
+              throw new Error('A failed');
+            },
+          },
+        ),
+        metadata: constant({ priority: 0 }),
+      },
+      {
+        exo: makeSection(
+          'B',
+          M.interface('B', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          {
+            getBalance: (_acct: string): number => {
+              throw new Error('B failed');
+            },
+          },
+        ),
+        metadata: constant({ priority: 1 }),
+      },
+    ];
+
+    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+      async *lift(germs) {
+        yield* [...germs].sort(
+          (a, b) => (a.metadata?.priority ?? 0) - (b.metadata?.priority ?? 0),
+        );
+      },
+    });
+
+    await expect(E(wallet).getBalance('alice')).rejects.toThrow(
+      'No viable section',
+    );
+  });
+});
