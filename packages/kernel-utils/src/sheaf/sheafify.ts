@@ -219,7 +219,12 @@ export const sheafify = <
             async (germ) => {
               const section = strippedToCollapsed.get(germ);
               if (section === undefined) {
-                throw new Error('lift yielded an unknown germ');
+                throw new Error(
+                  `Lift yielded an unrecognized germ for '${method}'. ` +
+                    `The yielded value must be one of the EvaluatedSection objects ` +
+                    `passed into the lift (object identity, not structural equality). ` +
+                    `Did the lift construct a new object instead of yielding from the germs array?`,
+                );
               }
               return invokeExo(section.exo, method, args);
             },
