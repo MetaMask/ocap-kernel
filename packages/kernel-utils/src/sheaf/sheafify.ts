@@ -51,6 +51,9 @@ const encodeMetadataEntry = (key: string, value: unknown): EncodedEntry => {
     if (value === -Infinity) {
       return [key, '-Infinity', null];
     }
+    if (Object.is(value, -0)) {
+      return [key, '-0', null];
+    }
   }
   return [key, typeof value, value];
 };
