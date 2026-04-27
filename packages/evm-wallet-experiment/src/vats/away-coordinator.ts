@@ -1,7 +1,15 @@
 import { E } from '@endo/eventual-send';
-import { sheafify, constant, makeRemoteSection } from '@metamask/kernel-utils';
-import type { Lift, PresheafSection, Sheaf } from '@metamask/kernel-utils';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
+import {
+  sheafify,
+  constant,
+  makeRemoteSection,
+} from '@metamask/kernel-utils/sheaf';
+import type {
+  Lift,
+  PresheafSection,
+  Sheaf,
+} from '@metamask/kernel-utils/sheaf';
 import { Logger } from '@metamask/logger';
 import type { Baggage } from '@metamask/ocap-kernel';
 

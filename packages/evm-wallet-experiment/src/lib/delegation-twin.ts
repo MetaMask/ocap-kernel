@@ -1,7 +1,7 @@
 import { M } from '@endo/patterns';
-import { constant } from '@metamask/kernel-utils';
-import type { PresheafSection } from '@metamask/kernel-utils';
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
+import { constant } from '@metamask/kernel-utils/sheaf';
+import type { PresheafSection } from '@metamask/kernel-utils/sheaf';
 
 import { encodeTransfer } from './erc20.ts';
 import { METHOD_CATALOG } from './method-catalog.ts';
