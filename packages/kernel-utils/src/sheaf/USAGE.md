@@ -31,7 +31,7 @@ const sheaf = sheafify({
 });
 
 const section = sheaf.getSection({ guard: priceGuard, lift: noop });
-// section is a revocable dispatch exo; call it like any capability
+// section is a dispatch exo; call it like any capability
 const price = await E(section).getPrice('ETH');
 ```
 
@@ -119,19 +119,6 @@ sections are assembled dynamically (e.g., rebuilt at runtime from a set of
 grants that changes) and the union guard isn't known until after `sheafify`
 runs, the global variants are the right choice.
 
-## Revocation
-
-```ts
-// revoke every granted section whose guard covers this invocation point
-sheaf.revokePoint('getPrice', 'ETH');
-
-// revoke all granted sections at once
-sheaf.revokeAll();
-
-// union guard of all currently active (non-revoked) sections
-const exported = sheaf.getExported();
-```
-
 ## Remote sections
 
 `makeRemoteSection` wraps a CapTP remote reference as a `PresheafSection`,
@@ -167,9 +154,9 @@ import {
 } from '@metamask/kernel-utils';
 ```
 
-- **`withRanking(comparator, inner)`** — sort germs by comparator before
+- **`withRanking(comparator)(inner)`** — sort germs by comparator before
   passing to `inner`
-- **`withFilter(predicate, inner)`** — remove germs that fail `predicate`
+- **`withFilter(predicate)(inner)`** — remove germs that fail `predicate`
   before passing to `inner`
 - **`fallthrough(liftA, liftB)`** — try all candidates from `liftA` first;
   if all fail, try `liftB`

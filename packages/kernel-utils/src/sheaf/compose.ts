@@ -89,8 +89,9 @@ export const withRanking =
  * `.next(value)` to the inner iterator, so error arrays are correctly
  * threaded through each inner lift.
  *
- * liftB starts fresh and only sees errors from its own failed attempts,
- * not from liftA's attempts.
+ * liftB is not informed of liftA's failures at its prime call, but via
+ * `yield*` it receives all accumulated errors (including liftA's) as the
+ * argument to each subsequent `next(errors)` after its own failed attempts.
  *
  * @param liftA - First lift; its candidates are tried before liftB's.
  * @param liftB - Fallback lift; only invoked after liftA is exhausted.
