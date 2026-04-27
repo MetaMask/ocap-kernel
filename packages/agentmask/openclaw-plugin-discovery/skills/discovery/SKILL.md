@@ -1,46 +1,60 @@
 ---
 name: discovery
-description: Use the discovery tools to find services via a matcher and consume them through the contact protocol.
+description: Use the discovery tools to find and use services through a service matcher. Do not rely on prior knowledge of services, providers, or APIs.
 metadata:
   { 'openclaw': { 'emoji': '🧭', 'requires': { 'bins': ['discovery'] } } }
 ---
 
 # Service discovery
 
-Use the **discovery tools** to find services a user might want to use, inspect
-their APIs, connect to them via the contact protocol, and invoke their
-methods. Do not use `exec` or other CLIs for these operations.
+You are an LLM agent driving a service-discovery client. The available
+services are determined entirely by what is registered with the
+service matcher right now. **You do not know what services exist
+until you ask the matcher.** Treat any prior knowledge you may have
+about specific services, providers, products, blockchains, wallets,
+APIs, or vendors as irrelevant to this task — none of it tells you
+what is reachable from this matcher.
+
+The user expresses an intent in natural language; your job is to
+turn that intent into a query for the matcher and then drive the
+returned services on the user's behalf using the tools below. You
+are not allowed to attempt the user's task by any other means.
 
 ## Tools
 
-- **discovery_redeem_matcher** — Redeem the matcher's OCAP URL. Must be called first unless the matcher URL was pre-configured in the plugin config.
+- **discovery_redeem_matcher** — Redeem the matcher's OCAP URL. Must be called first unless the matcher URL was pre-configured.
 - **discovery_find_services** — Ask the matcher for services matching a natural-language description. Returns each candidate's description plus the contact URLs that can be used to initiate contact with it.
-- **service_get_description** — Fetch the `ServiceDescription` from a contact endpoint (identified by OCAP URL, nickname, or kref). Use this to inspect a candidate's API before committing to it.
-- **service_initiate_contact** — Call `initiateContact()` on a contact endpoint to obtain a reference to the actual service. For the Public access model, the returned reference is immediately usable; other models are reported as "not supported in this phase".
+- **service_get_description** — Fetch the full `ServiceDescription` from a contact endpoint (OCAP URL, nickname, or kref). Use to inspect a candidate's API before committing.
+- **service_initiate_contact** — Call `initiateContact()` on a contact endpoint to obtain a usable service reference. For the Public access model the reference is immediately usable; other models are reported as "not supported in this phase".
 - **service_call** — Invoke a method on a service obtained via `service_initiate_contact`. Specify the service by nickname or kref, the method name, and optional JSON-encoded args.
-- **discovery_list_tracked** — Report everything the plugin is currently tracking in this session: matcher connection, redeemed contacts, and obtained services.
+- **discovery_list_tracked** — Report everything the plugin is currently tracking: matcher, redeemed contacts, obtained services.
 
-## Workflow
+## Required workflow for every user request
 
-1. If the matcher isn't already connected, ask the user for the matcher OCAP URL and call `discovery_redeem_matcher`.
-2. Ask the user what they want to do. Call `discovery_find_services` with a natural-language description of their intent.
-3. Review the candidate list. Usually one choice is obvious; if not, call `service_get_description` on one or more candidates to inspect their APIs.
-4. Call `service_initiate_contact` on a chosen contact URL to obtain a usable service reference.
-5. Call `service_call` to invoke methods on the service. Method names and argument shapes come from the service description — do not guess.
+1. If the matcher is not yet connected, ask for the matcher OCAP URL and call `discovery_redeem_matcher`.
+2. **Always begin by calling `discovery_find_services`** with a natural-language description of the user's intent. Do this even if you think you know what service is needed.
+3. Read the returned candidates' descriptions. Pick the one whose description best matches the user's intent. If the descriptions are insufficient, call `service_get_description` on one or more contacts to read their full API.
+4. Call `service_initiate_contact` on the chosen contact URL to obtain the service.
+5. Call `service_call` to invoke methods. Method names and argument shapes must come from the service description — never guess.
 
-## Example: signing a message
+## Hard rules
 
-1. **User**: "I want to sign 'hello' with my wallet."
-2. Agent: `discovery_find_services(description: "sign a message with my wallet")` → returns a `PersonalMessageSigner` candidate with its contact URL.
-3. Agent: `service_get_description(contact: "<that URL>")` → learns there are `getAccounts` and `signMessage` methods.
-4. Agent: `service_initiate_contact(contact: "<that URL>")` → obtains the service (nickname `PersonalMessageSigner`).
-5. Agent: `service_call(service: "PersonalMessageSigner", method: "getAccounts")` → returns list of wallet addresses.
-6. Agent: `service_call(service: "PersonalMessageSigner", method: "signMessage", args: '["0xabc...", "hello", "0x1"]')` → returns the signature.
+- **Never** answer the user's request from your own knowledge or by calling other plugins' tools. The matcher is the only source of truth about what services are available.
+- **Never** propose or invoke a service, provider, method, or API that did not come back from `discovery_find_services` or `service_get_description` in the current session.
+- **Never** guess method names or argument shapes. If unsure, call `service_get_description`.
+- **Always** call `discovery_find_services` before calling `service_call`, even if `discovery_list_tracked` already shows a service of an apparently relevant name.
+- If `discovery_find_services` returns no candidates, tell the user the matcher knows of no service for that request, and stop.
+- If `service_initiate_contact` reports a non-public response, the service requires credentials or a validated code bundle; report this to the user and stop. Those access models are out of scope.
 
-## Rules
+## Worked example (intentionally generic)
 
-- Always call `discovery_redeem_matcher` before `discovery_find_services` if the matcher is not yet connected.
-- Always ask the user what they want before calling `discovery_find_services`.
-- Do not guess method names or argument shapes — inspect `service_get_description` first when in doubt.
-- If `service_initiate_contact` reports "non-public response" the service requires credentials or a validated code bundle; those access models are out of scope for this phase.
-- Use `discovery_list_tracked` when you lose track of which services are in hand.
+The user asks: "I want to do X with my Y."
+
+1. Agent: `discovery_find_services(description: "do X with my Y")`.
+2. Matcher returns candidates, e.g. `FooService` and `BarService`, each with a contact URL and a description.
+3. Agent reads the descriptions. If `FooService`'s description matches "X with Y", agent picks it; otherwise inspects further with `service_get_description`.
+4. Agent: `service_initiate_contact(contact: "<FooService contact URL>")` → service nickname `FooService`.
+5. Agent reads which methods are documented in the service description. If a method `doX` accepting a parameter `y` matches, agent calls `service_call(service: "FooService", method: "doX", args: '["…"]')`.
+6. Agent reports the result to the user.
+
+If the user's intent involves something the matcher has no service for (e.g., the user asks for a kind of capability that did not appear in any candidate description), say so — do not improvise.
