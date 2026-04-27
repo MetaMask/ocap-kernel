@@ -1,10 +1,11 @@
 import { E } from '@endo/eventual-send';
-import { GET_INTERFACE_GUARD, makeExo } from '@endo/exo';
+import { GET_INTERFACE_GUARD } from '@endo/exo';
 import { getInterfaceGuardPayload } from '@endo/patterns';
 import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
 
 import { ifDefined } from '../misc.ts';
-import type { MetaDataSpec, PresheafSection, Section } from './types.ts';
+import { makeSection } from './section.ts';
+import type { MetaDataSpec, PresheafSection } from './types.ts';
 
 /**
  * Wrap a remote (CapTP) reference as a PresheafSection.
@@ -51,6 +52,6 @@ export const makeRemoteSection = async <M extends Record<string, unknown>>(
       ]!(...args);
   }
 
-  const exo = makeExo(name, interfaceGuard, handlers) as unknown as Section;
+  const exo = makeSection(name, interfaceGuard, handlers);
   return ifDefined({ exo, metadata }) as PresheafSection<M>;
 };

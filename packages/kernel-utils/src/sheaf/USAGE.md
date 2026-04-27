@@ -122,7 +122,11 @@ fetching the remote's guard once at construction and forwarding all calls via
 `E()`. This lets you mix local exos and remote capabilities in the same sheaf:
 
 ```ts
-import { makeRemoteSection, constant } from '@metamask/kernel-utils';
+import {
+  makeSection,
+  makeRemoteSection,
+  constant,
+} from '@metamask/kernel-utils';
 
 const remoteSection = await makeRemoteSection(
   'RemoteWallet', // name for the wrapper exo

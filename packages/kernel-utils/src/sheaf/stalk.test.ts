@@ -1,22 +1,21 @@
-import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
 import type { MethodGuard } from '@endo/patterns';
 import { describe, it, expect } from 'vitest';
 
 import { constant } from './metadata.ts';
+import { makeSection } from './section.ts';
 import { getStalk } from './stalk.ts';
-import type { PresheafSection, Section } from './types.ts';
+import type { PresheafSection } from './types.ts';
 
 const makePresheafSection = (
   tag: string,
   guards: Record<string, MethodGuard>,
   methods: Record<string, (...args: unknown[]) => unknown>,
   metadata: { cost: number },
-): PresheafSection<{ cost: number }> => {
-  const interfaceGuard = M.interface(tag, guards);
-  const exo = makeExo(tag, interfaceGuard, methods);
-  return { exo: exo as unknown as Section, metadata: constant(metadata) };
-};
+): PresheafSection<{ cost: number }> => ({
+  exo: makeSection(tag, M.interface(tag, guards), methods),
+  metadata: constant(metadata),
+});
 
 describe('getStalk', () => {
   it('returns matching sections for a method and args', () => {
