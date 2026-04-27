@@ -190,9 +190,7 @@ export const sheafify = <
     lift: Lift<MetaData>;
     schema?: Record<string, MethodSchema>;
   }): object => {
-    const resolvedGuard = guard;
-
-    const asyncMethodGuards = asyncifyMethodGuards(resolvedGuard);
+    const asyncMethodGuards = asyncifyMethodGuards(guard);
     const asyncGuard =
       schema === undefined
         ? M.interface(`${name}:section`, asyncMethodGuards)
