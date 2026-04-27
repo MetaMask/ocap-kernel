@@ -76,7 +76,8 @@ import { constant, source, callable } from '@metamask/kernel-utils';
 // static value known at construction time
 constant({ mode: 'fast' });
 
-// JS source string compiled once in the sheaf's compartment at construction time
+// @experimental — prefer callable unless the function must cross a trust boundary
+// or be serialized. Compiled once in the sheaf's compartment at construction time.
 source(`(args) => ({ cost: args[0] > 9000 ? 'high' : 'low' })`);
 
 // live function evaluated at each dispatch — useful when cost varies by argument,
