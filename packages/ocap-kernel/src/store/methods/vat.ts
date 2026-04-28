@@ -6,7 +6,14 @@ import { getObjectMethods } from './object.ts';
 import { getPromiseMethods } from './promise.ts';
 import { getReachableMethods } from './reachable.ts';
 import { getRefCountMethods } from './refcount.ts';
-import type { EndpointId, KRef, VatConfig, VatId, ERef } from '../../types.ts';
+import type {
+  EndpointId,
+  KRef,
+  RemoteId,
+  VatConfig,
+  VatId,
+  ERef,
+} from '../../types.ts';
 import type { StoreContext, VatCleanupWork } from '../types.ts';
 import { parseRef } from '../utils/parse-ref.ts';
 import { parseReachableAndVatSlot } from '../utils/reachable.ts';
@@ -329,15 +336,16 @@ export function getVatMethods(ctx: StoreContext) {
    * Mirrors the export/promise legs of {@link cleanupTerminatedVat} but
    * scoped to a single endpoint and only its own contributions, so our
    * exports to that endpoint (alice's root, etc.) stay reachable when a
-   * fresh incarnation reconnects with the same peer ID. The caller is
-   * expected to have already rejected promises the endpoint was deciding
-   * (so subscribers see an explicit failure); this function takes care of
-   * the c-list, owner, and refcount bookkeeping that termination would
-   * otherwise leak.
+   * fresh incarnation reconnects with the same peer ID.
+   *
+   * The caller (RemoteManager.#handleIncarnationChange) rejects promises the
+   * endpoint was deciding *before* invoking this, so its
+   * `getPromisesByDecider` query can still find them through the c-list this
+   * function is about to tear down.
    *
    * @param endpointId - The endpoint whose contributions are to be dropped.
    */
-  function forgetEndpointImports(endpointId: EndpointId): void {
+  function forgetEndpointImports(endpointId: RemoteId): void {
     const clistPrefix = `${endpointId}.c.`;
     const erefsToForget: ERef[] = [];
     for (const key of getPrefixedKeys(clistPrefix)) {
@@ -358,6 +366,10 @@ export function getVatMethods(ctx: StoreContext) {
       const slotKey = getSlotKey(endpointId, eref);
       const kref = ctx.kv.get<KRef>(slotKey);
       if (!kref) {
+        ctx.logger?.warn(
+          `forgetEndpointImports: c-list entry ${eref} for endpoint ${endpointId} ` +
+            `has no kref slot — skipping (possible c-list inconsistency)`,
+        );
         continue;
       }
       const { isPromise } = parseRef(eref);
@@ -371,12 +383,35 @@ export function getVatMethods(ctx: StoreContext) {
           decrementRefCount(kref, 'cleanup|peerRestart|promise|decider');
         }
       } else {
-        // Object exports: drop the owner mapping, decrement the baseline
-        // refcount the kernel implicitly held while the endpoint owned the
-        // object, and queue it for GC. Then tear down the c-list pair.
+        // Object exports: drop the owner mapping if it still names the
+        // restarting endpoint, decrement the baseline refcount the kernel
+        // implicitly held while the endpoint owned the object, and queue
+        // it for GC. Then tear down the c-list pair.
+        //
+        // We deliberately do NOT call deleteCListEntry here: that path uses
+        // `onlyRecognizable: true`, which is the right semantics for an
+        // endpoint dropping its imports but the wrong semantics for
+        // releasing an export the endpoint owned. The baseline decrement
+        // below corresponds to the implicit reference exportFromEndpoint
+        // installed when the kernel object was first created.
         const ownerKey = getOwnerKey(kref);
-        if (ctx.kv.get(ownerKey) === endpointId) {
+        const currentOwner = ctx.kv.get(ownerKey);
+        const stillOwned = currentOwner === endpointId;
+        if (stillOwned) {
           ctx.kv.delete(ownerKey);
+        } else if (currentOwner !== undefined) {
+          // Ownership has migrated (e.g. via a kernel-internal handoff).
+          // The baseline reference is now owed to the new owner; do not
+          // decrement against their accounting. Tear down our c-list pair
+          // and stop — the new owner is responsible for the kref's lifetime.
+          ctx.logger?.warn(
+            `forgetEndpointImports: kref ${kref} was exported by ${endpointId} ` +
+              `but is now owned by ${currentOwner}; preserving baseline refcount`,
+          );
+          const { vatSlot } = getReachableAndVatSlot(endpointId, kref);
+          ctx.kv.delete(getSlotKey(endpointId, kref));
+          ctx.kv.delete(getSlotKey(endpointId, vatSlot));
+          continue;
         }
         const { vatSlot } = getReachableAndVatSlot(endpointId, kref);
         ctx.kv.delete(getSlotKey(endpointId, kref));

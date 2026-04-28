@@ -34,6 +34,33 @@ const MAX_RETRIES = 3;
 /** Maximum number of pending messages awaiting ACK. */
 const MAX_PENDING_MESSAGES = 200;
 
+/**
+ * Send-side errors that should abort retransmit instead of being treated as
+ * a transient failure to retry. These come from definitive transport-level
+ * verdicts: the user/peer closed the connection, the network is shutting
+ * down, or the peer's incarnation changed (so any pending message was
+ * generated against a now-dead session). Continuing to iterate just produces
+ * identical failures on every queued seq until MAX_RETRIES exhausts.
+ *
+ * Identified by name (`PeerRestartedError`) for the incarnation case so the
+ * check survives across the platform-services RPC boundary that might
+ * unwrap the class identity, and by message for the others (which originate
+ * as plain `Error`s in transport.ts).
+ *
+ * @param error - The error thrown by sendRemoteMessage.
+ * @returns Whether the error indicates retransmit should stop.
+ */
+function isTerminalSendError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+  return (
+    error.name === 'PeerRestartedError' ||
+    error.message.includes('intentional close') ||
+    error.message === 'Network stopped'
+  );
+}
+
 type RemoteHandleConstructorProps = {
   remoteId: RemoteId;
   peerId: string;
@@ -406,7 +433,14 @@ export class RemoteHandle implements EndpointHandle {
       `${this.#peerId.slice(0, 8)}:: retransmitting ${this.#getPendingCount()} pending messages (attempt ${this.#retryCount + 1})`,
     );
     this.#retransmitPending().catch((error) => {
-      this.#logger.error('Error during pending message retransmission:', error);
+      // Terminal errors propagate up to here; the loop already aborted, so
+      // we don't re-arm the timer (no point retrying against a permanently
+      // unreachable peer). Pending messages have been rejected and the
+      // give-up callback fired by the inner handler.
+      this.#logger.error(
+        `${this.#peerId.slice(0, 8)}:: retransmission aborted:`,
+        error,
+      );
     });
   }
 
@@ -414,12 +448,20 @@ export class RemoteHandle implements EndpointHandle {
    * Retransmit all pending messages.
    *
    * Sends sequentially so a peer-restart detection during the first send can
-   * short-circuit the rest: handlePeerRestart resets `#startSeq`/`#nextSendSeq`
-   * and clears persisted pending state, and the loop bound + per-iteration
-   * `getPendingMessage` check pick that up immediately. Sending in parallel
-   * here is unsafe because once the first send registers the channel post-
-   * restart, parallel iterations would see `state.channel` set and bypass the
-   * outbound handshake's stale-delivery guard, writing pre-restart payloads.
+   * short-circuit the rest: clearRemoteSeqState (called by handlePeerRestart)
+   * deletes both the seq counters and the `remotePending.*` payloads, so
+   * `getPendingMessage` returns undefined for subsequent iterations and the
+   * loop bound (`seq <= this.#nextSendSeq`, now 0) terminates immediately.
+   *
+   * Sending in parallel is unsafe: once the first send registers the channel
+   * post-restart, parallel iterations would see `state.channel` set and
+   * bypass the outbound handshake's stale-delivery guard, writing
+   * pre-restart payloads on the same channel.
+   *
+   * Terminal errors (intentional close, network stopped, peer-restart-detected
+   * throw) abort the loop instead of being logged-and-skipped: continuing
+   * would just rebuild the queue against a known-unreachable peer and
+   * produce identical failures on every retry until MAX_RETRIES is hit.
    */
   async #retransmitPending(): Promise<void> {
     for (let seq = this.#startSeq; seq <= this.#nextSendSeq; seq += 1) {
@@ -433,7 +475,20 @@ export class RemoteHandle implements EndpointHandle {
       try {
         await this.#remoteComms.sendRemoteMessage(this.#peerId, messageString);
       } catch (error) {
-        this.#logger.error('Error retransmitting message:', error);
+        if (isTerminalSendError(error)) {
+          this.#logger.log(
+            `${this.#peerId.slice(0, 8)}:: aborting retransmit (${(error as Error).message})`,
+          );
+          this.#clearAckTimeout();
+          this.#rejectAllPending((error as Error).message);
+          this.rejectPendingRedemptions((error as Error).message);
+          this.#onGiveUp?.(this.#peerId);
+          throw error;
+        }
+        this.#logger.error(
+          `${this.#peerId.slice(0, 8)}:: error retransmitting seq=${seq}:`,
+          error,
+        );
       }
     }
     this.#startAckTimeout();
@@ -1110,8 +1165,15 @@ export class RemoteHandle implements EndpointHandle {
 
   /**
    * Handle a peer restart (incarnation change).
-   * Resets all state for a fresh start: clears timers, rejects pending messages
-   * and redemptions, resets sequence numbers, and clears persisted seq state.
+   *
+   * Persisted writes happen first so that if `forgetEndpointImports` throws
+   * (e.g. corrupt c-list entry, refcount underflow), the caller's savepoint
+   * can roll back kv state and our in-memory fields stay consistent with
+   * the persisted view. Only after the kv writes succeed do we mutate
+   * in-memory counters, cancel timers, and reject pending URL redemption
+   * promises — those mutations are not reversible by a savepoint, so we
+   * defer them until we know the persisted side committed.
+   *
    * Called when the handshake detects that the remote peer has restarted.
    */
   handlePeerRestart(): void {
@@ -1119,29 +1181,14 @@ export class RemoteHandle implements EndpointHandle {
       `${this.#peerId.slice(0, 8)}:: handling peer restart, resetting state`,
     );
 
-    // Clear timers
-    this.#clearAckTimeout();
-    this.#clearDelayedAck();
+    // Snapshot pending state before any mutation, so we can log accurately
+    // even though the KV side will be cleared shortly.
+    const pendingCount = this.#getPendingCount();
+    const hadPending = this.#hasPendingMessages();
 
-    // Reject all pending messages - they will never be ACKed by the restarted peer
-    if (this.#hasPendingMessages()) {
-      this.#logger.log(
-        `${this.#peerId.slice(0, 8)}:: rejecting ${this.#getPendingCount()} pending messages due to peer restart`,
-      );
-      this.#rejectAllPending('Remote peer restarted');
-    }
+    // --- Persisted writes (transactional with the caller's savepoint) ---
 
-    // Reject pending URL redemptions - the remote won't have context for them
-    this.rejectPendingRedemptions('Remote peer restarted');
-
-    // Reset sequence numbers and flags for fresh start
-    this.#nextSendSeq = 0;
-    this.#highestReceivedSeq = 0;
-    this.#startSeq = 0;
-    this.#retryCount = 0;
-    this.#remoteGcRequested = false;
-
-    // Clear persisted sequence state
+    // Clear persisted sequence state (counters + remotePending.* payloads).
     this.#kernelStore.clearRemoteSeqState(this.remoteId);
 
     // Drop the peer's contributions to our c-list (erefs they allocated)
@@ -1149,7 +1196,33 @@ export class RemoteHandle implements EndpointHandle {
     // holding on their behalf. Without this, fresh incarnations' reused eref
     // labels would route into stale kernel state — e.g. an already-resolved
     // promise from before the restart — and dead kernel objects would never
-    // be GC'd.
+    // be GC'd. May throw on corrupt state; the caller's savepoint will roll
+    // back the clearRemoteSeqState above and we will not have mutated any
+    // in-memory fields yet.
     this.#kernelStore.forgetEndpointImports(this.remoteId);
+
+    // --- In-memory state (only after persisted writes commit) ---
+
+    // Cancel timers.
+    this.#clearAckTimeout();
+    this.#clearDelayedAck();
+
+    // Reject in-memory URL redemption promises (cannot be undone, so they
+    // run after persistence). Pending messages are tracked entirely in KV
+    // and have no JS-level promises to reject — clearRemoteSeqState above
+    // already removed their persisted records.
+    if (hadPending) {
+      this.#logger.log(
+        `${this.#peerId.slice(0, 8)}:: discarding ${pendingCount} pending messages due to peer restart`,
+      );
+    }
+    this.rejectPendingRedemptions('Remote peer restarted');
+
+    // Reset in-memory sequence counters and flags for fresh start.
+    this.#nextSendSeq = 0;
+    this.#highestReceivedSeq = 0;
+    this.#startSeq = 0;
+    this.#retryCount = 0;
+    this.#remoteGcRequested = false;
   }
 }

@@ -434,26 +434,34 @@ export class PlatformServicesServer {
    * The transport awaits this so it can suppress stale outbound messages on
    * the same connection.
    *
+   * On RPC failure (kernel worker unreachable, channel torn down, validation
+   * error) we fail *closed* — return `true` to make the transport drop the
+   * outbound and re-dial. The opposite default (`false` = "no restart") would
+   * silently let stale writes through exactly when the RPC is most likely to
+   * fail (kernel-side restart), which is the bug class this whole change is
+   * defending against.
+   *
    * @param peerId - The peer that completed the handshake.
    * @param observedIncarnation - The incarnationId reported by the peer.
-   * @returns Whether the kernel detected a peer restart.
+   * @returns Whether the kernel detected a peer restart, or `true` when the
+   *   kernel-side check could not be performed.
    */
   async #handleRemoteIncarnationChange(
     peerId: string,
     observedIncarnation: string,
   ): Promise<boolean> {
     try {
-      const result = await this.#rpcClient.call('remoteIncarnationChange', {
+      return await this.#rpcClient.call('remoteIncarnationChange', {
         peerId,
         observedIncarnation,
       });
-      return result;
     } catch (error) {
       this.#logger.error(
-        'Error notifying kernel of remote incarnation change:',
+        `Cannot reach kernel for incarnation handshake with ${peerId.slice(0, 8)}; ` +
+          'treating as restart to avoid stale delivery:',
         error,
       );
-      return false;
+      return true;
     }
   }
 }

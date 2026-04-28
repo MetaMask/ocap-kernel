@@ -210,10 +210,10 @@ export class RemoteManager {
    *   prior value differed from the observed one). The transport uses this
    *   to suppress stale outbound messages on the same connection.
    */
-  #handleIncarnationChange(
+  async #handleIncarnationChange(
     peerId: string,
     observedIncarnation: string,
-  ): boolean {
+  ): Promise<boolean> {
     const stored = this.#kernelStore.getPeerIncarnation(peerId);
     if (stored === observedIncarnation) {
       return false;
@@ -229,7 +229,10 @@ export class RemoteManager {
         );
         const remote = this.#remotesByPeer.get(peerId);
         if (remote) {
-          remote.handlePeerRestart();
+          // Reject promises the peer was deciding BEFORE tearing down its
+          // c-list entries: handlePeerRestart calls forgetEndpointImports,
+          // which removes the c-list mappings that getPromisesByDecider
+          // needs to find them.
           const failure = makeKernelError(
             'PEER_RESTARTED',
             'Remote peer restarted (incarnation changed)',
@@ -241,6 +244,7 @@ export class RemoteManager {
               [kpid, true, failure],
             ]);
           }
+          remote.handlePeerRestart();
         }
       }
       this.#kernelStore.setPeerIncarnation(peerId, observedIncarnation);

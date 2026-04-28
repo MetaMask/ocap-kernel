@@ -334,6 +334,13 @@ export class PlatformServicesClient implements PlatformServices {
    * it represents a peer restart and returns the verdict so the transport
    * can suppress stale outbound messages.
    *
+   * Fails closed: handler exceptions and non-boolean returns coerce to
+   * `true` so the transport drops the outbound rather than letting a
+   * potentially stale message through. Returns `false` only when no handler
+   * is registered (transport has no kernel to consult, so the verdict is
+   * effectively unknown — the receiver-side persisted check still gates
+   * correctness).
+   *
    * @param peerId - The peer that completed the handshake.
    * @param observedIncarnation - The incarnationId reported by the peer.
    * @returns Whether the kernel detected a peer restart.
@@ -345,11 +352,25 @@ export class PlatformServicesClient implements PlatformServices {
     if (!this.#remoteIncarnationChangeHandler) {
       return false;
     }
-    const verdict = await this.#remoteIncarnationChangeHandler(
-      peerId,
-      observedIncarnation,
-    );
-    return verdict;
+    try {
+      const verdict = await this.#remoteIncarnationChangeHandler(
+        peerId,
+        observedIncarnation,
+      );
+      if (typeof verdict !== 'boolean') {
+        this.#logger.error(
+          `incarnation handler returned non-boolean ${typeof verdict} for ${peerId.slice(0, 8)}; treating as restart`,
+        );
+        return true;
+      }
+      return verdict;
+    } catch (error) {
+      this.#logger.error(
+        `incarnation handler threw for ${peerId.slice(0, 8)}; treating as restart:`,
+        error,
+      );
+      return true;
+    }
   }
 
   /**

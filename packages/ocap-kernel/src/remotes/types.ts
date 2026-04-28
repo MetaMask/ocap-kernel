@@ -48,11 +48,12 @@ export type OnRemoteGiveUp = (peerId: string) => void;
  * restart even when the in-memory PeerStateManager has been rebuilt empty
  * (e.g. after a receiver restart or stale-peer cleanup).
  *
- * Returns `true` if the kernel detected an actual restart (and reset its
- * RemoteHandle state). The transport uses this to suppress stale outbound
- * messages on the same connection — the in-memory PSM check is unreliable
- * across receiver-side state loss. May return synchronously (in-process) or
- * asynchronously (across a platform-services RPC boundary).
+ * Resolves `true` if the kernel detected an actual restart (and reset its
+ * RemoteHandle state). The transport awaits this and uses the verdict to
+ * suppress stale outbound messages on the same connection — the in-memory
+ * PSM check is unreliable across receiver-side state loss. Always returns
+ * a Promise so callers don't have to branch on dispatch realm (in-process
+ * vs platform-services RPC).
  *
  * @param peerId - The peer ID that completed the handshake.
  * @param observedIncarnation - The incarnationId the peer reported.
@@ -61,7 +62,7 @@ export type OnRemoteGiveUp = (peerId: string) => void;
 export type OnIncarnationChange = (
   peerId: string,
   observedIncarnation: string,
-) => boolean | Promise<boolean>;
+) => Promise<boolean>;
 
 /**
  * Options for initializing remote communications.

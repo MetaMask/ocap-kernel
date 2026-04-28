@@ -22,7 +22,6 @@ const REMOTE_INFO_BASE_LEN = REMOTE_INFO_BASE.length;
 const REMOTE_SEQ_BASE = 'remoteSeq.';
 const REMOTE_PENDING_BASE = 'remotePending.';
 const PEER_INCARNATION_BASE = 'peerIncarnation.';
-const PEER_INCARNATION_BASE_LEN = PEER_INCARNATION_BASE.length;
 
 /**
  * Get a kernel store object that provides functionality for managing remote records.
@@ -256,33 +255,6 @@ export function getRemoteMethods(ctx: StoreContext) {
   }
 
   /**
-   * Delete a peer's persisted incarnationId.
-   *
-   * @param peerId - The peer whose incarnation record is to be removed.
-   */
-  function deletePeerIncarnation(peerId: string): void {
-    kv.delete(`${PEER_INCARNATION_BASE}${peerId}`);
-  }
-
-  /**
-   * Yield all persisted peer incarnations as `[peerId, incarnationId]` pairs.
-   * Used to pre-seed the in-memory PeerStateManager on kernel startup so that
-   * the first handshake from a previously-known peer can be compared against
-   * a value that survived the restart.
-   *
-   * @yields `[peerId, incarnationId]` pairs for every persisted peer.
-   */
-  function* getAllPeerIncarnations(): Generator<[string, string]> {
-    for (const key of getPrefixedKeys(PEER_INCARNATION_BASE)) {
-      const peerId = key.slice(PEER_INCARNATION_BASE_LEN);
-      const value = kv.get(key);
-      if (value !== undefined) {
-        yield [peerId, value];
-      }
-    }
-  }
-
-  /**
    * Clear all sequence state for a remote (seq counters + all pending messages).
    * Called when a remote peer restarts (incarnation changes) to reset for fresh communication.
    * Unlike deleteRemotePendingState, this does NOT delete the remote relationship itself.
@@ -322,7 +294,5 @@ export function getRemoteMethods(ctx: StoreContext) {
     // Peer incarnation persistence
     getPeerIncarnation,
     setPeerIncarnation,
-    deletePeerIncarnation,
-    getAllPeerIncarnations,
   };
 }

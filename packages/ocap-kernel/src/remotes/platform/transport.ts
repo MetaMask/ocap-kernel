@@ -69,6 +69,22 @@ function isIntentionalDisconnect(problem: unknown): boolean {
 }
 
 /**
+ * Sentinel error thrown by `sendRemoteMessage` when the outbound handshake
+ * detects the peer has restarted. The fresh-dialed channel has been closed;
+ * the caller should re-queue or drop the message rather than treating this
+ * as a connectivity failure (the peer is reachable, only its incarnation
+ * changed). Distinguished from generic dial errors so the outer error path
+ * doesn't fire `handleConnectionLoss`, which would clobber any inbound
+ * channel a concurrent handshake just registered.
+ */
+class PeerRestartedError extends Error {
+  constructor() {
+    super('Remote peer restarted: message not sent to avoid stale delivery');
+    this.name = 'PeerRestartedError';
+  }
+}
+
+/**
  * Initialize the remote comm system with information that must be provided by the kernel.
  *
  * @param keySeed - Seed value for key generation, in the form of a hex-encoded string.
@@ -609,15 +625,20 @@ export async function initTransport(
                 closeError,
               );
             }
-            throw Error(
-              'Remote peer restarted: message not sent to avoid stale delivery',
-            );
+            throw new PeerRestartedError();
           }
           registerChannel(targetPeerId, channel, 'reading channel to');
         }
       } catch (problem) {
         outputError(targetPeerId, `opening connection`, problem);
-        handleConnectionLoss(targetPeerId);
+        // PeerRestartedError means the handshake succeeded against a
+        // reachable peer that just changed incarnations — don't treat that
+        // as a connectivity failure. handleConnectionLoss would clear
+        // state.channel and could clobber an inbound channel a concurrent
+        // handshake just registered.
+        if (!(problem instanceof PeerRestartedError)) {
+          handleConnectionLoss(targetPeerId);
+        }
         throw problem;
       }
     }

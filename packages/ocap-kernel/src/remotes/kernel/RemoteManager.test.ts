@@ -823,12 +823,12 @@ describe('RemoteManager', () => {
     function getOnIncarnationChange(): (
       peerId: string,
       observedIncarnation: string,
-    ) => void {
+    ) => Promise<boolean> {
       const initCall = vi.mocked(remoteComms.initRemoteComms).mock.calls[0];
       return initCall?.[8] as (
         peerId: string,
         observedIncarnation: string,
-      ) => void;
+      ) => Promise<boolean>;
     }
 
     it('calls handlePeerRestart when persisted incarnation differs from observed', () => {
@@ -913,6 +913,26 @@ describe('RemoteManager', () => {
       getOnIncarnationChange()(peerId, 'incarnation-B');
 
       expect(resolvePromisesSpy).not.toHaveBeenCalled();
+    });
+
+    it('rolls back the savepoint and preserves stored state when handlePeerRestart throws', async () => {
+      const peerId = 'peer-handler-throws';
+      const remote = remoteManager.establishRemote(peerId);
+      kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
+
+      const failure = new Error('synthetic handlePeerRestart failure');
+      vi.spyOn(remote, 'handlePeerRestart').mockImplementation(() => {
+        throw failure;
+      });
+
+      await expect(
+        getOnIncarnationChange()(peerId, 'incarnation-B'),
+      ).rejects.toThrow(failure);
+
+      // Persisted incarnation must NOT have advanced — the savepoint
+      // rollback should have reverted the would-be setPeerIncarnation that
+      // runs after handlePeerRestart in the wrapped block.
+      expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-A');
     });
   });
 });
