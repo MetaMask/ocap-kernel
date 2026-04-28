@@ -82,12 +82,76 @@ function makeMockServices() {
   };
 }
 
+/**
+ * Build a fake `Baggage` (swingset-liveslots map store), backed by a plain
+ * Map. Faithful enough for unit tests of code that just calls
+ * `init/has/get/set`.
+ *
+ * @returns The fake baggage.
+ */
+function makeFakeBaggage() {
+  const store = new Map<string, unknown>();
+  return {
+    has: (key: string) => store.has(key),
+    get: (key: string) => {
+      if (!store.has(key)) {
+        throw new Error(`baggage: missing key "${key}"`);
+      }
+      return store.get(key);
+    },
+    init: (key: string, value: unknown) => {
+      if (store.has(key)) {
+        throw new Error(`baggage: key "${key}" already initialized`);
+      }
+      store.set(key, value);
+    },
+    set: (key: string, value: unknown) => {
+      if (!store.has(key)) {
+        throw new Error(`baggage: cannot set uninitialized key "${key}"`);
+      }
+      store.set(key, value);
+    },
+  };
+}
+
+/**
+ * Build a fake `vatPowers` with a `VatData` shim. The matcher vat only
+ * uses `makeKindHandle` (returns an opaque token) and `defineDurableKind`
+ * (in tests, behaves like a non-durable factory: each call just builds a
+ * fresh exo-like object whose methods are bound to `this`).
+ *
+ * @returns The fake vatPowers.
+ */
+function makeFakeVatPowers() {
+  return {
+    VatData: {
+      makeKindHandle: (tag: string) => ({ kind: tag }),
+      defineDurableKind: (
+        _kindHandle: unknown,
+        init: (...args: never[]) => unknown,
+        behavior: Record<string, (...args: unknown[]) => unknown>,
+      ) => {
+        return (...args: never[]) => {
+          const state = init(...args);
+          const facet: Record<string, unknown> = { state };
+          for (const [name, fn] of Object.entries(behavior)) {
+            // Bind so that closure-captured state in the real implementation
+            // is preserved; `this` is unused in the matcher's behavior.
+            facet[name] = fn.bind(facet);
+          }
+          return facet;
+        };
+      },
+    },
+  };
+}
+
 describe('matcher vat', () => {
   let root: ReturnType<typeof buildRootObject>;
   let mocks: ReturnType<typeof makeMockServices>;
 
   beforeEach(async () => {
-    root = buildRootObject({}, {}, {} as never);
+    root = buildRootObject(makeFakeVatPowers(), {}, makeFakeBaggage() as never);
     mocks = makeMockServices();
   });
 

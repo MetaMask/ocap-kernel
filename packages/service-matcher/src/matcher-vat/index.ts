@@ -2,14 +2,21 @@
  * Matcher vat: implements the `ServiceMatcher` interface from
  * `@metamask/service-discovery-types`.
  *
- * On bootstrap it issues an OCAP URL for its `ServiceMatcher` facet and
- * returns the URL as the bootstrap result. Providers redeem that URL and
- * call one of the `register*` methods. For every registration, the matcher
- * verifies legitimacy by calling `confirmServiceRegistration(token)` on the
- * provider's contact endpoint.
+ * The matcher's public facet is a **durable** singleton: its kref is
+ * stored in baggage via `defineDurableKind` so that on vat
+ * re-incarnation (e.g., daemon restart with `--keep-state`) the same
+ * kref is restored. Because the kernel's peer ID and OCAP-URL
+ * encryption key also persist, the matcher's OCAP URL is stable
+ * across daemon restarts.
  *
- * Phase 2 implements a naive `findServices` that simply returns every
- * registered description. LLM-driven ranking is a planned follow-on.
+ * The registry of registered services, on the other hand, is
+ * **in-memory**. After a matcher restart, providers must re-register.
+ * Making the registry durable is a planned follow-up — see the
+ * "dedup / liveness" entry in `discovery-plan.md` for the design
+ * obligations that come with that path.
+ *
+ * `findServices` is a naive "return all entries" implementation;
+ * LLM-driven ranking is a planned follow-on.
  */
 
 import { E } from '@endo/eventual-send';
@@ -39,24 +46,50 @@ type Services = {
 };
 
 /**
+ * Vat-data primitives we need from the `vatPowers` argument. Provided by
+ * swingset-liveslots; see liveslots.js → vatGlobals.VatData.
+ */
+type VatData = {
+  makeKindHandle: (tag: string) => unknown;
+  defineDurableKind: <Init extends (...args: never[]) => unknown, Behavior>(
+    kindHandle: unknown,
+    init: Init,
+    behavior: Behavior,
+  ) => (...args: Parameters<Init>) => unknown;
+};
+
+type VatPowers = {
+  VatData: VatData;
+};
+
+/**
  * Build the matcher vat's root object.
  *
- * @param _vatPowers - Vat powers (unused).
+ * @param vatPowers - Vat powers; `VatData` is required for the durable
+ * publicFacet.
  * @param _parameters - Parameters passed to the vat (unused).
- * @param _baggage - Vat baggage for durable storage (unused; the matcher
- * registry is in-memory for now).
+ * @param baggage - Vat baggage. The matcher uses it to make the
+ * publicFacet's kref durable, and to remember (across restarts) the
+ * services bag and the issued matcher URL.
  * @returns The vat root exo, exposing `bootstrap`, `getPublicFacet`,
- * `listAll`, and `unregister`.
+ * `getMatcherUrl`, `listAll`, and `unregister`.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject(
-  _vatPowers: unknown,
+  vatPowers: VatPowers,
   _parameters: Record<string, unknown>,
-  _baggage: Baggage,
+  baggage: Baggage,
 ) {
+  const { VatData } = vatPowers;
+  if (!VatData?.defineDurableKind || !VatData.makeKindHandle) {
+    throw new Error(
+      'matcher vat: vatPowers.VatData.{defineDurableKind,makeKindHandle} required',
+    );
+  }
+
+  // Registry is in-memory. On matcher restart it starts empty;
+  // providers must re-register. (See plan follow-up "dedup / liveness".)
   const registry = new Map<string, RegisteredService>();
-  let nextId = 0;
-  let services: Services;
 
   const log = (...args: unknown[]): void => {
     // Forwarded to the daemon's log file via the kernel's console
@@ -64,6 +97,69 @@ export function buildRootObject(
     // eslint-disable-next-line no-console
     console.log('[matcher]', ...args);
   };
+
+  /**
+   * Provide-or-create a baggage entry: read it if it exists, otherwise
+   * compute it via `make`, store it, and return.
+   *
+   * @param key - Baggage key.
+   * @param make - Creator invoked only on first call.
+   * @returns The stored value.
+   */
+  function provide<Type>(key: string, make: () => Type): Type {
+    if (baggage.has(key)) {
+      return baggage.get(key) as Type;
+    }
+    const value = make();
+    baggage.init(key, value);
+    return value;
+  }
+
+  // ---------------------------------------------------------------------
+  // Durable publicFacet kind
+  //
+  // The kind handle and the singleton instance both live in baggage, so
+  // re-incarnation restores the same kref. Behavior methods reference
+  // closure-captured `registry` (in-memory) and `getServices()` (durable
+  // via baggage); on re-incarnation, this `buildRootObject` runs again,
+  // re-defines the kind with a fresh closure, and the singleton's methods
+  // are rebound by liveslots to that fresh behavior.
+  // ---------------------------------------------------------------------
+
+  const matcherKindHandle = provide('matcherKindHandle', () =>
+    VatData.makeKindHandle('ServiceMatcher'),
+  );
+
+  /**
+   * Look up the services bag in baggage. Bootstrap stores it on first
+   * launch; subsequent calls (including after re-incarnation) read from
+   * baggage. Throws if bootstrap has not yet run.
+   *
+   * @returns The kernel-services bag.
+   */
+  function getServices(): Services {
+    if (!baggage.has('services')) {
+      throw new Error(
+        'matcher vat: services not yet recorded; bootstrap must run first',
+      );
+    }
+    return baggage.get('services') as Services;
+  }
+
+  /**
+   * Allocate the next registry id, persisting the counter to baggage so
+   * ids don't collide across re-incarnations even though the registry
+   * map itself is reset.
+   *
+   * @returns The new id string.
+   */
+  function nextId(): string {
+    const value = baggage.has('nextId') ? (baggage.get('nextId') as number) : 0;
+    baggage.has('nextId')
+      ? baggage.set('nextId', value + 1)
+      : baggage.init('nextId', value + 1);
+    return `svc:${value}`;
+  }
 
   /**
    * Validate the registration token with the provider's contact endpoint.
@@ -84,7 +180,7 @@ export function buildRootObject(
   }
 
   /**
-   * Store a service in the registry.
+   * Store a service in the (in-memory) registry.
    *
    * @param description - The service description.
    * @param contact - The contact endpoint.
@@ -94,19 +190,17 @@ export function buildRootObject(
     description: ServiceDescription,
     contact: ContactPoint,
   ): string {
-    const id = `svc:${nextId}`;
-    nextId += 1;
+    const id = nextId();
     registry.set(id, { id, description, contact });
     log(`registered ${id}: ${description.description.slice(0, 80)}`);
     return id;
   }
 
-  const publicFacet = makeDefaultExo('ServiceMatcher', {
+  const matcherBehavior = {
     async registerService(
       description: ServiceDescription,
       registrationToken: RegistrationToken,
     ): Promise<void> {
-      // Use the first contact URL to reach the provider and verify the token.
       const firstContact = description.contact[0];
       if (!firstContact) {
         throw new Error(
@@ -114,7 +208,7 @@ export function buildRootObject(
         );
       }
       const { contactUrl } = firstContact;
-      const contact = (await E(services.ocapURLRedemptionService).redeem(
+      const contact = (await E(getServices().ocapURLRedemptionService).redeem(
         contactUrl,
       )) as ContactPoint;
       await confirmRegistration(contact, registrationToken);
@@ -125,7 +219,7 @@ export function buildRootObject(
       contactUrl: string,
       registrationToken: RegistrationToken,
     ): Promise<void> {
-      const contact = (await E(services.ocapURLRedemptionService).redeem(
+      const contact = (await E(getServices().ocapURLRedemptionService).redeem(
         contactUrl,
       )) as ContactPoint;
       // Confirm FIRST: an attacker could flood us with registration
@@ -148,10 +242,6 @@ export function buildRootObject(
     },
 
     async findServices(query: ServiceQuery): Promise<ServiceMatch[]> {
-      // Phase 2: naive — return every registered description, unranked.
-      // Ranking will be added in a follow-on once an LLM backend is wired
-      // up. The query argument is accepted and ignored for now so the
-      // wire protocol is stable.
       const matches = [...registry.values()].map((entry) =>
         harden({ description: entry.description }),
       );
@@ -160,26 +250,71 @@ export function buildRootObject(
       );
       return matches;
     },
-  });
+  };
+
+  // Re-define the durable kind on every incarnation so liveslots can
+  // rebind its behavior. The init function is empty: the singleton's
+  // per-instance state lives in closure-captured baggage helpers above.
+  const makeMatcherFacet = VatData.defineDurableKind(
+    matcherKindHandle,
+    () => harden({}),
+    matcherBehavior,
+  );
+
+  // Provide-or-create the singleton publicFacet. On first incarnation
+  // this allocates a fresh kref and stores it in baggage. On
+  // re-incarnation, the stored ref is rehydrated to the same kref.
+  const publicFacet = provide('publicFacet', () =>
+    makeMatcherFacet(),
+  ) as ContactPoint;
 
   return makeDefaultExo('matcherVatRoot', {
     async bootstrap(_vats: Record<string, unknown>, incoming: Services) {
-      services = incoming;
-      if (!services.ocapURLIssuerService) {
+      if (!incoming?.ocapURLIssuerService) {
         throw new Error('ocapURLIssuerService is required');
       }
-      if (!services.ocapURLRedemptionService) {
+      if (!incoming.ocapURLRedemptionService) {
         throw new Error('ocapURLRedemptionService is required');
       }
-      const matcherUrl = await E(services.ocapURLIssuerService).issue(
+      // Persist services so the durable matcher facet's behavior can
+      // reach them after re-incarnation (when bootstrap is not re-run).
+      if (baggage.has('services')) {
+        baggage.set('services', incoming);
+      } else {
+        baggage.init('services', incoming);
+      }
+      const matcherUrl = await E(incoming.ocapURLIssuerService).issue(
         publicFacet,
       );
+      // Stash the issued URL too. Useful for the "list-subclusters"
+      // / "current-matcher-URL" workflow without having to re-issue.
+      if (baggage.has('matcherUrl')) {
+        baggage.set('matcherUrl', matcherUrl);
+      } else {
+        baggage.init('matcherUrl', matcherUrl);
+      }
       log(`bootstrap complete; matcherUrl=${matcherUrl}`);
       return harden({ matcherUrl });
     },
 
     getPublicFacet() {
       return publicFacet;
+    },
+
+    /**
+     * Return the matcher's OCAP URL as previously issued by the
+     * `ocapURLIssuerService` during bootstrap. Stable across vat
+     * re-incarnations (the URL itself is deterministic given the durable
+     * kref + persisted kernel identity, and we cache the issued value in
+     * baggage).
+     *
+     * @returns The matcher OCAP URL, or `undefined` if bootstrap has not
+     * yet run.
+     */
+    getMatcherUrl(): string | undefined {
+      return baggage.has('matcherUrl')
+        ? (baggage.get('matcherUrl') as string)
+        : undefined;
     },
 
     /**
