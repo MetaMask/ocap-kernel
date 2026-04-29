@@ -161,11 +161,11 @@ pre-configured.
 >   command is `/reset`. (`/clear` and `/new` are not recognized.)
 >   Conversation history persists across `tui` restarts; if you want a
 >   genuinely clean state, `/reset` is the easiest path.
-> - As a sanity check before continuing, ask the agent:
->   _"Without taking any action, list every tool whose name starts
->   with `discovery_`or`service*`."*
->   It should list all six. If it lists fewer or none, revisit
->   `tools.allow` and `tools.profile` in stage A.2.
+> - As a sanity check before continuing, ask the agent (in plain
+>   prose, not markdown): without taking any action, list every tool
+>   whose name starts with the prefix discovery underscore or service
+>   underscore. It should list all six. If it lists fewer or none,
+>   revisit `tools.allow` and `tools.profile` in stage A.2.
 
 1. **Connect to matcher.**
 
