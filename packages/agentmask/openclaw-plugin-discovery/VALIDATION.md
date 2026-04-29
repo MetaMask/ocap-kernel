@@ -71,9 +71,11 @@ services. Pick the one that matches your situation.
 Use this when:
 
 - You're starting from zero on a new machine.
-- You have changes to the **matcher vat code** itself and need the
-  new bundle to take effect (the registered bundle is captured at
-  `launchSubcluster` time, so a new bundle requires a new subcluster).
+- You have changes to the **matcher vat code** itself, and you don't
+  want to bother with vat upgrade (see below). A plain daemon restart
+  re-uses the bundle that was registered at `launchSubcluster` time,
+  so without an explicit upgrade step the new bundle won't take
+  effect.
 - You want to throw everything out and start fresh.
 
 ```bash
@@ -121,8 +123,20 @@ matcher daemon log should show fresh `[matcher] registered svc:N:`
 lines.
 
 If the matcher vat code itself changed (e.g., today's fix to the
-durable-kind calling convention), this path will keep running the
-**old** bundle. Use the cold-start path instead.
+durable-kind calling convention), a plain daemon restart will keep
+running the **old** bundle that was originally registered with the
+subcluster — re-incarnation alone does not pick up new source.
+
+In principle, swingset's durable-kind machinery supports a vat
+**upgrade**: the bundle can be replaced while the durable kref and
+all durable-kind instances retain their identity, provided the
+shapes of the persisted state are still compatible. (Preserving
+identity across an implementation change was a primary motivation
+for the exo abstraction in the first place.) The ocap-kernel CLI
+does not currently expose an upgrade command for matcher vats, so
+in practice cold start is what's available today; this is a likely
+future tooling improvement and a strictly better choice than cold
+start whenever the persisted state shape is unchanged.
 
 ## Stage A — Install the discovery plugin
 
