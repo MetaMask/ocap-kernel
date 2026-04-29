@@ -116,9 +116,12 @@ function makeFakeBaggage() {
 
 /**
  * Build a fake `vatPowers` with a `VatData` shim. The matcher vat only
- * uses `makeKindHandle` (returns an opaque token) and `defineDurableKind`
- * (in tests, behaves like a non-durable factory: each call just builds a
- * fresh exo-like object whose methods are bound to `this`).
+ * uses `makeKindHandle` (returns an opaque token) and `defineDurableKind`.
+ *
+ * The fake honors liveslots' real calling convention for behavior
+ * methods: each method is invoked with `(context, ...args)` where
+ * `context = { state, self }`. This keeps unit tests honest about the
+ * shape the production runtime will hand to behavior methods.
  *
  * @returns The fake vatPowers.
  */
@@ -133,11 +136,10 @@ function makeFakeVatPowers() {
       ) => {
         return (...args: never[]) => {
           const state = init(...args);
-          const facet: Record<string, unknown> = { state };
+          const facet: Record<string, unknown> = {};
+          const context = harden({ state, self: facet });
           for (const [name, fn] of Object.entries(behavior)) {
-            // Bind so that closure-captured state in the real implementation
-            // is preserved; `this` is unused in the matcher's behavior.
-            facet[name] = fn.bind(facet);
+            facet[name] = (...callArgs: unknown[]) => fn(context, ...callArgs);
           }
           return facet;
         };
