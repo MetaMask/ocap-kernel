@@ -48,22 +48,81 @@ Three things must be live before starting this validation:
    can serve daemons running under arbitrary `OCAP_HOME` values
    (override with `LIBP2P_RELAY_HOME` if you need a non-default
    location).
-2. **Matcher daemon** on the VPS
-   (`packages/service-matcher/scripts/start-matcher.sh`). It prints
-   the matcher OCAP URL on stdout — keep it. By default the script
-   purges existing daemon state and launches a fresh subcluster, so
-   each invocation yields a new URL. Pass `--keep-state` to preserve
-   peer ID, OCAP-URL encryption key, and the previously-launched
-   matcher subcluster; the matcher vat's `publicFacet` is a durable
-   kind, so its kref (and therefore the OCAP URL) survives. Re-running
-   the script still allocates a _new_ matcher subcluster — see the
-   Part 2 launcher follow-up in `discovery-plan.md`.
+2. **Matcher daemon** on the VPS, started via
+   `packages/service-matcher/scripts/start-matcher.sh`. The script
+   prints the matcher OCAP URL on stdout — copy it. See the
+   [Restarting](#restarting) section below for what this command
+   actually does and when you should use a different one.
 3. **Provider** — MetaMask extension loaded in a browser with the
    matcher URL baked in via `.metamaskrc`
    (`OCAP_MATCHER_URL=…`), webpack rebuilt, extension reloaded. The
    offscreen console should show the three registration-success
    lines; the matcher daemon log should show three
    `[matcher] registered svc:N:` lines.
+
+## Restarting
+
+There are two kinds of restart, and they have very different
+consequences for the matcher OCAP URL and for the registered
+services. Pick the one that matches your situation.
+
+### Cold start — fresh URL, clean slate
+
+Use this when:
+
+- You're starting from zero on a new machine.
+- You have changes to the **matcher vat code** itself and need the
+  new bundle to take effect (the registered bundle is captured at
+  `launchSubcluster` time, so a new bundle requires a new subcluster).
+- You want to throw everything out and start fresh.
+
+```bash
+./packages/service-matcher/scripts/start-matcher.sh
+```
+
+By default this **purges existing daemon state**, starts the daemon,
+initializes remote comms, builds and bundles the matcher vat, and
+launches a fresh matcher subcluster. The OCAP URL on stdout will be
+new. Each provider must be reconfigured: update `.metamaskrc` with
+the new URL, rebuild webpack, reload the extension.
+
+### Pick up new software without losing the URL
+
+Use this when:
+
+- You've changed code **outside the matcher vat bundle** (the relay,
+  the kernel CLI, kernel-utils, etc.) and want the matcher to keep
+  its existing OCAP URL across the restart.
+- You're not changing the matcher vat itself.
+
+```bash
+# Stop the matcher daemon, leaving its state intact.
+yarn ocap daemon stop
+
+# Pull / rebuild the packages whose code actually changed, e.g.:
+yarn workspace @metamask/kernel-utils build
+yarn workspace @metamask/kernel-cli build
+
+# Restart, reusing existing state and reconnecting to the relay.
+yarn ocap daemon start --local-relay
+```
+
+The previously-launched matcher subcluster auto-revives, the matcher
+vat re-incarnates, and the durable `publicFacet` kref is restored,
+so the OCAP URL is unchanged. The provider does **not** need a new
+URL in `.metamaskrc`.
+
+**Caveat — registry is in-memory.** The matcher's service registry
+lives in vat closure state, not baggage, so it is empty after
+re-incarnation. Each provider needs to call `registerServiceByRef`
+again. With the MetaMask extension that means a page reload (no
+webpack rebuild needed); registration happens at vat bootstrap. The
+matcher daemon log should show fresh `[matcher] registered svc:N:`
+lines.
+
+If the matcher vat code itself changed (e.g., today's fix to the
+durable-kind calling convention), this path will keep running the
+**old** bundle. Use the cold-start path instead.
 
 ## Stage A — Install the discovery plugin
 
