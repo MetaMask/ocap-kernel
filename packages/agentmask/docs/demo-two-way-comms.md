@@ -146,7 +146,7 @@ step:
 yarn ocap daemon --local-relay
 ```
 
-This reads the relay's multiaddr from `~/.ocap/relay.addr` (written by
+This reads the relay's multiaddr from `~/.libp2p-relay/relay.addr` (written by
 `ocap relay start`) and calls `initRemoteComms` automatically.
 
 If the relay is on a different machine, start the daemon and initialize remote

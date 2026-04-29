@@ -7,9 +7,10 @@
 # the other's state.
 #
 # The relay's multiaddr is resolved in this order:
-#   1. --relay <multiaddr>        (explicit override on the CLI)
-#   2. $OCAP_RELAY_MULTIADDR      (environment variable)
-#   3. $HOME/.ocap/relay.addr     (file written by `yarn ocap relay`)
+#   1. --relay <multiaddr>             (explicit override on the CLI)
+#   2. $OCAP_RELAY_MULTIADDR           (environment variable)
+#   3. $LIBP2P_RELAY_HOME/relay.addr   (if $LIBP2P_RELAY_HOME is set)
+#   4. $HOME/.libp2p-relay/relay.addr  (default; written by `yarn ocap relay`)
 # If none of these yields an address the script exits with an error so
 # the operator can start the relay first (or pass its address directly).
 #
@@ -28,7 +29,7 @@ set -euo pipefail
 # ---------------------------------------------------------------------------
 
 RELAY_ADDR="${OCAP_RELAY_MULTIADDR:-}"
-RELAY_FILE="${HOME}/.ocap/relay.addr"
+RELAY_FILE="${LIBP2P_RELAY_HOME:-${HOME}/.libp2p-relay}/relay.addr"
 SKIP_BUILD=false
 FORCE_RESET=true
 
@@ -37,7 +38,9 @@ usage() {
 Usage: $0 [--relay MULTIADDR] [--no-build] [--keep-state]
 
   --relay MULTIADDR  Relay multiaddr to connect through. Overrides
-                     \$OCAP_RELAY_MULTIADDR and \$HOME/.ocap/relay.addr.
+                     \$OCAP_RELAY_MULTIADDR and
+                     \$LIBP2P_RELAY_HOME/relay.addr (default
+                     \$HOME/.libp2p-relay/relay.addr).
   --no-build         Skip building/bundling the matcher vat.
   --keep-state       Do not purge any existing daemon state before
                      launching the matcher subcluster.
