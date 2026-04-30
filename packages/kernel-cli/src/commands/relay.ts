@@ -46,7 +46,7 @@ async function removeRelayFiles(): Promise<void> {
  * Without an `appendAnnounce` configured, libp2p's `getMultiaddrs()`
  * only reports addresses bound to local NICs, which on a NAT-backed
  * VPS is just loopback + a private interface — hence the
- * `OCAP_RELAY_PUBLIC_IP` / `--public-ip` knob feeds `appendAnnounce`
+ * `LIBP2P_RELAY_PUBLIC_IP` / `--public-ip` knob feeds `appendAnnounce`
  * so a public hint is available here.
  *
  * @param multiaddrs - Multiaddrs reported by `libp2p.getMultiaddrs()`.
@@ -91,7 +91,7 @@ function pickRelayAddr(
  * @param options - Optional configuration.
  * @param options.publicIp - Public IPv4 to announce alongside the
  * locally-bound addresses. Sourced by callers from
- * `OCAP_RELAY_PUBLIC_IP` or `--public-ip`.
+ * `LIBP2P_RELAY_PUBLIC_IP` or `--public-ip`.
  */
 export async function startRelayWithBookkeeping(
   logger: Logger,

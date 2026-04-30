@@ -57,7 +57,7 @@ Three things must be live before starting this validation:
 
    ```bash
    yarn ocap relay --public-ip 164.92.86.40   # or
-   OCAP_RELAY_PUBLIC_IP=164.92.86.40 yarn ocap relay
+   LIBP2P_RELAY_PUBLIC_IP=164.92.86.40 yarn ocap relay
    ```
 
    The relay then announces that address alongside the auto-detected

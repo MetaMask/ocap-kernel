@@ -205,7 +205,7 @@ const yargsInstance = yargs(hideBin(process.argv))
               type: 'string',
               describe:
                 'Public IPv4 to announce in addition to locally-bound ' +
-                'addresses. Defaults to $OCAP_RELAY_PUBLIC_IP. Use on a ' +
+                'addresses. Defaults to $LIBP2P_RELAY_PUBLIC_IP. Use on a ' +
                 'NAT-backed VPS where the public address is not on a ' +
                 'local NIC.',
             }),
@@ -214,7 +214,7 @@ const yargsInstance = yargs(hideBin(process.argv))
               typeof args['public-ip'] === 'string' && args['public-ip'] !== ''
                 ? args['public-ip']
                 : undefined;
-            const envIp = process.env.OCAP_RELAY_PUBLIC_IP;
+            const envIp = process.env.LIBP2P_RELAY_PUBLIC_IP;
             const publicIp = cliIp ?? (envIp === '' ? undefined : envIp);
             await startRelayWithBookkeeping(
               logger,
