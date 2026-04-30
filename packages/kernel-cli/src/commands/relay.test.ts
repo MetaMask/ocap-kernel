@@ -31,9 +31,11 @@ const mockLogger = { info: vi.fn(), error: vi.fn() } as unknown as Logger;
 
 const makeLibp2pMock = (
   addrs: string[] = ['/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo'],
+  peerId = 'QmFoo',
 ) => ({
   stop: vi.fn().mockResolvedValue(undefined),
   getMultiaddrs: () => addrs.map((addr) => ({ toString: () => addr })),
+  peerId: { toString: () => peerId },
 });
 
 describe('relay', () => {
@@ -72,15 +74,17 @@ describe('relay', () => {
       expect(startRelay).toHaveBeenCalledWith(mockLogger, {});
     });
 
-    it('passes a public IP through to startRelay', async () => {
+    it('writes a synthesized multiaddr when publicIp is supplied, ignoring the picker', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
 
       const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      // Surface only an internal address from getMultiaddrs(); the test
+      // proves the synthesized publicIp wins anyway.
       vi.mocked(startRelay).mockResolvedValueOnce(
-        makeLibp2pMock([
-          '/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo',
-          '/ip4/164.92.86.40/tcp/9001/ws/p2p/QmFoo',
-        ]) as never,
+        makeLibp2pMock(
+          ['/ip4/10.48.0.5/tcp/9001/ws/p2p/QmRelay'],
+          'QmRelay',
+        ) as never,
       );
 
       await startRelayWithBookkeeping(mockLogger, { publicIp: '164.92.86.40' });
@@ -88,6 +92,10 @@ describe('relay', () => {
       expect(startRelay).toHaveBeenCalledWith(mockLogger, {
         publicIp: '164.92.86.40',
       });
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('relay.addr'),
+        '/ip4/164.92.86.40/tcp/9001/ws/p2p/QmRelay',
+      );
     });
 
     it('prefers a non-loopback public multiaddr over loopback', async () => {

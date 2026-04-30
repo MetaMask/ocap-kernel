@@ -118,11 +118,23 @@ export async function startRelayWithBookkeeping(
   }
 
   try {
-    const relayAddr = pickRelayAddr(libp2p.getMultiaddrs());
+    const relayAddr = options.publicIp
+      ? // Operator told us the externally-reachable IPv4 explicitly;
+        // synthesize the multiaddr instead of trusting whatever libp2p's
+        // address manager surfaces. Defends against scenarios where the
+        // appendAnnounce entry never makes it into getMultiaddrs() — and
+        // cleanly avoids the picker's heuristic for the common case
+        // where the operator already knows the right answer.
+        `/ip4/${options.publicIp}/tcp/9001/ws/p2p/${libp2p.peerId.toString()}`
+      : pickRelayAddr(libp2p.getMultiaddrs());
     if (relayAddr === undefined) {
       throw new Error('Relay started but no /tcp/9001/ws multiaddr found');
     }
     await writeFile(getRelayAddrPath(), relayAddr);
+    logger.info(`Relay address: ${relayAddr}`);
+    if (options.publicIp) {
+      logger.info(`(Used LIBP2P_RELAY_PUBLIC_IP=${options.publicIp}.)`);
+    }
   } catch (error) {
     await Promise.resolve(libp2p.stop()).catch(() => undefined);
     await removeRelayFiles();
