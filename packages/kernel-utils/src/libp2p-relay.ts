@@ -29,13 +29,28 @@ type RelayLogger = {
  * Start the relay server.
  *
  * @param logger - The logger to use.
+ * @param options - Optional configuration.
+ * @param options.publicIp - Public IPv4 address that the relay should
+ * announce in addition to whatever libp2p auto-detects from local
+ * interfaces. Use on hosts (e.g., NAT-backed VPSes) where the public
+ * address is not bound to a local NIC and would otherwise be missing
+ * from `getMultiaddrs()`.
  * @returns The libp2p instance.
  */
-export async function startRelay(logger: RelayLogger): Promise<Libp2p> {
+export async function startRelay(
+  logger: RelayLogger,
+  options: { publicIp?: string } = {},
+): Promise<Libp2p> {
   const tersePeers = new Map<string, string>();
   let tersePeerIdx = 0;
   const activePeers = new Set<string>();
   const privateKey = await generateKeyPair(RELAY_LOCAL_ID);
+  const appendAnnounce = options.publicIp
+    ? [
+        `/ip4/${options.publicIp}/tcp/9001/ws`,
+        `/ip4/${options.publicIp}/tcp/9002`,
+      ]
+    : [];
   const libp2p = await createLibp2p({
     privateKey,
     addresses: {
@@ -43,6 +58,7 @@ export async function startRelay(logger: RelayLogger): Promise<Libp2p> {
         '/ip4/0.0.0.0/tcp/9001/ws', // WebSocket for browser connections
         '/ip4/0.0.0.0/tcp/9002', // TCP for server-to-server
       ],
+      appendAnnounce,
     },
     transports: [
       webSockets(), // Required for browser connections

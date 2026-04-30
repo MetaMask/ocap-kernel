@@ -200,9 +200,26 @@ const yargsInstance = yargs(hideBin(process.argv))
         .command(
           ['start', '$0'],
           'Start the relay server',
-          (_y) => _y,
-          async () => {
-            await startRelayWithBookkeeping(logger);
+          (_y) =>
+            _y.option('public-ip', {
+              type: 'string',
+              describe:
+                'Public IPv4 to announce in addition to locally-bound ' +
+                'addresses. Defaults to $OCAP_RELAY_PUBLIC_IP. Use on a ' +
+                'NAT-backed VPS where the public address is not on a ' +
+                'local NIC.',
+            }),
+          async (args) => {
+            const cliIp =
+              typeof args['public-ip'] === 'string' && args['public-ip'] !== ''
+                ? args['public-ip']
+                : undefined;
+            const envIp = process.env.OCAP_RELAY_PUBLIC_IP;
+            const publicIp = cliIp ?? (envIp === '' ? undefined : envIp);
+            await startRelayWithBookkeeping(
+              logger,
+              publicIp ? { publicIp } : {},
+            );
           },
         )
         .command(

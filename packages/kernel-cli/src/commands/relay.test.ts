@@ -69,7 +69,80 @@ describe('relay', () => {
         expect.stringContaining('relay.addr'),
         '/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo',
       );
-      expect(startRelay).toHaveBeenCalledWith(mockLogger);
+      expect(startRelay).toHaveBeenCalledWith(mockLogger, {});
+    });
+
+    it('passes a public IP through to startRelay', async () => {
+      vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
+
+      const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      vi.mocked(startRelay).mockResolvedValueOnce(
+        makeLibp2pMock([
+          '/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo',
+          '/ip4/164.92.86.40/tcp/9001/ws/p2p/QmFoo',
+        ]) as never,
+      );
+
+      await startRelayWithBookkeeping(mockLogger, { publicIp: '164.92.86.40' });
+
+      expect(startRelay).toHaveBeenCalledWith(mockLogger, {
+        publicIp: '164.92.86.40',
+      });
+    });
+
+    it('prefers a non-loopback public multiaddr over loopback', async () => {
+      vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
+
+      const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      vi.mocked(startRelay).mockResolvedValueOnce(
+        makeLibp2pMock([
+          '/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo',
+          '/ip4/192.168.1.5/tcp/9001/ws/p2p/QmFoo',
+          '/ip4/164.92.86.40/tcp/9001/ws/p2p/QmFoo',
+        ]) as never,
+      );
+
+      await startRelayWithBookkeeping(mockLogger);
+
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('relay.addr'),
+        '/ip4/164.92.86.40/tcp/9001/ws/p2p/QmFoo',
+      );
+    });
+
+    it('falls back to a private (RFC 1918) address when no public is available', async () => {
+      vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
+
+      const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      vi.mocked(startRelay).mockResolvedValueOnce(
+        makeLibp2pMock([
+          '/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo',
+          '/ip4/192.168.1.5/tcp/9001/ws/p2p/QmFoo',
+        ]) as never,
+      );
+
+      await startRelayWithBookkeeping(mockLogger);
+
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('relay.addr'),
+        '/ip4/192.168.1.5/tcp/9001/ws/p2p/QmFoo',
+      );
+    });
+
+    it('falls back to loopback when no other multiaddr is available', async () => {
+      vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
+
+      const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      vi.mocked(startRelay).mockResolvedValueOnce(
+        makeLibp2pMock(['/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo']) as never,
+      );
+
+      await startRelayWithBookkeeping(mockLogger);
+
+      expect(writeFile).toHaveBeenCalledWith(
+        expect.stringContaining('relay.addr'),
+        '/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo',
+      );
     });
 
     it('overwrites stale PID file when process is dead', async () => {
@@ -95,7 +168,7 @@ describe('relay', () => {
       vi.mocked(startRelay).mockResolvedValueOnce(libp2pMock as never);
 
       await expect(startRelayWithBookkeeping(mockLogger)).rejects.toThrow(
-        'Relay started but no WS multiaddr found on 127.0.0.1:9001',
+        'Relay started but no /tcp/9001/ws multiaddr found',
       );
       expect(libp2pMock.stop).toHaveBeenCalled();
       expect(rm).toHaveBeenCalledWith(expect.stringContaining('relay.pid'), {

@@ -48,6 +48,23 @@ Three things must be live before starting this validation:
    can serve daemons running under arbitrary `OCAP_HOME` values
    (override with `LIBP2P_RELAY_HOME` if you need a non-default
    location).
+
+   On a VPS where the public IP isn't bound to a local NIC (most
+   NAT-backed cloud setups), libp2p won't auto-detect it, so the
+   multiaddr written into `relay.addr` would only contain a loopback
+   or RFC 1918 address — not reachable from the browser running the
+   provider extension. Pass the public address explicitly:
+
+   ```bash
+   yarn ocap relay --public-ip 164.92.86.40   # or
+   OCAP_RELAY_PUBLIC_IP=164.92.86.40 yarn ocap relay
+   ```
+
+   The relay then announces that address alongside the auto-detected
+   ones, and the relay-addr picker prefers a public-looking IPv4 over
+   private/loopback. Set the env var in your shell profile so you
+   don't have to remember it on each restart.
+
 2. **Matcher daemon** on the VPS, started via
    `packages/service-matcher/scripts/start-matcher.sh`. The script
    prints the matcher OCAP URL on stdout — copy it. See the
