@@ -217,3 +217,21 @@ Once liveness is in place, promote the registry from the in-memory
   matcher's receiver still holds the high-water mark and drops the new
   messages as duplicates. Affects the full re-register cycle whenever a
   provider restarts without the matcher also restarting.
+
+- **Provider extension lifetime / dropped relay reservation.** The
+  browser-extension provider's libp2p host lives in an offscreen
+  document (or service worker), both of which the browser is free to
+  tear down after a quiet period. When that happens, the websocket to
+  the relay closes and the provider's circuit-relay reservation lapses.
+  Symptom: matcher discovery still succeeds (consumer→matcher path is
+  untouched), but `service_get_description` / `service_initiate_contact`
+  on a provider-issued contact URL times out — the relay has no route
+  to that peer until the extension wakes back up. Confirmed empirically:
+  just opening the browser window with the MetaMask popup is enough to
+  wake the offscreen document and re-establish the reservation. Workaround
+  during testing: refresh the extension (or open the MetaMask popup
+  briefly) immediately before consumer-side queries. Real fix is provider
+  side — either a keep-alive that holds the offscreen "in use," or a
+  reconnect-on-resume that detects a dropped websocket and re-registers.
+  Out of scope for the discovery work; affects every libp2p-from-extension
+  use case.
