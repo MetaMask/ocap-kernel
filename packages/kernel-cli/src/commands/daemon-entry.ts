@@ -4,10 +4,11 @@ import { startDaemon } from '@metamask/kernel-node-runtime/daemon';
 import type { DaemonHandle } from '@metamask/kernel-node-runtime/daemon';
 import type { LogEntry } from '@metamask/logger';
 import { Logger } from '@metamask/logger';
-import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { getOcapHome } from '../ocap-home.ts';
+import { isProcessAlive } from '../utils.ts';
 
 main().catch((error) => {
   process.stderr.write(`Daemon fatal: ${String(error)}\n`);
@@ -38,6 +39,22 @@ async function main(): Promise<void> {
   });
 
   const pidPath = join(ocapDir, 'daemon.pid');
+
+  // Interlock: refuse to start a second daemon under the same OCAP_HOME.
+  // The socket-binding interlock in startDaemon handles the live-socket
+  // case; this catches the rarer case where an orphan still holds the
+  // kernel.sqlite locks but its socket file has already been unlinked.
+  const existingPid = await readDaemonPid(pidPath);
+  if (existingPid !== undefined && isProcessAlive(existingPid)) {
+    throw new Error(
+      `Daemon is already running (pid ${existingPid}) under ${ocapDir}. ` +
+        `Use 'ocap daemon stop' first.`,
+    );
+  }
+  if (existingPid !== undefined) {
+    // Stale pid file — owner is dead, take over.
+    await rm(pidPath, { force: true });
+  }
 
   let handle: DaemonHandle;
   try {
@@ -86,6 +103,27 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => {
     shutdown('SIGINT').catch(() => (process.exitCode = 1));
   });
+}
+
+/**
+ * Read the PID from `daemon.pid`, returning `undefined` if missing or
+ * unparseable.
+ *
+ * @param pidPath - Path to the pid file.
+ * @returns The parsed pid, or `undefined`.
+ */
+async function readDaemonPid(pidPath: string): Promise<number | undefined> {
+  let raw: string;
+  try {
+    raw = await readFile(pidPath, 'utf-8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return undefined;
+    }
+    throw error;
+  }
+  const pid = Number(raw.trim());
+  return Number.isFinite(pid) && pid > 0 ? pid : undefined;
 }
 
 /**
