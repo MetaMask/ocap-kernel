@@ -198,8 +198,14 @@ describe('matcher vat', () => {
       expect(all).toHaveLength(1);
       expect(all[0]?.description).toStrictEqual(description);
 
-      const matches = await publicFacet.findServices({ description: 'any' });
-      expect(matches).toStrictEqual([{ description }]);
+      // Sample description is "A service called Foo"; query overlaps on
+      // "service" / "foo" so the registered entry comes back.
+      const matches = await publicFacet.findServices({
+        description: 'service called Foo',
+      });
+      expect(matches).toHaveLength(1);
+      expect(matches[0]?.description).toStrictEqual(description);
+      expect(matches[0]?.rationale).toContain('matched=');
     });
 
     it('rejects when the provider reports a token mismatch', async () => {
@@ -326,7 +332,7 @@ describe('matcher vat', () => {
       expect(matches).toStrictEqual([]);
     });
 
-    it('returns every registered service regardless of the query (Phase 2 behavior)', async () => {
+    it('returns every registered service whose description overlaps the query', async () => {
       await root.bootstrap({}, mocks.services);
       const publicFacet = root.getPublicFacet();
       const descA = sampleDescription('A', 'ocap:a@p');
@@ -342,12 +348,30 @@ describe('matcher vat', () => {
       await publicFacet.registerServiceByRef(cA, 'a');
       await publicFacet.registerServiceByRef(cB, 'b');
 
+      // Both sample descriptions tokenize to {service, called, A/B}; the
+      // shared "service" token matches both.
       const matches = await publicFacet.findServices({
-        description: 'anything',
+        description: 'find a service',
       });
       expect(
         matches.map((entry) => entry.description.description),
       ).toStrictEqual([descA.description, descB.description]);
+    });
+
+    it('returns an empty list when no registered service overlaps the query', async () => {
+      await root.bootstrap({}, mocks.services);
+      const publicFacet = root.getPublicFacet();
+      const desc = sampleDescription('A', 'ocap:a@p');
+      const { contact } = makeMockContact({
+        description: desc,
+        expectedToken: 'a',
+      });
+      await publicFacet.registerServiceByRef(contact, 'a');
+
+      const matches = await publicFacet.findServices({
+        description: 'unrelated topic',
+      });
+      expect(matches).toStrictEqual([]);
     });
   });
 
