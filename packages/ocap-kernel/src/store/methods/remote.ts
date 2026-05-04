@@ -71,12 +71,34 @@ export function getRemoteMethods(ctx: StoreContext) {
   }
 
   /**
-   * Delete the info for a remote.
+   * Delete the info for a remote, including its persisted peer-incarnation
+   * record. Read the info before deleting so we have the peerId to scope
+   * the peerIncarnation cleanup; otherwise stale `peerIncarnation.{peerId}`
+   * entries would survive remote teardown and a re-established remote with
+   * the same peerId would mis-classify its first handshake as a restart.
+   *
+   * Corrupt JSON in `remote.{remoteID}` is logged and swallowed so the
+   * remaining cleanup steps still run — losing the (already-untrustworthy)
+   * peerIncarnation row is preferable to leaving the corrupt entry stuck.
    *
    * @param remoteID - The remote whose info is to be removed.
    */
   function deleteRemoteInfo(remoteID: RemoteId): void {
-    kv.delete(`${REMOTE_INFO_BASE}${remoteID}`);
+    const infoKey = `${REMOTE_INFO_BASE}${remoteID}`;
+    const rawInfo = kv.get(infoKey);
+    if (rawInfo !== undefined) {
+      try {
+        const { peerId } = JSON.parse(rawInfo) as RemoteInfo;
+        kv.delete(`${PEER_INCARNATION_BASE}${peerId}`);
+      } catch (parseError) {
+        ctx.logger?.error(
+          `deleteRemoteInfo: corrupt remote info for ${remoteID}, ` +
+            `proceeding without peerIncarnation cleanup`,
+          parseError,
+        );
+      }
+    }
+    kv.delete(infoKey);
     deleteRemotePendingState(remoteID);
   }
 

@@ -5,7 +5,7 @@ import { rm } from 'node:fs/promises';
 
 import { loadExtension, sessionPath } from '../helpers.ts';
 
-test.describe.configure({ mode: 'serial', timeout: 60_000 });
+test.describe.configure({ mode: 'serial', timeout: 90_000 });
 
 /**
  * End-to-end tests for remote communications functionality.
@@ -140,7 +140,11 @@ test.describe('Remote Communications', () => {
     const messageResponse = popupPage1.locator(
       '[data-testid="message-response"]',
     );
-    await expect(messageResponse).toBeVisible({ timeout: 30_000 });
+    // Budget: redemption timeout is `ackTimeoutMs * (MAX_RETRIES + 1)` =
+    // 40s with prod defaults; the response (success or rejection) is
+    // guaranteed to render before then. 50s gives 10s headroom for the
+    // post-redemption render path under CI load.
+    await expect(messageResponse).toBeVisible({ timeout: 50_000 });
     await expect(messageResponse).toContainText(
       // eslint-disable-next-line no-useless-escape
       `Response:{\"body\":\"#\\\"vat Bob got \\\\\\\"hello\\\\\\\" from remote Alice\\\"\",\"slots\":[]}`,

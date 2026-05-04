@@ -831,39 +831,48 @@ describe('RemoteManager', () => {
       ) => Promise<boolean>;
     }
 
-    it('calls handlePeerRestart when persisted incarnation differs from observed', async () => {
+    it('triggers persist + finalize peer restart when persisted incarnation differs from observed', async () => {
       const peerId = 'peer-that-restarted';
       const remote = remoteManager.establishRemote(peerId);
-      const handlePeerRestartSpy = vi.spyOn(remote, 'handlePeerRestart');
+      const persistSpy = vi.spyOn(remote, 'persistPeerRestart');
+      const finalizeSpy = vi.spyOn(remote, 'finalizePeerRestart');
       // Seed the persisted incarnation (as if a prior handshake recorded it).
       kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
 
-      await getOnIncarnationChange()(peerId, 'incarnation-B');
+      const verdict = await getOnIncarnationChange()(peerId, 'incarnation-B');
 
-      expect(handlePeerRestartSpy).toHaveBeenCalled();
+      expect(verdict).toBe(true);
+      expect(persistSpy).toHaveBeenCalled();
+      expect(finalizeSpy).toHaveBeenCalled();
       expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-B');
     });
 
-    it('does not call handlePeerRestart on first observation of a peer', async () => {
+    it('does not trigger restart on first observation of a peer', async () => {
       const peerId = 'peer-first-contact';
       const remote = remoteManager.establishRemote(peerId);
-      const handlePeerRestartSpy = vi.spyOn(remote, 'handlePeerRestart');
+      const persistSpy = vi.spyOn(remote, 'persistPeerRestart');
+      const finalizeSpy = vi.spyOn(remote, 'finalizePeerRestart');
 
-      await getOnIncarnationChange()(peerId, 'incarnation-A');
+      const verdict = await getOnIncarnationChange()(peerId, 'incarnation-A');
 
-      expect(handlePeerRestartSpy).not.toHaveBeenCalled();
+      expect(verdict).toBe(false);
+      expect(persistSpy).not.toHaveBeenCalled();
+      expect(finalizeSpy).not.toHaveBeenCalled();
       expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-A');
     });
 
     it('does nothing when observed incarnation matches persisted value', async () => {
       const peerId = 'peer-stable';
       const remote = remoteManager.establishRemote(peerId);
-      const handlePeerRestartSpy = vi.spyOn(remote, 'handlePeerRestart');
+      const persistSpy = vi.spyOn(remote, 'persistPeerRestart');
+      const finalizeSpy = vi.spyOn(remote, 'finalizePeerRestart');
       kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
 
-      await getOnIncarnationChange()(peerId, 'incarnation-A');
+      const verdict = await getOnIncarnationChange()(peerId, 'incarnation-A');
 
-      expect(handlePeerRestartSpy).not.toHaveBeenCalled();
+      expect(verdict).toBe(false);
+      expect(persistSpy).not.toHaveBeenCalled();
+      expect(finalizeSpy).not.toHaveBeenCalled();
     });
 
     it('rejects kernel promises where the restarted remote is decider', async () => {
@@ -919,15 +928,16 @@ describe('RemoteManager', () => {
       expect(resolvePromisesSpy).not.toHaveBeenCalled();
     });
 
-    it('rolls back the savepoint and preserves stored state when handlePeerRestart throws', async () => {
+    it('rolls back the savepoint and preserves stored state when persistPeerRestart throws', async () => {
       const peerId = 'peer-handler-throws';
       const remote = remoteManager.establishRemote(peerId);
       kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
 
-      const failure = new Error('synthetic handlePeerRestart failure');
-      vi.spyOn(remote, 'handlePeerRestart').mockImplementation(() => {
+      const failure = new Error('synthetic persistPeerRestart failure');
+      vi.spyOn(remote, 'persistPeerRestart').mockImplementation(() => {
         throw failure;
       });
+      const finalizeSpy = vi.spyOn(remote, 'finalizePeerRestart');
 
       await expect(
         getOnIncarnationChange()(peerId, 'incarnation-B'),
@@ -935,8 +945,11 @@ describe('RemoteManager', () => {
 
       // Persisted incarnation must NOT have advanced — the savepoint
       // rollback should have reverted the would-be setPeerIncarnation that
-      // runs after handlePeerRestart in the wrapped block.
+      // runs after persistPeerRestart in the wrapped block.
       expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-A');
+      // finalize must not run if the persisted phase failed: in-memory
+      // mutations would otherwise drift from the rolled-back kv view.
+      expect(finalizeSpy).not.toHaveBeenCalled();
     });
   });
 });

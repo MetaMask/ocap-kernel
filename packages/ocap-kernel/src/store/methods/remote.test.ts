@@ -2,7 +2,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { getBaseMethods } from './base.ts';
 import { getRemoteMethods } from './remote.ts';
-import type { RemoteId, RemoteInfo } from '../../types.ts';
+import type { RemoteInfo } from '../../remotes/types.ts';
+import type { RemoteId } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 
 vi.mock('./base.ts', () => ({
@@ -136,6 +137,19 @@ describe('remote store methods', () => {
       expect(mockKV.has(`remoteSeq.${remoteId1}.startSeq`)).toBe(false);
       expect(mockKV.has(`remotePending.${remoteId1}.2`)).toBe(false);
       expect(mockKV.has(`remotePending.${remoteId1}.3`)).toBe(false);
+    });
+
+    it('clears persisted peer incarnation so a re-established remote starts fresh', () => {
+      mockKV.set(`remote.${remoteId1}`, JSON.stringify(remoteInfo1));
+      mockKV.set(`peerIncarnation.${remoteInfo1.peerId}`, 'incarnation-A');
+      mockGetPrefixedKeys.mockReturnValue([]);
+
+      remoteMethods.deleteRemoteInfo(remoteId1);
+
+      // Without this cleanup a re-established remote with the same peerId
+      // would mis-classify its first handshake as a restart against the
+      // leftover incarnation.
+      expect(mockKV.has(`peerIncarnation.${remoteInfo1.peerId}`)).toBe(false);
     });
   });
 

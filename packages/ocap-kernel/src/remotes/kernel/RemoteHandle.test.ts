@@ -1674,4 +1674,79 @@ describe('RemoteHandle', () => {
       expect(onGiveUp).not.toHaveBeenCalled();
     });
   });
+
+  describe('first-send terminal errors', () => {
+    it.each([
+      [
+        'PeerRestartedError',
+        Object.assign(new Error('peer restarted'), {
+          name: 'PeerRestartedError',
+        }),
+      ],
+      [
+        'IntentionalCloseError',
+        Object.assign(new Error('intentional close'), {
+          name: 'IntentionalCloseError',
+        }),
+      ],
+      [
+        'NetworkStoppedError',
+        Object.assign(new Error('Network stopped'), {
+          name: 'NetworkStoppedError',
+        }),
+      ],
+    ])(
+      'rejects pending and fires onGiveUp when initial send rejects with %s',
+      async (_name, terminalError) => {
+        const onGiveUp = vi.fn();
+        const remote = RemoteHandle.make({
+          remoteId: mockRemoteId,
+          peerId: mockRemotePeerId,
+          kernelStore: mockKernelStore,
+          kernelQueue: mockKernelQueue,
+          remoteComms: mockRemoteComms,
+          ackTimeoutMs: 100,
+          onGiveUp,
+        });
+
+        vi.mocked(mockRemoteComms.sendRemoteMessage).mockRejectedValueOnce(
+          terminalError,
+        );
+
+        const redeem = remote.redeemOcapURL('ocap:something@peer,relay');
+        // Drain microtasks so the catch handler runs.
+        for (let i = 0; i < 5; i += 1) {
+          await Promise.resolve();
+        }
+
+        // The redemption rejects with the giveUp/rejectAllPending reason,
+        // which is the terminal error's message string.
+        await expect(redeem).rejects.toThrow(terminalError.message);
+        expect(onGiveUp).toHaveBeenCalledWith(mockRemotePeerId);
+      },
+    );
+  });
+
+  describe('handlePeerRestart c-list teardown', () => {
+    it('clears the peer’s "+"-direction c-list entries via forgetEndpointImports', async () => {
+      const remote = makeRemote();
+
+      // Seed an object export from the peer (peer-allocated eref ro+5
+      // mapped to a fresh kernel object).
+      const eref = 'ro+5';
+      const kref = mockKernelStore.exportFromEndpoint(mockRemoteId, eref);
+
+      // Sanity: c-list is populated in both directions before restart.
+      // Use the raw `krefToEref`/`erefToKref` lookups (not the translating
+      // wrappers, which flip RRef polarity for receiver-frame interpretation).
+      expect(mockKernelStore.erefToKref(mockRemoteId, eref)).toBe(kref);
+      expect(mockKernelStore.krefToEref(mockRemoteId, kref)).toBe(eref);
+
+      remote.handlePeerRestart();
+
+      // Both halves of the c-list pair are gone after restart.
+      expect(mockKernelStore.erefToKref(mockRemoteId, eref)).toBeUndefined();
+      expect(mockKernelStore.krefToEref(mockRemoteId, kref)).toBeUndefined();
+    });
+  });
 });

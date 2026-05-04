@@ -1,6 +1,7 @@
 import type { VatOneResolution } from '@agoric/swingset-liveslots';
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
+import { isTerminalSendError } from '@metamask/kernel-errors';
 import { Logger } from '@metamask/logger';
 
 import {
@@ -33,33 +34,6 @@ const MAX_RETRIES = 3;
 
 /** Maximum number of pending messages awaiting ACK. */
 const MAX_PENDING_MESSAGES = 200;
-
-/**
- * Send-side errors that should abort retransmit instead of being treated as
- * a transient failure to retry. These come from definitive transport-level
- * verdicts: the user/peer closed the connection, the network is shutting
- * down, or the peer's incarnation changed (so any pending message was
- * generated against a now-dead session). Continuing to iterate just produces
- * identical failures on every queued seq until MAX_RETRIES exhausts.
- *
- * Identified by name (`PeerRestartedError`) for the incarnation case so the
- * check survives across the platform-services RPC boundary that might
- * unwrap the class identity, and by message for the others (which originate
- * as plain `Error`s in transport.ts).
- *
- * @param error - The error thrown by sendRemoteMessage.
- * @returns Whether the error indicates retransmit should stop.
- */
-function isTerminalSendError(error: unknown): boolean {
-  if (!(error instanceof Error)) {
-    return false;
-  }
-  return (
-    error.name === 'PeerRestartedError' ||
-    error.message.includes('intentional close') ||
-    error.message === 'Network stopped'
-  );
-}
 
 type RemoteHandleConstructorProps = {
   remoteId: RemoteId;
@@ -448,7 +422,7 @@ export class RemoteHandle implements EndpointHandle {
    * Retransmit all pending messages.
    *
    * Sends sequentially so a peer-restart detection during the first send can
-   * short-circuit the rest: clearRemoteSeqState (called by handlePeerRestart)
+   * short-circuit the rest: clearRemoteSeqState (called by persistPeerRestart)
    * deletes both the seq counters and the `remotePending.*` payloads, so
    * `getPendingMessage` returns undefined for subsequent iterations and the
    * loop bound (`seq <= this.#nextSendSeq`, now 0) terminates immediately.
@@ -495,12 +469,17 @@ export class RemoteHandle implements EndpointHandle {
   }
 
   /**
-   * Discard all pending messages due to delivery failure.
+   * Discard all pending messages due to delivery failure. Safe no-op when
+   * the queue is already empty — guards against clobbering kv state that a
+   * prior cleanup (e.g. {@link persistPeerRestart}) already cleared.
    *
    * @param reason - The reason for failure.
    */
   #rejectAllPending(reason: string): void {
     const pendingCount = this.#getPendingCount();
+    if (pendingCount === 0) {
+      return;
+    }
     for (let i = 0; i < pendingCount; i += 1) {
       this.#logger.warn(
         `Message ${this.#startSeq + i} delivery failed: ${reason}`,
@@ -635,25 +614,34 @@ export class RemoteHandle implements EndpointHandle {
       this.#startAckTimeout();
     }
 
-    // Send the message (non-blocking - don't wait for ACK)
+    // Send the message (non-blocking - don't wait for ACK).
+    //
+    // Terminal verdicts from the transport (peer restarted, intentional
+    // close, network stopped) mean the message we just persisted will
+    // never be delivered as-is: reject all pending now and signal give-up
+    // rather than letting the message linger until ACK timeout × MAX_RETRIES.
+    //
+    // For PeerRestartedError specifically, the kernel-side
+    // `onIncarnationChange` callback ran `persistPeerRestart` and
+    // `finalizePeerRestart` synchronously *before* the transport threw, so
+    // most of the cleanup below is already a no-op. The guards inside
+    // `#rejectAllPending` and `rejectPendingRedemptions` keep this safe;
+    // calling `#onGiveUp` again exercises an idempotent path.
     this.#remoteComms
       .sendRemoteMessage(this.#peerId, messageString)
       .catch((error) => {
-        // Handle intentional close errors specially - reject pending redemptions
-        if (
-          error instanceof Error &&
-          error.message.includes('intentional close')
-        ) {
+        if (isTerminalSendError(error)) {
+          const reason = (error as Error).message;
           this.#clearAckTimeout();
-          this.#rejectAllPending('intentional close');
-          this.rejectPendingRedemptions(
-            'Message delivery failed after intentional close',
-          );
-          // Notify RemoteManager to reject kernel promises for this remote
+          this.#rejectAllPending(reason);
+          this.rejectPendingRedemptions(reason);
           this.#onGiveUp?.(this.#peerId);
           return;
         }
-        this.#logger.error('Error sending remote message:', error);
+        this.#logger.error(
+          `${this.#peerId.slice(0, 8)}:: error sending remote message seq=${seq}:`,
+          error,
+        );
       });
   }
 
@@ -1164,61 +1152,55 @@ export class RemoteHandle implements EndpointHandle {
   }
 
   /**
-   * Handle a peer restart (incarnation change).
+   * Persist the peer-restart side effects (kv-only). Reversible by the
+   * caller's savepoint: if `forgetEndpointImports` throws (e.g. corrupt
+   * c-list entry, refcount underflow) and the caller rolls back, no
+   * in-memory state has been disturbed.
    *
-   * Persisted writes happen first so that if `forgetEndpointImports` throws
-   * (e.g. corrupt c-list entry, refcount underflow), the caller's savepoint
-   * can roll back kv state and our in-memory fields stay consistent with
-   * the persisted view. Only after the kv writes succeed do we mutate
-   * in-memory counters, cancel timers, and reject pending URL redemption
-   * promises — those mutations are not reversible by a savepoint, so we
-   * defer them until we know the persisted side committed.
-   *
-   * Called when the handshake detects that the remote peer has restarted.
+   * Pairs with {@link finalizePeerRestart}, which the caller MUST invoke
+   * exactly once after `releaseSavepoint` succeeds. Splitting the work
+   * keeps non-reversible mutations (timers, rejected redemption promises,
+   * in-memory seq counters) out of the savepoint window — those would
+   * leave the in-memory view inconsistent with the persisted view if the
+   * kv layer rolled back.
    */
-  handlePeerRestart(): void {
+  persistPeerRestart(): void {
     this.#logger.log(
       `${this.#peerId.slice(0, 8)}:: handling peer restart, resetting state`,
     );
-
-    // Snapshot pending state before any mutation, so we can log accurately
-    // even though the KV side will be cleared shortly.
-    const pendingCount = this.#getPendingCount();
-    const hadPending = this.#hasPendingMessages();
-
-    // --- Persisted writes (transactional with the caller's savepoint) ---
-
-    // Clear persisted sequence state (counters + remotePending.* payloads).
     this.#kernelStore.clearRemoteSeqState(this.remoteId);
-
-    // Drop the peer's contributions to our c-list (erefs they allocated)
-    // along with the owner / refcount / decider bookkeeping the kernel was
-    // holding on their behalf. Without this, fresh incarnations' reused eref
-    // labels would route into stale kernel state — e.g. an already-resolved
-    // promise from before the restart — and dead kernel objects would never
-    // be GC'd. May throw on corrupt state; the caller's savepoint will roll
-    // back the clearRemoteSeqState above and we will not have mutated any
-    // in-memory fields yet.
     this.#kernelStore.forgetEndpointImports(this.remoteId);
+  }
 
-    // --- In-memory state (only after persisted writes commit) ---
+  /**
+   * Convenience wrapper that runs the persisted and in-memory phases
+   * back-to-back. Use only outside a savepoint window — transactional
+   * callers (e.g. {@link RemoteManager.handleIncarnationChange}) must call
+   * {@link persistPeerRestart} inside the savepoint and
+   * {@link finalizePeerRestart} after release, so a kv rollback can't
+   * leave the in-memory view inconsistent with the persisted view.
+   */
+  handlePeerRestart(): void {
+    this.persistPeerRestart();
+    this.finalizePeerRestart();
+  }
 
-    // Cancel timers.
-    this.#clearAckTimeout();
-    this.#clearDelayedAck();
-
-    // Reject in-memory URL redemption promises (cannot be undone, so they
-    // run after persistence). Pending messages are tracked entirely in KV
-    // and have no JS-level promises to reject — clearRemoteSeqState above
-    // already removed their persisted records.
-    if (hadPending) {
+  /**
+   * Apply the in-memory side of a peer restart: cancel timers, reject
+   * in-flight URL redemption promises, and reset sequence counters. Must
+   * be called after {@link persistPeerRestart} and after the caller's
+   * savepoint has been released.
+   */
+  finalizePeerRestart(): void {
+    const pendingCount = this.#getPendingCount();
+    if (this.#hasPendingMessages()) {
       this.#logger.log(
         `${this.#peerId.slice(0, 8)}:: discarding ${pendingCount} pending messages due to peer restart`,
       );
     }
+    this.#clearAckTimeout();
+    this.#clearDelayedAck();
     this.rejectPendingRedemptions('Remote peer restarted');
-
-    // Reset in-memory sequence counters and flags for fresh start.
     this.#nextSendSeq = 0;
     this.#highestReceivedSeq = 0;
     this.#startSeq = 0;
