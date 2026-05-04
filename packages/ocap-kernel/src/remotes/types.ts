@@ -51,9 +51,7 @@ export type OnRemoteGiveUp = (peerId: string) => void;
  * Resolves `true` if the kernel detected an actual restart (and reset its
  * RemoteHandle state). The transport awaits this and uses the verdict to
  * suppress stale outbound messages on the same connection — the in-memory
- * PSM check is unreliable across receiver-side state loss. Always returns
- * a Promise so callers don't have to branch on dispatch realm (in-process
- * vs platform-services RPC).
+ * PSM check is unreliable across receiver-side state loss.
  *
  * @param peerId - The peer ID that completed the handshake.
  * @param observedIncarnation - The incarnationId the peer reported.

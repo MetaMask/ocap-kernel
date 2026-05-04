@@ -202,7 +202,7 @@ export class RemoteManager {
    * Fires on every handshake (not only on detected change) because the
    * in-memory PeerStateManager is unreliable across receiver restart and
    * stale-peer cleanup; the persisted value is the authoritative anchor for
-   * detecting peer restart. See issue #944.
+   * detecting peer restart.
    *
    * @param peerId - The peer that completed the handshake.
    * @param observedIncarnation - The incarnationId the peer just reported.

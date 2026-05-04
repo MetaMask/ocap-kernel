@@ -78,6 +78,9 @@ function isIntentionalDisconnect(problem: unknown): boolean {
  * channel a concurrent handshake just registered.
  */
 class PeerRestartedError extends Error {
+  /**
+   *
+   */
   constructor() {
     super('Remote peer restarted: message not sent to avoid stale delivery');
     this.name = 'PeerRestartedError';

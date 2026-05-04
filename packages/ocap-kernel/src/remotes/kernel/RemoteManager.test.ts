@@ -831,42 +831,42 @@ describe('RemoteManager', () => {
       ) => Promise<boolean>;
     }
 
-    it('calls handlePeerRestart when persisted incarnation differs from observed', () => {
+    it('calls handlePeerRestart when persisted incarnation differs from observed', async () => {
       const peerId = 'peer-that-restarted';
       const remote = remoteManager.establishRemote(peerId);
       const handlePeerRestartSpy = vi.spyOn(remote, 'handlePeerRestart');
       // Seed the persisted incarnation (as if a prior handshake recorded it).
       kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
 
-      getOnIncarnationChange()(peerId, 'incarnation-B');
+      await getOnIncarnationChange()(peerId, 'incarnation-B');
 
       expect(handlePeerRestartSpy).toHaveBeenCalled();
       expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-B');
     });
 
-    it('does not call handlePeerRestart on first observation of a peer', () => {
+    it('does not call handlePeerRestart on first observation of a peer', async () => {
       const peerId = 'peer-first-contact';
       const remote = remoteManager.establishRemote(peerId);
       const handlePeerRestartSpy = vi.spyOn(remote, 'handlePeerRestart');
 
-      getOnIncarnationChange()(peerId, 'incarnation-A');
+      await getOnIncarnationChange()(peerId, 'incarnation-A');
 
       expect(handlePeerRestartSpy).not.toHaveBeenCalled();
       expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-A');
     });
 
-    it('does nothing when observed incarnation matches persisted value', () => {
+    it('does nothing when observed incarnation matches persisted value', async () => {
       const peerId = 'peer-stable';
       const remote = remoteManager.establishRemote(peerId);
       const handlePeerRestartSpy = vi.spyOn(remote, 'handlePeerRestart');
       kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
 
-      getOnIncarnationChange()(peerId, 'incarnation-A');
+      await getOnIncarnationChange()(peerId, 'incarnation-A');
 
       expect(handlePeerRestartSpy).not.toHaveBeenCalled();
     });
 
-    it('rejects kernel promises where the restarted remote is decider', () => {
+    it('rejects kernel promises where the restarted remote is decider', async () => {
       const peerId = 'peer-with-promises';
       const remote = remoteManager.establishRemote(peerId);
       const { remoteId } = remote;
@@ -878,7 +878,7 @@ describe('RemoteManager', () => {
 
       const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');
 
-      getOnIncarnationChange()(peerId, 'incarnation-B');
+      await getOnIncarnationChange()(peerId, 'incarnation-B');
 
       expect(resolvePromisesSpy).toHaveBeenCalledWith(remoteId, [
         [
@@ -891,26 +891,30 @@ describe('RemoteManager', () => {
       ]);
     });
 
-    it('persists the incarnation but skips reset when no remote handle exists', () => {
+    it('persists the incarnation and reports restart even when no remote handle exists', async () => {
       const peerId = 'unknown-peer';
       const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');
       kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
 
-      expect(() =>
-        getOnIncarnationChange()(peerId, 'incarnation-B'),
-      ).not.toThrow();
+      // The verdict reflects the persisted-state comparison, not whether
+      // there's a RemoteHandle to reset. Transport callers use the verdict
+      // to suppress stale outbound messages; that decision is correct
+      // regardless of local handle presence.
+      const verdict = await getOnIncarnationChange()(peerId, 'incarnation-B');
+      expect(verdict).toBe(true);
 
       expect(kernelStore.getPeerIncarnation(peerId)).toBe('incarnation-B');
+      // No remote handle → no promises to reject.
       expect(resolvePromisesSpy).not.toHaveBeenCalled();
     });
 
-    it('does not reject promises when there are none', () => {
+    it('does not reject promises when there are none', async () => {
       const peerId = 'peer-without-promises';
       remoteManager.establishRemote(peerId);
       kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
       const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');
 
-      getOnIncarnationChange()(peerId, 'incarnation-B');
+      await getOnIncarnationChange()(peerId, 'incarnation-B');
 
       expect(resolvePromisesSpy).not.toHaveBeenCalled();
     });

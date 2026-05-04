@@ -513,6 +513,197 @@ describe('PlatformServicesClient', () => {
           expect(successResponse).toBeDefined();
         });
       });
+
+      describe('remoteIncarnationChange', () => {
+        it('forwards args to handler and returns its boolean verdict', async () => {
+          const outputs: MessageEventWithPayload[] = [];
+          const testStream = await TestDuplexStream.make((message) => {
+            outputs.push(message as unknown as MessageEventWithPayload);
+          });
+          const testClient = new PlatformServicesClient(
+            testStream as unknown as PlatformServicesClientStream,
+            clientLogger,
+          );
+          await delay(10);
+
+          const remoteHandler = vi.fn(async () => 'response');
+          const giveUpHandler = vi.fn();
+          const incarnationHandler = vi.fn(async () => true);
+          const initP = testClient.initializeRemoteComms(
+            '0xabcd',
+            {},
+            remoteHandler,
+            giveUpHandler,
+            'local-incarnation',
+            incarnationHandler,
+          );
+          await testStream.receiveInput(makeNullReply('m1'));
+          await initP;
+
+          await testStream.receiveInput(
+            new MessageEvent('message', {
+              data: {
+                id: 'm2',
+                jsonrpc: '2.0',
+                method: 'remoteIncarnationChange',
+                params: {
+                  peerId: 'peer-456',
+                  observedIncarnation: 'incarnation-X',
+                },
+              },
+            }),
+          );
+          await delay(50);
+
+          expect(incarnationHandler).toHaveBeenCalledExactlyOnceWith(
+            'peer-456',
+            'incarnation-X',
+          );
+          const successResponse = outputs.find(
+            (message) =>
+              message.payload?.id === 'm2' &&
+              'result' in message.payload &&
+              message.payload.result === true,
+          );
+          expect(successResponse).toBeDefined();
+        });
+
+        it('returns false when no handler is registered', async () => {
+          const outputs: MessageEventWithPayload[] = [];
+          const newStream = await TestDuplexStream.make((message) => {
+            outputs.push(message as unknown as MessageEventWithPayload);
+          });
+          // eslint-disable-next-line no-new -- test setup
+          new PlatformServicesClient(
+            newStream as unknown as PlatformServicesClientStream,
+          );
+
+          await newStream.receiveInput(
+            new MessageEvent('message', {
+              data: {
+                id: 'm1',
+                jsonrpc: '2.0',
+                method: 'remoteIncarnationChange',
+                params: {
+                  peerId: 'peer-789',
+                  observedIncarnation: 'incarnation-Y',
+                },
+              },
+            }),
+          );
+          await delay(10);
+
+          const response = outputs.find(
+            (message) =>
+              message.payload?.id === 'm1' &&
+              'result' in message.payload &&
+              message.payload.result === false,
+          );
+          expect(response).toBeDefined();
+        });
+
+        it('coerces non-boolean handler return to true (fail closed)', async () => {
+          const outputs: MessageEventWithPayload[] = [];
+          const testStream = await TestDuplexStream.make((message) => {
+            outputs.push(message as unknown as MessageEventWithPayload);
+          });
+          const testClient = new PlatformServicesClient(
+            testStream as unknown as PlatformServicesClientStream,
+            clientLogger,
+          );
+          await delay(10);
+
+          const remoteHandler = vi.fn(async () => 'response');
+          // Handler returns a non-boolean truthy value (a buggy caller).
+          const incarnationHandler = vi.fn(
+            async () => 'oops' as unknown as boolean,
+          );
+          const initP = testClient.initializeRemoteComms(
+            '0xabcd',
+            {},
+            remoteHandler,
+            undefined,
+            'local-incarnation',
+            incarnationHandler,
+          );
+          await testStream.receiveInput(makeNullReply('m1'));
+          await initP;
+
+          await testStream.receiveInput(
+            new MessageEvent('message', {
+              data: {
+                id: 'm2',
+                jsonrpc: '2.0',
+                method: 'remoteIncarnationChange',
+                params: {
+                  peerId: 'peer-789',
+                  observedIncarnation: 'incarnation-Z',
+                },
+              },
+            }),
+          );
+          await delay(50);
+
+          // Fail closed → resolve to true so the transport drops the outbound.
+          const response = outputs.find(
+            (message) =>
+              message.payload?.id === 'm2' &&
+              'result' in message.payload &&
+              message.payload.result === true,
+          );
+          expect(response).toBeDefined();
+        });
+
+        it('coerces a throwing handler to true (fail closed)', async () => {
+          const outputs: MessageEventWithPayload[] = [];
+          const testStream = await TestDuplexStream.make((message) => {
+            outputs.push(message as unknown as MessageEventWithPayload);
+          });
+          const testClient = new PlatformServicesClient(
+            testStream as unknown as PlatformServicesClientStream,
+            clientLogger,
+          );
+          await delay(10);
+
+          const remoteHandler = vi.fn(async () => 'response');
+          const incarnationHandler = vi.fn(async () => {
+            throw new Error('handler exploded');
+          });
+          const initP = testClient.initializeRemoteComms(
+            '0xabcd',
+            {},
+            remoteHandler,
+            undefined,
+            'local-incarnation',
+            incarnationHandler,
+          );
+          await testStream.receiveInput(makeNullReply('m1'));
+          await initP;
+
+          await testStream.receiveInput(
+            new MessageEvent('message', {
+              data: {
+                id: 'm2',
+                jsonrpc: '2.0',
+                method: 'remoteIncarnationChange',
+                params: {
+                  peerId: 'peer-789',
+                  observedIncarnation: 'incarnation-Z',
+                },
+              },
+            }),
+          );
+          await delay(50);
+
+          const response = outputs.find(
+            (message) =>
+              message.payload?.id === 'm2' &&
+              'result' in message.payload &&
+              message.payload.result === true,
+          );
+          expect(response).toBeDefined();
+        });
+      });
     });
   });
 });

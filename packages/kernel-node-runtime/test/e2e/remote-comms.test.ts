@@ -1101,8 +1101,10 @@ describe.sequential('Remote Communications E2E', () => {
         // Fresh K2 sends seq=1 to the same alice URL. K1's PSM has no entry
         // for K2's peer, so setRemoteIncarnation returns false, no reset
         // happens, and K1's persisted #highestReceivedSeq >= 1 silently
-        // drops the message. Without the fix this send fails after
-        // maxRetryAttempts × ackTimeoutMs.
+        // drops the message. Without the fix this send fails after the URL
+        // redemption budget (ackTimeoutMs × (MAX_RETRIES + 1), where
+        // MAX_RETRIES is hardcoded to 3 in RemoteHandle.ts) — unrelated to
+        // the libp2p `maxRetryAttempts` setting.
         const phase4 = await sendRemoteMessage(
           kernel2,
           newBobRef,

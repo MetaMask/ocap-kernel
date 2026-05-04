@@ -1522,14 +1522,13 @@ describe('RemoteHandle', () => {
 
     beforeEach(() => {
       pendingTimers = [];
-      setTimeoutSpy = vi
-        .spyOn(globalThis, 'setTimeout')
-        .mockImplementation(((callback: () => void, delay: number) => {
-          pendingTimers.push({ callback, delay });
-          return pendingTimers.length as unknown as ReturnType<
-            typeof setTimeout
-          >;
-        }) as typeof setTimeout);
+      setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((
+        callback: () => void,
+        delay: number,
+      ) => {
+        pendingTimers.push({ callback, delay });
+        return pendingTimers.length as unknown as ReturnType<typeof setTimeout>;
+      }) as typeof setTimeout);
       clearTimeoutSpy = vi
         .spyOn(globalThis, 'clearTimeout')
         .mockImplementation((handle: unknown) => {
@@ -1585,8 +1584,8 @@ describe('RemoteHandle', () => {
       });
       vi.mocked(mockRemoteComms.sendRemoteMessage).mockReset();
       vi.mocked(mockRemoteComms.sendRemoteMessage).mockImplementation(
-        async (_peer, msg) => {
-          sendCalls.push(msg);
+        async (_peer, payload) => {
+          sendCalls.push(payload);
           if (sendCalls.length === 1) {
             await firstPromise;
           }
@@ -1621,12 +1620,8 @@ describe('RemoteHandle', () => {
         onGiveUp,
       });
 
-      await remote.deliverNotify([
-        ['rp+1', false, { body: '"a"', slots: [] }],
-      ]);
-      await remote.deliverNotify([
-        ['rp+2', false, { body: '"b"', slots: [] }],
-      ]);
+      await remote.deliverNotify([['rp+1', false, { body: '"a"', slots: [] }]]);
+      await remote.deliverNotify([['rp+2', false, { body: '"b"', slots: [] }]]);
 
       // Synthesize a PeerRestartedError-shaped rejection (the real class is
       // transport-internal; isTerminalSendError matches by `error.name`).
@@ -1661,12 +1656,8 @@ describe('RemoteHandle', () => {
         onGiveUp,
       });
 
-      await remote.deliverNotify([
-        ['rp+1', false, { body: '"a"', slots: [] }],
-      ]);
-      await remote.deliverNotify([
-        ['rp+2', false, { body: '"b"', slots: [] }],
-      ]);
+      await remote.deliverNotify([['rp+1', false, { body: '"a"', slots: [] }]]);
+      await remote.deliverNotify([['rp+2', false, { body: '"b"', slots: [] }]]);
 
       vi.mocked(mockRemoteComms.sendRemoteMessage).mockReset();
       vi.mocked(mockRemoteComms.sendRemoteMessage)

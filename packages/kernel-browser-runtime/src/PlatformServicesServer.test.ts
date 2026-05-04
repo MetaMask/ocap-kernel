@@ -589,7 +589,7 @@ describe('PlatformServicesServer', () => {
               data: { id: rpcCall.payload.id, result: true, jsonrpc: '2.0' },
             }),
           );
-          await expect(verdict).resolves.toBe(true);
+          expect(await verdict).toBe(true);
         });
 
         it('returns true (fail closed) when the RPC call rejects', async () => {
@@ -635,7 +635,7 @@ describe('PlatformServicesServer', () => {
           );
 
           // Fail closed → resolve to true so transport drops the outbound.
-          await expect(verdict).resolves.toBe(true);
+          expect(await verdict).toBe(true);
         });
       });
 
