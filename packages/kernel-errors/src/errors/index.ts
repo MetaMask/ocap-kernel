@@ -1,6 +1,9 @@
 import { AbortError } from './AbortError.ts';
 import { DuplicateEndowmentError } from './DuplicateEndowmentError.ts';
 import { EvaluatorError } from './EvaluatorError.ts';
+import { IntentionalCloseError } from './IntentionalCloseError.ts';
+import { NetworkStoppedError } from './NetworkStoppedError.ts';
+import { PeerRestartedError } from './PeerRestartedError.ts';
 import { ResourceLimitError } from './ResourceLimitError.ts';
 import { SampleGenerationError } from './SampleGenerationError.ts';
 import { StreamReadError } from './StreamReadError.ts';
@@ -21,4 +24,7 @@ export const errorClasses = {
   [ErrorCode.SampleGenerationError]: SampleGenerationError,
   [ErrorCode.InternalError]: EvaluatorError,
   [ErrorCode.ResourceLimitError]: ResourceLimitError,
+  [ErrorCode.PeerRestartedError]: PeerRestartedError,
+  [ErrorCode.IntentionalCloseError]: IntentionalCloseError,
+  [ErrorCode.NetworkStoppedError]: NetworkStoppedError,
 } as const;
