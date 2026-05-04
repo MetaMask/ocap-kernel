@@ -25,6 +25,7 @@ import type {
   PostMessageTarget,
 } from '@metamask/streams/browser';
 import { isJsonRpcResponse, isJsonRpcRequest } from '@metamask/utils';
+import type { JsonRpcRequest } from '@metamask/utils';
 import type { JsonRpcId } from '@metamask/utils';
 
 // Appears in the docs.
@@ -415,22 +416,34 @@ export class PlatformServicesClient implements PlatformServices {
 
       this.#rpcClient.handleResponse(id, event.data);
     } else if (isJsonRpcRequest(event.data)) {
-      const { id, method, params } = event.data;
-      try {
-        this.#rpcServer.assertHasMethod(method);
-        const result = await this.#rpcServer.execute(method, params);
-        await this.#sendMessage({
-          id,
-          result,
-          jsonrpc: '2.0',
-        });
-      } catch (error) {
-        await this.#sendMessage({
-          id,
-          error: serializeError(error),
-          jsonrpc: '2.0',
-        });
-      }
+      // Run the request handler in the background instead of awaiting it
+      // inside the drain. The drain processes responses too, and a request
+      // handler that fires an outbound RPC back to the other side would
+      // deadlock waiting for its response — the drain can't get to that
+      // response until the request handler returns.
+      this.#executeRequest(event.data).catch(() => undefined);
+    }
+  }
+
+  /**
+   * Execute a JSON-RPC request and write the response back. Errors during
+   * execution are serialized into a JSON-RPC error response; errors during
+   * response delivery are swallowed.
+   *
+   * @param request - The JSON-RPC request to execute.
+   */
+  async #executeRequest(request: JsonRpcRequest): Promise<void> {
+    const { id, method, params } = request;
+    try {
+      this.#rpcServer.assertHasMethod(method);
+      const result = await this.#rpcServer.execute(method, params);
+      await this.#sendMessage({ id, result, jsonrpc: '2.0' });
+    } catch (error) {
+      await this.#sendMessage({
+        id,
+        error: serializeError(error),
+        jsonrpc: '2.0',
+      }).catch(() => undefined);
     }
   }
 }

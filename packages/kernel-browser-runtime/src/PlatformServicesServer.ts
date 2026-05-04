@@ -25,6 +25,7 @@ import type {
   PostMessageTarget,
 } from '@metamask/streams/browser';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
+import type { JsonRpcRequest } from '@metamask/utils';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -179,23 +180,41 @@ export class PlatformServicesServer {
       const message = event.data;
       this.#rpcClient.handleResponse(message.id as string, message);
     } else if (isJsonRpcRequest(event.data)) {
-      const { id, method, params } = event.data;
-      try {
-        this.#rpcServer.assertHasMethod(method);
-        // Ridiculous cast to bypass TypeScript vs. JsonRpc tug-o-war
-        const port: MessagePort | undefined = (await this.#rpcServer.execute(
-          method,
-          params,
-        )) as unknown as MessagePort | undefined;
-        await this.#sendMessage({ id, result: null, jsonrpc: '2.0' }, port);
-      } catch (error) {
-        this.#logger.error(`Error handling "${method}" request:`, error);
-        this.#sendMessage({
-          id,
-          error: serializeError(error),
-          jsonrpc: '2.0',
-        }).catch(() => undefined);
-      }
+      // Run the request handler in the background instead of awaiting it
+      // inside the drain. The drain processes responses too, and a request
+      // handler that fires an outbound RPC back to the other side (e.g.
+      // transport.sendRemoteMessage's handshake calling onIncarnationChange)
+      // would deadlock waiting for its response — the drain can't get to
+      // that response until the request handler returns.
+      this.#executeRequest(event.data).catch(() => undefined);
+    }
+  }
+
+  /**
+   * Execute a JSON-RPC request and write the response back. Errors during
+   * execution are serialized into a JSON-RPC error response; errors during
+   * response delivery are logged and swallowed (the caller has nowhere to
+   * surface them).
+   *
+   * @param request - The JSON-RPC request to execute.
+   */
+  async #executeRequest(request: JsonRpcRequest): Promise<void> {
+    const { id, method, params } = request;
+    try {
+      this.#rpcServer.assertHasMethod(method);
+      // Ridiculous cast to bypass TypeScript vs. JsonRpc tug-o-war
+      const port: MessagePort | undefined = (await this.#rpcServer.execute(
+        method,
+        params,
+      )) as unknown as MessagePort | undefined;
+      await this.#sendMessage({ id, result: null, jsonrpc: '2.0' }, port);
+    } catch (error) {
+      this.#logger.error(`Error handling "${method}" request:`, error);
+      this.#sendMessage({
+        id,
+        error: serializeError(error),
+        jsonrpc: '2.0',
+      }).catch(() => undefined);
     }
   }
 
