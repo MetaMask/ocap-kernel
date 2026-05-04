@@ -212,11 +212,22 @@ export async function initTransport(
     // the kernel-side callback (backed by persistent storage) is the
     // authoritative source. Take the OR of both so callers' stale-message
     // guards trip whenever either layer detected a restart.
-    const kernelDetectedRestart =
-      (await onIncarnationChange?.(
-        channel.peerId,
-        result.remoteIncarnationId,
-      )) ?? false;
+    //
+    // Treat a callback throw as a handshake failure rather than letting it
+    // propagate: the caller relies on the {success} return to decide
+    // whether to close the channel, and an unhandled throw would skip
+    // that close path on the inbound side.
+    let kernelDetectedRestart: boolean;
+    try {
+      kernelDetectedRestart =
+        (await onIncarnationChange?.(
+          channel.peerId,
+          result.remoteIncarnationId,
+        )) ?? false;
+    } catch (problem) {
+      outputError(channel.peerId, 'outbound incarnation callback', problem);
+      return { success: false, incarnationChanged: false };
+    }
     const incarnationChanged =
       result.incarnationChanged || kernelDetectedRestart;
     if (incarnationChanged) {
@@ -253,11 +264,21 @@ export async function initTransport(
       outputError(channel.peerId, 'inbound handshake', problem);
       return false;
     }
-    const kernelDetectedRestart =
-      (await onIncarnationChange?.(
-        channel.peerId,
-        result.remoteIncarnationId,
-      )) ?? false;
+    // Treat a callback throw as a handshake failure: the caller closes
+    // the channel only when this returns false, so an unhandled throw
+    // would let the channel escape upstream and be closed (noisily) by
+    // the outer onInboundConnection catch. Better to fail closed here.
+    let kernelDetectedRestart: boolean;
+    try {
+      kernelDetectedRestart =
+        (await onIncarnationChange?.(
+          channel.peerId,
+          result.remoteIncarnationId,
+        )) ?? false;
+    } catch (problem) {
+      outputError(channel.peerId, 'inbound incarnation callback', problem);
+      return false;
+    }
     if (result.incarnationChanged || kernelDetectedRestart) {
       logger.log(
         `${channel.peerId.slice(0, 8)}:: incarnation changed during inbound handshake, rejecting channel to force re-dial`,
