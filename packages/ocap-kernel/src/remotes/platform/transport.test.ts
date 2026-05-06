@@ -142,6 +142,24 @@ vi.mock('@metamask/kernel-errors', () => ({
       this.name = 'ResourceLimitError';
     }
   },
+  PeerRestartedError: class MockPeerRestartedError extends Error {
+    constructor() {
+      super('Remote peer restarted: message not sent to avoid stale delivery');
+      this.name = 'PeerRestartedError';
+    }
+  },
+  IntentionalCloseError: class MockIntentionalCloseError extends Error {
+    constructor() {
+      super('Message delivery failed after intentional close');
+      this.name = 'IntentionalCloseError';
+    }
+  },
+  NetworkStoppedError: class MockNetworkStoppedError extends Error {
+    constructor() {
+      super('Network stopped');
+      this.name = 'NetworkStoppedError';
+    }
+  },
   isRetryableNetworkError: vi.fn().mockImplementation((error: unknown) => {
     const errorWithCode = error as { code?: string };
     return (
@@ -2827,23 +2845,17 @@ describe('transport.initTransport', () => {
       // Trigger inbound connection
       inboundHandler?.(mockInboundChannel);
 
-      // Wait for rejection to be logged
+      // Wait for the channel to be closed: handshake failure + rejected
+      // restart both close the channel without registering it.
       await vi.waitFor(() => {
-        expect(mockLogger.log).toHaveBeenCalledWith(
-          expect.stringContaining(
-            'rejecting inbound connection due to handshake failure',
-          ),
+        expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+          mockInboundChannel,
+          'remote-peer',
         );
       });
-
-      // Channel should be closed
-      expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
-        mockInboundChannel,
-        'remote-peer',
-      );
     });
 
-    it('calls onIncarnationChange when incarnation changes', async () => {
+    it('reports the observed incarnation to onIncarnationChange after every handshake', async () => {
       let inboundHandler: ((channel: MockChannel) => void) | undefined;
       mockConnectionFactory.onInboundConnection.mockImplementation(
         (handler: (channel: MockChannel) => void) => {
@@ -2878,15 +2890,15 @@ describe('transport.initTransport', () => {
 
       inboundHandler?.(mockInboundChannel1);
 
-      // Wait for first handshake to be processed
+      // Fires on every successful handshake — the kernel layer is the
+      // authoritative comparator against persisted state.
       await vi.waitFor(() => {
-        expect(mockLogger.log).toHaveBeenCalledWith(
-          expect.stringContaining('first incarnation ID received'),
+        expect(onIncarnationChange).toHaveBeenCalledWith(
+          'remote-peer',
+          'incarnation-1',
         );
       });
-
-      // First incarnation should not trigger onIncarnationChange
-      expect(onIncarnationChange).not.toHaveBeenCalled();
+      expect(onIncarnationChange).toHaveBeenCalledTimes(1);
 
       // Second handshake with different incarnation (simulating peer restart)
       const mockInboundChannel2 = createMockChannel('remote-peer');
@@ -2904,15 +2916,137 @@ describe('transport.initTransport', () => {
 
       inboundHandler?.(mockInboundChannel2);
 
-      // Wait for second handshake to be processed
       await vi.waitFor(() => {
-        expect(mockLogger.log).toHaveBeenCalledWith(
-          expect.stringContaining('incarnation changed'),
+        expect(onIncarnationChange).toHaveBeenCalledWith(
+          'remote-peer',
+          'incarnation-2',
         );
       });
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        expect.stringContaining('incarnation changed'),
+      );
+    });
 
-      // Changed incarnation should trigger onIncarnationChange
-      expect(onIncarnationChange).toHaveBeenCalledWith('remote-peer');
+    it('closes the dialed channel and throws PeerRestartedError when outbound handshake reports kernel-detected restart', async () => {
+      const localIncarnationId = 'local-incarnation';
+      // Kernel verdict says "yes, restart" — overrides PSM's first-contact
+      // verdict and must trigger the close-without-register path.
+      const onIncarnationChange = vi.fn().mockResolvedValue(true);
+
+      const mockChannel = createMockChannel('remote-peer');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      const handshakeAck = JSON.stringify({
+        method: 'handshakeAck',
+        params: { incarnationId: 'remote-incarnation' },
+      });
+      mockChannel.msgStream.read.mockResolvedValueOnce(
+        new TextEncoder().encode(handshakeAck),
+      );
+
+      const { sendRemoteMessage } = await initTransport(
+        '0x1234',
+        {},
+        vi.fn().mockResolvedValue(''),
+        undefined,
+        localIncarnationId,
+        onIncarnationChange,
+      );
+
+      await expect(
+        sendRemoteMessage('remote-peer', makeTestMessage('hi')),
+      ).rejects.toThrow(/Remote peer restarted/u);
+
+      // The throw must happen AFTER closeChannel and the channel must
+      // never be registered (no readChannel started).
+      expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+        mockChannel,
+        'remote-peer',
+      );
+      // Without registration the readChannel side never starts; verify by
+      // confirming no further reads were attempted on the channel.
+      expect(mockChannel.msgStream.read).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not trigger reconnection when PeerRestartedError aborts the outbound send', async () => {
+      // PeerRestartedError means the peer is reachable but its incarnation
+      // changed; handleConnectionLoss would clobber an inbound channel a
+      // concurrent handshake just registered, so the catch path must skip it.
+      const localIncarnationId = 'local-incarnation';
+      const onIncarnationChange = vi.fn().mockResolvedValue(true);
+
+      const mockChannel = createMockChannel('remote-peer');
+      mockConnectionFactory.dialIdempotent.mockResolvedValue(mockChannel);
+      const handshakeAck = JSON.stringify({
+        method: 'handshakeAck',
+        params: { incarnationId: 'remote-incarnation' },
+      });
+      mockChannel.msgStream.read.mockResolvedValueOnce(
+        new TextEncoder().encode(handshakeAck),
+      );
+
+      const { sendRemoteMessage } = await initTransport(
+        '0x1234',
+        {},
+        vi.fn().mockResolvedValue(''),
+        undefined,
+        localIncarnationId,
+        onIncarnationChange,
+      );
+
+      await expect(
+        sendRemoteMessage('remote-peer', makeTestMessage('hi')),
+      ).rejects.toThrow(/Remote peer restarted/u);
+
+      // Drain microtasks so any reconnection scheduling would have fired.
+      for (let i = 0; i < 5; i += 1) {
+        await Promise.resolve();
+      }
+
+      // No reconnect attempt: dialIdempotent is only the original dial.
+      expect(mockConnectionFactory.dialIdempotent).toHaveBeenCalledTimes(1);
+    });
+
+    it('rejects the inbound channel when kernel detects a restart on inbound handshake', async () => {
+      // Symmetric with the outbound PeerRestartedError path: when the
+      // receiver's persisted incarnation differs from the observed one,
+      // the channel must NOT be registered — otherwise concurrent in-flight
+      // outbound sends could write pre-restart payloads on a fresh channel.
+      let inboundHandler: ((channel: MockChannel) => void) | undefined;
+      mockConnectionFactory.onInboundConnection.mockImplementation(
+        (handler: (channel: MockChannel) => void) => {
+          inboundHandler = handler;
+        },
+      );
+      const onIncarnationChange = vi.fn().mockResolvedValue(true);
+      const localIncarnationId = 'local-incarnation';
+      await initTransport(
+        '0x1234',
+        {},
+        vi.fn().mockResolvedValue(''),
+        undefined,
+        localIncarnationId,
+        onIncarnationChange,
+      );
+
+      const inbound = createMockChannel('remote-peer');
+      inbound.msgStream.read.mockResolvedValueOnce(
+        new TextEncoder().encode(
+          JSON.stringify({
+            method: 'handshake',
+            params: { incarnationId: 'fresh-incarnation' },
+          }),
+        ),
+      );
+      inboundHandler?.(inbound);
+
+      await vi.waitFor(() => {
+        expect(mockConnectionFactory.closeChannel).toHaveBeenCalledWith(
+          inbound,
+          'remote-peer',
+        );
+      });
+      // No further reads on the channel — registerChannel never ran.
+      expect(inbound.msgStream.read).toHaveBeenCalledTimes(1);
     });
 
     it('passes regular messages to remoteMessageHandler after handshake', async () => {

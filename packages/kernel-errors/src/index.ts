@@ -8,6 +8,9 @@ export { VatNotFoundError } from './errors/VatNotFoundError.ts';
 export { StreamReadError } from './errors/StreamReadError.ts';
 export { SubclusterNotFoundError } from './errors/SubclusterNotFoundError.ts';
 export { AbortError } from './errors/AbortError.ts';
+export { IntentionalCloseError } from './errors/IntentionalCloseError.ts';
+export { NetworkStoppedError } from './errors/NetworkStoppedError.ts';
+export { PeerRestartedError } from './errors/PeerRestartedError.ts';
 export {
   ResourceLimitError,
   type ResourceLimitType,
@@ -27,6 +30,7 @@ export { unmarshalError } from './marshal/unmarshalError.ts';
 export { isMarshaledError } from './marshal/isMarshaledError.ts';
 export { isMarshaledOcapError } from './marshal/isMarshaledOcapError.ts';
 export { isRetryableNetworkError } from './utils/isRetryableNetworkError.ts';
+export { isTerminalSendError } from './utils/isTerminalSendError.ts';
 export { getNetworkErrorCode } from './utils/getNetworkErrorCode.ts';
 export { isResourceLimitError } from './utils/isResourceLimitError.ts';
 export type {

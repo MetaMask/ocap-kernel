@@ -21,6 +21,7 @@ const REMOTE_INFO_BASE = 'remote.';
 const REMOTE_INFO_BASE_LEN = REMOTE_INFO_BASE.length;
 const REMOTE_SEQ_BASE = 'remoteSeq.';
 const REMOTE_PENDING_BASE = 'remotePending.';
+const PEER_INCARNATION_BASE = 'peerIncarnation.';
 
 /**
  * Get a kernel store object that provides functionality for managing remote records.
@@ -70,12 +71,34 @@ export function getRemoteMethods(ctx: StoreContext) {
   }
 
   /**
-   * Delete the info for a remote.
+   * Delete the info for a remote, including its persisted peer-incarnation
+   * record. Read the info before deleting so we have the peerId to scope
+   * the peerIncarnation cleanup; otherwise stale `peerIncarnation.{peerId}`
+   * entries would survive remote teardown and a re-established remote with
+   * the same peerId would mis-classify its first handshake as a restart.
+   *
+   * Corrupt JSON in `remote.{remoteID}` is logged and swallowed so the
+   * remaining cleanup steps still run — losing the (already-untrustworthy)
+   * peerIncarnation row is preferable to leaving the corrupt entry stuck.
    *
    * @param remoteID - The remote whose info is to be removed.
    */
   function deleteRemoteInfo(remoteID: RemoteId): void {
-    kv.delete(`${REMOTE_INFO_BASE}${remoteID}`);
+    const infoKey = `${REMOTE_INFO_BASE}${remoteID}`;
+    const rawInfo = kv.get(infoKey);
+    if (rawInfo !== undefined) {
+      try {
+        const { peerId } = JSON.parse(rawInfo) as RemoteInfo;
+        kv.delete(`${PEER_INCARNATION_BASE}${peerId}`);
+      } catch (parseError) {
+        ctx.logger?.error(
+          `deleteRemoteInfo: corrupt remote info for ${remoteID}, ` +
+            `proceeding without peerIncarnation cleanup`,
+          parseError,
+        );
+      }
+    }
+    kv.delete(infoKey);
     deleteRemotePendingState(remoteID);
   }
 
@@ -231,6 +254,29 @@ export function getRemoteMethods(ctx: StoreContext) {
   }
 
   /**
+   * Get the last observed incarnationId for a peer. This is the value most
+   * recently negotiated via handshake; it survives kernel restart so that the
+   * receiver can detect a peer restart even when its in-memory PeerStateManager
+   * has been rebuilt empty.
+   *
+   * @param peerId - The peer whose incarnation is sought.
+   * @returns The persisted incarnationId, or undefined if none recorded yet.
+   */
+  function getPeerIncarnation(peerId: string): string | undefined {
+    return kv.get(`${PEER_INCARNATION_BASE}${peerId}`);
+  }
+
+  /**
+   * Persist the most recently observed incarnationId for a peer.
+   *
+   * @param peerId - The peer to record.
+   * @param incarnationId - The observed incarnationId.
+   */
+  function setPeerIncarnation(peerId: string, incarnationId: string): void {
+    kv.set(`${PEER_INCARNATION_BASE}${peerId}`, incarnationId);
+  }
+
+  /**
    * Clear all sequence state for a remote (seq counters + all pending messages).
    * Called when a remote peer restarts (incarnation changes) to reset for fresh communication.
    * Unlike deleteRemotePendingState, this does NOT delete the remote relationship itself.
@@ -267,5 +313,8 @@ export function getRemoteMethods(ctx: StoreContext) {
     deleteRemotePendingState,
     cleanupOrphanMessages,
     clearRemoteSeqState,
+    // Peer incarnation persistence
+    getPeerIncarnation,
+    setPeerIncarnation,
   };
 }

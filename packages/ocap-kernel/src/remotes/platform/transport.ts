@@ -1,6 +1,12 @@
 import { StreamResetError } from '@libp2p/interface';
 import type { StreamCloseEvent } from '@libp2p/interface';
-import { AbortError, ResourceLimitError } from '@metamask/kernel-errors';
+import {
+  AbortError,
+  IntentionalCloseError,
+  NetworkStoppedError,
+  PeerRestartedError,
+  ResourceLimitError,
+} from '@metamask/kernel-errors';
 import { installWakeDetector } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import { toString as bufToString, fromString } from 'uint8arrays';
@@ -202,28 +208,54 @@ export async function initTransport(
       outputError(channel.peerId, 'outbound handshake', problem);
       return { success: false, incarnationChanged: false };
     }
-    // Handle incarnation change outside try-catch so callback errors
-    // don't incorrectly mark the handshake as failed
-    if (result.incarnationChanged) {
+    // The PSM-detected change is unreliable across receiver-side state loss;
+    // the kernel-side callback (backed by persistent storage) is the
+    // authoritative source. Take the OR of both so callers' stale-message
+    // guards trip whenever either layer detected a restart.
+    //
+    // Treat a callback throw as a handshake failure rather than letting it
+    // propagate: the caller relies on the {success} return to decide
+    // whether to close the channel, and an unhandled throw would skip
+    // that close path on the inbound side.
+    let kernelDetectedRestart: boolean;
+    try {
+      kernelDetectedRestart =
+        (await onIncarnationChange?.(
+          channel.peerId,
+          result.remoteIncarnationId,
+        )) ?? false;
+    } catch (problem) {
+      outputError(channel.peerId, 'outbound incarnation callback', problem);
+      return { success: false, incarnationChanged: false };
+    }
+    const incarnationChanged =
+      result.incarnationChanged || kernelDetectedRestart;
+    if (incarnationChanged) {
       logger.log(
         `${channel.peerId.slice(0, 8)}:: incarnation changed during outbound handshake, resetting remote state`,
       );
-      // Call incarnation change callback first to reset RemoteHandle state
-      onIncarnationChange?.(channel.peerId);
     }
-    return { success: true, incarnationChanged: result.incarnationChanged };
+    return { success: true, incarnationChanged };
   }
 
   /**
    * Perform inbound handshake and handle incarnation changes.
-   * Returns true if handshake succeeded (or was skipped), false if it failed.
+   *
+   * On detected restart we reject the inbound channel: the kernel just tore
+   * down its c-list and seq state for this peer, so accepting the channel
+   * here would let any concurrent in-flight outbound send write a
+   * pre-restart payload over a fresh-incarnation channel. The caller closes
+   * the channel; the peer will re-dial and the next handshake sees the
+   * now-persisted incarnation and proceeds normally — symmetric with the
+   * outbound `PeerRestartedError` path.
    *
    * @param channel - The channel to perform handshake on.
-   * @returns True if handshake succeeded or was skipped.
+   * @returns True if handshake succeeded and the channel should be registered;
+   *   false if the handshake failed OR a restart was detected (caller closes).
    */
   async function doInboundHandshake(channel: Channel): Promise<boolean> {
     if (!handshakeDeps) {
-      return true; // No handshake configured, skip
+      return true;
     }
     let result;
     try {
@@ -232,14 +264,26 @@ export async function initTransport(
       outputError(channel.peerId, 'inbound handshake', problem);
       return false;
     }
-    // Handle incarnation change outside try-catch so callback errors
-    // don't incorrectly mark the handshake as failed
-    if (result.incarnationChanged) {
+    // Treat a callback throw as a handshake failure: the caller closes
+    // the channel only when this returns false, so an unhandled throw
+    // would let the channel escape upstream and be closed (noisily) by
+    // the outer onInboundConnection catch. Better to fail closed here.
+    let kernelDetectedRestart: boolean;
+    try {
+      kernelDetectedRestart =
+        (await onIncarnationChange?.(
+          channel.peerId,
+          result.remoteIncarnationId,
+        )) ?? false;
+    } catch (problem) {
+      outputError(channel.peerId, 'inbound incarnation callback', problem);
+      return false;
+    }
+    if (result.incarnationChanged || kernelDetectedRestart) {
       logger.log(
-        `${channel.peerId.slice(0, 8)}:: incarnation changed during inbound handshake, resetting remote state`,
+        `${channel.peerId.slice(0, 8)}:: incarnation changed during inbound handshake, rejecting channel to force re-dial`,
       );
-      // Call incarnation change callback first to reset RemoteHandle state
-      onIncarnationChange?.(channel.peerId);
+      return false;
     }
     return true;
   }
@@ -498,12 +542,11 @@ export async function initTransport(
     message: string,
   ): Promise<void> {
     if (signal.aborted) {
-      throw Error('Network stopped');
+      throw new NetworkStoppedError();
     }
 
-    // Check if peer is intentionally closed
     if (peerStateManager.isIntentionallyClosed(targetPeerId)) {
-      throw Error('Message delivery failed after intentional close');
+      throw new IntentionalCloseError();
     }
 
     // Validate message size before sending
@@ -586,17 +629,39 @@ export async function initTransport(
             throw Error('Handshake failed');
           }
           if (handshakeResult.incarnationChanged) {
-            // Peer restarted - don't send stale message, let caller retry with fresh state
-            registerChannel(targetPeerId, channel, 'reading channel to');
-            throw Error(
-              'Remote peer restarted: message not sent to avoid stale delivery',
-            );
+            // Peer restarted: close this freshly-dialed channel without
+            // registering it. Subsequent sends re-dial; that next handshake
+            // sees the now-persisted incarnation and proceeds normally.
+            // Registering here would let concurrent in-flight sends bypass
+            // the handshake check and write pre-restart payloads on the
+            // same channel.
+            try {
+              await connectionFactory.closeChannel(channel, targetPeerId);
+            } catch (closeError) {
+              outputError(
+                targetPeerId,
+                'closing channel after peer restart',
+                closeError,
+              );
+            }
+            throw new PeerRestartedError();
           }
           registerChannel(targetPeerId, channel, 'reading channel to');
         }
       } catch (problem) {
-        outputError(targetPeerId, `opening connection`, problem);
-        handleConnectionLoss(targetPeerId);
+        // PeerRestartedError means the handshake succeeded against a
+        // reachable peer that just changed incarnations — don't treat that
+        // as a connectivity failure. handleConnectionLoss would clear
+        // state.channel and could clobber an inbound channel a concurrent
+        // handshake just registered.
+        if (problem instanceof PeerRestartedError) {
+          logger.log(
+            `${targetPeerId.slice(0, 8)}:: aborting outbound send: peer restarted`,
+          );
+        } else {
+          outputError(targetPeerId, `opening connection`, problem);
+          handleConnectionLoss(targetPeerId);
+        }
         throw problem;
       }
     }
@@ -664,12 +729,11 @@ export async function initTransport(
       throw error;
     }
 
-    // Perform handshake before registering the channel
+    // Perform handshake before registering the channel. doInboundHandshake
+    // returns false on either handshake failure or a detected peer restart;
+    // both cases require closing the channel without registration.
     const handshakeOk = await doInboundHandshake(channel);
     if (!handshakeOk) {
-      logger.log(
-        `${channel.peerId}:: rejecting inbound connection due to handshake failure`,
-      );
       await connectionFactory.closeChannel(channel, channel.peerId);
       return;
     }

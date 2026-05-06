@@ -25,6 +25,7 @@ import type {
   PostMessageTarget,
 } from '@metamask/streams/browser';
 import { isJsonRpcRequest, isJsonRpcResponse } from '@metamask/utils';
+import type { JsonRpcRequest } from '@metamask/utils';
 
 // Appears in the docs.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -179,23 +180,41 @@ export class PlatformServicesServer {
       const message = event.data;
       this.#rpcClient.handleResponse(message.id as string, message);
     } else if (isJsonRpcRequest(event.data)) {
-      const { id, method, params } = event.data;
-      try {
-        this.#rpcServer.assertHasMethod(method);
-        // Ridiculous cast to bypass TypeScript vs. JsonRpc tug-o-war
-        const port: MessagePort | undefined = (await this.#rpcServer.execute(
-          method,
-          params,
-        )) as unknown as MessagePort | undefined;
-        await this.#sendMessage({ id, result: null, jsonrpc: '2.0' }, port);
-      } catch (error) {
-        this.#logger.error(`Error handling "${method}" request:`, error);
-        this.#sendMessage({
-          id,
-          error: serializeError(error),
-          jsonrpc: '2.0',
-        }).catch(() => undefined);
-      }
+      // Run the request handler in the background instead of awaiting it
+      // inside the drain. The drain processes responses too, and a request
+      // handler that fires an outbound RPC back to the other side (e.g.
+      // transport.sendRemoteMessage's handshake calling onIncarnationChange)
+      // would deadlock waiting for its response — the drain can't get to
+      // that response until the request handler returns.
+      this.#executeRequest(event.data).catch(() => undefined);
+    }
+  }
+
+  /**
+   * Execute a JSON-RPC request and write the response back. Errors during
+   * execution are serialized into a JSON-RPC error response; errors during
+   * response delivery are logged and swallowed (the caller has nowhere to
+   * surface them).
+   *
+   * @param request - The JSON-RPC request to execute.
+   */
+  async #executeRequest(request: JsonRpcRequest): Promise<void> {
+    const { id, method, params } = request;
+    try {
+      this.#rpcServer.assertHasMethod(method);
+      // Ridiculous cast to bypass TypeScript vs. JsonRpc tug-o-war
+      const port: MessagePort | undefined = (await this.#rpcServer.execute(
+        method,
+        params,
+      )) as unknown as MessagePort | undefined;
+      await this.#sendMessage({ id, result: null, jsonrpc: '2.0' }, port);
+    } catch (error) {
+      this.#logger.error(`Error handling "${method}" request:`, error);
+      this.#sendMessage({
+        id,
+        error: serializeError(error),
+        jsonrpc: '2.0',
+      }).catch(() => undefined);
     }
   }
 
@@ -429,20 +448,40 @@ export class PlatformServicesServer {
   }
 
   /**
-   * Handle when a remote peer's incarnation changes (peer restarted).
-   * Notifies the kernel worker via RPC to reset the RemoteHandle state.
+   * Forward the incarnationId observed during a peer handshake to the kernel
+   * worker, and return its determination of whether the peer truly restarted.
+   * The transport awaits this so it can suppress stale outbound messages on
+   * the same connection.
    *
-   * @param peerId - The peer ID of the remote that restarted.
+   * On RPC failure (kernel worker unreachable, channel torn down, validation
+   * error) we fail *closed* — return `true` to make the transport drop the
+   * outbound and re-dial. The opposite default (`false` = "no restart") would
+   * silently let stale writes through exactly when the RPC is most likely to
+   * fail (kernel-side restart), which is the bug class this whole change is
+   * defending against.
+   *
+   * @param peerId - The peer that completed the handshake.
+   * @param observedIncarnation - The incarnationId reported by the peer.
+   * @returns Whether the kernel detected a peer restart, or `true` when the
+   *   kernel-side check could not be performed.
    */
-  #handleRemoteIncarnationChange(peerId: string): void {
-    this.#rpcClient
-      .call('remoteIncarnationChange', { peerId })
-      .catch((error) => {
-        this.#logger.error(
-          'Error notifying kernel of remote incarnation change:',
-          error,
-        );
+  async #handleRemoteIncarnationChange(
+    peerId: string,
+    observedIncarnation: string,
+  ): Promise<boolean> {
+    try {
+      return await this.#rpcClient.call('remoteIncarnationChange', {
+        peerId,
+        observedIncarnation,
       });
+    } catch (error) {
+      this.#logger.error(
+        `Cannot reach kernel for incarnation handshake with ${peerId.slice(0, 8)}; ` +
+          'treating as restart to avoid stale delivery:',
+        error,
+      );
+      return true;
+    }
   }
 }
 harden(PlatformServicesServer);

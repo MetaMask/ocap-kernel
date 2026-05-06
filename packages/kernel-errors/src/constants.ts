@@ -34,6 +34,9 @@ export const ErrorCode = {
   SampleGenerationError: 'SAMPLE_GENERATION_ERROR',
   InternalError: 'INTERNAL_ERROR',
   ResourceLimitError: 'RESOURCE_LIMIT_ERROR',
+  PeerRestartedError: 'PEER_RESTARTED_ERROR',
+  IntentionalCloseError: 'INTENTIONAL_CLOSE_ERROR',
+  NetworkStoppedError: 'NETWORK_STOPPED_ERROR',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

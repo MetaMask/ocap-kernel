@@ -25,6 +25,7 @@ import type {
   PostMessageTarget,
 } from '@metamask/streams/browser';
 import { isJsonRpcResponse, isJsonRpcRequest } from '@metamask/utils';
+import type { JsonRpcRequest } from '@metamask/utils';
 import type { JsonRpcId } from '@metamask/utils';
 
 // Appears in the docs.
@@ -329,16 +330,48 @@ export class PlatformServicesClient implements PlatformServices {
   }
 
   /**
-   * Handle a remote incarnation change notification from the server.
+   * Forward an incarnationId observed during a peer handshake to the kernel
+   * layer. Fires on every successful handshake; the kernel decides whether
+   * it represents a peer restart and returns the verdict so the transport
+   * can suppress stale outbound messages.
    *
-   * @param peerId - The peer ID of the remote that restarted.
-   * @returns A promise that resolves when handling is complete.
+   * Fails closed: handler exceptions and non-boolean returns coerce to
+   * `true` so the transport drops the outbound rather than letting a
+   * potentially stale message through. Returns `false` only when no handler
+   * is registered (transport has no kernel to consult, so the verdict is
+   * effectively unknown — the receiver-side persisted check still gates
+   * correctness).
+   *
+   * @param peerId - The peer that completed the handshake.
+   * @param observedIncarnation - The incarnationId reported by the peer.
+   * @returns Whether the kernel detected a peer restart.
    */
-  async #remoteIncarnationChange(peerId: string): Promise<null> {
-    if (this.#remoteIncarnationChangeHandler) {
-      this.#remoteIncarnationChangeHandler(peerId);
+  async #remoteIncarnationChange(
+    peerId: string,
+    observedIncarnation: string,
+  ): Promise<boolean> {
+    if (!this.#remoteIncarnationChangeHandler) {
+      return false;
     }
-    return null;
+    try {
+      const verdict = await this.#remoteIncarnationChangeHandler(
+        peerId,
+        observedIncarnation,
+      );
+      if (typeof verdict !== 'boolean') {
+        this.#logger.error(
+          `incarnation handler returned non-boolean ${typeof verdict} for ${peerId.slice(0, 8)}; treating as restart`,
+        );
+        return true;
+      }
+      return verdict;
+    } catch (error) {
+      this.#logger.error(
+        `incarnation handler threw for ${peerId.slice(0, 8)}; treating as restart:`,
+        error,
+      );
+      return true;
+    }
   }
 
   /**
@@ -383,22 +416,34 @@ export class PlatformServicesClient implements PlatformServices {
 
       this.#rpcClient.handleResponse(id, event.data);
     } else if (isJsonRpcRequest(event.data)) {
-      const { id, method, params } = event.data;
-      try {
-        this.#rpcServer.assertHasMethod(method);
-        const result = await this.#rpcServer.execute(method, params);
-        await this.#sendMessage({
-          id,
-          result,
-          jsonrpc: '2.0',
-        });
-      } catch (error) {
-        await this.#sendMessage({
-          id,
-          error: serializeError(error),
-          jsonrpc: '2.0',
-        });
-      }
+      // Run the request handler in the background instead of awaiting it
+      // inside the drain. The drain processes responses too, and a request
+      // handler that fires an outbound RPC back to the other side would
+      // deadlock waiting for its response — the drain can't get to that
+      // response until the request handler returns.
+      this.#executeRequest(event.data).catch(() => undefined);
+    }
+  }
+
+  /**
+   * Execute a JSON-RPC request and write the response back. Errors during
+   * execution are serialized into a JSON-RPC error response; errors during
+   * response delivery are swallowed.
+   *
+   * @param request - The JSON-RPC request to execute.
+   */
+  async #executeRequest(request: JsonRpcRequest): Promise<void> {
+    const { id, method, params } = request;
+    try {
+      this.#rpcServer.assertHasMethod(method);
+      const result = await this.#rpcServer.execute(method, params);
+      await this.#sendMessage({ id, result, jsonrpc: '2.0' });
+    } catch (error) {
+      await this.#sendMessage({
+        id,
+        error: serializeError(error),
+        jsonrpc: '2.0',
+      }).catch(() => undefined);
     }
   }
 }

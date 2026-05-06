@@ -28,6 +28,9 @@ let capturedRemoteMessageHandler:
   | ((from: string, message: string) => Promise<string>)
   | undefined;
 let capturedRemoteGiveUpHandler: ((peerId: string) => void) | undefined;
+let capturedOnIncarnationChange:
+  | ((peerId: string, observedIncarnation: string) => Promise<boolean>)
+  | undefined;
 
 vi.mock('@metamask/ocap-kernel', () => ({
   PlatformServicesCommandMethod: {
@@ -41,9 +44,14 @@ vi.mock('@metamask/ocap-kernel', () => ({
       _options: unknown,
       remoteMessageHandler: (from: string, message: string) => Promise<string>,
       remoteGiveUpHandler: (peerId: string) => void,
+      _localIncarnationId: string | undefined,
+      onIncarnationChange:
+        | ((peerId: string, observedIncarnation: string) => Promise<boolean>)
+        | undefined,
     ) => {
       capturedRemoteMessageHandler = remoteMessageHandler;
       capturedRemoteGiveUpHandler = remoteGiveUpHandler;
+      capturedOnIncarnationChange = onIncarnationChange;
       return {
         sendRemoteMessage: mockSendRemoteMessage,
         stop: mockStop,
@@ -389,6 +397,7 @@ describe('PlatformServicesServer', () => {
         // Reset mocks before each test
         capturedRemoteMessageHandler = undefined;
         capturedRemoteGiveUpHandler = undefined;
+        capturedOnIncarnationChange = undefined;
       });
 
       describe('initializeRemoteComms', () => {
@@ -530,6 +539,103 @@ describe('PlatformServicesServer', () => {
             }),
           );
           await handlerPromise;
+        });
+      });
+
+      describe('handleRemoteIncarnationChange', () => {
+        it('forwards observed incarnation to RPC and resolves to the kernel verdict', async () => {
+          const keySeed = '0xabcd';
+          const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+
+          const outputs: unknown[] = [];
+          const testStream = await TestDuplexStream.make((message) => {
+            outputs.push(message);
+          });
+          await testStream.synchronize();
+          // eslint-disable-next-line no-new
+          new PlatformServicesServer(
+            testStream as unknown as PlatformServicesStream,
+            makeMockVatWorker,
+            logger,
+          );
+          await testStream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', keySeed, { relays }),
+          );
+          await delay(10);
+
+          expect(capturedOnIncarnationChange).toBeDefined();
+
+          // Fire the handler and have the "kernel" respond with `true`.
+          const verdict = capturedOnIncarnationChange?.(
+            'peer-789',
+            'incarnation-X',
+          );
+          await delay(10);
+
+          // Find the outgoing RPC and respond.
+          const rpcCall = outputs.find((message: unknown) => {
+            const parsed = message as { payload?: { method?: string } };
+            return parsed.payload?.method === 'remoteIncarnationChange';
+          }) as { payload: { method: string; id: string; params: unknown } };
+          expect(rpcCall).toBeDefined();
+          expect(rpcCall.payload.params).toStrictEqual({
+            peerId: 'peer-789',
+            observedIncarnation: 'incarnation-X',
+          });
+
+          // Stub the RPC response with verdict=true.
+          await testStream.receiveInput(
+            new MessageEvent('message', {
+              data: { id: rpcCall.payload.id, result: true, jsonrpc: '2.0' },
+            }),
+          );
+          expect(await verdict).toBe(true);
+        });
+
+        it('returns true (fail closed) when the RPC call rejects', async () => {
+          const keySeed = '0xabcd';
+          const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+
+          const outputs: unknown[] = [];
+          const testStream = await TestDuplexStream.make((message) => {
+            outputs.push(message);
+          });
+          await testStream.synchronize();
+          // eslint-disable-next-line no-new
+          new PlatformServicesServer(
+            testStream as unknown as PlatformServicesStream,
+            makeMockVatWorker,
+            logger,
+          );
+          await testStream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', keySeed, { relays }),
+          );
+          await delay(10);
+
+          const verdict = capturedOnIncarnationChange?.(
+            'peer-789',
+            'incarnation-Y',
+          );
+          await delay(10);
+
+          // Reject the RPC.
+          const rpcCall = outputs.find((message: unknown) => {
+            const parsed = message as { payload?: { method?: string } };
+            return parsed.payload?.method === 'remoteIncarnationChange';
+          }) as { payload: { method: string; id: string } };
+          expect(rpcCall).toBeDefined();
+          await testStream.receiveInput(
+            new MessageEvent('message', {
+              data: {
+                id: rpcCall.payload.id,
+                error: { code: -32000, message: 'kernel unreachable' },
+                jsonrpc: '2.0',
+              },
+            }),
+          );
+
+          // Fail closed → resolve to true so transport drops the outbound.
+          expect(await verdict).toBe(true);
         });
       });
 

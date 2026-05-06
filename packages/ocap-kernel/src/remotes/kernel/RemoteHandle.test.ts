@@ -1508,4 +1508,245 @@ describe('RemoteHandle', () => {
       );
     });
   });
+
+  describe('ack timeout retransmit', () => {
+    // SES lockdown freezes Date, preventing vi.useFakeTimers(); spy on
+    // setTimeout instead and invoke captured callbacks directly.
+    type PendingTimer = {
+      callback: () => void;
+      delay: number;
+    };
+    let pendingTimers: PendingTimer[];
+    let setTimeoutSpy: ReturnType<typeof vi.spyOn>;
+    let clearTimeoutSpy: ReturnType<typeof vi.spyOn>;
+
+    beforeEach(() => {
+      pendingTimers = [];
+      setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout').mockImplementation(((
+        callback: () => void,
+        delay: number,
+      ) => {
+        pendingTimers.push({ callback, delay });
+        return pendingTimers.length as unknown as ReturnType<typeof setTimeout>;
+      }) as typeof setTimeout);
+      clearTimeoutSpy = vi
+        .spyOn(globalThis, 'clearTimeout')
+        .mockImplementation((handle: unknown) => {
+          if (typeof handle === 'number') {
+            pendingTimers[handle - 1] = {
+              callback: () => undefined,
+              delay: 0,
+            };
+          }
+        });
+    });
+
+    afterEach(() => {
+      setTimeoutSpy.mockRestore();
+      clearTimeoutSpy.mockRestore();
+    });
+
+    /**
+     * Trigger the most recent ACK timer (skipping any cleared/no-op slots).
+     */
+    function fireLastAckTimer(): void {
+      for (let i = pendingTimers.length - 1; i >= 0; i -= 1) {
+        const timer = pendingTimers[i];
+        if (timer && timer.delay > 0) {
+          timer.callback();
+          return;
+        }
+      }
+    }
+
+    it('sends pending messages sequentially, awaiting each before the next', async () => {
+      const remote = RemoteHandle.make({
+        remoteId: mockRemoteId,
+        peerId: mockRemotePeerId,
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        remoteComms: mockRemoteComms,
+        ackTimeoutMs: 100,
+      });
+
+      await remote.deliverNotify([
+        ['rp+1', false, { body: '"first"', slots: [] }],
+      ]);
+      await remote.deliverNotify([
+        ['rp+2', false, { body: '"second"', slots: [] }],
+      ]);
+
+      // send 1 stays pending until we resolve it.
+      const sendCalls: string[] = [];
+      let resolveFirst!: () => void;
+      const firstPromise = new Promise<void>((resolve) => {
+        resolveFirst = resolve;
+      });
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mockReset();
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mockImplementation(
+        async (_peer, payload) => {
+          sendCalls.push(payload);
+          if (sendCalls.length === 1) {
+            await firstPromise;
+          }
+          return undefined;
+        },
+      );
+
+      fireLastAckTimer();
+      // Yield to microtasks so the first iteration's await sees the pending
+      // promise but hasn't yet moved on.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(sendCalls).toHaveLength(1);
+
+      resolveFirst();
+      // Drain microtasks so the second iteration completes.
+      for (let i = 0; i < 5; i += 1) {
+        await Promise.resolve();
+      }
+      expect(sendCalls).toHaveLength(2);
+    });
+
+    it('aborts retransmit and fires give-up when sendRemoteMessage signals peer restart', async () => {
+      const onGiveUp = vi.fn();
+      const remote = RemoteHandle.make({
+        remoteId: mockRemoteId,
+        peerId: mockRemotePeerId,
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        remoteComms: mockRemoteComms,
+        ackTimeoutMs: 100,
+        onGiveUp,
+      });
+
+      await remote.deliverNotify([['rp+1', false, { body: '"a"', slots: [] }]]);
+      await remote.deliverNotify([['rp+2', false, { body: '"b"', slots: [] }]]);
+
+      // Synthesize a PeerRestartedError-shaped rejection (the real class is
+      // transport-internal; isTerminalSendError matches by `error.name`).
+      const peerRestarted = Object.assign(
+        new Error('Remote peer restarted: message not sent'),
+        { name: 'PeerRestartedError' },
+      );
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mockReset();
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mockRejectedValue(
+        peerRestarted,
+      );
+
+      fireLastAckTimer();
+      for (let i = 0; i < 5; i += 1) {
+        await Promise.resolve();
+      }
+
+      // Only iteration 1 runs before the terminal error short-circuits.
+      expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledTimes(1);
+      expect(onGiveUp).toHaveBeenCalledWith(mockRemotePeerId);
+    });
+
+    it('logs and continues on transient send errors', async () => {
+      const onGiveUp = vi.fn();
+      const remote = RemoteHandle.make({
+        remoteId: mockRemoteId,
+        peerId: mockRemotePeerId,
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        remoteComms: mockRemoteComms,
+        ackTimeoutMs: 100,
+        onGiveUp,
+      });
+
+      await remote.deliverNotify([['rp+1', false, { body: '"a"', slots: [] }]]);
+      await remote.deliverNotify([['rp+2', false, { body: '"b"', slots: [] }]]);
+
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mockReset();
+      vi.mocked(mockRemoteComms.sendRemoteMessage)
+        .mockRejectedValueOnce(new Error('temporary network glitch'))
+        .mockResolvedValueOnce(undefined);
+
+      fireLastAckTimer();
+      for (let i = 0; i < 5; i += 1) {
+        await Promise.resolve();
+      }
+
+      // Both iterations ran — the transient failure didn't abort.
+      expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledTimes(2);
+      expect(onGiveUp).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('first-send terminal errors', () => {
+    it.each([
+      [
+        'PeerRestartedError',
+        Object.assign(new Error('peer restarted'), {
+          name: 'PeerRestartedError',
+        }),
+      ],
+      [
+        'IntentionalCloseError',
+        Object.assign(new Error('intentional close'), {
+          name: 'IntentionalCloseError',
+        }),
+      ],
+      [
+        'NetworkStoppedError',
+        Object.assign(new Error('Network stopped'), {
+          name: 'NetworkStoppedError',
+        }),
+      ],
+    ])(
+      'rejects pending and fires onGiveUp when initial send rejects with %s',
+      async (_name, terminalError) => {
+        const onGiveUp = vi.fn();
+        const remote = RemoteHandle.make({
+          remoteId: mockRemoteId,
+          peerId: mockRemotePeerId,
+          kernelStore: mockKernelStore,
+          kernelQueue: mockKernelQueue,
+          remoteComms: mockRemoteComms,
+          ackTimeoutMs: 100,
+          onGiveUp,
+        });
+
+        vi.mocked(mockRemoteComms.sendRemoteMessage).mockRejectedValueOnce(
+          terminalError,
+        );
+
+        const redeem = remote.redeemOcapURL('ocap:something@peer,relay');
+        // Drain microtasks so the catch handler runs.
+        for (let i = 0; i < 5; i += 1) {
+          await Promise.resolve();
+        }
+
+        // The redemption rejects with the giveUp/rejectAllPending reason,
+        // which is the terminal error's message string.
+        await expect(redeem).rejects.toThrow(terminalError.message);
+        expect(onGiveUp).toHaveBeenCalledWith(mockRemotePeerId);
+      },
+    );
+  });
+
+  describe('handlePeerRestart c-list teardown', () => {
+    it('clears the peer’s "+"-direction c-list entries via forgetEndpointImports', async () => {
+      const remote = makeRemote();
+
+      // Seed an object export from the peer (peer-allocated eref ro+5
+      // mapped to a fresh kernel object).
+      const eref = 'ro+5';
+      const kref = mockKernelStore.exportFromEndpoint(mockRemoteId, eref);
+
+      // Sanity: c-list is populated in both directions before restart.
+      // Use the raw `krefToEref`/`erefToKref` lookups (not the translating
+      // wrappers, which flip RRef polarity for receiver-frame interpretation).
+      expect(mockKernelStore.erefToKref(mockRemoteId, eref)).toBe(kref);
+      expect(mockKernelStore.krefToEref(mockRemoteId, kref)).toBe(eref);
+
+      remote.handlePeerRestart();
+
+      // Both halves of the c-list pair are gone after restart.
+      expect(mockKernelStore.erefToKref(mockRemoteId, eref)).toBeUndefined();
+      expect(mockKernelStore.krefToEref(mockRemoteId, kref)).toBeUndefined();
+    });
+  });
 });

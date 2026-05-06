@@ -190,38 +190,100 @@ export class RemoteManager {
   }
 
   /**
-   * Handle when a remote peer's incarnation changes (peer restarted).
-   * Resets the RemoteHandle state and rejects kernel promises for a fresh start.
+   * Handle a peer's reported incarnation after a successful handshake.
    *
-   * @param peerId - The peer ID of the remote that restarted.
+   * Compares the observed incarnation against the value persisted in the
+   * kernel store. When they differ AND a previous value was on file, the peer
+   * has truly restarted: persist the new incarnation and reset the
+   * RemoteHandle's seq dedup state, atomically with respect to the kv layer
+   * so a crash mid-reset can't leave us with the new dedup state under the
+   * old recorded incarnation.
+   *
+   * The savepoint guards only kv-layer writes (`setPeerIncarnation` plus
+   * everything `handlePeerRestart` persists via `clearRemoteSeqState` and
+   * `forgetEndpointImports`). Run-queue mutations (`resolvePromises`) and
+   * the in-memory counter resets inside `RemoteHandle.handlePeerRestart`
+   * are NOT reversible by a savepoint, so we collect the work to do inside
+   * the savepoint, commit, and then fan it out — mirroring the
+   * deferred-completion pattern in `RemoteHandle.handleRemoteMessage`.
+   *
+   * Fires on every handshake (not only on detected change) because the
+   * in-memory PeerStateManager is unreliable across receiver restart and
+   * stale-peer cleanup; the persisted value is the authoritative anchor for
+   * detecting peer restart.
+   *
+   * @param peerId - The peer that completed the handshake.
+   * @param observedIncarnation - The incarnationId the peer just reported.
+   * @returns Whether the peer was determined to have restarted (a defined
+   *   prior value differed from the observed one). The transport uses this
+   *   to suppress stale outbound messages on the same connection.
    */
-  #handleIncarnationChange(peerId: string): void {
-    const remote = this.#remotesByPeer.get(peerId);
-    if (!remote) {
-      // Remote not found - might not have been established yet
-      this.#logger?.log(
-        `Incarnation change for unknown peer ${peerId.slice(0, 8)}, ignoring`,
-      );
-      return;
+  async #handleIncarnationChange(
+    peerId: string,
+    observedIncarnation: string,
+  ): Promise<boolean> {
+    const stored = this.#kernelStore.getPeerIncarnation(peerId);
+    if (stored === observedIncarnation) {
+      return false;
     }
 
-    this.#logger?.log(
-      `Handling incarnation change for peer ${peerId.slice(0, 8)}`,
-    );
+    const isRestart = stored !== undefined;
+    const remote = isRestart ? this.#remotesByPeer.get(peerId) : undefined;
 
-    // Reset RemoteHandle state (pending messages, redemptions, seq numbers)
-    remote.handlePeerRestart();
+    // Snapshot the decider list BEFORE any kv mutation so the c-list lookup
+    // can still find the promises through the entries forgetEndpointImports
+    // is about to tear down. We materialize into an array because the
+    // generator iterates over kv state that we'll mutate.
+    const promisesToReject = remote
+      ? Array.from(this.#kernelStore.getPromisesByDecider(remote.remoteId))
+      : [];
 
-    // Reject all kernel promises where this remote is the decider
-    // The restarted peer has lost its state and won't resolve these promises
-    const { remoteId } = remote;
-    const failure = makeKernelError(
-      'PEER_RESTARTED',
-      'Remote peer restarted (incarnation changed)',
-    );
-    for (const kpid of this.#kernelStore.getPromisesByDecider(remoteId)) {
-      this.#kernelQueue.resolvePromises(remoteId, [[kpid, true, failure]]);
+    const savepoint = `peerIncarnation_${peerId}`;
+    this.#kernelStore.createSavepoint(savepoint);
+    try {
+      if (isRestart) {
+        this.#logger?.log(
+          `Peer ${peerId.slice(0, 8)} restarted (incarnation ${stored.slice(0, 8)} → ${observedIncarnation.slice(0, 8)})`,
+        );
+        if (remote) {
+          remote.persistPeerRestart();
+        } else {
+          // No live RemoteHandle for the peer but a persisted incarnation
+          // exists — usually a transient race during kernel boot before
+          // initRemoteComms has finished restoring remotes. The persisted
+          // bookkeeping the missing handle would have cleaned up may leak.
+          // Surfacing as a warning so operators can correlate.
+          this.#logger?.warn(
+            `Peer ${peerId.slice(0, 8)} restart detected but no live RemoteHandle; advancing persisted incarnation without c-list cleanup`,
+          );
+        }
+      }
+      this.#kernelStore.setPeerIncarnation(peerId, observedIncarnation);
+      this.#kernelStore.releaseSavepoint(savepoint);
+    } catch (error) {
+      this.#kernelStore.rollbackSavepoint(savepoint);
+      throw error;
     }
+
+    // Post-commit fan-out: in-memory state changes and run-queue
+    // mutations are not reversible by a savepoint, so they wait until the
+    // kv layer is durable.
+    if (isRestart && remote) {
+      remote.finalizePeerRestart();
+      if (promisesToReject.length > 0) {
+        const failure = makeKernelError(
+          'PEER_RESTARTED',
+          'Remote peer restarted (incarnation changed)',
+        );
+        for (const kpid of promisesToReject) {
+          this.#kernelQueue.resolvePromises(remote.remoteId, [
+            [kpid, true, failure],
+          ]);
+        }
+      }
+    }
+
+    return isRestart;
   }
 
   /**
