@@ -2,8 +2,8 @@ import { E } from '@endo/eventual-send';
 import { GET_INTERFACE_GUARD } from '@endo/exo';
 import { getInterfaceGuardPayload } from '@endo/patterns';
 import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
+import { ifDefined } from '@metamask/kernel-utils';
 
-import { ifDefined } from '../misc.ts';
 import { makeSection } from './section.ts';
 import type { MetadataSpec, PresheafSection } from './types.ts';
 

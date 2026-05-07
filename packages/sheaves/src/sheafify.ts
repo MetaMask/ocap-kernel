@@ -15,10 +15,10 @@
 import { makeExo } from '@endo/exo';
 import { M } from '@endo/patterns';
 import type { InterfaceGuard } from '@endo/patterns';
+import type { MethodSchema } from '@metamask/kernel-utils';
+import { makeDiscoverableExo } from '@metamask/kernel-utils';
+import { stringify } from '@metamask/kernel-utils';
 
-import { makeDiscoverableExo } from '../discoverable.ts';
-import type { MethodSchema } from '../schema.ts';
-import { stringify } from '../stringify.ts';
 import { asyncifyMethodGuards, collectSheafGuard } from './guard.ts';
 import { evaluateMetadata, resolveMetadataSpec } from './metadata.ts';
 import type { ResolvedMetadataSpec } from './metadata.ts';

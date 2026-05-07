@@ -23,6 +23,7 @@
     { "path": "./packages/sample-services/tsconfig.build.json" },
     { "path": "./packages/service-discovery-types/tsconfig.build.json" },
     { "path": "./packages/service-matcher/tsconfig.build.json" },
+    { "path": "./packages/sheaves/tsconfig.build.json" },
     { "path": "./packages/streams/tsconfig.build.json" },
     { "path": "./packages/template-package/tsconfig.build.json" }
   ]
