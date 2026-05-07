@@ -1,8 +1,8 @@
 import { GET_INTERFACE_GUARD } from '@endo/exo';
 import { M, getInterfaceGuardPayload } from '@endo/patterns';
+import { GET_DESCRIPTION } from '@metamask/kernel-utils';
 import { describe, it, expect } from 'vitest';
 
-import { GET_DESCRIPTION } from '../discoverable.ts';
 import { constant } from './metadata.ts';
 import { makeSection } from './section.ts';
 import { sheafify } from './sheafify.ts';

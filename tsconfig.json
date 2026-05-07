@@ -34,6 +34,7 @@
     { "path": "./packages/omnium-gatherum" },
     { "path": "./packages/remote-iterables" },
     { "path": "./packages/repo-tools" },
+    { "path": "./packages/sheaves" },
     { "path": "./packages/streams" },
     { "path": "./packages/template-package" }
   ]

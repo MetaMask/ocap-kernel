@@ -9,8 +9,7 @@
 
 import type { GET_INTERFACE_GUARD, Methods } from '@endo/exo';
 import type { InterfaceGuard } from '@endo/patterns';
-
-import type { MethodSchema } from '../schema.ts';
+import type { MethodSchema } from '@metamask/kernel-utils';
 
 /** A section: a capability covering a region of the interface topology. */
 export type Section<Core extends Methods = Methods> = Partial<Core> & {
