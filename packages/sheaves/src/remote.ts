@@ -4,13 +4,13 @@ import { getInterfaceGuardPayload } from '@endo/patterns';
 import type { InterfaceGuard, MethodGuard } from '@endo/patterns';
 import { ifDefined } from '@metamask/kernel-utils';
 
-import { makeSection } from './section.ts';
-import type { MetadataSpec, PresheafSection } from './types.ts';
+import { makeHandler } from './section.ts';
+import type { MetadataSpec, Provider } from './types.ts';
 
 /**
- * Wrap a remote (CapTP) reference as a PresheafSection.
+ * Wrap a remote (CapTP) reference as a Provider.
  *
- * The sheaf requires synchronous [GET_INTERFACE_GUARD] access on every section,
+ * The sheaf requires synchronous [GET_INTERFACE_GUARD] access on every handler,
  * but remote references are opaque CapTP handles that cannot provide this
  * synchronously. This function fetches the guard from the remote via E() once
  * at construction time, then creates a local wrapper exo that carries it and
@@ -18,14 +18,14 @@ import type { MetadataSpec, PresheafSection } from './types.ts';
  *
  * @param name - Name for the wrapper exo.
  * @param remoteRef - The remote reference to forward calls to.
- * @param metadata - Optional metadata spec for the presheaf section.
- * @returns A PresheafSection whose exo forwards method calls to the remote.
+ * @param metadata - Optional metadata spec for the provider.
+ * @returns A Provider whose handler forwards method calls to the remote.
  */
 export const makeRemoteSection = async <M extends Record<string, unknown>>(
   name: string,
   remoteRef: object,
   metadata?: MetadataSpec<M>,
-): Promise<PresheafSection<M>> => {
+): Promise<Provider<M>> => {
   const interfaceGuard: InterfaceGuard = await (
     E(remoteRef) as unknown as {
       [GET_INTERFACE_GUARD](): Promise<InterfaceGuard>;
@@ -52,6 +52,6 @@ export const makeRemoteSection = async <M extends Record<string, unknown>>(
       ]!(...args);
   }
 
-  const exo = makeSection(name, interfaceGuard, handlers);
-  return ifDefined({ exo, metadata }) as PresheafSection<M>;
+  const handler = makeHandler(name, interfaceGuard, handlers);
+  return ifDefined({ handler, metadata }) as Provider<M>;
 };

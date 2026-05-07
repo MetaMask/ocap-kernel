@@ -1,18 +1,18 @@
 /**
  * Sheaf types: the product decomposition F_sem x F_op.
  *
- * The section (guard + behavior) is the semantic component F_sem.
+ * The handler (guard + behavior) is the semantic component F_sem.
  * The metadata is the operational component F_op.
  * Effect-equivalence (the sheaf condition) is asserted by the interface:
- * sections covering the same open set produce the same observable result.
+ * handlers covering the same open set produce the same observable result.
  */
 
 import type { GET_INTERFACE_GUARD, Methods } from '@endo/exo';
 import type { InterfaceGuard } from '@endo/patterns';
 import type { MethodSchema } from '@metamask/kernel-utils';
 
-/** A section: a capability covering a region of the interface topology. */
-export type Section<Core extends Methods = Methods> = Partial<Core> & {
+/** A handler: a capability covering a region of the interface topology. */
+export type Handler<Core extends Methods = Methods> = Partial<Core> & {
   [K in typeof GET_INTERFACE_GUARD]?: (() => InterfaceGuard) | undefined;
 };
 
@@ -28,46 +28,46 @@ export type MetadataSpec<M extends Record<string, unknown>> =
   | { kind: 'callable'; fn: (args: unknown[]) => M };
 
 /**
- * A presheaf section: a section (F_sem) paired with an optional metadata spec (F_op).
+ * A provider: a handler (F_sem) paired with an optional metadata spec (F_op).
  *
- * This is the input data to sheafify — an (exo, metadata) pair assigned over
- * the open set defined by the exo's guard.
+ * This is the input data to sheafify — a (handler, metadata) pair assigned over
+ * the open set defined by the handler's guard.
  */
-export type PresheafSection<MetaData extends Record<string, unknown>> = {
-  exo: Section;
+export type Provider<MetaData extends Record<string, unknown>> = {
+  handler: Handler;
   metadata?: MetadataSpec<MetaData>;
 };
 
 /**
- * A section with evaluated metadata: the metadata spec has been computed against
- * the invocation args, yielding a concrete plain object. Used internally during dispatch
- * and as the element type of the `germs` array received by Lift (where each entry
- * is already a representative of an equivalence class after collapsing).
- * Empty `{}` means no metadata.
+ * A candidate: a provider with evaluated metadata. The metadata spec has been
+ * computed against the invocation args, yielding a concrete plain object. Used
+ * internally during dispatch and as the element type of the array received by
+ * Policy (where each entry is already a representative of an equivalence class
+ * after collapsing). Empty `{}` means no metadata.
  */
-export type EvaluatedSection<MetaData extends Record<string, unknown>> = {
-  exo: Section;
+export type Candidate<MetaData extends Record<string, unknown>> = {
+  handler: Handler;
   metadata: MetaData;
 };
 
 /**
- * Context passed to the lift alongside the stalk.
+ * Context passed to the policy alongside the candidates.
  *
  * `constraints` holds metadata keys whose values are identical across every
- * germ in the stalk — these are topologically determined and not a choice.
+ * candidate — these are topologically determined and not a choice.
  * Typed as `Partial<MetaData>` because the actual partition is runtime-dependent.
  */
-export type LiftContext<MetaData extends Record<string, unknown>> = {
+export type PolicyContext<MetaData extends Record<string, unknown>> = {
   method: string;
   args: unknown[];
   constraints: Partial<MetaData>;
 };
 
 /**
- * Lift: a coroutine that yields candidates in preference order and receives
+ * Policy: a coroutine that yields candidates in preference order and receives
  * the accumulated error list after each failed attempt.
  *
- * Each germ carries only distinguishing metadata (options); shared metadata
+ * Each candidate carries only distinguishing metadata (options); shared metadata
  * (constraints) is delivered separately in the context.
  *
  * The sheaf calls gen.next([]) to prime the coroutine, then gen.next(errors)
@@ -76,19 +76,19 @@ export type LiftContext<MetaData extends Record<string, unknown>> = {
  * to yield another candidate or return (signal exhaustion). The sheaf
  * rethrows the last error when the generator is done.
  *
- * Simple lifts that do not need retry logic can ignore the error input:
- *   async function*(germs) { yield* [...germs].sort(comparator); }
+ * Simple policies that do not need retry logic can ignore the error input:
+ *   async function*(candidates) { yield* [...candidates].sort(comparator); }
  */
-export type Lift<MetaData extends Record<string, unknown>> = (
-  germs: EvaluatedSection<Partial<MetaData>>[],
-  context: LiftContext<MetaData>,
-) => AsyncGenerator<EvaluatedSection<Partial<MetaData>>, void, unknown[]>;
+export type Policy<MetaData extends Record<string, unknown>> = (
+  candidates: Candidate<Partial<MetaData>>[],
+  context: PolicyContext<MetaData>,
+) => AsyncGenerator<Candidate<Partial<MetaData>>, void, unknown[]>;
 
 /**
- * A sheaf: an authority manager over a presheaf.
+ * A sheaf: an authority manager over a set of providers.
  *
  * Produces dispatch sections via `getSection`, each routing invocations
- * through the presheaf sections supplied at construction time.
+ * through the providers supplied at construction time.
  */
 export type Sheaf<MetaData extends Record<string, unknown>> = {
   /**
@@ -99,7 +99,10 @@ export type Sheaf<MetaData extends Record<string, unknown>> = {
    * signatures through `Sheaf<M>` without knowing the specific guard.
    * Cast to the interface type at the call site once you know the guard.
    */
-  getSection: (opts: { guard: InterfaceGuard; lift: Lift<MetaData> }) => object;
+  getSection: (opts: {
+    guard: InterfaceGuard;
+    lift: Policy<MetaData>;
+  }) => object;
   /**
    * Produce a discoverable dispatch exo over the given guard.
    *
@@ -107,31 +110,31 @@ export type Sheaf<MetaData extends Record<string, unknown>> = {
    */
   getDiscoverableSection: (opts: {
     guard: InterfaceGuard;
-    lift: Lift<MetaData>;
+    lift: Policy<MetaData>;
     schema: Record<string, MethodSchema>;
   }) => object;
   /**
-   * Produce a dispatch exo over the full union guard of all presheaf sections.
+   * Produce a dispatch exo over the full union guard of all providers.
    *
    * Prefer `getSection` with an explicit guard when the guard is statically
    * known — it makes the capability's scope visible at the call site. Use the
-   * global variant when sections are assembled dynamically at runtime and the
+   * global variant when providers are assembled dynamically at runtime and the
    * union guard is not known until after `sheafify` runs.
    *
    * @deprecated Provide an explicit guard via getSection instead.
    */
-  getGlobalSection: (opts: { lift: Lift<MetaData> }) => object;
+  getGlobalSection: (opts: { lift: Policy<MetaData> }) => object;
   /**
-   * Produce a discoverable dispatch exo over the full union guard of all presheaf sections.
+   * Produce a discoverable dispatch exo over the full union guard of all providers.
    *
    * Prefer `getDiscoverableSection` with an explicit guard when the guard is
-   * statically known. Use the global variant when sections are assembled
+   * statically known. Use the global variant when providers are assembled
    * dynamically and the union guard is not known until after `sheafify` runs.
    *
    * @deprecated Provide an explicit guard via getDiscoverableSection instead.
    */
   getDiscoverableGlobalSection: (opts: {
-    lift: Lift<MetaData>;
+    lift: Policy<MetaData>;
     schema: Record<string, MethodSchema>;
   }) => object;
 };

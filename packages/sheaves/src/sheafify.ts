@@ -1,15 +1,15 @@
 /**
- * Sheafify a presheaf into an authority manager.
+ * Sheafify a set of providers into an authority manager.
  *
- * `sheafify({ name, sections })` returns a `Sheaf` — an immutable object
- * that produces dispatch sections over a fixed presheaf.
+ * `sheafify({ name, providers })` returns a `Sheaf` — an immutable object
+ * that produces dispatch sections over a fixed set of providers.
  *
  * Each dispatch through a granted section:
- *   1. Computes the stalk (getStalk — presheaf sections matching the point)
- *   2. Collapses equivalent germs (same metadata → one representative)
+ *   1. Computes the matching providers (getStalk — providers whose guard covers the point)
+ *   2. Collapses equivalent candidates (same metadata → one representative)
  *   3. Decomposes metadata into constraints + options
- *   4. Invokes the lift on the distinguished options
- *   5. Dispatches to some element of the opted germ
+ *   4. Invokes the policy on the distinguished options
+ *   5. Dispatches to some element of the chosen candidate
  */
 
 import { makeExo } from '@endo/exo';
@@ -24,11 +24,11 @@ import { evaluateMetadata, resolveMetadataSpec } from './metadata.ts';
 import type { ResolvedMetadataSpec } from './metadata.ts';
 import { getStalk } from './stalk.ts';
 import type {
-  EvaluatedSection,
-  Lift,
-  LiftContext,
-  PresheafSection,
-  Section,
+  Candidate,
+  Handler,
+  Policy,
+  PolicyContext,
+  Provider,
   Sheaf,
 } from './types.ts';
 
@@ -79,18 +79,18 @@ const metadataKey = (metadata: Record<string, unknown>): string => {
 };
 
 /**
- * Collapse stalk entries into equivalence classes (germs) by metadata identity.
+ * Collapse candidates into equivalence classes by metadata identity.
  * Returns one representative per class; the choice within a class is arbitrary.
  *
- * @param stalk - The stalk entries to collapse.
+ * @param candidates - The candidates to collapse.
  * @returns One representative per equivalence class.
  */
 const collapseEquivalent = <MetaData extends Record<string, unknown>>(
-  stalk: EvaluatedSection<MetaData>[],
-): EvaluatedSection<MetaData>[] => {
+  candidates: Candidate<MetaData>[],
+): Candidate<MetaData>[] => {
   const seen = new Set<string>();
-  const representatives: EvaluatedSection<MetaData>[] = [];
-  for (const entry of stalk) {
+  const representatives: Candidate<MetaData>[] = [];
+  for (const entry of candidates) {
     const key = metadataKey(entry.metadata);
     if (!seen.has(key)) {
       seen.add(key);
@@ -101,28 +101,28 @@ const collapseEquivalent = <MetaData extends Record<string, unknown>>(
 };
 
 /**
- * Decompose stalk metadata into constraints (shared by all germs) and
- * stripped germs (carrying only distinguishing keys).
+ * Decompose candidate metadata into constraints (shared by all) and
+ * stripped candidates (carrying only distinguishing keys).
  *
- * @param stalk - The collapsed stalk entries.
- * @returns Constraints and stripped germs.
+ * @param candidates - The collapsed candidates.
+ * @returns Constraints and stripped candidates.
  */
 const decomposeMetadata = <MetaData extends Record<string, unknown>>(
-  stalk: EvaluatedSection<MetaData>[],
+  candidates: Candidate<MetaData>[],
 ): {
   constraints: Partial<MetaData>;
-  stripped: EvaluatedSection<Partial<MetaData>>[];
+  stripped: Candidate<Partial<MetaData>>[];
 } => {
   const constraints: Record<string, unknown> = {};
 
-  const head = stalk[0];
+  const head = candidates[0];
   if (head === undefined) {
     return { constraints: {} as Partial<MetaData>, stripped: [] };
   }
   const first = head.metadata;
   for (const key of Object.keys(first)) {
     const val = first[key];
-    const shared = stalk.every((entry) => {
+    const shared = candidates.every((entry) => {
       const meta = entry.metadata;
       return key in meta && Object.is(meta[key], val);
     });
@@ -131,49 +131,53 @@ const decomposeMetadata = <MetaData extends Record<string, unknown>>(
     }
   }
 
-  const stripped = stalk.map((entry) => {
+  const stripped = candidates.map((entry) => {
     const remaining: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(entry.metadata)) {
       if (!(key in constraints)) {
         remaining[key] = val;
       }
     }
-    return { exo: entry.exo, metadata: remaining as Partial<MetaData> };
+    return { handler: entry.handler, metadata: remaining as Partial<MetaData> };
   });
 
   return { constraints: constraints as Partial<MetaData>, stripped };
 };
 
 /**
- * Invoke a method on a section exo, throwing if the handler is missing.
+ * Invoke a method on a handler, throwing if the method is missing.
  *
- * @param exo - The section exo to invoke.
+ * @param handler - The handler to invoke.
  * @param method - The method name to call.
  * @param args - The positional arguments.
  * @returns The synchronous return value of the method (typically a Promise).
  */
-const invokeExo = (exo: Section, method: string, args: unknown[]): unknown => {
-  const obj = exo as Record<string, (...a: unknown[]) => unknown>;
+const invokeHandler = (
+  handler: Handler,
+  method: string,
+  args: unknown[],
+): unknown => {
+  const obj = handler as Record<string, (...a: unknown[]) => unknown>;
   const fn = obj[method];
   if (fn === undefined) {
-    throw new Error(`Section has guard for '${method}' but no handler`);
+    throw new Error(`Handler has guard for '${method}' but no method`);
   }
   return fn.call(obj, ...args);
 };
 
-type ResolvedSection<M extends Record<string, unknown>> = {
-  exo: Section;
+type ResolvedProvider<M extends Record<string, unknown>> = {
+  handler: Handler;
   spec: ResolvedMetadataSpec<M> | undefined;
 };
 
-const driveLift = async <M extends Record<string, unknown>>(
-  lift: Lift<M>,
-  germs: EvaluatedSection<Partial<M>>[],
-  context: LiftContext<M>,
-  invoke: (germ: EvaluatedSection<Partial<M>>) => Promise<unknown>,
+const drivePolicy = async <M extends Record<string, unknown>>(
+  policy: Policy<M>,
+  candidates: Candidate<Partial<M>>[],
+  context: PolicyContext<M>,
+  invoke: (candidate: Candidate<Partial<M>>) => Promise<unknown>,
 ): Promise<unknown> => {
   const errors: unknown[] = [];
-  const gen = lift(germs, context);
+  const gen = policy(candidates, context);
   let next = await gen.next([...errors]);
   while (!next.done) {
     try {
@@ -185,7 +189,7 @@ const driveLift = async <M extends Record<string, unknown>>(
       next = await gen.next([...errors]);
     }
   }
-  throw new Error(`No viable section for ${context.method}`, {
+  throw new Error(`No viable handler for ${context.method}`, {
     cause: errors,
   });
 };
@@ -194,20 +198,20 @@ export const sheafify = <
   MetaData extends Record<string, unknown> = Record<string, unknown>,
 >({
   name,
-  sections,
+  providers,
   compartment,
 }: {
   name: string;
-  sections: PresheafSection<MetaData>[];
+  providers: Provider<MetaData>[];
   compartment?: { evaluate: (src: string) => unknown };
 }): Sheaf<MetaData> => {
-  const frozenSections: readonly ResolvedSection<MetaData>[] = harden(
-    sections.map((section) => ({
-      exo: section.exo,
+  const frozenProviders: readonly ResolvedProvider<MetaData>[] = harden(
+    providers.map((provider) => ({
+      handler: provider.handler,
       spec:
-        section.metadata === undefined
+        provider.metadata === undefined
           ? undefined
-          : resolveMetadataSpec(section.metadata, compartment),
+          : resolveMetadataSpec(provider.metadata, compartment),
     })),
   );
   const buildSection = ({
@@ -216,7 +220,7 @@ export const sheafify = <
     schema,
   }: {
     guard: InterfaceGuard;
-    lift: Lift<MetaData>;
+    lift: Policy<MetaData>;
     schema?: Record<string, MethodSchema>;
   }): object => {
     const asyncMethodGuards = asyncifyMethodGuards(guard);
@@ -231,53 +235,53 @@ export const sheafify = <
       method: string,
       args: unknown[],
     ): Promise<unknown> => {
-      const stalk = getStalk(frozenSections, method, args);
-      const evaluatedStalk: EvaluatedSection<MetaData>[] = stalk.map(
-        (section) => ({
-          exo: section.exo,
-          metadata: evaluateMetadata(section.spec, args),
+      const candidates = getStalk(frozenProviders, method, args);
+      const evaluatedCandidates: Candidate<MetaData>[] = candidates.map(
+        (provider) => ({
+          handler: provider.handler,
+          metadata: evaluateMetadata(provider.spec, args),
         }),
       );
-      switch (evaluatedStalk.length) {
+      switch (evaluatedCandidates.length) {
         case 0:
-          throw new Error(`No section covers ${method}(${stringify(args, 0)})`);
+          throw new Error(`No handler covers ${method}(${stringify(args, 0)})`);
         case 1:
-          return invokeExo(
-            (evaluatedStalk[0] as EvaluatedSection<MetaData>).exo,
+          return invokeHandler(
+            (evaluatedCandidates[0] as Candidate<MetaData>).handler,
             method,
             args,
           );
         default: {
-          const collapsed = collapseEquivalent(evaluatedStalk);
+          const collapsed = collapseEquivalent(evaluatedCandidates);
           if (collapsed.length === 1) {
-            return invokeExo(
-              (collapsed[0] as EvaluatedSection<MetaData>).exo,
+            return invokeHandler(
+              (collapsed[0] as Candidate<MetaData>).handler,
               method,
               args,
             );
           }
           const { constraints, stripped } = decomposeMetadata(collapsed);
           const strippedToCollapsed = new Map(
-            stripped.map((strippedGerm, i) => [
-              strippedGerm,
-              collapsed[i] as EvaluatedSection<MetaData>,
+            stripped.map((strippedCandidate, i) => [
+              strippedCandidate,
+              collapsed[i] as Candidate<MetaData>,
             ]),
           );
-          return driveLift(
+          return drivePolicy(
             lift,
             stripped,
             { method, args, constraints },
-            async (germ) => {
-              const section = strippedToCollapsed.get(germ);
-              if (section === undefined) {
+            async (candidate) => {
+              const resolved = strippedToCollapsed.get(candidate);
+              if (resolved === undefined) {
                 throw new Error(
-                  `Lift yielded an unrecognized germ for '${method}'. ` +
-                    `The yielded value must be one of the EvaluatedSection objects ` +
-                    `passed into the lift (object identity, not structural equality). ` +
-                    `Did the lift construct a new object instead of yielding from the germs array?`,
+                  `Policy yielded an unrecognized candidate for '${method}'. ` +
+                    `The yielded value must be one of the Candidate objects ` +
+                    `passed into the policy (object identity, not structural equality). ` +
+                    `Did the policy construct a new object instead of yielding from the candidates array?`,
                 );
               }
-              return invokeExo(section.exo, method, args);
+              return invokeHandler(resolved.handler, method, args);
             },
           );
         }
@@ -297,7 +301,7 @@ export const sheafify = <
           handlers,
           schema,
           asyncGuard,
-        )) as unknown as Section;
+        )) as unknown as Handler;
 
     return exo;
   };
@@ -305,7 +309,7 @@ export const sheafify = <
   const unionGuard = (): InterfaceGuard =>
     collectSheafGuard(
       name,
-      frozenSections.map(({ exo }) => exo),
+      frozenProviders.map(({ handler }) => handler),
     );
 
   const getSection = ({
@@ -313,7 +317,7 @@ export const sheafify = <
     lift,
   }: {
     guard: InterfaceGuard;
-    lift: Lift<MetaData>;
+    lift: Policy<MetaData>;
   }): object => buildSection({ guard, lift });
 
   const getDiscoverableSection = ({
@@ -322,18 +326,18 @@ export const sheafify = <
     schema,
   }: {
     guard: InterfaceGuard;
-    lift: Lift<MetaData>;
+    lift: Policy<MetaData>;
     schema: Record<string, MethodSchema>;
   }): object => buildSection({ guard, lift, schema });
 
-  const getGlobalSection = ({ lift }: { lift: Lift<MetaData> }): object =>
+  const getGlobalSection = ({ lift }: { lift: Policy<MetaData> }): object =>
     buildSection({ guard: unionGuard(), lift });
 
   const getDiscoverableGlobalSection = ({
     lift,
     schema,
   }: {
-    lift: Lift<MetaData>;
+    lift: Policy<MetaData>;
     schema: Record<string, MethodSchema>;
   }): object => buildSection({ guard: unionGuard(), lift, schema });
 

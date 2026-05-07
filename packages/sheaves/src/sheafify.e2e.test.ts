@@ -2,9 +2,9 @@ import { M } from '@endo/patterns';
 import { describe, expect, it, vi } from 'vitest';
 
 import { callable, constant } from './metadata.ts';
-import { makeSection } from './section.ts';
+import { makeHandler } from './section.ts';
 import { sheafify } from './sheafify.ts';
-import type { Lift, PresheafSection } from './types.ts';
+import type { Policy, Provider } from './types.ts';
 
 // Thin cast for calling exo methods directly in tests without going through
 // HandledPromise (which is not available in the test environment).
@@ -18,8 +18,8 @@ const E = (obj: unknown) =>
 
 describe('e2e: cost-optimal routing', () => {
   it('argmin picks cheapest section, re-sheafification expands landscape', async () => {
-    const argmin: Lift<{ cost: number }> = async function* (germs) {
-      yield* [...germs].sort(
+    const argmin: Policy<{ cost: number }> = async function* (candidates) {
+      yield* [...candidates].sort(
         (a, b) =>
           (a.metadata?.cost ?? Infinity) - (b.metadata?.cost ?? Infinity),
       );
@@ -28,10 +28,10 @@ describe('e2e: cost-optimal routing', () => {
     const remote0GetBalance = vi.fn((_acct: string): number => 0);
     const local1GetBalance = vi.fn((_acct: string): number => 0);
 
-    const sections: PresheafSection<{ cost: number }>[] = [
+    const providers: Provider<{ cost: number }>[] = [
       {
         // Remote: covers all accounts, expensive
-        exo: makeSection(
+        handler: makeHandler(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -42,7 +42,7 @@ describe('e2e: cost-optimal routing', () => {
       },
       {
         // Local cache: covers only 'alice', cheap
-        exo: makeSection(
+        handler: makeHandler(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.eq('alice')).returns(M.number()),
@@ -53,11 +53,11 @@ describe('e2e: cost-optimal routing', () => {
       },
     ];
 
-    let wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+    let wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
       lift: argmin,
     });
 
-    // alice: both sections match, argmin picks local (cost=1)
+    // alice: both handlers match, argmin picks local (cost=1)
     await E(wallet).getBalance('alice');
     expect(local1GetBalance).toHaveBeenCalledWith('alice');
     expect(remote0GetBalance).not.toHaveBeenCalled();
@@ -71,8 +71,8 @@ describe('e2e: cost-optimal routing', () => {
 
     // Expand with a broader local cache (cost=2), re-sheafify.
     const local2GetBalance = vi.fn((_acct: string): number => 0);
-    sections.push({
-      exo: makeSection(
+    providers.push({
+      handler: makeHandler(
         'Wallet:2',
         M.interface('Wallet:2', {
           getBalance: M.call(M.string()).returns(M.number()),
@@ -81,7 +81,7 @@ describe('e2e: cost-optimal routing', () => {
       ),
       metadata: constant({ cost: 2 }),
     });
-    wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+    wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
       lift: argmin,
     });
 
@@ -91,7 +91,7 @@ describe('e2e: cost-optimal routing', () => {
     expect(remote0GetBalance).not.toHaveBeenCalled();
     local2GetBalance.mockClear();
 
-    // alice: three sections match, argmin still picks cost=1
+    // alice: three handlers match, argmin still picks cost=1
     await E(wallet).getBalance('alice');
     expect(local1GetBalance).toHaveBeenCalledWith('alice');
     expect(remote0GetBalance).not.toHaveBeenCalled();
@@ -112,8 +112,8 @@ describe('e2e: multi-tier capability routing', () => {
 
   type Tier = { latencyMs: number; label: string };
 
-  const fastest: Lift<Tier> = async function* (germs) {
-    yield* [...germs].sort(
+  const fastest: Policy<Tier> = async function* (candidates) {
+    yield* [...candidates].sort(
       (a, b) =>
         (a.metadata?.latencyMs ?? Infinity) -
         (b.metadata?.latencyMs ?? Infinity),
@@ -121,7 +121,7 @@ describe('e2e: multi-tier capability routing', () => {
   };
 
   it('routes reads to the fastest matching tier and writes to the only capable section', async () => {
-    // Shared ledger — all sections read from this, so the sheaf condition
+    // Shared ledger — all handlers read from this, so the sheaf condition
     // (effect-equivalence) holds by construction.
     const ledger: Record<string, number> = {
       alice: 1000,
@@ -149,12 +149,12 @@ describe('e2e: multi-tier capability routing', () => {
       },
     );
 
-    const sections: PresheafSection<Tier>[] = [];
+    const providers: Provider<Tier>[] = [];
 
     // ── Tier 1: Network RPC ──────────────────────────────────
     // Covers ALL accounts (M.string()), but slow (500ms).
-    sections.push({
-      exo: makeSection(
+    providers.push({
+      handler: makeHandler(
         'Wallet:0',
         M.interface('Wallet:0', {
           getBalance: M.call(M.string()).returns(M.number()),
@@ -164,7 +164,7 @@ describe('e2e: multi-tier capability routing', () => {
       metadata: constant({ latencyMs: 500, label: 'network' }),
     });
 
-    let wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+    let wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
       lift: fastest,
     });
 
@@ -180,8 +180,8 @@ describe('e2e: multi-tier capability routing', () => {
 
     // ── Tier 2: Local state for owned account ────────────────
     // Only covers 'alice' (M.eq), 1ms.
-    sections.push({
-      exo: makeSection(
+    providers.push({
+      handler: makeHandler(
         'Wallet:1',
         M.interface('Wallet:1', {
           getBalance: M.call(M.eq('alice')).returns(M.number()),
@@ -190,7 +190,7 @@ describe('e2e: multi-tier capability routing', () => {
       ),
       metadata: constant({ latencyMs: 1, label: 'local' }),
     });
-    wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+    wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
       lift: fastest,
     });
 
@@ -206,8 +206,8 @@ describe('e2e: multi-tier capability routing', () => {
 
     // ── Tier 3: In-memory cache for specific accounts ────────
     // Covers bob and carol via M.or, instant (0ms).
-    sections.push({
-      exo: makeSection(
+    providers.push({
+      handler: makeHandler(
         'Wallet:2',
         M.interface('Wallet:2', {
           getBalance: M.call(M.or(M.eq('bob'), M.eq('carol'))).returns(
@@ -218,7 +218,7 @@ describe('e2e: multi-tier capability routing', () => {
       ),
       metadata: constant({ latencyMs: 0, label: 'cache' }),
     });
-    wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+    wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
       lift: fastest,
     });
 
@@ -242,8 +242,8 @@ describe('e2e: multi-tier capability routing', () => {
     // A write-capable section that declares `transfer`. None of the
     // read-only tiers above declared it, so writes route here
     // automatically — the guard algebra handles it, no config needed.
-    sections.push({
-      exo: makeSection(
+    providers.push({
+      handler: makeHandler(
         'Wallet:3',
         M.interface('Wallet:3', {
           getBalance: M.call(M.string()).returns(M.number()),
@@ -258,7 +258,7 @@ describe('e2e: multi-tier capability routing', () => {
       ),
       metadata: constant({ latencyMs: 200, label: 'write-backend' }),
     });
-    wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+    wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
       lift: fastest,
     });
 
@@ -284,15 +284,15 @@ describe('e2e: multi-tier capability routing', () => {
     expect(ledger.bob).toBe(500);
   });
 
-  it('same germ structure, different lifts, different routing', async () => {
+  it('same candidate structure, different policies, different routing', async () => {
     // The lift is the operational policy — swap it and the same
-    // set of sections produces different routing behavior.
+    // set of providers produces different routing behavior.
     const networkGetBalance = vi.fn((_acct: string): number => 0);
     const mirrorGetBalance = vi.fn((_acct: string): number => 0);
 
-    const makeSections = (): PresheafSection<Tier>[] => [
+    const makeProviders = (): Provider<Tier>[] => [
       {
-        exo: makeSection(
+        handler: makeHandler(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -302,7 +302,7 @@ describe('e2e: multi-tier capability routing', () => {
         metadata: constant({ latencyMs: 500, label: 'network' }),
       },
       {
-        exo: makeSection(
+        handler: makeHandler(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -316,7 +316,7 @@ describe('e2e: multi-tier capability routing', () => {
     // Policy A: fastest wins (mirror at 50ms < network at 500ms).
     const walletA = sheafify({
       name: 'Wallet',
-      sections: makeSections(),
+      providers: makeProviders(),
     }).getGlobalSection({ lift: fastest });
     await E(walletA).getBalance('alice');
     expect(mirrorGetBalance).toHaveBeenCalledWith('alice');
@@ -324,14 +324,14 @@ describe('e2e: multi-tier capability routing', () => {
     mirrorGetBalance.mockClear();
 
     // Policy B: highest latency wins (simulate "prefer-canonical-source").
-    const slowest: Lift<Tier> = async function* (germs) {
-      yield* [...germs].sort(
+    const slowest: Policy<Tier> = async function* (candidates) {
+      yield* [...candidates].sort(
         (a, b) => (b.metadata?.latencyMs ?? 0) - (a.metadata?.latencyMs ?? 0),
       );
     };
     const walletB = sheafify({
       name: 'Wallet',
-      sections: makeSections(),
+      providers: makeProviders(),
     }).getGlobalSection({ lift: slowest });
     await E(walletB).getBalance('alice');
     expect(networkGetBalance).toHaveBeenCalledWith('alice');
@@ -345,18 +345,18 @@ describe('e2e: multi-tier capability routing', () => {
 
 describe('e2e: preferAutonomous recovered as degenerate case', () => {
   it('binary push metadata recovers push-pull lift rule', async () => {
-    const preferPush: Lift<{ push: boolean }> = async function* (germs) {
-      yield* germs.filter((germ) => germ.metadata?.push);
-      yield* germs.filter((germ) => !germ.metadata?.push);
+    const preferPush: Policy<{ push: boolean }> = async function* (candidates) {
+      yield* candidates.filter((candidate) => candidate.metadata?.push);
+      yield* candidates.filter((candidate) => !candidate.metadata?.push);
     };
 
     const pullGetBalance = vi.fn((_acct: string): number => 0);
     const pushGetBalance = vi.fn((_acct: string): number => 0);
 
-    const sections: PresheafSection<{ push: boolean }>[] = [
+    const providers: Provider<{ push: boolean }>[] = [
       {
         // Pull section: M.string() guards, push=false
-        exo: makeSection(
+        handler: makeHandler(
           'PushPull:0',
           M.interface('PushPull:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -367,7 +367,7 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
       },
       {
         // Push section: narrow guard, push=true
-        exo: makeSection(
+        handler: makeHandler(
           'PushPull:1',
           M.interface('PushPull:1', {
             getBalance: M.call(M.eq('alice')).returns(M.number()),
@@ -378,7 +378,7 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'PushPull', sections }).getGlobalSection({
+    const wallet = sheafify({ name: 'PushPull', providers }).getGlobalSection({
       lift: preferPush,
     });
 
@@ -400,14 +400,14 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
 // ---------------------------------------------------------------------------
 
 describe('e2e: callable metadata — cost varies with invocation args', () => {
-  // Two swap sections whose cost is a function of the swap amount.
+  // Two swap handlers whose cost is a function of the swap amount.
   // Swap A is cheaper for small amounts; Swap B is cheaper for large amounts.
   // Breakeven ≈ 90.9 (1 + 0.1x = 10 + 0.001x → 0.099x = 9 → x ≈ 90.9)
 
   type SwapCost = { cost: number };
 
-  const cheapest: Lift<SwapCost> = async function* (germs) {
-    yield* [...germs].sort(
+  const cheapest: Policy<SwapCost> = async function* (candidates) {
+    yield* [...candidates].sort(
       (a, b) => (a.metadata?.cost ?? Infinity) - (b.metadata?.cost ?? Infinity),
     );
   };
@@ -420,9 +420,9 @@ describe('e2e: callable metadata — cost varies with invocation args', () => {
       (_amount: number, _from: string, _to: string): boolean => true,
     );
 
-    const sections: PresheafSection<SwapCost>[] = [
+    const providers: Provider<SwapCost>[] = [
       {
-        exo: makeSection(
+        handler: makeHandler(
           'SwapA',
           M.interface('SwapA', {
             swap: M.call(M.number(), M.string(), M.string()).returns(
@@ -437,7 +437,7 @@ describe('e2e: callable metadata — cost varies with invocation args', () => {
         })),
       },
       {
-        exo: makeSection(
+        handler: makeHandler(
           'SwapB',
           M.interface('SwapB', {
             swap: M.call(M.number(), M.string(), M.string()).returns(
@@ -453,7 +453,7 @@ describe('e2e: callable metadata — cost varies with invocation args', () => {
       },
     ];
 
-    const facade = sheafify({ name: 'Swap', sections }).getGlobalSection({
+    const facade = sheafify({ name: 'Swap', providers }).getGlobalSection({
       lift: cheapest,
     }) as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
 
@@ -483,9 +483,9 @@ describe('e2e: lift retry on handler failure', () => {
     });
     const fallbackFn = vi.fn((_acct: string): number => 99);
 
-    const sections: PresheafSection<RouteMeta>[] = [
+    const providers: Provider<RouteMeta>[] = [
       {
-        exo: makeSection(
+        handler: makeHandler(
           'Primary',
           M.interface('Primary', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -495,7 +495,7 @@ describe('e2e: lift retry on handler failure', () => {
         metadata: constant({ priority: 0 }),
       },
       {
-        exo: makeSection(
+        handler: makeHandler(
           'Fallback',
           M.interface('Fallback', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -508,17 +508,17 @@ describe('e2e: lift retry on handler failure', () => {
 
     // Track the error-array length the lift receives after each failed attempt.
     const errorCountsSeenByLift: number[] = [];
-    const priorityFirst: Lift<RouteMeta> = async function* (germs) {
-      const ordered = [...germs].sort(
+    const priorityFirst: Policy<RouteMeta> = async function* (candidates) {
+      const ordered = [...candidates].sort(
         (a, b) => (a.metadata?.priority ?? 0) - (b.metadata?.priority ?? 0),
       );
-      for (const germ of ordered) {
-        const errors: unknown[] = yield germ;
+      for (const candidate of ordered) {
+        const errors: unknown[] = yield candidate;
         errorCountsSeenByLift.push(errors.length);
       }
     };
 
-    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
       lift: priorityFirst,
     });
 
@@ -547,8 +547,8 @@ describe('e2e: lift retry on handler failure', () => {
       vi.fn((_acct: string): number => 99),
     ];
 
-    const sections: PresheafSection<RouteMeta>[] = handlers.map((fn, i) => ({
-      exo: makeSection(
+    const providers: Provider<RouteMeta>[] = handlers.map((fn, i) => ({
+      handler: makeHandler(
         `Section:${i}`,
         M.interface(`Section:${i}`, {
           getBalance: M.call(M.string()).returns(M.number()),
@@ -559,17 +559,17 @@ describe('e2e: lift retry on handler failure', () => {
     }));
 
     let errorsAfterFirst: unknown[] | undefined;
-    const priorityFirst: Lift<RouteMeta> = async function* (germs) {
-      const ordered = [...germs].sort(
+    const priorityFirst: Policy<RouteMeta> = async function* (candidates) {
+      const ordered = [...candidates].sort(
         (a, b) => (a.metadata?.priority ?? 0) - (b.metadata?.priority ?? 0),
       );
-      for (const germ of ordered) {
-        const errors: unknown[] = yield germ;
+      for (const candidate of ordered) {
+        const errors: unknown[] = yield candidate;
         errorsAfterFirst ??= errors;
       }
     };
 
-    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
+    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
       lift: priorityFirst,
     });
 
@@ -584,9 +584,9 @@ describe('e2e: lift retry on handler failure', () => {
   it('throws accumulated errors when all candidates fail', async () => {
     type RouteMeta = { priority: number };
 
-    const sections: PresheafSection<RouteMeta>[] = [
+    const providers: Provider<RouteMeta>[] = [
       {
-        exo: makeSection(
+        handler: makeHandler(
           'A',
           M.interface('A', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -600,7 +600,7 @@ describe('e2e: lift retry on handler failure', () => {
         metadata: constant({ priority: 0 }),
       },
       {
-        exo: makeSection(
+        handler: makeHandler(
           'B',
           M.interface('B', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -615,16 +615,16 @@ describe('e2e: lift retry on handler failure', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', sections }).getGlobalSection({
-      async *lift(germs) {
-        yield* [...germs].sort(
+    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
+      async *lift(candidates) {
+        yield* [...candidates].sort(
           (a, b) => (a.metadata?.priority ?? 0) - (b.metadata?.priority ?? 0),
         );
       },
     });
 
     await expect(E(wallet).getBalance('alice')).rejects.toThrow(
-      'No viable section',
+      'No viable handler',
     );
   });
 });
