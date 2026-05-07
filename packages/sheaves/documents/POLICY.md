@@ -1,8 +1,8 @@
 # Policy
 
 The policy is the caller-supplied selection coroutine in the sheaf dispatch
-pipeline. It runs when the stalk at an invocation point contains more than one
-candidate and the sheaf has no data to resolve the ambiguity on its own. The
+pipeline. It runs when more than one candidate matches an invocation and the sheaf
+has no data to resolve the ambiguity on its own. The
 caller is responsible for writing a policy that is correct for the providers it
 will receive.
 
@@ -70,9 +70,9 @@ type PolicyContext<M> = {
 };
 ```
 
-**`constraints`** are metadata keys whose values are the same on every
-candidate in the stalk. Because all candidates agree on these keys, they carry
-no information useful for choosing between them — the sheaf strips them from
+**`constraints`** are metadata keys whose values are the same across every
+candidate. Because all candidates agree on these keys, they carry no
+information useful for choosing between them — the sheaf strips them from
 each candidate and delivers them separately. A policy that needs to know, say,
 the agreed `protocol` version reads it from `context.constraints.protocol`
 rather than from any individual candidate.
