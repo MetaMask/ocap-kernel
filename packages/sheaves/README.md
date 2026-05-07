@@ -6,7 +6,7 @@ Runtime capability routing adapted from sheaf theory in algebraic topology.
 over a collection of capability providers. The sheaf produces dispatch handlers via
 `getSection`, each of which routes invocations through the provider set.
 
-See [USAGE.md](./USAGE.md) for annotated examples and [LIFT.md](./LIFT.md) for
+See [USAGE.md](./USAGE.md) for annotated examples and [POLICY.md](./POLICY.md) for
 the policy coroutine protocol and semantic equivalence assumption.
 
 ## Install
