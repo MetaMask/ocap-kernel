@@ -1,20 +1,20 @@
 export type {
-  Section,
-  PresheafSection,
-  EvaluatedSection,
+  Handler,
+  Provider,
+  Candidate,
   MetadataSpec,
-  Lift,
-  LiftContext,
+  Policy,
+  PolicyContext,
   Sheaf,
 } from './types.ts';
 export { constant, source, callable } from './metadata.ts';
 export { sheafify } from './sheafify.ts';
 export {
-  noopLift,
-  proxyLift,
+  noopPolicy,
+  proxyPolicy,
   withFilter,
   withRanking,
   fallthrough,
 } from './compose.ts';
 export { makeRemoteSection } from './remote.ts';
-export { makeSection } from './section.ts';
+export { makeHandler } from './section.ts';

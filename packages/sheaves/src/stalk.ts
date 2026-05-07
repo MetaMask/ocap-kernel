@@ -1,5 +1,5 @@
 /**
- * Stalk computation: filter presheaf sections by guard matching.
+ * Stalk computation: filter providers by guard matching.
  */
 
 import { GET_INTERFACE_GUARD } from '@endo/exo';
@@ -7,7 +7,7 @@ import { matches } from '@endo/patterns';
 import type { InterfaceGuard } from '@endo/patterns';
 
 import { getInterfaceMethodGuards, getMethodPayload } from './guard.ts';
-import type { Section } from './types.ts';
+import type { Handler } from './types.ts';
 
 /**
  * Check whether an interface guard covers the invocation point (method, args).
@@ -49,22 +49,22 @@ export const guardCoversPoint = (
 };
 
 /**
- * Get the stalk at an invocation point.
+ * Get the matching providers at an invocation point.
  *
- * Returns the presheaf sections whose guards accept the given method + args.
+ * Returns the providers whose guards accept the given method + args.
  *
- * @param sections - The presheaf sections to filter.
+ * @param providers - The providers to filter.
  * @param method - The method name being invoked.
  * @param args - The arguments to the method invocation.
- * @returns The presheaf sections whose guards accept the invocation.
+ * @returns The providers whose guards accept the invocation.
  */
-export const getStalk = <T extends { exo: Section }>(
-  sections: readonly T[],
+export const getStalk = <T extends { handler: Handler }>(
+  providers: readonly T[],
   method: string,
   args: unknown[],
 ): T[] => {
-  return sections.filter(({ exo }) => {
-    const interfaceGuard = exo[GET_INTERFACE_GUARD]?.();
+  return providers.filter(({ handler }) => {
+    const interfaceGuard = handler[GET_INTERFACE_GUARD]?.();
     if (!interfaceGuard) {
       return false;
     }

@@ -1,28 +1,28 @@
-import type { EvaluatedSection, Lift, LiftContext } from './types.ts';
+import type { Candidate, Policy, PolicyContext } from './types.ts';
 
 /**
- * A lift that yields all germs in their original order without filtering.
+ * A policy that yields all candidates in their original order without filtering.
  *
- * Use as a placeholder when the sheaf always has a single-section stalk
- * (the lift is never actually called) or to express "try everything in
+ * Use as a placeholder when the sheaf always has a single-candidate stalk
+ * (the policy is never actually called) or to express "try everything in
  * declaration order" as an explicit policy.
  *
- * @param germs - Evaluated sections to yield in order.
- * @yields Each germ in the original array order.
+ * @param candidates - Candidates to yield in order.
+ * @yields Each candidate in the original array order.
  */
-export async function* noopLift<M extends Record<string, unknown>>(
-  germs: EvaluatedSection<Partial<M>>[],
-): AsyncGenerator<EvaluatedSection<Partial<M>>, void, unknown[]> {
-  yield* germs;
+export async function* noopPolicy<M extends Record<string, unknown>>(
+  candidates: Candidate<Partial<M>>[],
+): AsyncGenerator<Candidate<Partial<M>>, void, unknown[]> {
+  yield* candidates;
 }
 
 /**
- * Proxy a lift coroutine, forwarding yielded candidates up and received
+ * Proxy a policy coroutine, forwarding yielded candidates up and received
  * error arrays down to the inner generator.
  *
  * Note: async generator `yield*` DOES forward `.next(value)` to the
  * delegated async iterator, so for simple sequential composition (e.g.
- * `fallthrough`) you can use `yield*` directly. `proxyLift` is the right
+ * `fallthrough`) you can use `yield*` directly. `proxyPolicy` is the right
  * primitive when you need to add logic between yields — for example,
  * logging, counting attempts, or conditionally stopping early based on the
  * error history.
@@ -31,10 +31,10 @@ export async function* noopLift<M extends Record<string, unknown>>(
  * @yields Candidates from the inner generator.
  * @returns void when the inner generator is exhausted.
  * @example
- * // Lift that logs each retry
- * const withLogging = <M>(inner: Lift<M>): Lift<M> =>
- *   async function*(germs, context) {
- *     const gen = inner(germs, context);
+ * // Policy that logs each retry
+ * const withLogging = <M>(inner: Policy<M>): Policy<M> =>
+ *   async function*(candidates, context) {
+ *     const gen = inner(candidates, context);
  *     let next = await gen.next([]);
  *     while (!next.done) {
  *       const errors: unknown[] = yield next.value;
@@ -42,11 +42,11 @@ export async function* noopLift<M extends Record<string, unknown>>(
  *       next = await gen.next(errors);
  *     }
  *   };
- * // The above pattern is exactly proxyLift with a side-effect added.
+ * // The above pattern is exactly proxyPolicy with a side-effect added.
  */
-export async function* proxyLift<M extends Record<string, unknown>>(
-  gen: AsyncGenerator<EvaluatedSection<Partial<M>>, void, unknown[]>,
-): AsyncGenerator<EvaluatedSection<Partial<M>>, void, unknown[]> {
+export async function* proxyPolicy<M extends Record<string, unknown>>(
+  gen: AsyncGenerator<Candidate<Partial<M>>, void, unknown[]>,
+): AsyncGenerator<Candidate<Partial<M>>, void, unknown[]> {
   let next = await gen.next([]);
   while (!next.done) {
     const errors: unknown[] = yield next.value;
@@ -55,69 +55,66 @@ export async function* proxyLift<M extends Record<string, unknown>>(
 }
 
 /**
- * Filter germs before passing to a lift.
+ * Filter candidates before passing to a policy.
  *
- * Returns the inner lift's generator directly — no proxying needed since
- * this is a pure input transform that delegates entirely to the inner lift.
+ * Returns the inner policy's generator directly — no proxying needed since
+ * this is a pure input transform that delegates entirely to the inner policy.
  *
- * @param predicate - Returns true for germs that should be passed to the inner lift.
- * @returns A lift combinator that filters its germs before delegating.
+ * @param predicate - Returns true for candidates that should be passed to the inner policy.
+ * @returns A policy combinator that filters its candidates before delegating.
  */
 export const withFilter =
   <M extends Record<string, unknown>>(
     predicate: (
-      germ: EvaluatedSection<Partial<M>>,
-      ctx: LiftContext<M>,
+      candidate: Candidate<Partial<M>>,
+      ctx: PolicyContext<M>,
     ) => boolean,
   ) =>
-  (inner: Lift<M>): Lift<M> =>
-  (germs, context) =>
+  (inner: Policy<M>): Policy<M> =>
+  (candidates, context) =>
     inner(
-      germs.filter((germ) => predicate(germ, context)),
+      candidates.filter((candidate) => predicate(candidate, context)),
       context,
     );
 
 /**
- * Sort germs by a comparator before passing to a lift.
+ * Sort candidates by a comparator before passing to a policy.
  *
- * Returns the inner lift's generator directly — no proxying needed since
- * this is a pure input transform that delegates entirely to the inner lift.
- * The original germs array is not mutated.
+ * Returns the inner policy's generator directly — no proxying needed since
+ * this is a pure input transform that delegates entirely to the inner policy.
+ * The original candidates array is not mutated.
  *
  * @param comparator - Comparator function for sorting (same signature as Array.sort).
- * @returns A lift combinator that sorts its germs before delegating.
+ * @returns A policy combinator that sorts its candidates before delegating.
  */
 export const withRanking =
   <M extends Record<string, unknown>>(
-    comparator: (
-      a: EvaluatedSection<Partial<M>>,
-      b: EvaluatedSection<Partial<M>>,
-    ) => number,
+    comparator: (a: Candidate<Partial<M>>, b: Candidate<Partial<M>>) => number,
   ) =>
-  (inner: Lift<M>): Lift<M> =>
-  (germs, context) =>
-    inner([...germs].sort(comparator), context);
+  (inner: Policy<M>): Policy<M> =>
+  (candidates, context) =>
+    inner([...candidates].sort(comparator), context);
 
 /**
- * Try all candidates from liftA, then all candidates from liftB.
+ * Try all candidates from policyA, then all candidates from policyB.
  *
  * Uses `yield*` directly since async generator delegation forwards
  * `.next(value)` to the inner iterator, so error arrays are correctly
- * threaded through each inner lift.
+ * threaded through each inner policy.
  *
- * liftB is not informed of liftA's failures at its prime call, but via
- * `yield*` it receives all accumulated errors (including liftA's) as the
+ * policyB is not informed of policyA's failures at its prime call, but via
+ * `yield*` it receives all accumulated errors (including policyA's) as the
  * argument to each subsequent `next(errors)` after its own failed attempts.
  *
- * @param liftA - First lift; its candidates are tried before liftB's.
- * @param liftB - Fallback lift; only invoked after liftA is exhausted.
- * @returns A combined lift that sequences liftA then liftB.
+ * @param policyA - First policy; its candidates are tried before policyB's.
+ * @param policyB - Fallback policy; only invoked after policyA is exhausted.
+ * @returns A combined policy that sequences policyA then policyB.
  */
 export const fallthrough = <M extends Record<string, unknown>>(
-  liftA: Lift<M>,
-  liftB: Lift<M>,
-): Lift<M> =>
-  async function* (germs, context) {
-    yield* liftA(germs, context);
-    yield* liftB(germs, context);
+  policyA: Policy<M>,
+  policyB: Policy<M>,
+): Policy<M> =>
+  async function* (candidates, context) {
+    yield* policyA(candidates, context);
+    yield* policyB(candidates, context);
   };

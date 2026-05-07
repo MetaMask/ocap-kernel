@@ -14,9 +14,9 @@ import { M } from '@endo/patterns';
 import { describe, it, expect, vi } from 'vitest';
 
 import { source } from './metadata.ts';
-import { makeSection } from './section.ts';
+import { makeHandler } from './section.ts';
 import { sheafify } from './sheafify.ts';
-import type { Lift, PresheafSection } from './types.ts';
+import type { Policy, Provider } from './types.ts';
 
 // Thin cast for calling exo methods directly in tests without going through
 // HandledPromise (which is not available in the test environment).
@@ -38,8 +38,8 @@ describe('e2e: source metadata — compartment evaluates cost function', () => {
 
   type SwapCost = { cost: number };
 
-  const cheapest: Lift<SwapCost> = async function* (germs) {
-    yield* [...germs].sort(
+  const cheapest: Policy<SwapCost> = async function* (candidates) {
+    yield* [...candidates].sort(
       (a, b) => (a.metadata?.cost ?? Infinity) - (b.metadata?.cost ?? Infinity),
     );
   };
@@ -52,9 +52,9 @@ describe('e2e: source metadata — compartment evaluates cost function', () => {
       (_amount: number, _from: string, _to: string): boolean => true,
     );
 
-    const sections: PresheafSection<SwapCost>[] = [
+    const providers: Provider<SwapCost>[] = [
       {
-        exo: makeSection(
+        handler: makeHandler(
           'SwapA',
           M.interface('SwapA', {
             swap: M.call(M.number(), M.string(), M.string()).returns(
@@ -67,7 +67,7 @@ describe('e2e: source metadata — compartment evaluates cost function', () => {
         metadata: source(`(args) => ({ cost: 1 + 0.1 * args[0] })`),
       },
       {
-        exo: makeSection(
+        handler: makeHandler(
           'SwapB',
           M.interface('SwapB', {
             swap: M.call(M.number(), M.string(), M.string()).returns(
@@ -83,7 +83,7 @@ describe('e2e: source metadata — compartment evaluates cost function', () => {
 
     const facade = sheafify({
       name: 'Swap',
-      sections,
+      providers,
       compartment: makeTestCompartment(),
     }).getGlobalSection({ lift: cheapest }) as unknown as Record<
       string,
