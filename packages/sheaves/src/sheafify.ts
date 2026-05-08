@@ -124,7 +124,7 @@ const decomposeMetadata = <MetaData extends Record<string, unknown>>(
     const val = first[key];
     const shared = candidates.every((entry) => {
       const meta = entry.metadata;
-      return key in meta && Object.is(meta[key], val);
+      return Object.hasOwn(meta, key) && Object.is(meta[key], val);
     });
     if (shared) {
       constraints[key] = val;
@@ -134,7 +134,7 @@ const decomposeMetadata = <MetaData extends Record<string, unknown>>(
   const stripped = candidates.map((entry) => {
     const remaining: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(entry.metadata)) {
-      if (!(key in constraints)) {
+      if (!Object.hasOwn(constraints, key)) {
         remaining[key] = val;
       }
     }
