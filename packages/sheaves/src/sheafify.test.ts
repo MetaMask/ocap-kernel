@@ -688,6 +688,106 @@ describe('sheafify', () => {
       (section as Record<string, unknown>)[GET_DESCRIPTION],
     ).toBeUndefined();
   });
+
+  it('does not drop prototype-named distinguishing metadata keys from stripped candidates', async () => {
+    // 'constructor' matches Object.prototype.constructor. Naive `key in constraints`
+    // returns true on an empty {} because of the prototype chain, causing the key to be
+    // silently dropped from every stripped candidate even though it was never a constraint.
+    type Meta = Record<string, unknown>;
+    let capturedCandidates: Candidate<Partial<Meta>>[] = [];
+    let capturedContext: PolicyContext<Meta> | undefined;
+
+    const spy: Policy<Meta> = async function* (candidates, context) {
+      capturedCandidates = candidates;
+      capturedContext = context;
+      yield candidates[0]!;
+    };
+
+    const providers: Provider<Meta>[] = [
+      {
+        handler: makeHandler(
+          'Wallet:0',
+          M.interface('Wallet:0', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: (_acct: string) => 100 },
+        ),
+        metadata: constant({ constructor: 'typeA', cost: 100 }),
+      },
+      {
+        handler: makeHandler(
+          'Wallet:1',
+          M.interface('Wallet:1', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: (_acct: string) => 42 },
+        ),
+        metadata: constant({ constructor: 'typeB', cost: 1 }),
+      },
+    ];
+
+    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
+      lift: spy,
+    });
+    await E(wallet).getBalance('alice');
+
+    expect(capturedContext).toStrictEqual({
+      method: 'getBalance',
+      args: ['alice'],
+      constraints: {},
+    });
+    expect(
+      capturedCandidates.map((candidate) => candidate.metadata),
+    ).toStrictEqual([
+      { constructor: 'typeA', cost: 100 },
+      { constructor: 'typeB', cost: 1 },
+    ]);
+  });
+
+  it('does not treat prototype-inherited value as shared when key is absent from some candidates', async () => {
+    // Provider A has { constructor: Object, cost: 100 }. Provider B has { cost: 1 }.
+    // Naive `key in meta` finds 'constructor' in B via Object.prototype, and
+    // Object.is(meta_B['constructor'], Object) is true ({}.constructor === Object),
+    // so the key is wrongly counted as shared and moved into constraints.
+    type Meta = Record<string, unknown>;
+    let capturedContext: PolicyContext<Meta> | undefined;
+
+    const spy: Policy<Meta> = async function* (candidates, context) {
+      capturedContext = context;
+      yield candidates[0]!;
+    };
+
+    const providers: Provider<Meta>[] = [
+      {
+        handler: makeHandler(
+          'Wallet:0',
+          M.interface('Wallet:0', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: (_acct: string) => 100 },
+        ),
+        metadata: constant({ constructor: Object, cost: 100 }),
+      },
+      {
+        handler: makeHandler(
+          'Wallet:1',
+          M.interface('Wallet:1', {
+            getBalance: M.call(M.string()).returns(M.number()),
+          }),
+          { getBalance: (_acct: string) => 42 },
+        ),
+        metadata: constant({ cost: 1 }),
+      },
+    ];
+
+    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
+      lift: spy,
+    });
+    await E(wallet).getBalance('alice');
+
+    // 'constructor' is only owned by provider A — must not appear in constraints
+    expect(capturedContext?.constraints).not.toHaveProperty('constructor');
+  });
 });
 
 // ---------------------------------------------------------------------------
