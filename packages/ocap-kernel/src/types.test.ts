@@ -602,12 +602,21 @@ describe('insistKRef', () => {
 });
 
 describe('isVRef', () => {
-  it.each(['o+0', 'o-1', 'p+42', 'p-0', 'o+123456789'])(
-    'returns true for valid VRef %s',
-    (value) => {
-      expect(isVRef(value)).toBe(true);
-    },
-  );
+  it.each([
+    'o+0',
+    'o-1',
+    'p+42',
+    'p-0',
+    'o+123456789',
+    // Vat-allocated durable / virtual objects (liveslots `defineDurableKind`
+    // and friends). See parseVatSlot in @agoric/swingset-liveslots.
+    'o+d10/1',
+    'o+v3/4',
+    'o+d10/1:0',
+    'o+v3/4:7',
+  ])('returns true for valid VRef %s', (value) => {
+    expect(isVRef(value)).toBe(true);
+  });
 
   it.each([
     { name: 'missing sign', value: 'o1' },
@@ -616,6 +625,16 @@ describe('isVRef', () => {
     { name: 'non-digit suffix', value: 'o+1abc' },
     { name: 'kernel ref', value: 'ko1' },
     { name: 'remote ref', value: 'ro+1' },
+    // Durability marker only valid on `o+`. `o-` is kernel-allocated;
+    // promises and devices never carry a durability/subid suffix.
+    { name: 'durable on import', value: 'o-d10/1' },
+    { name: 'durable on promise', value: 'p+d10/1' },
+    // Subid grammar requires a durability marker.
+    { name: 'subid without marker', value: 'o+10/1' },
+    // Facet requires a subid.
+    { name: 'facet without subid', value: 'o+d10:0' },
+    // Device refs are not supported by this kernel.
+    { name: 'device ref', value: 'd+0' },
     { name: 'number', value: 123 },
     { name: 'null', value: null },
   ])('returns false for $name', ({ value }) => {
@@ -624,7 +643,7 @@ describe('isVRef', () => {
 });
 
 describe('insistVRef', () => {
-  it.each(['o+0', 'p-1', 'o+42'])(
+  it.each(['o+0', 'p-1', 'o+42', 'o+d10/1', 'o+v3/4:7'])(
     'does not throw for valid VRef %s',
     (value) => {
       expect(() => insistVRef(value)).not.toThrow();
@@ -680,7 +699,7 @@ describe('insistRRef', () => {
 });
 
 describe('isERef', () => {
-  it.each(['o+0', 'p-1', 'ro+1', 'rp-2'])(
+  it.each(['o+0', 'p-1', 'ro+1', 'rp-2', 'o+d10/1', 'o+v3/4:7'])(
     'returns true for valid ERef %s',
     (value) => {
       expect(isERef(value)).toBe(true);
@@ -698,7 +717,7 @@ describe('isERef', () => {
 });
 
 describe('insistERef', () => {
-  it.each(['o+0', 'p-1', 'ro+1', 'rp-2'])(
+  it.each(['o+0', 'p-1', 'ro+1', 'rp-2', 'o+d10/1', 'o+v3/4:7'])(
     'does not throw for valid ERef %s',
     (value) => {
       expect(() => insistERef(value)).not.toThrow();

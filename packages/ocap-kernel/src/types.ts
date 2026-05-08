@@ -101,8 +101,22 @@ export type KRef = string & { readonly [KRefBrand]: never };
 
 declare const VRefBrand: unique symbol;
 /**
- * Vat-space reference. Format: `${'o'|'p'}${'+' | '-'}${number}`.
- * E.g. `"o+0"`, `"p-7"`.
+ * Vat-space reference. Mirrors the vref grammar produced by
+ * `@agoric/swingset-liveslots`'s `parseVatSlot`:
+ *
+ *   - `${'o'|'p'}${'+' | '-'}${number}` for plain refs
+ *     (kernel imports, ephemeral exports, promises).
+ *     E.g. `"o+0"`, `"o-3"`, `"p-7"`.
+ *   - `o+${'d'|'v'}${kindId}/${instanceId}` for vat-allocated
+ *     virtual (`v`) or durable (`d`) objects.
+ *     E.g. `"o+d10/1"`, `"o+v3/4"`.
+ *   - `o+${'d'|'v'}${kindId}/${instanceId}:${facetId}` for the
+ *     same with a facet selector.
+ *     E.g. `"o+d10/1:0"`.
+ *
+ * The durability/subid/facet syntax is only valid for `o+`
+ * (vat-allocated objects); kernel imports, promises, and remotes
+ * never carry it.
  */
 export type VRef = string & { readonly [VRefBrand]: never };
 
@@ -139,7 +153,8 @@ export const isKRef = (value: unknown): value is KRef =>
   typeof value === 'string' && /^k[op]\d+$/u.test(value);
 
 export const isVRef = (value: unknown): value is VRef =>
-  typeof value === 'string' && /^[op][+-]\d+$/u.test(value);
+  typeof value === 'string' &&
+  /^(?:p[+-]\d+|o-\d+|o\+(?:\d+|[dv]\d+\/\d+(?::\d+)?))$/u.test(value);
 
 export const isRRef = (value: unknown): value is RRef =>
   typeof value === 'string' && /^r[op][+-]\d+$/u.test(value);
