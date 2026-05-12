@@ -704,8 +704,18 @@ export class Kernel {
   /**
    * Reset the kernel state.
    *
+   * Identity keys (`keySeed`, `peerId`, `ocapURLKey`) are preserved so the
+   * kernel keeps the same network identity across the reset. The
+   * `incarnationId` is deliberately *not* preserved: its whole purpose is
+   * to signal to remote peers that local state has been wiped so they
+   * clear any seq-dedup / c-list bookkeeping for this peer. Preserving it
+   * across a state wipe defeats the peer-restart detection introduced in
+   * #948.
+   *
    * @param options - Options for the reset.
-   * @param options.resetIdentity - If true, also clears identity keys (keySeed, peerId, ocapURLKey, incarnationId).
+   * @param options.resetIdentity - If true, also clears identity keys
+   *   (keySeed, peerId, ocapURLKey). Used when recovering from a
+   *   mnemonic, which is regenerating identity from scratch.
    */
   #resetKernelState({
     resetIdentity = false,
@@ -714,9 +724,11 @@ export class Kernel {
       // Full reset including identity - used when recovering from mnemonic
       this.#kernelStore.reset();
     } else {
-      // Preserve identity keys so network address survives restart
+      // Preserve identity keys so network address survives restart.
+      // `incarnationId` is deliberately omitted: it must be regenerated
+      // so remote peers can detect the state loss via the handshake.
       this.#kernelStore.reset({
-        except: ['keySeed', 'peerId', 'ocapURLKey', 'incarnationId'],
+        except: ['keySeed', 'peerId', 'ocapURLKey'],
       });
     }
   }
