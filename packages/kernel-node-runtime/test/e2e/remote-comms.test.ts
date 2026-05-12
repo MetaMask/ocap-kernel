@@ -1118,6 +1118,79 @@ describe.sequential('Remote Communications E2E', () => {
       },
       NETWORK_TIMEOUT * 3,
     );
+
+    it(
+      'detects restart when sender keeps DB but uses resetStorage=true',
+      async () => {
+        // Companion to the test above. The fresh-DB path naturally regenerates
+        // incarnationId (nothing in KV to read). The `resetStorage=true` path
+        // wipes the KV but used to be coded with an except-list that preserved
+        // incarnationId — so the sender came back signaling the same
+        // incarnation, the matcher's handshake said "no restart", and the
+        // sender's fresh seq=1 was dropped against persisted dedup state.
+        // The browser/extension hits this path on every kernel-worker boot
+        // (the offscreen page launches the worker with ?reset-storage=true),
+        // so without this regression a plugin reload silently loses messages.
+        const k2Mnemonic =
+          'legal winner thank year wave sausage worth useful legal winner thank yellow';
+        const opts = {
+          relays: testRelays,
+          reconnectionBaseDelayMs: 100,
+          reconnectionMaxDelayMs: 500,
+          handshakeTimeoutMs: 5_000,
+          writeTimeoutMs: 5_000,
+          ackTimeoutMs: 2_000,
+          maxRetryAttempts: 4,
+        };
+
+        await kernel1.initRemoteComms({ ...opts });
+        await kernel2.initRemoteComms({ ...opts, mnemonic: k2Mnemonic });
+        const aliceURL = await launchVatAndGetURL(
+          kernel1,
+          makeRemoteVatConfig('Alice'),
+        );
+        await launchVatAndGetURL(kernel2, makeRemoteVatConfig('Bob'));
+        const bobRef = getVatRootRef(kernel2, kernelStore2, 'Bob');
+
+        const phase1 = await sendRemoteMessage(
+          kernel2,
+          bobRef,
+          aliceURL,
+          'hello',
+          ['Bob-before-reset'],
+        );
+        expect(phase1).toContain('vat Alice got "hello" from Bob-before-reset');
+
+        // Same delay rationale as in the fresh-DB test above.
+        await delay(150);
+
+        // Restart only the sender, KEEPING its DB but passing
+        // resetStorage=true. This is the path the browser kernel-worker
+        // takes on every offscreen-page reload. Identity keys (keySeed,
+        // peerId, ocapURLKey) must survive so the peer id stays stable;
+        // incarnationId must NOT survive so the matcher's handshake can
+        // detect the wipe.
+        await stopWithTimeout(async () => kernel2.stop(), 3000, 'kernel2.stop');
+        // eslint-disable-next-line require-atomic-updates
+        kernel2 = await restartKernel(dbFilename2, true, testRelays, opts);
+        await launchVatAndGetURL(kernel2, makeRemoteVatConfig('Bob'));
+        // eslint-disable-next-line require-atomic-updates
+        kernelStore2 = makeKernelStore(
+          await makeSQLKernelDatabase({ dbFilename: dbFilename2 }),
+        );
+        const newBobRef = getVatRootRef(kernel2, kernelStore2, 'Bob');
+
+        const phase2 = await sendRemoteMessage(
+          kernel2,
+          newBobRef,
+          aliceURL,
+          'hello',
+          ['Bob-after-reset'],
+        );
+        expect(phase2).toContain('vat Alice got "hello" from Bob-after-reset');
+      },
+      NETWORK_TIMEOUT * 3,
+    );
   });
 
   describe('Promise Rejection on Remote Give-Up', () => {
