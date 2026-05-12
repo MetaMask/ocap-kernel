@@ -37,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Persist the peer's last-observed incarnation and compare it on every successful handshake; on a detected restart, clear the peer's c-list contributions and reject the promises it was deciding before the new incarnation reuses any erefs
 - Accept liveslots-allocated durable, virtual, and faceted vrefs (e.g. `o+d10/1`, `o+v3/4:0`) in `isVRef` / `insistERef` / `EndpointMessageStruct` validation ([#949](https://github.com/MetaMask/ocap-kernel/pull/949))
   - Previously the regex only matched plain `[op][+-]N`, so any vat using `defineDurableKind` failed outgoing-send validation and persisted-slot reads
-- Regenerate `incarnationId` when `resetStorage=true` clears the rest of kernel state, completing the #948 peer-restart detection on browser/extension kernel reloads
+- Regenerate `incarnationId` when `resetStorage=true` clears the rest of kernel state, completing the #948 peer-restart detection on browser/extension kernel reloads ([#950](https://github.com/MetaMask/ocap-kernel/pull/950))
   - The previous except-list preserved `incarnationId` across `resetStorage` wipes, so a restarted sender signalled the same incarnation it had before the wipe and the matching receiver's handshake decided "no restart" — leaving stale `highestReceivedSeq` in place and silently dropping the sender's fresh `seq=1` messages
 
 ## [0.7.0]
