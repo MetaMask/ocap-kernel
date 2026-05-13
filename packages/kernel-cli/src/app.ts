@@ -22,6 +22,7 @@ import {
   stopRelay,
 } from './commands/relay.ts';
 import { getServer } from './commands/serve.ts';
+import { buildSessionCommands } from './commands/session.ts';
 import { watchDir } from './commands/watch.ts';
 import { defaultConfig } from './config.ts';
 import type { Config } from './config.ts';
@@ -460,6 +461,13 @@ const yargsInstance = yargs(hideBin(process.argv))
     () => {
       // Handled by subcommands.
     },
+  )
+  .command(
+    'session',
+    'Manage authorization sessions',
+    (_yargs) => buildSessionCommands(_yargs),
+    () => {
+      // Handled by subcommands.
+    },
   );
-
 await yargsInstance.help('help').parse();
