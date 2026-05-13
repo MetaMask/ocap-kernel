@@ -1,6 +1,9 @@
 import '@metamask/kernel-shims/endoify-node';
 import { Logger } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
+import { spawn } from 'node:child_process';
+import { access } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import yargs from 'yargs';
 import { hideBin } from 'yargs/helpers';
@@ -22,7 +25,7 @@ import {
   stopRelay,
 } from './commands/relay.ts';
 import { getServer } from './commands/serve.ts';
-import { buildSessionCommands } from './commands/session.ts';
+import { buildSessionCommands, resolveSessionUrl } from './commands/session.ts';
 import { watchDir } from './commands/watch.ts';
 import { defaultConfig } from './config.ts';
 import type { Config } from './config.ts';
@@ -43,6 +46,25 @@ function consoleTransport(entry: LogEntry): void {
 }
 
 const logger = new Logger({ tags: ['cli'], transports: [consoleTransport] });
+
+/**
+ * Resolve the built ocap-tui binary from the @ocap/kernel-tui workspace package.
+ * Returns undefined if the package cannot be resolved or its dist output hasn't
+ * been built yet (run `yarn build` from the repo root to fix the latter).
+ *
+ * @returns The absolute path to dist/app.mjs, or undefined if not found.
+ */
+async function findTuiBinPath(): Promise<string | undefined> {
+  try {
+    const resolve = createRequire(import.meta.url);
+    const pkgPath = resolve.resolve('@ocap/kernel-tui/package.json');
+    const binPath = path.join(path.dirname(pkgPath), 'dist', 'app.mjs');
+    await access(binPath);
+    return binPath;
+  } catch {
+    return undefined;
+  }
+}
 
 const yargsInstance = yargs(hideBin(process.argv))
   .scriptName('ocap')
@@ -468,6 +490,71 @@ const yargsInstance = yargs(hideBin(process.argv))
     (_yargs) => buildSessionCommands(_yargs),
     () => {
       // Handled by subcommands.
+    },
+  )
+  .command(
+    'modal <sid>',
+    'Open an interactive TUI for a session',
+    (_yargs) =>
+      _yargs.positional('sid', {
+        type: 'string',
+        demandOption: true,
+        describe: 'Session ID (from ocap session create)',
+      }),
+    async (args) => {
+      const socketPath = getSocketPath();
+      const binPath = await findTuiBinPath();
+      if (binPath === undefined) {
+        process.stderr.write(
+          'Error: kernel-tui binary not found.\n' +
+            'Run `yarn build` from the repository root to build it first.\n',
+        );
+        process.exitCode = 1;
+        return;
+      }
+      await ensureDaemon(socketPath);
+      const ocapUrl = await resolveSessionUrl(socketPath, String(args.sid));
+      if (ocapUrl === undefined) {
+        return;
+      }
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(process.execPath, [binPath, 'modal', ocapUrl], {
+          stdio: 'inherit',
+        });
+        child.on('close', (code) => {
+          process.exitCode = code ?? 0;
+          resolve();
+        });
+        child.on('error', reject);
+      });
+    },
+  )
+  .command(
+    'tui',
+    'Open the full interactive kernel TUI',
+    (_yargs) => _yargs,
+    async () => {
+      const socketPath = getSocketPath();
+      const binPath = await findTuiBinPath();
+      if (binPath === undefined) {
+        process.stderr.write(
+          'Error: kernel-tui binary not found.\n' +
+            'Run `yarn build` from the repository root to build it first.\n',
+        );
+        process.exitCode = 1;
+        return;
+      }
+      await ensureDaemon(socketPath);
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(process.execPath, [binPath, 'tui'], {
+          stdio: 'inherit',
+        });
+        child.on('close', (code) => {
+          process.exitCode = code ?? 0;
+          resolve();
+        });
+        child.on('error', reject);
+      });
     },
   );
 await yargsInstance.help('help').parse();

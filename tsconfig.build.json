@@ -13,6 +13,7 @@
     { "path": "./packages/kernel-platforms/tsconfig.build.json" },
     { "path": "./packages/kernel-rpc-methods/tsconfig.build.json" },
     { "path": "./packages/kernel-store/tsconfig.build.json" },
+    { "path": "./packages/kernel-tui/tsconfig.build.json" },
     { "path": "./packages/kernel-utils/tsconfig.build.json" },
     { "path": "./packages/llm-bridge/tsconfig.build.json" },
     { "path": "./packages/logger/tsconfig.build.json" },

@@ -29,7 +29,12 @@ const typedocExceptions = [
   'repo-tools',
 ];
 // Packages that do not enforce the standard build script
-const buildExceptions = ['create-package', 'kernel-cli', 'repo-tools'];
+const buildExceptions = [
+  'create-package',
+  'kernel-cli',
+  'kernel-tui',
+  'repo-tools',
+];
 // Packages that do not have tests
 const noTests = [];
 // Packages that do not export a `package.json` file
