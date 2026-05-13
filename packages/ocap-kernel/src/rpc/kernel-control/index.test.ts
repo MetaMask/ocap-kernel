@@ -6,6 +6,10 @@ import {
   collectGarbageSpec,
 } from './collect-garbage.ts';
 import {
+  createSessionChannelHandler,
+  createSessionChannelSpec,
+} from './create-session-channel.ts';
+import {
   executeDBQueryHandler,
   executeDBQuerySpec,
 } from './execute-db-query.ts';
@@ -44,6 +48,7 @@ describe('handlers/index', () => {
   it('should export all handler functions', () => {
     expect(rpcHandlers).toStrictEqual({
       clearState: clearStateHandler,
+      createSessionChannel: createSessionChannelHandler,
       executeDBQuery: executeDBQueryHandler,
       getStatus: getStatusHandler,
       initRemoteComms: initRemoteCommsHandler,
@@ -75,6 +80,7 @@ describe('handlers/index', () => {
   it('should export all method specs', () => {
     expect(rpcMethodSpecs).toStrictEqual({
       clearState: clearStateSpec,
+      createSessionChannel: createSessionChannelSpec,
       executeDBQuery: executeDBQuerySpec,
       getStatus: getStatusSpec,
       initRemoteComms: initRemoteCommsSpec,

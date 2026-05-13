@@ -1,6 +1,10 @@
 import '@metamask/kernel-shims/endoify-node';
-import { makeKernel } from '@metamask/kernel-node-runtime';
-import { startDaemon } from '@metamask/kernel-node-runtime/daemon';
+import { makeKernel, makeChannelFactory } from '@metamask/kernel-node-runtime';
+import {
+  startDaemon,
+  getStreamSocketPath,
+  makeSessionRegistry,
+} from '@metamask/kernel-node-runtime/daemon';
 import type { DaemonHandle } from '@metamask/kernel-node-runtime/daemon';
 import type { LogEntry } from '@metamask/logger';
 import { Logger } from '@metamask/logger';
@@ -30,6 +34,7 @@ async function main(): Promise<void> {
 
   const socketPath =
     process.env.OCAP_SOCKET_PATH ?? join(ocapDir, 'daemon.sock');
+  const streamSocketPath = getStreamSocketPath();
 
   const dbFilename = join(ocapDir, 'kernel.sqlite');
   const { kernel, kernelDatabase } = await makeKernel({
@@ -59,12 +64,19 @@ async function main(): Promise<void> {
   let handle: DaemonHandle;
   try {
     await kernel.initIdentity();
+    const channelFactoryBundle = makeChannelFactory(kernel);
+    const { channelFactory } = channelFactoryBundle;
+    kernel.registerKernelServiceObject('channelFactory', channelFactory);
+    const sessionRegistry = makeSessionRegistry(channelFactoryBundle);
     await writeFile(pidPath, String(process.pid));
 
     handle = await startDaemon({
       socketPath,
+      streamSocketPath,
       kernel,
       kernelDatabase,
+      channelFactory,
+      sessionRegistry,
       onShutdown: async () => shutdown('RPC shutdown'),
     });
   } catch (error) {
