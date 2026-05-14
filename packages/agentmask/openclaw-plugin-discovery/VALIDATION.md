@@ -9,9 +9,9 @@ Phase 2 matcher (daemon on VPS). Everything lives on a single VPS.
 ```
                           VPS
 ┌─────────────────────────────────────────────────────┐
-│  relay (libp2p) — writes ~/.ocap/relay.addr         │
+│  relay (libp2p) — writes ~/.libp2p-relay/relay.addr │
 │                                                     │
-│  matcher daemon   — OCAP_HOME=~/.ocap-matcher       │
+│  matcher daemon   — OCAP_HOME=~/.ocap (default)     │
 │    (subcluster running the matcher vat)             │
 │                                                     │
 │  consumer daemon  — OCAP_HOME=~/.ocap-consumer      │
@@ -29,22 +29,35 @@ Phase 2 matcher (daemon on VPS). Everything lives on a single VPS.
 ```
 
 Two daemons live on the same VPS with different home directories so
-they don't clobber each other's state. Each `ocap` invocation that
-needs to talk to one of them passes `--home <dir>` explicitly, so
-there is no shell-state contamination across context switches.
-Matcher and consumer talk to each other over the relay, same as they
-would across machines — the shared VPS is purely for convenience
-during dev.
+they don't clobber each other's state. The matcher uses the default
+`~/.ocap`; the consumer uses `~/.ocap-consumer`. Every `ocap`
+invocation that wants the consumer daemon passes
+`--home ~/.ocap-consumer`; invocations without `--home` hit the
+matcher. Matcher and consumer talk to each other over the relay,
+same as they would across machines — the shared VPS is purely for
+convenience during dev.
 
 ## Prerequisites
 
 Three things must be live before starting this validation:
 
 1. **Relay** on the VPS (`yarn ocap relay`; writes
-   `~/.ocap/relay.addr`). Leave it running.
+   `~/.libp2p-relay/relay.addr`). Leave it running. The relay
+   keeps its bookkeeping (`relay.pid`, `relay.addr`) under
+   `~/.libp2p-relay` rather than `~/.ocap` so the same relay
+   can serve daemons running under arbitrary `OCAP_HOME` values
+   (override with `LIBP2P_RELAY_HOME` if you need a non-default
+   location).
 2. **Matcher daemon** on the VPS
    (`packages/service-matcher/scripts/start-matcher.sh`). It prints
-   the matcher OCAP URL on stdout — keep it.
+   the matcher OCAP URL on stdout — keep it. By default the script
+   purges existing daemon state and launches a fresh subcluster, so
+   each invocation yields a new URL. Pass `--keep-state` to preserve
+   peer ID, OCAP-URL encryption key, and the previously-launched
+   matcher subcluster; the matcher vat's `publicFacet` is a durable
+   kind, so its kref (and therefore the OCAP URL) survives. Re-running
+   the script still allocates a _new_ matcher subcluster — see the
+   Part 2 launcher follow-up in `discovery-plan.md`.
 3. **Provider** — MetaMask extension loaded in a browser with the
    matcher URL baked in via `.metamaskrc`
    (`OCAP_MATCHER_URL=…`), webpack rebuilt, extension reloaded. The
@@ -57,13 +70,13 @@ Three things must be live before starting this validation:
 ### A.1. Start the consumer daemon under its own home
 
 The matcher daemon is already running under the default
-`~/.ocap`. Start the consumer daemon under `~/.ocap-consumer`:
+`~/.ocap`. Start the consumer daemon under `~/.ocap-consumer`,
+passing `--local-relay` so daemon start also reads the relay address
+out of `~/.libp2p-relay/relay.addr` and runs `initRemoteComms` for you:
 
 ```bash
 mkdir -p ~/.ocap-consumer
-yarn ocap --home ~/.ocap-consumer daemon start
-yarn ocap --home ~/.ocap-consumer daemon exec initRemoteComms \
-  "{\"relays\": [\"$(cat ~/.ocap/relay.addr)\"]}"
+yarn ocap --home ~/.ocap-consumer daemon start --local-relay
 ```
 
 Every subsequent `yarn ocap` invocation that wants to talk to the
@@ -150,7 +163,7 @@ pre-configured.
 >   genuinely clean state, `/reset` is the easiest path.
 > - As a sanity check before continuing, ask the agent:
 >   _"Without taking any action, list every tool whose name starts
->   with `discovery_` or `service_`."_
+>   with `discovery_`or`service*`."*
 >   It should list all six. If it lists fewer or none, revisit
 >   `tools.allow` and `tools.profile` in stage A.2.
 
@@ -262,10 +275,17 @@ match(es)` entry for every query.
 
 - Matcher `findServices` returns **all** registered services
   unranked — the LLM does the picking from descriptions.
-- Matcher URL is **ephemeral** per restart (planned follow-up:
-  baggage-backed stable URL).
-- Matcher registry accumulates duplicates on provider restart
-  (planned follow-up: dedup/liveness).
+- Matcher URL is stable across plain daemon restarts of the same
+  OCAP home (durable `publicFacet` kref + persisted peer ID and
+  encryption key), but **re-running `start-matcher.sh` allocates a
+  fresh subcluster** and so still yields a new URL. The launcher
+  fix to detect and reuse an existing matcher subcluster is the
+  Part 2 follow-up in `discovery-plan.md`.
+- Matcher registry is **in-memory**; on matcher restart it starts
+  empty and providers must re-register. Durable registry + liveness
+  is the same `discovery-plan.md` follow-up.
+- Matcher registry accumulates duplicates on provider re-registration
+  without a restart of the matcher (planned follow-up: dedup/liveness).
 - Provider restart without a matcher restart triggers ocap-kernel
   issue #944 (duplicate-seq).
 - Only Public access model is wired end-to-end. Permissioned and

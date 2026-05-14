@@ -1,9 +1,8 @@
 import { startRelay } from '@metamask/kernel-utils/libp2p';
+import { getLibp2pRelayHome } from '@metamask/kernel-utils/nodejs';
 import type { Logger } from '@metamask/logger';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
 
-import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive, readPidFile, sendSignal, waitFor } from '../utils.ts';
 
 /**
@@ -12,7 +11,7 @@ import { isProcessAlive, readPidFile, sendSignal, waitFor } from '../utils.ts';
  * @returns The relay PID file path.
  */
 export function getRelayPidPath(): string {
-  return join(getOcapHome(), 'relay.pid');
+  return `${getLibp2pRelayHome()}/relay.pid`;
 }
 
 /**
@@ -21,7 +20,7 @@ export function getRelayPidPath(): string {
  * @returns The relay address file path.
  */
 export function getRelayAddrPath(): string {
-  return join(getOcapHome(), 'relay.addr');
+  return `${getLibp2pRelayHome()}/relay.addr`;
 }
 
 /**
@@ -41,7 +40,7 @@ async function removeRelayFiles(): Promise<void> {
  * @param logger - The logger instance.
  */
 export async function startRelayWithBookkeeping(logger: Logger): Promise<void> {
-  await mkdir(getOcapHome(), { recursive: true });
+  await mkdir(getLibp2pRelayHome(), { recursive: true });
 
   const existingPid = await readPidFile(getRelayPidPath());
   if (existingPid !== undefined && isProcessAlive(existingPid)) {
