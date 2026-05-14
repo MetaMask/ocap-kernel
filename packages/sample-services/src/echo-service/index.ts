@@ -56,6 +56,7 @@ export function buildRootObject(
         remotableSpec,
         getContactUrl: () => contactUrl,
         expectedToken: registrationToken,
+        providerTag: 'echo',
       });
       contactUrl = await E(services.ocapURLIssuerService).issue(contact);
 

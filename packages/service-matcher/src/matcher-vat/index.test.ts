@@ -27,10 +27,12 @@ type Services = {
 const sampleDescription = (
   name = 'Signer',
   contactUrl = 'ocap:abc@peer',
+  providerTag = name.toLowerCase(),
 ): ServiceDescription => ({
   apiSpec: { properties: {} },
   description: `A service called ${name}`,
   contact: [{ contactType: 'public', contactUrl }],
+  providerTag,
 });
 
 /**
@@ -420,11 +422,101 @@ describe('matcher vat', () => {
         apiSpec: { properties: {} },
         description: 'no contact',
         contact: [],
+        providerTag: 'lonely',
       };
 
       await expect(
         publicFacet.registerService(description, 'tok'),
       ).rejects.toThrow(/no contact info/u);
+    });
+  });
+
+  describe('same-peer same-tag dedup', () => {
+    it('evicts the previous registration when (peer, tag) matches', async () => {
+      await root.bootstrap({}, mocks.services);
+      const publicFacet = root.getPublicFacet();
+
+      // First registration: peerA + tag=signer
+      const description1 = sampleDescription(
+        'Signer',
+        'ocap:key1@peerA',
+        'signer',
+      );
+      const contactA = makeMockContact({
+        description: description1,
+        expectedToken: 'tok-A',
+      });
+      mocks.redeem.mockResolvedValueOnce(contactA.contact);
+      await publicFacet.registerService(description1, 'tok-A');
+      expect(root.listAll()).toHaveLength(1);
+
+      // Second registration: same peerA + same tag=signer (simulates the
+      // same logical provider re-registering after a kernel restart with a
+      // fresh contact endpoint).
+      const description2 = sampleDescription(
+        'Signer',
+        'ocap:key2@peerA',
+        'signer',
+      );
+      const contactB = makeMockContact({
+        description: description2,
+        expectedToken: 'tok-B',
+      });
+      mocks.redeem.mockResolvedValueOnce(contactB.contact);
+      await publicFacet.registerService(description2, 'tok-B');
+
+      // Only the most recent (peerA, signer) registration survives.
+      const all = root.listAll();
+      expect(all).toHaveLength(1);
+      expect(all[0]?.description.contact[0]?.contactUrl).toBe(
+        'ocap:key2@peerA',
+      );
+    });
+
+    it('keeps both when same peer registers different tags', async () => {
+      await root.bootstrap({}, mocks.services);
+      const publicFacet = root.getPublicFacet();
+
+      const echo = sampleDescription('Echo', 'ocap:k1@peerA', 'echo');
+      const echoContact = makeMockContact({
+        description: echo,
+        expectedToken: 'tok-A',
+      });
+      mocks.redeem.mockResolvedValueOnce(echoContact.contact);
+      await publicFacet.registerService(echo, 'tok-A');
+
+      const random = sampleDescription('Random', 'ocap:k2@peerA', 'random');
+      const randomContact = makeMockContact({
+        description: random,
+        expectedToken: 'tok-B',
+      });
+      mocks.redeem.mockResolvedValueOnce(randomContact.contact);
+      await publicFacet.registerService(random, 'tok-B');
+
+      expect(root.listAll()).toHaveLength(2);
+    });
+
+    it('keeps both when different peers share a tag', async () => {
+      await root.bootstrap({}, mocks.services);
+      const publicFacet = root.getPublicFacet();
+
+      const fromA = sampleDescription('Signer', 'ocap:k1@peerA', 'signer');
+      const contactA = makeMockContact({
+        description: fromA,
+        expectedToken: 'tok-A',
+      });
+      mocks.redeem.mockResolvedValueOnce(contactA.contact);
+      await publicFacet.registerService(fromA, 'tok-A');
+
+      const fromB = sampleDescription('Signer', 'ocap:k2@peerB', 'signer');
+      const contactB = makeMockContact({
+        description: fromB,
+        expectedToken: 'tok-B',
+      });
+      mocks.redeem.mockResolvedValueOnce(contactB.contact);
+      await publicFacet.registerService(fromB, 'tok-B');
+
+      expect(root.listAll()).toHaveLength(2);
     });
   });
 

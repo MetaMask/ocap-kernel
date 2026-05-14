@@ -113,6 +113,7 @@ const description: ServiceDescription = {
   description:
     'A capability that lists wallet accounts and signs personal messages.',
   contact: [{ contactType: 'public', contactUrl }],
+  providerTag: 'personal-message-signer',
 };
 ```
 

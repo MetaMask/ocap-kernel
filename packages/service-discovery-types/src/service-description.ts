@@ -120,11 +120,23 @@ export type ServiceContactInfo = {
 
 /**
  * The full JSON-serializable description of a service.
+ *
+ * `providerTag` is a stable identifier that the provider assigns to each
+ * service it hosts. It must be unique among services hosted by the same
+ * provider (same kernel, same libp2p peer ID) and must persist across
+ * restarts of that service — when a provider re-registers after a kernel
+ * restart, the matcher uses the (peerId, providerTag) pair to recognize
+ * the new registration as a replacement for the previous one and evict
+ * the now-stale entry. Tags don't need to be globally unique: two
+ * unrelated providers can both use `providerTag: 'main'` without
+ * collision because their peer IDs differ. Conventional shape is a short
+ * lowercase kebab-case slug naming the service.
  */
 export type ServiceDescription = {
   apiSpec: ObjectSpec;
   description: string;
   contact: ServiceContactInfo[];
+  providerTag: string;
 };
 
 // ---------------------------------------------------------------------------
@@ -207,6 +219,7 @@ export const ServiceDescriptionStruct: Struct<ServiceDescription> = object({
   apiSpec: ObjectSpecStruct,
   description: string(),
   contact: array(ServiceContactInfoStruct),
+  providerTag: string(),
 });
 
 // Compile-time assertions that the hand-written types line up with the

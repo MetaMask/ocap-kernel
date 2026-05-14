@@ -67,6 +67,7 @@ describe('ServiceDescriptionStruct', () => {
       apiSpec: { properties: {} },
       description: 'a service',
       contact: [{ contactType: 'public', contactUrl: 'ocap:abc@peer' }],
+      providerTag: 'svc',
     };
     expect(is(desc, ServiceDescriptionStruct)).toBe(true);
   });
@@ -80,6 +81,7 @@ describe('ServiceDescriptionStruct', () => {
         { contactType: 'permissioned', contactUrl: 'ocap:b@peer' },
         { contactType: 'validatedClient', contactUrl: 'ocap:c@peer' },
       ],
+      providerTag: 'svc',
     };
     expect(is(desc, ServiceDescriptionStruct)).toBe(true);
   });
@@ -89,6 +91,7 @@ describe('ServiceDescriptionStruct', () => {
       apiSpec: { properties: {} },
       description: 'a service',
       contact: [{ contactType: 'guest', contactUrl: 'ocap:a@peer' }],
+      providerTag: 'svc',
     };
     expect(is(bad, ServiceDescriptionStruct)).toBe(false);
   });
@@ -96,6 +99,16 @@ describe('ServiceDescriptionStruct', () => {
   it('rejects a missing description', () => {
     const bad = {
       apiSpec: { properties: {} },
+      contact: [{ contactType: 'public', contactUrl: 'ocap:a@peer' }],
+      providerTag: 'svc',
+    };
+    expect(is(bad, ServiceDescriptionStruct)).toBe(false);
+  });
+
+  it('rejects a missing providerTag', () => {
+    const bad = {
+      apiSpec: { properties: {} },
+      description: 'a service',
       contact: [{ contactType: 'public', contactUrl: 'ocap:a@peer' }],
     };
     expect(is(bad, ServiceDescriptionStruct)).toBe(false);
@@ -125,6 +138,7 @@ describe('ServiceMatchListStruct', () => {
         apiSpec: { properties: {} },
         description: 'svc',
         contact: [{ contactType: 'public' as const, contactUrl: 'ocap:a@p' }],
+        providerTag: 'svc',
       },
       rationale: 'matches "sign" semantics',
     };

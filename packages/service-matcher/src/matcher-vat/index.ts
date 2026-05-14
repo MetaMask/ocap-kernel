@@ -370,6 +370,59 @@ export function buildRootObject(
   }
 
   /**
+   * Extract the peer ID portion of an OCAP URL.
+   *
+   * The URL grammar is `ocap:<oid>@<peerId>[,<relayHint>]*`. Returns
+   * the empty string if the URL doesn't match — callers treat that as
+   * "no peer info, can't dedup".
+   *
+   * @param contactUrl - The OCAP URL to parse.
+   * @returns The peer ID, or '' if it can't be extracted.
+   */
+  function peerIdFromContactUrl(contactUrl: string): string {
+    const at = contactUrl.indexOf('@');
+    if (at < 0) {
+      return '';
+    }
+    const rest = contactUrl.slice(at + 1);
+    const comma = rest.indexOf(',');
+    return comma < 0 ? rest : rest.slice(0, comma);
+  }
+
+  /**
+   * Find every existing registry entry that shares (peerId, providerTag)
+   * with the given description. Used to evict superseded entries when a
+   * provider re-registers after a restart.
+   *
+   * @param description - The incoming registration's description.
+   * @returns Array of registry ids of matching entries.
+   */
+  function findSamePeerSameTagEntries(
+    description: ServiceDescription,
+  ): string[] {
+    const newPeerId = peerIdFromContactUrl(
+      description.contact[0]?.contactUrl ?? '',
+    );
+    if (newPeerId === '') {
+      return [];
+    }
+    const newTag = description.providerTag;
+    const matches: string[] = [];
+    for (const entry of registry.values()) {
+      if (entry.description.providerTag !== newTag) {
+        continue;
+      }
+      const existingPeerId = peerIdFromContactUrl(
+        entry.description.contact[0]?.contactUrl ?? '',
+      );
+      if (existingPeerId === newPeerId) {
+        matches.push(entry.id);
+      }
+    }
+    return matches;
+  }
+
+  /**
    * Store a service in the (in-memory) registry.
    *
    * @param description - The service description.
@@ -387,9 +440,16 @@ export function buildRootObject(
   }
 
   /**
-   * Final step shared by all `register*` paths: store locally and tell
-   * the bridge. If the bridge call fails, undo the local store so the
-   * registry never contains entries the LLM doesn't know about.
+   * Final step shared by all `register*` paths: evict any superseded
+   * registrations, store the new entry locally, and tell the bridge. If
+   * the bridge call fails, undo the local store so the registry never
+   * contains entries the LLM doesn't know about.
+   *
+   * Eviction key is (peerId, providerTag) — see ServiceDescription's
+   * `providerTag` for the contract. The dead `svc:N` entries that get
+   * evicted here may still be cited by the LLM bridge's stale
+   * conversation context; `findServices` filters those out via the
+   * existing "bridge cited unknown id" guard.
    *
    * @param description - The validated service description.
    * @param contact - The validated contact endpoint.
@@ -398,6 +458,12 @@ export function buildRootObject(
     description: ServiceDescription,
     contact: ContactPoint,
   ): Promise<void> {
+    for (const supersededId of findSamePeerSameTagEntries(description)) {
+      registry.delete(supersededId);
+      log(
+        `evicted superseded registration ${supersededId} (providerTag=${description.providerTag})`,
+      );
+    }
     const id = store(description, contact);
     try {
       await ingestService(id, description);
