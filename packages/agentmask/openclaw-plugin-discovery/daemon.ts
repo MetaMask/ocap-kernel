@@ -88,24 +88,32 @@ export type DaemonCaller = {
 };
 
 /**
- * Create a daemon caller bound to CLI path and timeout.
+ * Create a daemon caller bound to CLI path, ocap home, and timeout.
  *
  * @param options - Daemon connection options.
  * @param options.cliPath - Path to the ocap CLI.
+ * @param options.ocapHome - Optional `--home` directory passed to every
+ * spawned `ocap` invocation. Use a distinct home (e.g.,
+ * `~/.ocap-consumer`) to address a daemon other than the default
+ * `~/.ocap`.
  * @param options.timeoutMs - Default timeout in ms.
  * @returns A daemon caller with `redeemUrl` and `queueMessage` methods.
  */
 export function makeDaemonCaller(options: {
   cliPath: string;
+  ocapHome?: string;
   timeoutMs: number;
 }): DaemonCaller {
-  const { cliPath, timeoutMs } = options;
+  const { cliPath, ocapHome, timeoutMs } = options;
+
+  const homeArgs: string[] =
+    ocapHome && ocapHome.length > 0 ? ['--home', ocapHome] : [];
 
   return {
     async redeemUrl(url: string): Promise<string> {
       const result = await spawnCli({
         cliPath,
-        args: ['daemon', 'redeem-url', url],
+        args: [...homeArgs, 'daemon', 'redeem-url', url],
         timeoutMs,
       });
       throwOnFailure('redeem-url', result);
@@ -134,6 +142,7 @@ export function makeDaemonCaller(options: {
     }): Promise<unknown> {
       const args = msgOptions.args ?? [];
       const cliArgs = [
+        ...homeArgs,
         'daemon',
         'queueMessage',
         msgOptions.target,
