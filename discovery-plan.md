@@ -176,3 +176,29 @@ key (already the default with `--keep-state`), the URL becomes stable.
 Launcher updates needed on top of that: detect an existing matcher
 subcluster and skip re-launch, and expose a way to query the current
 matcher URL without calling `launchSubcluster`.
+
+### Dedup / liveness for matcher registrations
+
+The matcher blindly appends a new registry entry every time a provider
+re-registers. On a provider restart the old entries remain but point
+at dead krefs, so consumers calling `initiateContact` on them fail.
+Not a crash, but stale entries accumulate and pollute `findServices`
+results.
+
+**Fix directions (pick one or layer):**
+
+- Dedup on `contactUrl`: when a registration arrives whose first
+  `contactUrl` matches an existing entry, replace it.
+- Liveness probe: periodically call a cheap method on each registered
+  contact (e.g., a no-op ping, or `getServiceDescription`) and evict
+  entries that fail.
+- Accept a caller-supplied stable `serviceId` at registration time and
+  dedup on that.
+
+## Pre-existing bugs encountered during this work
+
+- **#944** — duplicate-message sequence mismatch after provider restart.
+  When the provider's kernel restarts its seq counter resets, but the
+  matcher's receiver still holds the high-water mark and drops the new
+  messages as duplicates. Affects the full re-register cycle whenever a
+  provider restarts without the matcher also restarting.
