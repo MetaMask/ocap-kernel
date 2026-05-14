@@ -36,6 +36,7 @@
     { "path": "./packages/remote-iterables" },
     { "path": "./packages/repo-tools" },
     { "path": "./packages/service-discovery-types" },
+    { "path": "./packages/service-matcher" },
     { "path": "./packages/streams" },
     { "path": "./packages/template-package" }
   ]
