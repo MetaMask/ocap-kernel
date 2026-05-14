@@ -31,6 +31,9 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 OCAP_BIN="$REPO_ROOT/packages/kernel-cli/dist/app.mjs"
 CONSUMER_HOME="${OCAP_CONSUMER_HOME:-${HOME}/.ocap-consumer}"
 MATCHER_HOME="${HOME}/.ocap"
+LLM_BRIDGE_PID_PATH="$MATCHER_HOME/matcher-llm-bridge.pid"
+LLM_BRIDGE_LOG_PATH="$MATCHER_HOME/matcher-llm-bridge.log"
+LLM_SOCKET_PATH="$MATCHER_HOME/matcher-llm.sock"
 
 START_MATCHER_ARGS=()
 while [[ $# -gt 0 ]]; do
@@ -62,6 +65,28 @@ node "$OCAP_BIN" --home "$CONSUMER_HOME" daemon stop >/dev/null 2>&1 || true
 info "Stopping matcher daemon (if running)..."
 node "$OCAP_BIN" --home "$MATCHER_HOME" daemon stop >/dev/null 2>&1 || true
 
+# Stop the matcher's llm-bridge process (started by start-matcher.sh).
+if [[ -f "$LLM_BRIDGE_PID_PATH" ]]; then
+  BRIDGE_PID="$(tr -d '[:space:]' < "$LLM_BRIDGE_PID_PATH" || true)"
+  if [[ -n "$BRIDGE_PID" ]] && kill -0 "$BRIDGE_PID" 2>/dev/null; then
+    info "Stopping llm-bridge (pid $BRIDGE_PID)..."
+    kill "$BRIDGE_PID" 2>/dev/null || true
+    sleep 0.5
+    kill -KILL "$BRIDGE_PID" 2>/dev/null || true
+  fi
+  rm -f "$LLM_BRIDGE_PID_PATH"
+fi
+# Belt and suspenders: also reap any matcher-llm-bridge processes that
+# escaped the pid file.
+if pgrep -f 'llm-bridge/dist/index' >/dev/null 2>&1; then
+  info "Reaping orphan llm-bridge processes..."
+  pkill -f 'llm-bridge/dist/index' || true
+  sleep 0.5
+  pkill -KILL -f 'llm-bridge/dist/index' 2>/dev/null || true
+fi
+# Remove any stale Unix socket file the kernel left behind.
+rm -f "$LLM_SOCKET_PATH"
+
 # Sweep up anything that didn't shut down cleanly. start-matcher.sh and
 # `daemon start` both refuse to take over a live daemon now, so leftovers
 # from earlier sessions would otherwise block the next steps.
@@ -79,10 +104,11 @@ fi
 info "Purging consumer daemon state..."
 node "$OCAP_BIN" --home "$CONSUMER_HOME" daemon purge --force >/dev/null 2>&1 || true
 
-info "Clearing daemon logs..."
+info "Clearing daemon and bridge logs..."
 rm -f \
   "$MATCHER_HOME/daemon.log" \
-  "$CONSUMER_HOME/daemon.log"
+  "$CONSUMER_HOME/daemon.log" \
+  "$LLM_BRIDGE_LOG_PATH"
 
 # ---------------------------------------------------------------------------
 # 6. Bring the matcher back up; capture the URL on stdout.

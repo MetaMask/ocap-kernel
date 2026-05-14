@@ -70,6 +70,36 @@ Three things must be live before starting this validation:
    prints the matcher OCAP URL on stdout — copy it. See the
    [Restarting](#restarting) section below for what this command
    actually does and when you should use a different one.
+
+   The matcher now ranks via an LLM through `@ocap/llm-bridge`,
+   which talks to the openclaw gateway's OpenAI-compatible
+   `/v1/chat/completions` endpoint. This adds two requirements:
+
+   - **Openclaw gateway config** (one-time, before
+     `start-matcher.sh`):
+
+     ```jsonc
+     gateway.http.endpoints.chatCompletions.enabled = true
+     gateway.auth.mode  = "token"
+     gateway.auth.token = "<some-secret>"
+     ```
+
+   - **Env vars in the shell that runs `start-matcher.sh`** (set
+     these in your shell profile alongside `LIBP2P_RELAY_PUBLIC_IP`):
+
+     ```bash
+     export OPENCLAW_GATEWAY_TOKEN=<same value as gateway.auth.token>
+     # Optional overrides:
+     # export OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789  # default
+     # export OPENCLAW_AGENT_MODEL=openclaw                # default
+     ```
+
+   The bridge runs as a background process beside the matcher
+   daemon (pid file at `~/.ocap/matcher-llm-bridge.pid`, log at
+   `~/.ocap/matcher-llm-bridge.log`). `start-matcher.sh` reaps any
+   previous bridge before spawning a new one; `reset-everything.sh`
+   tears it down alongside the daemons.
+
 3. **Provider** — MetaMask extension loaded in a browser with the
    matcher URL baked in via `.metamaskrc`
    (`OCAP_MATCHER_URL=…`), webpack rebuilt, extension reloaded. The
@@ -271,13 +301,15 @@ pre-configured.
 
    Expected tool: `discovery_find_services(description: "sign a
 message with my wallet")`. Expected response: PersonalMessageSigner
-   as the top candidate (its description and `signMessage` /
-   `getAccounts` method names overlap the query on `sign`, `message`,
-   and `wallet`). EchoService and RandomNumberService should _not_
-   appear — their descriptions and method names share no tokens with
-   this query under the Stage-1 ranker. Each returned candidate
-   includes a `contact (public): ocap:…` URL and a `rationale`
-   string that names the matched tokens.
+   as the top candidate. The LLM bridge ranks candidates against the
+   query, so the exact response shape depends on the model's output,
+   but a competently-configured model should pick PMS clearly and
+   either omit Echo/RandomNumber or rank them well below it. Each
+   returned candidate carries a `contact (public): ocap:…` URL plus
+   a `rationale` string in the model's own words. If you see a
+   "bridge query error" or "bridge ingest error" message instead,
+   check `~/.ocap/matcher-llm-bridge.log` and the openclaw gateway
+   config (token + chatCompletions endpoint enabled).
 
 3. **Inspect PMS.**
 
@@ -368,10 +400,15 @@ Light-touch. Prompts the agent to hit edge cases.
 
 ## Known limitations going in
 
-- Matcher `findServices` uses a Stage-1 keyword/method-name overlap
-  ranker (see `matcher-vat/match.ts`). Queries that don't share any
-  alphanumeric token with a service's description or method names
-  return no candidates. LLM-backed ranking is the planned Stage 2.
+- Matcher `findServices` uses an LLM-backed Stage-2 ranker via
+  `@ocap/llm-bridge`, which calls openclaw's
+  `/v1/chat/completions`. The bridge is started by
+  `start-matcher.sh` and writes to `~/.ocap/matcher-llm-bridge.log`.
+  Bridge errors propagate to the consumer rather than falling back
+  to a heuristic ranker — silent fallbacks would hide LLM-side
+  problems during development. Stage-3 RAG-style indexing is the
+  next planned step; today every registration's full digest sits
+  in the matcher's LLM context window.
 - Matcher URL is stable across plain daemon restarts of the same
   OCAP home (durable `publicFacet` kref + persisted peer ID and
   encryption key), but **re-running `start-matcher.sh` allocates a
