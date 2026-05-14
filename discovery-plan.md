@@ -165,25 +165,35 @@ generalizing (not forking) the current metamask plugin.
 
 ### Stable matcher OCAP URL across restarts
 
-Today each `start-matcher.sh` run yields a fresh matcher URL, because
-`launchSubcluster` unconditionally creates a new subcluster, and the
-default purge wipes peer ID and crypto keys on top of that.
+**Status:** Part 1 done. The matcher's `publicFacet` is now a durable
+kind whose kref is stored in baggage (see
+`packages/service-matcher/src/matcher-vat/index.ts`). With persisted
+peer ID and OCAP-URL encryption key (the default under `--keep-state`),
+the matcher URL is stable across daemon restarts of the same OCAP home.
+The matcher also caches the issued URL in baggage under `matcherUrl`
+and exposes it via `getMatcherUrl()` on the vat root.
 
-**Fix direction:** put the matcher's public facet in the vat's baggage.
-With durable exo machinery, the same kref is restored on vat
-reincarnation; combined with persisted peer ID and OCAP-URL encryption
-key (already the default with `--keep-state`), the URL becomes stable.
-Launcher updates needed on top of that: detect an existing matcher
-subcluster and skip re-launch, and expose a way to query the current
-matcher URL without calling `launchSubcluster`.
+**Part 2 (still TODO):** launcher updates. `start-matcher.sh` should
+detect an existing matcher subcluster and skip re-launch, surfacing the
+existing `matcherUrl` instead. Per the redirect during Part 1, this
+should ride on a general daemon RPC for interrogating running
+subclusters (analogous to what the test browser plugin can do), not a
+matcher-specific one-off.
 
-### Dedup / liveness for matcher registrations
+### Dedup / liveness for matcher registrations (also: durable registry)
 
-The matcher blindly appends a new registry entry every time a provider
-re-registers. On a provider restart the old entries remain but point
-at dead krefs, so consumers calling `initiateContact` on them fail.
-Not a crash, but stale entries accumulate and pollute `findServices`
-results.
+**Current state.** The registry is **in-memory**. After a matcher
+restart it starts empty; providers must re-register. This is the
+deliberate workaround we picked while making the matcher URL stable
+(see above): a durable registry without a liveness pass would let dead
+entries accumulate silently across matcher outages, which is worse than
+forcing a re-register.
+
+The matcher also blindly appends a new registry entry every time a
+provider re-registers. On a provider restart the old entries remain
+but point at dead krefs, so consumers calling `initiateContact` on
+them fail. Not a crash, but stale entries accumulate and pollute
+`findServices` results.
 
 **Fix directions (pick one or layer):**
 
@@ -191,9 +201,14 @@ results.
   `contactUrl` matches an existing entry, replace it.
 - Liveness probe: periodically call a cheap method on each registered
   contact (e.g., a no-op ping, or `getServiceDescription`) and evict
-  entries that fail.
+  entries that fail. Required before the registry can become durable —
+  otherwise an outage during which a provider goes away leaves a
+  permanently-dead entry.
 - Accept a caller-supplied stable `serviceId` at registration time and
   dedup on that.
+
+Once liveness is in place, promote the registry from the in-memory
+`Map` to a `MapStore` in baggage so registrations survive restarts.
 
 ## Pre-existing bugs encountered during this work
 
