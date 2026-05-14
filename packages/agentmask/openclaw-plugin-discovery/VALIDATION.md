@@ -270,11 +270,14 @@ pre-configured.
    _You:_ "Find me a service that can sign a message with my wallet."
 
    Expected tool: `discovery_find_services(description: "sign a
-message with my wallet")`. Expected response: three candidates —
-   PersonalMessageSigner, EchoService, RandomNumberService — each
-   with a `contact (public): ocap:…` URL. (Matcher ranking is a
-   Phase-2 follow-up; the agent should pick PMS by reading the
-   descriptions.)
+message with my wallet")`. Expected response: PersonalMessageSigner
+   as the top candidate (its description and `signMessage` /
+   `getAccounts` method names overlap the query on `sign`, `message`,
+   and `wallet`). EchoService and RandomNumberService should _not_
+   appear — their descriptions and method names share no tokens with
+   this query under the Stage-1 ranker. Each returned candidate
+   includes a `contact (public): ocap:…` URL and a `rationale`
+   string that names the matched tokens.
 
 3. **Inspect PMS.**
 
@@ -352,8 +355,10 @@ Light-touch. Prompts the agent to hit edge cases.
 
 - Stage B steps 1–7 each complete with the expected tool call and
   response.
-- The matcher daemon log shows a new `[matcher] findServices(…) → 3
-match(es)` entry for every query.
+- The matcher daemon log shows a new
+  `[matcher] findServices(…) → N match(es)` entry for every query;
+  `N` depends on whether the query overlaps the registered services'
+  descriptions and method names.
 - The offscreen console log shows one approval/signing exchange per
   `signMessage` call, with no regressions in the underlying
   `hostApiProxy` path.
@@ -363,8 +368,10 @@ match(es)` entry for every query.
 
 ## Known limitations going in
 
-- Matcher `findServices` returns **all** registered services
-  unranked — the LLM does the picking from descriptions.
+- Matcher `findServices` uses a Stage-1 keyword/method-name overlap
+  ranker (see `matcher-vat/match.ts`). Queries that don't share any
+  alphanumeric token with a service's description or method names
+  return no candidates. LLM-backed ranking is the planned Stage 2.
 - Matcher URL is stable across plain daemon restarts of the same
   OCAP home (durable `publicFacet` kref + persisted peer ID and
   encryption key), but **re-running `start-matcher.sh` allocates a

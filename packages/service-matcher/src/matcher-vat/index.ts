@@ -34,6 +34,8 @@ import type {
   ServiceQuery,
 } from '@metamask/service-discovery-types';
 
+import { rankServices } from './match.ts';
+
 type RegisteredService = {
   id: string;
   description: ServiceDescription;
@@ -253,8 +255,15 @@ export function buildRootObject(
       _context: unknown,
       query: ServiceQuery,
     ): Promise<ServiceMatch[]> {
-      const matches = [...registry.values()].map((entry) =>
-        harden({ description: entry.description }),
+      const ranked = rankServices(
+        [...registry.values()].map((entry) => entry.description),
+        query.description,
+      );
+      const matches = ranked.map((match) =>
+        harden({
+          description: match.description,
+          rationale: `score=${match.score}; matched=[${match.matchedTokens.join(', ')}]`,
+        }),
       );
       log(
         `findServices("${query.description.slice(0, 80)}") → ${matches.length} match(es)`,
