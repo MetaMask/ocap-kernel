@@ -75,20 +75,32 @@ Three things must be live before starting this validation:
    which talks to the openclaw gateway's OpenAI-compatible
    `/v1/chat/completions` endpoint. This adds two requirements:
 
-   - **Openclaw gateway config** (one-time, before
-     `start-matcher.sh`):
+   - **Openclaw gateway config.** Openclaw stores its config in
+     `~/.openclaw/openclaw.json`; settings can be poked either by
+     editing that JSON directly or via `openclaw config set <dotted
+path> <value>` (the CLI just rewrites the same file). The keys
+     we need to confirm/set are:
 
-     ```jsonc
-     gateway.http.endpoints.chatCompletions.enabled = true
-     gateway.auth.mode  = "token"
-     gateway.auth.token = "<some-secret>"
+     ```bash
+     openclaw config set gateway.http.endpoints.chatCompletions.enabled true
+     openclaw config get gateway.auth.mode    # should be "token"
+     openclaw config get gateway.auth.token   # an existing secret string
+     openclaw gateway restart
      ```
+
+     Most setups already have `gateway.auth.mode` set to `"token"`
+     and a `gateway.auth.token` populated by the openclaw install /
+     consumer-LLM setup that came before this work. **Don't mint a
+     new token if one already exists** — copy the existing value and
+     reuse it; clobbering the token would invalidate any other
+     clients pointed at the gateway. Only the `chatCompletions`
+     endpoint flag is reliably new.
 
    - **Env vars in the shell that runs `start-matcher.sh`** (set
      these in your shell profile alongside `LIBP2P_RELAY_PUBLIC_IP`):
 
      ```bash
-     export OPENCLAW_GATEWAY_TOKEN=<same value as gateway.auth.token>
+     export OPENCLAW_GATEWAY_TOKEN=<the existing gateway.auth.token value>
      # Optional overrides:
      # export OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789  # default
      # export OPENCLAW_AGENT_MODEL=openclaw                # default
