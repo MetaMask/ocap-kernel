@@ -196,8 +196,14 @@ export function buildRootObject(
     return id;
   }
 
+  // Behavior methods for `defineDurableKind` receive a `context` arg
+  // (the per-instance `{ state, self }` bag) before the caller-supplied
+  // arguments. We don't use it here — per-instance state is empty and
+  // the registry plus services live in closure — but the parameter
+  // must be present or the real args end up shifted one slot right.
   const matcherBehavior = {
     async registerService(
+      _context: unknown,
       description: ServiceDescription,
       registrationToken: RegistrationToken,
     ): Promise<void> {
@@ -216,6 +222,7 @@ export function buildRootObject(
     },
 
     async registerServiceByUrl(
+      _context: unknown,
       contactUrl: string,
       registrationToken: RegistrationToken,
     ): Promise<void> {
@@ -232,6 +239,7 @@ export function buildRootObject(
     },
 
     async registerServiceByRef(
+      _context: unknown,
       contact: ContactPoint,
       registrationToken: RegistrationToken,
     ): Promise<void> {
@@ -241,7 +249,10 @@ export function buildRootObject(
       store(description, contact);
     },
 
-    async findServices(query: ServiceQuery): Promise<ServiceMatch[]> {
+    async findServices(
+      _context: unknown,
+      query: ServiceQuery,
+    ): Promise<ServiceMatch[]> {
       const matches = [...registry.values()].map((entry) =>
         harden({ description: entry.description }),
       );
