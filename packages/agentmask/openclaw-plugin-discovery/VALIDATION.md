@@ -2,7 +2,9 @@
 
 This document walks through end-to-end validation of the discovery
 plugin against a running Phase 1 provider (MetaMask extension) and a
-Phase 2 matcher (daemon on VPS). Everything lives on a single VPS.
+Phase 2 matcher (daemon on VPS). The deployment is split across two
+hosts: matcher infrastructure on a VPS, and the MetaMask extension
+plus its sample-services daemon on the laptop.
 
 ## Topology
 
@@ -15,10 +17,6 @@ Phase 2 matcher (daemon on VPS). Everything lives on a single VPS.
 │    (subcluster running the matcher vat,             │
 │     plus the llm-bridge process)                    │
 │                                                     │
-│  sample-services daemon — OCAP_HOME=~/.ocap-services│
-│    (one subcluster per non-MetaMask service:        │
-│     Echo, RandomNumber)                             │
-│                                                     │
 │  consumer daemon  — OCAP_HOME=~/.ocap-consumer      │
 │    (no subclusters; hosts the openclaw plugin's     │
 │     RPC target)                                     │
@@ -28,19 +26,26 @@ Phase 2 matcher (daemon on VPS). Everything lives on a single VPS.
 └─────────────────────────────────────────────────────┘
                            │ relay hints
                            ▼
-                Browser on laptop
-    MetaMask extension with the PersonalMessageSigner
-        provider vat, registered against the matcher
+                         Laptop
+┌─────────────────────────────────────────────────────┐
+│  MetaMask extension                                 │
+│    with the PersonalMessageSigner provider vat,     │
+│    registered against the matcher                   │
+│                                                     │
+│  sample-services daemon — OCAP_HOME=~/.ocap-services│
+│    (one subcluster per non-MetaMask service:        │
+│     Echo, RandomNumber)                             │
+└─────────────────────────────────────────────────────┘
 ```
 
-Three daemons live on the same VPS with different home directories
-so they don't clobber each other's state. The matcher uses the
-default `~/.ocap`; sample-services uses `~/.ocap-services`; the
-consumer uses `~/.ocap-consumer`. Every `ocap` invocation that wants
-a non-default daemon passes `--home <dir>`; invocations without
-`--home` hit the matcher. All three talk to each other (and to the
-browser-side PMS provider) over the relay, same as they would across
-machines — the shared VPS is purely for convenience during dev.
+The VPS hosts the matcher and consumer daemons in separate home
+directories so they don't clobber each other's state: the matcher uses
+the default `~/.ocap`, the consumer uses `~/.ocap-consumer`. Every
+`ocap` invocation that wants a non-default daemon passes
+`--home <dir>`; invocations without `--home` hit the matcher. The
+sample-services daemon lives on the laptop alongside the MetaMask
+extension and uses `~/.ocap-services`. All daemons (and the
+browser-side PMS provider) talk to each other over the relay.
 
 ## Prerequisites
 
@@ -81,14 +86,19 @@ Four things must be live before starting this validation:
     `/v1/chat/completions` endpoint. That adds two requirements,
     described in the next two subsections.
 
-3.  **Sample-services daemon** on the VPS, started via
+3.  **Sample-services daemon** on the laptop (the same machine as the
+    MetaMask extension), started via
     `packages/sample-services/scripts/start-services.sh <matcher-url>`
     (or with `MATCHER_OCAP_URL` exported in the shell). It launches
     one subcluster per service: Echo and RandomNumber. Each
     subcluster's bootstrap registers with the matcher using the URL
-    threaded through its vat parameters, so the matcher daemon log
-    should grow two `[matcher] registered svc:N:` lines once this
-    starts.
+    threaded through its vat parameters, so the matcher daemon log on
+    the VPS should grow two `[matcher] registered svc:N:` lines once
+    this starts.
+
+    For the laptop-side reset-and-restart cycle (stop services, clear
+    log, re-launch pointed at the current matcher URL), use
+    `packages/sample-services/scripts/reset-services.sh <matcher-url>`.
 
 4.  **Provider extension** — MetaMask loaded in a browser with the
     matcher URL baked in via `.metamaskrc`

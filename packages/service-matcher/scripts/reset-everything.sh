@@ -1,17 +1,13 @@
 #!/usr/bin/env bash
 # Reset everything VPS-side for a fresh test cycle:
 #
-#   - stop the matcher (~/.ocap), sample-services (~/.ocap-services),
-#     and consumer (~/.ocap-consumer) daemons, plus the matcher's
-#     llm-bridge subprocess; sweep up any orphan daemon-entry / bridge
-#     processes;
-#   - purge consumer + sample-services state and clear daemon logs in
-#     all three homes (the matcher's state is purged by
-#     start-matcher.sh as a side effect of its default behavior);
+#   - stop both daemons (matcher under ~/.ocap, consumer under
+#     ~/.ocap-consumer) and sweep up any orphan daemon-entry processes;
+#   - purge consumer state and clear daemon logs in both homes
+#     (the matcher's state is purged by start-matcher.sh as a side
+#     effect of its default behavior);
 #   - bring the matcher back up via start-matcher.sh, capturing the
 #     newly-issued OCAP URL on stdout;
-#   - bring the sample-services daemon back up via start-services.sh,
-#     pointed at that URL, so Echo and RandomNumber register;
 #   - bring the consumer daemon back up with --local-relay;
 #   - update the openclaw discovery plugin's matcherUrl config and
 #     restart the gateway so the new URL takes effect.
@@ -25,28 +21,25 @@
 # Usage:
 #   reset-everything.sh [--no-build]
 #
-#   --no-build   Skip building/bundling the matcher vat and the sample
-#                services (passed through to start-matcher.sh and
-#                start-services.sh).
+#   --no-build   Skip building/bundling the matcher vat (passed through
+#                to start-matcher.sh).
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
-START_SERVICES_SCRIPT="$REPO_ROOT/packages/sample-services/scripts/start-services.sh"
 OCAP_BIN="$REPO_ROOT/packages/kernel-cli/dist/app.mjs"
 CONSUMER_HOME="${OCAP_CONSUMER_HOME:-${HOME}/.ocap-consumer}"
-SERVICES_HOME="${OCAP_SERVICES_HOME:-${HOME}/.ocap-services}"
 MATCHER_HOME="${HOME}/.ocap"
 LLM_BRIDGE_PID_PATH="$MATCHER_HOME/matcher-llm-bridge.pid"
 LLM_BRIDGE_LOG_PATH="$MATCHER_HOME/matcher-llm-bridge.log"
 LLM_SOCKET_PATH="$MATCHER_HOME/matcher-llm.sock"
 
-PASSTHROUGH_ARGS=()
+START_MATCHER_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --no-build)
-      PASSTHROUGH_ARGS+=(--no-build); shift ;;
+      START_MATCHER_ARGS+=(--no-build); shift ;;
     --help|-h)
       sed -n '2,/^$/p' "$0" >&2; exit 0 ;;
     *)
@@ -68,9 +61,6 @@ fi
 
 info "Stopping consumer daemon (if running)..."
 node "$OCAP_BIN" --home "$CONSUMER_HOME" daemon stop >/dev/null 2>&1 || true
-
-info "Stopping sample-services daemon (if running)..."
-node "$OCAP_BIN" --home "$SERVICES_HOME" daemon stop >/dev/null 2>&1 || true
 
 info "Stopping matcher daemon (if running)..."
 node "$OCAP_BIN" --home "$MATCHER_HOME" daemon stop >/dev/null 2>&1 || true
@@ -114,14 +104,10 @@ fi
 info "Purging consumer daemon state..."
 node "$OCAP_BIN" --home "$CONSUMER_HOME" daemon purge --force >/dev/null 2>&1 || true
 
-info "Purging sample-services daemon state..."
-node "$OCAP_BIN" --home "$SERVICES_HOME" daemon purge --force >/dev/null 2>&1 || true
-
 info "Clearing daemon and bridge logs..."
 rm -f \
   "$MATCHER_HOME/daemon.log" \
   "$CONSUMER_HOME/daemon.log" \
-  "$SERVICES_HOME/daemon.log" \
   "$LLM_BRIDGE_LOG_PATH"
 
 # ---------------------------------------------------------------------------
@@ -129,7 +115,7 @@ rm -f \
 # ---------------------------------------------------------------------------
 
 info "Starting matcher..."
-MATCHER_URL="$("$SCRIPT_DIR/start-matcher.sh" "${PASSTHROUGH_ARGS[@]}")"
+MATCHER_URL="$("$SCRIPT_DIR/start-matcher.sh" "${START_MATCHER_ARGS[@]}")"
 if [[ -z "$MATCHER_URL" ]]; then
   echo "[reset] ERROR: start-matcher.sh produced no URL." >&2
   exit 1
@@ -137,14 +123,7 @@ fi
 info "Matcher URL: $MATCHER_URL"
 
 # ---------------------------------------------------------------------------
-# 7. Bring the sample-services daemon back up, pointed at the matcher.
-# ---------------------------------------------------------------------------
-
-info "Starting sample-services daemon..."
-"$START_SERVICES_SCRIPT" "$MATCHER_URL" "${PASSTHROUGH_ARGS[@]}" >&2
-
-# ---------------------------------------------------------------------------
-# 8. Bring the consumer daemon back up.
+# 7. Bring the consumer daemon back up.
 # ---------------------------------------------------------------------------
 
 info "Starting consumer daemon (--local-relay)..."
