@@ -24,6 +24,13 @@ export type OpenClawClientConfig = {
    * specific one.
    */
   model: string;
+  /**
+   * Optional logger. When set, the client emits one
+   * "→ chat-completions request" line and one "← chat-completions reply"
+   * line per call, each containing the corresponding JSON-encoded body.
+   * Default: silent.
+   */
+  log?: (message: string) => void;
 };
 
 export type OpenClawClient = {
@@ -52,23 +59,28 @@ export function makeOpenClawClient(
   config: OpenClawClientConfig,
 ): OpenClawClient {
   const url = `${config.baseUrl.replace(/\/$/u, '')}/v1/chat/completions`;
+  const log = config.log ?? ((): void => undefined);
   return {
     async chat(messages: ChatMessage[]): Promise<string> {
+      const requestBody = { model: config.model, messages };
+      log(`→ chat-completions request: ${JSON.stringify(requestBody)}`);
       const response = await fetch(url, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
           authorization: `Bearer ${config.token}`,
         },
-        body: JSON.stringify({ model: config.model, messages }),
+        body: JSON.stringify(requestBody),
       });
       if (!response.ok) {
         const body = await response.text().catch(() => '');
+        log(`← chat-completions error HTTP ${response.status}: ${body}`);
         throw new Error(
           `openclaw gateway returned HTTP ${response.status}: ${body}`,
         );
       }
       const parsed = (await response.json()) as ChatCompletionsResponse;
+      log(`← chat-completions reply: ${JSON.stringify(parsed)}`);
       const content = parsed.choices?.[0]?.message?.content;
       if (typeof content !== 'string') {
         throw new Error(

@@ -98,6 +98,51 @@ describe('makeOpenClawClient.chat', () => {
     );
   });
 
+  it('logs the request body and the parsed response when a logger is supplied', async () => {
+    fetchSpy.mockResolvedValue(okResponse('hello back'));
+    const lines: string[] = [];
+    const client = makeOpenClawClient({
+      baseUrl: 'http://example.test:18789',
+      token: 'tok',
+      model: 'openclaw',
+      log: (line: string) => lines.push(line),
+    });
+
+    await client.chat([{ role: 'user', content: 'hi' }]);
+
+    const requestLine = lines.find((line) =>
+      line.startsWith('→ chat-completions request:'),
+    );
+    const replyLine = lines.find((line) =>
+      line.startsWith('← chat-completions reply:'),
+    );
+    expect(requestLine).toBeDefined();
+    expect(requestLine).toContain('"role":"user"');
+    expect(requestLine).toContain('"content":"hi"');
+    expect(replyLine).toBeDefined();
+    expect(replyLine).toContain('"content":"hello back"');
+  });
+
+  it('logs an error line on non-2xx responses', async () => {
+    fetchSpy.mockResolvedValue(new Response('forbidden', { status: 401 }));
+    const lines: string[] = [];
+    const client = makeOpenClawClient({
+      baseUrl: 'http://example.test:18789',
+      token: 'tok',
+      model: 'openclaw',
+      log: (line: string) => lines.push(line),
+    });
+
+    await expect(client.chat([{ role: 'user', content: 'q' }])).rejects.toThrow(
+      /HTTP 401/u,
+    );
+    expect(
+      lines.some((line) =>
+        line.startsWith('← chat-completions error HTTP 401'),
+      ),
+    ).toBe(true);
+  });
+
   it('sends the configured model and the supplied messages in the request body', async () => {
     fetchSpy.mockResolvedValue(okResponse('ok'));
     const client = makeOpenClawClient({

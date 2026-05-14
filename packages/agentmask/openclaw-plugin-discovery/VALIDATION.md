@@ -41,83 +41,97 @@ convenience during dev.
 
 Three things must be live before starting this validation:
 
-1. **Relay** on the VPS (`yarn ocap relay`; writes
-   `~/.libp2p-relay/relay.addr`). Leave it running. The relay
-   keeps its bookkeeping (`relay.pid`, `relay.addr`) under
-   `~/.libp2p-relay` rather than `~/.ocap` so the same relay
-   can serve daemons running under arbitrary `OCAP_HOME` values
-   (override with `LIBP2P_RELAY_HOME` if you need a non-default
-   location).
+1.  **Relay** on the VPS (`yarn ocap relay`; writes
+    `~/.libp2p-relay/relay.addr`). Leave it running. The relay
+    keeps its bookkeeping (`relay.pid`, `relay.addr`) under
+    `~/.libp2p-relay` rather than `~/.ocap` so the same relay
+    can serve daemons running under arbitrary `OCAP_HOME` values
+    (override with `LIBP2P_RELAY_HOME` if you need a non-default
+    location).
 
-   On a VPS where the public IP isn't bound to a local NIC (most
-   NAT-backed cloud setups), libp2p won't auto-detect it, so the
-   multiaddr written into `relay.addr` would only contain a loopback
-   or RFC 1918 address — not reachable from the browser running the
-   provider extension. Pass the public address explicitly:
+    On a VPS where the public IP isn't bound to a local NIC (most
+    NAT-backed cloud setups), libp2p won't auto-detect it, so the
+    multiaddr written into `relay.addr` would only contain a loopback
+    or RFC 1918 address — not reachable from the browser running the
+    provider extension. Pass the public address explicitly:
 
-   ```bash
-   yarn ocap relay --public-ip 164.92.86.40   # or
-   LIBP2P_RELAY_PUBLIC_IP=164.92.86.40 yarn ocap relay
-   ```
+    ```bash
+    yarn ocap relay --public-ip 164.92.86.40   # or
+    LIBP2P_RELAY_PUBLIC_IP=164.92.86.40 yarn ocap relay
+    ```
 
-   The relay then announces that address alongside the auto-detected
-   ones, and the relay-addr picker prefers a public-looking IPv4 over
-   private/loopback. Set the env var in your shell profile so you
-   don't have to remember it on each restart.
+    The relay then announces that address alongside the auto-detected
+    ones, and the relay-addr picker prefers a public-looking IPv4 over
+    private/loopback. Set the env var in your shell profile so you
+    don't have to remember it on each restart.
 
-2. **Matcher daemon** on the VPS, started via
-   `packages/service-matcher/scripts/start-matcher.sh`. The script
-   prints the matcher OCAP URL on stdout — copy it. See the
-   [Restarting](#restarting) section below for what this command
-   actually does and when you should use a different one.
+2.  **Matcher daemon** on the VPS, started via
+    `packages/service-matcher/scripts/start-matcher.sh`. The script
+    prints the matcher OCAP URL on stdout — copy it. See the
+    [Restarting](#restarting) section below for what this command
+    actually does and when you should use a different one.
 
-   The matcher now ranks via an LLM through `@ocap/llm-bridge`,
-   which talks to the openclaw gateway's OpenAI-compatible
-   `/v1/chat/completions` endpoint. This adds two requirements:
+    The matcher now ranks via an LLM through `@ocap/llm-bridge`,
+    which talks to the openclaw gateway's OpenAI-compatible
+    `/v1/chat/completions` endpoint. This adds two requirements:
 
-   - **Openclaw gateway config.** Openclaw stores its config in
-     `~/.openclaw/openclaw.json`; settings can be poked either by
-     editing that JSON directly or via `openclaw config set <dotted
+    - **Openclaw gateway config.** Openclaw stores its config in
+      `~/.openclaw/openclaw.json`; settings can be poked either by
+      editing that JSON directly or via `openclaw config set <dotted
 path> <value>` (the CLI just rewrites the same file). The keys
-     we need to confirm/set are:
+      we need to confirm/set are:
 
-     ```bash
-     openclaw config set gateway.http.endpoints.chatCompletions.enabled true
-     openclaw config get gateway.auth.mode    # should be "token"
-     openclaw config get gateway.auth.token   # an existing secret string
-     openclaw gateway restart
-     ```
+           ```bash
+           openclaw config set gateway.http.endpoints.chatCompletions.enabled true
+           openclaw config get gateway.auth.mode    # should be "token"
+           openclaw config get gateway.auth.token   # an existing secret string
+           openclaw gateway restart
+           ```
 
-     Most setups already have `gateway.auth.mode` set to `"token"`
-     and a `gateway.auth.token` populated by the openclaw install /
-     consumer-LLM setup that came before this work. **Don't mint a
-     new token if one already exists** — copy the existing value and
-     reuse it; clobbering the token would invalidate any other
-     clients pointed at the gateway. Only the `chatCompletions`
-     endpoint flag is reliably new.
+           Most setups already have `gateway.auth.mode` set to `"token"`
+           and a `gateway.auth.token` populated by the openclaw install /
+           consumer-LLM setup that came before this work. **Don't mint a
+           new token if one already exists** — copy the existing value and
+           reuse it; clobbering the token would invalidate any other
+           clients pointed at the gateway. Only the `chatCompletions`
+           endpoint flag is reliably new.
 
-   - **Env vars in the shell that runs `start-matcher.sh`** (set
-     these in your shell profile alongside `LIBP2P_RELAY_PUBLIC_IP`):
+    - **Env vars in the shell that runs `start-matcher.sh`** (set
+      these in your shell profile alongside `LIBP2P_RELAY_PUBLIC_IP`):
 
-     ```bash
-     export OPENCLAW_GATEWAY_TOKEN=<the existing gateway.auth.token value>
-     # Optional overrides:
-     # export OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789  # default
-     # export OPENCLAW_AGENT_MODEL=openclaw                # default
-     ```
+      ```bash
+      export OPENCLAW_GATEWAY_TOKEN=<the existing gateway.auth.token value>
+      # Optional overrides:
+      # export OPENCLAW_GATEWAY_URL=http://127.0.0.1:18789  # default
+      # export OPENCLAW_AGENT_MODEL=openclaw                # default
+      ```
 
-   The bridge runs as a background process beside the matcher
-   daemon (pid file at `~/.ocap/matcher-llm-bridge.pid`, log at
-   `~/.ocap/matcher-llm-bridge.log`). `start-matcher.sh` reaps any
-   previous bridge before spawning a new one; `reset-everything.sh`
-   tears it down alongside the daemons.
+    The bridge runs as a background process beside the matcher
+    daemon (pid file at `~/.ocap/matcher-llm-bridge.pid`, log at
+    `~/.ocap/matcher-llm-bridge.log`). `start-matcher.sh` reaps any
+    previous bridge before spawning a new one; `reset-everything.sh`
+    tears it down alongside the daemons.
 
-3. **Provider** — MetaMask extension loaded in a browser with the
-   matcher URL baked in via `.metamaskrc`
-   (`OCAP_MATCHER_URL=…`), webpack rebuilt, extension reloaded. The
-   offscreen console should show the three registration-success
-   lines; the matcher daemon log should show three
-   `[matcher] registered svc:N:` lines.
+    The bridge log captures both halves of every round trip so you
+    can see exactly what's flowing to and from the LLM. Each ingest
+    or query produces:
+
+    ```text
+    [llm-bridge] -> ingest: {full request JSON}
+    [llm-bridge] → chat-completions request: {full messages array sent to openclaw}
+    [llm-bridge] ← chat-completions reply: {full response body from openclaw}
+    [llm-bridge] <- ingested (svc:0)
+    ```
+
+    `tail -f ~/.ocap/matcher-llm-bridge.log` while you exercise the
+    matcher to watch prompts and replies in real time.
+
+3.  **Provider** — MetaMask extension loaded in a browser with the
+    matcher URL baked in via `.metamaskrc`
+    (`OCAP_MATCHER_URL=…`), webpack rebuilt, extension reloaded. The
+    offscreen console should show the three registration-success
+    lines; the matcher daemon log should show three
+    `[matcher] registered svc:N:` lines.
 
 ## Restarting
 

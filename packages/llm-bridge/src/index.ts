@@ -73,13 +73,13 @@ async function main(): Promise<void> {
     // eslint-disable-next-line n/no-process-env
     process.env.OPENCLAW_AGENT_MODEL ?? DEFAULT_AGENT_MODEL;
 
-  const client = makeOpenClawClient({ baseUrl, token, model });
-  const conversation = makeConversation(client);
-
   const log = (message: string): void => {
     // eslint-disable-next-line no-console
     console.error(`[llm-bridge] ${message}`);
   };
+  const client = makeOpenClawClient({ baseUrl, token, model, log });
+  const conversation = makeConversation(client);
+
   log(`starting; gateway=${baseUrl} model=${model} socket=${socketPath}`);
 
   await runBridge({ socketPath, conversation, log });

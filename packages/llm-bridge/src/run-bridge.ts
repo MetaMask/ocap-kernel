@@ -143,7 +143,9 @@ async function connectOnce(socketPath: string): Promise<Socket> {
 
 /**
  * Parse one line of input, dispatch to the conversation, and produce
- * the reply object.
+ * the reply object. Emits a one-line trace per request and per reply
+ * so the operator can see the round-trip without grepping the
+ * gateway's HTTP traffic.
  *
  * @param line - Raw JSON-encoded request line.
  * @param conversation - Conversation manager.
@@ -159,21 +161,26 @@ async function handleLine(
   try {
     parsed = JSON.parse(line);
   } catch {
+    log(`<- error: could not parse JSON: ${line}`);
     return { kind: 'error', message: `could not parse JSON: ${line}` };
   }
   if (!is(parsed, RequestStruct)) {
+    log(`<- error: unrecognized request shape: ${line}`);
     return { kind: 'error', message: `unrecognized request shape: ${line}` };
   }
+  log(`-> ${parsed.kind}: ${JSON.stringify(parsed)}`);
   try {
     if (parsed.kind === 'ingest') {
       await conversation.ingest(parsed);
+      log(`<- ingested (${parsed.service.id})`);
       return { kind: 'ingested' };
     }
     const matches = await conversation.query(parsed.query);
+    log(`<- matches: ${JSON.stringify(matches)}`);
     return { kind: 'matches', matches };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    log(`error handling ${parsed.kind}: ${message}`);
+    log(`<- error handling ${parsed.kind}: ${message}`);
     return { kind: 'error', message };
   }
 }
