@@ -152,7 +152,7 @@ RESET COMPLETE.
     $MATCHER_URL
 
   Next steps (laptop side only):
-    1. Paste the URL above into .metamaskrc as OCAP_MATCHER_URL.
+    1. Paste the URL above into .metamaskrc as MATCHER_OCAP_URL.
     2. Rebuild the extension's webpack bundle.
     3. Reload the extension in the browser.
 ================================================================

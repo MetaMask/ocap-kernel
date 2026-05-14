@@ -180,7 +180,7 @@ function register(api: OpenClawPluginApi): void {
   const preconfiguredMatcherUrl = (
     resolveConfig<string>({
       pluginValue: pluginConfig?.matcherUrl,
-      envVar: 'OCAP_MATCHER_URL',
+      envVar: 'MATCHER_OCAP_URL',
     }) ?? ''
   ).trim();
 

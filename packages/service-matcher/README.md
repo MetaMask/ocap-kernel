@@ -16,8 +16,8 @@ either order, picking up the relay's multiaddr via `--relay`,
 yarn ocap relay
 
 # Start the matcher in another. It prints its OCAP URL on stdout:
-OCAP_MATCHER_URL=$(./packages/service-matcher/scripts/start-matcher.sh)
-echo "Matcher URL: $OCAP_MATCHER_URL"
+MATCHER_OCAP_URL=$(./packages/service-matcher/scripts/start-matcher.sh)
+echo "Matcher URL: $MATCHER_OCAP_URL"
 ```
 
 See `scripts/start-matcher.sh --help` for options.

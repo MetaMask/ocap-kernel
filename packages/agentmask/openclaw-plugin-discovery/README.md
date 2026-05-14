@@ -22,7 +22,7 @@ variables (env takes precedence):
 | ------------- | ------------------ | -------------------------------------------------------------------------- |
 | `ocapCliPath` | `OCAP_CLI_PATH`    | Absolute path to the `ocap` CLI entry point.                               |
 | `ocapHome`    | `OCAP_HOME`        | OCAP home directory for the daemon this plugin targets. Default `~/.ocap`. |
-| `matcherUrl`  | `OCAP_MATCHER_URL` | OCAP URL for the service matcher. Pre-redeemed at startup.                 |
+| `matcherUrl`  | `MATCHER_OCAP_URL` | OCAP URL for the service matcher. Pre-redeemed at startup.                 |
 | `timeoutMs`   | `OCAP_TIMEOUT_MS`  | Timeout for daemon calls in ms (default `60000`).                          |
 | `resetState`  | `OCAP_RESET_STATE` | Clear plugin state on `register()` (default `false`).                      |
 

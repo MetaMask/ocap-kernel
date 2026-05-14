@@ -31,7 +31,7 @@
 #
 # On success the matcher's OCAP URL is printed to stdout on its own
 # line — all progress messages go to stderr — so:
-#   OCAP_MATCHER_URL=$(start-matcher.sh)
+#   MATCHER_OCAP_URL=$(start-matcher.sh)
 # works as expected.
 
 set -euo pipefail

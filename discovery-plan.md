@@ -23,7 +23,7 @@ Three cooperating components plus a shared relay:
    matcher registration OCAP URL supplied via environment. When the
    provider runs inside the MetaMask browser plugin, the URL is placed
    in `.metamaskrc` alongside `OCAP_RELAY_MULTIADDR` (e.g. as
-   `OCAP_MATCHER_URL`). **Resolved.**
+   `MATCHER_OCAP_URL`). **Resolved.**
 2. **Consumer ↔ Matcher NL channel**: Resolved by the types file.
    `ServiceMatcher.findServices(query)` is an ocap method taking a
    structured `ServiceQuery = { description: string }` and returning
