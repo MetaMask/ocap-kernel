@@ -115,7 +115,7 @@ rm -f \
 # ---------------------------------------------------------------------------
 
 info "Starting matcher..."
-MATCHER_URL="$("$SCRIPT_DIR/start-matcher.sh" "${START_MATCHER_ARGS[@]}")"
+MATCHER_URL="$("$SCRIPT_DIR/start-matcher.sh" ${START_MATCHER_ARGS[@]+"${START_MATCHER_ARGS[@]}"})"
 if [[ -z "$MATCHER_URL" ]]; then
   echo "[reset] ERROR: start-matcher.sh produced no URL." >&2
   exit 1

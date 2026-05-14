@@ -86,7 +86,7 @@ rm -f "$SERVICES_HOME/daemon.log"
 # ---------------------------------------------------------------------------
 
 info "Starting sample-services daemon..."
-"$START_SERVICES_SCRIPT" "$MATCHER_URL" "${PASSTHROUGH_ARGS[@]}" >&2
+"$START_SERVICES_SCRIPT" "$MATCHER_URL" ${PASSTHROUGH_ARGS[@]+"${PASSTHROUGH_ARGS[@]}"} >&2
 
 cat <<EOF >&2
 

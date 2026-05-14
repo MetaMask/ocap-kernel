@@ -211,7 +211,10 @@ launch_service() {
         vats: {
           [process.env.VAT_NAME]: {
             bundleSpec: process.env.BUNDLE,
-            parameters: { matcherUrl: process.env.MATCHER_URL }
+            parameters: { matcherUrl: process.env.MATCHER_URL },
+            // Both services use crypto.getRandomValues for registration
+            // tokens; RandomNumber also uses it for its draws.
+            globals: ['crypto']
           }
         }
       }
