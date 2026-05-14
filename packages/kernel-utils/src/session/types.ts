@@ -38,3 +38,31 @@ export type Decision = {
   /** Optional guard override for accept verdicts. Absent means minimal (single-invocation) approval. */
   guard?: { body: string; slots: string[] };
 };
+
+/** User-facing summary of a session returned by the session list API. */
+export type SessionSummary = {
+  sessionId: string;
+  ocapUrl: string;
+};
+
+/** User-facing representation of a pending authorization request. */
+export type PendingRequest = {
+  token: string;
+  description: string;
+  reason: string;
+};
+
+/**
+ * Transport-agnostic interface for inspecting and deciding on authorization
+ * requests. Shared between the TUI (Unix-socket JSON-RPC) and the browser
+ * extension (browser-kernel RPC).
+ */
+export type SessionApi = {
+  listSessions: () => Promise<SessionSummary[]>;
+  listRequests: (sessionId: string) => Promise<PendingRequest[]>;
+  decide: (
+    sessionId: string,
+    token: string,
+    verdict: 'accept' | 'reject',
+  ) => Promise<void>;
+};
