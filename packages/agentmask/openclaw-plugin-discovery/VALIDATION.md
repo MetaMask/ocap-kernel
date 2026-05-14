@@ -12,7 +12,12 @@ Phase 2 matcher (daemon on VPS). Everything lives on a single VPS.
 │  relay (libp2p) — writes ~/.libp2p-relay/relay.addr │
 │                                                     │
 │  matcher daemon   — OCAP_HOME=~/.ocap (default)     │
-│    (subcluster running the matcher vat)             │
+│    (subcluster running the matcher vat,             │
+│     plus the llm-bridge process)                    │
+│                                                     │
+│  sample-services daemon — OCAP_HOME=~/.ocap-services│
+│    (one subcluster per non-MetaMask service:        │
+│     Echo, RandomNumber)                             │
 │                                                     │
 │  consumer daemon  — OCAP_HOME=~/.ocap-consumer      │
 │    (no subclusters; hosts the openclaw plugin's     │
@@ -24,22 +29,22 @@ Phase 2 matcher (daemon on VPS). Everything lives on a single VPS.
                            │ relay hints
                            ▼
                 Browser on laptop
-    MetaMask extension with provider vats
-        registered against the matcher
+    MetaMask extension with the PersonalMessageSigner
+        provider vat, registered against the matcher
 ```
 
-Two daemons live on the same VPS with different home directories so
-they don't clobber each other's state. The matcher uses the default
-`~/.ocap`; the consumer uses `~/.ocap-consumer`. Every `ocap`
-invocation that wants the consumer daemon passes
-`--home ~/.ocap-consumer`; invocations without `--home` hit the
-matcher. Matcher and consumer talk to each other over the relay,
-same as they would across machines — the shared VPS is purely for
-convenience during dev.
+Three daemons live on the same VPS with different home directories
+so they don't clobber each other's state. The matcher uses the
+default `~/.ocap`; sample-services uses `~/.ocap-services`; the
+consumer uses `~/.ocap-consumer`. Every `ocap` invocation that wants
+a non-default daemon passes `--home <dir>`; invocations without
+`--home` hit the matcher. All three talk to each other (and to the
+browser-side PMS provider) over the relay, same as they would across
+machines — the shared VPS is purely for convenience during dev.
 
 ## Prerequisites
 
-Three things must be live before starting this validation:
+Four things must be live before starting this validation:
 
 1.  **Relay** on the VPS (`yarn ocap relay`; writes
     `~/.libp2p-relay/relay.addr`). Leave it running. The relay
@@ -76,12 +81,22 @@ Three things must be live before starting this validation:
     `/v1/chat/completions` endpoint. That adds two requirements,
     described in the next two subsections.
 
-3.  **Provider** — MetaMask extension loaded in a browser with the
+3.  **Sample-services daemon** on the VPS, started via
+    `packages/sample-services/scripts/start-services.sh <matcher-url>`
+    (or with `MATCHER_OCAP_URL` exported in the shell). It launches
+    one subcluster per service: Echo and RandomNumber. Each
+    subcluster's bootstrap registers with the matcher using the URL
+    threaded through its vat parameters, so the matcher daemon log
+    should grow two `[matcher] registered svc:N:` lines once this
+    starts.
+
+4.  **Provider extension** — MetaMask loaded in a browser with the
     matcher URL baked in via `.metamaskrc`
     (`MATCHER_OCAP_URL=…`), webpack rebuilt, extension reloaded. The
-    offscreen console should show the three registration-success
-    lines; the matcher daemon log should show three
-    `[matcher] registered svc:N:` lines.
+    offscreen console should show one PersonalMessageSigner
+    registration-success line; combined with the two registrations
+    from sample-services above, the matcher daemon log should show
+    three `[matcher] registered svc:N:` lines total.
 
 ### Openclaw gateway config
 
