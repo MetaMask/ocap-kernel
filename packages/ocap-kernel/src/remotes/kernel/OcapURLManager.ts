@@ -6,6 +6,23 @@ import { kslot, krefOf } from '../../liveslots/kernel-marshal.ts';
 import type { SlotValue } from '../../liveslots/kernel-marshal.ts';
 import type { KRef } from '../../types.ts';
 
+/**
+ * The vat-facing shape of the `ocapURLIssuerService` kernel-service
+ * endowment: accepts a remotable and returns an OCAP URL that resolves to
+ * that remotable when redeemed elsewhere.
+ */
+export type OcapURLIssuerService = {
+  issue: (obj: unknown) => Promise<string>;
+};
+
+/**
+ * The vat-facing shape of the `ocapURLRedemptionService` kernel-service
+ * endowment: accepts an OCAP URL and returns the referenced remotable.
+ */
+export type OcapURLRedemptionService = {
+  redeem: (url: string) => Promise<unknown>;
+};
+
 type OcapURLManagerConstructorProps = {
   remoteManager: RemoteManager;
 };
