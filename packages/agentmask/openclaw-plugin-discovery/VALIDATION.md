@@ -1,0 +1,228 @@
+# Phase 3 validation — `@openclaw/discovery`
+
+This document walks through end-to-end validation of the discovery
+plugin against a running Phase 1 provider (MetaMask extension) and a
+Phase 2 matcher (daemon on VPS). Everything lives on a single VPS.
+
+## Topology
+
+```
+                          VPS
+┌─────────────────────────────────────────────────────┐
+│  relay (libp2p) — writes ~/.ocap/relay.addr         │
+│                                                     │
+│  matcher daemon   — OCAP_HOME=~/.ocap-matcher       │
+│    (subcluster running the matcher vat)             │
+│                                                     │
+│  consumer daemon  — OCAP_HOME=~/.ocap-consumer      │
+│    (no subclusters; hosts the openclaw plugin's     │
+│     RPC target)                                     │
+│                                                     │
+│  openclaw + @openclaw/discovery                     │
+│    (drives the consumer daemon via RPC)             │
+└─────────────────────────────────────────────────────┘
+                           │ relay hints
+                           ▼
+                Browser on laptop
+    MetaMask extension with provider vats
+        registered against the matcher
+```
+
+Two daemons live on the same VPS with different `OCAP_HOME`
+directories so they don't clobber each other's state. Matcher and
+consumer talk to each other over the relay, same as they would across
+machines — the shared VPS is purely for convenience during dev.
+
+## Prerequisites
+
+Three things must be live before starting this validation:
+
+1. **Relay** on the VPS (`yarn ocap relay`; writes
+   `~/.ocap/relay.addr`). Leave it running.
+2. **Matcher daemon** on the VPS
+   (`packages/service-matcher/scripts/start-matcher.sh`). It prints
+   the matcher OCAP URL on stdout — keep it.
+3. **Provider** — MetaMask extension loaded in a browser with the
+   matcher URL baked in via `.metamaskrc`
+   (`OCAP_MATCHER_URL=…`), webpack rebuilt, extension reloaded. The
+   offscreen console should show the three registration-success
+   lines; the matcher daemon log should show three
+   `[matcher] registered svc:N:` lines.
+
+## Stage A — Install the discovery plugin
+
+### A.1. Start the consumer daemon (separate `OCAP_HOME`)
+
+```bash
+# New shell on the VPS:
+export OCAP_HOME=~/.ocap-consumer
+export OCAP_SOCKET_PATH=~/.ocap-consumer/daemon.sock
+mkdir -p "$OCAP_HOME"
+
+# Start it and wire up remote comms via the relay (same relay the
+# matcher uses; read the address from the shared location).
+yarn ocap daemon start
+yarn ocap daemon exec initRemoteComms "{\"relays\": [\"$(cat ~/.ocap/relay.addr)\"]}"
+```
+
+Confirm `getStatus` shows `remoteComms.state === "connected"` before
+proceeding.
+
+### A.2. Install and enable the plugin
+
+```bash
+cd ~/GitRepos/ocap-kernel
+openclaw plugins install -l ./packages/agentmask/openclaw-plugin-discovery
+openclaw plugins enable discovery
+openclaw config set plugins.allow '["discovery"]'
+openclaw config set tools.allow '["discovery"]'
+```
+
+### A.3. Point the plugin at the consumer daemon + matcher URL
+
+Two options for supplying the matcher URL and daemon socket path:
+
+**Plugin config:**
+
+```bash
+openclaw config set 'plugins.discovery.matcherUrl' 'ocap:…'
+openclaw config set 'plugins.discovery.ocapCliPath' '/abs/path/to/ocap-kernel/packages/kernel-cli/dist/app.mjs'
+```
+
+**Or environment:**
+
+```bash
+export OCAP_MATCHER_URL='ocap:…'
+export OCAP_SOCKET_PATH=~/.ocap-consumer/daemon.sock
+export OCAP_CLI_PATH=/abs/path/to/ocap-kernel/packages/kernel-cli/dist/app.mjs
+```
+
+If `matcherUrl` is supplied, the plugin redeems it eagerly at
+register-time. Otherwise the first action is
+`discovery_redeem_matcher`.
+
+## Stage B — Tool-level shakedown
+
+Drive this from `openclaw tui` (or via the CLI if you prefer). The
+agent's conversation is the script; the listed tool calls are what
+the agent should end up making. Paste the matcher OCAP URL in
+response to the agent's first question if `matcherUrl` was not
+pre-configured.
+
+1. **Connect to matcher.**
+
+   _You:_ "Connect to the service matcher at `<matcher URL>`."
+
+   Expected tool: `discovery_redeem_matcher(url: "ocap:…")`.
+   Expected response: `Matcher kref: koN`. (Skip this step if
+   `matcherUrl` was pre-configured.)
+
+2. **Find services.**
+
+   _You:_ "Find me a service that can sign a message with my wallet."
+
+   Expected tool: `discovery_find_services(description: "sign a
+message with my wallet")`. Expected response: three candidates —
+   PersonalMessageSigner, EchoService, RandomNumberService — each
+   with a `contact (public): ocap:…` URL. (Matcher ranking is a
+   Phase-2 follow-up; the agent should pick PMS by reading the
+   descriptions.)
+
+3. **Inspect PMS.**
+
+   _You:_ "Show me what that wallet service can do."
+
+   Expected tool: `service_get_description(contact: "<PMS contact URL>")`.
+   Expected response: ServiceDescription with `getAccounts` and
+   `signMessage` in the remotable spec.
+
+4. **Obtain the PMS service.**
+
+   _You:_ "Connect to it."
+
+   Expected tool: `service_initiate_contact(contact: "<PMS contact URL>")`.
+   Expected response: `Obtained service "PersonalMessageSigner" (kref koN)`.
+   Expected provider-side: **no** approval popup at this point —
+   contact initiation itself is Public.
+
+5. **List accounts.**
+
+   _You:_ "What accounts do I have?"
+
+   Expected tool: `service_call(service: "PersonalMessageSigner", method: "getAccounts")`.
+   Expected response: array of 0x-prefixed addresses.
+
+6. **Sign a message.**
+
+   _You:_ "Sign 'hello world' with the first one."
+
+   Expected tool: `service_call(service: "PersonalMessageSigner",
+method: "signMessage", args: '["0x…", "hello world", "0x1"]')`.
+   Expected provider-side: **approval popup in the browser**. Approve
+   it. Expected response: hex signature.
+
+7. **Inventory.**
+
+   _You:_ "What services do you have access to right now?"
+
+   Expected tool: `discovery_list_tracked`. Expected response:
+   matcher + one contact + one service (PMS).
+
+## Stage C — Exercise the other two services
+
+Repeat steps 3–5 for `EchoService` and `RandomNumberService`:
+
+- Echo: call `echo("testing 1 2 3")`; expect `"testing 1 2 3"`.
+- RandomNumber: call `randomInt(1, 100)`; expect an integer in
+  [1, 100]. Call `randomFloat()`; expect a float in [0, 1).
+
+Neither triggers an approval popup — they have no access-controlled
+backing.
+
+After these, `discovery_list_tracked` should show 3 contacts and 3
+services.
+
+## Stage D — Failure-path sanity
+
+Light-touch. Prompts the agent to hit edge cases.
+
+- Start a fresh `openclaw tui` session (so the plugin state is
+  clean) and, **without** running `discovery_redeem_matcher`, say
+  "find a service that signs messages." The `discovery_find_services`
+  tool should reject with the "No matcher connection. …" guidance
+  string from `requireMatcher`.
+- Ask the agent to call an unknown capability:
+  "call `doThing` on the NotARealService service." The
+  `service_call` tool should reject with "Unknown service …
+  Available: …".
+- (Informational only) `service_initiate_contact` on a Public
+  contact should succeed with a service reference; a non-Public
+  response would be reported as "non-public response". We don't
+  currently have a non-Public contact to test this branch against.
+
+## What "passing" looks like
+
+- Stage B steps 1–7 each complete with the expected tool call and
+  response.
+- The matcher daemon log shows a new `[matcher] findServices(…) → 3
+match(es)` entry for every query.
+- The offscreen console log shows one approval/signing exchange per
+  `signMessage` call, with no regressions in the underlying
+  `hostApiProxy` path.
+- Stage C steps complete without triggering the browser (services
+  are self-contained).
+- Stage D produces clear, user-legible errors.
+
+## Known limitations going in
+
+- Matcher `findServices` returns **all** registered services
+  unranked — the LLM does the picking from descriptions.
+- Matcher URL is **ephemeral** per restart (planned follow-up:
+  baggage-backed stable URL).
+- Matcher registry accumulates duplicates on provider restart
+  (planned follow-up: dedup/liveness).
+- Provider restart without a matcher restart triggers ocap-kernel
+  issue #944 (duplicate-seq).
+- Only Public access model is wired end-to-end. Permissioned and
+  ValidatedClient contact responses are reported verbatim but not
+  driven through.

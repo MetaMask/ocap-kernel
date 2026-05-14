@@ -1,0 +1,11 @@
+{
+  "name": "@openclaw/discovery",
+  "version": "2026.4.20",
+  "description": "Service discovery plugin: find and consume services via a service matcher plus the contact protocol.",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}
