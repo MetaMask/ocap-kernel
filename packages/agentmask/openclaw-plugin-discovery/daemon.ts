@@ -1,8 +1,12 @@
 /**
- * Daemon communication layer for the OpenClaw discovery plugin.
+ * Daemon communication layer shared by the OpenClaw plugins in this
+ * monorepo. Spawns `ocap daemon redeem-url` and `ocap daemon queueMessage`
+ * commands and returns parsed results.
  *
- * Spawns `ocap daemon redeem-url` and `ocap daemon queueMessage` commands
- * and returns parsed results.
+ * NOTE: this file is duplicated byte-for-byte in
+ * `packages/agentmask/openclaw-plugin-metamask/daemon.ts` so each plugin
+ * stays installable on its own via `openclaw plugins install -l`. Any
+ * change here must be mirrored there; please keep them in sync.
  */
 import { spawn } from 'node:child_process';
 

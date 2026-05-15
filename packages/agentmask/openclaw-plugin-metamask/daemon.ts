@@ -1,8 +1,12 @@
 /**
- * Daemon communication layer for the OpenClaw MetaMask plugin.
+ * Daemon communication layer shared by the OpenClaw plugins in this
+ * monorepo. Spawns `ocap daemon redeem-url` and `ocap daemon queueMessage`
+ * commands and returns parsed results.
  *
- * Spawns `ocap daemon redeem-url` and `ocap daemon queueMessage` commands
- * and returns parsed results.
+ * NOTE: this file is duplicated byte-for-byte in
+ * `packages/agentmask/openclaw-plugin-metamask/daemon.ts` so each plugin
+ * stays installable on its own via `openclaw plugins install -l`. Any
+ * change here must be mirrored there; please keep them in sync.
  */
 import { spawn } from 'node:child_process';
 
@@ -88,24 +92,32 @@ export type DaemonCaller = {
 };
 
 /**
- * Create a daemon caller bound to CLI path and timeout.
+ * Create a daemon caller bound to CLI path, ocap home, and timeout.
  *
  * @param options - Daemon connection options.
  * @param options.cliPath - Path to the ocap CLI.
+ * @param options.ocapHome - Optional `--home` directory passed to every
+ * spawned `ocap` invocation. Use a distinct home (e.g.,
+ * `~/.ocap-consumer`) to address a daemon other than the default
+ * `~/.ocap`.
  * @param options.timeoutMs - Default timeout in ms.
  * @returns A daemon caller with `redeemUrl` and `queueMessage` methods.
  */
 export function makeDaemonCaller(options: {
   cliPath: string;
+  ocapHome?: string;
   timeoutMs: number;
 }): DaemonCaller {
-  const { cliPath, timeoutMs } = options;
+  const { cliPath, ocapHome, timeoutMs } = options;
+
+  const homeArgs: string[] =
+    ocapHome && ocapHome.length > 0 ? ['--home', ocapHome] : [];
 
   return {
     async redeemUrl(url: string): Promise<string> {
       const result = await spawnCli({
         cliPath,
-        args: ['daemon', 'redeem-url', url],
+        args: [...homeArgs, 'daemon', 'redeem-url', url],
         timeoutMs,
       });
       throwOnFailure('redeem-url', result);
@@ -134,6 +146,7 @@ export function makeDaemonCaller(options: {
     }): Promise<unknown> {
       const args = msgOptions.args ?? [];
       const cliArgs = [
+        ...homeArgs,
         'daemon',
         'queueMessage',
         msgOptions.target,
