@@ -62,7 +62,7 @@ export function registerFindServicesTool(options: {
       params: { description: string },
     ): Promise<ToolResponse> {
       try {
-        const matcherKref = requireMatcher(state);
+        const matcherKref = await requireMatcher(state);
         const query = { description: params.description };
         const raw = await daemon.queueMessage({
           target: matcherKref,

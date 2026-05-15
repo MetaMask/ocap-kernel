@@ -47,6 +47,9 @@ export function registerRedeemMatcherTool(options: {
         }
         const kref = await daemon.redeemUrl(url);
         state.matcher = { url, kref };
+        // Discard any pending pre-redemption — a manual redeem
+        // supersedes whatever URL was configured at startup.
+        state.matcherPending = undefined;
         return {
           content: [
             {

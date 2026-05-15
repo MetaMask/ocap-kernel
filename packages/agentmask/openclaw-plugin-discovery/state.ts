@@ -42,6 +42,14 @@ export type ServiceEntry = {
 
 export type PluginState = {
   matcher: MatcherEntry | undefined;
+  /**
+   * Pending pre-redemption of a configured matcher URL. Set during
+   * `register()` when `matcherUrl` was supplied via config or env; cleared
+   * on either resolution or rejection. `requireMatcher` awaits it so a
+   * tool call issued before the pre-redemption settles does not see a
+   * misleading "no matcher connection" error.
+   */
+  matcherPending: Promise<MatcherEntry> | undefined;
   contacts: Map<string, ContactEntry>;
   services: Map<string, ServiceEntry>;
 };
@@ -54,6 +62,7 @@ export type PluginState = {
 export function createState(): PluginState {
   return {
     matcher: undefined,
+    matcherPending: undefined,
     contacts: new Map(),
     services: new Map(),
   };
@@ -134,19 +143,33 @@ export function uniqueNickname(base: string, inUse: Set<string>): string {
 
 /**
  * Ensure a matcher has been redeemed; otherwise throw with instructions
- * for the agent.
+ * for the agent. If a pre-configured matcher URL is mid-redemption, wait
+ * for it to settle before deciding.
  *
  * @param state - The plugin state.
  * @returns The matcher kref.
  */
-export function requireMatcher(state: PluginState): string {
-  if (!state.matcher) {
-    throw new Error(
-      'No matcher connection. Ask the user for the matcher OCAP URL and ' +
-        'call `discovery_redeem_matcher` first.',
-    );
+export async function requireMatcher(state: PluginState): Promise<string> {
+  if (state.matcher) {
+    return state.matcher.kref;
   }
-  return state.matcher.kref;
+  if (state.matcherPending) {
+    try {
+      const entry = await state.matcherPending;
+      return entry.kref;
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `Pre-configured matcher URL failed to redeem: ${detail}. ` +
+          'Ask the user for a valid matcher OCAP URL and call ' +
+          '`discovery_redeem_matcher`.',
+      );
+    }
+  }
+  throw new Error(
+    'No matcher connection. Ask the user for the matcher OCAP URL and ' +
+      'call `discovery_redeem_matcher` first.',
+  );
 }
 
 /**

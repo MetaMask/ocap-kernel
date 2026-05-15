@@ -219,24 +219,31 @@ function register(api: OpenClawPluginApi): void {
 
   // If a matcher URL was supplied via config or env, eagerly redeem it
   // so the agent can start calling findServices without an extra step.
+  // The pending promise is parked in `state.matcherPending` so
+  // `requireMatcher` can await it if a tool call lands during the
+  // window between `register()` returning and the redemption settling.
   if (preconfiguredMatcherUrl) {
-    daemon
-      .redeemUrl(preconfiguredMatcherUrl)
-      .then((kref) => {
-        state.matcher = { url: preconfiguredMatcherUrl, kref };
-        // eslint-disable-next-line no-console
-        console.info(
-          `[discovery plugin] Pre-redeemed matcher URL; kref=${kref}`,
-        );
-        return undefined;
-      })
-      .catch((error: unknown) => {
-        // eslint-disable-next-line no-console
-        console.warn(
-          '[discovery plugin] Failed to pre-redeem matcher URL:',
-          error,
-        );
-      });
+    const pending = daemon.redeemUrl(preconfiguredMatcherUrl).then((kref) => {
+      const entry = { url: preconfiguredMatcherUrl, kref };
+      state.matcher = entry;
+      state.matcherPending = undefined;
+      // eslint-disable-next-line no-console
+      console.info(`[discovery plugin] Pre-redeemed matcher URL; kref=${kref}`);
+      return entry;
+    });
+    state.matcherPending = pending;
+    // Attach a side-effect handler so a failure that nobody awaits does
+    // not surface as an unhandled rejection. Do this on a chained
+    // promise rather than on `pending` itself so `pending` stays
+    // rejectable for any `requireMatcher` call that does await it.
+    pending.catch((error: unknown) => {
+      state.matcherPending = undefined;
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[discovery plugin] Failed to pre-redeem matcher URL:',
+        error,
+      );
+    });
   }
 }
 
