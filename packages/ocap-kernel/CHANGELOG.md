@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Add `fetch`, `Request`, `Headers`, and `Response` to available vat endowments ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
+- Add `create-session-channel` kernel control RPC handler
   - Add `VatConfig.network: { allowedHosts: string[] }`; requesting `'fetch'` without it rejects `initVat`
 - Integrate Snaps attenuated endowment factories into vat globals ([#937](https://github.com/MetaMask/ocap-kernel/pull/937))
   - Add `setInterval`, `clearInterval`, `crypto`, `SubtleCrypto`, and `Math` (crypto-backed `Math.random`) to the default vat endowments

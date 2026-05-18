@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `getLibp2pRelayHome()` to the `./nodejs` exports, returning the libp2p relay's bookkeeping directory (default `~/.libp2p-relay`, overridable via `$LIBP2P_RELAY_HOME`) — kept separate from `$OCAP_HOME` so one relay can serve daemons with different OCAP_HOMEs ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 - `startRelay()` accepts an optional `publicIp` that is fed to libp2p's `appendAnnounce`, so a relay running on a NAT-backed host can announce its publicly-reachable IPv4 alongside its bound NIC addresses ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 - Add `./session` export path with `makeChannel`, `Channel`, and `ModalStream` session channel primitives
+- Add `SessionSummary`, `PendingRequest`, and `SessionApi` transport-agnostic types to `./session`
+- Add `makeSessionRegistry`, `Session`, `SessionRegistry`, and `SessionHistoryEntry` to `./session`
 
 ## [0.5.0]
 
