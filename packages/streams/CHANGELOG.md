@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add `NodeSocketDuplexStream` — a duplex stream over Node.js sockets with NDJSON framing
+
 ## [0.6.0]
 
 ### Changed
