@@ -1,5 +1,10 @@
+import { ifDefined } from '../misc.ts';
 import type { Channel, ModalStream } from './channel.ts';
-import type { Decision, SectionNotification } from './types.ts';
+import type {
+  Decision,
+  SectionNotification,
+  SessionHistoryEntry,
+} from './types.ts';
 
 const SESSION_NAMES = [
   'alice',
@@ -15,14 +20,22 @@ const SESSION_NAMES = [
 export type Session = {
   sessionId: string;
   ocapUrl: string;
+  cwd?: string;
+  startedAt: string;
   listPending(): SectionNotification[];
+  listHistory(): SessionHistoryEntry[];
   decide(decision: Decision): void;
   queueRequest(description: string, reason?: string): string;
+  authorizeRequest(
+    description: string,
+    reason?: string,
+    timeoutMs?: number,
+  ): Promise<Decision>;
   subscribe(stream: ModalStream): void;
 };
 
 export type SessionRegistry = {
-  createSession(name?: string): Promise<Session>;
+  createSession(options?: { name?: string; cwd?: string }): Promise<Session>;
   getSession(sessionId: string): Session | undefined;
   listSessions(): Session[];
   /** Look up any channel by its OCAP URL — covers both session-created and vat-created channels. */
@@ -40,21 +53,40 @@ type ChannelFactoryBundle = {
  * @param sessionId - The human-readable session name.
  * @param ocapUrl - The OCAP URL for TUI subscribers to connect to.
  * @param channel - The underlying broadcast channel.
+ * @param options - Optional session metadata.
+ * @param options.cwd - Working directory of the session creator.
  * @returns A {@link Session}.
  */
 function makeSession(
   sessionId: string,
   ocapUrl: string,
   channel: Channel,
+  { cwd }: { cwd?: string } = {},
 ): Session {
   let requestCount = 0;
+  const startedAt = new Date().toISOString();
+
+  const makeNotification = (
+    description: string,
+    reason: string,
+  ): SectionNotification => {
+    const token = `req-${requestCount}`;
+    requestCount += 1;
+    return { token, description, reason, guard: { body: '#{}', slots: [] } };
+  };
 
   return harden({
     sessionId,
     ocapUrl,
+    ...ifDefined({ cwd }),
+    startedAt,
 
     listPending(): SectionNotification[] {
       return channel.listPending();
+    },
+
+    listHistory(): SessionHistoryEntry[] {
+      return channel.listAll();
     },
 
     decide(decision: Decision): void {
@@ -62,17 +94,36 @@ function makeSession(
     },
 
     queueRequest(description: string, reason = 'Queued from CLI'): string {
-      const token = `req-${requestCount}`;
-      requestCount += 1;
-      channel
-        .broadcast({
-          token,
-          description,
-          reason,
-          guard: { body: '#{}', slots: [] },
-        })
-        .catch(() => undefined);
-      return token;
+      const notification = makeNotification(description, reason);
+      channel.broadcast(notification).catch(() => undefined);
+      return notification.token;
+    },
+
+    async authorizeRequest(
+      description: string,
+      reason = 'Queued from CLI',
+      timeoutMs?: number,
+    ): Promise<Decision> {
+      const notification = makeNotification(description, reason);
+      const decision = channel.broadcast(notification);
+      if (timeoutMs === undefined) {
+        return decision;
+      }
+      return Promise.race([
+        decision,
+        new Promise<Decision>((_resolve, reject) => {
+          setTimeout(() => {
+            reject(
+              Object.assign(
+                new Error('No subscriber responded within timeout'),
+                {
+                  code: 'NO_SUBSCRIBER',
+                },
+              ),
+            );
+          }, timeoutMs);
+        }),
+      ]);
     },
 
     subscribe(stream: ModalStream): void {
@@ -97,13 +148,20 @@ export function makeSessionRegistry(
   const sessions = new Map<string, Session>();
 
   return harden({
-    async createSession(name?: string): Promise<Session> {
+    async createSession(
+      options: { name?: string; cwd?: string } = {},
+    ): Promise<Session> {
       const sessionId =
-        name ?? SESSION_NAMES[nameIndex] ?? `session-${nameIndex}`;
+        options.name ?? SESSION_NAMES[nameIndex] ?? `session-${nameIndex}`;
       nameIndex += 1;
 
       const { ocapUrl, channel } = await factory.createChannelInternal();
-      const session = makeSession(sessionId, ocapUrl, channel);
+      const session = makeSession(
+        sessionId,
+        ocapUrl,
+        channel,
+        ifDefined({ cwd: options.cwd }),
+      );
       sessions.set(sessionId, session);
       return session;
     },

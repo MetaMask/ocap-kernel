@@ -1,7 +1,11 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import type { PromiseKit } from '@endo/promise-kit';
 
-import type { Decision, SectionNotification } from './types.ts';
+import type {
+  Decision,
+  SectionNotification,
+  SessionHistoryEntry,
+} from './types.ts';
 
 /**
  * Structural type for a stream that carries {@link SectionNotification}
@@ -45,6 +49,13 @@ export type Channel = {
   listPending(): SectionNotification[];
 
   /**
+   * Return all requests — both pending and decided — sorted chronologically.
+   *
+   * @returns Array of {@link SessionHistoryEntry} oldest first.
+   */
+  listAll(): SessionHistoryEntry[];
+
+  /**
    * Resolve or reject the pending promise for the given token, as if a
    * subscriber had submitted the decision. No-op if the token is unknown.
    *
@@ -56,6 +67,14 @@ export type Channel = {
 type PendingEntry = {
   kit: PromiseKit<Decision>;
   notification: SectionNotification;
+  queuedAt: string;
+};
+
+type HistoryEntry = {
+  notification: SectionNotification;
+  queuedAt: string;
+  verdict: 'accepted' | 'rejected';
+  decidedAt: string;
 };
 
 /**
@@ -71,6 +90,7 @@ type PendingEntry = {
  */
 export function makeChannel(): Channel {
   const pending = new Map<string, PendingEntry>();
+  const history: HistoryEntry[] = [];
   const subscribers: ModalStream[] = [];
 
   /**
@@ -84,6 +104,12 @@ export function makeChannel(): Channel {
       return;
     }
     pending.delete(decision.token);
+    history.push({
+      notification: entry.notification,
+      queuedAt: entry.queuedAt,
+      verdict: decision.verdict === 'accept' ? 'accepted' : 'rejected',
+      decidedAt: new Date().toISOString(),
+    });
     entry.kit.resolve(decision);
   }
 
@@ -121,7 +147,11 @@ export function makeChannel(): Channel {
   return harden({
     async broadcast(notification: SectionNotification): Promise<Decision> {
       const kit = makePromiseKit<Decision>();
-      pending.set(notification.token, { kit, notification });
+      pending.set(notification.token, {
+        kit,
+        notification,
+        queuedAt: new Date().toISOString(),
+      });
       for (const stream of [...subscribers]) {
         stream.write(notification).catch(() => undefined);
       }
@@ -140,6 +170,37 @@ export function makeChannel(): Channel {
 
     listPending(): SectionNotification[] {
       return Array.from(pending.values()).map((entry) => entry.notification);
+    },
+
+    listAll(): SessionHistoryEntry[] {
+      const decided: SessionHistoryEntry[] = history.map((hist) => ({
+        token: hist.notification.token,
+        description: hist.notification.description,
+        reason: hist.notification.reason,
+        guard: hist.notification.guard,
+        queuedAt: hist.queuedAt,
+        status: hist.verdict,
+        decidedAt: hist.decidedAt,
+      }));
+      const stillPending: SessionHistoryEntry[] = Array.from(
+        pending.values(),
+      ).map((pend) => ({
+        token: pend.notification.token,
+        description: pend.notification.description,
+        reason: pend.notification.reason,
+        guard: pend.notification.guard,
+        queuedAt: pend.queuedAt,
+        status: 'pending' as const,
+      }));
+      return [...decided, ...stillPending].sort((lhs, rhs) => {
+        if (lhs.queuedAt < rhs.queuedAt) {
+          return -1;
+        }
+        if (lhs.queuedAt > rhs.queuedAt) {
+          return 1;
+        }
+        return 0;
+      });
     },
 
     decide(decision: Decision): void {

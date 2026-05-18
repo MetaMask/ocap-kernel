@@ -235,26 +235,48 @@ async function handleSessionRequest(
     switch (method) {
       case 'session.create': {
         const name = typeof args.name === 'string' ? args.name : undefined;
-        const session = await sessionRegistry.createSession(name);
-        return ok({ sessionId: session.sessionId, ocapUrl: session.ocapUrl });
+        const cwd = typeof args.cwd === 'string' ? args.cwd : undefined;
+        const session = await sessionRegistry.createSession({
+          ...ifDefined({ name }),
+          ...ifDefined({ cwd }),
+        });
+        return ok({
+          sessionId: session.sessionId,
+          ocapUrl: session.ocapUrl,
+          ...ifDefined({ cwd: session.cwd }),
+          startedAt: session.startedAt,
+        });
       }
 
       case 'session.list': {
         return ok(
-          sessionRegistry
-            .listSessions()
-            .map(({ sessionId, ocapUrl }) => ({ sessionId, ocapUrl })),
+          sessionRegistry.listSessions().map((sess) => ({
+            sessionId: sess.sessionId,
+            ocapUrl: sess.ocapUrl,
+            ...ifDefined({ cwd: sess.cwd }),
+            startedAt: sess.startedAt,
+          })),
         );
       }
 
       case 'session.get': {
         const session = requireSession(args.sessionId);
-        return ok({ sessionId: session.sessionId, ocapUrl: session.ocapUrl });
+        return ok({
+          sessionId: session.sessionId,
+          ocapUrl: session.ocapUrl,
+          ...ifDefined({ cwd: session.cwd }),
+          startedAt: session.startedAt,
+        });
       }
 
       case 'session.requests': {
         const session = requireSession(args.sessionId);
         return ok(session.listPending());
+      }
+
+      case 'session.history': {
+        const session = requireSession(args.sessionId);
+        return ok(session.listHistory());
       }
 
       case 'session.queue': {
@@ -267,6 +289,24 @@ async function handleSessionRequest(
           typeof args.reason === 'string' ? args.reason : undefined;
         const token = session.queueRequest(description, reason);
         return ok({ token });
+      }
+
+      case 'session.authorize': {
+        const session = requireSession(args.sessionId);
+        const description =
+          typeof args.description === 'string'
+            ? args.description
+            : 'Authorization request';
+        const reason =
+          typeof args.reason === 'string' ? args.reason : undefined;
+        const timeoutMs =
+          typeof args.timeoutMs === 'number' ? args.timeoutMs : undefined;
+        const decision = await session.authorizeRequest(
+          description,
+          reason,
+          timeoutMs,
+        );
+        return ok(decision);
       }
 
       case 'session.decide': {

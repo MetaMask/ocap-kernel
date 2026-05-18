@@ -4,6 +4,7 @@ export type {
   Decision,
   SessionSummary,
   PendingRequest,
+  SessionHistoryEntry,
   SessionApi,
 } from './types.ts';
 export { makeChannel } from './channel.ts';

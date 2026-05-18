@@ -43,6 +43,10 @@ export type Decision = {
 export type SessionSummary = {
   sessionId: string;
   ocapUrl: string;
+  /** Working directory of the process that created this session. */
+  cwd?: string;
+  /** ISO 8601 timestamp of when the session was created. */
+  startedAt?: string;
 };
 
 /** User-facing representation of a pending authorization request. */
@@ -50,6 +54,17 @@ export type PendingRequest = {
   token: string;
   description: string;
   reason: string;
+};
+
+/** A single entry in a session's request timeline — either pending or decided. */
+export type SessionHistoryEntry = {
+  token: string;
+  description: string;
+  reason: string;
+  guard: { body: string; slots: string[] };
+  queuedAt: string;
+  status: 'pending' | 'accepted' | 'rejected';
+  decidedAt?: string;
 };
 
 /**
