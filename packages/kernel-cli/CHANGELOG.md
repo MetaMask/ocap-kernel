@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add global `--home <dir>` flag overriding `$OCAP_HOME` for the duration of one invocation, so multiple OCAP daemons can run side by side without juggling environment variables ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 - Add `--public-ip <addr>` to `kernel relay start` (also reads `$LIBP2P_RELAY_PUBLIC_IP`); the relay announces the supplied IPv4 alongside its bound NIC addresses, so a NAT-backed VPS can be reached from off-host peers ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 - More legible output from `kernel relay status` ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
+- Add `ocap session` subcommands: `list`, `get`, `requests`, and `decide`
+- Add `ocap tui` and `ocap modal` commands to launch the terminal UI
 
 ### Changed
 

@@ -67,7 +67,14 @@ export function makeDaemonKernelApi(
     },
 
     async listSessions() {
-      return send<{ sessionId: string; ocapUrl: string }[]>('session.list');
+      return send<
+        {
+          sessionId: string;
+          ocapUrl: string;
+          cwd?: string;
+          startedAt?: string;
+        }[]
+      >('session.list');
     },
 
     async listRequests(sessionId) {
@@ -75,6 +82,20 @@ export function makeDaemonKernelApi(
         'session.requests',
         { sessionId },
       );
+    },
+
+    async listHistory(sessionId) {
+      return send<
+        {
+          token: string;
+          description: string;
+          reason: string;
+          guard: { body: string; slots: string[] };
+          queuedAt: string;
+          status: 'pending' | 'accepted' | 'rejected';
+          decidedAt?: string;
+        }[]
+      >('session.history', { sessionId });
     },
 
     async decide(sessionId, token, verdict) {

@@ -9,7 +9,7 @@ type StatusBarProps = {
 };
 
 const VIEW_HINTS: Record<ViewMode, string> = {
-  sessions: '↑/↓: navigate | a: accept | r: reject | R: refresh',
+  sessions: '↑/↓: navigate | 1: accept | 3: reject | R: refresh',
   files: 'Select a bundle to launch',
   objects: 'r: refresh',
   invoke: 'Tab: next field | Enter on args: send',
