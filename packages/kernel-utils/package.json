@@ -109,6 +109,16 @@
         "default": "./dist/session/index.cjs"
       }
     },
+    "./session/provision": {
+      "import": {
+        "types": "./dist/session/provision-api.d.mts",
+        "default": "./dist/session/provision-api.mjs"
+      },
+      "require": {
+        "types": "./dist/session/provision-api.d.cts",
+        "default": "./dist/session/provision-api.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "main": "./dist/index.cjs",

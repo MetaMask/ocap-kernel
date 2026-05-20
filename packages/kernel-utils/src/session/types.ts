@@ -1,4 +1,40 @@
 /**
+ * Pattern for one positional argument in a provision.
+ *
+ * - `exact`: the argument must equal the stored value exactly.
+ * - `prefix`: the argument must start with the stored prefix (e.g. `/a/b/` for
+ *   the glob `/a/b/*`).
+ * - `wildcard`: any value is accepted.
+ */
+export type ArgPattern =
+  | { kind: 'exact'; value: string }
+  | { kind: 'prefix'; prefix: string }
+  | { kind: 'wildcard' };
+
+/**
+ * Pattern for one component command/tool invocation in a provision.
+ *
+ * `name` is always matched exactly; each element of `argPatterns` corresponds
+ * positionally to one argument of the invocation.
+ */
+export type InvocationPattern = {
+  name: string;
+  argPatterns: ArgPattern[];
+};
+
+/**
+ * A standing preapproval: a neighborhood in invocation space.
+ *
+ * For Bash compound commands, `patterns` contains one entry per
+ * pipe/chain component (cosheaf structure: all must match).
+ * For other tools, `patterns` contains a single entry.
+ */
+export type Provision = {
+  tool: string;
+  patterns: InvocationPattern[];
+};
+
+/**
  * A request for a new section to be added to a session's sheaf. Produced by
  * application code that has discovered a target exo and constructed a point
  * guard covering the exact invocation it needs authority for.
@@ -37,6 +73,8 @@ export type Decision = {
   feedback: string;
   /** Optional guard override for accept verdicts. Absent means minimal (single-invocation) approval. */
   guard?: { body: string; slots: string[] };
+  /** Optional standing preapproval. When present, simultaneously approves this request and registers the provision for future matching. */
+  provision?: Provision;
 };
 
 /** User-facing summary of a session returned by the session list API. */
@@ -79,5 +117,6 @@ export type SessionApi = {
     sessionId: string,
     token: string,
     verdict: 'accept' | 'reject',
+    provision?: Provision,
   ) => Promise<void>;
 };

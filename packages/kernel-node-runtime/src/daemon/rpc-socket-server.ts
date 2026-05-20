@@ -1,6 +1,7 @@
 import { RpcService } from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { ifDefined } from '@metamask/kernel-utils';
+import type { Provision } from '@metamask/kernel-utils/session';
 import type { Kernel } from '@metamask/ocap-kernel';
 import { rpcHandlers } from '@metamask/ocap-kernel/rpc';
 import { unlink } from 'node:fs/promises';
@@ -318,6 +319,10 @@ async function handleSessionRequest(
           typeof args.guard === 'object' && args.guard !== null
             ? (args.guard as { body: string; slots: string[] })
             : undefined;
+        const provision =
+          typeof args.provision === 'object' && args.provision !== null
+            ? (args.provision as Provision)
+            : undefined;
 
         if (
           typeof token !== 'string' ||
@@ -328,7 +333,13 @@ async function handleSessionRequest(
             'session.decide requires string token and verdict ("accept"|"reject")',
           );
         }
-        session.decide({ token, verdict, feedback, ...ifDefined({ guard }) });
+        session.decide({
+          token,
+          verdict,
+          feedback,
+          ...ifDefined({ guard }),
+          ...ifDefined({ provision }),
+        });
         return ok(null);
       }
 

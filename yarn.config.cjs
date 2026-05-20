@@ -30,6 +30,7 @@ const typedocExceptions = [
 ];
 // Packages that do not enforce the standard build script
 const buildExceptions = [
+  'caprock',
   'create-package',
   'kernel-cli',
   'kernel-tui',

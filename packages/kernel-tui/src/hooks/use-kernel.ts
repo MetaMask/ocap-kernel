@@ -98,8 +98,14 @@ export function makeDaemonKernelApi(
       >('session.history', { sessionId });
     },
 
-    async decide(sessionId, token, verdict) {
-      await send('session.decide', { sessionId, token, verdict, feedback: '' });
+    async decide(sessionId, token, verdict, provision) {
+      await send('session.decide', {
+        sessionId,
+        token,
+        verdict,
+        feedback: '',
+        ...(provision === undefined ? {} : { provision }),
+      });
     },
   };
 }
