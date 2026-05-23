@@ -1,6 +1,9 @@
-import type { ArgPattern, InvocationPattern, Provision } from './types.ts';
-
-export type ParsedInvocation = { name: string; argv: string[] };
+import type {
+  ArgPattern,
+  InvocationPattern,
+  ParsedInvocation,
+  Provision,
+} from './types.ts';
 
 /**
  * Returns true if the string looks like a file-system path (absolute or relative).

@@ -1,4 +1,7 @@
-import type { ParsedInvocation } from '@metamask/kernel-utils/session/provision';
+import type {
+  ParsedInvocation,
+  Provision,
+} from '@metamask/kernel-utils/session/provision';
 import type { JsonRpcResponse } from '@metamask/utils';
 import { assertIsJsonRpcResponse, isJsonRpcFailure } from '@metamask/utils';
 import { randomUUID } from 'node:crypto';
@@ -266,6 +269,32 @@ export async function authorizeRequest(
 }
 
 /**
+ * Record a request that was auto-accepted by a standing provision.
+ *
+ * @param socketPath - The UNIX socket path.
+ * @param sessionId - The kernel session ID.
+ * @param description - Human-readable description of the auto-accepted operation.
+ * @param options - Optional parameters.
+ * @param options.invocations - Parsed invocations to forward to the TUI.
+ * @param options.provision - The standing provision that approved the request.
+ */
+export async function recordProvisioned(
+  socketPath: string,
+  sessionId: string,
+  description: string,
+  options?: { invocations?: ParsedInvocation[]; provision?: Provision },
+): Promise<void> {
+  const params: Record<string, unknown> = { sessionId, description };
+  if (options?.invocations !== undefined) {
+    params.invocations = options.invocations;
+  }
+  if (options?.provision !== undefined) {
+    params.provision = options.provision;
+  }
+  await sendCommand({ socketPath, method: 'session.record', params });
+}
+
+/**
  * Decode a CapData body to a JavaScript value.
  *
  * The kernel uses JSBI encoding via @endo/marshal. For primitive values
@@ -281,4 +310,32 @@ export function decodeCapData(capData: CapData): unknown {
     return JSON.parse(body.slice(1));
   }
   throw new Error(`Unexpected CapData body format: ${body.slice(0, 40)}`);
+}
+
+/**
+ * Recursively strip the smallcaps `!` escape prefix from string values in a
+ * decoded CapData object. In smallcaps encoding, strings that begin with a
+ * sigil character (including `-` for negative special floats) are prefixed
+ * with `!` to distinguish them from encoding markers. This reversal is needed
+ * when decoding complex objects like Provision (whose argv may contain flags
+ * like `--oneline` that become `!--oneline` after encoding).
+ *
+ * @param value - A JSON-parsed smallcaps value.
+ * @returns The value with all `!`-escaped strings decoded.
+ */
+export function decodeSmallcapsStrings(value: unknown): unknown {
+  if (typeof value === 'string') {
+    return value.startsWith('!') ? value.slice(1) : value;
+  }
+  if (Array.isArray(value)) {
+    return value.map(decodeSmallcapsStrings);
+  }
+  if (typeof value === 'object' && value !== null) {
+    const result: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value as Record<string, unknown>)) {
+      result[key] = decodeSmallcapsStrings(val);
+    }
+    return result;
+  }
+  return value;
 }

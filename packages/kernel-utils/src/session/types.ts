@@ -1,4 +1,10 @@
 /**
+ * A single parsed command-or-tool invocation: the name and its positional args.
+ * Used to describe what exactly was called before being converted to a Provision.
+ */
+export type ParsedInvocation = { name: string; argv: string[] };
+
+/**
  * Pattern for one positional argument in a provision.
  *
  * - `exact`: the argument must equal the stored value exactly.
@@ -61,6 +67,8 @@ export type SectionNotification = {
   reason: string;
   schema?: unknown;
   guard: { body: string; slots: string[] };
+  /** Parsed invocations for the request — present when routed through the PreToolUse hook. */
+  invocations?: ParsedInvocation[];
 };
 
 /**
@@ -101,8 +109,12 @@ export type SessionHistoryEntry = {
   reason: string;
   guard: { body: string; slots: string[] };
   queuedAt: string;
-  status: 'pending' | 'accepted' | 'rejected';
+  status: 'pending' | 'accepted' | 'rejected' | 'provisioned';
   decidedAt?: string;
+  /** Parsed invocations — present when routed through the PreToolUse hook. */
+  invocations?: ParsedInvocation[];
+  /** Standing provision that was granted — present when the user accepted with a provision. */
+  provision?: Provision;
 };
 
 /**

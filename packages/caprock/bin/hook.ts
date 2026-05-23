@@ -36,8 +36,10 @@ import {
   pingDaemon,
   sendCommand,
   decodeCapData,
+  decodeSmallcapsStrings,
   createKernelSession,
   authorizeRequest,
+  recordProvisioned,
 } from '../src/rpc.ts';
 import {
   loadSessionState,
@@ -260,6 +262,32 @@ async function vatAddSection(
     method: 'queueMessage',
     params: [rootKref, 'addSection', [provision]],
   });
+}
+
+/**
+ * Return the first provision that matches the given tool and invocations,
+ * or null if none match.
+ *
+ * @param rootKref - The vat's root kref.
+ * @param tool - The tool name.
+ * @param invocations - The parsed command components.
+ * @returns The matching provision, or null.
+ */
+async function vatFindMatch(
+  rootKref: string,
+  tool: string,
+  invocations: ParsedInvocation[],
+): Promise<Provision | null> {
+  const response = await sendCommand({
+    socketPath: SOCKET_PATH,
+    method: 'queueMessage',
+    params: [rootKref, 'findMatch', [tool, invocations]],
+  });
+  if (isJsonRpcFailure(response)) {
+    return null;
+  }
+  const raw = decodeCapData(response.result as CapData);
+  return decodeSmallcapsStrings(raw) as Provision | null;
 }
 
 /**
@@ -517,6 +545,22 @@ async function onPreToolUse(payload: PreToolUsePayload): Promise<void> {
   });
 
   if (vatResponse === 'allow') {
+    if (state.kernelSessionId && invocations !== null) {
+      const autoDescription = `Allow ${tool_name}(${JSON.stringify(tool_input)})`;
+      vatFindMatch(state.rootKref, tool_name, invocations)
+        .then(async (matched) =>
+          recordProvisioned(
+            SOCKET_PATH,
+            state.kernelSessionId,
+            autoDescription,
+            {
+              invocations,
+              ...(matched === null ? {} : { provision: matched }),
+            },
+          ),
+        )
+        .catch(() => undefined);
+    }
     process.stdout.write(JSON.stringify({ continue: true }));
     return;
   }
@@ -546,7 +590,9 @@ async function onPreToolUse(payload: PreToolUsePayload): Promise<void> {
     if (!isNoSubscriber && errorStr.includes('Session not found')) {
       try {
         const ks = await createKernelSession(SOCKET_PATH, session_id);
+        // eslint-disable-next-line require-atomic-updates
         state.kernelSessionId = ks.sessionId;
+        // eslint-disable-next-line require-atomic-updates
         state.ocapUrl = ks.ocapUrl;
         await saveSessionState(session_id, state);
         connectId = ks.sessionId;
@@ -593,7 +639,7 @@ async function onPreToolUse(payload: PreToolUsePayload): Promise<void> {
       feedback: decision.feedback,
     });
     process.stdout.write(
-      `${preToolUseDeny(decision.feedback || 'Rejected via TUI')}\n`,
+      `${preToolUseDeny(decision.feedback ?? 'Rejected via TUI')}\n`,
     );
   }
 }

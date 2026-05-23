@@ -2,6 +2,7 @@ import {
   getSocketPath,
   sendCommand,
 } from '@metamask/kernel-node-runtime/daemon';
+import type { ParsedInvocation } from '@metamask/kernel-utils/session';
 import { useEffect, useRef, useState } from 'react';
 
 import type { KernelApi, KernelStatus } from '../types.ts';
@@ -94,6 +95,7 @@ export function makeDaemonKernelApi(
           queuedAt: string;
           status: 'pending' | 'accepted' | 'rejected';
           decidedAt?: string;
+          invocations?: ParsedInvocation[];
         }[]
       >('session.history', { sessionId });
     },

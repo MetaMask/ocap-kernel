@@ -1,7 +1,10 @@
 import { RpcService } from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { ifDefined } from '@metamask/kernel-utils';
-import type { Provision } from '@metamask/kernel-utils/session';
+import type {
+  ParsedInvocation,
+  Provision,
+} from '@metamask/kernel-utils/session';
 import type { Kernel } from '@metamask/ocap-kernel';
 import { rpcHandlers } from '@metamask/ocap-kernel/rpc';
 import { unlink } from 'node:fs/promises';
@@ -302,12 +305,35 @@ async function handleSessionRequest(
           typeof args.reason === 'string' ? args.reason : undefined;
         const timeoutMs =
           typeof args.timeoutMs === 'number' ? args.timeoutMs : undefined;
-        const decision = await session.authorizeRequest(
-          description,
-          reason,
-          timeoutMs,
-        );
+        const invocations = Array.isArray(args.invocations)
+          ? (args.invocations as ParsedInvocation[])
+          : undefined;
+        const decision = await session.authorizeRequest(description, {
+          ...ifDefined({ reason }),
+          ...ifDefined({ timeoutMs }),
+          ...ifDefined({ invocations }),
+        });
         return ok(decision);
+      }
+
+      case 'session.record': {
+        const session = requireSession(args.sessionId);
+        const description =
+          typeof args.description === 'string'
+            ? args.description
+            : 'Auto-accepted request';
+        const invocations = Array.isArray(args.invocations)
+          ? (args.invocations as ParsedInvocation[])
+          : undefined;
+        const provision =
+          typeof args.provision === 'object' && args.provision !== null
+            ? (args.provision as Provision)
+            : undefined;
+        session.recordProvisioned(description, {
+          ...ifDefined({ invocations }),
+          ...ifDefined({ provision }),
+        });
+        return ok(null);
       }
 
       case 'session.decide': {

@@ -1,3 +1,13 @@
+import type {
+  ArgPattern,
+  ParsedInvocation,
+  Provision,
+} from '@metamask/kernel-utils/session';
+import {
+  argInterval,
+  argPatternDisplay,
+  invocationToProvision,
+} from '@metamask/kernel-utils/session';
 import { Box, Text, useInput, useStdout } from 'ink';
 import React, { useEffect, useMemo, useState } from 'react';
 
@@ -19,6 +29,7 @@ const STATUS_ICON: Record<SessionHistoryEntry['status'], string> = {
   pending: '…',
   accepted: '✓',
   rejected: '✗',
+  provisioned: '→',
 };
 
 const STATUS_COLOR: Record<
@@ -28,6 +39,7 @@ const STATUS_COLOR: Record<
   pending: 'yellow',
   accepted: 'green',
   rejected: 'red',
+  provisioned: 'green',
 };
 
 /**
@@ -174,6 +186,20 @@ export function parseDescription(description: string): ParsedDescription {
   // Slow path: escape literal control chars inside string values only, then retry.
   const fallback = tryParseJsonObject(escapeControlCharsInStrings(paramsStr));
   return { label, params: fallback };
+}
+
+/**
+ * Render a Provision as a compact one-liner, e.g. `git log --oneline * | head *`.
+ *
+ * @param provision - The provision to format.
+ * @returns Compact string representation.
+ */
+function formatProvisionCompact(provision: Provision): string {
+  return provision.patterns
+    .map((patt) =>
+      [patt.name, ...patt.argPatterns.map(argPatternDisplay)].join(' '),
+    )
+    .join(' | ');
 }
 
 const MAX_STRING_LENGTH = 200;
@@ -329,9 +355,12 @@ function entryRowCount(
   const contentRows = contentLines.reduce((sum, line) => {
     return sum + Math.max(1, Math.ceil(line.length / effectiveWidth));
   }, 0);
+  const provisionRows =
+    entry.provision === undefined ? 0 : 1 + entry.provision.patterns.length;
   const extras =
     (entry.decidedAt === undefined ? 0 : 1) +
-    (entry.guard.body === '#{}' ? 0 : 1);
+    (entry.guard.body === '#{}' ? 0 : 1) +
+    provisionRows;
   return 1 + contentRows + extras;
 }
 
@@ -409,13 +438,274 @@ function clampScroll(
   return newOffset;
 }
 
+type FlatArg = {
+  invIdx: number;
+  argIdx: number;
+  value: string;
+  interval: ArgPattern[];
+};
+
+type ProvisionEditorProps = {
+  toolName: string;
+  invocations: ParsedInvocation[];
+  onSubmit: (provision: Provision) => void;
+  onCancel: () => void;
+};
+
+/**
+ * Interactive editor that lets the user tune each arg in a pending invocation
+ * to a wider pattern (prefix or wildcard) before granting a standing provision.
+ *
+ * Keybinds: ←/→ navigate args, ↑ widen, ↓ narrow, Enter submit, Esc cancel.
+ *
+ * @param props - Component props.
+ * @param props.toolName - The tool name (e.g. "Bash").
+ * @param props.invocations - The parsed invocations for the pending request.
+ * @param props.onSubmit - Called with the resulting Provision when Enter is pressed.
+ * @param props.onCancel - Called when Esc is pressed.
+ * @returns The ProvisionEditor component.
+ */
+function ProvisionEditor({
+  toolName,
+  invocations,
+  onSubmit,
+  onCancel,
+}: ProvisionEditorProps): React.ReactElement {
+  const flatArgs = useMemo<FlatArg[]>(() => {
+    const result: FlatArg[] = [];
+    for (let i = 0; i < invocations.length; i++) {
+      const inv = invocations[i];
+      if (inv === undefined) {
+        continue;
+      }
+      for (let j = 0; j < inv.argv.length; j++) {
+        const value = inv.argv[j];
+        if (value !== undefined) {
+          result.push({
+            invIdx: i,
+            argIdx: j,
+            value,
+            interval: argInterval(value),
+          });
+        }
+      }
+    }
+    return result;
+  }, [invocations]);
+
+  const [cursor, setCursor] = useState(0);
+  const [sels, setSels] = useState<number[]>(() => flatArgs.map(() => 0));
+
+  const currentFlatArg = flatArgs[cursor];
+  const currentSel = sels[cursor] ?? 0;
+  const currentPattern = currentFlatArg?.interval[currentSel];
+
+  useInput((_input, key) => {
+    if (key.escape) {
+      onCancel();
+    } else if (key.return) {
+      const provision =
+        flatArgs.length === 0
+          ? invocationToProvision(toolName, invocations)
+          : buildProvision(toolName, invocations, flatArgs, sels);
+      onSubmit(provision);
+    } else if (key.rightArrow) {
+      setCursor((idx) => Math.min(flatArgs.length - 1, idx + 1));
+    } else if (key.leftArrow) {
+      setCursor((idx) => Math.max(0, idx - 1));
+    } else if (key.upArrow && currentFlatArg !== undefined) {
+      setSels((prev) => {
+        const next = [...prev];
+        next[cursor] = Math.min(
+          currentFlatArg.interval.length - 1,
+          (next[cursor] ?? 0) + 1,
+        );
+        return next;
+      });
+    } else if (key.downArrow) {
+      setSels((prev) => {
+        const next = [...prev];
+        next[cursor] = Math.max(0, (next[cursor] ?? 0) - 1);
+        return next;
+      });
+    }
+  });
+
+  // Render invocations as a flat line with each arg colored by its pattern scope.
+  // Cursor arg is highlighted; widened args appear in a different color.
+  let flatIdx = 0;
+  const invocationLines = invocations.map((inv, invIdx) => {
+    const argNodes = inv.argv.map((val, argIdx) => {
+      const fi = flatIdx;
+      flatIdx += 1;
+      const sel = sels[fi] ?? 0;
+      const interval = flatArgs[fi]?.interval ?? argInterval(val);
+      const pat = interval[sel];
+      const display = pat === undefined ? val : argPatternDisplay(pat);
+      const isCursor = fi === cursor;
+      const isWidened = sel > 0;
+      let argColor: 'cyan' | 'yellow' | undefined;
+      if (isCursor) {
+        argColor = 'cyan';
+      } else if (isWidened) {
+        argColor = 'yellow';
+      }
+      return (
+        <Text
+          key={`${invIdx}-${argIdx}`}
+          {...(argColor === undefined ? {} : { color: argColor })}
+          bold={isCursor}
+        >
+          {' '}
+          {display}
+        </Text>
+      );
+    });
+    return (
+      <React.Fragment key={invIdx}>
+        {invIdx > 0 && <Text dimColor> |</Text>}
+        <Text bold>{inv.name}</Text>
+        {argNodes}
+      </React.Fragment>
+    );
+  });
+
+  return (
+    <Box flexDirection="column" paddingLeft={4} marginTop={1}>
+      <Box gap={1} flexWrap="wrap">
+        {invocationLines}
+      </Box>
+      {currentFlatArg !== undefined && currentPattern !== undefined && (
+        <Box paddingLeft={2} gap={1} marginTop={0}>
+          <Text dimColor>↕</Text>
+          <Text color="cyan">{argPatternDisplay(currentPattern)}</Text>
+          <Text dimColor>
+            ({currentFlatArg.interval.indexOf(currentPattern) + 1}/
+            {currentFlatArg.interval.length})
+          </Text>
+        </Box>
+      )}
+      {flatArgs.length === 0 && (
+        <Text dimColor>
+          {' '}
+          (no args — will match any invocation of {toolName})
+        </Text>
+      )}
+      <Box marginTop={1}>
+        <Text dimColor>
+          ←/→ navigate · ↑ widen · ↓ narrow · Enter grant · Esc cancel
+        </Text>
+      </Box>
+    </Box>
+  );
+}
+
+/**
+ * Build a Provision from the editor's current selections.
+ *
+ * @param toolName - The tool name.
+ * @param invocations - The original parsed invocations.
+ * @param flatArgs - Flattened arg list with intervals.
+ * @param sels - Per-flat-arg selection indices into each interval.
+ * @returns The constructed Provision.
+ */
+function buildProvision(
+  toolName: string,
+  invocations: ParsedInvocation[],
+  flatArgs: FlatArg[],
+  sels: number[],
+): Provision {
+  let flatIdx = 0;
+  return {
+    tool: toolName,
+    patterns: invocations.map((inv) => ({
+      name: inv.name,
+      argPatterns: inv.argv.map((val) => {
+        const fi = flatIdx;
+        flatIdx += 1;
+        const sel = sels[fi] ?? 0;
+        const interval = flatArgs[fi]?.interval ?? argInterval(val);
+        return interval[sel] ?? ({ kind: 'wildcard' } as const);
+      }),
+    })),
+  };
+}
+
+/**
+ * Derive the list of unique active provisions from the session history.
+ * Includes provisions from both user-granted (◆) and auto-accepted (→) entries.
+ * Deduplicates by JSON-serialized content.
+ *
+ * @param entries - The full session history.
+ * @returns Unique provisions, in the order they first appeared.
+ */
+function deriveActiveProvisions(entries: SessionHistoryEntry[]): Provision[] {
+  const seen = new Set<string>();
+  const result: Provision[] = [];
+  for (const entry of entries) {
+    if (entry.provision === undefined) {
+      continue;
+    }
+    const key = JSON.stringify(entry.provision);
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(entry.provision);
+    }
+  }
+  return result;
+}
+
+/**
+ * Panel listing the active standing provisions for a session.
+ *
+ * @param props - Component props.
+ * @param props.provisions - The list of active provisions.
+ * @param props.onClose - Callback to close the panel.
+ * @returns The ProvisionsPanel component.
+ */
+function ProvisionsPanel({
+  provisions,
+  onClose,
+}: {
+  provisions: Provision[];
+  onClose: () => void;
+}): React.ReactElement {
+  useInput((_input, key) => {
+    if (key.escape) {
+      onClose();
+    }
+  });
+
+  return (
+    <Box flexDirection="column" paddingLeft={1}>
+      <Box gap={1} marginBottom={0}>
+        <Text bold color="cyan">
+          Active provisions
+        </Text>
+        <Text dimColor>— Esc to close</Text>
+      </Box>
+      {provisions.length === 0 ? (
+        <Text dimColor> No standing provisions yet.</Text>
+      ) : (
+        provisions.map((prov, idx) => (
+          <Box key={idx} gap={1}>
+            <Text dimColor>◆</Text>
+            <Text color="yellow">{prov.tool}</Text>
+            <Text>{formatProvisionCompact(prov)}</Text>
+          </Box>
+        ))
+      )}
+    </Box>
+  );
+}
+
 /**
  * Detail view for a single session showing a reverse-chronological timeline of
  * authorization requests (most recent at top). Each entry can be expanded with
  * the right arrow key and collapsed with the left arrow key. Left arrow on a
  * collapsed entry navigates back to the session list.
  *
- * Keybindings: ↑/↓ navigate, → expand, ← collapse/back, 1 accept, 3 reject.
+ * Keybindings: ↑/↓ navigate, → expand, ← collapse/back, 1 accept, 2 grant with provision, 3 reject.
  *
  * @param props - Component props.
  * @param props.session - The session being viewed.
@@ -444,6 +734,13 @@ export function SessionDetailView({
   const [scrollOffset, setScrollOffset] = useState(0);
   const [deciding, setDeciding] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingProvision, setEditingProvision] = useState(false);
+  const [showProvisions, setShowProvisions] = useState(false);
+
+  const activeProvisions = useMemo(
+    () => deriveActiveProvisions(entries),
+    [entries],
+  );
 
   const { stdout } = useStdout();
   const columns = stdout.columns ?? 80;
@@ -515,6 +812,16 @@ export function SessionDetailView({
   const countBelow = displayEntries.length - visEnd;
 
   useInput((input, key) => {
+    if (editingProvision) {
+      return; // ProvisionEditor handles its own input
+    }
+    if (showProvisions) {
+      return; // ProvisionsPanel handles its own input
+    }
+    if (input === 'P') {
+      setShowProvisions(true);
+      return;
+    }
     if (key.upArrow) {
       const nextIdx = Math.max(0, cursorIdx - 1);
       setFocusedToken(displayEntries[nextIdx]?.token ?? null);
@@ -544,6 +851,11 @@ export function SessionDetailView({
       } else {
         onBack();
       }
+    } else if (input === '2' && !deciding) {
+      if (focused === undefined || focused.status !== 'pending') {
+        return;
+      }
+      setEditingProvision(true);
     } else if ((input === '1' || input === '3') && !deciding) {
       if (focused === undefined || focused.status !== 'pending') {
         return;
@@ -565,6 +877,26 @@ export function SessionDetailView({
     }
   });
 
+  const handleProvisionSubmit = (provision: Provision): void => {
+    if (focused === undefined || focused.status !== 'pending') {
+      return;
+    }
+    setEditingProvision(false);
+    setDeciding(true);
+    kernelApi
+      .decide(session.sessionId, focused.token, 'accept', provision)
+      .then(() => {
+        onDecided();
+        return undefined;
+      })
+      .catch((caught: Error) => {
+        setError(caught.message);
+      })
+      .finally(() => {
+        setDeciding(false);
+      });
+  };
+
   return (
     <Box flexDirection="column" paddingX={1}>
       <Box gap={1}>
@@ -576,57 +908,134 @@ export function SessionDetailView({
       </Box>
       {error !== null && <Text color="red">{error}</Text>}
 
-      {countAbove > 0 && <Text dimColor>↑ {countAbove} more</Text>}
-
-      {displayEntries.length === 0 ? (
-        <Text dimColor>No requests yet.</Text>
+      {showProvisions ? (
+        <ProvisionsPanel
+          provisions={activeProvisions}
+          onClose={() => setShowProvisions(false)}
+        />
       ) : (
-        visibleEntries.map((entry) => {
-          const idx = displayEntries.indexOf(entry);
-          const isFocused = idx === cursorIdx;
-          const isExpanded = expanded.has(entry.token);
-          const icon = STATUS_ICON[entry.status];
-          const color = STATUS_COLOR[entry.status];
+        <>
+          {countAbove > 0 && <Text dimColor>↑ {countAbove} more</Text>}
 
-          const { label } = parseDescription(entry.description);
+          {displayEntries.length === 0 ? (
+            <Text dimColor>No requests yet.</Text>
+          ) : (
+            visibleEntries.map((entry) => {
+              const idx = displayEntries.indexOf(entry);
+              const isFocused = idx === cursorIdx;
+              const isExpanded = expanded.has(entry.token);
+              const isEditingThis =
+                editingProvision && isFocused && entry.status === 'pending';
+              const icon =
+                entry.status === 'accepted' && entry.provision !== undefined
+                  ? '◆'
+                  : STATUS_ICON[entry.status];
+              const color = STATUS_COLOR[entry.status];
+              const isDimStatus = entry.status === 'provisioned';
 
-          const expandedLines = isExpanded
-            ? formatExpandedContent(entry.description).split('\n')
-            : [];
+              const { label } = parseDescription(entry.description);
 
-          return (
-            <Box key={entry.token} flexDirection="column" marginTop={0}>
-              <Box gap={1}>
-                <Text>{isFocused ? '►' : ' '}</Text>
-                <Text color={color}>{icon}</Text>
-                <Text color="cyan" dimColor>
-                  {formatTime(entry.queuedAt)}
-                </Text>
-                <Text bold={isFocused}>{label}</Text>
-              </Box>
-              {expandedLines.map((line, lineIdx) => (
-                <Box key={`${entry.token}-${lineIdx}`} paddingLeft={4}>
-                  <Text dimColor wrap="wrap">
-                    {line}
-                  </Text>
+              const expandedLines =
+                isExpanded && !isEditingThis
+                  ? formatExpandedContent(entry.description).split('\n')
+                  : [];
+
+              // Extract the tool name from the description label, e.g. "Allow Bash" → "Bash"
+              const toolName = label.startsWith('Allow ')
+                ? label.slice('Allow '.length)
+                : label;
+
+              return (
+                <Box key={entry.token} flexDirection="column" marginTop={0}>
+                  <Box gap={1}>
+                    <Text>{isFocused ? '►' : ' '}</Text>
+                    <Text color={color} dimColor={isDimStatus}>
+                      {icon}
+                    </Text>
+                    <Text color="cyan" dimColor>
+                      {formatTime(entry.queuedAt)}
+                    </Text>
+                    <Text bold={isFocused}>
+                      {label}
+                      {isEditingThis && (
+                        <Text color="yellow"> (grant with provision…)</Text>
+                      )}
+                    </Text>
+                  </Box>
+                  {isEditingThis && (
+                    <ProvisionEditor
+                      toolName={toolName}
+                      invocations={entry.invocations ?? []}
+                      onSubmit={handleProvisionSubmit}
+                      onCancel={() => setEditingProvision(false)}
+                    />
+                  )}
+                  {expandedLines.map((line, lineIdx) => (
+                    <Box key={`${entry.token}-${lineIdx}`} paddingLeft={4}>
+                      <Text dimColor wrap="wrap">
+                        {line}
+                      </Text>
+                    </Box>
+                  ))}
+                  {isExpanded &&
+                    !isEditingThis &&
+                    entry.provision !== undefined &&
+                    entry.status !== 'provisioned' && (
+                      <Box paddingLeft={4} flexDirection="column">
+                        <Text dimColor>provision:</Text>
+                        {entry.provision.patterns.map((pattern, patIdx) => (
+                          <Box
+                            key={patIdx}
+                            paddingLeft={2}
+                            gap={1}
+                            flexWrap="wrap"
+                          >
+                            <Text color="yellow">{pattern.name}</Text>
+                            {pattern.argPatterns.map((argPat, argIdx) => (
+                              <Text key={argIdx} dimColor>
+                                {argPatternDisplay(argPat)}
+                              </Text>
+                            ))}
+                          </Box>
+                        ))}
+                      </Box>
+                    )}
+                  {isExpanded &&
+                    !isEditingThis &&
+                    entry.status === 'provisioned' && (
+                      <Box paddingLeft={4}>
+                        <Text dimColor>
+                          {entry.provision === undefined
+                            ? '→ standing provision'
+                            : `→ by provision: ${formatProvisionCompact(entry.provision)}`}
+                        </Text>
+                      </Box>
+                    )}
+                  {isExpanded &&
+                    !isEditingThis &&
+                    entry.decidedAt !== undefined &&
+                    entry.status !== 'provisioned' && (
+                      <Box paddingLeft={4}>
+                        <Text dimColor>
+                          decided {formatTime(entry.decidedAt)}
+                        </Text>
+                      </Box>
+                    )}
+                  {isExpanded &&
+                    !isEditingThis &&
+                    entry.guard.body !== '#{}' && (
+                      <Box paddingLeft={4}>
+                        <Text dimColor>guard: {entry.guard.body}</Text>
+                      </Box>
+                    )}
                 </Box>
-              ))}
-              {isExpanded && entry.decidedAt !== undefined && (
-                <Box paddingLeft={4}>
-                  <Text dimColor>decided {formatTime(entry.decidedAt)}</Text>
-                </Box>
-              )}
-              {isExpanded && entry.guard.body !== '#{}' && (
-                <Box paddingLeft={4}>
-                  <Text dimColor>guard: {entry.guard.body}</Text>
-                </Box>
-              )}
-            </Box>
-          );
-        })
+              );
+            })
+          )}
+
+          {countBelow > 0 && <Text dimColor>↓ {countBelow} more</Text>}
+        </>
       )}
-
-      {countBelow > 0 && <Text dimColor>↓ {countBelow} more</Text>}
     </Box>
   );
 }

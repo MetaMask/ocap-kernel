@@ -2,6 +2,8 @@ import { ifDefined } from '../misc.ts';
 import type { Channel, ModalStream } from './channel.ts';
 import type {
   Decision,
+  ParsedInvocation,
+  Provision,
   SectionNotification,
   SessionHistoryEntry,
 } from './types.ts';
@@ -28,9 +30,16 @@ export type Session = {
   queueRequest(description: string, reason?: string): string;
   authorizeRequest(
     description: string,
-    reason?: string,
-    timeoutMs?: number,
+    options?: {
+      reason?: string;
+      timeoutMs?: number;
+      invocations?: ParsedInvocation[];
+    },
   ): Promise<Decision>;
+  recordProvisioned(
+    description: string,
+    options?: { invocations?: ParsedInvocation[]; provision?: Provision },
+  ): void;
   subscribe(stream: ModalStream): void;
 };
 
@@ -69,10 +78,17 @@ function makeSession(
   const makeNotification = (
     description: string,
     reason: string,
+    invocations?: ParsedInvocation[],
   ): SectionNotification => {
     const token = `req-${requestCount}`;
     requestCount += 1;
-    return { token, description, reason, guard: { body: '#{}', slots: [] } };
+    return {
+      token,
+      description,
+      reason,
+      guard: { body: '#{}', slots: [] },
+      ...ifDefined({ invocations }),
+    };
   };
 
   return harden({
@@ -101,10 +117,14 @@ function makeSession(
 
     async authorizeRequest(
       description: string,
-      reason = 'Queued from CLI',
-      timeoutMs?: number,
+      options: {
+        reason?: string;
+        timeoutMs?: number;
+        invocations?: ParsedInvocation[];
+      } = {},
     ): Promise<Decision> {
-      const notification = makeNotification(description, reason);
+      const { reason = 'Queued from CLI', timeoutMs, invocations } = options;
+      const notification = makeNotification(description, reason, invocations);
       const decision = channel.broadcast(notification);
       if (timeoutMs === undefined) {
         return decision;
@@ -124,6 +144,18 @@ function makeSession(
           }, timeoutMs);
         }),
       ]);
+    },
+
+    recordProvisioned(
+      description: string,
+      options: { invocations?: ParsedInvocation[]; provision?: Provision } = {},
+    ): void {
+      const notification = makeNotification(
+        description,
+        'Auto-accepted by provision',
+        options.invocations,
+      );
+      channel.record(notification, options.provision);
     },
 
     subscribe(stream: ModalStream): void {

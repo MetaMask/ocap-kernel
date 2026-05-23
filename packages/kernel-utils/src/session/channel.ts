@@ -1,8 +1,10 @@
 import { makePromiseKit } from '@endo/promise-kit';
 import type { PromiseKit } from '@endo/promise-kit';
 
+import { ifDefined } from '../misc.ts';
 import type {
   Decision,
+  Provision,
   SectionNotification,
   SessionHistoryEntry,
 } from './types.ts';
@@ -62,6 +64,15 @@ export type Channel = {
    * @param decision - The decision to apply.
    */
   decide(decision: Decision): void;
+
+  /**
+   * Record a notification as already decided by a standing provision, without
+   * routing it through `pending` or notifying subscribers.
+   *
+   * @param notification - The section notification to record.
+   * @param provision - The standing provision that approved the request.
+   */
+  record(notification: SectionNotification, provision?: Provision): void;
 };
 
 type PendingEntry = {
@@ -73,8 +84,9 @@ type PendingEntry = {
 type HistoryEntry = {
   notification: SectionNotification;
   queuedAt: string;
-  verdict: 'accepted' | 'rejected';
+  verdict: 'accepted' | 'rejected' | 'provisioned';
   decidedAt: string;
+  provision?: Provision;
 };
 
 /**
@@ -109,6 +121,7 @@ export function makeChannel(): Channel {
       queuedAt: entry.queuedAt,
       verdict: decision.verdict === 'accept' ? 'accepted' : 'rejected',
       decidedAt: new Date().toISOString(),
+      ...ifDefined({ provision: decision.provision }),
     });
     entry.kit.resolve(decision);
   }
@@ -181,6 +194,8 @@ export function makeChannel(): Channel {
         queuedAt: hist.queuedAt,
         status: hist.verdict,
         decidedAt: hist.decidedAt,
+        ...ifDefined({ invocations: hist.notification.invocations }),
+        ...ifDefined({ provision: hist.provision }),
       }));
       const stillPending: SessionHistoryEntry[] = Array.from(
         pending.values(),
@@ -191,6 +206,7 @@ export function makeChannel(): Channel {
         guard: pend.notification.guard,
         queuedAt: pend.queuedAt,
         status: 'pending' as const,
+        ...ifDefined({ invocations: pend.notification.invocations }),
       }));
       return [...decided, ...stillPending].sort((lhs, rhs) => {
         if (lhs.queuedAt < rhs.queuedAt) {
@@ -205,6 +221,17 @@ export function makeChannel(): Channel {
 
     decide(decision: Decision): void {
       routeDecision(decision);
+    },
+
+    record(notification: SectionNotification, provision?: Provision): void {
+      const stamp = new Date().toISOString();
+      history.push({
+        notification,
+        queuedAt: stamp,
+        verdict: 'provisioned',
+        decidedAt: stamp,
+        ...ifDefined({ provision }),
+      });
     },
   });
 }

@@ -139,10 +139,9 @@ describe('makeSessionRegistry', () => {
     const registry = makeSessionRegistry(makeChannelBundle());
     const session = await registry.createSession();
 
-    const authPromise = session.authorizeRequest(
-      'Write /tmp/out',
-      'needs temp',
-    );
+    const authPromise = session.authorizeRequest('Write /tmp/out', {
+      reason: 'needs temp',
+    });
 
     // Retrieve the token from the pending list so we can decide it
     const pending = session.listPending();
@@ -156,17 +155,37 @@ describe('makeSessionRegistry', () => {
     expect(result).toStrictEqual(decision);
   });
 
+  it('recordProvisioned adds a provisioned entry to history', async () => {
+    const registry = makeSessionRegistry(makeChannelBundle());
+    const session = await registry.createSession();
+
+    session.recordProvisioned('Allow Bash({"command":"git status"})', {
+      invocations: [{ name: 'git', argv: ['status'] }],
+    });
+
+    const history = session.listHistory();
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      description: 'Allow Bash({"command":"git status"})',
+      reason: 'Auto-accepted by provision',
+      status: 'provisioned',
+      invocations: [{ name: 'git', argv: ['status'] }],
+    });
+    expect(typeof history[0]?.token).toBe('string');
+    expect(typeof history[0]?.queuedAt).toBe('string');
+    expect(history[0]?.queuedAt).toBe(history[0]?.decidedAt);
+  });
+
   it('authorizeRequest rejects with timeout error after timeoutMs elapses', async () => {
     vi.useFakeTimers();
     try {
       const registry = makeSessionRegistry(makeChannelBundle());
       const session = await registry.createSession();
 
-      const authPromise = session.authorizeRequest(
-        'Execute script',
-        'needs shell',
-        500,
-      );
+      const authPromise = session.authorizeRequest('Execute script', {
+        reason: 'needs shell',
+        timeoutMs: 500,
+      });
 
       // Advance past the timeout — no subscriber decides, so the race rejects
       vi.advanceTimersByTime(600);

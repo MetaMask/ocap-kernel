@@ -73,6 +73,7 @@ function makeTestSession(overrides: Partial<Session> = {}): Session {
       verdict: 'accept' as const,
       feedback: '',
     }),
+    recordProvisioned: vi.fn(),
     subscribe: vi.fn(),
     ...overrides,
   };
@@ -343,6 +344,38 @@ describe('startRpcSocketServer — session.* methods', () => {
     });
   });
 
+  it('session.record calls recordProvisioned with description and invocations', async () => {
+    const { startRpcSocketServer } = await import('./rpc-socket-server.ts');
+    const socketPath = makeSocketPath();
+    const existing = makeTestSession({
+      sessionId: 'alice',
+      ocapUrl: 'ocap://alice',
+      startedAt: '2026-01-01T00:00:00.000Z',
+    });
+    const registry = makeTestRegistry([existing]);
+
+    handle = await startRpcSocketServer({
+      socketPath,
+      kernel: {} as never,
+      kernelDatabase: { executeQuery: vi.fn() } as never,
+      channelFactory: {} as never,
+      sessionRegistry: registry,
+    });
+
+    const invocations = [{ name: 'git', argv: ['status'] }];
+    const response = await sendRequest(socketPath, 'session.record', {
+      sessionId: 'alice',
+      description: 'Allow Bash({"command":"git status"})',
+      invocations,
+    });
+
+    expect(response.result).toBeNull();
+    expect(existing.recordProvisioned).toHaveBeenCalledWith(
+      'Allow Bash({"command":"git status"})',
+      { invocations },
+    );
+  });
+
   it('session.authorize returns the decision from authorizeRequest()', async () => {
     const { startRpcSocketServer } = await import('./rpc-socket-server.ts');
     const socketPath = makeSocketPath();
@@ -376,8 +409,7 @@ describe('startRpcSocketServer — session.* methods', () => {
     expect(response.result).toStrictEqual(decision);
     expect(existing.authorizeRequest).toHaveBeenCalledWith(
       'Allow read access',
-      'Needed for operation',
-      undefined,
+      { reason: 'Needed for operation' },
     );
   });
 });

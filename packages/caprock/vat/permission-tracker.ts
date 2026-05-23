@@ -22,7 +22,11 @@ import type {
   Provision,
   ParsedInvocation,
 } from '@metamask/kernel-utils/session';
-import { computeAuthority, matchPattern } from '@metamask/kernel-utils/session';
+import {
+  computeAuthority,
+  matchPattern,
+  matchProvision,
+} from '@metamask/kernel-utils/session';
 import { constant, makeSection, sheafify } from '@metamask/sheaves';
 import type { Candidate, Provider } from '@metamask/sheaves';
 
@@ -97,9 +101,7 @@ function provisionToProvider(
         );
       }
       for (let i = 0; i < provision.patterns.length; i++) {
-        const pattern = provision.patterns[
-          i
-        ] as (typeof provision.patterns)[number];
+        const pattern = provision.patterns[i];
         const inv = invocations[i] as ParsedInvocation;
         if (!matchPattern(pattern, inv.name, inv.argv)) {
           throw new Error(`pattern mismatch at index ${i}`);
@@ -178,6 +180,32 @@ export function buildRootObject(): ReturnType<typeof makeDefaultExo> {
       sectionRecords = [...sectionRecords, { provision: hardened, authority }];
       providers = [...providers, provisionToProvider(hardened, idx, authority)];
       rebuildSection();
+    },
+
+    /**
+     * Return the first provision that matches the given tool and invocations,
+     * or null if none match.
+     *
+     * @param tool - The tool name.
+     * @param invocations - The parsed command components.
+     * @returns The matching provision, or null.
+     */
+    findMatch(tool: string, invocations: ParsedInvocation[]): Provision | null {
+      for (const { provision } of sectionRecords) {
+        if (matchProvision(provision, tool, invocations)) {
+          return provision;
+        }
+      }
+      return null;
+    },
+
+    /**
+     * Return all provisions currently in the sheaf.
+     *
+     * @returns Array of provisions, oldest first.
+     */
+    listProvisions(): Provision[] {
+      return sectionRecords.map(({ provision }) => provision);
     },
 
     /**

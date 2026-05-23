@@ -1,6 +1,7 @@
 export type {
   ArgPattern,
   InvocationPattern,
+  ParsedInvocation,
   Provision,
   SectionRequest,
   SectionNotification,
@@ -14,7 +15,7 @@ export { makeChannel } from './channel.ts';
 export type { Channel, ModalStream } from './channel.ts';
 export { makeSessionRegistry } from './session-registry.ts';
 export type { Session, SessionRegistry } from './session-registry.ts';
-export type { ParsedInvocation, PatternOrder } from './provision.ts';
+export type { PatternOrder } from './provision.ts';
 export {
   isPathArg,
   pathInterval,
