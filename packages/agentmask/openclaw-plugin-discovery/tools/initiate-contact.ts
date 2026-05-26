@@ -11,7 +11,9 @@ import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 
 /**
  * Pull the `kind` discriminator out of a raw CapData-style response.
- * The body is a JSON string with the field at the top level.
+ * The body is a smallcaps-encoded JSON string with a leading `#` marker,
+ * so naive `JSON.parse(body)` always throws — match the field by regex
+ * instead, the same way `extractKref` reaches into the body.
  *
  * @param raw - The raw response from `daemon.queueMessage`.
  * @returns The `kind` string if found, otherwise `undefined`.
@@ -24,12 +26,7 @@ function readResponseKind(raw: unknown): string | undefined {
   if (typeof body !== 'string') {
     return undefined;
   }
-  try {
-    const parsed = JSON.parse(body) as { kind?: unknown };
-    return typeof parsed.kind === 'string' ? parsed.kind : undefined;
-  } catch {
-    return undefined;
-  }
+  return /"kind"\s*:\s*"([^"]+)"/u.exec(body)?.[1];
 }
 
 /**
