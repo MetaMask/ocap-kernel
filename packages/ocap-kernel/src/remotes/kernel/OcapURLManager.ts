@@ -77,17 +77,17 @@ export class OcapURLManager {
    * @returns An object containing the services with their names.
    */
   getServices(): {
-    issuerService: { name: string; service: object };
-    redemptionService: { name: string; service: object };
+    issuerService: { name: string; service: OcapURLIssuerService };
+    redemptionService: { name: string; service: OcapURLRedemptionService };
   } {
     return {
       issuerService: {
         name: 'ocapURLIssuerService',
-        service: this.#ocapURLIssuerService,
+        service: this.getIssuerService(),
       },
       redemptionService: {
         name: 'ocapURLRedemptionService',
-        service: this.#ocapURLRedemptionService,
+        service: this.getRedemptionService(),
       },
     };
   }
@@ -97,8 +97,8 @@ export class OcapURLManager {
    *
    * @returns the issuer service object.
    */
-  getIssuerService(): object {
-    return this.#ocapURLIssuerService;
+  getIssuerService(): OcapURLIssuerService {
+    return this.#ocapURLIssuerService as OcapURLIssuerService;
   }
 
   /**
@@ -106,8 +106,8 @@ export class OcapURLManager {
    *
    * @returns the redemption service object.
    */
-  getRedemptionService(): object {
-    return this.#ocapURLRedemptionService;
+  getRedemptionService(): OcapURLRedemptionService {
+    return this.#ocapURLRedemptionService as OcapURLRedemptionService;
   }
 
   /**

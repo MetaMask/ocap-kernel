@@ -40,16 +40,21 @@ export type ServiceEntry = {
   fromContact: string;
 };
 
+/**
+ * 3-state representation of the matcher connection. Modeled as a
+ * discriminated union so the type system rules out the contradictory
+ * state where both a resolved entry and a still-pending pre-redemption
+ * are observable at once. The `e359bf49b` fix ("await pre-redemption
+ * before reporting no matcher") was exactly about racing on those two
+ * fields, so the discriminator is load-bearing.
+ */
+export type MatcherSlot =
+  | { status: 'absent' }
+  | { status: 'pending'; promise: Promise<MatcherEntry> }
+  | { status: 'resolved'; entry: MatcherEntry };
+
 export type PluginState = {
-  matcher: MatcherEntry | undefined;
-  /**
-   * Pending pre-redemption of a configured matcher URL. Set during
-   * `register()` when `matcherUrl` was supplied via config or env; cleared
-   * on either resolution or rejection. `requireMatcher` awaits it so a
-   * tool call issued before the pre-redemption settles does not see a
-   * misleading "no matcher connection" error.
-   */
-  matcherPending: Promise<MatcherEntry> | undefined;
+  matcher: MatcherSlot;
   contacts: Map<string, ContactEntry>;
   services: Map<string, ServiceEntry>;
 };
@@ -61,8 +66,7 @@ export type PluginState = {
  */
 export function createState(): PluginState {
   return {
-    matcher: undefined,
-    matcherPending: undefined,
+    matcher: { status: 'absent' },
     contacts: new Map(),
     services: new Map(),
   };
@@ -150,26 +154,31 @@ export function uniqueNickname(base: string, inUse: Set<string>): string {
  * @returns The matcher kref.
  */
 export async function requireMatcher(state: PluginState): Promise<string> {
-  if (state.matcher) {
-    return state.matcher.kref;
-  }
-  if (state.matcherPending) {
-    try {
-      const entry = await state.matcherPending;
-      return entry.kref;
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
+  switch (state.matcher.status) {
+    case 'resolved':
+      return state.matcher.entry.kref;
+    case 'pending':
+      try {
+        const entry = await state.matcher.promise;
+        return entry.kref;
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(
+          `Pre-configured matcher URL failed to redeem: ${detail}. ` +
+            'Ask the user for a valid matcher OCAP URL and call ' +
+            '`discovery_redeem_matcher`.',
+        );
+      }
+    case 'absent':
       throw new Error(
-        `Pre-configured matcher URL failed to redeem: ${detail}. ` +
-          'Ask the user for a valid matcher OCAP URL and call ' +
-          '`discovery_redeem_matcher`.',
+        'No matcher connection. Ask the user for the matcher OCAP URL and ' +
+          'call `discovery_redeem_matcher` first.',
       );
+    default: {
+      const exhaustiveCheck: never = state.matcher;
+      throw new Error(`unreachable: ${JSON.stringify(exhaustiveCheck)}`);
     }
   }
-  throw new Error(
-    'No matcher connection. Ask the user for the matcher OCAP URL and ' +
-      'call `discovery_redeem_matcher` first.',
-  );
 }
 
 /**

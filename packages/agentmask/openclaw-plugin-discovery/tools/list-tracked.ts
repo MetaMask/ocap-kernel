@@ -32,10 +32,19 @@ export function registerListTrackedTool(options: {
     async execute(): Promise<ToolResponse> {
       const lines: string[] = [];
 
-      if (state.matcher) {
-        lines.push(`Matcher: ${state.matcher.kref} (${state.matcher.url})`);
-      } else {
-        lines.push('Matcher: not connected.');
+      switch (state.matcher.status) {
+        case 'resolved': {
+          const { entry } = state.matcher;
+          lines.push(`Matcher: ${entry.kref} (${entry.url})`);
+          break;
+        }
+        case 'pending':
+          lines.push('Matcher: pre-redemption in progress.');
+          break;
+        case 'absent':
+        default:
+          lines.push('Matcher: not connected.');
+          break;
       }
       lines.push('');
 

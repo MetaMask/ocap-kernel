@@ -41,6 +41,7 @@ export type CredentialSubmissionPoint = {
  * service endpoint.
  */
 export type PermissionedContactResponse = {
+  kind: 'permissioned';
   credentialSpec: string;
   credentialSubmissionPoint: CredentialSubmissionPoint;
 };
@@ -102,19 +103,27 @@ export type CodeSubmissionPoint = {
  * ocap for submitting a code bundle.
  */
 export type ValidatedClientContactResponse = {
+  kind: 'validatedClient';
   requiredCertifications: CertificationRequirement[];
   codeSubmissionPoint: CodeSubmissionPoint;
 };
 
 /**
  * Public access-model response: the provider returns a service endpoint
- * directly.
+ * directly, wrapped so the response shape is uniformly tagged.
  */
-export type PublicContactResponse = ServicePoint;
+export type PublicContactResponse = {
+  kind: 'public';
+  service: ServicePoint;
+};
 
 /**
- * The response returned by `ContactPoint.initiateContact()`. The variant
- * returned depends on the service's access model.
+ * The response returned by `ContactPoint.initiateContact()`. Tagged with
+ * a `kind` discriminator so consumers can `switch (response.kind)`
+ * exhaustively rather than structurally probing (`'credentialSpec' in
+ * response`). Without the tag, a `ServicePoint` whose API happened to
+ * include a method named `credentialSpec` or `requiredCertifications`
+ * would be misclassified.
  */
 export type ContactResponse =
   | PublicContactResponse

@@ -45,6 +45,24 @@ export const ServiceMatchListStruct: Struct<ServiceMatch[]> =
 
 export type ServiceMatchList = Infer<typeof ServiceMatchListStruct>;
 
+// Two-way drift guards: assert that the hand-written types match the
+// shapes the structs infer, so adding a field to one without the other
+// fails to compile. (Mirrors the pattern in `service-description.ts`.)
+type _AssertSameShape<Left, Right> = Left extends Right
+  ? Right extends Left
+    ? true
+    : never
+  : never;
+
+export type _AssertServiceQuery = _AssertSameShape<
+  Infer<typeof ServiceQueryStruct>,
+  ServiceQuery
+>;
+export type _AssertServiceMatch = _AssertSameShape<
+  Infer<typeof ServiceMatchStruct>,
+  ServiceMatch
+>;
+
 /**
  * The matcher's public interface.
  *

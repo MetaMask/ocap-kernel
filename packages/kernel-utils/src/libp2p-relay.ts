@@ -4,7 +4,7 @@ import { autoNAT } from '@libp2p/autonat';
 import { circuitRelayServer } from '@libp2p/circuit-relay-v2';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
-import type { Libp2p, PrivateKey } from '@libp2p/interface';
+import type { Libp2p, Multiaddr, PeerId, PrivateKey } from '@libp2p/interface';
 import { ping } from '@libp2p/ping';
 import { tcp } from '@libp2p/tcp';
 import { webSockets } from '@libp2p/websockets';
@@ -87,14 +87,15 @@ export async function startRelay(
   });
 
   /**
-   * Produce a more legible peer ID string
+   * Produce a more legible peer ID string.
    *
-   * @param peer - The peer ID we care about.
+   * @param peer - The peer ID we care about, either as a `PeerId` object
+   * (e.g. `connection.remotePeer`) or as the bare string form extracted
+   * from a multiaddr.
    * @returns a terser form of `peer`.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function tersePeer(peer: any): string {
-    const peerId = peer.toString();
+  function tersePeer(peer: PeerId | string): string {
+    const peerId = typeof peer === 'string' ? peer : peer.toString();
     if (tersePeers.has(peerId)) {
       return tersePeers.get(peerId) as string;
     }
@@ -106,13 +107,12 @@ export async function startRelay(
   }
 
   /**
-   * Produce a more legible multiaddr string
+   * Produce a more legible multiaddr string.
    *
    * @param multiaddr - The multiaddr we care about.
    * @returns a terser form of `multiaddr`.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function terseAddr(multiaddr: any): string {
+  function terseAddr(multiaddr: Multiaddr): string {
     const raw = multiaddr.toString();
     const slash = raw.lastIndexOf('/') + 1;
     if (slash <= 0) {

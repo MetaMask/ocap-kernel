@@ -52,9 +52,19 @@ export function makeConversation(client: OpenClawClient): Conversation {
 
   return {
     async ingest(request: IngestRequest): Promise<void> {
-      persistent.push({ role: 'user', content: formatIngest(request) });
-      const reply = await client.chat(persistent);
-      persistent.push({ role: 'assistant', content: reply });
+      // Build the user turn locally; only commit both turns once the
+      // reply has resolved. If `client.chat` rejects (gateway 5xx,
+      // token error, transient network), the persistent log would
+      // otherwise be left with an unpaired user turn, and every
+      // subsequent ingest would send a malformed multi-user-turn
+      // sequence — degrading ranker behavior and matching the matcher
+      // vat's own rollback semantics on bridge-ingest failure.
+      const userTurn: ChatMessage = {
+        role: 'user',
+        content: formatIngest(request),
+      };
+      const reply = await client.chat([...persistent, userTurn]);
+      persistent.push(userTurn, { role: 'assistant', content: reply });
     },
 
     async query(query: string): Promise<MatchEntry[]> {

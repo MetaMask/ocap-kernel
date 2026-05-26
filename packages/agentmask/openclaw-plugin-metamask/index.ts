@@ -12,6 +12,14 @@
  *   timeoutMs     - Daemon call timeout in ms (default: 60000)
  *   resetState    - Clear plugin state on register (default: false)
  */
+import {
+  boolean,
+  exactOptional,
+  number,
+  object,
+  string,
+  validate,
+} from '@metamask/superstruct';
 import { resolve as resolvePath, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -31,68 +39,31 @@ const pluginDir = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CLI = resolvePath(pluginDir, '../../kernel-cli/dist/app.mjs');
 const DEFAULT_TIMEOUT_MS = 60_000;
 
-const KNOWN_KEYS = new Set([
-  'ocapCliPath',
-  'ocapUrl',
-  'timeoutMs',
-  'resetState',
-]);
+const PluginConfigStruct = object({
+  ocapCliPath: exactOptional(string()),
+  ocapUrl: exactOptional(string()),
+  timeoutMs: exactOptional(number()),
+  resetState: exactOptional(boolean()),
+});
 
 const configSchema: PluginConfigSchema = {
   safeParse(value: unknown) {
     if (value === undefined) {
       return { success: true, data: undefined };
     }
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return {
-        success: false,
-        error: { issues: [{ path: [], message: 'expected config object' }] },
-      };
-    }
-    const obj = value as Record<string, unknown>;
-    for (const key of Object.keys(obj)) {
-      if (!KNOWN_KEYS.has(key)) {
-        return {
-          success: false,
-          error: {
-            issues: [{ path: [key], message: `unknown config key "${key}"` }],
-          },
-        };
-      }
-    }
-    if ('ocapCliPath' in obj && typeof obj.ocapCliPath !== 'string') {
+    const [error, validated] = validate(value, PluginConfigStruct);
+    if (error) {
       return {
         success: false,
         error: {
-          issues: [{ path: ['ocapCliPath'], message: 'must be a string' }],
+          issues: error.failures().map((failure) => ({
+            path: failure.path,
+            message: failure.message,
+          })),
         },
       };
     }
-    if ('ocapUrl' in obj && typeof obj.ocapUrl !== 'string') {
-      return {
-        success: false,
-        error: {
-          issues: [{ path: ['ocapUrl'], message: 'must be a string' }],
-        },
-      };
-    }
-    if ('timeoutMs' in obj && typeof obj.timeoutMs !== 'number') {
-      return {
-        success: false,
-        error: {
-          issues: [{ path: ['timeoutMs'], message: 'must be a number' }],
-        },
-      };
-    }
-    if ('resetState' in obj && typeof obj.resetState !== 'boolean') {
-      return {
-        success: false,
-        error: {
-          issues: [{ path: ['resetState'], message: 'must be a boolean' }],
-        },
-      };
-    }
-    return { success: true, data: value };
+    return { success: true, data: validated };
   },
   jsonSchema: {
     type: 'object',

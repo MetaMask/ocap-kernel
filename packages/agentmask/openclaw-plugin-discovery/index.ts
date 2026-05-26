@@ -8,6 +8,14 @@
  *   timeoutMs     - Daemon call timeout in ms (default: 60000)
  *   resetState    - Clear plugin state on register (default: false)
  */
+import {
+  boolean,
+  exactOptional,
+  number,
+  object,
+  string,
+  validate,
+} from '@metamask/superstruct';
 import { resolve as resolvePath, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,77 +37,32 @@ const pluginDir = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_CLI = resolvePath(pluginDir, '../../kernel-cli/dist/app.mjs');
 const DEFAULT_TIMEOUT_MS = 60_000;
 
-const KNOWN_KEYS = new Set([
-  'ocapCliPath',
-  'ocapHome',
-  'matcherUrl',
-  'timeoutMs',
-  'resetState',
-]);
+const PluginConfigStruct = object({
+  ocapCliPath: exactOptional(string()),
+  ocapHome: exactOptional(string()),
+  matcherUrl: exactOptional(string()),
+  timeoutMs: exactOptional(number()),
+  resetState: exactOptional(boolean()),
+});
 
 const configSchema: PluginConfigSchema = {
   safeParse(value: unknown) {
     if (value === undefined) {
       return { success: true, data: undefined };
     }
-    if (!value || typeof value !== 'object' || Array.isArray(value)) {
-      return {
-        success: false,
-        error: { issues: [{ path: [], message: 'expected config object' }] },
-      };
-    }
-    const obj = value as Record<string, unknown>;
-    for (const key of Object.keys(obj)) {
-      if (!KNOWN_KEYS.has(key)) {
-        return {
-          success: false,
-          error: {
-            issues: [{ path: [key], message: `unknown config key "${key}"` }],
-          },
-        };
-      }
-    }
-    if ('ocapCliPath' in obj && typeof obj.ocapCliPath !== 'string') {
+    const [error, validated] = validate(value, PluginConfigStruct);
+    if (error) {
       return {
         success: false,
         error: {
-          issues: [{ path: ['ocapCliPath'], message: 'must be a string' }],
+          issues: error.failures().map((failure) => ({
+            path: failure.path,
+            message: failure.message,
+          })),
         },
       };
     }
-    if ('ocapHome' in obj && typeof obj.ocapHome !== 'string') {
-      return {
-        success: false,
-        error: {
-          issues: [{ path: ['ocapHome'], message: 'must be a string' }],
-        },
-      };
-    }
-    if ('matcherUrl' in obj && typeof obj.matcherUrl !== 'string') {
-      return {
-        success: false,
-        error: {
-          issues: [{ path: ['matcherUrl'], message: 'must be a string' }],
-        },
-      };
-    }
-    if ('timeoutMs' in obj && typeof obj.timeoutMs !== 'number') {
-      return {
-        success: false,
-        error: {
-          issues: [{ path: ['timeoutMs'], message: 'must be a number' }],
-        },
-      };
-    }
-    if ('resetState' in obj && typeof obj.resetState !== 'boolean') {
-      return {
-        success: false,
-        error: {
-          issues: [{ path: ['resetState'], message: 'must be a boolean' }],
-        },
-      };
-    }
-    return { success: true, data: value };
+    return { success: true, data: validated };
   },
   jsonSchema: {
     type: 'object',
@@ -219,25 +182,33 @@ function register(api: OpenClawPluginApi): void {
 
   // If a matcher URL was supplied via config or env, eagerly redeem it
   // so the agent can start calling findServices without an extra step.
-  // The pending promise is parked in `state.matcherPending` so
-  // `requireMatcher` can await it if a tool call lands during the
-  // window between `register()` returning and the redemption settling.
+  // The pending promise is parked in `state.matcher` (as the `pending`
+  // arm) so `requireMatcher` can await it if a tool call lands during
+  // the window between `register()` returning and the redemption
+  // settling.
   if (preconfiguredMatcherUrl) {
     const pending = daemon.redeemUrl(preconfiguredMatcherUrl).then((kref) => {
       const entry = { url: preconfiguredMatcherUrl, kref };
-      state.matcher = entry;
-      state.matcherPending = undefined;
+      state.matcher = { status: 'resolved', entry };
       // eslint-disable-next-line no-console
       console.info(`[discovery plugin] Pre-redeemed matcher URL; kref=${kref}`);
       return entry;
     });
-    state.matcherPending = pending;
+    state.matcher = { status: 'pending', promise: pending };
     // Attach a side-effect handler so a failure that nobody awaits does
     // not surface as an unhandled rejection. Do this on a chained
     // promise rather than on `pending` itself so `pending` stays
     // rejectable for any `requireMatcher` call that does await it.
     pending.catch((error: unknown) => {
-      state.matcherPending = undefined;
+      // Only revert to 'absent' if the slot is still 'pending' on this
+      // promise — a subsequent manual redeem may have already moved it
+      // forward.
+      if (
+        state.matcher.status === 'pending' &&
+        state.matcher.promise === pending
+      ) {
+        state.matcher = { status: 'absent' };
+      }
       // eslint-disable-next-line no-console
       console.warn(
         '[discovery plugin] Failed to pre-redeem matcher URL:',

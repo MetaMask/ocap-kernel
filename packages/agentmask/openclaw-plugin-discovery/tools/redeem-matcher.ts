@@ -46,10 +46,11 @@ export function registerRedeemMatcherTool(options: {
           throw new Error('Matcher URL is empty.');
         }
         const kref = await daemon.redeemUrl(url);
-        state.matcher = { url, kref };
-        // Discard any pending pre-redemption — a manual redeem
-        // supersedes whatever URL was configured at startup.
-        state.matcherPending = undefined;
+        // A manual redeem supersedes whatever URL was configured at
+        // startup; replacing the slot drops any in-flight pending
+        // promise on the floor (its `.catch` will see the slot is no
+        // longer 'pending' on it and decline to revert).
+        state.matcher = { status: 'resolved', entry: { url, kref } };
         return {
           content: [
             {

@@ -98,7 +98,7 @@ export function makeContactEndpoint(options: {
     },
 
     async initiateContact(): Promise<ContactResponse> {
-      return service;
+      return harden({ kind: 'public', service });
     },
   }) as unknown as ContactPoint;
 }

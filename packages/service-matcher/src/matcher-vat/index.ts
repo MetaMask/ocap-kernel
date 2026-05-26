@@ -533,12 +533,14 @@ export function buildRootObject(
     ): Promise<ServiceMatch[]> {
       const ranked = await queryServicesViaBridge(query.description);
       const matches: ServiceMatch[] = [];
+      let dropped = 0;
       for (const entry of ranked) {
         const registered = registry.get(entry.id);
         if (!registered) {
           // The bridge cited an id we no longer have — could happen if
           // the LLM hallucinates one, or if a service was unregistered
           // between ingest and query. Skip and log; don't bubble up.
+          dropped += 1;
           log(`bridge cited unknown id ${entry.id}; skipping`);
           continue;
         }
@@ -547,6 +549,17 @@ export function buildRootObject(
             description: registered.description,
             rationale: entry.rationale,
           }),
+        );
+      }
+      // If the bridge offered candidates and *all* of them were
+      // unknown, the registry is either out of sync with the bridge or
+      // the ranker is hallucinating ids wholesale. Loud failure is
+      // better than silently returning [], which would be
+      // indistinguishable from a legitimate zero-match query.
+      if (ranked.length > 0 && matches.length === 0) {
+        throw new Error(
+          `matcher: LLM bridge cited only unknown ids (${dropped}/${ranked.length}); ` +
+            'registry may be out of sync or ranker is hallucinating.',
         );
       }
       log(

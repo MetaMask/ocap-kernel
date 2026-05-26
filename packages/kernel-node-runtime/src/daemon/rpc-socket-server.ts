@@ -256,11 +256,17 @@ async function listen(server: Server, socketPath: string): Promise<void> {
         `Use 'ocap daemon stop' first.`,
     );
   }
-  // Stale socket file from a previous run — clean up.
+  // Stale socket file from a previous run — clean up. Only swallow
+  // ENOENT (file already absent). Other errors (EPERM, EACCES, EBUSY,
+  // EISDIR if someone replaced the socket with a directory) need to
+  // surface; otherwise the subsequent `server.listen()` would fail with
+  // an opaque EADDRINUSE that hides the real cause.
   try {
     await unlink(socketPath);
-  } catch {
-    // Ignore — file may not exist.
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
   }
 
   return new Promise((resolve, reject) => {

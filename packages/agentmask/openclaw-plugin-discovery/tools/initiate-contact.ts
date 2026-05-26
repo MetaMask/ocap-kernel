@@ -10,6 +10,29 @@ import type { PluginState, ServiceEntry } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 
 /**
+ * Pull the `kind` discriminator out of a raw CapData-style response.
+ * The body is a JSON string with the field at the top level.
+ *
+ * @param raw - The raw response from `daemon.queueMessage`.
+ * @returns The `kind` string if found, otherwise `undefined`.
+ */
+function readResponseKind(raw: unknown): string | undefined {
+  if (!raw || typeof raw !== 'object') {
+    return undefined;
+  }
+  const { body } = raw as { body?: unknown };
+  if (typeof body !== 'string') {
+    return undefined;
+  }
+  try {
+    const parsed = JSON.parse(body) as { kind?: unknown };
+    return typeof parsed.kind === 'string' ? parsed.kind : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Register the service_initiate_contact tool.
  *
  * @param options - Registration options.
@@ -60,18 +83,21 @@ export function registerInitiateContactTool(options: {
           raw: true,
         });
 
-        const extracted = extractKref(raw);
-        if (!extracted) {
-          // Not a direct service reference — likely a Permissioned or
-          // ValidatedClient response descriptor. Report the raw shape so
-          // the agent can decide what to do (phase 3 punts on this).
+        // The ContactResponse is now tagged: `{ kind: 'public', service }`
+        // for the Public access model, or shapes carrying credential /
+        // code submission points for the other models. Only the Public
+        // variant yields a directly-usable service ref; the others
+        // require a credential or code-bundle submission step that
+        // phase 3 doesn't implement.
+        const kind = readResponseKind(raw);
+        if (kind !== 'public') {
           return {
             content: [
               {
                 type: 'text' as const,
                 text: [
-                  'initiateContact returned a non-public response. Only the ',
-                  'Public access model is supported in this phase.',
+                  `initiateContact returned a non-public response (kind=${kind ?? 'unknown'}).`,
+                  'Only the Public access model is supported in this phase.',
                   '',
                   'Raw response:',
                   JSON.stringify(raw, null, 2),
@@ -80,6 +106,12 @@ export function registerInitiateContactTool(options: {
             ],
             details: undefined,
           };
+        }
+        const extracted = extractKref(raw);
+        if (!extracted) {
+          throw new Error(
+            'initiateContact: Public response had no extractable service kref',
+          );
         }
 
         const baseNickname = extracted.alleged ?? `service:${extracted.kref}`;
