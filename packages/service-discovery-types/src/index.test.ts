@@ -113,6 +113,28 @@ describe('ServiceDescriptionStruct', () => {
     };
     expect(is(bad, ServiceDescriptionStruct)).toBe(false);
   });
+
+  it('accepts an optional priceUsd', () => {
+    const desc: ServiceDescription = {
+      apiSpec: { properties: {} },
+      description: 'a service',
+      contact: [{ contactType: 'public', contactUrl: 'ocap:a@peer' }],
+      providerTag: 'svc',
+      priceUsd: 1200,
+    };
+    expect(is(desc, ServiceDescriptionStruct)).toBe(true);
+  });
+
+  it('rejects a non-number priceUsd', () => {
+    const bad = {
+      apiSpec: { properties: {} },
+      description: 'a service',
+      contact: [{ contactType: 'public', contactUrl: 'ocap:a@peer' }],
+      providerTag: 'svc',
+      priceUsd: '1200',
+    };
+    expect(is(bad, ServiceDescriptionStruct)).toBe(false);
+  });
 });
 
 describe('ServiceQueryStruct', () => {

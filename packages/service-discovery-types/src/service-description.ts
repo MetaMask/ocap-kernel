@@ -14,6 +14,7 @@ import {
   exactOptional,
   lazy,
   literal,
+  number,
   object,
   record,
   string,
@@ -131,12 +132,17 @@ export type ServiceContactInfo = {
  * unrelated providers can both use `providerTag: 'main'` without
  * collision because their peer IDs differ. Conventional shape is a short
  * lowercase kebab-case slug naming the service.
+ *
+ * `priceUsd` is an optional per-invocation price quoted by the provider
+ * in US dollars. It's advisory metadata for consumers that want to
+ * track or budget service usage; the matcher does not interpret it.
  */
 export type ServiceDescription = {
   apiSpec: ObjectSpec;
   description: string;
   contact: ServiceContactInfo[];
   providerTag: string;
+  priceUsd?: number;
 };
 
 // ---------------------------------------------------------------------------
@@ -220,6 +226,7 @@ export const ServiceDescriptionStruct: Struct<ServiceDescription> = object({
   description: string(),
   contact: array(ServiceContactInfoStruct),
   providerTag: string(),
+  priceUsd: exactOptional(number()),
 });
 
 // Compile-time assertions that the hand-written types line up with the
