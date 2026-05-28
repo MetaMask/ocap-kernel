@@ -63,13 +63,10 @@ export function buildRootObject(
       });
       contactUrl = await E(services.ocapURLIssuerService).issue(contact);
 
-      registerServicesWithMatcher({
+      await registerServicesWithMatcher({
         matcherUrl,
         ocapURLRedemptionService: services.ocapURLRedemptionService,
         entries: [{ name: SERVICE_NAME, contact, registrationToken }],
-      }).catch((error: unknown) => {
-        // eslint-disable-next-line no-console
-        console.error(`[${SERVICE_NAME}] Matcher registration failed:`, error);
       });
 
       return harden({ name: SERVICE_NAME, contactUrl });

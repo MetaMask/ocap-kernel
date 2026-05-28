@@ -15,14 +15,29 @@ export type RegistrationEntry = {
 };
 
 /**
+ * Summary of a `registerServicesWithMatcher` call: which entries
+ * landed in the matcher's registry, and which did not.
+ */
+export type RegistrationSummary = {
+  registered: { name: string }[];
+  failed: { name: string; cause: unknown }[];
+};
+
+/**
  * Register a service (or group of services) with a matcher.
  *
- * If `matcherUrl` is empty/undefined, logs and returns without contacting
- * any matcher — useful for development cycles where the matcher isn't
- * up yet. Otherwise redeems `matcherUrl` via the kernel's redemption
- * service and calls `registerServiceByRef(contact, token)` for each
- * entry sequentially. Registration failures are logged but do not abort
- * the remaining registrations.
+ * If `matcherUrl` is empty/undefined, logs and returns an empty summary
+ * without contacting any matcher — useful for development cycles where
+ * the matcher isn't up yet. Otherwise redeems `matcherUrl` via the
+ * kernel's redemption service and calls
+ * `registerServiceByRef(contact, token)` for each entry sequentially.
+ * Per-entry failures are logged but do not abort the remaining
+ * registrations.
+ *
+ * Throws when the matcher URL itself cannot be redeemed (there's no
+ * useful partial-success story past that point) and when every entry
+ * fails (so bootstrap returning success while the matcher's registry
+ * stays empty becomes a loud failure instead of a silent one).
  *
  * @param options - Registration options.
  * @param options.matcherUrl - Ocap URL of the matcher, or empty/undefined
@@ -30,20 +45,22 @@ export type RegistrationEntry = {
  * @param options.ocapURLRedemptionService - Kernel service used to redeem
  * the matcher URL.
  * @param options.entries - Services to register.
+ * @returns Summary of which entries succeeded vs failed.
  */
 export async function registerServicesWithMatcher(options: {
   matcherUrl: string | undefined;
   ocapURLRedemptionService: OcapURLRedemptionService;
   entries: RegistrationEntry[];
-}): Promise<void> {
+}): Promise<RegistrationSummary> {
   const { matcherUrl, ocapURLRedemptionService, entries } = options;
+  const summary: RegistrationSummary = { registered: [], failed: [] };
 
   if (!matcherUrl) {
     // eslint-disable-next-line no-console
     console.log(
       '[vat] matcherUrl parameter not set; skipping matcher registration.',
     );
-    return;
+    return summary;
   }
 
   let matcher: ServiceMatcher;
@@ -52,9 +69,7 @@ export async function registerServicesWithMatcher(options: {
       matcherUrl,
     )) as ServiceMatcher;
   } catch (cause) {
-    // eslint-disable-next-line no-console
-    console.error(`[vat] Failed to redeem matcher URL ${matcherUrl}:`, cause);
-    return;
+    throw new Error(`Failed to redeem matcher URL ${matcherUrl}`, { cause });
   }
 
   for (const entry of entries) {
@@ -63,11 +78,21 @@ export async function registerServicesWithMatcher(options: {
         entry.contact,
         entry.registrationToken,
       );
+      summary.registered.push({ name: entry.name });
       // eslint-disable-next-line no-console
       console.log(`[vat] Registered service "${entry.name}" with matcher.`);
     } catch (cause) {
+      summary.failed.push({ name: entry.name, cause });
       // eslint-disable-next-line no-console
       console.error(`[vat] Failed to register "${entry.name}":`, cause);
     }
   }
+
+  if (entries.length > 0 && summary.registered.length === 0) {
+    throw new Error(
+      `All ${entries.length} registration(s) failed for matcher ${matcherUrl}`,
+    );
+  }
+
+  return summary;
 }

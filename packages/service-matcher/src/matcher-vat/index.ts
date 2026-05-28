@@ -11,9 +11,10 @@
  *
  * The registry of registered services is **in-memory**. After a
  * matcher restart, providers must re-register. Making the registry
- * durable is a planned follow-up — see the "dedup / liveness" entry
- * in `discovery-plan.md` for the design obligations that come with
- * that path.
+ * durable is a planned follow-up; doing so brings its own obligations
+ * (eviction of stale registrations when providers disappear, liveness
+ * detection, and reconciling persisted entries with the bridge's LLM
+ * context) that need to be designed before that change lands.
  *
  * Ranking is delegated to an LLM-backed bridge process via an
  * `IOService` endowment named `llm`. On every successful registration
@@ -128,7 +129,8 @@ export function buildRootObject(
   }
 
   // Registry is in-memory. On matcher restart it starts empty;
-  // providers must re-register. (See plan follow-up "dedup / liveness".)
+  // providers must re-register. Making this durable is a planned
+  // follow-up; see the file header for the obligations it carries.
   const registry = new Map<string, RegisteredService>();
 
   const log = (...args: unknown[]): void => {
@@ -458,7 +460,17 @@ export function buildRootObject(
     description: ServiceDescription,
     contact: ContactPoint,
   ): Promise<void> {
+    // Stash superseded entries so we can restore them if the bridge
+    // ingest fails — otherwise a transient bridge failure would
+    // silently destroy whatever previous registration shared this
+    // providerTag, defeating the atomicity property the dedup commit
+    // was supposed to provide.
+    const evicted: [string, RegisteredService][] = [];
     for (const supersededId of findSamePeerSameTagEntries(description)) {
+      const prior = registry.get(supersededId);
+      if (prior) {
+        evicted.push([supersededId, prior]);
+      }
       registry.delete(supersededId);
       log(
         `evicted superseded registration ${supersededId} (providerTag=${description.providerTag})`,
@@ -469,7 +481,13 @@ export function buildRootObject(
       await ingestService(id, description);
     } catch (cause) {
       registry.delete(id);
-      log(`bridge ingest failed for ${id}; removed from registry:`, cause);
+      for (const [oldId, oldEntry] of evicted) {
+        registry.set(oldId, oldEntry);
+      }
+      log(
+        `bridge ingest failed for ${id}; rolled back new entry and restored ${evicted.length} evicted entries:`,
+        cause,
+      );
       throw cause;
     }
   }

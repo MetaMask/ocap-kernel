@@ -1,8 +1,6 @@
 # Service discovery — design notes
 
-Design notes for the types in this package, to be read alongside
-`~/DiscoveryNotes/discovery.md` (the background essay) and
-`~/DiscoveryNotes/discovery-analysis.md` (the analysis of the prior demo).
+Design notes for the types in this package.
 
 This package only holds wire-format types, runtime validators, and a small
 converter. The actual provider, matcher, and consumer live in their own
