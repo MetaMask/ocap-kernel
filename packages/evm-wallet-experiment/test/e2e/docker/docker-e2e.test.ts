@@ -334,7 +334,7 @@ describe('Docker E2E', () => {
       // -------------------------------------------------------------------------
 
       describe('delegation twin', () => {
-        it('enforces cumulativeSpend locally; chain enforces expired timestamp', () => {
+        it('routes transfers through the delegation twin; falls back to home when twin rejects', () => {
           const delegate = resolveOnChainDelegateAddress({
             delegationMode,
             home: homeResult,
@@ -348,6 +348,7 @@ describe('Docker E2E', () => {
             output = dockerExec(
               kernelServices.away,
               `node --conditions development ${scriptPath} ${delegationMode} ${homeResult.kref} ${awayResult.kref} ${delegate}`,
+              { timeoutMs: 170_000 },
             );
           } catch (error) {
             throw new Error(

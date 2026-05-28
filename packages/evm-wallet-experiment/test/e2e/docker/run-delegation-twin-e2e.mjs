@@ -12,8 +12,9 @@
  *   1. Home builds a transfer-fungible grant (max spend = 5 units, fake token).
  *   2. Away receives the grant and rebuilds the delegation routing.
  *   3. Away calls transferFungible(3) → twin succeeds (3 ≤ 5 remaining).
- *   4. Away calls transferFungible(3) again → twin rejects LOCALLY
- *      ("Insufficient budget") before any network call is made.
+ *   4. Away calls transferFungible(3) again → twin rejects its budget, but
+ *      the sheaf falls back to the call-home section and the transfer
+ *      still succeeds via the home coordinator.
  *
  * ── Usage ─────────────────────────────────────────────────────────────────
  *
@@ -147,19 +148,26 @@ assert(
   `first spend (3 units) → tx hash: ${String(txHash).slice(0, 20)}...`,
 );
 
-// Second spend: 3 + 3 = 6 > 5 → should be rejected LOCALLY by the
-// delegation twin without making any network call.
-console.log('  Calling transferFungible(3) again — should fail locally...');
-const secondError = await awayClient.callVatExpectError(
-  awayKref,
-  'transferFungible',
-  [FAKE_TOKEN, BURN_ADDRESS, '3'],
+// Second spend: 3 + 3 = 6 > 5 → twin rejects its budget, but the sheaf
+// falls back to the call-home section and the transfer still succeeds
+// via the home coordinator.
+console.log(
+  '  Calling transferFungible(3) again — twin rejects, sheaf falls back to home...',
 );
+const fallbackTxHash = await awayClient.callVat(awayKref, 'transferFungible', [
+  FAKE_TOKEN,
+  BURN_ADDRESS,
+  '3',
+]);
+
+// Fallback goes through the home coordinator, which uses a direct EOA
+// transaction (broadcastTransaction) rather than a UserOp — no receipt
+// polling needed.
 
 assert(
-  typeof secondError === 'string' &&
-    secondError.includes('Insufficient budget'),
-  `second spend (3 units) rejected locally: ${String(secondError).slice(0, 80)}`,
+  typeof fallbackTxHash === 'string' &&
+    /^0x[\da-f]{64}$/iu.test(fallbackTxHash),
+  `second spend (3 units) fell back to home → tx hash: ${String(fallbackTxHash).slice(0, 20)}...`,
 );
 
 // ── Results ────────────────────────────────────────────────────────────────
