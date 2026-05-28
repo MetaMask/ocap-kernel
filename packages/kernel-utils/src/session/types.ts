@@ -69,6 +69,8 @@ export type SectionNotification = {
   guard: { body: string; slots: string[] };
   /** Parsed invocations for the request — present when routed through the PreToolUse hook. */
   invocations?: ParsedInvocation[];
+  /** Independent pipeline clauses — present when the command has &&/||/; operators. */
+  clauses?: ParsedInvocation[][];
 };
 
 /**
@@ -81,8 +83,8 @@ export type Decision = {
   feedback: string;
   /** Optional guard override for accept verdicts. Absent means minimal (single-invocation) approval. */
   guard?: { body: string; slots: string[] };
-  /** Optional standing preapproval. When present, simultaneously approves this request and registers the provision for future matching. */
-  provision?: Provision;
+  /** Optional standing preapprovals — one per independent clause. When present, simultaneously approves this request and registers each provision for future matching. */
+  provisions?: Provision[];
 };
 
 /** User-facing summary of a session returned by the session list API. */
@@ -113,8 +115,10 @@ export type SessionHistoryEntry = {
   decidedAt?: string;
   /** Parsed invocations — present when routed through the PreToolUse hook. */
   invocations?: ParsedInvocation[];
-  /** Standing provision that was granted — present when the user accepted with a provision. */
-  provision?: Provision;
+  /** Independent pipeline clauses — present when the command has &&/||/; operators. */
+  clauses?: ParsedInvocation[][];
+  /** Standing provisions that were granted — one per independent clause when user accepted with provisions. */
+  provisions?: Provision[];
 };
 
 /**
@@ -129,6 +133,6 @@ export type SessionApi = {
     sessionId: string,
     token: string,
     verdict: 'accept' | 'reject',
-    provision?: Provision,
+    provisions?: Provision[],
   ) => Promise<void>;
 };

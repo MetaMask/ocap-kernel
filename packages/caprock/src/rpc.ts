@@ -225,6 +225,7 @@ export async function createKernelSession(
  * @param options.reason - Optional reason for the request.
  * @param options.timeoutMs - Optional client-side timeout in milliseconds.
  * @param options.invocations - Parsed invocations to forward to the TUI for the provision editor.
+ * @param options.clauses - Independent pipeline clauses — one per &&/||/; operand.
  * @returns The TUI's decision.
  */
 export async function authorizeRequest(
@@ -235,6 +236,7 @@ export async function authorizeRequest(
     reason?: string;
     timeoutMs?: number;
     invocations?: ParsedInvocation[];
+    clauses?: ParsedInvocation[][];
   },
 ): Promise<Decision> {
   const params: Record<string, unknown> = {
@@ -249,6 +251,9 @@ export async function authorizeRequest(
   }
   if (options?.invocations !== undefined) {
     params.invocations = options.invocations;
+  }
+  if (options?.clauses !== undefined) {
+    params.clauses = options.clauses;
   }
   const response = await sendCommand({
     socketPath,
@@ -276,20 +281,28 @@ export async function authorizeRequest(
  * @param description - Human-readable description of the auto-accepted operation.
  * @param options - Optional parameters.
  * @param options.invocations - Parsed invocations to forward to the TUI.
- * @param options.provision - The standing provision that approved the request.
+ * @param options.clauses - Independent pipeline clauses — one per &&/||/; operand.
+ * @param options.provisions - Standing provisions that approved the request (one per clause).
  */
 export async function recordProvisioned(
   socketPath: string,
   sessionId: string,
   description: string,
-  options?: { invocations?: ParsedInvocation[]; provision?: Provision },
+  options?: {
+    invocations?: ParsedInvocation[];
+    clauses?: ParsedInvocation[][];
+    provisions?: Provision[];
+  },
 ): Promise<void> {
   const params: Record<string, unknown> = { sessionId, description };
   if (options?.invocations !== undefined) {
     params.invocations = options.invocations;
   }
-  if (options?.provision !== undefined) {
-    params.provision = options.provision;
+  if (options?.clauses !== undefined) {
+    params.clauses = options.clauses;
+  }
+  if (options?.provisions !== undefined) {
+    params.provisions = options.provisions;
   }
   await sendCommand({ socketPath, method: 'session.record', params });
 }

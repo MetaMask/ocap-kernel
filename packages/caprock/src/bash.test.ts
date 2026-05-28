@@ -8,7 +8,7 @@ describe('decompose', () => {
       expect(decompose('')).toStrictEqual({
         ok: false,
         reason: 'empty',
-        commands: [],
+        clauses: [],
       });
     });
 
@@ -16,7 +16,7 @@ describe('decompose', () => {
       expect(decompose('   \n  ')).toStrictEqual({
         ok: false,
         reason: 'empty',
-        commands: [],
+        clauses: [],
       });
     });
   });
@@ -26,8 +26,8 @@ describe('decompose', () => {
       const result = decompose('ls');
       expect(result).toStrictEqual({
         ok: true,
-        commands: [
-          { name: 'ls', argv: [], pipePosition: 'alone', redirects: [] },
+        clauses: [
+          [{ name: 'ls', argv: [], pipePosition: 'alone', redirects: [] }],
         ],
       });
     });
@@ -41,7 +41,7 @@ describe('decompose', () => {
     it('collects positional arguments', () => {
       const result = decompose('ls -la /tmp');
       expect(result.ok).toBe(true);
-      expect(result.commands[0]).toStrictEqual({
+      expect(result.clauses[0]?.[0]).toStrictEqual({
         name: 'ls',
         argv: ['-la', '/tmp'],
         pipePosition: 'alone',
@@ -51,34 +51,34 @@ describe('decompose', () => {
 
     it('strips double quotes from string arguments', () => {
       const result = decompose('echo "hello world"');
-      expect(result.commands[0]?.argv).toStrictEqual(['hello world']);
+      expect(result.clauses[0]?.[0]?.argv).toStrictEqual(['hello world']);
     });
 
     it('strips single quotes from string arguments', () => {
       const result = decompose("echo 'hello'");
-      expect(result.commands[0]?.argv).toStrictEqual(['hello']);
+      expect(result.clauses[0]?.[0]?.argv).toStrictEqual(['hello']);
     });
 
     it('marks variable expansion as dynamic', () => {
       const result = decompose('echo $VAR');
-      expect(result.commands[0]?.argv).toStrictEqual(['<dynamic>']);
+      expect(result.clauses[0]?.[0]?.argv).toStrictEqual(['<dynamic>']);
     });
 
     it('marks command substitution as dynamic', () => {
       const result = decompose('echo $(date)');
-      expect(result.commands[0]?.argv).toStrictEqual(['<dynamic>']);
+      expect(result.clauses[0]?.[0]?.argv).toStrictEqual(['<dynamic>']);
     });
 
     it('marks double-quoted string containing expansion as dynamic', () => {
       const result = decompose('echo "prefix-$VAR-suffix"');
-      expect(result.commands[0]?.argv).toStrictEqual(['<dynamic>']);
+      expect(result.clauses[0]?.[0]?.argv).toStrictEqual(['<dynamic>']);
     });
 
     it('preserves a static git commit message', () => {
       const result = decompose('git commit -m "fix: thing"');
       expect(result.ok).toBe(true);
       // argv starts after the command name 'git'; 'commit' is the first arg
-      expect(result.commands[0]?.argv).toStrictEqual([
+      expect(result.clauses[0]?.[0]?.argv).toStrictEqual([
         'commit',
         '-m',
         'fix: thing',
@@ -89,44 +89,39 @@ describe('decompose', () => {
   describe('pipe positions', () => {
     it('labels a solo command as alone', () => {
       const result = decompose('ls');
-      expect(result.commands[0]?.pipePosition).toBe('alone');
+      expect(result.clauses[0]?.[0]?.pipePosition).toBe('alone');
     });
 
     it('labels commands in a two-stage pipeline', () => {
       const result = decompose('ls | grep foo');
       expect(result.ok).toBe(true);
-      expect(result.commands.map((cmd) => cmd.pipePosition)).toStrictEqual([
-        'first',
-        'downstream',
-      ]);
+      expect(
+        result.clauses.flat().map((cmd) => cmd.pipePosition),
+      ).toStrictEqual(['first', 'downstream']);
     });
 
     it('labels commands in a three-stage pipeline', () => {
       const result = decompose('ls | grep foo | sort');
       expect(result.ok).toBe(true);
-      expect(result.commands.map((cmd) => cmd.pipePosition)).toStrictEqual([
-        'first',
-        'downstream',
-        'downstream',
-      ]);
+      expect(
+        result.clauses.flat().map((cmd) => cmd.pipePosition),
+      ).toStrictEqual(['first', 'downstream', 'downstream']);
     });
 
     it('labels both sides of && as alone', () => {
       const result = decompose('ls && pwd');
       expect(result.ok).toBe(true);
-      expect(result.commands.map((cmd) => cmd.pipePosition)).toStrictEqual([
-        'alone',
-        'alone',
-      ]);
+      expect(
+        result.clauses.flat().map((cmd) => cmd.pipePosition),
+      ).toStrictEqual(['alone', 'alone']);
     });
 
     it('labels both sides of ; as alone', () => {
       const result = decompose('ls; pwd');
       expect(result.ok).toBe(true);
-      expect(result.commands.map((cmd) => cmd.pipePosition)).toStrictEqual([
-        'alone',
-        'alone',
-      ]);
+      expect(
+        result.clauses.flat().map((cmd) => cmd.pipePosition),
+      ).toStrictEqual(['alone', 'alone']);
     });
   });
 
@@ -142,19 +137,21 @@ describe('decompose', () => {
     ])('%s produces redirect kind %s targeting %s', (source, kind, target) => {
       const result = decompose(source);
       expect(result.ok).toBe(true);
-      expect(result.commands[0]?.redirects).toStrictEqual([{ kind, target }]);
+      expect(result.clauses[0]?.[0]?.redirects).toStrictEqual([
+        { kind, target },
+      ]);
     });
 
     it('classifies fd duplication (2>&1)', () => {
       const result = decompose('cmd 2>&1');
       expect(result.ok).toBe(true);
-      expect(result.commands[0]?.redirects[0]?.kind).toBe('fd-dup');
+      expect(result.clauses[0]?.[0]?.redirects[0]?.kind).toBe('fd-dup');
     });
 
     it('classifies herestring (<<<)', () => {
       const result = decompose('cmd <<< "foo"');
       expect(result.ok).toBe(true);
-      expect(result.commands[0]?.redirects[0]).toStrictEqual({
+      expect(result.clauses[0]?.[0]?.redirects[0]).toStrictEqual({
         kind: 'herestring',
         target: '<inline>',
       });
@@ -163,7 +160,7 @@ describe('decompose', () => {
     it('classifies heredoc (<<)', () => {
       const result = decompose('cat << EOF\nfoo\nEOF');
       expect(result.ok).toBe(true);
-      expect(result.commands[0]?.redirects[0]).toStrictEqual({
+      expect(result.clauses[0]?.[0]?.redirects[0]).toStrictEqual({
         kind: 'heredoc',
         target: '<inline>',
       });
@@ -173,7 +170,7 @@ describe('decompose', () => {
       // $OUT inside double quotes is a string node; containsExpansion catches it
       const result = decompose('ls > "$OUT"');
       expect(result.ok).toBe(true);
-      expect(result.commands[0]?.redirects[0]?.target).toBe('<dynamic>');
+      expect(result.clauses[0]?.[0]?.redirects[0]?.target).toBe('<dynamic>');
     });
   });
 
@@ -231,7 +228,7 @@ describe('decompose', () => {
     it('collects names from both sides of &&', () => {
       const result = decompose('ls && pwd');
       expect(result.ok).toBe(true);
-      expect(result.commands.map((cmd) => cmd.name)).toStrictEqual([
+      expect(result.clauses.flat().map((cmd) => cmd.name)).toStrictEqual([
         'ls',
         'pwd',
       ]);
@@ -240,7 +237,7 @@ describe('decompose', () => {
     it('collects names from both sides of ;', () => {
       const result = decompose('ls; pwd');
       expect(result.ok).toBe(true);
-      expect(result.commands.map((cmd) => cmd.name)).toStrictEqual([
+      expect(result.clauses.flat().map((cmd) => cmd.name)).toStrictEqual([
         'ls',
         'pwd',
       ]);
@@ -250,6 +247,39 @@ describe('decompose', () => {
   describe('parse error', () => {
     it('returns parse_error for an unclosed quote', () => {
       expect(decompose("ls '")).toHaveProperty('reason', 'parse_error');
+    });
+  });
+
+  describe('multi-clause decomposition', () => {
+    it('splits && into two independent clauses', () => {
+      const result = decompose('git status && git log');
+      expect(result.ok).toBe(true);
+      expect(result.clauses).toHaveLength(2);
+      expect(result.clauses[0]?.[0]?.name).toBe('git');
+      expect(result.clauses[1]?.[0]?.name).toBe('git');
+    });
+
+    it('splits || into two independent clauses', () => {
+      const result = decompose('cat /etc/hosts || echo fallback');
+      expect(result.ok).toBe(true);
+      expect(result.clauses).toHaveLength(2);
+    });
+
+    it('splits mixed pipeline and && into clauses', () => {
+      const result = decompose(
+        'git log --oneline HEAD | tail -5 && git status',
+      );
+      expect(result.ok).toBe(true);
+      expect(result.clauses).toHaveLength(2);
+      expect(result.clauses[0]).toHaveLength(2); // pipeline: git log | tail
+      expect(result.clauses[1]).toHaveLength(1); // standalone: git status
+    });
+
+    it('keeps a pipeline as a single clause', () => {
+      const result = decompose('git log HEAD | tail -5');
+      expect(result.ok).toBe(true);
+      expect(result.clauses).toHaveLength(1);
+      expect(result.clauses[0]).toHaveLength(2);
     });
   });
 });

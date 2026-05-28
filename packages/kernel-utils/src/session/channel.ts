@@ -70,9 +70,9 @@ export type Channel = {
    * routing it through `pending` or notifying subscribers.
    *
    * @param notification - The section notification to record.
-   * @param provision - The standing provision that approved the request.
+   * @param provisions - The standing provisions that approved the request (one per clause).
    */
-  record(notification: SectionNotification, provision?: Provision): void;
+  record(notification: SectionNotification, provisions?: Provision[]): void;
 };
 
 type PendingEntry = {
@@ -86,7 +86,7 @@ type HistoryEntry = {
   queuedAt: string;
   verdict: 'accepted' | 'rejected' | 'provisioned';
   decidedAt: string;
-  provision?: Provision;
+  provisions?: Provision[];
 };
 
 /**
@@ -121,7 +121,7 @@ export function makeChannel(): Channel {
       queuedAt: entry.queuedAt,
       verdict: decision.verdict === 'accept' ? 'accepted' : 'rejected',
       decidedAt: new Date().toISOString(),
-      ...ifDefined({ provision: decision.provision }),
+      ...ifDefined({ provisions: decision.provisions }),
     });
     entry.kit.resolve(decision);
   }
@@ -195,7 +195,8 @@ export function makeChannel(): Channel {
         status: hist.verdict,
         decidedAt: hist.decidedAt,
         ...ifDefined({ invocations: hist.notification.invocations }),
-        ...ifDefined({ provision: hist.provision }),
+        ...ifDefined({ clauses: hist.notification.clauses }),
+        ...ifDefined({ provisions: hist.provisions }),
       }));
       const stillPending: SessionHistoryEntry[] = Array.from(
         pending.values(),
@@ -207,6 +208,7 @@ export function makeChannel(): Channel {
         queuedAt: pend.queuedAt,
         status: 'pending' as const,
         ...ifDefined({ invocations: pend.notification.invocations }),
+        ...ifDefined({ clauses: pend.notification.clauses }),
       }));
       return [...decided, ...stillPending].sort((lhs, rhs) => {
         if (lhs.queuedAt < rhs.queuedAt) {
@@ -223,14 +225,14 @@ export function makeChannel(): Channel {
       routeDecision(decision);
     },
 
-    record(notification: SectionNotification, provision?: Provision): void {
+    record(notification: SectionNotification, provisions?: Provision[]): void {
       const stamp = new Date().toISOString();
       history.push({
         notification,
         queuedAt: stamp,
         verdict: 'provisioned',
         decidedAt: stamp,
-        ...ifDefined({ provision }),
+        ...ifDefined({ provisions }),
       });
     },
   });

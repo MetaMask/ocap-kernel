@@ -308,10 +308,14 @@ async function handleSessionRequest(
         const invocations = Array.isArray(args.invocations)
           ? (args.invocations as ParsedInvocation[])
           : undefined;
+        const clauses = Array.isArray(args.clauses)
+          ? (args.clauses as ParsedInvocation[][])
+          : undefined;
         const decision = await session.authorizeRequest(description, {
           ...ifDefined({ reason }),
           ...ifDefined({ timeoutMs }),
           ...ifDefined({ invocations }),
+          ...ifDefined({ clauses }),
         });
         return ok(decision);
       }
@@ -325,13 +329,16 @@ async function handleSessionRequest(
         const invocations = Array.isArray(args.invocations)
           ? (args.invocations as ParsedInvocation[])
           : undefined;
-        const provision =
-          typeof args.provision === 'object' && args.provision !== null
-            ? (args.provision as Provision)
-            : undefined;
+        const provisions = Array.isArray(args.provisions)
+          ? (args.provisions as Provision[])
+          : undefined;
+        const clauses = Array.isArray(args.clauses)
+          ? (args.clauses as ParsedInvocation[][])
+          : undefined;
         session.recordProvisioned(description, {
           ...ifDefined({ invocations }),
-          ...ifDefined({ provision }),
+          ...ifDefined({ clauses }),
+          ...ifDefined({ provisions }),
         });
         return ok(null);
       }
@@ -345,10 +352,9 @@ async function handleSessionRequest(
           typeof args.guard === 'object' && args.guard !== null
             ? (args.guard as { body: string; slots: string[] })
             : undefined;
-        const provision =
-          typeof args.provision === 'object' && args.provision !== null
-            ? (args.provision as Provision)
-            : undefined;
+        const provisions = Array.isArray(args.provisions)
+          ? (args.provisions as Provision[])
+          : undefined;
 
         if (
           typeof token !== 'string' ||
@@ -364,7 +370,7 @@ async function handleSessionRequest(
           verdict,
           feedback,
           ...ifDefined({ guard }),
-          ...ifDefined({ provision }),
+          ...ifDefined({ provisions }),
         });
         return ok(null);
       }

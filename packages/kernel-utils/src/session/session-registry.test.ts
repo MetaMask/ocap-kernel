@@ -159,8 +159,18 @@ describe('makeSessionRegistry', () => {
     const registry = makeSessionRegistry(makeChannelBundle());
     const session = await registry.createSession();
 
+    const someProvision = {
+      tool: 'Bash',
+      patterns: [
+        {
+          name: 'git',
+          argPatterns: [{ kind: 'exact' as const, value: 'status' }],
+        },
+      ],
+    };
     session.recordProvisioned('Allow Bash({"command":"git status"})', {
       invocations: [{ name: 'git', argv: ['status'] }],
+      provisions: [someProvision],
     });
 
     const history = session.listHistory();
@@ -170,6 +180,7 @@ describe('makeSessionRegistry', () => {
       reason: 'Auto-accepted by provision',
       status: 'provisioned',
       invocations: [{ name: 'git', argv: ['status'] }],
+      provisions: [someProvision],
     });
     expect(typeof history[0]?.token).toBe('string');
     expect(typeof history[0]?.queuedAt).toBe('string');

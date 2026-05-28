@@ -355,8 +355,10 @@ function entryRowCount(
   const contentRows = contentLines.reduce((sum, line) => {
     return sum + Math.max(1, Math.ceil(line.length / effectiveWidth));
   }, 0);
-  const provisionRows =
-    entry.provision === undefined ? 0 : 1 + entry.provision.patterns.length;
+  const provisionRows = (entry.provisions ?? []).reduce(
+    (sum, prov) => sum + 1 + prov.patterns.length,
+    0,
+  );
   const extras =
     (entry.decidedAt === undefined ? 0 : 1) +
     (entry.guard.body === '#{}' ? 0 : 1) +
@@ -448,7 +450,8 @@ type FlatArg = {
 type ProvisionEditorProps = {
   toolName: string;
   invocations: ParsedInvocation[];
-  onSubmit: (provision: Provision) => void;
+  clauses?: ParsedInvocation[][];
+  onSubmit: (provisions: Provision[]) => void;
   onCancel: () => void;
 };
 
@@ -460,38 +463,48 @@ type ProvisionEditorProps = {
  *
  * @param props - Component props.
  * @param props.toolName - The tool name (e.g. "Bash").
- * @param props.invocations - The parsed invocations for the pending request.
- * @param props.onSubmit - Called with the resulting Provision when Enter is pressed.
+ * @param props.invocations - The parsed invocations for the pending request (single-clause fallback).
+ * @param props.clauses - Multi-clause breakdown — one Pipeline per &&/||/; operand.
+ * @param props.onSubmit - Called with the resulting Provisions when Enter is pressed.
  * @param props.onCancel - Called when Esc is pressed.
  * @returns The ProvisionEditor component.
  */
 function ProvisionEditor({
   toolName,
   invocations,
+  clauses,
   onSubmit,
   onCancel,
 }: ProvisionEditorProps): React.ReactElement {
+  // Use clauses if provided, otherwise treat invocations as a single clause
+  const effectiveClauses = useMemo(
+    () => clauses ?? [invocations],
+    [clauses, invocations],
+  );
+
   const flatArgs = useMemo<FlatArg[]>(() => {
     const result: FlatArg[] = [];
-    for (let i = 0; i < invocations.length; i++) {
-      const inv = invocations[i];
-      if (inv === undefined) {
-        continue;
-      }
-      for (let j = 0; j < inv.argv.length; j++) {
-        const value = inv.argv[j];
-        if (value !== undefined) {
-          result.push({
-            invIdx: i,
-            argIdx: j,
-            value,
-            interval: argInterval(value),
-          });
+    for (const clause of effectiveClauses) {
+      for (let ii = 0; ii < clause.length; ii++) {
+        const inv = clause[ii];
+        if (inv === undefined) {
+          continue;
+        }
+        for (let jj = 0; jj < inv.argv.length; jj++) {
+          const value = inv.argv[jj];
+          if (value !== undefined) {
+            result.push({
+              invIdx: ii,
+              argIdx: jj,
+              value,
+              interval: argInterval(value),
+            });
+          }
         }
       }
     }
     return result;
-  }, [invocations]);
+  }, [effectiveClauses]);
 
   const [cursor, setCursor] = useState(0);
   const [sels, setSels] = useState<number[]>(() => flatArgs.map(() => 0));
@@ -504,11 +517,13 @@ function ProvisionEditor({
     if (key.escape) {
       onCancel();
     } else if (key.return) {
-      const provision =
+      const provisions =
         flatArgs.length === 0
-          ? invocationToProvision(toolName, invocations)
-          : buildProvision(toolName, invocations, flatArgs, sels);
-      onSubmit(provision);
+          ? effectiveClauses.map((clause) =>
+              invocationToProvision(toolName, clause),
+            )
+          : buildProvisions(toolName, effectiveClauses, flatArgs, sels);
+      onSubmit(provisions);
     } else if (key.rightArrow) {
       setCursor((idx) => Math.min(flatArgs.length - 1, idx + 1));
     } else if (key.leftArrow) {
@@ -531,50 +546,56 @@ function ProvisionEditor({
     }
   });
 
-  // Render invocations as a flat line with each arg colored by its pattern scope.
+  // Render clauses with && separators; each clause shows its pipeline with | separators.
   // Cursor arg is highlighted; widened args appear in a different color.
   let flatIdx = 0;
-  const invocationLines = invocations.map((inv, invIdx) => {
-    const argNodes = inv.argv.map((val, argIdx) => {
-      const fi = flatIdx;
-      flatIdx += 1;
-      const sel = sels[fi] ?? 0;
-      const interval = flatArgs[fi]?.interval ?? argInterval(val);
-      const pat = interval[sel];
-      const display = pat === undefined ? val : argPatternDisplay(pat);
-      const isCursor = fi === cursor;
-      const isWidened = sel > 0;
-      let argColor: 'cyan' | 'yellow' | undefined;
-      if (isCursor) {
-        argColor = 'cyan';
-      } else if (isWidened) {
-        argColor = 'yellow';
-      }
+  const clauseLines = effectiveClauses.map((clause, clauseIdx) => {
+    const pipelineNodes = clause.map((inv, invIdx) => {
+      const argNodes = inv.argv.map((val, argIdx) => {
+        const fi = flatIdx;
+        flatIdx += 1;
+        const sel = sels[fi] ?? 0;
+        const interval = flatArgs[fi]?.interval ?? argInterval(val);
+        const pat = interval[sel];
+        const display = pat === undefined ? val : argPatternDisplay(pat);
+        const isCursor = fi === cursor;
+        const isWidened = sel > 0;
+        let argColor: 'cyan' | 'yellow' | undefined;
+        if (isCursor) {
+          argColor = 'cyan';
+        } else if (isWidened) {
+          argColor = 'yellow';
+        }
+        return (
+          <Text
+            key={`${clauseIdx}-${invIdx}-${argIdx}`}
+            {...(argColor === undefined ? {} : { color: argColor })}
+            bold={isCursor}
+          >
+            {' '}
+            {display}
+          </Text>
+        );
+      });
       return (
-        <Text
-          key={`${invIdx}-${argIdx}`}
-          {...(argColor === undefined ? {} : { color: argColor })}
-          bold={isCursor}
-        >
-          {' '}
-          {display}
-        </Text>
+        <React.Fragment key={`${clauseIdx}-${invIdx}`}>
+          {invIdx > 0 && <Text dimColor> |</Text>}
+          <Text bold>{inv.name}</Text>
+          {argNodes}
+        </React.Fragment>
       );
     });
     return (
-      <React.Fragment key={invIdx}>
-        {invIdx > 0 && <Text dimColor> |</Text>}
-        <Text bold>{inv.name}</Text>
-        {argNodes}
-      </React.Fragment>
+      <Box key={clauseIdx} gap={1} flexWrap="wrap">
+        {clauseIdx > 0 && <Text dimColor>&amp;&amp;</Text>}
+        {pipelineNodes}
+      </Box>
     );
   });
 
   return (
     <Box flexDirection="column" paddingLeft={4} marginTop={1}>
-      <Box gap={1} flexWrap="wrap">
-        {invocationLines}
-      </Box>
+      {clauseLines}
       {currentFlatArg !== undefined && currentPattern !== undefined && (
         <Box paddingLeft={2} gap={1} marginTop={0}>
           <Text dimColor>↕</Text>
@@ -601,24 +622,24 @@ function ProvisionEditor({
 }
 
 /**
- * Build a Provision from the editor's current selections.
+ * Build one Provision per clause from the editor's current selections.
  *
  * @param toolName - The tool name.
- * @param invocations - The original parsed invocations.
- * @param flatArgs - Flattened arg list with intervals.
+ * @param clauses - The original parsed clauses (each clause is a pipeline of invocations).
+ * @param flatArgs - Flattened arg list with intervals (across all clauses in order).
  * @param sels - Per-flat-arg selection indices into each interval.
- * @returns The constructed Provision.
+ * @returns An array of Provisions — one per clause.
  */
-function buildProvision(
+function buildProvisions(
   toolName: string,
-  invocations: ParsedInvocation[],
+  clauses: ParsedInvocation[][],
   flatArgs: FlatArg[],
   sels: number[],
-): Provision {
+): Provision[] {
   let flatIdx = 0;
-  return {
+  return clauses.map((clause) => ({
     tool: toolName,
-    patterns: invocations.map((inv) => ({
+    patterns: clause.map((inv) => ({
       name: inv.name,
       argPatterns: inv.argv.map((val) => {
         const fi = flatIdx;
@@ -628,7 +649,7 @@ function buildProvision(
         return interval[sel] ?? ({ kind: 'wildcard' } as const);
       }),
     })),
-  };
+  }));
 }
 
 /**
@@ -643,13 +664,12 @@ function deriveActiveProvisions(entries: SessionHistoryEntry[]): Provision[] {
   const seen = new Set<string>();
   const result: Provision[] = [];
   for (const entry of entries) {
-    if (entry.provision === undefined) {
-      continue;
-    }
-    const key = JSON.stringify(entry.provision);
-    if (!seen.has(key)) {
-      seen.add(key);
-      result.push(entry.provision);
+    for (const prov of entry.provisions ?? []) {
+      const key = JSON.stringify(prov);
+      if (!seen.has(key)) {
+        seen.add(key);
+        result.push(prov);
+      }
     }
   }
   return result;
@@ -877,14 +897,14 @@ export function SessionDetailView({
     }
   });
 
-  const handleProvisionSubmit = (provision: Provision): void => {
+  const handleProvisionSubmit = (provisions: Provision[]): void => {
     if (focused === undefined || focused.status !== 'pending') {
       return;
     }
     setEditingProvision(false);
     setDeciding(true);
     kernelApi
-      .decide(session.sessionId, focused.token, 'accept', provision)
+      .decide(session.sessionId, focused.token, 'accept', provisions)
       .then(() => {
         onDecided();
         return undefined;
@@ -927,7 +947,9 @@ export function SessionDetailView({
               const isEditingThis =
                 editingProvision && isFocused && entry.status === 'pending';
               const icon =
-                entry.status === 'accepted' && entry.provision !== undefined
+                entry.status === 'accepted' &&
+                entry.provisions !== undefined &&
+                entry.provisions.length > 0
                   ? '◆'
                   : STATUS_ICON[entry.status];
               const color = STATUS_COLOR[entry.status];
@@ -966,6 +988,7 @@ export function SessionDetailView({
                     <ProvisionEditor
                       toolName={toolName}
                       invocations={entry.invocations ?? []}
+                      clauses={entry.clauses}
                       onSubmit={handleProvisionSubmit}
                       onCancel={() => setEditingProvision(false)}
                     />
@@ -979,22 +1002,26 @@ export function SessionDetailView({
                   ))}
                   {isExpanded &&
                     !isEditingThis &&
-                    entry.provision !== undefined &&
+                    entry.provisions !== undefined &&
                     entry.status !== 'provisioned' && (
                       <Box paddingLeft={4} flexDirection="column">
-                        <Text dimColor>provision:</Text>
-                        {entry.provision.patterns.map((pattern, patIdx) => (
-                          <Box
-                            key={patIdx}
-                            paddingLeft={2}
-                            gap={1}
-                            flexWrap="wrap"
-                          >
-                            <Text color="yellow">{pattern.name}</Text>
-                            {pattern.argPatterns.map((argPat, argIdx) => (
-                              <Text key={argIdx} dimColor>
-                                {argPatternDisplay(argPat)}
-                              </Text>
+                        <Text dimColor>provisions:</Text>
+                        {entry.provisions.map((prov, provIdx) => (
+                          <Box key={provIdx} flexDirection="column">
+                            {prov.patterns.map((pattern, patIdx) => (
+                              <Box
+                                key={patIdx}
+                                paddingLeft={2}
+                                gap={1}
+                                flexWrap="wrap"
+                              >
+                                <Text color="yellow">{pattern.name}</Text>
+                                {pattern.argPatterns.map((argPat, argIdx) => (
+                                  <Text key={argIdx} dimColor>
+                                    {argPatternDisplay(argPat)}
+                                  </Text>
+                                ))}
+                              </Box>
                             ))}
                           </Box>
                         ))}
@@ -1003,12 +1030,17 @@ export function SessionDetailView({
                   {isExpanded &&
                     !isEditingThis &&
                     entry.status === 'provisioned' && (
-                      <Box paddingLeft={4}>
-                        <Text dimColor>
-                          {entry.provision === undefined
-                            ? '→ standing provision'
-                            : `→ by provision: ${formatProvisionCompact(entry.provision)}`}
-                        </Text>
+                      <Box paddingLeft={4} flexDirection="column">
+                        {entry.provisions === undefined ||
+                        entry.provisions.length === 0 ? (
+                          <Text dimColor>→ standing provision</Text>
+                        ) : (
+                          entry.provisions.map((prov, provIdx) => (
+                            <Text key={provIdx} dimColor>
+                              → by provision: {formatProvisionCompact(prov)}
+                            </Text>
+                          ))
+                        )}
                       </Box>
                     )}
                   {isExpanded &&

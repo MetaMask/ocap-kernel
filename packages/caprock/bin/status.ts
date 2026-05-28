@@ -78,7 +78,7 @@ async function getBashSubcommands(sessionId: string): Promise<string[]> {
     if (typeof cmd !== 'string') {
       continue;
     }
-    for (const parsed of decompose(cmd).commands) {
+    for (const parsed of decompose(cmd).clauses.flat()) {
       names.push(parsed.name);
     }
   }
@@ -173,7 +173,7 @@ async function reportFromTranscript(sessionId: string): Promise<void> {
     if (typeof cmd !== 'string') {
       continue;
     }
-    for (const parsed of decompose(cmd).commands) {
+    for (const parsed of decompose(cmd).clauses.flat()) {
       bashCmds.push(parsed.name);
     }
   }

@@ -309,21 +309,21 @@ async function vatSize(rootKref: string): Promise<number> {
 }
 
 /**
- * Parse a tool invocation into a list of ParsedInvocation objects suitable for
- * sheaf dispatch. For Bash, uses tree-sitter to decompose the pipeline into
- * component commands. For other tools, treats the tool as a single command with
- * string field values as argv.
+ * Parse a tool invocation into clause arrays suitable for per-clause sheaf
+ * dispatch. For Bash, uses tree-sitter to decompose the command into independent
+ * clauses (split on &&/||/;), each of which is a pipeline of commands. For
+ * other tools, wraps the tool as a single one-invocation clause.
  *
  * Returns null when the command is dynamic or unparseable (no provision possible).
  *
  * @param toolName - The Claude Code tool name.
  * @param toolInput - The raw tool input object.
- * @returns Parsed invocations, or null for dynamic/unparseable Bash.
+ * @returns Array of clauses (each clause is an array of ParsedInvocations), or null.
  */
-function buildInvocations(
+function buildClauses(
   toolName: string,
   toolInput: Record<string, unknown>,
-): ParsedInvocation[] | null {
+): ParsedInvocation[][] | null {
   if (toolName === 'Bash') {
     const command =
       typeof toolInput.command === 'string' ? toolInput.command : '';
@@ -331,12 +331,14 @@ function buildInvocations(
     if (!result.ok) {
       return null;
     }
-    return result.commands.map(({ name, argv }) => ({ name, argv }));
+    return result.clauses.map((clause) =>
+      clause.map(({ name, argv }) => ({ name, argv })),
+    );
   }
   const argv = Object.values(toolInput).filter(
     (val): val is string => typeof val === 'string',
   );
-  return [{ name: toolName, argv }];
+  return [[{ name: toolName, argv }]];
 }
 
 // ─── Session initialization ──────────────────────────────────────────────────
@@ -518,7 +520,7 @@ async function onSessionStart(payload: SessionStartPayload): Promise<void> {
 async function onPreToolUse(payload: PreToolUsePayload): Promise<void> {
   const { session_id, tool_name, tool_input } = payload;
   const sha = inputSha(tool_input);
-  const invocations = buildInvocations(tool_name, tool_input);
+  const clauses = buildClauses(tool_name, tool_input);
 
   const state = await getOrInitSession(payload);
   if (!state) {
@@ -528,8 +530,16 @@ async function onPreToolUse(payload: PreToolUsePayload): Promise<void> {
 
   let vatResponse = 'unknown';
   try {
-    if (invocations !== null) {
-      vatResponse = await vatRoute(state.rootKref, tool_name, invocations);
+    if (clauses !== null) {
+      let allAllow = true;
+      for (const clause of clauses) {
+        const verdict = await vatRoute(state.rootKref, tool_name, clause);
+        if (verdict !== 'allow') {
+          allAllow = false;
+          break;
+        }
+      }
+      vatResponse = allAllow ? 'allow' : 'ask';
     }
   } catch (error) {
     process.stderr.write(`[caprock] vatRoute failed: ${String(error)}\n`);
@@ -545,27 +555,37 @@ async function onPreToolUse(payload: PreToolUsePayload): Promise<void> {
   });
 
   if (vatResponse === 'allow') {
-    if (state.kernelSessionId && invocations !== null) {
+    if (state.kernelSessionId !== undefined && clauses !== null) {
       const autoDescription = `Allow ${tool_name}(${JSON.stringify(tool_input)})`;
-      vatFindMatch(state.rootKref, tool_name, invocations)
-        .then(async (matched) =>
-          recordProvisioned(
+      Promise.all(
+        clauses.map(async (clause) =>
+          vatFindMatch(state.rootKref, tool_name, clause),
+        ),
+      )
+        .then(async (matches) => {
+          const provisions = matches.filter(
+            (matched): matched is Provision => matched !== null,
+          );
+          await recordProvisioned(
             SOCKET_PATH,
             state.kernelSessionId,
             autoDescription,
             {
-              invocations,
-              ...(matched === null ? {} : { provision: matched }),
+              // invocations is clauses.flat() — non-null because clauses !== null here
+              invocations: clauses.flat(),
+              clauses,
+              ...(provisions.length > 0 ? { provisions } : {}),
             },
-          ),
-        )
+          );
+          return undefined;
+        })
         .catch(() => undefined);
     }
     process.stdout.write(JSON.stringify({ continue: true }));
     return;
   }
 
-  if (!state.kernelSessionId) {
+  if (state.kernelSessionId === undefined) {
     process.stdout.write(JSON.stringify({ continue: true }));
     return;
   }
@@ -578,7 +598,13 @@ async function onPreToolUse(payload: PreToolUsePayload): Promise<void> {
       SOCKET_PATH,
       state.kernelSessionId,
       description,
-      invocations === null ? undefined : { invocations },
+      clauses === null
+        ? undefined
+        : {
+            // invocations is clauses.flat() — non-null because clauses !== null here
+            invocations: clauses.flat(),
+            clauses,
+          },
     );
   } catch (error) {
     const errorStr = String(error);
@@ -610,15 +636,18 @@ async function onPreToolUse(payload: PreToolUsePayload): Promise<void> {
   }
 
   if (decision.verdict === 'accept') {
-    if (decision.provision !== undefined) {
-      await vatAddSection(state.rootKref, decision.provision).catch(
-        () => undefined,
-      );
-    } else if (invocations !== null) {
-      await vatAddSection(
-        state.rootKref,
-        invocationToProvision(tool_name, invocations),
-      ).catch(() => undefined);
+    const decidedProvisions = decision.provisions;
+    if (decidedProvisions !== undefined && decidedProvisions.length > 0) {
+      for (const prov of decidedProvisions) {
+        await vatAddSection(state.rootKref, prov).catch(() => undefined);
+      }
+    } else if (clauses !== null) {
+      for (const clause of clauses) {
+        await vatAddSection(
+          state.rootKref,
+          invocationToProvision(tool_name, clause),
+        ).catch(() => undefined);
+      }
     }
     await appendEvent(session_id, {
       t: now(),
@@ -658,13 +687,15 @@ async function onPostToolUse(payload: PostToolUsePayload): Promise<void> {
     return;
   }
 
-  const invocations = buildInvocations(tool_name, tool_input);
-  if (invocations !== null) {
+  const postClauses = buildClauses(tool_name, tool_input);
+  if (postClauses !== null) {
     try {
-      await vatAddSection(
-        state.rootKref,
-        invocationToProvision(tool_name, invocations),
-      );
+      for (const clause of postClauses) {
+        await vatAddSection(
+          state.rootKref,
+          invocationToProvision(tool_name, clause),
+        );
+      }
     } catch (error) {
       process.stderr.write(
         `[caprock] vatAddSection failed: ${String(error)}\n`,
@@ -707,15 +738,18 @@ async function onPermissionRequest(
   }
 
   if (tool_name && tool_input) {
-    const invocations = buildInvocations(tool_name, tool_input);
-    if (invocations !== null) {
+    const permClauses = buildClauses(tool_name, tool_input);
+    if (permClauses !== null) {
       try {
-        const vatResponse = await vatRoute(
-          state.rootKref,
-          tool_name,
-          invocations,
-        );
-        if (vatResponse === 'allow') {
+        let allAllow = true;
+        for (const clause of permClauses) {
+          const verdict = await vatRoute(state.rootKref, tool_name, clause);
+          if (verdict !== 'allow') {
+            allAllow = false;
+            break;
+          }
+        }
+        if (allAllow) {
           process.stdout.write(`${permissionAllow()}\n`);
         }
       } catch {

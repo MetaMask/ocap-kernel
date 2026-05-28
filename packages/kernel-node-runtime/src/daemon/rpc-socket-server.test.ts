@@ -363,16 +363,28 @@ describe('startRpcSocketServer — session.* methods', () => {
     });
 
     const invocations = [{ name: 'git', argv: ['status'] }];
+    const provisions = [
+      {
+        tool: 'Bash',
+        patterns: [
+          {
+            name: 'git',
+            argPatterns: [{ kind: 'exact', value: 'status' }],
+          },
+        ],
+      },
+    ];
     const response = await sendRequest(socketPath, 'session.record', {
       sessionId: 'alice',
       description: 'Allow Bash({"command":"git status"})',
       invocations,
+      provisions,
     });
 
     expect(response.result).toBeNull();
     expect(existing.recordProvisioned).toHaveBeenCalledWith(
       'Allow Bash({"command":"git status"})',
-      { invocations },
+      { invocations, provisions },
     );
   });
 

@@ -32,9 +32,12 @@ export type DropReason =
   | 'eval_dynamic'
   | 'empty';
 
+/** One dependent pipeline: commands joined by `|`. */
+export type Pipeline = ParsedCommand[];
+
 export type DecomposeResult =
-  | { ok: true; commands: ParsedCommand[] }
-  | { ok: false; reason: DropReason; commands: ParsedCommand[] };
+  | { ok: true; clauses: Pipeline[] }
+  | { ok: false; reason: DropReason; clauses: Pipeline[] };
 
 let cachedParser: Parser | null = null;
 
@@ -67,33 +70,38 @@ const SHELL_INTERPRETERS = new Set(['bash', 'sh', 'zsh', 'ksh', 'dash']);
 export function decompose(source: string): DecomposeResult {
   const trimmed = source.trim();
   if (trimmed.length === 0) {
-    return { ok: false, reason: 'empty', commands: [] };
+    return { ok: false, reason: 'empty', clauses: [] };
   }
 
   const parser = getParser();
   const tree = parser.parse(source);
 
   if (hasErrorNode(tree.rootNode)) {
-    return {
-      ok: false,
-      reason: 'parse_error',
-      commands: collectCommands(tree.rootNode),
-    };
+    return { ok: false, reason: 'parse_error', clauses: [] };
   }
 
-  const commands = collectCommands(tree.rootNode);
+  // Collect clauses from all top-level children of the program node
+  const clauses: Pipeline[] = [];
+  for (let i = 0; i < tree.rootNode.namedChildCount; i++) {
+    const child = tree.rootNode.namedChild(i);
+    if (child !== null) {
+      clauses.push(...collectClauses(child));
+    }
+  }
 
-  if (commands.some((cmd) => cmd.name === '<dynamic>')) {
-    return { ok: false, reason: 'dynamic_command', commands };
+  const allCommands = clauses.flat();
+
+  if (allCommands.some((cmd) => cmd.name === '<dynamic>')) {
+    return { ok: false, reason: 'dynamic_command', clauses };
   }
   if (hasCurlPipeShell(tree.rootNode)) {
-    return { ok: false, reason: 'curl_pipe_shell', commands };
+    return { ok: false, reason: 'curl_pipe_shell', clauses };
   }
-  if (hasEvalDynamic(commands)) {
-    return { ok: false, reason: 'eval_dynamic', commands };
+  if (hasEvalDynamic(allCommands)) {
+    return { ok: false, reason: 'eval_dynamic', clauses };
   }
 
-  return { ok: true, commands };
+  return { ok: true, clauses };
 }
 
 /**
@@ -129,6 +137,67 @@ function collectCommands(node: Parser.SyntaxNode): ParsedCommand[] {
     }
   });
   return out;
+}
+
+/**
+ * Collect pipeline clauses from a syntax node, splitting on `&&`, `||`, and `;`.
+ *
+ * - `list` nodes (&&/||) are recursed into, producing one clause per operand.
+ * - `pipeline` nodes produce one clause containing all their command nodes.
+ * - `command` nodes produce one single-command clause.
+ * - `redirected_statement` nodes delegate to their inner command/pipeline child.
+ * - All other node types (subshell, compound_statement, etc.) are treated as
+ *   one opaque clause by falling back to {@link collectCommands}.
+ *
+ * @param node - The syntax node to collect clauses from.
+ * @returns An array of Pipeline clauses.
+ */
+function collectClauses(node: Parser.SyntaxNode): Pipeline[] {
+  switch (node.type) {
+    case 'list': {
+      // && and || — recurse into both named children
+      const result: Pipeline[] = [];
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child !== null) {
+          result.push(...collectClauses(child));
+        }
+      }
+      return result;
+    }
+    case 'pipeline': {
+      // All commands in this pipeline form one clause
+      const cmds: ParsedCommand[] = [];
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child !== null && child.type === 'command') {
+          cmds.push(extractCommand(child));
+        }
+      }
+      return cmds.length > 0 ? [cmds] : [];
+    }
+    case 'command':
+      return [[extractCommand(node)]];
+    case 'redirected_statement': {
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (
+          child !== null &&
+          child.type !== 'file_redirect' &&
+          child.type !== 'heredoc_redirect' &&
+          child.type !== 'herestring_redirect'
+        ) {
+          return collectClauses(child);
+        }
+      }
+      return [];
+    }
+    default: {
+      // subshell, compound_statement, etc. — collect all contained commands as one opaque clause
+      const cmds = collectCommands(node);
+      return cmds.length > 0 ? [cmds] : [];
+    }
+  }
 }
 
 /**
