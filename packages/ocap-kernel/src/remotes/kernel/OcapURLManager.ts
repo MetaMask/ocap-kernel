@@ -6,6 +6,23 @@ import { kslot, krefOf } from '../../liveslots/kernel-marshal.ts';
 import type { SlotValue } from '../../liveslots/kernel-marshal.ts';
 import type { KRef } from '../../types.ts';
 
+/**
+ * The vat-facing shape of the `ocapURLIssuerService` kernel-service
+ * endowment: accepts a remotable and returns an OCAP URL that resolves to
+ * that remotable when redeemed elsewhere.
+ */
+export type OcapURLIssuerService = {
+  issue: (obj: unknown) => Promise<string>;
+};
+
+/**
+ * The vat-facing shape of the `ocapURLRedemptionService` kernel-service
+ * endowment: accepts an OCAP URL and returns the referenced remotable.
+ */
+export type OcapURLRedemptionService = {
+  redeem: (url: string) => Promise<unknown>;
+};
+
 type OcapURLManagerConstructorProps = {
   remoteManager: RemoteManager;
 };
@@ -60,17 +77,17 @@ export class OcapURLManager {
    * @returns An object containing the services with their names.
    */
   getServices(): {
-    issuerService: { name: string; service: object };
-    redemptionService: { name: string; service: object };
+    issuerService: { name: string; service: OcapURLIssuerService };
+    redemptionService: { name: string; service: OcapURLRedemptionService };
   } {
     return {
       issuerService: {
         name: 'ocapURLIssuerService',
-        service: this.#ocapURLIssuerService,
+        service: this.getIssuerService(),
       },
       redemptionService: {
         name: 'ocapURLRedemptionService',
-        service: this.#ocapURLRedemptionService,
+        service: this.getRedemptionService(),
       },
     };
   }
@@ -80,8 +97,8 @@ export class OcapURLManager {
    *
    * @returns the issuer service object.
    */
-  getIssuerService(): object {
-    return this.#ocapURLIssuerService;
+  getIssuerService(): OcapURLIssuerService {
+    return this.#ocapURLIssuerService as OcapURLIssuerService;
   }
 
   /**
@@ -89,8 +106,8 @@ export class OcapURLManager {
    *
    * @returns the redemption service object.
    */
-  getRedemptionService(): object {
-    return this.#ocapURLRedemptionService;
+  getRedemptionService(): OcapURLRedemptionService {
+    return this.#ocapURLRedemptionService as OcapURLRedemptionService;
   }
 
   /**

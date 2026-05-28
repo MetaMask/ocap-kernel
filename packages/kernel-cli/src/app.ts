@@ -48,6 +48,18 @@ const yargsInstance = yargs(hideBin(process.argv))
   .usage('$0 <command> [options]')
   .demandCommand(1)
   .strict()
+  .option('home', {
+    type: 'string',
+    describe:
+      'OCAP home directory for this invocation (overrides $OCAP_HOME). ' +
+      'Use distinct values to run independent daemons side by side.',
+    global: true,
+  })
+  .middleware((args) => {
+    if (typeof args.home === 'string' && args.home.length > 0) {
+      process.env.OCAP_HOME = path.resolve(args.home);
+    }
+  })
   .command(
     'bundle <targets..>',
     'Bundle user code to be used in a vat',
@@ -188,9 +200,26 @@ const yargsInstance = yargs(hideBin(process.argv))
         .command(
           ['start', '$0'],
           'Start the relay server',
-          (_y) => _y,
-          async () => {
-            await startRelayWithBookkeeping(logger);
+          (_y) =>
+            _y.option('public-ip', {
+              type: 'string',
+              describe:
+                'Public IPv4 to announce in addition to locally-bound ' +
+                'addresses. Defaults to $LIBP2P_RELAY_PUBLIC_IP. Use on a ' +
+                'NAT-backed VPS where the public address is not on a ' +
+                'local NIC.',
+            }),
+          async (args) => {
+            const cliIp =
+              typeof args['public-ip'] === 'string' && args['public-ip'] !== ''
+                ? args['public-ip']
+                : undefined;
+            const envIp = process.env.LIBP2P_RELAY_PUBLIC_IP;
+            const publicIp = cliIp ?? (envIp === '' ? undefined : envIp);
+            await startRelayWithBookkeeping(
+              logger,
+              publicIp ? { publicIp } : {},
+            );
           },
         )
         .command(
@@ -225,8 +254,10 @@ const yargsInstance = yargs(hideBin(process.argv))
     'daemon',
     'Manage the OCAP daemon process',
     (_yargs) => {
-      const socketPath = getSocketPath();
-
+      // NB: do not call getSocketPath() here. The builder runs at
+      // parse time, before --home middleware has updated $OCAP_HOME.
+      // Each handler resolves the socket path itself so per-invocation
+      // home overrides are honored.
       return _yargs
         .command(
           ['start', '$0'],
@@ -239,7 +270,7 @@ const yargsInstance = yargs(hideBin(process.argv))
                 'Initialize remote comms with the local relay after starting',
             }),
           async (args) => {
-            await handleDaemonStart(socketPath, {
+            await handleDaemonStart(getSocketPath(), {
               localRelay: args['local-relay'],
             });
           },
@@ -249,7 +280,7 @@ const yargsInstance = yargs(hideBin(process.argv))
           'Stop the daemon',
           (_y) => _y,
           async () => {
-            const stopped = await stopDaemon(socketPath);
+            const stopped = await stopDaemon(getSocketPath());
             if (!stopped) {
               process.exitCode = 1;
             }
@@ -273,7 +304,7 @@ const yargsInstance = yargs(hideBin(process.argv))
               process.exitCode = 1;
               return;
             }
-            await handleDaemonBegone(socketPath);
+            await handleDaemonBegone(getSocketPath());
           },
         )
         .command(
@@ -318,6 +349,7 @@ const yargsInstance = yargs(hideBin(process.argv))
             if (args['params-json']) {
               execArgs.push(String(args['params-json']));
             }
+            const socketPath = getSocketPath();
             await ensureDaemon(socketPath);
             const timeoutMs = parseTimeoutMs(args.timeout);
             await handleDaemonExec(
@@ -346,6 +378,7 @@ const yargsInstance = yargs(hideBin(process.argv))
                 'Redeem an OCAP URL',
               ),
           async (args) => {
+            const socketPath = getSocketPath();
             await ensureDaemon(socketPath);
             await handleRedeemURL(args.url, socketPath, {
               timeoutMs: parseTimeoutMs(args.timeout),
@@ -411,6 +444,7 @@ const yargsInstance = yargs(hideBin(process.argv))
                 return;
               }
             }
+            const socketPath = getSocketPath();
             await ensureDaemon(socketPath);
             await handleDaemonQueueMessage({
               target: String(args.target),

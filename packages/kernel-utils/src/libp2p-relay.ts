@@ -4,10 +4,11 @@ import { autoNAT } from '@libp2p/autonat';
 import { circuitRelayServer } from '@libp2p/circuit-relay-v2';
 import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
-import type { Libp2p, PrivateKey } from '@libp2p/interface';
+import type { Libp2p, PeerId, PrivateKey } from '@libp2p/interface';
 import { ping } from '@libp2p/ping';
 import { tcp } from '@libp2p/tcp';
 import { webSockets } from '@libp2p/websockets';
+import type { Multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p } from 'libp2p';
 
 /**
@@ -29,10 +30,28 @@ type RelayLogger = {
  * Start the relay server.
  *
  * @param logger - The logger to use.
+ * @param options - Optional configuration.
+ * @param options.publicIp - Public IPv4 address that the relay should
+ * announce in addition to whatever libp2p auto-detects from local
+ * interfaces. Use on hosts (e.g., NAT-backed VPSes) where the public
+ * address is not bound to a local NIC and would otherwise be missing
+ * from `getMultiaddrs()`.
  * @returns The libp2p instance.
  */
-export async function startRelay(logger: RelayLogger): Promise<Libp2p> {
+export async function startRelay(
+  logger: RelayLogger,
+  options: { publicIp?: string } = {},
+): Promise<Libp2p> {
+  const tersePeers = new Map<string, string>();
+  let tersePeerIdx = 0;
+  const activePeers = new Set<string>();
   const privateKey = await generateKeyPair(RELAY_LOCAL_ID);
+  const appendAnnounce = options.publicIp
+    ? [
+        `/ip4/${options.publicIp}/tcp/9001/ws`,
+        `/ip4/${options.publicIp}/tcp/9002`,
+      ]
+    : [];
   const libp2p = await createLibp2p({
     privateKey,
     addresses: {
@@ -40,6 +59,7 @@ export async function startRelay(logger: RelayLogger): Promise<Libp2p> {
         '/ip4/0.0.0.0/tcp/9001/ws', // WebSocket for browser connections
         '/ip4/0.0.0.0/tcp/9002', // TCP for server-to-server
       ],
+      appendAnnounce,
     },
     transports: [
       webSockets(), // Required for browser connections
@@ -67,28 +87,80 @@ export async function startRelay(logger: RelayLogger): Promise<Libp2p> {
     },
   });
 
+  /**
+   * Produce a more legible peer ID string.
+   *
+   * @param peer - The peer ID we care about, either as a `PeerId` object
+   * (e.g. `connection.remotePeer`) or as the bare string form extracted
+   * from a multiaddr.
+   * @returns a terser form of `peer`.
+   */
+  function tersePeer(peer: PeerId | string): string {
+    const peerId = typeof peer === 'string' ? peer : peer.toString();
+    if (tersePeers.has(peerId)) {
+      return tersePeers.get(peerId) as string;
+    }
+    tersePeerIdx += 1;
+    const terse = `<PEER-${tersePeerIdx}>`;
+    tersePeers.set(peerId, terse);
+    logger.log(`[PEER] ${terse} = ${peerId}`);
+    return terse;
+  }
+
+  /**
+   * Produce a more legible multiaddr string.
+   *
+   * @param multiaddr - The multiaddr we care about.
+   * @returns a terser form of `multiaddr`.
+   */
+  function terseAddr(multiaddr: Multiaddr): string {
+    const raw = multiaddr.toString();
+    const slash = raw.lastIndexOf('/') + 1;
+    if (slash <= 0) {
+      return raw;
+    }
+    const prefix = raw.substring(0, slash);
+    const suffix = raw.substring(slash);
+    return `${prefix}${tersePeer(suffix)}`;
+  }
+
+  /**
+   *
+   */
+  function dumpPeers(): void {
+    logger.log(`[ACTIVE] [${Array.from(activePeers.values()).join(' ')}]`);
+  }
+
   // Set up connection event listeners for logging
   libp2p.addEventListener('connection:open', (evt) => {
     const connection = evt.detail;
-    logger.log(
-      `[CONNECTION] New connection from ${connection.remotePeer.toString()}`,
-    );
-    logger.log(`  Remote addr: ${connection.remoteAddr.toString()}`);
+    const peer = tersePeer(connection.remotePeer);
+    activePeers.add(peer);
+    /*
+    logger.log(`[CONNECTION] New connection from ${peer}`);
+    logger.log(`  Remote addr: ${terseAddr(connection.remoteAddr)}`);
     logger.log(`  Direction: ${connection.direction}`);
     logger.log(`  Status: ${connection.status}`);
+    */
+    logger.log(
+      `[CONNECTION] New connection from ${terseAddr(connection.remoteAddr)}`,
+    );
+    dumpPeers();
   });
 
   libp2p.addEventListener('connection:close', (evt) => {
     const connection = evt.detail;
-    logger.log(
-      `[CONNECTION] Closed connection with ${connection.remotePeer.toString()}`,
-    );
+    const peer = tersePeer(connection.remotePeer);
+    logger.log(`[CONNECTION] Closed connection with ${peer}`);
+    activePeers.delete(peer);
+    dumpPeers();
   });
 
+  /*
   // Log peer discovery events
   libp2p.addEventListener('peer:discovery', (evt) => {
     const peerInfo = evt.detail;
-    logger.log(`[DISCOVERY] Found peer ${peerInfo.id.toString()}`);
+    logger.log(`[DISCOVERY] Found peer ${tersePeer(peerInfo.id)}`);
   });
 
   // Log circuit relay specific events
@@ -96,14 +168,15 @@ export async function startRelay(logger: RelayLogger): Promise<Libp2p> {
     // Log when a reservation is made
     libp2p.addEventListener('peer:connect', (evt) => {
       const peerId = evt.detail;
-      logger.log(`[RELAY] Peer connected: ${peerId.toString()}`);
+      logger.log(`[RELAY] Peer connected: ${tersePeer(peerId)}`);
     });
 
     libp2p.addEventListener('peer:disconnect', (evt) => {
       const peerId = evt.detail;
-      logger.log(`[RELAY] Peer disconnected: ${peerId.toString()}`);
+      logger.log(`[RELAY] Peer disconnected: ${tersePeer(peerId)}`);
     });
   }
+  */
 
   await new Promise<void>((resolve) => {
     if (libp2p.status === 'started') {

@@ -3,7 +3,7 @@ import type { KernelDatabase } from '@metamask/kernel-store';
 import type { Kernel } from '@metamask/ocap-kernel';
 import { rpcHandlers } from '@metamask/ocap-kernel/rpc';
 import { unlink } from 'node:fs/promises';
-import { createServer } from 'node:net';
+import { createConnection, createServer } from 'node:net';
 import type { Server } from 'node:net';
 
 /**
@@ -208,17 +208,65 @@ function isRpcError(error: unknown): error is { code: number } {
 }
 
 /**
+ * Probe whether a Unix socket file already has a live listener.
+ *
+ * Used as an interlock before binding: if a previous daemon is still
+ * running, blindly unlinking the socket would orphan it (the old process
+ * keeps running, but the CLI loses the ability to find it). Better to
+ * fail loudly and let the operator decide.
+ *
+ * @param socketPath - The Unix socket path.
+ * @returns True if a connection succeeds (the socket has a live owner),
+ * false if the file is missing or the connect attempt is refused.
+ */
+async function isSocketLive(socketPath: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = createConnection(socketPath);
+    let settled = false;
+    const finalize = (live: boolean): void => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(live);
+    };
+    socket.once('connect', () => finalize(true));
+    socket.once('error', () => finalize(false));
+    setTimeout(() => finalize(false), 1000);
+  });
+}
+
+/**
  * Start listening on a Unix socket path.
+ *
+ * Refuses to take over a socket that has a live listener — orphaning the
+ * previous daemon would leave it holding `kernel.sqlite` locks and other
+ * resources with no easy way to find it again. A stale socket file with
+ * no listener is treated as cleanup-eligible and unlinked.
  *
  * @param server - The net.Server instance.
  * @param socketPath - The Unix socket path.
  */
 async function listen(server: Server, socketPath: string): Promise<void> {
-  // Remove stale socket file from a previous run, if any.
+  if (await isSocketLive(socketPath)) {
+    throw new Error(
+      `Daemon is already running on ${socketPath}. ` +
+        `Use 'ocap daemon stop' first.`,
+    );
+  }
+  // Stale socket file from a previous run — clean up. Only swallow
+  // ENOENT (file already absent). Other errors (EPERM, EACCES, EBUSY,
+  // EISDIR if someone replaced the socket with a directory) need to
+  // surface; otherwise the subsequent `server.listen()` would fail with
+  // an opaque EADDRINUSE that hides the real cause.
   try {
     await unlink(socketPath);
-  } catch {
-    // Ignore — file may not exist.
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      throw error;
+    }
   }
 
   return new Promise((resolve, reject) => {
