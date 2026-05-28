@@ -988,7 +988,9 @@ export function SessionDetailView({
                     <ProvisionEditor
                       toolName={toolName}
                       invocations={entry.invocations ?? []}
-                      clauses={entry.clauses}
+                      {...(entry.clauses !== undefined
+                        ? { clauses: entry.clauses }
+                        : {})}
                       onSubmit={handleProvisionSubmit}
                       onCancel={() => setEditingProvision(false)}
                     />
