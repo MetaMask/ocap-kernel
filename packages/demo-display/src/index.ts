@@ -1,9 +1,11 @@
-/**
- * Example function that returns a greeting for the given name.
- *
- * @param name - The name to greet.
- * @returns The greeting.
- */
-export default function greet(name: string): string {
-  return `Hello, ${name}!`;
-}
+export { loadConfig, type DemoDisplayConfig } from './config.ts';
+export { makeDaemonCaller, type DaemonCaller } from './daemon-caller.ts';
+export { makeEventLog, type EventLog } from './event-log.ts';
+export { startMatcherPoller, type MatcherPoller } from './matcher-poller.ts';
+export { startServer, type ServerHandle } from './server.ts';
+export type {
+  DisplayEvent,
+  ServiceDescriptionPayload,
+  ServiceEvictedEvent,
+  ServiceRegisteredEvent,
+} from './types.ts';
