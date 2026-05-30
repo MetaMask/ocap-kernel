@@ -1,0 +1,20 @@
+{
+  "id": "demo",
+  "name": "Orchestration Demo",
+  "description": "Observes agent tool calls and provides bookkeeping (artifacts, wallet, phase announcements) for the orchestration demo. Posts events to demo-display.",
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "displayUrl": {
+        "type": "string",
+        "description": "Base URL of the demo-display server (e.g., http://localhost:7777)."
+      }
+    }
+  },
+  "uiHints": {
+    "displayUrl": {
+      "label": "Demo display URL",
+      "placeholder": "http://localhost:7777"
+    }
+  }
+}

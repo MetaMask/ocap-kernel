@@ -3,6 +3,8 @@
   "include": [],
   "references": [
     { "path": "./packages/agentmask/tsconfig.build.json" },
+    { "path": "./packages/demo-display/tsconfig.build.json" },
+    { "path": "./packages/demo-services/tsconfig.build.json" },
     { "path": "./packages/evm-wallet-experiment/tsconfig.build.json" },
     { "path": "./packages/kernel-agents/tsconfig.build.json" },
     { "path": "./packages/kernel-browser-runtime/tsconfig.build.json" },

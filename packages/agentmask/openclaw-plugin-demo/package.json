@@ -1,0 +1,14 @@
+{
+  "name": "@openclaw/demo",
+  "version": "2026.5.29",
+  "description": "Demo plugin: observes agent tool calls and provides artifact/wallet/announce bookkeeping for the orchestration demo.",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "dependencies": {
+    "@metamask/superstruct": "^3.2.1"
+  }
+}
