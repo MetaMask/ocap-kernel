@@ -166,12 +166,17 @@ function collectClauses(node: Parser.SyntaxNode): Pipeline[] {
       return result;
     }
     case 'pipeline': {
-      // All commands in this pipeline form one clause
+      // All commands in this pipeline form one clause.
+      // Each stage may be a bare `command` or a `redirected_statement` wrapping one.
       const cmds: ParsedCommand[] = [];
       for (let i = 0; i < node.namedChildCount; i++) {
         const child = node.namedChild(i);
-        if (child !== null && child.type === 'command') {
-          cmds.push(extractCommand(child));
+        if (child === null) {
+          continue;
+        }
+        const cmd = extractPipelineStage(child);
+        if (cmd !== null) {
+          cmds.push(cmd);
         }
       }
       return cmds.length > 0 ? [cmds] : [];
@@ -198,6 +203,37 @@ function collectClauses(node: Parser.SyntaxNode): Pipeline[] {
       return cmds.length > 0 ? [cmds] : [];
     }
   }
+}
+
+/**
+ * Extract a ParsedCommand from a single pipeline stage node.
+ *
+ * A pipeline stage is either a bare `command` or a `redirected_statement`
+ * wrapping a command with I/O redirects (e.g. `cmd 2>&1`).
+ *
+ * @param node - A named child of a `pipeline` node.
+ * @returns The extracted ParsedCommand, or null if the stage is not a command.
+ */
+function extractPipelineStage(node: Parser.SyntaxNode): ParsedCommand | null {
+  if (node.type === 'command') {
+    return extractCommand(node);
+  }
+  if (node.type === 'redirected_statement') {
+    for (let i = 0; i < node.namedChildCount; i++) {
+      const child = node.namedChild(i);
+      if (
+        child !== null &&
+        child.type !== 'file_redirect' &&
+        child.type !== 'heredoc_redirect' &&
+        child.type !== 'herestring_redirect'
+      ) {
+        if (child.type === 'command') {
+          return extractCommand(child);
+        }
+      }
+    }
+  }
+  return null;
 }
 
 /**

@@ -281,5 +281,24 @@ describe('decompose', () => {
       expect(result.clauses).toHaveLength(1);
       expect(result.clauses[0]).toHaveLength(2);
     });
+
+    it('includes a redirected_statement pipeline stage in the clause', () => {
+      // `cmd 2>&1 | tail -30` — the first stage is a redirected_statement wrapping a command
+      const result = decompose('yarn build 2>&1 | tail -30');
+      expect(result.ok).toBe(true);
+      expect(result.clauses).toHaveLength(1);
+      expect(result.clauses[0]).toHaveLength(2);
+      expect(result.clauses[0]?.[0]?.name).toBe('yarn');
+      expect(result.clauses[0]?.[1]?.name).toBe('tail');
+    });
+
+    it('captures stderr redirect on a pipeline stage', () => {
+      const result = decompose('yarn build 2>&1 | tail -30');
+      expect(result.ok).toBe(true);
+      const firstStage = result.clauses[0]?.[0];
+      expect(firstStage?.redirects).toStrictEqual([
+        { kind: 'fd-dup', target: '1' },
+      ]);
+    });
   });
 });
