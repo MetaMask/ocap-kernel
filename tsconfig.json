@@ -16,7 +16,6 @@
     { "path": "./packages/agentmask" },
     { "path": "./packages/create-package" },
     { "path": "./packages/demo-display" },
-    { "path": "./packages/demo-services" },
     { "path": "./packages/evm-wallet-experiment" },
     { "path": "./packages/extension" },
     { "path": "./packages/kernel-agents" },

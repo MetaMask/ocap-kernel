@@ -13,13 +13,20 @@ export const ECHO_VAT_NAME = 'echo';
 export const RANDOM_NUMBER_VAT_NAME = 'random-number';
 
 /**
- * Filename of each vat's bundle as produced by `yarn bundle-vat` in this
- * package. The ocap-kernel CLI writes the bundle next to its source as
- * `index.bundle`, so callers wanting a `bundleSpec` typically combine
- * the source directory with this filename.
+ * Bootstrap-vat name for the IndustrialDesign service subcluster
+ * (orchestration demo).
+ */
+export const INDUSTRIAL_DESIGN_VAT_NAME = 'industrial-design';
+
+/**
+ * Filename of each vat's bundle as produced by `yarn bundle-vats` in
+ * this package. The ocap-kernel CLI writes the bundle next to its
+ * source as `index.bundle`, so callers wanting a `bundleSpec`
+ * typically combine the source directory with this filename.
  */
 export const ECHO_BUNDLE_PATH = 'echo-service/index.bundle';
 export const RANDOM_NUMBER_BUNDLE_PATH = 'random-number-service/index.bundle';
+export const INDUSTRIAL_DESIGN_BUNDLE_PATH = 'industrial-design/index.bundle';
 
 /**
  * Shape of either service vat's bootstrap result. Both vats expose the
@@ -83,6 +90,36 @@ export function makeRandomNumberClusterConfig(options: {
     services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
     vats: {
       [RANDOM_NUMBER_VAT_NAME]: {
+        bundleSpec,
+        parameters: { matcherUrl },
+      },
+    },
+  };
+}
+
+/**
+ * Build a ClusterConfig for the IndustrialDesign subcluster
+ * (orchestration demo). First of the V0 demo service vats.
+ *
+ * @param options - Configuration options.
+ * @param options.bundleSpec - URL or path to the IndustrialDesign vat bundle.
+ * @param options.matcherUrl - OCAP URL of the service matcher.
+ * @param options.forceReset - Whether to reset the subcluster on launch.
+ *   Defaults to `false`.
+ * @returns A ClusterConfig ready for `kernel.launchSubcluster(...)`.
+ */
+export function makeIndustrialDesignClusterConfig(options: {
+  bundleSpec: string;
+  matcherUrl: string;
+  forceReset?: boolean;
+}): ClusterConfig {
+  const { bundleSpec, matcherUrl, forceReset = false } = options;
+  return {
+    bootstrap: INDUSTRIAL_DESIGN_VAT_NAME,
+    forceReset,
+    services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+    vats: {
+      [INDUSTRIAL_DESIGN_VAT_NAME]: {
         bundleSpec,
         parameters: { matcherUrl },
       },
