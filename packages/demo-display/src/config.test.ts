@@ -15,44 +15,48 @@ const writeConfigFile = async (
 };
 
 describe('loadConfig', () => {
-  it('throws when matcherUrl is missing from env and file', async () => {
+  it('throws when observerUrl is missing from env and file', async () => {
     await expect(loadConfig({ env: {} })).rejects.toThrow(
-      /matcherUrl is required/u,
+      /observerUrl is required/u,
     );
   });
 
-  it('reads matcherUrl from env', async () => {
+  it('reads observerUrl from env', async () => {
     const config = await loadConfig({
-      env: { MATCHER_OCAP_URL: 'ocap:zzz' },
+      env: { MATCHER_OBSERVER_URL: 'ocap:zzz' },
     });
-    expect(config.matcherUrl).toBe('ocap:zzz');
+    expect(config.observerUrl).toBe('ocap:zzz');
   });
 
-  it('reads matcherUrl from config file when env is unset', async () => {
-    const configPath = await writeConfigFile({ matcherUrl: 'ocap:from-file' });
+  it('reads observerUrl from config file when env is unset', async () => {
+    const configPath = await writeConfigFile({
+      observerUrl: 'ocap:from-file',
+    });
     const config = await loadConfig({ env: {}, configPath });
-    expect(config.matcherUrl).toBe('ocap:from-file');
+    expect(config.observerUrl).toBe('ocap:from-file');
   });
 
   it('env overrides config file', async () => {
-    const configPath = await writeConfigFile({ matcherUrl: 'ocap:from-file' });
+    const configPath = await writeConfigFile({
+      observerUrl: 'ocap:from-file',
+    });
     const config = await loadConfig({
-      env: { MATCHER_OCAP_URL: 'ocap:from-env' },
+      env: { MATCHER_OBSERVER_URL: 'ocap:from-env' },
       configPath,
     });
-    expect(config.matcherUrl).toBe('ocap:from-env');
+    expect(config.observerUrl).toBe('ocap:from-env');
   });
 
   it('coerces numeric env values', async () => {
     const config = await loadConfig({
-      env: { MATCHER_OCAP_URL: 'ocap:zzz', DEMO_DISPLAY_PORT: '8181' },
+      env: { MATCHER_OBSERVER_URL: 'ocap:zzz', DEMO_DISPLAY_PORT: '8181' },
     });
     expect(config.port).toBe(8181);
   });
 
   it('falls back to defaults when nothing is set', async () => {
     const config = await loadConfig({
-      env: { MATCHER_OCAP_URL: 'ocap:zzz' },
+      env: { MATCHER_OBSERVER_URL: 'ocap:zzz' },
     });
     expect({
       port: config.port,
@@ -69,9 +73,9 @@ describe('loadConfig', () => {
 
   it('treats a non-existent config file as empty', async () => {
     const config = await loadConfig({
-      env: { MATCHER_OCAP_URL: 'ocap:zzz' },
+      env: { MATCHER_OBSERVER_URL: 'ocap:zzz' },
       configPath: '/tmp/does-not-exist-demo-display.json',
     });
-    expect(config.matcherUrl).toBe('ocap:zzz');
+    expect(config.observerUrl).toBe('ocap:zzz');
   });
 });

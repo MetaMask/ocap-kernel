@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
  * code should depend on this struct, not on the env / file directly.
  */
 export type DemoDisplayConfig = {
-  matcherUrl: string;
+  observerUrl: string;
   ocapCliPath: string;
   ocapHome: string | undefined;
   port: number;
@@ -18,7 +18,7 @@ export type DemoDisplayConfig = {
 };
 
 type RawConfig = Partial<{
-  matcherUrl: string;
+  observerUrl: string;
   ocapCliPath: string;
   ocapHome: string;
   port: number;
@@ -56,11 +56,16 @@ export async function loadConfig(options: {
     options.configPath ?? env.DEMO_DISPLAY_CONFIG,
   );
 
-  const matcherUrl = pickString(env.MATCHER_OCAP_URL, fileConfig.matcherUrl);
-  if (matcherUrl === undefined || matcherUrl === '') {
+  const observerUrl = pickString(
+    env.MATCHER_OBSERVER_URL,
+    fileConfig.observerUrl,
+  );
+  if (observerUrl === undefined || observerUrl === '') {
     throw new Error(
-      'demo-display: matcherUrl is required (set MATCHER_OCAP_URL or ' +
-        'add "matcherUrl" to ~/.demo-display.json).',
+      'demo-display: observerUrl is required (set MATCHER_OBSERVER_URL or ' +
+        'add "observerUrl" to ~/.demo-display.json). This is the read-only ' +
+        'observer URL printed by start-matcher.sh on its second output ' +
+        'line, NOT the public matcher URL.',
     );
   }
 
@@ -81,7 +86,7 @@ export async function loadConfig(options: {
     DEFAULT_EVENT_LOG_CAPACITY;
 
   return {
-    matcherUrl,
+    observerUrl,
     ocapCliPath,
     ocapHome,
     port,

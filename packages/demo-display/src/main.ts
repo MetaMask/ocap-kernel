@@ -7,9 +7,9 @@ import { startServer } from './server.ts';
 /**
  * Executable entry for `yarn workspace @ocap/demo-display start`.
  *
- * Loads config, redeems the matcher URL once via the ocap CLI to
- * obtain a kref, starts the poll loop and the HTTP server, and wires
- * graceful shutdown to SIGINT / SIGTERM.
+ * Loads config, redeems the matcher's observer URL once via the ocap
+ * CLI to obtain a kref, starts the poll loop and the HTTP server, and
+ * wires graceful shutdown to SIGINT / SIGTERM.
  */
 async function main(): Promise<void> {
   // eslint-disable-next-line n/no-process-env
@@ -21,15 +21,15 @@ async function main(): Promise<void> {
     timeoutMs: config.timeoutMs,
   });
 
-  const matcherKref = await daemonCaller.redeemUrl(config.matcherUrl);
+  const observerKref = await daemonCaller.redeemUrl(config.observerUrl);
   // eslint-disable-next-line no-console
-  console.info(`[demo-display] Redeemed matcher URL; kref=${matcherKref}`);
+  console.info(`[demo-display] Redeemed observer URL; kref=${observerKref}`);
 
   const eventLog = makeEventLog({ capacity: config.eventLogCapacity });
 
   const poller = startMatcherPoller({
     daemonCaller,
-    matcherKref,
+    observerKref,
     intervalMs: config.pollIntervalMs,
     eventLog,
   });

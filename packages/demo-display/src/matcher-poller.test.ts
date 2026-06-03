@@ -51,7 +51,7 @@ describe('startMatcherPoller', () => {
 
     const poller = startMatcherPoller({
       daemonCaller: daemon,
-      matcherKref: 'k1',
+      observerKref: 'k1',
       intervalMs: 1_000,
       eventLog: log,
       now: () => 0,
@@ -85,7 +85,7 @@ describe('startMatcherPoller', () => {
 
     const poller = startMatcherPoller({
       daemonCaller: daemon,
-      matcherKref: 'k1',
+      observerKref: 'k1',
       intervalMs: 1_000,
       eventLog: log,
       now: () => 0,
@@ -107,7 +107,7 @@ describe('startMatcherPoller', () => {
 
     const poller = startMatcherPoller({
       daemonCaller: daemon,
-      matcherKref: 'k1',
+      observerKref: 'k1',
       intervalMs: 1_000,
       eventLog: log,
       now: () => 0,
@@ -132,7 +132,7 @@ describe('startMatcherPoller', () => {
 
     const poller = startMatcherPoller({
       daemonCaller: daemon,
-      matcherKref: 'k1',
+      observerKref: 'k1',
       intervalMs: 1_000,
       eventLog: log,
       now: () => 0,
@@ -154,7 +154,7 @@ describe('startMatcherPoller', () => {
 
     const poller = startMatcherPoller({
       daemonCaller: daemon,
-      matcherKref: 'k1',
+      observerKref: 'k1',
       intervalMs: 1_000,
       eventLog: log,
       now: () => 0,

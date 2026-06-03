@@ -12,8 +12,8 @@ export type MatcherPoller = {
 };
 
 /**
- * Periodically call `listAll` on the matcher and diff successive
- * results against the last known state, appending
+ * Periodically call `listAll` on the matcher's observer facet and
+ * diff successive results against the last known state, appending
  * `service.registered` and `service.evicted` events to the log.
  *
  * V0 uses this poll-and-diff loop in lieu of a matcher-side push API
@@ -22,8 +22,9 @@ export type MatcherPoller = {
  *
  * @param options - Construction options.
  * @param options.daemonCaller - Configured daemon caller.
- * @param options.matcherKref - Kref returned from `daemonCaller.redeemUrl`
- *   for the matcher OCAP URL.
+ * @param options.observerKref - Kref returned from
+ *   `daemonCaller.redeemUrl(observerUrl)` for the matcher's observer
+ *   facet (not the public matcher kref).
  * @param options.intervalMs - Poll interval in ms.
  * @param options.eventLog - Event log to append diffs to.
  * @param options.now - Clock injection for tests; defaults to `Date.now`.
@@ -32,13 +33,13 @@ export type MatcherPoller = {
  */
 export function startMatcherPoller(options: {
   daemonCaller: DaemonCaller;
-  matcherKref: string;
+  observerKref: string;
   intervalMs: number;
   eventLog: EventLog;
   now?: () => number;
   onError?: (error: unknown) => void;
 }): MatcherPoller {
-  const { daemonCaller, matcherKref, intervalMs, eventLog } = options;
+  const { daemonCaller, observerKref, intervalMs, eventLog } = options;
   const now = options.now ?? Date.now;
   const onError =
     options.onError ??
@@ -54,7 +55,7 @@ export function startMatcherPoller(options: {
   const tick = async (): Promise<void> => {
     try {
       const raw = await daemonCaller.queueMessage({
-        target: matcherKref,
+        target: observerKref,
         method: 'listAll',
         args: [],
       });
