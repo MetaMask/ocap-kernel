@@ -17,9 +17,16 @@ export const MATCHER_BUNDLE_FILENAME = 'index.bundle';
 
 /**
  * Shape of the matcher subcluster's bootstrap result.
+ *
+ * `matcherUrl` is the public OCAP URL providers and consumers redeem
+ * (`registerService*`, `findServices`). `observerUrl` is the
+ * separately-minted URL for the read-only observer facet (`listAll`),
+ * intended for operator tooling such as the orchestration demo's
+ * demo-display server.
  */
 export type MatcherBootstrapResult = {
   matcherUrl: string;
+  observerUrl: string;
 };
 
 /**

@@ -115,12 +115,15 @@ rm -f \
 # ---------------------------------------------------------------------------
 
 info "Starting matcher..."
-MATCHER_URL="$("$SCRIPT_DIR/start-matcher.sh" ${START_MATCHER_ARGS[@]+"${START_MATCHER_ARGS[@]}"})"
-if [[ -z "$MATCHER_URL" ]]; then
-  echo "[reset] ERROR: start-matcher.sh produced no URL." >&2
+START_MATCHER_OUT="$("$SCRIPT_DIR/start-matcher.sh" ${START_MATCHER_ARGS[@]+"${START_MATCHER_ARGS[@]}"})"
+MATCHER_URL="$(echo "$START_MATCHER_OUT" | sed -n '1p')"
+OBSERVER_URL="$(echo "$START_MATCHER_OUT" | sed -n '2p')"
+if [[ -z "$MATCHER_URL" || -z "$OBSERVER_URL" ]]; then
+  echo "[reset] ERROR: start-matcher.sh did not produce both URLs." >&2
   exit 1
 fi
 info "Matcher URL: $MATCHER_URL"
+info "Observer URL: $OBSERVER_URL"
 
 # ---------------------------------------------------------------------------
 # 7. Bring the consumer daemon back up.
@@ -151,8 +154,11 @@ RESET COMPLETE.
   Matcher URL:
     $MATCHER_URL
 
+  Observer URL (admin-only; for demo-display and the like):
+    $OBSERVER_URL
+
   Next steps (laptop side only):
-    1. Paste the URL above into .metamaskrc as MATCHER_OCAP_URL.
+    1. Paste the matcher URL above into .metamaskrc as MATCHER_OCAP_URL.
     2. Rebuild the extension's webpack bundle.
     3. Reload the extension in the browser.
 ================================================================

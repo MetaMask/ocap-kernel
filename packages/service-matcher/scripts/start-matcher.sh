@@ -29,10 +29,18 @@
 # Usage:
 #   start-matcher.sh [--relay MULTIADDR] [--no-build] [--keep-state]
 #
-# On success the matcher's OCAP URL is printed to stdout on its own
-# line — all progress messages go to stderr — so:
-#   MATCHER_OCAP_URL=$(start-matcher.sh)
-# works as expected.
+# On success two URLs are printed to stdout, each on its own line,
+# in this order:
+#   <public matcher URL>
+#   <observer URL>
+# All progress messages go to stderr. The two-line format means:
+#   MATCHER_OCAP_URL=$(start-matcher.sh | head -1)
+#   OBSERVER_OCAP_URL=$(start-matcher.sh | tail -1)
+# or read both with `read -r URL1 URL2 <<<"$(start-matcher.sh)"`.
+#
+# The public URL is what providers/consumers redeem (registerService,
+# findServices). The observer URL is what read-only operator tooling
+# (the orchestration demo's demo-display) redeems for `listAll`.
 
 set -euo pipefail
 
@@ -246,24 +254,34 @@ CONFIG=$(BUNDLE="file://$BUNDLE_FILE" \
 info "Launching matcher subcluster..."
 LAUNCH_RESULT=$(daemon_exec launchSubcluster "$CONFIG")
 
-MATCHER_URL=$(echo "$LAUNCH_RESULT" | node -e "
+BOOTSTRAP_URLS=$(echo "$LAUNCH_RESULT" | node -e "
   const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
   const data = JSON.parse(raw);
   // bootstrapResult may be CapData { body, slots } or a plain object.
   const br = data.bootstrapResult;
-  let url;
+  let body;
   if (br && typeof br === 'object' && typeof br.body === 'string') {
-    const body = br.body.replace(/^#/u, '');
-    url = JSON.parse(body).matcherUrl;
+    body = JSON.parse(br.body.replace(/^#/u, ''));
   } else if (br && typeof br === 'object') {
-    url = br.matcherUrl;
-  }
-  if (!url) {
-    process.stderr.write('Could not extract matcherUrl from: ' + raw + '\\n');
+    body = br;
+  } else {
+    process.stderr.write('Bootstrap result not an object: ' + raw + '\\n');
     process.exit(1);
   }
-  process.stdout.write(url);
+  const matcherUrl = body.matcherUrl;
+  const observerUrl = body.observerUrl;
+  if (!matcherUrl || !observerUrl) {
+    process.stderr.write(
+      'Could not extract matcherUrl/observerUrl from: ' + raw + '\\n',
+    );
+    process.exit(1);
+  }
+  process.stdout.write(matcherUrl + '\\n' + observerUrl);
 ")
+MATCHER_URL=$(echo "$BOOTSTRAP_URLS" | head -1)
+OBSERVER_URL=$(echo "$BOOTSTRAP_URLS" | tail -1)
+info "Matcher URL: $MATCHER_URL"
+info "Observer URL: $OBSERVER_URL"
 
 # ---------------------------------------------------------------------------
 # Start the LLM bridge
@@ -307,3 +325,4 @@ fi
 
 info "Matcher ready."
 echo "$MATCHER_URL"
+echo "$OBSERVER_URL"

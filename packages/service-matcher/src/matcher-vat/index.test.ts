@@ -138,7 +138,13 @@ function makeMockLlm(
 function makeMockServices(
   options: { llm?: ReturnType<typeof makeMockLlm> } = {},
 ) {
-  const issue = vi.fn(async (_obj: unknown) => 'ocap:matcher-url@peer');
+  const issuedUrls = ['ocap:matcher-url@peer', 'ocap:observer-url@peer'];
+  let issueCallCount = 0;
+  const issue = vi.fn(async (_obj: unknown) => {
+    const url = issuedUrls[issueCallCount] ?? `ocap:url-${issueCallCount}@peer`;
+    issueCallCount += 1;
+    return url;
+  });
   let redeemResult: unknown = null;
   const redeem = vi.fn(async (_url: string) => redeemResult);
   const llmMock = options.llm ?? makeMockLlm();
@@ -191,13 +197,14 @@ function makeFakeBaggage() {
 }
 
 /**
- * Build a fake `vatPowers` with a `VatData` shim. The matcher vat only
- * uses `makeKindHandle` (returns an opaque token) and `defineDurableKind`.
+ * Build a fake `vatPowers` with a `VatData` shim. The matcher vat
+ * uses `makeKindHandle` (returns an opaque token) and
+ * `defineDurableKindMulti` for its two-facet (public + observer) kit.
  *
  * The fake honors liveslots' real calling convention for behavior
  * methods: each method is invoked with `(context, ...args)` where
- * `context = { state, self }`. This keeps unit tests honest about the
- * shape the production runtime will hand to behavior methods.
+ * `context = { state, facets }`. This keeps unit tests honest about
+ * the shape the production runtime will hand to behavior methods.
  *
  * @returns The fake vatPowers.
  */
@@ -205,19 +212,29 @@ function makeFakeVatPowers() {
   return {
     VatData: {
       makeKindHandle: (tag: string) => ({ kind: tag }),
-      defineDurableKind: (
+      defineDurableKindMulti: (
         _kindHandle: unknown,
         init: (...args: never[]) => unknown,
-        behavior: Record<string, (...args: unknown[]) => unknown>,
+        behaviorKit: Record<
+          string,
+          Record<string, (...args: unknown[]) => unknown>
+        >,
       ) => {
         return (...args: never[]) => {
           const state = init(...args);
-          const facet: Record<string, unknown> = {};
-          const context = harden({ state, self: facet });
-          for (const [name, fn] of Object.entries(behavior)) {
-            facet[name] = (...callArgs: unknown[]) => fn(context, ...callArgs);
+          const facets: Record<string, Record<string, unknown>> = {};
+          for (const facetName of Object.keys(behaviorKit)) {
+            facets[facetName] = {};
           }
-          return facet;
+          const context = harden({ state, facets });
+          for (const [facetName, methods] of Object.entries(behaviorKit)) {
+            for (const [methodName, fn] of Object.entries(methods)) {
+              (facets[facetName] as Record<string, unknown>)[methodName] = (
+                ...callArgs: unknown[]
+              ) => fn(context, ...callArgs);
+            }
+          }
+          return facets;
         };
       },
     },
@@ -234,10 +251,19 @@ describe('matcher vat', () => {
   });
 
   describe('bootstrap', () => {
-    it('issues an ocap URL for the public facet and returns it', async () => {
+    it('issues ocap URLs for both facets and returns them', async () => {
       const result = await root.bootstrap({}, mocks.services);
-      expect(result).toStrictEqual({ matcherUrl: 'ocap:matcher-url@peer' });
-      expect(mocks.issue).toHaveBeenCalledTimes(1);
+      expect(result).toStrictEqual({
+        matcherUrl: 'ocap:matcher-url@peer',
+        observerUrl: 'ocap:observer-url@peer',
+      });
+      expect(mocks.issue).toHaveBeenCalledTimes(2);
+    });
+
+    it('exposes the observer URL via the admin-only getObserverUrl()', async () => {
+      expect(root.getObserverUrl()).toBeUndefined();
+      await root.bootstrap({}, mocks.services);
+      expect(root.getObserverUrl()).toBe('ocap:observer-url@peer');
     });
 
     it('throws if ocapURLIssuerService is missing', async () => {
@@ -281,7 +307,7 @@ describe('matcher vat', () => {
       expect(getServiceDescription).toHaveBeenCalledTimes(1);
       expect(confirmServiceRegistration).toHaveBeenCalledWith('tok-1');
 
-      const all = root.listAll();
+      const all = root.getObserverFacet().listAll();
       expect(all).toHaveLength(1);
       expect(all[0]?.description).toStrictEqual(description);
 
@@ -306,7 +332,7 @@ describe('matcher vat', () => {
       await expect(
         publicFacet.registerServiceByRef(contact, 'wrong-token'),
       ).rejects.toThrow(/token mismatch/u);
-      expect(root.listAll()).toHaveLength(0);
+      expect(root.getObserverFacet().listAll()).toHaveLength(0);
       expect(mocks.llm.write).not.toHaveBeenCalled();
     });
 
@@ -358,7 +384,7 @@ describe('matcher vat', () => {
       await expect(
         publicFacet.registerServiceByRef(contact, 'tok'),
       ).rejects.toThrow(/bridge ingest error: bridge bad/u);
-      expect(root.listAll()).toHaveLength(0);
+      expect(root.getObserverFacet().listAll()).toHaveLength(0);
     });
   });
 
@@ -377,7 +403,7 @@ describe('matcher vat', () => {
 
       expect(mocks.redeem).toHaveBeenCalledWith('ocap:bar@peer');
       expect(confirmServiceRegistration).toHaveBeenCalledWith('tok-2');
-      expect(root.listAll()).toHaveLength(1);
+      expect(root.getObserverFacet().listAll()).toHaveLength(1);
     });
 
     it('does not call getServiceDescription when confirm rejects', async () => {
@@ -393,7 +419,7 @@ describe('matcher vat', () => {
         publicFacet.registerServiceByUrl('ocap:bar@peer', 'wrong'),
       ).rejects.toThrow(/token mismatch/u);
       expect(getServiceDescription).not.toHaveBeenCalled();
-      expect(root.listAll()).toHaveLength(0);
+      expect(root.getObserverFacet().listAll()).toHaveLength(0);
     });
   });
 
@@ -412,7 +438,7 @@ describe('matcher vat', () => {
 
       expect(mocks.redeem).toHaveBeenCalledWith('ocap:baz@peer');
       expect(confirmServiceRegistration).toHaveBeenCalledWith('tok-3');
-      expect(root.listAll()).toHaveLength(1);
+      expect(root.getObserverFacet().listAll()).toHaveLength(1);
     });
 
     it('throws when the description has no contact info', async () => {
@@ -448,7 +474,7 @@ describe('matcher vat', () => {
       });
       mocks.redeem.mockResolvedValueOnce(contactA.contact);
       await publicFacet.registerService(description1, 'tok-A');
-      expect(root.listAll()).toHaveLength(1);
+      expect(root.getObserverFacet().listAll()).toHaveLength(1);
 
       // Second registration: same peerA + same tag=signer (simulates the
       // same logical provider re-registering after a kernel restart with a
@@ -466,7 +492,7 @@ describe('matcher vat', () => {
       await publicFacet.registerService(description2, 'tok-B');
 
       // Only the most recent (peerA, signer) registration survives.
-      const all = root.listAll();
+      const all = root.getObserverFacet().listAll();
       expect(all).toHaveLength(1);
       expect(all[0]?.description.contact[0]?.contactUrl).toBe(
         'ocap:key2@peerA',
@@ -493,7 +519,7 @@ describe('matcher vat', () => {
       mocks.redeem.mockResolvedValueOnce(randomContact.contact);
       await publicFacet.registerService(random, 'tok-B');
 
-      expect(root.listAll()).toHaveLength(2);
+      expect(root.getObserverFacet().listAll()).toHaveLength(2);
     });
 
     it('keeps both when different peers share a tag', async () => {
@@ -516,7 +542,7 @@ describe('matcher vat', () => {
       mocks.redeem.mockResolvedValueOnce(contactB.contact);
       await publicFacet.registerService(fromB, 'tok-B');
 
-      expect(root.listAll()).toHaveLength(2);
+      expect(root.getObserverFacet().listAll()).toHaveLength(2);
     });
   });
 
@@ -634,12 +660,12 @@ describe('matcher vat', () => {
         expectedToken: 't',
       });
       await publicFacet.registerServiceByRef(contact, 't');
-      const [entry] = root.listAll();
+      const [entry] = root.getObserverFacet().listAll();
       expect(entry).toBeDefined();
 
       const removed = root.unregister(entry?.id ?? '');
       expect(removed).toBe(true);
-      expect(root.listAll()).toHaveLength(0);
+      expect(root.getObserverFacet().listAll()).toHaveLength(0);
     });
 
     it('returns false when the id is unknown', async () => {

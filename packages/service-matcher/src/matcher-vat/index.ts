@@ -2,12 +2,25 @@
  * Matcher vat: implements the `ServiceMatcher` interface from
  * `@metamask/service-discovery-types`.
  *
- * The matcher's public facet is a **durable** singleton: its kref is
- * stored in baggage via `defineDurableKind` so that on vat
+ * The matcher exposes two co-resident facets, both **durable**
+ * singletons of a single multi-facet kind defined via
+ * `VatData.defineDurableKindMulti`:
+ *
+ * - **public** — the consumer-facing surface that the matcher OCAP
+ *   URL redeems to. Methods: `registerService`,
+ *   `registerServiceByUrl`, `registerServiceByRef`, `findServices`.
+ * - **observer** — a separate read-only enumeration surface for
+ *   operator tooling (the orchestration demo's `demo-display`).
+ *   Methods: `listAll`. Reached via its own OCAP URL, returned only
+ *   from the vat root's admin-only `getObserverUrl()`.
+ *
+ * Each facet's kref is stored in baggage so that on vat
  * re-incarnation (e.g., daemon restart with `--keep-state`) the same
- * kref is restored. Because the kernel's peer ID and OCAP-URL
- * encryption key also persist, the matcher's OCAP URL is stable
- * across daemon restarts.
+ * krefs are restored. Because the kernel's peer ID and OCAP-URL
+ * encryption key also persist, both URLs are stable across daemon
+ * restarts. Changing the kind shape (e.g., adding or removing
+ * facets) requires a cold start: durable-kind machinery will reject
+ * a shape change in place.
  *
  * The registry of registered services is **in-memory**. After a
  * matcher restart, providers must re-register. Making the registry
@@ -92,11 +105,14 @@ type Reply = IngestedReply | MatchesReply | ErrorReply;
  */
 type VatData = {
   makeKindHandle: (tag: string) => unknown;
-  defineDurableKind: <Init extends (...args: never[]) => unknown, Behavior>(
+  defineDurableKindMulti: <
+    Init extends (...args: never[]) => unknown,
+    BehaviorKit extends Record<string, Record<string, unknown>>,
+  >(
     kindHandle: unknown,
     init: Init,
-    behavior: Behavior,
-  ) => (...args: Parameters<Init>) => unknown;
+    behaviorKit: BehaviorKit,
+  ) => (...args: Parameters<Init>) => { [K in keyof BehaviorKit]: unknown };
 };
 
 type VatPowers = {
@@ -107,13 +123,13 @@ type VatPowers = {
  * Build the matcher vat's root object.
  *
  * @param vatPowers - Vat powers; `VatData` is required for the durable
- * publicFacet.
+ * matcher facets.
  * @param _parameters - Parameters passed to the vat (unused).
- * @param baggage - Vat baggage. The matcher uses it to make the
- * publicFacet's kref durable, and to remember (across restarts) the
- * services bag and the issued matcher URL.
+ * @param baggage - Vat baggage. The matcher uses it to make both
+ * facet krefs durable, and to remember (across restarts) the services
+ * bag and the issued public and observer URLs.
  * @returns The vat root exo, exposing `bootstrap`, `getPublicFacet`,
- * `getMatcherUrl`, `listAll`, and `unregister`.
+ * `getMatcherUrl`, `getObserverUrl`, and `unregister`.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject(
@@ -122,9 +138,9 @@ export function buildRootObject(
   baggage: Baggage,
 ) {
   const { VatData } = vatPowers;
-  if (!VatData?.defineDurableKind || !VatData.makeKindHandle) {
+  if (!VatData?.defineDurableKindMulti || !VatData.makeKindHandle) {
     throw new Error(
-      'matcher vat: vatPowers.VatData.{defineDurableKind,makeKindHandle} required',
+      'matcher vat: vatPowers.VatData.{defineDurableKindMulti,makeKindHandle} required',
     );
   }
 
@@ -158,14 +174,19 @@ export function buildRootObject(
   }
 
   // ---------------------------------------------------------------------
-  // Durable publicFacet kind
+  // Durable matcher kind (multi-facet: public + observer)
   //
   // The kind handle and the singleton instance both live in baggage, so
-  // re-incarnation restores the same kref. Behavior methods reference
-  // closure-captured `registry` (in-memory) and `getServices()` (durable
-  // via baggage); on re-incarnation, this `buildRootObject` runs again,
-  // re-defines the kind with a fresh closure, and the singleton's
-  // methods are rebound by liveslots to that fresh behavior.
+  // re-incarnation restores the same krefs for both facets. Behavior
+  // methods reference closure-captured `registry` (in-memory) and
+  // `getServices()` (durable via baggage); on re-incarnation, this
+  // `buildRootObject` runs again, re-defines the kind with a fresh
+  // closure, and the singleton's methods are rebound by liveslots to
+  // that fresh behavior.
+  //
+  // The kind name is unchanged from the single-facet predecessor, so
+  // existing daemons carrying old-shape state will fail on restart and
+  // must cold-start. `start-matcher.sh` purges state by default.
   // ---------------------------------------------------------------------
 
   const matcherKindHandle = provide('matcherKindHandle', () =>
@@ -492,116 +513,157 @@ export function buildRootObject(
     }
   }
 
-  // Behavior methods for `defineDurableKind` receive a `context` arg
-  // (the per-instance `{ state, self }` bag) before the caller-supplied
+  // Behavior methods for `defineDurableKindMulti` receive a context arg
+  // (the per-instance `{ state, facets }` bag) before the caller-supplied
   // arguments. We don't use it here — per-instance state is empty and
   // the registry plus services live in closure — but the parameter
   // must be present or the real args end up shifted one slot right.
-  const matcherBehavior = {
-    async registerService(
-      _context: unknown,
-      description: ServiceDescription,
-      registrationToken: RegistrationToken,
-    ): Promise<void> {
-      const firstContact = description.contact[0];
-      if (!firstContact) {
-        throw new Error(
-          'registerService: ServiceDescription has no contact info',
-        );
-      }
-      const { contactUrl } = firstContact;
-      const contact = (await E(getServices().ocapURLRedemptionService).redeem(
-        contactUrl,
-      )) as ContactPoint;
-      await confirmRegistration(contact, registrationToken);
-      await commitRegistration(description, contact);
-    },
-
-    async registerServiceByUrl(
-      _context: unknown,
-      contactUrl: string,
-      registrationToken: RegistrationToken,
-    ): Promise<void> {
-      const contact = (await E(getServices().ocapURLRedemptionService).redeem(
-        contactUrl,
-      )) as ContactPoint;
-      // Confirm FIRST: an attacker could flood us with registration
-      // requests that point at legitimate URLs; doing anything else
-      // with the contact before verifying the token would amplify that
-      // into work the matcher performs on the victim's behalf.
-      await confirmRegistration(contact, registrationToken);
-      const description = await E(contact).getServiceDescription();
-      await commitRegistration(description, contact);
-    },
-
-    async registerServiceByRef(
-      _context: unknown,
-      contact: ContactPoint,
-      registrationToken: RegistrationToken,
-    ): Promise<void> {
-      // Confirm FIRST — see comment above in registerServiceByUrl.
-      await confirmRegistration(contact, registrationToken);
-      const description = await E(contact).getServiceDescription();
-      await commitRegistration(description, contact);
-    },
-
-    async findServices(
-      _context: unknown,
-      query: ServiceQuery,
-    ): Promise<ServiceMatch[]> {
-      const ranked = await queryServicesViaBridge(query.description);
-      const matches: ServiceMatch[] = [];
-      let dropped = 0;
-      for (const entry of ranked) {
-        const registered = registry.get(entry.id);
-        if (!registered) {
-          // The bridge cited an id we no longer have — could happen if
-          // the LLM hallucinates one, or if a service was unregistered
-          // between ingest and query. Skip and log; don't bubble up.
-          dropped += 1;
-          log(`bridge cited unknown id ${entry.id}; skipping`);
-          continue;
+  const matcherBehaviorKit = {
+    public: {
+      async registerService(
+        _context: unknown,
+        description: ServiceDescription,
+        registrationToken: RegistrationToken,
+      ): Promise<void> {
+        const firstContact = description.contact[0];
+        if (!firstContact) {
+          throw new Error(
+            'registerService: ServiceDescription has no contact info',
+          );
         }
-        matches.push(
-          harden({
-            description: registered.description,
-            rationale: entry.rationale,
-          }),
+        const { contactUrl } = firstContact;
+        const contact = (await E(getServices().ocapURLRedemptionService).redeem(
+          contactUrl,
+        )) as ContactPoint;
+        await confirmRegistration(contact, registrationToken);
+        await commitRegistration(description, contact);
+      },
+
+      async registerServiceByUrl(
+        _context: unknown,
+        contactUrl: string,
+        registrationToken: RegistrationToken,
+      ): Promise<void> {
+        const contact = (await E(getServices().ocapURLRedemptionService).redeem(
+          contactUrl,
+        )) as ContactPoint;
+        // Confirm FIRST: an attacker could flood us with registration
+        // requests that point at legitimate URLs; doing anything else
+        // with the contact before verifying the token would amplify that
+        // into work the matcher performs on the victim's behalf.
+        await confirmRegistration(contact, registrationToken);
+        const description = await E(contact).getServiceDescription();
+        await commitRegistration(description, contact);
+      },
+
+      async registerServiceByRef(
+        _context: unknown,
+        contact: ContactPoint,
+        registrationToken: RegistrationToken,
+      ): Promise<void> {
+        // Confirm FIRST — see comment above in registerServiceByUrl.
+        await confirmRegistration(contact, registrationToken);
+        const description = await E(contact).getServiceDescription();
+        await commitRegistration(description, contact);
+      },
+
+      async findServices(
+        _context: unknown,
+        query: ServiceQuery,
+      ): Promise<ServiceMatch[]> {
+        const ranked = await queryServicesViaBridge(query.description);
+        const matches: ServiceMatch[] = [];
+        let dropped = 0;
+        for (const entry of ranked) {
+          const registered = registry.get(entry.id);
+          if (!registered) {
+            // The bridge cited an id we no longer have — could happen if
+            // the LLM hallucinates one, or if a service was unregistered
+            // between ingest and query. Skip and log; don't bubble up.
+            dropped += 1;
+            log(`bridge cited unknown id ${entry.id}; skipping`);
+            continue;
+          }
+          matches.push(
+            harden({
+              description: registered.description,
+              rationale: entry.rationale,
+            }),
+          );
+        }
+        // If the bridge offered candidates and *all* of them were
+        // unknown, the registry is either out of sync with the bridge or
+        // the ranker is hallucinating ids wholesale. Loud failure is
+        // better than silently returning [], which would be
+        // indistinguishable from a legitimate zero-match query.
+        if (ranked.length > 0 && matches.length === 0) {
+          throw new Error(
+            `matcher: LLM bridge cited only unknown ids (${dropped}/${ranked.length}); ` +
+              'registry may be out of sync or ranker is hallucinating.',
+          );
+        }
+        log(
+          `findServices("${query.description.slice(0, 80)}") → ${matches.length} match(es)`,
         );
-      }
-      // If the bridge offered candidates and *all* of them were
-      // unknown, the registry is either out of sync with the bridge or
-      // the ranker is hallucinating ids wholesale. Loud failure is
-      // better than silently returning [], which would be
-      // indistinguishable from a legitimate zero-match query.
-      if (ranked.length > 0 && matches.length === 0) {
-        throw new Error(
-          `matcher: LLM bridge cited only unknown ids (${dropped}/${ranked.length}); ` +
-            'registry may be out of sync or ranker is hallucinating.',
-        );
-      }
-      log(
-        `findServices("${query.description.slice(0, 80)}") → ${matches.length} match(es)`,
-      );
-      return matches;
+        return matches;
+      },
+    },
+
+    observer: {
+      /**
+       * Read-only enumeration of the registry. Reached only via the
+       * separate observer OCAP URL minted at bootstrap and surfaced to
+       * operators via the vat root's admin-only `getObserverUrl()`.
+       *
+       * @param _context - The multi-facet `{ state, facets }` bag passed
+       *   to every kit method by liveslots. Unused here; registry lives
+       *   in closure.
+       * @returns The registry contents (id + ServiceDescription).
+       */
+      listAll(
+        _context: unknown,
+      ): { id: string; description: ServiceDescription }[] {
+        return [...registry.values()].map((entry) => ({
+          id: entry.id,
+          description: entry.description,
+        }));
+      },
     },
   };
 
-  // Re-define the durable kind on every incarnation so liveslots can
-  // rebind its behavior. The init function is empty: the singleton's
-  // per-instance state lives in closure-captured baggage helpers above.
-  const makeMatcherFacet = VatData.defineDurableKind(
+  // Re-define the durable multi-facet kind on every incarnation so
+  // liveslots can rebind both facets' behavior. The init function is
+  // empty: per-instance state is unused; the registry plus services
+  // live in closure-captured helpers above.
+  const makeMatcherKit = VatData.defineDurableKindMulti(
     matcherKindHandle,
     () => harden({}),
-    matcherBehavior,
+    matcherBehaviorKit,
   );
 
-  // Provide-or-create the singleton publicFacet. On first incarnation
-  // this allocates a fresh kref and stores it in baggage. On
-  // re-incarnation, the stored ref is rehydrated to the same kref.
-  const publicFacet = provide('publicFacet', () =>
-    makeMatcherFacet(),
-  ) as ContactPoint;
+  // Provide-or-create the singleton kit. On first incarnation this
+  // allocates fresh krefs for both facets and stores them in baggage.
+  // On re-incarnation, the stored refs are rehydrated to the same krefs.
+  type MatcherKit = {
+    public: ContactPoint;
+    observer: { listAll: () => unknown };
+  };
+  let publicFacet: ContactPoint;
+  let observerFacet: MatcherKit['observer'];
+  if (baggage.has('publicFacet') && baggage.has('observerFacet')) {
+    publicFacet = baggage.get('publicFacet') as ContactPoint;
+    observerFacet = baggage.get('observerFacet') as MatcherKit['observer'];
+  } else {
+    const kit = makeMatcherKit() as unknown as MatcherKit;
+    publicFacet = kit.public;
+    observerFacet = kit.observer;
+    if (!baggage.has('publicFacet')) {
+      baggage.init('publicFacet', publicFacet);
+    }
+    if (!baggage.has('observerFacet')) {
+      baggage.init('observerFacet', observerFacet);
+    }
+  }
 
   return makeDefaultExo('matcherVatRoot', {
     async bootstrap(_vats: Record<string, unknown>, incoming: Services) {
@@ -626,23 +688,38 @@ export function buildRootObject(
       const matcherUrl = await E(incoming.ocapURLIssuerService).issue(
         publicFacet,
       );
-      // Stash the issued URL too. Useful for the "list-subclusters"
-      // / "current-matcher-URL" workflow without having to re-issue.
+      const observerUrl = await E(incoming.ocapURLIssuerService).issue(
+        observerFacet as unknown as ContactPoint,
+      );
+      // Stash both issued URLs. Useful for the "list-subclusters"
+      // / "current-matcher-URL" workflow without having to re-issue,
+      // and for operator tooling (demo-display) that needs the
+      // observer URL out-of-band.
       if (baggage.has('matcherUrl')) {
         baggage.set('matcherUrl', matcherUrl);
       } else {
         baggage.init('matcherUrl', matcherUrl);
       }
+      if (baggage.has('observerUrl')) {
+        baggage.set('observerUrl', observerUrl);
+      } else {
+        baggage.init('observerUrl', observerUrl);
+      }
       log(`bootstrap complete; matcherUrl=${matcherUrl}`);
-      return harden({ matcherUrl });
+      log(`observerUrl=${observerUrl}`);
+      return harden({ matcherUrl, observerUrl });
     },
 
     getPublicFacet() {
       return publicFacet;
     },
 
+    getObserverFacet() {
+      return observerFacet;
+    },
+
     /**
-     * Return the matcher's OCAP URL as previously issued by the
+     * Return the matcher's public OCAP URL as previously issued by the
      * `ocapURLIssuerService` during bootstrap. Stable across vat
      * re-incarnations (the URL itself is deterministic given the durable
      * kref + persisted kernel identity, and we cache the issued value
@@ -658,16 +735,18 @@ export function buildRootObject(
     },
 
     /**
-     * Admin-side query: list every registered service's registry id and
-     * description. Useful for debugging.
+     * Return the observer facet's OCAP URL. Admin-only: callable only
+     * via `daemon exec` on the matcher's own home, since the vat root
+     * is not externally addressable. Operators hand this URL to
+     * read-only enumeration consumers (e.g. demo-display) out-of-band.
      *
-     * @returns The registry contents.
+     * @returns The observer OCAP URL, or `undefined` if bootstrap has
+     * not yet run.
      */
-    listAll(): { id: string; description: ServiceDescription }[] {
-      return [...registry.values()].map((entry) => ({
-        id: entry.id,
-        description: entry.description,
-      }));
+    getObserverUrl(): string | undefined {
+      return baggage.has('observerUrl')
+        ? (baggage.get('observerUrl') as string)
+        : undefined;
     },
 
     /**
