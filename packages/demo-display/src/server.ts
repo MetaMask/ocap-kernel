@@ -3,7 +3,10 @@ import type {
   Request as ExpressRequest,
   Response as ExpressResponse,
 } from 'express';
+import { existsSync } from 'node:fs';
 import type { Server } from 'node:http';
+import { dirname, resolve as resolvePath } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import type { EventLog } from './event-log.ts';
 
@@ -13,6 +16,24 @@ export type ServerHandle = {
 };
 
 const SSE_HEARTBEAT_MS = 15_000;
+
+/**
+ * Resolve the frontend's built-asset directory next to this module's
+ * runtime location. Layout:
+ *   packages/demo-display/dist/server.mjs        (this file at runtime)
+ *   packages/demo-display/dist-frontend/         (target)
+ *
+ * @returns The absolute path, or `undefined` if the frontend has not
+ *   been built yet.
+ */
+function findFrontendDist(): string | undefined {
+  const moduleDir = dirname(fileURLToPath(import.meta.url));
+  const candidate = resolvePath(moduleDir, '../dist-frontend');
+  // Sync FS check is fine here: this runs once at server startup,
+  // before the HTTP listener is bound.
+  // eslint-disable-next-line n/no-sync
+  return existsSync(candidate) ? candidate : undefined;
+}
 
 /**
  * Start the demo-display HTTP server.
@@ -43,6 +64,17 @@ export async function startServer(options: {
   app.get('/healthz', (_req: ExpressRequest, res: ExpressResponse) => {
     res.status(200).type('text/plain').send('ok');
   });
+
+  // Serve the React SPA from the frontend's Vite build output (sibling
+  // dist-frontend/ directory). Routes /events and /healthz above are
+  // declared before the static middleware so they win on conflict.
+  // If the frontend hasn't been built yet, skip serving statics — the
+  // SSE endpoint still works; only the dashboard view is unavailable.
+  const frontendDist = findFrontendDist();
+  if (frontendDist !== undefined) {
+    // eslint-disable-next-line import-x/no-named-as-default-member
+    app.use(express.static(frontendDist, { index: 'index.html' }));
+  }
 
   app.get('/events', (req: ExpressRequest, res: ExpressResponse) => {
     res.status(200);

@@ -1,0 +1,145 @@
+/*
+ * Minimal stylesheet for the demo-display SPA. Plain CSS — no Tailwind
+ * or Tremor in V0 to keep the dependency surface small. Will likely
+ * grow into a real design system once reputation cards, workflow
+ * board, and artifact panels land.
+ */
+
+:root {
+  --bg: #0f172a;
+  --bg-elevated: #1e293b;
+  --bg-card: #25334a;
+  --border: #334155;
+  --text: #e2e8f0;
+  --text-muted: #94a3b8;
+  --accent: #38bdf8;
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.app__header {
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.app__header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+
+.app__main {
+  flex: 1;
+  padding: 1.5rem 2rem;
+}
+
+.marketplace-grid__header {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.marketplace-grid__header h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.marketplace-grid__count {
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.marketplace-grid__empty {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px dashed var(--border);
+  border-radius: 0.5rem;
+}
+
+.marketplace-grid__cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  gap: 0.75rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.provider-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.875rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.provider-card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.provider-card__tag {
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.provider-card__id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.provider-card__description {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.provider-card__footer {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.provider-card__methods {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.provider-card__price {
+  font-weight: 500;
+  color: var(--text);
+}

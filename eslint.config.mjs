@@ -16,7 +16,13 @@ const config = createConfig([
   },
 
   {
-    ignores: ['**/coverage', '**/dist', '**/docs', '**/node_modules'],
+    ignores: [
+      '**/coverage',
+      '**/dist',
+      '**/dist-frontend',
+      '**/docs',
+      '**/node_modules',
+    ],
   },
 
   {

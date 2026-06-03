@@ -29,10 +29,13 @@
     "dist/"
   ],
   "scripts": {
-    "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
+    "build": "yarn build:server && yarn build:frontend",
+    "build:server": "ts-bridge --project tsconfig.build.json --no-references --clean",
+    "build:frontend": "vite build --config frontend/vite.config.ts",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/demo-display",
-    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",
+    "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./dist-frontend ./.turbo ./logs",
+    "dev:frontend": "vite --config frontend/vite.config.ts",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck --quiet",
     "lint:eslint": "eslint . --cache",
@@ -57,9 +60,12 @@
     "@ts-bridge/cli": "^0.6.3",
     "@ts-bridge/shims": "^0.1.1",
     "@types/express": "^5.0.6",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
     "@typescript-eslint/eslint-plugin": "^8.29.0",
     "@typescript-eslint/parser": "^8.29.0",
     "@typescript-eslint/utils": "^8.29.0",
+    "@vitejs/plugin-react": "^5.1.2",
     "@vitest/eslint-plugin": "^1.6.14",
     "depcheck": "^1.4.7",
     "eslint": "^9.23.0",
@@ -83,6 +89,8 @@
     "node": ">=22"
   },
   "dependencies": {
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
   }
 }
