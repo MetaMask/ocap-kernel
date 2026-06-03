@@ -103,6 +103,7 @@ REPO_ROOT="$(cd "$PKG_DIR/../.." && pwd)"
 OCAP_BIN="$REPO_ROOT/packages/kernel-cli/dist/app.mjs"
 ECHO_BUNDLE="$PKG_DIR/src/echo-service/index.bundle"
 RNG_BUNDLE="$PKG_DIR/src/random-number-service/index.bundle"
+INDUSTRIAL_DESIGN_BUNDLE="$PKG_DIR/src/industrial-design/index.bundle"
 
 # Sample-services daemon lives in its own home so it can run alongside
 # the matcher (~/.ocap) and consumer (~/.ocap-consumer) daemons without
@@ -121,10 +122,11 @@ if $SKIP_BUILD; then
   info "Skipping build (--no-build)"
   [[ -f "$ECHO_BUNDLE" ]] || fail "Bundle not found at $ECHO_BUNDLE. Remove --no-build or build first."
   [[ -f "$RNG_BUNDLE" ]] || fail "Bundle not found at $RNG_BUNDLE. Remove --no-build or build first."
+  [[ -f "$INDUSTRIAL_DESIGN_BUNDLE" ]] || fail "Bundle not found at $INDUSTRIAL_DESIGN_BUNDLE. Remove --no-build or build first."
 else
   info "Building sample-services package..."
   (cd "$REPO_ROOT" && yarn workspace @ocap/sample-services build >&2)
-  info "Bundling Echo and RandomNumber vats..."
+  info "Bundling sample-services vats..."
   (cd "$REPO_ROOT" && yarn workspace @ocap/sample-services bundle-vats >&2)
 fi
 
@@ -227,7 +229,8 @@ launch_service() {
   info "$svc_name registered."
 }
 
-launch_service "Echo"            "echo"          "$ECHO_BUNDLE"
-launch_service "RandomNumber"    "random-number" "$RNG_BUNDLE"
+launch_service "Echo"             "echo"              "$ECHO_BUNDLE"
+launch_service "RandomNumber"     "random-number"     "$RNG_BUNDLE"
+launch_service "IndustrialDesign" "industrial-design" "$INDUSTRIAL_DESIGN_BUNDLE"
 
 info "Sample services ready."
