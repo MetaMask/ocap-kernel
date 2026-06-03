@@ -116,8 +116,8 @@ rm -f \
 
 info "Starting matcher..."
 START_MATCHER_OUT="$("$SCRIPT_DIR/start-matcher.sh" ${START_MATCHER_ARGS[@]+"${START_MATCHER_ARGS[@]}"})"
-MATCHER_URL="$(echo "$START_MATCHER_OUT" | sed -n '1p')"
-OBSERVER_URL="$(echo "$START_MATCHER_OUT" | sed -n '2p')"
+MATCHER_URL="$(echo "$START_MATCHER_OUT" | awk -F': +' '/^matcher:/ {print $2}')"
+OBSERVER_URL="$(echo "$START_MATCHER_OUT" | awk -F': +' '/^observer:/ {print $2}')"
 if [[ -z "$MATCHER_URL" || -z "$OBSERVER_URL" ]]; then
   echo "[reset] ERROR: start-matcher.sh did not produce both URLs." >&2
   exit 1

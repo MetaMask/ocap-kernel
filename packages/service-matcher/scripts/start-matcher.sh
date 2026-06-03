@@ -29,14 +29,14 @@
 # Usage:
 #   start-matcher.sh [--relay MULTIADDR] [--no-build] [--keep-state]
 #
-# On success two URLs are printed to stdout, each on its own line,
-# in this order:
-#   <public matcher URL>
-#   <observer URL>
-# All progress messages go to stderr. The two-line format means:
-#   MATCHER_OCAP_URL=$(start-matcher.sh | head -1)
-#   OBSERVER_OCAP_URL=$(start-matcher.sh | tail -1)
-# or read both with `read -r URL1 URL2 <<<"$(start-matcher.sh)"`.
+# On success two labeled lines are printed to stdout (progress
+# messages go to stderr):
+#   matcher:  <public matcher URL>
+#   observer: <observer URL>
+# Order is stable but consumers should match on the label, not the
+# line position. Extract a value with:
+#   awk -F': +' '/^matcher:/ {print $2}'
+#   awk -F': +' '/^observer:/ {print $2}'
 #
 # The public URL is what providers/consumers redeem (registerService,
 # findServices). The observer URL is what read-only operator tooling
@@ -324,5 +324,5 @@ if ! kill -0 "$LLM_BRIDGE_PID" 2>/dev/null; then
 fi
 
 info "Matcher ready."
-echo "$MATCHER_URL"
-echo "$OBSERVER_URL"
+echo "matcher:  $MATCHER_URL"
+echo "observer: $OBSERVER_URL"
