@@ -16,6 +16,13 @@ export type TranscriptEntry =
   | { kind: 'phase'; at: string; phase: string };
 
 /**
+ * Sentinel phase name used when an artifact arrives before any phase
+ * has been announced. Rendered in the workflow board as a leftmost
+ * column so the artifact doesn't get lost.
+ */
+export const UNASSIGNED_PHASE = 'Unassigned';
+
+/**
  * Aggregated view of everything the SPA cares about, reduced from
  * the SSE event stream. Components destructure what they need.
  */
@@ -24,6 +31,21 @@ export type DisplayState = {
   transcript: TranscriptEntry[];
   latestArtifact: ArtifactRecordedEvent | undefined;
   walletBalanceUsd: number | undefined;
+  /**
+   * Active workflow phase pointer. Updated whenever a
+   * `phase.announced` event arrives; previously-recorded artifacts
+   * are NOT relocated, so the column they landed in reflects what
+   * the agent announced at the moment the artifact arrived.
+   */
+  activePhase: string | undefined;
+  /**
+   * Artifacts grouped by the phase that was active when the
+   * `artifact.recorded` event arrived. Insertion order in the Map
+   * mirrors the order in which phases first received an artifact;
+   * the workflow board renders a canonical column order on top of
+   * this irrespective of insertion order.
+   */
+  artifactsByPhase: Map<string, ArtifactRecordedEvent[]>;
 };
 
 /**
@@ -38,6 +60,8 @@ const INITIAL_STATE: DisplayState = {
   transcript: [],
   latestArtifact: undefined,
   walletBalanceUsd: undefined,
+  activePhase: undefined,
+  artifactsByPhase: new Map(),
 };
 
 /**
@@ -132,10 +156,15 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
         at: event.at,
         phase: event.phase,
       });
-      return { ...state, transcript };
+      return { ...state, transcript, activePhase: event.phase };
     }
-    case 'artifact.recorded':
-      return { ...state, latestArtifact: event };
+    case 'artifact.recorded': {
+      const phase = state.activePhase ?? UNASSIGNED_PHASE;
+      const artifactsByPhase = new Map(state.artifactsByPhase);
+      const existing = artifactsByPhase.get(phase) ?? [];
+      artifactsByPhase.set(phase, [...existing, event]);
+      return { ...state, latestArtifact: event, artifactsByPhase };
+    }
     case 'wallet.balance':
       return { ...state, walletBalanceUsd: event.balanceUsd };
     default:

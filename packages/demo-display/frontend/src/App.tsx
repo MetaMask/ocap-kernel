@@ -1,30 +1,52 @@
 import { ArtifactPanel } from './components/ArtifactPanel.tsx';
 import { MarketplaceGrid } from './components/MarketplaceGrid.tsx';
 import { Transcript } from './components/Transcript.tsx';
+import { WorkflowBoard } from './components/WorkflowBoard.tsx';
 import { useEventStream } from './hooks/useEventStream.ts';
 
 /**
  * Top-level layout for the demo-display SPA.
  *
- * V0 has three regions: marketplace grid (full-width, top), agent
- * transcript (bottom-left), artifact panel (bottom-right). The workflow
- * board and wallet ribbon land in later commits.
+ * Four regions in a 2x2 grid, mirroring plan §13:
+ *
+ *   +-------------------+----------------------+
+ *   | Marketplace grid  | Workflow board       |
+ *   +-------------------+----------------------+
+ *   | Agent transcript  | Artifact panel       |
+ *   +-------------------+----------------------+
+ *
+ * Always-visible wallet ribbon (plan §13) will land in a follow-up
+ * commit; the reducer already tracks `walletBalanceUsd` for it.
  *
  * @returns The root layout.
  */
 export function App(): JSX.Element {
-  const { services, transcript, latestArtifact } = useEventStream();
+  const {
+    services,
+    transcript,
+    latestArtifact,
+    activePhase,
+    artifactsByPhase,
+  } = useEventStream();
   return (
     <div className="app">
       <header className="app__header">
         <h1>Orchestration demo</h1>
       </header>
       <main className="app__main">
-        <div className="app__top">
+        <div className="app__cell app__cell--top-left">
           <MarketplaceGrid services={services} />
         </div>
-        <div className="app__bottom">
+        <div className="app__cell app__cell--top-right">
+          <WorkflowBoard
+            artifactsByPhase={artifactsByPhase}
+            activePhase={activePhase}
+          />
+        </div>
+        <div className="app__cell app__cell--bottom-left">
           <Transcript entries={transcript} />
+        </div>
+        <div className="app__cell app__cell--bottom-right">
           <ArtifactPanel artifact={latestArtifact} />
         </div>
       </main>

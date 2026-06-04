@@ -50,30 +50,39 @@ body {
 
 .app__main {
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  grid-template-rows: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1rem;
   padding: 1.5rem 2rem;
   min-height: 0;
 }
 
-.app__top {
-  flex: 0 0 auto;
+.app__cell {
+  min-height: 0;
+  display: flex;
 }
 
-.app__bottom {
-  flex: 1;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
-  gap: 1rem;
+.app__cell > * {
+  width: 100%;
+}
+
+.marketplace-grid {
+  display: flex;
+  flex-direction: column;
   min-height: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  overflow: hidden;
 }
 
 .marketplace-grid__header {
   display: flex;
   align-items: baseline;
   gap: 1rem;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .marketplace-grid__header h2 {
@@ -100,12 +109,15 @@ body {
 }
 
 .marketplace-grid__cards {
+  flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  align-content: start;
   gap: 0.75rem;
   list-style: none;
   margin: 0;
   padding: 0;
+  overflow-y: auto;
 }
 
 .provider-card {
@@ -331,5 +343,161 @@ body {
 }
 
 .artifact-panel__handle {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Workflow board -------------------------------------------------- */
+
+.workflow-board {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+}
+
+.workflow-board__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.workflow-board__header h2 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.workflow-board__active {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.workflow-board__columns {
+  flex: 1;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(8rem, 1fr);
+  gap: 0.5rem;
+  padding: 0.5rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-height: 0;
+}
+
+.phase-column {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+}
+
+.phase-column--active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+.phase-column--empty .phase-column__header {
+  color: var(--text-muted);
+}
+
+.phase-column__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.375rem 0.5rem;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--text);
+}
+
+.phase-column--active .phase-column__name {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.phase-column__count {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+}
+
+.phase-column__cards {
+  flex: 1;
+  list-style: none;
+  margin: 0;
+  padding: 0.375rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  overflow-y: auto;
+}
+
+.phase-column__card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  padding: 0.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.phase-column__thumb {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #ffffff;
+  border-radius: 0.125rem;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phase-column__thumb-svg {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phase-column__thumb-svg svg {
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+}
+
+.phase-column__thumb-text {
+  color: var(--text-muted);
+  font-size: 0.625rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.phase-column__card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0 0.125rem 0.125rem;
+  font-size: 0.625rem;
+}
+
+.phase-column__card-title {
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.phase-column__card-from {
+  color: var(--text-muted);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
