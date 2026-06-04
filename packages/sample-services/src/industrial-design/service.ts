@@ -1,5 +1,7 @@
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 
+import { renderConceptSketch } from './template.ts';
+
 /**
  * Natural-language description registered with the matcher.
  *
@@ -44,11 +46,16 @@ export type IndustrialDesignArtifact = {
 };
 
 /**
- * Build the stub industrial-design service exo.
+ * Build the industrial-design service exo.
  *
- * V0 placeholder: `generate(spec)` returns a JSON artifact echoing the
- * spec so demo-display has something concrete to render. The real SVG
- * template lands in a later commit (plan section 7.1).
+ * `generate(spec)` renders the LSUR concept-sketch SVG with a few
+ * tokens substituted per-call (revision label, OLED clock, battery
+ * life, IR protocol set), so each invocation produces a recognizably
+ * different artifact without the demo feeling like canned playback.
+ * The `spec` argument is currently advisory: the agent passes the
+ * functional spec text it built for the inventor, but V0 doesn't
+ * incorporate it into the rendered output. A later iteration can
+ * use it to drive richer per-call variation.
  *
  * @returns A discoverable exo with a `generate` method.
  */
@@ -57,19 +64,20 @@ export function makeIndustrialDesignService() {
   return makeDiscoverableExo(
     'IndustrialDesignService',
     {
-      async generate(spec: string): Promise<IndustrialDesignArtifact> {
+      async generate(_spec: string): Promise<IndustrialDesignArtifact> {
+        const svg = renderConceptSketch({
+          providerLabel: INDUSTRIAL_DESIGN_PROVIDER_TAG,
+        });
         return harden({
-          kind: 'json',
-          data: JSON.stringify({
-            placeholder: true,
-            spec,
-            providerTag: INDUSTRIAL_DESIGN_PROVIDER_TAG,
-          }),
+          kind: 'svg',
+          data: svg,
           fromService: INDUSTRIAL_DESIGN_PROVIDER_TAG,
           metadata: {
-            title: 'Industrial design concept (placeholder)',
+            title: 'LSUR — concept sketch',
             summary:
-              'Stub artifact — real SVG concept sketch lands in a later commit.',
+              'Hand-drawn industrial-design pass: voice centerpiece, ' +
+              'isolated power/mute, vol/channel rockers, transport row, ' +
+              'OLED status, IR transmitter, MEMS mic.',
           },
         });
       },
@@ -89,17 +97,16 @@ export function makeIndustrialDesignService() {
         returns: {
           type: 'object',
           description:
-            'Artifact descriptor. V0 returns a JSON placeholder; later ' +
-            'commits return an SVG line drawing.',
+            'Artifact descriptor wrapping an inline SVG line drawing of ' +
+            'the proposed industrial-design pass.',
           properties: {
             kind: {
               type: 'string',
-              description: "Artifact kind: 'json' or 'svg'.",
+              description: "Artifact kind. Always 'svg' for this service.",
             },
             data: {
               type: 'string',
-              description:
-                'JSON-encoded payload (V0) or SVG source (later commits).',
+              description: 'Raw SVG source as a single string.',
             },
             fromService: {
               type: 'string',
