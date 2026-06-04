@@ -20,7 +20,57 @@ export type ServiceEvictedEvent = {
   at: string;
 };
 
-export type DisplayEvent = ServiceRegisteredEvent | ServiceEvictedEvent;
+export type ToolCallEvent = {
+  kind: 'tool.call';
+  toolName: string;
+  args?: unknown;
+  at: string;
+};
+
+export type ToolResultEvent = {
+  kind: 'tool.result';
+  toolName: string;
+  result?: unknown;
+  at: string;
+};
+
+export type ArtifactRecordedEvent = {
+  kind: 'artifact.recorded';
+  handle: string;
+  artifactKind: 'svg' | 'image' | 'markdown' | 'json' | string;
+  data: string;
+  fromService: string;
+  metadata?: { title?: string; summary?: string };
+  at: string;
+};
+
+export type PhaseAnnouncedEvent = {
+  kind: 'phase.announced';
+  phase: string;
+  at: string;
+};
+
+export type AgentNoteEvent = {
+  kind: 'agent.note';
+  note: string;
+  at: string;
+};
+
+export type WalletBalanceEvent = {
+  kind: 'wallet.balance';
+  balanceUsd: number;
+  at: string;
+};
+
+export type DisplayEvent =
+  | ServiceRegisteredEvent
+  | ServiceEvictedEvent
+  | ToolCallEvent
+  | ToolResultEvent
+  | ArtifactRecordedEvent
+  | PhaseAnnouncedEvent
+  | AgentNoteEvent
+  | WalletBalanceEvent;
 
 /**
  * Loose, JSON-serializable mirror of the matcher's `ServiceDescription`.

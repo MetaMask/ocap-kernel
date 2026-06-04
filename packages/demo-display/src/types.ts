@@ -21,7 +21,82 @@ export type ServiceEvictedEvent = {
   at: string;
 };
 
-export type DisplayEvent = ServiceRegisteredEvent | ServiceEvictedEvent;
+/**
+ * The agent invoked a tool. The demo plugin posts these so the
+ * transcript panel can render a live activity log.
+ */
+export type ToolCallEvent = {
+  kind: 'tool.call';
+  toolName: string;
+  args?: unknown;
+  at: string;
+};
+
+/**
+ * The agent received a tool result.
+ */
+export type ToolResultEvent = {
+  kind: 'tool.result';
+  toolName: string;
+  result?: unknown;
+  at: string;
+};
+
+/**
+ * The agent recorded an artifact (concept sketch, PCB layout, etc.).
+ * Carries enough payload for the artifact panel to render the latest
+ * one full-size and the workflow board to render a thumbnail card.
+ */
+export type ArtifactRecordedEvent = {
+  kind: 'artifact.recorded';
+  handle: string;
+  artifactKind: 'svg' | 'image' | 'markdown' | 'json' | string;
+  data: string;
+  fromService: string;
+  metadata?: { title?: string; summary?: string };
+  at: string;
+};
+
+/**
+ * The agent advanced to a new workflow phase. The workflow board
+ * tracks the active phase pointer from these events.
+ */
+export type PhaseAnnouncedEvent = {
+  kind: 'phase.announced';
+  phase: string;
+  at: string;
+};
+
+/**
+ * A free-text narration line from the agent, surfaced under the
+ * workflow board.
+ */
+export type AgentNoteEvent = {
+  kind: 'agent.note';
+  note: string;
+  at: string;
+};
+
+/**
+ * The inventor's wallet balance, in USD. Drives the always-visible
+ * wallet ribbon. Emitted at agent startup (initial value) and on any
+ * change.
+ */
+export type WalletBalanceEvent = {
+  kind: 'wallet.balance';
+  balanceUsd: number;
+  at: string;
+};
+
+export type DisplayEvent =
+  | ServiceRegisteredEvent
+  | ServiceEvictedEvent
+  | ToolCallEvent
+  | ToolResultEvent
+  | ArtifactRecordedEvent
+  | PhaseAnnouncedEvent
+  | AgentNoteEvent
+  | WalletBalanceEvent;
 
 /**
  * Loose, JSON-serializable mirror of `ServiceDescription`. We intentionally

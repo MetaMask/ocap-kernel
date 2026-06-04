@@ -9,6 +9,7 @@ import { dirname, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { EventLog } from './event-log.ts';
+import type { DisplayEvent } from './types.ts';
 
 export type ServerHandle = {
   port: number;
@@ -36,11 +37,39 @@ function findFrontendDist(): string | undefined {
 }
 
 /**
+ * Validate that an incoming POST /event body looks like a `DisplayEvent`.
+ *
+ * Liberal: we accept any non-empty `kind` string and any well-typed
+ * `at` (or none — we'll stamp it). Anything else passes through so
+ * new event variants don't require server changes to surface.
+ *
+ * @param raw - The parsed JSON body.
+ * @returns A normalized event, or an error string describing what's
+ *   wrong with the body.
+ */
+function normalizeIncomingEvent(raw: unknown): DisplayEvent | string {
+  if (raw === null || typeof raw !== 'object') {
+    return 'event body must be a JSON object';
+  }
+  const record = raw as Record<string, unknown>;
+  const { kind } = record;
+  if (typeof kind !== 'string' || kind.length === 0) {
+    return 'event body must have a non-empty string `kind`';
+  }
+  const at =
+    typeof record.at === 'string' ? record.at : new Date().toISOString();
+  return { ...(record as object), kind, at } as DisplayEvent;
+}
+
+/**
  * Start the demo-display HTTP server.
  *
  * Endpoints:
- *   GET /healthz   — liveness probe
- *   GET /events    — server-sent events stream
+ *   GET  /healthz   — liveness probe
+ *   GET  /events    — server-sent events stream
+ *   POST /event     — ingest a single event from a trusted local source
+ *                     (the openclaw demo plugin) and forward it to all
+ *                     SSE subscribers
  *
  * On `/events`, the server first writes the recent backlog from the
  * event log so a freshly connected client lands with current state,
@@ -60,9 +89,21 @@ export async function startServer(options: {
 }): Promise<ServerHandle> {
   const { eventLog, port } = options;
   const app = express();
+  // eslint-disable-next-line import-x/no-named-as-default-member
+  app.use(express.json({ limit: '2mb' }));
 
   app.get('/healthz', (_req: ExpressRequest, res: ExpressResponse) => {
     res.status(200).type('text/plain').send('ok');
+  });
+
+  app.post('/event', (req: ExpressRequest, res: ExpressResponse) => {
+    const normalized = normalizeIncomingEvent(req.body);
+    if (typeof normalized === 'string') {
+      res.status(400).type('text/plain').send(normalized);
+      return;
+    }
+    eventLog.append(normalized);
+    res.status(204).end();
   });
 
   // Serve the React SPA from the frontend's Vite build output (sibling
