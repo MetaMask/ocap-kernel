@@ -308,6 +308,34 @@ export async function recordProvisioned(
 }
 
 /**
+ * Return all provisions currently stored in a permission-tracker vat.
+ *
+ * @param socketPath - The UNIX socket path.
+ * @param rootKref - The vat's root kref.
+ * @returns The list of provisions, oldest first, or an empty array on error.
+ */
+export async function listVatProvisions(
+  socketPath: string,
+  rootKref: string,
+): Promise<Provision[]> {
+  try {
+    const response = await sendCommand({
+      socketPath,
+      method: 'queueMessage',
+      params: [rootKref, 'listProvisions', []],
+      timeoutMs: 5_000,
+    });
+    if (isJsonRpcFailure(response)) {
+      return [];
+    }
+    const raw = decodeCapData(response.result as CapData);
+    return decodeSmallcapsStrings(raw) as Provision[];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Decode a CapData body to a JavaScript value.
  *
  * The kernel uses JSBI encoding via @endo/marshal. For primitive values

@@ -142,6 +142,7 @@ async function registerSkillPermissions(): Promise<void> {
   const newEntries = [
     `Bash(${versionGlob}/scripts/status.sh *)`,
     `Bash(${versionGlob}/scripts/setup.sh)`,
+    `Bash(${versionGlob}/scripts/audit.sh)`,
   ].filter((entry) => !current.includes(entry));
 
   if (newEntries.length === 0) {

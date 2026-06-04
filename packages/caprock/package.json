@@ -29,6 +29,7 @@
     "dist/",
     "vat/",
     "hooks/",
+    "skills/",
     ".claude-plugin/"
   ],
   "scripts": {
