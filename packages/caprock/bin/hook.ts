@@ -47,6 +47,7 @@ import {
   appendEvent,
   readEvents,
   readSettingsAllowList,
+  readSettingsDenyList,
   caprockOutputPath,
 } from '../src/session.ts';
 import type {
@@ -394,20 +395,30 @@ async function getOrInitSession(payload: {
     rootKref,
     subclusterId,
     startedAt: now(),
-    settingsSnapshot: snapshot,
+    settingsSnapshot: snapshot.allow,
+    settingsDenySnapshot: snapshot.deny,
   };
   await saveSessionState(session_id, state);
   return state;
 }
 
 /**
- * Collect the current union of all watched settings allow-lists.
+ * Collect the current union of all watched settings permission lists.
  *
- * @returns The deduplicated list of permission allow entries.
+ * @returns Deduplicated allow and deny entry lists.
  */
-async function collectSettingsSnapshot(): Promise<string[]> {
-  const lists = await Promise.all(SETTINGS_PATHS.map(readSettingsAllowList));
-  return [...new Set(lists.flat())];
+async function collectSettingsSnapshot(): Promise<{
+  allow: string[];
+  deny: string[];
+}> {
+  const [allowLists, denyLists] = await Promise.all([
+    Promise.all(SETTINGS_PATHS.map(readSettingsAllowList)),
+    Promise.all(SETTINGS_PATHS.map(readSettingsDenyList)),
+  ]);
+  return {
+    allow: [...new Set(allowLists.flat())],
+    deny: [...new Set(denyLists.flat())],
+  };
 }
 
 // ─── Hook output helpers ──────────────────────────────────────────────────────
@@ -484,7 +495,8 @@ async function onSessionStart(payload: SessionStartPayload): Promise<void> {
     rootKref,
     subclusterId,
     startedAt: now(),
-    settingsSnapshot: snapshot,
+    settingsSnapshot: snapshot.allow,
+    settingsDenySnapshot: snapshot.deny,
   };
   await saveSessionState(session_id, state);
 
@@ -495,7 +507,7 @@ async function onSessionStart(payload: SessionStartPayload): Promise<void> {
     kernelSessionId,
     rootKref,
     transcriptPath: transcript_path,
-    settingsAllowCount: snapshot.length,
+    settingsAllowCount: snapshot.allow.length,
   });
 
   const connectCmd = `ocap modal ${kernelSessionId}`;
@@ -506,7 +518,7 @@ async function onSessionStart(payload: SessionStartPayload): Promise<void> {
   process.stdout.write(
     `${JSON.stringify({
       output:
-        `[caprock] tracking authority → ${caprockFile} (${snapshot.length} rules in allowlist)\n` +
+        `[caprock] tracking authority → ${caprockFile} (${snapshot.allow.length} rules in allowlist)\n` +
         `[caprock] TUI: run \`ocap tui\` (session appears automatically) or \`${connectCmd}\` to connect directly`,
     })}\n`,
   );
@@ -566,6 +578,14 @@ async function onPreToolUse(payload: PreToolUsePayload): Promise<void> {
           const provisions = matches.filter(
             (matched): matched is Provision => matched !== null,
           );
+          await appendEvent(session_id, {
+            t: now(),
+            event: 'provision_match',
+            sessionId: session_id,
+            toolName: tool_name,
+            inputSha: sha,
+            provisions,
+          });
           await recordProvisioned(
             SOCKET_PATH,
             state.kernelSessionId,

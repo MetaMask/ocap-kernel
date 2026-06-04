@@ -8,6 +8,7 @@ export type SessionState = {
   subclusterId: string;
   startedAt: string;
   settingsSnapshot: string[];
+  settingsDenySnapshot?: string[];
 };
 
 export type CaprockEventKind =
@@ -20,7 +21,8 @@ export type CaprockEventKind =
   | 'rule_grant'
   | 'tui_accept'
   | 'tui_reject'
-  | 'connect_hint';
+  | 'connect_hint'
+  | 'provision_match';
 
 export type CaprockEvent = {
   t: string;

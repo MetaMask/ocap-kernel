@@ -114,6 +114,25 @@ export async function readSettingsAllowList(
 }
 
 /**
+ * Read the permissions.deny list from a Claude Code settings file.
+ *
+ * @param settingsPath - Absolute path to the settings JSON file.
+ * @returns The deny list, or an empty array if the file is absent or unreadable.
+ */
+export async function readSettingsDenyList(
+  settingsPath: string,
+): Promise<string[]> {
+  try {
+    const raw = JSON.parse(await readFile(settingsPath, 'utf8')) as {
+      permissions?: { deny?: string[] };
+    };
+    return raw.permissions?.deny ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Derive the colocated caprock output path from the session transcript path.
  * e.g. `~/.claude/projects/.../<uuid>.jsonl` → `<uuid>.caprock.jsonl`
  *
