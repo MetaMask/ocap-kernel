@@ -38,6 +38,9 @@ import type {
  * must persist across restarts of the same logical service; the matcher
  * uses (peerId, providerTag) as the dedup key when re-registrations
  * arrive.
+ * @param options.priceUsd - Optional advisory per-invocation price in
+ * USD. Surfaced verbatim on the ServiceDescription so consumers can
+ * budget or rank. The matcher does not interpret it.
  * @returns A ContactPoint exo.
  */
 export function makeContactEndpoint(options: {
@@ -48,6 +51,7 @@ export function makeContactEndpoint(options: {
   getContactUrl: () => string;
   expectedToken: string;
   providerTag: string;
+  priceUsd?: number;
 }): ContactPoint {
   const {
     name,
@@ -57,6 +61,7 @@ export function makeContactEndpoint(options: {
     getContactUrl,
     expectedToken,
     providerTag,
+    priceUsd,
   } = options;
   let consumed = false;
 
@@ -65,7 +70,7 @@ export function makeContactEndpoint(options: {
       const contact: ServiceContactInfo[] = [
         { contactType: 'public', contactUrl: getContactUrl() },
       ];
-      return harden({
+      const base = {
         apiSpec: harden({
           properties: harden({
             service: harden({
@@ -80,7 +85,8 @@ export function makeContactEndpoint(options: {
         description,
         contact: harden(contact),
         providerTag,
-      });
+      };
+      return harden(priceUsd === undefined ? base : { ...base, priceUsd });
     },
 
     async confirmServiceRegistration(registrationToken: string): Promise<void> {

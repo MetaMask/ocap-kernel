@@ -8,6 +8,7 @@ import type {
 import type { ServicePoint } from '@metamask/service-discovery-types';
 
 import {
+  INDUSTRIAL_DESIGN_PRICE_USD,
   INDUSTRIAL_DESIGN_PROVIDER_TAG,
   INDUSTRIAL_DESIGN_SERVICE_DESCRIPTION,
   makeIndustrialDesignService,
@@ -62,6 +63,7 @@ export function buildRootObject(
         getContactUrl: () => contactUrl,
         expectedToken: registrationToken,
         providerTag: INDUSTRIAL_DESIGN_PROVIDER_TAG,
+        priceUsd: INDUSTRIAL_DESIGN_PRICE_USD,
       });
       contactUrl = await E(services.ocapURLIssuerService).issue(contact);
 
