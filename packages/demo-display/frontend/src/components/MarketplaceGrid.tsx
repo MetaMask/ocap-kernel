@@ -1,5 +1,35 @@
 import type { ServiceDescriptionPayload } from '../types.ts';
 
+/**
+ * Walk a ServiceDescription's apiSpec to collect the names of every
+ * method exposed on any top-level remotable. The matcher delivers
+ * methods nested under apiSpec.properties.<key>.type.spec.methods, so
+ * a defensive walk is needed rather than a flat field read.
+ *
+ * @param description - The wire-format ServiceDescription.
+ * @returns The list of method names, in iteration order.
+ */
+function extractMethodNames(description: ServiceDescriptionPayload): string[] {
+  const properties = description.apiSpec?.properties;
+  if (properties === undefined) {
+    return [];
+  }
+  const out: string[] = [];
+  for (const property of Object.values(properties)) {
+    if (property?.type?.kind !== 'remotable') {
+      continue;
+    }
+    const methods = property.type.spec?.methods;
+    if (methods === undefined) {
+      continue;
+    }
+    for (const name of Object.keys(methods)) {
+      out.push(name);
+    }
+  }
+  return out;
+}
+
 type MarketplaceGridProps = {
   services: Map<string, ServiceDescriptionPayload>;
 };
@@ -59,7 +89,7 @@ type ProviderCardProps = {
  * @returns The rendered card.
  */
 function ProviderCard({ id, description }: ProviderCardProps): JSX.Element {
-  const methodNames = Object.keys(description.methods);
+  const methodNames = extractMethodNames(description);
   const priceLabel =
     typeof description.priceUsd === 'number'
       ? `$${description.priceUsd.toLocaleString()}`

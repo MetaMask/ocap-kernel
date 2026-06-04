@@ -27,12 +27,14 @@ export type DisplayEvent = ServiceRegisteredEvent | ServiceEvictedEvent;
  * Loose, JSON-serializable mirror of `ServiceDescription`. We intentionally
  * do not depend on the typed struct from `@metamask/service-discovery-types`
  * for the wire payload — SSE consumers read this as plain JSON.
+ *
+ * Method names live nested under
+ * `apiSpec.properties.<key>.type.spec.methods`, not at the top level.
  */
 export type ServiceDescriptionPayload = {
   providerTag: string;
   description: string;
-  methods: Record<string, unknown>;
-  capabilities?: string[];
+  apiSpec?: unknown;
   priceUsd?: number;
   [key: string]: unknown;
 };

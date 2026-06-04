@@ -22,11 +22,32 @@ export type ServiceEvictedEvent = {
 
 export type DisplayEvent = ServiceRegisteredEvent | ServiceEvictedEvent;
 
+/**
+ * Loose, JSON-serializable mirror of the matcher's `ServiceDescription`.
+ * Only the fields the frontend actually renders are typed; the rest of
+ * the structure (contact array, full apiSpec) is allowed through as
+ * unknown.
+ *
+ * Method names live nested under `apiSpec.properties.<key>.type.spec.methods`
+ * — see `extractMethodNames()` in components/MarketplaceGrid.tsx.
+ */
 export type ServiceDescriptionPayload = {
   providerTag: string;
   description: string;
-  methods: Record<string, unknown>;
-  capabilities?: string[];
+  apiSpec?: ApiSpecPayload;
   priceUsd?: number;
   [key: string]: unknown;
+};
+
+export type ApiSpecPayload = {
+  properties?: Record<string, ApiPropertyPayload>;
+};
+
+export type ApiPropertyPayload = {
+  type?: {
+    kind?: string;
+    spec?: {
+      methods?: Record<string, unknown>;
+    };
+  };
 };
