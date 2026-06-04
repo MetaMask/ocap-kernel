@@ -8,11 +8,22 @@ import type {
 /**
  * Returns true if the string looks like a file-system path (absolute or relative).
  *
+ * Recognises:
+ *  - absolute paths (`/…`)
+ *  - explicit relative paths (`./…`, `../…`)
+ *  - bare relative paths (`src/foo.ts`, `app/scripts/…`) — start with a word
+ *    character and contain a path separator
+ *
  * @param str - The string to test.
- * @returns True when the string starts with `/`, `./`, or `../`.
+ * @returns True when the string looks like a filesystem path.
  */
 export function isPathArg(str: string): boolean {
-  return str.startsWith('/') || str.startsWith('./') || str.startsWith('../');
+  return (
+    str.startsWith('/') ||
+    str.startsWith('./') ||
+    str.startsWith('../') ||
+    /^\w[\w.-]*\//u.test(str)
+  );
 }
 
 /**

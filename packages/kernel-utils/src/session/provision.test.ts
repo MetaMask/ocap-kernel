@@ -43,12 +43,19 @@ const provision = (
 
 describe('isPathArg', () => {
   it.each([
+    // absolute
     ['/foo', true],
     ['/a/b/c', true],
+    // explicit relative
     ['./foo', true],
     ['../bar', true],
+    // bare relative (word char + slash)
+    ['foo/bar', true],
+    ['app/scripts/foo.ts', true],
+    ['src/', true],
+    // not paths
     ['foo', false],
-    ['foo/bar', false],
+    ['--flag', false],
     ['', false],
   ])('isPathArg(%s) → %s', (input, expected) => {
     expect(isPathArg(input)).toBe(expected);
