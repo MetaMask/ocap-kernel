@@ -25,6 +25,19 @@ openclaw config set tools.allow '["discovery_redeem_matcher","discovery_find_ser
 | `demo_get_artifact`    | Fetch a previously-recorded artifact by handle                           |
 | `demo_wallet_balance`  | Read the inventor's wallet balance                                       |
 
+## Skill
+
+`skills/orchestration-demo/SKILL.md` carries the agent system prompt
+for the demo's producer / general-contractor persona. OpenClaw
+auto-loads skills from a plugin's `skills/` directory; the skill
+declares `requires.bins: ['discovery', 'demo']` so it only activates
+when both plugins are installed and enabled.
+
+Tell the agent to use the skill by name (`orchestration-demo`) or
+let openclaw surface it automatically depending on the active
+`tools.profile`. The skill enumerates the full pipeline, narration
+style, hard rules, and a worked opening.
+
 ## Configure (optional)
 
 Both plugin config (`openclaw config set 'plugins.entries.demo.config.<key>' <value>`) and environment variables are honored; env wins.
