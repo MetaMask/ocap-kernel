@@ -2,15 +2,15 @@ import { UNASSIGNED_PHASE } from '../hooks/useEventStream.ts';
 import type { ArtifactRecordedEvent } from '../types.ts';
 
 /**
- * Canonical phase order for the workflow board. Reflects plan §13's
- * V1-arc ordering (Concept → Electronics → Procurement → Finance →
- * Tooling → Manufacturing → Packaging → Distribution → Sales).
- * Phases the agent announces that aren't in this list are appended
- * at the end so nothing is dropped.
+ * Canonical phase order for the workflow board. Electronics (hardware)
+ * and Firmware (embedded software) are distinct phases so the
+ * audience sees each acknowledged. Phases the agent announces that
+ * aren't in this list are appended at the end so nothing is dropped.
  */
 const CANONICAL_PHASES = [
   'Concept',
   'Electronics',
+  'Firmware',
   'Procurement',
   'Finance',
   'Tooling',
