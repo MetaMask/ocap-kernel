@@ -47,6 +47,10 @@ body {
 }
 
 .app__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
   padding: 1rem 2rem;
   border-bottom: 1px solid var(--border);
 }
@@ -55,6 +59,30 @@ body {
   margin: 0;
   font-size: 1.25rem;
   font-weight: 600;
+}
+
+.wallet-ribbon {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.875rem;
+}
+
+.wallet-ribbon__label {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.wallet-ribbon__balance {
+  font-weight: 600;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
 }
 
 .app__main {

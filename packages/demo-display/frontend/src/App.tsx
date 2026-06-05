@@ -1,6 +1,7 @@
 import { ArtifactPanel } from './components/ArtifactPanel.tsx';
 import { MarketplaceGrid } from './components/MarketplaceGrid.tsx';
 import { Transcript } from './components/Transcript.tsx';
+import { WalletRibbon } from './components/WalletRibbon.tsx';
 import { WorkflowBoard } from './components/WorkflowBoard.tsx';
 import { useEventStream } from './hooks/useEventStream.ts';
 
@@ -27,11 +28,13 @@ export function App(): JSX.Element {
     latestArtifact,
     activePhase,
     artifactsByPhase,
+    walletBalanceUsd,
   } = useEventStream();
   return (
     <div className="app">
       <header className="app__header">
         <h1>Orchestration demo</h1>
+        <WalletRibbon balanceUsd={walletBalanceUsd} />
       </header>
       <main className="app__main">
         <div className="app__cell app__cell--top-left">
