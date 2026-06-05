@@ -110,7 +110,18 @@ Confirm the relay env knob is set in the VPS shell profile:
 setenv LIBP2P_RELAY_PUBLIC_IP <vps-public-ip>
 ```
 
-Install the openclaw plugins (run once; reinstalls are fine):
+Clear any stale matcher URL from a prior session **before** installing
+the discovery plugin. The plugin eagerly pre-redeems whatever
+`matcherUrl` is in its config at install/enable time; a stale URL will
+make the install fail (the matcher it points at doesn't exist
+anymore, and the consumer daemon hasn't been set up with remote
+comms yet during one-time setup):
+
+```csh
+openclaw config unset 'plugins.entries.discovery.config.matcherUrl'
+```
+
+Now install the openclaw plugins (reinstalls are fine):
 
 ```csh
 openclaw plugins install -l ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery
@@ -123,6 +134,9 @@ openclaw config unset tools.profile
 openclaw plugins disable metamask
 openclaw config set gateway.http.endpoints.chatCompletions.enabled true
 ```
+
+The discovery plugin's `matcherUrl` is set per-run (step 5 below),
+not here.
 
 Confirm openclaw skills:
 
@@ -383,6 +397,13 @@ cheap.
 ---
 
 ## Troubleshooting (will grow)
+
+- **`openclaw plugins install ...` fails with "Failed to pre-redeem matcher URL" / "Remote comms not initialized"** — `~/.openclaw/openclaw.json` carries a stale `plugins.entries.discovery.config.matcherUrl` from a prior session. The plugin's `register()` tries to redeem it at install time, before the matcher daemon and consumer daemon (and remote comms) are up. Unset the stale URL and reinstall:
+
+  ```csh
+  openclaw config unset 'plugins.entries.discovery.config.matcherUrl'
+  openclaw plugins install -l ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery
+  ```
 
 - **"observerUrl is required" from demo-display** — `$MATCHER_OBSERVER_URL` wasn't exported in `vps-display`'s shell before `yarn workspace @ocap/demo-display start`. Re-export and restart.
 - **Marketplace shows duplicate providers** — V0 matcher has no liveness detection. Restart the matcher (step 2) for a clean slate.
