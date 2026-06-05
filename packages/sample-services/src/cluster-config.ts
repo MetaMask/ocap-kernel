@@ -34,6 +34,11 @@ export const FIRMWARE_SPEC_VAT_NAME = 'firmware-spec';
 export const MECHANICAL_DESIGN_VAT_NAME = 'mechanical-design';
 
 /**
+ * Bootstrap-vat name for the PcbLayout service subcluster.
+ */
+export const PCB_LAYOUT_VAT_NAME = 'pcb-layout';
+
+/**
  * Filename of each vat's bundle as produced by `yarn bundle-vats` in
  * this package. The ocap-kernel CLI writes the bundle next to its
  * source as `index.bundle`, so callers wanting a `bundleSpec`
@@ -46,6 +51,7 @@ export const SCHEMATIC_GENERATION_BUNDLE_PATH =
   'schematic-generation/index.bundle';
 export const FIRMWARE_SPEC_BUNDLE_PATH = 'firmware-spec/index.bundle';
 export const MECHANICAL_DESIGN_BUNDLE_PATH = 'mechanical-design/index.bundle';
+export const PCB_LAYOUT_BUNDLE_PATH = 'pcb-layout/index.bundle';
 
 /**
  * Shape of either service vat's bootstrap result. Both vats expose the
@@ -226,6 +232,35 @@ export function makeMechanicalDesignClusterConfig(options: {
     services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
     vats: {
       [MECHANICAL_DESIGN_VAT_NAME]: {
+        bundleSpec,
+        parameters: { matcherUrl },
+      },
+    },
+  };
+}
+
+/**
+ * Build a ClusterConfig for the PcbLayout subcluster.
+ *
+ * @param options - Configuration options.
+ * @param options.bundleSpec - URL or path to the PcbLayout vat bundle.
+ * @param options.matcherUrl - OCAP URL of the service matcher.
+ * @param options.forceReset - Whether to reset the subcluster on launch.
+ *   Defaults to `false`.
+ * @returns A ClusterConfig ready for `kernel.launchSubcluster(...)`.
+ */
+export function makePcbLayoutClusterConfig(options: {
+  bundleSpec: string;
+  matcherUrl: string;
+  forceReset?: boolean;
+}): ClusterConfig {
+  const { bundleSpec, matcherUrl, forceReset = false } = options;
+  return {
+    bootstrap: PCB_LAYOUT_VAT_NAME,
+    forceReset,
+    services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+    vats: {
+      [PCB_LAYOUT_VAT_NAME]: {
         bundleSpec,
         parameters: { matcherUrl },
       },

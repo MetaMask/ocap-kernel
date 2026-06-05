@@ -5,12 +5,14 @@ import {
   FIRMWARE_SPEC_VAT_NAME,
   INDUSTRIAL_DESIGN_VAT_NAME,
   MECHANICAL_DESIGN_VAT_NAME,
+  PCB_LAYOUT_VAT_NAME,
   RANDOM_NUMBER_VAT_NAME,
   SCHEMATIC_GENERATION_VAT_NAME,
   makeEchoClusterConfig,
   makeFirmwareSpecClusterConfig,
   makeIndustrialDesignClusterConfig,
   makeMechanicalDesignClusterConfig,
+  makePcbLayoutClusterConfig,
   makeRandomNumberClusterConfig,
   makeSchematicGenerationClusterConfig,
 } from './cluster-config.ts';
@@ -136,6 +138,22 @@ describe('makeMechanicalDesignClusterConfig', () => {
     expect(config.vats[MECHANICAL_DESIGN_VAT_NAME]).toStrictEqual({
       bundleSpec: 'file:///tmp/mechanical-design.bundle',
       parameters: { matcherUrl: 'ocap:uvw@peer' },
+    });
+  });
+});
+
+describe('makePcbLayoutClusterConfig', () => {
+  it('threads matcherUrl into vat parameters and uses the supplied bundle spec', () => {
+    const config = makePcbLayoutClusterConfig({
+      bundleSpec: 'file:///tmp/pcb-layout.bundle',
+      matcherUrl: 'ocap:xyz@peer',
+    });
+
+    expect(config.bootstrap).toBe(PCB_LAYOUT_VAT_NAME);
+    expect(config.forceReset).toBe(false);
+    expect(config.vats[PCB_LAYOUT_VAT_NAME]).toStrictEqual({
+      bundleSpec: 'file:///tmp/pcb-layout.bundle',
+      parameters: { matcherUrl: 'ocap:xyz@peer' },
     });
   });
 });
