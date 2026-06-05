@@ -131,6 +131,13 @@ openclaw plugins disable metamask
 openclaw config set gateway.http.endpoints.chatCompletions.enabled true
 ```
 
+Installing the demo plugin emits a `failed to post event to
+demo-display: ... ECONNREFUSED 127.0.0.1:7777` warning. This is
+expected during one-time setup — demo-display isn't running yet.
+The install succeeded as long as you see `Linked plugin path: ...`
+at the end. The post fires successfully on the gateway restart in
+per-run step 5.
+
 Confirm openclaw skills:
 
 ```csh
