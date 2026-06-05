@@ -24,6 +24,11 @@ export const INDUSTRIAL_DESIGN_VAT_NAME = 'industrial-design';
 export const SCHEMATIC_GENERATION_VAT_NAME = 'schematic-generation';
 
 /**
+ * Bootstrap-vat name for the FirmwareSpec service subcluster.
+ */
+export const FIRMWARE_SPEC_VAT_NAME = 'firmware-spec';
+
+/**
  * Filename of each vat's bundle as produced by `yarn bundle-vats` in
  * this package. The ocap-kernel CLI writes the bundle next to its
  * source as `index.bundle`, so callers wanting a `bundleSpec`
@@ -34,6 +39,7 @@ export const RANDOM_NUMBER_BUNDLE_PATH = 'random-number-service/index.bundle';
 export const INDUSTRIAL_DESIGN_BUNDLE_PATH = 'industrial-design/index.bundle';
 export const SCHEMATIC_GENERATION_BUNDLE_PATH =
   'schematic-generation/index.bundle';
+export const FIRMWARE_SPEC_BUNDLE_PATH = 'firmware-spec/index.bundle';
 
 /**
  * Shape of either service vat's bootstrap result. Both vats expose the
@@ -156,6 +162,35 @@ export function makeSchematicGenerationClusterConfig(options: {
     services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
     vats: {
       [SCHEMATIC_GENERATION_VAT_NAME]: {
+        bundleSpec,
+        parameters: { matcherUrl },
+      },
+    },
+  };
+}
+
+/**
+ * Build a ClusterConfig for the FirmwareSpec subcluster.
+ *
+ * @param options - Configuration options.
+ * @param options.bundleSpec - URL or path to the FirmwareSpec vat bundle.
+ * @param options.matcherUrl - OCAP URL of the service matcher.
+ * @param options.forceReset - Whether to reset the subcluster on launch.
+ *   Defaults to `false`.
+ * @returns A ClusterConfig ready for `kernel.launchSubcluster(...)`.
+ */
+export function makeFirmwareSpecClusterConfig(options: {
+  bundleSpec: string;
+  matcherUrl: string;
+  forceReset?: boolean;
+}): ClusterConfig {
+  const { bundleSpec, matcherUrl, forceReset = false } = options;
+  return {
+    bootstrap: FIRMWARE_SPEC_VAT_NAME,
+    forceReset,
+    services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+    vats: {
+      [FIRMWARE_SPEC_VAT_NAME]: {
         bundleSpec,
         parameters: { matcherUrl },
       },

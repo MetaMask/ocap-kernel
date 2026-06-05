@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ECHO_VAT_NAME,
+  FIRMWARE_SPEC_VAT_NAME,
   INDUSTRIAL_DESIGN_VAT_NAME,
   RANDOM_NUMBER_VAT_NAME,
   SCHEMATIC_GENERATION_VAT_NAME,
   makeEchoClusterConfig,
+  makeFirmwareSpecClusterConfig,
   makeIndustrialDesignClusterConfig,
   makeRandomNumberClusterConfig,
   makeSchematicGenerationClusterConfig,
@@ -100,6 +102,22 @@ describe('makeSchematicGenerationClusterConfig', () => {
     expect(config.vats[SCHEMATIC_GENERATION_VAT_NAME]).toStrictEqual({
       bundleSpec: 'file:///tmp/schematic-generation.bundle',
       parameters: { matcherUrl: 'ocap:opq@peer' },
+    });
+  });
+});
+
+describe('makeFirmwareSpecClusterConfig', () => {
+  it('threads matcherUrl into vat parameters and uses the supplied bundle spec', () => {
+    const config = makeFirmwareSpecClusterConfig({
+      bundleSpec: 'file:///tmp/firmware-spec.bundle',
+      matcherUrl: 'ocap:rst@peer',
+    });
+
+    expect(config.bootstrap).toBe(FIRMWARE_SPEC_VAT_NAME);
+    expect(config.forceReset).toBe(false);
+    expect(config.vats[FIRMWARE_SPEC_VAT_NAME]).toStrictEqual({
+      bundleSpec: 'file:///tmp/firmware-spec.bundle',
+      parameters: { matcherUrl: 'ocap:rst@peer' },
     });
   });
 });
