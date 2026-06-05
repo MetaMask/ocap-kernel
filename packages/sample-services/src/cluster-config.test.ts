@@ -4,9 +4,11 @@ import {
   ECHO_VAT_NAME,
   INDUSTRIAL_DESIGN_VAT_NAME,
   RANDOM_NUMBER_VAT_NAME,
+  SCHEMATIC_GENERATION_VAT_NAME,
   makeEchoClusterConfig,
   makeIndustrialDesignClusterConfig,
   makeRandomNumberClusterConfig,
+  makeSchematicGenerationClusterConfig,
 } from './cluster-config.ts';
 
 describe('makeEchoClusterConfig', () => {
@@ -79,5 +81,25 @@ describe('makeIndustrialDesignClusterConfig', () => {
       forceReset: true,
     });
     expect(config.forceReset).toBe(true);
+  });
+});
+
+describe('makeSchematicGenerationClusterConfig', () => {
+  it('threads matcherUrl into vat parameters and uses the supplied bundle spec', () => {
+    const config = makeSchematicGenerationClusterConfig({
+      bundleSpec: 'file:///tmp/schematic-generation.bundle',
+      matcherUrl: 'ocap:opq@peer',
+    });
+
+    expect(config.bootstrap).toBe(SCHEMATIC_GENERATION_VAT_NAME);
+    expect(config.forceReset).toBe(false);
+    expect(config.services).toStrictEqual([
+      'ocapURLIssuerService',
+      'ocapURLRedemptionService',
+    ]);
+    expect(config.vats[SCHEMATIC_GENERATION_VAT_NAME]).toStrictEqual({
+      bundleSpec: 'file:///tmp/schematic-generation.bundle',
+      parameters: { matcherUrl: 'ocap:opq@peer' },
+    });
   });
 });

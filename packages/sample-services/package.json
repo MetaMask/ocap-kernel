@@ -30,7 +30,7 @@
   ],
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
-    "bundle-vats": "node ../kernel-cli/dist/app.mjs bundle ./src/echo-service/index.ts ./src/random-number-service/index.ts ./src/industrial-design/index.ts",
+    "bundle-vats": "node ../kernel-cli/dist/app.mjs bundle ./src/echo-service/index.ts ./src/random-number-service/index.ts ./src/industrial-design/index.ts ./src/schematic-generation/index.ts",
     "build:docs": "typedoc",
     "changelog:validate": "../../scripts/validate-changelog.sh @ocap/sample-services",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",
