@@ -429,6 +429,12 @@ body {
   min-height: 0;
 }
 
+.workflow-board__empty {
+  padding: 1.5rem;
+  text-align: center;
+  color: var(--text-muted);
+}
+
 .phase-column {
   display: flex;
   flex-direction: column;

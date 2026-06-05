@@ -27,6 +27,7 @@ export function App(): JSX.Element {
     transcript,
     latestArtifact,
     activePhase,
+    announcedPhases,
     artifactsByPhase,
     walletBalanceUsd,
   } = useEventStream();
@@ -42,6 +43,7 @@ export function App(): JSX.Element {
         </div>
         <div className="app__cell app__cell--top-right">
           <WorkflowBoard
+            announcedPhases={announcedPhases}
             artifactsByPhase={artifactsByPhase}
             activePhase={activePhase}
           />

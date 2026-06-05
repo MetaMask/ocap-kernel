@@ -46,6 +46,14 @@ export type DisplayState = {
    * this irrespective of insertion order.
    */
   artifactsByPhase: Map<string, ArtifactRecordedEvent[]>;
+  /**
+   * Phases that have been announced by `phase.announced` events,
+   * in the order they were first announced. The workflow board uses
+   * this to render columns incrementally — phases not in this set
+   * (and without artifacts) are not displayed, so the audience sees
+   * the pipeline revealing itself rather than a fixed roadmap.
+   */
+  announcedPhases: string[];
 };
 
 /**
@@ -62,6 +70,7 @@ const INITIAL_STATE: DisplayState = {
   walletBalanceUsd: undefined,
   activePhase: undefined,
   artifactsByPhase: new Map(),
+  announcedPhases: [],
 };
 
 /**
@@ -156,7 +165,15 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
         at: event.at,
         phase: event.phase,
       });
-      return { ...state, transcript, activePhase: event.phase };
+      const announcedPhases = state.announcedPhases.includes(event.phase)
+        ? state.announcedPhases
+        : [...state.announcedPhases, event.phase];
+      return {
+        ...state,
+        transcript,
+        activePhase: event.phase,
+        announcedPhases,
+      };
     }
     case 'artifact.recorded': {
       const phase = state.activePhase ?? UNASSIGNED_PHASE;

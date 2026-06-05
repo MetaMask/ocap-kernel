@@ -74,18 +74,21 @@ The dashboard's workflow board uses the `phaseTransition`
 announcements to track active-phase and place each new artifact
 into the right column.
 
-### Reference: phase vocabulary
+### Suggested phase vocabulary
 
-The matcher's V0/V1 demo registry can plausibly serve the following
-phases. Use these names so the workflow board's columns align;
-don't enumerate them to the inventor unless asked.
+The dashboard has no built-in phase list — it renders whatever
+phases you announce, in the order you announce them. You choose
+the names. The suggestions below match the LSUR demo's pipeline
+narrative and are good defaults for a consumer-electronics
+product, but feel free to adapt to whatever the inventor's actual
+product needs.
 
 ```
 Concept → Electronics → Firmware → Procurement → Finance
        → Tooling → Manufacturing → Packaging → Distribution → Sales
 ```
 
-Per-phase intent:
+Suggested per-phase intent:
 
 - **Concept** — industrial-design (concept sketch), then
   mechanical-design (3D case render).
@@ -100,6 +103,12 @@ Per-phase intent:
   consult the inventor and run a capital-formation service.
 - **Tooling → Manufacturing → Packaging → Distribution → Sales**
   — each as available.
+
+Use phase names consistently within a single session — once you've
+announced "Electronics", subsequent hardware-design artifacts
+should land in that same phase (don't switch to "Electronics
+Design" mid-stream). Consistency lets the workflow board's columns
+stay sane.
 
 ## Required workflow
 

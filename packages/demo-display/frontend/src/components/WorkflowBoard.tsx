@@ -1,37 +1,27 @@
 import { UNASSIGNED_PHASE } from '../hooks/useEventStream.ts';
 import type { ArtifactRecordedEvent } from '../types.ts';
 
-/**
- * Canonical phase order for the workflow board. Electronics (hardware)
- * and Firmware (embedded software) are distinct phases so the
- * audience sees each acknowledged. Phases the agent announces that
- * aren't in this list are appended at the end so nothing is dropped.
- */
-const CANONICAL_PHASES = [
-  'Concept',
-  'Electronics',
-  'Firmware',
-  'Procurement',
-  'Finance',
-  'Tooling',
-  'Manufacturing',
-  'Packaging',
-  'Distribution',
-  'Sales',
-] as const;
-
 type WorkflowBoardProps = {
+  announcedPhases: string[];
   artifactsByPhase: Map<string, ArtifactRecordedEvent[]>;
   activePhase: string | undefined;
 };
 
 /**
- * Workflow board: one column per workflow phase, populated by
- * artifacts the agent recorded while that phase was active. The
- * column matching `activePhase` gets a visual highlight so the
- * audience can see which beat of the arc is currently in flight.
+ * Workflow board: one column per workflow phase the agent has
+ * announced (via `phase.announced` events), in the order they were
+ * announced. The dashboard intentionally carries no phase vocabulary
+ * of its own — that lets a different demo run a different pipeline
+ * without touching the display code.
+ *
+ * The column matching `activePhase` is highlighted so the audience
+ * can see which beat is in flight. The `Unassigned` column appears
+ * leftmost as a fallback if an artifact arrives before any phase has
+ * been announced.
  *
  * @param props - Component props.
+ * @param props.announcedPhases - Phases the agent has announced, in
+ *   the order they were first announced.
  * @param props.artifactsByPhase - Per-phase artifact lists from the
  *   event-stream reducer.
  * @param props.activePhase - Phase the agent most recently announced
@@ -39,8 +29,8 @@ type WorkflowBoardProps = {
  * @returns The rendered board.
  */
 export function WorkflowBoard(props: WorkflowBoardProps): JSX.Element {
-  const { artifactsByPhase, activePhase } = props;
-  const columns = orderedColumns(artifactsByPhase);
+  const { announcedPhases, artifactsByPhase, activePhase } = props;
+  const columns = orderedColumns(announcedPhases, artifactsByPhase);
 
   return (
     <section className="workflow-board">
@@ -50,47 +40,60 @@ export function WorkflowBoard(props: WorkflowBoardProps): JSX.Element {
           <span className="workflow-board__active">→ {activePhase}</span>
         )}
       </header>
-      <div className="workflow-board__columns">
-        {columns.map((phase) => (
-          <PhaseColumn
-            key={phase}
-            phase={phase}
-            artifacts={artifactsByPhase.get(phase) ?? []}
-            isActive={phase === activePhase}
-          />
-        ))}
-      </div>
+      {columns.length === 0 ? (
+        <div className="workflow-board__empty">
+          Waiting for the agent to announce a phase…
+        </div>
+      ) : (
+        <div className="workflow-board__columns">
+          {columns.map((phase) => (
+            <PhaseColumn
+              key={phase}
+              phase={phase}
+              artifacts={artifactsByPhase.get(phase) ?? []}
+              isActive={phase === activePhase}
+            />
+          ))}
+        </div>
+      )}
     </section>
   );
 }
 
 /**
- * Compute the rendered column order: canonical phases first (always
- * shown so the audience reads the arc left-to-right), then any
- * additional phases the agent announced that weren't in the canonical
- * list, then the Unassigned bucket if it has anything in it.
+ * Compute the rendered column order. Unassigned goes leftmost when
+ * non-empty; announced phases follow in announce order; any phases
+ * that have artifacts but were never announced (defensive — the
+ * reducer routes to Unassigned in that case) are appended in their
+ * insertion order.
  *
+ * @param announcedPhases - Phase names the agent has announced.
  * @param artifactsByPhase - Per-phase artifact buckets.
  * @returns The phase names to render columns for, in order.
  */
 function orderedColumns(
+  announcedPhases: string[],
   artifactsByPhase: Map<string, ArtifactRecordedEvent[]>,
 ): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
-  for (const phase of CANONICAL_PHASES) {
-    out.push(phase);
-    seen.add(phase);
+  if ((artifactsByPhase.get(UNASSIGNED_PHASE)?.length ?? 0) > 0) {
+    out.push(UNASSIGNED_PHASE);
+    seen.add(UNASSIGNED_PHASE);
   }
-  for (const phase of artifactsByPhase.keys()) {
-    if (phase === UNASSIGNED_PHASE || seen.has(phase)) {
+  for (const phase of announcedPhases) {
+    if (seen.has(phase)) {
       continue;
     }
     out.push(phase);
     seen.add(phase);
   }
-  if ((artifactsByPhase.get(UNASSIGNED_PHASE)?.length ?? 0) > 0) {
-    out.unshift(UNASSIGNED_PHASE);
+  for (const phase of artifactsByPhase.keys()) {
+    if (seen.has(phase)) {
+      continue;
+    }
+    out.push(phase);
+    seen.add(phase);
   }
   return out;
 }
