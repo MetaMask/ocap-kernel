@@ -124,8 +124,45 @@ openclaw plugins install -l ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-p
 openclaw plugins install -l ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-demo
 openclaw plugins enable discovery
 openclaw plugins enable demo
-openclaw config set plugins.allow '["discovery", "demo"]'
-openclaw config set tools.allow '["discovery_redeem_matcher","discovery_find_services","service_get_description","service_initiate_contact","service_call","discovery_list_tracked","demo_announce","demo_record_artifact","demo_get_artifact","demo_wallet_balance"]'
+```
+
+Inspect the existing `plugins.allow` and `tools.allow` lists; do
+NOT wholesale-replace them, since they may already contain entries
+(model backends like `anthropic` / `google`, memory plugins, etc.)
+that the producer LLM needs at runtime:
+
+```csh
+openclaw config get plugins.allow
+openclaw config get tools.allow
+```
+
+`plugins.allow` must include both `discovery` and `demo`. If either
+is missing, add it (preserve any other entries already present),
+e.g.:
+
+```csh
+openclaw config set plugins.allow '["discovery", "demo", "anthropic", "google", "memory-core"]'
+```
+
+`tools.allow` must include the ten tool names below. If any are
+missing, add them (preserve any other entries already present):
+
+```
+discovery_redeem_matcher
+discovery_find_services
+service_get_description
+service_initiate_contact
+service_call
+discovery_list_tracked
+demo_announce
+demo_record_artifact
+demo_get_artifact
+demo_wallet_balance
+```
+
+Set the remaining flags (these are safe to set unconditionally):
+
+```csh
 openclaw config unset tools.profile
 openclaw plugins disable metamask
 openclaw config set gateway.http.endpoints.chatCompletions.enabled true
