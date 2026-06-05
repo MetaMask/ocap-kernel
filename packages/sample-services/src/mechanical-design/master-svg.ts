@@ -1,0 +1,185 @@
+/**
+ * Master SVG for the mechanical-design hero render. Token markers
+ * (`{{...}}`) are filled in by `template.ts` on each generate() call.
+ *
+ * Token catalog:
+ *   {{revLabel}}              short rev label, e.g. "A1"
+ *   {{providerLabel}}         provider identifier
+ *   {{colorwayName}}          "matte black" / "soft white" / "smoke grey"
+ *   {{caseColorHighlight}}    body gradient stop 0%
+ *   {{caseColorMain}}         body gradient stop 45%
+ *   {{caseColorShadow}}       body gradient stop 100% + side gradient 0%
+ *   {{caseColorDeepShadow}}   side gradient stop 100%
+ *
+ * colorway* tokens are picked as a unit so the gradient remains
+ * self-consistent.
+ */
+export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 800" font-family="Arial, sans-serif" font-size="12">
+  <defs>
+    <linearGradient id="body-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="{{caseColorHighlight}}" />
+      <stop offset="45%"  stop-color="{{caseColorMain}}" />
+      <stop offset="100%" stop-color="{{caseColorShadow}}" />
+    </linearGradient>
+    <linearGradient id="side-grad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%"   stop-color="{{caseColorShadow}}" />
+      <stop offset="100%" stop-color="{{caseColorDeepShadow}}" />
+    </linearGradient>
+    <linearGradient id="screen-grad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#11141a" />
+      <stop offset="100%" stop-color="#191c24" />
+    </linearGradient>
+    <radialGradient id="voice-grad" cx="0.4" cy="0.35" r="0.7">
+      <stop offset="0%" stop-color="#3a3a3a" />
+      <stop offset="60%" stop-color="#2a2a2a" />
+      <stop offset="100%" stop-color="#141414" />
+    </radialGradient>
+    <radialGradient id="floor-shadow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0%"   stop-color="#000" stop-opacity="0.35" />
+      <stop offset="100%" stop-color="#000" stop-opacity="0" />
+    </radialGradient>
+    <linearGradient id="hl" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.55" />
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0" />
+    </linearGradient>
+  </defs>
+
+  <rect width="900" height="800" fill="#f0f0ee" />
+  <rect width="900" height="360" fill="#dfdfdc" />
+
+  <ellipse cx="450" cy="740" rx="240" ry="22" fill="url(#floor-shadow)" />
+
+  <g transform="translate(280 80)">
+    <path d="M 320 26
+             Q 332 30 340 50
+             L 340 590
+             Q 332 622 320 630
+             L 314 630
+             L 314 26 Z"
+          fill="url(#side-grad)" />
+    <path d="M 22 26
+             Q 36 18 60 18
+             L 290 18
+             Q 308 18 320 26
+             L 314 26
+             L 22 26 Z"
+          fill="{{caseColorHighlight}}" opacity="0.9" />
+
+    <path d="M 20 28
+             Q 18 22 30 16
+             L 304 16
+             Q 320 16 326 30
+             L 326 602
+             Q 320 632 300 638
+             L 32 638
+             Q 18 634 16 608
+             L 16 38 Z"
+          fill="url(#body-grad)" />
+
+    <path d="M 32 28
+             Q 28 24 40 22
+             L 300 22
+             Q 312 22 318 34
+             L 318 80
+             L 32 80 Z"
+          fill="url(#hl)" />
+
+    <circle cx="171" cy="18" r="2.5" fill="#070707" />
+
+    <circle cx="58" cy="54" r="14" fill="#3a3a3a" />
+    <path d="M 58 46 L 58 54 M 51 50 A 7 7 0 1 0 65 50"
+          stroke="#d83b3b" stroke-width="1.8" fill="none" />
+
+    <circle cx="282" cy="54" r="14" fill="#3a3a3a" />
+    <path d="M 274 50 L 280 50 L 286 44 L 286 64 L 280 58 L 274 58 Z" fill="#dddddd" />
+    <line x1="276" y1="46" x2="292" y2="64" stroke="#d83b3b" stroke-width="1.6" />
+
+    <rect x="90" y="86" width="160" height="60" rx="6" fill="#0a0a0a" />
+    <rect x="96" y="90" width="148" height="52" rx="4" fill="url(#screen-grad)" />
+    <text x="108" y="124" font-family="'Courier New', monospace" fill="#cdebff" font-size="20">20:34</text>
+    <text x="190" y="108" font-family="'Courier New', monospace" fill="#7aa2c2" font-size="10">tv · src 1</text>
+    <text x="190" y="132" font-family="'Courier New', monospace" fill="#7aa2c2" font-size="10">vol 18</text>
+
+    <rect x="32" y="200" width="38" height="100" rx="18" fill="#3a3a3a" />
+    <path d="M 42 224 L 51 214 L 60 224" stroke="#dddddd" stroke-width="2"
+          fill="none" stroke-linecap="round" />
+    <path d="M 42 280 L 51 290 L 60 280" stroke="#dddddd" stroke-width="2"
+          fill="none" stroke-linecap="round" />
+    <line x1="38" y1="250" x2="64" y2="250" stroke="#1c1c1c" stroke-width="0.8" opacity="0.5" />
+
+    <rect x="270" y="200" width="38" height="100" rx="18" fill="#3a3a3a" />
+    <path d="M 280 224 L 289 214 L 298 224" stroke="#dddddd" stroke-width="2"
+          fill="none" stroke-linecap="round" />
+    <path d="M 280 280 L 289 290 L 298 280" stroke="#dddddd" stroke-width="2"
+          fill="none" stroke-linecap="round" />
+    <line x1="276" y1="250" x2="302" y2="250" stroke="#1c1c1c" stroke-width="0.8" opacity="0.5" />
+
+    <circle cx="170" cy="250" r="80" fill="url(#voice-grad)" />
+    <circle cx="170" cy="250" r="80" fill="none" stroke="#4a4a4a"
+            stroke-width="2" opacity="0.7" />
+    <circle cx="170" cy="250" r="72" fill="none" stroke="#1c1c1c"
+            stroke-width="0.6" opacity="0.6" />
+    <g transform="translate(170 234)">
+      <rect x="-12" y="-26" width="24" height="42" rx="12" fill="#dddddd" />
+      <path d="M -22 12 Q -22 30 0 30 Q 22 30 22 12"
+            fill="none" stroke="#dddddd" stroke-width="2.4" stroke-linecap="round" />
+      <line x1="0" y1="30" x2="0" y2="42" stroke="#dddddd" stroke-width="2.4" stroke-linecap="round" />
+      <line x1="-10" y1="42" x2="10" y2="42" stroke="#dddddd" stroke-width="2.4" stroke-linecap="round" />
+    </g>
+    <circle cx="170" cy="250" r="84" fill="none" stroke="#b85c1a"
+            stroke-width="1.2" opacity="0.25" />
+
+    <circle cx="80" cy="402" r="22" fill="#3a3a3a" />
+    <path d="M 92 397 A 11 11 0 1 0 92 407" stroke="#dddddd" stroke-width="2" fill="none" />
+    <polygon points="92,392 96,398 88,398" fill="#dddddd" />
+    <text x="80" y="406" text-anchor="middle" fill="#1c1c1c" font-size="9">30</text>
+
+    <rect x="146" y="378" width="48" height="48" rx="22" fill="#3a3a3a" />
+    <polygon points="160,388 160,420 172,404" fill="#dddddd" />
+    <rect x="178" y="388" width="4" height="32" fill="#dddddd" />
+    <rect x="184" y="388" width="4" height="32" fill="#dddddd" />
+
+    <circle cx="260" cy="402" r="22" fill="#3a3a3a" />
+    <polygon points="248,390 260,402 248,414" fill="#dddddd" />
+    <polygon points="260,390 272,402 260,414" fill="#dddddd" />
+
+    <text x="170" y="478" text-anchor="middle" font-style="italic"
+          font-size="13" fill="#dddddd" opacity="0.6">
+      the less stupid universal remote
+    </text>
+
+    <rect x="140" y="500" width="62" height="22" rx="4" fill="#070707" />
+    <rect x="140" y="500" width="62" height="22" rx="4" fill="none"
+          stroke="#0a0a0a" stroke-width="0.8" />
+  </g>
+
+  <text x="40" y="40" font-size="16" font-weight="bold" fill="#1c1c1c">LSUR — mechanical case render</text>
+  <text x="40" y="60" font-size="11" fill="#666">{{providerLabel}} · {{colorwayName}} · ABS+PC blend · 58 × 182 × 18 mm</text>
+
+  <g transform="translate(40 210)" font-size="11" fill="#1c1c1c">
+    <text font-weight="bold">Material</text>
+    <text y="16" fill="#444">injection-molded ABS+PC blend</text>
+    <text y="28" fill="#444">8% glass fiber loading</text>
+    <text y="56" font-weight="bold">Wall thickness</text>
+    <text y="72" fill="#444">2.5 mm uniform</text>
+    <text y="100" font-weight="bold">Surface finish</text>
+    <text y="116" fill="#444">MT11030 (matte texture)</text>
+    <text y="144" font-weight="bold">Assembly</text>
+    <text y="160" fill="#444">4 self-tapping screws</text>
+  </g>
+
+  <g transform="translate(700 210)" font-size="11" fill="#1c1c1c">
+    <text font-weight="bold">Mass (loaded)</text>
+    <text y="16" fill="#444">112 g (with 2× AA)</text>
+    <text y="44" font-weight="bold">Drop test</text>
+    <text y="60" fill="#444">1.2 m onto hardwood — pass</text>
+    <text y="88" font-weight="bold">IP rating</text>
+    <text y="104" fill="#444">IPX0 (indoor only)</text>
+    <text y="132" font-weight="bold">Mic port</text>
+    <text y="148" fill="#444">top edge · 1.4 mm dia</text>
+  </g>
+
+  <text x="450" y="772" text-anchor="middle" font-size="11" fill="#666">
+    front 3/4 view; full CAD package on request · rev {{revLabel}}
+  </text>
+</svg>`;

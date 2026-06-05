@@ -5,6 +5,8 @@ export {
   FIRMWARE_SPEC_VAT_NAME,
   INDUSTRIAL_DESIGN_BUNDLE_PATH,
   INDUSTRIAL_DESIGN_VAT_NAME,
+  MECHANICAL_DESIGN_BUNDLE_PATH,
+  MECHANICAL_DESIGN_VAT_NAME,
   RANDOM_NUMBER_BUNDLE_PATH,
   RANDOM_NUMBER_VAT_NAME,
   SCHEMATIC_GENERATION_BUNDLE_PATH,
@@ -12,6 +14,7 @@ export {
   makeEchoClusterConfig,
   makeFirmwareSpecClusterConfig,
   makeIndustrialDesignClusterConfig,
+  makeMechanicalDesignClusterConfig,
   makeRandomNumberClusterConfig,
   makeSchematicGenerationClusterConfig,
   type SampleServiceBootstrapResult,
@@ -34,3 +37,9 @@ export {
   FIRMWARE_SPEC_SERVICE_DESCRIPTION,
   type FirmwareSpecArtifact,
 } from './firmware-spec/service.ts';
+export {
+  MECHANICAL_DESIGN_PRICE_USD,
+  MECHANICAL_DESIGN_PROVIDER_TAG,
+  MECHANICAL_DESIGN_SERVICE_DESCRIPTION,
+  type MechanicalHeroArtifact,
+} from './mechanical-design/service.ts';

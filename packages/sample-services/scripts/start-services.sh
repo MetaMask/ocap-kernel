@@ -106,6 +106,7 @@ RNG_BUNDLE="$PKG_DIR/src/random-number-service/index.bundle"
 INDUSTRIAL_DESIGN_BUNDLE="$PKG_DIR/src/industrial-design/index.bundle"
 SCHEMATIC_GENERATION_BUNDLE="$PKG_DIR/src/schematic-generation/index.bundle"
 FIRMWARE_SPEC_BUNDLE="$PKG_DIR/src/firmware-spec/index.bundle"
+MECHANICAL_DESIGN_BUNDLE="$PKG_DIR/src/mechanical-design/index.bundle"
 
 # Sample-services daemon lives in its own home so it can run alongside
 # the matcher (~/.ocap) and consumer (~/.ocap-consumer) daemons without
@@ -127,6 +128,7 @@ if $SKIP_BUILD; then
   [[ -f "$INDUSTRIAL_DESIGN_BUNDLE" ]] || fail "Bundle not found at $INDUSTRIAL_DESIGN_BUNDLE. Remove --no-build or build first."
   [[ -f "$SCHEMATIC_GENERATION_BUNDLE" ]] || fail "Bundle not found at $SCHEMATIC_GENERATION_BUNDLE. Remove --no-build or build first."
   [[ -f "$FIRMWARE_SPEC_BUNDLE" ]] || fail "Bundle not found at $FIRMWARE_SPEC_BUNDLE. Remove --no-build or build first."
+  [[ -f "$MECHANICAL_DESIGN_BUNDLE" ]] || fail "Bundle not found at $MECHANICAL_DESIGN_BUNDLE. Remove --no-build or build first."
 else
   info "Building sample-services package..."
   (cd "$REPO_ROOT" && yarn workspace @ocap/sample-services build >&2)
@@ -238,5 +240,6 @@ launch_service "RandomNumber"        "random-number"        "$RNG_BUNDLE"
 launch_service "IndustrialDesign"    "industrial-design"    "$INDUSTRIAL_DESIGN_BUNDLE"
 launch_service "SchematicGeneration" "schematic-generation" "$SCHEMATIC_GENERATION_BUNDLE"
 launch_service "FirmwareSpec"        "firmware-spec"        "$FIRMWARE_SPEC_BUNDLE"
+launch_service "MechanicalDesign"    "mechanical-design"    "$MECHANICAL_DESIGN_BUNDLE"
 
 info "Sample services ready."
