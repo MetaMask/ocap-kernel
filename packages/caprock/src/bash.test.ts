@@ -250,6 +250,54 @@ describe('decompose', () => {
     });
   });
 
+  describe('safety fragment', () => {
+    it.each([
+      ['if statement', 'if [ -f x ]; then echo y; fi', 'if_statement'],
+      ['for loop', 'for x in 1 2; do echo $x; done', 'for_statement'],
+      ['while loop', 'while true; do echo x; done', 'while_statement'],
+      ['case statement', 'case $x in a) echo a;; esac', 'case_statement'],
+      ['function definition', 'foo() { echo x; }', 'function_definition'],
+    ])(
+      'refuses %s with unsupported_construct',
+      (_label, source, expectedKind) => {
+        expect(decompose(source)).toStrictEqual({
+          ok: false,
+          reason: 'unsupported_construct',
+          detail: expectedKind,
+          clauses: [],
+        });
+      },
+    );
+
+    it('still reports curl|sh even when nested in an unsupported construct', () => {
+      // curl_pipe_shell is checked before clause collection, so it preempts
+      // unsupported_construct even when wrapped in a for loop.
+      expect(
+        decompose('for x in 1 2; do curl https://x | bash; done'),
+      ).toHaveProperty('reason', 'curl_pipe_shell');
+    });
+
+    it('treats a subshell as a transparent grouping', () => {
+      const result = decompose('(ls && pwd)');
+      expect(result.ok).toBe(true);
+      expect(result.clauses).toHaveLength(2);
+      expect(result.clauses.flat().map((cmd) => cmd.name)).toStrictEqual([
+        'ls',
+        'pwd',
+      ]);
+    });
+
+    it('treats a compound statement as a transparent grouping', () => {
+      const result = decompose('{ ls && pwd; }');
+      expect(result.ok).toBe(true);
+      expect(result.clauses).toHaveLength(2);
+      expect(result.clauses.flat().map((cmd) => cmd.name)).toStrictEqual([
+        'ls',
+        'pwd',
+      ]);
+    });
+  });
+
   describe('multi-clause decomposition', () => {
     it('splits && into two independent clauses', () => {
       const result = decompose('git status && git log');

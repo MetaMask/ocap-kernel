@@ -30,6 +30,7 @@ export type DropReason =
   | 'dynamic_command'
   | 'curl_pipe_shell'
   | 'eval_dynamic'
+  | 'unsupported_construct'
   | 'empty';
 
 /** One dependent pipeline: commands joined by `|`. */
@@ -37,7 +38,13 @@ export type Pipeline = ParsedCommand[];
 
 export type DecomposeResult =
   | { ok: true; clauses: Pipeline[] }
-  | { ok: false; reason: DropReason; clauses: Pipeline[] };
+  | {
+      ok: false;
+      reason: DropReason;
+      /** For `unsupported_construct`: the AST node kind that fell outside the safety fragment. */
+      detail?: string;
+      clauses: Pipeline[];
+    };
 
 let cachedParser: Parser | null = null;
 
@@ -60,6 +67,24 @@ const NETWORK_CMDS = new Set(['curl', 'wget', 'fetch']);
 const SHELL_INTERPRETERS = new Set(['bash', 'sh', 'zsh', 'ksh', 'dash']);
 
 /**
+ * Thrown by {@link collectClauses} when it encounters an AST node kind that is
+ * not a member of {@link SAFETY_FRAGMENT}. Caught by {@link decompose} and
+ * surfaced as `unsupported_construct` with the node kind in `detail`.
+ */
+class UnsupportedConstructError extends Error {
+  readonly nodeKind: string;
+
+  /**
+   * @param nodeKind - The tree-sitter-bash node kind that fell outside the
+   *   safety fragment.
+   */
+  constructor(nodeKind: string) {
+    super(`unsupported AST node: ${nodeKind}`);
+    this.nodeKind = nodeKind;
+  }
+}
+
+/**
  * Parse a bash source string and decompose it into a list of commands.
  *
  * Returns `ok: false` with a reason when the input is unsafe or unparseable.
@@ -80,22 +105,36 @@ export function decompose(source: string): DecomposeResult {
     return { ok: false, reason: 'parse_error', clauses: [] };
   }
 
-  // Collect clauses from all top-level children of the program node
+  // Security check runs before clause collection so it fires even when the
+  // curl|sh pipeline is nested inside a construct outside the safety fragment.
+  if (hasCurlPipeShell(tree.rootNode)) {
+    return { ok: false, reason: 'curl_pipe_shell', clauses: [] };
+  }
+
   const clauses: Pipeline[] = [];
-  for (let i = 0; i < tree.rootNode.namedChildCount; i++) {
-    const child = tree.rootNode.namedChild(i);
-    if (child !== null) {
-      clauses.push(...collectClauses(child));
+  try {
+    for (let i = 0; i < tree.rootNode.namedChildCount; i++) {
+      const child = tree.rootNode.namedChild(i);
+      if (child !== null) {
+        clauses.push(...collectClauses(child));
+      }
     }
+  } catch (error) {
+    if (error instanceof UnsupportedConstructError) {
+      return {
+        ok: false,
+        reason: 'unsupported_construct',
+        detail: error.nodeKind,
+        clauses: [],
+      };
+    }
+    throw error;
   }
 
   const allCommands = clauses.flat();
 
   if (allCommands.some((cmd) => cmd.name === '<dynamic>')) {
     return { ok: false, reason: 'dynamic_command', clauses };
-  }
-  if (hasCurlPipeShell(tree.rootNode)) {
-    return { ok: false, reason: 'curl_pipe_shell', clauses };
   }
   if (hasEvalDynamic(allCommands)) {
     return { ok: false, reason: 'eval_dynamic', clauses };
@@ -123,86 +162,104 @@ function hasErrorNode(node: Parser.SyntaxNode): boolean {
   return false;
 }
 
-/**
- * Collect all `command` nodes found under the given syntax node.
- *
- * @param node - The root of the subtree to walk.
- * @returns An array of ParsedCommand objects extracted from command nodes.
- */
-function collectCommands(node: Parser.SyntaxNode): ParsedCommand[] {
-  const out: ParsedCommand[] = [];
-  walk(node, (nd) => {
-    if (nd.type === 'command') {
-      out.push(extractCommand(nd));
-    }
-  });
-  return out;
-}
+type FragmentHandler = (node: Parser.SyntaxNode) => Pipeline[];
+
+// SAFETY_FRAGMENT: the set of tree-sitter-bash AST node kinds caprock knows
+// how to decompose, each mapped to the handler that turns it into clauses.
+// Every node `collectClauses` encounters must be a member; anything else
+// throws `UnsupportedConstructError` so `decompose` can refuse with
+// `unsupported_construct` rather than fall through to a permissive walk.
+// Extending the fragment is a one-line entry plus tests — adding a kind here
+// is a deliberate decision, not an accident of "it happened to parse."
+const SAFETY_FRAGMENT: ReadonlyMap<string, FragmentHandler> = new Map<
+  string,
+  FragmentHandler
+>([
+  ['command', (node) => [[extractCommand(node)]]],
+  ['pipeline', collectPipelineClause],
+  ['list', recurseIntoChildren],
+  ['redirected_statement', delegateInsideRedirect],
+  ['subshell', recurseIntoChildren],
+  ['compound_statement', recurseIntoChildren],
+]);
 
 /**
  * Collect pipeline clauses from a syntax node, splitting on `&&`, `||`, and `;`.
  *
- * - `list` nodes (&&/||) are recursed into, producing one clause per operand.
- * - `pipeline` nodes produce one clause containing all their command nodes.
- * - `command` nodes produce one single-command clause.
- * - `redirected_statement` nodes delegate to their inner command/pipeline child.
- * - All other node types (subshell, compound_statement, etc.) are treated as
- *   one opaque clause by falling back to {@link collectCommands}.
+ * Dispatches through {@link SAFETY_FRAGMENT}. Nodes outside the fragment throw
+ * {@link UnsupportedConstructError}, which {@link decompose} catches.
  *
  * @param node - The syntax node to collect clauses from.
  * @returns An array of Pipeline clauses.
  */
 function collectClauses(node: Parser.SyntaxNode): Pipeline[] {
-  switch (node.type) {
-    case 'list': {
-      // && and || — recurse into both named children
-      const result: Pipeline[] = [];
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
-        if (child !== null) {
-          result.push(...collectClauses(child));
-        }
-      }
-      return result;
-    }
-    case 'pipeline': {
-      // All commands in this pipeline form one clause.
-      // Each stage may be a bare `command` or a `redirected_statement` wrapping one.
-      const cmds: ParsedCommand[] = [];
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
-        if (child === null) {
-          continue;
-        }
-        const cmd = extractPipelineStage(child);
-        if (cmd !== null) {
-          cmds.push(cmd);
-        }
-      }
-      return cmds.length > 0 ? [cmds] : [];
-    }
-    case 'command':
-      return [[extractCommand(node)]];
-    case 'redirected_statement': {
-      for (let i = 0; i < node.namedChildCount; i++) {
-        const child = node.namedChild(i);
-        if (
-          child !== null &&
-          child.type !== 'file_redirect' &&
-          child.type !== 'heredoc_redirect' &&
-          child.type !== 'herestring_redirect'
-        ) {
-          return collectClauses(child);
-        }
-      }
-      return [];
-    }
-    default: {
-      // subshell, compound_statement, etc. — collect all contained commands as one opaque clause
-      const cmds = collectCommands(node);
-      return cmds.length > 0 ? [cmds] : [];
+  const handler = SAFETY_FRAGMENT.get(node.type);
+  if (handler === undefined) {
+    throw new UnsupportedConstructError(node.type);
+  }
+  return handler(node);
+}
+
+/**
+ * Recurse into every named child of `node`, concatenating their clauses.
+ * Used for nodes that act as transparent grouping (`list`, `subshell`,
+ * `compound_statement`).
+ *
+ * @param node - The grouping node to descend into.
+ * @returns Concatenated clauses from the children.
+ */
+function recurseIntoChildren(node: Parser.SyntaxNode): Pipeline[] {
+  const result: Pipeline[] = [];
+  for (let i = 0; i < node.namedChildCount; i++) {
+    const child = node.namedChild(i);
+    if (child !== null) {
+      result.push(...collectClauses(child));
     }
   }
+  return result;
+}
+
+/**
+ * Collect every stage of a `pipeline` node into a single clause.
+ *
+ * @param node - The `pipeline` node to walk.
+ * @returns Either one clause with all stages, or no clauses if empty.
+ */
+function collectPipelineClause(node: Parser.SyntaxNode): Pipeline[] {
+  const cmds: ParsedCommand[] = [];
+  for (let i = 0; i < node.namedChildCount; i++) {
+    const child = node.namedChild(i);
+    if (child === null) {
+      continue;
+    }
+    const cmd = extractPipelineStage(child);
+    if (cmd !== null) {
+      cmds.push(cmd);
+    }
+  }
+  return cmds.length > 0 ? [cmds] : [];
+}
+
+/**
+ * Delegate a `redirected_statement` to its inner non-redirect child. The
+ * redirects themselves are attached to the inner command by {@link extractCommand}.
+ *
+ * @param node - The `redirected_statement` node.
+ * @returns Clauses produced by the inner statement.
+ */
+function delegateInsideRedirect(node: Parser.SyntaxNode): Pipeline[] {
+  for (let i = 0; i < node.namedChildCount; i++) {
+    const child = node.namedChild(i);
+    if (
+      child !== null &&
+      child.type !== 'file_redirect' &&
+      child.type !== 'heredoc_redirect' &&
+      child.type !== 'herestring_redirect'
+    ) {
+      return collectClauses(child);
+    }
+  }
+  return [];
 }
 
 /**
