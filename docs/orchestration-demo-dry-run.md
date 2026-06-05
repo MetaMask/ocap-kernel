@@ -110,18 +110,14 @@ Confirm the relay env knob is set in the VPS shell profile:
 setenv LIBP2P_RELAY_PUBLIC_IP <vps-public-ip>
 ```
 
-Clear any stale matcher URL from a prior session **before** installing
-the discovery plugin. The plugin eagerly pre-redeems whatever
-`matcherUrl` is in its config at install/enable time; a stale URL will
-make the install fail (the matcher it points at doesn't exist
-anymore, and the consumer daemon hasn't been set up with remote
-comms yet during one-time setup):
+Remove any pre-existing matcher URL from openclaw's config (safe on
+a fresh system; per-run setup sets a fresh URL in step 5):
 
 ```csh
 openclaw config unset 'plugins.entries.discovery.config.matcherUrl'
 ```
 
-Now install the openclaw plugins (reinstalls are fine):
+Install the openclaw plugins:
 
 ```csh
 openclaw plugins install -l ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery
@@ -134,9 +130,6 @@ openclaw config unset tools.profile
 openclaw plugins disable metamask
 openclaw config set gateway.http.endpoints.chatCompletions.enabled true
 ```
-
-The discovery plugin's `matcherUrl` is set per-run (step 5 below),
-not here.
 
 Confirm openclaw skills:
 
