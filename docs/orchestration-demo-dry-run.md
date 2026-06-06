@@ -170,11 +170,13 @@ openclaw config set gateway.http.endpoints.chatCompletions.enabled true
 
 Install the two skills the demo uses. Plugin-bundled skills are
 NOT auto-discovered; they require an explicit `openclaw skills
-install`:
+install`. The path argument must start with `./` — absolute paths
+get misclassified as slugs:
 
 ```csh
-openclaw skills install ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery/skills/discovery
-openclaw skills install ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-demo/skills/orchestration-demo
+cd ~/GitRepos/ocap-kernel
+openclaw skills install ./packages/agentmask/openclaw-plugin-discovery/skills/discovery
+openclaw skills install ./packages/agentmask/openclaw-plugin-demo/skills/orchestration-demo
 ```
 
 Confirm both appear:
