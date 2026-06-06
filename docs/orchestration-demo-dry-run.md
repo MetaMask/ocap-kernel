@@ -160,13 +160,20 @@ demo_get_artifact
 demo_wallet_balance
 ```
 
-Set the remaining flags (these are safe to set unconditionally):
+Set the remaining flags (these are safe to set unconditionally),
+then restart the gateway once at the end so all the preceding
+changes take effect:
 
 ```csh
 openclaw config unset tools.profile
 openclaw plugins disable metamask
 openclaw config set gateway.http.endpoints.chatCompletions.enabled true
+openclaw gateway restart
 ```
+
+Each `openclaw config set` / `openclaw plugins enable|disable` prints
+its own "Restart the gateway to apply" reminder; ignore those and
+restart once at the end.
 
 Each plugin install and enable step may emit a `failed to post
 event to demo-display: ... ECONNREFUSED 127.0.0.1:7777` warning,
