@@ -160,14 +160,33 @@ demo_get_artifact
 demo_wallet_balance
 ```
 
-Set the remaining flags (these are safe to set unconditionally),
-then restart the gateway once at the end so all the preceding
-changes take effect:
+Set the remaining flags (these are safe to set unconditionally):
 
 ```csh
 openclaw config unset tools.profile
 openclaw plugins disable metamask
 openclaw config set gateway.http.endpoints.chatCompletions.enabled true
+```
+
+Install the two skills the demo uses. Plugin-bundled skills are
+NOT auto-discovered; they require an explicit `openclaw skills
+install`:
+
+```csh
+openclaw skills install ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery/skills/discovery
+openclaw skills install ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-demo/skills/orchestration-demo
+```
+
+Confirm both appear:
+
+```csh
+openclaw skills list
+```
+
+Restart the gateway once at the end so all the preceding changes
+take effect:
+
+```csh
 openclaw gateway restart
 ```
 
