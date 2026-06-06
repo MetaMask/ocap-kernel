@@ -110,6 +110,15 @@ Confirm the relay env knob is set in the VPS shell profile:
 setenv LIBP2P_RELAY_PUBLIC_IP <vps-public-ip>
 ```
 
+Ensure openclaw is on a recent enough version to support local-path
+`openclaw skills install`. Older versions only accept ClawHub slugs:
+
+```csh
+openclaw --version
+npm view openclaw version
+sudo npm install -g openclaw@latest
+```
+
 Remove any pre-existing matcher URL from openclaw's config (safe on
 a fresh system; per-run setup sets a fresh URL in step 5):
 
