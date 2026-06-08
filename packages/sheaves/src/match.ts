@@ -1,5 +1,5 @@
 /**
- * Stalk computation: filter providers by guard matching.
+ * Filter providers by guard matching at an invocation point.
  */
 
 import { GET_INTERFACE_GUARD } from '@endo/exo';
@@ -58,7 +58,7 @@ export const guardCoversPoint = (
  * @param args - The arguments to the method invocation.
  * @returns The providers whose guards accept the invocation.
  */
-export const getStalk = <T extends { exo: Section }>(
+export const getMatchingProviders = <T extends { exo: Section }>(
   providers: readonly T[],
   method: string,
   args: unknown[],

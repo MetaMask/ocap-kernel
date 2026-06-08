@@ -63,7 +63,7 @@ describe('e2e: cost-optimal routing', () => {
     expect(remote0GetBalance).not.toHaveBeenCalled();
     local1GetBalance.mockClear();
 
-    // bob: only remote matches (stalk=1, lift not invoked)
+    // bob: only remote matches (one candidate, lift not invoked)
     await E(wallet).getBalance('bob');
     expect(remote0GetBalance).toHaveBeenCalledWith('bob');
     expect(local1GetBalance).not.toHaveBeenCalled();
@@ -168,7 +168,7 @@ describe('e2e: multi-tier capability routing', () => {
       lift: fastest,
     });
 
-    // Phase 1 — single backend: stalk is always 1, lift never fires.
+    // Phase 1 — single backend: always one candidate, lift never fires.
     await E(wallet).getBalance('alice');
     await E(wallet).getBalance('bob');
     await E(wallet).getBalance('dave');
@@ -262,7 +262,7 @@ describe('e2e: multi-tier capability routing', () => {
       lift: fastest,
     });
 
-    // transfer: only write-backend declares it → stalk=1, lift bypassed.
+    // transfer: only write-backend declares it → one candidate, lift bypassed.
     const facade = wallet as unknown as Record<
       string,
       (...args: unknown[]) => unknown
@@ -388,7 +388,7 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
     expect(pullGetBalance).not.toHaveBeenCalled();
     pushGetBalance.mockClear();
 
-    // bob: only pull matches (stalk=1, lift bypassed)
+    // bob: only pull matches (one candidate, lift bypassed)
     await E(wallet).getBalance('bob');
     expect(pullGetBalance).toHaveBeenCalledWith('bob');
     expect(pushGetBalance).not.toHaveBeenCalled();

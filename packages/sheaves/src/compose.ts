@@ -3,7 +3,7 @@ import type { Candidate, Policy, PolicyContext } from './types.ts';
 /**
  * A policy that yields all candidates in their original order without filtering.
  *
- * Use as a placeholder when the sheaf always has a single-candidate stalk
+ * Use as a placeholder when the sheaf always resolves to a single candidate
  * (the policy is never actually called) or to express "try everything in
  * declaration order" as an explicit policy.
  *

@@ -16,7 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   set of capability providers.
 - `Provider<M>` type — an input to `sheafify`: a `{ exo, metadata? }` pair
   where `exo` is a `Section` and `metadata` is an optional `MetadataSpec<M>`.
-- `Candidate<M>` type — a post-evaluation entry in the stalk: `{ exo,
+- `Candidate<M>` type — a post-evaluation entry in the candidate set: `{ exo,
 metadata }` with metadata already resolved from its spec.
 - `Section` type — an exo capability covering a region of the interface
   topology.

@@ -5,7 +5,7 @@
  * that produces dispatch sections over a fixed set of providers.
  *
  * Each dispatch through a granted section:
- *   1. Computes the matching providers (getStalk — providers whose guard covers the point)
+ *   1. Filters to providers whose guard covers the point (getMatchingProviders)
  *   2. Collapses equivalent candidates (same metadata → one representative)
  *   3. Decomposes metadata into constraints + options
  *   4. Invokes the policy on the distinguished options
@@ -20,8 +20,8 @@ import { makeDiscoverableExo } from '@metamask/kernel-utils';
 import { stringify } from '@metamask/kernel-utils';
 
 import { asyncifyMethodGuards, collectSheafGuard } from './guard.ts';
+import { getMatchingProviders } from './match.ts';
 import { evaluateMetadata } from './metadata.ts';
-import { getStalk } from './stalk.ts';
 import type {
   Candidate,
   MetadataSpec,
@@ -226,7 +226,7 @@ export const sheafify = <
       method: string,
       args: unknown[],
     ): Promise<unknown> => {
-      const candidates = getStalk(frozenProviders, method, args);
+      const candidates = getMatchingProviders(frozenProviders, method, args);
       const evaluatedCandidates: Candidate<MetaData>[] = candidates.map(
         (provider) => ({
           exo: provider.exo,

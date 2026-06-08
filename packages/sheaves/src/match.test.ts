@@ -2,9 +2,9 @@ import { M } from '@endo/patterns';
 import type { MethodGuard } from '@endo/patterns';
 import { describe, it, expect } from 'vitest';
 
+import { getMatchingProviders } from './match.ts';
 import { constant } from './metadata.ts';
 import { makeSection } from './section.ts';
-import { getStalk } from './stalk.ts';
 import type { Provider } from './types.ts';
 
 const makeProvider = (
@@ -17,7 +17,7 @@ const makeProvider = (
   metadata: constant(metadata),
 });
 
-describe('getStalk', () => {
+describe('getMatchingProviders', () => {
   it('returns matching providers for a method and args', () => {
     const providers = [
       makeProvider(
@@ -34,7 +34,7 @@ describe('getStalk', () => {
       ),
     ];
 
-    const candidates = getStalk(providers, 'add', [1, 2]);
+    const candidates = getMatchingProviders(providers, 'add', [1, 2]);
     expect(candidates).toHaveLength(2);
   });
 
@@ -54,7 +54,7 @@ describe('getStalk', () => {
       ),
     ];
 
-    const candidates = getStalk(providers, 'add', [1]);
+    const candidates = getMatchingProviders(providers, 'add', [1]);
     expect(candidates).toHaveLength(1);
     expect(candidates[0]!.metadata).toStrictEqual(constant({ cost: 1 }));
   });
@@ -69,7 +69,7 @@ describe('getStalk', () => {
       ),
     ];
 
-    const candidates = getStalk(providers, 'add', [1]);
+    const candidates = getMatchingProviders(providers, 'add', [1]);
     expect(candidates).toHaveLength(0);
   });
 
@@ -83,7 +83,7 @@ describe('getStalk', () => {
       ),
     ];
 
-    const candidates = getStalk(providers, 'add', ['not-a-number']);
+    const candidates = getMatchingProviders(providers, 'add', ['not-a-number']);
     expect(candidates).toHaveLength(0);
   });
 
@@ -97,7 +97,7 @@ describe('getStalk', () => {
       ),
     ];
 
-    const candidates = getStalk(providers, 'add', ['bob']);
+    const candidates = getMatchingProviders(providers, 'add', ['bob']);
     expect(candidates).toHaveLength(0);
   });
 
@@ -115,12 +115,14 @@ describe('getStalk', () => {
       ),
     ];
 
-    expect(getStalk(providers, 'greet', ['alice'])).toHaveLength(1);
-    expect(getStalk(providers, 'greet', ['alice', 'hi'])).toHaveLength(1);
-    expect(getStalk(providers, 'greet', [])).toHaveLength(0);
-    expect(getStalk(providers, 'greet', ['alice', 'hi', 'extra'])).toHaveLength(
-      0,
-    );
+    expect(getMatchingProviders(providers, 'greet', ['alice'])).toHaveLength(1);
+    expect(
+      getMatchingProviders(providers, 'greet', ['alice', 'hi']),
+    ).toHaveLength(1);
+    expect(getMatchingProviders(providers, 'greet', [])).toHaveLength(0);
+    expect(
+      getMatchingProviders(providers, 'greet', ['alice', 'hi', 'extra']),
+    ).toHaveLength(0);
   });
 
   it('matches providers with rest args', () => {
@@ -133,13 +135,15 @@ describe('getStalk', () => {
       ),
     ];
 
-    expect(getStalk(providers, 'log', ['info'])).toHaveLength(1);
-    expect(getStalk(providers, 'log', ['info', 'msg'])).toHaveLength(1);
-    expect(getStalk(providers, 'log', ['info', 'msg', 'extra'])).toHaveLength(
-      1,
-    );
-    expect(getStalk(providers, 'log', [])).toHaveLength(0);
-    expect(getStalk(providers, 'log', [42])).toHaveLength(0);
+    expect(getMatchingProviders(providers, 'log', ['info'])).toHaveLength(1);
+    expect(
+      getMatchingProviders(providers, 'log', ['info', 'msg']),
+    ).toHaveLength(1);
+    expect(
+      getMatchingProviders(providers, 'log', ['info', 'msg', 'extra']),
+    ).toHaveLength(1);
+    expect(getMatchingProviders(providers, 'log', [])).toHaveLength(0);
+    expect(getMatchingProviders(providers, 'log', [42])).toHaveLength(0);
   });
 
   it('returns all providers when all match', () => {
@@ -164,7 +168,7 @@ describe('getStalk', () => {
       ),
     ];
 
-    const candidates = getStalk(providers, 'f', ['hello']);
+    const candidates = getMatchingProviders(providers, 'f', ['hello']);
     expect(candidates).toHaveLength(3);
   });
 });

@@ -16,7 +16,7 @@ const isPlainObjectRecord = (value: object): boolean => {
  * Normalize evaluated metadata: empty sentinel is `{}`; invalid shapes throw.
  *
  * @param raw - Result from constant value or callable, before validation.
- * @returns A plain object suitable for stalk metadata.
+ * @returns A plain object suitable for candidate metadata.
  */
 const normalizeEvaluatedSheafMetadata = (
   raw: unknown,

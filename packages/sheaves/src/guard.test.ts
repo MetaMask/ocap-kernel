@@ -6,8 +6,8 @@ import {
   getInterfaceMethodGuards,
   getMethodPayload,
 } from './guard.ts';
+import { guardCoversPoint } from './match.ts';
 import { makeSection } from './section.ts';
-import { guardCoversPoint } from './stalk.ts';
 
 describe('collectSheafGuard', () => {
   it('variable arity: add with 1, 2, and 3 args', () => {
