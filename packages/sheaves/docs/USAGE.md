@@ -104,13 +104,20 @@ const section = sheaf.getDiscoverableSection({
 
 `getSection` is the non-discoverable variant (no `schema` required).
 
-`getGlobalSection` and `getDiscoverableGlobalSection` derive the guard
-automatically from the union of all providers. They are `@deprecated` as a
-nudge toward explicit guards once the caller knows the provider set — explicit
-guards make the capability's scope visible at the call site. When providers are
-assembled dynamically (e.g., rebuilt at runtime from a set of grants that
-changes) and the union guard isn't known until after `sheafify` runs, the
-global variants are the right choice.
+The guard is always explicit at the call site — it makes the capability's
+scope visible to the reader. When providers are assembled dynamically and the
+guard isn't known until after `sheafify` runs, compute the union with
+`collectSheafGuard` and pass it in:
+
+```ts
+import { collectSheafGuard } from '@metamask/sheaves';
+
+const guard = collectSheafGuard(
+  'Wallet',
+  providers.map(({ exo }) => exo),
+);
+const section = sheaf.getSection({ guard, lift });
+```
 
 ## Remote providers
 

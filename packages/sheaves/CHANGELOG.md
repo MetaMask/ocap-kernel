@@ -42,8 +42,10 @@ constraints }`.
 - `fallthrough(policyA, policyB)` — composes two policies so that `policyB`
   is tried only after `policyA` is exhausted.
 - `Sheaf<M>` type — the authority manager returned by `sheafify`; exposes
-  `getSection`, `getDiscoverableSection`, `getGlobalSection`, and
-  `getDiscoverableGlobalSection`.
+  `getSection` and `getDiscoverableSection`.
+- `collectSheafGuard(name, sections)` — compute the union interface guard of
+  a set of sections, for callers that assemble providers dynamically and need
+  to pass an explicit guard to `getSection`.
 - `docs/POLICY.md` — documents the policy coroutine protocol,
   `PolicyContext`, and the semantic equivalence assumption.
 - `docs/USAGE.md` — annotated usage examples.

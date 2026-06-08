@@ -111,28 +111,4 @@ export type Sheaf<MetaData extends Record<string, unknown>> = {
     lift: Policy<MetaData>;
     schema: Record<string, MethodSchema>;
   }) => object;
-  /**
-   * Produce a dispatch exo over the full union guard of all providers.
-   *
-   * Prefer `getSection` with an explicit guard when the guard is statically
-   * known — it makes the capability's scope visible at the call site. Use the
-   * global variant when providers are assembled dynamically at runtime and the
-   * union guard is not known until after `sheafify` runs.
-   *
-   * @deprecated Provide an explicit guard via getSection instead.
-   */
-  getGlobalSection: (opts: { lift: Policy<MetaData> }) => object;
-  /**
-   * Produce a discoverable dispatch exo over the full union guard of all providers.
-   *
-   * Prefer `getDiscoverableSection` with an explicit guard when the guard is
-   * statically known. Use the global variant when providers are assembled
-   * dynamically and the union guard is not known until after `sheafify` runs.
-   *
-   * @deprecated Provide an explicit guard via getDiscoverableSection instead.
-   */
-  getDiscoverableGlobalSection: (opts: {
-    lift: Policy<MetaData>;
-    schema: Record<string, MethodSchema>;
-  }) => object;
 };

@@ -1,8 +1,10 @@
 import { GET_INTERFACE_GUARD } from '@endo/exo';
 import { M, getInterfaceGuardPayload } from '@endo/patterns';
 import { GET_DESCRIPTION } from '@metamask/kernel-utils';
+import type { MethodSchema } from '@metamask/kernel-utils';
 import { describe, it, expect } from 'vitest';
 
+import { collectSheafGuard } from './guard.ts';
 import { constant } from './metadata.ts';
 import { makeSection } from './section.ts';
 import { sheafify } from './sheafify.ts';
@@ -13,6 +15,25 @@ import type { Candidate, Policy, PolicyContext, Provider } from './types.ts';
 // eslint-disable-next-line id-length
 const E = (obj: unknown) =>
   obj as Record<string, (...args: unknown[]) => Promise<unknown>>;
+
+// Sheafify and build a section over the union guard of all providers. Used by
+// tests that exercise dispatch behavior without caring which guard variant is
+// presented at the call site.
+const buildUnionSection = <MetaData extends Record<string, unknown>>(
+  name: string,
+  providers: Provider<MetaData>[],
+  lift: Policy<MetaData>,
+  schema?: Record<string, MethodSchema>,
+): object => {
+  const sheaf = sheafify({ name, providers });
+  const guard = collectSheafGuard(
+    name,
+    providers.map(({ exo }) => exo),
+  );
+  return schema === undefined
+    ? sheaf.getSection({ guard, lift })
+    : sheaf.getDiscoverableSection({ guard, lift, schema });
+};
 
 // ---------------------------------------------------------------------------
 // Unit: sheafify
@@ -40,9 +61,7 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift,
-    });
+    const wallet = buildUnionSection('Wallet', providers, lift);
     expect(await E(wallet).getBalance('alice')).toBe(42);
     expect(liftCalled).toBe(false);
   });
@@ -61,11 +80,14 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      async *lift(_candidates) {
+    const wallet = buildUnionSection<{ cost: number }>(
+      'Wallet',
+      providers,
+
+      async function* (_candidates) {
         // unreachable — zero-coverage path throws before reaching lift
       },
-    });
+    );
     await expect(E(wallet).getBalance('bob')).rejects.toThrow(
       'No section covers',
     );
@@ -102,9 +124,7 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: argmin,
-    });
+    const wallet = buildUnionSection('Wallet', providers, argmin);
     // argmin picks cost=1 section which returns 42
     expect(await E(wallet).getBalance('alice')).toBe(42);
   });
@@ -134,11 +154,13 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      async *lift(candidates) {
+    const wallet = buildUnionSection<{ cost: number }>(
+      'Wallet',
+      providers,
+      async function* (candidates) {
         yield candidates[0]!;
       },
-    });
+    );
     const guard = wallet[GET_INTERFACE_GUARD]();
     expect(guard).toBeDefined();
 
@@ -167,9 +189,7 @@ describe('sheafify', () => {
       },
     ];
 
-    let wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: argmin,
-    });
+    let wallet = buildUnionSection('Wallet', providers, argmin);
     expect(await E(wallet).getBalance('alice')).toBe(100);
 
     // Add a cheaper provider with a new method to the providers array, re-sheafify.
@@ -189,9 +209,7 @@ describe('sheafify', () => {
       ),
       metadata: constant({ cost: 1 }),
     });
-    wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: argmin,
-    });
+    wallet = buildUnionSection('Wallet', providers, argmin);
 
     // argmin picks the cheaper section
     expect(await E(wallet).getBalance('alice')).toBe(42);
@@ -215,11 +233,13 @@ describe('sheafify', () => {
       { exo, metadata: constant({ cost: 1 }) },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      async *lift(candidates) {
+    const wallet = buildUnionSection<{ cost: number }>(
+      'Wallet',
+      providers,
+      async function* (candidates) {
         yield candidates[0]!;
       },
-    });
+    );
     expect(await E(wallet).getBalance('alice')).toBe(42);
   });
 
@@ -244,9 +264,7 @@ describe('sheafify', () => {
       },
     ];
 
-    let wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: argmin,
-    });
+    let wallet = buildUnionSection('Wallet', providers, argmin);
     expect(await E(wallet).getBalance('alice')).toBe(100);
 
     // Add a pre-built exo with a cheaper getBalance + new transfer method
@@ -267,9 +285,7 @@ describe('sheafify', () => {
       exo,
       metadata: constant({ cost: 1 }),
     });
-    wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: argmin,
-    });
+    wallet = buildUnionSection('Wallet', providers, argmin);
 
     // argmin picks the cheaper section
     expect(await E(wallet).getBalance('alice')).toBe(42);
@@ -293,11 +309,13 @@ describe('sheafify', () => {
       { exo, metadata: constant({ cost: 1 }) },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      async *lift(candidates) {
+    const wallet = buildUnionSection<{ cost: number }>(
+      'Wallet',
+      providers,
+      async function* (candidates) {
         yield candidates[0]!;
       },
-    });
+    );
     const guard = wallet[GET_INTERFACE_GUARD]();
     expect(guard).toBeDefined();
 
@@ -339,9 +357,7 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: spy,
-    });
+    const wallet = buildUnionSection('Wallet', providers, spy);
     await E(wallet).getBalance('alice');
 
     expect(capturedContext).toStrictEqual({
@@ -388,9 +404,7 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: spy,
-    });
+    const wallet = buildUnionSection('Wallet', providers, spy);
     await E(wallet).getBalance('alice');
 
     // Both providers collapsed to one candidate → policy not invoked
@@ -425,12 +439,14 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
+    const wallet = buildUnionSection<Meta>(
+      'Wallet',
+      providers,
       // eslint-disable-next-line require-yield
-      async *lift(_candidates) {
+      async function* (_candidates) {
         liftCalled = true;
       },
-    });
+    );
     await E(wallet).getBalance('alice');
 
     // Both providers have identical metadata → collapsed to one candidate → policy bypassed
@@ -465,13 +481,15 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      async *lift(candidates, context) {
+    const wallet = buildUnionSection<Meta>(
+      'Wallet',
+      providers,
+      async function* (candidates, context) {
         capturedCandidates = candidates;
         capturedContext = context;
         yield candidates[0]!;
       },
-    });
+    );
 
     await E(wallet).getBalance('alice');
 
@@ -510,12 +528,14 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      async *lift(candidates) {
+    const wallet = buildUnionSection<Meta>(
+      'Wallet',
+      providers,
+      async function* (candidates) {
         candidateCount = candidates.length;
         yield candidates[0]!;
       },
-    });
+    );
 
     await E(wallet).getBalance('alice');
     expect(candidateCount).toBe(2);
@@ -548,12 +568,14 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      async *lift(candidates) {
+    const wallet = buildUnionSection<Meta>(
+      'Wallet',
+      providers,
+      async function* (candidates) {
         candidateCount = candidates.length;
         yield candidates[0]!;
       },
-    });
+    );
 
     await E(wallet).getBalance('alice');
     expect(candidateCount).toBe(2);
@@ -585,12 +607,14 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
+    const wallet = buildUnionSection<Meta>(
+      'Wallet',
+      providers,
       // eslint-disable-next-line require-yield
-      async *lift(_candidates) {
+      async function* (_candidates) {
         liftCalled = true;
       },
-    });
+    );
     await E(wallet).getBalance('alice');
 
     expect(liftCalled).toBe(false);
@@ -625,14 +649,12 @@ describe('sheafify', () => {
       { exo, metadata: constant({ cost: 1 }) },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: argmin,
-    });
+    const wallet = buildUnionSection('Wallet', providers, argmin);
     // argmin picks the exo section (cost=1)
     expect(await E(wallet).getBalance('alice')).toBe(42);
   });
 
-  it('getDiscoverableGlobalSection exposes __getDescription__', async () => {
+  it('getDiscoverableSection exposes __getDescription__ over union guard', async () => {
     const schema = {
       getBalance: {
         description: 'Get account balance.',
@@ -652,15 +674,14 @@ describe('sheafify', () => {
       },
     ];
 
-    const section = sheafify({
-      name: 'Wallet',
+    const section = buildUnionSection<Record<string, never>>(
+      'Wallet',
       providers,
-    }).getDiscoverableGlobalSection({
-      async *lift(candidates) {
+      async function* (candidates) {
         yield candidates[0]!;
       },
       schema,
-    });
+    );
 
     expect(E(section)[GET_DESCRIPTION]()).toStrictEqual(schema);
   });
@@ -678,11 +699,13 @@ describe('sheafify', () => {
       },
     ];
 
-    const section = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      async *lift(candidates) {
+    const section = buildUnionSection<Record<string, never>>(
+      'Wallet',
+      providers,
+      async function* (candidates) {
         yield candidates[0]!;
       },
-    });
+    );
 
     expect(
       (section as Record<string, unknown>)[GET_DESCRIPTION],
@@ -726,9 +749,7 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: spy,
-    });
+    const wallet = buildUnionSection('Wallet', providers, spy);
     await E(wallet).getBalance('alice');
 
     expect(capturedContext).toStrictEqual({
@@ -780,9 +801,7 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: spy,
-    });
+    const wallet = buildUnionSection('Wallet', providers, spy);
     await E(wallet).getBalance('alice');
 
     // 'constructor' is only owned by provider A — must not appear in constraints

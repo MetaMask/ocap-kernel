@@ -19,7 +19,7 @@ import type { MethodSchema } from '@metamask/kernel-utils';
 import { makeDiscoverableExo } from '@metamask/kernel-utils';
 import { stringify } from '@metamask/kernel-utils';
 
-import { asyncifyMethodGuards, collectSheafGuard } from './guard.ts';
+import { asyncifyMethodGuards } from './guard.ts';
 import { getMatchingProviders } from './match.ts';
 import { evaluateMetadata } from './metadata.ts';
 import type {
@@ -297,12 +297,6 @@ export const sheafify = <
     return exo;
   };
 
-  const unionGuard = (): InterfaceGuard =>
-    collectSheafGuard(
-      name,
-      frozenProviders.map(({ exo }) => exo),
-    );
-
   const getSection = ({
     guard,
     lift,
@@ -321,21 +315,8 @@ export const sheafify = <
     schema: Record<string, MethodSchema>;
   }): object => buildSection({ guard, lift, schema });
 
-  const getGlobalSection = ({ lift }: { lift: Policy<MetaData> }): object =>
-    buildSection({ guard: unionGuard(), lift });
-
-  const getDiscoverableGlobalSection = ({
-    lift,
-    schema,
-  }: {
-    lift: Policy<MetaData>;
-    schema: Record<string, MethodSchema>;
-  }): object => buildSection({ guard: unionGuard(), lift, schema });
-
   return harden({
     getSection,
     getDiscoverableSection,
-    getGlobalSection,
-    getDiscoverableGlobalSection,
   });
 };

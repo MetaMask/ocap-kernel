@@ -1,6 +1,7 @@
 import { M } from '@endo/patterns';
 import { describe, expect, it, vi } from 'vitest';
 
+import { collectSheafGuard } from './guard.ts';
 import { callable, constant } from './metadata.ts';
 import { makeSection } from './section.ts';
 import { sheafify } from './sheafify.ts';
@@ -11,6 +12,22 @@ import type { Policy, Provider } from './types.ts';
 // eslint-disable-next-line id-length
 const E = (obj: unknown) =>
   obj as Record<string, (...args: unknown[]) => Promise<unknown>>;
+
+// Sheafify and build a section over the union guard of all providers. Used by
+// tests that exercise dispatch behavior without caring which guard variant is
+// presented at the call site.
+const buildUnionSection = <MetaData extends Record<string, unknown>>(
+  name: string,
+  providers: Provider<MetaData>[],
+  lift: Policy<MetaData>,
+): object =>
+  sheafify({ name, providers }).getSection({
+    guard: collectSheafGuard(
+      name,
+      providers.map(({ exo }) => exo),
+    ),
+    lift,
+  });
 
 // ---------------------------------------------------------------------------
 // E2E: cost-optimal routing
@@ -53,9 +70,7 @@ describe('e2e: cost-optimal routing', () => {
       },
     ];
 
-    let wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: argmin,
-    });
+    let wallet = buildUnionSection('Wallet', providers, argmin);
 
     // alice: both handlers match, argmin picks local (cost=1)
     await E(wallet).getBalance('alice');
@@ -81,9 +96,7 @@ describe('e2e: cost-optimal routing', () => {
       ),
       metadata: constant({ cost: 2 }),
     });
-    wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: argmin,
-    });
+    wallet = buildUnionSection('Wallet', providers, argmin);
 
     // bob: now remote (cost=100) and new local (cost=2) both match, argmin picks cost=2
     await E(wallet).getBalance('bob');
@@ -164,9 +177,7 @@ describe('e2e: multi-tier capability routing', () => {
       metadata: constant({ latencyMs: 500, label: 'network' }),
     });
 
-    let wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: fastest,
-    });
+    let wallet = buildUnionSection('Wallet', providers, fastest);
 
     // Phase 1 — single backend: always one candidate, lift never fires.
     await E(wallet).getBalance('alice');
@@ -190,9 +201,7 @@ describe('e2e: multi-tier capability routing', () => {
       ),
       metadata: constant({ latencyMs: 1, label: 'local' }),
     });
-    wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: fastest,
-    });
+    wallet = buildUnionSection('Wallet', providers, fastest);
 
     // Phase 2 — alice routes to local (1ms < 500ms), bob still hits network.
     await E(wallet).getBalance('alice');
@@ -218,9 +227,7 @@ describe('e2e: multi-tier capability routing', () => {
       ),
       metadata: constant({ latencyMs: 0, label: 'cache' }),
     });
-    wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: fastest,
-    });
+    wallet = buildUnionSection('Wallet', providers, fastest);
 
     // Phase 3 — every known account hits its optimal tier.
     await E(wallet).getBalance('alice'); // local  (1ms)
@@ -258,9 +265,7 @@ describe('e2e: multi-tier capability routing', () => {
       ),
       metadata: constant({ latencyMs: 200, label: 'write-backend' }),
     });
-    wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: fastest,
-    });
+    wallet = buildUnionSection('Wallet', providers, fastest);
 
     // transfer: only write-backend declares it → one candidate, lift bypassed.
     const facade = wallet as unknown as Record<
@@ -314,10 +319,7 @@ describe('e2e: multi-tier capability routing', () => {
     ];
 
     // Policy A: fastest wins (mirror at 50ms < network at 500ms).
-    const walletA = sheafify({
-      name: 'Wallet',
-      providers: makeProviders(),
-    }).getGlobalSection({ lift: fastest });
+    const walletA = buildUnionSection('Wallet', makeProviders(), fastest);
     await E(walletA).getBalance('alice');
     expect(mirrorGetBalance).toHaveBeenCalledWith('alice');
     expect(networkGetBalance).not.toHaveBeenCalled();
@@ -329,10 +331,7 @@ describe('e2e: multi-tier capability routing', () => {
         (a, b) => (b.metadata?.latencyMs ?? 0) - (a.metadata?.latencyMs ?? 0),
       );
     };
-    const walletB = sheafify({
-      name: 'Wallet',
-      providers: makeProviders(),
-    }).getGlobalSection({ lift: slowest });
+    const walletB = buildUnionSection('Wallet', makeProviders(), slowest);
     await E(walletB).getBalance('alice');
     expect(networkGetBalance).toHaveBeenCalledWith('alice');
     expect(mirrorGetBalance).not.toHaveBeenCalled();
@@ -378,9 +377,7 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'PushPull', providers }).getGlobalSection({
-      lift: preferPush,
-    });
+    const wallet = buildUnionSection('PushPull', providers, preferPush);
 
     // alice: both match, preferPush picks push section
     await E(wallet).getBalance('alice');
@@ -453,9 +450,11 @@ describe('e2e: callable metadata — cost varies with invocation args', () => {
       },
     ];
 
-    const facade = sheafify({ name: 'Swap', providers }).getGlobalSection({
-      lift: cheapest,
-    }) as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
+    const facade = buildUnionSection(
+      'Swap',
+      providers,
+      cheapest,
+    ) as unknown as Record<string, (...args: unknown[]) => Promise<unknown>>;
 
     // swap(50): A costs 6, B costs 10.05 → A wins
     await facade.swap(50, 'FUZ', 'BIZ');
@@ -518,9 +517,7 @@ describe('e2e: lift retry on handler failure', () => {
       }
     };
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: priorityFirst,
-    });
+    const wallet = buildUnionSection('Wallet', providers, priorityFirst);
 
     const result = await E(wallet).getBalance('alice');
 
@@ -569,9 +566,7 @@ describe('e2e: lift retry on handler failure', () => {
       }
     };
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      lift: priorityFirst,
-    });
+    const wallet = buildUnionSection('Wallet', providers, priorityFirst);
 
     await E(wallet).getBalance('alice');
 
@@ -615,13 +610,15 @@ describe('e2e: lift retry on handler failure', () => {
       },
     ];
 
-    const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
-      async *lift(candidates) {
+    const wallet = buildUnionSection<{ priority: number }>(
+      'Wallet',
+      providers,
+      async function* (candidates) {
         yield* [...candidates].sort(
           (a, b) => (a.metadata?.priority ?? 0) - (b.metadata?.priority ?? 0),
         );
       },
-    });
+    );
 
     await expect(E(wallet).getBalance('alice')).rejects.toThrow(
       'No viable section',
