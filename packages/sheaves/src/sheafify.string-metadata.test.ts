@@ -14,7 +14,7 @@ import { M } from '@endo/patterns';
 import { describe, it, expect, vi } from 'vitest';
 
 import { source } from './metadata.ts';
-import { makeHandler } from './section.ts';
+import { makeSection } from './section.ts';
 import { sheafify } from './sheafify.ts';
 import type { Policy, Provider } from './types.ts';
 
@@ -54,7 +54,7 @@ describe('e2e: source metadata — compartment evaluates cost function', () => {
 
     const providers: Provider<SwapCost>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'SwapA',
           M.interface('SwapA', {
             swap: M.call(M.number(), M.string(), M.string()).returns(
@@ -67,7 +67,7 @@ describe('e2e: source metadata — compartment evaluates cost function', () => {
         metadata: source(`(args) => ({ cost: 1 + 0.1 * args[0] })`),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'SwapB',
           M.interface('SwapB', {
             swap: M.call(M.number(), M.string(), M.string()).returns(

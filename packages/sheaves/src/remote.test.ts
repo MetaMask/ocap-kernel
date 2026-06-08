@@ -4,18 +4,18 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { constant } from './metadata.ts';
 import { makeRemoteSection } from './remote.ts';
-import { makeHandler } from './section.ts';
+import { makeSection } from './section.ts';
 
 // Mirrors the local-E pattern used throughout sheaf tests: the test
 // environment has no HandledPromise, so we mock E as a transparent cast.
 // With this mock, E(exo) === exo, so [GET_INTERFACE_GUARD] and method calls
-// resolve locally against the handler — equivalent to a local CapTP loopback.
+// resolve locally against the exo — equivalent to a local CapTP loopback.
 vi.mock('@endo/eventual-send', () => ({
   E: (ref: unknown) => ref,
 }));
 
-const makeRemoteHandler = (tag: string) =>
-  makeHandler(
+const makeRemoteExo = (tag: string) =>
+  makeSection(
     tag,
     M.interface(
       tag,
@@ -33,16 +33,16 @@ const makeRemoteHandler = (tag: string) =>
 
 describe('makeRemoteSection', () => {
   it('fetches the interface guard from the remote ref', async () => {
-    const remoteHandler = makeRemoteHandler('Remote');
-    const { handler } = await makeRemoteSection('Wrapper', remoteHandler);
-    expect(handler[GET_INTERFACE_GUARD]?.()).toStrictEqual(
-      remoteHandler[GET_INTERFACE_GUARD]?.(),
+    const remoteExo = makeRemoteExo('Remote');
+    const { exo } = await makeRemoteSection('Wrapper', remoteExo);
+    expect(exo[GET_INTERFACE_GUARD]?.()).toStrictEqual(
+      remoteExo[GET_INTERFACE_GUARD]?.(),
     );
   });
 
   it('forwards method calls to the remote ref', async () => {
     const greet = vi.fn(async (name: string) => `Hello, ${name}!`);
-    const remoteHandler = makeHandler(
+    const remoteExo = makeSection(
       'Remote',
       M.interface(
         'Remote',
@@ -52,8 +52,8 @@ describe('makeRemoteSection', () => {
       { greet },
     );
 
-    const { handler } = await makeRemoteSection('Wrapper', remoteHandler);
-    const wrapper = handler as Record<
+    const { exo } = await makeRemoteSection('Wrapper', remoteExo);
+    const wrapper = exo as Record<
       string,
       (...a: unknown[]) => Promise<unknown>
     >;
@@ -66,7 +66,7 @@ describe('makeRemoteSection', () => {
   it('forwards all methods declared in the guard', async () => {
     const greet = vi.fn(async (_: string) => '');
     const add = vi.fn(async (a: number, b: number) => a + b);
-    const remoteHandler = makeHandler(
+    const remoteExo = makeSection(
       'Remote',
       M.interface(
         'Remote',
@@ -79,8 +79,8 @@ describe('makeRemoteSection', () => {
       { greet, add },
     );
 
-    const { handler } = await makeRemoteSection('Wrapper', remoteHandler);
-    const wrapper = handler as Record<
+    const { exo } = await makeRemoteSection('Wrapper', remoteExo);
+    const wrapper = exo as Record<
       string,
       (...a: unknown[]) => Promise<unknown>
     >;
@@ -95,7 +95,7 @@ describe('makeRemoteSection', () => {
     const metadata = constant({ mode: 'remote' as const });
     const { metadata: actual } = await makeRemoteSection(
       'Wrapper',
-      makeRemoteHandler('Remote'),
+      makeRemoteExo('Remote'),
       metadata,
     );
     expect(actual).toBe(metadata);
@@ -104,7 +104,7 @@ describe('makeRemoteSection', () => {
   it('metadata is undefined when not provided', async () => {
     const { metadata } = await makeRemoteSection(
       'Wrapper',
-      makeRemoteHandler('Remote'),
+      makeRemoteExo('Remote'),
     );
     expect(metadata).toBeUndefined();
   });

@@ -1,18 +1,18 @@
 /**
  * Sheaf types: the product decomposition F_sem x F_op.
  *
- * The handler (guard + behavior) is the semantic component F_sem.
+ * The section (guard + behavior) is the semantic component F_sem.
  * The metadata is the operational component F_op.
  * Effect-equivalence (the sheaf condition) is asserted by the interface:
- * handlers covering the same open set produce the same observable result.
+ * sections covering the same open set produce the same observable result.
  */
 
 import type { GET_INTERFACE_GUARD, Methods } from '@endo/exo';
 import type { InterfaceGuard } from '@endo/patterns';
 import type { MethodSchema } from '@metamask/kernel-utils';
 
-/** A handler: a capability covering a region of the interface topology. */
-export type Handler<Core extends Methods = Methods> = Partial<Core> & {
+/** A section: a capability covering a region of the interface topology. */
+export type Section<Core extends Methods = Methods> = Partial<Core> & {
   [K in typeof GET_INTERFACE_GUARD]?: (() => InterfaceGuard) | undefined;
 };
 
@@ -28,13 +28,13 @@ export type MetadataSpec<M extends Record<string, unknown>> =
   | { kind: 'callable'; fn: (args: unknown[]) => M };
 
 /**
- * A provider: a handler (F_sem) paired with an optional metadata spec (F_op).
+ * A provider: a section (F_sem) paired with an optional metadata spec (F_op).
  *
- * This is the input data to sheafify — a (handler, metadata) pair assigned over
- * the open set defined by the handler's guard.
+ * This is the input data to sheafify — an (exo, metadata) pair assigned over
+ * the open set defined by the exo's guard.
  */
 export type Provider<MetaData extends Record<string, unknown>> = {
-  handler: Handler;
+  exo: Section;
   metadata?: MetadataSpec<MetaData>;
 };
 
@@ -46,7 +46,7 @@ export type Provider<MetaData extends Record<string, unknown>> = {
  * after collapsing). Empty `{}` means no metadata.
  */
 export type Candidate<MetaData extends Record<string, unknown>> = {
-  handler: Handler;
+  exo: Section;
   metadata: MetaData;
 };
 

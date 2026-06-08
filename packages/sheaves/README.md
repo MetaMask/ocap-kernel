@@ -3,7 +3,7 @@
 Runtime capability routing adapted from sheaf theory in algebraic topology.
 
 `sheafify({ name, providers })` produces a **sheaf** — an authority manager
-over a collection of capability providers. The sheaf produces dispatch handlers via
+over a collection of capability providers. The sheaf produces dispatch sections via
 `getSection`, each of which routes invocations through the provider set.
 
 See [USAGE.md](./USAGE.md) for annotated examples and [POLICY.md](./POLICY.md) for
@@ -21,8 +21,8 @@ npm install @metamask/sheaves
 
 ## Concepts
 
-**Provider** (`Provider`) — The input data: a capability handler paired with
-operational metadata, assigned over the open set defined by the handler's guard.
+**Provider** (`Provider`) — The input data: a capability `Section` (exo) paired with
+operational metadata, assigned over the open set defined by the exo's guard.
 This is an element of the presheaf F = F_sem x F_op.
 
 > A `getBalance(string)` provider with `{ cost: 100 }` is one provider. A
@@ -63,14 +63,14 @@ context.
 
 **Sheaf** — The authority manager returned by `sheafify`. Holds the provider
 data (frozen at construction time) and exposes factory methods that
-produce dispatch handlers on demand.
+produce dispatch sections on demand.
 
 ```
 const sheaf = sheafify({ name: 'Wallet', providers });
 ```
 
-- `sheaf.getSection({ guard, lift })` — produce a dispatch handler
-- `sheaf.getDiscoverableSection({ guard, lift, schema })` — same, but the handler exposes its guard
+- `sheaf.getSection({ guard, lift })` — produce a dispatch section
+- `sheaf.getDiscoverableSection({ guard, lift, schema })` — same, but the section exposes its guard
 
 ## Dispatch pipeline
 
@@ -83,7 +83,7 @@ collapseEquivalent(stalk)            locality condition (quotient by metadata)
 decomposeMetadata(collapsed)         restriction map (constraints / options)
 policy(candidates, { method, args,   operational selection (extra-theoretic)
                   constraints })
-dispatch to chosen.handler           evaluation
+dispatch to chosen.exo           evaluation
 ```
 
 The pipeline short-circuits at two points: if only one provider matches the

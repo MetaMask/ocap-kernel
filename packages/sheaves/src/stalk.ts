@@ -7,7 +7,7 @@ import { matches } from '@endo/patterns';
 import type { InterfaceGuard } from '@endo/patterns';
 
 import { getInterfaceMethodGuards, getMethodPayload } from './guard.ts';
-import type { Handler } from './types.ts';
+import type { Section } from './types.ts';
 
 /**
  * Check whether an interface guard covers the invocation point (method, args).
@@ -58,13 +58,13 @@ export const guardCoversPoint = (
  * @param args - The arguments to the method invocation.
  * @returns The providers whose guards accept the invocation.
  */
-export const getStalk = <T extends { handler: Handler }>(
+export const getStalk = <T extends { exo: Section }>(
   providers: readonly T[],
   method: string,
   args: unknown[],
 ): T[] => {
-  return providers.filter(({ handler }) => {
-    const interfaceGuard = handler[GET_INTERFACE_GUARD]?.();
+  return providers.filter(({ exo }) => {
+    const interfaceGuard = exo[GET_INTERFACE_GUARD]?.();
     if (!interfaceGuard) {
       return false;
     }

@@ -7,7 +7,7 @@ import {
 } from '@endo/patterns';
 import type { InterfaceGuard, MethodGuard, Pattern } from '@endo/patterns';
 
-import type { Handler } from './types.ts';
+import type { Section } from './types.ts';
 
 export type MethodGuardPayload = {
   argGuards: Pattern[];
@@ -87,23 +87,23 @@ const unionGuard = (guards: Pattern[]): Pattern => {
 };
 
 /**
- * Compute the union of all handler guards — the open set covered by the sheafified facade.
+ * Compute the union of all section guards — the open set covered by the sheafified facade.
  *
- * For each method name across all handlers, collects the arg guards at each
- * position and produces a union via M.or. Handlers with fewer args than
+ * For each method name across all sections, collects the arg guards at each
+ * position and produces a union via M.or. Sections with fewer args than
  * the maximum contribute to required args; the remainder become optional.
  *
  * @param name - The name for the collected interface guard.
- * @param handlers - The handlers whose guards are collected.
- * @returns An interface guard covering all handlers.
+ * @param sections - The sections whose guards are collected.
+ * @returns An interface guard covering all sections.
  */
 export const collectSheafGuard = <Core extends Methods>(
   name: string,
-  handlers: Handler<Core>[],
+  sections: Section<Core>[],
 ): InterfaceGuard => {
   const payloadsByMethod = new Map<string, MethodGuardPayload[]>();
 
-  for (const section of handlers) {
+  for (const section of sections) {
     const interfaceGuard = section[GET_INTERFACE_GUARD]?.();
     if (!interfaceGuard) {
       continue;

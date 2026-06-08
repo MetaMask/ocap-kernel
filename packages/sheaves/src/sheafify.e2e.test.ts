@@ -2,7 +2,7 @@ import { M } from '@endo/patterns';
 import { describe, expect, it, vi } from 'vitest';
 
 import { callable, constant } from './metadata.ts';
-import { makeHandler } from './section.ts';
+import { makeSection } from './section.ts';
 import { sheafify } from './sheafify.ts';
 import type { Policy, Provider } from './types.ts';
 
@@ -31,7 +31,7 @@ describe('e2e: cost-optimal routing', () => {
     const providers: Provider<{ cost: number }>[] = [
       {
         // Remote: covers all accounts, expensive
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -42,7 +42,7 @@ describe('e2e: cost-optimal routing', () => {
       },
       {
         // Local cache: covers only 'alice', cheap
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.eq('alice')).returns(M.number()),
@@ -72,7 +72,7 @@ describe('e2e: cost-optimal routing', () => {
     // Expand with a broader local cache (cost=2), re-sheafify.
     const local2GetBalance = vi.fn((_acct: string): number => 0);
     providers.push({
-      handler: makeHandler(
+      exo: makeSection(
         'Wallet:2',
         M.interface('Wallet:2', {
           getBalance: M.call(M.string()).returns(M.number()),
@@ -154,7 +154,7 @@ describe('e2e: multi-tier capability routing', () => {
     // ── Tier 1: Network RPC ──────────────────────────────────
     // Covers ALL accounts (M.string()), but slow (500ms).
     providers.push({
-      handler: makeHandler(
+      exo: makeSection(
         'Wallet:0',
         M.interface('Wallet:0', {
           getBalance: M.call(M.string()).returns(M.number()),
@@ -181,7 +181,7 @@ describe('e2e: multi-tier capability routing', () => {
     // ── Tier 2: Local state for owned account ────────────────
     // Only covers 'alice' (M.eq), 1ms.
     providers.push({
-      handler: makeHandler(
+      exo: makeSection(
         'Wallet:1',
         M.interface('Wallet:1', {
           getBalance: M.call(M.eq('alice')).returns(M.number()),
@@ -207,7 +207,7 @@ describe('e2e: multi-tier capability routing', () => {
     // ── Tier 3: In-memory cache for specific accounts ────────
     // Covers bob and carol via M.or, instant (0ms).
     providers.push({
-      handler: makeHandler(
+      exo: makeSection(
         'Wallet:2',
         M.interface('Wallet:2', {
           getBalance: M.call(M.or(M.eq('bob'), M.eq('carol'))).returns(
@@ -243,7 +243,7 @@ describe('e2e: multi-tier capability routing', () => {
     // read-only tiers above declared it, so writes route here
     // automatically — the guard algebra handles it, no config needed.
     providers.push({
-      handler: makeHandler(
+      exo: makeSection(
         'Wallet:3',
         M.interface('Wallet:3', {
           getBalance: M.call(M.string()).returns(M.number()),
@@ -292,7 +292,7 @@ describe('e2e: multi-tier capability routing', () => {
 
     const makeProviders = (): Provider<Tier>[] => [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -302,7 +302,7 @@ describe('e2e: multi-tier capability routing', () => {
         metadata: constant({ latencyMs: 500, label: 'network' }),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -356,7 +356,7 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
     const providers: Provider<{ push: boolean }>[] = [
       {
         // Pull section: M.string() guards, push=false
-        handler: makeHandler(
+        exo: makeSection(
           'PushPull:0',
           M.interface('PushPull:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -367,7 +367,7 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
       },
       {
         // Push section: narrow guard, push=true
-        handler: makeHandler(
+        exo: makeSection(
           'PushPull:1',
           M.interface('PushPull:1', {
             getBalance: M.call(M.eq('alice')).returns(M.number()),
@@ -422,7 +422,7 @@ describe('e2e: callable metadata — cost varies with invocation args', () => {
 
     const providers: Provider<SwapCost>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'SwapA',
           M.interface('SwapA', {
             swap: M.call(M.number(), M.string(), M.string()).returns(
@@ -437,7 +437,7 @@ describe('e2e: callable metadata — cost varies with invocation args', () => {
         })),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'SwapB',
           M.interface('SwapB', {
             swap: M.call(M.number(), M.string(), M.string()).returns(
@@ -485,7 +485,7 @@ describe('e2e: lift retry on handler failure', () => {
 
     const providers: Provider<RouteMeta>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Primary',
           M.interface('Primary', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -495,7 +495,7 @@ describe('e2e: lift retry on handler failure', () => {
         metadata: constant({ priority: 0 }),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Fallback',
           M.interface('Fallback', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -548,7 +548,7 @@ describe('e2e: lift retry on handler failure', () => {
     ];
 
     const providers: Provider<RouteMeta>[] = handlers.map((fn, i) => ({
-      handler: makeHandler(
+      exo: makeSection(
         `Section:${i}`,
         M.interface(`Section:${i}`, {
           getBalance: M.call(M.string()).returns(M.number()),
@@ -586,7 +586,7 @@ describe('e2e: lift retry on handler failure', () => {
 
     const providers: Provider<RouteMeta>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'A',
           M.interface('A', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -600,7 +600,7 @@ describe('e2e: lift retry on handler failure', () => {
         metadata: constant({ priority: 0 }),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'B',
           M.interface('B', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -624,7 +624,7 @@ describe('e2e: lift retry on handler failure', () => {
     });
 
     await expect(E(wallet).getBalance('alice')).rejects.toThrow(
-      'No viable handler',
+      'No viable section',
     );
   });
 });

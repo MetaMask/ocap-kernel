@@ -16,7 +16,7 @@ type Meta = { id: string; cost: number };
 type C = Candidate<Partial<Meta>>;
 
 const makeCandidate = (id: string, cost = 0): C => ({
-  handler: {} as C['handler'],
+  exo: {} as C['exo'],
   metadata: { id, cost },
 });
 

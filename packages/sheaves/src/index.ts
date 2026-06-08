@@ -1,5 +1,5 @@
 export type {
-  Handler,
+  Section,
   Provider,
   Candidate,
   MetadataSpec,
@@ -17,4 +17,4 @@ export {
   fallthrough,
 } from './compose.ts';
 export { makeRemoteSection } from './remote.ts';
-export { makeHandler } from './section.ts';
+export { makeSection } from './section.ts';

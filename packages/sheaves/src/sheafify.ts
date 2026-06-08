@@ -25,7 +25,7 @@ import type { ResolvedMetadataSpec } from './metadata.ts';
 import { getStalk } from './stalk.ts';
 import type {
   Candidate,
-  Handler,
+  Section,
   Policy,
   PolicyContext,
   Provider,
@@ -138,35 +138,31 @@ const decomposeMetadata = <MetaData extends Record<string, unknown>>(
         remaining[key] = val;
       }
     }
-    return { handler: entry.handler, metadata: remaining as Partial<MetaData> };
+    return { exo: entry.exo, metadata: remaining as Partial<MetaData> };
   });
 
   return { constraints: constraints as Partial<MetaData>, stripped };
 };
 
 /**
- * Invoke a method on a handler, throwing if the method is missing.
+ * Invoke a method on a section exo, throwing if the handler is missing.
  *
- * @param handler - The handler to invoke.
+ * @param exo - The section exo to invoke.
  * @param method - The method name to call.
  * @param args - The positional arguments.
  * @returns The synchronous return value of the method (typically a Promise).
  */
-const invokeHandler = (
-  handler: Handler,
-  method: string,
-  args: unknown[],
-): unknown => {
-  const obj = handler as Record<string, (...a: unknown[]) => unknown>;
+const invokeExo = (exo: Section, method: string, args: unknown[]): unknown => {
+  const obj = exo as Record<string, (...a: unknown[]) => unknown>;
   const fn = obj[method];
   if (fn === undefined) {
-    throw new Error(`Handler has guard for '${method}' but no method`);
+    throw new Error(`Section has guard for '${method}' but no handler`);
   }
   return fn.call(obj, ...args);
 };
 
 type ResolvedProvider<M extends Record<string, unknown>> = {
-  handler: Handler;
+  exo: Section;
   spec: ResolvedMetadataSpec<M> | undefined;
 };
 
@@ -189,7 +185,7 @@ const drivePolicy = async <M extends Record<string, unknown>>(
       next = await gen.next([...errors]);
     }
   }
-  throw new Error(`No viable handler for ${context.method}`, {
+  throw new Error(`No viable section for ${context.method}`, {
     cause: errors,
   });
 };
@@ -207,7 +203,7 @@ export const sheafify = <
 }): Sheaf<MetaData> => {
   const frozenProviders: readonly ResolvedProvider<MetaData>[] = harden(
     providers.map((provider) => ({
-      handler: provider.handler,
+      exo: provider.exo,
       spec:
         provider.metadata === undefined
           ? undefined
@@ -238,24 +234,24 @@ export const sheafify = <
       const candidates = getStalk(frozenProviders, method, args);
       const evaluatedCandidates: Candidate<MetaData>[] = candidates.map(
         (provider) => ({
-          handler: provider.handler,
+          exo: provider.exo,
           metadata: evaluateMetadata(provider.spec, args),
         }),
       );
       switch (evaluatedCandidates.length) {
         case 0:
-          throw new Error(`No handler covers ${method}(${stringify(args, 0)})`);
+          throw new Error(`No section covers ${method}(${stringify(args, 0)})`);
         case 1:
-          return invokeHandler(
-            (evaluatedCandidates[0] as Candidate<MetaData>).handler,
+          return invokeExo(
+            (evaluatedCandidates[0] as Candidate<MetaData>).exo,
             method,
             args,
           );
         default: {
           const collapsed = collapseEquivalent(evaluatedCandidates);
           if (collapsed.length === 1) {
-            return invokeHandler(
-              (collapsed[0] as Candidate<MetaData>).handler,
+            return invokeExo(
+              (collapsed[0] as Candidate<MetaData>).exo,
               method,
               args,
             );
@@ -281,7 +277,7 @@ export const sheafify = <
                     `Did the policy construct a new object instead of yielding from the candidates array?`,
                 );
               }
-              return invokeHandler(resolved.handler, method, args);
+              return invokeExo(resolved.exo, method, args);
             },
           );
         }
@@ -301,7 +297,7 @@ export const sheafify = <
           handlers,
           schema,
           asyncGuard,
-        )) as unknown as Handler;
+        )) as unknown as Section;
 
     return exo;
   };
@@ -309,7 +305,7 @@ export const sheafify = <
   const unionGuard = (): InterfaceGuard =>
     collectSheafGuard(
       name,
-      frozenProviders.map(({ handler }) => handler),
+      frozenProviders.map(({ exo }) => exo),
     );
 
   const getSection = ({

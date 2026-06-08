@@ -6,25 +6,25 @@ import {
   getInterfaceMethodGuards,
   getMethodPayload,
 } from './guard.ts';
-import { makeHandler } from './section.ts';
+import { makeSection } from './section.ts';
 import { guardCoversPoint } from './stalk.ts';
 
 describe('collectSheafGuard', () => {
   it('variable arity: add with 1, 2, and 3 args', () => {
     const sections = [
-      makeHandler(
+      makeSection(
         'Calc:0',
         M.interface('Calc:0', { add: M.call(M.number()).returns(M.number()) }),
         { add: (a: number) => a },
       ),
-      makeHandler(
+      makeSection(
         'Calc:1',
         M.interface('Calc:1', {
           add: M.call(M.number(), M.number()).returns(M.number()),
         }),
         { add: (a: number, b: number) => a + b },
       ),
-      makeHandler(
+      makeSection(
         'Calc:2',
         M.interface('Calc:2', {
           add: M.call(M.number(), M.number(), M.number()).returns(M.number()),
@@ -44,12 +44,12 @@ describe('collectSheafGuard', () => {
 
   it('return guard union', () => {
     const sections = [
-      makeHandler(
+      makeSection(
         'S:0',
         M.interface('S:0', { f: M.call(M.eq(0)).returns(M.eq(0)) }),
         { f: (_: number) => 0 },
       ),
-      makeHandler(
+      makeSection(
         'S:1',
         M.interface('S:1', { f: M.call(M.eq(1)).returns(M.eq(1)) }),
         { f: (_: number) => 1 },
@@ -67,7 +67,7 @@ describe('collectSheafGuard', () => {
 
   it('section with its own optional args: optional preserved in union', () => {
     const sections = [
-      makeHandler(
+      makeSection(
         'Greeter',
         M.interface('Greeter', {
           greet: M.callWhen(M.string())
@@ -88,7 +88,7 @@ describe('collectSheafGuard', () => {
 
   it('rest arg guard preserved in collected union', () => {
     const sections = [
-      makeHandler(
+      makeSection(
         'Logger',
         M.interface('Logger', {
           log: M.call(M.string()).rest(M.string()).returns(M.any()),
@@ -108,14 +108,14 @@ describe('collectSheafGuard', () => {
 
   it('rest arg guards unioned across sections', () => {
     const sections = [
-      makeHandler(
+      makeSection(
         'A',
         M.interface('A', {
           log: M.call(M.string()).rest(M.string()).returns(M.any()),
         }),
         { log: (..._args: string[]) => undefined },
       ),
-      makeHandler(
+      makeSection(
         'B',
         M.interface('B', {
           log: M.call(M.string()).rest(M.number()).returns(M.any()),
@@ -137,12 +137,12 @@ describe('collectSheafGuard', () => {
     // number of strings via rest. A call ['hello'] is covered by B — the
     // collected guard must pass it too.
     const sections = [
-      makeHandler(
+      makeSection(
         'AB:0',
         M.interface('AB:0', { f: M.call(M.number()).returns(M.any()) }),
         { f: (_: number) => undefined },
       ),
-      makeHandler(
+      makeSection(
         'AB:1',
         M.interface('AB:1', { f: M.call().rest(M.string()).returns(M.any()) }),
         { f: (..._args: string[]) => undefined },
@@ -158,7 +158,7 @@ describe('collectSheafGuard', () => {
 
   it('multi-method guard collection', () => {
     const sections = [
-      makeHandler(
+      makeSection(
         'Multi:0',
         M.interface('Multi:0', {
           translate: M.call(M.string(), M.string()).returns(M.string()),
@@ -167,7 +167,7 @@ describe('collectSheafGuard', () => {
           translate: (from: string, to: string) => `${from}->${to}`,
         },
       ),
-      makeHandler(
+      makeSection(
         'Multi:1',
         M.interface('Multi:1', {
           translate: M.call(M.string(), M.string()).returns(M.string()),

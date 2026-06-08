@@ -3,7 +3,7 @@ import type { MethodGuard } from '@endo/patterns';
 import { describe, it, expect } from 'vitest';
 
 import { constant } from './metadata.ts';
-import { makeHandler } from './section.ts';
+import { makeSection } from './section.ts';
 import { getStalk } from './stalk.ts';
 import type { Provider } from './types.ts';
 
@@ -13,7 +13,7 @@ const makeProvider = (
   methods: Record<string, (...args: unknown[]) => unknown>,
   metadata: { cost: number },
 ): Provider<{ cost: number }> => ({
-  handler: makeHandler(tag, M.interface(tag, guards), methods),
+  exo: makeSection(tag, M.interface(tag, guards), methods),
   metadata: constant(metadata),
 });
 

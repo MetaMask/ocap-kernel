@@ -14,11 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial release, extracted from `@metamask/kernel-utils`.
 - `sheafify({ name, providers })` — constructs a sheaf authority manager over a
   set of capability providers.
-- `Provider<M>` type — an input to `sheafify`: a `{ handler, metadata? }` pair
-  where `handler` is an exo and `metadata` is an optional `MetadataSpec<M>`.
-- `Candidate<M>` type — a post-evaluation entry in the stalk: `{ handler,
+- `Provider<M>` type — an input to `sheafify`: a `{ exo, metadata? }` pair
+  where `exo` is a `Section` and `metadata` is an optional `MetadataSpec<M>`.
+- `Candidate<M>` type — a post-evaluation entry in the stalk: `{ exo,
 metadata }` with metadata already resolved from its spec.
-- `Handler` type — an exo capability covering a region of the interface
+- `Section` type — an exo capability covering a region of the interface
   topology.
 - `Policy<M>` type — an `async function*` coroutine that receives candidates
   and yields them in preference order; drives the sheaf dispatch loop.
@@ -31,7 +31,7 @@ constraints }`.
   compartment at `sheafify` construction time.
 - `callable(fn)` — callable metadata spec; evaluated per-dispatch with the
   invocation arguments.
-- `makeHandler(name, guard, methods)` — creates a named, guarded exo handler.
+- `makeSection(name, guard, handlers)` — creates a named, guarded `Section` from a method-handler map.
 - `makeRemoteSection(tag, remoteRef, metadata?)` — builds a provider that
   wraps a remote capability, fetching its interface guard via `E`.
 - `noopPolicy` — a policy that yields candidates in the order received.

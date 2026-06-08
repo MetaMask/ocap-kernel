@@ -27,13 +27,13 @@ The sheaf drives it with the following protocol:
    new object with the same shape will throw with a message like "Policy yielded
    an unrecognized candidate". Sorting with `[...candidates].sort(...)` is safe
    because sort preserves references; mapping to new objects is not.
-3. **Attempt** — the sheaf calls the candidate's handler method.
+3. **Attempt** — the sheaf calls the candidate's exo method.
 4. **Success** — the result is returned; the generator is abandoned.
 5. **Failure** — the sheaf calls `gen.next(errors)`, passing the ordered list
    of every error thrown so far (cumulative, not just the last). The coroutine
    receives this as the resolved value of its `yield` expression.
 6. **Exhausted** — if the generator returns without yielding, the sheaf throws
-   `new Error('No viable handler for <method>', { cause: errors })` where
+   `new Error('No viable section for <method>', { cause: errors })` where
    `errors` is the full accumulated list of every failure so far.
 
 Most policies express a fixed priority order and can ignore the error input:
@@ -87,11 +87,11 @@ Encode each provider's cost as `callable` metadata evaluated at dispatch time:
 ```ts
 const providers: Provider<SwapMeta>[] = [
   {
-    handler: providerAHandler,
+    exo: providerASection,
     metadata: callable((args) => ({ cost: providerACost(Number(args[0])) })),
   },
   {
-    handler: providerBHandler,
+    exo: providerBSection,
     metadata: callable((args) => ({ cost: providerBCost(Number(args[0])) })),
   },
 ];

@@ -4,7 +4,7 @@ import { GET_DESCRIPTION } from '@metamask/kernel-utils';
 import { describe, it, expect } from 'vitest';
 
 import { constant } from './metadata.ts';
-import { makeHandler } from './section.ts';
+import { makeSection } from './section.ts';
 import { sheafify } from './sheafify.ts';
 import type { Candidate, Policy, PolicyContext, Provider } from './types.ts';
 
@@ -29,7 +29,7 @@ describe('sheafify', () => {
 
     const providers: Provider<{ cost: number }>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -50,7 +50,7 @@ describe('sheafify', () => {
   it('zero-coverage throws', async () => {
     const providers: Provider<{ cost: number }>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.eq('alice')).returns(M.number()),
@@ -67,7 +67,7 @@ describe('sheafify', () => {
       },
     });
     await expect(E(wallet).getBalance('bob')).rejects.toThrow(
-      'No handler covers',
+      'No section covers',
     );
   });
 
@@ -81,7 +81,7 @@ describe('sheafify', () => {
 
     const providers: Provider<{ cost: number }>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -91,7 +91,7 @@ describe('sheafify', () => {
         metadata: constant({ cost: 100 }),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -113,7 +113,7 @@ describe('sheafify', () => {
   it('GET_INTERFACE_GUARD returns collected guard', () => {
     const providers: Provider<{ cost: number }>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.eq('alice')).returns(M.number()),
@@ -123,7 +123,7 @@ describe('sheafify', () => {
         metadata: constant({ cost: 100 }),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.eq('bob')).returns(M.number()),
@@ -156,7 +156,7 @@ describe('sheafify', () => {
 
     const providers: Provider<{ cost: number }>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -174,7 +174,7 @@ describe('sheafify', () => {
 
     // Add a cheaper provider with a new method to the providers array, re-sheafify.
     providers.push({
-      handler: makeHandler(
+      exo: makeSection(
         'Wallet:1',
         M.interface('Wallet:1', {
           getBalance: M.call(M.string()).returns(M.number()),
@@ -204,7 +204,7 @@ describe('sheafify', () => {
   });
 
   it('pre-built exo dispatches correctly', async () => {
-    const handler = makeHandler(
+    const exo = makeSection(
       'bal',
       M.interface('bal', {
         getBalance: M.call(M.string()).returns(M.number()),
@@ -212,7 +212,7 @@ describe('sheafify', () => {
       { getBalance: (_acct: string) => 42 },
     );
     const providers: Provider<{ cost: number }>[] = [
-      { handler, metadata: constant({ cost: 1 }) },
+      { exo, metadata: constant({ cost: 1 }) },
     ];
 
     const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
@@ -233,7 +233,7 @@ describe('sheafify', () => {
 
     const providers: Provider<{ cost: number }>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -250,7 +250,7 @@ describe('sheafify', () => {
     expect(await E(wallet).getBalance('alice')).toBe(100);
 
     // Add a pre-built exo with a cheaper getBalance + new transfer method
-    const handler = makeHandler(
+    const exo = makeSection(
       'cheap',
       M.interface('cheap', {
         getBalance: M.call(M.string()).returns(M.number()),
@@ -264,7 +264,7 @@ describe('sheafify', () => {
       },
     );
     providers.push({
-      handler,
+      exo,
       metadata: constant({ cost: 1 }),
     });
     wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
@@ -282,7 +282,7 @@ describe('sheafify', () => {
   });
 
   it('guard reflected in GET_INTERFACE_GUARD for pre-built exo', () => {
-    const handler = makeHandler(
+    const exo = makeSection(
       'bal',
       M.interface('bal', {
         getBalance: M.call(M.string()).returns(M.number()),
@@ -290,7 +290,7 @@ describe('sheafify', () => {
       { getBalance: (_acct: string) => 42 },
     );
     const providers: Provider<{ cost: number }>[] = [
-      { handler, metadata: constant({ cost: 1 }) },
+      { exo, metadata: constant({ cost: 1 }) },
     ];
 
     const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
@@ -318,7 +318,7 @@ describe('sheafify', () => {
 
     const providers: Provider<Meta>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -328,7 +328,7 @@ describe('sheafify', () => {
         metadata: constant({ region: 'us', cost: 100 }),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -367,7 +367,7 @@ describe('sheafify', () => {
 
     const providers: Provider<Meta>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -377,7 +377,7 @@ describe('sheafify', () => {
         metadata: constant({ region: 'us' }),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -404,7 +404,7 @@ describe('sheafify', () => {
 
     const providers: Provider<Meta>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -414,7 +414,7 @@ describe('sheafify', () => {
         metadata: constant({ cost: 1 }),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -444,7 +444,7 @@ describe('sheafify', () => {
 
     const providers: Provider<Meta>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -454,7 +454,7 @@ describe('sheafify', () => {
         metadata: constant({ cost: NaN, priority: 0 }),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -489,7 +489,7 @@ describe('sheafify', () => {
 
     const providers: Provider<Meta>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -499,7 +499,7 @@ describe('sheafify', () => {
         metadata: constant({ cost: +0 }),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -527,7 +527,7 @@ describe('sheafify', () => {
 
     const providers: Provider<Meta>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -537,7 +537,7 @@ describe('sheafify', () => {
         metadata: constant({ cost: Infinity }),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -565,7 +565,7 @@ describe('sheafify', () => {
 
     const providers: Provider<Meta>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -574,7 +574,7 @@ describe('sheafify', () => {
         ),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -604,7 +604,7 @@ describe('sheafify', () => {
       );
     };
 
-    const handler = makeHandler(
+    const exo = makeSection(
       'cheap',
       M.interface('cheap', {
         getBalance: M.call(M.string()).returns(M.number()),
@@ -613,7 +613,7 @@ describe('sheafify', () => {
     );
     const providers: Provider<{ cost: number }>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -622,7 +622,7 @@ describe('sheafify', () => {
         ),
         metadata: constant({ cost: 100 }),
       },
-      { handler, metadata: constant({ cost: 1 }) },
+      { exo, metadata: constant({ cost: 1 }) },
     ];
 
     const wallet = sheafify({ name: 'Wallet', providers }).getGlobalSection({
@@ -642,7 +642,7 @@ describe('sheafify', () => {
     };
     const providers: Provider<Record<string, never>>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -668,7 +668,7 @@ describe('sheafify', () => {
   it('getSection does not expose __getDescription__', () => {
     const providers: Provider<Record<string, never>>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -705,7 +705,7 @@ describe('sheafify', () => {
 
     const providers: Provider<Meta>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -715,7 +715,7 @@ describe('sheafify', () => {
         metadata: constant({ constructor: 'typeA', cost: 100 }),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -759,7 +759,7 @@ describe('sheafify', () => {
 
     const providers: Provider<Meta>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -769,7 +769,7 @@ describe('sheafify', () => {
         metadata: constant({ constructor: Object, cost: 100 }),
       },
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:1',
           M.interface('Wallet:1', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -798,7 +798,7 @@ describe('getSection with explicit guard', () => {
   it('dispatches calls that fall within the explicit guard', async () => {
     const providers: Provider<Record<string, never>>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -829,7 +829,7 @@ describe('getSection with explicit guard', () => {
   it('rejects method calls outside the explicit guard', async () => {
     const providers: Provider<Record<string, never>>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),
@@ -861,7 +861,7 @@ describe('getSection with explicit guard', () => {
   it('getDiscoverableSection exposes __getDescription__ and obeys explicit guard', async () => {
     const providers: Provider<Record<string, never>>[] = [
       {
-        handler: makeHandler(
+        exo: makeSection(
           'Wallet:0',
           M.interface('Wallet:0', {
             getBalance: M.call(M.string()).returns(M.number()),

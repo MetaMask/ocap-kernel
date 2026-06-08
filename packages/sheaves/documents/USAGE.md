@@ -8,13 +8,13 @@ policy as a placeholder:
 
 ```ts
 import { M } from '@endo/patterns';
-import { sheafify, makeHandler, noopPolicy } from '@metamask/sheaves';
+import { sheafify, makeSection, noopPolicy } from '@metamask/sheaves';
 
 const priceGuard = M.interface('PriceService', {
   getPrice: M.callWhen(M.await(M.string())).returns(M.await(M.number())),
 });
 
-const priceHandler = makeHandler('PriceService', priceGuard, {
+const priceSection = makeSection('PriceService', priceGuard, {
   async getPrice(token) {
     return fetchPrice(token);
   },
@@ -22,11 +22,11 @@ const priceHandler = makeHandler('PriceService', priceGuard, {
 
 const sheaf = sheafify({
   name: 'PriceService',
-  providers: [{ handler: priceHandler }],
+  providers: [{ exo: priceSection }],
 });
 
 const section = sheaf.getSection({ guard: priceGuard, lift: noopPolicy });
-// section is a dispatch handler; call it like any capability
+// section is a dispatch section; call it like any capability
 const price = await E(section).getPrice('ETH');
 ```
 
@@ -54,8 +54,8 @@ const preferFast: Policy<WalletMeta> = async function* (candidates) {
 const sheaf = sheafify<WalletMeta>({
   name: 'Wallet',
   providers: [
-    { handler: fastHandler, metadata: constant({ mode: 'fast' }) },
-    { handler: reliableHandler, metadata: constant({ mode: 'reliable' }) },
+    { exo: fastSection, metadata: constant({ mode: 'fast' }) },
+    { exo: reliableSection, metadata: constant({ mode: 'reliable' }) },
   ],
 });
 
@@ -86,7 +86,7 @@ callable((args) => ({ cost: Number(args[0]) > 9000 ? 'high' : 'low' }));
 
 ## Discoverable sections
 
-`getDiscoverableSection` works like `getSection` but the returned handler
+`getDiscoverableSection` works like `getSection` but the returned section
 exposes its guard — it can be introspected by the caller to discover what
 methods and argument shapes it accepts. Use this when the recipient needs to
 advertise capability to a third party. It requires a `schema` map describing
@@ -120,13 +120,13 @@ global variants are the right choice.
 
 `makeRemoteSection` wraps a CapTP remote reference as a `Provider`, fetching
 the remote's guard once at construction and forwarding all calls via `E()`.
-This lets you mix local handlers and remote capabilities in the same sheaf:
+This lets you mix local sections and remote capabilities in the same sheaf:
 
 ```ts
-import { makeHandler, makeRemoteSection, constant } from '@metamask/sheaves';
+import { makeSection, makeRemoteSection, constant } from '@metamask/sheaves';
 
 const remoteProvider = await makeRemoteSection(
-  'RemoteWallet', // name for the wrapper handler
+  'RemoteWallet', // name for the wrapper section
   remoteCapRef, // CapTP reference
   constant({ mode: 'remote' }), // optional metadata
 );
