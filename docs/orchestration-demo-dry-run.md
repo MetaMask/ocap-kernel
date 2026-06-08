@@ -104,11 +104,21 @@ yarn workspace @ocap/llm-bridge build
 yarn workspace @ocap/demo-display build
 ```
 
-Confirm the relay env knob is set in the VPS shell profile:
+Confirm the relay and llm-bridge env knobs are set in the VPS shell
+profile:
 
 ```csh
 setenv LIBP2P_RELAY_PUBLIC_IP <vps-public-ip>
+setenv OPENCLAW_AGENT_MODEL main
 ```
+
+`OPENCLAW_AGENT_MODEL` must match the name of an agent that exists
+in the live openclaw build (look under `~/.openclaw/agents/`). The
+bridge's default of `openclaw` doesn't resolve in recent openclaw
+versions — the default agent is `main`. A model name the gateway
+can't resolve produces HTTP 500 from `/v1/chat/completions`, which
+fails service registration with an opaque "All N registrations
+failed" error.
 
 Ensure openclaw is on a recent enough version to support local-path
 `openclaw skills install`. Older versions only accept ClawHub slugs:
@@ -473,6 +483,8 @@ cheap.
 ---
 
 ## Troubleshooting (will grow)
+
+- **`start-services.sh` fails with "All N registration(s) failed for matcher ..."** — the matcher's LLM bridge can't reach the openclaw gateway, or the gateway returns HTTP 500. The most common cause after a fresh openclaw upgrade is `OPENCLAW_AGENT_MODEL` defaulting to `openclaw`, which no longer maps to a configured agent. Look in `~/.openclaw/agents/` for the actual agent name (typically `main` in current builds), set `OPENCLAW_AGENT_MODEL` to that, and restart the matcher. The underlying gateway error is visible in `~/.ocap/matcher-llm-bridge.log`; the gateway's own logs aren't easy to find.
 
 - **`openclaw plugins install ...` fails with "Failed to pre-redeem matcher URL" / "Remote comms not initialized"** — `~/.openclaw/openclaw.json` carries a stale `plugins.entries.discovery.config.matcherUrl` from a prior session. The plugin's `register()` tries to redeem it at install time, before the matcher daemon and consumer daemon (and remote comms) are up. Unset the stale URL and reinstall:
 
