@@ -46,9 +46,9 @@ constraints }`.
 - `Sheaf<M>` type — the authority manager returned by `sheafify`; exposes
   `getSection`, `getDiscoverableSection`, `getGlobalSection`, and
   `getDiscoverableGlobalSection`.
-- `documents/POLICY.md` — documents the policy coroutine protocol,
+- `docs/POLICY.md` — documents the policy coroutine protocol,
   `PolicyContext`, and the semantic equivalence assumption.
-- `documents/USAGE.md` — annotated usage examples.
+- `docs/USAGE.md` — annotated usage examples.
 
 [Unreleased]: https://github.com/MetaMask/ocap-kernel/compare/@metamask/sheaves@0.1.0...HEAD
 [0.1.0]: https://github.com/MetaMask/ocap-kernel/releases/tag/@metamask/sheaves@0.1.0

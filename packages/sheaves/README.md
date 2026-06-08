@@ -6,9 +6,9 @@ Runtime capability routing adapted from sheaf theory in algebraic topology.
 over a collection of capability providers. The sheaf produces dispatch sections via
 `getSection`, each of which routes invocations through the provider set.
 
-See [INTRODUCTION.md](./documents/INTRODUCTION.md) for what a sheaf is and when to
-reach for one, [USAGE.md](./documents/USAGE.md) for annotated examples, and
-[POLICY.md](./documents/POLICY.md) for the policy coroutine protocol and semantic
+See [INTRODUCTION.md](./docs/INTRODUCTION.md) for what a sheaf is and when to
+reach for one, [USAGE.md](./docs/USAGE.md) for annotated examples, and
+[POLICY.md](./docs/POLICY.md) for the policy coroutine protocol and semantic
 equivalence assumption.
 
 ## Install
@@ -48,7 +48,7 @@ entries.
 > stalk at `("transfer", ...)` might contain one.
 
 **Policy** — An `async function*` coroutine that yields candidates from a
-multi-candidate stalk in preference order. See [POLICY.md](./documents/POLICY.md)
+multi-candidate stalk in preference order. See [POLICY.md](./docs/POLICY.md)
 for the coroutine protocol, `PolicyContext`, and the semantic equivalence
 assumption required of all policies.
 
