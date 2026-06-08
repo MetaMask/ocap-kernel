@@ -413,6 +413,25 @@ From here you're the inventor. The producer takes over.
 
 ---
 
+## Restarting the matcher mid-run
+
+`reset-everything.sh` cold-starts the matcher and mints **fresh**
+`MATCHER_OCAP_URL` and `MATCHER_OBSERVER_URL` values. Anything that
+captured one of those URLs at startup needs to be refreshed. After
+re-running step 2, redo, in order:
+
+1. `setenv MATCHER_OCAP_URL '...'` and `setenv MATCHER_OBSERVER_URL '...'`
+   from the new reset-everything output.
+2. **Restart `vps-display`** with the new `MATCHER_OBSERVER_URL`
+   (Ctrl-C, then re-run step 4).
+3. **Redo step 5**: point the discovery plugin's `matcherUrl` at the
+   new URL and restart the gateway.
+4. **Redo step 7** on the laptop: re-export `MATCHER_OCAP_URL`,
+   re-run `start-services.sh`.
+
+The log tails (step 3 and the SSH tunnel from step 6) keep working
+without changes.
+
 ## What to watch for during the run
 
 Across the four visible surfaces:
