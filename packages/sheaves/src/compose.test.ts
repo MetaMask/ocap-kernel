@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 import {
   fallthrough,
+  noopPolicy,
   proxyPolicy,
   withFilter,
   withRanking,
@@ -86,6 +87,27 @@ const driveWithSuccessOn = async (
   }
   throw new Error('generator exhausted before success');
 };
+
+// ---------------------------------------------------------------------------
+// noopPolicy
+// ---------------------------------------------------------------------------
+
+describe('noopPolicy', () => {
+  it('yields candidates in original order', async () => {
+    const candidates = [
+      makeCandidate('a'),
+      makeCandidate('b'),
+      makeCandidate('c'),
+    ];
+    const { yielded } = await driveToExhaustion(noopPolicy, candidates);
+    expect(yielded).toStrictEqual(candidates);
+  });
+
+  it('yields nothing when given no candidates', async () => {
+    const { yielded } = await driveToExhaustion(noopPolicy, []);
+    expect(yielded).toHaveLength(0);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // proxyPolicy

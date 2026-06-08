@@ -8,7 +8,13 @@ import { collectSheafGuard } from './guard.ts';
 import { constant } from './metadata.ts';
 import { makeSection } from './section.ts';
 import { sheafify } from './sheafify.ts';
-import type { Candidate, Policy, PolicyContext, Provider } from './types.ts';
+import type {
+  Candidate,
+  Policy,
+  PolicyContext,
+  Provider,
+  Section,
+} from './types.ts';
 
 // Thin cast for calling exo methods directly in tests without going through
 // HandledPromise (which is not available in the test environment).
@@ -913,5 +919,217 @@ describe('getSection with explicit guard', () => {
 
     expect(E(section)[GET_DESCRIPTION]()).toStrictEqual(schema);
     expect(await E(section).getBalance('alice')).toBe(42);
+  });
+
+  it('does not collapse -Infinity and Infinity metadata as equivalent', async () => {
+    type Meta = { cost: number };
+    let candidateCount = 0;
+
+    const providers: Provider<Meta>[] = [
+      {
+        exo: makeSection(
+          'W:0',
+          M.interface('W:0', {
+            f: M.call(M.string()).returns(M.number()),
+          }),
+          { f: (_acct: string) => 0 },
+        ),
+        metadata: constant({ cost: -Infinity }),
+      },
+      {
+        exo: makeSection(
+          'W:1',
+          M.interface('W:1', {
+            f: M.call(M.string()).returns(M.number()),
+          }),
+          { f: (_acct: string) => 0 },
+        ),
+        metadata: constant({ cost: Infinity }),
+      },
+    ];
+
+    const wallet = buildUnionSection<Meta>(
+      'W',
+      providers,
+      async function* (candidates) {
+        candidateCount = candidates.length;
+        yield candidates[0]!;
+      },
+    );
+
+    await E(wallet).f('alice');
+    expect(candidateCount).toBe(2);
+  });
+
+  it('does not collapse undefined and null metadata values as equivalent', async () => {
+    type Meta = { tag: string | null | undefined };
+    let candidateCount = 0;
+
+    const providers: Provider<Meta>[] = [
+      {
+        exo: makeSection(
+          'W:0',
+          M.interface('W:0', {
+            f: M.call(M.string()).returns(M.number()),
+          }),
+          { f: (_acct: string) => 0 },
+        ),
+        metadata: constant({ tag: undefined }),
+      },
+      {
+        exo: makeSection(
+          'W:1',
+          M.interface('W:1', {
+            f: M.call(M.string()).returns(M.number()),
+          }),
+          { f: (_acct: string) => 0 },
+        ),
+        metadata: constant({ tag: null }),
+      },
+    ];
+
+    const wallet = buildUnionSection<Meta>(
+      'W',
+      providers,
+      async function* (candidates) {
+        candidateCount = candidates.length;
+        yield candidates[0]!;
+      },
+    );
+
+    await E(wallet).f('alice');
+    expect(candidateCount).toBe(2);
+  });
+
+  it('does not collapse bigint and equal-magnitude number metadata as equivalent', async () => {
+    type Meta = { weight: bigint | number };
+    let candidateCount = 0;
+
+    const providers: Provider<Meta>[] = [
+      {
+        exo: makeSection(
+          'W:0',
+          M.interface('W:0', {
+            f: M.call(M.string()).returns(M.number()),
+          }),
+          { f: (_acct: string) => 0 },
+        ),
+        metadata: constant({ weight: 1n }),
+      },
+      {
+        exo: makeSection(
+          'W:1',
+          M.interface('W:1', {
+            f: M.call(M.string()).returns(M.number()),
+          }),
+          { f: (_acct: string) => 0 },
+        ),
+        metadata: constant({ weight: 1 }),
+      },
+    ];
+
+    const wallet = buildUnionSection<Meta>(
+      'W',
+      providers,
+      async function* (candidates) {
+        candidateCount = candidates.length;
+        yield candidates[0]!;
+      },
+    );
+
+    await E(wallet).f('alice');
+    expect(candidateCount).toBe(2);
+  });
+
+  it('throws when a section advertises a method via guard but has no handler', async () => {
+    const fakeGuard = M.interface('Faux', {
+      f: M.call(M.string()).returns(M.string()),
+    });
+    const handlerlessSection: Section = {
+      [GET_INTERFACE_GUARD]: () => fakeGuard,
+    };
+    const providers: Provider<Record<string, never>>[] = [
+      { exo: handlerlessSection },
+    ];
+
+    const wallet = buildUnionSection<Record<string, never>>(
+      'Faux',
+      providers,
+      async function* (candidates) {
+        yield candidates[0]!;
+      },
+    );
+
+    await expect(E(wallet).f('x')).rejects.toThrow(
+      "Section has guard for 'f' but no handler",
+    );
+  });
+
+  it('throws "No section covers" when explicit guard admits args no provider matches', async () => {
+    const providers: Provider<Record<string, never>>[] = [
+      {
+        exo: makeSection(
+          'W:0',
+          M.interface('W:0', {
+            f: M.call(M.eq('alice')).returns(M.number()),
+          }),
+          { f: (_acct: string) => 42 },
+        ),
+      },
+    ];
+
+    const wideGuard = M.interface('Wide', {
+      f: M.call(M.string()).returns(M.number()),
+    });
+
+    const section = sheafify({ name: 'W', providers }).getSection({
+      guard: wideGuard,
+      async *policy(candidates) {
+        yield candidates[0]!;
+      },
+    });
+
+    await expect(E(section).f('bob')).rejects.toThrow('No section covers');
+  });
+
+  it('throws when policy yields a candidate object not from the candidates array', async () => {
+    type Meta = { tier: string };
+
+    const providers: Provider<Meta>[] = [
+      {
+        exo: makeSection(
+          'W:0',
+          M.interface('W:0', {
+            f: M.call(M.string()).returns(M.number()),
+          }),
+          { f: (_acct: string) => 1 },
+        ),
+        metadata: constant({ tier: 'a' }),
+      },
+      {
+        exo: makeSection(
+          'W:1',
+          M.interface('W:1', {
+            f: M.call(M.string()).returns(M.number()),
+          }),
+          { f: (_acct: string) => 2 },
+        ),
+        metadata: constant({ tier: 'b' }),
+      },
+    ];
+
+    const wallet = buildUnionSection<Meta>(
+      'W',
+      providers,
+
+      async function* (candidates) {
+        // structurally equivalent but not the same object reference
+        yield { ...candidates[0]! };
+      },
+    );
+
+    await expect(E(wallet).f('alice')).rejects.toThrow(
+      'unrecognized candidate',
+    );
   });
 });

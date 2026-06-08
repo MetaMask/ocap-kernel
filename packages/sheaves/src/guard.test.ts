@@ -8,6 +8,7 @@ import {
 } from './guard.ts';
 import { guardCoversPoint } from './match.ts';
 import { makeSection } from './section.ts';
+import type { Section } from './types.ts';
 
 describe('collectSheafGuard', () => {
   it('variable arity: add with 1, 2, and 3 args', () => {
@@ -154,6 +155,23 @@ describe('collectSheafGuard', () => {
     expect(guardCoversPoint(guard, 'f', ['hello'])).toBe(true); // covered by B
     expect(guardCoversPoint(guard, 'f', [42])).toBe(true); // covered by A
     expect(guardCoversPoint(guard, 'f', [])).toBe(true); // covered by B (0 required)
+  });
+
+  it('skips sections without an interface guard', () => {
+    const guardedSection = makeSection(
+      'Guarded',
+      M.interface('Guarded', { f: M.call(M.string()).returns(M.any()) }),
+      { f: (_: string) => undefined },
+    );
+    const guardlessSection: Section = { f: (_: string) => undefined };
+
+    const guard = collectSheafGuard('Mixed', [
+      guardlessSection,
+      guardedSection,
+    ]);
+    const methodGuards = getInterfaceMethodGuards(guard);
+
+    expect('f' in methodGuards).toBe(true);
   });
 
   it('multi-method guard collection', () => {

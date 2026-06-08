@@ -146,6 +146,23 @@ describe('getMatchingProviders', () => {
     expect(getMatchingProviders(providers, 'log', [42])).toHaveLength(0);
   });
 
+  it('filters out providers without an interface guard', () => {
+    const guarded = makeProvider(
+      'A',
+      { add: M.call(M.number()).returns(M.number()) },
+      { add: (a: number) => a },
+      { cost: 1 },
+    );
+    const guardless: Provider<{ cost: number }> = {
+      exo: { add: (_a: number) => 0 },
+      metadata: constant({ cost: 2 }),
+    };
+
+    const candidates = getMatchingProviders([guardless, guarded], 'add', [1]);
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toBe(guarded);
+  });
+
   it('returns all providers when all match', () => {
     const providers = [
       makeProvider(
