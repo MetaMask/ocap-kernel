@@ -26,11 +26,12 @@ intersect.
 
 Composition is then a matter of bookkeeping. If `aliceCap = Read("foo/bar")`
 and `bobCap = Read("foo/baz")` are both attenuations of the same
-`FileSystem`, their union is `Read("foo/{bar,baz}")`. Where the scopes
-overlap (here: the `foo/` prefix), the shared base ensures coherent behavior
-— there is nothing to reconcile.
+`FileSystem`, their union is `Read("foo/{bar,baz}")`. And unions of unions
+are coherent, too: `Read("foo/{bar,baz}")` composes with `Read("foo/{baz,bux}")`
+into `Read("foo/{bar,baz,bux}")`. Where the scopes overlap (here: `foo/baz`),
+the shared base ensures coherent behavior — there is nothing to reconcile.
 
-This is the easy case, and the one ocap programming is built around.
+This is the easy case, ocap composition of related attenuations.
 
 ## Sheaves: alignment without a shared base
 
@@ -69,7 +70,8 @@ the sheaf has glued together and hands back a narrower view restricted by
 providers can be treated as one — and `getSection` carves a slice out of
 that unified surface for the caller. The result is that you can attenuate
 a composition of capabilities the same way you would attenuate a single
-one.
+one. And because the returned section is itself a capability, it can be
+a provider to another sheaf - the construction composes with itself.
 
 The guard determines what is invokable through `userFacing`. Anything
 outside the guard is simply not in the interface — there is no extra
@@ -79,7 +81,5 @@ ocap is unsupported.
 
 Where multiple providers cover the same invocation, a caller-supplied
 **policy** selects which one runs (see [POLICY.md](./POLICY.md)). Where
-exactly one covers it, the choice is forced. And because the returned
-section is itself a capability, it can be a provider to another sheaf —
-the construction composes with itself. See [USAGE.md](./USAGE.md) for
+exactly one covers it, the choice is forced. See [USAGE.md](./USAGE.md) for
 worked examples.
