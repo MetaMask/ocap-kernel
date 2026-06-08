@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING:** Renamed the `lift` option key on `Sheaf.getSection` and
+  `Sheaf.getDiscoverableSection` to `policy`, completing the earlier
+  `Lift` → `Policy` type rename. Callers must update their call sites:
+  `sheaf.getSection({ guard, lift })` → `sheaf.getSection({ guard, policy })`.
+
 ## [0.1.0]
 
 ### Added

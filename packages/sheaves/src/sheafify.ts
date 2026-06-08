@@ -207,11 +207,11 @@ export const sheafify = <
   );
   const buildSection = ({
     guard,
-    lift,
+    policy,
     schema,
   }: {
     guard: InterfaceGuard;
-    lift: Policy<MetaData>;
+    policy: Policy<MetaData>;
     schema?: Record<string, MethodSchema>;
   }): object => {
     const asyncMethodGuards = asyncifyMethodGuards(guard);
@@ -259,7 +259,7 @@ export const sheafify = <
             ]),
           );
           return drivePolicy(
-            lift,
+            policy,
             stripped,
             { method, args, constraints },
             async (candidate) => {
@@ -299,21 +299,21 @@ export const sheafify = <
 
   const getSection = ({
     guard,
-    lift,
+    policy,
   }: {
     guard: InterfaceGuard;
-    lift: Policy<MetaData>;
-  }): object => buildSection({ guard, lift });
+    policy: Policy<MetaData>;
+  }): object => buildSection({ guard, policy });
 
   const getDiscoverableSection = ({
     guard,
-    lift,
+    policy,
     schema,
   }: {
     guard: InterfaceGuard;
-    lift: Policy<MetaData>;
+    policy: Policy<MetaData>;
     schema: Record<string, MethodSchema>;
-  }): object => buildSection({ guard, lift, schema });
+  }): object => buildSection({ guard, policy, schema });
 
   return harden({
     getSection,

@@ -61,7 +61,7 @@ some open set of the combined surface, restricted by an explicit guard:
 
 ```ts
 const sheaf = sheafify({ name: 'Wallet', providers });
-const userFacing = sheaf.getSection({ guard: userGuard, lift: policy });
+const userFacing = sheaf.getSection({ guard: userGuard, policy });
 ```
 
 `getSection` is itself attenuation: it takes the full combined surface that

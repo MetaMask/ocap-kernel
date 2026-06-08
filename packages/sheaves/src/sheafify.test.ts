@@ -22,7 +22,7 @@ const E = (obj: unknown) =>
 const buildUnionSection = <MetaData extends Record<string, unknown>>(
   name: string,
   providers: Provider<MetaData>[],
-  lift: Policy<MetaData>,
+  policy: Policy<MetaData>,
   schema?: Record<string, MethodSchema>,
 ): object => {
   const sheaf = sheafify({ name, providers });
@@ -31,8 +31,8 @@ const buildUnionSection = <MetaData extends Record<string, unknown>>(
     providers.map(({ exo }) => exo),
   );
   return schema === undefined
-    ? sheaf.getSection({ guard, lift })
-    : sheaf.getDiscoverableSection({ guard, lift, schema });
+    ? sheaf.getSection({ guard, policy })
+    : sheaf.getDiscoverableSection({ guard, policy, schema });
 };
 
 // ---------------------------------------------------------------------------
@@ -40,12 +40,12 @@ const buildUnionSection = <MetaData extends Record<string, unknown>>(
 // ---------------------------------------------------------------------------
 
 describe('sheafify', () => {
-  it('single-section bypass: lift not invoked', async () => {
-    let liftCalled = false;
+  it('single-section bypass: policy not invoked', async () => {
+    let policyCalled = false;
     // eslint-disable-next-line require-yield
-    const lift: Policy<{ cost: number }> = async function* (_candidates) {
-      liftCalled = true;
-      // unreachable — fast path bypasses lift for single section
+    const policy: Policy<{ cost: number }> = async function* (_candidates) {
+      policyCalled = true;
+      // unreachable — fast path bypasses policy for single section
     };
 
     const providers: Provider<{ cost: number }>[] = [
@@ -61,9 +61,9 @@ describe('sheafify', () => {
       },
     ];
 
-    const wallet = buildUnionSection('Wallet', providers, lift);
+    const wallet = buildUnionSection('Wallet', providers, policy);
     expect(await E(wallet).getBalance('alice')).toBe(42);
-    expect(liftCalled).toBe(false);
+    expect(policyCalled).toBe(false);
   });
 
   it('zero-coverage throws', async () => {
@@ -85,7 +85,7 @@ describe('sheafify', () => {
       providers,
 
       async function* (_candidates) {
-        // unreachable — zero-coverage path throws before reaching lift
+        // unreachable — zero-coverage path throws before reaching policy
       },
     );
     await expect(E(wallet).getBalance('bob')).rejects.toThrow(
@@ -93,7 +93,7 @@ describe('sheafify', () => {
     );
   });
 
-  it('lift receives metadata and picks winner', async () => {
+  it('policy receives metadata and picks winner', async () => {
     const argmin: Policy<{ cost: number }> = async function* (candidates) {
       yield* [...candidates].sort(
         (a, b) =>
@@ -323,7 +323,7 @@ describe('sheafify', () => {
     expect(methodGuards).toHaveProperty('getBalance');
   });
 
-  it('lift receives constraints in context and only distinguishing metadata', async () => {
+  it('policy receives constraints in context and only distinguishing metadata', async () => {
     type Meta = { region: string; cost: number };
     let capturedCandidates: Candidate<Partial<Meta>>[] = [];
     let capturedContext: PolicyContext<Meta> | undefined;
@@ -414,7 +414,7 @@ describe('sheafify', () => {
 
   it('collapses equivalent providers by metadata', async () => {
     type Meta = { cost: number };
-    let liftCalled = false;
+    let policyCalled = false;
 
     const providers: Provider<Meta>[] = [
       {
@@ -444,13 +444,13 @@ describe('sheafify', () => {
       providers,
       // eslint-disable-next-line require-yield
       async function* (_candidates) {
-        liftCalled = true;
+        policyCalled = true;
       },
     );
     await E(wallet).getBalance('alice');
 
     // Both providers have identical metadata → collapsed to one candidate → policy bypassed
-    expect(liftCalled).toBe(false);
+    expect(policyCalled).toBe(false);
   });
 
   it('extracts shared NaN metadata values into constraints', async () => {
@@ -583,7 +583,7 @@ describe('sheafify', () => {
 
   it('collapses no-metadata and empty-object metadata as equivalent', async () => {
     type Meta = Record<string, never>;
-    let liftCalled = false;
+    let policyCalled = false;
 
     const providers: Provider<Meta>[] = [
       {
@@ -612,12 +612,12 @@ describe('sheafify', () => {
       providers,
       // eslint-disable-next-line require-yield
       async function* (_candidates) {
-        liftCalled = true;
+        policyCalled = true;
       },
     );
     await E(wallet).getBalance('alice');
 
-    expect(liftCalled).toBe(false);
+    expect(policyCalled).toBe(false);
   });
 
   it('mixed providers participate in policy', async () => {
@@ -837,7 +837,7 @@ describe('getSection with explicit guard', () => {
 
     const section = sheafify({ name: 'Wallet', providers }).getSection({
       guard: readGuard,
-      async *lift(candidates) {
+      async *policy(candidates) {
         yield candidates[0]!;
       },
     });
@@ -868,7 +868,7 @@ describe('getSection with explicit guard', () => {
 
     const section = sheafify({ name: 'Wallet', providers }).getSection({
       guard: readGuard,
-      async *lift(candidates) {
+      async *policy(candidates) {
         yield candidates[0]!;
       },
     });
@@ -905,7 +905,7 @@ describe('getSection with explicit guard', () => {
       providers,
     }).getDiscoverableSection({
       guard: readGuard,
-      async *lift(candidates) {
+      async *policy(candidates) {
         yield candidates[0]!;
       },
       schema,

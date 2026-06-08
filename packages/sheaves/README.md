@@ -66,8 +66,8 @@ produce dispatch sections on demand.
 const sheaf = sheafify({ name: 'Wallet', providers });
 ```
 
-- `sheaf.getSection({ guard, lift })` — produce a dispatch section
-- `sheaf.getDiscoverableSection({ guard, lift, schema })` — same, but the section exposes its guard
+- `sheaf.getSection({ guard, policy })` — produce a dispatch section
+- `sheaf.getDiscoverableSection({ guard, policy, schema })` — same, but the section exposes its guard
 
 ## Dispatch pipeline
 

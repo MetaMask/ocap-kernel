@@ -25,7 +25,7 @@ const sheaf = sheafify({
   providers: [{ exo: priceSection }],
 });
 
-const section = sheaf.getSection({ guard: priceGuard, lift: noopPolicy });
+const section = sheaf.getSection({ guard: priceGuard, policy: noopPolicy });
 // section is a dispatch section; call it like any capability
 const price = await E(section).getPrice('ETH');
 ```
@@ -60,7 +60,7 @@ const sheaf = sheafify<WalletMeta>({
 });
 
 // guard restricts which methods callers may invoke
-const section = sheaf.getSection({ guard: clientGuard, lift: preferFast });
+const section = sheaf.getSection({ guard: clientGuard, policy: preferFast });
 ```
 
 The sheaf drives the generator: it primes it with `gen.next([])`, calls the
@@ -97,7 +97,7 @@ const schema: Record<string, MethodSchema> = {
 
 const section = sheaf.getDiscoverableSection({
   guard: clientGuard,
-  lift,
+  policy,
   schema,
 });
 ```
@@ -116,7 +116,7 @@ const guard = collectSheafGuard(
   'Wallet',
   providers.map(({ exo }) => exo),
 );
-const section = sheaf.getSection({ guard, lift });
+const section = sheaf.getSection({ guard, policy });
 ```
 
 ## Remote providers

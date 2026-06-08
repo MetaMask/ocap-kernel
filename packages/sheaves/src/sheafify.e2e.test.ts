@@ -19,14 +19,14 @@ const E = (obj: unknown) =>
 const buildUnionSection = <MetaData extends Record<string, unknown>>(
   name: string,
   providers: Provider<MetaData>[],
-  lift: Policy<MetaData>,
+  policy: Policy<MetaData>,
 ): object =>
   sheafify({ name, providers }).getSection({
     guard: collectSheafGuard(
       name,
       providers.map(({ exo }) => exo),
     ),
-    lift,
+    policy,
   });
 
 // ---------------------------------------------------------------------------
@@ -78,7 +78,7 @@ describe('e2e: cost-optimal routing', () => {
     expect(remote0GetBalance).not.toHaveBeenCalled();
     local1GetBalance.mockClear();
 
-    // bob: only remote matches (one candidate, lift not invoked)
+    // bob: only remote matches (one candidate, policy not invoked)
     await E(wallet).getBalance('bob');
     expect(remote0GetBalance).toHaveBeenCalledWith('bob');
     expect(local1GetBalance).not.toHaveBeenCalled();
@@ -121,7 +121,7 @@ describe('e2e: multi-tier capability routing', () => {
   // via guards and carries latency metadata. The sheaf routes every call
   // to the fastest matching source — no manual if/else, no strategy
   // registration, just:
-  //   guards (what can handle it)  +  metadata (how fast)  +  lift (pick best)
+  //   guards (what can handle it)  +  metadata (how fast)  +  policy (pick best)
 
   type Tier = { latencyMs: number; label: string };
 
@@ -179,7 +179,7 @@ describe('e2e: multi-tier capability routing', () => {
 
     let wallet = buildUnionSection('Wallet', providers, fastest);
 
-    // Phase 1 — single backend: always one candidate, lift never fires.
+    // Phase 1 — single backend: always one candidate, policy never fires.
     await E(wallet).getBalance('alice');
     await E(wallet).getBalance('bob');
     await E(wallet).getBalance('dave');
@@ -267,7 +267,7 @@ describe('e2e: multi-tier capability routing', () => {
     });
     wallet = buildUnionSection('Wallet', providers, fastest);
 
-    // transfer: only write-backend declares it → one candidate, lift bypassed.
+    // transfer: only write-backend declares it → one candidate, policy bypassed.
     const facade = wallet as unknown as Record<
       string,
       (...args: unknown[]) => unknown
@@ -290,7 +290,7 @@ describe('e2e: multi-tier capability routing', () => {
   });
 
   it('same candidate structure, different policies, different routing', async () => {
-    // The lift is the operational policy — swap it and the same
+    // The policy is the operational policy — swap it and the same
     // set of providers produces different routing behavior.
     const networkGetBalance = vi.fn((_acct: string): number => 0);
     const mirrorGetBalance = vi.fn((_acct: string): number => 0);
@@ -343,7 +343,7 @@ describe('e2e: multi-tier capability routing', () => {
 // ---------------------------------------------------------------------------
 
 describe('e2e: preferAutonomous recovered as degenerate case', () => {
-  it('binary push metadata recovers push-pull lift rule', async () => {
+  it('binary push metadata recovers push-pull policy rule', async () => {
     const preferPush: Policy<{ push: boolean }> = async function* (candidates) {
       yield* candidates.filter((candidate) => candidate.metadata?.push);
       yield* candidates.filter((candidate) => !candidate.metadata?.push);
@@ -385,7 +385,7 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
     expect(pullGetBalance).not.toHaveBeenCalled();
     pushGetBalance.mockClear();
 
-    // bob: only pull matches (one candidate, lift bypassed)
+    // bob: only pull matches (one candidate, policy bypassed)
     await E(wallet).getBalance('bob');
     expect(pullGetBalance).toHaveBeenCalledWith('bob');
     expect(pushGetBalance).not.toHaveBeenCalled();
@@ -470,11 +470,11 @@ describe('e2e: callable metadata — cost varies with invocation args', () => {
 });
 
 // ---------------------------------------------------------------------------
-// E2E: lift retry — first candidate throws, sheaf recovers to fallback
+// E2E: policy retry — first candidate throws, sheaf recovers to fallback
 // ---------------------------------------------------------------------------
 
-describe('e2e: lift retry on handler failure', () => {
-  it('recovers to next candidate when first throws, lift receives non-empty errors', async () => {
+describe('e2e: policy retry on handler failure', () => {
+  it('recovers to next candidate when first throws, policy receives non-empty errors', async () => {
     type RouteMeta = { priority: number };
 
     const primaryFn = vi.fn((_acct: string): number => {
@@ -505,15 +505,15 @@ describe('e2e: lift retry on handler failure', () => {
       },
     ];
 
-    // Track the error-array length the lift receives after each failed attempt.
-    const errorCountsSeenByLift: number[] = [];
+    // Track the error-array length the policy receives after each failed attempt.
+    const errorCountsSeenByPolicy: number[] = [];
     const priorityFirst: Policy<RouteMeta> = async function* (candidates) {
       const ordered = [...candidates].sort(
         (a, b) => (a.metadata?.priority ?? 0) - (b.metadata?.priority ?? 0),
       );
       for (const candidate of ordered) {
         const errors: unknown[] = yield candidate;
-        errorCountsSeenByLift.push(errors.length);
+        errorCountsSeenByPolicy.push(errors.length);
       }
     };
 
@@ -526,12 +526,12 @@ describe('e2e: lift retry on handler failure', () => {
     expect(primaryFn).toHaveBeenCalledWith('alice');
     expect(fallbackFn).toHaveBeenCalledWith('alice');
 
-    // after the primary failed the lift received an errors array with one entry
-    expect(errorCountsSeenByLift).toHaveLength(1);
-    expect(errorCountsSeenByLift[0]).toBe(1);
+    // after the primary failed the policy received an errors array with one entry
+    expect(errorCountsSeenByPolicy).toHaveLength(1);
+    expect(errorCountsSeenByPolicy[0]).toBe(1);
   });
 
-  it('lift receives error snapshots not live references', async () => {
+  it('policy receives error snapshots not live references', async () => {
     type RouteMeta = { priority: number };
 
     const handlers = [

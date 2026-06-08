@@ -99,7 +99,7 @@ export type Sheaf<MetaData extends Record<string, unknown>> = {
    */
   getSection: (opts: {
     guard: InterfaceGuard;
-    lift: Policy<MetaData>;
+    policy: Policy<MetaData>;
   }) => object;
   /**
    * Produce a discoverable dispatch exo over the given guard.
@@ -108,7 +108,7 @@ export type Sheaf<MetaData extends Record<string, unknown>> = {
    */
   getDiscoverableSection: (opts: {
     guard: InterfaceGuard;
-    lift: Policy<MetaData>;
+    policy: Policy<MetaData>;
     schema: Record<string, MethodSchema>;
   }) => object;
 };
