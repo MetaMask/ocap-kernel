@@ -93,11 +93,11 @@ guard, it is invoked directly without evaluate/collapse/policy; if all matching
 providers collapse to an identical candidate, the single representative is invoked
 without calling the policy.
 
-`callable` and `source` metadata specs make the stalk shape depend on the
-invocation arguments. A `swap(amount)` provider can produce `{ cost: 'low' }`
-for small amounts and `{ cost: 'high' }` for large ones, yielding a different
-set of candidates — and potentially a different policy outcome — for the same
-method called with different arguments.
+`callable` metadata specs make the stalk shape depend on the invocation
+arguments. A `swap(amount)` provider can produce `{ cost: 'low' }` for small
+amounts and `{ cost: 'high' }` for large ones, yielding a different set of
+candidates — and potentially a different policy outcome — for the same method
+called with different arguments.
 
 ## Design choices
 

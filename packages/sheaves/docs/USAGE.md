@@ -67,17 +67,13 @@ The sheaf drives the generator: it primes it with `gen.next([])`, calls the
 chosen candidate, then passes any thrown errors back as `gen.next(errors)` so
 the policy can adapt before yielding the next candidate.
 
-Use the `constant`, `source`, or `callable` helpers to build metadata specs:
+Use the `constant` or `callable` helpers to build metadata specs:
 
 ```ts
-import { constant, source, callable } from '@metamask/sheaves';
+import { constant, callable } from '@metamask/sheaves';
 
 // static value known at construction time
 constant({ mode: 'fast' });
-
-// @experimental — prefer callable unless the function must cross a trust boundary
-// or be serialized. Compiled once in the sheaf's compartment at construction time.
-source(`(args) => ({ cost: args[0] > 9000 ? 'high' : 'low' })`);
 
 // live function evaluated at each dispatch — useful when cost varies by argument,
 // e.g. a swap whose metadata encodes volume-based cost tiers

@@ -7,7 +7,7 @@ export type {
   PolicyContext,
   Sheaf,
 } from './types.ts';
-export { constant, source, callable } from './metadata.ts';
+export { constant, callable } from './metadata.ts';
 export { sheafify } from './sheafify.ts';
 export {
   noopPolicy,

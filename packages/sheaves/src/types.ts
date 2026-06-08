@@ -17,14 +17,12 @@ export type Section<Core extends Methods = Methods> = Partial<Core> & {
 };
 
 /**
- * A metadata specification: either a static value, a JS source string, or a
- * live function. Source strings are compiled once at sheafify construction time.
+ * A metadata specification: either a static value or a live function.
  * Evaluated metadata must be a plain object (`{}` means no metadata; primitives
  * must be wrapped, e.g. `{ value: n }`).
  */
 export type MetadataSpec<M extends Record<string, unknown>> =
   | { kind: 'constant'; value: M }
-  | { kind: 'source'; src: string }
   | { kind: 'callable'; fn: (args: unknown[]) => M };
 
 /**

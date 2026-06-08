@@ -20,11 +20,11 @@ import { makeDiscoverableExo } from '@metamask/kernel-utils';
 import { stringify } from '@metamask/kernel-utils';
 
 import { asyncifyMethodGuards, collectSheafGuard } from './guard.ts';
-import { evaluateMetadata, resolveMetadataSpec } from './metadata.ts';
-import type { ResolvedMetadataSpec } from './metadata.ts';
+import { evaluateMetadata } from './metadata.ts';
 import { getStalk } from './stalk.ts';
 import type {
   Candidate,
+  MetadataSpec,
   Section,
   Policy,
   PolicyContext,
@@ -163,7 +163,7 @@ const invokeExo = (exo: Section, method: string, args: unknown[]): unknown => {
 
 type ResolvedProvider<M extends Record<string, unknown>> = {
   exo: Section;
-  spec: ResolvedMetadataSpec<M> | undefined;
+  spec: MetadataSpec<M> | undefined;
 };
 
 const drivePolicy = async <M extends Record<string, unknown>>(
@@ -195,19 +195,14 @@ export const sheafify = <
 >({
   name,
   providers,
-  compartment,
 }: {
   name: string;
   providers: Provider<MetaData>[];
-  compartment?: { evaluate: (src: string) => unknown };
 }): Sheaf<MetaData> => {
   const frozenProviders: readonly ResolvedProvider<MetaData>[] = harden(
     providers.map((provider) => ({
       exo: provider.exo,
-      spec:
-        provider.metadata === undefined
-          ? undefined
-          : resolveMetadataSpec(provider.metadata, compartment),
+      spec: provider.metadata,
     })),
   );
   const buildSection = ({

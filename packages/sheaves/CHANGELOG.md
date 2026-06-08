@@ -24,11 +24,9 @@ metadata }` with metadata already resolved from its spec.
   and yields them in preference order; drives the sheaf dispatch loop.
 - `PolicyContext<M>` type — context passed to the policy: `{ method, args,
 constraints }`.
-- `MetadataSpec<M>` discriminated union with three variants: `constant`,
-  `source`, and `callable`.
+- `MetadataSpec<M>` discriminated union with two variants: `constant` and
+  `callable`.
 - `constant(value)` — static metadata spec; value is fixed at construction.
-- `source(src)` — source-string metadata spec; compiled via the optional
-  compartment at `sheafify` construction time.
 - `callable(fn)` — callable metadata spec; evaluated per-dispatch with the
   invocation arguments.
 - `makeSection(name, guard, handlers)` — creates a named, guarded `Section` from a method-handler map.
