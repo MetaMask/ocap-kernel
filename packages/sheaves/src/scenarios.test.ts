@@ -30,10 +30,10 @@ const buildUnionSection = <MetaData extends Record<string, unknown>>(
   });
 
 // ---------------------------------------------------------------------------
-// E2E: cost-optimal routing
+// Scenario: cost-optimal routing
 // ---------------------------------------------------------------------------
 
-describe('e2e: cost-optimal routing', () => {
+describe('scenario: cost-optimal routing', () => {
   it('argmin picks cheapest section, re-sheafification expands landscape', async () => {
     const argmin: Policy<{ cost: number }> = async function* (candidates) {
       yield* [...candidates].sort(
@@ -113,10 +113,10 @@ describe('e2e: cost-optimal routing', () => {
 });
 
 // ---------------------------------------------------------------------------
-// E2E: multi-tier capability routing
+// Scenario: multi-tier capability routing
 // ---------------------------------------------------------------------------
 
-describe('e2e: multi-tier capability routing', () => {
+describe('scenario: multi-tier capability routing', () => {
   // A wallet integrates multiple data sources. Each declares its coverage
   // via guards and carries latency metadata. The sheaf routes every call
   // to the fastest matching source — no manual if/else, no strategy
@@ -339,10 +339,10 @@ describe('e2e: multi-tier capability routing', () => {
 });
 
 // ---------------------------------------------------------------------------
-// E2E: preferAutonomous recovered as degenerate case
+// Scenario: preferAutonomous recovered as degenerate case
 // ---------------------------------------------------------------------------
 
-describe('e2e: preferAutonomous recovered as degenerate case', () => {
+describe('scenario: preferAutonomous recovered as degenerate case', () => {
   it('binary push metadata recovers push-pull policy rule', async () => {
     const preferPush: Policy<{ push: boolean }> = async function* (candidates) {
       yield* candidates.filter((candidate) => candidate.metadata?.push);
@@ -393,10 +393,10 @@ describe('e2e: preferAutonomous recovered as degenerate case', () => {
 });
 
 // ---------------------------------------------------------------------------
-// E2E: callable metadata — cost varies with invocation args
+// Scenario: callable metadata — cost varies with invocation args
 // ---------------------------------------------------------------------------
 
-describe('e2e: callable metadata — cost varies with invocation args', () => {
+describe('scenario: callable metadata — cost varies with invocation args', () => {
   // Two swap handlers whose cost is a function of the swap amount.
   // Swap A is cheaper for small amounts; Swap B is cheaper for large amounts.
   // Breakeven ≈ 90.9 (1 + 0.1x = 10 + 0.001x → 0.099x = 9 → x ≈ 90.9)
@@ -470,10 +470,10 @@ describe('e2e: callable metadata — cost varies with invocation args', () => {
 });
 
 // ---------------------------------------------------------------------------
-// E2E: policy retry — first candidate throws, sheaf recovers to fallback
+// Scenario: policy retry — first candidate throws, sheaf recovers to fallback
 // ---------------------------------------------------------------------------
 
-describe('e2e: policy retry on handler failure', () => {
+describe('scenario: policy retry on handler failure', () => {
   it('recovers to next candidate when first throws, policy receives non-empty errors', async () => {
     type RouteMeta = { priority: number };
 
