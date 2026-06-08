@@ -78,15 +78,15 @@ getMatchingProviders(providers, method, args)  presheaf → matches (filter by g
 evaluateMetadata(matches, args)                metadata specs → concrete values
 collapseEquivalent(candidates)                 locality condition (quotient by metadata)
 decomposeMetadata(collapsed)                   restriction map (constraints / options)
-policy(candidates, { method, args,             operational selection (extra-theoretic)
+policy(candidates, { method, args,             operational selection
                   constraints })
 dispatch to chosen.exo                         evaluation
 ```
 
 The pipeline short-circuits at two points: if only one provider matches the
-guard, it is invoked directly without evaluate/collapse/policy; if all matching
-providers collapse to an identical candidate, the single representative is invoked
-without calling the policy.
+guard, it is invoked directly; if multiple providers match but all collapse to
+an identical candidate, the single representative is invoked without calling
+the policy.
 
 `callable` metadata specs make the candidate set depend on the invocation
 arguments. A `swap(amount)` provider can produce `{ cost: 'low' }` for small
@@ -96,33 +96,20 @@ called with different arguments.
 
 ## Design choices
 
-**Candidate identity is metadata identity.** The collapse step quotients by
-metadata: if two providers should be distinguishable, the caller must give them
-distinguishable metadata. Providers with identical metadata are treated as
-interchangeable. Under the sheaf condition (effect-equivalence), this recovers
-the classical equivalence relation on germs.
+**Candidate identity is metadata identity.** Within a single equivalence class
+(same metadata), the sheaf has no data to prefer one provider over another, so
+it picks an arbitrary representative. Callers who need a distinction between
+two providers must encode it in metadata. The semantic-equivalence contract
+(see [POLICY.md](./docs/POLICY.md)) is the assertion that this is safe.
 
-**Pseudosheafification.** The sheafification functor would precompute the full
-etale space. This system defers to invocation time: match by guard, evaluate
-metadata, collapse, decompose, select via policy. The trade-off is that global
-coherence (a policy choosing consistently across points) is not guaranteed.
+**Lazy dispatch.** Match, evaluate, collapse, decompose, and policy selection
+all run per invocation rather than being precomputed at `sheafify` time. This
+keeps `callable` metadata cheap (only providers surviving the guard filter are
+evaluated) and lets the candidate set vary with the arguments to a single
+method.
 
-**Restriction and gluing are implicit.** Guard restriction induces a
-restriction map on metadata: restricting to a point filters the presheaf to
-covering providers (`getMatchingProviders`), then `decomposeMetadata` strips
-the metadata to distinguishing keys — the restricted metadata over that point. The join
-works dually: the union of two providers has the join of their metadata, and
-restriction at any point recovers the local distinguishing keys in O(n).
-Gluing follows: compatible providers (equal metadata on their overlap) produce a
-well-defined join. The dispatch pipeline computes all of this implicitly. The
-remaining gap is `revokeSite` (revoking over an open set rather than a point),
-which requires an `intersects` operator on guards not yet available.
-
-## Relationship to stacks
-
-This construction is more properly a **stack** in algebraic geometry. We call
-it a sheaf because engineers already know "stack" as a LIFO data structure, and
-the algebraic geometry term is unrelated. Within a candidate, any representative
-will do — authority-equivalence is asserted by constructor contract, not
-verified at runtime. Between candidates, metadata distinguishes them and the
-policy resolves the choice.
+**Restriction is implicit in the pipeline.** Filtering by guard
+(`getMatchingProviders`) and stripping shared metadata (`decomposeMetadata`)
+together yield the local view the policy sees — the candidates and their
+distinguishing keys over that point. There is no separate "restrict to a
+subdomain" operation; restriction falls out of dispatch.
