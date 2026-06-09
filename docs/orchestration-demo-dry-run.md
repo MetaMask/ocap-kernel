@@ -143,8 +143,10 @@ openclaw config unset 'plugins.entries.discovery.config.matcherUrl'
 Install the openclaw plugins:
 
 ```csh
-openclaw plugins install -l ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery
-openclaw plugins install -l ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-demo
+openclaw plugins install -l \
+  ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery
+openclaw plugins install -l \
+  ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-demo
 openclaw plugins enable discovery
 openclaw plugins enable demo
 ```
@@ -164,7 +166,8 @@ is missing, add it (preserve any other entries already present),
 e.g.:
 
 ```csh
-openclaw config set plugins.allow '["discovery", "demo", "anthropic", "google", "memory-core"]'
+openclaw config set plugins.allow \
+  '["discovery", "demo", "anthropic", "google", "memory-core"]'
 ```
 
 `tools.allow` must include the ten tool names below. If any are
@@ -198,8 +201,10 @@ get misclassified as slugs:
 
 ```csh
 cd ~/GitRepos/ocap-kernel
-openclaw skills install ./packages/agentmask/openclaw-plugin-discovery/skills/discovery
-openclaw skills install ./packages/agentmask/openclaw-plugin-demo/skills/orchestration-demo
+openclaw skills install \
+  ./packages/agentmask/openclaw-plugin-discovery/skills/discovery
+openclaw skills install \
+  ./packages/agentmask/openclaw-plugin-demo/skills/orchestration-demo
 ```
 
 Confirm both appear:
@@ -264,6 +269,18 @@ yarn workspace @ocap/sample-services bundle-vats
 The laptop is the development source for `chip/orchestration-demo`,
 so no fetch/pull is needed here unless someone else has been
 pushing to the branch.
+
+Set `VPS_HOST` in the laptop shell profile so the per-run steps can
+reference it without re-typing the hostname. Use whatever value you
+already pass to `ssh` (an alias from `~/.ssh/config`, `user@host`, or
+a bare hostname):
+
+```csh
+setenv VPS_HOST <vps-ssh-target>
+```
+
+This is the only place `<vps-ssh-target>` appears in the playbook;
+every later step interpolates `$VPS_HOST`.
 
 ---
 
@@ -332,9 +349,12 @@ In `vps-ctl`:
 
 ```csh
 source ~/.ocap/matcher-urls.env
-openclaw config set 'plugins.entries.discovery.config.ocapHome' "$HOME/.ocap-consumer"
-openclaw config set 'plugins.entries.discovery.config.ocapCliPath' "$HOME/GitRepos/ocap-kernel/packages/kernel-cli/dist/app.mjs"
-openclaw config set 'plugins.entries.discovery.config.matcherUrl' "$MATCHER_OCAP_URL"
+openclaw config set 'plugins.entries.discovery.config.ocapHome' \
+  "$HOME/.ocap-consumer"
+openclaw config set 'plugins.entries.discovery.config.ocapCliPath' \
+  "$HOME/GitRepos/ocap-kernel/packages/kernel-cli/dist/app.mjs"
+openclaw config set 'plugins.entries.discovery.config.matcherUrl' \
+  "$MATCHER_OCAP_URL"
 openclaw gateway restart
 ```
 
@@ -343,7 +363,7 @@ openclaw gateway restart
 From `laptop-ctl`:
 
 ```csh
-ssh -L 7777:127.0.0.1:7777 <vps-host>
+ssh -L 7777:127.0.0.1:7777 $VPS_HOST
 ```
 
 Leave that session open. In `laptop-browser`, open
@@ -357,9 +377,9 @@ is occupied), pull the current matcher URLs and relay address from
 the VPS:
 
 ```csh
-scp <vps-host>:.ocap/matcher-urls.env /tmp/matcher-urls.env
+scp ${VPS_HOST}:.ocap/matcher-urls.env /tmp/matcher-urls.env
 source /tmp/matcher-urls.env
-setenv OCAP_RELAY_MULTIADDR `ssh <vps-host> cat \~/.libp2p-relay/relay.addr`
+setenv OCAP_RELAY_MULTIADDR `ssh $VPS_HOST cat \~/.libp2p-relay/relay.addr`
 ./packages/sample-services/scripts/start-services.sh
 ```
 
@@ -515,7 +535,8 @@ cheap.
 
   ```csh
   openclaw config unset 'plugins.entries.discovery.config.matcherUrl'
-  openclaw plugins install -l ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery
+  openclaw plugins install -l \
+    ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery
   ```
 
 - **"observerUrl is required" from demo-display** — `$MATCHER_OBSERVER_URL` wasn't exported in `vps-display`'s shell before `yarn workspace @ocap/demo-display start`. Re-export and restart.
