@@ -2,6 +2,16 @@
   "id": "discovery",
   "name": "Service Discovery",
   "description": "Find and consume services via a service matcher plus the contact protocol defined in @metamask/service-discovery-types.",
+  "contracts": {
+    "tools": [
+      "discovery_redeem_matcher",
+      "discovery_find_services",
+      "discovery_list_tracked",
+      "service_get_description",
+      "service_initiate_contact",
+      "service_call"
+    ]
+  },
   "configSchema": {
     "type": "object",
     "properties": {

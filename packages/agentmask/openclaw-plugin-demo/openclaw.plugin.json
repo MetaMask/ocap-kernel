@@ -2,6 +2,14 @@
   "id": "demo",
   "name": "Orchestration Demo",
   "description": "Bookkeeping tools (artifacts, wallet, phase announcements) for the orchestration demo. Posts events to demo-display so the audience-facing dashboard updates in real time.",
+  "contracts": {
+    "tools": [
+      "demo_announce",
+      "demo_record_artifact",
+      "demo_get_artifact",
+      "demo_wallet_balance"
+    ]
+  },
   "configSchema": {
     "type": "object",
     "properties": {
