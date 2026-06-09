@@ -288,15 +288,14 @@ In `vps-ctl`:
 
 ```csh
 ./packages/service-matcher/scripts/reset-everything.sh --no-build
+source ~/.ocap/matcher-urls.env
 ```
 
-Watch the final reminder block for the two URLs (matcher + observer).
-Capture them:
-
-```csh
-setenv MATCHER_OCAP_URL    'ocap:<from output>'
-setenv MATCHER_OBSERVER_URL 'ocap:<from output>'
-```
+`start-matcher.sh` (invoked by `reset-everything.sh`) writes the
+minted URLs to `~/.ocap/matcher-urls.env` as csh `setenv` lines, so
+sourcing the file is all that's needed to pick them up. Every later
+step that wants `MATCHER_OCAP_URL` or `MATCHER_OBSERVER_URL` sources
+this same file.
 
 ### Step 3: VPS log tails
 
@@ -316,9 +315,8 @@ tail -F ~/.ocap-consumer/daemon.log
 In `vps-display`:
 
 ```csh
-env MATCHER_OBSERVER_URL="$MATCHER_OBSERVER_URL" \
-    OCAP_HOME="$HOME/.ocap-consumer" \
-    yarn workspace @ocap/demo-display start
+source ~/.ocap/matcher-urls.env
+env OCAP_HOME="$HOME/.ocap-consumer" yarn workspace @ocap/demo-display start
 ```
 
 Watch for:
@@ -333,6 +331,7 @@ Watch for:
 In `vps-ctl`:
 
 ```csh
+source ~/.ocap/matcher-urls.env
 openclaw config set 'plugins.entries.discovery.config.ocapHome' "$HOME/.ocap-consumer"
 openclaw config set 'plugins.entries.discovery.config.ocapCliPath' "$HOME/GitRepos/ocap-kernel/packages/kernel-cli/dist/app.mjs"
 openclaw config set 'plugins.entries.discovery.config.matcherUrl' "$MATCHER_OCAP_URL"
@@ -354,11 +353,13 @@ empty, transcript empty, artifact panel empty, wallet ribbon `—`.
 ### Step 7: Laptop sample-services daemon
 
 In `laptop-ctl` (a different session from the SSH tunnel — that one
-is occupied):
+is occupied), pull the current matcher URLs and relay address from
+the VPS:
 
 ```csh
+scp <vps-host>:.ocap/matcher-urls.env /tmp/matcher-urls.env
+source /tmp/matcher-urls.env
 setenv OCAP_RELAY_MULTIADDR `ssh <vps-host> cat \~/.libp2p-relay/relay.addr`
-setenv MATCHER_OCAP_URL    'ocap:<from VPS step 2 output>'
 ./packages/sample-services/scripts/start-services.sh
 ```
 
@@ -420,18 +421,19 @@ From here you're the inventor. The producer takes over.
 ## Restarting the matcher mid-run
 
 `reset-everything.sh` cold-starts the matcher and mints **fresh**
-`MATCHER_OCAP_URL` and `MATCHER_OBSERVER_URL` values. Anything that
-captured one of those URLs at startup needs to be refreshed. After
-re-running step 2, redo, in order:
+`MATCHER_OCAP_URL` and `MATCHER_OBSERVER_URL` values, then rewrites
+`~/.ocap/matcher-urls.env`. Anything that captured one of those URLs
+at startup needs to be refreshed. After re-running step 2, in order:
 
-1. `setenv MATCHER_OCAP_URL '...'` and `setenv MATCHER_OBSERVER_URL '...'`
-   from the new reset-everything output.
-2. **Restart `vps-display`** with the new `MATCHER_OBSERVER_URL`
-   (Ctrl-C, then re-run step 4).
+1. **Re-source the env file** in every shell that still has the
+   stale URLs in its environment: `source ~/.ocap/matcher-urls.env`
+   in `vps-ctl`.
+2. **Restart `vps-display`** (Ctrl-C, then re-run step 4 — its
+   `source` picks up the new URL from the regenerated file).
 3. **Redo step 5**: point the discovery plugin's `matcherUrl` at the
-   new URL and restart the gateway.
-4. **Redo step 7** on the laptop: re-export `MATCHER_OCAP_URL`,
-   re-run `start-services.sh`.
+   new URL (`source` first) and restart the gateway.
+4. **Redo step 7** on the laptop: re-`scp` the env file from the
+   VPS, source it, re-run `start-services.sh`.
 
 The log tails (step 3 and the SSH tunnel from step 6) keep working
 without changes.

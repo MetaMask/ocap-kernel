@@ -323,6 +323,19 @@ if ! kill -0 "$LLM_BRIDGE_PID" 2>/dev/null; then
   fail "llm-bridge exited immediately — see $LLM_BRIDGE_LOG_PATH"
 fi
 
+# Write the two URLs to a sourceable env file so consumers
+# (demo-display, openclaw config, laptop's start-services.sh) can
+# pick them up programmatically instead of via copy-paste. csh
+# `setenv` form because the user's interactive shell is csh; URLs
+# are alphanumeric+symbol with no single quotes, so single-quoting
+# the values is safe.
+URLS_FILE="$OCAP_HOME_DIR/matcher-urls.env"
+cat > "$URLS_FILE" <<EOF
+setenv MATCHER_OCAP_URL    '$MATCHER_URL'
+setenv MATCHER_OBSERVER_URL '$OBSERVER_URL'
+EOF
+info "URLs written to $URLS_FILE (source from csh)."
+
 info "Matcher ready."
 echo "matcher:  $MATCHER_URL"
 echo "observer: $OBSERVER_URL"
