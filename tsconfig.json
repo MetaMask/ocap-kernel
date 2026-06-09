@@ -39,6 +39,7 @@
     { "path": "./packages/sample-services" },
     { "path": "./packages/service-discovery-types" },
     { "path": "./packages/service-matcher" },
+    { "path": "./packages/sheaves" },
     { "path": "./packages/streams" },
     { "path": "./packages/template-package" }
   ]
