@@ -145,7 +145,11 @@ stay sane.
 
 3. **Read the wallet balance once early** via
    `demo_wallet_balance`. Remember the value. Consult it again
-   before any phase that involves large per-unit costs.
+   before any phase that involves large per-unit costs. After each
+   successful `service_call` that incurred a cost, call
+   `demo_wallet_charge({ amountUsd, reason })` with the price the
+   service quoted; the wallet ribbon on the dashboard updates as a
+   result, so the audience can see money actually moving.
 
 4. **Open the first concrete phase** (typically Concept). State
    in the TUI what you're about to do and why; don't enumerate

@@ -210,11 +210,17 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
       return { ...state, transcript };
     }
     case 'phase.announced': {
-      const transcript = appendTranscript(state.transcript, {
-        kind: 'phase',
-        at: event.at,
-        phase: event.phase,
-      });
+      // Skip the transcript entry if it would just repeat the most
+      // recent phase line — agents sometimes re-announce the current
+      // phase mid-stream and the audience doesn't need to see it twice.
+      const isDup = state.activePhase === event.phase;
+      const transcript = isDup
+        ? state.transcript
+        : appendTranscript(state.transcript, {
+            kind: 'phase',
+            at: event.at,
+            phase: event.phase,
+          });
       const announcedPhases = state.announcedPhases.includes(event.phase)
         ? state.announcedPhases
         : [...state.announcedPhases, event.phase];
@@ -227,8 +233,14 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
     }
     case 'artifact.recorded': {
       const phase = state.activePhase ?? UNASSIGNED_PHASE;
+      const existing = state.artifactsByPhase.get(phase) ?? [];
+      if (existing.some((a) => a.handle === event.handle)) {
+        // SSE backlog replay on reconnect, or the agent re-recording
+        // the same handle — surface the latest payload in the artifact
+        // panel but don't add a second column card.
+        return { ...state, latestArtifact: event };
+      }
       const artifactsByPhase = new Map(state.artifactsByPhase);
-      const existing = artifactsByPhase.get(phase) ?? [];
       artifactsByPhase.set(phase, [...existing, event]);
       return { ...state, latestArtifact: event, artifactsByPhase };
     }

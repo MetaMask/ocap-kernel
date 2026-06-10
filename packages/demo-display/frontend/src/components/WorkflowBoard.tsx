@@ -5,6 +5,7 @@ type WorkflowBoardProps = {
   announcedPhases: string[];
   artifactsByPhase: Map<string, ArtifactRecordedEvent[]>;
   activePhase: string | undefined;
+  onZoom: (artifact: ArtifactRecordedEvent) => void;
 };
 
 /**
@@ -29,7 +30,7 @@ type WorkflowBoardProps = {
  * @returns The rendered board.
  */
 export function WorkflowBoard(props: WorkflowBoardProps): JSX.Element {
-  const { announcedPhases, artifactsByPhase, activePhase } = props;
+  const { announcedPhases, artifactsByPhase, activePhase, onZoom } = props;
   const columns = orderedColumns(announcedPhases, artifactsByPhase);
 
   return (
@@ -52,6 +53,7 @@ export function WorkflowBoard(props: WorkflowBoardProps): JSX.Element {
               phase={phase}
               artifacts={artifactsByPhase.get(phase) ?? []}
               isActive={phase === activePhase}
+              onZoom={onZoom}
             />
           ))}
         </div>
@@ -102,6 +104,7 @@ type PhaseColumnProps = {
   phase: string;
   artifacts: ArtifactRecordedEvent[];
   isActive: boolean;
+  onZoom: (artifact: ArtifactRecordedEvent) => void;
 };
 
 /**
@@ -118,6 +121,7 @@ function PhaseColumn({
   phase,
   artifacts,
   isActive,
+  onZoom,
 }: PhaseColumnProps): JSX.Element {
   const className = `phase-column${
     isActive ? ' phase-column--active' : ''
@@ -132,7 +136,11 @@ function PhaseColumn({
       </header>
       <ul className="phase-column__cards">
         {artifacts.map((artifact) => (
-          <ArtifactThumb key={artifact.handle} artifact={artifact} />
+          <ArtifactThumb
+            key={artifact.handle}
+            artifact={artifact}
+            onZoom={onZoom}
+          />
         ))}
       </ul>
     </div>
@@ -141,6 +149,7 @@ function PhaseColumn({
 
 type ArtifactThumbProps = {
   artifact: ArtifactRecordedEvent;
+  onZoom: (artifact: ArtifactRecordedEvent) => void;
 };
 
 /**
@@ -151,10 +160,25 @@ type ArtifactThumbProps = {
  * @param props.artifact - The artifact event to thumbnail.
  * @returns The rendered card.
  */
-function ArtifactThumb({ artifact }: ArtifactThumbProps): JSX.Element {
+function ArtifactThumb({
+  artifact,
+  onZoom,
+}: ArtifactThumbProps): JSX.Element {
   const title = artifact.metadata?.title ?? artifact.handle;
   return (
-    <li className="phase-column__card">
+    <li
+      className="phase-column__card"
+      onClick={() => onZoom(artifact)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onZoom(artifact);
+        }
+      }}
+      aria-label={`Zoom ${title}`}
+    >
       <div className="phase-column__thumb">
         {artifact.artifactKind === 'svg' ? (
           <div

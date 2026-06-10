@@ -7,7 +7,8 @@
       "demo_announce",
       "demo_record_artifact",
       "demo_get_artifact",
-      "demo_wallet_balance"
+      "demo_wallet_balance",
+      "demo_wallet_charge"
     ]
   },
   "configSchema": {

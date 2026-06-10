@@ -28,6 +28,7 @@ import { registerAnnounceTool } from './tools/announce.ts';
 import { registerGetArtifactTool } from './tools/get-artifact.ts';
 import { registerRecordArtifactTool } from './tools/record-artifact.ts';
 import { registerWalletBalanceTool } from './tools/wallet-balance.ts';
+import { registerWalletChargeTool } from './tools/wallet-charge.ts';
 import type {
   OpenClawPluginApi,
   PluginConfigSchema,
@@ -135,6 +136,7 @@ function register(api: OpenClawPluginApi): void {
   registerRecordArtifactTool({ api, state, display });
   registerGetArtifactTool({ api, state });
   registerWalletBalanceTool({ api, state });
+  registerWalletChargeTool({ api, state, display });
 
   // Surface the initial wallet balance to demo-display so the wallet
   // ribbon shows a value before the agent's first read. Fire-and-

@@ -170,7 +170,7 @@ openclaw config set plugins.allow \
   '["discovery", "demo", "anthropic", "google", "memory-core"]'
 ```
 
-`tools.allow` must include the ten tool names below. If any are
+`tools.allow` must include the eleven tool names below. If any are
 missing, add them (preserve any other entries already present):
 
 ```
@@ -184,6 +184,7 @@ demo_announce
 demo_record_artifact
 demo_get_artifact
 demo_wallet_balance
+demo_wallet_charge
 ```
 
 Set the remaining flags (these are safe to set unconditionally):
@@ -411,13 +412,13 @@ Once the TUI is up, ask the agent (in plain prose):
 > "Without taking any action, list every tool whose name starts
 > with `discovery_`, `service_`, or `demo_`."
 
-It should list all ten:
+It should list all eleven:
 
 ```
 discovery_redeem_matcher, discovery_find_services,
 service_get_description, service_initiate_contact, service_call,
 discovery_list_tracked, demo_announce, demo_record_artifact,
-demo_get_artifact, demo_wallet_balance
+demo_get_artifact, demo_wallet_balance, demo_wallet_charge
 ```
 
 If fewer, revisit `tools.allow` and `tools.profile` (one-time setup).

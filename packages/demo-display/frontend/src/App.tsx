@@ -1,9 +1,13 @@
+import { useState } from 'react';
+
 import { ArtifactPanel } from './components/ArtifactPanel.tsx';
+import { ArtifactZoom } from './components/ArtifactZoom.tsx';
 import { MarketplaceGrid } from './components/MarketplaceGrid.tsx';
 import { Transcript } from './components/Transcript.tsx';
 import { WalletRibbon } from './components/WalletRibbon.tsx';
 import { WorkflowBoard } from './components/WorkflowBoard.tsx';
 import { useEventStream } from './hooks/useEventStream.ts';
+import type { ArtifactRecordedEvent } from './types.ts';
 
 /**
  * Top-level layout for the demo-display SPA.
@@ -32,6 +36,9 @@ export function App(): JSX.Element {
     walletBalanceUsd,
     discoveredProviderTags,
   } = useEventStream();
+  const [zoomed, setZoomed] = useState<ArtifactRecordedEvent | undefined>(
+    undefined,
+  );
   return (
     <div className="app">
       <header className="app__header">
@@ -50,6 +57,7 @@ export function App(): JSX.Element {
             announcedPhases={announcedPhases}
             artifactsByPhase={artifactsByPhase}
             activePhase={activePhase}
+            onZoom={setZoomed}
           />
         </div>
         <div className="app__cell app__cell--bottom-left">
@@ -59,6 +67,7 @@ export function App(): JSX.Element {
           <ArtifactPanel artifact={latestArtifact} />
         </div>
       </main>
+      <ArtifactZoom artifact={zoomed} onClose={() => setZoomed(undefined)} />
     </div>
   );
 }

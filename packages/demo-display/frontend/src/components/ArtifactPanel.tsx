@@ -1,3 +1,5 @@
+import { marked } from 'marked';
+
 import type { ArtifactRecordedEvent } from '../types.ts';
 
 type ArtifactPanelProps = {
@@ -60,12 +62,13 @@ type ArtifactBodyProps = {
 
 /**
  * Dispatch the artifact payload to the renderer matching its kind.
+ * Exported so the zoom modal can reuse the same rendering surface.
  *
  * @param props - Component props.
  * @param props.artifact - The artifact event to render.
  * @returns The rendered body.
  */
-function ArtifactBody({ artifact }: ArtifactBodyProps): JSX.Element {
+export function ArtifactBody({ artifact }: ArtifactBodyProps): JSX.Element {
   if (artifact.artifactKind === 'svg') {
     return (
       <div
@@ -82,6 +85,18 @@ function ArtifactBody({ artifact }: ArtifactBodyProps): JSX.Element {
           alt={artifact.metadata?.title ?? artifact.handle}
         />
       </div>
+    );
+  }
+  if (artifact.artifactKind === 'markdown') {
+    // `marked.parse` is synchronous when given a string; the type
+    // signature returns `string | Promise<string>` because async
+    // extensions are supported, but we don't use any.
+    const html = marked.parse(artifact.data, { async: false }) as string;
+    return (
+      <div
+        className="artifact-panel__body artifact-panel__body--markdown"
+        dangerouslySetInnerHTML={{ __html: html }}
+      />
     );
   }
   return (
