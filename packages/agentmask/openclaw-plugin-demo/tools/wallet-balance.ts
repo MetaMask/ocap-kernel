@@ -6,6 +6,7 @@
  * becomes dynamic and this tool reflects whatever value the service
  * is currently holding.
  */
+import type { DisplayClient } from '../display-client.ts';
 import type { PluginState } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 
@@ -15,12 +16,16 @@ import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
  * @param options - Registration options.
  * @param options.api - The OpenClaw plugin API.
  * @param options.state - The plugin state.
+ * @param options.display - Display client; the read also pushes a
+ *   wallet.balance event so the dashboard ribbon stays in sync (the
+ *   register-time push is unreliable — see index.ts for context).
  */
 export function registerWalletBalanceTool(options: {
   api: OpenClawPluginApi;
   state: PluginState;
+  display: DisplayClient;
 }): void {
-  const { api, state } = options;
+  const { api, state, display } = options;
 
   api.registerTool({
     name: 'demo_wallet_balance',
@@ -34,6 +39,9 @@ export function registerWalletBalanceTool(options: {
       properties: {},
     },
     async execute(): Promise<ToolResponse> {
+      display
+        .post({ kind: 'wallet.balance', balanceUsd: state.balanceUsd })
+        .catch(() => undefined);
       return {
         content: [
           {

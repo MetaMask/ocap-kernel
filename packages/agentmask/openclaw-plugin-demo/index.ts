@@ -132,34 +132,19 @@ function register(api: OpenClawPluginApi): void {
   const state = createState({ initialBalanceUsd: walletInitialBalanceUsd });
   const display = makeDisplayClient({ baseUrl: displayUrl });
 
-  registerAnnounceTool({ api, display });
+  registerAnnounceTool({ api, display, state });
   registerRecordArtifactTool({ api, state, display });
   registerGetArtifactTool({ api, state });
-  registerWalletBalanceTool({ api, state });
+  registerWalletBalanceTool({ api, state, display });
   registerWalletChargeTool({ api, state, display });
 
-  // Surface the initial wallet balance to demo-display so the wallet
-  // ribbon shows a value before the agent's first read. Retry with
-  // backoff: when the gateway is restarting, the register-time fetch
-  // can disappear silently (openclaw tears down the plugin context
-  // before the async catch runs, swallowing the error). Re-posting a
-  // few times over the first ~20 seconds catches the case where
-  // demo-display is briefly unreachable or the gateway's network
-  // stack isn't ready yet. Idempotent: the demo-display reducer just
-  // overwrites walletBalanceUsd with the same value.
-  const initialBalanceUsd = state.balanceUsd;
-  const retryDelays = [0, 1_000, 3_000, 6_000, 12_000];
-  for (const delay of retryDelays) {
-    setTimeout(() => {
-      // Only re-post the initial balance if a real spend hasn't
-      // happened yet; otherwise we'd clobber the live balance.
-      if (state.balanceUsd === initialBalanceUsd) {
-        display
-          .post({ kind: 'wallet.balance', balanceUsd: state.balanceUsd })
-          .catch(() => undefined);
-      }
-    }, delay);
-  }
+  // No register-time wallet.balance post: openclaw's plugin context
+  // doesn't reliably let async work complete after register() returns,
+  // so the post is silently dropped at gateway start. Instead,
+  // demo_announce and demo_wallet_balance post the current balance as
+  // a side effect — both run early per SKILL.md, so the ribbon snaps
+  // to its value the moment the agent does anything. Trade-off:
+  // ribbon shows "—" until the first tool invocation.
 
   // eslint-disable-next-line no-console
   console.info(
