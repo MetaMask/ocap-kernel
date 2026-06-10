@@ -34,6 +34,28 @@ export type ServiceDiscoveredEvent = {
 };
 
 /**
+ * The agent asked the matcher to find services. Surfaced in the
+ * transcript so the audience can see the matcher being consulted, not
+ * just the agent's downstream actions.
+ */
+export type MatcherQueryEvent = {
+  kind: 'matcher.query';
+  description: string;
+  at: string;
+};
+
+/**
+ * The matcher replied to a previous `matcher.query` with this set of
+ * provider tags (or none).
+ */
+export type MatcherResultsEvent = {
+  kind: 'matcher.results';
+  count: number;
+  providerTags: string[];
+  at: string;
+};
+
+/**
  * The agent invoked a tool. The demo plugin posts these so the
  * transcript panel can render a live activity log.
  */
@@ -104,6 +126,8 @@ export type DisplayEvent =
   | ServiceRegisteredEvent
   | ServiceEvictedEvent
   | ServiceDiscoveredEvent
+  | MatcherQueryEvent
+  | MatcherResultsEvent
   | ToolCallEvent
   | ToolResultEvent
   | ArtifactRecordedEvent

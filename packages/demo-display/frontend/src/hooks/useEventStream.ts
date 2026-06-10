@@ -8,12 +8,20 @@ import type {
 
 /**
  * One entry in the agent's narration transcript. Synthesized from
- * `agent.note` events (the agent's own one-line narration) and
- * `phase.announced` events (workflow-phase transitions).
+ * `agent.note`, `phase.announced`, and matcher query/result events so
+ * the audience can see both the agent's narration and the
+ * underlying service-matcher round-trips.
  */
 export type TranscriptEntry =
   | { kind: 'note'; at: string; note: string }
-  | { kind: 'phase'; at: string; phase: string };
+  | { kind: 'phase'; at: string; phase: string }
+  | { kind: 'matcher-query'; at: string; description: string }
+  | {
+      kind: 'matcher-results';
+      at: string;
+      count: number;
+      providerTags: string[];
+    };
 
 /**
  * Sentinel phase name used when an artifact arrives before any phase
@@ -119,6 +127,8 @@ export function useEventStream(): DisplayState {
       'service.registered',
       'service.evicted',
       'service.discovered',
+      'matcher.query',
+      'matcher.results',
       'artifact.recorded',
       'phase.announced',
       'agent.note',
@@ -173,6 +183,23 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
           event.providerTag,
         ],
       };
+    }
+    case 'matcher.query': {
+      const transcript = appendTranscript(state.transcript, {
+        kind: 'matcher-query',
+        at: event.at,
+        description: event.description,
+      });
+      return { ...state, transcript };
+    }
+    case 'matcher.results': {
+      const transcript = appendTranscript(state.transcript, {
+        kind: 'matcher-results',
+        at: event.at,
+        count: event.count,
+        providerTags: event.providerTags,
+      });
+      return { ...state, transcript };
     }
     case 'agent.note': {
       const transcript = appendTranscript(state.transcript, {

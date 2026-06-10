@@ -69,6 +69,17 @@ export function registerFindServicesTool(options: {
       try {
         const matcherKref = await requireMatcher(state);
         const query = { description: params.description };
+
+        if (displayClient !== undefined) {
+          displayClient
+            .post({
+              kind: 'matcher.query',
+              description: params.description,
+              at: new Date().toISOString(),
+            })
+            .catch(() => undefined);
+        }
+
         const raw = await daemon.queueMessage({
           target: matcherKref,
           method: 'findServices',
@@ -82,6 +93,16 @@ export function registerFindServicesTool(options: {
         }
         const matches = raw as ServiceMatchWire[];
         if (matches.length === 0) {
+          if (displayClient !== undefined) {
+            displayClient
+              .post({
+                kind: 'matcher.results',
+                count: 0,
+                providerTags: [],
+                at: new Date().toISOString(),
+              })
+              .catch(() => undefined);
+          }
           return {
             content: [
               {
@@ -95,10 +116,11 @@ export function registerFindServicesTool(options: {
 
         if (displayClient !== undefined) {
           const at = new Date().toISOString();
+          const tags: string[] = [];
           for (const match of matches) {
             const tag = match.description.providerTag;
             if (typeof tag === 'string' && tag.length > 0) {
-              // fire-and-forget; display-client swallows its own errors
+              tags.push(tag);
               displayClient
                 .post({
                   kind: 'service.discovered',
@@ -108,6 +130,14 @@ export function registerFindServicesTool(options: {
                 .catch(() => undefined);
             }
           }
+          displayClient
+            .post({
+              kind: 'matcher.results',
+              count: matches.length,
+              providerTags: tags,
+              at,
+            })
+            .catch(() => undefined);
         }
 
         const lines: string[] = [

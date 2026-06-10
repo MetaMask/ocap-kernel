@@ -26,6 +26,19 @@ export type ServiceDiscoveredEvent = {
   at: string;
 };
 
+export type MatcherQueryEvent = {
+  kind: 'matcher.query';
+  description: string;
+  at: string;
+};
+
+export type MatcherResultsEvent = {
+  kind: 'matcher.results';
+  count: number;
+  providerTags: string[];
+  at: string;
+};
+
 export type ToolCallEvent = {
   kind: 'tool.call';
   toolName: string;
@@ -72,6 +85,8 @@ export type DisplayEvent =
   | ServiceRegisteredEvent
   | ServiceEvictedEvent
   | ServiceDiscoveredEvent
+  | MatcherQueryEvent
+  | MatcherResultsEvent
   | ToolCallEvent
   | ToolResultEvent
   | ArtifactRecordedEvent

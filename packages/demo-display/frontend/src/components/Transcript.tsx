@@ -60,6 +60,31 @@ function TranscriptLine({ entry }: TranscriptLineProps): JSX.Element {
       </li>
     );
   }
+  if (entry.kind === 'matcher-query') {
+    return (
+      <li className="transcript__line transcript__line--matcher">
+        <span className="transcript__time">{formatTime(entry.at)}</span>
+        <span className="transcript__matcher">
+          ? matcher: {entry.description}
+        </span>
+      </li>
+    );
+  }
+  if (entry.kind === 'matcher-results') {
+    const tail =
+      entry.providerTags.length === 0
+        ? 'no candidates'
+        : entry.providerTags.join(', ');
+    return (
+      <li className="transcript__line transcript__line--matcher">
+        <span className="transcript__time">{formatTime(entry.at)}</span>
+        <span className="transcript__matcher">
+          ← matcher: {entry.count} candidate{entry.count === 1 ? '' : 's'}
+          {entry.count > 0 ? ` — ${tail}` : ''}
+        </span>
+      </li>
+    );
+  }
   return (
     <li className="transcript__line transcript__line--note">
       <span className="transcript__time">{formatTime(entry.at)}</span>

@@ -269,6 +269,17 @@ body {
   border-left: 3px solid var(--accent);
 }
 
+.transcript__line--matcher {
+  background: rgba(148, 163, 184, 0.06);
+  border-left: 3px solid var(--text-muted);
+}
+
+.transcript__matcher {
+  color: var(--text-muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8125rem;
+}
+
 .transcript__time {
   flex: 0 0 auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
