@@ -20,6 +20,12 @@ export type ServiceEvictedEvent = {
   at: string;
 };
 
+export type ServiceDiscoveredEvent = {
+  kind: 'service.discovered';
+  providerTag: string;
+  at: string;
+};
+
 export type ToolCallEvent = {
   kind: 'tool.call';
   toolName: string;
@@ -65,6 +71,7 @@ export type WalletBalanceEvent = {
 export type DisplayEvent =
   | ServiceRegisteredEvent
   | ServiceEvictedEvent
+  | ServiceDiscoveredEvent
   | ToolCallEvent
   | ToolResultEvent
   | ArtifactRecordedEvent

@@ -355,6 +355,8 @@ openclaw config set 'plugins.entries.discovery.config.ocapCliPath' \
   "$HOME/GitRepos/ocap-kernel/packages/kernel-cli/dist/app.mjs"
 openclaw config set 'plugins.entries.discovery.config.matcherUrl' \
   "$MATCHER_OCAP_URL"
+openclaw config set 'plugins.entries.discovery.config.displayUrl' \
+  'http://127.0.0.1:7777'
 openclaw gateway restart
 ```
 
@@ -407,7 +409,7 @@ openclaw tui
 Once the TUI is up, ask the agent (in plain prose):
 
 > "Without taking any action, list every tool whose name starts
-> with `discovery_` or `demo_`."
+> with `discovery_`, `service_`, or `demo_`."
 
 It should list all ten:
 

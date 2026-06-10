@@ -22,6 +22,18 @@ export type ServiceEvictedEvent = {
 };
 
 /**
+ * The agent's `discovery_find_services` query matched this provider.
+ * Marketplace cards surface only providers that have been discovered;
+ * the registry-truth `service.registered` stream is used internally for
+ * lookups but never directly drives the marketplace UI.
+ */
+export type ServiceDiscoveredEvent = {
+  kind: 'service.discovered';
+  providerTag: string;
+  at: string;
+};
+
+/**
  * The agent invoked a tool. The demo plugin posts these so the
  * transcript panel can render a live activity log.
  */
@@ -91,6 +103,7 @@ export type WalletBalanceEvent = {
 export type DisplayEvent =
   | ServiceRegisteredEvent
   | ServiceEvictedEvent
+  | ServiceDiscoveredEvent
   | ToolCallEvent
   | ToolResultEvent
   | ArtifactRecordedEvent

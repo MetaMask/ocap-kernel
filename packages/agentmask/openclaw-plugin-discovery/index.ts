@@ -20,6 +20,7 @@ import { resolve as resolvePath, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { makeDaemonCaller } from './daemon.ts';
+import { makeDisplayClient } from './display-client.ts';
 import { createState } from './state.ts';
 import { registerCallServiceTool } from './tools/call-service.ts';
 import { registerFindServicesTool } from './tools/find-services.ts';
@@ -41,6 +42,7 @@ const PluginConfigStruct = object({
   ocapCliPath: exactOptional(string()),
   ocapHome: exactOptional(string()),
   matcherUrl: exactOptional(string()),
+  displayUrl: exactOptional(string()),
   timeoutMs: exactOptional(number()),
   resetState: exactOptional(boolean()),
 });
@@ -81,6 +83,14 @@ const configSchema: PluginConfigSchema = {
       matcherUrl: {
         type: 'string',
         description: 'OCAP URL for the service matcher.',
+      },
+      displayUrl: {
+        type: 'string',
+        description:
+          'Base URL of the demo-display server (e.g. http://127.0.0.1:7777). ' +
+          'When set, the plugin posts `service.discovered` events on each ' +
+          'findServices reply so the marketplace pane can render the ' +
+          'discovered providers.',
       },
       timeoutMs: {
         type: 'number',
@@ -147,6 +157,13 @@ function register(api: OpenClawPluginApi): void {
     }) ?? ''
   ).trim();
 
+  const displayUrl = (
+    resolveConfig<string>({
+      pluginValue: pluginConfig?.displayUrl,
+      envVar: 'DEMO_DISPLAY_URL',
+    }) ?? ''
+  ).trim();
+
   const timeoutMs =
     resolveConfig<number>({
       pluginValue: pluginConfig?.timeoutMs,
@@ -173,8 +190,12 @@ function register(api: OpenClawPluginApi): void {
     timeoutMs,
   });
 
+  const displayClient = displayUrl
+    ? makeDisplayClient({ baseUrl: displayUrl })
+    : undefined;
+
   registerRedeemMatcherTool({ api, daemon, state });
-  registerFindServicesTool({ api, daemon, state });
+  registerFindServicesTool({ api, daemon, state, displayClient });
   registerGetDescriptionTool({ api, daemon, state });
   registerInitiateContactTool({ api, daemon, state });
   registerCallServiceTool({ api, daemon, state });

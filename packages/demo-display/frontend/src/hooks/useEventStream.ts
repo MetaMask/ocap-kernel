@@ -54,6 +54,15 @@ export type DisplayState = {
    * the pipeline revealing itself rather than a fixed roadmap.
    */
   announcedPhases: string[];
+  /**
+   * Provider tags that have appeared in a `discovery_find_services`
+   * reply, in the order they were first discovered. The marketplace
+   * grid renders only providers in this list, even though the full
+   * registry (`services` map) is populated from the matcher poller —
+   * the conceit is that the inventor's side doesn't know about a
+   * provider until the agent has asked the matcher.
+   */
+  discoveredProviderTags: string[];
 };
 
 /**
@@ -71,6 +80,7 @@ const INITIAL_STATE: DisplayState = {
   activePhase: undefined,
   artifactsByPhase: new Map(),
   announcedPhases: [],
+  discoveredProviderTags: [],
 };
 
 /**
@@ -108,6 +118,7 @@ export function useEventStream(): DisplayState {
     const kinds: DisplayEvent['kind'][] = [
       'service.registered',
       'service.evicted',
+      'service.discovered',
       'artifact.recorded',
       'phase.announced',
       'agent.note',
@@ -150,6 +161,18 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
       const services = new Map(state.services);
       services.delete(event.id);
       return { ...state, services };
+    }
+    case 'service.discovered': {
+      if (state.discoveredProviderTags.includes(event.providerTag)) {
+        return state;
+      }
+      return {
+        ...state,
+        discoveredProviderTags: [
+          ...state.discoveredProviderTags,
+          event.providerTag,
+        ],
+      };
     }
     case 'agent.note': {
       const transcript = appendTranscript(state.transcript, {

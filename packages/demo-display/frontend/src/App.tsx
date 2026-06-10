@@ -30,6 +30,7 @@ export function App(): JSX.Element {
     announcedPhases,
     artifactsByPhase,
     walletBalanceUsd,
+    discoveredProviderTags,
   } = useEventStream();
   return (
     <div className="app">
@@ -39,7 +40,10 @@ export function App(): JSX.Element {
       </header>
       <main className="app__main">
         <div className="app__cell app__cell--top-left">
-          <MarketplaceGrid services={services} />
+          <MarketplaceGrid
+            services={services}
+            discoveredProviderTags={discoveredProviderTags}
+          />
         </div>
         <div className="app__cell app__cell--top-right">
           <WorkflowBoard

@@ -32,39 +32,62 @@ function extractMethodNames(description: ServiceDescriptionPayload): string[] {
 
 type MarketplaceGridProps = {
   services: Map<string, ServiceDescriptionPayload>;
+  discoveredProviderTags: string[];
 };
 
 /**
- * Grid of provider cards, one per currently-registered service.
+ * Grid of provider cards, one per provider the agent has discovered
+ * via `discovery_find_services`.
  *
- * Cards are ordered by registry id (insertion order in the map mirrors
- * the order the matcher accepted registrations). Empty state shows a
- * helpful placeholder rather than nothing — useful when the audience
- * arrives before the services daemon has finished booting.
+ * Cards are ordered by discovery order (first time a provider appeared
+ * in a matcher reply). Empty state reflects the conceit that the
+ * inventor's side doesn't know about a provider until the agent has
+ * queried the matcher.
  *
  * @param props - Component props.
  * @param props.services - Live map of registry id → ServiceDescriptionPayload.
+ *   Used internally to look up the description for each discovered
+ *   provider tag; not iterated directly.
+ * @param props.discoveredProviderTags - Provider tags that have appeared
+ *   in a matcher reply, in discovery order.
  * @returns The rendered grid.
  */
 export function MarketplaceGrid(props: MarketplaceGridProps): JSX.Element {
-  const { services } = props;
-  const entries = [...services.entries()];
+  const { services, discoveredProviderTags } = props;
+
+  const byProviderTag = new Map<
+    string,
+    { id: string; description: ServiceDescriptionPayload }
+  >();
+  for (const [id, description] of services) {
+    if (typeof description.providerTag === 'string') {
+      byProviderTag.set(description.providerTag, { id, description });
+    }
+  }
+
+  const entries: { id: string; description: ServiceDescriptionPayload }[] = [];
+  for (const tag of discoveredProviderTags) {
+    const found = byProviderTag.get(tag);
+    if (found !== undefined) {
+      entries.push(found);
+    }
+  }
 
   return (
     <section className="marketplace-grid">
       <header className="marketplace-grid__header">
         <h2>Marketplace</h2>
         <span className="marketplace-grid__count">
-          {entries.length} provider{entries.length === 1 ? '' : 's'}
+          {entries.length} discovered
         </span>
       </header>
       {entries.length === 0 ? (
         <div className="marketplace-grid__empty">
-          Waiting for providers to register…
+          No providers discovered yet — agent hasn't queried the matcher.
         </div>
       ) : (
         <ul className="marketplace-grid__cards">
-          {entries.map(([id, description]) => (
+          {entries.map(({ id, description }) => (
             <ProviderCard key={id} id={id} description={description} />
           ))}
         </ul>

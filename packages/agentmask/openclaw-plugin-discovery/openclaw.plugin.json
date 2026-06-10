@@ -27,6 +27,10 @@
         "type": "string",
         "description": "OCAP URL for the service matcher (e.g., ocap:abc123@12D3KooW...,/ip4/...)."
       },
+      "displayUrl": {
+        "type": "string",
+        "description": "Base URL of the demo-display server (e.g. http://127.0.0.1:7777). When set, the plugin posts service.discovered events so the marketplace pane only shows providers the agent has actually queried."
+      },
       "timeoutMs": {
         "type": "number",
         "description": "Timeout for daemon calls in ms (default: 60000)."
@@ -41,6 +45,10 @@
     "matcherUrl": {
       "label": "Matcher OCAP URL",
       "placeholder": "ocap:abc123@12D3KooW...,/ip4/..."
+    },
+    "displayUrl": {
+      "label": "Demo display URL",
+      "placeholder": "http://127.0.0.1:7777"
     },
     "ocapCliPath": {
       "label": "OCAP CLI Path",

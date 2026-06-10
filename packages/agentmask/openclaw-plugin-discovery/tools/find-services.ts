@@ -5,6 +5,7 @@
  * `service_initiate_contact`.
  */
 import type { DaemonCaller } from '../daemon.ts';
+import type { DisplayClient } from '../display-client.ts';
 import { requireMatcher } from '../state.ts';
 import type { PluginState } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
@@ -15,6 +16,7 @@ import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
  */
 type ServiceMatchWire = {
   description: {
+    providerTag?: string;
     description: string;
     contact: { contactType: string; contactUrl: string }[];
     apiSpec: unknown;
@@ -29,13 +31,16 @@ type ServiceMatchWire = {
  * @param options.api - The OpenClaw plugin API.
  * @param options.daemon - The daemon caller.
  * @param options.state - The plugin state.
+ * @param options.displayClient - Optional client for posting
+ *   `service.discovered` events to demo-display on each match.
  */
 export function registerFindServicesTool(options: {
   api: OpenClawPluginApi;
   daemon: DaemonCaller;
   state: PluginState;
+  displayClient?: DisplayClient;
 }): void {
-  const { api, daemon, state } = options;
+  const { api, daemon, state, displayClient } = options;
 
   api.registerTool({
     name: 'discovery_find_services',
@@ -86,6 +91,23 @@ export function registerFindServicesTool(options: {
             ],
             details: undefined,
           };
+        }
+
+        if (displayClient !== undefined) {
+          const at = new Date().toISOString();
+          for (const match of matches) {
+            const tag = match.description.providerTag;
+            if (typeof tag === 'string' && tag.length > 0) {
+              // fire-and-forget; display-client swallows its own errors
+              displayClient
+                .post({
+                  kind: 'service.discovered',
+                  providerTag: tag,
+                  at,
+                })
+                .catch(() => undefined);
+            }
+          }
         }
 
         const lines: string[] = [
