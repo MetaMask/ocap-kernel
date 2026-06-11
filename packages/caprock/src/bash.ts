@@ -222,27 +222,66 @@ function recurseIntoChildren(node: Parser.SyntaxNode): Pipeline[] {
 /**
  * Collect every stage of a `pipeline` node into a single clause.
  *
+ * Quirk: tree-sitter-bash parses `a && b 2>&1 | tail` as
+ * `pipeline → [redirected_statement → list (a, b), file_redirect], command (tail)`
+ * — the `&&` chain gets pulled inside the pipeline's first stage. Bash's
+ * actual precedence is `a && (b 2>&1 | tail)`, so when the first stage is a
+ * redirected_statement wrapping a list, lift the non-final list commands out
+ * as their own clauses and keep the final list command (with the redirect) as
+ * the pipeline's first stage.
+ *
  * @param node - The `pipeline` node to walk.
- * @returns Either one clause with all stages, or no clauses if empty.
+ * @returns The lifted clauses (if any), followed by the pipeline clause itself.
  */
 function collectPipelineClause(node: Parser.SyntaxNode): Pipeline[] {
-  const cmds: ParsedCommand[] = [];
+  const lifted: Pipeline[] = [];
+  const stages: ParsedCommand[] = [];
   for (let i = 0; i < node.namedChildCount; i++) {
     const child = node.namedChild(i);
     if (child === null) {
       continue;
     }
+    const innerList = redirectedListInner(child);
+    if (innerList !== null) {
+      const flat = flattenListCommands(innerList);
+      if (flat.length > 1) {
+        const last = flat[flat.length - 1];
+        for (let j = 0; j < flat.length - 1; j++) {
+          const cmd = flat[j];
+          if (cmd !== undefined) {
+            lifted.push([extractCommand(cmd)]);
+          }
+        }
+        if (last !== undefined) {
+          const stage = extractCommand(last);
+          stage.redirects.push(
+            ...extractRedirectsFromRedirectedStatement(child),
+          );
+          stages.push(stage);
+        }
+        continue;
+      }
+    }
     const cmd = extractPipelineStage(child);
     if (cmd !== null) {
-      cmds.push(cmd);
+      stages.push(cmd);
     }
   }
-  return cmds.length > 0 ? [cmds] : [];
+  if (stages.length === 0) {
+    return lifted;
+  }
+  return [...lifted, stages];
 }
 
 /**
- * Delegate a `redirected_statement` to its inner non-redirect child. The
- * redirects themselves are attached to the inner command by {@link extractCommand}.
+ * Delegate a `redirected_statement` to its inner non-redirect child.
+ *
+ * When the inner is a single `command`, {@link extractCommand} attaches the
+ * sibling redirects automatically. When the inner is a `list` (tree-sitter
+ * groups `a && b 2>&1` as `redirected_statement → list, file_redirect`), the
+ * redirect semantically binds to the LAST `&&` operand only — split the list
+ * into independent clauses and attach the redirect to the last clause's last
+ * command.
  *
  * @param node - The `redirected_statement` node.
  * @returns Clauses produced by the inner statement.
@@ -256,10 +295,124 @@ function delegateInsideRedirect(node: Parser.SyntaxNode): Pipeline[] {
       child.type !== 'heredoc_redirect' &&
       child.type !== 'herestring_redirect'
     ) {
-      return collectClauses(child);
+      const clauses = collectClauses(child);
+      if (child.type === 'list') {
+        const redirects = extractRedirectsFromRedirectedStatement(node);
+        attachRedirectsToLastCommand(clauses, redirects);
+      }
+      return clauses;
     }
   }
   return [];
+}
+
+/**
+ * If `node` is a `redirected_statement` whose inner is a `list`, return that
+ * inner `list` node. Otherwise return `null`. Used by
+ * {@link collectPipelineClause} to detect the tree-sitter quirk where a
+ * redirect on a pipeline stage swallows preceding `&&`/`||`/`;` operators.
+ *
+ * @param node - The candidate node.
+ * @returns The inner `list` node, or `null`.
+ */
+function redirectedListInner(
+  node: Parser.SyntaxNode,
+): Parser.SyntaxNode | null {
+  if (node.type !== 'redirected_statement') {
+    return null;
+  }
+  for (let i = 0; i < node.namedChildCount; i++) {
+    const child = node.namedChild(i);
+    if (
+      child !== null &&
+      child.type !== 'file_redirect' &&
+      child.type !== 'heredoc_redirect' &&
+      child.type !== 'herestring_redirect'
+    ) {
+      return child.type === 'list' ? child : null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Flatten a (possibly nested) `list` node into its constituent `command`
+ * nodes, in source order. `a && b && c` parses as `list (list (a, b), c)`,
+ * so we recurse into nested lists.
+ *
+ * @param node - The `list` node to flatten.
+ * @returns The list's `command` children, in source order.
+ */
+function flattenListCommands(node: Parser.SyntaxNode): Parser.SyntaxNode[] {
+  const result: Parser.SyntaxNode[] = [];
+  for (let i = 0; i < node.namedChildCount; i++) {
+    const child = node.namedChild(i);
+    if (child === null) {
+      continue;
+    }
+    if (child.type === 'list') {
+      result.push(...flattenListCommands(child));
+    } else {
+      result.push(child);
+    }
+  }
+  return result;
+}
+
+/**
+ * Extract the redirect children of a `redirected_statement` node as
+ * {@link Redirect} objects, in source order.
+ *
+ * @param node - The `redirected_statement` node.
+ * @returns Parsed redirects from the statement's redirect children.
+ */
+function extractRedirectsFromRedirectedStatement(
+  node: Parser.SyntaxNode,
+): Redirect[] {
+  const redirects: Redirect[] = [];
+  for (let i = 0; i < node.namedChildCount; i++) {
+    const child = node.namedChild(i);
+    if (child === null) {
+      continue;
+    }
+    if (child.type === 'file_redirect') {
+      const redirect = parseFileRedirect(child);
+      if (redirect !== null) {
+        redirects.push(redirect);
+      }
+    } else if (child.type === 'heredoc_redirect') {
+      redirects.push({ kind: 'heredoc', target: '<inline>' });
+    } else if (child.type === 'herestring_redirect') {
+      redirects.push({ kind: 'herestring', target: '<inline>' });
+    }
+  }
+  return redirects;
+}
+
+/**
+ * Append `redirects` to the last command of the last clause, in place. Used
+ * when a `redirected_statement` wraps a `list`: bash semantics applies the
+ * redirect only to the final `&&`/`||`/`;` operand.
+ *
+ * @param clauses - The clauses to mutate.
+ * @param redirects - The redirects to attach.
+ */
+function attachRedirectsToLastCommand(
+  clauses: Pipeline[],
+  redirects: Redirect[],
+): void {
+  if (redirects.length === 0) {
+    return;
+  }
+  const lastClause = clauses[clauses.length - 1];
+  if (lastClause === undefined) {
+    return;
+  }
+  const lastCmd = lastClause[lastClause.length - 1];
+  if (lastCmd === undefined) {
+    return;
+  }
+  lastCmd.redirects.push(...redirects);
 }
 
 /**

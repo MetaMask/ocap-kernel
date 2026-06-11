@@ -348,5 +348,47 @@ describe('decompose', () => {
         { kind: 'fd-dup', target: '1' },
       ]);
     });
+
+    // Regression: tree-sitter-bash parses `cmd1 && cmd2 2>&1 | tail` as
+    // `pipeline → redirected_statement → list (cmd1, cmd2), file_redirect`,
+    // which is structurally different from the redirect-free form
+    // `cmd1 && cmd2 | tail` (= `list → command, pipeline`). The walker must
+    // recognize the quirk and lift `cmd1` out as its own clause, leaving
+    // `cmd2 2>&1 | tail` as the second clause's pipeline.
+    it('lifts && operands out of a redirected pipeline first stage', () => {
+      const result = decompose('cd /tmp && yarn build 2>&1 | tail -40');
+      expect(result.ok).toBe(true);
+      expect(result.clauses).toHaveLength(2);
+      expect(result.clauses[0]?.map((cmd) => cmd.name)).toStrictEqual(['cd']);
+      expect(result.clauses[1]?.map((cmd) => cmd.name)).toStrictEqual([
+        'yarn',
+        'tail',
+      ]);
+      expect(result.clauses[1]?.[0]?.redirects).toStrictEqual([
+        { kind: 'fd-dup', target: '1' },
+      ]);
+    });
+
+    it('lifts a chain of && operands out of a redirected pipeline first stage', () => {
+      const result = decompose('a && b && c 2>&1 | tail');
+      expect(result.ok).toBe(true);
+      expect(
+        result.clauses.map((clause) => clause.map((cmd) => cmd.name)),
+      ).toStrictEqual([['a'], ['b'], ['c', 'tail']]);
+    });
+
+    it('attaches the redirect to the last && operand when there is no pipeline', () => {
+      // `cmd1 && cmd2 2>&1` parses as `redirected_statement → list, file_redirect`
+      // — the redirect should bind to cmd2 only, not block the && split.
+      const result = decompose('cmd1 && cmd2 2>&1');
+      expect(result.ok).toBe(true);
+      expect(result.clauses).toHaveLength(2);
+      expect(result.clauses[0]?.[0]?.name).toBe('cmd1');
+      expect(result.clauses[0]?.[0]?.redirects).toStrictEqual([]);
+      expect(result.clauses[1]?.[0]?.name).toBe('cmd2');
+      expect(result.clauses[1]?.[0]?.redirects).toStrictEqual([
+        { kind: 'fd-dup', target: '1' },
+      ]);
+    });
   });
 });
