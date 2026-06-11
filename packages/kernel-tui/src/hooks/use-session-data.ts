@@ -13,6 +13,30 @@ export type SessionWithRequests = SessionSummary & {
 
 const POLL_INTERVAL_MS = 2000;
 
+/**
+ * Compare two sessions so the newest `startedAt` sorts first; sessions with
+ * no `startedAt` sort after every dated session.
+ *
+ * @param left - Left-hand session.
+ * @param right - Right-hand session.
+ * @returns Standard compareFn result.
+ */
+function byStartedAtDesc(
+  left: SessionWithRequests,
+  right: SessionWithRequests,
+): number {
+  if (left.startedAt === undefined && right.startedAt === undefined) {
+    return 0;
+  }
+  if (left.startedAt === undefined) {
+    return 1;
+  }
+  if (right.startedAt === undefined) {
+    return -1;
+  }
+  return right.startedAt.localeCompare(left.startedAt);
+}
+
 export type SessionDataState = {
   sessions: SessionWithRequests[];
   /** True only until the first response arrives (shows initial loading spinner). */
@@ -59,6 +83,7 @@ export function useSessionData(kernelApi: KernelApi): SessionDataState {
             return { ...summary, requests };
           }),
         );
+        withRequests.sort(byStartedAtDesc);
         if (mountedRef.current) {
           setSessions(withRequests);
           setLoading(false);
