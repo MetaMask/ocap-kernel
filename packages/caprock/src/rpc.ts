@@ -2,12 +2,23 @@ import type {
   ParsedInvocation,
   Provision,
 } from '@metamask/kernel-utils/session/provision';
+import { assert } from '@metamask/superstruct';
 import type { JsonRpcResponse } from '@metamask/utils';
 import { assertIsJsonRpcResponse, isJsonRpcFailure } from '@metamask/utils';
 import { randomUUID } from 'node:crypto';
 import { createConnection } from 'node:net';
 import type { Socket } from 'node:net';
 
+import {
+  CapDataStruct,
+  DecisionStruct,
+  KernelSessionStruct,
+  LaunchSubclusterStruct,
+  NullableProvisionStruct,
+  ProvisionsArrayStruct,
+  VerdictStruct,
+} from './structs.ts';
+import type { Verdict } from './structs.ts';
 import type { CapData, Decision } from './types.ts';
 
 // ─── Minimal socket-RPC client (no @endo dependencies) ───────────────────────
@@ -212,7 +223,9 @@ export async function createKernelSession(
   if (isJsonRpcFailure(response)) {
     throw new Error(`session.create: ${response.error.message}`);
   }
-  return response.result as { sessionId: string; ocapUrl: string };
+  const { result } = response;
+  assert(result, KernelSessionStruct);
+  return result;
 }
 
 /**
@@ -270,7 +283,9 @@ export async function authorizeRequest(
     }
     throw error;
   }
-  return response.result as Decision;
+  const { result } = response;
+  assert(result, DecisionStruct);
+  return result;
 }
 
 /**
@@ -307,6 +322,146 @@ export async function recordProvisioned(
   await sendCommand({ socketPath, method: 'session.record', params });
 }
 
+// ─── Permission-vat operations ────────────────────────────────────────────────
+
+/**
+ * Launch a fresh permission-tracker vat and return its root kref.
+ *
+ * @param socketPath - The UNIX socket path.
+ * @param vatBundlePath - Absolute path to the compiled permission-tracker bundle.
+ * @returns The root kref and subcluster ID for the new vat.
+ */
+export async function launchPermissionVat(
+  socketPath: string,
+  vatBundlePath: string,
+): Promise<{ rootKref: string; subclusterId: string }> {
+  const response = await sendCommand({
+    socketPath,
+    method: 'launchSubcluster',
+    params: {
+      config: {
+        bootstrap: 'tracker',
+        vats: { tracker: { bundleSpec: `file://${vatBundlePath}` } },
+      },
+    },
+  });
+  if (isJsonRpcFailure(response)) {
+    throw new Error(`launchSubcluster: ${response.error.message}`);
+  }
+  const { result } = response;
+  assert(result, LaunchSubclusterStruct);
+  return result;
+}
+
+/**
+ * Ask the permission sheaf whether the given invocations are covered.
+ *
+ * @param socketPath - The UNIX socket path.
+ * @param rootKref - The vat's root kref.
+ * @param tool - The tool name.
+ * @param invocations - The parsed command components.
+ * @returns `'allow'` when a section covers the invocations, `'ask'` otherwise.
+ */
+export async function vatRoute(
+  socketPath: string,
+  rootKref: string,
+  tool: string,
+  invocations: ParsedInvocation[],
+): Promise<Verdict> {
+  const response = await sendCommand({
+    socketPath,
+    method: 'queueMessage',
+    params: [rootKref, 'route', [tool, invocations]],
+  });
+  if (isJsonRpcFailure(response)) {
+    throw new Error(`vatRoute: ${response.error.message}`);
+  }
+  const { result } = response;
+  assert(result, CapDataStruct);
+  const decoded: unknown = decodeCapData(result);
+  assert(decoded, VerdictStruct);
+  return decoded;
+}
+
+/**
+ * Add a section to the permission sheaf. Used for both exact single-invocation
+ * grants and standing provisions.
+ *
+ * @param socketPath - The UNIX socket path.
+ * @param rootKref - The vat's root kref.
+ * @param provision - The Provision to add as a new section.
+ */
+export async function vatAddSection(
+  socketPath: string,
+  rootKref: string,
+  provision: Provision,
+): Promise<void> {
+  await sendCommand({
+    socketPath,
+    method: 'queueMessage',
+    params: [rootKref, 'addSection', [provision]],
+  });
+}
+
+/**
+ * Return the first provision that matches the given tool and invocations,
+ * or null if none match.
+ *
+ * @param socketPath - The UNIX socket path.
+ * @param rootKref - The vat's root kref.
+ * @param tool - The tool name.
+ * @param invocations - The parsed command components.
+ * @returns The matching provision, or null.
+ */
+export async function vatFindMatch(
+  socketPath: string,
+  rootKref: string,
+  tool: string,
+  invocations: ParsedInvocation[],
+): Promise<Provision | null> {
+  const response = await sendCommand({
+    socketPath,
+    method: 'queueMessage',
+    params: [rootKref, 'findMatch', [tool, invocations]],
+  });
+  if (isJsonRpcFailure(response)) {
+    return null;
+  }
+  const { result } = response;
+  assert(result, CapDataStruct);
+  const decoded: unknown = decodeSmallcapsStrings(decodeCapData(result));
+  assert(decoded, NullableProvisionStruct);
+  return decoded;
+}
+
+/**
+ * Return the number of entries in the permission vat's allow set.
+ *
+ * @param socketPath - The UNIX socket path.
+ * @param rootKref - The vat's root kref.
+ * @returns The number of granted (toolName, sha) pairs.
+ */
+export async function vatSize(
+  socketPath: string,
+  rootKref: string,
+): Promise<number> {
+  const response = await sendCommand({
+    socketPath,
+    method: 'queueMessage',
+    params: [rootKref, 'size', []],
+  });
+  if (isJsonRpcFailure(response)) {
+    throw new Error(`vatSize: ${response.error.message}`);
+  }
+  const { result } = response;
+  assert(result, CapDataStruct);
+  const decoded = decodeCapData(result);
+  if (typeof decoded !== 'number') {
+    throw new Error(`vatSize: expected number, got ${typeof decoded}`);
+  }
+  return decoded;
+}
+
 /**
  * Return all provisions currently stored in a permission-tracker vat.
  *
@@ -328,8 +483,11 @@ export async function listVatProvisions(
     if (isJsonRpcFailure(response)) {
       return [];
     }
-    const raw = decodeCapData(response.result as CapData);
-    return decodeSmallcapsStrings(raw) as Provision[];
+    const { result } = response;
+    assert(result, CapDataStruct);
+    const decoded: unknown = decodeSmallcapsStrings(decodeCapData(result));
+    assert(decoded, ProvisionsArrayStruct);
+    return decoded;
   } catch {
     return [];
   }
@@ -380,3 +538,77 @@ export function decodeSmallcapsStrings(value: unknown): unknown {
   }
   return value;
 }
+
+// ─── Injectable RPC client ───────────────────────────────────────────────────
+
+/**
+ * The set of RPC operations consumed by hook handlers.
+ *
+ * Defined as an object type so handlers receive it as a single injected
+ * dependency. {@link defaultRpcClient} is the production binding; tests can
+ * substitute fakes that record calls and return canned responses.
+ */
+export type RpcClient = {
+  pingDaemon(socketPath: string): Promise<boolean>;
+  createKernelSession(
+    socketPath: string,
+    name?: string,
+  ): Promise<{ sessionId: string; ocapUrl: string }>;
+  authorizeRequest(
+    socketPath: string,
+    kernelSessionId: string,
+    description: string,
+    options?: {
+      reason?: string;
+      timeoutMs?: number;
+      invocations?: ParsedInvocation[];
+      clauses?: ParsedInvocation[][];
+    },
+  ): Promise<Decision>;
+  recordProvisioned(
+    socketPath: string,
+    sessionId: string,
+    description: string,
+    options?: {
+      invocations?: ParsedInvocation[];
+      clauses?: ParsedInvocation[][];
+      provisions?: Provision[];
+    },
+  ): Promise<void>;
+  launchPermissionVat(
+    socketPath: string,
+    vatBundlePath: string,
+  ): Promise<{ rootKref: string; subclusterId: string }>;
+  vatRoute(
+    socketPath: string,
+    rootKref: string,
+    tool: string,
+    invocations: ParsedInvocation[],
+  ): Promise<Verdict>;
+  vatAddSection(
+    socketPath: string,
+    rootKref: string,
+    provision: Provision,
+  ): Promise<void>;
+  vatFindMatch(
+    socketPath: string,
+    rootKref: string,
+    tool: string,
+    invocations: ParsedInvocation[],
+  ): Promise<Provision | null>;
+  vatSize(socketPath: string, rootKref: string): Promise<number>;
+  listVatProvisions(socketPath: string, rootKref: string): Promise<Provision[]>;
+};
+
+export const defaultRpcClient: RpcClient = {
+  pingDaemon,
+  createKernelSession,
+  authorizeRequest,
+  recordProvisioned,
+  launchPermissionVat,
+  vatRoute,
+  vatAddSection,
+  vatFindMatch,
+  vatSize,
+  listVatProvisions,
+};

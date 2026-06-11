@@ -14,7 +14,6 @@ import type {
   Provision,
 } from '@metamask/kernel-utils/session/provision';
 import { invocationToProvision } from '@metamask/kernel-utils/session/provision';
-import { isJsonRpcFailure } from '@metamask/utils';
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFile, writeFile, access, mkdir } from 'node:fs/promises';
@@ -34,12 +33,14 @@ import {
 import { getClaudeDir, getClaudeSettingsPath } from '../src/paths/user.ts';
 import {
   pingDaemon,
-  sendCommand,
-  decodeCapData,
-  decodeSmallcapsStrings,
   createKernelSession,
   authorizeRequest,
   recordProvisioned,
+  launchPermissionVat,
+  vatRoute,
+  vatAddSection,
+  vatFindMatch,
+  vatSize,
 } from '../src/rpc.ts';
 import {
   loadSessionState,
@@ -52,7 +53,6 @@ import {
 } from '../src/session.ts';
 import type {
   AnyHookPayload,
-  CapData,
   Decision,
   SessionState,
   SessionStartPayload,
@@ -191,124 +191,7 @@ async function ensureDaemon(): Promise<void> {
   child.unref();
 }
 
-// ─── Vat interaction ─────────────────────────────────────────────────────────
-
-/**
- * Launch a fresh permission-tracker vat and return its root kref.
- *
- * @returns The root kref and subcluster ID for the new vat.
- */
-async function launchPermissionVat(): Promise<{
-  rootKref: string;
-  subclusterId: string;
-}> {
-  const bundleUrl = `file://${VAT_BUNDLE}`;
-  const response = await sendCommand({
-    socketPath: SOCKET_PATH,
-    method: 'launchSubcluster',
-    params: {
-      config: {
-        bootstrap: 'tracker',
-        vats: { tracker: { bundleSpec: bundleUrl } },
-      },
-    },
-  });
-  if (isJsonRpcFailure(response)) {
-    throw new Error(`launchSubcluster: ${response.error.message}`);
-  }
-  const { rootKref, subclusterId } = response.result as {
-    rootKref: string;
-    subclusterId: string;
-  };
-  return { rootKref, subclusterId };
-}
-
-/**
- * Dispatch the permission sheaf: returns 'allow' if any section covers this
- * invocation, 'ask' otherwise.
- *
- * @param rootKref - The vat's root kref.
- * @param tool - The tool name.
- * @param invocations - The parsed command components.
- * @returns 'allow' or 'ask'.
- */
-async function vatRoute(
-  rootKref: string,
-  tool: string,
-  invocations: ParsedInvocation[],
-): Promise<string> {
-  const response = await sendCommand({
-    socketPath: SOCKET_PATH,
-    method: 'queueMessage',
-    params: [rootKref, 'route', [tool, invocations]],
-  });
-  if (isJsonRpcFailure(response)) {
-    throw new Error(`vatRoute: ${response.error.message}`);
-  }
-  return decodeCapData(response.result as CapData) as string;
-}
-
-/**
- * Add a section to the permission sheaf. Used for both exact single-invocation
- * grants and standing provisions.
- *
- * @param rootKref - The vat's root kref.
- * @param provision - The Provision to add as a new section.
- */
-async function vatAddSection(
-  rootKref: string,
-  provision: Provision,
-): Promise<void> {
-  await sendCommand({
-    socketPath: SOCKET_PATH,
-    method: 'queueMessage',
-    params: [rootKref, 'addSection', [provision]],
-  });
-}
-
-/**
- * Return the first provision that matches the given tool and invocations,
- * or null if none match.
- *
- * @param rootKref - The vat's root kref.
- * @param tool - The tool name.
- * @param invocations - The parsed command components.
- * @returns The matching provision, or null.
- */
-async function vatFindMatch(
-  rootKref: string,
-  tool: string,
-  invocations: ParsedInvocation[],
-): Promise<Provision | null> {
-  const response = await sendCommand({
-    socketPath: SOCKET_PATH,
-    method: 'queueMessage',
-    params: [rootKref, 'findMatch', [tool, invocations]],
-  });
-  if (isJsonRpcFailure(response)) {
-    return null;
-  }
-  const raw = decodeCapData(response.result as CapData);
-  return decodeSmallcapsStrings(raw) as Provision | null;
-}
-
-/**
- * Return the number of entries in the permission vat's allow set.
- *
- * @param rootKref - The vat's root kref.
- * @returns The number of granted (toolName, sha) pairs.
- */
-async function vatSize(rootKref: string): Promise<number> {
-  const response = await sendCommand({
-    socketPath: SOCKET_PATH,
-    method: 'queueMessage',
-    params: [rootKref, 'size', []],
-  });
-  if (isJsonRpcFailure(response)) {
-    throw new Error(`vatSize: ${response.error.message}`);
-  }
-  return decodeCapData(response.result as CapData) as number;
-}
+// ─── Clause decomposition ────────────────────────────────────────────────────
 
 /**
  * Parse a tool invocation into clause arrays suitable for per-clause sheaf
@@ -385,7 +268,7 @@ async function getOrInitSession(payload: {
     { sessionId: kernelSessionId, ocapUrl },
   ] = await Promise.all([
     collectSettingsSnapshot(),
-    launchPermissionVat(),
+    launchPermissionVat(SOCKET_PATH, VAT_BUNDLE),
     createKernelSession(SOCKET_PATH, session_id),
   ]);
 
@@ -413,8 +296,10 @@ async function collectSettingsSnapshot(): Promise<{
   deny: string[];
 }> {
   const [allowLists, denyLists] = await Promise.all([
-    Promise.all(SETTINGS_PATHS.map(readSettingsAllowList)),
-    Promise.all(SETTINGS_PATHS.map(readSettingsDenyList)),
+    Promise.all(
+      SETTINGS_PATHS.map(async (path) => readSettingsAllowList(path)),
+    ),
+    Promise.all(SETTINGS_PATHS.map(async (path) => readSettingsDenyList(path))),
   ]);
   return {
     allow: [...new Set(allowLists.flat())],
@@ -485,7 +370,7 @@ async function onSessionStart(payload: SessionStartPayload): Promise<void> {
     { sessionId: kernelSessionId, ocapUrl },
   ] = await Promise.all([
     collectSettingsSnapshot(),
-    launchPermissionVat(),
+    launchPermissionVat(SOCKET_PATH, VAT_BUNDLE),
     createKernelSession(SOCKET_PATH, session_id),
   ]);
 
@@ -541,12 +426,17 @@ async function onPreToolUse(payload: PreToolUsePayload): Promise<void> {
     return;
   }
 
-  let vatResponse = 'unknown';
+  let vatResponse: 'allow' | 'ask' | 'unknown' = 'unknown';
   try {
     if (clauses !== null) {
       let allAllow = true;
       for (const clause of clauses) {
-        const verdict = await vatRoute(state.rootKref, tool_name, clause);
+        const verdict = await vatRoute(
+          SOCKET_PATH,
+          state.rootKref,
+          tool_name,
+          clause,
+        );
         if (verdict !== 'allow') {
           allAllow = false;
           break;
@@ -572,7 +462,7 @@ async function onPreToolUse(payload: PreToolUsePayload): Promise<void> {
       const autoDescription = `Allow ${tool_name}(${JSON.stringify(tool_input)})`;
       Promise.all(
         clauses.map(async (clause) =>
-          vatFindMatch(state.rootKref, tool_name, clause),
+          vatFindMatch(SOCKET_PATH, state.rootKref, tool_name, clause),
         ),
       )
         .then(async (matches) => {
@@ -660,11 +550,14 @@ async function onPreToolUse(payload: PreToolUsePayload): Promise<void> {
     const decidedProvisions = decision.provisions;
     if (decidedProvisions !== undefined && decidedProvisions.length > 0) {
       for (const prov of decidedProvisions) {
-        await vatAddSection(state.rootKref, prov).catch(() => undefined);
+        await vatAddSection(SOCKET_PATH, state.rootKref, prov).catch(
+          () => undefined,
+        );
       }
     } else if (clauses !== null) {
       for (const clause of clauses) {
         await vatAddSection(
+          SOCKET_PATH,
           state.rootKref,
           invocationToProvision(tool_name, clause),
         ).catch(() => undefined);
@@ -713,6 +606,7 @@ async function onPostToolUse(payload: PostToolUsePayload): Promise<void> {
     try {
       for (const clause of postClauses) {
         await vatAddSection(
+          SOCKET_PATH,
           state.rootKref,
           invocationToProvision(tool_name, clause),
         );
@@ -764,7 +658,12 @@ async function onPermissionRequest(
       try {
         let allAllow = true;
         for (const clause of permClauses) {
-          const verdict = await vatRoute(state.rootKref, tool_name, clause);
+          const verdict = await vatRoute(
+            SOCKET_PATH,
+            state.rootKref,
+            tool_name,
+            clause,
+          );
           if (verdict !== 'allow') {
             allAllow = false;
             break;
@@ -848,7 +747,7 @@ async function onSessionEnd(payload: SessionEndPayload): Promise<void> {
   let allowCount = 0;
   if (state) {
     try {
-      allowCount = await vatSize(state.rootKref);
+      allowCount = await vatSize(SOCKET_PATH, state.rootKref);
     } catch {
       const events = await readEvents(session_id);
       allowCount = events.filter((event) => event.event === 'grant').length;

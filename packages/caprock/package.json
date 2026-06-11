@@ -53,6 +53,7 @@
     "@endo/patterns": "^1.7.0",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/sheaves": "workspace:^",
+    "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.9.0",
     "tree-sitter": "^0.25.0",
     "tree-sitter-bash": "^0.25.1"
