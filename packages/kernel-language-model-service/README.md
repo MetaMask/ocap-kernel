@@ -1,6 +1,14 @@
-# `@ocap/kernel-language-model-service`
+# `@metamask/kernel-language-model-service`
 
 A package providing language model service implementations for the ocap kernel. This package defines interfaces and implementations for integrating various language model providers (like Ollama) into the kernel's object capability system.
+
+## Installation
+
+`yarn add @metamask/kernel-language-model-service`
+
+or
+
+`npm install @metamask/kernel-language-model-service`
 
 ## Overview
 
@@ -23,18 +31,18 @@ All model instances are hardened using `harden()` from `@endo/ses` for security.
 
 ## Installation
 
-`yarn add @ocap/kernel-language-model-service`
+`yarn add @metamask/kernel-language-model-service`
 
 or
 
-`npm install @ocap/kernel-language-model-service`
+`npm install @metamask/kernel-language-model-service`
 
 ## Usage
 
 ### Basic Ollama Integration
 
 ```typescript
-import { OllamaNodejsService } from '@ocap/kernel-language-model-service/ollama/nodejs';
+import { OllamaNodejsService } from '@metamask/kernel-language-model-service/ollama/nodejs';
 
 // Create a service instance with required endowments
 const service = new OllamaNodejsService({
@@ -65,7 +73,7 @@ await model.unload();
 For enhanced security, you can use the host-restricted fetch utility:
 
 ```typescript
-import { makeHostRestrictedFetch } from '@ocap/kernel-language-model-service/ollama/fetch';
+import { makeHostRestrictedFetch } from '@metamask/kernel-language-model-service/ollama/fetch';
 
 const restrictedFetch = makeHostRestrictedFetch(
   ['localhost:11434'],

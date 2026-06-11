@@ -9,7 +9,8 @@
   "references": [
     { "path": "../logger" },
     { "path": "../repo-tools" },
-    { "path": "../kernel-utils" }
+    { "path": "../kernel-utils" },
+    { "path": "../kernel-language-model-service" }
   ],
   "include": [
     "../../vitest.config.ts",

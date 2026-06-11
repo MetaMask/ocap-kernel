@@ -7,4 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Initial release as a published package (previously the private `@ocap/kernel-language-model-service`)
+
 [Unreleased]: https://github.com/MetaMask/ocap-kernel/

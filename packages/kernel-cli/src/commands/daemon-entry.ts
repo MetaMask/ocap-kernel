@@ -9,6 +9,7 @@ import { join } from 'node:path';
 
 import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive } from '../utils.ts';
+import { makeLlmKernelService, readLlmConfig } from './llm-config.ts';
 
 main().catch((error) => {
   process.stderr.write(`Daemon fatal: ${String(error)}\n`);
@@ -59,6 +60,14 @@ async function main(): Promise<void> {
   let handle: DaemonHandle;
   try {
     await kernel.initIdentity();
+    const llmConfig = await readLlmConfig(ocapDir);
+    if (llmConfig) {
+      const { name, service } = await makeLlmKernelService(llmConfig);
+      kernel.registerKernelServiceObject(name, service);
+      logger.info(
+        `Registered kernel service "${name}" (${llmConfig.provider} at ${llmConfig.baseUrl})`,
+      );
+    }
     await writeFile(pidPath, String(process.pid));
 
     handle = await startDaemon({

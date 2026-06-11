@@ -1,8 +1,12 @@
 {
-  "name": "@ocap/kernel-language-model-service",
+  "name": "@metamask/kernel-language-model-service",
   "version": "0.0.0",
-  "private": true,
   "description": "A place for implementations providing language model services to the ocap kernel",
+  "keywords": [
+    "MetaMask",
+    "object capabilities",
+    "ocap"
+  ],
   "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/kernel-language-model-service#readme",
   "bugs": {
     "url": "https://github.com/MetaMask/ocap-kernel/issues"
@@ -11,7 +15,9 @@
     "type": "git",
     "url": "https://github.com/MetaMask/ocap-kernel.git"
   },
+  "license": "(MIT OR Apache-2.0)",
   "type": "module",
+  "sideEffects": false,
   "exports": {
     ".": {
       "import": {
@@ -65,13 +71,17 @@
     },
     "./package.json": "./package.json"
   },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.cts",
   "files": [
     "dist/"
   ],
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/kernel-language-model-service",
+    "changelog:update": "../../scripts/update-changelog.sh @metamask/kernel-language-model-service",
+    "changelog:validate": "../../scripts/validate-changelog.sh @metamask/kernel-language-model-service",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck --quiet",
@@ -129,5 +139,9 @@
     "@metamask/superstruct": "^3.2.1",
     "ollama": "^0.5.16",
     "ses": "^1.14.0"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

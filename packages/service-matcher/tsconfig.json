@@ -6,6 +6,7 @@
     "types": ["vitest"]
   },
   "references": [
+    { "path": "../kernel-language-model-service" },
     { "path": "../kernel-utils" },
     { "path": "../ocap-kernel" },
     { "path": "../repo-tools" },
