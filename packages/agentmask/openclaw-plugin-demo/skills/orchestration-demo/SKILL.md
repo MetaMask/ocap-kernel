@@ -1,11 +1,7 @@
 ---
 name: orchestration-demo
 description: Drive an end-to-end product-development pipeline using the service matcher and the demo bookkeeping tools. Acts as the inventor's producer / general contractor, in live dialog with the inventor. Loaded for the AI orchestration demo only.
-metadata:
-  {
-    'openclaw':
-      { 'emoji': '🎬', 'requires': { 'bins': ['discovery', 'demo'] } },
-  }
+metadata: { 'openclaw': { 'emoji': '🎬' } }
 ---
 
 # Orchestration demo — producer / general contractor

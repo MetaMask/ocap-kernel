@@ -1,8 +1,7 @@
 ---
 name: discovery
 description: Use the discovery tools to find and use services through a service matcher. Do not rely on prior knowledge of services, providers, or APIs.
-metadata:
-  { 'openclaw': { 'emoji': '🧭', 'requires': { 'bins': ['discovery'] } } }
+metadata: { 'openclaw': { 'emoji': '🧭' } }
 ---
 
 # Service discovery
