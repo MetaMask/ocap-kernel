@@ -2,7 +2,6 @@
 /* eslint-disable n/no-process-env */
 import type {
   InvocationPattern,
-  ParsedInvocation,
   Provision,
 } from '@metamask/kernel-utils/session/provision';
 import {
@@ -10,7 +9,7 @@ import {
   matchProvision,
 } from '@metamask/kernel-utils/session/provision';
 
-import { decompose } from '../src/bash.ts';
+import { buildClauses } from '../src/clauses.ts';
 import { getSocketPath } from '../src/paths/ocap-kernel.ts';
 import { listVatProvisions, pingDaemon } from '../src/rpc.ts';
 import { loadSessionState, readEvents } from '../src/session.ts';
@@ -52,33 +51,6 @@ function isStandingProvision(provision: Provision): boolean {
       (ap) => ap.kind === 'wildcard' || ap.kind === 'prefix',
     ),
   );
-}
-
-// ─── Tool call → invocations ─────────────────────────────────
-
-/**
- * Build the clause array for a transcript tool use.
- *
- * @param use - The transcript tool-use record.
- * @returns The clauses (each a list of parsed invocations), or null when the
- *   command is unparseable (dynamic or syntax error).
- */
-function toolUseToClauses(use: TranscriptToolUse): ParsedInvocation[][] | null {
-  if (use.name === 'Bash') {
-    const command =
-      typeof use.input?.command === 'string' ? use.input.command : '';
-    const result = decompose(command);
-    if (!result.ok) {
-      return null;
-    }
-    return result.clauses.map((clause) =>
-      clause.map(({ name, argv }) => ({ name, argv })),
-    );
-  }
-  const argv = Object.values(use.input ?? {}).filter(
-    (val): val is string => typeof val === 'string',
-  );
-  return [[{ name: use.name, argv }]];
 }
 
 // ─── Claude Code rule matching ────────────────────────────────
@@ -354,7 +326,7 @@ async function main(): Promise<void> {
       potentialCounts.set(JSON.stringify(prov), 0);
     }
     for (const use of toolUses) {
-      const clauses = toolUseToClauses(use);
+      const clauses = buildClauses(use.name, use.input);
       if (clauses === null) {
         continue;
       }
