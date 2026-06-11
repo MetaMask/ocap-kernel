@@ -68,9 +68,12 @@ export const DecisionStruct = object({
 export const KernelSessionStruct = object({
   sessionId: string(),
   ocapUrl: string(),
+  cwd: optional(string()),
+  startedAt: optional(string()),
 });
 
 export const LaunchSubclusterStruct = object({
   rootKref: string(),
   subclusterId: string(),
+  bootstrapResult: optional(nullable(CapDataStruct)),
 });
