@@ -51,20 +51,6 @@ function pickOne<Type>(options: readonly Type[]): Type {
   return options[(bytes[0] as number) % options.length] as Type;
 }
 
-/**
- * A plausible schematic-revision date for the rendered title block.
- * SES lockdown removes `Date.now()` and argless `new Date()` (host-time
- * leaks), so we pick from a small list of recent plausible dates the
- * same way other tokens are picked.
- */
-const SCH_DATES = [
-  '2026-05-12',
-  '2026-05-19',
-  '2026-05-27',
-  '2026-06-02',
-  '2026-06-08',
-] as const;
-
 export type TemplateInputs = {
   providerLabel: string;
 };
@@ -79,7 +65,6 @@ export function renderSchematic(inputs: TemplateInputs): string {
   const tokens: Record<string, string> = {
     revLabel: `${pickOne(REV_LETTERS)}${pickOne(REV_DIGITS)}`,
     providerLabel: inputs.providerLabel,
-    schDate: pickOne(SCH_DATES),
     mcuPartNumber: pickOne(MCU_PART_NUMBERS),
     ldoPartNumber: pickOne(LDO_PART_NUMBERS),
   };

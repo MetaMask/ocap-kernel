@@ -5,7 +5,6 @@
  * Token catalog:
  *   {{revLabel}}        short rev label, e.g. "A1", "B2"
  *   {{providerLabel}}   provider identifier in the title block
- *   {{schDate}}         today's date in YYYY-MM-DD form
  *   {{mcuPartNumber}}   ESP32/RP2040/nRF variant
  *   {{ldoPartNumber}}   boost/LDO part number
  */
@@ -318,8 +317,7 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
     <text x="6"   y="42" class="ic-text" font-size="9">Title: top-level schematic</text>
     <text x="166" y="14" class="ic-text" font-size="10">Rev {{revLabel}}</text>
     <text x="166" y="40" class="ic-text" font-size="9">{{providerLabel}}</text>
-    <text x="244" y="14" class="ic-text" font-size="9">{{schDate}}</text>
-    <text x="244" y="40" class="ic-text" font-size="9">sheet 1/1</text>
+    <text x="244" y="14" class="ic-text" font-size="9">sheet 1/1</text>
   </g>
 
   <text x="80" y="754" class="label" fill="#666">Notes:</text>
