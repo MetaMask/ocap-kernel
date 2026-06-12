@@ -21,6 +21,13 @@ export type TranscriptEntry =
       at: string;
       count: number;
       providerTags: string[];
+    }
+  | {
+      kind: 'wallet-charge';
+      at: string;
+      amountUsd: number;
+      reason?: string;
+      balanceUsd: number;
     };
 
 /**
@@ -133,6 +140,7 @@ export function useEventStream(): DisplayState {
       'phase.announced',
       'agent.note',
       'wallet.balance',
+      'wallet.charge',
     ];
     for (const kind of kinds) {
       source.addEventListener(kind, handle);
@@ -246,6 +254,20 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
     }
     case 'wallet.balance':
       return { ...state, walletBalanceUsd: event.balanceUsd };
+    case 'wallet.charge': {
+      const transcript = appendTranscript(state.transcript, {
+        kind: 'wallet-charge',
+        at: event.at,
+        amountUsd: event.amountUsd,
+        reason: event.reason,
+        balanceUsd: event.balanceUsd,
+      });
+      return {
+        ...state,
+        transcript,
+        walletBalanceUsd: event.balanceUsd,
+      };
+    }
     default:
       return state;
   }

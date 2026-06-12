@@ -280,6 +280,17 @@ body {
   font-size: 0.8125rem;
 }
 
+.transcript__line--charge {
+  background: rgba(56, 189, 248, 0.08);
+  border-left: 3px solid var(--accent);
+}
+
+.transcript__charge {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
 .transcript__time {
   flex: 0 0 auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

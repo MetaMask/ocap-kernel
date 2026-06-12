@@ -85,6 +85,21 @@ function TranscriptLine({ entry }: TranscriptLineProps): JSX.Element {
       </li>
     );
   }
+  if (entry.kind === 'wallet-charge') {
+    const reason =
+      typeof entry.reason === 'string' && entry.reason.length > 0
+        ? entry.reason
+        : 'service charge';
+    return (
+      <li className="transcript__line transcript__line--charge">
+        <span className="transcript__time">{formatTime(entry.at)}</span>
+        <span className="transcript__charge">
+          $ −${entry.amountUsd.toLocaleString()} {reason} (balance $
+          {entry.balanceUsd.toLocaleString()})
+        </span>
+      </li>
+    );
+  }
   return (
     <li className="transcript__line transcript__line--note">
       <span className="transcript__time">{formatTime(entry.at)}</span>

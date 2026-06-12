@@ -122,6 +122,18 @@ export type WalletBalanceEvent = {
   at: string;
 };
 
+/**
+ * A spend just deducted from the wallet. Renders as a transcript line
+ * so the audience sees money moving alongside the ribbon ticking down.
+ */
+export type WalletChargeEvent = {
+  kind: 'wallet.charge';
+  amountUsd: number;
+  reason?: string;
+  balanceUsd: number;
+  at: string;
+};
+
 export type DisplayEvent =
   | ServiceRegisteredEvent
   | ServiceEvictedEvent
@@ -133,7 +145,8 @@ export type DisplayEvent =
   | ArtifactRecordedEvent
   | PhaseAnnouncedEvent
   | AgentNoteEvent
-  | WalletBalanceEvent;
+  | WalletBalanceEvent
+  | WalletChargeEvent;
 
 /**
  * Loose, JSON-serializable mirror of `ServiceDescription`. We intentionally

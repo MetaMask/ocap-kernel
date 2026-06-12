@@ -73,7 +73,9 @@ export function registerWalletChargeTool(options: {
       state.balanceUsd -= amount;
       display
         .post({
-          kind: 'wallet.balance',
+          kind: 'wallet.charge',
+          amountUsd: amount,
+          reason: params.reason,
           balanceUsd: state.balanceUsd,
           at: new Date().toISOString(),
         })
