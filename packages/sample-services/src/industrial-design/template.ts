@@ -36,8 +36,6 @@ function resolveCrypto(): CryptoSource | undefined {
     | undefined;
 }
 
-const REV_LETTERS = ['A', 'B', 'C', 'D'] as const;
-const REV_DIGITS = ['1', '2', '3'] as const;
 const IR_PROTOCOL_SETS = [
   'NEC + RC-5 + Sony',
   'NEC + RC-6 + Sony',
@@ -85,18 +83,20 @@ function pickScreenTime(): string {
 
 export type TemplateInputs = {
   providerLabel: string;
+  revLabel: string;
 };
 
 /**
  * Render the master SVG with all `{{...}}` tokens filled in.
  *
- * @param inputs - Provider-supplied inputs that aren't randomized
- *   per-call (provider identity, for now).
+ * @param inputs - Caller-supplied inputs not randomized per-call:
+ *   provider identity and the revision label (the service computes
+ *   the latter so consecutive calls produce coherent A1/A2/A3).
  * @returns The rendered SVG as a string.
  */
 export function renderConceptSketch(inputs: TemplateInputs): string {
   const tokens: Record<string, string> = {
-    revLabel: `${pickOne(REV_LETTERS)}${pickOne(REV_DIGITS)}`,
+    revLabel: inputs.revLabel,
     providerLabel: inputs.providerLabel,
     screenTime: pickScreenTime(),
     batteryLifeMonths: pickOne(BATTERY_LIFE_MONTHS),

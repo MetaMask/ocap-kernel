@@ -61,12 +61,19 @@ export type IndustrialDesignArtifact = {
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function makeIndustrialDesignService() {
+  // Counter for coherent revision numbering. Each generate() call
+  // emits A1, A2, A3, … rather than randomly picking a letter+digit
+  // — the audience reads consecutive sketches as a progressing
+  // iteration, not unrelated revisions.
+  let revCounter = 0;
   return makeDiscoverableExo(
     'IndustrialDesignService',
     {
       async generate(_spec: string): Promise<IndustrialDesignArtifact> {
+        revCounter += 1;
         const svg = renderConceptSketch({
           providerLabel: INDUSTRIAL_DESIGN_PROVIDER_TAG,
+          revLabel: `A${revCounter}`,
         });
         return harden({
           kind: 'svg',
