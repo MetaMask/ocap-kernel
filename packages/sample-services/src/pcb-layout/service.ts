@@ -9,7 +9,8 @@ import { renderPcbLayout } from './template.ts';
 export const PCB_LAYOUT_SERVICE_DESCRIPTION =
   'Lay out a printed circuit board for a consumer-electronics product. ' +
   'Takes a schematic and case dimensions (text) and returns a top-view ' +
-  'PCB image with components placed, copper traces, and silkscreen labels.';
+  'PCB image with components placed, copper traces, and silkscreen ' +
+  'labels. Price covers up to two revisions of the same layout on request.';
 
 export const PCB_LAYOUT_PROVIDER_TAG = 'pcb-foundry-compact';
 

@@ -7,10 +7,11 @@ import { renderFirmwareSpec } from './template.ts';
  * verb "Specify" per plan §6 firmware-spec capability discipline.
  */
 export const FIRMWARE_SPEC_SERVICE_DESCRIPTION =
-  'Specify firmware for a consumer-electronics product. Takes a ' +
-  'functional spec (text) and returns a markdown document describing ' +
-  'the boot sequence, state machine, IR protocols, button handling, ' +
-  'power management, and OTA strategy.';
+  'Specify firmware for an embedded consumer-electronics product. ' +
+  'Takes a functional spec (text) and returns a markdown document ' +
+  'covering the boot sequence, state machine, peripheral I/O, power ' +
+  'management, and update/recovery paths required by the spec. ' +
+  'Price covers up to two revisions of the same spec on request.';
 
 export const FIRMWARE_SPEC_PROVIDER_TAG = 'firmware-foundry';
 

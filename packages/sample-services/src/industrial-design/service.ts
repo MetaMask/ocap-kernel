@@ -12,8 +12,9 @@ import { renderConceptSketch } from './template.ts';
  */
 export const INDUSTRIAL_DESIGN_SERVICE_DESCRIPTION =
   'Sketch an industrial design concept for a consumer-electronics product. ' +
-  'Takes a functional spec (text) and returns a line-drawing concept sketch ' +
-  'showing the overall form factor, button layout, and labelled features.';
+  'Takes a functional spec (text) and returns a line-drawing concept showing ' +
+  'form factor, control layout, and labelled features. Price covers up to ' +
+  'three revisions of the same concept on request.';
 
 /**
  * Provider tag used to dedup registrations under (peerId, providerTag).

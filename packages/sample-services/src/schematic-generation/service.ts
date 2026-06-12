@@ -9,8 +9,10 @@ import { renderSchematic } from './template.ts';
  */
 export const SCHEMATIC_GENERATION_SERVICE_DESCRIPTION =
   'Generate a circuit schematic for a consumer-electronics product. ' +
-  'Takes a functional spec (text) and returns a KiCad-style schematic ' +
-  'showing the MCU, peripherals, IR driver, key matrix, and power.';
+  'Takes a functional spec (text) and returns a schematic diagram ' +
+  'covering the microcontroller, peripherals, signal routing, and ' +
+  'power tree required by the spec. Price covers up to two revisions ' +
+  'of the same schematic on request.';
 
 export const SCHEMATIC_GENERATION_PROVIDER_TAG = 'circuit-foundry';
 
