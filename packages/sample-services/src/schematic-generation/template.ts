@@ -52,17 +52,18 @@ function pickOne<Type>(options: readonly Type[]): Type {
 }
 
 /**
- * Today's date in YYYY-MM-DD form (UTC).
- *
- * @returns The formatted date.
+ * A plausible schematic-revision date for the rendered title block.
+ * SES lockdown removes `Date.now()` and argless `new Date()` (host-time
+ * leaks), so we pick from a small list of recent plausible dates the
+ * same way other tokens are picked.
  */
-function today(): string {
-  const now = new Date();
-  const year = String(now.getUTCFullYear());
-  const month = String(now.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(now.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+const SCH_DATES = [
+  '2026-05-12',
+  '2026-05-19',
+  '2026-05-27',
+  '2026-06-02',
+  '2026-06-08',
+] as const;
 
 export type TemplateInputs = {
   providerLabel: string;
@@ -78,7 +79,7 @@ export function renderSchematic(inputs: TemplateInputs): string {
   const tokens: Record<string, string> = {
     revLabel: `${pickOne(REV_LETTERS)}${pickOne(REV_DIGITS)}`,
     providerLabel: inputs.providerLabel,
-    schDate: today(),
+    schDate: pickOne(SCH_DATES),
     mcuPartNumber: pickOne(MCU_PART_NUMBERS),
     ldoPartNumber: pickOne(LDO_PART_NUMBERS),
   };
