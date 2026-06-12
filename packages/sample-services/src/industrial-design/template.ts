@@ -10,6 +10,7 @@
  * without producing anything broken.
  */
 
+import { MASTER_SVG_REV2 } from './master-svg-rev2.ts';
 import { MASTER_SVG } from './master-svg.ts';
 
 /* eslint-disable n/no-unsupported-features/node-builtins -- the
@@ -84,14 +85,22 @@ function pickScreenTime(): string {
 export type TemplateInputs = {
   providerLabel: string;
   revLabel: string;
+  /**
+   * Which master sketch to render. The service hands out `rev1` on
+   * the first generate() and `rev2` on subsequent calls, so a
+   * revision request produces a visibly different artifact rather
+   * than the same canned image with a different label.
+   */
+  variant?: 'rev1' | 'rev2';
 };
 
 /**
- * Render the master SVG with all `{{...}}` tokens filled in.
+ * Render a master SVG with all `{{...}}` tokens filled in.
  *
  * @param inputs - Caller-supplied inputs not randomized per-call:
- *   provider identity and the revision label (the service computes
- *   the latter so consecutive calls produce coherent A1/A2/A3).
+ *   provider identity, the revision label (the service computes
+ *   the latter so consecutive calls produce coherent A1/A2/A3),
+ *   and the variant to render.
  * @returns The rendered SVG as a string.
  */
 export function renderConceptSketch(inputs: TemplateInputs): string {
@@ -102,7 +111,8 @@ export function renderConceptSketch(inputs: TemplateInputs): string {
     batteryLifeMonths: pickOne(BATTERY_LIFE_MONTHS),
     irProtocols: pickOne(IR_PROTOCOL_SETS),
   };
-  return MASTER_SVG.replace(/\{\{(\w+)\}\}/gu, (match, name: string) =>
+  const master = inputs.variant === 'rev2' ? MASTER_SVG_REV2 : MASTER_SVG;
+  return master.replace(/\{\{(\w+)\}\}/gu, (match, name: string) =>
     name in tokens ? (tokens[name] as string) : match,
   );
 }

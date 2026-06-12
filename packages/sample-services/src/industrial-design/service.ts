@@ -72,9 +72,17 @@ export function makeIndustrialDesignService() {
     {
       async generate(_spec: string): Promise<IndustrialDesignArtifact> {
         revCounter += 1;
+        // First call returns the initial sketch (rev1); every
+        // subsequent call returns the revised sketch (rev2). The
+        // revised one incorporates the usual inventor-style notes
+        // (d-pad replacing channel rocker, IR moved to top edge,
+        // back-6s/fwd-30s transport, more curved body) so a
+        // revision request produces a visibly different artifact.
+        const variant: 'rev1' | 'rev2' = revCounter === 1 ? 'rev1' : 'rev2';
         const svg = renderConceptSketch({
           providerLabel: INDUSTRIAL_DESIGN_PROVIDER_TAG,
           revLabel: `A${revCounter}`,
+          variant,
         });
         return harden({
           kind: 'svg',
