@@ -240,7 +240,16 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
       };
     }
     case 'artifact.recorded': {
-      const phase = state.activePhase ?? UNASSIGNED_PHASE;
+      // Prefer the artifact's explicit phase tag (set by the agent via
+      // demo_record_artifact's `phase` arg). Falls back to the active
+      // phase when not provided, which is brittle if the agent has
+      // moved on but an earlier-phase artifact returned out of order.
+      const phase =
+        (typeof event.phase === 'string' && event.phase.length > 0
+          ? event.phase
+          : undefined) ??
+        state.activePhase ??
+        UNASSIGNED_PHASE;
       const existing = state.artifactsByPhase.get(phase) ?? [];
       if (existing.some((a) => a.handle === event.handle)) {
         // SSE backlog replay on reconnect, or the agent re-recording

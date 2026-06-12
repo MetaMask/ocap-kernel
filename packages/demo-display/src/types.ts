@@ -88,6 +88,14 @@ export type ArtifactRecordedEvent = {
   data: string;
   fromService: string;
   metadata?: { title?: string; summary?: string };
+  /**
+   * Workflow phase the artifact belongs to. When the demo plugin's
+   * `demo_record_artifact` is called with an explicit `phase` arg the
+   * value lands here; otherwise the reducer falls back to whatever
+   * phase was active at receive time. Always set this explicitly when
+   * the agent might be running phases out of order or in parallel.
+   */
+  phase?: string;
   at: string;
 };
 

@@ -16,6 +16,7 @@ type RecordArtifactParams = {
   fromService?: string;
   title?: string;
   summary?: string;
+  phase?: string;
 };
 
 /**
@@ -69,6 +70,18 @@ export function registerRecordArtifactTool(options: {
           type: 'string',
           description: 'One-line subtitle for the artifact card. Optional.',
         },
+        phase: {
+          type: 'string',
+          description:
+            'Workflow phase this artifact belongs to (e.g. "Concept", ' +
+            '"Electronics"). Use the same name you passed to ' +
+            'demo_announce({ phaseTransition }). Optional — falls back ' +
+            "to the dashboard's active-phase pointer when omitted, but " +
+            'set it explicitly whenever there is any chance the active ' +
+            'phase has advanced past the one the artifact belongs to ' +
+            '(e.g. parallel phase work, an artifact returning out of ' +
+            'order).',
+        },
       },
       required: ['kind', 'data', 'fromService'],
     },
@@ -89,6 +102,7 @@ export function registerRecordArtifactTool(options: {
         params.title || params.summary
           ? { title: params.title, summary: params.summary }
           : undefined;
+      const phase = params.phase?.trim();
       const stored = {
         handle,
         artifactKind: kind,
@@ -97,7 +111,11 @@ export function registerRecordArtifactTool(options: {
         ...(metadata === undefined ? {} : { metadata }),
       };
       state.artifacts.set(handle, stored);
-      await display.post({ kind: 'artifact.recorded', ...stored });
+      await display.post({
+        kind: 'artifact.recorded',
+        ...stored,
+        ...(phase ? { phase } : {}),
+      });
       return {
         content: [
           {

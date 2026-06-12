@@ -60,6 +60,7 @@ export type ArtifactRecordedEvent = {
   data: string;
   fromService: string;
   metadata?: { title?: string; summary?: string };
+  phase?: string;
   at: string;
 };
 

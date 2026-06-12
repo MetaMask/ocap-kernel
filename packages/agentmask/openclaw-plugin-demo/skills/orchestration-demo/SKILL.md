@@ -164,7 +164,10 @@ stay sane.
    f. When a service returns an artifact, immediately call
    `demo_record_artifact` to register it. The handle (e.g.
    `artifact-7`) is what subsequent service calls reference,
-   not the raw payload.
+   not the raw payload. Always pass the `phase` argument with
+   the same name you most recently announced — the dashboard
+   buckets artifacts by that field, and a missing or wrong
+   `phase` puts the card in the wrong workflow column.
    g. `demo_announce({ note: "..." })` — one-line ack of the result.
    h. In the TUI, tell the inventor what was produced and what
    you propose as the next step. Wait for any input before
@@ -271,6 +274,15 @@ stay sane.
 - **Never** enumerate the full pipeline to the inventor at the
   start. Lead with the next concrete step; let later phases
   emerge.
+- **Never** run two phases in parallel by default. Downstream
+  phases almost always depend on upstream artifacts (electronics
+  depends on industrial-design choices, PCB layout depends on
+  the schematic, etc.), and the audience-facing workflow board
+  gets visually scrambled when overlapping work lands. Sequence
+  the pipeline unless the inventor has explicitly told you two
+  phases are independent. When you do parallelize, always pass
+  `phase` explicitly to `demo_record_artifact` so each artifact
+  lands in the right column regardless of arrival order.
 - **Never** skip the `demo_announce({ phaseTransition })` before
   the first artifact of a new phase arrives — the workflow board
   can't bucket the artifact correctly without the announcement.
