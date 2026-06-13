@@ -170,7 +170,7 @@ openclaw config set plugins.allow \
   '["discovery", "demo", "anthropic", "google", "memory-core"]'
 ```
 
-`tools.allow` must include the eleven tool names below. If any are
+`tools.allow` must include the twelve tool names below. If any are
 missing, add them (preserve any other entries already present):
 
 ```
@@ -185,7 +185,15 @@ demo_record_artifact
 demo_get_artifact
 demo_wallet_balance
 demo_wallet_charge
+read
 ```
+
+`read` is openclaw's built-in file-reading tool; the
+`/orchestration-demo` slash command in step 8 works by telling the
+agent to read the skill file, so without `read` in the allowlist the
+skill body never reaches the model and the agent operates on the
+skill description alone (which is sycophantic and ignores the hard
+rules).
 
 Set the remaining flags (these are safe to set unconditionally):
 
@@ -396,8 +404,11 @@ In `laptop-svcs-log`:
 tail -F ~/.ocap-services/daemon.log
 ```
 
-The dashboard's marketplace grid should now show seven provider
-cards.
+The dashboard's marketplace grid stays empty at this point — the
+matcher knows about seven providers, but the conceit is that the
+audience side only learns about them when the agent discovers them
+via the matcher. Cards will appear during the demo as the agent runs
+`discovery_find_services`.
 
 ### Step 8: OpenClaw TUI
 
@@ -407,28 +418,27 @@ In `vps-tui` (an ssh session into the VPS):
 openclaw tui
 ```
 
-Once the TUI is up, ask the agent (in plain prose):
+Once the TUI is up, load the orchestration-demo skill into the
+agent's context by invoking the slash command:
 
-> "Without taking any action, list every tool whose name starts
-> with `discovery_`, `service_`, or `demo_`."
+> `/orchestration-demo`
 
-It should list all eleven:
+Openclaw will autocomplete the command name after the first few
+characters. The agent reads the SKILL.md file using its `read` tool
+(which is why `read` must be in `tools.allow` — see one-time setup);
+after the load completes you should see a brief acknowledgement like
+_"Loaded. I'm in producer mode…"_. If instead the agent says it
+can't read files / asks you to paste the SKILL.md content, `read`
+isn't in the allowlist.
 
-```
-discovery_redeem_matcher, discovery_find_services,
-service_get_description, service_initiate_contact, service_call,
-discovery_list_tracked, demo_announce, demo_record_artifact,
-demo_get_artifact, demo_wallet_balance, demo_wallet_charge
-```
+Optional sanity check the agent's context (in plain prose):
 
-If fewer, revisit `tools.allow` and `tools.profile` (one-time setup).
+> "What is the first item in the 'Hard rules' section of the
+> orchestration-demo skill? Quote it exactly."
 
-Tell the agent which skill is in play:
-
-> "Use the orchestration-demo skill."
-
-(Or whatever the openclaw-side mechanism is — verify in TUI help if
-unclear.)
+The reply should begin with _"Never generate artifacts yourself."_
+If the agent paraphrases or asks for the file contents, the body
+didn't load.
 
 ### Step 9: Begin the demo
 
