@@ -50,6 +50,8 @@ export async function onSessionStart(
     rootKref: state.rootKref,
     transcriptPath: transcript_path,
     settingsAllowCount: state.settingsSnapshot.length,
+    hookVersion: deps.hookVersion,
+    vatVersion: state.vatVersion,
   });
 
   const connectCmd = `ocap modal ${state.kernelSessionId}`;

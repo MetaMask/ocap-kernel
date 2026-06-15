@@ -4,6 +4,7 @@ import { writeFile } from 'node:fs/promises';
 import { caprockOutputPath } from '../session.ts';
 import type { SessionEndPayload } from '../types.ts';
 import type { HookDeps } from './types.ts';
+import { checkHookVersionTransition } from './version.ts';
 
 /**
  * Handle the SessionEnd hook event: append a final `session_end` event, then
@@ -23,7 +24,10 @@ export async function onSessionEnd(
 ): Promise<void> {
   const { session_id, transcript_path } = payload;
 
-  const state = await deps.store.loadSessionState(session_id);
+  const loaded = await deps.store.loadSessionState(session_id);
+  const state = loaded
+    ? await checkHookVersionTransition(session_id, loaded, deps)
+    : null;
   let allowCount = 0;
   if (state) {
     try {

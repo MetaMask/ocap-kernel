@@ -4,6 +4,7 @@ import { invocationToProvision } from '@metamask/kernel-utils/session/provision'
 import { buildClauses, inputSha } from '../clauses.ts';
 import type { PostToolUsePayload } from '../types.ts';
 import type { HookDeps } from './types.ts';
+import { checkHookVersionTransition } from './version.ts';
 
 /**
  * Handle the PostToolUse hook event: register each clause of the just-executed
@@ -20,10 +21,11 @@ export async function onPostToolUse(
   const { session_id, tool_name, tool_input } = payload;
   const sha = inputSha(tool_input);
 
-  const state = await deps.store.loadSessionState(session_id);
-  if (!state) {
+  const loaded = await deps.store.loadSessionState(session_id);
+  if (!loaded) {
     return;
   }
+  const state = await checkHookVersionTransition(session_id, loaded, deps);
 
   const clauses = buildClauses(tool_name, tool_input);
   if (clauses !== null) {

@@ -1,5 +1,6 @@
 import type { SessionState } from '../types.ts';
 import type { HookDeps } from './types.ts';
+import { checkHookVersionTransition } from './version.ts';
 
 /**
  * Collect the current union of all watched settings permission lists. The
@@ -56,15 +57,23 @@ export async function initFreshSession(
     deps.rpc.createKernelSession(deps.socketPath, sessionId),
   ]);
 
+  const vatVersion = await deps.rpc.vatGetVersion(
+    deps.socketPath,
+    vat.rootKref,
+  );
+
+  const startedAt = deps.now();
   const state: SessionState = {
     sessionId,
     kernelSessionId: kernel.sessionId,
     ocapUrl: kernel.ocapUrl,
     rootKref: vat.rootKref,
     subclusterId: vat.subclusterId,
-    startedAt: deps.now(),
+    startedAt,
     settingsSnapshot: snapshot.allow,
     settingsDenySnapshot: snapshot.deny,
+    vatVersion,
+    hookVersionHistory: [{ version: deps.hookVersion, recordedAt: startedAt }],
   };
   await deps.store.saveSessionState(sessionId, state);
   return state;
@@ -99,7 +108,7 @@ export async function getOrInitSession(
       existing.ocapUrl = kernel.ocapUrl;
       await deps.store.saveSessionState(sessionId, existing);
     }
-    return existing;
+    return checkHookVersionTransition(sessionId, existing, deps);
   }
   return initFreshSession(sessionId, deps);
 }

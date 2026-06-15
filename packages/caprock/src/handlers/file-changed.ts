@@ -1,6 +1,7 @@
 /* eslint-disable camelcase */
 import type { FileChangedPayload } from '../types.ts';
 import type { HookDeps } from './types.ts';
+import { checkHookVersionTransition } from './version.ts';
 
 /**
  * Handle the FileChanged hook event: detect newly added allow-list entries in
@@ -22,10 +23,11 @@ export async function onFileChanged(
     return;
   }
 
-  const state = await deps.store.loadSessionState(session_id);
-  if (!state) {
+  const loaded = await deps.store.loadSessionState(session_id);
+  if (!loaded) {
     return;
   }
+  const state = await checkHookVersionTransition(session_id, loaded, deps);
 
   const current = await deps.store.readSettingsAllowList(file_path);
   const prev = new Set(state.settingsSnapshot);

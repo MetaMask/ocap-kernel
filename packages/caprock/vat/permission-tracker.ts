@@ -31,6 +31,16 @@ import { constant, makeSection, sheafify } from '@metamask/sheaves';
 import type { Candidate, Provider } from '@metamask/sheaves';
 
 /**
+ * Version of the permission-tracker vat baked into this bundle. The bundle is
+ * loaded into the kernel daemon at session start; once running, its version is
+ * fixed for the lifetime of the session — the hook binary on disk may be
+ * upgraded independently. Keep in sync with `version` in
+ * `.claude-plugin/plugin.json`; the version-sync test in
+ * `permission-tracker.test.ts` fails if they drift.
+ */
+export const CAPROCK_VAT_VERSION = '0.1.0';
+
+/**
  * Policy that tries candidates from most-restricted to least-restricted, using
  * the numeric `authority` metadata key as the topological rank.
  *
@@ -142,6 +152,16 @@ export function buildRootObject(): ReturnType<typeof makeDefaultExo> {
   return makeDefaultExo('permission-tracker', {
     // eslint-disable-next-line no-empty-function
     bootstrap(): void {},
+
+    /**
+     * Return the baked-in version of the permission-tracker vat. Used by the
+     * caprock hook to stamp `vatVersion` on session state.
+     *
+     * @returns The vat bundle's version string.
+     */
+    getVersion(): string {
+      return CAPROCK_VAT_VERSION;
+    },
 
     /**
      * Dispatch the permission sheaf: returns 'allow' if any section's handler

@@ -22,6 +22,7 @@ import {
 } from '../src/paths/ocap-kernel.ts';
 import {
   getPluginRoot,
+  getPluginManifestPath,
   getVatBundlePath,
   getProjectSettingsLocalPath,
 } from '../src/paths/plugin.ts';
@@ -40,6 +41,25 @@ import type { AnyHookPayload } from '../src/types.ts';
 const SOCKET_PATH = getSocketPath();
 const BIN_DIR = import.meta.dirname;
 const VAT_BUNDLE = getVatBundlePath(BIN_DIR);
+
+/**
+ * Read the plugin manifest's `version` field. Returns `'unknown'` when the
+ * manifest is missing or malformed so a corrupt install does not crash the hook.
+ *
+ * @returns The plugin's semver version string, or `'unknown'`.
+ */
+async function readHookVersion(): Promise<string> {
+  try {
+    const manifest = JSON.parse(
+      await readFile(getPluginManifestPath(BIN_DIR), 'utf8'),
+    ) as { version?: unknown };
+    return typeof manifest.version === 'string' ? manifest.version : 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
+const HOOK_VERSION = await readHookVersion();
 
 // CLAUDE_PROJECT_DIR is exported by Claude Code to hook processes and points
 // at the workspace root; fall back to the plugin root for standalone use.
@@ -150,6 +170,7 @@ const deps: HookDeps = {
   stderr: (chunk) => process.stderr.write(chunk),
   socketPath: SOCKET_PATH,
   vatBundlePath: VAT_BUNDLE,
+  hookVersion: HOOK_VERSION,
   settingsPaths: SETTINGS_PATHS,
   ensureDaemon,
   registerSkillPermissions,

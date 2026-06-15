@@ -36,6 +36,12 @@ export type HookDeps = {
   socketPath: string;
   /** Absolute path to the compiled permission-tracker vat bundle. */
   vatBundlePath: string;
+  /**
+   * Version string of the caprock hook binary, as declared in
+   * `.claude-plugin/plugin.json`. Stamped on session start and re-checked on
+   * each hook invocation so an upgrade mid-session emits a `version_up` event.
+   */
+  hookVersion: string;
   /** Settings JSON files watched for the allow/deny snapshot union. */
   settingsPaths: string[];
   /**

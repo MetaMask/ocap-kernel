@@ -3,6 +3,7 @@ import { buildClauses, inputSha, routeAllClauses } from '../clauses.ts';
 import type { PermissionRequestPayload } from '../types.ts';
 import { permissionAllow } from './output.ts';
 import type { HookDeps } from './types.ts';
+import { checkHookVersionTransition } from './version.ts';
 
 /**
  * Handle the PermissionRequest hook event.
@@ -29,10 +30,11 @@ export async function onPermissionRequest(
     inputSha: sha,
   });
 
-  const state = await deps.store.loadSessionState(session_id);
-  if (!state?.kernelSessionId) {
+  const loaded = await deps.store.loadSessionState(session_id);
+  if (!loaded?.kernelSessionId) {
     return;
   }
+  const state = await checkHookVersionTransition(session_id, loaded, deps);
 
   if (!tool_name || !tool_input) {
     return;

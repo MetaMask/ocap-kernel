@@ -84,6 +84,7 @@ export function makeFakeRpcClient(): RpcClient {
     vatFindMatch: vi.fn(async () => null as Provision | null),
     vatRemoveSection: vi.fn(async () => true),
     vatSize: vi.fn(async () => 0),
+    vatGetVersion: vi.fn(async () => '0.0.0-test'),
     listVatProvisions: vi.fn(async () => [] as Provision[]),
   };
 }
@@ -168,6 +169,7 @@ export function makeFakeDeps(overrides: Partial<HookDeps> = {}): HookDeps & {
     stderr: (chunk) => stderrLines.push(chunk),
     socketPath: '/tmp/test.sock',
     vatBundlePath: '/tmp/permission-tracker.bundle',
+    hookVersion: '0.0.0-test',
     settingsPaths: ['/tmp/settings.json'],
     ensureDaemon: vi.fn(async () => undefined),
     registerSkillPermissions: vi.fn(async () => undefined),

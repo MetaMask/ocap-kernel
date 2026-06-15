@@ -3,9 +3,11 @@ import type {
   InvocationPattern,
   Provision,
 } from '@metamask/kernel-utils/session';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { buildRootObject } from './permission-tracker.ts';
+import { buildRootObject, CAPROCK_VAT_VERSION } from './permission-tracker.ts';
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -33,6 +35,22 @@ const prov = (tool: string, ...patterns: InvocationPattern[]): Provision => ({
 });
 
 // ─── empty sheaf ──────────────────────────────────────────────────────────────
+
+describe('version', () => {
+  it('exposes the baked-in version via getVersion()', () => {
+    expect(makeRoot().getVersion()).toBe(CAPROCK_VAT_VERSION);
+  });
+
+  it('matches the plugin manifest version', async () => {
+    const manifest = JSON.parse(
+      await readFile(
+        join(import.meta.dirname, '..', '.claude-plugin', 'plugin.json'),
+        'utf8',
+      ),
+    ) as { version: string };
+    expect(CAPROCK_VAT_VERSION).toBe(manifest.version);
+  });
+});
 
 describe('empty tracker', () => {
   it('returns ask with no sections', async () => {

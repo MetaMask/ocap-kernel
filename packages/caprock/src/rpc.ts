@@ -468,6 +468,32 @@ export async function vatRemoveSection(
 }
 
 /**
+ * Return the version string baked into the running permission-tracker vat.
+ *
+ * @param socketPath - The UNIX socket path.
+ * @param rootKref - The vat's root kref.
+ * @returns The vat bundle's version, or `'unknown'` if the vat is an older
+ * build that does not implement `getVersion`.
+ */
+export async function vatGetVersion(
+  socketPath: string,
+  rootKref: string,
+): Promise<string> {
+  const response = await sendCommand({
+    socketPath,
+    method: 'queueMessage',
+    params: [rootKref, 'getVersion', []],
+  });
+  if (isJsonRpcFailure(response)) {
+    return 'unknown';
+  }
+  const { result } = response;
+  assert(result, CapDataStruct);
+  const decoded = decodeCapData(result);
+  return typeof decoded === 'string' ? decoded : 'unknown';
+}
+
+/**
  * Return the number of entries in the permission vat's allow set.
  *
  * @param socketPath - The UNIX socket path.
@@ -635,6 +661,7 @@ export type RpcClient = {
     provision: Provision,
   ): Promise<boolean>;
   vatSize(socketPath: string, rootKref: string): Promise<number>;
+  vatGetVersion(socketPath: string, rootKref: string): Promise<string>;
   listVatProvisions(socketPath: string, rootKref: string): Promise<Provision[]>;
 };
 
@@ -649,5 +676,6 @@ export const defaultRpcClient: RpcClient = {
   vatFindMatch,
   vatRemoveSection,
   vatSize,
+  vatGetVersion,
   listVatProvisions,
 };
