@@ -46,13 +46,13 @@ export async function onPermissionRequest(
   }
 
   try {
-    const verdict = await routeAllClauses(
-      deps.rpc,
-      deps.socketPath,
-      state.rootKref,
-      tool_name,
+    const verdict = await routeAllClauses({
+      rpc: deps.rpc,
+      socketPath: deps.socketPath,
+      rootKref: state.rootKref,
+      tool: tool_name,
       clauses,
-    );
+    });
     if (verdict === 'allow') {
       deps.stdout(`${permissionAllow()}\n`);
     }

@@ -81,29 +81,29 @@ describe('routeAllClauses', () => {
 
   it('returns allow when every clause is covered', async () => {
     const { rpc } = makeRpc(['allow', 'allow']);
-    const verdict = await routeAllClauses(
-      rpc as RpcClient,
-      '/s',
-      'ko1',
-      'Bash',
-      [[{ name: 'ls', argv: [] }], [{ name: 'pwd', argv: [] }]],
-    );
+    const verdict = await routeAllClauses({
+      rpc: rpc as RpcClient,
+      socketPath: '/s',
+      rootKref: 'ko1',
+      tool: 'Bash',
+      clauses: [[{ name: 'ls', argv: [] }], [{ name: 'pwd', argv: [] }]],
+    });
     expect(verdict).toBe('allow');
   });
 
   it('returns ask as soon as one clause is uncovered', async () => {
     const harness = makeRpc(['allow', 'ask']);
-    const verdict = await routeAllClauses(
-      harness.rpc as RpcClient,
-      '/s',
-      'ko1',
-      'Bash',
-      [
+    const verdict = await routeAllClauses({
+      rpc: harness.rpc as RpcClient,
+      socketPath: '/s',
+      rootKref: 'ko1',
+      tool: 'Bash',
+      clauses: [
         [{ name: 'ls', argv: [] }],
         [{ name: 'rm', argv: ['-rf', '/'] }],
         [{ name: 'pwd', argv: [] }],
       ],
-    );
+    });
     expect(verdict).toBe('ask');
     // Short-circuits: the third clause is never routed.
     expect(harness.calls).toBe(2);

@@ -41,13 +41,13 @@ export async function onPreToolUse(
   let vatResponse: 'allow' | 'ask' | 'unknown' = 'unknown';
   if (clauses !== null) {
     try {
-      vatResponse = await routeAllClauses(
-        deps.rpc,
-        deps.socketPath,
-        state.rootKref,
-        tool_name,
+      vatResponse = await routeAllClauses({
+        rpc: deps.rpc,
+        socketPath: deps.socketPath,
+        rootKref: state.rootKref,
+        tool: tool_name,
         clauses,
-      );
+      });
     } catch (error) {
       deps.stderr(`[caprock] vatRoute failed: ${String(error)}\n`);
     }
@@ -108,17 +108,21 @@ export async function onPreToolUse(
     if (decidedProvisions !== undefined && decidedProvisions.length > 0) {
       for (const prov of decidedProvisions) {
         await deps.rpc
-          .vatAddSection(deps.socketPath, state.rootKref, prov)
+          .vatAddSection({
+            socketPath: deps.socketPath,
+            rootKref: state.rootKref,
+            provision: prov,
+          })
           .catch(() => undefined);
       }
     } else if (clauses !== null) {
       for (const clause of clauses) {
         await deps.rpc
-          .vatAddSection(
-            deps.socketPath,
-            state.rootKref,
-            invocationToProvision(tool_name, clause),
-          )
+          .vatAddSection({
+            socketPath: deps.socketPath,
+            rootKref: state.rootKref,
+            provision: invocationToProvision(tool_name, clause),
+          })
           .catch(() => undefined);
       }
     }
@@ -187,7 +191,12 @@ function recordAllowMatches(args: {
   const description = `Allow ${toolName}(${JSON.stringify(toolInput)})`;
   Promise.all(
     clauses.map(async (clause) =>
-      deps.rpc.vatFindMatch(deps.socketPath, rootKref, toolName, clause),
+      deps.rpc.vatFindMatch({
+        socketPath: deps.socketPath,
+        rootKref,
+        tool: toolName,
+        invocations: clause,
+      }),
     ),
   )
     .then(async (matches) => {

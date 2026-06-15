@@ -31,11 +31,11 @@ export async function onPostToolUse(
   if (clauses !== null) {
     try {
       for (const clause of clauses) {
-        await deps.rpc.vatAddSection(
-          deps.socketPath,
-          state.rootKref,
-          invocationToProvision(tool_name, clause),
-        );
+        await deps.rpc.vatAddSection({
+          socketPath: deps.socketPath,
+          rootKref: state.rootKref,
+          provision: invocationToProvision(tool_name, clause),
+        });
       }
     } catch (error) {
       deps.stderr(`[caprock] vatAddSection failed: ${String(error)}\n`);

@@ -356,18 +356,24 @@ export async function launchPermissionVat(
 /**
  * Ask the permission sheaf whether the given invocations are covered.
  *
- * @param socketPath - The UNIX socket path.
- * @param rootKref - The vat's root kref.
- * @param tool - The tool name.
- * @param invocations - The parsed command components.
+ * @param options - Vat route options.
+ * @param options.socketPath - The UNIX socket path.
+ * @param options.rootKref - The vat's root kref.
+ * @param options.tool - The tool name.
+ * @param options.invocations - The parsed command components.
  * @returns `'allow'` when a section covers the invocations, `'ask'` otherwise.
  */
-export async function vatRoute(
-  socketPath: string,
-  rootKref: string,
-  tool: string,
-  invocations: ParsedInvocation[],
-): Promise<Verdict> {
+export async function vatRoute({
+  socketPath,
+  rootKref,
+  tool,
+  invocations,
+}: {
+  socketPath: string;
+  rootKref: string;
+  tool: string;
+  invocations: ParsedInvocation[];
+}): Promise<Verdict> {
   const response = await sendCommand({
     socketPath,
     method: 'queueMessage',
@@ -387,15 +393,20 @@ export async function vatRoute(
  * Add a section to the permission sheaf. Used for both exact single-invocation
  * grants and standing provisions.
  *
- * @param socketPath - The UNIX socket path.
- * @param rootKref - The vat's root kref.
- * @param provision - The Provision to add as a new section.
+ * @param options - Vat add-section options.
+ * @param options.socketPath - The UNIX socket path.
+ * @param options.rootKref - The vat's root kref.
+ * @param options.provision - The Provision to add as a new section.
  */
-export async function vatAddSection(
-  socketPath: string,
-  rootKref: string,
-  provision: Provision,
-): Promise<void> {
+export async function vatAddSection({
+  socketPath,
+  rootKref,
+  provision,
+}: {
+  socketPath: string;
+  rootKref: string;
+  provision: Provision;
+}): Promise<void> {
   await sendCommand({
     socketPath,
     method: 'queueMessage',
@@ -407,18 +418,24 @@ export async function vatAddSection(
  * Return the first provision that matches the given tool and invocations,
  * or null if none match.
  *
- * @param socketPath - The UNIX socket path.
- * @param rootKref - The vat's root kref.
- * @param tool - The tool name.
- * @param invocations - The parsed command components.
+ * @param options - Vat find-match options.
+ * @param options.socketPath - The UNIX socket path.
+ * @param options.rootKref - The vat's root kref.
+ * @param options.tool - The tool name.
+ * @param options.invocations - The parsed command components.
  * @returns The matching provision, or null.
  */
-export async function vatFindMatch(
-  socketPath: string,
-  rootKref: string,
-  tool: string,
-  invocations: ParsedInvocation[],
-): Promise<Provision | null> {
+export async function vatFindMatch({
+  socketPath,
+  rootKref,
+  tool,
+  invocations,
+}: {
+  socketPath: string;
+  rootKref: string;
+  tool: string;
+  invocations: ParsedInvocation[];
+}): Promise<Provision | null> {
   const response = await sendCommand({
     socketPath,
     method: 'queueMessage',
@@ -438,16 +455,21 @@ export async function vatFindMatch(
  * Remove the first section in the permission sheaf whose Provision deep-equals
  * the argument. No-op if no section matches.
  *
- * @param socketPath - The UNIX socket path.
- * @param rootKref - The vat's root kref.
- * @param provision - The Provision to remove.
+ * @param options - Vat remove-section options.
+ * @param options.socketPath - The UNIX socket path.
+ * @param options.rootKref - The vat's root kref.
+ * @param options.provision - The Provision to remove.
  * @returns `true` if a section was removed, `false` if none matched.
  */
-export async function vatRemoveSection(
-  socketPath: string,
-  rootKref: string,
-  provision: Provision,
-): Promise<boolean> {
+export async function vatRemoveSection({
+  socketPath,
+  rootKref,
+  provision,
+}: {
+  socketPath: string;
+  rootKref: string;
+  provision: Provision;
+}): Promise<boolean> {
   const response = await sendCommand({
     socketPath,
     method: 'queueMessage',
@@ -638,28 +660,28 @@ export type RpcClient = {
     socketPath: string,
     vatBundlePath: string,
   ): Promise<{ rootKref: string; subclusterId: string }>;
-  vatRoute(
-    socketPath: string,
-    rootKref: string,
-    tool: string,
-    invocations: ParsedInvocation[],
-  ): Promise<Verdict>;
-  vatAddSection(
-    socketPath: string,
-    rootKref: string,
-    provision: Provision,
-  ): Promise<void>;
-  vatFindMatch(
-    socketPath: string,
-    rootKref: string,
-    tool: string,
-    invocations: ParsedInvocation[],
-  ): Promise<Provision | null>;
-  vatRemoveSection(
-    socketPath: string,
-    rootKref: string,
-    provision: Provision,
-  ): Promise<boolean>;
+  vatRoute(options: {
+    socketPath: string;
+    rootKref: string;
+    tool: string;
+    invocations: ParsedInvocation[];
+  }): Promise<Verdict>;
+  vatAddSection(options: {
+    socketPath: string;
+    rootKref: string;
+    provision: Provision;
+  }): Promise<void>;
+  vatFindMatch(options: {
+    socketPath: string;
+    rootKref: string;
+    tool: string;
+    invocations: ParsedInvocation[];
+  }): Promise<Provision | null>;
+  vatRemoveSection(options: {
+    socketPath: string;
+    rootKref: string;
+    provision: Provision;
+  }): Promise<boolean>;
   vatSize(socketPath: string, rootKref: string): Promise<number>;
   vatGetVersion(socketPath: string, rootKref: string): Promise<string>;
   listVatProvisions(socketPath: string, rootKref: string): Promise<Provision[]>;

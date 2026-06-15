@@ -45,22 +45,34 @@ export function buildClauses(
  * is not covered. This is the cosheaf semantics: every component of a compound
  * command must be authorized for the command as a whole to be authorized.
  *
- * @param rpc - The RPC client for vat queries.
- * @param socketPath - The UNIX socket path of the daemon.
- * @param rootKref - The permission-vat root kref.
- * @param tool - The tool name being routed.
- * @param clauses - The clauses produced by {@link buildClauses}.
+ * @param options - Routing options.
+ * @param options.rpc - The RPC client for vat queries.
+ * @param options.socketPath - The UNIX socket path of the daemon.
+ * @param options.rootKref - The permission-vat root kref.
+ * @param options.tool - The tool name being routed.
+ * @param options.clauses - The clauses produced by {@link buildClauses}.
  * @returns `'allow'` when every clause is covered, otherwise `'ask'`.
  */
-export async function routeAllClauses(
-  rpc: RpcClient,
-  socketPath: string,
-  rootKref: string,
-  tool: string,
-  clauses: ParsedInvocation[][],
-): Promise<Verdict> {
+export async function routeAllClauses({
+  rpc,
+  socketPath,
+  rootKref,
+  tool,
+  clauses,
+}: {
+  rpc: RpcClient;
+  socketPath: string;
+  rootKref: string;
+  tool: string;
+  clauses: ParsedInvocation[][];
+}): Promise<Verdict> {
   for (const clause of clauses) {
-    const verdict = await rpc.vatRoute(socketPath, rootKref, tool, clause);
+    const verdict = await rpc.vatRoute({
+      socketPath,
+      rootKref,
+      tool,
+      invocations: clause,
+    });
     if (verdict !== 'allow') {
       return 'ask';
     }
