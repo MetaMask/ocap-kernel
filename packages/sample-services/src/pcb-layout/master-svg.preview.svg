@@ -134,7 +134,7 @@
       <text x="50" y="112" text-anchor="middle" class="silk" font-size="8">SW1 · VOICE</text>
     </g>
 
-    <g transform="translate(34 510)">
+    <g transform="translate(34 440)">
       <rect class="btn-pkg" width="22" height="22" rx="3" />
       <circle class="btn-marker" cx="11" cy="11" r="6" />
       <rect class="pad-rect" x="-3" y="4"  width="6" height="3" />
@@ -144,7 +144,7 @@
       <text x="11" y="34" text-anchor="middle" class="silk" font-size="6">SW3 V+</text>
     </g>
 
-    <g transform="translate(34 562)">
+    <g transform="translate(34 552)">
       <rect class="btn-pkg" width="22" height="22" rx="3" />
       <circle class="btn-marker" cx="11" cy="11" r="6" />
       <rect class="pad-rect" x="-3" y="4"  width="6" height="3" />
@@ -223,11 +223,11 @@
       <text x="64" y="20" text-anchor="middle" class="silk" font-size="6">R2</text>
     </g>
 
-    <g transform="translate(40 706)">
-      <rect class="copper-fill" width="20" height="32" />
-      <text x="10" y="48" text-anchor="middle" class="silk" font-size="7">BT1+</text>
+    <g transform="translate(90 700)">
+      <rect class="copper-fill" width="20" height="30" />
+      <text x="10" y="46" text-anchor="middle" class="silk" font-size="7">BT1+</text>
     </g>
-    <g transform="translate(140 712)">
+    <g transform="translate(140 706)">
       <rect class="ic-pkg" width="60" height="20" />
       <rect class="pad-rect" x="-3" y="3"  width="4" height="3" />
       <rect class="pad-rect" x="-3" y="9"  width="4" height="3" />
@@ -236,9 +236,9 @@
       <rect class="pad-rect" x="59" y="12" width="4" height="3" />
       <text x="30" y="14" text-anchor="middle" class="silk" font-size="7">U2 LDO</text>
     </g>
-    <g transform="translate(280 706)">
-      <rect class="copper-fill" width="20" height="32" />
-      <text x="10" y="48" text-anchor="middle" class="silk" font-size="7">BT1-</text>
+    <g transform="translate(230 700)">
+      <rect class="copper-fill" width="20" height="30" />
+      <text x="10" y="46" text-anchor="middle" class="silk" font-size="7">BT1-</text>
     </g>
 
     <circle class="drill" cx="34"  cy="80"  r="5" />
@@ -250,15 +250,15 @@
       <path d="M 150 24 L 150 60 L 130 60 L 130 168" />
       <path d="M 220 240 L 244 240 L 244 90 L 270 90 L 270 118" stroke-width="1.2" />
       <path d="M 130 232 L 100 232 L 100 138 L 92 138" stroke-width="1.2" />
-      <path d="M 130 250 L 80 250 L 80 510" stroke-width="1.2" />
-      <path d="M 130 268 L 70 268 L 70 562" stroke-width="1.2" />
+      <path d="M 130 250 L 80 250 L 80 440" stroke-width="1.2" />
+      <path d="M 130 268 L 70 268 L 70 552" stroke-width="1.2" />
       <path d="M 220 260 L 244 260 L 244 484 L 270 484" stroke-width="1.2" />
       <path d="M 220 280 L 254 280 L 254 536 L 289 536" stroke-width="1.2" />
       <path d="M 220 300 L 250 300 L 250 503 L 263 503" stroke-width="1.2" />
       <path d="M 130 314 L 110 314 L 110 510" stroke-width="1.2" />
-      <path d="M 60 660 L 50 660 L 50 720" />
-      <path d="M 130 670 L 130 712" />
-      <path d="M 220 660 L 240 660 L 240 678 L 290 678 L 290 706" />
+      <path d="M 60 660 L 60 690 L 90 700" />
+      <path d="M 140 670 L 140 706" />
+      <path d="M 220 660 L 240 660 L 240 690 L 230 700" />
     </g>
   </g>
 
