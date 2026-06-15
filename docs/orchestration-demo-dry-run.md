@@ -301,7 +301,17 @@ every later step interpolates `$VPS_HOST`.
 ## Per-run setup sequence
 
 Order matters — each step's terminal stays running for the
-duration of the run.
+duration of the run. The sequence is split into two phases:
+
+- **Long-running setup (steps 1-3)** — establishes the relay, the
+  log tails, and the browser tunnel. Once running, these stay up
+  across multiple rehearsals; you only revisit them if something
+  crashes or you reboot.
+- **Per-rehearsal setup (steps 4-9)** — these get redone (or
+  restarted in order) at the start of every rehearsal so the
+  matcher, the dashboard, the openclaw gateway, the
+  sample-services daemon, and the TUI session all start from a
+  known clean state.
 
 ### Step 1: VPS relay
 
@@ -313,7 +323,33 @@ yarn ocap relay
 
 Leave it. The relay writes `~/.libp2p-relay/relay.addr`.
 
-### Step 2: VPS matcher + consumer daemon
+### Step 2: VPS log tails
+
+Open `vps-matcher-log`, `vps-bridge-log`, `vps-consumer-log` and
+start tailing (one command per window — `tail -F` waits patiently
+when the file doesn't exist yet, so these can start before the
+matcher does):
+
+```csh
+tail -F ~/.ocap/daemon.log
+tail -F ~/.ocap/matcher-llm-bridge.log
+tail -F ~/.ocap-consumer/daemon.log
+```
+
+### Step 3: Browser tunnel + load dashboard
+
+From `laptop-ctl`:
+
+```csh
+ssh -L 7777:127.0.0.1:7777 $VPS_HOST
+```
+
+Leave that session open. In `laptop-browser`, open
+`http://127.0.0.1:7777/`. The page will sit with a connection error
+until step 5 (demo-display) is up; the browser auto-recovers once
+the server is listening.
+
+### Step 4: VPS matcher + consumer daemon
 
 In `vps-ctl`:
 
@@ -328,20 +364,7 @@ sourcing the file is all that's needed to pick them up. Every later
 step that wants `MATCHER_OCAP_URL` or `MATCHER_OBSERVER_URL` sources
 this same file.
 
-### Step 3: VPS log tails
-
-Open `vps-matcher-log`, `vps-bridge-log`, `vps-consumer-log` and
-start tailing:
-
-```csh
-tail -F ~/.ocap/daemon.log
-tail -F ~/.ocap/matcher-llm-bridge.log
-tail -F ~/.ocap-consumer/daemon.log
-```
-
-(One command per window.)
-
-### Step 4: VPS demo-display server
+### Step 5: VPS demo-display server
 
 In `vps-display`:
 
@@ -357,7 +380,11 @@ Watch for:
 [demo-display] Listening on http://127.0.0.1:7777/events
 ```
 
-### Step 5: Configure the discovery plugin
+The browser tab from step 3 should now connect and show the empty
+dashboard: marketplace empty, workflow board empty, transcript
+empty, artifact panel empty, wallet ribbon `—`.
+
+### Step 6: Configure the discovery plugin
 
 In `vps-ctl`:
 
@@ -373,18 +400,6 @@ openclaw config set 'plugins.entries.discovery.config.displayUrl' \
   'http://127.0.0.1:7777'
 openclaw gateway restart
 ```
-
-### Step 6: Browser tunnel + load dashboard
-
-From `laptop-ctl`:
-
-```csh
-ssh -L 7777:127.0.0.1:7777 $VPS_HOST
-```
-
-Leave that session open. In `laptop-browser`, open
-`http://127.0.0.1:7777/`. Confirm: marketplace empty, workflow board
-empty, transcript empty, artifact panel empty, wallet ribbon `—`.
 
 ### Step 7: Laptop sample-services daemon
 
@@ -449,8 +464,8 @@ didn't load.
 
 Pitch the LSUR concept in `vps-tui`:
 
-> "I have an idea for a less stupid universal remote — simpler than
-> the ones out there, easier to use. Help me get it made."
+> "I have an idea for a less annoying universal remote — simpler
+> than the ones out there, easier to use. Help me get it made."
 
 From here you're the inventor. The producer takes over.
 
@@ -461,20 +476,20 @@ From here you're the inventor. The producer takes over.
 `reset-everything.sh` cold-starts the matcher and mints **fresh**
 `MATCHER_OCAP_URL` and `MATCHER_OBSERVER_URL` values, then rewrites
 `~/.ocap/matcher-urls.env`. Anything that captured one of those URLs
-at startup needs to be refreshed. After re-running step 2, in order:
+at startup needs to be refreshed. After re-running step 4, in order:
 
 1. **Re-source the env file** in every shell that still has the
    stale URLs in its environment: `source ~/.ocap/matcher-urls.env`
    in `vps-ctl`.
-2. **Restart `vps-display`** (Ctrl-C, then re-run step 4 — its
+2. **Restart `vps-display`** (Ctrl-C, then re-run step 5 — its
    `source` picks up the new URL from the regenerated file).
-3. **Redo step 5**: point the discovery plugin's `matcherUrl` at the
-   new URL (`source` first) and restart the gateway.
+3. **Redo step 6**: point the discovery plugin's `matcherUrl` at
+   the new URL (`source` first) and restart the gateway.
 4. **Redo step 7** on the laptop: re-`scp` the env file from the
    VPS, source it, re-run `start-services.sh`.
 
-The log tails (step 3 and the SSH tunnel from step 6) keep working
-without changes.
+The long-running steps (relay, log tails, SSH tunnel — steps 1, 2,
+and 3) keep working without changes.
 
 ## What to watch for during the run
 
