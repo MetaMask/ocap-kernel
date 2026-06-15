@@ -97,11 +97,11 @@ export const MASTER_SVG_REV2 = `<svg xmlns="http://www.w3.org/2000/svg" viewBox=
   </g>
   <text x="350" y="394" text-anchor="middle" font-size="11" fill="#333">press · hold · speak</text>
 
-  <rect class="sk sk-med btn-fill" x="242" y="405" width="36" height="120" rx="16" />
-  <path class="sk sk-thin" d="M 252 433 L 260 421 L 268 433" stroke-linecap="round" />
-  <path class="sk sk-thin" d="M 252 501 L 260 513 L 268 501" stroke-linecap="round" />
-  <line class="sk sk-thin" x1="250" y1="465" x2="270" y2="465" opacity="0.4" />
-  <text x="260" y="542" text-anchor="middle" font-size="10" fill="#444">vol</text>
+  <rect class="sk sk-med btn-fill" x="258" y="405" width="36" height="120" rx="16" />
+  <path class="sk sk-thin" d="M 268 433 L 276 421 L 284 433" stroke-linecap="round" />
+  <path class="sk sk-thin" d="M 268 501 L 276 513 L 284 501" stroke-linecap="round" />
+  <line class="sk sk-thin" x1="266" y1="465" x2="286" y2="465" opacity="0.4" />
+  <text x="276" y="542" text-anchor="middle" font-size="10" fill="#444">vol</text>
 
   <g transform="translate(416 465)">
     <circle class="sk sk-thin" cx="0" cy="0" r="46" fill="none" opacity="0.35" />
@@ -161,7 +161,7 @@ export const MASTER_SVG_REV2 = `<svg xmlns="http://www.w3.org/2000/svg" viewBox=
   <text x="56" y="248" class="label">OLED status</text>
   <text x="56" y="262" class="label" fill="#666" font-size="11">1.5" mono · dims under 12 lux</text>
 
-  <path class="leader" d="M 242 465 Q 170 465 110 458" />
+  <path class="leader" d="M 258 465 Q 180 465 110 458" />
   <text x="42" y="444" class="label">volume rocker</text>
   <text x="42" y="458" class="label" fill="#666" font-size="11">up / down · auto-repeat</text>
   <text x="42" y="472" class="label" fill="#666" font-size="11">on hold</text>
