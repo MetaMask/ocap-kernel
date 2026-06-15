@@ -9,7 +9,7 @@ import {
   formatExpandedContent,
   parseDescription,
   SessionDetailView,
-} from './session-detail-view.tsx';
+} from './session-detail-view/index.tsx';
 
 type SessionsViewProps = {
   kernelApi: KernelApi;
