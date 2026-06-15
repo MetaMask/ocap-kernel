@@ -8,11 +8,11 @@
  *   {{leadDays}}         shipping window, e.g. "5 business days"
  *   {{warrantyMonths}}   warranty term, e.g. "12 months"
  */
-export const MASTER_MD = `# Retail listing — LSUR
+export const MASTER_MD = `# Retail listing — LAUR
 
 ## Storefront copy
 
-**Title:** LSUR — the less annoying universal remote
+**Title:** LAUR — the less annoying universal remote
 
 **Tagline:** Voice handles the complicated stuff. Physical keys
 handle everything you actually press every day.
@@ -20,7 +20,7 @@ handle everything you actually press every day.
 **Long description:**
 
 Most universal remotes give you fifty buttons and ask you to remember
-what they all do. The LSUR has eight buttons — power, mute, vol up,
+what they all do. The LAUR has eight buttons — power, mute, vol up,
 vol down, four-way d-pad with OK, and a transport row for streaming
 playback. Everything else lives behind one big voice button in the
 middle. Press, hold, speak: "switch to the soundbar," "find that
@@ -38,7 +38,7 @@ to count one.
 
 | Field | Value |
 | --- | --- |
-| SKU | LSUR-G1-001 |
+| SKU | LAUR-G1-001 |
 | Pricing tier | {{tier}} |
 | Headline price | {{retailPrice}} |
 | Shipping | {{leadDays}}, free over $40 |

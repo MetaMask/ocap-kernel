@@ -11,7 +11,7 @@
  *   {{batchTotal}}       full-batch BOM total, e.g. "$674.00"
  *   {{mcuPart}}          MCU part number (echoed from earlier schematic)
  */
-export const MASTER_MD = `# Bill of materials — LSUR prototype batch
+export const MASTER_MD = `# Bill of materials — LAUR prototype batch
 
 | Ref | Description | Part number | Distributor | Lead time | Unit price | Ext. price |
 | --- | --- | --- | --- | --- | --- | --- |

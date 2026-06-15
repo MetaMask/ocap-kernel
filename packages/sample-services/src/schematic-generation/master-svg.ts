@@ -34,7 +34,7 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
   <rect width="1320" height="820" fill="url(#bg-grid)" />
   <rect x="20" y="20" width="1280" height="780" class="border" />
 
-  <text x="40" y="48" class="title">LSUR — circuit schematic</text>
+  <text x="40" y="48" class="title">LAUR — circuit schematic</text>
   <text x="40" y="64" class="label" fill="#666">conceptual top-level · MCU + display + mic + IR driver + 10 keys + power</text>
 
   <line x1="60"  y1="110" x2="1260" y2="110" class="wire" stroke-width="2" />
@@ -313,7 +313,7 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
     <rect width="320" height="50" class="border" />
     <line x1="0" y1="24" x2="320" y2="24" class="border" />
     <line x1="160" y1="0" x2="160" y2="50" class="border" />
-    <text x="6"   y="18" class="ic-text" font-size="10">Project: LSUR</text>
+    <text x="6"   y="18" class="ic-text" font-size="10">Project: LAUR</text>
     <text x="6"   y="42" class="ic-text" font-size="9">Title: top-level schematic</text>
     <text x="166" y="14" class="ic-text" font-size="10">Rev {{revLabel}}</text>
     <text x="166" y="40" class="ic-text" font-size="9">{{providerLabel}}</text>

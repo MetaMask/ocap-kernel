@@ -47,7 +47,7 @@ export function makeRetailListingService() {
           data: markdown,
           fromService: RETAIL_LISTING_PROVIDER_TAG,
           metadata: {
-            title: 'LSUR — retail listing',
+            title: 'LAUR — retail listing',
             summary:
               'Marketplace listing draft: storefront copy, pricing, ' +
               'shipping, warranty, image requirements, marketplace fees.',

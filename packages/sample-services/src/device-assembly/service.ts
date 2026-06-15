@@ -48,7 +48,7 @@ export function makeDeviceAssemblyService() {
           data: markdown,
           fromService: DEVICE_ASSEMBLY_PROVIDER_TAG,
           metadata: {
-            title: 'LSUR — assembly build plan',
+            title: 'LAUR — assembly build plan',
             summary:
               'Build plan covering work cells, test sequence, QA ' +
               'gates, schedule, and per-unit assembly cost.',

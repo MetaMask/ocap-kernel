@@ -10,7 +10,7 @@ describe('renderFirmwareSpec', () => {
 
   it('starts with the expected heading', () => {
     const rendered = renderFirmwareSpec();
-    expect(rendered.trimStart()).toMatch(/^# LSUR firmware specification/u);
+    expect(rendered.trimStart()).toMatch(/^# LAUR firmware specification/u);
   });
 
   it('inserts a sensible MCU value', () => {

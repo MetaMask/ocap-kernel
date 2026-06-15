@@ -51,7 +51,7 @@ export function makeSchematicGenerationService() {
           data: svg,
           fromService: SCHEMATIC_GENERATION_PROVIDER_TAG,
           metadata: {
-            title: 'LSUR — circuit schematic',
+            title: 'LAUR — circuit schematic',
             summary:
               'Top-level schematic: MCU + OLED + MEMS mic + IR driver + ' +
               '10-key matrix + power. KiCad-style with title block.',

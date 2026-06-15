@@ -35,8 +35,8 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
     <rect class="pcb-fill" x="0" y="0" width="340" height="800" rx="40" />
     <rect class="outline" x="2" y="2" width="336" height="796" rx="38" />
 
-    <text x="170" y="44" text-anchor="middle" class="title">LSUR · MAIN · {{revLabel}}</text>
-    <text x="170" y="60" text-anchor="middle" class="silk" font-size="9">© LSUR Co · {{providerLabel}}</text>
+    <text x="170" y="44" text-anchor="middle" class="title">LAUR · MAIN · {{revLabel}}</text>
+    <text x="170" y="60" text-anchor="middle" class="silk" font-size="9">© LAUR Co · {{providerLabel}}</text>
 
     <g transform="translate(160 80)">
       <rect class="ic-pkg" width="22" height="16" />
@@ -262,7 +262,7 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
     </g>
   </g>
 
-  <text x="20" y="32" class="annot" font-weight="bold">LSUR PCB · top view</text>
+  <text x="20" y="32" class="annot" font-weight="bold">LAUR PCB · top view</text>
   <text x="20" y="48" class="annot" fill="#666" font-size="10">{{providerLabel}} · rev {{revLabel}} · {{boardSize}} · 2-layer · ENIG finish</text>
 
   <text x="490" y="64"  class="annot" font-size="10" font-weight="bold">Notes</text>

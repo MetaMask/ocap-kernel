@@ -49,9 +49,9 @@ export function makeMechanicalDesignService() {
           data: svg,
           fromService: MECHANICAL_DESIGN_PROVIDER_TAG,
           metadata: {
-            title: 'LSUR — mechanical case render',
+            title: 'LAUR — mechanical case render',
             summary:
-              'Stylized 3D hero shot of the LSUR enclosure. Material, ' +
+              'Stylized 3D hero shot of the LAUR enclosure. Material, ' +
               'wall thickness, mass, drop-test rating, IP rating, and ' +
               'mic-port spec annotated.',
           },

@@ -8,7 +8,7 @@
  *   {{debounceMs}}      button debounce in ms
  *   {{idleTimeoutSec}}  idle-to-sleep threshold in seconds
  */
-export const MASTER_MD = `# LSUR firmware specification
+export const MASTER_MD = `# LAUR firmware specification
 
 **Target MCU:** \`{{mcu}}\` (selected from BOM)
 **Toolchain:** PlatformIO + ESP-IDF

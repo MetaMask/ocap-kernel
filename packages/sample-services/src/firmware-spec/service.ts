@@ -48,7 +48,7 @@ export function makeFirmwareSpecService() {
           data: markdown,
           fromService: FIRMWARE_SPEC_PROVIDER_TAG,
           metadata: {
-            title: 'LSUR — firmware specification',
+            title: 'LAUR — firmware specification',
             summary:
               'Eight-section markdown: boot, state machine, IR, voice, ' +
               'buttons, power management, OTA, out-of-scope.',

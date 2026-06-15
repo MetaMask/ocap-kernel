@@ -49,7 +49,7 @@ export type IndustrialDesignArtifact = {
 /**
  * Build the industrial-design service exo.
  *
- * `generate(spec)` renders the LSUR concept-sketch SVG with a few
+ * `generate(spec)` renders the LAUR concept-sketch SVG with a few
  * tokens substituted per-call (revision label, OLED clock, battery
  * life, IR protocol set), so each invocation produces a recognizably
  * different artifact without the demo feeling like canned playback.
@@ -89,7 +89,7 @@ export function makeIndustrialDesignService() {
           data: svg,
           fromService: INDUSTRIAL_DESIGN_PROVIDER_TAG,
           metadata: {
-            title: 'LSUR — concept sketch',
+            title: 'LAUR — concept sketch',
             summary:
               'Hand-drawn industrial-design pass: voice centerpiece, ' +
               'isolated power/mute, vol/channel rockers, transport row, ' +

@@ -33,7 +33,7 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
   </defs>
 
   <rect x="6" y="6" width="688" height="808" fill="none" stroke="#1c1c1c" stroke-width="1" />
-  <text x="22" y="32" class="label" font-size="14" font-weight="bold">LSUR — concept sketch (rev. {{revLabel}})</text>
+  <text x="22" y="32" class="label" font-size="14" font-weight="bold">LAUR — concept sketch (rev. {{revLabel}})</text>
   <text x="22" y="50" class="label" font-size="11" fill="#666">industrial-design pass · {{providerLabel}}</text>
   <text x="22" y="66" class="label" font-size="11" fill="#666" font-style="italic">"voice handles the complicated stuff · physical keys do the obvious ones"</text>
 

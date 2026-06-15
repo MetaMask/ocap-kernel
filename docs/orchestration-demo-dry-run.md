@@ -463,7 +463,7 @@ didn't load.
 
 ### Step 9: Begin the demo
 
-Pitch the LSUR concept in `vps-tui`:
+Pitch the LAUR concept in `vps-tui`:
 
 > "I have an idea for a less annoying universal remote — simpler
 > than the ones out there, easier to use. Help me get it made."

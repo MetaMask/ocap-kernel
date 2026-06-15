@@ -49,7 +49,7 @@ export function makePcbLayoutService() {
           data: svg,
           fromService: PCB_LAYOUT_PROVIDER_TAG,
           metadata: {
-            title: 'LSUR — PCB top view',
+            title: 'LAUR — PCB top view',
             summary:
               'Stylized PCB top-view: MCU QFN, mic, OLED connector, key ' +
               'switches with pads, IR driver block, battery clips, USB-C, ' +

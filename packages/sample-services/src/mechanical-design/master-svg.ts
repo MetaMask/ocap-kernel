@@ -153,7 +153,7 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
           stroke="#0a0a0a" stroke-width="0.8" />
   </g>
 
-  <text x="40" y="40" font-size="16" font-weight="bold" fill="#1c1c1c">LSUR — mechanical case render</text>
+  <text x="40" y="40" font-size="16" font-weight="bold" fill="#1c1c1c">LAUR — mechanical case render</text>
   <text x="40" y="60" font-size="11" fill="#666">{{providerLabel}} · {{colorwayName}} · ABS+PC blend · 58 × 182 × 18 mm</text>
 
   <g transform="translate(40 210)" font-size="11" fill="#1c1c1c">

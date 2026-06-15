@@ -48,7 +48,7 @@ export function makeComponentSourcingService() {
           data: markdown,
           fromService: COMPONENT_SOURCING_PROVIDER_TAG,
           metadata: {
-            title: 'LSUR — bill of materials',
+            title: 'LAUR — bill of materials',
             summary:
               'Priced BOM for a prototype batch: components, ' +
               'distributors, lead times, and per-unit totals.',

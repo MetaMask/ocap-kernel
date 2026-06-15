@@ -9,7 +9,7 @@
  *   {{batchTotal}}       full-batch assembly total
  *   {{qaPassRate}}       expected QA pass rate
  */
-export const MASTER_MD = `# Build plan — LSUR prototype batch
+export const MASTER_MD = `# Build plan — LAUR prototype batch
 
 ## Scope
 
