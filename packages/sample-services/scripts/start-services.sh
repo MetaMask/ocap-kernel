@@ -108,6 +108,9 @@ SCHEMATIC_GENERATION_BUNDLE="$PKG_DIR/src/schematic-generation/index.bundle"
 FIRMWARE_SPEC_BUNDLE="$PKG_DIR/src/firmware-spec/index.bundle"
 MECHANICAL_DESIGN_BUNDLE="$PKG_DIR/src/mechanical-design/index.bundle"
 PCB_LAYOUT_BUNDLE="$PKG_DIR/src/pcb-layout/index.bundle"
+COMPONENT_SOURCING_BUNDLE="$PKG_DIR/src/component-sourcing/index.bundle"
+DEVICE_ASSEMBLY_BUNDLE="$PKG_DIR/src/device-assembly/index.bundle"
+RETAIL_LISTING_BUNDLE="$PKG_DIR/src/retail-listing/index.bundle"
 
 # Sample-services daemon lives in its own home so it can run alongside
 # the matcher (~/.ocap) and consumer (~/.ocap-consumer) daemons without
@@ -131,6 +134,9 @@ if $SKIP_BUILD; then
   [[ -f "$FIRMWARE_SPEC_BUNDLE" ]] || fail "Bundle not found at $FIRMWARE_SPEC_BUNDLE. Remove --no-build or build first."
   [[ -f "$MECHANICAL_DESIGN_BUNDLE" ]] || fail "Bundle not found at $MECHANICAL_DESIGN_BUNDLE. Remove --no-build or build first."
   [[ -f "$PCB_LAYOUT_BUNDLE" ]] || fail "Bundle not found at $PCB_LAYOUT_BUNDLE. Remove --no-build or build first."
+  [[ -f "$COMPONENT_SOURCING_BUNDLE" ]] || fail "Bundle not found at $COMPONENT_SOURCING_BUNDLE. Remove --no-build or build first."
+  [[ -f "$DEVICE_ASSEMBLY_BUNDLE" ]] || fail "Bundle not found at $DEVICE_ASSEMBLY_BUNDLE. Remove --no-build or build first."
+  [[ -f "$RETAIL_LISTING_BUNDLE" ]] || fail "Bundle not found at $RETAIL_LISTING_BUNDLE. Remove --no-build or build first."
 else
   info "Building sample-services package..."
   (cd "$REPO_ROOT" && yarn workspace @ocap/sample-services build >&2)
@@ -244,5 +250,8 @@ launch_service "SchematicGeneration" "schematic-generation" "$SCHEMATIC_GENERATI
 launch_service "FirmwareSpec"        "firmware-spec"        "$FIRMWARE_SPEC_BUNDLE"
 launch_service "MechanicalDesign"    "mechanical-design"    "$MECHANICAL_DESIGN_BUNDLE"
 launch_service "PcbLayout"           "pcb-layout"           "$PCB_LAYOUT_BUNDLE"
+launch_service "ComponentSourcing"   "component-sourcing"   "$COMPONENT_SOURCING_BUNDLE"
+launch_service "DeviceAssembly"      "device-assembly"      "$DEVICE_ASSEMBLY_BUNDLE"
+launch_service "RetailListing"       "retail-listing"       "$RETAIL_LISTING_BUNDLE"
 
 info "Sample services ready."

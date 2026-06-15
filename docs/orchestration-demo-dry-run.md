@@ -414,9 +414,10 @@ setenv OCAP_RELAY_MULTIADDR `ssh $VPS_HOST cat \~/.libp2p-relay/relay.addr`
 ./packages/sample-services/scripts/start-services.sh
 ```
 
-Watch for seven `info "<svc> registered."` lines (echo,
+Watch for ten `info "<svc> registered."` lines (echo,
 random-number, industrial-design, schematic-generation, firmware-spec,
-mechanical-design, pcb-layout).
+mechanical-design, pcb-layout, component-sourcing, device-assembly,
+retail-listing).
 
 In `laptop-svcs-log`:
 
@@ -425,7 +426,7 @@ tail -F ~/.ocap-services/daemon.log
 ```
 
 The dashboard's marketplace grid stays empty at this point — the
-matcher knows about seven providers, but the conceit is that the
+matcher knows about ten providers, but the conceit is that the
 audience side only learns about them when the agent discovers them
 via the matcher. Cards will appear during the demo as the agent runs
 `discovery_find_services`.

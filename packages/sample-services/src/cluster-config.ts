@@ -39,6 +39,24 @@ export const MECHANICAL_DESIGN_VAT_NAME = 'mechanical-design';
 export const PCB_LAYOUT_VAT_NAME = 'pcb-layout';
 
 /**
+ * Bootstrap-vat name for the ComponentSourcing service subcluster
+ * (Procurement phase).
+ */
+export const COMPONENT_SOURCING_VAT_NAME = 'component-sourcing';
+
+/**
+ * Bootstrap-vat name for the DeviceAssembly service subcluster
+ * (Manufacturing phase).
+ */
+export const DEVICE_ASSEMBLY_VAT_NAME = 'device-assembly';
+
+/**
+ * Bootstrap-vat name for the RetailListing service subcluster
+ * (Sales phase).
+ */
+export const RETAIL_LISTING_VAT_NAME = 'retail-listing';
+
+/**
  * Filename of each vat's bundle as produced by `yarn bundle-vats` in
  * this package. The ocap-kernel CLI writes the bundle next to its
  * source as `index.bundle`, so callers wanting a `bundleSpec`
@@ -52,6 +70,9 @@ export const SCHEMATIC_GENERATION_BUNDLE_PATH =
 export const FIRMWARE_SPEC_BUNDLE_PATH = 'firmware-spec/index.bundle';
 export const MECHANICAL_DESIGN_BUNDLE_PATH = 'mechanical-design/index.bundle';
 export const PCB_LAYOUT_BUNDLE_PATH = 'pcb-layout/index.bundle';
+export const COMPONENT_SOURCING_BUNDLE_PATH = 'component-sourcing/index.bundle';
+export const DEVICE_ASSEMBLY_BUNDLE_PATH = 'device-assembly/index.bundle';
+export const RETAIL_LISTING_BUNDLE_PATH = 'retail-listing/index.bundle';
 
 /**
  * Shape of either service vat's bootstrap result. Both vats expose the
@@ -261,6 +282,93 @@ export function makePcbLayoutClusterConfig(options: {
     services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
     vats: {
       [PCB_LAYOUT_VAT_NAME]: {
+        bundleSpec,
+        parameters: { matcherUrl },
+      },
+    },
+  };
+}
+
+/**
+ * Build a ClusterConfig for the ComponentSourcing subcluster.
+ *
+ * @param options - Configuration options.
+ * @param options.bundleSpec - URL or path to the ComponentSourcing vat bundle.
+ * @param options.matcherUrl - OCAP URL of the service matcher.
+ * @param options.forceReset - Whether to reset the subcluster on launch.
+ *   Defaults to `false`.
+ * @returns A ClusterConfig ready for `kernel.launchSubcluster(...)`.
+ */
+export function makeComponentSourcingClusterConfig(options: {
+  bundleSpec: string;
+  matcherUrl: string;
+  forceReset?: boolean;
+}): ClusterConfig {
+  const { bundleSpec, matcherUrl, forceReset = false } = options;
+  return {
+    bootstrap: COMPONENT_SOURCING_VAT_NAME,
+    forceReset,
+    services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+    vats: {
+      [COMPONENT_SOURCING_VAT_NAME]: {
+        bundleSpec,
+        parameters: { matcherUrl },
+      },
+    },
+  };
+}
+
+/**
+ * Build a ClusterConfig for the DeviceAssembly subcluster.
+ *
+ * @param options - Configuration options.
+ * @param options.bundleSpec - URL or path to the DeviceAssembly vat bundle.
+ * @param options.matcherUrl - OCAP URL of the service matcher.
+ * @param options.forceReset - Whether to reset the subcluster on launch.
+ *   Defaults to `false`.
+ * @returns A ClusterConfig ready for `kernel.launchSubcluster(...)`.
+ */
+export function makeDeviceAssemblyClusterConfig(options: {
+  bundleSpec: string;
+  matcherUrl: string;
+  forceReset?: boolean;
+}): ClusterConfig {
+  const { bundleSpec, matcherUrl, forceReset = false } = options;
+  return {
+    bootstrap: DEVICE_ASSEMBLY_VAT_NAME,
+    forceReset,
+    services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+    vats: {
+      [DEVICE_ASSEMBLY_VAT_NAME]: {
+        bundleSpec,
+        parameters: { matcherUrl },
+      },
+    },
+  };
+}
+
+/**
+ * Build a ClusterConfig for the RetailListing subcluster.
+ *
+ * @param options - Configuration options.
+ * @param options.bundleSpec - URL or path to the RetailListing vat bundle.
+ * @param options.matcherUrl - OCAP URL of the service matcher.
+ * @param options.forceReset - Whether to reset the subcluster on launch.
+ *   Defaults to `false`.
+ * @returns A ClusterConfig ready for `kernel.launchSubcluster(...)`.
+ */
+export function makeRetailListingClusterConfig(options: {
+  bundleSpec: string;
+  matcherUrl: string;
+  forceReset?: boolean;
+}): ClusterConfig {
+  const { bundleSpec, matcherUrl, forceReset = false } = options;
+  return {
+    bootstrap: RETAIL_LISTING_VAT_NAME,
+    forceReset,
+    services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+    vats: {
+      [RETAIL_LISTING_VAT_NAME]: {
         bundleSpec,
         parameters: { matcherUrl },
       },
