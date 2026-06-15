@@ -1,0 +1,316 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1320 820" font-family="'Courier New', monospace" font-size="11">
+  <defs>
+    <style>
+      .grid     { stroke: #e5e5e5; stroke-width: 0.4; fill: none; }
+      .wire     { stroke: #1c1c1c; stroke-width: 1.2; fill: none; }
+      .ic       { fill: #ffffe6; stroke: #1c1c1c; stroke-width: 1.4; }
+      .ic-text  { fill: #1c1c1c; font-size: 11; }
+      .ref      { fill: #b30000; font-size: 10; }
+      .val      { fill: #00558e; font-size: 10; }
+      .net      { fill: #008060; font-size: 10; font-weight: bold; }
+      .label    { fill: #1c1c1c; font-size: 10; }
+      .border   { fill: none; stroke: #1c1c1c; stroke-width: 1; }
+      .title    { fill: #1c1c1c; font-size: 14; font-weight: bold; }
+    </style>
+    <pattern id="bg-grid" x="0" y="0" width="20" height="20" patternUnits="userSpaceOnUse">
+      <rect width="20" height="20" fill="#fafafa"/>
+      <path d="M 20 0 L 0 0 0 20" class="grid"/>
+    </pattern>
+    <symbol id="dot" overflow="visible">
+      <circle r="2.4" fill="#1c1c1c" />
+    </symbol>
+  </defs>
+
+  <rect width="1320" height="820" fill="url(#bg-grid)" />
+  <rect x="20" y="20" width="1280" height="780" class="border" />
+
+  <text x="40" y="48" class="title">LSUR — circuit schematic</text>
+  <text x="40" y="64" class="label" fill="#666">conceptual top-level · MCU + display + mic + IR driver + 10 keys + power</text>
+
+  <line x1="60"  y1="110" x2="1260" y2="110" class="wire" stroke-width="2" />
+  <text x="64"  y="102" class="net">+3V3</text>
+
+  <line x1="60"  y1="720" x2="1260" y2="720" class="wire" stroke-width="2" />
+  <text x="64"  y="738" class="net">GND</text>
+
+  <rect class="ic" x="80" y="180" width="100" height="60" />
+  <text x="130" y="200" text-anchor="middle" class="ic-text">BATT 2×AA</text>
+  <text x="130" y="218" text-anchor="middle" class="ref">BT1</text>
+  <text x="130" y="232" text-anchor="middle" class="val" font-size="9">3.0 V nominal</text>
+  <line x1="180" y1="195" x2="220" y2="195" class="wire" />
+  <line x1="180" y1="225" x2="200" y2="225" class="wire" />
+  <line x1="200" y1="225" x2="200" y2="720" class="wire" />
+  <use href="#dot" x="200" y="720" />
+
+  <rect class="ic" x="220" y="180" width="140" height="60" />
+  <text x="290" y="200" text-anchor="middle" class="ic-text">MIC5219-3.0YM5</text>
+  <text x="290" y="218" text-anchor="middle" class="ref">U2</text>
+  <text x="290" y="232" text-anchor="middle" class="val" font-size="9">boost 2.5–5.5 → 3.3 V</text>
+  <line x1="240" y1="240" x2="240" y2="720" class="wire" />
+  <use href="#dot" x="240" y="720" />
+  <line x1="360" y1="195" x2="380" y2="195" class="wire" />
+  <line x1="380" y1="195" x2="380" y2="110" class="wire" />
+  <use href="#dot" x="380" y="110" />
+
+  <g transform="translate(440 180)">
+    <rect class="ic" width="300" height="400" />
+    <text x="150" y="22" text-anchor="middle" class="ic-text" font-weight="bold">nRF52833-QIAA</text>
+    <text x="150" y="38" text-anchor="middle" class="ref">U1</text>
+
+    <line x1="-20" y1="60"  x2="0" y2="60"  class="wire" />
+    <text x="6" y="64" class="ic-text">VCC</text>
+    <line x1="-64" y1="140" x2="0" y2="140" class="wire" />
+    <text x="6" y="144" class="ic-text">USB_D+</text>
+    <line x1="-64" y1="160" x2="0" y2="160" class="wire" />
+    <text x="6" y="164" class="ic-text">USB_D-</text>
+    <line x1="-20" y1="300" x2="0" y2="300" class="wire" />
+    <text x="6" y="304" class="ic-text">GND</text>
+
+    <line x1="300" y1="60"  x2="320" y2="60"  class="wire" />
+    <text x="294" y="64"  text-anchor="end" class="ic-text">SDA</text>
+    <line x1="300" y1="80"  x2="320" y2="80"  class="wire" />
+    <text x="294" y="84"  text-anchor="end" class="ic-text">SCL</text>
+    <line x1="300" y1="160" x2="320" y2="160" class="wire" />
+    <text x="294" y="164" text-anchor="end" class="ic-text">I2S_BCLK</text>
+    <line x1="300" y1="180" x2="320" y2="180" class="wire" />
+    <text x="294" y="184" text-anchor="end" class="ic-text">I2S_WS</text>
+    <line x1="300" y1="200" x2="320" y2="200" class="wire" />
+    <text x="294" y="204" text-anchor="end" class="ic-text">I2S_DATA</text>
+    <line x1="300" y1="320" x2="320" y2="320" class="wire" />
+    <text x="294" y="324" text-anchor="end" class="ic-text">IR_OUT</text>
+
+    <line x1="20"  y1="400" x2="20"  y2="412" class="wire" /><text x="20"  y="426" text-anchor="middle" class="net" font-size="9">KEY0</text>
+    <line x1="50"  y1="400" x2="50"  y2="412" class="wire" /><text x="50"  y="426" text-anchor="middle" class="net" font-size="9">KEY1</text>
+    <line x1="80"  y1="400" x2="80"  y2="412" class="wire" /><text x="80"  y="426" text-anchor="middle" class="net" font-size="9">KEY2</text>
+    <line x1="110" y1="400" x2="110" y2="412" class="wire" /><text x="110" y="426" text-anchor="middle" class="net" font-size="9">KEY3</text>
+    <line x1="140" y1="400" x2="140" y2="412" class="wire" /><text x="140" y="426" text-anchor="middle" class="net" font-size="9">KEY4</text>
+    <line x1="170" y1="400" x2="170" y2="412" class="wire" /><text x="170" y="426" text-anchor="middle" class="net" font-size="9">KEY5</text>
+    <line x1="200" y1="400" x2="200" y2="412" class="wire" /><text x="200" y="426" text-anchor="middle" class="net" font-size="9">KEY6</text>
+    <line x1="230" y1="400" x2="230" y2="412" class="wire" /><text x="230" y="426" text-anchor="middle" class="net" font-size="9">KEY7</text>
+    <line x1="260" y1="400" x2="260" y2="412" class="wire" /><text x="260" y="426" text-anchor="middle" class="net" font-size="9">KEY8</text>
+    <line x1="290" y1="400" x2="290" y2="412" class="wire" /><text x="290" y="426" text-anchor="middle" class="net" font-size="9">KEY9</text>
+  </g>
+
+  <line x1="420" y1="240" x2="400" y2="240" class="wire" />
+  <line x1="400" y1="240" x2="400" y2="110" class="wire" />
+  <use href="#dot" x="400" y="110" />
+
+  <line x1="420" y1="480" x2="420" y2="720" class="wire" />
+  <use href="#dot" x="420" y="720" />
+
+  <text x="384" y="312" class="net" font-size="9">USB_D+</text>
+  <text x="384" y="332" class="net" font-size="9">USB_D-</text>
+
+  <g transform="translate(820 180)">
+    <rect class="ic" width="200" height="120" />
+    <text x="100" y="22" text-anchor="middle" class="ic-text" font-weight="bold">OLED 128×64</text>
+    <text x="100" y="38" text-anchor="middle" class="ref">J1</text>
+    <text x="100" y="54" text-anchor="middle" class="val" font-size="9">SSD1306 · I2C</text>
+    <line x1="-20" y1="60"  x2="0" y2="60"  class="wire" />
+    <text x="6" y="64" class="ic-text">SDA</text>
+    <line x1="-20" y1="80"  x2="0" y2="80"  class="wire" />
+    <text x="6" y="84" class="ic-text">SCL</text>
+    <line x1="60"  y1="0"   x2="60"  y2="-20" class="wire" />
+    <text x="64" y="-6" class="ic-text">VCC</text>
+    <line x1="180" y1="120" x2="180" y2="140" class="wire" />
+    <text x="184" y="138" class="ic-text">GND</text>
+  </g>
+  <line x1="880" y1="160" x2="880" y2="110" class="wire" />
+  <use href="#dot" x="880" y="110" />
+  <line x1="1000" y1="320" x2="1000" y2="720" class="wire" />
+  <use href="#dot" x="1000" y="720" />
+
+  <line x1="760" y1="240" x2="800" y2="240" class="wire" />
+  <text x="780" y="234" class="net" font-size="9">SDA</text>
+  <line x1="760" y1="260" x2="800" y2="260" class="wire" />
+  <text x="780" y="252" class="net" font-size="9">SCL</text>
+
+  <g transform="translate(820 340)">
+    <rect class="ic" width="160" height="120" />
+    <text x="80" y="22" text-anchor="middle" class="ic-text" font-weight="bold">SPH0645</text>
+    <text x="80" y="38" text-anchor="middle" class="ref">U3</text>
+    <text x="80" y="54" text-anchor="middle" class="val" font-size="9">MEMS mic · I2S</text>
+    <line x1="-20" y1="60"  x2="0" y2="60"  class="wire" />
+    <text x="6" y="64" class="ic-text">BCLK</text>
+    <line x1="-20" y1="80"  x2="0" y2="80"  class="wire" />
+    <text x="6" y="84" class="ic-text">WS</text>
+    <line x1="-20" y1="100" x2="0" y2="100" class="wire" />
+    <text x="6" y="104" class="ic-text">DATA</text>
+    <line x1="40" y1="0"   x2="40" y2="-20" class="wire" />
+    <text x="44" y="-6" class="ic-text">VCC</text>
+    <line x1="120" y1="120" x2="120" y2="140" class="wire" />
+    <text x="124" y="138" class="ic-text">GND</text>
+  </g>
+  <line x1="860" y1="320" x2="860" y2="110" class="wire" />
+  <use href="#dot" x="860" y="110" />
+  <line x1="940" y1="480" x2="940" y2="720" class="wire" />
+  <use href="#dot" x="940" y="720" />
+
+  <line x1="760" y1="340" x2="780" y2="340" class="wire" />
+  <line x1="780" y1="340" x2="780" y2="400" class="wire" />
+  <line x1="780" y1="400" x2="800" y2="400" class="wire" />
+  <text x="746" y="334" class="net" font-size="9">BCLK</text>
+
+  <line x1="760" y1="360" x2="790" y2="360" class="wire" />
+  <line x1="790" y1="360" x2="790" y2="420" class="wire" />
+  <line x1="790" y1="420" x2="800" y2="420" class="wire" />
+  <text x="746" y="354" class="net" font-size="9">WS</text>
+
+  <line x1="760" y1="380" x2="800" y2="380" class="wire" />
+  <line x1="800" y1="380" x2="800" y2="440" class="wire" />
+  <text x="746" y="374" class="net" font-size="9">DATA</text>
+
+  <g transform="translate(1020 478)">
+    <text x="100" y="-6" text-anchor="middle" class="ic-text" font-weight="bold">IR driver</text>
+
+    <rect class="ic" x="20" y="14" width="80" height="16" />
+    <text x="60" y="10"  text-anchor="middle" class="ref">R1</text>
+    <text x="60" y="46"  text-anchor="middle" class="val">220Ω</text>
+    <line x1="100" y1="22" x2="130" y2="22" class="wire" />
+
+    <circle cx="140" cy="22" r="9" class="ic" />
+    <text x="156" y="14" class="ref">Q1</text>
+    <text x="156" y="30" class="val">2N3904</text>
+    <line x1="140" y1="13" x2="140" y2="-22" class="wire" />
+    <line x1="140" y1="31" x2="140" y2="242"  class="wire" />
+
+    <line x1="130" y1="-22" x2="150" y2="-22" class="wire" />
+    <polygon points="140,-32 150,-22 130,-22" fill="#1c1c1c" />
+    <text x="154" y="-28" class="ref">D1</text>
+    <text x="154" y="-14" class="val">IR LED 940nm</text>
+    <line x1="140" y1="-32" x2="140" y2="-54" class="wire" />
+
+    <rect class="ic" x="130" y="-74" width="20" height="20" />
+    <text x="154" y="-68" class="ref">R2</text>
+    <text x="154" y="-56" class="val">2.2 kΩ</text>
+    <line x1="140" y1="-74" x2="140" y2="-368" class="wire" />
+    <use href="#dot" x="140" y="-368" />
+  </g>
+
+  <line x1="760" y1="500" x2="1040" y2="500" class="wire" />
+  <text x="800" y="494" class="net" font-size="9">IR_OUT</text>
+
+  <use href="#dot" x="1160" y="720" />
+
+  <g transform="translate(80 460)">
+    <rect class="ic" width="320" height="250" />
+    <text x="160" y="22" text-anchor="middle" class="ic-text" font-weight="bold">USER KEYS</text>
+    <text x="160" y="36" text-anchor="middle" class="ref">SW1..SW10</text>
+
+    <g transform="translate(110 54)">
+      <rect class="ic" width="100" height="48" rx="24" />
+      <text x="50" y="22" text-anchor="middle" class="ic-text" font-weight="bold">VOICE</text>
+      <text x="50" y="36" text-anchor="middle" class="ref">SW1</text>
+      <line x1="-12" y1="24" x2="0"  y2="24" class="wire" />
+      <line x1="100" y1="24" x2="112" y2="24" class="wire" />
+      <text x="-14" y="18" text-anchor="end" class="net" font-size="9">KEY0</text>
+      <text x="114" y="18" class="net" font-size="9">GND</text>
+    </g>
+
+    <g font-size="8" fill="#1c1c1c">
+      <g transform="translate(40 140)">
+        <circle cx="0" cy="0" r="5" class="ic" />
+        <line x1="-12" y1="0" x2="-5" y2="0" class="wire" />
+        <line x1="5" y1="0" x2="12" y2="0" class="wire" />
+        <text x="-14" y="-7" text-anchor="end" class="net" font-size="8">KEY1</text>
+        <text x="14"  y="-7" class="net" font-size="8">GND</text>
+        <text x="0"   y="18" text-anchor="middle">SW2 PWR</text>
+      </g>
+      <g transform="translate(160 140)">
+        <circle cx="0" cy="0" r="5" class="ic" />
+        <line x1="-12" y1="0" x2="-5" y2="0" class="wire" />
+        <line x1="5" y1="0" x2="12" y2="0" class="wire" />
+        <text x="-14" y="-7" text-anchor="end" class="net" font-size="8">KEY2</text>
+        <text x="14"  y="-7" class="net" font-size="8">GND</text>
+        <text x="0"   y="18" text-anchor="middle">SW3 V+</text>
+      </g>
+      <g transform="translate(280 140)">
+        <circle cx="0" cy="0" r="5" class="ic" />
+        <line x1="-12" y1="0" x2="-5" y2="0" class="wire" />
+        <line x1="5" y1="0" x2="12" y2="0" class="wire" />
+        <text x="-14" y="-7" text-anchor="end" class="net" font-size="8">KEY3</text>
+        <text x="14"  y="-7" class="net" font-size="8">GND</text>
+        <text x="0"   y="18" text-anchor="middle">SW4 V−</text>
+      </g>
+      <g transform="translate(40 184)">
+        <circle cx="0" cy="0" r="5" class="ic" />
+        <line x1="-12" y1="0" x2="-5" y2="0" class="wire" />
+        <line x1="5" y1="0" x2="12" y2="0" class="wire" />
+        <text x="-14" y="-7" text-anchor="end" class="net" font-size="8">KEY4</text>
+        <text x="14"  y="-7" class="net" font-size="8">GND</text>
+        <text x="0"   y="18" text-anchor="middle">SW5 MUTE</text>
+      </g>
+      <g transform="translate(160 184)">
+        <circle cx="0" cy="0" r="5" class="ic" />
+        <line x1="-12" y1="0" x2="-5" y2="0" class="wire" />
+        <line x1="5" y1="0" x2="12" y2="0" class="wire" />
+        <text x="-14" y="-7" text-anchor="end" class="net" font-size="8">KEY5</text>
+        <text x="14"  y="-7" class="net" font-size="8">GND</text>
+        <text x="0"   y="18" text-anchor="middle">SW6 CH+</text>
+      </g>
+      <g transform="translate(280 184)">
+        <circle cx="0" cy="0" r="5" class="ic" />
+        <line x1="-12" y1="0" x2="-5" y2="0" class="wire" />
+        <line x1="5" y1="0" x2="12" y2="0" class="wire" />
+        <text x="-14" y="-7" text-anchor="end" class="net" font-size="8">KEY6</text>
+        <text x="14"  y="-7" class="net" font-size="8">GND</text>
+        <text x="0"   y="18" text-anchor="middle">SW7 CH−</text>
+      </g>
+      <g transform="translate(40 228)">
+        <circle cx="0" cy="0" r="5" class="ic" />
+        <line x1="-12" y1="0" x2="-5" y2="0" class="wire" />
+        <line x1="5" y1="0" x2="12" y2="0" class="wire" />
+        <text x="-14" y="-7" text-anchor="end" class="net" font-size="8">KEY7</text>
+        <text x="14"  y="-7" class="net" font-size="8">GND</text>
+        <text x="0"   y="18" text-anchor="middle">SW8 BACK</text>
+      </g>
+      <g transform="translate(160 228)">
+        <circle cx="0" cy="0" r="5" class="ic" />
+        <line x1="-12" y1="0" x2="-5" y2="0" class="wire" />
+        <line x1="5" y1="0" x2="12" y2="0" class="wire" />
+        <text x="-14" y="-7" text-anchor="end" class="net" font-size="8">KEY8</text>
+        <text x="14"  y="-7" class="net" font-size="8">GND</text>
+        <text x="0"   y="18" text-anchor="middle">SW9 PLAY</text>
+      </g>
+      <g transform="translate(280 228)">
+        <circle cx="0" cy="0" r="5" class="ic" />
+        <line x1="-12" y1="0" x2="-5" y2="0" class="wire" />
+        <line x1="5" y1="0" x2="12" y2="0" class="wire" />
+        <text x="-14" y="-7" text-anchor="end" class="net" font-size="8">KEY9</text>
+        <text x="14"  y="-7" class="net" font-size="8">GND</text>
+        <text x="0"   y="18" text-anchor="middle">SW10 FFWD</text>
+      </g>
+    </g>
+  </g>
+
+  <g transform="translate(440 650)">
+    <rect class="ic" width="160" height="60" />
+    <text x="80" y="22" text-anchor="middle" class="ic-text" font-weight="bold">USB-C</text>
+    <text x="80" y="38" text-anchor="middle" class="ref">J2</text>
+    <text x="80" y="54" text-anchor="middle" class="val" font-size="9">data + 5V VBUS</text>
+    <line x1="40"  y1="0" x2="40"  y2="-20" class="wire" />
+    <line x1="80"  y1="0" x2="80"  y2="-20" class="wire" />
+    <line x1="120" y1="0" x2="120" y2="-20" class="wire" />
+    <text x="44"  y="14" class="ic-text" font-size="9">D+</text>
+    <text x="84"  y="14" class="ic-text" font-size="9">D-</text>
+    <text x="124" y="14" class="ic-text" font-size="9">GND</text>
+    <text x="40"  y="-26" text-anchor="middle" class="net" font-size="9">USB_D+</text>
+    <text x="80"  y="-26" text-anchor="middle" class="net" font-size="9">USB_D-</text>
+    <text x="120" y="-26" text-anchor="middle" class="net" font-size="9">GND</text>
+  </g>
+
+  <g transform="translate(940 740)">
+    <rect width="320" height="50" class="border" />
+    <line x1="0" y1="24" x2="320" y2="24" class="border" />
+    <line x1="160" y1="0" x2="160" y2="50" class="border" />
+    <text x="6"   y="18" class="ic-text" font-size="10">Project: LSUR</text>
+    <text x="6"   y="42" class="ic-text" font-size="9">Title: top-level schematic</text>
+    <text x="166" y="14" class="ic-text" font-size="10">Rev E1</text>
+    <text x="166" y="40" class="ic-text" font-size="9">circuit-foundry</text>
+    <text x="244" y="14" class="ic-text" font-size="9">sheet 1/1</text>
+  </g>
+
+  <text x="80" y="754" class="label" fill="#666">Notes:</text>
+  <text x="80" y="768" class="label" fill="#666" font-size="9">• KEY0..KEY9 use MCU internal pull-ups; each switch shorts the pin to GND when pressed.</text>
+  <text x="80" y="782" class="label" fill="#666" font-size="9">• KEY0 (voice) doubles as the deep-sleep wake source.</text>
+</svg>

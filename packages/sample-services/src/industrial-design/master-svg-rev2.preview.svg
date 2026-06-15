@@ -1,0 +1,177 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 820" font-family="Inkfree, 'Comic Sans MS', sans-serif" font-size="13">
+  <defs>
+    <style>
+      .sk { fill: none; stroke: #1c1c1c; stroke-linecap: round; stroke-linejoin: round; }
+      .sk-thick { stroke-width: 2.4; }
+      .sk-med   { stroke-width: 1.8; }
+      .sk-thin  { stroke-width: 1.2; }
+      .label    { fill: #1c1c1c; }
+      .leader   { fill: none; stroke: #555; stroke-width: 0.9; stroke-dasharray: 3 2.5; }
+      .screen   { fill: #11141a; }
+      .screen-text { fill: #cdebff; font-family: 'Courier New', monospace; font-size: 22; }
+      .btn-fill { fill: #f4f3ef; }
+      .ir-fill  { fill: #2a2a30; }
+      .voice    { fill: #f2e7c8; }
+      .voice-ring { fill: none; stroke: #b85c1a; stroke-width: 2.4; stroke-dasharray: 1 3; }
+      .accent   { fill: #d83b3b; }
+    </style>
+    <marker id="arrow" markerWidth="6" markerHeight="6" refX="3" refY="3" orient="auto">
+      <path d="M 0 3 L 6 0 L 6 6 Z" fill="#888" />
+    </marker>
+  </defs>
+
+  <rect x="6" y="6" width="688" height="808" fill="none" stroke="#1c1c1c" stroke-width="1" />
+  <text x="22" y="32" class="label" font-size="14" font-weight="bold">LSUR — concept sketch (rev. A2)</text>
+  <text x="22" y="50" class="label" font-size="11" fill="#666">industrial-design pass · industrial-design-stub</text>
+  <text x="22" y="66" class="label" font-size="11" fill="#666" font-style="italic">rev. 2 — d-pad, IR top, 6s/30s transport</text>
+
+  <path class="sk sk-thick"
+        d="M 248 100
+           Q 240 92 252 90
+           L 448 90
+           Q 462 92 462 108
+           L 462 738
+           Q 462 760 442 764
+           L 258 764
+           Q 240 762 240 740
+           L 240 110
+           Q 240 102 248 100 Z" />
+  <path class="sk sk-thin" d="M 252 122 L 452 122" opacity="0.5" />
+  <path class="sk sk-thin" d="M 252 746 L 452 746" opacity="0.5" />
+
+  <circle class="sk sk-med btn-fill" cx="278" cy="172" r="16" />
+  <path d="M 278 162 L 278 172 M 271 166 A 10 10 0 1 0 285 166" stroke="#d83b3b" stroke-width="2" fill="none" />
+  <text x="278" y="204" text-anchor="middle" font-size="10" fill="#444">power</text>
+
+  <circle class="sk sk-med btn-fill" cx="424" cy="172" r="16" />
+  <path d="M 416 168 L 421 168 L 426 162 L 426 182 L 421 176 L 416 176 Z" fill="#444" />
+  <line x1="418" y1="164" x2="430" y2="180" stroke="#d83b3b" stroke-width="1.8" />
+  <text x="424" y="204" text-anchor="middle" font-size="10" fill="#444">mute</text>
+
+  <rect class="sk sk-med" x="296" y="226" width="110" height="56" rx="6" />
+  <rect class="screen" x="302" y="232" width="98" height="44" rx="3" />
+  <text x="310" y="262" class="screen-text" font-size="16">20:34</text>
+  <text x="356" y="248" class="screen-text" font-size="8" fill="#7aa2c2">tv · src 1</text>
+  <text x="356" y="268" class="screen-text" font-size="8" fill="#7aa2c2">vol 18</text>
+
+  <rect class="sk sk-med btn-fill" x="246" y="332" width="36" height="92" rx="16" />
+  <path class="sk sk-thin" d="M 256 354 L 264 344 L 272 354" stroke-linecap="round" />
+  <path class="sk sk-thin" d="M 256 404 L 264 414 L 272 404" stroke-linecap="round" />
+  <line class="sk sk-thin" x1="254" y1="378" x2="274" y2="378" opacity="0.4" />
+  <text x="264" y="437" text-anchor="middle" font-size="10" fill="#444">vol</text>
+
+  <g transform="translate(432 378)">
+    <circle class="sk sk-thin" cx="0" cy="0" r="24" fill="none" opacity="0.35" />
+    <rect class="sk sk-med btn-fill" x="-8" y="-23" width="16" height="14" rx="2" />
+    <polygon points="-4,-13 4,-13 0,-19" fill="#444" />
+    <rect class="sk sk-med btn-fill" x="-8" y="9" width="16" height="14" rx="2" />
+    <polygon points="-4,13 4,13 0,19" fill="#444" />
+    <rect class="sk sk-med btn-fill" x="-23" y="-8" width="14" height="16" rx="2" />
+    <polygon points="-13,-4 -13,4 -19,0" fill="#444" />
+    <rect class="sk sk-med btn-fill" x="9" y="-8" width="14" height="16" rx="2" />
+    <polygon points="13,-4 13,4 19,0" fill="#444" />
+    <circle class="sk sk-med btn-fill" cx="0" cy="0" r="8" />
+    <text x="0" y="3" text-anchor="middle" font-size="7" fill="#444">OK</text>
+  </g>
+  <text x="432" y="437" text-anchor="middle" font-size="10" fill="#444">d-pad</text>
+
+  <circle class="voice-ring" cx="351" cy="378" r="58" />
+  <circle class="sk sk-med voice" cx="351" cy="378" r="50" />
+  <circle class="sk sk-thin" cx="351" cy="378" r="44" opacity="0.5" />
+  <g transform="translate(351 366)">
+    <rect x="-9" y="-22" width="18" height="34" rx="9" fill="#1c1c1c" />
+    <path class="sk sk-med" d="M -18 8 Q -18 22 0 22 Q 18 22 18 8" />
+    <line x1="0" y1="22" x2="0" y2="32" stroke="#1c1c1c" stroke-width="2.4" stroke-linecap="round" />
+    <line x1="-8" y1="32" x2="8" y2="32" stroke="#1c1c1c" stroke-width="2.4" stroke-linecap="round" />
+  </g>
+  <text x="351" y="452" text-anchor="middle" font-size="11" fill="#333">press · hold · speak</text>
+
+  <g transform="translate(264 496)">
+    <circle class="sk sk-med btn-fill" cx="22" cy="22" r="20" />
+    <path class="sk sk-thin" d="M 32 17 A 11 11 0 1 0 32 27" stroke-width="2" />
+    <polygon points="32,12 36,18 28,18" fill="#444" />
+    <text x="22" y="26" text-anchor="middle" font-size="9" fill="#444">6</text>
+    <text x="22" y="60" text-anchor="middle" font-size="10" fill="#444">back 6s</text>
+  </g>
+  <g transform="translate(327 496)">
+    <rect class="sk sk-med btn-fill" x="0" y="0" width="48" height="44" rx="22" />
+    <polygon points="14,12 14,32 24,22" fill="#444" />
+    <rect x="30" y="12" width="3" height="20" fill="#444" />
+    <rect x="35" y="12" width="3" height="20" fill="#444" />
+    <text x="24" y="60" text-anchor="middle" font-size="10" fill="#444">play / pause</text>
+  </g>
+  <g transform="translate(394 496)">
+    <circle class="sk sk-med btn-fill" cx="22" cy="22" r="20" />
+    <path class="sk sk-thin" d="M 12 17 A 11 11 0 1 1 12 27" stroke-width="2" />
+    <polygon points="12,12 16,18 8,18" fill="#444" />
+    <text x="22" y="26" text-anchor="middle" font-size="9" fill="#444">30</text>
+    <text x="22" y="60" text-anchor="middle" font-size="10" fill="#444">fwd 30s</text>
+  </g>
+
+  <text x="351" y="618" text-anchor="middle" font-size="12" fill="#666" font-style="italic">the less annoying universal remote</text>
+
+  <rect class="ir-fill" x="320" y="96" width="62" height="14" rx="3" />
+  <rect class="sk sk-thin" x="320" y="96" width="62" height="14" rx="3" />
+
+  <circle class="sk sk-thin ir-fill" cx="266" cy="100" r="2.5" />
+
+  <path class="leader" d="M 261 172 Q 200 168 165 160" />
+  <text x="60" y="156" class="label">power</text>
+  <text x="60" y="170" class="label" fill="#666" font-size="11">isolated up top —</text>
+  <text x="60" y="184" class="label" fill="#666" font-size="11">won't get bumped</text>
+
+  <path class="leader" d="M 441 172 Q 500 168 535 160" />
+  <text x="540" y="156" class="label">mute</text>
+  <text x="540" y="170" class="label" fill="#666" font-size="11">categorically</text>
+  <text x="540" y="184" class="label" fill="#666" font-size="11">≠ volume; far away</text>
+
+  <path class="leader" d="M 320 103 Q 230 70 165 70" />
+  <text x="60" y="68" class="label">IR transmitter</text>
+  <text x="60" y="82" class="label" fill="#666" font-size="11">on the top edge —</text>
+  <text x="60" y="96" class="label" fill="#666" font-size="11">light path unobstructed</text>
+  <text x="60" y="110" class="label" fill="#666" font-size="11">38 kHz · NEC + RC-5 + Sony</text>
+
+  <path class="leader" d="M 296 252 Q 200 260 165 262" />
+  <text x="60" y="264" class="label">OLED status</text>
+  <text x="60" y="278" class="label" fill="#666" font-size="11">1.5" mono · dims under 12 lux</text>
+
+  <path class="leader" d="M 247 378 Q 180 378 145 372" />
+  <text x="50" y="358" class="label">volume rocker</text>
+  <text x="50" y="372" class="label" fill="#666" font-size="11">up / down · auto-repeat</text>
+  <text x="50" y="386" class="label" fill="#666" font-size="11">on hold</text>
+
+  <path class="leader" d="M 401 378 Q 470 312 535 268" />
+  <text x="540" y="256" class="label" font-weight="bold">VOICE</text>
+  <text x="540" y="270" class="label" fill="#666" font-size="11">centerpiece · press &amp; hold</text>
+  <text x="540" y="284" class="label" fill="#666" font-size="11">handles search, apps,</text>
+  <text x="540" y="298" class="label" fill="#666" font-size="11">source, menu — everything</text>
+  <text x="540" y="312" class="label" fill="#666" font-size="11">beyond the keys on this face</text>
+
+  <path class="leader" d="M 456 378 Q 525 392 575 400" />
+  <text x="580" y="386" class="label">d-pad + OK</text>
+  <text x="580" y="400" class="label" fill="#666" font-size="11">up / down / left / right</text>
+  <text x="580" y="414" class="label" fill="#666" font-size="11">drives streaming UIs</text>
+
+  <path class="leader" d="M 351 552 Q 200 565 145 565" />
+  <text x="50" y="555" class="label">transport row</text>
+  <text x="50" y="569" class="label" fill="#666" font-size="11">back 6s (commercial</text>
+  <text x="50" y="583" class="label" fill="#666" font-size="11">zap) · play/pause · fwd 30s</text>
+
+  <path class="leader" d="M 272 100 Q 230 120 165 124" />
+  <text x="60" y="120" class="label" font-size="11">mic port</text>
+  <text x="60" y="133" class="label" fill="#666" font-size="10">far-field MEMS · top edge</text>
+
+  <path class="sk sk-thin" d="M 462 620 L 540 620 L 540 600 L 612 600" />
+  <text x="540" y="595" class="label" font-size="11">battery hatch (rear)</text>
+  <text x="540" y="608" class="label" fill="#666" font-size="10">2× AA · 18 mo typical</text>
+
+  <path class="leader" d="M 460 456 Q 525 456 565 462" />
+  <text x="565" y="466" class="label" font-size="11">grip taper</text>
+  <text x="565" y="479" class="label" fill="#666" font-size="10">matte ABS w/ thumb scoop</text>
+
+  <line x1="240" y1="800" x2="462" y2="800" stroke="#888" stroke-width="0.8" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+  <text x="351" y="816" text-anchor="middle" font-size="11" fill="#888">58 mm</text>
+
+  <line x1="478" y1="90" x2="478" y2="764" stroke="#888" stroke-width="0.8" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+  <text x="486" y="430" font-size="11" fill="#888">182 mm</text>
+</svg>

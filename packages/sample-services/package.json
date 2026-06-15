@@ -40,6 +40,7 @@
     "lint:fix": "yarn lint:eslint --fix && yarn lint:misc --write && yarn constraints --fix && yarn lint:dependencies",
     "lint:misc": "prettier --no-error-on-unmatched-pattern '**/*.json' '**/*.md' '**/*.html' '!**/CHANGELOG.old.md' '**/*.yml' '!.yarnrc.yml' '!merged-packages/**' --ignore-path ../../.gitignore --log-level error",
     "publish:preview": "yarn npm publish --tag preview",
+    "render-previews": "node scripts/render-previews.mjs",
     "test": "vitest run --config vitest.config.ts",
     "test:clean": "yarn test --no-cache --coverage.clean",
     "test:dev": "yarn test --mode development",
