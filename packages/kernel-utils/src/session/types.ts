@@ -1,8 +1,24 @@
+import type { Struct } from '@metamask/superstruct';
+import {
+  array,
+  enums,
+  literal,
+  object,
+  optional,
+  string,
+  union,
+} from '@metamask/superstruct';
+
 /**
  * A single parsed command-or-tool invocation: the name and its positional args.
  * Used to describe what exactly was called before being converted to a Provision.
  */
 export type ParsedInvocation = { name: string; argv: string[] };
+
+export const ParsedInvocationStruct = object({
+  name: string(),
+  argv: array(string()),
+}) as Struct<ParsedInvocation>;
 
 /**
  * Pattern for one positional argument in a provision.
@@ -17,6 +33,12 @@ export type ArgPattern =
   | { kind: 'prefix'; prefix: string }
   | { kind: 'wildcard' };
 
+export const ArgPatternStruct = union([
+  object({ kind: literal('exact'), value: string() }),
+  object({ kind: literal('prefix'), prefix: string() }),
+  object({ kind: literal('wildcard') }),
+]) as Struct<ArgPattern>;
+
 /**
  * Pattern for one component command/tool invocation in a provision.
  *
@@ -27,6 +49,11 @@ export type InvocationPattern = {
   name: string;
   argPatterns: ArgPattern[];
 };
+
+export const InvocationPatternStruct = object({
+  name: string(),
+  argPatterns: array(ArgPatternStruct),
+}) as Struct<InvocationPattern>;
 
 /**
  * A standing preapproval: a neighborhood in invocation space.
@@ -39,6 +66,11 @@ export type Provision = {
   tool: string;
   patterns: InvocationPattern[];
 };
+
+export const ProvisionStruct = object({
+  tool: string(),
+  patterns: array(InvocationPatternStruct),
+}) as Struct<Provision>;
 
 /**
  * A request for a new section to be added to a session's sheaf. Produced by
@@ -86,6 +118,19 @@ export type Decision = {
   /** Optional standing preapprovals — one per independent clause. When present, simultaneously approves this request and registers each provision for future matching. */
   provisions?: Provision[];
 };
+
+export const GuardStruct = object({
+  body: string(),
+  slots: array(string()),
+}) as Struct<{ body: string; slots: string[] }>;
+
+export const DecisionStruct = object({
+  token: string(),
+  verdict: enums(['accept', 'reject']),
+  feedback: string(),
+  guard: optional(GuardStruct),
+  provisions: optional(array(ProvisionStruct)),
+}) as Struct<Decision>;
 
 /** User-facing summary of a session returned by the session list API. */
 export type SessionSummary = {

@@ -11,6 +11,14 @@ export type {
   SessionHistoryEntry,
   SessionApi,
 } from './types.ts';
+export {
+  ArgPatternStruct,
+  InvocationPatternStruct,
+  ParsedInvocationStruct,
+  ProvisionStruct,
+  GuardStruct,
+  DecisionStruct,
+} from './types.ts';
 export { makeChannel } from './channel.ts';
 export type { Channel, ModalStream } from './channel.ts';
 export { makeSessionRegistry } from './session-registry.ts';

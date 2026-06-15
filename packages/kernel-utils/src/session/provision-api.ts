@@ -10,6 +10,15 @@ export type {
   InvocationPattern,
   ParsedInvocation,
   Provision,
+  Decision,
+} from './types.ts';
+export {
+  ArgPatternStruct,
+  InvocationPatternStruct,
+  ParsedInvocationStruct,
+  ProvisionStruct,
+  GuardStruct,
+  DecisionStruct,
 } from './types.ts';
 export type { PatternOrder } from './provision.ts';
 export {

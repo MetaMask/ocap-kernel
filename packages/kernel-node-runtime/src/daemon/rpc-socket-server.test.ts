@@ -424,4 +424,217 @@ describe('startRpcSocketServer — session.* methods', () => {
       { reason: 'Needed for operation' },
     );
   });
+
+  it('session.decide calls decide() with parsed params on the happy path', async () => {
+    const { startRpcSocketServer } = await import('./rpc-socket-server.ts');
+    const socketPath = makeSocketPath();
+    const existing = makeTestSession({
+      sessionId: 'alice',
+      ocapUrl: 'ocap://alice',
+      startedAt: '2026-01-01T00:00:00.000Z',
+    });
+    const registry = makeTestRegistry([existing]);
+
+    handle = await startRpcSocketServer({
+      socketPath,
+      kernel: {} as never,
+      kernelDatabase: { executeQuery: vi.fn() } as never,
+      channelFactory: {} as never,
+      sessionRegistry: registry,
+    });
+
+    const guard = { body: '#{}', slots: [] as string[] };
+    const provisions = [
+      {
+        tool: 'Bash',
+        patterns: [
+          {
+            name: 'git',
+            argPatterns: [{ kind: 'exact', value: 'status' }],
+          },
+        ],
+      },
+    ];
+    const response = await sendRequest(socketPath, 'session.decide', {
+      sessionId: 'alice',
+      token: 'req-0',
+      verdict: 'accept',
+      feedback: 'ok',
+      guard,
+      provisions,
+    });
+
+    expect(response.result).toBeNull();
+    expect(existing.decide).toHaveBeenCalledWith({
+      token: 'req-0',
+      verdict: 'accept',
+      feedback: 'ok',
+      guard,
+      provisions,
+    });
+  });
+
+  it.each([
+    {
+      label: 'session.authorize rejects malformed invocations',
+      method: 'session.authorize',
+      params: {
+        sessionId: 'alice',
+        description: 'desc',
+        invocations: [{ name: 'git' }],
+      },
+    },
+    {
+      label: 'session.record rejects malformed invocations',
+      method: 'session.record',
+      params: {
+        sessionId: 'alice',
+        description: 'desc',
+        invocations: [{ argv: ['status'] }],
+      },
+    },
+    {
+      label: 'session.record rejects malformed provisions',
+      method: 'session.record',
+      params: {
+        sessionId: 'alice',
+        description: 'desc',
+        provisions: [{ tool: 'Bash' }],
+      },
+    },
+    {
+      label: 'session.decide rejects malformed guard',
+      method: 'session.decide',
+      params: {
+        sessionId: 'alice',
+        token: 'req-0',
+        verdict: 'accept',
+        guard: { body: 'x' },
+      },
+    },
+    {
+      label: 'session.decide rejects bad verdict',
+      method: 'session.decide',
+      params: {
+        sessionId: 'alice',
+        token: 'req-0',
+        verdict: 'maybe',
+      },
+    },
+    {
+      label: 'session.decide rejects non-string token',
+      method: 'session.decide',
+      params: {
+        sessionId: 'alice',
+        token: 42,
+        verdict: 'accept',
+      },
+    },
+    {
+      label: 'session.authorize rejects non-array clauses',
+      method: 'session.authorize',
+      params: {
+        sessionId: 'alice',
+        description: 'desc',
+        clauses: 'not-an-array',
+      },
+    },
+  ])('$label as -32602', async ({ method, params }) => {
+    const { startRpcSocketServer } = await import('./rpc-socket-server.ts');
+    const socketPath = makeSocketPath();
+    const existing = makeTestSession({
+      sessionId: 'alice',
+      ocapUrl: 'ocap://alice',
+      startedAt: '2026-01-01T00:00:00.000Z',
+    });
+    const registry = makeTestRegistry([existing]);
+
+    handle = await startRpcSocketServer({
+      socketPath,
+      kernel: {} as never,
+      kernelDatabase: { executeQuery: vi.fn() } as never,
+      channelFactory: {} as never,
+      sessionRegistry: registry,
+    });
+
+    const response = await sendRequest(socketPath, method, params);
+
+    expect(response.error?.code).toBe(-32602);
+    expect(response.error?.message).toMatch(method);
+  });
+
+  it('session.queue happy path queues request with description and reason', async () => {
+    const { startRpcSocketServer } = await import('./rpc-socket-server.ts');
+    const socketPath = makeSocketPath();
+    const queueRequest = vi.fn().mockReturnValue('req-7');
+    const existing = makeTestSession({
+      sessionId: 'alice',
+      ocapUrl: 'ocap://alice',
+      startedAt: '2026-01-01T00:00:00.000Z',
+      queueRequest,
+    });
+    const registry = makeTestRegistry([existing]);
+
+    handle = await startRpcSocketServer({
+      socketPath,
+      kernel: {} as never,
+      kernelDatabase: { executeQuery: vi.fn() } as never,
+      channelFactory: {} as never,
+      sessionRegistry: registry,
+    });
+
+    const response = await sendRequest(socketPath, 'session.queue', {
+      sessionId: 'alice',
+      description: 'My req',
+      reason: 'because',
+    });
+
+    expect(response.result).toStrictEqual({ token: 'req-7' });
+    expect(queueRequest).toHaveBeenCalledWith('My req', 'because');
+  });
+
+  it('session.requests returns listPending() for an existing session', async () => {
+    const { startRpcSocketServer } = await import('./rpc-socket-server.ts');
+    const socketPath = makeSocketPath();
+    const pending = [{ token: 't-1', description: 'd', reason: 'r' }];
+    const existing = makeTestSession({
+      sessionId: 'alice',
+      ocapUrl: 'ocap://alice',
+      startedAt: '2026-01-01T00:00:00.000Z',
+      listPending: vi.fn().mockReturnValue(pending),
+    });
+    const registry = makeTestRegistry([existing]);
+
+    handle = await startRpcSocketServer({
+      socketPath,
+      kernel: {} as never,
+      kernelDatabase: { executeQuery: vi.fn() } as never,
+      channelFactory: {} as never,
+      sessionRegistry: registry,
+    });
+
+    const response = await sendRequest(socketPath, 'session.requests', {
+      sessionId: 'alice',
+    });
+
+    expect(response.result).toStrictEqual(pending);
+  });
+
+  it('session.get without sessionId returns -32602', async () => {
+    const { startRpcSocketServer } = await import('./rpc-socket-server.ts');
+    const socketPath = makeSocketPath();
+    const registry = makeTestRegistry();
+
+    handle = await startRpcSocketServer({
+      socketPath,
+      kernel: {} as never,
+      kernelDatabase: { executeQuery: vi.fn() } as never,
+      channelFactory: {} as never,
+      sessionRegistry: registry,
+    });
+
+    const response = await sendRequest(socketPath, 'session.get', {});
+
+    expect(response.error?.code).toBe(-32602);
+  });
 });

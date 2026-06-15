@@ -1,12 +1,23 @@
 import { RpcService } from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { ifDefined } from '@metamask/kernel-utils';
-import type {
-  ParsedInvocation,
-  Provision,
+import {
+  GuardStruct,
+  ParsedInvocationStruct,
+  ProvisionStruct,
 } from '@metamask/kernel-utils/session';
 import type { Kernel } from '@metamask/ocap-kernel';
 import { rpcHandlers } from '@metamask/ocap-kernel/rpc';
+import type { Struct } from '@metamask/superstruct';
+import { assert, StructError } from '@metamask/superstruct';
+import {
+  array,
+  enums,
+  number,
+  object,
+  optional,
+  string,
+} from '@metamask/superstruct';
 import { unlink } from 'node:fs/promises';
 import { createConnection, createServer } from 'node:net';
 import type { Server } from 'node:net';
@@ -193,6 +204,72 @@ class SessionRpcError extends Error {
   }
 }
 
+const SessionIdParamsStruct = object({
+  sessionId: string(),
+});
+
+const SessionCreateParamsStruct = object({
+  name: optional(string()),
+  cwd: optional(string()),
+});
+
+const SessionQueueParamsStruct = object({
+  sessionId: string(),
+  description: optional(string()),
+  reason: optional(string()),
+});
+
+const SessionAuthorizeParamsStruct = object({
+  sessionId: string(),
+  description: optional(string()),
+  reason: optional(string()),
+  timeoutMs: optional(number()),
+  invocations: optional(array(ParsedInvocationStruct)),
+  clauses: optional(array(array(ParsedInvocationStruct))),
+});
+
+const SessionRecordParamsStruct = object({
+  sessionId: string(),
+  description: optional(string()),
+  invocations: optional(array(ParsedInvocationStruct)),
+  clauses: optional(array(array(ParsedInvocationStruct))),
+  provisions: optional(array(ProvisionStruct)),
+});
+
+const SessionDecideParamsStruct = object({
+  sessionId: string(),
+  token: string(),
+  verdict: enums(['accept', 'reject']),
+  feedback: optional(string()),
+  guard: optional(GuardStruct),
+  provisions: optional(array(ProvisionStruct)),
+});
+
+/**
+ * Validate `params` against `struct`, rethrowing any {@link StructError} as a
+ * JSON-RPC `-32602` `SessionRpcError`. Keeps the per-case bodies readable.
+ *
+ * @param params - The raw params from the RPC request.
+ * @param struct - The struct describing the expected shape.
+ * @param method - The RPC method name, used in the error message.
+ * @returns The validated params, narrowed to the struct's inferred type.
+ */
+function parseParams<Type>(
+  params: unknown,
+  struct: Struct<Type>,
+  method: string,
+): Type {
+  try {
+    assert(params, struct);
+    return params;
+  } catch (error) {
+    if (error instanceof StructError) {
+      throw new SessionRpcError(-32602, `${method}: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
 /**
  * Dispatch a `session.*` RPC method to the session registry.
  *
@@ -220,15 +297,9 @@ async function handleSessionRequest(
   });
 
   try {
-    const args = (params ?? {}) as Record<string, unknown>;
+    const rawParams = params ?? {};
 
-    const requireSession = (sessionId: unknown): Session => {
-      if (typeof sessionId !== 'string') {
-        throw new SessionRpcError(
-          -32602,
-          `${method} requires string sessionId`,
-        );
-      }
+    const requireSession = (sessionId: string): Session => {
       const found = sessionRegistry.getSession(sessionId);
       if (found === undefined) {
         throw new SessionRpcError(-32602, `Session not found: ${sessionId}`);
@@ -238,8 +309,11 @@ async function handleSessionRequest(
 
     switch (method) {
       case 'session.create': {
-        const name = typeof args.name === 'string' ? args.name : undefined;
-        const cwd = typeof args.cwd === 'string' ? args.cwd : undefined;
+        const { name, cwd } = parseParams(
+          rawParams,
+          SessionCreateParamsStruct,
+          method,
+        );
         const session = await sessionRegistry.createSession({
           ...ifDefined({ name }),
           ...ifDefined({ cwd }),
@@ -264,7 +338,12 @@ async function handleSessionRequest(
       }
 
       case 'session.get': {
-        const session = requireSession(args.sessionId);
+        const { sessionId } = parseParams(
+          rawParams,
+          SessionIdParamsStruct,
+          method,
+        );
+        const session = requireSession(sessionId);
         return ok({
           sessionId: session.sessionId,
           ocapUrl: session.ocapUrl,
@@ -274,68 +353,64 @@ async function handleSessionRequest(
       }
 
       case 'session.requests': {
-        const session = requireSession(args.sessionId);
-        return ok(session.listPending());
+        const { sessionId } = parseParams(
+          rawParams,
+          SessionIdParamsStruct,
+          method,
+        );
+        return ok(requireSession(sessionId).listPending());
       }
 
       case 'session.history': {
-        const session = requireSession(args.sessionId);
-        return ok(session.listHistory());
+        const { sessionId } = parseParams(
+          rawParams,
+          SessionIdParamsStruct,
+          method,
+        );
+        return ok(requireSession(sessionId).listHistory());
       }
 
       case 'session.queue': {
-        const session = requireSession(args.sessionId);
-        const description =
-          typeof args.description === 'string'
-            ? args.description
-            : 'Test request';
-        const reason =
-          typeof args.reason === 'string' ? args.reason : undefined;
-        const token = session.queueRequest(description, reason);
+        const { sessionId, description, reason } = parseParams(
+          rawParams,
+          SessionQueueParamsStruct,
+          method,
+        );
+        const session = requireSession(sessionId);
+        const token = session.queueRequest(
+          description ?? 'Test request',
+          reason,
+        );
         return ok({ token });
       }
 
       case 'session.authorize': {
-        const session = requireSession(args.sessionId);
-        const description =
-          typeof args.description === 'string'
-            ? args.description
-            : 'Authorization request';
-        const reason =
-          typeof args.reason === 'string' ? args.reason : undefined;
-        const timeoutMs =
-          typeof args.timeoutMs === 'number' ? args.timeoutMs : undefined;
-        const invocations = Array.isArray(args.invocations)
-          ? (args.invocations as ParsedInvocation[])
-          : undefined;
-        const clauses = Array.isArray(args.clauses)
-          ? (args.clauses as ParsedInvocation[][])
-          : undefined;
-        const decision = await session.authorizeRequest(description, {
-          ...ifDefined({ reason }),
-          ...ifDefined({ timeoutMs }),
-          ...ifDefined({ invocations }),
-          ...ifDefined({ clauses }),
-        });
+        const {
+          sessionId,
+          description,
+          reason,
+          timeoutMs,
+          invocations,
+          clauses,
+        } = parseParams(rawParams, SessionAuthorizeParamsStruct, method);
+        const session = requireSession(sessionId);
+        const decision = await session.authorizeRequest(
+          description ?? 'Authorization request',
+          {
+            ...ifDefined({ reason }),
+            ...ifDefined({ timeoutMs }),
+            ...ifDefined({ invocations }),
+            ...ifDefined({ clauses }),
+          },
+        );
         return ok(decision);
       }
 
       case 'session.record': {
-        const session = requireSession(args.sessionId);
-        const description =
-          typeof args.description === 'string'
-            ? args.description
-            : 'Auto-accepted request';
-        const invocations = Array.isArray(args.invocations)
-          ? (args.invocations as ParsedInvocation[])
-          : undefined;
-        const provisions = Array.isArray(args.provisions)
-          ? (args.provisions as Provision[])
-          : undefined;
-        const clauses = Array.isArray(args.clauses)
-          ? (args.clauses as ParsedInvocation[][])
-          : undefined;
-        session.recordProvisioned(description, {
+        const { sessionId, description, invocations, clauses, provisions } =
+          parseParams(rawParams, SessionRecordParamsStruct, method);
+        const session = requireSession(sessionId);
+        session.recordProvisioned(description ?? 'Auto-accepted request', {
           ...ifDefined({ invocations }),
           ...ifDefined({ clauses }),
           ...ifDefined({ provisions }),
@@ -344,31 +419,13 @@ async function handleSessionRequest(
       }
 
       case 'session.decide': {
-        const session = requireSession(args.sessionId);
-        const { token } = args;
-        const { verdict } = args;
-        const feedback = typeof args.feedback === 'string' ? args.feedback : '';
-        const guard =
-          typeof args.guard === 'object' && args.guard !== null
-            ? (args.guard as { body: string; slots: string[] })
-            : undefined;
-        const provisions = Array.isArray(args.provisions)
-          ? (args.provisions as Provision[])
-          : undefined;
-
-        if (
-          typeof token !== 'string' ||
-          (verdict !== 'accept' && verdict !== 'reject')
-        ) {
-          throw new SessionRpcError(
-            -32602,
-            'session.decide requires string token and verdict ("accept"|"reject")',
-          );
-        }
+        const { sessionId, token, verdict, feedback, guard, provisions } =
+          parseParams(rawParams, SessionDecideParamsStruct, method);
+        const session = requireSession(sessionId);
         session.decide({
           token,
           verdict,
-          feedback,
+          feedback: feedback ?? '',
           ...ifDefined({ guard }),
           ...ifDefined({ provisions }),
         });

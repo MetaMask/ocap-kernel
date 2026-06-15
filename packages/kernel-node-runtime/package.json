@@ -83,6 +83,7 @@
     "@metamask/logger": "workspace:^",
     "@metamask/ocap-kernel": "workspace:^",
     "@metamask/streams": "workspace:^",
+    "@metamask/superstruct": "^3.2.1",
     "@metamask/utils": "^11.9.0",
     "ses": "^1.14.0"
   },
