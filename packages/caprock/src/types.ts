@@ -22,7 +22,8 @@ export type CaprockEventKind =
   | 'tui_accept'
   | 'tui_reject'
   | 'connect_hint'
-  | 'provision_match';
+  | 'provision_match'
+  | 'provision_revoke';
 
 export type CaprockEvent = {
   t: string;

@@ -255,3 +255,60 @@ describe('multiple provisions', () => {
     expect(root.size()).toBe(2);
   });
 });
+
+// ─── removeSection ────────────────────────────────────────────────────────────
+
+describe('removeSection', () => {
+  it('returns false when no section matches', () => {
+    const root = makeRoot();
+    expect(root.removeSection(invocationToProvision('Bash', [inv('ls')]))).toBe(
+      false,
+    );
+  });
+
+  it('removes a matching provision and falls back to ask', async () => {
+    const root = makeRoot();
+    const target = invocationToProvision('Bash', [inv('ls', '/tmp')]);
+    root.addSection(target);
+    expect(await root.route('Bash', [inv('ls', '/tmp')])).toBe('allow');
+    expect(root.removeSection(target)).toBe(true);
+    expect(root.size()).toBe(0);
+    expect(await root.route('Bash', [inv('ls', '/tmp')])).toBe('ask');
+  });
+
+  it('removes only the targeted provision among many', async () => {
+    const root = makeRoot();
+    const keep = invocationToProvision('Bash', [inv('cat', '/etc/hosts')]);
+    const drop = invocationToProvision('Bash', [inv('ls', '/tmp')]);
+    root.addSection(keep);
+    root.addSection(drop);
+    expect(root.removeSection(drop)).toBe(true);
+    expect(root.size()).toBe(1);
+    expect(await root.route('Bash', [inv('cat', '/etc/hosts')])).toBe('allow');
+    expect(await root.route('Bash', [inv('ls', '/tmp')])).toBe('ask');
+  });
+
+  it('removes only the first of two duplicate provisions', async () => {
+    const root = makeRoot();
+    const provision = invocationToProvision('Bash', [inv('ls', '/tmp')]);
+    root.addSection(provision);
+    root.addSection(provision);
+    expect(root.removeSection(provision)).toBe(true);
+    expect(root.size()).toBe(1);
+    expect(await root.route('Bash', [inv('ls', '/tmp')])).toBe('allow');
+  });
+
+  it('preserves authority ordering after removal', async () => {
+    const root = makeRoot();
+    const narrow = prov('Bash', {
+      name: 'ls',
+      argPatterns: [{ kind: 'exact', value: '/tmp' }],
+    });
+    const wide = prov('Bash', wildcardPat('ls'));
+    root.addSection(wide);
+    root.addSection(narrow);
+    expect(root.removeSection(narrow)).toBe(true);
+    expect(await root.route('Bash', [inv('ls', '/tmp')])).toBe('allow');
+    expect(await root.route('Bash', [inv('ls', '/home')])).toBe('allow');
+  });
+});

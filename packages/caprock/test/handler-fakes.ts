@@ -82,6 +82,7 @@ export function makeFakeRpcClient(): RpcClient {
     vatRoute: vi.fn(async () => 'allow' as const),
     vatAddSection: vi.fn(async () => undefined),
     vatFindMatch: vi.fn(async () => null as Provision | null),
+    vatRemoveSection: vi.fn(async () => true),
     vatSize: vi.fn(async () => 0),
     listVatProvisions: vi.fn(async () => [] as Provision[]),
   };

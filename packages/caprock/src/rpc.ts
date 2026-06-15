@@ -435,6 +435,39 @@ export async function vatFindMatch(
 }
 
 /**
+ * Remove the first section in the permission sheaf whose Provision deep-equals
+ * the argument. No-op if no section matches.
+ *
+ * @param socketPath - The UNIX socket path.
+ * @param rootKref - The vat's root kref.
+ * @param provision - The Provision to remove.
+ * @returns `true` if a section was removed, `false` if none matched.
+ */
+export async function vatRemoveSection(
+  socketPath: string,
+  rootKref: string,
+  provision: Provision,
+): Promise<boolean> {
+  const response = await sendCommand({
+    socketPath,
+    method: 'queueMessage',
+    params: [rootKref, 'removeSection', [provision]],
+  });
+  if (isJsonRpcFailure(response)) {
+    throw new Error(`vatRemoveSection: ${response.error.message}`);
+  }
+  const { result } = response;
+  assert(result, CapDataStruct);
+  const decoded = decodeCapData(result);
+  if (typeof decoded !== 'boolean') {
+    throw new Error(
+      `vatRemoveSection: expected boolean, got ${typeof decoded}`,
+    );
+  }
+  return decoded;
+}
+
+/**
  * Return the number of entries in the permission vat's allow set.
  *
  * @param socketPath - The UNIX socket path.
@@ -596,6 +629,11 @@ export type RpcClient = {
     tool: string,
     invocations: ParsedInvocation[],
   ): Promise<Provision | null>;
+  vatRemoveSection(
+    socketPath: string,
+    rootKref: string,
+    provision: Provision,
+  ): Promise<boolean>;
   vatSize(socketPath: string, rootKref: string): Promise<number>;
   listVatProvisions(socketPath: string, rootKref: string): Promise<Provision[]>;
 };
@@ -609,6 +647,7 @@ export const defaultRpcClient: RpcClient = {
   vatRoute,
   vatAddSection,
   vatFindMatch,
+  vatRemoveSection,
   vatSize,
   listVatProvisions,
 };

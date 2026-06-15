@@ -183,6 +183,31 @@ export function buildRootObject(): ReturnType<typeof makeDefaultExo> {
     },
 
     /**
+     * Remove the first section whose Provision deep-equals the argument.
+     * Provisions are compared by JSON serialization since they are plain
+     * tagged-record values. Remaining sections are re-indexed and the sheaf
+     * is rebuilt so authority ordering is preserved.
+     *
+     * @param provision - The Provision to remove.
+     * @returns `true` if a section was removed, `false` if none matched.
+     */
+    removeSection(provision: Provision): boolean {
+      const target = JSON.stringify(provision);
+      const removeIdx = sectionRecords.findIndex(
+        (rec) => JSON.stringify(rec.provision) === target,
+      );
+      if (removeIdx === -1) {
+        return false;
+      }
+      sectionRecords = sectionRecords.filter((_, idx) => idx !== removeIdx);
+      providers = sectionRecords.map((rec, idx) =>
+        provisionToProvider(rec.provision, idx, rec.authority),
+      );
+      rebuildSection();
+      return true;
+    },
+
+    /**
      * Return the first provision that matches the given tool and invocations,
      * or null if none match.
      *

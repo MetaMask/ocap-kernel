@@ -653,9 +653,38 @@ function buildProvisions(
 }
 
 /**
+ * Canonical string key for a Provision, stable across the two pathways that
+ * insert into session history. The user's direct accept stores provisions in
+ * source-code key order; auto-provisioned entries from caprock's PreToolUse
+ * handler round-trip through the kernel's CapData layer and may emerge with a
+ * different key order. Plain JSON.stringify treats those as distinct, so
+ * deduplication and revoke-tracking would double-list the same provision.
+ *
+ * @param prov - The provision to key.
+ * @returns A canonical string key.
+ */
+function provisionKey(prov: Provision): string {
+  return JSON.stringify({
+    tool: prov.tool,
+    patterns: prov.patterns.map((pat) => ({
+      name: pat.name,
+      argPatterns: pat.argPatterns.map((ap) => {
+        if (ap.kind === 'exact') {
+          return { kind: 'exact' as const, value: ap.value };
+        }
+        if (ap.kind === 'prefix') {
+          return { kind: 'prefix' as const, prefix: ap.prefix };
+        }
+        return { kind: 'wildcard' as const };
+      }),
+    })),
+  });
+}
+
+/**
  * Derive the list of unique active provisions from the session history.
  * Includes provisions from both user-granted (◆) and auto-accepted (→) entries.
- * Deduplicates by JSON-serialized content.
+ * Deduplicates by canonical content.
  *
  * @param entries - The full session history.
  * @returns Unique provisions, in the order they first appeared.
@@ -665,7 +694,7 @@ function deriveActiveProvisions(entries: SessionHistoryEntry[]): Provision[] {
   const result: Provision[] = [];
   for (const entry of entries) {
     for (const prov of entry.provisions ?? []) {
-      const key = JSON.stringify(prov);
+      const key = provisionKey(prov);
       if (!seen.has(key)) {
         seen.add(key);
         result.push(prov);
@@ -675,26 +704,137 @@ function deriveActiveProvisions(entries: SessionHistoryEntry[]): Provision[] {
   return result;
 }
 
+type RevokeConfirmProps = {
+  onYes: () => void;
+  onNo: () => void;
+};
+
+/**
+ * Arrow-keys-and-enter confirmation prompt rendered inline below the focused
+ * provision when the user presses `3` to begin revoking it. Esc cancels.
+ *
+ * @param props - Component props.
+ * @param props.onYes - Selected when the user confirms.
+ * @param props.onNo - Selected when the user declines or escapes.
+ * @returns The RevokeConfirm component.
+ */
+function RevokeConfirm({
+  onYes,
+  onNo,
+}: RevokeConfirmProps): React.ReactElement {
+  const [choice, setChoice] = useState<'yes' | 'no'>('no');
+  useInput((_input, key) => {
+    if (key.escape) {
+      onNo();
+    } else if (key.upArrow || key.downArrow) {
+      setChoice((prev) => (prev === 'yes' ? 'no' : 'yes'));
+    } else if (key.return) {
+      if (choice === 'yes') {
+        onYes();
+      } else {
+        onNo();
+      }
+    }
+  });
+  return (
+    <Box flexDirection="column" paddingLeft={4}>
+      <Text>revoke?</Text>
+      <Text
+        {...(choice === 'yes' ? { color: 'cyan' } : {})}
+        bold={choice === 'yes'}
+      >
+        {choice === 'yes' ? '►' : ' '} 1. yes
+      </Text>
+      <Text
+        {...(choice === 'no' ? { color: 'cyan' } : {})}
+        bold={choice === 'no'}
+      >
+        {choice === 'no' ? '►' : ' '} 2. no
+      </Text>
+    </Box>
+  );
+}
+
+type ProvisionsPanelProps = {
+  provisions: Provision[];
+  onClose: () => void;
+  onRevoke: (provision: Provision) => Promise<void>;
+};
+
 /**
  * Panel listing the active standing provisions for a session.
+ *
+ * Arrow keys move a cursor between provisions; pressing `3` opens an
+ * arrow-keys+enter revoke confirmation. Esc closes the panel (or cancels the
+ * confirmation if one is open).
  *
  * @param props - Component props.
  * @param props.provisions - The list of active provisions.
  * @param props.onClose - Callback to close the panel.
+ * @param props.onRevoke - Async callback invoked with the chosen provision when the user confirms a revoke.
  * @returns The ProvisionsPanel component.
  */
 function ProvisionsPanel({
   provisions,
   onClose,
-}: {
-  provisions: Provision[];
-  onClose: () => void;
-}): React.ReactElement {
-  useInput((_input, key) => {
+  onRevoke,
+}: ProvisionsPanelProps): React.ReactElement {
+  const [cursor, setCursor] = useState(0);
+  const [confirming, setConfirming] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Session history (the input to deriveActiveProvisions) doesn't track
+  // revocations, so we hide revoked entries client-side until the panel closes.
+  const [revoked, setRevoked] = useState<Set<string>>(() => new Set());
+
+  const visible = useMemo(
+    () => provisions.filter((prov) => !revoked.has(provisionKey(prov))),
+    [provisions, revoked],
+  );
+
+  const safeCursor = Math.max(0, Math.min(cursor, visible.length - 1));
+
+  useInput((input, key) => {
+    if (working || confirming) {
+      return;
+    }
     if (key.escape) {
       onClose();
+      return;
+    }
+    if (visible.length === 0) {
+      return;
+    }
+    if (key.upArrow) {
+      setCursor((idx) => Math.max(0, idx - 1));
+    } else if (key.downArrow) {
+      setCursor((idx) => Math.min(visible.length - 1, idx + 1));
+    } else if (input === '3') {
+      setConfirming(true);
+      setError(null);
     }
   });
+
+  const handleYes = (): void => {
+    const target = visible[safeCursor];
+    if (target === undefined) {
+      setConfirming(false);
+      return;
+    }
+    setConfirming(false);
+    setWorking(true);
+    onRevoke(target)
+      .then(() => {
+        setRevoked((prev) => {
+          const next = new Set(prev);
+          next.add(provisionKey(target));
+          return next;
+        });
+        return undefined;
+      })
+      .catch((caught: Error) => setError(caught.message))
+      .finally(() => setWorking(false));
+  };
 
   return (
     <Box flexDirection="column" paddingLeft={1}>
@@ -702,19 +842,35 @@ function ProvisionsPanel({
         <Text bold color="cyan">
           Active provisions
         </Text>
-        <Text dimColor>— Esc to close</Text>
+        <Text dimColor>— ↑/↓ navigate · 3 revoke · Esc close</Text>
       </Box>
-      {provisions.length === 0 ? (
+      {error !== null && <Text color="red">{error}</Text>}
+      {visible.length === 0 ? (
         <Text dimColor> No standing provisions yet.</Text>
       ) : (
-        provisions.map((prov, idx) => (
-          <Box key={idx} gap={1}>
-            <Text dimColor>◆</Text>
-            <Text color="yellow">{prov.tool}</Text>
-            <Text>{formatProvisionCompact(prov)}</Text>
-          </Box>
-        ))
+        visible.map((prov, idx) => {
+          const isFocused = idx === safeCursor;
+          return (
+            <React.Fragment key={provisionKey(prov)}>
+              <Box gap={1}>
+                <Text>{isFocused ? '►' : ' '}</Text>
+                <Text dimColor>◆</Text>
+                <Text color="yellow" bold={isFocused}>
+                  {prov.tool}
+                </Text>
+                <Text bold={isFocused}>{formatProvisionCompact(prov)}</Text>
+              </Box>
+              {isFocused && confirming && (
+                <RevokeConfirm
+                  onYes={handleYes}
+                  onNo={() => setConfirming(false)}
+                />
+              )}
+            </React.Fragment>
+          );
+        })
       )}
+      {working && <Text color="yellow"> revoking…</Text>}
     </Box>
   );
 }
@@ -932,6 +1088,10 @@ export function SessionDetailView({
         <ProvisionsPanel
           provisions={activeProvisions}
           onClose={() => setShowProvisions(false)}
+          onRevoke={async (provision) => {
+            await kernelApi.revoke(session.sessionId, provision);
+            onDecided();
+          }}
         />
       ) : (
         <>
@@ -988,9 +1148,9 @@ export function SessionDetailView({
                     <ProvisionEditor
                       toolName={toolName}
                       invocations={entry.invocations ?? []}
-                      {...(entry.clauses !== undefined
-                        ? { clauses: entry.clauses }
-                        : {})}
+                      {...(entry.clauses === undefined
+                        ? {}
+                        : { clauses: entry.clauses })}
                       onSubmit={handleProvisionSubmit}
                       onCancel={() => setEditingProvision(false)}
                     />

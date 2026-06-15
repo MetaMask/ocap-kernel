@@ -1,4 +1,5 @@
 import type {
+  Provision,
   SessionApi,
   SessionSummary,
   PendingRequest,
@@ -31,5 +32,11 @@ export type KernelApi = SessionApi & {
   ): Promise<unknown>;
   getStatus(): Promise<KernelStatus>;
   getObjectRegistry(): Promise<RegistryEntry[]>;
+  /**
+   * Revoke a standing provision held by the named session's permission-tracker
+   * vat and record the revocation in the caprock event log (best-effort — a
+   * session with no caprock state file just drops the vat section).
+   */
+  revoke(sessionId: string, provision: Provision): Promise<void>;
   stop(): Promise<void>;
 };
