@@ -5,14 +5,20 @@
  *
  * Differences from rev1 (driven by typical inventor feedback):
  *   - Body reshaped from a flat slab into a rounded, hand-shaped
- *     outline — wider through the palm-grip zone, smooth tapers at
- *     top and bottom.
+ *     outline — widest through the upper-middle where the controls
+ *     cluster, tapering toward a narrower bottom.
  *   - Channel rocker replaced by a finger-sized d-pad with a centre
- *     OK button.
- *   - Voice button moved upward to clear vertical space for the
- *     d-pad to sit beneath it without crowding either control.
- *   - Transport row updated to back-6s / play-pause / fwd-30s
- *     (the commercial-zap pair).
+ *     OK button. The d-pad stays at the original rocker level
+ *     (mirror of the volume rocker on the left), enlarged to
+ *     comfortable-thumb size and pulled inward from the body edge.
+ *   - Voice button moved upward, out of the rocker level, freeing
+ *     the d-pad and vol rocker to grow without crowding.
+ *   - Vol rocker pulled inward from the body edge for a comfortable
+ *     margin.
+ *   - Transport row updated to back-6s / play-pause / fwd-30s,
+ *     with the rewind / fast-forward circular arrows oriented
+ *     correctly (back curls counter-clockwise with the arrowhead on
+ *     the left; fwd curls clockwise with the arrowhead on the right).
  *   - IR transmitter strip moved from the bottom face to the top
  *     edge, so the user's grip doesn't block the outgoing light path.
  *
@@ -51,152 +57,152 @@ export const MASTER_SVG_REV2 = `<svg xmlns="http://www.w3.org/2000/svg" viewBox=
   <text x="22" y="66" class="label" font-size="11" fill="#666" font-style="italic">rev. 2 — hand-shaped shell, d-pad, IR top, 6s/30s transport</text>
 
   <path class="sk sk-thick"
-        d="M 268 96
-           C 240 102, 218 130, 212 200
-           C 206 280, 204 380, 212 470
-           C 220 560, 232 660, 252 720
-           C 264 748, 286 760, 312 762
-           L 388 762
-           C 414 760, 436 748, 448 720
-           C 468 660, 480 560, 488 470
-           C 496 380, 494 280, 488 200
-           C 482 130, 460 102, 432 96
-           L 268 96 Z" />
+        d="M 286 92
+           C 244 96, 222 130, 214 200
+           C 206 280, 204 380, 210 470
+           C 218 560, 232 650, 252 710
+           C 268 748, 290 760, 314 762
+           L 386 762
+           C 410 760, 432 748, 448 710
+           C 468 650, 482 560, 490 470
+           C 496 380, 494 280, 486 200
+           C 478 130, 456 96, 414 92
+           L 286 92 Z" />
 
-  <circle class="sk sk-med btn-fill" cx="282" cy="180" r="18" />
-  <path d="M 282 168 L 282 180 M 274 173 A 11 11 0 1 0 290 173" stroke="#d83b3b" stroke-width="2" fill="none" />
-  <text x="282" y="216" text-anchor="middle" font-size="10" fill="#444">power</text>
+  <rect class="ir-fill" x="320" y="98" width="62" height="12" rx="3" />
+  <rect class="sk sk-thin" x="320" y="98" width="62" height="12" rx="3" />
 
-  <circle class="sk sk-med btn-fill" cx="418" cy="180" r="18" />
-  <path d="M 410 176 L 415 176 L 420 170 L 420 190 L 415 184 L 410 184 Z" fill="#444" />
-  <line x1="412" y1="172" x2="424" y2="188" stroke="#d83b3b" stroke-width="1.8" />
-  <text x="418" y="216" text-anchor="middle" font-size="10" fill="#444">mute</text>
+  <circle class="sk sk-thin ir-fill" cx="252" cy="106" r="2.5" />
 
-  <rect class="sk sk-med" x="293" y="240" width="114" height="56" rx="6" />
-  <rect class="screen" x="299" y="246" width="102" height="44" rx="3" />
-  <text x="309" y="276" class="screen-text" font-size="16">{{screenTime}}</text>
-  <text x="355" y="262" class="screen-text" font-size="8" fill="#7aa2c2">tv · src 1</text>
-  <text x="355" y="282" class="screen-text" font-size="8" fill="#7aa2c2">vol 18</text>
+  <circle class="sk sk-med btn-fill" cx="290" cy="160" r="18" />
+  <path d="M 290 148 L 290 160 M 282 153 A 11 11 0 1 0 298 153" stroke="#d83b3b" stroke-width="2" fill="none" />
+  <text x="290" y="194" text-anchor="middle" font-size="10" fill="#444">power</text>
 
-  <rect class="sk sk-med btn-fill" x="240" y="318" width="34" height="120" rx="16" />
-  <path class="sk sk-thin" d="M 250 344 L 257 332 L 264 344" stroke-linecap="round" />
-  <path class="sk sk-thin" d="M 250 412 L 257 424 L 264 412" stroke-linecap="round" />
-  <line class="sk sk-thin" x1="248" y1="378" x2="266" y2="378" opacity="0.4" />
-  <text x="257" y="454" text-anchor="middle" font-size="10" fill="#444">vol</text>
+  <circle class="sk sk-med btn-fill" cx="410" cy="160" r="18" />
+  <path d="M 402 156 L 407 156 L 412 150 L 412 170 L 407 164 L 402 164 Z" fill="#444" />
+  <line x1="404" y1="152" x2="416" y2="168" stroke="#d83b3b" stroke-width="1.8" />
+  <text x="410" y="194" text-anchor="middle" font-size="10" fill="#444">mute</text>
 
-  <circle class="voice-ring" cx="351" cy="368" r="62" />
-  <circle class="sk sk-med voice" cx="351" cy="368" r="54" />
-  <circle class="sk sk-thin" cx="351" cy="368" r="46" opacity="0.5" />
-  <g transform="translate(351 356)">
-    <rect x="-10" y="-26" width="20" height="38" rx="10" fill="#1c1c1c" />
-    <path class="sk sk-med" d="M -20 8 Q -20 24 0 24 Q 20 24 20 8" />
-    <line x1="0" y1="24" x2="0" y2="36" stroke="#1c1c1c" stroke-width="2.4" stroke-linecap="round" />
-    <line x1="-9" y1="36" x2="9" y2="36" stroke="#1c1c1c" stroke-width="2.4" stroke-linecap="round" />
+  <rect class="sk sk-med" x="296" y="200" width="108" height="50" rx="6" />
+  <rect class="screen" x="302" y="206" width="96" height="38" rx="3" />
+  <text x="310" y="234" class="screen-text" font-size="14">{{screenTime}}</text>
+  <text x="354" y="222" class="screen-text" font-size="8" fill="#7aa2c2">tv · src 1</text>
+  <text x="354" y="240" class="screen-text" font-size="8" fill="#7aa2c2">vol 18</text>
+
+  <circle class="voice-ring" cx="350" cy="295" r="50" />
+  <circle class="sk sk-med voice" cx="350" cy="295" r="42" />
+  <circle class="sk sk-thin" cx="350" cy="295" r="36" opacity="0.5" />
+  <g transform="translate(350 286)">
+    <rect x="-8" y="-20" width="16" height="32" rx="8" fill="#1c1c1c" />
+    <path class="sk sk-med" d="M -16 8 Q -16 22 0 22 Q 16 22 16 8" />
+    <line x1="0" y1="22" x2="0" y2="30" stroke="#1c1c1c" stroke-width="2.4" stroke-linecap="round" />
+    <line x1="-7" y1="30" x2="7" y2="30" stroke="#1c1c1c" stroke-width="2.4" stroke-linecap="round" />
   </g>
-  <text x="351" y="448" text-anchor="middle" font-size="11" fill="#333">press · hold · speak</text>
+  <text x="350" y="365" text-anchor="middle" font-size="11" fill="#333">press · hold · speak</text>
 
-  <g transform="translate(351 510)">
-    <circle class="sk sk-thin" cx="0" cy="0" r="48" fill="none" opacity="0.35" />
-    <rect class="sk sk-med btn-fill" x="-15" y="-44" width="30" height="22" rx="4" />
-    <polygon points="-7,-30 7,-30 0,-39" fill="#444" />
-    <rect class="sk sk-med btn-fill" x="-15" y="22"  width="30" height="22" rx="4" />
-    <polygon points="-7,30 7,30 0,39" fill="#444" />
-    <rect class="sk sk-med btn-fill" x="-44" y="-15" width="22" height="30" rx="4" />
-    <polygon points="-30,-7 -30,7 -39,0" fill="#444" />
-    <rect class="sk sk-med btn-fill" x="22"  y="-15" width="22" height="30" rx="4" />
-    <polygon points="30,-7 30,7 39,0" fill="#444" />
+  <rect class="sk sk-med btn-fill" x="262" y="395" width="36" height="120" rx="16" />
+  <path class="sk sk-thin" d="M 273 423 L 280 411 L 287 423" stroke-linecap="round" />
+  <path class="sk sk-thin" d="M 273 491 L 280 503 L 287 491" stroke-linecap="round" />
+  <line class="sk sk-thin" x1="271" y1="457" x2="289" y2="457" opacity="0.4" />
+  <text x="280" y="532" text-anchor="middle" font-size="10" fill="#444">vol</text>
+
+  <g transform="translate(420 455)">
+    <circle class="sk sk-thin" cx="0" cy="0" r="46" fill="none" opacity="0.35" />
+    <rect class="sk sk-med btn-fill" x="-13" y="-42" width="26" height="20" rx="3" />
+    <polygon points="-6,-28 6,-28 0,-36" fill="#444" />
+    <rect class="sk sk-med btn-fill" x="-13" y="22"  width="26" height="20" rx="3" />
+    <polygon points="-6,28 6,28 0,36" fill="#444" />
+    <rect class="sk sk-med btn-fill" x="-42" y="-13" width="20" height="26" rx="3" />
+    <polygon points="-28,-6 -28,6 -36,0" fill="#444" />
+    <rect class="sk sk-med btn-fill" x="22"  y="-13" width="20" height="26" rx="3" />
+    <polygon points="28,-6 28,6 36,0" fill="#444" />
     <circle class="sk sk-med btn-fill" cx="0" cy="0" r="13" />
     <text x="0" y="3" text-anchor="middle" font-size="8" fill="#444">OK</text>
   </g>
-  <text x="351" y="580" text-anchor="middle" font-size="10" fill="#444">d-pad</text>
+  <text x="420" y="532" text-anchor="middle" font-size="10" fill="#444">d-pad</text>
 
-  <g transform="translate(258 620)">
+  <g transform="translate(250 588)">
     <circle class="sk sk-med btn-fill" cx="22" cy="22" r="22" />
-    <path class="sk sk-thin" d="M 33 17 A 12 12 0 1 0 33 27" stroke-width="2" />
-    <polygon points="33,11 38,18 28,18" fill="#444" />
+    <path class="sk sk-thin" d="M 11 16 A 14 14 0 1 1 11 28" stroke-width="2" fill="none" />
+    <polygon points="11,12 17,17 17,7" fill="#444" />
     <text x="22" y="26" text-anchor="middle" font-size="9" fill="#444">6</text>
-    <text x="22" y="64" text-anchor="middle" font-size="10" fill="#444">back 6s</text>
+    <text x="22" y="62" text-anchor="middle" font-size="10" fill="#444">back 6s</text>
   </g>
-  <g transform="translate(326 620)">
-    <rect class="sk sk-med btn-fill" x="0" y="0" width="50" height="44" rx="22" />
+  <g transform="translate(326 588)">
+    <rect class="sk sk-med btn-fill" x="0" y="0" width="48" height="44" rx="22" />
     <polygon points="14,12 14,32 25,22" fill="#444" />
     <rect x="31" y="12" width="3" height="20" fill="#444" />
     <rect x="36" y="12" width="3" height="20" fill="#444" />
-    <text x="25" y="64" text-anchor="middle" font-size="10" fill="#444">play / pause</text>
+    <text x="24" y="62" text-anchor="middle" font-size="10" fill="#444">play / pause</text>
   </g>
-  <g transform="translate(398 620)">
+  <g transform="translate(402 588)">
     <circle class="sk sk-med btn-fill" cx="22" cy="22" r="22" />
-    <path class="sk sk-thin" d="M 11 17 A 12 12 0 1 1 11 27" stroke-width="2" />
-    <polygon points="11,11 16,18 6,18" fill="#444" />
+    <path class="sk sk-thin" d="M 33 16 A 14 14 0 1 0 33 28" stroke-width="2" fill="none" />
+    <polygon points="33,12 27,17 27,7" fill="#444" />
     <text x="22" y="26" text-anchor="middle" font-size="9" fill="#444">30</text>
-    <text x="22" y="64" text-anchor="middle" font-size="10" fill="#444">fwd 30s</text>
+    <text x="22" y="62" text-anchor="middle" font-size="10" fill="#444">fwd 30s</text>
   </g>
 
-  <text x="351" y="720" text-anchor="middle" font-size="12" fill="#666" font-style="italic">the less annoying universal remote</text>
+  <text x="350" y="700" text-anchor="middle" font-size="12" fill="#666" font-style="italic">the less annoying universal remote</text>
 
-  <rect class="ir-fill" x="320" y="100" width="62" height="14" rx="3" />
-  <rect class="sk sk-thin" x="320" y="100" width="62" height="14" rx="3" />
+  <path class="leader" d="M 322 104 Q 240 60 165 56" />
+  <text x="62" y="46" class="label">IR transmitter</text>
+  <text x="62" y="60" class="label" fill="#666" font-size="11">on the top edge —</text>
+  <text x="62" y="74" class="label" fill="#666" font-size="11">light path unobstructed</text>
+  <text x="62" y="88" class="label" fill="#666" font-size="11">38 kHz · {{irProtocols}}</text>
 
-  <circle class="sk sk-thin ir-fill" cx="266" cy="104" r="2.5" />
+  <path class="leader" d="M 250 108 Q 180 120 130 130" />
+  <text x="62" y="124" class="label" font-size="11">mic port</text>
+  <text x="62" y="138" class="label" fill="#666" font-size="11">far-field MEMS · top edge</text>
 
-  <path class="leader" d="M 322 106 Q 240 80 165 76" />
-  <text x="62" y="62" class="label">IR transmitter</text>
-  <text x="62" y="76" class="label" fill="#666" font-size="11">on the top edge —</text>
-  <text x="62" y="90" class="label" fill="#666" font-size="11">light path unobstructed</text>
-  <text x="62" y="104" class="label" fill="#666" font-size="11">38 kHz · {{irProtocols}}</text>
+  <path class="leader" d="M 272 160 Q 200 170 140 178" />
+  <text x="62" y="172" class="label">power</text>
+  <text x="62" y="186" class="label" fill="#666" font-size="11">isolated up top —</text>
+  <text x="62" y="200" class="label" fill="#666" font-size="11">won't get bumped</text>
 
-  <path class="leader" d="M 263 104 Q 200 130 140 140" />
-  <text x="62" y="136" class="label" font-size="11">mic port</text>
-  <text x="62" y="150" class="label" fill="#666" font-size="11">far-field MEMS · top edge</text>
+  <path class="leader" d="M 296 226 Q 200 240 140 248" />
+  <text x="62" y="244" class="label">OLED status</text>
+  <text x="62" y="258" class="label" fill="#666" font-size="11">1.5" mono · dims under 12 lux</text>
 
-  <path class="leader" d="M 264 180 Q 180 188 130 196" />
-  <text x="62" y="190" class="label">power</text>
-  <text x="62" y="204" class="label" fill="#666" font-size="11">isolated up top —</text>
-  <text x="62" y="218" class="label" fill="#666" font-size="11">won't get bumped</text>
+  <path class="leader" d="M 262 457 Q 180 457 120 450" />
+  <text x="46" y="436" class="label">volume rocker</text>
+  <text x="46" y="450" class="label" fill="#666" font-size="11">up / down · auto-repeat</text>
+  <text x="46" y="464" class="label" fill="#666" font-size="11">on hold</text>
 
-  <path class="leader" d="M 293 268 Q 200 268 140 268" />
-  <text x="62" y="264" class="label">OLED status</text>
-  <text x="62" y="278" class="label" fill="#666" font-size="11">1.5" mono · dims under 12 lux</text>
+  <path class="leader" d="M 250 610 Q 170 612 110 612" />
+  <text x="46" y="600" class="label">transport row</text>
+  <text x="46" y="614" class="label" fill="#666" font-size="11">back 6s (commercial</text>
+  <text x="46" y="628" class="label" fill="#666" font-size="11">zap) · play/pause · fwd 30s</text>
 
-  <path class="leader" d="M 240 378 Q 160 378 110 360" />
-  <text x="46" y="346" class="label">volume rocker</text>
-  <text x="46" y="360" class="label" fill="#666" font-size="11">up / down · auto-repeat</text>
-  <text x="46" y="374" class="label" fill="#666" font-size="11">on hold</text>
+  <path class="leader" d="M 428 160 Q 510 170 570 178" />
+  <text x="568" y="172" class="label">mute</text>
+  <text x="568" y="186" class="label" fill="#666" font-size="11">categorically</text>
+  <text x="568" y="200" class="label" fill="#666" font-size="11">≠ volume; far away</text>
 
-  <path class="leader" d="M 264 642 Q 160 642 110 632" />
-  <text x="46" y="620" class="label">transport row</text>
-  <text x="46" y="634" class="label" fill="#666" font-size="11">back 6s (commercial</text>
-  <text x="46" y="648" class="label" fill="#666" font-size="11">zap) · play/pause · fwd 30s</text>
+  <path class="leader" d="M 400 295 Q 480 280 552 268" />
+  <text x="568" y="258" class="label" font-weight="bold">VOICE</text>
+  <text x="568" y="272" class="label" fill="#666" font-size="11">centerpiece · press &amp; hold</text>
+  <text x="568" y="286" class="label" fill="#666" font-size="11">handles search, apps,</text>
+  <text x="568" y="300" class="label" fill="#666" font-size="11">source, menu — everything</text>
+  <text x="568" y="314" class="label" fill="#666" font-size="11">beyond the keys on this face</text>
 
-  <path class="leader" d="M 436 180 Q 520 186 590 196" />
-  <text x="566" y="190" class="label">mute</text>
-  <text x="566" y="204" class="label" fill="#666" font-size="11">categorically</text>
-  <text x="566" y="218" class="label" fill="#666" font-size="11">≠ volume; far away</text>
+  <path class="leader" d="M 462 455 Q 530 450 570 442" />
+  <text x="568" y="436" class="label">d-pad + OK</text>
+  <text x="568" y="450" class="label" fill="#666" font-size="11">up / down / left / right</text>
+  <text x="568" y="464" class="label" fill="#666" font-size="11">drives streaming UIs</text>
 
-  <path class="leader" d="M 405 368 Q 480 320 552 290" />
-  <text x="566" y="280" class="label" font-weight="bold">VOICE</text>
-  <text x="566" y="294" class="label" fill="#666" font-size="11">centerpiece · press &amp; hold</text>
-  <text x="566" y="308" class="label" fill="#666" font-size="11">handles search, apps,</text>
-  <text x="566" y="322" class="label" fill="#666" font-size="11">source, menu — everything</text>
-  <text x="566" y="336" class="label" fill="#666" font-size="11">beyond the keys on this face</text>
+  <path class="leader" d="M 488 540 Q 540 550 568 558" />
+  <text x="568" y="566" class="label" font-size="11">grip taper</text>
+  <text x="568" y="580" class="label" fill="#666" font-size="10">ellipsoidal · matte ABS</text>
+  <text x="568" y="594" class="label" fill="#666" font-size="10">fits the palm</text>
 
-  <path class="leader" d="M 399 510 Q 480 510 550 500" />
-  <text x="566" y="490" class="label">d-pad + OK</text>
-  <text x="566" y="504" class="label" fill="#666" font-size="11">up / down / left / right</text>
-  <text x="566" y="518" class="label" fill="#666" font-size="11">drives streaming UIs</text>
+  <path class="sk sk-thin" d="M 482 640 L 540 640 L 540 620 L 612 620" />
+  <text x="540" y="614" class="label" font-size="11">battery hatch (rear)</text>
+  <text x="540" y="628" class="label" fill="#666" font-size="10">2× AA · {{batteryLifeMonths}} typical</text>
 
-  <path class="leader" d="M 484 470 Q 545 472 590 480" />
-  <text x="566" y="558" class="label" font-size="11">grip taper</text>
-  <text x="566" y="572" class="label" fill="#666" font-size="10">ellipsoidal · matte ABS</text>
-  <text x="566" y="586" class="label" fill="#666" font-size="10">fits the palm</text>
+  <line x1="200" y1="794" x2="500" y2="794" stroke="#888" stroke-width="0.8" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+  <text x="350" y="812" text-anchor="middle" font-size="11" fill="#888">70 mm</text>
 
-  <path class="sk sk-thin" d="M 482 660 L 540 660 L 540 640 L 612 640" />
-  <text x="540" y="634" class="label" font-size="11">battery hatch (rear)</text>
-  <text x="540" y="648" class="label" fill="#666" font-size="10">2× AA · {{batteryLifeMonths}} typical</text>
-
-  <line x1="210" y1="794" x2="490" y2="794" stroke="#888" stroke-width="0.8" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-  <text x="350" y="812" text-anchor="middle" font-size="11" fill="#888">67 mm</text>
-
-  <line x1="510" y1="96" x2="510" y2="762" stroke="#888" stroke-width="0.8" marker-start="url(#arrow)" marker-end="url(#arrow)" />
-  <text x="518" y="430" font-size="11" fill="#888">186 mm</text>
+  <line x1="514" y1="92" x2="514" y2="762" stroke="#888" stroke-width="0.8" marker-start="url(#arrow)" marker-end="url(#arrow)" />
+  <text x="522" y="430" font-size="11" fill="#888">186 mm</text>
 </svg>`;
