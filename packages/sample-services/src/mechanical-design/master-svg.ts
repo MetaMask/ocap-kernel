@@ -2,8 +2,14 @@
  * Master SVG for the mechanical-design hero render. Token markers
  * (`{{...}}`) are filled in by `template.ts` on each generate() call.
  *
+ * Geometry mirrors the LAUR rev-2 industrial-design sketch:
+ * hand-shaped body widest through the upper-middle, d-pad on the
+ * right at the rocker level (replacing the rev-1 channel rocker),
+ * IR transmitter strip on the top edge, transport row with
+ * back-6s / play-pause / fwd-30s.
+ *
  * Token catalog:
- *   {{revLabel}}              short rev label, e.g. "A1"
+ *   {{revLabel}}              short rev label, e.g. "M1"
  *   {{providerLabel}}         provider identifier
  *   {{colorwayName}}          "matte black" / "soft white" / "smoke grey"
  *   {{caseColorHighlight}}    body gradient stop 0%
@@ -47,114 +53,121 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
   <rect width="900" height="800" fill="#f0f0ee" />
   <rect width="900" height="360" fill="#dfdfdc" />
 
-  <ellipse cx="450" cy="740" rx="240" ry="22" fill="url(#floor-shadow)" />
+  <ellipse cx="450" cy="740" rx="240" ry="22" fill="#000" opacity="0.18" />
 
   <g transform="translate(280 80)">
-    <path d="M 320 26
-             Q 332 30 340 50
-             L 340 590
-             Q 332 622 320 630
-             L 314 630
-             L 314 26 Z"
+    <path d="M 80 14
+             C 36 18, 16 50, 8 120
+             C 0 200, -2 290, 6 380
+             C 14 470, 30 570, 50 620
+             C 62 650, 86 660, 110 662
+             L 230 662
+             C 254 660, 278 650, 290 620
+             C 310 570, 326 470, 334 380
+             C 342 290, 340 200, 332 120
+             C 324 50, 304 18, 260 14
+             L 80 14 Z"
           fill="url(#side-grad)" />
-    <path d="M 22 26
-             Q 36 18 60 18
-             L 290 18
-             Q 308 18 320 26
-             L 314 26
-             L 22 26 Z"
-          fill="{{caseColorHighlight}}" opacity="0.9" />
 
-    <path d="M 20 28
-             Q 18 22 30 16
-             L 304 16
-             Q 320 16 326 30
-             L 326 602
-             Q 320 632 300 638
-             L 32 638
-             Q 18 634 16 608
-             L 16 38 Z"
+    <path d="M 76 12
+             C 34 16, 14 48, 6 118
+             C -2 198, -4 288, 4 378
+             C 12 468, 28 568, 48 618
+             C 60 648, 84 658, 108 660
+             L 226 660
+             C 250 658, 274 648, 286 618
+             C 306 568, 322 468, 330 378
+             C 338 288, 336 198, 328 118
+             C 320 48, 300 16, 258 12
+             L 76 12 Z"
           fill="url(#body-grad)" />
 
-    <path d="M 32 28
-             Q 28 24 40 22
-             L 300 22
-             Q 312 22 318 34
-             L 318 80
-             L 32 80 Z"
+    <path d="M 78 14
+             C 38 18, 20 46, 14 110
+             L 320 110
+             C 314 46, 296 18, 256 14
+             L 78 14 Z"
           fill="url(#hl)" />
 
-    <circle cx="171" cy="18" r="2.5" fill="#070707" />
+    <rect x="115" y="22" width="104" height="18" rx="3" fill="#0a0a0a" />
+    <rect x="115" y="22" width="104" height="18" rx="3" fill="none" stroke="#222" stroke-width="0.6" />
 
-    <circle cx="58" cy="54" r="14" fill="#3a3a3a" />
-    <path d="M 58 46 L 58 54 M 51 50 A 7 7 0 1 0 65 50"
+    <circle cx="58" cy="98" r="3" fill="#070707" />
+
+    <circle cx="86" cy="142" r="16" fill="#3a3a3a" />
+    <path d="M 86 132 L 86 142 M 79 137 A 8 8 0 1 0 93 137"
           stroke="#d83b3b" stroke-width="1.8" fill="none" />
 
-    <circle cx="282" cy="54" r="14" fill="#3a3a3a" />
-    <path d="M 274 50 L 280 50 L 286 44 L 286 64 L 280 58 L 274 58 Z" fill="#dddddd" />
-    <line x1="276" y1="46" x2="292" y2="64" stroke="#d83b3b" stroke-width="1.6" />
+    <circle cx="248" cy="142" r="16" fill="#3a3a3a" />
+    <path d="M 240 138 L 245 138 L 250 132 L 250 152 L 245 146 L 240 146 Z" fill="#dddddd" />
+    <line x1="242" y1="134" x2="254" y2="152" stroke="#d83b3b" stroke-width="1.6" />
 
-    <rect x="90" y="86" width="160" height="60" rx="6" fill="#0a0a0a" />
-    <rect x="96" y="90" width="148" height="52" rx="4" fill="url(#screen-grad)" />
-    <text x="108" y="124" font-family="'Courier New', monospace" fill="#cdebff" font-size="20">20:34</text>
-    <text x="190" y="108" font-family="'Courier New', monospace" fill="#7aa2c2" font-size="10">tv · src 1</text>
-    <text x="190" y="132" font-family="'Courier New', monospace" fill="#7aa2c2" font-size="10">vol 18</text>
+    <rect x="105" y="194" width="124" height="58" rx="6" fill="#0a0a0a" />
+    <rect x="111" y="198" width="112" height="50" rx="4" fill="url(#screen-grad)" />
+    <text x="121" y="232" font-family="'Courier New', monospace" fill="#cdebff" font-size="18">20:34</text>
+    <text x="194" y="216" font-family="'Courier New', monospace" fill="#7aa2c2" font-size="10">tv · src 1</text>
+    <text x="194" y="240" font-family="'Courier New', monospace" fill="#7aa2c2" font-size="10">vol 18</text>
 
-    <rect x="32" y="200" width="38" height="100" rx="18" fill="#3a3a3a" />
-    <path d="M 42 224 L 51 214 L 60 224" stroke="#dddddd" stroke-width="2"
-          fill="none" stroke-linecap="round" />
-    <path d="M 42 280 L 51 290 L 60 280" stroke="#dddddd" stroke-width="2"
-          fill="none" stroke-linecap="round" />
-    <line x1="38" y1="250" x2="64" y2="250" stroke="#1c1c1c" stroke-width="0.8" opacity="0.5" />
-
-    <rect x="270" y="200" width="38" height="100" rx="18" fill="#3a3a3a" />
-    <path d="M 280 224 L 289 214 L 298 224" stroke="#dddddd" stroke-width="2"
-          fill="none" stroke-linecap="round" />
-    <path d="M 280 280 L 289 290 L 298 280" stroke="#dddddd" stroke-width="2"
-          fill="none" stroke-linecap="round" />
-    <line x1="276" y1="250" x2="302" y2="250" stroke="#1c1c1c" stroke-width="0.8" opacity="0.5" />
-
-    <circle cx="170" cy="250" r="80" fill="url(#voice-grad)" />
-    <circle cx="170" cy="250" r="80" fill="none" stroke="#4a4a4a"
+    <circle cx="167" cy="324" r="72" fill="url(#voice-grad)" />
+    <circle cx="167" cy="324" r="72" fill="none" stroke="#4a4a4a"
             stroke-width="2" opacity="0.7" />
-    <circle cx="170" cy="250" r="72" fill="none" stroke="#1c1c1c"
+    <circle cx="167" cy="324" r="64" fill="none" stroke="#1c1c1c"
             stroke-width="0.6" opacity="0.6" />
-    <g transform="translate(170 234)">
-      <rect x="-12" y="-26" width="24" height="42" rx="12" fill="#dddddd" />
-      <path d="M -22 12 Q -22 30 0 30 Q 22 30 22 12"
+    <g transform="translate(167 310)">
+      <rect x="-11" y="-22" width="22" height="36" rx="11" fill="#dddddd" />
+      <path d="M -20 10 Q -20 26 0 26 Q 20 26 20 10"
             fill="none" stroke="#dddddd" stroke-width="2.4" stroke-linecap="round" />
-      <line x1="0" y1="30" x2="0" y2="42" stroke="#dddddd" stroke-width="2.4" stroke-linecap="round" />
-      <line x1="-10" y1="42" x2="10" y2="42" stroke="#dddddd" stroke-width="2.4" stroke-linecap="round" />
+      <line x1="0" y1="26" x2="0" y2="38" stroke="#dddddd" stroke-width="2.4" stroke-linecap="round" />
+      <line x1="-9" y1="38" x2="9" y2="38" stroke="#dddddd" stroke-width="2.4" stroke-linecap="round" />
     </g>
-    <circle cx="170" cy="250" r="84" fill="none" stroke="#b85c1a"
-            stroke-width="1.2" opacity="0.25" />
+    <circle cx="167" cy="324" r="76" fill="none" stroke="#b85c1a"
+            stroke-width="1.2" opacity="0.3" />
 
-    <circle cx="80" cy="402" r="22" fill="#3a3a3a" />
-    <path d="M 92 397 A 11 11 0 1 0 92 407" stroke="#dddddd" stroke-width="2" fill="none" />
-    <polygon points="92,392 96,398 88,398" fill="#dddddd" />
-    <text x="80" y="406" text-anchor="middle" fill="#1c1c1c" font-size="9">30</text>
+    <rect x="50" y="382" width="32" height="106" rx="14" fill="#3a3a3a" />
+    <path d="M 58 408 L 66 396 L 74 408" stroke="#dddddd" stroke-width="2"
+          fill="none" stroke-linecap="round" />
+    <path d="M 58 472 L 66 484 L 74 472" stroke="#dddddd" stroke-width="2"
+          fill="none" stroke-linecap="round" />
+    <line x1="54" y1="440" x2="78" y2="440" stroke="#1c1c1c" stroke-width="0.6" opacity="0.4" />
 
-    <rect x="146" y="378" width="48" height="48" rx="22" fill="#3a3a3a" />
-    <polygon points="160,388 160,420 172,404" fill="#dddddd" />
-    <rect x="178" y="388" width="4" height="32" fill="#dddddd" />
-    <rect x="184" y="388" width="4" height="32" fill="#dddddd" />
+    <g transform="translate(248 440)">
+      <circle cx="0" cy="0" r="42" fill="#2c2c2c" />
+      <circle cx="0" cy="0" r="42" fill="none" stroke="#4a4a4a" stroke-width="1" />
+      <rect x="-12" y="-38" width="24" height="18" rx="3" fill="#3a3a3a" />
+      <polygon points="-6,-26 6,-26 0,-33" fill="#dddddd" />
+      <rect x="-12" y="20"  width="24" height="18" rx="3" fill="#3a3a3a" />
+      <polygon points="-6,26 6,26 0,33" fill="#dddddd" />
+      <rect x="-38" y="-12" width="18" height="24" rx="3" fill="#3a3a3a" />
+      <polygon points="-26,-6 -26,6 -33,0" fill="#dddddd" />
+      <rect x="20"  y="-12" width="18" height="24" rx="3" fill="#3a3a3a" />
+      <polygon points="26,-6 26,6 33,0" fill="#dddddd" />
+      <circle cx="0" cy="0" r="11" fill="#4a4a4a" />
+      <text x="0" y="3" text-anchor="middle" font-size="8" fill="#dddddd">OK</text>
+    </g>
 
-    <circle cx="260" cy="402" r="22" fill="#3a3a3a" />
-    <polygon points="248,390 260,402 248,414" fill="#dddddd" />
-    <polygon points="260,390 272,402 260,414" fill="#dddddd" />
+    <circle cx="100" cy="552" r="22" fill="#3a3a3a" />
+    <path d="M 89 547 A 12 12 0 1 1 89 557" stroke="#dddddd" stroke-width="2" fill="none" />
+    <polygon points="89,541 95,548 95,538" fill="#dddddd" />
+    <text x="100" y="556" text-anchor="middle" fill="#1c1c1c" font-size="9">6</text>
 
-    <text x="170" y="478" text-anchor="middle" font-style="italic"
+    <rect x="146" y="528" width="46" height="48" rx="22" fill="#3a3a3a" />
+    <polygon points="160,538 160,570 172,554" fill="#dddddd" />
+    <rect x="178" y="538" width="4" height="32" fill="#dddddd" />
+    <rect x="184" y="538" width="4" height="32" fill="#dddddd" />
+
+    <circle cx="236" cy="552" r="22" fill="#3a3a3a" />
+    <path d="M 247 547 A 12 12 0 1 0 247 557" stroke="#dddddd" stroke-width="2" fill="none" />
+    <polygon points="247,541 253,548 241,538" fill="#dddddd" />
+    <text x="236" y="556" text-anchor="middle" fill="#1c1c1c" font-size="9">30</text>
+
+    <text x="167" y="618" text-anchor="middle" font-style="italic"
           font-size="13" fill="#dddddd" opacity="0.6">
       the less annoying universal remote
     </text>
-
-    <rect x="140" y="500" width="62" height="22" rx="4" fill="#070707" />
-    <rect x="140" y="500" width="62" height="22" rx="4" fill="none"
-          stroke="#0a0a0a" stroke-width="0.8" />
   </g>
 
   <text x="40" y="40" font-size="16" font-weight="bold" fill="#1c1c1c">LAUR — mechanical case render</text>
-  <text x="40" y="60" font-size="11" fill="#666">{{providerLabel}} · {{colorwayName}} · ABS+PC blend · 58 × 182 × 18 mm</text>
+  <text x="40" y="60" font-size="11" fill="#666">{{providerLabel}} · {{colorwayName}} · ABS+PC blend · 70 × 186 × 18 mm</text>
 
   <g transform="translate(40 210)" font-size="11" fill="#1c1c1c">
     <text font-weight="bold">Material</text>
@@ -170,13 +183,13 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
 
   <g transform="translate(700 210)" font-size="11" fill="#1c1c1c">
     <text font-weight="bold">Mass (loaded)</text>
-    <text y="16" fill="#444">112 g (with 2× AA)</text>
+    <text y="16" fill="#444">118 g (with 2× AA)</text>
     <text y="44" font-weight="bold">Drop test</text>
     <text y="60" fill="#444">1.2 m onto hardwood — pass</text>
     <text y="88" font-weight="bold">IP rating</text>
     <text y="104" fill="#444">IPX0 (indoor only)</text>
-    <text y="132" font-weight="bold">Mic port</text>
-    <text y="148" fill="#444">top edge · 1.4 mm dia</text>
+    <text y="132" font-weight="bold">IR / mic</text>
+    <text y="148" fill="#444">both on the top edge</text>
   </g>
 
   <text x="450" y="772" text-anchor="middle" font-size="11" fill="#666">
