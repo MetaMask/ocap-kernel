@@ -80,7 +80,11 @@ export async function onPreToolUse(
   }
 
   if (state.kernelSessionId === undefined) {
-    deps.stdout(JSON.stringify({ continue: true }));
+    deps.stdout(
+      `${preToolUseDeny(
+        '[caprock] Kernel session is not initialized — additional tool uses will keep failing until this is fixed. Run `/caprock:setup` to diagnose (checks tree-sitter bindings, daemon connectivity, and permissions), then retry.',
+      )}\n`,
+    );
     return;
   }
 

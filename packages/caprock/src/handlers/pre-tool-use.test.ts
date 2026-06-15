@@ -55,6 +55,31 @@ describe('onPreToolUse', () => {
     expect(deps.rpc.vatRoute).not.toHaveBeenCalled();
   });
 
+  it('denies with a setup hint when the persisted state has no kernel session', async () => {
+    const stateWithoutKernel: Record<string, unknown> = {
+      ...makeSessionState(),
+    };
+    delete stateWithoutKernel.kernelSessionId;
+    const deps = makeFakeDeps({
+      store: makeFakeStore({
+        states: {
+          'test-session': stateWithoutKernel as ReturnType<
+            typeof makeSessionState
+          >,
+        },
+      }),
+    });
+    (deps.rpc.pingDaemon as ReturnType<typeof vi.fn>).mockResolvedValue(false);
+    (deps.rpc.vatRoute as ReturnType<typeof vi.fn>).mockResolvedValue('ask');
+
+    await onPreToolUse(makePayload(), deps);
+
+    const output = deps.stdoutLines.join('');
+    expect(output).toContain('"permissionDecision":"deny"');
+    expect(output).toContain('/caprock:setup');
+    expect(deps.rpc.authorizeRequest).not.toHaveBeenCalled();
+  });
+
   it('asks the TUI when the vat does not cover the call, then accepts', async () => {
     const deps = makeFakeDeps({
       store: makeFakeStore({
