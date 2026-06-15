@@ -189,9 +189,9 @@ read
 ```
 
 `read` is openclaw's built-in file-reading tool; the
-`/orchestration-demo` slash command in step 8 works by telling the
-agent to read the skill file, so without `read` in the allowlist the
-skill body never reaches the model and the agent operates on the
+`/product-orchestration` slash command in step 8 works by telling
+the agent to read the skill file, so without `read` in the allowlist
+the skill body never reaches the model and the agent operates on the
 skill description alone (which is sycophantic and ignores the hard
 rules).
 
@@ -206,15 +206,21 @@ openclaw config set gateway.http.endpoints.chatCompletions.enabled true
 Install the two skills the demo uses. Plugin-bundled skills are
 NOT auto-discovered; they require an explicit `openclaw skills
 install`. The path argument must start with `./` — absolute paths
-get misclassified as slugs:
+get misclassified as slugs. Use `--force` because a previous
+install of the same slug blocks the re-install otherwise:
 
 ```csh
 cd ~/GitRepos/ocap-kernel
-openclaw skills install \
+rm -rf ~/.openclaw/workspace/skills/orchestration-demo
+openclaw skills install --force \
   ./packages/agentmask/openclaw-plugin-discovery/skills/discovery
-openclaw skills install \
-  ./packages/agentmask/openclaw-plugin-demo/skills/orchestration-demo
+openclaw skills install --force \
+  ./packages/agentmask/openclaw-plugin-demo/skills/product-orchestration
 ```
+
+(The `rm -rf` line cleans up the previously-named `orchestration-demo`
+skill in case it's still in the workspace from an older install. Safe
+to leave in even when there's nothing to remove.)
 
 Confirm both appear:
 
@@ -248,8 +254,7 @@ Confirm openclaw skills:
 openclaw skills list
 ```
 
-Both `discovery` and `orchestration-demo` should appear, with the
-expected requires-bins.
+Both `discovery` and `product-orchestration` should appear.
 
 Confirm gateway token is set:
 
@@ -418,10 +423,10 @@ In `vps-tui` (an ssh session into the VPS):
 openclaw tui
 ```
 
-Once the TUI is up, load the orchestration-demo skill into the
+Once the TUI is up, load the product-orchestration skill into the
 agent's context by invoking the slash command:
 
-> `/orchestration-demo`
+> `/product-orchestration`
 
 Openclaw will autocomplete the command name after the first few
 characters. The agent reads the SKILL.md file using its `read` tool
@@ -434,7 +439,7 @@ isn't in the allowlist.
 Optional sanity check the agent's context (in plain prose):
 
 > "What is the first item in the 'Hard rules' section of the
-> orchestration-demo skill? Quote it exactly."
+> product-orchestration skill? Quote it exactly."
 
 The reply should begin with _"Never generate artifacts yourself."_
 If the agent paraphrases or asks for the file contents, the body

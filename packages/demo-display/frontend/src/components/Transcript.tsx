@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import type { TranscriptEntry } from '../hooks/useEventStream.ts';
 
 type TranscriptProps = {
@@ -8,7 +10,9 @@ type TranscriptProps = {
  * Render the agent's narration transcript. Each `agent.note` becomes
  * a line; each `phase.announced` becomes a phase-transition marker
  * (visually distinct from notes). Oldest at top so the audience can
- * read the arc top-to-bottom as it unfolds.
+ * read the arc top-to-bottom as it unfolds. The list auto-scrolls
+ * to the bottom whenever entries grow so the latest activity is
+ * always in view without manual scroll-bar fiddling.
  *
  * @param props - Component props.
  * @param props.entries - Transcript entries reduced from the SSE
@@ -17,6 +21,13 @@ type TranscriptProps = {
  */
 export function Transcript(props: TranscriptProps): JSX.Element {
   const { entries } = props;
+  const listRef = useRef<HTMLOListElement | null>(null);
+  useEffect(() => {
+    const list = listRef.current;
+    if (list !== null) {
+      list.scrollTop = list.scrollHeight;
+    }
+  }, [entries.length]);
   return (
     <section className="transcript">
       <header className="transcript__header">
@@ -28,7 +39,7 @@ export function Transcript(props: TranscriptProps): JSX.Element {
       {entries.length === 0 ? (
         <div className="transcript__empty">Waiting for the agent…</div>
       ) : (
-        <ol className="transcript__list">
+        <ol className="transcript__list" ref={listRef}>
           {entries.map((entry, idx) => (
             <TranscriptLine key={`${entry.at}-${idx}`} entry={entry} />
           ))}

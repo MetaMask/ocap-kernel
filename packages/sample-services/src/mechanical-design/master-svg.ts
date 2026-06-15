@@ -145,7 +145,7 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
 
     <text x="170" y="478" text-anchor="middle" font-style="italic"
           font-size="13" fill="#dddddd" opacity="0.6">
-      the less stupid universal remote
+      the less annoying universal remote
     </text>
 
     <rect x="140" y="500" width="62" height="22" rx="4" fill="#070707" />

@@ -116,7 +116,7 @@ export const MASTER_SVG_REV2 = `<svg xmlns="http://www.w3.org/2000/svg" viewBox=
     <text x="22" y="60" text-anchor="middle" font-size="10" fill="#444">fwd 30s</text>
   </g>
 
-  <text x="352" y="620" text-anchor="middle" font-size="12" fill="#666" font-style="italic">the less stupid universal remote</text>
+  <text x="352" y="620" text-anchor="middle" font-size="12" fill="#666" font-style="italic">the less annoying universal remote</text>
 
   <rect class="ir-fill" x="320" y="100" width="62" height="14" rx="3" />
   <rect class="sk sk-thin" x="320" y="100" width="62" height="14" rx="3" />

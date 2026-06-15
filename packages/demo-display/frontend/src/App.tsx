@@ -42,7 +42,7 @@ export function App(): JSX.Element {
   return (
     <div className="app">
       <header className="app__header">
-        <h1>Orchestration demo</h1>
+        <h1>Product orchestration</h1>
         <WalletRibbon balanceUsd={walletBalanceUsd} />
       </header>
       <main className="app__main">

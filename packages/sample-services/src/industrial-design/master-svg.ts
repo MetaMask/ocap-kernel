@@ -111,7 +111,7 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
     <text x="22" y="60" text-anchor="middle" font-size="10" fill="#444">fast fwd</text>
   </g>
 
-  <text x="351" y="610" text-anchor="middle" font-size="12" fill="#666" font-style="italic">the less stupid universal remote</text>
+  <text x="351" y="610" text-anchor="middle" font-size="12" fill="#666" font-style="italic">the less annoying universal remote</text>
 
   <circle class="sk sk-thin ir-fill" cx="442" cy="94" r="2.5" />
 
