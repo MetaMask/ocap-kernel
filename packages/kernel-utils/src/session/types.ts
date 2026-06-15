@@ -140,6 +140,12 @@ export type SessionSummary = {
   cwd?: string;
   /** ISO 8601 timestamp of when the session was created. */
   startedAt?: string;
+  /**
+   * ISO 8601 timestamp of the most recent activity (max of `startedAt`,
+   * pending `queuedAt`, and history `queuedAt`/`decidedAt`). Defaults to
+   * `startedAt` when no requests have been queued.
+   */
+  lastActiveAt?: string;
 };
 
 /** User-facing representation of a pending authorization request. */

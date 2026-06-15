@@ -76,24 +76,27 @@ describe('useSessionData', () => {
     expect(result.current.sessions[0]?.requests).toHaveLength(1);
   });
 
-  it('sorts sessions by startedAt descending, undefined last', async () => {
+  it('sorts sessions by lastActiveAt descending, undefined last', async () => {
     const kernelApi = makeKernelApi();
     vi.mocked(kernelApi.listSessions).mockResolvedValue([
       {
         sessionId: 'old',
         ocapUrl: 'ocap://old',
         startedAt: '2026-06-01T15:01:00.000Z',
+        lastActiveAt: '2026-06-01T15:01:00.000Z',
       },
       { sessionId: 'no-time', ocapUrl: 'ocap://no-time' },
       {
-        sessionId: 'new',
-        ocapUrl: 'ocap://new',
-        startedAt: '2026-06-11T10:35:00.000Z',
+        sessionId: 'started-old-but-active',
+        ocapUrl: 'ocap://started-old-but-active',
+        startedAt: '2026-06-02T00:00:00.000Z',
+        lastActiveAt: '2026-06-12T09:00:00.000Z',
       },
       {
         sessionId: 'mid',
         ocapUrl: 'ocap://mid',
         startedAt: '2026-06-08T11:54:00.000Z',
+        lastActiveAt: '2026-06-08T11:54:00.000Z',
       },
     ]);
 
@@ -105,7 +108,7 @@ describe('useSessionData', () => {
 
     expect(
       result.current.sessions.map((session) => session.sessionId),
-    ).toStrictEqual(['new', 'mid', 'old', 'no-time']);
+    ).toStrictEqual(['started-old-but-active', 'mid', 'old', 'no-time']);
   });
 
   it('sets error when listSessions throws', async () => {

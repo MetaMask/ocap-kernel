@@ -323,6 +323,7 @@ async function handleSessionRequest(
           ocapUrl: session.ocapUrl,
           ...ifDefined({ cwd: session.cwd }),
           startedAt: session.startedAt,
+          lastActiveAt: session.lastActiveAt(),
         });
       }
 
@@ -333,6 +334,7 @@ async function handleSessionRequest(
             ocapUrl: sess.ocapUrl,
             ...ifDefined({ cwd: sess.cwd }),
             startedAt: sess.startedAt,
+            lastActiveAt: sess.lastActiveAt(),
           })),
         );
       }
@@ -349,6 +351,7 @@ async function handleSessionRequest(
           ocapUrl: session.ocapUrl,
           ...ifDefined({ cwd: session.cwd }),
           startedAt: session.startedAt,
+          lastActiveAt: session.lastActiveAt(),
         });
       }
 

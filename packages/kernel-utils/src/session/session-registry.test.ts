@@ -187,6 +187,31 @@ describe('makeSessionRegistry', () => {
     expect(history[0]?.queuedAt).toBe(history[0]?.decidedAt);
   });
 
+  it('lastActiveAt returns startedAt before any activity', async () => {
+    const registry = makeSessionRegistry(makeChannelBundle());
+    const session = await registry.createSession();
+    expect(session.lastActiveAt()).toBe(session.startedAt);
+  });
+
+  it('lastActiveAt advances past startedAt after a request is queued', async () => {
+    const registry = makeSessionRegistry(makeChannelBundle());
+    const session = await registry.createSession();
+    // queueRequest stamps queuedAt with `new Date().toISOString()` — a later instant.
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    session.queueRequest('Read /etc/hosts', 'needs DNS');
+    expect(session.lastActiveAt() > session.startedAt).toBe(true);
+  });
+
+  it('lastActiveAt tracks the latest decidedAt after a decision', async () => {
+    const registry = makeSessionRegistry(makeChannelBundle());
+    const session = await registry.createSession();
+    const token = session.queueRequest('Read /etc/hosts', 'needs DNS');
+    await new Promise((resolve) => setTimeout(resolve, 2));
+    session.decide(makeDecision(token, 'accept'));
+    const history = session.listHistory();
+    expect(session.lastActiveAt()).toBe(history[0]?.decidedAt);
+  });
+
   it('authorizeRequest rejects with timeout error after timeoutMs elapses', async () => {
     vi.useFakeTimers();
     try {

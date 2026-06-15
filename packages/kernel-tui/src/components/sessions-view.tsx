@@ -1,10 +1,13 @@
 import { Box, Text, useInput } from 'ink';
 import Spinner from 'ink-spinner';
 import { homedir } from 'node:os';
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
+import type { SessionWithRequests } from '../hooks/use-session-data.ts';
 import { useSessionData } from '../hooks/use-session-data.ts';
 import type { KernelApi, SessionSummary } from '../types.ts';
+import type { Bucket, BucketedSessions } from './session-buckets.ts';
+import { bucketSessions } from './session-buckets.ts';
 import {
   formatExpandedContent,
   parseDescription,
@@ -14,6 +17,29 @@ import {
 type SessionsViewProps = {
   kernelApi: KernelApi;
 };
+
+const BUCKET_ORDER: Bucket[] = ['recent', 'oldish', 'archived'];
+
+const BUCKET_LABEL: Record<Bucket, string> = {
+  recent: 'Recent',
+  oldish: 'Earlier this week',
+  archived: 'Archived',
+};
+
+type CollapseState = Record<Bucket, boolean>;
+
+type VisibleItem =
+  | {
+      kind: 'header';
+      bucket: Bucket;
+      count: number;
+      collapsed: boolean;
+    }
+  | {
+      kind: 'session';
+      bucket: Bucket;
+      session: SessionWithRequests;
+    };
 
 /**
  * Tildefy an absolute path by replacing the home directory prefix with `~`.
@@ -62,13 +88,64 @@ function sessionMetaSuffix(session: SessionSummary): string {
 }
 
 /**
- * View showing all sessions and their pending authorization requests.
+ * Compute initial collapse state for a freshly bucketed list.
  *
- * Top-level navigation: ↑/↓ between sessions, → to drill into a session.
- * Session detail navigation: ↑/↓ between timeline entries, → expand, ← collapse/back.
+ * - `recent` is always expanded.
+ * - `oldish` is collapsed when `recent` has two or more sessions.
+ * - `archived` is always initially collapsed.
  *
- * Data fetching is delegated to {@link useSessionData}; this component owns
- * only the cursor position.
+ * @param buckets - The bucketed sessions.
+ * @returns Initial collapse state.
+ */
+function initialCollapseState(buckets: BucketedSessions): CollapseState {
+  return {
+    recent: false,
+    oldish: buckets.recent.length >= 2,
+    archived: true,
+  };
+}
+
+/**
+ * Flatten buckets into the linear list of items the cursor can land on,
+ * honouring the collapse state.
+ *
+ * @param buckets - The bucketed sessions.
+ * @param collapsed - Collapse state per bucket.
+ * @returns Ordered list of visible items.
+ */
+function visibleItemsFromBuckets(
+  buckets: BucketedSessions,
+  collapsed: CollapseState,
+): VisibleItem[] {
+  const items: VisibleItem[] = [];
+  for (const bucket of BUCKET_ORDER) {
+    const sessions = buckets[bucket];
+    if (sessions.length === 0) {
+      continue;
+    }
+    const isCollapsed = collapsed[bucket];
+    items.push({
+      kind: 'header',
+      bucket,
+      count: sessions.length,
+      collapsed: isCollapsed,
+    });
+    if (!isCollapsed) {
+      for (const session of sessions) {
+        items.push({ kind: 'session', bucket, session });
+      }
+    }
+  }
+  return items;
+}
+
+/**
+ * View showing all sessions and their pending authorization requests, grouped
+ * into recency buckets.
+ *
+ * Top-level navigation: ↑/↓ between items (headers and sessions), → opens
+ * detail on a session or expands a collapsed header, ← collapses an expanded
+ * header, Enter/Space toggles a header.
  *
  * @param props - Component props.
  * @param props.kernelApi - Kernel API for session operations.
@@ -80,6 +157,8 @@ export function SessionsView({
   const [cursor, setCursor] = useState(0);
   const [deciding, setDeciding] = useState(false);
   const [decideError, setDecideError] = useState<string | null>(null);
+  const [collapsed, setCollapsed] = useState<CollapseState | null>(null);
+
   const {
     sessions,
     loading,
@@ -92,30 +171,95 @@ export function SessionsView({
     onDecided,
   } = useSessionData(kernelApi);
 
+  const buckets = useMemo<BucketedSessions>(
+    () => bucketSessions(sessions, new Date()),
+    [sessions],
+  );
+
+  // Initialise collapse state once the first non-empty list arrives.
+  useEffect(() => {
+    if (collapsed !== null) {
+      return;
+    }
+    if (sessions.length === 0) {
+      return;
+    }
+    setCollapsed(initialCollapseState(buckets));
+  }, [collapsed, sessions.length, buckets]);
+
+  const effectiveCollapsed: CollapseState =
+    collapsed ?? initialCollapseState(buckets);
+
+  const items = useMemo(
+    () => visibleItemsFromBuckets(buckets, effectiveCollapsed),
+    [buckets, effectiveCollapsed],
+  );
+
+  // Keep cursor in range as items shift between polls.
+  useEffect(() => {
+    if (cursor > items.length - 1) {
+      setCursor(Math.max(0, items.length - 1));
+    }
+  }, [cursor, items.length]);
+
   useInput((input, key) => {
     if (detailSession !== null) {
       return;
     }
+    const current = items[cursor];
+
     if (key.upArrow) {
       setCursor((prev) => Math.max(0, prev - 1));
-    } else if (key.downArrow) {
-      setCursor((prev) => Math.min(sessions.length - 1, prev + 1));
-    } else if (key.rightArrow) {
-      const focused = sessions[cursor];
-      if (focused !== undefined) {
-        openDetail(focused);
+      return;
+    }
+    if (key.downArrow) {
+      setCursor((prev) => Math.min(items.length - 1, prev + 1));
+      return;
+    }
+
+    if (current === undefined) {
+      return;
+    }
+
+    if (current.kind === 'header') {
+      // Right arrow expands a collapsed header; left arrow collapses an
+      // expanded one. Enter/Space always toggle.
+      let wantCollapsed: boolean | null = null;
+      if (key.rightArrow) {
+        wantCollapsed = false;
+      } else if (key.leftArrow) {
+        wantCollapsed = true;
+      } else if (key.return || input === ' ') {
+        wantCollapsed = !current.collapsed;
       }
-    } else if ((input === '1' || input === '3') && !deciding) {
-      const session = sessions[cursor];
-      const oldest = session?.requests[0];
-      if (session === undefined || oldest === undefined) {
+      if (wantCollapsed !== null) {
+        const target = wantCollapsed;
+        setCollapsed((prev) => {
+          const base = prev ?? initialCollapseState(buckets);
+          if (base[current.bucket] === target) {
+            return base;
+          }
+          return { ...base, [current.bucket]: target };
+        });
+      }
+      return;
+    }
+
+    // current.kind === 'session'
+    if (key.rightArrow) {
+      openDetail(current.session);
+      return;
+    }
+    if ((input === '1' || input === '3') && !deciding) {
+      const oldest = current.session.requests[0];
+      if (oldest === undefined) {
         return;
       }
       const verdict = input === '1' ? 'accept' : 'reject';
       setDecideError(null);
       setDeciding(true);
       kernelApi
-        .decide(session.sessionId, oldest.token, verdict)
+        .decide(current.session.sessionId, oldest.token, verdict)
         .then(() => {
           onDecided();
           return undefined;
@@ -126,7 +270,9 @@ export function SessionsView({
         .finally(() => {
           setDeciding(false);
         });
-    } else if (input === 'R') {
+      return;
+    }
+    if (input === 'R') {
       refresh();
     }
   });
@@ -188,8 +334,23 @@ export function SessionsView({
         </Text>
       )}
       {decideError !== null && <Text color="red">{decideError}</Text>}
-      {sessions.map((session, idx) => {
+      {items.map((item, idx) => {
         const isFocused = idx === cursor;
+        if (item.kind === 'header') {
+          const arrow = item.collapsed ? '▸' : '▾';
+          return (
+            <Box key={`header-${item.bucket}`} marginTop={1} gap={1}>
+              <Text>{isFocused ? '►' : ' '}</Text>
+              <Text bold>{arrow}</Text>
+              <Text bold>{BUCKET_LABEL[item.bucket]}</Text>
+              <Text dimColor>
+                ({item.count} session{item.count === 1 ? '' : 's'})
+              </Text>
+            </Box>
+          );
+        }
+
+        const { session } = item;
         const pendingCount = session.requests.length;
         const metaSuffix = sessionMetaSuffix(session);
         const oldest = session.requests[0];
@@ -225,7 +386,7 @@ export function SessionsView({
         }
 
         return (
-          <Box key={session.sessionId} flexDirection="column" marginTop={1}>
+          <Box key={session.sessionId} flexDirection="column" paddingLeft={2}>
             <Box gap={1}>
               <Text>{isFocused ? '►' : ' '}</Text>
               <Text bold color="cyan">

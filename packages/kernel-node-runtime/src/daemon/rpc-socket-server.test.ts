@@ -60,10 +60,12 @@ async function sendRequest(
 }
 
 function makeTestSession(overrides: Partial<Session> = {}): Session {
+  const startedAt = overrides.startedAt ?? '2026-01-01T00:00:00.000Z';
   return {
     sessionId: 'alice',
     ocapUrl: 'ocap://test-url',
-    startedAt: '2026-01-01T00:00:00.000Z',
+    startedAt,
+    lastActiveAt: vi.fn().mockReturnValue(startedAt),
     listPending: vi.fn().mockReturnValue([]),
     listHistory: vi.fn().mockReturnValue([]),
     decide: vi.fn(),
@@ -138,7 +140,7 @@ describe('startRpcSocketServer — session.* methods', () => {
     vi.clearAllMocks();
   });
 
-  it('session.create response includes sessionId, ocapUrl, startedAt', async () => {
+  it('session.create response includes sessionId, ocapUrl, startedAt, lastActiveAt', async () => {
     const { startRpcSocketServer } = await import('./rpc-socket-server.ts');
     const socketPath = makeSocketPath();
     const registry = makeTestRegistry();
@@ -157,6 +159,7 @@ describe('startRpcSocketServer — session.* methods', () => {
       sessionId: 'alice',
       ocapUrl: 'ocap://alice',
       startedAt: '2026-01-01T00:00:00.000Z',
+      lastActiveAt: '2026-01-01T00:00:00.000Z',
     });
   });
 
@@ -182,6 +185,7 @@ describe('startRpcSocketServer — session.* methods', () => {
       ocapUrl: 'ocap://alice',
       cwd: '/home/user',
       startedAt: '2026-01-01T00:00:00.000Z',
+      lastActiveAt: '2026-01-01T00:00:00.000Z',
     });
   });
 
@@ -203,13 +207,14 @@ describe('startRpcSocketServer — session.* methods', () => {
     expect(response.result).not.toHaveProperty('cwd');
   });
 
-  it('session.list returns sessions with sessionId, ocapUrl, startedAt', async () => {
+  it('session.list returns sessions with sessionId, ocapUrl, startedAt, lastActiveAt', async () => {
     const { startRpcSocketServer } = await import('./rpc-socket-server.ts');
     const socketPath = makeSocketPath();
     const existing = makeTestSession({
       sessionId: 'alice',
       ocapUrl: 'ocap://alice',
       startedAt: '2026-01-01T00:00:00.000Z',
+      lastActiveAt: vi.fn().mockReturnValue('2026-01-02T00:00:00.000Z'),
     });
     const registry = makeTestRegistry([existing]);
 
@@ -228,11 +233,12 @@ describe('startRpcSocketServer — session.* methods', () => {
         sessionId: 'alice',
         ocapUrl: 'ocap://alice',
         startedAt: '2026-01-01T00:00:00.000Z',
+        lastActiveAt: '2026-01-02T00:00:00.000Z',
       },
     ]);
   });
 
-  it('session.get returns session with sessionId, ocapUrl, startedAt', async () => {
+  it('session.get returns session with sessionId, ocapUrl, startedAt, lastActiveAt', async () => {
     const { startRpcSocketServer } = await import('./rpc-socket-server.ts');
     const socketPath = makeSocketPath();
     const existing = makeTestSession({
@@ -258,6 +264,7 @@ describe('startRpcSocketServer — session.* methods', () => {
       sessionId: 'alice',
       ocapUrl: 'ocap://alice',
       startedAt: '2026-01-01T00:00:00.000Z',
+      lastActiveAt: '2026-01-01T00:00:00.000Z',
     });
   });
 

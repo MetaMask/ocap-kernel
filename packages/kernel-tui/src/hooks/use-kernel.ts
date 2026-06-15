@@ -129,6 +129,7 @@ export function makeDaemonKernelApi(
           ocapUrl: string;
           cwd?: string;
           startedAt?: string;
+          lastActiveAt?: string;
         }[]
       >('session.list');
     },

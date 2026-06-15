@@ -24,6 +24,11 @@ export type Session = {
   ocapUrl: string;
   cwd?: string;
   startedAt: string;
+  /**
+   * Latest activity timestamp on this session: the maximum of `startedAt` and
+   * any request `queuedAt`/`decidedAt`. Always defined.
+   */
+  lastActiveAt(): string;
   listPending(): SectionNotification[];
   listHistory(): SessionHistoryEntry[];
   decide(decision: Decision): void;
@@ -103,6 +108,14 @@ function makeSession(
     ocapUrl,
     ...ifDefined({ cwd }),
     startedAt,
+
+    lastActiveAt(): string {
+      const channelLast = channel.lastActiveAt();
+      if (channelLast === undefined || channelLast < startedAt) {
+        return startedAt;
+      }
+      return channelLast;
+    },
 
     listPending(): SectionNotification[] {
       return channel.listPending();

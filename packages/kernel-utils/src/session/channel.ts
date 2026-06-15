@@ -58,6 +58,15 @@ export type Channel = {
   listAll(): SessionHistoryEntry[];
 
   /**
+   * Return the latest activity timestamp on this channel — the maximum of all
+   * pending `queuedAt` and history `queuedAt`/`decidedAt` values. Returns
+   * undefined if no requests have ever been queued.
+   *
+   * @returns ISO 8601 timestamp of the most recent activity, or undefined.
+   */
+  lastActiveAt(): string | undefined;
+
+  /**
    * Resolve or reject the pending promise for the given token, as if a
    * subscriber had submitted the decision. No-op if the token is unknown.
    *
@@ -223,6 +232,23 @@ export function makeChannel(): Channel {
 
     decide(decision: Decision): void {
       routeDecision(decision);
+    },
+
+    lastActiveAt(): string | undefined {
+      let latest: string | undefined;
+      const consider = (stamp: string): void => {
+        if (latest === undefined || stamp > latest) {
+          latest = stamp;
+        }
+      };
+      for (const entry of pending.values()) {
+        consider(entry.queuedAt);
+      }
+      for (const entry of history) {
+        consider(entry.queuedAt);
+        consider(entry.decidedAt);
+      }
+      return latest;
     },
 
     record(notification: SectionNotification, provisions?: Provision[]): void {
