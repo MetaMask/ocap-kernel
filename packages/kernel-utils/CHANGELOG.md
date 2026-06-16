@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add a `./described` export with a combinator namespace `S` (`S.string`/`S.number`/`S.boolean`/`S.arrayOf`/`S.record`/`S.object`/`S.nothing` leaves, plus `S.arg`/`S.method`/`S.interface`) that authors an `@endo/patterns` interface guard and a matching `MethodSchema` from a single source, so a discoverable exo's enforced shape and its `__getDescription__` hint cannot drift ([#958](https://github.com/MetaMask/ocap-kernel/pull/958))
 - Add `getLibp2pRelayHome()` to the `./nodejs` exports, returning the libp2p relay's bookkeeping directory (default `~/.libp2p-relay`, overridable via `$LIBP2P_RELAY_HOME`) — kept separate from `$OCAP_HOME` so one relay can serve daemons with different OCAP_HOMEs ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 - `startRelay()` accepts an optional `publicIp` that is fed to libp2p's `appendAnnounce`, so a relay running on a NAT-backed host can announce its publicly-reachable IPv4 alongside its bound NIC addresses ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 
