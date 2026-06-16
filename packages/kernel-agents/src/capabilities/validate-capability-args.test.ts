@@ -10,8 +10,12 @@ describe('validateCapabilityArgs', () => {
         {
           description: 'add',
           args: {
-            a: { type: 'number' },
-            b: { type: 'number' },
+            type: 'object',
+            properties: {
+              a: { type: 'number' },
+              b: { type: 'number' },
+            },
+            required: ['a', 'b'],
           },
         },
       ),
@@ -25,12 +29,16 @@ describe('validateCapabilityArgs', () => {
         {
           description: 'add',
           args: {
-            a: { type: 'number' },
-            b: { type: 'number' },
+            type: 'object',
+            properties: {
+              a: { type: 'number' },
+              b: { type: 'number' },
+            },
+            required: ['a', 'b'],
           },
         },
       ),
-    ).toThrow(/At path: b -- Expected a number/u);
+    ).toThrow(/Missing required property "b"/u);
   });
 
   it('throws when a value does not match the schema', () => {
@@ -39,7 +47,10 @@ describe('validateCapabilityArgs', () => {
         { a: 'not-a-number' },
         {
           description: 'x',
-          args: { a: { type: 'number' } },
+          args: {
+            type: 'object',
+            properties: { a: { type: 'number' } },
+          },
         },
       ),
     ).toThrow(/Expected a number/u);
@@ -51,7 +62,7 @@ describe('validateCapabilityArgs', () => {
         { extra: 1 },
         {
           description: 'ping',
-          args: {},
+          args: { type: 'object', properties: {} },
         },
       ),
     ).not.toThrow();

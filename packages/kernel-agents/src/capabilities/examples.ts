@@ -15,7 +15,13 @@ export const search = capability(
   ],
   {
     description: 'Search the web for information.',
-    args: { query: { type: 'string', description: 'The query to search for' } },
+    args: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'The query to search for' },
+      },
+      required: ['query'],
+    },
     returns: {
       type: 'array',
       items: {
@@ -56,7 +62,7 @@ export const getMoonPhase = capability(
     moonPhases[Math.floor(Math.random() * moonPhases.length)] as MoonPhase,
   {
     description: 'Get the current phase of the moon.',
-    args: {},
+    args: { type: 'object', properties: {} },
     returns: {
       type: 'string',
       // TODO: Add enum support to the capability schema

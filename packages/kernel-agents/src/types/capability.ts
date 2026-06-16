@@ -4,9 +4,23 @@ export type Capability<Args extends Record<string, unknown>, Return = null> = (
   args: Args,
 ) => Promise<Return>;
 
+/**
+ * The schema for a capability's arguments: a standard object JSON Schema whose
+ * `properties` are keyed by argument name. `required` lists the mandatory
+ * arguments (object-level, per JSON Schema); when omitted, all arguments are
+ * treated as required.
+ */
+export type CapabilityArgsSchema<ArgNames extends string> = {
+  type: 'object';
+  description?: string;
+  properties: Record<ArgNames, JsonSchema>;
+  required?: string[];
+  additionalProperties?: boolean;
+};
+
 export type CapabilitySchema<ArgNames extends string> = {
   description: string;
-  args: Record<ArgNames, JsonSchema>;
+  args: CapabilityArgsSchema<ArgNames>;
   returns?: JsonSchema;
 };
 

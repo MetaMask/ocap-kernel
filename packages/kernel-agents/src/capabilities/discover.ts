@@ -42,7 +42,19 @@ export const discover = async (
         return E(exo)[name](...positionalArgs);
       };
 
-      return [name, { func, schema }] as [
+      // The exo's `MethodSchema` describes its args as a flat name->schema map;
+      // wrap it into the standard object JSON Schema a capability schema expects.
+      const capabilitySchema = {
+        description: schema.description,
+        args: {
+          type: 'object' as const,
+          properties: schema.args,
+          required: argNames,
+        },
+        returns: schema.returns,
+      };
+
+      return [name, { func, schema: capabilitySchema }] as unknown as [
         string,
         CapabilitySpec<never, unknown>,
       ];

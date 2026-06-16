@@ -66,8 +66,12 @@ describe('makeChatAgent', () => {
     const addCap = capability(add, {
       description: 'Add two numbers',
       args: {
-        a: { type: 'number' },
-        b: { type: 'number' },
+        type: 'object',
+        properties: {
+          a: { type: 'number' },
+          b: { type: 'number' },
+        },
+        required: ['a', 'b'],
       },
       returns: { type: 'number' },
     });
@@ -94,7 +98,7 @@ describe('makeChatAgent', () => {
     const recorded: ChatMessage[][] = [];
     const ping = capability(async () => 'pong', {
       description: 'Ping',
-      args: {},
+      args: { type: 'object', properties: {} },
       returns: { type: 'string' },
     });
 
@@ -154,7 +158,7 @@ describe('makeChatAgent', () => {
   it('throws when invocation budget is exceeded', async () => {
     const ping = capability(async () => 'pong', {
       description: 'Ping',
-      args: {},
+      args: { type: 'object', properties: {} },
     });
     const chat: BoundChat = async () =>
       makeToolCallResponse('0', [makeToolCall('c1', 'ping', {})]);
@@ -179,7 +183,7 @@ describe('makeChatAgent', () => {
     const recordedTools: unknown[] = [];
     const ping = capability(async () => 'pong', {
       description: 'Ping the server',
-      args: {},
+      args: { type: 'object', properties: {} },
       returns: { type: 'string' },
     });
 

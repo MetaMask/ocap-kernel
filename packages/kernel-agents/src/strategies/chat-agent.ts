@@ -78,8 +78,8 @@ function buildTools(capabilities: CapabilityRecord): Tool[] {
       description: schema.description,
       parameters: {
         type: 'object' as const,
-        properties: schema.args,
-        required: Object.keys(schema.args),
+        properties: schema.args.properties,
+        required: schema.args.required ?? Object.keys(schema.args.properties),
       },
     },
   }));

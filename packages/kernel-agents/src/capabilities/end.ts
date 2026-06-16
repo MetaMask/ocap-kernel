@@ -26,17 +26,21 @@ export const makeEnd = <Result>() => {
     {
       description: 'Return a final response to the user.',
       args: {
-        final: {
-          required: true,
-          type: 'string',
-          description:
-            'A concise final response that restates the requested information.',
+        type: 'object',
+        properties: {
+          final: {
+            type: 'string',
+            description:
+              'A concise final response that restates the requested information.',
+          },
+          attachments: {
+            type: 'object',
+            properties: {},
+            additionalProperties: true,
+            description: 'Attachments to the final response.',
+          },
         },
-        attachments: {
-          required: false,
-          type: 'object',
-          description: 'Attachments to the final response.',
-        },
+        required: ['final'],
       },
     },
   );

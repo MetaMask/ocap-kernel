@@ -1,7 +1,7 @@
 import { EvaluatorError } from '@metamask/kernel-errors';
 import { mergeDisjointRecords } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
-import { extractCapabilities } from '@ocap/kernel-agents/capabilities/capability';
+import { extractValidatedCapabilities } from '@ocap/kernel-agents/capabilities/capability';
 import type { CapabilityRecord } from '@ocap/kernel-agents/types';
 import { ifDefined } from '@ocap/kernel-agents/utils';
 
@@ -85,7 +85,7 @@ export const makeEvaluator = ({
     // Prepare the compartment.
     const compartmentEndowments = mergeDisjointRecords(
       endowments,
-      extractCapabilities(capabilities),
+      extractValidatedCapabilities(capabilities),
     );
     const compartment = makeCompartment(compartmentEndowments);
 

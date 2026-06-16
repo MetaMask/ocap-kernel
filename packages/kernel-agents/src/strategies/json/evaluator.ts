@@ -2,6 +2,7 @@ import type { Logger } from '@metamask/logger';
 
 import { CapabilityResultMessage } from './messages.ts';
 import type { AssistantMessage, Transcript } from './messages.ts';
+import { validateCapabilityArgs } from '../../capabilities/validate-capability-args.ts';
 import type { CapabilityRecord } from '../../types.ts';
 
 export const makeEvaluator =
@@ -37,6 +38,10 @@ export const makeEvaluator =
           if (!toInvoke) {
             throw new Error(`Invoked capability ${name} not found`);
           }
+          validateCapabilityArgs(
+            args as Record<string, unknown>,
+            toInvoke.schema,
+          );
           return await toInvoke.func(args as never);
         })(),
       })),

@@ -5,7 +5,14 @@ export const count = capability(
   {
     description: 'Count the number of characters in an arbitrary string',
     args: {
-      word: { type: 'string', description: 'The string to get the length of.' },
+      type: 'object',
+      properties: {
+        word: {
+          type: 'string',
+          description: 'The string to get the length of.',
+        },
+      },
+      required: ['word'],
     },
     returns: {
       type: 'number',
@@ -19,7 +26,11 @@ export const add = capability(
     summands.reduce((acc, summand) => acc + summand, 0),
   {
     description: 'Add a list of numbers.',
-    args: { summands: { type: 'array', items: { type: 'number' } } },
+    args: {
+      type: 'object',
+      properties: { summands: { type: 'array', items: { type: 'number' } } },
+      required: ['summands'],
+    },
     returns: { type: 'number', description: 'The sum of the numbers.' },
   },
 );
@@ -30,11 +41,15 @@ export const multiply = capability(
   {
     description: 'Multiply a list of numbers.',
     args: {
-      factors: {
-        type: 'array',
-        description: 'The list of numbers to multiply.',
-        items: { type: 'number' },
+      type: 'object',
+      properties: {
+        factors: {
+          type: 'array',
+          description: 'The list of numbers to multiply.',
+          items: { type: 'number' },
+        },
       },
+      required: ['factors'],
     },
     returns: { type: 'number', description: 'The product of the factors.' },
   },

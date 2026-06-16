@@ -1,3 +1,4 @@
+import { validateCapabilityArgs } from './validate-capability-args.ts';
 import type { ExtractRecordKeys } from '../types/capability.ts';
 import type {
   CapabilityRecord,
@@ -54,4 +55,42 @@ export const extractCapabilities = (
     (Object.entries(capabilities) as unknown as CapabilityEntry[]).map(
       ([name, { func }]) => [name, func],
     ),
+  );
+
+/**
+ * Extract the capability functions, each wrapped so its arguments are validated
+ * against the capability's schema before the underlying function is invoked.
+ *
+ * This gives code-executing strategies (e.g. the REPL) the same runtime
+ * argument contract that the JSON and chat strategies enforce, turning the
+ * schema from a prompt-only artifact into an invocation-time check.
+ *
+ * @param capabilities - The capabilities to extract validated functions from
+ * @returns A record mapping capability names to validating functions
+ */
+export const extractValidatedCapabilities = (
+  capabilities: CapabilityRecord,
+): Record<
+  keyof typeof capabilities,
+  (typeof capabilities)[keyof typeof capabilities]['func']
+> =>
+  Object.fromEntries(
+    (
+      Object.entries(capabilities) as unknown as [
+        string,
+        CapabilitySpec<never, unknown>,
+      ][]
+    ).map(([name, { func, schema }]) => [
+      name,
+      // Deliberately synchronous (not `async`): validation must throw at the
+      // call site so a code-executing caller's try/catch sees it, rather than
+      // surfacing as an unhandled promise rejection.
+      // eslint-disable-next-line @typescript-eslint/promise-function-async
+      (args: never) => {
+        // A code-executing caller may invoke a no-arg capability as `cap()`,
+        // so coerce a missing args object to `{}` for validation purposes.
+        validateCapabilityArgs((args ?? {}) as Record<string, unknown>, schema);
+        return func(args);
+      },
+    ]),
   );

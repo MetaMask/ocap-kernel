@@ -143,7 +143,10 @@ describe('evaluator', () => {
         capabilities: {
           testCap: {
             func: mockCap,
-            schema: { description: 'Test capability', args: {} },
+            schema: {
+              description: 'Test capability',
+              args: { type: 'object', properties: {} },
+            },
           },
         },
       });
@@ -160,11 +163,17 @@ describe('evaluator', () => {
         capabilities: {
           cap1: {
             func: cap1,
-            schema: { description: 'Capability 1', args: {} },
+            schema: {
+              description: 'Capability 1',
+              args: { type: 'object', properties: {} },
+            },
           },
           cap2: {
             func: cap2,
-            schema: { description: 'Capability 2', args: {} },
+            schema: {
+              description: 'Capability 2',
+              args: { type: 'object', properties: {} },
+            },
           },
         },
       });
@@ -175,6 +184,33 @@ describe('evaluator', () => {
       );
       expect(cap1).toHaveBeenCalled();
       expect(cap2).toHaveBeenCalled();
+    });
+
+    it('validates capability args against the schema before invoking', async () => {
+      const addCap = vi.fn();
+      const evaluatorWithCap = makeEvaluator({
+        initState: () => state,
+        capabilities: {
+          add: {
+            func: addCap,
+            schema: {
+              description: 'add',
+              args: {
+                type: 'object',
+                properties: { a: { type: 'number' }, b: { type: 'number' } },
+                required: ['a', 'b'],
+              },
+            },
+          },
+        },
+      });
+      const history: ReplTranscript = [];
+      const result = await evaluatorWithCap(
+        history,
+        StatementMessage.fromCode('add({ a: "nope", b: 2 });'),
+      );
+      expect(addCap).not.toHaveBeenCalled();
+      expect(result?.messageBody.error).toMatch(/Expected a number/u);
     });
   });
 });
