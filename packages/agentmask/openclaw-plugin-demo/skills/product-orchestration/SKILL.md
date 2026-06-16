@@ -91,16 +91,37 @@ ambiguous, pick a reasonable default and proceed.
 
 ## Phase sequence
 
-The pipeline has seven canonical phases, in this fixed order:
+The pipeline has eight canonical phases, in this fixed order:
 
 ```
-Industrial Design → Mechanical Design → Electronics → Firmware
-                  → Procurement → Manufacturing → Sales
+Concept → Industrial Design → Mechanical Design → Electronics
+        → Firmware → Procurement → Manufacturing → Sales
 ```
 
-Per-phase intent and expected provider category (the matcher decides
-which specific provider answers each query):
+These eight names are the **only** phase names you may use when
+calling `demo_announce({ phaseTransition: ... })` or
+`demo_record_artifact({ phase: ... })`. Do not invent additional
+phase names ("Concept Refinement", "Prototype", "Polish", etc.) and
+do not vary capitalization or spelling. The dashboard's workflow
+board renders columns named exactly what you announce — any deviation
+produces an extra column in the wrong position and confuses the
+audience.
 
+**Revisions stay in the original phase.** When the inventor asks for
+a revision of an artifact (e.g. a second pass at the industrial-
+design sketch), do not announce a new phase. Stay in the same phase,
+record the revised artifact with the same `phase` value as the
+original, and continue. You only move to the next phase when the
+current phase's artifacts are accepted and the inventor confirms.
+
+Per-phase intent:
+
+- **Concept** — the inventor's product concept, distilled. **No
+  service**: you write a 1-2 paragraph markdown summary of the
+  product idea (synthesizing the pitch and the answers to the five
+  onboarding questions) and record it via `demo_record_artifact`
+  with `phase: "Concept"`. Then announce the next phase. Skip the
+  `discovery_find_services` call for this phase only.
 - **Industrial Design** — concept sketch of the product's outward
   form factor, control layout, and feature labels.
 - **Mechanical Design** — 3D render or model of the case geometry,
@@ -114,11 +135,6 @@ which specific provider answers each query):
 - **Manufacturing** — build plan and (for prototypes) a small
   sample run.
 - **Sales** — pricing, positioning, and distribution plan.
-
-Use exactly these phase names when calling
-`demo_announce({ phaseTransition: ... })`. The dashboard renders
-columns named exactly what you announce — different spellings or
-capitalizations produce duplicate columns and confuse the audience.
 
 When the matcher returns no provider for a phase, narrate the gap
 to both the inventor and the audience, and stop the pipeline
@@ -148,15 +164,29 @@ output yourself.
    service quoted; the wallet ribbon on the dashboard updates as
    a result, so the audience can see money actually moving.
 
-5. **For each phase** (in the order listed under "Phase sequence"):
+5. **Concept phase** (special — no service):
 
-   a. Write a short markdown brief for the service describing what
+   a. `demo_announce({ phaseTransition: "Concept" })`.
+   b. Write a 1-2 paragraph markdown brief of the product concept,
+   synthesizing the pitch and the inventor's answers to the five
+   onboarding questions. Record it via
+   `demo_record_artifact({ kind: "markdown", data: "...",
+fromService: "producer", phase: "Concept",
+title: "Product concept" })`.
+   c. `demo_announce({ note: "Concept locked in." })`.
+   d. Move directly to the next phase. Skip
+   `discovery_find_services` for this phase only.
+
+6. **For each subsequent phase** (Industrial Design through Sales,
+   in the order listed under "Phase sequence"):
+
+   a. `demo_announce({ phaseTransition: "<phase name>" })`.
+   b. Write a short markdown brief for the service describing what
    you want produced and the inputs you're handing over. Record
    the brief as an artifact via `demo_record_artifact({ kind:
 "markdown", data: "...", fromService: "producer", phase:
 "<phase name>", title: "<phase> brief" })` — this is the
    audience-visible record that you handed something forward.
-   b. `demo_announce({ phaseTransition: "<phase name>" })`.
    c. `demo_announce({ note: "..." })` — one-line audience version.
    d. `discovery_find_services` with a natural-language description
    of the concrete next step.
@@ -168,7 +198,7 @@ output yourself.
    — never guess.
    g. When a service returns an artifact, immediately call
    `demo_record_artifact` to register it (with the same `phase`
-   value as in step 5a). The handle (e.g. `artifact-7`) is what
+   value as in step 6a). The handle (e.g. `artifact-7`) is what
    subsequent service calls reference, not the raw payload.
    h. `demo_announce({ note: "..." })` — one-line ack of the result.
    i. **Always offer the inventor a chance to revise the artifact
@@ -176,19 +206,21 @@ output yourself.
    change before I move to <next phase>?" Wait for an answer. If
    the inventor wants a revision, hand the revision notes back to
    the same service (the price typically covers a few revisions —
-   the service's description states the policy). Only proceed to
-   the next phase when the inventor confirms.
+   the service's description states the policy). **Record the
+   revised artifact with the same `phase` value as the original;
+   do not announce a new phase.** Only proceed to the next phase
+   when the inventor confirms.
 
-6. **Hand artifacts forward.** When a downstream service needs an
+7. **Hand artifacts forward.** When a downstream service needs an
    earlier artifact, pass the handle (not the raw data). The
    receiving service stub resolves handles internally.
 
-7. **Budget gating.** Before committing to a large-spend phase
+8. **Budget gating.** Before committing to a large-spend phase
    (tooling, manufacturing), compare the wallet balance to the
    quoted cost. If the next step won't fit, tell the inventor
    about the shortfall _first_ and only proceed after they confirm.
 
-8. **Failure handling.** If a `service_call` returns an error or
+9. **Failure handling.** If a `service_call` returns an error or
    a result that looks templated or wrong, do not retry the same
    provider, and do not generate a replacement artifact yourself
    (see hard rules). Tell the inventor briefly, re-query the
@@ -198,13 +230,13 @@ output yourself.
    the demo, and any "I'll just do it myself" recovery destroys
    the conceit.
 
-9. **End of pipeline.** When the matcher returns no service for
-   the next phase you'd want, tell the inventor cleanly that the
-   pipeline ends here from the matcher's perspective. Don't
-   improvise. Don't fabricate a BOM, a manufacturing plan, a sales
-   strategy, or any other phase's content "since we have enough
-   info already" — that is the failure mode this rule exists to
-   prevent.
+10. **End of pipeline.** When the matcher returns no service for
+    the next phase you'd want, tell the inventor cleanly that the
+    pipeline ends here from the matcher's perspective. Don't
+    improvise. Don't fabricate a BOM, a manufacturing plan, a
+    sales strategy, or any other phase's content "since we have
+    enough info already" — that is the failure mode this rule
+    exists to prevent.
 
 ## When to consult the inventor (vs. just decide)
 

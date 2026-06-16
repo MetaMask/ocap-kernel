@@ -32,20 +32,29 @@ type Colorway = {
   deepShadow: string;
 };
 
-const COLORWAYS: readonly Colorway[] = [
+/**
+ * Locked to soft white per inventor feedback — the lighter case
+ * reads better than the matte-black default and pairs with the
+ * medium-grey controls hardcoded in the master SVG. Other colorways
+ * stay in the array (unused) as a record of alternatives in case we
+ * want to randomize again later.
+ */
+const COLORWAY: Colorway = {
+  name: 'soft white',
+  highlight: '#f8f6f1',
+  main: '#ecebe5',
+  shadow: '#c4c2bc',
+  deepShadow: '#9c9a93',
+};
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for record of alternative colorways
+const ALTERNATE_COLORWAYS: readonly Colorway[] = [
   {
     name: 'matte black',
     highlight: '#2a2a2a',
     main: '#1d1d1d',
     shadow: '#0a0a0a',
     deepShadow: '#000000',
-  },
-  {
-    name: 'soft white',
-    highlight: '#f8f6f1',
-    main: '#ecebe5',
-    shadow: '#c4c2bc',
-    deepShadow: '#9c9a93',
   },
   {
     name: 'smoke grey',
@@ -89,15 +98,14 @@ export type TemplateInputs = {
  * @returns The rendered SVG as a string.
  */
 export function renderMechanicalHero(inputs: TemplateInputs): string {
-  const colorway = pickOne(COLORWAYS);
   const tokens: Record<string, string> = {
     revLabel: `${pickOne(REV_LETTERS)}${pickOne(REV_DIGITS)}`,
     providerLabel: inputs.providerLabel,
-    colorwayName: colorway.name,
-    caseColorHighlight: colorway.highlight,
-    caseColorMain: colorway.main,
-    caseColorShadow: colorway.shadow,
-    caseColorDeepShadow: colorway.deepShadow,
+    colorwayName: COLORWAY.name,
+    caseColorHighlight: COLORWAY.highlight,
+    caseColorMain: COLORWAY.main,
+    caseColorShadow: COLORWAY.shadow,
+    caseColorDeepShadow: COLORWAY.deepShadow,
   };
   return MASTER_SVG.replace(/\{\{(\w+)\}\}/gu, (match, name: string) =>
     name in tokens ? (tokens[name] as string) : match,
