@@ -2,11 +2,11 @@
  * Master SVG for the mechanical-design hero render. Token markers
  * (`{{...}}`) are filled in by `template.ts` on each generate() call.
  *
- * Geometry mirrors the LAUR rev-2 industrial-design sketch:
- * hand-shaped body widest through the upper-middle, d-pad on the
- * right at the rocker level (replacing the rev-1 channel rocker),
- * IR transmitter strip on the top edge, transport row with
- * back-6s / play-pause / fwd-30s.
+ * Body outline is the LAUR rev-2 industrial-design bezier scaled and
+ * translated into the mech-design viewBox so the case proportions
+ * match the sketch exactly. All interior components live at the
+ * corresponding scaled positions (power, mute, OLED, voice, vol
+ * rocker, d-pad, transport row).
  *
  * Token catalog:
  *   {{revLabel}}              short rev label, e.g. "M1"
@@ -53,115 +53,115 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
   <rect width="900" height="800" fill="#f0f0ee" />
   <rect width="900" height="360" fill="#dfdfdc" />
 
-  <ellipse cx="450" cy="770" rx="160" ry="14" fill="#000" opacity="0.18" />
+  <ellipse cx="450" cy="770" rx="180" ry="14" fill="url(#floor-shadow)" />
 
-  <g transform="translate(310 70)">
-    <path d="M 90 14
-             C 56 18, 38 58, 30 140
-             C 22 230, 20 350, 26 470
-             C 32 580, 46 660, 60 700
-             C 70 720, 90 730, 110 730
-             L 170 730
-             C 190 730, 210 720, 220 700
-             C 234 660, 248 580, 254 470
-             C 260 350, 258 230, 250 140
-             C 242 58, 224 18, 190 14
-             L 90 14 Z"
+  <g transform="translate(290 32)">
+    <path d="M 96 0
+             C 50 4, 26 48, 17 124
+             C 8 212, 6 322, 13 420
+             C 21 519, 37 618, 59 684
+             C 76 725, 100 738, 127 741
+             L 205 741
+             C 232 738, 256 725, 273 684
+             C 295 618, 311 519, 319 420
+             C 326 322, 324 212, 315 124
+             C 306 48, 282 4, 236 0
+             L 96 0 Z"
           fill="url(#side-grad)" />
 
-    <path d="M 86 12
-             C 54 16, 36 56, 28 138
-             C 20 228, 18 350, 24 470
-             C 30 580, 44 658, 58 698
-             C 68 718, 88 728, 108 728
-             L 168 728
-             C 188 728, 208 718, 218 698
-             C 232 658, 246 580, 252 470
-             C 258 350, 256 228, 248 138
-             C 240 56, 222 16, 188 12
-             L 86 12 Z"
+    <path d="M 92 -2
+             C 46 2, 22 46, 13 122
+             C 4 210, 2 320, 9 418
+             C 17 517, 33 616, 55 682
+             C 72 723, 96 736, 123 739
+             L 201 739
+             C 228 736, 252 723, 269 682
+             C 291 616, 307 517, 315 418
+             C 322 320, 320 210, 311 122
+             C 302 46, 278 2, 232 -2
+             L 92 -2 Z"
           fill="url(#body-grad)" />
 
-    <path d="M 88 14
-             C 56 18, 38 50, 30 110
-             L 250 110
-             C 242 50, 224 18, 192 14
-             L 88 14 Z"
+    <path d="M 94 0
+             C 50 4, 28 44, 20 110
+             L 300 110
+             C 292 44, 270 4, 226 0
+             L 94 0 Z"
           fill="url(#hl)" />
 
-    <rect x="105" y="22" width="70" height="14" rx="3" fill="#0a0a0a" />
-    <rect x="105" y="22" width="70" height="14" rx="3" fill="none" stroke="#222" stroke-width="0.6" />
+    <rect x="129" y="8" width="68" height="14" rx="3" fill="#0a0a0a" />
+    <rect x="129" y="8" width="68" height="14" rx="3" fill="none" stroke="#222" stroke-width="0.6" />
 
-    <circle cx="58" cy="106" r="3" fill="#070707" />
+    <circle cx="60" cy="98" r="3" fill="#070707" />
 
-    <circle cx="84" cy="146" r="14" fill="#3a3a3a" />
-    <path d="M 84 138 L 84 146 M 78 142 A 6 6 0 1 0 90 142"
-          stroke="#d83b3b" stroke-width="1.6" fill="none" />
+    <circle cx="94" cy="75" r="20" fill="#3a3a3a" />
+    <path d="M 94 64 L 94 76 M 84 70 A 10 10 0 1 0 104 70"
+          stroke="#d83b3b" stroke-width="2" fill="none" />
 
-    <circle cx="194" cy="146" r="14" fill="#3a3a3a" />
-    <path d="M 188 142 L 192 142 L 196 138 L 196 154 L 192 150 L 188 150 Z" fill="#dddddd" />
-    <line x1="190" y1="139" x2="200" y2="153" stroke="#d83b3b" stroke-width="1.6" />
+    <circle cx="226" cy="75" r="20" fill="#3a3a3a" />
+    <path d="M 215 71 L 220 71 L 226 64 L 226 88 L 220 81 L 215 81 Z" fill="#dddddd" />
+    <line x1="217" y1="66" x2="232" y2="86" stroke="#d83b3b" stroke-width="1.8" />
 
-    <rect x="96" y="194" width="86" height="46" rx="5" fill="#0a0a0a" />
-    <rect x="100" y="198" width="78" height="38" rx="3" fill="url(#screen-grad)" />
-    <text x="108" y="226" font-family="'Courier New', monospace" fill="#cdebff" font-size="14">20:34</text>
-    <text x="150" y="212" font-family="'Courier New', monospace" fill="#7aa2c2" font-size="8">tv · src 1</text>
-    <text x="150" y="232" font-family="'Courier New', monospace" fill="#7aa2c2" font-size="8">vol 18</text>
+    <rect x="101" y="127" width="118" height="56" rx="6" fill="#0a0a0a" />
+    <rect x="106" y="132" width="108" height="46" rx="4" fill="url(#screen-grad)" />
+    <text x="118" y="166" font-family="'Courier New', monospace" fill="#cdebff" font-size="18">20:34</text>
+    <text x="182" y="148" font-family="'Courier New', monospace" fill="#7aa2c2" font-size="9">tv · src 1</text>
+    <text x="182" y="174" font-family="'Courier New', monospace" fill="#7aa2c2" font-size="9">vol 18</text>
 
-    <circle cx="139" cy="318" r="54" fill="url(#voice-grad)" />
-    <circle cx="139" cy="318" r="54" fill="none" stroke="#4a4a4a"
+    <circle cx="160" cy="257" r="55" fill="url(#voice-grad)" />
+    <circle cx="160" cy="257" r="55" fill="none" stroke="#4a4a4a"
             stroke-width="2" opacity="0.7" />
-    <circle cx="139" cy="318" r="46" fill="none" stroke="#1c1c1c"
+    <circle cx="160" cy="257" r="47" fill="none" stroke="#1c1c1c"
             stroke-width="0.6" opacity="0.6" />
-    <g transform="translate(139 306)">
-      <rect x="-9" y="-18" width="18" height="30" rx="9" fill="#dddddd" />
-      <path d="M -16 8 Q -16 22 0 22 Q 16 22 16 8"
-            fill="none" stroke="#dddddd" stroke-width="2.2" stroke-linecap="round" />
-      <line x1="0" y1="22" x2="0" y2="32" stroke="#dddddd" stroke-width="2.2" stroke-linecap="round" />
-      <line x1="-7" y1="32" x2="7" y2="32" stroke="#dddddd" stroke-width="2.2" stroke-linecap="round" />
+    <g transform="translate(160 245)">
+      <rect x="-10" y="-22" width="20" height="34" rx="10" fill="#dddddd" />
+      <path d="M -18 8 Q -18 24 0 24 Q 18 24 18 8"
+            fill="none" stroke="#dddddd" stroke-width="2.4" stroke-linecap="round" />
+      <line x1="0" y1="24" x2="0" y2="34" stroke="#dddddd" stroke-width="2.4" stroke-linecap="round" />
+      <line x1="-8" y1="34" x2="8" y2="34" stroke="#dddddd" stroke-width="2.4" stroke-linecap="round" />
     </g>
-    <circle cx="139" cy="318" r="58" fill="none" stroke="#b85c1a"
+    <circle cx="160" cy="257" r="59" fill="none" stroke="#b85c1a"
             stroke-width="1.2" opacity="0.3" />
 
-    <rect x="58" y="402" width="28" height="120" rx="12" fill="#3a3a3a" />
-    <path d="M 64 432 L 72 420 L 80 432" stroke="#dddddd" stroke-width="2"
+    <rect x="59" y="343" width="40" height="132" rx="16" fill="#3a3a3a" />
+    <path d="M 67 374 L 79 360 L 91 374" stroke="#dddddd" stroke-width="2"
           fill="none" stroke-linecap="round" />
-    <path d="M 64 492 L 72 504 L 80 492" stroke="#dddddd" stroke-width="2"
+    <path d="M 67 444 L 79 458 L 91 444" stroke="#dddddd" stroke-width="2"
           fill="none" stroke-linecap="round" />
-    <line x1="62" y1="462" x2="82" y2="462" stroke="#1c1c1c" stroke-width="0.6" opacity="0.4" />
+    <line x1="63" y1="409" x2="95" y2="409" stroke="#1c1c1c" stroke-width="0.6" opacity="0.4" />
 
-    <g transform="translate(208 462)">
-      <circle cx="0" cy="0" r="38" fill="#2c2c2c" />
-      <circle cx="0" cy="0" r="38" fill="none" stroke="#4a4a4a" stroke-width="1" />
-      <rect x="-11" y="-34" width="22" height="16" rx="3" fill="#3a3a3a" />
-      <polygon points="-5,-23 5,-23 0,-30" fill="#dddddd" />
-      <rect x="-11" y="18"  width="22" height="16" rx="3" fill="#3a3a3a" />
-      <polygon points="-5,23 5,23 0,30" fill="#dddddd" />
-      <rect x="-34" y="-11" width="16" height="22" rx="3" fill="#3a3a3a" />
-      <polygon points="-23,-5 -23,5 -30,0" fill="#dddddd" />
-      <rect x="18"  y="-11" width="16" height="22" rx="3" fill="#3a3a3a" />
-      <polygon points="23,-5 23,5 30,0" fill="#dddddd" />
-      <circle cx="0" cy="0" r="10" fill="#4a4a4a" />
-      <text x="0" y="3" text-anchor="middle" font-size="7" fill="#dddddd">OK</text>
+    <g transform="translate(232 409)">
+      <circle cx="0" cy="0" r="46" fill="#2c2c2c" />
+      <circle cx="0" cy="0" r="46" fill="none" stroke="#4a4a4a" stroke-width="1" />
+      <rect x="-14" y="-42" width="28" height="20" rx="3" fill="#3a3a3a" />
+      <polygon points="-7,-28 7,-28 0,-37" fill="#dddddd" />
+      <rect x="-14" y="22"  width="28" height="20" rx="3" fill="#3a3a3a" />
+      <polygon points="-7,28 7,28 0,37" fill="#dddddd" />
+      <rect x="-42" y="-14" width="20" height="28" rx="3" fill="#3a3a3a" />
+      <polygon points="-28,-7 -28,7 -37,0" fill="#dddddd" />
+      <rect x="22"  y="-14" width="20" height="28" rx="3" fill="#3a3a3a" />
+      <polygon points="28,-7 28,7 37,0" fill="#dddddd" />
+      <circle cx="0" cy="0" r="13" fill="#4a4a4a" />
+      <text x="0" y="3" text-anchor="middle" font-size="8" fill="#dddddd">OK</text>
     </g>
 
-    <circle cx="78" cy="588" r="20" fill="#3a3a3a" />
-    <path d="M 67 583 A 11 11 0 1 1 67 593" stroke="#dddddd" stroke-width="2" fill="none" />
-    <polygon points="67,577 72,584 62,584" fill="#dddddd" />
-    <text x="78" y="592" text-anchor="middle" fill="#1c1c1c" font-size="8">6</text>
+    <circle cx="75" cy="577" r="24" fill="#3a3a3a" />
+    <path d="M 62 571 A 13 13 0 1 1 62 583" stroke="#dddddd" stroke-width="2.4" fill="none" />
+    <polygon points="62,564 68,572 56,572" fill="#dddddd" />
+    <text x="75" y="581" text-anchor="middle" fill="#1c1c1c" font-size="9">6</text>
 
-    <rect x="118" y="568" width="42" height="42" rx="20" fill="#3a3a3a" />
-    <polygon points="130,578 130,602 142,590" fill="#dddddd" />
-    <rect x="148" y="578" width="3" height="24" fill="#dddddd" />
-    <rect x="152" y="578" width="3" height="24" fill="#dddddd" />
+    <rect x="134" y="555" width="52" height="46" rx="22" fill="#3a3a3a" />
+    <polygon points="148,565 148,599 160,582" fill="#dddddd" />
+    <rect x="166" y="565" width="4" height="34" fill="#dddddd" />
+    <rect x="172" y="565" width="4" height="34" fill="#dddddd" />
 
-    <circle cx="198" cy="588" r="20" fill="#3a3a3a" />
-    <path d="M 209 583 A 11 11 0 1 0 209 593" stroke="#dddddd" stroke-width="2" fill="none" />
-    <polygon points="209,577 214,584 204,584" fill="#dddddd" />
-    <text x="198" y="592" text-anchor="middle" fill="#1c1c1c" font-size="8">30</text>
+    <circle cx="243" cy="577" r="24" fill="#3a3a3a" />
+    <path d="M 256 571 A 13 13 0 1 0 256 583" stroke="#dddddd" stroke-width="2.4" fill="none" />
+    <polygon points="256,564 262,572 250,572" fill="#dddddd" />
+    <text x="243" y="581" text-anchor="middle" fill="#1c1c1c" font-size="9">30</text>
 
-    <text x="139" y="680" text-anchor="middle" font-style="italic"
-          font-size="11" fill="#dddddd" opacity="0.6">
+    <text x="160" y="675" text-anchor="middle" font-style="italic"
+          font-size="13" fill="#dddddd" opacity="0.6">
       the less annoying universal remote
     </text>
   </g>
@@ -192,7 +192,7 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
     <text y="148" fill="#444">both on the top edge</text>
   </g>
 
-  <text x="450" y="772" text-anchor="middle" font-size="11" fill="#666">
+  <text x="450" y="780" text-anchor="middle" font-size="11" fill="#666">
     front 3/4 view; full CAD package on request · rev {{revLabel}}
   </text>
 </svg>`;
