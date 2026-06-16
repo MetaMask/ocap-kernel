@@ -45,10 +45,16 @@ const TARGETS = [
     source: 'src/mechanical-design/master-svg.ts',
     output: 'src/mechanical-design/master-svg.preview.svg',
     exportName: 'MASTER_SVG',
+    // Mirror the locked soft-white colorway from template.ts so the
+    // preview matches what the service vat actually emits.
     tokens: {
       revLabel: 'M1',
       providerLabel: 'nantucket-mech',
-      colorway: 'charcoal',
+      colorwayName: 'soft white',
+      caseColorHighlight: '#f8f6f1',
+      caseColorMain: '#ecebe5',
+      caseColorShadow: '#c4c2bc',
+      caseColorDeepShadow: '#9c9a93',
     },
   },
   {
