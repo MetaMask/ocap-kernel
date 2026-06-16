@@ -1,6 +1,11 @@
 import { StreamResetError } from '@libp2p/interface';
 import type { StreamCloseEvent } from '@libp2p/interface';
 import {
+  InvalidDataLengthError,
+  InvalidDataLengthLengthError,
+  UnexpectedEOFError,
+} from '@libp2p/utils';
+import {
   AbortError,
   IntentionalCloseError,
   NetworkStoppedError,
@@ -463,6 +468,38 @@ export async function initTransport(
         try {
           readBuf = await channel.msgStream.read();
         } catch (problem) {
+          if (
+            problem instanceof InvalidDataLengthError ||
+            problem instanceof InvalidDataLengthLengthError
+          ) {
+            // Peer announced a payload larger than maxMessageSizeBytes. The
+            // length-prefixed framing is now poisoned (subsequent bytes are
+            // not on a message boundary), so we cannot continue on this
+            // stream. Surface a uniform "message too long" error to match the
+            // sender-side validator.
+            const sizeError = new ResourceLimitError(
+              `Inbound message exceeds size limit: ${problem.message}`,
+              {
+                cause: problem,
+                data: { limitType: 'messageSize' },
+              },
+            );
+            outputError(
+              channel.peerId,
+              `reading message from ${channel.peerId}`,
+              sizeError,
+            );
+            handleConnectionLoss(channel.peerId);
+            logger.log(`closed channel to ${channel.peerId}`);
+            throw sizeError;
+          }
+          if (problem instanceof UnexpectedEOFError) {
+            // Peer closed while we were waiting for the next message (or
+            // partway through one). Treat as graceful stream end — there is
+            // no in-flight kernel-level operation to recover.
+            logger.log(`${channel.peerId}:: stream ended`);
+            break;
+          }
           if (problem instanceof StreamResetError) {
             // Remote-initiated stream reset: treat as connection loss and
             // reconnect. Do NOT mark as intentionally closed — a malicious
@@ -487,15 +524,9 @@ export async function initTransport(
           logger.log(`closed channel to ${channel.peerId}`);
           throw problem;
         }
-        if (readBuf) {
-          reconnectionManager.resetBackoff(channel.peerId); // successful inbound traffic
-          peerStateManager.updateConnectionTime(channel.peerId);
-          await receiveMessage(channel.peerId, bufToString(readBuf.subarray()));
-        } else {
-          // Stream ended (returned undefined), exit the read loop
-          logger.log(`${channel.peerId}:: stream ended`);
-          break;
-        }
+        reconnectionManager.resetBackoff(channel.peerId); // successful inbound traffic
+        peerStateManager.updateConnectionTime(channel.peerId);
+        await receiveMessage(channel.peerId, bufToString(readBuf.subarray()));
       }
     } finally {
       // Always remove the channel when readChannel exits to prevent stale channels

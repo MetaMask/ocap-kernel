@@ -89,9 +89,6 @@ async function readWithTimeout(
 
   const readPromise = (async () => {
     const readBuf = await channel.msgStream.read();
-    if (!readBuf) {
-      throw new Error('Channel closed during handshake');
-    }
     return bufToString(readBuf.subarray());
   })();
 
