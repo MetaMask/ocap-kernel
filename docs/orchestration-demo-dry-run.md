@@ -211,16 +211,14 @@ install of the same slug blocks the re-install otherwise:
 
 ```csh
 cd ~/GitRepos/ocap-kernel
-rm -rf ~/.openclaw/workspace/skills/orchestration-demo
 openclaw skills install --force \
   ./packages/agentmask/openclaw-plugin-discovery/skills/discovery
 openclaw skills install --force \
   ./packages/agentmask/openclaw-plugin-demo/skills/product-orchestration
 ```
 
-(The `rm -rf` line cleans up the previously-named `orchestration-demo`
-skill in case it's still in the workspace from an older install. Safe
-to leave in even when there's nothing to remove.)
+`--force` is what makes a re-install overwrite the workspace copy
+in place; no need to manually remove the previous version first.
 
 Confirm both appear:
 
