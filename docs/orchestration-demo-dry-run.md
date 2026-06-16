@@ -298,13 +298,23 @@ every later step interpolates `$VPS_HOST`.
 
 ## Code-update setup
 
-Do this when there are new commits on `chip/orchestration-demo`
-since the last rehearsal — it sits between the one-time setup
-(which you only do once per machine) and the per-run sequence
-(which restarts services for a rehearsal). Skip this entire
-section if no code has landed since the last run.
+Do this between rehearsals when code has changed on
+`chip/orchestration-demo` since the last run. Sits between the
+one-time setup (per machine, once) and the per-run sequence
+(restart services for a rehearsal). Skip the whole section if
+nothing's changed since the last run.
 
-### On both VPS and laptop
+The laptop is the source of truth — code edits, commits, and
+rebuilds happen there. GitHub is just the relay that hands the
+commits to the VPS. So:
+
+- **Laptop**: do not pull. The local working tree already has
+  whatever's about to be tested. Rebuild the affected workspaces
+  if they're consumed by anything you'll restart in the per-run
+  sequence (see the table below).
+- **VPS**: pull from GitHub, then run the matching sub-steps.
+
+### VPS — pull
 
 ```csh
 cd ~/GitRepos/ocap-kernel
@@ -315,33 +325,35 @@ yarn install
 `yarn install` is a no-op when no package.json changed; safe to
 run unconditionally.
 
-### Pick which sub-steps apply
+### Pick which sub-steps apply (both machines)
 
-Look at `git diff --stat HEAD@{1} HEAD` (paths only) and run the
-sub-steps that match the changed paths. Anything not listed is
-covered by the per-run sequence — typically `start-services.sh`,
-`reset-everything.sh`, and the gateway restart pick up source
-changes through their own rebuilds.
+Look at `git diff --stat HEAD@{1} HEAD` (on the VPS) or
+`git log --stat -1` (on the laptop, against whatever you most
+recently committed) and run the sub-steps that match the changed
+paths. Anything not listed is covered by the per-run sequence —
+typically `start-services.sh`, `reset-everything.sh`, and the
+gateway restart pick up source changes through their own
+rebuilds.
 
-| If this changed                                                                 | Run, before `## Per-run setup sequence`                                                                                                                                                       |
-| ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/agentmask/openclaw-plugin-demo/skills/product-orchestration/SKILL.md` | (VPS) `openclaw skills install --force ./packages/agentmask/openclaw-plugin-demo/skills/product-orchestration`                                                                                |
-| `packages/agentmask/openclaw-plugin-discovery/skills/discovery/SKILL.md`        | (VPS) `openclaw skills install --force ./packages/agentmask/openclaw-plugin-discovery/skills/discovery`                                                                                       |
-| `packages/agentmask/openclaw-plugin-{demo,discovery}/openclaw.plugin.json`      | (VPS) `openclaw gateway restart` — per-run step 6 handles this anyway, but if you're testing the manifest change in isolation, force a restart now                                            |
-| `packages/demo-display/**`                                                      | (VPS) `yarn workspace @ocap/demo-display build` — per-run step 5 re-launches the server which serves the new build                                                                            |
-| `packages/sample-services/**`                                                   | (Laptop) nothing — `start-services.sh` rebuilds + re-bundles + re-registers in per-run step 7                                                                                                 |
-| `packages/service-matcher/**` or `packages/llm-bridge/**`                       | (VPS) `yarn workspace @ocap/service-matcher build && yarn workspace @ocap/service-matcher bundle-vat && yarn workspace @ocap/llm-bridge build` — per-run step 4 then picks up the new bundles |
-| `packages/kernel-cli/**`                                                        | both: `yarn workspace @metamask/kernel-cli build` — used by the matcher and the sample-services daemon                                                                                        |
-| `docs/orchestration-demo-dry-run.md`                                            | nothing — re-read it                                                                                                                                                                          |
+| If this changed                                                                 | Run, before `## Per-run setup sequence`                                                                                                                                                           |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/agentmask/openclaw-plugin-demo/skills/product-orchestration/SKILL.md` | (VPS) `openclaw skills install --force ./packages/agentmask/openclaw-plugin-demo/skills/product-orchestration`                                                                                    |
+| `packages/agentmask/openclaw-plugin-discovery/skills/discovery/SKILL.md`        | (VPS) `openclaw skills install --force ./packages/agentmask/openclaw-plugin-discovery/skills/discovery`                                                                                           |
+| `packages/agentmask/openclaw-plugin-{demo,discovery}/openclaw.plugin.json`      | (VPS) `openclaw gateway restart` — per-run step 6 handles this anyway, but if you're testing the manifest change in isolation, force a restart now                                                |
+| `packages/demo-display/**`                                                      | (VPS) `yarn workspace @ocap/demo-display build` — per-run step 5 re-launches the server which serves the new build                                                                                |
+| `packages/sample-services/**`                                                   | (Laptop) nothing — `start-services.sh` rebuilds + re-bundles + re-registers in per-run step 7                                                                                                     |
+| `packages/service-matcher/**` or `packages/llm-bridge/**`                       | (VPS) `yarn workspace @ocap/service-matcher build && yarn workspace @ocap/service-matcher bundle-vat && yarn workspace @ocap/llm-bridge build` — per-run step 4 then picks up the new bundles     |
+| `packages/kernel-cli/**`                                                        | (VPS) `yarn workspace @metamask/kernel-cli build`. (Laptop) only if you haven't already built it from this commit — used by `start-services.sh`. The matcher restart and sample-services pick up. |
+| `docs/orchestration-demo-dry-run.md`                                            | nothing — re-read it                                                                                                                                                                              |
 
 ### Tools.allow updates
 
 If the demo plugin's `contracts.tools` list has gained or lost a
-tool, mirror that in `tools.allow` and restart the gateway:
+tool, mirror that in `tools.allow` on the VPS and restart the
+gateway:
 
 ```csh
 openclaw config get tools.allow
-# inspect, then if a tool was added (e.g. demo_wallet_charge in an earlier round):
 openclaw config set tools.allow '["...existing entries...","new_tool_name"]'
 openclaw gateway restart
 ```
