@@ -7,7 +7,6 @@ import type {
 import { parseToolArguments } from '@ocap/kernel-language-model-service/utils/parse-tool-arguments';
 
 import { extractCapabilitySchemas } from '../capabilities/capability.ts';
-import { validateCapabilityArgs } from '../capabilities/validate-capability-args.ts';
 import type { Agent } from '../types/agent.ts';
 import { Message } from '../types/messages.ts';
 import type { CapabilityRecord, Experience } from '../types.ts';
@@ -178,7 +177,9 @@ export const makeChatAgent = ({
             let toolResult: unknown;
             try {
               const args = parseToolArguments(argsJson);
-              validateCapabilityArgs(args, spec.schema);
+              // The capability is backed by a pattern-guarded exo, so its
+              // interface guard enforces the argument shape; a mismatch rejects
+              // here and is reported as the tool error below.
               toolResult = await spec.func(args as never);
             } catch (error) {
               const errorContent = `Error calling ${name}: ${(error as Error).message}`;

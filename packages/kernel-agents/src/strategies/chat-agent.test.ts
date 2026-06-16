@@ -1,5 +1,6 @@
 import '@ocap/repo-tools/test-utils/mock-endoify';
 
+import { S } from '@metamask/kernel-utils';
 import type {
   ChatMessage,
   ChatResult,
@@ -9,7 +10,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { makeChatAgent } from './chat-agent.ts';
 import type { BoundChat } from './chat-agent.ts';
-import { capability } from '../capabilities/capability.ts';
+import { makeMethodCapability } from '../../test/make-method-capability.ts';
 
 const makeToolCall = (
   id: string,
@@ -62,15 +63,17 @@ describe('makeChatAgent', () => {
   });
 
   it('dispatches a tool call and returns final text answer', async () => {
-    const add = vi.fn(async ({ a, b }: { a: number; b: number }) => a + b);
-    const addCap = capability(add, {
-      description: 'Add two numbers',
-      args: {
-        a: { type: 'number' },
-        b: { type: 'number' },
-      },
-      returns: { type: 'number' },
-    });
+    const add = vi.fn(async (a: number, b: number) => a + b);
+    const addCap = makeMethodCapability(
+      'Math',
+      'add',
+      add,
+      S.method(
+        'Add two numbers',
+        [S.arg('a', S.number()), S.arg('b', S.number())],
+        S.number(),
+      ),
+    );
 
     let call = 0;
     const chat: BoundChat = async () => {
@@ -86,17 +89,18 @@ describe('makeChatAgent', () => {
     const agent = makeChatAgent({ chat, capabilities: { add: addCap } });
 
     const result = await agent.task('add 3 and 4');
-    expect(add).toHaveBeenCalledWith({ a: 3, b: 4 });
+    expect(add).toHaveBeenCalledWith(3, 4);
     expect(result).toBe('7');
   });
 
   it('injects tool result message before next turn', async () => {
     const recorded: ChatMessage[][] = [];
-    const ping = capability(async () => 'pong', {
-      description: 'Ping',
-      args: {},
-      returns: { type: 'string' },
-    });
+    const ping = makeMethodCapability(
+      'Server',
+      'ping',
+      async () => 'pong',
+      S.method('Send a ping', [], S.string()),
+    );
 
     let call = 0;
     const chat: BoundChat = async ({ messages }) => {
@@ -152,10 +156,12 @@ describe('makeChatAgent', () => {
   });
 
   it('throws when invocation budget is exceeded', async () => {
-    const ping = capability(async () => 'pong', {
-      description: 'Ping',
-      args: {},
-    });
+    const ping = makeMethodCapability(
+      'Server',
+      'ping',
+      async () => 'pong',
+      S.method('Send a ping', [], S.string()),
+    );
     const chat: BoundChat = async () =>
       makeToolCallResponse('0', [makeToolCall('c1', 'ping', {})]);
 
@@ -177,11 +183,12 @@ describe('makeChatAgent', () => {
 
   it('passes tools to the chat function', async () => {
     const recordedTools: unknown[] = [];
-    const ping = capability(async () => 'pong', {
-      description: 'Ping the server',
-      args: {},
-      returns: { type: 'string' },
-    });
+    const ping = makeMethodCapability(
+      'Server',
+      'ping',
+      async () => 'pong',
+      S.method('Ping the server', [], S.string()),
+    );
 
     const chat: BoundChat = async ({ tools }) => {
       recordedTools.push(tools);
