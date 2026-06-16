@@ -95,7 +95,7 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
     <circle cx="60" cy="98" r="3" fill="#070707" />
 
     <circle cx="94" cy="75" r="20" fill="#3a3a3a" />
-    <path d="M 94 64 L 94 76 M 84 70 A 10 10 0 1 0 104 70"
+    <path d="M 94 64 L 94 76 M 82 70 C 82 90, 106 90, 106 70"
           stroke="#d83b3b" stroke-width="2" fill="none" />
 
     <circle cx="226" cy="75" r="20" fill="#3a3a3a" />
