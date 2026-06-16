@@ -1,3 +1,4 @@
+import { UnexpectedEOFError } from '@libp2p/utils';
 import { AbortError } from '@metamask/kernel-errors';
 import { makeAbortSignalMock } from '@ocap/repo-tools/test-utils';
 import {
@@ -748,8 +749,10 @@ describe('transport.initTransport', () => {
       await initTransport('0x1234', {}, remoteHandler);
 
       const mockChannel = createMockChannel('peer-1');
-      // First read returns undefined, which means stream ended - loop should break
-      mockChannel.msgStream.read.mockResolvedValueOnce(undefined);
+      // First read throws UnexpectedEOFError, which means stream ended - loop should break
+      mockChannel.msgStream.read.mockRejectedValueOnce(
+        new UnexpectedEOFError('stream closed'),
+      );
 
       inboundHandler?.(mockChannel);
 

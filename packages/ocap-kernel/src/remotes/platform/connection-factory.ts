@@ -10,7 +10,7 @@ import {
 } from '@libp2p/interface';
 import type { PrivateKey, Libp2p } from '@libp2p/interface';
 import { ping } from '@libp2p/ping';
-import { byteStream } from '@libp2p/utils';
+import { lpStream } from '@libp2p/utils';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
 import { webTransport } from '@libp2p/webtransport';
@@ -26,6 +26,7 @@ import type { Multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p } from 'libp2p';
 
 import {
+  DEFAULT_MAX_MESSAGE_SIZE_BYTES,
   RELAY_RECONNECT_BASE_DELAY_MS,
   RELAY_RECONNECT_MAX_DELAY_MS,
   RELAY_RECONNECT_MAX_ATTEMPTS,
@@ -217,7 +218,9 @@ export class ConnectionFactory {
 
     // Set up inbound handler
     await this.#libp2p.handle('whatever', async (stream, connection) => {
-      const msgStream = byteStream(stream);
+      const msgStream = lpStream(stream, {
+        maxDataLength: DEFAULT_MAX_MESSAGE_SIZE_BYTES,
+      });
       const remotePeerId = connection.remotePeer.toString();
       const connType = connection.direct ? 'direct' : 'relayed';
       this.#logger.log(
@@ -401,7 +404,9 @@ export class ConnectionFactory {
         this.#logger.log(
           `successfully connected to ${peerId} via ${addressString}`,
         );
-        const msgStream = byteStream(stream);
+        const msgStream = lpStream(stream, {
+          maxDataLength: DEFAULT_MAX_MESSAGE_SIZE_BYTES,
+        });
         const channel: Channel = { msgStream, stream, peerId };
         this.#logger.log(`opened channel to ${peerId}`);
         return channel;

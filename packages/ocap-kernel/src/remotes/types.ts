@@ -1,5 +1,5 @@
 import type { Stream } from '@libp2p/interface';
-import type { ByteStream } from '@libp2p/utils';
+import type { LengthPrefixedStream } from '@libp2p/utils';
 import type { Logger } from '@metamask/logger';
 
 import type { KRef } from '../types.ts';
@@ -11,7 +11,7 @@ export type InboundConnectionHandler = (
 export type PeerDisconnectHandler = (peerId: string) => void;
 
 export type Channel = {
-  msgStream: ByteStream<Stream>;
+  msgStream: LengthPrefixedStream<Stream>;
   stream: Stream;
   peerId: string;
 };
