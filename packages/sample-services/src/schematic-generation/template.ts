@@ -29,7 +29,17 @@ function resolveCrypto(): CryptoSource | undefined {
 
 const REV_LETTERS = ['A', 'B', 'C', 'D'] as const;
 const REV_DIGITS = ['1', '2', '3', '4'] as const;
-const MCU_PART_NUMBERS = ['ESP32-S3-MINI-N8', 'RP2040', 'nRF52840'] as const;
+
+/**
+ * MCU is locked to ESP32-S3-MINI-N8 so the schematic, firmware-spec,
+ * component-sourcing, and pcb-layout dummy services all agree. Without
+ * this lock the LLM orchestrator surfaces a cross-service inconsistency
+ * mid-demo, which is a valuable feature but a distracting one when the
+ * point of the demo is the orchestration itself.
+ */
+const MCU_PART_NUMBER = 'ESP32-S3-MINI-N8';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for record of alternative MCUs
+const ALTERNATE_MCU_PART_NUMBERS = ['RP2040', 'nRF52840'] as const;
 const LDO_PART_NUMBERS = ['TPS61221', 'MIC5219-3.3', 'MAX17222'] as const;
 
 /* eslint-enable n/no-unsupported-features/node-builtins */
@@ -65,7 +75,7 @@ export function renderSchematic(inputs: TemplateInputs): string {
   const tokens: Record<string, string> = {
     revLabel: `${pickOne(REV_LETTERS)}${pickOne(REV_DIGITS)}`,
     providerLabel: inputs.providerLabel,
-    mcuPartNumber: pickOne(MCU_PART_NUMBERS),
+    mcuPartNumber: MCU_PART_NUMBER,
     ldoPartNumber: pickOne(LDO_PART_NUMBERS),
   };
   return MASTER_SVG.replace(/\{\{(\w+)\}\}/gu, (match, name: string) =>

@@ -302,12 +302,12 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
     </g>
 
     <g class="via">
-      <circle cx="130" cy="60"  r="1.1" />
-      <circle cx="100" cy="252" r="1.1" />
-      <circle cx="80"  cy="250" r="1.1" />
-      <circle cx="244" cy="484" r="1.1" />
-      <circle cx="60"  cy="690" r="1.1" />
-      <circle cx="250" cy="503" r="1.1" />
+      <circle cx="108" cy="250" r="1.1" />
+      <circle cx="244" cy="252" r="1.1" />
+      <circle cx="95"  cy="444" r="1.1" />
+      <circle cx="250" cy="491" r="1.1" />
+      <circle cx="232" cy="510" r="1.1" />
+      <circle cx="218" cy="50"  r="1.1" />
     </g>
 
     <g class="gnd-pour">
@@ -343,18 +343,33 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
     </g>
 
     <g class="copper" stroke-width="1.6">
-      <path d="M 150 24 L 150 60 L 130 60 L 130 168" />
-      <path d="M 220 252 L 244 252 L 244 90 L 270 90 L 270 118" stroke-width="1.2" />
-      <path d="M 120 252 L 100 252 L 100 138 L 92 138" stroke-width="1.2" />
-      <path d="M 130 250 L 80 250 L 80 440" stroke-width="1.2" />
-      <path d="M 130 268 L 70 268 L 70 552" stroke-width="1.2" />
-      <path d="M 220 260 L 244 260 L 244 484 L 270 484" stroke-width="1.2" />
-      <path d="M 220 280 L 254 280 L 254 536 L 289 536" stroke-width="1.2" />
-      <path d="M 220 300 L 250 300 L 250 503 L 263 503" stroke-width="1.2" />
-      <path d="M 130 314 L 110 314 L 110 510" stroke-width="1.2" />
-      <path d="M 60 660 L 60 690 L 90 700" />
-      <path d="M 140 670 L 140 706" />
-      <path d="M 220 660 L 240 660 L 240 690 L 230 700" />
+      <path d="M 120 250 L 108 250 L 108 200 L 140 200 L 140 176" stroke-width="1.2" />
+      <path d="M 120 258 L 114 258 L 114 195 L 158 195 L 158 176" stroke-width="1.2" />
+
+      <path d="M 120 266 L 100 266 L 100 123 L 89 123" stroke-width="1.2" />
+      <path d="M 220 252 L 244 252 L 244 123 L 251 123" stroke-width="1.2" />
+
+      <path d="M 120 282 L 95 282 L 95 444 L 53 444" stroke-width="1.2" />
+      <path d="M 120 290 L 85 290 L 85 556 L 53 556" stroke-width="1.2" />
+
+      <path d="M 220 260 L 250 260 L 250 491 L 263 491" stroke-width="1.2" />
+      <path d="M 220 268 L 256 268 L 256 529 L 263 529" stroke-width="1.2" />
+      <path d="M 220 276 L 240 276 L 240 510 L 244 510" stroke-width="1.2" />
+      <path d="M 220 284 L 262 284 L 262 545 L 296 545 L 296 517" stroke-width="1.2" />
+      <path d="M 220 292 L 232 292 L 232 510 L 264 510" stroke-width="1.2" />
+
+      <path d="M 144 326 L 144 590 L 76 590 L 76 600" stroke-width="1.2" />
+      <path d="M 168 326 L 168 600" stroke-width="1.2" />
+      <path d="M 192 326 L 192 590 L 264 590 L 264 600" stroke-width="1.2" />
+
+      <path d="M 220 306 L 230 306 L 230 50 L 201 50 L 201 38" stroke-width="1.2" />
+
+      <path d="M 200 326 L 200 645 L 58 645 L 58 662" stroke-width="1.2" />
+      <path d="M 80 666 L 218 666 L 218 50 L 150 50 L 150 26" stroke-width="1.2" />
+
+      <path d="M 110 712 L 137 712" />
+      <path d="M 203 712 L 210 712 L 210 360 L 208 360 L 208 326" />
+      <path d="M 203 718 L 230 718" />
     </g>
   </g>
 

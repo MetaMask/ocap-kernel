@@ -61,10 +61,11 @@ const TARGETS = [
     source: 'src/schematic-generation/master-svg.ts',
     output: 'src/schematic-generation/master-svg.preview.svg',
     exportName: 'MASTER_SVG',
+    // mcuPartNumber matches the lock in src/schematic-generation/template.ts.
     tokens: {
       revLabel: 'E1',
       providerLabel: 'circuit-foundry',
-      mcuPartNumber: 'nRF52833-QIAA',
+      mcuPartNumber: 'ESP32-S3-MINI-N8',
       ldoPartNumber: 'MIC5219-3.0YM5',
     },
   },

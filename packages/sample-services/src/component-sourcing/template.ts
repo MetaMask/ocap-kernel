@@ -31,11 +31,15 @@ const BATCH_PROFILES = [
   { batchSize: '20 units', unitTotal: '$61.85', batchTotal: '$1,237.00' },
 ] as const;
 const LEAD_DAYS = ['14 days', '18 days', '21 days'] as const;
-const MCU_PARTS = [
-  'nRF52833-QIAA',
-  'nRF52840-QIAA',
-  'ESP32-S3-MINI-N8',
-] as const;
+
+/**
+ * MCU is locked to ESP32-S3-MINI-N8 so the schematic, firmware-spec,
+ * component-sourcing, and pcb-layout dummy services all agree (see
+ * the matching note in schematic-generation/template.ts).
+ */
+const MCU_PART = 'ESP32-S3-MINI-N8';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for record of alternative MCUs
+const ALTERNATE_MCU_PARTS = ['nRF52833-QIAA', 'nRF52840-QIAA'] as const;
 
 /**
  * Pick one element from a non-empty array; falls back to the first
@@ -72,7 +76,7 @@ export function renderBom(inputs: TemplateInputs): string {
     unitTotal: profile.unitTotal,
     batchTotal: profile.batchTotal,
     leadDays: pickOne(LEAD_DAYS),
-    mcuPart: pickOne(MCU_PARTS),
+    mcuPart: MCU_PART,
   };
   return MASTER_MD.replace(/\{\{(\w+)\}\}/gu, (match, name: string) =>
     name in tokens ? (tokens[name] as string) : match,

@@ -24,8 +24,14 @@ function resolveCrypto(): CryptoSource | undefined {
     | undefined;
 }
 
-const MCU_OPTIONS = [
-  { mcu: 'ESP32-S3-MINI-N8', irGpio: 'GPIO 4' },
+/**
+ * MCU is locked to ESP32-S3-MINI-N8 so the schematic, firmware-spec,
+ * component-sourcing, and pcb-layout dummy services all agree (see
+ * the matching note in schematic-generation/template.ts).
+ */
+const MCU_CHOICE = { mcu: 'ESP32-S3-MINI-N8', irGpio: 'GPIO 4' } as const;
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for record of alternative MCUs
+const ALTERNATE_MCU_OPTIONS = [
   { mcu: 'RP2040', irGpio: 'GP15' },
   { mcu: 'nRF52840', irGpio: 'P0.13' },
 ] as const;
@@ -60,10 +66,9 @@ function pickOne<Type>(options: readonly Type[]): Type {
  * @returns The rendered markdown as a string.
  */
 export function renderFirmwareSpec(): string {
-  const mcuChoice = pickOne(MCU_OPTIONS);
   const tokens: Record<string, string> = {
-    mcu: mcuChoice.mcu,
-    irGpio: mcuChoice.irGpio,
+    mcu: MCU_CHOICE.mcu,
+    irGpio: MCU_CHOICE.irGpio,
     debounceMs: pickOne(DEBOUNCE_MS),
     idleTimeoutSec: pickOne(IDLE_TIMEOUT_SEC),
   };
