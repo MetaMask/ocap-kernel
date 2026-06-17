@@ -211,6 +211,14 @@ export type ConnectionFactoryOptions = {
   logger: Logger;
   signal: AbortSignal;
   maxRetryAttempts?: number | undefined;
+  /**
+   * Maximum inbound message payload size in bytes. Used as `maxDataLength`
+   * on every `lpStream` constructed for a channel — must match the
+   * sender-side validator's limit (`maxMessageSizeBytes` on
+   * `RemoteCommsOptions`) so that a deployment which raises one also raises
+   * the other. Defaults to `DEFAULT_MAX_MESSAGE_SIZE_BYTES` (1 MB).
+   */
+  maxMessageSizeBytes?: number | undefined;
   directTransports?: DirectTransport[] | undefined;
   allowedWsHosts?: string[] | undefined;
 };
