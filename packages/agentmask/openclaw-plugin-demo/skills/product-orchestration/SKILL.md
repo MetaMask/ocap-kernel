@@ -175,28 +175,76 @@ Per-phase intent:
   spec first, then the implementation. Announce the implementation
   charge before calling `implement`, since the round-2 cost is the
   one the inventor hasn't yet absorbed.
+  The Firmware → Procurement transition is a **validation
+  checkpoint** — see "Validation checkpoints" below.
 - **Procurement** — priced bill of materials. May have no provider
   in the matcher; if so, stop the pipeline cleanly here.
 - **Manufacturing** — build plan and (for prototypes) a small
-  sample run. The transition into this phase warrants an explicit
-  caveat to the inventor: in a real product run, an engineering
-  prototype would be tested and the design iterated before
-  committing to a build of any size. The demo skips that loop;
-  acknowledge that out loud rather than pretending the cadence is
-  realistic.
+  sample run. The Manufacturing → Sales transition is a
+  **validation checkpoint** — see "Validation checkpoints" below.
 - **Sales** — pricing, positioning, and distribution plan. Enter
   this phase as a **question**, not an announcement. Frame the
   transition as some variant of "want to see what it'll take to
-  sell this?" rather than "moving on to Sales." Pair that with the
-  same caveat as Manufacturing: real product development would
-  validate the engineering and the user experience before locking
-  sales positioning, and the demo's auto-sequencing through Sales
-  is a presentation convenience, not realistic product cadence.
+  sell this?" rather than "moving on to Sales."
 
 When the matcher returns no provider for a phase, narrate the gap
 to both the inventor and the audience, and stop the pipeline
 cleanly. Do not skip to a later phase; do not author the phase's
 output yourself.
+
+## Validation checkpoints
+
+Two transitions in the pipeline are gates where, in a real product
+run, the inventor would step away for days-to-weeks of validation
+work before committing to the next phase. The demo is wildly
+accelerated, so the agent doesn't actually wait — but it also
+shouldn't pretend the cadence is realistic.
+
+At each gate the agent should, in the TUI:
+
+1. **Narrate the validation work in plain expository terms** — first
+   person plural ("this is where we'd take a few weeks to ..."), not
+   "I'll run validation." Validation isn't a tool the agent
+   invokes; it's work the inventor and (in role) the agent would do
+   together in the real world. The gate exists so the audience sees
+   that the pipeline has these checkpoints, not so the agent
+   pretends to execute them.
+2. **Acknowledge the demo is accelerated** — explicitly: we're not
+   doing this work now; we're skipping ahead because the demo is
+   running on a vastly compressed timeline.
+3. **Defer to the inventor** for direction — continue, loop back to
+   revise something earlier, or talk about the validation in more
+   depth. Don't presume the answer.
+
+Emit a single audience-facing line via
+`demo_announce({ note: "validation checkpoint — ..." })` (lower-case
+"validation checkpoint —" as a recognisable prefix) so the gate
+shows up on the dashboard transcript as a distinct marker. No
+service call, no artifact, no `phaseTransition` for the gate
+itself. The `phaseTransition` happens only after the inventor
+confirms the move.
+
+### Gate 1: Firmware → Procurement (engineering-prototype gate)
+
+What we'd do here in a real run: build a handful of engineering
+boards using parts on hand or breadboard variants, flash the
+firmware we just got back, exercise the buttons / voice path / IR
+transmit / sleep behaviour, find the bugs, iterate. Sometimes this
+loops back to firmware revisions, an industrial-design adjustment,
+or even a schematic change. Time budget: days to a few weeks. We
+commit to manufacturing-grade BOM pricing only after this
+checkpoint clears.
+
+### Gate 2: Manufacturing → Sales (release-validation gate)
+
+What we'd do here in a real run: pull a small batch of units off
+the line, drop-test them, measure voice-recognition accuracy across
+a range of users and accents, run the IR transmitter through the
+device library, do battery-life runs under realistic use, package
+and onboard a few real users in a beta program. Sometimes this
+loops back to firmware, mechanical, or industrial-design changes.
+Time budget: weeks. We only lock the sales positioning after this
+checkpoint clears.
 
 ## Required workflow
 
@@ -269,10 +317,11 @@ title: "Product concept" })`.
    policy). **Record the revised artifact with the same `phase`
    value as the original; do not announce a new phase.** Only
    proceed when the inventor confirms. For the
-   Procurement → Manufacturing and Manufacturing → Sales transitions
-   in particular, surface the demo-vs-real-cadence caveat in the
-   ask itself (see the per-phase intents above) rather than glossing
-   it.
+   Firmware → Procurement and Manufacturing → Sales transitions,
+   run the validation-checkpoint beat (see "Validation checkpoints"
+   above) before the move-on question — the expository narration
+   of what we'd be doing here in a real run replaces the standard
+   "anything to change?" prompt for those two transitions.
 
 7. **Hand artifacts forward.** When a downstream service needs an
    earlier artifact, pass the handle (not the raw data). The
