@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import type { ServiceDescriptionPayload } from '../types.ts';
 
 /**
@@ -30,14 +32,15 @@ function extractMethodNames(description: ServiceDescriptionPayload): string[] {
   return out;
 }
 
-type MarketplaceGridProps = {
+type ServicesGridProps = {
   services: Map<string, ServiceDescriptionPayload>;
   discoveredProviderTags: string[];
 };
 
 /**
  * Grid of provider cards, one per provider the agent has discovered
- * via `discovery_find_services`.
+ * via `discovery_find_services`. The list auto-scrolls to the bottom
+ * whenever new providers appear so the latest discoveries stay in view.
  *
  * Cards are ordered by discovery order (first time a provider appeared
  * in a matcher reply). Empty state reflects the conceit that the
@@ -52,7 +55,7 @@ type MarketplaceGridProps = {
  *   in a matcher reply, in discovery order.
  * @returns The rendered grid.
  */
-export function MarketplaceGrid(props: MarketplaceGridProps): JSX.Element {
+export function ServicesGrid(props: ServicesGridProps): JSX.Element {
   const { services, discoveredProviderTags } = props;
 
   const byProviderTag = new Map<
@@ -73,20 +76,28 @@ export function MarketplaceGrid(props: MarketplaceGridProps): JSX.Element {
     }
   }
 
+  const listRef = useRef<HTMLUListElement | null>(null);
+  useEffect(() => {
+    const list = listRef.current;
+    if (list !== null) {
+      list.scrollTop = list.scrollHeight;
+    }
+  }, [entries.length]);
+
   return (
-    <section className="marketplace-grid">
-      <header className="marketplace-grid__header">
-        <h2>Marketplace</h2>
-        <span className="marketplace-grid__count">
+    <section className="services-grid">
+      <header className="services-grid__header">
+        <h2>Services</h2>
+        <span className="services-grid__count">
           {entries.length} discovered
         </span>
       </header>
       {entries.length === 0 ? (
-        <div className="marketplace-grid__empty">
+        <div className="services-grid__empty">
           No providers discovered yet — agent hasn't queried the matcher.
         </div>
       ) : (
-        <ul className="marketplace-grid__cards">
+        <ul className="services-grid__cards" ref={listRef}>
           {entries.map(({ id, description }) => (
             <ProviderCard key={id} id={id} description={description} />
           ))}
@@ -102,7 +113,7 @@ type ProviderCardProps = {
 };
 
 /**
- * A single provider's card in the marketplace grid. Shows the
+ * A single provider's card in the services grid. Shows the
  * provider tag, registry id, natural-language description, the list
  * of method names exposed, and the advisory price.
  *

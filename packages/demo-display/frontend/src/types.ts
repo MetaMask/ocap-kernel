@@ -111,7 +111,7 @@ export type DisplayEvent =
  * unknown.
  *
  * Method names live nested under `apiSpec.properties.<key>.type.spec.methods`
- * — see `extractMethodNames()` in components/MarketplaceGrid.tsx.
+ * — see `extractMethodNames()` in components/ServicesGrid.tsx.
  */
 export type ServiceDescriptionPayload = {
   providerTag: string;

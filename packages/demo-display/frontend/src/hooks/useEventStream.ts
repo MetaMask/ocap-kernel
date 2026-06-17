@@ -71,7 +71,7 @@ export type DisplayState = {
   announcedPhases: string[];
   /**
    * Provider tags that have appeared in a `discovery_find_services`
-   * reply, in the order they were first discovered. The marketplace
+   * reply, in the order they were first discovered. The services
    * grid renders only providers in this list, even though the full
    * registry (`services` map) is populated from the matcher poller —
    * the conceit is that the inventor's side doesn't know about a

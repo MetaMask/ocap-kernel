@@ -104,7 +104,7 @@ body {
   width: 100%;
 }
 
-.marketplace-grid {
+.services-grid {
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -115,14 +115,14 @@ body {
   overflow: hidden;
 }
 
-.marketplace-grid__header {
+.services-grid__header {
   display: flex;
   align-items: baseline;
   gap: 1rem;
   margin-bottom: 0.75rem;
 }
 
-.marketplace-grid__header h2 {
+.services-grid__header h2 {
   margin: 0;
   font-size: 1rem;
   font-weight: 500;
@@ -131,12 +131,12 @@ body {
   color: var(--text-muted);
 }
 
-.marketplace-grid__count {
+.services-grid__count {
   font-size: 0.875rem;
   color: var(--text-muted);
 }
 
-.marketplace-grid__empty {
+.services-grid__empty {
   padding: 2rem;
   text-align: center;
   color: var(--text-muted);
@@ -145,7 +145,7 @@ body {
   border-radius: 0.5rem;
 }
 
-.marketplace-grid__cards {
+.services-grid__cards {
   flex: 1;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));

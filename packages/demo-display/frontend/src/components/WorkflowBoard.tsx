@@ -115,6 +115,7 @@ type PhaseColumnProps = {
  * @param props.phase - Phase name (column heading).
  * @param props.artifacts - Artifacts that landed in this phase.
  * @param props.isActive - Whether this column is the active phase.
+ * @param props.onZoom - Callback to open the zoom overlay for an artifact.
  * @returns The rendered column.
  */
 function PhaseColumn({
@@ -158,12 +159,10 @@ type ArtifactThumbProps = {
  *
  * @param props - Component props.
  * @param props.artifact - The artifact event to thumbnail.
+ * @param props.onZoom - Callback to open the zoom overlay for this artifact.
  * @returns The rendered card.
  */
-function ArtifactThumb({
-  artifact,
-  onZoom,
-}: ArtifactThumbProps): JSX.Element {
+function ArtifactThumb({ artifact, onZoom }: ArtifactThumbProps): JSX.Element {
   const title = artifact.metadata?.title ?? artifact.handle;
   return (
     <li

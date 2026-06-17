@@ -91,7 +91,7 @@ export function ArtifactBody({ artifact }: ArtifactBodyProps): JSX.Element {
     // `marked.parse` is synchronous when given a string; the type
     // signature returns `string | Promise<string>` because async
     // extensions are supported, but we don't use any.
-    const html = marked.parse(artifact.data, { async: false }) as string;
+    const html = marked.parse(artifact.data, { async: false });
     return (
       <div
         className="artifact-panel__body artifact-panel__body--markdown"

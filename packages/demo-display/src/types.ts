@@ -23,9 +23,9 @@ export type ServiceEvictedEvent = {
 
 /**
  * The agent's `discovery_find_services` query matched this provider.
- * Marketplace cards surface only providers that have been discovered;
+ * Services-grid cards surface only providers that have been discovered;
  * the registry-truth `service.registered` stream is used internally for
- * lookups but never directly drives the marketplace UI.
+ * lookups but never directly drives the services UI.
  */
 export type ServiceDiscoveredEvent = {
   kind: 'service.discovered';

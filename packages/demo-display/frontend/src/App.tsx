@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { ArtifactPanel } from './components/ArtifactPanel.tsx';
 import { ArtifactZoom } from './components/ArtifactZoom.tsx';
-import { MarketplaceGrid } from './components/MarketplaceGrid.tsx';
+import { ServicesGrid } from './components/ServicesGrid.tsx';
 import { Transcript } from './components/Transcript.tsx';
 import { WalletRibbon } from './components/WalletRibbon.tsx';
 import { WorkflowBoard } from './components/WorkflowBoard.tsx';
@@ -15,7 +15,7 @@ import type { ArtifactRecordedEvent } from './types.ts';
  * Four regions in a 2x2 grid, mirroring plan §13:
  *
  *   +-------------------+----------------------+
- *   | Marketplace grid  | Workflow board       |
+ *   | Services grid     | Workflow board       |
  *   +-------------------+----------------------+
  *   | Agent transcript  | Artifact panel       |
  *   +-------------------+----------------------+
@@ -47,7 +47,7 @@ export function App(): JSX.Element {
       </header>
       <main className="app__main">
         <div className="app__cell app__cell--top-left">
-          <MarketplaceGrid
+          <ServicesGrid
             services={services}
             discoveredProviderTags={discoveredProviderTags}
           />
