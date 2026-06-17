@@ -72,9 +72,13 @@ const TARGETS = [
     source: 'src/pcb-layout/master-svg.ts',
     output: 'src/pcb-layout/master-svg.preview.svg',
     exportName: 'MASTER_SVG',
+    // Mirror the production token set so the preview reflects what a
+    // generate() call actually emits (without the per-call randomness).
     tokens: {
       revLabel: 'P1',
       providerLabel: 'pcb-foundry-compact',
+      boardColor: '#0d6e3a',
+      boardSize: '46 × 102 mm',
     },
   },
 ];

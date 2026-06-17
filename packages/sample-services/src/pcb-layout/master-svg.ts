@@ -34,6 +34,14 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
       .outline    { fill: none; stroke: #fff; stroke-width: 1.2; stroke-dasharray: 4 2; }
       .title      { fill: #ffffff; font-family: 'Arial', sans-serif; font-size: 14; font-weight: bold; }
       .annot      { fill: #1c1c1c; font-family: 'Courier New', monospace; font-size: 11; }
+      .shield     { fill: #8a8a8a; stroke: #444; stroke-width: 0.4; }
+      .shield-hatch { stroke: #6a6a6a; stroke-width: 0.25; opacity: 0.5; }
+      .keepout    { fill: none; stroke: #ffffff; stroke-width: 0.5; stroke-dasharray: 3 2; }
+      .fid-pad    { fill: #b85c1a; }
+      .fid-mask   { fill: none; stroke: #ffffff; stroke-width: 0.4; }
+      .tp-pad     { fill: #b85c1a; stroke: #ffffff; stroke-width: 0.4; }
+      .via        { fill: #b85c1a; stroke: #ffffff; stroke-width: 0.3; }
+      .gnd-pour   { stroke: #ffffff; stroke-width: 0.2; opacity: 0.18; }
     </style>
   </defs>
 
@@ -112,34 +120,44 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
 
     <g transform="translate(120 220)">
       <rect class="ic-pkg" width="100" height="100" />
-      <circle class="ic-pin1" cx="8" cy="8" r="2.5" />
+
+      <rect class="shield" x="2" y="22" width="96" height="76" />
+      <g class="shield-hatch">
+        <line x1="4"  y1="30" x2="96" y2="30" />
+        <line x1="4"  y1="40" x2="96" y2="40" />
+        <line x1="4"  y1="50" x2="96" y2="50" />
+        <line x1="4"  y1="60" x2="96" y2="60" />
+        <line x1="4"  y1="70" x2="96" y2="70" />
+        <line x1="4"  y1="80" x2="96" y2="80" />
+        <line x1="4"  y1="90" x2="96" y2="90" />
+      </g>
+
+      <path d="M 22 6 L 22 14 L 30 14 L 30 4 L 38 4 L 38 14 L 46 14 L 46 4 L 54 4 L 54 14 L 62 14 L 62 4 L 70 4 L 70 14 L 78 14"
+            stroke="#b85c1a" stroke-width="0.9" fill="none" />
+      <rect class="keepout" x="2" y="2" width="96" height="18" />
+
+      <circle class="ic-pin1" cx="6" cy="26" r="1.8" />
+
       <g class="pad-rect">
-        <rect x="6"   y="-6" width="3" height="6" /><rect x="14"  y="-6" width="3" height="6" />
-        <rect x="22"  y="-6" width="3" height="6" /><rect x="30"  y="-6" width="3" height="6" />
-        <rect x="38"  y="-6" width="3" height="6" /><rect x="46"  y="-6" width="3" height="6" />
-        <rect x="54"  y="-6" width="3" height="6" /><rect x="62"  y="-6" width="3" height="6" />
-        <rect x="70"  y="-6" width="3" height="6" /><rect x="78"  y="-6" width="3" height="6" />
-        <rect x="86"  y="-6" width="3" height="6" />
         <rect x="6"   y="100" width="3" height="6" /><rect x="14"  y="100" width="3" height="6" />
         <rect x="22"  y="100" width="3" height="6" /><rect x="30"  y="100" width="3" height="6" />
         <rect x="38"  y="100" width="3" height="6" /><rect x="46"  y="100" width="3" height="6" />
         <rect x="54"  y="100" width="3" height="6" /><rect x="62"  y="100" width="3" height="6" />
         <rect x="70"  y="100" width="3" height="6" /><rect x="78"  y="100" width="3" height="6" />
         <rect x="86"  y="100" width="3" height="6" />
-        <rect x="-6" y="6"  width="6" height="3" /><rect x="-6" y="14" width="6" height="3" />
-        <rect x="-6" y="22" width="6" height="3" /><rect x="-6" y="30" width="6" height="3" />
-        <rect x="-6" y="38" width="6" height="3" /><rect x="-6" y="46" width="6" height="3" />
-        <rect x="-6" y="54" width="6" height="3" /><rect x="-6" y="62" width="6" height="3" />
-        <rect x="-6" y="70" width="6" height="3" /><rect x="-6" y="78" width="6" height="3" />
-        <rect x="-6" y="86" width="6" height="3" />
-        <rect x="100" y="6"  width="6" height="3" /><rect x="100" y="14" width="6" height="3" />
-        <rect x="100" y="22" width="6" height="3" /><rect x="100" y="30" width="6" height="3" />
-        <rect x="100" y="38" width="6" height="3" /><rect x="100" y="46" width="6" height="3" />
-        <rect x="100" y="54" width="6" height="3" /><rect x="100" y="62" width="6" height="3" />
-        <rect x="100" y="70" width="6" height="3" /><rect x="100" y="78" width="6" height="3" />
-        <rect x="100" y="86" width="6" height="3" />
+        <rect x="-6" y="30" width="6" height="3" /><rect x="-6" y="38" width="6" height="3" />
+        <rect x="-6" y="46" width="6" height="3" /><rect x="-6" y="54" width="6" height="3" />
+        <rect x="-6" y="62" width="6" height="3" /><rect x="-6" y="70" width="6" height="3" />
+        <rect x="-6" y="78" width="6" height="3" /><rect x="-6" y="86" width="6" height="3" />
+        <rect x="100" y="30" width="6" height="3" /><rect x="100" y="38" width="6" height="3" />
+        <rect x="100" y="46" width="6" height="3" /><rect x="100" y="54" width="6" height="3" />
+        <rect x="100" y="62" width="6" height="3" /><rect x="100" y="70" width="6" height="3" />
+        <rect x="100" y="78" width="6" height="3" /><rect x="100" y="86" width="6" height="3" />
       </g>
-      <text x="50" y="58" text-anchor="middle" class="silk" font-size="9">U1</text>
+
+      <text x="50" y="58" text-anchor="middle" fill="#3a3a3a" font-family="Arial" font-size="6" font-weight="bold">ESPRESSIF</text>
+      <text x="50" y="68" text-anchor="middle" fill="#3a3a3a" font-family="Arial" font-size="5">ESP32-S3-MINI</text>
+      <text x="-2" y="-2" class="silk" font-size="8">U1</text>
     </g>
 
     <g transform="translate(120 372)">
@@ -264,10 +282,70 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
     <circle class="drill" cx="40"  cy="740" r="5" />
     <circle class="drill" cx="300" cy="740" r="5" />
 
+    <g>
+      <circle class="fid-pad"  cx="50"  cy="62"  r="1.2" />
+      <circle class="fid-mask" cx="50"  cy="62"  r="2.4" />
+      <circle class="fid-pad"  cx="288" cy="62"  r="1.2" />
+      <circle class="fid-mask" cx="288" cy="62"  r="2.4" />
+      <circle class="fid-pad"  cx="170" cy="752" r="1.2" />
+      <circle class="fid-mask" cx="170" cy="752" r="2.4" />
+      <text x="55"  y="64"  class="silk" font-size="5">FID1</text>
+      <text x="293" y="64"  class="silk" font-size="5">FID2</text>
+      <text x="175" y="754" class="silk" font-size="5">FID3</text>
+    </g>
+
+    <g>
+      <circle class="tp-pad" cx="234" cy="332" r="2" />
+      <text x="240" y="334" class="silk" font-size="5">TP1 SWDIO</text>
+      <circle class="tp-pad" cx="234" cy="346" r="2" />
+      <text x="240" y="348" class="silk" font-size="5">TP2 SWCLK</text>
+    </g>
+
+    <g class="via">
+      <circle cx="130" cy="60"  r="1.1" />
+      <circle cx="100" cy="252" r="1.1" />
+      <circle cx="80"  cy="250" r="1.1" />
+      <circle cx="244" cy="484" r="1.1" />
+      <circle cx="60"  cy="690" r="1.1" />
+      <circle cx="250" cy="503" r="1.1" />
+    </g>
+
+    <g class="gnd-pour">
+      <line x1="234" y1="362" x2="262" y2="362" />
+      <line x1="234" y1="368" x2="262" y2="368" />
+      <line x1="234" y1="374" x2="262" y2="374" />
+      <line x1="234" y1="380" x2="262" y2="380" />
+      <line x1="234" y1="386" x2="262" y2="386" />
+      <line x1="234" y1="392" x2="262" y2="392" />
+      <line x1="234" y1="398" x2="262" y2="398" />
+      <line x1="234" y1="404" x2="262" y2="404" />
+      <line x1="234" y1="410" x2="262" y2="410" />
+      <line x1="234" y1="416" x2="262" y2="416" />
+      <line x1="234" y1="422" x2="262" y2="422" />
+      <line x1="234" y1="428" x2="262" y2="428" />
+      <line x1="234" y1="434" x2="262" y2="434" />
+      <line x1="234" y1="440" x2="262" y2="440" />
+      <line x1="234" y1="446" x2="262" y2="446" />
+      <line x1="295" y1="180" x2="320" y2="180" />
+      <line x1="295" y1="186" x2="320" y2="186" />
+      <line x1="295" y1="192" x2="320" y2="192" />
+      <line x1="295" y1="198" x2="320" y2="198" />
+      <line x1="295" y1="204" x2="320" y2="204" />
+      <line x1="295" y1="210" x2="320" y2="210" />
+      <line x1="295" y1="216" x2="320" y2="216" />
+      <line x1="14"  y1="180" x2="38"  y2="180" />
+      <line x1="14"  y1="186" x2="38"  y2="186" />
+      <line x1="14"  y1="192" x2="38"  y2="192" />
+      <line x1="14"  y1="198" x2="38"  y2="198" />
+      <line x1="14"  y1="204" x2="38"  y2="204" />
+      <line x1="14"  y1="210" x2="38"  y2="210" />
+      <line x1="14"  y1="216" x2="38"  y2="216" />
+    </g>
+
     <g class="copper" stroke-width="1.6">
       <path d="M 150 24 L 150 60 L 130 60 L 130 168" />
-      <path d="M 220 240 L 244 240 L 244 90 L 270 90 L 270 118" stroke-width="1.2" />
-      <path d="M 130 232 L 100 232 L 100 138 L 92 138" stroke-width="1.2" />
+      <path d="M 220 252 L 244 252 L 244 90 L 270 90 L 270 118" stroke-width="1.2" />
+      <path d="M 120 252 L 100 252 L 100 138 L 92 138" stroke-width="1.2" />
       <path d="M 130 250 L 80 250 L 80 440" stroke-width="1.2" />
       <path d="M 130 268 L 70 268 L 70 552" stroke-width="1.2" />
       <path d="M 220 260 L 244 260 L 244 484 L 270 484" stroke-width="1.2" />
@@ -293,4 +371,16 @@ export const MASTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
   <text x="490" y="172" class="annot" font-size="9">SW3/4 vol +/-</text>
   <text x="490" y="186" class="annot" font-size="9">SW6-10 d-pad + OK</text>
   <text x="490" y="200" class="annot" font-size="9">SW11/12/13 transport</text>
+
+  <text x="490" y="226" class="annot" font-size="10" font-weight="bold">Layer key</text>
+  <rect x="490" y="234" width="10" height="10" fill="#b85c1a" />
+  <text x="504" y="243" class="annot" font-size="9">top copper / vias</text>
+  <rect x="490" y="248" width="10" height="10" fill="#d9d9d9" stroke="#999" stroke-width="0.3" />
+  <text x="504" y="257" class="annot" font-size="9">SMD pads</text>
+  <rect x="490" y="262" width="10" height="10" fill="#ffffff" stroke="#999" stroke-width="0.5" />
+  <text x="504" y="271" class="annot" font-size="9">drill / mounting hole</text>
+  <rect x="490" y="276" width="10" height="10" fill="none" stroke="#fff" stroke-width="0.8" stroke-dasharray="3 2" />
+  <text x="504" y="285" class="annot" font-size="9">antenna keepout</text>
+  <rect x="490" y="290" width="10" height="10" fill="#8a8a8a" stroke="#444" stroke-width="0.3" />
+  <text x="504" y="299" class="annot" font-size="9">RF shield can (U1)</text>
 </svg>`;
