@@ -61,6 +61,12 @@ export type ArtifactRecordedEvent = {
   fromService: string;
   metadata?: { title?: string; summary?: string };
   phase?: string;
+  /**
+   * Handles of earlier artifacts that were passed (as inputs) to the
+   * service call that produced this one. The workflow board draws a
+   * lineage edge from each consumed card to this one.
+   */
+  consumes?: string[];
   at: string;
 };
 

@@ -325,7 +325,17 @@ title: "Product concept" })`.
 
 7. **Hand artifacts forward.** When a downstream service needs an
    earlier artifact, pass the handle (not the raw data). The
-   receiving service stub resolves handles internally.
+   receiving service stub resolves handles internally. **When you
+   record the resulting artifact**, also pass the
+   `consumes: [...]` argument to `demo_record_artifact` listing the
+   handles you fed into the producing call — e.g.
+   `consumes: ["artifact-3", "artifact-5"]` when the PCB-layout
+   service was called with both the schematic and the industrial-
+   design sketch as inputs. The display reads `consumes` to draw
+   lineage edges on the workflow board, so the audience can see how
+   each output was derived from earlier work. Omit `consumes` only
+   when the producing call genuinely took no prior artifacts (e.g.
+   the Concept brief, the first Industrial Design pass).
 
 8. **Budget gating.** Before committing to a large-spend phase
    (tooling, manufacturing), compare the wallet balance to the
@@ -465,14 +475,19 @@ You (compact restatement, then proceed):
 Then, in audience-facing channels:
 
 ```
-demo_record_artifact({ kind: "markdown", data: "<brief>", fromService: "producer", phase: "Industrial Design", title: "Industrial Design brief" })
+demo_record_artifact({ kind: "markdown", data: "<concept-brief>", fromService: "producer", phase: "Concept", title: "Product concept" })
+// ↑ returns e.g. artifact-1
 demo_announce({ phaseTransition: "Industrial Design" })
+demo_record_artifact({ kind: "markdown", data: "<brief>", fromService: "producer", phase: "Industrial Design", title: "Industrial Design brief", consumes: ["artifact-1"] })
 demo_announce({ note: "Industrial-design pass." })
 discovery_find_services({ description: "design an industrial concept for a handheld voice-driven universal remote" })
 … pick a candidate …
 service_initiate_contact({ contact: "<contact-url>" })
 service_call({ service: "<nickname>", method: "generate", args: '["…spec…"]' })
-demo_record_artifact({ kind: "svg", data: "…", fromService: "<providerTag>", phase: "Industrial Design", title: "Concept sketch" })
+demo_record_artifact({ kind: "svg", data: "…", fromService: "<providerTag>", phase: "Industrial Design", title: "Concept sketch", consumes: ["artifact-2"] })
+// ↑ consumes the Industrial Design brief (artifact-2). A later
+//   phase like the PCB-layout call would consume both the
+//   schematic handle and the industrial-design-sketch handle.
 demo_announce({ note: "Concept sketch in." })
 ```
 

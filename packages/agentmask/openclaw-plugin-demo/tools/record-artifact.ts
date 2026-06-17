@@ -17,6 +17,7 @@ type RecordArtifactParams = {
   title?: string;
   summary?: string;
   phase?: string;
+  consumes?: string[];
 };
 
 /**
@@ -82,6 +83,20 @@ export function registerRecordArtifactTool(options: {
             '(e.g. parallel phase work, an artifact returning out of ' +
             'order).',
         },
+        consumes: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Handles of earlier artifacts that were passed (as inputs) ' +
+            'to the service call that produced this one — e.g. the ' +
+            'schematic handle when recording a PCB layout, or the spec ' +
+            'handle when recording a firmware implementation. The demo ' +
+            'display reads this to draw lineage edges between artifacts ' +
+            'on the workflow board, so the audience can see how each ' +
+            'output was derived from earlier work. Optional but should ' +
+            'be set whenever the producing call actually took earlier ' +
+            'handles as arguments.',
+        },
       },
       required: ['kind', 'data', 'fromService'],
     },
@@ -103,6 +118,12 @@ export function registerRecordArtifactTool(options: {
           ? { title: params.title, summary: params.summary }
           : undefined;
       const phase = params.phase?.trim();
+      const consumes = Array.isArray(params.consumes)
+        ? params.consumes.filter(
+            (handleRef): handleRef is string =>
+              typeof handleRef === 'string' && handleRef.length > 0,
+          )
+        : undefined;
       const stored = {
         handle,
         artifactKind: kind,
@@ -115,6 +136,7 @@ export function registerRecordArtifactTool(options: {
         kind: 'artifact.recorded',
         ...stored,
         ...(phase ? { phase } : {}),
+        ...(consumes && consumes.length > 0 ? { consumes } : {}),
       });
       return {
         content: [

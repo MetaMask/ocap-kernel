@@ -96,6 +96,14 @@ export type ArtifactRecordedEvent = {
    * the agent might be running phases out of order or in parallel.
    */
   phase?: string;
+  /**
+   * Handles of earlier artifacts that the producing service call took
+   * as inputs. The workflow board draws a lineage edge from each
+   * consumed card to this one, so the audience can see how outputs
+   * were derived from earlier work. Empty / undefined when the
+   * producing call took no prior artifacts.
+   */
+  consumes?: string[];
   at: string;
 };
 
