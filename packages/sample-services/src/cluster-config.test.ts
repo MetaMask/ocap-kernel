@@ -2,14 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
   ECHO_VAT_NAME,
-  FIRMWARE_SPEC_VAT_NAME,
+  FIRMWARE_VAT_NAME,
   INDUSTRIAL_DESIGN_VAT_NAME,
   MECHANICAL_DESIGN_VAT_NAME,
   PCB_LAYOUT_VAT_NAME,
   RANDOM_NUMBER_VAT_NAME,
   SCHEMATIC_GENERATION_VAT_NAME,
   makeEchoClusterConfig,
-  makeFirmwareSpecClusterConfig,
+  makeFirmwareClusterConfig,
   makeIndustrialDesignClusterConfig,
   makeMechanicalDesignClusterConfig,
   makePcbLayoutClusterConfig,
@@ -110,17 +110,17 @@ describe('makeSchematicGenerationClusterConfig', () => {
   });
 });
 
-describe('makeFirmwareSpecClusterConfig', () => {
+describe('makeFirmwareClusterConfig', () => {
   it('threads matcherUrl into vat parameters and uses the supplied bundle spec', () => {
-    const config = makeFirmwareSpecClusterConfig({
-      bundleSpec: 'file:///tmp/firmware-spec.bundle',
+    const config = makeFirmwareClusterConfig({
+      bundleSpec: 'file:///tmp/firmware.bundle',
       matcherUrl: 'ocap:rst@peer',
     });
 
-    expect(config.bootstrap).toBe(FIRMWARE_SPEC_VAT_NAME);
+    expect(config.bootstrap).toBe(FIRMWARE_VAT_NAME);
     expect(config.forceReset).toBe(false);
-    expect(config.vats[FIRMWARE_SPEC_VAT_NAME]).toStrictEqual({
-      bundleSpec: 'file:///tmp/firmware-spec.bundle',
+    expect(config.vats[FIRMWARE_VAT_NAME]).toStrictEqual({
+      bundleSpec: 'file:///tmp/firmware.bundle',
       parameters: { matcherUrl: 'ocap:rst@peer' },
     });
   });

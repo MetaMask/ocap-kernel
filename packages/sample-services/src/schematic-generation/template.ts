@@ -31,7 +31,7 @@ const REV_LETTERS = ['A', 'B', 'C', 'D'] as const;
 const REV_DIGITS = ['1', '2', '3', '4'] as const;
 
 /**
- * MCU is locked to ESP32-S3-MINI-N8 so the schematic, firmware-spec,
+ * MCU is locked to ESP32-S3-MINI-N8 so the schematic, firmware,
  * component-sourcing, and pcb-layout dummy services all agree. Without
  * this lock the LLM orchestrator surfaces a cross-service inconsistency
  * mid-demo, which is a valuable feature but a distracting one when the

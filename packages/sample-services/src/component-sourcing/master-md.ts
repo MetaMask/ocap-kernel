@@ -1,7 +1,7 @@
 /**
  * Master markdown for the component-sourcing service. Token markers
  * (`{{...}}`) are filled in by `template.ts`. Same wire format as
- * the firmware-spec service.
+ * the firmware service.
  *
  * Token catalog:
  *   {{providerLabel}}    provider identifier

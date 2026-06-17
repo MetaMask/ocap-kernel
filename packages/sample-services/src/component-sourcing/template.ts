@@ -33,7 +33,7 @@ const BATCH_PROFILES = [
 const LEAD_DAYS = ['14 days', '18 days', '21 days'] as const;
 
 /**
- * MCU is locked to ESP32-S3-MINI-N8 so the schematic, firmware-spec,
+ * MCU is locked to ESP32-S3-MINI-N8 so the schematic, firmware,
  * component-sourcing, and pcb-layout dummy services all agree (see
  * the matching note in schematic-generation/template.ts).
  */

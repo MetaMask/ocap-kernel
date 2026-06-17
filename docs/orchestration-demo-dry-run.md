@@ -477,7 +477,7 @@ setenv OCAP_RELAY_MULTIADDR `ssh $VPS_HOST cat \~/.libp2p-relay/relay.addr`
 ```
 
 Watch for ten `info "<svc> registered."` lines (echo,
-random-number, industrial-design, schematic-generation, firmware-spec,
+random-number, industrial-design, schematic-generation, firmware,
 mechanical-design, pcb-layout, component-sourcing, device-assembly,
 retail-listing).
 

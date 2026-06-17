@@ -157,8 +157,24 @@ Per-phase intent:
   material, and assembly detail.
 - **Electronics** — schematic of the internal circuitry, then PCB
   layout. Two artifacts in this phase.
-- **Firmware** — specification document for the embedded software
-  (state machine, peripheral I/O, update/recovery).
+- **Firmware** — a **two-round** delivery from a single provider.
+  Round 1 calls the service's `specify` method (~$1,000) and returns
+  a markdown firmware specification (state machine, peripheral I/O,
+  update/recovery). Present that to the inventor and ask for
+  approval — they may approve unconditionally or with proposed
+  changes ("approve subject to: bump the idle timeout, add a BLE HID
+  placeholder, …"). Round 2 calls the service's `implement` method
+  (~$5,000) with the spec handle and the inventor's `changes` text
+  (omit the field for an unconditional approval). The result is a
+  structured object: `{ accepted, firmware?, declineReason? }`. The
+  stub provider always sets `accepted: true` and returns the
+  firmware source (rendered as markdown with a fenced C code block),
+  but the API allows a real provider to renegotiate — narrate the
+  acceptance verdict explicitly to the inventor either way. **Both
+  artifacts land in the Firmware column** (same `phase` value); the
+  spec first, then the implementation. Announce the implementation
+  charge before calling `implement`, since the round-2 cost is the
+  one the inventor hasn't yet absorbed.
 - **Procurement** — priced bill of materials. May have no provider
   in the matcher; if so, stop the pipeline cleanly here.
 - **Manufacturing** — build plan and (for prototypes) a small

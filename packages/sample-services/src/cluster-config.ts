@@ -24,9 +24,9 @@ export const INDUSTRIAL_DESIGN_VAT_NAME = 'industrial-design';
 export const SCHEMATIC_GENERATION_VAT_NAME = 'schematic-generation';
 
 /**
- * Bootstrap-vat name for the FirmwareSpec service subcluster.
+ * Bootstrap-vat name for the Firmware service subcluster.
  */
-export const FIRMWARE_SPEC_VAT_NAME = 'firmware-spec';
+export const FIRMWARE_VAT_NAME = 'firmware';
 
 /**
  * Bootstrap-vat name for the MechanicalDesign service subcluster.
@@ -67,7 +67,7 @@ export const RANDOM_NUMBER_BUNDLE_PATH = 'random-number-service/index.bundle';
 export const INDUSTRIAL_DESIGN_BUNDLE_PATH = 'industrial-design/index.bundle';
 export const SCHEMATIC_GENERATION_BUNDLE_PATH =
   'schematic-generation/index.bundle';
-export const FIRMWARE_SPEC_BUNDLE_PATH = 'firmware-spec/index.bundle';
+export const FIRMWARE_BUNDLE_PATH = 'firmware/index.bundle';
 export const MECHANICAL_DESIGN_BUNDLE_PATH = 'mechanical-design/index.bundle';
 export const PCB_LAYOUT_BUNDLE_PATH = 'pcb-layout/index.bundle';
 export const COMPONENT_SOURCING_BUNDLE_PATH = 'component-sourcing/index.bundle';
@@ -203,27 +203,27 @@ export function makeSchematicGenerationClusterConfig(options: {
 }
 
 /**
- * Build a ClusterConfig for the FirmwareSpec subcluster.
+ * Build a ClusterConfig for the Firmware subcluster.
  *
  * @param options - Configuration options.
- * @param options.bundleSpec - URL or path to the FirmwareSpec vat bundle.
+ * @param options.bundleSpec - URL or path to the Firmware vat bundle.
  * @param options.matcherUrl - OCAP URL of the service matcher.
  * @param options.forceReset - Whether to reset the subcluster on launch.
  *   Defaults to `false`.
  * @returns A ClusterConfig ready for `kernel.launchSubcluster(...)`.
  */
-export function makeFirmwareSpecClusterConfig(options: {
+export function makeFirmwareClusterConfig(options: {
   bundleSpec: string;
   matcherUrl: string;
   forceReset?: boolean;
 }): ClusterConfig {
   const { bundleSpec, matcherUrl, forceReset = false } = options;
   return {
-    bootstrap: FIRMWARE_SPEC_VAT_NAME,
+    bootstrap: FIRMWARE_VAT_NAME,
     forceReset,
     services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
     vats: {
-      [FIRMWARE_SPEC_VAT_NAME]: {
+      [FIRMWARE_VAT_NAME]: {
         bundleSpec,
         parameters: { matcherUrl },
       },

@@ -8,10 +8,10 @@ import type {
 import type { ServicePoint } from '@metamask/service-discovery-types';
 
 import {
-  FIRMWARE_SPEC_PRICE_USD,
-  FIRMWARE_SPEC_PROVIDER_TAG,
-  FIRMWARE_SPEC_SERVICE_DESCRIPTION,
-  makeFirmwareSpecService,
+  FIRMWARE_PRICE_USD,
+  FIRMWARE_PROVIDER_TAG,
+  FIRMWARE_SERVICE_DESCRIPTION,
+  makeFirmwareService,
 } from './service.ts';
 import {
   getRemotableSpec,
@@ -20,7 +20,7 @@ import {
   registerServicesWithMatcher,
 } from '../vat-lib/index.ts';
 
-const SERVICE_NAME = 'FirmwareSpecService';
+const SERVICE_NAME = 'FirmwareService';
 
 type Services = {
   ocapURLIssuerService: OcapURLIssuerService;
@@ -28,7 +28,7 @@ type Services = {
 };
 
 /**
- * Build the FirmwareSpec service vat root.
+ * Build the Firmware service vat root.
  *
  * @param _vatPowers - Vat powers (unused).
  * @param parameters - Vat parameters; `matcherUrl` is read at bootstrap.
@@ -47,21 +47,21 @@ export function buildRootObject(
 
   return makeDefaultExo(`${SERVICE_NAME}VatRoot`, {
     async bootstrap(_vats: Record<string, unknown>, services: Services) {
-      const serviceExo = makeFirmwareSpecService();
+      const serviceExo = makeFirmwareService();
       const remotableSpec = await getRemotableSpec(
         serviceExo,
-        FIRMWARE_SPEC_SERVICE_DESCRIPTION,
+        FIRMWARE_SERVICE_DESCRIPTION,
       );
       const registrationToken = makeRegistrationToken();
       const contact = makeContactEndpoint({
         name: SERVICE_NAME,
         service: serviceExo as unknown as ServicePoint,
-        description: FIRMWARE_SPEC_SERVICE_DESCRIPTION,
+        description: FIRMWARE_SERVICE_DESCRIPTION,
         remotableSpec,
         getContactUrl: () => contactUrl,
         expectedToken: registrationToken,
-        providerTag: FIRMWARE_SPEC_PROVIDER_TAG,
-        priceUsd: FIRMWARE_SPEC_PRICE_USD,
+        providerTag: FIRMWARE_PROVIDER_TAG,
+        priceUsd: FIRMWARE_PRICE_USD,
       });
       contactUrl = await E(services.ocapURLIssuerService).issue(contact);
 

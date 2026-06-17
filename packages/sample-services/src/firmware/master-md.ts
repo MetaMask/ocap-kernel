@@ -1,6 +1,7 @@
 /**
- * Master markdown for the firmware-spec artifact. Token markers
- * (`{{...}}`) are filled in by `template.ts` on each generate() call.
+ * Master markdown for the firmware spec artifact (round 1 of the
+ * firmware service's two-step delivery). Token markers (`{{...}}`)
+ * are filled in by `template.ts` on each `specify()` call.
  *
  * Token catalog:
  *   {{mcu}}             MCU part number

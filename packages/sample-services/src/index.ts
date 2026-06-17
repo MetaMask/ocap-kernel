@@ -1,8 +1,8 @@
 export {
   ECHO_BUNDLE_PATH,
   ECHO_VAT_NAME,
-  FIRMWARE_SPEC_BUNDLE_PATH,
-  FIRMWARE_SPEC_VAT_NAME,
+  FIRMWARE_BUNDLE_PATH,
+  FIRMWARE_VAT_NAME,
   INDUSTRIAL_DESIGN_BUNDLE_PATH,
   INDUSTRIAL_DESIGN_VAT_NAME,
   MECHANICAL_DESIGN_BUNDLE_PATH,
@@ -14,7 +14,7 @@ export {
   SCHEMATIC_GENERATION_BUNDLE_PATH,
   SCHEMATIC_GENERATION_VAT_NAME,
   makeEchoClusterConfig,
-  makeFirmwareSpecClusterConfig,
+  makeFirmwareClusterConfig,
   makeIndustrialDesignClusterConfig,
   makeMechanicalDesignClusterConfig,
   makePcbLayoutClusterConfig,
@@ -35,11 +35,15 @@ export {
   type SchematicArtifact,
 } from './schematic-generation/service.ts';
 export {
+  FIRMWARE_IMPLEMENTATION_PRICE_USD,
+  FIRMWARE_PRICE_USD,
+  FIRMWARE_PROVIDER_TAG,
+  FIRMWARE_SERVICE_DESCRIPTION,
   FIRMWARE_SPEC_PRICE_USD,
-  FIRMWARE_SPEC_PROVIDER_TAG,
-  FIRMWARE_SPEC_SERVICE_DESCRIPTION,
+  type FirmwareImplementationArtifact,
+  type FirmwareImplementationResult,
   type FirmwareSpecArtifact,
-} from './firmware-spec/service.ts';
+} from './firmware/service.ts';
 export {
   MECHANICAL_DESIGN_PRICE_USD,
   MECHANICAL_DESIGN_PROVIDER_TAG,
