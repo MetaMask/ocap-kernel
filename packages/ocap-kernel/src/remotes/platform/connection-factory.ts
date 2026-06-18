@@ -10,7 +10,7 @@ import {
 } from '@libp2p/interface';
 import type { PrivateKey, Libp2p } from '@libp2p/interface';
 import { ping } from '@libp2p/ping';
-import { byteStream } from '@libp2p/utils';
+import { lpStream } from '@libp2p/utils';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
 import { webTransport } from '@libp2p/webtransport';
@@ -26,6 +26,7 @@ import type { Multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p } from 'libp2p';
 
 import {
+  DEFAULT_MAX_MESSAGE_SIZE_BYTES,
   RELAY_RECONNECT_BASE_DELAY_MS,
   RELAY_RECONNECT_MAX_DELAY_MS,
   RELAY_RECONNECT_MAX_ATTEMPTS,
@@ -59,6 +60,8 @@ export class ConnectionFactory {
 
   readonly #maxRetryAttempts: number;
 
+  readonly #maxDataLength: number;
+
   readonly #directTransports: DirectTransport[];
 
   readonly #allowedWsHosts: string[];
@@ -87,6 +90,7 @@ export class ConnectionFactory {
    * @param options.logger - The logger to use for the libp2p node.
    * @param options.signal - The signal to use for the libp2p node.
    * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+   * @param options.maxMessageSizeBytes - Maximum inbound message size in bytes, used as `maxDataLength` on every `lpStream`. Defaults to 1 MB.
    * @param options.directTransports - Optional direct transports (e.g. QUIC, TCP) with listen addresses.
    * @param options.allowedWsHosts - Hostnames/IPs allowed for plain ws:// connections beyond private ranges.
    */
@@ -97,6 +101,8 @@ export class ConnectionFactory {
     this.#logger = options.logger;
     this.#signal = options.signal;
     this.#maxRetryAttempts = options.maxRetryAttempts ?? 0;
+    this.#maxDataLength =
+      options.maxMessageSizeBytes ?? DEFAULT_MAX_MESSAGE_SIZE_BYTES;
     this.#directTransports = options.directTransports ?? [];
     const explicitHosts = options.allowedWsHosts ?? [];
     const relayHosts: string[] = [];
@@ -137,6 +143,7 @@ export class ConnectionFactory {
    * @param options.logger - The logger to use for the libp2p node.
    * @param options.signal - The signal to use for the libp2p node.
    * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+   * @param options.maxMessageSizeBytes - Maximum inbound message size in bytes, used as `maxDataLength` on every `lpStream`. Defaults to 1 MB.
    * @param options.directTransports - Optional direct transports (e.g. QUIC, TCP) with listen addresses.
    * @param options.allowedWsHosts - Hostnames/IPs allowed for plain ws:// connections beyond private ranges.
    * @returns A promise for the new ConnectionFactory instance.
@@ -217,7 +224,9 @@ export class ConnectionFactory {
 
     // Set up inbound handler
     await this.#libp2p.handle('whatever', async (stream, connection) => {
-      const msgStream = byteStream(stream);
+      const msgStream = lpStream(stream, {
+        maxDataLength: this.#maxDataLength,
+      });
       const remotePeerId = connection.remotePeer.toString();
       const connType = connection.direct ? 'direct' : 'relayed';
       this.#logger.log(
@@ -401,7 +410,9 @@ export class ConnectionFactory {
         this.#logger.log(
           `successfully connected to ${peerId} via ${addressString}`,
         );
-        const msgStream = byteStream(stream);
+        const msgStream = lpStream(stream, {
+          maxDataLength: this.#maxDataLength,
+        });
         const channel: Channel = { msgStream, stream, peerId };
         this.#logger.log(`opened channel to ${peerId}`);
         return channel;

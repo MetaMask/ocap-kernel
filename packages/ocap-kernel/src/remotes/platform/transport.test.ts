@@ -1,3 +1,4 @@
+import { UnexpectedEOFError } from '@libp2p/utils';
 import { AbortError } from '@metamask/kernel-errors';
 import { makeAbortSignalMock } from '@ocap/repo-tools/test-utils';
 import {
@@ -288,6 +289,7 @@ describe('transport.initTransport', () => {
         logger: expect.any(Object),
         signal: expect.any(AbortSignal),
         maxRetryAttempts: undefined,
+        maxMessageSizeBytes: 1024 * 1024,
         directTransports: undefined,
       });
     });
@@ -305,6 +307,7 @@ describe('transport.initTransport', () => {
         logger: expect.any(Object),
         signal: expect.any(AbortSignal),
         maxRetryAttempts,
+        maxMessageSizeBytes: 1024 * 1024,
         directTransports: undefined,
       });
     });
@@ -333,6 +336,7 @@ describe('transport.initTransport', () => {
         logger: expect.any(Object),
         signal: expect.any(AbortSignal),
         maxRetryAttempts: undefined,
+        maxMessageSizeBytes: 1024 * 1024,
         directTransports,
       });
     });
@@ -736,7 +740,7 @@ describe('transport.initTransport', () => {
       });
     });
 
-    it('exits read loop when readBuf is undefined (stream ended)', async () => {
+    it('treats UnexpectedEOFError as connection loss and triggers reconnection', async () => {
       let inboundHandler: ((channel: MockChannel) => void) | undefined;
       mockConnectionFactory.onInboundConnection.mockImplementation(
         (handler) => {
@@ -748,16 +752,23 @@ describe('transport.initTransport', () => {
       await initTransport('0x1234', {}, remoteHandler);
 
       const mockChannel = createMockChannel('peer-1');
-      // First read returns undefined, which means stream ended - loop should break
-      mockChannel.msgStream.read.mockResolvedValueOnce(undefined);
+      // lpStream throws UnexpectedEOFError on EOF — both for clean
+      // end-of-stream between messages and for a partial-message drop.
+      // The read loop can't distinguish the two, so it must treat any
+      // EOF as a potential mid-message drop and trigger reconnection
+      // (rather than silently exiting and leaving the sender to
+      // retransmit into a dead channel).
+      mockChannel.msgStream.read.mockRejectedValueOnce(
+        new UnexpectedEOFError('stream closed'),
+      );
 
       inboundHandler?.(mockChannel);
 
       await vi.waitFor(() => {
-        // Stream ended, so no messages should be processed
         expect(remoteHandler).not.toHaveBeenCalled();
-        // Should log that stream ended
-        expect(mockLogger.log).toHaveBeenCalledWith('peer-1:: stream ended');
+        expect(mockReconnectionManager.startReconnection).toHaveBeenCalledWith(
+          'peer-1',
+        );
       });
     });
 

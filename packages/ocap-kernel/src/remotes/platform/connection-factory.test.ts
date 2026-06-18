@@ -220,7 +220,7 @@ function makeTestMultiaddr(protoNames: string[], host: string) {
   };
 }
 
-// Simple ByteStream mock
+// Simple LengthPrefixedStream mock
 type MockByteStream = {
   write: (chunk: Uint8Array) => Promise<void>;
   read: () => Promise<Uint8Array | undefined>;
@@ -229,7 +229,7 @@ type MockByteStream = {
 
 const streamMap = new WeakMap<object, MockByteStream>();
 vi.mock('@libp2p/utils', () => ({
-  byteStream: (stream: object) => {
+  lpStream: (stream: object) => {
     const bs: MockByteStream = {
       writes: [],
       async write(chunk: Uint8Array) {
@@ -243,6 +243,9 @@ vi.mock('@libp2p/utils', () => ({
     return bs;
   },
   getByteStreamFor: (stream: object) => streamMap.get(stream),
+  InvalidDataLengthError: class InvalidDataLengthError extends Error {},
+  InvalidDataLengthLengthError: class InvalidDataLengthLengthError extends Error {},
+  UnexpectedEOFError: class UnexpectedEOFError extends Error {},
 }));
 
 const createLibp2p = vi.fn();

@@ -41,6 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Regenerate `incarnationId` when `resetStorage=true` clears the rest of kernel state, completing the #948 peer-restart detection on browser/extension kernel reloads ([#950](https://github.com/MetaMask/ocap-kernel/pull/950))
   - The previous except-list preserved `incarnationId` across `resetStorage` wipes, so a restarted sender signalled the same incarnation it had before the wipe and the matching receiver's handshake decided "no restart" — leaving stale `highestReceivedSeq` in place and silently dropping the sender's fresh `seq=1` messages
 - Register a new vat with its subcluster before awaiting `runVat`, so a garbage-collection pass during bundle load cannot delete the still-empty subcluster out from under the in-progress vat creation ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
+- Use length-prefixed framing for remote messages so payloads larger than the underlying transport's per-frame cutoff (e.g. `@libp2p/webrtc`'s 16 KB datachannel limit) are reassembled correctly on the receiver ([#957](https://github.com/MetaMask/ocap-kernel/pull/957))
+  - Replace `byteStream` with `lpStream` on every remote channel; the byte-oriented stream did not preserve `write()` boundaries, so any message the transport split into multiple frames was parsed from the first frame only, silently dropped without acknowledgement, and the sender retried until giving up after `MAX_RETRIES`
+  - Surface receiver-side framing-cap violations (`InvalidDataLengthError`, `InvalidDataLengthLengthError`) as `ResourceLimitError` with `limitType: 'messageSize'` so size errors look the same whether they tripped on the sender's `validateMessageSize` or the receiver's framing decoder
 
 ## [0.7.0]
 
