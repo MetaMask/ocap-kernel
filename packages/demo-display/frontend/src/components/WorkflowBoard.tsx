@@ -1,11 +1,3 @@
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from 'react';
-
 import { UNASSIGNED_PHASE } from '../hooks/useEventStream.ts';
 import type { ArtifactRecordedEvent } from '../types.ts';
 
@@ -29,11 +21,12 @@ type WorkflowBoardProps = {
  * been announced.
  *
  * Artifact cards carry a `consumes` list (set by the agent via
- * `demo_record_artifact`); the board overlays SVG lineage edges
- * connecting each consumed card to the consuming card, so the
- * audience can see how each output was derived from earlier work.
- * Edges default to visible; a toggle in the board header fades them
- * out for runs that read cleaner without them.
+ * `demo_record_artifact`); when present, the card's footer shows a
+ * brief "← <input title>, <input title>" line so the audience can
+ * see how each output was derived from earlier work. An earlier
+ * version drew SVG curves between cards but the visual got messy as
+ * the board filled up and didn't convey the dataflow as clearly as
+ * the textual reference does.
  *
  * @param props - Component props.
  * @param props.announcedPhases - Phases the agent has announced, in
@@ -48,45 +41,22 @@ type WorkflowBoardProps = {
 export function WorkflowBoard(props: WorkflowBoardProps): JSX.Element {
   const { announcedPhases, artifactsByPhase, activePhase, onZoom } = props;
   const columns = orderedColumns(announcedPhases, artifactsByPhase);
-  const [edgesVisible, setEdgesVisible] = useState(true);
-  const columnsContainerRef = useRef<HTMLDivElement | null>(null);
-  const cardRefs = useRef<Map<string, HTMLLIElement>>(new Map());
-  const registerCardRef = useCallback(
-    (handle: string, element: HTMLLIElement | null) => {
-      if (element === null) {
-        cardRefs.current.delete(handle);
-      } else {
-        cardRefs.current.set(handle, element);
-      }
-    },
-    [],
-  );
+  const artifactsByHandle = indexByHandle(artifactsByPhase);
 
   return (
     <section className="workflow-board">
       <header className="workflow-board__header">
         <h2>Workflow</h2>
-        <div className="workflow-board__header-right">
-          {activePhase === undefined ? null : (
-            <span className="workflow-board__active">→ {activePhase}</span>
-          )}
-          <button
-            type="button"
-            className="workflow-board__edges-toggle"
-            aria-pressed={edgesVisible}
-            onClick={() => setEdgesVisible((value) => !value)}
-            title={edgesVisible ? 'Hide lineage edges' : 'Show lineage edges'}
-          >
-            {edgesVisible ? 'edges on' : 'edges off'}
-          </button>
-        </div>
+        {activePhase === undefined ? null : (
+          <span className="workflow-board__active">→ {activePhase}</span>
+        )}
       </header>
       {columns.length === 0 ? (
         <div className="workflow-board__empty">
           Waiting for the agent to announce a phase…
         </div>
       ) : (
-        <div className="workflow-board__columns" ref={columnsContainerRef}>
+        <div className="workflow-board__columns">
           {columns.map((phase) => (
             <PhaseColumn
               key={phase}
@@ -94,15 +64,9 @@ export function WorkflowBoard(props: WorkflowBoardProps): JSX.Element {
               artifacts={artifactsByPhase.get(phase) ?? []}
               isActive={phase === activePhase}
               onZoom={onZoom}
-              registerCardRef={registerCardRef}
+              artifactsByHandle={artifactsByHandle}
             />
           ))}
-          <LineageEdges
-            artifactsByPhase={artifactsByPhase}
-            containerRef={columnsContainerRef}
-            cardRefs={cardRefs}
-            visible={edgesVisible}
-          />
         </div>
       )}
     </section>
@@ -147,14 +111,32 @@ function orderedColumns(
   return out;
 }
 
-type CardRefRegistrar = (handle: string, element: HTMLLIElement | null) => void;
+/**
+ * Build a flat lookup from artifact handle to its event record, so
+ * the consumes-footer renderer can resolve handles to human-readable
+ * titles in O(1).
+ *
+ * @param artifactsByPhase - Per-phase artifact buckets.
+ * @returns The flat handle → artifact map.
+ */
+function indexByHandle(
+  artifactsByPhase: Map<string, ArtifactRecordedEvent[]>,
+): Map<string, ArtifactRecordedEvent> {
+  const byHandle = new Map<string, ArtifactRecordedEvent>();
+  for (const artifacts of artifactsByPhase.values()) {
+    for (const artifact of artifacts) {
+      byHandle.set(artifact.handle, artifact);
+    }
+  }
+  return byHandle;
+}
 
 type PhaseColumnProps = {
   phase: string;
   artifacts: ArtifactRecordedEvent[];
   isActive: boolean;
   onZoom: (artifact: ArtifactRecordedEvent) => void;
-  registerCardRef: CardRefRegistrar;
+  artifactsByHandle: Map<string, ArtifactRecordedEvent>;
 };
 
 /**
@@ -166,9 +148,8 @@ type PhaseColumnProps = {
  * @param props.artifacts - Artifacts that landed in this phase.
  * @param props.isActive - Whether this column is the active phase.
  * @param props.onZoom - Callback to open the zoom overlay for an artifact.
- * @param props.registerCardRef - Callback to register each card's DOM
- *   node with the board so the lineage-edge overlay can find it by
- *   handle.
+ * @param props.artifactsByHandle - Flat handle lookup for the
+ *   consumes-footer renderer.
  * @returns The rendered column.
  */
 function PhaseColumn({
@@ -176,7 +157,7 @@ function PhaseColumn({
   artifacts,
   isActive,
   onZoom,
-  registerCardRef,
+  artifactsByHandle,
 }: PhaseColumnProps): JSX.Element {
   const className = `phase-column${
     isActive ? ' phase-column--active' : ''
@@ -195,7 +176,7 @@ function PhaseColumn({
             key={artifact.handle}
             artifact={artifact}
             onZoom={onZoom}
-            registerCardRef={registerCardRef}
+            artifactsByHandle={artifactsByHandle}
           />
         ))}
       </ul>
@@ -206,31 +187,39 @@ function PhaseColumn({
 type ArtifactThumbProps = {
   artifact: ArtifactRecordedEvent;
   onZoom: (artifact: ArtifactRecordedEvent) => void;
-  registerCardRef: CardRefRegistrar;
+  artifactsByHandle: Map<string, ArtifactRecordedEvent>;
 };
 
 /**
  * Small artifact card for the workflow board. SVG artifacts get an
  * inline scaled-down preview; everything else gets a text snippet.
+ * When the artifact has a `consumes` list, the footer carries a
+ * second line listing each consumed artifact by its title (falling
+ * back to the handle if the consumed artifact has no title or
+ * hasn't been recorded yet on this client).
  *
  * @param props - Component props.
  * @param props.artifact - The artifact event to thumbnail.
  * @param props.onZoom - Callback to open the zoom overlay for this artifact.
- * @param props.registerCardRef - Callback to register this card's DOM
- *   node with the board so the lineage-edge overlay can find it by
- *   handle.
+ * @param props.artifactsByHandle - Flat handle lookup so we can
+ *   resolve each consumes entry to a title.
  * @returns The rendered card.
  */
 function ArtifactThumb({
   artifact,
   onZoom,
-  registerCardRef,
+  artifactsByHandle,
 }: ArtifactThumbProps): JSX.Element {
   const title = artifact.metadata?.title ?? artifact.handle;
+  const consumesLabels = (artifact.consumes ?? [])
+    .map((handle) => {
+      const source = artifactsByHandle.get(handle);
+      return source?.metadata?.title ?? handle;
+    })
+    .filter((label) => label.length > 0);
   return (
     <li
       className="phase-column__card"
-      ref={(element) => registerCardRef(artifact.handle, element)}
       onClick={() => onZoom(artifact)}
       role="button"
       tabIndex={0}
@@ -259,171 +248,12 @@ function ArtifactThumb({
         <span className="phase-column__card-from">
           from {artifact.fromService}
         </span>
+        {consumesLabels.length === 0 ? null : (
+          <span className="phase-column__card-consumes">
+            ← {consumesLabels.join(', ')}
+          </span>
+        )}
       </div>
     </li>
-  );
-}
-
-type EdgeSegment = {
-  fromHandle: string;
-  toHandle: string;
-  path: string;
-};
-
-type LineageEdgesProps = {
-  artifactsByPhase: Map<string, ArtifactRecordedEvent[]>;
-  containerRef: React.MutableRefObject<HTMLDivElement | null>;
-  cardRefs: React.MutableRefObject<Map<string, HTMLLIElement>>;
-  visible: boolean;
-};
-
-/**
- * SVG overlay drawing one cubic-Bezier per `consumes` relationship
- * between artifact cards. The overlay sits absolutely positioned over
- * the columns container, sized to the container's scrollable extent,
- * with `pointer-events: none` so the underlying cards remain
- * interactive.
- *
- * Edges originate at the right-center of the source card and
- * terminate at the left-center of the target card, with an arrowhead
- * marker drawn at the target end. Geometry is recomputed via
- * `useLayoutEffect` on artifact-set changes and via a `ResizeObserver`
- * on container layout changes, so the edges stay anchored when
- * columns wrap, the panel resizes, or the user scrolls horizontally.
- *
- * @param props - Component props.
- * @param props.artifactsByPhase - Per-phase artifact buckets the board
- *   is rendering. Edges are computed by walking every artifact and
- *   looking for `consumes` entries that reference another artifact in
- *   this map.
- * @param props.containerRef - Ref to the `.workflow-board__columns`
- *   container; bounding-rect math is relative to this node.
- * @param props.cardRefs - Ref-managed map from artifact handle to the
- *   `LI` DOM node for that card. Populated by each `ArtifactThumb` as
- *   it mounts/unmounts.
- * @param props.visible - Whether the edges should render. When false
- *   the SVG is still mounted (so geometry stays warm) but its content
- *   is faded out via CSS.
- * @returns The rendered overlay SVG.
- */
-function LineageEdges({
-  artifactsByPhase,
-  containerRef,
-  cardRefs,
-  visible,
-}: LineageEdgesProps): JSX.Element {
-  const [edges, setEdges] = useState<EdgeSegment[]>([]);
-  const [containerSize, setContainerSize] = useState<{
-    width: number;
-    height: number;
-  }>({ width: 0, height: 0 });
-
-  const recompute = useCallback(() => {
-    const container = containerRef.current;
-    if (container === null) {
-      return;
-    }
-    const containerRect = container.getBoundingClientRect();
-    const { scrollLeft, scrollTop, scrollWidth, scrollHeight } = container;
-    setContainerSize({ width: scrollWidth, height: scrollHeight });
-    const next: EdgeSegment[] = [];
-    for (const artifacts of artifactsByPhase.values()) {
-      for (const artifact of artifacts) {
-        if (artifact.consumes === undefined || artifact.consumes.length === 0) {
-          continue;
-        }
-        const targetEl = cardRefs.current.get(artifact.handle);
-        if (targetEl === undefined) {
-          continue;
-        }
-        const targetRect = targetEl.getBoundingClientRect();
-        for (const fromHandle of artifact.consumes) {
-          const sourceEl = cardRefs.current.get(fromHandle);
-          if (sourceEl === undefined) {
-            continue;
-          }
-          const sourceRect = sourceEl.getBoundingClientRect();
-          const sourceX = sourceRect.right - containerRect.left + scrollLeft;
-          const sourceY =
-            sourceRect.top -
-            containerRect.top +
-            scrollTop +
-            sourceRect.height / 2;
-          const targetX = targetRect.left - containerRect.left + scrollLeft;
-          const targetY =
-            targetRect.top -
-            containerRect.top +
-            scrollTop +
-            targetRect.height / 2;
-          const controlOffset = Math.max(32, Math.abs(targetX - sourceX) / 2);
-          const path =
-            `M ${sourceX.toFixed(1)} ${sourceY.toFixed(1)} ` +
-            `C ${(sourceX + controlOffset).toFixed(1)} ${sourceY.toFixed(1)}, ` +
-            `${(targetX - controlOffset).toFixed(1)} ${targetY.toFixed(1)}, ` +
-            `${targetX.toFixed(1)} ${targetY.toFixed(1)}`;
-          next.push({
-            fromHandle,
-            toHandle: artifact.handle,
-            path,
-          });
-        }
-      }
-    }
-    setEdges(next);
-  }, [artifactsByPhase, cardRefs, containerRef]);
-
-  useLayoutEffect(() => {
-    recompute();
-  }, [recompute]);
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (container === null) {
-      return undefined;
-    }
-    const observer = new ResizeObserver(() => recompute());
-    observer.observe(container);
-    for (const cardEl of cardRefs.current.values()) {
-      observer.observe(cardEl);
-    }
-    container.addEventListener('scroll', recompute);
-    return () => {
-      observer.disconnect();
-      container.removeEventListener('scroll', recompute);
-    };
-  }, [recompute, cardRefs, containerRef]);
-
-  return (
-    <svg
-      className={`workflow-board__edges${visible ? '' : ' workflow-board__edges--hidden'}`}
-      width={containerSize.width}
-      height={containerSize.height}
-      aria-hidden
-    >
-      <defs>
-        <marker
-          id="lineage-arrow"
-          viewBox="0 0 10 10"
-          refX="9"
-          refY="5"
-          markerWidth="6"
-          markerHeight="6"
-          orient="auto-start-reverse"
-        >
-          <path
-            d="M 0 0 L 10 5 L 0 10 z"
-            className="workflow-board__edges-arrow"
-          />
-        </marker>
-      </defs>
-      {edges.map((edge) => (
-        <path
-          key={`${edge.fromHandle}->${edge.toHandle}`}
-          d={edge.path}
-          className="workflow-board__edges-path"
-          markerEnd="url(#lineage-arrow)"
-        />
-      ))}
-    </svg>
   );
 }
