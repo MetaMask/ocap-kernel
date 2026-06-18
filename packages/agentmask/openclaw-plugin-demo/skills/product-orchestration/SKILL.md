@@ -281,42 +281,38 @@ checkpoint clears.
 
 5. **Concept phase** (special — no service):
 
-   a. `demo_announce({ phaseTransition: "Concept" })`.
-   b. Write a 1-2 paragraph markdown brief of the product concept,
-   synthesizing the pitch and the inventor's answers to the five
-   onboarding questions. Record it via
-   `demo_record_artifact({ kind: "markdown", data: "...",
-fromService: "producer", phase: "Concept",
-title: "Product concept" })`.
-   c. `demo_announce({ note: "Concept locked in." })`.
-   d. Move directly to the next phase. Skip
-   `discovery_find_services` for this phase only.
+   a. Call `demo_phase_started` with `phase: "Concept"`, a `brief`
+   containing a 1-2 paragraph markdown summary of the product concept
+   (synthesizing the pitch and the inventor's answers to the five
+   onboarding questions, titled "Product concept"), and a one-line
+   `note: "Concept locked in."`. This single call does the phase
+   announce, the brief artifact record, and the audience note.
+   b. Move directly to the next phase. Skip `discovery_find_services`
+   for this phase only.
 
 6. **For each subsequent phase** (Industrial Design through Sales,
    in the order listed under "Phase sequence"):
 
-   a. `demo_announce({ phaseTransition: "<phase name>" })`.
-   b. Write a short markdown brief for the service describing what
-   you want produced and the inputs you're handing over. Record
-   the brief as an artifact via `demo_record_artifact({ kind:
-"markdown", data: "...", fromService: "producer", phase:
-"<phase name>", title: "<phase> brief" })` — this is the
-   audience-visible record that you handed something forward.
-   c. `demo_announce({ note: "..." })` — one-line audience version.
-   d. `discovery_find_services` with a natural-language description
+   a. Call `demo_phase_started` with the `phase` name, a `brief`
+   describing what you want produced and the inputs you're handing
+   forward (kind markdown, titled "<phase> brief"), and a one-line
+   `note`. One tool call covers the announce + brief + note that
+   used to be three.
+   b. `discovery_find_services` with a natural-language description
    of the concrete next step.
-   e. Pick a candidate. If multiple come back, briefly narrate the
+   c. Pick a candidate. If multiple come back, briefly narrate the
    choice for the audience; if the trade-off is non-trivial, ask
    the inventor in the TUI first.
-   f. `service_initiate_contact`, then `service_call`. Method
+   d. `service_initiate_contact`, then `service_call`. Method
    names and argument shapes come from `service_get_description`
    — never guess.
-   g. When a service returns an artifact, immediately call
-   `demo_record_artifact` to register it (with the same `phase`
-   value as in step 6a). The handle (e.g. `artifact-7`) is what
-   subsequent service calls reference, not the raw payload.
-   h. `demo_announce({ note: "..." })` — one-line ack of the result.
-   i. **Always pause for the inventor before the next phase.** Two
+   e. When the service returns, **call `demo_service_completed`**
+   with the returned artifact (passing the same `phase` value as
+   in step 6a, plus any `consumes` handles you fed in), the
+   `charge` matching the price the service quoted, and a one-line
+   `note`. One tool call covers the record + charge + ack note
+   that used to be three.
+   f. **Always pause for the inventor before the next phase.** Two
    things in one ask: whether they want to revise the current
    artifact, and whether to move on — framed as a question, not a
    foregone conclusion. The default ask is along the lines of
@@ -324,8 +320,10 @@ title: "Product concept" })`.
    <next phase>?" If the inventor wants a revision, hand the
    revision notes back to the same service (the price typically
    covers a few revisions — the service's description states the
-   policy). **Record the revised artifact with the same `phase`
-   value as the original; do not announce a new phase.** Only
+   policy). **Record the revised artifact via
+   `demo_service_completed` with the same `phase` value as the
+   original; do not announce a new phase, and use a zero or
+   nominal `charge.amountUsd` if the revision is covered.** Only
    proceed when the inventor confirms. For the
    Firmware → Procurement and Manufacturing → Sales transitions,
    run the validation-checkpoint beat (see "Validation checkpoints"
@@ -333,16 +331,27 @@ title: "Product concept" })`.
    of what we'd be doing here in a real run replaces the standard
    "anything to change?" prompt for those two transitions.
 
+   **Why the consolidated tools matter.** Every separate tool call
+   costs an LLM inference round-trip (~5-15 seconds). The phase
+   loop used to be roughly 10 tool calls; with `demo_phase_started`
+   and `demo_service_completed` it's 6. That saves ~40 seconds per
+   phase, several minutes across a full run. The individual tools
+   (`demo_announce`, `demo_record_artifact`, `demo_wallet_charge`)
+   still exist for cases that don't fit the pattern — e.g. a
+   stand-alone narration between phases, a charge with no
+   accompanying artifact — but in the standard per-phase flow,
+   prefer the consolidated forms.
+
 7. **Hand artifacts forward.** When a downstream service needs an
    earlier artifact, pass the handle (not the raw data). The
    receiving service stub resolves handles internally. **When you
-   record the resulting artifact**, also pass the
-   `consumes: [...]` argument to `demo_record_artifact` listing the
-   handles you fed into the producing call — e.g.
-   `consumes: ["artifact-3", "artifact-5"]` when the PCB-layout
-   service was called with both the schematic and the industrial-
-   design sketch as inputs. The display reads `consumes` to draw
-   lineage edges on the workflow board, so the audience can see how
+   close out the service via `demo_service_completed`**, set
+   `artifact.consumes: [...]` to the handles you fed into the
+   producing call — e.g. `consumes: ["artifact-3", "artifact-5"]`
+   when the PCB-layout service was called with both the schematic
+   and the industrial-design sketch as inputs. The display reads
+   `consumes` to render a "← <input title>, <input title>" lineage
+   footer on the workflow board card, so the audience can see how
    each output was derived from earlier work. Omit `consumes` only
    when the producing call genuinely took no prior artifacts (e.g.
    the Concept brief, the first Industrial Design pass).
@@ -493,20 +502,39 @@ You (compact restatement, then proceed):
 Then, in audience-facing channels:
 
 ```
-demo_record_artifact({ kind: "markdown", data: "<concept-brief>", fromService: "producer", phase: "Concept", title: "Product concept" })
-// ↑ returns e.g. artifact-1
-demo_announce({ phaseTransition: "Industrial Design" })
-demo_record_artifact({ kind: "markdown", data: "<brief>", fromService: "producer", phase: "Industrial Design", title: "Industrial Design brief", consumes: ["artifact-1"] })
-demo_announce({ note: "Industrial-design pass." })
+demo_phase_started({
+  phase: "Concept",
+  brief: { data: "<concept-brief>", title: "Product concept" },
+  note: "Concept locked in.",
+})
+// ↑ records the brief as artifact-1.
+demo_phase_started({
+  phase: "Industrial Design",
+  brief: {
+    data: "<brief>",
+    title: "Industrial Design brief",
+  },
+  note: "Industrial-design pass.",
+})
+// ↑ records the brief as artifact-2. (Brief consumes the concept
+//   informally; we don't pass `consumes` on briefs since they're
+//   producer-authored synthesis, not service outputs.)
 discovery_find_services({ description: "design an industrial concept for a handheld voice-driven universal remote" })
 … pick a candidate …
 service_initiate_contact({ contact: "<contact-url>" })
 service_call({ service: "<nickname>", method: "generate", args: '["…spec…"]' })
-demo_record_artifact({ kind: "svg", data: "…", fromService: "<providerTag>", phase: "Industrial Design", title: "Concept sketch", consumes: ["artifact-2"] })
+demo_service_completed({
+  artifact: {
+    kind: "svg", data: "…", fromService: "<providerTag>",
+    phase: "Industrial Design", title: "Concept sketch",
+    consumes: ["artifact-2"],
+  },
+  charge: { amountUsd: 1200, reason: "industrial-design pass" },
+  note: "Concept sketch in.",
+})
 // ↑ consumes the Industrial Design brief (artifact-2). A later
 //   phase like the PCB-layout call would consume both the
 //   schematic handle and the industrial-design-sketch handle.
-demo_announce({ note: "Concept sketch in." })
 ```
 
 Then back to the TUI:

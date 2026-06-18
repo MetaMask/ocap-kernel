@@ -26,7 +26,9 @@ import { makeDisplayClient } from './display-client.ts';
 import { createState } from './state.ts';
 import { registerAnnounceTool } from './tools/announce.ts';
 import { registerGetArtifactTool } from './tools/get-artifact.ts';
+import { registerPhaseStartedTool } from './tools/phase-started.ts';
 import { registerRecordArtifactTool } from './tools/record-artifact.ts';
+import { registerServiceCompletedTool } from './tools/service-completed.ts';
 import { registerWalletBalanceTool } from './tools/wallet-balance.ts';
 import { registerWalletChargeTool } from './tools/wallet-charge.ts';
 import { registerWalletCreditTool } from './tools/wallet-credit.ts';
@@ -139,6 +141,8 @@ function register(api: OpenClawPluginApi): void {
   registerWalletBalanceTool({ api, state, display });
   registerWalletChargeTool({ api, state, display });
   registerWalletCreditTool({ api, state, display });
+  registerPhaseStartedTool({ api, state, display });
+  registerServiceCompletedTool({ api, state, display });
 
   // No register-time wallet.balance post: openclaw's plugin context
   // doesn't reliably let async work complete after register() returns,
