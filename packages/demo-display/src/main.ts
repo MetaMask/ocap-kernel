@@ -34,7 +34,11 @@ async function main(): Promise<void> {
     eventLog,
   });
 
-  const server = await startServer({ eventLog, port: config.port });
+  const server = await startServer({
+    eventLog,
+    port: config.port,
+    ttydUrl: config.ttydUrl,
+  });
   // eslint-disable-next-line no-console
   console.info(
     `[demo-display] Listening on http://127.0.0.1:${server.port}/events`,

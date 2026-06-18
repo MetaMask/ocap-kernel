@@ -15,6 +15,14 @@ export type DemoDisplayConfig = {
   pollIntervalMs: number;
   timeoutMs: number;
   eventLogCapacity: number;
+  /**
+   * URL of a ttyd server that fronts an `openclaw tui` session. When
+   * set, the demo-display SPA renders the URL as an iframe in the
+   * Producer dialog pane so the audience can watch the conversation
+   * between the inventor and the producer LLM directly. When unset,
+   * the pane shows a placeholder explaining how to configure it.
+   */
+  ttydUrl: string | undefined;
 };
 
 type RawConfig = Partial<{
@@ -25,6 +33,7 @@ type RawConfig = Partial<{
   pollIntervalMs: number;
   timeoutMs: number;
   eventLogCapacity: number;
+  ttydUrl: string;
 }>;
 
 const DEFAULT_PORT = 7777;
@@ -85,6 +94,8 @@ export async function loadConfig(options: {
     pickNumber(undefined, fileConfig.eventLogCapacity) ??
     DEFAULT_EVENT_LOG_CAPACITY;
 
+  const ttydUrl = pickString(env.DEMO_DISPLAY_TTYD_URL, fileConfig.ttydUrl);
+
   return {
     observerUrl,
     ocapCliPath,
@@ -93,6 +104,7 @@ export async function loadConfig(options: {
     pollIntervalMs,
     timeoutMs,
     eventLogCapacity,
+    ttydUrl,
   };
 }
 

@@ -1,11 +1,12 @@
 import { useState } from 'react';
 
-import { ArtifactPanel } from './components/ArtifactPanel.tsx';
 import { ArtifactZoom } from './components/ArtifactZoom.tsx';
+import { ProducerDialog } from './components/ProducerDialog.tsx';
 import { ServicesGrid } from './components/ServicesGrid.tsx';
 import { Transcript } from './components/Transcript.tsx';
 import { WalletRibbon } from './components/WalletRibbon.tsx';
 import { WorkflowBoard } from './components/WorkflowBoard.tsx';
+import { useConfig } from './hooks/useConfig.ts';
 import { useEventStream } from './hooks/useEventStream.ts';
 import type { ArtifactRecordedEvent } from './types.ts';
 
@@ -17,11 +18,15 @@ import type { ArtifactRecordedEvent } from './types.ts';
  *   +-------------------+----------------------+
  *   | Services grid     | Workflow board       |
  *   +-------------------+----------------------+
- *   | Agent transcript  | Artifact panel       |
+ *   | Agent transcript  | Producer dialog      |
  *   +-------------------+----------------------+
  *
- * Always-visible wallet ribbon (plan §13) will land in a follow-up
- * commit; the reducer already tracks `walletBalanceUsd` for it.
+ * The bottom-right cell embeds the producer LLM's TUI as an iframe
+ * (via ttyd), so the audience can watch the conversation between the
+ * inventor and the agent directly — replacing the previous Latest
+ * Artifact pane, which was redundant with the workflow board's
+ * zoom-on-click. Individual artifacts are still viewable full-size
+ * via the zoom overlay.
  *
  * @returns The root layout.
  */
@@ -29,13 +34,13 @@ export function App(): JSX.Element {
   const {
     services,
     transcript,
-    latestArtifact,
     activePhase,
     announcedPhases,
     artifactsByPhase,
     walletBalanceUsd,
     discoveredProviderTags,
   } = useEventStream();
+  const config = useConfig();
   const [zoomed, setZoomed] = useState<ArtifactRecordedEvent | undefined>(
     undefined,
   );
@@ -64,7 +69,7 @@ export function App(): JSX.Element {
           <Transcript entries={transcript} />
         </div>
         <div className="app__cell app__cell--bottom-right">
-          <ArtifactPanel artifact={latestArtifact} />
+          <ProducerDialog ttydUrl={config?.ttydUrl} />
         </div>
       </main>
       <ArtifactZoom artifact={zoomed} onClose={() => setZoomed(undefined)} />

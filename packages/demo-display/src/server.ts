@@ -81,19 +81,28 @@ function normalizeIncomingEvent(raw: unknown): DisplayEvent | string {
  * @param options.port - TCP port to bind. Pass 0 to bind an ephemeral
  *   port (useful in tests); the resolved port is returned on the
  *   handle.
+ * @param options.ttydUrl - Optional URL of a ttyd server fronting an `openclaw tui` session, surfaced to the SPA via `/config.json` so the Producer-dialog pane can embed it as an iframe.
  * @returns A handle exposing the bound port and a `close()` method.
  */
 export async function startServer(options: {
   eventLog: EventLog;
   port: number;
+  ttydUrl?: string | undefined;
 }): Promise<ServerHandle> {
-  const { eventLog, port } = options;
+  const { eventLog, port, ttydUrl } = options;
   const app = express();
   // eslint-disable-next-line import-x/no-named-as-default-member
   app.use(express.json({ limit: '2mb' }));
 
   app.get('/healthz', (_req: ExpressRequest, res: ExpressResponse) => {
     res.status(200).type('text/plain').send('ok');
+  });
+
+  // Runtime config the SPA pulls down on mount. Kept small on purpose:
+  // anything the SPA needs that varies by deployment lives here, so the
+  // built-frontend bundle stays environment-agnostic.
+  app.get('/config.json', (_req: ExpressRequest, res: ExpressResponse) => {
+    res.status(200).json({ ttydUrl: ttydUrl ?? null });
   });
 
   app.post('/event', (req: ExpressRequest, res: ExpressResponse) => {

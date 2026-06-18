@@ -20,8 +20,11 @@ Two machines:
   dashboard, and the SSH sessions that connect to the VPS.
 
 The inventor (= presenter) sits at the laptop. They drive the
-producer LLM by typing into an OpenClaw TUI session that **runs on
-the VPS but renders over SSH** in a laptop terminal.
+producer LLM primarily by typing into the dashboard's
+Producer-dialog iframe, which is a ttyd-fronted view of an
+`openclaw tui` session running on the VPS. An SSH-attached
+`openclaw tui` on the VPS shares the same named session as a
+fallback / setup terminal.
 
 ```
                         ┌──── VPS ────┐
@@ -30,13 +33,14 @@ the VPS but renders over SSH** in a laptop terminal.
                         │  consumer   │
                         │  demo-display│
                         │  openclaw   │
+                        │  ttyd       │ ◀── iframe src
                         └─────────────┘
                               ▲
                               │ relay
                               ▼
                         ┌─── Laptop ──┐
                         │  sample-svcs│
-                        │  browser    │ ◀── dashboard
+                        │  browser    │ ◀── dashboard (+ embedded TUI)
                         │  terminals  │
                         └─────────────┘
 ```
@@ -52,34 +56,35 @@ interactive sessions.
 
 ### Small windows (logs and long-running silents)
 
-| Label              | Machine | Purpose                                                                            |
-| ------------------ | ------- | ---------------------------------------------------------------------------------- |
-| `vps-relay`        | VPS     | `yarn ocap relay`. Idles after startup.                                            |
-| `vps-matcher-log`  | VPS     | `tail -F ~/.ocap/daemon.log`.                                                      |
-| `vps-bridge-log`   | VPS     | `tail -F ~/.ocap/matcher-llm-bridge.log`.                                          |
-| `vps-consumer-log` | VPS     | `tail -F ~/.ocap-consumer/daemon.log`.                                             |
-| `vps-display`      | VPS     | `yarn workspace @ocap/demo-display start`. Hosts the long-running HTTP+SSE server. |
-| `laptop-svcs-log`  | Laptop  | `tail -F ~/.ocap-services/daemon.log`.                                             |
+| Label              | Machine | Purpose                                                                                                                        |
+| ------------------ | ------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `vps-relay`        | VPS     | `yarn ocap relay`. Idles after startup.                                                                                        |
+| `vps-matcher-log`  | VPS     | `tail -F ~/.ocap/daemon.log`.                                                                                                  |
+| `vps-bridge-log`   | VPS     | `tail -F ~/.ocap/matcher-llm-bridge.log`.                                                                                      |
+| `vps-consumer-log` | VPS     | `tail -F ~/.ocap-consumer/daemon.log`.                                                                                         |
+| `vps-display`      | VPS     | `yarn workspace @ocap/demo-display start`. Hosts the long-running HTTP+SSE server.                                             |
+| `vps-ttyd`         | VPS     | `ttyd -p 7681 -W openclaw tui --session demo`. Fronts the producer TUI for the iframe in the dashboard's Producer-dialog pane. |
+| `laptop-svcs-log`  | Laptop  | `tail -F ~/.ocap-services/daemon.log`.                                                                                         |
 
 ### Large windows (interactive, in-depth)
 
-| Label            | Machine       | Purpose                                                                                                                             |
-| ---------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `vps-tui`        | VPS (via ssh) | `openclaw tui` — the inventor's interface to the producer LLM. **The primary window during the demo.**                              |
-| `vps-ctl`        | VPS           | Catch-all VPS control terminal: `start-matcher.sh`, ad-hoc `ocap daemon exec ...`, file edits, ssh from this window for the others. |
-| `laptop-ctl`     | Laptop        | Catch-all laptop control: `start-services.sh`, ad-hoc `curl http://127.0.0.1:7777/...`, git operations, file edits.                 |
-| `laptop-browser` | Laptop        | Not a terminal — the browser window showing `http://127.0.0.1:7777/` via SSH tunnel.                                                |
+| Label            | Machine       | Purpose                                                                                                                                                                                                                                        |
+| ---------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vps-tui`        | VPS (via ssh) | `openclaw tui --session demo`. Retained as a setup terminal (for `openclaw skills install --force`, `openclaw plugins`, etc.) and as a fallback if the dashboard iframe acts up; during the demo the inventor types into the iframe, not here. |
+| `vps-ctl`        | VPS           | Catch-all VPS control terminal: `start-matcher.sh`, ad-hoc `ocap daemon exec ...`, file edits, ssh from this window for the others.                                                                                                            |
+| `laptop-ctl`     | Laptop        | Catch-all laptop control: `start-services.sh`, ad-hoc `curl http://127.0.0.1:7777/...`, git operations, file edits.                                                                                                                            |
+| `laptop-browser` | Laptop        | Not a terminal — the browser window showing `http://127.0.0.1:7777/` via SSH tunnel.                                                                                                                                                           |
 
 ### Window arrangement (suggested)
 
 Position so the audience can see at a glance:
 
-- **`laptop-browser`** dominant on the screen — the dashboard is the show.
-- **`vps-tui`** next to or beneath the browser — the inventor's
-  dialog with the producer. Big enough to read.
-- The five log windows tiled in a side strip — for the presenter to
-  glance at during the run; the audience doesn't need to read them.
-- `vps-ctl` and `laptop-ctl` minimized until needed.
+- **`laptop-browser`** dominant on the screen — the dashboard is the
+  show, and now embeds the producer TUI as its bottom-right pane.
+- The six log windows (including `vps-ttyd`) tiled in a side strip —
+  for the presenter to glance at during the run; the audience
+  doesn't need to read them.
+- `vps-tui`, `vps-ctl`, and `laptop-ctl` minimized until needed.
 
 ---
 
@@ -131,6 +136,15 @@ Ensure openclaw is on a recent enough version to support local-path
 openclaw --version
 npm view openclaw version
 sudo npm install -g openclaw@latest
+```
+
+Install `ttyd` (fronts the openclaw TUI for the dashboard's
+Producer-dialog iframe — see step 5b). Package name is `ttyd` on
+most distros:
+
+```csh
+sudo apt install ttyd
+which ttyd
 ```
 
 Remove any pre-existing matcher URL from openclaw's config (safe on
@@ -432,8 +446,16 @@ In `vps-display`:
 
 ```csh
 source ~/.ocap/matcher-urls.env
-env OCAP_HOME="$HOME/.ocap-consumer" yarn workspace @ocap/demo-display start
+env OCAP_HOME="$HOME/.ocap-consumer" \
+    DEMO_DISPLAY_TTYD_URL="http://${VPS_HOST}:7681" \
+    yarn workspace @ocap/demo-display start
 ```
+
+`DEMO_DISPLAY_TTYD_URL` points the dashboard's Producer-dialog pane
+at the ttyd server started in step 5b. Adjust to whatever address
+your laptop can reach (substitute `${VPS_HOST}` if the variable
+isn't already in your environment, or use the public hostname /
+ssh-tunneled localhost if that's how you're reaching the VPS).
 
 Watch for:
 
@@ -443,8 +465,29 @@ Watch for:
 ```
 
 The browser tab from step 3 should now connect and show the empty
-dashboard: marketplace empty, workflow board empty, transcript
-empty, artifact panel empty, wallet ribbon `—`.
+dashboard: services grid empty, workflow board empty, transcript
+empty, producer-dialog pane connecting to the ttyd iframe (will
+populate once step 5b is up), wallet ribbon `—`.
+
+### Step 5b: VPS ttyd (producer-dialog iframe source)
+
+In `vps-ttyd`:
+
+```csh
+ttyd -p 7681 -W openclaw tui --session demo
+```
+
+ttyd listens on port 7681 and spawns an `openclaw tui` attached to
+the named `demo` session for each WebSocket client (i.e. each load
+of the dashboard iframe). The named session means a page refresh
+restarts the iframe's terminal but reattaches to the same
+conversation. `vps-tui` (step 8) uses the same `--session demo` so
+the SSH-attached TUI and the iframe both show the same dialog.
+
+Make sure port 7681 is reachable from the laptop browser. If you're
+using an SSH tunnel for the dashboard (`-L 7777:127.0.0.1:7777`),
+add `-L 7681:127.0.0.1:7681` to the same tunnel command and point
+`DEMO_DISPLAY_TTYD_URL` at `http://127.0.0.1:7681`.
 
 ### Step 6: Configure the discovery plugin
 
@@ -498,8 +541,12 @@ via the matcher. Cards will appear during the demo as the agent runs
 In `vps-tui` (an ssh session into the VPS):
 
 ```csh
-openclaw tui
+openclaw tui --session demo
 ```
+
+`--session demo` attaches to the same named session ttyd is fronting
+in step 5b, so this SSH-attached TUI and the dashboard iframe both
+show the same conversation. Either one can drive the dialog.
 
 Once the TUI is up, load the product-orchestration skill into the
 agent's context by invoking the slash command:
@@ -525,12 +572,16 @@ didn't load.
 
 ### Step 9: Begin the demo
 
-Pitch the LAUR concept in `vps-tui`:
+Click into the dashboard's Producer-dialog iframe to give it focus,
+then pitch the LAUR concept:
 
 > "I have an idea for a less annoying universal remote — simpler
 > than the ones out there, easier to use. Help me get it made."
 
-From here you're the inventor. The producer takes over.
+From here you're the inventor. The producer takes over. (You can
+type into `vps-tui` instead if the iframe is acting up; the
+`--session demo` named session means both windows are looking at
+the same conversation.)
 
 ---
 
