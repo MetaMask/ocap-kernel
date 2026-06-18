@@ -147,6 +147,20 @@ sudo apt install ttyd
 which ttyd
 ```
 
+The Debian/Ubuntu package ships a systemd unit that auto-starts a
+`ttyd login` service on port 7681 at boot. This both squats the port
+we need for step 5b (so per-run `ttyd ...` invocations fail with
+`EADDRINUSE` / `lws_socket_bind ... (-1 98)`) and exposes a
+web-accessible login prompt — neither of which we want. Stop and
+disable it:
+
+```csh
+sudo systemctl stop ttyd
+sudo systemctl disable ttyd
+```
+
+`disable` persists across reboots, so this is a one-time fix.
+
 Remove any pre-existing matcher URL from openclaw's config (safe on
 a fresh system; per-run setup sets a fresh URL in step 5):
 
