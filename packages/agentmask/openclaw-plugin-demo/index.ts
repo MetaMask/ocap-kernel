@@ -29,6 +29,7 @@ import { registerGetArtifactTool } from './tools/get-artifact.ts';
 import { registerRecordArtifactTool } from './tools/record-artifact.ts';
 import { registerWalletBalanceTool } from './tools/wallet-balance.ts';
 import { registerWalletChargeTool } from './tools/wallet-charge.ts';
+import { registerWalletCreditTool } from './tools/wallet-credit.ts';
 import type {
   OpenClawPluginApi,
   PluginConfigSchema,
@@ -137,6 +138,7 @@ function register(api: OpenClawPluginApi): void {
   registerGetArtifactTool({ api, state });
   registerWalletBalanceTool({ api, state, display });
   registerWalletChargeTool({ api, state, display });
+  registerWalletCreditTool({ api, state, display });
 
   // No register-time wallet.balance post: openclaw's plugin context
   // doesn't reliably let async work complete after register() returns,

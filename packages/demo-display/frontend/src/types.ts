@@ -96,6 +96,14 @@ export type WalletChargeEvent = {
   at: string;
 };
 
+export type WalletCreditEvent = {
+  kind: 'wallet.credit';
+  amountUsd: number;
+  reason?: string;
+  balanceUsd: number;
+  at: string;
+};
+
 export type DisplayEvent =
   | ServiceRegisteredEvent
   | ServiceEvictedEvent
@@ -108,7 +116,8 @@ export type DisplayEvent =
   | PhaseAnnouncedEvent
   | AgentNoteEvent
   | WalletBalanceEvent
-  | WalletChargeEvent;
+  | WalletChargeEvent
+  | WalletCreditEvent;
 
 /**
  * Loose, JSON-serializable mirror of the matcher's `ServiceDescription`.

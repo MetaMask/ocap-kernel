@@ -151,6 +151,19 @@ export type WalletChargeEvent = {
   at: string;
 };
 
+/**
+ * A top-up just added to the wallet. Mirrors `wallet.charge` but in
+ * the crediting direction — emitted when the inventor authorizes the
+ * agent to add funds.
+ */
+export type WalletCreditEvent = {
+  kind: 'wallet.credit';
+  amountUsd: number;
+  reason?: string;
+  balanceUsd: number;
+  at: string;
+};
+
 export type DisplayEvent =
   | ServiceRegisteredEvent
   | ServiceEvictedEvent
@@ -163,7 +176,8 @@ export type DisplayEvent =
   | PhaseAnnouncedEvent
   | AgentNoteEvent
   | WalletBalanceEvent
-  | WalletChargeEvent;
+  | WalletChargeEvent
+  | WalletCreditEvent;
 
 /**
  * Loose, JSON-serializable mirror of `ServiceDescription`. We intentionally

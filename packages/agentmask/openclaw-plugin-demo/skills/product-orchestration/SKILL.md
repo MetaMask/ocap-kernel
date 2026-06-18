@@ -269,6 +269,16 @@ checkpoint clears.
    service quoted; the wallet ribbon on the dashboard updates as
    a result, so the audience can see money actually moving.
 
+   **Top-ups** go through `demo_wallet_credit({ amountUsd, reason })`.
+   Call this **only on direct inventor authorization** — they have
+   to say something like "add $X", "top up by $X", "fund the
+   wallet" first. Never credit unilaterally; the wallet's balance
+   is the inventor's money. When the wallet runs low mid-phase, the
+   right move is to surface the shortfall to the inventor and ask
+   how they want to handle it — and if they authorize a top-up, you
+   have a tool for it. Don't tell the inventor to add funds through
+   some other interface; this tool is the interface.
+
 5. **Concept phase** (special — no service):
 
    a. `demo_announce({ phaseTransition: "Concept" })`.

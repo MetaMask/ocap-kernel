@@ -291,6 +291,17 @@ body {
   font-weight: 500;
 }
 
+.events__line--credit {
+  background: rgba(74, 222, 128, 0.08);
+  border-left: 3px solid #4ade80;
+}
+
+.events__credit {
+  color: #4ade80;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+}
+
 .events__time {
   flex: 0 0 auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

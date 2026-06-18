@@ -28,6 +28,13 @@ export type EventEntry =
       amountUsd: number;
       reason?: string;
       balanceUsd: number;
+    }
+  | {
+      kind: 'wallet-credit';
+      at: string;
+      amountUsd: number;
+      reason?: string;
+      balanceUsd: number;
     };
 
 /**
@@ -141,6 +148,7 @@ export function useEventStream(): DisplayState {
       'agent.note',
       'wallet.balance',
       'wallet.charge',
+      'wallet.credit',
     ];
     for (const kind of kinds) {
       source.addEventListener(kind, handle);
@@ -266,6 +274,20 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
     case 'wallet.charge': {
       const events = appendEvent(state.events, {
         kind: 'wallet-charge',
+        at: event.at,
+        amountUsd: event.amountUsd,
+        reason: event.reason,
+        balanceUsd: event.balanceUsd,
+      });
+      return {
+        ...state,
+        events,
+        walletBalanceUsd: event.balanceUsd,
+      };
+    }
+    case 'wallet.credit': {
+      const events = appendEvent(state.events, {
+        kind: 'wallet-credit',
         at: event.at,
         amountUsd: event.amountUsd,
         reason: event.reason,

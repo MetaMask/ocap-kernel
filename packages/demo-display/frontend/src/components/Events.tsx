@@ -114,6 +114,21 @@ function EventLine({ entry }: EventLineProps): JSX.Element {
       </li>
     );
   }
+  if (entry.kind === 'wallet-credit') {
+    const reason =
+      typeof entry.reason === 'string' && entry.reason.length > 0
+        ? entry.reason
+        : 'wallet top-up';
+    return (
+      <li className="events__line events__line--credit">
+        <span className="events__time">{formatTime(entry.at)}</span>
+        <span className="events__credit">
+          $ +${entry.amountUsd.toLocaleString()} {reason} (balance $
+          {entry.balanceUsd.toLocaleString()})
+        </span>
+      </li>
+    );
+  }
   return (
     <li className="events__line events__line--note">
       <span className="events__time">{formatTime(entry.at)}</span>
