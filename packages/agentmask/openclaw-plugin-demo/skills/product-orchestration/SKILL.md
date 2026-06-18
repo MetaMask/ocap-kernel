@@ -439,6 +439,14 @@ title: "Product concept" })`.
   `demo_record_artifact`.
 - **Never** guess method names or argument shapes. If unsure,
   call `service_get_description`.
+- **Never invent a product name.** Don't coin a brand or
+  marketing-style name for the device in the Concept brief, in any
+  service brief you author, or in TUI narration. Refer to it by
+  what it is — "the device", "the remote", "the universal remote".
+  If a service's output happens to carry a name (e.g. the
+  industrial-design sketch labels its drawing), use that name
+  thereafter; otherwise stay generic. Naming the product is the
+  inventor's call, not the producer's.
 - If `discovery_find_services` returns no candidates for the next
   phase, narrate that to both the audience and the inventor, and
   stop cleanly. Don't substitute another phase's service, and

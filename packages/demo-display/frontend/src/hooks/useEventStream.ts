@@ -7,12 +7,12 @@ import type {
 } from '../types.ts';
 
 /**
- * One entry in the agent's narration transcript. Synthesized from
- * `agent.note`, `phase.announced`, and matcher query/result events so
- * the audience can see both the agent's narration and the
+ * One entry in the dashboard's event log. Synthesized from
+ * `agent.note`, `phase.announced`, matcher query/result, and wallet
+ * events so the audience can see both the agent's narration and the
  * underlying service-matcher round-trips.
  */
-export type TranscriptEntry =
+export type EventEntry =
   | { kind: 'note'; at: string; note: string }
   | { kind: 'phase'; at: string; phase: string }
   | { kind: 'matcher-query'; at: string; description: string }
@@ -43,7 +43,7 @@ export const UNASSIGNED_PHASE = 'Unassigned';
  */
 export type DisplayState = {
   services: Map<string, ServiceDescriptionPayload>;
-  transcript: TranscriptEntry[];
+  events: EventEntry[];
   latestArtifact: ArtifactRecordedEvent | undefined;
   walletBalanceUsd: number | undefined;
   /**
@@ -81,15 +81,15 @@ export type DisplayState = {
 };
 
 /**
- * Maximum number of transcript entries retained client-side. Older
+ * Maximum number of event-log entries retained client-side. Older
  * entries fall off the front when the cap is reached. 200 fits the
  * worst-case V1 arc with headroom.
  */
-const TRANSCRIPT_CAP = 200;
+const EVENTS_CAP = 200;
 
 const INITIAL_STATE: DisplayState = {
   services: new Map(),
-  transcript: [],
+  events: [],
   latestArtifact: undefined,
   walletBalanceUsd: undefined,
   activePhase: undefined,
@@ -193,38 +193,38 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
       };
     }
     case 'matcher.query': {
-      const transcript = appendTranscript(state.transcript, {
+      const events = appendEvent(state.events, {
         kind: 'matcher-query',
         at: event.at,
         description: event.description,
       });
-      return { ...state, transcript };
+      return { ...state, events };
     }
     case 'matcher.results': {
-      const transcript = appendTranscript(state.transcript, {
+      const events = appendEvent(state.events, {
         kind: 'matcher-results',
         at: event.at,
         count: event.count,
         providerTags: event.providerTags,
       });
-      return { ...state, transcript };
+      return { ...state, events };
     }
     case 'agent.note': {
-      const transcript = appendTranscript(state.transcript, {
+      const events = appendEvent(state.events, {
         kind: 'note',
         at: event.at,
         note: event.note,
       });
-      return { ...state, transcript };
+      return { ...state, events };
     }
     case 'phase.announced': {
-      // Skip the transcript entry if it would just repeat the most
+      // Skip the event-log entry if it would just repeat the most
       // recent phase line — agents sometimes re-announce the current
       // phase mid-stream and the audience doesn't need to see it twice.
       const isDup = state.activePhase === event.phase;
-      const transcript = isDup
-        ? state.transcript
-        : appendTranscript(state.transcript, {
+      const events = isDup
+        ? state.events
+        : appendEvent(state.events, {
             kind: 'phase',
             at: event.at,
             phase: event.phase,
@@ -234,7 +234,7 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
         : [...state.announcedPhases, event.phase];
       return {
         ...state,
-        transcript,
+        events,
         activePhase: event.phase,
         announcedPhases,
       };
@@ -264,7 +264,7 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
     case 'wallet.balance':
       return { ...state, walletBalanceUsd: event.balanceUsd };
     case 'wallet.charge': {
-      const transcript = appendTranscript(state.transcript, {
+      const events = appendEvent(state.events, {
         kind: 'wallet-charge',
         at: event.at,
         amountUsd: event.amountUsd,
@@ -273,7 +273,7 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
       });
       return {
         ...state,
-        transcript,
+        events,
         walletBalanceUsd: event.balanceUsd,
       };
     }
@@ -283,19 +283,14 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
 }
 
 /**
- * Append a transcript entry, dropping the oldest if the result would
- * exceed `TRANSCRIPT_CAP`.
+ * Append an entry to the event log, dropping the oldest if the result
+ * would exceed `EVENTS_CAP`.
  *
- * @param transcript - The current transcript.
+ * @param events - The current event-log array.
  * @param entry - The entry to append.
- * @returns The next transcript array.
+ * @returns The next event-log array.
  */
-function appendTranscript(
-  transcript: TranscriptEntry[],
-  entry: TranscriptEntry,
-): TranscriptEntry[] {
-  const next = [...transcript, entry];
-  return next.length > TRANSCRIPT_CAP
-    ? next.slice(next.length - TRANSCRIPT_CAP)
-    : next;
+function appendEvent(events: EventEntry[], entry: EventEntry): EventEntry[] {
+  const next = [...events, entry];
+  return next.length > EVENTS_CAP ? next.slice(next.length - EVENTS_CAP) : next;
 }

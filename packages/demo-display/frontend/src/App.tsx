@@ -1,9 +1,9 @@
 import { useState } from 'react';
 
 import { ArtifactZoom } from './components/ArtifactZoom.tsx';
+import { Events } from './components/Events.tsx';
 import { ProducerDialog } from './components/ProducerDialog.tsx';
 import { ServicesGrid } from './components/ServicesGrid.tsx';
-import { Transcript } from './components/Transcript.tsx';
 import { WalletRibbon } from './components/WalletRibbon.tsx';
 import { WorkflowBoard } from './components/WorkflowBoard.tsx';
 import { useConfig } from './hooks/useConfig.ts';
@@ -18,7 +18,7 @@ import type { ArtifactRecordedEvent } from './types.ts';
  *   +-------------------+----------------------+
  *   | Services grid     | Workflow board       |
  *   +-------------------+----------------------+
- *   | Agent transcript  | Producer dialog      |
+ *   | Events log        | Producer dialog      |
  *   +-------------------+----------------------+
  *
  * The bottom-right cell embeds the producer LLM's TUI as an iframe
@@ -33,7 +33,7 @@ import type { ArtifactRecordedEvent } from './types.ts';
 export function App(): JSX.Element {
   const {
     services,
-    transcript,
+    events,
     activePhase,
     announcedPhases,
     artifactsByPhase,
@@ -66,7 +66,7 @@ export function App(): JSX.Element {
           />
         </div>
         <div className="app__cell app__cell--bottom-left">
-          <Transcript entries={transcript} />
+          <Events entries={events} />
         </div>
         <div className="app__cell app__cell--bottom-right">
           <ProducerDialog ttydUrl={config?.ttydUrl} />

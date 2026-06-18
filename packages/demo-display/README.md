@@ -1,6 +1,6 @@
 # `@ocap/demo-display`
 
-Live display server and SPA for the AI-orchestration demo: services grid, agent transcript, artifact panel, workflow board.
+Live display server and SPA for the AI-orchestration demo: services grid, events log, producer dialog, workflow board.
 
 ## Installation
 

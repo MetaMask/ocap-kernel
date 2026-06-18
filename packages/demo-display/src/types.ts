@@ -35,7 +35,7 @@ export type ServiceDiscoveredEvent = {
 
 /**
  * The agent asked the matcher to find services. Surfaced in the
- * transcript so the audience can see the matcher being consulted, not
+ * events log so the audience can see the matcher being consulted, not
  * just the agent's downstream actions.
  */
 export type MatcherQueryEvent = {
@@ -57,7 +57,7 @@ export type MatcherResultsEvent = {
 
 /**
  * The agent invoked a tool. The demo plugin posts these so the
- * transcript panel can render a live activity log.
+ * events log can render a live activity stream.
  */
 export type ToolCallEvent = {
   kind: 'tool.call';
@@ -139,8 +139,9 @@ export type WalletBalanceEvent = {
 };
 
 /**
- * A spend just deducted from the wallet. Renders as a transcript line
- * so the audience sees money moving alongside the ribbon ticking down.
+ * A spend just deducted from the wallet. Renders as an events-log
+ * line so the audience sees money moving alongside the ribbon ticking
+ * down.
  */
 export type WalletChargeEvent = {
   kind: 'wallet.charge';
