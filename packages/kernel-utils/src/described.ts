@@ -135,9 +135,10 @@ const record = (description?: string): Described =>
   });
 
 /**
- * A closed/shaped object leaf: matches a record with the given properties,
- * where keys not listed in `optional` are required. Describes
- * `{ type: 'object', properties, required }`.
+ * A closed/shaped object leaf: matches a record with exactly the given
+ * properties (extra keys are rejected), where keys not listed in `optional` are
+ * required. Describes `{ type: 'object', properties, required,
+ * additionalProperties: false }`.
  *
  * @param properties - The described properties, keyed by name.
  * @param options - Options bag.
@@ -165,9 +166,16 @@ const object = (
     }
   }
   return harden({
-    pattern: M.splitRecord(requiredPatterns, optionalPatterns),
+    // The empty-record rest pattern closes the record: keys beyond those listed
+    // are rejected, matching the schema's `additionalProperties: false`.
+    pattern: M.splitRecord(requiredPatterns, optionalPatterns, {}),
     schema: withDescription(
-      { type: 'object', properties: schemaProperties, required },
+      {
+        type: 'object',
+        properties: schemaProperties,
+        required,
+        additionalProperties: false,
+      },
       description,
     ),
   });
@@ -242,6 +250,7 @@ const describedMethod = (
   const schema: MethodSchema = {
     description,
     args: schemaArgs,
+    required: required.map((each) => each.name),
     ...(returns.schema === undefined ? {} : { returns: returns.schema }),
   };
 

@@ -63,6 +63,19 @@ describe('methodArgsToStruct', () => {
     expect(() => assert({ a: 1 }, struct)).toThrow(/path: b/u);
   });
 
+  it('treats args absent from `required` as optional', () => {
+    const struct = methodArgsToStruct(
+      {
+        final: { type: 'string' },
+        attachments: { type: 'object', properties: {} },
+      },
+      { required: ['final'] },
+    );
+    assert({ final: 'done' }, struct);
+    assert({ final: 'done', attachments: { note: 1 } }, struct);
+    expect(() => assert({ attachments: {} }, struct)).toThrow(/final/u);
+  });
+
   it('accepts an empty args map', () => {
     assert({}, methodArgsToStruct({}));
   });

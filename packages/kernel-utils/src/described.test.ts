@@ -82,10 +82,17 @@ describe('leaves', () => {
       type: 'object',
       properties: { id: { type: 'string' }, label: { type: 'string' } },
       required: ['id'],
+      additionalProperties: false,
     });
     expect(matches({ id: 'x' }, described.pattern)).toBe(true);
     expect(matches({ id: 'x', label: 'y' }, described.pattern)).toBe(true);
     expect(matches({ label: 'y' }, described.pattern)).toBe(false);
+  });
+
+  it('rejects extra keys on a closed object leaf', () => {
+    const described = S.object({ id: S.string() });
+    expect(matches({ id: 'x' }, described.pattern)).toBe(true);
+    expect(matches({ id: 'x', extra: 1 }, described.pattern)).toBe(false);
   });
 
   it('builds a void return leaf with no schema', () => {
@@ -106,6 +113,7 @@ describe('S.method', () => {
     expect(method.schema).toStrictEqual({
       description: 'Add a list of numbers.',
       args: { summands: { type: 'array', items: { type: 'number' } } },
+      required: ['summands'],
       returns: { type: 'number', description: 'The sum of the numbers.' },
     });
     const payload = payloadOf(method.guard);
@@ -143,6 +151,9 @@ describe('S.method', () => {
         additionalProperties: true,
       },
     });
+    // The optional arg is omitted from `required`, so the schema's enforced
+    // shape matches the guard's optional trailing arg.
+    expect(method.schema.required).toStrictEqual(['final']);
   });
 
   it('handles a no-arg method', () => {
