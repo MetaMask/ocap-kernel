@@ -459,9 +459,7 @@ this same file.
 In `vps-display`:
 
 ```csh
-source ~/.ocap/matcher-urls.env
-env OCAP_HOME="$HOME/.ocap-consumer" \
-    DEMO_DISPLAY_TTYD_URL="http://${VPS_HOST}:7681" \
+env DEMO_DISPLAY_TTYD_URL="http://${VPS_HOST}:7681" \
     yarn workspace @ocap/demo-display start
 ```
 
@@ -470,6 +468,13 @@ at the ttyd server started in step 5b. Adjust to whatever address
 your laptop can reach (substitute `${VPS_HOST}` if the variable
 isn't already in your environment, or use the public hostname /
 ssh-tunneled localhost if that's how you're reaching the VPS).
+
+(Earlier versions of demo-display needed `OCAP_HOME` and a
+`source ~/.ocap/matcher-urls.env` for an observer-URL redemption
+that drove a periodic `listAll` poll. The dashboard now populates
+its services map directly from `service.discovered` events posted
+by the openclaw discovery plugin, so none of that matcher-side
+plumbing is required.)
 
 Watch for:
 

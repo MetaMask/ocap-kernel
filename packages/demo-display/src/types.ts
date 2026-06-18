@@ -23,13 +23,22 @@ export type ServiceEvictedEvent = {
 
 /**
  * The agent's `discovery_find_services` query matched this provider.
- * Services-grid cards surface only providers that have been discovered;
- * the registry-truth `service.registered` stream is used internally for
- * lookups but never directly drives the services UI.
+ * Carries the full service description so the dashboard can populate
+ * its services map directly from discovery events — there is no
+ * registry-side push channel, and the SPA used to rely on a periodic
+ * `listAll` poll to keep the lookup table fresh; embedding the
+ * description here eliminates the poll entirely.
  */
 export type ServiceDiscoveredEvent = {
   kind: 'service.discovered';
   providerTag: string;
+  /**
+   * Full matcher-returned service description for the discovered
+   * provider (the same payload `service.registered` previously carried
+   * via the poller). Optional only for backward compatibility with
+   * older plugin builds; current builds always set it.
+   */
+  description?: ServiceDescriptionPayload;
   at: string;
 };
 

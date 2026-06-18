@@ -23,6 +23,14 @@ export type ServiceEvictedEvent = {
 export type ServiceDiscoveredEvent = {
   kind: 'service.discovered';
   providerTag: string;
+  /**
+   * Full matcher-returned service description for the discovered
+   * provider. Drives the services map (so the SPA doesn't need a
+   * periodic `listAll` poll). Optional only for backward
+   * compatibility with older plugin builds; current builds always
+   * set it.
+   */
+  description?: ServiceDescriptionPayload;
   at: string;
 };
 

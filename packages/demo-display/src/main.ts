@@ -1,38 +1,23 @@
 import { loadConfig } from './config.ts';
-import { makeDaemonCaller } from './daemon-caller.ts';
 import { makeEventLog } from './event-log.ts';
-import { startMatcherPoller } from './matcher-poller.ts';
 import { startServer } from './server.ts';
 
 /**
  * Executable entry for `yarn workspace @ocap/demo-display start`.
  *
- * Loads config, redeems the matcher's observer URL once via the ocap
- * CLI to obtain a kref, starts the poll loop and the HTTP server, and
- * wires graceful shutdown to SIGINT / SIGTERM.
+ * Loads config, starts the HTTP server, and wires graceful shutdown
+ * to SIGINT / SIGTERM. The dashboard's services map is populated
+ * directly from `service.discovered` events posted by the openclaw
+ * discovery plugin (which carry the full matcher-returned
+ * description), so demo-display no longer needs a daemon-side
+ * `listAll` poll or the observer-URL redemption that used to drive
+ * it.
  */
 async function main(): Promise<void> {
   // eslint-disable-next-line n/no-process-env
   const config = await loadConfig({ env: process.env });
 
-  const daemonCaller = makeDaemonCaller({
-    cliPath: config.ocapCliPath,
-    ocapHome: config.ocapHome,
-    timeoutMs: config.timeoutMs,
-  });
-
-  const observerKref = await daemonCaller.redeemUrl(config.observerUrl);
-  // eslint-disable-next-line no-console
-  console.info(`[demo-display] Redeemed observer URL; kref=${observerKref}`);
-
   const eventLog = makeEventLog({ capacity: config.eventLogCapacity });
-
-  const poller = startMatcherPoller({
-    daemonCaller,
-    observerKref,
-    intervalMs: config.pollIntervalMs,
-    eventLog,
-  });
 
   const server = await startServer({
     eventLog,
@@ -47,7 +32,6 @@ async function main(): Promise<void> {
   const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     // eslint-disable-next-line no-console
     console.info(`[demo-display] Received ${signal}; shutting down.`);
-    poller.stop();
     try {
       await server.close();
       process.exitCode = 0;

@@ -79,10 +79,11 @@ export type DisplayState = {
   /**
    * Provider tags that have appeared in a `discovery_find_services`
    * reply, in the order they were first discovered. The services
-   * grid renders only providers in this list, even though the full
-   * registry (`services` map) is populated from the matcher poller —
-   * the conceit is that the inventor's side doesn't know about a
-   * provider until the agent has asked the matcher.
+   * grid renders one card per tag, looking the corresponding
+   * description up in the `services` map (both lists are populated
+   * by the same `service.discovered` event). The conceit is that
+   * the inventor's side doesn't know about a provider until the
+   * agent has asked the matcher.
    */
   discoveredProviderTags: string[];
 };
@@ -189,11 +190,25 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
       return { ...state, services };
     }
     case 'service.discovered': {
-      if (state.discoveredProviderTags.includes(event.providerTag)) {
-        return state;
+      const alreadyTagged = state.discoveredProviderTags.includes(
+        event.providerTag,
+      );
+      // Discovery is now the sole population path for the services map
+      // (replacing a periodic listAll poll). When the event carries a
+      // description payload, fold it into the map under the provider
+      // tag so the ServicesGrid card has its description/methods/price
+      // to render.
+      let { services } = state;
+      if (event.description !== undefined) {
+        services = new Map(state.services);
+        services.set(event.providerTag, event.description);
+      }
+      if (alreadyTagged) {
+        return services === state.services ? state : { ...state, services };
       }
       return {
         ...state,
+        services,
         discoveredProviderTags: [
           ...state.discoveredProviderTags,
           event.providerTag,

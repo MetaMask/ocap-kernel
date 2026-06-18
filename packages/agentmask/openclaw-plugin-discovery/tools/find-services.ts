@@ -121,10 +121,15 @@ export function registerFindServicesTool(options: {
             const tag = match.description.providerTag;
             if (typeof tag === 'string' && tag.length > 0) {
               tags.push(tag);
+              // Embed the full matcher-returned description so the
+              // dashboard can populate its services map directly from
+              // discovery events, eliminating the need for a periodic
+              // listAll poll loop.
               displayClient
                 .post({
                   kind: 'service.discovered',
                   providerTag: tag,
+                  description: match.description,
                   at,
                 })
                 .catch(() => undefined);

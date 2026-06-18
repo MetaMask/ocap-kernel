@@ -48,9 +48,9 @@ type ServicesGridProps = {
  * queried the matcher.
  *
  * @param props - Component props.
- * @param props.services - Live map of registry id → ServiceDescriptionPayload.
- *   Used internally to look up the description for each discovered
- *   provider tag; not iterated directly.
+ * @param props.services - Live map of provider tag → service description,
+ *   populated by `service.discovered` events from the openclaw discovery
+ *   plugin. Looked up by the entries below.
  * @param props.discoveredProviderTags - Provider tags that have appeared
  *   in a matcher reply, in discovery order.
  * @returns The rendered grid.
@@ -58,21 +58,11 @@ type ServicesGridProps = {
 export function ServicesGrid(props: ServicesGridProps): JSX.Element {
   const { services, discoveredProviderTags } = props;
 
-  const byProviderTag = new Map<
-    string,
-    { id: string; description: ServiceDescriptionPayload }
-  >();
-  for (const [id, description] of services) {
-    if (typeof description.providerTag === 'string') {
-      byProviderTag.set(description.providerTag, { id, description });
-    }
-  }
-
-  const entries: { id: string; description: ServiceDescriptionPayload }[] = [];
+  const entries: { tag: string; description: ServiceDescriptionPayload }[] = [];
   for (const tag of discoveredProviderTags) {
-    const found = byProviderTag.get(tag);
-    if (found !== undefined) {
-      entries.push(found);
+    const description = services.get(tag);
+    if (description !== undefined) {
+      entries.push({ tag, description });
     }
   }
 
@@ -98,8 +88,8 @@ export function ServicesGrid(props: ServicesGridProps): JSX.Element {
         </div>
       ) : (
         <ul className="services-grid__cards" ref={listRef}>
-          {entries.map(({ id, description }) => (
-            <ProviderCard key={id} id={id} description={description} />
+          {entries.map(({ tag, description }) => (
+            <ProviderCard key={tag} description={description} />
           ))}
         </ul>
       )}
@@ -108,21 +98,19 @@ export function ServicesGrid(props: ServicesGridProps): JSX.Element {
 }
 
 type ProviderCardProps = {
-  id: string;
   description: ServiceDescriptionPayload;
 };
 
 /**
- * A single provider's card in the services grid. Shows the
- * provider tag, registry id, natural-language description, the list
- * of method names exposed, and the advisory price.
+ * A single provider's card in the services grid. Shows the provider
+ * tag, natural-language description, the list of method names exposed,
+ * and the advisory price.
  *
  * @param props - Component props.
- * @param props.id - Matcher registry id (e.g. `svc:0`).
  * @param props.description - The service's wire-format description.
  * @returns The rendered card.
  */
-function ProviderCard({ id, description }: ProviderCardProps): JSX.Element {
+function ProviderCard({ description }: ProviderCardProps): JSX.Element {
   const methodNames = extractMethodNames(description);
   const priceLabel =
     typeof description.priceUsd === 'number'
@@ -133,7 +121,6 @@ function ProviderCard({ id, description }: ProviderCardProps): JSX.Element {
     <li className="provider-card">
       <header className="provider-card__header">
         <span className="provider-card__tag">{description.providerTag}</span>
-        <span className="provider-card__id">{id}</span>
       </header>
       <p className="provider-card__description">{description.description}</p>
       <footer className="provider-card__footer">

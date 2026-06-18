@@ -15,67 +15,53 @@ const writeConfigFile = async (
 };
 
 describe('loadConfig', () => {
-  it('throws when observerUrl is missing from env and file', async () => {
-    await expect(loadConfig({ env: {} })).rejects.toThrow(
-      /observerUrl is required/u,
-    );
-  });
-
-  it('reads observerUrl from env', async () => {
-    const config = await loadConfig({
-      env: { MATCHER_OBSERVER_URL: 'ocap:zzz' },
+  it('falls back to defaults when nothing is set', async () => {
+    const config = await loadConfig({ env: {} });
+    expect(config).toStrictEqual({
+      port: 7777,
+      eventLogCapacity: 200,
+      ttydUrl: undefined,
     });
-    expect(config.observerUrl).toBe('ocap:zzz');
   });
 
-  it('reads observerUrl from config file when env is unset', async () => {
+  it('reads ttydUrl from env', async () => {
+    const config = await loadConfig({
+      env: { DEMO_DISPLAY_TTYD_URL: 'http://example:7681' },
+    });
+    expect(config.ttydUrl).toBe('http://example:7681');
+  });
+
+  it('reads ttydUrl from config file when env is unset', async () => {
     const configPath = await writeConfigFile({
-      observerUrl: 'ocap:from-file',
+      ttydUrl: 'http://from-file:7681',
     });
     const config = await loadConfig({ env: {}, configPath });
-    expect(config.observerUrl).toBe('ocap:from-file');
+    expect(config.ttydUrl).toBe('http://from-file:7681');
   });
 
-  it('env overrides config file', async () => {
+  it('env overrides config file for ttydUrl', async () => {
     const configPath = await writeConfigFile({
-      observerUrl: 'ocap:from-file',
+      ttydUrl: 'http://from-file:7681',
     });
     const config = await loadConfig({
-      env: { MATCHER_OBSERVER_URL: 'ocap:from-env' },
+      env: { DEMO_DISPLAY_TTYD_URL: 'http://from-env:7681' },
       configPath,
     });
-    expect(config.observerUrl).toBe('ocap:from-env');
+    expect(config.ttydUrl).toBe('http://from-env:7681');
   });
 
   it('coerces numeric env values', async () => {
     const config = await loadConfig({
-      env: { MATCHER_OBSERVER_URL: 'ocap:zzz', DEMO_DISPLAY_PORT: '8181' },
+      env: { DEMO_DISPLAY_PORT: '8181' },
     });
     expect(config.port).toBe(8181);
   });
 
-  it('falls back to defaults when nothing is set', async () => {
-    const config = await loadConfig({
-      env: { MATCHER_OBSERVER_URL: 'ocap:zzz' },
-    });
-    expect({
-      port: config.port,
-      pollIntervalMs: config.pollIntervalMs,
-      timeoutMs: config.timeoutMs,
-      eventLogCapacity: config.eventLogCapacity,
-    }).toStrictEqual({
-      port: 7777,
-      pollIntervalMs: 2_500,
-      timeoutMs: 60_000,
-      eventLogCapacity: 200,
-    });
-  });
-
   it('treats a non-existent config file as empty', async () => {
     const config = await loadConfig({
-      env: { MATCHER_OBSERVER_URL: 'ocap:zzz' },
+      env: {},
       configPath: '/tmp/does-not-exist-demo-display.json',
     });
-    expect(config.observerUrl).toBe('ocap:zzz');
+    expect(config.port).toBe(7777);
   });
 });

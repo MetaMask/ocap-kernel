@@ -6,9 +6,7 @@ describe('index', () => {
   it('re-exports the demo-display surface', () => {
     expect(Object.keys(displayApi).sort()).toStrictEqual([
       'loadConfig',
-      'makeDaemonCaller',
       'makeEventLog',
-      'startMatcherPoller',
       'startServer',
     ]);
   });
