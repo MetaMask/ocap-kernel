@@ -22,11 +22,14 @@ type WorkflowBoardProps = {
  *
  * Artifact cards carry a `consumes` list (set by the agent via
  * `demo_record_artifact`); when present, the card's footer shows a
- * brief "← <input title>, <input title>" line so the audience can
- * see how each output was derived from earlier work. An earlier
- * version drew SVG curves between cards but the visual got messy as
- * the board filled up and didn't convey the dataflow as clearly as
- * the textual reference does.
+ * brief "inputs: <short>, <short>" line so the audience can
+ * see how each output was derived from earlier work. The short
+ * form is derived from the artifact title by stripping the
+ * "<product code> — " prefix so it reads as an identifier reference
+ * rather than a full descriptive title. An earlier version drew
+ * SVG curves between cards but the visual got messy as the board
+ * filled up and didn't convey the dataflow as clearly as the
+ * textual reference does.
  *
  * @param props - Component props.
  * @param props.announcedPhases - Phases the agent has announced, in
@@ -131,6 +134,26 @@ function indexByHandle(
   return byHandle;
 }
 
+/**
+ * Shorten an artifact title for use as an identifier reference in the
+ * consumes footer. Services emit titles in the form
+ * `<product code> — <thing>` (em-dash with surrounding spaces); we
+ * strip the prefix so the footer reads as a short identifier rather
+ * than a full descriptive title. If no em-dash is present the title
+ * is returned unchanged.
+ *
+ * @param title - The source artifact's metadata title.
+ * @returns The short-form label.
+ */
+function shortenArtifactLabel(title: string): string {
+  const separator = ' — ';
+  const index = title.indexOf(separator);
+  if (index < 0) {
+    return title;
+  }
+  return title.slice(index + separator.length).trim();
+}
+
 type PhaseColumnProps = {
   phase: string;
   artifacts: ArtifactRecordedEvent[];
@@ -214,7 +237,10 @@ function ArtifactThumb({
   const consumesLabels = (artifact.consumes ?? [])
     .map((handle) => {
       const source = artifactsByHandle.get(handle);
-      return source?.metadata?.title ?? handle;
+      const sourceTitle = source?.metadata?.title;
+      return sourceTitle === undefined
+        ? handle
+        : shortenArtifactLabel(sourceTitle);
     })
     .filter((label) => label.length > 0);
   return (
@@ -250,7 +276,7 @@ function ArtifactThumb({
         </span>
         {consumesLabels.length === 0 ? null : (
           <span className="phase-column__card-consumes">
-            ← {consumesLabels.join(', ')}
+            inputs: {consumesLabels.join(', ')}
           </span>
         )}
       </div>
