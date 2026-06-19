@@ -306,7 +306,7 @@
     <text x="6"   y="18" class="ic-text" font-size="10">Project: LAUR</text>
     <text x="6"   y="42" class="ic-text" font-size="9">Title: top-level schematic</text>
     <text x="166" y="14" class="ic-text" font-size="10">Rev E1</text>
-    <text x="166" y="40" class="ic-text" font-size="9">circuit-foundry</text>
+    <text x="166" y="40" class="ic-text" font-size="9">circuit-masters</text>
     <text x="244" y="14" class="ic-text" font-size="9">sheet 1/1</text>
   </g>
 

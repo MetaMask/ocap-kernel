@@ -16,14 +16,20 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PKG = resolvePath(HERE, '..');
 
+// `providerLabel` per target is resolved from the corresponding
+// service.ts at run time (see `extractStringConstant`) so the previews
+// track provider-tag renames without manual updates here.
 const TARGETS = [
   {
     source: 'src/industrial-design/master-svg.ts',
     output: 'src/industrial-design/master-svg.preview.svg',
     exportName: 'MASTER_SVG',
+    providerTag: {
+      source: 'src/industrial-design/service.ts',
+      constant: 'INDUSTRIAL_DESIGN_PROVIDER_TAG',
+    },
     tokens: {
       revLabel: 'A1',
-      providerLabel: 'industrial-design-stub',
       screenTime: '20:34',
       batteryLifeMonths: '18 mo',
       irProtocols: 'NEC + RC-5 + Sony',
@@ -33,9 +39,12 @@ const TARGETS = [
     source: 'src/industrial-design/master-svg-rev2.ts',
     output: 'src/industrial-design/master-svg-rev2.preview.svg',
     exportName: 'MASTER_SVG_REV2',
+    providerTag: {
+      source: 'src/industrial-design/service.ts',
+      constant: 'INDUSTRIAL_DESIGN_PROVIDER_TAG',
+    },
     tokens: {
       revLabel: 'A2',
-      providerLabel: 'industrial-design-stub',
       screenTime: '20:34',
       batteryLifeMonths: '18 mo',
       irProtocols: 'NEC + RC-5 + Sony',
@@ -45,11 +54,14 @@ const TARGETS = [
     source: 'src/mechanical-design/master-svg.ts',
     output: 'src/mechanical-design/master-svg.preview.svg',
     exportName: 'MASTER_SVG',
+    providerTag: {
+      source: 'src/mechanical-design/service.ts',
+      constant: 'MECHANICAL_DESIGN_PROVIDER_TAG',
+    },
     // Mirror the locked soft-white colorway from template.ts so the
     // preview matches what the service vat actually emits.
     tokens: {
       revLabel: 'M1',
-      providerLabel: 'nantucket-mech',
       colorwayName: 'soft white',
       caseColorHighlight: '#f8f6f1',
       caseColorMain: '#ecebe5',
@@ -61,10 +73,13 @@ const TARGETS = [
     source: 'src/schematic-generation/master-svg.ts',
     output: 'src/schematic-generation/master-svg.preview.svg',
     exportName: 'MASTER_SVG',
+    providerTag: {
+      source: 'src/schematic-generation/service.ts',
+      constant: 'SCHEMATIC_GENERATION_PROVIDER_TAG',
+    },
     // mcuPartNumber matches the lock in src/schematic-generation/template.ts.
     tokens: {
       revLabel: 'E1',
-      providerLabel: 'circuit-foundry',
       mcuPartNumber: 'ESP32-S3-MINI-N8',
       ldoPartNumber: 'MIC5219-3.0YM5',
     },
@@ -73,11 +88,14 @@ const TARGETS = [
     source: 'src/pcb-layout/master-svg.ts',
     output: 'src/pcb-layout/master-svg.preview.svg',
     exportName: 'MASTER_SVG',
+    providerTag: {
+      source: 'src/pcb-layout/service.ts',
+      constant: 'PCB_LAYOUT_PROVIDER_TAG',
+    },
     // Mirror the production token set so the preview reflects what a
     // generate() call actually emits (without the per-call randomness).
     tokens: {
       revLabel: 'P1',
-      providerLabel: 'pcb-foundry-compact',
       boardColor: '#0d6e3a',
       boardSize: '46 × 102 mm',
     },
@@ -116,6 +134,31 @@ function extractTemplate(source, exportName) {
 }
 
 /**
+ * Extract the value of an exported single-quoted string constant
+ * from a .ts file. Matches the prettier-wrapped form:
+ *   export const FOO = 'value';
+ * or
+ *   export const FOO =
+ *     'value';
+ * — but doesn't try to handle string concatenation or interpolation.
+ *
+ * @param {string} source - The TypeScript source contents.
+ * @param {string} exportName - The exported constant name.
+ * @returns {string} The string literal's value.
+ */
+function extractStringConstant(source, exportName) {
+  const pattern = new RegExp(
+    `export\\s+const\\s+${exportName}\\s*=\\s*'([^']*)'\\s*;`,
+    'u',
+  );
+  const match = source.match(pattern);
+  if (match === null) {
+    throw new Error(`couldn't find single-quoted string export ${exportName}`);
+  }
+  return match[1];
+}
+
+/**
  * Replace `{{token}}` placeholders in the SVG with the supplied
  * values. Unknown tokens are left as-is.
  *
@@ -134,7 +177,18 @@ for (const target of TARGETS) {
   const outputPath = resolvePath(PKG, target.output);
   const source = await readFile(sourcePath, 'utf8');
   const template = extractTemplate(source, target.exportName);
-  const rendered = fillTokens(template, target.tokens);
+
+  const providerSourcePath = resolvePath(PKG, target.providerTag.source);
+  const providerSource = await readFile(providerSourcePath, 'utf8');
+  const providerLabel = extractStringConstant(
+    providerSource,
+    target.providerTag.constant,
+  );
+
+  const rendered = fillTokens(template, {
+    ...target.tokens,
+    providerLabel,
+  });
   await writeFile(outputPath, rendered, 'utf8');
 
   console.log(`Wrote ${target.output}`);

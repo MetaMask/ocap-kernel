@@ -56,7 +56,7 @@
              L 96 2 Z" />
 
     <text x="170" y="52" text-anchor="middle" class="title">LAUR · MAIN · P1</text>
-    <text x="170" y="68" text-anchor="middle" class="silk" font-size="9">© LAUR Co · pcb-foundry-compact</text>
+    <text x="170" y="68" text-anchor="middle" class="silk" font-size="9">© LAUR Co · pcb-wizards</text>
 
     <g transform="translate(140 18)">
       <rect class="copper-fill" width="20" height="8" />
@@ -378,7 +378,7 @@
   </g>
 
   <text x="20" y="32" class="annot" font-weight="bold">LAUR PCB · top view</text>
-  <text x="20" y="48" class="annot" fill="#666" font-size="10">pcb-foundry-compact · rev P1 · 46 × 102 mm · 2-layer · ENIG finish</text>
+  <text x="20" y="48" class="annot" fill="#666" font-size="10">pcb-wizards · rev P1 · 46 × 102 mm · 2-layer · ENIG finish</text>
 
   <text x="490" y="64"  class="annot" font-size="10" font-weight="bold">Notes</text>
   <text x="490" y="80"  class="annot" font-size="9">Min trace/space: 6/6 mil</text>
