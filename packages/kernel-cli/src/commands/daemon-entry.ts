@@ -25,7 +25,7 @@ async function main(): Promise<void> {
   const logPath = join(ocapDir, 'daemon.log');
   const logger = new Logger({
     tags: ['daemon'],
-    transports: [makeFileTransport(logPath)],
+    transports: [makeFileTransport(logPath, resolveMinLogLevel())],
   });
 
   const socketPath =
@@ -126,16 +126,50 @@ async function readDaemonPid(pidPath: string): Promise<number | undefined> {
   return Number.isFinite(pid) && pid > 0 ? pid : undefined;
 }
 
+// Mirror of @metamask/logger's level ordering (`logLevels` is not part
+// of the package's public surface). Higher numbers are more severe.
+const LOG_LEVELS = {
+  debug: 1,
+  info: 2,
+  log: 3,
+  warn: 4,
+  error: 5,
+} as const;
+
+type LogLevelName = keyof typeof LOG_LEVELS;
+
 /**
- * Create a file transport that writes logs to a file.
+ * Resolve the daemon's minimum log level from `OCAP_DAEMON_LOG_LEVEL`.
+ * Defaults to `info` so noisy `debug` entries (refcount churn etc.)
+ * are dropped; set the env var to `debug` to re-enable everything.
+ *
+ * @returns The minimum log level to record.
+ */
+function resolveMinLogLevel(): LogLevelName {
+  const raw = process.env.OCAP_DAEMON_LOG_LEVEL;
+  if (raw !== undefined && raw in LOG_LEVELS) {
+    return raw as LogLevelName;
+  }
+  return 'info';
+}
+
+/**
+ * Create a file transport that writes logs to a file, filtering out
+ * entries below `minLevel`.
  *
  * @param logPath - The log file path.
+ * @param minLevel - Minimum severity to write; entries below this are
+ *   dropped silently.
  * @returns A log transport function.
  */
-function makeFileTransport(logPath: string) {
+function makeFileTransport(logPath: string, minLevel: LogLevelName) {
   // eslint-disable-next-line @typescript-eslint/no-require-imports, n/global-require -- need sync fs for log transport
   const fs = require('node:fs') as typeof import('node:fs');
+  const minIdx = LOG_LEVELS[minLevel];
   return (entry: LogEntry): void => {
+    if (LOG_LEVELS[entry.level] < minIdx) {
+      return;
+    }
     const line = `[${new Date().toISOString()}] [${entry.level}] ${entry.message ?? ''} ${(entry.data ?? []).map(String).join(' ')}\n`;
     // eslint-disable-next-line n/no-sync -- synchronous write needed for log transport reliability
     fs.appendFileSync(logPath, line);
