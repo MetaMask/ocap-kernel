@@ -7,7 +7,7 @@ import { renderListing } from './template.ts';
  * verb "List" per plan §6 retail-listing capability discipline.
  */
 export const RETAIL_LISTING_SERVICE_DESCRIPTION =
-  'List a consumer-electronics product for retail. Takes a product ' +
+  'List a physical product for online retail sale. Takes a product ' +
   'brief and returns a marketplace listing draft including title, ' +
   'marketing copy, pricing tier, shipping options, returns policy, ' +
   'and storefront image requirements. Price covers up to two ' +

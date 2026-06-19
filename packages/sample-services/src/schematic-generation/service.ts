@@ -8,17 +8,17 @@ import { renderSchematic } from './template.ts';
  * per plan §6.
  */
 export const SCHEMATIC_GENERATION_SERVICE_DESCRIPTION =
-  'Generate a circuit schematic for a consumer-electronics product. ' +
+  'Generate a circuit schematic from a functional specification. ' +
   'Takes a functional spec (text) and returns a schematic diagram ' +
-  'covering the microcontroller, peripherals, signal routing, and ' +
-  'power tree required by the spec. Price covers up to two revisions ' +
-  'of the same schematic on request.';
+  'covering the microcontroller, peripherals, signal routing, power ' +
+  'tree, and other components required by the spec. Price covers up ' +
+  'to two revisions of the same schematic on request.';
 
-export const SCHEMATIC_GENERATION_PROVIDER_TAG = 'circuit-foundry';
+export const SCHEMATIC_GENERATION_PROVIDER_TAG = 'circuit-masters';
 
 /**
  * Advisory per-invocation price (USD). Plan §6 schematic-generation
- * band is 800 – 2,400; circuit-foundry is the budget option at $800.
+ * band is 800 – 2,400; circuit-masters is the budget option at $800.
  */
 export const SCHEMATIC_GENERATION_PRICE_USD = 800;
 

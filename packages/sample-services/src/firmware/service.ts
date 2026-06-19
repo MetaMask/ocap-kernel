@@ -12,11 +12,11 @@ import type { FirmwareImplementationInputs } from './template.ts';
  * an end-to-end story.
  */
 export const FIRMWARE_SERVICE_DESCRIPTION =
-  'Specify and implement firmware for an embedded consumer-electronics ' +
-  'product. Two-step delivery: `specify` returns a markdown firmware ' +
-  'specification (~$1,000); on inventor approval, `implement` returns ' +
+  'Specify and implement embedded firmware for microcontroller-based ' +
+  'devices. Two-step delivery: `specify` returns a markdown firmware ' +
+  'specification (~$1,000); on customer approval, `implement` returns ' +
   'the firmware source itself (~$5,000), optionally incorporating any ' +
-  'conditional-approval changes the inventor attaches to the request. ' +
+  'conditional-approval changes the customer attaches to the request. ' +
   'Price covers up to two revisions of either artifact on request.';
 
 export const FIRMWARE_PROVIDER_TAG = 'firmware-foundry';

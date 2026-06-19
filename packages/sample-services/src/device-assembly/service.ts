@@ -7,11 +7,11 @@ import { renderBuildPlan } from './template.ts';
  * verb "Assemble" per plan §6 device-assembly capability discipline.
  */
 export const DEVICE_ASSEMBLY_SERVICE_DESCRIPTION =
-  'Assemble a consumer-electronics product from PCB and enclosure ' +
-  'components. Takes a BOM and PCB layout and returns a build plan ' +
-  'covering work cells, test sequence, QA gates, and per-unit ' +
-  'assembly cost. Price covers up to two revisions of the same plan ' +
-  'on request.';
+  'Assemble an electronic device from a PCB, an enclosure, and ' +
+  'electronic components. Takes a BOM and PCB layout and returns a ' +
+  'build plan covering work cells, test sequence, QA gates, and ' +
+  'per-unit assembly cost. Price covers up to two revisions of the ' +
+  'same plan on request.';
 
 export const DEVICE_ASSEMBLY_PROVIDER_TAG = 'assembly-coop';
 

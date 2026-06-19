@@ -11,17 +11,18 @@ import { renderConceptSketch } from './template.ts';
  * capped at ~50 words.
  */
 export const INDUSTRIAL_DESIGN_SERVICE_DESCRIPTION =
-  'Sketch an industrial design concept for a consumer-electronics product. ' +
-  'Takes a functional spec (text) and returns a line-drawing concept showing ' +
-  'form factor, control layout, and labelled features. Price covers up to ' +
-  'three revisions of the same concept on request.';
+  'Sketch an industrial design concept for a new product entering ' +
+  'manufacture. Takes a functional spec (text) and returns a line-drawing ' +
+  'concept showing form factor, control layout, and labelled features. ' +
+  'Price covers up to three revisions of the same concept on request.';
 
 /**
  * Provider tag used to dedup registrations under (peerId, providerTag).
  * The stub tag is distinct from the future per-provider tags that will
  * appear when alternative industrial-design providers are added.
  */
-export const INDUSTRIAL_DESIGN_PROVIDER_TAG = 'industrial-design-stub';
+export const INDUSTRIAL_DESIGN_PROVIDER_TAG =
+  'sunnyvale-industrial-design-services';
 
 /**
  * Advisory per-invocation price. Placeholder near the bottom of the

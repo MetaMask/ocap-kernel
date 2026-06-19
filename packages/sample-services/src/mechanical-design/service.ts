@@ -7,10 +7,10 @@ import { renderMechanicalHero } from './template.ts';
  * verb "Model" per plan §6 mechanical-design capability discipline.
  */
 export const MECHANICAL_DESIGN_SERVICE_DESCRIPTION =
-  'Model a 3D enclosure for a consumer-electronics product. Takes a ' +
-  'concept sketch and dimensions (text) and returns a 3D render of ' +
-  "the product's case in a chosen colorway. Price covers up to two " +
-  'revisions of the same enclosure on request.';
+  'Model a 3D part or enclosure suitable for injection molding. ' +
+  'Takes a concept sketch and dimensions (text) and returns a 3D ' +
+  'render of the part in a chosen colorway. Price covers up to two ' +
+  'revisions of the same part on request.';
 
 export const MECHANICAL_DESIGN_PROVIDER_TAG = 'nantucket-mech';
 

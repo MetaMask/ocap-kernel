@@ -7,16 +7,16 @@ import { renderPcbLayout } from './template.ts';
  * verb "Lay out" per plan §6 pcb-layout capability discipline.
  */
 export const PCB_LAYOUT_SERVICE_DESCRIPTION =
-  'Lay out a printed circuit board for a consumer-electronics product. ' +
-  'Takes a schematic and case dimensions (text) and returns a top-view ' +
-  'PCB image with components placed, copper traces, and silkscreen ' +
-  'labels. Price covers up to two revisions of the same layout on request.';
+  'Lay out a printed circuit board from a schematic. Takes a schematic ' +
+  'and case dimensions (text) and returns a top-view PCB image with ' +
+  'components placed, copper traces, and silkscreen labels. Price ' +
+  'covers up to two revisions of the same layout on request.';
 
-export const PCB_LAYOUT_PROVIDER_TAG = 'pcb-foundry-compact';
+export const PCB_LAYOUT_PROVIDER_TAG = 'pcb-wizards';
 
 /**
  * Advisory per-invocation price (USD). Plan §6 pcb-layout band is
- * 600 – 1,800; pcb-foundry-compact is the budget option at $600.
+ * 600 – 1,800; pcb-wizards is the budget option at $600.
  */
 export const PCB_LAYOUT_PRICE_USD = 600;
 
