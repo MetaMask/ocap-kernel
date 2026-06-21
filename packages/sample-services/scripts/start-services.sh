@@ -111,6 +111,7 @@ PCB_LAYOUT_BUNDLE="$PKG_DIR/src/pcb-layout/index.bundle"
 COMPONENT_SOURCING_BUNDLE="$PKG_DIR/src/component-sourcing/index.bundle"
 DEVICE_ASSEMBLY_BUNDLE="$PKG_DIR/src/device-assembly/index.bundle"
 RETAIL_LISTING_BUNDLE="$PKG_DIR/src/retail-listing/index.bundle"
+LOGISTICS_BUNDLE="$PKG_DIR/src/logistics/index.bundle"
 
 # Sample-services daemon lives in its own home so it can run alongside
 # the matcher (~/.ocap) and consumer (~/.ocap-consumer) daemons without
@@ -137,6 +138,7 @@ if $SKIP_BUILD; then
   [[ -f "$COMPONENT_SOURCING_BUNDLE" ]] || fail "Bundle not found at $COMPONENT_SOURCING_BUNDLE. Remove --no-build or build first."
   [[ -f "$DEVICE_ASSEMBLY_BUNDLE" ]] || fail "Bundle not found at $DEVICE_ASSEMBLY_BUNDLE. Remove --no-build or build first."
   [[ -f "$RETAIL_LISTING_BUNDLE" ]] || fail "Bundle not found at $RETAIL_LISTING_BUNDLE. Remove --no-build or build first."
+  [[ -f "$LOGISTICS_BUNDLE" ]] || fail "Bundle not found at $LOGISTICS_BUNDLE. Remove --no-build or build first."
 else
   info "Building sample-services package..."
   (cd "$REPO_ROOT" && yarn workspace @ocap/sample-services build >&2)
@@ -253,5 +255,6 @@ launch_service "PcbLayout"           "pcb-layout"           "$PCB_LAYOUT_BUNDLE"
 launch_service "ComponentSourcing"   "component-sourcing"   "$COMPONENT_SOURCING_BUNDLE"
 launch_service "DeviceAssembly"      "device-assembly"      "$DEVICE_ASSEMBLY_BUNDLE"
 launch_service "RetailListing"       "retail-listing"       "$RETAIL_LISTING_BUNDLE"
+launch_service "Logistics"           "logistics"            "$LOGISTICS_BUNDLE"
 
 info "Sample services ready."

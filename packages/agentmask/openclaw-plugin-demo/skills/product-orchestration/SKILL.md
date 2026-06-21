@@ -194,10 +194,17 @@ Per-phase intent:
   See "Purchase commits" below. The Manufacturing → Sales
   transition is a **validation checkpoint** — see "Validation
   checkpoints" below.
-- **Sales** — pricing, positioning, and distribution plan. Enter
-  this phase as a **question**, not an announcement. Frame the
-  transition as some variant of "want to see what it'll take to
-  sell this?" rather than "moving on to Sales."
+- **Sales** — two complementary engagements that together stand
+  the storefront up: a **retail listing** (marketplace-direct or
+  similar — pricing, positioning, marketing copy, image
+  requirements) and a **fulfillment plan** (pacific-fulfillment or
+  similar — warehousing, pick-and-pack, carrier rates, returns,
+  storefront integration). Run them in either order. The matcher
+  will return both for the right query; if only one comes back,
+  re-query for the other capability. Enter this phase as a
+  **question**, not an announcement. Frame the transition as some
+  variant of "want to see what it'll take to sell this?" rather
+  than "moving on to Sales."
 
 When the matcher returns no provider for a phase, narrate the gap
 to both the inventor and the audience, and stop the pipeline

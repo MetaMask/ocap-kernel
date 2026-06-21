@@ -5,6 +5,8 @@ export {
   FIRMWARE_VAT_NAME,
   INDUSTRIAL_DESIGN_BUNDLE_PATH,
   INDUSTRIAL_DESIGN_VAT_NAME,
+  LOGISTICS_BUNDLE_PATH,
+  LOGISTICS_VAT_NAME,
   MECHANICAL_DESIGN_BUNDLE_PATH,
   MECHANICAL_DESIGN_VAT_NAME,
   PCB_LAYOUT_BUNDLE_PATH,
@@ -16,6 +18,7 @@ export {
   makeEchoClusterConfig,
   makeFirmwareClusterConfig,
   makeIndustrialDesignClusterConfig,
+  makeLogisticsClusterConfig,
   makeMechanicalDesignClusterConfig,
   makePcbLayoutClusterConfig,
   makeRandomNumberClusterConfig,
@@ -56,3 +59,9 @@ export {
   PCB_LAYOUT_SERVICE_DESCRIPTION,
   type PcbLayoutArtifact,
 } from './pcb-layout/service.ts';
+export {
+  LOGISTICS_PRICE_USD,
+  LOGISTICS_PROVIDER_TAG,
+  LOGISTICS_SERVICE_DESCRIPTION,
+  type LogisticsArtifact,
+} from './logistics/service.ts';

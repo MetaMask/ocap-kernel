@@ -57,6 +57,12 @@ export const DEVICE_ASSEMBLY_VAT_NAME = 'device-assembly';
 export const RETAIL_LISTING_VAT_NAME = 'retail-listing';
 
 /**
+ * Bootstrap-vat name for the Logistics-fulfillment service subcluster
+ * (Sales phase, paired with retail-listing for warehousing + shipping).
+ */
+export const LOGISTICS_VAT_NAME = 'logistics';
+
+/**
  * Filename of each vat's bundle as produced by `yarn bundle-vats` in
  * this package. The ocap-kernel CLI writes the bundle next to its
  * source as `index.bundle`, so callers wanting a `bundleSpec`
@@ -73,6 +79,7 @@ export const PCB_LAYOUT_BUNDLE_PATH = 'pcb-layout/index.bundle';
 export const COMPONENT_SOURCING_BUNDLE_PATH = 'component-sourcing/index.bundle';
 export const DEVICE_ASSEMBLY_BUNDLE_PATH = 'device-assembly/index.bundle';
 export const RETAIL_LISTING_BUNDLE_PATH = 'retail-listing/index.bundle';
+export const LOGISTICS_BUNDLE_PATH = 'logistics/index.bundle';
 
 /**
  * Shape of either service vat's bootstrap result. Both vats expose the
@@ -369,6 +376,35 @@ export function makeRetailListingClusterConfig(options: {
     services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
     vats: {
       [RETAIL_LISTING_VAT_NAME]: {
+        bundleSpec,
+        parameters: { matcherUrl },
+      },
+    },
+  };
+}
+
+/**
+ * Build a ClusterConfig for the Logistics subcluster.
+ *
+ * @param options - Configuration options.
+ * @param options.bundleSpec - URL or path to the Logistics vat bundle.
+ * @param options.matcherUrl - OCAP URL of the service matcher.
+ * @param options.forceReset - Whether to reset the subcluster on launch.
+ *   Defaults to `false`.
+ * @returns A ClusterConfig ready for `kernel.launchSubcluster(...)`.
+ */
+export function makeLogisticsClusterConfig(options: {
+  bundleSpec: string;
+  matcherUrl: string;
+  forceReset?: boolean;
+}): ClusterConfig {
+  const { bundleSpec, matcherUrl, forceReset = false } = options;
+  return {
+    bootstrap: LOGISTICS_VAT_NAME,
+    forceReset,
+    services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+    vats: {
+      [LOGISTICS_VAT_NAME]: {
         bundleSpec,
         parameters: { matcherUrl },
       },
