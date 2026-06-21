@@ -179,11 +179,21 @@ Per-phase intent:
   one the inventor hasn't yet absorbed.
   The Firmware → Procurement transition is a **validation
   checkpoint** — see "Validation checkpoints" below.
-- **Procurement** — priced bill of materials. May have no provider
-  in the matcher; if so, stop the pipeline cleanly here.
-- **Manufacturing** — build plan and (for prototypes) a small
-  sample run. The Manufacturing → Sales transition is a
-  **validation checkpoint** — see "Validation checkpoints" below.
+- **Procurement** — priced bill of materials AND the actual
+  purchase commits. Two vendors are involved: the parts distributor
+  (shenzhen-direct) and the PCB house (pcb-wizards, re-contacted
+  from Electronics). The parts BOM lands first, then on inventor
+  approval the parts order is placed (`shenzhen-direct.purchase`)
+  and the PCBs are fabricated (`pcb-wizards.fabricate`) so both
+  ship to the manufacturer in parallel. See "Purchase commits"
+  below. May have no parts-distribution provider in the matcher; if
+  so, stop the pipeline cleanly here.
+- **Manufacturing** — build plan AND the actual build commit. The
+  agent calls `assembly-coop.assemble` to get the plan, then on
+  inventor approval calls `assembly-coop.build` to place the run.
+  See "Purchase commits" below. The Manufacturing → Sales
+  transition is a **validation checkpoint** — see "Validation
+  checkpoints" below.
 - **Sales** — pricing, positioning, and distribution plan. Enter
   this phase as a **question**, not an announcement. Frame the
   transition as some variant of "want to see what it'll take to
@@ -260,6 +270,46 @@ watch what happens. Sometimes this loops back: firmware needs a
 tweak, a button needs repositioning, voice latency feels too long
 in practice. We only lock the sales positioning after this
 checkpoint clears.
+
+## Purchase commits
+
+Three services in the pipeline have a two-step "quote then commit"
+shape: the first method delivers a priced document (BOM, build
+plan, or PCB layout) for a one-time design/sourcing fee; the second
+method, invoked only after the inventor authorizes the spend,
+places the actual production order against an earlier quote and
+charges the per-batch cost the quote cited.
+
+| Phase         | Service         | Quote method                   | Commit method |
+| ------------- | --------------- | ------------------------------ | ------------- |
+| Procurement   | shenzhen-direct | `source` (BOM)                 | `purchase`    |
+| Procurement   | pcb-wizards     | `layout` (back in Electronics) | `fabricate`   |
+| Manufacturing | assembly-coop   | `assemble` (build plan)        | `build`       |
+
+The cadence at each commit:
+
+1. Present the quote artifact to the inventor and call out the
+   batch total (it's in the quote summary). State the spend you're
+   about to authorize before you make the call.
+2. Wait for explicit approval. Don't infer it from earlier
+   "looks good" remarks on a different document. The commit is
+   real money; the inventor names the amount.
+3. `service_call` the commit method on the same service nickname
+   from the prior contact. Args are an empty `approval` object
+   (`'[{}]'`); the stub doesn't yet inspect them.
+4. The reply carries a receipt artifact handle. Close it out via
+   `demo_service_completed` with the **batch total** as
+   `charge.amountUsd` and the `consumes` list set to the quote
+   handle (and any other inputs the order rests on — the BOM and
+   PCB layout for the build commit, for example).
+
+Procurement is special: it covers TWO commits, both placed during
+the same phase. After the inventor approves the BOM and the
+engineering-prototype gate (Gate 1) has cleared, place the parts
+order with shenzhen-direct.purchase, then re-contact pcb-wizards
+and call fabricate against the layout produced back in Electronics.
+Order doesn't matter — both vendors ship to the manufacturer in
+parallel.
 
 ## Required workflow
 
