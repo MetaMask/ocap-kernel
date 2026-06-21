@@ -1,41 +1,34 @@
 /**
  * `demo_service_completed` tool: close out a service_call in a single
  * call. Combines the three things the agent invariably does together
- * after a service returns: record the result as an artifact, charge
- * the wallet for the quoted price, and post an (optional) one-line
+ * after a service returns: record the result as an artifact (by
+ * handle — the `service_call` reply already carries one), charge the
+ * wallet for the quoted price, and post an (optional) one-line
  * audience note. Folding these into one tool call saves two LLM
  * round-trips per service completion compared to the older
  * `demo_record_artifact` + `demo_wallet_charge` + `demo_announce`
  * triplet.
  *
- * The individual tools still exist as escape hatches for cases that
- * don't fit the pattern; the SKILL.md instructs the agent to use
- * this consolidated form after every successful `service_call`.
+ * Artifact bytes never round-trip through the LLM: `service_call`
+ * interns the service result and surfaces only the handle plus
+ * summary fields. This tool resolves the handle against the shared
+ * artifact store and posts the full payload to `demo-display`
+ * server-side.
  */
+import { getArtifactStore } from '../artifact-store.ts';
 import type { DisplayClient } from '../display-client.ts';
-import { allocateArtifactHandle } from '../state.ts';
 import type { PluginState } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 import { errorResponse } from './util.ts';
 
-type ArtifactParams = {
-  kind?: string;
-  data?: string;
-  fromService?: string;
-  title?: string;
-  summary?: string;
+type ServiceCompletedParams = {
+  handle?: string;
   phase?: string;
   consumes?: string[];
-};
-
-type ChargeParams = {
-  amountUsd?: number;
-  reason?: string;
-};
-
-type ServiceCompletedParams = {
-  artifact?: ArtifactParams;
-  charge?: ChargeParams;
+  charge?: {
+    amountUsd?: number;
+    reason?: string;
+  };
   note?: string;
 };
 
@@ -44,8 +37,7 @@ type ServiceCompletedParams = {
  *
  * @param options - Registration options.
  * @param options.api - The OpenClaw plugin API.
- * @param options.state - The plugin state (for artifact handles and
- *   wallet balance).
+ * @param options.state - The plugin state (for wallet balance).
  * @param options.display - Client posting events to demo-display.
  */
 export function registerServiceCompletedTool(options: {
@@ -54,67 +46,43 @@ export function registerServiceCompletedTool(options: {
   display: DisplayClient;
 }): void {
   const { api, state, display } = options;
+  const artifacts = getArtifactStore();
 
   api.registerTool({
     name: 'demo_service_completed',
     label: 'Close out a service_call (artifact + charge + note in one call)',
     description:
-      'Close out a service_call in one tool call. Records the returned ' +
-      'artifact, deducts the quoted price from the wallet, and ' +
-      'optionally surfaces a one-line audience note. Use this after ' +
-      'every successful `service_call` instead of separate ' +
-      '`demo_record_artifact` + `demo_wallet_charge` + `demo_announce` ' +
-      'calls — each LLM round-trip saved is several seconds off the ' +
-      'demo pacing. Returns the new artifact handle (for forwarding to ' +
-      'subsequent service calls) and the new wallet balance.',
+      'Close out a service_call in one tool call. Pass the artifact ' +
+      'handle returned by the preceding `service_call`, the phase the ' +
+      'artifact belongs to, any earlier-artifact handles that fed into ' +
+      'this one (`consumes`), the wallet `charge`, and an optional ' +
+      'one-line audience `note`. The plugin resolves the handle against ' +
+      'the shared artifact store and emits the full artifact to the ' +
+      'dashboard; the agent never has to round-trip the bytes.',
     parameters: {
       type: 'object',
       properties: {
-        artifact: {
-          type: 'object',
-          description: 'The artifact the service returned.',
-          properties: {
-            kind: {
-              type: 'string',
-              description:
-                "Artifact kind. One of: 'svg', 'image', 'markdown', 'json'.",
-            },
-            data: {
-              type: 'string',
-              description:
-                'The artifact payload. SVG source, markdown text, ' +
-                'JSON-encoded object, or data URI for raster images.',
-            },
-            fromService: {
-              type: 'string',
-              description:
-                'Provider tag of the service that produced this artifact.',
-            },
-            title: {
-              type: 'string',
-              description: 'Short title for the artifact card. Optional.',
-            },
-            summary: {
-              type: 'string',
-              description: 'One-line subtitle for the artifact card. Optional.',
-            },
-            phase: {
-              type: 'string',
-              description:
-                'Workflow phase this artifact belongs to (e.g. "Concept", ' +
-                '"Electronics"). Should match what you passed to ' +
-                '`demo_phase_started` at the top of this phase.',
-            },
-            consumes: {
-              type: 'array',
-              items: { type: 'string' },
-              description:
-                'Handles of earlier artifacts that were passed as inputs ' +
-                'to the service call that produced this one. Drives the ' +
-                "workflow board's lineage footer.",
-            },
-          },
-          required: ['kind', 'data', 'fromService', 'phase'],
+        handle: {
+          type: 'string',
+          description:
+            'Artifact handle returned by the preceding `service_call` (e.g. ' +
+            '"artifact-3"). The plugin looks up the kind, data, fromService, ' +
+            'and metadata from the shared store; the agent does not pass them.',
+        },
+        phase: {
+          type: 'string',
+          description:
+            'Workflow phase this artifact belongs to (e.g. "Concept", ' +
+            '"Electronics"). Should match what you passed to ' +
+            '`demo_phase_started` at the top of this phase.',
+        },
+        consumes: {
+          type: 'array',
+          items: { type: 'string' },
+          description:
+            'Handles of earlier artifacts that were passed as inputs to ' +
+            'the service call that produced this one. Drives the workflow ' +
+            "board's lineage footer.",
         },
         charge: {
           type: 'object',
@@ -140,30 +108,22 @@ export function registerServiceCompletedTool(options: {
             'one short sentence.',
         },
       },
-      required: ['artifact', 'charge'],
+      required: ['handle', 'phase', 'charge'],
     },
     async execute(
       _id: string,
       params: ServiceCompletedParams,
     ): Promise<ToolResponse> {
-      const artifactParams = params.artifact;
+      const handle = params.handle?.trim();
+      const phase = params.phase?.trim();
       const chargeParams = params.charge;
 
-      if (!artifactParams) {
-        return errorResponse(
-          'demo_service_completed: `artifact` payload is required.',
-        );
+      if (!handle) {
+        return errorResponse('demo_service_completed: `handle` is required.');
       }
-      const kind = artifactParams.kind?.trim();
-      const { data } = artifactParams;
-      const fromService = artifactParams.fromService?.trim();
-      const phase = artifactParams.phase?.trim();
-      if (!kind || data === undefined || !fromService || !phase) {
-        return errorResponse(
-          'demo_service_completed: artifact `kind`, `data`, `fromService`, and `phase` are all required.',
-        );
+      if (!phase) {
+        return errorResponse('demo_service_completed: `phase` is required.');
       }
-
       if (!chargeParams) {
         return errorResponse(
           'demo_service_completed: `charge` payload is required.',
@@ -176,28 +136,27 @@ export function registerServiceCompletedTool(options: {
         );
       }
 
-      const handle = allocateArtifactHandle(state);
-      const metadata =
-        artifactParams.title || artifactParams.summary
-          ? { title: artifactParams.title, summary: artifactParams.summary }
-          : undefined;
-      const consumes = Array.isArray(artifactParams.consumes)
-        ? artifactParams.consumes.filter(
+      const stored = artifacts.get(handle);
+      if (stored === undefined) {
+        return errorResponse(
+          `demo_service_completed: unknown artifact handle "${handle}".`,
+        );
+      }
+
+      const consumes = Array.isArray(params.consumes)
+        ? params.consumes.filter(
             (handleRef): handleRef is string =>
               typeof handleRef === 'string' && handleRef.length > 0,
           )
         : undefined;
-      const stored = {
-        handle,
-        artifactKind: kind,
-        data,
-        fromService,
-        ...(metadata === undefined ? {} : { metadata }),
-      };
-      state.artifacts.set(handle, stored);
+
       await display.post({
         kind: 'artifact.recorded',
-        ...stored,
+        handle: stored.handle,
+        artifactKind: stored.kind,
+        data: stored.data,
+        fromService: stored.fromService,
+        ...(stored.metadata === undefined ? {} : { metadata: stored.metadata }),
         phase,
         ...(consumes && consumes.length > 0 ? { consumes } : {}),
       });
@@ -226,7 +185,7 @@ export function registerServiceCompletedTool(options: {
           {
             type: 'text' as const,
             text:
-              `Recorded ${kind} artifact as ${handle}.\n` +
+              `Recorded ${stored.kind} artifact as ${handle}.\n` +
               `Charged $${amount.toLocaleString()}${reasonSuffix}. ` +
               `New balance: $${state.balanceUsd.toLocaleString()}.`,
           },

@@ -1,9 +1,10 @@
 /**
  * `demo_get_artifact` tool: fetch a previously-recorded artifact by
- * its handle. The agent uses this to retrieve an artifact's data
- * when it needs to inline the payload into a follow-on service call.
+ * its handle. The agent uses this when it explicitly needs to inspect
+ * a stored artifact (rare — the consolidated tools usually carry the
+ * agent through a phase without raw-data lookups).
  */
-import type { PluginState } from '../state.ts';
+import { getArtifactStore } from '../artifact-store.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 import { errorResponse } from './util.ts';
 
@@ -16,13 +17,12 @@ type GetArtifactParams = {
  *
  * @param options - Registration options.
  * @param options.api - The OpenClaw plugin API.
- * @param options.state - The plugin state.
  */
 export function registerGetArtifactTool(options: {
   api: OpenClawPluginApi;
-  state: PluginState;
 }): void {
-  const { api, state } = options;
+  const { api } = options;
+  const artifacts = getArtifactStore();
 
   api.registerTool({
     name: 'demo_get_artifact',
@@ -35,7 +35,7 @@ export function registerGetArtifactTool(options: {
       properties: {
         handle: {
           type: 'string',
-          description: 'Opaque handle returned by `demo_record_artifact`.',
+          description: 'Opaque handle of the artifact to retrieve.',
         },
       },
       required: ['handle'],
@@ -48,11 +48,10 @@ export function registerGetArtifactTool(options: {
       if (!handle) {
         return errorResponse('demo_get_artifact: `handle` is required.');
       }
-      const stored = state.artifacts.get(handle);
+      const stored = artifacts.get(handle);
       if (stored === undefined) {
-        const available = [...state.artifacts.keys()].join(', ') || '(none)';
         return errorResponse(
-          `demo_get_artifact: no artifact with handle "${handle}". Available: ${available}.`,
+          `demo_get_artifact: no artifact with handle "${handle}".`,
         );
       }
       return {

@@ -11,8 +11,8 @@
  * don't fit the pattern; the SKILL.md instructs the agent to use
  * this consolidated form for the standard per-phase flow.
  */
+import { getArtifactStore } from '../artifact-store.ts';
 import type { DisplayClient } from '../display-client.ts';
-import { allocateArtifactHandle } from '../state.ts';
 import type { PluginState } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 import { errorResponse } from './util.ts';
@@ -44,6 +44,7 @@ export function registerPhaseStartedTool(options: {
   display: DisplayClient;
 }): void {
   const { api, state, display } = options;
+  const artifacts = getArtifactStore();
 
   api.registerTool({
     name: 'demo_phase_started',
@@ -118,26 +119,29 @@ export function registerPhaseStartedTool(options: {
 
       let briefHandle: string | undefined;
       if (params.brief && typeof params.brief.data === 'string') {
-        const handle = allocateArtifactHandle(state);
         const metadata =
           params.brief.title || params.brief.summary
             ? { title: params.brief.title, summary: params.brief.summary }
             : undefined;
-        const stored = {
-          handle,
-          artifactKind: 'markdown',
+        const stored = artifacts.intern({
+          kind: 'markdown',
           data: params.brief.data,
           fromService: 'producer',
           ...(metadata === undefined ? {} : { metadata }),
-        };
-        state.artifacts.set(handle, stored);
+        });
         await display.post({
           kind: 'artifact.recorded',
-          ...stored,
+          handle: stored.handle,
+          artifactKind: stored.kind,
+          data: stored.data,
+          fromService: stored.fromService,
+          ...(stored.metadata === undefined
+            ? {}
+            : { metadata: stored.metadata }),
           phase,
         });
-        briefHandle = handle;
-        acknowledgements.push(`Brief recorded as ${handle}`);
+        briefHandle = stored.handle;
+        acknowledgements.push(`Brief recorded as ${stored.handle}`);
       }
 
       const note = params.note?.trim();

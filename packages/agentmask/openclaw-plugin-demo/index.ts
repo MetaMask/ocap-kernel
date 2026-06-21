@@ -136,8 +136,8 @@ function register(api: OpenClawPluginApi): void {
   const display = makeDisplayClient({ baseUrl: displayUrl });
 
   registerAnnounceTool({ api, display, state });
-  registerRecordArtifactTool({ api, state, display });
-  registerGetArtifactTool({ api, state });
+  registerRecordArtifactTool({ api, display });
+  registerGetArtifactTool({ api });
   registerWalletBalanceTool({ api, state, display });
   registerWalletChargeTool({ api, state, display });
   registerWalletCreditTool({ api, state, display });

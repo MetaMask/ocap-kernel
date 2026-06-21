@@ -164,9 +164,11 @@ Per-phase intent:
   approval — they may approve unconditionally or with proposed
   changes ("approve subject to: bump the idle timeout, add a BLE HID
   placeholder, …"). Round 2 calls the service's `implement` method
-  (~$5,000) with the spec handle and the inventor's `changes` text
-  (omit the field for an unconditional approval). The result is a
-  structured object: `{ accepted, firmware?, declineReason? }`. The
+  (~$5,000) with an `approval` object containing the spec markdown
+  (passed as `{"__handle__":"artifact-N"}` so the discovery plugin
+  expands the handle to the stored spec) and the inventor's
+  `changes` text (omit the field for an unconditional approval).
+  The result is a structured object: `{ accepted, firmware?, declineReason? }`. The
   stub provider always sets `accepted: true` and returns the
   firmware source (rendered as markdown with a fenced C code block),
   but the API allows a real provider to renegotiate — narrate the
@@ -319,12 +321,13 @@ checkpoint clears.
    d. `service_initiate_contact`, then `service_call`. Method
    names and argument shapes come from `service_get_description`
    — never guess.
-   e. When the service returns, **call `demo_service_completed`**
-   with the returned artifact (passing the same `phase` value as
-   in step 6a, plus any `consumes` handles you fed in), the
-   `charge` matching the price the service quoted, and a one-line
-   `note`. One tool call covers the record + charge + ack note
-   that used to be three.
+   e. When the service returns, the reply carries an opaque
+   `handle` (e.g. `artifact-3`) — the discovery plugin has already
+   interned the artifact body. **Call `demo_service_completed`**
+   with that `handle`, the same `phase` value as in step 6a, any
+   `consumes` handles you fed in, the `charge` matching the price
+   the service quoted, and a one-line `note`. The artifact bytes
+   never round-trip through the agent; you pass only the handle.
    f. **Always pause for the inventor before the next phase.** Two
    things in one ask: whether they want to revise the current
    artifact, and whether to move on — framed as a question, not a
@@ -337,7 +340,13 @@ checkpoint clears.
    `demo_service_completed` with the same `phase` value as the
    original; do not announce a new phase, and use a zero or
    nominal `charge.amountUsd` if the revision is covered.** Only
-   proceed when the inventor confirms. For the
+   proceed when the inventor confirms. **Revisions go through the
+   same handle-based path: call `service_call` with the same
+   provider and method (the inventor's revision notes become a
+   regular method arg), then close out via `demo_service_completed`
+   with the new handle from the revision call, the same `phase`,
+   and a zero or nominal `charge.amountUsd` if the revision is
+   covered by the original engagement.** For the
    Firmware → Procurement and Manufacturing → Sales transitions,
    run the validation-checkpoint beat (see "Validation checkpoints"
    above) before the move-on question — the in-character
@@ -356,18 +365,22 @@ checkpoint clears.
    prefer the consolidated forms.
 
 7. **Hand artifacts forward.** When a downstream service needs an
-   earlier artifact, pass the handle (not the raw data). The
-   receiving service stub resolves handles internally. **When you
-   close out the service via `demo_service_completed`**, set
-   `artifact.consumes: [...]` to the handles you fed into the
-   producing call — e.g. `consumes: ["artifact-3", "artifact-5"]`
-   when the PCB-layout service was called with both the schematic
-   and the industrial-design sketch as inputs. The display reads
-   `consumes` to render a "← <input title>, <input title>" lineage
-   footer on the workflow board card, so the audience can see how
-   each output was derived from earlier work. Omit `consumes` only
-   when the producing call genuinely took no prior artifacts (e.g.
-   the Concept brief, the first Industrial Design pass).
+   earlier artifact as input, wrap the handle in
+   `{"__handle__":"artifact-N"}` inside the `service_call` `args`
+   JSON. The discovery plugin expands the wrapper to the stored
+   artifact's data before the call is dispatched to the service —
+   you never inline the bytes yourself. Example: invoking the PCB
+   service with the schematic produced earlier looks like
+   `service_call({ service: "pcb-wizards", method: "layout", args:
+'[{"__handle__":"artifact-3"}]' })`. **When you close out the
+   service via `demo_service_completed`**, set `consumes: [...]` to
+   the handles you fed into the producing call — e.g.
+   `consumes: ["artifact-3", "artifact-5"]` when the PCB layout
+   was called with the schematic AND the industrial-design sketch.
+   The display reads `consumes` to render an "inputs: ..." lineage
+   footer on the workflow board card. Omit `consumes` only when
+   the producing call genuinely took no prior artifacts (e.g. the
+   Concept brief, the first Industrial Design pass).
 
 8. **Budget gating.** Before committing to a large-spend phase
    (tooling, manufacturing), compare the wallet balance to the
@@ -536,18 +549,20 @@ discovery_find_services({ description: "design an industrial concept for a handh
 … pick a candidate …
 service_initiate_contact({ contact: "<contact-url>" })
 service_call({ service: "<nickname>", method: "generate", args: '["…spec…"]' })
+// ↑ reply carries { handle: "artifact-3", kind: "svg",
+//   fromService: "<providerTag>", title, summary } — no raw `data`.
 demo_service_completed({
-  artifact: {
-    kind: "svg", data: "…", fromService: "<providerTag>",
-    phase: "Industrial Design", title: "Concept sketch",
-    consumes: ["artifact-2"],
-  },
+  handle: "artifact-3",
+  phase: "Industrial Design",
+  consumes: ["artifact-2"],
   charge: { amountUsd: 1200, reason: "industrial-design pass" },
   note: "Concept sketch in.",
 })
 // ↑ consumes the Industrial Design brief (artifact-2). A later
-//   phase like the PCB-layout call would consume both the
-//   schematic handle and the industrial-design-sketch handle.
+//   phase like the PCB-layout call would pass the schematic handle
+//   as an arg via `{"__handle__":"artifact-N"}` and then list both
+//   the schematic and industrial-design-sketch handles in
+//   `consumes`.
 ```
 
 Then back to the TUI:

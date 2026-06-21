@@ -108,8 +108,7 @@ export function makeFirmwareService() {
       },
 
       async implement(approval: {
-        specHandle: string;
-        spec?: string;
+        spec: string;
         changes?: string;
       }): Promise<FirmwareImplementationResult> {
         const specRev = extractSpecRev(approval.spec);
@@ -182,9 +181,9 @@ export function makeFirmwareService() {
       implement: {
         description:
           'Round 2 of the two-step firmware delivery. Costs ' +
-          `$${FIRMWARE_IMPLEMENTATION_PRICE_USD}. Takes the spec handle ` +
-          'from round 1 plus an optional `changes` string describing the ' +
-          "inventor's conditional-approval edits to the spec. Returns a " +
+          `$${FIRMWARE_IMPLEMENTATION_PRICE_USD}. Takes the spec markdown ` +
+          'produced in round 1 plus an optional `changes` string describing ' +
+          "the inventor's conditional-approval edits to the spec. Returns a " +
           'result object that indicates acceptance (`accepted: true`) ' +
           'and includes the firmware source artifact; a real provider ' +
           'could instead set `accepted: false` and `declineReason` to ' +
@@ -194,20 +193,17 @@ export function makeFirmwareService() {
           approval: {
             type: 'object',
             description:
-              "Approval payload: the spec handle from round 1, the spec's " +
-              'markdown content (used to lift the rev label), and any ' +
+              'Approval payload: the spec markdown from round 1 and any ' +
               'conditional changes the inventor wants incorporated.',
             properties: {
-              specHandle: {
-                type: 'string',
-                description: 'Artifact handle from the round-1 `specify` call.',
-              },
               spec: {
                 type: 'string',
                 description:
-                  'Optional spec markdown (the agent typically passes the ' +
-                  'just-recorded spec verbatim) so the implementation can ' +
-                  'lift the rev label and stay aligned.',
+                  'Spec markdown produced by the round-1 `specify` call. ' +
+                  'When invoking via `service_call`, pass an artifact ' +
+                  'handle reference: `{"__handle__":"artifact-N"}` — the ' +
+                  'discovery plugin expands it to the stored markdown ' +
+                  'before the call lands.',
               },
               changes: {
                 type: 'string',
@@ -217,7 +213,7 @@ export function makeFirmwareService() {
                   'Omit for unconditional approval.',
               },
             },
-            required: ['specHandle'],
+            required: ['spec'],
           },
         },
         returns: {
