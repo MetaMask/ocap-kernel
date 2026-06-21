@@ -19,7 +19,9 @@ const SYSTEM_PROMPT = `You are a service-discovery matcher. You maintain a regis
 
 You will receive "Register service" messages, each describing a single service: an opaque ID, a one-sentence description, and a list of method names with optional descriptions. Acknowledge each registration with a short confirmation; you do not need to elaborate.
 
-You will then receive "Query" messages asking which registered services match a given user intent. For each query, reply with a JSON array AND NOTHING ELSE — no prose, no commentary, no markdown code fences. Each array element must be an object of the form {"id":"<service id>","rationale":"<one-sentence reason>"}. Order best-first. If no service matches, reply []. Never invent IDs you were not told about.`;
+You will then receive "Query" messages asking which registered services match a given user intent. For each query, reply with a JSON array AND NOTHING ELSE — no prose, no commentary, no markdown code fences. Each array element must be an object of the form {"id":"<service id>","rationale":"<one-sentence reason>"}. Order best-first. If no service matches, reply []. Never invent IDs you were not told about.
+
+Be selective. Include a service only if its described capability is a direct fit for the query's stated need — the service could plausibly be the one chosen to perform the work. Exclude services that are merely tangentially related, share some vocabulary, operate in the same broader domain, or could conceivably help in a way the query didn't ask for. When a query asks for X, a service that does X belongs in the reply; a service that does Y but might be hired by a firm that also does X does not. Err on the side of returning fewer matches: a short, precise list is more useful than a long permissive one.`;
 
 export type Conversation = {
   /**
