@@ -1,3 +1,4 @@
+import { UnexpectedEOFError } from '@libp2p/utils';
 import { Logger } from '@metamask/logger';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -298,11 +299,11 @@ describe('handshake', () => {
     it('throws when channel closes during read', async () => {
       vi.spyOn(mockChannel.msgStream, 'read')
         .mockImplementation()
-        .mockResolvedValueOnce(undefined);
+        .mockRejectedValueOnce(new UnexpectedEOFError('stream closed'));
 
       await expect(
         performInboundHandshake(mockChannel, mockDeps),
-      ).rejects.toThrow('Channel closed during handshake');
+      ).rejects.toThrow(UnexpectedEOFError);
     });
   });
 });
