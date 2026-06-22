@@ -1,8 +1,10 @@
 /**
- * Token substitution for the logistics-fulfillment markdown.
+ * Token substitution for the logistics-fulfillment markdown. The
+ * renderer picks the production or trial-distribution template based
+ * on the `mode` flag the service derives from the brief.
  */
 
-import { MASTER_MD } from './master-md.ts';
+import { MASTER_MD_PRODUCTION, MASTER_MD_TRIAL } from './master-md.ts';
 
 /* eslint-disable n/no-unsupported-features/node-builtins */
 
@@ -38,6 +40,15 @@ const LEAD_DAYS = [
   '7 business days',
 ] as const;
 
+const TRIAL_BATCH_SIZES = ['10 units', '15 units', '20 units'] as const;
+const TRIAL_PACK_LABOR = ['$100', '$120', '$140'] as const;
+const TRIAL_SHIP_FLAT = ['$7.50', '$8.80', '$9.50'] as const;
+const TRIAL_LEAD_DAYS = [
+  '2 business days',
+  '3 business days',
+  '5 business days',
+] as const;
+
 /**
  * Pick one element from a non-empty array; falls back to the first
  * if crypto is unreachable.
@@ -57,17 +68,27 @@ function pickOne<Type>(options: readonly Type[]): Type {
 
 export type TemplateInputs = {
   providerLabel: string;
+  /**
+   * Which template variant to render. `production` is the full
+   * storefront-fulfillment plan (default). `trial` is the
+   * small-batch distribution variant for shipping a curated list of
+   * beta units.
+   */
+  mode: 'production' | 'trial';
 };
 
 /**
- * Render the master fulfillment-plan markdown with `{{...}}` tokens
- * filled in.
+ * Render the appropriate fulfillment-plan markdown with `{{...}}`
+ * tokens filled in, picking the production or trial variant per the
+ * caller's `mode`.
  *
- * @param inputs - Caller-supplied inputs (provider identity for now).
+ * @param inputs - Caller-supplied inputs.
  * @returns The rendered markdown.
  */
 export function renderFulfillmentPlan(inputs: TemplateInputs): string {
   const warehouse = pickOne(WAREHOUSE_PROFILES);
+  const template =
+    inputs.mode === 'trial' ? MASTER_MD_TRIAL : MASTER_MD_PRODUCTION;
   const tokens: Record<string, string> = {
     providerLabel: inputs.providerLabel,
     warehouseRegion: warehouse.warehouseRegion,
@@ -82,8 +103,12 @@ export function renderFulfillmentPlan(inputs: TemplateInputs): string {
     firstMonthFloor: '$95',
     cutOffTime: pickOne(CUT_OFF_TIMES),
     leadDays: pickOne(LEAD_DAYS),
+    unitCount: pickOne(TRIAL_BATCH_SIZES),
+    trialPackLabor: pickOne(TRIAL_PACK_LABOR),
+    trialShipFlat: pickOne(TRIAL_SHIP_FLAT),
+    trialLeadDays: pickOne(TRIAL_LEAD_DAYS),
   };
-  return MASTER_MD.replace(/\{\{(\w+)\}\}/gu, (match, name: string) =>
+  return template.replace(/\{\{(\w+)\}\}/gu, (match, name: string) =>
     name in tokens ? (tokens[name] as string) : match,
   );
 }

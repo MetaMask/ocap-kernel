@@ -58,9 +58,16 @@ export const RETAIL_LISTING_VAT_NAME = 'retail-listing';
 
 /**
  * Bootstrap-vat name for the Logistics-fulfillment service subcluster
- * (Sales phase, paired with retail-listing for warehousing + shipping).
+ * (Trial Distribution phase, and later the Manufacturing-stage
+ * storefront fulfillment when scaled up).
  */
 export const LOGISTICS_VAT_NAME = 'logistics';
+
+/**
+ * Bootstrap-vat name for the BenchBuild service subcluster (Stage-1
+ * Prototyping engineering-prototype step before Gate 1).
+ */
+export const BENCH_BUILD_VAT_NAME = 'bench-build';
 
 /**
  * Filename of each vat's bundle as produced by `yarn bundle-vats` in
@@ -80,6 +87,7 @@ export const COMPONENT_SOURCING_BUNDLE_PATH = 'component-sourcing/index.bundle';
 export const DEVICE_ASSEMBLY_BUNDLE_PATH = 'device-assembly/index.bundle';
 export const RETAIL_LISTING_BUNDLE_PATH = 'retail-listing/index.bundle';
 export const LOGISTICS_BUNDLE_PATH = 'logistics/index.bundle';
+export const BENCH_BUILD_BUNDLE_PATH = 'bench-build/index.bundle';
 
 /**
  * Shape of either service vat's bootstrap result. Both vats expose the
@@ -405,6 +413,35 @@ export function makeLogisticsClusterConfig(options: {
     services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
     vats: {
       [LOGISTICS_VAT_NAME]: {
+        bundleSpec,
+        parameters: { matcherUrl },
+      },
+    },
+  };
+}
+
+/**
+ * Build a ClusterConfig for the BenchBuild subcluster.
+ *
+ * @param options - Configuration options.
+ * @param options.bundleSpec - URL or path to the BenchBuild vat bundle.
+ * @param options.matcherUrl - OCAP URL of the service matcher.
+ * @param options.forceReset - Whether to reset the subcluster on launch.
+ *   Defaults to `false`.
+ * @returns A ClusterConfig ready for `kernel.launchSubcluster(...)`.
+ */
+export function makeBenchBuildClusterConfig(options: {
+  bundleSpec: string;
+  matcherUrl: string;
+  forceReset?: boolean;
+}): ClusterConfig {
+  const { bundleSpec, matcherUrl, forceReset = false } = options;
+  return {
+    bootstrap: BENCH_BUILD_VAT_NAME,
+    forceReset,
+    services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+    vats: {
+      [BENCH_BUILD_VAT_NAME]: {
         bundleSpec,
         parameters: { matcherUrl },
       },

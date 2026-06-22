@@ -1,7 +1,16 @@
 /**
  * Master markdown for the logistics-fulfillment service.
  *
- * Token catalog:
+ * The same operator handles two distinct kinds of engagement, so the
+ * template ships two variants. `MASTER_MD_PRODUCTION` is the full
+ * storefront-fulfillment plan: marketplace webhook integration,
+ * returns flow, per-unit storage rates, etc. `MASTER_MD_TRIAL` is
+ * the small-batch trial-distribution variant: hand-pack a known list
+ * of beta units, ship by curated address list, no marketplace
+ * integration. The service-side template renderer picks one based on
+ * the brief.
+ *
+ * Token catalog (production variant):
  *   {{providerLabel}}       provider identifier
  *   {{warehouseRegion}}     warehouse location ("West Coast", etc.)
  *   {{warehouseCity}}       warehouse city ("Sparks, NV", etc.)
@@ -17,8 +26,18 @@
  *                           ("2 PM local", "3 PM local", etc.)
  *   {{leadDays}}            integration lead time
  *                           ("3 business days", etc.)
+ *
+ * Token catalog (trial variant):
+ *   {{providerLabel}}       provider identifier
+ *   {{warehouseRegion}}     warehouse location
+ *   {{warehouseCity}}       warehouse city
+ *   {{unitCount}}           trial batch size ("15 units", etc.)
+ *   {{trialPackLabor}}      one-time hand-pack labor ("$120", etc.)
+ *   {{trialShipFlat}}       per-shipment ground rate ("$8.80", etc.)
+ *   {{trialLeadDays}}       turnaround for the trial run
+ *                           ("2 business days", etc.)
  */
-export const MASTER_MD = `# Fulfillment plan — LAUR
+export const MASTER_MD_PRODUCTION = `# Fulfillment plan — LAUR
 
 ## Operator
 
@@ -71,4 +90,53 @@ export const MASTER_MD = `# Fulfillment plan — LAUR
   workflow before the storefront accepts orders, to validate
   packaging, labeling, and weight class.
 - After hand-off check passes, the storefront listing flips live.
+`;
+
+export const MASTER_MD_TRIAL = `# Trial distribution plan — LAUR
+
+## Operator
+
+**Provider:** {{providerLabel}}
+**Warehouse of record:** {{warehouseCity}} ({{warehouseRegion}})
+**Turnaround:** {{trialLeadDays}} from inbound receipt
+
+## Receive and stage
+
+- Accept the inbound shipment from the manufacturer of record (about
+  {{unitCount}}).
+- QA-count against the bill of lading, set aside on a single
+  staging pallet — no long-term storage racking; this is a one-shot
+  distribution.
+
+## Pack and address
+
+- Hand-pack each unit: device + a one-page beta welcome card +
+  return shipping label (pre-paid) tucked inside the box.
+- One-time hand-pack labor for the batch: {{trialPackLabor}},
+  including label preparation.
+- Address list is supplied by the inventor (or producer) as a CSV.
+  We do not source the recipient list ourselves.
+
+## Ship
+
+- Domestic ground, one shipment per recipient: {{trialShipFlat}}
+  flat (handling included).
+- International recipients quoted ad-hoc if any; not assumed in this
+  estimate.
+- Tracking numbers exported back to the inventor once labels print.
+
+## What is _not_ in this plan
+
+- No marketplace integration (Shopify, marketplace-direct,
+  BigCommerce). This is a one-shot push to a curated list; no
+  inbound order webhook is wired.
+- No inventory-level sync; the operator's view of stock ends when
+  the last trial unit ships.
+- No ongoing returns flow. The pre-paid return label in each box
+  is for the trial period only and routes back to the inventor, not
+  to ongoing restocking.
+
+When the program graduates to general retail, we'll re-engage on
+the full storefront-fulfillment plan — same operator, separate
+contract.
 `;

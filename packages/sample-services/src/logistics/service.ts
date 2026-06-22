@@ -11,8 +11,11 @@ export const LOGISTICS_SERVICE_DESCRIPTION =
   'product. Takes a product brief and returns a fulfillment plan ' +
   'covering warehouse of record, per-unit storage cost, pick-and-' +
   'pack labor, carrier rates by zone, returns handling, and the ' +
-  'integration steps to wire the operation into a storefront. Price ' +
-  'covers up to two revisions of the same plan on request.';
+  'integration steps to wire the operation into a storefront. ' +
+  'Handles both small trial-distribution runs (hand-curated list of ' +
+  'beta users, no marketplace integration) and full storefront ' +
+  'fulfillment; the brief tells the operator which mode to plan for. ' +
+  'Price covers up to two revisions of the same plan on request.';
 
 export const LOGISTICS_PROVIDER_TAG = 'pacific-fulfillment';
 
@@ -41,20 +44,41 @@ export function makeLogisticsService() {
   return makeDiscoverableExo(
     'LogisticsService',
     {
-      async arrange(_spec: string): Promise<LogisticsArtifact> {
+      async arrange(spec: string): Promise<LogisticsArtifact> {
+        // The agent's brief is plain English. We sniff for "trial" /
+        // "beta" / "pilot" keywords to decide whether to render the
+        // small-batch trial-distribution variant or the
+        // full-storefront variant. Mis-classification just renders
+        // the wrong-flavoured plan; nothing breaks.
+        const lower = typeof spec === 'string' ? spec.toLowerCase() : '';
+        const mode =
+          lower.includes('trial') ||
+          lower.includes('beta') ||
+          lower.includes('pilot')
+            ? 'trial'
+            : 'production';
         const markdown = renderFulfillmentPlan({
           providerLabel: LOGISTICS_PROVIDER_TAG,
+          mode,
         });
+        const title =
+          mode === 'trial'
+            ? 'LAUR — trial distribution plan'
+            : 'LAUR — fulfillment plan';
+        const summary =
+          mode === 'trial'
+            ? 'Trial distribution plan: hand-pack a small batch, ' +
+              'ship to a curated beta list, no marketplace integration.'
+            : 'Fulfillment plan: warehouse of record, storage and ' +
+              'pick-pack rates, carrier zones, returns handling, ' +
+              'and storefront integration.';
         return harden({
           kind: 'markdown',
           data: markdown,
           fromService: LOGISTICS_PROVIDER_TAG,
           metadata: {
-            title: 'LAUR — fulfillment plan',
-            summary:
-              'Fulfillment plan: warehouse of record, storage and ' +
-              'pick-pack rates, carrier zones, returns handling, ' +
-              'and storefront integration.',
+            title,
+            summary,
           },
         });
       },

@@ -1,4 +1,6 @@
 export {
+  BENCH_BUILD_BUNDLE_PATH,
+  BENCH_BUILD_VAT_NAME,
   ECHO_BUNDLE_PATH,
   ECHO_VAT_NAME,
   FIRMWARE_BUNDLE_PATH,
@@ -15,6 +17,7 @@ export {
   RANDOM_NUMBER_VAT_NAME,
   SCHEMATIC_GENERATION_BUNDLE_PATH,
   SCHEMATIC_GENERATION_VAT_NAME,
+  makeBenchBuildClusterConfig,
   makeEchoClusterConfig,
   makeFirmwareClusterConfig,
   makeIndustrialDesignClusterConfig,
@@ -65,3 +68,9 @@ export {
   LOGISTICS_SERVICE_DESCRIPTION,
   type LogisticsArtifact,
 } from './logistics/service.ts';
+export {
+  BENCH_BUILD_PRICE_USD,
+  BENCH_BUILD_PROVIDER_TAG,
+  BENCH_BUILD_SERVICE_DESCRIPTION,
+  type BenchBuildArtifact,
+} from './bench-build/service.ts';
