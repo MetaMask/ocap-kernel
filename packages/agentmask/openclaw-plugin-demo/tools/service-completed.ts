@@ -19,7 +19,7 @@ import { getArtifactStore } from '../artifact-store.ts';
 import type { DisplayClient } from '../display-client.ts';
 import type { PluginState } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
-import { errorResponse } from './util.ts';
+import { errorResponse, formatUsd } from './util.ts';
 
 type ServiceCompletedParams = {
   handle?: string;
@@ -58,7 +58,12 @@ export function registerServiceCompletedTool(options: {
       'this one (`consumes`), the wallet `charge`, and an optional ' +
       'one-line audience `note`. The plugin resolves the handle against ' +
       'the shared artifact store and emits the full artifact to the ' +
-      'dashboard; the agent never has to round-trip the bytes.',
+      'dashboard; the agent never has to round-trip the bytes. The ' +
+      'charge amount must be non-negative and must fit in the current ' +
+      'wallet balance — zero is accepted as a no-op for covered ' +
+      'revisions, and an overdraw is refused with a shortfall message ' +
+      'the agent should surface to the inventor before requesting a ' +
+      'top-up.',
     parameters: {
       type: 'object',
       properties: {
@@ -90,7 +95,11 @@ export function registerServiceCompletedTool(options: {
           properties: {
             amountUsd: {
               type: 'number',
-              description: 'Amount to deduct, in USD. Must be positive.',
+              description:
+                'Amount to deduct, in USD. Use 0 for revisions that ' +
+                'are covered by the original engagement (the wallet ' +
+                'is left untouched). Otherwise the value must fit in ' +
+                'the current balance; an overdraw is refused.',
             },
             reason: {
               type: 'string',
@@ -130,9 +139,19 @@ export function registerServiceCompletedTool(options: {
         );
       }
       const amount = chargeParams.amountUsd;
-      if (typeof amount !== 'number' || Number.isNaN(amount) || amount <= 0) {
+      if (typeof amount !== 'number' || Number.isNaN(amount) || amount < 0) {
         return errorResponse(
-          `demo_service_completed: charge.amountUsd must be a positive number; got ${amount}.`,
+          `demo_service_completed: charge.amountUsd must be a non-negative number; got ${amount}.`,
+        );
+      }
+      if (amount > state.balanceUsd) {
+        const shortfall = amount - state.balanceUsd;
+        return errorResponse(
+          `demo_service_completed: charge of ${formatUsd(amount)} would ` +
+            `overdraw the wallet (balance ${formatUsd(state.balanceUsd)}, ` +
+            `shortfall ${formatUsd(shortfall)}). Surface the shortfall to ` +
+            `the inventor and request a top-up via demo_wallet_credit ` +
+            `before retrying.`,
         );
       }
 
@@ -161,14 +180,20 @@ export function registerServiceCompletedTool(options: {
         ...(consumes && consumes.length > 0 ? { consumes } : {}),
       });
 
-      state.balanceUsd -= amount;
-      await display.post({
-        kind: 'wallet.charge',
-        amountUsd: amount,
-        reason: chargeParams.reason,
-        balanceUsd: state.balanceUsd,
-        at: new Date().toISOString(),
-      });
+      // Zero-amount charges (covered revisions) are no-ops on the
+      // wallet side — skip the state update and the `wallet.charge`
+      // SSE event entirely so the dashboard transcript doesn't get a
+      // misleading "$0 charge" line.
+      if (amount > 0) {
+        state.balanceUsd -= amount;
+        await display.post({
+          kind: 'wallet.charge',
+          amountUsd: amount,
+          reason: chargeParams.reason,
+          balanceUsd: state.balanceUsd,
+          at: new Date().toISOString(),
+        });
+      }
 
       const note = params.note?.trim();
       if (note) {
@@ -180,14 +205,15 @@ export function registerServiceCompletedTool(options: {
         chargeParams.reason.length > 0
           ? ` (${chargeParams.reason})`
           : '';
+      const chargeLine =
+        amount === 0
+          ? `No charge applied (covered revision or no-cost step).`
+          : `Charged ${formatUsd(amount)}${reasonSuffix}. New balance: ${formatUsd(state.balanceUsd)}.`;
       return {
         content: [
           {
             type: 'text' as const,
-            text:
-              `Recorded ${stored.kind} artifact as ${handle}.\n` +
-              `Charged $${amount.toLocaleString()}${reasonSuffix}. ` +
-              `New balance: $${state.balanceUsd.toLocaleString()}.`,
+            text: `Recorded ${stored.kind} artifact as ${handle}.\n${chargeLine}`,
           },
         ],
         details: undefined,

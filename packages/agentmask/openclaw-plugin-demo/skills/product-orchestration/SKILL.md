@@ -417,10 +417,13 @@ parallel.
    Call this **only on direct inventor authorization** — they have
    to say something like "add $X", "top up by $X", "fund the
    wallet" first. Never credit unilaterally; the wallet's balance
-   is the inventor's money. When the wallet runs low mid-phase, the
-   right move is to surface the shortfall to the inventor and ask
-   how they want to handle it — and if they authorize a top-up, you
-   have a tool for it. Don't tell the inventor to add funds through
+   is the inventor's money. The wallet **will refuse** any charge
+   that would overdraw it — so when the wallet runs low and the
+   next charge wouldn't fit, you have to surface the shortfall to
+   the inventor and ask how they want to handle it _before_
+   attempting the charge. The tool returns a shortfall message
+   when this happens; treat that as confirmation, not as a failure
+   to retry blindly. Don't tell the inventor to add funds through
    some other interface; this tool is the interface.
 
 5. **Concept phase** (special — no service):
@@ -467,15 +470,15 @@ parallel.
    covers a few revisions — the service's description states the
    policy). **Record the revised artifact via
    `demo_service_completed` with the same `phase` value as the
-   original; do not announce a new phase, and use a zero or
-   nominal `charge.amountUsd` if the revision is covered.** Only
+   original; do not announce a new phase, and use
+   `charge.amountUsd: 0` if the revision is covered.** Only
    proceed when the inventor confirms. **Revisions go through the
    same handle-based path: call `service_call` with the same
    provider and method (the inventor's revision notes become a
    regular method arg), then close out via `demo_service_completed`
    with the new handle from the revision call, the same `phase`,
-   and a zero or nominal `charge.amountUsd` if the revision is
-   covered by the original engagement.** For the
+   and `charge.amountUsd: 0` if the revision is covered by the
+   original engagement.** For the
    Bench Build → Procurement and Trial Distribution → Sales
    transitions, run the validation-checkpoint beat (see "Validation
    checkpoints" above) before the move-on question — the

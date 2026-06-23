@@ -14,3 +14,20 @@ export function errorResponse(message: string): ToolResponse {
     details: undefined,
   };
 }
+
+/**
+ * Format a USD amount with two decimal places and thousands
+ * separators. The orchestration demo deals in dollar-and-cents
+ * quantities throughout; using a single helper keeps the audience-
+ * facing text consistent across charge receipts, error messages, and
+ * balance reports.
+ *
+ * @param amount - The USD amount.
+ * @returns The formatted string, e.g. `"$22.50"` or `"$1,200.00"`.
+ */
+export function formatUsd(amount: number): string {
+  return `$${amount.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
