@@ -9,7 +9,9 @@
  * Token catalog:
  *   {{providerLabel}}      provider identifier
  *   {{unitCount}}           units built ("2 units", "1 unit", etc.)
- *   {{parts}}               parts-cost line ("$50.40 in distributor stock", etc.)
+ *   {{laborCost}}           proto-pros's labor charge ("$200.00")
+ *   {{partsCost}}           pass-through parts cost ("$50.00")
+ *   {{invoiceTotal}}        labor + parts total ("$250.00")
  *   {{turnaround}}          turnaround window ("3 days", "5 days", etc.)
  *   {{voiceLatencyMs}}      measured voice-button latency
  *   {{irRange}}             measured IR transmit range
@@ -21,12 +23,23 @@ export const MASTER_MD = `# Engineering prototype — LAUR bring-up notes
 ## Build summary
 
 **Provider:** {{providerLabel}}
-**Units built:** {{unitCount}}, hand-soldered from the supplied PCB
-layout.
-**Parts:** {{parts}}.
+**Units built:** {{unitCount}}, hand-soldered onto sample boards
+shipped to us by the customer's PCB house, populated with parts we
+sourced from distributor shelf stock.
 **Turnaround:** {{turnaround}} from PCB receipt.
 **Enclosure:** none. The boards are open-frame; the buttons, mic,
 and OLED are mounted on the PCB and exposed for probing.
+
+## Invoice
+
+| Line             | Amount         |
+| ---------------- | -------------- |
+| Build labor      | {{laborCost}}  |
+| Parts (pass-through) | {{partsCost}}  |
+| **Total**        | **{{invoiceTotal}}** |
+
+Sample boards came from the customer's PCB layout vendor at no
+charge to us; they're covered under the layout engagement.
 
 ## Bring-up checks (per unit)
 

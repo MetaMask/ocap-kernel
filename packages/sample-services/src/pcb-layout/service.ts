@@ -11,8 +11,11 @@ export const PCB_LAYOUT_SERVICE_DESCRIPTION =
   'schematic and case dimensions (text) and returns a top-view PCB ' +
   'image with components placed, copper traces, and silkscreen ' +
   'labels (~$600 design fee, covers up to two revisions). On ' +
-  'customer approval, `fabricate` places the production order for ' +
-  'bare boards against an earlier layout and returns a fab receipt, ' +
+  'customer approval of the layout we also ship a small set of ' +
+  "sample bare boards to the customer's engineering-prototype shop " +
+  'at no extra charge — the design fee covers it. On customer ' +
+  'approval, `fabricate` places the production order for bare ' +
+  'boards against an earlier layout and returns a fab receipt, ' +
   'charging per-board cost for the agreed batch and shipping the ' +
   'boards to a manufacturer of record.';
 
@@ -71,7 +74,9 @@ export function makePcbLayoutService() {
             summary:
               'Stylized PCB top-view: MCU QFN, mic, OLED connector, key ' +
               'switches with pads, IR driver block, battery clips, USB-C, ' +
-              'mounting holes, suggestive copper traces.',
+              'mounting holes, suggestive copper traces. Engagement also ' +
+              "ships a small set of sample bare boards to the customer's " +
+              'engineering-prototype shop, included in the design fee.',
           },
         });
       },

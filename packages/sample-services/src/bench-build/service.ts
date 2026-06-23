@@ -12,24 +12,41 @@ import { renderBringUpNotes } from './template.ts';
  */
 export const BENCH_BUILD_SERVICE_DESCRIPTION =
   'Build and bench-test engineering prototypes for a new electronic ' +
-  'device. Takes a PCB layout and a parts list, hand-solders one or ' +
-  'two units from distributor shelf stock, flashes the supplied ' +
-  'firmware, and returns bring-up notes covering power-rail check, ' +
-  'peripheral verification, and measured latency / range / power ' +
-  'numbers from the bench. Intended as the engineering-prototype ' +
-  'step before committing to a small-batch production run.';
+  'device. Takes a PCB layout and a parts list, sources parts ' +
+  'directly from distributor shelf stock, hand-solders one or two ' +
+  "units onto sample boards supplied by the customer's PCB house, " +
+  'flashes the supplied firmware, and returns bring-up notes ' +
+  'covering power-rail check, peripheral verification, and measured ' +
+  'latency / range / power numbers from the bench. Charge is labor ' +
+  '+ pass-through parts cost in a single invoice. Intended as the ' +
+  'engineering-prototype step before committing to a small-batch ' +
+  'production run.';
 
 export const BENCH_BUILD_PROVIDER_TAG = 'proto-pros';
 
 /**
- * Advisory per-invocation price (USD). Flat fee covering the small
- * setup, the hand-soldering labor, and the parts pass-through for a
- * 1-2 unit engineering prototype. Cheap relative to the design
- * services because the build itself is small; the value is in the
- * bring-up notes the inventor uses to decide whether to commit to
- * Testing-stage production.
+ * Labor cost (USD). Flat fee covering setup, hand-soldering, and the
+ * bench-bring-up sweep for a 1-2 unit engineering prototype.
  */
-export const BENCH_BUILD_PRICE_USD = 200;
+export const BENCH_BUILD_LABOR_PRICE_USD = 200;
+
+/**
+ * Pass-through parts cost (USD) for the 1-2 unit engineering build.
+ * proto-pros sources these directly from distributor shelf stock and
+ * passes the cost through on the same invoice. PCBs are supplied
+ * separately by pcb-wizards as part of the `layout` engagement (a
+ * handful of sample boards ship to proto-pros at no additional
+ * charge), so this number is parts only.
+ */
+export const BENCH_BUILD_PARTS_PRICE_USD = 50;
+
+/**
+ * Total advisory per-invocation price (USD). The customer-facing
+ * invoice is the sum of labor + parts pass-through. proto-pros's
+ * bring-up notes itemize the two lines.
+ */
+export const BENCH_BUILD_PRICE_USD =
+  BENCH_BUILD_LABOR_PRICE_USD + BENCH_BUILD_PARTS_PRICE_USD;
 
 export type BenchBuildArtifact = {
   kind: 'markdown';
@@ -51,6 +68,8 @@ export function makeBenchBuildService() {
       async build(_spec: string): Promise<BenchBuildArtifact> {
         const markdown = renderBringUpNotes({
           providerLabel: BENCH_BUILD_PROVIDER_TAG,
+          laborPriceUsd: BENCH_BUILD_LABOR_PRICE_USD,
+          partsPriceUsd: BENCH_BUILD_PARTS_PRICE_USD,
         });
         return harden({
           kind: 'markdown',
@@ -59,10 +78,13 @@ export function makeBenchBuildService() {
           metadata: {
             title: 'LAUR — engineering prototype bring-up notes',
             summary:
-              'Bench-build of 1-2 hand-soldered units: power-rail ' +
-              'check, peripheral verification, measured voice ' +
-              'latency / IR range / deep-sleep current, suggested ' +
-              'firmware revision before the 15-unit run.',
+              `Bench-build of 1-2 hand-soldered units: power-rail ` +
+              `check, peripheral verification, measured voice latency ` +
+              `/ IR range / deep-sleep current, suggested firmware ` +
+              `revision before the 15-unit run. Invoice: ` +
+              `$${BENCH_BUILD_LABOR_PRICE_USD} labor + ` +
+              `$${BENCH_BUILD_PARTS_PRICE_USD} parts = ` +
+              `$${BENCH_BUILD_PRICE_USD} total.`,
           },
         });
       },

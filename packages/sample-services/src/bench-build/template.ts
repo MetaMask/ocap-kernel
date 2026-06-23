@@ -26,8 +26,8 @@ function resolveCrypto(): CryptoSource | undefined {
 /* eslint-enable n/no-unsupported-features/node-builtins */
 
 const UNIT_PROFILES = [
-  { unitCount: '1 unit', parts: '$28.40 in distributor shelf stock' },
-  { unitCount: '2 units', parts: '$50.40 in distributor shelf stock' },
+  { unitCount: '1 unit' },
+  { unitCount: '2 units' },
 ] as const;
 const TURNAROUNDS = ['3 days', '5 days', '7 days'] as const;
 const VOICE_LATENCY = ['38 ms', '42 ms', '46 ms'] as const;
@@ -61,21 +61,37 @@ function pickOne<Type>(options: readonly Type[]): Type {
 
 export type TemplateInputs = {
   providerLabel: string;
+  /**
+   * proto-pros' labor charge for the bench build (USD). Set from the
+   * `BENCH_BUILD_LABOR_PRICE_USD` constant in service.ts so the
+   * receipt and the invoiced amount stay in sync.
+   */
+  laborPriceUsd: number;
+  /**
+   * Pass-through cost of the parts proto-pros sources for the build
+   * (USD). Set from `BENCH_BUILD_PARTS_PRICE_USD`.
+   */
+  partsPriceUsd: number;
 };
 
 /**
  * Render the master bring-up-notes markdown with `{{...}}` tokens
  * filled in.
  *
- * @param inputs - Caller-supplied inputs (provider identity for now).
+ * @param inputs - Caller-supplied inputs.
  * @returns The rendered markdown.
  */
 export function renderBringUpNotes(inputs: TemplateInputs): string {
   const units = pickOne(UNIT_PROFILES);
+  const labor = `$${inputs.laborPriceUsd.toFixed(2)}`;
+  const parts = `$${inputs.partsPriceUsd.toFixed(2)}`;
+  const total = `$${(inputs.laborPriceUsd + inputs.partsPriceUsd).toFixed(2)}`;
   const tokens: Record<string, string> = {
     providerLabel: inputs.providerLabel,
     unitCount: units.unitCount,
-    parts: units.parts,
+    laborCost: labor,
+    partsCost: parts,
+    invoiceTotal: total,
     turnaround: pickOne(TURNAROUNDS),
     voiceLatencyMs: pickOne(VOICE_LATENCY),
     irRange: pickOne(IR_RANGE),
