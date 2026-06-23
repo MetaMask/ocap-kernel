@@ -47,7 +47,9 @@ export function buildRootObject(
 
   return makeDefaultExo(`${SERVICE_NAME}VatRoot`, {
     async bootstrap(_vats: Record<string, unknown>, services: Services) {
-      const serviceExo = makePcbLayoutService();
+      const serviceExo = makePcbLayoutService({
+        ocapURLRedemptionService: services.ocapURLRedemptionService,
+      });
       const remotableSpec = await getRemotableSpec(
         serviceExo,
         PCB_LAYOUT_SERVICE_DESCRIPTION,

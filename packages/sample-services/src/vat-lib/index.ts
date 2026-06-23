@@ -4,4 +4,10 @@ export {
   registerServicesWithMatcher,
   type RegistrationEntry,
 } from './matcher-registration.ts';
+export {
+  makeReceiveShipmentEndpoint,
+  type ReceiveShipmentEndpoint,
+  type ShipmentAcknowledgement,
+  type ShipmentManifest,
+} from './receive-shipment-endpoint.ts';
 export { makeRegistrationToken } from './registration-token.ts';

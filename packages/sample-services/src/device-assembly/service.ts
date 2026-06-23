@@ -30,15 +30,30 @@ export type DeviceAssemblyArtifact = {
   data: string;
   fromService: string;
   metadata?: { title?: string; summary?: string };
+  /**
+   * Ocap URL of assembly-coop's receive-shipment endpoint. Returned
+   * on `assemble` so the agent can thread it through to supplier
+   * commit methods (shenzhen-direct.purchase, pcb-wizards.fabricate)
+   * as their `shipToUrl` argument; the supplier redeems the URL and
+   * calls `receiveShipment(manifest)` on the assembler directly.
+   */
+  receiveShipmentUrl?: string;
 };
 
 /**
  * Build the device-assembly service exo.
  *
+ * @param options - Construction options.
+ * @param options.getReceiveShipmentUrl - Closure returning the URL of
+ *   the assembler's receive-shipment endpoint. Set by the vat root
+ *   after the URL is issued at bootstrap.
  * @returns A discoverable exo with `assemble` and `build` methods.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makeDeviceAssemblyService() {
+export function makeDeviceAssemblyService(options: {
+  getReceiveShipmentUrl: () => string;
+}) {
+  const { getReceiveShipmentUrl } = options;
   return makeDiscoverableExo(
     'DeviceAssemblyService',
     {
@@ -54,8 +69,12 @@ export function makeDeviceAssemblyService() {
             title: 'LAUR — assembly build plan',
             summary:
               'Build plan covering work cells, test sequence, QA ' +
-              'gates, schedule, and per-unit assembly cost.',
+              'gates, schedule, and per-unit assembly cost. ' +
+              'Engagement includes a receive-shipment ocap URL so ' +
+              'suppliers can deliver parts and bare boards directly ' +
+              'to the assembler.',
           },
+          receiveShipmentUrl: getReceiveShipmentUrl(),
         });
       },
       async build(_approval: unknown): Promise<DeviceAssemblyArtifact> {

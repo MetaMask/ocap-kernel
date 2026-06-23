@@ -1,6 +1,9 @@
+import { E } from '@endo/eventual-send';
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
+import type { OcapURLRedemptionService } from '@metamask/ocap-kernel';
 
 import { renderPcbLayout } from './template.ts';
+import type { ReceiveShipmentEndpoint } from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher. Opening
@@ -49,15 +52,36 @@ export type PcbFabricateArtifact = {
   data: string;
   fromService: string;
   metadata?: { title?: string; summary?: string };
+  interactions?: { from: string; to: string; interaction: string }[];
 };
+
+/**
+ * Format a USD amount with two decimals + thousands separators.
+ *
+ * @param amount - The USD amount.
+ * @returns The formatted string.
+ */
+function formatUsd(amount: number): string {
+  return `$${amount.toLocaleString(undefined, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
 
 /**
  * Build the pcb-layout service exo.
  *
+ * @param options - Construction options.
+ * @param options.ocapURLRedemptionService - Kernel service used by
+ *   `fabricate` to redeem an assembler's receive-shipment URL and
+ *   hand off the bare-boards manifest directly.
  * @returns A discoverable exo with `layout` and `fabricate` methods.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makePcbLayoutService() {
+export function makePcbLayoutService(options: {
+  ocapURLRedemptionService: OcapURLRedemptionService;
+}) {
+  const { ocapURLRedemptionService } = options;
   return makeDiscoverableExo(
     'PcbLayoutService',
     {
@@ -80,20 +104,44 @@ export function makePcbLayoutService() {
           },
         });
       },
-      async fabricate(_approval: unknown): Promise<PcbFabricateArtifact> {
+      async fabricate(approval: {
+        shipToUrl?: string;
+      }): Promise<PcbFabricateArtifact> {
         const total = PCB_LAYOUT_FABRICATE_PRICE_USD;
-        const totalLabel = `$${total.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`;
+        const totalLabel = formatUsd(total);
+        const shipToUrl =
+          typeof approval?.shipToUrl === 'string' && approval.shipToUrl.length
+            ? approval.shipToUrl
+            : undefined;
+        let receiverTag = 'assembly-coop';
+        const interactions: {
+          from: string;
+          to: string;
+          interaction: string;
+        }[] = [];
+        if (shipToUrl !== undefined) {
+          const receiver = (await E(ocapURLRedemptionService).redeem(
+            shipToUrl,
+          )) as ReceiveShipmentEndpoint;
+          const ack = await E(receiver).receiveShipment({
+            from: PCB_LAYOUT_PROVIDER_TAG,
+            kind: 'bare boards shipment',
+            items: '15 production boards, 2-layer, 46×102 mm, ENIG finish',
+          });
+          receiverTag = ack.receiverTag;
+          interactions.push({
+            from: PCB_LAYOUT_PROVIDER_TAG,
+            to: receiverTag,
+            interaction: `bare-boards shipment manifest acknowledged (${totalLabel})`,
+          });
+        }
         const data =
           `# PCB fabrication confirmation\n\n` +
           `Vendor: ${PCB_LAYOUT_PROVIDER_TAG}\n` +
           `Order: 15 bare boards, 2-layer, 46×102 mm, ENIG finish\n` +
           `Total: ${totalLabel}\n` +
           `Estimated turnaround: 10 days (fab + shipping)\n` +
-          `Ship to: manufacturer of record (assembly-coop unless ` +
-          `otherwise noted)\n\n` +
+          `Ship to: ${receiverTag}\n\n` +
           `Order accepted. Boards run through our standard 2-layer ` +
           `production line and ship to the manufacturer to join the ` +
           `parts purchase for assembly.\n`;
@@ -107,6 +155,7 @@ export function makePcbLayoutService() {
               `Fab order placed with ${PCB_LAYOUT_PROVIDER_TAG}: ` +
               `${totalLabel} for 15 boards, 10-day turnaround.`,
           },
+          ...(interactions.length > 0 ? { interactions } : {}),
         });
       },
     },
@@ -145,19 +194,31 @@ export function makePcbLayoutService() {
         description:
           'Place a production order for bare boards against an ' +
           'earlier layout. The wallet charge for this call is the ' +
-          `per-batch fab total ($${PCB_LAYOUT_FABRICATE_PRICE_USD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ` +
+          `per-batch fab total (${formatUsd(PCB_LAYOUT_FABRICATE_PRICE_USD)} ` +
           'for the canonical 15-board prototype profile); the agent ' +
           'should invoke this only after the inventor approves the ' +
-          'layout and the engineering-prototype validation has cleared.',
+          'layout and the engineering-prototype validation has cleared. ' +
+          "Pass the manufacturer's receive-shipment ocap URL in " +
+          '`approval.shipToUrl`; pcb-wizards redeems it and hands the ' +
+          'bare-boards manifest off directly to the assembler.',
         args: {
           approval: {
             type: 'object',
             description:
-              'Approval object. Currently unused (the stub treats any ' +
-              'invocation as approval); kept as an explicit argument so ' +
-              "the agent has somewhere to surface the inventor's " +
-              'authorization payload when a real provider needs it.',
-            properties: {},
+              "Approval object. `shipToUrl` carries the manufacturer's " +
+              'receive-shipment ocap URL — pcb-wizards redeems and ' +
+              'invokes it to hand off the bare-boards manifest. Omit ' +
+              'only if the manufacturer is acquiring the boards some ' +
+              'other way (unusual).',
+            properties: {
+              shipToUrl: {
+                type: 'string',
+                description:
+                  "Ocap URL of the manufacturer's receive-shipment " +
+                  "endpoint, as returned by assembly-coop.assemble's " +
+                  '`receiveShipmentUrl` field.',
+              },
+            },
           },
         },
         returns: {

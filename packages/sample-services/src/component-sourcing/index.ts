@@ -47,7 +47,9 @@ export function buildRootObject(
 
   return makeDefaultExo(`${SERVICE_NAME}VatRoot`, {
     async bootstrap(_vats: Record<string, unknown>, services: Services) {
-      const serviceExo = makeComponentSourcingService();
+      const serviceExo = makeComponentSourcingService({
+        ocapURLRedemptionService: services.ocapURLRedemptionService,
+      });
       const remotableSpec = await getRemotableSpec(
         serviceExo,
         COMPONENT_SOURCING_SERVICE_DESCRIPTION,
