@@ -228,6 +228,30 @@ describe('methodSchemaToMethodSpec', () => {
     });
   });
 
+  it('marks args absent from `required` as optional parameters', () => {
+    const spec: MethodSpec = methodSchemaToMethodSpec({
+      description: 'send a message',
+      args: {
+        text: { type: 'string' },
+        attachments: { type: 'object', properties: {} },
+      },
+      required: ['text'],
+      returns: { type: 'string' },
+    });
+    expect(spec).toStrictEqual({
+      description: 'send a message',
+      parameters: [
+        { description: 'text', type: { kind: 'string' } },
+        {
+          description: 'attachments',
+          type: { kind: 'object', spec: { properties: {} } },
+          optional: true,
+        },
+      ],
+      returnType: { kind: 'string' },
+    });
+  });
+
   it('defaults returnType to void when unspecified', () => {
     expect(
       methodSchemaToMethodSpec({ description: 'do a thing', args: {} }),

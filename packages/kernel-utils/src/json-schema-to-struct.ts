@@ -96,13 +96,19 @@ export function jsonSchemaToStruct(schema: JsonSchema): Struct<unknown> {
 
 /**
  * Build a Superstruct object struct for a method/capability `args` map
- * (name → per-argument {@link JsonSchema}). All listed arguments are required.
+ * (name → per-argument {@link JsonSchema}). Arguments not named in
+ * `options.required` are validated as optional; an absent `options.required`
+ * treats every argument as required.
  *
  * @param args - Same shape as {@link MethodSchema.args}.
+ * @param options - Options bag.
+ * @param options.required - Names of the required arguments. Mirrors
+ * {@link MethodSchema.required}; absent means all arguments are required.
  * @returns A struct that validates a plain object with one field per declared argument.
  */
 export function methodArgsToStruct(
   args: Record<string, JsonSchema>,
+  options: { required?: string[] } = {},
 ): Struct<Record<string, unknown>> {
   const entries = Object.entries(args);
   if (entries.length === 0) {
@@ -113,8 +119,12 @@ export function methodArgsToStruct(
       return true;
     }) as Struct<Record<string, unknown>>;
   }
+  const required = new Set(options.required ?? Object.keys(args));
   const shape = Object.fromEntries(
-    entries.map(([name, jsonSchema]) => [name, jsonSchemaToStruct(jsonSchema)]),
+    entries.map(([name, jsonSchema]) => {
+      const fieldStruct = jsonSchemaToStruct(jsonSchema);
+      return [name, required.has(name) ? fieldStruct : optional(fieldStruct)];
+    }),
   );
   return object(shape) as Struct<Record<string, unknown>>;
 }

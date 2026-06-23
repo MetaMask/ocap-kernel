@@ -51,6 +51,12 @@ export type MethodSchema = {
    */
   args: Record<string, JsonSchema>;
   /**
+   * Names of the required arguments. Mirrors {@link ObjectJsonSchema.required}:
+   * an argument not listed here may be omitted by the caller, and an absent
+   * `required` means every argument in `args` is required.
+   */
+  required?: string[];
+  /**
    * Return value schema, including type and description.
    */
   returns?: JsonSchema;

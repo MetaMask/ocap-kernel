@@ -59,6 +59,16 @@
         "default": "./dist/discoverable.cjs"
       }
     },
+    "./described": {
+      "import": {
+        "types": "./dist/described.d.mts",
+        "default": "./dist/described.mjs"
+      },
+      "require": {
+        "types": "./dist/described.d.cts",
+        "default": "./dist/described.cjs"
+      }
+    },
     "./libp2p": {
       "import": {
         "types": "./dist/libp2p-relay.d.mts",
