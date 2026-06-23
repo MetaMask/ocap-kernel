@@ -30,12 +30,47 @@ export const ARTIFACT_KINDS = [
 
 export type ArtifactKind = (typeof ARTIFACT_KINDS)[number];
 
+/**
+ * Inter-service handoff record. Services that talk to another
+ * service via ocap during their work attach one of these per call so
+ * the demo plugin can post a `service.interaction` event to the
+ * dashboard when the artifact is recorded. The actual cross-vat
+ * ocap invocation happens inside the source service via
+ * OcapURLRedemptionService; this is the parallel record for the
+ * audience-facing event log.
+ */
+export type ServiceInteraction = {
+  /** Provider tag of the service that initiated the call. */
+  from: string;
+  /** Provider tag of the service that received the call. */
+  to: string;
+  /** Short human-readable description, e.g. "parts shipment manifest". */
+  interaction: string;
+};
+
 export type StoredArtifact = {
   handle: string;
   kind: ArtifactKind;
   data: string;
   fromService: string;
   metadata?: { title?: string; summary?: string };
+  /**
+   * Inter-service handoffs that took place while producing this
+   * artifact. The demo plugin reads these and emits a separate
+   * `service.interaction` event per entry. Suppliers attach a single
+   * shipment-acknowledged entry; assemblers attach none (they only
+   * receive). Optional — most artifacts are agent-to-service or
+   * service-to-agent and carry no inter-service flavor.
+   */
+  interactions?: ServiceInteraction[];
+  /**
+   * Receive-shipment ocap URL exposed by assembler-like services so
+   * suppliers can hand off parts and boards directly via the kernel's
+   * ocap-URL machinery. The agent forwards this string verbatim as
+   * the `shipToUrl` argument when invoking supplier commit methods;
+   * the supplier redeems it and calls the receive method.
+   */
+  receiveShipmentUrl?: string;
 };
 
 type StoreState = {

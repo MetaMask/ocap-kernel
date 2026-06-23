@@ -302,6 +302,23 @@ body {
   font-weight: 500;
 }
 
+/*
+ * Inter-service interactions: a supplier shipping to an assembler via
+ * ocap, etc. Distinct violet/lavender colorway so the audience can
+ * pick these out from agent narration (gray) and wallet movements
+ * (cyan/green). Easy to retune if it lands poorly.
+ */
+.events__line--interaction {
+  background: rgba(167, 139, 250, 0.1);
+  border-left: 3px solid #a78bfa;
+}
+
+.events__interaction {
+  color: #a78bfa;
+  font-weight: 500;
+  font-style: italic;
+}
+
 .events__time {
   flex: 0 0 auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;

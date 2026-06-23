@@ -180,6 +180,27 @@ export function registerServiceCompletedTool(options: {
         ...(consumes && consumes.length > 0 ? { consumes } : {}),
       });
 
+      // Inter-service handoffs that took place while producing the
+      // artifact (e.g. shenzhen-direct invoking assembly-coop's
+      // receive-shipment ocap to deposit a parts manifest) surface
+      // as their own SSE events on the dashboard so the audience
+      // sees the supplier→assembler handshake separately from the
+      // agent's narration. The actual cross-vat ocap call happened
+      // inside the supplier vat; this is the parallel dashboard
+      // record.
+      if (stored.interactions && stored.interactions.length > 0) {
+        const at = new Date().toISOString();
+        for (const handoff of stored.interactions) {
+          await display.post({
+            kind: 'service.interaction',
+            from: handoff.from,
+            to: handoff.to,
+            interaction: handoff.interaction,
+            at,
+          });
+        }
+      }
+
       // Zero-amount charges (covered revisions) are no-ops on the
       // wallet side — skip the state update and the `wallet.charge`
       // SSE event entirely so the dashboard transcript doesn't get a

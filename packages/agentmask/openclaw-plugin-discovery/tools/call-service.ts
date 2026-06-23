@@ -191,9 +191,11 @@ export function registerCallServiceTool(options: {
  * Construct the slim summary the LLM sees in place of an interned
  * artifact. Carries the handle (so the agent can hand it back to
  * `demo_service_completed` or forward it as a `{__handle__:...}`
- * arg), the kind, the originating service tag, and the
- * service-author-written summary blurb. The full `data` is never
- * surfaced.
+ * arg), the kind, the originating service tag, the service-author-
+ * written summary blurb, and any `receiveShipmentUrl` the service
+ * issued (an ocap URL the agent threads through to supplier commit
+ * methods so they can ship inputs directly to the issuer). The full
+ * `data` is never surfaced.
  *
  * @param stored - The newly interned artifact.
  * @returns The slim view the agent receives.
@@ -205,5 +207,8 @@ function slimForAgent(stored: StoredArtifact): Record<string, unknown> {
     fromService: stored.fromService,
     title: stored.metadata?.title,
     summary: stored.metadata?.summary,
+    ...(stored.receiveShipmentUrl === undefined
+      ? {}
+      : { receiveShipmentUrl: stored.receiveShipmentUrl }),
   };
 }

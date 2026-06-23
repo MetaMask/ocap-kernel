@@ -130,6 +130,16 @@ function EventLine({ entry }: EventLineProps): JSX.Element {
       </li>
     );
   }
+  if (entry.kind === 'service-interaction') {
+    return (
+      <li className="events__line events__line--interaction">
+        <span className="events__time">{formatTime(entry.at)}</span>
+        <span className="events__interaction">
+          ⇄ {entry.from} → {entry.to}: {entry.interaction}
+        </span>
+      </li>
+    );
+  }
   return (
     <li className="events__line events__line--note">
       <span className="events__time">{formatTime(entry.at)}</span>

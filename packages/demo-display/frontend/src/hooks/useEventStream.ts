@@ -35,6 +35,13 @@ export type EventEntry =
       amountUsd: number;
       reason?: string;
       balanceUsd: number;
+    }
+  | {
+      kind: 'service-interaction';
+      at: string;
+      from: string;
+      to: string;
+      interaction: string;
     };
 
 /**
@@ -142,6 +149,7 @@ export function useEventStream(): DisplayState {
       'service.registered',
       'service.evicted',
       'service.discovered',
+      'service.interaction',
       'matcher.query',
       'matcher.results',
       'artifact.recorded',
@@ -313,6 +321,16 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
         events,
         walletBalanceUsd: event.balanceUsd,
       };
+    }
+    case 'service.interaction': {
+      const events = appendEvent(state.events, {
+        kind: 'service-interaction',
+        at: event.at,
+        from: event.from,
+        to: event.to,
+        interaction: event.interaction,
+      });
+      return { ...state, events };
     }
     default:
       return state;

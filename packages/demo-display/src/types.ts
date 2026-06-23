@@ -173,6 +173,26 @@ export type WalletCreditEvent = {
   at: string;
 };
 
+/**
+ * One service called another via ocap (e.g. shenzhen-direct shipping
+ * parts to assembly-coop via assembly-coop's receive-shipment ocap).
+ * The demo plugin emits this event when it records a supplier
+ * artifact carrying `interactions` entries; the actual cross-vat
+ * ocap call happens inside the supplier vat via
+ * OcapURLRedemptionService. This event is the dashboard's parallel
+ * record so the audience can see the inter-service handshake.
+ */
+export type ServiceInteractionEvent = {
+  kind: 'service.interaction';
+  /** Provider tag of the service that initiated the call. */
+  from: string;
+  /** Provider tag of the service that received the call. */
+  to: string;
+  /** Short human-readable description, e.g. "parts shipment manifest". */
+  interaction: string;
+  at: string;
+};
+
 export type DisplayEvent =
   | ServiceRegisteredEvent
   | ServiceEvictedEvent
@@ -186,7 +206,8 @@ export type DisplayEvent =
   | AgentNoteEvent
   | WalletBalanceEvent
   | WalletChargeEvent
-  | WalletCreditEvent;
+  | WalletCreditEvent
+  | ServiceInteractionEvent;
 
 /**
  * Loose, JSON-serializable mirror of `ServiceDescription`. We intentionally
