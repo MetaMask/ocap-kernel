@@ -1,3 +1,5 @@
+import { formatUsd } from '../format.ts';
+
 type WalletRibbonProps = {
   balanceUsd: number | undefined;
 };
@@ -20,7 +22,7 @@ export function WalletRibbon(props: WalletRibbonProps): JSX.Element {
     <div className="wallet-ribbon">
       <span className="wallet-ribbon__label">Wallet</span>
       <span className="wallet-ribbon__balance">
-        {balanceUsd === undefined ? '—' : `$${balanceUsd.toLocaleString()}`}
+        {balanceUsd === undefined ? '—' : formatUsd(balanceUsd)}
       </span>
     </div>
   );

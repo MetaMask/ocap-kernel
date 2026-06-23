@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 
+import { formatUsd } from '../format.ts';
 import type { ServiceDescriptionPayload } from '../types.ts';
 
 /**
@@ -114,7 +115,7 @@ function ProviderCard({ description }: ProviderCardProps): JSX.Element {
   const methodNames = extractMethodNames(description);
   const priceLabel =
     typeof description.priceUsd === 'number'
-      ? `$${description.priceUsd.toLocaleString()}`
+      ? formatUsd(description.priceUsd)
       : '—';
 
   return (
