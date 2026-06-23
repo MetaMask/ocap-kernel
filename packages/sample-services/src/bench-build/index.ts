@@ -16,6 +16,7 @@ import {
 import {
   getRemotableSpec,
   makeContactEndpoint,
+  makeReceiveShipmentEndpoint,
   makeRegistrationToken,
   registerServicesWithMatcher,
 } from '../vat-lib/index.ts';
@@ -44,10 +45,23 @@ export function buildRootObject(
   const matcherUrl =
     typeof parameters?.matcherUrl === 'string' ? parameters.matcherUrl : '';
   let contactUrl = '';
+  let receiveShipmentUrl = '';
 
   return makeDefaultExo(`${SERVICE_NAME}VatRoot`, {
     async bootstrap(_vats: Record<string, unknown>, services: Services) {
-      const serviceExo = makeBenchBuildService();
+      // Stand up the receive-shipment endpoint so pcb-wizards has
+      // somewhere to ship the sample bare boards once the agent
+      // engages proto-pros and threads the URL through.
+      const receiveEndpoint = makeReceiveShipmentEndpoint({
+        receiverTag: BENCH_BUILD_PROVIDER_TAG,
+      });
+      receiveShipmentUrl = await E(services.ocapURLIssuerService).issue(
+        receiveEndpoint.endpoint,
+      );
+
+      const serviceExo = makeBenchBuildService({
+        getReceiveShipmentUrl: () => receiveShipmentUrl,
+      });
       const remotableSpec = await getRemotableSpec(
         serviceExo,
         BENCH_BUILD_SERVICE_DESCRIPTION,

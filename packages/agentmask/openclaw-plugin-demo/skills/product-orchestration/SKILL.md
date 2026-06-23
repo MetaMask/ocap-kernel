@@ -165,12 +165,23 @@ Concept → Industrial Design → Mechanical Design → Electronics
    [Gate 1: engineering-prototype validation]
 
 [Testing]
-→ Procurement → Manufacturing → Trial Distribution
+→ Manufacturing → Procurement → Trial Distribution
    [Gate 2: trial-user field validation]
 
 [Beginning of Stage 3, deliberately incomplete]
 → Sales
 ```
+
+**Manufacturing precedes Procurement.** The parts and bare boards
+ordered in Procurement have to ship _somewhere_ — namely, the
+assembler engaged in Manufacturing. So Manufacturing happens first:
+the agent engages assembly-coop, gets the build plan AND a
+receive-shipment ocap URL, authorizes the build commit (which is
+the manufacturer's go-ahead, not the post-shipment hand-off), and
+only then does Procurement run, threading the receive-shipment URL
+through to the supplier commit methods so the parts and boards
+ship directly to the assembler. See "Inter-service handoffs"
+below.
 
 These ten names are the **only** phase names you may use when
 calling `demo_announce({ phaseTransition: ... })` or
@@ -223,32 +234,52 @@ Per-phase intent:
   charge before calling `implement`, since the round-2 cost is the
   one the inventor hasn't yet absorbed.
 - **Bench Build** — the engineering-prototype build that closes
-  out Stage 1. Engage a small contract shop (proto-pros) to
-  hand-solder one or two units from the PCB layout and the spec'd
-  parts, flash the firmware, and run a bench bring-up sweep. The
-  service returns a markdown bring-up notes artifact: power-rail
-  check, peripheral verification, measured voice-button latency, IR
-  range, deep-sleep current, and any suggested firmware revision
-  before the 15-unit Testing-stage run. Flat ~$200 fee, no
-  quote/commit split — the bench build IS the commit. The artifact
-  gives the inventor something concrete to evaluate at Gate 1.
-  The Bench Build → Procurement transition is the Stage 1 → Stage 2
-  **validation checkpoint** — see "Validation checkpoints" below.
-- **Procurement** — Testing-stage parts and PCB orders. Priced
-  bill of materials AND the actual purchase commits. Two vendors
-  are involved: the parts distributor (shenzhen-direct) and the
-  PCB house (pcb-wizards, re-contacted from Electronics). The
-  parts BOM lands first, then on inventor approval the parts order
-  is placed (`shenzhen-direct.purchase`) and the PCBs are
-  fabricated (`pcb-wizards.fabricate`) so both ship to the
-  manufacturer in parallel. See "Purchase commits" below. May
-  have no parts-distribution provider in the matcher; if so, stop
-  the pipeline cleanly here.
-- **Manufacturing** — Testing-stage 15-unit build. Build plan AND
-  the actual build commit. The agent calls `assembly-coop.assemble`
-  to get the plan, then on inventor approval calls
-  `assembly-coop.build` to place the run. See "Purchase commits"
-  below.
+  out Stage 1. Two-step engagement with the small contract shop
+  (proto-pros):
+  1. `proto-pros.engage` returns an engagement letter artifact
+     and a `receiveShipmentUrl` (no charge — engage is the setup
+     handshake).
+  2. Re-contact `pcb-wizards` and call `pcb-wizards.shipSampleBoards`
+     with that URL as `approval.shipToUrl`. pcb-wizards delivers a
+     handful of sample bare boards directly to proto-pros via the
+     ocap (no charge — covered by the layout design fee). A
+     `service.interaction` event lands on the dashboard.
+  3. Once the sample boards are en route, `proto-pros.build`
+     hand-solders the units, sources parts directly from
+     distributor shelf stock, flashes the firmware, and runs a
+     bench bring-up sweep. Returns a bring-up notes artifact
+     itemizing labor + pass-through parts cost ($250 total
+     invoice).
+     The Bench Build → Manufacturing transition is the Stage 1 →
+     Stage 2 **validation checkpoint** — see "Validation checkpoints"
+     below.
+- **Manufacturing** — Testing-stage 15-unit build, engaged first
+  in Stage 2. Two-step:
+  1. `assembly-coop.assemble` returns the build plan artifact and
+     a `receiveShipmentUrl` ($1,800 setup fee).
+  2. `assembly-coop.build` is the inventor's go-ahead — "proceed
+     with making these devices" — which lands the $240 labor
+     commit before the suppliers ship. See "Purchase commits"
+     below.
+     Once both calls are done the agent has a receive-shipment URL
+     to thread through Procurement.
+- **Procurement** — Testing-stage parts and PCB orders. Three
+  sub-steps:
+  1. `shenzhen-direct.source` returns the priced BOM ($400
+     sourcing fee).
+  2. On inventor approval, `shenzhen-direct.purchase` places the
+     parts order ($961.50 batch total), passing
+     `approval.shipToUrl` set to the assembler's
+     `receiveShipmentUrl` so shenzhen-direct hands the parts
+     manifest directly to assembly-coop via ocap.
+  3. Re-contact `pcb-wizards` and call `pcb-wizards.fabricate`
+     with the same `shipToUrl`, charging $375 for the boards
+     batch.
+     Each supplier call surfaces a `service.interaction` event in
+     the dashboard as the assembler acknowledges the manifest. See
+     "Purchase commits" and "Inter-service handoffs" below.
+     May have no parts-distribution provider in the matcher; if so,
+     stop the pipeline cleanly here.
 - **Trial Distribution** — get the 15 finished units into the
   hands of trial users. Engage the fulfillment operator
   (pacific-fulfillment) with a brief that explicitly mentions
@@ -318,7 +349,7 @@ marker. No service call, no artifact, no `phaseTransition` for the
 gate itself. The `phaseTransition` happens only after the inventor
 confirms the move.
 
-### Gate 1: Bench Build → Procurement (engineering-prototype gate)
+### Gate 1: Bench Build → Manufacturing (engineering-prototype gate)
 
 Here we sit with the proto-pros bring-up notes and the one or two
 hand-soldered engineering prototypes. We exercise the unit against
@@ -359,11 +390,11 @@ method, invoked only after the inventor authorizes the spend,
 places the actual production order against an earlier quote and
 charges the per-batch cost the quote cited.
 
-| Phase         | Service         | Quote method                   | Commit method |
-| ------------- | --------------- | ------------------------------ | ------------- |
-| Procurement   | shenzhen-direct | `source` (BOM)                 | `purchase`    |
-| Procurement   | pcb-wizards     | `layout` (back in Electronics) | `fabricate`   |
-| Manufacturing | assembly-coop   | `assemble` (build plan)        | `build`       |
+| Phase         | Service         | Quote method                   | Commit method | shipToUrl?      |
+| ------------- | --------------- | ------------------------------ | ------------- | --------------- |
+| Manufacturing | assembly-coop   | `assemble` (build plan + URL)  | `build`       | n/a — assembler |
+| Procurement   | shenzhen-direct | `source` (BOM)                 | `purchase`    | required        |
+| Procurement   | pcb-wizards     | `layout` (back in Electronics) | `fabricate`   | required        |
 
 The cadence at each commit:
 
@@ -374,21 +405,81 @@ The cadence at each commit:
    "looks good" remarks on a different document. The commit is
    real money; the inventor names the amount.
 3. `service_call` the commit method on the same service nickname
-   from the prior contact. Args are an empty `approval` object
-   (`'[{}]'`); the stub doesn't yet inspect them.
+   from the prior contact. For supplier commits (`purchase`,
+   `fabricate`), the `approval` argument carries the assembler's
+   `receiveShipmentUrl` in its `shipToUrl` field — see
+   "Inter-service handoffs" below. For `build` (the manufacturer's
+   go-ahead) `approval` is empty (`'[{}]'`).
 4. The reply carries a receipt artifact handle. Close it out via
    `demo_service_completed` with the **batch total** as
    `charge.amountUsd` and the `consumes` list set to the quote
    handle (and any other inputs the order rests on — the BOM and
    PCB layout for the build commit, for example).
 
-Procurement is special: it covers TWO commits, both placed during
-the same phase. After the inventor approves the BOM and the
-engineering-prototype gate (Gate 1) has cleared, place the parts
-order with shenzhen-direct.purchase, then re-contact pcb-wizards
-and call fabricate against the layout produced back in Electronics.
-Order doesn't matter — both vendors ship to the manufacturer in
-parallel.
+Manufacturing comes first in Stage 2 so the parts and PCB orders
+in Procurement have a shipping target. The `assemble` reply carries
+the receive-shipment URL the agent threads through to both
+supplier commits.
+
+## Inter-service handoffs
+
+Assembler-like services (assembly-coop in Manufacturing,
+proto-pros in Bench Build) expose a **receive-shipment ocap URL**
+on their initial engagement reply (`assemble` for assembly-coop,
+`engage` for proto-pros). The URL appears as a top-level
+`receiveShipmentUrl` field in the slim summary the agent sees
+after `service_call` — alongside `handle`, `kind`, `fromService`,
+`title`, and `summary`. **Hold onto that URL across the phase
+boundary**; you'll thread it through to the supplier methods that
+need to ship inputs in.
+
+Suppliers (shenzhen-direct.purchase, pcb-wizards.fabricate,
+pcb-wizards.shipSampleBoards) accept the URL as
+`approval.shipToUrl`. When supplied, the supplier redeems the URL
+via the kernel's OcapURLRedemptionService and calls the assembler's
+`receiveShipment(manifest)` method directly — an actual cross-vat
+ocap call, not a hop through the agent. The supplier's returned
+artifact carries an `interactions` field describing the handoff;
+the demo plugin reads that and posts a `service.interaction` SSE
+event so the dashboard surfaces the supplier→assembler handshake
+as a distinct line (violet-styled, glyph ⇄) in the events log.
+
+You don't narrate these inter-service events — the dashboard
+shows them on its own. Don't call `demo_announce` for them.
+
+Cadence diagram for Stage 2:
+
+```
+agent → service_call(assembly-coop, assemble)
+        ← { handle: A1, ..., receiveShipmentUrl: cap-AC1 }
+agent → demo_service_completed(A1)
+agent → service_call(assembly-coop, build, [{}])
+        ← { handle: A2, ... }
+agent → demo_service_completed(A2)  // $240 labor commit
+
+agent → service_call(shenzhen-direct, source, ...)
+        ← { handle: A3, ... } (BOM)
+agent → demo_service_completed(A3)  // $400 sourcing fee
+agent → service_call(shenzhen-direct, purchase,
+                     [{ shipToUrl: cap-AC1 }])
+        // supplier redeems cap-AC1, calls assembly-coop.receiveShipment
+        ← { handle: A4, ... }
+agent → demo_service_completed(A4)  // $961.50 parts batch
+        // dashboard renders a service.interaction event:
+        //   ⇄ shenzhen-direct → assembly-coop: parts shipment...
+        // — separately from the agent's note.
+
+agent → service_call(pcb-wizards, fabricate,
+                     [{ shipToUrl: cap-AC1 }])
+        ← { handle: A5, ... }
+agent → demo_service_completed(A5)  // $375 fab batch
+```
+
+Same pattern in Bench Build: `proto-pros.engage` returns a
+`receiveShipmentUrl`, the agent passes it as `shipToUrl` when
+calling `pcb-wizards.shipSampleBoards`, and pcb-wizards redeems and
+ships. Then `proto-pros.build` runs as the third Bench Build
+service call.
 
 ## Required workflow
 
@@ -479,7 +570,7 @@ parallel.
    with the new handle from the revision call, the same `phase`,
    and `charge.amountUsd: 0` if the revision is covered by the
    original engagement.** For the
-   Bench Build → Procurement and Trial Distribution → Sales
+   Bench Build → Manufacturing and Trial Distribution → Sales
    transitions, run the validation-checkpoint beat (see "Validation
    checkpoints" above) before the move-on question — the
    in-character explanation of the validation work replaces the
