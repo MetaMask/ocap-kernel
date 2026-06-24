@@ -248,33 +248,32 @@ Per-phase intent:
      hand-solders the units, sources parts directly from
      distributor shelf stock, flashes the firmware, and runs a
      bench bring-up sweep. Returns a bring-up notes artifact
-     itemizing labor + pass-through parts cost ($250 total
-     invoice).
+     itemizing labor + pass-through parts as a single invoice.
      The Bench Build → Manufacturing transition is the Stage 1 →
      Stage 2 **validation checkpoint** — see "Validation checkpoints"
      below.
 - **Manufacturing** — Testing-stage 15-unit build, engaged first
   in Stage 2. Two-step:
   1. `assembly-coop.assemble` returns the build plan artifact and
-     a `receiveShipmentUrl` ($1,800 setup fee).
+     a `receiveShipmentUrl`. The plan's summary states the setup
+     fee.
   2. `assembly-coop.build` is the inventor's go-ahead — "proceed
-     with making these devices" — which lands the $240 labor
-     commit before the suppliers ship. See "Purchase commits"
-     below.
+     with making these devices" — which lands the labor commit
+     before the suppliers ship. See "Purchase commits" below.
      Once both calls are done the agent has a receive-shipment URL
      to thread through Procurement.
 - **Procurement** — Testing-stage parts and PCB orders. Three
   sub-steps:
-  1. `shenzhen-direct.source` returns the priced BOM ($400
-     sourcing fee).
+  1. `shenzhen-direct.source` returns the priced BOM. The BOM's
+     summary states the sourcing fee and the batch total.
   2. On inventor approval, `shenzhen-direct.purchase` places the
-     parts order ($961.50 batch total), passing
+     parts order at the BOM-quoted total, passing
      `approval.shipToUrl` set to the assembler's
      `receiveShipmentUrl` so shenzhen-direct hands the parts
      manifest directly to assembly-coop via ocap.
   3. Re-contact `pcb-wizards` and call `pcb-wizards.fabricate`
-     with the same `shipToUrl`, charging $375 for the boards
-     batch.
+     with the same `shipToUrl`, charging the per-batch fab total
+     quoted by pcb-wizards.
      Each supplier call surfaces a `service.interaction` event in
      the dashboard as the assembler acknowledges the manifest. See
      "Purchase commits" and "Inter-service handoffs" below.
@@ -452,28 +451,33 @@ Cadence diagram for Stage 2:
 ```
 agent → service_call(assembly-coop, assemble)
         ← { handle: A1, ..., receiveShipmentUrl: cap-AC1 }
-agent → demo_service_completed(A1)
+agent → demo_service_completed(A1)        // setup fee from plan summary
 agent → service_call(assembly-coop, build, [{}])
         ← { handle: A2, ... }
-agent → demo_service_completed(A2)  // $240 labor commit
+agent → demo_service_completed(A2)        // labor commit from build summary
 
 agent → service_call(shenzhen-direct, source, ...)
         ← { handle: A3, ... } (BOM)
-agent → demo_service_completed(A3)  // $400 sourcing fee
+agent → demo_service_completed(A3)        // sourcing fee from BOM summary
 agent → service_call(shenzhen-direct, purchase,
                      [{ shipToUrl: cap-AC1 }])
         // supplier redeems cap-AC1, calls assembly-coop.receiveShipment
         ← { handle: A4, ... }
-agent → demo_service_completed(A4)  // $961.50 parts batch
+agent → demo_service_completed(A4)        // batch total from BOM/receipt
         // dashboard renders a service.interaction event:
-        //   ⇄ shenzhen-direct → assembly-coop: parts shipment...
+        //   shenzhen-direct → assembly-coop: parts shipment...
         // — separately from the agent's note.
 
 agent → service_call(pcb-wizards, fabricate,
                      [{ shipToUrl: cap-AC1 }])
         ← { handle: A5, ... }
-agent → demo_service_completed(A5)  // $375 fab batch
+agent → demo_service_completed(A5)        // fab total from receipt summary
 ```
+
+Every `charge.amountUsd` value above comes from the **summary of
+the artifact you're closing out**, not from your training context.
+If you don't have a service-supplied number, you don't have a
+number — say so and request a quote, don't invent one.
 
 Same pattern in Bench Build: `proto-pros.engage` returns a
 `receiveShipmentUrl`, the agent passes it as `shipToUrl` when
@@ -700,6 +704,21 @@ service call.
   lead times, layout decisions, code sketches) that wasn't in a
   service reply. Speculation phrased as confident detail is
   indistinguishable from fabrication for the audience.
+- **Never pre-quote prices.** Specific dollar amounts (batch
+  totals, sourcing fees, fab quotes, build costs, etc.) come from
+  the artifact summary the service returned, not from your training
+  context or from this SKILL.md. The agent _may_ mention generic
+  cost categories before a quote arrives ("there's a sourcing fee
+  and a parts-batch commit ahead"), but **must not** state specific
+  amounts before the relevant `service_call` reply lands. Doing so
+  reads to the audience as the agent inventing prices the supplier
+  hasn't actually quoted.
+- **Never narrate findings the artifact summary doesn't support.**
+  The slim summary is your only window into the artifact body;
+  treat it literally. If the bench-build summary says "no firmware
+  revisions flagged", do not say "the team flagged a firmware
+  revision." If you need detail beyond the summary, use
+  `demo_get_artifact` to inspect the body before narrating.
 - **Never** invoke a service, provider, method, or argument that
   did not appear in a `discovery_find_services` or
   `service_get_description` reply in the current session. No prior

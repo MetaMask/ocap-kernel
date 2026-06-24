@@ -135,7 +135,7 @@ function EventLine({ entry }: EventLineProps): JSX.Element {
       <li className="events__line events__line--interaction">
         <span className="events__time">{formatTime(entry.at)}</span>
         <span className="events__interaction">
-          ⇄ {entry.from} → {entry.to}: {entry.interaction}
+          {entry.from} → {entry.to}: {entry.interaction}
         </span>
       </li>
     );

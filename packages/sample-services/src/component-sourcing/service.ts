@@ -100,32 +100,38 @@ export function makeComponentSourcingService(options: {
           typeof approval?.shipToUrl === 'string' && approval.shipToUrl.length
             ? approval.shipToUrl
             : undefined;
-        let receiverTag = 'assembly-coop';
-        const interactions: {
-          from: string;
-          to: string;
-          interaction: string;
-        }[] = [];
-        if (shipToUrl !== undefined) {
-          // Redeem the assembler's receive-shipment URL and hand
-          // off the parts manifest directly. The assembler's ack
-          // carries the receiver's provider tag, which we use to
-          // label the dashboard event accurately.
-          const receiver = (await E(ocapURLRedemptionService).redeem(
-            shipToUrl,
-          )) as ReceiveShipmentEndpoint;
-          const ack = await E(receiver).receiveShipment({
-            from: COMPONENT_SOURCING_PROVIDER_TAG,
-            kind: 'parts shipment',
-            items: 'components for a 15-unit prototype batch',
-          });
-          receiverTag = ack.receiverTag;
-          interactions.push({
+        if (shipToUrl === undefined) {
+          // Without a shipping target the order has nowhere to land;
+          // refuse loudly so the agent has to surface the
+          // assembler's receive-shipment URL it should already be
+          // holding from the Manufacturing.assemble reply.
+          throw new Error(
+            'shenzhen-direct.purchase: approval.shipToUrl is required. ' +
+              "Pass the manufacturer's receive-shipment ocap URL " +
+              "from the prior assembly-coop.assemble reply's " +
+              '`receiveShipmentUrl` field.',
+          );
+        }
+        // Redeem the assembler's receive-shipment URL and hand
+        // off the parts manifest directly. The assembler's ack
+        // carries the receiver's provider tag, which we use to
+        // label the dashboard event accurately.
+        const receiver = (await E(ocapURLRedemptionService).redeem(
+          shipToUrl,
+        )) as ReceiveShipmentEndpoint;
+        const ack = await E(receiver).receiveShipment({
+          from: COMPONENT_SOURCING_PROVIDER_TAG,
+          kind: 'parts shipment',
+          items: 'components for a 15-unit prototype batch',
+        });
+        const { receiverTag } = ack;
+        const interactions = [
+          {
             from: COMPONENT_SOURCING_PROVIDER_TAG,
             to: receiverTag,
             interaction: `parts shipment manifest acknowledged (${totalLabel})`,
-          });
-        }
+          },
+        ];
         const data =
           `# Parts purchase confirmation\n\n` +
           `Vendor: ${COMPONENT_SOURCING_PROVIDER_TAG}\n` +
@@ -145,9 +151,10 @@ export function makeComponentSourcingService(options: {
             title: 'LAUR — parts purchase confirmation',
             summary:
               `Parts order placed with ${COMPONENT_SOURCING_PROVIDER_TAG}: ` +
-              `${totalLabel} for the 15-unit batch, 14-day lead time.`,
+              `${totalLabel} for the 15-unit batch, 14-day lead time. ` +
+              `Manifest handed off to ${receiverTag} via ocap.`,
           },
-          ...(interactions.length > 0 ? { interactions } : {}),
+          interactions,
         });
       },
     },
@@ -187,31 +194,30 @@ export function makeComponentSourcingService(options: {
       purchase: {
         description:
           'Round 2: place the actual parts purchase order with the ' +
-          'distributors cited in the round-1 BOM. The wallet charge ' +
-          `for this call is the batch total ($${formatUsd(COMPONENT_SOURCING_PURCHASE_PRICE_USD).slice(1)} ` +
-          'for the canonical 15-unit profile); the agent should ' +
-          'invoke this only after the inventor approves the BOM. ' +
-          "Pass the manufacturer's receive-shipment ocap URL in " +
-          '`approval.shipToUrl`; the distributor redeems it and ' +
-          'hands the parts manifest off directly to the assembler.',
+          'distributors cited in the round-1 BOM, charging the batch ' +
+          'total quoted in the BOM. The agent invokes this only after ' +
+          'the inventor approves the BOM. `approval.shipToUrl` is ' +
+          "required — pass the manufacturer's receive-shipment ocap " +
+          "URL from the prior assembly-coop.assemble reply's " +
+          '`receiveShipmentUrl` field. The distributor redeems it and ' +
+          'hands the parts manifest off to the assembler directly.',
         args: {
           approval: {
             type: 'object',
             description:
-              "Approval object. `shipToUrl` carries the manufacturer's " +
-              'receive-shipment ocap URL — the distributor redeems and ' +
-              'invokes it to hand off the parts manifest directly. ' +
-              'Omit `shipToUrl` only if the manufacturer is acquiring ' +
-              'parts some other way (unusual).',
+              'Approval object carrying the manufacturer-handoff URL.',
             properties: {
               shipToUrl: {
                 type: 'string',
                 description:
-                  "Ocap URL of the manufacturer's receive-shipment " +
-                  "endpoint, as returned by assembly-coop.assemble's " +
-                  '`receiveShipmentUrl` field.',
+                  "Required. Ocap URL of the manufacturer's " +
+                  'receive-shipment endpoint, as returned by ' +
+                  "assembly-coop.assemble's `receiveShipmentUrl` " +
+                  'field. Without this the order has no shipping ' +
+                  'target and the call fails.',
               },
             },
+            required: ['shipToUrl'],
           },
         },
         returns: {

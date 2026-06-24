@@ -110,11 +110,19 @@ export function makeBenchBuildService(options: {
         });
       },
       async build(_spec: string): Promise<BenchBuildArtifact> {
-        const markdown = renderBringUpNotes({
+        const { markdown, firmwareRevisionFlagged } = renderBringUpNotes({
           providerLabel: BENCH_BUILD_PROVIDER_TAG,
           laborPriceUsd: BENCH_BUILD_LABOR_PRICE_USD,
           partsPriceUsd: BENCH_BUILD_PARTS_PRICE_USD,
         });
+        // Derive the summary from the actual revision outcome so the
+        // agent's slim-form view tells the truth: either a firmware
+        // revision was flagged or the build was clean. A static
+        // "suggested firmware revision" phrase let the agent
+        // confabulate a flagged item even when none existed.
+        const revisionPhrase = firmwareRevisionFlagged
+          ? 'one suggested firmware revision before the 15-unit run flagged'
+          : 'no firmware revisions flagged; build behaved per spec';
         return harden({
           kind: 'markdown',
           data: markdown,
@@ -124,9 +132,8 @@ export function makeBenchBuildService(options: {
             summary:
               `Bench-build of 1-2 hand-soldered units: power-rail ` +
               `check, peripheral verification, measured voice latency ` +
-              `/ IR range / deep-sleep current, suggested firmware ` +
-              `revision before the 15-unit run. Invoice: ` +
-              `$${BENCH_BUILD_LABOR_PRICE_USD} labor + ` +
+              `/ IR range / deep-sleep current. ${revisionPhrase}. ` +
+              `Invoice: $${BENCH_BUILD_LABOR_PRICE_USD} labor + ` +
               `$${BENCH_BUILD_PARTS_PRICE_USD} parts = ` +
               `$${BENCH_BUILD_PRICE_USD} total.`,
           },

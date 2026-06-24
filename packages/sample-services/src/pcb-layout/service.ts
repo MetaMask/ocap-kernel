@@ -113,28 +113,30 @@ export function makePcbLayoutService(options: {
           typeof approval?.shipToUrl === 'string' && approval.shipToUrl.length
             ? approval.shipToUrl
             : undefined;
-        let receiverTag = 'assembly-coop';
-        const interactions: {
-          from: string;
-          to: string;
-          interaction: string;
-        }[] = [];
-        if (shipToUrl !== undefined) {
-          const receiver = (await E(ocapURLRedemptionService).redeem(
-            shipToUrl,
-          )) as ReceiveShipmentEndpoint;
-          const ack = await E(receiver).receiveShipment({
-            from: PCB_LAYOUT_PROVIDER_TAG,
-            kind: 'bare boards shipment',
-            items: '15 production boards, 2-layer, 46×102 mm, ENIG finish',
-          });
-          receiverTag = ack.receiverTag;
-          interactions.push({
+        if (shipToUrl === undefined) {
+          throw new Error(
+            'pcb-wizards.fabricate: approval.shipToUrl is required. ' +
+              "Pass the manufacturer's receive-shipment ocap URL " +
+              "from the prior assembly-coop.assemble reply's " +
+              '`receiveShipmentUrl` field.',
+          );
+        }
+        const receiver = (await E(ocapURLRedemptionService).redeem(
+          shipToUrl,
+        )) as ReceiveShipmentEndpoint;
+        const ack = await E(receiver).receiveShipment({
+          from: PCB_LAYOUT_PROVIDER_TAG,
+          kind: 'bare boards shipment',
+          items: '15 production boards, 2-layer, 46×102 mm, ENIG finish',
+        });
+        const { receiverTag } = ack;
+        const interactions = [
+          {
             from: PCB_LAYOUT_PROVIDER_TAG,
             to: receiverTag,
             interaction: `bare-boards shipment manifest acknowledged (${totalLabel})`,
-          });
-        }
+          },
+        ];
         const data =
           `# PCB fabrication confirmation\n\n` +
           `Vendor: ${PCB_LAYOUT_PROVIDER_TAG}\n` +
@@ -153,9 +155,10 @@ export function makePcbLayoutService(options: {
             title: 'LAUR — PCB fabrication confirmation',
             summary:
               `Fab order placed with ${PCB_LAYOUT_PROVIDER_TAG}: ` +
-              `${totalLabel} for 15 boards, 10-day turnaround.`,
+              `${totalLabel} for 15 boards, 10-day turnaround. ` +
+              `Manifest handed off to ${receiverTag} via ocap.`,
           },
-          ...(interactions.length > 0 ? { interactions } : {}),
+          interactions,
         });
       },
       async shipSampleBoards(approval: {
@@ -246,31 +249,31 @@ export function makePcbLayoutService(options: {
         description:
           'Place a production order for bare boards against an ' +
           'earlier layout. The wallet charge for this call is the ' +
-          `per-batch fab total (${formatUsd(PCB_LAYOUT_FABRICATE_PRICE_USD)} ` +
-          'for the canonical 15-board prototype profile); the agent ' +
-          'should invoke this only after the inventor approves the ' +
-          'layout and the engineering-prototype validation has cleared. ' +
-          "Pass the manufacturer's receive-shipment ocap URL in " +
-          '`approval.shipToUrl`; pcb-wizards redeems it and hands the ' +
-          'bare-boards manifest off directly to the assembler.',
+          'per-batch fab total quoted by pcb-wizards. Invoke only ' +
+          'after the inventor approves the layout and the ' +
+          'engineering-prototype validation has cleared. ' +
+          '`approval.shipToUrl` is required — pass the ' +
+          "manufacturer's receive-shipment ocap URL from the prior " +
+          "assembly-coop.assemble reply's `receiveShipmentUrl` " +
+          'field. pcb-wizards redeems it and hands the bare-boards ' +
+          'manifest off to the assembler directly.',
         args: {
           approval: {
             type: 'object',
             description:
-              "Approval object. `shipToUrl` carries the manufacturer's " +
-              'receive-shipment ocap URL — pcb-wizards redeems and ' +
-              'invokes it to hand off the bare-boards manifest. Omit ' +
-              'only if the manufacturer is acquiring the boards some ' +
-              'other way (unusual).',
+              'Approval object carrying the manufacturer-handoff URL.',
             properties: {
               shipToUrl: {
                 type: 'string',
                 description:
-                  "Ocap URL of the manufacturer's receive-shipment " +
-                  "endpoint, as returned by assembly-coop.assemble's " +
-                  '`receiveShipmentUrl` field.',
+                  "Required. Ocap URL of the manufacturer's " +
+                  'receive-shipment endpoint, as returned by ' +
+                  "assembly-coop.assemble's `receiveShipmentUrl` " +
+                  'field. Without this the order has no shipping ' +
+                  'target and the call fails.',
               },
             },
+            required: ['shipToUrl'],
           },
         },
         returns: {
