@@ -538,8 +538,43 @@ service call.
    onboarding questions, titled "Product concept"), and a one-line
    `note: "Concept locked in."`. This single call does the phase
    announce, the brief artifact record, and the audience note.
-   b. Move directly to the next phase. Skip `discovery_find_services`
-   for this phase only.
+   b. **Outline the pipeline in the TUI.** A single short paragraph
+   naming the phases ahead, in order. For the LAUR-shaped pipeline
+   that reads roughly: "From here we walk Industrial Design,
+   Mechanical Design, Electronics (schematic + PCB), Firmware, and
+   a Bench Build engineering prototype. After the prototype clears
+   we move into the Testing-stage run: Manufacturing, Procurement,
+   and Trial Distribution. We touch the retail side at the end just
+   enough to set up a storefront draft." Keep it terse — the goal
+   is shape, not detail.
+   c. **Offer the planning choice.** Ask whether the inventor wants
+   you to survey the matcher up-front for cost estimates, or
+   proceed phase-by-phase. The default is phase-by-phase — frame
+   the question that way: "Want me to survey the matcher up front
+   for rough cost estimates, or shall we proceed phase-by-phase
+   and engage providers as we go? Default's phase-by-phase if
+   you've no preference." Don't editorialise on which the inventor
+   should pick; just state the choice and wait.
+   d. **If the inventor opts for the survey:** for each remaining
+   phase, call `discovery_find_services` with a description of that
+   phase's capability. Don't `service_initiate_contact` or
+   `service_call` — just gather candidates and read their
+   matcher-published `priceUsd` and description text. Aggregate
+   into a markdown estimate artifact (`fromService: "producer"`,
+   `phase: "Concept"`, title "Pipeline cost estimate") listing
+   each phase, its candidate provider tag(s), the matcher-published
+   price (or "TBD — depends on quote" for phases where the price
+   only appears in a returned BOM/build-plan), and a final total
+   range. Record it via `demo_record_artifact`. Present it in the
+   TUI and ask for the go-ahead to proceed. **Important:** the
+   matcher's published prices are fair game to surface here — they
+   came from the service description, not your training context.
+   The "never pre-quote" hard rule applies to prices that haven't
+   appeared in any service reply yet; matcher-published prices have.
+   e. **If the inventor opts for phase-by-phase (or doesn't choose),**
+   skip the survey and proceed.
+   f. Move directly to the next phase. Skip `discovery_find_services`
+   for the Concept phase itself.
 
 6. **For each subsequent phase** (Industrial Design through Sales,
    in the order listed under "Phase sequence"):
