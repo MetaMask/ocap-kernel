@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import { UNASSIGNED_PHASE } from '../hooks/useEventStream.ts';
 import type { ArtifactRecordedEvent } from '../types.ts';
 
@@ -46,6 +48,19 @@ export function WorkflowBoard(props: WorkflowBoardProps): JSX.Element {
   const columns = orderedColumns(announcedPhases, artifactsByPhase);
   const artifactsByHandle = indexByHandle(artifactsByPhase);
 
+  // Auto-scroll the columns container to the right whenever a new
+  // phase column is added, so the most recently announced phase
+  // stays in view as the board grows wider than the available
+  // horizontal real estate. Smooth scroll matches the leisurely
+  // pace at which phases land during a demo run.
+  const columnsRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    const el = columnsRef.current;
+    if (el !== null) {
+      el.scrollTo({ left: el.scrollWidth, behavior: 'smooth' });
+    }
+  }, [columns.length]);
+
   return (
     <section className="workflow-board">
       <header className="workflow-board__header">
@@ -59,7 +74,7 @@ export function WorkflowBoard(props: WorkflowBoardProps): JSX.Element {
           Waiting for the agent to announce a phase…
         </div>
       ) : (
-        <div className="workflow-board__columns">
+        <div className="workflow-board__columns" ref={columnsRef}>
           {columns.map((phase) => (
             <PhaseColumn
               key={phase}
@@ -185,6 +200,19 @@ function PhaseColumn({
   const className = `phase-column${
     isActive ? ' phase-column--active' : ''
   }${artifacts.length === 0 ? ' phase-column--empty' : ''}`;
+
+  // Auto-scroll this column to the bottom whenever a new artifact
+  // lands so the most recently recorded one stays in view, even
+  // after the column has grown tall enough to need its own
+  // y-overflow.
+  const cardsRef = useRef<HTMLUListElement | null>(null);
+  useEffect(() => {
+    const list = cardsRef.current;
+    if (list !== null) {
+      list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
+    }
+  }, [artifacts.length]);
+
   return (
     <div className={className}>
       <header className="phase-column__header">
@@ -193,7 +221,7 @@ function PhaseColumn({
           <span className="phase-column__count">{artifacts.length}</span>
         )}
       </header>
-      <ul className="phase-column__cards">
+      <ul className="phase-column__cards" ref={cardsRef}>
         {artifacts.map((artifact) => (
           <ArtifactThumb
             key={artifact.handle}
