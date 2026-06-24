@@ -63,6 +63,7 @@ export function buildRootObject(
 
       const serviceExo = makeDeviceAssemblyService({
         getReceiveShipmentUrl: () => receiveShipmentUrl,
+        ocapURLRedemptionService: services.ocapURLRedemptionService,
       });
       const remotableSpec = await getRemotableSpec(
         serviceExo,

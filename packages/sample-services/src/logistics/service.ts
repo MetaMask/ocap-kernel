@@ -32,15 +32,29 @@ export type LogisticsArtifact = {
   data: string;
   fromService: string;
   metadata?: { title?: string; summary?: string };
+  /**
+   * Ocap URL of pacific-fulfillment's receive-shipment endpoint.
+   * Returned on `arrange` so the agent can thread it through to
+   * assembly-coop.shipFinishedUnits: the assembler then ships the
+   * finished units directly into the fulfillment operator via ocap.
+   */
+  receiveShipmentUrl?: string;
 };
 
 /**
  * Build the logistics-fulfillment service exo.
  *
+ * @param options - Construction options.
+ * @param options.getReceiveShipmentUrl - Closure returning the URL of
+ *   pacific-fulfillment's receive-shipment endpoint. Set by the vat
+ *   root after the URL is issued at bootstrap.
  * @returns A discoverable exo with an `arrange` method.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makeLogisticsService() {
+export function makeLogisticsService(options: {
+  getReceiveShipmentUrl: () => string;
+}) {
+  const { getReceiveShipmentUrl } = options;
   return makeDiscoverableExo(
     'LogisticsService',
     {
@@ -80,6 +94,7 @@ export function makeLogisticsService() {
             title,
             summary,
           },
+          receiveShipmentUrl: getReceiveShipmentUrl(),
         });
       },
     },

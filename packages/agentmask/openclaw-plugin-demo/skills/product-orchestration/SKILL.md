@@ -280,15 +280,24 @@ Per-phase intent:
      May have no parts-distribution provider in the matcher; if so,
      stop the pipeline cleanly here.
 - **Trial Distribution** — get the 15 finished units into the
-  hands of trial users. Engage the fulfillment operator
-  (pacific-fulfillment) with a brief that explicitly mentions
-  "trial distribution" or "beta units"; the service branches on
-  those keywords and returns a small-batch distribution plan
-  (hand-pack, ship to a curated address list, no marketplace
-  integration) rather than the full storefront-fulfillment plan
-  that belongs to Stage 3. The Trial Distribution → Sales
-  transition is the Stage 2 → Stage 3 **validation checkpoint** —
-  see "Validation checkpoints" below.
+  hands of trial users. Two sub-steps:
+  1. Engage the fulfillment operator (`pacific-fulfillment.arrange`)
+     with a brief that explicitly mentions "trial distribution" or
+     "beta units"; the service branches on those keywords and
+     returns a small-batch distribution plan (hand-pack, ship to a
+     curated address list, no marketplace integration) rather than
+     the full storefront-fulfillment plan that belongs to Stage 3.
+     The reply carries a `receiveShipmentUrl` field — the
+     fulfillment operator's receive-shipment ocap URL.
+  2. Re-contact `assembly-coop` and call
+     `assembly-coop.shipFinishedUnits` with `approval.shipToUrl`
+     set to the fulfillment operator's URL. The assembler redeems
+     it and ships the finished units directly to the operator via
+     ocap. No wallet charge — the shipping is bundled with the
+     build labor fee. A `service.interaction` event lands on the
+     dashboard recording the assembler → fulfillment handoff.
+     The Trial Distribution → Sales transition is the Stage 2 → Stage 3
+     **validation checkpoint** — see "Validation checkpoints" below.
 - **Sales** — the deliberately-incomplete start of Stage 3. After
   Gate 2 clears, engage the retail listing operator
   (marketplace-direct) to draft a marketplace storefront proposal —

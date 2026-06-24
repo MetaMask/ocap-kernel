@@ -16,6 +16,7 @@ import {
 import {
   getRemotableSpec,
   makeContactEndpoint,
+  makeReceiveShipmentEndpoint,
   makeRegistrationToken,
   registerServicesWithMatcher,
 } from '../vat-lib/index.ts';
@@ -44,10 +45,24 @@ export function buildRootObject(
   const matcherUrl =
     typeof parameters?.matcherUrl === 'string' ? parameters.matcherUrl : '';
   let contactUrl = '';
+  let receiveShipmentUrl = '';
 
   return makeDefaultExo(`${SERVICE_NAME}VatRoot`, {
     async bootstrap(_vats: Record<string, unknown>, services: Services) {
-      const serviceExo = makeLogisticsService();
+      // Stand up the receive-shipment endpoint so the assembler can
+      // ship the finished units to pacific-fulfillment for trial
+      // distribution. The agent threads this URL from arrange's reply
+      // into assembly-coop.shipFinishedUnits.
+      const receiveEndpoint = makeReceiveShipmentEndpoint({
+        receiverTag: LOGISTICS_PROVIDER_TAG,
+      });
+      receiveShipmentUrl = await E(services.ocapURLIssuerService).issue(
+        receiveEndpoint.endpoint,
+      );
+
+      const serviceExo = makeLogisticsService({
+        getReceiveShipmentUrl: () => receiveShipmentUrl,
+      });
       const remotableSpec = await getRemotableSpec(
         serviceExo,
         LOGISTICS_SERVICE_DESCRIPTION,
