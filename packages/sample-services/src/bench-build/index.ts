@@ -54,6 +54,12 @@ export function buildRootObject(
       // engages proto-pros and threads the URL through.
       const receiveEndpoint = makeReceiveShipmentEndpoint({
         receiverTag: BENCH_BUILD_PROVIDER_TAG,
+        // pcb-wizards.shipSampleBoards's manifest uses "sample boards
+        // shipment". When that lands the endpoint reports "all inputs
+        // received" — proto-pros only needs the boards before the
+        // bench build can proceed; parts come from distributor shelf
+        // stock and don't go through the receive endpoint.
+        expectedKinds: ['sample boards shipment'],
       });
       receiveShipmentUrl = await E(services.ocapURLIssuerService).issue(
         receiveEndpoint.endpoint,

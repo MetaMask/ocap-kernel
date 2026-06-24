@@ -156,12 +156,12 @@ export function makeDeviceAssemblyService(options: {
             'shipped after the assembly run completes; tracking ' +
             'numbers handed off with the manifest',
         });
-        const { receiverTag } = ack;
+        const { receiverTag, buildPhase } = ack;
         const interactions = [
           {
             from: DEVICE_ASSEMBLY_PROVIDER_TAG,
             to: receiverTag,
-            interaction: 'finished units shipment manifest acknowledged',
+            interaction: `finished units shipment manifest acknowledged — ${buildPhase}`,
           },
         ];
         const data =

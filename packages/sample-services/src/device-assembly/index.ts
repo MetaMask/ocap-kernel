@@ -56,6 +56,13 @@ export function buildRootObject(
       // `receiveShipment(manifest)` to hand off parts and boards.
       const receiveEndpoint = makeReceiveShipmentEndpoint({
         receiverTag: DEVICE_ASSEMBLY_PROVIDER_TAG,
+        // Match the `kind` strings the suppliers send on their
+        // manifests in service.ts: shenzhen-direct.purchase uses
+        // "parts shipment" and pcb-wizards.fabricate uses
+        // "bare boards shipment". Once both arrive, the endpoint
+        // reports "all inputs in" so the dashboard event picks
+        // that up.
+        expectedKinds: ['parts shipment', 'bare boards shipment'],
       });
       receiveShipmentUrl = await E(services.ocapURLIssuerService).issue(
         receiveEndpoint.endpoint,

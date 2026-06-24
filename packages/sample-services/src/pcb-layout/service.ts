@@ -129,12 +129,14 @@ export function makePcbLayoutService(options: {
           kind: 'bare boards shipment',
           items: '15 production boards, 2-layer, 46×102 mm, ENIG finish',
         });
-        const { receiverTag } = ack;
+        const { receiverTag, buildPhase } = ack;
         const interactions = [
           {
             from: PCB_LAYOUT_PROVIDER_TAG,
             to: receiverTag,
-            interaction: `bare-boards shipment manifest acknowledged (${totalLabel})`,
+            interaction: `bare-boards shipment manifest acknowledged (${totalLabel}) — ${
+              buildPhase
+            }`,
           },
         ];
         const data =
@@ -184,12 +186,12 @@ export function makePcbLayoutService(options: {
             "no-charge delivery to the customer's engineering-prototype " +
             'shop, covered by the design fee',
         });
-        const { receiverTag } = ack;
+        const { receiverTag, buildPhase } = ack;
         const interactions = [
           {
             from: PCB_LAYOUT_PROVIDER_TAG,
             to: receiverTag,
-            interaction: 'sample bare boards shipped (no charge)',
+            interaction: `sample bare boards shipped (no charge) — ${buildPhase}`,
           },
         ];
         const data =

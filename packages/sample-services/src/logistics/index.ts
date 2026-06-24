@@ -55,6 +55,12 @@ export function buildRootObject(
       // into assembly-coop.shipFinishedUnits.
       const receiveEndpoint = makeReceiveShipmentEndpoint({
         receiverTag: LOGISTICS_PROVIDER_TAG,
+        // The only inbound shipment pacific-fulfillment expects in
+        // the Trial Distribution flow is the finished-units batch
+        // from assembly-coop. When that arrives the ack reports
+        // "all inputs received" so the dashboard shows the
+        // fulfillment operator is ready to distribute.
+        expectedKinds: ['finished units shipment'],
       });
       receiveShipmentUrl = await E(services.ocapURLIssuerService).issue(
         receiveEndpoint.endpoint,

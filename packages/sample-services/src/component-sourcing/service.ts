@@ -124,12 +124,14 @@ export function makeComponentSourcingService(options: {
           kind: 'parts shipment',
           items: 'components for a 15-unit prototype batch',
         });
-        const { receiverTag } = ack;
+        const { receiverTag, buildPhase } = ack;
         const interactions = [
           {
             from: COMPONENT_SOURCING_PROVIDER_TAG,
             to: receiverTag,
-            interaction: `parts shipment manifest acknowledged (${totalLabel})`,
+            interaction: `parts shipment manifest acknowledged (${totalLabel}) — ${
+              buildPhase
+            }`,
           },
         ];
         const data =
