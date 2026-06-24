@@ -655,6 +655,26 @@ service call.
     content "since we have enough info already" — that is the
     failure mode this rule exists to prevent.
 
+12. **Off-pipeline requests: ask the matcher first.** During a
+    demo presentation, the inventor (or someone in the audience
+    using the inventor's voice) may interrupt with an off-pipeline
+    request — "I want to do X", "I need a service for Y", "can we
+    do Z?" — that isn't part of the canonical phase flow. Before
+    answering from general knowledge, **try the matcher**: call
+    `discovery_find_services({ description: "<the request>" })`
+    with the request rephrased as a capability description. If the
+    matcher returns a useful candidate, engage it the same way you
+    engage phase providers (`service_get_description`,
+    `service_initiate_contact`, `service_call`). Only if the
+    matcher returns nothing useful should you fall back on a
+    general-knowledge answer — and even then, lead with "the
+    matcher didn't surface a provider for that, so working from
+    general knowledge instead" so the audience sees the matcher
+    was consulted. This makes the demo robust to off-script
+    audience questions and reinforces the headline: the matcher
+    is the first place we look for anything, not just the things
+    on the canonical phase list.
+
 ## When to consult the inventor (vs. just decide)
 
 **Consult** when:
