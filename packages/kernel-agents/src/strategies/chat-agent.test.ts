@@ -155,6 +155,53 @@ describe('makeChatAgent', () => {
     ).toBe(true);
   });
 
+  it('injects a tool error for an invalid-argument tool call and continues', async () => {
+    const add = vi.fn(async (a: number, b: number) => a + b);
+    const addCap = makeMethodCapability(
+      'Math',
+      'add',
+      add,
+      S.method(
+        'Add two numbers',
+        [S.arg('a', S.number()), S.arg('b', S.number())],
+        S.number(),
+      ),
+    );
+
+    const recorded: ChatMessage[][] = [];
+    let call = 0;
+    const chat: BoundChat = async ({ messages }) => {
+      recorded.push([...messages]);
+      call += 1;
+      if (call === 1) {
+        // `b` is missing, so the exo's interface guard rejects the call.
+        return makeToolCallResponse('0', [makeToolCall('c1', 'add', { a: 3 })]);
+      }
+      return makeTextResponse('recovered');
+    };
+
+    const agent = makeChatAgent({ chat, capabilities: { add: addCap } });
+    const result = await agent.task('add 3 and ?');
+
+    // The guard rejection surfaces as a tool error rather than crashing the
+    // task, and the implementation never runs with the bad arguments.
+    expect(result).toBe('recovered');
+    expect(add).not.toHaveBeenCalled();
+    const secondTurn = recorded[1] ?? [];
+    // The membrane normalizes the rejection into a real error carrying the
+    // expected signature, so the message is actionable even when the guard
+    // itself rejects with an opaque value (as it does under the test shim).
+    expect(
+      secondTurn.some(
+        (message) =>
+          message.role === 'tool' &&
+          message.content.startsWith(
+            'Error calling add(a: number, b: number):',
+          ),
+      ),
+    ).toBe(true);
+  });
+
   it('throws when invocation budget is exceeded', async () => {
     const ping = makeMethodCapability(
       'Server',

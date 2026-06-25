@@ -159,47 +159,49 @@ export const makeChatAgent = ({
             const { name, arguments: argsJson } = toolCall.function;
             logger?.info(`Invoking capability: ${name}`);
 
+            const pushTool = (content: string): void => {
+              const toolMsg: ChatMessage = {
+                role: 'tool',
+                tool_call_id: toolCall.id,
+                content,
+              };
+              chatHistory.push(toolMsg);
+              history.push(new ChatTurn(toolMsg));
+            };
+
             const spec = Object.hasOwn(agentCapabilities, name)
               ? agentCapabilities[name]
               : undefined;
             if (spec === undefined) {
-              const errorContent = `Unknown capability "${name}"`;
-              const toolMsg: ChatMessage = {
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                content: errorContent,
-              };
-              chatHistory.push(toolMsg);
-              history.push(new ChatTurn(toolMsg));
+              pushTool(`Unknown capability "${name}"`);
+              continue;
+            }
+
+            let args: Record<string, unknown>;
+            try {
+              args = parseToolArguments(argsJson);
+            } catch (error) {
+              // Malformed tool-call JSON from the model — never reaches the
+              // capability, so the membrane can't frame it; name it here.
+              const message =
+                error instanceof Error ? error.message : String(error);
+              pushTool(`Error calling ${name}: ${message}`);
               continue;
             }
 
             let toolResult: unknown;
             try {
-              const args = parseToolArguments(argsJson);
-              // The capability is backed by a pattern-guarded exo, so its
-              // interface guard enforces the argument shape; a mismatch rejects
-              // here and is reported as the tool error below.
+              // The capability is backed by a pattern-guarded exo whose
+              // interface guard is the sole argument enforcer. On a mismatch the
+              // membrane rejects with a descriptive `Error calling <signature>:
+              // …`, which we surface verbatim so the model can self-correct.
               toolResult = await spec.func(args as never);
             } catch (error) {
-              const errorContent = `Error calling ${name}: ${(error as Error).message}`;
-              const toolMsg: ChatMessage = {
-                role: 'tool',
-                tool_call_id: toolCall.id,
-                content: errorContent,
-              };
-              chatHistory.push(toolMsg);
-              history.push(new ChatTurn(toolMsg));
+              pushTool(error instanceof Error ? error.message : String(error));
               continue;
             }
 
-            const toolMsg: ChatMessage = {
-              role: 'tool',
-              tool_call_id: toolCall.id,
-              content: JSON.stringify(toolResult),
-            };
-            chatHistory.push(toolMsg);
-            history.push(new ChatTurn(toolMsg));
+            pushTool(JSON.stringify(toolResult));
           }
         }
         throw new Error('Invocation budget exceeded');
