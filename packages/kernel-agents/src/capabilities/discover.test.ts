@@ -69,6 +69,24 @@ describe('makeInternalCapabilities', () => {
     expect(await rejects(capabilities.add.func({} as never))).toBe(true);
   });
 
+  it('normalizes the rejection into a real error naming the expected signature', async () => {
+    // Whatever the guard rejects with (an opaque value under the test shim), the
+    // membrane rethrows a real `Error` carrying the method signature so callers
+    // can surface an actionable message to the model.
+    let caught: unknown;
+    try {
+      await capabilities.count.func({ word: 12345 } as never);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(Error);
+    expect(
+      (caught as Error).message.startsWith(
+        'Error calling count(word: string): ',
+      ),
+    ).toBe(true);
+  });
+
   it('throws at construction when an implementation has no matching schema', () => {
     expect(() =>
       makeInternalCapabilities(

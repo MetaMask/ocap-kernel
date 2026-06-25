@@ -17,6 +17,21 @@ import type { CapabilityRecord, CapabilitySpec } from '../types.ts';
 type Invoke = (method: string, positionalArgs: unknown[]) => unknown;
 
 /**
+ * Render a method's expected call signature from its schema — e.g.
+ * `add(a: number, b: number)` — for use in invocation-error messages.
+ *
+ * @param name - The method name.
+ * @param schema - The method schema whose `args` describe the parameters.
+ * @returns The formatted signature.
+ */
+const formatSignature = (name: string, schema: MethodSchema): string => {
+  const params = Object.entries(schema.args)
+    .map(([arg, argSchema]) => `${arg}: ${argSchema.type}`)
+    .join(', ');
+  return `${name}(${params})`;
+};
+
+/**
  * Build a {@link CapabilityRecord} from a method-schema description, mapping each
  * capability's object arguments to positional arguments for the exo method.
  *
@@ -36,12 +51,26 @@ const capabilitiesFrom = (
   Object.fromEntries(
     Object.entries(description).map(([name, schema]) => {
       const argNames = Object.keys(schema.args);
-      // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-      const func = async (args: Record<string, unknown>) =>
-        invoke(
-          name,
-          argNames.map((argName) => args[argName]),
-        );
+      const func = async (args: Record<string, unknown>): Promise<unknown> => {
+        try {
+          return await invoke(
+            name,
+            argNames.map((argName) => args[argName]),
+          );
+        } catch (error) {
+          // The exo's interface guard is the sole argument enforcer, so a shape
+          // mismatch rejects here before the implementation runs — but that is
+          // indistinguishable from an error thrown by the implementation, so
+          // the signature is reported as context, not a diagnosed cause.
+          // Wrapping also guarantees a real `Error` even when the guard rejects
+          // with an opaque value (e.g. under the test shim), so every caller
+          // gets the method signature to surface to the model.
+          const detail = error instanceof Error ? error.message : String(error);
+          throw new Error(
+            `Error calling ${formatSignature(name, schema)}: ${detail}`,
+          );
+        }
+      };
       return [name, { func, schema }] as [
         string,
         CapabilitySpec<never, unknown>,
