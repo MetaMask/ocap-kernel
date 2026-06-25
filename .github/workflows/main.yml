@@ -18,7 +18,7 @@ jobs:
       skip-merge-queue: ${{ steps.check-skip-merge-queue.outputs.up-to-date }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         if: github.event_name == 'merge_group'
 
       - name: Check pull request merge queue status
@@ -34,7 +34,7 @@ jobs:
       has-ci: ${{ steps.changes.outputs.has-ci }}
       has-lint-targets: ${{ steps.changes.outputs.has-lint-targets }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Detect change categories
@@ -121,7 +121,7 @@ jobs:
       (github.event_name != 'merge_group' || needs.check-skip-merge-queue.outputs.skip-merge-queue != 'true')
       && (needs.detect-changes.outputs.has-ci == 'true' || needs.detect-changes.outputs.has-code == 'true')
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: Download actionlint
         id: download-actionlint
         run: bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/7fdc9630cc360ea1a469eed64ac6d78caeda1234/scripts/download-actionlint.bash) 1.6.25
