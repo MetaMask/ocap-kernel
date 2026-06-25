@@ -532,7 +532,6 @@ The ttyd-iframe URL is picked up from `~/.demo-display.json`
 Watch for:
 
 ```
-[demo-display] Redeemed observer URL; kref=k...
 [demo-display] Listening on http://127.0.0.1:7777/events
 ```
 
