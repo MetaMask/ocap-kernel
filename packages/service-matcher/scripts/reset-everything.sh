@@ -3,14 +3,19 @@
 #
 #   - stop both daemons (matcher under ~/.ocap, consumer under
 #     ~/.ocap-consumer) and sweep up any orphan daemon-entry processes;
-#   - purge consumer state and clear daemon logs in both homes
-#     (the matcher's state is purged by start-matcher.sh as a side
-#     effect of its default behavior);
-#   - bring the matcher back up via start-matcher.sh, capturing the
-#     newly-issued OCAP URL on stdout;
+#   - purge both daemons' state and clear all logs (the matcher's
+#     state is purged here explicitly via --force-reset, since the
+#     default start-matcher.sh behavior is now keep-state);
+#   - bring the matcher back up via start-matcher.sh --force-reset,
+#     capturing the newly-issued OCAP URL on stdout;
 #   - bring the consumer daemon back up with --local-relay;
 #   - update the openclaw discovery plugin's matcherUrl config and
 #     restart the gateway so the new URL takes effect.
+#
+# For routine restarts (URL stays, registry stays) just run
+# start-matcher.sh directly. This script is the nuclear option:
+# everything from scratch, new matcher URL, every provider has to
+# re-register.
 #
 # After this finishes only the laptop-side steps remain: paste the URL
 # into .metamaskrc, rebuild webpack, reload the extension. The URL is
@@ -114,8 +119,8 @@ rm -f \
 # 6. Bring the matcher back up; capture the URL on stdout.
 # ---------------------------------------------------------------------------
 
-info "Starting matcher..."
-START_MATCHER_OUT="$("$SCRIPT_DIR/start-matcher.sh" ${START_MATCHER_ARGS[@]+"${START_MATCHER_ARGS[@]}"})"
+info "Starting matcher (force-reset)..."
+START_MATCHER_OUT="$("$SCRIPT_DIR/start-matcher.sh" --force-reset ${START_MATCHER_ARGS[@]+"${START_MATCHER_ARGS[@]}"})"
 MATCHER_URL="$(echo "$START_MATCHER_OUT" | awk -F': +' '/^matcher:/ {print $2}')"
 OBSERVER_URL="$(echo "$START_MATCHER_OUT" | awk -F': +' '/^observer:/ {print $2}')"
 if [[ -z "$MATCHER_URL" || -z "$OBSERVER_URL" ]]; then

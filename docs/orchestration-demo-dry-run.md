@@ -441,18 +441,48 @@ the server is listening.
 
 ### Step 4: VPS matcher + consumer daemon
 
-In `vps-ctl`:
+The matcher persists across restarts now: its OCAP URLs are
+deterministic over kernel state, so as long as you don't purge the
+kernel database, the URL stays the same. The service registry also
+persists (in vat baggage), so providers registered in earlier
+rehearsals are still there. Pick the variant that matches what you
+want:
+
+**Routine per-rehearsal restart** (URL stays stable, but you want a
+clean service registry so providers from earlier rehearsals don't
+pollute matcher rankings):
+
+```csh
+./packages/service-matcher/scripts/clear-matcher-registry.sh
+./packages/service-matcher/scripts/start-matcher.sh --no-build
+source ~/.ocap/matcher-urls.env
+```
+
+`clear-matcher-registry.sh` is the explicit pre-rehearsal "wipe the
+slate" knob: it talks to the live matcher vat via
+`daemon queueMessage`, empties both the in-memory and baggage-stored
+registry, and leaves the URL untouched. If no matcher is running
+yet (very first boot or after a `daemon stop`), skip it — there's
+nothing to clear, `start-matcher.sh` will create a fresh empty
+registry.
+
+**Cold start / something is wedged** (matcher URL changes; every
+downstream consumer has to be reconfigured):
 
 ```csh
 ./packages/service-matcher/scripts/reset-everything.sh --no-build
 source ~/.ocap/matcher-urls.env
 ```
 
-`start-matcher.sh` (invoked by `reset-everything.sh`) writes the
-minted URLs to `~/.ocap/matcher-urls.env` as csh `setenv` lines, so
-sourcing the file is all that's needed to pick them up. Every later
-step that wants `MATCHER_OCAP_URL` or `MATCHER_OBSERVER_URL` sources
-this same file.
+This is the nuclear option. It purges both daemons' state, mints
+fresh URLs, and forces you back through the rest of the per-run
+setup. If `start-matcher.sh` ever complains about an inconsistent
+database or no longer producing URLs, this is the fallback.
+
+Either way, the URLs end up in `~/.ocap/matcher-urls.env` as csh
+`setenv` lines, so sourcing the file is all that's needed to pick
+them up. Every later step that wants `MATCHER_OCAP_URL` or
+`MATCHER_OBSERVER_URL` sources this same file.
 
 ### Step 5: VPS demo-display server
 
@@ -644,10 +674,17 @@ the same conversation.)
 
 ## Restarting the matcher mid-run
 
-`reset-everything.sh` cold-starts the matcher and mints **fresh**
-`MATCHER_OCAP_URL` and `MATCHER_OBSERVER_URL` values, then rewrites
+**If you used the routine per-rehearsal restart (clear-registry +
+start-matcher.sh):** the URLs didn't change. Nothing downstream
+needs to be touched. Re-run step 7 on the laptop to re-register
+the sample services against the (now-empty) matcher and you're
+done.
+
+**If you used `reset-everything.sh`:** the script cold-starts the
+matcher and mints **fresh** `MATCHER_OCAP_URL` and
+`MATCHER_OBSERVER_URL` values, then rewrites
 `~/.ocap/matcher-urls.env`. Anything that captured one of those URLs
-at startup needs to be refreshed. After re-running step 4, in order:
+at startup needs to be refreshed. After the reset, in order:
 
 1. **Re-source the env file** in every shell that still has the
    stale URLs in its environment: `source ~/.ocap/matcher-urls.env`
@@ -660,7 +697,7 @@ at startup needs to be refreshed. After re-running step 4, in order:
    VPS, source it, re-run `start-services.sh`.
 
 The long-running steps (relay, log tails, SSH tunnel — steps 1, 2,
-and 3) keep working without changes.
+and 3) keep working without changes either way.
 
 ## What to watch for during the run
 
@@ -723,7 +760,7 @@ In order:
 1. `vps-tui`: exit TUI normally.
 2. `vps-display`: `Ctrl-C`.
 3. `laptop-ctl` (services side): `node ./packages/kernel-cli/dist/app.mjs --home ~/.ocap-services daemon stop`.
-4. `vps-ctl`: `./packages/service-matcher/scripts/reset-everything.sh --no-build` to purge for the next run, OR leave running if you want to retry against the same matcher.
+4. `vps-ctl`: for the next run, either `./packages/service-matcher/scripts/clear-matcher-registry.sh` (preserves URL — usual choice) or `./packages/service-matcher/scripts/reset-everything.sh --no-build` (nuclear — mints fresh URLs). OR leave running if you want to retry against exactly the same matcher state.
 5. Log tails can be left open; they'll reopen the file when the next run rotates it.
 
 The browser SSH tunnel (`laptop-ctl`) can stay up indefinitely — it's
