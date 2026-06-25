@@ -27,7 +27,18 @@
 #   gateway.http.endpoints.chatCompletions.enabled = true
 #
 # Usage:
-#   start-matcher.sh [--relay MULTIADDR] [--no-build] [--keep-state]
+#   start-matcher.sh [--relay MULTIADDR] [--no-build] [--force-reset]
+#
+# By default this script preserves existing daemon state across runs,
+# so the matcher's OCAP URLs (which are deterministic over kref +
+# peerId + ocapURLKey, all of which live in kernel.sqlite) stay
+# stable across restarts. The persisted registry of registered
+# services is also restored from baggage. Pass --force-reset to
+# nuke the lot and start cold; the URLs will then change and every
+# provider has to re-register.
+#
+# To clear *just* the service registry while preserving everything
+# else (including the matcher URL), use `clear-matcher-registry.sh`.
 #
 # On success two labeled lines are printed to stdout (progress
 # messages go to stderr):
@@ -51,11 +62,11 @@ set -euo pipefail
 RELAY_ADDR="${OCAP_RELAY_MULTIADDR:-}"
 RELAY_FILE="${LIBP2P_RELAY_HOME:-${HOME}/.libp2p-relay}/relay.addr"
 SKIP_BUILD=false
-FORCE_RESET=true
+FORCE_RESET=false
 
 usage() {
   cat >&2 <<EOF
-Usage: $0 [--relay MULTIADDR] [--no-build] [--keep-state]
+Usage: $0 [--relay MULTIADDR] [--no-build] [--force-reset]
 
   --relay MULTIADDR  Relay multiaddr to connect through. Overrides
                      \$OCAP_RELAY_MULTIADDR and
@@ -63,8 +74,11 @@ Usage: $0 [--relay MULTIADDR] [--no-build] [--keep-state]
                      \$HOME/.libp2p-relay/relay.addr).
   --no-build         Skip building/bundling the matcher vat and
                      building the llm-bridge package.
-  --keep-state       Do not purge any existing daemon state before
-                     launching the matcher subcluster.
+  --force-reset      Purge all existing daemon state before launching
+                     the matcher subcluster. The matcher URL will
+                     change and every provider has to re-register.
+                     Without this flag the kernel database is
+                     preserved and URLs/registry stay stable.
   --help, -h         Show this help.
 
 Required env:
@@ -84,8 +98,8 @@ while [[ $# -gt 0 ]]; do
       RELAY_ADDR="$2"; shift 2 ;;
     --no-build)
       SKIP_BUILD=true; shift ;;
-    --keep-state)
-      FORCE_RESET=false; shift ;;
+    --force-reset)
+      FORCE_RESET=true; shift ;;
     --help|-h)
       usage ;;
     *)
@@ -228,60 +242,130 @@ done
 info "Remote comms connected"
 
 # ---------------------------------------------------------------------------
-# Launch the matcher subcluster
+# Locate an existing matcher subcluster (kept-state restart) or launch
+# a fresh one
+#
+# Without --force-reset, the kernel database may already hold a
+# matcher subcluster from a prior run; relaunching unconditionally
+# would create a second, duplicate one with new URLs. So we check
+# `getStatus` for a subcluster whose `config.bootstrap === 'matcher'`
+# and, if found, fetch the persisted URLs from the running matcher
+# vat root via `queueMessage getMatcherUrl` / `getObserverUrl`.
 # ---------------------------------------------------------------------------
 
-CONFIG=$(BUNDLE="file://$BUNDLE_FILE" \
-         RESET="$FORCE_RESET" \
-         LLM_SOCKET="$LLM_SOCKET_PATH" \
-         node -e "
-  const config = {
-    config: {
-      bootstrap: 'matcher',
-      forceReset: process.env.RESET === 'true',
-      services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
-      io: {
-        llm: { type: 'socket', path: process.env.LLM_SOCKET }
-      },
-      vats: {
-        matcher: { bundleSpec: process.env.BUNDLE }
-      }
-    }
-  };
-  process.stdout.write(JSON.stringify(config));
-")
-
-info "Launching matcher subcluster..."
-LAUNCH_RESULT=$(daemon_exec launchSubcluster "$CONFIG")
-
-BOOTSTRAP_URLS=$(echo "$LAUNCH_RESULT" | node -e "
+EXISTING_MATCHER_VAT_ID=$(daemon_exec getStatus | node -e "
   const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
   const data = JSON.parse(raw);
-  // bootstrapResult may be CapData { body, slots } or a plain object.
-  const br = data.bootstrapResult;
-  let body;
-  if (br && typeof br === 'object' && typeof br.body === 'string') {
-    body = JSON.parse(br.body.replace(/^#/u, ''));
-  } else if (br && typeof br === 'object') {
-    body = br;
-  } else {
-    process.stderr.write('Bootstrap result not an object: ' + raw + '\\n');
-    process.exit(1);
+  const subclusters = data.subclusters ?? [];
+  const matcher = subclusters.find(
+    (sc) => sc?.config?.bootstrap === 'matcher',
+  );
+  if (matcher && matcher.vats && typeof matcher.vats.matcher === 'string') {
+    process.stdout.write(matcher.vats.matcher);
   }
-  const matcherUrl = body.matcherUrl;
-  const observerUrl = body.observerUrl;
-  if (!matcherUrl || !observerUrl) {
-    process.stderr.write(
-      'Could not extract matcherUrl/observerUrl from: ' + raw + '\\n',
-    );
-    process.exit(1);
-  }
-  process.stdout.write(matcherUrl + '\\n' + observerUrl);
 ")
-MATCHER_URL=$(echo "$BOOTSTRAP_URLS" | head -1)
-OBSERVER_URL=$(echo "$BOOTSTRAP_URLS" | tail -1)
-info "Matcher URL: $MATCHER_URL"
-info "Observer URL: $OBSERVER_URL"
+
+if [[ -n "$EXISTING_MATCHER_VAT_ID" ]]; then
+  info "Found existing matcher subcluster (vat $EXISTING_MATCHER_VAT_ID); reusing it."
+  # The matcher vat's root object is stored in the `kv` table at
+  # key `<vatId>.c.o+0` (vat slot for the root export). Fetch it
+  # via the executeDBQuery RPC so we can invoke admin-facet
+  # methods on the root.
+  ROOT_QUERY_SQL="SELECT value FROM kv WHERE key = '${EXISTING_MATCHER_VAT_ID}.c.o+0'"
+  ROOT_QUERY_JSON=$(SQL="$ROOT_QUERY_SQL" node -e "
+    process.stdout.write(JSON.stringify({ sql: process.env.SQL }));
+  ")
+  MATCHER_ROOT_KREF=$(daemon_exec executeDBQuery "$ROOT_QUERY_JSON" | node -e "
+    const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
+    const rows = JSON.parse(raw);
+    if (Array.isArray(rows) && rows[0] && typeof rows[0].value === 'string') {
+      process.stdout.write(rows[0].value);
+    }
+  ")
+  if [[ -z "$MATCHER_ROOT_KREF" ]]; then
+    fail "Existing matcher subcluster has no root object kref — kernel database may be corrupted. Re-run with --force-reset."
+  fi
+  info "Matcher root kref: $MATCHER_ROOT_KREF"
+  MATCHER_URL=$(cd "$REPO_ROOT" && node "$OCAP_BIN" daemon queueMessage \
+    "$MATCHER_ROOT_KREF" getMatcherUrl --raw | node -e "
+    const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
+    const result = JSON.parse(raw);
+    // queueMessage --raw returns CapData; the result body is JSON
+    // with a leading '#' marker that smallcaps prepends.
+    if (result && typeof result === 'object' && typeof result.body === 'string') {
+      process.stdout.write(JSON.parse(result.body.replace(/^#/u, '')));
+    } else if (typeof result === 'string') {
+      process.stdout.write(result);
+    }
+  ")
+  OBSERVER_URL=$(cd "$REPO_ROOT" && node "$OCAP_BIN" daemon queueMessage \
+    "$MATCHER_ROOT_KREF" getObserverUrl --raw | node -e "
+    const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
+    const result = JSON.parse(raw);
+    if (result && typeof result === 'object' && typeof result.body === 'string') {
+      process.stdout.write(JSON.parse(result.body.replace(/^#/u, '')));
+    } else if (typeof result === 'string') {
+      process.stdout.write(result);
+    }
+  ")
+  if [[ -z "$MATCHER_URL" || -z "$OBSERVER_URL" ]]; then
+    fail "Could not retrieve persisted matcher/observer URLs. Re-run with --force-reset."
+  fi
+  info "Matcher URL: $MATCHER_URL"
+  info "Observer URL: $OBSERVER_URL"
+else
+  CONFIG=$(BUNDLE="file://$BUNDLE_FILE" \
+           RESET="$FORCE_RESET" \
+           LLM_SOCKET="$LLM_SOCKET_PATH" \
+           node -e "
+    const config = {
+      config: {
+        bootstrap: 'matcher',
+        forceReset: process.env.RESET === 'true',
+        services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
+        io: {
+          llm: { type: 'socket', path: process.env.LLM_SOCKET }
+        },
+        vats: {
+          matcher: { bundleSpec: process.env.BUNDLE }
+        }
+      }
+    };
+    process.stdout.write(JSON.stringify(config));
+  ")
+
+  info "Launching matcher subcluster..."
+  LAUNCH_RESULT=$(daemon_exec launchSubcluster "$CONFIG")
+
+  BOOTSTRAP_URLS=$(echo "$LAUNCH_RESULT" | node -e "
+    const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
+    const data = JSON.parse(raw);
+    // bootstrapResult may be CapData { body, slots } or a plain object.
+    const br = data.bootstrapResult;
+    let body;
+    if (br && typeof br === 'object' && typeof br.body === 'string') {
+      body = JSON.parse(br.body.replace(/^#/u, ''));
+    } else if (br && typeof br === 'object') {
+      body = br;
+    } else {
+      process.stderr.write('Bootstrap result not an object: ' + raw + '\\n');
+      process.exit(1);
+    }
+    const matcherUrl = body.matcherUrl;
+    const observerUrl = body.observerUrl;
+    if (!matcherUrl || !observerUrl) {
+      process.stderr.write(
+        'Could not extract matcherUrl/observerUrl from: ' + raw + '\\n',
+      );
+      process.exit(1);
+    }
+    process.stdout.write(matcherUrl + '\\n' + observerUrl);
+  ")
+  MATCHER_URL=$(echo "$BOOTSTRAP_URLS" | head -1)
+  OBSERVER_URL=$(echo "$BOOTSTRAP_URLS" | tail -1)
+  info "Matcher URL: $MATCHER_URL"
+  info "Observer URL: $OBSERVER_URL"
+fi
 
 # ---------------------------------------------------------------------------
 # Start the LLM bridge

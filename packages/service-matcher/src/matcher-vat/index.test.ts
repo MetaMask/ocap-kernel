@@ -166,8 +166,8 @@ function makeMockServices(
 
 /**
  * Build a fake `Baggage` (swingset-liveslots map store), backed by a plain
- * Map. Faithful enough for unit tests of code that just calls
- * `init/has/get/set`.
+ * Map. Faithful enough for unit tests of code that calls
+ * `init/has/get/set/delete/keys`.
  *
  * @returns The fake baggage.
  */
@@ -193,6 +193,13 @@ function makeFakeBaggage() {
       }
       store.set(key, value);
     },
+    delete: (key: string) => {
+      if (!store.has(key)) {
+        throw new Error(`baggage: cannot delete uninitialized key "${key}"`);
+      }
+      store.delete(key);
+    },
+    keys: () => store.keys(),
   };
 }
 
@@ -671,6 +678,102 @@ describe('matcher vat', () => {
     it('returns false when the id is unknown', async () => {
       await root.bootstrap({}, mocks.services);
       expect(root.unregister('svc:999')).toBe(false);
+    });
+  });
+
+  describe('persistence', () => {
+    it('restores registered services from baggage across re-incarnation', async () => {
+      // Use one baggage across two root incarnations: the first
+      // bootstraps and registers two services; the second comes up
+      // over the same baggage and should expose both via the
+      // observer facet without any re-registration calls.
+      const sharedBaggage = makeFakeBaggage();
+      const firstRoot = buildRootObject(
+        makeFakeVatPowers(),
+        {},
+        sharedBaggage as never,
+      );
+      await firstRoot.bootstrap({}, mocks.services);
+      const publicFacet = firstRoot.getPublicFacet();
+      const { contact: contactA } = makeMockContact({
+        description: sampleDescription('Alpha', 'ocap:a@peer', 'alpha'),
+        expectedToken: 't',
+      });
+      const { contact: contactB } = makeMockContact({
+        description: sampleDescription('Beta', 'ocap:b@peer', 'beta'),
+        expectedToken: 't',
+      });
+      await publicFacet.registerServiceByRef(contactA, 't');
+      await publicFacet.registerServiceByRef(contactB, 't');
+      expect(firstRoot.getObserverFacet().listAll()).toHaveLength(2);
+
+      const secondRoot = buildRootObject(
+        makeFakeVatPowers(),
+        {},
+        sharedBaggage as never,
+      );
+      // No second bootstrap call — the registry should restore from
+      // baggage at construction time, independent of bootstrap.
+      const restored = secondRoot.getObserverFacet().listAll();
+      expect(restored).toHaveLength(2);
+      expect(
+        restored.map((entry) => entry.description.providerTag).sort(),
+      ).toStrictEqual(['alpha', 'beta']);
+    });
+
+    it('removes persisted entries when unregister is called', async () => {
+      const sharedBaggage = makeFakeBaggage();
+      const firstRoot = buildRootObject(
+        makeFakeVatPowers(),
+        {},
+        sharedBaggage as never,
+      );
+      await firstRoot.bootstrap({}, mocks.services);
+      const { contact } = makeMockContact({
+        description: sampleDescription(),
+        expectedToken: 't',
+      });
+      await firstRoot.getPublicFacet().registerServiceByRef(contact, 't');
+      const [entry] = firstRoot.getObserverFacet().listAll();
+      firstRoot.unregister(entry?.id ?? '');
+
+      const secondRoot = buildRootObject(
+        makeFakeVatPowers(),
+        {},
+        sharedBaggage as never,
+      );
+      expect(secondRoot.getObserverFacet().listAll()).toHaveLength(0);
+    });
+
+    it('clearRegistry empties both in-memory and persisted entries', async () => {
+      const sharedBaggage = makeFakeBaggage();
+      const firstRoot = buildRootObject(
+        makeFakeVatPowers(),
+        {},
+        sharedBaggage as never,
+      );
+      await firstRoot.bootstrap({}, mocks.services);
+      const { contact: contactA } = makeMockContact({
+        description: sampleDescription('Alpha', 'ocap:a@peer', 'alpha'),
+        expectedToken: 't',
+      });
+      const { contact: contactB } = makeMockContact({
+        description: sampleDescription('Beta', 'ocap:b@peer', 'beta'),
+        expectedToken: 't',
+      });
+      await firstRoot.getPublicFacet().registerServiceByRef(contactA, 't');
+      await firstRoot.getPublicFacet().registerServiceByRef(contactB, 't');
+
+      const result = firstRoot.clearRegistry();
+      expect(result.cleared).toBe(2);
+      expect(firstRoot.getObserverFacet().listAll()).toHaveLength(0);
+
+      const secondRoot = buildRootObject(
+        makeFakeVatPowers(),
+        {},
+        sharedBaggage as never,
+      );
+      expect(secondRoot.getObserverFacet().listAll()).toHaveLength(0);
     });
   });
 });

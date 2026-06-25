@@ -22,12 +22,18 @@
  * facets) requires a cold start: durable-kind machinery will reject
  * a shape change in place.
  *
- * The registry of registered services is **in-memory**. After a
- * matcher restart, providers must re-register. Making the registry
- * durable is a planned follow-up; doing so brings its own obligations
- * (eviction of stale registrations when providers disappear, liveness
- * detection, and reconciling persisted entries with the bridge's LLM
- * context) that need to be designed before that change lands.
+ * The registry of registered services is durable: each entry is
+ * mirrored into baggage under a `registry/<id>` key as it lands,
+ * and the in-memory `Map` is restored from baggage on re-incarnation.
+ * The LLM bridge's conversation history is separate from baggage,
+ * so on the first `findServices` after re-incarnation the matcher
+ * re-ingests all restored entries into the bridge before honouring
+ * the query — the `bridgeIsCurrent` flag in `buildRootObject`
+ * tracks whether that re-sync is still pending. Stale entries
+ * (whose providers have gone away) clean up via the existing
+ * `(peerId, providerTag)` dedup the next time the same provider
+ * re-registers. To wipe the registry deliberately — e.g. before a
+ * fresh demo run — call the vat root's `clearRegistry()`.
  *
  * Ranking is delegated to an LLM-backed bridge process via an
  * `IOService` endowment named `llm`. On every successful registration
@@ -144,9 +150,15 @@ export function buildRootObject(
     );
   }
 
-  // Registry is in-memory. On matcher restart it starts empty;
-  // providers must re-register. Making this durable is a planned
-  // follow-up; see the file header for the obligations it carries.
+  /** Baggage-key namespace for individual registry entries. */
+  const REGISTRY_KEY_PREFIX = 'registry/';
+
+  /**
+   * Restore the in-memory registry from baggage on every
+   * `buildRootObject` call (which runs at first launch and on each
+   * re-incarnation). New entries land in baggage as they're
+   * `store()`d; deletions go through `removePersistedEntry()`.
+   */
   const registry = new Map<string, RegisteredService>();
 
   const log = (...args: unknown[]): void => {
@@ -211,8 +223,7 @@ export function buildRootObject(
 
   /**
    * Allocate the next registry id, persisting the counter to baggage so
-   * ids don't collide across re-incarnations even though the registry
-   * map itself is reset.
+   * ids don't collide across re-incarnations.
    *
    * @returns The new id string.
    */
@@ -225,6 +236,77 @@ export function buildRootObject(
     }
     return `svc:${value}`;
   }
+
+  /**
+   * Mirror a registry entry into baggage. Called after every `store()`
+   * and after every successful rollback-restore so the durable view
+   * stays in sync with the in-memory `registry` map.
+   *
+   * @param entry - The registry entry to persist.
+   */
+  function persistEntry(entry: RegisteredService): void {
+    const key = `${REGISTRY_KEY_PREFIX}${entry.id}`;
+    if (baggage.has(key)) {
+      baggage.set(key, entry);
+    } else {
+      baggage.init(key, entry);
+    }
+  }
+
+  /**
+   * Drop a registry entry from baggage. Idempotent — safe to call
+   * for ids that were never persisted.
+   *
+   * @param id - The registry id to forget.
+   */
+  function removePersistedEntry(id: string): void {
+    const key = `${REGISTRY_KEY_PREFIX}${id}`;
+    if (baggage.has(key)) {
+      baggage.delete(key);
+    }
+  }
+
+  /**
+   * Wipe every persisted registry entry from baggage. The in-memory
+   * `registry` map is not touched here — callers must clear it
+   * themselves; see `clearRegistry()` on the vat root.
+   *
+   * @returns The number of entries removed.
+   */
+  function clearAllPersistedEntries(): number {
+    const toRemove: string[] = [];
+    for (const key of baggage.keys()) {
+      if (typeof key === 'string' && key.startsWith(REGISTRY_KEY_PREFIX)) {
+        toRemove.push(key);
+      }
+    }
+    for (const key of toRemove) {
+      baggage.delete(key);
+    }
+    return toRemove.length;
+  }
+
+  // Restore the in-memory registry from baggage. Runs both at first
+  // launch (where the loop iterates 0 entries) and at every
+  // re-incarnation (where it repopulates the map from the durable
+  // entries committed by prior calls to `persistEntry`).
+  for (const key of baggage.keys()) {
+    if (typeof key === 'string' && key.startsWith(REGISTRY_KEY_PREFIX)) {
+      const id = key.slice(REGISTRY_KEY_PREFIX.length);
+      registry.set(id, baggage.get(key) as RegisteredService);
+    }
+  }
+  if (registry.size > 0) {
+    log(`restored ${registry.size} registered service(s) from baggage`);
+  }
+
+  // Tracks whether the LLM bridge has been told about the entries the
+  // matcher currently holds. On every `buildRootObject` (re-incarnation)
+  // this starts false if the registry is non-empty; the first
+  // `findServices` call after restart triggers a re-ingest of all
+  // restored entries before the query proceeds. On an empty registry
+  // there's nothing to re-ingest, so the flag starts true.
+  let bridgeIsCurrent = registry.size === 0;
 
   /**
    * Validate the registration token with the provider's contact endpoint.
@@ -446,7 +528,7 @@ export function buildRootObject(
   }
 
   /**
-   * Store a service in the (in-memory) registry.
+   * Store a service in the in-memory registry, mirrored to baggage.
    *
    * @param description - The service description.
    * @param contact - The contact endpoint.
@@ -457,7 +539,9 @@ export function buildRootObject(
     contact: ContactPoint,
   ): string {
     const id = nextId();
-    registry.set(id, { id, description, contact });
+    const entry: RegisteredService = { id, description, contact };
+    registry.set(id, entry);
+    persistEntry(entry);
     log(`registered ${id}: ${description.description.slice(0, 80)}`);
     return id;
   }
@@ -493,6 +577,7 @@ export function buildRootObject(
         evicted.push([supersededId, prior]);
       }
       registry.delete(supersededId);
+      removePersistedEntry(supersededId);
       log(
         `evicted superseded registration ${supersededId} (providerTag=${description.providerTag})`,
       );
@@ -502,8 +587,10 @@ export function buildRootObject(
       await ingestService(id, description);
     } catch (cause) {
       registry.delete(id);
+      removePersistedEntry(id);
       for (const [oldId, oldEntry] of evicted) {
         registry.set(oldId, oldEntry);
+        persistEntry(oldEntry);
       }
       log(
         `bridge ingest failed for ${id}; rolled back new entry and restored ${evicted.length} evicted entries:`,
@@ -571,6 +658,27 @@ export function buildRootObject(
         _context: unknown,
         query: ServiceQuery,
       ): Promise<ServiceMatch[]> {
+        // Lazy re-sync: if we're holding registry entries the bridge
+        // doesn't know about yet (e.g. we just re-incarnated from
+        // baggage and the bridge process is fresh), re-ingest them
+        // before delegating the query. Skips after the first call;
+        // see the `bridgeIsCurrent` declaration at the top of
+        // `buildRootObject` for the lifecycle.
+        if (!bridgeIsCurrent && registry.size > 0) {
+          log(`re-ingesting ${registry.size} restored service(s) into bridge`);
+          for (const entry of registry.values()) {
+            try {
+              await ingestService(entry.id, entry.description);
+            } catch (cause) {
+              // Best-effort: a single failed re-ingest shouldn't sink
+              // the query. Log and continue; the bridge's own
+              // "cited unknown id" guard will silently filter
+              // matches against the non-ingested entry.
+              log(`re-ingest failed for ${entry.id}:`, cause);
+            }
+          }
+          bridgeIsCurrent = true;
+        }
         const ranked = await queryServicesViaBridge(query.description);
         const matches: ServiceMatch[] = [];
         let dropped = 0;
@@ -758,9 +866,42 @@ export function buildRootObject(
     unregister(id: string): boolean {
       const removed = registry.delete(id);
       if (removed) {
+        removePersistedEntry(id);
         log(`unregistered ${id}`);
       }
       return removed;
+    },
+
+    /**
+     * Admin-side: wipe every registration. Empties the in-memory
+     * registry and removes all `registry/<id>` entries from baggage.
+     * The LLM bridge's conversation history is not touched — it
+     * will continue to hold ingested digests of the now-cleared
+     * services, but the matcher's "bridge cited unknown id" guard
+     * in `findServices` filters those matches out so correctness is
+     * preserved. The next provider re-registration triggers a fresh
+     * ingest path and the bridge's stale-context drift converges
+     * back to truth over subsequent registrations.
+     *
+     * Intended for explicit pre-demo "clear the slate" workflows.
+     * For everyday restarts the registry persists; this is the
+     * distinct, deliberate wipe operation.
+     *
+     * @returns The number of entries that were cleared.
+     */
+    clearRegistry(): { cleared: number } {
+      const cleared = registry.size;
+      registry.clear();
+      const removedFromBaggage = clearAllPersistedEntries();
+      // After a clear, there's nothing to re-ingest on the next
+      // findServices call. Mark the bridge state as current so the
+      // lazy re-sync skips its (empty) loop.
+      bridgeIsCurrent = true;
+      log(
+        `registry cleared: ${cleared} in-memory entries, ` +
+          `${removedFromBaggage} baggage entries removed`,
+      );
+      return harden({ cleared });
     },
   });
 }
