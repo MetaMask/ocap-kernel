@@ -185,8 +185,19 @@ if [[ -f "$LLM_BRIDGE_PID_PATH" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Start daemon
+# Stop + (purge?) + start daemon
+#
+# Stop first so daemon-start re-runs `initializeAllVats`, which loads
+# each persisted vat's bundle from disk fresh. Without this, an
+# already-running daemon keeps using the vat code that was loaded at
+# its original launch, and a rebuilt bundle on disk never reaches the
+# running vat. State (kernel.sqlite, matcher baggage, registry,
+# remote comms peerId) is untouched by `daemon stop`; the only
+# exception is `--force-reset`, which purges everything.
 # ---------------------------------------------------------------------------
+
+info "Stopping daemon (if running, to pick up bundle changes)..."
+(cd "$REPO_ROOT" && node "$OCAP_BIN" daemon stop >&2) || true
 
 if $FORCE_RESET; then
   info "Purging existing daemon state..."
@@ -194,10 +205,8 @@ if $FORCE_RESET; then
 fi
 
 info "Starting daemon..."
-# `daemon start` fails if one is already running; detect and continue.
-if ! (cd "$REPO_ROOT" && node "$OCAP_BIN" daemon start >&2); then
-  info "daemon start failed — assuming one is already running"
-fi
+(cd "$REPO_ROOT" && node "$OCAP_BIN" daemon start >&2) || \
+  fail "daemon start failed"
 
 daemon_exec() {
   (cd "$REPO_ROOT" && node "$OCAP_BIN" daemon exec "$@")

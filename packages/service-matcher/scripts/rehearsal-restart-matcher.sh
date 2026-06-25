@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 # Per-rehearsal "wipe the slate + reuse the matcher" sequence:
 #
-#   1. clear-matcher-registry.sh    (empty the registry; URL stays)
-#   2. start-matcher.sh --no-build  (reuse the existing subcluster)
+#   1. start-matcher.sh    (rebuilds bundles, restarts daemon to load
+#                           the new code, restores subcluster + URL +
+#                           baggage-persisted registry)
+#   2. clear-matcher-registry.sh
+#                          (now that the daemon is running with the
+#                           latest matcher-vat bundle, ask it to
+#                           empty its registry; URL stays)
 #
 # After this finishes, the operator just needs to source
 # ~/.ocap/matcher-urls.env in any shell that doesn't already have
@@ -10,6 +15,14 @@
 #
 # This is the routine pre-rehearsal command. For cold-start / fresh
 # URLs, use reset-everything.sh instead.
+#
+# Order matters: clear-matcher-registry.sh invokes the matcher vat's
+# `clearRegistry` method, which only exists if the vat was launched
+# from a recent enough bundle. The earlier ordering ran clear-registry
+# first, which failed against a matcher that had been launched before
+# `clearRegistry` landed in the source. start-matcher.sh now does a
+# `daemon stop` before `daemon start`, so re-running it always
+# re-incarnates the vat against the current on-disk bundle.
 #
 # Usage:
 #   rehearsal-restart-matcher.sh [start-matcher-args...]
@@ -22,18 +35,17 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 info() { echo "[rehearsal-restart] $*" >&2; }
 
-# Clearing the registry is best-effort: if no matcher is running yet
-# (very first boot, or after a `daemon stop`), there's nothing to
-# clear and start-matcher.sh will produce a fresh empty registry on
-# its own. The script's exit-on-no-matcher case is therefore expected
-# in that flow, not an error.
-info "Step 1/2: clearing matcher registry (best-effort)..."
-if ! "$SCRIPT_DIR/clear-matcher-registry.sh" 2>&1; then
-  info "(no running matcher to clear; continuing)"
-fi
+info "Step 1/2: restarting matcher (rebuild + daemon stop/start)..."
+"$SCRIPT_DIR/start-matcher.sh" "$@"
 
-info "Step 2/2: starting matcher..."
-"$SCRIPT_DIR/start-matcher.sh" --no-build "$@"
+# clear-matcher-registry.sh is best-effort: if for any reason the
+# matcher isn't holding a registry yet (first boot, just-purged
+# state), it exits non-zero and we move on. The registry would
+# already be empty in that case.
+info "Step 2/2: clearing matcher registry (best-effort)..."
+if ! "$SCRIPT_DIR/clear-matcher-registry.sh" 2>&1; then
+  info "(nothing to clear; continuing)"
+fi
 
 info ""
 info "Done. URLs in ~/.ocap/matcher-urls.env (source it in any shell"
