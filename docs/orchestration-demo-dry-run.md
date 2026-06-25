@@ -231,6 +231,27 @@ openclaw plugins disable metamask
 openclaw config set gateway.http.endpoints.chatCompletions.enabled true
 ```
 
+Set the discovery plugin's static config — these never change across
+runs (the dynamic `matcherUrl` is handled by the per-run sequence):
+
+```csh
+openclaw config set 'plugins.entries.discovery.config.ocapHome' \
+  "$HOME/.ocap-consumer"
+openclaw config set 'plugins.entries.discovery.config.ocapCliPath' \
+  "$HOME/GitRepos/ocap-kernel/packages/kernel-cli/dist/app.mjs"
+openclaw config set 'plugins.entries.discovery.config.displayUrl' \
+  'http://127.0.0.1:7777'
+```
+
+Write the demo-display config so its ttyd-iframe URL is wired up
+automatically and step 5 no longer needs an env-var override:
+
+```csh
+cat > ~/.demo-display.json << 'EOF'
+{ "ttydUrl": "http://127.0.0.1:7681" }
+EOF
+```
+
 Install the two skills the demo uses. Plugin-bundled skills are
 NOT auto-discovered; they require an explicit `openclaw skills
 install`. The path argument must start with `./` — absolute paths
@@ -453,18 +474,24 @@ clean service registry so providers from earlier rehearsals don't
 pollute matcher rankings):
 
 ```csh
+./packages/service-matcher/scripts/rehearsal-restart-matcher.sh
+source ~/.ocap/matcher-urls.env
+```
+
+`rehearsal-restart-matcher.sh` wraps the two-step sequence:
+clear-matcher-registry (talks to the live matcher vat via
+`daemon queueMessage`, empties both the in-memory and baggage-stored
+registry without changing the URL), then `start-matcher.sh
+--no-build`. The first sub-step is a no-op if no matcher is yet
+running (e.g. very first boot, or after a `daemon stop`).
+
+If you'd rather drive the sub-steps by hand:
+
+```csh
 ./packages/service-matcher/scripts/clear-matcher-registry.sh
 ./packages/service-matcher/scripts/start-matcher.sh --no-build
 source ~/.ocap/matcher-urls.env
 ```
-
-`clear-matcher-registry.sh` is the explicit pre-rehearsal "wipe the
-slate" knob: it talks to the live matcher vat via
-`daemon queueMessage`, empties both the in-memory and baggage-stored
-registry, and leaves the URL untouched. If no matcher is running
-yet (very first boot or after a `daemon stop`), skip it — there's
-nothing to clear, `start-matcher.sh` will create a fresh empty
-registry.
 
 **Cold start / something is wedged** (matcher URL changes; every
 downstream consumer has to be reconfigured):
@@ -489,26 +516,11 @@ them up. Every later step that wants `MATCHER_OCAP_URL` or
 In `vps-display`:
 
 ```csh
-env DEMO_DISPLAY_TTYD_URL="http://127.0.0.1:7681" \
-    yarn workspace @ocap/demo-display start
+yarn workspace @ocap/demo-display start
 ```
 
-`DEMO_DISPLAY_TTYD_URL` points the dashboard's Producer-dialog pane
-at the ttyd server started in step 5b. The URL must be
-`http://127.0.0.1:7681` (not `${VPS_HOST}:7681` or any public
-address) because ttyd is bound to localhost only — see the
-security note in step 5b. The laptop browser reaches it through
-an SSH tunnel that forwards laptop:7681 to VPS:127.0.0.1:7681; the
-iframe URL the browser uses is therefore `http://127.0.0.1:7681`
-on the laptop side, which the tunnel resolves to the VPS-side
-ttyd.
-
-(Earlier versions of demo-display needed `OCAP_HOME` and a
-`source ~/.ocap/matcher-urls.env` for an observer-URL redemption
-that drove a periodic `listAll` poll. The dashboard now populates
-its services map directly from `service.discovered` events posted
-by the openclaw discovery plugin, so none of that matcher-side
-plumbing is required.)
+The ttyd-iframe URL is picked up from `~/.demo-display.json`
+(written in one-time setup). No env-var override is needed.
 
 Watch for:
 
@@ -576,28 +588,37 @@ on the VPS itself, that's fine — Basic Auth still protects the
 port — but for the demo proper the tunnel + localhost binding is
 the canonical posture.
 
-### Step 6: Configure the discovery plugin
+### Step 6: Point the discovery plugin at the matcher URL
 
-In `vps-ctl`:
+**Skip this step on a routine rehearsal restart.** The matcher URL
+persists across `start-matcher.sh` restarts, so the value already
+set in openclaw's config from the previous run is still correct.
+
+Only redo this step after `reset-everything.sh` (which mints a fresh
+URL). In `vps-ctl`:
 
 ```csh
 source ~/.ocap/matcher-urls.env
-openclaw config set 'plugins.entries.discovery.config.ocapHome' \
-  "$HOME/.ocap-consumer"
-openclaw config set 'plugins.entries.discovery.config.ocapCliPath' \
-  "$HOME/GitRepos/ocap-kernel/packages/kernel-cli/dist/app.mjs"
 openclaw config set 'plugins.entries.discovery.config.matcherUrl' \
   "$MATCHER_OCAP_URL"
-openclaw config set 'plugins.entries.discovery.config.displayUrl' \
-  'http://127.0.0.1:7777'
 openclaw gateway restart
 ```
+
+The static configs (`ocapHome`, `ocapCliPath`, `displayUrl`) are
+written once during one-time setup; nothing per-run touches them.
 
 ### Step 7: Laptop sample-services daemon
 
 In `laptop-ctl` (a different session from the SSH tunnel — that one
-is occupied), pull the current matcher URLs and relay address from
-the VPS:
+is occupied):
+
+```csh
+./packages/sample-services/scripts/rehearsal-start-services.sh
+```
+
+The wrapper pulls the current matcher URLs and relay address from
+`${VPS_HOST}` (set in one-time setup), exports them, and runs
+`start-services.sh`. If you'd rather drive the sub-steps by hand:
 
 ```csh
 scp ${VPS_HOST}:.ocap/matcher-urls.env /tmp/matcher-urls.env
@@ -780,8 +801,7 @@ cheap.
     ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery
   ```
 
-- **"observerUrl is required" from demo-display** — `$MATCHER_OBSERVER_URL` wasn't exported in `vps-display`'s shell before `yarn workspace @ocap/demo-display start`. Re-export and restart.
-- **Marketplace shows duplicate providers** — V0 matcher has no liveness detection. Restart the matcher (step 2) for a clean slate.
+- **Marketplace shows duplicate providers** — the matcher has no liveness detection in V0. Run `./packages/service-matcher/scripts/clear-matcher-registry.sh` between rehearsals to wipe stale registrations without changing the URL, then re-run step 7 on the laptop.
 - **TUI claims fewer than 10 tools** — `tools.profile` is set, or `tools.allow` is incomplete. Re-run the one-time setup's `openclaw config` lines and `openclaw gateway restart`.
 - **Workflow board scrolls horizontally** — known quirk; columns are 8rem minimum, and the cell can be narrower than 8rem × N-columns. Acceptable for V0; revisit in layout polish.
 - **Dashboard goes black after the first event** — the bug fixed in `b13a2cc9a`. Confirm VPS is on a recent enough commit and the frontend was rebuilt.
