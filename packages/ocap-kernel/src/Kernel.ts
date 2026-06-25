@@ -282,6 +282,12 @@ export class Kernel {
     // longer have a config, to ensure that orphaned vats aren't started
     this.#subclusterManager.initSystemSubclusters(configs);
 
+    // Re-create IO channels for persisted subclusters whose configs
+    // declare them. This must happen before `initializeAllVats` so
+    // that re-incarnated vats find their IOService references live
+    // when they make their first method call.
+    await this.#subclusterManager.restorePersistedIOChannels();
+
     // Start all vats that were previously running before starting the queue
     // This ensures that any messages in the queue have their target vats ready
     await this.#vatManager.initializeAllVats();
