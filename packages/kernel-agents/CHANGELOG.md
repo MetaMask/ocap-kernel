@@ -7,4 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- The built-in capabilities (`math`, `end`, `examples`) are now pattern-guarded discoverable exos authored with the `described*()` combinators, so their argument shapes are enforced by the exo's interface guard at invocation rather than only described in the prompt ([#959](https://github.com/MetaMask/ocap-kernel/pull/959))
+
 [Unreleased]: https://github.com/MetaMask/ocap-kernel/
