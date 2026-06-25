@@ -452,8 +452,15 @@ tail -F ~/.ocap-consumer/daemon.log
 From `laptop-ctl`:
 
 ```csh
-ssh -L 7777:127.0.0.1:7777 $VPS_HOST
+ssh -L 7777:127.0.0.1:7777 -L 7681:127.0.0.1:7681 $VPS_HOST
 ```
+
+Two forwards in one tunnel: 7777 for the demo-display HTTP/SSE
+server, 7681 for the ttyd-fronted producer TUI iframe. ttyd binds
+to localhost only on the VPS (see step 5b's security note), so the
+laptop can only reach it through this tunnel — running the dashboard
+without the `-L 7681:...` forward leaves the producer-dialog iframe
+broken.
 
 Leave that session open. In `laptop-browser`, open
 `http://127.0.0.1:7777/`. The page will sit with a connection error
@@ -575,13 +582,14 @@ conversation. `vps-tui` (step 8) uses the same `--session demo` so
 the SSH-attached TUI and the iframe both show the same dialog.
 
 **SSH tunnel is mandatory.** Because ttyd binds to localhost only,
-the laptop browser cannot reach it without an SSH tunnel. Add
-`-L 7681:127.0.0.1:7681` to the same tunnel command you're using
-for the dashboard (`-L 7777:127.0.0.1:7777`) and set
-`DEMO_DISPLAY_TTYD_URL=http://127.0.0.1:7681` in the demo-display
-launch environment (step 5a). The browser hits localhost:7681 on
-the laptop, the SSH server forwards to 127.0.0.1:7681 on the VPS,
-and ttyd authenticates the request.
+the laptop browser cannot reach it without an SSH tunnel — that's
+why step 3's `ssh` command carries both `-L 7777:127.0.0.1:7777`
+(the dashboard) and `-L 7681:127.0.0.1:7681` (ttyd). The browser
+hits localhost:7681 on the laptop, the SSH server forwards to
+127.0.0.1:7681 on the VPS, and ttyd authenticates the request.
+`~/.demo-display.json` already points the iframe at
+`http://127.0.0.1:7681` (set in one-time setup), so there's
+nothing per-run to configure on the demo-display side.
 
 If you ever need to skip the tunnel for a one-shot local diagnostic
 on the VPS itself, that's fine — Basic Auth still protects the
