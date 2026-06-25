@@ -127,13 +127,10 @@
 <a name='L62'></a><a href='#L62'>62</a>
 <a name='L63'></a><a href='#L63'>63</a>
 <a name='L64'></a><a href='#L64'>64</a>
-<a name='L65'></a><a href='#L65'>65</a>
-<a name='L66'></a><a href='#L66'>66</a>
-<a name='L67'></a><a href='#L67'>67</a>
-<a name='L68'></a><a href='#L68'>68</a>
-<a name='L69'></a><a href='#L69'>69</a>
-<a name='L70'></a><a href='#L70'>70</a>
-<a name='L71'></a><a href='#L71'>71</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L65'></a><a href='#L65'>65</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -141,6 +138,30 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -168,81 +189,17 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-no">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { capability } from './capability.ts';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { S } from '@metamask/kernel-utils';
+&nbsp;
+import { makeInternalCapabilities } from './discover.ts';
 &nbsp;
 type SearchResult = {
   source: string;
   published: string;
   snippet: string;
 };
-export const search = capability(
-<span class="fstat-no" title="function not covered" >  async ({</span> query }: { query: string }): Promise&lt;SearchResult[]&gt; =&gt; <span class="cstat-no" title="statement not covered" >[</span>
-    {
-      source: 'https://www.google.com',
-      published: '2025-01-01',
-      snippet: `No information found for ${query}`,
-    },
-  ],
-  {
-    description: 'Search the web for information.',
-    args: { query: { type: 'string', description: 'The query to search for' } },
-    returns: {
-      type: 'array',
-      items: {
-        type: 'object',
-        properties: {
-          source: {
-            type: 'string',
-            description: 'The source of the information.',
-          },
-          published: {
-            type: 'string',
-            description: 'The date the information was published.',
-          },
-          snippet: {
-            type: 'string',
-            description: 'The snippet of information.',
-          },
-        },
-      },
-    },
-  },
-);
 &nbsp;
 const moonPhases = [
   'new moon',
@@ -256,23 +213,48 @@ const moonPhases = [
 ] as const;
 type MoonPhase = (typeof moonPhases)[number];
 &nbsp;
-export const getMoonPhase = capability(
-<span class="fstat-no" title="function not covered" >  async (): Promise&lt;MoonPhase&gt; =&gt;</span>
-<span class="cstat-no" title="statement not covered" >    moonPhases[Math.floor(Math.random() * moonPhases.length)] as MoonPhase,</span>
+const capabilities = makeInternalCapabilities(
+  'Examples',
   {
-    description: 'Get the current phase of the moon.',
-    args: {},
-    returns: {
-      type: 'string',
-      // TODO: Add enum support to the capability schema
-      // @ts-expect-error - enum is not supported by the capability schema
-      enum: moonPhases,
-      description: 'The current phase of the moon.',
+    async <span class="fstat-no" title="function not covered" >search(q</span>uery: string): Promise&lt;SearchResult[]&gt; {
+<span class="cstat-no" title="statement not covered" >      return [</span>
+        {
+          source: 'https://www.google.com',
+          published: '2025-01-01',
+          snippet: `No information found for ${query}`,
+        },
+      ];
+    },
+    async <span class="fstat-no" title="function not covered" >getMoonPhase(): Promise&lt;MoonPhase&gt; {</span>
+<span class="cstat-no" title="statement not covered" >      return moonPhases[</span>
+        Math.floor(Math.random() * moonPhases.length)
+      ] as MoonPhase;
     },
   },
+  S.interface('Examples', {
+    search: S.method(
+      'Search the web for information.',
+      [S.arg('query', S.string('The query to search for'))],
+      S.arrayOf(
+        S.object({
+          source: S.string('The source of the information.'),
+          published: S.string('The date the information was published.'),
+          snippet: S.string('The snippet of information.'),
+        }),
+      ),
+    ),
+    // TODO: Add enum support to the capability schema so the moon phases can be
+    // advertised as the allowed return values.
+    getMoonPhase: S.method(
+      'Get the current phase of the moon.',
+      [],
+      S.string('The current phase of the moon.'),
+    ),
+  }),
 );
 &nbsp;
-export const exampleCapabilities = { search, getMoonPhase };
+export const { search, getMoonPhase } = capabilities;
+export const exampleCapabilities = capabilities;
 &nbsp;</pre></td></tr></table></pre>
 
                 <div class='push'></div><!-- for sticky footer -->
@@ -280,7 +262,7 @@ export const exampleCapabilities = { search, getMoonPhase };
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-25T06:28:52.560Z
+                at 2026-06-25T11:44:27.280Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

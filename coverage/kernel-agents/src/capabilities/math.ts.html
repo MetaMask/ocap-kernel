@@ -25,7 +25,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>9/9</span>
+                <span class='fraction'>7/7</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">100% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>7/7</span>
+                <span class='fraction'>5/5</span>
             </div>
         
             
@@ -106,34 +106,19 @@
 <a name='L41'></a><a href='#L41'>41</a>
 <a name='L42'></a><a href='#L42'>42</a>
 <a name='L43'></a><a href='#L43'>43</a>
-<a name='L44'></a><a href='#L44'>44</a>
-<a name='L45'></a><a href='#L45'>45</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L44'></a><a href='#L44'>44</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">4x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -149,51 +134,63 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { capability } from './capability.ts';
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { S } from '@metamask/kernel-utils';
 &nbsp;
-export const count = capability(
-  async ({ word }: { word: string }) =&gt; word.length,
+import { makeInternalCapabilities } from './discover.ts';
+&nbsp;
+const capabilities = makeInternalCapabilities(
+  'Math',
   {
-    description: 'Count the number of characters in an arbitrary string',
-    args: {
-      word: { type: 'string', description: 'The string to get the length of.' },
+    async count(word: string) {
+      return word.length;
     },
-    returns: {
-      type: 'number',
-      description: 'The number of characters in the string.',
+    async add(summands: number[]) {
+      return summands.reduce((acc, summand) =&gt; acc + summand, 0);
+    },
+    async multiply(factors: number[]) {
+      return factors.reduce((acc, factor) =&gt; acc * factor, 1);
     },
   },
+  S.interface('Math', {
+    count: S.method(
+      'Count the number of characters in an arbitrary string',
+      [S.arg('word', S.string('The string to get the length of.'))],
+      S.number('The number of characters in the string.'),
+    ),
+    add: S.method(
+      'Add a list of numbers.',
+      [S.arg('summands', S.arrayOf(S.number()))],
+      S.number('The sum of the numbers.'),
+    ),
+    multiply: S.method(
+      'Multiply a list of numbers.',
+      [
+        S.arg(
+          'factors',
+          S.arrayOf(S.number(), 'The list of numbers to multiply.'),
+        ),
+      ],
+      S.number('The product of the factors.'),
+    ),
+  }),
 );
 &nbsp;
-export const add = capability(
-  async ({ summands }: { summands: number[] }) =&gt;
-    summands.reduce((acc, summand) =&gt; acc + summand, 0),
-  {
-    description: 'Add a list of numbers.',
-    args: { summands: { type: 'array', items: { type: 'number' } } },
-    returns: { type: 'number', description: 'The sum of the numbers.' },
-  },
-);
-&nbsp;
-export const multiply = capability(
-  async ({ factors }: { factors: number[] }) =&gt;
-    factors.reduce((acc, factor) =&gt; acc * factor, 1),
-  {
-    description: 'Multiply a list of numbers.',
-    args: {
-      factors: {
-        type: 'array',
-        description: 'The list of numbers to multiply.',
-        items: { type: 'number' },
-      },
-    },
-    returns: { type: 'number', description: 'The product of the factors.' },
-  },
-);
-&nbsp;
-const capabilities = { count, add, multiply };
+export const { count, add, multiply } = capabilities;
 export default capabilities;
 &nbsp;</pre></td></tr></table></pre>
 
@@ -202,7 +199,7 @@ export default capabilities;
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-25T06:28:52.560Z
+                at 2026-06-25T11:44:27.280Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>

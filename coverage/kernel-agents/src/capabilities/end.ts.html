@@ -112,7 +112,16 @@
 <a name='L47'></a><a href='#L47'>47</a>
 <a name='L48'></a><a href='#L48'>48</a>
 <a name='L49'></a><a href='#L49'>49</a>
-<a name='L50'></a><a href='#L50'>50</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L50'></a><a href='#L50'>50</a>
+<a name='L51'></a><a href='#L51'>51</a>
+<a name='L52'></a><a href='#L52'>52</a>
+<a name='L53'></a><a href='#L53'>53</a>
+<a name='L54'></a><a href='#L54'>54</a>
+<a name='L55'></a><a href='#L55'>55</a>
+<a name='L56'></a><a href='#L56'>56</a>
+<a name='L57'></a><a href='#L57'>57</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -124,35 +133,9 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-yes">6x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">6x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -160,9 +143,42 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-yes">2x</span>
-<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { ifDefined } from '../utils.ts';
-import { capability } from './capability.ts';
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">6x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">2x</span>
+<span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import { S } from '@metamask/kernel-utils';
+&nbsp;
+import { makeInternalCapabilities } from './discover.ts';
+import { ifDefined } from '../utils.ts';
 &nbsp;
 /**
  * A factory function to make a task's `end` capability, which stores the first
@@ -173,36 +189,41 @@ import { capability } from './capability.ts';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export const makeEnd = &lt;Result&gt;() =&gt; {
+  // Captured, mutable state for the first final result. Intentionally NOT
+  // hardened: the exo method below closes over and mutates it.
   const result: { final?: Result; attachments?: Record&lt;string, unknown&gt; } = {};
-  const end = capability(
-    async ({
-      final,
-      attachments,
-    }: {
-      final: Result;
-      attachments?: Record&lt;string, unknown&gt;;
-    }): Promise&lt;void&gt; =&gt; {
-      <span class="missing-if-branch" title="else path not taken" >E</span>if (!Object.hasOwn(result, 'final')) {
-        Object.assign(result, { final, ...ifDefined({ attachments }) });
-      }
-    },
+&nbsp;
+  const { end } = makeInternalCapabilities(
+    'End',
     {
-      description: 'Return a final response to the user.',
-      args: {
-        final: {
-          required: true,
-          type: 'string',
-          description:
-            'A concise final response that restates the requested information.',
-        },
-        attachments: {
-          required: false,
-          type: 'object',
-          description: 'Attachments to the final response.',
-        },
+      async end(
+        final: Result,
+        attachments?: Record&lt;string, unknown&gt;,
+      ): Promise&lt;void&gt; {
+        <span class="missing-if-branch" title="else path not taken" >E</span>if (!Object.hasOwn(result, 'final')) {
+          Object.assign(result, { final, ...ifDefined({ attachments }) });
+        }
       },
     },
+    S.interface('End', {
+      end: S.method(
+        'Return a final response to the user.',
+        [
+          S.arg(
+            'final',
+            S.string(
+              'A concise final response that restates the requested information.',
+            ),
+          ),
+          S.arg('attachments', S.record('Attachments to the final response.'), {
+            optional: true,
+          }),
+        ],
+        S.nothing(),
+      ),
+    }),
   );
+&nbsp;
   return [end, () =&gt; 'final' in result, () =&gt; result.final as Result] as const;
 };
 &nbsp;
@@ -217,7 +238,7 @@ export const [end] = makeEnd();
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-06-25T06:28:52.560Z
+                at 2026-06-25T11:44:27.280Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
