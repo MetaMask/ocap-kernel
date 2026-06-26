@@ -44,6 +44,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Use length-prefixed framing for remote messages so payloads larger than the underlying transport's per-frame cutoff (e.g. `@libp2p/webrtc`'s 16 KB datachannel limit) are reassembled correctly on the receiver ([#957](https://github.com/MetaMask/ocap-kernel/pull/957))
   - Replace `byteStream` with `lpStream` on every remote channel; the byte-oriented stream did not preserve `write()` boundaries, so any message the transport split into multiple frames was parsed from the first frame only, silently dropped without acknowledgement, and the sender retried until giving up after `MAX_RETRIES`
   - Surface receiver-side framing-cap violations (`InvalidDataLengthError`, `InvalidDataLengthLengthError`) as `ResourceLimitError` with `limitType: 'messageSize'` so size errors look the same whether they tripped on the sender's `validateMessageSize` or the receiver's framing decoder
+- Restore IO channels for persisted subclusters at kernel init so re-incarnated vats find their IOService references live ([#963](https://github.com/MetaMask/ocap-kernel/pull/963))
+  - `SubclusterManager.restorePersistedIOChannels()` walks every persisted subcluster, finds those whose config declares `io`, and re-creates the channels via `IOManager` before `initializeAllVats` runs
+  - Without this, any vat that opened an IO channel via `launchSubcluster` lost its channel across `daemon stop` / `daemon start` and silently held a dead IOService reference
 
 ## [0.7.0]
 

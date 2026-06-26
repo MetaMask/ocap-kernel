@@ -369,6 +369,56 @@ export class SubclusterManager {
   }
 
   /**
+   * Re-create IO channels for every persisted subcluster whose config
+   * declares one.
+   *
+   * IO channels (`config.io`) are external to the kernel's durable
+   * state — they're live OS-process resources (Unix sockets, pipes,
+   * etc.) backed by the host's IOManager. `launchSubcluster` creates
+   * them at subcluster-launch time, but on a kernel restart the vats
+   * get re-incarnated from persisted state without going through
+   * `launchSubcluster` again, so any IO channels they were using are
+   * gone. This method bridges that gap: invoked from the kernel's
+   * init path before `initializeAllVats`, it walks the persisted
+   * subcluster table and re-creates each subcluster's declared IO
+   * channels so the re-incarnated vats find their IOService
+   * references live and ready when they make their first method call.
+   *
+   * If a particular subcluster's `createChannels` call fails (e.g.
+   * the socket path is now in use by another process), the failure
+   * is logged but does not abort the broader init — other
+   * subclusters can still come up. Vats backed by the failed
+   * subcluster will see method calls on their IOServices fail at
+   * first use.
+   *
+   * No-op when no IOManager was provided to this SubclusterManager.
+   */
+  async restorePersistedIOChannels(): Promise<void> {
+    if (!this.#ioManager) {
+      return;
+    }
+    for (const subcluster of this.#kernelStore.getSubclusters()) {
+      if (!subcluster.config.io) {
+        continue;
+      }
+      try {
+        await this.#ioManager.createChannels(
+          subcluster.id,
+          subcluster.config.io,
+        );
+        this.#logger.info(
+          `Restored IO channels for persisted subcluster ${subcluster.id}`,
+        );
+      } catch (error) {
+        this.#logger.error(
+          `Failed to restore IO channels for subcluster ${subcluster.id}:`,
+          error,
+        );
+      }
+    }
+  }
+
+  /**
    * Launch new system subclusters that aren't already in persistence.
    * This must be called after the kernel queue is running since launchSubcluster
    * sends bootstrap messages.

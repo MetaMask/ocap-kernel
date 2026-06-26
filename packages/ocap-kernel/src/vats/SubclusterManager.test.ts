@@ -821,4 +821,119 @@ describe('SubclusterManager', () => {
       ).not.toHaveBeenCalled();
     });
   });
+
+  describe('restorePersistedIOChannels', () => {
+    const makeMockIOManager = () => ({
+      createChannels: vi.fn().mockResolvedValue(undefined),
+      destroyChannels: vi.fn().mockResolvedValue(undefined),
+    });
+
+    const subclusterWithIO = (
+      id: string,
+      io: Record<string, { type: 'socket'; path: string }>,
+    ): Subcluster => ({
+      id,
+      config: {
+        bootstrap: 'svc',
+        vats: { svc: { sourceSpec: 'svc.js' } },
+        io,
+      },
+      vats: { svc: 'v1' as VatId },
+    });
+
+    const subclusterWithoutIO = (id: string): Subcluster => ({
+      id,
+      config: createMockClusterConfig(`s-${id}`),
+      vats: { [`s-${id}Vat`]: 'v1' as VatId },
+    });
+
+    it('re-creates channels for every persisted subcluster declaring io', async () => {
+      const ioA = { llm: { type: 'socket' as const, path: '/tmp/a.sock' } };
+      const ioB = { wire: { type: 'socket' as const, path: '/tmp/b.sock' } };
+      mockKernelStore.getSubclusters.mockReturnValue([
+        subclusterWithIO('s1', ioA),
+        subclusterWithIO('s2', ioB),
+      ]);
+      const ioManager = makeMockIOManager();
+      const mgr = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+        ioManager: ioManager as never,
+      });
+
+      await mgr.restorePersistedIOChannels();
+
+      expect(ioManager.createChannels).toHaveBeenCalledTimes(2);
+      expect(ioManager.createChannels).toHaveBeenCalledWith('s1', ioA);
+      expect(ioManager.createChannels).toHaveBeenCalledWith('s2', ioB);
+    });
+
+    it('skips subclusters whose config does not declare io', async () => {
+      mockKernelStore.getSubclusters.mockReturnValue([
+        subclusterWithoutIO('s1'),
+        subclusterWithIO('s2', {
+          io: { type: 'socket' as const, path: '/tmp/s2.sock' },
+        }),
+      ]);
+      const ioManager = makeMockIOManager();
+      const mgr = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+        ioManager: ioManager as never,
+      });
+
+      await mgr.restorePersistedIOChannels();
+
+      expect(ioManager.createChannels).toHaveBeenCalledTimes(1);
+      expect(ioManager.createChannels).toHaveBeenCalledWith(
+        's2',
+        expect.objectContaining({ io: expect.anything() }),
+      );
+    });
+
+    it('is a no-op when no IOManager was provided', async () => {
+      mockKernelStore.getSubclusters.mockReturnValue([
+        subclusterWithIO('s1', {
+          llm: { type: 'socket' as const, path: '/tmp/a.sock' },
+        }),
+      ]);
+      // Default subclusterManager from beforeEach has no ioManager;
+      // a missing manager must not cause an error here.
+      expect(
+        await subclusterManager.restorePersistedIOChannels(),
+      ).toBeUndefined();
+    });
+
+    it('continues past a per-subcluster failure', async () => {
+      mockKernelStore.getSubclusters.mockReturnValue([
+        subclusterWithIO('s1', {
+          llm: { type: 'socket' as const, path: '/tmp/a.sock' },
+        }),
+        subclusterWithIO('s2', {
+          wire: { type: 'socket' as const, path: '/tmp/b.sock' },
+        }),
+      ]);
+      const ioManager = makeMockIOManager();
+      ioManager.createChannels.mockImplementationOnce(async () => {
+        throw new Error('socket in use');
+      });
+      const mgr = new SubclusterManager({
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        vatManager: mockVatManager,
+        getKernelService: mockGetKernelService,
+        queueMessage: mockQueueMessage,
+        ioManager: ioManager as never,
+      });
+
+      expect(await mgr.restorePersistedIOChannels()).toBeUndefined();
+      expect(ioManager.createChannels).toHaveBeenCalledTimes(2);
+    });
+  });
 });
