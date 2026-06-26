@@ -539,7 +539,10 @@ export function buildRootObject(
     contact: ContactPoint,
   ): string {
     const id = nextId();
-    const entry: RegisteredService = { id, description, contact };
+    // `entry` is mirrored into baggage via `persistEntry`, which
+    // marshals it through the durable-storage path; baggage refuses
+    // unhardened values, so freeze the entry here.
+    const entry: RegisteredService = harden({ id, description, contact });
     registry.set(id, entry);
     persistEntry(entry);
     log(`registered ${id}: ${description.description.slice(0, 80)}`);
