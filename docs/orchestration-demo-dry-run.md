@@ -56,15 +56,15 @@ interactive sessions.
 
 ### Small windows (logs and long-running silents)
 
-| Label              | Machine | Purpose                                                                                                                                                                                                                                         |
-| ------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `vps-relay`        | VPS     | `yarn ocap relay`. Idles after startup.                                                                                                                                                                                                         |
-| `vps-matcher-log`  | VPS     | `tail -F ~/.ocap/daemon.log`.                                                                                                                                                                                                                   |
-| `vps-bridge-log`   | VPS     | `tail -F ~/.ocap/matcher-llm-bridge.log`.                                                                                                                                                                                                       |
-| `vps-consumer-log` | VPS     | `tail -F ~/.ocap-consumer/daemon.log`.                                                                                                                                                                                                          |
-| `vps-display`      | VPS     | `yarn workspace @ocap/demo-display start`. Hosts the long-running HTTP+SSE server.                                                                                                                                                              |
-| `vps-ttyd`         | VPS     | `ttyd -p 7681 -i 127.0.0.1 -c "${TTYD_USER}:${TTYD_PASS}" -O -W openclaw tui --session demo`. Fronts the producer TUI for the iframe in the dashboard's Producer-dialog pane. **Must be launched with the security flags shown — see step 5b.** |
-| `laptop-svcs-log`  | Laptop  | `tail -F ~/.ocap-services/daemon.log`.                                                                                                                                                                                                          |
+| Label              | Machine | Purpose                                                                                                                                                                                                          |
+| ------------------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `vps-relay`        | VPS     | `yarn ocap relay`. Idles after startup.                                                                                                                                                                          |
+| `vps-matcher-log`  | VPS     | `tail -F ~/.ocap/daemon.log`.                                                                                                                                                                                    |
+| `vps-bridge-log`   | VPS     | `tail -F ~/.ocap/matcher-llm-bridge.log`.                                                                                                                                                                        |
+| `vps-consumer-log` | VPS     | `tail -F ~/.ocap-consumer/daemon.log`.                                                                                                                                                                           |
+| `vps-display`      | VPS     | `yarn workspace @ocap/demo-display start`. Hosts the long-running HTTP+SSE server.                                                                                                                               |
+| `vps-ttyd`         | VPS     | `ttyd -p 7681 -i 127.0.0.1 -O -W openclaw tui --session demo`. Fronts the producer TUI for the iframe in the dashboard's Producer-dialog pane. **Must be launched with the security flags shown — see step 5b.** |
+| `laptop-svcs-log`  | Laptop  | `tail -F ~/.ocap-services/daemon.log`.                                                                                                                                                                           |
 
 ### Large windows (interactive, in-depth)
 
@@ -548,27 +548,20 @@ populate once step 5b is up), wallet ribbon `—`.
 > the inventor. The default ttyd flags listen on **all
 > interfaces** with **no auth**. A previous run was caught by an
 > internet port scan with the loose default flags; do not launch
-> ttyd in this demo without all three of the protections below.
+> ttyd in this demo without the two protections below.
 
 The launch line for this demo is:
 
 ```csh
-setenv TTYD_USER demo
-setenv TTYD_PASS '<strong-random-password>'   # do NOT commit; set in
-                                              # ~/.cshrc or paste fresh
-ttyd -p 7681 -i 127.0.0.1 -c "${TTYD_USER}:${TTYD_PASS}" -O \
-     -W openclaw tui --session demo
+ttyd -p 7681 -i 127.0.0.1 -O -W openclaw tui --session demo
 ```
 
-The flags do three things:
+The flags do two things:
 
 - `-i 127.0.0.1` binds ttyd to localhost only, so the port is not
   reachable from outside the VPS. The laptop browser has to reach
   it via an SSH tunnel (see below) — there is no exposed network
   surface.
-- `-c "$TTYD_USER:$TTYD_PASS"` requires HTTP Basic Auth on every
-  request. The browser prompts once when the iframe loads. Use a
-  long random password; rotate after every public demo.
 - `-O` enables Origin checking, rejecting WebSocket upgrades whose
   `Origin` header doesn't match the host — closes a cross-site
   upgrade angle.
@@ -585,15 +578,23 @@ the laptop browser cannot reach it without an SSH tunnel — that's
 why step 3's `ssh` command carries both `-L 7777:127.0.0.1:7777`
 (the dashboard) and `-L 7681:127.0.0.1:7681` (ttyd). The browser
 hits localhost:7681 on the laptop, the SSH server forwards to
-127.0.0.1:7681 on the VPS, and ttyd authenticates the request.
+127.0.0.1:7681 on the VPS, and ttyd reaches it.
 `~/.demo-display.json` already points the iframe at
 `http://127.0.0.1:7681` (set in one-time setup), so there's
 nothing per-run to configure on the demo-display side.
 
-If you ever need to skip the tunnel for a one-shot local diagnostic
-on the VPS itself, that's fine — Basic Auth still protects the
-port — but for the demo proper the tunnel + localhost binding is
-the canonical posture.
+**About Basic Auth.** An earlier revision of this playbook added
+`-c "$TTYD_USER:$TTYD_PASS"` as a third layer. We dropped it
+because the SSH-tunnel + localhost-bind layer already gates
+access: the only path from anywhere to port 7681 is through an
+SSH session that authenticates against your SSH server. Adding
+Basic Auth on top doesn't compound much — anyone who can reach
+the iframe URL is, by definition, the holder of your SSH
+credentials — and the per-iframe-load browser auth prompt is
+real friction during a live demo. If you ever loosen the
+SSH-tunnel posture (e.g. exposing the port to your LAN for
+multi-laptop demos), restore the `-c` flag with a strong
+randomized `TTYD_PASS`.
 
 ### Step 6: Point the discovery plugin at the matcher URL
 
