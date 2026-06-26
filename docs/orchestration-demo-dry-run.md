@@ -467,7 +467,7 @@ Leave that session open. In `laptop-browser`, open
 until step 5 (demo-display) is up; the browser auto-recovers once
 the server is listening.
 
-### Step 4: VPS matcher + consumer daemon
+### Step 4: VPS matcher + consumer daemon + gateway
 
 The matcher persists across restarts now: its OCAP URLs are
 deterministic over kernel state, so as long as you don't purge the
@@ -476,27 +476,54 @@ persists (in vat baggage), so providers registered in earlier
 rehearsals are still there. Pick the variant that matches what you
 want:
 
-**Routine per-rehearsal restart** (URL stays stable, but you want a
-clean service registry so providers from earlier rehearsals don't
-pollute matcher rankings):
+**Routine per-rehearsal restart** (URL stays stable; matcher
+registry, consumer daemon, openclaw gateway, and demo-plugin
+wallet all reset to a clean state):
 
 ```csh
 ./packages/service-matcher/scripts/rehearsal-restart-matcher.sh
 source ~/.ocap/matcher-urls.env
 ```
 
-`rehearsal-restart-matcher.sh` wraps the two-step sequence:
-clear-matcher-registry (talks to the live matcher vat via
-`daemon queueMessage`, empties both the in-memory and baggage-stored
-registry without changing the URL), then `start-matcher.sh
---no-build`. The first sub-step is a no-op if no matcher is yet
-running (e.g. very first boot, or after a `daemon stop`).
+`rehearsal-restart-matcher.sh` runs, in order:
+
+1. `start-matcher.sh` — rebuilds the matcher vat bundle, stops and
+   restarts the matcher daemon so the new code loads, restores the
+   subcluster from kernel.sqlite (URL stays stable), re-spawns the
+   llm-bridge.
+2. `consumer daemon stop` + `consumer daemon start --local-relay` —
+   the openclaw discovery plugin uses the consumer daemon as its
+   relay-facing client. Restarting puts it in a clean
+   `remoteComms: connected` state.
+3. `openclaw gateway restart` — re-runs every plugin's `register()`,
+   which resets the demo plugin's in-process wallet to its initial
+   $10,000 and clears the discovery plugin's tracked-services
+   cache.
+4. `clear-matcher-registry.sh` — wipes any registrations carried
+   over from prior runs so the marketplace grid starts empty.
+
+After the script finishes, do these two manual follow-ups so the
+dashboard's stale state also clears:
+
+- **`vps-display`**: Ctrl-C the running demo-display server and
+  re-run `yarn workspace @ocap/demo-display start`. This flushes
+  the SSE event-log buffer (otherwise the wallet ribbon replays
+  stale `wallet.*` events from the previous run and shows the
+  wrong balance even though the plugin state is fresh).
+- **Browser**: hard-refresh the dashboard tab. The iframe
+  reconnects to ttyd, which spawns a fresh `openclaw tui` against
+  the named `demo` session — but you may want a fully fresh agent
+  conversation, in which case stop and restart the ttyd process
+  in `vps-ttyd` and reload.
 
 If you'd rather drive the sub-steps by hand:
 
 ```csh
-./packages/service-matcher/scripts/clear-matcher-registry.sh
 ./packages/service-matcher/scripts/start-matcher.sh --no-build
+node ./packages/kernel-cli/dist/app.mjs --home ~/.ocap-consumer daemon stop
+node ./packages/kernel-cli/dist/app.mjs --home ~/.ocap-consumer daemon start --local-relay
+openclaw gateway restart
+./packages/service-matcher/scripts/clear-matcher-registry.sh
 source ~/.ocap/matcher-urls.env
 ```
 
@@ -596,14 +623,15 @@ SSH-tunnel posture (e.g. exposing the port to your LAN for
 multi-laptop demos), restore the `-c` flag with a strong
 randomized `TTYD_PASS`.
 
-### Step 6: Point the discovery plugin at the matcher URL
+### Step 6: Point the discovery plugin at the matcher URL (cold-start only)
 
 **Skip this step on a routine rehearsal restart.** The matcher URL
-persists across `start-matcher.sh` restarts, so the value already
-set in openclaw's config from the previous run is still correct.
+persists across `start-matcher.sh` restarts, so the value set in
+openclaw's config from the previous run is still correct, and the
+gateway-restart happens inside `rehearsal-restart-matcher.sh`.
 
-Only redo this step after `reset-everything.sh` (which mints a fresh
-URL). In `vps-ctl`:
+Only do this step after `reset-everything.sh` mints a fresh URL.
+In `vps-ctl`:
 
 ```csh
 source ~/.ocap/matcher-urls.env
@@ -813,6 +841,26 @@ cheap.
 - **TUI claims fewer than 10 tools** — `tools.profile` is set, or `tools.allow` is incomplete. Re-run the one-time setup's `openclaw config` lines and `openclaw gateway restart`.
 - **Workflow board scrolls horizontally** — known quirk; columns are 8rem minimum, and the cell can be narrower than 8rem × N-columns. Acceptable for V0; revisit in layout polish.
 - **Dashboard goes black after the first event** — the bug fixed in `b13a2cc9a`. Confirm VPS is on a recent enough commit and the frontend was rebuilt.
+
+- **Multiple daemon-entry processes running for the same OCAP_HOME** (`ps -ef | grep daemon-entry` shows more than one matcher-side or consumer-side daemon) — `daemon start` is supposed to refuse if a daemon is already running, but a race or a stale state can leak orphans. Recovery WITHOUT sweeping up the other home's daemon:
+
+  ```csh
+  # Identify the legitimate matcher daemon (the one named in its pid file)
+  cat \~/.ocap/daemon.pid
+
+  # List every daemon-entry process for this user, with their command lines
+  ps -o pid,lstart,args -C node | grep daemon-entry
+
+  # Kill every daemon-entry process EXCEPT the legitimate one.
+  # Verify each PID's command line / process tree before killing.
+  # The matcher daemon's OCAP_SOCKET_PATH env var points at ~/.ocap/daemon.sock;
+  # the consumer's at ~/.ocap-consumer/daemon.sock.
+  cat /proc/<pid>/environ | tr '\0' '\n' | grep OCAP_
+
+  kill <pid-of-orphan>
+  ```
+
+  **Never use `pkill -f daemon-entry`** outside `reset-everything.sh` (which intends to kill both homes' daemons). The pattern matches both the matcher daemon and the consumer daemon, and the cleanup script doesn't restart the consumer afterward.
 
 ---
 
