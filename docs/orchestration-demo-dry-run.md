@@ -512,9 +512,20 @@ dashboard's stale state also clears:
   wrong balance even though the plugin state is fresh).
 - **Browser**: hard-refresh the dashboard tab. The iframe
   reconnects to ttyd, which spawns a fresh `openclaw tui` against
-  the named `demo` session — but you may want a fully fresh agent
-  conversation, in which case stop and restart the ttyd process
-  in `vps-ttyd` and reload.
+  the named `demo` session.
+- **TUI**: in the Producer-dialog pane (or the SSH-attached
+  `vps-tui`, since they share the same `--session demo`), type
+  `/reset` to clear the LLM's conversation context. Without this
+  the agent carries over beliefs from the previous run (cached
+  service handles, half-finished phase narration, knowledge of
+  decisions you haven't made yet) and the presentation gets
+  muddled. **This step cannot be skipped between rehearsals**,
+  even if everything else looks clean.
+- **ttyd itself does not need to be restarted** between rehearsals
+  unless something about the ttyd command line or the underlying
+  openclaw binary changed. The named session reconnects
+  transparently; the agent reset above is what creates the clean
+  starting state.
 
 If you'd rather drive the sub-steps by hand:
 
@@ -869,6 +880,13 @@ cheap.
 Reverse-chronological. Each run gets a dated header; bullet anything
 worth remembering for the next iteration of the SKILL.md or the
 dashboard.
+
+### Run 12 — 2026-06-26
+
+- Restart procedure is now streamlined; running the rehearsal-restart script + `/reset` in the TUI is enough between rehearsals.
+- LLM stopped between schematic-generation and pcb-layout for a confirmation rather than running them as one act (as in prior runs). Probably LLM variance, not a fundamental change. Doing the two as one act made for a tighter demo; worth nudging the SKILL.md to keep them paired if the variance recurs.
+- Still triggering firmware-implementation before charging the wallet, so the agent narrates the work as "done but payment pending" when the inventor needs to top up. Tracked as a fundamental ordering issue best addressed by `docs/orchestration-demo-wallet-design.md` (charge-before-work enforced by the wallet vat).
+- Stage 3 (5,000-unit production scale-up) probe found the prototype-pricing services don't reflect volume pricing. Out of scope for this iteration; future demo could simulate raising investment to fund the scale-up.
 
 ### Run N — <YYYY-MM-DD>
 
