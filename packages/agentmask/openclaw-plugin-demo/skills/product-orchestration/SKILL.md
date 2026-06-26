@@ -232,7 +232,10 @@ Per-phase intent:
   artifacts land in the Firmware column** (same `phase` value); the
   spec first, then the implementation. Announce the implementation
   charge before calling `implement`, since the round-2 cost is the
-  one the inventor hasn't yet absorbed.
+  one the inventor hasn't yet absorbed — and check the wallet has
+  the $5,000 of headroom _before_ the `service_call`, requesting a
+  top-up first if it doesn't (see the "Never commission costed
+  work the wallet can't pay for" hard rule).
 - **Bench Build** — the engineering-prototype build that closes
   out Stage 1. Two-step engagement with the small contract shop
   (proto-pros):
@@ -412,13 +415,22 @@ The cadence at each commit:
 2. Wait for explicit approval. Don't infer it from earlier
    "looks good" remarks on a different document. The commit is
    real money; the inventor names the amount.
-3. `service_call` the commit method on the same service nickname
+3. **Check the wallet against the quoted price.** Call
+   `demo_wallet_balance` (or rely on the most recently observed
+   balance if you have one). If the balance is below the price,
+   say so to the inventor and request a top-up via
+   `demo_wallet_credit` _before_ calling the commit method. Don't
+   call the service "to see what happens" — the service does the
+   work synchronously and the charge is meant to precede the
+   delivery. See the "Never commission costed work the wallet
+   can't pay for" hard rule.
+4. `service_call` the commit method on the same service nickname
    from the prior contact. For supplier commits (`purchase`,
    `fabricate`), the `approval` argument carries the assembler's
    `receiveShipmentUrl` in its `shipToUrl` field — see
    "Inter-service handoffs" below. For `build` (the manufacturer's
    go-ahead) `approval` is empty (`'[{}]'`).
-4. The reply carries a receipt artifact handle. Close it out via
+5. The reply carries a receipt artifact handle. Close it out via
    `demo_service_completed` with the **batch total** as
    `charge.amountUsd` and the `consumes` list set to the quote
    handle (and any other inputs the order rests on — the BOM and
@@ -511,11 +523,16 @@ service call.
 
 4. **Read the wallet balance once early** via
    `demo_wallet_balance`. Remember the value. Consult it again
-   before any phase that involves large per-unit costs. After each
-   successful `service_call` that incurred a cost, call
-   `demo_wallet_charge({ amountUsd, reason })` with the price the
-   service quoted; the wallet ribbon on the dashboard updates as
-   a result, so the audience can see money actually moving.
+   **before every commit-style `service_call`** (any method that
+   incurs the full work cost rather than a setup or quote fee).
+   If the balance is below the quoted price, surface the
+   shortfall to the inventor and request a top-up _before_
+   invoking the service — see the "Never commission costed work
+   the wallet can't pay for" hard rule. After a successful
+   commit, close the cadence with `demo_service_completed`,
+   which records the artifact and charges the wallet in one
+   step; the wallet ribbon on the dashboard updates as a result,
+   so the audience can see money actually moving.
 
    **Top-ups** go through `demo_wallet_credit({ amountUsd, reason })`.
    Call this **only on direct inventor authorization** — they have
@@ -525,10 +542,11 @@ service call.
    that would overdraw it — so when the wallet runs low and the
    next charge wouldn't fit, you have to surface the shortfall to
    the inventor and ask how they want to handle it _before_
-   attempting the charge. The tool returns a shortfall message
-   when this happens; treat that as confirmation, not as a failure
-   to retry blindly. Don't tell the inventor to add funds through
-   some other interface; this tool is the interface.
+   the commit `service_call`. The tool returns a shortfall message
+   if you ever do hit overdraw at `demo_service_completed` time;
+   treat that as evidence the pre-commit check was skipped, not as
+   a failure to retry blindly. Don't tell the inventor to add
+   funds through some other interface; this tool is the interface.
 
 5. **Concept phase** (special — no service):
 
@@ -777,6 +795,18 @@ service call.
   amounts before the relevant `service_call` reply lands. Doing so
   reads to the audience as the agent inventing prices the supplier
   hasn't actually quoted.
+- **Never commission costed work the wallet can't pay for.** Before
+  any `service_call` to a commit-style method (the right column of
+  the "Purchase commits" table, plus `firmware-foundry.implement`
+  and any other method that incurs the full work cost rather than
+  a setup/quote fee), confirm the wallet has enough headroom for
+  the price the prior quote stated. If it doesn't, surface the
+  shortfall to the inventor and request a top-up via
+  `demo_wallet_credit` **before** invoking the service. The conceit
+  is that these are actual funds being paid to a contractor —
+  contractors do not work first and bill later. Narrating "work is
+  done, payment pending" after the fact is a presentation failure;
+  the wallet check must precede the commit call, not follow it.
 - **Never narrate findings the artifact summary doesn't support.**
   The slim summary is your only window into the artifact body;
   treat it literally. If the bench-build summary says "no firmware
