@@ -3,6 +3,7 @@ import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 import type { OcapURLRedemptionService } from '@metamask/ocap-kernel';
 
 import { renderBom } from './template.ts';
+import { formatUsd, makeVolumeProfile } from '../vat-lib/index.ts';
 import type { ReceiveShipmentEndpoint } from '../vat-lib/index.ts';
 
 /**
@@ -21,14 +22,17 @@ export const COMPONENT_SOURCING_SERVICE_DESCRIPTION =
 export const COMPONENT_SOURCING_PROVIDER_TAG = 'shenzhen-direct';
 
 /**
- * Advisory per-method prices (USD). `source` is a flat sourcing fee
- * for producing the BOM. `purchase` is the batch parts cost itself,
- * pinned to the canonical 15-unit profile so the agent's wallet
- * charge after the inventor approves the BOM matches what the
- * audience saw in the document.
+ * Advisory price (USD) for the sourcing fee. `purchase` charges
+ * the actual batch parts cost, which now depends on the quantity
+ * the brief named — see `renderBom` in `./template.ts` and the
+ * shared volume-pricing helpers in `vat-lib`.
  */
 export const COMPONENT_SOURCING_PRICE_USD = 400;
-export const COMPONENT_SOURCING_PURCHASE_PRICE_USD = 961.5;
+/**
+ * Default quantity when the brief doesn't mention one. 15 matches
+ * the prototype Manufacturing engagement in the demo's Stage 2.
+ */
+const DEFAULT_BATCH_QUANTITY = 15;
 
 export type ComponentSourcingArtifact = {
   kind: 'markdown';
@@ -46,19 +50,6 @@ export type ComponentSourcingArtifact = {
 };
 
 /**
- * Format a USD amount with two decimals + thousands separators.
- *
- * @param amount - The USD amount.
- * @returns The formatted string, e.g. `"$961.50"`.
- */
-function formatUsd(amount: number): string {
-  return `$${amount.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-/**
  * Build the component-sourcing service exo.
  *
  * @param options - Construction options.
@@ -72,13 +63,23 @@ export function makeComponentSourcingService(options: {
   ocapURLRedemptionService: OcapURLRedemptionService;
 }) {
   const { ocapURLRedemptionService } = options;
+  // The most recent BOM's quantity. `purchase` looks this up so the
+  // order receipt and the shipped manifest match what the BOM
+  // priced. Per-instance state; one matcher invocation per agent
+  // session so cross-call contamination is not a concern.
+  let lastBatchQuantity = DEFAULT_BATCH_QUANTITY;
+  let lastBatchTotalUsd: number | undefined;
   return makeDiscoverableExo(
     'ComponentSourcingService',
     {
-      async source(_spec: string): Promise<ComponentSourcingArtifact> {
-        const markdown = renderBom({
+      async source(spec: string): Promise<ComponentSourcingArtifact> {
+        const { markdown, profile, batchTotalUsd } = renderBom({
           providerLabel: COMPONENT_SOURCING_PROVIDER_TAG,
+          brief: typeof spec === 'string' ? spec : '',
+          defaultQuantity: DEFAULT_BATCH_QUANTITY,
         });
+        lastBatchQuantity = profile.quantity;
+        lastBatchTotalUsd = batchTotalUsd;
         return harden({
           kind: 'markdown',
           data: markdown,
@@ -86,16 +87,26 @@ export function makeComponentSourcingService(options: {
           metadata: {
             title: 'LAUR — bill of materials',
             summary:
-              'Priced BOM for a prototype batch: components, ' +
-              'distributors, lead times, and per-unit totals.',
+              `Priced BOM at ${profile.tierLabel}: ` +
+              `${profile.quantity.toLocaleString()} units, ` +
+              `batch total ${formatUsd(batchTotalUsd)}. Enclosure ` +
+              `${profile.enclosureModality}.`,
           },
         });
       },
       async purchase(approval: {
         shipToUrl?: string;
       }): Promise<ComponentSourcingArtifact> {
-        const total = COMPONENT_SOURCING_PURCHASE_PRICE_USD;
+        // Honor whatever the last source() call quoted, or
+        // synthesize a quote on the fly if purchase() ran without
+        // a prior source() (defensive; the agent's cadence puts
+        // source() first).
+        const quantity = lastBatchQuantity;
+        const total =
+          lastBatchTotalUsd ??
+          makeVolumeProfile(quantity).pcbUnitUsd * quantity;
         const totalLabel = formatUsd(total);
+        const profile = makeVolumeProfile(quantity);
         const shipToUrl =
           typeof approval?.shipToUrl === 'string' && approval.shipToUrl.length
             ? approval.shipToUrl
@@ -122,7 +133,7 @@ export function makeComponentSourcingService(options: {
         const ack = await E(receiver).receiveShipment({
           from: COMPONENT_SOURCING_PROVIDER_TAG,
           kind: 'parts shipment',
-          items: 'components for a 15-unit prototype batch',
+          items: `components for a ${quantity.toLocaleString()}-unit ${profile.tier} batch`,
         });
         const { receiverTag, buildPhase } = ack;
         const interactions = [
@@ -137,9 +148,11 @@ export function makeComponentSourcingService(options: {
         const data =
           `# Parts purchase confirmation\n\n` +
           `Vendor: ${COMPONENT_SOURCING_PROVIDER_TAG}\n` +
-          `Order: components for a 15-unit prototype batch\n` +
+          `Order: components for a ${quantity.toLocaleString()}-unit batch (${profile.tierLabel})\n` +
           `Total: ${totalLabel}\n` +
-          `Estimated lead time: 14 days\n` +
+          `Estimated lead time: ${
+            profile.enclosureModality === 'SLA' ? '14 days' : '21 days'
+          }\n` +
           `Ship to: ${receiverTag}\n\n` +
           `Order accepted. The distributor will consolidate parts ` +
           `and ship to the manufacturer on the lead-time schedule. ` +
@@ -153,8 +166,8 @@ export function makeComponentSourcingService(options: {
             title: 'LAUR — parts purchase confirmation',
             summary:
               `Parts order placed with ${COMPONENT_SOURCING_PROVIDER_TAG}: ` +
-              `${totalLabel} for the 15-unit batch, 14-day lead time. ` +
-              `Manifest handed off to ${receiverTag} via ocap.`,
+              `${totalLabel} for the ${quantity.toLocaleString()}-unit batch ` +
+              `at ${profile.tierLabel}. Manifest handed off to ${receiverTag} via ocap.`,
           },
           interactions,
         });

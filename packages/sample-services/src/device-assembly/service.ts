@@ -3,6 +3,7 @@ import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 import type { OcapURLRedemptionService } from '@metamask/ocap-kernel';
 
 import { renderBuildPlan } from './template.ts';
+import { formatUsd } from '../vat-lib/index.ts';
 import type { ReceiveShipmentEndpoint } from '../vat-lib/index.ts';
 
 /**
@@ -25,12 +26,16 @@ export const DEVICE_ASSEMBLY_SERVICE_DESCRIPTION =
 export const DEVICE_ASSEMBLY_PROVIDER_TAG = 'assembly-coop';
 
 /**
- * Advisory per-method prices (USD). `assemble` is a one-time setup
- * fee for producing the build plan. `build` is the per-unit labor
- * for the prototype batch, pinned to the canonical 15-unit profile.
+ * Advisory price (USD) for the assembly setup fee. `build` charges
+ * the actual batch labor cost, which depends on the volume tier of
+ * the brief passed to the prior `assemble` call.
  */
 export const DEVICE_ASSEMBLY_PRICE_USD = 1_800;
-export const DEVICE_ASSEMBLY_BUILD_PRICE_USD = 240;
+/**
+ * Default batch size when the brief doesn't name one. 15 matches
+ * the prototype Manufacturing engagement in Stage 2.
+ */
+const DEFAULT_BUILD_QUANTITY = 15;
 
 export type DeviceAssemblyArtifact = {
   kind: 'markdown';
@@ -72,13 +77,33 @@ export function makeDeviceAssemblyService(options: {
   ocapURLRedemptionService: OcapURLRedemptionService;
 }) {
   const { getReceiveShipmentUrl, ocapURLRedemptionService } = options;
+  // Last `assemble` call's quantity drives the `build` quote.
+  let lastBuildQuantity = DEFAULT_BUILD_QUANTITY;
+  let lastBuildTotalUsd: number | undefined;
+  let lastBuildLeadTime: string | undefined;
+  let lastBuildYield: string | undefined;
+  let lastBuildTierLabel: string | undefined;
   return makeDiscoverableExo(
     'DeviceAssemblyService',
     {
-      async assemble(_spec: string): Promise<DeviceAssemblyArtifact> {
-        const markdown = renderBuildPlan({
+      async assemble(spec: string): Promise<DeviceAssemblyArtifact> {
+        const {
+          markdown,
+          profile,
+          perUnitLaborUsd,
+          batchLaborUsd,
+          leadTime,
+          qaPassRate,
+        } = renderBuildPlan({
           providerLabel: DEVICE_ASSEMBLY_PROVIDER_TAG,
+          brief: typeof spec === 'string' ? spec : '',
+          defaultQuantity: DEFAULT_BUILD_QUANTITY,
         });
+        lastBuildQuantity = profile.quantity;
+        lastBuildTotalUsd = batchLaborUsd;
+        lastBuildLeadTime = leadTime;
+        lastBuildYield = qaPassRate;
+        lastBuildTierLabel = profile.tierLabel;
         return harden({
           kind: 'markdown',
           data: markdown,
@@ -86,28 +111,33 @@ export function makeDeviceAssemblyService(options: {
           metadata: {
             title: 'LAUR — assembly build plan',
             summary:
-              'Build plan covering work cells, test sequence, QA ' +
-              'gates, schedule, and per-unit assembly cost. ' +
-              'Engagement includes a receive-shipment ocap URL so ' +
-              'suppliers can deliver parts and bare boards directly ' +
-              'to the assembler.',
+              `Build plan at ${profile.tierLabel}: ` +
+              `${profile.quantity.toLocaleString()} units, ` +
+              `${formatUsd(perUnitLaborUsd)} per unit labor, ` +
+              `batch total ${formatUsd(batchLaborUsd)} (charged on ` +
+              `\`build\`). ${leadTime} turnaround from parts receipt. ` +
+              `Engagement includes a receive-shipment ocap URL so ` +
+              `suppliers can deliver parts and bare boards directly ` +
+              `to the assembler.`,
           },
           receiveShipmentUrl: getReceiveShipmentUrl(),
         });
       },
       async build(_approval: unknown): Promise<DeviceAssemblyArtifact> {
-        const total = DEVICE_ASSEMBLY_BUILD_PRICE_USD;
-        const totalLabel = `$${total.toLocaleString(undefined, {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`;
+        const quantity = lastBuildQuantity;
+        const total = lastBuildTotalUsd ?? 0;
+        const totalLabel = formatUsd(total);
+        const leadTime = lastBuildLeadTime ?? '4 weeks';
+        const yieldTarget = lastBuildYield ?? '94%';
+        const tierLabel = lastBuildTierLabel ?? 'prototype scale';
         const data =
           `# Build order confirmation\n\n` +
           `Vendor: ${DEVICE_ASSEMBLY_PROVIDER_TAG}\n` +
-          `Order: 15-unit prototype assembly run\n` +
+          `Order: ${quantity.toLocaleString()}-unit assembly run ` +
+          `(${tierLabel})\n` +
           `Labor total: ${totalLabel}\n` +
-          `Estimated turnaround: 4 weeks from parts receipt\n` +
-          `First-pass yield target: 94%\n` +
+          `Estimated turnaround: ${leadTime} from parts receipt\n` +
+          `First-pass yield target: ${yieldTarget}\n` +
           `Includes: SMT placement, hand-population of the through-hole ` +
           `pin headers, button-press functional test, IR self-loopback ` +
           `against the four protocols in the firmware spec, BLE scan, ` +
@@ -125,8 +155,9 @@ export function makeDeviceAssemblyService(options: {
             title: 'LAUR — build order confirmation',
             summary:
               `Build order placed with ${DEVICE_ASSEMBLY_PROVIDER_TAG}: ` +
-              `${totalLabel} labor for the 15-unit batch, 4-week ` +
-              `turnaround from parts receipt.`,
+              `${totalLabel} labor for the ${quantity.toLocaleString()}-` +
+              `unit batch at ${tierLabel}, ${leadTime} turnaround from ` +
+              `parts receipt.`,
           },
         });
       },
@@ -151,7 +182,7 @@ export function makeDeviceAssemblyService(options: {
         const ack = await E(receiver).receiveShipment({
           from: DEVICE_ASSEMBLY_PROVIDER_TAG,
           kind: 'finished units shipment',
-          items: '15 finished LAUR units, individually packaged',
+          items: `${lastBuildQuantity.toLocaleString()} finished LAUR units, individually packaged`,
           notes:
             'shipped after the assembly run completes; tracking ' +
             'numbers handed off with the manifest',
@@ -167,7 +198,7 @@ export function makeDeviceAssemblyService(options: {
         const data =
           `# Finished units shipment\n\n` +
           `Vendor: ${DEVICE_ASSEMBLY_PROVIDER_TAG}\n` +
-          `Shipment: 15 finished LAUR units, individually packaged\n` +
+          `Shipment: ${lastBuildQuantity.toLocaleString()} finished LAUR units, individually packaged\n` +
           `Ship to: ${receiverTag}\n` +
           `Total: $0.00 (shipping covered by the build labor fee)\n\n` +
           `Units leave the line once the build completes and route ` +

@@ -3,7 +3,31 @@ import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 import type { OcapURLRedemptionService } from '@metamask/ocap-kernel';
 
 import { renderPcbLayout } from './template.ts';
-import type { ReceiveShipmentEndpoint } from '../vat-lib/index.ts';
+import {
+  formatUsd,
+  makeVolumeProfile,
+  parseQuantity,
+} from '../vat-lib/index.ts';
+import type { ReceiveShipmentEndpoint, VolumeTier } from '../vat-lib/index.ts';
+
+/**
+ * Tier-derived turnaround estimate for the PCB fab order.
+ *
+ * @param tier - The volume tier.
+ * @returns A short human-readable string for the receipt.
+ */
+function pcbTurnaround(tier: VolumeTier): string {
+  switch (tier) {
+    case 'production':
+      return '21 days (fab + shipping)';
+    case 'medium-volume':
+      return '14 days (fab + shipping)';
+    case 'small-batch':
+    case 'prototype':
+    default:
+      return '10 days (fab + shipping)';
+  }
+}
 
 /**
  * Natural-language description registered with the matcher. Opening
@@ -25,12 +49,16 @@ export const PCB_LAYOUT_SERVICE_DESCRIPTION =
 export const PCB_LAYOUT_PROVIDER_TAG = 'pcb-wizards';
 
 /**
- * Advisory per-method prices (USD). `layout` is the one-time design
- * fee. `fabricate` is per-board for the prototype batch (15 boards
- * × $25 each = $375 for the canonical profile).
+ * Advisory price (USD) for the layout design fee. `fabricate`
+ * charges the actual batch fab cost, computed from the volume tier
+ * of the brief passed to the prior `layout` call.
  */
 export const PCB_LAYOUT_PRICE_USD = 600;
-export const PCB_LAYOUT_FABRICATE_PRICE_USD = 375;
+/**
+ * Default board quantity when the brief doesn't mention one. 15
+ * matches the prototype Manufacturing engagement in Stage 2.
+ */
+const DEFAULT_FAB_QUANTITY = 15;
 
 /**
  * Shape returned by `layout`.
@@ -56,19 +84,6 @@ export type PcbFabricateArtifact = {
 };
 
 /**
- * Format a USD amount with two decimals + thousands separators.
- *
- * @param amount - The USD amount.
- * @returns The formatted string.
- */
-function formatUsd(amount: number): string {
-  return `$${amount.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
-}
-
-/**
  * Build the pcb-layout service exo.
  *
  * @param options - Construction options.
@@ -82,10 +97,20 @@ export function makePcbLayoutService(options: {
   ocapURLRedemptionService: OcapURLRedemptionService;
 }) {
   const { ocapURLRedemptionService } = options;
+  // Last `layout` call's quantity drives the fab quote — same
+  // pattern as shenzhen-direct's source/purchase.
+  let lastBoardQuantity = DEFAULT_FAB_QUANTITY;
   return makeDiscoverableExo(
     'PcbLayoutService',
     {
-      async layout(_spec: string): Promise<PcbLayoutArtifact> {
+      async layout(spec: string): Promise<PcbLayoutArtifact> {
+        const quantity = parseQuantity(
+          typeof spec === 'string' ? spec : '',
+          DEFAULT_FAB_QUANTITY,
+        );
+        const profile = makeVolumeProfile(quantity);
+        lastBoardQuantity = quantity;
+        const fabTotal = profile.pcbUnitUsd * quantity;
         const svg = renderPcbLayout({
           providerLabel: PCB_LAYOUT_PROVIDER_TAG,
         });
@@ -96,18 +121,23 @@ export function makePcbLayoutService(options: {
           metadata: {
             title: 'LAUR — PCB top view',
             summary:
-              'Stylized PCB top-view: MCU QFN, mic, OLED connector, key ' +
-              'switches with pads, IR driver block, battery clips, USB-C, ' +
-              'mounting holes, suggestive copper traces. Engagement also ' +
-              "ships a small set of sample bare boards to the customer's " +
-              'engineering-prototype shop, included in the design fee.',
+              `PCB top-view layout — MCU QFN, mic, OLED connector, key ` +
+              `switches, IR driver, battery clips, USB-C, mounting holes. ` +
+              `Fab quote at ${profile.tierLabel}: ${formatUsd(
+                profile.pcbUnitUsd,
+              )} per board × ${quantity.toLocaleString()} = ` +
+              `${formatUsd(fabTotal)} (charged on \`fabricate\`). ` +
+              `Sample bare boards shipped to the engineering-prototype ` +
+              `shop are included in the design fee.`,
           },
         });
       },
       async fabricate(approval: {
         shipToUrl?: string;
       }): Promise<PcbFabricateArtifact> {
-        const total = PCB_LAYOUT_FABRICATE_PRICE_USD;
+        const quantity = lastBoardQuantity;
+        const profile = makeVolumeProfile(quantity);
+        const total = profile.pcbUnitUsd * quantity;
         const totalLabel = formatUsd(total);
         const shipToUrl =
           typeof approval?.shipToUrl === 'string' && approval.shipToUrl.length
@@ -127,7 +157,7 @@ export function makePcbLayoutService(options: {
         const ack = await E(receiver).receiveShipment({
           from: PCB_LAYOUT_PROVIDER_TAG,
           kind: 'bare boards shipment',
-          items: '15 production boards, 2-layer, 46×102 mm, ENIG finish',
+          items: `${quantity.toLocaleString()} production boards, 2-layer, 46×102 mm, ENIG finish`,
         });
         const { receiverTag, buildPhase } = ack;
         const interactions = [
@@ -139,12 +169,14 @@ export function makePcbLayoutService(options: {
             }`,
           },
         ];
+        const turnaround = pcbTurnaround(profile.tier);
         const data =
           `# PCB fabrication confirmation\n\n` +
           `Vendor: ${PCB_LAYOUT_PROVIDER_TAG}\n` +
-          `Order: 15 bare boards, 2-layer, 46×102 mm, ENIG finish\n` +
+          `Order: ${quantity.toLocaleString()} bare boards, 2-layer, ` +
+          `46×102 mm, ENIG finish (${profile.tierLabel})\n` +
           `Total: ${totalLabel}\n` +
-          `Estimated turnaround: 10 days (fab + shipping)\n` +
+          `Estimated turnaround: ${turnaround}\n` +
           `Ship to: ${receiverTag}\n\n` +
           `Order accepted. Boards run through our standard 2-layer ` +
           `production line and ship to the manufacturer to join the ` +
@@ -157,8 +189,9 @@ export function makePcbLayoutService(options: {
             title: 'LAUR — PCB fabrication confirmation',
             summary:
               `Fab order placed with ${PCB_LAYOUT_PROVIDER_TAG}: ` +
-              `${totalLabel} for 15 boards, 10-day turnaround. ` +
-              `Manifest handed off to ${receiverTag} via ocap.`,
+              `${totalLabel} for ${quantity.toLocaleString()} boards at ` +
+              `${profile.tierLabel}, ${turnaround}. Manifest handed off to ` +
+              `${receiverTag} via ocap.`,
           },
           interactions,
         });
