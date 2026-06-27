@@ -409,6 +409,52 @@ openclaw gateway restart
 
 ---
 
+## Quick reset between rehearsals
+
+Once everything is initially up via the full per-run setup
+sequence below, this is the minimum to get back to a clean slate
+before each next rehearsal. Assumes the long-running setup
+(relay, log tails, SSH tunnel, ttyd) is still up; you only revisit
+those if something crashed or you rebooted.
+
+1. **TUI**: type `/reset` in the producer-dialog pane (or
+   `vps-tui`) to clear the agent's conversation context.
+2. **VPS** (`vps-ctl`):
+
+   ```csh
+   ./packages/service-matcher/scripts/rehearsal-restart-matcher.sh
+   ```
+
+   Bounces the matcher daemon, consumer daemon, openclaw gateway,
+   and clears the matcher registry. URL stays stable so no
+   sourcing is needed.
+
+3. **Laptop** (`laptop-ctl`):
+
+   ```csh
+   ./packages/sample-services/scripts/rehearsal-start-services.sh
+   ```
+
+   Rebuilds and re-registers the 12 services against the
+   now-empty matcher.
+
+4. **VPS** (`vps-display`): Ctrl-C demo-display and re-run
+   `yarn workspace @ocap/demo-display start` to flush its
+   event-log buffer (otherwise the wallet ribbon and transcript
+   replay stale events from the previous run).
+5. **Browser**: hard-refresh the dashboard tab so the iframe
+   reconnects to a fresh ttyd-spawned `openclaw tui --session demo`
+   session.
+
+Pitch the inventor concept and you're off. Steps 1-5 take
+~30 seconds end to end.
+
+If anything looks wedged after the reset (orphan daemons, dead
+URLs, "ENDPOINT_UNREACHABLE"), see the Troubleshooting section
+at the bottom — most common is multiple `daemon-entry` processes
+on one of the homes, which needs PID-targeted cleanup before the
+restart will stick.
+
 ## Per-run setup sequence
 
 Order matters — each step's terminal stays running for the
@@ -482,8 +528,13 @@ wallet all reset to a clean state):
 
 ```csh
 ./packages/service-matcher/scripts/rehearsal-restart-matcher.sh
-source ~/.ocap/matcher-urls.env
 ```
+
+The matcher URL doesn't change across this restart, so the
+existing `MATCHER_OCAP_URL` in your shell stays correct — no
+`source ~/.ocap/matcher-urls.env` needed. If you're starting a
+fresh shell that doesn't have the URL exported yet, run the
+`source` once.
 
 `rehearsal-restart-matcher.sh` runs, in order:
 
