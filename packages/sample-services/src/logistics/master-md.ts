@@ -8,42 +8,58 @@
  * the small-batch trial-distribution variant: hand-pack a known list
  * of beta units, ship by curated address list, no marketplace
  * integration. The service-side template renderer picks one based on
- * the brief.
+ * the brief, and scales the dollar tokens by the volume tier parsed
+ * from the brief.
  *
  * Token catalog (production variant):
- *   {{providerLabel}}       provider identifier
- *   {{warehouseRegion}}     warehouse location ("West Coast", etc.)
- *   {{warehouseCity}}       warehouse city ("Sparks, NV", etc.)
- *   {{storagePerUnit}}      monthly storage cost per unit ("$0.45", etc.)
- *   {{pickPackPerOrder}}    pick-and-pack labor per order ("$2.10", etc.)
- *   {{insertCost}}          packaging insert cost per order ("$0.35", etc.)
- *   {{groundZone1to4}}      domestic ground rate, zones 1-4 ("$6.80", etc.)
- *   {{groundZone5to8}}      domestic ground rate, zones 5-8 ("$8.40", etc.)
- *   {{intlRate}}            international rate ("$24.00", etc.)
- *   {{returnRate}}          per-return handling fee ("$3.90", etc.)
- *   {{firstMonthFloor}}     minimum monthly invoice ("$95", etc.)
- *   {{cutOffTime}}          daily cut-off for same-day pick
- *                           ("2 PM local", "3 PM local", etc.)
- *   {{leadDays}}            integration lead time
- *                           ("3 business days", etc.)
+ *   {{providerLabel}}          provider identifier
+ *   {{warehouseRegion}}        warehouse location ("West Coast", etc.)
+ *   {{warehouseCity}}          warehouse city ("Sparks, NV", etc.)
+ *   {{tierLabel}}              "production volume (5,000+ units)", etc.
+ *   {{projectedQuantity}}      number of units the plan was sized for
+ *   {{setupFee}}               one-time plan-setup fee (scales with tier)
+ *   {{storagePerUnit}}         monthly storage cost per unit
+ *   {{monthlyStorageTotal}}    storagePerUnit × projectedQuantity
+ *   {{pickPackPerOrder}}       pick-and-pack labor per order
+ *   {{insertCost}}             packaging insert cost per order
+ *   {{groundZone1to4}}         domestic ground rate, zones 1-4
+ *   {{groundZone5to8}}         domestic ground rate, zones 5-8
+ *   {{intlRate}}               international rate
+ *   {{inauguralShipTotal}}     conservative all-ground projection for
+ *                              shipping the first batch
+ *   {{returnRate}}             per-return handling fee
+ *   {{firstMonthFloor}}        minimum monthly invoice (scales with tier)
+ *   {{cutOffTime}}             daily cut-off for same-day pick
+ *   {{leadDays}}               integration lead time (scales with tier)
  *
  * Token catalog (trial variant):
- *   {{providerLabel}}       provider identifier
- *   {{warehouseRegion}}     warehouse location
- *   {{warehouseCity}}       warehouse city
- *   {{unitCount}}           trial batch size ("15 units", etc.)
- *   {{trialPackLabor}}      one-time hand-pack labor ("$120", etc.)
- *   {{trialShipFlat}}       per-shipment ground rate ("$8.80", etc.)
- *   {{trialLeadDays}}       turnaround for the trial run
- *                           ("2 business days", etc.)
+ *   {{providerLabel}}          provider identifier
+ *   {{warehouseRegion}}        warehouse location
+ *   {{warehouseCity}}          warehouse city
+ *   {{tierLabel}}              tier label
+ *   {{setupFee}}               trial-plan setup fee
+ *   {{unitCount}}              actual batch size from the brief
+ *   {{trialPackLabor}}         one-time hand-pack labor (scales with qty)
+ *   {{trialShipFlat}}          per-shipment ground rate
+ *   {{trialShipTotal}}         trialShipFlat × unitCount
+ *   {{trialLeadDays}}          turnaround for the trial run
  */
-export const MASTER_MD_PRODUCTION = `# Fulfillment plan — LAUR
+export const MASTER_MD_PRODUCTION = `# Fulfillment plan — LAUR ({{tierLabel}})
 
 ## Operator
 
 **Provider:** {{providerLabel}}
 **Warehouse of record:** {{warehouseCity}} ({{warehouseRegion}})
 **Integration lead time:** {{leadDays}} from signed agreement
+**Plan setup fee:** {{setupFee}} (one-time, billed on plan acceptance)
+
+## Sized for
+
+This plan was sized for **{{projectedQuantity}} units** in the initial
+inventory cycle. The operational rates below are billed against
+actual order traffic by the operator; the totals further down are
+projections for that first batch so you have starting numbers to
+budget against.
 
 ## Receiving and storage
 
@@ -51,6 +67,8 @@ export const MASTER_MD_PRODUCTION = `# Fulfillment plan — LAUR
   count against the bill of lading, and place on contracted racking.
 - Monthly storage: {{storagePerUnit}} per unit, billed against
   actual on-hand inventory at month-end.
+- Projected first-month storage: **{{monthlyStorageTotal}}** at full
+  intake of {{projectedQuantity}} units.
 - Minimum monthly invoice (floor): {{firstMonthFloor}} — applies
   during early ramp before unit volume exceeds the floor.
 
@@ -64,6 +82,9 @@ export const MASTER_MD_PRODUCTION = `# Fulfillment plan — LAUR
   - Domestic ground, zones 1-4: {{groundZone1to4}}
   - Domestic ground, zones 5-8: {{groundZone5to8}}
   - International (DDU, customer pays duties): {{intlRate}}
+- Projected shipping for the first batch (conservative all-ground
+  domestic blend): **{{inauguralShipTotal}}** at {{projectedQuantity}}
+  units.
 - Same-day pick cut-off: {{cutOffTime}}. Orders placed after the
   cut-off ship the following business day.
 
@@ -92,18 +113,19 @@ export const MASTER_MD_PRODUCTION = `# Fulfillment plan — LAUR
 - After hand-off check passes, the storefront listing flips live.
 `;
 
-export const MASTER_MD_TRIAL = `# Trial distribution plan — LAUR
+export const MASTER_MD_TRIAL = `# Trial distribution plan — LAUR ({{tierLabel}})
 
 ## Operator
 
 **Provider:** {{providerLabel}}
 **Warehouse of record:** {{warehouseCity}} ({{warehouseRegion}})
 **Turnaround:** {{trialLeadDays}} from inbound receipt
+**Plan setup fee:** {{setupFee}} (one-time, billed on plan acceptance)
 
 ## Receive and stage
 
-- Accept the inbound shipment from the manufacturer of record (about
-  {{unitCount}}).
+- Accept the inbound shipment from the manufacturer of record
+  ({{unitCount}}).
 - QA-count against the bill of lading, set aside on a single
   staging pallet — no long-term storage racking; this is a one-shot
   distribution.
@@ -120,7 +142,9 @@ export const MASTER_MD_TRIAL = `# Trial distribution plan — LAUR
 ## Ship
 
 - Domestic ground, one shipment per recipient: {{trialShipFlat}}
-  flat (handling included).
+  flat per recipient (handling included).
+- Projected shipping for the batch: **{{trialShipTotal}}** across
+  {{unitCount}}.
 - International recipients quoted ad-hoc if any; not assumed in this
   estimate.
 - Tracking numbers exported back to the inventor once labels print.

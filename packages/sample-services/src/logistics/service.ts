@@ -1,6 +1,7 @@
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 
 import { renderFulfillmentPlan } from './template.ts';
+import { formatUsd } from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher. Opening
@@ -20,12 +21,19 @@ export const LOGISTICS_SERVICE_DESCRIPTION =
 export const LOGISTICS_PROVIDER_TAG = 'pacific-fulfillment';
 
 /**
- * Advisory per-invocation price (USD). Flat setup fee for producing
- * the fulfillment plan; the per-order operational costs the plan
- * cites are billed against actual order volume by the operator and
- * are not authorized here.
+ * Advisory per-invocation price (USD) for the smallest tier. The
+ * actual setup fee returned in the plan now scales with the
+ * volume tier the brief describes — see `template.ts`. This
+ * constant is the prototype-tier baseline kept for back-compat
+ * with anything that imports it.
  */
 export const LOGISTICS_PRICE_USD = 300;
+
+/**
+ * Default batch size when the brief doesn't name one. 15 matches
+ * the prototype trial-distribution engagement in Stage 2.
+ */
+const DEFAULT_BATCH_QUANTITY = 15;
 
 export type LogisticsArtifact = {
   kind: 'markdown';
@@ -65,27 +73,39 @@ export function makeLogisticsService(options: {
         // full-storefront variant. Mis-classification just renders
         // the wrong-flavoured plan; nothing breaks.
         const lower = typeof spec === 'string' ? spec.toLowerCase() : '';
-        const mode =
+        const mode: 'trial' | 'production' =
           lower.includes('trial') ||
           lower.includes('beta') ||
           lower.includes('pilot')
             ? 'trial'
             : 'production';
-        const markdown = renderFulfillmentPlan({
-          providerLabel: LOGISTICS_PROVIDER_TAG,
-          mode,
-        });
+        const { markdown, profile, setupFeeUsd, trialBatchLaborUsd } =
+          renderFulfillmentPlan({
+            providerLabel: LOGISTICS_PROVIDER_TAG,
+            mode,
+            brief: typeof spec === 'string' ? spec : '',
+            defaultQuantity: DEFAULT_BATCH_QUANTITY,
+          });
         const title =
           mode === 'trial'
             ? 'LAUR — trial distribution plan'
             : 'LAUR — fulfillment plan';
         const summary =
           mode === 'trial'
-            ? 'Trial distribution plan: hand-pack a small batch, ' +
-              'ship to a curated beta list, no marketplace integration.'
-            : 'Fulfillment plan: warehouse of record, storage and ' +
-              'pick-pack rates, carrier zones, returns handling, ' +
-              'and storefront integration.';
+            ? `Trial distribution plan at ${profile.tierLabel}: hand-pack a ` +
+              `${profile.quantity.toLocaleString()}-unit batch, ship to a ` +
+              `curated beta list, no marketplace integration. Setup fee ` +
+              `${formatUsd(setupFeeUsd)} (charged on plan acceptance); ` +
+              `hand-pack labor ${formatUsd(
+                trialBatchLaborUsd ?? 0,
+              )} billed at the build stage.`
+            : `Fulfillment plan at ${profile.tierLabel}: sized for ` +
+              `${profile.quantity.toLocaleString()} units across the initial ` +
+              `inventory cycle, with warehouse of record, storage and ` +
+              `pick-pack rates, carrier zones, returns handling, and ` +
+              `storefront integration. Setup fee ${formatUsd(setupFeeUsd)} ` +
+              `(charged on plan acceptance); ongoing operational costs ` +
+              `billed against actual order traffic.`;
         return harden({
           kind: 'markdown',
           data: markdown,
