@@ -70,6 +70,7 @@ export const KernelSessionStruct = object({
   ocapUrl: string(),
   cwd: optional(string()),
   startedAt: optional(string()),
+  lastActiveAt: optional(string()),
 });
 
 export const LaunchSubclusterStruct = object({
