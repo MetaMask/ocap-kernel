@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Add session registry, channel factory, and Unix-socket stream server for CLI-driven authorization
+- Add `session.*` RPC methods: `session.create`, `session.list`, `session.get`, `session.requests`, `session.decide`, `session.history`, and `session.authorize`
+- Add `DaemonClient` for connecting to the daemon stream socket
+
 ### Changed
 
 - **BREAKING:** Drop `platformOptions.fetch` from `makeNodeJsVatSupervisor` ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))

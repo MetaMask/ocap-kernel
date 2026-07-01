@@ -1,10 +1,29 @@
 import { RpcService } from '@metamask/kernel-rpc-methods';
 import type { KernelDatabase } from '@metamask/kernel-store';
+import { ifDefined } from '@metamask/kernel-utils';
+import {
+  GuardStruct,
+  ParsedInvocationStruct,
+  ProvisionStruct,
+} from '@metamask/kernel-utils/session';
 import type { Kernel } from '@metamask/ocap-kernel';
 import { rpcHandlers } from '@metamask/ocap-kernel/rpc';
+import type { Struct } from '@metamask/superstruct';
+import { assert, StructError } from '@metamask/superstruct';
+import {
+  array,
+  enums,
+  number,
+  object,
+  optional,
+  string,
+} from '@metamask/superstruct';
 import { unlink } from 'node:fs/promises';
 import { createConnection, createServer } from 'node:net';
 import type { Server } from 'node:net';
+
+import type { Session, SessionRegistry } from './session-registry.ts';
+import type { ChannelFactory } from '../modal/index.ts';
 
 /**
  * Handle returned by {@link startRpcSocketServer}.
@@ -26,22 +45,29 @@ export type RpcSocketServerHandle = {
  * @param options.socketPath - The Unix socket path to listen on.
  * @param options.kernel - The kernel instance.
  * @param options.kernelDatabase - The kernel database instance.
+ * @param options.channelFactory - The channel factory for modal sessions.
  * @param options.onShutdown - Optional callback invoked when a `shutdown` RPC is received.
+ * @param options.sessionRegistry - The session registry for `session.*` RPC methods.
  * @returns A handle with a `close()` function for cleanup.
  */
 export async function startRpcSocketServer({
   socketPath,
   kernel,
   kernelDatabase,
+  channelFactory,
+  sessionRegistry,
   onShutdown,
 }: {
   socketPath: string;
   kernel: Kernel;
   kernelDatabase: KernelDatabase;
+  channelFactory: ChannelFactory;
+  sessionRegistry: SessionRegistry;
   onShutdown?: (() => Promise<void>) | undefined;
 }): Promise<RpcSocketServerHandle> {
   const rpcService = new RpcService(rpcHandlers, {
     kernel,
+    channelFactory,
     executeDBQuery: (sql: string) => kernelDatabase.executeQuery(sql),
   });
 
@@ -69,7 +95,7 @@ export async function startRpcSocketServer({
         return;
       }
 
-      handleRequest(rpcService, line, onShutdown)
+      handleRequest(rpcService, sessionRegistry, line, onShutdown)
         .then((response) => {
           socket.end(`${JSON.stringify(response)}\n`);
           return undefined;
@@ -105,19 +131,20 @@ export async function startRpcSocketServer({
 }
 
 /**
- * Handle a single JSON-RPC request line, intercepting the `shutdown` method.
+ * Handle a single JSON-RPC request line, intercepting `shutdown` and `session.*` methods.
  *
- * If the method is `shutdown` and an `onShutdown` callback is provided, the
- * callback is scheduled (without awaiting) after a successful response is
- * returned. All other methods are delegated to {@link processRequest}.
+ * `shutdown` is handled inline; `session.*` are dispatched to the session registry;
+ * all other methods are delegated to {@link processRequest}.
  *
  * @param rpcService - The RPC service to execute methods against.
+ * @param sessionRegistry - The session registry for session namespace methods.
  * @param line - The raw JSON line from the socket.
  * @param onShutdown - Optional shutdown callback.
  * @returns A JSON-RPC response object.
  */
 async function handleRequest(
   rpcService: RpcService<typeof rpcHandlers>,
+  sessionRegistry: SessionRegistry,
   line: string,
   onShutdown?: () => Promise<void>,
 ): Promise<Record<string, unknown>> {
@@ -125,10 +152,11 @@ async function handleRequest(
     const request = JSON.parse(line) as {
       id?: unknown;
       method?: string;
+      params?: unknown;
     };
+    const id = request.id ?? null;
 
     if (request.method === 'shutdown') {
-      const id = request.id ?? null;
       // Schedule shutdown after responding to the client.
       if (onShutdown) {
         setTimeout(() => {
@@ -139,11 +167,284 @@ async function handleRequest(
       }
       return { jsonrpc: '2.0', id, result: { status: 'shutting down' } };
     }
+
+    if (
+      typeof request.method === 'string' &&
+      request.method.startsWith('session.')
+    ) {
+      return handleSessionRequest(
+        sessionRegistry,
+        id,
+        request.method,
+        request.params,
+      );
+    }
   } catch {
     // Fall through to processRequest which handles parse errors.
   }
 
   return processRequest(rpcService, line);
+}
+
+/**
+ * Error thrown by session RPC helpers when input is invalid or the session is
+ * not found. Carries a JSON-RPC error code so the outer handler can preserve
+ * the specific code rather than collapsing it to -32603.
+ */
+class SessionRpcError extends Error {
+  readonly code: number;
+
+  /**
+   * @param code - JSON-RPC error code.
+   * @param message - Human-readable error message.
+   */
+  constructor(code: number, message: string) {
+    super(message);
+    this.code = code;
+  }
+}
+
+const SessionIdParamsStruct = object({
+  sessionId: string(),
+});
+
+const SessionCreateParamsStruct = object({
+  name: optional(string()),
+  cwd: optional(string()),
+});
+
+const SessionQueueParamsStruct = object({
+  sessionId: string(),
+  description: optional(string()),
+  reason: optional(string()),
+});
+
+const SessionAuthorizeParamsStruct = object({
+  sessionId: string(),
+  description: optional(string()),
+  reason: optional(string()),
+  timeoutMs: optional(number()),
+  invocations: optional(array(ParsedInvocationStruct)),
+  clauses: optional(array(array(ParsedInvocationStruct))),
+});
+
+const SessionRecordParamsStruct = object({
+  sessionId: string(),
+  description: optional(string()),
+  invocations: optional(array(ParsedInvocationStruct)),
+  clauses: optional(array(array(ParsedInvocationStruct))),
+  provisions: optional(array(ProvisionStruct)),
+});
+
+const SessionDecideParamsStruct = object({
+  sessionId: string(),
+  token: string(),
+  verdict: enums(['accept', 'reject']),
+  feedback: optional(string()),
+  guard: optional(GuardStruct),
+  provisions: optional(array(ProvisionStruct)),
+});
+
+/**
+ * Validate `params` against `struct`, rethrowing any {@link StructError} as a
+ * JSON-RPC `-32602` `SessionRpcError`. Keeps the per-case bodies readable.
+ *
+ * @param params - The raw params from the RPC request.
+ * @param struct - The struct describing the expected shape.
+ * @param method - The RPC method name, used in the error message.
+ * @returns The validated params, narrowed to the struct's inferred type.
+ */
+function parseParams<Type>(
+  params: unknown,
+  struct: Struct<Type>,
+  method: string,
+): Type {
+  try {
+    assert(params, struct);
+    return params;
+  } catch (error) {
+    if (error instanceof StructError) {
+      throw new SessionRpcError(-32602, `${method}: ${error.message}`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * Dispatch a `session.*` RPC method to the session registry.
+ *
+ * @param sessionRegistry - The session registry.
+ * @param id - The JSON-RPC request id.
+ * @param method - The full method name (e.g. `session.create`).
+ * @param params - The raw params from the request.
+ * @returns A JSON-RPC response object.
+ */
+async function handleSessionRequest(
+  sessionRegistry: SessionRegistry,
+  id: unknown,
+  method: string,
+  params: unknown,
+): Promise<Record<string, unknown>> {
+  const ok = (result: unknown): Record<string, unknown> => ({
+    jsonrpc: '2.0',
+    id,
+    result: result ?? null,
+  });
+  const fail = (code: number, message: string): Record<string, unknown> => ({
+    jsonrpc: '2.0',
+    id,
+    error: { code, message },
+  });
+
+  try {
+    const rawParams = params ?? {};
+
+    const requireSession = (sessionId: string): Session => {
+      const found = sessionRegistry.getSession(sessionId);
+      if (found === undefined) {
+        throw new SessionRpcError(-32602, `Session not found: ${sessionId}`);
+      }
+      return found;
+    };
+
+    switch (method) {
+      case 'session.create': {
+        const { name, cwd } = parseParams(
+          rawParams,
+          SessionCreateParamsStruct,
+          method,
+        );
+        const session = await sessionRegistry.createSession({
+          ...ifDefined({ name }),
+          ...ifDefined({ cwd }),
+        });
+        return ok({
+          sessionId: session.sessionId,
+          ocapUrl: session.ocapUrl,
+          ...ifDefined({ cwd: session.cwd }),
+          startedAt: session.startedAt,
+          lastActiveAt: session.lastActiveAt(),
+        });
+      }
+
+      case 'session.list': {
+        return ok(
+          sessionRegistry.listSessions().map((sess) => ({
+            sessionId: sess.sessionId,
+            ocapUrl: sess.ocapUrl,
+            ...ifDefined({ cwd: sess.cwd }),
+            startedAt: sess.startedAt,
+            lastActiveAt: sess.lastActiveAt(),
+          })),
+        );
+      }
+
+      case 'session.get': {
+        const { sessionId } = parseParams(
+          rawParams,
+          SessionIdParamsStruct,
+          method,
+        );
+        const session = requireSession(sessionId);
+        return ok({
+          sessionId: session.sessionId,
+          ocapUrl: session.ocapUrl,
+          ...ifDefined({ cwd: session.cwd }),
+          startedAt: session.startedAt,
+          lastActiveAt: session.lastActiveAt(),
+        });
+      }
+
+      case 'session.requests': {
+        const { sessionId } = parseParams(
+          rawParams,
+          SessionIdParamsStruct,
+          method,
+        );
+        return ok(requireSession(sessionId).listPending());
+      }
+
+      case 'session.history': {
+        const { sessionId } = parseParams(
+          rawParams,
+          SessionIdParamsStruct,
+          method,
+        );
+        return ok(requireSession(sessionId).listHistory());
+      }
+
+      case 'session.queue': {
+        const { sessionId, description, reason } = parseParams(
+          rawParams,
+          SessionQueueParamsStruct,
+          method,
+        );
+        const session = requireSession(sessionId);
+        const token = session.queueRequest(
+          description ?? 'Test request',
+          reason,
+        );
+        return ok({ token });
+      }
+
+      case 'session.authorize': {
+        const {
+          sessionId,
+          description,
+          reason,
+          timeoutMs,
+          invocations,
+          clauses,
+        } = parseParams(rawParams, SessionAuthorizeParamsStruct, method);
+        const session = requireSession(sessionId);
+        const decision = await session.authorizeRequest(
+          description ?? 'Authorization request',
+          {
+            ...ifDefined({ reason }),
+            ...ifDefined({ timeoutMs }),
+            ...ifDefined({ invocations }),
+            ...ifDefined({ clauses }),
+          },
+        );
+        return ok(decision);
+      }
+
+      case 'session.record': {
+        const { sessionId, description, invocations, clauses, provisions } =
+          parseParams(rawParams, SessionRecordParamsStruct, method);
+        const session = requireSession(sessionId);
+        session.recordProvisioned(description ?? 'Auto-accepted request', {
+          ...ifDefined({ invocations }),
+          ...ifDefined({ clauses }),
+          ...ifDefined({ provisions }),
+        });
+        return ok(null);
+      }
+
+      case 'session.decide': {
+        const { sessionId, token, verdict, feedback, guard, provisions } =
+          parseParams(rawParams, SessionDecideParamsStruct, method);
+        const session = requireSession(sessionId);
+        session.decide({
+          token,
+          verdict,
+          feedback: feedback ?? '',
+          ...ifDefined({ guard }),
+          ...ifDefined({ provisions }),
+        });
+        return ok(null);
+      }
+
+      default:
+        throw new SessionRpcError(-32601, `Method not found: ${method}`);
+    }
+  } catch (error) {
+    if (error instanceof SessionRpcError) {
+      return fail(error.code, error.message);
+    }
+    const message = error instanceof Error ? error.message : 'Internal error';
+    return fail(-32603, message);
+  }
 }
 
 /**

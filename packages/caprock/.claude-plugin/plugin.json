@@ -1,0 +1,8 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
+  "name": "caprock",
+  "version": "0.1.0",
+  "description": "Routes Claude Code tool invocations through an ocap-kernel permission vat (POLA enforcement).",
+  "repository": "https://github.com/MetaMask/ocap-kernel",
+  "license": "MIT"
+}

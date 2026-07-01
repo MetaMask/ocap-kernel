@@ -4,6 +4,10 @@ import {
   collectGarbageSpec,
 } from './collect-garbage.ts';
 import {
+  createSessionChannelHandler,
+  createSessionChannelSpec,
+} from './create-session-channel.ts';
+import {
   executeDBQueryHandler,
   executeDBQuerySpec,
 } from './execute-db-query.ts';
@@ -42,6 +46,7 @@ import { terminateVatHandler, terminateVatSpec } from './terminate-vat.ts';
  */
 export const rpcHandlers = {
   clearState: clearStateHandler,
+  createSessionChannel: createSessionChannelHandler,
   executeDBQuery: executeDBQueryHandler,
   getStatus: getStatusHandler,
   initRemoteComms: initRemoteCommsHandler,
@@ -60,6 +65,7 @@ export const rpcHandlers = {
   terminateSubcluster: terminateSubclusterHandler,
 } as {
   clearState: typeof clearStateHandler;
+  createSessionChannel: typeof createSessionChannelHandler;
   executeDBQuery: typeof executeDBQueryHandler;
   getStatus: typeof getStatusHandler;
   initRemoteComms: typeof initRemoteCommsHandler;
@@ -83,6 +89,7 @@ export const rpcHandlers = {
  */
 export const rpcMethodSpecs = {
   clearState: clearStateSpec,
+  createSessionChannel: createSessionChannelSpec,
   executeDBQuery: executeDBQuerySpec,
   getStatus: getStatusSpec,
   initRemoteComms: initRemoteCommsSpec,
@@ -101,6 +108,7 @@ export const rpcMethodSpecs = {
   terminateSubcluster: terminateSubclusterSpec,
 } as {
   clearState: typeof clearStateSpec;
+  createSessionChannel: typeof createSessionChannelSpec;
   executeDBQuery: typeof executeDBQuerySpec;
   getStatus: typeof getStatusSpec;
   initRemoteComms: typeof initRemoteCommsSpec;
