@@ -185,41 +185,14 @@ if [[ -f "$LLM_BRIDGE_PID_PATH" ]]; then
 fi
 
 # ---------------------------------------------------------------------------
-# Reap orphan matcher daemons
-#
-# `daemon stop` only kills the PID in daemon.pid; earlier runs that
-# raced or didn't shut down cleanly can leave additional matcher-
-# daemon processes alive holding stale state. Reap any leftovers
-# whose OCAP_SOCKET_PATH points at this matcher home before issuing
-# the stop. The consumer daemon (~/.ocap-consumer/daemon.sock) and
-# any other-home daemons are left alone.
+# Reap orphan matcher daemons. See reap-daemon-orphans.sh for the
+# rationale — TL;DR: `daemon stop` only kills the PID in daemon.pid,
+# so leaked orphans survive across restarts unless we sweep by
+# OCAP_SOCKET_PATH. The helper leaves consumer or services daemons
+# on the same host alone.
 # ---------------------------------------------------------------------------
 
-EXPECTED_SOCKET="$OCAP_HOME_DIR/daemon.sock"
-ORPHANS=""
-if pgrep -f daemon-entry.mjs >/dev/null 2>&1; then
-  ALL_PIDS="$(pgrep -f daemon-entry.mjs || true)"
-  for PID in $ALL_PIDS; do
-    SOCK=""
-    if [[ -r "/proc/$PID/environ" ]]; then
-      SOCK="$(tr '\0' '\n' < "/proc/$PID/environ" 2>/dev/null \
-              | sed -n 's/^OCAP_SOCKET_PATH=//p')"
-    else
-      SOCK="$(ps -p "$PID" -E -o command= 2>/dev/null \
-              | tr ' ' '\n' | sed -n 's/^OCAP_SOCKET_PATH=//p' | head -1)"
-    fi
-    if [[ "$SOCK" == "$EXPECTED_SOCKET" ]]; then
-      ORPHANS="$ORPHANS $PID"
-    fi
-  done
-fi
-if [[ -n "$ORPHANS" ]]; then
-  info "Reaping orphan matcher daemons:$ORPHANS"
-  for PID in $ORPHANS; do kill "$PID" 2>/dev/null || true; done
-  sleep 1
-  for PID in $ORPHANS; do kill -KILL "$PID" 2>/dev/null || true; done
-  rm -f "$OCAP_HOME_DIR/daemon.sock" "$OCAP_HOME_DIR/daemon.pid"
-fi
+"$SCRIPT_DIR/reap-daemon-orphans.sh" "$OCAP_HOME_DIR"
 
 # ---------------------------------------------------------------------------
 # Stop + (purge?) + start daemon

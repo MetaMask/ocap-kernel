@@ -53,6 +53,10 @@ info "Step 1/4: restarting matcher (rebuild + daemon stop/start)..."
 "$SCRIPT_DIR/start-matcher.sh" "$@"
 
 info "Step 2/4: restarting consumer daemon..."
+# Reap orphan consumer daemons before the stop, so orphans that
+# aren't in daemon.pid don't survive the restart. Then the stop
+# handles the one that IS in daemon.pid.
+"$SCRIPT_DIR/reap-daemon-orphans.sh" "$CONSUMER_HOME"
 # Stop first (idempotent — succeeds if no daemon is running). The CLI
 # prints "Daemon is not running." in that case, which is fine.
 node "$OCAP_BIN" --home "$CONSUMER_HOME" daemon stop >&2 || true

@@ -153,52 +153,18 @@ fi
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# Reap orphan services daemons
-#
-# `daemon stop` (which `daemon purge` invokes) only kills the PID in
-# daemon.pid. Earlier runs that raced or didn't shut down cleanly can
-# leave additional services-daemon processes alive, each holding a
-# fresh kernel.sqlite and registered against the matcher under a
-# *different* peer ID — the user sees duplicate provider cards and
-# only the most-recent peer is actually reachable. Reap any leftovers
-# before the purge so the next start is the only daemon in town.
-#
-# We target precisely this home: inspect each `daemon-entry.mjs`
-# process's OCAP_SOCKET_PATH env var (set by the spawn) and only kill
-# those whose socket path matches this services-daemon home. The
-# matcher and consumer daemons on the same host (rare on the laptop,
-# common on the VPS) are left alone.
+# Reap orphan services daemons. See reap-daemon-orphans.sh in the
+# service-matcher scripts dir for the rationale — TL;DR: `daemon
+# stop` only kills the PID in daemon.pid, so orphans that came in
+# via a race or an earlier crash survive across restarts. The
+# helper sweeps by OCAP_SOCKET_PATH and only kills daemons under
+# this SERVICES_HOME; matcher and consumer daemons (uncommon on
+# the laptop, expected on the VPS) are left alone.
 # ---------------------------------------------------------------------------
 
-EXPECTED_SOCKET="$SERVICES_HOME/daemon.sock"
-ORPHANS=""
-if pgrep -f daemon-entry.mjs >/dev/null 2>&1; then
-  ALL_PIDS="$(pgrep -f daemon-entry.mjs || true)"
-  for PID in $ALL_PIDS; do
-    # Linux: /proc/<pid>/environ; macOS: `ps eww` carries env in argv tail.
-    SOCK=""
-    if [[ -r "/proc/$PID/environ" ]]; then
-      SOCK="$(tr '\0' '\n' < "/proc/$PID/environ" 2>/dev/null \
-              | sed -n 's/^OCAP_SOCKET_PATH=//p')"
-    else
-      SOCK="$(ps -p "$PID" -E -o command= 2>/dev/null \
-              | tr ' ' '\n' | sed -n 's/^OCAP_SOCKET_PATH=//p' | head -1)"
-    fi
-    if [[ "$SOCK" == "$EXPECTED_SOCKET" ]]; then
-      ORPHANS="$ORPHANS $PID"
-    fi
-  done
-fi
-if [[ -n "$ORPHANS" ]]; then
-  info "Reaping orphan services daemons:$ORPHANS"
-  # SIGTERM first so signal handlers can log shutdown; SIGKILL fallback.
-  for PID in $ORPHANS; do kill "$PID" 2>/dev/null || true; done
-  sleep 1
-  for PID in $ORPHANS; do kill -KILL "$PID" 2>/dev/null || true; done
-  # Best-effort cleanup of stale socket/pid files left behind by the
-  # killed daemons. `daemon purge` below would do this too, but the
-  # interlock in `daemon start` checks them up front.
-  rm -f "$SERVICES_HOME/daemon.sock" "$SERVICES_HOME/daemon.pid"
+REAP_HELPER="$REPO_ROOT/packages/service-matcher/scripts/reap-daemon-orphans.sh"
+if [[ -x "$REAP_HELPER" ]]; then
+  "$REAP_HELPER" "$SERVICES_HOME"
 fi
 
 if $FORCE_RESET; then
