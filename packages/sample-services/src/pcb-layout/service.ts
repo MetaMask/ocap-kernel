@@ -40,13 +40,19 @@ export const PCB_LAYOUT_SERVICE_DESCRIPTION =
   'labels (~$600 design fee, covers up to two revisions). On ' +
   'customer approval of the layout we also ship a small set of ' +
   "sample bare boards to the customer's engineering-prototype shop " +
-  'at no extra charge — the design fee covers it. `quote` is a ' +
-  'cheap fab re-quote at an arbitrary quantity (~$50 fee), no order ' +
-  'placed — use it to gather production-scale cost estimates without ' +
-  'redoing the layout. On customer approval, `fabricate` places the ' +
-  'production order for bare boards against an earlier layout and ' +
-  'returns a fab receipt, charging per-board cost for the agreed ' +
-  'batch and shipping the boards to a manufacturer of record.';
+  'at no extra charge — the design fee covers it. On customer ' +
+  'approval, `fabricate` places the production order for bare ' +
+  'boards against an earlier layout and returns a fab receipt, ' +
+  'charging per-board cost for the agreed batch and shipping the ' +
+  'boards to a manufacturer of record. `quote` is a follow-on ' +
+  're-pricing method that returns per-board and batch fab costs ' +
+  'at an arbitrary quantity (~$50 fee), no order placed and no ' +
+  'design produced — use it only after `layout` has already ' +
+  'delivered a design, when the customer wants a fab cost estimate ' +
+  'for a different quantity than the layout was priced against ' +
+  '(e.g. gathering production-scale numbers). Do not use `quote` ' +
+  'as a substitute for `layout` in normal design workflows; the ' +
+  'Electronics phase needs the SVG layout `layout` produces.';
 
 export const PCB_LAYOUT_PROVIDER_TAG = 'pcb-wizards';
 
@@ -336,15 +342,18 @@ export function makePcbLayoutService(options: {
       },
       quote: {
         description:
-          'Cheap fab re-quote at an arbitrary quantity, without ' +
-          'redoing the layout. Returns markdown covering per-board ' +
-          'price, batch total, and turnaround at the requested ' +
-          'volume tier. Charges a small quote fee — meaningfully ' +
+          'Follow-on fab re-quote for an already-designed board. ' +
+          'Returns markdown covering per-board price, batch total, ' +
+          'and turnaround at the requested quantity. **Not a ' +
+          'substitute for `layout`** — this method produces no design ' +
+          'and no SVG, only pricing. Only call this after `layout` ' +
+          'has already delivered a design, when the customer wants a ' +
+          'fab cost estimate at a different quantity than the layout ' +
+          'was priced against (e.g. Stage 3 production-scale ' +
+          'cost-probing). Charges a small quote fee — meaningfully ' +
           'cheaper than re-invoking `layout` just to get a ' +
-          'different-quantity fab number. Intended for Stage 3 ' +
-          'cost-probe workflows where the agent needs a fab number ' +
-          'at scale without committing to a fresh design. Does not ' +
-          'place an order; call `fabricate` for that.',
+          'different-quantity fab number. Does not place an order; ' +
+          'call `fabricate` for that.',
         args: {
           spec: {
             type: 'string',

@@ -212,7 +212,11 @@ Per-phase intent:
 - **Mechanical Design** — 3D render or model of the case geometry,
   material, and assembly detail.
 - **Electronics** — schematic of the internal circuitry, then PCB
-  layout. Two artifacts in this phase.
+  layout. Two artifacts in this phase. The PCB step calls
+  `pcb-wizards.layout` — do **not** call `pcb-wizards.quote` here;
+  that method returns pricing only, not the SVG design the phase
+  needs. `quote` is reserved for Stage 3 fab-cost re-pricing after
+  the design already exists.
 - **Firmware** — a **two-round** delivery from a single provider.
   Round 1 calls the service's `specify` method (~$1,000) and returns
   a markdown firmware specification (state machine, peripheral I/O,
