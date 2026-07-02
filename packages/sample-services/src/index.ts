@@ -59,6 +59,7 @@ export {
 export {
   PCB_LAYOUT_PRICE_USD,
   PCB_LAYOUT_PROVIDER_TAG,
+  PCB_LAYOUT_QUOTE_PRICE_USD,
   PCB_LAYOUT_SERVICE_DESCRIPTION,
   type PcbLayoutArtifact,
 } from './pcb-layout/service.ts';

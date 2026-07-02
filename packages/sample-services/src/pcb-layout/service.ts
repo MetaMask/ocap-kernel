@@ -40,11 +40,13 @@ export const PCB_LAYOUT_SERVICE_DESCRIPTION =
   'labels (~$600 design fee, covers up to two revisions). On ' +
   'customer approval of the layout we also ship a small set of ' +
   "sample bare boards to the customer's engineering-prototype shop " +
-  'at no extra charge — the design fee covers it. On customer ' +
-  'approval, `fabricate` places the production order for bare ' +
-  'boards against an earlier layout and returns a fab receipt, ' +
-  'charging per-board cost for the agreed batch and shipping the ' +
-  'boards to a manufacturer of record.';
+  'at no extra charge — the design fee covers it. `quote` is a ' +
+  'cheap fab re-quote at an arbitrary quantity (~$50 fee), no order ' +
+  'placed — use it to gather production-scale cost estimates without ' +
+  'redoing the layout. On customer approval, `fabricate` places the ' +
+  'production order for bare boards against an earlier layout and ' +
+  'returns a fab receipt, charging per-board cost for the agreed ' +
+  'batch and shipping the boards to a manufacturer of record.';
 
 export const PCB_LAYOUT_PROVIDER_TAG = 'pcb-wizards';
 
@@ -54,6 +56,14 @@ export const PCB_LAYOUT_PROVIDER_TAG = 'pcb-wizards';
  * of the brief passed to the prior `layout` call.
  */
 export const PCB_LAYOUT_PRICE_USD = 600;
+/**
+ * Advisory price (USD) for the `quote` method — a cheap fab
+ * re-quote at a different quantity than the current design was
+ * priced against. Useful when the agent is gathering Stage-3
+ * cost estimates and needs a fab number without re-doing the
+ * layout.
+ */
+export const PCB_LAYOUT_QUOTE_PRICE_USD = 50;
 /**
  * Default board quantity when the brief doesn't mention one. 15
  * matches the prototype Manufacturing engagement in Stage 2.
@@ -129,6 +139,50 @@ export function makePcbLayoutService(options: {
               `${formatUsd(fabTotal)} (charged on \`fabricate\`). ` +
               `Sample bare boards shipped to the engineering-prototype ` +
               `shop are included in the design fee.`,
+          },
+        });
+      },
+      async quote(spec: string): Promise<PcbFabricateArtifact> {
+        // Cheap re-quote for a fab order at an arbitrary quantity.
+        // Doesn't touch layout state — the agent stays committed
+        // to whatever design `layout` already produced. Intended
+        // for Stage 3 cost-probe workflows where the agent wants
+        // to know what fab would cost at 5000 units without
+        // re-running the design.
+        const quantity = parseQuantity(
+          typeof spec === 'string' ? spec : '',
+          DEFAULT_FAB_QUANTITY,
+        );
+        const profile = makeVolumeProfile(quantity);
+        const perBoard = profile.pcbUnitUsd;
+        const batchTotal = perBoard * quantity;
+        const batchTotalLabel = formatUsd(batchTotal);
+        const perBoardLabel = formatUsd(perBoard);
+        const turnaround = pcbTurnaround(profile.tier);
+        const data =
+          `# PCB fab quote — ${profile.tierLabel}\n\n` +
+          `Vendor: ${PCB_LAYOUT_PROVIDER_TAG}\n` +
+          `Board: 2-layer, 46×102 mm, ENIG finish\n` +
+          `Quantity: ${quantity.toLocaleString()} boards\n` +
+          `Per-board price: ${perBoardLabel}\n` +
+          `Batch total: ${batchTotalLabel}\n` +
+          `Estimated turnaround: ${turnaround}\n\n` +
+          `This is a quote only — no order placed. Volume ` +
+          `discount reflects the ${profile.tierLabel} pricing ` +
+          `tier. To convert to an order, call ` +
+          `\`pcb-wizards.fabricate\` (with the manufacturer's ` +
+          `receive-shipment URL in \`approval.shipToUrl\`).\n`;
+        return harden({
+          kind: 'markdown',
+          data,
+          fromService: PCB_LAYOUT_PROVIDER_TAG,
+          metadata: {
+            title: 'LAUR — PCB fab quote',
+            summary:
+              `Fab quote at ${profile.tierLabel}: ${perBoardLabel} ` +
+              `per board × ${quantity.toLocaleString()} = ` +
+              `${batchTotalLabel}, ${turnaround}. No order placed; ` +
+              `${formatUsd(PCB_LAYOUT_QUOTE_PRICE_USD)} quote fee.`,
           },
         });
       },
@@ -271,6 +325,45 @@ export function makePcbLayoutService(options: {
             data: {
               type: 'string',
               description: 'Raw SVG source as a single string.',
+            },
+            fromService: {
+              type: 'string',
+              description: 'Provider tag of the service that produced this.',
+            },
+          },
+          required: ['kind', 'data', 'fromService'],
+        },
+      },
+      quote: {
+        description:
+          'Cheap fab re-quote at an arbitrary quantity, without ' +
+          'redoing the layout. Returns markdown covering per-board ' +
+          'price, batch total, and turnaround at the requested ' +
+          'volume tier. Charges a small quote fee — meaningfully ' +
+          'cheaper than re-invoking `layout` just to get a ' +
+          'different-quantity fab number. Intended for Stage 3 ' +
+          'cost-probe workflows where the agent needs a fab number ' +
+          'at scale without committing to a fresh design. Does not ' +
+          'place an order; call `fabricate` for that.',
+        args: {
+          spec: {
+            type: 'string',
+            description:
+              'Quote brief in plain English. Must include the ' +
+              'target board quantity (e.g. "quote for 5,000 boards").',
+          },
+        },
+        returns: {
+          type: 'object',
+          description: 'Artifact descriptor wrapping a markdown fab quote.',
+          properties: {
+            kind: {
+              type: 'string',
+              description: "Artifact kind. Always 'markdown' for this service.",
+            },
+            data: {
+              type: 'string',
+              description: 'Markdown source as a single string.',
             },
             fromService: {
               type: 'string',
