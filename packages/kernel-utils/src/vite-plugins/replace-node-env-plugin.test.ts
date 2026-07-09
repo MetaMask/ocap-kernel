@@ -55,4 +55,17 @@ describe('replaceNodeEnvPlugin', () => {
     const code = `const x = process.env.NODE_ENVIRONMENT;`;
     expect(transform(code, 'test.ts')).toBeNull();
   });
+
+  it('inlines a configured value instead of the default', () => {
+    const devTransform = replaceNodeEnvPlugin({ value: 'development' })
+      .transform as TransformFn;
+    const result = devTransform(
+      `const mode = process.env.NODE_ENV;`,
+      'test.ts',
+    );
+    expect(result).toStrictEqual({
+      code: `const mode = "development";`,
+      map: null,
+    });
+  });
 });

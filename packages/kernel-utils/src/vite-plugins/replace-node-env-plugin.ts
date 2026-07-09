@@ -1,8 +1,15 @@
 import type { Plugin as RolldownPlugin } from 'rolldown';
 
+export type ReplaceNodeEnvPluginOptions = {
+  /**
+   * The value to inline for `process.env.NODE_ENV`. Defaults to `'production'`.
+   */
+  value?: string;
+};
+
 /**
- * A Rolldown plugin that inlines `process.env.NODE_ENV` as the literal
- * `"production"` in any module that references it.
+ * A Rolldown plugin that inlines `process.env.NODE_ENV` as a string literal in
+ * any module that references it.
  *
  * This replaces the former build-config `define` (issue #812). Libraries such
  * as immer branch on `process.env.NODE_ENV`, and vats have no `process` global
@@ -13,9 +20,15 @@ import type { Plugin as RolldownPlugin } from 'rolldown';
  * {@link removeDynamicImportsPlugin}) and handles the dotted
  * `process.env.NODE_ENV` form, consistent with the `define` it replaces.
  *
+ * @param options - Plugin options.
+ * @param options.value - The value to inline for `process.env.NODE_ENV`.
+ * Defaults to `'production'`.
  * @returns A Rolldown plugin.
  */
-export function replaceNodeEnvPlugin(): RolldownPlugin {
+export function replaceNodeEnvPlugin({
+  value = 'production',
+}: ReplaceNodeEnvPluginOptions = {}): RolldownPlugin {
+  const replacement = JSON.stringify(value);
   return {
     name: 'ocap-kernel:replace-node-env',
     transform(code) {
@@ -25,7 +38,7 @@ export function replaceNodeEnvPlugin(): RolldownPlugin {
 
       const transformed = code.replace(
         /\bprocess\.env\.NODE_ENV\b/gu,
-        JSON.stringify('production'),
+        replacement,
       );
 
       if (transformed === code) {
