@@ -7,6 +7,7 @@ import { build } from 'vite';
 
 import type { VatBundle } from '../vat-bundle.ts';
 import { exportMetadataPlugin } from './export-metadata-plugin.ts';
+import { replaceNodeEnvPlugin } from './replace-node-env-plugin.ts';
 import { stripCommentsPlugin } from './strip-comments-plugin.ts';
 
 export type { VatBundle } from '../vat-bundle.ts';
@@ -88,12 +89,6 @@ export async function bundleVat(sourcePath: string): Promise<VatBundle> {
     result = await build({
       configFile: false,
       logLevel: 'silent',
-      // TODO: Remove this define block and add a process shim to VatSupervisor
-      // workerEndowments instead. This injects into ALL bundles but is only needed
-      // for libraries like immer that check process.env.NODE_ENV.
-      define: {
-        'process.env.NODE_ENV': JSON.stringify('production'),
-      },
       build: {
         write: false,
         minify: false,
@@ -109,6 +104,7 @@ export async function bundleVat(sourcePath: string): Promise<VatBundle> {
           },
           plugins: [
             removeDynamicImportsPlugin(),
+            replaceNodeEnvPlugin(),
             stripCommentsPlugin(),
             metadataPlugin,
           ],
