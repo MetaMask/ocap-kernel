@@ -1,0 +1,231 @@
+# Pluggable Netlayer Abstraction for ocap-kernel
+
+## Context
+
+Issue [#968](https://github.com/MetaMask/ocap-kernel/issues/968) proposes investigating iroh as a
+replacement for libp2p, and explicitly raises the option of "a clean network comms layer that can
+be configured to use either." Verdict from research: **the netlayer abstraction is a good idea and
+a medium lift** — and it is a _prerequisite_ for iroh, not an alternative to it:
+
+- iroh 1.0 (June 2026) has stable wire protocol + official Node.js napi bindings. Browser support
+  is wasm-only: relay connections work (e2e encrypted, interoperable with native iroh nodes), but
+  there are no direct connections or hole punching from the browser — all browser traffic transits
+  relays permanently, a regression vs. libp2p's WebRTC upgrade path. There is no npm wasm package;
+  we'd maintain our own Rust wrapper crate + wasm-bindgen build. So a wholesale swap is viable but
+  costly for browsers. The netlayer turns that from an architectural blocker into a per-netlayer
+  packaging decision: a future `@metamask/netlayer-iroh` ships `./nodejs` (napi) now and an
+  optional browser/wasm entry point if/when the trade-offs justify it, while browsers can
+  otherwise keep libp2p or plain WebSocket.
+- Some target clients have no use for either: single-kernel apps (want zero libp2p dep weight —
+  ocap-kernel currently carries ~15 libp2p deps), simple client-server apps (plain WebSocket to a
+  known endpoint), and in-process/same-device multi-kernel setups (tests, embedded).
+- The seam mostly exists already: the kernel core consumes string-based `PlatformServices`
+  (`packages/ocap-kernel/src/types.ts:529-584`) and `RemoteComms`
+  (`packages/ocap-kernel/src/remotes/types.ts`); no libp2p objects cross the send/receive path.
+  The remaining coupling is (a) the libp2p implementation physically living in
+  `packages/ocap-kernel/src/remotes/platform/`, and (b) semantic leaks: libp2p Ed25519 peerIds and
+  relay multiaddrs baked into the `ocap:{oid}@{peerId},{hints}` URL format, persisted store keys
+  (`peerId`, `keySeed`, `knownRelays`), and CLI/extension config.
+
+### User decisions (fixed)
+
+1. **First milestone:** netlayer interface + libp2p repackaged as one impl + small second impl(s)
+   (loopback and/or WebSocket) to prove the interface. Iroh later, as a Node-only netlayer.
+2. **Target clients:** no-remote-comms, simple client-server (WebSocket), in-process/loopback.
+   Not (yet) a public third-party extension point.
+3. **Compatibility:** break freely — persisted keys, `ocap:` URL format, config shapes may change
+   without migration.
+4. **Packaging:** separate packages; kernel-facing types re-exported from ocap-kernel.
+
+## Package layout
+
+| Package                              | Contents                                                                                                                                                                                                                                             |
+| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@metamask/netlayer` (new)           | `Netlayer`/hooks/factory types, `NetworkChannel`/`ChannelProvider` seam, the channel-session engine (refactored `transport.ts`), shared machinery (peer-state, reconnection, rate-limiting, validators, handshake), neutral Ed25519 identity helpers |
+| `@metamask/netlayer-libp2p` (new)    | `ConnectionFactory` as a `ChannelProvider`, libp2p error mapper, multiaddr utils; `./nodejs` subpath (QUIC/TCP direct transports); `./relay` subpath (relay server moved from `kernel-utils/src/libp2p-relay.ts`)                                    |
+| `@metamask/netlayer-loopback` (new)  | In-process hub netlayer: standard test fake + embedded multi-kernel                                                                                                                                                                                  |
+| `@metamask/netlayer-websocket` (new) | Plain WS client-server netlayer; `./nodejs` subpath for server side                                                                                                                                                                                  |
+| `@metamask/ocap-kernel`              | Keeps `PlatformServices`, `RemoteComms`, RemoteHandle/Ken protocol, ocap-URL logic, store. Re-exports netlayer types. **Loses all libp2p deps.**                                                                                                     |
+
+Note: netlayer types are _defined_ in `@metamask/netlayer` (so impls don't depend on the whole
+kernel) and re-exported from ocap-kernel. Scaffold with the `create-package` skill — it forces the
+`@ocap/` scope and derives the directory from the unscoped name, so scaffold then rename to
+`@metamask/*` with `publishConfig`/`exports` copied from an existing published package. Add
+tsconfig `references` per CLAUDE.md. Follow the subpath-export pattern already used by
+`kernel-platforms`.
+
+## Core interface (sketch)
+
+This sketch is the intended end state; where a phase plan and landed code refine it, the landed
+code wins. Known refinements from phase planning: `ChannelProvider.dial` carries a third
+`withRetry: boolean` argument (the engine distinguishes retry-dials from reconnection-lifecycle
+dials); `ChannelProvider.peerId` arrives in Phase 3 (Phase 1's internal seam has no provider
+identity); and `makeChannelNetlayer` shares an `AbortController` with the provider (the engine's
+`stop()` must abort the signal the provider was constructed with).
+
+```ts
+// @metamask/netlayer — kernel-facing contract. Peers/messages are opaque strings.
+export type Netlayer = {
+  readonly peerId: string;                                   // neutral encoding, see Identity
+  sendRemoteMessage: (to: string, message: string) => Promise<void>;
+  closeConnection: (peerId: string) => Promise<void>;
+  registerLocationHints: (peerId: string, hints: string[]) => void;
+  reconnectPeer: (peerId: string, hints?: string[]) => Promise<void>; // may be no-op
+  resetAllBackoffs: () => void;                              // may be no-op
+  getListenAddresses: () => string[];                        // netlayer-specific hint strings
+  stop: () => Promise<void>;
+};
+
+export type NetlayerHooks = {
+  handleMessage: (from: string, message: string) => Promise<string | null>;
+  onRemoteGiveUp?: (peerId: string) => void;
+  onIncarnationChange?: (peerId: string, observedIncarnation: string) => Promise<boolean>;
+};
+
+export type NetlayerParams<Config> = {
+  keySeed: string;              // netlayer MUST authenticate as the derived Ed25519 key
+  incarnationId?: string;
+  hooks: NetlayerHooks;
+  config: Config;               // netlayer-specific, superstruct-validated by the impl
+  logger?: Logger;
+};
+export type NetlayerFactory<Config = Json> = (params: NetlayerParams<Config>) => Promise<Netlayer>;
+export type NetlayerSpecifier = { netlayer: string; config: Json }; // Json → crosses postMessage
+export type NetlayerRegistry = Record<string, NetlayerFactory>;
+
+// Internal seam for channel-based impls (today's `Channel` made libp2p-free):
+export type NetworkChannel = {
+  peerId: string;
+  read: () => Promise<Uint8Array>;      // throws mapped kernel-errors
+  write: (data: Uint8Array) => Promise<void>;
+  close: () => Promise<void>;
+  setInactivityTimeout: (ms: number) => void; // may be no-op
+};
+export type ChannelProvider = {
+  readonly peerId: string;
+  dial: (peerId: string, hints: string[]) => Promise<NetworkChannel>;
+  onInboundChannel: (handler: (channel: NetworkChannel) => void) => void;
+  onPeerDisconnect: (handler: (peerId: string) => void) => void;
+  closeChannel: (channel: NetworkChannel) => Promise<void>;
+  getListenAddresses: () => string[];
+  stop: () => Promise<void>;
+};
+// Engine: refactored transport.ts — provider + hooks + options → Netlayer
+export const makeChannelNetlayer: (params: {...}) => Netlayer;
+```
+
+### Design decisions
+
+- **Kernel-side (unchanged):** Ken-protocol seq/ack, `RemoteHandle`, retransmission, ocap-URL
+  issue/redeem, hint-pool persistence (store treats addr strings as opaque). Netlayer contract:
+  best-effort ordered delivery per live connection, may drop on reconnect — matches what the
+  kernel already assumes (`docs/ken-protocol-assessment.md`).
+- **Handshake/incarnation: netlayer-side** via shared helpers in `@metamask/netlayer`
+  (`handshake.ts` already only consumes the channel type). Version the handshake message (`v`
+  field) since we're breaking compat anyway. Loopback calls `onIncarnationChange` directly.
+- **Reconnection/backoff: shared utility, not contract.** `ReconnectionManager`,
+  `reconnection-lifecycle`, `PeerStateManager`, rate limiters, validators move to
+  `@metamask/netlayer` and are consumed by `makeChannelNetlayer`.
+- **Identity: kernel-owned, neutral.** Kernel keeps `keySeed`; neutral peerId = base58btc
+  multibase of the raw Ed25519 pubkey via `@noble/curves` (replacing `@libp2p/crypto` +
+  `@libp2p/peer-id` in `remotes/kernel/remote-comms.ts`). AES-GCM for ocap-URL oid encryption
+  moves to WebCrypto `crypto.subtle`. All kernel state and the `ocap:` URL host use the neutral
+  id; hints stay netlayer-specific opaque strings. libp2p (and later iroh — its NodeId is the
+  same raw pubkey) converts at its own boundary in `connection-factory.ts`.
+- **Retryability: netlayer concern.** New neutral error classes in `kernel-errors`
+  (`ChannelResetError`, `IntentionalDisconnectError`, `MessageTooLargeError`); each provider maps
+  raw transport errors to them. Sequencing matters: Phase 1's mapper covers the read path only, so
+  Phase 2 drops kernel-errors' `@libp2p/interface` _import_ while keeping dial-path classification
+  by error _name_ (behavior-preserving); the name-sniffing branches move into netlayer-libp2p's
+  error mapper in Phase 4.
+- **Config split:** kernel-level options (`mnemonic`, `maxQueue`, `ackTimeoutMs`,
+  `maxUrlRelayHints`, `maxKnownRelays`) stay in ocap-kernel; the rest of `RemoteCommsOptions`
+  becomes per-netlayer config. `PlatformServices.initializeRemoteComms` becomes an options bag
+  taking a `NetlayerSpecifier`; `NodejsPlatformServices` and `PlatformServicesServer` are
+  constructed with a `NetlayerRegistry`. The browser postMessage boundary keeps working because
+  the specifier's `config` is `Json` (update superstruct in `rpc/platform-services/`).
+  The internal `directTransports` option dies in 4b — the libp2p `./nodejs` factory owns QUIC/TCP.
+  (During 4a, existing sniffing keeps flowing through the compatibility shim, which must not make
+  the `./nodejs` subpath reachable from ocap-kernel — browser bundling; see the Phase 4 plan §2.6.)
+
+## Phases (one PR each, CI green after each)
+
+Each phase has a detailed plan in this directory (`phase-1.md` … `phase-6.md`). The
+phase plans for 2–6 were written before their predecessors landed: **before executing phase N,
+revise its plan against the actually-merged state of phases 1..N−1** — cross-phase symbol names,
+signatures, and line numbers in those documents are indicative, and the landed code wins.
+
+**Phase 1 — Internal seam refactor** (ocap-kernel only, no new packages). ~3–4 days.
+Replace `Channel` with `NetworkChannel`/`ChannelProvider`; `ConnectionFactory` produces
+`NetworkChannel`s (lpStream wrapping, inactivity timeout, error mapping move inside it); add
+neutral error classes to kernel-errors; `transport.ts` becomes libp2p-import-free
+(`makeChannelNetlayer` shape). Mechanical refactor — move tests intact, no "improvements".
+Verify: existing unit + `kernel-test` integration tests.
+
+**Phase 2 — Neutral identity.** ~2–3 days.
+`remote-comms.ts` → `@noble/curves` + WebCrypto + neutral peerId; id conversion added to
+`connection-factory.ts`; kernel-errors drops libp2p imports; `ocap:` URL format changes.
+Verify: two-kernel relay integration test, URL round-trip tests, fresh-storage e2e.
+
+**Phase 3 — Create `@metamask/netlayer` + `@metamask/netlayer-loopback`.** ~2–3 days.
+Move shared machinery + engine + types (with tests) out of `remotes/platform/`; ocap-kernel
+re-exports types. Implement loopback (in-memory hub keyed by peerId); use it to replace
+hand-rolled `PlatformServices` mocks in some ocap-kernel tests. ocap-kernel still hosts the
+libp2p provider, so runtimes are untouched. Verify: full suite, `yarn constraints`.
+
+**Phase 4 — Extract `@metamask/netlayer-libp2p` + runtime injection.** ~5–6 days (split 4a/4b).
+
+- 4a: new package gets connection-factory, lp-framing, `utils/multiaddr.ts`, error mapper,
+  browser-default factory + `./nodejs` factory (QUIC/TCP sniffing moved from
+  `kernel-node-runtime/src/kernel/PlatformServices.ts`), relay server under `./relay`
+  (kernel-cli `relay` command repointed). ocap-kernel temporarily re-exports `initTransport`.
+- 4b: flip injection — options-bag `initializeRemoteComms` + `NetlayerRegistry` in
+  `NodejsPlatformServices` and `PlatformServicesServer`/`Client`; update RPC structs, kernel-cli
+  config, extension `offscreen.ts` (hard-coded relay → config), `comms-query-string.ts`. Remove
+  `initTransport` export and all libp2p deps from ocap-kernel. Relocate kernel-shims' bare
+  `import '@libp2p/webrtc'` (endoify-node.js) alongside the libp2p netlayer — flag for review.
+  Verify: full CI, extension e2e, `kernel-test` remote-comms integration, `ocap relay` smoke test.
+
+**Phase 5 — `@metamask/netlayer-websocket`.** ~3–4 days.
+`ChannelProvider` over WebSocket: client dials `wss://` hints (browser + node); `./nodejs` server
+authenticates peers via mutual Ed25519 challenge-signature handshake (new security-sensitive
+code — keep minimal, flag for crypto review). Topology decision: the hub is a **kernel
+endpoint** (star), not a forwarder — spokes talk to the hub kernel; spoke↔spoke is deliberately
+unsupported (that's what the libp2p netlayer's relays are for). Reuses `makeChannelNetlayer` +
+shared machinery — this is the proof the abstraction isn't libp2p-shaped. Parameterize
+`kernel-test` integration over netlayers (loopback always; libp2p/websocket where infra allows).
+
+**Phase 6 — Cleanup + docs.** ~1–2 days.
+Optional relay→"location hints" terminology rename in store/`RemoteIdentity`, glossary entries,
+changelogs (update-changelogs skill), "writing a netlayer" doc, note iroh as the next (Node-only)
+implementation with a pointer to #968.
+
+**Total: ~16–22 dev-days.**
+
+## Risks
+
+- **Engine extraction fidelity:** `transport.ts` encodes subtle races (`reuseOrReturnChannel`,
+  handshake-before-register, restart suppression). Phase 1 must be mechanical, tests moved intact.
+- **Error-classification completeness:** the neutral taxonomy must cover everything
+  `isRetryableNetworkError`/intentional-disconnect sniffing catches today, or reconnection
+  behavior silently changes. Enumerate mappings with per-error-class tests.
+- **WebSocket auth:** noise gave authenticated peer identity for free; plain WS needs a
+  challenge-signature handshake — new crypto, needs review (codebase already carries an
+  "amateur cryptography" warning in `remote-comms.ts`).
+- **Extension bundling:** moving libp2p from ocap-kernel into the extension's own dep graph —
+  check bundle size/format effects.
+
+## Verification (end-to-end)
+
+- Per phase: `yarn lint:fix`, `yarn build`, `yarn test:dev:quiet` (root, turbo-cached), plus the
+  affected packages' `test:integration` where the package defines one. Note the integration test
+  package is `@ocap/kernel-test` and (as of writing) runs its integration tests under the normal
+  test runner (`test:dev:quiet`), with no separate `test:integration` script.
+- After Phase 4: run the extension example (`@ocap/extension` `test:e2e`) and a two-kernel Node
+  scenario over the relay (`ocap relay start` + `kernel-test/src/remote-comms.test.ts`) to confirm
+  ocap-URL redemption and message delivery across the new injection path.
+- After Phase 5: two-kernel WebSocket hub-and-spoke integration test; loopback-based multi-kernel
+  test in-process.
+- Confirm `packages/ocap-kernel/package.json` has zero `libp2p`/`@libp2p`/`@chainsafe`/
+  `@multiformats` deps at the end of Phase 4. (Plain `multiformats` is not libp2p and stays —
+  `base58btc` is the neutral identity/oid encoding.)

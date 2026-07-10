@@ -4,6 +4,7 @@ coverage/
 docs/*
 !docs/*.md
 !docs/contributing
+!docs/plans
 
 # Logs
 logs
