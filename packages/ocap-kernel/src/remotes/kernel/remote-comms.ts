@@ -1,10 +1,8 @@
-import { AES_GCM } from '@libp2p/crypto/ciphers';
-import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
-import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import { toHex, fromHex } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import { base58btc } from 'multiformats/bases/base58';
 
+import { deriveNeutralPeerId } from './identity.ts';
 import type { KernelStore, RelayEntry } from '../../store/index.ts';
 import { insistKRef } from '../../types.ts';
 import type { KRef, PlatformServices } from '../../types.ts';
@@ -106,8 +104,7 @@ export function parseOcapURL(ocapURL: string): OcapURLParts {
 async function generateKeyInfo(seedString?: string): Promise<[string, string]> {
   // eslint-disable-next-line n/no-unsupported-features/node-builtins, no-param-reassign
   seedString ??= toHex(globalThis.crypto.getRandomValues(new Uint8Array(32)));
-  const keyPair = await generateKeyPairFromSeed('Ed25519', fromHex(seedString));
-  const peerId = peerIdFromPrivateKey(keyPair).toString();
+  const peerId = deriveNeutralPeerId(fromHex(seedString));
   return [seedString, peerId];
 }
 
@@ -237,9 +234,30 @@ export async function initRemoteIdentity(
     kernelStore.setRemoteIdentityValue('ocapURLKey', toHex(ocapURLKey));
   }
   /* eslint-enable no-param-reassign */
-  const cipher = AES_GCM.create();
 
   const KREF_MIN_LEN = 16;
+  const AES_GCM_IV_LENGTH = 12;
+
+  // Import the 32-byte ocapURLKey as a non-extractable AES-256-GCM key. The key
+  // is already 32 random bytes, so it is used directly with no PBKDF2 stretching
+  // (unlike the libp2p AESCipher this replaced). Import lazily and memoize so
+  // identities that never issue/redeem a URL never touch crypto.subtle.
+  // `CryptoKey` is flagged as experimental for the configured Node range but is
+  // present in every runtime this code targets (kernel worker + Node ≥ 20).
+  // eslint-disable-next-line n/no-unsupported-features/node-builtins
+  let aesKeyPromise: Promise<CryptoKey> | undefined;
+  // eslint-disable-next-line n/no-unsupported-features/node-builtins
+  const getAesKey = async (): Promise<CryptoKey> => {
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    aesKeyPromise ??= globalThis.crypto.subtle.importKey(
+      'raw',
+      ocapURLKey,
+      { name: 'AES-GCM' },
+      false,
+      ['encrypt', 'decrypt'],
+    );
+    return aesKeyPromise;
+  };
 
   /**
    * Obtain this kernel's peer ID.
@@ -258,10 +276,27 @@ export async function initRemoteIdentity(
    * @returns a URL that can later be redeemed for the given object reference.
    */
   async function issueOcapURL(kref: KRef): Promise<string> {
-    // the libp2p AESCipher salts the plaintext before encrypting, so not bothering to do that here
+    // Pad short krefs to KREF_MIN_LEN so the ciphertext length does not leak the
+    // kref length. A fresh random 12-byte IV per encryption provides semantic
+    // security (the previous libp2p AESCipher salted the plaintext instead).
     const paddedKref = `${kref.padStart(KREF_MIN_LEN)}`;
     const encodedKref = encoder.encode(paddedKref);
-    const rawOid = await cipher.encrypt(encodedKref, ocapURLKey);
+    const aesKey = await getAesKey();
+    // eslint-disable-next-line n/no-unsupported-features/node-builtins
+    const iv = globalThis.crypto.getRandomValues(
+      new Uint8Array(AES_GCM_IV_LENGTH),
+    );
+    const ciphertext = new Uint8Array(
+      // eslint-disable-next-line n/no-unsupported-features/node-builtins
+      await globalThis.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv },
+        aesKey,
+        encodedKref,
+      ),
+    );
+    const rawOid = new Uint8Array(iv.length + ciphertext.length);
+    rawOid.set(iv, 0);
+    rawOid.set(ciphertext, iv.length);
     const oid = base58btc.encode(rawOid);
     const entries = kernelStore.getRelayEntries();
     // Select top relays: bootstrap first (operator-configured, most reliable),
@@ -344,7 +379,17 @@ export async function initRemoteIdentity(
     const rawOid = base58btc.decode(oid);
     let encodedKref: Uint8Array;
     try {
-      encodedKref = await cipher.decrypt(rawOid, ocapURLKey);
+      const iv = rawOid.subarray(0, AES_GCM_IV_LENGTH);
+      const ciphertext = rawOid.subarray(AES_GCM_IV_LENGTH);
+      const aesKey = await getAesKey();
+      encodedKref = new Uint8Array(
+        // eslint-disable-next-line n/no-unsupported-features/node-builtins
+        await globalThis.crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv },
+          aesKey,
+          ciphertext,
+        ),
+      );
     } catch (problem) {
       logger?.error(`problem deciphering encoded kref: `, problem);
       throw Error(`ocapURL has bad object reference`);

@@ -2,7 +2,7 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { bootstrap } from '@libp2p/bootstrap';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
-import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
+import { generateKeyPairFromSeed, publicKeyFromRaw } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
 import {
   MuxerClosedError,
@@ -15,6 +15,7 @@ import type {
   Stream,
   StreamCloseEvent,
 } from '@libp2p/interface';
+import { peerIdFromPublicKey } from '@libp2p/peer-id';
 import { ping } from '@libp2p/ping';
 import {
   InvalidDataLengthError,
@@ -50,6 +51,10 @@ import {
 } from './constants.ts';
 import { getHost, getLastPeerId, isPlainWs } from '../../utils/multiaddr.ts';
 import { isPrivateAddress } from '../../utils/network.ts';
+import {
+  neutralPeerIdToPublicKey,
+  publicKeyToNeutralPeerId,
+} from '../kernel/identity.ts';
 import type {
   NetworkChannel,
   ConnectionFactoryOptions,
@@ -288,11 +293,23 @@ export class ConnectionFactory {
 
     // Set up inbound handler
     await this.#libp2p.handle('whatever', async (stream, connection) => {
-      const remotePeerId = connection.remotePeer.toString();
+      const libp2pPeerId = connection.remotePeer.toString();
       const connType = connection.direct ? 'direct' : 'relayed';
       this.#logger.log(
-        `inbound ${connType} connection from peerId:${remotePeerId}`,
+        `inbound ${connType} connection from peerId:${libp2pPeerId}`,
       );
+
+      // Our peers are Ed25519, noise-authenticated, so the raw public key is
+      // present; convert it to the neutral id the transport layer expects. If
+      // it is ever absent, drop the connection rather than fabricate an id.
+      const { publicKey } = connection.remotePeer;
+      if (!publicKey) {
+        this.#logger.error(
+          `inbound connection from ${libp2pPeerId} lacks a public key, dropping`,
+        );
+        return;
+      }
+      const remotePeerId = publicKeyToNeutralPeerId(publicKey.raw);
 
       const channel = this.#makeNetworkChannel(stream, remotePeerId);
 
@@ -320,14 +337,25 @@ export class ConnectionFactory {
     });
 
     this.#libp2p.addEventListener('peer:disconnect', (evt) => {
-      const remotePeerId = evt.detail.toString();
+      // evt.detail is a libp2p PeerId; #relayPeerIds is keyed by libp2p id, so
+      // the relay-suppression guard stays in libp2p-id space.
+      const libp2pPeerId = evt.detail.toString();
       this.#logger.log(
-        `peer disconnected (all connections closed): ${remotePeerId}`,
+        `peer disconnected (all connections closed): ${libp2pPeerId}`,
       );
       // Don't forward relay disconnects — handled by #scheduleRelayReconnect
-      if (!this.#relayPeerIds.has(remotePeerId)) {
-        this.#disconnectHandler?.(remotePeerId);
+      if (this.#relayPeerIds.has(libp2pPeerId)) {
+        return;
       }
+      // The transport layer only knows neutral ids, so convert before forwarding.
+      const { publicKey } = evt.detail;
+      if (!publicKey) {
+        this.#logger.error(
+          `peer:disconnect for ${libp2pPeerId} lacks a public key, cannot forward`,
+        );
+        return;
+      }
+      this.#disconnectHandler?.(publicKeyToNeutralPeerId(publicKey.raw));
     });
 
     await this.#libp2p.start();
@@ -448,9 +476,21 @@ export class ConnectionFactory {
   }
 
   /**
+   * Convert a neutral peer id to the libp2p PeerId string used inside
+   * multiaddrs (`/p2p/<id>`) and compared against `connection.remotePeer`.
+   *
+   * @param neutralId - The neutral (base58btc raw-pubkey) peer id.
+   * @returns The libp2p PeerId string.
+   */
+  #toLibp2pPeerId(neutralId: string): string {
+    const publicKey = publicKeyFromRaw(neutralPeerIdToPublicKey(neutralId));
+    return peerIdFromPublicKey(publicKey).toString();
+  }
+
+  /**
    * Get candidate address strings for dialing a peer.
    *
-   * @param peerId - The peer ID to get candidate address strings for.
+   * @param peerId - The libp2p peer ID to get candidate address strings for.
    * @param hints - The hints to get candidate address strings for.
    * @returns The candidate address strings.
    */
@@ -488,13 +528,17 @@ export class ConnectionFactory {
    * Single-attempt channel open (no backoff here).
    * Throws if all strategies fail.
    *
-   * @param peerId - The peer ID to open a channel for.
+   * @param peerId - The libp2p peer ID to dial (used for multiaddrs).
    * @param hints - The hints to open a channel for.
+   * @param neutralPeerId - The neutral peer ID to stamp on the returned
+   *   channel. Defaults to `peerId` for direct callers/tests that pass a single
+   *   id; `dial` passes the neutral id explicitly.
    * @returns The channel.
    */
   async openChannelOnce(
     peerId: string,
     hints: string[] = [],
+    neutralPeerId: string = peerId,
   ): Promise<NetworkChannel> {
     if (!this.#libp2p) {
       throw new Error('libp2p not initialized');
@@ -523,7 +567,7 @@ export class ConnectionFactory {
         this.#logger.log(
           `successfully connected to ${peerId} via ${addressString}`,
         );
-        const channel = this.#makeNetworkChannel(stream, peerId);
+        const channel = this.#makeNetworkChannel(stream, neutralPeerId);
         this.#logger.log(`opened channel to ${peerId}`);
         return channel;
       } catch (problem) {
@@ -559,13 +603,16 @@ export class ConnectionFactory {
   /**
    * Backoff-capable open (useful for initial connect).
    *
-   * @param peerId - The peer ID to open a channel for.
+   * @param peerId - The libp2p peer ID to dial (used for multiaddrs).
    * @param hints - The hints to open a channel for.
+   * @param neutralPeerId - The neutral peer ID to stamp on the returned channel.
+   *   Defaults to `peerId`; `dial` passes the neutral id explicitly.
    * @returns The channel.
    */
   async openChannelWithRetry(
     peerId: string,
     hints: string[] = [],
+    neutralPeerId: string = peerId,
   ): Promise<NetworkChannel> {
     const retryOptions: Parameters<typeof retryWithBackoff>[1] = {
       maxAttempts: this.#maxRetryAttempts,
@@ -579,7 +626,7 @@ export class ConnectionFactory {
       signal: this.#signal,
     };
     return retryWithBackoff(
-      async () => this.openChannelOnce(peerId, hints),
+      async () => this.openChannelOnce(peerId, hints, neutralPeerId),
       retryOptions,
     );
   }
@@ -587,7 +634,8 @@ export class ConnectionFactory {
   /**
    * Ensure only one dial attempt per peer at a time.
    *
-   * @param peerId - The peer ID to dial.
+   * @param peerId - The neutral peer ID to dial. Converted to the libp2p id for
+   *   multiaddr construction; the returned channel keeps the neutral id.
    * @param hints - The hints to dial.
    * @param withRetry - Whether to retry the dial.
    * @returns The channel.
@@ -597,12 +645,15 @@ export class ConnectionFactory {
     hints: string[],
     withRetry: boolean,
   ): Promise<NetworkChannel> {
+    // #inflightDials is keyed by the neutral id (what the transport layer and
+    // closeConnection know); convert to the libp2p id only for the dial itself.
+    const libp2pPeerId = this.#toLibp2pPeerId(peerId);
     let promise = this.#inflightDials.get(peerId);
     if (!promise) {
       promise = (
         withRetry
-          ? this.openChannelWithRetry(peerId, hints)
-          : this.openChannelOnce(peerId, hints)
+          ? this.openChannelWithRetry(libp2pPeerId, hints, peerId)
+          : this.openChannelOnce(libp2pPeerId, hints, peerId)
       ).finally(() => this.#inflightDials.delete(peerId));
       this.#inflightDials.set(peerId, promise);
     }

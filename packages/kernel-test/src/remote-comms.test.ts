@@ -1,10 +1,13 @@
-import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
-import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { fromHex } from '@metamask/kernel-utils';
-import { makeKernelStore, kunser, Kernel } from '@metamask/ocap-kernel';
+import {
+  makeKernelStore,
+  kunser,
+  Kernel,
+  deriveNeutralPeerId,
+} from '@metamask/ocap-kernel';
 import type {
   KernelStore,
   ClusterConfig,
@@ -104,12 +107,8 @@ class DirectNetworkService {
         _options: RemoteCommsOptions,
         handler: RemoteMessageHandler,
       ) {
-        // Generate the actual peer ID from the key seed
-        const keyPair = await generateKeyPairFromSeed(
-          'Ed25519',
-          fromHex(keySeed),
-        );
-        actualPeerId = peerIdFromPrivateKey(keyPair).toString();
+        // Derive the actual (neutral) peer ID from the key seed.
+        actualPeerId = deriveNeutralPeerId(fromHex(keySeed));
 
         // Register this peer in the direct network with its actual ID
         self.registerPeer(actualPeerId, handler, 'direct://localhost');

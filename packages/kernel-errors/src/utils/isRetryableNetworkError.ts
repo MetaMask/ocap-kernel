@@ -1,4 +1,4 @@
-import { MuxerClosedError } from '@libp2p/interface';
+import { ChannelResetError } from '../errors/ChannelResetError.ts';
 
 /**
  * Decide if an error is retryable for reconnects
@@ -16,7 +16,17 @@ export function isRetryableNetworkError(error: unknown): boolean {
     message?: string;
   };
 
-  if (error instanceof MuxerClosedError) {
+  // A read-path reset the netlayer already mapped to a neutral class.
+  if (error instanceof ChannelResetError) {
+    return true;
+  }
+
+  // The MuxerClosedError / Dial / Transport / NO_RESERVATION branches below are
+  // libp2p-specific and matched by name/message (no libp2p import). They catch
+  // raw libp2p dial-path errors that surface before the netlayer maps them, and
+  // move to @metamask/netlayer-libp2p's error mapper in Phase 4 of the netlayer
+  // work.
+  if (error instanceof Error && error.name === 'MuxerClosedError') {
     return true;
   }
 
