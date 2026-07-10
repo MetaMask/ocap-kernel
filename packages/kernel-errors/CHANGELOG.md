@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `ChannelResetError`, `IntentionalDisconnectError`, and `MessageTooLargeError` neutral transport error classes for the netlayer channel seam ([#970](https://github.com/MetaMask/ocap-kernel/pull/970))
 - Add `PeerRestartedError`, `IntentionalCloseError`, and `NetworkStoppedError` sentinel errors for the remote-comms transport ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))
 - Add `isTerminalSendError` utility to discriminate retry-worthy from terminal `sendRemoteMessage` errors ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))
 

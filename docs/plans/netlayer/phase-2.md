@@ -7,31 +7,42 @@ with no prior context.
 
 ## 0. Assumptions carried from Phase 1
 
-> **Revision required before execution.** This plan was written before Phase 1 landed.
-> Reconcile every Phase-1 reference below (names, signatures, line numbers) against the
-> actually-merged code; where they differ, the landed code wins and this document should be
-> updated, not followed blindly.
+> **Reconciled against landed Phase 1** (branch `rekm/netlayer-1`). The facts below reflect the
+> actually-merged code. Line numbers in later sections have drifted (Phase 1 added ~100 lines to
+> `connection-factory.ts`); prefer the named anchors, and treat any remaining line number as
+> approximate — the code wins.
 
-Phase 1 (already merged before this work starts) delivered, in `ocap-kernel` only:
+Phase 1 (merged before this work starts) delivered, in `ocap-kernel` and `kernel-errors` only:
 
 - `Channel` replaced by `NetworkChannel` (`{ peerId, read, write, close,
-setInactivityTimeout }`); `ConnectionFactory` produces `NetworkChannel`s, with
-  `lpStream` wrapping, inactivity timeout, and raw-error → neutral-error mapping
-  now living _inside_ `ConnectionFactory`.
+setInactivityTimeout }`); `ConnectionFactory` produces `NetworkChannel`s via a private
+  `#makeNetworkChannel(stream, peerId)` that owns `lpStream` wrapping, the inactivity-timeout
+  setter, the diagnostic close-event listener, the write not-open short-circuit, and
+  raw-error → neutral-error mapping — all _inside_ `ConnectionFactory`.
+- **Provider surface (final Phase 1 names):** `dial(peerId, hints, withRetry)` (renamed from
+  `dialIdempotent`), `onInboundChannel(handler)` (renamed from `onInboundConnection`),
+  `onPeerDisconnect(handler)`, `closeChannel(channel)` (**single-arg** — no `peerId`),
+  `getListenAddresses()`, `stop()`. Handler type is `InboundChannelHandler`. The graceful
+  close/abort body lives in private `#closeStream(stream, peerId)`, reached via
+  `NetworkChannel.close()`.
 - Neutral error classes exist in `@metamask/kernel-errors`: `ChannelResetError`,
-  `IntentionalDisconnectError`, `MessageTooLargeError`. Per the Phase 1 plan, the
-  mapper covers the **read path only** (`InvalidDataLength*` → `MessageTooLargeError`,
-  `StreamResetError` → `ChannelResetError`, SCTP user-abort →
-  `IntentionalDisconnectError`); dial-path errors such as `MuxerClosedError` are
-  **not** mapped and still surface raw. This matters for §3.5 below.
-- `transport.ts` is libp2p-import-free (consumes only `NetworkChannel` /
-  `ChannelProvider`).
+  `IntentionalDisconnectError`, `MessageTooLargeError` (each **no `data`**, `cause`-only, and
+  registered in `errorClasses`). The read-error mapper is a module-private
+  `mapLibp2pReadError(problem)` in `connection-factory.ts` (with a module-private
+  `isIntentionalDisconnect(problem)` helper), applied inside `NetworkChannel.read`. It covers the
+  **read path only** (`InvalidDataLength*` → `MessageTooLargeError`, `StreamResetError` →
+  `ChannelResetError`, SCTP user-abort → `IntentionalDisconnectError`, else pass-through);
+  dial-path errors such as `MuxerClosedError` are **not** mapped and still surface raw. This
+  matters for §3.5 below.
+- `transport.ts` is libp2p-import-free. It exports the synchronous engine
+  `makeChannelNetlayer({ provider, hooks, options, logger, stopController })` and keeps
+  `initTransport(...)` as a signature-compatible async wrapper (builds the `ConnectionFactory`
+  provider, delegates to the engine). The engine and its types are **not** exported from the
+  package barrel. `kernel-errors` still imports `@libp2p/interface` (`MuxerClosedError`) — Phase 1
+  removed nothing from kernel-errors; §3.5 is where that import goes away.
 
-Where a statement below depends on a Phase 1 rename (e.g. `Channel.peerId` is now
-`NetworkChannel.peerId`), it is flagged inline. If Phase 1 named a class or field
-differently, adjust the reference — the design is unchanged.
-
-Everything else described here reflects the code as it exists on `main` today.
+`remote-comms.ts` and `OcapURLManager.ts` were **not** touched by Phase 1, so their line numbers
+in §3.1/§3.2/§3.4 remain accurate. `connection-factory.ts` line numbers in §3.3 have drifted.
 
 ---
 
@@ -311,33 +322,36 @@ For the inbound direction, `connection.remotePeer` is an `Ed25519PeerId` whose
 
 Wiring changes:
 
-1. **`dial` / `dialIdempotent` / `openChannelOnce` / `openChannelWithRetry`.**
-   These take `peerId` (currently the libp2p id) and pass it to
-   `candidateAddressStrings`, which builds `${relay}/p2p-circuit/webrtc/p2p/${peerId}`
-   and compares direct hints via `getLastPeerId(multiaddr(hint)) === peerId`
-   (multiaddrs embed **libp2p** ids). After Phase 2 the _incoming_ `peerId` is
-   neutral, so convert **once at the top of the public entry point** (`dial`, or
-   `dialIdempotent` per the Phase 1 shape) to the libp2p id and thread the libp2p
-   id through `candidateAddressStrings`/`openChannel*` unchanged. Keep the
-   `#inflightDials` map keyed by the **neutral** id (that is what the transport
-   layer knows and what `closeConnection` receives), converting to libp2p id only
-   for the dial itself.
-2. **Returned channel's `peerId`.** Wherever `openChannelOnce` builds the channel
-   (`{ msgStream, stream, peerId }` today; a `NetworkChannel` after Phase 1), set
-   `.peerId` to the **neutral** id the caller passed in — not the libp2p id.
-   Since `dial` already holds the neutral id, pass it down or re-attach it to the
-   returned channel.
-3. **Inbound handler** (`this.#libp2p.handle('whatever', …)`, ~226). Replace
-   `const remotePeerId = connection.remotePeer.toString();` with:
+1. **`dial` / `openChannelOnce` / `openChannelWithRetry`.** (`dial` is the Phase 1
+   name; `dialIdempotent` no longer exists.) These take `peerId` (currently the
+   libp2p id) and pass it to `candidateAddressStrings`, which builds
+   `${relay}/p2p-circuit/webrtc/p2p/${peerId}` and compares direct hints via
+   `getLastPeerId(multiaddr(hint)) === peerId` (multiaddrs embed **libp2p** ids).
+   After Phase 2 the _incoming_ `peerId` is neutral, so convert **once at the top of
+   `dial`** to the libp2p id and thread the libp2p id through
+   `candidateAddressStrings`/`openChannel*` unchanged. Keep the `#inflightDials` map
+   keyed by the **neutral** id (that is what the transport layer knows and what
+   `closeConnection` receives), converting to libp2p id only for the dial itself.
+2. **Returned channel's `peerId`.** In Phase 1 the channel is built by
+   `this.#makeNetworkChannel(stream, peerId)`, called from both `openChannelOnce`
+   and the inbound handler. The channel's `.peerId` is exactly that second argument.
+   For outbound, pass the **neutral** id (not the libp2p dial id) as the second arg
+   to `#makeNetworkChannel`; so `openChannelOnce`/`openChannelWithRetry` must carry
+   the neutral id alongside the libp2p id used for `candidateAddressStrings`.
+3. **Inbound handler** (`this.#libp2p.handle('whatever', …)`; Phase 1 body:
+   `const remotePeerId = connection.remotePeer.toString();` then
+   `const channel = this.#makeNetworkChannel(stream, remotePeerId);`). Replace the
+   `remotePeerId` derivation with:
    ```ts
    const remotePeerId = publicKeyToNeutralPeerId(
      connection.remotePeer.publicKey.raw,
    );
    ```
-   so the inbound `NetworkChannel.peerId` is neutral. (`connection.remotePeer` is
-   an Ed25519 peer for our noise-authenticated Ed25519 peers; if `.publicKey` is
-   ever absent, log and drop the connection rather than fabricate an id.)
-4. **`peer:disconnect` / `connection:close` handlers** (~255–274). `evt.detail`
+   so the inbound `NetworkChannel.peerId` (the `#makeNetworkChannel` second arg) is
+   neutral. (`connection.remotePeer` is an Ed25519 peer for our noise-authenticated
+   Ed25519 peers; if `.publicKey` is ever absent, log and drop the connection rather
+   than fabricate an id.)
+4. **`peer:disconnect` / `connection:close` handlers.** `evt.detail`
    is a libp2p PeerId (or its string). The `#relayPeerIds` set holds **relay**
    libp2p ids (relays are opaque hint strings, unchanged), so the
    `#relayPeerIds.has(...)` guard stays in libp2p-id space. But the id forwarded
@@ -384,17 +398,20 @@ still works. No edit needed beyond confirming via the round-trip tests.
   ```
   (Alternative, if Phase 1's landed mapper turns out to cover dial-path errors after
   all: match on the neutral class instead. Check the merged Phase 1 code first.)
-- Add a case for the Phase 1 neutral class (adjust the import path to wherever Phase 1
-  placed it, e.g. `../errors/ChannelResetError.ts` or the package barrel):
+- Add a case for the Phase 1 neutral class. In the landed layout the class file is
+  `packages/kernel-errors/src/errors/ChannelResetError.ts` (the barrel `src/index.ts`
+  also re-exports it; `errors/index.ts` only holds the `errorClasses` registry). From
+  `src/utils/isRetryableNetworkError.ts` import it directly:
   ```ts
-  import { ChannelResetError } from '../errors/index.ts';
+  import { ChannelResetError } from '../errors/ChannelResetError.ts';
   // …
   if (error instanceof ChannelResetError) {
     return true;
   }
   ```
   so mapped read-path resets remain retryable once callers start seeing the neutral
-  classes.
+  classes. (Landed confirmation: Phase 1's mapper does **not** cover the dial path, so keep
+  the name-based `MuxerClosedError` branch above — do not rely on the neutral class for it.)
 - **Keep** the Node.js `code` checks (`ECONNRESET`, `ETIMEDOUT`, …), the
   `name.includes('Dial')/('Transport')` string sniffing, and the `NO_RESERVATION`
   message check. These are string/duck-typed (no libp2p import) and still catch
@@ -429,19 +446,27 @@ packages/kernel-errors/src` returns only `isRetryableNetworkError.ts` and its
   imports (lines 1–2). The two-kernel assertions (`peerId1 !== peerId2`, ~315)
   stay; they now compare neutral ids.
 - **`packages/ocap-kernel/src/remotes/platform/connection-factory.test.ts`.**
-  This mocks `@libp2p/crypto/keys` (`generateKeyPairFromSeed`) and imports
-  `@libp2p/interface`. It must now also account for `publicKeyFromRaw` /
-  `peerIdFromPublicKey` used by the new `#toLibp2pPeerId`. Options, cheapest
-  first: (a) extend the `@libp2p/crypto/keys` mock to include a `publicKeyFromRaw`
-  that returns a stub with a `.raw`, and mock `@libp2p/peer-id`'s
-  `peerIdFromPublicKey` to return a `{ toString() }` stub whose value is a fixed
-  libp2p id; (b) for inbound tests, give the mocked `connection.remotePeer` a
-  `publicKey.raw` (32 bytes) so `publicKeyToNeutralPeerId` yields a deterministic
-  neutral id and assert channels carry the neutral id. Update the existing
-  `generateKeyPairFromSeed` call assertion (~392) as needed; it still fires from
-  `#generateKeyInfo`. Add at least one test asserting the dial→libp2p-id
-  conversion produces the right `/p2p/<libp2pId>` candidate address and that the
-  returned channel's `peerId` is neutral.
+  Current (post-Phase-1) mock landscape to build on: it mocks `@libp2p/crypto/keys`
+  (`generateKeyPairFromSeed`), `@libp2p/utils` (stub `lpStream` that decorates the raw
+  stream with `addEventListener`/`status`/`close`/`abort` and exposes `getByteStreamFor`,
+  plus stub classes `MockInvalidDataLengthError`/`MockInvalidDataLengthLengthError`/
+  `MockUnexpectedEOFError`), and `@metamask/kernel-errors` (mock `AbortError`,
+  `ChannelResetError`, `IntentionalDisconnectError`, `MessageTooLargeError`,
+  `isRetryableNetworkError`). It does **not** mock `@libp2p/interface` — it imports the
+  real `StreamResetError`/`MuxerClosedError`/`TooManyOutboundProtocolStreamsError`. There
+  is a `NetworkChannel behavior` describe block covering `mapLibp2pReadError`,
+  `setInactivityTimeout`, the close-event listener, and the write short-circuit; extend it
+  rather than re-inventing mock infra.
+  Phase 2 must additionally account for `publicKeyFromRaw` / `peerIdFromPublicKey` used by
+  the new `#toLibp2pPeerId`. Options, cheapest first: (a) extend the `@libp2p/crypto/keys`
+  mock to include a `publicKeyFromRaw` that returns a stub with a `.raw`, and add a
+  `@libp2p/peer-id` mock whose `peerIdFromPublicKey` returns a `{ toString() }` stub with a
+  fixed libp2p id; (b) for inbound tests, give the mocked `connection.remotePeer` a
+  `publicKey.raw` (32 bytes) so `publicKeyToNeutralPeerId` yields a deterministic neutral
+  id and assert channels carry the neutral id. The existing `generateKeyPairFromSeed`
+  assertion still fires from `#generateKeyInfo`. Add at least one test asserting the
+  dial→libp2p-id conversion produces the right `/p2p/<libp2pId>` candidate address and that
+  the returned channel's `peerId` is neutral.
 
 ### 3.7 `docs/identity-backup-recovery.md`
 

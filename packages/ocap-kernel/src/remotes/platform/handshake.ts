@@ -3,7 +3,7 @@ import { toString as bufToString, fromString } from 'uint8arrays';
 
 import { writeWithTimeout } from './channel-utils.ts';
 import { DEFAULT_WRITE_TIMEOUT_MS, HANDSHAKE_TIMEOUT_MS } from './constants.ts';
-import type { Channel } from '../types.ts';
+import type { NetworkChannel } from '../types.ts';
 
 /**
  * Type for handshake protocol messages exchanged during connection establishment.
@@ -67,7 +67,7 @@ export function isHandshakeMessage(
  * @returns The message string.
  */
 async function readWithTimeout(
-  channel: Channel,
+  channel: NetworkChannel,
   timeoutMs: number,
 ): Promise<string> {
   const abortController = new AbortController();
@@ -88,8 +88,8 @@ async function readWithTimeout(
   });
 
   const readPromise = (async () => {
-    const readBuf = await channel.msgStream.read();
-    return bufToString(readBuf.subarray());
+    const bytes = await channel.read();
+    return bufToString(bytes);
   })();
 
   try {
@@ -109,7 +109,7 @@ async function readWithTimeout(
  * @returns The handshake result, or undefined if handshake is not configured.
  */
 export async function performOutboundHandshake(
-  channel: Channel,
+  channel: NetworkChannel,
   deps: HandshakeDeps,
 ): Promise<HandshakeResult> {
   const { localIncarnationId, logger, setRemoteIncarnation } = deps;
@@ -163,7 +163,7 @@ export async function performOutboundHandshake(
  * @returns The handshake result, or undefined if handshake is not configured.
  */
 export async function performInboundHandshake(
-  channel: Channel,
+  channel: NetworkChannel,
   deps: HandshakeDeps,
 ): Promise<HandshakeResult> {
   const { localIncarnationId, logger, setRemoteIncarnation } = deps;

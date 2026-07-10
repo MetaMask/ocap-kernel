@@ -1,8 +1,19 @@
-import { MuxerClosedError } from '@libp2p/interface';
-import { AbortError } from '@metamask/kernel-errors';
+import { MuxerClosedError, StreamResetError } from '@libp2p/interface';
+import {
+  InvalidDataLengthError,
+  InvalidDataLengthLengthError,
+  UnexpectedEOFError,
+  getByteStreamFor,
+} from '@libp2p/utils';
+import {
+  AbortError,
+  ChannelResetError,
+  IntentionalDisconnectError,
+  MessageTooLargeError,
+} from '@metamask/kernel-errors';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 
-import type { Channel } from '../types.ts';
+import type { NetworkChannel } from '../types.ts';
 
 // Mock heavy/libp2p related deps with minimal shims we can assert against.
 
@@ -104,6 +115,33 @@ vi.mock('@metamask/kernel-errors', () => ({
     constructor() {
       super('Operation aborted');
       this.name = 'AbortError';
+    }
+  },
+  ChannelResetError: class MockChannelResetError extends Error {
+    constructor(options?: { cause?: unknown }) {
+      super('Channel reset by remote peer');
+      this.name = 'ChannelResetError';
+      if (options?.cause !== undefined) {
+        this.cause = options.cause;
+      }
+    }
+  },
+  IntentionalDisconnectError: class MockIntentionalDisconnectError extends Error {
+    constructor(options?: { cause?: unknown }) {
+      super('Remote peer intentionally disconnected');
+      this.name = 'IntentionalDisconnectError';
+      if (options?.cause !== undefined) {
+        this.cause = options.cause;
+      }
+    }
+  },
+  MessageTooLargeError: class MockMessageTooLargeError extends Error {
+    constructor(options?: { cause?: unknown }) {
+      super('Inbound message exceeds size limit');
+      this.name = 'MessageTooLargeError';
+      if (options?.cause !== undefined) {
+        this.cause = options.cause;
+      }
     }
   },
   isRetryableNetworkError: (error: unknown) => {
@@ -229,7 +267,16 @@ type MockByteStream = {
 
 const streamMap = new WeakMap<object, MockByteStream>();
 vi.mock('@libp2p/utils', () => ({
-  lpStream: (stream: object) => {
+  lpStream: (stream: Record<string, unknown>) => {
+    // Ensure the raw stream carries the surface that #makeNetworkChannel and
+    // NetworkChannel rely on (close-event listener, status, close, abort).
+    // Real libp2p streams always have these; the test's bare `{}` streams do not.
+
+    stream.addEventListener ??= () => undefined;
+    stream.status ??= 'open';
+    stream.close ??= async () => undefined;
+    stream.abort ??= () => undefined;
+
     const bs: MockByteStream = {
       writes: [],
       async write(chunk: Uint8Array) {
@@ -243,9 +290,9 @@ vi.mock('@libp2p/utils', () => ({
     return bs;
   },
   getByteStreamFor: (stream: object) => streamMap.get(stream),
-  InvalidDataLengthError: class InvalidDataLengthError extends Error {},
-  InvalidDataLengthLengthError: class InvalidDataLengthLengthError extends Error {},
-  UnexpectedEOFError: class UnexpectedEOFError extends Error {},
+  InvalidDataLengthError: class MockInvalidDataLengthError extends Error {},
+  InvalidDataLengthLengthError: class MockInvalidDataLengthLengthError extends Error {},
+  UnexpectedEOFError: class MockUnexpectedEOFError extends Error {},
 }));
 
 const createLibp2p = vi.fn();
@@ -645,7 +692,7 @@ describe('ConnectionFactory', () => {
 
     it('logs connection type as direct or relayed for inbound', async () => {
       factory = await createFactory();
-      factory.onInboundConnection(vi.fn());
+      factory.onInboundChannel(vi.fn());
 
       const inboundStream = {};
       await libp2pState.handler?.(inboundStream, {
@@ -659,12 +706,12 @@ describe('ConnectionFactory', () => {
     });
   });
 
-  describe('onInboundConnection', () => {
+  describe('onInboundChannel', () => {
     it('sets inbound handler', async () => {
       factory = await createFactory();
 
       const handler = vi.fn();
-      factory.onInboundConnection(handler);
+      factory.onInboundChannel(handler);
 
       // Simulate inbound connection
       const inboundStream = {};
@@ -683,8 +730,8 @@ describe('ConnectionFactory', () => {
     it('creates channel with byte stream for inbound connections', async () => {
       factory = await createFactory();
 
-      let capturedChannel: Channel | undefined;
-      factory.onInboundConnection((channel: Channel) => {
+      let capturedChannel: NetworkChannel | undefined;
+      factory.onInboundChannel((channel: NetworkChannel) => {
         capturedChannel = channel;
       });
 
@@ -695,7 +742,7 @@ describe('ConnectionFactory', () => {
       });
 
       expect(capturedChannel).toBeDefined();
-      expect(capturedChannel?.msgStream).toBeDefined();
+      expect(capturedChannel?.read).toBeDefined();
       expect(capturedChannel?.peerId).toBe('inbound-peer');
     });
 
@@ -703,7 +750,7 @@ describe('ConnectionFactory', () => {
       factory = await createFactory();
 
       const handlerError = new Error('handler setup failed');
-      factory.onInboundConnection(async () => {
+      factory.onInboundChannel(async () => {
         throw handlerError;
       });
 
@@ -720,7 +767,7 @@ describe('ConnectionFactory', () => {
       factory = await createFactory();
 
       const handler = vi.fn();
-      factory.onInboundConnection(handler);
+      factory.onInboundChannel(handler);
 
       const inboundStream = {};
       const result = await libp2pState.handler?.(inboundStream, {
@@ -800,7 +847,7 @@ describe('ConnectionFactory', () => {
 
       expect(channel).toBeDefined();
       expect(channel.peerId).toBe('peer123');
-      expect(channel.msgStream).toBeDefined();
+      expect(channel.read).toBeDefined();
       expect(libp2pState.dials).toHaveLength(1);
     });
 
@@ -1303,7 +1350,7 @@ describe('ConnectionFactory', () => {
     });
   });
 
-  describe('dialIdempotent', () => {
+  describe('dial', () => {
     it('only dials once for concurrent requests to same peer', async () => {
       let dialCount = 0;
       createLibp2p.mockImplementation(async () => ({
@@ -1328,8 +1375,8 @@ describe('ConnectionFactory', () => {
 
       // Start two concurrent dials
       const [channel1, channel2] = await Promise.all([
-        factory.dialIdempotent('peer123', [], false),
-        factory.dialIdempotent('peer123', [], false),
+        factory.dial('peer123', [], false),
+        factory.dial('peer123', [], false),
       ]);
 
       expect(channel1).toBe(channel2);
@@ -1357,11 +1404,11 @@ describe('ConnectionFactory', () => {
       factory = await createFactory();
 
       // First dial
-      await factory.dialIdempotent('peer123', [], false);
+      await factory.dial('peer123', [], false);
       expect(dialCount).toBe(1);
 
       // Second dial (after first completes)
-      await factory.dialIdempotent('peer123', [], false);
+      await factory.dial('peer123', [], false);
       expect(dialCount).toBe(2);
     });
 
@@ -1386,9 +1433,9 @@ describe('ConnectionFactory', () => {
       factory = await createFactory();
 
       await Promise.all([
-        factory.dialIdempotent('peer1', [], false),
-        factory.dialIdempotent('peer2', [], false),
-        factory.dialIdempotent('peer3', [], false),
+        factory.dial('peer1', [], false),
+        factory.dial('peer2', [], false),
+        factory.dial('peer3', [], false),
       ]);
 
       expect(dialCount).toBe(3);
@@ -1419,7 +1466,7 @@ describe('ConnectionFactory', () => {
 
       factory = await createFactory();
 
-      await factory.dialIdempotent('peer123', [], true);
+      await factory.dial('peer123', [], true);
       expect(attemptCount).toBe(2);
     });
 
@@ -1441,14 +1488,14 @@ describe('ConnectionFactory', () => {
 
       factory = await createFactory();
 
-      await expect(
-        factory.dialIdempotent('peer123', [], false),
-      ).rejects.toThrow('Dial failed');
+      await expect(factory.dial('peer123', [], false)).rejects.toThrow(
+        'Dial failed',
+      );
 
       // Should be able to retry after failure
-      await expect(
-        factory.dialIdempotent('peer123', [], false),
-      ).rejects.toThrow('Dial failed');
+      await expect(factory.dial('peer123', [], false)).rejects.toThrow(
+        'Dial failed',
+      );
     });
   });
 
@@ -1556,7 +1603,7 @@ describe('ConnectionFactory', () => {
       factory = await createFactory();
 
       // Start a dial but don't wait for it
-      const dialPromise = factory.dialIdempotent('peer123', [], false);
+      const dialPromise = factory.dial('peer123', [], false);
 
       // Stop should clear inflight dials
       await factory.stop();
@@ -1639,56 +1686,265 @@ describe('ConnectionFactory', () => {
   });
 
   describe('closeChannel', () => {
-    it('closes stream gracefully', async () => {
+    /**
+     * Open a channel whose underlying libp2p stream is the provided object,
+     * so `channel.close()` (via `factory.closeChannel`) exercises the private
+     * graceful-close-then-abort logic against a controllable stream.
+     *
+     * @param peerId - The peer id to dial.
+     * @param stream - The stream object (with close/abort) to back the channel.
+     * @returns The opened NetworkChannel.
+     */
+    async function openChannelWithStream(
+      peerId: string,
+      stream: Record<string, unknown>,
+    ): Promise<NetworkChannel> {
+      createLibp2p.mockImplementation(async () => ({
+        start: vi.fn(),
+        stop: vi.fn(),
+        peerId: { toString: () => 'test-peer' },
+        addEventListener: vi.fn(),
+        dialProtocol: vi.fn(async () => stream),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
+        handle: vi.fn(),
+      }));
       factory = await createFactory();
+      return factory.openChannelOnce(peerId);
+    }
+
+    it('closes stream gracefully', async () => {
       const close = vi.fn().mockResolvedValue(undefined);
-      const channel = {
-        peerId: 'peer-close',
-        stream: { close, abort: vi.fn() },
-        msgStream: {},
-      } as unknown as Channel;
-      await factory.closeChannel(channel, channel.peerId);
+      const channel = await openChannelWithStream('peer-close', {
+        close,
+        abort: vi.fn(),
+      });
+      await factory.closeChannel(channel);
       expect(close).toHaveBeenCalled();
       expect(mockLoggerLog).toHaveBeenCalledWith(
-        `${channel.peerId}:: closed channel stream`,
+        'peer-close:: closed channel stream',
       );
     });
 
     it('aborts stream when graceful close fails', async () => {
-      factory = await createFactory();
       const closeError = new Error('close failed');
       const close = vi.fn().mockRejectedValue(closeError);
       const abort = vi.fn();
-      const channel = {
-        peerId: 'peer-abort',
-        stream: { close, abort },
-        msgStream: {},
-      } as unknown as Channel;
-      await factory.closeChannel(channel, channel.peerId);
+      const channel = await openChannelWithStream('peer-abort', {
+        close,
+        abort,
+      });
+      await factory.closeChannel(channel);
       // close() must be attempted before falling back to abort()
       expect(close).toHaveBeenCalled();
       expect(abort).toHaveBeenCalledWith(closeError);
       expect(mockLoggerLog).toHaveBeenCalledWith(
-        `${channel.peerId}:: aborted channel stream`,
+        'peer-abort:: aborted channel stream',
       );
     });
 
     it('logs error when abort also throws', async () => {
-      factory = await createFactory();
       const close = vi.fn().mockRejectedValue(new Error('close failed'));
       const abort = vi.fn().mockImplementation(() => {
         throw new Error('abort failed');
       });
-      const channel = {
-        peerId: 'peer-double-fail',
-        stream: { close, abort },
-        msgStream: {},
-      } as unknown as Channel;
-      await factory.closeChannel(channel, channel.peerId);
+      const channel = await openChannelWithStream('peer-double-fail', {
+        close,
+        abort,
+      });
+      await factory.closeChannel(channel);
       expect(abort).toHaveBeenCalled();
       expect(mockLoggerLog).toHaveBeenCalledWith(
         expect.stringContaining('closing channel stream'),
       );
+    });
+  });
+
+  describe('NetworkChannel behavior', () => {
+    type CloseListener = (evt: unknown) => void;
+
+    /**
+     * Open a channel backed by a controllable stream, exposing the stream, its
+     * mocked byte stream, and any registered 'close' listeners.
+     *
+     * @param peerId - The peer id to dial.
+     * @param streamOverrides - Overrides merged onto the default stream object.
+     * @returns The channel, its stream, byte stream, and captured close listeners.
+     */
+    async function openChannel(
+      peerId: string,
+      streamOverrides: Record<string, unknown> = {},
+    ): Promise<{
+      channel: NetworkChannel;
+      stream: Record<string, unknown>;
+      byteStream: MockByteStream;
+      closeListeners: CloseListener[];
+    }> {
+      const closeListeners: CloseListener[] = [];
+      const stream: Record<string, unknown> = {
+        status: 'open',
+        inactivityTimeout: 0,
+        addEventListener: (event: string, handler: CloseListener) => {
+          if (event === 'close') {
+            closeListeners.push(handler);
+          }
+        },
+        close: vi.fn().mockResolvedValue(undefined),
+        abort: vi.fn(),
+        ...streamOverrides,
+      };
+      createLibp2p.mockImplementation(async () => ({
+        start: vi.fn(),
+        stop: vi.fn(),
+        peerId: { toString: () => 'test-peer' },
+        addEventListener: vi.fn(),
+        dialProtocol: vi.fn(async () => stream),
+        getConnections: vi.fn(() => [
+          { remotePeer: { toString: () => 'relay1' } },
+          { remotePeer: { toString: () => 'relay2' } },
+        ]),
+        handle: vi.fn(),
+      }));
+      factory = await createFactory();
+      const channel = await factory.openChannelOnce(peerId);
+      const byteStream = getByteStreamFor(stream) as MockByteStream;
+      return { channel, stream, byteStream, closeListeners };
+    }
+
+    describe('read error mapping', () => {
+      it('maps InvalidDataLengthError to MessageTooLargeError', async () => {
+        const { channel, byteStream } = await openChannel('peer1');
+        const raw = new InvalidDataLengthError('too big');
+        vi.spyOn(byteStream, 'read')
+          .mockImplementation()
+          .mockRejectedValue(raw);
+        await expect(channel.read()).rejects.toBeInstanceOf(
+          MessageTooLargeError,
+        );
+        await expect(channel.read()).rejects.toHaveProperty('cause', raw);
+      });
+
+      it('maps InvalidDataLengthLengthError to MessageTooLargeError', async () => {
+        const { channel, byteStream } = await openChannel('peer1');
+        const raw = new InvalidDataLengthLengthError('bad prefix');
+        vi.spyOn(byteStream, 'read')
+          .mockImplementation()
+          .mockRejectedValue(raw);
+        await expect(channel.read()).rejects.toBeInstanceOf(
+          MessageTooLargeError,
+        );
+      });
+
+      it('maps StreamResetError to ChannelResetError', async () => {
+        const { channel, byteStream } = await openChannel('peer1');
+        const raw = new StreamResetError('reset');
+        vi.spyOn(byteStream, 'read')
+          .mockImplementation()
+          .mockRejectedValue(raw);
+        await expect(channel.read()).rejects.toBeInstanceOf(ChannelResetError);
+        await expect(channel.read()).rejects.toHaveProperty('cause', raw);
+      });
+
+      it('maps SCTP user-initiated abort to IntentionalDisconnectError', async () => {
+        const { channel, byteStream } = await openChannel('peer1');
+        const raw = { errorDetail: 'sctp-failure', sctpCauseCode: 12 };
+        vi.spyOn(byteStream, 'read')
+          .mockImplementation()
+          .mockRejectedValue(raw);
+        await expect(channel.read()).rejects.toBeInstanceOf(
+          IntentionalDisconnectError,
+        );
+      });
+
+      it('re-throws UnexpectedEOFError unchanged', async () => {
+        const { channel, byteStream } = await openChannel('peer1');
+        const raw = new UnexpectedEOFError('eof');
+        vi.spyOn(byteStream, 'read')
+          .mockImplementation()
+          .mockRejectedValue(raw);
+        await expect(channel.read()).rejects.toBe(raw);
+      });
+
+      it('re-throws an arbitrary error unchanged', async () => {
+        const { channel, byteStream } = await openChannel('peer1');
+        const raw = new Error('something else');
+        vi.spyOn(byteStream, 'read')
+          .mockImplementation()
+          .mockRejectedValue(raw);
+        await expect(channel.read()).rejects.toBe(raw);
+      });
+
+      it('does not map an SCTP failure with a different cause code', async () => {
+        const { channel, byteStream } = await openChannel('peer1');
+        const raw = { errorDetail: 'sctp-failure', sctpCauseCode: 5 };
+        vi.spyOn(byteStream, 'read')
+          .mockImplementation()
+          .mockRejectedValue(raw);
+        await expect(channel.read()).rejects.toBe(raw);
+      });
+    });
+
+    it('read flattens the byte stream payload to a Uint8Array', async () => {
+      const { channel, byteStream } = await openChannel('peer1');
+      const payload = new Uint8Array([1, 2, 3]);
+      vi.spyOn(byteStream, 'read')
+        .mockImplementation()
+        .mockResolvedValue({ subarray: () => payload });
+      expect(await channel.read()).toBe(payload);
+    });
+
+    it('setInactivityTimeout sets the stream inactivity timeout', async () => {
+      const { channel, stream } = await openChannel('peer1');
+      channel.setInactivityTimeout(5_000);
+      expect(stream.inactivityTimeout).toBe(5_000);
+    });
+
+    it.each([
+      {
+        label: 'local close without error',
+        evt: { local: true },
+        expected: 'peer1:: stream closed locally',
+      },
+      {
+        label: 'local close with error',
+        evt: { local: true, error: { message: 'boom' } },
+        expected: 'peer1:: stream closed locally: boom',
+      },
+      {
+        label: 'remote reset with error',
+        evt: { local: false, error: { message: 'reset' } },
+        expected: 'peer1:: stream reset by remote: reset',
+      },
+      {
+        label: 'remote clean close',
+        evt: { local: false },
+        expected: 'peer1:: stream closed by remote (clean)',
+      },
+    ])('logs diagnostic close event: $label', async ({ evt, expected }) => {
+      const { closeListeners } = await openChannel('peer1');
+      expect(closeListeners).toHaveLength(1);
+      closeListeners[0]?.(evt);
+      expect(mockLoggerLog).toHaveBeenCalledWith(expected);
+    });
+
+    it.each(['closed', 'closing', 'aborted', 'reset'])(
+      'write throws immediately when stream status is %s',
+      async (status) => {
+        const { channel, byteStream } = await openChannel('peer1', { status });
+        await expect(channel.write(new Uint8Array([1, 2, 3]))).rejects.toThrow(
+          `Stream is ${status}, cannot write`,
+        );
+        expect(byteStream.writes).toHaveLength(0);
+      },
+    );
+
+    it('write forwards data to the byte stream when open', async () => {
+      const { channel, byteStream } = await openChannel('peer1');
+      const data = new Uint8Array([9, 8, 7]);
+      await channel.write(data);
+      expect(byteStream.writes).toContain(data);
     });
   });
 
@@ -2158,8 +2414,8 @@ describe('ConnectionFactory', () => {
     it('handles inbound and outbound connections', async () => {
       factory = await createFactory();
 
-      const receivedChannels: Channel[] = [];
-      factory.onInboundConnection((channel: Channel) => {
+      const receivedChannels: NetworkChannel[] = [];
+      factory.onInboundChannel((channel: NetworkChannel) => {
         receivedChannels.push(channel);
       });
 

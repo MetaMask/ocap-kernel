@@ -10,6 +10,9 @@ export { SubclusterNotFoundError } from './errors/SubclusterNotFoundError.ts';
 export { AbortError } from './errors/AbortError.ts';
 export { IntentionalCloseError } from './errors/IntentionalCloseError.ts';
 export { NetworkStoppedError } from './errors/NetworkStoppedError.ts';
+export { ChannelResetError } from './errors/ChannelResetError.ts';
+export { IntentionalDisconnectError } from './errors/IntentionalDisconnectError.ts';
+export { MessageTooLargeError } from './errors/MessageTooLargeError.ts';
 export { PeerRestartedError } from './errors/PeerRestartedError.ts';
 export {
   ResourceLimitError,

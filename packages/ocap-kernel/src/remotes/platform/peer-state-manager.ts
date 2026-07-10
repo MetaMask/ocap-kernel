@@ -1,13 +1,13 @@
 import type { Logger } from '@metamask/logger';
 
 import { DEFAULT_STALE_PEER_TIMEOUT_MS } from './constants.ts';
-import type { Channel } from '../types.ts';
+import type { NetworkChannel } from '../types.ts';
 
 /**
  * Per-peer connection state.
  */
 export type PeerState = {
-  channel: Channel | undefined;
+  channel: NetworkChannel | undefined;
   locationHints: string[];
   /** The incarnation ID of the remote peer, if known from handshake. */
   remoteIncarnationId: string | undefined;

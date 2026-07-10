@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { makeReconnectionLifecycle } from './reconnection-lifecycle.ts';
 import type { ReconnectionLifecycleDeps } from './reconnection-lifecycle.ts';
-import type { Channel } from '../types.ts';
+import type { NetworkChannel } from '../types.ts';
 
 // Mock kernel-utils for abortableDelay
 vi.mock('@metamask/kernel-utils', async () => {
@@ -36,7 +36,7 @@ const flushPromises = async (): Promise<void> =>
 describe('reconnection-lifecycle', () => {
   let deps: ReconnectionLifecycleDeps;
   let abortController: AbortController;
-  let mockChannel: Channel;
+  let mockChannel: NetworkChannel;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -52,12 +52,11 @@ describe('reconnection-lifecycle', () => {
     abortController = new AbortController();
     mockChannel = {
       peerId: 'testPeer',
-      msgStream: {
-        write: vi.fn(),
-        read: vi.fn(),
-        unwrap: vi.fn(),
-      },
-    } as unknown as Channel;
+      read: vi.fn(),
+      write: vi.fn(),
+      close: vi.fn(),
+      setInactivityTimeout: vi.fn(),
+    } as unknown as NetworkChannel;
 
     deps = {
       logger: { log: vi.fn() },
@@ -250,7 +249,7 @@ describe('reconnection-lifecycle', () => {
       await lifecycle.attemptReconnection('peer1');
 
       // Handshake failure should close the channel and log, not throw
-      expect(deps.closeChannel).toHaveBeenCalledWith(mockChannel, 'peer1');
+      expect(deps.closeChannel).toHaveBeenCalledWith(mockChannel);
       expect(deps.registerChannel).not.toHaveBeenCalled();
       expect(deps.logger.log).toHaveBeenCalledWith(
         'peer1:: handshake failed during reconnection, will retry',
@@ -534,7 +533,7 @@ describe('reconnection-lifecycle', () => {
       await lifecycle.attemptReconnection('peer1');
 
       // Should close the channel to prevent resource leak
-      expect(deps.closeChannel).toHaveBeenCalledWith(mockChannel, 'peer1');
+      expect(deps.closeChannel).toHaveBeenCalledWith(mockChannel);
     });
 
     it('propagates ResourceLimitError even when closeChannel fails', async () => {

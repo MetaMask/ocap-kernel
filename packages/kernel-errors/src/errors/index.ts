@@ -1,7 +1,10 @@
 import { AbortError } from './AbortError.ts';
+import { ChannelResetError } from './ChannelResetError.ts';
 import { DuplicateEndowmentError } from './DuplicateEndowmentError.ts';
 import { EvaluatorError } from './EvaluatorError.ts';
 import { IntentionalCloseError } from './IntentionalCloseError.ts';
+import { IntentionalDisconnectError } from './IntentionalDisconnectError.ts';
+import { MessageTooLargeError } from './MessageTooLargeError.ts';
 import { NetworkStoppedError } from './NetworkStoppedError.ts';
 import { PeerRestartedError } from './PeerRestartedError.ts';
 import { ResourceLimitError } from './ResourceLimitError.ts';
@@ -27,4 +30,7 @@ export const errorClasses = {
   [ErrorCode.PeerRestartedError]: PeerRestartedError,
   [ErrorCode.IntentionalCloseError]: IntentionalCloseError,
   [ErrorCode.NetworkStoppedError]: NetworkStoppedError,
+  [ErrorCode.ChannelResetError]: ChannelResetError,
+  [ErrorCode.IntentionalDisconnectError]: IntentionalDisconnectError,
+  [ErrorCode.MessageTooLargeError]: MessageTooLargeError,
 } as const;

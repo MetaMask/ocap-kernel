@@ -37,6 +37,9 @@ export const ErrorCode = {
   PeerRestartedError: 'PEER_RESTARTED_ERROR',
   IntentionalCloseError: 'INTENTIONAL_CLOSE_ERROR',
   NetworkStoppedError: 'NETWORK_STOPPED_ERROR',
+  ChannelResetError: 'CHANNEL_RESET_ERROR',
+  IntentionalDisconnectError: 'INTENTIONAL_DISCONNECT_ERROR',
+  MessageTooLargeError: 'MESSAGE_TOO_LARGE_ERROR',
 } as const;
 
 export type ErrorCode = (typeof ErrorCode)[keyof typeof ErrorCode];

@@ -156,11 +156,42 @@ revise its plan against the actually-merged state of phases 1..N−1** — cross
 signatures, and line numbers in those documents are indicative, and the landed code wins.
 
 **Phase 1 — Internal seam refactor** (ocap-kernel only, no new packages). ~3–4 days.
+**DONE** (issue #968, PR on branch `rekm/netlayer-1`).
 Replace `Channel` with `NetworkChannel`/`ChannelProvider`; `ConnectionFactory` produces
 `NetworkChannel`s (lpStream wrapping, inactivity timeout, error mapping move inside it); add
 neutral error classes to kernel-errors; `transport.ts` becomes libp2p-import-free
 (`makeChannelNetlayer` shape). Mechanical refactor — move tests intact, no "improvements".
 Verify: existing unit + `kernel-test` integration tests.
+
+Landed decisions / deviations from the phase-1 plan (these are the facts Phase 2 must build on):
+
+- **`closeChannel` is single-arg.** `ChannelProvider.closeChannel(channel: NetworkChannel)` — the
+  `peerId` second argument was dropped (`NetworkChannel.peerId` carries it). The graceful-close-then-abort
+  body moved to a private `ConnectionFactory.#closeStream(stream, peerId)`, reached via
+  `NetworkChannel.close()`.
+- **`dialIdempotent` renamed to `dial`.** Signature unchanged: `dial(peerId, hints, withRetry)`.
+- **`onInboundConnection` renamed to `onInboundChannel`**; handler type `InboundConnectionHandler`
+  renamed to `InboundChannelHandler`.
+- **Neutral error classes carry no `data`.** `ChannelResetError`, `IntentionalDisconnectError`,
+  `MessageTooLargeError` each use `data: optional(never())` and rely on `cause`. Messages:
+  `"Channel reset by remote peer"`, `"Remote peer intentionally disconnected"`,
+  `"Inbound message exceeds size limit"`. All three are registered in `errorClasses` (errors/index.ts)
+  and exported from the barrel.
+- **Read-error mapper.** `mapLibp2pReadError(problem)` and `isIntentionalDisconnect(problem)` are
+  module-private functions in `connection-factory.ts`, applied inside `NetworkChannel.read`. Mapping
+  order: `InvalidDataLength*` → `MessageTooLargeError`; `StreamResetError` → `ChannelResetError`; SCTP
+  user-abort (`errorDetail==='sctp-failure' && sctpCauseCode===12`) → `IntentionalDisconnectError`;
+  everything else (incl. `UnexpectedEOFError`) passes through unchanged. `isIntentionalDisconnect`
+  no longer checks `StreamResetError` (that was dead code — the reset branch runs first in the mapper).
+- **Engine + wrapper.** `transport.ts` exports `makeChannelNetlayer({ provider, hooks, options, logger,
+stopController })` (synchronous engine) and keeps `initTransport(...)` as a signature-compatible async
+  wrapper that builds the `ConnectionFactory` provider and delegates. `makeChannelNetlayer` and the
+  `ChannelNetlayer`/`ChannelNetlayerHooks`/`ChannelNetlayerOptions` types are **not** exported from the
+  package barrel (kept internal). AbortController wiring uses **option (A)**: `initTransport` owns the
+  `AbortController`, passes `signal` to `ConnectionFactory.make` and the whole `stopController` to
+  `makeChannelNetlayer`; the engine's `stop()` calls `stopController.abort()`.
+- `types.ts`, `transport.ts`, `channel-utils.ts`, `handshake.ts` are libp2p-import-free. Runtimes
+  (`kernel-node-runtime`, `kernel-browser-runtime`) were not touched.
 
 **Phase 2 — Neutral identity.** ~2–3 days.
 `remote-comms.ts` → `@noble/curves` + WebCrypto + neutral peerId; id conversion added to

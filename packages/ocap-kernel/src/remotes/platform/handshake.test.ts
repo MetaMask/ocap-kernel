@@ -1,4 +1,3 @@
-import { UnexpectedEOFError } from '@libp2p/utils';
 import { Logger } from '@metamask/logger';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
@@ -8,7 +7,7 @@ import {
   performOutboundHandshake,
 } from './handshake.ts';
 import type { HandshakeDeps } from './handshake.ts';
-import type { Channel } from '../types.ts';
+import type { NetworkChannel } from '../types.ts';
 
 describe('handshake', () => {
   describe('isHandshakeMessage', () => {
@@ -90,7 +89,7 @@ describe('handshake', () => {
   });
 
   describe('performOutboundHandshake', () => {
-    let mockChannel: Channel;
+    let mockChannel: NetworkChannel;
     let mockDeps: HandshakeDeps;
     let logger: Logger;
 
@@ -100,13 +99,11 @@ describe('handshake', () => {
 
       mockChannel = {
         peerId: 'test-peer-id',
-        stream: { status: 'open' },
-        msgStream: {
-          write: vi.fn().mockResolvedValue(undefined),
-          read: vi.fn(),
-          unwrap: vi.fn(),
-        },
-      } as unknown as Channel;
+        read: vi.fn(),
+        write: vi.fn().mockResolvedValue(undefined),
+        close: vi.fn(),
+        setInactivityTimeout: vi.fn(),
+      } as unknown as NetworkChannel;
 
       mockDeps = {
         localIncarnationId: 'local-incarnation-123',
@@ -120,17 +117,15 @@ describe('handshake', () => {
         method: 'handshakeAck',
         params: { incarnationId: 'remote-incarnation-456' },
       });
-      vi.spyOn(mockChannel.msgStream, 'read')
+      vi.spyOn(mockChannel, 'read')
         .mockImplementation()
-        .mockResolvedValueOnce({
-          subarray: () => new TextEncoder().encode(handshakeAck),
-        });
+        .mockResolvedValueOnce(new TextEncoder().encode(handshakeAck));
 
       const result = await performOutboundHandshake(mockChannel, mockDeps);
 
       // Verify handshake was sent
-      expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(1);
-      const writeCall = mockChannel.msgStream.write as ReturnType<typeof vi.fn>;
+      expect(mockChannel.write).toHaveBeenCalledTimes(1);
+      const writeCall = mockChannel.write as ReturnType<typeof vi.fn>;
       const sentData = new TextDecoder().decode(
         writeCall.mock.calls[0][0] as Uint8Array,
       );
@@ -156,11 +151,9 @@ describe('handshake', () => {
         method: 'handshakeAck',
         params: { incarnationId: 'new-incarnation' },
       });
-      vi.spyOn(mockChannel.msgStream, 'read')
+      vi.spyOn(mockChannel, 'read')
         .mockImplementation()
-        .mockResolvedValueOnce({
-          subarray: () => new TextEncoder().encode(handshakeAck),
-        });
+        .mockResolvedValueOnce(new TextEncoder().encode(handshakeAck));
       (
         mockDeps.setRemoteIncarnation as ReturnType<typeof vi.fn>
       ).mockReturnValue(true);
@@ -175,11 +168,9 @@ describe('handshake', () => {
         method: 'handshake', // Wrong! Should be handshakeAck
         params: { incarnationId: 'remote-incarnation' },
       });
-      vi.spyOn(mockChannel.msgStream, 'read')
+      vi.spyOn(mockChannel, 'read')
         .mockImplementation()
-        .mockResolvedValueOnce({
-          subarray: () => new TextEncoder().encode(wrongResponse),
-        });
+        .mockResolvedValueOnce(new TextEncoder().encode(wrongResponse));
 
       await expect(
         performOutboundHandshake(mockChannel, mockDeps),
@@ -187,11 +178,9 @@ describe('handshake', () => {
     });
 
     it('throws when response is not valid JSON', async () => {
-      vi.spyOn(mockChannel.msgStream, 'read')
+      vi.spyOn(mockChannel, 'read')
         .mockImplementation()
-        .mockResolvedValueOnce({
-          subarray: () => new TextEncoder().encode('not json'),
-        });
+        .mockResolvedValueOnce(new TextEncoder().encode('not json'));
 
       await expect(
         performOutboundHandshake(mockChannel, mockDeps),
@@ -200,7 +189,7 @@ describe('handshake', () => {
   });
 
   describe('performInboundHandshake', () => {
-    let mockChannel: Channel;
+    let mockChannel: NetworkChannel;
     let mockDeps: HandshakeDeps;
     let logger: Logger;
 
@@ -210,13 +199,11 @@ describe('handshake', () => {
 
       mockChannel = {
         peerId: 'test-peer-id',
-        stream: { status: 'open' },
-        msgStream: {
-          write: vi.fn().mockResolvedValue(undefined),
-          read: vi.fn(),
-          unwrap: vi.fn(),
-        },
-      } as unknown as Channel;
+        read: vi.fn(),
+        write: vi.fn().mockResolvedValue(undefined),
+        close: vi.fn(),
+        setInactivityTimeout: vi.fn(),
+      } as unknown as NetworkChannel;
 
       mockDeps = {
         localIncarnationId: 'local-incarnation-123',
@@ -230,17 +217,15 @@ describe('handshake', () => {
         method: 'handshake',
         params: { incarnationId: 'remote-incarnation-456' },
       });
-      vi.spyOn(mockChannel.msgStream, 'read')
+      vi.spyOn(mockChannel, 'read')
         .mockImplementation()
-        .mockResolvedValueOnce({
-          subarray: () => new TextEncoder().encode(handshake),
-        });
+        .mockResolvedValueOnce(new TextEncoder().encode(handshake));
 
       const result = await performInboundHandshake(mockChannel, mockDeps);
 
       // Verify handshakeAck was sent
-      expect(mockChannel.msgStream.write).toHaveBeenCalledTimes(1);
-      const writeCall = mockChannel.msgStream.write as ReturnType<typeof vi.fn>;
+      expect(mockChannel.write).toHaveBeenCalledTimes(1);
+      const writeCall = mockChannel.write as ReturnType<typeof vi.fn>;
       const sentData = new TextDecoder().decode(
         writeCall.mock.calls[0][0] as Uint8Array,
       );
@@ -266,11 +251,9 @@ describe('handshake', () => {
         method: 'handshake',
         params: { incarnationId: 'new-incarnation' },
       });
-      vi.spyOn(mockChannel.msgStream, 'read')
+      vi.spyOn(mockChannel, 'read')
         .mockImplementation()
-        .mockResolvedValueOnce({
-          subarray: () => new TextEncoder().encode(handshake),
-        });
+        .mockResolvedValueOnce(new TextEncoder().encode(handshake));
       (
         mockDeps.setRemoteIncarnation as ReturnType<typeof vi.fn>
       ).mockReturnValue(true);
@@ -285,11 +268,9 @@ describe('handshake', () => {
         method: 'handshakeAck', // Wrong! Should be handshake
         params: { incarnationId: 'remote-incarnation' },
       });
-      vi.spyOn(mockChannel.msgStream, 'read')
+      vi.spyOn(mockChannel, 'read')
         .mockImplementation()
-        .mockResolvedValueOnce({
-          subarray: () => new TextEncoder().encode(wrongMessage),
-        });
+        .mockResolvedValueOnce(new TextEncoder().encode(wrongMessage));
 
       await expect(
         performInboundHandshake(mockChannel, mockDeps),
@@ -297,13 +278,13 @@ describe('handshake', () => {
     });
 
     it('throws when channel closes during read', async () => {
-      vi.spyOn(mockChannel.msgStream, 'read')
+      vi.spyOn(mockChannel, 'read')
         .mockImplementation()
-        .mockRejectedValueOnce(new UnexpectedEOFError('stream closed'));
+        .mockRejectedValueOnce(new Error('stream closed'));
 
       await expect(
         performInboundHandshake(mockChannel, mockDeps),
-      ).rejects.toThrow(UnexpectedEOFError);
+      ).rejects.toThrow('stream closed');
     });
   });
 });
