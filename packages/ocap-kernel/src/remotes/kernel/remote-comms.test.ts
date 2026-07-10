@@ -1,9 +1,9 @@
-import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
-import { peerIdFromPrivateKey } from '@libp2p/peer-id';
 import { fromHex } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
+import { base58btc } from 'multiformats/bases/base58';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+import { deriveNeutralPeerId } from './identity.ts';
 import {
   initRemoteIdentity,
   initRemoteComms,
@@ -87,11 +87,9 @@ describe('remote-comms', () => {
       );
 
       const peerId = mockKernelStore.getRemoteIdentityValue('peerId');
-      const keyPair = await generateKeyPairFromSeed(
-        'Ed25519',
-        fromHex(keySeed as string),
-      );
-      expect(peerId).toBe(peerIdFromPrivateKey(keyPair).toString());
+      expect(peerId).toBe(deriveNeutralPeerId(fromHex(keySeed as string)));
+      // The neutral peer id is multibase base58btc (z prefix).
+      expect(peerId).toMatch(/^z/u);
 
       expect(remoteComms.getPeerId()).toBe(peerId);
 
@@ -280,11 +278,7 @@ describe('remote-comms', () => {
       const peerId = mockKernelStore.getRemoteIdentityValue('peerId');
       expect(peerId).toBeDefined();
       // Verify peerId matches the provided keySeed
-      const keyPair = await generateKeyPairFromSeed(
-        'Ed25519',
-        fromHex(providedKeySeed),
-      );
-      expect(peerId).toBe(peerIdFromPrivateKey(keyPair).toString());
+      expect(peerId).toBe(deriveNeutralPeerId(fromHex(providedKeySeed)));
     });
 
     it('calls logger.log when existing peer id is found', async () => {
@@ -396,11 +390,7 @@ describe('remote-comms', () => {
       );
 
       const peerId = mockKernelStore.getRemoteIdentityValue('peerId');
-      const keyPair = await generateKeyPairFromSeed(
-        'Ed25519',
-        fromHex(keySeed as string),
-      );
-      expect(peerId).toBe(peerIdFromPrivateKey(keyPair).toString());
+      expect(peerId).toBe(deriveNeutralPeerId(fromHex(keySeed as string)));
       expect(result.identity.getPeerId()).toBe(peerId);
     });
 
@@ -416,6 +406,37 @@ describe('remote-comms', () => {
       const ocapURL = await identity.issueOcapURL('ko42' as KRef);
       const kref = await identity.redeemLocalOcapURL(ocapURL);
       expect(kref).toBe('ko42');
+    });
+
+    it.each([
+      { label: 'shorter than KREF_MIN_LEN', kref: 'ko1' },
+      { label: 'longer than KREF_MIN_LEN', kref: 'ko1234567890123456789' },
+    ])(
+      'roundtrips an ocap URL for a kref $label and pins host to the neutral id',
+      async ({ kref }) => {
+        const { identity } = await initRemoteIdentity(mockKernelStore);
+
+        const ocapURL = await identity.issueOcapURL(kref as KRef);
+        const { host } = parseOcapURL(ocapURL);
+        expect(host).toBe(identity.getPeerId());
+        expect(host).toMatch(/^z/u);
+
+        expect(await identity.redeemLocalOcapURL(ocapURL)).toBe(kref);
+      },
+    );
+
+    it('rejects an ocap URL whose IV region is corrupted', async () => {
+      const { identity } = await initRemoteIdentity(mockKernelStore);
+      const validURL = await identity.issueOcapURL('ko42' as KRef);
+      const { oid } = parseOcapURL(validURL);
+      // Flip a byte inside the 12-byte IV prefix: the GCM nonce changes so
+      // authentication fails just as it does for a corrupted ciphertext/tag.
+      const rawOid = base58btc.decode(oid);
+      rawOid[0] = (rawOid[0] ?? 0) === 0 ? 0xff : 0;
+      const corruptedURL = `ocap:${base58btc.encode(rawOid)}@${identity.getPeerId()}`;
+      await expect(identity.redeemLocalOcapURL(corruptedURL)).rejects.toThrow(
+        'ocapURL has bad object reference',
+      );
     });
 
     it('reuses existing identity from KV', async () => {
@@ -1175,11 +1196,7 @@ describe('remote-comms', () => {
 
       // Verify peerId matches the derived seed
       const peerId = remoteComms.getPeerId();
-      const keyPair = await generateKeyPairFromSeed(
-        'Ed25519',
-        fromHex(expectedSeed),
-      );
-      expect(peerId).toBe(peerIdFromPrivateKey(keyPair).toString());
+      expect(peerId).toBe(deriveNeutralPeerId(fromHex(expectedSeed)));
     });
 
     it('produces same peer ID for same mnemonic', async () => {

@@ -19,9 +19,29 @@ import type { NetworkChannel } from '../types.ts';
 
 // Track state shared between mocks and tests
 type MockConnection = {
-  remotePeer: { toString: () => string };
+  remotePeer: {
+    toString: () => string;
+    publicKey?: { raw: Uint8Array };
+  };
   direct: boolean;
 };
+
+/**
+ * Build a mock libp2p remote peer whose neutral id (its UTF-8 bytes, per the
+ * identity mock) equals `neutralId`.
+ *
+ * @param neutralId - The neutral peer id the inbound channel should carry.
+ * @returns A mock `remotePeer` with a `toString` and a `publicKey.raw`.
+ */
+function makeRemotePeer(neutralId: string): {
+  toString: () => string;
+  publicKey: { raw: Uint8Array };
+} {
+  return {
+    toString: () => `libp2p-${neutralId}`,
+    publicKey: { raw: new TextEncoder().encode(neutralId) },
+  };
+}
 
 const libp2pState: {
   handler?:
@@ -55,6 +75,26 @@ const generateKeyPairFromSeed = vi.fn(async () => ({
 }));
 vi.mock('@libp2p/crypto/keys', () => ({
   generateKeyPairFromSeed,
+  // Wrap raw bytes in a stub public key that carries them through to the
+  // peer-id mock below.
+  publicKeyFromRaw: (raw: Uint8Array) => ({ raw }),
+}));
+
+// The libp2p id is a deterministic function of the raw public key so tests can
+// assert the neutral→libp2p conversion at the dial boundary.
+vi.mock('@libp2p/peer-id', () => ({
+  peerIdFromPublicKey: (publicKey: { raw: Uint8Array }) => ({
+    toString: () => `libp2p-${new TextDecoder().decode(publicKey.raw)}`,
+  }),
+}));
+
+// Neutral-id conversion helpers: model the neutral id as the UTF-8 bytes of the
+// id string, so round-tripping through raw public keys is identity-preserving
+// and assertions read naturally.
+vi.mock('../kernel/identity.ts', () => ({
+  neutralPeerIdToPublicKey: (neutralId: string) =>
+    new TextEncoder().encode(neutralId),
+  publicKeyToNeutralPeerId: (raw: Uint8Array) => new TextDecoder().decode(raw),
 }));
 
 type CalculateReconnectionBackoffOptions = Readonly<{
@@ -470,6 +510,37 @@ describe('ConnectionFactory', () => {
       expect(libp2pState.startCalled).toBe(true);
     });
 
+    it('warns about a relay address lacking a /p2p suffix', async () => {
+      const { ConnectionFactory } = await import('./connection-factory.ts');
+      const { Logger } = await import('@metamask/logger');
+      factory = await ConnectionFactory.make({
+        keySeed,
+        knownRelays: ['/dns4/relay.example/tcp/443/wss'],
+        logger: new Logger(),
+        signal: new AbortController().signal,
+      });
+
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        expect.stringContaining('relay address lacks /p2p/<peerId> suffix'),
+      );
+    });
+
+    it('warns about and skips a malformed relay address', async () => {
+      const { ConnectionFactory } = await import('./connection-factory.ts');
+      const { Logger } = await import('@metamask/logger');
+      factory = await ConnectionFactory.make({
+        keySeed,
+        knownRelays: ['not-a-multiaddr'],
+        logger: new Logger(),
+        signal: new AbortController().signal,
+      });
+
+      expect(mockLoggerWarn).toHaveBeenCalledWith(
+        expect.stringContaining('skipping malformed relay address'),
+        expect.anything(),
+      );
+    });
+
     describe('connectionGater.denyDialMultiaddr', () => {
       it.each([
         {
@@ -659,15 +730,16 @@ describe('ConnectionFactory', () => {
       const disconnectHandler = vi.fn();
       factory.onPeerDisconnect(disconnectHandler);
 
-      // Fire peer:disconnect event
+      // Fire peer:disconnect event. The detail is a libp2p PeerId; the handler
+      // logs the libp2p id but forwards the converted neutral id.
       for (const listener of libp2pState.eventListeners['peer:disconnect'] ??
         []) {
-        listener({ detail: { toString: () => 'disconnected-peer' } });
+        listener({ detail: makeRemotePeer('disconnected-peer') });
       }
 
       expect(disconnectHandler).toHaveBeenCalledWith('disconnected-peer');
       expect(mockLoggerLog).toHaveBeenCalledWith(
-        'peer disconnected (all connections closed): disconnected-peer',
+        'peer disconnected (all connections closed): libp2p-disconnected-peer',
       );
     });
 
@@ -690,18 +762,35 @@ describe('ConnectionFactory', () => {
       expect(disconnectHandler).not.toHaveBeenCalled();
     });
 
+    it('does not forward a disconnect whose peer lacks a public key', async () => {
+      factory = await createFactory();
+
+      const disconnectHandler = vi.fn();
+      factory.onPeerDisconnect(disconnectHandler);
+
+      for (const listener of libp2pState.eventListeners['peer:disconnect'] ??
+        []) {
+        listener({ detail: { toString: () => 'libp2p-no-key' } });
+      }
+
+      expect(disconnectHandler).not.toHaveBeenCalled();
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        'peer:disconnect for libp2p-no-key lacks a public key, cannot forward',
+      );
+    });
+
     it('logs connection type as direct or relayed for inbound', async () => {
       factory = await createFactory();
       factory.onInboundChannel(vi.fn());
 
       const inboundStream = {};
       await libp2pState.handler?.(inboundStream, {
-        remotePeer: { toString: () => 'direct-peer' },
+        remotePeer: makeRemotePeer('direct-peer'),
         direct: true,
       });
 
       expect(mockLoggerLog).toHaveBeenCalledWith(
-        'inbound direct connection from peerId:direct-peer',
+        'inbound direct connection from peerId:libp2p-direct-peer',
       );
     });
   });
@@ -716,7 +805,7 @@ describe('ConnectionFactory', () => {
       // Simulate inbound connection
       const inboundStream = {};
       await libp2pState.handler?.(inboundStream, {
-        remotePeer: { toString: () => 'remote-peer' },
+        remotePeer: makeRemotePeer('remote-peer'),
         direct: false,
       });
 
@@ -737,7 +826,7 @@ describe('ConnectionFactory', () => {
 
       const inboundStream = {};
       await libp2pState.handler?.(inboundStream, {
-        remotePeer: { toString: () => 'inbound-peer' },
+        remotePeer: makeRemotePeer('inbound-peer'),
         direct: false,
       });
 
@@ -757,7 +846,7 @@ describe('ConnectionFactory', () => {
       const inboundStream = {};
       await expect(
         libp2pState.handler?.(inboundStream, {
-          remotePeer: { toString: () => 'failing-peer' },
+          remotePeer: makeRemotePeer('failing-peer'),
           direct: false,
         }),
       ).rejects.toThrow('handler setup failed');
@@ -771,12 +860,30 @@ describe('ConnectionFactory', () => {
 
       const inboundStream = {};
       const result = await libp2pState.handler?.(inboundStream, {
-        remotePeer: { toString: () => 'sync-peer' },
+        remotePeer: makeRemotePeer('sync-peer'),
         direct: false,
       });
 
       expect(result).toBeUndefined();
       expect(handler).toHaveBeenCalled();
+    });
+
+    it('drops an inbound connection whose remote peer lacks a public key', async () => {
+      factory = await createFactory();
+
+      const handler = vi.fn();
+      factory.onInboundChannel(handler);
+
+      const inboundStream = {};
+      await libp2pState.handler?.(inboundStream, {
+        remotePeer: { toString: () => 'libp2p-no-key' },
+        direct: false,
+      });
+
+      expect(handler).not.toHaveBeenCalled();
+      expect(mockLoggerError).toHaveBeenCalledWith(
+        'inbound connection from libp2p-no-key lacks a public key, dropping',
+      );
     });
   });
 
@@ -1351,6 +1458,19 @@ describe('ConnectionFactory', () => {
   });
 
   describe('dial', () => {
+    it('dials the converted libp2p id but stamps the neutral id on the channel', async () => {
+      factory = await createFactory();
+
+      const channel = await factory.dial('peerNeutral', [], false);
+
+      // The returned channel carries the neutral id the transport layer knows.
+      expect(channel.peerId).toBe('peerNeutral');
+      // Candidate multiaddrs embed the converted libp2p id, never the neutral id.
+      const dialedAddrs = libp2pState.dials.map((entry) => String(entry.addr));
+      expect(dialedAddrs.length).toBeGreaterThan(0);
+      expect(dialedAddrs[0]).toContain('/p2p/libp2p-peerNeutral');
+    });
+
     it('only dials once for concurrent requests to same peer', async () => {
       let dialCount = 0;
       createLibp2p.mockImplementation(async () => ({
@@ -2422,7 +2542,7 @@ describe('ConnectionFactory', () => {
       // Simulate inbound connection
       const inboundStream = {};
       await libp2pState.handler?.(inboundStream, {
-        remotePeer: { toString: () => 'inbound-peer' },
+        remotePeer: makeRemotePeer('inbound-peer'),
         direct: false,
       });
 

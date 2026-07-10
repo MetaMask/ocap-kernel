@@ -22,10 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Accept optional `allowedGlobals` on `VatSupervisor` for custom allowlists
   - Log a warning when a vat requests an unknown global
 - Export `OcapURLIssuerService` and `OcapURLRedemptionService` types so vats can type the corresponding kernel-service endowments ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
+- Export netlayer-neutral identity helpers `deriveNeutralPeerId`, `neutralPeerIdToPublicKey`, and `publicKeyToNeutralPeerId` (multibase base58btc of the raw Ed25519 public key) ([#971](https://github.com/MetaMask/ocap-kernel/pull/971))
 
 ### Changed
 
 - Refactor the remote-comms transport into a transport-neutral channel seam (`NetworkChannel`/`ChannelProvider`), with libp2p touchpoints and error mapping confined to the connection factory; `initTransport`'s public signature is unchanged ([#970](https://github.com/MetaMask/ocap-kernel/pull/970))
+- **BREAKING:** Make the kernel's peer identity netlayer-neutral: the peer ID is now the multibase base58btc (`z…`) encoding of the raw Ed25519 public key (previously the libp2p `12D3KooW…` peer ID), and the `ocap:` URL `oid` is encrypted with WebCrypto AES-256-GCM (previously libp2p `AES_GCM`). Persisted `peerId`/`ocapURLKey` and previously issued `ocap:` URLs are incompatible; no migration ([#971](https://github.com/MetaMask/ocap-kernel/pull/971))
 - **BREAKING:** Remove `VatConfig.platformConfig.fetch` — migrate to `globals: ['fetch', ...]` + `network.allowedHosts` ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
 - **BREAKING:** `MakeAllowedGlobals` now takes a `{ logger }` options bag ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
 - **BREAKING:** Type `VatConfig.globals` and `Kernel.make`'s `allowedGlobalNames` as `AllowedGlobalName[]` (a literal union) instead of `string[]`; unknown names are now rejected at the `initVat` RPC boundary ([#941](https://github.com/MetaMask/ocap-kernel/pull/941))

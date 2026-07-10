@@ -4,6 +4,11 @@ The OCAP Kernel supports BIP39 mnemonic phrases for backing up and recovering ke
 
 ## Overview
 
+> **Format change**: The peer ID is now the multibase base58btc encoding of the
+> raw 32-byte Ed25519 public key (a `z…` string), independent of any network
+> transport. Peer IDs and `ocap:` URLs issued before this change (which used the
+> libp2p `12D3KooW…` peer ID form) are not compatible; recover onto fresh storage.
+
 Each kernel has a unique identity derived from a cryptographic seed. This identity determines the kernel's peer ID, which is used for peer-to-peer communication. By default, the kernel generates a random seed on first initialization. With BIP39 support, you can:
 
 - **Create a recoverable identity** by generating a mnemonic and using it during initialization
@@ -57,7 +62,7 @@ if (isValidMnemonic(mnemonic)) {
 }
 ```
 
-#### `mnemonicToSeed(mnemonic: string): string`
+#### `mnemonicToSeed(mnemonic: string): Promise<string>`
 
 Converts a BIP39 mnemonic phrase to a 32-byte hex-encoded seed using standard PBKDF2 derivation.
 
@@ -68,7 +73,7 @@ import { mnemonicToSeed } from '@metamask/ocap-kernel';
 
 const mnemonic =
   'abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about';
-const seed = mnemonicToSeed(mnemonic);
+const seed = await mnemonicToSeed(mnemonic);
 // seed is a 64-character hex string (32 bytes)
 ```
 
@@ -173,9 +178,11 @@ console.log('Recovered Peer ID:', status.remoteComms?.peerId);
 To verify a mnemonic will produce the expected peer ID without actually initializing:
 
 ```typescript
-import { mnemonicToSeed, isValidMnemonic } from '@metamask/ocap-kernel';
-import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
-import { peerIdFromPrivateKey } from '@libp2p/peer-id';
+import {
+  mnemonicToSeed,
+  isValidMnemonic,
+  deriveNeutralPeerId,
+} from '@metamask/ocap-kernel';
 import { fromHex } from '@metamask/kernel-utils';
 
 async function getPeerIdFromMnemonic(mnemonic: string): Promise<string> {
@@ -183,13 +190,12 @@ async function getPeerIdFromMnemonic(mnemonic: string): Promise<string> {
     throw new Error('Invalid mnemonic');
   }
 
-  const seed = mnemonicToSeed(mnemonic);
-  const keyPair = await generateKeyPairFromSeed('Ed25519', fromHex(seed));
-  return peerIdFromPrivateKey(keyPair).toString();
+  const seed = await mnemonicToSeed(mnemonic);
+  return deriveNeutralPeerId(fromHex(seed));
 }
 
 // Verify before recovery
-const expectedPeerId = '12D3KooW...'; // Your known peer ID
+const expectedPeerId = 'z6Mk...'; // Your known (neutral) peer ID
 const recoveryMnemonic = 'your recovery phrase';
 
 const recoveredPeerId = await getPeerIdFromMnemonic(recoveryMnemonic);

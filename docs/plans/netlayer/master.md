@@ -197,6 +197,57 @@ stopController })` (synchronous engine) and keeps `initTransport(...)` as a sign
 `remote-comms.ts` → `@noble/curves` + WebCrypto + neutral peerId; id conversion added to
 `connection-factory.ts`; kernel-errors drops libp2p imports; `ocap:` URL format changes.
 Verify: two-kernel relay integration test, URL round-trip tests, fresh-storage e2e.
+**DONE** (issue #968, PR on branch `rekm/netlayer-2`, stacked on `rekm/netlayer-1`).
+
+Landed decisions / deviations from the phase-2 plan (these are the facts Phase 3 must build on):
+
+- **Neutral identity helpers live in `packages/ocap-kernel/src/remotes/kernel/identity.ts`**
+  (libp2p-free; `@noble/curves/ed25519` + `multiformats/bases/base58` only), exported from the
+  ocap-kernel barrel (`src/index.ts`) as `deriveNeutralPeerId`, `neutralPeerIdToPublicKey`,
+  `publicKeyToNeutralPeerId`. Signatures: `deriveNeutralPeerId(seed: Uint8Array): string`,
+  `neutralPeerIdToPublicKey(peerId: string): Uint8Array` (throws on wrong length),
+  `publicKeyToNeutralPeerId(publicKey: Uint8Array): string`. There is **no** `deriveNetlayerIdentity`
+  wrapper and no key-material struct — the peerId is just the base58btc string. Phase 3 moves this
+  whole file to `@metamask/netlayer` and re-exports it from ocap-kernel.
+- **peerId encoding:** multibase base58btc (`z…` prefix) of the raw 32-byte Ed25519 public key,
+  i.e. `base58btc.encode(ed25519.getPublicKey(seed))`. The `keySeed` remains a 32-byte hex seed,
+  unchanged. Vector: all-zero seed → `z4zvwRjXUKGfvwnParsHAS3HuSVzV5cA4McphgmoCtajS`.
+- **`ocap:` URL format** (string shape `ocap:{oid}@{host}[,{hint}]*` unchanged): `host` is now the
+  neutral `z…` id; `oid` is `base58btc.encode(iv(12) ‖ ciphertext ‖ gcmTag(16))` using WebCrypto
+  `crypto.subtle` AES-256-GCM with the 32-byte `ocapURLKey` used **directly** (no PBKDF2/salt),
+  a fresh random 12-byte IV per encryption. `hints` are still opaque libp2p relay multiaddrs.
+- **remote-comms.ts crypto:** the AES key is imported lazily+memoized inside `initRemoteIdentity`
+  via a `getAesKey()` closure (`crypto.subtle.importKey('raw', ocapURLKey, {name:'AES-GCM'}, false,
+['encrypt','decrypt'])`), so identities that never issue/redeem a URL never touch `crypto.subtle`.
+  The "amateur cryptography" warning is retained. `KREF_MIN_LEN` (16) padding retained.
+- **id conversion at the libp2p boundary lives in `connection-factory.ts`** (still in ocap-kernel
+  until Phase 4): a private `#toLibp2pPeerId(neutralId)` = `peerIdFromPublicKey(publicKeyFromRaw(
+neutralPeerIdToPublicKey(neutralId))).toString()`. `dial(neutralPeerId, hints, withRetry)` keeps
+  `#inflightDials` keyed by the **neutral** id and converts to the libp2p id only for
+  `candidateAddressStrings`/`openChannel*`; `openChannelOnce`/`openChannelWithRetry` gained a third
+  `neutralPeerId` param (defaults to the libp2p `peerId` arg) that is stamped onto the returned
+  channel via `#makeNetworkChannel(stream, neutralPeerId)`. Inbound handler and `peer:disconnect`
+  derive the neutral id from `connection.remotePeer.publicKey.raw` /
+  `evt.detail.publicKey.raw` via `publicKeyToNeutralPeerId`, and **drop** (log + return) if the
+  public key is absent. The `#relayPeerIds` guard stays in libp2p-id space. `connection-factory.ts`
+  therefore imports `neutralPeerIdToPublicKey`/`publicKeyToNeutralPeerId` from `../kernel/identity.ts`
+  **and** `publicKeyFromRaw` (`@libp2p/crypto/keys`) + `peerIdFromPublicKey` (`@libp2p/peer-id`).
+  **Phase 3 note:** when `identity.ts` moves to `@metamask/netlayer`, `connection-factory.ts`
+  (which stays in ocap-kernel until Phase 4) must import those two neutral helpers back from
+  `@metamask/netlayer`.
+- **`@metamask/kernel-errors` is now libp2p-free.** `isRetryableNetworkError` no longer imports
+  `@libp2p/interface`: it imports `ChannelResetError` (retryable) and classifies `MuxerClosedError`
+  by `error.name` (behavior-preserving). The `MuxerClosedError`/`Dial`/`Transport`/`NO_RESERVATION`
+  name/message sniffing is annotated as libp2p-specific and slated to move to
+  `@metamask/netlayer-libp2p`'s error mapper in Phase 4. `@libp2p/interface` removed from
+  `kernel-errors/package.json` (its only libp2p usage).
+- **Deps:** `@noble/curves` (`^1.9.7`) added to `ocap-kernel/package.json`. All `@libp2p/*`,
+  `libp2p`, `@chainsafe/*`, `@multiformats/multiaddr`, `multiformats` deps **stay** in ocap-kernel
+  (connection-factory still uses them); removal is Phase 4. `@libp2p/crypto`/`@libp2p/peer-id`
+  removed from the private `@ocap/kernel-test` package (its fake platform-services now uses
+  `deriveNeutralPeerId`).
+- **No migration:** persisted `peerId`/`ocapURLKey` and previously issued `ocap:` URLs are
+  incompatible by design; verification used fresh storage.
 
 **Phase 3 — Create `@metamask/netlayer` + `@metamask/netlayer-loopback`.** ~2–3 days.
 Move shared machinery + engine + types (with tests) out of `remotes/platform/`; ocap-kernel

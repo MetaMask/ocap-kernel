@@ -16,6 +16,7 @@ describe('index', () => {
       'VatIdStruct',
       'VatSupervisor',
       'createDefaultEndowments',
+      'deriveNeutralPeerId',
       'generateMnemonic',
       'initTransport',
       'insistKRef',
@@ -31,7 +32,9 @@ describe('index', () => {
       'makeKernelFacet',
       'makeKernelStore',
       'mnemonicToSeed',
+      'neutralPeerIdToPublicKey',
       'parseRef',
+      'publicKeyToNeutralPeerId',
     ]);
   });
 });

@@ -1,12 +1,20 @@
-import { MuxerClosedError } from '@libp2p/interface';
 import { describe, it, expect } from 'vitest';
 
 import { isRetryableNetworkError } from './isRetryableNetworkError.ts';
+import { ChannelResetError } from '../errors/ChannelResetError.ts';
 
 describe('isRetryableNetworkError', () => {
+  describe('neutral error classes', () => {
+    it('returns true for ChannelResetError', () => {
+      expect(isRetryableNetworkError(new ChannelResetError())).toBe(true);
+    });
+  });
+
   describe('libp2p errors', () => {
-    it('returns true for MuxerClosedError', () => {
-      const error = new MuxerClosedError('Muxer closed');
+    it('returns true for an error named MuxerClosedError', () => {
+      const error = Object.assign(new Error('Muxer closed'), {
+        name: 'MuxerClosedError',
+      });
       expect(isRetryableNetworkError(error)).toBe(true);
     });
 

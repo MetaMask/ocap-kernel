@@ -7,13 +7,13 @@ executed by an engineer with no prior context.
 
 ## Preconditions (assumed done by Phases 1–2)
 
-> **Revision required before execution.** This plan was written before Phases 1–2 landed.
-> Reconcile every cross-phase reference (names, signatures, file locations) against the
-> actually-merged code; where they differ, the landed code wins and this document should be
-> updated first.
+> **Reconciled against landed Phases 1–2** (branches `rekm/netlayer-1`, `rekm/netlayer-2`).
+> The preconditions below now describe the actually-merged code. Line numbers elsewhere in this
+> document predate Phase 2's ~30-line additions to `connection-factory.ts` and are approximate;
+> prefer named anchors, and the landed code wins.
 
-This plan assumes the following are already true on `main` before you start. **Verify each
-before beginning; if any is false, that work belongs to Phase 3 and the estimate grows.**
+This plan assumes the following are already true before you start (all true as of the end of
+Phase 2). **Re-verify each; if any regressed, fixing it belongs to Phase 3.**
 
 1. **`transport.ts` is libp2p-import-free and provider-shaped.** Its core no longer imports
    `@libp2p/*`; it consumes a `ChannelProvider` (today's `ConnectionFactory`, which produces
@@ -31,23 +31,41 @@ before beginning; if any is false, that work belongs to Phase 3 and the estimate
    timeout, and raw-error → neutral-error mapping done inside it. Note the Phase 1 contract
    has **no `peerId` field on `ChannelProvider`** — adding it (and `Netlayer.peerId`) is
    **Phase 3 work**, done here as part of the engine move (see §3 note below).
-4. **Identity is neutral.** `remote-comms.ts` derives the peerId from a raw Ed25519 pubkey via
-   `@noble/curves` + `base58btc` (multibase), not `@libp2p/crypto`/`@libp2p/peer-id`. The
-   Phase 2 plan ships this as `deriveNeutralPeerId(seed: Uint8Array): string` (plus
-   `neutralPeerIdToPublicKey`/`publicKeyToNeutralPeerId`) in
-   `remotes/kernel/identity.ts`. This plan's `deriveNetlayerIdentity(keySeed)` is a
-   **rename/wrapping of those helpers performed during the Phase 3 move** — either adopt the
-   Phase 2 names wholesale or introduce the wrapper; pick one and be consistent.
-5. **`@metamask/kernel-errors` is libp2p-free** and exports the neutral error classes
+4. **Identity is neutral (LANDED).** `remotes/kernel/identity.ts` exists (libp2p-free;
+   `@noble/curves/ed25519` + `multiformats/bases/base58` only) and exports three functions,
+   re-exported from the ocap-kernel barrel:
+
+   - `deriveNeutralPeerId(seed: Uint8Array): string` — `base58btc.encode(ed25519.getPublicKey(seed))`.
+   - `neutralPeerIdToPublicKey(peerId: string): Uint8Array` — throws on wrong length.
+   - `publicKeyToNeutralPeerId(publicKey: Uint8Array): string`.
+
+   There is **no `deriveNetlayerIdentity` wrapper** and no key-material struct — the peerId is
+   just the base58btc string. **Adopt the three landed names wholesale in the Phase 3 move**
+   (i.e. `@metamask/netlayer` exports `deriveNeutralPeerId`/`neutralPeerIdToPublicKey`/
+   `publicKeyToNeutralPeerId`); everywhere this document says `deriveNetlayerIdentity(keySeed)`,
+   read `deriveNeutralPeerId(fromHex(keySeed))` (the seed is a hex string at the call site;
+   `remote-comms.ts`'s `generateKeyInfo` does `deriveNeutralPeerId(fromHex(seedString))`).
+   The ocap-URL AES-GCM code (WebCrypto `crypto.subtle`, lazy `getAesKey()` closure) **stays in
+   `remote-comms.ts`** and is not part of the identity move.
+
+   **Two files import `identity.ts` today**, so after the move both import from `@metamask/netlayer`:
+   `remote-comms.ts` (uses `deriveNeutralPeerId`) and `connection-factory.ts` (uses
+   `neutralPeerIdToPublicKey` + `publicKeyToNeutralPeerId` for its libp2p-boundary conversion).
+   Since `connection-factory.ts` stays in ocap-kernel until Phase 4, it will import those two
+   helpers back from `@metamask/netlayer` — add that to the connection-factory import rewrite in §4.
+
+5. **`@metamask/kernel-errors` is libp2p-free (LANDED).** It exports the neutral error classes
    (`ChannelResetError`, `IntentionalDisconnectError`, `MessageTooLargeError`, plus the existing
    `AbortError`, `IntentionalCloseError`, `NetworkStoppedError`, `PeerRestartedError`,
    `ResourceLimitError`, and `isRetryableNetworkError`/`getNetworkErrorCode`/`isResourceLimitError`).
-   Its `package.json` no longer lists `@libp2p/interface`. **This is load-bearing for Phase 3:**
-   `@metamask/netlayer` depends on `kernel-errors`, so if kernel-errors still pulls libp2p, the
-   new "libp2p-free" package transitively pulls it too.
+   `@libp2p/interface` is removed from its `package.json`. `isRetryableNetworkError` now imports
+   `ChannelResetError` (retryable) and matches `MuxerClosedError` by `error.name`; the
+   `MuxerClosedError`/`Dial`/`Transport`/`NO_RESERVATION` name/message sniffing is annotated to move
+   to `@metamask/netlayer-libp2p` in Phase 4 (not Phase 3). **Load-bearing for Phase 3:**
+   `@metamask/netlayer` depends on `kernel-errors`, and it is now genuinely libp2p-free.
 
-If a precondition is only partially met, finish it as the first commit of this PR — but keep
-that mechanical and test-preserving, per the master plan's "engine extraction fidelity" risk.
+If a precondition regressed, finish it as the first commit of this PR — but keep that mechanical
+and test-preserving, per the master plan's "engine extraction fidelity" risk.
 
 ## 1. Objective and non-goals
 
@@ -139,8 +157,8 @@ yarn create-package --name netlayer-loopback \
 Rename to `@metamask/netlayer-loopback`, same `publishConfig`/`exports`/single `.` entry.
 
 - **`dependencies`:** `@metamask/netlayer` (`workspace:^`), `@metamask/logger` (`workspace:^`),
-  `@metamask/superstruct` (`^3.2.1`). It reuses `deriveNetlayerIdentity` from `@metamask/netlayer`,
-  so no `@noble` dep directly.
+  `@metamask/superstruct` (`^3.2.1`). It reuses `deriveNeutralPeerId` (+ `@metamask/kernel-utils`
+  `fromHex`) from the workspace, so no `@noble` dep directly.
 - **`devDependencies`:** same standard set + `@ocap/repo-tools`, `ses`.
 - `tsconfig.json` `references`: `../netlayer`, `../logger`, `../repo-tools`.
   `tsconfig.build.json` `references`: `../netlayer`, `../logger`.
@@ -282,10 +300,12 @@ export const makeChannelNetlayer: (params: {
   logger?: Logger;
 }) => Netlayer;
 
-// Neutral identity helper (moved from Phase 2). base58btc(multibase) of raw Ed25519 pubkey.
-export const deriveNetlayerIdentity: (keySeed: string) => {
-  peerId: string /* + key material */;
-};
+// Neutral identity helpers (moved verbatim from Phase 2's remotes/kernel/identity.ts).
+// base58btc(multibase) of the raw 32-byte Ed25519 pubkey. NOTE: these are the exact landed
+// names/signatures — do not introduce a `deriveNetlayerIdentity(keySeed)` wrapper.
+export function deriveNeutralPeerId(seed: Uint8Array): string;
+export function neutralPeerIdToPublicKey(peerId: string): Uint8Array; // throws on wrong length
+export function publicKeyToNeutralPeerId(publicKey: Uint8Array): string;
 ```
 
 Additional exports (shared machinery, so impls can compose them without reaching into
@@ -316,21 +336,21 @@ engine constants. Export types alongside (`PeerState`, `ReconnectionState`, `Err
 Every move takes the co-located `.test.ts` with it (adjust only import paths; do not rewrite
 tests — "engine extraction fidelity" risk).
 
-| Source (ocap-kernel)                                        | Destination                                             | Notes                                                                                                                                                                                                                                                                                                                                |
-| ----------------------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SRC/transport.ts`                                          | `NL/channel-netlayer.ts` (export `makeChannelNetlayer`) | Drop the `ConnectionFactory.make` call + keySeed; take `provider` param.                                                                                                                                                                                                                                                             |
-| `SRC/transport.test.ts`                                     | `NL/channel-netlayer.test.ts`                           | Must mock `ChannelProvider`/`NetworkChannel`, not libp2p (Phase 1 deliverable — verify, see risks).                                                                                                                                                                                                                                  |
-| `SRC/peer-state-manager.ts` (+`.test.ts`)                   | `NL/peer-state-manager.ts`                              | Imports `NetworkChannel` from `./types.ts` (was `../types.ts`).                                                                                                                                                                                                                                                                      |
-| `SRC/reconnection.ts` (+`.test.ts`)                         | `NL/reconnection.ts`                                    | Only `@metamask/kernel-utils` + local constants.                                                                                                                                                                                                                                                                                     |
-| `SRC/reconnection-lifecycle.ts` (+`.test.ts`)               | `NL/reconnection-lifecycle.ts`                          | Imports `NetworkChannel`, `OnRemoteGiveUp` from `./types.ts`.                                                                                                                                                                                                                                                                        |
-| `SRC/rate-limiter.ts` (+`.test.ts`)                         | `NL/rate-limiter.ts`                                    | Only `@metamask/kernel-errors` + constants.                                                                                                                                                                                                                                                                                          |
-| `SRC/validators.ts` (+`.test.ts`)                           | `NL/validators.ts`                                      | Only `@metamask/kernel-errors` + constants.                                                                                                                                                                                                                                                                                          |
-| `SRC/channel-utils.ts` (+`.test.ts`)                        | `NL/channel-utils.ts`                                   | Imports `NetworkChannel` from `./types.ts`.                                                                                                                                                                                                                                                                                          |
-| `SRC/handshake.ts` (+`.test.ts`)                            | `NL/handshake.ts`                                       | Imports `NetworkChannel` from `./types.ts`; add `v` field. `handshake.test.ts` imports `@libp2p/utils` today — replace with neutral EOF (see risks).                                                                                                                                                                                 |
-| `SRC/constants.ts` (neutral subset)                         | `NL/constants.ts`                                       | See constants split below.                                                                                                                                                                                                                                                                                                           |
-| identity helper `deriveNetlayerIdentity` (Phase-2 location) | `NL/identity.ts` (+`.test.ts`)                          | Move the neutral `@noble`-based helper. Keep ocap-kernel's ocap-URL/AES-GCM logic in `remote-comms.ts`.                                                                                                                                                                                                                              |
-| — new —                                                     | `NL/types.ts`                                           | `Netlayer`, `NetlayerHooks`, `NetlayerParams`, `NetlayerFactory`, `NetlayerSpecifier`, `NetlayerRegistry`, `NetworkChannel`, `ChannelProvider`, `InboundChannelHandler`, `PeerDisconnectHandler`, `RemoteMessageHandler`, `SendRemoteMessage`, `StopRemoteComms`, `OnRemoteGiveUp`, `OnIncarnationChange`, `ChannelNetlayerOptions`. |
-| — new —                                                     | `NL/index.ts`                                           | Barrel re-exporting the §3 public API.                                                                                                                                                                                                                                                                                               |
+| Source (ocap-kernel)                          | Destination                                             | Notes                                                                                                                                                                                                                                                                                                                                                  |
+| --------------------------------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SRC/transport.ts`                            | `NL/channel-netlayer.ts` (export `makeChannelNetlayer`) | Drop the `ConnectionFactory.make` call + keySeed; take `provider` param.                                                                                                                                                                                                                                                                               |
+| `SRC/transport.test.ts`                       | `NL/channel-netlayer.test.ts`                           | Must mock `ChannelProvider`/`NetworkChannel`, not libp2p (Phase 1 deliverable — verify, see risks).                                                                                                                                                                                                                                                    |
+| `SRC/peer-state-manager.ts` (+`.test.ts`)     | `NL/peer-state-manager.ts`                              | Imports `NetworkChannel` from `./types.ts` (was `../types.ts`).                                                                                                                                                                                                                                                                                        |
+| `SRC/reconnection.ts` (+`.test.ts`)           | `NL/reconnection.ts`                                    | Only `@metamask/kernel-utils` + local constants.                                                                                                                                                                                                                                                                                                       |
+| `SRC/reconnection-lifecycle.ts` (+`.test.ts`) | `NL/reconnection-lifecycle.ts`                          | Imports `NetworkChannel`, `OnRemoteGiveUp` from `./types.ts`.                                                                                                                                                                                                                                                                                          |
+| `SRC/rate-limiter.ts` (+`.test.ts`)           | `NL/rate-limiter.ts`                                    | Only `@metamask/kernel-errors` + constants.                                                                                                                                                                                                                                                                                                            |
+| `SRC/validators.ts` (+`.test.ts`)             | `NL/validators.ts`                                      | Only `@metamask/kernel-errors` + constants.                                                                                                                                                                                                                                                                                                            |
+| `SRC/channel-utils.ts` (+`.test.ts`)          | `NL/channel-utils.ts`                                   | Imports `NetworkChannel` from `./types.ts`.                                                                                                                                                                                                                                                                                                            |
+| `SRC/handshake.ts` (+`.test.ts`)              | `NL/handshake.ts`                                       | Imports `NetworkChannel` from `./types.ts`; add `v` field. `handshake.test.ts` imports `@libp2p/utils` today — replace with neutral EOF (see risks).                                                                                                                                                                                                   |
+| `SRC/constants.ts` (neutral subset)           | `NL/constants.ts`                                       | See constants split below.                                                                                                                                                                                                                                                                                                                             |
+| `SRC/../kernel/identity.ts` (+`.test.ts`)     | `NL/identity.ts` (+`.test.ts`)                          | Move the landed `@noble`-based helper (`deriveNeutralPeerId`/`neutralPeerIdToPublicKey`/`publicKeyToNeutralPeerId`) verbatim. Update its two importers to `@metamask/netlayer`: `remote-comms.ts` and `connection-factory.ts` (both stay in ocap-kernel this phase). Keep ocap-kernel's ocap-URL/AES-GCM (`crypto.subtle`) logic in `remote-comms.ts`. |
+| — new —                                       | `NL/types.ts`                                           | `Netlayer`, `NetlayerHooks`, `NetlayerParams`, `NetlayerFactory`, `NetlayerSpecifier`, `NetlayerRegistry`, `NetworkChannel`, `ChannelProvider`, `InboundChannelHandler`, `PeerDisconnectHandler`, `RemoteMessageHandler`, `SendRemoteMessage`, `StopRemoteComms`, `OnRemoteGiveUp`, `OnIncarnationChange`, `ChannelNetlayerOptions`.                   |
+| — new —                                       | `NL/index.ts`                                           | Barrel re-exporting the §3 public API.                                                                                                                                                                                                                                                                                                                 |
 
 ### Constants split
 
@@ -352,10 +372,14 @@ tests — "engine extraction fidelity" risk).
 ### What ocap-kernel keeps in `remotes/platform/`
 
 - `connection-factory.ts` (+`.test.ts`) — the libp2p `ChannelProvider`. Its imports of
-  `Channel`/`ConnectionFactoryOptions`/`DirectTransport`/`InboundConnectionHandler`/
-  `PeerDisconnectHandler` from `../types.ts` change to: `NetworkChannel`, `ChannelProvider`
-  handler types from `@metamask/netlayer`; `ConnectionFactoryOptions`, `DirectTransport` stay
-  local (`../types.ts`).
+  `NetworkChannel`/`InboundChannelHandler`/`PeerDisconnectHandler` (the Phase-1 landed names;
+  `Channel`/`InboundConnectionHandler` no longer exist) from `../types.ts` change to
+  `@metamask/netlayer`; `ConnectionFactoryOptions`, `DirectTransport` stay local (`../types.ts`).
+  **Also** repoint its Phase-2 identity imports `neutralPeerIdToPublicKey`/`publicKeyToNeutralPeerId`
+  from `../kernel/identity.ts` to `@metamask/netlayer` (used by `#toLibp2pPeerId` and the
+  inbound/`peer:disconnect` neutral-id conversion). Its `@libp2p/crypto/keys` (`publicKeyFromRaw`,
+  `generateKeyPairFromSeed`) and `@libp2p/peer-id` (`peerIdFromPublicKey`) imports stay (Phase 4).
+  Its test mocks `../kernel/identity.ts` today — update that `vi.mock` path to `@metamask/netlayer`.
 - `lp-framing.test.ts` — tests `@libp2p/utils` `lpStream` directly; stays (Phase 4).
 - `constants.ts` — reduced to the libp2p subset above.
 - **New thin `transport.ts`** (keeps the `initTransport` export path stable). It:
@@ -432,9 +456,9 @@ with a plain runtime check.
 
 `makeLoopbackNetlayer({ keySeed, incarnationId, hooks, config, logger })`:
 
-1. `const { peerId } = deriveNetlayerIdentity(keySeed)` (from `@metamask/netlayer`) — identity
-   is derived the same way as real netlayers, so loopback peerIds are interchangeable with
-   libp2p peerIds in kernel state.
+1. `const peerId = deriveNeutralPeerId(fromHex(keySeed))` (from `@metamask/netlayer` +
+   `@metamask/kernel-utils`) — identity is derived the same way as real netlayers, so loopback
+   peerIds are interchangeable with libp2p peerIds in kernel state.
 2. `config.hub.register(peerId, hooks.handleMessage)`.
 3. Return a hardened `Netlayer`:
    - `peerId`: the derived id.
@@ -507,7 +531,9 @@ Do this as a sequence of small commits so CI (or `yarn build`) is green at each 
 2. **Scaffold `@metamask/netlayer`** (§2.1): create, rename, set exports/deps, tsconfig refs,
    vitest mock-endoify setup. Empty `src/index.ts` + `src/types.ts` compile.
 3. **Move netlayer types** into `NL/types.ts`; wire `NL/index.ts` to export them.
-4. **Move identity** (`deriveNetlayerIdentity` → `NL/identity.ts` +test).
+4. **Move identity** (`remotes/kernel/identity.ts` → `NL/identity.ts` +test, keeping the three
+   landed function names) and repoint its importers (`remote-comms.ts`, `connection-factory.ts`)
+   to `@metamask/netlayer`.
 5. **Move machinery** in dependency order, updating `../types.ts` → `./types.ts` and constant
    imports as you go, running `yarn workspace @metamask/netlayer test:dev:quiet` after each:
    `constants.ts` (neutral subset) → `validators.ts` → `rate-limiter.ts` → `reconnection.ts` →
@@ -558,7 +584,7 @@ how each is resolved:
 | `@metamask/kernel-errors`                                                                                                                        | Netlayer depends on it — fine **iff** Phase 2 removed `@libp2p/interface` from kernel-errors (precondition #5). If not, netlayer transitively re-imports libp2p. **Blocking; verify first.**                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `@metamask/kernel-utils`                                                                                                                         | Neutral utilities (`abortableDelay`, `calculateReconnectionBackoff`, `installWakeDetector`, `retryWithBackoff`, `fromHex`, `toHex`, `DEFAULT_MAX_RETRY_ATTEMPTS`). Add as a netlayer dep; no cycle (kernel-utils does not import ocap-kernel).                                                                                                                                                                                                                                                                                                                                                              |
 | `@metamask/logger`                                                                                                                               | Leaf package. Add as dep.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
-| `deriveNetlayerIdentity` currently in ocap-kernel (`remote-comms.ts`)                                                                            | **Move it to `NL/identity.ts`**; ocap-kernel imports it back from `@metamask/netlayer` for its ocap-URL logic. Verify remote-comms.ts's ocap-URL/AES-GCM code (`crypto.subtle`) does not depend on anything only present after the identity move; keep those in ocap-kernel.                                                                                                                                                                                                                                                                                                                                |
+| Identity helpers currently in ocap-kernel (`remotes/kernel/identity.ts`), imported by `remote-comms.ts` **and** `connection-factory.ts`          | **Move `identity.ts` to `NL/identity.ts`** keeping `deriveNeutralPeerId`/`neutralPeerIdToPublicKey`/`publicKeyToNeutralPeerId`; ocap-kernel imports them back from `@metamask/netlayer` in **both** `remote-comms.ts` (ocap-URL logic) and `connection-factory.ts` (libp2p-boundary conversion). Verify remote-comms.ts's ocap-URL/AES-GCM code (`crypto.subtle`, lazy `getAesKey()`) does not depend on anything only present after the move; keep it in ocap-kernel. Update `connection-factory.test.ts`'s `vi.mock('../kernel/identity.ts', ...)` to mock `@metamask/netlayer` instead.                  |
 | **Engine extraction fidelity** (master plan's top risk)                                                                                          | `transport.ts` encodes subtle races (`reuseOrReturnChannel`, handshake-before-register, restart suppression, `readChannel` finally-cleanup). Move it verbatim; the only allowed edits are (a) drop provider construction/keySeed, (b) `../types` → `./types`, (c) add handshake `v` field. Move `transport.test.ts` intact.                                                                                                                                                                                                                                                                                 |
 | **Test files still importing libp2p**                                                                                                            | `handshake.test.ts` imports `UnexpectedEOFError` from `@libp2p/utils`; `transport.test.ts` (110KB) likely mocks libp2p. Phase 1 was supposed to neutralize these. If they still import `@libp2p/*`, the netlayer package would need libp2p as a devDependency — **not acceptable**. Replace with the neutral EOF/reset errors from `kernel-errors` and a mock `ChannelProvider`. Budget time for this if Phase 1 left it.                                                                                                                                                                                   |
 | **`ChannelProvider` method surface vs. what the engine calls**                                                                                   | The engine currently calls `connectionFactory.dialIdempotent(peerId, hints, boolean)`, `onInboundConnection`, `closeChannel(channel, peerId)`. The `ChannelProvider` sketch uses `dial(peerId, hints)`, `onInboundChannel`, `closeChannel(channel)`. Reconcile: either the Phase-1 `ConnectionFactory` already exposes the sketch's names, or `makeChannelNetlayer` calls the sketch names and ocap-kernel's `ConnectionFactory` is adapted to them. Enumerate the exact provider calls in the moved engine and make the `ChannelProvider` type match them so libp2p and loopback impls share one contract. |
