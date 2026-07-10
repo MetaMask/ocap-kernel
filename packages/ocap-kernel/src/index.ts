@@ -35,6 +35,14 @@ export type {
   StopRemoteComms,
   RemoteCommsOptions,
   OnIncarnationChange,
+  NetworkChannel,
+  ChannelProvider,
+  Netlayer,
+  NetlayerHooks,
+  NetlayerFactory,
+  NetlayerParams,
+  NetlayerSpecifier,
+  NetlayerRegistry,
 } from './remotes/types.ts';
 export type { RemoteMessageBase } from './remotes/kernel/RemoteHandle.ts';
 export type {
@@ -66,7 +74,7 @@ export {
   deriveNeutralPeerId,
   neutralPeerIdToPublicKey,
   publicKeyToNeutralPeerId,
-} from './remotes/kernel/identity.ts';
+} from '@metamask/netlayer';
 export { parseRef } from './store/utils/parse-ref.ts';
 export {
   generateMnemonic,

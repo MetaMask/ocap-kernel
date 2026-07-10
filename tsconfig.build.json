@@ -16,6 +16,8 @@
     { "path": "./packages/kernel-utils/tsconfig.build.json" },
     { "path": "./packages/llm-bridge/tsconfig.build.json" },
     { "path": "./packages/logger/tsconfig.build.json" },
+    { "path": "./packages/netlayer-loopback/tsconfig.build.json" },
+    { "path": "./packages/netlayer/tsconfig.build.json" },
     { "path": "./packages/nodejs-test-workers/tsconfig.build.json" },
     { "path": "./packages/ocap-kernel/tsconfig.build.json" },
     { "path": "./packages/omnium-gatherum/tsconfig.build.json" },

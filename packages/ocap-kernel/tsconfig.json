@@ -10,6 +10,8 @@
     { "path": "../kernel-store" },
     { "path": "../streams" },
     { "path": "../kernel-utils" },
+    { "path": "../netlayer" },
+    { "path": "../netlayer-loopback" },
     { "path": "../repo-tools" },
     { "path": "../kernel-platforms" }
   ],

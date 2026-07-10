@@ -31,6 +31,8 @@
     { "path": "./packages/kernel-utils" },
     { "path": "./packages/llm-bridge" },
     { "path": "./packages/logger" },
+    { "path": "./packages/netlayer" },
+    { "path": "./packages/netlayer-loopback" },
     { "path": "./packages/nodejs-test-workers" },
     { "path": "./packages/ocap-kernel" },
     { "path": "./packages/omnium-gatherum" },

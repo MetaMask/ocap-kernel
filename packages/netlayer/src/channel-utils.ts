@@ -1,7 +1,7 @@
 import type { Logger } from '@metamask/logger';
 
 import { DEFAULT_WRITE_TIMEOUT_MS } from './constants.ts';
-import type { NetworkChannel } from '../types.ts';
+import type { NetworkChannel } from './types.ts';
 
 /**
  * Type for error logging function.

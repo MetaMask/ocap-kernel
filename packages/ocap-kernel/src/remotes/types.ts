@@ -1,75 +1,27 @@
 import type { Logger } from '@metamask/logger';
+import type { SendRemoteMessage } from '@metamask/netlayer';
 
 import type { KRef } from '../types.ts';
 
-/**
- * A transport-neutral bidirectional message channel to a single remote peer.
- * Byte-oriented: `read` yields one complete inbound message payload per call,
- * `write` sends one complete outbound message payload. Framing, encryption,
- * and transport-error mapping are the ChannelProvider's responsibility.
- */
-export type NetworkChannel = {
-  /** The remote peer's id (opaque string; libp2p peerId today). */
-  readonly peerId: string;
-  /**
-   * Read the next complete inbound message payload.
-   * Throws a neutral kernel-error on failure:
-   * - `MessageTooLargeError` when the peer announced an oversize frame,
-   * - `ChannelResetError` on a remote-initiated reset,
-   * - `IntentionalDisconnectError` on a locally/remotely intended close,
-   * - any other error is re-thrown as-is (engine treats it as connection loss).
-   */
-  read: () => Promise<Uint8Array>;
-  /** Write one complete outbound message payload. Throws if the channel is not writable. */
-  write: (data: Uint8Array) => Promise<void>;
-  /** Close the channel, releasing transport resources. Idempotent. */
-  close: () => Promise<void>;
-  /**
-   * Set the bidirectional inactivity timeout in ms. May be a no-op for
-   * transports without the concept. Called once after the channel is registered.
-   */
-  setInactivityTimeout: (ms: number) => void;
-};
-
-export type InboundChannelHandler = (
-  channel: NetworkChannel,
-) => Promise<void> | void;
-
-export type PeerDisconnectHandler = (peerId: string) => void;
-
-/**
- * A channel-based transport implementation consumed by `makeChannelNetlayer`.
- * The libp2p `ConnectionFactory` is the only implementation in Phase 1.
- */
-export type ChannelProvider = {
-  /**
-   * Dial a peer, returning a live channel. Deduplicates concurrent dials to
-   * the same peer internally (idempotent).
-   *
-   * @param peerId - The peer to dial.
-   * @param hints - Location hints (opaque transport-specific strings).
-   * @param withRetry - When true, apply the provider's connect backoff/retry.
-   */
-  dial: (
-    peerId: string,
-    hints: string[],
-    withRetry: boolean,
-  ) => Promise<NetworkChannel>;
-  onInboundChannel: (handler: InboundChannelHandler) => void;
-  onPeerDisconnect: (handler: PeerDisconnectHandler) => void;
-  closeChannel: (channel: NetworkChannel) => Promise<void>;
-  getListenAddresses: () => string[];
-  stop: () => Promise<void>;
-};
-
-export type RemoteMessageHandler = (
-  from: string,
-  message: string,
-) => Promise<string | null>;
-
-export type SendRemoteMessage = (to: string, message: string) => Promise<void>;
-
-export type StopRemoteComms = () => Promise<void>;
+// Netlayer contract types are defined in `@metamask/netlayer` and re-exported
+// here so kernel consumers and runtimes keep importing them from ocap-kernel.
+export type {
+  NetworkChannel,
+  ChannelProvider,
+  InboundChannelHandler,
+  PeerDisconnectHandler,
+  RemoteMessageHandler,
+  SendRemoteMessage,
+  StopRemoteComms,
+  OnRemoteGiveUp,
+  OnIncarnationChange,
+  Netlayer,
+  NetlayerHooks,
+  NetlayerFactory,
+  NetlayerParams,
+  NetlayerSpecifier,
+  NetlayerRegistry,
+} from '@metamask/netlayer';
 
 export type RemoteIdentity = {
   getPeerId: () => string;
@@ -82,31 +34,6 @@ export type RemoteComms = RemoteIdentity & {
   sendRemoteMessage: SendRemoteMessage;
   registerLocationHints: (peerId: string, hints: string[]) => Promise<void>;
 };
-
-export type OnRemoteGiveUp = (peerId: string) => void;
-
-/**
- * Callback invoked after every successful handshake with a remote peer,
- * carrying the incarnationId the peer just reported.
- *
- * Fires unconditionally (not only on detected change) so the kernel layer can
- * compare the observed value against persisted state and detect a peer
- * restart even when the in-memory PeerStateManager has been rebuilt empty
- * (e.g. after a receiver restart or stale-peer cleanup).
- *
- * Resolves `true` if the kernel detected an actual restart (and reset its
- * RemoteHandle state). The transport awaits this and uses the verdict to
- * suppress stale outbound messages on the same connection — the in-memory
- * PSM check is unreliable across receiver-side state loss.
- *
- * @param peerId - The peer ID that completed the handshake.
- * @param observedIncarnation - The incarnationId the peer reported.
- * @returns Whether the peer was determined to have restarted.
- */
-export type OnIncarnationChange = (
-  peerId: string,
-  observedIncarnation: string,
-) => Promise<boolean>;
 
 /**
  * Options for initializing remote communications.

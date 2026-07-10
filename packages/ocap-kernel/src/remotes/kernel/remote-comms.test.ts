@@ -1,9 +1,9 @@
 import { fromHex } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
+import { deriveNeutralPeerId } from '@metamask/netlayer';
 import { base58btc } from 'multiformats/bases/base58';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { deriveNeutralPeerId } from './identity.ts';
 import {
   initRemoteIdentity,
   initRemoteComms,

@@ -1,7 +1,7 @@
 import type { Logger } from '@metamask/logger';
 
 import { DEFAULT_STALE_PEER_TIMEOUT_MS } from './constants.ts';
-import type { NetworkChannel } from '../types.ts';
+import type { NetworkChannel } from './types.ts';
 
 /**
  * Per-peer connection state.

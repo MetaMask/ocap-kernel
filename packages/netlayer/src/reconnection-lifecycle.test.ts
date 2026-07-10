@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { makeReconnectionLifecycle } from './reconnection-lifecycle.ts';
 import type { ReconnectionLifecycleDeps } from './reconnection-lifecycle.ts';
-import type { NetworkChannel } from '../types.ts';
+import type { NetworkChannel } from './types.ts';
 
 // Mock kernel-utils for abortableDelay
 vi.mock('@metamask/kernel-utils', async () => {

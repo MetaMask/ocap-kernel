@@ -13,6 +13,7 @@
     { "path": "../streams/tsconfig.build.json" },
     { "path": "../kernel-store/tsconfig.build.json" },
     { "path": "../kernel-utils/tsconfig.build.json" },
+    { "path": "../netlayer/tsconfig.build.json" },
     { "path": "../kernel-platforms/tsconfig.build.json" }
   ],
   "include": ["./src"]

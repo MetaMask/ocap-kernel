@@ -654,6 +654,39 @@ describe('initializeRemoteComms', () => {
       );
     });
 
+    it('should pass reconnection and timeout options when provided', async () => {
+      const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
+        async () => null,
+      );
+
+      const hooks = {
+        initializeRemoteComms: mockInitializeRemoteComms,
+      };
+
+      const params = {
+        keySeed: '0xtestseed',
+        reconnectionBaseDelayMs: 100,
+        reconnectionMaxDelayMs: 2000,
+        handshakeTimeoutMs: 3000,
+        writeTimeoutMs: 4000,
+        ackTimeoutMs: 5000,
+      };
+
+      await initializeRemoteCommsHandler.implementation(hooks, params);
+
+      expect(mockInitializeRemoteComms).toHaveBeenCalledWith(
+        '0xtestseed',
+        {
+          reconnectionBaseDelayMs: 100,
+          reconnectionMaxDelayMs: 2000,
+          handshakeTimeoutMs: 3000,
+          writeTimeoutMs: 4000,
+          ackTimeoutMs: 5000,
+        },
+        undefined,
+      );
+    });
+
     it('should pass empty options when only keySeed is provided', async () => {
       const mockInitializeRemoteComms: InitializeRemoteComms = vi.fn(
         async () => null,

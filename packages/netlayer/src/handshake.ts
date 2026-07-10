@@ -3,14 +3,21 @@ import { toString as bufToString, fromString } from 'uint8arrays';
 
 import { writeWithTimeout } from './channel-utils.ts';
 import { DEFAULT_WRITE_TIMEOUT_MS, HANDSHAKE_TIMEOUT_MS } from './constants.ts';
-import type { NetworkChannel } from '../types.ts';
+import type { NetworkChannel } from './types.ts';
+
+/**
+ * Current handshake protocol version. Sent as the `v` field on every handshake
+ * message so future netlayer versions can detect and reject incompatible peers.
+ * Compatibility is broken between versions by design.
+ */
+export const HANDSHAKE_VERSION = 1;
 
 /**
  * Type for handshake protocol messages exchanged during connection establishment.
  */
 export type HandshakeMessage =
-  | { method: 'handshake'; params: { incarnationId: string } }
-  | { method: 'handshakeAck'; params: { incarnationId: string } };
+  | { v: number; method: 'handshake'; params: { incarnationId: string } }
+  | { v: number; method: 'handshakeAck'; params: { incarnationId: string } };
 
 /**
  * Result of a handshake operation.
@@ -52,6 +59,10 @@ export function isHandshakeMessage(
   }
   const candidate = parsed as Record<string, unknown>;
   if (candidate.method !== 'handshake' && candidate.method !== 'handshakeAck') {
+    return false;
+  }
+  // Validate the protocol version is present and numeric.
+  if (typeof candidate.v !== 'number') {
     return false;
   }
   // Validate params.incarnationId exists and is a string
@@ -121,6 +132,7 @@ export async function performOutboundHandshake(
 
   // Send handshake
   const handshakeMsg: HandshakeMessage = {
+    v: HANDSHAKE_VERSION,
     method: 'handshake',
     params: { incarnationId: localIncarnationId },
   };
@@ -188,6 +200,7 @@ export async function performInboundHandshake(
 
   // Send handshakeAck
   const ackMsg: HandshakeMessage = {
+    v: HANDSHAKE_VERSION,
     method: 'handshakeAck',
     params: { incarnationId: localIncarnationId },
   };
