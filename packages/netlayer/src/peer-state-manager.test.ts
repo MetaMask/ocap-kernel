@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { PeerStateManager } from './peer-state-manager.ts';
-import type { NetworkChannel } from '../types.ts';
+import type { NetworkChannel } from './types.ts';
 
 describe('PeerStateManager', () => {
   let manager: PeerStateManager;

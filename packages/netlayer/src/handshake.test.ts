@@ -7,21 +7,44 @@ import {
   performOutboundHandshake,
 } from './handshake.ts';
 import type { HandshakeDeps } from './handshake.ts';
-import type { NetworkChannel } from '../types.ts';
+import type { NetworkChannel } from './types.ts';
 
 describe('handshake', () => {
   describe('isHandshakeMessage', () => {
     it.each([
       // Valid messages
       {
-        input: { method: 'handshake', params: { incarnationId: 'test-id' } },
+        input: {
+          v: 1,
+          method: 'handshake',
+          params: { incarnationId: 'test-id' },
+        },
         expected: true,
         description: 'handshake message',
       },
       {
-        input: { method: 'handshakeAck', params: { incarnationId: 'test-id' } },
+        input: {
+          v: 1,
+          method: 'handshakeAck',
+          params: { incarnationId: 'test-id' },
+        },
         expected: true,
         description: 'handshakeAck message',
+      },
+      // Missing/invalid version
+      {
+        input: { method: 'handshake', params: { incarnationId: 'test-id' } },
+        expected: false,
+        description: 'handshake without version',
+      },
+      {
+        input: {
+          v: '1',
+          method: 'handshakeAck',
+          params: { incarnationId: 'test-id' },
+        },
+        expected: false,
+        description: 'non-numeric version',
       },
       // Non-objects
       { input: null, expected: false, description: 'null' },
@@ -114,6 +137,7 @@ describe('handshake', () => {
 
     it('sends handshake and waits for handshakeAck', async () => {
       const handshakeAck = JSON.stringify({
+        v: 1,
         method: 'handshakeAck',
         params: { incarnationId: 'remote-incarnation-456' },
       });
@@ -131,6 +155,7 @@ describe('handshake', () => {
       );
       const sentMessage = JSON.parse(sentData);
       expect(sentMessage).toStrictEqual({
+        v: 1,
         method: 'handshake',
         params: { incarnationId: 'local-incarnation-123' },
       });
@@ -148,6 +173,7 @@ describe('handshake', () => {
 
     it('returns incarnationChanged=true when incarnation changes', async () => {
       const handshakeAck = JSON.stringify({
+        v: 1,
         method: 'handshakeAck',
         params: { incarnationId: 'new-incarnation' },
       });
@@ -165,6 +191,7 @@ describe('handshake', () => {
 
     it('throws when response is not handshakeAck', async () => {
       const wrongResponse = JSON.stringify({
+        v: 1,
         method: 'handshake', // Wrong! Should be handshakeAck
         params: { incarnationId: 'remote-incarnation' },
       });
@@ -214,6 +241,7 @@ describe('handshake', () => {
 
     it('waits for handshake and sends handshakeAck', async () => {
       const handshake = JSON.stringify({
+        v: 1,
         method: 'handshake',
         params: { incarnationId: 'remote-incarnation-456' },
       });
@@ -231,6 +259,7 @@ describe('handshake', () => {
       );
       const sentMessage = JSON.parse(sentData);
       expect(sentMessage).toStrictEqual({
+        v: 1,
         method: 'handshakeAck',
         params: { incarnationId: 'local-incarnation-123' },
       });
@@ -248,6 +277,7 @@ describe('handshake', () => {
 
     it('returns incarnationChanged=true when incarnation changes', async () => {
       const handshake = JSON.stringify({
+        v: 1,
         method: 'handshake',
         params: { incarnationId: 'new-incarnation' },
       });
@@ -265,6 +295,7 @@ describe('handshake', () => {
 
     it('throws when first message is not handshake', async () => {
       const wrongMessage = JSON.stringify({
+        v: 1,
         method: 'handshakeAck', // Wrong! Should be handshake
         params: { incarnationId: 'remote-incarnation' },
       });

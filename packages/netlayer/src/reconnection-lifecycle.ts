@@ -12,7 +12,7 @@ import type { Logger } from '@metamask/logger';
 import type { ErrorLogger } from './channel-utils.ts';
 import type { PeerStateManager, PeerState } from './peer-state-manager.ts';
 import type { ReconnectionManager } from './reconnection.ts';
-import type { NetworkChannel, OnRemoteGiveUp } from '../types.ts';
+import type { NetworkChannel, OnRemoteGiveUp } from './types.ts';
 
 /**
  * Dependencies for creating a reconnection lifecycle handler.

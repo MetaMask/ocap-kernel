@@ -91,7 +91,11 @@ vi.mock('@libp2p/peer-id', () => ({
 // Neutral-id conversion helpers: model the neutral id as the UTF-8 bytes of the
 // id string, so round-tripping through raw public keys is identity-preserving
 // and assertions read naturally.
-vi.mock('../kernel/identity.ts', () => ({
+vi.mock('@metamask/netlayer', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@metamask/netlayer')>()),
+  // The test seeds are short (not 32-byte Ed25519 seeds), so stub identity
+  // derivation; the conversion helpers model the neutral id as UTF-8 bytes.
+  deriveNeutralPeerId: () => 'self-neutral-peer',
   neutralPeerIdToPublicKey: (neutralId: string) =>
     new TextEncoder().encode(neutralId),
   publicKeyToNeutralPeerId: (raw: Uint8Array) => new TextDecoder().decode(raw),
@@ -463,6 +467,12 @@ describe('ConnectionFactory', () => {
 
       expect(libp2pState.handler).toBeDefined();
       expect(typeof libp2pState.handler).toBe('function');
+    });
+
+    it('exposes the neutral peer id derived from the key seed', async () => {
+      factory = await createFactory();
+
+      expect(factory.peerId).toBe('self-neutral-peer');
     });
 
     it('configures libp2p with correct transports', async () => {

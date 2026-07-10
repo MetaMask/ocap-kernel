@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeErrorLogger, writeWithTimeout } from './channel-utils.ts';
-import type { NetworkChannel } from '../types.ts';
+import type { NetworkChannel } from './types.ts';
 
 describe('channel-utils', () => {
   describe('makeErrorLogger', () => {

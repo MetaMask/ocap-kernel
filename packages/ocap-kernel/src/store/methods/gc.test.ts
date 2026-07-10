@@ -267,5 +267,18 @@ describe('GC methods', () => {
       // Object should still exist
       expect(kernelStore.getObjectRefCount(ko1)).toBeDefined();
     });
+
+    it('deletes an unreferenced promise', () => {
+      const [kpid] = kernelStore.initKernelPromise();
+      // initKernelPromise sets refCount to 1; dropping it to zero enqueues the
+      // promise for collection.
+      kernelStore.decrementRefCount(kpid, 'gc-test');
+
+      kernelStore.collectGarbage();
+
+      expect(() => kernelStore.getKernelPromise(kpid)).toThrow(
+        `unknown kernel promise ${kpid}`,
+      );
+    });
   });
 });

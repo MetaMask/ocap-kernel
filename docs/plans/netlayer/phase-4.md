@@ -9,51 +9,69 @@ leave CI green.
 
 ## Assumed starting state (Phases 1–3 done)
 
-> **Revision required before execution.** Reconcile every cross-phase reference (names,
-> signatures, file locations) against the actually-merged Phases 1–3; where they differ,
-> the landed code wins and this document should be updated first.
+> **Reconciled against landed Phases 1–3** (branches `rekm/netlayer-1/2/3`). The prior
+> DELTA notes are resolved; the state below is what actually merged. Read master.md's
+> "Phase 3 — Landed decisions" block for the exact `@metamask/netlayer` /
+> `@metamask/netlayer-loopback` surface. Cross-phase line numbers elsewhere are indicative;
+> the landed code wins.
 
-This plan is written against the current `main`, but Phases 1–3 land first. Where the
-current code differs from the assumed post-Phase-3 state, the difference is called out
-as a **DELTA**. The assumed state:
+Landed and true as of the start of Phase 4:
 
-- **`@metamask/netlayer` exists** and owns the kernel-facing contract types
-  (`Netlayer`, `NetlayerFactory`, `NetlayerParams`, `NetlayerHooks`, `NetlayerSpecifier`,
-  `NetlayerRegistry`), the channel seam (`NetworkChannel`, `ChannelProvider`), the
-  channel-session engine `makeChannelNetlayer` (refactored `transport.ts`), the shared
-  machinery (`handshake.ts`, `peer-state-manager.ts`, `reconnection.ts`,
-  `reconnection-lifecycle.ts`, `rate-limiter.ts`, `validators.ts`, `channel-utils.ts`,
-  the networking `constants.ts`), and neutral Ed25519 identity helpers. Their tests moved
-  with them.
-  - DELTA: today these live in `packages/ocap-kernel/src/remotes/platform/` and
-    `transport.ts` is a monolithic `initTransport`, not `makeChannelNetlayer`.
-- **`@metamask/netlayer-loopback` exists** (in-memory hub `ChannelProvider`/`Netlayer`),
-  used to replace some hand-rolled `PlatformServices` mocks in ocap-kernel tests.
-- **Identity is neutral.** `remotes/kernel/remote-comms.ts` derives the peerId via
-  `@noble/curves` + WebCrypto; `@libp2p/crypto`/`@libp2p/peer-id` are gone from the kernel
-  identity path; the `ocap:` URL host is the neutral id; hints are opaque strings.
-  - DELTA: today `remote-comms.ts` uses `@libp2p/crypto` + `@libp2p/peer-id`, and
-    `kernel-test/src/remote-comms.test.ts` still imports them to derive the peerId.
-- **kernel-errors carries neutral error classes** (`ChannelResetError`,
-  `IntentionalDisconnectError`, `MessageTooLargeError`) and no longer imports libp2p; the
-  libp2p→neutral error mapper lives in `remotes/platform/` (created in Phase 1) as the
-  only remaining libp2p-aware error code.
-  - DELTA: today error classification is inline in `transport.ts`
-    (`@libp2p/interface`, `@libp2p/utils` imports) and in `reconnection.ts`
-    (`PERMANENT_FAILURE_ERROR_CODES`), and `isRetryableNetworkError` in kernel-errors
-    still name-sniffs libp2p `MuxerClosedError`.
-- **ocap-kernel still physically hosts the libp2p implementation**: a libp2p
-  `ChannelProvider` (`remotes/platform/connection-factory.ts`), the libp2p error mapper,
-  `utils/multiaddr.ts`, `utils/network.ts`, and a thin `initTransport` that constructs the
-  provider and hands it to `makeChannelNetlayer`. It re-exports the netlayer types from
-  `@metamask/netlayer`. It still carries all libp2p deps.
-  - DELTA: today `connection-factory.ts` produces the old libp2p `Channel`
-    (`{ msgStream, stream, peerId }`), not `NetworkChannel`, and `initTransport` is the
-    monolith in `transport.ts`.
+- **`@metamask/netlayer` exists** (published, `0.1.0`, single `.` export) and owns the
+  kernel-facing contract types (`Netlayer`, `NetlayerFactory`, `NetlayerParams`,
+  `NetlayerHooks`, `NetlayerSpecifier`, `NetlayerRegistry`), the channel seam
+  (`NetworkChannel`, `ChannelProvider` — the latter now carries `readonly peerId`), the
+  channel-session engine `makeChannelNetlayer` (`src/channel-netlayer.ts`), the shared
+  machinery (`handshake.ts` — now with a versioned message, `peer-state-manager.ts`,
+  `reconnection.ts`, `reconnection-lifecycle.ts`, `rate-limiter.ts`, `validators.ts`,
+  `channel-utils.ts`, the neutral engine `constants.ts`), and the neutral Ed25519 identity
+  helpers (`identity.ts`: `deriveNeutralPeerId`/`neutralPeerIdToPublicKey`/
+  `publicKeyToNeutralPeerId`). Tests moved with them.
+  - **`makeChannelNetlayer` signature (LANDED, use this — the §2.3/§2.6 sketches below
+    predate it):** `makeChannelNetlayer({ provider, hooks, options, logger, stopController })`
+    returning `Netlayer` (synchronous). It does **not** take a bare `incarnationId`; the
+    local incarnation is `options.localIncarnationId`. `stopController` is a shared
+    `AbortController` — `stop()` aborts it and it is the same signal the provider was
+    constructed with. `make-libp2p-netlayer.ts` must construct that `AbortController`, pass
+    `signal` to `ConnectionFactory.make` and the whole controller to `makeChannelNetlayer`
+    (this is exactly what ocap-kernel's thin `initTransport` does today — copy it).
+- **`@metamask/netlayer-loopback` exists** (published, `0.1.0`). It is **not** a
+  `ChannelProvider` — it implements `Netlayer` directly over an in-process `LoopbackHub`
+  (`makeLoopbackHub`/`makeLoopbackNetlayer`, config `{ hub }`). Used as the standard test
+  fake; `packages/ocap-kernel/test/loopback-platform-services.ts` wraps it as a
+  `PlatformServices` and `packages/ocap-kernel/src/remotes/loopback.test.ts` is a two-party
+  in-process demonstration.
+- **Identity is neutral (Phase 2, unchanged in 3).** `remotes/kernel/remote-comms.ts`
+  derives the peerId via `deriveNeutralPeerId` (now imported from `@metamask/netlayer`) +
+  WebCrypto for the ocap-URL oid; `@libp2p/crypto`/`@libp2p/peer-id` are gone from the
+  kernel identity path; the `ocap:` URL host is the neutral id; hints are opaque strings.
+  - **Still-open DELTA for Phase 4:** `kernel-test/src/remote-comms.test.ts`'s fake
+    platform-services derives its peerId with `deriveNeutralPeerId` (from `@metamask/ocap-kernel`),
+    **not** `@libp2p/*` — that was already fixed in Phase 2. Its `initializeRemoteComms` is
+    still the positional signature; update it to the 4b options-bag shape.
+- **kernel-errors is libp2p-free (Phase 2).** It exports the neutral error classes
+  (`ChannelResetError`, `IntentionalDisconnectError`, `MessageTooLargeError`); the
+  libp2p→neutral read-error mapper is `mapLibp2pReadError`/`isIntentionalDisconnect`,
+  **module-private functions in `connection-factory.ts`** (not a standalone file yet).
+  `isRetryableNetworkError` still name-sniffs `MuxerClosedError`/`Dial`/`Transport`/
+  `NO_RESERVATION` **by string** (annotated in kernel-errors to move to netlayer-libp2p's
+  error mapper here in Phase 4).
+- **ocap-kernel still physically hosts the libp2p implementation:** the libp2p
+  `ChannelProvider` (`remotes/platform/connection-factory.ts`, which now has a
+  `get peerId()` returning `deriveNeutralPeerId(fromHex(keySeed))` and imports
+  `NetworkChannel`/`InboundChannelHandler`/`PeerDisconnectHandler` +
+  `DEFAULT_MAX_MESSAGE_SIZE_BYTES` + the three identity helpers from `@metamask/netlayer`),
+  the module-private error mapper, `utils/multiaddr.ts`, `utils/network.ts`, a reduced
+  `constants.ts` (**libp2p-only: `SCTP_USER_INITIATED_ABORT`, `RELAY_RECONNECT_BASE_DELAY_MS`,
+  `RELAY_RECONNECT_MAX_DELAY_MS`, `RELAY_RECONNECT_MAX_ATTEMPTS`** — the engine constants
+  moved to `@metamask/netlayer` in Phase 3), and a thin `transport.ts` whose
+  `initTransport` constructs `ConnectionFactory` and delegates to `makeChannelNetlayer`. It
+  re-exports the netlayer types and depends on `@metamask/netlayer`. It still carries all
+  libp2p deps.
 
-Because of these deltas, the file-move maps below name the assumed post-Phase-3 files
-(e.g. "connection-factory.ts, now a `ChannelProvider`"). If Phase 3 slipped, do that
-extraction first — do not fold it into Phase 4.
+The file-move maps below assume this landed state. Where a sketch (esp. §2.3/§2.6) shows
+`makeChannelNetlayer({ ..., incarnationId, ...engineOptions })`, use the landed signature
+above instead.
 
 ---
 
@@ -186,8 +204,18 @@ Notes:
   importer is `connection-factory.ts`.
 - `constants.ts` is shared: the timeout/limit constants consumed by `makeChannelNetlayer`
   already moved to `@metamask/netlayer` in Phase 3; only the libp2p-provider-only
-  constants (relay reconnect backoff, SCTP abort code) come to netlayer-libp2p. Import the
-  shared ones from `@metamask/netlayer` where the provider needs them.
+  constants (`RELAY_RECONNECT_BASE_DELAY_MS`, `RELAY_RECONNECT_MAX_DELAY_MS`,
+  `RELAY_RECONNECT_MAX_ATTEMPTS`, `SCTP_USER_INITIATED_ABORT`) come to netlayer-libp2p.
+  `DEFAULT_MAX_MESSAGE_SIZE_BYTES` stays in `@metamask/netlayer` — `connection-factory.ts`
+  already imports it (and the three identity helpers) from there, so those imports need no
+  change when the file moves (netlayer-libp2p depends on netlayer).
+- The "libp2p error mapper (from Phase 1)" is not a standalone file today: it is the
+  module-private `mapLibp2pReadError` + `isIntentionalDisconnect` functions at the top of
+  `connection-factory.ts` (covered by `connection-factory.test.ts`, which stubs the
+  identity helpers via `vi.mock('@metamask/netlayer', ...)`). Extracting them to
+  `error-mapper.ts` (+ a new test) is Phase-4 work; also fold in the
+  `MuxerClosedError`/`Dial`/`Transport`/`NO_RESERVATION` name-sniffing that still lives in
+  kernel-errors' `isRetryableNetworkError`.
 
 ### 2.3 Factory signatures
 

@@ -1,8 +1,8 @@
 import { toHex, fromHex } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
+import { deriveNeutralPeerId } from '@metamask/netlayer';
 import { base58btc } from 'multiformats/bases/base58';
 
-import { deriveNeutralPeerId } from './identity.ts';
 import type { KernelStore, RelayEntry } from '../../store/index.ts';
 import { insistKRef } from '../../types.ts';
 import type { KRef, PlatformServices } from '../../types.ts';

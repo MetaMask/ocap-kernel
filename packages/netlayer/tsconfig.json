@@ -1,0 +1,20 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    "baseUrl": "./",
+    "lib": ["ES2022", "DOM"],
+    "types": ["vitest", "ses", "node"]
+  },
+  "references": [
+    { "path": "../kernel-errors" },
+    { "path": "../kernel-utils" },
+    { "path": "../logger" },
+    { "path": "../repo-tools" }
+  ],
+  "include": [
+    "../../vitest.config.ts",
+    "./src",
+    "./vite.config.ts",
+    "./vitest.config.ts"
+  ]
+}

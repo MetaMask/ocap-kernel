@@ -38,12 +38,22 @@ import {
   retryWithBackoff,
 } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
+import {
+  DEFAULT_MAX_MESSAGE_SIZE_BYTES,
+  deriveNeutralPeerId,
+  neutralPeerIdToPublicKey,
+  publicKeyToNeutralPeerId,
+} from '@metamask/netlayer';
+import type {
+  InboundChannelHandler,
+  NetworkChannel,
+  PeerDisconnectHandler,
+} from '@metamask/netlayer';
 import { multiaddr } from '@multiformats/multiaddr';
 import type { Multiaddr } from '@multiformats/multiaddr';
 import { createLibp2p } from 'libp2p';
 
 import {
-  DEFAULT_MAX_MESSAGE_SIZE_BYTES,
   RELAY_RECONNECT_BASE_DELAY_MS,
   RELAY_RECONNECT_MAX_DELAY_MS,
   RELAY_RECONNECT_MAX_ATTEMPTS,
@@ -51,17 +61,7 @@ import {
 } from './constants.ts';
 import { getHost, getLastPeerId, isPlainWs } from '../../utils/multiaddr.ts';
 import { isPrivateAddress } from '../../utils/network.ts';
-import {
-  neutralPeerIdToPublicKey,
-  publicKeyToNeutralPeerId,
-} from '../kernel/identity.ts';
-import type {
-  NetworkChannel,
-  ConnectionFactoryOptions,
-  DirectTransport,
-  InboundChannelHandler,
-  PeerDisconnectHandler,
-} from '../types.ts';
+import type { ConnectionFactoryOptions, DirectTransport } from '../types.ts';
 
 /**
  * Detect whether a read error indicates an intentional disconnect. Checks the
@@ -127,6 +127,8 @@ export class ConnectionFactory {
 
   readonly #keySeed: string;
 
+  readonly #neutralPeerId: string;
+
   readonly #maxRetryAttempts: number;
 
   readonly #maxDataLength: number;
@@ -166,6 +168,7 @@ export class ConnectionFactory {
   // eslint-disable-next-line no-restricted-syntax
   private constructor(options: ConnectionFactoryOptions) {
     this.#keySeed = options.keySeed;
+    this.#neutralPeerId = deriveNeutralPeerId(fromHex(options.keySeed));
     this.#knownRelays = options.knownRelays;
     this.#logger = options.logger;
     this.#signal = options.signal;
@@ -428,6 +431,16 @@ export class ConnectionFactory {
         stream.inactivityTimeout = ms;
       },
     });
+  }
+
+  /**
+   * The neutral peer id this provider authenticates as (base58btc of the raw
+   * Ed25519 public key derived from the key seed).
+   *
+   * @returns The neutral peer id.
+   */
+  get peerId(): string {
+    return this.#neutralPeerId;
   }
 
   /**

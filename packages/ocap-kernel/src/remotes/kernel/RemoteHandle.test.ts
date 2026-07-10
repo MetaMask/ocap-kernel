@@ -584,6 +584,79 @@ describe('RemoteHandle', () => {
     );
   });
 
+  it.each([
+    { label: 'a non-number seq', seq: 'x' },
+    { label: 'a non-integer seq', seq: 1.5 },
+    { label: 'a zero seq', seq: 0 },
+    { label: 'a negative seq', seq: -3 },
+  ])('handleRemoteMessage rejects $label', async ({ seq }) => {
+    const remote = makeRemote();
+    const delivery = JSON.stringify({
+      seq,
+      method: 'deliver',
+      params: ['dropExports', ['ro+1']],
+    });
+    await expect(remote.handleRemoteMessage(delivery)).rejects.toThrow(
+      `invalid message seq: ${seq}`,
+    );
+    remote.cleanup();
+  });
+
+  it('rejects a new outbound message once the pending queue is at capacity', async () => {
+    const remote = makeRemote();
+    // Fill the pending queue to MAX_PENDING_MESSAGES (200). The mock transport
+    // resolves each send but never ACKs, so the queue never drains.
+    for (let index = 0; index < 200; index += 1) {
+      await remote.deliverDropExports(['ro+1']);
+    }
+    await expect(remote.deliverDropExports(['ro+1'])).rejects.toThrow(
+      'pending queue at capacity (200)',
+    );
+    remote.cleanup();
+  });
+
+  it('rejects pending and fires give-up when an outbound delivery hits a terminal send error', async () => {
+    const onGiveUp = vi.fn();
+    const remote = RemoteHandle.make({
+      remoteId: mockRemoteId,
+      peerId: mockRemotePeerId,
+      kernelStore: mockKernelStore,
+      kernelQueue: mockKernelQueue,
+      remoteComms: mockRemoteComms,
+      onGiveUp,
+    });
+    // isTerminalSendError matches by `error.name`; the real class is
+    // transport-internal.
+    const terminal = Object.assign(new Error('Remote peer restarted'), {
+      name: 'PeerRestartedError',
+    });
+    vi.mocked(mockRemoteComms.sendRemoteMessage).mockRejectedValueOnce(
+      terminal,
+    );
+
+    await remote.deliverNotify([['rp+1', false, { body: '"a"', slots: [] }]]);
+    // The send is fire-and-forget; drain microtasks so its catch handler runs.
+    for (let i = 0; i < 5; i += 1) {
+      await Promise.resolve();
+    }
+
+    expect(onGiveUp).toHaveBeenCalledWith(mockRemotePeerId);
+    remote.cleanup();
+  });
+
+  it('cleans up the pending redemption when the redeem send is rejected', async () => {
+    const remote = makeRemote();
+    // Fill the outbound queue so the redeemURL send itself is rejected at
+    // capacity, exercising redeemOcapURL's catch-path cleanup.
+    for (let index = 0; index < 200; index += 1) {
+      await remote.deliverDropExports(['ro+1']);
+    }
+    await expect(remote.redeemOcapURL('ocap:test@peer')).rejects.toThrow(
+      'pending queue at capacity (200)',
+    );
+    remote.cleanup();
+  });
+
   it('handleRemoteMessage handles redeemURL request', async () => {
     const remote = makeRemote();
     const mockOcapURL = 'as if it was a URL';
@@ -1672,6 +1745,40 @@ describe('RemoteHandle', () => {
       // Both iterations ran — the transient failure didn't abort.
       expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledTimes(2);
       expect(onGiveUp).not.toHaveBeenCalled();
+    });
+
+    it('gives up and fires onGiveUp after MAX_RETRIES unacknowledged retransmits', async () => {
+      const onGiveUp = vi.fn();
+      const remote = RemoteHandle.make({
+        remoteId: mockRemoteId,
+        peerId: mockRemotePeerId,
+        kernelStore: mockKernelStore,
+        kernelQueue: mockKernelQueue,
+        remoteComms: mockRemoteComms,
+        ackTimeoutMs: 100,
+        onGiveUp,
+      });
+
+      // One pending message that is never ACKed; sends resolve so each timeout
+      // retransmits rather than aborting.
+      vi.mocked(mockRemoteComms.sendRemoteMessage).mockResolvedValue(undefined);
+      await remote.deliverNotify([['rp+1', false, { body: '"a"', slots: [] }]]);
+
+      // MAX_RETRIES is 3: the first three timeouts retransmit; the fourth
+      // exhausts retries and gives up.
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        fireLastAckTimer();
+        for (let i = 0; i < 5; i += 1) {
+          await Promise.resolve();
+        }
+      }
+
+      expect(onGiveUp).toHaveBeenCalledWith(mockRemotePeerId);
+      expect(onGiveUp).toHaveBeenCalledTimes(1);
+      // Initial send + one per retry (MAX_RETRIES = 3) = 4; the give-up
+      // timeout does not retransmit again.
+      expect(mockRemoteComms.sendRemoteMessage).toHaveBeenCalledTimes(4);
+      remote.cleanup();
     });
   });
 

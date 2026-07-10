@@ -254,6 +254,98 @@ Move shared machinery + engine + types (with tests) out of `remotes/platform/`; 
 re-exports types. Implement loopback (in-memory hub keyed by peerId); use it to replace
 hand-rolled `PlatformServices` mocks in some ocap-kernel tests. ocap-kernel still hosts the
 libp2p provider, so runtimes are untouched. Verify: full suite, `yarn constraints`.
+**DONE** (issue #968, PR on branch `rekm/netlayer-3`, stacked on `rekm/netlayer-2`).
+
+Landed decisions / deviations from the phase-3 plan (these are the facts Phase 4 must build on):
+
+- **`@metamask/netlayer` (new, `0.1.0`, published, single `.` export).** Barrel exports:
+  - Engine: `makeChannelNetlayer({ provider, hooks, options, logger, stopController }) => Netlayer`
+    (synchronous; **kept the Phase-1 landed signature** — `stopController` is passed through, not a
+    bare `incarnationId` param; the local incarnation lives in `options.localIncarnationId`).
+  - Identity: `deriveNeutralPeerId`, `neutralPeerIdToPublicKey`, `publicKeyToNeutralPeerId` (moved
+    verbatim from `remotes/kernel/identity.ts`).
+  - Shared machinery: `PeerStateManager`, `ReconnectionManager`, `PERMANENT_FAILURE_ERROR_CODES`,
+    `makeReconnectionLifecycle`, `makeMessageRateLimiter`, `makeConnectionRateLimiter`,
+    `SlidingWindowRateLimiter`, `makeMessageSizeValidator`, `makeConnectionLimitChecker`,
+    `makeErrorLogger`, `writeWithTimeout`, `performInboundHandshake`, `performOutboundHandshake`,
+    `isHandshakeMessage`, `HANDSHAKE_VERSION` (= `1`), plus the neutral engine constants
+    (`DEFAULT_MAX_CONCURRENT_CONNECTIONS`, `DEFAULT_MAX_MESSAGE_SIZE_BYTES`,
+    `DEFAULT_CLEANUP_INTERVAL_MS`, `DEFAULT_STALE_PEER_TIMEOUT_MS`, `DEFAULT_WRITE_TIMEOUT_MS`,
+    `DEFAULT_MESSAGE_RATE_LIMIT`, `DEFAULT_MESSAGE_RATE_WINDOW_MS`, `DEFAULT_CONNECTION_RATE_LIMIT`,
+    `DEFAULT_CONNECTION_RATE_WINDOW_MS`, `HANDSHAKE_TIMEOUT_MS`, `STREAM_INACTIVITY_TIMEOUT_MS`,
+    `MIN_STREAM_INACTIVITY_TIMEOUT_MS`, `DEFAULT_CONSECUTIVE_ERROR_THRESHOLD`).
+  - Types: `Netlayer`, `NetlayerHooks`, `NetlayerParams`, `NetlayerFactory`, `NetlayerSpecifier`,
+    `NetlayerRegistry`, `NetworkChannel`, `ChannelProvider`, `InboundChannelHandler`,
+    `PeerDisconnectHandler`, `RemoteMessageHandler`, `SendRemoteMessage`, `StopRemoteComms`,
+    `OnRemoteGiveUp`, `OnIncarnationChange`, `ChannelNetlayerOptions`, `PeerState`,
+    `ReconnectionState`, `ErrorRecord`, `HandshakeMessage`, `HandshakeResult`, `HandshakeDeps`,
+    `ErrorLogger`, `ReconnectionLifecycle`, `ReconnectionLifecycleDeps`.
+  - Deps: `@metamask/kernel-errors`, `@metamask/kernel-utils`, `@metamask/logger`,
+    `@metamask/utils` (`Json`), `@noble/curves`, `multiformats`, `uint8arrays`. **`@metamask/superstruct`
+    was dropped** (the plan listed it, but netlayer defines no struct helpers yet — depcheck flags
+    unused deps; add it back in Phase 5 when the websocket netlayer needs config structs).
+    `@types/node` is a devDep. No libp2p anywhere in its tree.
+- **`ChannelProvider` gained `readonly peerId: string`** and `Netlayer` gained `readonly peerId`
+  (Phase-3 work per plan §3). `ConnectionFactory` implements it via a `get peerId()` returning a
+  `#neutralPeerId` field set in the constructor as `deriveNeutralPeerId(fromHex(options.keySeed))`.
+  The engine's returned `Netlayer.peerId` is `provider.peerId`. The returned netlayer is `harden`ed.
+- **Handshake is versioned.** `HandshakeMessage` now carries `v: number` (current `HANDSHAKE_VERSION = 1`),
+  sent on every handshake/handshakeAck; `isHandshakeMessage` requires a numeric `v`. Compat is broken
+  by design.
+- **What moved to `@metamask/netlayer/src/`** (tests moved with each): `peer-state-manager.ts`,
+  `reconnection.ts`, `reconnection-lifecycle.ts`, `rate-limiter.ts`, `validators.ts`,
+  `channel-utils.ts`, `handshake.ts`, `identity.ts`, the neutral subset of `constants.ts`, and
+  `transport.ts`'s `makeChannelNetlayer` engine → `channel-netlayer.ts` (+ its test as
+  `channel-netlayer.test.ts`, which now drives the engine through a mock `ChannelProvider` via a
+  local `initTransport` shim; the three `ConnectionFactory.make`-argument assertions stayed in
+  ocap-kernel). New files: `types.ts`, `index.ts`.
+- **What ocap-kernel keeps in `remotes/platform/`:** `connection-factory.ts` (+test) — still the
+  libp2p `ChannelProvider`, now importing `NetworkChannel`/`InboundChannelHandler`/
+  `PeerDisconnectHandler` + `DEFAULT_MAX_MESSAGE_SIZE_BYTES` + `deriveNeutralPeerId`/
+  `neutralPeerIdToPublicKey`/`publicKeyToNeutralPeerId` from `@metamask/netlayer` (its
+  `connection-factory.test.ts` now `vi.mock('@metamask/netlayer', ...)` with `importOriginal` to
+  stub the three identity helpers); `lp-framing.test.ts`; a reduced `constants.ts` (libp2p-only:
+  `SCTP_USER_INITIATED_ABORT`, `RELAY_RECONNECT_*`); and a **new thin `transport.ts`** whose
+  `initTransport(...)` (unchanged public signature, now returns `Netlayer`) builds `ConnectionFactory`
+  and delegates to `makeChannelNetlayer`. `remote-comms.ts` imports `deriveNeutralPeerId` from
+  `@metamask/netlayer` (its ocap-URL/AES-GCM code stays put).
+- **ocap-kernel re-export surface:** `remotes/types.ts` re-exports the netlayer contract types
+  (`NetworkChannel`, `ChannelProvider`, `RemoteMessageHandler`, `SendRemoteMessage`, `StopRemoteComms`,
+  `OnRemoteGiveUp`, `OnIncarnationChange`, `Netlayer`, `NetlayerHooks`, `NetlayerFactory`,
+  `NetlayerParams`, `NetlayerSpecifier`, `NetlayerRegistry`, `InboundChannelHandler`,
+  `PeerDisconnectHandler`) and keeps `RemoteIdentity`/`RemoteComms`/`RemoteInfo`/`RemoteCommsOptions`/
+  `DirectTransport`/`ConnectionFactoryOptions` local. `src/index.ts` still exports `initTransport` and
+  the three identity helpers (now sourced from `@metamask/netlayer`), and adds the netlayer type
+  surface. `PlatformServices` shape is unchanged. Deps: `@metamask/netlayer` (dependency),
+  `@metamask/netlayer-loopback` (devDependency, test fake).
+- **`@metamask/netlayer-loopback` (new, `0.1.0`, published, single `.` export).** Exports
+  `makeLoopbackHub`/`LoopbackHub`/`LoopbackRegistration` and `makeLoopbackNetlayer`/`LoopbackConfig`.
+  The hub is an **explicit object passed via `config.hub`** (no global state); `register(peerId,
+receive, incarnationId)` / `unregister` / `getIncarnation` / `deliver(from, to, msg) => reply`.
+  `makeLoopbackNetlayer` derives its peerId with `deriveNeutralPeerId(fromHex(keySeed))`, registers
+  with the hub, and returns a hardened `Netlayer`: `sendRemoteMessage` routes through
+  `hub.deliver` and feeds any reply back into its own `handleMessage` (mirroring the engine's reply
+  path); `onIncarnationChange` fires once per peer on first contact with the peer's registered
+  incarnation (no handshake); `closeConnection` marks a peer so sends throw `IntentionalCloseError`
+  (cleared by `reconnectPeer`); `stop` unregisters and makes sends throw `NetworkStoppedError`;
+  `registerLocationHints`/`resetAllBackoffs` are no-ops; `getListenAddresses` returns `[]`.
+  Config `hub` is a live object (not `Json`), so a loopback specifier can't cross postMessage —
+  same-realm only. Deps: `@metamask/kernel-errors` (**added — the plan's §2.2 list omitted it but
+  the throw-`NetworkStoppedError`/`IntentionalCloseError` behavior needs it**), `@metamask/kernel-utils`,
+  `@metamask/netlayer`, `@metamask/superstruct`; `@metamask/logger` was **not** added (unused).
+- **Demonstration:** `packages/ocap-kernel/test/loopback-platform-services.ts` provides
+  `makeLoopbackPlatformServices({ hub })` (its per-call `keySeed`/`incarnationId` come from
+  `initializeRemoteComms`'s arguments — the plan's construction-time `keySeed`/`incarnationId` were
+  dropped as redundant), and `packages/ocap-kernel/src/remotes/loopback.test.ts` is a two-party
+  in-process message+reply test through the real `PlatformServices.initializeRemoteComms` path.
+  **`RemoteManager.test.ts` was NOT converted** to loopback (the plan's optional §6.3) — the new
+  two-party test is the credible demonstration; `makeMockPlatformServices` stays as-is.
+- **Coverage:** `@metamask/netlayer` 90.45% stmts / 90.31% branch / 88.46% func / 90.39% line;
+  `@metamask/netlayer-loopback` 97.56% stmts / 95.83% branch. `@metamask/ocap-kernel` statements,
+  functions, and lines all rose above the pre-phase baseline (93.24→93.7%, 93.85→94.4%, 93.19→93.7%);
+  **branch coverage fell ~0.4% (85.9→85.5%)** — a purely arithmetic effect of extracting ~247 branches
+  that were covered at ~91.5% (well above the package average) into netlayer, where they remain
+  covered at 90.31%. No source lost test coverage.
 
 **Phase 4 — Extract `@metamask/netlayer-libp2p` + runtime injection.** ~5–6 days (split 4a/4b).
 
