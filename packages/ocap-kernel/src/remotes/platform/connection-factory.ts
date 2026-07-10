@@ -6,15 +6,31 @@ import { generateKeyPairFromSeed } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
 import {
   MuxerClosedError,
+  StreamResetError,
   TooManyOutboundProtocolStreamsError,
 } from '@libp2p/interface';
-import type { PrivateKey, Libp2p } from '@libp2p/interface';
+import type {
+  PrivateKey,
+  Libp2p,
+  Stream,
+  StreamCloseEvent,
+} from '@libp2p/interface';
 import { ping } from '@libp2p/ping';
-import { lpStream } from '@libp2p/utils';
+import {
+  InvalidDataLengthError,
+  InvalidDataLengthLengthError,
+  lpStream,
+} from '@libp2p/utils';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
 import { webTransport } from '@libp2p/webtransport';
-import { AbortError, isRetryableNetworkError } from '@metamask/kernel-errors';
+import {
+  AbortError,
+  ChannelResetError,
+  IntentionalDisconnectError,
+  isRetryableNetworkError,
+  MessageTooLargeError,
+} from '@metamask/kernel-errors';
 import {
   calculateReconnectionBackoff,
   fromHex,
@@ -30,16 +46,64 @@ import {
   RELAY_RECONNECT_BASE_DELAY_MS,
   RELAY_RECONNECT_MAX_DELAY_MS,
   RELAY_RECONNECT_MAX_ATTEMPTS,
+  SCTP_USER_INITIATED_ABORT,
 } from './constants.ts';
 import { getHost, getLastPeerId, isPlainWs } from '../../utils/multiaddr.ts';
 import { isPrivateAddress } from '../../utils/network.ts';
 import type {
-  Channel,
+  NetworkChannel,
   ConnectionFactoryOptions,
   DirectTransport,
-  InboundConnectionHandler,
+  InboundChannelHandler,
   PeerDisconnectHandler,
 } from '../types.ts';
+
+/**
+ * Detect whether a read error indicates an intentional disconnect. Checks the
+ * legacy SCTP sniffing for a WebRTC user-initiated abort (code 12). The typed
+ * `StreamResetError` is handled separately (mapped to `ChannelResetError`) so a
+ * remote reset always reconnects and is never treated as intentional.
+ *
+ * @param problem - The error thrown by a stream read.
+ * @returns Whether the error represents an intentional disconnect.
+ */
+function isIntentionalDisconnect(problem: unknown): boolean {
+  const rtcProblem = problem as {
+    errorDetail?: string;
+    sctpCauseCode?: number;
+  };
+  return (
+    rtcProblem?.errorDetail === 'sctp-failure' &&
+    rtcProblem?.sctpCauseCode === SCTP_USER_INITIATED_ABORT
+  );
+}
+
+/**
+ * Map a raw libp2p stream-read error onto a neutral kernel-error so the channel
+ * engine never imports libp2p error types. Ordering mirrors the historical
+ * engine cascade: a `StreamResetError` maps to `ChannelResetError` (reconnect)
+ * before intentional-disconnect classification, so a remote reset can never be
+ * swallowed as an intentional close. Anything unrecognised (including
+ * `UnexpectedEOFError`) passes through unchanged for the engine's else branch.
+ *
+ * @param problem - The raw error thrown by the underlying stream read.
+ * @returns The neutral error to throw, or the original error unchanged.
+ */
+function mapLibp2pReadError(problem: unknown): unknown {
+  if (
+    problem instanceof InvalidDataLengthError ||
+    problem instanceof InvalidDataLengthLengthError
+  ) {
+    return new MessageTooLargeError({ cause: problem });
+  }
+  if (problem instanceof StreamResetError) {
+    return new ChannelResetError({ cause: problem });
+  }
+  if (isIntentionalDisconnect(problem)) {
+    return new IntentionalDisconnectError({ cause: problem as Error });
+  }
+  return problem;
+}
 
 /**
  * Connection factory for libp2p network operations.
@@ -48,7 +112,7 @@ import type {
 export class ConnectionFactory {
   #libp2p?: Libp2p;
 
-  readonly #inflightDials = new Map<string, Promise<Channel>>();
+  readonly #inflightDials = new Map<string, Promise<NetworkChannel>>();
 
   readonly #logger: Logger;
 
@@ -77,7 +141,7 @@ export class ConnectionFactory {
 
   #stopped = false;
 
-  #inboundHandler?: InboundConnectionHandler;
+  #inboundHandler?: InboundChannelHandler;
 
   #disconnectHandler?: PeerDisconnectHandler;
 
@@ -224,20 +288,13 @@ export class ConnectionFactory {
 
     // Set up inbound handler
     await this.#libp2p.handle('whatever', async (stream, connection) => {
-      const msgStream = lpStream(stream, {
-        maxDataLength: this.#maxDataLength,
-      });
       const remotePeerId = connection.remotePeer.toString();
       const connType = connection.direct ? 'direct' : 'relayed';
       this.#logger.log(
         `inbound ${connType} connection from peerId:${remotePeerId}`,
       );
 
-      const channel: Channel = {
-        msgStream,
-        stream,
-        peerId: remotePeerId,
-      };
+      const channel = this.#makeNetworkChannel(stream, remotePeerId);
 
       await this.#inboundHandler?.(channel);
     });
@@ -290,11 +347,67 @@ export class ConnectionFactory {
   }
 
   /**
-   * Set the handler for inbound connections.
+   * Build a transport-neutral {@link NetworkChannel} wrapping a libp2p stream.
+   * Owns the length-prefixed framing, the inactivity-timeout setter, the
+   * diagnostic close-event listener, the write not-open short-circuit, and
+   * read-error mapping to neutral kernel-errors.
    *
-   * @param handler - The handler for inbound connections.
+   * @param stream - The libp2p stream to wrap.
+   * @param peerId - The remote peer's id.
+   * @returns The neutral channel.
    */
-  onInboundConnection(handler: InboundConnectionHandler): void {
+  #makeNetworkChannel(stream: Stream, peerId: string): NetworkChannel {
+    const msgStream = lpStream(stream, { maxDataLength: this.#maxDataLength });
+    // Listen for v3 fine-grained close events for diagnostics.
+    stream.addEventListener(
+      'close',
+      (evt: Event) => {
+        const { local, error } = evt as StreamCloseEvent;
+        if (local) {
+          const suffix = error ? `: ${error.message}` : '';
+          this.#logger.log(`${peerId}:: stream closed locally${suffix}`);
+        } else if (error) {
+          this.#logger.log(
+            `${peerId}:: stream reset by remote: ${error.message}`,
+          );
+        } else {
+          this.#logger.log(`${peerId}:: stream closed by remote (clean)`);
+        }
+      },
+      { once: true },
+    );
+    return harden({
+      peerId,
+      read: async (): Promise<Uint8Array> => {
+        try {
+          const readBuf = await msgStream.read();
+          return readBuf.subarray();
+        } catch (problem) {
+          throw mapLibp2pReadError(problem);
+        }
+      },
+      write: async (data: Uint8Array): Promise<void> => {
+        // Short-circuit if the underlying stream is already closed/aborted/reset
+        if (stream.status !== 'open') {
+          throw Error(`Stream is ${stream.status}, cannot write`);
+        }
+        await msgStream.write(data);
+      },
+      close: async (): Promise<void> => this.#closeStream(stream, peerId),
+      setInactivityTimeout: (ms: number): void => {
+        // Distinct from the per-write timeout — it covers bidirectional
+        // silence across the stream's lifetime.
+        stream.inactivityTimeout = ms;
+      },
+    });
+  }
+
+  /**
+   * Set the handler for inbound channels.
+   *
+   * @param handler - The handler for inbound channels.
+   */
+  onInboundChannel(handler: InboundChannelHandler): void {
     this.#inboundHandler = handler;
   }
 
@@ -382,7 +495,7 @@ export class ConnectionFactory {
   async openChannelOnce(
     peerId: string,
     hints: string[] = [],
-  ): Promise<Channel> {
+  ): Promise<NetworkChannel> {
     if (!this.#libp2p) {
       throw new Error('libp2p not initialized');
     }
@@ -410,10 +523,7 @@ export class ConnectionFactory {
         this.#logger.log(
           `successfully connected to ${peerId} via ${addressString}`,
         );
-        const msgStream = lpStream(stream, {
-          maxDataLength: this.#maxDataLength,
-        });
-        const channel: Channel = { msgStream, stream, peerId };
+        const channel = this.#makeNetworkChannel(stream, peerId);
         this.#logger.log(`opened channel to ${peerId}`);
         return channel;
       } catch (problem) {
@@ -456,7 +566,7 @@ export class ConnectionFactory {
   async openChannelWithRetry(
     peerId: string,
     hints: string[] = [],
-  ): Promise<Channel> {
+  ): Promise<NetworkChannel> {
     const retryOptions: Parameters<typeof retryWithBackoff>[1] = {
       maxAttempts: this.#maxRetryAttempts,
       jitter: true,
@@ -482,11 +592,11 @@ export class ConnectionFactory {
    * @param withRetry - Whether to retry the dial.
    * @returns The channel.
    */
-  async dialIdempotent(
+  async dial(
     peerId: string,
     hints: string[],
     withRetry: boolean,
-  ): Promise<Channel> {
+  ): Promise<NetworkChannel> {
     let promise = this.#inflightDials.get(peerId);
     if (!promise) {
       promise = (
@@ -500,13 +610,24 @@ export class ConnectionFactory {
   }
 
   /**
-   * Close a channel's underlying stream to release network resources.
+   * Close a channel to release network resources.
    *
    * @param channel - The channel to close.
+   * @returns A promise that resolves when the channel is closed.
+   */
+  async closeChannel(channel: NetworkChannel): Promise<void> {
+    return channel.close();
+  }
+
+  /**
+   * Close a stream's underlying resources: attempt a graceful close and, if
+   * that fails, force-abort with the original error.
+   *
+   * @param stream - The libp2p stream to close.
    * @param peerId - The peer ID for logging.
    */
-  async closeChannel(channel: Channel, peerId: string): Promise<void> {
-    const closeResult = await channel.stream.close().then(
+  async #closeStream(stream: Stream, peerId: string): Promise<void> {
+    const closeResult = await stream.close().then(
       () => 'closed' as const,
       (error: unknown) => error,
     );
@@ -518,7 +639,7 @@ export class ConnectionFactory {
 
     // Graceful close failed -- force abort with the original error.
     try {
-      channel.stream.abort(
+      stream.abort(
         closeResult instanceof Error ? closeResult : new AbortError(),
       );
       this.#logger.log(`${peerId}:: aborted channel stream`);

@@ -12,7 +12,7 @@ import type { Logger } from '@metamask/logger';
 import type { ErrorLogger } from './channel-utils.ts';
 import type { PeerStateManager, PeerState } from './peer-state-manager.ts';
 import type { ReconnectionManager } from './reconnection.ts';
-import type { Channel, OnRemoteGiveUp } from '../types.ts';
+import type { NetworkChannel, OnRemoteGiveUp } from '../types.ts';
 
 /**
  * Dependencies for creating a reconnection lifecycle handler.
@@ -25,22 +25,22 @@ export type ReconnectionLifecycleDeps = {
   reconnectionManager: ReconnectionManager;
   maxRetryAttempts: number | undefined;
   onRemoteGiveUp: OnRemoteGiveUp | undefined;
-  dialPeer: (peerId: string, hints: string[]) => Promise<Channel>;
+  dialPeer: (peerId: string, hints: string[]) => Promise<NetworkChannel>;
   reuseOrReturnChannel: (
     peerId: string,
-    dialedChannel: Channel,
-  ) => Promise<Channel | null>;
+    dialedChannel: NetworkChannel,
+  ) => Promise<NetworkChannel | null>;
   checkConnectionLimit: () => void;
   checkConnectionRateLimit: (peerId: string) => void;
-  closeChannel: (channel: Channel, peerId: string) => Promise<void>;
+  closeChannel: (channel: NetworkChannel) => Promise<void>;
   registerChannel: (
     peerId: string,
-    channel: Channel,
+    channel: NetworkChannel,
     errorContext?: string,
   ) => void;
   /** Perform outbound handshake. Returns success status and whether incarnation changed. */
   doOutboundHandshake: (
-    channel: Channel,
+    channel: NetworkChannel,
   ) => Promise<{ success: boolean; incarnationChanged: boolean }>;
 };
 
@@ -210,7 +210,7 @@ export function makeReconnectionLifecycle(
   async function tryReconnect(
     state: PeerState,
     peerId: string,
-  ): Promise<Channel | null> {
+  ): Promise<NetworkChannel | null> {
     // Check connection rate limit before attempting dial
     checkConnectionRateLimit(peerId);
 
@@ -231,7 +231,7 @@ export function makeReconnectionLifecycle(
         // Connection limit exceeded after dial - close the channel to prevent leak
         // Use try-catch to ensure the original error is always re-thrown
         try {
-          await closeChannel(channel, peerId);
+          await closeChannel(channel);
         } catch {
           // Ignore close errors - the original ResourceLimitError takes priority
         }
@@ -244,7 +244,7 @@ export function makeReconnectionLifecycle(
       } catch (handshakeError) {
         // Handshake threw (e.g., onRemoteGiveUp callback failed) - close channel to prevent leak
         try {
-          await closeChannel(channel, peerId);
+          await closeChannel(channel);
         } catch {
           // Ignore close errors - the original error takes priority
         }
@@ -256,7 +256,7 @@ export function makeReconnectionLifecycle(
         logger.log(
           `${peerId}:: handshake failed during reconnection, will retry`,
         );
-        await closeChannel(channel, peerId);
+        await closeChannel(channel);
         return null;
       }
       // Note: incarnationChanged is handled by the callback in doOutboundHandshake

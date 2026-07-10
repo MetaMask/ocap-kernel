@@ -1,19 +1,65 @@
-import type { Stream } from '@libp2p/interface';
-import type { LengthPrefixedStream } from '@libp2p/utils';
 import type { Logger } from '@metamask/logger';
 
 import type { KRef } from '../types.ts';
 
-export type InboundConnectionHandler = (
-  channel: Channel,
+/**
+ * A transport-neutral bidirectional message channel to a single remote peer.
+ * Byte-oriented: `read` yields one complete inbound message payload per call,
+ * `write` sends one complete outbound message payload. Framing, encryption,
+ * and transport-error mapping are the ChannelProvider's responsibility.
+ */
+export type NetworkChannel = {
+  /** The remote peer's id (opaque string; libp2p peerId today). */
+  readonly peerId: string;
+  /**
+   * Read the next complete inbound message payload.
+   * Throws a neutral kernel-error on failure:
+   * - `MessageTooLargeError` when the peer announced an oversize frame,
+   * - `ChannelResetError` on a remote-initiated reset,
+   * - `IntentionalDisconnectError` on a locally/remotely intended close,
+   * - any other error is re-thrown as-is (engine treats it as connection loss).
+   */
+  read: () => Promise<Uint8Array>;
+  /** Write one complete outbound message payload. Throws if the channel is not writable. */
+  write: (data: Uint8Array) => Promise<void>;
+  /** Close the channel, releasing transport resources. Idempotent. */
+  close: () => Promise<void>;
+  /**
+   * Set the bidirectional inactivity timeout in ms. May be a no-op for
+   * transports without the concept. Called once after the channel is registered.
+   */
+  setInactivityTimeout: (ms: number) => void;
+};
+
+export type InboundChannelHandler = (
+  channel: NetworkChannel,
 ) => Promise<void> | void;
 
 export type PeerDisconnectHandler = (peerId: string) => void;
 
-export type Channel = {
-  msgStream: LengthPrefixedStream<Stream>;
-  stream: Stream;
-  peerId: string;
+/**
+ * A channel-based transport implementation consumed by `makeChannelNetlayer`.
+ * The libp2p `ConnectionFactory` is the only implementation in Phase 1.
+ */
+export type ChannelProvider = {
+  /**
+   * Dial a peer, returning a live channel. Deduplicates concurrent dials to
+   * the same peer internally (idempotent).
+   *
+   * @param peerId - The peer to dial.
+   * @param hints - Location hints (opaque transport-specific strings).
+   * @param withRetry - When true, apply the provider's connect backoff/retry.
+   */
+  dial: (
+    peerId: string,
+    hints: string[],
+    withRetry: boolean,
+  ) => Promise<NetworkChannel>;
+  onInboundChannel: (handler: InboundChannelHandler) => void;
+  onPeerDisconnect: (handler: PeerDisconnectHandler) => void;
+  closeChannel: (channel: NetworkChannel) => Promise<void>;
+  getListenAddresses: () => string[];
+  stop: () => Promise<void>;
 };
 
 export type RemoteMessageHandler = (

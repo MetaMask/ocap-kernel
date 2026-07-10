@@ -6,15 +6,18 @@ describe('index', () => {
   it('has the expected exports', () => {
     expect(Object.keys(indexModule).sort()).toStrictEqual([
       'AbortError',
+      'ChannelResetError',
       'DuplicateEndowmentError',
       'ErrorCode',
       'ErrorSentinel',
       'ErrorStruct',
       'EvaluatorError',
       'IntentionalCloseError',
+      'IntentionalDisconnectError',
       'KERNEL_ERROR_PATTERN',
       'MarshaledErrorStruct',
       'MarshaledOcapErrorStruct',
+      'MessageTooLargeError',
       'NetworkStoppedError',
       'PeerRestartedError',
       'ResourceLimitError',

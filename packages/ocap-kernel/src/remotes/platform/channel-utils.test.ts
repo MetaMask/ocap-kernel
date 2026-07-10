@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { makeErrorLogger, writeWithTimeout } from './channel-utils.ts';
-import type { Channel } from '../types.ts';
+import type { NetworkChannel } from '../types.ts';
 
 describe('channel-utils', () => {
   describe('makeErrorLogger', () => {
@@ -69,7 +69,7 @@ describe('channel-utils', () => {
   });
 
   describe('writeWithTimeout', () => {
-    let mockChannel: Channel;
+    let mockChannel: NetworkChannel;
     let writeResolve: () => void;
     let writeReject: (error: Error) => void;
 
@@ -81,19 +81,11 @@ describe('channel-utils', () => {
 
       mockChannel = {
         peerId: 'testPeer',
-        stream: {
-          status: 'open',
-          inactivityTimeout: 0,
-          addEventListener: vi.fn(),
-          close: vi.fn(),
-          abort: vi.fn(),
-        },
-        msgStream: {
-          write: vi.fn().mockReturnValue(writePromise),
-          read: vi.fn(),
-          unwrap: vi.fn(),
-        },
-      } as unknown as Channel;
+        write: vi.fn().mockReturnValue(writePromise),
+        read: vi.fn(),
+        close: vi.fn(),
+        setInactivityTimeout: vi.fn(),
+      } as unknown as NetworkChannel;
     });
 
     it('writes message to channel', async () => {
@@ -103,7 +95,7 @@ describe('channel-utils', () => {
       writeResolve();
       await writePromise;
 
-      expect(mockChannel.msgStream.write).toHaveBeenCalledWith(message);
+      expect(mockChannel.write).toHaveBeenCalledWith(message);
     });
 
     it('resolves when write completes before timeout', async () => {
@@ -143,20 +135,6 @@ describe('channel-utils', () => {
 
       await expect(writePromise).rejects.toThrow('Write failed');
     });
-
-    it.each(['closed', 'closing', 'aborted', 'reset'])(
-      'throws immediately when stream status is %s',
-      async (status) => {
-        const message = new Uint8Array([1, 2, 3]);
-        (mockChannel.stream as unknown as { status: string }).status = status;
-
-        await expect(
-          writeWithTimeout(mockChannel, message, 1000),
-        ).rejects.toThrow(`Stream is ${status}, cannot write`);
-
-        expect(mockChannel.msgStream.write).not.toHaveBeenCalled();
-      },
-    );
 
     it('cleans up timeout listener after successful write', async () => {
       const message = new Uint8Array([1, 2, 3]);

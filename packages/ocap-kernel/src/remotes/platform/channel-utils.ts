@@ -1,7 +1,7 @@
 import type { Logger } from '@metamask/logger';
 
 import { DEFAULT_WRITE_TIMEOUT_MS } from './constants.ts';
-import type { Channel } from '../types.ts';
+import type { NetworkChannel } from '../types.ts';
 
 /**
  * Type for error logging function.
@@ -30,25 +30,19 @@ export function makeErrorLogger(logger: Logger): ErrorLogger {
 }
 
 /**
- * Write a message to a channel stream with a timeout.
+ * Write a message to a channel with a timeout.
  *
  * @param channel - The channel to write to.
- * @param message - The message bytes to write.
+ * @param data - The message bytes to write.
  * @param timeoutMs - Timeout in milliseconds (default: 10 seconds).
  * @returns Promise that resolves when the write completes or rejects on timeout.
  * @throws Error if the write times out or fails.
  */
 export async function writeWithTimeout(
-  channel: Channel,
-  message: Uint8Array,
+  channel: NetworkChannel,
+  data: Uint8Array,
   timeoutMs = DEFAULT_WRITE_TIMEOUT_MS,
 ): Promise<void> {
-  // Short-circuit if the underlying stream is already closed/aborted/reset
-  const { status } = channel.stream;
-  if (status !== 'open') {
-    throw Error(`Stream is ${status}, cannot write`);
-  }
-
   const timeoutSignal = AbortSignal.timeout(timeoutMs);
   let abortHandler: (() => void) | undefined;
   const timeoutPromise = new Promise<never>((_resolve, reject) => {
@@ -59,10 +53,7 @@ export async function writeWithTimeout(
   });
 
   try {
-    return await Promise.race([
-      channel.msgStream.write(message),
-      timeoutPromise,
-    ]);
+    return await Promise.race([channel.write(data), timeoutPromise]);
   } finally {
     // Clean up event listener to prevent unhandled rejection if operation
     // completes before timeout

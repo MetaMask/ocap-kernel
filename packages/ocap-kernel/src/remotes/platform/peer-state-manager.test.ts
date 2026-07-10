@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import { PeerStateManager } from './peer-state-manager.ts';
-import type { Channel } from '../types.ts';
+import type { NetworkChannel } from '../types.ts';
 
 describe('PeerStateManager', () => {
   let manager: PeerStateManager;
@@ -57,7 +57,7 @@ describe('PeerStateManager', () => {
     });
 
     it('counts peers with channels', () => {
-      const mockChannel = { peerId: 'peer1' } as Channel;
+      const mockChannel = { peerId: 'peer1' } as NetworkChannel;
       const state1 = manager.getState('peer1');
       state1.channel = mockChannel;
 
@@ -76,8 +76,8 @@ describe('PeerStateManager', () => {
       const state2 = manager.getState('peer2');
       manager.getState('peer3'); // peer3 has no channel
 
-      state1.channel = { peerId: 'peer1' } as Channel;
-      state2.channel = { peerId: 'peer2' } as Channel;
+      state1.channel = { peerId: 'peer1' } as NetworkChannel;
+      state2.channel = { peerId: 'peer2' } as NetworkChannel;
 
       expect(manager.countActiveConnections()).toBe(2);
     });
@@ -261,7 +261,7 @@ describe('PeerStateManager', () => {
       // Use a very short timeout for testing
       const shortTimeoutManager = new PeerStateManager(mockLogger, 1);
       const state = shortTimeoutManager.getState('peer1');
-      state.channel = { peerId: 'peer1' } as Channel;
+      state.channel = { peerId: 'peer1' } as NetworkChannel;
 
       // Even with a tiny timeout, peers with channels are not stale
       expect(shortTimeoutManager.getStalePeers()).toStrictEqual([]);
@@ -301,7 +301,7 @@ describe('PeerStateManager', () => {
   describe('removePeer', () => {
     it('removes peer state', () => {
       const state = manager.getState('peer1');
-      state.channel = { peerId: 'peer1' } as Channel;
+      state.channel = { peerId: 'peer1' } as NetworkChannel;
 
       manager.removePeer('peer1');
 
@@ -351,7 +351,7 @@ describe('PeerStateManager', () => {
 
     it('returns states with correct structure', () => {
       const state = manager.getState('peer1');
-      state.channel = { peerId: 'peer1' } as Channel;
+      state.channel = { peerId: 'peer1' } as NetworkChannel;
       state.locationHints = ['hint1'];
 
       const states = Array.from(manager.getAllStates());

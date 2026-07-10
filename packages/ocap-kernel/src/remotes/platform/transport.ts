@@ -1,12 +1,9 @@
-import { StreamResetError } from '@libp2p/interface';
-import type { StreamCloseEvent } from '@libp2p/interface';
-import {
-  InvalidDataLengthError,
-  InvalidDataLengthLengthError,
-} from '@libp2p/utils';
 import {
   AbortError,
+  ChannelResetError,
   IntentionalCloseError,
+  IntentionalDisconnectError,
+  MessageTooLargeError,
   NetworkStoppedError,
   PeerRestartedError,
   ResourceLimitError,
@@ -25,7 +22,6 @@ import {
   DEFAULT_MESSAGE_RATE_LIMIT,
   DEFAULT_STALE_PEER_TIMEOUT_MS,
   DEFAULT_WRITE_TIMEOUT_MS,
-  SCTP_USER_INITIATED_ABORT,
   MIN_STREAM_INACTIVITY_TIMEOUT_MS,
   STREAM_INACTIVITY_TIMEOUT_MS,
 } from './constants.ts';
@@ -49,64 +45,48 @@ import type {
   RemoteMessageHandler,
   SendRemoteMessage,
   StopRemoteComms,
-  Channel,
+  ChannelProvider,
+  NetworkChannel,
   OnRemoteGiveUp,
   OnIncarnationChange,
   RemoteCommsOptions,
 } from '../types.ts';
 
 /**
- * Detect whether a read error indicates an intentional disconnect.
- * Checks for the v3 typed `StreamResetError` (fired when the remote explicitly
- * aborts a stream, e.g. during shutdown) and falls back to legacy SCTP sniffing
- * for WebRTC user-initiated abort (code 12).
- *
- * @param problem - The error thrown by a stream read.
- * @returns Whether the error represents an intentional disconnect.
+ * Kernel-supplied callbacks the channel netlayer engine invokes.
  */
-function isIntentionalDisconnect(problem: unknown): boolean {
-  if (problem instanceof StreamResetError) {
-    return true;
-  }
-  const rtcProblem = problem as {
-    errorDetail?: string;
-    sctpCauseCode?: number;
-  };
-  return (
-    rtcProblem?.errorDetail === 'sctp-failure' &&
-    rtcProblem?.sctpCauseCode === SCTP_USER_INITIATED_ABORT
-  );
-}
+export type ChannelNetlayerHooks = {
+  handleMessage: RemoteMessageHandler;
+  onRemoteGiveUp?: OnRemoteGiveUp | undefined;
+  onIncarnationChange?: OnIncarnationChange | undefined;
+};
 
 /**
- * Initialize the remote comm system with information that must be provided by the kernel.
- *
- * @param keySeed - Seed value for key generation, in the form of a hex-encoded string.
- * @param options - Options for remote communications initialization.
- * @param options.relays - PeerIds/Multiaddrs of known message relays.
- * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
- * @param options.maxQueue - Maximum pending messages per peer (default: 200).
- * @param options.maxConcurrentConnections - Maximum number of concurrent connections (default: 100).
- * @param options.maxMessageSizeBytes - Maximum message size in bytes (default: 1MB).
- * @param options.cleanupIntervalMs - Stale peer cleanup interval in milliseconds (default: 15 minutes).
- * @param options.stalePeerTimeoutMs - Stale peer timeout in milliseconds (default: 1 hour).
- * @param options.maxMessagesPerSecond - Maximum messages per second per peer (default: 100).
- * @param options.maxConnectionAttemptsPerMinute - Maximum connection attempts per minute per peer (default: 10).
- * @param remoteMessageHandler - Handler to be called when messages are received from elsewhere.
- * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote (after max retries or non-retryable error).
- * @param localIncarnationId - This kernel's incarnation ID for handshake protocol.
- * @param onIncarnationChange - Optional callback when a remote peer's incarnation changes (peer restarted).
- *
- * @returns a function to send messages **and** a `stop()` to cancel/release everything.
+ * Engine-level tuning options for the channel netlayer. These are the subset of
+ * {@link RemoteCommsOptions} the transport engine consumes; provider-specific
+ * options (relays, direct transports, allowed ws hosts) are handled separately
+ * by the provider.
  */
-export async function initTransport(
-  keySeed: string,
-  options: RemoteCommsOptions,
-  remoteMessageHandler: RemoteMessageHandler,
-  onRemoteGiveUp?: OnRemoteGiveUp,
-  localIncarnationId?: string,
-  onIncarnationChange?: OnIncarnationChange,
-): Promise<{
+export type ChannelNetlayerOptions = {
+  maxRetryAttempts?: number | undefined;
+  maxConcurrentConnections?: number | undefined;
+  maxMessageSizeBytes?: number | undefined;
+  cleanupIntervalMs?: number | undefined;
+  stalePeerTimeoutMs?: number | undefined;
+  maxMessagesPerSecond?: number | undefined;
+  maxConnectionAttemptsPerMinute?: number | undefined;
+  reconnectionBaseDelayMs?: number | undefined;
+  reconnectionMaxDelayMs?: number | undefined;
+  handshakeTimeoutMs?: number | undefined;
+  writeTimeoutMs?: number | undefined;
+  streamInactivityTimeoutMs?: number | undefined;
+  localIncarnationId?: string | undefined;
+};
+
+/**
+ * The object returned by {@link makeChannelNetlayer} / {@link initTransport}.
+ */
+export type ChannelNetlayer = {
   sendRemoteMessage: SendRemoteMessage;
   stop: StopRemoteComms;
   closeConnection: (peerId: string) => Promise<void>;
@@ -114,9 +94,33 @@ export async function initTransport(
   reconnectPeer: (peerId: string, hints?: string[]) => Promise<void>;
   resetAllBackoffs: () => void;
   getListenAddresses: () => string[];
-}> {
+};
+
+/**
+ * Build the transport-neutral channel netlayer engine over a
+ * {@link ChannelProvider}. This is the refactored core of the former
+ * `initTransport`; it consumes a provider, kernel hooks, engine options, a
+ * logger, and a shared `AbortController` (so `stop()` aborts the same signal
+ * the provider was constructed with).
+ *
+ * @param params - The engine parameters.
+ * @param params.provider - The channel provider (dialing, inbound channels, close).
+ * @param params.hooks - Kernel-supplied callbacks.
+ * @param params.options - Engine tuning options.
+ * @param params.logger - The logger shared with the provider.
+ * @param params.stopController - The AbortController shared with the provider;
+ * `stop()` aborts it to cancel all delays, dials, and reads.
+ * @returns The channel netlayer.
+ */
+export function makeChannelNetlayer(params: {
+  provider: ChannelProvider;
+  hooks: ChannelNetlayerHooks;
+  options: ChannelNetlayerOptions;
+  logger: Logger;
+  stopController: AbortController;
+}): ChannelNetlayer {
+  const { provider, hooks, options, logger, stopController } = params;
   const {
-    relays = [],
     maxRetryAttempts,
     maxConcurrentConnections = DEFAULT_MAX_CONCURRENT_CONNECTIONS,
     maxMessageSizeBytes = DEFAULT_MAX_MESSAGE_SIZE_BYTES,
@@ -129,13 +133,11 @@ export async function initTransport(
     handshakeTimeoutMs,
     writeTimeoutMs,
     streamInactivityTimeoutMs,
-    directTransports,
-    allowedWsHosts,
+    localIncarnationId,
   } = options;
+  const { handleMessage, onRemoteGiveUp, onIncarnationChange } = hooks;
   let cleanupWakeDetector: (() => void) | undefined;
-  const stopController = new AbortController();
   const { signal } = stopController;
-  const logger = new Logger();
   const outputError = makeErrorLogger(logger);
   const reconnectionManagerOpts: ConstructorParameters<
     typeof ReconnectionManager
@@ -169,16 +171,6 @@ export async function initTransport(
     }
     connectionLossHolder.impl(peerId);
   };
-  const connectionFactory = await ConnectionFactory.make({
-    keySeed,
-    knownRelays: relays,
-    logger,
-    signal,
-    maxRetryAttempts,
-    maxMessageSizeBytes,
-    directTransports,
-    allowedWsHosts,
-  });
 
   // Create handshake dependencies (only if incarnation ID is configured).
   // The incarnation ID is optional primarily for unit tests that don't need
@@ -201,7 +193,7 @@ export async function initTransport(
    * @returns Object with success status and whether incarnation changed.
    */
   async function doOutboundHandshake(
-    channel: Channel,
+    channel: NetworkChannel,
   ): Promise<{ success: boolean; incarnationChanged: boolean }> {
     if (!handshakeDeps) {
       return { success: true, incarnationChanged: false }; // No handshake configured, skip
@@ -258,7 +250,7 @@ export async function initTransport(
    * @returns True if handshake succeeded and the channel should be registered;
    *   false if the handshake failed OR a restart was detected (caller closes).
    */
-  async function doInboundHandshake(channel: Channel): Promise<boolean> {
+  async function doInboundHandshake(channel: NetworkChannel): Promise<boolean> {
     if (!handshakeDeps) {
       return true;
     }
@@ -272,7 +264,7 @@ export async function initTransport(
     // Treat a callback throw as a handshake failure: the caller closes
     // the channel only when this returns false, so an unhandled throw
     // would let the channel escape upstream and be closed (noisily) by
-    // the outer onInboundConnection catch. Better to fail closed here.
+    // the outer onInboundChannel catch. Better to fail closed here.
     let kernelDetectedRestart: boolean;
     try {
       kernelDetectedRestart =
@@ -323,7 +315,7 @@ export async function initTransport(
    */
   function registerChannel(
     peerId: string,
-    channel: Channel,
+    channel: NetworkChannel,
     errorContext = 'reading channel to',
   ): void {
     const state = peerStateManager.getState(peerId);
@@ -334,26 +326,11 @@ export async function initTransport(
     // Set stream inactivity timeout for detecting dead streams.
     // This is distinct from the per-write timeout — it covers bidirectional
     // silence across the stream's lifetime.
-    channel.stream.inactivityTimeout = Math.max(
-      streamInactivityTimeoutMs ?? STREAM_INACTIVITY_TIMEOUT_MS,
-      MIN_STREAM_INACTIVITY_TIMEOUT_MS,
-    );
-
-    // Listen for v3 fine-grained close events for diagnostics.
-    channel.stream.addEventListener(
-      'close',
-      (evt: Event) => {
-        const { local, error } = evt as StreamCloseEvent;
-        if (local) {
-          const suffix = error ? `: ${error.message}` : '';
-          logger.log(`${peerId}:: stream closed locally${suffix}`);
-        } else if (error) {
-          logger.log(`${peerId}:: stream reset by remote: ${error.message}`);
-        } else {
-          logger.log(`${peerId}:: stream closed by remote (clean)`);
-        }
-      },
-      { once: true },
+    channel.setInactivityTimeout(
+      Math.max(
+        streamInactivityTimeoutMs ?? STREAM_INACTIVITY_TIMEOUT_MS,
+        MIN_STREAM_INACTIVITY_TIMEOUT_MS,
+      ),
     );
 
     readChannel(channel).catch((problem) => {
@@ -362,10 +339,7 @@ export async function initTransport(
 
     // If we replaced an existing channel, close it to avoid leaks and stale readers.
     if (previousChannel && previousChannel !== channel) {
-      const closePromise = connectionFactory.closeChannel(
-        previousChannel,
-        peerId,
-      );
+      const closePromise = provider.closeChannel(previousChannel);
       if (typeof closePromise?.catch === 'function') {
         closePromise.catch((problem) => {
           outputError(peerId, 'closing replaced channel', problem);
@@ -386,14 +360,14 @@ export async function initTransport(
    */
   async function reuseOrReturnChannel(
     peerId: string,
-    dialedChannel: Channel,
-  ): Promise<Channel | null> {
+    dialedChannel: NetworkChannel,
+  ): Promise<NetworkChannel | null> {
     const state = peerStateManager.getState(peerId);
     const existingChannel = state.channel;
     if (existingChannel) {
       // Close the dialed channel if it's different from the existing one
       if (dialedChannel !== existingChannel) {
-        await connectionFactory.closeChannel(dialedChannel, peerId);
+        await provider.closeChannel(dialedChannel);
         // Re-check if existing channel is still valid after await
         // It may have been removed if readChannel exited during the close,
         // or a new channel may have been registered concurrently
@@ -438,7 +412,7 @@ export async function initTransport(
     // Pass all messages to handler (including ACK-only messages - handler handles them)
     // Handshake messages are handled during connection establishment, not here.
     try {
-      const reply = await remoteMessageHandler(from, message);
+      const reply = await handleMessage(from, message);
       // Send reply if non-empty (reply is already a serialized string from RemoteHandle)
       if (reply) {
         // IMPORTANT: Don't await here! Awaiting would block the read loop.
@@ -457,43 +431,33 @@ export async function initTransport(
    *
    * @param channel - The channel to read from.
    */
-  async function readChannel(channel: Channel): Promise<void> {
+  async function readChannel(channel: NetworkChannel): Promise<void> {
     try {
       for (;;) {
         if (signal.aborted) {
           logger.log(`reader abort: ${channel.peerId}`);
           throw new AbortError();
         }
-        let readBuf;
+        let bytes;
         try {
-          readBuf = await channel.msgStream.read();
+          bytes = await channel.read();
         } catch (problem) {
-          if (
-            problem instanceof InvalidDataLengthError ||
-            problem instanceof InvalidDataLengthLengthError
-          ) {
+          if (problem instanceof MessageTooLargeError) {
             // Peer announced a payload larger than maxMessageSizeBytes. The
             // length-prefixed framing is now poisoned (subsequent bytes are
             // not on a message boundary), so we cannot continue on this
             // stream. Surface a uniform "message too long" error to match the
             // sender-side validator.
-            const sizeError = new ResourceLimitError(
-              `Inbound message exceeds size limit: ${problem.message}`,
-              {
-                cause: problem,
-                data: { limitType: 'messageSize' },
-              },
-            );
             outputError(
               channel.peerId,
               `reading message from ${channel.peerId}`,
-              sizeError,
+              problem,
             );
             handleConnectionLoss(channel.peerId);
             logger.log(`closed channel to ${channel.peerId}`);
-            throw sizeError;
+            throw problem;
           }
-          if (problem instanceof StreamResetError) {
+          if (problem instanceof ChannelResetError) {
             // Remote-initiated stream reset: treat as connection loss and
             // reconnect. Do NOT mark as intentionally closed — a malicious
             // peer could otherwise permanently suppress the connection.
@@ -501,7 +465,7 @@ export async function initTransport(
               `${channel.peerId}:: stream reset by remote, reconnecting`,
             );
             handleConnectionLoss(channel.peerId);
-          } else if (isIntentionalDisconnect(problem)) {
+          } else if (problem instanceof IntentionalDisconnectError) {
             // Locally-initiated close (SCTP user abort): honour as intentional.
             logger.log(`${channel.peerId}:: remote intentionally disconnected`);
             peerStateManager.markIntentionallyClosed(channel.peerId);
@@ -519,7 +483,7 @@ export async function initTransport(
         }
         reconnectionManager.resetBackoff(channel.peerId); // successful inbound traffic
         peerStateManager.updateConnectionTime(channel.peerId);
-        await receiveMessage(channel.peerId, bufToString(readBuf.subarray()));
+        await receiveMessage(channel.peerId, bufToString(bytes));
       }
     } finally {
       // Always remove the channel when readChannel exits to prevent stale channels
@@ -540,14 +504,12 @@ export async function initTransport(
     reconnectionManager,
     maxRetryAttempts,
     onRemoteGiveUp,
-    dialPeer: async (peerId, hints) =>
-      connectionFactory.dialIdempotent(peerId, hints, false),
+    dialPeer: async (peerId, hints) => provider.dial(peerId, hints, false),
     reuseOrReturnChannel,
     checkConnectionLimit,
     checkConnectionRateLimit: (peerId: string) =>
       connectionRateLimiter.checkAndRecord(peerId, 'connectionRate'),
-    closeChannel: async (channel, peerId) =>
-      connectionFactory.closeChannel(channel, peerId),
+    closeChannel: async (channel) => provider.closeChannel(channel),
     registerChannel,
     doOutboundHandshake,
   });
@@ -604,11 +566,7 @@ export async function initTransport(
 
       try {
         const { locationHints: hints } = state;
-        channel = await connectionFactory.dialIdempotent(
-          targetPeerId,
-          hints,
-          true,
-        );
+        channel = await provider.dial(targetPeerId, hints, true);
 
         // Handle race condition - check if an existing channel appeared
         const resolvedChannel = await reuseOrReturnChannel(
@@ -629,7 +587,7 @@ export async function initTransport(
             // Connection limit exceeded after dial - close the channel to prevent leak
             // Use try-catch to ensure the original error is always re-thrown
             try {
-              await connectionFactory.closeChannel(channel, targetPeerId);
+              await provider.closeChannel(channel);
             } catch {
               // Ignore close errors - the original ResourceLimitError takes priority
             }
@@ -642,14 +600,14 @@ export async function initTransport(
           } catch (handshakeError) {
             // Handshake threw (e.g., onRemoteGiveUp callback failed) - close channel to prevent leak
             try {
-              await connectionFactory.closeChannel(channel, targetPeerId);
+              await provider.closeChannel(channel);
             } catch {
               // Ignore close errors - the original error takes priority
             }
             throw handshakeError;
           }
           if (!handshakeResult.success) {
-            await connectionFactory.closeChannel(channel, targetPeerId);
+            await provider.closeChannel(channel);
             throw Error('Handshake failed');
           }
           if (handshakeResult.incarnationChanged) {
@@ -660,7 +618,7 @@ export async function initTransport(
             // the handshake check and write pre-restart payloads on the
             // same channel.
             try {
-              await connectionFactory.closeChannel(channel, targetPeerId);
+              await provider.closeChannel(channel);
             } catch (closeError) {
               outputError(
                 targetPeerId,
@@ -718,8 +676,8 @@ export async function initTransport(
    *
    * @param channel - The channel to close.
    */
-  function closeRejectedChannel(channel: Channel): void {
-    connectionFactory.closeChannel(channel, channel.peerId).catch((problem) => {
+  function closeRejectedChannel(channel: NetworkChannel): void {
+    provider.closeChannel(channel).catch((problem) => {
       outputError(channel.peerId, 'closing rejected inbound channel', problem);
     });
   }
@@ -729,7 +687,9 @@ export async function initTransport(
    *
    * @param channel - The inbound channel.
    */
-  async function handleInboundConnection(channel: Channel): Promise<void> {
+  async function handleInboundConnection(
+    channel: NetworkChannel,
+  ): Promise<void> {
     // Reject inbound connections from intentionally closed peers
     if (peerStateManager.isIntentionallyClosed(channel.peerId)) {
       logger.log(
@@ -758,7 +718,7 @@ export async function initTransport(
     // both cases require closing the channel without registration.
     const handshakeOk = await doInboundHandshake(channel);
     if (!handshakeOk) {
-      await connectionFactory.closeChannel(channel, channel.peerId);
+      await provider.closeChannel(channel);
       return;
     }
 
@@ -766,7 +726,7 @@ export async function initTransport(
   }
 
   // Set up inbound connection handler
-  connectionFactory.onInboundConnection((channel) => {
+  provider.onInboundChannel((channel) => {
     handleInboundConnection(channel).catch((problem) => {
       outputError(channel.peerId, 'inbound connection setup', problem);
       // Close the channel to prevent resource leak if setup failed
@@ -777,7 +737,7 @@ export async function initTransport(
   // Safety net for peer-level disconnects (fires when last connection to a peer closes).
   // Only triggers reconnection if readChannel hasn't already cleaned up.
   // If a channel still exists, readChannel's own error/finally will handle cleanup.
-  connectionFactory.onPeerDisconnect((peerId) => {
+  provider.onPeerDisconnect((peerId) => {
     if (signal.aborted) {
       return; // shutting down, don't start spurious reconnection
     }
@@ -867,17 +827,17 @@ export async function initTransport(
     stopController.abort(); // cancels all delays and dials
     // Gracefully close all active channel streams to unblock pending reads.
     // Fire-and-forget: close() sends a FIN so the remote sees a clean stream
-    // end (read returns undefined) rather than a reset (StreamResetError).
+    // end (read returns undefined) rather than a channel reset.
     for (const state of peerStateManager.getAllStates()) {
       const { channel } = state;
       if (channel) {
-        channel.stream.close().catch((closeError) => {
+        channel.close().catch((closeError) => {
           outputError(channel.peerId, 'closing stream during stop', closeError);
         });
         state.channel = undefined;
       }
     }
-    await connectionFactory.stop();
+    await provider.stop();
     peerStateManager.clear();
     reconnectionManager.clear();
     messageRateLimiter.clear();
@@ -901,6 +861,95 @@ export async function initTransport(
     registerLocationHints,
     reconnectPeer,
     resetAllBackoffs,
-    getListenAddresses: () => connectionFactory.getListenAddresses(),
+    getListenAddresses: () => provider.getListenAddresses(),
   };
+}
+
+/**
+ * Initialize the remote comm system with information that must be provided by the kernel.
+ *
+ * Thin, signature-compatible wrapper: constructs the libp2p
+ * {@link ConnectionFactory} provider and delegates the engine to
+ * {@link makeChannelNetlayer}, sharing one `Logger` and one `AbortController`.
+ *
+ * @param keySeed - Seed value for key generation, in the form of a hex-encoded string.
+ * @param options - Options for remote communications initialization.
+ * @param options.relays - PeerIds/Multiaddrs of known message relays.
+ * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+ * @param options.maxQueue - Maximum pending messages per peer (default: 200).
+ * @param options.maxConcurrentConnections - Maximum number of concurrent connections (default: 100).
+ * @param options.maxMessageSizeBytes - Maximum message size in bytes (default: 1MB).
+ * @param options.cleanupIntervalMs - Stale peer cleanup interval in milliseconds (default: 15 minutes).
+ * @param options.stalePeerTimeoutMs - Stale peer timeout in milliseconds (default: 1 hour).
+ * @param options.maxMessagesPerSecond - Maximum messages per second per peer (default: 100).
+ * @param options.maxConnectionAttemptsPerMinute - Maximum connection attempts per minute per peer (default: 10).
+ * @param remoteMessageHandler - Handler to be called when messages are received from elsewhere.
+ * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote (after max retries or non-retryable error).
+ * @param localIncarnationId - This kernel's incarnation ID for handshake protocol.
+ * @param onIncarnationChange - Optional callback when a remote peer's incarnation changes (peer restarted).
+ *
+ * @returns a function to send messages **and** a `stop()` to cancel/release everything.
+ */
+export async function initTransport(
+  keySeed: string,
+  options: RemoteCommsOptions,
+  remoteMessageHandler: RemoteMessageHandler,
+  onRemoteGiveUp?: OnRemoteGiveUp,
+  localIncarnationId?: string,
+  onIncarnationChange?: OnIncarnationChange,
+): Promise<ChannelNetlayer> {
+  const {
+    relays = [],
+    maxRetryAttempts,
+    maxConcurrentConnections,
+    maxMessageSizeBytes,
+    cleanupIntervalMs,
+    stalePeerTimeoutMs,
+    maxMessagesPerSecond,
+    maxConnectionAttemptsPerMinute,
+    reconnectionBaseDelayMs,
+    reconnectionMaxDelayMs,
+    handshakeTimeoutMs,
+    writeTimeoutMs,
+    streamInactivityTimeoutMs,
+    directTransports,
+    allowedWsHosts,
+  } = options;
+  const logger = new Logger();
+  const stopController = new AbortController();
+  const provider = await ConnectionFactory.make({
+    keySeed,
+    knownRelays: relays,
+    logger,
+    signal: stopController.signal,
+    maxRetryAttempts,
+    maxMessageSizeBytes: maxMessageSizeBytes ?? DEFAULT_MAX_MESSAGE_SIZE_BYTES,
+    directTransports,
+    allowedWsHosts,
+  });
+  return makeChannelNetlayer({
+    provider,
+    hooks: {
+      handleMessage: remoteMessageHandler,
+      onRemoteGiveUp,
+      onIncarnationChange,
+    },
+    options: {
+      maxRetryAttempts,
+      maxConcurrentConnections,
+      maxMessageSizeBytes,
+      cleanupIntervalMs,
+      stalePeerTimeoutMs,
+      maxMessagesPerSecond,
+      maxConnectionAttemptsPerMinute,
+      reconnectionBaseDelayMs,
+      reconnectionMaxDelayMs,
+      handshakeTimeoutMs,
+      writeTimeoutMs,
+      streamInactivityTimeoutMs,
+      localIncarnationId,
+    },
+    logger,
+    stopController,
+  });
 }
