@@ -9,7 +9,6 @@
     { "path": "../netlayer" },
     { "path": "../kernel-errors" },
     { "path": "../kernel-utils" },
-    { "path": "../logger" },
     { "path": "../repo-tools" }
   ],
   "include": [
