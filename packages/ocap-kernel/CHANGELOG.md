@@ -26,6 +26,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Extract the transport-neutral netlayer machinery and contract into the new `@metamask/netlayer` package; ocap-kernel now depends on it and re-exports the contract types from `remotes/types.ts` and the public API. The libp2p `ConnectionFactory` (now exposing `peerId`) stays in ocap-kernel and `initTransport` (public signature unchanged) delegates to `@metamask/netlayer`'s `makeChannelNetlayer`. Adds `@metamask/netlayer-loopback` as a test-only dependency for the loopback-backed `PlatformServices` demonstration ([#972](https://github.com/MetaMask/ocap-kernel/pull/972))
+  - Newly exported types: `NetworkChannel`, `ChannelProvider`, `Netlayer`, `NetlayerHooks`, `NetlayerFactory`, `NetlayerParams`, `NetlayerSpecifier`, `NetlayerRegistry`
+  - The neutral identity helpers `deriveNeutralPeerId`/`neutralPeerIdToPublicKey`/`publicKeyToNeutralPeerId` are now re-exported from `@metamask/netlayer` (import path for consumers is unchanged)
 - Refactor the remote-comms transport into a transport-neutral channel seam (`NetworkChannel`/`ChannelProvider`), with libp2p touchpoints and error mapping confined to the connection factory; `initTransport`'s public signature is unchanged ([#970](https://github.com/MetaMask/ocap-kernel/pull/970))
 - **BREAKING:** Make the kernel's peer identity netlayer-neutral: the peer ID is now the multibase base58btc (`z…`) encoding of the raw Ed25519 public key (previously the libp2p `12D3KooW…` peer ID), and the `ocap:` URL `oid` is encrypted with WebCrypto AES-256-GCM (previously libp2p `AES_GCM`). Persisted `peerId`/`ocapURLKey` and previously issued `ocap:` URLs are incompatible; no migration ([#971](https://github.com/MetaMask/ocap-kernel/pull/971))
 - **BREAKING:** Remove `VatConfig.platformConfig.fetch` — migrate to `globals: ['fetch', ...]` + `network.allowedHosts` ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
