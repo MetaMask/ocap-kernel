@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Refactor the remote-comms transport into a transport-neutral channel seam (`NetworkChannel`/`ChannelProvider`), with libp2p touchpoints and error mapping confined to the connection factory; `initTransport`'s public signature is unchanged ([#970](https://github.com/MetaMask/ocap-kernel/pull/970))
 - **BREAKING:** Remove `VatConfig.platformConfig.fetch` — migrate to `globals: ['fetch', ...]` + `network.allowedHosts` ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
 - **BREAKING:** `MakeAllowedGlobals` now takes a `{ logger }` options bag ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
 - **BREAKING:** Type `VatConfig.globals` and `Kernel.make`'s `allowedGlobalNames` as `AllowedGlobalName[]` (a literal union) instead of `string[]`; unknown names are now rejected at the `initVat` RPC boundary ([#941](https://github.com/MetaMask/ocap-kernel/pull/941))
