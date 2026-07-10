@@ -8,7 +8,7 @@
 import type { DisplayClient } from '../display-client.ts';
 import type { PluginState } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
-import { errorResponse } from './util.ts';
+import { decodeLiteralUnicodeEscapes, errorResponse } from './util.ts';
 
 type AnnounceParams = {
   phaseTransition?: string;
@@ -60,8 +60,16 @@ export function registerAnnounceTool(options: {
       },
     },
     async execute(_id: string, params: AnnounceParams): Promise<ToolResponse> {
-      const phase = params.phaseTransition?.trim();
-      const note = params.note?.trim();
+      const rawPhase = params.phaseTransition?.trim();
+      const rawNote = params.note?.trim();
+      const phase =
+        rawPhase === undefined
+          ? undefined
+          : decodeLiteralUnicodeEscapes(rawPhase);
+      const note =
+        rawNote === undefined
+          ? undefined
+          : decodeLiteralUnicodeEscapes(rawNote);
       if (!phase && !note) {
         return errorResponse(
           'demo_announce: at least one of `phaseTransition` or `note` is required.',

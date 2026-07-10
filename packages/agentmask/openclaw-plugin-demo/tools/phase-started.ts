@@ -15,7 +15,7 @@ import { getArtifactStore } from '../artifact-store.ts';
 import type { DisplayClient } from '../display-client.ts';
 import type { PluginState } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
-import { errorResponse } from './util.ts';
+import { decodeLiteralUnicodeEscapes, errorResponse } from './util.ts';
 
 type BriefParams = {
   data?: string;
@@ -108,10 +108,11 @@ export function registerPhaseStartedTool(options: {
       _id: string,
       params: PhaseStartedParams,
     ): Promise<ToolResponse> {
-      const phase = params.phase?.trim();
-      if (!phase) {
+      const rawPhase = params.phase?.trim();
+      if (!rawPhase) {
         return errorResponse('demo_phase_started: `phase` is required.');
       }
+      const phase = decodeLiteralUnicodeEscapes(rawPhase);
 
       await display.post({ kind: 'phase.announced', phase });
 
@@ -119,13 +120,22 @@ export function registerPhaseStartedTool(options: {
 
       let briefHandle: string | undefined;
       if (params.brief && typeof params.brief.data === 'string') {
+        const briefData = decodeLiteralUnicodeEscapes(params.brief.data);
+        const briefTitle =
+          typeof params.brief.title === 'string'
+            ? decodeLiteralUnicodeEscapes(params.brief.title)
+            : undefined;
+        const briefSummary =
+          typeof params.brief.summary === 'string'
+            ? decodeLiteralUnicodeEscapes(params.brief.summary)
+            : undefined;
         const metadata =
-          params.brief.title || params.brief.summary
-            ? { title: params.brief.title, summary: params.brief.summary }
+          briefTitle || briefSummary
+            ? { title: briefTitle, summary: briefSummary }
             : undefined;
         const stored = artifacts.intern({
           kind: 'markdown',
-          data: params.brief.data,
+          data: briefData,
           fromService: 'producer',
           ...(metadata === undefined ? {} : { metadata }),
         });
@@ -144,7 +154,11 @@ export function registerPhaseStartedTool(options: {
         acknowledgements.push(`Brief recorded as ${stored.handle}`);
       }
 
-      const note = params.note?.trim();
+      const rawNote = params.note?.trim();
+      const note =
+        rawNote === undefined
+          ? undefined
+          : decodeLiteralUnicodeEscapes(rawNote);
       if (note) {
         await display.post({ kind: 'agent.note', note });
         acknowledgements.push(`Note: ${note}`);

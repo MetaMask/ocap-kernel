@@ -12,7 +12,7 @@ import { getArtifactStore, ARTIFACT_KINDS } from '../artifact-store.ts';
 import type { ArtifactKind } from '../artifact-store.ts';
 import type { DisplayClient } from '../display-client.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
-import { errorResponse } from './util.ts';
+import { decodeLiteralUnicodeEscapes, errorResponse } from './util.ts';
 
 type RecordArtifactParams = {
   kind?: string;
@@ -109,17 +109,30 @@ export function registerRecordArtifactTool(options: {
           `demo_record_artifact: kind "${kind}" is not one of: ${ARTIFACT_KINDS.join(', ')}.`,
         );
       }
+      const decodedTitle =
+        typeof params.title === 'string'
+          ? decodeLiteralUnicodeEscapes(params.title)
+          : undefined;
+      const decodedSummary =
+        typeof params.summary === 'string'
+          ? decodeLiteralUnicodeEscapes(params.summary)
+          : undefined;
+      const decodedData = decodeLiteralUnicodeEscapes(data);
       const metadata =
-        params.title || params.summary
-          ? { title: params.title, summary: params.summary }
+        decodedTitle || decodedSummary
+          ? { title: decodedTitle, summary: decodedSummary }
           : undefined;
       const stored = artifacts.intern({
         kind: kind as ArtifactKind,
-        data,
+        data: decodedData,
         fromService,
         ...(metadata === undefined ? {} : { metadata }),
       });
-      const phase = params.phase?.trim();
+      const rawPhase = params.phase?.trim();
+      const phase =
+        rawPhase === undefined
+          ? undefined
+          : decodeLiteralUnicodeEscapes(rawPhase);
       const consumes = Array.isArray(params.consumes)
         ? params.consumes.filter(
             (handleRef): handleRef is string =>

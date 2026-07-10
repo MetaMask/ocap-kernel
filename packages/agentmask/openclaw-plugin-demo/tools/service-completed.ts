@@ -19,7 +19,11 @@ import { getArtifactStore } from '../artifact-store.ts';
 import type { DisplayClient } from '../display-client.ts';
 import type { PluginState } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
-import { errorResponse, formatUsd } from './util.ts';
+import {
+  decodeLiteralUnicodeEscapes,
+  errorResponse,
+  formatUsd,
+} from './util.ts';
 
 type ServiceCompletedParams = {
   handle?: string;
@@ -124,7 +128,11 @@ export function registerServiceCompletedTool(options: {
       params: ServiceCompletedParams,
     ): Promise<ToolResponse> {
       const handle = params.handle?.trim();
-      const phase = params.phase?.trim();
+      const rawPhase = params.phase?.trim();
+      const phase =
+        rawPhase === undefined
+          ? undefined
+          : decodeLiteralUnicodeEscapes(rawPhase);
       const chargeParams = params.charge;
 
       if (!handle) {
@@ -201,6 +209,10 @@ export function registerServiceCompletedTool(options: {
         }
       }
 
+      const decodedReason =
+        typeof chargeParams.reason === 'string'
+          ? decodeLiteralUnicodeEscapes(chargeParams.reason)
+          : undefined;
       // Zero-amount charges (covered revisions) are no-ops on the
       // wallet side — skip the state update and the `wallet.charge`
       // SSE event entirely so the dashboard transcript doesn't get a
@@ -210,21 +222,24 @@ export function registerServiceCompletedTool(options: {
         await display.post({
           kind: 'wallet.charge',
           amountUsd: amount,
-          reason: chargeParams.reason,
+          reason: decodedReason,
           balanceUsd: state.balanceUsd,
           at: new Date().toISOString(),
         });
       }
 
-      const note = params.note?.trim();
+      const rawNote = params.note?.trim();
+      const note =
+        rawNote === undefined
+          ? undefined
+          : decodeLiteralUnicodeEscapes(rawNote);
       if (note) {
         await display.post({ kind: 'agent.note', note });
       }
 
       const reasonSuffix =
-        typeof chargeParams.reason === 'string' &&
-        chargeParams.reason.length > 0
-          ? ` (${chargeParams.reason})`
+        typeof decodedReason === 'string' && decodedReason.length > 0
+          ? ` (${decodedReason})`
           : '';
       const chargeLine =
         amount === 0

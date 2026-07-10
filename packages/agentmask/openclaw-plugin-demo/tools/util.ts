@@ -31,3 +31,33 @@ export function formatUsd(amount: number): string {
     maximumFractionDigits: 2,
   })}`;
 }
+
+/**
+ * Decode literal `\uXXXX` escape sequences in a string back to their
+ * unicode code points. Applied to LLM-authored text at the tool
+ * boundary: some model versions (notably Opus 4.8 in tool-call
+ * mode) emit non-ASCII characters as literal 6-character
+ * backslash-u escapes in their JSON tool-call args rather than the
+ * bare unicode character. openclaw's JSON parser deserializes each
+ * `\uXXXX` in the tool-call args to the corresponding character
+ * correctly — but if the model emits the escape as `\\u2014` (i.e.
+ * a literal backslash followed by `u2014`), the JSON parser
+ * decodes that to the six characters `—` in the JS string,
+ * which then displays verbatim in the dashboard.
+ *
+ * This helper reverses the model's over-escaping. Strings that
+ * already contain the correct unicode character pass through
+ * unchanged.
+ *
+ * Handles the common BMP case with a single regex substitution;
+ * that's sufficient for the em-dash / en-dash / smart-quote /
+ * emoji cases that surface in producer narration.
+ *
+ * @param text - The raw string received in a tool-call arg.
+ * @returns The string with literal `\uXXXX` sequences replaced.
+ */
+export function decodeLiteralUnicodeEscapes(text: string): string {
+  return text.replace(/\\u([0-9a-fA-F]{4})/gu, (_match, hexCode: string) =>
+    String.fromCharCode(parseInt(hexCode, 16)),
+  );
+}

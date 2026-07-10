@@ -13,6 +13,7 @@
 import type { DisplayClient } from '../display-client.ts';
 import type { PluginState } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
+import { decodeLiteralUnicodeEscapes } from './util.ts';
 
 /**
  * Register the demo_wallet_credit tool.
@@ -73,19 +74,23 @@ export function registerWalletCreditTool(options: {
           details: undefined,
         };
       }
+      const decodedReason =
+        typeof params.reason === 'string'
+          ? decodeLiteralUnicodeEscapes(params.reason)
+          : undefined;
       state.balanceUsd += amount;
       display
         .post({
           kind: 'wallet.credit',
           amountUsd: amount,
-          reason: params.reason,
+          reason: decodedReason,
           balanceUsd: state.balanceUsd,
           at: new Date().toISOString(),
         })
         .catch(() => undefined);
       const reasonSuffix =
-        typeof params.reason === 'string' && params.reason.length > 0
-          ? ` (${params.reason})`
+        typeof decodedReason === 'string' && decodedReason.length > 0
+          ? ` (${decodedReason})`
           : '';
       return {
         content: [
