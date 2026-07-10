@@ -177,6 +177,26 @@ describe('reconnectPeer', () => {
       expect(result).toBeNull();
     });
 
+    it('defaults hints to an empty array when the params omit them', async () => {
+      const mockReconnectPeer: ReconnectPeer = vi.fn(async () => null);
+
+      const hooks = {
+        reconnectPeer: mockReconnectPeer,
+      };
+
+      // The struct requires `hints`, but the handler defensively defaults a
+      // missing value to `[]`; exercise that guard directly.
+      const params = { peerId: 'peer-789' } as unknown as {
+        peerId: string;
+        hints: string[];
+      };
+
+      const result = await reconnectPeerHandler.implementation(hooks, params);
+
+      expect(mockReconnectPeer).toHaveBeenCalledWith('peer-789', []);
+      expect(result).toBeNull();
+    });
+
     it('calls the reconnectPeer hook with empty hints array', async () => {
       const mockReconnectPeer: ReconnectPeer = vi.fn(async () => null);
 
