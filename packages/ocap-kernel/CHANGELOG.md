@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING:** Flip remote comms to injected netlayers ([#973](https://github.com/MetaMask/ocap-kernel/pull/973))
+  - `PlatformServices.initializeRemoteComms` now takes an options bag `{ keySeed, specifier, hooks, incarnationId? }` where `specifier` is a `NetlayerSpecifier` (`{ netlayer: string; config: Json }`); the kernel no longer hard-wires libp2p
+  - `RemoteCommsOptions` shrinks to the kernel-owned fields (`specifier`, `mnemonic`, `maxQueue`, `ackTimeoutMs`, `maxUrlRelayHints`, `maxKnownRelays`); all per-netlayer options move into `specifier.config`. `DirectTransport` and `ConnectionFactoryOptions` are removed
+  - Remove the `initTransport` export and the libp2p `ConnectionFactory`/multiaddr utilities (now in `@metamask/netlayer-libp2p`); `packages/ocap-kernel/package.json` no longer has any `@libp2p`/`@chainsafe`/`@multiformats`/`libp2p` dependency (plain `multiformats` stays for the neutral base58btc encoding)
 - Extract the transport-neutral netlayer machinery and contract into the new `@metamask/netlayer` package; ocap-kernel now depends on it and re-exports the contract types from `remotes/types.ts` and the public API. The libp2p `ConnectionFactory` (now exposing `peerId`) stays in ocap-kernel and `initTransport` (public signature unchanged) delegates to `@metamask/netlayer`'s `makeChannelNetlayer`. Adds `@metamask/netlayer-loopback` as a test-only dependency for the loopback-backed `PlatformServices` demonstration ([#972](https://github.com/MetaMask/ocap-kernel/pull/972))
   - Newly exported types: `NetworkChannel`, `ChannelProvider`, `Netlayer`, `NetlayerHooks`, `NetlayerFactory`, `NetlayerParams`, `NetlayerSpecifier`, `NetlayerRegistry`
   - The neutral identity helpers `deriveNeutralPeerId`/`neutralPeerIdToPublicKey`/`publicKeyToNeutralPeerId` are now re-exported from `@metamask/netlayer` (import path for consumers is unchanged)

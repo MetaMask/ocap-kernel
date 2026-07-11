@@ -13,17 +13,33 @@ runtimes accept a `NetlayerRegistry` and per-kernel `NetlayerSpecifier` (`{ netl
 config: Json }`); `ocap-kernel` is libp2p-free; identity is a neutral base58btc-multibase Ed25519
 public key.
 
-Where this plan references machinery, it points at the **future `@metamask/netlayer` location**
-but the behaviour to reuse is what currently lives in
-`packages/ocap-kernel/src/remotes/platform/` (`transport.ts`, `reconnection.ts`,
-`peer-state-manager.ts`, `rate-limiter.ts`, `validators.ts`, `handshake.ts`,
-`channel-utils.ts`). Read those to understand the contract you are implementing against.
+The machinery to reuse now lives in **`@metamask/netlayer/src/`** (moved out of
+`ocap-kernel` in Phase 3): `channel-netlayer.ts` (the `makeChannelNetlayer` engine),
+`reconnection.ts`, `reconnection-lifecycle.ts`, `peer-state-manager.ts`, `rate-limiter.ts`,
+`validators.ts`, `handshake.ts`, `channel-utils.ts`, `identity.ts`, `constants.ts`. The libp2p
+`ChannelProvider` to mirror is `@metamask/netlayer-libp2p/src/connection-factory.ts` (with its
+`make-libp2p-netlayer.ts` wiring and `error-mapper.ts`). Read those to understand the contract you
+are implementing against.
 
-> **Revision required before execution.** This plan was written before Phases 1–4 landed.
-> The type sketches below (notably `ChannelProvider` — Phase 1 lands
-> `dial(peerId, hints, withRetry)`, not the 2-arg form shown) are indicative; the contract
-> actually exported by the landed `@metamask/netlayer` wins, and this document should be
-> updated against it first.
+> **Reconciled against landed Phases 1–4.** The contract exported by `@metamask/netlayer` wins over
+> any sketch below. Key landed facts (see master.md's Phase 1–4 "Landed decisions" blocks):
+> `ChannelProvider.dial(peerId, hints, withRetry)` (3-arg) and carries `readonly peerId`;
+> `makeChannelNetlayer({ provider, hooks, options, logger, stopController })` is synchronous and
+> shares one `AbortController` with the provider; `NetlayerSpecifier = { netlayer: string; config:
+Json }`, `NetlayerRegistry = Record<string, NetlayerFactory>` (config `Json` — validate/narrow
+> inside the factory, like `libp2pNetlayerFactory` does); `PlatformServices.initializeRemoteComms`
+> is the options bag `{ keySeed, specifier, hooks, incarnationId? }` and the runtimes take a
+> `netlayers: NetlayerRegistry`. The websocket netlayer's config must be `Json` (it crosses
+> postMessage); the kernel injects `config.knownRelays` (its one convention key) — for a hub-and-
+> spoke websocket topology, treat those opaque hint strings as `wss://` hub URLs.
+>
+> **Follow-up carried from Phase 4:** the kernel-shims `@libp2p/webrtc` pre-lockdown endoify import
+> was NOT relocated in Phase 4 (deferred — see master.md). A pure-websocket Node deployment still
+> pulls `@libp2p/webrtc` transitively through `@metamask/kernel-node-runtime`'s default registry;
+> if Phase 5 wants a libp2p-free websocket-only Node runtime, that relocation (and making the
+> default registry configurable without importing the libp2p factory) must be tackled here or in
+> Phase 6. `@metamask/netlayer` re-added `@metamask/superstruct` is still pending (Phase 3 dropped
+> it as unused); add it back when the websocket config structs need it.
 
 ---
 

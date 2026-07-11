@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING:** `PlatformServicesServer` (constructor and `make`) now takes an `args` bag with a required `netlayers: NetlayerRegistry` (plus optional `logger`), and `PlatformServicesClient.initializeRemoteComms` takes the neutral options bag `{ keySeed, specifier, hooks, incarnationId? }` ([#973](https://github.com/MetaMask/ocap-kernel/pull/973))
+- **BREAKING:** `comms-query-string` now carries a `NetlayerSpecifier` (`netlayer` + JSON-encoded `config`) plus the kernel-level numeric options, instead of per-field `RemoteCommsOptions`; `parseCommsQueryString`/`getCommsParamsFromCurrentLocation` return `RemoteCommsOptions` with a `specifier` ([#973](https://github.com/MetaMask/ocap-kernel/pull/973))
+
 ### Fixed
 
 - Process platform-services RPC request handlers in the background so a request handler that fires a reentrant outbound RPC (e.g. transport handshake calling back into the kernel) cannot deadlock waiting for its response ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))

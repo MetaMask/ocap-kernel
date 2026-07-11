@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING:** Reduce `isRetryableNetworkError` and `getNetworkErrorCode` to the transport-neutral subset (neutral error classes + Node.js network codes) — the libp2p-specific `MuxerClosedError`/`Dial`/`Transport`/`NO_RESERVATION` name/message sniffing moves into `@metamask/netlayer-libp2p`'s error mapper, which maps such errors to neutral classes before they reach the transport-neutral engine ([#973](https://github.com/MetaMask/ocap-kernel/pull/973))
 - Remove the `@libp2p/interface` dependency: `isRetryableNetworkError` now classifies the neutral `ChannelResetError` and matches `MuxerClosedError` by error name instead of importing the libp2p class ([#971](https://github.com/MetaMask/ocap-kernel/pull/971))
 
 ## [0.6.0]
