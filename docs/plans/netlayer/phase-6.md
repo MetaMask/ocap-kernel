@@ -57,6 +57,40 @@ it from this document.
 
 ---
 
+## 1a. Follow-ups carried from Phase 4 (and the deferred Phase 5)
+
+These items were flagged during Phase 4 and, with Phase 5 deferred, land in Phase 6's lap. None is
+strictly a rename/docs task; decide during execution which to pursue here vs. leave as tracked
+future work, but do not let them fall silently off the plan.
+
+1. **`@libp2p/webrtc` pre-lockdown endoify relocation (review-gated).** `@metamask/kernel-shims`
+   still owns the bare `import '@libp2p/webrtc'` in `endoify-node.js` (Phase 4 §3.7 deferred it).
+   The import must run **before** SES lockdown, and every `@metamask/kernel-node-runtime` importer
+   loads `@libp2p/webrtc` transitively at module-eval, so relocating it alongside the libp2p
+   netlayer touches ~7 package entry points with a silent-lockdown-failure risk. If Phase 6 tackles
+   it, treat it as its own review-gated change (not folded into the rename commit) and re-verify the
+   single-lockdown-time-webrtc invariant below; otherwise record it as explicit future work.
+2. **Browser `PlatformServicesServer` `getListenAddresses` gap.** The browser server does not
+   capture the netlayer's `getListenAddresses` (the client returns `[]` for Node-only direct
+   transport, so capturing it today would be dead code that trips the unused-private-member lint).
+   If direct-transport listen-address reporting is ever needed through the browser RPC boundary,
+   that is where to close it. Document, don't necessarily build.
+3. **`libp2pComms` test-helper retirement.** `packages/kernel-node-runtime/test/helpers/remote-comms.ts`
+   exports a `libp2pComms(flat)` shim that maps the pre-injection flat libp2p option shape
+   (`relays`, `directListenAddresses`, backoff timings) into the injected `RemoteCommsOptions`
+   specifier. It exists only so the e2e/integration suites did not have to be rewritten in Phase 4.
+   Once the specifier UX is stable, those call sites can adopt the specifier directly and the helper
+   can be deleted — a good low-risk cleanup for this phase.
+4. **tsconfig subpath-mapping rule for `@metamask/netlayer-libp2p`.** `tsconfig.packages.json`
+   carries explicit path mappings for the `./nodejs` and `./relay` subpaths → their `src` entry
+   points. This is load-bearing: without it, vitest resolves the subpath to **dist**, which
+   initializes a _second_ post-lockdown `@libp2p/webrtc`/`@peculiar/x509` instance and crashes SES
+   with `privateMap.get is not a function`. **Any new netlayer-libp2p subpath export must get the
+   same mapping.** Keep this note near any doc that describes adding netlayer entry points (e.g. the
+   `writing-a-netlayer` guide's packaging section).
+
+---
+
 ## 2. Rename scope recommendation
 
 ### Recommendation: **GO**, scoped to the kernel-generic surface only.

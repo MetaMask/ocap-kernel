@@ -411,7 +411,8 @@ maxUrlRelayHints?, maxKnownRelays? })` sets `netlayer` + `netlayer-config` (JSON
   `@metamask/kernel-node-runtime` importer transitively loads `@libp2p/webrtc` at module-eval (via
   `make-kernel` → the nodejs factory → `connection-factory`), so relocating the pre-lockdown import
   means repointing ~7 packages with a silent-lockdown-failure risk; it is not required for the
-  ocap-kernel zero-libp2p gate. Left as a Phase-5/6 follow-up.
+  ocap-kernel zero-libp2p gate. Left as a Phase 6 / future-work follow-up (Phase 5 is deferred —
+  see below).
 - **DEVIATION — browser `PlatformServicesServer` does not capture `getListenAddresses`** (the client
   returns `[]` for Node-only direct transport; capturing it would be dead code).
 - **Coverage.** Every touched package meets/exceeds its pre-phase baseline (netlayer-libp2p new at
