@@ -502,6 +502,16 @@ glossary vocabulary, and corrected architecture docs describe the new seam.
   **flagged for human review**, not required for the libp2p-free ocap-kernel gate.
 - **Browser `getListenAddresses` gap:** the browser `PlatformServicesServer` does not capture
   `getListenAddresses` (Node-only direct transport; capturing it would be dead code).
+- **`libp2pComms` test-helper retirement (phase-6.md §1a.3):** `kernel-node-runtime`'s
+  `test/helpers/remote-comms.ts` still exports the `libp2pComms(flat)` shim that maps the
+  pre-injection flat libp2p option shape into a `RemoteCommsOptions` specifier. Phase 6 renamed
+  its location-hint option fields but did **not** retire it — retiring it means rewriting the
+  e2e/integration call sites to build specifiers directly, a broader test-only change deferred to
+  keep this docs/rename PR low-risk. Good future cleanup once the specifier UX is stable.
+- **netlayer-libp2p subpath tsconfig rule (phase-6.md §1a.4):** documented in the new
+  [`writing-a-netlayer`](../../writing-a-netlayer.md) guide's packaging section — any new
+  `@metamask/netlayer-libp2p` subpath export must get a `tsconfig.packages.json` src mapping or
+  vitest resolves it to `dist` and a second post-lockdown `@libp2p/webrtc` crashes SES.
 - **iroh netlayer:** the intended next (Node-only-first) netlayer; see
   [`docs/writing-a-netlayer.md`](../../writing-a-netlayer.md) and issue #968.
 

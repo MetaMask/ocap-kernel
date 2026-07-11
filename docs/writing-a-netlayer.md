@@ -338,6 +338,19 @@ For full references, read the loopback netlayer
 ([`@metamask/netlayer-loopback`](../packages/netlayer-loopback/src)) and the libp2p netlayer
 ([`@metamask/netlayer-libp2p`](../packages/netlayer-libp2p/src)).
 
+## Packaging: subpath exports and tsconfig mappings
+
+If your netlayer package ships **subpath exports** (as `@metamask/netlayer-libp2p` does with
+`./nodejs` and `./relay`), every subpath needs an explicit mapping to its `src` entry point in
+the root `tsconfig.packages.json`. This is **load-bearing**, not cosmetic: without the mapping,
+vitest resolves the subpath to the built `dist` output instead of `src`. For a libp2p-backed
+netlayer that means a _second_ post-lockdown instance of `@libp2p/webrtc` / `@peculiar/x509`
+gets initialized, which crashes SES with `privateMap.get is not a function`. Any new
+netlayer-libp2p subpath export **must** get the same `tsconfig.packages.json` mapping. More
+generally, follow the subpath-export pattern already used by `@metamask/kernel-platforms`, and
+add each new workspace dependency to `references` in both `tsconfig.json` and
+`tsconfig.build.json` (per the repo's `CLAUDE.md`).
+
 ## Next netlayer: iroh
 
 The intended next netlayer is [iroh](https://www.iroh.computer/), tracked in issue
