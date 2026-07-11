@@ -13,6 +13,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Contract types `Netlayer`, `NetlayerHooks`, `NetlayerParams`, `NetlayerFactory`, `NetlayerSpecifier`, `NetlayerRegistry`, and the `NetworkChannel`/`ChannelProvider` channel seam (`ChannelProvider`/`Netlayer` carry a `readonly peerId`)
   - The channel-session engine `makeChannelNetlayer` and the shared machinery it composes: `PeerStateManager`, `ReconnectionManager`, `makeReconnectionLifecycle`, rate limiters, message-size/connection-limit validators, `makeErrorLogger`/`writeWithTimeout`, and the versioned handshake (`performInboundHandshake`/`performOutboundHandshake`/`isHandshakeMessage`/`HANDSHAKE_VERSION`)
   - The neutral Ed25519 identity helpers `deriveNeutralPeerId`, `neutralPeerIdToPublicKey`, and `publicKeyToNeutralPeerId` (multibase base58btc of the raw public key)
-  - README links the new [writing a netlayer](../../docs/writing-a-netlayer.md) guide ([#974](https://github.com/MetaMask/ocap-kernel/pull/974))
+- Link the new [writing a netlayer](../../docs/writing-a-netlayer.md) guide from the package README ([#974](https://github.com/MetaMask/ocap-kernel/pull/974))
 
 [Unreleased]: https://github.com/MetaMask/ocap-kernel/
