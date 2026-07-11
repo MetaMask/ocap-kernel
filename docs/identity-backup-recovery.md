@@ -79,7 +79,7 @@ const seed = await mnemonicToSeed(mnemonic);
 
 ### Kernel Initialization with Mnemonic
 
-The `mnemonic` parameter can be passed either to `Kernel.make` (recommended) or to `initRemoteComms`:
+The `mnemonic` parameter can be passed either to `Kernel.make` (recommended) or to `initRemoteComms`. Identity derivation is netlayer-independent — the examples below select the libp2p netlayer, whose location hints (`config.knownRelays`) are relay multiaddrs, but the mnemonic/seed → peer id behavior is the same under any netlayer:
 
 ```typescript
 // Option 1: Pass mnemonic to Kernel.make (recommended)
@@ -87,13 +87,19 @@ const kernel = await Kernel.make(platformServices, kernelDatabase, {
   mnemonic: 'your twelve word mnemonic phrase here ...',
 });
 await kernel.initRemoteComms({
-  relays: ['/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooW...'],
+  specifier: {
+    netlayer: 'libp2p',
+    config: { knownRelays: ['/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooW...'] },
+  },
 });
 
 // Option 2: Pass mnemonic to initRemoteComms
 const kernel = await Kernel.make(platformServices, kernelDatabase);
 await kernel.initRemoteComms({
-  relays: ['/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooW...'],
+  specifier: {
+    netlayer: 'libp2p',
+    config: { knownRelays: ['/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooW...'] },
+  },
   mnemonic: 'your twelve word mnemonic phrase here ...',
 });
 ```
@@ -120,7 +126,9 @@ console.log(mnemonic);
 const kernel = await Kernel.make(platformServices, kernelDatabase, {
   mnemonic,
 });
-await kernel.initRemoteComms({ relays });
+await kernel.initRemoteComms({
+  specifier: { netlayer: 'libp2p', config: { knownRelays: relays } },
+});
 
 // The peer ID is now derived from the mnemonic and can be recovered
 const status = await kernel.getStatus();
@@ -136,7 +144,9 @@ If you don't provide a mnemonic, the kernel generates a random identity that can
 const kernel = await Kernel.make(platformServices, kernelDatabase, options);
 
 // Initialize remote comms without mnemonic
-await kernel.initRemoteComms({ relays });
+await kernel.initRemoteComms({
+  specifier: { netlayer: 'libp2p', config: { knownRelays: relays } },
+});
 
 // Get the peer ID - this identity cannot be backed up as a mnemonic
 const status = await kernel.getStatus();
@@ -166,7 +176,9 @@ const kernel = await Kernel.make(platformServices, kernelDatabase, {
 });
 
 // Initialize remote comms
-await kernel.initRemoteComms({ relays });
+await kernel.initRemoteComms({
+  specifier: { netlayer: 'libp2p', config: { knownRelays: relays } },
+});
 
 // The kernel now has the same peer ID as before
 const status = await kernel.getStatus();
@@ -222,7 +234,9 @@ const kernel = await Kernel.make(platformServices, kernelDatabase, {
   mnemonic: recoveryMnemonic,
 });
 
-await kernel.initRemoteComms({ relays });
+await kernel.initRemoteComms({
+  specifier: { netlayer: 'libp2p', config: { knownRelays: relays } },
+});
 ```
 
 If you attempt to provide a mnemonic when an identity already exists without `resetStorage: true`, you'll get:
@@ -282,7 +296,9 @@ try {
   const kernel = await Kernel.make(platformServices, kernelDatabase, {
     mnemonic,
   });
-  await kernel.initRemoteComms({ relays });
+  await kernel.initRemoteComms({
+    specifier: { netlayer: 'libp2p', config: { knownRelays: relays } },
+  });
 } catch (error) {
   if (error.message === 'Invalid BIP39 mnemonic') {
     // Handle invalid mnemonic

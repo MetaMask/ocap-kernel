@@ -28,7 +28,7 @@ The core kernel packages export platform-specific implementations through dedica
 - **Platform-obvious exports**: Modules like [`kernel-store/sqlite/nodejs`](../packages/kernel-store/src/sqlite/nodejs.ts) clearly target Node.js environments
 - **Platform-implicit exports**: Modules like [`kernel-store/sqlite/wasm`](../packages/kernel-store/src/sqlite/wasm.ts) target browser environments through WebAssembly
 
-The platform-specific runtime packages ([`kernel-browser-runtime`](../packages/kernel-browser-runtime/) and [`nodejs`](../packages/nodejs/)) are responsible for:
+The platform-specific runtime packages ([`kernel-browser-runtime`](../packages/kernel-browser-runtime/) and [`kernel-node-runtime`](../packages/kernel-node-runtime/)) are responsible for:
 
 - Importing the appropriate platform-specific implementations
 - Providing these implementations to the `Kernel` constructor
@@ -75,9 +75,9 @@ Ensure the export paths match your implementation directory structure and follow
 
 Integrate your feature into the appropriate platform-specific runtime package:
 
-- **Node.js features**: Import and utilize your feature in the [`nodejs`](../packages/nodejs/) package, typically in files such as:
-  - [`vat-worker.ts`](../packages/nodejs/src/vat/vat-worker.ts) for vat-related functionality
-  - [`make-kernel.ts`](../packages/nodejs/src/kernel/make-kernel.ts) for kernel construction features
+- **Node.js features**: Import and utilize your feature in the [`kernel-node-runtime`](../packages/kernel-node-runtime/) package, typically in files such as:
+  - [`vat-worker.ts`](../packages/kernel-node-runtime/src/vat/vat-worker.ts) for vat-related functionality
+  - [`make-kernel.ts`](../packages/kernel-node-runtime/src/kernel/make-kernel.ts) for kernel construction features
 - **Browser features**: Import and utilize your feature in the [`kernel-browser-runtime`](../packages/kernel-browser-runtime/) package, typically in files such as:
   - [`kernel-worker.ts`](../packages/kernel-browser-runtime/src/kernel-worker/kernel-worker.ts) for kernel worker functionality
   - [`iframe.ts`](../packages/kernel-browser-runtime/src/vat/iframe.ts) for vat iframe functionality
@@ -90,3 +90,9 @@ Implement comprehensive tests for your platform-specific feature:
 - **Browser features**: Add tests to the [`extension`](../packages/extension/) package to verify functionality in the browser environment
 
 Ensure your tests cover both the platform-agnostic interface and the platform-specific behavior.
+
+## Network transport is a platform-injected netlayer
+
+Cross-kernel network transport is itself a platform-specific concern, injected the same way as the other platform services. A runtime constructs its platform services with a `NetlayerRegistry` (a map of netlayer name to factory), and each kernel selects one at `initRemoteComms` time with a `NetlayerSpecifier`. The kernel core is transport-agnostic — it depends only on the `Netlayer` contract from [`@metamask/netlayer`](../packages/netlayer/) (re-exported from `@metamask/ocap-kernel`).
+
+Adding a new platform-specific transport therefore does not mean editing the kernel: implement a netlayer package (see [writing a netlayer](../docs/writing-a-netlayer.md)) and register it with the runtime's `NetlayerRegistry`. The existing netlayers are `@metamask/netlayer-loopback` (in-process) and `@metamask/netlayer-libp2p` (whose `./nodejs` subpath adds Node-only QUIC/TCP direct transports).

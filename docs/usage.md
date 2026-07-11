@@ -51,7 +51,7 @@ const kernel = await Kernel.make(platformServices, kernelDatabase, {
 
 #### Configuring Remote Comms for Workers
 
-When creating kernel workers with relay and other remote comms options, use the utilities from `@metamask/kernel-browser-runtime`:
+When creating kernel workers with remote comms options, use the utilities from `@metamask/kernel-browser-runtime`. Remote comms is configured by selecting a **netlayer** (here, `libp2p`) and passing its `Json` config; kernel-level numeric options (`maxQueue`, `ackTimeoutMs`, `maxUrlLocationHints`, `maxKnownLocationHints`) sit alongside it:
 
 ```typescript
 import {
@@ -59,12 +59,17 @@ import {
   getCommsParamsFromCurrentLocation,
 } from '@metamask/kernel-browser-runtime';
 
-// Define relay addresses and other RemoteCommsOptions (allowedWsHosts, maxQueue, directListenAddresses, etc.)
+// Select the netlayer and its (netlayer-specific) config. The libp2p netlayer
+// reads `knownRelays` (relay multiaddrs) and other libp2p-specific fields from
+// its config; `knownRelays` is the kernel's one config-key convention.
 const commsParams = {
-  relays: [
-    '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
-  ],
-  allowedWsHosts: ['localhost'],
+  netlayer: 'libp2p',
+  config: {
+    knownRelays: [
+      '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+    ],
+    allowedWsHosts: ['localhost'],
+  },
 };
 
 // Build worker URL with query string (createCommsQueryString returns URLSearchParams)
@@ -275,34 +280,42 @@ await kernel.restartVat(vatId);
 
 ### Remote Communications
 
-The `initRemoteComms` method enables peer-to-peer communication between kernels using libp2p relay servers. This allows kernels to communicate across different machines or networks, even when behind NATs or firewalls.
+The `initRemoteComms` method enables communication between kernels through a selected **netlayer** (see [writing a netlayer](./writing-a-netlayer.md)). This allows kernels to communicate across different machines or networks. The netlayer is chosen with a `NetlayerSpecifier` (`{ netlayer, config }`); the libp2p netlayer uses relay servers to traverse NATs and firewalls, while other netlayers (loopback today; WebSocket/iroh in future) have their own reachability models.
 
 ```typescript
 //... initialize kernel
 
-// Initialize remote communications with relay servers
-const relays = [
-  '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
-];
-await kernel.initRemoteComms({ relays });
+// Initialize remote communications, selecting the libp2p netlayer and giving it
+// its relay servers via `knownRelays` (the kernel's one config-key convention).
+await kernel.initRemoteComms({
+  specifier: {
+    netlayer: 'libp2p',
+    config: {
+      knownRelays: [
+        '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+      ],
+    },
+  },
+});
 
 //... launch subcluster
 
 // The kernel can now:
-// - Connect to other kernels through the relay
+// - Connect to other kernels through the netlayer
 // - Accept incoming connections from remote kernels
 // - Exchange messages with remote vats
 ```
 
-**Note:** Relay addresses must be libp2p multiaddrs that include the relay server's peer ID. For browser environments, only WebSocket transports (`/ws`) are supported.
+**Note:** These `knownRelays` entries are location hints specific to the libp2p netlayer — libp2p multiaddrs that include the relay server's peer ID. In browsers, the libp2p netlayer supports only WebSocket transports (`/ws`). Other netlayers define their own hint format.
 
-After initialization, you can check the remote communications status via `getStatus()`:
+After initialization, you can check the remote communications status via `getStatus()`. The kernel's own identity is a neutral base58btc peer id (a `z…` string), independent of the netlayer:
 
 ```typescript
 const status = await kernel.getStatus();
-// status.remoteComms will contain:
-// { isInitialized: true, peerId: '12D3KooW...' } if initialized
-// { isInitialized: false } if not initialized
+// status.remoteComms is one of:
+// { state: 'disconnected' }
+// { state: 'identity-only', peerId: 'z6Mk…' }
+// { state: 'connected', peerId: 'z6Mk…', listenAddresses: [/* netlayer hint strings */] }
 ```
 
 ## Identity Backup and Recovery

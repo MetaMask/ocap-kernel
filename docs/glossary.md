@@ -202,6 +202,84 @@ references and [kernel promise](#kernel-promise) states. The router handles
 [delivery](#delivery) logic. See the
 [KernelRouter](../packages/ocap-kernel/src/KernelRouter.ts) for routing logic.
 
+## Networking
+
+### netlayer
+
+A pluggable network-transport backend for the [kernel](#kernel)'s remote communications. A
+netlayer moves opaque message strings between kernels and authenticates each peer as the
+[neutral peer id](#neutral-peer-id) derived from the kernel's key seed. The kernel core is
+netlayer-agnostic: it consumes the `Netlayer` contract and handles the Ken protocol
+(sequencing, acknowledgement, retransmission, deduplication) itself — see
+[`docs/ken-protocol-assessment.md`](../docs/ken-protocol-assessment.md) — so a netlayer need
+only provide best-effort ordered delivery per live connection. Netlayers ship as separate
+packages — [`@metamask/netlayer`](../packages/netlayer/src/index.ts) (contracts + shared
+machinery), `@metamask/netlayer-loopback`, and `@metamask/netlayer-libp2p` — and are supplied
+to a runtime via a `NetlayerRegistry` and selected per kernel with a `NetlayerSpecifier`. A
+WebSocket netlayer and an iroh netlayer are planned future implementations. See [writing a
+netlayer](../docs/writing-a-netlayer.md).
+
+### location hint
+
+A netlayer-specific, opaque string that helps a [netlayer](#netlayer) re-locate and reconnect
+to a peer — for example a libp2p relay multiaddr. The kernel treats location hints as opaque:
+it persists a bounded pool of them, embeds a few in issued [ocap URLs](#ocap-url) to aid
+redemption, and hands them back to the netlayer on reconnect, but never parses them. Formerly
+called "relays" on kernel-facing surfaces. See the [location-hint store
+methods](../packages/ocap-kernel/src/store/methods/location-hints.ts).
+
+### neutral peer id
+
+The netlayer-independent identifier for a [kernel](#kernel): the base58btc multibase encoding
+of the raw Ed25519 public key derived from the kernel's key seed. The kernel uses the neutral
+peer id for all persisted remote state and as the host of the [ocap URL](#ocap-url); each
+[netlayer](#netlayer) converts it to and from its own native identity at its boundary (a
+libp2p `PeerId`, an iroh `NodeId` — both wrap the same raw Ed25519 key). A netlayer **must**
+authenticate every peer as the neutral peer id derived from that peer's key seed. See the
+[identity helpers](../packages/netlayer/src/identity.ts) in `@metamask/netlayer`.
+
+### loopback netlayer
+
+An in-process [netlayer](#netlayer) that connects kernels running in the same JavaScript
+realm through an in-memory hub keyed by [neutral peer id](#neutral-peer-id), with no real
+transport. It is the reference netlayer implementation: used as a test fake in place of
+hand-rolled `PlatformServices` mocks and for embedded multi-kernel setups. Because it
+exercises the full `Netlayer` contract (including the [incarnation
+handshake](#incarnation-handshake)) it is the recommended baseline when writing or testing a
+new netlayer. See `@metamask/netlayer-loopback`.
+
+### hub-and-spoke
+
+A network topology in which kernels ("spokes") connect to a central endpoint ("hub") rather
+than to one another. The hub's role differs by netlayer: a libp2p relay is a _forwarding_ hub
+(spokes reach each other through it), and the [loopback netlayer](#loopback-netlayer)'s
+in-memory hub is the degenerate single-process case. (The planned plain-WebSocket server
+netlayer's hub is instead a _kernel endpoint_ — spokes would talk to the hub kernel itself,
+spoke↔spoke unsupported — but that netlayer is future work.) Contrast with direct/peer-to-peer
+connections (e.g. libp2p QUIC/TCP, or a WebRTC upgrade), where peers dial each other after an
+initial rendezvous.
+
+### incarnation handshake
+
+The exchange a [netlayer](#netlayer) performs when a connection is established, in which each
+side reports its `incarnationId` — a value that changes when a kernel restarts. Reporting it
+on every successful handshake (not only on change) lets the receiving kernel detect a peer
+restart even after its own in-memory peer state was lost, and suppress stale in-flight
+messages. The handshake message is versioned (a `v` field). See the shared
+[`handshake.ts`](../packages/netlayer/src/handshake.ts) in `@metamask/netlayer` and the
+`onIncarnationChange` hook in
+[`remotes/types.ts`](../packages/ocap-kernel/src/remotes/types.ts).
+
+### ocap URL
+
+A capability-bearing URL of the form `ocap:{oid}@{host}[,{hint}]*` that references an object
+in a [kernel](#kernel). The `host` is the issuing kernel's [neutral peer id](#neutral-peer-id);
+`oid` is the object reference, AES-GCM-encrypted so only the issuing kernel can decode it; and
+each optional `hint` is a [location hint](#location-hint) that helps a redeemer's
+[netlayer](#netlayer) reach the host. Redeeming a remote ocap URL adds its hints to the
+redeemer's own hint pool. See the ocap-URL logic in
+[`remote-comms.ts`](../packages/ocap-kernel/src/remotes/kernel/remote-comms.ts).
+
 ## Abbreviations
 
 ### clist

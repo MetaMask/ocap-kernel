@@ -12,31 +12,11 @@ or
 
 ## SES/Lockdown Compatibility
 
-This package is designed to run under [SES](https://github.com/endojs/endo/tree/master/packages/ses) (Secure ECMAScript lockdown). One of its dependencies, `@chainsafe/libp2p-yamux`, requires a patch to work in a locked-down environment. The required patches are listed in the `patchedDependencies` field of this package's `package.json`, and the patch files are included in the `patches/` directory of this package.
+This package is designed to run under [SES](https://github.com/endojs/endo/tree/master/packages/ses) (Secure ECMAScript lockdown) via `@metamask/kernel-shims`. Lockdown must be the first thing that runs in the realm. This package itself carries no network-transport dependencies, so it does not require any lockdown patches of its own; transport-specific lockdown considerations (e.g. libp2p's) live with the netlayer package that owns them — see [`@metamask/netlayer-libp2p`](../netlayer-libp2p/README.md).
 
-Apply them using [`patch-package`](https://github.com/ds300/patch-package):
+## Remote communications
 
-1. Install `patch-package`:
-
-   ```sh
-   npm install --save-dev patch-package
-   ```
-
-2. Copy the patch file(s) to your project's `patches/` directory:
-
-   ```sh
-   cp node_modules/@metamask/ocap-kernel/patches/* patches/
-   ```
-
-3. Add a `postinstall` script to your `package.json`:
-
-   ```json
-   "scripts": {
-     "postinstall": "patch-package"
-   }
-   ```
-
-4. Run `npm install` (or your package manager's equivalent) to apply the patches.
+Cross-kernel networking is provided by a pluggable **netlayer**, not by any transport baked into this package. `@metamask/ocap-kernel` re-exports the netlayer contract types (`Netlayer`, `NetlayerHooks`, `NetlayerSpecifier`, `NetlayerRegistry`, `NetworkChannel`, `ChannelProvider`, …) from [`@metamask/netlayer`](../netlayer/README.md); a runtime supplies a `NetlayerRegistry` and each kernel selects one with a `NetlayerSpecifier`. Available netlayers are `@metamask/netlayer-loopback` (in-process) and `@metamask/netlayer-libp2p`. To implement a new one, see [writing a netlayer](../../docs/writing-a-netlayer.md).
 
 ## Contributing
 

@@ -10,6 +10,9 @@ neutral Ed25519 identity helpers. Netlayer implementations depend on this
 package rather than on the whole kernel; `@metamask/ocap-kernel` re-exports the
 contract types.
 
+For a guide to implementing a netlayer against these contracts, see [writing a
+netlayer](../../docs/writing-a-netlayer.md).
+
 ## Installation
 
 `yarn add @metamask/netlayer`
