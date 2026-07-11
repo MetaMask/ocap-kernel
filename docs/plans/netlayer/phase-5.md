@@ -21,6 +21,12 @@
 > entries](../../glossary.md#netlayer) (netlayer, location hint, neutral peer id, hub-and-spoke,
 > incarnation handshake). The WS auth handshake (§5) is the piece the guide defers to this plan.
 >
+> Note: a separate **DRAFT, unscheduled** iroh plan now exists at
+> [`phase-7-iroh.md`](./phase-7-iroh.md), proposed as the second real `ChannelProvider` in this
+> phase's place; Phase 5 nonetheless remains an independent, still-valid future option (it stresses
+> transport assumptions — message framing, client-server topology, app-level auth — that iroh does
+> not).
+>
 > Assumptions Phase 4 already invalidated that this plan still needs updating for when resumed
 > (brief, non-exhaustive): `ChannelProvider.dial` is 3-arg `(peerId, hints, withRetry)` (the §4
 > sketch shows 2-arg); the libp2p error-name/dial mapping now lives in

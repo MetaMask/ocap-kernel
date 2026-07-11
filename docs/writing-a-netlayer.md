@@ -363,3 +363,8 @@ Browser support in iroh is wasm-only and relay-only today (no direct connections
 punching from the browser), which is a regression from libp2p's WebRTC upgrade path — so the
 browser trade-off is deferred, and the netlayer abstraction is precisely what turns "swap
 libp2p for iroh" from an architectural decision into a per-netlayer packaging one.
+
+A **DRAFT, unscheduled** plan for `@metamask/netlayer-iroh` (proposed to supersede the deferred
+WebSocket phase as the second real `ChannelProvider`, and to ship a provider-conformance test
+kit) lives at
+[`docs/plans/netlayer/phase-7-iroh.md`](./plans/netlayer/phase-7-iroh.md).

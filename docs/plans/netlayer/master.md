@@ -512,7 +512,9 @@ glossary vocabulary, and corrected architecture docs describe the new seam.
   [`writing-a-netlayer`](../../writing-a-netlayer.md) guide's packaging section — any new
   `@metamask/netlayer-libp2p` subpath export must get a `tsconfig.packages.json` src mapping or
   vitest resolves it to `dist` and a second post-lockdown `@libp2p/webrtc` crashes SES.
-- **iroh netlayer:** the intended next (Node-only-first) netlayer; see
+- **iroh netlayer:** the intended next (Node-only-first) netlayer, proposed to supersede the
+  deferred WebSocket phase as the second real `ChannelProvider`. A **DRAFT, unscheduled** plan
+  exists at [`phase-7-iroh.md`](./phase-7-iroh.md); see also
   [`docs/writing-a-netlayer.md`](../../writing-a-netlayer.md) and issue #968.
 
 **Total: ~16–22 dev-days** across all six phases; **~13–18 dev-days for the executed scope**
