@@ -526,4 +526,39 @@ describe('kernel store', () => {
       expect(preserved).toBe(original);
     });
   });
+
+  describe('crank rollback', () => {
+    it('refreshes the run queue when rolling back to a savepoint', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      ks.startCrank();
+      ks.createCrankSavepoint('sp');
+      // Rolling back recreates the run queue from DB state to clear stale
+      // in-memory caches.
+      expect(() => ks.rollbackCrank('sp')).not.toThrow();
+      ks.endCrank();
+      expect(ks.isInCrank()).toBe(false);
+    });
+  });
+
+  describe('system subcluster mappings', () => {
+    it('round-trips system subcluster name to id mappings', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+
+      expect(ks.getSystemSubclusterMapping('agents')).toBeUndefined();
+
+      ks.setSystemSubclusterMapping('agents', 's1');
+      ks.setSystemSubclusterMapping('io', 's2');
+
+      expect(ks.getSystemSubclusterMapping('agents')).toBe('s1');
+      expect(ks.getAllSystemSubclusterMappings()).toStrictEqual(
+        new Map([
+          ['agents', 's1'],
+          ['io', 's2'],
+        ]),
+      );
+
+      ks.deleteSystemSubclusterMapping('agents');
+      expect(ks.getSystemSubclusterMapping('agents')).toBeUndefined();
+    });
+  });
 });

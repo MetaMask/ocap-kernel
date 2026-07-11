@@ -11,6 +11,7 @@
     { "path": "../streams" },
     { "path": "../kernel-utils" },
     { "path": "../netlayer" },
+    { "path": "../netlayer-libp2p" },
     { "path": "../netlayer-loopback" },
     { "path": "../repo-tools" },
     { "path": "../kernel-platforms" }

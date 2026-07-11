@@ -2,17 +2,16 @@
   "extends": "../../tsconfig.packages.build.json",
   "compilerOptions": {
     "baseUrl": "./",
-    "lib": ["ES2022"],
+    "lib": ["ES2022", "DOM"],
     "outDir": "./dist",
-    "emitDeclarationOnly": false,
     "rootDir": "./src",
-    "types": ["ses", "node"],
-    "paths": {}
+    "types": ["ses", "node"]
   },
   "references": [
+    { "path": "../kernel-errors/tsconfig.build.json" },
+    { "path": "../kernel-utils/tsconfig.build.json" },
     { "path": "../logger/tsconfig.build.json" },
-    { "path": "../netlayer-libp2p/tsconfig.build.json" },
-    { "path": "../kernel-utils/tsconfig.build.json" }
+    { "path": "../netlayer/tsconfig.build.json" }
   ],
   "files": [],
   "include": ["./src"]

@@ -14,6 +14,7 @@
     { "path": "../kernel-store/tsconfig.build.json" },
     { "path": "../kernel-utils/tsconfig.build.json" },
     { "path": "../netlayer/tsconfig.build.json" },
+    { "path": "../netlayer-libp2p/tsconfig.build.json" },
     { "path": "../kernel-platforms/tsconfig.build.json" }
   ],
   "include": ["./src"]

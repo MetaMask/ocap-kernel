@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { initTransport } from './transport.ts';
 
-// A stand-in for the netlayer the engine returns; identity comes from the provider.
+// A stand-in for the netlayer the libp2p factory returns.
 const netlayerSentinel = {
   peerId: 'z-self',
   sendRemoteMessage: vi.fn(),
@@ -14,37 +14,18 @@ const netlayerSentinel = {
   getListenAddresses: vi.fn(),
 };
 
-const mockProvider = {
-  peerId: 'z-self',
-  dial: vi.fn(),
-  onInboundChannel: vi.fn(),
-  onPeerDisconnect: vi.fn(),
-  closeChannel: vi.fn(),
-  getListenAddresses: vi.fn(),
-  stop: vi.fn(),
-};
+const makeLibp2pNetlayerMock = vi.fn(async () => netlayerSentinel);
 
-const makeConnectionFactory = vi.fn(async () => mockProvider);
-const makeChannelNetlayerMock = vi.fn(() => netlayerSentinel);
-
-vi.mock('./connection-factory.ts', () => ({
-  ConnectionFactory: {
-    make: async (options: unknown) => makeConnectionFactory(options),
-  },
+vi.mock('@metamask/netlayer-libp2p', () => ({
+  makeLibp2pNetlayer: async (params: unknown) => makeLibp2pNetlayerMock(params),
 }));
 
-vi.mock('@metamask/netlayer', async (importOriginal) => ({
-  ...(await importOriginal<typeof import('@metamask/netlayer')>()),
-  makeChannelNetlayer: (params: unknown) => makeChannelNetlayerMock(params),
-}));
-
-describe('initTransport', () => {
+describe('initTransport (compatibility shim)', () => {
   beforeEach(() => {
-    makeConnectionFactory.mockClear().mockResolvedValue(mockProvider);
-    makeChannelNetlayerMock.mockClear().mockReturnValue(netlayerSentinel);
+    makeLibp2pNetlayerMock.mockClear().mockResolvedValue(netlayerSentinel);
   });
 
-  it('constructs the libp2p ConnectionFactory with the provider options', async () => {
+  it('maps relays and direct transports into the libp2p netlayer config', async () => {
     const directTransports = [
       {
         transport: { tag: 'quic' },
@@ -62,68 +43,61 @@ describe('initTransport', () => {
       vi.fn(),
     );
 
-    expect(makeConnectionFactory).toHaveBeenCalledWith({
-      keySeed: '0xabcd',
-      knownRelays: ['/dns4/relay.example/tcp/443/wss/p2p/relay1'],
-      logger: expect.any(Object),
-      signal: expect.any(AbortSignal),
-      maxRetryAttempts: 5,
-      maxMessageSizeBytes: 1024 * 1024,
-      directTransports,
-      allowedWsHosts: ['relay.example'],
-    });
-  });
-
-  it('defaults relays to an empty array and message size to 1MB', async () => {
-    await initTransport('0x1234', {}, vi.fn());
-
-    expect(makeConnectionFactory).toHaveBeenCalledWith(
+    expect(makeLibp2pNetlayerMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        knownRelays: [],
-        maxMessageSizeBytes: 1024 * 1024,
-        directTransports: undefined,
-        allowedWsHosts: undefined,
+        keySeed: '0xabcd',
+        directTransports,
+        config: expect.objectContaining({
+          knownRelays: ['/dns4/relay.example/tcp/443/wss/p2p/relay1'],
+          maxRetryAttempts: 5,
+          allowedWsHosts: ['relay.example'],
+        }),
       }),
     );
   });
 
-  it('honors an explicit maxMessageSizeBytes', async () => {
-    await initTransport('0x1234', { maxMessageSizeBytes: 42 }, vi.fn());
-
-    expect(makeConnectionFactory).toHaveBeenCalledWith(
-      expect.objectContaining({ maxMessageSizeBytes: 42 }),
+  it('does not forward kernel-level options into the netlayer config', async () => {
+    await initTransport(
+      '0x1234',
+      {
+        mnemonic: 'secret words',
+        maxQueue: 10,
+        ackTimeoutMs: 1000,
+        maxUrlRelayHints: 3,
+        maxKnownRelays: 20,
+        maxMessageSizeBytes: 42,
+      },
+      vi.fn(),
     );
+
+    const [{ config }] = makeLibp2pNetlayerMock.mock.calls[0] as [
+      { config: Record<string, unknown> },
+    ];
+    expect(config).toStrictEqual({
+      knownRelays: undefined,
+      maxMessageSizeBytes: 42,
+    });
   });
 
-  it('delegates to makeChannelNetlayer with the mapped engine options and hooks', async () => {
+  it('maps positional handler and callbacks into hooks and returns the netlayer', async () => {
     const handleMessage = vi.fn();
     const onRemoteGiveUp = vi.fn();
     const onIncarnationChange = vi.fn();
     const result = await initTransport(
       '0x1234',
-      {
-        maxConcurrentConnections: 7,
-        cleanupIntervalMs: 111,
-        streamInactivityTimeoutMs: 222,
-      },
+      { maxConcurrentConnections: 7 },
       handleMessage,
       onRemoteGiveUp,
       'incarnation-x',
       onIncarnationChange,
     );
 
-    expect(makeChannelNetlayerMock).toHaveBeenCalledWith({
-      provider: mockProvider,
-      hooks: { handleMessage, onRemoteGiveUp, onIncarnationChange },
-      options: expect.objectContaining({
-        maxConcurrentConnections: 7,
-        cleanupIntervalMs: 111,
-        streamInactivityTimeoutMs: 222,
-        localIncarnationId: 'incarnation-x',
+    expect(makeLibp2pNetlayerMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        incarnationId: 'incarnation-x',
+        hooks: { handleMessage, onRemoteGiveUp, onIncarnationChange },
       }),
-      logger: expect.any(Object),
-      stopController: expect.any(AbortController),
-    });
+    );
     expect(result).toBe(netlayerSentinel);
   });
 });

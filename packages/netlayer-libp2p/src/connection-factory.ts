@@ -6,7 +6,6 @@ import { generateKeyPairFromSeed, publicKeyFromRaw } from '@libp2p/crypto/keys';
 import { identify } from '@libp2p/identify';
 import {
   MuxerClosedError,
-  StreamResetError,
   TooManyOutboundProtocolStreamsError,
 } from '@libp2p/interface';
 import type {
@@ -17,21 +16,11 @@ import type {
 } from '@libp2p/interface';
 import { peerIdFromPublicKey } from '@libp2p/peer-id';
 import { ping } from '@libp2p/ping';
-import {
-  InvalidDataLengthError,
-  InvalidDataLengthLengthError,
-  lpStream,
-} from '@libp2p/utils';
+import { lpStream } from '@libp2p/utils';
 import { webRTC } from '@libp2p/webrtc';
 import { webSockets } from '@libp2p/websockets';
 import { webTransport } from '@libp2p/webtransport';
-import {
-  AbortError,
-  ChannelResetError,
-  IntentionalDisconnectError,
-  isRetryableNetworkError,
-  MessageTooLargeError,
-} from '@metamask/kernel-errors';
+import { AbortError } from '@metamask/kernel-errors';
 import {
   calculateReconnectionBackoff,
   fromHex,
@@ -57,58 +46,15 @@ import {
   RELAY_RECONNECT_BASE_DELAY_MS,
   RELAY_RECONNECT_MAX_DELAY_MS,
   RELAY_RECONNECT_MAX_ATTEMPTS,
-  SCTP_USER_INITIATED_ABORT,
 } from './constants.ts';
-import { getHost, getLastPeerId, isPlainWs } from '../../utils/multiaddr.ts';
-import { isPrivateAddress } from '../../utils/network.ts';
-import type { ConnectionFactoryOptions, DirectTransport } from '../types.ts';
-
-/**
- * Detect whether a read error indicates an intentional disconnect. Checks the
- * legacy SCTP sniffing for a WebRTC user-initiated abort (code 12). The typed
- * `StreamResetError` is handled separately (mapped to `ChannelResetError`) so a
- * remote reset always reconnects and is never treated as intentional.
- *
- * @param problem - The error thrown by a stream read.
- * @returns Whether the error represents an intentional disconnect.
- */
-function isIntentionalDisconnect(problem: unknown): boolean {
-  const rtcProblem = problem as {
-    errorDetail?: string;
-    sctpCauseCode?: number;
-  };
-  return (
-    rtcProblem?.errorDetail === 'sctp-failure' &&
-    rtcProblem?.sctpCauseCode === SCTP_USER_INITIATED_ABORT
-  );
-}
-
-/**
- * Map a raw libp2p stream-read error onto a neutral kernel-error so the channel
- * engine never imports libp2p error types. Ordering mirrors the historical
- * engine cascade: a `StreamResetError` maps to `ChannelResetError` (reconnect)
- * before intentional-disconnect classification, so a remote reset can never be
- * swallowed as an intentional close. Anything unrecognised (including
- * `UnexpectedEOFError`) passes through unchanged for the engine's else branch.
- *
- * @param problem - The raw error thrown by the underlying stream read.
- * @returns The neutral error to throw, or the original error unchanged.
- */
-function mapLibp2pReadError(problem: unknown): unknown {
-  if (
-    problem instanceof InvalidDataLengthError ||
-    problem instanceof InvalidDataLengthLengthError
-  ) {
-    return new MessageTooLargeError({ cause: problem });
-  }
-  if (problem instanceof StreamResetError) {
-    return new ChannelResetError({ cause: problem });
-  }
-  if (isIntentionalDisconnect(problem)) {
-    return new IntentionalDisconnectError({ cause: problem as Error });
-  }
-  return problem;
-}
+import {
+  isRetryableLibp2pError,
+  mapLibp2pDialError,
+  mapLibp2pReadError,
+} from './error-mapper.ts';
+import type { ConnectionFactoryOptions, DirectTransport } from './types.ts';
+import { getHost, getLastPeerId, isPlainWs } from './utils/multiaddr.ts';
+import { isPrivateAddress } from './utils/network.ts';
 
 /**
  * Connection factory for libp2p network operations.
@@ -630,7 +576,7 @@ export class ConnectionFactory {
     const retryOptions: Parameters<typeof retryWithBackoff>[1] = {
       maxAttempts: this.#maxRetryAttempts,
       jitter: true,
-      shouldRetry: isRetryableNetworkError,
+      shouldRetry: isRetryableLibp2pError,
       onRetry: ({ attempt, maxAttempts, delayMs }) => {
         this.#logger.log(
           `retrying connection to ${peerId} in ${delayMs}ms (next attempt ${attempt}/${maxAttempts || '∞'})`,
@@ -667,7 +613,14 @@ export class ConnectionFactory {
         withRetry
           ? this.openChannelWithRetry(libp2pPeerId, hints, peerId)
           : this.openChannelOnce(libp2pPeerId, hints, peerId)
-      ).finally(() => this.#inflightDials.delete(peerId));
+      )
+        .catch((problem) => {
+          // Map raw libp2p dial errors onto neutral kernel-errors so the
+          // transport-neutral engine classifies reconnection identically
+          // without importing any libp2p error types.
+          throw mapLibp2pDialError(problem);
+        })
+        .finally(() => this.#inflightDials.delete(peerId));
       this.#inflightDials.set(peerId, promise);
     }
     return promise;

@@ -11,6 +11,7 @@
     { "path": "../kernel-platforms" },
     { "path": "../ocap-kernel" },
     { "path": "../logger" },
+    { "path": "../netlayer-libp2p" },
     { "path": "../streams" },
     { "path": "../kernel-utils" },
     { "path": "../repo-tools" },

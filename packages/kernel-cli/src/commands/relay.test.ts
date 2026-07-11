@@ -9,7 +9,7 @@ import {
 } from './relay.ts';
 import { isProcessAlive, readPidFile, sendSignal, waitFor } from '../utils.ts';
 
-vi.mock('@metamask/kernel-utils/libp2p', () => ({
+vi.mock('@metamask/netlayer-libp2p/relay', () => ({
   startRelay: vi.fn(),
 }));
 
@@ -61,7 +61,7 @@ describe('relay', () => {
     it('writes PID and addr files and starts the relay', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
 
-      const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      const { startRelay } = await import('@metamask/netlayer-libp2p/relay');
       vi.mocked(startRelay).mockResolvedValueOnce(makeLibp2pMock() as never);
 
       await startRelayWithBookkeeping(mockLogger);
@@ -80,7 +80,7 @@ describe('relay', () => {
     it('writes a synthesized multiaddr when publicIp is supplied, ignoring the picker', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
 
-      const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      const { startRelay } = await import('@metamask/netlayer-libp2p/relay');
       // Surface only an internal address from getMultiaddrs(); the test
       // proves the synthesized publicIp wins anyway.
       vi.mocked(startRelay).mockResolvedValueOnce(
@@ -104,7 +104,7 @@ describe('relay', () => {
     it('prefers a non-loopback public multiaddr over loopback', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
 
-      const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      const { startRelay } = await import('@metamask/netlayer-libp2p/relay');
       vi.mocked(startRelay).mockResolvedValueOnce(
         makeLibp2pMock([
           '/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo',
@@ -124,7 +124,7 @@ describe('relay', () => {
     it('falls back to a private (RFC 1918) address when no public is available', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
 
-      const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      const { startRelay } = await import('@metamask/netlayer-libp2p/relay');
       vi.mocked(startRelay).mockResolvedValueOnce(
         makeLibp2pMock([
           '/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo',
@@ -143,7 +143,7 @@ describe('relay', () => {
     it('falls back to loopback when no other multiaddr is available', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
 
-      const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      const { startRelay } = await import('@metamask/netlayer-libp2p/relay');
       vi.mocked(startRelay).mockResolvedValueOnce(
         makeLibp2pMock(['/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo']) as never,
       );
@@ -160,7 +160,7 @@ describe('relay', () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(9999);
       vi.mocked(isProcessAlive).mockReturnValueOnce(false);
 
-      const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      const { startRelay } = await import('@metamask/netlayer-libp2p/relay');
       vi.mocked(startRelay).mockResolvedValueOnce(makeLibp2pMock() as never);
 
       await startRelayWithBookkeeping(mockLogger);
@@ -174,7 +174,7 @@ describe('relay', () => {
     it('throws when no WS multiaddr is available, stops libp2p, and removes PID file', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
 
-      const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      const { startRelay } = await import('@metamask/netlayer-libp2p/relay');
       const libp2pMock = makeLibp2pMock(['/ip4/0.0.0.0/tcp/9002']);
       vi.mocked(startRelay).mockResolvedValueOnce(libp2pMock as never);
 
@@ -190,7 +190,7 @@ describe('relay', () => {
     it('removes PID file if startRelay throws', async () => {
       vi.mocked(readPidFile).mockResolvedValueOnce(undefined);
 
-      const { startRelay } = await import('@metamask/kernel-utils/libp2p');
+      const { startRelay } = await import('@metamask/netlayer-libp2p/relay');
       vi.mocked(startRelay).mockRejectedValueOnce(new Error('port in use'));
 
       await expect(startRelayWithBookkeeping(mockLogger)).rejects.toThrow(

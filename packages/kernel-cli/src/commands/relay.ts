@@ -1,6 +1,6 @@
-import { startRelay } from '@metamask/kernel-utils/libp2p';
 import { getLibp2pRelayHome } from '@metamask/kernel-utils/nodejs';
 import type { Logger } from '@metamask/logger';
+import { startRelay } from '@metamask/netlayer-libp2p/relay';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 
 import { isProcessAlive, readPidFile, sendSignal, waitFor } from '../utils.ts';

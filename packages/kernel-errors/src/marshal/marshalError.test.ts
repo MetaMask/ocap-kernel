@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 
 import { marshalError } from './marshalError.ts';
 import { ErrorCode, ErrorSentinel } from '../constants.ts';
+import { ChannelResetError } from '../errors/ChannelResetError.ts';
 import { VatNotFoundError } from '../errors/VatNotFoundError.ts';
 
 describe('marshalError', () => {
@@ -61,5 +62,22 @@ describe('marshalError', () => {
         data: { vatId: 'v1' },
       }),
     );
+  });
+
+  it('omits the stack when the error has none', () => {
+    const error = new Error('foo');
+    delete error.stack;
+    const marshaledError = marshalError(error);
+    expect('stack' in marshaledError).toBe(false);
+    expect(marshaledError.message).toBe('foo');
+  });
+
+  it('marshals an ocap error without data', () => {
+    // ChannelResetError carries no `data`, exercising the ocap-error branch
+    // where `error.data` is absent.
+    const error = new ChannelResetError();
+    const marshaledError = marshalError(error);
+    expect(marshaledError.code).toBe(ErrorCode.ChannelResetError);
+    expect('data' in marshaledError).toBe(false);
   });
 });

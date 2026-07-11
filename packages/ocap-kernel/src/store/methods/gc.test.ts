@@ -280,5 +280,114 @@ describe('GC methods', () => {
         `unknown kernel promise ${kpid}`,
       );
     });
+
+    it('decrements the slots of a settled promise before deleting it', () => {
+      const ko = kernelStore.initKernelObject('v1');
+      kernelStore.addCListEntry('v1', ko, 'o+1');
+      const before = kernelStore.getObjectRefCount(ko).recognizable;
+
+      const [kpid] = kernelStore.initKernelPromise();
+      // Resolving drops the baseline decider refcount to zero, enqueuing the
+      // promise; its fulfilled value references `ko` as a slot.
+      kernelStore.resolveKernelPromise(kpid, false, {
+        body: '#"resolved"',
+        slots: [ko],
+      });
+
+      kernelStore.collectGarbage();
+
+      expect(() => kernelStore.getKernelPromise(kpid)).toThrow(
+        `unknown kernel promise ${kpid}`,
+      );
+      // The slot's recognizable count was decremented during collection.
+      expect(kernelStore.getObjectRefCount(ko).recognizable).toBe(before - 1);
+    });
+
+    it('deletes a rejected promise that has no slots', () => {
+      const [kpid] = kernelStore.initKernelPromise();
+      kernelStore.resolveKernelPromise(kpid, true, {
+        body: '#"rejected"',
+        slots: [],
+      });
+
+      kernelStore.collectGarbage();
+
+      expect(() => kernelStore.getKernelPromise(kpid)).toThrow(
+        `unknown kernel promise ${kpid}`,
+      );
+    });
+
+    it('schedules dropExport and retireExport for an unreachable object of a live vat', () => {
+      kernelStore.setVatConfig('v1', { bundleName: 'vat1' });
+      const ko = kernelStore.initKernelObject('v1');
+      // Export from v1 sets the reachable flag and bumps the refcounts to 1.
+      kernelStore.addCListEntry('v1', ko, 'o+1');
+      kernelStore.setGCActions(new Set());
+
+      // Drop the reachable/recognizable counts to zero without clearing v1's
+      // reachable flag: the kernel now knows the object is unreachable but v1
+      // does not yet.
+      kernelStore.decrementRefCount(ko, 'gc-test');
+
+      kernelStore.collectGarbage();
+
+      const actions = Array.from(kernelStore.getGCActions());
+      expect(actions).toContain(`v1 dropExport ${ko}`);
+      expect(actions).toContain(`v1 retireExport ${ko}`);
+    });
+
+    it('skips unreachable objects owned by the kernel', () => {
+      // A fresh kernel object starts reachable; dropping it to zero enqueues it
+      // for collection while its owner remains 'kernel'.
+      const ko = kernelStore.initKernelObject('kernel');
+      kernelStore.decrementRefCount(ko, 'gc-test');
+      kernelStore.setGCActions(new Set());
+
+      kernelStore.collectGarbage();
+
+      // Kernel-owned objects are never dropped or retired.
+      expect(Array.from(kernelStore.getGCActions())).toStrictEqual([]);
+      expect(kernelStore.getObjectRefCount(ko)).toBeDefined();
+    });
+
+    it('retires a still-recognizable orphan of a terminated vat', () => {
+      kernelStore.setVatConfig('v3', { bundleName: 'vat3' });
+      const ko = kernelStore.initKernelObject('v3');
+      kernelStore.addCListEntry('v3', ko, 'o+1');
+      // Add a recognizable-only ref so that dropping the reachable ref leaves
+      // the object unreachable but still recognizable.
+      kernelStore.incrementRefCount(ko, 'gc-test', { onlyRecognizable: true });
+      kernelStore.markVatAsTerminated('v3');
+      kernelStore.setGCActions(new Set());
+
+      kernelStore.decrementRefCount(ko, 'gc-test');
+      kernelStore.collectGarbage();
+
+      // The orphaned-but-recognizable object is retired (deleted) rather than
+      // dropped into the dead vat.
+      expect(kernelStore.getObjectRefCount(ko)).toStrictEqual({
+        reachable: 0,
+        recognizable: 0,
+      });
+    });
+
+    it('orphans and deletes an unreachable object owned by a terminated vat', () => {
+      kernelStore.setVatConfig('v2', { bundleName: 'vat2' });
+      const ko = kernelStore.initKernelObject('v2');
+      kernelStore.addCListEntry('v2', ko, 'o+1');
+      kernelStore.markVatAsTerminated('v2');
+      kernelStore.setGCActions(new Set());
+
+      kernelStore.decrementRefCount(ko, 'gc-test');
+
+      kernelStore.collectGarbage();
+
+      // The terminated vat receives no GC actions; the object is deleted.
+      expect(Array.from(kernelStore.getGCActions())).toStrictEqual([]);
+      expect(kernelStore.getObjectRefCount(ko)).toStrictEqual({
+        reachable: 0,
+        recognizable: 0,
+      });
+    });
   });
 });

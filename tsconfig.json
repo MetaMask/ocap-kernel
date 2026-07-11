@@ -32,6 +32,7 @@
     { "path": "./packages/llm-bridge" },
     { "path": "./packages/logger" },
     { "path": "./packages/netlayer" },
+    { "path": "./packages/netlayer-libp2p" },
     { "path": "./packages/netlayer-loopback" },
     { "path": "./packages/nodejs-test-workers" },
     { "path": "./packages/ocap-kernel" },

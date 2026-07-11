@@ -2,7 +2,7 @@ import type { KernelDatabase } from '@metamask/kernel-store';
 import { expect, describe, it, vi, beforeEach } from 'vitest';
 
 import { getCrankMethods } from './crank.ts';
-import type { StoreContext } from '../types.ts';
+import type { CrankBufferItem, StoreContext } from '../types.ts';
 
 describe('crank methods', () => {
   let context: StoreContext;
@@ -227,6 +227,20 @@ describe('crank methods', () => {
       expect(crankMethods.isInCrank()).toBe(true);
       crankMethods.endCrank();
       expect(crankMethods.isInCrank()).toBe(false);
+    });
+  });
+
+  describe('crank output buffer', () => {
+    const item1 = { type: 'send' } as unknown as CrankBufferItem;
+    const item2 = { type: 'notify' } as unknown as CrankBufferItem;
+
+    it('buffers outputs and flushes them, resetting the buffer', () => {
+      crankMethods.bufferCrankOutput(item1);
+      crankMethods.bufferCrankOutput(item2);
+
+      expect(crankMethods.flushCrankBuffer()).toStrictEqual([item1, item2]);
+      // The buffer is reset after flushing.
+      expect(crankMethods.flushCrankBuffer()).toStrictEqual([]);
     });
   });
 });
