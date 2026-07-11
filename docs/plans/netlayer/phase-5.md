@@ -25,8 +25,8 @@ are implementing against.
 > any sketch below. Key landed facts (see master.md's Phase 1–4 "Landed decisions" blocks):
 > `ChannelProvider.dial(peerId, hints, withRetry)` (3-arg) and carries `readonly peerId`;
 > `makeChannelNetlayer({ provider, hooks, options, logger, stopController })` is synchronous and
-> shares one `AbortController` with the provider; `NetlayerSpecifier = { netlayer: string; config:
-Json }`, `NetlayerRegistry = Record<string, NetlayerFactory>` (config `Json` — validate/narrow
+> shares one `AbortController` with the provider; `NetlayerSpecifier = { netlayer: string; config: Json }`,
+> `NetlayerRegistry = Record<string, NetlayerFactory>` (config `Json` — validate/narrow
 > inside the factory, like `libp2pNetlayerFactory` does); `PlatformServices.initializeRemoteComms`
 > is the options bag `{ keySeed, specifier, hooks, incarnationId? }` and the runtimes take a
 > `netlayers: NetlayerRegistry`. The websocket netlayer's config must be `Json` (it crosses
