@@ -435,6 +435,74 @@ shared machinery — this is the proof the abstraction isn't libp2p-shaped. Para
 Optional relay→"location hints" terminology rename in store/`RemoteIdentity`, glossary entries,
 changelogs (update-changelogs skill), "writing a netlayer" doc, note iroh as the next (Node-only)
 implementation with a pointer to #968.
+**DONE** (issue #968, PR on branch `rekm/netlayer-6`, stacked on `rekm/netlayer-4`).
+
+Landed decisions / deviations from the phase-6 plan (the final state of the executed effort):
+
+- **Rename executed (GO), scoped to the kernel-generic surface only.** `store/methods/relay.ts`
+  → `location-hints.ts`; `getRelayMethods`→`getLocationHintMethods`,
+  `getRelayEntries`/`setRelayEntries`/`getKnownRelayAddresses` →
+  `getLocationHintEntries`/`setLocationHintEntries`/`getKnownLocationHintAddresses`;
+  `RelayEntry`/`RelayEntryStruct` → `LocationHintEntry`/`LocationHintEntryStruct` (the `addr`
+  field name kept); `RemoteIdentity.addKnownRelays` → `addKnownLocationHints`;
+  `RemoteCommsOptions.maxUrlRelayHints`/`maxKnownRelays` →
+  `maxUrlLocationHints`/`maxKnownLocationHints` (also in the kernel-control RPC struct and in
+  `kernel-browser-runtime`'s `comms-query-string` param names); the persisted KV key
+  `knownRelays` → `knownLocationHints`. The legacy `string[]`→`RelayEntry[]` migration path in
+  the store method was **deleted** (fresh-storage only, per compatibility decision #3).
+  `initRemoteIdentity`'s internal option `relays` → `bootstrapHints`, and its return field
+  `knownRelays` → `knownLocationHints`.
+- **`config.knownRelays` deliberately NOT renamed.** It is the netlayer-config seam with
+  `@metamask/netlayer-libp2p`'s `Libp2pNetlayerConfig.knownRelays` — the one config key the
+  kernel injects by convention (master plan Phase 4) — and phase-6 explicitly excludes the
+  libp2p package from the rename. The kernel now writes its `knownLocationHints` pool into that
+  `config.knownRelays` key; the value is opaque hint strings. Renaming only the kernel side
+  would have broken the contract.
+- **Docs.** New `docs/writing-a-netlayer.md` (contracts, delivery semantics, incarnation
+  handshake, identity, error mapping, config/registration, testing, a worked example, and an
+  "iroh is the next netlayer" note pointing at #968). New `## Networking` glossary section
+  (netlayer, location hint, neutral peer id, loopback netlayer, hub-and-spoke, incarnation
+  handshake, ocap URL). Stale-doc corrections: `ken-protocol-assessment.md` FIFO/transport
+  claims generalized to the netlayer per-connection ordering contract; `usage.md` and
+  `identity-backup-recovery.md` remote-comms examples updated to the `NetlayerSpecifier` shape
+  and neutral (`z…`) peer ids (relay-multiaddr `12D3KooW…` strings stay, as libp2p hints);
+  `platform-specific.md` `packages/nodejs/` paths fixed to `packages/kernel-node-runtime/`
+  plus a netlayer-injection subsection; `kernel-guide.md` needed no changes. The stale
+  SES/`@chainsafe/libp2p-yamux` patch guidance was removed from the (now libp2p-free)
+  ocap-kernel README and an SES note added to the `@metamask/netlayer-libp2p` README; the
+  three netlayer package READMEs link the new guide.
+- **`@libp2p/webrtc` endoify relocation NOT performed** (review-gated per the effort
+  constraint; still deferred — see the Phase 4 deviation and Phase 5 follow-up). No functional
+  code beyond the rename changed in Phase 6.
+- **Coverage.** ocap-kernel and kernel-browser-runtime both meet/exceed their pre-phase
+  baselines. The rename plus the migration-code deletion produced a ~0.02–0.07% arithmetic dip
+  on ocap-kernel (fully-covered code removed; no source regressed — uncovered-line count
+  unchanged); it was closed above baseline with two behavior-asserting tests (a bootstrap-hint
+  sort-order test and a `remoteFor` hint-registration failure test).
+
+## Effort complete (Phases 1–4 + 6; Phase 5 deferred)
+
+**Shipped.** A pluggable netlayer abstraction for ocap-kernel: the transport-neutral
+`@metamask/netlayer` (contracts, `makeChannelNetlayer` engine, shared machinery, versioned
+incarnation handshake, neutral Ed25519 identity); `@metamask/netlayer-loopback` (in-process
+hub) and `@metamask/netlayer-libp2p` (`.` browser default, `./nodejs` QUIC/TCP, `./relay`
+server). ocap-kernel is libp2p-free, its identity is a neutral base58btc Ed25519 peer id, and
+runtimes take a `NetlayerRegistry` with per-kernel `NetlayerSpecifier` selection. The
+kernel-generic "relay" vocabulary is now "location hint"; a "writing a netlayer" guide,
+glossary vocabulary, and corrected architecture docs describe the new seam.
+
+**Remains (future work).**
+
+- **Phase 5 — `@metamask/netlayer-websocket`:** deferred by user decision; the plan in
+  `phase-5.md` is reconciled against the landed Phases 1–4 **and** 6, ready to execute cold.
+- **kernel-shims `@libp2p/webrtc` endoify relocation:** the pre-lockdown
+  `import '@libp2p/webrtc'` still lives in `endoify-node.js` (peer dep retained). Relocating it
+  alongside the libp2p netlayer touches ~7 packages with a silent-lockdown-failure risk —
+  **flagged for human review**, not required for the libp2p-free ocap-kernel gate.
+- **Browser `getListenAddresses` gap:** the browser `PlatformServicesServer` does not capture
+  `getListenAddresses` (Node-only direct transport; capturing it would be dead code).
+- **iroh netlayer:** the intended next (Node-only-first) netlayer; see
+  [`docs/writing-a-netlayer.md`](../../writing-a-netlayer.md) and issue #968.
 
 **Total: ~16–22 dev-days** across all six phases; **~13–18 dev-days for the executed scope**
 (Phases 1–4 + 6, with Phase 5 deferred).
