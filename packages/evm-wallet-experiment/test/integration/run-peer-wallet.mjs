@@ -14,6 +14,7 @@ import '@metamask/kernel-shims/endoify-node';
 import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import { nodejsLibp2pNetlayerFactory } from '@metamask/netlayer-libp2p/nodejs';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 
 import { makeWalletClusterConfig } from '../../src/cluster-config.ts';
@@ -100,12 +101,24 @@ async function main() {
   const db1 = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
   const db2 = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
 
-  const kernel1 = await Kernel.make(new NodejsPlatformServices({}), db1, {
-    resetStorage: true,
-  });
-  const kernel2 = await Kernel.make(new NodejsPlatformServices({}), db2, {
-    resetStorage: true,
-  });
+  const kernel1 = await Kernel.make(
+    new NodejsPlatformServices({
+      netlayers: { libp2p: nodejsLibp2pNetlayerFactory },
+    }),
+    db1,
+    {
+      resetStorage: true,
+    },
+  );
+  const kernel2 = await Kernel.make(
+    new NodejsPlatformServices({
+      netlayers: { libp2p: nodejsLibp2pNetlayerFactory },
+    }),
+    db2,
+    {
+      resetStorage: true,
+    },
+  );
 
   await kernel1.initRemoteComms({
     directListenAddresses: [QUIC_LISTEN_ADDRESS],

@@ -347,6 +347,9 @@ async function main() {
   const { NodejsPlatformServices } = await import(
     '@metamask/kernel-node-runtime'
   );
+  const { nodejsLibp2pNetlayerFactory } = await import(
+    '@metamask/netlayer-libp2p/nodejs'
+  );
   const { makeWalletClusterConfig } = await import('../src/cluster-config.ts');
 
   // -----------------------------------------------------------------------
@@ -359,7 +362,9 @@ async function main() {
     mkdirSync(dbDir, { recursive: true });
   }
   const kernelDb = await makeSQLKernelDatabase({ dbFilename: args.dbPath });
-  const platformServices = new NodejsPlatformServices({});
+  const platformServices = new NodejsPlatformServices({
+    netlayers: { libp2p: nodejsLibp2pNetlayerFactory },
+  });
   // Only log warnings and errors — suppress verbose kernel debug output.
   const logger = new Logger({
     tags: ['ocap-kernel'],

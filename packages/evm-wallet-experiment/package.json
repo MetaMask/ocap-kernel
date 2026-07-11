@@ -99,6 +99,7 @@
     "@metamask/kernel-node-runtime": "workspace:^",
     "@metamask/kernel-shims": "workspace:^",
     "@metamask/kernel-store": "workspace:^",
+    "@metamask/netlayer-libp2p": "workspace:^",
     "@ocap/repo-tools": "workspace:^",
     "@ts-bridge/cli": "^0.6.3",
     "@ts-bridge/shims": "^0.1.1",
