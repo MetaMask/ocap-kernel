@@ -1,22 +1,28 @@
 # Phase 6 — Cleanup + Docs (Netlayer abstraction)
 
-This is the final phase of the 6-phase effort to introduce a pluggable "netlayer"
-abstraction (see the master plan for full context and issue
-[#968](https://github.com/MetaMask/ocap-kernel/issues/968)). Phases 1–5 are assumed
-complete: the packages `@metamask/netlayer`, `@metamask/netlayer-loopback`,
-`@metamask/netlayer-libp2p`, and `@metamask/netlayer-websocket` exist; `@metamask/ocap-kernel`
-is libp2p-free; kernel identity is neutral (base58btc-encoded raw Ed25519 pubkey); and the
-runtimes accept a `NetlayerRegistry` / `NetlayerSpecifier`.
+This is the final phase of the netlayer effort (see the master plan for full context and issue
+[#968](https://github.com/MetaMask/ocap-kernel/issues/968)). **Phase 5
+(`@metamask/netlayer-websocket`) was deferred** — per a user directive the effort skips from Phase 4
+straight to Phase 6, so this phase follows Phase 4 directly. Phases 1–4 are complete: the packages
+`@metamask/netlayer`, `@metamask/netlayer-loopback`, and `@metamask/netlayer-libp2p` exist (the
+WebSocket netlayer does **not**); `@metamask/ocap-kernel` is libp2p-free; kernel identity is neutral
+(base58btc-encoded raw Ed25519 pubkey); and the runtimes accept a `NetlayerRegistry` /
+`NetlayerSpecifier`.
 
 Phase 6 contains no functional changes. It is a terminology rename, glossary and changelog
 maintenance, and documentation. An engineer with no prior context should be able to execute
 it from this document.
 
-> **Revision required before execution.** This plan was written before Phases 1–5 landed.
-> Symbol names, file locations, and line numbers referencing prior-phase output are
-> indicative — reconcile against the merged code (especially: where the identity helpers
-> ended up, whether `relays` still exists on any kernel surface, and the final shape of
-> `RemoteCommsOptions`) and update this document first.
+> **Revision required before execution.** This plan was written before Phases 1–4 landed and before
+> Phase 5 was deferred. Symbol names, file locations, and line numbers referencing prior-phase output
+> are indicative — reconcile against the merged code (the "Landed decisions" blocks in `master.md`
+> are authoritative; especially: the identity helpers now live in `@metamask/netlayer`, `relays`
+> no longer exists on the kernel surface — `RemoteCommsOptions` is the kernel-owned subset plus a
+> `specifier`, and the persisted hint key is `knownRelays` via the libp2p `config` convention) and
+> update this document first. **Because Phase 5 is deferred, treat every reference below to
+> `@metamask/netlayer-websocket`, the WebSocket hub/handshake, and `kernel-test` parameterization
+> over websocket as _future work_, not something to document as existing.** Where this plan says to
+> describe the WebSocket netlayer, describe it as a planned/future implementation instead.
 
 ---
 
@@ -29,8 +35,8 @@ it from this document.
    (store, `RemoteIdentity`, kernel-level config options).
 2. Add glossary entries for the vocabulary the abstraction introduces: netlayer, location
    hint, neutral peer id, loopback netlayer, hub-and-spoke.
-3. Update changelogs for every package with consumer-facing changes across Phases 1–5
-   (the rename in this phase is folded in).
+3. Update changelogs for every package with consumer-facing changes across Phases 1–4
+   (the rename in this phase is folded in; Phase 5 is deferred).
 4. Write a new architecture doc, `docs/writing-a-netlayer.md`, describing the
    `Netlayer` / `ChannelProvider` contracts, delivery semantics, the incarnation handshake,
    identity requirements, and testing guidance.
@@ -174,10 +180,10 @@ netlayer-agnostic: it consumes the `Netlayer` contract and handles the [Ken
 protocol](../docs/ken-protocol-assessment.md) (sequencing, acknowledgement, retransmission,
 deduplication) itself, so a netlayer need only provide best-effort ordered delivery per live
 connection. Netlayers ship as separate packages — `@metamask/netlayer` (contracts + shared
-machinery), `@metamask/netlayer-loopback`, `@metamask/netlayer-libp2p`,
-`@metamask/netlayer-websocket` — and are supplied to a runtime via a `NetlayerRegistry` and
-selected per kernel with a `NetlayerSpecifier`. See [writing a
-netlayer](../docs/writing-a-netlayer.md).
+machinery), `@metamask/netlayer-loopback`, and `@metamask/netlayer-libp2p` — and are supplied to a
+runtime via a `NetlayerRegistry` and selected per kernel with a `NetlayerSpecifier`. A WebSocket
+netlayer (`@metamask/netlayer-websocket`) and an iroh netlayer are planned future implementations.
+See [writing a netlayer](../docs/writing-a-netlayer.md).
 
 ### location hint
 
@@ -213,11 +219,11 @@ is the recommended baseline when writing or testing a new netlayer. See
 
 A network topology in which kernels ("spokes") connect to a central endpoint ("hub") rather
 than to one another. The hub's role differs by netlayer: a libp2p relay is a _forwarding_
-hub (spokes reach each other through it), whereas the plain-WebSocket server netlayer's hub
-is a _kernel endpoint_ — spokes talk to the hub kernel itself, and spoke↔spoke traffic is
-deliberately unsupported (see the `@metamask/netlayer-websocket` README). The
-[loopback netlayer](#loopback-netlayer)'s in-memory hub is the degenerate single-process
-case. Contrast with direct/peer-to-peer connections (e.g. libp2p QUIC/TCP, or a WebRTC
+hub (spokes reach each other through it), and the [loopback netlayer](#loopback-netlayer)'s
+in-memory hub is the degenerate single-process case. (The planned plain-WebSocket server
+netlayer's hub is instead a _kernel endpoint_ — spokes would talk to the hub kernel itself,
+spoke↔spoke unsupported — but that netlayer is future work; document it only once it lands.)
+Contrast with direct/peer-to-peer connections (e.g. libp2p QUIC/TCP, or a WebRTC
 upgrade), where peers dial each other after an initial rendezvous.
 
 ### incarnation handshake
@@ -296,9 +302,10 @@ Audience: an engineer implementing a new netlayer package. State the contracts p
      cryptography" caveat that already lives in `remote-comms.ts`).
    - Neutral peer id encoding recipe: derive raw Ed25519 pubkey from seed → base58btc multibase.
    - Peer authentication: the netlayer must prove the remote controls the private key for the
-     neutral peer id it claims (libp2p noise does this for free; the WebSocket netlayer uses a
-     challenge-signature handshake — cite it as the example for transports without built-in
-     auth).
+     neutral peer id it claims (libp2p noise does this for free). For transports without built-in
+     auth, an application-level Ed25519 challenge-signature handshake is the intended pattern — the
+     planned WebSocket netlayer (future work; see the deferred `phase-5.md`) is where this will be
+     worked out; until it lands, describe the requirement without citing a concrete example.
 
 7. **The incarnation handshake**
 
@@ -335,15 +342,17 @@ Audience: an engineer implementing a new netlayer package. State the contracts p
 
     - Use the [loopback netlayer](../docs/glossary.md#loopback-netlayer) as the reference and as
       a golden test of the shared engine.
-    - Parameterize the `kernel-test` integration suite over netlayers (loopback always;
-      libp2p/websocket where infra allows).
+    - Parameterize the `kernel-test` integration suite over netlayers (loopback always; libp2p
+      where infra allows). Websocket parameterization is future work, landing with the deferred
+      WebSocket netlayer.
     - Write per-error-class mapping tests (the master plan flags error-classification
       completeness as a risk).
     - Two-kernel round-trip: issue an ocap URL on A, redeem on B, exchange messages, restart A
       and confirm incarnation handling.
 
 12. **Worked example** — a minimal `ChannelProvider` skeleton (~30 lines) delegating to
-    `makeChannelNetlayer`, with pointers to loopback and websocket for full references.
+    `makeChannelNetlayer`, with pointers to the loopback and libp2p netlayers for full references
+    (the WebSocket netlayer is future work).
 
 ---
 
@@ -392,9 +401,9 @@ Format: **file** → _claim_ → correction.
 - Lines 276–306 ("Remote Communications") → "enables peer-to-peer communication between kernels
   using libp2p relay servers" and "Relay addresses must be libp2p multiaddrs…". Generalize:
   remote comms now goes through a selected **netlayer**; the libp2p netlayer uses relay
-  multiaddrs, but WebSocket/loopback have their own hint formats. Show `initRemoteComms` taking
-  a `NetlayerSpecifier` (or however Phase 4b shaped it) and note the libp2p example as one
-  option.
+  multiaddrs, while other netlayers (loopback today; WebSocket/iroh in future) have their own
+  hint formats. Show `initRemoteComms` taking the landed `NetlayerSpecifier`-bearing
+  `RemoteCommsOptions` (Phase 4b shape) and note the libp2p example as one option.
 - Line 297 note ("For browser environments, only WebSocket transports (`/ws`) are supported.")
   → scope this to the libp2p netlayer.
 
@@ -428,21 +437,27 @@ Format: **file** → _claim_ → correction.
 - Add a short "Remote communications" paragraph pointing to the netlayer packages and
   `docs/writing-a-netlayer.md`, and noting that ocap-kernel re-exports the netlayer types.
 
-**New package READMEs** (created in Phases 3–5; ensure they exist and are non-stub):
+**New package READMEs** (created in Phases 3–4; ensure they exist and are non-stub):
 
-- `packages/netlayer/README.md`, `packages/netlayer-loopback/README.md`,
-  `packages/netlayer-libp2p/README.md`, `packages/netlayer-websocket/README.md` — each: one-
-  line purpose, install line, a "Contributing → monorepo README" footer (match existing README
-  conventions), and a link to `docs/writing-a-netlayer.md`. `netlayer-libp2p` additionally
-  carries the yamux/SES patch note moved from ocap-kernel and documents its `./nodejs` and
-  `./relay` subpaths.
+- `packages/netlayer/README.md`, `packages/netlayer-loopback/README.md`, and
+  `packages/netlayer-libp2p/README.md` — each: one-line purpose, install line, a
+  "Contributing → monorepo README" footer (match existing README conventions), and a link to
+  `docs/writing-a-netlayer.md`. `netlayer-libp2p` additionally carries the yamux/SES patch note
+  moved from ocap-kernel and documents its `./nodejs` and `./relay` subpaths. (A
+  `netlayer-websocket` README arrives with the deferred Phase 5.)
 
 **Runtime READMEs** (`kernel-node-runtime`, `kernel-browser-runtime`) → if they describe remote
 comms setup, update to the `NetlayerRegistry` construction and `NetlayerSpecifier` selection.
 
 ---
 
-## 6. Changelog matrix (consumer-facing changes, Phases 1–5 + this rename)
+## 6. Changelog matrix (consumer-facing changes, Phases 1–4 + this rename)
+
+> Phase 5 (`@metamask/netlayer-websocket`) is deferred, so there is no websocket package or
+> websocket-related changelog entry in this effort. Note also that Phases 1–4 each already landed
+> their own `## [Unreleased]` changelog entries as they merged; this phase's changelog run should
+> reconcile against what is already present rather than re-adding those entries, and add the
+> rename entry below.
 
 Under `## [Unreleased]`, "Keep a Changelog" categories, `**BREAKING:**` prefix for breaking
 changes, PR links. The `update-changelogs` skill does the writing; this matrix tells it which
@@ -453,20 +468,20 @@ packages changed and how.
 | `@metamask/netlayer`               | **new**       | Added: initial release — `Netlayer`/`NetlayerHooks`/`NetlayerFactory`/`NetlayerSpecifier`/`NetlayerRegistry` contracts, `NetworkChannel`/`ChannelProvider` seam, `makeChannelNetlayer` engine, shared reconnection/backoff/peer-state/rate-limit/validators/handshake, neutral Ed25519 identity helpers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `@metamask/netlayer-loopback`      | **new**       | Added: initial release — in-process hub netlayer (test fake + embedded multi-kernel).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `@metamask/netlayer-libp2p`        | **new**       | Added: initial release — libp2p `ChannelProvider`, error mapper, multiaddr utils; `./nodejs` (QUIC/TCP direct transports) and `./relay` (relay server, moved from `@metamask/kernel-utils`) subpaths. Carries the libp2p deps and the `@chainsafe/libp2p-yamux` SES patch.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| `@metamask/netlayer-websocket`     | **new**       | Added: initial release — plain-WebSocket `ChannelProvider` (browser + node client); `./nodejs` server with Ed25519 challenge-signature peer auth.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `@metamask/netlayer-websocket`     | _deferred_    | Phase 5 deferred — no package, no entry in this effort.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | `@metamask/ocap-kernel`            | modified      | **BREAKING:** removed all libp2p/`@libp2p`/`@chainsafe`/`@multiformats` dependencies. **BREAKING:** kernel identity is now a neutral base58btc-multibase Ed25519 peer id (was libp2p `12D3KooW…`); the `ocap:` URL format changed accordingly (no migration). **BREAKING:** `initRemoteComms` / `initializeRemoteComms` now take a `NetlayerSpecifier` (was libp2p-specific options); `RemoteCommsOptions` split into kernel-level options + per-netlayer config. **BREAKING:** renamed relay→location-hint surface — `RelayEntry`→`LocationHintEntry`, `maxKnownRelays`→`maxKnownLocationHints`, `maxUrlRelayHints`→`maxUrlLocationHints`, `RemoteIdentity.addKnownRelays`→`addKnownLocationHints`; persisted `knownRelays` KV key renamed to `knownLocationHints` (learned hint pool not migrated); removed legacy `string[]` hint-pool migration. Added: re-exports of `@metamask/netlayer` types. Changed: internal `Channel`→`NetworkChannel` (note only if any of these were part of the public export surface). |
 | `@metamask/kernel-errors`          | modified      | Added: neutral network error classes `ChannelResetError`, `IntentionalDisconnectError`, `MessageTooLargeError`. Changed: `isRetryableNetworkError` no longer sniffs libp2p error names (`MuxerClosedError` etc.) — that logic moved into `@metamask/netlayer-libp2p`. **BREAKING (if applicable):** dropped libp2p imports from the public surface.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | `@metamask/kernel-utils`           | modified      | **BREAKING:** removed the libp2p relay server (the `@metamask/kernel-utils/libp2p` subpath / `startRelay`) — moved to `@metamask/netlayer-libp2p/relay`. Note `getLibp2pRelayHome` **stays** in `@metamask/kernel-utils/nodejs` per the Phase 4 plan (it is a plain path helper); mention it only if this phase's optional rename touches it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `@metamask/kernel-node-runtime`    | modified      | **BREAKING:** `NodejsPlatformServices` is now constructed with a `NetlayerRegistry`; QUIC/TCP transport detection moved into the libp2p netlayer; the internal `directTransports` option was removed.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | `@metamask/kernel-browser-runtime` | modified      | **BREAKING:** `PlatformServicesServer`/`PlatformServicesClient` now take a `NetlayerRegistry`; `initializeRemoteComms` RPC struct changed to carry a `NetlayerSpecifier`; `createCommsQueryString`/`getCommsParamsFromCurrentLocation` updated for the new config shape (`maxUrlRelayHints`/`maxKnownRelays` → renamed).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `@metamask/kernel-cli`             | modified      | Changed: the `relay` command now runs the relay server from `@metamask/netlayer-libp2p/relay`; kernel/daemon config accepts a `NetlayerSpecifier`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `@metamask/kernel-shims`           | modified      | Changed: the bare `import '@libp2p/webrtc'` moved out of `endoify-node.js` alongside the libp2p netlayer (flag for review — verify whether this is consumer-facing).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `@metamask/kernel-shims`           | unchanged?    | Phase 4 **deferred** relocating the bare `import '@libp2p/webrtc'` out of `endoify-node.js` (it still lives there). If Phase 6 does not move it either, there is no changelog entry; if this phase finally relocates it (a real follow-up option), record that change and flag for review.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | `@ocap/extension`                  | app (private) | Not published — likely `no-changelog`. Internal: hard-coded relay in `offscreen.ts` replaced by netlayer config. Confirm the package's changelog policy before writing.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 
 Notes for the skill run:
 
 - New packages get a single `### Added` "Initial release" entry.
-- Do not invent PR numbers; use the actual PRs from Phases 1–5 (and this Phase 6 PR for the
+- Do not invent PR numbers; use the actual PRs from Phases 1–4 (and this Phase 6 PR for the
   rename). If unknown at execution time, leave a `#TODO-PR` placeholder and fill before merge.
 - Private/app packages (`extension`, `omnium-gatherum`, `evm-wallet-experiment`,
   `kernel-test`, `kernel-ui` if unpublished) generally take the `no-changelog` label rather

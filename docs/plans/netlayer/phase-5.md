@@ -1,5 +1,23 @@
 # Phase 5 — `@metamask/netlayer-websocket`
 
+> **⚠️ DEFERRED — NOT BEING EXECUTED IN THIS EFFORT.** Per a user directive after Phase 4, the
+> pluggable-netlayer effort skips straight from Phase 4 to Phase 6 (cleanup + docs). This document
+> is preserved as the future-work plan for the WebSocket netlayer. **Before it is picked up, it must
+> first be reconciled against the landed state of Phases 1–4 _and_ Phase 6** — cross-phase symbol
+> names, signatures, package layout, and the terminology/docs that Phase 6 lands (e.g. any
+> relay→"location hints" rename, the "writing a netlayer" guide) all take precedence over the
+> sketches below. The reconciliation blockquote that follows was written against Phases 1–4 only and
+> predates the Phase 6 cleanup.
+>
+> Assumptions Phase 4 already invalidated that this plan still needs updating for when resumed
+> (brief, non-exhaustive): `ChannelProvider.dial` is 3-arg `(peerId, hints, withRetry)` (the §4
+> sketch shows 2-arg); the libp2p error-name/dial mapping now lives in
+> `@metamask/netlayer-libp2p/src/error-mapper.ts` (not kernel-errors), which the WS `errors.ts`
+> should mirror; `@metamask/netlayer` still does **not** re-export `@metamask/superstruct` or ship an
+> `EngineOptionsStruct`/sign-verify identity wrappers — those must be added when this phase resumes;
+> and a pure-websocket Node deployment still pulls `@libp2p/webrtc` transitively because the
+> pre-lockdown endoify import relocation was deferred (see master.md Phase 4 deviations).
+
 Implementation plan for the fifth PR in the pluggable-netlayer effort
 ([issue #968](https://github.com/MetaMask/ocap-kernel/issues/968); master plan at
 [`master.md`](./master.md)).

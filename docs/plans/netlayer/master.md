@@ -418,7 +418,11 @@ maxUrlRelayHints?, maxKnownRelays? })` sets `netlayer` + `netlayer-config` (JSON
   96.75% stmts / 94.11% branch; kernel-errors raised to 100%); extraction dips were closed with
   behavior-asserting tests. Extension `offscreen.js` bundle unchanged (~1,320 kB / 435 kB gzip).
 
-**Phase 5 — `@metamask/netlayer-websocket`.** ~3–4 days.
+**Phase 5 — `@metamask/netlayer-websocket`.** ~3–4 days. **DEFERRED — not executed in this
+effort; remains future work.** Per a user directive after Phase 4, the effort skips straight from
+Phase 4 to Phase 6 (cleanup + docs). The plan below stands as the future-work description; when it
+is eventually picked up it must first be reconciled against the landed state of Phases 1–4 **and 6**
+(see the deferral banner in `phase-5.md`).
 `ChannelProvider` over WebSocket: client dials `wss://` hints (browser + node); `./nodejs` server
 authenticates peers via mutual Ed25519 challenge-signature handshake (new security-sensitive
 code — keep minimal, flag for crypto review). Topology decision: the hub is a **kernel
@@ -427,12 +431,13 @@ unsupported (that's what the libp2p netlayer's relays are for). Reuses `makeChan
 shared machinery — this is the proof the abstraction isn't libp2p-shaped. Parameterize
 `kernel-test` integration over netlayers (loopback always; libp2p/websocket where infra allows).
 
-**Phase 6 — Cleanup + docs.** ~1–2 days.
+**Phase 6 — Cleanup + docs.** ~1–2 days. **Follows Phase 4 directly** (Phase 5 deferred).
 Optional relay→"location hints" terminology rename in store/`RemoteIdentity`, glossary entries,
 changelogs (update-changelogs skill), "writing a netlayer" doc, note iroh as the next (Node-only)
 implementation with a pointer to #968.
 
-**Total: ~16–22 dev-days.**
+**Total: ~16–22 dev-days** across all six phases; **~13–18 dev-days for the executed scope**
+(Phases 1–4 + 6, with Phase 5 deferred).
 
 ## Risks
 
@@ -456,8 +461,8 @@ implementation with a pointer to #968.
 - After Phase 4: run the extension example (`@ocap/extension` `test:e2e`) and a two-kernel Node
   scenario over the relay (`ocap relay start` + `kernel-test/src/remote-comms.test.ts`) to confirm
   ocap-URL redemption and message delivery across the new injection path.
-- After Phase 5: two-kernel WebSocket hub-and-spoke integration test; loopback-based multi-kernel
-  test in-process.
+- After Phase 5 (deferred): two-kernel WebSocket hub-and-spoke integration test; loopback-based
+  multi-kernel test in-process. The loopback-based multi-kernel coverage already lands with Phase 3.
 - Confirm `packages/ocap-kernel/package.json` has zero `libp2p`/`@libp2p`/`@chainsafe`/
   `@multiformats` deps at the end of Phase 4. (Plain `multiformats` is not libp2p and stays —
   `base58btc` is the neutral identity/oid encoding.)
