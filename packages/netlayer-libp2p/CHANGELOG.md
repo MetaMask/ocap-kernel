@@ -14,5 +14,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `./nodejs` exports `nodejsLibp2pNetlayerFactory` (QUIC/TCP direct transports) and `buildDirectTransports`
   - `./relay` exports `startRelay` (the circuit-relay server, moved from `@metamask/kernel-utils/libp2p`)
   - `error-mapper.ts` maps raw libp2p read/dial errors onto the neutral `@metamask/kernel-errors` classes and owns the libp2p-specific retryability classification (`MuxerClosedError`/`Dial`/`Transport`/`NO_RESERVATION`)
+  - README documents SES/lockdown handling for the libp2p dependency tree (this package, not the kernel, owns those deps and any lockdown patches) and links the [writing a netlayer](../../docs/writing-a-netlayer.md) guide ([#974](https://github.com/MetaMask/ocap-kernel/pull/974))
 
 [Unreleased]: https://github.com/MetaMask/ocap-kernel/
