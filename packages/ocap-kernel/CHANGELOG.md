@@ -26,6 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING:** Rename the kernel-generic "relay" surface to "location hint" ([#974](https://github.com/MetaMask/ocap-kernel/pull/974))
+  - `RelayEntry`/`RelayEntryStruct` → `LocationHintEntry`/`LocationHintEntryStruct` (the `addr` field name is unchanged); `RemoteIdentity.addKnownRelays` → `addKnownLocationHints`; `RemoteCommsOptions.maxUrlRelayHints`/`maxKnownRelays` → `maxUrlLocationHints`/`maxKnownLocationHints` (also renamed in the `initRemoteComms` kernel-control RPC struct)
+  - The persisted KV key `knownRelays` → `knownLocationHints`; existing kernels lose their learned hint pool on upgrade (no migration), and the legacy `string[]`→entry migration path is removed
+  - The libp2p netlayer's `config.knownRelays` config key is intentionally unchanged — it is the netlayer-config seam the kernel injects by convention and belongs to `@metamask/netlayer-libp2p`
 - **BREAKING:** Flip remote comms to injected netlayers ([#973](https://github.com/MetaMask/ocap-kernel/pull/973))
   - `PlatformServices.initializeRemoteComms` now takes an options bag `{ keySeed, specifier, hooks, incarnationId? }` where `specifier` is a `NetlayerSpecifier` (`{ netlayer: string; config: Json }`); the kernel no longer hard-wires libp2p
   - `RemoteCommsOptions` shrinks to the kernel-owned fields (`specifier`, `mnemonic`, `maxQueue`, `ackTimeoutMs`, `maxUrlRelayHints`, `maxKnownRelays`); all per-netlayer options move into `specifier.config`. `DirectTransport` and `ConnectionFactoryOptions` are removed
