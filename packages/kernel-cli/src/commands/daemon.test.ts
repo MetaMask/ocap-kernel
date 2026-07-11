@@ -154,7 +154,14 @@ describe('handleDaemonStart', () => {
       expect(sendCommand).toHaveBeenCalledWith(
         expect.objectContaining({
           method: 'initRemoteComms',
-          params: { relays: ['/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo'] },
+          params: {
+            specifier: {
+              netlayer: 'libp2p',
+              config: {
+                knownRelays: ['/ip4/127.0.0.1/tcp/9001/ws/p2p/QmFoo'],
+              },
+            },
+          },
         }),
       );
       expect(writeSpy).toHaveBeenCalledWith(

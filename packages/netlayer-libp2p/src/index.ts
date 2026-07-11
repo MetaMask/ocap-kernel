@@ -2,7 +2,6 @@ import type { NetlayerFactory } from '@metamask/netlayer';
 import { assert } from '@metamask/superstruct';
 
 import { Libp2pNetlayerConfigStruct } from './config.ts';
-import type { Libp2pNetlayerConfig } from './config.ts';
 import { makeLibp2pNetlayer } from './make-libp2p-netlayer.ts';
 
 /**
@@ -19,7 +18,7 @@ import { makeLibp2pNetlayer } from './make-libp2p-netlayer.ts';
  * @param params.logger - Optional logger.
  * @returns The libp2p netlayer.
  */
-export const libp2pNetlayerFactory: NetlayerFactory<Libp2pNetlayerConfig> =
+export const libp2pNetlayerFactory: NetlayerFactory =
   async function libp2pNetlayerFactory({
     keySeed,
     incarnationId,
@@ -27,6 +26,7 @@ export const libp2pNetlayerFactory: NetlayerFactory<Libp2pNetlayerConfig> =
     config,
     logger,
   }) {
+    // The registry passes a `Json` config; validate and narrow it here.
     assert(config, Libp2pNetlayerConfigStruct);
     return makeLibp2pNetlayer({
       keySeed,

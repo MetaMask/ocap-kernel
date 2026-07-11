@@ -56,6 +56,7 @@
     "@metamask/kernel-store": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
+    "@metamask/netlayer-libp2p": "workspace:^",
     "@metamask/ocap-kernel": "workspace:^",
     "@ocap/kernel-language-model-service": "workspace:^",
     "@ocap/nodejs-test-workers": "workspace:^",

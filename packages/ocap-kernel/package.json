@@ -81,7 +81,6 @@
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
     "@metamask/netlayer": "workspace:^",
-    "@metamask/netlayer-libp2p": "workspace:^",
     "@metamask/rpc-errors": "^7.0.3",
     "@metamask/snaps-execution-environments": "^11.1.0",
     "@metamask/streams": "workspace:^",

@@ -8,6 +8,7 @@ import {
 import { delay, isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
+import { libp2pNetlayerFactory } from '@metamask/netlayer-libp2p';
 import type { SystemSubclusterConfig } from '@metamask/ocap-kernel';
 import type { DuplexStream } from '@metamask/streams';
 import {
@@ -66,9 +67,13 @@ async function makeKernelWorker(): Promise<
   DuplexStream<JsonRpcMessage, JsonRpcMessage>
 > {
   const workerUrlParams = createCommsQueryString({
-    relays: [
-      '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
-    ],
+    netlayer: 'libp2p',
+    config: {
+      knownRelays: [
+        process.env.RELAY_MULTIADDR ??
+          '/ip4/127.0.0.1/tcp/9001/ws/p2p/12D3KooWJBDqsyHQF2MWiCdU4kdqx4zTsSTLRdShg7Ui6CRWB4uc',
+      ],
+    },
   });
   workerUrlParams.set('reset-storage', process.env.RESET_STORAGE ?? 'false');
 
@@ -110,15 +115,18 @@ async function makeKernelWorker(): Promise<
     JsonRpcMessage
   >(port, isJsonRpcMessage);
 
-  await PlatformServicesServer.make(worker as PostMessageTarget, (vatId) =>
-    makeIframeVatWorker({
-      id: vatId,
-      iframeUri: 'iframe.html',
-      getPort: initializeMessageChannel,
-      logger: logger.subLogger({
-        tags: ['iframe-vat-worker', vatId],
+  await PlatformServicesServer.make(
+    worker as PostMessageTarget,
+    (vatId) =>
+      makeIframeVatWorker({
+        id: vatId,
+        iframeUri: 'iframe.html',
+        getPort: initializeMessageChannel,
+        logger: logger.subLogger({
+          tags: ['iframe-vat-worker', vatId],
+        }),
       }),
-    }),
+    { netlayers: { libp2p: libp2pNetlayerFactory } },
   );
 
   return kernelStream;

@@ -1,40 +1,17 @@
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
-import {
-  array,
-  object,
-  literal,
-  string,
-  number,
-  optional,
-} from '@metamask/superstruct';
-
-import type { RemoteCommsOptions } from '../../remotes/types.ts';
+import { object, literal, string, optional } from '@metamask/superstruct';
+import { JsonStruct } from '@metamask/utils';
+import type { Json } from '@metamask/utils';
 
 const initializeRemoteCommsParamsStruct = object({
   keySeed: string(),
-  relays: optional(array(string())),
-  maxRetryAttempts: optional(number()),
-  maxQueue: optional(number()),
-  allowedWsHosts: optional(array(string())),
-  reconnectionBaseDelayMs: optional(number()),
-  reconnectionMaxDelayMs: optional(number()),
-  handshakeTimeoutMs: optional(number()),
-  writeTimeoutMs: optional(number()),
-  ackTimeoutMs: optional(number()),
+  specifier: object({ netlayer: string(), config: JsonStruct }),
   incarnationId: optional(string()),
 });
 
 type InitializeRemoteCommsParams = {
   keySeed: string;
-  relays?: string[];
-  maxRetryAttempts?: number;
-  maxQueue?: number;
-  allowedWsHosts?: string[];
-  reconnectionBaseDelayMs?: number;
-  reconnectionMaxDelayMs?: number;
-  handshakeTimeoutMs?: number;
-  writeTimeoutMs?: number;
-  ackTimeoutMs?: number;
+  specifier: { netlayer: string; config: Json };
   incarnationId?: string;
 };
 
@@ -50,9 +27,12 @@ export const initializeRemoteCommsSpec: InitializeRemoteCommsSpec = {
   result: literal(null),
 } as InitializeRemoteCommsSpec;
 
+// Hooks (functions) never cross this RPC boundary; only `keySeed`, the `Json`
+// `specifier`, and `incarnationId` are transmitted. `PlatformServicesServer`
+// reconstructs the netlayer hooks locally.
 export type InitializeRemoteComms = (
   keySeed: string,
-  options: RemoteCommsOptions,
+  specifier: { netlayer: string; config: Json },
   incarnationId?: string,
 ) => Promise<null>;
 
@@ -70,39 +50,10 @@ export type InitializeRemoteCommsHandler = Handler<
 export const initializeRemoteCommsHandler: InitializeRemoteCommsHandler = {
   ...initializeRemoteCommsSpec,
   hooks: { initializeRemoteComms: true },
-  implementation: async ({ initializeRemoteComms }, params) => {
-    const options: RemoteCommsOptions = {};
-    if (params.relays !== undefined) {
-      options.relays = params.relays;
-    }
-    if (params.maxRetryAttempts !== undefined) {
-      options.maxRetryAttempts = params.maxRetryAttempts;
-    }
-    if (params.maxQueue !== undefined) {
-      options.maxQueue = params.maxQueue;
-    }
-    if (params.allowedWsHosts !== undefined) {
-      options.allowedWsHosts = params.allowedWsHosts;
-    }
-    if (params.reconnectionBaseDelayMs !== undefined) {
-      options.reconnectionBaseDelayMs = params.reconnectionBaseDelayMs;
-    }
-    if (params.reconnectionMaxDelayMs !== undefined) {
-      options.reconnectionMaxDelayMs = params.reconnectionMaxDelayMs;
-    }
-    if (params.handshakeTimeoutMs !== undefined) {
-      options.handshakeTimeoutMs = params.handshakeTimeoutMs;
-    }
-    if (params.writeTimeoutMs !== undefined) {
-      options.writeTimeoutMs = params.writeTimeoutMs;
-    }
-    if (params.ackTimeoutMs !== undefined) {
-      options.ackTimeoutMs = params.ackTimeoutMs;
-    }
-    return await initializeRemoteComms(
+  implementation: async ({ initializeRemoteComms }, params) =>
+    initializeRemoteComms(
       params.keySeed,
-      options,
+      params.specifier,
       params.incarnationId,
-    );
-  },
+    ),
 };

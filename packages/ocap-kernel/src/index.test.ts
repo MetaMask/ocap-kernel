@@ -18,7 +18,6 @@ describe('index', () => {
       'createDefaultEndowments',
       'deriveNeutralPeerId',
       'generateMnemonic',
-      'initTransport',
       'insistKRef',
       'insistSubclusterId',
       'isKRef',

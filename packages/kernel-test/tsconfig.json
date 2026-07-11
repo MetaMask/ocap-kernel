@@ -12,6 +12,7 @@
     { "path": "../kernel-store" },
     { "path": "../kernel-utils" },
     { "path": "../kernel-node-runtime" },
+    { "path": "../netlayer-libp2p" },
     { "path": "../nodejs-test-workers" },
     { "path": "../ocap-kernel" },
     { "path": "../remote-iterables" },

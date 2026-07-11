@@ -4,25 +4,25 @@ import {
   object,
   literal,
   optional,
-  array,
   string,
   integer,
   min,
 } from '@metamask/superstruct';
 import type { Struct } from '@metamask/superstruct';
 import type { Infer } from '@metamask/superstruct';
+import { JsonStruct } from '@metamask/utils';
 
 import type { Kernel } from '../../Kernel.ts';
 import type { RemoteCommsOptions } from '../../remotes/types.ts';
 
 const initRemoteCommsParamsStruct = object({
-  relays: optional(array(string())),
-  directListenAddresses: optional(array(string())),
-  maxRetryAttempts: optional(min(integer(), 0)),
+  // Which netlayer to use plus its Json config (crosses postMessage).
+  specifier: optional(object({ netlayer: string(), config: JsonStruct })),
+  // `mnemonic` is intentionally excluded from the RPC struct (sensitive).
   maxQueue: optional(min(integer(), 0)),
+  ackTimeoutMs: optional(min(integer(), 0)),
   maxUrlRelayHints: optional(min(integer(), 1)),
   maxKnownRelays: optional(min(integer(), 1)),
-  allowedWsHosts: optional(array(string())),
 });
 
 // Superstruct's `optional()` infers `T | undefined` for each field, but

@@ -51,7 +51,7 @@ ignores:
   - 'node-gyp'
 
   # Peer dependency of @metamask/kernel-shims due to its /endoify-node
-  # export, used by @metamask/kernel-node-runtime
+  # export, used by Node entrypoints that run the libp2p netlayer
   - '@libp2p/webrtc'
 
   # These are peer dependencies of various modules we actually do

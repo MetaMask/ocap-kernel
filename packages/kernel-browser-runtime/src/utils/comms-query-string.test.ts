@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 
 import {
   createCommsQueryString,
@@ -6,211 +6,104 @@ import {
   getCommsParamsFromCurrentLocation,
 } from './comms-query-string.ts';
 
-// Mock the logger module
-vi.mock('@metamask/logger', () => ({
-  Logger: vi.fn().mockImplementation(function () {
-    return {
-      error: vi.fn(),
-      warn: vi.fn(),
-    };
-  }),
-}));
+const config = {
+  knownRelays: ['/ip4/127.0.0.1/tcp/9001/ws/p2p/relay'],
+};
 
 describe('comms-query-string', () => {
   describe('createCommsQueryString', () => {
-    it('returns URLSearchParams with relays only', () => {
-      const relays = ['/ip4/127.0.0.1/tcp/9001/ws'];
-      const result = createCommsQueryString({ relays });
-      expect(result.get('relays')).toBe(JSON.stringify(relays));
+    it('encodes the netlayer and its JSON config', () => {
+      const params = createCommsQueryString({ netlayer: 'libp2p', config });
+      expect(params.get('netlayer')).toBe('libp2p');
+      expect(params.get('netlayer-config')).toBe(JSON.stringify(config));
     });
 
-    it('returns URLSearchParams with allowedWsHosts only', () => {
-      const allowedWsHosts = ['localhost', 'relay.example.com'];
-      const result = createCommsQueryString({ allowedWsHosts });
-      expect(result.get('allowedWsHosts')).toBe(JSON.stringify(allowedWsHosts));
-    });
-
-    it('returns URLSearchParams with both params', () => {
-      const relays = ['/ip4/127.0.0.1/tcp/9001/ws'];
-      const allowedWsHosts = ['localhost'];
-      const result = createCommsQueryString({ relays, allowedWsHosts });
-      expect(result.has('relays')).toBe(true);
-      expect(result.has('allowedWsHosts')).toBe(true);
-    });
-
-    it('returns empty URLSearchParams for empty arrays', () => {
-      expect(
-        createCommsQueryString({ relays: [], allowedWsHosts: [] }).toString(),
-      ).toBe('');
-      expect(createCommsQueryString({}).toString()).toBe('');
-    });
-
-    it('returns URLSearchParams with number options and directListenAddresses', () => {
-      const result = createCommsQueryString({
-        relays: ['/ip4/127.0.0.1/tcp/9001/ws'],
-        maxRetryAttempts: 3,
-        maxQueue: 100,
-        directListenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
-      });
-      expect(result.get('relays')).toBe(
-        JSON.stringify(['/ip4/127.0.0.1/tcp/9001/ws']),
-      );
-      expect(result.get('maxRetryAttempts')).toBe('3');
-      expect(result.get('maxQueue')).toBe('100');
-      expect(result.get('directListenAddresses')).toBe(
-        JSON.stringify(['/ip4/0.0.0.0/udp/0/quic-v1']),
-      );
-    });
-
-    it('round-trips full options via createCommsQueryString and parseCommsQueryString', () => {
-      const options = {
-        relays: ['/dns4/relay.example.com/tcp/443/wss/p2p/QmRelay'],
-        allowedWsHosts: ['relay.example.com'],
-        maxRetryAttempts: 5,
+    it('encodes kernel-level numeric options', () => {
+      const params = createCommsQueryString({
+        netlayer: 'libp2p',
+        config: {},
         maxQueue: 200,
-        streamInactivityTimeoutMs: 60000,
-      };
-      const params = createCommsQueryString(options);
-      expect(parseCommsQueryString(`?${params.toString()}`)).toStrictEqual(
-        options,
-      );
+        ackTimeoutMs: 5000,
+        maxUrlRelayHints: 3,
+        maxKnownRelays: 20,
+      });
+      expect(params.get('maxQueue')).toBe('200');
+      expect(params.get('ackTimeoutMs')).toBe('5000');
+      expect(params.get('maxUrlRelayHints')).toBe('3');
+      expect(params.get('maxKnownRelays')).toBe('20');
     });
 
-    it('throws on invalid array param types', () => {
+    it('throws on an invalid numeric option', () => {
       expect(() =>
         createCommsQueryString({
-          relays: 'not-an-array' as unknown as string[],
+          netlayer: 'libp2p',
+          config: {},
+          maxQueue: -1,
         }),
-      ).toThrow(TypeError);
-      expect(() =>
-        createCommsQueryString({
-          relays: [1, 2] as unknown as string[],
-        }),
-      ).toThrow(TypeError);
-    });
-
-    it('throws on invalid number param types', () => {
-      expect(() => createCommsQueryString({ maxRetryAttempts: -1 })).toThrow(
-        TypeError,
-      );
-      expect(() => createCommsQueryString({ maxQueue: 1.5 })).toThrow(
-        TypeError,
-      );
-      expect(() =>
-        createCommsQueryString({
-          maxRetryAttempts: 'five' as unknown as number,
-        }),
-      ).toThrow(TypeError);
+      ).toThrow('maxQueue must be a non-negative integer');
     });
   });
 
   describe('parseCommsQueryString', () => {
-    it('returns both relays and allowedWsHosts', () => {
-      const queryString = `?relays=${encodeURIComponent(JSON.stringify(['/ip4/127.0.0.1/tcp/9001/ws']))}&allowedWsHosts=${encodeURIComponent(JSON.stringify(['localhost']))}`;
-      expect(parseCommsQueryString(queryString)).toStrictEqual({
-        relays: ['/ip4/127.0.0.1/tcp/9001/ws'],
-        allowedWsHosts: ['localhost'],
+    it('parses a specifier from netlayer + netlayer-config', () => {
+      const qs = createCommsQueryString({ netlayer: 'libp2p', config });
+      const parsed = parseCommsQueryString(qs.toString());
+      expect(parsed.specifier).toStrictEqual({ netlayer: 'libp2p', config });
+    });
+
+    it('round-trips a full set of params', () => {
+      const qs = createCommsQueryString({
+        netlayer: 'libp2p',
+        config,
+        maxQueue: 200,
+        ackTimeoutMs: 5000,
+        maxUrlRelayHints: 3,
+        maxKnownRelays: 20,
+      });
+      const parsed = parseCommsQueryString(`?${qs.toString()}`);
+      expect(parsed).toStrictEqual({
+        specifier: { netlayer: 'libp2p', config },
+        maxQueue: 200,
+        ackTimeoutMs: 5000,
+        maxUrlRelayHints: 3,
+        maxKnownRelays: 20,
       });
     });
 
-    it('returns empty object when no comms params present', () => {
-      expect(parseCommsQueryString('?foo=bar')).toStrictEqual({});
+    it('omits the specifier when no netlayer param is present', () => {
+      expect(parseCommsQueryString('')).toStrictEqual({});
     });
 
-    it('parses directListenAddresses and number options', () => {
-      const queryString = `?directListenAddresses=${encodeURIComponent(JSON.stringify(['/ip4/0.0.0.0/udp/0/quic-v1']))}&maxRetryAttempts=5&maxQueue=100`;
-      expect(parseCommsQueryString(queryString)).toStrictEqual({
-        directListenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
-        maxRetryAttempts: 5,
-        maxQueue: 100,
-      });
+    it('throws on invalid netlayer-config JSON', () => {
+      expect(() =>
+        parseCommsQueryString('netlayer=libp2p&netlayer-config=not-json'),
+      ).toThrow('netlayer-config contains invalid JSON');
     });
 
-    it('parses query string without leading ?', () => {
-      const queryString = `relays=${encodeURIComponent(JSON.stringify(['/ip4/127.0.0.1/tcp/9001/ws']))}`;
-      expect(parseCommsQueryString(queryString)).toStrictEqual({
-        relays: ['/ip4/127.0.0.1/tcp/9001/ws'],
-      });
-    });
-
-    it('throws on array params with non-string-array JSON values', () => {
+    it('throws on an invalid numeric value', () => {
       expect(() =>
         parseCommsQueryString(
-          `?relays=${encodeURIComponent(JSON.stringify({ not: 'an array' }))}`,
+          'netlayer=libp2p&netlayer-config=%7B%7D&maxQueue=-5',
         ),
-      ).toThrow(TypeError);
-      expect(() =>
-        parseCommsQueryString(
-          `?relays=${encodeURIComponent(JSON.stringify([1, 2]))}`,
-        ),
-      ).toThrow(TypeError);
-    });
-
-    it('throws on array params with invalid JSON', () => {
-      expect(() => parseCommsQueryString('?relays=not-json')).toThrow(
-        TypeError,
-      );
-    });
-
-    it('throws on invalid number values', () => {
-      expect(() => parseCommsQueryString('?maxRetryAttempts=-1')).toThrow(
-        TypeError,
-      );
-      expect(() => parseCommsQueryString('?maxRetryAttempts=1.5')).toThrow(
-        TypeError,
-      );
-      expect(parseCommsQueryString('?maxRetryAttempts=10')).toStrictEqual({
-        maxRetryAttempts: 10,
-      });
+      ).toThrow('maxQueue must be a non-negative integer');
     });
   });
 
   describe('getCommsParamsFromCurrentLocation', () => {
-    const originalLocation = globalThis.location;
-
-    beforeEach(() => {
-      Object.defineProperty(globalThis, 'location', {
-        value: { search: '' },
-        writable: true,
-        configurable: true,
-      });
-    });
-
     afterEach(() => {
-      if (originalLocation) {
-        Object.defineProperty(globalThis, 'location', {
-          value: originalLocation,
-          writable: true,
-          configurable: true,
-        });
-      } else {
-        // @ts-expect-error - deleting global property
-        delete globalThis.location;
-      }
+      vi.unstubAllGlobals();
     });
 
-    it('returns relays and allowedWsHosts from location', () => {
-      const relays = ['/ip4/127.0.0.1/tcp/9001/ws'];
-      const allowedWsHosts = ['localhost'];
-      globalThis.location.search = `?relays=${encodeURIComponent(JSON.stringify(relays))}&allowedWsHosts=${encodeURIComponent(JSON.stringify(allowedWsHosts))}`;
-      expect(getCommsParamsFromCurrentLocation()).toStrictEqual({
-        relays,
-        allowedWsHosts,
-      });
-    });
-
-    it('returns empty object when location is undefined', () => {
-      // @ts-expect-error - testing undefined location
-      delete globalThis.location;
+    it('returns an empty object when there is no location', () => {
+      vi.stubGlobal('location', undefined);
       expect(getCommsParamsFromCurrentLocation()).toStrictEqual({});
     });
 
-    it('returns all parsed options including numbers and directListenAddresses', () => {
-      globalThis.location.search = `?relays=${encodeURIComponent(JSON.stringify(['/ip4/127.0.0.1/tcp/9001/ws']))}&maxQueue=50&stalePeerTimeoutMs=3600000`;
+    it('parses the specifier from the current location', () => {
+      const qs = createCommsQueryString({ netlayer: 'libp2p', config });
+      vi.stubGlobal('location', { search: `?${qs.toString()}` });
       expect(getCommsParamsFromCurrentLocation()).toStrictEqual({
-        relays: ['/ip4/127.0.0.1/tcp/9001/ws'],
-        maxQueue: 50,
-        stalePeerTimeoutMs: 3600000,
+        specifier: { netlayer: 'libp2p', config },
       });
     });
   });

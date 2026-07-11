@@ -1,96 +1,54 @@
 import { Logger } from '@metamask/logger';
 import type { RemoteCommsOptions } from '@metamask/ocap-kernel';
-import { array, integer, is, min, string } from '@metamask/superstruct';
+import { integer, is, min } from '@metamask/superstruct';
+import { JsonStruct } from '@metamask/utils';
+import type { Json } from '@metamask/utils';
 
 /**
- * Utilities for handling remote comms options in worker URL query strings.
- * Supports all serializable fields of {@link RemoteCommsOptions} except
- * `directTransports` (internal / not URL-serializable) and `mnemonic`
- * (secret — should not be exposed in URLs).
+ * Utilities for carrying a {@link NetlayerSpecifier} plus the kernel-level
+ * remote-comms options through the kernel worker URL query string. The
+ * netlayer's `config` is `Json` and travels as a single JSON-encoded param;
+ * the sensitive `mnemonic` is never placed in a URL.
  */
 
 const logger = new Logger('comms-query-string');
 
 /**
- * Subset of {@link RemoteCommsOptions} that can be encoded in a query string.
- * Excludes `directTransports` (internal, platform-injected) and `mnemonic`
- * (secret — must not appear in URLs; pass via postMessage instead).
+ * Parameters accepted by {@link createCommsQueryString}: the netlayer name and
+ * its `Json` config, plus the kernel-level numeric options the worker forwards.
  */
-export type CommsQueryParams = Omit<
-  RemoteCommsOptions,
-  'directTransports' | 'mnemonic'
->;
-
-/** Keys of RemoteCommsOptions whose value is string[] (URL-serialized as JSON array). */
-type ArrayParamKey = {
-  [K in keyof CommsQueryParams]: CommsQueryParams[K] extends
-    | string[]
-    | undefined
-    ? K
-    : never;
-}[keyof CommsQueryParams];
-
-/** Keys of RemoteCommsOptions whose value is number (URL-serialized as string). */
-type NumberParamKey = {
-  [K in keyof CommsQueryParams]: CommsQueryParams[K] extends number | undefined
-    ? K
-    : never;
-}[keyof CommsQueryParams];
-
-const ARRAY_PARAM_NAMES = [
-  'relays',
-  'allowedWsHosts',
-  'directListenAddresses',
-] as const satisfies readonly ArrayParamKey[];
+export type CommsQueryParams = {
+  netlayer: string;
+  config: Json;
+  maxQueue?: number | undefined;
+  ackTimeoutMs?: number | undefined;
+  maxUrlRelayHints?: number | undefined;
+  maxKnownRelays?: number | undefined;
+};
 
 const NUMBER_PARAM_NAMES = [
-  'maxRetryAttempts',
   'maxQueue',
-  'maxConcurrentConnections',
-  'maxMessageSizeBytes',
-  'cleanupIntervalMs',
-  'stalePeerTimeoutMs',
-  'maxMessagesPerSecond',
-  'maxConnectionAttemptsPerMinute',
-  'reconnectionBaseDelayMs',
-  'reconnectionMaxDelayMs',
-  'handshakeTimeoutMs',
-  'writeTimeoutMs',
   'ackTimeoutMs',
-  'streamInactivityTimeoutMs',
-] as const satisfies readonly NumberParamKey[];
+  'maxUrlRelayHints',
+  'maxKnownRelays',
+] as const;
 
 const NonNegativeInteger = min(integer(), 0);
-const StringArray = array(string());
 
 /**
- * Creates URLSearchParams from remote comms options.
- * Use when building the kernel worker URL so the worker can read all params.
- * Callers can append additional params (e.g. reset-storage) before assigning to URL.search.
- * Validates types at runtime via superstruct; throws if invalid values are passed.
+ * Build URLSearchParams for the kernel worker URL from a netlayer specifier and
+ * kernel-level options. Callers can append additional params (e.g.
+ * reset-storage) before assigning to `URL.search`.
  *
- * @param params - Subset of {@link RemoteCommsOptions} (excluding directTransports)
- * @returns URLSearchParams with comms options; use .toString() for URL.search
+ * @param params - The netlayer name, its `Json` config, and kernel options.
+ * @returns URLSearchParams; use `.toString()` for `URL.search`.
  */
 export function createCommsQueryString(
   params: CommsQueryParams,
 ): URLSearchParams {
   const searchParams = new URLSearchParams();
-
-  for (const key of ARRAY_PARAM_NAMES) {
-    const value = params[key];
-    if (value === undefined) {
-      continue;
-    }
-    if (!is(value, StringArray)) {
-      throw new TypeError(
-        `createCommsQueryString: ${key} must be an array of strings, got ${typeof value}`,
-      );
-    }
-    if (value.length > 0) {
-      searchParams.set(key, JSON.stringify(value));
-    }
-  }
+  searchParams.set('netlayer', params.netlayer);
+  searchParams.set('netlayer-config', JSON.stringify(params.config));
 
   for (const key of NUMBER_PARAM_NAMES) {
     const value = params[key];
@@ -109,37 +67,42 @@ export function createCommsQueryString(
 }
 
 /**
- * Parses all supported {@link RemoteCommsOptions} from a query string.
- * Only includes keys that are present and valid in the query string.
+ * Parse a netlayer specifier plus kernel-level options from a query string.
+ * Returns a {@link RemoteCommsOptions} suitable for
+ * {@link Kernel.initRemoteComms}. When no `netlayer` param is present, the
+ * specifier is omitted (the kernel then falls back to its default netlayer).
  *
- * @param queryString - The query string (e.g., from window.location.search)
- * @returns Partial options object suitable for {@link Kernel.initRemoteComms}
+ * @param queryString - The query string (e.g. from `window.location.search`).
+ * @returns Partial remote-comms options.
  */
-export function parseCommsQueryString(queryString: string): CommsQueryParams {
-  const options: CommsQueryParams = {};
+export function parseCommsQueryString(queryString: string): RemoteCommsOptions {
+  const options: RemoteCommsOptions = {};
   const search = queryString.startsWith('?')
     ? queryString.slice(1)
     : queryString;
   const params = new URLSearchParams(search);
 
-  for (const key of ARRAY_PARAM_NAMES) {
-    const raw = params.get(key);
-    if (raw !== null && raw !== '') {
+  const netlayer = params.get('netlayer');
+  if (netlayer !== null && netlayer !== '') {
+    const rawConfig = params.get('netlayer-config');
+    let config: Json = {};
+    if (rawConfig !== null && rawConfig !== '') {
       let parsed: unknown;
       try {
-        parsed = JSON.parse(raw);
+        parsed = JSON.parse(rawConfig);
       } catch {
         throw new TypeError(
-          `parseCommsQueryString: ${key} contains invalid JSON: ${raw}`,
+          `parseCommsQueryString: netlayer-config contains invalid JSON: ${rawConfig}`,
         );
       }
-      if (!is(parsed, StringArray)) {
+      if (!is(parsed, JsonStruct)) {
         throw new TypeError(
-          `parseCommsQueryString: ${key} must be a JSON array of strings, got ${raw}`,
+          `parseCommsQueryString: netlayer-config must be JSON, got ${rawConfig}`,
         );
       }
-      options[key] = parsed;
+      config = parsed;
     }
+    options.specifier = { netlayer, config };
   }
 
   for (const key of NUMBER_PARAM_NAMES) {
@@ -159,13 +122,12 @@ export function parseCommsQueryString(queryString: string): CommsQueryParams {
 }
 
 /**
- * Gets all supported remote comms options from the current global location's
- * query string. Intended for use within the kernel worker when calling
- * {@link Kernel.initRemoteComms}.
+ * Get the remote comms options from the current global location's query string.
+ * Intended for the kernel worker when calling {@link Kernel.initRemoteComms}.
  *
- * @returns Partial {@link RemoteCommsOptions} (excluding directTransports)
+ * @returns Partial {@link RemoteCommsOptions}.
  */
-export function getCommsParamsFromCurrentLocation(): CommsQueryParams {
+export function getCommsParamsFromCurrentLocation(): RemoteCommsOptions {
   if (typeof globalThis.location === 'undefined') {
     logger.warn('No location object available in current context');
     return {};

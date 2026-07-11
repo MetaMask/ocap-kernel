@@ -11,9 +11,9 @@ import type {
   VatConfig,
   SendRemoteMessage,
   StopRemoteComms,
-  RemoteCommsOptions,
+  NetlayerRegistry,
+  NetlayerSpecifier,
 } from '@metamask/ocap-kernel';
-import { initTransport } from '@metamask/ocap-kernel';
 import {
   kernelRemoteMethodSpecs,
   platformServicesHandlers,
@@ -72,6 +72,8 @@ export class PlatformServicesServer {
 
   readonly #makeWorker: (vatId: VatId) => VatWorker;
 
+  readonly #netlayers: NetlayerRegistry;
+
   #sendRemoteMessageFunc: SendRemoteMessage | null = null;
 
   #stopRemoteCommsFunc: StopRemoteComms | null = null;
@@ -104,16 +106,19 @@ export class PlatformServicesServer {
    *
    * @param stream - The stream to use for communication with the client.
    * @param makeWorker - A method for making a {@link VatWorker}.
-   * @param logger - An optional {@link Logger}. Defaults to a new logger labeled '[platform services server]'.
+   * @param args - Construction arguments.
+   * @param args.netlayers - The registry of netlayer factories, keyed by name.
+   * @param args.logger - An optional {@link Logger}. Defaults to a new logger labeled '[platform services server]'.
    */
   constructor(
     stream: PlatformServicesStream,
     makeWorker: (vatId: VatId) => VatWorker,
-    logger?: Logger,
+    args: { netlayers: NetlayerRegistry; logger?: Logger },
   ) {
     this.#stream = stream;
     this.#makeWorker = makeWorker;
-    this.#logger = logger ?? new Logger('platform-services-server');
+    this.#netlayers = args.netlayers;
+    this.#logger = args.logger ?? new Logger('platform-services-server');
 
     this.#rpcClient = new RpcClient(
       kernelRemoteMethodSpecs,
@@ -150,13 +155,15 @@ export class PlatformServicesServer {
    *
    * @param messageTarget - The target to use for posting and receiving messages.
    * @param makeWorker - A method for making a {@link VatWorker}.
-   * @param logger - An optional {@link Logger}.
+   * @param args - Construction arguments.
+   * @param args.netlayers - The registry of netlayer factories, keyed by name.
+   * @param args.logger - An optional {@link Logger}.
    * @returns A new {@link PlatformServicesServer}.
    */
   static async make(
     messageTarget: PostMessageTarget,
     makeWorker: (vatId: VatId) => VatWorker,
-    logger?: Logger,
+    args: { netlayers: NetlayerRegistry; logger?: Logger },
   ): Promise<PlatformServicesServer> {
     const stream: PlatformServicesStream = new PostMessageDuplexStream({
       messageTarget,
@@ -167,7 +174,7 @@ export class PlatformServicesServer {
         message instanceof MessageEvent && isJsonRpcMessage(message.data),
     });
     await stream.synchronize();
-    return new PlatformServicesServer(stream, makeWorker, logger);
+    return new PlatformServicesServer(stream, makeWorker, args);
   }
 
   /**
@@ -284,25 +291,30 @@ export class PlatformServicesServer {
   }
 
   /**
-   * Initialize network communications.
+   * Initialize network communications by looking up the specified netlayer in
+   * the injected registry and constructing it. The reverse-RPC hooks are
+   * reconstructed locally; only `keySeed`, the `Json` specifier, and
+   * `incarnationId` crossed the RPC boundary.
    *
    * @param keySeed - The seed for generating this kernel's secret key.
-   * @param options - Options for remote communications initialization.
-   * @param options.relays - Array of the peerIDs of relay nodes that can be used to listen for incoming
-   *   connections from other kernels.
-   * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
-   * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
+   * @param specifier - Which netlayer to use plus its `Json` config.
    * @param incarnationId - This kernel's incarnation ID for handshake protocol.
    * @returns A promise that resolves when network access has been initialized.
    */
   async #initializeRemoteComms(
     keySeed: string,
-    options: RemoteCommsOptions,
+    specifier: NetlayerSpecifier,
     incarnationId?: string,
   ): Promise<null> {
     if (this.#sendRemoteMessageFunc) {
       throw Error('remote comms already initialized');
     }
+
+    const factory = this.#netlayers[specifier.netlayer];
+    if (!factory) {
+      throw new Error(`Unknown netlayer: "${specifier.netlayer}"`);
+    }
+
     const {
       sendRemoteMessage,
       stop,
@@ -310,14 +322,17 @@ export class PlatformServicesServer {
       registerLocationHints,
       reconnectPeer,
       resetAllBackoffs,
-    } = await initTransport(
+    } = await factory({
       keySeed,
-      options,
-      this.#handleRemoteMessage.bind(this),
-      this.#handleRemoteGiveUp.bind(this),
       incarnationId,
-      this.#handleRemoteIncarnationChange.bind(this),
-    );
+      hooks: {
+        handleMessage: this.#handleRemoteMessage.bind(this),
+        onRemoteGiveUp: this.#handleRemoteGiveUp.bind(this),
+        onIncarnationChange: this.#handleRemoteIncarnationChange.bind(this),
+      },
+      config: specifier.config,
+      logger: this.#logger,
+    });
     this.#sendRemoteMessageFunc = sendRemoteMessage;
     this.#stopRemoteCommsFunc = stop;
     this.#closeConnectionFunc = closeConnection;

@@ -2,6 +2,7 @@ import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { fromHex } from '@metamask/kernel-utils';
+import { nodejsLibp2pNetlayerFactory } from '@metamask/netlayer-libp2p/nodejs';
 import {
   makeKernelStore,
   kunser,
@@ -13,8 +14,8 @@ import type {
   ClusterConfig,
   KRef,
   PlatformServices,
-  RemoteMessageHandler,
-  RemoteCommsOptions,
+  NetlayerSpecifier,
+  NetlayerHooks,
 } from '@metamask/ocap-kernel';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -69,6 +70,7 @@ class DirectNetworkService {
       async launch(vatId) {
         const realServices = new NodejsPlatformServices({
           logger: makeTestLogger().logger,
+          netlayers: { libp2p: nodejsLibp2pNetlayerFactory },
         });
         return realServices.launch(vatId);
       },
@@ -102,16 +104,21 @@ class DirectNetworkService {
         }
       },
 
-      async initializeRemoteComms(
-        keySeed: string,
-        _options: RemoteCommsOptions,
-        handler: RemoteMessageHandler,
-      ) {
+      async initializeRemoteComms(params: {
+        keySeed: string;
+        specifier: NetlayerSpecifier;
+        hooks: NetlayerHooks;
+        incarnationId?: string;
+      }) {
         // Derive the actual (neutral) peer ID from the key seed.
-        actualPeerId = deriveNeutralPeerId(fromHex(keySeed));
+        actualPeerId = deriveNeutralPeerId(fromHex(params.keySeed));
 
         // Register this peer in the direct network with its actual ID
-        self.registerPeer(actualPeerId, handler, 'direct://localhost');
+        self.registerPeer(
+          actualPeerId,
+          params.hooks.handleMessage,
+          'direct://localhost',
+        );
         console.log(`Registered peer ${actualPeerId} for direct messaging`);
         return Promise.resolve();
       },

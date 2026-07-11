@@ -194,9 +194,13 @@ describe('IO kernel service', () => {
     const { NodejsPlatformServices } = await import(
       '@metamask/kernel-node-runtime'
     );
+    const { nodejsLibp2pNetlayerFactory } = await import(
+      '@metamask/netlayer-libp2p/nodejs'
+    );
     const kernel = await Kernel.make(
       new NodejsPlatformServices({
         logger: logger.subLogger({ tags: ['platform'] }),
+        netlayers: { libp2p: nodejsLibp2pNetlayerFactory },
       }),
       kernelDatabase,
       {

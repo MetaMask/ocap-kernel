@@ -14,7 +14,7 @@ import { makeTestKernel } from './kernel.ts';
  * Options forwarded to initRemoteComms by restart helpers.
  * Omits 'relays' which is passed as a separate parameter.
  */
-type RestartRemoteCommsOptions = Omit<RemoteCommsOptions, 'relays'>;
+type RestartRemoteCommsOptions = RemoteCommsOptions;
 
 /**
  * Extract peerId from remoteComms status, returning undefined for
@@ -171,7 +171,10 @@ export async function restartKernel(
 ): Promise<Kernel> {
   const kernelDatabase = await makeSQLKernelDatabase({ dbFilename });
   const kernel = await makeTestKernel(kernelDatabase, { resetStorage });
-  await kernel.initRemoteComms({ relays, ...remoteCommsOptions });
+  await kernel.initRemoteComms({
+    specifier: { netlayer: 'libp2p', config: { knownRelays: relays } },
+    ...remoteCommsOptions,
+  });
   return kernel;
 }
 
@@ -229,7 +232,7 @@ export async function setupAliceAndBob(
   kernelStore1: ReturnType<typeof makeKernelStore>,
   kernelStore2: ReturnType<typeof makeKernelStore>,
   relays: string[],
-  remoteCommsOptions?: Omit<RemoteCommsOptions, 'relays'>,
+  remoteCommsOptions?: RemoteCommsOptions,
 ): Promise<{
   aliceURL: string;
   bobURL: string;
@@ -238,8 +241,14 @@ export async function setupAliceAndBob(
   peerId1: string;
   peerId2: string;
 }> {
-  await kernel1.initRemoteComms({ relays, ...remoteCommsOptions });
-  await kernel2.initRemoteComms({ relays, ...remoteCommsOptions });
+  await kernel1.initRemoteComms({
+    specifier: { netlayer: 'libp2p', config: { knownRelays: relays } },
+    ...remoteCommsOptions,
+  });
+  await kernel2.initRemoteComms({
+    specifier: { netlayer: 'libp2p', config: { knownRelays: relays } },
+    ...remoteCommsOptions,
+  });
 
   const aliceConfig = makeRemoteVatConfig('Alice');
   const bobConfig = makeRemoteVatConfig('Bob');

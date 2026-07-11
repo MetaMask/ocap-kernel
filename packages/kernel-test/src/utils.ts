@@ -10,6 +10,7 @@ import {
   makeConsoleTransport,
 } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
+import { nodejsLibp2pNetlayerFactory } from '@metamask/netlayer-libp2p/nodejs';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { ClusterConfig, PlatformServices } from '@metamask/ocap-kernel';
 import { vi } from 'vitest';
@@ -81,8 +82,13 @@ export async function makeKernel(
   platformServices?: PlatformServices,
   keySeed?: string,
 ): Promise<Kernel> {
-  const platformServicesConfig: { logger: Logger; workerFilePath?: string } = {
+  const platformServicesConfig: {
+    logger: Logger;
+    workerFilePath?: string;
+    netlayers: { libp2p: typeof nodejsLibp2pNetlayerFactory };
+  } = {
     logger: logger.subLogger({ tags: ['vat-worker-manager'] }),
+    netlayers: { libp2p: nodejsLibp2pNetlayerFactory },
   };
   if (workerFilePath) {
     platformServicesConfig.workerFilePath = workerFilePath;

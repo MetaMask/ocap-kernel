@@ -1,20 +1,16 @@
-import { quic } from '@chainsafe/libp2p-quic';
 import { makePromiseKit } from '@endo/promise-kit';
-import { tcp } from '@libp2p/tcp';
 import { isJsonRpcMessage } from '@metamask/kernel-utils';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type {
-  DirectTransport,
   PlatformServices,
   VatId,
-  RemoteMessageHandler,
   SendRemoteMessage,
   StopRemoteComms,
-  RemoteCommsOptions,
-  OnIncarnationChange,
+  NetlayerRegistry,
+  NetlayerSpecifier,
+  NetlayerHooks,
 } from '@metamask/ocap-kernel';
-import { initTransport } from '@metamask/ocap-kernel';
 import { NodeWorkerDuplexStream } from '@metamask/streams';
 import type { DuplexStream } from '@metamask/streams';
 import { strict as assert } from 'node:assert';
@@ -52,7 +48,7 @@ export class NodejsPlatformServices implements PlatformServices {
 
   #getListenAddressesFunc: (() => string[]) | null = null;
 
-  #remoteMessageHandler: RemoteMessageHandler | undefined = undefined;
+  readonly #netlayers: NetlayerRegistry;
 
   readonly #workerFilePath: string;
 
@@ -65,16 +61,19 @@ export class NodejsPlatformServices implements PlatformServices {
    * The vat worker service, intended to be constructed in
    * the kernel worker.
    *
-   * @param args - A bag of optional arguments.
+   * @param args - A bag of arguments.
    * @param args.workerFilePath - An optional path to a file defining the worker's routine. Defaults to 'vat-worker.mjs'.
    * @param args.logger - An optional {@link Logger}. Defaults to a new logger labeled '[vat worker client]'.
+   * @param args.netlayers - The registry of netlayer factories, keyed by name; the specifier's `netlayer` selects one.
    */
   constructor(args: {
     workerFilePath?: string | undefined;
     logger?: Logger | undefined;
+    netlayers: NetlayerRegistry;
   }) {
     this.#workerFilePath = args.workerFilePath ?? DEFAULT_WORKER_FILE;
     this.#logger = args.logger ?? new Logger('vat-worker-service');
+    this.#netlayers = args.netlayers;
   }
 
   /**
@@ -209,99 +208,36 @@ export class NodejsPlatformServices implements PlatformServices {
   }
 
   /**
-   * Handle a remote message from a peer.
+   * Initialize network communications by looking up the specified netlayer in
+   * the injected registry and constructing it.
    *
-   * @param from - The peer ID that sent the message.
-   * @param message - The message received.
-   * @returns A promise that resolves with the reply message, or null if no reply is needed.
-   */
-  async #handleRemoteMessage(
-    from: string,
-    message: string,
-  ): Promise<string | null> {
-    if (!this.#remoteMessageHandler) {
-      // This can't actually happen, but TypeScript can't infer it
-      throw Error('remote comms not initialized');
-    }
-    // Return the reply - network layer handles sending it with proper seq/ack
-    return this.#remoteMessageHandler(from, message);
-  }
-
-  /**
-   * Initialize network communications.
-   *
-   * @param keySeed - The seed for generating this kernel's secret key.
-   * @param options - Options for remote communications initialization.
-   * @param options.relays - Array of the peerIDs of relay nodes that can be used to listen for incoming
-   *   connections from other kernels.
-   * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
-   * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
-   * @param remoteMessageHandler - A handler function to receive remote messages.
-   * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
-   * @param incarnationId - This kernel's incarnation ID for handshake protocol.
-   * @param onIncarnationChange - Optional callback when a remote peer's incarnation changes.
+   * @param params - The initialization options.
+   * @param params.keySeed - The seed for generating this kernel's secret key.
+   * @param params.specifier - Which netlayer to use plus its `Json` config.
+   * @param params.hooks - Kernel-supplied netlayer callbacks.
+   * @param params.incarnationId - This kernel's incarnation ID for the handshake.
    * @returns A promise that resolves once network access has been established
    *   or rejects if there is some problem doing so.
    */
-  async initializeRemoteComms(
-    keySeed: string,
-    options: RemoteCommsOptions,
-    remoteMessageHandler: (
-      from: string,
-      message: string,
-    ) => Promise<string | null>,
-    onRemoteGiveUp?: (peerId: string) => void,
-    incarnationId?: string,
-    onIncarnationChange?: OnIncarnationChange,
-  ): Promise<void> {
+  async initializeRemoteComms({
+    keySeed,
+    specifier,
+    hooks,
+    incarnationId,
+  }: {
+    keySeed: string;
+    specifier: NetlayerSpecifier;
+    hooks: NetlayerHooks;
+    incarnationId?: string;
+  }): Promise<void> {
     if (this.#sendRemoteMessageFunc) {
       throw Error('remote comms already initialized');
     }
-    this.#remoteMessageHandler = remoteMessageHandler;
 
-    const { directListenAddresses, ...restOptions } = options;
-
-    const directTransports: DirectTransport[] = [];
-
-    if (directListenAddresses && directListenAddresses.length > 0) {
-      const quicAddresses: string[] = [];
-      const tcpAddresses: string[] = [];
-
-      for (const addr of directListenAddresses) {
-        const isQuic = addr.includes('/quic-v1');
-        const isTcp = addr.includes('/tcp/');
-
-        if (isQuic) {
-          quicAddresses.push(addr);
-        } else if (isTcp) {
-          tcpAddresses.push(addr);
-        } else {
-          throw new Error(
-            `Unsupported direct listen address: ${addr}. ` +
-              `Only QUIC (/quic-v1) and TCP (/tcp/) addresses are supported.`,
-          );
-        }
-      }
-
-      if (quicAddresses.length > 0) {
-        directTransports.push({
-          transport: quic(),
-          listenAddresses: quicAddresses,
-        });
-      }
-
-      if (tcpAddresses.length > 0) {
-        directTransports.push({
-          transport: tcp(),
-          listenAddresses: tcpAddresses,
-        });
-      }
+    const factory = this.#netlayers[specifier.netlayer];
+    if (!factory) {
+      throw new Error(`Unknown netlayer: "${specifier.netlayer}"`);
     }
-
-    const enhancedOptions: RemoteCommsOptions = {
-      ...restOptions,
-      ...(directTransports.length > 0 ? { directTransports } : {}),
-    };
 
     const {
       sendRemoteMessage,
@@ -311,14 +247,13 @@ export class NodejsPlatformServices implements PlatformServices {
       reconnectPeer,
       resetAllBackoffs,
       getListenAddresses,
-    } = await initTransport(
+    } = await factory({
       keySeed,
-      enhancedOptions,
-      this.#handleRemoteMessage.bind(this),
-      onRemoteGiveUp,
       incarnationId,
-      onIncarnationChange,
-    );
+      hooks,
+      config: specifier.config,
+      logger: this.#logger,
+    });
     this.#sendRemoteMessageFunc = sendRemoteMessage;
     this.#stopRemoteCommsFunc = stop;
     this.#closeConnectionFunc = closeConnection;

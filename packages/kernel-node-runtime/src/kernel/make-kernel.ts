@@ -1,9 +1,11 @@
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Logger } from '@metamask/logger';
+import { nodejsLibp2pNetlayerFactory } from '@metamask/netlayer-libp2p/nodejs';
 import { Kernel } from '@metamask/ocap-kernel';
 import type {
   IOChannelFactory,
+  NetlayerRegistry,
   SystemSubclusterConfig,
 } from '@metamask/ocap-kernel';
 
@@ -29,6 +31,8 @@ export type MakeKernelResult = {
  * @param options.keySeed - Optional seed for libp2p key generation.
  * @param options.ioChannelFactory - Optional factory for creating IO channels.
  * @param options.systemSubclusters - Optional system subcluster configurations.
+ * @param options.netlayers - Optional netlayer registry override; defaults to
+ *   `{ libp2p: nodejsLibp2pNetlayerFactory }`.
  * @returns The kernel and its database.
  */
 export async function makeKernel({
@@ -39,6 +43,7 @@ export async function makeKernel({
   keySeed,
   ioChannelFactory,
   systemSubclusters,
+  netlayers,
 }: {
   workerFilePath?: string;
   resetStorage?: boolean;
@@ -47,11 +52,13 @@ export async function makeKernel({
   keySeed?: string | undefined;
   ioChannelFactory?: IOChannelFactory;
   systemSubclusters?: SystemSubclusterConfig[];
+  netlayers?: NetlayerRegistry;
 }): Promise<MakeKernelResult> {
   const rootLogger = logger ?? new Logger('kernel-worker');
   const platformServicesClient = new NodejsPlatformServices({
     workerFilePath,
     logger: rootLogger.subLogger({ tags: ['platform-services-manager'] }),
+    netlayers: netlayers ?? { libp2p: nodejsLibp2pNetlayerFactory },
   });
 
   // Initialize kernel store.
