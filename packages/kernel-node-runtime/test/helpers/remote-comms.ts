@@ -35,8 +35,8 @@ export type FlatLibp2pCommsOptions = {
   mnemonic?: string;
   maxQueue?: number;
   ackTimeoutMs?: number;
-  maxUrlRelayHints?: number;
-  maxKnownRelays?: number;
+  maxUrlLocationHints?: number;
+  maxKnownLocationHints?: number;
 };
 
 /**
@@ -56,8 +56,8 @@ export function libp2pComms(
     mnemonic,
     maxQueue,
     ackTimeoutMs,
-    maxUrlRelayHints,
-    maxKnownRelays,
+    maxUrlLocationHints,
+    maxKnownLocationHints,
     ...configFields
   } = flat;
   const config: Record<string, unknown> = { ...configFields };
@@ -69,8 +69,8 @@ export function libp2pComms(
     ...(mnemonic !== undefined && { mnemonic }),
     ...(maxQueue !== undefined && { maxQueue }),
     ...(ackTimeoutMs !== undefined && { ackTimeoutMs }),
-    ...(maxUrlRelayHints !== undefined && { maxUrlRelayHints }),
-    ...(maxKnownRelays !== undefined && { maxKnownRelays }),
+    ...(maxUrlLocationHints !== undefined && { maxUrlLocationHints }),
+    ...(maxKnownLocationHints !== undefined && { maxKnownLocationHints }),
   } as RemoteCommsOptions;
 }
 

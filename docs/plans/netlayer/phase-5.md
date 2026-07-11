@@ -1,13 +1,31 @@
 # Phase 5 — `@metamask/netlayer-websocket`
 
 > **⚠️ DEFERRED — NOT BEING EXECUTED IN THIS EFFORT.** Per a user directive after Phase 4, the
-> pluggable-netlayer effort skips straight from Phase 4 to Phase 6 (cleanup + docs). This document
-> is preserved as the future-work plan for the WebSocket netlayer. **Before it is picked up, it must
-> first be reconciled against the landed state of Phases 1–4 _and_ Phase 6** — cross-phase symbol
-> names, signatures, package layout, and the terminology/docs that Phase 6 lands (e.g. any
-> relay→"location hints" rename, the "writing a netlayer" guide) all take precedence over the
-> sketches below. The reconciliation blockquote that follows was written against Phases 1–4 only and
-> predates the Phase 6 cleanup.
+> pluggable-netlayer effort skipped straight from Phase 4 to Phase 6 (cleanup + docs), which has
+> now **also landed**. This document is preserved as the future-work plan for the WebSocket
+> netlayer; it has been reconciled against the landed state of Phases 1–4 **and** Phase 6, so an
+> engineer can pick it up cold. Cross-phase symbol names, signatures, and package layout in the
+> sketches below are indicative — the merged code and `@metamask/netlayer`'s exported contract win.
+>
+> **Reconciled against landed Phase 6 (the terminology rename + docs).** Phase 6 renamed the
+> kernel-generic "relay" vocabulary to "location hint": persisted KV key `knownRelays` →
+> `knownLocationHints`; `RelayEntry` → `LocationHintEntry`; store methods `getLocationHintEntries`
+> etc.; `RemoteIdentity.addKnownLocationHints`; kernel-level options `maxUrlLocationHints` /
+> `maxKnownLocationHints`. **Crucially, the netlayer-config key `config.knownRelays` was NOT
+> renamed** — it is the seam the kernel injects into a netlayer's config by convention, and it keeps
+> that name. So this plan's design (§ below) of treating `config.knownRelays` as the carrier for a
+> hub-and-spoke WebSocket's `wss://` hub URLs is **unchanged and still correct**; the kernel merges
+> and re-injects those opaque hint strings exactly as for libp2p. When this phase resumes, conform
+> the netlayer it ships to [`docs/writing-a-netlayer.md`](../../writing-a-netlayer.md) (the contract
+> guide Phase 6 added) and reference the [`## Networking` glossary
+> entries](../../glossary.md#netlayer) (netlayer, location hint, neutral peer id, hub-and-spoke,
+> incarnation handshake). The WS auth handshake (§5) is the piece the guide defers to this plan.
+>
+> Note: a separate **DRAFT, unscheduled** iroh plan now exists at
+> [`phase-7-iroh.md`](./phase-7-iroh.md), proposed as the second real `ChannelProvider` in this
+> phase's place; Phase 5 nonetheless remains an independent, still-valid future option (it stresses
+> transport assumptions — message framing, client-server topology, app-level auth — that iroh does
+> not).
 >
 > Assumptions Phase 4 already invalidated that this plan still needs updating for when resumed
 > (brief, non-exhaustive): `ChannelProvider.dial` is 3-arg `(peerId, hints, withRetry)` (the §4

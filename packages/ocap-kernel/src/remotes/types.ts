@@ -26,7 +26,7 @@ export type RemoteIdentity = {
   getPeerId: () => string;
   issueOcapURL: (kref: KRef) => Promise<string>;
   redeemLocalOcapURL: (ocapURL: string) => Promise<KRef>;
-  addKnownRelays: (relays: string[]) => void;
+  addKnownLocationHints: (hints: string[]) => void;
 };
 
 export type RemoteComms = RemoteIdentity & {
@@ -61,14 +61,14 @@ export type RemoteCommsOptions = {
    */
   ackTimeoutMs?: number | undefined;
   /**
-   * Maximum number of relay hints embedded in a single OCAP URL (default: 3).
+   * Maximum number of location hints embedded in a single OCAP URL (default: 3).
    */
-  maxUrlRelayHints?: number | undefined;
+  maxUrlLocationHints?: number | undefined;
   /**
-   * Maximum number of relay entries stored in the kernel's relay pool
+   * Maximum number of location-hint entries stored in the kernel's hint pool
    * (default: 20).
    */
-  maxKnownRelays?: number | undefined;
+  maxKnownLocationHints?: number | undefined;
 };
 
 export type RemoteInfo = {

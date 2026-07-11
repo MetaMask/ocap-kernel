@@ -134,23 +134,23 @@ This achieves atomicity: if a crash occurs before commit, both the run queue ent
 
 Ken enforces per-sender FIFO ordering via `next_ready()` which only delivers the next expected sequence number.
 
-**Our situation**: We use TCP-based transports (libp2p streams) which guarantee in-order delivery during normal operation. Out-of-order arrival only occurs after a crash when the sender retransmits. With duplicate detection, retransmitted messages for already-processed sequence numbers are dropped, maintaining FIFO semantics.
+**Our situation**: The kernel depends on the **netlayer delivery contract** — best-effort, ordered per live connection — rather than on any specific transport. Whatever netlayer is in use (libp2p, loopback, or a future one) guarantees FIFO within a single live connection; out-of-order or duplicate arrival can occur across a reconnect (or after a crash when the sender retransmits). With duplicate detection, retransmitted messages for already-processed sequence numbers are dropped, maintaining FIFO semantics regardless of transport.
 
-Therefore, explicit receive-side reordering is not required given our transport guarantees.
+Therefore, explicit receive-side reordering is not required given the netlayer's per-connection ordering guarantee. See the delivery-semantics contract in [writing a netlayer](./writing-a-netlayer.md#5-delivery-semantics-contract) for the normative statement of what a transport must provide.
 
 ### Summary Table
 
-| Ken Property          | Our System | Notes                                               |
-| --------------------- | ---------- | --------------------------------------------------- |
-| Transactional turns   | **Yes**    | Crank buffering provides turn boundaries            |
-| Output validity       | **Yes**    | Outputs escape only after originating crank commits |
-| Deferred transmission | **Yes**    | Run queue staging ensures this                      |
-| Atomic checkpoint     | **Yes**    | Database savepoints for kernel state                |
-| Consistent frontier   | **Yes**    | Each kernel's checkpoint is independent             |
-| Local recovery        | **Yes**    | Crashes don't affect other processes                |
-| Sender-based logging  | **Yes**    | Messages persisted in remotePending until ACKed     |
-| Exactly-once delivery | **Yes**    | Transactional receive with dedup check              |
-| FIFO ordering         | **Yes**    | TCP guarantees in-order; dedup handles retransmits  |
+| Ken Property          | Our System | Notes                                                               |
+| --------------------- | ---------- | ------------------------------------------------------------------- |
+| Transactional turns   | **Yes**    | Crank buffering provides turn boundaries                            |
+| Output validity       | **Yes**    | Outputs escape only after originating crank commits                 |
+| Deferred transmission | **Yes**    | Run queue staging ensures this                                      |
+| Atomic checkpoint     | **Yes**    | Database savepoints for kernel state                                |
+| Consistent frontier   | **Yes**    | Each kernel's checkpoint is independent                             |
+| Local recovery        | **Yes**    | Crashes don't affect other processes                                |
+| Sender-based logging  | **Yes**    | Messages persisted in remotePending until ACKed                     |
+| Exactly-once delivery | **Yes**    | Transactional receive with dedup check                              |
+| FIFO ordering         | **Yes**    | Netlayer guarantees per-connection order; dedup handles retransmits |
 
 ## Architectural Summary
 
@@ -184,15 +184,15 @@ If a crash occurs before commit, both the run queue entry and the sequence updat
 
 ## Progress Summary
 
-| Area                                     | Status                       |
-| ---------------------------------------- | ---------------------------- |
-| Kernel-internal output buffering         | **Achieved** (Issue #786)    |
-| Rollback discards uncommitted outputs    | **Achieved** (Issue #786)    |
-| Atomic kernel state + output queue       | **Achieved** (Issue #786)    |
-| Output validity (send side)              | **Achieved** (Issue #786)    |
-| Deferred transmission (send side)        | **Achieved** (Issue #786)    |
-| FIFO ordering                            | **Achieved** (TCP transport) |
-| Exactly-once receive (dedup + atomicity) | **Achieved** (Issue #808)    |
+| Area                                     | Status                                          |
+| ---------------------------------------- | ----------------------------------------------- |
+| Kernel-internal output buffering         | **Achieved** (Issue #786)                       |
+| Rollback discards uncommitted outputs    | **Achieved** (Issue #786)                       |
+| Atomic kernel state + output queue       | **Achieved** (Issue #786)                       |
+| Output validity (send side)              | **Achieved** (Issue #786)                       |
+| Deferred transmission (send side)        | **Achieved** (Issue #786)                       |
+| FIFO ordering                            | **Achieved** (netlayer per-connection ordering) |
+| Exactly-once receive (dedup + atomicity) | **Achieved** (Issue #808)                       |
 
 All Ken protocol properties are now implemented.
 

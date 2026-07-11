@@ -24,13 +24,13 @@ describe('comms-query-string', () => {
         config: {},
         maxQueue: 200,
         ackTimeoutMs: 5000,
-        maxUrlRelayHints: 3,
-        maxKnownRelays: 20,
+        maxUrlLocationHints: 3,
+        maxKnownLocationHints: 20,
       });
       expect(params.get('maxQueue')).toBe('200');
       expect(params.get('ackTimeoutMs')).toBe('5000');
-      expect(params.get('maxUrlRelayHints')).toBe('3');
-      expect(params.get('maxKnownRelays')).toBe('20');
+      expect(params.get('maxUrlLocationHints')).toBe('3');
+      expect(params.get('maxKnownLocationHints')).toBe('20');
     });
 
     it('throws on an invalid numeric option', () => {
@@ -57,16 +57,16 @@ describe('comms-query-string', () => {
         config,
         maxQueue: 200,
         ackTimeoutMs: 5000,
-        maxUrlRelayHints: 3,
-        maxKnownRelays: 20,
+        maxUrlLocationHints: 3,
+        maxKnownLocationHints: 20,
       });
       const parsed = parseCommsQueryString(`?${qs.toString()}`);
       expect(parsed).toStrictEqual({
         specifier: { netlayer: 'libp2p', config },
         maxQueue: 200,
         ackTimeoutMs: 5000,
-        maxUrlRelayHints: 3,
-        maxKnownRelays: 20,
+        maxUrlLocationHints: 3,
+        maxKnownLocationHints: 20,
       });
     });
 

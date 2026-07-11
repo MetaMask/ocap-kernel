@@ -21,8 +21,8 @@ const initRemoteCommsParamsStruct = object({
   // `mnemonic` is intentionally excluded from the RPC struct (sensitive).
   maxQueue: optional(min(integer(), 0)),
   ackTimeoutMs: optional(min(integer(), 0)),
-  maxUrlRelayHints: optional(min(integer(), 1)),
-  maxKnownRelays: optional(min(integer(), 1)),
+  maxUrlLocationHints: optional(min(integer(), 1)),
+  maxKnownLocationHints: optional(min(integer(), 1)),
 });
 
 // Superstruct's `optional()` infers `T | undefined` for each field, but

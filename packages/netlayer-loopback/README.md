@@ -8,7 +8,8 @@ An explicit `LoopbackHub` object routes messages between `@metamask/netlayer`
 Two in-process kernels connect by being given the same hub instance. It
 implements the full `Netlayer` contract without channels, handshakes, rate
 limiting, or backoff — enough to exercise the kernel/PlatformServices path and
-prove the netlayer contract is not libp2p-shaped.
+prove the netlayer contract is not libp2p-shaped. It is the recommended reference
+when [writing a netlayer](../../docs/writing-a-netlayer.md).
 
 ## Installation
 

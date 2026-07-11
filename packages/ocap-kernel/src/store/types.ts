@@ -50,10 +50,10 @@ export type VatCleanupWork = {
 };
 
 /**
- * Superstruct schema for {@link RelayEntry}, used for runtime validation on
- * both read and write paths of the relay store.
+ * Superstruct schema for {@link LocationHintEntry}, used for runtime validation
+ * on both read and write paths of the location-hint store.
  */
-export const RelayEntryStruct = object({
+export const LocationHintEntryStruct = object({
   addr: refine(string(), 'non-empty string', (value) => value.length > 0),
   lastSeen: refine(
     number(),
@@ -64,20 +64,16 @@ export const RelayEntryStruct = object({
 });
 
 /**
- * A relay entry with metadata for prioritized selection and bounded storage.
- *
- * Migration from the legacy `string[]` format is handled by `getRelayEntries()`
- * in `store/methods/relay.ts`. The migration path can be removed once all
- * deployed kernels have been initialized at least once on a version that
- * includes RelayEntry support.
+ * A location-hint entry with metadata for prioritized selection and bounded
+ * storage. A location hint is a netlayer-specific opaque string (e.g. a libp2p
+ * relay multiaddr) that helps a netlayer re-locate and reconnect to a peer.
  */
-export type RelayEntry = {
-  /** Relay multiaddr string. */
+export type LocationHintEntry = {
+  /** Netlayer-specific opaque location-hint string. */
   addr: string;
   /**
-   * Epoch ms when the relay was last added or re-observed. A value of `0`
-   * indicates a legacy-migrated entry with unknown observation time; these
-   * sort last during recency-based eviction.
+   * Epoch ms when the location hint was last added or re-observed. Entries with
+   * a lower value sort last during recency-based eviction.
    */
   lastSeen: number;
   /** True if provided at kernel initialization (prioritized during eviction). */

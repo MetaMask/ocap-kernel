@@ -62,12 +62,12 @@ describe('RemoteManager', () => {
         getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
         issueOcapURL: vi.fn(),
         redeemLocalOcapURL: vi.fn(),
-        addKnownRelays: vi.fn(),
+        addKnownLocationHints: vi.fn(),
       };
       vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
         identity: mockIdentity,
         keySeed: 'test-key-seed',
-        knownRelays: [],
+        knownLocationHints: [],
       });
 
       // No message handler set - should still work
@@ -88,12 +88,12 @@ describe('RemoteManager', () => {
         getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
         issueOcapURL: vi.fn(),
         redeemLocalOcapURL: vi.fn(),
-        addKnownRelays: vi.fn(),
+        addKnownLocationHints: vi.fn(),
       };
       vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
         identity: mockIdentity,
         keySeed: 'test-key-seed',
-        knownRelays: [],
+        knownLocationHints: [],
       });
 
       await remoteManager.initIdentity();
@@ -105,12 +105,12 @@ describe('RemoteManager', () => {
         getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
         issueOcapURL: vi.fn(),
         redeemLocalOcapURL: vi.fn(),
-        addKnownRelays: vi.fn(),
+        addKnownLocationHints: vi.fn(),
       };
       vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
         identity: mockIdentity,
         keySeed: 'test-key-seed',
-        knownRelays: [],
+        knownLocationHints: [],
       });
 
       await remoteManager.initIdentity();
@@ -140,12 +140,12 @@ describe('RemoteManager', () => {
         getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
         issueOcapURL: vi.fn(),
         redeemLocalOcapURL: vi.fn(),
-        addKnownRelays: vi.fn(),
+        addKnownLocationHints: vi.fn(),
       };
       vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
         identity: mockIdentity,
         keySeed: 'test-key-seed',
-        knownRelays: [],
+        knownLocationHints: [],
       });
 
       await remoteManager.initIdentity();
@@ -160,12 +160,12 @@ describe('RemoteManager', () => {
         getPeerId: vi.fn().mockReturnValue('identity-peer-id'),
         issueOcapURL: vi.fn(),
         redeemLocalOcapURL: vi.fn(),
-        addKnownRelays: vi.fn(),
+        addKnownLocationHints: vi.fn(),
       };
       vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
         identity: mockIdentity,
         keySeed: 'test-key-seed',
-        knownRelays: [],
+        knownLocationHints: [],
       });
 
       await remoteManager.initIdentity();
@@ -185,12 +185,12 @@ describe('RemoteManager', () => {
         getPeerId: vi.fn().mockReturnValue('mnemonic-peer-id'),
         issueOcapURL: vi.fn(),
         redeemLocalOcapURL: vi.fn(),
-        addKnownRelays: vi.fn(),
+        addKnownLocationHints: vi.fn(),
       };
       vi.mocked(remoteComms.initRemoteIdentity).mockResolvedValue({
         identity: mockIdentity,
         keySeed: 'mnemonic-key-seed',
-        knownRelays: [],
+        knownLocationHints: [],
       });
 
       await managerWithMnemonic.initIdentity();
@@ -500,6 +500,27 @@ describe('RemoteManager', () => {
 
       expect(result).toBe(remote);
       expect(mockRemoteComms.registerLocationHints).not.toHaveBeenCalled();
+    });
+
+    it('logs an error when registering location hints fails for an existing peer', async () => {
+      remoteManager.establishRemote('existing-peer');
+      const errorSpy = vi.spyOn(logger, 'error');
+      vi.mocked(mockRemoteComms.registerLocationHints).mockRejectedValueOnce(
+        new Error('boom'),
+      );
+
+      remoteManager.remoteFor('existing-peer', [
+        '/dns4/relay.example/tcp/443/wss/p2p/relay',
+      ]);
+
+      // Allow the fire-and-forget rejection handler to run.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        expect.stringContaining(
+          'Failed to register location hints for existing-peer',
+        ),
+      );
     });
 
     it('gets remote by ID', () => {

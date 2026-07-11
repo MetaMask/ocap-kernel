@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **BREAKING:** Rename the kernel-level location-hint options carried through the kernel worker URL: `createCommsQueryString`/`parseCommsQueryString`/`getCommsParamsFromCurrentLocation` and the `CommsQueryParams` type now use `maxUrlLocationHints`/`maxKnownLocationHints` (was `maxUrlRelayHints`/`maxKnownRelays`), matching the ocap-kernel rename ([#974](https://github.com/MetaMask/ocap-kernel/pull/974))
 - **BREAKING:** `PlatformServicesServer` (constructor and `make`) now takes an `args` bag with a required `netlayers: NetlayerRegistry` (plus optional `logger`), and `PlatformServicesClient.initializeRemoteComms` takes the neutral options bag `{ keySeed, specifier, hooks, incarnationId? }` ([#973](https://github.com/MetaMask/ocap-kernel/pull/973))
 - **BREAKING:** `comms-query-string` now carries a `NetlayerSpecifier` (`netlayer` + JSON-encoded `config`) plus the kernel-level numeric options, instead of per-field `RemoteCommsOptions`; `parseCommsQueryString`/`getCommsParamsFromCurrentLocation` return `RemoteCommsOptions` with a `specifier` ([#973](https://github.com/MetaMask/ocap-kernel/pull/973))
 

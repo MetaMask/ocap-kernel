@@ -22,15 +22,15 @@ export type CommsQueryParams = {
   config: Json;
   maxQueue?: number | undefined;
   ackTimeoutMs?: number | undefined;
-  maxUrlRelayHints?: number | undefined;
-  maxKnownRelays?: number | undefined;
+  maxUrlLocationHints?: number | undefined;
+  maxKnownLocationHints?: number | undefined;
 };
 
 const NUMBER_PARAM_NAMES = [
   'maxQueue',
   'ackTimeoutMs',
-  'maxUrlRelayHints',
-  'maxKnownRelays',
+  'maxUrlLocationHints',
+  'maxKnownLocationHints',
 ] as const;
 
 const NonNegativeInteger = min(integer(), 0);
