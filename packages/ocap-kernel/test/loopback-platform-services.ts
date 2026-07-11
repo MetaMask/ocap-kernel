@@ -1,10 +1,8 @@
 import { Logger } from '@metamask/logger';
 import type {
   Netlayer,
-  OnIncarnationChange,
-  OnRemoteGiveUp,
-  RemoteCommsOptions,
-  RemoteMessageHandler,
+  NetlayerHooks,
+  NetlayerSpecifier,
 } from '@metamask/netlayer';
 import { makeLoopbackNetlayer } from '@metamask/netlayer-loopback';
 import type { LoopbackHub } from '@metamask/netlayer-loopback';
@@ -47,22 +45,18 @@ export function makeLoopbackPlatformServices(
     launch: vi.fn(),
     terminate: vi.fn(),
     terminateAll: vi.fn(),
-    initializeRemoteComms: async (
-      keySeed: string,
-      _options: RemoteCommsOptions,
-      remoteMessageHandler: RemoteMessageHandler,
-      onRemoteGiveUp?: OnRemoteGiveUp,
-      incarnationId?: string,
-      onIncarnationChange?: OnIncarnationChange,
-    ): Promise<void> => {
+    initializeRemoteComms: async (params: {
+      keySeed: string;
+      specifier: NetlayerSpecifier;
+      hooks: NetlayerHooks;
+      incarnationId?: string;
+    }): Promise<void> => {
+      // The specifier's config is ignored: this fake always routes through the
+      // shared in-process hub (a live object that can't be `Json`).
       const created = await makeLoopbackNetlayer({
-        keySeed,
-        incarnationId,
-        hooks: {
-          handleMessage: remoteMessageHandler,
-          onRemoteGiveUp,
-          onIncarnationChange,
-        },
+        keySeed: params.keySeed,
+        incarnationId: params.incarnationId,
+        hooks: params.hooks,
         config: { hub },
         logger: new Logger(),
       });

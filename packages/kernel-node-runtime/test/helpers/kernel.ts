@@ -1,6 +1,7 @@
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
+import { nodejsLibp2pNetlayerFactory } from '@metamask/netlayer-libp2p/nodejs';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type {
   ClusterConfig,
@@ -43,6 +44,7 @@ export async function makeTestKernel(
   const logger = new Logger('test-kernel');
   const platformServices = new NodejsPlatformServices({
     logger: logger.subLogger({ tags: ['platform-services'] }),
+    netlayers: { libp2p: nodejsLibp2pNetlayerFactory },
   });
   const kernel = await Kernel.make(platformServices, kernelDatabase, {
     resetStorage,

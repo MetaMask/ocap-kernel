@@ -11,10 +11,73 @@ import type {
 import { makeTestKernel } from './kernel.ts';
 
 /**
- * Options forwarded to initRemoteComms by restart helpers.
- * Omits 'relays' which is passed as a separate parameter.
+ * Flat libp2p comms options (the pre-netlayer-injection shape) used by the e2e
+ * tests. Libp2p-specific fields become `specifier.config`; kernel-level fields
+ * stay top-level.
  */
-type RestartRemoteCommsOptions = Omit<RemoteCommsOptions, 'relays'>;
+export type FlatLibp2pCommsOptions = {
+  relays?: string[];
+  directListenAddresses?: string[];
+  allowedWsHosts?: string[];
+  maxRetryAttempts?: number;
+  maxConcurrentConnections?: number;
+  maxMessageSizeBytes?: number;
+  cleanupIntervalMs?: number;
+  stalePeerTimeoutMs?: number;
+  maxMessagesPerSecond?: number;
+  maxConnectionAttemptsPerMinute?: number;
+  reconnectionBaseDelayMs?: number;
+  reconnectionMaxDelayMs?: number;
+  handshakeTimeoutMs?: number;
+  writeTimeoutMs?: number;
+  streamInactivityTimeoutMs?: number;
+  // Kernel-level (stay outside the netlayer config):
+  mnemonic?: string;
+  maxQueue?: number;
+  ackTimeoutMs?: number;
+  maxUrlRelayHints?: number;
+  maxKnownRelays?: number;
+};
+
+/**
+ * Convert flat libp2p comms options into the injected-netlayer
+ * {@link RemoteCommsOptions} shape: libp2p-specific fields become
+ * `specifier.config` (with `relays` renamed to `knownRelays`); kernel-level
+ * fields stay top-level.
+ *
+ * @param flat - The flat libp2p comms options.
+ * @returns The netlayer-shaped remote comms options.
+ */
+export function libp2pComms(
+  flat: FlatLibp2pCommsOptions = {},
+): RemoteCommsOptions {
+  const {
+    relays,
+    mnemonic,
+    maxQueue,
+    ackTimeoutMs,
+    maxUrlRelayHints,
+    maxKnownRelays,
+    ...configFields
+  } = flat;
+  const config: Record<string, unknown> = { ...configFields };
+  if (relays !== undefined) {
+    config.knownRelays = relays;
+  }
+  return {
+    specifier: { netlayer: 'libp2p', config },
+    ...(mnemonic !== undefined && { mnemonic }),
+    ...(maxQueue !== undefined && { maxQueue }),
+    ...(ackTimeoutMs !== undefined && { ackTimeoutMs }),
+    ...(maxUrlRelayHints !== undefined && { maxUrlRelayHints }),
+    ...(maxKnownRelays !== undefined && { maxKnownRelays }),
+  } as RemoteCommsOptions;
+}
+
+/**
+ * Options forwarded to initRemoteComms by restart helpers.
+ */
+type RestartRemoteCommsOptions = FlatLibp2pCommsOptions;
 
 /**
  * Extract peerId from remoteComms status, returning undefined for
@@ -171,7 +234,7 @@ export async function restartKernel(
 ): Promise<Kernel> {
   const kernelDatabase = await makeSQLKernelDatabase({ dbFilename });
   const kernel = await makeTestKernel(kernelDatabase, { resetStorage });
-  await kernel.initRemoteComms({ relays, ...remoteCommsOptions });
+  await kernel.initRemoteComms(libp2pComms({ relays, ...remoteCommsOptions }));
   return kernel;
 }
 
@@ -229,7 +292,7 @@ export async function setupAliceAndBob(
   kernelStore1: ReturnType<typeof makeKernelStore>,
   kernelStore2: ReturnType<typeof makeKernelStore>,
   relays: string[],
-  remoteCommsOptions?: Omit<RemoteCommsOptions, 'relays'>,
+  remoteCommsOptions?: FlatLibp2pCommsOptions,
 ): Promise<{
   aliceURL: string;
   bobURL: string;
@@ -238,8 +301,8 @@ export async function setupAliceAndBob(
   peerId1: string;
   peerId2: string;
 }> {
-  await kernel1.initRemoteComms({ relays, ...remoteCommsOptions });
-  await kernel2.initRemoteComms({ relays, ...remoteCommsOptions });
+  await kernel1.initRemoteComms(libp2pComms({ relays, ...remoteCommsOptions }));
+  await kernel2.initRemoteComms(libp2pComms({ relays, ...remoteCommsOptions }));
 
   const aliceConfig = makeRemoteVatConfig('Alice');
   const bobConfig = makeRemoteVatConfig('Bob');

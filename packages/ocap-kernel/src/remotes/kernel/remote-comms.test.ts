@@ -68,7 +68,12 @@ describe('remote-comms', () => {
         mockKernelStore,
         mockPlatformServices,
         mockRemoteMessageHandler,
-        { relays: testRelays },
+        {
+          specifier: {
+            netlayer: 'libp2p',
+            config: { knownRelays: testRelays },
+          },
+        },
       );
       expect(remoteComms).toHaveProperty('getPeerId');
       expect(remoteComms).toHaveProperty('issueOcapURL');
@@ -145,29 +150,33 @@ describe('remote-comms', () => {
       );
     });
 
-    it('passes options object to platformServices.initializeRemoteComms', async () => {
-      const options = {
-        relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'],
-        maxRetryAttempts: 5,
-        maxQueue: 100,
-      };
+    it('passes an options bag with the specifier to platformServices.initializeRemoteComms', async () => {
+      const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relay'];
       await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
         mockRemoteMessageHandler,
-        options,
+        {
+          specifier: {
+            netlayer: 'libp2p',
+            config: { knownRelays, maxRetryAttempts: 5 },
+          },
+        },
       );
       expect(mockPlatformServices.initializeRemoteComms).toHaveBeenCalledWith(
-        expect.any(String), // keySeed
         expect.objectContaining({
-          relays: options.relays,
-          maxRetryAttempts: options.maxRetryAttempts,
-          maxQueue: options.maxQueue,
+          keySeed: expect.any(String),
+          specifier: {
+            netlayer: 'libp2p',
+            config: expect.objectContaining({
+              knownRelays,
+              maxRetryAttempts: 5,
+            }),
+          },
+          hooks: expect.objectContaining({
+            handleMessage: mockRemoteMessageHandler,
+          }),
         }),
-        mockRemoteMessageHandler,
-        undefined, // onRemoteGiveUp
-        undefined, // incarnationId
-        undefined, // onIncarnationChange
       );
     });
 
@@ -184,14 +193,12 @@ describe('remote-comms', () => {
         {}, // empty options
       );
       expect(mockPlatformServices.initializeRemoteComms).toHaveBeenCalledWith(
-        expect.any(String),
         expect.objectContaining({
-          relays: storedRelays,
+          specifier: {
+            netlayer: 'libp2p',
+            config: expect.objectContaining({ knownRelays: storedRelays }),
+          },
         }),
-        mockRemoteMessageHandler,
-        undefined,
-        undefined, // incarnationId
-        undefined, // onIncarnationChange
       );
     });
 
@@ -207,12 +214,9 @@ describe('remote-comms', () => {
         onRemoteGiveUp,
       );
       expect(mockPlatformServices.initializeRemoteComms).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(Object),
-        mockRemoteMessageHandler,
-        onRemoteGiveUp,
-        undefined, // incarnationId
-        undefined, // onIncarnationChange
+        expect.objectContaining({
+          hooks: expect.objectContaining({ onRemoteGiveUp }),
+        }),
       );
     });
 
@@ -229,12 +233,7 @@ describe('remote-comms', () => {
         incarnationId,
       );
       expect(mockPlatformServices.initializeRemoteComms).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(Object),
-        mockRemoteMessageHandler,
-        undefined,
-        incarnationId,
-        undefined, // onIncarnationChange
+        expect.objectContaining({ incarnationId }),
       );
     });
 
@@ -252,12 +251,9 @@ describe('remote-comms', () => {
         onIncarnationChange,
       );
       expect(mockPlatformServices.initializeRemoteComms).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(Object),
-        mockRemoteMessageHandler,
-        undefined,
-        undefined, // incarnationId
-        onIncarnationChange,
+        expect.objectContaining({
+          hooks: expect.objectContaining({ onIncarnationChange }),
+        }),
       );
     });
 
@@ -330,7 +326,12 @@ describe('remote-comms', () => {
         mockKernelStore,
         mockPlatformServices,
         mockRemoteMessageHandler,
-        { relays: testRelays },
+        {
+          specifier: {
+            netlayer: 'libp2p',
+            config: { knownRelays: testRelays },
+          },
+        },
         mockLogger as unknown as Logger,
       );
       expect(mockLogger.log).toHaveBeenCalledWith(
@@ -347,7 +348,12 @@ describe('remote-comms', () => {
         mockKernelStore,
         mockPlatformServices,
         mockRemoteMessageHandler,
-        { relays: testRelays },
+        {
+          specifier: {
+            netlayer: 'libp2p',
+            config: { knownRelays: testRelays },
+          },
+        },
       );
       expect(mockKernelStore.getKnownRelayAddresses()).toStrictEqual(
         testRelays,
@@ -1055,7 +1061,12 @@ describe('remote-comms', () => {
         mockKernelStore,
         mockPlatformServices,
         mockRemoteMessageHandler,
-        { relays: testRelays },
+        {
+          specifier: {
+            netlayer: 'libp2p',
+            config: { knownRelays: testRelays },
+          },
+        },
       );
 
       const ocapURL = await remoteComms.issueOcapURL('ko42' as KRef);

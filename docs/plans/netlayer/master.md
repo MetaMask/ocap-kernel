@@ -359,8 +359,71 @@ receive, incarnationId)` / `unregister` / `getIncarnation` / `deliver(from, to, 
   `initTransport` export and all libp2p deps from ocap-kernel. Relocate kernel-shims' bare
   `import '@libp2p/webrtc'` (endoify-node.js) alongside the libp2p netlayer — flag for review.
   Verify: full CI, extension e2e, `kernel-test` remote-comms integration, `ocap relay` smoke test.
+  **DONE** (issue #968, PR #973 on branch `rekm/netlayer-4`, stacked on `rekm/netlayer-3`).
 
-**Phase 5 — `@metamask/netlayer-websocket`.** ~3–4 days.
+Landed decisions / deviations from the phase-4 plan (these are the facts Phase 5 must build on):
+
+- **`@metamask/netlayer-libp2p` (new, `0.1.0`, published).** Exports:
+  - `.` (browser default): `libp2pNetlayerFactory` (a `NetlayerFactory` — typed `<Json>`, not
+    `<Libp2pNetlayerConfig>`, so it fits `NetlayerRegistry = Record<string, NetlayerFactory<Json>>`;
+    it `assert`s the config to `Libp2pNetlayerConfig` internally), plus `makeLibp2pNetlayer`
+    (re-exported for consumers that must not reach `./nodejs` — accepts an `@internal`
+    `directTransports`), `Libp2pNetlayerConfig`/`Libp2pNetlayerConfigStruct`, `DirectTransport`.
+  - `./nodejs`: `nodejsLibp2pNetlayerFactory` (builds QUIC/TCP direct transports from
+    `config.directListenAddresses`) and `buildDirectTransports`.
+  - `./relay`: `startRelay` (moved from `@metamask/kernel-utils/libp2p`; `RELAY_LOCAL_ID = 200`,
+    ports 9001/9002).
+  - `error-mapper.ts`: `mapLibp2pReadError`, `isIntentionalDisconnect`, `isRetryableLibp2pError`
+    (neutral `isRetryableNetworkError` ∪ libp2p name/message sniffing), and `mapLibp2pDialError`
+    (maps retryable-by-name libp2p dial errors → neutral `ChannelResetError`; passes Node-code and
+    neutral errors through so the engine's permanent-failure detection is unchanged).
+    `connection-factory.dial` applies `mapLibp2pDialError`; `kernel-errors`'
+    `isRetryableNetworkError`/`getNetworkErrorCode` were reduced to the neutral subset.
+  - Deps: `@metamask/{netlayer,kernel-errors,kernel-utils,logger,superstruct}`,
+    `@multiformats/multiaddr`, `uint8arrays`, and the full `@libp2p`/`@chainsafe`/`libp2p` family.
+    `sideEffects: false`.
+- **Contract shapes (LANDED).** `NetlayerSpecifier = { netlayer: string; config: Json }`;
+  `NetlayerRegistry = Record<string, NetlayerFactory>` (config `Json`). `PlatformServices.initializeRemoteComms`
+  is `(params: { keySeed; specifier: NetlayerSpecifier; hooks: NetlayerHooks; incarnationId? }) => Promise<void>`.
+  `NodejsPlatformServices` ctor and `PlatformServicesServer` ctor/`make` take a `netlayers: NetlayerRegistry`
+  (`PlatformServicesServer` as `args: { netlayers; logger? }`). `PlatformServicesClient.initializeRemoteComms`
+  takes the same options bag and keeps hooks locally (only `keySeed` + `specifier` + `incarnationId` cross RPC).
+  The RPC hook `InitializeRemoteComms` stayed **positional** `(keySeed, specifier, incarnationId?)`.
+- **Config convention.** The kernel understands exactly one netlayer-config key by convention:
+  `knownRelays: string[]` — the opaque hint pool it persists and re-injects.
+  `remote-comms.ts` merges bootstrap `config.knownRelays` into the store then overwrites
+  `config.knownRelays` with the full persisted pool; `mnemonic` never enters `specifier.config`.
+  `DEFAULT_NETLAYER = 'libp2p'` (in `remotes/kernel/remote-comms.ts`) covers omitted specifiers.
+- **RPC structs.** `rpc/platform-services/initializeRemoteComms.ts` and
+  `rpc/kernel-control/init-remote-comms.ts` validate `specifier.config` with `JsonStruct`
+  (`@metamask/utils`); the kernel-control struct drops `mnemonic`.
+- **`comms-query-string`.** `createCommsQueryString({ netlayer, config, maxQueue?, ackTimeoutMs?,
+maxUrlRelayHints?, maxKnownRelays? })` sets `netlayer` + `netlayer-config` (JSON) + numeric params;
+  `parseCommsQueryString`/`getCommsParamsFromCurrentLocation` return `RemoteCommsOptions` with a
+  `specifier` (omitted when no `netlayer` param). Extension/omnium `offscreen.ts` register
+  `{ libp2p: libp2pNetlayerFactory }` and pass a specifier; the multiaddr reads `process.env.RELAY_MULTIADDR`.
+- **ocap-kernel is libp2p-free.** `packages/ocap-kernel/package.json` has zero
+  `@libp2p`/`@chainsafe`/`@multiformats`/`libp2p` deps (plain `multiformats` + `@scure/bip39` stay).
+  `initTransport`, `DirectTransport`, and `ConnectionFactoryOptions` are gone; `RemoteCommsOptions`
+  is the kernel-owned subset + `specifier`.
+- **DEVIATION — endoify-node `@libp2p/webrtc` relocation (§3.7) DEFERRED.** kernel-shims still owns
+  the pre-lockdown `import '@libp2p/webrtc'` in `endoify-node.js` (peer dep retained). Every
+  `@metamask/kernel-node-runtime` importer transitively loads `@libp2p/webrtc` at module-eval (via
+  `make-kernel` → the nodejs factory → `connection-factory`), so relocating the pre-lockdown import
+  means repointing ~7 packages with a silent-lockdown-failure risk; it is not required for the
+  ocap-kernel zero-libp2p gate. Left as a Phase 6 / future-work follow-up (Phase 5 is deferred —
+  see below).
+- **DEVIATION — browser `PlatformServicesServer` does not capture `getListenAddresses`** (the client
+  returns `[]` for Node-only direct transport; capturing it would be dead code).
+- **Coverage.** Every touched package meets/exceeds its pre-phase baseline (netlayer-libp2p new at
+  96.75% stmts / 94.11% branch; kernel-errors raised to 100%); extraction dips were closed with
+  behavior-asserting tests. Extension `offscreen.js` bundle unchanged (~1,320 kB / 435 kB gzip).
+
+**Phase 5 — `@metamask/netlayer-websocket`.** ~3–4 days. **DEFERRED — not executed in this
+effort; remains future work.** Per a user directive after Phase 4, the effort skips straight from
+Phase 4 to Phase 6 (cleanup + docs). The plan below stands as the future-work description; when it
+is eventually picked up it must first be reconciled against the landed state of Phases 1–4 **and 6**
+(see the deferral banner in `phase-5.md`).
 `ChannelProvider` over WebSocket: client dials `wss://` hints (browser + node); `./nodejs` server
 authenticates peers via mutual Ed25519 challenge-signature handshake (new security-sensitive
 code — keep minimal, flag for crypto review). Topology decision: the hub is a **kernel
@@ -369,12 +432,13 @@ unsupported (that's what the libp2p netlayer's relays are for). Reuses `makeChan
 shared machinery — this is the proof the abstraction isn't libp2p-shaped. Parameterize
 `kernel-test` integration over netlayers (loopback always; libp2p/websocket where infra allows).
 
-**Phase 6 — Cleanup + docs.** ~1–2 days.
+**Phase 6 — Cleanup + docs.** ~1–2 days. **Follows Phase 4 directly** (Phase 5 deferred).
 Optional relay→"location hints" terminology rename in store/`RemoteIdentity`, glossary entries,
 changelogs (update-changelogs skill), "writing a netlayer" doc, note iroh as the next (Node-only)
 implementation with a pointer to #968.
 
-**Total: ~16–22 dev-days.**
+**Total: ~16–22 dev-days** across all six phases; **~13–18 dev-days for the executed scope**
+(Phases 1–4 + 6, with Phase 5 deferred).
 
 ## Risks
 
@@ -398,8 +462,8 @@ implementation with a pointer to #968.
 - After Phase 4: run the extension example (`@ocap/extension` `test:e2e`) and a two-kernel Node
   scenario over the relay (`ocap relay start` + `kernel-test/src/remote-comms.test.ts`) to confirm
   ocap-URL redemption and message delivery across the new injection path.
-- After Phase 5: two-kernel WebSocket hub-and-spoke integration test; loopback-based multi-kernel
-  test in-process.
+- After Phase 5 (deferred): two-kernel WebSocket hub-and-spoke integration test; loopback-based
+  multi-kernel test in-process. The loopback-based multi-kernel coverage already lands with Phase 3.
 - Confirm `packages/ocap-kernel/package.json` has zero `libp2p`/`@libp2p`/`@chainsafe`/
   `@multiformats` deps at the end of Phase 4. (Plain `multiformats` is not libp2p and stays —
   `base58btc` is the neutral identity/oid encoding.)

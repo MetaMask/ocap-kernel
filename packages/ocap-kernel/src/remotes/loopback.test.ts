@@ -20,26 +20,28 @@ describe('loopback remote comms', () => {
     const platformServicesA = makeLoopbackPlatformServices({ hub });
     const platformServicesB = makeLoopbackPlatformServices({ hub });
 
-    await platformServicesB.initializeRemoteComms(
-      SEED_B,
-      {},
-      async (from: string, message: string) => {
-        receivedByB.push([from, message]);
-        return message === 'ping' ? 'pong' : null;
+    await platformServicesB.initializeRemoteComms({
+      keySeed: SEED_B,
+      specifier: { netlayer: 'loopback', config: {} },
+      hooks: {
+        handleMessage: async (from: string, message: string) => {
+          receivedByB.push([from, message]);
+          return message === 'ping' ? 'pong' : null;
+        },
       },
-      undefined,
-      'incarnation-b',
-    );
-    await platformServicesA.initializeRemoteComms(
-      SEED_A,
-      {},
-      async (from: string, message: string) => {
-        receivedByA.push([from, message]);
-        return null;
+      incarnationId: 'incarnation-b',
+    });
+    await platformServicesA.initializeRemoteComms({
+      keySeed: SEED_A,
+      specifier: { netlayer: 'loopback', config: {} },
+      hooks: {
+        handleMessage: async (from: string, message: string) => {
+          receivedByA.push([from, message]);
+          return null;
+        },
       },
-      undefined,
-      'incarnation-a',
-    );
+      incarnationId: 'incarnation-a',
+    });
 
     await platformServicesA.sendRemoteMessage(peerB, 'ping');
 
@@ -56,20 +58,18 @@ describe('loopback remote comms', () => {
     const peerB = deriveNeutralPeerId(fromHex(SEED_B));
     const platformServicesB = makeLoopbackPlatformServices({ hub });
     const platformServicesA = makeLoopbackPlatformServices({ hub });
-    await platformServicesB.initializeRemoteComms(
-      SEED_B,
-      {},
-      vi.fn().mockResolvedValue(null),
-      undefined,
-      'incarnation-b',
-    );
-    await platformServicesA.initializeRemoteComms(
-      SEED_A,
-      {},
-      vi.fn().mockResolvedValue(null),
-      undefined,
-      'incarnation-a',
-    );
+    await platformServicesB.initializeRemoteComms({
+      keySeed: SEED_B,
+      specifier: { netlayer: 'loopback', config: {} },
+      hooks: { handleMessage: vi.fn().mockResolvedValue(null) },
+      incarnationId: 'incarnation-b',
+    });
+    await platformServicesA.initializeRemoteComms({
+      keySeed: SEED_A,
+      specifier: { netlayer: 'loopback', config: {} },
+      hooks: { handleMessage: vi.fn().mockResolvedValue(null) },
+      incarnationId: 'incarnation-a',
+    });
 
     expect(platformServicesA.getListenAddresses()).toStrictEqual([]);
     expect(
@@ -106,13 +106,12 @@ describe('loopback remote comms', () => {
     const hub = makeLoopbackHub();
     const peerA = deriveNeutralPeerId(fromHex(SEED_A));
     const platformServices = makeLoopbackPlatformServices({ hub });
-    await platformServices.initializeRemoteComms(
-      SEED_A,
-      {},
-      vi.fn().mockResolvedValue(null),
-      undefined,
-      'incarnation-a',
-    );
+    await platformServices.initializeRemoteComms({
+      keySeed: SEED_A,
+      specifier: { netlayer: 'loopback', config: {} },
+      hooks: { handleMessage: vi.fn().mockResolvedValue(null) },
+      incarnationId: 'incarnation-a',
+    });
     expect(hub.getIncarnation(peerA)).toBe('incarnation-a');
 
     await platformServices.stopRemoteComms();

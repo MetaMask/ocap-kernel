@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { initTransport } from './transport.ts';
+import { makeLibp2pNetlayer } from './make-libp2p-netlayer.ts';
 
 // A stand-in for the netlayer the engine returns; identity comes from the provider.
 const netlayerSentinel = {
@@ -38,29 +38,31 @@ vi.mock('@metamask/netlayer', async (importOriginal) => ({
   makeChannelNetlayer: (params: unknown) => makeChannelNetlayerMock(params),
 }));
 
-describe('initTransport', () => {
+const hooks = { handleMessage: vi.fn() };
+
+describe('makeLibp2pNetlayer', () => {
   beforeEach(() => {
     makeConnectionFactory.mockClear().mockResolvedValue(mockProvider);
     makeChannelNetlayerMock.mockClear().mockReturnValue(netlayerSentinel);
   });
 
-  it('constructs the libp2p ConnectionFactory with the provider options', async () => {
+  it('constructs the ConnectionFactory with the provider-owned options', async () => {
     const directTransports = [
       {
         transport: { tag: 'quic' },
         listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
       },
     ];
-    await initTransport(
-      '0xabcd',
-      {
-        relays: ['/dns4/relay.example/tcp/443/wss/p2p/relay1'],
+    await makeLibp2pNetlayer({
+      keySeed: '0xabcd',
+      hooks,
+      config: {
+        knownRelays: ['/dns4/relay.example/tcp/443/wss/p2p/relay1'],
         maxRetryAttempts: 5,
-        directTransports,
         allowedWsHosts: ['relay.example'],
       },
-      vi.fn(),
-    );
+      directTransports,
+    });
 
     expect(makeConnectionFactory).toHaveBeenCalledWith({
       keySeed: '0xabcd',
@@ -74,8 +76,8 @@ describe('initTransport', () => {
     });
   });
 
-  it('defaults relays to an empty array and message size to 1MB', async () => {
-    await initTransport('0x1234', {}, vi.fn());
+  it('defaults knownRelays to an empty array and message size to 1MB', async () => {
+    await makeLibp2pNetlayer({ keySeed: '0x1234', hooks, config: {} });
 
     expect(makeConnectionFactory).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -88,7 +90,11 @@ describe('initTransport', () => {
   });
 
   it('honors an explicit maxMessageSizeBytes', async () => {
-    await initTransport('0x1234', { maxMessageSizeBytes: 42 }, vi.fn());
+    await makeLibp2pNetlayer({
+      keySeed: '0x1234',
+      hooks,
+      config: { maxMessageSizeBytes: 42 },
+    });
 
     expect(makeConnectionFactory).toHaveBeenCalledWith(
       expect.objectContaining({ maxMessageSizeBytes: 42 }),
@@ -96,25 +102,20 @@ describe('initTransport', () => {
   });
 
   it('delegates to makeChannelNetlayer with the mapped engine options and hooks', async () => {
-    const handleMessage = vi.fn();
-    const onRemoteGiveUp = vi.fn();
-    const onIncarnationChange = vi.fn();
-    const result = await initTransport(
-      '0x1234',
-      {
+    const result = await makeLibp2pNetlayer({
+      keySeed: '0x1234',
+      incarnationId: 'incarnation-x',
+      hooks,
+      config: {
         maxConcurrentConnections: 7,
         cleanupIntervalMs: 111,
         streamInactivityTimeoutMs: 222,
       },
-      handleMessage,
-      onRemoteGiveUp,
-      'incarnation-x',
-      onIncarnationChange,
-    );
+    });
 
     expect(makeChannelNetlayerMock).toHaveBeenCalledWith({
       provider: mockProvider,
-      hooks: { handleMessage, onRemoteGiveUp, onIncarnationChange },
+      hooks,
       options: expect.objectContaining({
         maxConcurrentConnections: 7,
         cleanupIntervalMs: 111,

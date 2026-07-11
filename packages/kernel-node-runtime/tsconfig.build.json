@@ -12,6 +12,7 @@
     { "path": "../ocap-kernel/tsconfig.build.json" },
     { "path": "../logger/tsconfig.build.json" },
     { "path": "../kernel-utils/tsconfig.build.json" },
+    { "path": "../netlayer-libp2p/tsconfig.build.json" },
     { "path": "../streams/tsconfig.build.json" },
     { "path": "../kernel-store/tsconfig.build.json" }
   ],

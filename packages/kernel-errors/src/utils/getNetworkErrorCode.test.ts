@@ -40,30 +40,21 @@ describe('getNetworkErrorCode', () => {
     });
   });
 
-  describe('relay reservation errors', () => {
-    it('returns name for Error with NO_RESERVATION in message (name takes precedence)', () => {
+  describe('message content is not sniffed', () => {
+    it('returns the name for a named error regardless of message', () => {
       const error = new Error(
         'failed to connect via relay with status NO_RESERVATION',
       );
-      // name ('Error') takes precedence over message parsing
+      // name ('Error') is returned; message content is not parsed
       expect(getNetworkErrorCode(error)).toBe('Error');
     });
 
-    it('returns NO_RESERVATION when error has empty name', () => {
+    it('returns UNKNOWN when a message-only error has an empty name', () => {
       const error = Object.assign(
         new Error('failed to connect via relay with status NO_RESERVATION'),
         { name: '' },
       );
-      expect(getNetworkErrorCode(error)).toBe('NO_RESERVATION');
-    });
-
-    it('returns name when both name and NO_RESERVATION message are present', () => {
-      const error = Object.assign(
-        new Error('failed to connect via relay with status NO_RESERVATION'),
-        { name: 'InvalidMessageError' },
-      );
-      // name takes precedence over message parsing
-      expect(getNetworkErrorCode(error)).toBe('InvalidMessageError');
+      expect(getNetworkErrorCode(error)).toBe('UNKNOWN');
     });
   });
 

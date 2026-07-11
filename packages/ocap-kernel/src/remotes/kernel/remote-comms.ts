@@ -1,6 +1,7 @@
 import { toHex, fromHex } from '@metamask/kernel-utils';
 import type { Logger } from '@metamask/logger';
 import { deriveNeutralPeerId } from '@metamask/netlayer';
+import type { Json } from '@metamask/utils';
 import { base58btc } from 'multiformats/bases/base58';
 
 import type { KernelStore, RelayEntry } from '../../store/index.ts';
@@ -21,6 +22,13 @@ export type OcapURLParts = {
   host: string;
   hints: string[];
 };
+
+/**
+ * The netlayer selected when a caller omits a specifier. The kernel treats a
+ * missing specifier as "use libp2p" during the transition to explicit netlayer
+ * selection.
+ */
+export const DEFAULT_NETLAYER = 'libp2p';
 
 /**
  * Default maximum number of relay hints embedded in a single OCAP URL.
@@ -439,22 +447,36 @@ export async function initRemoteComms(
   incarnationId?: string,
   onIncarnationChange?: OnIncarnationChange,
 ): Promise<RemoteComms> {
-  const {
-    relays = [],
-    mnemonic,
-    maxUrlRelayHints,
-    maxKnownRelays,
-    ...platformOptions
-  } = options;
+  const { specifier, mnemonic, maxUrlRelayHints, maxKnownRelays } = options;
+  const netlayer = specifier?.netlayer ?? DEFAULT_NETLAYER;
+  const specifierConfig = specifier?.config;
+  const config: Record<string, Json> =
+    specifierConfig !== null &&
+    typeof specifierConfig === 'object' &&
+    !Array.isArray(specifierConfig)
+      ? { ...specifierConfig }
+      : {};
+
+  // By convention the kernel understands exactly one netlayer-config key —
+  // `knownRelays: string[]` — which it treats as the opaque hint pool it
+  // persists and re-injects. Bootstrap hints the caller supplied travel there.
+  const bootstrapHints = Array.isArray(config.knownRelays)
+    ? config.knownRelays.filter(
+        (hint): hint is string => typeof hint === 'string',
+      )
+    : [];
 
   const result = await initRemoteIdentity(
     kernelStore,
-    { relays, mnemonic, maxUrlRelayHints, maxKnownRelays },
+    { relays: bootstrapHints, mnemonic, maxUrlRelayHints, maxKnownRelays },
     logger,
     keySeed,
   );
 
   const { identity, knownRelays } = result;
+
+  // Overwrite with the full persisted pool the store now owns.
+  config.knownRelays = knownRelays;
 
   logger?.log(`relays: ${JSON.stringify(knownRelays)}`);
 
@@ -462,16 +484,17 @@ export async function initRemoteComms(
   // called before initializeRemoteComms to capture the pre-restart timestamp.
   const wakeDetected = kernelStore.detectWake();
 
-  // Omit mnemonic (sensitive key material) from the options passed to
-  // platform services, which only needs network-level configuration.
-  await platformServices.initializeRemoteComms(
-    result.keySeed,
-    { ...platformOptions, relays: knownRelays },
-    remoteMessageHandler,
-    onRemoteGiveUp,
-    incarnationId,
-    onIncarnationChange,
-  );
+  // `mnemonic` (sensitive key material) is never placed in `specifier.config`.
+  await platformServices.initializeRemoteComms({
+    keySeed: result.keySeed,
+    specifier: { netlayer, config },
+    hooks: {
+      handleMessage: remoteMessageHandler,
+      ...(onRemoteGiveUp && { onRemoteGiveUp }),
+      ...(onIncarnationChange && { onIncarnationChange }),
+    },
+    ...(incarnationId !== undefined && { incarnationId }),
+  });
 
   if (wakeDetected) {
     logger?.log('Cross-incarnation wake detected, resetting backoffs');

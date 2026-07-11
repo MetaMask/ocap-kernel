@@ -1,6 +1,6 @@
 import type { Libp2p } from '@libp2p/interface';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
-import { startRelay } from '@metamask/kernel-utils/libp2p';
+import { startRelay } from '@metamask/netlayer-libp2p/relay';
 import { Kernel, kunser, makeKernelStore } from '@metamask/ocap-kernel';
 import { delay } from '@ocap/repo-tools/test-utils';
 import { mkdtemp, rm } from 'node:fs/promises';

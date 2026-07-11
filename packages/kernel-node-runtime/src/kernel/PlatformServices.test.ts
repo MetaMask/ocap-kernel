@@ -73,31 +73,26 @@ vi.mock('node:worker_threads', () => ({
   }),
 }));
 
-vi.mock('@chainsafe/libp2p-quic', () => ({
-  quic: () => ({ tag: 'mock-quic-transport' }),
+const mockGetListenAddresses = vi.fn(() => [
+  '/ip4/127.0.0.1/udp/12345/quic-v1/p2p/mock-peer-id',
+]);
+
+// A fake netlayer factory (registry entry) capturing the params it receives.
+const fakeNetlayerFactory = vi.fn(async () => ({
+  sendRemoteMessage: mockSendRemoteMessage,
+  stop: mockStop,
+  closeConnection: mockCloseConnection,
+  registerLocationHints: mockRegisterLocationHints,
+  reconnectPeer: mockReconnectPeer,
+  resetAllBackoffs: vi.fn(),
+  getListenAddresses: mockGetListenAddresses,
 }));
 
-vi.mock('@libp2p/tcp', () => ({
-  tcp: () => ({ tag: 'mock-tcp-transport' }),
-}));
-
-vi.mock('@metamask/ocap-kernel', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@metamask/ocap-kernel')>();
-  return {
-    ...actual,
-    initTransport: vi.fn(async () => ({
-      sendRemoteMessage: mockSendRemoteMessage,
-      stop: mockStop,
-      closeConnection: mockCloseConnection,
-      registerLocationHints: mockRegisterLocationHints,
-      reconnectPeer: mockReconnectPeer,
-      resetAllBackoffs: vi.fn(),
-      getListenAddresses: vi.fn(() => [
-        '/ip4/127.0.0.1/udp/12345/quic-v1/p2p/mock-peer-id',
-      ]),
-    })),
-  };
-});
+const netlayers = {
+  libp2p: fakeNetlayerFactory,
+} as unknown as ConstructorParameters<
+  typeof NodejsPlatformServices
+>[0]['netlayers'];
 
 describe('NodejsPlatformServices', () => {
   beforeEach(() => {
@@ -111,7 +106,7 @@ describe('NodejsPlatformServices', () => {
   });
 
   it('constructs an instance without any arguments', () => {
-    const instance = new NodejsPlatformServices({});
+    const instance = new NodejsPlatformServices({ netlayers });
     expect(instance).toBeInstanceOf(NodejsPlatformServices);
   });
 
@@ -123,6 +118,7 @@ describe('NodejsPlatformServices', () => {
     it('creates a NodeWorker and returns a NodeWorkerDuplexStream', async () => {
       const service = new NodejsPlatformServices({
         workerFilePath,
+        netlayers,
       });
       const testVatId: VatId = getTestVatId();
       const stream = await service.launch(testVatId);
@@ -133,13 +129,13 @@ describe('NodejsPlatformServices', () => {
     it('rejects if synchronize fails', async () => {
       const rejected = 'test-reject-value';
       mocks.stream.synchronize.mockRejectedValue(rejected);
-      const service = new NodejsPlatformServices({ workerFilePath });
+      const service = new NodejsPlatformServices({ workerFilePath, netlayers });
       const testVatId: VatId = getTestVatId();
       await expect(service.launch(testVatId)).rejects.toThrowError(rejected);
     });
 
     it('throws error if worker already exists', async () => {
-      const service = new NodejsPlatformServices({ workerFilePath });
+      const service = new NodejsPlatformServices({ workerFilePath, netlayers });
       const testVatId: VatId = getTestVatId();
 
       await service.launch(testVatId);
@@ -151,7 +147,7 @@ describe('NodejsPlatformServices', () => {
     });
 
     it('rejects if worker errors during startup', async () => {
-      const service = new NodejsPlatformServices({ workerFilePath });
+      const service = new NodejsPlatformServices({ workerFilePath, netlayers });
       const testVatId: VatId = getTestVatId();
 
       // Create a worker that won't auto-emit 'online' (for error testing)
@@ -176,7 +172,7 @@ describe('NodejsPlatformServices', () => {
     });
 
     it('rejects if worker exits during startup', async () => {
-      const service = new NodejsPlatformServices({ workerFilePath });
+      const service = new NodejsPlatformServices({ workerFilePath, netlayers });
       const testVatId: VatId = getTestVatId();
 
       // Create a worker that won't auto-emit 'online' (for exit testing)
@@ -204,6 +200,7 @@ describe('NodejsPlatformServices', () => {
     it('terminates the target vat', async () => {
       const service = new NodejsPlatformServices({
         workerFilePath,
+        netlayers,
       });
       const testVatId: VatId = getTestVatId();
 
@@ -217,6 +214,7 @@ describe('NodejsPlatformServices', () => {
     it('throws when terminating an unknown vat', async () => {
       const service = new NodejsPlatformServices({
         workerFilePath,
+        netlayers,
       });
       const testVatId: VatId = getTestVatId();
 
@@ -230,6 +228,7 @@ describe('NodejsPlatformServices', () => {
     it('terminates all vats', async () => {
       const service = new NodejsPlatformServices({
         workerFilePath,
+        netlayers,
       });
       const vatIds: VatId[] = [getTestVatId(), getTestVatId(), getTestVatId()];
 
@@ -246,436 +245,198 @@ describe('NodejsPlatformServices', () => {
   });
 
   describe('remote communications', () => {
+    const specifier = {
+      netlayer: 'libp2p',
+      config: {
+        knownRelays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+      },
+    };
+    const makeInit = (
+      overrides: Record<string, unknown> = {},
+    ): Parameters<NodejsPlatformServices['initializeRemoteComms']>[0] => ({
+      keySeed: '0x1234567890abcdef',
+      specifier,
+      hooks: { handleMessage: vi.fn(async () => 'response') },
+      ...overrides,
+    });
+
     describe('initializeRemoteComms', () => {
-      it('initializes remote comms with keySeed and relays', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const keySeed = '0x1234567890abcdef';
-        const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-        const remoteHandler = vi.fn(async () => 'response');
+      it('looks up the netlayer factory with the keySeed, config, and hooks', async () => {
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
+        await service.initializeRemoteComms(makeInit());
 
-        await service.initializeRemoteComms(keySeed, { relays }, remoteHandler);
-
-        const { initTransport } = await import('@metamask/ocap-kernel');
-        expect(initTransport).toHaveBeenCalledWith(
-          keySeed,
-          { relays },
-          expect.any(Function),
-          undefined,
-          undefined,
-          undefined,
+        expect(fakeNetlayerFactory).toHaveBeenCalledWith(
+          expect.objectContaining({
+            keySeed: '0x1234567890abcdef',
+            config: specifier.config,
+            hooks: expect.objectContaining({
+              handleMessage: expect.any(Function),
+            }),
+          }),
         );
       });
 
-      it('initializes remote comms with all options', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const keySeed = '0x1234567890abcdef';
-        const options = {
-          relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
-          maxRetryAttempts: 5,
-          maxQueue: 100,
-        };
-        const remoteHandler = vi.fn(async () => 'response');
-
-        await service.initializeRemoteComms(keySeed, options, remoteHandler);
-
-        const { initTransport } = await import('@metamask/ocap-kernel');
-        expect(initTransport).toHaveBeenCalledWith(
-          keySeed,
-          options,
-          expect.any(Function),
-          undefined,
-          undefined,
-          undefined,
-        );
-      });
-
-      it('initializes remote comms with onRemoteGiveUp callback', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const keySeed = '0x1234567890abcdef';
-        const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-        const remoteHandler = vi.fn(async () => 'response');
-        const giveUpHandler = vi.fn();
-
+      it('forwards incarnationId and callbacks through the hooks', async () => {
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
+        const onRemoteGiveUp = vi.fn();
+        const onIncarnationChange = vi.fn(async () => true);
         await service.initializeRemoteComms(
-          keySeed,
-          { relays },
-          remoteHandler,
-          giveUpHandler,
+          makeInit({
+            hooks: {
+              handleMessage: vi.fn(async () => 'response'),
+              onRemoteGiveUp,
+              onIncarnationChange,
+            },
+            incarnationId: 'test-incarnation-id',
+          }),
         );
 
-        const { initTransport } = await import('@metamask/ocap-kernel');
-        expect(initTransport).toHaveBeenCalledWith(
-          keySeed,
-          { relays },
-          expect.any(Function),
-          giveUpHandler,
-          undefined,
-          undefined,
-        );
-      });
-
-      it('initializes remote comms with incarnationId', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const keySeed = '0x1234567890abcdef';
-        const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-        const remoteHandler = vi.fn(async () => 'response');
-        const giveUpHandler = vi.fn();
-        const incarnationId = 'test-incarnation-id';
-
-        await service.initializeRemoteComms(
-          keySeed,
-          { relays },
-          remoteHandler,
-          giveUpHandler,
-          incarnationId,
-        );
-
-        const { initTransport } = await import('@metamask/ocap-kernel');
-        expect(initTransport).toHaveBeenCalledWith(
-          keySeed,
-          { relays },
-          expect.any(Function),
-          giveUpHandler,
-          incarnationId,
-          undefined,
+        expect(fakeNetlayerFactory).toHaveBeenCalledWith(
+          expect.objectContaining({
+            incarnationId: 'test-incarnation-id',
+            hooks: expect.objectContaining({
+              onRemoteGiveUp,
+              onIncarnationChange,
+            }),
+          }),
         );
       });
 
-      it('initializes remote comms with onIncarnationChange callback', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const keySeed = '0x1234567890abcdef';
-        const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-        const remoteHandler = vi.fn(async () => 'response');
-        const giveUpHandler = vi.fn();
-        const incarnationId = 'test-incarnation-id';
-        const incarnationChangeHandler = vi.fn();
-
-        await service.initializeRemoteComms(
-          keySeed,
-          { relays },
-          remoteHandler,
-          giveUpHandler,
-          incarnationId,
-          incarnationChangeHandler,
-        );
-
-        const { initTransport } = await import('@metamask/ocap-kernel');
-        expect(initTransport).toHaveBeenCalledWith(
-          keySeed,
-          { relays },
-          expect.any(Function),
-          giveUpHandler,
-          incarnationId,
-          incarnationChangeHandler,
-        );
+      it('throws for an unknown netlayer', async () => {
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
+        await expect(
+          service.initializeRemoteComms(
+            makeInit({ specifier: { netlayer: 'nope', config: {} } }),
+          ),
+        ).rejects.toThrow('Unknown netlayer: "nope"');
       });
 
       it('throws error if already initialized', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const keySeed = '0xabcd';
-        const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-        const remoteHandler = vi.fn(async () => 'response');
-
-        await service.initializeRemoteComms(keySeed, { relays }, remoteHandler);
-
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
+        await service.initializeRemoteComms(makeInit());
         await expect(
-          service.initializeRemoteComms(keySeed, { relays }, remoteHandler),
+          service.initializeRemoteComms(makeInit()),
         ).rejects.toThrowError('remote comms already initialized');
-      });
-
-      it('stores remote message handler for later use', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const remoteHandler = vi.fn(async () => 'response');
-
-        await service.initializeRemoteComms(
-          '0xtest',
-          { relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'] },
-          remoteHandler,
-        );
-
-        // Handler is stored internally and will be used when messages arrive
-        // This is tested through integration tests
-        expect(service).toBeInstanceOf(NodejsPlatformServices);
-      });
-
-      it('injects QUIC directTransports when directListenAddresses contain /quic-v1', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const keySeed = '0x1234567890abcdef';
-        const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-        const remoteHandler = vi.fn(async () => 'response');
-
-        await service.initializeRemoteComms(
-          keySeed,
-          {
-            relays,
-            directListenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
-          },
-          remoteHandler,
-        );
-
-        const { initTransport } = await import('@metamask/ocap-kernel');
-        expect(initTransport).toHaveBeenCalledWith(
-          keySeed,
-          expect.objectContaining({
-            relays,
-            directTransports: [
-              {
-                transport: { tag: 'mock-quic-transport' },
-                listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
-              },
-            ],
-          }),
-          expect.any(Function),
-          undefined,
-          undefined,
-          undefined,
-        );
-      });
-
-      it('injects TCP directTransports when directListenAddresses contain /tcp/', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const keySeed = '0x1234567890abcdef';
-        const remoteHandler = vi.fn(async () => 'response');
-
-        await service.initializeRemoteComms(
-          keySeed,
-          {
-            directListenAddresses: ['/ip4/0.0.0.0/tcp/4001'],
-          },
-          remoteHandler,
-        );
-
-        const { initTransport } = await import('@metamask/ocap-kernel');
-        expect(initTransport).toHaveBeenCalledWith(
-          keySeed,
-          expect.objectContaining({
-            directTransports: [
-              {
-                transport: { tag: 'mock-tcp-transport' },
-                listenAddresses: ['/ip4/0.0.0.0/tcp/4001'],
-              },
-            ],
-          }),
-          expect.any(Function),
-          undefined,
-          undefined,
-          undefined,
-        );
-      });
-
-      it('injects both QUIC and TCP when directListenAddresses contain both', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const keySeed = '0x1234567890abcdef';
-        const remoteHandler = vi.fn(async () => 'response');
-
-        await service.initializeRemoteComms(
-          keySeed,
-          {
-            directListenAddresses: [
-              '/ip4/0.0.0.0/udp/0/quic-v1',
-              '/ip4/0.0.0.0/tcp/4001',
-            ],
-          },
-          remoteHandler,
-        );
-
-        const { initTransport } = await import('@metamask/ocap-kernel');
-        expect(initTransport).toHaveBeenCalledWith(
-          keySeed,
-          expect.objectContaining({
-            directTransports: [
-              {
-                transport: { tag: 'mock-quic-transport' },
-                listenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
-              },
-              {
-                transport: { tag: 'mock-tcp-transport' },
-                listenAddresses: ['/ip4/0.0.0.0/tcp/4001'],
-              },
-            ],
-          }),
-          expect.any(Function),
-          undefined,
-          undefined,
-          undefined,
-        );
-      });
-
-      it('throws for unsupported direct listen addresses', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const remoteHandler = vi.fn(async () => 'response');
-
-        await expect(
-          service.initializeRemoteComms(
-            '0xtest',
-            {
-              directListenAddresses: ['/ip4/0.0.0.0/udp/0/webrtc'],
-            },
-            remoteHandler,
-          ),
-        ).rejects.toThrowError('Unsupported direct listen address');
-      });
-
-      it('does not inject directTransports when no directListenAddresses provided', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const keySeed = '0x1234567890abcdef';
-        const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-        const remoteHandler = vi.fn(async () => 'response');
-
-        await service.initializeRemoteComms(keySeed, { relays }, remoteHandler);
-
-        const { initTransport } = await import('@metamask/ocap-kernel');
-        const callArgs = (
-          initTransport as unknown as ReturnType<typeof vi.fn>
-        ).mock.calls.at(-1);
-        // Second argument is the options
-        expect(callArgs?.[1]).not.toHaveProperty('directTransports');
       });
     });
 
     describe('getListenAddresses', () => {
       it('returns listen addresses after initialization', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const remoteHandler = vi.fn(async () => '');
-
-        await service.initializeRemoteComms(
-          '0xabcd',
-          { relays: [] },
-          remoteHandler,
-        );
-
-        const addresses = service.getListenAddresses();
-        expect(addresses).toStrictEqual([
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
+        await service.initializeRemoteComms(makeInit());
+        expect(service.getListenAddresses()).toStrictEqual([
           '/ip4/127.0.0.1/udp/12345/quic-v1/p2p/mock-peer-id',
         ]);
       });
 
       it('returns empty array before initialization', () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
         expect(service.getListenAddresses()).toStrictEqual([]);
       });
     });
 
     describe('sendRemoteMessage', () => {
       it('sends message via network layer', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const keySeed = '0xabcd';
-        const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-        const remoteHandler = vi.fn(async () => '');
-
-        await service.initializeRemoteComms(keySeed, { relays }, remoteHandler);
-
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
+        await service.initializeRemoteComms(makeInit());
         const message = JSON.stringify({
           method: 'deliver',
           params: ['hello'],
         });
         await service.sendRemoteMessage('peer-456', message);
-
         expect(mockSendRemoteMessage).toHaveBeenCalledWith('peer-456', message);
       });
 
       it('throws error if remote comms not initialized', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const message = JSON.stringify({ method: 'deliver', params: ['test'] });
-
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
         await expect(
-          service.sendRemoteMessage('peer-999', message),
+          service.sendRemoteMessage('peer-999', 'msg'),
         ).rejects.toThrowError('remote comms not initialized');
       });
     });
 
     describe('stopRemoteComms', () => {
       it('stops remote comms and cleans up', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        await service.initializeRemoteComms(
-          '0xtest',
-          {},
-          vi.fn(async () => ''),
-        );
-
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
+        await service.initializeRemoteComms(makeInit());
         await service.stopRemoteComms();
-
         expect(mockStop).toHaveBeenCalledOnce();
       });
 
       it('does nothing if remote comms not initialized', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
         await service.stopRemoteComms();
         expect(mockStop).not.toHaveBeenCalled();
       });
 
       it('allows re-initialization after stop', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        const keySeed = '0xabcd';
-        const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
-        const remoteHandler = vi.fn(async () => '');
-
-        // Initialize
-        await service.initializeRemoteComms(keySeed, { relays }, remoteHandler);
-
-        const { initTransport } = await import('@metamask/ocap-kernel');
-        const initTransportMock = initTransport as unknown as ReturnType<
-          typeof vi.fn
-        >;
-        const firstCallCount = initTransportMock.mock.calls.length;
-
-        // Stop
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
+        await service.initializeRemoteComms(makeInit());
+        const firstCallCount = fakeNetlayerFactory.mock.calls.length;
         await service.stopRemoteComms();
         expect(mockStop).toHaveBeenCalledOnce();
-
-        // Re-initialize should work
-        await service.initializeRemoteComms(keySeed, { relays }, remoteHandler);
-
-        // Should have called initTransport again
-        expect(initTransportMock.mock.calls).toHaveLength(firstCallCount + 1);
+        await service.initializeRemoteComms(makeInit());
+        expect(fakeNetlayerFactory.mock.calls).toHaveLength(firstCallCount + 1);
       });
 
       it('clears internal state after stop', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        await service.initializeRemoteComms(
-          '0xtest',
-          {},
-          vi.fn(async () => ''),
-        );
-
-        const message1 = JSON.stringify({
-          method: 'deliver',
-          params: ['msg1'],
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
         });
-        const message2 = JSON.stringify({
-          method: 'deliver',
-          params: ['msg2'],
-        });
-
-        // Should work before stop
-        await service.sendRemoteMessage('peer-1', message1);
+        await service.initializeRemoteComms(makeInit());
+        await service.sendRemoteMessage('peer-1', 'msg1');
         expect(mockSendRemoteMessage).toHaveBeenCalledTimes(1);
-
         await service.stopRemoteComms();
-
-        // Should throw after stop
         await expect(
-          service.sendRemoteMessage('peer-2', message2),
+          service.sendRemoteMessage('peer-2', 'msg2'),
         ).rejects.toThrowError('remote comms not initialized');
       });
 
       it('clears closeConnection and reconnectPeer after stop', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        await service.initializeRemoteComms(
-          '0xtest',
-          {},
-          vi.fn(async () => ''),
-        );
-
-        // Should work before stop
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
+        await service.initializeRemoteComms(makeInit());
         await service.closeConnection('peer-1');
         await service.reconnectPeer('peer-1');
         expect(mockCloseConnection).toHaveBeenCalledTimes(1);
         expect(mockReconnectPeer).toHaveBeenCalledTimes(1);
-
         await service.stopRemoteComms();
-
-        // Should throw after stop
         await expect(service.closeConnection('peer-2')).rejects.toThrowError(
           'remote comms not initialized',
         );
@@ -687,21 +448,20 @@ describe('NodejsPlatformServices', () => {
 
     describe('closeConnection', () => {
       it('closes connection via network layer', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        await service.initializeRemoteComms(
-          '0xtest',
-          {},
-          vi.fn(async () => ''),
-        );
-
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
+        await service.initializeRemoteComms(makeInit());
         await service.closeConnection('peer-123');
-
         expect(mockCloseConnection).toHaveBeenCalledWith('peer-123');
       });
 
       it('throws error if remote comms not initialized', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
         await expect(service.closeConnection('peer-999')).rejects.toThrowError(
           'remote comms not initialized',
         );
@@ -710,15 +470,12 @@ describe('NodejsPlatformServices', () => {
 
     describe('registerLocationHints', () => {
       it('registers location hints via network layer', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        await service.initializeRemoteComms(
-          '0xtest',
-          {},
-          vi.fn(async () => ''),
-        );
-
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
+        await service.initializeRemoteComms(makeInit());
         await service.registerLocationHints('peer-123', ['hint1', 'hint2']);
-
         expect(mockRegisterLocationHints).toHaveBeenCalledWith('peer-123', [
           'hint1',
           'hint2',
@@ -726,48 +483,44 @@ describe('NodejsPlatformServices', () => {
       });
 
       it('throws error if remote comms not initialized', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
         await expect(
-          service.registerLocationHints('peer-999', ['hint1', 'hint2']),
+          service.registerLocationHints('peer-999', ['hint1']),
         ).rejects.toThrowError('remote comms not initialized');
       });
     });
 
     describe('reconnectPeer', () => {
       it('reconnects peer via network layer', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        await service.initializeRemoteComms(
-          '0xtest',
-          {},
-          vi.fn(async () => ''),
-        );
-
-        await service.reconnectPeer('peer-456', [
-          '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
-        ]);
-
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
+        await service.initializeRemoteComms(makeInit());
+        await service.reconnectPeer('peer-456', ['/dns4/r.example/p2p/x']);
         expect(mockReconnectPeer).toHaveBeenCalledWith('peer-456', [
-          '/dns4/relay.example/tcp/443/wss/p2p/relayPeer',
+          '/dns4/r.example/p2p/x',
         ]);
       });
 
       it('reconnects peer with empty hints', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-        await service.initializeRemoteComms(
-          '0xtest',
-          {},
-          vi.fn(async () => ''),
-        );
-
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
+        await service.initializeRemoteComms(makeInit());
         await service.reconnectPeer('peer-789');
-
         expect(mockReconnectPeer).toHaveBeenCalledWith('peer-789', []);
       });
 
       it('throws error if remote comms not initialized', async () => {
-        const service = new NodejsPlatformServices({ workerFilePath });
-
+        const service = new NodejsPlatformServices({
+          workerFilePath,
+          netlayers,
+        });
         await expect(service.reconnectPeer('peer-999')).rejects.toThrowError(
           'remote comms not initialized',
         );

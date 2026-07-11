@@ -11,9 +11,8 @@ import {
   IntentionalDisconnectError,
   MessageTooLargeError,
 } from '@metamask/kernel-errors';
+import type { NetworkChannel } from '@metamask/netlayer';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-
-import type { NetworkChannel } from '../types.ts';
 
 // Mock heavy/libp2p related deps with minimal shims we can assert against.
 

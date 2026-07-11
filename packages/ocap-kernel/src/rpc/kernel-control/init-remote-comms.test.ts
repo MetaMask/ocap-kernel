@@ -7,6 +7,11 @@ import {
 } from './init-remote-comms.ts';
 import type { Kernel } from '../../Kernel.ts';
 
+const specifier = {
+  netlayer: 'libp2p',
+  config: { knownRelays: ['/dns4/relay.example/tcp/443/wss/p2p/relay'] },
+};
+
 describe('initRemoteCommsHandler', () => {
   let mockKernel: Kernel;
 
@@ -26,60 +31,21 @@ describe('initRemoteCommsHandler', () => {
     expect(result).toBeNull();
   });
 
-  it('passes relays option', async () => {
+  it('passes a specifier through to the kernel', async () => {
     const result = await initRemoteCommsHandler.implementation(
       { kernel: mockKernel },
-      { relays: ['/dns4/relay.example.com/tcp/443/wss/p2p/QmRelay'] },
+      { specifier },
     );
 
-    expect(mockKernel.initRemoteComms).toHaveBeenCalledWith({
-      relays: ['/dns4/relay.example.com/tcp/443/wss/p2p/QmRelay'],
-    });
+    expect(mockKernel.initRemoteComms).toHaveBeenCalledWith({ specifier });
     expect(result).toBeNull();
   });
 
-  it('passes directListenAddresses option', async () => {
-    const result = await initRemoteCommsHandler.implementation(
-      { kernel: mockKernel },
-      { directListenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'] },
-    );
-
-    expect(mockKernel.initRemoteComms).toHaveBeenCalledWith({
-      directListenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
-    });
-    expect(result).toBeNull();
-  });
-
-  it('passes maxUrlRelayHints option', async () => {
-    const result = await initRemoteCommsHandler.implementation(
-      { kernel: mockKernel },
-      { maxUrlRelayHints: 5 },
-    );
-
-    expect(mockKernel.initRemoteComms).toHaveBeenCalledWith({
-      maxUrlRelayHints: 5,
-    });
-    expect(result).toBeNull();
-  });
-
-  it('passes maxKnownRelays option', async () => {
-    const result = await initRemoteCommsHandler.implementation(
-      { kernel: mockKernel },
-      { maxKnownRelays: 30 },
-    );
-
-    expect(mockKernel.initRemoteComms).toHaveBeenCalledWith({
-      maxKnownRelays: 30,
-    });
-    expect(result).toBeNull();
-  });
-
-  it('passes all options', async () => {
+  it('passes kernel-level options', async () => {
     const params = {
-      relays: ['relay1'],
-      directListenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
-      maxRetryAttempts: 5,
+      specifier,
       maxQueue: 100,
+      ackTimeoutMs: 5000,
       maxUrlRelayHints: 3,
       maxKnownRelays: 20,
     };
@@ -89,14 +55,7 @@ describe('initRemoteCommsHandler', () => {
       params,
     );
 
-    expect(mockKernel.initRemoteComms).toHaveBeenCalledWith({
-      relays: ['relay1'],
-      directListenAddresses: ['/ip4/0.0.0.0/udp/0/quic-v1'],
-      maxRetryAttempts: 5,
-      maxQueue: 100,
-      maxUrlRelayHints: 3,
-      maxKnownRelays: 20,
-    });
+    expect(mockKernel.initRemoteComms).toHaveBeenCalledWith(params);
     expect(result).toBeNull();
   });
 
@@ -112,37 +71,26 @@ describe('initRemoteCommsHandler', () => {
   describe('params validation', () => {
     it('accepts valid params', () => {
       expect(is({}, initRemoteCommsSpec.params)).toBe(true);
+      expect(is({ specifier }, initRemoteCommsSpec.params)).toBe(true);
       expect(
-        is({ maxRetryAttempts: 0, maxQueue: 0 }, initRemoteCommsSpec.params),
-      ).toBe(true);
-      expect(
-        is({ maxRetryAttempts: 5, maxQueue: 100 }, initRemoteCommsSpec.params),
+        is({ maxQueue: 0, ackTimeoutMs: 0 }, initRemoteCommsSpec.params),
       ).toBe(true);
     });
 
-    it.each([-1, -100, 1.5, 3.14, -0.5])(
-      'rejects invalid maxRetryAttempts value: %s',
-      (value) => {
-        expect(
-          is({ maxRetryAttempts: value }, initRemoteCommsSpec.params),
-        ).toBe(false);
-      },
-    );
-
-    it.each([-1, -100, 1.5, 3.14, -0.5])(
-      'rejects invalid maxQueue value: %s',
-      (value) => {
-        expect(is({ maxQueue: value }, initRemoteCommsSpec.params)).toBe(false);
-      },
-    );
-
-    it.each([1, 3, 10])('accepts valid maxUrlRelayHints value: %s', (value) => {
-      expect(is({ maxUrlRelayHints: value }, initRemoteCommsSpec.params)).toBe(
-        true,
-      );
+    it('rejects a specifier with a non-string netlayer', () => {
+      expect(
+        is(
+          { specifier: { netlayer: 1, config: {} } },
+          initRemoteCommsSpec.params,
+        ),
+      ).toBe(false);
     });
 
-    it.each([0, -1, -100, 1.5, 3.14])(
+    it.each([-1, 1.5, -0.5])('rejects invalid maxQueue value: %s', (value) => {
+      expect(is({ maxQueue: value }, initRemoteCommsSpec.params)).toBe(false);
+    });
+
+    it.each([0, -1, 1.5])(
       'rejects invalid maxUrlRelayHints value: %s',
       (value) => {
         expect(
@@ -156,14 +104,5 @@ describe('initRemoteCommsHandler', () => {
         true,
       );
     });
-
-    it.each([0, -1, -100, 1.5, 3.14])(
-      'rejects invalid maxKnownRelays value: %s',
-      (value) => {
-        expect(is({ maxKnownRelays: value }, initRemoteCommsSpec.params)).toBe(
-          false,
-        );
-      },
-    );
   });
 });

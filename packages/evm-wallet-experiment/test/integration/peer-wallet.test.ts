@@ -2,6 +2,7 @@ import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import { nodejsLibp2pNetlayerFactory } from '@metamask/netlayer-libp2p/nodejs';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import type { KRef } from '@metamask/ocap-kernel';
 import { delay } from '@ocap/repo-tools/test-utils';
@@ -70,7 +71,9 @@ async function getConnectedInfo(kernel: Kernel): Promise<{
  * @returns The kernel instance.
  */
 async function makeTestKernel(kernelDatabase: KernelDatabase): Promise<Kernel> {
-  const platformServices = new NodejsPlatformServices({});
+  const platformServices = new NodejsPlatformServices({
+    netlayers: { libp2p: nodejsLibp2pNetlayerFactory },
+  });
   return Kernel.make(platformServices, kernelDatabase, {
     resetStorage: true,
   });
@@ -115,10 +118,16 @@ describe.sequential('Peer wallet integration', () => {
 
     // Initialize QUIC on both
     await kernel1.initRemoteComms({
-      directListenAddresses: [QUIC_LISTEN_ADDRESS],
+      specifier: {
+        netlayer: 'libp2p',
+        config: { directListenAddresses: [QUIC_LISTEN_ADDRESS] },
+      },
     });
     await kernel2.initRemoteComms({
-      directListenAddresses: [QUIC_LISTEN_ADDRESS],
+      specifier: {
+        netlayer: 'libp2p',
+        config: { directListenAddresses: [QUIC_LISTEN_ADDRESS] },
+      },
     });
 
     // Exchange location hints for direct connectivity

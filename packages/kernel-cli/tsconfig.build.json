@@ -11,6 +11,7 @@
   },
   "references": [
     { "path": "../logger/tsconfig.build.json" },
+    { "path": "../netlayer-libp2p/tsconfig.build.json" },
     { "path": "../kernel-utils/tsconfig.build.json" }
   ],
   "files": [],

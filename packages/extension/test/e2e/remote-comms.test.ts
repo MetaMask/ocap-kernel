@@ -1,4 +1,4 @@
-import { startRelay } from '@metamask/kernel-utils/libp2p';
+import { startRelay } from '@metamask/netlayer-libp2p/relay';
 import { test, expect } from '@playwright/test';
 import type { Page, BrowserContext } from '@playwright/test';
 import { rm } from 'node:fs/promises';

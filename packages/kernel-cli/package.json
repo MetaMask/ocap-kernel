@@ -51,6 +51,7 @@
     "@metamask/kernel-shims": "workspace:^",
     "@metamask/kernel-utils": "workspace:^",
     "@metamask/logger": "workspace:^",
+    "@metamask/netlayer-libp2p": "workspace:^",
     "@metamask/utils": "^11.9.0",
     "@types/node": "^22.13.1",
     "acorn": "^8.15.0",

@@ -21,6 +21,7 @@ import {
 } from '@metamask/kernel-node-runtime/daemon';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import { nodejsLibp2pNetlayerFactory } from '@metamask/netlayer-libp2p/nodejs';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 import * as net from 'node:net';
 import { tmpdir } from 'node:os';
@@ -163,7 +164,9 @@ async function main() {
   console.log('Booting daemon stack...');
   const socketPath = tempSocketPath();
   const kernelDb = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
-  const platformServices = new NodejsPlatformServices({});
+  const platformServices = new NodejsPlatformServices({
+    netlayers: { libp2p: nodejsLibp2pNetlayerFactory },
+  });
   const kernel = await Kernel.make(platformServices, kernelDb, {
     resetStorage: true,
   });

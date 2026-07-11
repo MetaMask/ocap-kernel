@@ -7,6 +7,7 @@ import {
   makeArrayTransport,
 } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
+import { nodejsLibp2pNetlayerFactory } from '@metamask/netlayer-libp2p/nodejs';
 import { Kernel } from '@metamask/ocap-kernel';
 import type { AllowedGlobalName, KRef, VatId } from '@metamask/ocap-kernel';
 import { getWorkerFile } from '@ocap/nodejs-test-workers';
@@ -33,6 +34,7 @@ describe('global endowments', () => {
     const platformServices = new NodejsPlatformServices({
       logger: logger.subLogger({ tags: ['vat-worker-manager'] }),
       workerFilePath: getWorkerFile('mock-fetch'),
+      netlayers: { libp2p: nodejsLibp2pNetlayerFactory },
     });
     const kernel = await Kernel.make(platformServices, database, {
       resetStorage: true,

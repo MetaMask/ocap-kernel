@@ -10,30 +10,6 @@ describe('isRetryableNetworkError', () => {
     });
   });
 
-  describe('libp2p errors', () => {
-    it('returns true for an error named MuxerClosedError', () => {
-      const error = Object.assign(new Error('Muxer closed'), {
-        name: 'MuxerClosedError',
-      });
-      expect(isRetryableNetworkError(error)).toBe(true);
-    });
-
-    it.each([
-      { name: 'DialError' },
-      { name: 'TransportError' },
-      { name: 'WebRTCDialError' },
-      { name: 'SomeTransportFailure' },
-      { name: 'CustomDialTimeout' },
-    ])(
-      'returns true for errors with name containing Dial or Transport: $name',
-      ({ name }) => {
-        const error = new Error('Connection failed');
-        error.name = name;
-        expect(isRetryableNetworkError(error)).toBe(true);
-      },
-    );
-  });
-
   describe('Node.js network error codes', () => {
     it.each([
       { code: 'ECONNRESET', description: 'connection reset by peer' },
@@ -50,42 +26,36 @@ describe('isRetryableNetworkError', () => {
     });
   });
 
-  describe('relay reservation errors', () => {
+  describe('transport-specific errors are not classified here', () => {
+    // These are mapped to neutral classes by the netlayer error mapper before
+    // reaching the neutral engine, so the neutral classifier treats them as
+    // non-retryable on their own.
     it.each([
       {
-        message: 'failed to connect via relay with status NO_RESERVATION',
-        description: 'full error message',
+        name: 'MuxerClosedError',
+        error: Object.assign(new Error('Muxer closed'), {
+          name: 'MuxerClosedError',
+        }),
       },
       {
-        message: 'NO_RESERVATION',
-        description: 'just NO_RESERVATION',
+        name: 'DialError',
+        error: Object.assign(new Error('Connection failed'), {
+          name: 'DialError',
+        }),
       },
       {
-        message: 'Error: NO_RESERVATION occurred',
-        description: 'NO_RESERVATION in error message',
+        name: 'TransportError',
+        error: Object.assign(new Error('Connection failed'), {
+          name: 'TransportError',
+        }),
       },
       {
-        message: 'Relay error: NO_RESERVATION - peer not ready',
-        description: 'NO_RESERVATION with context',
+        name: 'NO_RESERVATION message',
+        error: new Error(
+          'failed to connect via relay with status NO_RESERVATION',
+        ),
       },
-    ])(
-      'returns true for errors with message containing NO_RESERVATION: $description',
-      ({ message }) => {
-        const error = new Error(message);
-        expect(isRetryableNetworkError(error)).toBe(true);
-      },
-    );
-
-    it('returns true for InvalidMessageError with NO_RESERVATION', () => {
-      const error = Object.assign(
-        new Error('failed to connect via relay with status NO_RESERVATION'),
-        { name: 'InvalidMessageError' },
-      );
-      expect(isRetryableNetworkError(error)).toBe(true);
-    });
-
-    it('returns false for errors without NO_RESERVATION in message', () => {
-      const error = new Error('failed to connect via relay');
+    ])('returns false for $name', ({ error }) => {
       expect(isRetryableNetworkError(error)).toBe(false);
     });
   });
@@ -131,27 +101,5 @@ describe('isRetryableNetworkError', () => {
     },
   ])('returns false for $name', ({ value }) => {
     expect(isRetryableNetworkError(value)).toBe(false);
-  });
-
-  it.each([
-    {
-      name: 'name with Dial in the middle',
-      errorName: 'WebRTCDialTimeout',
-      expected: true,
-    },
-    {
-      name: 'name with Transport at the end',
-      errorName: 'WebSocketTransport',
-      expected: true,
-    },
-    {
-      name: 'lowercase dial/transport in name',
-      errorName: 'dialtimeout',
-      expected: false, // Case-sensitive check won't match, default is false
-    },
-  ])('returns $expected for $name', ({ errorName, expected }) => {
-    const error = new Error('error');
-    error.name = errorName;
-    expect(isRetryableNetworkError(error)).toBe(expected);
   });
 });

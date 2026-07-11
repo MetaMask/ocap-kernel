@@ -240,56 +240,34 @@ describe('PlatformServicesClient', () => {
 
     describe('remote communications', () => {
       describe('initializeRemoteComms', () => {
-        it('sends initializeRemoteComms request and resolves', async () => {
-          const remoteHandler = vi.fn(async () => 'response');
-          const result = client.initializeRemoteComms(
-            '0xabcd',
-            { relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'] },
-            remoteHandler,
-          );
+        const specifier = {
+          netlayer: 'libp2p',
+          config: {
+            knownRelays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+          },
+        };
+
+        it('sends an initializeRemoteComms request and resolves', async () => {
+          const result = client.initializeRemoteComms({
+            keySeed: '0xabcd',
+            specifier,
+            hooks: { handleMessage: vi.fn(async () => 'response') },
+          });
           await stream.receiveInput(makeNullReply('m1'));
           expect(await result).toBeUndefined();
         });
 
-        it('sends initializeRemoteComms with all options and resolves', async () => {
-          const remoteHandler = vi.fn(async () => 'response');
-          const result = client.initializeRemoteComms(
-            '0xabcd',
-            {
-              relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
-              maxRetryAttempts: 5,
-              maxQueue: 100,
+        it('sends the request with an incarnationId and callbacks', async () => {
+          const result = client.initializeRemoteComms({
+            keySeed: '0xabcd',
+            specifier,
+            hooks: {
+              handleMessage: vi.fn(async () => 'response'),
+              onRemoteGiveUp: vi.fn(),
+              onIncarnationChange: vi.fn(async () => true),
             },
-            remoteHandler,
-          );
-          await stream.receiveInput(makeNullReply('m1'));
-          expect(await result).toBeUndefined();
-        });
-
-        it('sends initializeRemoteComms with onRemoteGiveUp callback', async () => {
-          const remoteHandler = vi.fn(async () => 'response');
-          const giveUpHandler = vi.fn();
-          const result = client.initializeRemoteComms(
-            '0xabcd',
-            { relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'] },
-            remoteHandler,
-            giveUpHandler,
-          );
-          await stream.receiveInput(makeNullReply('m1'));
-          expect(await result).toBeUndefined();
-        });
-
-        it('filters undefined values from options', async () => {
-          const remoteHandler = vi.fn(async () => 'response');
-          const result = client.initializeRemoteComms(
-            '0xabcd',
-            {
-              relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
-              maxRetryAttempts: undefined,
-              maxQueue: undefined,
-            },
-            remoteHandler,
-          );
+            incarnationId: 'inc-1',
+          });
           await stream.receiveInput(makeNullReply('m1'));
           expect(await result).toBeUndefined();
         });
@@ -352,6 +330,21 @@ describe('PlatformServicesClient', () => {
         });
       });
 
+      describe('resetAllBackoffs', () => {
+        it('sends resetAllBackoffs request and resolves', async () => {
+          const result = client.resetAllBackoffs();
+          await delay(10);
+          await stream.receiveInput(makeNullReply('m1'));
+          expect(await result).toBeUndefined();
+        });
+      });
+
+      describe('getListenAddresses', () => {
+        it('returns an empty array (direct transport is Node-only)', () => {
+          expect(client.getListenAddresses()).toStrictEqual([]);
+        });
+      });
+
       describe('remoteDeliver', () => {
         it('throws error when handler not set', async () => {
           // Client without initialized remote comms
@@ -396,11 +389,11 @@ describe('PlatformServicesClient', () => {
           await delay(10);
 
           const remoteHandler = vi.fn(async () => 'response-message');
-          const initP = testClient.initializeRemoteComms(
-            '0xabcd',
-            {},
-            remoteHandler,
-          );
+          const initP = testClient.initializeRemoteComms({
+            keySeed: '0xabcd',
+            specifier: { netlayer: 'libp2p', config: {} },
+            hooks: { handleMessage: remoteHandler },
+          });
           await testStream.receiveInput(makeNullReply('m1'));
           await initP;
 
@@ -449,12 +442,14 @@ describe('PlatformServicesClient', () => {
 
           const remoteHandler = vi.fn(async () => 'response');
           const giveUpHandler = vi.fn();
-          const initP = testClient.initializeRemoteComms(
-            '0xabcd',
-            {},
-            remoteHandler,
-            giveUpHandler,
-          );
+          const initP = testClient.initializeRemoteComms({
+            keySeed: '0xabcd',
+            specifier: { netlayer: 'libp2p', config: {} },
+            hooks: {
+              handleMessage: remoteHandler,
+              onRemoteGiveUp: giveUpHandler,
+            },
+          });
           await testStream.receiveInput(makeNullReply('m1'));
           await initP;
 
@@ -529,14 +524,16 @@ describe('PlatformServicesClient', () => {
           const remoteHandler = vi.fn(async () => 'response');
           const giveUpHandler = vi.fn();
           const incarnationHandler = vi.fn(async () => true);
-          const initP = testClient.initializeRemoteComms(
-            '0xabcd',
-            {},
-            remoteHandler,
-            giveUpHandler,
-            'local-incarnation',
-            incarnationHandler,
-          );
+          const initP = testClient.initializeRemoteComms({
+            keySeed: '0xabcd',
+            specifier: { netlayer: 'libp2p', config: {} },
+            hooks: {
+              handleMessage: remoteHandler,
+              onRemoteGiveUp: giveUpHandler,
+              onIncarnationChange: incarnationHandler,
+            },
+            incarnationId: 'local-incarnation',
+          });
           await testStream.receiveInput(makeNullReply('m1'));
           await initP;
 
@@ -618,14 +615,15 @@ describe('PlatformServicesClient', () => {
           const incarnationHandler = vi.fn(
             async () => 'oops' as unknown as boolean,
           );
-          const initP = testClient.initializeRemoteComms(
-            '0xabcd',
-            {},
-            remoteHandler,
-            undefined,
-            'local-incarnation',
-            incarnationHandler,
-          );
+          const initP = testClient.initializeRemoteComms({
+            keySeed: '0xabcd',
+            specifier: { netlayer: 'libp2p', config: {} },
+            hooks: {
+              handleMessage: remoteHandler,
+              onIncarnationChange: incarnationHandler,
+            },
+            incarnationId: 'local-incarnation',
+          });
           await testStream.receiveInput(makeNullReply('m1'));
           await initP;
 
@@ -669,14 +667,15 @@ describe('PlatformServicesClient', () => {
           const incarnationHandler = vi.fn(async () => {
             throw new Error('handler exploded');
           });
-          const initP = testClient.initializeRemoteComms(
-            '0xabcd',
-            {},
-            remoteHandler,
-            undefined,
-            'local-incarnation',
-            incarnationHandler,
-          );
+          const initP = testClient.initializeRemoteComms({
+            keySeed: '0xabcd',
+            specifier: { netlayer: 'libp2p', config: {} },
+            hooks: {
+              handleMessage: remoteHandler,
+              onIncarnationChange: incarnationHandler,
+            },
+            incarnationId: 'local-incarnation',
+          });
           await testStream.receiveInput(makeNullReply('m1'));
           await initP;
 

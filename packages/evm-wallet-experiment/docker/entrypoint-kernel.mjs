@@ -18,6 +18,7 @@ import '@metamask/kernel-shims/endoify-node';
 import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import { startRpcSocketServer } from '@metamask/kernel-node-runtime/daemon';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
+import { nodejsLibp2pNetlayerFactory } from '@metamask/netlayer-libp2p/nodejs';
 import { Kernel } from '@metamask/ocap-kernel';
 import {
   createWriteStream,
@@ -73,9 +74,15 @@ async function main() {
 
   console.log(`[${NAME}] Booting kernel...`);
   const db = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
-  const kernel = await Kernel.make(new NodejsPlatformServices({}), db, {
-    resetStorage: true,
-  });
+  const kernel = await Kernel.make(
+    new NodejsPlatformServices({
+      netlayers: { libp2p: nodejsLibp2pNetlayerFactory },
+    }),
+    db,
+    {
+      resetStorage: true,
+    },
+  );
   await kernel.initIdentity();
 
   let peerId;

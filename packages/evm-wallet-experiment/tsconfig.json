@@ -11,6 +11,7 @@
     { "path": "../kernel-store" },
     { "path": "../logger" },
     { "path": "../kernel-node-runtime" },
+    { "path": "../netlayer-libp2p" },
     { "path": "../ocap-kernel" }
   ],
   "include": [

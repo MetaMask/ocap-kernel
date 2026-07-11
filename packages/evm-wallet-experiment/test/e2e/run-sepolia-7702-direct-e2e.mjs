@@ -18,6 +18,7 @@ import '@metamask/kernel-shims/endoify-node';
 import { NodejsPlatformServices } from '@metamask/kernel-node-runtime';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import { nodejsLibp2pNetlayerFactory } from '@metamask/netlayer-libp2p/nodejs';
 import { Kernel, kunser } from '@metamask/ocap-kernel';
 
 import { makeWalletClusterConfig } from '../../src/cluster-config.ts';
@@ -80,9 +81,15 @@ async function main() {
   const rpcHost = new URL(SEPOLIA_RPC_URL).hostname;
 
   const kernelDb = await makeSQLKernelDatabase({ dbFilename: ':memory:' });
-  const kernel = await Kernel.make(new NodejsPlatformServices({}), kernelDb, {
-    resetStorage: true,
-  });
+  const kernel = await Kernel.make(
+    new NodejsPlatformServices({
+      netlayers: { libp2p: nodejsLibp2pNetlayerFactory },
+    }),
+    kernelDb,
+    {
+      resetStorage: true,
+    },
+  );
 
   const delegationManagerAddress =
     getDelegationManagerAddress(SEPOLIA_CHAIN_ID);

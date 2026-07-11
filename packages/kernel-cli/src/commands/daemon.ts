@@ -220,7 +220,9 @@ export async function handleDaemonStart(
     const initResponse = await sendCommand({
       socketPath,
       method: 'initRemoteComms',
-      params: { relays: [relayAddr] },
+      params: {
+        specifier: { netlayer: 'libp2p', config: { knownRelays: [relayAddr] } },
+      },
       timeoutMs: 30_000,
     });
     if (isJsonRpcFailure(initResponse)) {

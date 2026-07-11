@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `getLibp2pRelayHome()` to the `./nodejs` exports, returning the libp2p relay's bookkeeping directory (default `~/.libp2p-relay`, overridable via `$LIBP2P_RELAY_HOME`) — kept separate from `$OCAP_HOME` so one relay can serve daemons with different OCAP_HOMEs ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 - `startRelay()` accepts an optional `publicIp` that is fed to libp2p's `appendAnnounce`, so a relay running on a NAT-backed host can announce its publicly-reachable IPv4 alongside its bound NIC addresses ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 
+### Removed
+
+- **BREAKING:** Remove the `./libp2p` export (`startRelay`) and all libp2p-family dependencies — the relay server moves to `@metamask/netlayer-libp2p/relay`. `getLibp2pRelayHome` (a plain path helper with no libp2p import) stays on `./nodejs` ([#973](https://github.com/MetaMask/ocap-kernel/pull/973))
+
 ## [0.5.0]
 
 ### Added

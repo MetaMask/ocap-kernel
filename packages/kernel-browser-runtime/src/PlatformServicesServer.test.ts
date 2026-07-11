@@ -18,12 +18,14 @@ import type {
   PlatformServicesStream,
 } from './PlatformServicesServer.ts';
 
-// Mock initTransport from ocap-kernel
+// A fake netlayer factory (registry entry) that captures the hooks the server
+// reconstructs locally and returns stubbed netlayer methods.
 const mockSendRemoteMessage = vi.fn(async () => undefined);
 const mockStop = vi.fn(async () => undefined);
 const mockCloseConnection = vi.fn(async () => undefined);
 const mockRegisterLocationHints = vi.fn(async () => undefined);
 const mockReconnectPeer = vi.fn(async () => undefined);
+const mockResetAllBackoffs = vi.fn(() => undefined);
 let capturedRemoteMessageHandler:
   | ((from: string, message: string) => Promise<string>)
   | undefined;
@@ -32,37 +34,37 @@ let capturedOnIncarnationChange:
   | ((peerId: string, observedIncarnation: string) => Promise<boolean>)
   | undefined;
 
-vi.mock('@metamask/ocap-kernel', () => ({
-  PlatformServicesCommandMethod: {
-    launch: 'launch',
-    terminate: 'terminate',
-    terminateAll: 'terminateAll',
+const fakeNetlayerFactory = vi.fn(
+  async ({
+    hooks,
+  }: {
+    hooks: {
+      handleMessage: (from: string, message: string) => Promise<string>;
+      onRemoteGiveUp?: (peerId: string) => void;
+      onIncarnationChange?: (
+        peerId: string,
+        observedIncarnation: string,
+      ) => Promise<boolean>;
+    };
+  }) => {
+    capturedRemoteMessageHandler = hooks.handleMessage;
+    capturedRemoteGiveUpHandler = hooks.onRemoteGiveUp;
+    capturedOnIncarnationChange = hooks.onIncarnationChange;
+    return {
+      sendRemoteMessage: mockSendRemoteMessage,
+      stop: mockStop,
+      closeConnection: mockCloseConnection,
+      registerLocationHints: mockRegisterLocationHints,
+      reconnectPeer: mockReconnectPeer,
+      resetAllBackoffs: mockResetAllBackoffs,
+      getListenAddresses: vi.fn(() => []),
+    };
   },
-  initTransport: vi.fn(
-    async (
-      _keySeed: string,
-      _options: unknown,
-      remoteMessageHandler: (from: string, message: string) => Promise<string>,
-      remoteGiveUpHandler: (peerId: string) => void,
-      _localIncarnationId: string | undefined,
-      onIncarnationChange:
-        | ((peerId: string, observedIncarnation: string) => Promise<boolean>)
-        | undefined,
-    ) => {
-      capturedRemoteMessageHandler = remoteMessageHandler;
-      capturedRemoteGiveUpHandler = remoteGiveUpHandler;
-      capturedOnIncarnationChange = onIncarnationChange;
-      return {
-        sendRemoteMessage: mockSendRemoteMessage,
-        stop: mockStop,
-        closeConnection: mockCloseConnection,
-        registerLocationHints: mockRegisterLocationHints,
-        reconnectPeer: mockReconnectPeer,
-        getListenAddresses: vi.fn(() => []),
-      };
-    },
-  ),
-}));
+);
+
+const netlayers = { libp2p: fakeNetlayerFactory } as unknown as Parameters<
+  typeof PlatformServicesServer.make
+>[2]['netlayers'];
 
 const makeVatConfig = (sourceSpec = 'bogus.js'): VatConfig => ({
   sourceSpec,
@@ -104,11 +106,16 @@ const makeTerminateAllMessageEvent = (messageId: `m${number}`): MessageEvent =>
 const makeInitializeRemoteCommsMessageEvent = (
   messageId: `m${number}`,
   keySeed: string,
-  options: { relays?: string[]; maxRetryAttempts?: number; maxQueue?: number },
+  config: Record<string, unknown> = {},
+  incarnationId?: string,
 ): MessageEvent =>
   makeMessageEvent(messageId, {
     method: 'initializeRemoteComms',
-    params: { keySeed, ...options },
+    params: {
+      keySeed,
+      specifier: { netlayer: 'libp2p', config },
+      ...(incarnationId !== undefined && { incarnationId }),
+    },
   });
 
 const makeSendRemoteMessageMessageEvent = (
@@ -182,6 +189,7 @@ describe('PlatformServicesServer', () => {
     const server = new PlatformServicesServer(
       stream as unknown as PlatformServicesStream,
       () => ({}) as unknown as VatWorker,
+      { netlayers },
     );
     expect(server).toBeDefined();
   });
@@ -190,6 +198,7 @@ describe('PlatformServicesServer', () => {
     const server = await PlatformServicesServer.make(
       makeMockMessageTarget(),
       () => ({}) as unknown as VatWorker,
+      { netlayers },
     );
     expect(server).toBeDefined();
   });
@@ -227,7 +236,7 @@ describe('PlatformServicesServer', () => {
       new PlatformServicesServer(
         stream as unknown as PlatformServicesStream,
         makeMockVatWorker,
-        logger,
+        { netlayers, logger },
       );
 
       addCleanup(async () => {
@@ -256,7 +265,7 @@ describe('PlatformServicesServer', () => {
       new PlatformServicesServer(
         testStream as unknown as PlatformServicesStream,
         makeMockVatWorker,
-        logger,
+        { netlayers, logger },
       );
 
       // Send a response (simulating RPC client response)
@@ -401,47 +410,66 @@ describe('PlatformServicesServer', () => {
       });
 
       describe('initializeRemoteComms', () => {
-        it('initializes remote comms with keySeed and relays', async () => {
+        it('looks up the netlayer factory with the keySeed and config', async () => {
           const keySeed = '0x1234567890abcdef';
-          const relays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
+          const knownRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'];
 
           await stream.receiveInput(
-            makeInitializeRemoteCommsMessageEvent('m0', keySeed, { relays }),
+            makeInitializeRemoteCommsMessageEvent('m0', keySeed, {
+              knownRelays,
+            }),
           );
           await delay(10);
 
-          const { initTransport } = await import('@metamask/ocap-kernel');
-          expect(initTransport).toHaveBeenCalledWith(
-            keySeed,
-            { relays },
-            expect.any(Function),
-            expect.any(Function),
-            undefined,
-            expect.any(Function),
+          expect(fakeNetlayerFactory).toHaveBeenCalledWith(
+            expect.objectContaining({
+              keySeed,
+              config: { knownRelays },
+              hooks: expect.objectContaining({
+                handleMessage: expect.any(Function),
+                onRemoteGiveUp: expect.any(Function),
+                onIncarnationChange: expect.any(Function),
+              }),
+            }),
           );
         });
 
-        it('initializes remote comms with all options', async () => {
+        it('passes the full config through to the factory', async () => {
           const keySeed = '0x1234567890abcdef';
-          const options = {
-            relays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
+          const config = {
+            knownRelays: ['/dns4/relay.example/tcp/443/wss/p2p/relayPeer'],
             maxRetryAttempts: 5,
-            maxQueue: 100,
+            maxMessageSizeBytes: 100,
           };
 
           await stream.receiveInput(
-            makeInitializeRemoteCommsMessageEvent('m0', keySeed, options),
+            makeInitializeRemoteCommsMessageEvent('m0', keySeed, config),
           );
           await delay(10);
 
-          const { initTransport } = await import('@metamask/ocap-kernel');
-          expect(initTransport).toHaveBeenCalledWith(
-            keySeed,
-            options,
-            expect.any(Function),
-            expect.any(Function),
-            undefined,
-            expect.any(Function),
+          expect(fakeNetlayerFactory).toHaveBeenCalledWith(
+            expect.objectContaining({ keySeed, config }),
+          );
+        });
+
+        it('throws for an unknown netlayer', async () => {
+          const errorSpy = vi.spyOn(logger, 'error');
+          await stream.receiveInput(
+            makeMessageEvent('m0', {
+              method: 'initializeRemoteComms',
+              params: {
+                keySeed: '0xabcd',
+                specifier: { netlayer: 'nope', config: {} },
+              },
+            }),
+          );
+          await delay(10);
+
+          expect(errorSpy).toHaveBeenCalledWith(
+            'Error handling "initializeRemoteComms" request:',
+            expect.objectContaining({
+              message: 'Unknown netlayer: "nope"',
+            }),
           );
         });
 
@@ -500,7 +528,7 @@ describe('PlatformServicesServer', () => {
           new PlatformServicesServer(
             testStream as unknown as PlatformServicesStream,
             makeMockVatWorker,
-            logger,
+            { netlayers, logger },
           );
           await testStream.receiveInput(
             makeInitializeRemoteCommsMessageEvent('m1', keySeed, { relays }),
@@ -556,7 +584,7 @@ describe('PlatformServicesServer', () => {
           new PlatformServicesServer(
             testStream as unknown as PlatformServicesStream,
             makeMockVatWorker,
-            logger,
+            { netlayers, logger },
           );
           await testStream.receiveInput(
             makeInitializeRemoteCommsMessageEvent('m0', keySeed, { relays }),
@@ -605,7 +633,7 @@ describe('PlatformServicesServer', () => {
           new PlatformServicesServer(
             testStream as unknown as PlatformServicesStream,
             makeMockVatWorker,
-            logger,
+            { netlayers, logger },
           );
           await testStream.receiveInput(
             makeInitializeRemoteCommsMessageEvent('m0', keySeed, { relays }),
@@ -668,7 +696,7 @@ describe('PlatformServicesServer', () => {
           new PlatformServicesServer(
             testStream as unknown as PlatformServicesStream,
             makeMockVatWorker,
-            logger,
+            { netlayers, logger },
           );
           await testStream.receiveInput(
             makeInitializeRemoteCommsMessageEvent('m1', keySeed, { relays }),
@@ -777,8 +805,7 @@ describe('PlatformServicesServer', () => {
           await stream.receiveInput(makeStopRemoteCommsMessageEvent('m1'));
           await delay(10);
 
-          const { initTransport } = await import('@metamask/ocap-kernel');
-          const firstCallCount = (initTransport as Mock).mock.calls.length;
+          const firstCallCount = fakeNetlayerFactory.mock.calls.length;
 
           // Re-initialize should work
           await stream.receiveInput(
@@ -786,8 +813,8 @@ describe('PlatformServicesServer', () => {
           );
           await delay(10);
 
-          // Should have called initTransport again
-          expect((initTransport as Mock).mock.calls).toHaveLength(
+          // Should have called the netlayer factory again
+          expect(fakeNetlayerFactory.mock.calls).toHaveLength(
             firstCallCount + 1,
           );
         });
@@ -929,6 +956,35 @@ describe('PlatformServicesServer', () => {
               message: 'remote comms not initialized',
             }),
           );
+        });
+      });
+
+      describe('resetAllBackoffs', () => {
+        it('is a no-op before remote comms is initialized', async () => {
+          const errorSpy = vi.spyOn(logger, 'error');
+          await stream.receiveInput(
+            makeMessageEvent('m0', {
+              method: 'resetAllBackoffs',
+              params: [],
+            }),
+          );
+          await delay(10);
+          expect(errorSpy).not.toHaveBeenCalled();
+        });
+
+        it('resets backoffs on the netlayer after initialization', async () => {
+          await stream.receiveInput(
+            makeInitializeRemoteCommsMessageEvent('m0', '0xabcd', {}),
+          );
+          await delay(10);
+          await stream.receiveInput(
+            makeMessageEvent('m1', {
+              method: 'resetAllBackoffs',
+              params: [],
+            }),
+          );
+          await delay(10);
+          expect(mockResetAllBackoffs).toHaveBeenCalledOnce();
         });
       });
     });

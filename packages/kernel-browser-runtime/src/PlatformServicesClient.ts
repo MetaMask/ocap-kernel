@@ -7,8 +7,9 @@ import type {
   RemoteMessageHandler,
   VatId,
   VatConfig,
-  RemoteCommsOptions,
   OnIncarnationChange,
+  NetlayerSpecifier,
+  NetlayerHooks,
 } from '@metamask/ocap-kernel';
 import {
   platformServicesMethodSpecs,
@@ -189,40 +190,35 @@ export class PlatformServicesClient implements PlatformServices {
   }
 
   /**
-   * Initialize network communications.
+   * Initialize network communications. This client is a pure RPC proxy: it
+   * keeps the netlayer hooks locally (functions can't cross the RPC boundary)
+   * and forwards `keySeed`, the `Json` specifier, and `incarnationId`.
    *
-   * @param keySeed - The seed for generating this kernel's secret key.
-   * @param options - Options for remote communications initialization.
-   * @param options.relays - Array of the peerIDs of relay nodes that can be used to listen for incoming
-   *   connections from other kernels.
-   * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
-   * @param options.maxQueue - Maximum number of messages to queue per peer while reconnecting (default: 200).
-   * @param remoteMessageHandler - A handler function to receive remote messages.
-   * @param onRemoteGiveUp - Optional callback to be called when we give up on a remote.
-   * @param incarnationId - Unique identifier for this kernel instance.
-   * @param onIncarnationChange - Optional callback when a remote peer's incarnation changes.
+   * @param params - The initialization options.
+   * @param params.keySeed - The seed for generating this kernel's secret key.
+   * @param params.specifier - Which netlayer to use plus its `Json` config.
+   * @param params.hooks - Kernel-supplied netlayer callbacks, retained locally.
+   * @param params.incarnationId - This kernel's incarnation ID for the handshake.
    * @returns A promise that resolves once network access has been established
    *   or rejects if there is some problem doing so.
    */
-  async initializeRemoteComms(
-    keySeed: string,
-    options: RemoteCommsOptions,
-    remoteMessageHandler: (
-      from: string,
-      message: string,
-    ) => Promise<string | null>,
-    onRemoteGiveUp?: (peerId: string) => void,
-    incarnationId?: string,
-    onIncarnationChange?: OnIncarnationChange,
-  ): Promise<void> {
-    this.#remoteMessageHandler = remoteMessageHandler;
-    this.#remoteGiveUpHandler = onRemoteGiveUp;
-    this.#remoteIncarnationChangeHandler = onIncarnationChange;
+  async initializeRemoteComms({
+    keySeed,
+    specifier,
+    hooks,
+    incarnationId,
+  }: {
+    keySeed: string;
+    specifier: NetlayerSpecifier;
+    hooks: NetlayerHooks;
+    incarnationId?: string;
+  }): Promise<void> {
+    this.#remoteMessageHandler = hooks.handleMessage;
+    this.#remoteGiveUpHandler = hooks.onRemoteGiveUp;
+    this.#remoteIncarnationChangeHandler = hooks.onIncarnationChange;
     await this.#rpcClient.call('initializeRemoteComms', {
       keySeed,
-      ...Object.fromEntries(
-        Object.entries(options).filter(([, value]) => value !== undefined),
-      ),
+      specifier,
       ...(incarnationId !== undefined && { incarnationId }),
     });
   }

@@ -7,7 +7,6 @@ export type {
   MakeAllowedGlobals,
   VatEndowments,
 } from './vats/endowments.ts';
-export { initTransport } from './remotes/platform/transport.ts';
 export type { IOChannel, IOChannelFactory } from './io/types.ts';
 export type {
   Baggage,
@@ -28,7 +27,6 @@ export type {
   SystemSubclusterConfig,
 } from './types.ts';
 export type {
-  DirectTransport,
   RemoteIdentity,
   RemoteMessageHandler,
   SendRemoteMessage,
