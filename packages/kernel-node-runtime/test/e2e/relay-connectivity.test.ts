@@ -6,7 +6,7 @@ import { createConnection } from 'node:net';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import { makeTestKernel } from '../helpers/kernel.ts';
-import { getRemoteCommsPeerId } from '../helpers/remote-comms.ts';
+import { getRemoteCommsPeerId, libp2pComms } from '../helpers/remote-comms.ts';
 import { stopWithTimeout } from '../helpers/stop-with-timeout.ts';
 
 const STOP_TIMEOUT = 5_000;
@@ -68,7 +68,7 @@ describe('Relay Connectivity', () => {
 
       try {
         kernel = await makeTestKernel(kernelDb);
-        await kernel.initRemoteComms({ relays: [relayAddr] });
+        await kernel.initRemoteComms(libp2pComms({ relays: [relayAddr] }));
 
         const status = await kernel.getStatus();
         expect(status.remoteComms?.state).toBe('connected');
@@ -100,8 +100,8 @@ describe('Relay Connectivity', () => {
         kernel1 = await makeTestKernel(kernelDb1);
         kernel2 = await makeTestKernel(kernelDb2);
 
-        await kernel1.initRemoteComms({ relays: [relayAddr] });
-        await kernel2.initRemoteComms({ relays: [relayAddr] });
+        await kernel1.initRemoteComms(libp2pComms({ relays: [relayAddr] }));
+        await kernel2.initRemoteComms(libp2pComms({ relays: [relayAddr] }));
 
         const status1 = await kernel1.getStatus();
         const status2 = await kernel2.getStatus();
@@ -148,7 +148,7 @@ describe('Relay Connectivity', () => {
         kernel = await makeTestKernel(kernelDb);
         // initRemoteComms should not throw even if the relay is unreachable —
         // the libp2p node starts locally and relay connection happens async.
-        await kernel.initRemoteComms({ relays: [badRelayAddr] });
+        await kernel.initRemoteComms(libp2pComms({ relays: [badRelayAddr] }));
 
         const status = await kernel.getStatus();
         // The kernel still gets a local peer ID even without relay connectivity

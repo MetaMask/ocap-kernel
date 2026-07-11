@@ -19,6 +19,12 @@
         "../kernel-store/src/sqlite/wasm.ts"
       ],
       "@metamask/logger/file-transport": ["../logger/src/file-transport.ts"],
+      "@metamask/netlayer-libp2p/nodejs": [
+        "../netlayer-libp2p/src/nodejs/index.ts"
+      ],
+      "@metamask/netlayer-libp2p/relay": [
+        "../netlayer-libp2p/src/relay/index.ts"
+      ],
       "@ocap/*": ["../*/src"]
     }
   }

@@ -7,6 +7,7 @@ import { makeTestKernel } from '../helpers/kernel.ts';
 import {
   getVatRootRef,
   launchVatAndGetURL,
+  libp2pComms,
   makeRemoteVatConfig,
   sendRemoteMessage,
 } from '../helpers/remote-comms.ts';
@@ -94,12 +95,16 @@ describe.sequential('Direct Transport E2E', () => {
     it(
       'initializes remote comms with QUIC transport',
       async () => {
-        await kernel1.initRemoteComms({
-          directListenAddresses: [quicListenAddress],
-        });
-        await kernel2.initRemoteComms({
-          directListenAddresses: [quicListenAddress],
-        });
+        await kernel1.initRemoteComms(
+          libp2pComms({
+            directListenAddresses: [quicListenAddress],
+          }),
+        );
+        await kernel2.initRemoteComms(
+          libp2pComms({
+            directListenAddresses: [quicListenAddress],
+          }),
+        );
 
         const info1 = await getConnectedInfo(kernel1);
         const info2 = await getConnectedInfo(kernel2);
@@ -117,12 +122,16 @@ describe.sequential('Direct Transport E2E', () => {
     it(
       'initializes remote comms with TCP transport',
       async () => {
-        await kernel1.initRemoteComms({
-          directListenAddresses: [tcpListenAddress],
-        });
-        await kernel2.initRemoteComms({
-          directListenAddresses: [tcpListenAddress],
-        });
+        await kernel1.initRemoteComms(
+          libp2pComms({
+            directListenAddresses: [tcpListenAddress],
+          }),
+        );
+        await kernel2.initRemoteComms(
+          libp2pComms({
+            directListenAddresses: [tcpListenAddress],
+          }),
+        );
 
         const info1 = await getConnectedInfo(kernel1);
         const info2 = await getConnectedInfo(kernel2);
@@ -140,9 +149,11 @@ describe.sequential('Direct Transport E2E', () => {
     it(
       'initializes remote comms with both QUIC and TCP',
       async () => {
-        await kernel1.initRemoteComms({
-          directListenAddresses: [quicListenAddress, tcpListenAddress],
-        });
+        await kernel1.initRemoteComms(
+          libp2pComms({
+            directListenAddresses: [quicListenAddress, tcpListenAddress],
+          }),
+        );
 
         const info1 = await getConnectedInfo(kernel1);
 
@@ -158,12 +169,16 @@ describe.sequential('Direct Transport E2E', () => {
       'sends a message via direct QUIC',
       async () => {
         // Initialize both kernels with QUIC only
-        await kernel1.initRemoteComms({
-          directListenAddresses: [quicListenAddress],
-        });
-        await kernel2.initRemoteComms({
-          directListenAddresses: [quicListenAddress],
-        });
+        await kernel1.initRemoteComms(
+          libp2pComms({
+            directListenAddresses: [quicListenAddress],
+          }),
+        );
+        await kernel2.initRemoteComms(
+          libp2pComms({
+            directListenAddresses: [quicListenAddress],
+          }),
+        );
 
         // Get kernel2's QUIC addresses and register them on kernel1
         const info2 = await getConnectedInfo(kernel2);
@@ -192,12 +207,16 @@ describe.sequential('Direct Transport E2E', () => {
     it(
       'establishes bidirectional QUIC communication',
       async () => {
-        await kernel1.initRemoteComms({
-          directListenAddresses: [quicListenAddress],
-        });
-        await kernel2.initRemoteComms({
-          directListenAddresses: [quicListenAddress],
-        });
+        await kernel1.initRemoteComms(
+          libp2pComms({
+            directListenAddresses: [quicListenAddress],
+          }),
+        );
+        await kernel2.initRemoteComms(
+          libp2pComms({
+            directListenAddresses: [quicListenAddress],
+          }),
+        );
 
         // Exchange QUIC addresses
         const info1 = await getConnectedInfo(kernel1);
@@ -241,12 +260,16 @@ describe.sequential('Direct Transport E2E', () => {
     it(
       'sends multiple sequential messages via QUIC',
       async () => {
-        await kernel1.initRemoteComms({
-          directListenAddresses: [quicListenAddress],
-        });
-        await kernel2.initRemoteComms({
-          directListenAddresses: [quicListenAddress],
-        });
+        await kernel1.initRemoteComms(
+          libp2pComms({
+            directListenAddresses: [quicListenAddress],
+          }),
+        );
+        await kernel2.initRemoteComms(
+          libp2pComms({
+            directListenAddresses: [quicListenAddress],
+          }),
+        );
 
         const info2 = await getConnectedInfo(kernel2);
         await kernel1.registerLocationHints(info2.peerId, info2.quicAddresses);
@@ -275,12 +298,16 @@ describe.sequential('Direct Transport E2E', () => {
     it(
       'sends a message via direct TCP',
       async () => {
-        await kernel1.initRemoteComms({
-          directListenAddresses: [tcpListenAddress],
-        });
-        await kernel2.initRemoteComms({
-          directListenAddresses: [tcpListenAddress],
-        });
+        await kernel1.initRemoteComms(
+          libp2pComms({
+            directListenAddresses: [tcpListenAddress],
+          }),
+        );
+        await kernel2.initRemoteComms(
+          libp2pComms({
+            directListenAddresses: [tcpListenAddress],
+          }),
+        );
 
         const info2 = await getConnectedInfo(kernel2);
         await kernel1.registerLocationHints(info2.peerId, info2.tcpAddresses);

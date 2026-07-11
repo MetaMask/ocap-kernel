@@ -118,10 +118,16 @@ describe.sequential('Peer wallet integration', () => {
 
     // Initialize QUIC on both
     await kernel1.initRemoteComms({
-      directListenAddresses: [QUIC_LISTEN_ADDRESS],
+      specifier: {
+        netlayer: 'libp2p',
+        config: { directListenAddresses: [QUIC_LISTEN_ADDRESS] },
+      },
     });
     await kernel2.initRemoteComms({
-      directListenAddresses: [QUIC_LISTEN_ADDRESS],
+      specifier: {
+        netlayer: 'libp2p',
+        config: { directListenAddresses: [QUIC_LISTEN_ADDRESS] },
+      },
     });
 
     // Exchange location hints for direct connectivity
