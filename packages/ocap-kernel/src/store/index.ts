@@ -74,13 +74,13 @@ import { getCListMethods } from './methods/clist.ts';
 import { getCrankMethods } from './methods/crank.ts';
 import { getGCMethods } from './methods/gc.ts';
 import { getIdMethods } from './methods/id.ts';
+import { getLocationHintMethods } from './methods/location-hints.ts';
 import { getObjectMethods } from './methods/object.ts';
 import { getPinMethods } from './methods/pinned.ts';
 import { getPromiseMethods } from './methods/promise.ts';
 import { getQueueMethods } from './methods/queue.ts';
 import { getReachableMethods } from './methods/reachable.ts';
 import { getRefCountMethods } from './methods/refcount.ts';
-import { getRelayMethods } from './methods/relay.ts';
 import { getRemoteMethods } from './methods/remote.ts';
 import { getRevocationMethods } from './methods/revocation.ts';
 import { getSubclusterMethods } from './methods/subclusters.ts';
@@ -172,7 +172,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
   const crank = getCrankMethods(context, kdb);
   const subclusters = getSubclusterMethods(context);
   const activity = getActivityMethods(kv);
-  const relay = getRelayMethods({ kv, logger: context.logger });
+  const locationHints = getLocationHintMethods({ kv, logger: context.logger });
 
   /**
    * Create a new VatStore for a vat.
@@ -304,7 +304,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     ...crank,
     ...subclusters,
     ...activity,
-    ...relay,
+    ...locationHints,
     makeVatStore,
     deleteVat,
     clear,
@@ -338,4 +338,4 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
 }
 
 export type KernelStore = ReturnType<typeof makeKernelStore>;
-export type { RelayEntry } from './types.ts';
+export type { LocationHintEntry } from './types.ts';

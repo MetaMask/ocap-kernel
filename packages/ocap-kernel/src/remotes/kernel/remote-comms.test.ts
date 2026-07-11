@@ -8,28 +8,28 @@ import {
   initRemoteIdentity,
   initRemoteComms,
   parseOcapURL,
-  DEFAULT_MAX_URL_RELAY_HINTS,
-  DEFAULT_MAX_KNOWN_RELAYS,
+  DEFAULT_MAX_URL_LOCATION_HINTS,
+  DEFAULT_MAX_KNOWN_LOCATION_HINTS,
 } from './remote-comms.ts';
 import { createMockRemotesFactory } from '../../../test/remotes-mocks.ts';
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
-import type { KernelStore, RelayEntry } from '../../store/index.ts';
+import type { KernelStore, LocationHintEntry } from '../../store/index.ts';
 import { makeKernelStore } from '../../store/index.ts';
 import type { KRef, PlatformServices } from '../../types.ts';
 import { mnemonicToSeed } from '../../utils/bip39.ts';
 import type { RemoteMessageHandler } from '../types.ts';
 
 /**
- * Build learned (non-bootstrap) relay entries from address strings.
+ * Build learned (non-bootstrap) location-hint entries from address strings.
  *
- * @param addrs - Relay multiaddr strings.
+ * @param addrs - Location-hint (relay multiaddr) strings.
  * @param lastSeen - Epoch ms for lastSeen (default 100).
- * @returns Relay entries with isBootstrap: false.
+ * @returns Location-hint entries with isBootstrap: false.
  */
 function makeLearnedRelayEntries(
   addrs: string[],
   lastSeen = 100,
-): RelayEntry[] {
+): LocationHintEntry[] {
   return addrs.map((addr) => ({ addr, lastSeen, isBootstrap: false }));
 }
 
@@ -100,9 +100,10 @@ describe('remote-comms', () => {
 
       const ocapURL = await remoteComms.issueOcapURL('ko1' as KRef);
       const { oid, hints } = parseOcapURL(ocapURL);
-      const knownRelayAddresses = mockKernelStore.getKnownRelayAddresses();
+      const knownRelayAddresses =
+        mockKernelStore.getKnownLocationHintAddresses();
       expect(knownRelayAddresses).toStrictEqual(testRelays);
-      // URL should embed the relays (within DEFAULT_MAX_URL_RELAY_HINTS cap)
+      // URL should embed the relays (within DEFAULT_MAX_URL_LOCATION_HINTS cap)
       expect(hints).toStrictEqual(testRelays);
       const referenceURL = `ocap:${oid}@${peerId},${testRelays.join(',')}`;
       expect(ocapURL).toBe(referenceURL);
@@ -185,7 +186,9 @@ describe('remote-comms', () => {
         '/dns4/stored-relay1.example/tcp/443/wss/p2p/relay1',
         '/dns4/stored-relay2.example/tcp/443/wss/p2p/relay2',
       ];
-      mockKernelStore.setRelayEntries(makeLearnedRelayEntries(storedRelays));
+      mockKernelStore.setLocationHintEntries(
+        makeLearnedRelayEntries(storedRelays),
+      );
       await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
@@ -316,7 +319,7 @@ describe('remote-comms', () => {
       );
     });
 
-    it('calls logger.log with relays', async () => {
+    it('calls logger.log with location hints', async () => {
       const mockLogger = {
         log: vi.fn(),
         error: vi.fn(),
@@ -335,7 +338,7 @@ describe('remote-comms', () => {
         mockLogger as unknown as Logger,
       );
       expect(mockLogger.log).toHaveBeenCalledWith(
-        `relays: ${JSON.stringify(testRelays)}`,
+        `location hints: ${JSON.stringify(testRelays)}`,
       );
     });
 
@@ -355,14 +358,16 @@ describe('remote-comms', () => {
           },
         },
       );
-      expect(mockKernelStore.getKnownRelayAddresses()).toStrictEqual(
+      expect(mockKernelStore.getKnownLocationHintAddresses()).toStrictEqual(
         testRelays,
       );
     });
 
     it('does not save relays to KV store when empty', async () => {
       const storedRelays = ['/dns4/stored-relay.example/tcp/443/wss/p2p/relay'];
-      mockKernelStore.setRelayEntries(makeLearnedRelayEntries(storedRelays));
+      mockKernelStore.setLocationHintEntries(
+        makeLearnedRelayEntries(storedRelays),
+      );
       await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,
@@ -370,7 +375,7 @@ describe('remote-comms', () => {
         {}, // empty relays
       );
       // Should not overwrite existing relays
-      expect(mockKernelStore.getKnownRelayAddresses()).toStrictEqual(
+      expect(mockKernelStore.getKnownLocationHintAddresses()).toStrictEqual(
         storedRelays,
       );
     });
@@ -462,7 +467,7 @@ describe('remote-comms', () => {
         '/dns4/relay2.example.com/tcp/443/wss/p2p-circuit',
       ];
       const { identity } = await initRemoteIdentity(mockKernelStore, {
-        relays: testRelays,
+        bootstrapHints: testRelays,
       });
 
       const ocapURL = await identity.issueOcapURL('ko1' as KRef);
@@ -470,28 +475,28 @@ describe('remote-comms', () => {
       expect(hints).toStrictEqual(testRelays);
     });
 
-    it('returns keySeed and knownRelays', async () => {
+    it('returns keySeed and knownLocationHints', async () => {
       const testRelays = ['/dns4/relay.example/tcp/443/wss/p2p/relay'];
       const result = await initRemoteIdentity(mockKernelStore, {
-        relays: testRelays,
+        bootstrapHints: testRelays,
       });
 
       expect(result.keySeed).toBeDefined();
-      expect(result.knownRelays).toStrictEqual(testRelays);
+      expect(result.knownLocationHints).toStrictEqual(testRelays);
     });
 
-    it('addKnownRelays persists new relays to KV (deduplicated)', async () => {
+    it('addKnownLocationHints persists new relays to KV (deduplicated)', async () => {
       const initialRelays = ['/dns4/relay1.example/tcp/443/wss/p2p-circuit'];
       const { identity } = await initRemoteIdentity(mockKernelStore, {
-        relays: initialRelays,
+        bootstrapHints: initialRelays,
       });
 
-      identity.addKnownRelays([
+      identity.addKnownLocationHints([
         '/dns4/relay2.example/tcp/443/wss/p2p-circuit',
         '/dns4/relay1.example/tcp/443/wss/p2p-circuit', // duplicate
       ]);
 
-      const stored = mockKernelStore.getKnownRelayAddresses();
+      const stored = mockKernelStore.getKnownLocationHintAddresses();
       expect(stored).toStrictEqual([
         '/dns4/relay1.example/tcp/443/wss/p2p-circuit',
         '/dns4/relay2.example/tcp/443/wss/p2p-circuit',
@@ -507,37 +512,37 @@ describe('remote-comms', () => {
 
       // Add relays dynamically
       const newRelays = ['/dns4/relay.example/tcp/443/wss/p2p-circuit'];
-      identity.addKnownRelays(newRelays);
+      identity.addKnownLocationHints(newRelays);
 
       // Subsequent URL embeds the new relay
       const url2 = await identity.issueOcapURL('ko2' as KRef);
       expect(parseOcapURL(url2).hints).toStrictEqual(newRelays);
     });
 
-    it('addKnownRelays does nothing when given empty array', async () => {
+    it('addKnownLocationHints does nothing when given empty array', async () => {
       const initialRelays = ['/dns4/relay1.example/tcp/443/wss/p2p-circuit'];
       const { identity } = await initRemoteIdentity(mockKernelStore, {
-        relays: initialRelays,
+        bootstrapHints: initialRelays,
       });
 
-      identity.addKnownRelays([]);
+      identity.addKnownLocationHints([]);
 
-      const stored = mockKernelStore.getKnownRelayAddresses();
+      const stored = mockKernelStore.getKnownLocationHintAddresses();
       expect(stored).toStrictEqual(initialRelays);
     });
 
-    it('issueOcapURL caps relay hints to DEFAULT_MAX_URL_RELAY_HINTS', async () => {
+    it('issueOcapURL caps relay hints to DEFAULT_MAX_URL_LOCATION_HINTS', async () => {
       const relays = Array.from(
-        { length: DEFAULT_MAX_URL_RELAY_HINTS + 3 },
+        { length: DEFAULT_MAX_URL_LOCATION_HINTS + 3 },
         (_, i) => `/dns4/relay${i}.example/tcp/443/wss/p2p-circuit`,
       );
       const { identity } = await initRemoteIdentity(mockKernelStore, {
-        relays,
+        bootstrapHints: relays,
       });
 
       const ocapURL = await identity.issueOcapURL('ko1' as KRef);
       const { hints } = parseOcapURL(ocapURL);
-      expect(hints).toHaveLength(DEFAULT_MAX_URL_RELAY_HINTS);
+      expect(hints).toHaveLength(DEFAULT_MAX_URL_LOCATION_HINTS);
     });
 
     it('issueOcapURL prefers bootstrap relays over learned relays', async () => {
@@ -546,7 +551,7 @@ describe('remote-comms', () => {
         '/dns4/bootstrap2.example/tcp/443/wss/p2p-circuit',
       ];
       const { identity } = await initRemoteIdentity(mockKernelStore, {
-        relays: bootstrapRelays,
+        bootstrapHints: bootstrapRelays,
       });
 
       // Add many learned relays (more recent lastSeen)
@@ -554,95 +559,123 @@ describe('remote-comms', () => {
         { length: 5 },
         (_, i) => `/dns4/learned${i}.example/tcp/443/wss/p2p-circuit`,
       );
-      identity.addKnownRelays(learnedRelays);
+      identity.addKnownLocationHints(learnedRelays);
 
       const ocapURL = await identity.issueOcapURL('ko1' as KRef);
       const { hints } = parseOcapURL(ocapURL);
-      expect(hints).toHaveLength(DEFAULT_MAX_URL_RELAY_HINTS);
+      expect(hints).toHaveLength(DEFAULT_MAX_URL_LOCATION_HINTS);
       // Bootstrap relays should be included ahead of learned relays
       for (const bootstrap of bootstrapRelays) {
         expect(hints).toContain(bootstrap);
       }
     });
 
-    it('addKnownRelays enforces DEFAULT_MAX_KNOWN_RELAYS pool cap', async () => {
+    it('sorts bootstrap hints ahead of learned hints regardless of stored order', async () => {
+      // Store a learned hint (with a newer lastSeen) *before* the bootstrap
+      // hint so the URL-selection comparator exercises the branch where the
+      // first-compared entry is the non-bootstrap one.
+      mockKernelStore.setLocationHintEntries([
+        {
+          addr: '/dns4/learned.example/tcp/443/wss/p2p-circuit',
+          lastSeen: 500,
+          isBootstrap: false,
+        },
+        {
+          addr: '/dns4/bootstrap.example/tcp/443/wss/p2p-circuit',
+          lastSeen: 100,
+          isBootstrap: true,
+        },
+      ]);
+      const { identity } = await initRemoteIdentity(mockKernelStore);
+      const ocapURL = await identity.issueOcapURL('ko1' as KRef);
+      const { hints } = parseOcapURL(ocapURL);
+      expect(hints[0]).toBe('/dns4/bootstrap.example/tcp/443/wss/p2p-circuit');
+    });
+
+    it('addKnownLocationHints enforces DEFAULT_MAX_KNOWN_LOCATION_HINTS pool cap', async () => {
       const { identity } = await initRemoteIdentity(mockKernelStore);
 
       // Add more relays than the cap
       const relays = Array.from(
-        { length: DEFAULT_MAX_KNOWN_RELAYS + 5 },
+        { length: DEFAULT_MAX_KNOWN_LOCATION_HINTS + 5 },
         (_, i) => `/dns4/relay${i}.example/tcp/443/wss/p2p-circuit`,
       );
-      identity.addKnownRelays(relays);
+      identity.addKnownLocationHints(relays);
 
-      const entries = mockKernelStore.getRelayEntries();
-      expect(entries).toHaveLength(DEFAULT_MAX_KNOWN_RELAYS);
+      const entries = mockKernelStore.getLocationHintEntries();
+      expect(entries).toHaveLength(DEFAULT_MAX_KNOWN_LOCATION_HINTS);
     });
 
-    it('addKnownRelays evicts oldest non-bootstrap relays when pool is full', async () => {
+    it('addKnownLocationHints evicts oldest non-bootstrap relays when pool is full', async () => {
       const bootstrapRelays = [
         '/dns4/bootstrap.example/tcp/443/wss/p2p-circuit',
       ];
       const { identity } = await initRemoteIdentity(mockKernelStore, {
-        relays: bootstrapRelays,
+        bootstrapHints: bootstrapRelays,
       });
 
       // Fill pool to the cap
       const fillerRelays = Array.from(
-        { length: DEFAULT_MAX_KNOWN_RELAYS },
+        { length: DEFAULT_MAX_KNOWN_LOCATION_HINTS },
         (_, i) => `/dns4/relay${i}.example/tcp/443/wss/p2p-circuit`,
       );
-      identity.addKnownRelays(fillerRelays);
+      identity.addKnownLocationHints(fillerRelays);
 
-      const entries = mockKernelStore.getRelayEntries();
-      expect(entries).toHaveLength(DEFAULT_MAX_KNOWN_RELAYS);
+      const entries = mockKernelStore.getLocationHintEntries();
+      expect(entries).toHaveLength(DEFAULT_MAX_KNOWN_LOCATION_HINTS);
       // Bootstrap relay must survive eviction
       expect(entries.some((entry) => entry.addr === bootstrapRelays[0])).toBe(
         true,
       );
     });
 
-    it('addKnownRelays updates lastSeen on re-observed relays', async () => {
+    it('addKnownLocationHints updates lastSeen on re-observed relays', async () => {
       const { identity } = await initRemoteIdentity(mockKernelStore);
 
-      identity.addKnownRelays(['/dns4/relay.example/tcp/443/wss/p2p-circuit']);
-      const firstSeen = mockKernelStore.getRelayEntries()[0]?.lastSeen ?? 0;
+      identity.addKnownLocationHints([
+        '/dns4/relay.example/tcp/443/wss/p2p-circuit',
+      ]);
+      const firstSeen =
+        mockKernelStore.getLocationHintEntries()[0]?.lastSeen ?? 0;
 
       // SES lockdown freezes Date, preventing vi.useFakeTimers(); use a
       // real delay to guarantee a different Date.now() value.
       await new Promise((resolve) => {
         setTimeout(resolve, 50);
       });
-      identity.addKnownRelays(['/dns4/relay.example/tcp/443/wss/p2p-circuit']);
-      const secondSeen = mockKernelStore.getRelayEntries()[0]?.lastSeen ?? 0;
+      identity.addKnownLocationHints([
+        '/dns4/relay.example/tcp/443/wss/p2p-circuit',
+      ]);
+      const secondSeen =
+        mockKernelStore.getLocationHintEntries()[0]?.lastSeen ?? 0;
 
       expect(secondSeen).toBeGreaterThan(firstSeen);
     });
 
-    it('addKnownRelays does not add duplicate entries on re-observation', async () => {
+    it('addKnownLocationHints does not add duplicate entries on re-observation', async () => {
       const { identity } = await initRemoteIdentity(mockKernelStore);
 
       const relay = '/dns4/relay.example/tcp/443/wss/p2p-circuit';
-      identity.addKnownRelays([relay]);
-      expect(mockKernelStore.getRelayEntries()).toHaveLength(1);
+      identity.addKnownLocationHints([relay]);
+      expect(mockKernelStore.getLocationHintEntries()).toHaveLength(1);
 
       // Re-add the same relay — entry count must stay at 1
-      identity.addKnownRelays([relay, relay]);
-      expect(mockKernelStore.getRelayEntries()).toHaveLength(1);
-      expect(mockKernelStore.getRelayEntries()[0]?.addr).toBe(relay);
+      identity.addKnownLocationHints([relay, relay]);
+      expect(mockKernelStore.getLocationHintEntries()).toHaveLength(1);
+      expect(mockKernelStore.getLocationHintEntries()[0]?.addr).toBe(relay);
     });
 
     it('init clears bootstrap flag on relays removed from the bootstrap set', async () => {
       await initRemoteIdentity(mockKernelStore, {
-        relays: ['/dns4/relayA.example/tcp/443/wss/p2p-circuit'],
+        bootstrapHints: ['/dns4/relayA.example/tcp/443/wss/p2p-circuit'],
       });
 
       // Re-init with a different bootstrap set
       await initRemoteIdentity(mockKernelStore, {
-        relays: ['/dns4/relayB.example/tcp/443/wss/p2p-circuit'],
+        bootstrapHints: ['/dns4/relayB.example/tcp/443/wss/p2p-circuit'],
       });
 
-      const entries = mockKernelStore.getRelayEntries();
+      const entries = mockKernelStore.getLocationHintEntries();
       expect(
         entries.find((entry) => entry.addr.includes('relayA'))?.isBootstrap,
       ).toBe(false);
@@ -651,10 +684,10 @@ describe('remote-comms', () => {
       ).toBe(true);
     });
 
-    it('init enforces DEFAULT_MAX_KNOWN_RELAYS pool cap', async () => {
-      // Pre-seed DEFAULT_MAX_KNOWN_RELAYS learned relays
-      mockKernelStore.setRelayEntries(
-        Array.from({ length: DEFAULT_MAX_KNOWN_RELAYS }, (_, i) => ({
+    it('init enforces DEFAULT_MAX_KNOWN_LOCATION_HINTS pool cap', async () => {
+      // Pre-seed DEFAULT_MAX_KNOWN_LOCATION_HINTS learned relays
+      mockKernelStore.setLocationHintEntries(
+        Array.from({ length: DEFAULT_MAX_KNOWN_LOCATION_HINTS }, (_, i) => ({
           addr: `/dns4/learned${i}.example/tcp/443/wss/p2p-circuit`,
           lastSeen: 100,
           isBootstrap: false,
@@ -665,10 +698,12 @@ describe('remote-comms', () => {
         { length: 5 },
         (_, i) => `/dns4/bootstrap${i}.example/tcp/443/wss/p2p-circuit`,
       );
-      await initRemoteIdentity(mockKernelStore, { relays: bootstrapRelays });
+      await initRemoteIdentity(mockKernelStore, {
+        bootstrapHints: bootstrapRelays,
+      });
 
-      const entries = mockKernelStore.getRelayEntries();
-      expect(entries).toHaveLength(DEFAULT_MAX_KNOWN_RELAYS);
+      const entries = mockKernelStore.getLocationHintEntries();
+      expect(entries).toHaveLength(DEFAULT_MAX_KNOWN_LOCATION_HINTS);
       // All bootstrap relays must survive
       for (const addr of bootstrapRelays) {
         expect(entries.some((entry) => entry.addr === addr)).toBe(true);
@@ -677,7 +712,7 @@ describe('remote-comms', () => {
 
     it('init marks bootstrap relays and preserves learned relays', async () => {
       // Pre-seed a learned relay
-      mockKernelStore.setRelayEntries([
+      mockKernelStore.setLocationHintEntries([
         {
           addr: '/dns4/learned.example/tcp/443/wss/p2p-circuit',
           lastSeen: 100,
@@ -689,10 +724,10 @@ describe('remote-comms', () => {
         '/dns4/bootstrap.example/tcp/443/wss/p2p-circuit',
       ];
       await initRemoteIdentity(mockKernelStore, {
-        relays: bootstrapRelays,
+        bootstrapHints: bootstrapRelays,
       });
 
-      const entries = mockKernelStore.getRelayEntries();
+      const entries = mockKernelStore.getLocationHintEntries();
       expect(entries).toHaveLength(2);
       expect(
         entries.find((entry) => entry.addr === bootstrapRelays[0])?.isBootstrap,
@@ -705,7 +740,7 @@ describe('remote-comms', () => {
       ).toBe(false);
     });
 
-    it('logs when bootstrap relay count exceeds maxKnownRelays', async () => {
+    it('logs when bootstrap hint count exceeds maxKnownLocationHints', async () => {
       const mockLogger = { log: vi.fn(), error: vi.fn() };
       const relays = Array.from(
         { length: 5 },
@@ -713,19 +748,19 @@ describe('remote-comms', () => {
       );
       await initRemoteIdentity(
         mockKernelStore,
-        { relays, maxKnownRelays: 3 },
+        { bootstrapHints: relays, maxKnownLocationHints: 3 },
         mockLogger as unknown as Logger,
       );
       expect(mockLogger.log).toHaveBeenCalledWith(
         expect.stringContaining(
-          'bootstrap relay count (5) exceeds maxKnownRelays (3)',
+          'bootstrap hint count (5) exceeds maxKnownLocationHints (3)',
         ),
       );
     });
 
     it('logs eviction count when pool cap is exceeded during init', async () => {
       const mockLogger = { log: vi.fn(), error: vi.fn() };
-      mockKernelStore.setRelayEntries(
+      mockKernelStore.setLocationHintEntries(
         Array.from({ length: 20 }, (_, i) => ({
           addr: `/dns4/learned${i}.example/tcp/443/wss/p2p-circuit`,
           lastSeen: 100,
@@ -735,8 +770,8 @@ describe('remote-comms', () => {
       await initRemoteIdentity(
         mockKernelStore,
         {
-          relays: ['/dns4/bootstrap.example/tcp/443/wss/p2p-circuit'],
-          maxKnownRelays: 10,
+          bootstrapHints: ['/dns4/bootstrap.example/tcp/443/wss/p2p-circuit'],
+          maxKnownLocationHints: 10,
         },
         mockLogger as unknown as Logger,
       );
@@ -746,7 +781,7 @@ describe('remote-comms', () => {
     });
 
     it('sorts same-tier relays by lastSeen descending in URL hints', async () => {
-      mockKernelStore.setRelayEntries([
+      mockKernelStore.setLocationHintEntries([
         {
           addr: '/dns4/relay-old.example/tcp/443/wss/p2p-circuit',
           lastSeen: 100,
@@ -773,87 +808,87 @@ describe('remote-comms', () => {
       ]);
     });
 
-    it('respects custom maxUrlRelayHints option', async () => {
+    it('respects custom maxUrlLocationHints option', async () => {
       const relays = Array.from(
         { length: 10 },
         (_, i) => `/dns4/relay${i}.example/tcp/443/wss/p2p-circuit`,
       );
       const { identity } = await initRemoteIdentity(mockKernelStore, {
-        relays,
-        maxUrlRelayHints: 5,
+        bootstrapHints: relays,
+        maxUrlLocationHints: 5,
       });
       const ocapURL = await identity.issueOcapURL('ko1' as KRef);
       const { hints } = parseOcapURL(ocapURL);
       expect(hints).toHaveLength(5);
     });
 
-    it('respects custom maxKnownRelays option', async () => {
+    it('respects custom maxKnownLocationHints option', async () => {
       const { identity } = await initRemoteIdentity(mockKernelStore, {
-        maxKnownRelays: 5,
+        maxKnownLocationHints: 5,
       });
       const relays = Array.from(
         { length: 10 },
         (_, i) => `/dns4/relay${i}.example/tcp/443/wss/p2p-circuit`,
       );
-      identity.addKnownRelays(relays);
-      expect(mockKernelStore.getRelayEntries()).toHaveLength(5);
+      identity.addKnownLocationHints(relays);
+      expect(mockKernelStore.getLocationHintEntries()).toHaveLength(5);
     });
 
-    it('addKnownRelays logs eviction when pool cap is exceeded', async () => {
+    it('addKnownLocationHints logs eviction when pool cap is exceeded', async () => {
       const mockLogger = { log: vi.fn(), error: vi.fn() };
       const { identity } = await initRemoteIdentity(
         mockKernelStore,
-        { maxKnownRelays: 5 },
+        { maxKnownLocationHints: 5 },
         mockLogger as unknown as Logger,
       );
       const relays = Array.from(
         { length: 10 },
         (_, i) => `/dns4/relay${i}.example/tcp/443/wss/p2p-circuit`,
       );
-      identity.addKnownRelays(relays);
+      identity.addKnownLocationHints(relays);
       expect(mockLogger.log).toHaveBeenCalledWith(
         expect.stringContaining('evicted'),
       );
     });
 
-    it('init truncates pool when bootstrap count exceeds maxKnownRelays', async () => {
+    it('init truncates pool when bootstrap count exceeds maxKnownLocationHints', async () => {
       const bootstrapRelays = Array.from(
         { length: 5 },
         (_, i) => `/dns4/bootstrap${i}.example/tcp/443/wss/p2p-circuit`,
       );
       await initRemoteIdentity(mockKernelStore, {
-        relays: bootstrapRelays,
-        maxKnownRelays: 3,
+        bootstrapHints: bootstrapRelays,
+        maxKnownLocationHints: 3,
       });
 
-      const entries = mockKernelStore.getRelayEntries();
-      // Pool must be capped at maxKnownRelays even when all entries are bootstrap
+      const entries = mockKernelStore.getLocationHintEntries();
+      // Pool must be capped at maxKnownLocationHints even when all entries are bootstrap
       expect(entries).toHaveLength(3);
       // All surviving entries should still be marked as bootstrap
       expect(entries.every((entry) => entry.isBootstrap)).toBe(true);
     });
 
-    it('issueOcapURL includes all relays when count equals maxUrlRelayHints', async () => {
+    it('issueOcapURL includes all relays when count equals maxUrlLocationHints', async () => {
       const relays = Array.from(
-        { length: DEFAULT_MAX_URL_RELAY_HINTS },
+        { length: DEFAULT_MAX_URL_LOCATION_HINTS },
         (_, i) => `/dns4/relay${i}.example/tcp/443/wss/p2p-circuit`,
       );
       const { identity } = await initRemoteIdentity(mockKernelStore, {
-        relays,
+        bootstrapHints: relays,
       });
       const ocapURL = await identity.issueOcapURL('ko1' as KRef);
       const { hints } = parseOcapURL(ocapURL);
-      expect(hints).toHaveLength(DEFAULT_MAX_URL_RELAY_HINTS);
+      expect(hints).toHaveLength(DEFAULT_MAX_URL_LOCATION_HINTS);
       expect(hints).toStrictEqual(relays);
     });
 
     it.each([
-      ['maxUrlRelayHints', { maxUrlRelayHints: 0 }],
-      ['maxUrlRelayHints', { maxUrlRelayHints: 1.5 }],
-      ['maxUrlRelayHints', { maxUrlRelayHints: -1 }],
-      ['maxKnownRelays', { maxKnownRelays: 0 }],
-      ['maxKnownRelays', { maxKnownRelays: 1.5 }],
-      ['maxKnownRelays', { maxKnownRelays: -1 }],
+      ['maxUrlLocationHints', { maxUrlLocationHints: 0 }],
+      ['maxUrlLocationHints', { maxUrlLocationHints: 1.5 }],
+      ['maxUrlLocationHints', { maxUrlLocationHints: -1 }],
+      ['maxKnownLocationHints', { maxKnownLocationHints: 0 }],
+      ['maxKnownLocationHints', { maxKnownLocationHints: 1.5 }],
+      ['maxKnownLocationHints', { maxKnownLocationHints: -1 }],
     ] as const)(
       'throws when %s is not a positive integer (%o)',
       async (_label, opts) => {
@@ -1079,7 +1114,9 @@ describe('remote-comms', () => {
         '/dns4/stored-relay1.example/tcp/443/wss/p2p/relay1',
         '/dns4/stored-relay2.example/tcp/443/wss/p2p/relay2',
       ];
-      mockKernelStore.setRelayEntries(makeLearnedRelayEntries(storedRelays));
+      mockKernelStore.setLocationHintEntries(
+        makeLearnedRelayEntries(storedRelays),
+      );
       const remoteComms = await initRemoteComms(
         mockKernelStore,
         mockPlatformServices,

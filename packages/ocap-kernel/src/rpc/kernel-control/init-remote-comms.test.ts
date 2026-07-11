@@ -46,8 +46,8 @@ describe('initRemoteCommsHandler', () => {
       specifier,
       maxQueue: 100,
       ackTimeoutMs: 5000,
-      maxUrlRelayHints: 3,
-      maxKnownRelays: 20,
+      maxUrlLocationHints: 3,
+      maxKnownLocationHints: 20,
     };
 
     const result = await initRemoteCommsHandler.implementation(
@@ -91,18 +91,21 @@ describe('initRemoteCommsHandler', () => {
     });
 
     it.each([0, -1, 1.5])(
-      'rejects invalid maxUrlRelayHints value: %s',
+      'rejects invalid maxUrlLocationHints value: %s',
       (value) => {
         expect(
-          is({ maxUrlRelayHints: value }, initRemoteCommsSpec.params),
+          is({ maxUrlLocationHints: value }, initRemoteCommsSpec.params),
         ).toBe(false);
       },
     );
 
-    it.each([1, 20, 100])('accepts valid maxKnownRelays value: %s', (value) => {
-      expect(is({ maxKnownRelays: value }, initRemoteCommsSpec.params)).toBe(
-        true,
-      );
-    });
+    it.each([1, 20, 100])(
+      'accepts valid maxKnownLocationHints value: %s',
+      (value) => {
+        expect(
+          is({ maxKnownLocationHints: value }, initRemoteCommsSpec.params),
+        ).toBe(true);
+      },
+    );
   });
 });

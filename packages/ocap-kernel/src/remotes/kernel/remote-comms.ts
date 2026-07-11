@@ -4,7 +4,7 @@ import { deriveNeutralPeerId } from '@metamask/netlayer';
 import type { Json } from '@metamask/utils';
 import { base58btc } from 'multiformats/bases/base58';
 
-import type { KernelStore, RelayEntry } from '../../store/index.ts';
+import type { KernelStore, LocationHintEntry } from '../../store/index.ts';
 import { insistKRef } from '../../types.ts';
 import type { KRef, PlatformServices } from '../../types.ts';
 import { mnemonicToSeed } from '../../utils/bip39.ts';
@@ -31,30 +31,33 @@ export type OcapURLParts = {
 export const DEFAULT_NETLAYER = 'libp2p';
 
 /**
- * Default maximum number of relay hints embedded in a single OCAP URL.
- * 3 balances URL length against connectivity resilience — most relay
- * topologies have fewer than 3 distinct relays available to a peer.
+ * Default maximum number of location hints embedded in a single OCAP URL.
+ * 3 balances URL length against connectivity resilience — most netlayer
+ * topologies have fewer than 3 distinct hints available to a peer.
  */
-export const DEFAULT_MAX_URL_RELAY_HINTS = 3;
+export const DEFAULT_MAX_URL_LOCATION_HINTS = 3;
 
 /**
- * Default maximum relay entries stored in the kernel's relay pool.
+ * Default maximum location-hint entries stored in the kernel's hint pool.
  * 20 bounds storage overhead while accommodating typical bootstrap sets
- * (2–5) plus learned relays discovered through peer exchange.
+ * (2–5) plus learned hints discovered through peer exchange.
  */
-export const DEFAULT_MAX_KNOWN_RELAYS = 20;
+export const DEFAULT_MAX_KNOWN_LOCATION_HINTS = 20;
 
 /**
- * Enforce the relay pool cap by prioritizing bootstrap entries, then the
- * newest non-bootstrap entries, up to `cap`. If bootstrap entries alone
+ * Enforce the location-hint pool cap by prioritizing bootstrap entries, then
+ * the newest non-bootstrap entries, up to `cap`. If bootstrap entries alone
  * exceed the cap, the result is truncated to `cap` (some bootstrap entries
  * may be dropped).
  *
- * @param entries - The full set of relay entries.
+ * @param entries - The full set of location-hint entries.
  * @param cap - The maximum pool size.
  * @returns The entries trimmed to the pool cap.
  */
-function enforcePoolCap(entries: RelayEntry[], cap: number): RelayEntry[] {
+function enforcePoolCap(
+  entries: LocationHintEntry[],
+  cap: number,
+): LocationHintEntry[] {
   if (entries.length <= cap) {
     return entries;
   }
@@ -126,70 +129,71 @@ async function generateKeyInfo(seedString?: string): Promise<[string, string]> {
  *
  * @param kernelStore - The kernel store, for storing persistent key info.
  * @param [options] - Options for identity initialization.
- * @param [options.relays] - Bootstrap relay addresses. These are merged into
- *   the relay pool, marked as bootstrap (prioritized during eviction and URL
- *   selection), and persisted. Relays previously marked as bootstrap that are
- *   no longer in this list have their bootstrap flag cleared.
+ * @param [options.bootstrapHints] - Bootstrap location hints. These are merged
+ *   into the hint pool, marked as bootstrap (prioritized during eviction and
+ *   URL selection), and persisted. Hints previously marked as bootstrap that
+ *   are no longer in this list have their bootstrap flag cleared.
  * @param [options.mnemonic] - BIP39 mnemonic for seed recovery.
- * @param [options.maxUrlRelayHints] - Cap on relay hints per OCAP URL.
- * @param [options.maxKnownRelays] - Cap on the stored relay pool.
+ * @param [options.maxUrlLocationHints] - Cap on location hints per OCAP URL.
+ * @param [options.maxKnownLocationHints] - Cap on the stored hint pool.
  * @param logger - The logger to use.
  * @param keySeed - Optional seed for key generation.
- * @returns the identity object, the key seed, and known relays.
+ * @returns the identity object, the key seed, and known location hints.
  */
 export async function initRemoteIdentity(
   kernelStore: KernelStore,
   options?: {
-    relays?: string[] | undefined;
+    bootstrapHints?: string[] | undefined;
     mnemonic?: string | undefined;
-    maxUrlRelayHints?: number | undefined;
-    maxKnownRelays?: number | undefined;
+    maxUrlLocationHints?: number | undefined;
+    maxKnownLocationHints?: number | undefined;
   },
   logger?: Logger,
   keySeed?: string,
 ): Promise<{
   identity: RemoteIdentity;
   keySeed: string;
-  knownRelays: string[];
+  knownLocationHints: string[];
 }> {
   let peerId: string;
   let ocapURLKey: Uint8Array;
   const encoder = new TextEncoder();
   const decoder = new TextDecoder();
-  const relays = options?.relays ?? [];
+  const bootstrapHints = options?.bootstrapHints ?? [];
   const mnemonic = options?.mnemonic;
-  const maxUrlRelayHints =
-    options?.maxUrlRelayHints ?? DEFAULT_MAX_URL_RELAY_HINTS;
-  const maxKnownRelays = options?.maxKnownRelays ?? DEFAULT_MAX_KNOWN_RELAYS;
+  const maxUrlLocationHints =
+    options?.maxUrlLocationHints ?? DEFAULT_MAX_URL_LOCATION_HINTS;
+  const maxKnownLocationHints =
+    options?.maxKnownLocationHints ?? DEFAULT_MAX_KNOWN_LOCATION_HINTS;
 
   if (
-    !Number.isInteger(maxUrlRelayHints) ||
-    maxUrlRelayHints < 1 ||
-    !Number.isInteger(maxKnownRelays) ||
-    maxKnownRelays < 1
+    !Number.isInteger(maxUrlLocationHints) ||
+    maxUrlLocationHints < 1 ||
+    !Number.isInteger(maxKnownLocationHints) ||
+    maxKnownLocationHints < 1
   ) {
     throw Error(
-      `maxUrlRelayHints (${maxUrlRelayHints}) and maxKnownRelays (${maxKnownRelays}) must be positive integers`,
+      `maxUrlLocationHints (${maxUrlLocationHints}) and maxKnownLocationHints (${maxKnownLocationHints}) must be positive integers`,
     );
   }
 
-  if (relays.length > 0) {
+  if (bootstrapHints.length > 0) {
     // Date.now() works here because this code runs in the start compartment,
     // which retains the original Date constructor (%InitialDate%).
     const now = Date.now();
-    const bootstrapSet = new Set(relays);
+    const bootstrapSet = new Set(bootstrapHints);
 
-    if (relays.length > maxKnownRelays) {
+    if (bootstrapHints.length > maxKnownLocationHints) {
       logger?.log(
-        `relay init: bootstrap relay count (${relays.length}) exceeds maxKnownRelays (${maxKnownRelays}); pool will be truncated`,
+        `location-hint init: bootstrap hint count (${bootstrapHints.length}) exceeds maxKnownLocationHints (${maxKnownLocationHints}); pool will be truncated`,
       );
     }
 
-    // Merge with existing entries: mark bootstrap relays, preserve learned ones
-    const existing = kernelStore.getRelayEntries();
+    // Merge with existing entries: mark bootstrap hints, preserve learned ones
+    const existing = kernelStore.getLocationHintEntries();
     const byAddr = new Map(existing.map((entry) => [entry.addr, entry]));
-    for (const addr of relays) {
-      // Bootstrap relays always get a fresh lastSeen timestamp on (re-)init
+    for (const addr of bootstrapHints) {
+      // Bootstrap hints always get a fresh lastSeen timestamp on (re-)init
       byAddr.set(addr, { addr, lastSeen: now, isBootstrap: true });
     }
     // Clear bootstrap flag on entries no longer in the current bootstrap set
@@ -200,13 +204,13 @@ export async function initRemoteIdentity(
       }
     }
     const preCapCount = byAddr.size;
-    const merged = enforcePoolCap([...byAddr.values()], maxKnownRelays);
+    const merged = enforcePoolCap([...byAddr.values()], maxKnownLocationHints);
     if (merged.length < preCapCount) {
       logger?.log(
-        `relay init: evicted ${preCapCount - merged.length} relays to enforce pool cap (${maxKnownRelays})`,
+        `location-hint init: evicted ${preCapCount - merged.length} hints to enforce pool cap (${maxKnownLocationHints})`,
       );
     }
-    kernelStore.setRelayEntries(merged);
+    kernelStore.setLocationHintEntries(merged);
   }
 
   /* eslint-disable no-param-reassign */
@@ -306,8 +310,8 @@ export async function initRemoteIdentity(
     rawOid.set(iv, 0);
     rawOid.set(ciphertext, iv.length);
     const oid = base58btc.encode(rawOid);
-    const entries = kernelStore.getRelayEntries();
-    // Select top relays: bootstrap first (operator-configured, most reliable),
+    const entries = kernelStore.getLocationHintEntries();
+    // Select top hints: bootstrap first (operator-configured, most reliable),
     // then most recently seen (likeliest to be online)
     const sorted = [...entries].sort((a, b) => {
       if (a.isBootstrap !== b.isBootstrap) {
@@ -316,33 +320,33 @@ export async function initRemoteIdentity(
       return b.lastSeen - a.lastSeen;
     });
     const selected = sorted
-      .slice(0, maxUrlRelayHints)
+      .slice(0, maxUrlLocationHints)
       .map((entry) => entry.addr);
-    const relaySuffix = selected.length > 0 ? `,${selected.join(',')}` : '';
-    const ocapURL = `ocap:${oid}@${peerId}${relaySuffix}`;
+    const hintSuffix = selected.length > 0 ? `,${selected.join(',')}` : '';
+    const ocapURL = `ocap:${oid}@${peerId}${hintSuffix}`;
     return ocapURL;
   }
 
   /**
-   * Add relay addresses to the kernel's known relay pool.
+   * Add location hints to the kernel's known hint pool.
    * Deduplicates, updates lastSeen on re-observation, and enforces
-   * the configured `maxKnownRelays` cap by evicting the oldest
+   * the configured `maxKnownLocationHints` cap by evicting the oldest
    * non-bootstrap entries.
    *
-   * @param newRelays - Relay multiaddrs to add.
+   * @param newHints - Location hints to add.
    */
-  function addKnownRelays(newRelays: string[]): void {
-    if (newRelays.length === 0) {
+  function addKnownLocationHints(newHints: string[]): void {
+    if (newHints.length === 0) {
       return;
     }
     // Date.now() works here because this code runs in the start compartment,
     // which retains the original Date constructor (%InitialDate%).
     const now = Date.now();
-    const existing = kernelStore.getRelayEntries();
+    const existing = kernelStore.getLocationHintEntries();
     const byAddr = new Map(existing.map((entry) => [entry.addr, entry]));
     let changed = false;
 
-    for (const addr of newRelays) {
+    for (const addr of newHints) {
       const entry = byAddr.get(addr);
       if (entry) {
         // Update lastSeen on re-observation (create new object to follow
@@ -362,13 +366,13 @@ export async function initRemoteIdentity(
     }
 
     const preCapCount = byAddr.size;
-    const capped = enforcePoolCap([...byAddr.values()], maxKnownRelays);
+    const capped = enforcePoolCap([...byAddr.values()], maxKnownLocationHints);
     if (capped.length < preCapCount) {
       logger?.log(
-        `addKnownRelays: evicted ${preCapCount - capped.length} relays to enforce pool cap (${maxKnownRelays})`,
+        `addKnownLocationHints: evicted ${preCapCount - capped.length} hints to enforce pool cap (${maxKnownLocationHints})`,
       );
     }
-    kernelStore.setRelayEntries(capped);
+    kernelStore.setLocationHintEntries(capped);
   }
 
   /**
@@ -413,10 +417,10 @@ export async function initRemoteIdentity(
       getPeerId,
       issueOcapURL,
       redeemLocalOcapURL,
-      addKnownRelays,
+      addKnownLocationHints,
     }),
     keySeed,
-    knownRelays: kernelStore.getKnownRelayAddresses(),
+    knownLocationHints: kernelStore.getKnownLocationHintAddresses(),
   });
 }
 
@@ -447,7 +451,8 @@ export async function initRemoteComms(
   incarnationId?: string,
   onIncarnationChange?: OnIncarnationChange,
 ): Promise<RemoteComms> {
-  const { specifier, mnemonic, maxUrlRelayHints, maxKnownRelays } = options;
+  const { specifier, mnemonic, maxUrlLocationHints, maxKnownLocationHints } =
+    options;
   const netlayer = specifier?.netlayer ?? DEFAULT_NETLAYER;
   const specifierConfig = specifier?.config;
   const config: Record<string, Json> =
@@ -468,17 +473,24 @@ export async function initRemoteComms(
 
   const result = await initRemoteIdentity(
     kernelStore,
-    { relays: bootstrapHints, mnemonic, maxUrlRelayHints, maxKnownRelays },
+    {
+      bootstrapHints,
+      mnemonic,
+      maxUrlLocationHints,
+      maxKnownLocationHints,
+    },
     logger,
     keySeed,
   );
 
-  const { identity, knownRelays } = result;
+  const { identity, knownLocationHints } = result;
 
-  // Overwrite with the full persisted pool the store now owns.
-  config.knownRelays = knownRelays;
+  // Overwrite with the full persisted pool the store now owns. `knownRelays`
+  // is the libp2p netlayer's config key by convention (see the note above);
+  // the kernel-generic pool it carries is a set of opaque location hints.
+  config.knownRelays = knownLocationHints;
 
-  logger?.log(`relays: ${JSON.stringify(knownRelays)}`);
+  logger?.log(`location hints: ${JSON.stringify(knownLocationHints)}`);
 
   // detectWake() reads and updates lastActiveTime atomically, so it must be
   // called before initializeRemoteComms to capture the pre-restart timestamp.
