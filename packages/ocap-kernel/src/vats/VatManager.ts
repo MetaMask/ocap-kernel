@@ -115,7 +115,15 @@ export class VatManager {
     if (subclusterId) {
       this.#kernelStore.addSubclusterVat(subclusterId, vatName, vatId);
     }
-    await this.runVat(vatId, vatConfig);
+    try {
+      await this.runVat(vatId, vatConfig);
+    } catch (error) {
+      // Attribute the failure (e.g. a vat whose `buildRootObject` throws) to
+      // the specific vat by both its kernel id and its ClusterConfig name, so
+      // the caller reports which vat failed rather than an opaque error.
+      const label = vatName ? `${vatId} (${vatName})` : vatId;
+      throw new Error(`Failed to launch vat ${label}`, { cause: error });
+    }
     this.#kernelStore.initEndpoint(vatId);
     const rootRef = this.#kernelStore.exportFromEndpoint(
       vatId,

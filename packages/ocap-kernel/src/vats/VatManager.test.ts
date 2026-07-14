@@ -171,6 +171,49 @@ describe('VatManager', () => {
       );
       expect(kref).toBe('ko1');
     });
+
+    // #564: a vat that fails to launch (e.g. its `buildRootObject` throws,
+    // surfacing from `VatHandle.make`) must be attributed to the specific vat
+    // by both its kernel id and its ClusterConfig name, with the original
+    // error preserved as the cause.
+    it('attributes a launch failure to the vat by id and config name', async () => {
+      const config = createMockVatConfig();
+      const cause = new Error(
+        'Failed to initialize vat v1: buildRootObject threw',
+      );
+      makeVatHandleMock.mockRejectedValueOnce(cause);
+
+      await expect(vatManager.launchVat(config, 'bob', 's1')).rejects.toThrow(
+        'Failed to launch vat v1 (bob)',
+      );
+
+      // Downstream setup is skipped once the launch fails.
+      expect(mockKernelStore.initEndpoint).not.toHaveBeenCalled();
+      expect(mockKernelStore.setVatConfig).not.toHaveBeenCalled();
+    });
+
+    it('preserves the original error as the cause of a launch failure', async () => {
+      const config = createMockVatConfig();
+      const cause = new Error('buildRootObject threw');
+      makeVatHandleMock.mockRejectedValueOnce(cause);
+
+      const error = await vatManager
+        .launchVat(config, 'bob', 's1')
+        .catch((reason: unknown) => reason);
+
+      expect((error as Error).cause).toBe(cause);
+    });
+
+    it('omits the parenthetical when launched without a vat name', async () => {
+      const config = createMockVatConfig();
+      makeVatHandleMock.mockRejectedValueOnce(new Error('boom'));
+
+      const error = await vatManager
+        .launchVat(config)
+        .catch((reason: unknown) => reason);
+
+      expect((error as Error).message).toBe('Failed to launch vat v1');
+    });
   });
 
   describe('runVat', () => {
