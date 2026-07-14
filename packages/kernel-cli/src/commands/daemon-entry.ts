@@ -11,6 +11,36 @@ import { join } from 'node:path';
 import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive } from '../utils.ts';
 
+// Mirror of @metamask/logger's level ordering (`logLevels` is not part
+// of the package's public surface). Higher numbers are more severe.
+// Declared above the file-scope logger construction so the transport
+// factory doesn't hit a temporal-dead-zone reference when it's called
+// during module init.
+const LOG_LEVELS = {
+  debug: 1,
+  info: 2,
+  log: 3,
+  warn: 4,
+  error: 5,
+} as const;
+
+type LogLevelName = keyof typeof LOG_LEVELS;
+
+/**
+ * Resolve the daemon's minimum log level from `OCAP_DAEMON_LOG_LEVEL`.
+ * Defaults to `info` so noisy `debug` entries (refcount churn etc.)
+ * are dropped; set the env var to `debug` to re-enable everything.
+ *
+ * @returns The minimum log level to record.
+ */
+function resolveMinLogLevel(): LogLevelName {
+  const raw = process.env.OCAP_DAEMON_LOG_LEVEL;
+  if (raw !== undefined && raw in LOG_LEVELS) {
+    return raw as LogLevelName;
+  }
+  return 'info';
+}
+
 const ocapDir = getOcapHome();
 const logPath = join(ocapDir, 'daemon.log');
 const logger = new Logger({
@@ -136,33 +166,6 @@ async function readDaemonPid(pidPath: string): Promise<number | undefined> {
   }
   const pid = Number(raw.trim());
   return Number.isFinite(pid) && pid > 0 ? pid : undefined;
-}
-
-// Mirror of @metamask/logger's level ordering (`logLevels` is not part
-// of the package's public surface). Higher numbers are more severe.
-const LOG_LEVELS = {
-  debug: 1,
-  info: 2,
-  log: 3,
-  warn: 4,
-  error: 5,
-} as const;
-
-type LogLevelName = keyof typeof LOG_LEVELS;
-
-/**
- * Resolve the daemon's minimum log level from `OCAP_DAEMON_LOG_LEVEL`.
- * Defaults to `info` so noisy `debug` entries (refcount churn etc.)
- * are dropped; set the env var to `debug` to re-enable everything.
- *
- * @returns The minimum log level to record.
- */
-function resolveMinLogLevel(): LogLevelName {
-  const raw = process.env.OCAP_DAEMON_LOG_LEVEL;
-  if (raw !== undefined && raw in LOG_LEVELS) {
-    return raw as LogLevelName;
-  }
-  return 'info';
 }
 
 /**
