@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Attribute a failed subcluster vat launch to the specific vat by kernel id and `ClusterConfig` name (e.g. `Failed to launch vat v3 (bob)`), preserving the original error as the `cause` ([#975](https://github.com/MetaMask/ocap-kernel/pull/975))
 - **BREAKING:** Remove `VatConfig.platformConfig.fetch` — migrate to `globals: ['fetch', ...]` + `network.allowedHosts` ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
 - **BREAKING:** `MakeAllowedGlobals` now takes a `{ logger }` options bag ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
 - **BREAKING:** Type `VatConfig.globals` and `Kernel.make`'s `allowedGlobalNames` as `AllowedGlobalName[]` (a literal union) instead of `string[]`; unknown names are now rejected at the `initVat` RPC boundary ([#941](https://github.com/MetaMask/ocap-kernel/pull/941))
