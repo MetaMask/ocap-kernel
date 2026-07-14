@@ -6,9 +6,17 @@
 #                           restores subcluster + URL + baggage-persisted
 #                           registry, re-spawns the llm-bridge)
 #   2. consumer daemon     (stop + start with --local-relay)
+#   2a. start-wallet.sh    (launch or reuse the wallet vat subcluster
+#                           inside the consumer daemon; publishes the
+#                           wallet OCAP URL to ~/.ocap-consumer/
+#                           wallet-url.env so the openclaw demo plugin
+#                           can redeem it at register())
 #   3. openclaw gateway    (restart so plugin state resets, including
-#                           the demo plugin's $10k wallet and the
-#                           discovery plugin's tracked-services cache)
+#                           the discovery plugin's tracked-services
+#                           cache and the demo plugin's wallet
+#                           Presence — must run AFTER start-wallet.sh
+#                           so the plugin's pre-redeem sees a live
+#                           wallet URL)
 #   4. clear-matcher-registry.sh
 #                          (now that the matcher is up with the latest
 #                           bundle, wipe any stale registrations from
@@ -65,6 +73,17 @@ node "$OCAP_BIN" --home "$CONSUMER_HOME" daemon stop >&2 || true
 # part of startup so the daemon comes up fully connected in one step.
 node "$OCAP_BIN" --home "$CONSUMER_HOME" daemon start --local-relay >&2 \
   || fail "consumer daemon start failed"
+
+info "Step 2a: launching (or reusing) the wallet subcluster..."
+# The wallet vat runs inside the consumer daemon (~/.ocap-consumer)
+# alongside the openclaw plugin's normal ocap plumbing. Kernel
+# state is persistent, so on repeat rehearsals start-wallet.sh
+# just re-derives the existing wallet URL rather than launching
+# a duplicate subcluster. Rebuilds the wallet-vat bundle each
+# invocation to pick up any code changes since the last run —
+# same policy as start-matcher.sh.
+"$REPO_ROOT/packages/sample-services/scripts/start-wallet.sh" \
+  || fail "wallet startup failed"
 
 info "Step 3/4: restarting openclaw gateway..."
 # `gateway restart` is the published openclaw command. If it isn't
