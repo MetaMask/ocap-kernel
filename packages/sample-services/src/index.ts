@@ -75,3 +75,4 @@ export {
   BENCH_BUILD_SERVICE_DESCRIPTION,
   type BenchBuildArtifact,
 } from './bench-build/service.ts';
+export type { Money } from './wallet/index.ts';

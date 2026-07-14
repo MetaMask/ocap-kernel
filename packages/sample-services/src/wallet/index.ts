@@ -1,8 +1,11 @@
 /**
- * Wallet vat: a persistent integer-cents balance with a
- * mint/spend/deposit API. Replaces the orchestration demo's
- * process-local mock wallet with a real vat-hosted balance the
- * producer LLM cannot narrate its way around.
+ * Simulated wallet vat for the orchestration demo. **Not a real
+ * wallet** — it lives here alongside the other demo-simulation
+ * vats (industrial-design, shenzhen-direct, etc.) precisely
+ * because it is scaffolding, not production infrastructure. A
+ * real wallet vat will eventually replace this one; see
+ * `docs/orchestration-demo-wallet-design.md` for the migration
+ * path.
  *
  * The vat exposes a single public facet with four methods:
  * `deposit`, `withdraw`, `balance`, `init`. Amounts are always
@@ -12,12 +15,14 @@
  *
  * `withdraw(amount)` returns a `Money` object that a downstream
  * service can inspect to validate that payment was actually
- * tendered. The auth field is a random nonce for V0.5; a future
- * revision will replace it with a properly-cryptographic proof
+ * tendered. The `auth` field is a random nonce for now; a future
+ * revision will replace it with a proper cryptographic proof
  * (either signed-by-wallet or an encrypted amount using a shared
  * key the LLM doesn't hold). For the current demo the honest
  * behaviour of the wallet plus the service-side amount check is
- * enough to remove the "let's pretend" narration failure mode.
+ * enough to remove the "let's pretend" narration failure mode
+ * we hit when the producer LLM was tracking the balance in its
+ * conversation memory.
  */
 
 import { E } from '@endo/eventual-send';
