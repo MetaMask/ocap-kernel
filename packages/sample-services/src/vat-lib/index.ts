@@ -10,6 +10,12 @@ export {
   type ShipmentAcknowledgement,
   type ShipmentManifest,
 } from './receive-shipment-endpoint.ts';
+export {
+  assertPayment,
+  PAYMENT_ARG_SCHEMA,
+  USD_TO_CENTS,
+  type Money,
+} from './payment.ts';
 export { makeRegistrationToken } from './registration-token.ts';
 export {
   formatUsd,

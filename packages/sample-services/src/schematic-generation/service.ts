@@ -1,6 +1,12 @@
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 
 import { renderSchematic } from './template.ts';
+import {
+  assertPayment,
+  PAYMENT_ARG_SCHEMA,
+  USD_TO_CENTS,
+} from '../vat-lib/index.ts';
+import type { Money } from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher. Opening
@@ -42,7 +48,15 @@ export function makeSchematicGenerationService() {
   return makeDiscoverableExo(
     'SchematicGenerationService',
     {
-      async generate(_spec: string): Promise<SchematicArtifact> {
+      async generate(
+        _spec: string,
+        payment: Money,
+      ): Promise<SchematicArtifact> {
+        assertPayment(
+          payment,
+          SCHEMATIC_GENERATION_PRICE_USD * USD_TO_CENTS,
+          `${SCHEMATIC_GENERATION_PROVIDER_TAG}.generate`,
+        );
         const svg = renderSchematic({
           providerLabel: SCHEMATIC_GENERATION_PROVIDER_TAG,
         });
@@ -69,6 +83,7 @@ export function makeSchematicGenerationService() {
               'Functional spec for the product, in plain English ' +
               '(features, key MCU requirements, peripherals).',
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',

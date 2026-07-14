@@ -1,6 +1,12 @@
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 
 import { renderBringUpNotes } from './template.ts';
+import {
+  assertPayment,
+  PAYMENT_ARG_SCHEMA,
+  USD_TO_CENTS,
+} from '../vat-lib/index.ts';
+import type { Money } from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher. The
@@ -109,7 +115,12 @@ export function makeBenchBuildService(options: {
           receiveShipmentUrl: getReceiveShipmentUrl(),
         });
       },
-      async build(_spec: string): Promise<BenchBuildArtifact> {
+      async build(_spec: string, payment: Money): Promise<BenchBuildArtifact> {
+        assertPayment(
+          payment,
+          BENCH_BUILD_PRICE_USD * USD_TO_CENTS,
+          `${BENCH_BUILD_PROVIDER_TAG}.build`,
+        );
         const { markdown, firmwareRevisionFlagged } = renderBringUpNotes({
           providerLabel: BENCH_BUILD_PROVIDER_TAG,
           laborPriceUsd: BENCH_BUILD_LABOR_PRICE_USD,
@@ -193,6 +204,7 @@ export function makeBenchBuildService(options: {
               'firmware handle (or fenced source), any specific bench ' +
               'measurements the inventor wants captured.',
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',

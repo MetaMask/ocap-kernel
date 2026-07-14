@@ -75,4 +75,9 @@ export {
   BENCH_BUILD_SERVICE_DESCRIPTION,
   type BenchBuildArtifact,
 } from './bench-build/service.ts';
-export type { Money } from './wallet/index.ts';
+export {
+  assertPayment,
+  PAYMENT_ARG_SCHEMA,
+  USD_TO_CENTS,
+  type Money,
+} from './vat-lib/index.ts';

@@ -4,11 +4,18 @@ import type { OcapURLRedemptionService } from '@metamask/ocap-kernel';
 
 import { renderPcbLayout } from './template.ts';
 import {
+  assertPayment,
   formatUsd,
   makeVolumeProfile,
   parseQuantity,
+  PAYMENT_ARG_SCHEMA,
+  USD_TO_CENTS,
 } from '../vat-lib/index.ts';
-import type { ReceiveShipmentEndpoint, VolumeTier } from '../vat-lib/index.ts';
+import type {
+  Money,
+  ReceiveShipmentEndpoint,
+  VolumeTier,
+} from '../vat-lib/index.ts';
 
 /**
  * Tier-derived turnaround estimate for the PCB fab order.
@@ -119,7 +126,12 @@ export function makePcbLayoutService(options: {
   return makeDiscoverableExo(
     'PcbLayoutService',
     {
-      async layout(spec: string): Promise<PcbLayoutArtifact> {
+      async layout(spec: string, payment: Money): Promise<PcbLayoutArtifact> {
+        assertPayment(
+          payment,
+          PCB_LAYOUT_PRICE_USD * USD_TO_CENTS,
+          `${PCB_LAYOUT_PROVIDER_TAG}.layout`,
+        );
         const quantity = parseQuantity(
           typeof spec === 'string' ? spec : '',
           DEFAULT_FAB_QUANTITY,
@@ -148,7 +160,12 @@ export function makePcbLayoutService(options: {
           },
         });
       },
-      async quote(spec: string): Promise<PcbFabricateArtifact> {
+      async quote(spec: string, payment: Money): Promise<PcbFabricateArtifact> {
+        assertPayment(
+          payment,
+          PCB_LAYOUT_QUOTE_PRICE_USD * USD_TO_CENTS,
+          `${PCB_LAYOUT_PROVIDER_TAG}.quote`,
+        );
         // Cheap re-quote for a fab order at an arbitrary quantity.
         // Doesn't touch layout state — the agent stays committed
         // to whatever design `layout` already produced. Intended
@@ -192,12 +209,20 @@ export function makePcbLayoutService(options: {
           },
         });
       },
-      async fabricate(approval: {
-        shipToUrl?: string;
-      }): Promise<PcbFabricateArtifact> {
+      async fabricate(
+        approval: {
+          shipToUrl?: string;
+        },
+        payment: Money,
+      ): Promise<PcbFabricateArtifact> {
         const quantity = lastBoardQuantity;
         const profile = makeVolumeProfile(quantity);
         const total = profile.pcbUnitUsd * quantity;
+        assertPayment(
+          payment,
+          total * USD_TO_CENTS,
+          `${PCB_LAYOUT_PROVIDER_TAG}.fabricate`,
+        );
         const totalLabel = formatUsd(total);
         const shipToUrl =
           typeof approval?.shipToUrl === 'string' && approval.shipToUrl.length
@@ -319,6 +344,7 @@ export function makePcbLayoutService(options: {
             description:
               'Schematic handle + case dimensions, in plain English.',
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',
@@ -361,6 +387,7 @@ export function makePcbLayoutService(options: {
               'Quote brief in plain English. Must include the ' +
               'target board quantity (e.g. "quote for 5,000 boards").',
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',
@@ -412,6 +439,7 @@ export function makePcbLayoutService(options: {
             },
             required: ['shipToUrl'],
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',

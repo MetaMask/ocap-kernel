@@ -1,6 +1,12 @@
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 
 import { renderMechanicalHero } from './template.ts';
+import {
+  assertPayment,
+  PAYMENT_ARG_SCHEMA,
+  USD_TO_CENTS,
+} from '../vat-lib/index.ts';
+import type { Money } from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher. Opening
@@ -40,7 +46,15 @@ export function makeMechanicalDesignService() {
   return makeDiscoverableExo(
     'MechanicalDesignService',
     {
-      async model(_spec: string): Promise<MechanicalHeroArtifact> {
+      async model(
+        _spec: string,
+        payment: Money,
+      ): Promise<MechanicalHeroArtifact> {
+        assertPayment(
+          payment,
+          MECHANICAL_DESIGN_PRICE_USD * USD_TO_CENTS,
+          `${MECHANICAL_DESIGN_PROVIDER_TAG}.model`,
+        );
         const svg = renderMechanicalHero({
           providerLabel: MECHANICAL_DESIGN_PROVIDER_TAG,
         });
@@ -68,6 +82,7 @@ export function makeMechanicalDesignService() {
             description:
               'Concept sketch handle + dimensions, in plain English.',
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',

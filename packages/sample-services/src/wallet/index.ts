@@ -33,27 +33,9 @@ import type {
   OcapURLRedemptionService,
 } from '@metamask/ocap-kernel';
 
-/**
- * A transferable quantity of money. Passed as the `payment`
- * argument to a service call; the receiving service validates the
- * amount and (in a future revision) the `auth` field before
- * performing costed work.
- */
-export type Money = {
-  /**
-   * Amount of money represented, in integer USD cents. Must be
-   * strictly positive when the object is created by `withdraw`;
-   * a service that receives `amount === 0` should reject it.
-   */
-  amount: number;
-  /**
-   * Opaque validation string. For now, a short random nonce
-   * generated at withdraw-time. A future revision will use this
-   * to carry a cryptographic proof (signature or encrypted
-   * envelope) that the payment came from a real wallet.
-   */
-  auth: string;
-};
+import type { Money } from '../vat-lib/index.ts';
+
+export type { Money } from '../vat-lib/index.ts';
 
 type Services = {
   ocapURLIssuerService: OcapURLIssuerService;

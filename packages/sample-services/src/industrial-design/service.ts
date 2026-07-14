@@ -1,6 +1,12 @@
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 
 import { renderConceptSketch } from './template.ts';
+import {
+  assertPayment,
+  PAYMENT_ARG_SCHEMA,
+  USD_TO_CENTS,
+} from '../vat-lib/index.ts';
+import type { Money } from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher.
@@ -71,7 +77,15 @@ export function makeIndustrialDesignService() {
   return makeDiscoverableExo(
     'IndustrialDesignService',
     {
-      async generate(_spec: string): Promise<IndustrialDesignArtifact> {
+      async generate(
+        _spec: string,
+        payment: Money,
+      ): Promise<IndustrialDesignArtifact> {
+        assertPayment(
+          payment,
+          INDUSTRIAL_DESIGN_PRICE_USD * USD_TO_CENTS,
+          `${INDUSTRIAL_DESIGN_PROVIDER_TAG}.generate`,
+        );
         revCounter += 1;
         // First call returns the initial sketch (rev1); every
         // subsequent call returns the revised sketch (rev2). The
@@ -110,6 +124,7 @@ export function makeIndustrialDesignService() {
               'Functional spec for the product, in plain English ' +
               '(features, form factor hints, brand notes).',
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',

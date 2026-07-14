@@ -1,6 +1,12 @@
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 
 import { renderListing } from './template.ts';
+import {
+  assertPayment,
+  PAYMENT_ARG_SCHEMA,
+  USD_TO_CENTS,
+} from '../vat-lib/index.ts';
+import type { Money } from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher. Opening
@@ -38,7 +44,15 @@ export function makeRetailListingService() {
   return makeDiscoverableExo(
     'RetailListingService',
     {
-      async list(_spec: string): Promise<RetailListingArtifact> {
+      async list(
+        _spec: string,
+        payment: Money,
+      ): Promise<RetailListingArtifact> {
+        assertPayment(
+          payment,
+          RETAIL_LISTING_PRICE_USD * USD_TO_CENTS,
+          `${RETAIL_LISTING_PROVIDER_TAG}.list`,
+        );
         const markdown = renderListing({
           providerLabel: RETAIL_LISTING_PROVIDER_TAG,
         });
@@ -65,6 +79,7 @@ export function makeRetailListingService() {
               'Product brief in plain English (target market, ' +
               'positioning, headline features, intended price band).',
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',

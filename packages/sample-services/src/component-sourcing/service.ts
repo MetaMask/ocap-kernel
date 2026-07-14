@@ -3,8 +3,14 @@ import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 import type { OcapURLRedemptionService } from '@metamask/ocap-kernel';
 
 import { renderBom } from './template.ts';
-import { formatUsd, makeVolumeProfile } from '../vat-lib/index.ts';
-import type { ReceiveShipmentEndpoint } from '../vat-lib/index.ts';
+import {
+  assertPayment,
+  formatUsd,
+  makeVolumeProfile,
+  PAYMENT_ARG_SCHEMA,
+  USD_TO_CENTS,
+} from '../vat-lib/index.ts';
+import type { Money, ReceiveShipmentEndpoint } from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher. Opening
@@ -72,7 +78,15 @@ export function makeComponentSourcingService(options: {
   return makeDiscoverableExo(
     'ComponentSourcingService',
     {
-      async source(spec: string): Promise<ComponentSourcingArtifact> {
+      async source(
+        spec: string,
+        payment: Money,
+      ): Promise<ComponentSourcingArtifact> {
+        assertPayment(
+          payment,
+          COMPONENT_SOURCING_PRICE_USD * USD_TO_CENTS,
+          `${COMPONENT_SOURCING_PROVIDER_TAG}.source`,
+        );
         const { markdown, profile, batchTotalUsd } = renderBom({
           providerLabel: COMPONENT_SOURCING_PROVIDER_TAG,
           brief: typeof spec === 'string' ? spec : '',
@@ -94,9 +108,12 @@ export function makeComponentSourcingService(options: {
           },
         });
       },
-      async purchase(approval: {
-        shipToUrl?: string;
-      }): Promise<ComponentSourcingArtifact> {
+      async purchase(
+        approval: {
+          shipToUrl?: string;
+        },
+        payment: Money,
+      ): Promise<ComponentSourcingArtifact> {
         // Honor whatever the last source() call quoted, or
         // synthesize a quote on the fly if purchase() ran without
         // a prior source() (defensive; the agent's cadence puts
@@ -105,6 +122,11 @@ export function makeComponentSourcingService(options: {
         const total =
           lastBatchTotalUsd ??
           makeVolumeProfile(quantity).pcbUnitUsd * quantity;
+        assertPayment(
+          payment,
+          total * USD_TO_CENTS,
+          `${COMPONENT_SOURCING_PROVIDER_TAG}.purchase`,
+        );
         const totalLabel = formatUsd(total);
         const profile = makeVolumeProfile(quantity);
         const shipToUrl =
@@ -185,6 +207,7 @@ export function makeComponentSourcingService(options: {
               'Sourcing brief, in plain English (schematic summary ' +
               'or handle, batch size, distributor preferences).',
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',
@@ -234,6 +257,7 @@ export function makeComponentSourcingService(options: {
             },
             required: ['shipToUrl'],
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',

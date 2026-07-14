@@ -5,6 +5,12 @@ import {
   renderFirmwareSpec,
 } from './template.ts';
 import type { FirmwareImplementationInputs } from './template.ts';
+import {
+  assertPayment,
+  PAYMENT_ARG_SCHEMA,
+  USD_TO_CENTS,
+} from '../vat-lib/index.ts';
+import type { Money } from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher. Covers
@@ -92,7 +98,15 @@ export function makeFirmwareService() {
   return makeDiscoverableExo(
     'FirmwareService',
     {
-      async specify(_spec: string): Promise<FirmwareSpecArtifact> {
+      async specify(
+        _spec: string,
+        payment: Money,
+      ): Promise<FirmwareSpecArtifact> {
+        assertPayment(
+          payment,
+          FIRMWARE_SPEC_PRICE_USD * USD_TO_CENTS,
+          `${FIRMWARE_PROVIDER_TAG}.specify`,
+        );
         const markdown = renderFirmwareSpec();
         return harden({
           kind: 'markdown',
@@ -107,10 +121,18 @@ export function makeFirmwareService() {
         });
       },
 
-      async implement(approval: {
-        spec: string;
-        changes?: string;
-      }): Promise<FirmwareImplementationResult> {
+      async implement(
+        approval: {
+          spec: string;
+          changes?: string;
+        },
+        payment: Money,
+      ): Promise<FirmwareImplementationResult> {
+        assertPayment(
+          payment,
+          FIRMWARE_IMPLEMENTATION_PRICE_USD * USD_TO_CENTS,
+          `${FIRMWARE_PROVIDER_TAG}.implement`,
+        );
         const specRev = extractSpecRev(approval.spec);
         const inputs: FirmwareImplementationInputs = {};
         if (typeof approval.changes === 'string') {
@@ -157,6 +179,7 @@ export function makeFirmwareService() {
               'Functional spec for the product, in plain English ' +
               '(features, hardware constraints, power budget).',
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',
@@ -215,6 +238,7 @@ export function makeFirmwareService() {
             },
             required: ['spec'],
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',

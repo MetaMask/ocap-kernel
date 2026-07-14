@@ -3,8 +3,13 @@ import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 import type { OcapURLRedemptionService } from '@metamask/ocap-kernel';
 
 import { renderBuildPlan } from './template.ts';
-import { formatUsd } from '../vat-lib/index.ts';
-import type { ReceiveShipmentEndpoint } from '../vat-lib/index.ts';
+import {
+  assertPayment,
+  formatUsd,
+  PAYMENT_ARG_SCHEMA,
+  USD_TO_CENTS,
+} from '../vat-lib/index.ts';
+import type { Money, ReceiveShipmentEndpoint } from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher. Opening
@@ -86,7 +91,15 @@ export function makeDeviceAssemblyService(options: {
   return makeDiscoverableExo(
     'DeviceAssemblyService',
     {
-      async assemble(spec: string): Promise<DeviceAssemblyArtifact> {
+      async assemble(
+        spec: string,
+        payment: Money,
+      ): Promise<DeviceAssemblyArtifact> {
+        assertPayment(
+          payment,
+          DEVICE_ASSEMBLY_PRICE_USD * USD_TO_CENTS,
+          `${DEVICE_ASSEMBLY_PROVIDER_TAG}.assemble`,
+        );
         const {
           markdown,
           profile,
@@ -123,9 +136,17 @@ export function makeDeviceAssemblyService(options: {
           receiveShipmentUrl: getReceiveShipmentUrl(),
         });
       },
-      async build(_approval: unknown): Promise<DeviceAssemblyArtifact> {
+      async build(
+        _approval: unknown,
+        payment: Money,
+      ): Promise<DeviceAssemblyArtifact> {
         const quantity = lastBuildQuantity;
         const total = lastBuildTotalUsd ?? 0;
+        assertPayment(
+          payment,
+          total * USD_TO_CENTS,
+          `${DEVICE_ASSEMBLY_PROVIDER_TAG}.build`,
+        );
         const totalLabel = formatUsd(total);
         const leadTime = lastBuildLeadTime ?? '4 weeks';
         const yieldTarget = lastBuildYield ?? '94%';
@@ -230,6 +251,7 @@ export function makeDeviceAssemblyService(options: {
               'handle, PCB layout handle, batch size, any special ' +
               'tolerances).',
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',
@@ -269,6 +291,7 @@ export function makeDeviceAssemblyService(options: {
               'authorization payload when a real provider needs it.',
             properties: {},
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',

@@ -1,7 +1,13 @@
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 
 import { renderFulfillmentPlan } from './template.ts';
-import { formatUsd } from '../vat-lib/index.ts';
+import {
+  assertPayment,
+  formatUsd,
+  PAYMENT_ARG_SCHEMA,
+  USD_TO_CENTS,
+} from '../vat-lib/index.ts';
+import type { Money } from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher. Opening
@@ -66,7 +72,19 @@ export function makeLogisticsService(options: {
   return makeDiscoverableExo(
     'LogisticsService',
     {
-      async arrange(spec: string): Promise<LogisticsArtifact> {
+      async arrange(spec: string, payment: Money): Promise<LogisticsArtifact> {
+        // `arrange` has no separate quote step, so it charges the
+        // advertised flat setup fee (LOGISTICS_PRICE_USD). This
+        // matches the trial-mode setup-fee schedule exactly; for
+        // production mode the returned plan may quote a higher
+        // tier-scaled setup fee that a hypothetical future `commit`
+        // step would collect. For the current demo — which always
+        // exercises trial mode — the two numbers coincide.
+        assertPayment(
+          payment,
+          LOGISTICS_PRICE_USD * USD_TO_CENTS,
+          `${LOGISTICS_PROVIDER_TAG}.arrange`,
+        );
         // The agent's brief is plain English. We sniff for "trial" /
         // "beta" / "pilot" keywords to decide whether to render the
         // small-batch trial-distribution variant or the
@@ -131,6 +149,7 @@ export function makeLogisticsService(options: {
               'or handle, batch size, target markets, marketplace ' +
               'integration target).',
           },
+          payment: PAYMENT_ARG_SCHEMA,
         },
         returns: {
           type: 'object',
