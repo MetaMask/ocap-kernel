@@ -4,6 +4,7 @@ import type { Mocked } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelQueue } from '../KernelQueue.ts';
+import { kser } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
   VatId,
@@ -429,6 +430,40 @@ describe('SubclusterManager', () => {
         subclusterId: 's1',
         rootKref: 'ko1',
         bootstrapResult,
+      });
+    });
+
+    describe('bootstrap failure propagation', () => {
+      it('rejects with the underlying error when the bootstrap message rejects', async () => {
+        const config = createMockClusterConfig();
+        (mockQueueMessage as ReturnType<typeof vi.fn>).mockRejectedValue(
+          new Error('vat failed to build root object'),
+        );
+
+        await expect(
+          subclusterManager.launchSubcluster(config),
+        ).rejects.toThrow('vat failed to build root object');
+
+        // Not the old cryptic run-queue message.
+        await expect(
+          subclusterManager.launchSubcluster(config),
+        ).rejects.not.toThrow('no record matching key');
+
+        // The subcluster is rolled back rather than left half-initialized.
+        expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
+      });
+
+      it('rethrows when the bootstrap message resolves to a serialized error', async () => {
+        const config = createMockClusterConfig();
+        (mockQueueMessage as ReturnType<typeof vi.fn>).mockResolvedValue(
+          kser(new Error('bootstrap threw')),
+        );
+
+        await expect(
+          subclusterManager.launchSubcluster(config),
+        ).rejects.toThrow('bootstrap threw');
+
+        expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
       });
     });
   });

@@ -149,7 +149,7 @@ describe('VatManager', () => {
   describe('launchVat', () => {
     it('launches a new vat without subcluster', async () => {
       const config = createMockVatConfig();
-      const kref = await vatManager.launchVat(config);
+      const kref = await vatManager.launchVat(config, 'test');
 
       expect(mockKernelStore.getNextVatId).toHaveBeenCalledOnce();
       expect(mockPlatformServices.launch).toHaveBeenCalledWith('v1', config);
@@ -170,6 +170,34 @@ describe('VatManager', () => {
         'v1',
       );
       expect(kref).toBe('ko1');
+    });
+
+    it('attributes a launch failure to the vat by id and config name', async () => {
+      const config = createMockVatConfig();
+      const cause = new Error(
+        'Failed to initialize vat v1: buildRootObject threw',
+      );
+      makeVatHandleMock.mockRejectedValueOnce(cause);
+
+      await expect(vatManager.launchVat(config, 'bob', 's1')).rejects.toThrow(
+        'Failed to launch vat v1 (bob)',
+      );
+
+      // Downstream setup is skipped once the launch fails.
+      expect(mockKernelStore.initEndpoint).not.toHaveBeenCalled();
+      expect(mockKernelStore.setVatConfig).not.toHaveBeenCalled();
+    });
+
+    it('preserves the original error as the cause of a launch failure', async () => {
+      const config = createMockVatConfig();
+      const cause = new Error('buildRootObject threw');
+      makeVatHandleMock.mockRejectedValueOnce(cause);
+
+      const error = await vatManager
+        .launchVat(config, 'bob', 's1')
+        .catch((reason: unknown) => reason);
+
+      expect((error as Error).cause).toBe(cause);
     });
   });
 
