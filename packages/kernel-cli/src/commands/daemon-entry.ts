@@ -4,11 +4,30 @@ import { startDaemon } from '@metamask/kernel-node-runtime/daemon';
 import type { DaemonHandle } from '@metamask/kernel-node-runtime/daemon';
 import type { LogEntry } from '@metamask/logger';
 import { Logger } from '@metamask/logger';
+import { appendFileSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive } from '../utils.ts';
+
+const ocapDir = getOcapHome();
+const logPath = join(ocapDir, 'daemon.log');
+const logger = new Logger({
+  tags: ['daemon'],
+  transports: [makeFileTransport(logPath)],
+});
+
+// Install exit-cause handlers at module load, before main() runs, so
+// failures during kernel init also leave a fingerprint. daemon-entry
+// runs with `stdio: 'ignore'` under the CLI spawner (see
+// `daemon-spawn.ts`); without these, an uncaught exception, an
+// unhandled rejection, or a SIGHUP terminates the process silently
+// with no record in `daemon.log`. Silent deaths cost real debugging
+// time — see the run-notes for two past cases where a daemon
+// disappeared with no trace. Every terminating path now writes at
+// least one line before the process goes away.
+installFatalHandlers();
 
 main().catch((error) => {
   process.stderr.write(`Daemon fatal: ${String(error)}\n`);
@@ -19,14 +38,7 @@ main().catch((error) => {
  * Main daemon entry point. Starts the daemon process and keeps it running.
  */
 async function main(): Promise<void> {
-  const ocapDir = getOcapHome();
   await mkdir(ocapDir, { recursive: true });
-
-  const logPath = join(ocapDir, 'daemon.log');
-  const logger = new Logger({
-    tags: ['daemon'],
-    transports: [makeFileTransport(logPath)],
-  });
 
   const socketPath =
     process.env.OCAP_SOCKET_PATH ?? join(ocapDir, 'daemon.sock');
@@ -129,15 +141,66 @@ async function readDaemonPid(pidPath: string): Promise<number | undefined> {
 /**
  * Create a file transport that writes logs to a file.
  *
- * @param logPath - The log file path.
+ * @param logFilePath - The log file path.
  * @returns A log transport function.
  */
-function makeFileTransport(logPath: string) {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports, n/global-require -- need sync fs for log transport
-  const fs = require('node:fs') as typeof import('node:fs');
+function makeFileTransport(logFilePath: string) {
   return (entry: LogEntry): void => {
     const line = `[${new Date().toISOString()}] [${entry.level}] ${entry.message ?? ''} ${(entry.data ?? []).map(String).join(' ')}\n`;
     // eslint-disable-next-line n/no-sync -- synchronous write needed for log transport reliability
-    fs.appendFileSync(logPath, line);
+    appendFileSync(logFilePath, line);
   };
+}
+
+/**
+ * Install process-level handlers that guarantee a log line is
+ * written for every terminating event before the daemon exits.
+ *
+ * The `@metamask/logger` dispatch routine is synchronous and the
+ * file transport we're using here is `appendFileSync` under the
+ * hood, so `logger.error(...)` from inside a fatal handler flushes
+ * to disk before the process exits — no separate sync-write path
+ * is required.
+ *
+ * Handlers registered:
+ *
+ * - `uncaughtException` — the classic silent-death path. Node's
+ *   default is to print the stack to stderr and exit with code 1;
+ *   under `stdio: 'ignore'` (how the daemon is spawned) that
+ *   default writes nowhere.
+ * - `unhandledRejection` — currently defaults to a warning in
+ *   Node, but future Node versions treat it as uncaughtException;
+ *   either way we want a fingerprint.
+ * - `SIGHUP` — sent when the controlling terminal disappears
+ *   (ssh session closed, laptop lid closed while the daemon was
+ *   under an interactive shell). Default action terminates the
+ *   process; installing a handler lets us log the fact before
+ *   exiting.
+ * - `exit` — last-ditch record. Fires during every exit, including
+ *   the ones already logged by the handlers above.
+ */
+function installFatalHandlers(): void {
+  /* eslint-disable n/no-process-exit -- fatal handlers must terminate deterministically */
+  process.on('uncaughtException', (error: unknown) => {
+    const detail =
+      error instanceof Error ? (error.stack ?? error.message) : String(error);
+    logger.error('Uncaught exception', detail);
+    process.exit(1);
+  });
+  process.on('unhandledRejection', (reason: unknown) => {
+    const detail =
+      reason instanceof Error
+        ? (reason.stack ?? reason.message)
+        : String(reason);
+    logger.error('Unhandled rejection', detail);
+    process.exit(1);
+  });
+  process.on('SIGHUP', () => {
+    logger.error('SIGHUP received; exiting.');
+    process.exit(0);
+  });
+  process.on('exit', (code) => {
+    logger.error(`Process exiting (code=${code}).`);
+  });
+  /* eslint-enable n/no-process-exit */
 }
