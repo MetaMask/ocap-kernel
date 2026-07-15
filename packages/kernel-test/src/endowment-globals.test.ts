@@ -12,7 +12,7 @@ import type { AllowedGlobalName, KRef, VatId } from '@metamask/ocap-kernel';
 import { getWorkerFile } from '@ocap/nodejs-test-workers';
 import { describe, expect, it } from 'vitest';
 
-import { causeChainMessage, extractTestLogs, getBundleSpec } from './utils.ts';
+import { extractTestLogs, getBundleSpec } from './utils.ts';
 
 describe('global endowments', () => {
   const vatId: VatId = 'v1';
@@ -206,12 +206,16 @@ describe('global endowments', () => {
   describe('kernel-level allowedGlobalNames restriction', () => {
     it('throws when a vat requests a global excluded by the kernel', async () => {
       // Kernel only allows TextEncoder/TextDecoder — vat also requests URL.
-      // The launch failure is re-thrown with the reason on `cause`.
+      // The launch failure is re-thrown attributing the failing vat, with the
+      // reason on `cause`.
       const error = await setup({
         globals: ['TextEncoder', 'TextDecoder', 'URL'],
         allowedGlobalNames: ['TextEncoder', 'TextDecoder'],
       }).catch((reason: unknown) => reason);
-      expect(causeChainMessage(error)).toContain('unknown global "URL"');
+      expect(error).toMatchObject({
+        message: expect.stringMatching(/^Failed to launch vat \S+ \(main\)$/u),
+        cause: { message: expect.stringContaining('unknown global "URL"') },
+      });
     });
 
     it('initializes when all vat globals are within allowedGlobalNames', async () => {
@@ -244,9 +248,12 @@ describe('global endowments', () => {
         globals: ['TextEncoder'],
         allowedGlobalNames: [],
       }).catch((reason: unknown) => reason);
-      expect(causeChainMessage(error)).toContain(
-        'unknown global "TextEncoder"',
-      );
+      expect(error).toMatchObject({
+        message: expect.stringMatching(/^Failed to launch vat \S+ \(main\)$/u),
+        cause: {
+          message: expect.stringContaining('unknown global "TextEncoder"'),
+        },
+      });
     });
 
     it('rejects unknown names in allowedGlobalNames at the RPC boundary', async () => {
@@ -263,7 +270,10 @@ describe('global endowments', () => {
           'NotARealGlobal' as AllowedGlobalName,
         ],
       }).catch((reason: unknown) => reason);
-      expect(causeChainMessage(error)).toMatch(/Invalid params/u);
+      expect(error).toMatchObject({
+        message: expect.stringMatching(/^Failed to launch vat \S+ \(main\)$/u),
+        cause: { message: expect.stringMatching(/Invalid params/u) },
+      });
     });
   });
 });
