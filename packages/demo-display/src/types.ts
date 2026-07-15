@@ -137,39 +137,42 @@ export type AgentNoteEvent = {
 };
 
 /**
- * The inventor's wallet balance, in USD. Drives the always-visible
- * wallet ribbon. Emitted at agent startup (initial value) and on any
- * change.
+ * The inventor's wallet balance, in integer USD cents. Drives the
+ * always-visible wallet ribbon. Emitted at agent startup (initial
+ * value) and on any change. Cents on the wire (never dollars) so
+ * no floating-point rounding sneaks in between the vat and the
+ * dashboard; the frontend formats to `$X.YY` at render time.
  */
 export type WalletBalanceEvent = {
   kind: 'wallet.balance';
-  balanceUsd: number;
+  balanceCents: number;
   at: string;
 };
 
 /**
  * A spend just deducted from the wallet. Renders as an events-log
- * line so the audience sees money moving alongside the ribbon ticking
- * down.
+ * line so the audience sees money moving alongside the ribbon
+ * ticking down. Amounts in integer USD cents (see
+ * `WalletBalanceEvent`).
  */
 export type WalletChargeEvent = {
   kind: 'wallet.charge';
-  amountUsd: number;
+  amountCents: number;
   reason?: string;
-  balanceUsd: number;
+  balanceCents: number;
   at: string;
 };
 
 /**
  * A top-up just added to the wallet. Mirrors `wallet.charge` but in
  * the crediting direction — emitted when the inventor authorizes the
- * agent to add funds.
+ * agent to add funds. Amounts in integer USD cents.
  */
 export type WalletCreditEvent = {
   kind: 'wallet.credit';
-  amountUsd: number;
+  amountCents: number;
   reason?: string;
-  balanceUsd: number;
+  balanceCents: number;
   at: string;
 };
 

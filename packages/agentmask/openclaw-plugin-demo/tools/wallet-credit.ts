@@ -1,9 +1,8 @@
 /**
- * `demo_wallet_credit` tool: add a USD amount to the inventor's
- * wallet, mirroring `demo_wallet_charge` in shape but in the
- * crediting direction. The agent calls this when the inventor
- * explicitly authorizes a top-up — most often when the wallet runs
- * low mid-phase and the inventor wants to continue.
+ * `demo_wallet_credit` tool: deposit funds into the wallet vat.
+ * Called when the inventor explicitly authorizes a top-up — most
+ * often when the wallet runs low mid-phase and the inventor wants
+ * to continue.
  *
  * The agent should NOT credit on its own initiative — only on direct
  * authorization from the inventor (the SKILL.md spells this out).
@@ -11,16 +10,21 @@
  * the upstream conversational gating to keep credits intentional.
  */
 import type { DisplayClient } from '../display-client.ts';
+import { requireWallet } from '../state.ts';
 import type { PluginState } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
-import { decodeLiteralUnicodeEscapes } from './util.ts';
+import {
+  decodeLiteralUnicodeEscapes,
+  errorResponse,
+  formatUsdFromCents,
+} from './util.ts';
 
 /**
  * Register the demo_wallet_credit tool.
  *
  * @param options - Registration options.
  * @param options.api - The OpenClaw plugin API.
- * @param options.state - The plugin state.
+ * @param options.state - The plugin state (for the wallet slot).
  * @param options.display - Display client for posting wallet.credit
  *   events when the balance changes.
  */
@@ -35,74 +39,83 @@ export function registerWalletCreditTool(options: {
     name: 'demo_wallet_credit',
     label: "Add funds to the inventor's wallet",
     description:
-      "Add a USD amount to the inventor's wallet — typically a " +
-      'top-up the inventor authorized when the balance ran low. ' +
-      'Only call this in direct response to an inventor instruction ' +
-      'to add funds (e.g. "add $10,000" / "top up the wallet"); ' +
-      "do not credit on the agent's own initiative. Returns the new " +
-      'balance.',
+      "Deposit a positive USD-cents amount into the inventor's wallet " +
+      '(the wallet vat, not a local cache) — typically a top-up the ' +
+      'inventor authorized when the balance ran low. Only call this in ' +
+      'direct response to an inventor instruction to add funds (e.g. ' +
+      '"add $10,000" / "top up the wallet"); do not credit on the ' +
+      "agent's own initiative. Amounts are integer USD cents — " +
+      'multiply the inventor-facing dollar amount by 100 before ' +
+      'passing. Returns the new balance.',
     parameters: {
       type: 'object',
       properties: {
-        amountUsd: {
+        amountCents: {
           type: 'number',
-          description: 'Amount to add, in USD. Must be positive.',
+          description:
+            'Amount to deposit, in integer USD cents. Must be positive.',
         },
         reason: {
           type: 'string',
           description:
             'Short human-readable description of the credit (e.g. ' +
             '"inventor top-up"). Optional; not stored, but helpful for ' +
-            'context in logs.',
+            'context on the dashboard events log.',
         },
       },
-      required: ['amountUsd'],
+      required: ['amountCents'],
     },
     async execute(
       _id: string,
-      params: { amountUsd: number; reason?: string },
+      params: { amountCents: number; reason?: string },
     ): Promise<ToolResponse> {
-      const amount = params.amountUsd;
-      if (typeof amount !== 'number' || Number.isNaN(amount) || amount <= 0) {
+      const amount = params.amountCents;
+      if (
+        typeof amount !== 'number' ||
+        Number.isNaN(amount) ||
+        !Number.isInteger(amount) ||
+        amount <= 0
+      ) {
+        return errorResponse(
+          `amountCents must be a positive integer number of cents; got ${amount}.`,
+        );
+      }
+      try {
+        const wallet = await requireWallet(state);
+        const balanceCents = await wallet.deposit(amount);
+        const decodedReason =
+          typeof params.reason === 'string'
+            ? decodeLiteralUnicodeEscapes(params.reason)
+            : undefined;
+        display
+          .post({
+            kind: 'wallet.credit',
+            amountCents: amount,
+            balanceCents,
+            ...(decodedReason === undefined ? {} : { reason: decodedReason }),
+            at: new Date().toISOString(),
+          })
+          .catch(() => undefined);
+        const reasonSuffix =
+          typeof decodedReason === 'string' && decodedReason.length > 0
+            ? ` (${decodedReason})`
+            : '';
         return {
           content: [
             {
               type: 'text' as const,
-              text: `Error: amountUsd must be a positive number; got ${amount}.`,
+              text:
+                `Credited ${formatUsdFromCents(amount)}${reasonSuffix}. ` +
+                `New balance: ${formatUsdFromCents(balanceCents)}.`,
             },
           ],
           details: undefined,
         };
+      } catch (error) {
+        return errorResponse(
+          error instanceof Error ? error.message : String(error),
+        );
       }
-      const decodedReason =
-        typeof params.reason === 'string'
-          ? decodeLiteralUnicodeEscapes(params.reason)
-          : undefined;
-      state.balanceUsd += amount;
-      display
-        .post({
-          kind: 'wallet.credit',
-          amountUsd: amount,
-          reason: decodedReason,
-          balanceUsd: state.balanceUsd,
-          at: new Date().toISOString(),
-        })
-        .catch(() => undefined);
-      const reasonSuffix =
-        typeof decodedReason === 'string' && decodedReason.length > 0
-          ? ` (${decodedReason})`
-          : '';
-      return {
-        content: [
-          {
-            type: 'text' as const,
-            text:
-              `Credited $${amount.toLocaleString()}${reasonSuffix}. ` +
-              `New balance: $${state.balanceUsd.toLocaleString()}.`,
-          },
-        ],
-        details: undefined,
-      };
     },
   });
 }

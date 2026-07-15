@@ -6,7 +6,6 @@
  * narration strip.
  */
 import type { DisplayClient } from '../display-client.ts';
-import type { PluginState } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 import { decodeLiteralUnicodeEscapes, errorResponse } from './util.ts';
 
@@ -21,17 +20,12 @@ type AnnounceParams = {
  * @param options - Registration options.
  * @param options.api - The OpenClaw plugin API.
  * @param options.display - Client posting events to demo-display.
- * @param options.state - Plugin state; the announce also re-posts the
- *   current wallet balance as a side effect, so the dashboard ribbon
- *   snaps to its initial value on the agent's first activity (the
- *   register-time push is unreliable — see index.ts for context).
  */
 export function registerAnnounceTool(options: {
   api: OpenClawPluginApi;
   display: DisplayClient;
-  state: PluginState;
 }): void {
-  const { api, display, state } = options;
+  const { api, display } = options;
 
   api.registerTool({
     name: 'demo_announce',
@@ -84,9 +78,6 @@ export function registerAnnounceTool(options: {
         await display.post({ kind: 'agent.note', note });
         acknowledgements.push(`Note: ${note}`);
       }
-      display
-        .post({ kind: 'wallet.balance', balanceUsd: state.balanceUsd })
-        .catch(() => undefined);
       return {
         content: [{ type: 'text' as const, text: acknowledgements.join('\n') }],
         details: undefined,

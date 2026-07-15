@@ -92,23 +92,23 @@ export type AgentNoteEvent = {
 
 export type WalletBalanceEvent = {
   kind: 'wallet.balance';
-  balanceUsd: number;
+  balanceCents: number;
   at: string;
 };
 
 export type WalletChargeEvent = {
   kind: 'wallet.charge';
-  amountUsd: number;
+  amountCents: number;
   reason?: string;
-  balanceUsd: number;
+  balanceCents: number;
   at: string;
 };
 
 export type WalletCreditEvent = {
   kind: 'wallet.credit';
-  amountUsd: number;
+  amountCents: number;
   reason?: string;
-  balanceUsd: number;
+  balanceCents: number;
   at: string;
 };
 

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 
-import { formatUsd } from '../format.ts';
+import { formatUsdFromCents } from '../format.ts';
 import type { EventEntry } from '../hooks/useEventStream.ts';
 
 type EventsProps = {
@@ -109,8 +109,8 @@ function EventLine({ entry }: EventLineProps): JSX.Element {
       <li className="events__line events__line--charge">
         <span className="events__time">{formatTime(entry.at)}</span>
         <span className="events__charge">
-          $ −{formatUsd(entry.amountUsd)} {reason} (balance{' '}
-          {formatUsd(entry.balanceUsd)})
+          −{formatUsdFromCents(entry.amountCents)} {reason} (balance{' '}
+          {formatUsdFromCents(entry.balanceCents)})
         </span>
       </li>
     );
@@ -124,8 +124,8 @@ function EventLine({ entry }: EventLineProps): JSX.Element {
       <li className="events__line events__line--credit">
         <span className="events__time">{formatTime(entry.at)}</span>
         <span className="events__credit">
-          $ +{formatUsd(entry.amountUsd)} {reason} (balance{' '}
-          {formatUsd(entry.balanceUsd)})
+          +{formatUsdFromCents(entry.amountCents)} {reason} (balance{' '}
+          {formatUsdFromCents(entry.balanceCents)})
         </span>
       </li>
     );

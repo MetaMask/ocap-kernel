@@ -25,16 +25,16 @@ export type EventEntry =
   | {
       kind: 'wallet-charge';
       at: string;
-      amountUsd: number;
+      amountCents: number;
       reason?: string;
-      balanceUsd: number;
+      balanceCents: number;
     }
   | {
       kind: 'wallet-credit';
       at: string;
-      amountUsd: number;
+      amountCents: number;
       reason?: string;
-      balanceUsd: number;
+      balanceCents: number;
     }
   | {
       kind: 'service-interaction';
@@ -59,7 +59,7 @@ export type DisplayState = {
   services: Map<string, ServiceDescriptionPayload>;
   events: EventEntry[];
   latestArtifact: ArtifactRecordedEvent | undefined;
-  walletBalanceUsd: number | undefined;
+  walletBalanceCents: number | undefined;
   /**
    * Active workflow phase pointer. Updated whenever a
    * `phase.announced` event arrives; previously-recorded artifacts
@@ -106,7 +106,7 @@ const INITIAL_STATE: DisplayState = {
   services: new Map(),
   events: [],
   latestArtifact: undefined,
-  walletBalanceUsd: undefined,
+  walletBalanceCents: undefined,
   activePhase: undefined,
   artifactsByPhase: new Map(),
   announcedPhases: [],
@@ -293,33 +293,33 @@ function reduce(state: DisplayState, event: DisplayEvent): DisplayState {
       return { ...state, latestArtifact: event, artifactsByPhase };
     }
     case 'wallet.balance':
-      return { ...state, walletBalanceUsd: event.balanceUsd };
+      return { ...state, walletBalanceCents: event.balanceCents };
     case 'wallet.charge': {
       const events = appendEvent(state.events, {
         kind: 'wallet-charge',
         at: event.at,
-        amountUsd: event.amountUsd,
+        amountCents: event.amountCents,
         reason: event.reason,
-        balanceUsd: event.balanceUsd,
+        balanceCents: event.balanceCents,
       });
       return {
         ...state,
         events,
-        walletBalanceUsd: event.balanceUsd,
+        walletBalanceCents: event.balanceCents,
       };
     }
     case 'wallet.credit': {
       const events = appendEvent(state.events, {
         kind: 'wallet-credit',
         at: event.at,
-        amountUsd: event.amountUsd,
+        amountCents: event.amountCents,
         reason: event.reason,
-        balanceUsd: event.balanceUsd,
+        balanceCents: event.balanceCents,
       });
       return {
         ...state,
         events,
-        walletBalanceUsd: event.balanceUsd,
+        walletBalanceCents: event.balanceCents,
       };
     }
     case 'service.interaction': {

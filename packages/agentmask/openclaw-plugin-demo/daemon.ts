@@ -4,8 +4,8 @@
  * commands and returns parsed results.
  *
  * NOTE: this file is duplicated byte-for-byte in
- * `packages/agentmask/openclaw-plugin-demo/daemon.ts` and
- * `packages/agentmask/openclaw-plugin-discovery/daemon.ts` so each plugin
+ * `packages/agentmask/openclaw-plugin-discovery/daemon.ts` and
+ * `packages/agentmask/openclaw-plugin-metamask/daemon.ts` so each plugin
  * stays installable on its own via `openclaw plugins install -l`. Any
  * change here must be mirrored across all three; please keep them in sync.
  */

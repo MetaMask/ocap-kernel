@@ -37,7 +37,7 @@ export function App(): JSX.Element {
     activePhase,
     announcedPhases,
     artifactsByPhase,
-    walletBalanceUsd,
+    walletBalanceCents,
     discoveredProviderTags,
   } = useEventStream();
   const config = useConfig();
@@ -48,7 +48,7 @@ export function App(): JSX.Element {
     <div className="app">
       <header className="app__header">
         <h1>Service Orchestration</h1>
-        <WalletRibbon balanceUsd={walletBalanceUsd} />
+        <WalletRibbon balanceCents={walletBalanceCents} />
       </header>
       <main className="app__main">
         <div className="app__cell app__cell--top-left">

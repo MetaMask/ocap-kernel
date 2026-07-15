@@ -1,13 +1,19 @@
 /**
- * `demo_service_completed` tool: close out a service_call in a single
- * call. Combines the three things the agent invariably does together
- * after a service returns: record the result as an artifact (by
- * handle — the `service_call` reply already carries one), charge the
- * wallet for the quoted price, and post an (optional) one-line
- * audience note. Folding these into one tool call saves two LLM
- * round-trips per service completion compared to the older
- * `demo_record_artifact` + `demo_wallet_charge` + `demo_announce`
- * triplet.
+ * `demo_service_completed` tool: close out a service_call by recording
+ * the returned artifact against a workflow phase, posting any
+ * inter-service handoffs that produced the artifact, and (optionally)
+ * emitting a one-line audience note. Folds three things the agent
+ * invariably does together after a service returns into a single
+ * tool call, saving two LLM round-trips per service completion
+ * compared to invoking `demo_record_artifact` + `demo_announce`
+ * separately.
+ *
+ * Wallet bookkeeping is NOT part of this call. Since Phase 3 of the
+ * wallet rework, costed services validate the `payment` argument
+ * they received against their expected price; the withdrawal that
+ * minted that payment (via `demo_wallet_withdraw`) already
+ * decremented the wallet and posted the `wallet.charge` event, so
+ * post-service there's nothing left to charge.
  *
  * Artifact bytes never round-trip through the LLM: `service_call`
  * interns the service result and surfaces only the handle plus
@@ -17,22 +23,13 @@
  */
 import { getArtifactStore } from '../artifact-store.ts';
 import type { DisplayClient } from '../display-client.ts';
-import type { PluginState } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
-import {
-  decodeLiteralUnicodeEscapes,
-  errorResponse,
-  formatUsd,
-} from './util.ts';
+import { decodeLiteralUnicodeEscapes, errorResponse } from './util.ts';
 
 type ServiceCompletedParams = {
   handle?: string;
   phase?: string;
   consumes?: string[];
-  charge?: {
-    amountUsd?: number;
-    reason?: string;
-  };
   note?: string;
 };
 
@@ -41,33 +38,28 @@ type ServiceCompletedParams = {
  *
  * @param options - Registration options.
  * @param options.api - The OpenClaw plugin API.
- * @param options.state - The plugin state (for wallet balance).
  * @param options.display - Client posting events to demo-display.
  */
 export function registerServiceCompletedTool(options: {
   api: OpenClawPluginApi;
-  state: PluginState;
   display: DisplayClient;
 }): void {
-  const { api, state, display } = options;
+  const { api, display } = options;
   const artifacts = getArtifactStore();
 
   api.registerTool({
     name: 'demo_service_completed',
-    label: 'Close out a service_call (artifact + charge + note in one call)',
+    label: 'Close out a service_call (artifact + note in one call)',
     description:
       'Close out a service_call in one tool call. Pass the artifact ' +
       'handle returned by the preceding `service_call`, the phase the ' +
       'artifact belongs to, any earlier-artifact handles that fed into ' +
-      'this one (`consumes`), the wallet `charge`, and an optional ' +
-      'one-line audience `note`. The plugin resolves the handle against ' +
-      'the shared artifact store and emits the full artifact to the ' +
-      'dashboard; the agent never has to round-trip the bytes. The ' +
-      'charge amount must be non-negative and must fit in the current ' +
-      'wallet balance — zero is accepted as a no-op for covered ' +
-      'revisions, and an overdraw is refused with a shortfall message ' +
-      'the agent should surface to the inventor before requesting a ' +
-      'top-up.',
+      'this one (`consumes`), and an optional one-line audience `note`. ' +
+      'The plugin resolves the handle against the shared artifact store ' +
+      'and emits the full artifact (plus any inter-service handoffs) ' +
+      'to the dashboard; the agent never has to round-trip the bytes. ' +
+      'No wallet bookkeeping here — that already happened at ' +
+      '`demo_wallet_withdraw` time.',
     parameters: {
       type: 'object',
       properties: {
@@ -93,27 +85,6 @@ export function registerServiceCompletedTool(options: {
             'the service call that produced this one. Drives the workflow ' +
             "board's lineage footer.",
         },
-        charge: {
-          type: 'object',
-          description: 'The wallet charge to apply for this service call.',
-          properties: {
-            amountUsd: {
-              type: 'number',
-              description:
-                'Amount to deduct, in USD. Use 0 for revisions that ' +
-                'are covered by the original engagement (the wallet ' +
-                'is left untouched). Otherwise the value must fit in ' +
-                'the current balance; an overdraw is refused.',
-            },
-            reason: {
-              type: 'string',
-              description:
-                'Short human-readable description of the charge (e.g. ' +
-                '"industrial-design pass"). Optional.',
-            },
-          },
-          required: ['amountUsd'],
-        },
         note: {
           type: 'string',
           description:
@@ -121,7 +92,7 @@ export function registerServiceCompletedTool(options: {
             'one short sentence.',
         },
       },
-      required: ['handle', 'phase', 'charge'],
+      required: ['handle', 'phase'],
     },
     async execute(
       _id: string,
@@ -133,34 +104,12 @@ export function registerServiceCompletedTool(options: {
         rawPhase === undefined
           ? undefined
           : decodeLiteralUnicodeEscapes(rawPhase);
-      const chargeParams = params.charge;
 
       if (!handle) {
         return errorResponse('demo_service_completed: `handle` is required.');
       }
       if (!phase) {
         return errorResponse('demo_service_completed: `phase` is required.');
-      }
-      if (!chargeParams) {
-        return errorResponse(
-          'demo_service_completed: `charge` payload is required.',
-        );
-      }
-      const amount = chargeParams.amountUsd;
-      if (typeof amount !== 'number' || Number.isNaN(amount) || amount < 0) {
-        return errorResponse(
-          `demo_service_completed: charge.amountUsd must be a non-negative number; got ${amount}.`,
-        );
-      }
-      if (amount > state.balanceUsd) {
-        const shortfall = amount - state.balanceUsd;
-        return errorResponse(
-          `demo_service_completed: charge of ${formatUsd(amount)} would ` +
-            `overdraw the wallet (balance ${formatUsd(state.balanceUsd)}, ` +
-            `shortfall ${formatUsd(shortfall)}). Surface the shortfall to ` +
-            `the inventor and request a top-up via demo_wallet_credit ` +
-            `before retrying.`,
-        );
       }
 
       const stored = artifacts.get(handle);
@@ -209,25 +158,6 @@ export function registerServiceCompletedTool(options: {
         }
       }
 
-      const decodedReason =
-        typeof chargeParams.reason === 'string'
-          ? decodeLiteralUnicodeEscapes(chargeParams.reason)
-          : undefined;
-      // Zero-amount charges (covered revisions) are no-ops on the
-      // wallet side — skip the state update and the `wallet.charge`
-      // SSE event entirely so the dashboard transcript doesn't get a
-      // misleading "$0 charge" line.
-      if (amount > 0) {
-        state.balanceUsd -= amount;
-        await display.post({
-          kind: 'wallet.charge',
-          amountUsd: amount,
-          reason: decodedReason,
-          balanceUsd: state.balanceUsd,
-          at: new Date().toISOString(),
-        });
-      }
-
       const rawNote = params.note?.trim();
       const note =
         rawNote === undefined
@@ -237,19 +167,11 @@ export function registerServiceCompletedTool(options: {
         await display.post({ kind: 'agent.note', note });
       }
 
-      const reasonSuffix =
-        typeof decodedReason === 'string' && decodedReason.length > 0
-          ? ` (${decodedReason})`
-          : '';
-      const chargeLine =
-        amount === 0
-          ? `No charge applied (covered revision or no-cost step).`
-          : `Charged ${formatUsd(amount)}${reasonSuffix}. New balance: ${formatUsd(state.balanceUsd)}.`;
       return {
         content: [
           {
             type: 'text' as const,
-            text: `Recorded ${stored.kind} artifact as ${handle}.\n${chargeLine}`,
+            text: `Recorded ${stored.kind} artifact as ${handle}.`,
           },
         ],
         details: undefined,

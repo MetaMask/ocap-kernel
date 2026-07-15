@@ -16,17 +16,18 @@ export function errorResponse(message: string): ToolResponse {
 }
 
 /**
- * Format a USD amount with two decimal places and thousands
- * separators. The orchestration demo deals in dollar-and-cents
- * quantities throughout; using a single helper keeps the audience-
- * facing text consistent across charge receipts, error messages, and
- * balance reports.
+ * Format an amount denominated in integer USD cents as a dollar
+ * string with two decimal places and thousands separators. The
+ * wallet vat, the sample-services `payment` argument, and the
+ * plugin-emitted `wallet.*` events all work in cents; the LLM- and
+ * audience-facing text is dollar-and-cents, so every crossing back
+ * to human eyes runs through this helper.
  *
- * @param amount - The USD amount.
+ * @param cents - The USD amount in integer cents.
  * @returns The formatted string, e.g. `"$22.50"` or `"$1,200.00"`.
  */
-export function formatUsd(amount: number): string {
-  return `$${amount.toLocaleString('en-US', {
+export function formatUsdFromCents(cents: number): string {
+  return `$${(cents / 100).toLocaleString('en-US', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;

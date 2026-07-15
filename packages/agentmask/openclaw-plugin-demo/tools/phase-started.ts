@@ -13,7 +13,6 @@
  */
 import { getArtifactStore } from '../artifact-store.ts';
 import type { DisplayClient } from '../display-client.ts';
-import type { PluginState } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 import { decodeLiteralUnicodeEscapes, errorResponse } from './util.ts';
 
@@ -34,16 +33,13 @@ type PhaseStartedParams = {
  *
  * @param options - Registration options.
  * @param options.api - The OpenClaw plugin API.
- * @param options.state - The plugin state (for artifact-handle
- *   allocation and wallet-balance side-emission).
  * @param options.display - Client posting events to demo-display.
  */
 export function registerPhaseStartedTool(options: {
   api: OpenClawPluginApi;
-  state: PluginState;
   display: DisplayClient;
 }): void {
-  const { api, state, display } = options;
+  const { api, display } = options;
   const artifacts = getArtifactStore();
 
   api.registerTool({
@@ -163,13 +159,6 @@ export function registerPhaseStartedTool(options: {
         await display.post({ kind: 'agent.note', note });
         acknowledgements.push(`Note: ${note}`);
       }
-
-      // Mirror demo_announce's side-effect re-post of the wallet balance
-      // so the dashboard ribbon stays sticky on the agent's first
-      // activity in each phase.
-      display
-        .post({ kind: 'wallet.balance', balanceUsd: state.balanceUsd })
-        .catch(() => undefined);
 
       const briefSuffix =
         briefHandle === undefined ? '' : ` brief=${briefHandle}`;
