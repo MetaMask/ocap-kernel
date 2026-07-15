@@ -144,6 +144,67 @@ describe('VatManager', () => {
       expect(mockPlatformServices.launch).not.toHaveBeenCalled();
       expect(vatManager.getVatIds()).toStrictEqual([]);
     });
+
+    it('quarantines a vat whose restore fails and restores the rest', async () => {
+      const vatRecords = [
+        { vatID: 'v1' as VatId, vatConfig: createMockVatConfig('vat1') },
+        {
+          vatID: 'v2' as VatId,
+          vatConfig: { bundleSpec: 'file:///gone/missing.bundle' } as VatConfig,
+        },
+        { vatID: 'v3' as VatId, vatConfig: createMockVatConfig('vat3') },
+      ];
+      function* mockGenerator() {
+        yield* vatRecords;
+      }
+      mockKernelStore.getAllVatRecords.mockReturnValue(mockGenerator());
+      mockPlatformServices.launch.mockImplementation(async (vatId: VatId) => {
+        if (vatId === 'v2') {
+          throw new Error(
+            "ENOENT: no such file or directory, open '/gone/missing.bundle'",
+          );
+        }
+        return { end: vi.fn() } as unknown as DuplexStream<
+          JsonRpcMessage,
+          JsonRpcMessage
+        >;
+      });
+
+      // Restore must complete rather than aborting the whole kernel boot.
+      expect(await vatManager.initializeAllVats()).toBeUndefined();
+
+      expect(mockPlatformServices.launch).toHaveBeenCalledTimes(3);
+      // The healthy vats come up; the unrestorable one is skipped.
+      expect(vatManager.getVatIds()).toStrictEqual(['v1', 'v3']);
+    });
+
+    it('logs a structured warning naming the quarantined vat and its bundle', async () => {
+      const warnSpy = vi.spyOn(mockLogger, 'warn');
+      const vatRecords = [
+        {
+          vatID: 'v2' as VatId,
+          vatConfig: { bundleSpec: 'file:///gone/missing.bundle' } as VatConfig,
+        },
+      ];
+      function* mockGenerator() {
+        yield* vatRecords;
+      }
+      mockKernelStore.getAllVatRecords.mockReturnValue(mockGenerator());
+      mockKernelStore.getVatSubcluster.mockReturnValue('s7');
+      mockPlatformServices.launch.mockRejectedValue(
+        new Error(
+          "ENOENT: no such file or directory, open '/gone/missing.bundle'",
+        ),
+      );
+
+      await vatManager.initializeAllVats();
+
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const logged = warnSpy.mock.calls[0]?.map(String).join(' ') ?? '';
+      expect(logged).toContain('v2');
+      expect(logged).toContain('s7');
+      expect(logged).toContain('file:///gone/missing.bundle');
+    });
   });
 
   describe('launchVat', () => {
