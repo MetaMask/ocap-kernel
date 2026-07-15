@@ -246,21 +246,19 @@ openclaw config set 'plugins.entries.discovery.config.displayUrl' \
   'http://127.0.0.1:7777'
 ```
 
-Set the demo plugin's static config — same shape as discovery, plus
-the wallet OCAP URL published by `start-wallet.sh` into
-`~/.ocap-consumer/wallet-url.env`. `walletUrl` is dynamic per
-`reset-everything.sh` cold-start (the URL changes only when the
-wallet kref changes), so on routine `rehearsal-restart-matcher.sh`
-runs it stays put:
+Set the demo plugin's static config — same shape as discovery. The
+plugin auto-discovers `walletUrl` by reading
+`<ocapHome>/wallet-url.env` (the file `start-wallet.sh` writes on
+every launch), so it does not need to be configured explicitly.
+Only set `walletUrl` here if you want to override the auto-discovery
+and point the plugin at a wallet other than the one
+`start-wallet.sh` most recently published.
 
 ```csh
 openclaw config set 'plugins.entries.demo.config.ocapCliPath' \
   "$HOME/GitRepos/ocap-kernel/packages/kernel-cli/dist/app.mjs"
 openclaw config set 'plugins.entries.demo.config.ocapHome' \
   "$HOME/.ocap-consumer"
-source ~/.ocap-consumer/wallet-url.env
-openclaw config set 'plugins.entries.demo.config.walletUrl' \
-  "$WALLET_OCAP_URL"
 ```
 
 Write the demo-display config so its ttyd-iframe URL is wired up

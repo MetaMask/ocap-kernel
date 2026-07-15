@@ -11,8 +11,11 @@
  *
  * Config (in openclaw plugin settings or env vars):
  *   walletUrl               - OCAP URL of the wallet vat's public
- *                             facet (required for any wallet tool
- *                             call to succeed). No default.
+ *                             facet. Optional; when unset the
+ *                             plugin auto-discovers by reading
+ *                             `<ocapHome>/wallet-url.env` (the file
+ *                             `start-wallet.sh` writes). Explicit
+ *                             config wins over the file.
  *   walletInitialBalanceUsd - Initial balance to write into the vat
  *                             at register-time so each rehearsal
  *                             starts from a known amount. Default
@@ -33,6 +36,7 @@ import {
   string,
   validate,
 } from '@metamask/superstruct';
+import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -96,11 +100,13 @@ const configSchema: PluginConfigSchema = {
       walletUrl: {
         type: 'string',
         description:
-          "OCAP URL of the wallet vat's public facet. Required for " +
-          'any wallet tool call to succeed. Publish this URL from ' +
-          '`start-wallet.sh` (writes `~/.ocap-consumer/wallet-url.env`) ' +
-          'and configure it here via `openclaw config set ' +
-          '\'plugins.entries.demo.config.walletUrl\' "$WALLET_OCAP_URL"`.',
+          "OCAP URL of the wallet vat's public facet. Optional. When " +
+          'unset the plugin falls back to auto-discovery: reads ' +
+          '`<ocapHome>/wallet-url.env` (the file ' +
+          '`start-wallet.sh` writes on every launch) and picks up ' +
+          'the URL from there. Set this explicitly only when you ' +
+          "want to point the plugin at a wallet that isn't the one " +
+          '`start-wallet.sh` most recently published.',
       },
       walletInitialBalanceUsd: {
         type: 'number',
@@ -160,6 +166,39 @@ function resolveConfig<Type>(options: {
 }
 
 /**
+ * Auto-discover the wallet OCAP URL by reading the `wallet-url.env`
+ * file that `start-wallet.sh` writes into the consumer daemon's
+ * home. Returns the URL if found, otherwise `undefined`. Absorbs
+ * every error (missing file, unparseable content) — a permissible
+ * failure means the operator hasn't run `start-wallet.sh` yet or
+ * pointed the plugin at a different home.
+ *
+ * The file's line format is
+ *   `setenv WALLET_OCAP_URL '<url>'`
+ * (csh setenv, produced by `packages/orchestration-demo-vats/scripts/start-wallet.sh`).
+ *
+ * @param ocapHome - The consumer daemon's home directory.
+ * @returns The wallet OCAP URL, or `undefined`.
+ */
+function autoDiscoverWalletUrl(ocapHome: string): string | undefined {
+  try {
+    const path = resolvePath(ocapHome, 'wallet-url.env');
+    // Sync read is intentional: register() is a synchronous
+    // callback under openclaw's plugin API, and the file is a
+    // few dozen bytes — the async ceremony isn't worth it.
+    // eslint-disable-next-line n/no-sync
+    const contents = readFileSync(path, 'utf8');
+    const match = /WALLET_OCAP_URL\s+['"]?([^'"\s]+)/u.exec(contents);
+    if (match?.[1]) {
+      return match[1];
+    }
+  } catch {
+    // fall through to return undefined
+  }
+  return undefined;
+}
+
+/**
  * Register all demo bookkeeping tools with the OpenClaw plugin API.
  * Kicks off (but does not await) wallet-URL redemption + a
  * balance-reset init call; wallet tools await this pending promise
@@ -170,7 +209,7 @@ function resolveConfig<Type>(options: {
 function register(api: OpenClawPluginApi): void {
   const { pluginConfig } = api;
 
-  const walletUrl = (
+  const configuredWalletUrl = (
     resolveConfig<string>({
       pluginValue: pluginConfig?.walletUrl,
       envVar: 'DEMO_WALLET_OCAP_URL',
@@ -202,6 +241,19 @@ function register(api: OpenClawPluginApi): void {
         envVar: 'DEMO_OCAP_HOME',
       }) ?? ''
     ).trim() || resolvePath(homedir(), '.ocap-consumer');
+
+  // Explicit config beats the file, so an operator can always
+  // override the auto-discovery by setting
+  // `plugins.entries.demo.config.walletUrl` (or the
+  // DEMO_WALLET_OCAP_URL env var). If neither is set, fall back to
+  // `<ocapHome>/wallet-url.env` — the file `start-wallet.sh` writes
+  // on every launch. This is what makes the demo "just work" without
+  // a per-cold-start openclaw-config-set step: the URL is stable
+  // across rehearsal restarts (kref + peer id both persist), so the
+  // file's contents change only on `reset-everything.sh` cycles, and
+  // the plugin picks up whatever start-wallet.sh most recently wrote.
+  const walletUrl =
+    configuredWalletUrl || (autoDiscoverWalletUrl(ocapHome) ?? '');
 
   const timeoutMs =
     resolveConfig<number>({
@@ -277,10 +329,13 @@ function register(api: OpenClawPluginApi): void {
   } else {
     // eslint-disable-next-line no-console
     console.warn(
-      '[demo plugin] No walletUrl configured; wallet tools will fail ' +
-        'until `plugins.entries.demo.config.walletUrl` (or the ' +
-        'DEMO_WALLET_OCAP_URL env var) is set to a live wallet OCAP URL. ' +
-        'See `packages/orchestration-demo-vats/scripts/start-wallet.sh`.',
+      '[demo plugin] No walletUrl found. Checked (in order): ' +
+        '`plugins.entries.demo.config.walletUrl`, the ' +
+        'DEMO_WALLET_OCAP_URL env var, and ' +
+        `${resolvePath(ocapHome, 'wallet-url.env')}. Wallet tools ` +
+        'will fail until one is populated. Run ' +
+        '`packages/orchestration-demo-vats/scripts/start-wallet.sh` ' +
+        'to publish the URL into the auto-discovery file.',
     );
   }
 
