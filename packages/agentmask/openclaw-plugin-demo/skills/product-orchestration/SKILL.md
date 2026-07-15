@@ -218,28 +218,34 @@ Per-phase intent:
   needs. `quote` is reserved for Stage 3 fab-cost re-pricing after
   the design already exists.
 - **Firmware** — a **two-round** delivery from a single provider.
-  Round 1 calls the service's `specify` method (~$1,000) and returns
-  a markdown firmware specification (state machine, peripheral I/O,
-  update/recovery). Present that to the inventor and ask for
-  approval — they may approve unconditionally or with proposed
-  changes ("approve subject to: bump the idle timeout, add a BLE HID
-  placeholder, …"). Round 2 calls the service's `implement` method
-  (~$5,000) with an `approval` object containing the spec markdown
-  (passed as `{"__handle__":"artifact-N"}` so the discovery plugin
-  expands the handle to the stored spec) and the inventor's
-  `changes` text (omit the field for an unconditional approval).
-  The result is a structured object: `{ accepted, firmware?, declineReason? }`. The
-  stub provider always sets `accepted: true` and returns the
+  Round 1 calls the service's `specify` method (~$1,000, so
+  `demo_wallet_withdraw({amountCents: 100000, reason:
+"firmware spec"})` first) and returns a markdown firmware
+  specification (state machine, peripheral I/O, update/recovery).
+  Present that to the inventor and ask for approval — they may
+  approve unconditionally or with proposed changes ("approve
+  subject to: bump the idle timeout, add a BLE HID placeholder,
+  …"). Round 2 calls the service's `implement` method (~$5,000,
+  so a fresh `demo_wallet_withdraw({amountCents: 500000, reason:
+"firmware implementation"})` first) with an `approval` object
+  containing the spec markdown (passed as
+  `{"__handle__":"artifact-N"}` so the discovery plugin expands
+  the handle to the stored spec) and the inventor's `changes`
+  text (omit the field for an unconditional approval). The result
+  is a structured object: `{ accepted, firmware?, declineReason? }`.
+  The stub provider always sets `accepted: true` and returns the
   firmware source (rendered as markdown with a fenced C code block),
   but the API allows a real provider to renegotiate — narrate the
   acceptance verdict explicitly to the inventor either way. **Both
   artifacts land in the Firmware column** (same `phase` value); the
   spec first, then the implementation. Announce the implementation
   charge before calling `implement`, since the round-2 cost is the
-  one the inventor hasn't yet absorbed — and check the wallet has
-  the $5,000 of headroom _before_ the `service_call`, requesting a
-  top-up first if it doesn't (see the "Never commission costed
-  work the wallet can't pay for" hard rule).
+  one the inventor hasn't yet absorbed. The withdrawal step above
+  is the pre-check — an overdraw will surface as a
+  `demo_wallet_withdraw` error before the service call, at which
+  point request a top-up via `demo_wallet_credit` and retry the
+  withdraw. See "Every costed call needs an upstream withdraw"
+  below.
 - **Bench Build** — the engineering-prototype build that closes
   out Stage 1. Two-step engagement with the small contract shop
   (proto-pros):
@@ -396,6 +402,41 @@ commit to standing up the retail end of this — and to all the
 volume-production capital that follows — after this checkpoint
 clears.
 
+## Every costed call needs an upstream withdraw
+
+Since Phase 3 of the wallet rework, sample-service methods do their
+own amount-checking against a `payment: Money` argument you thread
+through as the final positional arg. That means **every costed
+`service_call` is preceded by a `demo_wallet_withdraw` on the same
+turn.** The withdraw both decrements the wallet and mints the Money
+you pass into the service. The retired `demo_wallet_charge` /
+"record the charge after the fact" flow no longer exists —
+withdrawal IS the charge.
+
+The tool call sequence for any costed call is:
+
+```
+demo_wallet_withdraw({ amountCents, reason })
+    → returns text including `Payment: {"amount":..,"auth":".."}`
+service_call({ service, method, args: '[<existing args...>, <the Payment object>]' })
+    → returns the artifact handle
+demo_service_completed({ handle, phase, consumes?, note? })
+    → no charge param; the wallet already moved at withdraw time
+```
+
+`amountCents` = the service's quoted USD price × 100. Values must
+match exactly — the service rejects payments whose `amount` isn't
+its expected price to the penny. Read the number out of the quote
+artifact's `summary` field for dynamic-price commits (see below);
+use the matcher-published `priceUsd` (× 100) for fixed-price
+methods.
+
+**Free methods** (no withdraw, no payment arg): `proto-pros.engage`,
+`pcb-wizards.shipSampleBoards`, `assembly-coop.shipFinishedUnits`.
+These are setup handshakes or shipping steps whose cost is folded
+into a paid method elsewhere. Their method schema has no `payment`
+entry — you'll see that in `service_get_description`.
+
 ## Purchase commits
 
 Three services in the pipeline have a two-step "quote then commit"
@@ -403,7 +444,10 @@ shape: the first method delivers a priced document (BOM, build
 plan, or PCB layout) for a one-time design/sourcing fee; the second
 method, invoked only after the inventor authorizes the spend,
 places the actual production order against an earlier quote and
-charges the per-batch cost the quote cited.
+charges the per-batch cost the quote cited. Because pricing on the
+commit step is dynamic (quoted at the earlier step), read the
+`amountCents` for its withdraw out of the quote artifact's
+`summary` field.
 
 | Phase         | Service         | Quote method                   | Commit method | shipToUrl?      |
 | ------------- | --------------- | ------------------------------ | ------------- | --------------- |
@@ -419,26 +463,27 @@ The cadence at each commit:
 2. Wait for explicit approval. Don't infer it from earlier
    "looks good" remarks on a different document. The commit is
    real money; the inventor names the amount.
-3. **Check the wallet against the quoted price.** Call
-   `demo_wallet_balance` (or rely on the most recently observed
-   balance if you have one). If the balance is below the price,
-   say so to the inventor and request a top-up via
-   `demo_wallet_credit` _before_ calling the commit method. Don't
-   call the service "to see what happens" — the service does the
-   work synchronously and the charge is meant to precede the
-   delivery. See the "Never commission costed work the wallet
-   can't pay for" hard rule.
+3. **`demo_wallet_withdraw({ amountCents: <batch-total>*100, reason })`**
+   for the commit. This is the wallet check — if the balance can't
+   cover it, the withdraw errors before any service call runs, at
+   which point ask the inventor for a top-up via
+   `demo_wallet_credit` and retry. See the "Never commission
+   costed work the wallet can't pay for" hard rule.
 4. `service_call` the commit method on the same service nickname
    from the prior contact. For supplier commits (`purchase`,
    `fabricate`), the `approval` argument carries the assembler's
    `receiveShipmentUrl` in its `shipToUrl` field — see
    "Inter-service handoffs" below. For `build` (the manufacturer's
-   go-ahead) `approval` is empty (`'[{}]'`).
+   go-ahead) `approval` is empty (`{}`). The Money object from
+   step 3 is appended as the final positional arg — e.g.
+   `args: '[{}, {"amount":270000,"auth":"..."}]'` for build, or
+   `args: '[{"shipToUrl": "ocap:..."}, {"amount":37500000,"auth":"..."}]'`
+   for purchase.
 5. The reply carries a receipt artifact handle. Close it out via
-   `demo_service_completed` with the **batch total** as
-   `charge.amountUsd` and the `consumes` list set to the quote
-   handle (and any other inputs the order rests on — the BOM and
-   PCB layout for the build commit, for example).
+   `demo_service_completed({ handle, phase, consumes })` with the
+   `consumes` list set to the quote handle (and any other inputs
+   the order rests on — the BOM and PCB layout for the build
+   commit, for example). No `charge` param.
 
 Manufacturing comes first in Stage 2 so the parts and PCB orders
 in Procurement have a shipping target. The `assemble` reply carries
@@ -474,35 +519,54 @@ shows them on its own. Don't call `demo_announce` for them.
 Cadence diagram for Stage 2:
 
 ```
-agent → service_call(assembly-coop, assemble)
+agent → demo_wallet_withdraw({amountCents: 180000, reason: "assembly setup fee"})
+        ← Payment P1 = {amount: 180000, auth: "..."}
+agent → service_call(assembly-coop, assemble, [<spec>, P1])
         ← { handle: A1, ..., receiveShipmentUrl: cap-AC1 }
-agent → demo_service_completed(A1)        // setup fee from plan summary
-agent → service_call(assembly-coop, build, [{}])
-        ← { handle: A2, ... }
-agent → demo_service_completed(A2)        // labor commit from build summary
+agent → demo_service_completed({handle: A1, phase: "Manufacturing", ...})
 
-agent → service_call(shenzhen-direct, source, ...)
+// Build plan quotes batch labor total (e.g. $2,700) in its summary.
+agent → demo_wallet_withdraw({amountCents: 270000, reason: "assembly labor commit"})
+        ← Payment P2
+agent → service_call(assembly-coop, build, [{}, P2])
+        ← { handle: A2, ... }
+agent → demo_service_completed({handle: A2, phase: "Manufacturing", ...})
+
+agent → demo_wallet_withdraw({amountCents: 40000, reason: "component sourcing fee"})
+        ← Payment P3
+agent → service_call(shenzhen-direct, source, [<spec>, P3])
         ← { handle: A3, ... } (BOM)
-agent → demo_service_completed(A3)        // sourcing fee from BOM summary
+agent → demo_service_completed({handle: A3, phase: "Procurement", ...})
+
+// BOM quotes batch total (e.g. $37,500) in its summary.
+agent → demo_wallet_withdraw({amountCents: 3750000, reason: "parts purchase"})
+        ← Payment P4
 agent → service_call(shenzhen-direct, purchase,
-                     [{ shipToUrl: cap-AC1 }])
+                     [{ shipToUrl: cap-AC1 }, P4])
         // supplier redeems cap-AC1, calls assembly-coop.receiveShipment
         ← { handle: A4, ... }
-agent → demo_service_completed(A4)        // batch total from BOM/receipt
+agent → demo_service_completed({handle: A4, phase: "Procurement", ...})
         // dashboard renders a service.interaction event:
         //   shenzhen-direct → assembly-coop: parts shipment...
         // — separately from the agent's note.
 
+// PCB layout (from Electronics) quoted batch fab total (e.g. $6,750).
+agent → demo_wallet_withdraw({amountCents: 675000, reason: "pcb fabrication"})
+        ← Payment P5
 agent → service_call(pcb-wizards, fabricate,
-                     [{ shipToUrl: cap-AC1 }])
+                     [{ shipToUrl: cap-AC1 }, P5])
         ← { handle: A5, ... }
-agent → demo_service_completed(A5)        // fab total from receipt summary
+agent → demo_service_completed({handle: A5, phase: "Procurement", ...})
 ```
 
-Every `charge.amountUsd` value above comes from the **summary of
-the artifact you're closing out**, not from your training context.
-If you don't have a service-supplied number, you don't have a
-number — say so and request a quote, don't invent one.
+Every `amountCents` in a `demo_wallet_withdraw` above comes from
+the **summary of the artifact that quoted that price** (BOM, build
+plan, PCB layout, or the matcher-published `priceUsd` × 100 for
+fixed-price methods), not from your training context. If you don't
+have a service-supplied number, you don't have a number — say so
+and request a quote, don't invent one. And if the number doesn't
+match the service's expected price to the penny, the `service_call`
+will fail with a payment-amount-mismatch error.
 
 Same pattern in Bench Build: `proto-pros.engage` returns a
 `receiveShipmentUrl`, the agent passes it as `shipToUrl` when
@@ -530,45 +594,46 @@ service call.
    start of the run. **The value that tool returns is the only
    value you may state to the inventor.** Do not recall a balance
    from earlier in the conversation and quote it — balances
-   change as `demo_service_completed` posts charges and
+   change as `demo_wallet_withdraw` decrements them and
    `demo_wallet_credit` records top-ups, and free-recall from
    conversation history is guaranteed to drift from the actual
-   plugin state. Concretely:
+   wallet state (the wallet vat is the source of truth; the
+   plugin only forwards). Concretely:
 
-   - After every `demo_service_completed` (which returns the new
-     balance in its result), that returned balance is safe to
-     narrate once, in the immediately-following message. On the
-     next turn, if you need to say the balance again, call
+   - After every `demo_wallet_withdraw` (which returns the new
+     balance in its result text), that returned balance is safe
+     to narrate once, in the immediately-following message. On
+     the next turn, if you need to say the balance again, call
      `demo_wallet_balance` fresh.
    - After every `demo_wallet_credit`, same rule — narrate the
      returned balance in the next message only.
-   - Before every commit-style `service_call` (any method that
-     incurs the full work cost rather than a setup or quote fee),
-     call `demo_wallet_balance` if you haven't in the last few
-     turns. If the balance is below the quoted price, surface
-     the shortfall to the inventor and request a top-up _before_
-     invoking the service — see the "Never commission costed work
-     the wallet can't pay for" hard rule.
    - When narrating balance in prose (not a tool result you just
      received), always precede with a fresh `demo_wallet_balance`
      call. The wallet ribbon on the dashboard is authoritative
-     and is only updated by charge/credit events; if your
-     narration says a different number than the ribbon shows,
-     the audience notices.
+     and is only updated by wallet events; if your narration says
+     a different number than the ribbon shows, the audience
+     notices.
 
-   **Top-ups** go through `demo_wallet_credit({ amountUsd, reason })`.
-   Call this **only on direct inventor authorization** — they have
-   to say something like "add $X", "top up by $X", "fund the
-   wallet" first. Never credit unilaterally; the wallet's balance
-   is the inventor's money. The wallet **will refuse** any charge
-   that would overdraw it — so when the wallet runs low and the
-   next charge wouldn't fit, you have to surface the shortfall to
-   the inventor and ask how they want to handle it _before_
-   the commit `service_call`. The tool returns a shortfall message
-   if you ever do hit overdraw at `demo_service_completed` time;
-   treat that as evidence the pre-commit check was skipped, not as
-   a failure to retry blindly. Don't tell the inventor to add
-   funds through some other interface; this tool is the interface.
+   Balances arrive in the tool result in dollars-and-cents form
+   (e.g. `Wallet balance: $8,800.00 (880000c)`) — you can narrate
+   the dollar figure verbatim; the cents figure is for the LLM's
+   pre-withdraw arithmetic. The wallet vat and every service
+   internally work in integer USD cents; every `amountCents`
+   arg you pass is dollars × 100.
+
+   **Top-ups** go through
+   `demo_wallet_credit({ amountCents, reason })`. Call this
+   **only on direct inventor authorization** — they have to say
+   something like "add $X", "top up by $X", "fund the wallet"
+   first. Never credit unilaterally; the wallet's balance is the
+   inventor's money. `amountCents` = the dollar amount the
+   inventor authorized × 100. The wallet vat **will refuse** any
+   withdraw that would overdraw it — so when the wallet runs low
+   and the next withdraw wouldn't fit, `demo_wallet_withdraw`
+   errors before any service call runs. Surface the shortfall to
+   the inventor, request a credit, then retry the withdraw. Don't
+   tell the inventor to add funds through some other interface;
+   this tool is the interface.
 
 5. **Concept phase** (special — no service):
 
@@ -629,35 +694,48 @@ service call.
    c. Pick a candidate. If multiple come back, briefly narrate the
    choice for the audience; if the trade-off is non-trivial, ask
    the inventor in the TUI first.
-   d. `service_initiate_contact`, then `service_call`. Method
-   names and argument shapes come from `service_get_description`
-   — never guess.
-   e. When the service returns, the reply carries an opaque
+   d. `service_initiate_contact`, then
+   `service_get_description` to see the method schema, including
+   which methods carry a `payment` arg and which are free.
+   e. **Withdraw before the service call.** For any method whose
+   schema includes a `payment` arg, call
+   `demo_wallet_withdraw({ amountCents, reason })` on the same
+   turn as the `service_call`. `amountCents` is the method's
+   quoted price × 100 (matcher-published `priceUsd` for
+   fixed-price methods; the number in the prior quote artifact's
+   summary for the dynamic-price commit methods listed in
+   "Purchase commits"). Read the returned `Payment: {...}` JSON
+   out of the tool result text and append it as the final
+   positional arg to the immediately-following `service_call`.
+   For free methods (proto-pros.engage,
+   pcb-wizards.shipSampleBoards,
+   assembly-coop.shipFinishedUnits), skip the withdraw entirely.
+   f. `service_call` with method name + argument shapes from
+   `service_get_description` — never guess. Payment goes in the
+   `args` array as the last element, e.g.
+   `args: '["<spec>", {"amount":120000,"auth":"..."}]'` for a
+   single-arg method plus payment.
+   g. When the service returns, the reply carries an opaque
    `handle` (e.g. `artifact-3`) — the discovery plugin has already
    interned the artifact body. **Call `demo_service_completed`**
    with that `handle`, the same `phase` value as in step 6a, any
-   `consumes` handles you fed in, the `charge` matching the price
-   the service quoted, and a one-line `note`. The artifact bytes
-   never round-trip through the agent; you pass only the handle.
-   f. **Always pause for the inventor before the next phase.** Two
+   `consumes` handles you fed in, and a one-line `note`. No
+   `charge` param — the wallet already moved at withdraw time.
+   The artifact bytes never round-trip through the agent; you
+   pass only the handle.
+   h. **Always pause for the inventor before the next phase.** Two
    things in one ask: whether they want to revise the current
    artifact, and whether to move on — framed as a question, not a
    foregone conclusion. The default ask is along the lines of
    "Anything you'd like to change here? And want me to move on to
-   <next phase>?" If the inventor wants a revision, hand the
-   revision notes back to the same service (the price typically
-   covers a few revisions — the service's description states the
-   policy). **Record the revised artifact via
-   `demo_service_completed` with the same `phase` value as the
-   original; do not announce a new phase, and use
-   `charge.amountUsd: 0` if the revision is covered.** Only
-   proceed when the inventor confirms. **Revisions go through the
-   same handle-based path: call `service_call` with the same
-   provider and method (the inventor's revision notes become a
-   regular method arg), then close out via `demo_service_completed`
-   with the new handle from the revision call, the same `phase`,
-   and `charge.amountUsd: 0` if the revision is covered by the
-   original engagement.** For the
+   <next phase>?" If the inventor wants a revision, run the same
+   withdraw + `service_call` + `demo_service_completed` sequence
+   again with the revision notes as a method arg — **every
+   revision costs the full method price**; the wallet vat and the
+   services do amount-matching to the penny, so there's no "$0
+   revision" path any more. Record the revised artifact with the
+   same `phase` value as the original; do not announce a new
+   phase. Only proceed when the inventor confirms. For the
    Bench Build → Manufacturing and Trial Distribution → Sales
    transitions, run the validation-checkpoint beat (see "Validation
    checkpoints" above) before the move-on question — the
@@ -666,14 +744,14 @@ service call.
 
    **Why the consolidated tools matter.** Every separate tool call
    costs an LLM inference round-trip (~5-15 seconds). The phase
-   loop used to be roughly 10 tool calls; with `demo_phase_started`
-   and `demo_service_completed` it's 6. That saves ~40 seconds per
+   loop had roughly 10 tool calls in the old shape; with
+   `demo_phase_started`, the withdraw+call+close-out triplet, and
+   `demo_service_completed` it's 7. That saves ~30 seconds per
    phase, several minutes across a full run. The individual tools
-   (`demo_announce`, `demo_record_artifact`, `demo_wallet_charge`)
-   still exist for cases that don't fit the pattern — e.g. a
-   stand-alone narration between phases, a charge with no
-   accompanying artifact — but in the standard per-phase flow,
-   prefer the consolidated forms.
+   (`demo_announce`, `demo_record_artifact`) still exist for cases
+   that don't fit the pattern — e.g. a stand-alone narration
+   between phases — but in the standard per-phase flow, prefer
+   the consolidated forms.
 
 7. **Hand artifacts forward.** When a downstream service needs an
    earlier artifact as input, wrap the handle in
@@ -839,29 +917,26 @@ triggers that spend, which for the current demo is deferred
   amounts before the relevant `service_call` reply lands. Doing so
   reads to the audience as the agent inventing prices the supplier
   hasn't actually quoted.
-- **Never commission costed work the wallet can't pay for.** Before
-  any `service_call` to a commit-style method (the right column of
-  the "Purchase commits" table, plus `firmware-foundry.implement`
-  and any other method that incurs the full work cost rather than
-  a setup/quote fee), confirm the wallet has enough headroom for
-  the price the prior quote stated. If it doesn't, surface the
-  shortfall to the inventor and request a top-up via
-  `demo_wallet_credit` **before** invoking the service. The conceit
-  is that these are actual funds being paid to a contractor —
-  contractors do not work first and bill later. Narrating "work is
-  done, payment pending" after the fact is a presentation failure;
-  the wallet check must precede the commit call, not follow it.
+- **Never commission costed work the wallet can't pay for.** Every
+  costed `service_call` is preceded by a `demo_wallet_withdraw` on
+  the same turn — that withdraw IS the wallet check, and the vat
+  refuses overdraws. If the withdraw errors, surface the shortfall
+  to the inventor and request a top-up via `demo_wallet_credit`
+  before retrying. The conceit is that these are actual funds
+  being paid to a contractor — contractors do not work first and
+  bill later. Never sequence the `service_call` first "to see
+  what happens" and then try to reconcile the wallet afterward.
 - **Never state a wallet balance from memory.** Every dollar-amount
   balance you narrate to the inventor must come from a fresh
   `demo_wallet_balance` call, or from the balance value in the
-  immediately-preceding `demo_service_completed` / `demo_wallet_credit`
-  / `demo_wallet_charge` tool result (i.e. that call was your
-  previous action). Free-recall from earlier in the conversation
-  drifts from the actual plugin state — the balance changes as
-  charges and credits post, and your context memory of "the
-  balance was $X" grows stale. The wallet ribbon on the dashboard
-  is the authoritative view; if you say a number and the ribbon
-  shows a different one, the audience notices immediately.
+  immediately-preceding `demo_wallet_withdraw` / `demo_wallet_credit`
+  tool result (i.e. that call was your previous action).
+  Free-recall from earlier in the conversation drifts from the
+  actual wallet state — the balance changes as withdraws and
+  credits post, and your context memory of "the balance was $X"
+  grows stale. The wallet ribbon on the dashboard is the
+  authoritative view; if you say a number and the ribbon shows a
+  different one, the audience notices immediately.
 - **Never narrate findings the artifact summary doesn't support.**
   The slim summary is your only window into the artifact body;
   treat it literally. If the bench-build summary says "no firmware
@@ -953,14 +1028,22 @@ demo_phase_started({
 discovery_find_services({ description: "design an industrial concept for a handheld voice-driven universal remote" })
 … pick a candidate …
 service_initiate_contact({ contact: "<contact-url>" })
-service_call({ service: "<nickname>", method: "generate", args: '["…spec…"]' })
+service_get_description({ contact: "<nickname>" })
+// ↑ shows `generate` takes { spec, payment } — a costed method.
+demo_wallet_withdraw({ amountCents: 120000, reason: "industrial-design pass" })
+// ↑ reply text carries `Payment: {"amount":120000,"auth":"9f8e7d..."}` —
+//   copy that verbatim into the args below.
+service_call({
+  service: "<nickname>",
+  method: "generate",
+  args: '["…spec…", {"amount":120000,"auth":"9f8e7d..."}]',
+})
 // ↑ reply carries { handle: "artifact-3", kind: "svg",
 //   fromService: "<providerTag>", title, summary } — no raw `data`.
 demo_service_completed({
   handle: "artifact-3",
   phase: "Industrial Design",
   consumes: ["artifact-2"],
-  charge: { amountUsd: 1200, reason: "industrial-design pass" },
   note: "Concept sketch in.",
 })
 // ↑ consumes the Industrial Design brief (artifact-2). A later

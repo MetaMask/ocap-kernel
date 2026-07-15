@@ -209,10 +209,13 @@ service_initiate_contact
 service_call
 discovery_list_tracked
 demo_announce
+demo_phase_started
+demo_service_completed
 demo_record_artifact
 demo_get_artifact
 demo_wallet_balance
-demo_wallet_charge
+demo_wallet_withdraw
+demo_wallet_credit
 read
 ```
 
@@ -241,6 +244,23 @@ openclaw config set 'plugins.entries.discovery.config.ocapCliPath' \
   "$HOME/GitRepos/ocap-kernel/packages/kernel-cli/dist/app.mjs"
 openclaw config set 'plugins.entries.discovery.config.displayUrl' \
   'http://127.0.0.1:7777'
+```
+
+Set the demo plugin's static config — same shape as discovery, plus
+the wallet OCAP URL published by `start-wallet.sh` into
+`~/.ocap-consumer/wallet-url.env`. `walletUrl` is dynamic per
+`reset-everything.sh` cold-start (the URL changes only when the
+wallet kref changes), so on routine `rehearsal-restart-matcher.sh`
+runs it stays put:
+
+```csh
+openclaw config set 'plugins.entries.demo.config.ocapCliPath' \
+  "$HOME/GitRepos/ocap-kernel/packages/kernel-cli/dist/app.mjs"
+openclaw config set 'plugins.entries.demo.config.ocapHome' \
+  "$HOME/.ocap-consumer"
+source ~/.ocap-consumer/wallet-url.env
+openclaw config set 'plugins.entries.demo.config.walletUrl' \
+  "$WALLET_OCAP_URL"
 ```
 
 Write the demo-display config so its ttyd-iframe URL is wired up
@@ -936,7 +956,7 @@ dashboard.
 
 - Restart procedure is now streamlined; running the rehearsal-restart script + `/reset` in the TUI is enough between rehearsals.
 - LLM stopped between schematic-generation and pcb-layout for a confirmation rather than running them as one act (as in prior runs). Probably LLM variance, not a fundamental change. Doing the two as one act made for a tighter demo; worth nudging the SKILL.md to keep them paired if the variance recurs.
-- Still triggering firmware-implementation before charging the wallet, so the agent narrates the work as "done but payment pending" when the inventor needs to top up. Tracked as a fundamental ordering issue best addressed by `docs/orchestration-demo-wallet-design.md` (charge-before-work enforced by the wallet vat).
+- Still triggering firmware-implementation before charging the wallet, so the agent narrates the work as "done but payment pending" when the inventor needs to top up. Tracked as a fundamental ordering issue best addressed by `docs/orchestration-demo-wallet-design.md` (charge-before-work enforced by the wallet vat). **Resolved 2026-07-14** by the wallet vat + `demo_wallet_withdraw` rework: every costed `service_call` is now preceded by a withdraw on the same turn, and the vat refuses overdraws — the agent can't commission work the wallet can't pay for.
 - Stage 3 (5,000-unit production scale-up) probe found the prototype-pricing services don't reflect volume pricing. Out of scope for this iteration; future demo could simulate raising investment to fund the scale-up.
 
 ### Run N — <YYYY-MM-DD>

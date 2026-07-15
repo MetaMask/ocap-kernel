@@ -12,6 +12,25 @@ the work and the trade-offs we should be making explicitly, so
 later passes can stay aligned even when individual mechanics
 change.
 
+> **Status note (2026-07-14):** the intermediate V0.5 target
+> described in section 3 has landed. Balance now lives in a wallet
+> vat inside the consumer daemon; the demo plugin talks to it via
+> `demo_wallet_withdraw` / `demo_wallet_credit` / `demo_wallet_balance`
+> (see `packages/sample-services/src/wallet/index.ts` and
+> `packages/agentmask/openclaw-plugin-demo/tools/`). The
+> `demo_wallet_charge` tool referenced below has been retired —
+> withdrawal is the charge. Section 1 ("V0") describes the state
+> that existed before Phase 2-5 of the rework and is preserved as
+> historical context. The V1 target (MetaMask-hosted wallet + payment
+> ocaps) in the later sections is still ahead.
+>
+> Payment ocaps in V1 will replace the current `Money = { amount,
+auth }` random-nonce shape with a real cryptographic proof, but
+> the service-side `payment: Money` API added in Phase 3 is the
+> right shape for the transition — services validate `payment.amount`
+> against the quoted price today, and can be extended to validate
+> `payment.auth` cryptographically without breaking callers.
+
 ---
 
 ## 1. What we have today (V0)
