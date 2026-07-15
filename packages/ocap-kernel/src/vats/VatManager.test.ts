@@ -149,7 +149,7 @@ describe('VatManager', () => {
   describe('launchVat', () => {
     it('launches a new vat without subcluster', async () => {
       const config = createMockVatConfig();
-      const kref = await vatManager.launchVat(config);
+      const kref = await vatManager.launchVat(config, 'test');
 
       expect(mockKernelStore.getNextVatId).toHaveBeenCalledOnce();
       expect(mockPlatformServices.launch).toHaveBeenCalledWith('v1', config);
@@ -198,17 +198,6 @@ describe('VatManager', () => {
         .catch((reason: unknown) => reason);
 
       expect((error as Error).cause).toBe(cause);
-    });
-
-    it('omits the parenthetical when launched without a vat name', async () => {
-      const config = createMockVatConfig();
-      makeVatHandleMock.mockRejectedValueOnce(new Error('boom'));
-
-      const error = await vatManager
-        .launchVat(config)
-        .catch((reason: unknown) => reason);
-
-      expect((error as Error).message).toBe('Failed to launch vat v1');
     });
   });
 

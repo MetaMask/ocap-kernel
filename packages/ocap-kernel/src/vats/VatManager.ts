@@ -119,8 +119,9 @@ export class VatManager {
       await this.runVat(vatId, vatConfig);
     } catch (error) {
       // Attribute the failure to the specific vat by kernel id and name.
-      const label = vatName ? `${vatId} (${vatName})` : vatId;
-      throw new Error(`Failed to launch vat ${label}`, { cause: error });
+      throw new Error(`Failed to launch vat ${vatId} (${vatName})`, {
+        cause: error,
+      });
     }
     this.#kernelStore.initEndpoint(vatId);
     const rootRef = this.#kernelStore.exportFromEndpoint(
