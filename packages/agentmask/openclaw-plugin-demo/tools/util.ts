@@ -18,7 +18,7 @@ export function errorResponse(message: string): ToolResponse {
 /**
  * Format an amount denominated in integer USD cents as a dollar
  * string with two decimal places and thousands separators. The
- * wallet vat, the sample-services `payment` argument, and the
+ * wallet vat, the orchestration-demo-vats `payment` argument, and the
  * plugin-emitted `wallet.*` events all work in cents; the LLM- and
  * audience-facing text is dollar-and-cents, so every crossing back
  * to human eyes runs through this helper.

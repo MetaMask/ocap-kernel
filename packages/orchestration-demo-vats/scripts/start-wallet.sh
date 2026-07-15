@@ -12,7 +12,7 @@
 # Usage:
 #   start-wallet.sh [--no-build]
 #
-#   --no-build   Skip building the sample-services package and
+#   --no-build   Skip building the orchestration-demo-vats package and
 #                bundling the wallet vat. The bundle must already
 #                exist on disk.
 #
@@ -34,7 +34,7 @@ usage() {
   cat >&2 <<EOF
 Usage: $0 [--no-build]
 
-  --no-build   Skip building the sample-services package and
+  --no-build   Skip building the orchestration-demo-vats package and
                bundling the wallet vat.
   --help, -h   Show this help.
 EOF
@@ -84,10 +84,10 @@ if $SKIP_BUILD; then
   info "Skipping build (--no-build)"
   [[ -f "$WALLET_BUNDLE" ]] || fail "Bundle not found at $WALLET_BUNDLE. Remove --no-build or bundle first."
 else
-  info "Building sample-services package..."
-  (cd "$REPO_ROOT" && yarn workspace @ocap/sample-services build >&2)
-  info "Bundling sample-services vats..."
-  (cd "$REPO_ROOT" && yarn workspace @ocap/sample-services bundle-vats >&2)
+  info "Building orchestration-demo-vats package..."
+  (cd "$REPO_ROOT" && yarn workspace @ocap/orchestration-demo-vats build >&2)
+  info "Bundling orchestration-demo-vats..."
+  (cd "$REPO_ROOT" && yarn workspace @ocap/orchestration-demo-vats bundle-vats >&2)
 fi
 
 daemon_exec() {

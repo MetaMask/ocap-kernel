@@ -1,12 +1,13 @@
 /**
- * Shared payment plumbing for demo-simulation services. Every costed
- * method on a sample-service exo takes a `payment: Money` argument
- * minted by the wallet vat's `withdraw`; this module carries the
- * shared type, the reusable discoverable-schema block, and the
- * runtime validator each service uses to guard its costed work.
+ * Shared payment plumbing for the orchestration-demo service vats.
+ * Every costed method on a demo-service exo takes a `payment: Money`
+ * argument minted by the wallet vat's `withdraw`; this module
+ * carries the shared type, the reusable discoverable-schema block,
+ * and the runtime validator each service uses to guard its costed
+ * work.
  *
- * See `packages/sample-services/src/wallet/index.ts` for the wallet
- * vat itself.
+ * See `packages/orchestration-demo-vats/src/wallet/index.ts` for
+ * the wallet vat itself.
  */
 
 /**

@@ -1,9 +1,9 @@
 {
-  "name": "@ocap/sample-services",
+  "name": "@ocap/orchestration-demo-vats",
   "version": "0.0.0",
   "private": true,
-  "description": "Standalone, MetaMask-free service vats that register with a service matcher; includes sample vats (Echo, RandomNumber) and the orchestration demo's stub service vats. Bundled per-vat for daemon-side launchSubcluster",
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/sample-services#readme",
+  "description": "Standalone, MetaMask-free service vats used by the orchestration demo: stub service vats (industrial-design, schematic-generation, firmware, mechanical-design, pcb-layout, component-sourcing, device-assembly, retail-listing, logistics, bench-build), the demo wallet vat, and the Echo / RandomNumber utility vats. Bundled per-vat for daemon-side launchSubcluster",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/orchestration-demo-vats#readme",
   "bugs": {
     "url": "https://github.com/MetaMask/ocap-kernel/issues"
   },
@@ -32,7 +32,7 @@
     "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
     "bundle-vats": "node ../kernel-cli/dist/app.mjs bundle ./src/echo-service/index.ts ./src/random-number-service/index.ts ./src/industrial-design/index.ts ./src/schematic-generation/index.ts ./src/firmware/index.ts ./src/mechanical-design/index.ts ./src/pcb-layout/index.ts ./src/component-sourcing/index.ts ./src/device-assembly/index.ts ./src/retail-listing/index.ts ./src/logistics/index.ts ./src/bench-build/index.ts ./src/wallet/index.ts",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/sample-services",
+    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/orchestration-demo-vats",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck --quiet",

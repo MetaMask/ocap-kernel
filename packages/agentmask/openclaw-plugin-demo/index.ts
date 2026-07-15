@@ -280,7 +280,7 @@ function register(api: OpenClawPluginApi): void {
       '[demo plugin] No walletUrl configured; wallet tools will fail ' +
         'until `plugins.entries.demo.config.walletUrl` (or the ' +
         'DEMO_WALLET_OCAP_URL env var) is set to a live wallet OCAP URL. ' +
-        'See `packages/sample-services/scripts/start-wallet.sh`.',
+        'See `packages/orchestration-demo-vats/scripts/start-wallet.sh`.',
     );
   }
 

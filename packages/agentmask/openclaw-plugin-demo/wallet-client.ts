@@ -7,7 +7,7 @@
  * boundary in `tools/util.ts`.
  *
  * `Money` is re-exported here rather than pulled from
- * `@ocap/sample-services` because the demo plugin is loaded by the
+ * `@ocap/orchestration-demo-vats` because the demo plugin is loaded by the
  * openclaw gateway as a stand-alone module (via
  * `openclaw plugins install`) and can't take on a monorepo import
  * for a one-line type.
@@ -17,7 +17,8 @@ import type { DaemonCaller } from './daemon.ts';
 
 /**
  * A transferable quantity of money. Structural mirror of the type
- * exported from `@ocap/sample-services/vat-lib/payment.ts` — kept
+ * exported from
+ * `@ocap/orchestration-demo-vats/vat-lib/payment.ts` — kept
  * local because the demo plugin can't depend on that package (see
  * file header).
  */

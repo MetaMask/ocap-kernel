@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Reset the laptop-side sample-services daemon for a fresh test cycle:
+# Reset the laptop-side services daemon for a fresh test cycle:
 #
-#   - stop the sample-services daemon (~/.ocap-services);
+#   - stop the services daemon (~/.ocap-services);
 #   - clear its log;
 #   - bring it back up via start-services.sh, registering Echo and
 #     RandomNumber with the supplied matcher URL.
@@ -22,7 +22,7 @@
 #
 #   <matcher-url>   OCAP URL of the matcher to register with. Falls back
 #                   to $MATCHER_OCAP_URL if omitted.
-#   --no-build      Skip building/bundling the sample-services vats
+#   --no-build      Skip building/bundling the demo-vats package
 #                   (passed through to start-services.sh).
 
 set -euo pipefail
@@ -71,7 +71,7 @@ fi
 # 1. Stop the services daemon.
 # ---------------------------------------------------------------------------
 
-info "Stopping sample-services daemon (if running)..."
+info "Stopping services daemon (if running)..."
 node "$OCAP_BIN" --home "$SERVICES_HOME" daemon stop >/dev/null 2>&1 || true
 
 # ---------------------------------------------------------------------------
@@ -85,7 +85,7 @@ rm -f "$SERVICES_HOME/daemon.log"
 # 3. Bring the services daemon back up.
 # ---------------------------------------------------------------------------
 
-info "Starting sample-services daemon..."
+info "Starting services daemon..."
 "$START_SERVICES_SCRIPT" "$MATCHER_URL" ${PASSTHROUGH_ARGS[@]+"${PASSTHROUGH_ARGS[@]}"} >&2
 
 cat <<EOF >&2

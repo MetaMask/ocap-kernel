@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start a sample-services daemon and launch the Echo and RandomNumber
+# Start a services daemon and launch the Echo and RandomNumber
 # subclusters, each registering with the supplied service matcher.
 #
 # Like start-matcher.sh this is orthogonal to relay startup; the relay
@@ -37,7 +37,7 @@ Usage: $0 [<matcher-url>] [--relay MULTIADDR] [--no-build] [--keep-state]
   --relay MULTIADDR  Relay multiaddr to connect through. Overrides
                      \$OCAP_RELAY_MULTIADDR and
                      \$LIBP2P_RELAY_HOME/relay.addr.
-  --no-build         Skip building/bundling the sample-services vats.
+  --no-build         Skip building/bundling the demo-vats package.
   --keep-state       Do not purge any existing daemon state before
                      launching subclusters.
   --help, -h         Show this help.
@@ -142,10 +142,10 @@ if $SKIP_BUILD; then
   [[ -f "$LOGISTICS_BUNDLE" ]] || fail "Bundle not found at $LOGISTICS_BUNDLE. Remove --no-build or build first."
   [[ -f "$BENCH_BUILD_BUNDLE" ]] || fail "Bundle not found at $BENCH_BUILD_BUNDLE. Remove --no-build or build first."
 else
-  info "Building sample-services package..."
-  (cd "$REPO_ROOT" && yarn workspace @ocap/sample-services build >&2)
-  info "Bundling sample-services vats..."
-  (cd "$REPO_ROOT" && yarn workspace @ocap/sample-services bundle-vats >&2)
+  info "Building orchestration-demo-vats package..."
+  (cd "$REPO_ROOT" && yarn workspace @ocap/orchestration-demo-vats build >&2)
+  info "Bundling demo-vats package..."
+  (cd "$REPO_ROOT" && yarn workspace @ocap/orchestration-demo-vats bundle-vats >&2)
 fi
 
 # ---------------------------------------------------------------------------

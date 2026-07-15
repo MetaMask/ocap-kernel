@@ -82,7 +82,7 @@ info "Step 2a: launching (or reusing) the wallet subcluster..."
 # a duplicate subcluster. Rebuilds the wallet-vat bundle each
 # invocation to pick up any code changes since the last run —
 # same policy as start-matcher.sh.
-"$REPO_ROOT/packages/sample-services/scripts/start-wallet.sh" \
+"$REPO_ROOT/packages/orchestration-demo-vats/scripts/start-wallet.sh" \
   || fail "wallet startup failed"
 
 info "Step 3/4: restarting openclaw gateway..."
@@ -107,7 +107,7 @@ info ""
 info "VPS side done. Manual follow-ups (see step 5+ of the playbook):"
 info "  - vps-display: Ctrl-C and re-run demo-display"
 info "  - browser: hard-refresh the dashboard"
-info "  - laptop:  ./packages/sample-services/scripts/rehearsal-start-services.sh"
+info "  - laptop:  ./packages/orchestration-demo-vats/scripts/rehearsal-start-services.sh"
 info ""
 info "URLs in ~/.ocap/matcher-urls.env (source it in any shell that"
 info "doesn't already have MATCHER_OCAP_URL exported)."

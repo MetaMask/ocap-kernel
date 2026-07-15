@@ -15,7 +15,7 @@ Two machines:
   the demo-display server, and the OpenClaw gateway (where the
   producer LLM runs). All LLM activity stays here so the laptop
   doesn't take on that surface.
-- **Laptop** — hosts the sample-services daemon (the V0 service
+- **Laptop** — hosts the services daemon (the V0 service
   vats register from here over the relay), the browser viewing the
   dashboard, and the SSH sessions that connect to the VPS.
 
@@ -343,8 +343,8 @@ Sample-services is the laptop's role in the demo. From `laptop-ctl`:
 cd ~/GitRepos/ocap-kernel
 yarn install
 yarn workspace @metamask/kernel-cli build
-yarn workspace @ocap/sample-services build
-yarn workspace @ocap/sample-services bundle-vats
+yarn workspace @ocap/orchestration-demo-vats build
+yarn workspace @ocap/orchestration-demo-vats bundle-vats
 ```
 
 The laptop is the development source for `chip/orchestration-demo`,
@@ -410,9 +410,9 @@ rebuilds.
 | `packages/agentmask/openclaw-plugin-discovery/skills/discovery/SKILL.md`        | (VPS) `openclaw skills install --force ./packages/agentmask/openclaw-plugin-discovery/skills/discovery`                                                                                           |
 | `packages/agentmask/openclaw-plugin-{demo,discovery}/openclaw.plugin.json`      | (VPS) `openclaw gateway restart` — per-run step 6 handles this anyway, but if you're testing the manifest change in isolation, force a restart now                                                |
 | `packages/demo-display/**`                                                      | (VPS) `yarn workspace @ocap/demo-display build` — per-run step 5 re-launches the server which serves the new build                                                                                |
-| `packages/sample-services/**`                                                   | (Laptop) nothing — `start-services.sh` rebuilds + re-bundles + re-registers in per-run step 7                                                                                                     |
+| `packages/orchestration-demo-vats/**`                                           | (Laptop) nothing — `start-services.sh` rebuilds + re-bundles + re-registers in per-run step 7                                                                                                     |
 | `packages/service-matcher/**` or `packages/llm-bridge/**`                       | (VPS) `yarn workspace @ocap/service-matcher build && yarn workspace @ocap/service-matcher bundle-vat && yarn workspace @ocap/llm-bridge build` — per-run step 4 then picks up the new bundles     |
-| `packages/kernel-cli/**`                                                        | (VPS) `yarn workspace @metamask/kernel-cli build`. (Laptop) only if you haven't already built it from this commit — used by `start-services.sh`. The matcher restart and sample-services pick up. |
+| `packages/kernel-cli/**`                                                        | (VPS) `yarn workspace @metamask/kernel-cli build`. (Laptop) only if you haven't already built it from this commit — used by `start-services.sh`. The matcher restart and services daemon pick up. |
 | `docs/orchestration-demo-dry-run.md`                                            | nothing — re-read it                                                                                                                                                                              |
 
 ### Tools.allow updates
@@ -452,7 +452,7 @@ those if something crashed or you rebooted.
 3. **Laptop** (`laptop-ctl`):
 
    ```csh
-   ./packages/sample-services/scripts/rehearsal-start-services.sh
+   ./packages/orchestration-demo-vats/scripts/rehearsal-start-services.sh
    ```
 
    Rebuilds and re-registers the 12 services against the
@@ -487,7 +487,7 @@ duration of the run. The sequence is split into two phases:
 - **Per-rehearsal setup (steps 4-9)** — these get redone (or
   restarted in order) at the start of every rehearsal so the
   matcher, the dashboard, the openclaw gateway, the
-  sample-services daemon, and the TUI session all start from a
+  services daemon, and the TUI session all start from a
   known clean state.
 
 ### Step 1: VPS relay
@@ -725,13 +725,13 @@ openclaw gateway restart
 The static configs (`ocapHome`, `ocapCliPath`, `displayUrl`) are
 written once during one-time setup; nothing per-run touches them.
 
-### Step 7: Laptop sample-services daemon
+### Step 7: Laptop services daemon
 
 In `laptop-ctl` (a different session from the SSH tunnel — that one
 is occupied):
 
 ```csh
-./packages/sample-services/scripts/rehearsal-start-services.sh
+./packages/orchestration-demo-vats/scripts/rehearsal-start-services.sh
 ```
 
 The wrapper pulls the current matcher URLs and relay address from
@@ -742,7 +742,7 @@ The wrapper pulls the current matcher URLs and relay address from
 scp ${VPS_HOST}:.ocap/matcher-urls.env /tmp/matcher-urls.env
 source /tmp/matcher-urls.env
 setenv OCAP_RELAY_MULTIADDR `ssh $VPS_HOST cat \~/.libp2p-relay/relay.addr`
-./packages/sample-services/scripts/start-services.sh
+./packages/orchestration-demo-vats/scripts/start-services.sh
 ```
 
 Watch for ten `info "<svc> registered."` lines (echo,

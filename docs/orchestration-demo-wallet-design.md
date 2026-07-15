@@ -16,7 +16,7 @@ change.
 > described in section 3 has landed. Balance now lives in a wallet
 > vat inside the consumer daemon; the demo plugin talks to it via
 > `demo_wallet_withdraw` / `demo_wallet_credit` / `demo_wallet_balance`
-> (see `packages/sample-services/src/wallet/index.ts` and
+> (see `packages/orchestration-demo-vats/src/wallet/index.ts` and
 > `packages/agentmask/openclaw-plugin-demo/tools/`). The
 > `demo_wallet_charge` tool referenced below has been retired —
 > withdrawal is the charge. Section 1 ("V0") describes the state
