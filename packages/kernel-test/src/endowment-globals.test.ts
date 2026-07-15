@@ -208,11 +208,12 @@ describe('global endowments', () => {
       // Kernel only allows TextEncoder/TextDecoder — vat also requests URL.
       // The launch failure is re-thrown attributing the failing vat, with the
       // reason on `cause`.
-      const error = await setup({
-        globals: ['TextEncoder', 'TextDecoder', 'URL'],
-        allowedGlobalNames: ['TextEncoder', 'TextDecoder'],
-      }).catch((reason: unknown) => reason);
-      expect(error).toMatchObject({
+      await expect(
+        setup({
+          globals: ['TextEncoder', 'TextDecoder', 'URL'],
+          allowedGlobalNames: ['TextEncoder', 'TextDecoder'],
+        }),
+      ).rejects.toMatchObject({
         message: expect.stringMatching(/^Failed to launch vat \S+ \(main\)$/u),
         cause: { message: expect.stringContaining('unknown global "URL"') },
       });
@@ -244,11 +245,12 @@ describe('global endowments', () => {
     });
 
     it('rejects every vat global when allowedGlobalNames is empty', async () => {
-      const error = await setup({
-        globals: ['TextEncoder'],
-        allowedGlobalNames: [],
-      }).catch((reason: unknown) => reason);
-      expect(error).toMatchObject({
+      await expect(
+        setup({
+          globals: ['TextEncoder'],
+          allowedGlobalNames: [],
+        }),
+      ).rejects.toMatchObject({
         message: expect.stringMatching(/^Failed to launch vat \S+ \(main\)$/u),
         cause: {
           message: expect.stringContaining('unknown global "TextEncoder"'),
@@ -262,15 +264,16 @@ describe('global endowments', () => {
       // rejects any name outside the literal union, so a caller that bypasses
       // the type system (e.g., JS client, cast) still cannot smuggle bad names
       // through.
-      const error = await setup({
-        globals: ['TextEncoder', 'TextDecoder'],
-        allowedGlobalNames: [
-          'TextEncoder',
-          'TextDecoder',
-          'NotARealGlobal' as AllowedGlobalName,
-        ],
-      }).catch((reason: unknown) => reason);
-      expect(error).toMatchObject({
+      await expect(
+        setup({
+          globals: ['TextEncoder', 'TextDecoder'],
+          allowedGlobalNames: [
+            'TextEncoder',
+            'TextDecoder',
+            'NotARealGlobal' as AllowedGlobalName,
+          ],
+        }),
+      ).rejects.toMatchObject({
         message: expect.stringMatching(/^Failed to launch vat \S+ \(main\)$/u),
         cause: { message: expect.stringMatching(/Invalid params/u) },
       });

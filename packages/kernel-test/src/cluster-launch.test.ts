@@ -45,10 +45,7 @@ describe('cluster initialization', { timeout: 4_000 }, () => {
   it('throws if globals scope throws', async () => {
     // The launch failure is re-thrown attributing the failing vat, with the
     // reason preserved on `cause`.
-    const error = await launch('global-throw').catch(
-      (reason: unknown) => reason,
-    );
-    expect(error).toMatchObject({
+    await expect(launch('global-throw')).rejects.toMatchObject({
       message: expect.stringMatching(/^Failed to launch vat \S+ \(main\)$/u),
       cause: { message: expect.stringMatching(/from global scope/u) },
     });
@@ -74,10 +71,7 @@ describe('cluster initialization', { timeout: 4_000 }, () => {
   it('throws if buildRootObject throws', async () => {
     // The launch failure is re-thrown attributing the failing vat, with the
     // reason preserved on `cause`.
-    const error = await launch('build-throw').catch(
-      (reason: unknown) => reason,
-    );
-    expect(error).toMatchObject({
+    await expect(launch('build-throw')).rejects.toMatchObject({
       message: expect.stringMatching(/^Failed to launch vat \S+ \(main\)$/u),
       cause: { message: expect.stringMatching(/from buildRootObject/u) },
     });
