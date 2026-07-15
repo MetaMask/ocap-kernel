@@ -206,8 +206,6 @@ describe('global endowments', () => {
   describe('kernel-level allowedGlobalNames restriction', () => {
     it('throws when a vat requests a global excluded by the kernel', async () => {
       // Kernel only allows TextEncoder/TextDecoder — vat also requests URL.
-      // The launch failure is re-thrown attributing the failing vat, with the
-      // reason on `cause`.
       await expect(
         setup({
           globals: ['TextEncoder', 'TextDecoder', 'URL'],

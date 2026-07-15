@@ -433,18 +433,9 @@ describe('SubclusterManager', () => {
       });
     });
 
-    // Regression tests for #572 / #564. Previously, a vat that failed to build
-    // its root object caused `#launchVatsForSubcluster` to leak an unhandled
-    // rejection surfacing as a cryptic run-queue error, e.g.
-    // `SES_UNHANDLED_REJECTION: no record matching key 'queue.run.3'`. The
-    // bootstrap subroutines must now reject cleanly and roll back the
-    // subcluster instead.
-    describe('bootstrap failure propagation (#572)', () => {
+    describe('bootstrap failure propagation', () => {
       it('rejects with the underlying error when the bootstrap message rejects', async () => {
         const config = createMockClusterConfig();
-        // A vat failing to build its root object surfaces as the bootstrap
-        // delivery rejecting (Kernel.queueMessage deserializes the vat's
-        // CapData rejection into a plain Error before it reaches us).
         (mockQueueMessage as ReturnType<typeof vi.fn>).mockRejectedValue(
           new Error('vat failed to build root object'),
         );
@@ -464,8 +455,6 @@ describe('SubclusterManager', () => {
 
       it('rethrows when the bootstrap message resolves to a serialized error', async () => {
         const config = createMockClusterConfig();
-        // A serialized Error result (as a vat returns on a failed bootstrap)
-        // round-trips through kunser to an Error instance and is rethrown.
         (mockQueueMessage as ReturnType<typeof vi.fn>).mockResolvedValue(
           kser(new Error('bootstrap threw')),
         );

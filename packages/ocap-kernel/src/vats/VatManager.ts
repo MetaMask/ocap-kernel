@@ -118,9 +118,7 @@ export class VatManager {
     try {
       await this.runVat(vatId, vatConfig);
     } catch (error) {
-      // Attribute the failure (e.g. a vat whose `buildRootObject` throws) to
-      // the specific vat by both its kernel id and its ClusterConfig name, so
-      // the caller reports which vat failed rather than an opaque error.
+      // Attribute the failure to the specific vat by kernel id and name.
       const label = vatName ? `${vatId} (${vatName})` : vatId;
       throw new Error(`Failed to launch vat ${label}`, { cause: error });
     }

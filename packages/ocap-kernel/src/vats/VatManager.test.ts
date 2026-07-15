@@ -172,10 +172,6 @@ describe('VatManager', () => {
       expect(kref).toBe('ko1');
     });
 
-    // #564: a vat that fails to launch (e.g. its `buildRootObject` throws,
-    // surfacing from `VatHandle.make`) must be attributed to the specific vat
-    // by both its kernel id and its ClusterConfig name, with the original
-    // error preserved as the cause.
     it('attributes a launch failure to the vat by id and config name', async () => {
       const config = createMockVatConfig();
       const cause = new Error(
