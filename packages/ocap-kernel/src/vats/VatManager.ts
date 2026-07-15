@@ -86,9 +86,44 @@ export class VatManager {
   async initializeAllVats(): Promise<void> {
     const starts: Promise<void>[] = [];
     for (const { vatID, vatConfig } of this.#kernelStore.getAllVatRecords()) {
-      starts.push(this.runVat(vatID, vatConfig));
+      starts.push(this.#restoreVat(vatID, vatConfig));
     }
     await Promise.all(starts);
+  }
+
+  /**
+   * Restore a single persisted vat during kernel boot, quarantining it on
+   * failure instead of aborting the whole restore.
+   *
+   * A persisted vat can become unrestorable when its bundle is moved,
+   * deleted, or otherwise unresolvable (the fetch rejects with e.g.
+   * `ENOENT`). Letting that reject would abort `initializeAllVats` and make
+   * the entire kernel unbootable over a single orphaned bundle reference.
+   * Instead we skip the offending vat, log a structured warning naming it,
+   * its subcluster, and its bundle, and leave the rest of the kernel
+   * bootable. The persisted record is retained, so the vat is restored
+   * automatically on a later boot if its bundle returns.
+   *
+   * @param vatId - The ID of the vat to restore.
+   * @param vatConfig - Its persisted configuration.
+   */
+  async #restoreVat(vatId: VatId, vatConfig: VatConfig): Promise<void> {
+    try {
+      await this.runVat(vatId, vatConfig);
+    } catch (error) {
+      let subclusterId: SubclusterId | undefined;
+      try {
+        subclusterId = this.#kernelStore.getVatSubcluster(vatId);
+      } catch {
+        // Best-effort: the vat may not be associated with a subcluster.
+      }
+      this.#logger.warn(
+        `Quarantined vat ${vatId} (subcluster ${subclusterId ?? 'unknown'}, ` +
+          `source ${describeVatSource(vatConfig)}) during restore; skipping. ` +
+          `Restore error:`,
+        error,
+      );
+    }
   }
 
   /**
@@ -350,3 +385,23 @@ export class VatManager {
   }
 }
 harden(VatManager);
+
+/**
+ * Describe a vat's code source for diagnostics, tolerating any of the
+ * mutually-exclusive `VatConfig` source specs.
+ *
+ * @param vatConfig - The vat configuration to describe.
+ * @returns The bundle/source identifier, or `'unknown'` if none is present.
+ */
+function describeVatSource(vatConfig: VatConfig): string {
+  if ('bundleSpec' in vatConfig) {
+    return vatConfig.bundleSpec;
+  }
+  if ('sourceSpec' in vatConfig) {
+    return vatConfig.sourceSpec;
+  }
+  if ('bundleName' in vatConfig) {
+    return vatConfig.bundleName;
+  }
+  return 'unknown';
+}
