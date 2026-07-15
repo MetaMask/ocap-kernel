@@ -5,6 +5,7 @@ import type { Kernel } from '@metamask/ocap-kernel';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 import {
+  causeChainMessage,
   extractTestLogs,
   getBundleSpec,
   makeKernel,
@@ -43,7 +44,11 @@ describe('cluster initialization', { timeout: 4_000 }, () => {
     });
 
   it('throws if globals scope throws', async () => {
-    await expect(launch('global-throw')).rejects.toThrow(/from global scope/u);
+    // The launch failure is re-thrown with the reason preserved on `cause`.
+    const error = await launch('global-throw').catch(
+      (reason: unknown) => reason,
+    );
+    expect(causeChainMessage(error)).toMatch(/from global scope/u);
 
     const vatLogs = extractTestLogs(entries, 'console');
     expect(vatLogs).toStrictEqual(['global throw']);
@@ -64,9 +69,11 @@ describe('cluster initialization', { timeout: 4_000 }, () => {
   });
 
   it('throws if buildRootObject throws', async () => {
-    await expect(launch('build-throw')).rejects.toThrow(
-      /from buildRootObject/u,
+    // The launch failure is re-thrown with the reason preserved on `cause`.
+    const error = await launch('build-throw').catch(
+      (reason: unknown) => reason,
     );
+    expect(causeChainMessage(error)).toMatch(/from buildRootObject/u);
 
     const vatLogs = extractTestLogs(entries, 'console');
     expect(vatLogs).toStrictEqual(['build throw', 'buildRootObject']);

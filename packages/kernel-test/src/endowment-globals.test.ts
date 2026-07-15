@@ -12,7 +12,7 @@ import type { AllowedGlobalName, KRef, VatId } from '@metamask/ocap-kernel';
 import { getWorkerFile } from '@ocap/nodejs-test-workers';
 import { describe, expect, it } from 'vitest';
 
-import { extractTestLogs, getBundleSpec } from './utils.ts';
+import { causeChainMessage, extractTestLogs, getBundleSpec } from './utils.ts';
 
 describe('global endowments', () => {
   const vatId: VatId = 'v1';
@@ -205,13 +205,13 @@ describe('global endowments', () => {
 
   describe('kernel-level allowedGlobalNames restriction', () => {
     it('throws when a vat requests a global excluded by the kernel', async () => {
-      // Kernel only allows TextEncoder/TextDecoder — vat also requests URL
-      await expect(
-        setup({
-          globals: ['TextEncoder', 'TextDecoder', 'URL'],
-          allowedGlobalNames: ['TextEncoder', 'TextDecoder'],
-        }),
-      ).rejects.toThrow('unknown global "URL"');
+      // Kernel only allows TextEncoder/TextDecoder — vat also requests URL.
+      // The launch failure is re-thrown with the reason on `cause`.
+      const error = await setup({
+        globals: ['TextEncoder', 'TextDecoder', 'URL'],
+        allowedGlobalNames: ['TextEncoder', 'TextDecoder'],
+      }).catch((reason: unknown) => reason);
+      expect(causeChainMessage(error)).toContain('unknown global "URL"');
     });
 
     it('initializes when all vat globals are within allowedGlobalNames', async () => {
@@ -240,12 +240,13 @@ describe('global endowments', () => {
     });
 
     it('rejects every vat global when allowedGlobalNames is empty', async () => {
-      await expect(
-        setup({
-          globals: ['TextEncoder'],
-          allowedGlobalNames: [],
-        }),
-      ).rejects.toThrow('unknown global "TextEncoder"');
+      const error = await setup({
+        globals: ['TextEncoder'],
+        allowedGlobalNames: [],
+      }).catch((reason: unknown) => reason);
+      expect(causeChainMessage(error)).toContain(
+        'unknown global "TextEncoder"',
+      );
     });
 
     it('rejects unknown names in allowedGlobalNames at the RPC boundary', async () => {
@@ -254,16 +255,15 @@ describe('global endowments', () => {
       // rejects any name outside the literal union, so a caller that bypasses
       // the type system (e.g., JS client, cast) still cannot smuggle bad names
       // through.
-      await expect(
-        setup({
-          globals: ['TextEncoder', 'TextDecoder'],
-          allowedGlobalNames: [
-            'TextEncoder',
-            'TextDecoder',
-            'NotARealGlobal' as AllowedGlobalName,
-          ],
-        }),
-      ).rejects.toThrow(/Invalid params/u);
+      const error = await setup({
+        globals: ['TextEncoder', 'TextDecoder'],
+        allowedGlobalNames: [
+          'TextEncoder',
+          'TextDecoder',
+          'NotARealGlobal' as AllowedGlobalName,
+        ],
+      }).catch((reason: unknown) => reason);
+      expect(causeChainMessage(error)).toMatch(/Invalid params/u);
     });
   });
 });

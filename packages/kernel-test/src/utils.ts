@@ -160,6 +160,27 @@ export function parseReplyBody(body: string): unknown {
 }
 
 /**
+ * Concatenate an error's message with the messages of its `cause` chain.
+ *
+ * A failed vat launch is re-thrown by `VatManager.launchVat` as
+ * `Failed to launch vat <id> (<name>)` with the original error preserved on
+ * `cause`, so the detailed reason lives one level down rather than in the
+ * top-level message. Assertions on the reason should search the whole chain.
+ *
+ * @param error - The thrown value to flatten.
+ * @returns The joined messages of the error and every nested `cause`.
+ */
+export function causeChainMessage(error: unknown): string {
+  const messages: string[] = [];
+  let current: unknown = error;
+  while (current instanceof Error) {
+    messages.push(current.message);
+    current = current.cause;
+  }
+  return messages.join('\n');
+}
+
+/**
  * Debug the database.
  *
  * @param kernelDatabase - The database to debug.
