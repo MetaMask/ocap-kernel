@@ -160,24 +160,47 @@ export function parseReplyBody(body: string): unknown {
 }
 
 /**
- * Concatenate an error's message with the messages of its `cause` chain.
+ * Flatten an error and its `cause` chain into a single searchable string.
  *
  * A failed vat launch is re-thrown by `VatManager.launchVat` as
  * `Failed to launch vat <id> (<name>)` with the original error preserved on
  * `cause`, so the detailed reason lives one level down rather than in the
- * top-level message. Assertions on the reason should search the whole chain.
+ * top-level message. The cause is not always an `Error`: a failure at the
+ * `initVat` RPC boundary surfaces as a plain JSON-RPC error object
+ * (`{ code, message, data }`), so this walks anything with a `message`/`cause`
+ * rather than gating on `instanceof Error`.
  *
  * @param error - The thrown value to flatten.
- * @returns The joined messages of the error and every nested `cause`.
+ * @returns The joined messages (and any `data`) of the error and every nested
+ * `cause`.
  */
 export function causeChainMessage(error: unknown): string {
-  const messages: string[] = [];
+  const parts: string[] = [];
+  const seen = new Set<unknown>();
   let current: unknown = error;
-  while (current instanceof Error) {
-    messages.push(current.message);
-    current = current.cause;
+  while (current !== undefined && current !== null && !seen.has(current)) {
+    seen.add(current);
+    if (typeof current === 'string') {
+      parts.push(current);
+      break;
+    }
+    if (typeof current !== 'object') {
+      break;
+    }
+    const { message, data, cause } = current as {
+      message?: unknown;
+      data?: unknown;
+      cause?: unknown;
+    };
+    if (typeof message === 'string') {
+      parts.push(message);
+    }
+    if (data !== undefined) {
+      parts.push(typeof data === 'string' ? data : stringify(data));
+    }
+    current = cause;
   }
-  return messages.join('\n');
+  return parts.join('\n');
 }
 
 /**
