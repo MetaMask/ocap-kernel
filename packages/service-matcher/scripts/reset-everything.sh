@@ -9,6 +9,11 @@
 #   - bring the matcher back up via start-matcher.sh --force-reset,
 #     capturing the newly-issued OCAP URL on stdout;
 #   - bring the consumer daemon back up with --local-relay;
+#   - launch a fresh wallet subcluster inside the consumer daemon
+#     (start-wallet.sh) — the purge above wiped the previous one,
+#     and the openclaw demo plugin's auto-discovery would otherwise
+#     pick up the fossilised `wallet-url.env` and try to redeem a
+#     dead kref;
 #   - update the openclaw discovery plugin's matcherUrl config and
 #     restart the gateway so the new URL takes effect.
 #
@@ -115,6 +120,13 @@ rm -f \
   "$CONSUMER_HOME/daemon.log" \
   "$LLM_BRIDGE_LOG_PATH"
 
+# `daemon purge` clears the kernel-store SQLite but leaves plain
+# files like wallet-url.env behind. Nuke it so a subsequent
+# start-wallet.sh's fresh URL doesn't get shadowed by the fossil,
+# and the openclaw plugin's auto-discovery can't read a stale URL
+# during a race between consumer-daemon start and start-wallet.sh.
+rm -f "$CONSUMER_HOME/wallet-url.env"
+
 # ---------------------------------------------------------------------------
 # 6. Bring the matcher back up; capture the URL on stdout.
 # ---------------------------------------------------------------------------
@@ -136,6 +148,18 @@ info "Observer URL: $OBSERVER_URL"
 
 info "Starting consumer daemon (--local-relay)..."
 node "$OCAP_BIN" --home "$CONSUMER_HOME" daemon start --local-relay >&2
+
+# ---------------------------------------------------------------------------
+# 7a. Launch a fresh wallet subcluster.
+# ---------------------------------------------------------------------------
+# The consumer daemon just came up empty (step 4-5 purged its state).
+# start-wallet.sh detects no existing wallet subcluster and launches
+# one, writing the new OCAP URL to $CONSUMER_HOME/wallet-url.env for
+# the openclaw demo plugin to auto-discover. Must run BEFORE the
+# gateway restart so the plugin's register() sees the live URL.
+info "Launching fresh wallet subcluster..."
+"$REPO_ROOT/packages/orchestration-demo-vats/scripts/start-wallet.sh" \
+  || { echo "[reset] ERROR: start-wallet.sh failed." >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
 # 9-10. Update the openclaw plugin config and restart the gateway.
