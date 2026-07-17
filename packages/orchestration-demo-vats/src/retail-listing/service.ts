@@ -48,7 +48,7 @@ export function makeRetailListingService() {
         _spec: string,
         payment: Money,
       ): Promise<RetailListingArtifact> {
-        assertPayment(
+        await assertPayment(
           payment,
           RETAIL_LISTING_PRICE_USD * USD_TO_CENTS,
           `${RETAIL_LISTING_PROVIDER_TAG}.list`,

@@ -95,7 +95,7 @@ export function makeDeviceAssemblyService(options: {
         spec: string,
         payment: Money,
       ): Promise<DeviceAssemblyArtifact> {
-        assertPayment(
+        await assertPayment(
           payment,
           DEVICE_ASSEMBLY_PRICE_USD * USD_TO_CENTS,
           `${DEVICE_ASSEMBLY_PROVIDER_TAG}.assemble`,
@@ -142,7 +142,7 @@ export function makeDeviceAssemblyService(options: {
       ): Promise<DeviceAssemblyArtifact> {
         const quantity = lastBuildQuantity;
         const total = lastBuildTotalUsd ?? 0;
-        assertPayment(
+        await assertPayment(
           payment,
           total * USD_TO_CENTS,
           `${DEVICE_ASSEMBLY_PROVIDER_TAG}.build`,

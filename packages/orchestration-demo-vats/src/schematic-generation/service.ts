@@ -52,7 +52,7 @@ export function makeSchematicGenerationService() {
         _spec: string,
         payment: Money,
       ): Promise<SchematicArtifact> {
-        assertPayment(
+        await assertPayment(
           payment,
           SCHEMATIC_GENERATION_PRICE_USD * USD_TO_CENTS,
           `${SCHEMATIC_GENERATION_PROVIDER_TAG}.generate`,

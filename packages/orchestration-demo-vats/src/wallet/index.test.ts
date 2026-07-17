@@ -129,51 +129,54 @@ describe('wallet vat', () => {
   });
 
   describe('withdraw', () => {
-    it('subtracts from the balance and returns a Money + new balance', () => {
+    it('subtracts from the balance and returns a Money + new balance', async () => {
       const facet = root.getPublicFacet();
-      const [money, newBalance] = facet.withdraw(40_000);
+      const [money, newBalance] = await facet.withdraw(40_000);
       expect(money.amount).toBe(40_000);
       expect(typeof money.auth).toBe('string');
-      expect(money.auth.length).toBeGreaterThan(0);
+      // Auth is `<nonce>.<mac>`; both parts hex, non-empty.
+      expect(money.auth).toMatch(/^[0-9a-f]+\.[0-9a-f]+$/u);
       expect(newBalance).toBe(960_000);
       expect(facet.balance()).toBe(960_000);
     });
 
-    it('produces distinct auth nonces on successive calls', () => {
+    it('produces distinct auth nonces on successive calls', async () => {
       const facet = root.getPublicFacet();
-      const [m1] = facet.withdraw(1000);
-      const [m2] = facet.withdraw(1000);
+      const [m1] = await facet.withdraw(1000);
+      const [m2] = await facet.withdraw(1000);
       expect(m1.auth).not.toBe(m2.auth);
     });
 
-    it('rejects zero-amount withdrawals', () => {
-      expect(() => root.getPublicFacet().withdraw(0)).toThrow(/positive/u);
+    it('rejects zero-amount withdrawals', async () => {
+      await expect(root.getPublicFacet().withdraw(0)).rejects.toThrow(
+        /positive/u,
+      );
     });
 
-    it('rejects negative amounts', () => {
-      expect(() => root.getPublicFacet().withdraw(-5)).toThrow(
+    it('rejects negative amounts', async () => {
+      await expect(root.getPublicFacet().withdraw(-5)).rejects.toThrow(
         /non-negative integer/u,
       );
     });
 
-    it('rejects non-integer amounts', () => {
-      expect(() => root.getPublicFacet().withdraw(1.5)).toThrow(
+    it('rejects non-integer amounts', async () => {
+      await expect(root.getPublicFacet().withdraw(1.5)).rejects.toThrow(
         /non-negative integer/u,
       );
     });
 
-    it('refuses to overdraw', () => {
+    it('refuses to overdraw', async () => {
       const facet = root.getPublicFacet();
-      expect(() => facet.withdraw(2_000_000)).toThrow(/overdraw/u);
+      await expect(facet.withdraw(2_000_000)).rejects.toThrow(/overdraw/u);
       // Balance is unchanged after a refused overdraw.
       expect(facet.balance()).toBe(1_000_000);
     });
   });
 
   describe('init', () => {
-    it('resets the balance to the given value', () => {
+    it('resets the balance to the given value', async () => {
       const facet = root.getPublicFacet();
-      facet.withdraw(500_000);
+      await facet.withdraw(500_000);
       expect(facet.balance()).toBe(500_000);
       facet.init(2_000_000);
       expect(facet.balance()).toBe(2_000_000);
@@ -203,7 +206,7 @@ describe('wallet vat', () => {
       const sharedBaggage = makeFakeBaggage();
       const firstRoot = buildRootObject({}, {}, sharedBaggage as never);
       await firstRoot.bootstrap({}, makeFakeServices().services);
-      firstRoot.getPublicFacet().withdraw(250_000);
+      await firstRoot.getPublicFacet().withdraw(250_000);
       expect(firstRoot.getPublicFacet().balance()).toBe(750_000);
 
       // Simulate re-incarnation: build a fresh root over the same baggage,

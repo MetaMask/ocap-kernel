@@ -80,7 +80,7 @@ export function makeLogisticsService(options: {
         // tier-scaled setup fee that a hypothetical future `commit`
         // step would collect. For the current demo — which always
         // exercises trial mode — the two numbers coincide.
-        assertPayment(
+        await assertPayment(
           payment,
           LOGISTICS_PRICE_USD * USD_TO_CENTS,
           `${LOGISTICS_PROVIDER_TAG}.arrange`,

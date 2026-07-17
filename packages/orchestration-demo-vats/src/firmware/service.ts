@@ -102,7 +102,7 @@ export function makeFirmwareService() {
         _spec: string,
         payment: Money,
       ): Promise<FirmwareSpecArtifact> {
-        assertPayment(
+        await assertPayment(
           payment,
           FIRMWARE_SPEC_PRICE_USD * USD_TO_CENTS,
           `${FIRMWARE_PROVIDER_TAG}.specify`,
@@ -128,7 +128,7 @@ export function makeFirmwareService() {
         },
         payment: Money,
       ): Promise<FirmwareImplementationResult> {
-        assertPayment(
+        await assertPayment(
           payment,
           FIRMWARE_IMPLEMENTATION_PRICE_USD * USD_TO_CENTS,
           `${FIRMWARE_PROVIDER_TAG}.implement`,

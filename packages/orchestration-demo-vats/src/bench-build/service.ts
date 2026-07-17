@@ -116,7 +116,7 @@ export function makeBenchBuildService(options: {
         });
       },
       async build(_spec: string, payment: Money): Promise<BenchBuildArtifact> {
-        assertPayment(
+        await assertPayment(
           payment,
           BENCH_BUILD_PRICE_USD * USD_TO_CENTS,
           `${BENCH_BUILD_PROVIDER_TAG}.build`,

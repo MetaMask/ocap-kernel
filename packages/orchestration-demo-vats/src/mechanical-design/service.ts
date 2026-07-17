@@ -50,7 +50,7 @@ export function makeMechanicalDesignService() {
         _spec: string,
         payment: Money,
       ): Promise<MechanicalHeroArtifact> {
-        assertPayment(
+        await assertPayment(
           payment,
           MECHANICAL_DESIGN_PRICE_USD * USD_TO_CENTS,
           `${MECHANICAL_DESIGN_PROVIDER_TAG}.model`,

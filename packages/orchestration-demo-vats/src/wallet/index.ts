@@ -15,14 +15,14 @@
  *
  * `withdraw(amount)` returns a `Money` object that a downstream
  * service can inspect to validate that payment was actually
- * tendered. The `auth` field is a random nonce for now; a future
- * revision will replace it with a proper cryptographic proof
- * (either signed-by-wallet or an encrypted amount using a shared
- * key the LLM doesn't hold). For the current demo the honest
- * behaviour of the wallet plus the service-side amount check is
- * enough to remove the "let's pretend" narration failure mode
- * we hit when the producer LLM was tracking the balance in its
- * conversation memory.
+ * tendered. `Money.auth` is a `<nonce>.<mac>` pair produced by
+ * `mintAuth` in `../vat-lib/payment.ts`; the MAC binds the amount
+ * to a shared secret every demo-vat bundles at build time. A
+ * future revision will replace this with a real cryptographic
+ * signature; for the demo it stops the producer LLM from
+ * fabricating `{amount, auth}` values without going through
+ * `demo_wallet_withdraw`, which is the failure mode we hit when
+ * the LLM was tracking the balance in its conversation memory.
  */
 
 import { E } from '@endo/eventual-send';
@@ -33,6 +33,7 @@ import type {
   OcapURLRedemptionService,
 } from '@metamask/ocap-kernel';
 
+import { mintAuth } from '../vat-lib/index.ts';
 import type { Money } from '../vat-lib/index.ts';
 
 export type { Money } from '../vat-lib/index.ts';
@@ -46,56 +47,8 @@ type Services = {
 const BALANCE_KEY = 'balanceCents';
 /** Baggage key holding the issued wallet OCAP URL. */
 const WALLET_URL_KEY = 'walletUrl';
-/** Length of the random nonce used as `Money.auth`. */
-const NONCE_BYTES = 12;
 /** Default initial balance in cents ($10,000.00). Overridable via `init`. */
 const DEFAULT_INITIAL_BALANCE_CENTS = 1_000_000;
-
-/* eslint-disable n/no-unsupported-features/node-builtins */
-
-type CryptoSource = {
-  getRandomValues: (array: Uint8Array) => Uint8Array;
-};
-
-/**
- * Resolve the crypto endowment at call time. The vat kernel
- * exposes `crypto` as a global; if it isn't available (some test
- * environments), fall back to a deterministic counter so the
- * shape stays valid even when true randomness is missing.
- *
- * @returns The crypto source, or `undefined` if unreachable.
- */
-function resolveCrypto(): CryptoSource | undefined {
-  const bare: unknown = typeof crypto === 'undefined' ? undefined : crypto;
-  return (bare ?? (globalThis as { crypto?: unknown }).crypto) as
-    | CryptoSource
-    | undefined;
-}
-
-/* eslint-enable n/no-unsupported-features/node-builtins */
-
-let fallbackNonceCounter = 0;
-
-/**
- * Generate a short random nonce for a `Money.auth` field. The
- * nonce is base16 of `NONCE_BYTES` random bytes; falls back to a
- * counter-derived hex string if `crypto.getRandomValues` is
- * unavailable.
- *
- * @returns A hex string suitable for use as an opaque auth token.
- */
-function makeNonce(): string {
-  const source = resolveCrypto();
-  if (source?.getRandomValues) {
-    const bytes = new Uint8Array(NONCE_BYTES);
-    source.getRandomValues(bytes);
-    return Array.from(bytes)
-      .map((byte) => byte.toString(16).padStart(2, '0'))
-      .join('');
-  }
-  fallbackNonceCounter += 1;
-  return fallbackNonceCounter.toString(16).padStart(NONCE_BYTES * 2, '0');
-}
 
 /**
  * Assert that `amount` is a non-negative integer number of cents.
@@ -190,7 +143,7 @@ export function buildRootObject(
      * @throws If `amount` is not a positive integer or would
      *   overdraw the wallet.
      */
-    withdraw(amount: number): [Money, number] {
+    async withdraw(amount: number): Promise<[Money, number]> {
       assertNonNegativeIntegerCents(amount, 'withdraw');
       if (amount === 0) {
         throw new Error('wallet-vat: withdraw amount must be positive.');
@@ -202,9 +155,14 @@ export function buildRootObject(
             `(balance ${current} cents; shortfall ${amount - current} cents).`,
         );
       }
+      // Mint the auth BEFORE decrementing the balance so a mintAuth
+      // failure (e.g. crypto.subtle unavailable) doesn't leave the
+      // wallet in a half-consistent state where the balance moved
+      // but no Money was returned.
+      const auth = await mintAuth(amount);
       const balance = current - amount;
       writeBalance(balance);
-      const money: Money = harden({ amount, auth: makeNonce() });
+      const money: Money = harden({ amount, auth });
       log(`withdraw ${amount}: balance ${balance}`);
       return harden([money, balance]);
     },

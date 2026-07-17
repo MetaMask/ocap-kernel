@@ -81,7 +81,7 @@ export function makeIndustrialDesignService() {
         _spec: string,
         payment: Money,
       ): Promise<IndustrialDesignArtifact> {
-        assertPayment(
+        await assertPayment(
           payment,
           INDUSTRIAL_DESIGN_PRICE_USD * USD_TO_CENTS,
           `${INDUSTRIAL_DESIGN_PROVIDER_TAG}.generate`,

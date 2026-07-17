@@ -82,7 +82,7 @@ export function makeComponentSourcingService(options: {
         spec: string,
         payment: Money,
       ): Promise<ComponentSourcingArtifact> {
-        assertPayment(
+        await assertPayment(
           payment,
           COMPONENT_SOURCING_PRICE_USD * USD_TO_CENTS,
           `${COMPONENT_SOURCING_PROVIDER_TAG}.source`,
@@ -122,7 +122,7 @@ export function makeComponentSourcingService(options: {
         const total =
           lastBatchTotalUsd ??
           makeVolumeProfile(quantity).pcbUnitUsd * quantity;
-        assertPayment(
+        await assertPayment(
           payment,
           total * USD_TO_CENTS,
           `${COMPONENT_SOURCING_PROVIDER_TAG}.purchase`,

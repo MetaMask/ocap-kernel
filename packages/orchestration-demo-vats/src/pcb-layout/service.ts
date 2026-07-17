@@ -127,7 +127,7 @@ export function makePcbLayoutService(options: {
     'PcbLayoutService',
     {
       async layout(spec: string, payment: Money): Promise<PcbLayoutArtifact> {
-        assertPayment(
+        await assertPayment(
           payment,
           PCB_LAYOUT_PRICE_USD * USD_TO_CENTS,
           `${PCB_LAYOUT_PROVIDER_TAG}.layout`,
@@ -161,7 +161,7 @@ export function makePcbLayoutService(options: {
         });
       },
       async quote(spec: string, payment: Money): Promise<PcbFabricateArtifact> {
-        assertPayment(
+        await assertPayment(
           payment,
           PCB_LAYOUT_QUOTE_PRICE_USD * USD_TO_CENTS,
           `${PCB_LAYOUT_PROVIDER_TAG}.quote`,
@@ -218,7 +218,7 @@ export function makePcbLayoutService(options: {
         const quantity = lastBoardQuantity;
         const profile = makeVolumeProfile(quantity);
         const total = profile.pcbUnitUsd * quantity;
-        assertPayment(
+        await assertPayment(
           payment,
           total * USD_TO_CENTS,
           `${PCB_LAYOUT_PROVIDER_TAG}.fabricate`,

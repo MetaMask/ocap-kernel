@@ -170,7 +170,13 @@ else
         bootstrap: 'wallet',
         services: ['ocapURLIssuerService', 'ocapURLRedemptionService'],
         vats: {
-          wallet: { bundleSpec: process.env.BUNDLE }
+          wallet: {
+            bundleSpec: process.env.BUNDLE,
+            // The wallet vat needs \`crypto\` to compute Money.auth
+            // MACs via crypto.subtle.digest — see
+            // packages/orchestration-demo-vats/src/vat-lib/payment.ts.
+            globals: ['crypto']
+          }
         }
       }
     };
