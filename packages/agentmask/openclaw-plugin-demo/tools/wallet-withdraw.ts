@@ -44,98 +44,116 @@ export function registerWalletWithdrawTool(options: {
 }): void {
   const { api, state, display } = options;
 
-  api.registerTool({
-    name: 'demo_wallet_withdraw',
-    label: 'Withdraw funds ahead of a costed service call',
-    description:
-      "Withdraw funds from the inventor's wallet ahead of a costed " +
-      'service_call. Returns a `Money` object of the form ' +
-      '`{"amount": <cents>, "auth": "<nonce>"}` that MUST be passed as ' +
-      'the final positional argument to the immediately-following ' +
-      '`service_call` on a costed method — the receiving service ' +
-      'validates that `payment.amount` matches its expected price and ' +
-      'rejects the call otherwise. Amounts are integer USD cents ' +
-      "(multiply the service's quoted USD price by 100). The withdraw " +
-      'IS the charge: the wallet ribbon and events log update on ' +
-      'withdrawal, no separate "record the charge" tool call is ' +
-      'needed. Overdraws are refused — surface the shortfall to the ' +
-      'inventor and request a top-up via demo_wallet_credit before ' +
-      'retrying.',
-    parameters: {
-      type: 'object',
-      properties: {
-        amountCents: {
-          type: 'number',
-          description:
-            'Amount to withdraw, in integer USD cents. Must be a ' +
-            "positive integer and must match the target service's " +
-            'quoted price exactly (services reject amount mismatches).',
+  // eslint-disable-next-line no-console
+  console.info(
+    '[demo plugin] calling api.registerTool for demo_wallet_withdraw',
+  );
+  try {
+    api.registerTool({
+      name: 'demo_wallet_withdraw',
+      label: 'Withdraw funds ahead of a costed service call',
+      description:
+        "Withdraw funds from the inventor's wallet ahead of a costed " +
+        'service_call. Returns a `Money` object of the form ' +
+        '`{"amount": <cents>, "auth": "<nonce>"}` that MUST be passed as ' +
+        'the final positional argument to the immediately-following ' +
+        '`service_call` on a costed method — the receiving service ' +
+        'validates that `payment.amount` matches its expected price and ' +
+        'rejects the call otherwise. Amounts are integer USD cents ' +
+        "(multiply the service's quoted USD price by 100). The withdraw " +
+        'IS the charge: the wallet ribbon and events log update on ' +
+        'withdrawal, no separate "record the charge" tool call is ' +
+        'needed. Overdraws are refused — surface the shortfall to the ' +
+        'inventor and request a top-up via demo_wallet_credit before ' +
+        'retrying.',
+      parameters: {
+        type: 'object',
+        properties: {
+          amountCents: {
+            type: 'number',
+            description:
+              'Amount to withdraw, in integer USD cents. Must be a ' +
+              "positive integer and must match the target service's " +
+              'quoted price exactly (services reject amount mismatches).',
+          },
+          reason: {
+            type: 'string',
+            description:
+              'Short human-readable description of the withdrawal (e.g. ' +
+              '"industrial-design pass", "pcb fabrication"). Optional but ' +
+              'strongly recommended — surfaces on the dashboard events ' +
+              'log so the audience sees why the wallet just decremented.',
+          },
         },
-        reason: {
-          type: 'string',
-          description:
-            'Short human-readable description of the withdrawal (e.g. ' +
-            '"industrial-design pass", "pcb fabrication"). Optional but ' +
-            'strongly recommended — surfaces on the dashboard events ' +
-            'log so the audience sees why the wallet just decremented.',
-        },
+        required: ['amountCents'],
       },
-      required: ['amountCents'],
-    },
-    async execute(
-      _id: string,
-      params: { amountCents: number; reason?: string },
-    ): Promise<ToolResponse> {
-      const amount = params.amountCents;
-      if (
-        typeof amount !== 'number' ||
-        Number.isNaN(amount) ||
-        !Number.isInteger(amount) ||
-        amount <= 0
-      ) {
-        return errorResponse(
-          `amountCents must be a positive integer number of cents; got ${amount}.`,
-        );
-      }
-      try {
-        const wallet = await requireWallet(state);
-        const { money, balance: balanceCents } = await wallet.withdraw(amount);
-        const decodedReason =
-          typeof params.reason === 'string'
-            ? decodeLiteralUnicodeEscapes(params.reason)
-            : undefined;
-        display
-          .post({
-            kind: 'wallet.charge',
-            amountCents: amount,
-            balanceCents,
-            ...(decodedReason === undefined ? {} : { reason: decodedReason }),
-            at: new Date().toISOString(),
-          })
-          .catch(() => undefined);
-        const reasonSuffix =
-          typeof decodedReason === 'string' && decodedReason.length > 0
-            ? ` (${decodedReason})`
-            : '';
-        return {
-          content: [
-            {
-              type: 'text' as const,
-              text:
-                `Withdrew ${formatUsdFromCents(amount)}${reasonSuffix}. ` +
-                `New balance: ${formatUsdFromCents(balanceCents)}.\n` +
-                `Payment: ${JSON.stringify(money)}\n` +
-                `Pass Payment verbatim as the final positional arg to ` +
-                `the immediately-following service_call.`,
-            },
-          ],
-          details: undefined,
-        };
-      } catch (error) {
-        return errorResponse(
-          error instanceof Error ? error.message : String(error),
-        );
-      }
-    },
-  });
+      async execute(
+        _id: string,
+        params: { amountCents: number; reason?: string },
+      ): Promise<ToolResponse> {
+        const amount = params.amountCents;
+        if (
+          typeof amount !== 'number' ||
+          Number.isNaN(amount) ||
+          !Number.isInteger(amount) ||
+          amount <= 0
+        ) {
+          return errorResponse(
+            `amountCents must be a positive integer number of cents; got ${amount}.`,
+          );
+        }
+        try {
+          const wallet = await requireWallet(state);
+          const { money, balance: balanceCents } =
+            await wallet.withdraw(amount);
+          const decodedReason =
+            typeof params.reason === 'string'
+              ? decodeLiteralUnicodeEscapes(params.reason)
+              : undefined;
+          display
+            .post({
+              kind: 'wallet.charge',
+              amountCents: amount,
+              balanceCents,
+              ...(decodedReason === undefined ? {} : { reason: decodedReason }),
+              at: new Date().toISOString(),
+            })
+            .catch(() => undefined);
+          const reasonSuffix =
+            typeof decodedReason === 'string' && decodedReason.length > 0
+              ? ` (${decodedReason})`
+              : '';
+          return {
+            content: [
+              {
+                type: 'text' as const,
+                text:
+                  `Withdrew ${formatUsdFromCents(amount)}${reasonSuffix}. ` +
+                  `New balance: ${formatUsdFromCents(balanceCents)}.\n` +
+                  `Payment: ${JSON.stringify(money)}\n` +
+                  `Pass Payment verbatim as the final positional arg to ` +
+                  `the immediately-following service_call.`,
+              },
+            ],
+            details: undefined,
+          };
+        } catch (error) {
+          return errorResponse(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+      },
+    });
+    // eslint-disable-next-line no-console
+    console.info(
+      '[demo plugin] api.registerTool for demo_wallet_withdraw returned OK',
+    );
+  } catch (regError) {
+    // eslint-disable-next-line no-console
+    console.error(
+      '[demo plugin] api.registerTool for demo_wallet_withdraw THREW:',
+      regError,
+    );
+    throw regError;
+  }
 }
