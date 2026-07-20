@@ -7,11 +7,22 @@
  * `docs/orchestration-demo-wallet-design.md` for the migration
  * path.
  *
- * The vat exposes a single public facet with four methods:
- * `deposit`, `withdraw`, `balance`, `init`. Amounts are always
- * integer USD cents; callers that operate in dollars must convert
- * at the boundary. The balance is durable in vat baggage — vat
- * re-incarnation restores the last committed value.
+ * The vat's ROOT is the wallet API — `deposit`, `withdraw`,
+ * `balance`, `init`, `getWalletUrl`, plus the kernel-called
+ * `bootstrap`. Amounts are always integer USD cents; callers that
+ * operate in dollars must convert at the boundary. The balance is
+ * durable in vat baggage — vat re-incarnation restores the last
+ * committed value.
+ *
+ * Historical note: an earlier design split the API onto a separate
+ * `publicFacet` exo and issued the wallet URL for that. Because
+ * `ocapURLIssuerService.issue()` doesn't keep a reference to the
+ * exo it encrypts, the publicFacet's kernel-side export refcount
+ * dropped to zero right after bootstrap, and the URL later
+ * redeemed to a kref the kernel had GC'd — the OBJECT_DELETED
+ * failure. Consolidating the API onto the root fixes it because
+ * the root's kref is held alive by the kernel for the vat's
+ * lifetime.
  *
  * `withdraw(amount)` returns a `Money` object that a downstream
  * service can inspect to validate that payment was actually
@@ -76,12 +87,23 @@ function assertNonNegativeIntegerCents(
 /**
  * Build the wallet vat's root object.
  *
+ * The API (`deposit` / `withdraw` / `balance` / `init` /
+ * `getWalletUrl`) lives directly on the root, alongside the
+ * kernel-called `bootstrap`. The URL bootstrap issues points at the
+ * root itself — the vat root's kref (`o+0`) is kept alive by the
+ * kernel for as long as the vat exists, so the URL stays
+ * redeemable. An earlier design split the API onto a separate
+ * `publicFacet` exo and issued the URL for that; the publicFacet's
+ * only kernel-visible reference was the one held during the
+ * `issue()` call, so it got GC'd shortly after bootstrap and every
+ * subsequent redemption of the URL returned OBJECT_DELETED.
+ *
  * @param _vatPowers - Vat powers (unused).
  * @param _parameters - Vat parameters (unused).
  * @param baggage - Vat baggage; used to persist the balance and
  *   the issued OCAP URL across re-incarnation.
- * @returns The vat root exo, exposing `bootstrap`,
- *   `getPublicFacet`, and `getWalletUrl`.
+ * @returns The vat root exo, exposing the wallet API plus
+ *   `bootstrap` and `getWalletUrl`.
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function buildRootObject(
@@ -117,7 +139,28 @@ export function buildRootObject(
     baggage.set(BALANCE_KEY, cents);
   }
 
-  const publicFacet = makeDefaultExo('walletPublicFacet', {
+  const root = makeDefaultExo('walletVatRoot', {
+    async bootstrap(_vats: Record<string, unknown>, incoming: Services) {
+      if (!incoming?.ocapURLIssuerService) {
+        throw new Error('ocapURLIssuerService is required');
+      }
+      if (!incoming.ocapURLRedemptionService) {
+        throw new Error('ocapURLRedemptionService is required');
+      }
+      // Issue a URL for the ROOT itself. The root's kref is `o+0`
+      // in this vat's namespace and is kept alive by the kernel
+      // for the vat's lifetime, so any later redemption of this
+      // URL yields a live kref rather than getting GC'd.
+      const walletUrl = await E(incoming.ocapURLIssuerService).issue(root);
+      if (baggage.has(WALLET_URL_KEY)) {
+        baggage.set(WALLET_URL_KEY, walletUrl);
+      } else {
+        baggage.init(WALLET_URL_KEY, walletUrl);
+      }
+      log(`bootstrap complete; walletUrl=${walletUrl}`);
+      return harden({ walletUrl });
+    },
+
     /**
      * Deposit money into the wallet.
      *
@@ -190,37 +233,6 @@ export function buildRootObject(
       writeBalance(amount);
       log(`init balance to ${amount}`);
     },
-  });
-
-  return makeDefaultExo('walletVatRoot', {
-    async bootstrap(_vats: Record<string, unknown>, incoming: Services) {
-      if (!incoming?.ocapURLIssuerService) {
-        throw new Error('ocapURLIssuerService is required');
-      }
-      if (!incoming.ocapURLRedemptionService) {
-        throw new Error('ocapURLRedemptionService is required');
-      }
-      const walletUrl = await E(incoming.ocapURLIssuerService).issue(
-        publicFacet,
-      );
-      if (baggage.has(WALLET_URL_KEY)) {
-        baggage.set(WALLET_URL_KEY, walletUrl);
-      } else {
-        baggage.init(WALLET_URL_KEY, walletUrl);
-      }
-      log(`bootstrap complete; walletUrl=${walletUrl}`);
-      return harden({ walletUrl });
-    },
-
-    /**
-     * Return the public facet directly (used by tests and by
-     * local callers with vat-root access).
-     *
-     * @returns The public wallet exo.
-     */
-    getPublicFacet() {
-      return publicFacet;
-    },
 
     /**
      * Return the wallet's public OCAP URL as previously issued at
@@ -237,4 +249,6 @@ export function buildRootObject(
         : undefined;
     },
   });
+
+  return root;
 }
