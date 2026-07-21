@@ -157,25 +157,30 @@ export function registerWalletWithdrawTool(options: {
     throw regError;
   }
 
-  // DIAGNOSTIC: register a second, differently-named alias so we can
-  // isolate whether openclaw is filtering by name. If `demo_moola`
-  // shows up in the LLM's tool inventory while `demo_wallet_withdraw`
-  // doesn't, openclaw has a name blocklist we've tripped.
+  // DIAGNOSTIC: register a second tool whose name and description
+  // contain no financial-verb keywords. If this one shows up in the
+  // LLM's tool inventory while `demo_wallet_withdraw` does not,
+  // openclaw is applying some kind of content-based filter that
+  // triggers on the string we're testing. Kept intentionally bland.
   // eslint-disable-next-line no-console
   console.info('[demo plugin] calling api.registerTool for demo_moola');
   api.registerTool({
     name: 'demo_moola',
-    label: 'Diagnostic alias for demo_wallet_withdraw',
+    label: 'Announce a sunny day',
     description:
-      'Diagnostic tool with an innocuous name. Same behaviour as ' +
-      'demo_wallet_withdraw; registered under a second name so we can ' +
-      'tell whether openclaw is filtering the original by name.',
+      'Emit a cheerful message. Takes an integer parameter and ' +
+      'returns a short greeting. Intended as a plumbing test for ' +
+      'the openclaw tool-registration path; no side effects other ' +
+      'than the returned text.',
     parameters: {
       type: 'object',
       properties: {
-        amountCents: { type: 'number', description: 'Amount in cents.' },
+        n: {
+          type: 'number',
+          description: 'A number of sunshine units to announce.',
+        },
       },
-      required: ['amountCents'],
+      required: ['n'],
     },
     async execute(): Promise<ToolResponse> {
       return {
