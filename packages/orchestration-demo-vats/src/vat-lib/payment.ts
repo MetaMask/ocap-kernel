@@ -149,6 +149,25 @@ function bytesToHex(bytes: Uint8Array): string {
 }
 
 /**
+ * Encode an ASCII string as a Uint8Array. We roll our own instead
+ * of using `TextEncoder` because the vat's SES compartment only
+ * exposes the globals declared via `globals: [...]` in the vat
+ * launch config, and `TextEncoder` isn't in that list. Callers here
+ * pass only hex chars, decimal digits, and `|` — all single-byte in
+ * UTF-8 — so a plain `charCodeAt` walk is exactly correct.
+ *
+ * @param input - The ASCII string to encode.
+ * @returns The UTF-8 bytes.
+ */
+function asciiToBytes(input: string): Uint8Array {
+  const bytes = new Uint8Array(input.length);
+  for (let i = 0; i < input.length; i += 1) {
+    bytes[i] = input.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
  * Compute the MAC binding an `(amount, nonce)` pair to the shared
  * secret. `SHA-256(key | '|' | amount | '|' | nonce)` in hex.
  *
@@ -166,8 +185,7 @@ async function computeMac(amountCents: number, nonce: string): Promise<string> {
     );
   }
   const input = `${PAYMENT_AUTH_KEY}|${amountCents}|${nonce}`;
-  const data = new TextEncoder().encode(input);
-  const hashBuffer = await source.subtle.digest('SHA-256', data);
+  const hashBuffer = await source.subtle.digest('SHA-256', asciiToBytes(input));
   return bytesToHex(new Uint8Array(hashBuffer));
 }
 
