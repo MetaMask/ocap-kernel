@@ -51,7 +51,7 @@ import { registerRecordArtifactTool } from './tools/record-artifact.ts';
 import { registerServiceCompletedTool } from './tools/service-completed.ts';
 import { registerWalletBalanceTool } from './tools/wallet-balance.ts';
 import { registerWalletCreditTool } from './tools/wallet-credit.ts';
-import { registerWalletWithdrawTool } from './tools/wallet-withdraw.ts';
+import { registerWalletWithdrawTool } from './tools/wallet-payment.ts';
 import type {
   OpenClawPluginApi,
   PluginConfigSchema,
