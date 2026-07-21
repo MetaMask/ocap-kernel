@@ -32,7 +32,7 @@ export function registerWalletPaymentTool(options: {
   const { api, state, display } = options;
 
   api.registerTool({
-    name: 'demo_wallet_withdraw',
+    name: 'demo_wallet_pay',
     label: "Withdraw funds from the inventor's wallet",
     description:
       "Withdraw a positive USD-cents amount from the inventor's wallet " +
