@@ -37,7 +37,7 @@ import {
  * @param options.display - Display client for posting wallet.charge
  *   events at withdrawal time.
  */
-export function registerWalletWithdrawTool(options: {
+export function registerWalletPaymentTool(options: {
   api: OpenClawPluginApi;
   state: PluginState;
   display: DisplayClient;
