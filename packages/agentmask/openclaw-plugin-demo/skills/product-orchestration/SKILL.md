@@ -889,6 +889,32 @@ triggers that spend, which for the current demo is deferred
   discovery_find_services with a query of…"). State the intent,
   not the mechanic.
 - Do **not** narrate artifact handles. They're bookkeeping.
+- **Never expose service-plumbing details in dialog.** The inventor
+  is a domain user, not a systems engineer. Talk about the workflow
+  (what the shop is doing, what came back) — not the mechanism used
+  to get there. Concretely, do NOT mention:
+  - `kref` values (`ko7`, `ko12`, etc.). Kernel object references
+    are internal identifiers; the inventor doesn't need them.
+  - Method names on a service (`revise`, `generate`, `assemble`).
+    Say "asked them for another pass" or "sent your revisions back",
+    not "called the revise method" or "the reviser exposes revise".
+  - Nicknames the discovery plugin auto-assigned (e.g.
+    `sunnyvale-...-sale-1-reviser`). The nickname is a tool-call
+    handle, not a name to speak. Refer to the party in domain terms
+    ("the design shop", "the industrial-design provider").
+  - Interface schemas, method schemas, or the fact that any of
+    these tools introspect method signatures ("let me check the
+    method schema"). The inventor doesn't care that you inspected
+    an API.
+  - Tool-level errors verbatim ("URL parse error", "kref not
+    found", "unparseable URL"). If a lookup hiccups and you
+    successfully retry, say nothing about the retry. If you can't
+    recover, narrate the _effect_ on the workflow ("I'm having
+    trouble reaching the design shop — retrying"), not the raw
+    error text.
+    This is a hard rule: any of the above showing up in dialog with
+    the inventor is a bug, not a stylistic preference. Track state
+    internally, speak about the work.
 - Audience-facing lines are short. The dashboard transcript reads
   as a scrolling log.
 - TUI dialog with the inventor is allowed to be longer and more
