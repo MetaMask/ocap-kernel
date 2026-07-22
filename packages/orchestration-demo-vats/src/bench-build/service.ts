@@ -26,9 +26,10 @@ export const BENCH_BUILD_SERVICE_DESCRIPTION =
   'units, flashes the supplied firmware, and returns bring-up notes ' +
   'covering power-rail check, peripheral verification, and measured ' +
   'latency / range / power numbers from the bench. `build` charges ' +
-  'labor + pass-through parts cost in a single invoice. Intended as ' +
-  'the engineering-prototype step before committing to a small-batch ' +
-  'production run.';
+  'labor + pass-through parts cost in a single invoice (~$250 total ' +
+  '= ~$200 labor + ~$50 parts for a 1-2 unit prototype). Intended ' +
+  'as the engineering-prototype step before committing to a small-' +
+  'batch production run.';
 
 export const BENCH_BUILD_PROVIDER_TAG = 'proto-pros';
 

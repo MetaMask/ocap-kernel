@@ -18,11 +18,12 @@ export const LOGISTICS_SERVICE_DESCRIPTION =
   'product. Takes a product brief and returns a fulfillment plan ' +
   'covering warehouse of record, per-unit storage cost, pick-and-' +
   'pack labor, carrier rates by zone, returns handling, and the ' +
-  'integration steps to wire the operation into a storefront. ' +
-  'Handles both small trial-distribution runs (hand-curated list of ' +
-  'beta users, no marketplace integration) and full storefront ' +
-  'fulfillment; the brief tells the operator which mode to plan for. ' +
-  'Price covers up to two revisions of the same plan on request.';
+  'integration steps to wire the operation into a storefront ' +
+  '(~$300 planning fee for the prototype tier; larger tiers priced ' +
+  'in the returned plan; covers up to two revisions). Handles both ' +
+  'small trial-distribution runs (hand-curated list of beta users, ' +
+  'no marketplace integration) and full storefront fulfillment; the ' +
+  'brief tells the operator which mode to plan for.';
 
 export const LOGISTICS_PROVIDER_TAG = 'pacific-fulfillment';
 

@@ -17,8 +17,8 @@ export const SCHEMATIC_GENERATION_SERVICE_DESCRIPTION =
   'Generate a circuit schematic from a functional specification. ' +
   'Takes a functional spec (text) and returns a schematic diagram ' +
   'covering the microcontroller, peripherals, signal routing, power ' +
-  'tree, and other components required by the spec. Price covers up ' +
-  'to two revisions of the same schematic on request.';
+  'tree, and other components required by the spec (~$800 per ' +
+  'schematic, covers up to two revisions).';
 
 export const SCHEMATIC_GENERATION_PROVIDER_TAG = 'circuit-masters';
 

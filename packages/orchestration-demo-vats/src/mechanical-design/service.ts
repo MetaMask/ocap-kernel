@@ -15,8 +15,8 @@ import type { Money } from '../vat-lib/index.ts';
 export const MECHANICAL_DESIGN_SERVICE_DESCRIPTION =
   'Model a 3D part or enclosure suitable for injection molding. ' +
   'Takes a concept sketch and dimensions (text) and returns a 3D ' +
-  'render of the part in a chosen colorway. Price covers up to two ' +
-  'revisions of the same part on request.';
+  'render of the part in a chosen colorway (~$2,100 per part, ' +
+  'covers up to two revisions).';
 
 export const MECHANICAL_DESIGN_PROVIDER_TAG = 'nantucket-mech';
 

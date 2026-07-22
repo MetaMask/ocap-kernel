@@ -16,8 +16,8 @@ export const RETAIL_LISTING_SERVICE_DESCRIPTION =
   'List a physical product for online retail sale. Takes a product ' +
   'brief and returns a marketplace listing draft including title, ' +
   'marketing copy, pricing tier, shipping options, returns policy, ' +
-  'and storefront image requirements. Price covers up to two ' +
-  'revisions of the same listing on request.';
+  'and storefront image requirements (~$200 per listing, covers up ' +
+  'to two revisions).';
 
 export const RETAIL_LISTING_PROVIDER_TAG = 'marketplace-direct';
 

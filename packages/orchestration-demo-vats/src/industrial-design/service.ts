@@ -19,8 +19,8 @@ import type { Money } from '../vat-lib/index.ts';
 export const INDUSTRIAL_DESIGN_SERVICE_DESCRIPTION =
   'Sketch an industrial design concept for a new product entering ' +
   'manufacture. Takes a functional spec (text) and returns a line-drawing ' +
-  'concept showing form factor, control layout, and labelled features. ' +
-  'Price covers up to three revisions of the same concept on request.';
+  'concept showing form factor, control layout, and labelled features ' +
+  '(~$1,200 per concept, covers up to three revisions).';
 
 /**
  * Provider tag used to dedup registrations under (peerId, providerTag).

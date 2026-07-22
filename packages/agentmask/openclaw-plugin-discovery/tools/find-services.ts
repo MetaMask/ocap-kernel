@@ -20,6 +20,7 @@ type ServiceMatchWire = {
     description: string;
     contact: { contactType: string; contactUrl: string }[];
     apiSpec: unknown;
+    priceUsd?: number;
   };
   rationale?: string;
 };
@@ -151,6 +152,12 @@ export function registerFindServicesTool(options: {
         ];
         matches.forEach((match, index) => {
           lines.push(`${index + 1}. ${match.description.description}`);
+          if (typeof match.description.priceUsd === 'number') {
+            const priceCents = Math.round(match.description.priceUsd * 100);
+            lines.push(
+              `   - advertised price: $${match.description.priceUsd.toLocaleString('en-US')} (${priceCents} cents; pass this as amountCents to demo_wallet_withdraw)`,
+            );
+          }
           for (const contact of match.description.contact) {
             lines.push(
               `   - contact (${contact.contactType}): ${contact.contactUrl}`,
