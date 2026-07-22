@@ -11,6 +11,11 @@ export {
   type ShipmentManifest,
 } from './receive-shipment-endpoint.ts';
 export {
+  issueRevisionCapability,
+  REVISE_ARG_SCHEMA,
+  type Reviser,
+} from './reviser.ts';
+export {
   assertPayment,
   mintAuth,
   PAYMENT_ARG_SCHEMA,

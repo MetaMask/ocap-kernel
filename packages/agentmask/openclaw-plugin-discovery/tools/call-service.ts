@@ -210,5 +210,6 @@ function slimForAgent(stored: StoredArtifact): Record<string, unknown> {
     ...(stored.receiveShipmentUrl === undefined
       ? {}
       : { receiveShipmentUrl: stored.receiveShipmentUrl }),
+    ...(stored.reviseUrl === undefined ? {} : { reviseUrl: stored.reviseUrl }),
   };
 }

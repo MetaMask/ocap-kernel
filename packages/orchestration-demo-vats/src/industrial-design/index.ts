@@ -49,7 +49,10 @@ export function buildRootObject(
 
   return makeDefaultExo(`${SERVICE_NAME}VatRoot`, {
     async bootstrap(_vats: Record<string, unknown>, services: Services) {
-      const serviceExo = makeIndustrialDesignService();
+      const serviceExo = makeIndustrialDesignService({
+        issueUrl: async (endpoint) =>
+          E(services.ocapURLIssuerService).issue(endpoint),
+      });
       const remotableSpec = await getRemotableSpec(
         serviceExo,
         INDUSTRIAL_DESIGN_SERVICE_DESCRIPTION,

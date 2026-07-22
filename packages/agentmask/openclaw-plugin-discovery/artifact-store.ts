@@ -71,6 +71,14 @@ export type StoredArtifact = {
    * the supplier redeems it and calls the receive method.
    */
   receiveShipmentUrl?: string;
+  /**
+   * Per-purchase reviser ocap URL exposed by services that grant free
+   * follow-up revisions after the initial paid delivery. The agent
+   * redeems this URL via `service_initiate_contact` and calls
+   * `revise(feedback)` on the resulting handle to receive the next
+   * revision at no additional charge.
+   */
+  reviseUrl?: string;
 };
 
 type StoreState = {

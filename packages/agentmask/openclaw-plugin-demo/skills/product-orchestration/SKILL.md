@@ -728,19 +728,25 @@ service call.
    artifact, and whether to move on — framed as a question, not a
    foregone conclusion. The default ask is along the lines of
    "Anything you'd like to change here? And want me to move on to
-   <next phase>?" If the inventor wants a revision, run the same
-   withdraw + `service_call` + `demo_service_completed` sequence
-   again with the revision notes as a method arg — **every
-   revision costs the full method price**; the wallet vat and the
-   services do amount-matching to the penny, so there's no "$0
-   revision" path any more. Record the revised artifact with the
-   same `phase` value as the original; do not announce a new
-   phase. Only proceed when the inventor confirms. For the
-   Bench Build → Manufacturing and Trial Distribution → Sales
-   transitions, run the validation-checkpoint beat (see "Validation
-   checkpoints" above) before the move-on question — the
-   in-character explanation of the validation work replaces the
-   standard "anything to change?" prompt for those two transitions.
+   <next phase>?" **Revision path depends on the artifact.** If the
+   slim result carries a `reviseUrl`, that ocap grants free follow-up
+   revisions: call `service_initiate_contact` on the URL, then
+   `service_call` the `revise(feedback)` method — no withdraw, no
+   payment argument. The reviser has its own budget (typically two
+   revisions per purchase); when exhausted it throws and any further
+   iteration means a fresh paid call. If the artifact has NO
+   `reviseUrl`, every revision is a fresh billed call: run the same
+   withdraw + `service_call` + `demo_service_completed` sequence with
+   the revision notes as a method arg — the wallet vat and services
+   do amount-matching to the penny, so there's no "$0 revision" path
+   in that mode. Record the revised artifact with the same `phase`
+   value as the original either way; do not announce a new phase.
+   Only proceed when the inventor confirms. For the Bench Build →
+   Manufacturing and Trial Distribution → Sales transitions, run the
+   validation-checkpoint beat (see "Validation checkpoints" above)
+   before the move-on question — the in-character explanation of the
+   validation work replaces the standard "anything to change?" prompt
+   for those two transitions.
 
    **Why the consolidated tools matter.** Every separate tool call
    costs an LLM inference round-trip (~5-15 seconds). The phase
