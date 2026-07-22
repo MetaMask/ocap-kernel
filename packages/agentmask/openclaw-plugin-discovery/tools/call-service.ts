@@ -23,9 +23,18 @@
 import { getArtifactStore, isArtifactShape } from '../artifact-store.ts';
 import type { StoredArtifact } from '../artifact-store.ts';
 import type { DaemonCaller } from '../daemon.ts';
-import { isKref, resolveService } from '../state.ts';
-import type { PluginState } from '../state.ts';
+import { isKref, resolveService, uniqueNickname } from '../state.ts';
+import type { PluginState, ServiceEntry } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
+
+/**
+ * Anchored slot-ref pattern the CLI's `prettifySmallcaps` emits for
+ * remotable references: `<koN>` optionally followed by
+ * ` (Alleged: <name>)`. Only whole-string matches are treated as
+ * references — a slot-ref-looking substring inside a longer text
+ * value (e.g. an SVG or Markdown body) is left alone.
+ */
+const SLOT_REF_PATTERN = /^<(ko\d+)>(?:\s+\(Alleged:\s*([^)]+)\))?$/u;
 
 /**
  * Register the service_call tool.
@@ -103,7 +112,8 @@ export function registerCallServiceTool(options: {
           args: parsedArgs,
         });
 
-        const summarised = summariseResult(result);
+        const withRegisteredRefs = registerEmbeddedRefs(result);
+        const summarised = summariseResult(withRegisteredRefs);
 
         const text =
           typeof summarised === 'string'
@@ -159,6 +169,71 @@ export function registerCallServiceTool(options: {
   }
 
   /**
+   * Walk `value` looking for prettified slot-reference strings (`<koN>`
+   * or `<koN> (Alleged: ...)`) — the shape `prettifySmallcaps` emits
+   * on the CLI side for remotable references embedded in a response.
+   * Every such reference is registered as a service under a nickname
+   * derived from its alleged name, and the string is replaced with
+   * that nickname so the LLM sees a callable service handle instead
+   * of a raw kref presentation.
+   *
+   * Only whole-string matches are rewritten — slot-ref-looking
+   * substrings inside long text values (SVG bodies, markdown, etc.)
+   * pass through unchanged.
+   *
+   * @param value - The value to walk.
+   * @returns The value with slot-ref strings replaced by service
+   *   nicknames.
+   */
+  function registerEmbeddedRefs(value: unknown): unknown {
+    if (typeof value === 'string') {
+      const match = SLOT_REF_PATTERN.exec(value);
+      if (!match) {
+        return value;
+      }
+      const [, refKref, alleged] = match;
+      if (refKref === undefined) {
+        return value;
+      }
+      // Reuse an existing registration for the same kref if we've
+      // seen it before — a service returned twice should share one
+      // nickname.
+      for (const [nickname, entry] of state.services.entries()) {
+        if (entry.kref === refKref) {
+          return nickname;
+        }
+      }
+      const baseNickname =
+        typeof alleged === 'string' && alleged.length > 0
+          ? alleged
+          : `service:${refKref}`;
+      const nickname = uniqueNickname(
+        baseNickname,
+        new Set(state.services.keys()),
+      );
+      const entry: ServiceEntry = {
+        kref: refKref,
+        nickname,
+        fromContact: 'service_call:embedded-ref',
+      };
+      state.services.set(nickname, entry);
+      return nickname;
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => registerEmbeddedRefs(item));
+    }
+    if (typeof value === 'object' && value !== null) {
+      const record = value as Record<string, unknown>;
+      const out: Record<string, unknown> = {};
+      for (const [key, val] of Object.entries(record)) {
+        out[key] = registerEmbeddedRefs(val);
+      }
+      return out;
+    }
+    return value;
+  }
+
+  /**
    * If `result` is artifact-shaped, intern it and return a slim
    * summary the LLM can read cheaply. Otherwise return the result
    * unchanged. Handles results wrapped in a single-property object
@@ -210,6 +285,6 @@ function slimForAgent(stored: StoredArtifact): Record<string, unknown> {
     ...(stored.receiveShipmentUrl === undefined
       ? {}
       : { receiveShipmentUrl: stored.receiveShipmentUrl }),
-    ...(stored.reviseUrl === undefined ? {} : { reviseUrl: stored.reviseUrl }),
+    ...(stored.reviser === undefined ? {} : { reviser: stored.reviser }),
   };
 }

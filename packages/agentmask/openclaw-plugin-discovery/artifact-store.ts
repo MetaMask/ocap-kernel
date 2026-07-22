@@ -72,13 +72,14 @@ export type StoredArtifact = {
    */
   receiveShipmentUrl?: string;
   /**
-   * Per-purchase reviser ocap URL exposed by services that grant free
-   * follow-up revisions after the initial paid delivery. The agent
-   * redeems this URL via `service_initiate_contact` and calls
-   * `revise(feedback)` on the resulting handle to receive the next
-   * revision at no additional charge.
+   * Nickname of the per-purchase reviser service auto-registered by
+   * the discovery plugin when it saw a reviser reference in the
+   * service call's response. The agent calls `service_call` on this
+   * nickname with method `revise` to receive the next revision at no
+   * additional charge — the reviser reference itself carries the
+   * proof of purchase.
    */
-  reviseUrl?: string;
+  reviser?: string;
 };
 
 type StoreState = {

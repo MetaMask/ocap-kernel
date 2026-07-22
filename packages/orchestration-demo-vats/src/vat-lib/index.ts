@@ -11,8 +11,9 @@ export {
   type ShipmentManifest,
 } from './receive-shipment-endpoint.ts';
 export {
-  issueRevisionCapability,
+  makeReviser,
   REVISE_ARG_SCHEMA,
+  REVISE_METHOD_SCHEMA,
   type Reviser,
 } from './reviser.ts';
 export {
