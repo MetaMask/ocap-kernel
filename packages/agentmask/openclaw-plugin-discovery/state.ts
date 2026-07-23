@@ -60,15 +60,30 @@ export type PluginState = {
 };
 
 /**
- * Create a fresh plugin state.
+ * Module-level singletons for the collections that need to survive
+ * openclaw calling `register()` more than once (per subagent, per
+ * session boundary, etc.). Without this, references handed back by a
+ * paid `service_call` — including the auto-registered reviser
+ * capabilities — vanish before the LLM's next turn, since
+ * `state = createState()` produces a fresh empty map on each
+ * re-registration. See the reviser-flow investigation in
+ * commit history around 2026-07-23.
+ */
+const persistentContacts = new Map<string, ContactEntry>();
+const persistentServices = new Map<string, ServiceEntry>();
+
+/**
+ * Create a plugin state. Returns a state object whose `contacts` and
+ * `services` maps are shared across all calls, so entries registered
+ * on one turn are visible on the next.
  *
- * @returns A new plugin state.
+ * @returns The plugin state.
  */
 export function createState(): PluginState {
   return {
     matcher: { status: 'absent' },
-    contacts: new Map(),
-    services: new Map(),
+    contacts: persistentContacts,
+    services: persistentServices,
   };
 }
 
