@@ -80,7 +80,9 @@ export function makeMechanicalDesignService() {
           spec: {
             type: 'string',
             description:
-              'Concept sketch handle + dimensions, in plain English.',
+              'Combined design brief in plain English: concept-sketch ' +
+              'handle, target dimensions, material notes, and any other ' +
+              'input in one string. Not multiple positional args.',
           },
           payment: PAYMENT_ARG_SCHEMA,
         },
