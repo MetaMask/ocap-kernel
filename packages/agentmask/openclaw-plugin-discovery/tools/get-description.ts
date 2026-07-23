@@ -43,17 +43,31 @@ export function registerGetDescriptionTool(options: {
       _id: string,
       params: { contact: string },
     ): Promise<ToolResponse> {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[discovery/get_description] ENTER contact=${JSON.stringify(params.contact)}\n` +
+          `  state.contacts keys: ${[...state.contacts.keys()].join(', ') || '(empty)'}\n` +
+          `  state.contacts urls: ${[...state.contacts.values()].map((entry) => entry.url ?? '(no url)').join(', ') || '(empty)'}`,
+      );
       try {
         const entry = await resolveContact({
           ref: params.contact,
           state,
           daemon,
         });
+        // eslint-disable-next-line no-console
+        console.error(
+          `[discovery/get_description] resolved to nickname=${entry.nickname} kref=${entry.kref} url=${entry.url ?? '(none)'}`,
+        );
         const description = await daemon.queueMessage({
           target: entry.kref,
           method: 'getServiceDescription',
           args: [],
         });
+        // eslint-disable-next-line no-console
+        console.error(
+          `[discovery/get_description] queueMessage(getServiceDescription) succeeded on kref=${entry.kref}`,
+        );
         return {
           content: [
             {
@@ -71,6 +85,10 @@ export function registerGetDescriptionTool(options: {
         };
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
+        // eslint-disable-next-line no-console
+        console.error(
+          `[discovery/get_description] ERROR contact=${JSON.stringify(params.contact)}: ${message}`,
+        );
         return {
           content: [{ type: 'text' as const, text: `Error: ${message}` }],
           details: undefined,

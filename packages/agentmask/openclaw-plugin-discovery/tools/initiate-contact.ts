@@ -67,12 +67,22 @@ export function registerInitiateContactTool(options: {
       _id: string,
       params: { contact: string },
     ): Promise<ToolResponse> {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[discovery/initiate_contact] ENTER contact=${JSON.stringify(params.contact)}\n` +
+          `  state.contacts keys: ${[...state.contacts.keys()].join(', ') || '(empty)'}\n` +
+          `  state.contacts urls: ${[...state.contacts.values()].map((cached) => cached.url ?? '(no url)').join(', ') || '(empty)'}`,
+      );
       try {
         const contactEntry = await resolveContact({
           ref: params.contact,
           state,
           daemon,
         });
+        // eslint-disable-next-line no-console
+        console.error(
+          `[discovery/initiate_contact] resolved to nickname=${contactEntry.nickname} kref=${contactEntry.kref} url=${contactEntry.url ?? '(none)'}`,
+        );
         const raw = await daemon.queueMessage({
           target: contactEntry.kref,
           method: 'initiateContact',
@@ -138,6 +148,10 @@ export function registerInitiateContactTool(options: {
         };
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
+        // eslint-disable-next-line no-console
+        console.error(
+          `[discovery/initiate_contact] ERROR contact=${JSON.stringify(params.contact)}: ${message}`,
+        );
         return {
           content: [{ type: 'text' as const, text: `Error: ${message}` }],
           details: undefined,
