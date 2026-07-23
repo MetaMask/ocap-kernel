@@ -112,8 +112,22 @@ export function registerCallServiceTool(options: {
           args: parsedArgs,
         });
 
+        // eslint-disable-next-line no-console
+        console.error(
+          `[discovery/service_call] IN service=${params.service} method=${params.method}\n` +
+            `  raw result: ${JSON.stringify(result).slice(0, 1500)}`,
+        );
         const withRegisteredRefs = registerEmbeddedRefs(result);
+        // eslint-disable-next-line no-console
+        console.error(
+          `[discovery/service_call] after ref-walk: ${JSON.stringify(withRegisteredRefs).slice(0, 1500)}\n` +
+            `  state.services keys now: ${[...state.services.keys()].join(', ')}`,
+        );
         const summarised = summariseResult(withRegisteredRefs);
+        // eslint-disable-next-line no-console
+        console.error(
+          `[discovery/service_call] slim view: ${JSON.stringify(summarised).slice(0, 1500)}`,
+        );
 
         const text =
           typeof summarised === 'string'
