@@ -141,63 +141,6 @@ export function kunser(serializedValue: CapData<KRef>): unknown {
 }
 
 /**
- * Marker property key. An arg-tree object whose only own property is
- * `KREF_MARKER` and whose value is a KRef string is interpreted by
- * {@link expandKrefMarkers} as an ocap reference to that KRef; the
- * marker is replaced with an unhardened `kslot` standin so that
- * subsequent `kser` runs will encode it as a real slot reference in
- * the resulting CapData.
- *
- * This exists so callers of {@link Kernel.queueMessage} (or any other
- * kernel entry point that accepts unmarshalled args) can express
- * "pass this kref as an ocap reference" in a plain JSON-safe way,
- * without having to synthesize a live remotable object themselves.
- * The primary use case is the RPC surface exposed to plugin code
- * that speaks JSON.
- */
-export const KREF_MARKER = '__ref__';
-
-/**
- * Walk `value` and replace every kref-marker object
- * (`{ [KREF_MARKER]: "koN" }`) with a corresponding `kslot(kref)`
- * standin. Any other value passes through structurally; arrays and
- * objects are walked recursively.
- *
- * Non-marker objects that already carry a `KREF_MARKER` field mixed
- * with other own keys are left alone — the marker is only recognized
- * when it's the object's SOLE own property, so accidental shadowing
- * of the field on unrelated user objects is safe.
- *
- * @param value - The value to walk.
- * @returns A structurally-similar value with markers expanded.
- */
-export function expandKrefMarkers(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map((item) => expandKrefMarkers(item));
-  }
-  if (typeof value !== 'object' || value === null) {
-    return value;
-  }
-  const record = value as Record<string, unknown>;
-  const ownKeys = Reflect.ownKeys(record);
-  if (ownKeys.length === 1 && ownKeys[0] === KREF_MARKER) {
-    const kref = record[KREF_MARKER];
-    if (typeof kref === 'string') {
-      // `insistKRef` throws if the string isn't a well-formed kref;
-      // that failure mode surfaces the specific bad marker to the
-      // caller instead of the mangled downstream serialization error.
-      insistKRef(kref);
-      return kslot(kref);
-    }
-  }
-  const out: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(record)) {
-    out[key] = expandKrefMarkers(val);
-  }
-  return out;
-}
-
-/**
  * Produce a serialized expected kernel error with a machine-readable code.
  * The resulting error message has the format `[KERNEL:<CODE>] <detail>`.
  *

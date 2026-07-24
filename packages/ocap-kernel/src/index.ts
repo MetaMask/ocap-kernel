@@ -55,14 +55,7 @@ export {
   SubclusterStruct,
 } from './types.ts';
 export { AllowedGlobalNameStruct } from './vats/endowments.ts';
-export {
-  kunser,
-  kser,
-  kslot,
-  krefOf,
-  expandKrefMarkers,
-  KREF_MARKER,
-} from './liveslots/kernel-marshal.ts';
+export { kunser, kser, kslot, krefOf } from './liveslots/kernel-marshal.ts';
 export type { SlotValue } from './liveslots/kernel-marshal.ts';
 export type { KernelFacet } from './kernel-facet.ts';
 export { makeKernelFacet } from './kernel-facet.ts';
