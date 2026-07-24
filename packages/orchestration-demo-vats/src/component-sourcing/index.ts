@@ -47,9 +47,7 @@ export function buildRootObject(
 
   return makeDefaultExo(`${SERVICE_NAME}VatRoot`, {
     async bootstrap(_vats: Record<string, unknown>, services: Services) {
-      const serviceExo = makeComponentSourcingService({
-        ocapURLRedemptionService: services.ocapURLRedemptionService,
-      });
+      const serviceExo = makeComponentSourcingService();
       const remotableSpec = await getRemotableSpec(
         serviceExo,
         COMPONENT_SOURCING_SERVICE_DESCRIPTION,
@@ -57,7 +55,7 @@ export function buildRootObject(
       const registrationToken = makeRegistrationToken();
       const contact = makeContactEndpoint({
         name: SERVICE_NAME,
-        service: serviceExo as unknown as ServicePoint,
+        service: serviceExo as ServicePoint,
         description: COMPONENT_SOURCING_SERVICE_DESCRIPTION,
         remotableSpec,
         getContactUrl: () => contactUrl,

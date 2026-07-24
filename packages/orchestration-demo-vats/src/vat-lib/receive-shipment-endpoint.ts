@@ -1,6 +1,74 @@
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 
 /**
+ * Method-schema block for `receiveShipment(manifest)`. Producers that
+ * return a receive-shipment endpoint reference declare this in their
+ * return-schema `methods` map (under the endpoint's `interface` slot),
+ * so the LLM buyer sees the endpoint's API inline in the parent
+ * service's description — no separate probe required.
+ */
+export const RECEIVE_SHIPMENT_METHOD_SCHEMA = {
+  description:
+    'Acknowledge a supplier shipment landing at this endpoint. The ' +
+    'sender identifies itself in the manifest; the ack carries the ' +
+    'receiver tag and a short build-phase status the sender can fold ' +
+    'into its own downstream event.',
+  args: {
+    manifest: {
+      type: 'object' as const,
+      description:
+        'Shipment manifest naming the sender, the shipment kind ' +
+        '(e.g. "parts shipment", "bare boards shipment"), a short ' +
+        'items descriptor, and optional free-text notes.',
+      properties: {
+        from: {
+          type: 'string' as const,
+          description: 'Provider tag of the supplier sending the shipment.',
+        },
+        kind: {
+          type: 'string' as const,
+          description:
+            'Short human-readable shipment kind used for status ' +
+            'matching (e.g. "parts shipment", "bare boards shipment").',
+        },
+        items: {
+          type: 'string' as const,
+          description:
+            'Quantity / batch label, e.g. "15 units worth of components".',
+        },
+        notes: {
+          type: 'string' as const,
+          description:
+            'Optional free-text notes (carrier, lead time, line items).',
+        },
+      },
+      required: ['from', 'kind', 'items'],
+    },
+  },
+  returns: {
+    type: 'object' as const,
+    description: 'Shipment acknowledgement returned to the sender.',
+    properties: {
+      acknowledged: {
+        type: 'boolean' as const,
+        description: 'Always true when the endpoint accepted the shipment.',
+      },
+      receiverTag: {
+        type: 'string' as const,
+        description: 'Provider tag of the endpoint that received the shipment.',
+      },
+      buildPhase: {
+        type: 'string' as const,
+        description:
+          'Short human-readable status the sender folds into its ' +
+          'downstream dashboard event.',
+      },
+    },
+    required: ['acknowledged', 'receiverTag', 'buildPhase'],
+  },
+};
+
+/**
  * A manifest describing a supplier-to-assembler shipment. Suppliers
  * fill this in when they call the assembler's receive-shipment exo
  * via ocap URL redemption. Loose-typed so different supplier flavours

@@ -45,15 +45,14 @@ export function buildRootObject(
   const matcherUrl =
     typeof parameters?.matcherUrl === 'string' ? parameters.matcherUrl : '';
   let contactUrl = '';
-  let receiveShipmentUrl = '';
 
   return makeDefaultExo(`${SERVICE_NAME}VatRoot`, {
     async bootstrap(_vats: Record<string, unknown>, services: Services) {
-      // Stand up the receive-shipment endpoint first and issue its
-      // URL so the service exo can return it as part of `assemble`.
-      // Suppliers (shenzhen-direct, pcb-wizards) redeem the URL when
-      // the agent passes it as their `shipToUrl` argument and call
-      // `receiveShipment(manifest)` to hand off parts and boards.
+      // Stand up the receive-shipment endpoint so `assemble` can hand
+      // the reference back to the caller. Suppliers (shenzhen-direct,
+      // pcb-wizards) receive it as an ocap reference (via the agent's
+      // `__ref__` arg marker) and invoke `receiveShipment(manifest)`
+      // directly.
       const receiveEndpoint = makeReceiveShipmentEndpoint({
         receiverTag: DEVICE_ASSEMBLY_PROVIDER_TAG,
         // Match the `kind` strings the suppliers send on their
@@ -64,13 +63,9 @@ export function buildRootObject(
         // that up.
         expectedKinds: ['parts shipment', 'bare boards shipment'],
       });
-      receiveShipmentUrl = await E(services.ocapURLIssuerService).issue(
-        receiveEndpoint.endpoint,
-      );
 
       const serviceExo = makeDeviceAssemblyService({
-        getReceiveShipmentUrl: () => receiveShipmentUrl,
-        ocapURLRedemptionService: services.ocapURLRedemptionService,
+        receiveShipment: receiveEndpoint.endpoint,
       });
       const remotableSpec = await getRemotableSpec(
         serviceExo,
@@ -79,7 +74,7 @@ export function buildRootObject(
       const registrationToken = makeRegistrationToken();
       const contact = makeContactEndpoint({
         name: SERVICE_NAME,
-        service: serviceExo as unknown as ServicePoint,
+        service: serviceExo as ServicePoint,
         description: DEVICE_ASSEMBLY_SERVICE_DESCRIPTION,
         remotableSpec,
         getContactUrl: () => contactUrl,

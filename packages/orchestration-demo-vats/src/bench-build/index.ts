@@ -45,13 +45,12 @@ export function buildRootObject(
   const matcherUrl =
     typeof parameters?.matcherUrl === 'string' ? parameters.matcherUrl : '';
   let contactUrl = '';
-  let receiveShipmentUrl = '';
 
   return makeDefaultExo(`${SERVICE_NAME}VatRoot`, {
     async bootstrap(_vats: Record<string, unknown>, services: Services) {
       // Stand up the receive-shipment endpoint so pcb-wizards has
       // somewhere to ship the sample bare boards once the agent
-      // engages proto-pros and threads the URL through.
+      // engages proto-pros and passes the reference through.
       const receiveEndpoint = makeReceiveShipmentEndpoint({
         receiverTag: BENCH_BUILD_PROVIDER_TAG,
         // pcb-wizards.shipSampleBoards's manifest uses "sample boards
@@ -61,12 +60,9 @@ export function buildRootObject(
         // stock and don't go through the receive endpoint.
         expectedKinds: ['sample boards shipment'],
       });
-      receiveShipmentUrl = await E(services.ocapURLIssuerService).issue(
-        receiveEndpoint.endpoint,
-      );
 
       const serviceExo = makeBenchBuildService({
-        getReceiveShipmentUrl: () => receiveShipmentUrl,
+        receiveShipment: receiveEndpoint.endpoint,
       });
       const remotableSpec = await getRemotableSpec(
         serviceExo,
@@ -75,7 +71,7 @@ export function buildRootObject(
       const registrationToken = makeRegistrationToken();
       const contact = makeContactEndpoint({
         name: SERVICE_NAME,
-        service: serviceExo as unknown as ServicePoint,
+        service: serviceExo as ServicePoint,
         description: BENCH_BUILD_SERVICE_DESCRIPTION,
         remotableSpec,
         getContactUrl: () => contactUrl,

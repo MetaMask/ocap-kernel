@@ -12,13 +12,22 @@
  * accepts the handle directly, so the bookkeeping flow never round-
  * trips the bytes through the model.
  *
- * The same conversion runs in reverse on the argument side: any
- * `{ __handle__: "artifact-N" }` value found anywhere in the parsed
- * `args` array is expanded to the stored artifact's `data` string
- * before the args are forwarded to the daemon. This lets the agent
- * keep passing handles around between phases — e.g. handing the PCB
- * service the schematic produced by the previous phase — without
- * inlining the bytes into its tool calls.
+ * Two argument-side placeholders are supported for referencing things
+ * the agent previously received:
+ *
+ * - `{ __handle__: "artifact-N" }` — expanded to the stored artifact's
+ *   `data` string. Lets the agent hand the PCB service the schematic
+ *   from the previous phase, etc., without inlining the bytes into its
+ *   tool call.
+ *
+ * - `{ __ref__: "nickname" }` — expanded to `{ __ref__: "koN" }` where
+ *   `koN` is the kref for the ocap reference registered under
+ *   `nickname` (from `service_initiate_contact` or the ref-walker that
+ *   fires on service_call responses). The kernel side then re-encodes
+ *   the kref marker as a real CapData slot so the receiver sees a live
+ *   remotable, not a plain data object. This is the way to pass an
+ *   ocap reference obtained from an earlier call as an argument to a
+ *   later call.
  */
 import { getArtifactStore, isArtifactShape } from '../artifact-store.ts';
 import type { StoredArtifact } from '../artifact-store.ts';
@@ -59,9 +68,10 @@ export function registerCallServiceTool(options: {
       'Invoke a method on a service obtained via `service_initiate_contact`. ' +
       'Specify the service by nickname (e.g., "PersonalMessageSigner") or ' +
       'kref (e.g., "ko7"), the method name, and optionally a JSON array of ' +
-      'arguments. To pass an artifact produced by an earlier service call as ' +
-      'an argument, wrap its handle in `{"__handle__":"artifact-N"}`; the ' +
-      'wrapper is expanded to the stored content before the call is made. ' +
+      'arguments. Two placeholders may appear in args: ' +
+      '`{"__handle__":"artifact-N"}` expands to the stored artifact `data` ' +
+      'string, and `{"__ref__":"nickname"}` passes a previously-obtained ' +
+      'ocap reference by nickname as a live capability arg. ' +
       'Artifact-shaped return values (`{kind, data, fromService, metadata?}` ' +
       'with `kind` in {svg, image, markdown, json, c-source}) are interned ' +
       'automatically and the reply carries only the new handle plus the ' +
@@ -83,7 +93,10 @@ export function registerCallServiceTool(options: {
           description:
             'JSON array of arguments (default: "[]"). To reference an ' +
             'artifact handle produced by an earlier call, use ' +
-            '`{"__handle__":"artifact-3"}` in place of the artifact data.',
+            '`{"__handle__":"artifact-3"}` in place of the artifact data. ' +
+            'To pass an ocap reference obtained from an earlier call as ' +
+            'a live capability arg, use `{"__ref__":"nickname"}` where ' +
+            'nickname is the reference name shown in the earlier result.',
         },
       },
       required: ['service', 'method'],
@@ -103,7 +116,7 @@ export function registerCallServiceTool(options: {
           if (!Array.isArray(parsed)) {
             throw new Error('`args` must be a JSON array');
           }
-          parsedArgs = parsed.map((arg) => expandArtifactHandles(arg));
+          parsedArgs = parsed.map((arg) => expandArgPlaceholders(arg));
         }
 
         const result = await daemon.queueMessage({
@@ -135,35 +148,68 @@ export function registerCallServiceTool(options: {
   });
 
   /**
-   * Walk `value` and replace every `{ __handle__: "artifact-N" }`
-   * placeholder with the corresponding stored artifact's `data`
-   * string. Anything else passes through unchanged. Arrays and
-   * objects are walked recursively. An unresolved handle throws so
-   * the caller sees a clear error instead of silently shipping a
+   * Walk `value` and expand two placeholder shapes used to reference
+   * things the producer LLM previously received:
+   *
+   * - `{ __handle__: "artifact-N" }` — replaced by the corresponding
+   *   stored artifact's `data` string. Lets the agent pass a large
+   *   artifact body as an arg without the bytes round-tripping through
+   *   the model.
+   *
+   * - `{ __ref__: "nickname" }` — replaced by `{ __ref__: "koN" }`
+   *   where `koN` is the kref for the ocap reference registered under
+   *   that nickname. The kernel's arg-side machinery (see
+   *   `expandKrefMarkers` in `@metamask/ocap-kernel`) sees the kref
+   *   marker and re-encodes it as a real CapData slot before the
+   *   message is delivered, so the receiver gets a live remotable, not
+   *   a plain data object.
+   *
+   * Anything else passes through unchanged. Arrays and objects are
+   * walked recursively. An unresolved handle or nickname throws so the
+   * caller sees a clear error instead of silently shipping a
    * placeholder to the service.
    *
    * @param value - The argument value to expand.
-   * @returns The value with all handle placeholders substituted.
+   * @returns The value with all placeholders substituted.
    */
-  function expandArtifactHandles(value: unknown): unknown {
+  function expandArgPlaceholders(value: unknown): unknown {
     if (Array.isArray(value)) {
-      return value.map((entry) => expandArtifactHandles(entry));
+      return value.map((entry) => expandArgPlaceholders(entry));
     }
     if (typeof value !== 'object' || value === null) {
       return value;
     }
     const record = value as Record<string, unknown>;
-    const handle = record.__handle__;
-    if (typeof handle === 'string') {
-      const stored = artifacts.get(handle);
-      if (stored === undefined) {
-        throw new Error(`unknown artifact handle: ${handle}`);
+    const ownKeys = Reflect.ownKeys(record);
+    if (ownKeys.length === 1) {
+      const [only] = ownKeys;
+      if (only === '__handle__') {
+        const handle = record.__handle__;
+        if (typeof handle === 'string') {
+          const stored = artifacts.get(handle);
+          if (stored === undefined) {
+            throw new Error(`unknown artifact handle: ${handle}`);
+          }
+          return stored.data;
+        }
+      } else if (only === '__ref__') {
+        const nickname = record.__ref__;
+        if (typeof nickname === 'string') {
+          const entry = state.services.get(nickname);
+          if (entry === undefined) {
+            throw new Error(
+              `unknown reference nickname: ${nickname}. ` +
+                'The `__ref__` marker names an ocap reference registered ' +
+                'from a previous service_call response.',
+            );
+          }
+          return { __ref__: entry.kref };
+        }
       }
-      return stored.data;
     }
     const out: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(record)) {
-      out[key] = expandArtifactHandles(val);
+      out[key] = expandArgPlaceholders(val);
     }
     return out;
   }
@@ -282,9 +328,9 @@ function slimForAgent(stored: StoredArtifact): Record<string, unknown> {
     fromService: stored.fromService,
     title: stored.metadata?.title,
     summary: stored.metadata?.summary,
-    ...(stored.receiveShipmentUrl === undefined
+    ...(stored.receiveShipment === undefined
       ? {}
-      : { receiveShipmentUrl: stored.receiveShipmentUrl }),
+      : { receiveShipment: stored.receiveShipment }),
     ...(stored.reviser === undefined ? {} : { reviser: stored.reviser }),
   };
 }

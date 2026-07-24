@@ -7,12 +7,14 @@ import {
 import { describe, it, expect } from 'vitest';
 
 import {
+  expandKrefMarkers,
   kslot,
   krefOf,
   kser,
   kunser,
   makeKernelError,
   makeFatalKernelError,
+  KREF_MARKER,
 } from './kernel-marshal.ts';
 import type { SlotValue } from './kernel-marshal.ts';
 
@@ -174,6 +176,58 @@ describe('kernel-marshal', () => {
       expect(isKernelError(deserialized)).toBe(true);
       expect(getKernelErrorCode(deserialized)).toBe('INTERNAL_ERROR');
       expect(isFatalKernelError(deserialized)).toBe(true);
+    });
+  });
+
+  describe('expandKrefMarkers', () => {
+    it('replaces a kref-marker object with a kslot standin', () => {
+      const marker = { [KREF_MARKER]: 'ko7' };
+      const expanded = expandKrefMarkers(marker);
+      expect(passStyleOf(expanded as object)).toBe('remotable');
+      expect(krefOf(expanded as SlotValue)).toBe('ko7');
+    });
+
+    it('walks arrays recursively', () => {
+      const args = ['literal', { [KREF_MARKER]: 'ko8' }, 42];
+      const [first, second, third] = expandKrefMarkers(args) as unknown[];
+      expect(first).toBe('literal');
+      expect(krefOf(second as SlotValue)).toBe('ko8');
+      expect(third).toBe(42);
+    });
+
+    it('walks nested objects and preserves structure', () => {
+      const args = [
+        {
+          manifest: 'parts shipment',
+          receiver: { [KREF_MARKER]: 'ko9' },
+        },
+      ];
+      const [only] = expandKrefMarkers(args) as unknown[];
+      const record = only as { manifest: string; receiver: SlotValue };
+      expect(record.manifest).toBe('parts shipment');
+      expect(krefOf(record.receiver)).toBe('ko9');
+    });
+
+    it('leaves objects with extra own keys alone', () => {
+      const notAMarker = { [KREF_MARKER]: 'ko10', decoy: true };
+      const walked = expandKrefMarkers(notAMarker) as Record<string, unknown>;
+      expect(walked[KREF_MARKER]).toBe('ko10');
+      expect(walked.decoy).toBe(true);
+    });
+
+    it('throws on a marker with a malformed kref value', () => {
+      expect(() => expandKrefMarkers({ [KREF_MARKER]: 'not-a-kref' })).toThrow(
+        /kref/iu,
+      );
+    });
+
+    it('produces standins that kser encodes as slots', () => {
+      const args = expandKrefMarkers([
+        'plain',
+        { [KREF_MARKER]: 'ko11' },
+      ]) as unknown[];
+      const capData = kser(args);
+      expect(capData.slots).toContain('ko11');
     });
   });
 });

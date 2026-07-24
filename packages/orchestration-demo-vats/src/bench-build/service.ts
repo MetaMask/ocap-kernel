@@ -4,9 +4,10 @@ import { renderBringUpNotes } from './template.ts';
 import {
   assertPayment,
   PAYMENT_ARG_SCHEMA,
+  RECEIVE_SHIPMENT_METHOD_SCHEMA,
   USD_TO_CENTS,
 } from '../vat-lib/index.ts';
-import type { Money } from '../vat-lib/index.ts';
+import type { Money, ReceiveShipmentEndpoint } from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher. The
@@ -63,26 +64,27 @@ export type BenchBuildArtifact = {
   fromService: string;
   metadata?: { title?: string; summary?: string };
   /**
-   * Receive-shipment ocap URL. Set by `engage` so the agent can
-   * thread it through to pcb-wizards.shipSampleBoards.
+   * Live receive-shipment endpoint. Returned on `engage` so the agent
+   * can thread it through to pcb-wizards.shipSampleBoards as an ocap
+   * reference (not a URL) — proto-pros's receiver runs in the same
+   * kernel and the agent just passes the reference along.
    */
-  receiveShipmentUrl?: string;
+  receiveShipment?: ReceiveShipmentEndpoint;
 };
 
 /**
  * Build the bench-build service exo.
  *
  * @param options - Construction options.
- * @param options.getReceiveShipmentUrl - Closure returning the URL of
- *   proto-pros's receive-shipment endpoint. Set by the vat root
- *   after the URL is issued at bootstrap.
+ * @param options.receiveShipment - proto-pros's receive-shipment
+ *   endpoint. Handed inline on `engage` so pcb-wizards can address it
+ *   directly via ocap reference rather than URL redemption.
  * @returns A discoverable exo with `engage` and `build` methods.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function makeBenchBuildService(options: {
-  getReceiveShipmentUrl: () => string;
-}) {
-  const { getReceiveShipmentUrl } = options;
+  receiveShipment: ReceiveShipmentEndpoint;
+}): unknown {
+  const { receiveShipment } = options;
   return makeDiscoverableExo(
     'BenchBuildService',
     {
@@ -98,8 +100,8 @@ export function makeBenchBuildService(options: {
           `$${BENCH_BUILD_PARTS_PRICE_USD} pass-through parts = ` +
           `$${BENCH_BUILD_PRICE_USD} total.\n\n` +
           `Engagement is no-charge — billing happens on \`build\` ` +
-          `delivery. Pass the receive-shipment URL below to the ` +
-          `customer's PCB house so the sample boards land at our ` +
+          `delivery. Pass the \`receiveShipment\` reference below to ` +
+          `the customer's PCB house so the sample boards land at our ` +
           `shop; \`build\` proceeds once they arrive.\n`;
         return harden({
           kind: 'markdown',
@@ -113,7 +115,7 @@ export function makeBenchBuildService(options: {
               `from PCB house via receive-shipment ocap. No charge — ` +
               `the $${BENCH_BUILD_PRICE_USD} invoice lands on \`build\`.`,
           },
-          receiveShipmentUrl: getReceiveShipmentUrl(),
+          receiveShipment,
         });
       },
       async build(_spec: string, payment: Money): Promise<BenchBuildArtifact> {
@@ -156,7 +158,7 @@ export function makeBenchBuildService(options: {
       engage: {
         description:
           'Round 1: confirm the engagement and return a receive-' +
-          "shipment ocap URL so the customer's PCB house can ship a " +
+          "shipment reference so the customer's PCB house can ship a " +
           'few sample boards to proto-pros. No wallet charge — billing ' +
           'happens on `build`.',
         args: {
@@ -172,7 +174,9 @@ export function makeBenchBuildService(options: {
         returns: {
           type: 'object',
           description:
-            'Artifact descriptor wrapping a markdown engagement letter.',
+            'Artifact descriptor wrapping a markdown engagement letter, ' +
+            'plus a `receiveShipment` reference for the customer PCB ' +
+            'house to ship boards to proto-pros.',
           properties: {
             kind: {
               type: 'string',
@@ -186,8 +190,19 @@ export function makeBenchBuildService(options: {
               type: 'string',
               description: 'Provider tag of the service that produced this.',
             },
+            receiveShipment: {
+              type: 'interface',
+              description:
+                "proto-pros's receive-shipment endpoint. Pass this " +
+                'reference (via the `__ref__` marker) as the receiver ' +
+                'arg to `pcb-wizards.shipSampleBoards` so the PCB house ' +
+                'delivers sample boards directly.',
+              methods: {
+                receiveShipment: RECEIVE_SHIPMENT_METHOD_SCHEMA,
+              },
+            },
           },
-          required: ['kind', 'data', 'fromService'],
+          required: ['kind', 'data', 'fromService', 'receiveShipment'],
         },
       },
       build: {

@@ -45,14 +45,14 @@ export function buildRootObject(
   const matcherUrl =
     typeof parameters?.matcherUrl === 'string' ? parameters.matcherUrl : '';
   let contactUrl = '';
-  let receiveShipmentUrl = '';
 
   return makeDefaultExo(`${SERVICE_NAME}VatRoot`, {
     async bootstrap(_vats: Record<string, unknown>, services: Services) {
-      // Stand up the receive-shipment endpoint so the assembler can
-      // ship the finished units to pacific-fulfillment for trial
-      // distribution. The agent threads this URL from arrange's reply
-      // into assembly-coop.shipFinishedUnits.
+      // Stand up the receive-shipment endpoint so `arrange` can hand
+      // the reference back to the caller. The agent passes it (via a
+      // `__ref__` arg marker) to assembly-coop.shipFinishedUnits when
+      // the assembler is ready to ship finished units to
+      // pacific-fulfillment for trial distribution.
       const receiveEndpoint = makeReceiveShipmentEndpoint({
         receiverTag: LOGISTICS_PROVIDER_TAG,
         // The only inbound shipment pacific-fulfillment expects in
@@ -62,12 +62,9 @@ export function buildRootObject(
         // fulfillment operator is ready to distribute.
         expectedKinds: ['finished units shipment'],
       });
-      receiveShipmentUrl = await E(services.ocapURLIssuerService).issue(
-        receiveEndpoint.endpoint,
-      );
 
       const serviceExo = makeLogisticsService({
-        getReceiveShipmentUrl: () => receiveShipmentUrl,
+        receiveShipment: receiveEndpoint.endpoint,
       });
       const remotableSpec = await getRemotableSpec(
         serviceExo,
@@ -76,7 +73,7 @@ export function buildRootObject(
       const registrationToken = makeRegistrationToken();
       const contact = makeContactEndpoint({
         name: SERVICE_NAME,
-        service: serviceExo as unknown as ServicePoint,
+        service: serviceExo as ServicePoint,
         description: LOGISTICS_SERVICE_DESCRIPTION,
         remotableSpec,
         getContactUrl: () => contactUrl,

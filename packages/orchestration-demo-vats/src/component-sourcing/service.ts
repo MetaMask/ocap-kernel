@@ -1,6 +1,5 @@
 import { E } from '@endo/eventual-send';
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
-import type { OcapURLRedemptionService } from '@metamask/ocap-kernel';
 
 import { renderBom } from './template.ts';
 import {
@@ -8,6 +7,7 @@ import {
   formatUsd,
   makeVolumeProfile,
   PAYMENT_ARG_SCHEMA,
+  RECEIVE_SHIPMENT_METHOD_SCHEMA,
   USD_TO_CENTS,
 } from '../vat-lib/index.ts';
 import type { Money, ReceiveShipmentEndpoint } from '../vat-lib/index.ts';
@@ -58,17 +58,12 @@ export type ComponentSourcingArtifact = {
 /**
  * Build the component-sourcing service exo.
  *
- * @param options - Construction options.
- * @param options.ocapURLRedemptionService - Kernel service used by
- *   `purchase` to redeem an assembler's receive-shipment URL and
- *   hand off the parts manifest directly.
  * @returns A discoverable exo with `source` and `purchase` methods.
+ *   `purchase` invokes a receive-shipment endpoint the caller
+ *   supplies via an ocap reference in its `approval.receiver`
+ *   argument.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makeComponentSourcingService(options: {
-  ocapURLRedemptionService: OcapURLRedemptionService;
-}) {
-  const { ocapURLRedemptionService } = options;
+export function makeComponentSourcingService(): unknown {
   // The most recent BOM's quantity. `purchase` looks this up so the
   // order receipt and the shipped manifest match what the BOM
   // priced. Per-instance state; one matcher invocation per agent
@@ -110,7 +105,7 @@ export function makeComponentSourcingService(options: {
       },
       async purchase(
         approval: {
-          shipToUrl?: string;
+          receiver?: ReceiveShipmentEndpoint;
         },
         payment: Money,
       ): Promise<ComponentSourcingArtifact> {
@@ -129,29 +124,22 @@ export function makeComponentSourcingService(options: {
         );
         const totalLabel = formatUsd(total);
         const profile = makeVolumeProfile(quantity);
-        const shipToUrl =
-          typeof approval?.shipToUrl === 'string' && approval.shipToUrl.length
-            ? approval.shipToUrl
-            : undefined;
-        if (shipToUrl === undefined) {
+        const receiver = approval?.receiver;
+        if (receiver === undefined) {
           // Without a shipping target the order has nowhere to land;
           // refuse loudly so the agent has to surface the
-          // assembler's receive-shipment URL it should already be
-          // holding from the Manufacturing.assemble reply.
+          // assembler's receive-shipment reference it should already
+          // be holding from the Manufacturing.assemble reply.
           throw new Error(
-            'shenzhen-direct.purchase: approval.shipToUrl is required. ' +
-              "Pass the manufacturer's receive-shipment ocap URL " +
+            'shenzhen-direct.purchase: approval.receiver is required. ' +
+              "Pass the manufacturer's receive-shipment reference " +
               "from the prior assembly-coop.assemble reply's " +
-              '`receiveShipmentUrl` field.',
+              '`receiveShipment` field, using a `__ref__` arg marker.',
           );
         }
-        // Redeem the assembler's receive-shipment URL and hand
-        // off the parts manifest directly. The assembler's ack
+        // Hand off the parts manifest directly. The assembler's ack
         // carries the receiver's provider tag, which we use to
         // label the dashboard event accurately.
-        const receiver = (await E(ocapURLRedemptionService).redeem(
-          shipToUrl,
-        )) as ReceiveShipmentEndpoint;
         const ack = await E(receiver).receiveShipment({
           from: COMPONENT_SOURCING_PROVIDER_TAG,
           kind: 'parts shipment',
@@ -234,28 +222,32 @@ export function makeComponentSourcingService(options: {
           'Round 2: place the actual parts purchase order with the ' +
           'distributors cited in the round-1 BOM, charging the batch ' +
           'total quoted in the BOM. The agent invokes this only after ' +
-          'the inventor approves the BOM. `approval.shipToUrl` is ' +
-          "required — pass the manufacturer's receive-shipment ocap " +
-          "URL from the prior assembly-coop.assemble reply's " +
-          '`receiveShipmentUrl` field. The distributor redeems it and ' +
-          'hands the parts manifest off to the assembler directly.',
+          'the inventor approves the BOM. `approval.receiver` is ' +
+          "required — pass the manufacturer's receive-shipment " +
+          "reference from the prior assembly-coop.assemble reply's " +
+          '`receiveShipment` field, using a `__ref__` arg marker. ' +
+          'The distributor invokes it directly to hand the parts ' +
+          'manifest to the assembler.',
         args: {
           approval: {
             type: 'object',
             description:
-              'Approval object carrying the manufacturer-handoff URL.',
+              'Approval object carrying the manufacturer-handoff receiver.',
             properties: {
-              shipToUrl: {
-                type: 'string',
+              receiver: {
+                type: 'interface',
                 description:
-                  "Required. Ocap URL of the manufacturer's " +
-                  'receive-shipment endpoint, as returned by ' +
-                  "assembly-coop.assemble's `receiveShipmentUrl` " +
-                  'field. Without this the order has no shipping ' +
-                  'target and the call fails.',
+                  "Required. The manufacturer's receive-shipment " +
+                  'endpoint, as returned by assembly-coop.assemble ' +
+                  'in its `receiveShipment` field. Pass via a ' +
+                  '`__ref__` arg marker; without this the order has ' +
+                  'no shipping target and the call fails.',
+                methods: {
+                  receiveShipment: RECEIVE_SHIPMENT_METHOD_SCHEMA,
+                },
               },
             },
-            required: ['shipToUrl'],
+            required: ['receiver'],
           },
           payment: PAYMENT_ARG_SCHEMA,
         },

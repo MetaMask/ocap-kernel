@@ -176,12 +176,12 @@ Concept → Industrial Design → Mechanical Design → Electronics
 ordered in Procurement have to ship _somewhere_ — namely, the
 assembler engaged in Manufacturing. So Manufacturing happens first:
 the agent engages assembly-coop, gets the build plan AND a
-receive-shipment ocap URL, authorizes the build commit (which is
+receive-shipment reference, authorizes the build commit (which is
 the manufacturer's go-ahead, not the post-shipment hand-off), and
-only then does Procurement run, threading the receive-shipment URL
-through to the supplier commit methods so the parts and boards
-ship directly to the assembler. See "Inter-service handoffs"
-below.
+only then does Procurement run, passing the receive-shipment
+reference (via a `__ref__` arg marker) to the supplier commit
+methods so the parts and boards ship directly to the assembler.
+See "Inter-service handoffs" below.
 
 These ten names are the **only** phase names you may use when
 calling `demo_announce({ phaseTransition: ... })` or
@@ -250,12 +250,13 @@ Per-phase intent:
   out Stage 1. Two-step engagement with the small contract shop
   (proto-pros):
   1. `proto-pros.engage` returns an engagement letter artifact
-     and a `receiveShipmentUrl` (no charge — engage is the setup
-     handshake).
+     and a `receiveShipment` reference (no charge — engage is the
+     setup handshake).
   2. Re-contact `pcb-wizards` and call `pcb-wizards.shipSampleBoards`
-     with that URL as `approval.shipToUrl`. pcb-wizards delivers a
-     handful of sample bare boards directly to proto-pros via the
-     ocap (no charge — covered by the layout design fee). A
+     with that reference as `approval.receiver` — pass it via a
+     `__ref__` arg marker. pcb-wizards delivers a handful of sample
+     bare boards directly to proto-pros over the live capability
+     (no charge — covered by the layout design fee). A
      `service.interaction` event lands on the dashboard.
   3. Once the sample boards are en route, `proto-pros.build`
      hand-solders the units, sources parts directly from
@@ -268,25 +269,26 @@ Per-phase intent:
 - **Manufacturing** — Testing-stage 15-unit build, engaged first
   in Stage 2. Two-step:
   1. `assembly-coop.assemble` returns the build plan artifact and
-     a `receiveShipmentUrl`. The plan's summary states the setup
-     fee.
+     a `receiveShipment` reference. The plan's summary states the
+     setup fee.
   2. `assembly-coop.build` is the inventor's go-ahead — "proceed
      with making these devices" — which lands the labor commit
      before the suppliers ship. See "Purchase commits" below.
-     Once both calls are done the agent has a receive-shipment URL
-     to thread through Procurement.
+     Once both calls are done the agent has a receive-shipment
+     reference to thread through Procurement.
 - **Procurement** — Testing-stage parts and PCB orders. Three
   sub-steps:
   1. `shenzhen-direct.source` returns the priced BOM. The BOM's
      summary states the sourcing fee and the batch total.
   2. On inventor approval, `shenzhen-direct.purchase` places the
      parts order at the BOM-quoted total, passing
-     `approval.shipToUrl` set to the assembler's
-     `receiveShipmentUrl` so shenzhen-direct hands the parts
-     manifest directly to assembly-coop via ocap.
+     `approval.receiver` set to the assembler's `receiveShipment`
+     reference (wrap it in a `__ref__` marker) so shenzhen-direct
+     hands the parts manifest directly to assembly-coop via ocap.
   3. Re-contact `pcb-wizards` and call `pcb-wizards.fabricate`
-     with the same `shipToUrl`, charging the per-batch fab total
-     quoted by pcb-wizards.
+     with the same reference (in `approval.receiver` via
+     `__ref__`), charging the per-batch fab total quoted by
+     pcb-wizards.
      Each supplier call surfaces a `service.interaction` event in
      the dashboard as the assembler acknowledges the manifest. See
      "Purchase commits" and "Inter-service handoffs" below.
@@ -300,15 +302,16 @@ Per-phase intent:
      returns a small-batch distribution plan (hand-pack, ship to a
      curated address list, no marketplace integration) rather than
      the full storefront-fulfillment plan that belongs to Stage 3.
-     The reply carries a `receiveShipmentUrl` field — the
-     fulfillment operator's receive-shipment ocap URL.
+     The reply carries a `receiveShipment` field — the fulfillment
+     operator's receive-shipment reference.
   2. Re-contact `assembly-coop` and call
-     `assembly-coop.shipFinishedUnits` with `approval.shipToUrl`
-     set to the fulfillment operator's URL. The assembler redeems
-     it and ships the finished units directly to the operator via
-     ocap. No wallet charge — the shipping is bundled with the
-     build labor fee. A `service.interaction` event lands on the
-     dashboard recording the assembler → fulfillment handoff.
+     `assembly-coop.shipFinishedUnits` with `approval.receiver`
+     set to the fulfillment operator's reference (via `__ref__`).
+     The assembler invokes it directly and ships the finished
+     units into the operator via ocap. No wallet charge — the
+     shipping is bundled with the build labor fee. A
+     `service.interaction` event lands on the dashboard recording
+     the assembler → fulfillment handoff.
      The Trial Distribution → Sales transition is the Stage 2 → Stage 3
      **validation checkpoint** — see "Validation checkpoints" below.
 - **Sales** — the deliberately-incomplete start of Stage 3. After
@@ -449,9 +452,9 @@ commit step is dynamic (quoted at the earlier step), read the
 `amountCents` for its withdraw out of the quote artifact's
 `summary` field.
 
-| Phase         | Service         | Quote method                   | Commit method | shipToUrl?      |
+| Phase         | Service         | Quote method                   | Commit method | receiver?       |
 | ------------- | --------------- | ------------------------------ | ------------- | --------------- |
-| Manufacturing | assembly-coop   | `assemble` (build plan + URL)  | `build`       | n/a — assembler |
+| Manufacturing | assembly-coop   | `assemble` (build plan + ref)  | `build`       | n/a — assembler |
 | Procurement   | shenzhen-direct | `source` (BOM)                 | `purchase`    | required        |
 | Procurement   | pcb-wizards     | `layout` (back in Electronics) | `fabricate`   | required        |
 
@@ -472,12 +475,12 @@ The cadence at each commit:
 4. `service_call` the commit method on the same service nickname
    from the prior contact. For supplier commits (`purchase`,
    `fabricate`), the `approval` argument carries the assembler's
-   `receiveShipmentUrl` in its `shipToUrl` field — see
-   "Inter-service handoffs" below. For `build` (the manufacturer's
-   go-ahead) `approval` is empty (`{}`). The Money object from
-   step 3 is appended as the final positional arg — e.g.
-   `args: '[{}, {"amount":270000,"auth":"..."}]'` for build, or
-   `args: '[{"shipToUrl": "ocap:..."}, {"amount":37500000,"auth":"..."}]'`
+   `receiveShipment` reference in its `receiver` field, wrapped in
+   a `__ref__` marker — see "Inter-service handoffs" below. For
+   `build` (the manufacturer's go-ahead) `approval` is empty
+   (`{}`). The Money object from step 3 is appended as the final
+   positional arg — e.g. `args: '[{}, {"amount":270000,"auth":"..."}]'`
+   for build, or `args: '[{"receiver": {"__ref__": "assembly-coop-..."}}, {"amount":37500000,"auth":"..."}]'`
    for purchase.
 5. The reply carries a receipt artifact handle. Close it out via
    `demo_service_completed({ handle, phase, consumes })` with the
@@ -493,25 +496,33 @@ supplier commits.
 ## Inter-service handoffs
 
 Assembler-like services (assembly-coop in Manufacturing,
-proto-pros in Bench Build) expose a **receive-shipment ocap URL**
-on their initial engagement reply (`assemble` for assembly-coop,
-`engage` for proto-pros). The URL appears as a top-level
-`receiveShipmentUrl` field in the slim summary the agent sees
+proto-pros in Bench Build, pacific-fulfillment in Trial
+Distribution) expose a **receive-shipment endpoint** on their
+initial engagement reply (`assemble` for assembly-coop, `engage`
+for proto-pros, `arrange` for pacific-fulfillment). The endpoint
+reference is auto-registered by the discovery plugin and appears
+as a `receiveShipment` field in the slim summary the agent sees
 after `service_call` — alongside `handle`, `kind`, `fromService`,
-`title`, and `summary`. **Hold onto that URL across the phase
-boundary**; you'll thread it through to the supplier methods that
+`title`, and `summary`. The field's value is a nickname string
+naming the live capability. **Hold onto that nickname across the
+phase boundary**; you'll pass it to the supplier methods that
 need to ship inputs in.
 
 Suppliers (shenzhen-direct.purchase, pcb-wizards.fabricate,
-pcb-wizards.shipSampleBoards) accept the URL as
-`approval.shipToUrl`. When supplied, the supplier redeems the URL
-via the kernel's OcapURLRedemptionService and calls the assembler's
-`receiveShipment(manifest)` method directly — an actual cross-vat
-ocap call, not a hop through the agent. The supplier's returned
-artifact carries an `interactions` field describing the handoff;
-the demo plugin reads that and posts a `service.interaction` SSE
-event so the dashboard surfaces the supplier→assembler handshake
-as a distinct line (violet-styled, glyph ⇄) in the events log.
+pcb-wizards.shipSampleBoards, assembly-coop.shipFinishedUnits)
+accept the endpoint reference as `approval.receiver`. To pass it,
+wrap the nickname in a `__ref__` marker inside the `args` JSON:
+`{"__ref__": "<nickname>"}`. The discovery plugin resolves the
+nickname to the underlying kref and the kernel encodes it as a
+real ocap slot before delivery, so the supplier receives a live
+remotable — no URL redemption. The supplier calls the assembler's
+`receiveShipment(manifest)` method directly, which is an actual
+cross-vat ocap call, not a hop through the agent. The supplier's
+returned artifact carries an `interactions` field describing the
+handoff; the demo plugin reads that and posts a
+`service.interaction` SSE event so the dashboard surfaces the
+supplier→assembler handshake as a distinct line (violet-styled,
+glyph ⇄) in the events log.
 
 You don't narrate these inter-service events — the dashboard
 shows them on its own. Don't call `demo_announce` for them.
@@ -522,7 +533,7 @@ Cadence diagram for Stage 2:
 agent → demo_wallet_withdraw({amountCents: 180000, reason: "assembly setup fee"})
         ← Payment P1 = {amount: 180000, auth: "..."}
 agent → service_call(assembly-coop, assemble, [<spec>, P1])
-        ← { handle: A1, ..., receiveShipmentUrl: cap-AC1 }
+        ← { handle: A1, ..., receiveShipment: "assembly-coop-...-receiver" }
 agent → demo_service_completed({handle: A1, phase: "Manufacturing", ...})
 
 // Build plan quotes batch labor total (e.g. $2,700) in its summary.
@@ -542,8 +553,8 @@ agent → demo_service_completed({handle: A3, phase: "Procurement", ...})
 agent → demo_wallet_withdraw({amountCents: 3750000, reason: "parts purchase"})
         ← Payment P4
 agent → service_call(shenzhen-direct, purchase,
-                     [{ shipToUrl: cap-AC1 }, P4])
-        // supplier redeems cap-AC1, calls assembly-coop.receiveShipment
+                     [{ receiver: {"__ref__": "assembly-coop-...-receiver"} }, P4])
+        // supplier calls assembly-coop.receiveShipment directly on the ref
         ← { handle: A4, ... }
 agent → demo_service_completed({handle: A4, phase: "Procurement", ...})
         // dashboard renders a service.interaction event:
@@ -554,7 +565,7 @@ agent → demo_service_completed({handle: A4, phase: "Procurement", ...})
 agent → demo_wallet_withdraw({amountCents: 675000, reason: "pcb fabrication"})
         ← Payment P5
 agent → service_call(pcb-wizards, fabricate,
-                     [{ shipToUrl: cap-AC1 }, P5])
+                     [{ receiver: {"__ref__": "assembly-coop-...-receiver"} }, P5])
         ← { handle: A5, ... }
 agent → demo_service_completed({handle: A5, phase: "Procurement", ...})
 ```
@@ -569,10 +580,17 @@ match the service's expected price to the penny, the `service_call`
 will fail with a payment-amount-mismatch error.
 
 Same pattern in Bench Build: `proto-pros.engage` returns a
-`receiveShipmentUrl`, the agent passes it as `shipToUrl` when
-calling `pcb-wizards.shipSampleBoards`, and pcb-wizards redeems and
-ships. Then `proto-pros.build` runs as the third Bench Build
-service call.
+`receiveShipment` nickname, the agent passes it (via a `__ref__`
+marker) as `approval.receiver` when calling
+`pcb-wizards.shipSampleBoards`, and pcb-wizards invokes
+`receiveShipment` on the reference. Then `proto-pros.build` runs
+as the third Bench Build service call.
+
+Same pattern in Trial Distribution: `pacific-fulfillment.arrange`
+returns a `receiveShipment` nickname; the agent passes it (via a
+`__ref__` marker) as `approval.receiver` when calling
+`assembly-coop.shipFinishedUnits` to route the finished units into
+the fulfillment operator.
 
 ## Required workflow
 

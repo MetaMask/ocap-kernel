@@ -64,13 +64,15 @@ export type StoredArtifact = {
    */
   interactions?: ServiceInteraction[];
   /**
-   * Receive-shipment ocap URL exposed by assembler-like services so
-   * suppliers can hand off parts and boards directly via the kernel's
-   * ocap-URL machinery. The agent forwards this string verbatim as
-   * the `shipToUrl` argument when invoking supplier commit methods;
-   * the supplier redeems it and calls the receive method.
+   * Nickname of the receive-shipment endpoint exposed by assembler-
+   * like services. The walker auto-registers the endpoint reference
+   * from the raw service_call response and surfaces its nickname
+   * here. The agent passes this nickname (via a `__ref__` arg marker)
+   * as the `approval.receiver` argument to supplier commit methods,
+   * which invoke `receiveShipment(manifest)` on the endpoint
+   * directly.
    */
-  receiveShipmentUrl?: string;
+  receiveShipment?: string;
   /**
    * Nickname of the per-purchase reviser service auto-registered by
    * the discovery plugin when it saw a reviser reference in the

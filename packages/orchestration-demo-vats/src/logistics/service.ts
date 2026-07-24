@@ -6,10 +6,15 @@ import {
   formatUsd,
   makeReviser,
   PAYMENT_ARG_SCHEMA,
+  RECEIVE_SHIPMENT_METHOD_SCHEMA,
   REVISE_METHOD_SCHEMA,
   USD_TO_CENTS,
 } from '../vat-lib/index.ts';
-import type { Money, Reviser } from '../vat-lib/index.ts';
+import type {
+  Money,
+  ReceiveShipmentEndpoint,
+  Reviser,
+} from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher. Opening
@@ -56,12 +61,12 @@ export type LogisticsArtifact = {
   fromService: string;
   metadata?: { title?: string; summary?: string };
   /**
-   * Ocap URL of pacific-fulfillment's receive-shipment endpoint.
-   * Returned on `arrange` so the agent can thread it through to
+   * Live receive-shipment endpoint. Returned on `arrange` so the
+   * agent can pass this reference (via a `__ref__` arg marker) to
    * assembly-coop.shipFinishedUnits: the assembler then ships the
    * finished units directly into the fulfillment operator via ocap.
    */
-  receiveShipmentUrl?: string;
+  receiveShipment?: ReceiveShipmentEndpoint;
   /**
    * Per-purchase reviser capability. Present only on the paid call's
    * return.
@@ -73,15 +78,16 @@ export type LogisticsArtifact = {
  * Build the logistics-fulfillment service exo.
  *
  * @param options - Construction options.
- * @param options.getReceiveShipmentUrl - Closure returning the URL of
- *   pacific-fulfillment's receive-shipment endpoint. Set by the vat
- *   root after the URL is issued at bootstrap.
+ * @param options.receiveShipment - pacific-fulfillment's
+ *   receive-shipment endpoint. Handed inline on `arrange` so the
+ *   assembler can address it directly via ocap reference rather than
+ *   URL redemption.
  * @returns A discoverable exo with an `arrange` method.
  */
 export function makeLogisticsService(options: {
-  getReceiveShipmentUrl: () => string;
+  receiveShipment: ReceiveShipmentEndpoint;
 }): unknown {
-  const { getReceiveShipmentUrl } = options;
+  const { receiveShipment } = options;
   let purchaseCounter = 0;
   const revisers = new Set<unknown>();
 
@@ -222,7 +228,7 @@ export function makeLogisticsService(options: {
             title,
             summary,
           },
-          receiveShipmentUrl: getReceiveShipmentUrl(),
+          receiveShipment,
           reviser,
         });
       },
@@ -248,7 +254,9 @@ export function makeLogisticsService(options: {
           type: 'object',
           description:
             'Artifact descriptor wrapping a markdown fulfillment plan, ' +
-            'plus a `reviser` object reference for follow-up revisions.',
+            'a `reviser` object reference for follow-up revisions, and a ' +
+            '`receiveShipment` reference for the assembler to ship ' +
+            'finished units into pacific-fulfillment.',
           properties: {
             kind: {
               type: 'string',
@@ -273,8 +281,25 @@ export function makeLogisticsService(options: {
                 revise: REVISE_METHOD_SCHEMA,
               },
             },
+            receiveShipment: {
+              type: 'interface',
+              description:
+                "pacific-fulfillment's receive-shipment endpoint. Pass " +
+                'this reference (via a `__ref__` arg marker) as ' +
+                '`approval.receiver` to `assembly-coop.shipFinishedUnits` ' +
+                'so the finished units land at the fulfillment operator.',
+              methods: {
+                receiveShipment: RECEIVE_SHIPMENT_METHOD_SCHEMA,
+              },
+            },
           },
-          required: ['kind', 'data', 'fromService', 'reviser'],
+          required: [
+            'kind',
+            'data',
+            'fromService',
+            'reviser',
+            'receiveShipment',
+          ],
         },
       },
     },

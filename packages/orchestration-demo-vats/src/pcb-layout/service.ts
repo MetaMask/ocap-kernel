@@ -1,6 +1,5 @@
 import { E } from '@endo/eventual-send';
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
-import type { OcapURLRedemptionService } from '@metamask/ocap-kernel';
 
 import { renderPcbLayout } from './template.ts';
 import {
@@ -9,6 +8,7 @@ import {
   makeVolumeProfile,
   parseQuantity,
   PAYMENT_ARG_SCHEMA,
+  RECEIVE_SHIPMENT_METHOD_SCHEMA,
   USD_TO_CENTS,
 } from '../vat-lib/index.ts';
 import type {
@@ -109,17 +109,13 @@ export type PcbFabricateArtifact = {
 /**
  * Build the pcb-layout service exo.
  *
- * @param options - Construction options.
- * @param options.ocapURLRedemptionService - Kernel service used by
- *   `fabricate` to redeem an assembler's receive-shipment URL and
- *   hand off the bare-boards manifest directly.
- * @returns A discoverable exo with `layout` and `fabricate` methods.
+ * @returns A discoverable exo with `layout`, `quote`, `fabricate`,
+ *   and `shipSampleBoards` methods. `fabricate` and
+ *   `shipSampleBoards` invoke a receive-shipment endpoint the caller
+ *   supplies via an ocap reference in their `approval.receiver`
+ *   argument.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makePcbLayoutService(options: {
-  ocapURLRedemptionService: OcapURLRedemptionService;
-}) {
-  const { ocapURLRedemptionService } = options;
+export function makePcbLayoutService(): unknown {
   // Last `layout` call's quantity drives the fab quote — same
   // pattern as shenzhen-direct's source/purchase.
   let lastBoardQuantity = DEFAULT_FAB_QUANTITY;
@@ -211,7 +207,7 @@ export function makePcbLayoutService(options: {
       },
       async fabricate(
         approval: {
-          shipToUrl?: string;
+          receiver?: ReceiveShipmentEndpoint;
         },
         payment: Money,
       ): Promise<PcbFabricateArtifact> {
@@ -224,21 +220,15 @@ export function makePcbLayoutService(options: {
           `${PCB_LAYOUT_PROVIDER_TAG}.fabricate`,
         );
         const totalLabel = formatUsd(total);
-        const shipToUrl =
-          typeof approval?.shipToUrl === 'string' && approval.shipToUrl.length
-            ? approval.shipToUrl
-            : undefined;
-        if (shipToUrl === undefined) {
+        const receiver = approval?.receiver;
+        if (receiver === undefined) {
           throw new Error(
-            'pcb-wizards.fabricate: approval.shipToUrl is required. ' +
-              "Pass the manufacturer's receive-shipment ocap URL " +
+            'pcb-wizards.fabricate: approval.receiver is required. ' +
+              "Pass the manufacturer's receive-shipment reference " +
               "from the prior assembly-coop.assemble reply's " +
-              '`receiveShipmentUrl` field.',
+              '`receiveShipment` field, using a `__ref__` arg marker.',
           );
         }
-        const receiver = (await E(ocapURLRedemptionService).redeem(
-          shipToUrl,
-        )) as ReceiveShipmentEndpoint;
         const ack = await E(receiver).receiveShipment({
           from: PCB_LAYOUT_PROVIDER_TAG,
           kind: 'bare boards shipment',
@@ -282,20 +272,17 @@ export function makePcbLayoutService(options: {
         });
       },
       async shipSampleBoards(approval: {
-        shipToUrl?: string;
+        receiver?: ReceiveShipmentEndpoint;
       }): Promise<PcbFabricateArtifact> {
-        const shipToUrl =
-          typeof approval?.shipToUrl === 'string' && approval.shipToUrl.length
-            ? approval.shipToUrl
-            : undefined;
-        if (shipToUrl === undefined) {
+        const receiver = approval?.receiver;
+        if (receiver === undefined) {
           throw new Error(
-            'pcb-wizards.shipSampleBoards: shipToUrl is required.',
+            'pcb-wizards.shipSampleBoards: approval.receiver is required. ' +
+              "Pass proto-pros's receive-shipment reference from the " +
+              "prior bench-build.engage reply's `receiveShipment` " +
+              'field, using a `__ref__` arg marker.',
           );
         }
-        const receiver = (await E(ocapURLRedemptionService).redeem(
-          shipToUrl,
-        )) as ReceiveShipmentEndpoint;
         const ack = await E(receiver).receiveShipment({
           from: PCB_LAYOUT_PROVIDER_TAG,
           kind: 'sample boards shipment',
@@ -416,28 +403,32 @@ export function makePcbLayoutService(options: {
           'per-batch fab total quoted by pcb-wizards. Invoke only ' +
           'after the inventor approves the layout and the ' +
           'engineering-prototype validation has cleared. ' +
-          '`approval.shipToUrl` is required — pass the ' +
-          "manufacturer's receive-shipment ocap URL from the prior " +
-          "assembly-coop.assemble reply's `receiveShipmentUrl` " +
-          'field. pcb-wizards redeems it and hands the bare-boards ' +
-          'manifest off to the assembler directly.',
+          '`approval.receiver` is required — pass the ' +
+          "manufacturer's receive-shipment reference from the prior " +
+          "assembly-coop.assemble reply's `receiveShipment` field " +
+          '(as a `__ref__` arg marker naming its nickname). pcb-' +
+          'wizards invokes the receiver directly to hand off the ' +
+          'bare-boards manifest.',
         args: {
           approval: {
             type: 'object',
             description:
-              'Approval object carrying the manufacturer-handoff URL.',
+              'Approval object carrying the manufacturer-handoff receiver.',
             properties: {
-              shipToUrl: {
-                type: 'string',
+              receiver: {
+                type: 'interface',
                 description:
-                  "Required. Ocap URL of the manufacturer's " +
-                  'receive-shipment endpoint, as returned by ' +
-                  "assembly-coop.assemble's `receiveShipmentUrl` " +
-                  'field. Without this the order has no shipping ' +
-                  'target and the call fails.',
+                  "Required. The manufacturer's receive-shipment " +
+                  'endpoint, as returned by assembly-coop.assemble ' +
+                  'in its `receiveShipment` field. Pass via a ' +
+                  '`__ref__` arg marker; without this the order has ' +
+                  'no shipping target and the call fails.',
+                methods: {
+                  receiveShipment: RECEIVE_SHIPMENT_METHOD_SCHEMA,
+                },
               },
             },
-            required: ['shipToUrl'],
+            required: ['receiver'],
           },
           payment: PAYMENT_ARG_SCHEMA,
         },
@@ -466,25 +457,29 @@ export function makePcbLayoutService(options: {
           "Ship a small set of sample bare boards to the customer's " +
           'engineering-prototype shop. No wallet charge — covered by ' +
           "the layout design fee. Pass the prototype shop's receive-" +
-          'shipment ocap URL in `approval.shipToUrl`; pcb-wizards ' +
-          'redeems and invokes it to hand off the sample boards. ' +
-          'Intended for the Bench Build phase.',
+          'shipment reference in `approval.receiver` (as a `__ref__` ' +
+          'arg marker); pcb-wizards invokes it to hand off the sample ' +
+          'boards. Intended for the Bench Build phase.',
         args: {
           approval: {
             type: 'object',
             description:
-              'Approval object. `shipToUrl` is required — it carries ' +
-              "proto-pros's receive-shipment ocap URL.",
+              'Approval object. `receiver` is required — it carries ' +
+              "proto-pros's receive-shipment reference.",
             properties: {
-              shipToUrl: {
-                type: 'string',
+              receiver: {
+                type: 'interface',
                 description:
-                  "Ocap URL of the engineering-prototype shop's " +
-                  'receive-shipment endpoint, as returned by ' +
-                  "proto-pros.engage's `receiveShipmentUrl` field.",
+                  "The engineering-prototype shop's receive-shipment " +
+                  'endpoint, as returned by proto-pros.engage in its ' +
+                  '`receiveShipment` field. Pass via a `__ref__` arg ' +
+                  'marker.',
+                methods: {
+                  receiveShipment: RECEIVE_SHIPMENT_METHOD_SCHEMA,
+                },
               },
             },
-            required: ['shipToUrl'],
+            required: ['receiver'],
           },
         },
         returns: {

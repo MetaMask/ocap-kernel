@@ -1,12 +1,12 @@
 import { E } from '@endo/eventual-send';
 import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
-import type { OcapURLRedemptionService } from '@metamask/ocap-kernel';
 
 import { renderBuildPlan } from './template.ts';
 import {
   assertPayment,
   formatUsd,
   PAYMENT_ARG_SCHEMA,
+  RECEIVE_SHIPMENT_METHOD_SCHEMA,
   USD_TO_CENTS,
 } from '../vat-lib/index.ts';
 import type { Money, ReceiveShipmentEndpoint } from '../vat-lib/index.ts';
@@ -48,17 +48,19 @@ export type DeviceAssemblyArtifact = {
   fromService: string;
   metadata?: { title?: string; summary?: string };
   /**
-   * Ocap URL of assembly-coop's receive-shipment endpoint. Returned
-   * on `assemble` so the agent can thread it through to supplier
-   * commit methods (shenzhen-direct.purchase, pcb-wizards.fabricate)
-   * as their `shipToUrl` argument; the supplier redeems the URL and
-   * calls `receiveShipment(manifest)` on the assembler directly.
+   * Live receive-shipment endpoint. Returned on `assemble` so the
+   * agent can pass this reference (via a `__ref__` arg marker) to
+   * supplier commit methods (shenzhen-direct.purchase,
+   * pcb-wizards.fabricate) as their `approval.receiver` argument; the
+   * supplier invokes `receiveShipment(manifest)` on it directly, no
+   * URL redemption required.
    */
-  receiveShipmentUrl?: string;
+  receiveShipment?: ReceiveShipmentEndpoint;
   /**
    * Inter-service handoffs attached when the assembler invokes
-   * another service's receive-shipment ocap (`shipFinishedUnits`
-   * outbound to pacific-fulfillment, for example).
+   * another service's receive-shipment endpoint
+   * (`shipFinishedUnits` outbound to pacific-fulfillment, for
+   * example).
    */
   interactions?: { from: string; to: string; interaction: string }[];
 };
@@ -67,21 +69,16 @@ export type DeviceAssemblyArtifact = {
  * Build the device-assembly service exo.
  *
  * @param options - Construction options.
- * @param options.getReceiveShipmentUrl - Closure returning the URL of
- *   the assembler's receive-shipment endpoint. Set by the vat root
- *   after the URL is issued at bootstrap.
- * @param options.ocapURLRedemptionService - Kernel service used by
- *   `shipFinishedUnits` to redeem the fulfillment operator's
- *   receive-shipment URL and hand off the finished units.
+ * @param options.receiveShipment - The assembler's receive-shipment
+ *   endpoint. Handed inline on `assemble` so suppliers can address it
+ *   directly via ocap reference rather than URL redemption.
  * @returns A discoverable exo with `assemble`, `build`, and
  *   `shipFinishedUnits` methods.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function makeDeviceAssemblyService(options: {
-  getReceiveShipmentUrl: () => string;
-  ocapURLRedemptionService: OcapURLRedemptionService;
-}) {
-  const { getReceiveShipmentUrl, ocapURLRedemptionService } = options;
+  receiveShipment: ReceiveShipmentEndpoint;
+}): unknown {
+  const { receiveShipment } = options;
   // Last `assemble` call's quantity drives the `build` quote.
   let lastBuildQuantity = DEFAULT_BUILD_QUANTITY;
   let lastBuildTotalUsd: number | undefined;
@@ -129,11 +126,11 @@ export function makeDeviceAssemblyService(options: {
               `${formatUsd(perUnitLaborUsd)} per unit labor, ` +
               `batch total ${formatUsd(batchLaborUsd)} (charged on ` +
               `\`build\`). ${leadTime} turnaround from parts receipt. ` +
-              `Engagement includes a receive-shipment ocap URL so ` +
+              `Engagement includes a receive-shipment reference so ` +
               `suppliers can deliver parts and bare boards directly ` +
               `to the assembler.`,
           },
-          receiveShipmentUrl: getReceiveShipmentUrl(),
+          receiveShipment,
         });
       },
       async build(
@@ -183,23 +180,18 @@ export function makeDeviceAssemblyService(options: {
         });
       },
       async shipFinishedUnits(approval: {
-        shipToUrl?: string;
+        receiver?: ReceiveShipmentEndpoint;
       }): Promise<DeviceAssemblyArtifact> {
-        const shipToUrl =
-          typeof approval?.shipToUrl === 'string' && approval.shipToUrl.length
-            ? approval.shipToUrl
-            : undefined;
-        if (shipToUrl === undefined) {
+        const receiver = approval?.receiver;
+        if (receiver === undefined) {
           throw new Error(
-            'assembly-coop.shipFinishedUnits: approval.shipToUrl is ' +
+            'assembly-coop.shipFinishedUnits: approval.receiver is ' +
               "required. Pass the fulfillment operator's receive-" +
-              'shipment ocap URL from the prior pacific-fulfillment.' +
-              "arrange reply's `receiveShipmentUrl` field.",
+              'shipment reference from the prior pacific-fulfillment.' +
+              "arrange reply's `receiveShipment` field, using a " +
+              '`__ref__` arg marker.',
           );
         }
-        const receiver = (await E(ocapURLRedemptionService).redeem(
-          shipToUrl,
-        )) as ReceiveShipmentEndpoint;
         const ack = await E(receiver).receiveShipment({
           from: DEVICE_ASSEMBLY_PROVIDER_TAG,
           kind: 'finished units shipment',
@@ -255,7 +247,10 @@ export function makeDeviceAssemblyService(options: {
         },
         returns: {
           type: 'object',
-          description: 'Artifact descriptor wrapping a markdown build plan.',
+          description:
+            'Artifact descriptor wrapping a markdown build plan, plus a ' +
+            '`receiveShipment` reference so suppliers can address the ' +
+            'assembler directly with parts and boards.',
           properties: {
             kind: {
               type: 'string',
@@ -269,8 +264,20 @@ export function makeDeviceAssemblyService(options: {
               type: 'string',
               description: 'Provider tag of the service that produced this.',
             },
+            receiveShipment: {
+              type: 'interface',
+              description:
+                "The assembler's receive-shipment endpoint. Pass this " +
+                'reference (via a `__ref__` arg marker) as the ' +
+                '`approval.receiver` arg to supplier commit methods ' +
+                '(shenzhen-direct.purchase, pcb-wizards.fabricate) so ' +
+                'their parts / boards land at the assembler directly.',
+              methods: {
+                receiveShipment: RECEIVE_SHIPMENT_METHOD_SCHEMA,
+              },
+            },
           },
-          required: ['kind', 'data', 'fromService'],
+          required: ['kind', 'data', 'fromService', 'receiveShipment'],
         },
       },
       build: {
@@ -317,29 +324,33 @@ export function makeDeviceAssemblyService(options: {
         description:
           'Ship the finished units into a fulfillment operator (or ' +
           "other shipping destination) via the operator's receive-" +
-          'shipment ocap URL. No wallet charge — shipping is bundled ' +
+          'shipment endpoint. No wallet charge — shipping is bundled ' +
           'with the build labor fee. Invoke after `build` has been ' +
           'committed and the fulfillment operator has been engaged ' +
           '(e.g. pacific-fulfillment.arrange) so the ' +
-          '`receiveShipmentUrl` field from that engagement is in hand.',
+          '`receiveShipment` reference from that engagement is in hand.',
         args: {
           approval: {
             type: 'object',
             description:
               "Approval object carrying the fulfillment operator's " +
-              'receive-shipment ocap URL.',
+              'receive-shipment reference.',
             properties: {
-              shipToUrl: {
-                type: 'string',
+              receiver: {
+                type: 'interface',
                 description:
-                  "Required. Ocap URL of the fulfillment operator's " +
-                  'receive-shipment endpoint, as returned by ' +
-                  "pacific-fulfillment.arrange's `receiveShipmentUrl` " +
-                  'field. Without this the assembler has nowhere to ' +
-                  'ship the finished units and the call fails.',
+                  "Required. The fulfillment operator's receive-" +
+                  'shipment endpoint, as returned by ' +
+                  "pacific-fulfillment.arrange's `receiveShipment` " +
+                  'field. Pass via a `__ref__` arg marker; without ' +
+                  'this the assembler has nowhere to ship the ' +
+                  'finished units and the call fails.',
+                methods: {
+                  receiveShipment: RECEIVE_SHIPMENT_METHOD_SCHEMA,
+                },
               },
             },
-            required: ['shipToUrl'],
+            required: ['receiver'],
           },
         },
         returns: {

@@ -11,7 +11,11 @@ import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
 import { KernelServiceManager } from './KernelServiceManager.ts';
 import type { KernelService } from './KernelServiceManager.ts';
-import { kslot, kunser } from './liveslots/kernel-marshal.ts';
+import {
+  expandKrefMarkers,
+  kslot,
+  kunser,
+} from './liveslots/kernel-marshal.ts';
 import type { SlotValue } from './liveslots/kernel-marshal.ts';
 import { OcapURLManager } from './remotes/kernel/OcapURLManager.ts';
 import { RemoteManager } from './remotes/kernel/RemoteManager.ts';
@@ -399,8 +403,18 @@ export class Kernel {
     method: string,
     args: unknown[],
   ): Promise<CapData<KRef>> {
+    // Callers reaching us over the RPC boundary can't easily construct
+    // live `kslot` remotables in `args`, so they use the plain-JSON
+    // `KREF_MARKER` convention (see `expandKrefMarkers`) to name a kref
+    // that should be passed as an ocap reference. Expand those markers
+    // before enqueueing so kser encodes them as real CapData slots.
+    const expandedArgs = expandKrefMarkers(args) as unknown[];
     try {
-      return await this.#kernelQueue.enqueueMessage(target, method, args);
+      return await this.#kernelQueue.enqueueMessage(
+        target,
+        method,
+        expandedArgs,
+      );
     } catch (rejection) {
       if (isCapData(rejection)) {
         throw kunser(rejection as CapData<KRef>);

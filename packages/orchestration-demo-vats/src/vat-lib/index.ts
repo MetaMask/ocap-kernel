@@ -6,6 +6,7 @@ export {
 } from './matcher-registration.ts';
 export {
   makeReceiveShipmentEndpoint,
+  RECEIVE_SHIPMENT_METHOD_SCHEMA,
   type ReceiveShipmentEndpoint,
   type ShipmentAcknowledgement,
   type ShipmentManifest,
