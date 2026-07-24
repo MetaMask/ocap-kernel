@@ -729,9 +729,10 @@ service call.
    foregone conclusion. The default ask is along the lines of
    "Anything you'd like to change here? And want me to move on to
    <next phase>?" **Revision path depends on the artifact.** If the
-   slim result carries a `reviser` field (a service nickname), that
-   reference grants free follow-up revisions: call `service_call` on
-   that nickname with method `revise` and the feedback as the args —
+   slim result carries a `reviser` field (a service nickname), the
+   service's schema will have declared that field as an `interface`
+   with a `revise(feedback)` method inline. Call `service_call` on
+   the nickname with method `revise` and the feedback as the args —
    no withdraw, no payment argument, no `service_initiate_contact`
    needed (the reference is already live because the paid call handed
    it back to you). The reviser has its own budget (typically two

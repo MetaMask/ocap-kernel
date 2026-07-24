@@ -5,6 +5,7 @@ import {
   assertPayment,
   makeReviser,
   PAYMENT_ARG_SCHEMA,
+  REVISE_METHOD_SCHEMA,
   USD_TO_CENTS,
 } from '../vat-lib/index.ts';
 import type { Money, Reviser } from '../vat-lib/index.ts';
@@ -201,15 +202,17 @@ export function makeIndustrialDesignService(): unknown {
               description: 'Provider tag of the service that produced this.',
             },
             reviser: {
-              type: 'string',
+              type: 'interface',
               description:
-                'Reviser capability minted for this purchase. A live ' +
-                'object reference the buyer holds; the discovery ' +
-                'plugin auto-registers it as a service and surfaces ' +
-                'its nickname here. Call `service_call` on the ' +
-                'nickname with method `revise(feedback)` — no payment ' +
-                `required, up to ${INDUSTRIAL_DESIGN_REVISIONS_ALLOWED} ` +
-                'revisions per purchase.',
+                'Reviser object minted for this purchase. Its ' +
+                '`revise(feedback)` method produces the next revision ' +
+                'at no additional charge, up to ' +
+                `${INDUSTRIAL_DESIGN_REVISIONS_ALLOWED} revisions per ` +
+                'purchase; the reference itself is the proof of ' +
+                'purchase.',
+              methods: {
+                revise: REVISE_METHOD_SCHEMA,
+              },
             },
           },
           required: ['kind', 'data', 'fromService', 'reviser'],

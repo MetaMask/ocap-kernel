@@ -92,12 +92,6 @@ export function registerCallServiceTool(options: {
       _id: string,
       params: { service: string; method: string; args?: string },
     ): Promise<ToolResponse> {
-      // eslint-disable-next-line no-console
-      console.error(
-        `[discovery/service_call] ENTER service=${JSON.stringify(params.service)} method=${JSON.stringify(params.method)}\n` +
-          `  args: ${params.args ?? '(none)'}\n` +
-          `  state.services keys: ${[...state.services.keys()].join(', ') || '(empty)'}`,
-      );
       try {
         const kref = isKref(params.service)
           ? params.service
@@ -118,22 +112,8 @@ export function registerCallServiceTool(options: {
           args: parsedArgs,
         });
 
-        // eslint-disable-next-line no-console
-        console.error(
-          `[discovery/service_call] IN service=${params.service} method=${params.method}\n` +
-            `  raw result: ${JSON.stringify(result).slice(0, 1500)}`,
-        );
         const withRegisteredRefs = registerEmbeddedRefs(result);
-        // eslint-disable-next-line no-console
-        console.error(
-          `[discovery/service_call] after ref-walk: ${JSON.stringify(withRegisteredRefs).slice(0, 1500)}\n` +
-            `  state.services keys now: ${[...state.services.keys()].join(', ')}`,
-        );
         const summarised = summariseResult(withRegisteredRefs);
-        // eslint-disable-next-line no-console
-        console.error(
-          `[discovery/service_call] slim view: ${JSON.stringify(summarised).slice(0, 1500)}`,
-        );
 
         const text =
           typeof summarised === 'string'
@@ -146,10 +126,6 @@ export function registerCallServiceTool(options: {
         };
       } catch (error: unknown) {
         const message = error instanceof Error ? error.message : String(error);
-        // eslint-disable-next-line no-console
-        console.error(
-          `[discovery/service_call] ERROR service=${JSON.stringify(params.service)} method=${JSON.stringify(params.method)}: ${message}`,
-        );
         return {
           content: [{ type: 'text' as const, text: `Error: ${message}` }],
           details: undefined,
