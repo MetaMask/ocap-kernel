@@ -3,10 +3,12 @@ import { makeDiscoverableExo } from '@metamask/kernel-utils/discoverable';
 import { renderSchematic } from './template.ts';
 import {
   assertPayment,
+  makeReviser,
   PAYMENT_ARG_SCHEMA,
+  REVISE_METHOD_SCHEMA,
   USD_TO_CENTS,
 } from '../vat-lib/index.ts';
-import type { Money } from '../vat-lib/index.ts';
+import type { Money, Reviser } from '../vat-lib/index.ts';
 
 /**
  * Natural-language description registered with the matcher. Opening
@@ -29,6 +31,12 @@ export const SCHEMATIC_GENERATION_PROVIDER_TAG = 'circuit-masters';
 export const SCHEMATIC_GENERATION_PRICE_USD = 800;
 
 /**
+ * Number of free revisions each purchase grants the buyer via the
+ * returned reviser reference.
+ */
+export const SCHEMATIC_GENERATION_REVISIONS_ALLOWED = 2;
+
+/**
  * Shape returned by `generate`.
  */
 export type SchematicArtifact = {
@@ -36,6 +44,11 @@ export type SchematicArtifact = {
   data: string;
   fromService: string;
   metadata?: { title?: string; summary?: string };
+  /**
+   * Per-purchase reviser capability. Present only on the paid call's
+   * return.
+   */
+  reviser?: Reviser<SchematicArtifact>;
 };
 
 /**
@@ -43,8 +56,10 @@ export type SchematicArtifact = {
  *
  * @returns A discoverable exo with a `generate` method.
  */
-// eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-export function makeSchematicGenerationService() {
+export function makeSchematicGenerationService(): unknown {
+  let purchaseCounter = 0;
+  const revisers = new Set<unknown>();
+
   return makeDiscoverableExo(
     'SchematicGenerationService',
     {
@@ -57,9 +72,35 @@ export function makeSchematicGenerationService() {
           SCHEMATIC_GENERATION_PRICE_USD * USD_TO_CENTS,
           `${SCHEMATIC_GENERATION_PROVIDER_TAG}.generate`,
         );
+        purchaseCounter += 1;
+        const purchaseId = `sale-${purchaseCounter}`;
+
         const svg = renderSchematic({
           providerLabel: SCHEMATIC_GENERATION_PROVIDER_TAG,
         });
+
+        const reviser = makeReviser<SchematicArtifact>({
+          name: `${SCHEMATIC_GENERATION_PROVIDER_TAG}-${purchaseId}-reviser`,
+          remaining: SCHEMATIC_GENERATION_REVISIONS_ALLOWED,
+          onRevise: (revNumber, _feedback) => {
+            const revSvg = renderSchematic({
+              providerLabel: SCHEMATIC_GENERATION_PROVIDER_TAG,
+            });
+            return {
+              kind: 'svg',
+              data: revSvg,
+              fromService: SCHEMATIC_GENERATION_PROVIDER_TAG,
+              metadata: {
+                title: `LAUR — circuit schematic rev ${revNumber}`,
+                summary:
+                  'Revised schematic incorporating the buyer feedback: ' +
+                  'peripheral / power / signal-routing adjustments.',
+              },
+            };
+          },
+        });
+        revisers.add(reviser);
+
         return harden({
           kind: 'svg',
           data: svg,
@@ -70,12 +111,17 @@ export function makeSchematicGenerationService() {
               'Top-level schematic: MCU + OLED + MEMS mic + IR driver + ' +
               '10-key matrix + power. KiCad-style with title block.',
           },
+          reviser,
         });
       },
     },
     {
       generate: {
-        description: 'Produce a circuit schematic from a functional spec.',
+        description:
+          'Produce a circuit schematic from a functional spec, and mint ' +
+          'a per-purchase reviser reference that grants up to ' +
+          `${SCHEMATIC_GENERATION_REVISIONS_ALLOWED} free follow-up ` +
+          'revisions.',
         args: {
           spec: {
             type: 'string',
@@ -87,7 +133,9 @@ export function makeSchematicGenerationService() {
         },
         returns: {
           type: 'object',
-          description: 'Artifact descriptor wrapping an inline SVG schematic.',
+          description:
+            'Artifact descriptor wrapping an inline SVG schematic, plus ' +
+            'a `reviser` object reference for follow-up revisions.',
           properties: {
             kind: {
               type: 'string',
@@ -101,8 +149,20 @@ export function makeSchematicGenerationService() {
               type: 'string',
               description: 'Provider tag of the service that produced this.',
             },
+            reviser: {
+              type: 'interface',
+              description:
+                'Reviser object minted for this purchase. Its ' +
+                '`revise(feedback)` method produces the next revision ' +
+                'at no additional charge, up to ' +
+                `${SCHEMATIC_GENERATION_REVISIONS_ALLOWED} revisions per ` +
+                'purchase.',
+              methods: {
+                revise: REVISE_METHOD_SCHEMA,
+              },
+            },
           },
-          required: ['kind', 'data', 'fromService'],
+          required: ['kind', 'data', 'fromService', 'reviser'],
         },
       },
     },
