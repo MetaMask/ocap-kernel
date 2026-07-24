@@ -13,8 +13,10 @@
  *   otherwise present, so they remain human-readable.
  * - `MethodSchema` does not mark individual args as optional; the converter
  *   treats all parameters as required.
- * - `JsonSchema` has no notion of `remotable`, `null`, `void`, `bigint`,
- *   `unknown`, or `union`. The converter never emits those kinds.
+ * - `JsonSchema` has no notion of `null`, `void`, `bigint`, `unknown`, or
+ *   `union`. The converter never emits those kinds. Interfaces
+ *   (`type: 'interface'`) do have a `JsonSchema` counterpart and translate
+ *   to `RemotableTypeSpec`.
  */
 
 import type { JsonSchema, MethodSchema } from '@metamask/kernel-utils';
@@ -49,12 +51,39 @@ export function jsonSchemaToTypeSpec(schema: JsonSchema): TypeSpec {
         kind: 'object',
         spec: jsonSchemaToObjectSpec(schema),
       };
+    case 'interface':
+      return {
+        kind: 'remotable',
+        spec: interfaceJsonSchemaToRemotableSpec(schema),
+      };
     default: {
       // Exhaustive: JsonSchema is a closed union.
       const unreachable: never = schema;
       throw new Error(`Unsupported JsonSchema: ${JSON.stringify(unreachable)}`);
     }
   }
+}
+
+/**
+ * Convert an interface-typed `JsonSchema` to a `RemotableSpec`. The
+ * schema describes an object with methods; each method is converted
+ * recursively via {@link methodSchemaToMethodSpec}.
+ *
+ * @param schema - The source interface-typed JsonSchema.
+ * @returns The equivalent RemotableSpec.
+ */
+export function interfaceJsonSchemaToRemotableSpec(
+  schema: Extract<JsonSchema, { type: 'interface' }>,
+): RemotableSpec {
+  const methods: Record<string, MethodSpec> = {};
+  for (const [name, methodSchema] of Object.entries(schema.methods)) {
+    methods[name] = methodSchemaToMethodSpec(methodSchema);
+  }
+  const out: RemotableSpec = { methods };
+  if (schema.description !== undefined) {
+    out.description = schema.description;
+  }
+  return out;
 }
 
 /**
