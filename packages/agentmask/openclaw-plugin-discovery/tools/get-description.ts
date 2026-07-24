@@ -26,8 +26,11 @@ export function registerGetDescriptionTool(options: {
     name: 'service_get_description',
     label: 'Fetch service description',
     description:
-      'Ask a contact endpoint for its service description. `contact` may be ' +
-      'an OCAP URL, a previously-cached contact nickname, or a kref.',
+      'Inspect a target and return its API description. Works on either ' +
+      'a contact endpoint (calling `getServiceDescription`) or a service ' +
+      'handle obtained via `service_initiate_contact` (calling the ' +
+      'discoverable-exo `__getDescription__`). `contact` may be an OCAP ' +
+      'URL, a previously-cached contact or service nickname, or a kref.',
     parameters: {
       type: 'object',
       properties: {
@@ -59,14 +62,43 @@ export function registerGetDescriptionTool(options: {
         console.error(
           `[discovery/get_description] resolved to nickname=${entry.nickname} kref=${entry.kref} url=${entry.url ?? '(none)'}`,
         );
-        const description = await daemon.queueMessage({
-          target: entry.kref,
-          method: 'getServiceDescription',
-          args: [],
-        });
+        // ContactPoint endpoints expose `getServiceDescription`.
+        // Discoverable service exos (the target the LLM sees after
+        // `service_initiate_contact` returns) instead expose the
+        // `__getDescription__` dunder from `makeDiscoverableExo`. Try
+        // the contact-endpoint method first, then fall back to the
+        // discoverable-exo one so the LLM can inspect either kind of
+        // target with the same tool.
+        let description: unknown;
+        try {
+          description = await daemon.queueMessage({
+            target: entry.kref,
+            method: 'getServiceDescription',
+            args: [],
+          });
+        } catch (contactError: unknown) {
+          const contactMessage =
+            contactError instanceof Error
+              ? contactError.message
+              : String(contactError);
+          if (
+            !contactMessage.includes('has no method "getServiceDescription"')
+          ) {
+            throw contactError;
+          }
+          // eslint-disable-next-line no-console
+          console.error(
+            `[discovery/get_description] getServiceDescription missing on kref=${entry.kref}; falling back to __getDescription__`,
+          );
+          description = await daemon.queueMessage({
+            target: entry.kref,
+            method: '__getDescription__',
+            args: [],
+          });
+        }
         // eslint-disable-next-line no-console
         console.error(
-          `[discovery/get_description] queueMessage(getServiceDescription) succeeded on kref=${entry.kref}`,
+          `[discovery/get_description] description obtained for kref=${entry.kref}`,
         );
         return {
           content: [

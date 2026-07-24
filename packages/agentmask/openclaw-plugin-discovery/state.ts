@@ -212,12 +212,29 @@ export async function resolveContact(options: {
   daemon: DaemonCaller;
 }): Promise<ContactEntry> {
   const { ref, state, daemon } = options;
-  // If ref is a known nickname or URL, use the cached entry.
+  // If ref is a known contact nickname or URL, use the cached entry.
   const existing =
     state.contacts.get(ref) ??
     [...state.contacts.values()].find((entry) => entry.url === ref);
   if (existing) {
     return existing;
+  }
+  // If ref is a known service nickname (e.g. one returned by
+  // `service_initiate_contact` or auto-registered by the ref-walker
+  // in `service_call`), reuse its kref. Prevents the LLM from getting
+  // an "unparseable URL" error when it passes a service nickname to
+  // a tool that resolves through this function — the caller can then
+  // fall back to service-side inspection methods if the target
+  // doesn't happen to be a ContactPoint.
+  const serviceEntry = state.services.get(ref);
+  if (serviceEntry) {
+    const nickname = uniqueNickname(
+      serviceEntry.nickname,
+      new Set(state.contacts.keys()),
+    );
+    const entry: ContactEntry = { kref: serviceEntry.kref, nickname };
+    state.contacts.set(nickname, entry);
+    return entry;
   }
   // If it's already a kref, wrap it so subsequent calls work.
   if (isKref(ref)) {
