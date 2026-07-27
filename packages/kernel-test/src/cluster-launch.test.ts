@@ -1,4 +1,5 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
+import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { LogEntry } from '@metamask/logger';
 import type { Kernel } from '@metamask/ocap-kernel';
@@ -121,5 +122,52 @@ describe('cluster initialization', { timeout: 4_000 }, () => {
       'buildRootObject',
       'bootstrap',
     ]);
+  });
+});
+
+describe('peer rejection propagation', { timeout: 10_000 }, () => {
+  let logger: Logger;
+  let entries: LogEntry[];
+  let kernel: Kernel;
+
+  beforeEach(async () => {
+    const testLogger = makeTestLogger();
+    logger = testLogger.logger;
+    entries = testLogger.entries;
+    const database = await makeSQLKernelDatabase({});
+    kernel = await makeKernel(
+      database,
+      true,
+      logger.subLogger({ tags: ['test'] }),
+    );
+  });
+
+  it('bootstrap observes peer rejection when a peer vat fails to launch', async () => {
+    await expect(
+      kernel.launchSubcluster({
+        bootstrap: 'main',
+        vats: {
+          main: {
+            bundleSpec: getBundleSpec('peer-rejection-bootstrap'),
+            parameters: {},
+          },
+          peer: {
+            bundleSpec: getBundleSpec('error-build-throw'),
+            parameters: {},
+          },
+        },
+      }),
+    ).rejects.toMatchObject({
+      message: expect.stringMatching(/^Failed to launch vat \S+ \(peer\)$/u),
+    });
+
+    // Let the kernel run loop deliver the parked bootstrap message to the
+    // main vat, which will observe the peer's rejected root promise.
+    await waitUntilQuiescent(200);
+
+    const vatLogs = extractTestLogs(entries, 'console');
+    expect(vatLogs).toContainEqual(
+      expect.stringMatching(/^peer rejected:.*VAT_TERMINATED/u),
+    );
   });
 });
