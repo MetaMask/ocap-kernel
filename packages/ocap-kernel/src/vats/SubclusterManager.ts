@@ -343,10 +343,9 @@ export class SubclusterManager {
     // (still-unresolved) root kernel promise. KernelRouter.#routeMessage sees
     // an unresolved kp<N> and parks the send on the promise via
     // enqueuePromiseMessage; it is forwarded once that promise resolves.
-    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-    const bootstrapRootPromiseKref = rootPromiseKrefs[config.bootstrap]!;
+    // config.bootstrap is guaranteed present — validated in launchSubcluster.
     const bootstrapResultPromise = this.#queueMessage(
-      bootstrapRootPromiseKref,
+      rootPromiseKrefs[config.bootstrap] as KRef,
       'bootstrap',
       [roots, services],
     );
@@ -358,33 +357,30 @@ export class SubclusterManager {
     // Launch all vats concurrently. As each vat's initVat handshake
     // completes, resolve its root kernel promise so queued messages are
     // forwarded by the run loop.
-    let rootKref: KRef | undefined;
-    await Promise.all(
+    const rootRefs = await Promise.all(
       vatEntries.map(async ([vatName, vatConfig]) =>
         this.#vatManager
           .launchVat(vatConfig, vatName, subclusterId)
           .then((resolvedRootRef) => {
-            if (vatName === config.bootstrap) {
-              rootKref = resolvedRootRef;
-            }
-            return this.#kernelQueue.resolvePromises('kernel', [
+            this.#kernelQueue.resolvePromises('kernel', [
+              // vatName is always present — added in the pre-allocation loop
               [
-                // vatName was added in the pre-allocation loop above
-                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-                rootPromiseKrefs[vatName]!,
+                rootPromiseKrefs[vatName] as KRef,
                 false,
                 kser(kslot(resolvedRootRef)),
               ],
             ]);
+            return resolvedRootRef;
           }),
       ),
     );
 
-    if (!rootKref) {
-      throw new Error(
-        `Bootstrap vat "${config.bootstrap}" did not yield a root KRef`,
-      );
-    }
+    // Promise.all preserves insertion order; config.bootstrap is guaranteed
+    // present — validated in launchSubcluster before this method is called.
+    const bootstrapIdx = vatEntries.findIndex(
+      ([name]) => name === config.bootstrap,
+    );
+    const rootKref = rootRefs[bootstrapIdx] as KRef;
 
     const bootstrapResult = await bootstrapResultPromise;
     const unserialized = kunser(bootstrapResult);
