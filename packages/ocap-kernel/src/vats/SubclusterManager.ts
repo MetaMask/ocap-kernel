@@ -304,23 +304,17 @@ export class SubclusterManager {
   }> {
     const vatEntries = Object.entries(config.vats);
 
-    // Pre-allocate a kernel promise for each vat's root object. All sync
-    // work runs here, before any launch's first await, so vatId allocation
-    // and store writes are ordered deterministically.
+    // Pre-allocate a kernel promise for each vat's root object and build the
+    // roots map in one pass. All sync work runs here, before any launch's
+    // first await, so vatId allocation and store writes are ordered
+    // deterministically.
     const rootPromiseKrefs: Record<string, KRef> = {};
+    const roots: Record<string, SlotValue> = {};
     for (const [vatName] of vatEntries) {
       const [kpid] = this.#kernelStore.initKernelPromise();
       this.#kernelStore.setPromiseDecider(kpid, 'kernel');
       rootPromiseKrefs[vatName] = kpid;
-    }
-
-    // Build the roots map from kernel promise KRefs. Bootstrap receives these
-    // as promises that resolve as each vat comes online.
-    const roots: Record<string, SlotValue> = {};
-    for (const [vatName] of vatEntries) {
-      // vatName was added in the loop above, so the entry is always present
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      roots[vatName] = kslot(rootPromiseKrefs[vatName]!, 'vatRoot');
+      roots[vatName] = kslot(kpid, 'vatRoot');
     }
 
     const services: Record<string, SlotValue> = {};
