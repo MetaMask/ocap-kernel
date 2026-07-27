@@ -4,7 +4,7 @@ import type { Mocked } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelQueue } from '../KernelQueue.ts';
-import { kser } from '../liveslots/kernel-marshal.ts';
+import { kser, kslot } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
   VatId,
@@ -65,10 +65,15 @@ describe('SubclusterManager', () => {
       getRootObject: vi.fn(),
       deleteVatConfig: vi.fn(),
       markVatAsTerminated: vi.fn(),
+      initKernelPromise: vi
+        .fn()
+        .mockReturnValue(['kp1', { state: 'unresolved', subscribers: [] }]),
+      setPromiseDecider: vi.fn(),
     } as unknown as Mocked<KernelStore>;
 
     mockKernelQueue = {
       waitForCrank: vi.fn().mockResolvedValue(undefined),
+      resolvePromises: vi.fn(),
     } as unknown as Mocked<KernelQueue>;
 
     mockVatManager = {
@@ -116,9 +121,14 @@ describe('SubclusterManager', () => {
         'testVat',
         's1',
       );
-      expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
+      // queueMessage targets the kernel promise for the bootstrap vat's root
+      expect(mockQueueMessage).toHaveBeenCalledWith('kp1', 'bootstrap', [
         { testVat: expect.anything() },
         {},
+      ]);
+      // kernel promise resolved to the actual root KRef once the vat launched
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
+        ['kp1', false, kser(kslot('ko1'))],
       ]);
       expect(result).toStrictEqual({
         subclusterId: 's1',
@@ -135,6 +145,10 @@ describe('SubclusterManager', () => {
           bob: { sourceSpec: 'bob.js' },
         },
       };
+      // Distinct kernel promise KRefs for alice and bob
+      (mockKernelStore.initKernelPromise as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(['kp1', { state: 'unresolved', subscribers: [] }])
+        .mockReturnValueOnce(['kp2', { state: 'unresolved', subscribers: [] }]);
       mockVatManager.launchVat
         .mockResolvedValueOnce('ko1' as KRef)
         .mockResolvedValueOnce('ko2' as KRef);
@@ -152,6 +166,13 @@ describe('SubclusterManager', () => {
         'bob',
         's1',
       );
+      // Both root kernel promises resolved to their respective rootKRefs
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
+        ['kp1', false, kser(kslot('ko1'))],
+      ]);
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
+        ['kp2', false, kser(kslot('ko2'))],
+      ]);
     });
 
     it('includes unrestricted kernel services when specified', async () => {
@@ -170,7 +191,7 @@ describe('SubclusterManager', () => {
       await subclusterManager.launchSubcluster(config);
 
       expect(mockGetKernelService).toHaveBeenCalledWith('testService');
-      expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
+      expect(mockQueueMessage).toHaveBeenCalledWith('kp1', 'bootstrap', [
         expect.anything(),
         { testService: expect.anything() },
       ]);
@@ -210,7 +231,7 @@ describe('SubclusterManager', () => {
       await subclusterManager.launchSubcluster(config, { isSystem: true });
 
       expect(mockGetKernelService).toHaveBeenCalledWith('kernelFacet');
-      expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
+      expect(mockQueueMessage).toHaveBeenCalledWith('kp1', 'bootstrap', [
         expect.anything(),
         { kernelFacet: expect.anything() },
       ]);
@@ -303,6 +324,12 @@ describe('SubclusterManager', () => {
       });
 
       mockVatManager.launchVat.mockRejectedValue(new Error('vat boom'));
+      // Service lookup now happens before vat launch, so the IO channel
+      // service must be registered for the test to reach the vat launch step.
+      (mockGetKernelService as ReturnType<typeof vi.fn>).mockReturnValue({
+        kref: 'ko99',
+        systemOnly: false,
+      });
 
       const config: ClusterConfig = {
         bootstrap: 'testVat',
@@ -365,6 +392,12 @@ describe('SubclusterManager', () => {
       });
 
       mockVatManager.launchVat.mockRejectedValue(new Error('launch boom'));
+      // Service lookup now happens before vat launch, so the IO channel
+      // service must be registered for the test to reach the vat launch step.
+      (mockGetKernelService as ReturnType<typeof vi.fn>).mockReturnValue({
+        kref: 'ko99',
+        systemOnly: false,
+      });
 
       const config: ClusterConfig = {
         bootstrap: 'testVat',

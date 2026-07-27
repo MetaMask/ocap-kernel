@@ -5,7 +5,7 @@ import { Logger } from '@metamask/logger';
 import type { IOManager } from '../io/IOManager.ts';
 import type { KernelQueue } from '../KernelQueue.ts';
 import type { VatManager } from './VatManager.ts';
-import { kslot, kunser } from '../liveslots/kernel-marshal.ts';
+import { kser, kslot, kunser } from '../liveslots/kernel-marshal.ts';
 import type { SlotValue } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
@@ -302,17 +302,27 @@ export class SubclusterManager {
     rootKref: KRef;
     bootstrapResult: CapData<KRef> | undefined;
   }> {
-    const rootIds: Record<string, KRef> = {};
-    const roots: Record<string, SlotValue> = {};
-    for (const [vatName, vatConfig] of Object.entries(config.vats)) {
-      const rootRef = await this.#vatManager.launchVat(
-        vatConfig,
-        vatName,
-        subclusterId,
-      );
-      rootIds[vatName] = rootRef;
-      roots[vatName] = kslot(rootRef, 'vatRoot');
+    const vatEntries = Object.entries(config.vats);
+
+    // Pre-allocate a kernel promise for each vat's root object. All sync
+    // work runs here, before any launch's first await, so vatId allocation
+    // and store writes are ordered deterministically.
+    const rootPromiseKrefs: Record<string, KRef> = {};
+    for (const [vatName] of vatEntries) {
+      const [kpid] = this.#kernelStore.initKernelPromise();
+      this.#kernelStore.setPromiseDecider(kpid, 'kernel');
+      rootPromiseKrefs[vatName] = kpid;
     }
+
+    // Build the roots map from kernel promise KRefs. Bootstrap receives these
+    // as promises that resolve as each vat comes online.
+    const roots: Record<string, SlotValue> = {};
+    for (const [vatName] of vatEntries) {
+      // vatName was added in the loop above, so the entry is always present
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      roots[vatName] = kslot(rootPromiseKrefs[vatName]!, 'vatRoot');
+    }
+
     const services: Record<string, SlotValue> = {};
     const ioNames = config.io
       ? new Set(Object.keys(config.io))
@@ -334,16 +344,55 @@ export class SubclusterManager {
         throw Error(`no registered kernel service '${lookupName}'`);
       }
     }
-    const rootKref = rootIds[config.bootstrap];
+
+    // Queue the bootstrap message immediately, targeting the bootstrap vat's
+    // (still-unresolved) root kernel promise. KernelRouter.#routeMessage sees
+    // an unresolved kp<N> and parks the send on the promise via
+    // enqueuePromiseMessage; it is forwarded once that promise resolves.
+    // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+    const bootstrapRootPromiseKref = rootPromiseKrefs[config.bootstrap]!;
+    const bootstrapResultPromise = this.#queueMessage(
+      bootstrapRootPromiseKref,
+      'bootstrap',
+      [roots, services],
+    );
+    // Attach a no-op rejection handler so that if Promise.all below rejects
+    // first (a vat fails to launch) we don't get an unhandled-rejection
+    // warning while the bootstrap promise waits for kernel cleanup to settle.
+    bootstrapResultPromise.catch(() => undefined);
+
+    // Launch all vats concurrently. As each vat's initVat handshake
+    // completes, resolve its root kernel promise so queued messages are
+    // forwarded by the run loop.
+    let rootKref: KRef | undefined;
+    await Promise.all(
+      vatEntries.map(async ([vatName, vatConfig]) =>
+        this.#vatManager
+          .launchVat(vatConfig, vatName, subclusterId)
+          .then((resolvedRootRef) => {
+            if (vatName === config.bootstrap) {
+              rootKref = resolvedRootRef;
+            }
+            return this.#kernelQueue.resolvePromises('kernel', [
+              [
+                // vatName was added in the pre-allocation loop above
+                // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+                rootPromiseKrefs[vatName]!,
+                false,
+                kser(kslot(resolvedRootRef)),
+              ],
+            ]);
+          }),
+      ),
+    );
+
     if (!rootKref) {
       throw new Error(
-        `Bootstrap vat "${config.bootstrap}" not found in rootIds`,
+        `Bootstrap vat "${config.bootstrap}" did not yield a root KRef`,
       );
     }
-    const bootstrapResult = await this.#queueMessage(rootKref, 'bootstrap', [
-      roots,
-      services,
-    ]);
+
+    const bootstrapResult = await bootstrapResultPromise;
     const unserialized = kunser(bootstrapResult);
     if (unserialized instanceof Error) {
       throw unserialized;

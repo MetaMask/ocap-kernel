@@ -34,6 +34,8 @@ const mocks = vi.hoisted(() => {
     }
 
     waitForCrank = vi.fn().mockResolvedValue(undefined);
+
+    resolvePromises = vi.fn();
   }
 
   class RemoteManager {
