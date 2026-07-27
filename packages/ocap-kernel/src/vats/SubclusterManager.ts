@@ -5,7 +5,12 @@ import { Logger } from '@metamask/logger';
 import type { IOManager } from '../io/IOManager.ts';
 import type { KernelQueue } from '../KernelQueue.ts';
 import type { VatManager } from './VatManager.ts';
-import { kser, kslot, kunser } from '../liveslots/kernel-marshal.ts';
+import {
+  kser,
+  kslot,
+  kunser,
+  makeKernelError,
+} from '../liveslots/kernel-marshal.ts';
 import type { SlotValue } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
@@ -371,6 +376,18 @@ export class SubclusterManager {
               ],
             ]);
             return resolvedRootRef;
+          })
+          .catch((error: unknown) => {
+            const detail =
+              error instanceof Error ? error.message : String(error);
+            this.#kernelQueue.resolvePromises('kernel', [
+              [
+                rootPromiseKrefs[vatName] as KRef,
+                true,
+                makeKernelError('VAT_TERMINATED', detail),
+              ],
+            ]);
+            throw error;
           }),
       ),
     );

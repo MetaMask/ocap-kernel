@@ -4,7 +4,7 @@ import type { Mocked } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelQueue } from '../KernelQueue.ts';
-import { kser, kslot } from '../liveslots/kernel-marshal.ts';
+import { kser, kslot, makeKernelError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
   VatId,
@@ -173,6 +173,48 @@ describe('SubclusterManager', () => {
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
         ['kp2', false, kser(kslot('ko2'))],
       ]);
+    });
+
+    it('rejects peer kernel promise when a non-bootstrap vat fails to launch', async () => {
+      const config: ClusterConfig = {
+        bootstrap: 'alice',
+        vats: {
+          alice: { sourceSpec: 'alice.js' },
+          bob: { sourceSpec: 'bob.js' },
+        },
+      };
+      (mockKernelStore.initKernelPromise as ReturnType<typeof vi.fn>)
+        .mockReturnValueOnce(['kp1', { state: 'unresolved', subscribers: [] }])
+        .mockReturnValueOnce(['kp2', { state: 'unresolved', subscribers: [] }]);
+      const bobError = new Error('bob exploded');
+      mockVatManager.launchVat
+        .mockResolvedValueOnce('ko1' as KRef)
+        .mockRejectedValueOnce(bobError);
+
+      await expect(subclusterManager.launchSubcluster(config)).rejects.toThrow(
+        'bob exploded',
+      );
+
+      // alice's promise resolved successfully
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
+        ['kp1', false, kser(kslot('ko1'))],
+      ]);
+      // bob's promise rejected with a VAT_TERMINATED kernel error
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
+        ['kp2', true, makeKernelError('VAT_TERMINATED', 'bob exploded')],
+      ]);
+    });
+
+    it('queues bootstrap message before launching vats', async () => {
+      const config = createMockClusterConfig();
+
+      await subclusterManager.launchSubcluster(config);
+
+      const queueOrder = (mockQueueMessage as ReturnType<typeof vi.fn>).mock
+        .invocationCallOrder[0];
+      const launchOrder = (mockVatManager.launchVat as ReturnType<typeof vi.fn>)
+        .mock.invocationCallOrder[0];
+      expect(queueOrder).toBeLessThan(launchOrder as number);
     });
 
     it('includes unrestricted kernel services when specified', async () => {
