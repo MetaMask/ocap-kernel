@@ -1,5 +1,4 @@
 import type { CapData } from '@endo/marshal';
-import { passStyleOf } from '@endo/marshal';
 import type { MethodSpec, Handler } from '@metamask/kernel-rpc-methods';
 import { tuple, string, array } from '@metamask/superstruct';
 import { UnsafeJsonStruct } from '@metamask/utils';
@@ -45,14 +44,14 @@ const KREF_MARKER = '__ref__';
 /**
  * Walk `value` and replace every kref-marker object
  * (`{ [KREF_MARKER]: "koN" }`) with a corresponding `kslot(kref)`
- * standin. Arrays are walked recursively; plain data records are
- * walked recursively only after they pass the `copyRecord` check via
- * `passStyleOf`. Remotables, promises, and other exotic passables
- * are left intact so their identity survives.
+ * standin. Arrays and plain object records are walked recursively.
  *
- * The marker shape is checked BEFORE the `passStyleOf` gate because
- * markers arrive from the RPC boundary as raw JSON-parsed objects
- * (not hardened), which would otherwise trip `passStyleOf`.
+ * The input is guaranteed to be JSON-parsed data at this layer
+ * (queueMessage's `params` type is `Json[]`), so there are no live
+ * remotables, promises, or other exotic passables to protect: every
+ * object is a plain data record and can be walked blindly. The
+ * hardened kslot standins the walker introduces will be hardened
+ * again as part of kser's normal serialization pass.
  *
  * @param value - The value to walk.
  * @returns A value with markers expanded to kslot standins.
@@ -72,15 +71,6 @@ function expandKrefMarkers(value: unknown): unknown {
       insistKRef(kref);
       return kslot(kref);
     }
-  }
-  let style;
-  try {
-    style = passStyleOf(record);
-  } catch {
-    return record;
-  }
-  if (style !== 'copyRecord') {
-    return record;
   }
   const out: Record<string, unknown> = {};
   for (const [key, val] of Object.entries(record)) {
