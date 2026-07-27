@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Launch all vats in a subcluster concurrently during `launchSubcluster`, reducing startup latency from serial to parallel ([#983](https://github.com/MetaMask/ocap-kernel/pull/983))
+  - Bootstrap receives a rejected kernel promise for any peer vat that fails to launch, observable via `E(roots.peer).method()` pipelining
+
 - Add `fetch`, `Request`, `Headers`, and `Response` to available vat endowments ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
   - Add `VatConfig.network: { allowedHosts: string[] }`; requesting `'fetch'` without it rejects `initVat`
 - Integrate Snaps attenuated endowment factories into vat globals ([#937](https://github.com/MetaMask/ocap-kernel/pull/937))

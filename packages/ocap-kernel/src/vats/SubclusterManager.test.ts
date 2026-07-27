@@ -4,7 +4,7 @@ import type { Mocked } from 'vitest';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { KernelQueue } from '../KernelQueue.ts';
-import { kser, kslot, makeKernelError } from '../liveslots/kernel-marshal.ts';
+import { kser, makeKernelError } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
   VatId,
@@ -121,15 +121,12 @@ describe('SubclusterManager', () => {
         'testVat',
         's1',
       );
-      // queueMessage targets the kernel promise for the bootstrap vat's root
-      expect(mockQueueMessage).toHaveBeenCalledWith('kp1', 'bootstrap', [
+      // queueMessage targets the real root KRef once all vats have launched
+      expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
         { testVat: expect.anything() },
         {},
       ]);
-      // kernel promise resolved to the actual root KRef once the vat launched
-      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
-        ['kp1', false, kser(kslot('ko1'))],
-      ]);
+      expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
       expect(result).toStrictEqual({
         subclusterId: 's1',
         rootKref: 'ko1',
@@ -145,10 +142,6 @@ describe('SubclusterManager', () => {
           bob: { sourceSpec: 'bob.js' },
         },
       };
-      // Distinct kernel promise KRefs for alice and bob
-      (mockKernelStore.initKernelPromise as ReturnType<typeof vi.fn>)
-        .mockReturnValueOnce(['kp1', { state: 'unresolved', subscribers: [] }])
-        .mockReturnValueOnce(['kp2', { state: 'unresolved', subscribers: [] }]);
       mockVatManager.launchVat
         .mockResolvedValueOnce('ko1' as KRef)
         .mockResolvedValueOnce('ko2' as KRef);
@@ -166,13 +159,12 @@ describe('SubclusterManager', () => {
         'bob',
         's1',
       );
-      // Both root kernel promises resolved to their respective rootKRefs
-      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
-        ['kp1', false, kser(kslot('ko1'))],
+      // bootstrap receives real ko<N> refs for both vats; no kernel promises allocated
+      expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
+        { alice: expect.anything(), bob: expect.anything() },
+        {},
       ]);
-      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
-        ['kp2', false, kser(kslot('ko2'))],
-      ]);
+      expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
     });
 
     it('rejects peer kernel promise when a non-bootstrap vat fails to launch', async () => {
@@ -183,9 +175,6 @@ describe('SubclusterManager', () => {
           bob: { sourceSpec: 'bob.js' },
         },
       };
-      (mockKernelStore.initKernelPromise as ReturnType<typeof vi.fn>)
-        .mockReturnValueOnce(['kp1', { state: 'unresolved', subscribers: [] }])
-        .mockReturnValueOnce(['kp2', { state: 'unresolved', subscribers: [] }]);
       const bobError = new Error('bob exploded');
       mockVatManager.launchVat
         .mockResolvedValueOnce('ko1' as KRef)
@@ -195,26 +184,18 @@ describe('SubclusterManager', () => {
         'bob exploded',
       );
 
-      // alice's promise resolved successfully
-      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
-        ['kp1', false, kser(kslot('ko1'))],
+      // bootstrap receives alice's real ko1 root ref as queueMessage target
+      expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
+        { alice: expect.anything(), bob: expect.anything() },
+        {},
       ]);
+      // initKernelPromise called once — only for bob's rejected promise
+      expect(mockKernelStore.initKernelPromise).toHaveBeenCalledTimes(1);
       // bob's promise rejected with a VAT_TERMINATED kernel error
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledTimes(1);
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
-        ['kp2', true, makeKernelError('VAT_TERMINATED', 'bob exploded')],
+        ['kp1', true, makeKernelError('VAT_TERMINATED', 'bob exploded')],
       ]);
-    });
-
-    it('queues bootstrap message before launching vats', async () => {
-      const config = createMockClusterConfig();
-
-      await subclusterManager.launchSubcluster(config);
-
-      const queueOrder = (mockQueueMessage as ReturnType<typeof vi.fn>).mock
-        .invocationCallOrder[0];
-      const launchOrder = (mockVatManager.launchVat as ReturnType<typeof vi.fn>)
-        .mock.invocationCallOrder[0];
-      expect(queueOrder).toBeLessThan(launchOrder as number);
     });
 
     it('includes unrestricted kernel services when specified', async () => {
@@ -233,7 +214,7 @@ describe('SubclusterManager', () => {
       await subclusterManager.launchSubcluster(config);
 
       expect(mockGetKernelService).toHaveBeenCalledWith('testService');
-      expect(mockQueueMessage).toHaveBeenCalledWith('kp1', 'bootstrap', [
+      expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
         expect.anything(),
         { testService: expect.anything() },
       ]);
@@ -273,7 +254,7 @@ describe('SubclusterManager', () => {
       await subclusterManager.launchSubcluster(config, { isSystem: true });
 
       expect(mockGetKernelService).toHaveBeenCalledWith('kernelFacet');
-      expect(mockQueueMessage).toHaveBeenCalledWith('kp1', 'bootstrap', [
+      expect(mockQueueMessage).toHaveBeenCalledWith('ko1', 'bootstrap', [
         expect.anything(),
         { kernelFacet: expect.anything() },
       ]);

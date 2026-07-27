@@ -5,12 +5,7 @@ import { Logger } from '@metamask/logger';
 import type { IOManager } from '../io/IOManager.ts';
 import type { KernelQueue } from '../KernelQueue.ts';
 import type { VatManager } from './VatManager.ts';
-import {
-  kser,
-  kslot,
-  kunser,
-  makeKernelError,
-} from '../liveslots/kernel-marshal.ts';
+import { kslot, kunser, makeKernelError } from '../liveslots/kernel-marshal.ts';
 import type { SlotValue } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
@@ -309,19 +304,6 @@ export class SubclusterManager {
   }> {
     const vatEntries = Object.entries(config.vats);
 
-    // Pre-allocate a kernel promise for each vat's root object and build the
-    // roots map in one pass. All sync work runs here, before any launch's
-    // first await, so vatId allocation and store writes are ordered
-    // deterministically.
-    const rootPromiseKrefs: Record<string, KRef> = {};
-    const roots: Record<string, SlotValue> = {};
-    for (const [vatName] of vatEntries) {
-      const [kpid] = this.#kernelStore.initKernelPromise();
-      this.#kernelStore.setPromiseDecider(kpid, 'kernel');
-      rootPromiseKrefs[vatName] = kpid;
-      roots[vatName] = kslot(kpid, 'vatRoot');
-    }
-
     const services: Record<string, SlotValue> = {};
     const ioNames = config.io
       ? new Set(Object.keys(config.io))
@@ -344,66 +326,68 @@ export class SubclusterManager {
       }
     }
 
-    // Queue the bootstrap message immediately, targeting the bootstrap vat's
-    // (still-unresolved) root kernel promise. KernelRouter.#routeMessage sees
-    // an unresolved kp<N> and parks the send on the promise via
-    // enqueuePromiseMessage; it is forwarded once that promise resolves.
-    // config.bootstrap is guaranteed present — validated in launchSubcluster.
-    const bootstrapResultPromise = this.#queueMessage(
-      rootPromiseKrefs[config.bootstrap] as KRef,
-      'bootstrap',
-      [roots, services],
-    );
-    // Attach a no-op rejection handler so that if Promise.all below rejects
-    // first (a vat fails to launch) we don't get an unhandled-rejection
-    // warning while the bootstrap promise waits for kernel cleanup to settle.
-    bootstrapResultPromise.catch(() => undefined);
-
-    // Launch all vats concurrently. As each vat's initVat handshake
-    // completes, resolve its root kernel promise so queued messages are
-    // forwarded by the run loop.
-    const rootRefs = await Promise.all(
+    // Launch all vats concurrently. getNextVatId() runs synchronously before
+    // each launchVat's first await, so vat-ID allocation order is deterministic.
+    const launchResults = await Promise.allSettled(
       vatEntries.map(async ([vatName, vatConfig]) =>
-        this.#vatManager
-          .launchVat(vatConfig, vatName, subclusterId)
-          .then((resolvedRootRef) => {
-            this.#kernelQueue.resolvePromises('kernel', [
-              // vatName is always present — added in the pre-allocation loop
-              [
-                rootPromiseKrefs[vatName] as KRef,
-                false,
-                kser(kslot(resolvedRootRef)),
-              ],
-            ]);
-            return resolvedRootRef;
-          })
-          .catch((error: unknown) => {
-            const detail =
-              error instanceof Error ? error.message : String(error);
-            this.#kernelQueue.resolvePromises('kernel', [
-              [
-                rootPromiseKrefs[vatName] as KRef,
-                true,
-                makeKernelError('VAT_TERMINATED', detail),
-              ],
-            ]);
-            throw error;
-          }),
+        this.#vatManager.launchVat(vatConfig, vatName, subclusterId),
       ),
     );
 
-    // Promise.all preserves insertion order; config.bootstrap is guaranteed
-    // present — validated in launchSubcluster before this method is called.
+    // If the bootstrap vat itself failed to launch, throw immediately.
     const bootstrapIdx = vatEntries.findIndex(
       ([name]) => name === config.bootstrap,
     );
-    const rootKref = rootRefs[bootstrapIdx] as KRef;
+    const bootstrapLaunchResult =
+      launchResults[bootstrapIdx] ??
+      Fail`no launch result for bootstrap vat '${config.bootstrap}'`;
+    if (bootstrapLaunchResult.status === 'rejected') {
+      throw bootstrapLaunchResult.reason;
+    }
+    const rootKref = bootstrapLaunchResult.value;
 
-    const bootstrapResult = await bootstrapResultPromise;
+    // Build the roots map. Succeeded vats receive real ko<N> refs; failed peer
+    // vats receive an immediately-rejected kernel promise so bootstrap can
+    // observe the failure via E(roots.peer).method() pipelining.
+    const roots: Record<string, SlotValue> = {};
+    let firstPeerFailure: Error | undefined;
+    for (let i = 0; i < vatEntries.length; i++) {
+      const [vatName] = vatEntries[i] ?? Fail`missing vat entry at index ${i}`;
+      const result =
+        launchResults[i] ?? Fail`missing launch result at index ${i}`;
+      if (result.status === 'fulfilled') {
+        roots[vatName] = kslot(result.value);
+      } else {
+        // launchVat always wraps failures in new Error(...), so reason is an Error
+        const peerError =
+          result.reason instanceof Error
+            ? result.reason
+            : new Error(String(result.reason));
+        firstPeerFailure ??= peerError;
+        const [kpid] = this.#kernelStore.initKernelPromise();
+        this.#kernelStore.setPromiseDecider(kpid, 'kernel');
+        this.#kernelQueue.resolvePromises('kernel', [
+          [kpid, true, makeKernelError('VAT_TERMINATED', peerError.message)],
+        ]);
+        roots[vatName] = kslot(kpid, 'vatRoot');
+      }
+    }
+
+    const bootstrapResult = await this.#queueMessage(rootKref, 'bootstrap', [
+      roots,
+      services,
+    ]);
     const unserialized = kunser(bootstrapResult);
     if (unserialized instanceof Error) {
       throw unserialized;
     }
+
+    // If any peer vats failed to launch, propagate after bootstrap has had a
+    // chance to observe and handle the failures.
+    if (firstPeerFailure !== undefined) {
+      throw firstPeerFailure;
+    }
+
     return { rootKref, bootstrapResult };
   }
 
