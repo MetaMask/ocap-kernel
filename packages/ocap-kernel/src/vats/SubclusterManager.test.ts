@@ -131,6 +131,7 @@ describe('SubclusterManager', () => {
         subclusterId: 's1',
         rootKref: 'ko1',
         bootstrapResult: { body: '{"result":"ok"}', slots: [] },
+        vatRootKrefs: { testVat: 'ko1' },
       });
     });
 
@@ -486,6 +487,7 @@ describe('SubclusterManager', () => {
         subclusterId: 's1',
         rootKref: 'ko1',
         bootstrapResult,
+        vatRootKrefs: { testVat: 'ko1' },
       });
     });
 

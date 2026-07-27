@@ -135,11 +135,9 @@ export class SubclusterManager {
       }
 
       this.#validateServices(config, isSystem);
-      const { rootKref, bootstrapResult } = await this.#launchVatsForSubcluster(
-        subclusterId,
-        config,
-      );
-      return { subclusterId, rootKref, bootstrapResult };
+      const { rootKref, bootstrapResult, vatRootKrefs } =
+        await this.#launchVatsForSubcluster(subclusterId, config);
+      return { subclusterId, rootKref, bootstrapResult, vatRootKrefs };
     } catch (error) {
       // Roll back IO channels and persisted subcluster on failure.
       // Cleanup is best-effort — errors must not mask the original failure.
@@ -301,6 +299,7 @@ export class SubclusterManager {
   ): Promise<{
     rootKref: KRef;
     bootstrapResult: CapData<KRef> | undefined;
+    vatRootKrefs: Record<string, KRef>;
   }> {
     const vatEntries = Object.entries(config.vats);
 
@@ -350,6 +349,7 @@ export class SubclusterManager {
     // vats receive an immediately-rejected kernel promise so bootstrap can
     // observe the failure via E(roots.peer).method() pipelining.
     const roots: Record<string, SlotValue> = {};
+    const vatRootKrefs: Record<string, KRef> = {};
     let firstPeerFailure: Error | undefined;
     for (let i = 0; i < vatEntries.length; i++) {
       const [vatName] = vatEntries[i] ?? Fail`missing vat entry at index ${i}`;
@@ -357,6 +357,7 @@ export class SubclusterManager {
         launchResults[i] ?? Fail`missing launch result at index ${i}`;
       if (result.status === 'fulfilled') {
         roots[vatName] = kslot(result.value);
+        vatRootKrefs[vatName] = result.value;
       } else {
         // launchVat always wraps failures in new Error(...), so reason is an Error
         const peerError =
@@ -388,7 +389,7 @@ export class SubclusterManager {
       throw firstPeerFailure;
     }
 
-    return { rootKref, bootstrapResult };
+    return { rootKref, bootstrapResult, vatRootKrefs };
   }
 
   /**
