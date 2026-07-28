@@ -54,9 +54,11 @@ const REVISION_OUTCOMES: readonly RevisionOutcome[] = [
   {
     changeNeeded: true,
     body:
-      'Bump the deep-sleep wake-pull-up to the strong-internal ' +
-      'setting; the voice button took two attempts to wake from a ' +
-      "cold idle on one of the units. Minor, but the 15-unit run shouldn't inherit it.",
+      'Enable the internal pull-up on the wake-pin config in the ' +
+      'deep-sleep entry path (currently left floating in software); ' +
+      'the voice button took two attempts to wake from a cold idle ' +
+      'on one of the units. Firmware-only change, no hardware ' +
+      "impact; the 15-unit run shouldn't inherit it.",
   },
 ];
 

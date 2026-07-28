@@ -222,10 +222,19 @@ Per-phase intent:
   `demo_wallet_withdraw({amountCents: 100000, reason:
 "firmware spec"})` first) and returns a markdown firmware
   specification (state machine, peripheral I/O, update/recovery).
-  Present that to the inventor and ask for approval — they may
-  approve unconditionally or with proposed changes ("approve
-  subject to: bump the idle timeout, add a BLE HID placeholder,
-  …"). Round 2 calls the service's `implement` method (~$5,000,
+  Present that to the inventor and ask for approval. **When
+  narrating the spec to the inventor, describe what the firmware
+  DOES — state machines, timing budgets, protocol handling,
+  power-management sequences, OTA behavior. Do NOT re-present
+  hardware particulars (MCU part number, GPIO counts, battery
+  chemistry, IR emitter placement) as if they're being decided
+  here; those were fixed by Industrial Design / Mechanical Design /
+  Electronics and the spec merely names them as targets. If you
+  find yourself listing hardware line items in a firmware summary,
+  cut them.** The inventor may approve unconditionally or with
+  proposed changes ("approve subject to: bump the idle timeout,
+  add a BLE HID placeholder, …"). Round 2 calls the service's
+  `implement` method (~$5,000,
   so a fresh `demo_wallet_withdraw({amountCents: 500000, reason:
 "firmware implementation"})` first) with an `approval` object
   containing the spec markdown (passed as
