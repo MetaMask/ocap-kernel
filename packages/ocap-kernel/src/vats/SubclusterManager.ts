@@ -351,13 +351,13 @@ export class SubclusterManager {
     // Build the roots map. Succeeded vats receive real ko<N> refs; failed peer
     // vats receive an immediately-rejected kernel promise so bootstrap can
     // observe the failure via E(roots.peer).method() pipelining.
-    const roots: Record<string, SlotValue> = {};
-    const vatRootKrefs: Record<string, KRef> = {};
     // Reject vat names that shadow Object.prototype built-ins (__proto__,
     // constructor, etc.) before using them as property keys.
     for (const [name] of vatEntries) {
       !(name in Object.prototype) || Fail`invalid vat name '${name}'`;
     }
+    const rootsEntries: [string, SlotValue][] = [];
+    const vatRootKrefsEntries: [string, KRef][] = [];
     let firstPeerFailure: Error | undefined;
     for (let i = 0; i < vatEntries.length; i++) {
       const vatEntry = vatEntries[i];
@@ -367,8 +367,8 @@ export class SubclusterManager {
       }
       const [vatName] = vatEntry;
       if (result.status === 'fulfilled') {
-        roots[vatName] = kslot(result.value); // lgtm [js/remote-property-injection]
-        vatRootKrefs[vatName] = result.value; // lgtm [js/remote-property-injection]
+        rootsEntries.push([vatName, kslot(result.value)]);
+        vatRootKrefsEntries.push([vatName, result.value]);
       } else {
         // launchVat always wraps failures in new Error(...), so reason is an Error
         const peerError =
@@ -381,9 +381,11 @@ export class SubclusterManager {
         this.#kernelQueue.resolvePromises('kernel', [
           [kpid, true, makeKernelError('VAT_TERMINATED', peerError.message)],
         ]);
-        roots[vatName] = kslot(kpid, 'vatRoot'); // lgtm [js/remote-property-injection]
+        rootsEntries.push([vatName, kslot(kpid, 'vatRoot')]);
       }
     }
+    const roots = Object.fromEntries(rootsEntries);
+    const vatRootKrefs = Object.fromEntries(vatRootKrefsEntries);
 
     const bootstrapResult = await this.#queueMessage(rootKref, 'bootstrap', [
       roots,
