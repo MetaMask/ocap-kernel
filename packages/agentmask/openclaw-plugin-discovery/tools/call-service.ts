@@ -20,14 +20,14 @@
  *   from the previous phase, etc., without inlining the bytes into its
  *   tool call.
  *
- * - `{ __ref__: "nickname" }` — expanded to `{ __ref__: "koN" }` where
- *   `koN` is the kref for the ocap reference registered under
+ * - `{ __ref__: "nickname" }` — expanded to the string `"@@koN"`,
+ *   where `koN` is the kref for the ocap reference registered under
  *   `nickname` (from `service_initiate_contact` or the ref-walker that
- *   fires on service_call responses). The kernel side then re-encodes
- *   the kref marker as a real CapData slot so the receiver sees a live
- *   remotable, not a plain data object. This is the way to pass an
- *   ocap reference obtained from an earlier call as an argument to a
- *   later call.
+ *   fires on service_call responses). The kernel side then recognises
+ *   the `@@`-sigil string as a reference marker and re-encodes it as
+ *   a real CapData slot so the receiver sees a live remotable, not a
+ *   plain data object. This is the way to pass an ocap reference
+ *   obtained from an earlier call as an argument to a later call.
  */
 import { getArtifactStore, isArtifactShape } from '../artifact-store.ts';
 import type { StoredArtifact } from '../artifact-store.ts';
@@ -156,13 +156,12 @@ export function registerCallServiceTool(options: {
    *   artifact body as an arg without the bytes round-tripping through
    *   the model.
    *
-   * - `{ __ref__: "nickname" }` — replaced by `{ __ref__: "koN" }`
+   * - `{ __ref__: "nickname" }` — replaced by the string `"@@koN"`
    *   where `koN` is the kref for the ocap reference registered under
-   *   that nickname. The kernel's arg-side machinery (see
-   *   `expandKrefMarkers` in `@metamask/ocap-kernel`) sees the kref
-   *   marker and re-encodes it as a real CapData slot before the
-   *   message is delivered, so the receiver gets a live remotable, not
-   *   a plain data object.
+   *   that nickname. The kernel's queueMessage RPC handler recognises
+   *   the `@@`-sigil string as a reference marker and re-encodes it
+   *   as a real CapData slot before the message is delivered, so the
+   *   receiver gets a live remotable, not a plain data object.
    *
    * Anything else passes through unchanged. Arrays and objects are
    * walked recursively. An unresolved handle or nickname throws so the
@@ -203,7 +202,7 @@ export function registerCallServiceTool(options: {
                 'from a previous service_call response.',
             );
           }
-          return { __ref__: entry.kref };
+          return `@@${entry.kref}`;
         }
       }
     }
