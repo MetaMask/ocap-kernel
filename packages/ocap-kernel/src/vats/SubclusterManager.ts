@@ -367,8 +367,8 @@ export class SubclusterManager {
       }
       const [vatName] = vatEntry;
       if (result.status === 'fulfilled') {
-        roots[vatName] = kslot(result.value); // lgtm[js/remote-property-injection]
-        vatRootKrefs[vatName] = result.value; // lgtm[js/remote-property-injection]
+        roots[vatName] = kslot(result.value); // lgtm [js/remote-property-injection]
+        vatRootKrefs[vatName] = result.value; // lgtm [js/remote-property-injection]
       } else {
         // launchVat always wraps failures in new Error(...), so reason is an Error
         const peerError =
@@ -381,7 +381,7 @@ export class SubclusterManager {
         this.#kernelQueue.resolvePromises('kernel', [
           [kpid, true, makeKernelError('VAT_TERMINATED', peerError.message)],
         ]);
-        roots[vatName] = kslot(kpid, 'vatRoot'); // lgtm[js/remote-property-injection]
+        roots[vatName] = kslot(kpid, 'vatRoot'); // lgtm [js/remote-property-injection]
       }
     }
 
