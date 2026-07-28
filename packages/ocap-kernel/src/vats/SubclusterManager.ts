@@ -303,10 +303,7 @@ export class SubclusterManager {
   }> {
     const vatEntries = Object.entries(config.vats);
 
-    const services: Record<string, SlotValue> = Object.create(null) as Record<
-      string,
-      SlotValue
-    >;
+    const services: Record<string, SlotValue> = {};
     const ioNames = config.io
       ? new Set(Object.keys(config.io))
       : new Set<string>();
@@ -354,14 +351,13 @@ export class SubclusterManager {
     // Build the roots map. Succeeded vats receive real ko<N> refs; failed peer
     // vats receive an immediately-rejected kernel promise so bootstrap can
     // observe the failure via E(roots.peer).method() pipelining.
-    const roots: Record<string, SlotValue> = Object.create(null) as Record<
-      string,
-      SlotValue
-    >;
-    const vatRootKrefs: Record<string, KRef> = Object.create(null) as Record<
-      string,
-      KRef
-    >;
+    const roots: Record<string, SlotValue> = {};
+    const vatRootKrefs: Record<string, KRef> = {};
+    // Reject vat names that shadow Object.prototype built-ins (__proto__,
+    // constructor, etc.) before using them as property keys.
+    for (const [name] of vatEntries) {
+      !(name in Object.prototype) || Fail`invalid vat name '${name}'`;
+    }
     let firstPeerFailure: Error | undefined;
     for (let i = 0; i < vatEntries.length; i++) {
       const vatEntry = vatEntries[i];
@@ -371,8 +367,8 @@ export class SubclusterManager {
       }
       const [vatName] = vatEntry;
       if (result.status === 'fulfilled') {
-        roots[vatName] = kslot(result.value);
-        vatRootKrefs[vatName] = result.value;
+        roots[vatName] = kslot(result.value); // lgtm[js/remote-property-injection]
+        vatRootKrefs[vatName] = result.value; // lgtm[js/remote-property-injection]
       } else {
         // launchVat always wraps failures in new Error(...), so reason is an Error
         const peerError =
@@ -385,7 +381,7 @@ export class SubclusterManager {
         this.#kernelQueue.resolvePromises('kernel', [
           [kpid, true, makeKernelError('VAT_TERMINATED', peerError.message)],
         ]);
-        roots[vatName] = kslot(kpid, 'vatRoot');
+        roots[vatName] = kslot(kpid, 'vatRoot'); // lgtm[js/remote-property-injection]
       }
     }
 
@@ -404,7 +400,7 @@ export class SubclusterManager {
       throw firstPeerFailure;
     }
 
-    return { rootKref, bootstrapResult, vatRootKrefs: { ...vatRootKrefs } };
+    return { rootKref, bootstrapResult, vatRootKrefs };
   }
 
   /**
