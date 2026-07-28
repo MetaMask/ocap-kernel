@@ -303,7 +303,10 @@ export class SubclusterManager {
   }> {
     const vatEntries = Object.entries(config.vats);
 
-    const services: Record<string, SlotValue> = {};
+    const services: Record<string, SlotValue> = Object.create(null) as Record<
+      string,
+      SlotValue
+    >;
     const ioNames = config.io
       ? new Set(Object.keys(config.io))
       : new Set<string>();
@@ -351,8 +354,14 @@ export class SubclusterManager {
     // Build the roots map. Succeeded vats receive real ko<N> refs; failed peer
     // vats receive an immediately-rejected kernel promise so bootstrap can
     // observe the failure via E(roots.peer).method() pipelining.
-    const roots: Record<string, SlotValue> = {};
-    const vatRootKrefs: Record<string, KRef> = {};
+    const roots: Record<string, SlotValue> = Object.create(null) as Record<
+      string,
+      SlotValue
+    >;
+    const vatRootKrefs: Record<string, KRef> = Object.create(null) as Record<
+      string,
+      KRef
+    >;
     let firstPeerFailure: Error | undefined;
     for (let i = 0; i < vatEntries.length; i++) {
       const vatEntry = vatEntries[i];
@@ -395,7 +404,7 @@ export class SubclusterManager {
       throw firstPeerFailure;
     }
 
-    return { rootKref, bootstrapResult, vatRootKrefs };
+    return { rootKref, bootstrapResult, vatRootKrefs: { ...vatRootKrefs } };
   }
 
   /**
