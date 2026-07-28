@@ -44,7 +44,7 @@ export function getVatMethods(ctx: StoreContext) {
     getKernelPromise,
     addPromiseSubscriber,
   } = getPromiseMethods(ctx);
-  const { initKernelObject } = getObjectMethods(ctx);
+  const { initKernelObject, getObjectRefCount } = getObjectMethods(ctx);
   const { addCListEntry } = getCListMethods(ctx);
   const { incrementRefCount, decrementRefCount } = getRefCountMethods(ctx);
 
@@ -261,8 +261,11 @@ export function getVatMethods(ctx: StoreContext) {
       const { vatSlot } = getReachableAndVatSlot(vatID, kref);
       ctx.kv.delete(getSlotKey(vatID, kref));
       ctx.kv.delete(getSlotKey(vatID, vatSlot));
-      // Decrease refcounts that belonged to the terminating vat
-      decrementRefCount(kref, 'cleanup|export|baseline');
+      // Skip baseline decrement if GC already zeroed reachable via dropImports.
+      const { reachable } = getObjectRefCount(kref);
+      if (reachable > 0) {
+        decrementRefCount(kref, 'cleanup|export|baseline');
+      }
       ctx.maybeFreeKrefs.add(kref);
       work.exports += 1;
     }
