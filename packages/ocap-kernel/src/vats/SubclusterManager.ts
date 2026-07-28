@@ -337,9 +337,12 @@ export class SubclusterManager {
     const bootstrapIdx = vatEntries.findIndex(
       ([name]) => name === config.bootstrap,
     );
-    const bootstrapLaunchResult =
-      launchResults[bootstrapIdx] ??
-      Fail`no launch result for bootstrap vat '${config.bootstrap}'`;
+    // bootstrapIdx is guaranteed ≥ 0 because launchSubcluster validates that
+    // config.vats[config.bootstrap] exists. The undefined guard satisfies tsc.
+    const bootstrapLaunchResult = launchResults[bootstrapIdx];
+    if (bootstrapLaunchResult === undefined) {
+      throw Fail`no launch result for bootstrap vat '${config.bootstrap}'`;
+    }
     if (bootstrapLaunchResult.status === 'rejected') {
       throw bootstrapLaunchResult.reason;
     }
@@ -352,9 +355,12 @@ export class SubclusterManager {
     const vatRootKrefs: Record<string, KRef> = {};
     let firstPeerFailure: Error | undefined;
     for (let i = 0; i < vatEntries.length; i++) {
-      const [vatName] = vatEntries[i] ?? Fail`missing vat entry at index ${i}`;
-      const result =
-        launchResults[i] ?? Fail`missing launch result at index ${i}`;
+      const vatEntry = vatEntries[i];
+      const result = launchResults[i];
+      if (vatEntry === undefined || result === undefined) {
+        throw Fail`missing entry at index ${i}`;
+      }
+      const [vatName] = vatEntry;
       if (result.status === 'fulfilled') {
         roots[vatName] = kslot(result.value);
         vatRootKrefs[vatName] = result.value;
