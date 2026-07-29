@@ -351,11 +351,6 @@ export class SubclusterManager {
     // Build the roots map. Succeeded vats receive real ko<N> refs; failed peer
     // vats receive an immediately-rejected kernel promise so bootstrap can
     // observe the failure via E(roots.peer).method() pipelining.
-    // Reject vat names that shadow Object.prototype built-ins (__proto__,
-    // constructor, etc.) before using them as property keys.
-    for (const [name] of vatEntries) {
-      !(name in Object.prototype) || Fail`invalid vat name '${name}'`;
-    }
     const rootsEntries: [string, SlotValue][] = [];
     const vatRootKrefsEntries: [string, KRef][] = [];
     let firstPeerFailure: Error | undefined;
@@ -366,6 +361,9 @@ export class SubclusterManager {
         throw Fail`missing entry at index ${i}`;
       }
       const [vatName] = vatEntry;
+      // Reject vat names that shadow Object.prototype built-ins (__proto__,
+      // constructor, etc.) before using them as property keys.
+      !(vatName in Object.prototype) || Fail`invalid vat name '${vatName}'`;
       if (result.status === 'fulfilled') {
         rootsEntries.push([vatName, kslot(result.value)]);
         vatRootKrefsEntries.push([vatName, result.value]);
@@ -381,7 +379,7 @@ export class SubclusterManager {
         this.#kernelQueue.resolvePromises('kernel', [
           [kpid, true, makeKernelError('VAT_TERMINATED', peerError.message)],
         ]);
-        rootsEntries.push([vatName, kslot(kpid, 'vatRoot')]);
+        rootsEntries.push([vatName, kslot(kpid)]);
       }
     }
     const roots = Object.fromEntries(rootsEntries);
