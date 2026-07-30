@@ -1,9 +1,9 @@
 {
-  "name": "@ocap/llm-mediator-vat",
+  "name": "@ocap/ocap-jsonrpc-vat",
   "version": "0.0.0",
   "private": true,
-  "description": "Ocap kernel vat that mediates JSON-RPC calls from a local LLM tooling process to kernel objects, replacing direct use of the kernel-cli's queueMessage RPC",
-  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/llm-mediator-vat#readme",
+  "description": "Ocap kernel vat that exposes access to kernel objects via a JSON-RPC interface on a Unix-domain socket",
+  "homepage": "https://github.com/MetaMask/ocap-kernel/tree/main/packages/ocap-jsonrpc-vat#readme",
   "bugs": {
     "url": "https://github.com/MetaMask/ocap-kernel/issues"
   },
@@ -30,9 +30,9 @@
   ],
   "scripts": {
     "build": "ts-bridge --project tsconfig.build.json --no-references --clean",
-    "bundle-vat": "node ../kernel-cli/dist/app.mjs bundle ./src/mediator-vat/index.ts",
+    "bundle-vat": "node ../kernel-cli/dist/app.mjs bundle ./src/vat/index.ts",
     "build:docs": "typedoc",
-    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/llm-mediator-vat",
+    "changelog:validate": "../../scripts/validate-changelog.sh @ocap/ocap-jsonrpc-vat",
     "clean": "rimraf --glob './*.tsbuildinfo' ./.eslintcache ./coverage ./dist ./.turbo ./logs",
     "lint": "yarn lint:eslint && yarn lint:misc --check && yarn constraints && yarn lint:dependencies",
     "lint:dependencies": "depcheck --quiet",

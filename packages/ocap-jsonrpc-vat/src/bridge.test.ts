@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 
+import { makeBridge } from './bridge.ts';
+import type { BridgeHooks } from './bridge.ts';
 import { JSON_RPC_ERROR } from './json-rpc.ts';
-import { makeMediator } from './mediator.ts';
-import type { MediatorHooks } from './mediator.ts';
 
 type FakeRemotable = { __fakeRemotable__: true; label: string };
 
@@ -17,14 +17,14 @@ const isFakeRemotable = (value: unknown): boolean =>
   (value as { __fakeRemotable__?: unknown }).__fakeRemotable__ === true;
 
 /**
- * Build a mediator with configurable hooks. `redeem` and `invoke`
+ * Build a bridge with configurable hooks. `redeem` and `invoke`
  * default to `vi.fn()` so tests can inspect calls.
  *
  * @param overrides - Any hooks to replace defaults with.
- * @returns The mediator plus references to the hook mocks.
+ * @returns The bridge plus references to the hook mocks.
  */
-function buildMediator(overrides: Partial<MediatorHooks> = {}): {
-  mediator: ReturnType<typeof makeMediator>;
+function buildBridge(overrides: Partial<BridgeHooks> = {}): {
+  bridge: ReturnType<typeof makeBridge>;
   hooks: {
     redeem: ReturnType<typeof vi.fn>;
     invoke: ReturnType<typeof vi.fn>;
@@ -35,22 +35,22 @@ function buildMediator(overrides: Partial<MediatorHooks> = {}): {
     async (_target: unknown, _method: string, _args: unknown[]) =>
       undefined as unknown,
   );
-  const hooks: MediatorHooks = {
+  const hooks: BridgeHooks = {
     redeem,
     invoke,
     isRemotable: isFakeRemotable,
     ...overrides,
   };
   return {
-    mediator: makeMediator(hooks),
+    bridge: makeBridge(hooks),
     hooks: { redeem, invoke },
   };
 }
 
 describe('dispatch: request validation', () => {
   it('rejects a non-object request', async () => {
-    const { mediator } = buildMediator();
-    const response = await mediator.dispatch(null);
+    const { bridge } = buildBridge();
+    const response = await bridge.dispatch(null);
     expect(response).toStrictEqual({
       jsonrpc: '2.0',
       id: null,
@@ -62,8 +62,8 @@ describe('dispatch: request validation', () => {
   });
 
   it('rejects a request without jsonrpc: "2.0"', async () => {
-    const { mediator } = buildMediator();
-    const response = await mediator.dispatch({
+    const { bridge } = buildBridge();
+    const response = await bridge.dispatch({
       id: 1,
       method: 'send',
       params: {},
@@ -74,8 +74,8 @@ describe('dispatch: request validation', () => {
   });
 
   it('rejects an unknown method', async () => {
-    const { mediator } = buildMediator();
-    const response = await mediator.dispatch({
+    const { bridge } = buildBridge();
+    const response = await bridge.dispatch({
       jsonrpc: '2.0',
       id: 7,
       method: 'destroyEverything',
@@ -91,103 +91,125 @@ describe('dispatch: request validation', () => {
   });
 });
 
-describe('initialize', () => {
-  it('redeems each URL in parallel and returns marker names in order', async () => {
+describe('redeemURL', () => {
+  it('redeems a URL and returns its marker name', async () => {
     const alpha = makeFake('alpha');
-    const beta = makeFake('beta');
     const redeem = vi.fn(async (url: string) => {
-      if (url === 'ocap:alpha') {
-        return alpha;
-      }
-      if (url === 'ocap:beta') {
-        return beta;
-      }
-      throw new Error(`unknown url ${url}`);
+      expect(url).toBe('ocap:alpha');
+      return alpha;
     });
-    const { mediator } = buildMediator({ redeem });
-    const response = await mediator.dispatch({
+    const { bridge } = buildBridge({ redeem });
+    const response = await bridge.dispatch({
       jsonrpc: '2.0',
       id: 1,
-      method: 'initialize',
-      params: { urls: ['ocap:alpha', 'ocap:beta'] },
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
     });
     expect(response).toStrictEqual({
       jsonrpc: '2.0',
       id: 1,
-      result: { refs: ['@@o1', '@@o2'] },
-    });
-    expect(redeem).toHaveBeenCalledTimes(2);
-  });
-
-  it('rejects a second initialize call', async () => {
-    const { mediator } = buildMediator();
-    const first = await mediator.dispatch({
-      jsonrpc: '2.0',
-      id: 1,
-      method: 'initialize',
-      params: { urls: [] },
-    });
-    expect(first).toHaveProperty('result');
-    const second = await mediator.dispatch({
-      jsonrpc: '2.0',
-      id: 2,
-      method: 'initialize',
-      params: { urls: [] },
-    });
-    expect(second).toMatchObject({
-      id: 2,
-      error: {
-        code: JSON_RPC_ERROR.APPLICATION_ERROR,
-        message: 'initialize may only be called once per session',
-      },
+      result: '@@o1',
     });
   });
 
-  it('rejects non-string entries in params.urls', async () => {
-    const { mediator } = buildMediator();
-    const response = await mediator.dispatch({
+  it('reuses the same name across successive redemptions of the same identity', async () => {
+    const alpha = makeFake('alpha');
+    const { bridge } = buildBridge({ redeem: async () => alpha });
+    const first = (await bridge.dispatch({
       jsonrpc: '2.0',
       id: 1,
-      method: 'initialize',
-      params: { urls: ['ocap:x', 42] },
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
+    })) as { result?: unknown };
+    const second = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
+    })) as { result?: unknown };
+    expect(first.result).toBe('@@o1');
+    expect(second.result).toBe('@@o1');
+  });
+
+  it('assigns distinct names for distinct identities', async () => {
+    const alpha = makeFake('alpha');
+    const beta = makeFake('beta');
+    const { bridge } = buildBridge({
+      redeem: async (url) => (url === 'ocap:alpha' ? alpha : beta),
+    });
+    const first = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
+    })) as { result?: unknown };
+    const second = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'redeemURL',
+      params: { url: 'ocap:beta' },
+    })) as { result?: unknown };
+    expect(first.result).toBe('@@o1');
+    expect(second.result).toBe('@@o2');
+  });
+
+  it('rejects a non-string url param', async () => {
+    const { bridge } = buildBridge();
+    const response = await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'redeemURL',
+      params: { url: 42 },
     });
     expect(response).toMatchObject({
       error: { code: JSON_RPC_ERROR.INVALID_PARAMS },
     });
   });
-});
 
-describe('send', () => {
-  it('rejects a send before initialize', async () => {
-    const { mediator } = buildMediator();
-    const response = await mediator.dispatch({
+  it('surfaces a redeem() rejection as an application error', async () => {
+    const { bridge } = buildBridge({
+      redeem: async () => {
+        throw new Error('remote said no');
+      },
+    });
+    const response = await bridge.dispatch({
       jsonrpc: '2.0',
       id: 1,
-      method: 'send',
-      params: { target: '@@o1', method: 'ping', args: [] },
+      method: 'redeemURL',
+      params: { url: 'ocap:x' },
     });
-    expect(response).toMatchObject({
+    expect(response).toStrictEqual({
+      jsonrpc: '2.0',
+      id: 1,
       error: {
         code: JSON_RPC_ERROR.APPLICATION_ERROR,
-        message: 'send called before initialize',
+        message: 'remote said no',
       },
     });
   });
+});
 
+describe('send', () => {
   it('rejects an unknown @@ target', async () => {
-    const alpha = makeFake('alpha');
-    const { mediator } = buildMediator({ redeem: vi.fn(async () => alpha) });
-    await mediator.dispatch({
+    const { bridge } = buildBridge();
+    const response = await bridge.dispatch({
       jsonrpc: '2.0',
       id: 1,
-      method: 'initialize',
-      params: { urls: ['ocap:alpha'] },
-    });
-    const response = await mediator.dispatch({
-      jsonrpc: '2.0',
-      id: 2,
       method: 'send',
       params: { target: '@@o99', method: 'noSuch', args: [] },
+    });
+    expect(response).toMatchObject({
+      error: { code: JSON_RPC_ERROR.INVALID_PARAMS },
+    });
+  });
+
+  it('rejects a badly-formed target string', async () => {
+    const { bridge } = buildBridge();
+    const response = await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'send',
+      params: { target: 'not-a-marker', method: 'x', args: [] },
     });
     expect(response).toMatchObject({
       error: { code: JSON_RPC_ERROR.INVALID_PARAMS },
@@ -200,19 +222,25 @@ describe('send', () => {
     const invoke = vi.fn(
       async (_target: unknown, _method: string, _args: unknown[]) => 42,
     );
-    const { mediator } = buildMediator({
+    const { bridge } = buildBridge({
       redeem: async (url) => (url === 'ocap:alpha' ? alpha : beta),
       invoke,
     });
-    await mediator.dispatch({
+    await bridge.dispatch({
       jsonrpc: '2.0',
       id: 1,
-      method: 'initialize',
-      params: { urls: ['ocap:alpha', 'ocap:beta'] },
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
     });
-    await mediator.dispatch({
+    await bridge.dispatch({
       jsonrpc: '2.0',
       id: 2,
+      method: 'redeemURL',
+      params: { url: 'ocap:beta' },
+    });
+    await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 3,
       method: 'send',
       params: {
         target: '@@o1',
@@ -229,18 +257,17 @@ describe('send', () => {
   it('substitutes remotables in the result with marker strings', async () => {
     const alpha = makeFake('alpha');
     const beta = makeFake('beta');
-    // Give `alpha.receive()` a return value that mixes in a new remotable.
-    const { mediator } = buildMediator({
+    const { bridge } = buildBridge({
       redeem: async () => alpha,
       invoke: async () => ({ echo: 'ok', partner: beta }),
     });
-    await mediator.dispatch({
+    await bridge.dispatch({
       jsonrpc: '2.0',
       id: 1,
-      method: 'initialize',
-      params: { urls: ['ocap:alpha'] },
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
     });
-    const response = await mediator.dispatch({
+    const response = await bridge.dispatch({
       jsonrpc: '2.0',
       id: 2,
       method: 'send',
@@ -256,26 +283,24 @@ describe('send', () => {
   it('reuses names for objects seen previously', async () => {
     const alpha = makeFake('alpha');
     const beta = makeFake('beta');
-    const { mediator } = buildMediator({
+    const { bridge } = buildBridge({
       redeem: async () => alpha,
       invoke: async () => beta,
     });
-    await mediator.dispatch({
+    await bridge.dispatch({
       jsonrpc: '2.0',
       id: 1,
-      method: 'initialize',
-      params: { urls: ['ocap:alpha'] },
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
     });
-    // First send returns beta — beta gets @@o2.
-    const first = (await mediator.dispatch({
+    const first = (await bridge.dispatch({
       jsonrpc: '2.0',
       id: 2,
       method: 'send',
       params: { target: '@@o1', method: 'getBeta', args: [] },
     })) as { result?: unknown };
     expect(first.result).toBe('@@o2');
-    // Second send returns beta again — same name reused.
-    const second = (await mediator.dispatch({
+    const second = (await bridge.dispatch({
       jsonrpc: '2.0',
       id: 3,
       method: 'send',
@@ -286,19 +311,19 @@ describe('send', () => {
 
   it('packages an invoke() rejection as an application error', async () => {
     const alpha = makeFake('alpha');
-    const { mediator } = buildMediator({
+    const { bridge } = buildBridge({
       redeem: async () => alpha,
       invoke: async () => {
         throw new Error('remote said no');
       },
     });
-    await mediator.dispatch({
+    await bridge.dispatch({
       jsonrpc: '2.0',
       id: 1,
-      method: 'initialize',
-      params: { urls: ['ocap:alpha'] },
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
     });
-    const response = await mediator.dispatch({
+    const response = await bridge.dispatch({
       jsonrpc: '2.0',
       id: 2,
       method: 'send',
@@ -316,18 +341,17 @@ describe('send', () => {
 });
 
 describe('resetSession', () => {
-  it('reverts to the pre-initialize state', async () => {
+  it('discards names so previously-known targets are no longer known', async () => {
     const alpha = makeFake('alpha');
-    const { mediator } = buildMediator({ redeem: async () => alpha });
-    await mediator.dispatch({
+    const { bridge } = buildBridge({ redeem: async () => alpha });
+    await bridge.dispatch({
       jsonrpc: '2.0',
       id: 1,
-      method: 'initialize',
-      params: { urls: ['ocap:alpha'] },
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
     });
-    mediator.resetSession();
-    // Send now fails as pre-initialize.
-    const response = await mediator.dispatch({
+    bridge.resetSession();
+    const response = await bridge.dispatch({
       jsonrpc: '2.0',
       id: 2,
       method: 'send',
@@ -335,8 +359,8 @@ describe('resetSession', () => {
     });
     expect(response).toMatchObject({
       error: {
-        code: JSON_RPC_ERROR.APPLICATION_ERROR,
-        message: 'send called before initialize',
+        code: JSON_RPC_ERROR.INVALID_PARAMS,
+        message: 'params.target "@@o1" is not a known reference',
       },
     });
   });
@@ -344,23 +368,23 @@ describe('resetSession', () => {
   it('resets the name counter so o1 is reallocated fresh', async () => {
     const alpha = makeFake('alpha');
     const gamma = makeFake('gamma');
-    const { mediator } = buildMediator({
+    const { bridge } = buildBridge({
       redeem: async (url) => (url === 'ocap:alpha' ? alpha : gamma),
     });
-    const first = (await mediator.dispatch({
+    const first = (await bridge.dispatch({
       jsonrpc: '2.0',
       id: 1,
-      method: 'initialize',
-      params: { urls: ['ocap:alpha'] },
-    })) as { result?: { refs?: unknown } };
-    expect(first.result?.refs).toStrictEqual(['@@o1']);
-    mediator.resetSession();
-    const second = (await mediator.dispatch({
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
+    })) as { result?: unknown };
+    expect(first.result).toBe('@@o1');
+    bridge.resetSession();
+    const second = (await bridge.dispatch({
       jsonrpc: '2.0',
       id: 2,
-      method: 'initialize',
-      params: { urls: ['ocap:gamma'] },
-    })) as { result?: { refs?: unknown } };
-    expect(second.result?.refs).toStrictEqual(['@@o1']);
+      method: 'redeemURL',
+      params: { url: 'ocap:gamma' },
+    })) as { result?: unknown };
+    expect(second.result).toBe('@@o1');
   });
 });

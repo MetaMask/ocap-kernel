@@ -1,15 +1,15 @@
 export {
-  MEDIATOR_BUNDLE_FILENAME,
-  MEDIATOR_SOCKET_CHANNEL,
-  MEDIATOR_VAT_NAME,
-  makeMediatorClusterConfig,
+  OCAP_JSONRPC_BUNDLE_FILENAME,
+  OCAP_JSONRPC_SOCKET_CHANNEL,
+  OCAP_JSONRPC_VAT_NAME,
+  makeOcapJsonrpcClusterConfig,
 } from './cluster-config.ts';
 
 export {
   MARKER_PATTERN,
   MARKER_PREFIX,
   JSON_RPC_ERROR,
-  MediatorRpcError,
+  BridgeRpcError,
   type JsonRpcId,
   type JsonRpcRequest,
   type JsonRpcResponse,

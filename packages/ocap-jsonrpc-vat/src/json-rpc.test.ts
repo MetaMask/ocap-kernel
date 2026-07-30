@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   MARKER_PREFIX,
-  MediatorRpcError,
+  BridgeRpcError,
   expandMarkers,
   substituteRemotables,
 } from './json-rpc.ts';
@@ -62,7 +62,7 @@ describe('expandMarkers', () => {
   });
 
   it('throws on an unknown marker', () => {
-    expect(() => expandMarkers('@@missing', resolve)).toThrow(MediatorRpcError);
+    expect(() => expandMarkers('@@missing', resolve)).toThrow(BridgeRpcError);
     expect(() => expandMarkers(['@@missing'], resolve)).toThrow(/@@missing/u);
   });
 });

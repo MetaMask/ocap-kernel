@@ -1,6 +1,6 @@
 /**
- * Wire-shape types and walker helpers for the mediator vat's line-delimited
- * JSON-RPC 2.0 protocol.
+ * Wire-shape types and walker helpers for the ocap JSON-RPC vat's
+ * line-delimited JSON-RPC 2.0 protocol.
  *
  * Object references are named via the sigil convention `"@@NAME"` (NAME
  * one or more alphanumeric characters). The mediator assigns names of the
@@ -57,7 +57,7 @@ export const JSON_RPC_ERROR = {
  * Thrown from inside the mediator's request handlers to signal the
  * intended JSON-RPC error code and message.
  */
-export class MediatorRpcError extends Error {
+export class BridgeRpcError extends Error {
   readonly code: number;
 
   readonly data?: unknown;
@@ -98,7 +98,7 @@ export function expandMarkers(
     const name = match[1] as string;
     const resolved = resolve(name);
     if (resolved === undefined) {
-      throw new MediatorRpcError(
+      throw new BridgeRpcError(
         JSON_RPC_ERROR.INVALID_PARAMS,
         `unknown reference marker "@@${name}"`,
       );

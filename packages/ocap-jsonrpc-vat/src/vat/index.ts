@@ -1,13 +1,13 @@
 /**
- * LLM mediator vat.
+ * Ocap JSON-RPC vat.
  *
  * Serves a line-delimited JSON-RPC 2.0 interface on a Unix-domain-socket
- * `IOService` endowment named `socket`. External LLM tooling connects and
- * calls `initialize(urls)` once, then any number of `send(target, method,
- * args)` calls. See the package README for the wire protocol.
+ * `IOService` endowment named `socket`. External processes connect and
+ * call `redeemURL(url)` and `send(target, method, args)` — see the
+ * package README for the wire protocol.
  *
  * The vat's authority is exactly:
- *   - the `ocapURLRedemptionService` endowment (for `initialize`),
+ *   - the `ocapURLRedemptionService` endowment (for `redeemURL`),
  *   - whatever references the URLs happen to redeem to,
  *   - and whatever those references introduce as return values.
  *
@@ -19,9 +19,9 @@ import { passStyleOf } from '@endo/pass-style';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
 import type { OcapURLRedemptionService } from '@metamask/ocap-kernel';
 
-import { MediatorRpcError, JSON_RPC_ERROR } from '../json-rpc.ts';
+import { makeBridge } from '../bridge.ts';
+import { BridgeRpcError, JSON_RPC_ERROR } from '../json-rpc.ts';
 import type { JsonRpcResponse } from '../json-rpc.ts';
-import { makeMediator } from '../mediator.ts';
 
 /**
  * The vat-facing shape of an `IOService`. The kernel-side implementation
@@ -39,7 +39,7 @@ type Services = {
 };
 
 /**
- * Build the mediator vat's root object.
+ * Build the vat's root object.
  *
  * @param _vatPowers - Unused.
  * @param _parameters - Unused.
@@ -53,7 +53,7 @@ export function buildRootObject(
 ): unknown {
   const log = (...args: unknown[]): void => {
     // eslint-disable-next-line no-console
-    console.log('[llm-mediator]', ...args);
+    console.log('[ocap-jsonrpc-vat]', ...args);
   };
 
   const isRemotable = (value: unknown): boolean => {
@@ -75,7 +75,7 @@ export function buildRootObject(
    * on) or packaged as JSON-RPC error responses.
    *
    * @param socket - The socket IOService.
-   * @param dispatch - The mediator's dispatch function.
+   * @param dispatch - The bridge's dispatch function.
    * @returns 'ok' after processing a request, 'disconnect' if the socket
    * signalled end-of-stream, and 'closed' if the socket itself is gone.
    */
@@ -111,14 +111,14 @@ export function buildRootObject(
   }
 
   /**
-   * Serve one socket connection lifetime: build a mediator, drive the
+   * Serve one socket connection lifetime: build a bridge, drive the
    * request loop, reset on disconnect, and repeat until the socket
    * itself goes away.
    *
    * @param services - The endowments delivered by bootstrap.
    */
   async function serveLoop(services: Services): Promise<void> {
-    const mediator = makeMediator({
+    const bridge = makeBridge({
       redeem: async (url) => E(services.ocapURLRedemptionService).redeem(url),
       invoke: async (target, method, args) =>
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -126,28 +126,28 @@ export function buildRootObject(
       isRemotable,
     });
     for (;;) {
-      const outcome = await processOne(services.socket, mediator.dispatch);
+      const outcome = await processOne(services.socket, bridge.dispatch);
       if (outcome === 'closed') {
         log('socket closed; ending serve loop');
         return;
       }
       if (outcome === 'disconnect') {
         log('client disconnected; resetting session');
-        mediator.resetSession();
+        bridge.resetSession();
       }
     }
   }
 
-  return makeDefaultExo('llmMediatorVatRoot', {
+  return makeDefaultExo('ocapJsonrpcVatRoot', {
     async bootstrap(_vats: Record<string, unknown>, incoming: Services) {
       if (!incoming?.ocapURLRedemptionService) {
-        throw new MediatorRpcError(
+        throw new BridgeRpcError(
           JSON_RPC_ERROR.INTERNAL_ERROR,
           'ocapURLRedemptionService is required',
         );
       }
       if (!incoming.socket) {
-        throw new MediatorRpcError(
+        throw new BridgeRpcError(
           JSON_RPC_ERROR.INTERNAL_ERROR,
           'socket IOService is required (configure it in the cluster config under `io.socket`)',
         );
@@ -156,7 +156,7 @@ export function buildRootObject(
       // it is logged; the vat itself remains alive so it can be
       // introspected.
       serveLoop(incoming).catch((error) => log('serve loop crashed:', error));
-      log('mediator vat bootstrap complete');
+      log('vat bootstrap complete');
       return harden({});
     },
   });

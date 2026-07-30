@@ -1,6 +1,6 @@
 /**
- * Mediator core: the state machine and per-request dispatch used by the
- * LLM mediator vat.
+ * Bridge core: the state machine and per-request dispatch used by the
+ * ocap JSON-RPC vat.
  *
  * Factored out of the vat body so its behavior can be exercised in a plain
  * Node test environment. The vat wraps this factory with an IOService-driven
@@ -12,12 +12,12 @@ import type { JsonRpcId, JsonRpcRequest, JsonRpcResponse } from './json-rpc.ts';
 import {
   JSON_RPC_ERROR,
   MARKER_PREFIX,
-  MediatorRpcError,
+  BridgeRpcError,
   expandMarkers,
   substituteRemotables,
 } from './json-rpc.ts';
 
-export type MediatorHooks = {
+export type BridgeHooks = {
   /** Redeem an OCAP URL to a live reference. */
   redeem: (url: string) => Promise<unknown>;
   /**
@@ -36,38 +36,35 @@ export type MediatorHooks = {
   isRemotable: (value: unknown) => boolean;
 };
 
-export type Mediator = {
+export type Bridge = {
   /**
    * Handle one already-parsed JSON-RPC request and return the response.
    * Never throws; all errors are packaged as JSON-RPC error responses.
    */
   dispatch: (request: unknown) => Promise<JsonRpcResponse>;
   /**
-   * Discard the naming tables and revert to the pre-`initialize` state.
-   * Invoked by the vat when the socket client disconnects so the next
-   * connection begins fresh.
+   * Discard the naming table. Invoked by the vat when the socket client
+   * disconnects so the next connection begins with fresh names.
    */
   resetSession: () => void;
 };
 
 /**
- * Construct a mediator with fresh, empty naming tables.
+ * Construct a bridge with an empty naming table.
  *
  * @param hooks - Callbacks that bridge into the environment (URL
  * redemption, message send, remotable identification).
- * @returns The mediator control interface.
+ * @returns The bridge control interface.
  */
-export function makeMediator(hooks: MediatorHooks): Mediator {
+export function makeBridge(hooks: BridgeHooks): Bridge {
   let nameToObj = new Map<string, unknown>();
   let objToName = new Map<unknown, string>();
   let nextObjId = 0;
-  let initialized = false;
 
   const resetSession = (): void => {
     nameToObj = new Map();
     objToName = new Map();
     nextObjId = 0;
-    initialized = false;
   };
 
   const assignName = (obj: unknown): string => {
@@ -84,37 +81,17 @@ export function makeMediator(hooks: MediatorHooks): Mediator {
 
   const resolveName = (name: string): unknown => nameToObj.get(name);
 
-  const handleInitialize = async (params: unknown): Promise<unknown> => {
-    if (initialized) {
-      throw new MediatorRpcError(
-        JSON_RPC_ERROR.APPLICATION_ERROR,
-        'initialize may only be called once per session',
-      );
-    }
-    // Flip the flag before the await so a second concurrent initialize
-    // call is rejected even if this one is still redeeming URLs. The
-    // request loop is serial today, but the guarantee should not
-    // depend on that.
-    initialized = true;
-    const urls = requireUrlsArray(params);
-    const resolved = await Promise.all(
-      urls.map(async (url) => hooks.redeem(url)),
-    );
-    const refs = resolved.map((obj) => `${MARKER_PREFIX}${assignName(obj)}`);
-    return { refs };
+  const handleRedeemURL = async (params: unknown): Promise<unknown> => {
+    const url = requireUrlString(params);
+    const obj = await hooks.redeem(url);
+    return `${MARKER_PREFIX}${assignName(obj)}`;
   };
 
   const handleSend = async (params: unknown): Promise<unknown> => {
-    if (!initialized) {
-      throw new MediatorRpcError(
-        JSON_RPC_ERROR.APPLICATION_ERROR,
-        'send called before initialize',
-      );
-    }
     const { target, method, args } = requireSendParams(params);
     const targetObj = resolveName(target);
     if (targetObj === undefined) {
-      throw new MediatorRpcError(
+      throw new BridgeRpcError(
         JSON_RPC_ERROR.INVALID_PARAMS,
         `params.target "@@${target}" is not a known reference`,
       );
@@ -135,10 +112,10 @@ export function makeMediator(hooks: MediatorHooks): Mediator {
     }
     try {
       switch (request.method) {
-        case 'initialize':
+        case 'redeemURL':
           return successResponse(
             request.id,
-            await handleInitialize(request.params),
+            await handleRedeemURL(request.params),
           );
         case 'send':
           return successResponse(request.id, await handleSend(request.params));
@@ -150,7 +127,7 @@ export function makeMediator(hooks: MediatorHooks): Mediator {
           );
       }
     } catch (error) {
-      if (error instanceof MediatorRpcError) {
+      if (error instanceof BridgeRpcError) {
         return errorResponse(request.id, error.code, error.message, error.data);
       }
       const message = error instanceof Error ? error.message : String(error);
@@ -166,30 +143,23 @@ export function makeMediator(hooks: MediatorHooks): Mediator {
 }
 
 /**
- * Validate `initialize`'s params bag and return the extracted URL array.
+ * Validate `redeemURL`'s params bag and return the URL string.
  *
  * @param params - The raw `params` field from the request.
- * @returns The validated URL list.
+ * @returns The validated URL.
  */
-function requireUrlsArray(params: unknown): string[] {
+function requireUrlString(params: unknown): string {
   if (
     typeof params !== 'object' ||
     params === null ||
-    !Array.isArray((params as { urls?: unknown }).urls)
+    typeof (params as { url?: unknown }).url !== 'string'
   ) {
-    throw new MediatorRpcError(
+    throw new BridgeRpcError(
       JSON_RPC_ERROR.INVALID_PARAMS,
-      'params.urls must be an array of strings',
+      'params.url must be a string',
     );
   }
-  const { urls } = params as { urls: unknown[] };
-  if (!urls.every((item) => typeof item === 'string')) {
-    throw new MediatorRpcError(
-      JSON_RPC_ERROR.INVALID_PARAMS,
-      'params.urls must contain only strings',
-    );
-  }
-  return urls;
+  return (params as { url: string }).url;
 }
 
 /**
@@ -206,7 +176,7 @@ function requireSendParams(params: unknown): {
   args: unknown[];
 } {
   if (typeof params !== 'object' || params === null) {
-    throw new MediatorRpcError(
+    throw new BridgeRpcError(
       JSON_RPC_ERROR.INVALID_PARAMS,
       'params must be an object',
     );
@@ -217,26 +187,26 @@ function requireSendParams(params: unknown): {
     args?: unknown;
   };
   if (typeof bag.target !== 'string') {
-    throw new MediatorRpcError(
+    throw new BridgeRpcError(
       JSON_RPC_ERROR.INVALID_PARAMS,
       'params.target must be a string',
     );
   }
   const match = /^@@([A-Za-z0-9]+)$/u.exec(bag.target);
   if (!match) {
-    throw new MediatorRpcError(
+    throw new BridgeRpcError(
       JSON_RPC_ERROR.INVALID_PARAMS,
       'params.target must be a marker string like "@@o1"',
     );
   }
   if (typeof bag.method !== 'string') {
-    throw new MediatorRpcError(
+    throw new BridgeRpcError(
       JSON_RPC_ERROR.INVALID_PARAMS,
       'params.method must be a string',
     );
   }
   if (bag.args !== undefined && !Array.isArray(bag.args)) {
-    throw new MediatorRpcError(
+    throw new BridgeRpcError(
       JSON_RPC_ERROR.INVALID_PARAMS,
       'params.args must be an array',
     );
