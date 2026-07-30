@@ -20,7 +20,7 @@ import type { WalletClient } from './wallet-client.ts';
 export type WalletSlot =
   | { status: 'absent' }
   | { status: 'pending'; promise: Promise<WalletClient> }
-  | { status: 'resolved'; client: WalletClient; kref: string };
+  | { status: 'resolved'; client: WalletClient; ref: string };
 
 export type PluginState = {
   wallet: WalletSlot;

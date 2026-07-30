@@ -20,30 +20,32 @@
  *   from the previous phase, etc., without inlining the bytes into its
  *   tool call.
  *
- * - `{ __ref__: "nickname" }` — expanded to the string `"@@koN"`,
- *   where `koN` is the kref for the ocap reference registered under
- *   `nickname` (from `service_initiate_contact` or the ref-walker that
- *   fires on service_call responses). The kernel side then recognises
- *   the `@@`-sigil string as a reference marker and re-encodes it as
- *   a real CapData slot so the receiver sees a live remotable, not a
- *   plain data object. This is the way to pass an ocap reference
- *   obtained from an earlier call as an argument to a later call.
+ * - `{ __ref__: "nickname" }` — expanded to the ocap-jsonrpc-vat ref
+ *   string (e.g. `"@@o5"`) registered under `nickname` (from
+ *   `service_initiate_contact` or the ref-walker that fires on
+ *   service_call responses). The vat side then recognises the sigil
+ *   string as a reference marker and dispatches a live remotable to
+ *   the receiver, not a plain data object.
  */
 import { getArtifactStore, isArtifactShape } from '../artifact-store.ts';
 import type { StoredArtifact } from '../artifact-store.ts';
 import type { DaemonCaller } from '../daemon.ts';
-import { isKref, resolveService, uniqueNickname } from '../state.ts';
+import {
+  baseNicknameFor,
+  isRef,
+  resolveService,
+  uniqueNickname,
+} from '../state.ts';
 import type { PluginState, ServiceEntry } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 
 /**
- * Anchored slot-ref pattern the CLI's `prettifySmallcaps` emits for
- * remotable references: `<koN>` optionally followed by
- * ` (Alleged: <name>)`. Only whole-string matches are treated as
- * references — a slot-ref-looking substring inside a longer text
+ * Anchored ref-marker pattern the ocap-jsonrpc-vat emits for
+ * remotable references. Only whole-string matches are treated as
+ * references — a marker-looking substring inside a longer text
  * value (e.g. an SVG or Markdown body) is left alone.
  */
-const SLOT_REF_PATTERN = /^<(ko\d+)>(?:\s+\(Alleged:\s*([^)]+)\))?$/u;
+const REF_MARKER_PATTERN = /^@@[A-Za-z0-9]+$/u;
 
 /**
  * Register the service_call tool.
@@ -66,9 +68,9 @@ export function registerCallServiceTool(options: {
     label: 'Call service method',
     description:
       'Invoke a method on a service obtained via `service_initiate_contact`. ' +
-      'Specify the service by nickname (e.g., "PersonalMessageSigner") or ' +
-      'kref (e.g., "ko7"), the method name, and optionally a JSON array of ' +
-      'arguments. Two placeholders may appear in args: ' +
+      'Specify the service by nickname (e.g., "ref:o7") or ' +
+      'ref (e.g., "@@o7"), the method name, and optionally a JSON array ' +
+      'of arguments. Two placeholders may appear in args: ' +
       '`{"__handle__":"artifact-N"}` expands to the stored artifact `data` ' +
       'string, and `{"__ref__":"nickname"}` passes a previously-obtained ' +
       'ocap reference by nickname as a live capability arg. ' +
@@ -82,7 +84,7 @@ export function registerCallServiceTool(options: {
         service: {
           type: 'string',
           description:
-            'Service nickname (e.g., "PersonalMessageSigner") or kref (e.g., "ko7").',
+            'Service nickname (e.g., "ref:o7") or ref (e.g., "@@o7").',
         },
         method: {
           type: 'string',
@@ -106,9 +108,9 @@ export function registerCallServiceTool(options: {
       params: { service: string; method: string; args?: string },
     ): Promise<ToolResponse> {
       try {
-        const kref = isKref(params.service)
+        const ref = isRef(params.service)
           ? params.service
-          : resolveService(params.service, state).kref;
+          : resolveService(params.service, state).ref;
 
         let parsedArgs: unknown[] = [];
         if (params.args) {
@@ -120,7 +122,7 @@ export function registerCallServiceTool(options: {
         }
 
         const result = await daemon.queueMessage({
-          target: kref,
+          target: ref,
           method: params.method,
           args: parsedArgs,
         });
@@ -156,12 +158,11 @@ export function registerCallServiceTool(options: {
    *   artifact body as an arg without the bytes round-tripping through
    *   the model.
    *
-   * - `{ __ref__: "nickname" }` — replaced by the string `"@@koN"`
-   *   where `koN` is the kref for the ocap reference registered under
-   *   that nickname. The kernel's queueMessage RPC handler recognises
-   *   the `@@`-sigil string as a reference marker and re-encodes it
-   *   as a real CapData slot before the message is delivered, so the
-   *   receiver gets a live remotable, not a plain data object.
+   * - `{ __ref__: "nickname" }` — replaced by the ocap-jsonrpc-vat
+   *   ref string (e.g. `"@@o5"`) registered under that nickname. The
+   *   vat recognises the sigil string in the outgoing message and
+   *   dispatches the corresponding live remotable to the receiver,
+   *   not a plain data object.
    *
    * Anything else passes through unchanged. Arrays and objects are
    * walked recursively. An unresolved handle or nickname throws so the
@@ -202,7 +203,7 @@ export function registerCallServiceTool(options: {
                 'from a previous service_call response.',
             );
           }
-          return `@@${entry.kref}`;
+          return entry.ref;
         }
       }
     }
@@ -214,50 +215,40 @@ export function registerCallServiceTool(options: {
   }
 
   /**
-   * Walk `value` looking for prettified slot-reference strings (`<koN>`
-   * or `<koN> (Alleged: ...)`) — the shape `prettifySmallcaps` emits
-   * on the CLI side for remotable references embedded in a response.
-   * Every such reference is registered as a service under a nickname
-   * derived from its alleged name, and the string is replaced with
-   * that nickname so the LLM sees a callable service handle instead
-   * of a raw kref presentation.
+   * Walk `value` looking for ocap-jsonrpc-vat ref-marker strings
+   * (`@@o<n>`) — the shape the vat emits for remotable references
+   * embedded in a response. Every such reference is registered as a
+   * service under a nickname derived from the ref, and the string is
+   * replaced with that nickname so the LLM sees a callable service
+   * handle rather than the raw marker.
    *
-   * Only whole-string matches are rewritten — slot-ref-looking
+   * Only whole-string matches are rewritten — marker-looking
    * substrings inside long text values (SVG bodies, markdown, etc.)
    * pass through unchanged.
    *
    * @param value - The value to walk.
-   * @returns The value with slot-ref strings replaced by service
+   * @returns The value with ref-marker strings replaced by service
    *   nicknames.
    */
   function registerEmbeddedRefs(value: unknown): unknown {
     if (typeof value === 'string') {
-      const match = SLOT_REF_PATTERN.exec(value);
-      if (!match) {
+      if (!REF_MARKER_PATTERN.test(value)) {
         return value;
       }
-      const [, refKref, alleged] = match;
-      if (refKref === undefined) {
-        return value;
-      }
-      // Reuse an existing registration for the same kref if we've
+      // Reuse an existing registration for the same ref if we've
       // seen it before — a service returned twice should share one
       // nickname.
       for (const [nickname, entry] of state.services.entries()) {
-        if (entry.kref === refKref) {
+        if (entry.ref === value) {
           return nickname;
         }
       }
-      const baseNickname =
-        typeof alleged === 'string' && alleged.length > 0
-          ? alleged
-          : `service:${refKref}`;
       const nickname = uniqueNickname(
-        baseNickname,
+        baseNicknameFor(value),
         new Set(state.services.keys()),
       );
       const entry: ServiceEntry = {
-        kref: refKref,
+        ref: value,
         nickname,
         fromContact: 'service_call:embedded-ref',
       };

@@ -1,33 +1,18 @@
 /**
- * `service_initiate_contact` tool: call `initiateContact()` on a contact
- * endpoint to obtain a usable service reference. Phase 3 only supports
- * the Public access model; other variants are reported as "not supported
- * in this phase".
+ * `service_initiate_contact` tool: call `initiateContact()` on a
+ * contact endpoint to obtain a usable service reference. Phase 3
+ * only supports the Public access model; other variants are reported
+ * as "not supported in this phase".
  */
 import type { DaemonCaller } from '../daemon.ts';
-import { extractKref, resolveContact, uniqueNickname } from '../state.ts';
+import {
+  baseNicknameFor,
+  isRef,
+  resolveContact,
+  uniqueNickname,
+} from '../state.ts';
 import type { PluginState, ServiceEntry } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
-
-/**
- * Pull the `kind` discriminator out of a raw CapData-style response.
- * The body is a smallcaps-encoded JSON string with a leading `#` marker,
- * so naive `JSON.parse(body)` always throws — match the field by regex
- * instead, the same way `extractKref` reaches into the body.
- *
- * @param raw - The raw response from `daemon.queueMessage`.
- * @returns The `kind` string if found, otherwise `undefined`.
- */
-function readResponseKind(raw: unknown): string | undefined {
-  if (!raw || typeof raw !== 'object') {
-    return undefined;
-  }
-  const { body } = raw as { body?: unknown };
-  if (typeof body !== 'string') {
-    return undefined;
-  }
-  return /"kind"\s*:\s*"([^"]+)"/u.exec(body)?.[1];
-}
 
 /**
  * Register the service_initiate_contact tool.
@@ -58,7 +43,7 @@ export function registerInitiateContactTool(options: {
         contact: {
           type: 'string',
           description:
-            'OCAP URL, contact nickname, or kref identifying the contact endpoint.',
+            'OCAP URL, contact nickname, or ref (`@@o<n>`) identifying the contact endpoint.',
         },
       },
       required: ['contact'],
@@ -73,20 +58,20 @@ export function registerInitiateContactTool(options: {
           state,
           daemon,
         });
-        const raw = await daemon.queueMessage({
-          target: contactEntry.kref,
+        const response = (await daemon.queueMessage({
+          target: contactEntry.ref,
           method: 'initiateContact',
           args: [],
-          raw: true,
-        });
+        })) as { kind?: unknown; service?: unknown };
 
-        // The ContactResponse is now tagged: `{ kind: 'public', service }`
+        // The ContactResponse is tagged: `{ kind: 'public', service }`
         // for the Public access model, or shapes carrying credential /
         // code submission points for the other models. Only the Public
         // variant yields a directly-usable service ref; the others
         // require a credential or code-bundle submission step that
         // phase 3 doesn't implement.
-        const kind = readResponseKind(raw);
+        const kind =
+          typeof response?.kind === 'string' ? response.kind : undefined;
         if (kind !== 'public') {
           return {
             content: [
@@ -97,38 +82,51 @@ export function registerInitiateContactTool(options: {
                   'Only the Public access model is supported in this phase.',
                   '',
                   'Raw response:',
-                  JSON.stringify(raw, null, 2),
+                  JSON.stringify(response, null, 2),
                 ].join('\n'),
               },
             ],
             details: undefined,
           };
         }
-        const extracted = extractKref(raw);
-        if (!extracted) {
+        const serviceRef =
+          typeof response.service === 'string' ? response.service : undefined;
+        if (!serviceRef || !isRef(serviceRef)) {
           throw new Error(
-            'initiateContact: Public response had no extractable service kref',
+            `initiateContact: Public response had no extractable service ref (got ${JSON.stringify(response.service)})`,
           );
         }
 
-        const baseNickname = extracted.alleged ?? `service:${extracted.kref}`;
-        const nickname = uniqueNickname(
-          baseNickname,
-          new Set(state.services.keys()),
-        );
-        const entry: ServiceEntry = {
-          kref: extracted.kref,
-          nickname,
-          fromContact: contactEntry.nickname,
-        };
-        state.services.set(nickname, entry);
+        // Reuse an existing registration for the same ref if we've
+        // seen it before.
+        let existingNickname: string | undefined;
+        for (const [nickname, entry] of state.services.entries()) {
+          if (entry.ref === serviceRef) {
+            existingNickname = nickname;
+            break;
+          }
+        }
+        const nickname =
+          existingNickname ??
+          uniqueNickname(
+            baseNicknameFor(serviceRef),
+            new Set(state.services.keys()),
+          );
+        if (!existingNickname) {
+          const entry: ServiceEntry = {
+            ref: serviceRef,
+            nickname,
+            fromContact: contactEntry.nickname,
+          };
+          state.services.set(nickname, entry);
+        }
 
         return {
           content: [
             {
               type: 'text' as const,
               text: [
-                `Obtained service "${nickname}" (kref ${extracted.kref}).`,
+                `Obtained service "${nickname}" (ref ${serviceRef}).`,
                 `Via contact: ${contactEntry.nickname}.`,
                 'Use `service_call` to invoke methods on it.',
               ].join('\n'),

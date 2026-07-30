@@ -42,7 +42,7 @@ export function registerListCapabilitiesTool(options: {
           ? Object.keys(entry.methods).join(', ')
           : 'unknown';
         lines.push(
-          `- ${name} (${entry.kref}): ${entry.description}\n  Methods: ${methodNames}`,
+          `- ${name} (${entry.ref}): ${entry.description}\n  Methods: ${methodNames}`,
         );
       }
 

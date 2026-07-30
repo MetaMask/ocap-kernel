@@ -26,7 +26,7 @@ export function registerCallCapabilityTool(options: {
     label: 'Call MetaMask capability',
     description:
       'Call a method on a previously obtained MetaMask capability. ' +
-      'Specify the capability by name (e.g., "PersonalMessageSigner") or kref (e.g., "ko5"), ' +
+      'Specify the capability by nickname (e.g., "cap:o5") or ref (e.g., "@@o5"), ' +
       'the method name, and optionally a JSON array of arguments.',
     parameters: {
       type: 'object',
@@ -34,7 +34,7 @@ export function registerCallCapabilityTool(options: {
         capability: {
           type: 'string',
           description:
-            'Capability name (e.g., "PersonalMessageSigner") or kref (e.g., "ko5").',
+            'Capability nickname (e.g., "cap:o5") or ref (e.g., "@@o5").',
         },
         method: {
           type: 'string',
@@ -54,7 +54,7 @@ export function registerCallCapabilityTool(options: {
       params: { capability: string; method: string; args?: string },
     ): Promise<ToolResponse> {
       try {
-        const kref = resolveCapability(params.capability, state);
+        const ref = resolveCapability(params.capability, state);
 
         let parsedArgs: unknown[] = [];
         if (params.args) {
@@ -66,7 +66,7 @@ export function registerCallCapabilityTool(options: {
         }
 
         const result = await daemon.queueMessage({
-          target: kref,
+          target: ref,
           method: params.method,
           args: parsedArgs,
         });

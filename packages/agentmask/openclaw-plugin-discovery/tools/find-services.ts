@@ -68,7 +68,7 @@ export function registerFindServicesTool(options: {
       params: { description: string },
     ): Promise<ToolResponse> {
       try {
-        const matcherKref = await requireMatcher(state);
+        const matcherRef = await requireMatcher(state);
         const query = { description: params.description };
 
         if (displayClient !== undefined) {
@@ -82,7 +82,7 @@ export function registerFindServicesTool(options: {
         }
 
         const raw = await daemon.queueMessage({
-          target: matcherKref,
+          target: matcherRef,
           method: 'findServices',
           args: [query],
         });

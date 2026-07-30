@@ -1,86 +1,34 @@
 /**
  * Daemon communication layer shared by the OpenClaw plugins in this
- * monorepo. Spawns `ocap daemon redeem-url` and `ocap daemon queueMessage`
- * commands and returns parsed results.
+ * monorepo. Opens a persistent Unix-domain socket to the
+ * `ocap-jsonrpc-vat` (see `packages/ocap-jsonrpc-vat`) and speaks
+ * line-delimited JSON-RPC 2.0 to it.
  *
  * NOTE: this file is duplicated byte-for-byte in
- * `packages/agentmask/openclaw-plugin-discovery/daemon.ts` and
- * `packages/agentmask/openclaw-plugin-metamask/daemon.ts` so each plugin
- * stays installable on its own via `openclaw plugins install -l`. Any
- * change here must be mirrored across all three; please keep them in sync.
+ * `packages/agentmask/openclaw-plugin-demo/daemon.ts` and
+ * `packages/agentmask/openclaw-plugin-metamask/daemon.ts` so each
+ * plugin stays installable on its own via `openclaw plugins install
+ * -l`. Any change here must be mirrored across all three; please keep
+ * them in sync.
  */
-import { spawn } from 'node:child_process';
+import { createConnection } from 'node:net';
+import type { Socket } from 'node:net';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
 
-type ExecResult = { stdout: string; stderr: string; code: number | null };
+type JsonRpcRequest = {
+  jsonrpc: '2.0';
+  id: number;
+  method: string;
+  params?: unknown;
+};
 
-/**
- * Spawn an ocap CLI command and collect its output.
- *
- * @param options - Spawn options.
- * @param options.cliPath - Path to the ocap CLI.
- * @param options.args - CLI arguments after `ocap`.
- * @param options.timeoutMs - Timeout in ms.
- * @returns The command result.
- */
-async function spawnCli(options: {
-  cliPath: string;
-  args: string[];
-  timeoutMs: number;
-}): Promise<ExecResult> {
-  const { cliPath, args, timeoutMs } = options;
-
-  const command = cliPath.endsWith('.mjs') ? 'node' : cliPath;
-  const spawnArgs = cliPath.endsWith('.mjs') ? [cliPath, ...args] : args;
-
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, spawnArgs, {
-      stdio: ['ignore', 'pipe', 'pipe'],
-    });
-
-    let stdout = '';
-    let stderr = '';
-
-    child.stdout?.setEncoding('utf8');
-    child.stderr?.setEncoding('utf8');
-    child.stdout?.on('data', (chunk: string) => {
-      stdout += chunk;
-    });
-    child.stderr?.on('data', (chunk: string) => {
-      stderr += chunk;
-    });
-
-    const timer = setTimeout(() => {
-      try {
-        child.kill('SIGKILL');
-      } finally {
-        reject(new Error(`ocap CLI timed out after ${timeoutMs}ms`));
-      }
-    }, timeoutMs);
-
-    child.once('error', (error: Error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-
-    child.once('exit', (code) => {
-      clearTimeout(timer);
-      resolve({ stdout, stderr, code: code ?? null });
-    });
-  });
-}
-
-/**
- * Throw an error from a failed CLI result.
- *
- * @param label - Description of the operation (for error messages).
- * @param result - The CLI execution result.
- */
-function throwOnFailure(label: string, result: ExecResult): void {
-  if (result.code !== 0) {
-    const detail = result.stderr.trim() || result.stdout.trim();
-    throw new Error(`${label} failed (exit ${result.code}): ${detail}`);
-  }
-}
+type JsonRpcResponse = {
+  jsonrpc: '2.0';
+  id: number;
+  result?: unknown;
+  error?: { code: number; message: string; data?: unknown };
+};
 
 export type DaemonCaller = {
   redeemUrl(url: string): Promise<string>;
@@ -88,87 +36,214 @@ export type DaemonCaller = {
     target: string;
     method: string;
     args?: unknown[];
-    raw?: boolean;
   }): Promise<unknown>;
+  /**
+   * Tear down the connection. Optional; if the plugin is torn down
+   * mid-process, the socket eventually closes anyway when Node exits.
+   */
+  close(): Promise<void>;
 };
 
 /**
- * Create a daemon caller bound to CLI path, ocap home, and timeout.
+ * Create a daemon caller bound to the ocap-jsonrpc-vat's Unix socket.
  *
- * @param options - Daemon connection options.
- * @param options.cliPath - Path to the ocap CLI.
- * @param options.ocapHome - Optional `--home` directory passed to every
- * spawned `ocap` invocation. Use a distinct home (e.g.,
- * `~/.ocap-consumer`) to address a daemon other than the default
- * `~/.ocap`.
- * @param options.timeoutMs - Default timeout in ms.
- * @returns A daemon caller with `redeemUrl` and `queueMessage` methods.
+ * The connection is opened lazily on the first request and kept open
+ * for the caller's lifetime. If the vat drops the connection, the
+ * caller reconnects on the next request; every reconnection is a fresh
+ * session, meaning the vat's `@@o<n>` name table is empty on the other
+ * side — long-lived plugin state that references old names is invalid
+ * across a disconnect.
+ *
+ * @param options - Connection options.
+ * @param options.socketPath - Filesystem path of the vat's socket.
+ * Defaults to `$OCAP_HOME/ocap-jsonrpc.sock` (or
+ * `$HOME/.ocap/ocap-jsonrpc.sock` if `OCAP_HOME` is unset).
+ * @param options.timeoutMs - Per-request timeout in ms.
+ * @returns A daemon caller with `redeemUrl`, `queueMessage`, and
+ * `close`.
  */
 export function makeDaemonCaller(options: {
-  cliPath: string;
-  ocapHome?: string;
+  socketPath?: string;
   timeoutMs: number;
 }): DaemonCaller {
-  const { cliPath, ocapHome, timeoutMs } = options;
+  const socketPath =
+    options.socketPath ??
+    join(
+      // eslint-disable-next-line n/no-process-env
+      process.env.OCAP_HOME ?? join(homedir(), '.ocap'),
+      'ocap-jsonrpc.sock',
+    );
+  const { timeoutMs } = options;
 
-  const homeArgs: string[] =
-    ocapHome && ocapHome.length > 0 ? ['--home', ocapHome] : [];
+  let socket: Socket | null = null;
+  let recvBuffer = '';
+  let nextId = 1;
+  const pending = new Map<
+    number,
+    {
+      resolve: (response: JsonRpcResponse) => void;
+      reject: (cause: Error) => void;
+      timer: ReturnType<typeof setTimeout>;
+    }
+  >();
+
+  /**
+   * Drop the current socket and reject all in-flight requests.
+   *
+   * @param cause - The error to reject pending requests with. Defaults
+   * to a generic "connection closed" error.
+   */
+  function tearDown(cause?: Error): void {
+    const rejection = cause ?? new Error('ocap-jsonrpc socket closed');
+    for (const [, entry] of pending) {
+      clearTimeout(entry.timer);
+      entry.reject(rejection);
+    }
+    pending.clear();
+    if (socket) {
+      socket.removeAllListeners();
+      socket.destroy();
+      socket = null;
+    }
+    recvBuffer = '';
+  }
+
+  /**
+   * Parse incoming socket bytes and dispatch complete lines to their
+   * pending promises.
+   *
+   * @param chunk - Raw bytes from the socket.
+   */
+  function onData(chunk: Buffer | string): void {
+    recvBuffer += typeof chunk === 'string' ? chunk : chunk.toString('utf8');
+    let newlineIndex = recvBuffer.indexOf('\n');
+    while (newlineIndex !== -1) {
+      const line = recvBuffer.slice(0, newlineIndex);
+      recvBuffer = recvBuffer.slice(newlineIndex + 1);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(line);
+      } catch {
+        // Malformed line — the vat is well-behaved so this only
+        // happens on socket corruption we can't recover from. Skip.
+        newlineIndex = recvBuffer.indexOf('\n');
+        continue;
+      }
+      const response = parsed as JsonRpcResponse;
+      const entry = pending.get(response.id);
+      if (entry) {
+        pending.delete(response.id);
+        clearTimeout(entry.timer);
+        entry.resolve(response);
+      }
+      newlineIndex = recvBuffer.indexOf('\n');
+    }
+  }
+
+  /**
+   * Ensure a live socket is available, opening a new one if needed.
+   *
+   * @returns The live socket.
+   */
+  async function connect(): Promise<Socket> {
+    if (socket && !socket.destroyed) {
+      return socket;
+    }
+    return new Promise<Socket>((resolve, reject) => {
+      const conn = createConnection(socketPath);
+      conn.setEncoding('utf8');
+      const onError = (cause: Error): void => {
+        conn.removeAllListeners();
+        conn.destroy();
+        reject(cause);
+      };
+      conn.once('error', onError);
+      conn.once('connect', () => {
+        conn.removeListener('error', onError);
+        conn.on('data', onData);
+        conn.on('close', () => tearDown());
+        conn.on('error', (cause: Error) => tearDown(cause));
+        socket = conn;
+        resolve(conn);
+      });
+    });
+  }
+
+  /**
+   * Send a JSON-RPC request and await its matching response line.
+   *
+   * @param method - The method name.
+   * @param params - The method params.
+   * @returns The parsed response envelope.
+   */
+  async function call(
+    method: string,
+    params: unknown,
+  ): Promise<JsonRpcResponse> {
+    const conn = await connect();
+    const id = nextId;
+    nextId += 1;
+    const request: JsonRpcRequest = { jsonrpc: '2.0', id, method, params };
+    return new Promise<JsonRpcResponse>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        pending.delete(id);
+        reject(
+          new Error(`ocap-jsonrpc ${method} timed out after ${timeoutMs}ms`),
+        );
+      }, timeoutMs);
+      pending.set(id, { resolve, reject, timer });
+      conn.write(`${JSON.stringify(request)}\n`, (writeError) => {
+        if (writeError) {
+          pending.delete(id);
+          clearTimeout(timer);
+          reject(writeError);
+        }
+      });
+    });
+  }
+
+  /**
+   * Unwrap a JSON-RPC response into its result value or throw an
+   * error whose message carries the response's error message.
+   *
+   * @param response - The JSON-RPC response envelope.
+   * @param label - Human-readable operation label used in error text.
+   * @returns The response's result value.
+   */
+  function unwrap(response: JsonRpcResponse, label: string): unknown {
+    if (response.error) {
+      throw new Error(`${label} failed: ${response.error.message}`);
+    }
+    return response.result;
+  }
 
   return {
     async redeemUrl(url: string): Promise<string> {
-      const result = await spawnCli({
-        cliPath,
-        args: [...homeArgs, 'daemon', 'redeem-url', url],
-        timeoutMs,
-      });
-      throwOnFailure('redeem-url', result);
-
-      const raw = result.stdout.trim();
-      let parsed: unknown;
-      try {
-        parsed = JSON.parse(raw);
-      } catch {
-        throw new Error(`redeem-url returned non-JSON output: ${raw}`);
-      }
-
-      if (typeof parsed !== 'string') {
+      const response = await call('redeemURL', { url });
+      const result = unwrap(response, `redeemURL ${url}`);
+      if (typeof result !== 'string') {
         throw new Error(
-          `redeem-url returned unexpected value: ${JSON.stringify(parsed)}`,
+          `redeemURL returned unexpected value: ${JSON.stringify(result)}`,
         );
       }
-      return parsed;
+      return result;
     },
 
     async queueMessage(msgOptions: {
       target: string;
       method: string;
       args?: unknown[];
-      raw?: boolean;
     }): Promise<unknown> {
-      const args = msgOptions.args ?? [];
-      const cliArgs = [
-        ...homeArgs,
-        'daemon',
-        'queueMessage',
-        msgOptions.target,
-        msgOptions.method,
-        JSON.stringify(args),
-      ];
-      if (msgOptions.raw) {
-        cliArgs.push('--raw');
-      }
+      const response = await call('send', {
+        target: msgOptions.target,
+        method: msgOptions.method,
+        args: msgOptions.args ?? [],
+      });
+      return unwrap(response, `send ${msgOptions.method}`);
+    },
 
-      const result = await spawnCli({ cliPath, args: cliArgs, timeoutMs });
-      throwOnFailure(`queueMessage ${msgOptions.method}`, result);
-
-      const raw = result.stdout.trim();
-      try {
-        return JSON.parse(raw);
-      } catch {
-        throw new Error(
-          `queueMessage ${msgOptions.method} returned non-JSON output: ${raw}`,
-        );
-      }
+    async close(): Promise<void> {
+      tearDown(new Error('daemon caller closed'));
     },
   };
 }

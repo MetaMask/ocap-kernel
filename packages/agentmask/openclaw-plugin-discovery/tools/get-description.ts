@@ -1,6 +1,6 @@
 /**
  * `service_get_description` tool: fetch the ServiceDescription from a
- * contact endpoint (identified by OCAP URL, contact nickname, or kref).
+ * contact endpoint (identified by OCAP URL, contact nickname, or ref).
  * The returned description carries the service's full API tree
  * recursively — any method whose return schema declares an
  * `interface` includes that inner object's methods inline, so no
@@ -33,14 +33,14 @@ export function registerGetDescriptionTool(options: {
       'Ask a contact endpoint for its full service description, including ' +
       'the API of any objects the service returns (declared inline as ' +
       '`interface`-typed return schemas). `contact` may be an OCAP URL, a ' +
-      'previously-cached contact nickname, or a kref.',
+      'previously-cached contact nickname, or a ref.',
     parameters: {
       type: 'object',
       properties: {
         contact: {
           type: 'string',
           description:
-            'OCAP URL, contact nickname, or kref identifying the contact endpoint.',
+            'OCAP URL, contact nickname, or ref (`@@o<n>`) identifying the contact endpoint.',
         },
       },
       required: ['contact'],
@@ -56,7 +56,7 @@ export function registerGetDescriptionTool(options: {
           daemon,
         });
         const description = await daemon.queueMessage({
-          target: entry.kref,
+          target: entry.ref,
           method: 'getServiceDescription',
           args: [],
         });
@@ -66,7 +66,7 @@ export function registerGetDescriptionTool(options: {
               type: 'text' as const,
               text: [
                 `Contact: ${entry.nickname}${entry.url ? ` (${entry.url})` : ''}`,
-                `Kref: ${entry.kref}`,
+                `Ref: ${entry.ref}`,
                 '',
                 'Service description:',
                 JSON.stringify(description, null, 2),

@@ -3,98 +3,53 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   createState,
   ensureVendor,
-  isKref,
-  parseCapabilityResponse,
+  isRef,
   resolveCapability,
 } from '../openclaw-plugin-metamask/state.ts';
 
-describe('isKref', () => {
+describe('isRef', () => {
   it.each([
-    ['ko0', true],
-    ['ko5', true],
-    ['ko123', true],
+    ['@@o0', true],
+    ['@@o5', true],
+    ['@@o123', true],
+    ['@@ko5', true],
     ['PersonalMessageSigner', false],
-    ['ko', false],
-    ['ko5extra', false],
-    ['KO5', false],
+    ['@@', false],
+    ['@@o5extra@extra', false],
+    ['ko5', false],
     ['', false],
-  ])('isKref(%j) returns %j', (input, expected) => {
-    expect(isKref(input)).toBe(expected);
-  });
-});
-
-describe('parseCapabilityResponse', () => {
-  it('extracts kref and name from well-formed CapData', () => {
-    const capData = {
-      body: '#"$0.Alleged: PersonalMessageSigner"',
-      slots: ['ko5'],
-    };
-    const result = parseCapabilityResponse(capData);
-    expect(result).toStrictEqual({
-      kref: 'ko5',
-      name: 'PersonalMessageSigner',
-    });
-  });
-
-  it('falls back to kref as name when no Alleged pattern', () => {
-    const capData = {
-      body: '#"$0"',
-      slots: ['ko7'],
-    };
-    const result = parseCapabilityResponse(capData);
-    expect(result).toStrictEqual({ kref: 'ko7', name: 'ko7' });
-  });
-
-  it('throws on null input', () => {
-    expect(() => parseCapabilityResponse(null)).toThrow(
-      'Expected CapData object',
-    );
-  });
-
-  it('throws on missing slots', () => {
-    expect(() => parseCapabilityResponse({ body: '#"test"' })).toThrow(
-      'Unexpected CapData shape',
-    );
-  });
-
-  it('throws on empty slots', () => {
-    expect(() =>
-      parseCapabilityResponse({ body: '#"test"', slots: [] }),
-    ).toThrow('Unexpected CapData shape');
-  });
-
-  it('throws on non-string slot', () => {
-    expect(() =>
-      parseCapabilityResponse({ body: '#"test"', slots: [42] }),
-    ).toThrow('Expected string kref');
+  ])('isRef(%j) returns %j', (input, expected) => {
+    expect(isRef(input)).toBe(expected);
   });
 });
 
 describe('resolveCapability', () => {
-  it('resolves a direct kref', () => {
+  it('resolves a direct ref', () => {
     const state = createState();
-    expect(resolveCapability('ko5', state)).toBe('ko5');
+    expect(resolveCapability('@@o5', state)).toBe('@@o5');
   });
 
   it('resolves a capability by name', () => {
     const state = createState();
-    state.capabilities.set('PersonalMessageSigner', {
-      kref: 'ko5',
-      name: 'PersonalMessageSigner',
+    state.capabilities.set('cap:o5', {
+      ref: '@@o5',
+      name: 'cap:o5',
       description: 'sign messages',
+      methods: undefined,
     });
-    expect(resolveCapability('PersonalMessageSigner', state)).toBe('ko5');
+    expect(resolveCapability('cap:o5', state)).toBe('@@o5');
   });
 
   it('throws for unknown name with hint', () => {
     const state = createState();
-    state.capabilities.set('PersonalMessageSigner', {
-      kref: 'ko5',
-      name: 'PersonalMessageSigner',
+    state.capabilities.set('cap:o5', {
+      ref: '@@o5',
+      name: 'cap:o5',
       description: 'sign',
+      methods: undefined,
     });
     expect(() => resolveCapability('Unknown', state)).toThrow(
-      /Unknown capability.*PersonalMessageSigner/u,
+      /Unknown capability.*cap:o5/u,
     );
   });
 
@@ -109,7 +64,11 @@ describe('resolveCapability', () => {
 describe('ensureVendor', () => {
   it('throws prompting for metamask_obtain_vendor when no URL set', async () => {
     const state = createState();
-    const daemon = { redeemUrl: vi.fn(), queueMessage: vi.fn() };
+    const daemon = {
+      redeemUrl: vi.fn(),
+      queueMessage: vi.fn(),
+      close: vi.fn(),
+    };
     await expect(ensureVendor({ state, daemon })).rejects.toThrow(
       /metamask_obtain_vendor/u,
     );

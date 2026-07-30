@@ -45,19 +45,19 @@ export function registerRedeemMatcherTool(options: {
         if (!url) {
           throw new Error('Matcher URL is empty.');
         }
-        const kref = await daemon.redeemUrl(url);
+        const ref = await daemon.redeemUrl(url);
         // A manual redeem supersedes whatever URL was configured at
         // startup; replacing the slot drops any in-flight pending
         // promise on the floor (its `.catch` will see the slot is no
         // longer 'pending' on it and decline to revert).
-        state.matcher = { status: 'resolved', entry: { url, kref } };
+        state.matcher = { status: 'resolved', entry: { url, ref } };
         return {
           content: [
             {
               type: 'text' as const,
               text: [
                 'Connected to service matcher.',
-                `Matcher kref: ${kref}`,
+                `Matcher ref: ${ref}`,
                 'Use `discovery_find_services` to look up services.',
               ].join('\n'),
             },

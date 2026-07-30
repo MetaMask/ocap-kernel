@@ -3,20 +3,23 @@
  *
  * Tracks three kinds of things the LLM agent accumulates over a session:
  *
- *   - the matcher's ocap URL + kref (once redeemed),
- *   - a map of contact endpoints the agent has redeemed (by URL → kref),
+ *   - the matcher's ocap URL + ref (once redeemed),
+ *   - a map of contact endpoints the agent has redeemed (by URL → ref),
  *   - a map of service points the agent has obtained via `initiateContact`.
  *
  * The plugin also supports a "nickname" for contact endpoints and services
- * — typically derived from the service's alleged type tag — so the LLM
- * can refer to them by name rather than by kref.
+ * so the LLM can refer to them by name rather than by the raw sigil ref.
+ *
+ * Refs are the `@@o<n>` sigil strings the ocap-jsonrpc-vat assigns to
+ * live kernel references. The field is kept simply as `ref` throughout
+ * — its concrete syntax is a plugin-internal contract with the vat.
  */
 
 import type { DaemonCaller } from './daemon.ts';
 
 export type MatcherEntry = {
   url: string;
-  kref: string;
+  ref: string;
 };
 
 export type ContactEntry = {
@@ -25,16 +28,16 @@ export type ContactEntry = {
    * another path (not used in Phase 3 but reserved).
    */
   url?: string;
-  /** Kernel reference for the redeemed contact endpoint. */
-  kref: string;
-  /** Human-readable nickname the agent can use in place of the kref. */
+  /** Ocap-jsonrpc-vat ref (`@@o<n>`) for the redeemed contact endpoint. */
+  ref: string;
+  /** Human-readable nickname the agent can use in place of the raw ref. */
   nickname: string;
 };
 
 export type ServiceEntry = {
-  /** Kernel reference for the service endpoint. */
-  kref: string;
-  /** Nickname — typically the alleged type tag. */
+  /** Ocap-jsonrpc-vat ref (`@@o<n>`) for the service endpoint. */
+  ref: string;
+  /** Nickname the LLM sees. */
   nickname: string;
   /** Nickname or URL of the contact endpoint this service was obtained from. */
   fromContact: string;
@@ -66,8 +69,7 @@ export type PluginState = {
  * paid `service_call` — including the auto-registered reviser
  * capabilities — vanish before the LLM's next turn, since
  * `state = createState()` produces a fresh empty map on each
- * re-registration. See the reviser-flow investigation in
- * commit history around 2026-07-23.
+ * re-registration.
  */
 const persistentContacts = new Map<string, ContactEntry>();
 const persistentServices = new Map<string, ServiceEntry>();
@@ -87,58 +89,16 @@ export function createState(): PluginState {
   };
 }
 
-const KREF_PATTERN = /^ko\d+$/u;
+const REF_PATTERN = /^@@[A-Za-z0-9]+$/u;
 
 /**
- * Check if a string looks like a kref (e.g. "ko5").
+ * Check if a string looks like an ocap-jsonrpc-vat ref (e.g. `@@o5`).
  *
  * @param value - The string to check.
- * @returns True if it matches the kref pattern.
+ * @returns True if it matches the ref pattern.
  */
-export function isKref(value: string): boolean {
-  return KREF_PATTERN.test(value);
-}
-
-/**
- * Extract a kref and alleged name from a prettified slot reference
- * returned by `queueMessage`.
- *
- * Expected shapes:
- *
- * - string like `"<ko5> (Alleged: Foo)"`
- * - CapData-ish object with `body` + `slots`
- *
- * @param value - The value to inspect.
- * @returns The extracted kref and alleged name, or `undefined` if nothing
- * matched.
- */
-export function extractKref(value: unknown):
-  | {
-      kref: string;
-      alleged?: string;
-    }
-  | undefined {
-  if (typeof value === 'string') {
-    const match = /<(ko\d+)>(?:\s*\(Alleged:\s*([^)]+)\))?/u.exec(value);
-    if (match?.[1]) {
-      return { kref: match[1], alleged: match[2]?.trim() };
-    }
-    if (isKref(value)) {
-      return { kref: value };
-    }
-    return undefined;
-  }
-  if (value && typeof value === 'object') {
-    const obj = value as { body?: unknown; slots?: unknown };
-    if (typeof obj.body === 'string' && Array.isArray(obj.slots)) {
-      const [kref] = obj.slots as unknown[];
-      if (typeof kref === 'string' && isKref(kref)) {
-        const nameMatch = /Alleged:\s*([^"]+)/u.exec(obj.body);
-        return { kref, alleged: nameMatch?.[1]?.trim() };
-      }
-    }
-  }
-  return undefined;
+export function isRef(value: string): boolean {
+  return REF_PATTERN.test(value);
 }
 
 /**
@@ -161,21 +121,32 @@ export function uniqueNickname(base: string, inUse: Set<string>): string {
 }
 
 /**
+ * Default nickname for a ref we've received without any better
+ * label — just the ref itself minus the `@@` sigil, so `@@o5` → `o5`.
+ *
+ * @param ref - The ref string.
+ * @returns A base nickname string.
+ */
+export function baseNicknameFor(ref: string): string {
+  return ref.replace(/^@@/u, 'ref:');
+}
+
+/**
  * Ensure a matcher has been redeemed; otherwise throw with instructions
  * for the agent. If a pre-configured matcher URL is mid-redemption, wait
  * for it to settle before deciding.
  *
  * @param state - The plugin state.
- * @returns The matcher kref.
+ * @returns The matcher ref.
  */
 export async function requireMatcher(state: PluginState): Promise<string> {
   switch (state.matcher.status) {
     case 'resolved':
-      return state.matcher.entry.kref;
+      return state.matcher.entry.ref;
     case 'pending':
       try {
         const entry = await state.matcher.promise;
-        return entry.kref;
+        return entry.ref;
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error);
         throw new Error(
@@ -197,11 +168,12 @@ export async function requireMatcher(state: PluginState): Promise<string> {
 }
 
 /**
- * Resolve a contact reference (URL, kref, or nickname) to a contact entry,
- * redeeming the URL via the daemon if necessary.
+ * Resolve a contact reference (URL, ref, or nickname) to a contact
+ * entry, redeeming the URL via the daemon if necessary.
  *
  * @param options - Resolution options.
- * @param options.ref - The reference to resolve.
+ * @param options.ref - The reference to resolve. May be a URL, a
+ * nickname, or an ocap-jsonrpc-vat ref (`@@o<n>`).
  * @param options.state - The plugin state.
  * @param options.daemon - The daemon caller.
  * @returns The resolved ContactEntry.
@@ -219,45 +191,44 @@ export async function resolveContact(options: {
   if (existing) {
     return existing;
   }
-  // If ref is a known service nickname (e.g. one returned by
-  // `service_initiate_contact` or auto-registered by the ref-walker
-  // in `service_call`), reuse its kref. Prevents the LLM from getting
-  // an "unparseable URL" error when it passes a service nickname to
-  // a tool that resolves through this function — the caller can then
-  // fall back to service-side inspection methods if the target
-  // doesn't happen to be a ContactPoint.
-  const serviceEntry = state.services.get(ref);
+  // If ref is a known service nickname or ref, reuse its ref.
+  const serviceEntry =
+    state.services.get(ref) ??
+    [...state.services.values()].find((entry) => entry.ref === ref);
   if (serviceEntry) {
     const nickname = uniqueNickname(
       serviceEntry.nickname,
       new Set(state.contacts.keys()),
     );
-    const entry: ContactEntry = { kref: serviceEntry.kref, nickname };
+    const entry: ContactEntry = { ref: serviceEntry.ref, nickname };
     state.contacts.set(nickname, entry);
     return entry;
   }
-  // If it's already a kref, wrap it so subsequent calls work.
-  if (isKref(ref)) {
-    const nickname = uniqueNickname(ref, new Set(state.contacts.keys()));
-    const entry: ContactEntry = { kref: ref, nickname };
+  // If it's already a bare ref, wrap it so subsequent calls work.
+  if (isRef(ref)) {
+    const nickname = uniqueNickname(
+      baseNicknameFor(ref),
+      new Set(state.contacts.keys()),
+    );
+    const entry: ContactEntry = { ref, nickname };
     state.contacts.set(nickname, entry);
     return entry;
   }
   // Otherwise treat ref as an OCAP URL to redeem.
-  const kref = await daemon.redeemUrl(ref);
+  const redeemed = await daemon.redeemUrl(ref);
   const nickname = uniqueNickname(
-    `contact:${kref}`,
+    baseNicknameFor(redeemed),
     new Set(state.contacts.keys()),
   );
-  const entry: ContactEntry = { url: ref, kref, nickname };
+  const entry: ContactEntry = { url: ref, ref: redeemed, nickname };
   state.contacts.set(nickname, entry);
   return entry;
 }
 
 /**
- * Resolve a service reference (nickname or kref) to a service entry.
+ * Resolve a service reference (nickname or ref) to a service entry.
  *
- * @param ref - Nickname or kref.
+ * @param ref - Nickname or ref.
  * @param state - The plugin state.
  * @returns The ServiceEntry.
  */
@@ -266,12 +237,12 @@ export function resolveService(ref: string, state: PluginState): ServiceEntry {
   if (byNickname) {
     return byNickname;
   }
-  if (isKref(ref)) {
-    const byKref = [...state.services.values()].find(
-      (entry) => entry.kref === ref,
+  if (isRef(ref)) {
+    const byRef = [...state.services.values()].find(
+      (entry) => entry.ref === ref,
     );
-    if (byKref) {
-      return byKref;
+    if (byRef) {
+      return byRef;
     }
   }
   const available = [...state.services.keys()];

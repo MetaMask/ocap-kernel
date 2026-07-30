@@ -2,8 +2,8 @@
  * metamask_request_capability tool: request a capability from the vendor.
  */
 import type { DaemonCaller } from '../daemon.ts';
+import { baseNicknameFor, ensureVendor, isRef } from '../state.ts';
 import type { MethodSchema, PluginState } from '../state.ts';
-import { ensureVendor, parseCapabilityResponse } from '../state.ts';
 import type { OpenClawPluginApi, ToolResponse } from '../types.ts';
 
 /**
@@ -58,7 +58,7 @@ export function registerRequestCapabilityTool(options: {
     description:
       'Request a capability from the MetaMask wallet vendor. ' +
       'Describe what you need in natural language (e.g., "I need to sign personal messages"). ' +
-      'Returns the capability name, kref, and available methods with their signatures.',
+      'Returns the capability nickname, ref, and available methods with their signatures.',
     parameters: {
       type: 'object',
       properties: {
@@ -75,22 +75,27 @@ export function registerRequestCapabilityTool(options: {
       params: { request: string },
     ): Promise<ToolResponse> {
       try {
-        const vendorKref = await ensureVendor({ state, daemon });
+        const vendorRef = await ensureVendor({ state, daemon });
 
         const rawResult = await daemon.queueMessage({
-          target: vendorKref,
+          target: vendorRef,
           method: 'requestCapability',
           args: [params.request],
-          raw: true,
         });
 
-        const { kref, name } = parseCapabilityResponse(rawResult);
+        if (typeof rawResult !== 'string' || !isRef(rawResult)) {
+          throw new Error(
+            `requestCapability: expected a ref string, got: ${JSON.stringify(rawResult)}`,
+          );
+        }
+        const ref = rawResult;
+        const name = baseNicknameFor(ref);
 
         // Discover available methods by calling __getDescription__ on the capability.
         let methods: Record<string, MethodSchema> | undefined;
         try {
           const description = await daemon.queueMessage({
-            target: kref,
+            target: ref,
             method: GET_DESCRIPTION,
             args: [],
           });
@@ -102,13 +107,13 @@ export function registerRequestCapabilityTool(options: {
         }
 
         state.capabilities.set(name, {
-          kref,
+          ref,
           name,
           description: params.request,
           methods,
         });
 
-        const lines = [`Obtained capability: ${name}`, `KRef: ${kref}`];
+        const lines = [`Obtained capability: ${name}`, `Ref: ${ref}`];
 
         if (methods && Object.keys(methods).length > 0) {
           lines.push('', 'Available methods:');

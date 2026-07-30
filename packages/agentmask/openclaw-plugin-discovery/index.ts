@@ -3,7 +3,9 @@
  * service matcher and consume them through the contact protocol.
  *
  * Config (optional, in openclaw plugin settings or env vars):
- *   ocapCliPath   - Absolute path to the `ocap` CLI (auto-detected from monorepo)
+ *   ocapHome      - OCAP home directory (default ~/.ocap); the vat's
+ *                   socket is expected at <ocapHome>/ocap-jsonrpc.sock
+ *   socketPath    - Override for the vat socket path (wins over ocapHome)
  *   matcherUrl    - OCAP URL for the service matcher
  *   timeoutMs     - Daemon call timeout in ms (default: 60000)
  *   resetState    - Clear plugin state on register (default: false)
@@ -16,8 +18,7 @@ import {
   string,
   validate,
 } from '@metamask/superstruct';
-import { resolve as resolvePath, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 import { makeDaemonCaller } from './daemon.ts';
 import { makeDisplayClient } from './display-client.ts';
@@ -34,13 +35,11 @@ import type {
   PluginEntry,
 } from './types.ts';
 
-const pluginDir = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_CLI = resolvePath(pluginDir, '../../kernel-cli/dist/app.mjs');
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 const PluginConfigStruct = object({
-  ocapCliPath: exactOptional(string()),
   ocapHome: exactOptional(string()),
+  socketPath: exactOptional(string()),
   matcherUrl: exactOptional(string()),
   displayUrl: exactOptional(string()),
   timeoutMs: exactOptional(number()),
@@ -69,16 +68,19 @@ const configSchema: PluginConfigSchema = {
   jsonSchema: {
     type: 'object',
     properties: {
-      ocapCliPath: {
-        type: 'string',
-        description:
-          'Absolute path to the ocap CLI entry point (.mjs file or binary).',
-      },
       ocapHome: {
         type: 'string',
         description:
           'OCAP home directory for the daemon this plugin should target. ' +
-          'Passed as `--home` on every spawned `ocap` invocation. Default: ~/.ocap.',
+          'The ocap-jsonrpc-vat socket is expected at ' +
+          '`<ocapHome>/ocap-jsonrpc.sock`. Ignored if `socketPath` is set. ' +
+          'Default: ~/.ocap.',
+      },
+      socketPath: {
+        type: 'string',
+        description:
+          'Absolute filesystem path of the ocap-jsonrpc-vat Unix socket. ' +
+          'Overrides `ocapHome` when set.',
       },
       matcherUrl: {
         type: 'string',
@@ -135,18 +137,17 @@ function resolveConfig<Type>(options: {
 function register(api: OpenClawPluginApi): void {
   const { pluginConfig } = api;
 
-  const cliPath =
-    (
-      resolveConfig<string>({
-        pluginValue: pluginConfig?.ocapCliPath,
-        envVar: 'OCAP_CLI_PATH',
-      }) ?? ''
-    ).trim() || DEFAULT_CLI;
-
   const ocapHome = (
     resolveConfig<string>({
       pluginValue: pluginConfig?.ocapHome,
       envVar: 'OCAP_HOME',
+    }) ?? ''
+  ).trim();
+
+  const explicitSocketPath = (
+    resolveConfig<string>({
+      pluginValue: pluginConfig?.socketPath,
+      envVar: 'OCAP_JSONRPC_SOCKET',
     }) ?? ''
   ).trim();
 
@@ -184,9 +185,12 @@ function register(api: OpenClawPluginApi): void {
     console.info('[discovery plugin] State reset enabled — starting clean.');
   }
 
+  const socketPath =
+    explicitSocketPath ||
+    (ocapHome ? join(ocapHome, 'ocap-jsonrpc.sock') : undefined);
+
   const daemon = makeDaemonCaller({
-    cliPath,
-    ocapHome: ocapHome || undefined,
+    socketPath,
     timeoutMs,
   });
 
@@ -208,11 +212,11 @@ function register(api: OpenClawPluginApi): void {
   // the window between `register()` returning and the redemption
   // settling.
   if (preconfiguredMatcherUrl) {
-    const pending = daemon.redeemUrl(preconfiguredMatcherUrl).then((kref) => {
-      const entry = { url: preconfiguredMatcherUrl, kref };
+    const pending = daemon.redeemUrl(preconfiguredMatcherUrl).then((ref) => {
+      const entry = { url: preconfiguredMatcherUrl, ref };
       state.matcher = { status: 'resolved', entry };
       // eslint-disable-next-line no-console
-      console.info(`[discovery plugin] Pre-redeemed matcher URL; kref=${kref}`);
+      console.info(`[discovery plugin] Pre-redeemed matcher URL; ref=${ref}`);
       return entry;
     });
     state.matcher = { status: 'pending', promise: pending };

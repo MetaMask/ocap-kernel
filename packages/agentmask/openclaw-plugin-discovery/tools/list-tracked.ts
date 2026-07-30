@@ -35,7 +35,7 @@ export function registerListTrackedTool(options: {
       switch (state.matcher.status) {
         case 'resolved': {
           const { entry } = state.matcher;
-          lines.push(`Matcher: ${entry.kref} (${entry.url})`);
+          lines.push(`Matcher: ${entry.ref} (${entry.url})`);
           break;
         }
         case 'pending':
@@ -52,7 +52,7 @@ export function registerListTrackedTool(options: {
         lines.push('Contacts:');
         for (const entry of state.contacts.values()) {
           const urlPart = entry.url ? ` — ${entry.url}` : '';
-          lines.push(`  - ${entry.nickname} (${entry.kref})${urlPart}`);
+          lines.push(`  - ${entry.nickname} (${entry.ref})${urlPart}`);
         }
       } else {
         lines.push('Contacts: none.');
@@ -63,7 +63,7 @@ export function registerListTrackedTool(options: {
         lines.push('Services:');
         for (const entry of state.services.values()) {
           lines.push(
-            `  - ${entry.nickname} (${entry.kref}) — from contact ${entry.fromContact}`,
+            `  - ${entry.nickname} (${entry.ref}) — from contact ${entry.fromContact}`,
           );
         }
       } else {

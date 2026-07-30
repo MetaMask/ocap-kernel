@@ -45,9 +45,9 @@ export function registerObtainVendorTool(options: {
           throw new Error('OCAP URL is empty.');
         }
 
-        const kref = await daemon.redeemUrl(url);
+        const ref = await daemon.redeemUrl(url);
         state.ocapUrl = url;
-        state.vendorKref = kref;
+        state.vendorRef = ref;
 
         return {
           content: [
@@ -55,7 +55,7 @@ export function registerObtainVendorTool(options: {
               type: 'text' as const,
               text: [
                 'Obtained MetaMask capability vendor.',
-                `Vendor KRef: ${kref}`,
+                `Vendor ref: ${ref}`,
                 'Use metamask_request_capability to request capabilities.',
               ].join('\n'),
             },

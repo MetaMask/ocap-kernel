@@ -5,9 +5,8 @@
  * in real time.
  *
  * The wallet balance lives in the wallet vat inside the consumer
- * daemon on the VPS; this plugin talks to it via
- * `ocap daemon queueMessage` on a kref pre-redeemed from the
- * configured `walletUrl`.
+ * daemon on the VPS; this plugin talks to it via the ocap JSON-RPC
+ * vat's `send` on a ref pre-redeemed from the configured `walletUrl`.
  *
  * Config (in openclaw plugin settings or env vars):
  *   walletUrl               - OCAP URL of the wallet vat's public
@@ -20,10 +19,13 @@
  *                             at register-time so each rehearsal
  *                             starts from a known amount. Default
  *                             10000 ($10,000.00).
- *   ocapCliPath             - Absolute path to the ocap CLI
- *                             (default: monorepo-relative).
  *   ocapHome                - OCAP home for the daemon hosting the
- *                             wallet vat. Default ~/.ocap-consumer.
+ *                             wallet vat. The ocap-jsonrpc-vat
+ *                             socket is expected at
+ *                             `<ocapHome>/ocap-jsonrpc.sock`.
+ *                             Default: ~/.ocap-consumer.
+ *   socketPath              - Override for the vat socket path
+ *                             (wins over ocapHome).
  *   timeoutMs               - Daemon-call timeout in ms
  *                             (default: 60000).
  *   displayUrl              - Base URL of the demo-display server.
@@ -38,8 +40,7 @@ import {
 } from '@metamask/superstruct';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, resolve as resolvePath } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join, resolve as resolvePath } from 'node:path';
 
 import { makeDaemonCaller } from './daemon.ts';
 import { makeDisplayClient } from './display-client.ts';
@@ -59,8 +60,6 @@ import type {
 } from './types.ts';
 import { makeWalletClient } from './wallet-client.ts';
 
-const pluginDir = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_CLI = resolvePath(pluginDir, '../../kernel-cli/dist/app.mjs');
 const DEFAULT_DISPLAY_URL = 'http://127.0.0.1:7777';
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_WALLET_INITIAL_BALANCE_USD = 10_000;
@@ -69,8 +68,8 @@ const USD_TO_CENTS = 100;
 const PluginConfigStruct = object({
   walletUrl: exactOptional(string()),
   walletInitialBalanceUsd: exactOptional(number()),
-  ocapCliPath: exactOptional(string()),
   ocapHome: exactOptional(string()),
+  socketPath: exactOptional(string()),
   timeoutMs: exactOptional(number()),
   displayUrl: exactOptional(string()),
 });
@@ -115,18 +114,19 @@ const configSchema: PluginConfigSchema = {
           'register-time so each rehearsal starts from a known ' +
           'amount. Default 10000 ($10,000.00).',
       },
-      ocapCliPath: {
-        type: 'string',
-        description:
-          'Absolute path to the ocap CLI entry point (.mjs file or binary). ' +
-          'Default: monorepo-relative from the plugin install location.',
-      },
       ocapHome: {
         type: 'string',
         description:
           'OCAP home directory for the daemon hosting the wallet vat. ' +
-          'Passed as `--home` on every spawned `ocap` invocation. ' +
-          'Default: ~/.ocap-consumer.',
+          'The ocap-jsonrpc-vat socket is expected at ' +
+          '`<ocapHome>/ocap-jsonrpc.sock`. Ignored if `socketPath` is ' +
+          'set. Default: ~/.ocap-consumer.',
+      },
+      socketPath: {
+        type: 'string',
+        description:
+          'Absolute filesystem path of the ocap-jsonrpc-vat Unix socket. ' +
+          'Overrides `ocapHome` when set.',
       },
       timeoutMs: {
         type: 'number',
@@ -226,14 +226,6 @@ function register(api: OpenClawPluginApi): void {
     walletInitialBalanceUsd * USD_TO_CENTS,
   );
 
-  const cliPath =
-    (
-      resolveConfig<string>({
-        pluginValue: pluginConfig?.ocapCliPath,
-        envVar: 'OCAP_CLI_PATH',
-      }) ?? ''
-    ).trim() || DEFAULT_CLI;
-
   const ocapHome =
     (
       resolveConfig<string>({
@@ -241,6 +233,13 @@ function register(api: OpenClawPluginApi): void {
         envVar: 'DEMO_OCAP_HOME',
       }) ?? ''
     ).trim() || resolvePath(homedir(), '.ocap-consumer');
+
+  const explicitSocketPath = (
+    resolveConfig<string>({
+      pluginValue: pluginConfig?.socketPath,
+      envVar: 'OCAP_JSONRPC_SOCKET',
+    }) ?? ''
+  ).trim();
 
   // Explicit config beats the file, so an operator can always
   // override the auto-discovery by setting
@@ -272,7 +271,8 @@ function register(api: OpenClawPluginApi): void {
 
   const state = createState();
   const display = makeDisplayClient({ baseUrl: displayUrl });
-  const daemon = makeDaemonCaller({ cliPath, ocapHome, timeoutMs });
+  const socketPath = explicitSocketPath || join(ocapHome, 'ocap-jsonrpc.sock');
+  const daemon = makeDaemonCaller({ socketPath, timeoutMs });
 
   registerAnnounceTool({ api, display });
   registerRecordArtifactTool({ api, display });
@@ -292,15 +292,15 @@ function register(api: OpenClawPluginApi): void {
   // promise in the state slot is the only reliable option.
   if (walletUrl) {
     const pending = (async () => {
-      const walletKref = await daemon.redeemUrl(walletUrl);
-      const client = makeWalletClient({ daemon, walletKref });
+      const walletRef = await daemon.redeemUrl(walletUrl);
+      const client = makeWalletClient({ daemon, walletRef });
       // Reset the vat's balance so each rehearsal starts from a
       // known amount. `init` is idempotent.
       await client.init(walletInitialBalanceCents);
-      state.wallet = { status: 'resolved', client, kref: walletKref };
+      state.wallet = { status: 'resolved', client, ref: walletRef };
       // eslint-disable-next-line no-console
       console.info(
-        `[demo plugin] Wallet ready; kref=${walletKref}, initial balance=${walletInitialBalanceCents}c ($${walletInitialBalanceUsd.toLocaleString()})`,
+        `[demo plugin] Wallet ready; ref=${walletRef}, initial balance=${walletInitialBalanceCents}c ($${walletInitialBalanceUsd.toLocaleString()})`,
       );
       // Push a wallet.balance event so the dashboard ribbon reflects
       // the freshly-initialised amount. Fire-and-forget: the display

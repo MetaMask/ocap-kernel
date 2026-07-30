@@ -1,7 +1,8 @@
 /**
  * Thin RPC client for the orchestration-demo wallet vat. Wraps
- * `daemon queueMessage <walletKref> <method>` calls so the demo
- * plugin's tools don't have to know the CLI plumbing. All amounts
+ * `daemon.queueMessage` calls addressed at the wallet's ocap-jsonrpc-vat
+ * ref so the demo plugin's tools don't have to know the RPC plumbing.
+ * All amounts
  * are integer USD cents — same denomination the vat itself uses;
  * conversion to/from dollars happens at the LLM-facing tool
  * boundary in `tools/util.ts`.
@@ -99,25 +100,25 @@ function asWithdrawResult(value: unknown): { money: Money; balance: number } {
 }
 
 /**
- * Build a wallet client bound to a daemon caller and a wallet kref.
+ * Build a wallet client bound to a daemon caller and a wallet ref.
  *
  * @param options - Construction options.
  * @param options.daemon - Daemon caller that reaches the daemon
  *   hosting the wallet vat.
- * @param options.walletKref - Kernel reference for the wallet's
- *   public facet (obtained by redeeming the wallet OCAP URL).
+ * @param options.walletRef - Ocap-jsonrpc-vat ref (`@@o<n>`) for the
+ *   wallet's public facet (obtained by redeeming the wallet OCAP URL).
  * @returns A wallet client with `balance` / `deposit` / `withdraw` /
  *   `init` methods.
  */
 export function makeWalletClient(options: {
   daemon: DaemonCaller;
-  walletKref: string;
+  walletRef: string;
 }): WalletClient {
-  const { daemon, walletKref } = options;
+  const { daemon, walletRef } = options;
   return {
     async balance(): Promise<number> {
       const raw = await daemon.queueMessage({
-        target: walletKref,
+        target: walletRef,
         method: 'balance',
         args: [],
       });
@@ -125,7 +126,7 @@ export function makeWalletClient(options: {
     },
     async deposit(amountCents: number): Promise<number> {
       const raw = await daemon.queueMessage({
-        target: walletKref,
+        target: walletRef,
         method: 'deposit',
         args: [amountCents],
       });
@@ -135,7 +136,7 @@ export function makeWalletClient(options: {
       amountCents: number,
     ): Promise<{ money: Money; balance: number }> {
       const raw = await daemon.queueMessage({
-        target: walletKref,
+        target: walletRef,
         method: 'withdraw',
         args: [amountCents],
       });
@@ -143,7 +144,7 @@ export function makeWalletClient(options: {
     },
     async init(amountCents: number): Promise<void> {
       await daemon.queueMessage({
-        target: walletKref,
+        target: walletRef,
         method: 'init',
         args: [amountCents],
       });

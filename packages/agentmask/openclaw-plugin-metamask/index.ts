@@ -1,13 +1,16 @@
 /**
  * OpenClaw MetaMask plugin: registers tools that let an LLM agent request
- * and use capabilities from a MetaMask capability vendor via the OCAP daemon.
+ * and use capabilities from a MetaMask capability vendor via the ocap
+ * JSON-RPC vat.
  *
  * The vendor's public facet is accessed by redeeming an OCAP URL. The agent
  * can then request capabilities (e.g., PersonalMessageSigner) and call
  * methods on them (e.g., getAccounts, signMessage).
  *
  * Config (optional, in openclaw plugin settings or env vars):
- *   ocapCliPath   - Absolute path to the `ocap` CLI (auto-detected from monorepo)
+ *   ocapHome      - OCAP home directory (default ~/.ocap); the vat's
+ *                   socket is expected at <ocapHome>/ocap-jsonrpc.sock
+ *   socketPath    - Override for the vat socket path (wins over ocapHome)
  *   ocapUrl       - OCAP URL for the vendor public facet
  *   timeoutMs     - Daemon call timeout in ms (default: 60000)
  *   resetState    - Clear plugin state on register (default: false)
@@ -20,8 +23,7 @@ import {
   string,
   validate,
 } from '@metamask/superstruct';
-import { resolve as resolvePath, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 import { makeDaemonCaller } from './daemon.ts';
 import { createState } from './state.ts';
@@ -35,12 +37,11 @@ import type {
   PluginEntry,
 } from './types.ts';
 
-const pluginDir = dirname(fileURLToPath(import.meta.url));
-const DEFAULT_CLI = resolvePath(pluginDir, '../../kernel-cli/dist/app.mjs');
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 const PluginConfigStruct = object({
-  ocapCliPath: exactOptional(string()),
+  ocapHome: exactOptional(string()),
+  socketPath: exactOptional(string()),
   ocapUrl: exactOptional(string()),
   timeoutMs: exactOptional(number()),
   resetState: exactOptional(boolean()),
@@ -68,10 +69,19 @@ const configSchema: PluginConfigSchema = {
   jsonSchema: {
     type: 'object',
     properties: {
-      ocapCliPath: {
+      ocapHome: {
         type: 'string',
         description:
-          'Absolute path to the ocap CLI entry point (.mjs file or binary).',
+          'OCAP home directory for the daemon this plugin should target. ' +
+          'The ocap-jsonrpc-vat socket is expected at ' +
+          '`<ocapHome>/ocap-jsonrpc.sock`. Ignored if `socketPath` is set. ' +
+          'Default: ~/.ocap.',
+      },
+      socketPath: {
+        type: 'string',
+        description:
+          'Absolute filesystem path of the ocap-jsonrpc-vat Unix socket. ' +
+          'Overrides `ocapHome` when set.',
       },
       ocapUrl: {
         type: 'string',
@@ -99,17 +109,17 @@ const configSchema: PluginConfigSchema = {
  * @param options.parse - Optional parser for the env var string.
  * @returns The resolved value, or undefined.
  */
-function resolveConfig<T>(options: {
+function resolveConfig<Type>(options: {
   pluginValue: unknown;
   envVar: string;
-  parse?: (value: string) => T;
-}): T | undefined {
+  parse?: (value: string) => Type;
+}): Type | undefined {
   // eslint-disable-next-line n/no-process-env
   const envValue = process.env[options.envVar];
   if (envValue !== undefined && envValue !== '') {
-    return options.parse ? options.parse(envValue) : (envValue as T);
+    return options.parse ? options.parse(envValue) : (envValue as Type);
   }
-  return options.pluginValue as T | undefined;
+  return options.pluginValue as Type | undefined;
 }
 
 /**
@@ -120,13 +130,19 @@ function resolveConfig<T>(options: {
 function register(api: OpenClawPluginApi): void {
   const { pluginConfig } = api;
 
-  const cliPath =
-    (
-      resolveConfig<string>({
-        pluginValue: pluginConfig?.ocapCliPath,
-        envVar: 'OCAP_CLI_PATH',
-      }) ?? ''
-    ).trim() || DEFAULT_CLI;
+  const ocapHome = (
+    resolveConfig<string>({
+      pluginValue: pluginConfig?.ocapHome,
+      envVar: 'OCAP_HOME',
+    }) ?? ''
+  ).trim();
+
+  const explicitSocketPath = (
+    resolveConfig<string>({
+      pluginValue: pluginConfig?.socketPath,
+      envVar: 'OCAP_JSONRPC_SOCKET',
+    }) ?? ''
+  ).trim();
 
   const ocapUrl = (
     resolveConfig<string>({
@@ -158,7 +174,11 @@ function register(api: OpenClawPluginApi): void {
     console.info('[metamask plugin] State reset enabled — starting clean.');
   }
 
-  const daemon = makeDaemonCaller({ cliPath, timeoutMs });
+  const socketPath =
+    explicitSocketPath ||
+    (ocapHome ? join(ocapHome, 'ocap-jsonrpc.sock') : undefined);
+
+  const daemon = makeDaemonCaller({ socketPath, timeoutMs });
 
   registerObtainVendorTool({ api, daemon, state });
   registerRequestCapabilityTool({ api, daemon, state });
@@ -171,7 +191,7 @@ const entry: PluginEntry = {
   name: 'MetaMask (OCAP)',
   description:
     'Request and use wallet capabilities from a MetaMask capability vendor ' +
-    'via the OCAP kernel daemon. Supports requesting capabilities, calling ' +
+    'via the ocap-jsonrpc-vat. Supports requesting capabilities, calling ' +
     'methods on them, and listing obtained capabilities.',
   configSchema,
   register,
