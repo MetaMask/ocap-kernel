@@ -31,6 +31,7 @@
     { "path": "./packages/kernel-ui" },
     { "path": "./packages/kernel-utils" },
     { "path": "./packages/llm-bridge" },
+    { "path": "./packages/llm-mediator-vat" },
     { "path": "./packages/logger" },
     { "path": "./packages/nodejs-test-workers" },
     { "path": "./packages/ocap-kernel" },
