@@ -27,6 +27,13 @@ export async function makeSocketIOChannel(
   let decoder = new StringDecoder('utf8');
   let buffer = '';
   let closed = false;
+  // Set when a client disconnects and no reader is present to receive
+  // the EOF sentinel at that moment. The next `read()` returns `null`
+  // and clears this flag; only then will subsequent reads yield data
+  // from the following client's session. Without this, a `read()` that
+  // arrives *between* disconnect and the next connection would silently
+  // receive the new session's first line as if the sessions were one.
+  let pendingSessionEnd = false;
 
   /**
    * Deliver a line to a pending reader or enqueue it.
@@ -85,17 +92,29 @@ export async function makeSocketIOChannel(
       buffer = '';
     }
     currentSocket = null;
-    deliverEOF();
+    // Any queued lines from this session that no reader has picked up
+    // belong to the just-ended session; drop them so they don't leak
+    // into the next connection's traffic.
+    lineQueue.length = 0;
+    if (readerQueue.length > 0) {
+      deliverEOF();
+    } else {
+      // No reader was waiting at the moment of disconnect. Latch the
+      // EOF so the next `read()` still observes the session boundary.
+      pendingSessionEnd = true;
+    }
   }
 
   const server = net.createServer((socket) => {
     if (currentSocket) {
       if (currentSocket.readableEnded || currentSocket.destroyed) {
         // Old connection is dead but events haven't been fully processed;
+        // synthesize the disconnect so pending readers see EOF, then
         // clean it up and accept the new connection.
-        currentSocket.removeAllListeners();
-        currentSocket.destroy();
-        currentSocket = null;
+        const stale = currentSocket;
+        handleDisconnect(stale);
+        stale.removeAllListeners();
+        stale.destroy();
       } else {
         // Existing active client — reject the new connection
         socket.destroy();
@@ -134,6 +153,10 @@ export async function makeSocketIOChannel(
   const channel: IOChannel = {
     async read(): Promise<string | null> {
       if (closed) {
+        return null;
+      }
+      if (pendingSessionEnd) {
+        pendingSessionEnd = false;
         return null;
       }
       const queued = lineQueue.shift();

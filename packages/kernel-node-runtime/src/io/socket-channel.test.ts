@@ -227,7 +227,7 @@ describe('makeSocketIOChannel', () => {
     await expect(channel.write('data')).rejects.toThrow('is closed');
   });
 
-  it('drains stale lineQueue when a new client connects', async () => {
+  it('drains stale lineQueue and signals EOF between client sessions', async () => {
     const socketPath = tempSocketPath();
     const channel = await makeSocketIOChannel('test', socketPath);
     channels.push(channel);
@@ -248,7 +248,26 @@ describe('makeSocketIOChannel', () => {
     await writeLine(client2, 'fresh-line');
     await new Promise((resolve) => setTimeout(resolve, 20));
 
+    // First read after a session boundary returns null so callers can
+    // observe the disconnect even when no read was pending at the
+    // moment of disconnect.
+    expect(await channel.read()).toBeNull();
+    // Subsequent reads deliver data from the new session.
     expect(await channel.read()).toBe('fresh-line');
+  });
+
+  it('latches EOF for a subsequent read when no reader was pending at disconnect', async () => {
+    const socketPath = tempSocketPath();
+    const channel = await makeSocketIOChannel('test', socketPath);
+    channels.push(channel);
+
+    const client = await connectToSocket(socketPath);
+    client.destroy();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // No read was pending at disconnect, but the boundary must still
+    // surface on the next read.
+    expect(await channel.read()).toBeNull();
   });
 
   it('handles multi-byte UTF-8 split across TCP chunks', async () => {
