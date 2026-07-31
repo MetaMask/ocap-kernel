@@ -91,8 +91,10 @@ if ! daemon_cli daemon exec getStatus >/dev/null 2>&1; then
   fail "daemon at $OCAP_HOME_DIR does not respond to \`daemon exec getStatus\`. Start it first."
 fi
 
-# Reuse an existing subcluster unless --force-reset was passed.
-EXISTING=$(daemon_cli daemon exec getStatus | node -e "
+# Look up any existing subcluster: reuse it, unless --force-reset was
+# passed — in which case terminate it first so we can launch a fresh
+# one (kernel state stays, the vat's baggage and @@ name counter go).
+EXISTING_ID=$(daemon_cli daemon exec getStatus | node -e "
   const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
   const data = JSON.parse(raw);
   const subclusters = data.subclusters ?? [];
@@ -100,29 +102,37 @@ EXISTING=$(daemon_cli daemon exec getStatus | node -e "
     (sc) => sc?.config?.bootstrap === 'ocapJsonrpcVat',
   );
   if (found) {
-    process.stdout.write('yes');
+    process.stdout.write(found.id);
   }
 ")
 
-if [[ -n "$EXISTING" && "$FORCE_RESET" == "false" ]]; then
-  info "Subcluster already exists; reusing."
-  if [[ ! -S "$SOCKET_PATH" ]]; then
-    fail "Existing subcluster claims to be up but socket $SOCKET_PATH is missing."
+if [[ -n "$EXISTING_ID" ]]; then
+  if [[ "$FORCE_RESET" == "true" ]]; then
+    info "Terminating existing subcluster $EXISTING_ID before relaunch..."
+    daemon_cli daemon exec terminateSubcluster "$(node -e \
+      "process.stdout.write(JSON.stringify({id: process.argv[1]}))" \
+      "$EXISTING_ID")" >/dev/null \
+      || fail "terminateSubcluster $EXISTING_ID failed"
+    # Give the kernel a moment to tear down the IO channel.
+    sleep 0.3
+  else
+    info "Subcluster already exists ($EXISTING_ID); reusing."
+    if [[ ! -S "$SOCKET_PATH" ]]; then
+      fail "Existing subcluster claims to be up but socket $SOCKET_PATH is missing."
+    fi
+    info "Home:   $OCAP_HOME_DIR"
+    info "Socket: $SOCKET_PATH"
+    echo "socket: $SOCKET_PATH"
+    exit 0
   fi
-  info "Home:   $OCAP_HOME_DIR"
-  info "Socket: $SOCKET_PATH"
-  echo "socket: $SOCKET_PATH"
-  exit 0
 fi
 
 CONFIG=$(BUNDLE="file://$BUNDLE_FILE" \
-         RESET="$FORCE_RESET" \
          SOCKET="$SOCKET_PATH" \
          node -e "
   const config = {
     config: {
       bootstrap: 'ocapJsonrpcVat',
-      forceReset: process.env.RESET === 'true',
       services: ['ocapURLRedemptionService'],
       io: {
         socket: { type: 'socket', path: process.env.SOCKET }

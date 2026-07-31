@@ -17,7 +17,7 @@
 import { E } from '@endo/eventual-send';
 import { passStyleOf } from '@endo/pass-style';
 import { makeDefaultExo } from '@metamask/kernel-utils/exo';
-import type { OcapURLRedemptionService } from '@metamask/ocap-kernel';
+import type { Baggage, OcapURLRedemptionService } from '@metamask/ocap-kernel';
 
 import { makeBridge } from '../bridge.ts';
 import { BridgeRpcError, JSON_RPC_ERROR } from '../json-rpc.ts';
@@ -41,15 +41,24 @@ type Services = {
 /**
  * Build the vat's root object.
  *
+ * The `@@o<n>` name table lives in ordinary closure state and is
+ * intentionally non-durable — each re-incarnation begins with an
+ * empty table. The services endowments delivered to `bootstrap` are
+ * stashed in baggage so that on re-incarnation `buildRootObject` can
+ * restart the socket serve loop without bootstrap having to run
+ * again (bootstrap only runs once per subcluster lifetime, not on
+ * every daemon restart).
+ *
  * @param _vatPowers - Unused.
  * @param _parameters - Unused.
- * @param _baggage - Unused (session state is intentionally non-durable).
+ * @param baggage - Vat baggage. Used to persist the services endowment
+ * bag so the serve loop can be resumed on re-incarnation.
  * @returns The vat root exo.
  */
 export function buildRootObject(
   _vatPowers: unknown,
   _parameters: unknown,
-  _baggage: unknown,
+  baggage: Baggage,
 ): unknown {
   const log = (...args: unknown[]): void => {
     // eslint-disable-next-line no-console
@@ -138,6 +147,36 @@ export function buildRootObject(
     }
   }
 
+  /**
+   * Kick off the socket loop as a background task. Any crash inside
+   * it is logged; the vat itself remains alive so it can be
+   * introspected.
+   *
+   * @param services - The endowments to serve against.
+   */
+  const startServeLoop = (services: Services): void => {
+    serveLoop(services).catch((error) => log('serve loop crashed:', error));
+  };
+
+  // On re-incarnation (e.g. after `daemon stop`/`daemon start`),
+  // bootstrap is not re-run — but this `buildRootObject` is. Read the
+  // previously-stashed services out of baggage and resume the loop.
+  // Deferred to a microtask so vat init completes and the vat is
+  // fully connected to kernel dispatch before we start issuing E()
+  // calls on the restored service refs.
+  if (baggage.has('services')) {
+    const restored = baggage.get('services') as Services;
+    Promise.resolve()
+      .then(() => {
+        startServeLoop(restored);
+        log('vat re-incarnated; serve loop resumed');
+        return undefined;
+      })
+      .catch((error) =>
+        log('failed to resume serve loop on re-incarnation:', error),
+      );
+  }
+
   return makeDefaultExo('ocapJsonrpcVatRoot', {
     async bootstrap(_vats: Record<string, unknown>, incoming: Services) {
       if (!incoming?.ocapURLRedemptionService) {
@@ -152,10 +191,12 @@ export function buildRootObject(
           'socket IOService is required (configure it in the cluster config under `io.socket`)',
         );
       }
-      // Kick off the socket loop as a background task. Any crash inside
-      // it is logged; the vat itself remains alive so it can be
-      // introspected.
-      serveLoop(incoming).catch((error) => log('serve loop crashed:', error));
+      if (baggage.has('services')) {
+        baggage.set('services', incoming);
+      } else {
+        baggage.init('services', incoming);
+      }
+      startServeLoop(incoming);
       log('vat bootstrap complete');
       return harden({});
     },
