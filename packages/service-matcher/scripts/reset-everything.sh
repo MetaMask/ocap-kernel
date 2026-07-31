@@ -14,6 +14,10 @@
 #     and the openclaw demo plugin's auto-discovery would otherwise
 #     pick up the fossilised `wallet-url.env` and try to redeem a
 #     dead kref;
+#   - launch a fresh ocap-jsonrpc-vat subcluster inside the consumer
+#     daemon (start-ocap-jsonrpc-vat.sh) — the openclaw plugins on
+#     this VPS reach the kernel through it, so its socket must exist
+#     before the gateway restart;
 #   - update the openclaw discovery plugin's matcherUrl config and
 #     restart the gateway so the new URL takes effect.
 #
@@ -160,6 +164,17 @@ node "$OCAP_BIN" --home "$CONSUMER_HOME" daemon start --local-relay >&2
 info "Launching fresh wallet subcluster..."
 "$REPO_ROOT/packages/orchestration-demo-vats/scripts/start-wallet.sh" \
   || { echo "[reset] ERROR: start-wallet.sh failed." >&2; exit 1; }
+
+# ---------------------------------------------------------------------------
+# 7b. Launch a fresh ocap-jsonrpc-vat subcluster.
+# ---------------------------------------------------------------------------
+# The openclaw plugins on this VPS reach kernel objects through the
+# vat's Unix socket, so its subcluster must exist before the gateway
+# restart. Also lives in the consumer daemon.
+info "Launching fresh ocap-jsonrpc-vat subcluster..."
+"$REPO_ROOT/packages/ocap-jsonrpc-vat/scripts/start-ocap-jsonrpc-vat.sh" \
+  --home "$CONSUMER_HOME" \
+  || { echo "[reset] ERROR: start-ocap-jsonrpc-vat.sh failed." >&2; exit 1; }
 
 # ---------------------------------------------------------------------------
 # 9-10. Update the openclaw plugin config and restart the gateway.

@@ -11,6 +11,12 @@
 #                           wallet OCAP URL to ~/.ocap-consumer/
 #                           wallet-url.env so the openclaw demo plugin
 #                           can redeem it at register())
+#   2b. start-ocap-jsonrpc-vat.sh
+#                          (launch or reuse the ocap-jsonrpc-vat
+#                           subcluster inside the consumer daemon;
+#                           the openclaw plugins reach it at
+#                           ~/.ocap-consumer/ocap-jsonrpc.sock instead
+#                           of shell-execing the ocap CLI per call)
 #   3. openclaw gateway    (restart so plugin state resets, including
 #                           the discovery plugin's tracked-services
 #                           cache and the demo plugin's wallet
@@ -84,6 +90,16 @@ info "Step 2a: launching (or reusing) the wallet subcluster..."
 # same policy as start-matcher.sh.
 "$REPO_ROOT/packages/orchestration-demo-vats/scripts/start-wallet.sh" \
   || fail "wallet startup failed"
+
+info "Step 2b: launching (or reusing) the ocap-jsonrpc-vat subcluster..."
+# The vat lives in the consumer daemon so the openclaw plugins on
+# this VPS can reach the kernel over a persistent JSON-RPC socket
+# instead of shell-execing the ocap CLI. Same reuse-if-present
+# policy as start-wallet.sh; the vat's kernel state is persistent
+# across daemon restarts.
+"$REPO_ROOT/packages/ocap-jsonrpc-vat/scripts/start-ocap-jsonrpc-vat.sh" \
+  --home "$CONSUMER_HOME" \
+  || fail "ocap-jsonrpc-vat startup failed"
 
 info "Step 3/4: restarting openclaw gateway..."
 # `gateway restart` is the published openclaw command. If it isn't
