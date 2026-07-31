@@ -1,29 +1,39 @@
 #!/usr/bin/env bash
-# Launch the ocap JSON-RPC subcluster in the local ocap daemon.
+# Launch the ocap JSON-RPC subcluster in a local ocap daemon.
 #
 # The vat exposes a line-delimited JSON-RPC 2.0 interface on a
-# Unix-domain socket under $OCAP_HOME (default ~/.ocap). Its two
+# Unix-domain socket under the daemon's home directory. Its two
 # methods — `redeemURL(url)` and `send(target,method,args)` — are
 # intended as the routine path by which local, non-vat processes
 # reach kernel objects, replacing ad-hoc use of the kernel-cli's
 # `queueMessage` RPC.
 #
-# Prerequisites: the daemon must already be running. Typical
-# orchestration-demo flow is to run start-matcher.sh first (which
-# starts the daemon) and then this script.
+# The target daemon is chosen by (in order):
+#   1. --home <dir>      (explicit override on the CLI)
+#   2. $OCAP_HOME        (environment variable)
+#   3. ~/.ocap           (default)
+# The vat's socket lives at <home>/ocap-jsonrpc.sock.
+#
+# Prerequisites: the target daemon must already be running and have
+# `ocapURLRedemptionService` available (i.e. remote comms initialised
+# if you plan to redeem URLs pointing at other peers).
 #
 # Usage:
-#   start-ocap-jsonrpc-vat.sh [--no-build] [--force-reset]
+#   start-ocap-jsonrpc-vat.sh [--home DIR] [--no-build] [--force-reset]
 
 set -euo pipefail
 
 SKIP_BUILD=false
 FORCE_RESET=false
+OCAP_HOME_ARG=""
 
 usage() {
   cat >&2 <<EOF
-Usage: $0 [--no-build] [--force-reset]
+Usage: $0 [--home DIR] [--no-build] [--force-reset]
 
+  --home DIR     Target daemon's home directory. Overrides \$OCAP_HOME
+                 and the ~/.ocap default. The vat's socket is created
+                 at <home>/ocap-jsonrpc.sock.
   --no-build     Skip building/bundling the ocap JSON-RPC vat.
   --force-reset  Force-reset the subcluster if one already exists.
                  Without this, an existing subcluster is reused as-is.
@@ -34,6 +44,9 @@ EOF
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --home)
+      [[ $# -lt 2 ]] && { echo "Error: --home requires a value" >&2; usage; }
+      OCAP_HOME_ARG="$2"; shift 2 ;;
     --no-build) SKIP_BUILD=true; shift ;;
     --force-reset) FORCE_RESET=true; shift ;;
     --help|-h) usage ;;
@@ -50,7 +63,7 @@ REPO_ROOT="$(cd "$PKG_DIR/../.." && pwd)"
 OCAP_BIN="$REPO_ROOT/packages/kernel-cli/dist/app.mjs"
 BUNDLE_FILE="$PKG_DIR/src/vat/index.bundle"
 
-OCAP_HOME_DIR="${OCAP_HOME:-${HOME}/.ocap}"
+OCAP_HOME_DIR="${OCAP_HOME_ARG:-${OCAP_HOME:-${HOME}/.ocap}}"
 SOCKET_PATH="$OCAP_HOME_DIR/ocap-jsonrpc.sock"
 
 if [[ ! -f "$OCAP_BIN" ]]; then
@@ -67,17 +80,19 @@ else
   (cd "$REPO_ROOT" && yarn workspace @ocap/ocap-jsonrpc-vat bundle-vat >&2)
 fi
 
-daemon_exec() {
-  (cd "$REPO_ROOT" && node "$OCAP_BIN" daemon exec "$@")
+# All CLI invocations against this daemon go through this wrapper so
+# they use the requested home rather than the CLI default.
+daemon_cli() {
+  (cd "$REPO_ROOT" && node "$OCAP_BIN" --home "$OCAP_HOME_DIR" "$@")
 }
 
 # Fast-fail if the daemon isn't up.
-if ! daemon_exec getStatus >/dev/null 2>&1; then
-  fail "daemon does not respond to \`daemon exec getStatus\`. Start it first (e.g. \`ocap daemon start\` or start-matcher.sh)."
+if ! daemon_cli daemon exec getStatus >/dev/null 2>&1; then
+  fail "daemon at $OCAP_HOME_DIR does not respond to \`daemon exec getStatus\`. Start it first."
 fi
 
 # Reuse an existing subcluster unless --force-reset was passed.
-EXISTING=$(daemon_exec getStatus | node -e "
+EXISTING=$(daemon_cli daemon exec getStatus | node -e "
   const raw = require('fs').readFileSync('/dev/stdin','utf8').trim();
   const data = JSON.parse(raw);
   const subclusters = data.subclusters ?? [];
@@ -94,6 +109,7 @@ if [[ -n "$EXISTING" && "$FORCE_RESET" == "false" ]]; then
   if [[ ! -S "$SOCKET_PATH" ]]; then
     fail "Existing subcluster claims to be up but socket $SOCKET_PATH is missing."
   fi
+  info "Home:   $OCAP_HOME_DIR"
   info "Socket: $SOCKET_PATH"
   echo "socket: $SOCKET_PATH"
   exit 0
@@ -119,8 +135,8 @@ CONFIG=$(BUNDLE="file://$BUNDLE_FILE" \
   process.stdout.write(JSON.stringify(config));
 ")
 
-info "Launching subcluster..."
-daemon_exec launchSubcluster "$CONFIG" >/dev/null
+info "Launching subcluster in $OCAP_HOME_DIR..."
+daemon_cli daemon exec launchSubcluster "$CONFIG" >/dev/null
 
 # Give the vat a moment to open its listener before reporting readiness.
 for i in $(seq 1 20); do
@@ -134,5 +150,6 @@ for i in $(seq 1 20); do
 done
 
 info "Vat ready."
+info "Home:   $OCAP_HOME_DIR"
 info "Socket: $SOCKET_PATH"
 echo "socket: $SOCKET_PATH"
