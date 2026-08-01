@@ -114,6 +114,8 @@ if [[ "$REMOTE_STATE" != "connected" ]]; then
   fail "Consumer daemon's remote comms are in state '$REMOTE_STATE' (need 'connected'). Restart with rehearsal-restart-matcher.sh step 2."
 fi
 
+URLS_FILE="$CONSUMER_HOME/wallet-url.env"
+
 # ---------------------------------------------------------------------------
 # Locate an existing wallet subcluster, or launch a fresh one
 #
@@ -134,8 +136,31 @@ EXISTING_WALLET_VAT_ID=$(echo "$STATUS_JSON" | node -e "
   }
 ")
 
+WALLET_URL=""
+
 if [[ -n "$EXISTING_WALLET_VAT_ID" ]]; then
   info "Found existing wallet subcluster (vat $EXISTING_WALLET_VAT_ID); reusing it."
+  # Prefer the URL cached by a previous run. The wallet URL is stable
+  # across re-incarnations (the vat derives it deterministically and
+  # persists it in baggage), and reset-everything.sh deletes this file
+  # whenever it purges consumer state, so the file is present only when
+  # the kernel state that produced it still is.
+  #
+  # Reading the cache also keeps this script off the kernel run queue,
+  # which matters because it runs moments after a daemon restart.
+  if [[ -f "$URLS_FILE" ]]; then
+    WALLET_URL=$(sed -n "s/^setenv WALLET_OCAP_URL '\(.*\)'$/\1/p" "$URLS_FILE")
+  fi
+fi
+
+if [[ -n "$WALLET_URL" ]]; then
+  info "Reusing cached wallet URL from $URLS_FILE."
+elif [[ -n "$EXISTING_WALLET_VAT_ID" ]]; then
+  # No cached URL, so ask the vat. That needs the root object's
+  # address, and the only way to get it is to read the kernel's
+  # c-list directly — there is no CLI affordance for "the bootstrap
+  # root of subcluster N". Costs a run-queue round trip.
+  info "No cached wallet URL; querying the wallet vat."
   ROOT_QUERY_SQL="SELECT value FROM kv WHERE key = '${EXISTING_WALLET_VAT_ID}.c.o+0'"
   ROOT_QUERY_JSON=$(SQL="$ROOT_QUERY_SQL" node -e "
     process.stdout.write(JSON.stringify({ sql: process.env.SQL }));
@@ -214,7 +239,6 @@ info "Wallet URL: $WALLET_URL"
 # operator's interactive shell is csh.
 # ---------------------------------------------------------------------------
 
-URLS_FILE="$CONSUMER_HOME/wallet-url.env"
 cat > "$URLS_FILE" <<EOF
 setenv WALLET_OCAP_URL '$WALLET_URL'
 EOF

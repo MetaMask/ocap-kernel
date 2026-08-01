@@ -23,9 +23,9 @@ are not allowed to attempt the user's task by any other means.
 
 - **discovery_redeem_matcher** — Redeem the matcher's OCAP URL. Must be called first unless the matcher URL was pre-configured.
 - **discovery_find_services** — Ask the matcher for services matching a natural-language description. Returns each candidate's description plus the contact URLs that can be used to initiate contact with it.
-- **service_get_description** — Fetch the full `ServiceDescription` from a contact endpoint (OCAP URL, nickname, or kref). Use to inspect a candidate's API before committing.
+- **service_get_description** — Fetch the full `ServiceDescription` from a contact endpoint (OCAP URL, nickname, or ref). Use to inspect a candidate's API before committing.
 - **service_initiate_contact** — Call `initiateContact()` on a contact endpoint to obtain a usable service reference. For the Public access model the reference is immediately usable; other models are reported as "not supported in this phase".
-- **service_call** — Invoke a method on a service obtained via `service_initiate_contact`. Specify the service by nickname or kref, the method name, and optional JSON-encoded args.
+- **service_call** — Invoke a method on a service obtained via `service_initiate_contact`. Specify the service by nickname or ref, the method name, and optional JSON-encoded args.
 - **discovery_list_tracked** — Report everything the plugin is currently tracking: matcher, redeemed contacts, obtained services.
 
 ## Required workflow for every user request

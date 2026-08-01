@@ -32,7 +32,7 @@ keeps the same `@@j<n>` name across `redeemURL` and `send` calls.
 
 The naming table lives in memory only. On socket disconnect the vat
 resets its state and awaits a new client; the new client's names
-start at `o1` again.
+start at `j1` again.
 
 Restarting the daemon likewise resets the session — this is the
 common case, since restart is typically how the operator triggers a

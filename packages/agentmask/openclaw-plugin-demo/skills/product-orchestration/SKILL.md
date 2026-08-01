@@ -522,7 +522,7 @@ pcb-wizards.shipSampleBoards, assembly-coop.shipFinishedUnits)
 accept the endpoint reference as `approval.receiver`. To pass it,
 wrap the nickname in a `__ref__` marker inside the `args` JSON:
 `{"__ref__": "<nickname>"}`. The discovery plugin resolves the
-nickname to the underlying kref and the kernel encodes it as a
+nickname to the underlying ref and the kernel encodes it as a
 real ocap slot before delivery, so the supplier receives a live
 remotable — no URL redemption. The supplier calls the assembler's
 `receiveShipment(manifest)` method directly, which is an actual
@@ -921,8 +921,8 @@ triggers that spend, which for the current demo is deferred
   is a domain user, not a systems engineer. Talk about the workflow
   (what the shop is doing, what came back) — not the mechanism used
   to get there. Concretely, do NOT mention:
-  - `kref` values (`ko7`, `ko12`, etc.). Kernel object references
-    are internal identifiers; the inventor doesn't need them.
+  - Object reference values (`@@j7`, `@@j12`, etc.). These are
+    internal identifiers; the inventor doesn't need them.
   - Method names on a service (`revise`, `generate`, `assemble`).
     Say "asked them for another pass" or "sent your revisions back",
     not "called the revise method" or "the reviser exposes revise".
@@ -934,7 +934,7 @@ triggers that spend, which for the current demo is deferred
     these tools introspect method signatures ("let me check the
     method schema"). The inventor doesn't care that you inspected
     an API.
-  - Tool-level errors verbatim ("URL parse error", "kref not
+  - Tool-level errors verbatim ("URL parse error", "ref not
     found", "unparseable URL"). If a lookup hiccups and you
     successfully retry, say nothing about the retry. If you can't
     recover, narrate the _effect_ on the workflow ("I'm having

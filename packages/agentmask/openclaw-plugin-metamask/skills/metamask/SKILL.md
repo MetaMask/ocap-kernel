@@ -12,9 +12,9 @@ Use the **MetaMask tools** to request and use wallet capabilities from the conne
 ## Tools
 
 - **metamask_obtain_vendor** - Obtain the capability vendor by redeeming an OCAP URL from the user. Must be called first unless the OCAP URL was pre-configured.
-- **metamask_request_capability** - Request a capability from the vendor. Describe what you want in natural language (e.g., "I need to sign personal messages"). Returns the capability name and kref.
-- **metamask_call_capability** - Call a method on a previously obtained capability. Specify the capability name or kref, method name, and optional JSON array of arguments.
-- **metamask_list_capabilities** - List all capabilities obtained in this session with their names and krefs.
+- **metamask_request_capability** - Request a capability from the vendor. Describe what you want in natural language (e.g., "I need to sign personal messages"). Returns the capability name and ref.
+- **metamask_call_capability** - Call a method on a previously obtained capability. Specify the capability name or ref, method name, and optional JSON array of arguments.
+- **metamask_list_capabilities** - List all capabilities obtained in this session with their names and refs.
 
 ## Workflow
 
@@ -35,7 +35,7 @@ Use the **MetaMask tools** to request and use wallet capabilities from the conne
 2. Request the signing capability:
 
    - `metamask_request_capability` with request: "I need to sign personal messages"
-   - Returns: `PersonalMessageSigner` capability with a kref like `ko5`
+   - Returns: `PersonalMessageSigner` capability with a ref like `@@j5`
 
 3. Get available accounts:
 
