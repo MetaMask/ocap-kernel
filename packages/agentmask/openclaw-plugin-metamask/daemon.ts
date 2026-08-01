@@ -8,8 +8,8 @@
  * `packages/agentmask/openclaw-plugin-demo/daemon.ts` and
  * `packages/agentmask/openclaw-plugin-metamask/daemon.ts` so each
  * plugin stays installable on its own via `openclaw plugins install
- * -l`. Any change here must be mirrored across all three; please keep
- * them in sync.
+ * --link`. Any change here must be mirrored across all three; please
+ * keep them in sync.
  */
 import { createConnection } from 'node:net';
 import type { Socket } from 'node:net';
@@ -151,6 +151,12 @@ export function makeDaemonCaller(options: {
     }
     return new Promise<Socket>((resolve, reject) => {
       const conn = createConnection(socketPath);
+      // Don't let this socket vote to keep the process alive. The
+      // gateway has its own reasons to stay up, but `openclaw plugins
+      // install` also runs `register()` — which eagerly pre-redeems
+      // over this socket — and would otherwise hang forever at exit
+      // with nothing left to do but a live handle.
+      conn.unref();
       conn.setEncoding('utf8');
       const onError = (cause: Error): void => {
         conn.removeAllListeners();
