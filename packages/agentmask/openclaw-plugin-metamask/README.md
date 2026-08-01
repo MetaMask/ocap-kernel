@@ -29,7 +29,7 @@ All config can be set via environment variables or OpenClaw plugin settings. Env
 ## Install
 
 ```bash
-openclaw plugins install -l ./packages/agentmask/openclaw-plugin-metamask
+openclaw plugins install --link ./packages/agentmask/openclaw-plugin-metamask
 ```
 
 ## Enable

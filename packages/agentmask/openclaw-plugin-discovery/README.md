@@ -7,7 +7,7 @@ service matcher, using the contact protocol from
 ## Install
 
 ```bash
-openclaw plugins install -l ./packages/agentmask/openclaw-plugin-discovery
+openclaw plugins install --link ./packages/agentmask/openclaw-plugin-discovery
 openclaw plugins enable discovery
 openclaw config set plugins.allow '["discovery"]'
 openclaw config set tools.allow '["discovery"]'

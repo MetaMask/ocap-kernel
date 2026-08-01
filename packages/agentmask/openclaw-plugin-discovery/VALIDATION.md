@@ -268,7 +268,7 @@ yarn ocap --home ~/.ocap-consumer daemon exec getStatus
 
 ```bash
 cd ~/GitRepos/ocap-kernel
-openclaw plugins install -l ./packages/agentmask/openclaw-plugin-discovery
+openclaw plugins install --link ./packages/agentmask/openclaw-plugin-discovery
 openclaw plugins enable discovery
 openclaw config set plugins.allow '["discovery"]'
 # tools.allow matches tool names, not plugin ids: list each tool the

@@ -269,7 +269,7 @@ behalf — you just tell it what you want.
 Install the plugin into OpenClaw from the monorepo:
 
 ```bash
-openclaw plugins install -l ./packages/agentmask/openclaw-plugin-metamask
+openclaw plugins install --link ./packages/agentmask/openclaw-plugin-metamask
 ```
 
 Enable it:

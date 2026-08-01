@@ -171,9 +171,9 @@ openclaw config unset 'plugins.entries.discovery.config.matcherUrl'
 Install the openclaw plugins:
 
 ```csh
-openclaw plugins install -l \
+openclaw plugins install --link \
   ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery
-openclaw plugins install -l \
+openclaw plugins install --link \
   ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-demo
 openclaw plugins enable discovery
 openclaw plugins enable demo
@@ -913,7 +913,7 @@ cheap.
 
   ```csh
   openclaw config unset 'plugins.entries.discovery.config.matcherUrl'
-  openclaw plugins install -l \
+  openclaw plugins install --link \
     ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery
   ```
 

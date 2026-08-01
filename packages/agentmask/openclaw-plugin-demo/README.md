@@ -10,7 +10,7 @@ panel, workflow board).
 ## Install
 
 ```bash
-openclaw plugins install -l ./packages/agentmask/openclaw-plugin-demo
+openclaw plugins install --link ./packages/agentmask/openclaw-plugin-demo
 openclaw plugins enable demo
 openclaw config set plugins.allow '["discovery", "demo"]'
 openclaw config set tools.allow '["discovery_redeem_matcher","discovery_find_services","service_get_description","service_initiate_contact","service_call","discovery_list_tracked","demo_announce","demo_record_artifact","demo_get_artifact","demo_wallet_balance"]'
