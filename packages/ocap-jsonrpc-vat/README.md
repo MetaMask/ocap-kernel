@@ -11,22 +11,22 @@ the kernel-cli's `queueMessage` RPC.
 The vat serves a line-delimited JSON-RPC 2.0 interface on the socket.
 Two methods:
 
-- `redeemURL({ url: string }) -> "@@o<n>"`
+- `redeemURL({ url: string }) -> "@@j<n>"`
 
   Redeems `url` through the kernel's `ocapURLRedemptionService` and
-  returns a sigil name of the form `"@@o1"`, `"@@o2"`, ... referring
+  returns a sigil name of the form `"@@j1"`, `"@@j2"`, ... referring
   to the resulting live reference. Callable at any time.
 
 - `send({ target: string, method: string, args?: unknown[] }) -> unknown`
 
   Invokes `E(target)[method](...args)`. The `target` and any nested
-  `"@@o<n>"` string in `args` is expanded to its live remotable
+  `"@@j<n>"` string in `args` is expanded to its live remotable
   before dispatch. The awaited result is walked and every remotable
   it contains (previously known or newly encountered) is replaced by
-  its `"@@o<n>"` name in the response.
+  its `"@@j<n>"` name in the response.
 
 Object identity is preserved: an object the caller has already seen
-keeps the same `@@o<n>` name across `redeemURL` and `send` calls.
+keeps the same `@@j<n>` name across `redeemURL` and `send` calls.
 
 ## Session lifecycle
 

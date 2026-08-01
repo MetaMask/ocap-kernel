@@ -105,7 +105,7 @@ function asWithdrawResult(value: unknown): { money: Money; balance: number } {
  * @param options - Construction options.
  * @param options.daemon - Daemon caller that reaches the daemon
  *   hosting the wallet vat.
- * @param options.walletRef - Ocap-jsonrpc-vat ref (`@@o<n>`) for the
+ * @param options.walletRef - Ocap-jsonrpc-vat ref (`@@j<n>`) for the
  *   wallet's public facet (obtained by redeeming the wallet OCAP URL).
  * @returns A wallet client with `balance` / `deposit` / `withdraw` /
  *   `init` methods.

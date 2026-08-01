@@ -50,7 +50,7 @@ export type DaemonCaller = {
  * The connection is opened lazily on the first request and kept open
  * for the caller's lifetime. If the vat drops the connection, the
  * caller reconnects on the next request; every reconnection is a fresh
- * session, meaning the vat's `@@o<n>` name table is empty on the other
+ * session, meaning the vat's `@@j<n>` name table is empty on the other
  * side — long-lived plugin state that references old names is invalid
  * across a disconnect.
  *

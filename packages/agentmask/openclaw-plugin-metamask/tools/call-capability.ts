@@ -26,7 +26,7 @@ export function registerCallCapabilityTool(options: {
     label: 'Call MetaMask capability',
     description:
       'Call a method on a previously obtained MetaMask capability. ' +
-      'Specify the capability by nickname (e.g., "cap:o5") or ref (e.g., "@@o5"), ' +
+      'Specify the capability by nickname (e.g., "cap:j5") or ref (e.g., "@@j5"), ' +
       'the method name, and optionally a JSON array of arguments.',
     parameters: {
       type: 'object',
@@ -34,7 +34,7 @@ export function registerCallCapabilityTool(options: {
         capability: {
           type: 'string',
           description:
-            'Capability nickname (e.g., "cap:o5") or ref (e.g., "@@o5").',
+            'Capability nickname (e.g., "cap:j5") or ref (e.g., "@@j5").',
         },
         method: {
           type: 'string',

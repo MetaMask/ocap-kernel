@@ -21,7 +21,7 @@
  *   tool call.
  *
  * - `{ __ref__: "nickname" }` — expanded to the ocap-jsonrpc-vat ref
- *   string (e.g. `"@@o5"`) registered under `nickname` (from
+ *   string (e.g. `"@@j5"`) registered under `nickname` (from
  *   `service_initiate_contact` or the ref-walker that fires on
  *   service_call responses). The vat side then recognises the sigil
  *   string as a reference marker and dispatches a live remotable to
@@ -68,8 +68,8 @@ export function registerCallServiceTool(options: {
     label: 'Call service method',
     description:
       'Invoke a method on a service obtained via `service_initiate_contact`. ' +
-      'Specify the service by nickname (e.g., "ref:o7") or ' +
-      'ref (e.g., "@@o7"), the method name, and optionally a JSON array ' +
+      'Specify the service by nickname (e.g., "ref:j7") or ' +
+      'ref (e.g., "@@j7"), the method name, and optionally a JSON array ' +
       'of arguments. Two placeholders may appear in args: ' +
       '`{"__handle__":"artifact-N"}` expands to the stored artifact `data` ' +
       'string, and `{"__ref__":"nickname"}` passes a previously-obtained ' +
@@ -84,7 +84,7 @@ export function registerCallServiceTool(options: {
         service: {
           type: 'string',
           description:
-            'Service nickname (e.g., "ref:o7") or ref (e.g., "@@o7").',
+            'Service nickname (e.g., "ref:j7") or ref (e.g., "@@j7").',
         },
         method: {
           type: 'string',
@@ -159,7 +159,7 @@ export function registerCallServiceTool(options: {
    *   the model.
    *
    * - `{ __ref__: "nickname" }` — replaced by the ocap-jsonrpc-vat
-   *   ref string (e.g. `"@@o5"`) registered under that nickname. The
+   *   ref string (e.g. `"@@j5"`) registered under that nickname. The
    *   vat recognises the sigil string in the outgoing message and
    *   dispatches the corresponding live remotable to the receiver,
    *   not a plain data object.
@@ -216,7 +216,7 @@ export function registerCallServiceTool(options: {
 
   /**
    * Walk `value` looking for ocap-jsonrpc-vat ref-marker strings
-   * (`@@o<n>`) — the shape the vat emits for remotable references
+   * (`@@j<n>`) — the shape the vat emits for remotable references
    * embedded in a response. Every such reference is registered as a
    * service under a nickname derived from the ref, and the string is
    * replaced with that nickname so the LLM sees a callable service

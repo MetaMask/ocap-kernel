@@ -31,7 +31,7 @@ export type BridgeHooks = {
   ) => Promise<unknown>;
   /**
    * Predicate identifying values the response walker should replace with
-   * `"@@o<n>"` sigil strings. Production wires this to `passStyleOf`.
+   * `"@@j<n>"` sigil strings. Production wires this to `passStyleOf`.
    */
   isRemotable: (value: unknown) => boolean;
 };
@@ -73,7 +73,7 @@ export function makeBridge(hooks: BridgeHooks): Bridge {
       return existing;
     }
     nextObjId += 1;
-    const name = `o${nextObjId}`;
+    const name = `j${nextObjId}`;
     nameToObj.set(name, obj);
     objToName.set(obj, name);
     return name;
@@ -196,7 +196,7 @@ function requireSendParams(params: unknown): {
   if (!match) {
     throw new BridgeRpcError(
       JSON_RPC_ERROR.INVALID_PARAMS,
-      'params.target must be a marker string like "@@o1"',
+      'params.target must be a marker string like "@@j1"',
     );
   }
   if (typeof bag.method !== 'string') {

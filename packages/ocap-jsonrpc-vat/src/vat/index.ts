@@ -41,7 +41,7 @@ type Services = {
 /**
  * Build the vat's root object.
  *
- * The `@@o<n>` name table lives in ordinary closure state and is
+ * The `@@j<n>` name table lives in ordinary closure state and is
  * intentionally non-durable — each re-incarnation begins with an
  * empty table. The services endowments delivered to `bootstrap` are
  * stashed in baggage so that on re-incarnation `buildRootObject` can

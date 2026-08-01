@@ -139,10 +139,10 @@ describe('openclaw metamask plugin', () => {
 
   describe('metamask_request_capability', () => {
     it('redeems URL, requests capability, and discovers methods', async () => {
-      mockRedeemUrl.mockResolvedValueOnce('@@o10');
+      mockRedeemUrl.mockResolvedValueOnce('@@j10');
       // requestCapability response — the vat has already substituted
       // the returned remotable for a bare ref string.
-      mockQueueMessage.mockResolvedValueOnce('@@o5');
+      mockQueueMessage.mockResolvedValueOnce('@@j5');
       // __getDescription__ response
       mockQueueMessage.mockResolvedValueOnce(MOCK_SCHEMA);
 
@@ -153,8 +153,8 @@ describe('openclaw metamask plugin', () => {
       });
 
       const { text } = result.content[0];
-      expect(text).toContain('cap:o5');
-      expect(text).toContain('@@o5');
+      expect(text).toContain('cap:j5');
+      expect(text).toContain('@@j5');
       expect(text).toContain('getAccounts');
       expect(text).toContain('signMessage');
       expect(text).toContain('Signer address');
@@ -162,20 +162,20 @@ describe('openclaw metamask plugin', () => {
 
       expect(mockQueueMessage).toHaveBeenCalledTimes(2);
       expect(mockQueueMessage).toHaveBeenNthCalledWith(1, {
-        target: '@@o10',
+        target: '@@j10',
         method: 'requestCapability',
         args: ['sign personal messages'],
       });
       expect(mockQueueMessage).toHaveBeenNthCalledWith(2, {
-        target: '@@o5',
+        target: '@@j5',
         method: '__getDescription__',
         args: [],
       });
     });
 
     it('works when discovery fails gracefully', async () => {
-      mockRedeemUrl.mockResolvedValueOnce('@@o10');
-      mockQueueMessage.mockResolvedValueOnce('@@o5');
+      mockRedeemUrl.mockResolvedValueOnce('@@j10');
+      mockQueueMessage.mockResolvedValueOnce('@@j5');
       mockQueueMessage.mockRejectedValueOnce(new Error('not discoverable'));
 
       const tools = setupPlugin();
@@ -184,16 +184,16 @@ describe('openclaw metamask plugin', () => {
         request: 'sign messages',
       });
 
-      expect(result.content[0].text).toContain('cap:o5');
+      expect(result.content[0].text).toContain('cap:j5');
       // No method listing, but no error either
       expect(result.content[0].text).not.toContain('Error');
     });
 
     it('reuses cached vendor ref on second request', async () => {
-      mockRedeemUrl.mockResolvedValueOnce('@@o10');
-      mockQueueMessage.mockResolvedValueOnce('@@o5');
+      mockRedeemUrl.mockResolvedValueOnce('@@j10');
+      mockQueueMessage.mockResolvedValueOnce('@@j5');
       mockQueueMessage.mockResolvedValueOnce(MOCK_SCHEMA);
-      mockQueueMessage.mockResolvedValueOnce('@@o6');
+      mockQueueMessage.mockResolvedValueOnce('@@j6');
       mockQueueMessage.mockResolvedValueOnce({});
 
       const tools = setupPlugin();
@@ -233,7 +233,7 @@ describe('openclaw metamask plugin', () => {
 
   describe('metamask_obtain_vendor', () => {
     it('redeems URL and stores vendor ref', async () => {
-      mockRedeemUrl.mockResolvedValueOnce('@@o10');
+      mockRedeemUrl.mockResolvedValueOnce('@@j10');
 
       const tools = setupPlugin({ ocapUrl: '' });
       const tool = tools.get('metamask_obtain_vendor')!;
@@ -242,15 +242,15 @@ describe('openclaw metamask plugin', () => {
       });
 
       expect(result.content[0].text).toContain('Obtained MetaMask');
-      expect(result.content[0].text).toContain('@@o10');
+      expect(result.content[0].text).toContain('@@j10');
       expect(mockRedeemUrl).toHaveBeenCalledWith(
         'ocap:fresh@12D3KooWnew,/ip4/1.2.3.4/tcp/9090',
       );
     });
 
     it('enables request_capability after obtaining vendor', async () => {
-      mockRedeemUrl.mockResolvedValueOnce('@@o10');
-      mockQueueMessage.mockResolvedValueOnce('@@o5');
+      mockRedeemUrl.mockResolvedValueOnce('@@j10');
+      mockQueueMessage.mockResolvedValueOnce('@@j5');
       mockQueueMessage.mockResolvedValueOnce(MOCK_SCHEMA);
 
       const tools = setupPlugin({ ocapUrl: '' });
@@ -263,7 +263,7 @@ describe('openclaw metamask plugin', () => {
         .get('metamask_request_capability')!
         .execute('id2', { request: 'sign messages' });
 
-      expect(result.content[0].text).toContain('cap:o5');
+      expect(result.content[0].text).toContain('cap:j5');
       expect(mockRedeemUrl).toHaveBeenCalledTimes(1);
     });
 
@@ -296,8 +296,8 @@ describe('openclaw metamask plugin', () => {
      * @returns The tools map.
      */
     async function setupWithCapability(): Promise<Map<string, ToolDefinition>> {
-      mockRedeemUrl.mockResolvedValueOnce('@@o10');
-      mockQueueMessage.mockResolvedValueOnce('@@o5');
+      mockRedeemUrl.mockResolvedValueOnce('@@j10');
+      mockQueueMessage.mockResolvedValueOnce('@@j5');
       mockQueueMessage.mockResolvedValueOnce(MOCK_SCHEMA);
 
       const tools = setupPlugin();
@@ -317,13 +317,13 @@ describe('openclaw metamask plugin', () => {
 
       const tool = tools.get('metamask_call_capability')!;
       const result = await tool.execute('id2', {
-        capability: 'cap:o5',
+        capability: 'cap:j5',
         method: 'getAccounts',
       });
 
       expect(result.content[0].text).toContain('0xabc123');
       expect(mockQueueMessage).toHaveBeenCalledWith({
-        target: '@@o5',
+        target: '@@j5',
         method: 'getAccounts',
         args: [],
       });
@@ -336,14 +336,14 @@ describe('openclaw metamask plugin', () => {
 
       const tool = tools.get('metamask_call_capability')!;
       const result = await tool.execute('id2', {
-        capability: '@@o5',
+        capability: '@@j5',
         method: 'signMessage',
         args: '["0xabc", "hello", "0x1"]',
       });
 
       expect(result.content[0].text).toContain('0xsig...');
       expect(mockQueueMessage).toHaveBeenCalledWith({
-        target: '@@o5',
+        target: '@@j5',
         method: 'signMessage',
         args: ['0xabc', 'hello', '0x1'],
       });
@@ -360,7 +360,7 @@ describe('openclaw metamask plugin', () => {
 
       expect(result.content[0].text).toContain('Error:');
       expect(result.content[0].text).toContain('Unknown capability');
-      expect(result.content[0].text).toContain('cap:o5');
+      expect(result.content[0].text).toContain('cap:j5');
     });
 
     it('returns error for invalid args JSON', async () => {
@@ -368,7 +368,7 @@ describe('openclaw metamask plugin', () => {
 
       const tool = tools.get('metamask_call_capability')!;
       const result = await tool.execute('id2', {
-        capability: 'cap:o5',
+        capability: 'cap:j5',
         method: 'getAccounts',
         args: 'not-json',
       });
@@ -381,7 +381,7 @@ describe('openclaw metamask plugin', () => {
 
       const tool = tools.get('metamask_call_capability')!;
       const result = await tool.execute('id2', {
-        capability: 'cap:o5',
+        capability: 'cap:j5',
         method: 'getAccounts',
         args: '{"not": "array"}',
       });
@@ -402,8 +402,8 @@ describe('openclaw metamask plugin', () => {
     });
 
     it('lists obtained capabilities with methods', async () => {
-      mockRedeemUrl.mockResolvedValueOnce('@@o10');
-      mockQueueMessage.mockResolvedValueOnce('@@o5');
+      mockRedeemUrl.mockResolvedValueOnce('@@j10');
+      mockQueueMessage.mockResolvedValueOnce('@@j5');
       mockQueueMessage.mockResolvedValueOnce(MOCK_SCHEMA);
 
       const tools = setupPlugin();
@@ -415,8 +415,8 @@ describe('openclaw metamask plugin', () => {
       const result = await tool.execute('id2');
 
       expect(result.content[0].text).toContain('Capabilities (1)');
-      expect(result.content[0].text).toContain('cap:o5');
-      expect(result.content[0].text).toContain('@@o5');
+      expect(result.content[0].text).toContain('cap:j5');
+      expect(result.content[0].text).toContain('@@j5');
       expect(result.content[0].text).toContain('getAccounts, signMessage');
     });
   });

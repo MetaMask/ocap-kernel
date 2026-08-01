@@ -43,7 +43,7 @@ node ./packages/ocap-jsonrpc-vat/scripts/probe.mjs \
 ```
 
 The probe should print a `redeemURL` request whose response is either
-a `@@o<n>` marker (on success) or a `[KERNEL:DELIVERY_FAILED]` error
+a `@@j<n>` marker (on success) or a `[KERNEL:DELIVERY_FAILED]` error
 if the URL doesn't resolve or remote comms are down.
 
 ## Openclaw plugin config
@@ -76,7 +76,7 @@ step 3).
 ## Sanity check before an LLM turn
 
 - `discovery_list_tracked` should show the matcher URL pre-redeemed
-  and its ref shown as `@@o<n>` (was previously a kref).
+  and its ref shown as `@@j<n>` (was previously a kref).
 - A `discovery_find_services` turn against the matcher should behave
   as before — matcher on VPS, provider vats on laptop are untouched.
 

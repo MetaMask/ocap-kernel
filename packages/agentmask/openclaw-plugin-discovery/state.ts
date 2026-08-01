@@ -10,7 +10,7 @@
  * The plugin also supports a "nickname" for contact endpoints and services
  * so the LLM can refer to them by name rather than by the raw sigil ref.
  *
- * Refs are the `@@o<n>` sigil strings the ocap-jsonrpc-vat assigns to
+ * Refs are the `@@j<n>` sigil strings the ocap-jsonrpc-vat assigns to
  * live kernel references. The field is kept simply as `ref` throughout
  * — its concrete syntax is a plugin-internal contract with the vat.
  */
@@ -28,14 +28,14 @@ export type ContactEntry = {
    * another path (not used in Phase 3 but reserved).
    */
   url?: string;
-  /** Ocap-jsonrpc-vat ref (`@@o<n>`) for the redeemed contact endpoint. */
+  /** Ocap-jsonrpc-vat ref (`@@j<n>`) for the redeemed contact endpoint. */
   ref: string;
   /** Human-readable nickname the agent can use in place of the raw ref. */
   nickname: string;
 };
 
 export type ServiceEntry = {
-  /** Ocap-jsonrpc-vat ref (`@@o<n>`) for the service endpoint. */
+  /** Ocap-jsonrpc-vat ref (`@@j<n>`) for the service endpoint. */
   ref: string;
   /** Nickname the LLM sees. */
   nickname: string;
@@ -92,7 +92,7 @@ export function createState(): PluginState {
 const REF_PATTERN = /^@@[A-Za-z0-9]+$/u;
 
 /**
- * Check if a string looks like an ocap-jsonrpc-vat ref (e.g. `@@o5`).
+ * Check if a string looks like an ocap-jsonrpc-vat ref (e.g. `@@j5`).
  *
  * @param value - The string to check.
  * @returns True if it matches the ref pattern.
@@ -122,7 +122,7 @@ export function uniqueNickname(base: string, inUse: Set<string>): string {
 
 /**
  * Default nickname for a ref we've received without any better
- * label — just the ref itself minus the `@@` sigil, so `@@o5` → `o5`.
+ * label — just the ref itself minus the `@@` sigil, so `@@j5` → `o5`.
  *
  * @param ref - The ref string.
  * @returns A base nickname string.
@@ -173,7 +173,7 @@ export async function requireMatcher(state: PluginState): Promise<string> {
  *
  * @param options - Resolution options.
  * @param options.ref - The reference to resolve. May be a URL, a
- * nickname, or an ocap-jsonrpc-vat ref (`@@o<n>`).
+ * nickname, or an ocap-jsonrpc-vat ref (`@@j<n>`).
  * @param options.state - The plugin state.
  * @param options.daemon - The daemon caller.
  * @returns The resolved ContactEntry.

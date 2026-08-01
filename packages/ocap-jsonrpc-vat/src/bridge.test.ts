@@ -108,7 +108,7 @@ describe('redeemURL', () => {
     expect(response).toStrictEqual({
       jsonrpc: '2.0',
       id: 1,
-      result: '@@o1',
+      result: '@@j1',
     });
   });
 
@@ -127,8 +127,8 @@ describe('redeemURL', () => {
       method: 'redeemURL',
       params: { url: 'ocap:alpha' },
     })) as { result?: unknown };
-    expect(first.result).toBe('@@o1');
-    expect(second.result).toBe('@@o1');
+    expect(first.result).toBe('@@j1');
+    expect(second.result).toBe('@@j1');
   });
 
   it('assigns distinct names for distinct identities', async () => {
@@ -149,8 +149,8 @@ describe('redeemURL', () => {
       method: 'redeemURL',
       params: { url: 'ocap:beta' },
     })) as { result?: unknown };
-    expect(first.result).toBe('@@o1');
-    expect(second.result).toBe('@@o2');
+    expect(first.result).toBe('@@j1');
+    expect(second.result).toBe('@@j2');
   });
 
   it('rejects a non-string url param', async () => {
@@ -196,7 +196,7 @@ describe('send', () => {
       jsonrpc: '2.0',
       id: 1,
       method: 'send',
-      params: { target: '@@o99', method: 'noSuch', args: [] },
+      params: { target: '@@j99', method: 'noSuch', args: [] },
     });
     expect(response).toMatchObject({
       error: { code: JSON_RPC_ERROR.INVALID_PARAMS },
@@ -243,9 +243,9 @@ describe('send', () => {
       id: 3,
       method: 'send',
       params: {
-        target: '@@o1',
+        target: '@@j1',
         method: 'handoff',
-        args: ['@@o2', { via: '@@o2', tag: 'plain' }],
+        args: ['@@j2', { via: '@@j2', tag: 'plain' }],
       },
     });
     expect(invoke).toHaveBeenCalledWith(alpha, 'handoff', [
@@ -271,12 +271,12 @@ describe('send', () => {
       jsonrpc: '2.0',
       id: 2,
       method: 'send',
-      params: { target: '@@o1', method: 'introducePartner', args: [] },
+      params: { target: '@@j1', method: 'introducePartner', args: [] },
     });
     expect(response).toStrictEqual({
       jsonrpc: '2.0',
       id: 2,
-      result: { echo: 'ok', partner: '@@o2' },
+      result: { echo: 'ok', partner: '@@j2' },
     });
   });
 
@@ -297,16 +297,16 @@ describe('send', () => {
       jsonrpc: '2.0',
       id: 2,
       method: 'send',
-      params: { target: '@@o1', method: 'getBeta', args: [] },
+      params: { target: '@@j1', method: 'getBeta', args: [] },
     })) as { result?: unknown };
-    expect(first.result).toBe('@@o2');
+    expect(first.result).toBe('@@j2');
     const second = (await bridge.dispatch({
       jsonrpc: '2.0',
       id: 3,
       method: 'send',
-      params: { target: '@@o1', method: 'getBeta', args: [] },
+      params: { target: '@@j1', method: 'getBeta', args: [] },
     })) as { result?: unknown };
-    expect(second.result).toBe('@@o2');
+    expect(second.result).toBe('@@j2');
   });
 
   it('packages an invoke() rejection as an application error', async () => {
@@ -327,7 +327,7 @@ describe('send', () => {
       jsonrpc: '2.0',
       id: 2,
       method: 'send',
-      params: { target: '@@o1', method: 'boom', args: [] },
+      params: { target: '@@j1', method: 'boom', args: [] },
     });
     expect(response).toStrictEqual({
       jsonrpc: '2.0',
@@ -355,12 +355,12 @@ describe('resetSession', () => {
       jsonrpc: '2.0',
       id: 2,
       method: 'send',
-      params: { target: '@@o1', method: 'ping', args: [] },
+      params: { target: '@@j1', method: 'ping', args: [] },
     });
     expect(response).toMatchObject({
       error: {
         code: JSON_RPC_ERROR.INVALID_PARAMS,
-        message: 'params.target "@@o1" is not a known reference',
+        message: 'params.target "@@j1" is not a known reference',
       },
     });
   });
@@ -377,7 +377,7 @@ describe('resetSession', () => {
       method: 'redeemURL',
       params: { url: 'ocap:alpha' },
     })) as { result?: unknown };
-    expect(first.result).toBe('@@o1');
+    expect(first.result).toBe('@@j1');
     bridge.resetSession();
     const second = (await bridge.dispatch({
       jsonrpc: '2.0',
@@ -385,6 +385,6 @@ describe('resetSession', () => {
       method: 'redeemURL',
       params: { url: 'ocap:gamma' },
     })) as { result?: unknown };
-    expect(second.result).toBe('@@o1');
+    expect(second.result).toBe('@@j1');
   });
 });

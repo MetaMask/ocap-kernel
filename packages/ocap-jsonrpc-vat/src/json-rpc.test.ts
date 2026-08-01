@@ -22,36 +22,36 @@ const makeFake = (id: string): FakeRemotable => ({
 
 describe('expandMarkers', () => {
   const table = new Map<string, FakeRemotable>([
-    ['o1', makeFake('one')],
-    ['o2', makeFake('two')],
+    ['j1', makeFake('one')],
+    ['j2', makeFake('two')],
   ]);
   const resolve = (name: string): unknown => table.get(name);
 
   it('replaces a top-level marker string', () => {
-    expect(expandMarkers('@@o1', resolve)).toBe(table.get('o1'));
+    expect(expandMarkers('@@j1', resolve)).toBe(table.get('j1'));
   });
 
   it('leaves non-marker strings alone', () => {
     expect(expandMarkers('plain string', resolve)).toBe('plain string');
     expect(expandMarkers('@@', resolve)).toBe('@@');
-    expect(expandMarkers('prefix@@o1', resolve)).toBe('prefix@@o1');
-    expect(expandMarkers('@@o-1', resolve)).toBe('@@o-1');
+    expect(expandMarkers('prefix@@j1', resolve)).toBe('prefix@@j1');
+    expect(expandMarkers('@@j-1', resolve)).toBe('@@j-1');
   });
 
   it('walks nested arrays', () => {
-    const result = expandMarkers(['@@o1', 42, '@@o2'], resolve);
-    expect(result).toStrictEqual([table.get('o1'), 42, table.get('o2')]);
+    const result = expandMarkers(['@@j1', 42, '@@j2'], resolve);
+    expect(result).toStrictEqual([table.get('j1'), 42, table.get('j2')]);
   });
 
   it('walks nested objects', () => {
     const result = expandMarkers(
-      { target: '@@o1', label: 'ship', payload: { via: '@@o2' } },
+      { target: '@@j1', label: 'ship', payload: { via: '@@j2' } },
       resolve,
     );
     expect(result).toStrictEqual({
-      target: table.get('o1'),
+      target: table.get('j1'),
       label: 'ship',
-      payload: { via: table.get('o2') },
+      payload: { via: table.get('j2') },
     });
   });
 
@@ -70,9 +70,9 @@ describe('expandMarkers', () => {
 describe('substituteRemotables', () => {
   it('replaces a top-level remotable with a marker string', () => {
     const obj = makeFake('alpha');
-    const nameOf = (): string => 'o5';
+    const nameOf = (): string => 'j5';
     expect(substituteRemotables(obj, isFakeRemotable, nameOf)).toBe(
-      `${MARKER_PREFIX}o5`,
+      `${MARKER_PREFIX}j5`,
     );
   });
 
@@ -87,7 +87,7 @@ describe('substituteRemotables', () => {
         return existing;
       }
       counter.n += 1;
-      const name = `o${counter.n}`;
+      const name = `j${counter.n}`;
       assigned.set(obj, name);
       return name;
     };
@@ -97,8 +97,8 @@ describe('substituteRemotables', () => {
       assign,
     );
     expect(result).toStrictEqual({
-      via: '@@o1',
-      args: ['@@o2', 'plain', { echo: '@@o1' }],
+      via: '@@j1',
+      args: ['@@j2', 'plain', { echo: '@@j1' }],
     });
   });
 
@@ -114,7 +114,7 @@ describe('substituteRemotables', () => {
 
   it('emits a JSON-serializable tree', () => {
     const alpha = makeFake('alpha');
-    const assign = (): string => 'o1';
+    const assign = (): string => 'j1';
     const tree = substituteRemotables(
       { via: alpha, args: [alpha, 'plain'] },
       isFakeRemotable,
@@ -124,8 +124,8 @@ describe('substituteRemotables', () => {
     // JSON-stringified without special handling.
     expect(() => JSON.stringify(tree)).not.toThrow();
     expect(JSON.parse(JSON.stringify(tree))).toStrictEqual({
-      via: '@@o1',
-      args: ['@@o1', 'plain'],
+      via: '@@j1',
+      args: ['@@j1', 'plain'],
     });
   });
 });

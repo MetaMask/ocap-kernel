@@ -129,7 +129,7 @@ if (urls.length > 0) {
     id: nextId,
     method: 'send',
     params: {
-      target: firstRef ?? '@@o1',
+      target: firstRef ?? '@@j1',
       method: '__nonexistent_method__',
       args: [],
     },

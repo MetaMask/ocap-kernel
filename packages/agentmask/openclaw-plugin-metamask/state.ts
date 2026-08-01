@@ -46,7 +46,7 @@ export function createState(ocapUrl = ''): PluginState {
 const REF_PATTERN = /^@@[A-Za-z0-9]+$/u;
 
 /**
- * Check if a string looks like an ocap-jsonrpc-vat ref (e.g. `@@o5`).
+ * Check if a string looks like an ocap-jsonrpc-vat ref (e.g. `@@j5`).
  *
  * @param value - The string to check.
  * @returns True if it matches the ref pattern.

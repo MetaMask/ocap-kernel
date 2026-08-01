@@ -40,7 +40,7 @@ export function registerGetDescriptionTool(options: {
         contact: {
           type: 'string',
           description:
-            'OCAP URL, contact nickname, or ref (`@@o<n>`) identifying the contact endpoint.',
+            'OCAP URL, contact nickname, or ref (`@@j<n>`) identifying the contact endpoint.',
         },
       },
       required: ['contact'],

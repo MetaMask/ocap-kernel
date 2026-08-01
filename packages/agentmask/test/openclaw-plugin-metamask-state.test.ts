@@ -9,13 +9,13 @@ import {
 
 describe('isRef', () => {
   it.each([
-    ['@@o0', true],
-    ['@@o5', true],
-    ['@@o123', true],
+    ['@@j0', true],
+    ['@@j5', true],
+    ['@@j123', true],
     ['@@ko5', true],
     ['PersonalMessageSigner', false],
     ['@@', false],
-    ['@@o5extra@extra', false],
+    ['@@j5extra@extra', false],
     ['ko5', false],
     ['', false],
   ])('isRef(%j) returns %j', (input, expected) => {
@@ -26,30 +26,30 @@ describe('isRef', () => {
 describe('resolveCapability', () => {
   it('resolves a direct ref', () => {
     const state = createState();
-    expect(resolveCapability('@@o5', state)).toBe('@@o5');
+    expect(resolveCapability('@@j5', state)).toBe('@@j5');
   });
 
   it('resolves a capability by name', () => {
     const state = createState();
-    state.capabilities.set('cap:o5', {
-      ref: '@@o5',
-      name: 'cap:o5',
+    state.capabilities.set('cap:j5', {
+      ref: '@@j5',
+      name: 'cap:j5',
       description: 'sign messages',
       methods: undefined,
     });
-    expect(resolveCapability('cap:o5', state)).toBe('@@o5');
+    expect(resolveCapability('cap:j5', state)).toBe('@@j5');
   });
 
   it('throws for unknown name with hint', () => {
     const state = createState();
-    state.capabilities.set('cap:o5', {
-      ref: '@@o5',
-      name: 'cap:o5',
+    state.capabilities.set('cap:j5', {
+      ref: '@@j5',
+      name: 'cap:j5',
       description: 'sign',
       methods: undefined,
     });
     expect(() => resolveCapability('Unknown', state)).toThrow(
-      /Unknown capability.*cap:o5/u,
+      /Unknown capability.*cap:j5/u,
     );
   });
 
