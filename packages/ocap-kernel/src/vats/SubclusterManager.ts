@@ -365,7 +365,7 @@ export class SubclusterManager {
       // constructor, etc.) before using them as property keys.
       !(vatName in Object.prototype) || Fail`invalid vat name '${vatName}'`;
       if (result.status === 'fulfilled') {
-        rootsEntries.push([vatName, kslot(result.value)]);
+        rootsEntries.push([vatName, kslot(result.value, 'vatRoot')]);
         vatRootKrefsEntries.push([vatName, result.value]);
       } else {
         // launchVat always wraps failures in new Error(...), so reason is an Error
