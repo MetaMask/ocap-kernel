@@ -139,8 +139,24 @@ export class SubclusterManager {
         await this.#launchVatsForSubcluster(subclusterId, config);
       return { subclusterId, rootKref, bootstrapResult, vatRootKrefs };
     } catch (error) {
-      // Roll back IO channels and persisted subcluster on failure.
-      // Cleanup is best-effort — errors must not mask the original failure.
+      // Roll back: terminate any vats that launched successfully, then clean
+      // up IO channels and the persisted subcluster record.
+      // Each step is best-effort — cleanup errors must not mask the original
+      // failure.
+      try {
+        const vatIds = this.#kernelStore.getSubclusterVats(subclusterId);
+        for (const vatId of vatIds.reverse()) {
+          if (this.#vatManager.hasVat(vatId)) {
+            await this.#vatManager.terminateVat(vatId);
+            this.#vatManager.collectGarbage();
+          }
+        }
+      } catch (vatCleanupError) {
+        this.#logger.error(
+          'Error during vat cleanup on failed launch:',
+          vatCleanupError,
+        );
+      }
       try {
         if (this.#ioManager) {
           await this.#ioManager.destroyChannels(subclusterId);

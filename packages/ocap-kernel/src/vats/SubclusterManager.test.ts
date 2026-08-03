@@ -81,6 +81,7 @@ describe('SubclusterManager', () => {
       terminateVat: vi.fn().mockResolvedValue(undefined),
       collectGarbage: vi.fn(),
       terminateAllVats: vi.fn().mockResolvedValue(undefined),
+      hasVat: vi.fn().mockReturnValue(false),
     } as unknown as Mocked<VatManager>;
 
     mockGetKernelService = vi.fn().mockReturnValue(undefined) as unknown as (
@@ -197,6 +198,31 @@ describe('SubclusterManager', () => {
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
         ['kp1', true, makeKernelError('VAT_TERMINATED', 'bob exploded')],
       ]);
+    });
+
+    it('terminates successfully-launched vats when a peer vat fails', async () => {
+      const config: ClusterConfig = {
+        bootstrap: 'alice',
+        vats: {
+          alice: { sourceSpec: 'alice.js' },
+          bob: { sourceSpec: 'bob.js' },
+        },
+      };
+      mockVatManager.launchVat
+        .mockResolvedValueOnce('ko1' as KRef)
+        .mockRejectedValueOnce(new Error('bob exploded'));
+      // Simulate alice's vatId being registered in the subcluster store.
+      mockKernelStore.getSubclusterVats.mockReturnValue(['v1' as VatId]);
+      // alice's vat worker is running
+      (mockVatManager.hasVat as ReturnType<typeof vi.fn>).mockReturnValue(true);
+
+      await expect(subclusterManager.launchSubcluster(config)).rejects.toThrow(
+        'bob exploded',
+      );
+
+      expect(mockVatManager.terminateVat).toHaveBeenCalledWith('v1');
+      expect(mockVatManager.collectGarbage).toHaveBeenCalled();
+      expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
     });
 
     it('includes unrestricted kernel services when specified', async () => {
