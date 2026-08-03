@@ -36,7 +36,7 @@
  * fresh demo run — call the vat root's `clearRegistry()`.
  *
  * Ranking is delegated to an LLM-backed bridge process via an
- * `IOService` endowment named `llm`. On every successful registration
+ * `IOListener` endowment named `llm`. On every successful registration
  * the matcher feeds the LLM a digest of the service (description +
  * method names); on every `findServices` call it asks the LLM to pick
  * matches against the user's natural-language query and replies
@@ -67,19 +67,28 @@ type RegisteredService = {
 };
 
 /**
- * The vat-facing shape of an `IOService`. The kernel-side
- * implementation lives in `packages/ocap-kernel/src/io/io-service.ts`
- * and is wired up via the cluster config's `io` block.
+ * The vat-facing shape of one accepted connection. The kernel-side
+ * implementation lives in `packages/ocap-kernel/src/io/io-service.ts`.
  */
-type IOService = {
+type IOConnection = {
   read: () => Promise<string | null>;
   write: (data: string) => Promise<void>;
+  close: () => Promise<void>;
+};
+
+/**
+ * The vat-facing shape of an `IOListener`, wired up via the cluster
+ * config's `io` block. `accept()` resolves to the next peer's connection,
+ * or `null` once the listener has been closed.
+ */
+type IOListener = {
+  accept: () => Promise<IOConnection | null>;
 };
 
 type Services = {
   ocapURLIssuerService: OcapURLIssuerService;
   ocapURLRedemptionService: OcapURLRedemptionService;
-  llm: IOService;
+  llm: IOListener;
 };
 
 /** Wire-protocol shapes — must agree with `@ocap/llm-bridge`'s `protocol.ts`. */
@@ -392,32 +401,118 @@ export function buildRootObject(
   }
 
   /**
-   * Send a single request to the bridge over the `llm` IOService and
-   * await its single-line reply.
+   * The llm bridge connection currently in use, if any. Only one bridge
+   * process is expected at a time, so a single connection is held and
+   * reused across round trips.
+   *
+   * A listener surfaces reconnection that a single shared channel used to
+   * hide: when the bridge process restarts, the old connection reaches
+   * EOF and a fresh one has to be accepted. Held here rather than in
+   * baggage because a connection cannot outlive the process at its other
+   * end.
+   */
+  /**
+   * The in-flight or established bridge connection, held as a promise
+   * rather than a resolved value so that everything which touches this
+   * slot does so synchronously. That removes the window in which two
+   * callers could each see "no connection" and each accept one, and it
+   * means concurrent callers share a single accept.
+   */
+  const llmBridge: { pending?: Promise<IOConnection> | undefined } = {};
+
+  /**
+   * Return a promise for the live bridge connection, accepting one if
+   * there isn't one already.
+   *
+   * @returns A promise for the connection to use, which rejects if the
+   * listener has been closed.
+   */
+  // Body is deliberately synchronous up to the return: the slot is read
+  // and written with no `await` in between, which is what keeps two
+  // concurrent callers from each accepting a connection.
+  async function provideLlmConnection(): Promise<IOConnection> {
+    llmBridge.pending ??= (async () => {
+      const { llm } = getServices();
+      const accepted = await E(llm).accept();
+      if (!accepted) {
+        throw new Error('matcher vat: llm listener closed');
+      }
+      log('llm bridge connected');
+      return accepted;
+    })();
+    return llmBridge.pending;
+  }
+
+  /**
+   * Forget the bridge connection, but only if it is still the one the
+   * caller was using. Compare-and-clear rather than a blind reset: an
+   * `await` separates noticing a failure from acting on it, and
+   * discarding a replacement that someone else already established would
+   * strand a perfectly good connection.
+   *
+   * @param pending - The connection promise that proved unusable.
+   */
+  function discardLlmConnection(pending: Promise<IOConnection>): void {
+    if (llmBridge.pending === pending) {
+      llmBridge.pending = undefined;
+    }
+    // Best-effort: let the kernel stop hosting the dead connection. The
+    // peer is already gone, so a failure here is not interesting.
+    pending
+      .then(async (connection) => E(connection).close())
+      .catch(() => undefined);
+  }
+
+  /**
+   * Send a single request to the bridge and await its single-line reply.
+   *
+   * Retries once if the connection turns out to be stale, which happens
+   * whenever the bridge process has been restarted since the last call.
    *
    * @param request - The request object to send (will be JSON-encoded).
    * @returns The parsed reply.
-   * @throws If the channel has closed, or the reply isn't valid JSON.
+   * @throws If the listener has closed, or the reply isn't valid JSON.
    */
   async function bridgeRoundTrip(
     request: IngestRequest | QueryRequest,
   ): Promise<Reply> {
     return withBridgeLock(async () => {
-      const { llm } = getServices();
-      // The kernel-side IOChannel appends '\n' itself, so we just send
-      // the JSON-encoded request body.
-      await E(llm).write(JSON.stringify(request));
-      const line = await E(llm).read();
-      if (line === null) {
-        throw new Error('matcher vat: llm bridge channel closed');
+      // One retry: the first attempt may be using a connection whose peer
+      // has since gone away, and there's no way to know until we try.
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        const pending = provideLlmConnection();
+        const connection = await pending;
+        let line: string | null;
+        try {
+          // The kernel-side channel appends '\n' itself, so we just send
+          // the JSON-encoded request body.
+          await E(connection).write(JSON.stringify(request));
+          line = await E(connection).read();
+        } catch (error) {
+          discardLlmConnection(pending);
+          if (attempt === 0) {
+            log('llm bridge connection failed; reconnecting');
+            continue;
+          }
+          throw error;
+        }
+        if (line === null) {
+          discardLlmConnection(pending);
+          if (attempt === 0) {
+            log('llm bridge disconnected; reconnecting');
+            continue;
+          }
+          throw new Error('matcher vat: llm bridge channel closed');
+        }
+        try {
+          return JSON.parse(line) as Reply;
+        } catch {
+          throw new Error(
+            `matcher vat: llm bridge sent unparseable line: ${line}`,
+          );
+        }
       }
-      try {
-        return JSON.parse(line) as Reply;
-      } catch {
-        throw new Error(
-          `matcher vat: llm bridge sent unparseable line: ${line}`,
-        );
-      }
+      throw new Error('matcher vat: llm bridge unreachable');
     });
   }
 
@@ -786,7 +881,7 @@ export function buildRootObject(
       }
       if (!incoming.llm) {
         throw new Error(
-          'llm IOService is required (configure it in the cluster config under `io.llm`)',
+          'llm IOListener is required (configure it in the cluster config under `io.llm`)',
         );
       }
       // Persist services so the durable matcher facet's behavior can

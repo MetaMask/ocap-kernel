@@ -55,7 +55,7 @@ export function buildRootObject(
       const registrationToken = makeRegistrationToken();
       const contact = makeContactEndpoint({
         name: SERVICE_NAME,
-        service: serviceExo as unknown as ServicePoint,
+        service: serviceExo as ServicePoint,
         description: RETAIL_LISTING_SERVICE_DESCRIPTION,
         remotableSpec,
         getContactUrl: () => contactUrl,

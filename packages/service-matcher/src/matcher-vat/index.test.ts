@@ -13,15 +13,20 @@ vi.mock('@endo/eventual-send', () => ({
   E: vi.fn((obj: unknown) => obj),
 }));
 
-type IOService = {
+type IOConnection = {
   read: () => Promise<string | null>;
   write: (data: string) => Promise<void>;
+  close: () => Promise<void>;
+};
+
+type IOListener = {
+  accept: () => Promise<IOConnection | null>;
 };
 
 type Services = {
   ocapURLIssuerService: { issue: (obj: unknown) => Promise<string> };
   ocapURLRedemptionService: { redeem: (url: string) => Promise<unknown> };
-  llm: IOService;
+  llm: IOListener;
 };
 
 const sampleDescription = (
@@ -67,18 +72,19 @@ function makeMockContact(options: {
 }
 
 /**
- * Build a fake `llm` IOService. Every `write()` call enqueues the
- * incoming line and synthesizes a reply via the supplied `replyFor`
- * callback; subsequent `read()` calls drain the queued replies in
- * order, matching the kernel-side IOChannel's "one line at a time"
- * semantics. Defaults to acknowledging every ingest with `{ kind:
- * "ingested" }` and answering every query with an empty match list,
- * which the per-test setup can override.
+ * Build a fake `llm` IOListener standing in for a bridge process that
+ * connects once and stays. Every `write()` call enqueues the incoming
+ * line and synthesizes a reply via the supplied `replyFor` callback;
+ * subsequent `read()` calls drain the queued replies in order, matching
+ * the kernel-side channel's "one line at a time" semantics. Defaults to
+ * acknowledging every ingest with `{ kind: "ingested" }` and answering
+ * every query with an empty match list, which the per-test setup can
+ * override.
  *
  * @param options - Mock options.
  * @param options.replyFor - Custom reply function. Receives the parsed
  * request and returns the reply object the bridge would send back.
- * @returns The IOService plus inspection helpers.
+ * @returns The IOListener plus inspection helpers.
  */
 function makeMockLlm(
   options: {
@@ -110,9 +116,16 @@ function makeMockLlm(
     return next ?? null;
   });
 
-  const llm: IOService = { read, write };
+  const close = vi.fn(async () => undefined);
+  const connection: IOConnection = { read, write, close };
+  // A single bridge process that reconnects to the same connection, so
+  // repeated accepts are idempotent from the matcher's point of view.
+  const accept = vi.fn(async () => connection);
+  const llm: IOListener = { accept };
   return {
     llm,
+    accept,
+    connection,
     writes,
     write,
     read,
@@ -297,7 +310,7 @@ describe('matcher vat', () => {
           ocapURLIssuerService: mocks.services.ocapURLIssuerService,
           ocapURLRedemptionService: mocks.services.ocapURLRedemptionService,
         } as Services),
-      ).rejects.toThrow(/llm IOService is required/u);
+      ).rejects.toThrow(/llm IOListener is required/u);
     });
   });
 

@@ -2,9 +2,17 @@
  * Ocap JSON-RPC vat.
  *
  * Serves a line-delimited JSON-RPC 2.0 interface on a Unix-domain-socket
- * `IOService` endowment named `socket`. External processes connect and
+ * `IOListener` endowment named `socket`. External processes connect and
  * call `redeemURL(url)` and `send(target, method, args)` — see the
  * package README for the wire protocol.
+ *
+ * Each connection is served independently, with its own bridge and
+ * therefore its own `@@j<n>` name table. Two clients can be connected at
+ * once without either being able to name the other's references: the
+ * names are closure state of one connection's serve loop, so a forged
+ * name simply misses that client's own table. Since those names cross a
+ * non-ocap boundary as plain forgeable strings, per-connection scoping is
+ * what keeps them from conveying authority they were never granted.
  *
  * The vat's authority is exactly:
  *   - the `ocapURLRedemptionService` endowment (for `redeemURL`),
@@ -24,18 +32,27 @@ import { BridgeRpcError, JSON_RPC_ERROR } from '../json-rpc.ts';
 import type { JsonRpcResponse } from '../json-rpc.ts';
 
 /**
- * The vat-facing shape of an `IOService`. The kernel-side implementation
- * lives in `packages/ocap-kernel/src/io/io-service.ts` and is wired via
- * the cluster config's `io` block.
+ * The vat-facing shape of one accepted connection. The kernel-side
+ * implementation lives in `packages/ocap-kernel/src/io/io-service.ts`.
  */
-type IOService = {
+type IOConnection = {
   read: () => Promise<string | null>;
   write: (data: string) => Promise<void>;
+  close: () => Promise<void>;
+};
+
+/**
+ * The vat-facing shape of an `IOListener`. `accept()` resolves to the next
+ * peer's connection, or `null` once the listener has been closed. Wired
+ * via the cluster config's `io` block.
+ */
+type IOListener = {
+  accept: () => Promise<IOConnection | null>;
 };
 
 type Services = {
   ocapURLRedemptionService: OcapURLRedemptionService;
-  socket: IOService;
+  socket: IOListener;
 };
 
 /**
@@ -83,24 +100,24 @@ export function buildRootObject(
    * either logged and swallowed (when we can't recover an id to reply
    * on) or packaged as JSON-RPC error responses.
    *
-   * @param socket - The socket IOService.
+   * @param connection - The connection to serve.
    * @param dispatch - The bridge's dispatch function.
-   * @returns 'ok' after processing a request, 'disconnect' if the socket
-   * signalled end-of-stream, and 'closed' if the socket itself is gone.
+   * @returns 'ok' after processing a request, and 'closed' once the peer
+   * has gone away or the connection failed.
    */
   async function processOne(
-    socket: IOService,
+    connection: IOConnection,
     dispatch: (request: unknown) => Promise<JsonRpcResponse>,
-  ): Promise<'ok' | 'disconnect' | 'closed'> {
+  ): Promise<'ok' | 'closed'> {
     let line: string | null;
     try {
-      line = await E(socket).read();
+      line = await E(connection).read();
     } catch (error) {
-      log('socket read failed:', error);
+      log('connection read failed:', error);
       return 'closed';
     }
     if (line === null) {
-      return 'disconnect';
+      return 'closed';
     }
     let request: unknown;
     try {
@@ -111,7 +128,7 @@ export function buildRootObject(
     }
     const response = await dispatch(request);
     try {
-      await E(socket).write(JSON.stringify(response));
+      await E(connection).write(JSON.stringify(response));
     } catch (error) {
       log('failed to write response:', error);
       return 'closed';
@@ -120,13 +137,18 @@ export function buildRootObject(
   }
 
   /**
-   * Serve one socket connection lifetime: build a bridge, drive the
-   * request loop, reset on disconnect, and repeat until the socket
-   * itself goes away.
+   * Serve one connection for its whole lifetime, with a bridge — and so a
+   * name table — belonging to it alone. Returns when the peer goes away.
    *
    * @param services - The endowments delivered by bootstrap.
+   * @param connection - The connection to serve.
+   * @param label - Diagnostic label identifying this connection in logs.
    */
-  async function serveLoop(services: Services): Promise<void> {
+  async function serveConnection(
+    services: Services,
+    connection: IOConnection,
+    label: string,
+  ): Promise<void> {
     const bridge = makeBridge({
       redeem: async (url) => E(services.ocapURLRedemptionService).redeem(url),
       invoke: async (target, method, args) =>
@@ -134,46 +156,91 @@ export function buildRootObject(
         E(target as any)[method](...args),
       isRemotable,
     });
-    for (;;) {
-      const outcome = await processOne(services.socket, bridge.dispatch);
-      if (outcome === 'closed') {
-        log('socket closed; ending serve loop');
-        return;
+    try {
+      for (;;) {
+        const outcome = await processOne(connection, bridge.dispatch);
+        if (outcome === 'closed') {
+          log(`${label}: peer disconnected`);
+          return;
+        }
       }
-      if (outcome === 'disconnect') {
-        log('client disconnected; resetting session');
-        bridge.resetSession();
+    } finally {
+      // Discard this connection's names and let the kernel stop hosting
+      // it. Nothing else referenced them, so the table dies with the
+      // connection rather than leaking into whoever connects next.
+      bridge.resetSession();
+      try {
+        await E(connection).close();
+      } catch (error) {
+        log(`${label}: error closing connection:`, error);
       }
     }
   }
 
   /**
-   * Kick off the socket loop as a background task. Any crash inside
-   * it is logged; the vat itself remains alive so it can be
-   * introspected.
+   * Accept connections forever, serving each one concurrently. A peer
+   * that stalls or floods only affects its own serve loop.
+   *
+   * @param services - The endowments delivered by bootstrap.
+   */
+  async function acceptLoop(services: Services): Promise<void> {
+    let acceptedCount = 0;
+    for (;;) {
+      let connection: IOConnection | null;
+      try {
+        connection = await E(services.socket).accept();
+      } catch (error) {
+        log('accept failed; ending accept loop:', error);
+        return;
+      }
+      if (!connection) {
+        log('listener closed; ending accept loop');
+        return;
+      }
+      acceptedCount += 1;
+      const label = `connection ${acceptedCount}`;
+      log(`${label}: accepted`);
+      // Deliberately not awaited: serving must not block accepting, or a
+      // single long-lived client would keep everyone else out — which is
+      // the failure the listener split exists to prevent.
+      serveConnection(services, connection, label).catch((error) =>
+        log(`${label}: serve loop crashed:`, error),
+      );
+    }
+  }
+
+  /**
+   * Kick off the accept loop as a background task. Any crash inside it is
+   * logged; the vat itself remains alive so it can be introspected.
    *
    * @param services - The endowments to serve against.
    */
-  const startServeLoop = (services: Services): void => {
-    serveLoop(services).catch((error) => log('serve loop crashed:', error));
+  const startAcceptLoop = (services: Services): void => {
+    acceptLoop(services).catch((error) => log('accept loop crashed:', error));
   };
 
   // On re-incarnation (e.g. after `daemon stop`/`daemon start`),
   // bootstrap is not re-run — but this `buildRootObject` is. Read the
-  // previously-stashed services out of baggage and resume the loop.
-  // Deferred to a microtask so vat init completes and the vat is
-  // fully connected to kernel dispatch before we start issuing E()
-  // calls on the restored service refs.
+  // previously-stashed services out of baggage and resume accepting.
+  //
+  // Only the listener reference has to survive, and it does: the kernel
+  // re-creates the listener under the same service kref before the vats
+  // are re-incarnated, so the baggage-held Presence is live again. The
+  // connections from the previous incarnation are gone, which is correct
+  // — a socket does not outlive the process on the other end of it.
+  //
+  // Deferred to a microtask so vat init completes and the vat is fully
+  // connected to kernel dispatch before we start issuing E() calls.
   if (baggage.has('services')) {
     const restored = baggage.get('services') as Services;
     Promise.resolve()
       .then(() => {
-        startServeLoop(restored);
-        log('vat re-incarnated; serve loop resumed');
+        startAcceptLoop(restored);
+        log('vat re-incarnated; accept loop resumed');
         return undefined;
       })
       .catch((error) =>
-        log('failed to resume serve loop on re-incarnation:', error),
+        log('failed to resume accept loop on re-incarnation:', error),
       );
   }
 
@@ -188,7 +255,7 @@ export function buildRootObject(
       if (!incoming.socket) {
         throw new BridgeRpcError(
           JSON_RPC_ERROR.INTERNAL_ERROR,
-          'socket IOService is required (configure it in the cluster config under `io.socket`)',
+          'socket IOListener is required (configure it in the cluster config under `io.socket`)',
         );
       }
       if (baggage.has('services')) {
@@ -196,7 +263,7 @@ export function buildRootObject(
       } else {
         baggage.init('services', incoming);
       }
-      startServeLoop(incoming);
+      startAcceptLoop(incoming);
       log('vat bootstrap complete');
       return harden({});
     },

@@ -1,7 +1,6 @@
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Kernel } from '@metamask/ocap-kernel';
-import type { IOChannel, IOConfig } from '@metamask/ocap-kernel';
 import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -53,125 +52,56 @@ async function readLine(socket: net.Socket): Promise<string> {
   });
 }
 
-async function makeTestSocketChannel(
-  _name: string,
+/**
+ * Stand up a kernel wired to the real Node listener factory, with an
+ * io-vat subcluster listening on `socketPath`.
+ *
+ * @param socketPath - Path for the listener's Unix domain socket.
+ * @returns The kernel and the io-vat's root kref.
+ */
+async function makeIoKernel(
   socketPath: string,
-): Promise<IOChannel> {
-  const fsPromises = await import('node:fs/promises');
-  const lineQueue: string[] = [];
-  const readerQueue: { resolve: (value: string | null) => void }[] = [];
-  let currentSocket: net.Socket | null = null;
-  let lineBuffer = '';
-  let closed = false;
-
-  function deliverLine(line: string): void {
-    const reader = readerQueue.shift();
-    if (reader) {
-      reader.resolve(line);
-    } else {
-      lineQueue.push(line);
-    }
-  }
-
-  function deliverEOF(): void {
-    while (readerQueue.length > 0) {
-      readerQueue.shift()?.resolve(null);
-    }
-  }
-
-  const server = net.createServer((socket) => {
-    if (currentSocket) {
-      socket.destroy();
-      return;
-    }
-    currentSocket = socket;
-    lineBuffer = '';
-    socket.on('data', (data: Buffer) => {
-      lineBuffer += data.toString();
-      let idx = lineBuffer.indexOf('\n');
-      while (idx !== -1) {
-        deliverLine(lineBuffer.slice(0, idx));
-        lineBuffer = lineBuffer.slice(idx + 1);
-        idx = lineBuffer.indexOf('\n');
-      }
-    });
-    socket.on('end', () => {
-      if (lineBuffer.length > 0) {
-        deliverLine(lineBuffer);
-        lineBuffer = '';
-      }
-      currentSocket = null;
-      deliverEOF();
-    });
-    socket.on('error', () => {
-      currentSocket = null;
-      deliverEOF();
-    });
+): Promise<{ kernel: Kernel; rootKref: string }> {
+  const kernelDatabase = await makeSQLKernelDatabase({
+    dbFilename: ':memory:',
   });
+  const { logger } = makeTestLogger();
 
-  try {
-    await fsPromises.unlink(socketPath);
-  } catch {
-    // ignore
-  }
+  const { NodejsPlatformServices, makeIOListenerFactory } = await import(
+    '@metamask/kernel-node-runtime'
+  );
+  const kernel = await Kernel.make(
+    new NodejsPlatformServices({
+      logger: logger.subLogger({ tags: ['platform'] }),
+    }),
+    kernelDatabase,
+    {
+      resetStorage: true,
+      logger,
+      ioListenerFactory: makeIOListenerFactory(),
+    },
+  );
 
-  await new Promise<void>((resolve, reject) => {
-    server.on('error', reject);
-    server.listen(socketPath, () => {
-      server.removeListener('error', reject);
-      resolve();
-    });
+  const { rootKref } = await kernel.launchSubcluster({
+    bootstrap: 'io',
+    forceReset: true,
+    io: {
+      repl: {
+        type: 'socket' as const,
+        path: socketPath,
+      },
+    },
+    services: ['repl'],
+    vats: {
+      io: {
+        bundleSpec: getBundleSpec('io-vat'),
+        parameters: { name: 'io' },
+      },
+    },
   });
+  await waitUntilQuiescent();
 
-  return {
-    async read() {
-      if (closed) {
-        return null;
-      }
-      const queued = lineQueue.shift();
-      if (queued !== undefined) {
-        return queued;
-      }
-      if (!currentSocket) {
-        return null;
-      }
-      return new Promise<string | null>((resolve) => {
-        readerQueue.push({ resolve });
-      });
-    },
-    async write(data: string) {
-      if (!currentSocket) {
-        throw new Error('no connected client');
-      }
-      const socket = currentSocket;
-      return new Promise<void>((resolve, reject) => {
-        socket.write(`${data}\n`, (error) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve();
-          }
-        });
-      });
-    },
-    async close() {
-      if (closed) {
-        return;
-      }
-      closed = true;
-      deliverEOF();
-      currentSocket?.destroy();
-      currentSocket = null;
-      await new Promise<void>((resolve) => {
-        server.close(() => resolve());
-      });
-      try {
-        await fsPromises.unlink(socketPath);
-      } catch {
-        // ignore
-      }
-    },
-  };
+  return { kernel, rootKref };
 }
 
 describe('IO kernel service', () => {
@@ -184,65 +114,20 @@ describe('IO kernel service', () => {
     clients.length = 0;
   });
 
-  it('reads and writes through an IO channel', async () => {
+  it('reads and writes through an accepted connection', async () => {
     const socketPath = tempSocketPath();
-    const kernelDatabase = await makeSQLKernelDatabase({
-      dbFilename: ':memory:',
-    });
-    const { logger } = makeTestLogger();
+    const { kernel, rootKref } = await makeIoKernel(socketPath);
 
-    const { NodejsPlatformServices } = await import(
-      '@metamask/kernel-node-runtime'
-    );
-    const kernel = await Kernel.make(
-      new NodejsPlatformServices({
-        logger: logger.subLogger({ tags: ['platform'] }),
-      }),
-      kernelDatabase,
-      {
-        resetStorage: true,
-        logger,
-        ioChannelFactory: async (name: string, config: IOConfig) => {
-          if (config.type !== 'socket') {
-            throw new Error(`unsupported: ${config.type}`);
-          }
-          return makeTestSocketChannel(name, config.path);
-        },
-      },
-    );
-
-    const config = {
-      bootstrap: 'io',
-      forceReset: true,
-      io: {
-        repl: {
-          type: 'socket' as const,
-          path: socketPath,
-        },
-      },
-      services: ['repl'],
-      vats: {
-        io: {
-          bundleSpec: getBundleSpec('io-vat'),
-          parameters: { name: 'io' },
-        },
-      },
-    };
-
-    const { rootKref } = await kernel.launchSubcluster(config);
-    await waitUntilQuiescent();
-
-    // Connect to the socket
     const client = await connectToSocket(socketPath);
     clients.push(client);
-
-    // Small delay for connection setup
     await new Promise((resolve) => setTimeout(resolve, 20));
+
+    await kernel.queueMessage(rootKref, 'doAccept', []);
+    await waitUntilQuiescent(100);
 
     // Send a line from the test to the vat
     await writeLine(client, 'hello from test');
 
-    // Trigger the vat to read and verify it received the data
     await kernel.queueMessage(rootKref, 'doRead', []);
     await waitUntilQuiescent(100);
 
@@ -259,7 +144,63 @@ describe('IO kernel service', () => {
     await kernel.queueMessage(rootKref, 'doWrite', ['hello from vat']);
     await waitUntilQuiescent(100);
 
-    const received = await linePromise;
-    expect(received).toBe('hello from vat');
+    expect(await linePromise).toBe('hello from vat');
+  });
+
+  it('serves two concurrent peers without crossing their traffic', async () => {
+    const socketPath = tempSocketPath();
+    const { kernel, rootKref } = await makeIoKernel(socketPath);
+
+    const alice = await connectToSocket(socketPath);
+    clients.push(alice);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const bob = await connectToSocket(socketPath);
+    clients.push(bob);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    // Both peers are accepted — under the old single-client channel the
+    // second connection would have been destroyed outright.
+    await kernel.queueMessage(rootKref, 'doAccept', []);
+    await waitUntilQuiescent(100);
+    await kernel.queueMessage(rootKref, 'doAccept', []);
+    await waitUntilQuiescent(100);
+
+    const countResult = await kernel.queueMessage(
+      rootKref,
+      'getConnectionCount',
+      [],
+    );
+    await waitUntilQuiescent(100);
+    expect(countResult.body).toContain('2');
+
+    // Each peer's line arrives on its own connection.
+    await writeLine(alice, 'from-alice');
+    await writeLine(bob, 'from-bob');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    await kernel.queueMessage(rootKref, 'doRead', [0]);
+    await waitUntilQuiescent(100);
+    await kernel.queueMessage(rootKref, 'doRead', [1]);
+    await waitUntilQuiescent(100);
+
+    const bufferResult = await kernel.queueMessage(
+      rootKref,
+      'getReadBuffer',
+      [],
+    );
+    await waitUntilQuiescent(100);
+    expect(bufferResult.body).toContain('from-alice');
+    expect(bufferResult.body).toContain('from-bob');
+
+    // And each write goes back to the right peer.
+    const aliceHeard = readLine(alice);
+    const bobHeard = readLine(bob);
+    await kernel.queueMessage(rootKref, 'doWrite', ['for-alice', 0]);
+    await waitUntilQuiescent(100);
+    await kernel.queueMessage(rootKref, 'doWrite', ['for-bob', 1]);
+    await waitUntilQuiescent(100);
+
+    expect(await aliceHeard).toBe('for-alice');
+    expect(await bobHeard).toBe('for-bob');
   });
 });
