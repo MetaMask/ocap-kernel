@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 import type { KernelQueue } from './KernelQueue.ts';
 import { KernelServiceManager } from './KernelServiceManager.ts';
-import { kser, makeKernelError } from './liveslots/kernel-marshal.ts';
+import { kser, kslot, makeKernelError } from './liveslots/kernel-marshal.ts';
 import { makeKernelStore } from './store/index.ts';
 import type { KernelMessage } from './types.ts';
 import { makeMapKernelDatabase } from '../test/storage.ts';
@@ -535,6 +535,117 @@ describe('KernelServiceManager', () => {
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
         ['kp123', false, kser(undefined)],
       ]);
+    });
+  });
+
+  describe('registerAnonymousKernelObject', () => {
+    it('hosts the object for routing without naming it', () => {
+      const kref = serviceManager.registerAnonymousKernelObject(
+        { ping: () => 'pong' },
+        'io-connection',
+      );
+
+      expect(serviceManager.isKernelService(kref)).toBe(true);
+      expect(kernelStore.getOwner(kref)).toBe('kernel');
+      expect(kernelStore.pinObject).toHaveBeenCalledWith(kref);
+      // The whole point: absent from the global name namespace, so no
+      // string can be used to ask for it.
+      expect(serviceManager.getKernelService('io-connection')).toBeUndefined();
+    });
+
+    it('allows the same label for distinct objects', () => {
+      const first = serviceManager.registerAnonymousKernelObject(
+        { which: () => 'first' },
+        'io-connection',
+      );
+      const second = serviceManager.registerAnonymousKernelObject(
+        { which: () => 'second' },
+        'io-connection',
+      );
+
+      expect(second).not.toBe(first);
+      expect(serviceManager.isKernelService(first)).toBe(true);
+      expect(serviceManager.isKernelService(second)).toBe(true);
+    });
+
+    it('round-trips through kslot/kser so a service method can return one', () => {
+      // This is what makes `accept()` possible: `invokeKernelService`
+      // passes a method's return value through `kser`, whose val-to-slot
+      // step only accepts standins minted by `kslot`.
+      const kref = serviceManager.registerAnonymousKernelObject(
+        { ping: () => 'pong' },
+        'io-connection',
+      );
+
+      expect(kser(kslot(kref))).toStrictEqual({
+        body: expect.any(String),
+        slots: [kref],
+      });
+    });
+
+    it('delivers messages to the hosted object', async () => {
+      const { method: ping, calls } = makeTrackableMethod(() => 'pong');
+      const kref = serviceManager.registerAnonymousKernelObject(
+        { ping },
+        'io-connection',
+      );
+
+      serviceManager.invokeKernelService(kref, {
+        methargs: kser(['ping', ['hello']]),
+        result: 'kp200',
+      });
+      await delay();
+
+      expect(calls).toStrictEqual([['hello']]);
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
+        ['kp200', false, kser('pong')],
+      ]);
+    });
+  });
+
+  describe('releaseAnonymousKernelObject', () => {
+    it('removes the object from routing and unpins it', () => {
+      const kref = serviceManager.registerAnonymousKernelObject(
+        { ping: () => 'pong' },
+        'io-connection',
+      );
+
+      serviceManager.releaseAnonymousKernelObject(kref);
+
+      expect(serviceManager.isKernelService(kref)).toBe(false);
+      expect(serviceManager.getKernelServiceByKref(kref)).toBeUndefined();
+      expect(kernelStore.isObjectPinned(kref)).toBe(false);
+    });
+
+    it('leaves other hosted objects alone', () => {
+      const kept = serviceManager.registerAnonymousKernelObject(
+        { which: () => 'kept' },
+        'io-connection',
+      );
+      const dropped = serviceManager.registerAnonymousKernelObject(
+        { which: () => 'dropped' },
+        'io-connection',
+      );
+
+      serviceManager.releaseAnonymousKernelObject(dropped);
+
+      expect(serviceManager.isKernelService(kept)).toBe(true);
+      expect(serviceManager.isKernelService(dropped)).toBe(false);
+    });
+
+    it('is idempotent and tolerates an unregistered kref', () => {
+      const kref = serviceManager.registerAnonymousKernelObject(
+        { ping: () => 'pong' },
+        'io-connection',
+      );
+
+      serviceManager.releaseAnonymousKernelObject(kref);
+      expect(() =>
+        serviceManager.releaseAnonymousKernelObject(kref),
+      ).not.toThrow();
+      expect(() =>
+        serviceManager.releaseAnonymousKernelObject('ko9999'),
+      ).not.toThrow();
     });
   });
 });
