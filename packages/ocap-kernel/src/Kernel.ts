@@ -326,11 +326,15 @@ export class Kernel {
       runLoopError instanceof Error
         ? runLoopError
         : new Error(String(runLoopError), { cause: runLoopError });
+    // Called off a local, not off `this`: `this.#onRunLoopFailure(...)` is a
+    // member call, so a non-arrow handler would receive the whole kernel as its
+    // receiver. The handler's business here is one `Error`.
+    const notify = this.#onRunLoopFailure;
     try {
       // `OnRunLoopFailure` returns void, but TypeScript admits an async
       // function there, whose rejection would become the very unhandled
       // rejection this method exists to avoid. Contain it either way.
-      const handled = this.#onRunLoopFailure?.(failure) as unknown;
+      const handled = notify?.(failure) as unknown;
       if (typeof (handled as PromiseLike<void>)?.then === 'function') {
         Promise.resolve(handled).catch((handlerError: unknown) => {
           this.#logger.error(

@@ -94,9 +94,15 @@ describe('getStatusHandler', () => {
     // TypeScript type but required on the wire, and a reply from a kernel built
     // before this field fails validation outright rather than losing one field.
     it('rejects a status with no runLoop at all', () => {
+      // Everything else present and valid, so only the missing `runLoop` can be
+      // what fails: `remoteComms: undefined` would fail on its own account.
       expect(
         is(
-          { vats: [], subclusters: [], remoteComms: undefined },
+          {
+            vats: [],
+            subclusters: [],
+            remoteComms: { state: 'disconnected' },
+          },
           KernelStatusStruct,
         ),
       ).toBe(false);
