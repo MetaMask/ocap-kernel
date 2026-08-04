@@ -983,6 +983,20 @@ describe('Kernel', () => {
       expect(onRunLoopFailure).toHaveBeenCalledWith(failure);
     });
 
+    it('does not hand the kernel to the failure handler as its receiver', async () => {
+      let gotAReceiver = true;
+      await Kernel.make(mockPlatformServices, mockKernelDatabase, {
+        onRunLoopFailure: function onRunLoopFailure(this: unknown): void {
+          gotAReceiver = this !== undefined;
+        },
+      });
+
+      mocks.KernelQueue.lastInstance.killRunLoop(new Error('run loop boom'));
+      await waitUntilQuiescent();
+
+      expect(gotAReceiver).toBe(false);
+    });
+
     it('wraps a non-Error run loop failure for the embedder', async () => {
       const onRunLoopFailure = vi.fn();
       await Kernel.make(mockPlatformServices, mockKernelDatabase, {
