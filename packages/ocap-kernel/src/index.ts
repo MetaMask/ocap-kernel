@@ -22,6 +22,7 @@ export type {
   PlatformServices,
   VatConfig,
   KernelStatus,
+  RunLoopStatus,
   Subcluster,
   SubclusterId,
   SubclusterLaunchResult,

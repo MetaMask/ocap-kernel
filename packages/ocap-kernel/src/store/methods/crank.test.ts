@@ -158,6 +158,19 @@ describe('crank methods', () => {
         'endCrank outside of crank',
       );
     });
+
+    it('settles the crank even if releasing savepoints fails', async () => {
+      crankMethods.startCrank();
+      context.savepoints = ['test'];
+      const waiter = crankMethods.waitForCrank();
+      vi.mocked(kdb.releaseSavepoint).mockImplementationOnce(() => {
+        throw new Error('database is gone');
+      });
+      expect(() => crankMethods.endCrank()).toThrow('database is gone');
+      expect(context.inCrank).toBe(false);
+      expect(context.resolveCrank).toBeUndefined();
+      expect(await waiter).toBeUndefined();
+    });
   });
 
   describe('releaseAllSavepoints', () => {

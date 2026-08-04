@@ -74,10 +74,25 @@ async function main(): Promise<void> {
     process.env.OCAP_SOCKET_PATH ?? join(ocapDir, 'daemon.sock');
 
   const dbFilename = join(ocapDir, 'kernel.sqlite');
+
+  // Left alone, a dead run loop leaves the daemon answering RPCs for a kernel
+  // that processes nothing: an outage no client can detect. Terminate instead,
+  // non-zero, so the failure is visible and `ocap daemon start` can recover.
+  // Reassigned below once there is a daemon to shut down.
+  let runLoopFailure: Error | undefined;
+  let handleRunLoopFailure = (failure: Error): void => {
+    runLoopFailure = failure;
+    logger.error(
+      'Kernel run loop died during startup.',
+      failure.stack ?? failure.message,
+    );
+  };
+
   const { kernel, kernelDatabase } = await makeKernel({
     resetStorage: false,
     dbFilename,
     logger,
+    onRunLoopFailure: (error) => handleRunLoopFailure(error),
   });
 
   const pidPath = join(ocapDir, 'daemon.pid');
@@ -101,6 +116,11 @@ async function main(): Promise<void> {
   let handle: DaemonHandle;
   try {
     await kernel.initIdentity();
+    if (runLoopFailure) {
+      throw new Error('Kernel run loop died during startup', {
+        cause: runLoopFailure,
+      });
+    }
     await writeFile(pidPath, String(process.pid));
 
     handle = await startDaemon({
@@ -137,6 +157,31 @@ async function main(): Promise<void> {
       });
     }
     return shutdownPromise;
+  }
+
+  handleRunLoopFailure = (failure: Error): void => {
+    if (shutdownPromise !== undefined) {
+      // Expected teardown, not an outage: don't fail a deliberate stop.
+      logger.info(
+        'Kernel run loop stopped during shutdown.',
+        failure.stack ?? failure.message,
+      );
+      return;
+    }
+    logger.error(
+      'Kernel run loop died; shutting down the daemon.',
+      failure.stack ?? failure.message,
+    );
+    process.exitCode = 1;
+    shutdown('run loop failure').catch((shutdownError: unknown) => {
+      logger.error('Shutdown after run loop failure failed.', shutdownError);
+    });
+  };
+
+  // A failure recorded between the startup check and this handler still has to
+  // bring the daemon down.
+  if (runLoopFailure) {
+    handleRunLoopFailure(runLoopFailure);
   }
 
   process.on('SIGTERM', () => {

@@ -763,6 +763,18 @@ const RemoteCommsConnectedStruct = object({
   listenAddresses: array(string()),
 });
 
+/**
+ * Whether the kernel is capable of processing its run queue. `failed` means
+ * nothing will ever be processed again and the kernel must be restarted.
+ */
+export const RunLoopStatusStruct = union([
+  object({ state: literal('idle') }),
+  object({ state: literal('running') }),
+  object({ state: literal('failed'), error: string() }),
+]);
+
+export type RunLoopStatus = Infer<typeof RunLoopStatusStruct>;
+
 export const KernelStatusStruct = type({
   subclusters: array(SubclusterStruct),
   vats: array(
@@ -772,6 +784,9 @@ export const KernelStatusStruct = type({
       subclusterId: SubclusterIdStruct,
     }),
   ),
+  // Optional because the RPC client validates results against this struct, and
+  // requiring it would fail every `getStatus` against a kernel built before it.
+  runLoop: exactOptional(RunLoopStatusStruct),
   remoteComms: exactOptional(
     union([
       RemoteCommsDisconnectedStruct,

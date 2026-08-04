@@ -72,14 +72,18 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
   }
 
   /**
-   * End a crank.
+   * End a crank. Settles even if releasing the savepoints fails, so that a
+   * database error can't strand every `waitForCrank()` waiter forever.
    */
   function endCrank(): void {
     ctx.inCrank || Fail`endCrank outside of crank`;
-    releaseAllSavepoints();
-    ctx.inCrank = false;
-    ctx.resolveCrank?.();
-    ctx.resolveCrank = undefined;
+    try {
+      releaseAllSavepoints();
+    } finally {
+      ctx.inCrank = false;
+      ctx.resolveCrank?.();
+      ctx.resolveCrank = undefined;
+    }
   }
 
   /**

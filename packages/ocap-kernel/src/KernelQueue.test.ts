@@ -66,6 +66,48 @@ describe('KernelQueue', () => {
     kernelQueue = new KernelQueue(kernelStore, terminateVat);
   });
 
+  /**
+   * Make a promise kit that actually settles, for tests where the module-level
+   * `makePromiseKit` mock's inert kit won't do.
+   *
+   * @returns A promise and its settlement functions.
+   */
+  const makeRealPromiseKit = (): {
+    promise: Promise<CapData<KRef>>;
+    resolve: (value: CapData<KRef>) => void;
+    reject: (reason: unknown) => void;
+  } => {
+    let settleWithValue!: (value: CapData<KRef>) => void;
+    let settleWithReason!: (reason: unknown) => void;
+    const promise = new Promise<CapData<KRef>>((resolve, reject) => {
+      settleWithValue = resolve;
+      settleWithReason = reject;
+    });
+    return {
+      promise,
+      resolve: settleWithValue,
+      reject: settleWithReason,
+    };
+  };
+
+  /**
+   * Run a single crank whose delivery blows up, killing the run loop.
+   *
+   * @param error - The error the delivery fails with.
+   */
+  const killRunLoop = async (error: Error): Promise<void> => {
+    (kernelStore.runQueueLength as unknown as MockInstance).mockReturnValueOnce(
+      1,
+    );
+    (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+      type: 'send',
+      target: 'ko123',
+      message: {} as KernelMessage,
+    });
+    const deliver = vi.fn().mockRejectedValue(error);
+    await expect(kernelQueue.run(deliver)).rejects.toBe(error);
+  };
+
   describe('run', () => {
     it('processes items from the run queue and performs cleanup', async () => {
       const mockItem: RunQueueItem = {
@@ -150,6 +192,99 @@ describe('KernelQueue', () => {
       );
       expect(kernelStore.collectGarbage).toHaveBeenCalled();
       expect(kernelStore.endCrank).toHaveBeenCalled();
+    });
+  });
+
+  describe('getRunLoopStatus', () => {
+    it('reports idle before the run loop starts', () => {
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({ state: 'idle' });
+    });
+
+    it('reports running while the run loop is processing', async () => {
+      (
+        kernelStore.runQueueLength as unknown as MockInstance
+      ).mockReturnValueOnce(1);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: {} as KernelMessage,
+      });
+      // A delivery that never settles parks the loop mid-crank.
+      const deliver = vi.fn().mockReturnValue(new Promise(() => undefined));
+      kernelQueue.run(deliver).catch(() => undefined);
+      await Promise.resolve();
+      expect(deliver).toHaveBeenCalled();
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'running',
+      });
+    });
+
+    it('reports failed once the run loop dies', async () => {
+      await killRunLoop(new Error('crank exploded'));
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'failed',
+        error: 'crank exploded',
+      });
+    });
+
+    it('reports failed for a non-Error run loop failure', async () => {
+      (
+        kernelStore.runQueueLength as unknown as MockInstance
+      ).mockReturnValueOnce(1);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: {} as KernelMessage,
+      });
+      const deliver = vi.fn().mockRejectedValue('not an error');
+      await expect(kernelQueue.run(deliver)).rejects.toBe('not an error');
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'failed',
+        error: 'not an error',
+      });
+    });
+  });
+
+  describe('run loop death', () => {
+    it('rejects in-flight message results', async () => {
+      const kit = makeRealPromiseKit();
+      (makePromiseKit as unknown as MockInstance).mockReturnValueOnce(kit);
+      const resultPromise = kernelQueue.enqueueMessage('ko123', 'test', []);
+      expect(kernelQueue.subscriptions.has('kp1')).toBe(true);
+
+      const failure = new Error('crank exploded');
+      await killRunLoop(failure);
+
+      await expect(resultPromise).rejects.toThrow(
+        'Kernel run loop died; this message result will never be delivered',
+      );
+      await expect(resultPromise).rejects.toHaveProperty('cause', failure);
+      expect(kernelQueue.subscriptions.size).toBe(0);
+    });
+
+    it('rejects messages queued after the run loop dies', async () => {
+      const failure = new Error('crank exploded');
+      await killRunLoop(failure);
+      await expect(
+        kernelQueue.enqueueMessage('ko123', 'test', []),
+      ).rejects.toThrow('Kernel run loop died; cannot queue a message');
+      expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
+    });
+
+    it('refuses to start the run loop twice', async () => {
+      (
+        kernelStore.runQueueLength as unknown as MockInstance
+      ).mockReturnValueOnce(1);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: {} as KernelMessage,
+      });
+      const deliver = vi.fn().mockReturnValue(new Promise(() => undefined));
+      kernelQueue.run(deliver).catch(() => undefined);
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(
+        'run loop already started',
+      );
     });
   });
 
@@ -512,16 +647,22 @@ describe('KernelQueue', () => {
         mockItem,
       );
       const deliver = vi.fn().mockResolvedValue({ abort: true });
+      // Sample at the end of the aborted crank: the sentinel error below kills
+      // the run loop, which discards every subscription still waiting.
+      let subscribedAfterAbort: boolean | undefined;
+      let rejectedAfterAbort: boolean | undefined;
       (
         kernelStore.collectGarbage as unknown as MockInstance
       ).mockImplementation(() => {
+        subscribedAfterAbort = kernelQueue.subscriptions.has('kp99');
+        rejectedAfterAbort = rejectSpy.mock.calls.length > 0;
         throw new Error(STOP_RUN_LOOP);
       });
       await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
       expect(kernelStore.rollbackCrank).toHaveBeenCalledWith('start');
-      expect(rejectSpy).not.toHaveBeenCalled();
+      expect(rejectedAfterAbort).toBe(false);
       expect(resolveSpy).not.toHaveBeenCalled();
-      expect(kernelQueue.subscriptions.has('kp99')).toBe(true);
+      expect(subscribedAfterAbort).toBe(true);
     });
   });
 
