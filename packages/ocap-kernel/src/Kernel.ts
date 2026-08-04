@@ -29,6 +29,7 @@ import type {
   ClusterConfig,
   VatConfig,
   KernelStatus,
+  OnRunLoopFailure,
   Subcluster,
   SubclusterLaunchResult,
   EndpointHandle,
@@ -93,7 +94,7 @@ export class Kernel {
   /** Manages IO channel lifecycle (optional, requires factory injection) */
   readonly #ioManager: IOManager | undefined;
 
-  readonly #onRunLoopFailure: ((error: Error) => void) | undefined;
+  readonly #onRunLoopFailure: OnRunLoopFailure | undefined;
 
   /**
    * Construct a new kernel instance.
@@ -120,7 +121,7 @@ export class Kernel {
       mnemonic?: string | undefined;
       ioChannelFactory?: IOChannelFactory;
       allowedGlobalNames?: AllowedGlobalName[];
-      onRunLoopFailure?: (error: Error) => void;
+      onRunLoopFailure?: OnRunLoopFailure;
     } = {},
   ) {
     this.#platformServices = platformServices;
@@ -253,7 +254,7 @@ export class Kernel {
       ioChannelFactory?: IOChannelFactory;
       systemSubclusters?: SystemSubclusterConfig[];
       allowedGlobalNames?: AllowedGlobalName[];
-      onRunLoopFailure?: (error: Error) => void;
+      onRunLoopFailure?: OnRunLoopFailure;
     } = {},
   ): Promise<Kernel> {
     const kernel = new Kernel(platformServices, kernelDatabase, options);
@@ -314,19 +315,30 @@ export class Kernel {
    * exit or restart. Deliberately not re-thrown: an unhandled rejection would
    * take the process down without giving it that chance.
    *
-   * @param error - The error that killed the run loop.
+   * @param runLoopError - The error that killed the run loop.
    */
-  #handleRunLoopFailure(error: unknown): void {
+  #handleRunLoopFailure(runLoopError: unknown): void {
     this.#logger.error(
       'Run loop died; the kernel can no longer process messages and must be restarted:',
-      error,
+      runLoopError,
     );
     const failure =
-      error instanceof Error
-        ? error
-        : new Error(String(error), { cause: error });
+      runLoopError instanceof Error
+        ? runLoopError
+        : new Error(String(runLoopError), { cause: runLoopError });
     try {
-      this.#onRunLoopFailure?.(failure);
+      // `OnRunLoopFailure` returns void, but TypeScript admits an async
+      // function there, whose rejection would become the very unhandled
+      // rejection this method exists to avoid. Contain it either way.
+      const handled = this.#onRunLoopFailure?.(failure) as unknown;
+      if (handled instanceof Promise) {
+        handled.catch((handlerError: unknown) => {
+          this.#logger.error(
+            'Run loop failure handler rejected:',
+            handlerError,
+          );
+        });
+      }
     } catch (handlerError) {
       this.#logger.error('Run loop failure handler threw:', handlerError);
     }
@@ -659,13 +671,15 @@ export class Kernel {
    * vats, subclusters, and remote comms information.
    */
   async getStatus(): Promise<KernelStatus> {
-    const runLoop = this.#kernelQueue.getRunLoopStatus();
     // A dead kernel must still be able to report that it's dead. `endCrank`
     // runs in a `finally` and settles its waiters even when it throws, so this
     // is belt-and-braces against a future crank that can't be waited out.
-    if (runLoop.state !== 'failed') {
+    if (this.#kernelQueue.getRunLoopStatus().state !== 'failed') {
       await this.#kernelQueue.waitForCrank();
     }
+    // Read after the wait: an in-flight crank is exactly when the loop is most
+    // likely to die, and a status sampled before it would report `running`.
+    const runLoop = this.#kernelQueue.getRunLoopStatus();
 
     const status: KernelStatus = {
       runLoop,

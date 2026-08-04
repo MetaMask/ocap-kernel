@@ -769,13 +769,23 @@ const RemoteCommsConnectedStruct = object({
  * an empty queue reports `running`. `failed` means nothing will ever be
  * processed again and the kernel must be restarted.
  */
+// The arms are `type()`, not `object()`, for the same reason `runLoop` itself is
+// optional below: a client shipped against these arms must tolerate a newer
+// kernel adding a field, or an exact arm would fail the whole `getStatus` call.
 export const RunLoopStatusStruct = union([
-  object({ state: literal('idle') }),
-  object({ state: literal('running') }),
-  object({ state: literal('failed'), error: string() }),
+  type({ state: literal('idle') }),
+  type({ state: literal('running') }),
+  type({ state: literal('failed'), error: string() }),
 ]);
 
 export type RunLoopStatus = Infer<typeof RunLoopStatusStruct>;
+
+/**
+ * Notified when the kernel's run loop dies. Must not be async: only a
+ * synchronous throw can be contained, and the kernel is reporting a failure it
+ * cannot recover from, so there is nothing to await.
+ */
+export type OnRunLoopFailure = (error: Error) => void;
 
 export const KernelStatusStruct = type({
   subclusters: array(SubclusterStruct),
@@ -786,9 +796,11 @@ export const KernelStatusStruct = type({
       subclusterId: SubclusterIdStruct,
     }),
   ),
-  // Optional because this struct and `KernelStatus` are published, so a
-  // required key breaks external code that constructs the type. Matches
-  // `remoteComms` below.
+  // Optional in the *type* because this struct and `KernelStatus` are
+  // published, so a required key breaks external code that constructs the type.
+  // Not optional at runtime: `exactOptional` only permits an absent key inside
+  // `object()`, and this is a `type()`, so validation requires the key to be
+  // present — same as `remoteComms`. `Kernel.getStatus` always sets both.
   runLoop: exactOptional(RunLoopStatusStruct),
   remoteComms: exactOptional(
     union([

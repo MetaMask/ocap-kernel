@@ -4,6 +4,7 @@ import { Logger } from '@metamask/logger';
 import { Kernel } from '@metamask/ocap-kernel';
 import type {
   IOChannelFactory,
+  OnRunLoopFailure,
   SystemSubclusterConfig,
 } from '@metamask/ocap-kernel';
 
@@ -50,7 +51,7 @@ export async function makeKernel({
   keySeed?: string | undefined;
   ioChannelFactory?: IOChannelFactory;
   systemSubclusters?: SystemSubclusterConfig[];
-  onRunLoopFailure?: (error: Error) => void;
+  onRunLoopFailure?: OnRunLoopFailure;
 }): Promise<MakeKernelResult> {
   const rootLogger = logger ?? new Logger('kernel-worker');
   const platformServicesClient = new NodejsPlatformServices({

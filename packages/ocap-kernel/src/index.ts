@@ -22,6 +22,7 @@ export type {
   PlatformServices,
   VatConfig,
   KernelStatus,
+  OnRunLoopFailure,
   RunLoopStatus,
   Subcluster,
   SubclusterId,
@@ -53,6 +54,7 @@ export {
   ClusterConfigStruct,
   CapDataStruct,
   KernelStatusStruct,
+  RunLoopStatusStruct,
   SubclusterStruct,
 } from './types.ts';
 export { AllowedGlobalNameStruct } from './vats/endowments.ts';

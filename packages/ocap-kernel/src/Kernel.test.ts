@@ -539,6 +539,27 @@ describe('Kernel', () => {
           state: 'disconnected',
         },
       });
+      // A healthy status must not race an in-flight crank.
+      expect(
+        mocks.KernelQueue.lastInstance.waitForCrank,
+      ).toHaveBeenCalledOnce();
+    });
+
+    it('reports a run loop that dies while waiting for the crank', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      const queue = mocks.KernelQueue.lastInstance;
+      // An in-flight crank is exactly when the loop is most likely to die.
+      queue.waitForCrank.mockImplementationOnce(async () => {
+        queue.killRunLoop(new Error('died mid-crank'));
+      });
+
+      expect((await kernel.getStatus()).runLoop).toStrictEqual({
+        state: 'failed',
+        error: 'died mid-crank',
+      });
     });
 
     it('reports the kernel as failed once the run loop dies', async () => {
