@@ -10,6 +10,7 @@ import type {
   KRef,
   KernelMessage,
   KernelOneResolution,
+  RunLoopStatus,
   RunQueueItem,
   RunQueueItemNotify,
   RunQueueItemSend,
@@ -48,6 +49,11 @@ export class KernelQueue {
   /** Thunk to signal run queue transition from empty to non-empty */
   #wakeUpTheRunQueue: (() => void) | null;
 
+  #runLoopStarted: boolean = false;
+
+  /** The error that killed the run loop. Once set, the queue is never drained again. */
+  #runLoopFailure: Error | undefined;
+
   /**
    * Construct a new KernelQueue instance.
    *
@@ -66,10 +72,30 @@ export class KernelQueue {
   /**
    * The kernel's run loop: take an item off the run queue, deliver it,
    * repeat. Note that this loops forever: the returned promise never resolves.
+   * If it rejects, the kernel is dead — see {@link getRunLoopStatus}.
+   *
+   * @param deliver - A function that delivers an item to the kernel.
+   * @returns A promise that rejects with the error that killed the run loop.
+   */
+  async run(
+    deliver: (item: RunQueueItem) => Promise<CrankResult | undefined>,
+  ): Promise<never> {
+    !this.#runLoopStarted || Fail`run loop already started`;
+    this.#runLoopStarted = true;
+    try {
+      return await this.#runLoop(deliver);
+    } catch (error) {
+      this.#failRunLoop(error);
+      throw error;
+    }
+  }
+
+  /**
+   * Take an item off the run queue, deliver it, repeat.
    *
    * @param deliver - A function that delivers an item to the kernel.
    */
-  async run(
+  async #runLoop(
     deliver: (item: RunQueueItem) => Promise<CrankResult | undefined>,
   ): Promise<never> {
     for (;;) {
@@ -100,6 +126,51 @@ export class KernelQueue {
         }
       }
     }
+  }
+
+  /**
+   * Record the death of the run loop and fail everything that was waiting on
+   * it, which would otherwise hang forever.
+   *
+   * @param error - The error that killed the run loop.
+   */
+  #failRunLoop(error: unknown): void {
+    const failure = error instanceof Error ? error : new Error(String(error));
+    this.#runLoopFailure = failure;
+
+    const orphaned = [...this.subscriptions.values()];
+    this.subscriptions.clear();
+    this.#resolvedWithKernelSubscription = [];
+    for (const { reject } of orphaned) {
+      reject(
+        this.#makeDeadRunLoopError(
+          'Kernel run loop died; this message result will never be delivered',
+        ),
+      );
+    }
+  }
+
+  /**
+   * @param message - The message for the caller.
+   * @returns An error whose cause is the failure that killed the run loop.
+   */
+  #makeDeadRunLoopError(message: string): Error {
+    return new Error(message, { cause: this.#runLoopFailure });
+  }
+
+  /**
+   * Report whether the kernel is able to process its run queue at all.
+   *
+   * @returns The current run loop status.
+   */
+  getRunLoopStatus(): RunLoopStatus {
+    if (this.#runLoopFailure) {
+      return harden({
+        state: 'failed',
+        error: this.#runLoopFailure.message,
+      });
+    }
+    return harden({ state: this.#runLoopStarted ? 'running' : 'idle' });
   }
 
   /**
@@ -245,6 +316,12 @@ export class KernelQueue {
     method: string,
     args: unknown[],
   ): Promise<CapData<KRef>> {
+    // Nothing is draining the run queue, so a returned promise could never settle.
+    if (this.#runLoopFailure) {
+      throw this.#makeDeadRunLoopError(
+        'Kernel run loop died; cannot queue a message',
+      );
+    }
     // TODO(#562): Use logger instead.
     // eslint-disable-next-line no-console
     console.debug('enqueueMessage', target, method, args);

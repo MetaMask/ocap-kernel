@@ -93,6 +93,8 @@ export class Kernel {
   /** Manages IO channel lifecycle (optional, requires factory injection) */
   readonly #ioManager: IOManager | undefined;
 
+  readonly #onRunLoopFailure: ((error: Error) => void) | undefined;
+
   /**
    * Construct a new kernel instance.
    *
@@ -105,6 +107,7 @@ export class Kernel {
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
    * @param options.ioChannelFactory - Optional factory for creating IO channels.
    * @param options.allowedGlobalNames - Optional list of allowed global names for vat endowments.
+   * @param options.onRunLoopFailure - Optional handler called if the run loop dies.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
@@ -117,10 +120,12 @@ export class Kernel {
       mnemonic?: string | undefined;
       ioChannelFactory?: IOChannelFactory;
       allowedGlobalNames?: AllowedGlobalName[];
+      onRunLoopFailure?: (error: Error) => void;
     } = {},
   ) {
     this.#platformServices = platformServices;
     this.#kernelDatabase = kernelDatabase;
+    this.#onRunLoopFailure = options.onRunLoopFailure;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase, this.#logger);
     if (!this.#kernelStore.isInitialized()) {
@@ -234,6 +239,7 @@ export class Kernel {
    * @param options.ioChannelFactory - Optional factory for creating IO channels.
    * @param options.systemSubclusters - Optional array of system subcluster configurations.
    * @param options.allowedGlobalNames - Optional list of allowed global names for vat endowments. When set, only these names from the `VatSupervisor`'s configured endowments (see `createDefaultEndowments`) are available to vats.
+   * @param options.onRunLoopFailure - Optional handler called if the run loop dies. The kernel must be restarted after that, so an embedder that outlives it (e.g. a daemon) should use this to terminate or restart.
    * @returns A promise for the new kernel instance.
    */
   static async make(
@@ -247,6 +253,7 @@ export class Kernel {
       ioChannelFactory?: IOChannelFactory;
       systemSubclusters?: SystemSubclusterConfig[];
       allowedGlobalNames?: AllowedGlobalName[];
+      onRunLoopFailure?: (error: Error) => void;
     } = {},
   ): Promise<Kernel> {
     const kernel = new Kernel(platformServices, kernelDatabase, options);
@@ -296,16 +303,30 @@ export class Kernel {
     // This runs for the entire lifetime of the kernel
     this.#kernelQueue
       .run(this.#kernelRouter.deliver.bind(this.#kernelRouter))
-      .catch((error) => {
-        this.#logger.error(
-          'Run loop error (kernel may be non-functional):',
-          error,
-        );
-        // Don't re-throw to avoid unhandled rejection in this long-running task
-      });
+      .catch((error) => this.#handleRunLoopFailure(error));
 
     // Launch new system subclusters (requires queue to be running)
     await this.#subclusterManager.launchNewSystemSubclusters(configs);
+  }
+
+  /**
+   * Tell the embedder the kernel is finished, since it owns the decision to
+   * exit or restart. Deliberately not re-thrown: an unhandled rejection would
+   * take the process down without giving it that chance.
+   *
+   * @param error - The error that killed the run loop.
+   */
+  #handleRunLoopFailure(error: unknown): void {
+    this.#logger.error(
+      'Run loop died; the kernel can no longer process messages and must be restarted:',
+      error,
+    );
+    const failure = error instanceof Error ? error : new Error(String(error));
+    try {
+      this.#onRunLoopFailure?.(failure);
+    } catch (handlerError) {
+      this.#logger.error('Run loop failure handler threw:', handlerError);
+    }
   }
 
   /**
@@ -631,12 +652,19 @@ export class Kernel {
    * Get the current kernel status, defined as the current cluster configuration
    * and a list of all running vats.
    *
-   * @returns A promise for the current kernel status containing vats, subclusters, and remote comms information.
+   * @returns A promise for the current kernel status containing run loop health,
+   * vats, subclusters, and remote comms information.
    */
   async getStatus(): Promise<KernelStatus> {
-    await this.#kernelQueue.waitForCrank();
+    const runLoop = this.#kernelQueue.getRunLoopStatus();
+    // A dead kernel must still be able to report that it's dead, and the crank
+    // it died in may never finish.
+    if (runLoop.state !== 'failed') {
+      await this.#kernelQueue.waitForCrank();
+    }
 
     const status: KernelStatus = {
+      runLoop,
       vats: this.getVats(),
       subclusters: this.#subclusterManager.getSubclusters(),
     };

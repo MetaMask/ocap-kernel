@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Report run loop health in `KernelStatus` via the new optional `runLoop` field (`{ state: 'idle' | 'running' }` or `{ state: 'failed', error }`), exported as the `RunLoopStatus` type ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+- Add `onRunLoopFailure` to the `Kernel.make` options, called with the error that killed the run loop so an embedder that outlives the kernel (e.g. a daemon) can exit or restart ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
 - Add `fetch`, `Request`, `Headers`, and `Response` to available vat endowments ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
   - Add `VatConfig.network: { allowedHosts: string[] }`; requesting `'fetch'` without it rejects `initVat`
 - Integrate Snaps attenuated endowment factories into vat globals ([#937](https://github.com/MetaMask/ocap-kernel/pull/937))
@@ -38,6 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Stop reporting a healthy kernel after the run loop dies ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+  - The error that killed the run loop was logged and swallowed, so the kernel went on answering `getStatus` with the same record it returns when healthy while nothing on the run queue was ever processed again, and every `queueMessage` promise hung forever — an outage no caller could detect
+  - `getStatus` now reports `runLoop: { state: 'failed', error }`, and returns it without waiting for a crank that may never end
+  - Message results in flight when the loop dies reject with `Kernel run loop died; this message result will never be delivered` (the killing error as `cause`), and later `queueMessage` calls reject immediately instead of hanging
+  - `KernelQueue.run` now refuses to start a second run loop
+- Settle a crank's `waitForCrank` waiters even when releasing its savepoints throws, so a database error can no longer strand `getStatus`, `stop`, `reset`, and `clearStorage` forever ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
 - Deserialize CapData rejections in `Kernel.queueMessage` so vat errors surface as plain `Error` objects to all callers ([#928](https://github.com/MetaMask/ocap-kernel/pull/928))
 - Detect peer restart across receiver state loss so the receiving kernel no longer silently drops a restarted peer's `seq=1` messages ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))
   - Persist the peer's last-observed incarnation and compare it on every successful handshake; on a detected restart, clear the peer's c-list contributions and reject the promises it was deciding before the new incarnation reuses any erefs
