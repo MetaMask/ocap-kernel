@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Log a fatal message when the kernel's run loop dies, since the worker outlives the kernel and has no exit to take ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+- Log a fatal message when the kernel's run loop dies, since the worker outlives the kernel and has no exit to take ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
 
 ### Fixed
 
