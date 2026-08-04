@@ -14,6 +14,10 @@ vi.mock('./hooks/useDarkMode.ts', () => ({
   useDarkMode: vi.fn(),
 }));
 
+vi.mock('./hooks/useStatusPolling.ts', () => ({
+  useStatusPolling: vi.fn(),
+}));
+
 describe('App', () => {
   beforeEach(() => {
     cleanup();
@@ -55,6 +59,29 @@ describe('App', () => {
     const { App } = await import('./App.tsx');
     render(<App />);
     expect(screen.getByText('Control Panel')).toBeInTheDocument();
+  });
+
+  // Without this, deleting the banner from App leaves every test green, and the
+  // panel is the only remediation signal the browser worker has — it cannot exit.
+  it('surfaces a failed run loop above the tabs', async () => {
+    const { useStream } = await import('./hooks/useStream.ts');
+    vi.mocked(useStream).mockReturnValue({
+      callKernelMethod: vi.fn(),
+      error: undefined,
+    } as unknown as StreamState);
+    const { useStatusPolling } = await import('./hooks/useStatusPolling.ts');
+    vi.mocked(useStatusPolling).mockReturnValue({
+      vats: [],
+      subclusters: [],
+      runLoop: { state: 'failed', error: 'crank exploded' },
+    });
+    const { App } = await import('./App.tsx');
+    render(<App />);
+
+    expect(screen.getByTestId('run-loop-failure')).toBeInTheDocument();
+    expect(screen.getByTestId('run-loop-failure-error')).toHaveTextContent(
+      'crank exploded',
+    );
   });
 
   it('renders all tab labels including the new Remote Comms tab', async () => {

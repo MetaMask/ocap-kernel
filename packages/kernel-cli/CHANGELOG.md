@@ -24,8 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Daemon fatal-path visibility: `daemon-entry` now installs handlers for `uncaughtException`, `unhandledRejection`, `SIGHUP`, and `exit` that append a synchronous fingerprint line to `daemon.log` before terminating ([#966](https://github.com/MetaMask/ocap-kernel/pull/966))
   - Without these, silent daemon deaths under `stdio: 'ignore'` (the CLI's default spawn mode) left no trace in the log; the operator saw only that the daemon was gone. Every terminating path now leaves at least one line.
 - The daemon logs the failure and shuts down with a non-zero exit code when the kernel's run loop dies, instead of staying up with a socket that answers RPCs for a kernel that processes nothing ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
-  - A run loop death during startup aborts `daemon start` rather than publishing a socket and pid file for a dead kernel
-  - That shutdown is bounded at 10 seconds, and a shutdown that throws exits immediately, in both cases removing the pid file first. A `kernel.stop()` that hangs or throws would otherwise leave live vat workers holding the event loop open — so `process.exitCode` never takes effect — with the socket gone and the pid file already cleaned up, an orphan holding `kernel.sqlite` that neither interlock can see, letting the next `daemon start` succeed alongside it
+  - A death during startup aborts `daemon start` rather than publishing a socket and pid file for a dead kernel
+  - The shutdown is bounded at 10 seconds and exits immediately if it throws, removing the pid file first, so a stalled `kernel.stop()` cannot leave an orphan holding `kernel.sqlite` that the next `daemon start` runs alongside
 
 ## [0.1.0]
 
