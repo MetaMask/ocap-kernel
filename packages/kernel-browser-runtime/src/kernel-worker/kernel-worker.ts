@@ -69,7 +69,7 @@ async function main(): Promise<void> {
     onRunLoopFailure: (error) => {
       logger.error(
         'Kernel run loop died; this worker must be reloaded.',
-        error.stack ?? error.message,
+        error,
       );
     },
   });
