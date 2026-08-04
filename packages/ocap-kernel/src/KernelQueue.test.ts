@@ -344,6 +344,39 @@ describe('KernelQueue', () => {
       });
     });
 
+    // The rollback flag is per-crank. If an earlier abort could latch it, every
+    // later crank that died would skip its rollback and commit half its work.
+    it('rolls back a later crank after an earlier one aborted', async () => {
+      const items: RunQueueItem[] = [
+        { type: 'send', target: 'ko1', message: {} as KernelMessage },
+        { type: 'send', target: 'ko2', message: {} as KernelMessage },
+      ];
+      let dequeued = 0;
+      (
+        kernelStore.runQueueLength as unknown as MockInstance
+      ).mockImplementation(() => (dequeued < items.length ? 1 : 0));
+      (kernelStore.dequeueRun as unknown as MockInstance).mockImplementation(
+        () => {
+          const item = items[dequeued];
+          dequeued += 1;
+          return item;
+        },
+      );
+      const secondError = new Error('second crank exploded');
+      const deliver = vi
+        .fn()
+        .mockResolvedValueOnce({ abort: true })
+        .mockRejectedValueOnce(secondError);
+
+      await expect(kernelQueue.run(deliver)).rejects.toBe(secondError);
+
+      expect(kernelStore.rollbackCrank).toHaveBeenCalledTimes(2);
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'failed',
+        error: 'second crank exploded',
+      });
+    });
+
     it('refuses ingress via assertRunLoopAlive', async () => {
       const failure = new Error('crank exploded');
       expect(() => kernelQueue.assertRunLoopAlive('accept work')).not.toThrow();
@@ -369,10 +402,12 @@ describe('KernelQueue', () => {
           queue.resolvePromises('v1', [
             ['kp1', true, { body: 'x', slots: [] }],
           ]),
+        didWork: () => kernelStore.resolveKernelPromise,
       },
       {
         teardown: 'enqueueNotify',
         call: (queue: KernelQueue) => queue.enqueueNotify('v1', 'kp1'),
+        didWork: () => kernelStore.enqueueRun,
       },
       {
         teardown: 'enqueueSend',
@@ -381,19 +416,25 @@ describe('KernelQueue', () => {
             methargs: { body: 'x', slots: [] },
             result: null,
           }),
+        didWork: () => kernelStore.enqueueRun,
       },
-    ])('still allows $teardown after the run loop dies', async ({ call }) => {
-      (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
-        {
+    ])(
+      'still allows $teardown after the run loop dies',
+      async ({ call, didWork }) => {
+        (
+          kernelStore.getKernelPromise as unknown as MockInstance
+        ).mockReturnValue({
           state: 'unresolved',
           decider: 'v1',
           subscribers: [],
-        },
-      );
-      await killRunLoop(new Error('crank exploded'));
+        });
+        await killRunLoop(new Error('crank exploded'));
 
-      expect(() => call(kernelQueue)).not.toThrow();
-    });
+        expect(() => call(kernelQueue)).not.toThrow();
+        // "Allows" has to mean the work happened, not merely that nothing threw.
+        expect(didWork()).toHaveBeenCalled();
+      },
+    );
 
     it('refuses to start the run loop twice', async () => {
       (

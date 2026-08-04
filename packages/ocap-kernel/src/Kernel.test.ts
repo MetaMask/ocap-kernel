@@ -12,6 +12,7 @@ import { kser } from './liveslots/kernel-marshal.ts';
 import type {
   VatId,
   VatConfig,
+  OnRunLoopFailure,
   PlatformServices,
   ClusterConfig,
 } from './types.ts';
@@ -1014,6 +1015,45 @@ describe('Kernel', () => {
       // The original value survives, so a thrown non-Error isn't lost.
       expect(failure.cause).toBe('not an error');
     });
+
+    // The handler slot returns void, but TypeScript admits anything thenable
+    // there, and an escaping rejection is what the containment exists to stop.
+    it.each([
+      {
+        kind: 'an async handler',
+        makeHandler: (handlerError: Error) => async (): Promise<never> => {
+          throw handlerError;
+        },
+      },
+      {
+        kind: 'a non-native thenable',
+        makeHandler: (handlerError: Error) => (): PromiseLike<void> => ({
+          then: (_onFulfilled, onRejected) =>
+            onRejected?.(handlerError) as PromiseLike<void>,
+        }),
+      },
+    ])(
+      'logs a failure handler that rejects, given $kind',
+      async ({ makeHandler }) => {
+        const logger = new Logger('test');
+        const logErrorSpy = vi.spyOn(logger, 'error');
+        const handlerError = new Error('handler boom');
+        await Kernel.make(mockPlatformServices, mockKernelDatabase, {
+          logger,
+          onRunLoopFailure: makeHandler(
+            handlerError,
+          ) as unknown as OnRunLoopFailure,
+        });
+
+        mocks.KernelQueue.lastInstance.killRunLoop(new Error('run loop boom'));
+        await waitUntilQuiescent();
+
+        expect(logErrorSpy).toHaveBeenCalledWith(
+          'Run loop failure handler rejected:',
+          handlerError,
+        );
+      },
+    );
 
     it('logs a failure handler that throws', async () => {
       const logger = new Logger('test');

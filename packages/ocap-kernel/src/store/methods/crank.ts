@@ -49,8 +49,14 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
     ctx.crankBuffer.length = 0; // Discard buffered outputs
     for (const ordinal of ctx.savepoints.keys()) {
       if (ctx.savepoints[ordinal] === savepoint) {
-        kdb.rollbackSavepoint(`t${ordinal}`);
-        ctx.savepoints.length = ordinal;
+        try {
+          kdb.rollbackSavepoint(`t${ordinal}`);
+        } finally {
+          // Forget the savepoint even if the rollback failed. Leaving it listed
+          // would have `endCrank`'s release commit the crank we just abandoned —
+          // the half-finished state this rollback exists to discard.
+          ctx.savepoints.length = ordinal;
+        }
         // The rollback reverted DB state but in-memory caches are stale.
         // Recreate the run queue so its cached head/tail are re-read from DB.
         ctx.refreshRunQueue();
