@@ -125,6 +125,10 @@ describe('Daemon Stack (JSON-RPC socket protocol)', { timeout: 30_000 }, () => {
     const result = response.result as Record<string, unknown>;
     expect(result).toHaveProperty('vats');
     expect(result).toHaveProperty('subclusters');
+    // `runLoop` is required by `KernelStatusStruct`, and this transport doesn't
+    // validate results — so without this assertion a kernel that stopped emitting
+    // it would break every `RpcClient` consumer while this test stayed green.
+    expect(result).toHaveProperty('runLoop', { state: 'running' });
   });
 
   it('returns error for unknown method', async () => {
