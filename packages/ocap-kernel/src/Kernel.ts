@@ -4,7 +4,7 @@ import { isCapData } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 
 import { IOManager } from './io/IOManager.ts';
-import type { IOChannelFactory } from './io/types.ts';
+import type { IOListenerFactory } from './io/types.ts';
 import { makeKernelFacet } from './kernel-facet.ts';
 import type { KernelFacet } from './kernel-facet.ts';
 import { KernelQueue } from './KernelQueue.ts';
@@ -103,7 +103,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
-   * @param options.ioChannelFactory - Optional factory for creating IO channels.
+   * @param options.ioListenerFactory - Optional factory for creating IO listeners.
    * @param options.allowedGlobalNames - Optional list of allowed global names for vat endowments.
    */
   // eslint-disable-next-line no-restricted-syntax
@@ -115,7 +115,7 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
-      ioChannelFactory?: IOChannelFactory;
+      ioListenerFactory?: IOListenerFactory;
       allowedGlobalNames?: AllowedGlobalName[];
     } = {},
   ) {
@@ -170,15 +170,23 @@ export class Kernel {
       logger: this.#logger.subLogger({ tags: ['KernelServiceManager'] }),
     });
 
-    if (options.ioChannelFactory) {
+    if (options.ioListenerFactory) {
       this.#ioManager = new IOManager({
-        factory: options.ioChannelFactory,
+        factory: options.ioListenerFactory,
         registerService:
           this.#kernelServiceManager.registerKernelServiceObject.bind(
             this.#kernelServiceManager,
           ),
         unregisterService:
           this.#kernelServiceManager.unregisterKernelServiceObject.bind(
+            this.#kernelServiceManager,
+          ),
+        registerAnonymous:
+          this.#kernelServiceManager.registerAnonymousKernelObject.bind(
+            this.#kernelServiceManager,
+          ),
+        releaseAnonymous:
+          this.#kernelServiceManager.releaseAnonymousKernelObject.bind(
             this.#kernelServiceManager,
           ),
         logger: this.#logger.subLogger({ tags: ['IOManager'] }),
@@ -231,7 +239,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
-   * @param options.ioChannelFactory - Optional factory for creating IO channels.
+   * @param options.ioListenerFactory - Optional factory for creating IO listeners.
    * @param options.systemSubclusters - Optional array of system subcluster configurations.
    * @param options.allowedGlobalNames - Optional list of allowed global names for vat endowments. When set, only these names from the `VatSupervisor`'s configured endowments (see `createDefaultEndowments`) are available to vats.
    * @returns A promise for the new kernel instance.
@@ -244,7 +252,7 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
-      ioChannelFactory?: IOChannelFactory;
+      ioListenerFactory?: IOListenerFactory;
       systemSubclusters?: SystemSubclusterConfig[];
       allowedGlobalNames?: AllowedGlobalName[];
     } = {},
