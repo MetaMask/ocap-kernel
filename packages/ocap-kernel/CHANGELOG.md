@@ -9,7 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Report run loop health in `KernelStatus` via the new optional `runLoop` field (`{ state: 'idle' | 'running' }` or `{ state: 'failed', error }`), exported as the `RunLoopStatus` type ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+- Report run loop health in `KernelStatus` via the new `runLoop` field (`{ state: 'idle' | 'running' }` or `{ state: 'failed', error }`), with `RunLoopStatus` and `RunLoopStatusStruct` exported ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+  - `runLoop` is optional in the TypeScript type so that adding it doesn't break external constructors of `KernelStatus`, but it is required on the wire: `exactOptional` only permits an absent key inside `object()`, and `KernelStatusStruct` is a `type()`. `Kernel.getStatus` always populates it
+  - `idle` means the run loop was never started, not that it has nothing to do; a loop parked on an empty queue reports `running`
+- Export `OnRunLoopFailure` for typing a run loop failure handler ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
 - Add `onRunLoopFailure` to the `Kernel.make` options, called with the error that killed the run loop so an embedder that outlives the kernel (e.g. a daemon) can exit or restart ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
 - Add `fetch`, `Request`, `Headers`, and `Response` to available vat endowments ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
   - Add `VatConfig.network: { allowedHosts: string[] }`; requesting `'fetch'` without it rejects `initVat`
@@ -51,6 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refuse run queue ingress once the run loop is dead ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
   - `enqueueSend`, `enqueueNotify`, and `resolvePromises` now throw instead of appending to a queue nothing drains. This matters most for remote peers: inbound deliveries are processed inside a savepoint that rolls back without advancing the received-sequence number, so the peer retries and then gives up rather than being acknowledged by a black hole
 - Preserve a thrown non-`Error` as the `cause` when wrapping it, in both the run loop failure path and the embedder notification ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+- Read run loop health in `getStatus` after waiting for the crank rather than before, so a loop that dies during that wait — the likeliest moment for it to die — is not reported as `running` ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+- Contain a rejection from an `async` run loop failure handler, which `OnRunLoopFailure`'s `void` return type permits but only a synchronous throw was caught ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
 - Settle a crank's `waitForCrank` waiters even when releasing its savepoints throws, so a database error can no longer strand `getStatus`, `stop`, `reset`, and `clearStorage` forever ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
 - Deserialize CapData rejections in `Kernel.queueMessage` so vat errors surface as plain `Error` objects to all callers ([#928](https://github.com/MetaMask/ocap-kernel/pull/928))
 - Detect peer restart across receiver state loss so the receiving kernel no longer silently drops a restarted peer's `seq=1` messages ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))

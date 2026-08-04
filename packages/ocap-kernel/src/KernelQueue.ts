@@ -49,13 +49,16 @@ export class KernelQueue {
   /** Thunk to signal run queue transition from empty to non-empty */
   #wakeUpTheRunQueue: (() => void) | null;
 
-  #runLoopStarted: boolean = false;
-
   /**
-   * The error that killed the run loop. Once set, the queue is never drained
-   * again; note that only `enqueueMessage` refuses new work.
+   * The run loop's state, as one value so that a failure recorded for a loop
+   * that never started can't be represented. `failed` keeps the whole `Error`;
+   * only its message crosses the wire. Once failed, the queue is never drained
+   * again and every ingress point refuses work.
    */
-  #runLoopFailure: Error | undefined;
+  #runLoopState:
+    | { state: 'idle' }
+    | { state: 'running' }
+    | { state: 'failed'; error: Error } = { state: 'idle' };
 
   /** Whether this crank's savepoint has already been rolled back */
   #crankRolledBack: boolean = false;
@@ -87,8 +90,8 @@ export class KernelQueue {
   async run(
     deliver: (item: RunQueueItem) => Promise<CrankResult | undefined>,
   ): Promise<never> {
-    !this.#runLoopStarted || Fail`run loop already started`;
-    this.#runLoopStarted = true;
+    this.#runLoopState.state === 'idle' || Fail`run loop already started`;
+    this.#runLoopState = { state: 'running' };
     try {
       return await this.#runLoop(deliver);
     } catch (error) {
@@ -170,7 +173,7 @@ export class KernelQueue {
       error instanceof Error
         ? error
         : new Error(String(error), { cause: error });
-    this.#runLoopFailure = failure;
+    this.#runLoopState = { state: 'failed', error: failure };
 
     const orphaned = [...this.subscriptions.values()];
     this.subscriptions.clear();
@@ -189,7 +192,12 @@ export class KernelQueue {
    * @returns An error whose cause is the failure that killed the run loop.
    */
   #makeDeadRunLoopError(message: string): Error {
-    return new Error(message, { cause: this.#runLoopFailure });
+    return new Error(message, {
+      cause:
+        this.#runLoopState.state === 'failed'
+          ? this.#runLoopState.error
+          : undefined,
+    });
   }
 
   /**
@@ -201,7 +209,7 @@ export class KernelQueue {
    * @param what - What is being refused, completing "cannot ...".
    */
   #assertRunLoopAlive(what: string): void {
-    if (this.#runLoopFailure) {
+    if (this.#runLoopState.state === 'failed') {
       throw this.#makeDeadRunLoopError(`Kernel run loop died; cannot ${what}`);
     }
   }
@@ -212,13 +220,11 @@ export class KernelQueue {
    * @returns The current run loop status.
    */
   getRunLoopStatus(): RunLoopStatus {
-    if (this.#runLoopFailure) {
-      return harden({
-        state: 'failed',
-        error: this.#runLoopFailure.message,
-      });
-    }
-    return harden({ state: this.#runLoopStarted ? 'running' : 'idle' });
+    return harden(
+      this.#runLoopState.state === 'failed'
+        ? { state: 'failed', error: this.#runLoopState.error.message }
+        : { state: this.#runLoopState.state },
+    );
   }
 
   /**
