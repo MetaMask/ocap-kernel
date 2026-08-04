@@ -34,6 +34,17 @@ export type BridgeHooks = {
    * `"@@j<n>"` sigil strings. Production wires this to `passStyleOf`.
    */
   isRemotable: (value: unknown) => boolean;
+  /**
+   * Optional label identifying which connection this bridge serves, used
+   * in error messages.
+   *
+   * Names are scoped to a connection, so "unknown reference" almost
+   * always means the name was minted on a *different* connection than
+   * the one asking. Without the label that has to be reconstructed by
+   * correlating kernel refs in the daemon log, which is a lot of work to
+   * learn something the error could simply have said.
+   */
+  label?: string | undefined;
 };
 
 export type Bridge = {
@@ -60,6 +71,13 @@ export function makeBridge(hooks: BridgeHooks): Bridge {
   let nameToObj = new Map<string, unknown>();
   let objToName = new Map<unknown, string>();
   let nextObjId = 0;
+
+  /**
+   * Describe this bridge for error messages.
+   *
+   * @returns The connection label, or a generic phrase when unlabelled.
+   */
+  const where = (): string => hooks.label ?? 'this connection';
 
   const resetSession = (): void => {
     nameToObj = new Map();
@@ -91,9 +109,16 @@ export function makeBridge(hooks: BridgeHooks): Bridge {
     const { target, method, args } = requireSendParams(params);
     const targetObj = resolveName(target);
     if (targetObj === undefined) {
+      // Report which connection failed to resolve the name and what it
+      // does hold. Names are per-connection, so the usual cause is a name
+      // minted on a different connection than the one now using it.
+      const known = [...nameToObj.keys()]
+        .map((name) => `${MARKER_PREFIX}${name}`)
+        .join(', ');
       throw new BridgeRpcError(
         JSON_RPC_ERROR.INVALID_PARAMS,
-        `params.target "@@${target}" is not a known reference`,
+        `params.target "@@${target}" is not a known reference on ` +
+          `${where()} (known here: ${known || 'none'})`,
       );
     }
     const expandedArgs = expandMarkers(args, resolveName) as unknown[];

@@ -155,6 +155,7 @@ export function buildRootObject(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         E(target as any)[method](...args),
       isRemotable,
+      label,
     });
     try {
       for (;;) {

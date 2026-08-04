@@ -360,7 +360,39 @@ describe('resetSession', () => {
     expect(response).toMatchObject({
       error: {
         code: JSON_RPC_ERROR.INVALID_PARAMS,
-        message: 'params.target "@@j1" is not a known reference',
+        message:
+          'params.target "@@j1" is not a known reference on this ' +
+          'connection (known here: none)',
+      },
+    });
+  });
+
+  it('names the connection and its known refs when a lookup misses', async () => {
+    const alpha = makeFake('alpha');
+    const { bridge } = buildBridge({
+      redeem: async () => alpha,
+      label: 'connection 7',
+    });
+    await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
+    });
+    const response = await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'send',
+      params: { target: '@@j9', method: 'ping', args: [] },
+    });
+    // The usual cause is a name minted on a different connection, so the
+    // message has to say which connection is complaining and what it holds.
+    expect(response).toMatchObject({
+      error: {
+        code: JSON_RPC_ERROR.INVALID_PARAMS,
+        message:
+          'params.target "@@j9" is not a known reference on ' +
+          'connection 7 (known here: @@j1)',
       },
     });
   });
