@@ -89,10 +89,11 @@ describe('getStatusHandler', () => {
       expect(is(makeStatus(runLoop), KernelStatusStruct)).toBe(false);
     });
 
-    // `exactOptional` only permits an absent key inside `object()`, and
-    // `KernelStatusStruct` is a `type()`. So `runLoop` is optional in the
-    // TypeScript type but required on the wire, and a reply from a kernel built
-    // before this field fails validation outright rather than losing one field.
+    // `runLoop` is required, so `RpcClient`'s result validation fails the whole
+    // `getStatus` call for a reply from a kernel built before this field, rather
+    // than quietly losing it. Pinned because the alternatives don't typecheck
+    // here: `optional` widens the property to `| undefined` and `KernelStatus`
+    // must satisfy `Json`.
     it('rejects a status with no runLoop at all', () => {
       // Everything else present and valid, so only the missing `runLoop` can be
       // what fails: `remoteComms: undefined` would fail on its own account.

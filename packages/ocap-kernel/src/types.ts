@@ -769,9 +769,10 @@ const RemoteCommsConnectedStruct = object({
  * an empty queue reports `running`. `failed` means nothing will ever be
  * processed again and the kernel must be restarted.
  */
-// The arms are `type()`, not `object()`, for the same reason `runLoop` itself is
-// optional below: a client shipped against these arms must tolerate a newer
-// kernel adding a field, or an exact arm would fail the whole `getStatus` call.
+// The arms are `type()`, not `object()`, so a client shipped against them
+// tolerates a newer kernel adding a field to an arm. Note the limit of that:
+// a newer kernel adding a whole new *state* is rejected by the union either
+// way, so adding an arm here is a breaking wire change for older clients.
 export const RunLoopStatusStruct = union([
   type({ state: literal('idle') }),
   type({ state: literal('running') }),
@@ -796,12 +797,15 @@ export const KernelStatusStruct = type({
       subclusterId: SubclusterIdStruct,
     }),
   ),
-  // Optional in the *type* because this struct and `KernelStatus` are
-  // published, so a required key breaks external code that constructs the type.
-  // Not optional at runtime: `exactOptional` only permits an absent key inside
-  // `object()`, and this is a `type()`, so validation requires the key to be
-  // present — same as `remoteComms`. `Kernel.getStatus` always sets both.
-  runLoop: exactOptional(RunLoopStatusStruct),
+  // Required, in the type as well as on the wire. `exactOptional` would make the
+  // type say "may be absent" while validation still demanded the key, since
+  // `exactOptional` only permits an absent key inside `object()` and this is a
+  // `type()`. `optional` would agree with the type but cannot be used: it widens
+  // the inferred property to `| undefined`, and `KernelStatus` is an RPC result,
+  // so it must satisfy `Json`. Required is the only self-consistent option — at
+  // the cost that a reply from a kernel predating this field fails validation
+  // outright, which `remoteComms` already implies for older kernels too.
+  runLoop: RunLoopStatusStruct,
   remoteComms: exactOptional(
     union([
       RemoteCommsDisconnectedStruct,

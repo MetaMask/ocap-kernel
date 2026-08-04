@@ -30,7 +30,7 @@ const makeMockPanelContext = (
 const makeMockStatus = (runLoop: KernelStatus['runLoop']): KernelStatus => ({
   vats: [],
   subclusters: [],
-  ...(runLoop ? { runLoop } : {}),
+  runLoop,
 });
 
 describe('RunLoopBanner', () => {
@@ -62,7 +62,6 @@ describe('RunLoopBanner', () => {
   it.each([
     { name: 'running', runLoop: { state: 'running' } as const },
     { name: 'idle', runLoop: { state: 'idle' } as const },
-    { name: 'absent, as on an older kernel', runLoop: undefined },
   ])('renders nothing when the run loop is $name', ({ runLoop }) => {
     mockUsePanelContext.mockReturnValue(
       makeMockPanelContext(makeMockStatus(runLoop)),

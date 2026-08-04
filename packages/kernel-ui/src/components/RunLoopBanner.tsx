@@ -23,6 +23,7 @@ export const RunLoopBanner: React.FC = () => {
     <Box
       className="mb-4 p-3 border border-error-default rounded"
       data-testid="run-loop-failure"
+      role="alert"
     >
       <TextComponent
         variant={TextVariant.BodyMd}

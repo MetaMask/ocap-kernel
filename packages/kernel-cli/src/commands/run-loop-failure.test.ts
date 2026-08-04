@@ -1,0 +1,269 @@
+// The mock shim rather than real lockdown: `vi.useFakeTimers()` cannot install
+// its clock over a hardened `Date`, and this module's watchdog is the thing
+// under test.
+import '@ocap/repo-tools/test-utils/mock-endoify';
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+
+import {
+  makeRunLoopFailureHandler,
+  SHUTDOWN_TIMEOUT_MS,
+} from './run-loop-failure.ts';
+import type { RunLoopFailureHandlerOptions } from './run-loop-failure.ts';
+
+/**
+ * Make a handler over spies, defaulting to "the daemon is up and not shutting
+ * down" so each test overrides only what it is about.
+ *
+ * @param overrides - Options to replace.
+ * @returns The handler and the spies it was built from.
+ */
+const makeHandler = (
+  overrides: Partial<RunLoopFailureHandlerOptions> = {},
+): {
+  handle: (failure: Error) => void;
+  logger: { error: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn> };
+  shutdown: ReturnType<typeof vi.fn>;
+  recordFailure: ReturnType<typeof vi.fn>;
+  removePidFile: ReturnType<typeof vi.fn>;
+  setExitCode: ReturnType<typeof vi.fn>;
+  exit: ReturnType<typeof vi.fn>;
+} => {
+  const logger = { error: vi.fn(), info: vi.fn() };
+  const shutdown = vi.fn().mockResolvedValue(undefined);
+  const recordFailure = vi.fn();
+  const removePidFile = vi.fn();
+  const setExitCode = vi.fn();
+  const exit = vi.fn();
+  const handle = makeRunLoopFailureHandler({
+    logger,
+    shutdown,
+    isStarted: () => true,
+    isShuttingDown: () => false,
+    recordFailure,
+    removePidFile,
+    setExitCode,
+    exit,
+    ...overrides,
+  });
+  return {
+    handle,
+    logger,
+    shutdown,
+    recordFailure,
+    removePidFile,
+    setExitCode,
+    exit,
+  };
+};
+
+describe('makeRunLoopFailureHandler', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('shuts the daemon down and marks the exit non-zero', async () => {
+    const { handle, shutdown, setExitCode, logger, exit } = makeHandler();
+
+    handle(new Error('crank exploded'));
+    await vi.runAllTimersAsync();
+
+    expect(shutdown).toHaveBeenCalledWith('run loop failure');
+    expect(setExitCode).toHaveBeenCalledWith(1);
+    expect(logger.error).toHaveBeenCalledWith(
+      'Kernel run loop died; shutting down the daemon.',
+      expect.stringContaining('crank exploded'),
+    );
+    // A shutdown that worked leaves the process to wind down on its own.
+    expect(exit).not.toHaveBeenCalled();
+  });
+
+  // `stringify` is what carries the chain; `error.stack` would drop it, and when
+  // a crank's rollback fails the rollback is the outer error and the failure that
+  // actually killed the kernel is only reachable through `cause`.
+  it('logs the cause chain, not just the outermost error', () => {
+    const { handle, logger } = makeHandler();
+
+    handle(
+      new Error('could not be rolled back', {
+        cause: new Error('database is gone'),
+      }),
+    );
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'Kernel run loop died; shutting down the daemon.',
+      expect.stringContaining('database is gone'),
+    );
+  });
+
+  it('records the failure before doing anything else', () => {
+    const failure = new Error('crank exploded');
+    const { handle, recordFailure } = makeHandler({ isStarted: () => false });
+
+    handle(failure);
+
+    expect(recordFailure).toHaveBeenCalledWith(failure);
+  });
+
+  it('only records the first failure', () => {
+    let recorded: Error | undefined;
+    const { handle } = makeHandler({
+      recordFailure: (failure) => {
+        recorded ??= failure;
+      },
+      isStarted: () => false,
+    });
+
+    handle(new Error('first'));
+    handle(new Error('second'));
+
+    expect(recorded?.message).toBe('first');
+  });
+
+  it('does not shut down before the daemon has started', () => {
+    const { handle, shutdown, setExitCode, logger } = makeHandler({
+      isStarted: () => false,
+    });
+
+    handle(new Error('died during startup'));
+
+    expect(shutdown).not.toHaveBeenCalled();
+    expect(setExitCode).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith(
+      'Kernel run loop died before the daemon started.',
+      expect.stringContaining('died during startup'),
+    );
+  });
+
+  // A loop stopping because someone asked the daemon to stop is not an outage,
+  // and must not turn a deliberate `ocap daemon stop` into a non-zero exit.
+  it('does not fail a shutdown already under way', () => {
+    const { handle, shutdown, setExitCode, exit, logger } = makeHandler({
+      isShuttingDown: () => true,
+    });
+
+    handle(new Error('loop stopped'));
+
+    expect(shutdown).not.toHaveBeenCalled();
+    expect(setExitCode).not.toHaveBeenCalled();
+    expect(exit).not.toHaveBeenCalled();
+    expect(logger.info).toHaveBeenCalledWith(
+      'Kernel run loop stopped during shutdown.',
+      expect.stringContaining('loop stopped'),
+    );
+  });
+
+  // Live vat workers hold the event loop open, so `setExitCode` alone would leave
+  // an orphan on kernel.sqlite with its socket already gone.
+  it('kills the process when the shutdown stalls', async () => {
+    const { handle, removePidFile, exit, logger } = makeHandler({
+      shutdown: vi.fn().mockReturnValue(new Promise(() => undefined)),
+    });
+
+    handle(new Error('crank exploded'));
+    expect(exit).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(SHUTDOWN_TIMEOUT_MS);
+
+    expect(logger.error).toHaveBeenCalledWith(
+      `Shutdown stalled for ${SHUTDOWN_TIMEOUT_MS} ms after run loop failure; exiting now.`,
+    );
+    // Removed before exiting, so the next `ocap daemon start` isn't blocked by a
+    // pid file whose owner is gone.
+    expect(removePidFile).toHaveBeenCalled();
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it('waits the full timeout before killing the process', async () => {
+    const { handle, exit } = makeHandler({
+      shutdown: vi.fn().mockReturnValue(new Promise(() => undefined)),
+      timeoutMs: 5_000,
+    });
+
+    handle(new Error('crank exploded'));
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(exit).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  it('kills the process when the shutdown throws', async () => {
+    const { handle, removePidFile, exit, logger } = makeHandler({
+      shutdown: vi.fn().mockRejectedValue(new Error('close failed')),
+    });
+
+    handle(new Error('crank exploded'));
+    await vi.runAllTimersAsync();
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'Shutdown after run loop failure failed; exiting now.',
+      expect.stringContaining('close failed'),
+    );
+    expect(removePidFile).toHaveBeenCalled();
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  // The watchdog must not fire after the process is already on its way out, or a
+  // second `exit` lands during teardown.
+  it('disarms the watchdog once the shutdown settles', async () => {
+    const { handle, exit } = makeHandler({
+      shutdown: vi.fn().mockRejectedValue(new Error('close failed')),
+    });
+
+    handle(new Error('crank exploded'));
+    await vi.runAllTimersAsync();
+    expect(exit).toHaveBeenCalledOnce();
+
+    await vi.advanceTimersByTimeAsync(SHUTDOWN_TIMEOUT_MS * 2);
+
+    expect(exit).toHaveBeenCalledOnce();
+  });
+
+  it('still exits when removing the pid file fails', async () => {
+    const { handle, exit, logger } = makeHandler({
+      shutdown: vi.fn().mockRejectedValue(new Error('close failed')),
+      removePidFile: () => {
+        throw new Error('EPERM');
+      },
+    });
+
+    handle(new Error('crank exploded'));
+    await vi.runAllTimersAsync();
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'Could not remove the pid file before exiting.',
+      expect.stringContaining('EPERM'),
+    );
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
+  // An unhandled rejection here would be reported as the cause of death instead
+  // of the run loop failure that actually killed the kernel.
+  it('does not reject when a log transport throws', async () => {
+    const logger = {
+      error: vi.fn().mockImplementation(() => {
+        throw new Error('ENOSPC');
+      }),
+      info: vi.fn(),
+    };
+    const onUnhandled = vi.fn();
+    process.once('unhandledRejection', onUnhandled);
+
+    const { handle } = makeHandler({
+      logger,
+      shutdown: vi.fn().mockRejectedValue(new Error('close failed')),
+    });
+
+    expect(() => handle(new Error('crank exploded'))).toThrow('ENOSPC');
+    await vi.runAllTimersAsync();
+    await Promise.resolve();
+
+    expect(onUnhandled).not.toHaveBeenCalled();
+    process.off('unhandledRejection', onUnhandled);
+  });
+});

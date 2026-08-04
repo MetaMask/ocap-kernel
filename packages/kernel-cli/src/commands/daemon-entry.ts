@@ -2,17 +2,16 @@ import '@metamask/kernel-shims/endoify-node';
 import { makeKernel } from '@metamask/kernel-node-runtime';
 import { startDaemon } from '@metamask/kernel-node-runtime/daemon';
 import type { DaemonHandle } from '@metamask/kernel-node-runtime/daemon';
+import { stringify } from '@metamask/kernel-utils';
 import type { LogEntry } from '@metamask/logger';
 import { Logger } from '@metamask/logger';
 import { appendFileSync, rmSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import { makeRunLoopFailureHandler } from './run-loop-failure.ts';
 import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive } from '../utils.ts';
-
-/** How long a post-failure shutdown may take before the process is killed. */
-const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 const ocapDir = getOcapHome();
 const logPath = join(ocapDir, 'daemon.log');
@@ -33,6 +32,9 @@ const logger = new Logger({
 installFatalHandlers();
 
 main().catch((error) => {
+  // stderr is `ignore` under the CLI spawner, so the log file is the only place
+  // this can be read; `stringify` keeps the `cause` chain that `String` drops.
+  logger.error('Daemon fatal', stringify(error, 0));
   process.stderr.write(`Daemon fatal: ${String(error)}\n`);
   process.exitCode = 1;
 });
@@ -47,31 +49,37 @@ async function main(): Promise<void> {
     process.env.OCAP_SOCKET_PATH ?? join(ocapDir, 'daemon.sock');
 
   const dbFilename = join(ocapDir, 'kernel.sqlite');
+  const pidPath = join(ocapDir, 'daemon.pid');
 
-  // Left alone, a dead run loop leaves the daemon answering RPCs for a kernel
-  // that processes nothing — an outage only a client that reads `runLoop` in
-  // `getStatus` can spot. Terminate instead, non-zero, so the failure is
-  // visible and `ocap daemon start` can recover.
-  // `handleRunLoopFailure` is reassigned below once there is a daemon to close.
+  // Declared before `makeKernel` so the failure handler can close over them: the
+  // kernel may report a death before `startDaemon` has returned.
   let runLoopFailure: Error | undefined;
-  let handleRunLoopFailure = (failure: Error): void => {
-    runLoopFailure = failure;
-    logger.error(
-      'Kernel run loop died before shutdown handling was installed.',
-      failure.stack ?? failure.message,
-    );
-  };
+  let daemonStarted = false;
+  let shutdownPromise: Promise<void> | undefined;
+
+  const handleRunLoopFailure = makeRunLoopFailureHandler({
+    logger,
+    shutdown: async (reason) => shutdown(reason),
+    isStarted: () => daemonStarted,
+    isShuttingDown: () => shutdownPromise !== undefined,
+    recordFailure: (failure) => {
+      runLoopFailure ??= failure;
+    },
+    // eslint-disable-next-line n/no-sync -- must finish before process.exit
+    removePidFile: () => rmSync(pidPath, { force: true }),
+    setExitCode: (code) => {
+      process.exitCode = code;
+    },
+    // eslint-disable-next-line n/no-process-exit -- a broken shutdown must still terminate
+    exit: (code) => process.exit(code),
+  });
 
   const { kernel, kernelDatabase } = await makeKernel({
     resetStorage: false,
     dbFilename,
     logger,
-    // Indirection, not redundancy: the kernel captures this function value for
-    // good, so the late call is what lets the reassignment below take effect.
-    onRunLoopFailure: (error) => handleRunLoopFailure(error),
+    onRunLoopFailure: handleRunLoopFailure,
   });
-
-  const pidPath = join(ocapDir, 'daemon.pid');
 
   // Interlock: refuse to start a second daemon under the same OCAP_HOME.
   // The socket-binding interlock in startDaemon handles the live-socket
@@ -116,9 +124,9 @@ async function main(): Promise<void> {
     throw error;
   }
 
+  daemonStarted = true;
   logger.info(`Daemon started. Socket: ${handle.socketPath}`);
 
-  let shutdownPromise: Promise<void> | undefined;
   /**
    * Shut down the daemon idempotently. Concurrent calls coalesce.
    *
@@ -135,67 +143,8 @@ async function main(): Promise<void> {
     return shutdownPromise;
   }
 
-  handleRunLoopFailure = (failure: Error): void => {
-    if (shutdownPromise !== undefined) {
-      // Expected teardown, not an outage: don't fail a deliberate stop.
-      logger.info(
-        'Kernel run loop stopped during shutdown.',
-        failure.stack ?? failure.message,
-      );
-      return;
-    }
-    logger.error(
-      'Kernel run loop died; shutting down the daemon.',
-      failure.stack ?? failure.message,
-    );
-    process.exitCode = 1;
-
-    // A shutdown that hangs or throws would leave the socket gone and the pid
-    // file removed by `shutdown`'s own cleanup, while live vat workers keep the
-    // event loop alive — an orphan holding kernel.sqlite that neither interlock
-    // can see, so the next `ocap daemon start` succeeds and two kernels contend
-    // for the database. Terminate instead. `process.exitCode` is not enough
-    // precisely because those worker handles keep the process running.
-    const exitNow = (): void => {
-      try {
-        // eslint-disable-next-line n/no-sync -- must finish before process.exit
-        rmSync(pidPath, { force: true });
-      } catch (rmError) {
-        logger.error('Could not remove the pid file before exiting.', rmError);
-      }
-      // eslint-disable-next-line n/no-process-exit -- a broken shutdown must still terminate
-      process.exit(1);
-    };
-
-    const killTimer = setTimeout(() => {
-      logger.error(
-        `Shutdown stalled for ${SHUTDOWN_TIMEOUT_MS} ms after run loop failure; exiting now.`,
-      );
-      exitNow();
-    }, SHUTDOWN_TIMEOUT_MS);
-
-    // Only a *successful* shutdown disarms the watchdog. Clearing it in a
-    // `finally` would disarm it on the failure path it exists for.
-    const shutdownOrExit = async (): Promise<void> => {
-      try {
-        await shutdown('run loop failure');
-      } catch (shutdownError) {
-        clearTimeout(killTimer);
-        logger.error(
-          'Shutdown after run loop failure failed; exiting now.',
-          shutdownError,
-        );
-        exitNow();
-        return;
-      }
-      clearTimeout(killTimer);
-    };
-    // Nothing can escape: every path above is handled or exits.
-    shutdownOrExit().catch(() => undefined);
-  };
-
-  // A failure recorded between the startup check and this handler still has to
-  // bring the daemon down.
+  // A failure recorded before there was a daemon to close still has to bring it
+  // down, now that there is one.
   if (runLoopFailure) {
     handleRunLoopFailure(runLoopFailure);
   }
@@ -273,17 +222,11 @@ function makeFileTransport(logFilePath: string) {
 function installFatalHandlers(): void {
   /* eslint-disable n/no-process-exit -- fatal handlers must terminate deterministically */
   process.on('uncaughtException', (error: unknown) => {
-    const detail =
-      error instanceof Error ? (error.stack ?? error.message) : String(error);
-    logger.error('Uncaught exception', detail);
+    logger.error('Uncaught exception', stringify(error, 0));
     process.exit(1);
   });
   process.on('unhandledRejection', (reason: unknown) => {
-    const detail =
-      reason instanceof Error
-        ? (reason.stack ?? reason.message)
-        : String(reason);
-    logger.error('Unhandled rejection', detail);
+    logger.error('Unhandled rejection', stringify(reason, 0));
     process.exit(1);
   });
   process.on('SIGHUP', () => {
