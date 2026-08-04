@@ -45,20 +45,55 @@ export type DaemonCaller = {
 };
 
 /**
- * Create a daemon caller bound to the ocap-jsonrpc-vat's Unix socket.
+ * Daemon callers indexed by socket path, so that openclaw calling
+ * `register()` more than once (per subagent, per session boundary, etc.)
+ * reuses one connection instead of opening another.
  *
- * The connection is opened lazily on the first request and kept open
- * for the caller's lifetime. If the vat drops the connection, the
- * caller reconnects on the next request; every reconnection is a fresh
- * session, meaning the vat's `@@j<n>` name table is empty on the other
- * side — long-lived plugin state that references old names is invalid
- * across a disconnect.
+ * This matters because the vat scopes its `@@j<n>` name table to a
+ * connection: a reference handed back on one connection cannot be named
+ * on any other. A second caller would therefore be unable to use the
+ * references the first one obtained — which is exactly what happens to a
+ * reviser capability that arrives on one turn and is invoked on the next.
+ * The plugin's `contacts` and `services` maps are module-level singletons
+ * for the same reason; the connection has to have the same lifetime as
+ * the names it hands out.
+ */
+const callersBySocketPath = new Map<string, DaemonCaller>();
+
+/**
+ * Resolve the socket path to use, honouring an explicit override, then
+ * `$OCAP_HOME`, then `$HOME/.ocap`.
+ *
+ * @param explicitPath - Caller-supplied path, if any.
+ * @returns The socket path.
+ */
+function resolveSocketPath(explicitPath?: string): string {
+  return (
+    explicitPath ??
+    join(
+      // eslint-disable-next-line n/no-process-env
+      process.env.OCAP_HOME ?? join(homedir(), '.ocap'),
+      'ocap-jsonrpc.sock',
+    )
+  );
+}
+
+/**
+ * Provide the daemon caller for the ocap-jsonrpc-vat's Unix socket,
+ * creating one on first use and reusing it thereafter.
+ *
+ * The connection is opened lazily on the first request and kept open for
+ * the process's lifetime. If the vat drops it, the caller reconnects on
+ * the next request; every reconnection is a fresh session, so the vat's
+ * `@@j<n>` name table starts empty and any plugin state referencing old
+ * names is stale.
  *
  * @param options - Connection options.
  * @param options.socketPath - Filesystem path of the vat's socket.
  * Defaults to `$OCAP_HOME/ocap-jsonrpc.sock` (or
  * `$HOME/.ocap/ocap-jsonrpc.sock` if `OCAP_HOME` is unset).
- * @param options.timeoutMs - Per-request timeout in ms.
+ * @param options.timeoutMs - Per-request timeout in ms. Only consulted
+ * when the caller for this socket path is first created.
  * @returns A daemon caller with `redeemUrl`, `queueMessage`, and
  * `close`.
  */
@@ -66,15 +101,27 @@ export function makeDaemonCaller(options: {
   socketPath?: string;
   timeoutMs: number;
 }): DaemonCaller {
-  const socketPath =
-    options.socketPath ??
-    join(
-      // eslint-disable-next-line n/no-process-env
-      process.env.OCAP_HOME ?? join(homedir(), '.ocap'),
-      'ocap-jsonrpc.sock',
-    );
-  const { timeoutMs } = options;
+  const socketPath = resolveSocketPath(options.socketPath);
+  const existing = callersBySocketPath.get(socketPath);
+  if (existing) {
+    return existing;
+  }
+  const caller = buildDaemonCaller(socketPath, options.timeoutMs);
+  callersBySocketPath.set(socketPath, caller);
+  return caller;
+}
 
+/**
+ * Build a fresh daemon caller for a socket path.
+ *
+ * @param socketPath - Filesystem path of the vat's socket.
+ * @param timeoutMs - Per-request timeout in ms.
+ * @returns The daemon caller.
+ */
+function buildDaemonCaller(
+  socketPath: string,
+  timeoutMs: number,
+): DaemonCaller {
   let socket: Socket | null = null;
   let recvBuffer = '';
   let nextId = 1;
@@ -223,7 +270,7 @@ export function makeDaemonCaller(options: {
     return response.result;
   }
 
-  return {
+  const caller: DaemonCaller = {
     async redeemUrl(url: string): Promise<string> {
       const response = await call('redeemURL', { url });
       const result = unwrap(response, `redeemURL ${url}`);
@@ -249,7 +296,14 @@ export function makeDaemonCaller(options: {
     },
 
     async close(): Promise<void> {
+      // Stop handing this caller out, so a later makeDaemonCaller builds
+      // a live one rather than returning a torn-down husk.
+      if (callersBySocketPath.get(socketPath) === caller) {
+        callersBySocketPath.delete(socketPath);
+      }
       tearDown(new Error('daemon caller closed'));
     },
   };
+
+  return caller;
 }
