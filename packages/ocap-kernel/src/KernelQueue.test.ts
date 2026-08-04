@@ -344,6 +344,37 @@ describe('KernelQueue', () => {
       });
     });
 
+    // `rollbackCrank` discards the savepoint even when its database call throws,
+    // so a second attempt could only report a missing savepoint. Without the
+    // `finally` that records the attempt, the abort path leaves the flag unset,
+    // the catch asks again, and "no such savepoint" becomes the reason the
+    // kernel reports for its own death — the database error reaching nobody,
+    // since only `error.message` crosses the wire.
+    it('reports the database failure when an aborted crank cannot roll back', async () => {
+      (kernelStore.runQueueLength as unknown as MockInstance)
+        .mockReturnValueOnce(1)
+        .mockReturnValue(0);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: { result: 'kp99' } as KernelMessage,
+      });
+      const rollbackError = new Error('database is gone');
+      (
+        kernelStore.rollbackCrank as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        throw rollbackError;
+      });
+      const deliver = vi.fn().mockResolvedValue({ abort: true });
+
+      await expect(kernelQueue.run(deliver)).rejects.toBe(rollbackError);
+      expect(kernelStore.rollbackCrank).toHaveBeenCalledOnce();
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'failed',
+        error: 'database is gone',
+      });
+    });
+
     // The rollback flag is per-crank. If an earlier abort could latch it, every
     // later crank that died would skip its rollback and commit half its work.
     it('rolls back a later crank after an earlier one aborted', async () => {
@@ -392,9 +423,10 @@ describe('KernelQueue', () => {
       ).rejects.toHaveProperty('cause', failure);
     });
 
-    // Teardown drains queue state rather than adding work to it, so it must
-    // keep working after the loop dies — `VatHandle.terminate` and
-    // `RemoteManager` reject the promises a dead endpoint was deciding.
+    // Teardown enqueues too, so the guard cannot sit on these mutators: it must
+    // keep working after the loop dies, because `VatHandle.terminate` and
+    // `RemoteManager` reject the promises a dead endpoint was deciding, and
+    // refusing that would break `terminateAllVats` and `reset`.
     it.each([
       {
         teardown: 'resolvePromises',
@@ -436,7 +468,10 @@ describe('KernelQueue', () => {
       },
     );
 
-    it('refuses to start the run loop twice', async () => {
+    // The guard sits outside `run`'s try, so the refusal must not be mistaken
+    // for the loop dying: were it inside, a stray second call would mark a
+    // healthy kernel failed and reject every in-flight result.
+    it('refuses to start the run loop twice without killing the running one', async () => {
       (
         kernelStore.runQueueLength as unknown as MockInstance
       ).mockReturnValueOnce(1);
@@ -447,9 +482,17 @@ describe('KernelQueue', () => {
       });
       const deliver = vi.fn().mockReturnValue(new Promise(() => undefined));
       kernelQueue.run(deliver).catch(() => undefined);
+      await kernelQueue.enqueueMessage('ko123', 'method', []);
+      expect(kernelQueue.subscriptions.has('kp1')).toBe(true);
+
       await expect(kernelQueue.run(deliver)).rejects.toThrow(
         'run loop already started',
       );
+
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'running',
+      });
+      expect(kernelQueue.subscriptions.has('kp1')).toBe(true);
     });
   });
 

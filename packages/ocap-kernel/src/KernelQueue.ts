@@ -50,12 +50,17 @@ export class KernelQueue {
   #wakeUpTheRunQueue: (() => void) | null;
 
   /**
-   * Whether this crank's savepoint has already been rolled back. This has to be
-   * recorded at the moment of rollback rather than returned from
-   * `#processCrankResult`, because that method can throw after rolling back
-   * (`collectGarbage`), and the catch below must still know not to ask twice.
+   * Whether this crank's savepoint has already been handed to `rollbackCrank`.
+   * Attempted, not necessarily succeeded: `rollbackCrank` forgets the savepoint
+   * whether or not the database call throws, so after either outcome a second
+   * attempt can only report "no such savepoint" over the real error.
+   *
+   * This has to be recorded at the moment of the attempt rather than returned
+   * from `#processCrankResult`, because that method can throw after rolling back
+   * (`#terminateVat`, `collectGarbage`), and the catch below must still know not
+   * to ask twice.
    */
-  #crankRolledBack: boolean = false;
+  #crankRollbackAttempted: boolean = false;
 
   /**
    * The run loop's state, as one value so that a failure recorded for a loop
@@ -117,7 +122,7 @@ export class KernelQueue {
       let wakeUpPromise: Promise<void> | undefined;
 
       this.#kernelStore.startCrank();
-      this.#crankRolledBack = false;
+      this.#crankRollbackAttempted = false;
       try {
         this.#kernelStore.createCrankSavepoint('start');
 
@@ -142,9 +147,10 @@ export class KernelQueue {
             wakeUpPromise = promise;
           }
         } catch (error) {
-          // An aborted crank already rolled back and released the savepoint;
-          // asking again would throw "no such savepoint" over the real error.
-          if (!this.#crankRolledBack) {
+          // An aborted crank already asked, and `rollbackCrank` discards the
+          // savepoint either way; asking again could only throw "no such
+          // savepoint" over the real error.
+          if (!this.#crankRollbackAttempted) {
             try {
               this.#kernelStore.rollbackCrank('start');
             } catch (rollbackError) {
@@ -208,11 +214,17 @@ export class KernelQueue {
   }
 
   /**
-   * Refuse work that would otherwise sit in a queue nobody drains. For callers
-   * at an ingress boundary only: teardown paths legitimately drain the queue's
-   * state after the loop is dead and must not be refused.
+   * Refuse work that would otherwise sit in a queue nobody drains.
+   *
+   * For callers at an ingress boundary only. Teardown must not be refused even
+   * though it also enqueues: `VatHandle.terminate` and `RemoteManager` reject the
+   * promises a dying endpoint was deciding, via `resolvePromises`, which enqueues
+   * notifies for their subscribers. Those notifies are never delivered, but that
+   * is acceptable — the endpoint is going away — whereas refusing them would
+   * break `terminateAllVats` and `reset`, the recovery a failed status invites.
    *
    * @param what - What is being refused, completing "cannot ...".
+   * @throws If the run loop has died.
    */
   assertRunLoopAlive(what: string): void {
     if (this.#runLoopState.state === 'failed') {
@@ -273,8 +285,16 @@ export class KernelQueue {
       // Rollback the kernel state to before the failed delivery attempt.
       // For active vats, this allows the message to be retried in a future crank.
       // For terminated vats, the message will just go splat.
-      this.#kernelStore.rollbackCrank('start');
-      this.#crankRolledBack = true;
+      try {
+        this.#kernelStore.rollbackCrank('start');
+      } finally {
+        // Set even when the rollback threw. `rollbackCrank` forgets the
+        // savepoint in its own `finally`, so "attempted" and "the savepoint is
+        // gone" now coincide exactly — and a second attempt from the run loop's
+        // catch would report a missing savepoint as the reason the kernel died,
+        // burying the database error that actually killed it.
+        this.#crankRollbackAttempted = true;
+      }
       // Discard kernel subscriptions that were queued for invocation
       this.#resolvedWithKernelSubscription = [];
 
