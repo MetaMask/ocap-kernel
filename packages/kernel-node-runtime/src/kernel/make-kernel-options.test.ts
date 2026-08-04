@@ -35,6 +35,7 @@ describe('makeKernel options', () => {
   it('omits onRunLoopFailure when none is given', async () => {
     await makeKernel({});
 
+    expect(makeMock).toHaveBeenCalledOnce();
     expect(makeMock.mock.calls[0]?.[2]).not.toHaveProperty('onRunLoopFailure');
   });
 });

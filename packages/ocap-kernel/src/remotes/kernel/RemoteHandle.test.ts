@@ -191,6 +191,49 @@ describe('RemoteHandle', () => {
       });
     });
 
+    // A dead run loop will never deliver the message, and `handleRemoteMessage`
+    // rolls back without advancing the received sequence number, so the peer
+    // retries and gives up rather than being acknowledged by a black hole.
+    it.each([
+      {
+        kind: 'message',
+        params: [
+          'message',
+          'ro+1',
+          { methargs: { body: '["method",[]]', slots: [] }, result: 'rp+2' },
+        ],
+        handedToQueue: () => mockKernelQueue.enqueueSend,
+      },
+      {
+        kind: 'notify',
+        params: ['notify', [['rp+1', false, { body: '"x"', slots: [] }]]],
+        handedToQueue: () => mockKernelQueue.resolvePromises,
+      },
+    ])(
+      'refuses an incoming $kind when the run loop is dead',
+      async ({ params, handedToQueue }) => {
+        const remote = makeRemote();
+        const delivery = JSON.stringify({ seq: 1, method: 'deliver', params });
+        const failure = new Error('Kernel run loop died; cannot accept it');
+        vi.mocked(mockKernelQueue.assertRunLoopAlive).mockImplementation(() => {
+          throw failure;
+        });
+
+        await expect(remote.handleRemoteMessage(delivery)).rejects.toBe(
+          failure,
+        );
+        expect(handedToQueue()).not.toHaveBeenCalled();
+
+        // The refusal must not advance the received sequence number, or the
+        // peer's retry would be discarded as a duplicate.
+        vi.mocked(mockKernelQueue.assertRunLoopAlive).mockImplementation(
+          () => undefined,
+        );
+        await remote.handleRemoteMessage(delivery);
+        expect(handedToQueue()).toHaveBeenCalledOnce();
+      },
+    );
+
     it('does not send BOYD back when remotely triggered (ping-pong prevention)', async () => {
       const remote = makeRemote();
 

@@ -87,7 +87,7 @@ async function main(): Promise<void> {
   let handleRunLoopFailure = (failure: Error): void => {
     runLoopFailure = failure;
     logger.error(
-      'Kernel run loop died during startup.',
+      'Kernel run loop died before shutdown handling was installed.',
       failure.stack ?? failure.message,
     );
   };
@@ -180,29 +180,48 @@ async function main(): Promise<void> {
     );
     process.exitCode = 1;
 
-    // A hung shutdown would leave the socket gone but the pid file in place,
-    // and the interlock above then refuses the next `ocap daemon start` — the
-    // opposite of the recovery this exit is for. Kill the process instead,
-    // clearing the pid file first since `shutdown`'s cleanup won't have run.
-    const killTimer = setTimeout(() => {
-      logger.error(
-        `Shutdown stalled for ${SHUTDOWN_TIMEOUT_MS} ms after run loop failure; exiting now.`,
-      );
+    // A shutdown that hangs or throws would leave the socket gone and the pid
+    // file removed by `shutdown`'s own cleanup, while live vat workers keep the
+    // event loop alive — an orphan holding kernel.sqlite that neither interlock
+    // can see, so the next `ocap daemon start` succeeds and two kernels contend
+    // for the database. Terminate instead. `process.exitCode` is not enough
+    // precisely because those worker handles keep the process running.
+    const exitNow = (): void => {
       try {
         // eslint-disable-next-line n/no-sync -- must finish before process.exit
         rmSync(pidPath, { force: true });
       } catch (rmError) {
         logger.error('Could not remove the pid file before exiting.', rmError);
       }
-      // eslint-disable-next-line n/no-process-exit -- a stalled shutdown must still terminate
+      // eslint-disable-next-line n/no-process-exit -- a broken shutdown must still terminate
       process.exit(1);
+    };
+
+    const killTimer = setTimeout(() => {
+      logger.error(
+        `Shutdown stalled for ${SHUTDOWN_TIMEOUT_MS} ms after run loop failure; exiting now.`,
+      );
+      exitNow();
     }, SHUTDOWN_TIMEOUT_MS);
 
-    shutdown('run loop failure')
-      .catch((shutdownError: unknown) => {
-        logger.error('Shutdown after run loop failure failed.', shutdownError);
-      })
-      .finally(() => clearTimeout(killTimer));
+    // Only a *successful* shutdown disarms the watchdog. Clearing it in a
+    // `finally` would disarm it on the failure path it exists for.
+    const shutdownOrExit = async (): Promise<void> => {
+      try {
+        await shutdown('run loop failure');
+      } catch (shutdownError) {
+        clearTimeout(killTimer);
+        logger.error(
+          'Shutdown after run loop failure failed; exiting now.',
+          shutdownError,
+        );
+        exitNow();
+        return;
+      }
+      clearTimeout(killTimer);
+    };
+    // Nothing can escape: every path above is handled or exits.
+    shutdownOrExit().catch(() => undefined);
   };
 
   // A failure recorded between the startup check and this handler still has to

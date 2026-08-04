@@ -32,8 +32,11 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
   function createCrankSavepoint(name: string): void {
     ctx.inCrank || Fail`createCrankSavepoint outside of crank`;
     const ordinal = ctx.savepoints.length;
-    ctx.savepoints.push(name);
+    // Record the name only once the database has the savepoint. Recording it
+    // first would leave `endCrank` trying to release a savepoint that was never
+    // created, and that error would replace whatever really went wrong.
     kdb.createSavepoint(`t${ordinal}`);
+    ctx.savepoints.push(name);
   }
 
   /**

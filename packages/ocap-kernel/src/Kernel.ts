@@ -331,8 +331,8 @@ export class Kernel {
       // function there, whose rejection would become the very unhandled
       // rejection this method exists to avoid. Contain it either way.
       const handled = this.#onRunLoopFailure?.(failure) as unknown;
-      if (handled instanceof Promise) {
-        handled.catch((handlerError: unknown) => {
+      if (typeof (handled as PromiseLike<void>)?.then === 'function') {
+        Promise.resolve(handled).catch((handlerError: unknown) => {
           this.#logger.error(
             'Run loop failure handler rejected:',
             handlerError,

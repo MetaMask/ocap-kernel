@@ -781,9 +781,9 @@ export const RunLoopStatusStruct = union([
 export type RunLoopStatus = Infer<typeof RunLoopStatusStruct>;
 
 /**
- * Notified when the kernel's run loop dies. Must not be async: only a
- * synchronous throw can be contained, and the kernel is reporting a failure it
- * cannot recover from, so there is nothing to await.
+ * Notified when the kernel's run loop dies. Should not be async: the kernel is
+ * reporting a failure it cannot recover from, so there is nothing to await. An
+ * async handler's rejection is logged rather than awaited.
  */
 export type OnRunLoopFailure = (error: Error) => void;
 

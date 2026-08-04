@@ -4,6 +4,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { RunLoopBanner } from './RunLoopBanner.tsx';
 import { usePanelContext } from '../context/PanelContext.tsx';
+import type { PanelContextType } from '../context/PanelContext.tsx';
 
 vi.mock('../context/PanelContext.tsx', () => ({
   usePanelContext: vi.fn(),
@@ -11,7 +12,9 @@ vi.mock('../context/PanelContext.tsx', () => ({
 
 const mockUsePanelContext = vi.mocked(usePanelContext);
 
-const makeMockPanelContext = (status: KernelStatus | undefined) => ({
+const makeMockPanelContext = (
+  status: KernelStatus | undefined,
+): PanelContextType => ({
   status,
   callKernelMethod: vi.fn(),
   logMessage: vi.fn(),
@@ -43,7 +46,7 @@ describe('RunLoopBanner', () => {
     mockUsePanelContext.mockReturnValue(
       makeMockPanelContext(
         makeMockStatus({ state: 'failed', error: 'crank exploded' }),
-      ) as unknown as ReturnType<typeof usePanelContext>,
+      ),
     );
 
     render(<RunLoopBanner />);
@@ -62,9 +65,7 @@ describe('RunLoopBanner', () => {
     { name: 'absent, as on an older kernel', runLoop: undefined },
   ])('renders nothing when the run loop is $name', ({ runLoop }) => {
     mockUsePanelContext.mockReturnValue(
-      makeMockPanelContext(makeMockStatus(runLoop)) as unknown as ReturnType<
-        typeof usePanelContext
-      >,
+      makeMockPanelContext(makeMockStatus(runLoop)),
     );
 
     render(<RunLoopBanner />);
@@ -73,11 +74,7 @@ describe('RunLoopBanner', () => {
   });
 
   it('renders nothing before the first status arrives', () => {
-    mockUsePanelContext.mockReturnValue(
-      makeMockPanelContext(undefined) as unknown as ReturnType<
-        typeof usePanelContext
-      >,
-    );
+    mockUsePanelContext.mockReturnValue(makeMockPanelContext(undefined));
 
     render(<RunLoopBanner />);
 

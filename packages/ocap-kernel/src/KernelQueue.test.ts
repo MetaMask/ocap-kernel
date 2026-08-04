@@ -327,53 +327,73 @@ describe('KernelQueue', () => {
       ).mockImplementationOnce(() => {
         throw rollbackError;
       });
-      const deliver = vi.fn().mockRejectedValue(new Error('crank exploded'));
+      const crankError = new Error('crank exploded');
+      const deliver = vi.fn().mockRejectedValue(crankError);
 
-      await expect(kernelQueue.run(deliver)).rejects.toThrow(
-        'Run loop died and its crank could not be rolled back: Error: crank exploded',
-      );
+      // The rollback failure names itself; the original stays the `cause`, since
+      // that is the root cause an operator needs.
+      await expect(kernelQueue.run(deliver)).rejects.toMatchObject({
+        message:
+          'Run loop died and its crank could not be rolled back: Error: database is gone',
+        cause: crankError,
+      });
       expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
         state: 'failed',
         error:
-          'Run loop died and its crank could not be rolled back: Error: crank exploded',
+          'Run loop died and its crank could not be rolled back: Error: database is gone',
       });
     });
 
+    it('refuses ingress via assertRunLoopAlive', async () => {
+      const failure = new Error('crank exploded');
+      expect(() => kernelQueue.assertRunLoopAlive('accept work')).not.toThrow();
+
+      await killRunLoop(failure);
+
+      expect(() => kernelQueue.assertRunLoopAlive('accept work')).toThrow(
+        'Kernel run loop died; cannot accept work',
+      );
+      // The failure that killed the loop is the root cause.
+      await expect(async () =>
+        kernelQueue.assertRunLoopAlive('accept work'),
+      ).rejects.toHaveProperty('cause', failure);
+    });
+
+    // Teardown drains queue state rather than adding work to it, so it must
+    // keep working after the loop dies — `VatHandle.terminate` and
+    // `RemoteManager` reject the promises a dead endpoint was deciding.
     it.each([
       {
-        ingress: 'enqueueSend',
+        teardown: 'resolvePromises',
+        call: (queue: KernelQueue) =>
+          queue.resolvePromises('v1', [
+            ['kp1', true, { body: 'x', slots: [] }],
+          ]),
+      },
+      {
+        teardown: 'enqueueNotify',
+        call: (queue: KernelQueue) => queue.enqueueNotify('v1', 'kp1'),
+      },
+      {
+        teardown: 'enqueueSend',
         call: (queue: KernelQueue) =>
           queue.enqueueSend('ko123', {
             methargs: { body: 'x', slots: [] },
             result: null,
           }),
-        message: 'cannot enqueue a send',
       },
-      {
-        ingress: 'enqueueNotify',
-        call: (queue: KernelQueue) => queue.enqueueNotify('v1', 'kp1'),
-        message: 'cannot enqueue a notify',
-      },
-      {
-        ingress: 'resolvePromises',
-        call: (queue: KernelQueue) =>
-          queue.resolvePromises('v1', [
-            ['kp1', false, { body: 'x', slots: [] }],
-          ]),
-        message: 'cannot resolve promises',
-      },
-    ])(
-      'rejects $ingress so remote ingress is not silently queued',
-      async ({ call, message }) => {
-        await killRunLoop(new Error('crank exploded'));
-        (kernelStore.enqueueRun as unknown as MockInstance).mockClear();
-        (kernelStore.incrementRefCount as unknown as MockInstance).mockClear();
+    ])('still allows $teardown after the run loop dies', async ({ call }) => {
+      (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
+        {
+          state: 'unresolved',
+          decider: 'v1',
+          subscribers: [],
+        },
+      );
+      await killRunLoop(new Error('crank exploded'));
 
-        expect(() => call(kernelQueue)).toThrow(message);
-        expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
-        expect(kernelStore.incrementRefCount).not.toHaveBeenCalled();
-      },
-    );
+      expect(() => call(kernelQueue)).not.toThrow();
+    });
 
     it('refuses to start the run loop twice', async () => {
       (

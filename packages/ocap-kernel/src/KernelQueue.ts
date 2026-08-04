@@ -50,6 +50,14 @@ export class KernelQueue {
   #wakeUpTheRunQueue: (() => void) | null;
 
   /**
+   * Whether this crank's savepoint has already been rolled back. This has to be
+   * recorded at the moment of rollback rather than returned from
+   * `#processCrankResult`, because that method can throw after rolling back
+   * (`collectGarbage`), and the catch below must still know not to ask twice.
+   */
+  #crankRolledBack: boolean = false;
+
+  /**
    * The run loop's state, as one value so that a failure recorded for a loop
    * that never started can't be represented. `failed` keeps the whole `Error`;
    * only its message crosses the wire. Once failed, the queue is never drained
@@ -59,9 +67,6 @@ export class KernelQueue {
     | { state: 'idle' }
     | { state: 'running' }
     | { state: 'failed'; error: Error } = { state: 'idle' };
-
-  /** Whether this crank's savepoint has already been rolled back */
-  #crankRolledBack: boolean = false;
 
   /**
    * Construct a new KernelQueue instance.
@@ -143,9 +148,11 @@ export class KernelQueue {
             try {
               this.#kernelStore.rollbackCrank('start');
             } catch (rollbackError) {
+              // The original failure stays the `cause`, since that is the root
+              // cause an operator needs; the rollback failure is named here.
               throw new Error(
-                `Run loop died and its crank could not be rolled back: ${String(error)}`,
-                { cause: rollbackError },
+                `Run loop died and its crank could not be rolled back: ${String(rollbackError)}`,
+                { cause: error },
               );
             }
           }
@@ -201,14 +208,13 @@ export class KernelQueue {
   }
 
   /**
-   * Refuse work that would otherwise sit in a queue nobody drains. Inbound
-   * remote deliveries are processed inside a savepoint that rolls back on a
-   * throw without advancing the received-sequence number, so the peer retries
-   * and then gives up rather than believing a black hole accepted its message.
+   * Refuse work that would otherwise sit in a queue nobody drains. For callers
+   * at an ingress boundary only: teardown paths legitimately drain the queue's
+   * state after the loop is dead and must not be refused.
    *
    * @param what - What is being refused, completing "cannot ...".
    */
-  #assertRunLoopAlive(what: string): void {
+  assertRunLoopAlive(what: string): void {
     if (this.#runLoopState.state === 'failed') {
       throw this.#makeDeadRunLoopError(`Kernel run loop died; cannot ${what}`);
     }
@@ -372,7 +378,7 @@ export class KernelQueue {
     args: unknown[],
   ): Promise<CapData<KRef>> {
     // Nothing is draining the run queue, so a returned promise could never settle.
-    this.#assertRunLoopAlive('queue a message');
+    this.assertRunLoopAlive('queue a message');
     // TODO(#562): Use logger instead.
     // eslint-disable-next-line no-console
     console.debug('enqueueMessage', target, method, args);
@@ -394,7 +400,6 @@ export class KernelQueue {
    * @param immediate - If true (the default), enqueue immediately; if false, buffer for crank completion.
    */
   enqueueSend(target: KRef, message: KernelMessage, immediate = true): void {
-    this.#assertRunLoopAlive('enqueue a send');
     this.#kernelStore.incrementRefCount(target, 'queue|target');
     if (message.result) {
       this.#kernelStore.incrementRefCount(message.result, 'queue|result');
@@ -418,7 +423,6 @@ export class KernelQueue {
    * @param immediate - If true (the default), enqueue immediately; if false, buffer for crank completion.
    */
   enqueueNotify(endpointId: EndpointId, kpid: KRef, immediate = true): void {
-    this.#assertRunLoopAlive('enqueue a notify');
     this.#kernelStore.incrementRefCount(kpid, 'notify');
     const item: RunQueueItemNotify = { type: 'notify', endpointId, kpid };
     if (immediate) {
@@ -455,8 +459,6 @@ export class KernelQueue {
     resolutions: KernelOneResolution[],
     immediate = true,
   ): void {
-    // Before any store mutation, so a dead kernel leaves nothing half-applied.
-    this.#assertRunLoopAlive('resolve promises');
     for (const resolution of resolutions) {
       const [kpid, rejected, data] = resolution;
 
