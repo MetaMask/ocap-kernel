@@ -8,6 +8,14 @@ import type { KRef, KernelMessage } from './types.ts';
 import { assert } from './utils/assert.ts';
 
 export type KernelService = {
+  /**
+   * The service's name. For services registered with
+   * `registerKernelServiceObject` this is the key vats name in their
+   * cluster config's `services` list, and it is unique. For objects
+   * registered with `registerAnonymousKernelObject` it is only a
+   * diagnostic label: those objects are deliberately absent from the
+   * name index and need not be unique.
+   */
   name: string;
   kref: KRef;
   service: object;
@@ -101,6 +109,57 @@ export class KernelServiceManager {
     this.#kernelServicesByObject.delete(service.kref);
     this.#kernelStore.unpinObject(service.kref);
     this.#kernelStore.deleteKernelServiceKref(name);
+  }
+
+  /**
+   * Register a kernel-hosted object reachable *only* by reference.
+   *
+   * Unlike `registerKernelServiceObject`, this enters the object in the
+   * by-kref routing table but deliberately not in the name index, so it
+   * has no name in the global service namespace and cannot be requested
+   * via a cluster config's `services` list. The only way to obtain one
+   * is to be handed the reference, which is what makes it suitable for
+   * per-session objects such as an accepted IO connection: authority is
+   * conveyed by an unforgeable reference rather than by a string that
+   * anything able to name it could use.
+   *
+   * The returned kref is meant to be passed to `kslot()` so a kernel
+   * service method can return the object to a vat, which receives it as
+   * an ordinary Presence.
+   *
+   * The object is pinned, so it stays alive until
+   * `releaseAnonymousKernelObject` is called; the registrar owns that
+   * lifetime.
+   *
+   * @param service - The object to host.
+   * @param label - A diagnostic label. Need not be unique; it is never
+   * used for lookup.
+   * @returns The kref of the newly hosted object.
+   */
+  registerAnonymousKernelObject(service: object, label: string): KRef {
+    const kref = this.#kernelStore.initKernelObject('kernel');
+    this.#kernelStore.pinObject(kref);
+    this.#kernelServicesByObject.set(kref, {
+      name: label,
+      kref,
+      service,
+      systemOnly: false,
+    });
+    return kref;
+  }
+
+  /**
+   * Release an object registered with `registerAnonymousKernelObject`,
+   * unpinning it and removing it from the routing table. Idempotent, and
+   * safe to call for a kref that was never registered.
+   *
+   * @param kref - The kref of the object to release.
+   */
+  releaseAnonymousKernelObject(kref: KRef): void {
+    if (!this.#kernelServicesByObject.delete(kref)) {
+      return;
+    }
+    this.#kernelStore.unpinObject(kref);
   }
 
   /**
