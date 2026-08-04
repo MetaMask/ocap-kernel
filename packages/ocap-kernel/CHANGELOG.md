@@ -45,6 +45,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `getStatus` now reports `runLoop: { state: 'failed', error }`, and returns it without waiting for a crank that may never end
   - Message results in flight when the loop dies reject with `Kernel run loop died; this message result will never be delivered` (the killing error as `cause`), and later `queueMessage` calls reject immediately instead of hanging
   - `KernelQueue.run` now refuses to start a second run loop
+- Roll back the crank the run loop died in, instead of committing it ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+  - A delivery that _threw_ (rather than returning `{ abort: true }`) left `endCrank`'s savepoint release to commit the half-finished crank: the item that crank had already dequeued was gone for good, refcount increments stuck, and promises resolved during it stayed resolved while their notifies died unflushed in the crank buffer — so the restart this change recommends resumed from half-applied state
+  - An aborted crank that then throws is not rolled back twice; if the rollback itself fails, both failures are reported together
+- Refuse run queue ingress once the run loop is dead ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+  - `enqueueSend`, `enqueueNotify`, and `resolvePromises` now throw instead of appending to a queue nothing drains. This matters most for remote peers: inbound deliveries are processed inside a savepoint that rolls back without advancing the received-sequence number, so the peer retries and then gives up rather than being acknowledged by a black hole
+- Preserve a thrown non-`Error` as the `cause` when wrapping it, in both the run loop failure path and the embedder notification ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
 - Settle a crank's `waitForCrank` waiters even when releasing its savepoints throws, so a database error can no longer strand `getStatus`, `stop`, `reset`, and `clearStorage` forever ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
 - Deserialize CapData rejections in `Kernel.queueMessage` so vat errors surface as plain `Error` objects to all callers ([#928](https://github.com/MetaMask/ocap-kernel/pull/928))
 - Detect peer restart across receiver state loss so the receiving kernel no longer silently drops a restarted peer's `seq=1` messages ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))

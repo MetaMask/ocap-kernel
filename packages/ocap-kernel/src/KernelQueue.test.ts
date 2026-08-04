@@ -67,8 +67,9 @@ describe('KernelQueue', () => {
   });
 
   /**
-   * Make a promise kit that actually settles, for tests where the module-level
-   * `makePromiseKit` mock's inert kit won't do.
+   * Make a promise kit whose `resolve`/`reject` actually settle its promise,
+   * for tests where the module-level `makePromiseKit` mock's bare `vi.fn()`
+   * settlers won't do.
    *
    * @returns A promise and its settlement functions.
    */
@@ -270,6 +271,109 @@ describe('KernelQueue', () => {
       ).rejects.toThrow('Kernel run loop died; cannot queue a message');
       expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
     });
+
+    it('rolls back the crank it died in', async () => {
+      await killRunLoop(new Error('crank exploded'));
+      // Without this, endCrank's savepoint release commits the half-finished
+      // crank and the dequeued item is lost.
+      expect(kernelStore.rollbackCrank).toHaveBeenCalledWith('start');
+    });
+
+    it('does not roll back when the savepoint was never created', async () => {
+      (
+        kernelStore.createCrankSavepoint as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        throw new Error('database is gone');
+      });
+      await expect(kernelQueue.run(vi.fn())).rejects.toThrow(
+        'database is gone',
+      );
+      expect(kernelStore.rollbackCrank).not.toHaveBeenCalled();
+    });
+
+    it('does not roll back twice when an aborted crank then throws', async () => {
+      (kernelStore.runQueueLength as unknown as MockInstance)
+        .mockReturnValueOnce(1)
+        .mockReturnValue(0);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: { result: 'kp99' } as KernelMessage,
+      });
+      const deliver = vi.fn().mockResolvedValue({ abort: true });
+      (
+        kernelStore.collectGarbage as unknown as MockInstance
+      ).mockImplementation(() => {
+        throw new Error(STOP_RUN_LOOP);
+      });
+
+      // A second rollback would throw "no such savepoint" over this error.
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
+      expect(kernelStore.rollbackCrank).toHaveBeenCalledOnce();
+    });
+
+    it('reports both failures when the rollback also fails', async () => {
+      (
+        kernelStore.runQueueLength as unknown as MockInstance
+      ).mockReturnValueOnce(1);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: {} as KernelMessage,
+      });
+      const rollbackError = new Error('database is gone');
+      (
+        kernelStore.rollbackCrank as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        throw rollbackError;
+      });
+      const deliver = vi.fn().mockRejectedValue(new Error('crank exploded'));
+
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(
+        'Run loop died and its crank could not be rolled back: Error: crank exploded',
+      );
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'failed',
+        error:
+          'Run loop died and its crank could not be rolled back: Error: crank exploded',
+      });
+    });
+
+    it.each([
+      {
+        ingress: 'enqueueSend',
+        call: (queue: KernelQueue) =>
+          queue.enqueueSend('ko123', {
+            methargs: { body: 'x', slots: [] },
+            result: null,
+          }),
+        message: 'cannot enqueue a send',
+      },
+      {
+        ingress: 'enqueueNotify',
+        call: (queue: KernelQueue) => queue.enqueueNotify('v1', 'kp1'),
+        message: 'cannot enqueue a notify',
+      },
+      {
+        ingress: 'resolvePromises',
+        call: (queue: KernelQueue) =>
+          queue.resolvePromises('v1', [
+            ['kp1', false, { body: 'x', slots: [] }],
+          ]),
+        message: 'cannot resolve promises',
+      },
+    ])(
+      'rejects $ingress so remote ingress is not silently queued',
+      async ({ call, message }) => {
+        await killRunLoop(new Error('crank exploded'));
+        (kernelStore.enqueueRun as unknown as MockInstance).mockClear();
+        (kernelStore.incrementRefCount as unknown as MockInstance).mockClear();
+
+        expect(() => call(kernelQueue)).toThrow(message);
+        expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
+        expect(kernelStore.incrementRefCount).not.toHaveBeenCalled();
+      },
+    );
 
     it('refuses to start the run loop twice', async () => {
       (

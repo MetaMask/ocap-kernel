@@ -24,6 +24,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Without these, silent daemon deaths under `stdio: 'ignore'` (the CLI's default spawn mode) left no trace in the log; the operator saw only that the daemon was gone. Every terminating path now leaves at least one line.
 - The daemon logs the failure and shuts down with a non-zero exit code when the kernel's run loop dies, instead of staying up with a socket that answers RPCs for a kernel that processes nothing ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
   - A run loop death during startup aborts `daemon start` rather than publishing a socket and pid file for a dead kernel
+  - That shutdown is bounded at 10 seconds, after which the pid file is removed and the process exits non-zero; a stalled `kernel.stop()` would otherwise leave a live pid file whose interlock refuses the next `daemon start` — the opposite of the recovery the exit is for
 
 ## [0.1.0]
 

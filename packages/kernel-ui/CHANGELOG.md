@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Show a banner when `getStatus` reports the kernel's run loop as failed ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+  - The vat and subcluster tables keep rendering their last known contents after the kernel dies, so without this a dead kernel is indistinguishable from a healthy idle one
+
 ## [0.5.0]
 
 ### Changed

@@ -51,8 +51,14 @@ export class KernelQueue {
 
   #runLoopStarted: boolean = false;
 
-  /** The error that killed the run loop. Once set, the queue is never drained again. */
+  /**
+   * The error that killed the run loop. Once set, the queue is never drained
+   * again; note that only `enqueueMessage` refuses new work.
+   */
   #runLoopFailure: Error | undefined;
+
+  /** Whether this crank's savepoint has already been rolled back */
+  #crankRolledBack: boolean = false;
 
   /**
    * Construct a new KernelQueue instance.
@@ -72,7 +78,8 @@ export class KernelQueue {
   /**
    * The kernel's run loop: take an item off the run queue, deliver it,
    * repeat. Note that this loops forever: the returned promise never resolves.
-   * If it rejects, the kernel is dead — see {@link getRunLoopStatus}.
+   * If it rejects with anything but `run loop already started`, the kernel is
+   * dead — see {@link getRunLoopStatus}.
    *
    * @param deliver - A function that delivers an item to the kernel.
    * @returns A promise that rejects with the error that killed the run loop.
@@ -102,22 +109,44 @@ export class KernelQueue {
       let wakeUpPromise: Promise<void> | undefined;
 
       this.#kernelStore.startCrank();
+      this.#crankRolledBack = false;
       try {
         this.#kernelStore.createCrankSavepoint('start');
 
-        const queueItem = this.#getNextRunQueueItem();
-        if (queueItem) {
-          this.#kernelStore.nextTerminatedVatCleanup();
-          const crankResult = await deliver(queueItem);
-          await this.#processCrankResult(crankResult, queueItem);
-        } else {
-          if (this.#wakeUpTheRunQueue !== null) {
-            Fail`run queue already waiting to be woken; cannot sleep again before the previous wake handler is consumed`;
-          }
+        // The savepoint exists from here on, so a throw can be undone. Without
+        // this, `endCrank`'s savepoint release commits the half-finished crank:
+        // the item this crank dequeued is gone for good, refcount increments
+        // stick, and promises resolved during it stay resolved while their
+        // notifies die unflushed. A restart would resume from that.
+        try {
+          const queueItem = this.#getNextRunQueueItem();
+          if (queueItem) {
+            this.#kernelStore.nextTerminatedVatCleanup();
+            const crankResult = await deliver(queueItem);
+            await this.#processCrankResult(crankResult, queueItem);
+          } else {
+            if (this.#wakeUpTheRunQueue !== null) {
+              Fail`run queue already waiting to be woken; cannot sleep again before the previous wake handler is consumed`;
+            }
 
-          const { promise, resolve } = makePromiseKit<void>();
-          this.#wakeUpTheRunQueue = resolve;
-          wakeUpPromise = promise;
+            const { promise, resolve } = makePromiseKit<void>();
+            this.#wakeUpTheRunQueue = resolve;
+            wakeUpPromise = promise;
+          }
+        } catch (error) {
+          // An aborted crank already rolled back and released the savepoint;
+          // asking again would throw "no such savepoint" over the real error.
+          if (!this.#crankRolledBack) {
+            try {
+              this.#kernelStore.rollbackCrank('start');
+            } catch (rollbackError) {
+              throw new Error(
+                `Run loop died and its crank could not be rolled back: ${String(error)}`,
+                { cause: rollbackError },
+              );
+            }
+          }
+          throw error;
         }
       } finally {
         this.#kernelStore.endCrank();
@@ -129,13 +158,18 @@ export class KernelQueue {
   }
 
   /**
-   * Record the death of the run loop and fail everything that was waiting on
-   * it, which would otherwise hang forever.
+   * Record the death of the run loop and fail the kernel's own message-result
+   * subscriptions, which would otherwise hang forever. Kernel promises in the
+   * store stay unresolved, so vats awaiting a notify the dead loop owed them
+   * are not rescued by this.
    *
    * @param error - The error that killed the run loop.
    */
   #failRunLoop(error: unknown): void {
-    const failure = error instanceof Error ? error : new Error(String(error));
+    const failure =
+      error instanceof Error
+        ? error
+        : new Error(String(error), { cause: error });
     this.#runLoopFailure = failure;
 
     const orphaned = [...this.subscriptions.values()];
@@ -156,6 +190,20 @@ export class KernelQueue {
    */
   #makeDeadRunLoopError(message: string): Error {
     return new Error(message, { cause: this.#runLoopFailure });
+  }
+
+  /**
+   * Refuse work that would otherwise sit in a queue nobody drains. Inbound
+   * remote deliveries are processed inside a savepoint that rolls back on a
+   * throw without advancing the received-sequence number, so the peer retries
+   * and then gives up rather than believing a black hole accepted its message.
+   *
+   * @param what - What is being refused, completing "cannot ...".
+   */
+  #assertRunLoopAlive(what: string): void {
+    if (this.#runLoopFailure) {
+      throw this.#makeDeadRunLoopError(`Kernel run loop died; cannot ${what}`);
+    }
   }
 
   /**
@@ -214,6 +262,7 @@ export class KernelQueue {
       // For active vats, this allows the message to be retried in a future crank.
       // For terminated vats, the message will just go splat.
       this.#kernelStore.rollbackCrank('start');
+      this.#crankRolledBack = true;
       // Discard kernel subscriptions that were queued for invocation
       this.#resolvedWithKernelSubscription = [];
 
@@ -317,11 +366,7 @@ export class KernelQueue {
     args: unknown[],
   ): Promise<CapData<KRef>> {
     // Nothing is draining the run queue, so a returned promise could never settle.
-    if (this.#runLoopFailure) {
-      throw this.#makeDeadRunLoopError(
-        'Kernel run loop died; cannot queue a message',
-      );
-    }
+    this.#assertRunLoopAlive('queue a message');
     // TODO(#562): Use logger instead.
     // eslint-disable-next-line no-console
     console.debug('enqueueMessage', target, method, args);
@@ -343,6 +388,7 @@ export class KernelQueue {
    * @param immediate - If true (the default), enqueue immediately; if false, buffer for crank completion.
    */
   enqueueSend(target: KRef, message: KernelMessage, immediate = true): void {
+    this.#assertRunLoopAlive('enqueue a send');
     this.#kernelStore.incrementRefCount(target, 'queue|target');
     if (message.result) {
       this.#kernelStore.incrementRefCount(message.result, 'queue|result');
@@ -366,6 +412,7 @@ export class KernelQueue {
    * @param immediate - If true (the default), enqueue immediately; if false, buffer for crank completion.
    */
   enqueueNotify(endpointId: EndpointId, kpid: KRef, immediate = true): void {
+    this.#assertRunLoopAlive('enqueue a notify');
     this.#kernelStore.incrementRefCount(kpid, 'notify');
     const item: RunQueueItemNotify = { type: 'notify', endpointId, kpid };
     if (immediate) {
@@ -402,6 +449,8 @@ export class KernelQueue {
     resolutions: KernelOneResolution[],
     immediate = true,
   ): void {
+    // Before any store mutation, so a dead kernel leaves nothing half-applied.
+    this.#assertRunLoopAlive('resolve promises');
     for (const resolution of resolutions) {
       const [kpid, rejected, data] = resolution;
 

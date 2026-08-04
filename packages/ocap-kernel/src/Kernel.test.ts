@@ -39,7 +39,9 @@ const mocks = vi.hoisted(() => {
     );
 
     /**
-     * Kill the run loop the way `KernelQueue.run` does for real.
+     * Fail the run loop, in the order the real `KernelQueue.run` does: the
+     * status flips before the rejection is observable. Does not reproduce
+     * `#failRunLoop`'s rejection of in-flight subscriptions.
      *
      * @param error - The error that killed the run loop.
      */
@@ -971,7 +973,11 @@ describe('Kernel', () => {
       );
       await waitUntilQuiescent();
 
-      expect(onRunLoopFailure).toHaveBeenCalledWith(new Error('not an error'));
+      expect(onRunLoopFailure).toHaveBeenCalledOnce();
+      const [failure] = onRunLoopFailure.mock.calls[0] as [Error];
+      expect(failure.message).toBe('not an error');
+      // The original value survives, so a thrown non-Error isn't lost.
+      expect(failure.cause).toBe('not an error');
     });
 
     it('logs a failure handler that throws', async () => {
