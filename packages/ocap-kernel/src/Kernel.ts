@@ -321,7 +321,10 @@ export class Kernel {
       'Run loop died; the kernel can no longer process messages and must be restarted:',
       error,
     );
-    const failure = error instanceof Error ? error : new Error(String(error));
+    const failure =
+      error instanceof Error
+        ? error
+        : new Error(String(error), { cause: error });
     try {
       this.#onRunLoopFailure?.(failure);
     } catch (handlerError) {
@@ -649,16 +652,17 @@ export class Kernel {
   }
 
   /**
-   * Get the current kernel status, defined as the current cluster configuration
-   * and a list of all running vats.
+   * Get the current kernel status: run loop health, the current cluster
+   * configuration, and a list of all running vats.
    *
    * @returns A promise for the current kernel status containing run loop health,
    * vats, subclusters, and remote comms information.
    */
   async getStatus(): Promise<KernelStatus> {
     const runLoop = this.#kernelQueue.getRunLoopStatus();
-    // A dead kernel must still be able to report that it's dead, and the crank
-    // it died in may never finish.
+    // A dead kernel must still be able to report that it's dead. `endCrank`
+    // runs in a `finally` and settles its waiters even when it throws, so this
+    // is belt-and-braces against a future crank that can't be waited out.
     if (runLoop.state !== 'failed') {
       await this.#kernelQueue.waitForCrank();
     }

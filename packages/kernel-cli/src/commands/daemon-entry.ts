@@ -4,12 +4,15 @@ import { startDaemon } from '@metamask/kernel-node-runtime/daemon';
 import type { DaemonHandle } from '@metamask/kernel-node-runtime/daemon';
 import type { LogEntry } from '@metamask/logger';
 import { Logger } from '@metamask/logger';
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, rmSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive } from '../utils.ts';
+
+/** How long a post-failure shutdown may take before the process is killed. */
+const SHUTDOWN_TIMEOUT_MS = 10_000;
 
 // Mirror of @metamask/logger's level ordering (`logLevels` is not part
 // of the package's public surface). Higher numbers are more severe.
@@ -76,9 +79,10 @@ async function main(): Promise<void> {
   const dbFilename = join(ocapDir, 'kernel.sqlite');
 
   // Left alone, a dead run loop leaves the daemon answering RPCs for a kernel
-  // that processes nothing: an outage no client can detect. Terminate instead,
-  // non-zero, so the failure is visible and `ocap daemon start` can recover.
-  // Reassigned below once there is a daemon to shut down.
+  // that processes nothing — an outage only a client that reads `runLoop` in
+  // `getStatus` can spot. Terminate instead, non-zero, so the failure is
+  // visible and `ocap daemon start` can recover.
+  // `handleRunLoopFailure` is reassigned below once there is a daemon to close.
   let runLoopFailure: Error | undefined;
   let handleRunLoopFailure = (failure: Error): void => {
     runLoopFailure = failure;
@@ -92,6 +96,8 @@ async function main(): Promise<void> {
     resetStorage: false,
     dbFilename,
     logger,
+    // Indirection, not redundancy: the kernel captures this function value for
+    // good, so the late call is what lets the reassignment below take effect.
     onRunLoopFailure: (error) => handleRunLoopFailure(error),
   });
 
@@ -173,9 +179,30 @@ async function main(): Promise<void> {
       failure.stack ?? failure.message,
     );
     process.exitCode = 1;
-    shutdown('run loop failure').catch((shutdownError: unknown) => {
-      logger.error('Shutdown after run loop failure failed.', shutdownError);
-    });
+
+    // A hung shutdown would leave the socket gone but the pid file in place,
+    // and the interlock above then refuses the next `ocap daemon start` — the
+    // opposite of the recovery this exit is for. Kill the process instead,
+    // clearing the pid file first since `shutdown`'s cleanup won't have run.
+    const killTimer = setTimeout(() => {
+      logger.error(
+        `Shutdown stalled for ${SHUTDOWN_TIMEOUT_MS} ms after run loop failure; exiting now.`,
+      );
+      try {
+        // eslint-disable-next-line n/no-sync -- must finish before process.exit
+        rmSync(pidPath, { force: true });
+      } catch (rmError) {
+        logger.error('Could not remove the pid file before exiting.', rmError);
+      }
+      // eslint-disable-next-line n/no-process-exit -- a stalled shutdown must still terminate
+      process.exit(1);
+    }, SHUTDOWN_TIMEOUT_MS);
+
+    shutdown('run loop failure')
+      .catch((shutdownError: unknown) => {
+        logger.error('Shutdown after run loop failure failed.', shutdownError);
+      })
+      .finally(() => clearTimeout(killTimer));
   };
 
   // A failure recorded between the startup check and this handler still has to

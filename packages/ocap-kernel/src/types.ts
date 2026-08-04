@@ -764,8 +764,10 @@ const RemoteCommsConnectedStruct = object({
 });
 
 /**
- * Whether the kernel is capable of processing its run queue. `failed` means
- * nothing will ever be processed again and the kernel must be restarted.
+ * Whether the kernel is capable of processing its run queue. `idle` means the
+ * run loop was never started, not that it has nothing to do — a loop parked on
+ * an empty queue reports `running`. `failed` means nothing will ever be
+ * processed again and the kernel must be restarted.
  */
 export const RunLoopStatusStruct = union([
   object({ state: literal('idle') }),
@@ -784,8 +786,9 @@ export const KernelStatusStruct = type({
       subclusterId: SubclusterIdStruct,
     }),
   ),
-  // Optional because the RPC client validates results against this struct, and
-  // requiring it would fail every `getStatus` against a kernel built before it.
+  // Optional because this struct and `KernelStatus` are published, so a
+  // required key breaks external code that constructs the type. Matches
+  // `remoteComms` below.
   runLoop: exactOptional(RunLoopStatusStruct),
   remoteComms: exactOptional(
     union([

@@ -64,6 +64,14 @@ async function main(): Promise<void> {
   const kernelP = Kernel.make(platformServicesClient, kernelDatabase, {
     resetStorage,
     systemSubclusters,
+    // The worker outlives the kernel and has no exit to take, so all it can do
+    // is say so loudly; the panel reads `runLoop` from `getStatus` as well.
+    onRunLoopFailure: (error) => {
+      logger.error(
+        'Kernel run loop died; this worker must be reloaded.',
+        error.stack ?? error.message,
+      );
+    },
   });
 
   const handlerP = kernelP.then((kernel) => {
