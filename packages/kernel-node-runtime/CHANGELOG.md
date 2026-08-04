@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Add `onRunLoopFailure` to `makeKernel`, forwarded to `Kernel.make` and called with the error that killed the kernel's run loop ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+- Add `onRunLoopFailure` to `makeKernel`, forwarded to `Kernel.make` and called with the error that killed the kernel's run loop ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
 
 ### Changed
 

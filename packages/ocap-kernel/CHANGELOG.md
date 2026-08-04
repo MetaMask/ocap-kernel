@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Report run loop health in `KernelStatus` via the new `runLoop` field (`{ state: 'idle' | 'running' }` or `{ state: 'failed', error }`), with `RunLoopStatus` and `RunLoopStatusStruct` exported ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+- Report run loop health in `KernelStatus` via the new `runLoop` field (`{ state: 'idle' | 'running' }` or `{ state: 'failed', error }`), with `RunLoopStatus` and `RunLoopStatusStruct` exported ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
   - `runLoop` is optional in the TypeScript type so that adding it doesn't break external constructors of `KernelStatus`, but it is required on the wire: `exactOptional` only permits an absent key inside `object()`, and `KernelStatusStruct` is a `type()`. `Kernel.getStatus` always populates it
   - `idle` means the run loop was never started, not that it has nothing to do; a loop parked on an empty queue reports `running`
-- Export `OnRunLoopFailure` for typing a run loop failure handler ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
-- Add `onRunLoopFailure` to the `Kernel.make` options, called with the error that killed the run loop so an embedder that outlives the kernel (e.g. a daemon) can exit or restart ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+- Export `OnRunLoopFailure` for typing a run loop failure handler ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+- Add `onRunLoopFailure` to the `Kernel.make` options, called with the error that killed the run loop so an embedder that outlives the kernel (e.g. a daemon) can exit or restart ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
 - Add `fetch`, `Request`, `Headers`, and `Response` to available vat endowments ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
   - Add `VatConfig.network: { allowedHosts: string[] }`; requesting `'fetch'` without it rejects `initVat`
 - Integrate Snaps attenuated endowment factories into vat globals ([#937](https://github.com/MetaMask/ocap-kernel/pull/937))
@@ -43,24 +43,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Stop reporting a healthy kernel after the run loop dies ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+- Stop reporting a healthy kernel after the run loop dies ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
   - The error that killed the run loop was logged and swallowed, so the kernel went on answering `getStatus` with the same record it returns when healthy while nothing on the run queue was ever processed again, and every `queueMessage` promise hung forever — an outage no caller could detect
   - `getStatus` now reports `runLoop: { state: 'failed', error }`, and returns it without waiting for a crank that may never end
   - Message results in flight when the loop dies reject with `Kernel run loop died; this message result will never be delivered` (the killing error as `cause`), and later `queueMessage` calls reject immediately instead of hanging
   - `KernelQueue.run` now refuses to start a second run loop
-- Roll back the crank the run loop died in, instead of committing it ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+- Roll back the crank the run loop died in, instead of committing it ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
   - A delivery that _threw_ (rather than returning `{ abort: true }`) left `endCrank`'s savepoint release to commit the half-finished crank: the item that crank had already dequeued was gone for good, refcount increments stuck, and promises resolved during it stayed resolved while their notifies died unflushed in the crank buffer — so the restart this change recommends resumed from half-applied state
   - An aborted crank that then throws is not rolled back twice; if the rollback itself fails, the error names it and keeps the original failure as its `cause`
   - The rollback covers store state only. A crank that had already flushed its buffer settled JS-side subscriptions irreversibly, so a `queueMessage` caller may hold a result for a delivery the store no longer records
   - Trade-off to be aware of: because the killing item is no longer consumed, a restart re-dequeues it and can die again on the same item, where previously the commit carried the kernel past it. Integrity is the reason for the change, but an item that reliably kills a crank now needs `clearState`/`reset` (or a `executeDBQuery` against the run queue) rather than a restart
   - `createCrankSavepoint` now records a savepoint name only once the database has actually created it, so a failed create no longer leaves `endCrank` releasing a savepoint that never existed and reporting that instead of the real failure
-- Refuse inbound remote deliveries once the run loop is dead ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+- Refuse inbound remote deliveries once the run loop is dead ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
   - A peer's `message` or `notify` was previously queued and acknowledged with nothing left to deliver it, so the sending kernel waited forever. `RemoteHandle` now refuses them via the new `KernelQueue.assertRunLoopAlive`, and because inbound deliveries are processed inside a savepoint that rolls back without advancing the received-sequence number, the peer retries and then gives up instead
   - The check deliberately sits at that ingress boundary rather than on the queue's mutators, because teardown legitimately drains queue state after the loop is dead — `VatHandle.terminate` and `RemoteManager` reject the promises a dead endpoint was deciding, and refusing those would break `terminateAllVats` and `reset`, the very recovery actions a failed status invites
-- Preserve a thrown non-`Error` as the `cause` when wrapping it, in both the run loop failure path and the embedder notification ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
-- Read run loop health in `getStatus` after waiting for the crank rather than before, so a loop that dies during that wait — the likeliest moment for it to die — is not reported as `running` ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
-- Contain a rejection from an `async` run loop failure handler, which `OnRunLoopFailure`'s `void` return type permits but only a synchronous throw was caught ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
-- Settle a crank's `waitForCrank` waiters even when releasing its savepoints throws, so a database error can no longer strand `getStatus`, `stop`, `reset`, and `clearStorage` forever ([#985](https://github.com/MetaMask/ocap-kernel/pull/985))
+- Preserve a thrown non-`Error` as the `cause` when wrapping it, in both the run loop failure path and the embedder notification ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+- Read run loop health in `getStatus` after waiting for the crank rather than before, so a loop that dies during that wait — the likeliest moment for it to die — is not reported as `running` ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+- Contain a rejection from an `async` run loop failure handler, which `OnRunLoopFailure`'s `void` return type permits but only a synchronous throw was caught ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+- Settle a crank's `waitForCrank` waiters even when releasing its savepoints throws, so a database error can no longer strand `getStatus`, `stop`, `reset`, and `clearStorage` forever ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
 - Deserialize CapData rejections in `Kernel.queueMessage` so vat errors surface as plain `Error` objects to all callers ([#928](https://github.com/MetaMask/ocap-kernel/pull/928))
 - Detect peer restart across receiver state loss so the receiving kernel no longer silently drops a restarted peer's `seq=1` messages ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))
   - Persist the peer's last-observed incarnation and compare it on every successful handshake; on a detected restart, clear the peer's c-list contributions and reject the promises it was deciding before the new incarnation reuses any erefs
