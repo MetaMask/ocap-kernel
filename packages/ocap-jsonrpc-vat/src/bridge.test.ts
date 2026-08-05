@@ -73,6 +73,44 @@ describe('dispatch: request validation', () => {
     });
   });
 
+  it('rejects a request with no id rather than treating it as a notification', async () => {
+    const { bridge } = buildBridge();
+    const response = await bridge.dispatch({
+      jsonrpc: '2.0',
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
+    });
+
+    // Every line in gets exactly one line back. Serving notifications
+    // would make some lines answerable and others not, which desynchronizes
+    // a persistent line-delimited stream for good.
+    expect(response).toStrictEqual({
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: JSON_RPC_ERROR.INVALID_REQUEST,
+        message: 'not a well-formed JSON-RPC 2.0 request',
+      },
+    });
+  });
+
+  it('accepts an explicit null id', async () => {
+    const { bridge } = buildBridge({ redeem: async () => makeFake('alpha') });
+    const response = await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: null,
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
+    });
+
+    // A null id is legal in a request; only an absent one is a notification.
+    expect(response).toStrictEqual({
+      jsonrpc: '2.0',
+      id: null,
+      result: '@@j1',
+    });
+  });
+
   it('rejects an unknown method', async () => {
     const { bridge } = buildBridge();
     const response = await bridge.dispatch({

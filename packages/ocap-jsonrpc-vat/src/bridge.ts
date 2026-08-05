@@ -261,11 +261,20 @@ function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
   if (bag.jsonrpc !== '2.0' || typeof bag.method !== 'string') {
     return false;
   }
+  // An `id` is required: a missing one denotes a JSON-RPC notification,
+  // which this vat does not serve. Every line in gets exactly one line
+  // back, and that invariant is what keeps a persistent line-delimited
+  // stream in step — an unanswered request or an unexpected extra reply
+  // desynchronizes it permanently, with the client reading each answer as
+  // the response to some later request. Notifications would also be
+  // pointless here, since both methods exist to return a value.
+  //
+  // Rejecting also makes the predicate honest: `JsonRpcRequest.id` is
+  // `JsonRpcId`, which does not include `undefined`.
   if (
     bag.id !== null &&
     typeof bag.id !== 'number' &&
-    typeof bag.id !== 'string' &&
-    bag.id !== undefined
+    typeof bag.id !== 'string'
   ) {
     return false;
   }
