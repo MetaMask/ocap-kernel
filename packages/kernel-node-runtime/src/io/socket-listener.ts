@@ -66,6 +66,15 @@ export function makeConnectionChannel(
    * @param data - The raw data from the socket.
    */
   function handleData(data: Buffer): void {
+    if (ended || closed) {
+      // Node can still emit 'data' after `socket.destroy()`. Accepting a
+      // late chunk would refill the queue that `close()` just cleared, and
+      // a subsequent `read()` would hand it out even though EOF has already
+      // been reported. Data that arrived *before* the end is unaffected: it
+      // is already queued and stays readable, which is what a peer-initiated
+      // end owes its reader.
+      return;
+    }
     buffer += decoder.write(data);
     let newlineIndex = buffer.indexOf('\n');
     while (newlineIndex !== -1) {
