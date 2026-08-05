@@ -792,6 +792,10 @@ export class Kernel {
   /**
    * Stop all running vats and reset the kernel state.
    * This is for debugging purposes only.
+   *
+   * Does not revive a kernel whose run loop has died: this clears state, it does
+   * not restart the loop, so `getStatus` still reports `failed` afterwards and
+   * the queue still refuses new work.
    */
   async reset(): Promise<void> {
     await this.#kernelQueue.waitForCrank();
