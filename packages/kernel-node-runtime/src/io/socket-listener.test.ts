@@ -310,6 +310,30 @@ describe('makeSocketIOListener', () => {
       expect(await channel.read()).toBeNull();
     });
 
+    it('discards buffered data on close rather than delivering it after EOF', async () => {
+      const socketPath = tempSocketPath();
+      const listener = await makeTracked(socketPath);
+
+      const client = await connectTracked(socketPath);
+      const channel = (await listener.accept()) as IOChannel;
+
+      // A complete line plus a trailing fragment with no newline.
+      await writeLine(client, 'buffered');
+      await new Promise<void>((resolve, reject) => {
+        client.write('partial-no-newline', (error) =>
+          error ? reject(error) : resolve(),
+        );
+      });
+      await settle();
+
+      await channel.close();
+
+      // Closing means the holder is done reading. Neither the queued line
+      // nor the trailing fragment may surface after EOF was signalled.
+      expect(await channel.read()).toBeNull();
+      expect(await channel.read()).toBeNull();
+    });
+
     it('throws on write after the channel is closed', async () => {
       const socketPath = tempSocketPath();
       const listener = await makeTracked(socketPath);

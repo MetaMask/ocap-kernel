@@ -153,6 +153,11 @@ export class KernelServiceManager {
    * unpinning it and removing it from the routing table. Idempotent, and
    * safe to call for a kref that was never registered.
    *
+   * The kernel object itself is deleted here once nothing references it,
+   * rather than being left to `collectGarbage`, which skips kernel-owned
+   * objects. With the current refcount baseline this branch does not fire;
+   * it is the correct place for the deletion once that changes (see #1006).
+   *
    * @param kref - The kref of the object to release.
    */
   releaseAnonymousKernelObject(kref: KRef): void {
@@ -160,6 +165,11 @@ export class KernelServiceManager {
       return;
     }
     this.#kernelStore.unpinObject(kref);
+    const { reachable, recognizable } =
+      this.#kernelStore.getObjectRefCount(kref);
+    if (reachable === 0 && recognizable === 0) {
+      this.#kernelStore.deleteKernelObject(kref);
+    }
   }
 
   /**
