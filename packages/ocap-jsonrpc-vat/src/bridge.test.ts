@@ -338,6 +338,60 @@ describe('send', () => {
       },
     });
   });
+
+  it('reports a void result as null so the response survives encoding', async () => {
+    const alpha = makeFake('alpha');
+    const { bridge } = buildBridge({
+      redeem: async () => alpha,
+      invoke: async () => undefined,
+    });
+    await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
+    });
+    const response = await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'send',
+      params: { target: '@@j1', method: 'doNothing', args: [] },
+    });
+
+    // `undefined` would be dropped by JSON.stringify, leaving a response
+    // with neither `result` nor `error` — valid as neither outcome.
+    expect(response).toStrictEqual({ jsonrpc: '2.0', id: 2, result: null });
+    expect(JSON.parse(JSON.stringify(response))).toHaveProperty('result', null);
+  });
+
+  it.each([
+    ['false', false],
+    ['zero', 0],
+    ['empty string', ''],
+  ])(
+    'preserves a falsy %s result rather than nulling it',
+    async (_l, value) => {
+      const alpha = makeFake('alpha');
+      const { bridge } = buildBridge({
+        redeem: async () => alpha,
+        invoke: async () => value,
+      });
+      await bridge.dispatch({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'redeemURL',
+        params: { url: 'ocap:alpha' },
+      });
+      const response = await bridge.dispatch({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'send',
+        params: { target: '@@j1', method: 'give', args: [] },
+      });
+
+      expect(response).toStrictEqual({ jsonrpc: '2.0', id: 2, result: value });
+    },
+  );
 });
 
 describe('resetSession', () => {

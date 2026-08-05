@@ -123,12 +123,57 @@ export function buildRootObject(
     try {
       request = JSON.parse(line);
     } catch (error) {
-      log('failed to parse request line as JSON; dropping:', error);
-      return 'ok';
+      // Reply rather than dropping: this is a request/reply socket, so a
+      // client awaiting an answer would otherwise wait forever. The id is
+      // unknowable from an unparseable line, which is exactly the case
+      // JSON-RPC 2.0 covers with a null id.
+      log('failed to parse request line as JSON:', error);
+      return await respond(connection, {
+        jsonrpc: '2.0',
+        id: null,
+        error: {
+          code: JSON_RPC_ERROR.PARSE_ERROR,
+          message: 'request line is not valid JSON',
+        },
+      });
     }
-    const response = await dispatch(request);
+    return await respond(connection, await dispatch(request));
+  }
+
+  /**
+   * Encode and write one response.
+   *
+   * Encoding can fail even when dispatch succeeded, because a method may
+   * return a passable that has no JSON form — a `bigint`, say — which
+   * `substituteRemotables` passes through untouched. Sending an error in
+   * that case keeps the exchange to one reply per request; treating it as a
+   * write failure would drop the connection and leave the client waiting.
+   *
+   * @param connection - The connection to write to.
+   * @param response - The response to encode and send.
+   * @returns 'ok' if the response was written, 'closed' if the connection
+   * could not be written to.
+   */
+  async function respond(
+    connection: IOConnection,
+    response: JsonRpcResponse,
+  ): Promise<'ok' | 'closed'> {
+    let encoded: string;
     try {
-      await E(connection).write(JSON.stringify(response));
+      encoded = JSON.stringify(response);
+    } catch (error) {
+      log('failed to encode response:', error);
+      encoded = JSON.stringify({
+        jsonrpc: '2.0',
+        id: response.id,
+        error: {
+          code: JSON_RPC_ERROR.INTERNAL_ERROR,
+          message: 'result could not be encoded as JSON',
+        },
+      });
+    }
+    try {
+      await E(connection).write(encoded);
     } catch (error) {
       log('failed to write response:', error);
       return 'closed';

@@ -293,12 +293,18 @@ function extractId(value: unknown): JsonRpcId {
 /**
  * Build a JSON-RPC success response.
  *
+ * A void method yields `undefined`, which `JSON.stringify` drops entirely —
+ * producing a response carrying neither `result` nor `error`, which is
+ * well-formed as neither outcome under JSON-RPC 2.0. Normalizing to `null`
+ * keeps the success shape intact. Only `undefined` is substituted, so
+ * falsy results like `0`, `''`, and `false` are reported as they are.
+ *
  * @param id - The request id to echo.
  * @param result - The result payload.
  * @returns The response envelope.
  */
 function successResponse(id: JsonRpcId, result: unknown): JsonRpcResponse {
-  return { jsonrpc: '2.0', id, result };
+  return { jsonrpc: '2.0', id, result: result ?? null };
 }
 
 /**
