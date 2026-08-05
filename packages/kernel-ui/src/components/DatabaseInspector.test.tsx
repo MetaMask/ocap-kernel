@@ -19,6 +19,7 @@ vi.mock('../hooks/useDatabase.ts', () => ({
 const mockUsePanelContext: PanelContextType = {
   callKernelMethod: vi.fn(),
   status: undefined,
+  isUnreachable: false,
   logMessage: vi.fn(),
   messageContent: '',
   setMessageContent: vi.fn(),

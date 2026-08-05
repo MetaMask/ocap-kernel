@@ -23,6 +23,9 @@ describe('useStatusPolling', () => {
 
   beforeEach(() => {
     mockIsRequestInProgress.current = false;
+    // Queued `...Once` implementations otherwise survive into the next test and
+    // answer its first poll, which decides what this hook reports.
+    mockSendMessage.mockReset();
   });
 
   it('should start polling and fetch initial status', async () => {
@@ -36,7 +39,12 @@ describe('useStatusPolling', () => {
       method: 'getStatus',
       params: [],
     });
-    await waitFor(() => expect(result.current).toStrictEqual(mockStatus));
+    await waitFor(() =>
+      expect(result.current).toStrictEqual({
+        status: mockStatus,
+        isUnreachable: false,
+      }),
+    );
   });
 
   it('should use default interval when no interval is provided', async () => {
@@ -96,6 +104,48 @@ describe('useStatusPolling', () => {
     expect(
       vi.mocked(await import('../services/logger.ts')).logger.error,
     ).toHaveBeenCalledWith('Failed to fetch status:', error);
+  });
+
+  it('reports the kernel unreachable while keeping the last known status', async () => {
+    const { useStatusPolling } = await import('./useStatusPolling.ts');
+    const mockStatus = { vats: [], clusterConfig };
+    mockSendMessage
+      .mockResolvedValueOnce(mockStatus)
+      .mockRejectedValueOnce(new Error('Network error'));
+    const { result } = renderHook(() =>
+      useStatusPolling(mockSendMessage, mockIsRequestInProgress, mockInterval),
+    );
+
+    await waitFor(() => expect(result.current.isUnreachable).toBe(true));
+    expect(result.current.status).toStrictEqual(mockStatus);
+  });
+
+  it('clears unreachable once a poll succeeds again', async () => {
+    const { useStatusPolling } = await import('./useStatusPolling.ts');
+    const mockStatus = { vats: [], clusterConfig };
+    mockSendMessage
+      .mockRejectedValueOnce(new Error('Network error'))
+      .mockResolvedValue(mockStatus);
+    const { result } = renderHook(() =>
+      useStatusPolling(mockSendMessage, mockIsRequestInProgress, mockInterval),
+    );
+
+    await waitFor(() => expect(result.current.isUnreachable).toBe(true));
+    await waitFor(() => expect(result.current.isUnreachable).toBe(false));
+    expect(result.current.status).toStrictEqual(mockStatus);
+  });
+
+  it('leaves the previous verdict alone when a poll is skipped', async () => {
+    const { useStatusPolling } = await import('./useStatusPolling.ts');
+    mockIsRequestInProgress.current = true;
+    const { result } = renderHook(() =>
+      useStatusPolling(mockSendMessage, mockIsRequestInProgress, mockInterval),
+    );
+
+    expect(result.current).toStrictEqual({
+      status: undefined,
+      isUnreachable: false,
+    });
   });
 
   it('should not fetch status when request is in progress', async () => {

@@ -15,7 +15,7 @@ vi.mock('./hooks/useDarkMode.ts', () => ({
 }));
 
 vi.mock('./hooks/useStatusPolling.ts', () => ({
-  useStatusPolling: vi.fn(),
+  useStatusPolling: vi.fn(() => ({ status: undefined, isUnreachable: false })),
 }));
 
 describe('App', () => {
@@ -71,9 +71,12 @@ describe('App', () => {
     } as unknown as StreamState);
     const { useStatusPolling } = await import('./hooks/useStatusPolling.ts');
     vi.mocked(useStatusPolling).mockReturnValue({
-      vats: [],
-      subclusters: [],
-      runLoop: { state: 'failed', error: 'crank exploded' },
+      status: {
+        vats: [],
+        subclusters: [],
+        runLoop: { state: 'failed', error: 'crank exploded' },
+      },
+      isUnreachable: false,
     });
     const { App } = await import('./App.tsx');
     render(<App />);

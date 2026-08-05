@@ -25,6 +25,8 @@ type PanelLog = {
 export type PanelContextType = {
   callKernelMethod: CallKernelMethod;
   status: KernelStatus | undefined;
+  /** Whether the last status poll failed, making `status` stale. */
+  isUnreachable: boolean;
   logMessage: (message: string, type?: OutputType) => void;
   messageContent: string;
   setMessageContent: (content: string) => void;
@@ -116,13 +118,17 @@ export const PanelProvider: React.FC<{
     [processRequests],
   );
 
-  const status = useStatusPolling(callKernelMethod, isRequestInProgress);
+  const { status, isUnreachable } = useStatusPolling(
+    callKernelMethod,
+    isRequestInProgress,
+  );
 
   return (
     <PanelContext.Provider
       value={{
         callKernelMethod: sendMessageWrapper,
         status,
+        isUnreachable,
         logMessage,
         messageContent,
         setMessageContent,

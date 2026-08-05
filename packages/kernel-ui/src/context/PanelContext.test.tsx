@@ -16,7 +16,7 @@ vi.mock('@metamask/utils', () => ({
 }));
 
 vi.mock('../hooks/useStatusPolling.ts', () => ({
-  useStatusPolling: vi.fn(),
+  useStatusPolling: vi.fn(() => ({ status: undefined, isUnreachable: false })),
 }));
 
 describe('PanelContext', () => {
