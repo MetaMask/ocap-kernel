@@ -221,7 +221,11 @@ export class KernelQueue {
    * promises a dying endpoint was deciding, via `resolvePromises`, which enqueues
    * notifies for their subscribers. Those notifies are never delivered, but that
    * is acceptable — the endpoint is going away — whereas refusing them would
-   * break `terminateAllVats` and `reset`, the recovery a failed status invites.
+   * break `terminateAllVats` and `reset`. Note that those are cleanup, not
+   * recovery: nothing clears a `failed` state and `run` refuses to be called
+   * twice, so a kernel that has failed stays failed for the life of the
+   * instance. Recovery means a new kernel, which in practice means a new
+   * process.
    *
    * @param what - What is being refused, completing "cannot ...".
    * @throws If the run loop has died.
