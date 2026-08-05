@@ -1,5 +1,6 @@
 import type { CapData } from '@endo/marshal';
 import { makePromiseKit } from '@endo/promise-kit';
+import { stringify } from '@metamask/kernel-utils';
 
 import { processGCActionSet } from './garbage-collection/garbage-collection.ts';
 import { kser } from './liveslots/kernel-marshal.ts';
@@ -17,6 +18,10 @@ import type {
   VatId,
 } from './types.ts';
 import { Fail } from './utils/assert.ts';
+
+type RunLoopState =
+  | Exclude<RunLoopStatus, { state: 'failed' }>
+  | { state: 'failed'; error: Error };
 
 /**
  * The kernel's run queue.
@@ -64,14 +69,14 @@ export class KernelQueue {
 
   /**
    * The run loop's state, as one value so that a failure recorded for a loop
-   * that never started can't be represented. `failed` keeps the whole `Error`;
-   * only its message crosses the wire. Once failed, the queue is never drained
-   * again and every ingress point refuses work.
+   * that never started can't be represented. Once failed, nothing drains the
+   * queue again; for which ingress points refuse work and why teardown does not,
+   * see {@link assertRunLoopAlive}.
+   *
+   * Derived from the wire type so that a field added to its `failed` arm fails to
+   * compile until `getRunLoopStatus` produces it.
    */
-  #runLoopState:
-    | { state: 'idle' }
-    | { state: 'running' }
-    | { state: 'failed'; error: Error } = { state: 'idle' };
+  #runLoopState: RunLoopState = { state: 'idle' };
 
   /**
    * Construct a new KernelQueue instance.
@@ -95,7 +100,7 @@ export class KernelQueue {
    * dead — see {@link getRunLoopStatus}.
    *
    * @param deliver - A function that delivers an item to the kernel.
-   * @returns A promise that rejects with the error that killed the run loop.
+   * @returns A promise that rejects with the `Error` that killed the run loop.
    */
   async run(
     deliver: (item: RunQueueItem) => Promise<CrankResult | undefined>,
@@ -105,8 +110,9 @@ export class KernelQueue {
     try {
       return await this.#runLoop(deliver);
     } catch (error) {
-      this.#failRunLoop(error);
-      throw error;
+      // The recorded failure rather than the raw throw, so that the embedder's
+      // handler and `getRunLoopStatus` describe one object rather than two.
+      throw this.#failRunLoop(error);
     }
   }
 
@@ -180,8 +186,9 @@ export class KernelQueue {
    * are not rescued by this.
    *
    * @param error - The error that killed the run loop.
+   * @returns The failure, as an `Error` whatever was thrown.
    */
-  #failRunLoop(error: unknown): void {
+  #failRunLoop(error: unknown): Error {
     const failure =
       error instanceof Error
         ? error
@@ -198,6 +205,7 @@ export class KernelQueue {
         ),
       );
     }
+    return failure;
   }
 
   /**
@@ -244,7 +252,13 @@ export class KernelQueue {
   getRunLoopStatus(): RunLoopStatus {
     return harden(
       this.#runLoopState.state === 'failed'
-        ? { state: 'failed', error: this.#runLoopState.error.message }
+        ? {
+            state: 'failed',
+            error: this.#runLoopState.error.message,
+            // The message drops the cause chain, and in a double failure it names
+            // the failed rollback rather than what killed the kernel.
+            detail: stringify(this.#runLoopState.error, 0),
+          }
         : { state: this.#runLoopState.state },
     );
   }

@@ -315,17 +315,14 @@ export class Kernel {
    * exit or restart. Deliberately not re-thrown: an unhandled rejection would
    * take the process down without giving it that chance.
    *
-   * @param runLoopError - The error that killed the run loop.
+   * @param failure - The error that killed the run loop, normalized by
+   * `KernelQueue.run`, which reports this same object in `getStatus`.
    */
-  #handleRunLoopFailure(runLoopError: unknown): void {
+  #handleRunLoopFailure(failure: Error): void {
     this.#logger.error(
       'Run loop died; the kernel can no longer process messages and must be restarted:',
-      runLoopError,
+      failure,
     );
-    const failure =
-      runLoopError instanceof Error
-        ? runLoopError
-        : new Error(String(runLoopError), { cause: runLoopError });
     // Called off a local, not off `this`: `this.#onRunLoopFailure(...)` is a
     // member call, so a non-arrow handler would receive the whole kernel as its
     // receiver. The handler's business here is one `Error`.

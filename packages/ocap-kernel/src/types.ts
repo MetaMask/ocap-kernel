@@ -776,7 +776,10 @@ const RemoteCommsConnectedStruct = object({
 export const RunLoopStatusStruct = union([
   type({ state: literal('idle') }),
   type({ state: literal('running') }),
-  type({ state: literal('failed'), error: string() }),
+  // Two strings because one cannot be both: `error` is the message, `detail` the
+  // cause chain. When a crank dies and its rollback then fails, the message names
+  // the rollback and only the chain names what killed the kernel.
+  type({ state: literal('failed'), error: string(), detail: string() }),
 ]);
 
 export type RunLoopStatus = Infer<typeof RunLoopStatusStruct>;

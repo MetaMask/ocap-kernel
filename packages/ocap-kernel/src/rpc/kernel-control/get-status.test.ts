@@ -75,7 +75,10 @@ describe('getStatusHandler', () => {
     it.each([
       { name: 'idle', runLoop: { state: 'idle' } },
       { name: 'running', runLoop: { state: 'running' } },
-      { name: 'failed', runLoop: { state: 'failed', error: 'boom' } },
+      {
+        name: 'failed',
+        runLoop: { state: 'failed', error: 'boom', detail: '{}' },
+      },
     ])('accepts $name', ({ runLoop }) => {
       expect(is(makeStatus(runLoop), KernelStatusStruct)).toBe(true);
     });
@@ -83,7 +86,14 @@ describe('getStatusHandler', () => {
     it.each([
       { name: 'an unknown state', runLoop: { state: 'wedged' } },
       { name: 'failed without an error', runLoop: { state: 'failed' } },
-      { name: 'a non-string error', runLoop: { state: 'failed', error: 1 } },
+      {
+        name: 'failed without a detail',
+        runLoop: { state: 'failed', error: 'boom' },
+      },
+      {
+        name: 'a non-string error',
+        runLoop: { state: 'failed', error: 1, detail: '{}' },
+      },
       { name: 'a bare string', runLoop: 'failed' },
     ])('rejects $name', ({ runLoop }) => {
       expect(is(makeStatus(runLoop), KernelStatusStruct)).toBe(false);

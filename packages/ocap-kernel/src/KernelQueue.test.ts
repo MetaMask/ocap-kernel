@@ -225,9 +225,12 @@ describe('KernelQueue', () => {
       expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
         state: 'failed',
         error: 'crank exploded',
+        detail: expect.stringContaining('crank exploded'),
       });
     });
 
+    // One normalization, so what `run` rejects with and what the status reports
+    // are the same object rather than two wrappers that happen to agree.
     it('reports failed for a non-Error run loop failure', async () => {
       (
         kernelStore.runQueueLength as unknown as MockInstance
@@ -238,10 +241,17 @@ describe('KernelQueue', () => {
         message: {} as KernelMessage,
       });
       const deliver = vi.fn().mockRejectedValue('not an error');
-      await expect(kernelQueue.run(deliver)).rejects.toBe('not an error');
+
+      const failure = await kernelQueue.run(deliver).catch((error) => error);
+
+      expect(failure).toBeInstanceOf(Error);
+      expect(failure.message).toBe('not an error');
+      // The thrown value survives, so it isn't lost to the normalization.
+      expect(failure.cause).toBe('not an error');
       expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
         state: 'failed',
         error: 'not an error',
+        detail: expect.stringContaining('not an error'),
       });
     });
   });
@@ -341,6 +351,9 @@ describe('KernelQueue', () => {
         state: 'failed',
         error:
           'Run loop died and its crank could not be rolled back: Error: database is gone',
+        // The headline names the rollback, so only `detail` can carry the error
+        // that actually killed the kernel to the one consumer that reports it.
+        detail: expect.stringContaining('crank exploded'),
       });
     });
 
@@ -372,6 +385,7 @@ describe('KernelQueue', () => {
       expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
         state: 'failed',
         error: 'database is gone',
+        detail: expect.stringContaining('database is gone'),
       });
     });
 
@@ -405,6 +419,7 @@ describe('KernelQueue', () => {
       expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
         state: 'failed',
         error: 'second crank exploded',
+        detail: expect.stringContaining('second crank exploded'),
       });
     });
 

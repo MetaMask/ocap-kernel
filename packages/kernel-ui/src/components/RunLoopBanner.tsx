@@ -40,6 +40,24 @@ export const RunLoopBanner: React.FC = () => {
       >
         {runLoop.error}
       </TextComponent>
+      {/* When a crank dies and its rollback then fails, the headline above names
+          the rollback and only the chain below names what killed the kernel. */}
+      <details>
+        <summary>
+          <TextComponent
+            variant={TextVariant.BodyXs}
+            color={TextColor.ErrorDefault}
+          >
+            Details
+          </TextComponent>
+        </summary>
+        <pre
+          className="text-xs whitespace-pre-wrap break-all max-h-64 overflow-auto"
+          data-testid="run-loop-failure-detail"
+        >
+          {runLoop.detail}
+        </pre>
+      </details>
     </Box>
   );
 };

@@ -855,6 +855,10 @@ export class RemoteHandle implements EndpointHandle {
         break;
       }
       case 'bringOutYourDead': {
+        // Queue work like the arms above: `scheduleReap` is consumed only by the
+        // run loop, via `nextReapAction`. The other GC arms need no guard — they
+        // only touch refcounts, which the caller's crank commits by itself.
+        this.#kernelQueue.assertRunLoopAlive('accept a remote reap request');
         this.#kernelStore.scheduleReap(this.remoteId);
         break;
       }

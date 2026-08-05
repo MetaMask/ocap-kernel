@@ -53,9 +53,21 @@ const mocks = vi.hoisted(() => {
 
     getRunLoopStatus = vi.fn(() =>
       this.#runLoopFailure
-        ? { state: 'failed', error: this.#runLoopFailure.message }
+        ? {
+            state: 'failed',
+            error: this.#runLoopFailure.message,
+            detail: `{"message":"${this.#runLoopFailure.message}"}`,
+          }
         : { state: 'running' },
     );
+
+    assertRunLoopAlive = vi.fn((what: string) => {
+      if (this.#runLoopFailure) {
+        throw new Error(`Kernel run loop died; cannot ${what}`, {
+          cause: this.#runLoopFailure,
+        });
+      }
+    });
 
     stop = vi.fn();
 
@@ -560,6 +572,7 @@ describe('Kernel', () => {
       expect((await kernel.getStatus()).runLoop).toStrictEqual({
         state: 'failed',
         error: 'died mid-crank',
+        detail: expect.stringContaining('died mid-crank'),
       });
     });
 
@@ -580,6 +593,7 @@ describe('Kernel', () => {
       expect(status.runLoop).toStrictEqual({
         state: 'failed',
         error: 'run loop boom',
+        detail: expect.stringContaining('run loop boom'),
       });
       // The vats are still in the store, but nothing is delivering to them.
       expect(status.vats).toHaveLength(1);
@@ -599,6 +613,7 @@ describe('Kernel', () => {
       expect((await kernel.getStatus()).runLoop).toStrictEqual({
         state: 'failed',
         error: 'run loop boom',
+        detail: expect.stringContaining('run loop boom'),
       });
     });
 
@@ -998,22 +1013,20 @@ describe('Kernel', () => {
       expect(gotAReceiver).toBe(false);
     });
 
-    it('wraps a non-Error run loop failure for the embedder', async () => {
+    // `run` rejects with the same object its status reports, so re-wrapping here
+    // would leave the embedder and `getStatus` describing two different errors.
+    it('hands the embedder the error the run loop died with, unwrapped', async () => {
       const onRunLoopFailure = vi.fn();
       await Kernel.make(mockPlatformServices, mockKernelDatabase, {
         onRunLoopFailure,
       });
+      const failure = new Error('run loop boom');
 
-      mocks.KernelQueue.lastInstance.killRunLoop(
-        'not an error' as unknown as Error,
-      );
+      mocks.KernelQueue.lastInstance.killRunLoop(failure);
       await waitUntilQuiescent();
 
       expect(onRunLoopFailure).toHaveBeenCalledOnce();
-      const [failure] = onRunLoopFailure.mock.calls[0] as [Error];
-      expect(failure.message).toBe('not an error');
-      // The original value survives, so a thrown non-Error isn't lost.
-      expect(failure.cause).toBe('not an error');
+      expect(onRunLoopFailure.mock.calls[0]?.[0]).toBe(failure);
     });
 
     // The handler slot returns void, but TypeScript admits anything thenable

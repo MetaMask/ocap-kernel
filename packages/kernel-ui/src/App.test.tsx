@@ -73,7 +73,11 @@ describe('App', () => {
     vi.mocked(useStatusPolling).mockReturnValue({
       vats: [],
       subclusters: [],
-      runLoop: { state: 'failed', error: 'crank exploded' },
+      runLoop: {
+        state: 'failed',
+        error: 'crank exploded',
+        detail: '{"message":"crank exploded"}',
+      },
     });
     const { App } = await import('./App.tsx');
     render(<App />);

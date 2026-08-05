@@ -191,6 +191,35 @@ describe('RemoteHandle', () => {
       });
     });
 
+    // Only the run loop consumes `nextReapAction`, so a dead loop would leave the
+    // peer's request acknowledged and never performed.
+    it('refuses an incoming bringOutYourDead when the run loop is dead', async () => {
+      const remote = makeRemote();
+      const delivery = JSON.stringify({
+        seq: 1,
+        method: 'deliver',
+        params: ['bringOutYourDead'],
+      });
+      const failure = new Error('Kernel run loop died; cannot accept it');
+      vi.mocked(mockKernelQueue.assertRunLoopAlive).mockImplementation(() => {
+        throw failure;
+      });
+
+      await expect(remote.handleRemoteMessage(delivery)).rejects.toBe(failure);
+      expect(mockKernelStore.nextReapAction()).toBeUndefined();
+
+      // The refusal must not advance the received sequence number, or the peer's
+      // retry would be discarded as a duplicate.
+      vi.mocked(mockKernelQueue.assertRunLoopAlive).mockImplementation(
+        () => undefined,
+      );
+      await remote.handleRemoteMessage(delivery);
+      expect(mockKernelStore.nextReapAction()).toStrictEqual({
+        type: 'bringOutYourDead',
+        endpointId: remote.remoteId,
+      });
+    });
+
     // A dead run loop will never deliver the message, and `handleRemoteMessage`
     // rolls back without advancing the received sequence number, so the peer
     // retries and gives up rather than being acknowledged by a black hole.

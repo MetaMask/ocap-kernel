@@ -45,7 +45,11 @@ describe('RunLoopBanner', () => {
   it('announces a dead run loop with the reason it died', () => {
     mockUsePanelContext.mockReturnValue(
       makeMockPanelContext(
-        makeMockStatus({ state: 'failed', error: 'crank exploded' }),
+        makeMockStatus({
+          state: 'failed',
+          error: 'crank exploded',
+          detail: '{"message":"crank exploded"}',
+        }),
       ),
     );
 
@@ -56,6 +60,27 @@ describe('RunLoopBanner', () => {
     );
     expect(screen.getByTestId('run-loop-failure-error')).toHaveTextContent(
       'crank exploded',
+    );
+  });
+
+  // When a crank dies and its rollback then fails, the headline names the
+  // rollback and only the chain names what killed the kernel.
+  it('shows the cause chain behind the headline', () => {
+    mockUsePanelContext.mockReturnValue(
+      makeMockPanelContext(
+        makeMockStatus({
+          state: 'failed',
+          error: 'Run loop died and its crank could not be rolled back',
+          detail:
+            '{"message":"rollback failed","cause":{"message":"disk gone"}}',
+        }),
+      ),
+    );
+
+    render(<RunLoopBanner />);
+
+    expect(screen.getByTestId('run-loop-failure-detail')).toHaveTextContent(
+      'disk gone',
     );
   });
 
