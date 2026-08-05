@@ -54,7 +54,9 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
         } finally {
           // Forget the savepoint even if the rollback failed. Leaving it listed
           // would have `endCrank`'s release commit the crank we just abandoned —
-          // the half-finished state this rollback exists to discard.
+          // the half-finished state this rollback exists to discard. A failed
+          // rollback discards the whole transaction instead (see
+          // `rollbackSavepoint`), which for a crank is the same boundary.
           ctx.savepoints.length = ordinal;
         }
         // The rollback reverted DB state but in-memory caches are stale.
