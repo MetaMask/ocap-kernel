@@ -9,7 +9,10 @@ import { appendFileSync, rmSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { makeDaemonRunLoopWiring } from './run-loop-failure.ts';
+import {
+  cleanUpFailedStartup,
+  makeDaemonRunLoopWiring,
+} from './run-loop-failure.ts';
 import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive } from '../utils.ts';
 
@@ -66,7 +69,13 @@ main().catch((error) => {
   // this can be read; `stringify` keeps the `cause` chain that `String` drops.
   logger.error('Daemon fatal', stringify(error, 0));
   process.stderr.write(`Daemon fatal: ${String(error)}\n`);
-  process.exitCode = 1;
+  // Not `process.exitCode`: a kernel that got as far as launching vats holds
+  // live worker threads, and those keep the event loop running, so a code alone
+  // would leave the daemon up with no socket and no pid file — an orphan
+  // neither interlock can see. Both writes above are synchronous, so nothing is
+  // lost by exiting here.
+  // eslint-disable-next-line n/no-process-exit -- a daemon that cannot start must not linger
+  process.exit(1);
 });
 
 /**
@@ -134,13 +143,13 @@ async function main(): Promise<void> {
       onShutdown: async () => shutdown('RPC shutdown'),
     });
   } catch (error) {
-    try {
-      kernel.stop().catch(() => undefined);
-      kernelDatabase.close();
-    } catch {
-      // Best-effort cleanup.
-    }
-    rm(pidPath, { force: true }).catch(() => undefined);
+    await cleanUpFailedStartup({
+      logger,
+      stopKernel: async () => kernel.stop(),
+      closeDatabase: () => kernelDatabase.close(),
+      // eslint-disable-next-line n/no-sync -- must finish before process.exit
+      removePidFile: () => rmSync(pidPath, { force: true }),
+    });
     throw error;
   }
 

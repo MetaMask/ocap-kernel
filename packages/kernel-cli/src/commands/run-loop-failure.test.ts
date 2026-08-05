@@ -6,6 +6,7 @@ import '@ocap/repo-tools/test-utils/mock-endoify';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import {
+  cleanUpFailedStartup,
   makeDaemonRunLoopWiring,
   makeRunLoopFailureHandler,
   SHUTDOWN_TIMEOUT_MS,
@@ -13,6 +14,7 @@ import {
 import type {
   DaemonRunLoopWiring,
   DaemonRunLoopWiringOptions,
+  FailedStartupCleanupOptions,
   RunLoopFailureHandlerOptions,
 } from './run-loop-failure.ts';
 
@@ -309,6 +311,169 @@ describe('makeRunLoopFailureHandler', () => {
 
     expect(onUnhandled).not.toHaveBeenCalled();
     process.off('unhandledRejection', onUnhandled);
+  });
+});
+
+/**
+ * Make the cleanup's options over spies, defaulting to a kernel that stops
+ * cleanly, so each test overrides only what it is about.
+ *
+ * @param overrides - Options to replace.
+ * @returns The options, with their spies reachable.
+ */
+const makeCleanupOptions = (
+  overrides: Partial<FailedStartupCleanupOptions> = {},
+): FailedStartupCleanupOptions & {
+  logger: { error: ReturnType<typeof vi.fn>; info: ReturnType<typeof vi.fn> };
+} => ({
+  logger: { error: vi.fn(), info: vi.fn() },
+  stopKernel: vi.fn().mockResolvedValue(undefined),
+  closeDatabase: vi.fn(),
+  removePidFile: vi.fn(),
+  ...overrides,
+});
+
+describe('cleanUpFailedStartup', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  // `stop` terminates the vat workers only after writing the last-active
+  // timestamp, so a database closed first makes that write throw and the worker
+  // threads that hold the event loop open survive.
+  it('waits for the kernel to stop before closing the database', async () => {
+    const order: string[] = [];
+    const options = makeCleanupOptions({
+      stopKernel: async () => {
+        await Promise.resolve();
+        order.push('stop');
+      },
+      closeDatabase: () => order.push('close'),
+      removePidFile: () => order.push('removePid'),
+    });
+
+    await cleanUpFailedStartup(options);
+
+    expect(order).toStrictEqual(['stop', 'close', 'removePid']);
+  });
+
+  it('gives up on a kernel that never stops', async () => {
+    const options = makeCleanupOptions({
+      stopKernel: vi.fn().mockReturnValue(new Promise(() => undefined)),
+    });
+
+    const cleanup = cleanUpFailedStartup(options);
+    await vi.advanceTimersByTimeAsync(SHUTDOWN_TIMEOUT_MS);
+    await cleanup;
+
+    expect(options.logger.error).toHaveBeenCalledWith(
+      `Kernel did not stop within ${SHUTDOWN_TIMEOUT_MS} ms during startup cleanup.`,
+    );
+    expect(options.closeDatabase).toHaveBeenCalled();
+    expect(options.removePidFile).toHaveBeenCalled();
+  });
+
+  it('waits the full timeout before giving up on the kernel', async () => {
+    const options = makeCleanupOptions({
+      stopKernel: vi.fn().mockReturnValue(new Promise(() => undefined)),
+      timeoutMs: 5_000,
+    });
+
+    const cleanup = cleanUpFailedStartup(options);
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(options.closeDatabase).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(1);
+    await cleanup;
+
+    expect(options.closeDatabase).toHaveBeenCalled();
+  });
+
+  it('closes the database when the kernel could not be stopped', async () => {
+    const options = makeCleanupOptions({
+      stopKernel: vi.fn().mockRejectedValue(new Error('crank never ended')),
+    });
+
+    await cleanUpFailedStartup(options);
+
+    expect(options.logger.error).toHaveBeenCalledWith(
+      'Could not stop the kernel during startup cleanup.',
+      expect.stringContaining('crank never ended'),
+    );
+    expect(options.closeDatabase).toHaveBeenCalled();
+    expect(options.removePidFile).toHaveBeenCalled();
+  });
+
+  // A `stop` that ran to completion closed the database itself, so the second
+  // close throwing is the expected case and must not strand the pid file.
+  it('removes the pid file when closing the database throws', async () => {
+    const options = makeCleanupOptions({
+      closeDatabase: () => {
+        throw new Error('database is not open');
+      },
+    });
+
+    await cleanUpFailedStartup(options);
+
+    expect(options.removePidFile).toHaveBeenCalled();
+  });
+
+  it('logs a pid file that could not be removed', async () => {
+    const options = makeCleanupOptions({
+      removePidFile: () => {
+        throw new Error('EPERM');
+      },
+    });
+
+    // Rejecting here would take the startup error with it, replacing the reason
+    // the daemon could not start with the reason its cleanup could not finish.
+    await cleanUpFailedStartup(options);
+
+    expect(options.logger.error).toHaveBeenCalledWith(
+      'Could not remove the pid file during startup cleanup.',
+      expect.stringContaining('EPERM'),
+    );
+  });
+
+  // Only `cause` carries the reason the kernel would not stop.
+  it('logs the cause chain of a stop that failed', async () => {
+    const options = makeCleanupOptions({
+      stopKernel: vi
+        .fn()
+        .mockRejectedValue(
+          new Error('could not stop', { cause: new Error('database is gone') }),
+        ),
+    });
+
+    await cleanUpFailedStartup(options);
+
+    expect(options.logger.error).toHaveBeenCalledWith(
+      'Could not stop the kernel during startup cleanup.',
+      expect.stringContaining('database is gone'),
+    );
+  });
+
+  // The daemon logs with `appendFileSync`, so a full disk throws, and cleanup is
+  // the last thing standing between a failed startup and an orphan.
+  it('cleans up even when the log transport throws', async () => {
+    const options = makeCleanupOptions({
+      logger: {
+        error: vi.fn().mockImplementation(() => {
+          throw new Error('ENOSPC');
+        }),
+        info: vi.fn(),
+      },
+      stopKernel: vi.fn().mockRejectedValue(new Error('crank never ended')),
+    });
+
+    await cleanUpFailedStartup(options);
+
+    expect(options.closeDatabase).toHaveBeenCalled();
+    expect(options.removePidFile).toHaveBeenCalled();
   });
 });
 
