@@ -600,6 +600,9 @@ describe('vat store methods', () => {
       expect(mockKV.has(`slot.${endpointId}.ko42`)).toBe(false);
       expect(mockKV.has(`slot.${endpointId}.ro+7`)).toBe(false);
       expect(mockDecrementRefCount).not.toHaveBeenCalled();
+      // We dropped a reference to it, so it still goes to the collector — the
+      // new owner's mapping is what decides its fate from there.
+      expect(mockMaybeFreeKrefs.add).toHaveBeenCalledWith('ko42');
     });
 
     it('preserves our exports to the peer (import-direction entries)', () => {

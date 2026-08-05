@@ -5,10 +5,9 @@ import type { VatConfig, VatId } from '../../types.ts';
 import { makeKernelStore } from '../index.ts';
 
 /**
- * Regressions for the asymmetry described in
- * https://github.com/MetaMask/ocap-kernel/issues/1006: creating an import
- * c-list entry changed no refcount while tearing one down decremented both,
- * and `initKernelObject` compensated by minting every object at (1, 1). That
+ * Regressions for an asymmetry in c-list accounting: creating an import c-list
+ * entry changed no refcount while tearing one down decremented both, and
+ * `initKernelObject` compensated by minting every object at (1, 1). That
  * constant came out right for exactly one importer, which is why nothing
  * noticed.
  */
@@ -157,6 +156,69 @@ describe('c-list reference accounting', () => {
       `v1 retireExport ${kref}`,
     ]);
     expect(kernelStore.getImporters(kref)).toStrictEqual([]);
+  });
+
+  describe('an owner that gives up its own export', () => {
+    it('frees the object once the last importer lets go', () => {
+      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+      kernelStore.translateRefKtoE('v2', kref, true);
+      kernelStore.clearReachableFlag('v2', kref);
+      kernelStore.collectGarbage();
+
+      // The owner is told to drop, which clears its flag, and it then retires
+      // the export itself — leaving nothing naming the object from its side.
+      kernelStore.clearReachableFlag('v1', kref);
+      kernelStore.forgetKref('v1', kref);
+      kernelStore.orphanKernelObject(kref);
+
+      kernelStore.forgetKref('v2', kref);
+      kernelStore.collectGarbage();
+
+      expect(kernelStore.kernelRefExists(kref)).toBe(false);
+      expect(kernelStore.auditRefCounts()).toStrictEqual([]);
+    });
+
+    it('collects an orphan that no importer ever recognized', () => {
+      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+
+      kernelStore.forgetKref('v1', kref);
+      kernelStore.orphanKernelObject(kref);
+      kernelStore.collectGarbage();
+
+      expect(kernelStore.getOwner(kref)).toBeUndefined();
+      expect(kernelStore.kernelRefExists(kref)).toBe(false);
+    });
+
+    it('retires stragglers that still recognize an orphaned object', () => {
+      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+      kernelStore.translateRefKtoE('v2', kref, true);
+      kernelStore.clearReachableFlag('v2', kref);
+
+      kernelStore.clearReachableFlag('v1', kref);
+      kernelStore.forgetKref('v1', kref);
+      kernelStore.orphanKernelObject(kref);
+      kernelStore.collectGarbage();
+
+      // v2 can still recognize it, so it has to be told the name is dead
+      expect([...kernelStore.getGCActions()]).toStrictEqual([
+        `v2 retireImport ${kref}`,
+      ]);
+    });
+
+    it('survives an owner mapping left behind without a c-list entry', () => {
+      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+      kernelStore.translateRefKtoE('v2', kref, true);
+      kernelStore.clearReachableFlag('v2', kref);
+      kernelStore.clearReachableFlag('v1', kref);
+      // Tear the owner's side down but leave the ownership record, the shape
+      // that used to make the next collection read a key that wasn't there.
+      kernelStore.forgetKref('v1', kref);
+      kernelStore.forgetKref('v2', kref);
+
+      expect(() => kernelStore.collectGarbage()).not.toThrow();
+      expect(kernelStore.getOwner(kref)).toBeUndefined();
+      expect(kernelStore.kernelRefExists(kref)).toBe(false);
+    });
   });
 
   describe('cleanupTerminatedVat', () => {

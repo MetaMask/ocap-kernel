@@ -65,6 +65,7 @@ describe('KernelRouter', () => {
       clearReachableFlag: vi.fn(),
       deleteCListEntry: vi.fn(),
       forgetKref: vi.fn(),
+      orphanKernelObject: vi.fn(),
       createCrankSavepoint: vi.fn(),
     } as unknown as KernelStore;
 
@@ -315,6 +316,38 @@ describe('KernelRouter', () => {
           ['ko1', 'requeue|slot'],
           ['ko2', 'requeue|slot'],
         ]);
+      });
+
+      it('charges the promise, not the object it resolved to', async () => {
+        const promiseId = 'kp123';
+        const resolvedObject = 'ko456';
+        (
+          kernelStore.getKernelPromise as unknown as MockInstance
+        ).mockReturnValueOnce({
+          state: 'fulfilled',
+          value: { body: '#"$0"', slots: [resolvedObject] },
+        });
+        (kernelStore.getOwner as unknown as MockInstance).mockReturnValue('v1');
+
+        await kernelRouter.deliver({
+          type: 'send',
+          target: promiseId,
+          message: {
+            methargs: { body: 'method args', slots: [] },
+            result: null,
+          },
+        });
+
+        // The run queue item was charged against the promise it named, so that
+        // is what has to be released — not whatever routing resolved it to.
+        expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
+          promiseId,
+          'deliver|send|target',
+        );
+        expect(kernelStore.decrementRefCount).not.toHaveBeenCalledWith(
+          resolvedObject,
+          'deliver|send|target',
+        );
       });
 
       it('splats message when promise resolves to a non-object', async () => {
@@ -580,6 +613,12 @@ describe('KernelRouter', () => {
         // Verify no notification was delivered to the vat
         expect(endpointHandle.deliverNotify).not.toHaveBeenCalled();
         expect(result).toStrictEqual({ didDelivery: endpointId });
+        // Nothing was delivered, but the queued notification is gone either
+        // way, so its reference has to be released on this path too.
+        expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
+          kpid,
+          'deliver|notify',
+        );
       });
 
       it('returns didDelivery when no kpids to retire', async () => {
@@ -618,6 +657,10 @@ describe('KernelRouter', () => {
         // Verify no notification was delivered to the vat
         expect(endpointHandle.deliverNotify).not.toHaveBeenCalled();
         expect(result).toStrictEqual({ didDelivery: endpointId });
+        expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
+          kpid,
+          'deliver|notify',
+        );
       });
 
       it('throws if notification is for an unresolved promise', async () => {
@@ -715,6 +758,60 @@ describe('KernelRouter', () => {
           ]);
         },
       );
+
+      it('orphans the object when delivering retireExports', async () => {
+        await kernelRouter.deliver({
+          type: 'retireExports',
+          endpointId: 'v1',
+          krefs: ['ko1', 'ko2'],
+        });
+
+        // The owner has given up the last name for the object, so the kernel's
+        // record of who owns it must go too or it outlives every reference.
+        expect(
+          (kernelStore.orphanKernelObject as unknown as MockInstance).mock
+            .calls,
+        ).toStrictEqual([['ko1'], ['ko2']]);
+      });
+
+      it('leaves ownership alone when delivering retireImports', async () => {
+        await kernelRouter.deliver({
+          type: 'retireImports',
+          endpointId: 'v1',
+          krefs: ['ko1'],
+        });
+
+        expect(kernelStore.orphanKernelObject).not.toHaveBeenCalled();
+      });
+
+      it('skips the action when the endpoint has vanished', async () => {
+        getEndpoint.mockImplementationOnce(() => {
+          throw Error('vat v1 not found');
+        });
+
+        const result = await kernelRouter.deliver({
+          type: 'retireImports',
+          endpointId: 'v1',
+          krefs: ['ko1'],
+        });
+
+        expect(result).toStrictEqual({ didDelivery: 'v1' });
+        expect(kernelStore.deleteCListEntry).not.toHaveBeenCalled();
+      });
+
+      it('survives a failed delivery', async () => {
+        (
+          endpointHandle.deliverRetireImports as unknown as MockInstance
+        ).mockRejectedValueOnce(Error('endpoint went away mid-delivery'));
+
+        const result = await kernelRouter.deliver({
+          type: 'retireImports',
+          endpointId: 'v1',
+          krefs: ['ko1'],
+        });
+
+        expect(result).toStrictEqual({ didDelivery: 'v1' });
+      });
     });
 
     describe('bringOutYourDead', () => {

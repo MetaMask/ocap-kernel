@@ -38,8 +38,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Reference-count auditing: `auditRefCounts`, `recomputeRefCounts`, `formatRefCountViolations`, `assertRefCountsIfAuditing`, and `setRefCountAuditing` on the kernel store, plus a `Kernel.make` option `auditRefCounts` that verifies every kref's counts against the references the kernel actually holds at the end of each crank ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
   - Reports drift in both directions: counts too low (a live capability can be collected) and counts too high with no holder (a leak)
-  - Exports the `RefCountViolation` type
+  - Exports the `RefCountViolation` type, a union over `kind: 'mismatch' | 'dangling'`
 - Add `setReachableFlag` to the kernel store, the counterpart to `clearReachableFlag` ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
+- Add `orphanKernelObject` to the kernel store, which drops an object's owner mapping and hands it to the collector ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
 
 ### Changed
 
@@ -79,6 +80,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A root is addressable while its vat lives whether or not anyone imports it; the old `(1, 1)` birth baseline was standing in for this
 - Garbage-collection action delivery now moves the kernel's own c-list: `dropExports` clears the owner's reachable flag and `retireExports`/`retireImports` tear the entry down ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
   - Previously the owner's flag never cleared, so the same action could be re-derived, and retired entries outlived the objects they named
+- Orphan a kernel object when its owner stops naming it (a delivered `retireExport`, or a `retireExports`/`abandonExports` syscall), so its `owner` and `refCount` records no longer outlive the c-list entry they were reachable through — they leaked, and the next collection to visit such a kref killed the run loop ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
+- `queueMessage` now rejects with the error that stopped the run loop, and messages already in flight are rejected rather than left pending forever ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
+- Garbage-collection action delivery survives a vanished endpoint or a failed delivery instead of stopping the run loop ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
+- Tear down a vat whose worker launched but whose kernel-side registration then failed ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
 - Charge a delivered message's target reference against the run-queue item's own target rather than the routed target, so a message routed through a resolved promise no longer decrements an object nobody charged while leaking the promise ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
 - Release a queued notification's reference before the paths that decide there is nothing to deliver, and stop decrementing references on promises retired alongside it that nobody had taken ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
 - Transfer, rather than duplicate, the references a message carries when it is queued on an unresolved promise and later re-enqueued on resolution ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))

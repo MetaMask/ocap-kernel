@@ -93,6 +93,14 @@ describe('reference count audit', () => {
       expect(kernelStore.auditRefCounts()).toStrictEqual([]);
     });
 
+    it('holds for a queued notification', () => {
+      const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
+      kernelStore.enqueueRun({ type: 'notify', endpointId: 'v2', kpid });
+      kernelStore.incrementRefCount(kpid, 'notify');
+
+      expect(kernelStore.auditRefCounts()).toStrictEqual([]);
+    });
+
     it('holds for an unsettled promise with importers', () => {
       const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
       kernelStore.translateRefKtoE('v2', kpid, true);
@@ -120,6 +128,7 @@ describe('reference count audit', () => {
 
       expect(kernelStore.auditRefCounts()).toStrictEqual([
         {
+          kind: 'mismatch',
           kref,
           stored: '0,0',
           expected: '1,1',
@@ -133,7 +142,7 @@ describe('reference count audit', () => {
       kernelStore.setObjectRefCount(kref, { reachable: 1, recognizable: 1 });
 
       expect(kernelStore.auditRefCounts()).toStrictEqual([
-        { kref, stored: '1,1', expected: '0,0', holders: [] },
+        { kind: 'mismatch', kref, stored: '1,1', expected: '0,0', holders: [] },
       ]);
     });
 
@@ -144,8 +153,8 @@ describe('reference count audit', () => {
 
       expect(kernelStore.auditRefCounts()).toStrictEqual([
         {
+          kind: 'dangling',
           kref,
-          stored: '(deleted)',
           expected: '1,1',
           holders: ['v2 c-list import o-1'],
         },
@@ -204,6 +213,7 @@ describe('reference count audit', () => {
 
       expect(corrected).toStrictEqual([
         {
+          kind: 'mismatch',
           kref,
           stored: '1,1',
           expected: '2,2',
@@ -228,6 +238,34 @@ describe('reference count audit', () => {
       expect(corrected).toStrictEqual([]);
       expect(unfixable).toHaveLength(1);
       expect(unfixable[0]?.kref).toBe(kref);
+    });
+
+    it('rebuilds a promise count', () => {
+      const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
+      kernelStore.translateRefKtoE('v2', kpid, true);
+      // A promise has one undifferentiated count, so its repair goes down a
+      // different path from an object's pair.
+      kernelStore.incrementRefCount(kpid, 'phantom');
+      kernelStore.incrementRefCount(kpid, 'phantom');
+
+      const { corrected, unfixable } = kernelStore.recomputeRefCounts();
+
+      expect(corrected).toStrictEqual([
+        {
+          kind: 'mismatch',
+          kref: kpid,
+          stored: '5',
+          expected: '3',
+          holders: [
+            'unsettled promise',
+            'v1 c-list export p+1',
+            'v2 c-list import p-1',
+          ],
+        },
+      ]);
+      expect(unfixable).toStrictEqual([]);
+      expect(kernelStore.getRefCount(kpid)).toBe(3);
+      expect(kernelStore.auditRefCounts()).toStrictEqual([]);
     });
 
     it('queues krefs it zeroes for collection', () => {
