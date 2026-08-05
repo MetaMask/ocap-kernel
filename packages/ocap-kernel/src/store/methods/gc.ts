@@ -165,8 +165,10 @@ export function getGCMethods(ctx: StoreContext) {
               actions.add(makeGCAction(ownerVatID, 'dropExport', kref));
             }
             if (recognizable === 0) {
-              // TODO: rethink this assert
-              // assert.equal(vatConsidersReachable, false, `${kref} is reachable but not recognizable`);
+              // No assertion that the owner has stopped considering this
+              // reachable: when the last holder both drops and retires before
+              // we run, we queue dropExport and retireExport together and the
+              // owner's flag is still set until the first of them is delivered.
               actions.add(makeGCAction(ownerVatID, 'retireExport', kref));
             }
           } else if (ownerVatID && terminated) {

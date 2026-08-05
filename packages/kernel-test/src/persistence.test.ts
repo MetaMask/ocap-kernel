@@ -170,7 +170,8 @@ describe('persistent storage', { timeout: 20_000 }, () => {
     // Enqueue a send message into the database
     kv1.set('queue.run.head', '4');
     kv1.set('nextPromiseId', '4');
-    kv1.set(`${v1Root}.refCount`, '3,3');
+    // The root's pin, plus the send being injected below.
+    kv1.set(`${v1Root}.refCount`, '2,2');
     kv1.set('queue.kp3.head', '1');
     kv1.set('queue.kp3.tail', '1');
     kv1.set('kp3.state', 'unresolved');

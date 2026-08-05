@@ -344,6 +344,7 @@ export class KernelQueue {
       await this.#terminateVat(vatId, info);
     }
     this.#kernelStore.collectGarbage();
+    this.#kernelStore.assertRefCountsIfAuditing();
   }
 
   /**
@@ -504,7 +505,6 @@ export class KernelQueue {
     for (const resolution of resolutions) {
       const [kpid, rejected, data] = resolution;
 
-      this.#kernelStore.incrementRefCount(kpid, 'resolve|kpid');
       for (const slot of data.slots || []) {
         this.#kernelStore.incrementRefCount(slot, 'resolve|slot');
       }

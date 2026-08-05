@@ -14,6 +14,7 @@ import type {
 } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import * as clistModule from './clist.ts';
+import * as reachableModule from './reachable.ts';
 import { getTranslators } from './translators.ts';
 import * as vatModule from './vat.ts';
 
@@ -22,6 +23,7 @@ describe('getTranslators', () => {
   const mockErefToKref = vi.fn();
   const mockAllocateErefForKref = vi.fn();
   const mockExportFromEndpoint = vi.fn();
+  const mockSetReachableFlag = vi.fn();
   const mockCtx = {} as StoreContext;
 
   beforeEach(() => {
@@ -32,6 +34,10 @@ describe('getTranslators', () => {
       erefToKref: mockErefToKref,
       allocateErefForKref: mockAllocateErefForKref,
     } as unknown as ReturnType<typeof clistModule.getCListMethods>);
+
+    vi.spyOn(reachableModule, 'getReachableMethods').mockReturnValue({
+      setReachableFlag: mockSetReachableFlag,
+    } as unknown as ReturnType<typeof reachableModule.getReachableMethods>);
 
     vi.spyOn(vatModule, 'getVatMethods').mockReturnValue({
       exportFromEndpoint: mockExportFromEndpoint,

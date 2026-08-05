@@ -128,6 +128,11 @@ export class VatManager {
       vatId,
       ROOT_OBJECT_VREF,
     );
+    // A root is addressable for as long as its vat lives, whether or not
+    // anyone currently imports it: the kernel's own API hands out root krefs
+    // and `getRootObject` resolves them through this c-list entry. Without a
+    // pin, GC would retire the entry the moment the last importer let go.
+    this.#kernelStore.pinObject(rootRef);
     this.#kernelStore.setVatConfig(vatId, vatConfig);
     return rootRef;
   }
@@ -185,6 +190,14 @@ export class VatManager {
       terminationError = new Error(`Vat termination: ${reason.body}`);
     } else if (terminating) {
       terminationError = new VatDeletedError(vatId);
+    }
+    if (terminating) {
+      // Release the pin `launchVat` took, so the root can be collected once
+      // its importers let go. A restart keeps it: the same root comes back.
+      const rootRef = this.#kernelStore.getRootObject(vatId);
+      if (rootRef) {
+        this.#kernelStore.unpinObject(rootRef);
+      }
     }
     await this.#platformServices
       .terminate(vatId, terminationError)

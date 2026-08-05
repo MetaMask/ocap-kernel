@@ -165,7 +165,6 @@ test.describe('Control Panel', () => {
       '{"key":"v3.c.o+0","value":"ko6"}',
       '{"key":"v3.c.kp4","value":"R p-1"}',
       '{"key":"v3.c.p-1","value":"kp4"}',
-      '{"key":"ko6.refCount","value":"1,1"}',
       '{"key":"kp4.refCount","value":"2"}',
     ];
     const v1koValues = [

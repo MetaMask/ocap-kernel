@@ -38,9 +38,10 @@
  *   ${kpid}.decider = ${endid}               // who decides on settlement
  *   ${kpid}.value = JSON(CAPDATA)            // value settled to, if settled
  *
- * C-lists
- *   cle.${endid}.${eref} = ${kref}           // ERef->KRef mapping
- *   clk.${endid}.${kref} = ${eref}           // KRef->ERef mapping
+ * C-lists (both directions share one prefix; see `getCListPrefix`)
+ *   ${endid}.c.${eref} = ${kref}             // ERef->KRef mapping
+ *   ${endid}.c.${kref} = R|_ ${eref}         // KRef->ERef mapping, plus the
+ *                                            // endpoint's reachable flag
  *
  * Vat bookkeeping
  *   e.nextObjectId.${endid} = NN             // allocation counter for imported object ERefs
@@ -79,6 +80,7 @@ import { getPinMethods } from './methods/pinned.ts';
 import { getPromiseMethods } from './methods/promise.ts';
 import { getQueueMethods } from './methods/queue.ts';
 import { getReachableMethods } from './methods/reachable.ts';
+import { getRefCountAuditMethods } from './methods/refcount-audit.ts';
 import { getRefCountMethods } from './methods/refcount.ts';
 import { getRelayMethods } from './methods/relay.ts';
 import { getRemoteMethods } from './methods/remote.ts';
@@ -87,6 +89,16 @@ import { getSubclusterMethods } from './methods/subclusters.ts';
 import { getTranslators } from './methods/translators.ts';
 import { getVatMethods } from './methods/vat.ts';
 import type { StoreContext } from './types.ts';
+
+/** Key recording which reference-counting scheme a store's counts were written under. */
+const REFCOUNT_SCHEME_KEY = 'refCountScheme';
+
+/**
+ * The current reference-counting scheme. Bump this whenever the rules in
+ * `incrementRefCount`/`decrementRefCount` or their callers change, so that
+ * existing stores have their counts rebuilt from ground truth on next open.
+ */
+const REFCOUNT_SCHEME = 'clist-symmetric';
 
 /**
  * Create a new KernelStore object wrapped around a raw kernel database. The
@@ -152,12 +164,14 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     subclusters: provideCachedStoredValue('subclusters', '[]'),
     nextSubclusterId: provideCachedStoredValue('nextSubclusterId', '1'),
     vatToSubclusterMap: provideCachedStoredValue('vatToSubclusterMap', '{}'),
+    auditRefCounts: false,
     // Logging
     logger: logger?.subLogger({ tags: ['kernel-store'] }),
   };
 
   const id = getIdMethods(context);
   const refCount = getRefCountMethods(context);
+  const refCountAudit = getRefCountAuditMethods(context);
   const object = getObjectMethods(context);
   const promise = getPromiseMethods(context);
   const revocation = getRevocationMethods(context);
@@ -173,6 +187,39 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
   const subclusters = getSubclusterMethods(context);
   const activity = getActivityMethods(kv);
   const relay = getRelayMethods({ kv, logger: context.logger });
+
+  /**
+   * Bring a store written under an older reference-counting scheme onto the
+   * current one.
+   *
+   * Reference counts are persisted, so changing how they are computed
+   * invalidates every existing store. Rather than migrate the numbers, discard
+   * them and rebuild from the references themselves: those are unaffected by
+   * the change, and are the authority the counts only cache.
+   */
+  function migrateRefCountScheme(): void {
+    if (kv.get(REFCOUNT_SCHEME_KEY) === REFCOUNT_SCHEME) {
+      return;
+    }
+    if (kv.get('initialized') === 'true') {
+      const { corrected, unfixable } = refCountAudit.recomputeRefCounts();
+      if (corrected.length > 0) {
+        context.logger?.info(
+          `recomputed ${corrected.length} reference count(s) for the current scheme:\n${refCountAudit.formatRefCountViolations(
+            corrected,
+          )}`,
+        );
+      }
+      if (unfixable.length > 0) {
+        context.logger?.warn(
+          `${unfixable.length} reference(s) point at deleted krefs and could not be repaired:\n${refCountAudit.formatRefCountViolations(
+            unfixable,
+          )}`,
+        );
+      }
+    }
+    kv.set(REFCOUNT_SCHEME_KEY, REFCOUNT_SCHEME);
+  }
 
   /**
    * Create a new VatStore for a vat.
@@ -233,6 +280,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
         context.kv.set(key, value);
       }
     });
+    migrateRefCountScheme();
   }
 
   /**
@@ -287,10 +335,13 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     kdb.rollbackSavepoint(name);
   }
 
+  migrateRefCountScheme();
+
   return harden({
     ...id,
     ...queue,
     ...refCount,
+    ...refCountAudit,
     ...object,
     ...promise,
     ...revocation,
@@ -368,3 +419,4 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
 
 export type KernelStore = ReturnType<typeof makeKernelStore>;
 export type { RelayEntry } from './types.ts';
+export type { RefCountViolation } from './methods/refcount-audit.ts';
