@@ -24,6 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Accept optional `allowedGlobals` on `VatSupervisor` for custom allowlists
   - Log a warning when a vat requests an unknown global
 - Export `OcapURLIssuerService` and `OcapURLRedemptionService` types so vats can type the corresponding kernel-service endowments ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
+- Reference-marker sigil (`@@NAME`) at the `queueMessage` RPC boundary lets JSON-RPC callers name a live kernel object as a call argument ([#984](https://github.com/MetaMask/ocap-kernel/pull/984))
+  - Anywhere in the args tree, a string of the form `@@NAME` (NAME is one or more alphanumeric characters, currently a well-formed kref) is expanded to a `kslot` standin so `kser` encodes it as a real CapData slot in the dispatched message
+  - Purely an RPC-boundary concern: internal callers of `Kernel.queueMessage` are unaffected
+  - Caveat: a legitimate string argument that begins with `@@` followed by alphanumerics will be misinterpreted as a marker; wrap such literals inside an object
 
 ### Changed
 
