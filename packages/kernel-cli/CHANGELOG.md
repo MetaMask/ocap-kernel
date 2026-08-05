@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The daemon log filters entries below a minimum severity, defaulting to `info`, so high-volume `debug` output (refcount churn and similar) no longer dominates `daemon.log`; set `$OCAP_DAEMON_LOG_LEVEL` to `debug` to record everything again ([#1008](https://github.com/MetaMask/ocap-kernel/pull/1008))
 - Relay state files (`relay.pid`, `relay.addr`) now live in their own directory (default `~/.libp2p-relay`, overridable via `$LIBP2P_RELAY_HOME`) instead of under `$OCAP_HOME`, so one libp2p relay can serve daemons with different OCAP_HOMEs ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 
 ### Fixed
