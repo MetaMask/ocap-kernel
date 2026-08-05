@@ -135,6 +135,14 @@ function makeConnectionChannel(
         return;
       }
       closed = true;
+      // Discard anything still buffered before signalling EOF. Closing is
+      // the holder saying it is done reading, so a trailing partial line
+      // must not survive to be handed out by a later read() — that would
+      // deliver data after EOF. A peer-initiated end is the opposite case
+      // and does flush, since that data arrived before the peer went away.
+      lineQueue.length = 0;
+      buffer = '';
+      ended = true;
       deliverEOF();
       socket.destroy();
       // `close` on the socket will fire handleEnd, but call it directly so

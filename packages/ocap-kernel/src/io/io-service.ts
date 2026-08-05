@@ -23,6 +23,19 @@ export type ConnectionHost = {
  * `direction` is enforced here rather than on the listener, since it is a
  * property of the data flow rather than of the point of contact.
  *
+ * Lifetime: the holder must `close()` a connection when finished with it.
+ * A peer disconnecting ends the underlying transport and makes `read()`
+ * report EOF, but does *not* by itself stop the kernel hosting this
+ * object, because the holder still has a live reference to it. Releasing
+ * on EOF instead would be actively worse than leaking: the vat's c-list
+ * still names the kref, so a subsequent call on the dropped reference
+ * would route to `invokeKernelService`, find nothing registered, and
+ * throw — which takes down the run loop. Until a vat dropping the
+ * reference is itself observable (see #1006), unreleased connections are
+ * bounded by their listener's lifetime: `close()` on the listener
+ * releases whatever it handed out, and `IOManager` releases the rest when
+ * the subcluster goes away.
+ *
  * @param name - The scoped connection name, used as the exo's interface
  * name (e.g. `io:s1:repl:c3`).
  * @param channel - The channel for this connection.
@@ -92,6 +105,12 @@ export function makeIOListenerService(
   host: ConnectionHost,
 ): object {
   let nextConnectionId = 0;
+  /**
+   * Krefs of connections handed out and not yet released, so closing the
+   * listener stops hosting them too. Without this, closing a listener
+   * dropped its sockets but left every accepted connection's kref pinned.
+   */
+  const hostedConnections = new Set<KRef>();
 
   return makeDefaultExo(name, {
     async accept(): Promise<unknown> {
@@ -113,16 +132,22 @@ export function makeIOListenerService(
         config,
         () => {
           if (hosted.kref) {
+            hostedConnections.delete(hosted.kref);
             host.release(hosted.kref);
           }
         },
       );
       hosted.kref = host.register(connection, connectionName);
+      hostedConnections.add(hosted.kref);
       return kslot(hosted.kref, connectionName);
     },
 
     async close(): Promise<void> {
-      return listener.close();
+      await listener.close();
+      for (const kref of [...hostedConnections]) {
+        hostedConnections.delete(kref);
+        host.release(kref);
+      }
     },
   });
 }
