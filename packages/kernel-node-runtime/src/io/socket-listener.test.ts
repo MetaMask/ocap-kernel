@@ -496,6 +496,30 @@ describe('makeConnectionChannel', () => {
     expect(await channel.read()).toBeNull();
   });
 
+  it('ignores data that arrives after close', async () => {
+    const socket = makeFakeSocket();
+    const channel = makeConnectionChannel('c1', socket, () => undefined);
+
+    await channel.close();
+    // Node can still emit 'data' after destroy(); a late chunk must not
+    // refill the queue that close() cleared.
+    socket.emit('data', Buffer.from('too-late\n'));
+
+    expect(await channel.read()).toBeNull();
+  });
+
+  it('still delivers data that arrived before a peer end', async () => {
+    const socket = makeFakeSocket();
+    const channel = makeConnectionChannel('c1', socket, () => undefined);
+
+    socket.emit('data', Buffer.from('in-time\n'));
+    socket.emit('end');
+    socket.emit('data', Buffer.from('too-late\n'));
+
+    expect(await channel.read()).toBe('in-time');
+    expect(await channel.read()).toBeNull();
+  });
+
   it('discards a trailing partial line when the holder closes', async () => {
     const socket = makeFakeSocket();
     const channel = makeConnectionChannel('c1', socket, vi.fn());
