@@ -38,9 +38,10 @@
  *   ${kpid}.decider = ${endid}               // who decides on settlement
  *   ${kpid}.value = JSON(CAPDATA)            // value settled to, if settled
  *
- * C-lists
- *   cle.${endid}.${eref} = ${kref}           // ERef->KRef mapping
- *   clk.${endid}.${kref} = ${eref}           // KRef->ERef mapping
+ * C-lists (both directions share one prefix; see `getCListPrefix`)
+ *   ${endid}.c.${eref} = ${kref}             // ERef->KRef mapping
+ *   ${endid}.c.${kref} = R|_ ${eref}         // KRef->ERef mapping, plus the
+ *                                            // endpoint's reachable flag
  *
  * Vat bookkeeping
  *   e.nextObjectId.${endid} = NN             // allocation counter for imported object ERefs
@@ -79,6 +80,7 @@ import { getPinMethods } from './methods/pinned.ts';
 import { getPromiseMethods } from './methods/promise.ts';
 import { getQueueMethods } from './methods/queue.ts';
 import { getReachableMethods } from './methods/reachable.ts';
+import { getRefCountAuditMethods } from './methods/refcount-audit.ts';
 import { getRefCountMethods } from './methods/refcount.ts';
 import { getRelayMethods } from './methods/relay.ts';
 import { getRemoteMethods } from './methods/remote.ts';
@@ -152,12 +154,14 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     subclusters: provideCachedStoredValue('subclusters', '[]'),
     nextSubclusterId: provideCachedStoredValue('nextSubclusterId', '1'),
     vatToSubclusterMap: provideCachedStoredValue('vatToSubclusterMap', '{}'),
+    auditRefCounts: false,
     // Logging
     logger: logger?.subLogger({ tags: ['kernel-store'] }),
   };
 
   const id = getIdMethods(context);
   const refCount = getRefCountMethods(context);
+  const refCountAudit = getRefCountAuditMethods(context);
   const object = getObjectMethods(context);
   const promise = getPromiseMethods(context);
   const revocation = getRevocationMethods(context);
@@ -291,6 +295,7 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     ...id,
     ...queue,
     ...refCount,
+    ...refCountAudit,
     ...object,
     ...promise,
     ...revocation,
@@ -368,3 +373,4 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
 
 export type KernelStore = ReturnType<typeof makeKernelStore>;
 export type { RelayEntry } from './types.ts';
+export type { RefCountViolation } from './methods/refcount-audit.ts';

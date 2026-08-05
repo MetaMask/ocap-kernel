@@ -252,7 +252,6 @@ test.describe('Control Panel', () => {
       `{"key":"v3.c.o+0","value":"${v3Root}"}`,
       `{"key":"v3.c.${v3Promise}","value":"R p-1"}`,
       `{"key":"v3.c.p-1","value":"${v3Promise}"}`,
-      `{"key":"${v3Root}.refCount","value":"1,1"}`,
       `{"key":"${v3Promise}.refCount","value":"2"}`,
     ];
     // Derived too: v1 imports the two roots as the bootstrap's calls are

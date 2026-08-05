@@ -118,6 +118,7 @@ describe('vat store methods', () => {
     (getBaseMethods as ReturnType<typeof vi.fn>).mockReturnValue({
       getPrefixedKeys: mockGetPrefixedKeys,
       getSlotKey: mockGetSlotKey,
+      getCListPrefix: (endpointId: string) => `${endpointId}.c.`,
       getOwnerKey: mockGetOwnerKey,
     });
 
@@ -273,33 +274,26 @@ describe('vat store methods', () => {
     it('deletes all keys related to the endpoint', () => {
       const endpointId = 'e1';
 
-      // Setup mock data
-      mockKV.set(`cle.${endpointId}.obj1`, 'data1');
-      mockKV.set(`cle.${endpointId}.obj2`, 'data2');
-      mockKV.set(`clk.${endpointId}.prom1`, 'data3');
+      // The c-list holds both directions of each pair under one prefix
+      mockKV.set(`${endpointId}.c.o-1`, 'ko1');
+      mockKV.set(`${endpointId}.c.ko1`, 'R o-1');
+      mockKV.set(`${endpointId}.c.p+1`, 'kp1');
       mockKV.set(`e.nextObjectId.${endpointId}`, '10');
       mockKV.set(`e.nextPromiseId.${endpointId}`, '5');
 
-      mockGetPrefixedKeys.mockImplementation((prefix: string) => {
-        if (prefix === `cle.${endpointId}.`) {
-          return [`cle.${endpointId}.obj1`, `cle.${endpointId}.obj2`];
-        }
-        if (prefix === `clk.${endpointId}.`) {
-          return [`clk.${endpointId}.prom1`];
-        }
-        return [];
-      });
+      mockGetPrefixedKeys.mockImplementation((prefix: string) =>
+        [...mockKV.keys()].filter((key) => key.startsWith(prefix)),
+      );
 
       vatMethods.deleteEndpoint(endpointId);
 
-      expect(mockKV.has(`cle.${endpointId}.obj1`)).toBe(false);
-      expect(mockKV.has(`cle.${endpointId}.obj2`)).toBe(false);
-      expect(mockKV.has(`clk.${endpointId}.prom1`)).toBe(false);
+      expect(mockKV.has(`${endpointId}.c.o-1`)).toBe(false);
+      expect(mockKV.has(`${endpointId}.c.ko1`)).toBe(false);
+      expect(mockKV.has(`${endpointId}.c.p+1`)).toBe(false);
       expect(mockKV.has(`e.nextObjectId.${endpointId}`)).toBe(false);
       expect(mockKV.has(`e.nextPromiseId.${endpointId}`)).toBe(false);
 
-      expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`cle.${endpointId}.`);
-      expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`clk.${endpointId}.`);
+      expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`${endpointId}.c.`);
     });
 
     it('does nothing if endpoint has no associated keys', () => {
@@ -309,8 +303,7 @@ describe('vat store methods', () => {
 
       expect(() => vatMethods.deleteEndpoint(endpointId)).not.toThrow();
 
-      expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`cle.${endpointId}.`);
-      expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`clk.${endpointId}.`);
+      expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`${endpointId}.c.`);
     });
   });
 
@@ -470,11 +463,10 @@ describe('vat store methods', () => {
       expect(result).toBe('kp123');
       expect(mockInitKernelPromise).toHaveBeenCalled();
       expect(mockSetPromiseDecider).toHaveBeenCalledWith('kp123', vatId);
+      // addCListEntry takes the entry's reference; exportFromEndpoint no
+      // longer takes one of its own
       expect(mockAddCListEntry).toHaveBeenCalledWith(vatId, 'kp123', vref);
-      expect(mockIncrementRefCount).toHaveBeenCalledWith('kp123', 'export', {
-        isExport: true,
-        onlyRecognizable: true,
-      });
+      expect(mockIncrementRefCount).not.toHaveBeenCalled();
     });
 
     it('creates a kernel object for an exported object', () => {
@@ -486,10 +478,7 @@ describe('vat store methods', () => {
       expect(result).toBe('ko456');
       expect(mockInitKernelObject).toHaveBeenCalledWith(vatId);
       expect(mockAddCListEntry).toHaveBeenCalledWith(vatId, 'ko456', vref);
-      expect(mockIncrementRefCount).toHaveBeenCalledWith('ko456', 'export', {
-        isExport: true,
-        onlyRecognizable: true,
-      });
+      expect(mockIncrementRefCount).not.toHaveBeenCalled();
     });
 
     it('throws an error for non-export reference', () => {
@@ -566,38 +555,22 @@ describe('vat store methods', () => {
       });
     }
 
-    it("decrements the decider refcount for the peer's promise exports", () => {
+    it("releases the peer's promise exports through the c-list", () => {
       seedClist([['rp+1', 'kp123']]);
-      mockGetKernelPromise.mockReturnValue({ decider: endpointId });
 
       vatMethods.forgetEndpointImports(endpointId);
 
+      // The caller rejected the promises the peer was deciding first, which
+      // released the unsettled-promise reference; the entry's own reference is
+      // all that is left, and deleteCListEntry releases it.
       expect(mockDeleteCListEntry).toHaveBeenCalledWith(
         endpointId,
         'kp123',
         'rp+1',
       );
-      expect(mockDecrementRefCount).toHaveBeenCalledWith(
-        'kp123',
-        'cleanup|peerRestart|promise|decider',
-      );
     });
 
-    it('skips the decider decrement when the peer is no longer the decider', () => {
-      seedClist([['rp+1', 'kp123']]);
-      mockGetKernelPromise.mockReturnValue({ decider: 'someoneElse' });
-
-      vatMethods.forgetEndpointImports(endpointId);
-
-      expect(mockDeleteCListEntry).toHaveBeenCalledWith(
-        endpointId,
-        'kp123',
-        'rp+1',
-      );
-      expect(mockDecrementRefCount).not.toHaveBeenCalled();
-    });
-
-    it("releases the peer's object exports: owner, c-list, baseline refcount, GC", () => {
+    it("releases the peer's object exports: owner, c-list, GC", () => {
       seedClist([['ro+7', 'ko42']]);
       mockKV.set(`owner.ko42`, endpointId);
       mockGetReachableAndVatSlot.mockReturnValue({ vatSlot: 'ro+7' });
@@ -607,33 +580,26 @@ describe('vat store methods', () => {
       expect(mockKV.has(`owner.ko42`)).toBe(false);
       expect(mockKV.has(`slot.${endpointId}.ko42`)).toBe(false);
       expect(mockKV.has(`slot.${endpointId}.ro+7`)).toBe(false);
-      expect(mockDecrementRefCount).toHaveBeenCalledWith(
-        'ko42',
-        'cleanup|peerRestart|export|baseline',
-      );
       expect(mockMaybeFreeKrefs.add).toHaveBeenCalledWith('ko42');
-      // Object-export tear-down handles the c-list pair directly; we don't
-      // also call deleteCListEntry (which uses the recognizable-only path
-      // and would corrupt the count).
+      // An export entry carries no reference, so tearing it down changes no
+      // count; the object is simply orphaned for GC to retire.
+      expect(mockDecrementRefCount).not.toHaveBeenCalled();
       expect(mockDeleteCListEntry).not.toHaveBeenCalled();
     });
 
-    it('preserves baseline refcount when ownership has migrated', () => {
+    it('leaves the owner mapping alone when ownership has migrated', () => {
       seedClist([['ro+7', 'ko42']]);
       mockKV.set(`owner.ko42`, 'someoneElse');
       mockGetReachableAndVatSlot.mockReturnValue({ vatSlot: 'ro+7' });
 
       vatMethods.forgetEndpointImports(endpointId);
 
-      // Foreign owner survives — the baseline reference is theirs now.
       expect(mockKV.get(`owner.ko42`)).toBe('someoneElse');
-      // Our c-list pair is still torn down (the peer can't reach the kref
-      // through us anymore), but the refcount stays untouched so we don't
-      // corrupt the new owner's accounting.
+      // Our c-list pair is still torn down: the peer can't reach the kref
+      // through us anymore.
       expect(mockKV.has(`slot.${endpointId}.ko42`)).toBe(false);
       expect(mockKV.has(`slot.${endpointId}.ro+7`)).toBe(false);
       expect(mockDecrementRefCount).not.toHaveBeenCalled();
-      expect(mockMaybeFreeKrefs.add).not.toHaveBeenCalled();
     });
 
     it('preserves our exports to the peer (import-direction entries)', () => {

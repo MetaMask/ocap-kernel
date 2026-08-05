@@ -109,6 +109,10 @@ export class Kernel {
    * @param options.ioListenerFactory - Optional factory for creating IO listeners.
    * @param options.allowedGlobalNames - Optional list of allowed global names for vat endowments.
    * @param options.onRunLoopFailure - Optional handler called if the run loop dies.
+   * @param options.auditRefCounts - If true, verify every kref's reference
+   * counts against the references the kernel actually holds at the end of each
+   * crank, and throw on any mismatch. Intended for tests and debugging; the
+   * audit walks the whole store.
    */
   // eslint-disable-next-line no-restricted-syntax
   private constructor(
@@ -122,6 +126,7 @@ export class Kernel {
       ioListenerFactory?: IOListenerFactory;
       allowedGlobalNames?: AllowedGlobalName[];
       onRunLoopFailure?: OnRunLoopFailure;
+      auditRefCounts?: boolean;
     } = {},
   ) {
     this.#platformServices = platformServices;
@@ -129,6 +134,9 @@ export class Kernel {
     this.#onRunLoopFailure = options.onRunLoopFailure;
     this.#logger = options.logger ?? new Logger('ocap-kernel');
     this.#kernelStore = makeKernelStore(kernelDatabase, this.#logger);
+    if (options.auditRefCounts) {
+      this.#kernelStore.setRefCountAuditing(true);
+    }
     if (!this.#kernelStore.isInitialized()) {
       this.#kernelStore.markInitialized();
     }
@@ -249,6 +257,8 @@ export class Kernel {
    * @param options.systemSubclusters - Optional array of system subcluster configurations.
    * @param options.allowedGlobalNames - Optional list of allowed global names for vat endowments. When set, only these names from the `VatSupervisor`'s configured endowments (see `createDefaultEndowments`) are available to vats.
    * @param options.onRunLoopFailure - Optional handler called if the run loop dies. The kernel must be restarted after that, so an embedder that outlives it (e.g. a daemon) should use this to terminate or restart.
+   * @param options.auditRefCounts - If true, verify reference counts against
+   * ground truth at the end of each crank and throw on any mismatch.
    * @returns A promise for the new kernel instance.
    */
   static async make(
@@ -263,6 +273,7 @@ export class Kernel {
       systemSubclusters?: SystemSubclusterConfig[];
       allowedGlobalNames?: AllowedGlobalName[];
       onRunLoopFailure?: OnRunLoopFailure;
+      auditRefCounts?: boolean;
     } = {},
   ): Promise<Kernel> {
     const kernel = new Kernel(platformServices, kernelDatabase, options);

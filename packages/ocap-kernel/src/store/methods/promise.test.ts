@@ -58,6 +58,7 @@ describe('promise store methods', () => {
   };
   let context: StoreContext;
   let promiseMethods: ReturnType<typeof getPromiseMethods>;
+  const mockIncrementRefCount = vi.fn();
   const mockDecrementRefCount = vi.fn();
 
   beforeEach(() => {
@@ -78,6 +79,7 @@ describe('promise store methods', () => {
       incCounter: mockIncCounter,
       provideStoredQueue: mockProvideStoredQueue,
       getPrefixedKeys: mockGetPrefixedKeys,
+      getCListPrefix: (endpointId: string) => `${endpointId}.c.`,
     });
 
     (getQueueMethods as ReturnType<typeof vi.fn>).mockReturnValue({
@@ -85,6 +87,7 @@ describe('promise store methods', () => {
     });
 
     (getRefCountMethods as ReturnType<typeof vi.fn>).mockReturnValue({
+      incrementRefCount: mockIncrementRefCount,
       decrementRefCount: mockDecrementRefCount,
     });
 
@@ -304,11 +307,12 @@ describe('promise store methods', () => {
         slots: ['o+1', 'o+2'],
       };
       const message1: KernelMessage = {
-        method: 'method1',
-      } as unknown as KernelMessage;
+        methargs: { body: 'method1', slots: ['ko7'] },
+        result: 'kp8',
+      };
       const message2: KernelMessage = {
-        method: 'method2',
-      } as unknown as KernelMessage;
+        methargs: { body: 'method2', slots: [] },
+      };
 
       mockKV.set(`${kpid}.state`, 'unresolved');
       mockKV.set(`${kpid}.decider`, 'v1');
@@ -338,7 +342,15 @@ describe('promise store methods', () => {
       expect(mockKV.has(`${kpid}.decider`)).toBe(false);
       expect(mockKV.has(`${kpid}.subscribers`)).toBe(false);
       expect(mockQueue.delete).toHaveBeenCalled();
-      expect(mockDecrementRefCount).toHaveBeenCalledTimes(1);
+      // Each dequeued message releases what its queue entry held, then the
+      // promise releases the decision it was owed
+      expect(mockDecrementRefCount.mock.calls).toStrictEqual([
+        [kpid, 'resolve|dequeue|target'],
+        ['kp8', 'resolve|dequeue|result'],
+        ['ko7', 'resolve|dequeue|slot'],
+        [kpid, 'resolve|dequeue|target'],
+        [kpid, 'resolve|decider'],
+      ]);
     });
 
     it('rejects a promise and enqueues pending messages', () => {
@@ -371,6 +383,23 @@ describe('promise store methods', () => {
       promiseMethods.enqueuePromiseMessage(kpid, message);
       expect(mockProvideStoredQueue).toHaveBeenCalledWith(kpid, false);
       expect(mockQueue.enqueue).toHaveBeenCalledWith(message);
+    });
+
+    it('takes a reference on everything the queued message carries', () => {
+      const kpid = 'kp123';
+      const message: KernelMessage = {
+        methargs: { body: 'test', slots: ['ko1', 'kp2'] },
+        result: 'kp3',
+      };
+
+      promiseMethods.enqueuePromiseMessage(kpid, message);
+
+      expect(mockIncrementRefCount.mock.calls).toStrictEqual([
+        [kpid, 'promiseQueue|target'],
+        ['kp3', 'promiseQueue|result'],
+        ['ko1', 'promiseQueue|slot'],
+        ['kp2', 'promiseQueue|slot'],
+      ]);
     });
   });
 
@@ -410,69 +439,71 @@ describe('promise store methods', () => {
   });
 
   describe('getPromisesByDecider', () => {
-    it('yields promises decided by a specific vat', () => {
-      const vatId = 'v1' as VatId;
-      const kpid1 = 'kp101';
-      const kpid2 = 'kp102';
-      const kpid3 = 'kp103';
+    /**
+     * Populate a c-list and an unresolved promise record, using the real key
+     * layout so the scan is exercised rather than mocked around.
+     *
+     * @param endpointId - The endpoint whose c-list to add to.
+     * @param eref - The endpoint's ref for the promise.
+     * @param kpid - The kernel promise.
+     * @param decider - The promise's decider, if it has one.
+     * @param state - The promise's state.
+     */
+    function givenCListPromise(
+      endpointId: string,
+      eref: string,
+      kpid: string,
+      decider: string | undefined,
+      state = 'unresolved',
+    ): void {
+      mockKV.set(`${endpointId}.c.${eref}`, kpid);
+      mockKV.set(`${endpointId}.c.${kpid}`, `R ${eref}`);
+      mockKV.set(`${kpid}.state`, state);
+      mockKV.set(`${kpid}.subscribers`, '[]');
+      if (state === 'unresolved') {
+        if (decider) {
+          mockKV.set(`${kpid}.decider`, decider);
+        }
+      } else {
+        mockKV.set(`${kpid}.value`, '{"body":"value","slots":[]}');
+      }
+      mockGetPrefixedKeys.mockImplementation((prefix: string) =>
+        [...mockKV.keys()].filter((key) => key.startsWith(prefix)).sort(),
+      );
+    }
 
-      // Set up mock data
-      mockGetPrefixedKeys.mockReturnValue([
-        `cle.${vatId}.p1`,
-        `cle.${vatId}.p2`,
-        `cle.${vatId}.p3`,
-      ]);
+    it.each([
+      { context: 'a vat', endpointId: 'v1', erefs: ['p+1', 'p-2'] },
+      { context: 'a remote', endpointId: 'r1', erefs: ['rp+1', 'rp-2'] },
+    ])('yields promises decided by $context', ({ endpointId, erefs }) => {
+      givenCListPromise(endpointId, erefs[0] as string, 'kp101', endpointId);
+      givenCListPromise(endpointId, erefs[1] as string, 'kp102', endpointId);
+      givenCListPromise(endpointId, 'p+3', 'kp103', 'v2');
 
-      mockKV.set(`cle.${vatId}.p1`, kpid1);
-      mockKV.set(`cle.${vatId}.p2`, kpid2);
-      mockKV.set(`cle.${vatId}.p3`, kpid3);
+      const result = Array.from(
+        promiseMethods.getPromisesByDecider(endpointId as VatId),
+      );
 
-      // kpid1 is decided by vatId
-      mockKV.set(`${kpid1}.state`, 'unresolved');
-      mockKV.set(`${kpid1}.decider`, vatId);
-      mockKV.set(`${kpid1}.subscribers`, '[]');
-
-      // kpid2 is also decided by vatId
-      mockKV.set(`${kpid2}.state`, 'unresolved');
-      mockKV.set(`${kpid2}.decider`, vatId);
-      mockKV.set(`${kpid2}.subscribers`, '[]');
-
-      // kpid3 is unresolved but decided by a different vat
-      mockKV.set(`${kpid3}.state`, 'unresolved');
-      mockKV.set(`${kpid3}.decider`, 'v2');
-      mockKV.set(`${kpid3}.subscribers`, '[]');
-
-      const result = Array.from(promiseMethods.getPromisesByDecider(vatId));
-
-      expect(result).toStrictEqual([kpid1, kpid2]);
-      expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`cle.${vatId}.p`);
+      expect(result).toStrictEqual(['kp101', 'kp102']);
     });
 
     it('does not yield resolved promises', () => {
-      const vatId = 'v1' as VatId;
-      const kpid1 = 'kp101';
-      const kpid2 = 'kp102';
+      givenCListPromise('v1', 'p+1', 'kp101', undefined, 'fulfilled');
+      givenCListPromise('v1', 'p+2', 'kp102', 'v1');
 
-      mockGetPrefixedKeys.mockReturnValue([
-        `cle.${vatId}.p1`,
-        `cle.${vatId}.p2`,
-      ]);
+      const result = Array.from(promiseMethods.getPromisesByDecider('v1'));
 
-      mockKV.set(`cle.${vatId}.p1`, kpid1);
-      mockKV.set(`cle.${vatId}.p2`, kpid2);
+      expect(result).toStrictEqual(['kp102']);
+    });
 
-      // kpid1 is fulfilled
-      mockKV.set(`${kpid1}.state`, 'fulfilled');
-      mockKV.set(`${kpid1}.value`, '{"body":"value","slots":[]}');
+    it('ignores object entries in the same c-list', () => {
+      givenCListPromise('v1', 'p+1', 'kp101', 'v1');
+      mockKV.set('v1.c.o+1', 'ko1');
+      mockKV.set('v1.c.ko1', 'R o+1');
 
-      // kpid2 is unresolved and decided by vatId
-      mockKV.set(`${kpid2}.state`, 'unresolved');
-      mockKV.set(`${kpid2}.decider`, vatId);
-      mockKV.set(`${kpid2}.subscribers`, '[]');
+      const result = Array.from(promiseMethods.getPromisesByDecider('v1'));
 
-      const result = Array.from(promiseMethods.getPromisesByDecider(vatId));
-
-      expect(result).toStrictEqual([kpid2]);
+      expect(result).toStrictEqual(['kp101']);
     });
 
     it('yields nothing if no promises are decided by the vat', () => {

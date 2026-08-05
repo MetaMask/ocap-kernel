@@ -16,6 +16,9 @@ import { makeKernelSlot } from '../utils/kernel-slots.ts';
 import { parseRef } from '../utils/parse-ref.ts';
 import { isPromiseRef } from '../utils/promise-ref.ts';
 
+/** Matches the promise erefs in a c-list: `p+NN`/`p-NN`, or `rp+NN`/`rp-NN` for a remote. */
+const PROMISE_EREF = /^r?p[-+]\d+$/u;
+
 /**
  * Create a promise store object that provides functionality for managing kernel promises.
  *
@@ -25,14 +28,20 @@ import { isPromiseRef } from '../utils/promise-ref.ts';
  */
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getPromiseMethods(ctx: StoreContext) {
-  const { incCounter, provideStoredQueue, getPrefixedKeys, refCountKey } =
-    getBaseMethods(ctx.kv);
-  const { decrementRefCount } = getRefCountMethods(ctx);
+  const {
+    incCounter,
+    provideStoredQueue,
+    getPrefixedKeys,
+    getCListPrefix,
+    refCountKey,
+  } = getBaseMethods(ctx.kv);
+  const { incrementRefCount, decrementRefCount } = getRefCountMethods(ctx);
 
   /**
-   * Create a new, unresolved kernel promise. The new promise will be born with
-   * a reference count of 1 on the assumption that the promise has just been
-   * imported from somewhere.
+   * Create a new, unresolved kernel promise, born with a reference count of 1:
+   * an unsettled promise is owed a decision, and that obligation is itself a
+   * reference. Released, exactly once, when the promise settles in
+   * {@link resolveKernelPromise}.
    *
    * @returns A tuple of the new promise's KRef and an object describing the
    * new promise itself.
@@ -159,16 +168,18 @@ export function getPromiseMethods(ctx: StoreContext) {
     value: CapData<KRef>,
   ): [KRef, KernelMessage][] {
     const queue = provideStoredQueue(kpid, false);
-    // Collect messages that were queued on this promise
+    // Releasing each queue entry's references as we go: the caller re-enqueues
+    // these on the run queue, which takes its own.
     const queuedMessages: [KRef, KernelMessage][] = [];
     for (const message of getKernelPromiseMessageQueue(kpid)) {
       queuedMessages.push([kpid, message]);
+      releaseQueuedMessageRefs(kpid, message, 'resolve|dequeue');
     }
     ctx.kv.set(`${kpid}.state`, rejected ? 'rejected' : 'fulfilled');
     ctx.kv.set(`${kpid}.value`, JSON.stringify(value));
     ctx.kv.delete(`${kpid}.decider`);
     ctx.kv.delete(`${kpid}.subscribers`);
-    // Drop the baseline "decider" refcount now that the promise is settled.
+    // The promise has been decided, so it is no longer owed a decision.
     decrementRefCount(kpid, 'resolve|decider');
     queue.delete();
     return queuedMessages;
@@ -177,11 +188,44 @@ export function getPromiseMethods(ctx: StoreContext) {
   /**
    * Append a message to a promise's message queue.
    *
+   * The queue entry becomes the message's holder, so it takes references on
+   * everything the message carries, just as the run queue does.
+   *
    * @param kpid - The KRef of the promise to enqueue on.
    * @param message - The message to enqueue.
    */
   function enqueuePromiseMessage(kpid: KRef, message: KernelMessage): void {
+    incrementRefCount(kpid, 'promiseQueue|target');
+    if (message.result) {
+      incrementRefCount(message.result, 'promiseQueue|result');
+    }
+    for (const slot of message.methargs.slots) {
+      incrementRefCount(slot, 'promiseQueue|slot');
+    }
     provideStoredQueue(kpid, false).enqueue(message);
+  }
+
+  /**
+   * Release the references a promise-queue entry held on the message it
+   * carried.
+   *
+   * @param kpid - The promise whose queue the message was on, and hence the
+   * message's target.
+   * @param message - The message being taken off the queue.
+   * @param tag - Tag for refcount logging.
+   */
+  function releaseQueuedMessageRefs(
+    kpid: KRef,
+    message: KernelMessage,
+    tag: string,
+  ): void {
+    decrementRefCount(kpid, `${tag}|target`);
+    if (message.result) {
+      decrementRefCount(message.result, `${tag}|result`);
+    }
+    for (const slot of message.methargs.slots) {
+      decrementRefCount(slot, `${tag}|slot`);
+    }
   }
 
   /**
@@ -211,8 +255,13 @@ export function getPromiseMethods(ctx: StoreContext) {
    * @yields the kpids of all the unresolved promises decided by `decider`.
    */
   function* getPromisesByDecider(decider: EndpointId): Generator<KRef> {
-    const basePrefix = `cle.${decider}.`;
-    for (const key of getPrefixedKeys(`${basePrefix}p`)) {
+    const prefix = getCListPrefix(decider);
+    for (const key of getPrefixedKeys(prefix)) {
+      // A c-list holds both directions of each pair. Iterate by eref, and only
+      // the promise ones: `p+NN`/`p-NN` for a vat, `rp+NN`/`rp-NN` for a remote.
+      if (!PROMISE_EREF.test(key.slice(prefix.length))) {
+        continue;
+      }
       const kpid = ctx.kv.getRequired<KRef>(key);
       const kp = getKernelPromise(kpid);
       if (kp.state === 'unresolved' && kp.decider === decider) {

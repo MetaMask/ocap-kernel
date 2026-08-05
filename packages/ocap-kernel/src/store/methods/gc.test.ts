@@ -76,21 +76,6 @@ describe('GC methods', () => {
     });
   });
 
-  describe('reachability tracking', () => {
-    it('manages reachable flags', () => {
-      const v1Object = kernelStore.initKernelObject('v1');
-      kernelStore.addCListEntry('v1', v1Object, 'o-1');
-
-      expect(kernelStore.getReachableFlag('v1', v1Object)).toBe(true);
-
-      kernelStore.clearReachableFlag('v1', v1Object);
-      expect(kernelStore.getReachableFlag('v1', v1Object)).toBe(false);
-
-      const refCounts = kernelStore.getObjectRefCount(v1Object);
-      expect(refCounts.reachable).toBe(0);
-    });
-  });
-
   describe('reaping', () => {
     it('processes reap queue in order', () => {
       const vatIds = ['v1', 'v2', 'v3'];

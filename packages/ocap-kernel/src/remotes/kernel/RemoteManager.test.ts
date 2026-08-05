@@ -23,16 +23,13 @@ describe('RemoteManager', () => {
   let remoteManager: RemoteManager;
   let mockPlatformServices: PlatformServices;
   let kernelStore: ReturnType<typeof makeKernelStore>;
-  let kernelKVStore: ReturnType<typeof makeMapKernelDatabase>['kernelKVStore'];
   let mockKernelQueue: KernelQueue;
   let logger: Logger;
   let mockRemoteComms: RemoteComms;
   let mockFactory: ReturnType<typeof createMockRemotesFactory>;
 
   beforeEach(() => {
-    const kernelDatabase = makeMapKernelDatabase();
-    kernelKVStore = kernelDatabase.kernelKVStore;
-    kernelStore = makeKernelStore(kernelDatabase);
+    kernelStore = makeKernelStore(makeMapKernelDatabase());
     logger = new Logger('test');
 
     mockFactory = createMockRemotesFactory({
@@ -776,7 +773,7 @@ describe('RemoteManager', () => {
       // Set up a promise where the remote is the decider
       const [kpid] = kernelStore.initKernelPromise();
       kernelStore.setPromiseDecider(kpid, remoteId);
-      kernelKVStore.set(`cle.${remoteId}.p+1`, kpid);
+      kernelStore.addCListEntry(remoteId, kpid, 'rp+1');
 
       const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');
 
@@ -882,7 +879,7 @@ describe('RemoteManager', () => {
 
       const [kpid] = kernelStore.initKernelPromise();
       kernelStore.setPromiseDecider(kpid, remoteId);
-      kernelKVStore.set(`cle.${remoteId}.p+1`, kpid);
+      kernelStore.addCListEntry(remoteId, kpid, 'rp+1');
       kernelStore.setPeerIncarnation(peerId, 'incarnation-A');
 
       const resolvePromisesSpy = vi.spyOn(mockKernelQueue, 'resolvePromises');

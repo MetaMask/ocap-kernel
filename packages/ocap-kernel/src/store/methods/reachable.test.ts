@@ -15,13 +15,65 @@ describe('GC methods', () => {
       const ko1 = kernelStore.initKernelObject('v1');
       kernelStore.addCListEntry('v1', ko1, 'o-1');
 
+      // An import entry is born recognizing but not yet reaching
+      expect(kernelStore.getReachableFlag('v1', ko1)).toBe(false);
+      expect(kernelStore.getObjectRefCount(ko1)).toStrictEqual({
+        reachable: 0,
+        recognizable: 1,
+      });
+
+      kernelStore.setReachableFlag('v1', ko1);
       expect(kernelStore.getReachableFlag('v1', ko1)).toBe(true);
+      expect(kernelStore.getObjectRefCount(ko1)).toStrictEqual({
+        reachable: 1,
+        recognizable: 1,
+      });
 
       kernelStore.clearReachableFlag('v1', ko1);
       expect(kernelStore.getReachableFlag('v1', ko1)).toBe(false);
+      expect(kernelStore.getObjectRefCount(ko1)).toStrictEqual({
+        reachable: 0,
+        recognizable: 1,
+      });
+    });
 
-      const refCounts = kernelStore.getObjectRefCount(ko1);
-      expect(refCounts.reachable).toBe(0);
+    it.each(['setReachableFlag', 'clearReachableFlag'] as const)(
+      'is idempotent: %s',
+      (method) => {
+        const ko1 = kernelStore.initKernelObject('v1');
+        kernelStore.addCListEntry('v1', ko1, 'o-1');
+        kernelStore.setReachableFlag('v1', ko1);
+
+        const before = kernelStore.getObjectRefCount(ko1);
+        kernelStore[method]('v1', ko1);
+        kernelStore[method]('v1', ko1);
+        const after = kernelStore.getObjectRefCount(ko1);
+
+        expect(after).toStrictEqual(
+          method === 'setReachableFlag'
+            ? before
+            : { reachable: 0, recognizable: 1 },
+        );
+      },
+    );
+
+    it('leaves an export entry alone: it carries no reachable count', () => {
+      const ko1 = kernelStore.initKernelObject('v1');
+      kernelStore.addCListEntry('v1', ko1, 'o+1');
+
+      expect(kernelStore.getReachableFlag('v1', ko1)).toBe(true);
+      kernelStore.setReachableFlag('v1', ko1);
+      expect(kernelStore.getObjectRefCount(ko1)).toStrictEqual({
+        reachable: 0,
+        recognizable: 0,
+      });
+
+      kernelStore.clearReachableFlag('v1', ko1);
+      expect(kernelStore.getReachableFlag('v1', ko1)).toBe(false);
+      expect(kernelStore.getObjectRefCount(ko1)).toStrictEqual({
+        reachable: 0,
+        recognizable: 0,
+      });
     });
   });
 });

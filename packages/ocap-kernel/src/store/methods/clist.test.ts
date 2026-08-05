@@ -27,28 +27,24 @@ describe('clist-methods', () => {
   });
 
   describe('addCListEntry', () => {
-    it('adds a bidirectional mapping between KRef and ERef', () => {
-      const endpointId: EndpointId = 'v1';
-      const kref: KRef = 'ko1';
-      const eref: ERef = 'o-1';
+    it.each([
+      { what: 'an object import', kref: 'ko1', eref: 'o-1', flag: '_' },
+      { what: 'an object export', kref: 'ko1', eref: 'o+1', flag: 'R' },
+      { what: 'a promise import', kref: 'kp1', eref: 'p-2', flag: '_' },
+      { what: 'a promise export', kref: 'kp1', eref: 'p+2', flag: 'R' },
+    ] as { what: string; kref: KRef; eref: ERef; flag: string }[])(
+      'adds a bidirectional mapping for $what',
+      ({ kref, eref, flag }) => {
+        const endpointId: EndpointId = 'v1';
 
-      clistMethods.addCListEntry(endpointId, kref, eref);
+        clistMethods.addCListEntry(endpointId, kref, eref);
 
-      // Check that both mappings are stored
-      expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`R ${eref}`);
-      expect(kv.get(`${endpointId}.c.${eref}`)).toBe(kref);
-    });
-
-    it('works with promise refs', () => {
-      const endpointId: EndpointId = 'v1';
-      const kref: KRef = 'kp1';
-      const eref: ERef = 'p+2';
-
-      clistMethods.addCListEntry(endpointId, kref, eref);
-
-      expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`R ${eref}`);
-      expect(kv.get(`${endpointId}.c.${eref}`)).toBe(kref);
-    });
+        // Only an export is born reachable; an import earns reachability when
+        // the reference is actually handed over
+        expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`${flag} ${eref}`);
+        expect(kv.get(`${endpointId}.c.${eref}`)).toBe(kref);
+      },
+    );
 
     it('works with remote endpoints', () => {
       const endpointId: EndpointId = 'r1';
@@ -60,6 +56,29 @@ describe('clist-methods', () => {
       expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`R ${eref}`);
       expect(kv.get(`${endpointId}.c.${eref}`)).toBe(kref);
     });
+
+    it('takes a recognizable reference for an object import', () => {
+      clistMethods.addCListEntry('v1', 'ko1', 'o-1');
+
+      expect(kv.get('ko1.refCount')).toBe('0,1');
+    });
+
+    it('takes no reference for an object export', () => {
+      clistMethods.addCListEntry('v1', 'ko1', 'o+1');
+
+      expect(kv.get('ko1.refCount')).toBeUndefined();
+    });
+
+    it.each(['p-1', 'p+1'] as ERef[])(
+      'takes a reference for a promise entry (%s)',
+      (eref) => {
+        kv.set('kp1.refCount', '1');
+
+        clistMethods.addCListEntry('v1', 'kp1', eref);
+
+        expect(kv.get('kp1.refCount')).toBe('2');
+      },
+    );
   });
 
   describe('hasCListEntry', () => {
@@ -96,7 +115,7 @@ describe('clist-methods', () => {
       expect(kv.get(`e.nextObjectId.${endpointId}`)).toBe('2');
 
       // Check that the mapping was added
-      expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`R ${eref}`);
+      expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`_ ${eref}`);
       expect(kv.get(`${endpointId}.c.${eref}`)).toBe(kref);
     });
 
@@ -113,7 +132,7 @@ describe('clist-methods', () => {
       expect(kv.get(`e.nextPromiseId.${endpointId}`)).toBe('2');
 
       // Check that the mapping was added
-      expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`R ${eref}`);
+      expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`_ ${eref}`);
       expect(kv.get(`${endpointId}.c.${eref}`)).toBe(kref);
     });
 
@@ -151,7 +170,7 @@ describe('clist-methods', () => {
     });
   });
 
-  describe('krefsToExistingErefs', () => {
+  describe('krefsToErefs', () => {
     it('returns the ERefs for existing KRefs', () => {
       const endpointId: EndpointId = 'v1';
       const kref1: KRef = 'ko1';
@@ -163,25 +182,18 @@ describe('clist-methods', () => {
       clistMethods.addCListEntry(endpointId, kref2, eref2);
 
       expect(
-        clistMethods.krefsToExistingErefs(endpointId, [kref1, kref2]),
+        clistMethods.krefsToErefs(endpointId, [kref1, kref2]),
       ).toStrictEqual([eref1, eref2]);
     });
 
-    it('returns an empty array for non-existent KRefs', () => {
-      const endpointId: EndpointId = 'v1';
-      const kref: KRef = 'ko1';
-
-      expect(
-        clistMethods.krefsToExistingErefs(endpointId, [kref]),
-      ).toStrictEqual([]);
+    it('throws for an unmapped KRef', () => {
+      expect(() => clistMethods.krefsToErefs('v1', ['ko1'])).toThrow(
+        'unmapped kref "ko1" in "v1" c-list',
+      );
     });
 
     it('returns an empty array for empty KRef array', () => {
-      const endpointId: EndpointId = 'v1';
-
-      expect(clistMethods.krefsToExistingErefs(endpointId, [])).toStrictEqual(
-        [],
-      );
+      expect(clistMethods.krefsToErefs('v1', [])).toStrictEqual([]);
     });
   });
 
@@ -191,7 +203,7 @@ describe('clist-methods', () => {
       const kref: KRef = 'ko1';
       const eref: ERef = 'o-1';
       clistMethods.addCListEntry(endpointId, kref, eref);
-      expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`R ${eref}`);
+      expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`_ ${eref}`);
       expect(kv.get(`${endpointId}.c.${eref}`)).toBe(kref);
       clistMethods.forgetEref(endpointId, eref);
       expect(kv.get(`${endpointId}.c.${kref}`)).toBeUndefined();
@@ -214,7 +226,7 @@ describe('clist-methods', () => {
       const kref: KRef = 'ko1';
       const eref: ERef = 'o-1';
       clistMethods.addCListEntry(endpointId, kref, eref);
-      expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`R ${eref}`);
+      expect(kv.get(`${endpointId}.c.${kref}`)).toBe(`_ ${eref}`);
       expect(kv.get(`${endpointId}.c.${eref}`)).toBe(kref);
       clistMethods.forgetKref(endpointId, kref);
       expect(kv.get(`${endpointId}.c.${kref}`)).toBeUndefined();

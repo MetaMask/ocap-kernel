@@ -59,9 +59,12 @@ describe('KernelRouter', () => {
       krefToEref: vi.fn() as unknown as MockInstance,
       getKpidsToRetire: vi.fn().mockReturnValue([]),
       translateCapDataKtoE: vi.fn(),
-      krefsToExistingErefs: vi.fn((_endpointId: string, krefs: string[]) =>
+      krefsToErefs: vi.fn((_endpointId: string, krefs: string[]) =>
         krefs.map((kref: string) => `translated-${kref}`),
       ) as unknown as MockInstance,
+      clearReachableFlag: vi.fn(),
+      deleteCListEntry: vi.fn(),
+      forgetKref: vi.fn(),
       createCrankSavepoint: vi.fn(),
     } as unknown as KernelStore;
 
@@ -283,8 +286,35 @@ describe('KernelRouter', () => {
         expect(endpointHandle.deliverMessage).not.toHaveBeenCalled();
         expect(result).toBeUndefined();
 
-        // Verify that no refcount decrementation happened since we're requeuing
-        expect(kernelStore.decrementRefCount).not.toHaveBeenCalled();
+        expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
+          target,
+          'requeue|target',
+        );
+      });
+
+      it('hands over every reference a requeued message carries', async () => {
+        const target = 'kp123';
+        (
+          kernelStore.getKernelPromise as unknown as MockInstance
+        ).mockReturnValueOnce({ state: 'unresolved' });
+        const message: KernelMessage = {
+          methargs: { body: 'method args', slots: ['ko1', 'ko2'] },
+          result: 'kp9',
+        };
+        await kernelRouter.deliver({ type: 'send', target, message });
+
+        expect(kernelStore.enqueuePromiseMessage).toHaveBeenCalledWith(
+          target,
+          message,
+        );
+        expect(
+          (kernelStore.decrementRefCount as unknown as MockInstance).mock.calls,
+        ).toStrictEqual([
+          [target, 'requeue|target'],
+          ['kp9', 'requeue|result'],
+          ['ko1', 'requeue|slot'],
+          ['ko2', 'requeue|slot'],
+        ]);
       });
 
       it('splats message when promise resolves to a non-object', async () => {
@@ -647,6 +677,42 @@ describe('KernelRouter', () => {
             endpointHandle[deliverMethod as keyof EndpointHandle],
           ).toHaveBeenCalledWith(krefs.map((kref) => `translated-${kref}`));
           expect(result).toStrictEqual(mockCrankResult);
+        },
+      );
+
+      it('clears the reachable flag when delivering dropExports', async () => {
+        await kernelRouter.deliver({
+          type: 'dropExports',
+          endpointId: 'v1',
+          krefs: ['ko1', 'ko2'],
+        });
+
+        expect(
+          (kernelStore.clearReachableFlag as unknown as MockInstance).mock
+            .calls,
+        ).toStrictEqual([
+          ['v1', 'ko1'],
+          ['v1', 'ko2'],
+        ]);
+        expect(kernelStore.deleteCListEntry).not.toHaveBeenCalled();
+      });
+
+      it.each(['retireExports', 'retireImports'] as const)(
+        'tears down the c-list entry when delivering %s',
+        async (actionType) => {
+          await kernelRouter.deliver({
+            type: actionType,
+            endpointId: 'v1',
+            krefs: ['ko1', 'ko2'],
+          });
+
+          expect(
+            (kernelStore.deleteCListEntry as unknown as MockInstance).mock
+              .calls,
+          ).toStrictEqual([
+            ['v1', 'ko1', 'translated-ko1'],
+            ['v1', 'ko2', 'translated-ko2'],
+          ]);
         },
       );
     });

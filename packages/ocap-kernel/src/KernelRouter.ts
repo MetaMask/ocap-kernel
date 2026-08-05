@@ -11,6 +11,7 @@ import { isPromiseRef } from './store/utils/promise-ref.ts';
 import type {
   EndpointId,
   EndpointHandle,
+  ERef,
   KRef,
   KernelMessage,
   RunQueueItem,
@@ -255,7 +256,10 @@ export class KernelRouter {
               'deliver|splat|result',
             );
           }
-          this.#kernelStore.decrementRefCount(target, 'deliver|splat|target');
+          this.#kernelStore.decrementRefCount(
+            item.target,
+            'deliver|splat|target',
+          );
           for (const slot of message.methargs.slots) {
             this.#kernelStore.decrementRefCount(slot, 'deliver|splat|slot');
           }
@@ -314,12 +318,24 @@ export class KernelRouter {
       } else {
         Fail`no owner for kernel object ${target}`;
       }
-      this.#kernelStore.decrementRefCount(target, 'deliver|send|target');
+      // `item.target`, not the routed `target`: a message aimed at a promise
+      // is charged against the promise, and routing may have resolved it to a
+      // different object.
+      this.#kernelStore.decrementRefCount(item.target, 'deliver|send|target');
       for (const slot of message.methargs.slots) {
         this.#kernelStore.decrementRefCount(slot, 'deliver|send|slot');
       }
     } else {
+      // The references move from this run queue item to the promise's queue
+      // entry. New holder first, so nothing transiently looks unreferenced.
       this.#kernelStore.enqueuePromiseMessage(target, message);
+      this.#kernelStore.decrementRefCount(item.target, 'requeue|target');
+      if (message.result) {
+        this.#kernelStore.decrementRefCount(message.result, 'requeue|result');
+      }
+      for (const slot of message.methargs.slots) {
+        this.#kernelStore.decrementRefCount(slot, 'requeue|slot');
+      }
     }
 
     return crankResult;
@@ -362,6 +378,9 @@ export class KernelRouter {
     if (state === 'unresolved') {
       Fail`notification on unresolved promise ${kpid}`;
     }
+    // Release the queued notification's reference up front, so the paths that
+    // decide there is nothing to deliver don't leak it.
+    this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
     if (!this.#kernelStore.krefToEref(endpointId, kpid)) {
       // no c-list entry, already done
       return { didDelivery: endpointId };
@@ -385,16 +404,13 @@ export class KernelRouter {
         tPromise.state === 'rejected',
         this.#kernelStore.translateCapDataKtoE(endpointId, tPromise.value),
       ]);
-      // decrement refcount for the promise being notified
-      if (toResolve !== kpid) {
-        this.#kernelStore.decrementRefCount(toResolve, 'deliver|notify|slot');
-      }
     }
+    // TODO(#1006 follow-up): SwingSet also tears down the c-list entry for each
+    // promise in the batch here, since the endpoint can never refer to a
+    // settled promise by that eref again. Left alone for now because the
+    // debug UI discovers exported ocap URLs by scanning these entries.
     const endpoint = this.#getEndpoint(endpointId);
-    const crankResult = await endpoint.deliverNotify(resolutions);
-    // Decrement reference count for processed 'notify' item
-    this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
-    return crankResult;
+    return await endpoint.deliverNotify(resolutions);
   }
 
   /**
@@ -409,7 +425,21 @@ export class KernelRouter {
       `@@@@ deliver ${endpointId} ${type} ${JSON.stringify(krefs)}`,
     );
     const endpoint = this.#getEndpoint(endpointId);
-    const erefs = this.#kernelStore.krefsToExistingErefs(endpointId, krefs);
+    const erefs = this.#kernelStore.krefsToErefs(endpointId, krefs);
+    // Telling an endpoint to let go is also the kernel letting go. Otherwise a
+    // dropped export stays flagged reachable, so the same action gets derived
+    // again, and retired entries outlive the objects they name.
+    krefs.forEach((kref, index) => {
+      if (type === 'dropExports') {
+        this.#kernelStore.clearReachableFlag(endpointId, kref);
+      } else {
+        this.#kernelStore.deleteCListEntry(
+          endpointId,
+          kref,
+          erefs[index] as ERef,
+        );
+      }
+    });
     const method =
       `deliver${(type[0] as string).toUpperCase()}${type.slice(1)}` as
         | 'deliverDropExports'

@@ -21,6 +21,7 @@ import type {
 } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
 import { getCListMethods } from './clist.ts';
+import { getReachableMethods } from './reachable.ts';
 import { getVatMethods } from './vat.ts';
 import { Fail, assert } from '../../utils/assert.ts';
 
@@ -35,6 +36,7 @@ import { Fail, assert } from '../../utils/assert.ts';
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getTranslators(ctx: StoreContext) {
   const { krefToEref, erefToKref, allocateErefForKref } = getCListMethods(ctx);
+  const { setReachableFlag } = getReachableMethods(ctx);
   const { exportFromEndpoint } = getVatMethods(ctx);
 
   /**
@@ -53,6 +55,11 @@ export function getTranslators(ctx: StoreContext) {
 
   /**
    * Translate a reference from kernel space into endpoint space.
+   *
+   * Translating is how the kernel hands an endpoint a reference, so it also
+   * re-establishes reachability: a vat given an object it previously dropped
+   * holds it live again. Garbage collection deliveries must not do this, and
+   * don't — they map through `krefsToErefs`, which never touches the flag.
    *
    * @param endpointId - The endpoint for whom translation is desired.
    * @param kref - The KRef of the entity of interest.
@@ -74,6 +81,7 @@ export function getTranslators(ctx: StoreContext) {
         throw Fail`unmapped kref ${kref} endpoint=${endpointId}`;
       }
     }
+    setReachableFlag(endpointId, kref);
     if (isRemoteId(endpointId)) {
       // The import/export relationship between a vat and the kernel is
       // asymmetric -- the vat always exports to the kernel and imports from the

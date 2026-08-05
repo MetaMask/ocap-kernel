@@ -47,6 +47,8 @@ describe('kernel store', () => {
         'addSubcluster',
         'addSubclusterVat',
         'allocateErefForKref',
+        'assertRefCountsIfAuditing',
+        'auditRefCounts',
         'bufferCrankOutput',
         'cleanupOrphanMessages',
         'cleanupTerminatedVat',
@@ -84,6 +86,7 @@ describe('kernel store', () => {
         'forgetEref',
         'forgetKref',
         'forgetTerminatedVat',
+        'formatRefCountViolations',
         'getAllRemoteRecords',
         'getAllSystemSubclusterMappings',
         'getAllVatRecords',
@@ -140,7 +143,7 @@ describe('kernel store', () => {
         'isVatTerminated',
         'kernelRefExists',
         'krefToEref',
-        'krefsToExistingErefs',
+        'krefsToErefs',
         'makeVatStore',
         'markInitialized',
         'markVatAsTerminated',
@@ -148,6 +151,7 @@ describe('kernel store', () => {
         'nextTerminatedVatCleanup',
         'pinObject',
         'provideIncarnationId',
+        'recomputeRefCounts',
         'recordLastActiveTime',
         'releaseAllSavepoints',
         'releaseSavepoint',
@@ -167,6 +171,8 @@ describe('kernel store', () => {
         'setPeerIncarnation',
         'setPendingMessage',
         'setPromiseDecider',
+        'setReachableFlag',
+        'setRefCountAuditing',
         'setRelayEntries',
         'setRemoteHighestReceivedSeq',
         'setRemoteIdentityValue',
@@ -206,31 +212,31 @@ describe('kernel store', () => {
       const ko2Owner = 'r23';
       expect(ks.initKernelObject(ko1Owner)).toBe('ko1');
 
-      // Check that the object is initialized with reachable=1, recognizable=1
-      const refCounts = ks.getObjectRefCount('ko1');
-      expect(refCounts.reachable).toBe(1);
-      expect(refCounts.recognizable).toBe(1);
+      expect(ks.getObjectRefCount('ko1')).toStrictEqual({
+        reachable: 0,
+        recognizable: 0,
+      });
 
       // Increment the reference count
       ks.incrementRefCount('ko1', 'test');
-      expect(ks.getObjectRefCount('ko1').reachable).toBe(2);
-      expect(ks.getObjectRefCount('ko1').recognizable).toBe(2);
+      expect(ks.getObjectRefCount('ko1')).toStrictEqual({
+        reachable: 1,
+        recognizable: 1,
+      });
 
       // Increment again
       ks.incrementRefCount('ko1', 'test');
-      expect(ks.getObjectRefCount('ko1').reachable).toBe(3);
-      expect(ks.getObjectRefCount('ko1').recognizable).toBe(3);
+      expect(ks.getObjectRefCount('ko1')).toStrictEqual({
+        reachable: 2,
+        recognizable: 2,
+      });
 
-      // Decrement
-      ks.decrementRefCount('ko1', 'tess');
-      expect(ks.getObjectRefCount('ko1').reachable).toBe(2);
-      expect(ks.getObjectRefCount('ko1').recognizable).toBe(2);
-
-      // Decrement twice more to reach 0
       ks.decrementRefCount('ko1', 'test');
       ks.decrementRefCount('ko1', 'test');
-      expect(ks.getObjectRefCount('ko1').reachable).toBe(0);
-      expect(ks.getObjectRefCount('ko1').recognizable).toBe(0);
+      expect(ks.getObjectRefCount('ko1')).toStrictEqual({
+        reachable: 0,
+        recognizable: 0,
+      });
 
       // Create another object
       expect(ks.initKernelObject(ko2Owner)).toBe('ko2');

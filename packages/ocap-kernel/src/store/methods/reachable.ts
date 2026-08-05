@@ -55,6 +55,32 @@ export function getReachableMethods(ctx: StoreContext) {
   }
 
   /**
+   * Set the reachable flag for a given endpoint and kref.
+   *
+   * The counterpart to {@link clearReachableFlag}: this is how an object
+   * regains reachability when a vat that dropped it is handed it again.
+   * Idempotent, so repeated translations don't inflate the count.
+   *
+   * @param endpointId - The endpoint for which the reachable flag is being set.
+   * @param kref - The kref.
+   */
+  function setReachableFlag(endpointId: EndpointId, kref: KRef): void {
+    const key = getSlotKey(endpointId, kref);
+    const { isReachable, vatSlot } = getReachableAndVatSlot(endpointId, kref);
+    if (isReachable) {
+      return;
+    }
+    ctx.kv.set(key, buildReachableAndVatSlot(true, vatSlot));
+    const { direction, isPromise } = parseRef(vatSlot);
+    // increment 'reachable' part of refcount, but only for object imports
+    if (!isPromise && direction === 'import' && kernelRefExists(kref)) {
+      const counts = getObjectRefCount(kref);
+      counts.reachable += 1;
+      setObjectRefCount(kref, counts);
+    }
+  }
+
+  /**
    * Clear the reachable flag for a given endpoint and kref.
    *
    * @param endpointId - The endpoint for which the reachable flag is being cleared.
@@ -84,6 +110,7 @@ export function getReachableMethods(ctx: StoreContext) {
   return {
     getReachableFlag,
     getReachableAndVatSlot,
+    setReachableFlag,
     clearReachableFlag,
   };
 }

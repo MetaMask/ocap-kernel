@@ -19,7 +19,18 @@ export function getBaseMethods(kv: KVStore) {
    * @returns The key for the reachable flag and vatSlot.
    */
   function getSlotKey(endpointId: EndpointId, ref: Ref): string {
-    return `${endpointId}.c.${ref}`;
+    return `${getCListPrefix(endpointId)}${ref}`;
+  }
+
+  /**
+   * Get the prefix shared by both directions of every entry in an endpoint's
+   * c-list, for iterating over the whole thing.
+   *
+   * @param endpointId - The endpoint whose c-list is of interest.
+   * @returns The prefix that all of that endpoint's c-list keys begin with.
+   */
+  function getCListPrefix(endpointId: EndpointId): string {
+    return `${endpointId}.c.`;
   }
 
   /**
@@ -206,6 +217,7 @@ export function getBaseMethods(kv: KVStore) {
 
   return {
     getSlotKey,
+    getCListPrefix,
     refCountKey,
     getOwnerKey,
     getRevokedKey,

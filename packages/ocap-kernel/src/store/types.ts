@@ -27,6 +27,7 @@ export type StoreContext = {
   subclusters: StoredValue; // Holds Subcluster[]
   nextSubclusterId: StoredValue; // Holds string
   vatToSubclusterMap: StoredValue; // Holds Record<VatId, SubclusterId>
+  auditRefCounts: boolean; // If set, verify refcounts against ground truth every crank
   logger?: Logger | undefined;
 };
 

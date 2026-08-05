@@ -44,6 +44,7 @@ describe('KernelQueue', () => {
     kernelStore = {
       nextTerminatedVatCleanup: vi.fn(),
       collectGarbage: vi.fn(),
+      assertRefCountsIfAuditing: vi.fn(),
       runQueueLength: vi.fn(),
       dequeueRun: vi.fn(),
       enqueueRun: vi.fn(),
@@ -653,10 +654,6 @@ describe('KernelQueue', () => {
       });
       kernelQueue.resolvePromises(endpointId, [resolution], false);
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
-        kpid,
-        'resolve|kpid',
-      );
-      expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
         'ko1',
         'resolve|slot',
       );
@@ -709,10 +706,6 @@ describe('KernelQueue', () => {
       const insistEndpointIdSpy = vi.spyOn(types, 'insistEndpointId');
       kernelQueue.resolvePromises(undefined, [resolution], false);
       expect(insistEndpointIdSpy).not.toHaveBeenCalled();
-      expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
-        kpid,
-        'resolve|kpid',
-      );
       expect(kernelStore.incrementRefCount).toHaveBeenCalledWith(
         'ko1',
         'resolve|slot',

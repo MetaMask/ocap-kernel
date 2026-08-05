@@ -93,6 +93,9 @@ export async function makeKernel(
     resetStorage,
     logger,
     keySeed,
+    // Refcount drift is invisible to ordinary assertions until something gets
+    // collected out from under a live holder, so check it every crank.
+    auditRefCounts: true,
   });
   return kernel;
 }
