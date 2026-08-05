@@ -24,11 +24,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Daemon fatal-path visibility: `daemon-entry` now installs handlers for `uncaughtException`, `unhandledRejection`, `SIGHUP`, and `exit` that append a synchronous fingerprint line to `daemon.log` before terminating ([#966](https://github.com/MetaMask/ocap-kernel/pull/966))
   - Without these, silent daemon deaths under `stdio: 'ignore'` (the CLI's default spawn mode) left no trace in the log; the operator saw only that the daemon was gone. Every terminating path now leaves at least one line.
 - The daemon logs the failure and shuts down with a non-zero exit code when the kernel's run loop dies, instead of staying up with a socket that answers RPCs for a kernel that processes nothing ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
-  - A death during startup aborts `daemon start` rather than publishing a socket and pid file for a dead kernel
-  - An aborted startup stops the kernel before closing the database, bounded at 10 seconds, and then terminates the process. `Kernel.make` launches a worker thread per persisted vat, and `stop` reaches those workers only after writing the last-active timestamp, so closing the database first made that write throw and left the workers running — and a live worker thread keeps the event loop open, so an exit code alone never took effect
-  - The shutdown is bounded at 10 seconds and exits immediately if it throws, removing the pid file first. A `kernel.stop()` that throws would otherwise leave an orphan holding `kernel.sqlite` with its socket gone and its pid file already cleaned up, invisible to both start-time interlocks; one that merely stalls stays visible to the pid interlock but is an orphan all the same
-  - Failures are logged with their `cause` chain, so a run loop death reported through a failed crank rollback still names the error that actually killed the kernel
-  - Logging is best-effort: the transport is `appendFileSync`, so a full disk would otherwise throw and take the shutdown with it, leaving up the daemon this exists to bring down
+  - A death during startup aborts `daemon start` instead of publishing a socket and pid file for a dead kernel
+  - Shutdown is bounded at 10 seconds and terminates the process either way, removing the pid file first. Live vat worker threads hold the event loop open, so an exit code alone never took effect, leaving an orphan on `kernel.sqlite` that neither start-time interlock could see
+  - Failures carry their `cause` chain, so a death reported through a failed crank rollback still names the error that killed the kernel
+  - Logging in front of a shutdown or `process.exit` is best-effort, the fatal handlers included: the transport is `appendFileSync`, so a full disk would otherwise take the termination with it
 
 ## [0.1.0]
 

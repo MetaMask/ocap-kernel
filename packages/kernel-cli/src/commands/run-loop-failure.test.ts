@@ -7,6 +7,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import {
   cleanUpFailedStartup,
+  logBestEffort,
   makeDaemonRunLoopWiring,
   makeRunLoopFailureHandler,
   SHUTDOWN_TIMEOUT_MS,
@@ -63,6 +64,34 @@ const makeHandler = (
     exit,
   };
 };
+
+// `daemon-entry` calls this in front of every `process.exit` it owns, and that
+// exit is the only thing that terminates live vat workers.
+describe('logBestEffort', () => {
+  it('records the message', () => {
+    const logger = { error: vi.fn(), info: vi.fn() };
+
+    logBestEffort(logger, 'error', 'Daemon fatal', 'the detail');
+
+    expect(logger.error).toHaveBeenCalledWith('Daemon fatal', 'the detail');
+  });
+
+  it.each(['error', 'info'] as const)(
+    'swallows a %s transport that throws',
+    (level) => {
+      const logger = {
+        error: vi.fn().mockImplementation(() => {
+          throw new Error('ENOSPC');
+        }),
+        info: vi.fn().mockImplementation(() => {
+          throw new Error('ENOSPC');
+        }),
+      };
+
+      expect(() => logBestEffort(logger, level, 'Daemon fatal')).not.toThrow();
+    },
+  );
+});
 
 describe('makeRunLoopFailureHandler', () => {
   beforeEach(() => {

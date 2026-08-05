@@ -10,16 +10,18 @@ type FailureLogger = Pick<Logger, 'error' | 'info'>;
 /**
  * Log without letting the transport's own failure escape.
  *
- * The daemon's transport is `appendFileSync`, so a full disk throws; the kernel
- * swallows what the failure handler throws, so a failed log would otherwise
- * leave the daemon up and serving a dead kernel.
+ * The daemon's transport is `appendFileSync`, so a full disk throws. Every
+ * caller is on a path where that throw would cost more than the lost line: the
+ * kernel swallows what the failure handler throws, so a daemon serving a dead
+ * kernel would stay up, and in the fatal handlers the log sits in front of the
+ * `process.exit` that is the only thing terminating live vat workers.
  *
  * @param logger - Where to record the message.
  * @param level - The severity to record it at.
  * @param message - The message.
  * @param data - Additional detail, already stringified.
  */
-function report(
+export function logBestEffort(
   logger: FailureLogger,
   level: 'error' | 'info',
   message: string,
@@ -90,7 +92,7 @@ export function makeRunLoopFailureHandler({
     if (!isStarted()) {
       // No daemon to close yet. Startup either unwinds at its own check or
       // replays this failure once there is something to shut down.
-      report(
+      logBestEffort(
         logger,
         'error',
         'Kernel run loop died before the daemon started.',
@@ -101,7 +103,7 @@ export function makeRunLoopFailureHandler({
 
     if (isShuttingDown()) {
       // Expected teardown, not an outage: don't fail a deliberate stop.
-      report(
+      logBestEffort(
         logger,
         'info',
         'Kernel run loop stopped during shutdown.',
@@ -116,7 +118,7 @@ export function makeRunLoopFailureHandler({
     // a crank dies and its rollback then fails, the rollback failure is the
     // outermost message and the error that actually killed the kernel is only
     // reachable through `cause`.
-    report(
+    logBestEffort(
       logger,
       'error',
       'Kernel run loop died; shutting down the daemon.',
@@ -135,7 +137,7 @@ export function makeRunLoopFailureHandler({
       try {
         removePidFile();
       } catch (rmError) {
-        report(
+        logBestEffort(
           logger,
           'error',
           'Could not remove the pid file before exiting.',
@@ -146,7 +148,7 @@ export function makeRunLoopFailureHandler({
     };
 
     const killTimer = setTimeout(() => {
-      report(
+      logBestEffort(
         logger,
         'error',
         `Shutdown stalled for ${timeoutMs} ms after run loop failure; exiting now.`,
@@ -159,7 +161,7 @@ export function makeRunLoopFailureHandler({
         () => clearTimeout(killTimer),
         (shutdownError: unknown) => {
           clearTimeout(killTimer);
-          report(
+          logBestEffort(
             logger,
             'error',
             'Shutdown after run loop failure failed; exiting now.',
@@ -219,7 +221,7 @@ export async function cleanUpFailedStartup({
       stopKernel(),
       new Promise<void>((resolve) => {
         giveUpTimer = setTimeout(() => {
-          report(
+          logBestEffort(
             logger,
             'error',
             `Kernel did not stop within ${timeoutMs} ms during startup cleanup.`,
@@ -229,7 +231,7 @@ export async function cleanUpFailedStartup({
       }),
     ]);
   } catch (stopError) {
-    report(
+    logBestEffort(
       logger,
       'error',
       'Could not stop the kernel during startup cleanup.',
@@ -250,7 +252,7 @@ export async function cleanUpFailedStartup({
   try {
     removePidFile();
   } catch (rmError) {
-    report(
+    logBestEffort(
       logger,
       'error',
       'Could not remove the pid file during startup cleanup.',
