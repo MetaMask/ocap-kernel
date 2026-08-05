@@ -6,10 +6,15 @@ import '@ocap/repo-tools/test-utils/mock-endoify';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import {
+  makeDaemonRunLoopWiring,
   makeRunLoopFailureHandler,
   SHUTDOWN_TIMEOUT_MS,
 } from './run-loop-failure.ts';
-import type { RunLoopFailureHandlerOptions } from './run-loop-failure.ts';
+import type {
+  DaemonRunLoopWiring,
+  DaemonRunLoopWiringOptions,
+  RunLoopFailureHandlerOptions,
+} from './run-loop-failure.ts';
 
 /**
  * Make a handler over spies, defaulting to "the daemon is up and not shutting
@@ -242,28 +247,187 @@ describe('makeRunLoopFailureHandler', () => {
     expect(exit).toHaveBeenCalledWith(1);
   });
 
+  // The daemon logs with `appendFileSync`, and the kernel swallows what this
+  // handler throws, so a failed log would leave a daemon serving a dead kernel.
+  it('shuts down even when the log transport throws', async () => {
+    const { handle, shutdown, setExitCode, exit } = makeHandler({
+      logger: {
+        error: vi.fn().mockImplementation(() => {
+          throw new Error('ENOSPC');
+        }),
+        info: vi.fn(),
+      },
+    });
+
+    expect(() => handle(new Error('crank exploded'))).not.toThrow();
+    await vi.runAllTimersAsync();
+
+    expect(setExitCode).toHaveBeenCalledWith(1);
+    expect(shutdown).toHaveBeenCalledWith('run loop failure');
+    expect(exit).not.toHaveBeenCalled();
+  });
+
+  // The disk can fill up between the first log and the last.
+  it('kills the process when a later log transport throws', async () => {
+    let calls = 0;
+    const { handle, removePidFile, exit } = makeHandler({
+      logger: {
+        error: vi.fn().mockImplementation(() => {
+          calls += 1;
+          if (calls > 1) {
+            throw new Error('ENOSPC');
+          }
+        }),
+        info: vi.fn(),
+      },
+      shutdown: vi.fn().mockReturnValue(new Promise(() => undefined)),
+    });
+
+    handle(new Error('crank exploded'));
+    await vi.advanceTimersByTimeAsync(SHUTDOWN_TIMEOUT_MS);
+
+    expect(removePidFile).toHaveBeenCalled();
+    expect(exit).toHaveBeenCalledWith(1);
+  });
+
   // An unhandled rejection here would be reported as the cause of death instead
   // of the run loop failure that actually killed the kernel.
-  it('does not reject when a log transport throws', async () => {
-    const logger = {
-      error: vi.fn().mockImplementation(() => {
-        throw new Error('ENOSPC');
-      }),
-      info: vi.fn(),
-    };
+  it('does not reject when exiting throws', async () => {
     const onUnhandled = vi.fn();
     process.once('unhandledRejection', onUnhandled);
 
     const { handle } = makeHandler({
-      logger,
       shutdown: vi.fn().mockRejectedValue(new Error('close failed')),
+      exit: vi.fn().mockImplementation(() => {
+        throw new Error('exit refused');
+      }),
     });
 
-    expect(() => handle(new Error('crank exploded'))).toThrow('ENOSPC');
+    handle(new Error('crank exploded'));
     await vi.runAllTimersAsync();
     await Promise.resolve();
 
     expect(onUnhandled).not.toHaveBeenCalled();
     process.off('unhandledRejection', onUnhandled);
+  });
+});
+
+/**
+ * Make the daemon wiring over spies.
+ *
+ * @param overrides - Options to replace.
+ * @returns The wiring and the spies it was built from.
+ */
+const makeWiring = (
+  overrides: Partial<DaemonRunLoopWiringOptions> = {},
+): {
+  wiring: DaemonRunLoopWiring;
+  shutdown: ReturnType<typeof vi.fn>;
+  setExitCode: ReturnType<typeof vi.fn>;
+} => {
+  const shutdown = vi.fn().mockResolvedValue(undefined);
+  const setExitCode = vi.fn();
+  const wiring = makeDaemonRunLoopWiring({
+    logger: { error: vi.fn(), info: vi.fn() },
+    shutdown,
+    isShuttingDown: () => false,
+    removePidFile: vi.fn(),
+    setExitCode,
+    exit: vi.fn(),
+    ...overrides,
+  });
+  return { wiring, shutdown, setExitCode };
+};
+
+describe('makeDaemonRunLoopWiring', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('shuts the daemon down when the run loop dies after startup', async () => {
+    const { wiring, shutdown } = makeWiring();
+    wiring.daemonStarted();
+
+    wiring.onRunLoopFailure(new Error('crank exploded'));
+    await vi.runAllTimersAsync();
+
+    expect(shutdown).toHaveBeenCalledWith('run loop failure');
+  });
+
+  // The kernel can report a death before `startDaemon` has returned.
+  it('holds a failure that arrives before the daemon has started', () => {
+    const { wiring, shutdown, setExitCode } = makeWiring();
+
+    wiring.onRunLoopFailure(new Error('died during startup'));
+
+    expect(shutdown).not.toHaveBeenCalled();
+    expect(setExitCode).not.toHaveBeenCalled();
+  });
+
+  it('unwinds startup when the run loop died on the way up', () => {
+    const { wiring } = makeWiring();
+    const failure = new Error('died during startup');
+
+    wiring.onRunLoopFailure(failure);
+
+    // Only `cause` carries the reason it died.
+    expect(() => wiring.assertSurvivedStartup()).toThrow(
+      expect.objectContaining({
+        message: 'Kernel run loop died during startup',
+        cause: failure,
+      }),
+    );
+  });
+
+  it('lets startup proceed while the run loop is alive', () => {
+    const { wiring } = makeWiring();
+
+    expect(() => wiring.assertSurvivedStartup()).not.toThrow();
+  });
+
+  // A loop that died between startup's check and the daemon coming up would
+  // otherwise leave it serving RPCs for a dead kernel forever.
+  it('replays a held failure once there is a daemon to close', async () => {
+    const { wiring, shutdown, setExitCode } = makeWiring();
+    wiring.onRunLoopFailure(new Error('died during startup'));
+
+    wiring.daemonStarted();
+    await vi.runAllTimersAsync();
+
+    expect(shutdown).toHaveBeenCalledWith('run loop failure');
+    expect(setExitCode).toHaveBeenCalledWith(1);
+  });
+
+  it('does not shut down a daemon whose run loop is alive', async () => {
+    const { wiring, shutdown } = makeWiring();
+
+    wiring.daemonStarted();
+    await vi.runAllTimersAsync();
+
+    expect(shutdown).not.toHaveBeenCalled();
+  });
+
+  // Whatever the loop reports afterwards is fallout from the first failure.
+  it('replays the first failure when several arrive before the daemon starts', async () => {
+    const logger = { error: vi.fn(), info: vi.fn() };
+    const { wiring } = makeWiring({ logger });
+    wiring.onRunLoopFailure(new Error('first'));
+    wiring.onRunLoopFailure(new Error('second'));
+
+    wiring.daemonStarted();
+    await vi.runAllTimersAsync();
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'Kernel run loop died; shutting down the daemon.',
+      expect.stringContaining('first'),
+    );
+    expect(logger.error).not.toHaveBeenCalledWith(
+      'Kernel run loop died; shutting down the daemon.',
+      expect.stringContaining('second'),
+    );
   });
 });

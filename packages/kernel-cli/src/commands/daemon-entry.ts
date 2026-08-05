@@ -9,7 +9,7 @@ import { appendFileSync, rmSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { makeRunLoopFailureHandler } from './run-loop-failure.ts';
+import { makeDaemonRunLoopWiring } from './run-loop-failure.ts';
 import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive } from '../utils.ts';
 
@@ -81,20 +81,14 @@ async function main(): Promise<void> {
   const dbFilename = join(ocapDir, 'kernel.sqlite');
   const pidPath = join(ocapDir, 'daemon.pid');
 
-  // Declared before `makeKernel` so the failure handler can close over them: the
+  // Declared before `makeKernel` so the failure wiring can close over it: the
   // kernel may report a death before `startDaemon` has returned.
-  let runLoopFailure: Error | undefined;
-  let daemonStarted = false;
   let shutdownPromise: Promise<void> | undefined;
 
-  const handleRunLoopFailure = makeRunLoopFailureHandler({
+  const runLoop = makeDaemonRunLoopWiring({
     logger,
     shutdown: async (reason) => shutdown(reason),
-    isStarted: () => daemonStarted,
     isShuttingDown: () => shutdownPromise !== undefined,
-    recordFailure: (failure) => {
-      runLoopFailure ??= failure;
-    },
     // eslint-disable-next-line n/no-sync -- must finish before process.exit
     removePidFile: () => rmSync(pidPath, { force: true }),
     setExitCode: (code) => {
@@ -108,7 +102,7 @@ async function main(): Promise<void> {
     resetStorage: false,
     dbFilename,
     logger,
-    onRunLoopFailure: handleRunLoopFailure,
+    onRunLoopFailure: runLoop.onRunLoopFailure,
   });
 
   // Interlock: refuse to start a second daemon under the same OCAP_HOME.
@@ -130,11 +124,7 @@ async function main(): Promise<void> {
   let handle: DaemonHandle;
   try {
     await kernel.initIdentity();
-    if (runLoopFailure) {
-      throw new Error('Kernel run loop died during startup', {
-        cause: runLoopFailure,
-      });
-    }
+    runLoop.assertSurvivedStartup();
     await writeFile(pidPath, String(process.pid));
 
     handle = await startDaemon({
@@ -154,7 +144,6 @@ async function main(): Promise<void> {
     throw error;
   }
 
-  daemonStarted = true;
   logger.info(`Daemon started. Socket: ${handle.socketPath}`);
 
   /**
@@ -173,11 +162,9 @@ async function main(): Promise<void> {
     return shutdownPromise;
   }
 
-  // A failure recorded before there was a daemon to close still has to bring it
-  // down, now that there is one.
-  if (runLoopFailure) {
-    handleRunLoopFailure(runLoopFailure);
-  }
+  // Must follow `shutdown`, which a replayed failure calls and which needs
+  // `handle`.
+  runLoop.daemonStarted();
 
   process.on('SIGTERM', () => {
     shutdown('SIGTERM').catch(() => (process.exitCode = 1));

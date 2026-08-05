@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A death during startup aborts `daemon start` rather than publishing a socket and pid file for a dead kernel
   - The shutdown is bounded at 10 seconds and exits immediately if it throws, removing the pid file first. A `kernel.stop()` that throws would otherwise leave an orphan holding `kernel.sqlite` with its socket gone and its pid file already cleaned up, invisible to both start-time interlocks; one that merely stalls stays visible to the pid interlock but is an orphan all the same
   - Failures are logged with their `cause` chain, so a run loop death reported through a failed crank rollback still names the error that actually killed the kernel
+  - Logging is best-effort: the transport is `appendFileSync`, so a full disk would otherwise throw and take the shutdown with it, leaving up the daemon this exists to bring down
 
 ## [0.1.0]
 
