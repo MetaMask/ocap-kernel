@@ -113,6 +113,15 @@ export function getRefCountAuditMethods(ctx: StoreContext) {
    */
   function computeExpectedRefCounts(): Map<KRef, Tally> {
     const tallies = new Map<KRef, Tally>();
+    // `retireKernelObjects` deletes an object and queues a `retireImport` for
+    // each importer in the same breath, so between then and the delivery an
+    // importer's c-list entry legitimately names a kref the kernel has already
+    // dropped. Those entries are scheduled for teardown and are not holders.
+    const retiring = new Set(
+      (JSON.parse(ctx.gcActions.get() ?? '[]') as string[]).filter((action) =>
+        action.includes(' retireImport '),
+      ),
+    );
 
     const credit = (
       kref: KRef,
@@ -167,7 +176,10 @@ export function getRefCountAuditMethods(ctx: StoreContext) {
         if (isPromiseRef(kref)) {
           // Both directions count for a promise.
           credit(kref, holder);
-        } else if (direction === 'import') {
+        } else if (
+          direction === 'import' &&
+          !retiring.has(`${endpointId} retireImport ${kref}`)
+        ) {
           // An object export is the owner's own entry and carries no count;
           // an object import always recognizes and, while flagged, reaches.
           credit(kref, holder, { onlyRecognizable: !isReachable });
@@ -347,8 +359,8 @@ export function getRefCountAuditMethods(ctx: StoreContext) {
     const violations = auditRefCounts();
     if (violations.length > 0) {
       const report = formatRefCountViolations(violations);
-      // Logged as well as thrown: this fires from inside a crank, and whoever
-      // catches that has no way to render the report itself.
+      // Logged as well as thrown: if this is the last crank before the kernel
+      // goes idle, nobody sends another message and the log is the only record.
       ctx.logger?.error(`reference count invariant violated:\n${report}`);
       throw Error(`reference count invariant violated:\n${report}`);
     }
