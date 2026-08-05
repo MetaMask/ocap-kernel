@@ -90,16 +90,6 @@ import { getTranslators } from './methods/translators.ts';
 import { getVatMethods } from './methods/vat.ts';
 import type { StoreContext } from './types.ts';
 
-/** Key recording which reference-counting scheme a store's counts were written under. */
-const REFCOUNT_SCHEME_KEY = 'refCountScheme';
-
-/**
- * The current reference-counting scheme. Bump this whenever the rules in
- * `incrementRefCount`/`decrementRefCount` or their callers change, so that
- * existing stores have their counts rebuilt from ground truth on next open.
- */
-const REFCOUNT_SCHEME = 'clist-symmetric';
-
 /**
  * Create a new KernelStore object wrapped around a raw kernel database. The
  * resulting object provides a variety of operations for accessing various
@@ -189,39 +179,6 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
   const relay = getRelayMethods({ kv, logger: context.logger });
 
   /**
-   * Bring a store written under an older reference-counting scheme onto the
-   * current one.
-   *
-   * Reference counts are persisted, so changing how they are computed
-   * invalidates every existing store. Rather than migrate the numbers, discard
-   * them and rebuild from the references themselves: those are unaffected by
-   * the change, and are the authority the counts only cache.
-   */
-  function migrateRefCountScheme(): void {
-    if (kv.get(REFCOUNT_SCHEME_KEY) === REFCOUNT_SCHEME) {
-      return;
-    }
-    if (kv.get('initialized') === 'true') {
-      const { corrected, unfixable } = refCountAudit.recomputeRefCounts();
-      if (corrected.length > 0) {
-        context.logger?.info(
-          `recomputed ${corrected.length} reference count(s) for the current scheme:\n${refCountAudit.formatRefCountViolations(
-            corrected,
-          )}`,
-        );
-      }
-      if (unfixable.length > 0) {
-        context.logger?.warn(
-          `${unfixable.length} reference(s) point at deleted krefs and could not be repaired:\n${refCountAudit.formatRefCountViolations(
-            unfixable,
-          )}`,
-        );
-      }
-    }
-    kv.set(REFCOUNT_SCHEME_KEY, REFCOUNT_SCHEME);
-  }
-
-  /**
    * Create a new VatStore for a vat.
    *
    * @param vatID - The vat for which this is being done.
@@ -280,7 +237,6 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
         context.kv.set(key, value);
       }
     });
-    migrateRefCountScheme();
   }
 
   /**
@@ -334,8 +290,6 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
   function rollbackSavepoint(name: string): void {
     kdb.rollbackSavepoint(name);
   }
-
-  migrateRefCountScheme();
 
   return harden({
     ...id,

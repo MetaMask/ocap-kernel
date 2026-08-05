@@ -31,14 +31,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Log a warning when a vat requests an unknown global
 - Export `OcapURLIssuerService` and `OcapURLRedemptionService` types so vats can type the corresponding kernel-service endowments ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 - Reference-marker sigil (`@@NAME`) at the `queueMessage` RPC boundary lets JSON-RPC callers name a live kernel object as a call argument ([#984](https://github.com/MetaMask/ocap-kernel/pull/984))
+
   - Anywhere in the args tree, a string of the form `@@NAME` (NAME is one or more alphanumeric characters, currently a well-formed kref) is expanded to a `kslot` standin so `kser` encodes it as a real CapData slot in the dispatched message
   - Purely an RPC-boundary concern: internal callers of `Kernel.queueMessage` are unaffected
   - Caveat: a legitimate string argument that begins with `@@` followed by alphanumerics will be misinterpreted as a marker; wrap such literals inside an object
 
-- Reference-count auditing: `auditRefCounts`, `recomputeRefCounts`, `formatRefCountViolations`, `assertRefCountsIfAuditing`, and `setRefCountAuditing` on the kernel store, plus a `Kernel.make` option `auditRefCounts` that verifies every kref's counts against the references the kernel actually holds at the end of each crank ([#1006](https://github.com/MetaMask/ocap-kernel/issues/1006))
+- Reference-count auditing: `auditRefCounts`, `recomputeRefCounts`, `formatRefCountViolations`, `assertRefCountsIfAuditing`, and `setRefCountAuditing` on the kernel store, plus a `Kernel.make` option `auditRefCounts` that verifies every kref's counts against the references the kernel actually holds at the end of each crank ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
   - Reports drift in both directions: counts too low (a live capability can be collected) and counts too high with no holder (a leak)
   - Exports the `RefCountViolation` type
-- Add `setReachableFlag` to the kernel store, the counterpart to `clearReachableFlag` ([#1006](https://github.com/MetaMask/ocap-kernel/issues/1006))
+- Add `setReachableFlag` to the kernel store, the counterpart to `clearReachableFlag` ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
 
 ### Changed
 
@@ -69,20 +70,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Report the database error when an aborted crank cannot be rolled back, instead of a spurious "no such savepoint" ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
   - The abort path recorded the rollback only after it succeeded, so a throwing rollback had the run loop try again against the savepoint `rollbackCrank` had already discarded. The second attempt's "no such savepoint" then became the reported cause of death — and since only `error.message` crosses the wire, the real failure reached neither `getStatus` nor the daemon log
 - Reject the run loop's promise with the same `Error` its status reports, rather than re-throwing a non-`Error` for the embedder to normalize a second time ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
-- **BREAKING:** Make c-list reference accounting symmetric: creating an import c-list entry now takes a reference, as tearing one down has always released one ([#1006](https://github.com/MetaMask/ocap-kernel/issues/1006))
+- **BREAKING:** Make c-list reference accounting symmetric: creating an import c-list entry now takes a reference, as tearing one down has always released one ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
   - `initKernelObject` now births objects at `(0, 0)` instead of `(1, 1)`. The old constant made the arithmetic come out right for exactly one importer, masking the missing increment; with two importers a live capability could be dropped and retired out from under a holder
   - Removes the owner-side baseline decrements in `cleanupTerminatedVat` and `forgetEndpointImports`, which double-claimed the same unit an importer's drop also spent — the source of `"koNN" underflow -1,0` escaping mid-cleanup and leaving a vat half-cleaned
   - `translateRefKtoE` now re-establishes reachability, so a vat handed an object it previously dropped is counted as holding it live again
-  - **Persisted counts from older stores are invalid and are recomputed from ground truth on first open**, keyed off a new `refCountScheme` store entry
   - Renames `krefsToExistingErefs` to `krefsToErefs`, which now throws on an unmapped kref instead of silently dropping it
-- Pin vat root objects for the lifetime of their vat, and release the pin on termination ([#1006](https://github.com/MetaMask/ocap-kernel/issues/1006))
+- Pin vat root objects for the lifetime of their vat, and release the pin on termination ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
   - A root is addressable while its vat lives whether or not anyone imports it; the old `(1, 1)` birth baseline was standing in for this
-- Garbage-collection action delivery now moves the kernel's own c-list: `dropExports` clears the owner's reachable flag and `retireExports`/`retireImports` tear the entry down ([#1006](https://github.com/MetaMask/ocap-kernel/issues/1006))
+- Garbage-collection action delivery now moves the kernel's own c-list: `dropExports` clears the owner's reachable flag and `retireExports`/`retireImports` tear the entry down ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
   - Previously the owner's flag never cleared, so the same action could be re-derived, and retired entries outlived the objects they named
-- Charge a delivered message's target reference against the run-queue item's own target rather than the routed target, so a message routed through a resolved promise no longer decrements an object nobody charged while leaking the promise ([#1006](https://github.com/MetaMask/ocap-kernel/issues/1006))
-- Release a queued notification's reference before the paths that decide there is nothing to deliver, and stop decrementing references on promises retired alongside it that nobody had taken ([#1006](https://github.com/MetaMask/ocap-kernel/issues/1006))
-- Transfer, rather than duplicate, the references a message carries when it is queued on an unresolved promise and later re-enqueued on resolution ([#1006](https://github.com/MetaMask/ocap-kernel/issues/1006))
-- Fix the stale `cle.`/`clk.` key prefixes in `getPromisesByDecider` and `deleteEndpoint`, which no longer matched the `${endpointId}.c.` c-list layout ([#1006](https://github.com/MetaMask/ocap-kernel/issues/1006))
+- Charge a delivered message's target reference against the run-queue item's own target rather than the routed target, so a message routed through a resolved promise no longer decrements an object nobody charged while leaking the promise ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
+- Release a queued notification's reference before the paths that decide there is nothing to deliver, and stop decrementing references on promises retired alongside it that nobody had taken ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
+- Transfer, rather than duplicate, the references a message carries when it is queued on an unresolved promise and later re-enqueued on resolution ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
+- Fix the stale `cle.`/`clk.` key prefixes in `getPromisesByDecider` and `deleteEndpoint`, which no longer matched the `${endpointId}.c.` c-list layout ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
+
   - `getPromisesByDecider` matched nothing, so promises a terminating vat or restarting peer was deciding were never rejected
 - Deserialize CapData rejections in `Kernel.queueMessage` so vat errors surface as plain `Error` objects to all callers ([#928](https://github.com/MetaMask/ocap-kernel/pull/928))
 - Detect peer restart across receiver state loss so the receiving kernel no longer silently drops a restarted peer's `seq=1` messages ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))
