@@ -4,7 +4,7 @@
  *
  * Object references are named via the sigil convention `"@@NAME"` (NAME
  * one or more alphanumeric characters). The mediator assigns names of the
- * form `o<n>`; other allocation schemes remain compatible with the walker.
+ * form `j<n>`; other allocation schemes remain compatible with the walker.
  */
 
 /** Full sigil string prefix (two `@`). */
