@@ -66,6 +66,49 @@ describe('KernelQueue', () => {
     kernelQueue = new KernelQueue(kernelStore, terminateVat);
   });
 
+  /**
+   * Make a promise kit whose `resolve`/`reject` actually settle its promise,
+   * for tests where the module-level `makePromiseKit` mock's bare `vi.fn()`
+   * settlers won't do.
+   *
+   * @returns A promise and its settlement functions.
+   */
+  const makeRealPromiseKit = (): {
+    promise: Promise<CapData<KRef>>;
+    resolve: (value: CapData<KRef>) => void;
+    reject: (reason: unknown) => void;
+  } => {
+    let settleWithValue!: (value: CapData<KRef>) => void;
+    let settleWithReason!: (reason: unknown) => void;
+    const promise = new Promise<CapData<KRef>>((resolve, reject) => {
+      settleWithValue = resolve;
+      settleWithReason = reject;
+    });
+    return {
+      promise,
+      resolve: settleWithValue,
+      reject: settleWithReason,
+    };
+  };
+
+  /**
+   * Run a single crank whose delivery blows up, killing the run loop.
+   *
+   * @param error - The error the delivery fails with.
+   */
+  const killRunLoop = async (error: Error): Promise<void> => {
+    (kernelStore.runQueueLength as unknown as MockInstance).mockReturnValueOnce(
+      1,
+    );
+    (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+      type: 'send',
+      target: 'ko123',
+      message: {} as KernelMessage,
+    });
+    const deliver = vi.fn().mockRejectedValue(error);
+    await expect(kernelQueue.run(deliver)).rejects.toBe(error);
+  };
+
   describe('run', () => {
     it('processes items from the run queue and performs cleanup', async () => {
       const mockItem: RunQueueItem = {
@@ -150,6 +193,321 @@ describe('KernelQueue', () => {
       );
       expect(kernelStore.collectGarbage).toHaveBeenCalled();
       expect(kernelStore.endCrank).toHaveBeenCalled();
+    });
+  });
+
+  describe('getRunLoopStatus', () => {
+    it('reports idle before the run loop starts', () => {
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({ state: 'idle' });
+    });
+
+    it('reports running while the run loop is processing', async () => {
+      (
+        kernelStore.runQueueLength as unknown as MockInstance
+      ).mockReturnValueOnce(1);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: {} as KernelMessage,
+      });
+      // A delivery that never settles parks the loop mid-crank.
+      const deliver = vi.fn().mockReturnValue(new Promise(() => undefined));
+      kernelQueue.run(deliver).catch(() => undefined);
+      await Promise.resolve();
+      expect(deliver).toHaveBeenCalled();
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'running',
+      });
+    });
+
+    it('reports failed once the run loop dies', async () => {
+      await killRunLoop(new Error('crank exploded'));
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'failed',
+        error: 'crank exploded',
+        detail: expect.stringContaining('crank exploded'),
+      });
+    });
+
+    // One normalization, so what `run` rejects with and what the status reports
+    // are the same object rather than two wrappers that happen to agree.
+    it('reports failed for a non-Error run loop failure', async () => {
+      (
+        kernelStore.runQueueLength as unknown as MockInstance
+      ).mockReturnValueOnce(1);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: {} as KernelMessage,
+      });
+      const deliver = vi.fn().mockRejectedValue('not an error');
+
+      const failure = await kernelQueue.run(deliver).catch((error) => error);
+
+      expect(failure).toBeInstanceOf(Error);
+      expect(failure.message).toBe('not an error');
+      // The thrown value survives, so it isn't lost to the normalization.
+      expect(failure.cause).toBe('not an error');
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'failed',
+        error: 'not an error',
+        detail: expect.stringContaining('not an error'),
+      });
+    });
+  });
+
+  describe('run loop death', () => {
+    it('rejects in-flight message results', async () => {
+      const kit = makeRealPromiseKit();
+      (makePromiseKit as unknown as MockInstance).mockReturnValueOnce(kit);
+      const resultPromise = kernelQueue.enqueueMessage('ko123', 'test', []);
+      expect(kernelQueue.subscriptions.has('kp1')).toBe(true);
+
+      const failure = new Error('crank exploded');
+      await killRunLoop(failure);
+
+      await expect(resultPromise).rejects.toThrow(
+        'Kernel run loop died; this message result will never be delivered',
+      );
+      await expect(resultPromise).rejects.toHaveProperty('cause', failure);
+      expect(kernelQueue.subscriptions.size).toBe(0);
+    });
+
+    it('rejects messages queued after the run loop dies', async () => {
+      const failure = new Error('crank exploded');
+      await killRunLoop(failure);
+      await expect(
+        kernelQueue.enqueueMessage('ko123', 'test', []),
+      ).rejects.toThrow('Kernel run loop died; cannot queue a message');
+      expect(kernelStore.enqueueRun).not.toHaveBeenCalled();
+    });
+
+    it('rolls back the crank it died in', async () => {
+      await killRunLoop(new Error('crank exploded'));
+      // Without this, endCrank's savepoint release commits the half-finished
+      // crank and the dequeued item is lost.
+      expect(kernelStore.rollbackCrank).toHaveBeenCalledWith('start');
+    });
+
+    it('does not roll back when the savepoint was never created', async () => {
+      (
+        kernelStore.createCrankSavepoint as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        throw new Error('database is gone');
+      });
+      await expect(kernelQueue.run(vi.fn())).rejects.toThrow(
+        'database is gone',
+      );
+      expect(kernelStore.rollbackCrank).not.toHaveBeenCalled();
+    });
+
+    it('does not roll back twice when an aborted crank then throws', async () => {
+      (kernelStore.runQueueLength as unknown as MockInstance)
+        .mockReturnValueOnce(1)
+        .mockReturnValue(0);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: { result: 'kp99' } as KernelMessage,
+      });
+      const deliver = vi.fn().mockResolvedValue({ abort: true });
+      (
+        kernelStore.collectGarbage as unknown as MockInstance
+      ).mockImplementation(() => {
+        throw new Error(STOP_RUN_LOOP);
+      });
+
+      // A second rollback would throw "no such savepoint" over this error.
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
+      expect(kernelStore.rollbackCrank).toHaveBeenCalledOnce();
+    });
+
+    it('reports both failures when the rollback also fails', async () => {
+      (
+        kernelStore.runQueueLength as unknown as MockInstance
+      ).mockReturnValueOnce(1);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: {} as KernelMessage,
+      });
+      const rollbackError = new Error('database is gone');
+      (
+        kernelStore.rollbackCrank as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        throw rollbackError;
+      });
+      const crankError = new Error('crank exploded');
+      const deliver = vi.fn().mockRejectedValue(crankError);
+
+      // The rollback failure names itself; the original stays the `cause`, since
+      // that is the root cause an operator needs.
+      await expect(kernelQueue.run(deliver)).rejects.toMatchObject({
+        message:
+          'Run loop died and its crank could not be rolled back: Error: database is gone',
+        cause: crankError,
+      });
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'failed',
+        error:
+          'Run loop died and its crank could not be rolled back: Error: database is gone',
+        // The headline names the rollback, so only `detail` can carry the error
+        // that actually killed the kernel to the one consumer that reports it.
+        detail: expect.stringContaining('crank exploded'),
+      });
+    });
+
+    // `rollbackCrank` discards the savepoint even when its database call throws,
+    // so a second attempt could only report a missing savepoint. Without the
+    // `finally` that records the attempt, the abort path leaves the flag unset,
+    // the catch asks again, and "no such savepoint" becomes the reason the
+    // kernel reports for its own death — the database error reaching nobody,
+    // since only `error.message` crosses the wire.
+    it('reports the database failure when an aborted crank cannot roll back', async () => {
+      (kernelStore.runQueueLength as unknown as MockInstance)
+        .mockReturnValueOnce(1)
+        .mockReturnValue(0);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: { result: 'kp99' } as KernelMessage,
+      });
+      const rollbackError = new Error('database is gone');
+      (
+        kernelStore.rollbackCrank as unknown as MockInstance
+      ).mockImplementationOnce(() => {
+        throw rollbackError;
+      });
+      const deliver = vi.fn().mockResolvedValue({ abort: true });
+
+      await expect(kernelQueue.run(deliver)).rejects.toBe(rollbackError);
+      expect(kernelStore.rollbackCrank).toHaveBeenCalledOnce();
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'failed',
+        error: 'database is gone',
+        detail: expect.stringContaining('database is gone'),
+      });
+    });
+
+    // The rollback flag is per-crank. If an earlier abort could latch it, every
+    // later crank that died would skip its rollback and commit half its work.
+    it('rolls back a later crank after an earlier one aborted', async () => {
+      const items: RunQueueItem[] = [
+        { type: 'send', target: 'ko1', message: {} as KernelMessage },
+        { type: 'send', target: 'ko2', message: {} as KernelMessage },
+      ];
+      let dequeued = 0;
+      (
+        kernelStore.runQueueLength as unknown as MockInstance
+      ).mockImplementation(() => (dequeued < items.length ? 1 : 0));
+      (kernelStore.dequeueRun as unknown as MockInstance).mockImplementation(
+        () => {
+          const item = items[dequeued];
+          dequeued += 1;
+          return item;
+        },
+      );
+      const secondError = new Error('second crank exploded');
+      const deliver = vi
+        .fn()
+        .mockResolvedValueOnce({ abort: true })
+        .mockRejectedValueOnce(secondError);
+
+      await expect(kernelQueue.run(deliver)).rejects.toBe(secondError);
+
+      expect(kernelStore.rollbackCrank).toHaveBeenCalledTimes(2);
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'failed',
+        error: 'second crank exploded',
+        detail: expect.stringContaining('second crank exploded'),
+      });
+    });
+
+    it('refuses ingress via assertRunLoopAlive', async () => {
+      const failure = new Error('crank exploded');
+      expect(() => kernelQueue.assertRunLoopAlive('accept work')).not.toThrow();
+
+      await killRunLoop(failure);
+
+      expect(() => kernelQueue.assertRunLoopAlive('accept work')).toThrow(
+        'Kernel run loop died; cannot accept work',
+      );
+      // The failure that killed the loop is the root cause.
+      await expect(async () =>
+        kernelQueue.assertRunLoopAlive('accept work'),
+      ).rejects.toHaveProperty('cause', failure);
+    });
+
+    // Teardown enqueues too, so the guard cannot sit on these mutators: it must
+    // keep working after the loop dies, because `VatHandle.terminate` and
+    // `RemoteManager` reject the promises a dead endpoint was deciding, and
+    // refusing that would break `terminateAllVats` and `reset`.
+    it.each([
+      {
+        teardown: 'resolvePromises',
+        call: (queue: KernelQueue) =>
+          queue.resolvePromises('v1', [
+            ['kp1', true, { body: 'x', slots: [] }],
+          ]),
+        didWork: () => kernelStore.resolveKernelPromise,
+      },
+      {
+        teardown: 'enqueueNotify',
+        call: (queue: KernelQueue) => queue.enqueueNotify('v1', 'kp1'),
+        didWork: () => kernelStore.enqueueRun,
+      },
+      {
+        teardown: 'enqueueSend',
+        call: (queue: KernelQueue) =>
+          queue.enqueueSend('ko123', {
+            methargs: { body: 'x', slots: [] },
+            result: null,
+          }),
+        didWork: () => kernelStore.enqueueRun,
+      },
+    ])(
+      'still allows $teardown after the run loop dies',
+      async ({ call, didWork }) => {
+        (
+          kernelStore.getKernelPromise as unknown as MockInstance
+        ).mockReturnValue({
+          state: 'unresolved',
+          decider: 'v1',
+          subscribers: [],
+        });
+        await killRunLoop(new Error('crank exploded'));
+
+        expect(() => call(kernelQueue)).not.toThrow();
+        // "Allows" has to mean the work happened, not merely that nothing threw.
+        expect(didWork()).toHaveBeenCalled();
+      },
+    );
+
+    // The guard sits outside `run`'s try, so the refusal must not be mistaken
+    // for the loop dying: were it inside, a stray second call would mark a
+    // healthy kernel failed and reject every in-flight result.
+    it('refuses to start the run loop twice without killing the running one', async () => {
+      (
+        kernelStore.runQueueLength as unknown as MockInstance
+      ).mockReturnValueOnce(1);
+      (kernelStore.dequeueRun as unknown as MockInstance).mockReturnValueOnce({
+        type: 'send',
+        target: 'ko123',
+        message: {} as KernelMessage,
+      });
+      const deliver = vi.fn().mockReturnValue(new Promise(() => undefined));
+      kernelQueue.run(deliver).catch(() => undefined);
+      await kernelQueue.enqueueMessage('ko123', 'method', []);
+      expect(kernelQueue.subscriptions.has('kp1')).toBe(true);
+
+      await expect(kernelQueue.run(deliver)).rejects.toThrow(
+        'run loop already started',
+      );
+
+      expect(kernelQueue.getRunLoopStatus()).toStrictEqual({
+        state: 'running',
+      });
+      expect(kernelQueue.subscriptions.has('kp1')).toBe(true);
     });
   });
 
@@ -512,16 +870,22 @@ describe('KernelQueue', () => {
         mockItem,
       );
       const deliver = vi.fn().mockResolvedValue({ abort: true });
+      // Sample at the end of the aborted crank: the sentinel error below kills
+      // the run loop, which discards every subscription still waiting.
+      let subscribedAfterAbort: boolean | undefined;
+      let rejectedAfterAbort: boolean | undefined;
       (
         kernelStore.collectGarbage as unknown as MockInstance
       ).mockImplementation(() => {
+        subscribedAfterAbort = kernelQueue.subscriptions.has('kp99');
+        rejectedAfterAbort = rejectSpy.mock.calls.length > 0;
         throw new Error(STOP_RUN_LOOP);
       });
       await expect(kernelQueue.run(deliver)).rejects.toThrow(STOP_RUN_LOOP);
       expect(kernelStore.rollbackCrank).toHaveBeenCalledWith('start');
-      expect(rejectSpy).not.toHaveBeenCalled();
+      expect(rejectedAfterAbort).toBe(false);
       expect(resolveSpy).not.toHaveBeenCalled();
-      expect(kernelQueue.subscriptions.has('kp99')).toBe(true);
+      expect(subscribedAfterAbort).toBe(true);
     });
   });
 

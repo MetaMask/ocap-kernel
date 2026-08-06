@@ -1,6 +1,7 @@
 import { VatNotFoundError } from '@metamask/kernel-errors';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
+import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 import type { DuplexStream } from '@metamask/streams';
 import type { Mocked, MockInstance } from 'vitest';
@@ -11,6 +12,7 @@ import { kser } from './liveslots/kernel-marshal.ts';
 import type {
   VatId,
   VatConfig,
+  OnRunLoopFailure,
   PlatformServices,
   ClusterConfig,
 } from './types.ts';
@@ -25,7 +27,47 @@ const mocks = vi.hoisted(() => {
       .fn()
       .mockResolvedValue({ body: '{"result":"ok"}', slots: [] });
 
-    run = vi.fn().mockResolvedValue(undefined);
+    #runLoopFailure: Error | undefined;
+
+    #rejectRunLoop: ((error: Error) => void) | undefined;
+
+    // Like the real run loop, this settles only if the kernel dies.
+    run = vi.fn(
+      async () =>
+        new Promise<never>((_resolve, reject) => {
+          this.#rejectRunLoop = reject;
+        }),
+    );
+
+    /**
+     * Fail the run loop, in the order the real `KernelQueue.run` does: the
+     * status flips before the rejection is observable. Does not reproduce
+     * `#failRunLoop`'s rejection of in-flight subscriptions.
+     *
+     * @param error - The error that killed the run loop.
+     */
+    killRunLoop(error: Error): void {
+      this.#runLoopFailure = error;
+      this.#rejectRunLoop?.(error);
+    }
+
+    getRunLoopStatus = vi.fn(() =>
+      this.#runLoopFailure
+        ? {
+            state: 'failed',
+            error: this.#runLoopFailure.message,
+            detail: `{"message":"${this.#runLoopFailure.message}"}`,
+          }
+        : { state: 'running' },
+    );
+
+    assertRunLoopAlive = vi.fn((what: string) => {
+      if (this.#runLoopFailure) {
+        throw new Error(`Kernel run loop died; cannot ${what}`, {
+          cause: this.#runLoopFailure,
+        });
+      }
+    });
 
     stop = vi.fn();
 
@@ -505,9 +547,73 @@ describe('Kernel', () => {
       expect(status).toStrictEqual({
         vats: [],
         subclusters: [],
+        runLoop: { state: 'running' },
         remoteComms: {
           state: 'disconnected',
         },
+      });
+      // A healthy status must not race an in-flight crank.
+      expect(
+        mocks.KernelQueue.lastInstance.waitForCrank,
+      ).toHaveBeenCalledOnce();
+    });
+
+    it('reports a run loop that dies while waiting for the crank', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      const queue = mocks.KernelQueue.lastInstance;
+      // An in-flight crank is exactly when the loop is most likely to die.
+      queue.waitForCrank.mockImplementationOnce(async () => {
+        queue.killRunLoop(new Error('died mid-crank'));
+      });
+
+      expect((await kernel.getStatus()).runLoop).toStrictEqual({
+        state: 'failed',
+        error: 'died mid-crank',
+        detail: expect.stringContaining('died mid-crank'),
+      });
+    });
+
+    it('reports the kernel as failed once the run loop dies', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      await kernel.launchSubcluster(makeSingleVatClusterConfig());
+      expect((await kernel.getStatus()).runLoop).toStrictEqual({
+        state: 'running',
+      });
+
+      mocks.KernelQueue.lastInstance.killRunLoop(new Error('run loop boom'));
+      await waitUntilQuiescent();
+
+      const status = await kernel.getStatus();
+      expect(status.runLoop).toStrictEqual({
+        state: 'failed',
+        error: 'run loop boom',
+        detail: expect.stringContaining('run loop boom'),
+      });
+      // The vats are still in the store, but nothing is delivering to them.
+      expect(status.vats).toHaveLength(1);
+    });
+
+    it('reports a failed run loop without waiting for the crank to finish', async () => {
+      const kernel = await Kernel.make(
+        mockPlatformServices,
+        mockKernelDatabase,
+      );
+      const { waitForCrank } = mocks.KernelQueue.lastInstance;
+      // A crank that never finishes, as when the run loop died mid-crank.
+      waitForCrank.mockReturnValue(new Promise(() => undefined));
+      mocks.KernelQueue.lastInstance.killRunLoop(new Error('run loop boom'));
+      await waitUntilQuiescent();
+
+      expect((await kernel.getStatus()).runLoop).toStrictEqual({
+        state: 'failed',
+        error: 'run loop boom',
+        detail: expect.stringContaining('run loop boom'),
       });
     });
 
@@ -868,6 +974,117 @@ describe('Kernel', () => {
       expect(logErrorSpy).toHaveBeenCalledWith(
         'Error resetting kernel:',
         new Error('test error'),
+      );
+    });
+  });
+
+  describe('run loop failure', () => {
+    it('logs and notifies the embedder when the run loop dies', async () => {
+      const logger = new Logger('test');
+      const logErrorSpy = vi.spyOn(logger, 'error');
+      const onRunLoopFailure = vi.fn();
+      await Kernel.make(mockPlatformServices, mockKernelDatabase, {
+        logger,
+        onRunLoopFailure,
+      });
+      const failure = new Error('run loop boom');
+
+      mocks.KernelQueue.lastInstance.killRunLoop(failure);
+      await waitUntilQuiescent();
+
+      expect(logErrorSpy).toHaveBeenCalledWith(
+        'Run loop died; the kernel can no longer process messages and must be restarted:',
+        failure,
+      );
+      expect(onRunLoopFailure).toHaveBeenCalledWith(failure);
+    });
+
+    it('does not hand the kernel to the failure handler as its receiver', async () => {
+      let gotAReceiver = true;
+      await Kernel.make(mockPlatformServices, mockKernelDatabase, {
+        onRunLoopFailure: function onRunLoopFailure(this: unknown): void {
+          gotAReceiver = this !== undefined;
+        },
+      });
+
+      mocks.KernelQueue.lastInstance.killRunLoop(new Error('run loop boom'));
+      await waitUntilQuiescent();
+
+      expect(gotAReceiver).toBe(false);
+    });
+
+    // `run` rejects with the same object its status reports, so re-wrapping here
+    // would leave the embedder and `getStatus` describing two different errors.
+    it('hands the embedder the error the run loop died with, unwrapped', async () => {
+      const onRunLoopFailure = vi.fn();
+      await Kernel.make(mockPlatformServices, mockKernelDatabase, {
+        onRunLoopFailure,
+      });
+      const failure = new Error('run loop boom');
+
+      mocks.KernelQueue.lastInstance.killRunLoop(failure);
+      await waitUntilQuiescent();
+
+      expect(onRunLoopFailure).toHaveBeenCalledOnce();
+      expect(onRunLoopFailure.mock.calls[0]?.[0]).toBe(failure);
+    });
+
+    // The handler slot returns void, but TypeScript admits anything thenable
+    // there, and an escaping rejection is what the containment exists to stop.
+    it.each([
+      {
+        kind: 'an async handler',
+        makeHandler: (handlerError: Error) => async (): Promise<never> => {
+          throw handlerError;
+        },
+      },
+      {
+        kind: 'a non-native thenable',
+        makeHandler: (handlerError: Error) => (): PromiseLike<void> => ({
+          then: (_onFulfilled, onRejected) =>
+            onRejected?.(handlerError) as PromiseLike<void>,
+        }),
+      },
+    ])(
+      'logs a failure handler that rejects, given $kind',
+      async ({ makeHandler }) => {
+        const logger = new Logger('test');
+        const logErrorSpy = vi.spyOn(logger, 'error');
+        const handlerError = new Error('handler boom');
+        await Kernel.make(mockPlatformServices, mockKernelDatabase, {
+          logger,
+          onRunLoopFailure: makeHandler(
+            handlerError,
+          ) as unknown as OnRunLoopFailure,
+        });
+
+        mocks.KernelQueue.lastInstance.killRunLoop(new Error('run loop boom'));
+        await waitUntilQuiescent();
+
+        expect(logErrorSpy).toHaveBeenCalledWith(
+          'Run loop failure handler rejected:',
+          handlerError,
+        );
+      },
+    );
+
+    it('logs a failure handler that throws', async () => {
+      const logger = new Logger('test');
+      const logErrorSpy = vi.spyOn(logger, 'error');
+      const handlerError = new Error('handler boom');
+      await Kernel.make(mockPlatformServices, mockKernelDatabase, {
+        logger,
+        onRunLoopFailure: () => {
+          throw handlerError;
+        },
+      });
+
+      mocks.KernelQueue.lastInstance.killRunLoop(new Error('run loop boom'));
+      await waitUntilQuiescent();
+
+      expect(logErrorSpy).toHaveBeenCalledWith(
+        'Run loop failure handler threw:',
+        handlerError,
       );
     });
   });

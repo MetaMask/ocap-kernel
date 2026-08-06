@@ -287,7 +287,22 @@ export async function makeSQLKernelDatabase({
       throw new Error(`No such savepoint: ${name}`);
     }
     const query = SQL_QUERIES.ROLLBACK_SAVEPOINT.replace('%NAME%', name);
-    db.exec(query);
+    try {
+      db.exec(query);
+    } catch (error) {
+      // Left as it was, the savepoint stays on the stack and the transaction open
+      // with nothing to ever commit or abort it, so every later write on this
+      // connection joins it, reports success, and vanishes on close. Discarding
+      // the whole transaction is safe: it begins with the outermost savepoint, so
+      // it holds only what this rollback was abandoning anyway.
+      db._spStack.length = 0;
+      try {
+        rollbackIfNeeded();
+      } catch {
+        // The rollback failure below is the one worth reporting.
+      }
+      throw error;
+    }
     db._spStack.splice(idx);
     if (db._spStack.length === 0) {
       rollbackIfNeeded();
