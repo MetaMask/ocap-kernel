@@ -119,12 +119,32 @@ export function expandMarkers(
 }
 
 /**
+ * Identify a thenable. Checked structurally rather than via `passStyleOf`
+ * so this module stays free of environment assumptions — it takes
+ * `isRemotable` as a hook for the same reason — and so that a CapTP promise
+ * or any other foreign thenable is recognized alongside a native one.
+ *
+ * @param value - The value to test.
+ * @returns True if `value` has a callable `then`.
+ */
+function isThenable(value: unknown): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { then?: unknown }).then === 'function'
+  );
+}
+
+/**
  * Walk `value`, replacing every remotable (as identified by
  * `isRemotable`) with `"${MARKER_PREFIX}${assign(remotable)}"`.
  * Descends into arrays and record-like objects. Primitives pass
  * through unchanged.
  *
  * The result is a JSON-safe tree ready for `JSON.stringify`.
+ *
+ * @throws If the tree contains an unsettled promise, which would otherwise
+ * serialize to `{}` and reach the client as a silently wrong success.
  *
  * @param value - The value to walk.
  * @param isRemotable - Predicate identifying a value that should be
@@ -143,6 +163,19 @@ export function substituteRemotables(
   }
   if (Array.isArray(value)) {
     return value.map((item) => substituteRemotables(item, isRemotable, assign));
+  }
+  if (isThenable(value)) {
+    // A promise has no own enumerable properties, so the object walk below
+    // would quietly turn it into `{}` — and `JSON.stringify` would accept
+    // that, handing the client a plausible-looking success payload with the
+    // value silently missing. Refusing is the only honest option here:
+    // awaiting an arbitrarily nested promise could block the connection for
+    // as long as it stays unsettled. A method that returns a promise-valued
+    // field has to settle it before returning.
+    throw new BridgeRpcError(
+      JSON_RPC_ERROR.INTERNAL_ERROR,
+      'result contains an unsettled promise, which has no JSON form',
+    );
   }
   if (typeof value === 'object' && value !== null) {
     const out: Record<string, unknown> = {};
