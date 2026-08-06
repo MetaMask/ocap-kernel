@@ -23,6 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `kernel daemon start` refuses to start when another daemon is already listening on the same Unix socket, instead of unlinking the socket and orphaning the running process ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 - Daemon fatal-path visibility: `daemon-entry` now installs handlers for `uncaughtException`, `unhandledRejection`, `SIGHUP`, and `exit` that append a synchronous fingerprint line to `daemon.log` before terminating ([#966](https://github.com/MetaMask/ocap-kernel/pull/966))
   - Without these, silent daemon deaths under `stdio: 'ignore'` (the CLI's default spawn mode) left no trace in the log; the operator saw only that the daemon was gone. Every terminating path now leaves at least one line.
+- The daemon logs the failure and shuts down with a non-zero exit code when the kernel's run loop dies, instead of staying up with a socket that answers RPCs for a kernel that processes nothing ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - A death during startup aborts `daemon start` instead of publishing a socket and pid file for a dead kernel
+  - Shutdown is bounded at 10 seconds and terminates the process either way, removing the pid file first. Live vat worker threads hold the event loop open, so an exit code alone never took effect, leaving an orphan on `kernel.sqlite` that neither start-time interlock could see
+  - Failures carry their `cause` chain, so a death reported through a failed crank rollback still names the error that killed the kernel
+  - Logging in front of a shutdown or `process.exit` is best-effort, the fatal handlers included: the transport is `appendFileSync`, so a full disk would otherwise take the termination with it
 
 ## [0.1.0]
 

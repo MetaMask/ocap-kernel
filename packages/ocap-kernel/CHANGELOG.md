@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Report run loop health in `KernelStatus.runLoop` (`{ state: 'idle' | 'running' }` or `{ state: 'failed', error, detail }`), exporting `RunLoopStatus`, `RunLoopStatusStruct`, and `OnRunLoopFailure` ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - `idle` means never started; a loop parked on an empty queue reports `running`
+  - `error` is the failure's message and `detail` its whole cause chain, because only strings cross the wire: when a crank dies and its rollback then fails, the message names the rollback and only the chain names what killed the kernel
+  - **BREAKING:** `runLoop` is required, so `KernelStatus` gains a mandatory property and a `getStatus` reply from a kernel built before this field fails result validation outright. It cannot be made optional: `exactOptional` would leave the type and the validator disagreeing inside a `type()`, and `optional` widens the property to `| undefined`, which an RPC result may not be
+- Add `onRunLoopFailure` to `Kernel.make` options, called with the error that killed the run loop so an embedder that outlives the kernel can exit or restart ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
 - Add `fetch`, `Request`, `Headers`, and `Response` to available vat endowments ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
   - Add `VatConfig.network: { allowedHosts: string[] }`; requesting `'fetch'` without it rejects `initVat`
 - Integrate Snaps attenuated endowment factories into vat globals ([#937](https://github.com/MetaMask/ocap-kernel/pull/937))
@@ -38,6 +43,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Stop reporting a healthy kernel after the run loop dies ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - The error was logged and swallowed, so `getStatus` kept returning its healthy-looking record while nothing on the run queue was processed and every `queueMessage` hung forever. Results in flight now reject with the killing error as their `cause`, later calls reject immediately, and `getStatus` answers without waiting on a crank that may never end
+- Roll back the crank the run loop died in instead of committing it, so a restart resumes from a consistent boundary ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - Because the killing item is no longer consumed, a restart re-dequeues it; an item that reliably kills a crank needs `clearState`/`reset` rather than a restart
+  - Store state only — a crank that had already flushed its buffer settled JS-side subscriptions irreversibly
+- Refuse inbound remote deliveries once the run loop is dead, rolling back without acknowledging them, so the peer retries and gives up instead of waiting on a kernel that will never deliver ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - Covers `bringOutYourDead` as well as `message` and `notify`: a reap is queue work too, consumed only by the run loop. The remaining GC arms need no guard, since they only touch refcounts
+- Refuse `launchSubcluster` once the run loop is dead ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - The bootstrap message can't be queued either way, but the launch reached that point having already spawned a vat worker per entry in the config, none of which its cleanup path tears down
+- Keep crank bookkeeping consistent when the database misbehaves: `endCrank` settles its `waitForCrank` waiters even if releasing savepoints throws (previously stranding `getStatus`, `stop`, `reset`, `clearStorage`, and the `VatManager`/`SubclusterManager` waiters), `rollbackCrank` forgets its savepoint even if the rollback throws (which otherwise had `endCrank` commit the crank being abandoned), and `createCrankSavepoint` records a name only once the database created it ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+- Report the database error when an aborted crank cannot be rolled back, instead of a spurious "no such savepoint" ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - The abort path recorded the rollback only after it succeeded, so a throwing rollback had the run loop try again against the savepoint `rollbackCrank` had already discarded. The second attempt's "no such savepoint" then became the reported cause of death — and since only `error.message` crosses the wire, the real failure reached neither `getStatus` nor the daemon log
+- Reject the run loop's promise with the same `Error` its status reports, rather than re-throwing a non-`Error` for the embedder to normalize a second time ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
 - Deserialize CapData rejections in `Kernel.queueMessage` so vat errors surface as plain `Error` objects to all callers ([#928](https://github.com/MetaMask/ocap-kernel/pull/928))
 - Detect peer restart across receiver state loss so the receiving kernel no longer silently drops a restarted peer's `seq=1` messages ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))
   - Persist the peer's last-observed incarnation and compare it on every successful handshake; on a detected restart, clear the peer's c-list contributions and reject the promises it was deciding before the new incarnation reuses any erefs

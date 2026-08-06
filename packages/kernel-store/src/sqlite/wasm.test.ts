@@ -452,6 +452,45 @@ describe('makeSQLKernelDatabase', () => {
       expect(mockDb._inTx).toBe(false);
     });
 
+    // Otherwise every later write on this connection joins a transaction nothing
+    // will ever commit, reports success, and vanishes on close.
+    it('rollbackSavepoint discards the transaction when the rollback fails', async () => {
+      const db = await makeSQLKernelDatabase({});
+      mockDb._inTx = true;
+      mockDb._spStack = ['point1'];
+      mockDb.exec.mockImplementationOnce(() => {
+        throw new Error('disk I/O error');
+      });
+
+      expect(() => db.rollbackSavepoint('point1')).toThrowError(
+        'disk I/O error',
+      );
+
+      expect(mockDb._spStack).toStrictEqual([]);
+      expect(mockDb._inTx).toBe(false);
+    });
+
+    // The rollback failure is the diagnosis; a failed abort on top of it only
+    // repeats that the same connection is broken.
+    it('rollbackSavepoint reports the rollback failure even if the abort fails too', async () => {
+      const db = await makeSQLKernelDatabase({});
+      mockDb._inTx = true;
+      mockDb._spStack = ['point1'];
+      mockDb.exec.mockImplementationOnce(() => {
+        throw new Error('disk I/O error');
+      });
+      mockStatement.step.mockImplementationOnce(() => {
+        throw new Error('cannot rollback');
+      });
+
+      expect(() => db.rollbackSavepoint('point1')).toThrowError(
+        'disk I/O error',
+      );
+
+      expect(mockDb._spStack).toStrictEqual([]);
+      mockDb._inTx = false;
+    });
+
     it('releaseSavepoint validates savepoint exists', async () => {
       const db = await makeSQLKernelDatabase({});
       mockDb._inTx = true;
