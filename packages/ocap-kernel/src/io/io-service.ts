@@ -27,11 +27,12 @@ export type ConnectionHost = {
  * A peer disconnecting ends the underlying transport and makes `read()`
  * report EOF, but does *not* by itself stop the kernel hosting this
  * object, because the holder still has a live reference to it. Releasing
- * on EOF instead would be actively worse than leaking: the vat's c-list
- * still names the kref, so a subsequent call on the dropped reference
- * would route to `invokeKernelService`, find nothing registered, and
- * throw — which takes down the run loop. Until a vat dropping the
- * reference is itself observable (see #1006), unreleased connections are
+ * on EOF instead would be worse than leaking: the vat's c-list still names
+ * the kref, so a subsequent call on the dropped reference would route to
+ * `invokeKernelService` and find nothing registered, failing the caller
+ * with `ENDPOINT_UNREACHABLE` for a connection it never released. Until a
+ * vat dropping the reference is itself observable (see #1006), unreleased
+ * connections are
  * bounded by their listener's lifetime: `close()` on the listener
  * releases whatever it handed out, and `IOManager` releases the rest when
  * the subcluster goes away.

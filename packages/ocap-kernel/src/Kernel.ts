@@ -297,10 +297,15 @@ export class Kernel {
     // Discard anonymous kernel objects from a previous incarnation. They
     // host things that cannot outlive the process — an accepted socket
     // connection, say — and unlike a named service there is no name to
-    // re-register one under, so a survivor is unreachable but still pinned.
-    // Same hazard the facet registration above guards against: a delivery to
-    // one would find nothing registered and kill the run queue. Swept before
-    // the queue starts for exactly that reason.
+    // re-register one under, so a survivor is unreachable but still pinned,
+    // accumulating with every restart.
+    //
+    // This unpins; it does not by itself make a delivery to a survivor safe,
+    // because the object outlives the sweep whenever a vat import or queued
+    // message still references it. `invokeKernelService` is what makes that
+    // case survivable, by rejecting the caller instead of throwing. Swept
+    // before the queue starts regardless, so the unreachable objects are gone
+    // before anything can address them.
     const abandoned =
       this.#kernelServiceManager.releaseAbandonedAnonymousKernelObjects();
     if (abandoned > 0) {

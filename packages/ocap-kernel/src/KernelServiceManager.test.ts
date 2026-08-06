@@ -386,14 +386,44 @@ describe('KernelServiceManager', () => {
       expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
     });
 
-    it('throws error for non-existent service', () => {
+    it('rejects the caller for a non-existent service', () => {
+      const message: KernelMessage = {
+        methargs: kser(['testMethod', []]),
+        result: 'kp1',
+      };
+
+      // Must not throw: a throw here escapes the crank and kills the run
+      // loop, and this is reachable whenever an anonymous kernel object
+      // outlives the process that hosted it.
+      expect(() =>
+        serviceManager.invokeKernelService('ko999', message),
+      ).not.toThrow();
+      expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
+        [
+          'kp1',
+          true,
+          makeKernelError(
+            'ENDPOINT_UNREACHABLE',
+            'No registered service for ko999',
+          ),
+        ],
+      ]);
+    });
+
+    it('logs for a non-existent service when the message has no result', () => {
+      const loggerErrorSpy = vi.spyOn(logger, 'error');
       const message: KernelMessage = {
         methargs: kser(['testMethod', []]),
       };
 
       expect(() =>
         serviceManager.invokeKernelService('ko999', message),
-      ).toThrow('No registered service for ko999');
+      ).not.toThrow();
+      expect(loggerErrorSpy).toHaveBeenCalledWith(
+        'Error in kernel service method:',
+        'No registered service for ko999',
+      );
+      expect(mockKernelQueue.resolvePromises).not.toHaveBeenCalled();
     });
 
     it('handles unknown method with result', async () => {
