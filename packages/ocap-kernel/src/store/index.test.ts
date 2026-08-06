@@ -40,6 +40,7 @@ describe('kernel store', () => {
     it('has all the expected parts', () => {
       const ks = makeKernelStore(mockKernelDatabase);
       expect(Object.keys(ks).sort()).toStrictEqual([
+        'addAnonymousKernelObject',
         'addCListEntry',
         'addGCActions',
         'addPromiseSubscriber',
@@ -86,6 +87,7 @@ describe('kernel store', () => {
         'getAllRemoteRecords',
         'getAllSystemSubclusterMappings',
         'getAllVatRecords',
+        'getAnonymousKernelObjects',
         'getGCActions',
         'getImporters',
         'getKernelPromise',
@@ -149,6 +151,7 @@ describe('kernel store', () => {
         'recordLastActiveTime',
         'releaseAllSavepoints',
         'releaseSavepoint',
+        'removeAnonymousKernelObject',
         'removeVatFromSubcluster',
         'reset',
         'resolveKernelPromise',

@@ -551,6 +551,8 @@ describe('KernelServiceManager', () => {
       // The whole point: absent from the global name namespace, so no
       // string can be used to ask for it.
       expect(serviceManager.getKernelService('io-connection')).toBeUndefined();
+      // Recorded persistently so a later incarnation can sweep it.
+      expect(kernelStore.getAnonymousKernelObjects()).toStrictEqual([kref]);
     });
 
     it('allows the same label for distinct objects', () => {
@@ -600,6 +602,41 @@ describe('KernelServiceManager', () => {
       expect(mockKernelQueue.resolvePromises).toHaveBeenCalledWith('kernel', [
         ['kp200', false, kser('pong')],
       ]);
+    });
+  });
+
+  describe('releaseAbandonedAnonymousKernelObjects', () => {
+    it('discards objects recorded by a previous incarnation', () => {
+      // Simulate a restart: the krefs are still recorded in the store, but
+      // the in-memory routing table starts empty.
+      const stale = kernelStore.initKernelObject('kernel');
+      kernelStore.pinObject(stale);
+      kernelStore.addAnonymousKernelObject(stale);
+
+      const fresh = new KernelServiceManager({
+        kernelStore,
+        kernelQueue: mockKernelQueue,
+        logger,
+      });
+
+      expect(fresh.releaseAbandonedAnonymousKernelObjects()).toBe(1);
+      expect(kernelStore.isObjectPinned(stale)).toBe(false);
+      expect(kernelStore.getAnonymousKernelObjects()).toStrictEqual([]);
+    });
+
+    it('leaves objects hosted by the current incarnation alone', () => {
+      const live = serviceManager.registerAnonymousKernelObject(
+        { ping: () => 'pong' },
+        'io-connection',
+      );
+
+      expect(serviceManager.releaseAbandonedAnonymousKernelObjects()).toBe(0);
+      expect(serviceManager.isKernelService(live)).toBe(true);
+      expect(kernelStore.isObjectPinned(live)).toBe(true);
+    });
+
+    it('reports nothing to do when none were recorded', () => {
+      expect(serviceManager.releaseAbandonedAnonymousKernelObjects()).toBe(0);
     });
   });
 
