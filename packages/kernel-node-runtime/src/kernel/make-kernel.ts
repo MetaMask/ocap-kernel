@@ -4,6 +4,7 @@ import { Logger } from '@metamask/logger';
 import { Kernel } from '@metamask/ocap-kernel';
 import type {
   IOListenerFactory,
+  OnRunLoopFailure,
   SystemSubclusterConfig,
 } from '@metamask/ocap-kernel';
 
@@ -29,6 +30,8 @@ export type MakeKernelResult = {
  * @param options.keySeed - Optional seed for libp2p key generation.
  * @param options.ioListenerFactory - Optional factory for creating IO listeners.
  * @param options.systemSubclusters - Optional system subcluster configurations.
+ * @param options.onRunLoopFailure - Optional handler called if the kernel's run
+ * loop dies, after which the kernel must be restarted.
  * @returns The kernel and its database.
  */
 export async function makeKernel({
@@ -39,6 +42,7 @@ export async function makeKernel({
   keySeed,
   ioListenerFactory,
   systemSubclusters,
+  onRunLoopFailure,
 }: {
   workerFilePath?: string;
   resetStorage?: boolean;
@@ -47,6 +51,7 @@ export async function makeKernel({
   keySeed?: string | undefined;
   ioListenerFactory?: IOListenerFactory;
   systemSubclusters?: SystemSubclusterConfig[];
+  onRunLoopFailure?: OnRunLoopFailure;
 }): Promise<MakeKernelResult> {
   const rootLogger = logger ?? new Logger('kernel-worker');
   const platformServicesClient = new NodejsPlatformServices({
@@ -64,6 +69,7 @@ export async function makeKernel({
     keySeed,
     ioListenerFactory: ioListenerFactory ?? makeIOListenerFactory(),
     ...(systemSubclusters ? { systemSubclusters } : {}),
+    ...(onRunLoopFailure ? { onRunLoopFailure } : {}),
   });
 
   return { kernel, kernelDatabase };

@@ -32,8 +32,11 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
   function createCrankSavepoint(name: string): void {
     ctx.inCrank || Fail`createCrankSavepoint outside of crank`;
     const ordinal = ctx.savepoints.length;
-    ctx.savepoints.push(name);
+    // Record the name only once the database has the savepoint. Recording it
+    // first would leave `endCrank` trying to release a savepoint that was never
+    // created, and that error would replace whatever really went wrong.
     kdb.createSavepoint(`t${ordinal}`);
+    ctx.savepoints.push(name);
   }
 
   /**
@@ -46,8 +49,16 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
     ctx.crankBuffer.length = 0; // Discard buffered outputs
     for (const ordinal of ctx.savepoints.keys()) {
       if (ctx.savepoints[ordinal] === savepoint) {
-        kdb.rollbackSavepoint(`t${ordinal}`);
-        ctx.savepoints.length = ordinal;
+        try {
+          kdb.rollbackSavepoint(`t${ordinal}`);
+        } finally {
+          // Forget the savepoint even if the rollback failed. Leaving it listed
+          // would have `endCrank`'s release commit the crank we just abandoned —
+          // the half-finished state this rollback exists to discard. A failed
+          // rollback discards the whole transaction instead (see
+          // `rollbackSavepoint`), which for a crank is the same boundary.
+          ctx.savepoints.length = ordinal;
+        }
         // The rollback reverted DB state but in-memory caches are stale.
         // Recreate the run queue so its cached head/tail are re-read from DB.
         ctx.refreshRunQueue();
@@ -72,14 +83,18 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
   }
 
   /**
-   * End a crank.
+   * End a crank. Settles even if releasing the savepoints fails, so that a
+   * database error can't strand every `waitForCrank()` waiter forever.
    */
   function endCrank(): void {
     ctx.inCrank || Fail`endCrank outside of crank`;
-    releaseAllSavepoints();
-    ctx.inCrank = false;
-    ctx.resolveCrank?.();
-    ctx.resolveCrank = undefined;
+    try {
+      releaseAllSavepoints();
+    } finally {
+      ctx.inCrank = false;
+      ctx.resolveCrank?.();
+      ctx.resolveCrank = undefined;
+    }
   }
 
   /**

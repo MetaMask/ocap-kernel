@@ -1,4 +1,5 @@
 import type { Logger } from '@metamask/logger';
+import { literal, string, tuple, type, union } from '@metamask/superstruct';
 import { jsonrpc2 } from '@metamask/utils';
 import { describe, it, vi, expect } from 'vitest';
 
@@ -59,6 +60,30 @@ describe('RpcClient', () => {
       await expect(resultP).rejects.toThrow(
         'Invalid result: Expected the literal `null`, but received: 42',
       );
+    });
+
+    // A union's own message names only the union, so without the branch failures
+    // a peer built against an older schema reads as an ordinary bad value.
+    it('names the mismatched key when a union result fails validation', async () => {
+      const methods = {
+        method1: {
+          method: 'method1',
+          params: tuple([string()]),
+          result: union([
+            type({ state: literal('running') }),
+            type({ state: literal('failed'), error: string() }),
+          ]),
+        },
+      } as unknown as ReturnType<typeof getMethods>;
+      const client = new RpcClient(methods, vi.fn(), 'test');
+      const resultP = client.call('method1', ['test']);
+      client.handleResponse('test1', {
+        jsonrpc: jsonrpc2,
+        id: 'test1',
+        result: { state: 'failed' },
+      });
+
+      await expect(resultP).rejects.toThrow('error: Expected a string');
     });
 
     it('should throw an error for invalid responses', async () => {

@@ -34,6 +34,11 @@ describe('Daemon CLI e2e', { timeout: 60_000 }, () => {
       const result = response.result as Record<string, unknown>;
       expect(result).toHaveProperty('vats');
       expect(result).toHaveProperty('subclusters');
+      // `runLoop` is required by `KernelStatusStruct`, and `sendCommand` doesn't
+      // validate results — so without this assertion a kernel that stopped
+      // emitting it would break every `RpcClient` consumer (the UI panel) while
+      // this test stayed green. A live daemon reports the loop running.
+      expect(result).toHaveProperty('runLoop', { state: 'running' });
     });
 
     it('returns error for unknown method', async () => {

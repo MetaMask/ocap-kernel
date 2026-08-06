@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Show a banner when `getStatus` reports the kernel's run loop as failed; the vat and subcluster tables keep rendering their last known contents, so a dead kernel otherwise looks like a healthy idle one ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - The banner's details section shows `runLoop.detail`, the whole cause chain: when a crank dies and its rollback then fails, the headline names the rollback and only the chain names what killed the kernel
+
 ## [0.5.0]
 
 ### Changed

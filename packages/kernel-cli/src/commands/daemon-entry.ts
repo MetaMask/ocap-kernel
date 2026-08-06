@@ -2,12 +2,18 @@ import '@metamask/kernel-shims/endoify-node';
 import { makeKernel } from '@metamask/kernel-node-runtime';
 import { startDaemon } from '@metamask/kernel-node-runtime/daemon';
 import type { DaemonHandle } from '@metamask/kernel-node-runtime/daemon';
+import { stringify } from '@metamask/kernel-utils';
 import type { LogEntry } from '@metamask/logger';
 import { Logger } from '@metamask/logger';
-import { appendFileSync } from 'node:fs';
+import { appendFileSync, rmSync } from 'node:fs';
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import {
+  cleanUpFailedStartup,
+  logBestEffort,
+  makeDaemonRunLoopWiring,
+} from './run-loop-failure.ts';
 import { getOcapHome } from '../ocap-home.ts';
 import { isProcessAlive } from '../utils.ts';
 
@@ -60,8 +66,25 @@ const logger = new Logger({
 installFatalHandlers();
 
 main().catch((error) => {
-  process.stderr.write(`Daemon fatal: ${String(error)}\n`);
-  process.exitCode = 1;
+  // Best-effort, because the exit below is downstream of it: a throwing
+  // transport would otherwise escape to `unhandledRejection`, whose handler logs
+  // too and so throws again, leaving the process to die only because Node aborts
+  // when its own exception handler fails — code 7, and not even the `exit`
+  // fingerprint survives that.
+  // stderr is `ignore` under the CLI spawner, so the log file is the only place
+  // this can be read; `stringify` keeps the `cause` chain that `String` drops.
+  logBestEffort(logger, 'error', 'Daemon fatal', stringify(error, 0));
+  try {
+    process.stderr.write(`Daemon fatal: ${String(error)}\n`);
+  } catch {
+    // A closed stderr must not preempt the exit either.
+  }
+  // Not `process.exitCode`: a kernel that got as far as launching vats holds
+  // live worker threads, and those keep the event loop running, so a code alone
+  // would leave the daemon up with no socket and no pid file — an orphan
+  // neither interlock can see.
+  // eslint-disable-next-line n/no-process-exit -- a daemon that cannot start must not linger
+  process.exit(1);
 });
 
 /**
@@ -74,13 +97,31 @@ async function main(): Promise<void> {
     process.env.OCAP_SOCKET_PATH ?? join(ocapDir, 'daemon.sock');
 
   const dbFilename = join(ocapDir, 'kernel.sqlite');
+  const pidPath = join(ocapDir, 'daemon.pid');
+
+  // Declared before `makeKernel` so the failure wiring can close over it: the
+  // kernel may report a death before `startDaemon` has returned.
+  let shutdownPromise: Promise<void> | undefined;
+
+  const runLoop = makeDaemonRunLoopWiring({
+    logger,
+    shutdown: async (reason) => shutdown(reason),
+    isShuttingDown: () => shutdownPromise !== undefined,
+    // eslint-disable-next-line n/no-sync -- must finish before process.exit
+    removePidFile: () => rmSync(pidPath, { force: true }),
+    setExitCode: (code) => {
+      process.exitCode = code;
+    },
+    // eslint-disable-next-line n/no-process-exit -- a broken shutdown must still terminate
+    exit: (code) => process.exit(code),
+  });
+
   const { kernel, kernelDatabase } = await makeKernel({
     resetStorage: false,
     dbFilename,
     logger,
+    onRunLoopFailure: runLoop.onRunLoopFailure,
   });
-
-  const pidPath = join(ocapDir, 'daemon.pid');
 
   // Interlock: refuse to start a second daemon under the same OCAP_HOME.
   // The socket-binding interlock in startDaemon handles the live-socket
@@ -101,6 +142,7 @@ async function main(): Promise<void> {
   let handle: DaemonHandle;
   try {
     await kernel.initIdentity();
+    runLoop.assertSurvivedStartup();
     await writeFile(pidPath, String(process.pid));
 
     handle = await startDaemon({
@@ -110,19 +152,18 @@ async function main(): Promise<void> {
       onShutdown: async () => shutdown('RPC shutdown'),
     });
   } catch (error) {
-    try {
-      kernel.stop().catch(() => undefined);
-      kernelDatabase.close();
-    } catch {
-      // Best-effort cleanup.
-    }
-    rm(pidPath, { force: true }).catch(() => undefined);
+    await cleanUpFailedStartup({
+      logger,
+      stopKernel: async () => kernel.stop(),
+      closeDatabase: () => kernelDatabase.close(),
+      // eslint-disable-next-line n/no-sync -- must finish before process.exit
+      removePidFile: () => rmSync(pidPath, { force: true }),
+    });
     throw error;
   }
 
   logger.info(`Daemon started. Socket: ${handle.socketPath}`);
 
-  let shutdownPromise: Promise<void> | undefined;
   /**
    * Shut down the daemon idempotently. Concurrent calls coalesce.
    *
@@ -138,6 +179,10 @@ async function main(): Promise<void> {
     }
     return shutdownPromise;
   }
+
+  // Must follow `shutdown`, which a replayed failure calls and which needs
+  // `handle`.
+  runLoop.daemonStarted();
 
   process.on('SIGTERM', () => {
     shutdown('SIGTERM').catch(() => (process.exitCode = 1));
@@ -197,7 +242,11 @@ function makeFileTransport(logFilePath: string, minLevel: LogLevelName) {
  * file transport we're using here is `appendFileSync` under the
  * hood, so `logger.error(...)` from inside a fatal handler flushes
  * to disk before the process exits — no separate sync-write path
- * is required.
+ * is required. That same `appendFileSync` throws on a full disk,
+ * though, and here the log runs *before* the `process.exit` that
+ * terminates the vat workers holding the event loop open, so every
+ * one of these logs best-effort: the line is worth less than the
+ * exit it would otherwise block.
  *
  * Handlers registered:
  *
@@ -219,25 +268,19 @@ function makeFileTransport(logFilePath: string, minLevel: LogLevelName) {
 function installFatalHandlers(): void {
   /* eslint-disable n/no-process-exit -- fatal handlers must terminate deterministically */
   process.on('uncaughtException', (error: unknown) => {
-    const detail =
-      error instanceof Error ? (error.stack ?? error.message) : String(error);
-    logger.error('Uncaught exception', detail);
+    logBestEffort(logger, 'error', 'Uncaught exception', stringify(error, 0));
     process.exit(1);
   });
   process.on('unhandledRejection', (reason: unknown) => {
-    const detail =
-      reason instanceof Error
-        ? (reason.stack ?? reason.message)
-        : String(reason);
-    logger.error('Unhandled rejection', detail);
+    logBestEffort(logger, 'error', 'Unhandled rejection', stringify(reason, 0));
     process.exit(1);
   });
   process.on('SIGHUP', () => {
-    logger.error('SIGHUP received; exiting.');
+    logBestEffort(logger, 'error', 'SIGHUP received; exiting.');
     process.exit(0);
   });
   process.on('exit', (code) => {
-    logger.error(`Process exiting (code=${code}).`);
+    logBestEffort(logger, 'error', `Process exiting (code=${code}).`);
   });
   /* eslint-enable n/no-process-exit */
 }
