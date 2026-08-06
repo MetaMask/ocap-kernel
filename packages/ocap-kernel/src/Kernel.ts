@@ -294,6 +294,21 @@ export class Kernel {
     // the run queue has no selective removal capability.
     this.provideFacet();
 
+    // Discard anonymous kernel objects from a previous incarnation. They
+    // host things that cannot outlive the process — an accepted socket
+    // connection, say — and unlike a named service there is no name to
+    // re-register one under, so a survivor is unreachable but still pinned.
+    // Same hazard the facet registration above guards against: a delivery to
+    // one would find nothing registered and kill the run queue. Swept before
+    // the queue starts for exactly that reason.
+    const abandoned =
+      this.#kernelServiceManager.releaseAbandonedAnonymousKernelObjects();
+    if (abandoned > 0) {
+      this.#logger.info(
+        `Released ${abandoned} anonymous kernel object(s) abandoned by a previous incarnation`,
+      );
+    }
+
     // Restore persisted system subclusters and delete ones that no
     // longer have a config, to ensure that orphaned vats aren't started
     this.#subclusterManager.initSystemSubclusters(configs);

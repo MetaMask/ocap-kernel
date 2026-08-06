@@ -139,6 +139,11 @@ export class KernelServiceManager {
   registerAnonymousKernelObject(service: object, label: string): KRef {
     const kref = this.#kernelStore.initKernelObject('kernel');
     this.#kernelStore.pinObject(kref);
+    // Recorded persistently so `releaseAbandonedAnonymousKernelObjects` can
+    // find it after a restart. The routing entry below is in-memory only,
+    // and an anonymous object has no name to be re-registered under, so one
+    // that outlives its incarnation is unreachable yet still pinned.
+    this.#kernelStore.addAnonymousKernelObject(kref);
     this.#kernelServicesByObject.set(kref, {
       name: label,
       kref,
@@ -146,6 +151,37 @@ export class KernelServiceManager {
       systemOnly: false,
     });
     return kref;
+  }
+
+  /**
+   * Discard anonymous kernel objects left behind by a previous incarnation.
+   *
+   * These exist to host things that cannot outlive the process — an accepted
+   * socket connection, say — so any that survived a restart are garbage. They
+   * are also actively harmful if left: still pinned, so they accumulate with
+   * every restart, and still owned by `'kernel'`, so a delivery to one would
+   * reach `invokeKernelService`, find nothing registered, throw, and take the
+   * run loop down with it.
+   *
+   * Must run before the run queue starts, so nothing can be delivered to a
+   * stale kref in the window before the sweep.
+   *
+   * @returns The number of objects discarded.
+   */
+  releaseAbandonedAnonymousKernelObjects(): number {
+    const abandoned = this.#kernelStore
+      .getAnonymousKernelObjects()
+      .filter((kref) => !this.#kernelServicesByObject.has(kref));
+    for (const kref of abandoned) {
+      this.#kernelStore.unpinObject(kref);
+      const { reachable, recognizable } =
+        this.#kernelStore.getObjectRefCount(kref);
+      if (reachable === 0 && recognizable === 0) {
+        this.#kernelStore.deleteKernelObject(kref);
+      }
+      this.#kernelStore.removeAnonymousKernelObject(kref);
+    }
+    return abandoned.length;
   }
 
   /**
@@ -170,6 +206,7 @@ export class KernelServiceManager {
     if (reachable === 0 && recognizable === 0) {
       this.#kernelStore.deleteKernelObject(kref);
     }
+    this.#kernelStore.removeAnonymousKernelObject(kref);
   }
 
   /**
