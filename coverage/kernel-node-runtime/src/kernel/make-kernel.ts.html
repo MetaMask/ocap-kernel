@@ -30,9 +30,9 @@
         
             
             <div class='fl pad1y space-right2'>
-                <span class="strong">85.71% </span>
+                <span class="strong">88.88% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>6/7</span>
+                <span class='fraction'>8/9</span>
             </div>
         
             
@@ -133,7 +133,13 @@
 <a name='L68'></a><a href='#L68'>68</a>
 <a name='L69'></a><a href='#L69'>69</a>
 <a name='L70'></a><a href='#L70'>70</a>
-<a name='L71'></a><a href='#L71'>71</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
+<a name='L71'></a><a href='#L71'>71</a>
+<a name='L72'></a><a href='#L72'>72</a>
+<a name='L73'></a><a href='#L73'>73</a>
+<a name='L74'></a><a href='#L74'>74</a>
+<a name='L75'></a><a href='#L75'>75</a>
+<a name='L76'></a><a href='#L76'>76</a>
+<a name='L77'></a><a href='#L77'>77</a></td><td class="line-coverage quiet"><span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -183,37 +189,44 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-yes">1x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
-<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
-<span class="cline-any cline-yes">1x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-yes">3x</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span></td><td class="text"><pre class="prettyprint lang-js">import type { KernelDatabase } from '@metamask/kernel-store';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Logger } from '@metamask/logger';
 import { Kernel } from '@metamask/ocap-kernel';
 import type {
-  IOChannelFactory,
+  IOListenerFactory,
+  OnRunLoopFailure,
   SystemSubclusterConfig,
 } from '@metamask/ocap-kernel';
 &nbsp;
 import { NodejsPlatformServices } from './PlatformServices.ts';
-import { makeIOChannelFactory } from '../io/index.ts';
+import { makeIOListenerFactory } from '../io/index.ts';
 &nbsp;
 /**
  * Result of {@link makeKernel}.
@@ -232,8 +245,10 @@ export type MakeKernelResult = {
  * @param options.dbFilename - The filename of the SQLite database file.
  * @param options.logger - The logger to use for the kernel.
  * @param options.keySeed - Optional seed for libp2p key generation.
- * @param options.ioChannelFactory - Optional factory for creating IO channels.
+ * @param options.ioListenerFactory - Optional factory for creating IO listeners.
  * @param options.systemSubclusters - Optional system subcluster configurations.
+ * @param options.onRunLoopFailure - Optional handler called if the kernel's run
+ * loop dies, after which the kernel must be restarted.
  * @returns The kernel and its database.
  */
 export async function makeKernel({
@@ -242,16 +257,18 @@ export async function makeKernel({
   dbFilename,
   logger,
   keySeed,
-  ioChannelFactory,
+  ioListenerFactory,
   systemSubclusters,
+  onRunLoopFailure,
 }: {
   workerFilePath?: string;
   resetStorage?: boolean;
   dbFilename?: string;
   logger?: Logger;
   keySeed?: string | undefined;
-  ioChannelFactory?: IOChannelFactory;
+  ioListenerFactory?: IOListenerFactory;
   systemSubclusters?: SystemSubclusterConfig[];
+  onRunLoopFailure?: OnRunLoopFailure;
 }): Promise&lt;MakeKernelResult&gt; {
   const rootLogger = logger ?? new Logger('kernel-worker');
   const platformServicesClient = new NodejsPlatformServices({
@@ -267,8 +284,9 @@ export async function makeKernel({
     resetStorage,
     logger: rootLogger.subLogger({ tags: ['kernel'] }),
     keySeed,
-    ioChannelFactory: ioChannelFactory ?? makeIOChannelFactory(),
+    ioListenerFactory: ioListenerFactory ?? makeIOListenerFactory(),
     ...(systemSubclusters ? <span class="branch-0 cbranch-no" title="branch not covered" >{ systemSubclusters } </span>: {}),
+    ...(onRunLoopFailure ? { onRunLoopFailure } : {}),
   });
 &nbsp;
   return { kernel, kernelDatabase };
@@ -280,7 +298,7 @@ export async function makeKernel({
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-07-30T21:51:30.948Z
+                at 2026-08-07T20:50:21.148Z
             </div>
         <script src="../../../prettify.js"></script>
         <script>
