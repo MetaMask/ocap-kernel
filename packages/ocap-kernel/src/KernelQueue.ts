@@ -353,7 +353,11 @@ export class KernelQueue {
    */
   #enqueueRun(item: RunQueueItem): void {
     this.#kernelStore.enqueueRun(item);
-    if (this.#kernelStore.runQueueLength() === 1 && this.#wakeUpTheRunQueue) {
+    // Wake on any non-empty queue rather than only on the empty->1
+    // transition. A sleeping run loop plus a non-empty queue is a
+    // permanent wedge, so err towards a spurious wake: the resolver is
+    // cleared as it fires, and the loop re-checks the queue on waking.
+    if (this.#kernelStore.runQueueLength() > 0 && this.#wakeUpTheRunQueue) {
       const wakeUpTheRunQueue = this.#wakeUpTheRunQueue;
       this.#wakeUpTheRunQueue = null;
       wakeUpTheRunQueue();

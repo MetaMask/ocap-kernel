@@ -33,6 +33,11 @@ export function getQueueMethods(ctx: StoreContext) {
    * @param message - The message to enqueue.
    */
   function enqueueRun(message: RunQueueItem): void {
+    // Materialize the cache from the database before adjusting it. A
+    // negative cache means "unknown"; incrementing it blindly would turn
+    // that sentinel into a concrete (and wrong) count, and since the
+    // result is no longer negative it would never be re-read.
+    runQueueLength();
     ctx.runQueueLengthCache += 1;
     ctx.runQueue.enqueue(message);
   }
@@ -44,6 +49,9 @@ export function getQueueMethods(ctx: StoreContext) {
    * empty.
    */
   function dequeueRun(): RunQueueItem | undefined {
+    // Materialize the cache before adjusting it, for the same reason as
+    // in `enqueueRun`.
+    runQueueLength();
     ctx.runQueueLengthCache -= 1;
     return ctx.runQueue.dequeue() as RunQueueItem | undefined;
   }

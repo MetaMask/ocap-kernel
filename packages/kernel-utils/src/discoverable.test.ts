@@ -143,6 +143,38 @@ describe('makeDiscoverableExo', () => {
     );
   });
 
+  it('accepts a return schema describing an interface', () => {
+    const factorySchema: MethodSchema = {
+      description: 'Return a counter object',
+      args: {},
+      returns: {
+        type: 'interface',
+        description: 'A stateful counter',
+        methods: {
+          increment: {
+            description: 'Bump the counter and return the new value',
+            args: {},
+            returns: { type: 'number', description: 'The new count' },
+          },
+          reset: {
+            description: 'Reset the counter to zero',
+            args: {},
+          },
+        },
+      },
+    };
+    const methods = { makeCounter: () => ({}) };
+    const schema: Record<keyof typeof methods, MethodSchema> = {
+      makeCounter: factorySchema,
+    };
+
+    const exo = makeDiscoverableExo('CounterFactory', methods, schema);
+
+    expect(exo[GET_DESCRIPTION]()).toStrictEqual({
+      makeCounter: factorySchema,
+    });
+  });
+
   it('re-throws errors from makeExo that are not about describe key', () => {
     const testError = new Error('Some other error from makeExo');
     makeExoMock.mockImplementation(() => {
