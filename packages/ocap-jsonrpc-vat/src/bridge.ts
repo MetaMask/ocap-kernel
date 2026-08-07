@@ -79,22 +79,55 @@ export function makeBridge(hooks: BridgeHooks): Bridge {
    */
   const where = (): string => hooks.label ?? 'this connection';
 
+  /**
+   * Names minted while handling the current request and not yet disclosed to
+   * the client. A name only becomes usable once the client has actually been
+   * sent a reply carrying it; see `dispatch`.
+   */
+  let stagedNames: string[] = [];
+
+  /** `nextObjId` as of the start of the current request, for rollback. */
+  let objIdBeforeRequest = 0;
+
   const resetSession = (): void => {
     nameToObj = new Map();
     objToName = new Map();
     nextObjId = 0;
+    stagedNames = [];
+    objIdBeforeRequest = 0;
   };
 
   const assignName = (obj: unknown): string => {
     const existing = objToName.get(obj);
     if (existing !== undefined) {
+      // Already disclosed by an earlier reply, so it is not this request's to
+      // stage — and must survive if this request is rolled back.
       return existing;
     }
     nextObjId += 1;
     const name = `j${nextObjId}`;
     nameToObj.set(name, obj);
     objToName.set(obj, name);
+    stagedNames.push(name);
     return name;
+  };
+
+  /**
+   * Discard the names minted for the current request, so a reply the client
+   * never received leaves no reachable reference behind.
+   *
+   * `nextObjId` is rewound too. Reusing an id is safe precisely because a
+   * rolled-back name was never disclosed: no client can be holding it.
+   */
+  const rollbackNames = (): void => {
+    for (const name of stagedNames) {
+      if (nameToObj.has(name)) {
+        objToName.delete(nameToObj.get(name));
+        nameToObj.delete(name);
+      }
+    }
+    nextObjId = objIdBeforeRequest;
+    stagedNames = [];
   };
 
   const resolveName = (name: string): unknown => nameToObj.get(name);
@@ -126,7 +159,7 @@ export function makeBridge(hooks: BridgeHooks): Bridge {
     return substituteRemotables(result, hooks.isRemotable, assignName);
   };
 
-  const dispatch = async (request: unknown): Promise<JsonRpcResponse> => {
+  const handleRequest = async (request: unknown): Promise<JsonRpcResponse> => {
     const id = extractId(request);
     if (!isJsonRpcRequest(request)) {
       return errorResponse(
@@ -162,6 +195,38 @@ export function makeBridge(hooks: BridgeHooks): Bridge {
         message,
       );
     }
+  };
+
+  const dispatch = async (request: unknown): Promise<JsonRpcResponse> => {
+    objIdBeforeRequest = nextObjId;
+    stagedNames = [];
+    const response = await handleRequest(request);
+    if ('error' in response) {
+      // The client is being told the call failed, so it must not come away
+      // able to reach references the result walk minted before giving up.
+      // Names are sequential, so an undisclosed one is trivially guessable.
+      rollbackNames();
+      return response;
+    }
+    try {
+      // A name becomes reachable only for a reply that can actually be sent.
+      // `JSON.stringify` still throws on values the walkers do not screen —
+      // a bigint, or a circular structure — and that failure has to roll the
+      // names back as well, which is why encodability is settled here rather
+      // than left to whoever writes the reply. Costs one extra encode per
+      // request, which is worth it to keep the two decisions in one place.
+      JSON.stringify(response);
+    } catch (error) {
+      rollbackNames();
+      return errorResponse(
+        response.id,
+        JSON_RPC_ERROR.INTERNAL_ERROR,
+        'result could not be encoded as JSON',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+    stagedNames = [];
+    return response;
   };
 
   return { dispatch, resetSession };

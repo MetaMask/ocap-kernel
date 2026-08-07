@@ -143,11 +143,13 @@ export function buildRootObject(
   /**
    * Encode and write one response.
    *
-   * Encoding can fail even when dispatch succeeded, because a method may
-   * return a passable that has no JSON form — a `bigint`, say — which
-   * `substituteRemotables` passes through untouched. Sending an error in
-   * that case keeps the exchange to one reply per request; treating it as a
-   * write failure would drop the connection and leave the client waiting.
+   * The encode guard here is now defensive rather than load-bearing: a
+   * response from `dispatch` has already been proven encodable, because the
+   * bridge has to know whether the reply is sendable before it commits the
+   * `@@j<n>` names minted for it. This still covers the responses built
+   * directly in this module, and keeps a `JSON.stringify` throw from being
+   * reported as a write failure, which would drop the connection and leave
+   * the client waiting instead of answering it.
    *
    * @param connection - The connection to write to.
    * @param response - The response to encode and send.

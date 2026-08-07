@@ -512,3 +512,160 @@ describe('resetSession', () => {
     expect(second.result).toBe('@@j1');
   });
 });
+
+describe('dispatch: name disclosure is atomic', () => {
+  const redeemFake = async (): Promise<unknown> => makeFake('root');
+
+  /**
+   * Redeem a URL so the connection has a usable target, returning its name.
+   *
+   * @param bridge - The bridge to prime.
+   * @returns The marker string naming the redeemed object.
+   */
+  async function primeTarget(
+    bridge: ReturnType<typeof makeBridge>,
+  ): Promise<string> {
+    const response = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 'prime',
+      method: 'redeemURL',
+      params: { url: 'ocap://root' },
+    })) as { result: string };
+    return response.result;
+  }
+
+  it.each([
+    [
+      'a non-finite number',
+      (): unknown => ({ ref: makeFake('leaked'), bad: Number.NaN }),
+    ],
+    [
+      'an unsettled promise',
+      (): unknown => ({
+        ref: makeFake('leaked'),
+        bad: new Promise(() => undefined),
+      }),
+    ],
+    ['a bigint', (): unknown => ({ ref: makeFake('leaked'), bad: 1n })],
+  ])(
+    'discards names minted for a reply rejected over %s',
+    async (_label, makeResult) => {
+      const { bridge } = buildBridge({
+        redeem: redeemFake,
+        invoke: async (): Promise<unknown> => makeResult(),
+      });
+      const target = await primeTarget(bridge);
+
+      const failed = (await bridge.dispatch({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'send',
+        params: { target, method: 'getRef', args: [] },
+      })) as { error?: { code: number } };
+      expect(failed.error).toBeDefined();
+
+      // The walk minted a name for `ref` before hitting the bad value. Names
+      // are sequential, so guessing it takes no work — it must not resolve.
+      const probe = (await bridge.dispatch({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'send',
+        params: { target: '@@j2', method: 'anything', args: [] },
+      })) as { error?: { code: number; message: string } };
+      expect(probe.error?.code).toBe(JSON_RPC_ERROR.INVALID_PARAMS);
+      expect(probe.error?.message).toMatch(/not a known reference/u);
+    },
+  );
+
+  it('keeps a name already disclosed by an earlier successful reply', async () => {
+    const shared = makeFake('shared');
+    let failNext = false;
+    const { bridge } = buildBridge({
+      redeem: redeemFake,
+      invoke: async (): Promise<unknown> =>
+        failNext ? { ref: shared, bad: Number.NaN } : shared,
+    });
+    const target = await primeTarget(bridge);
+
+    const first = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'send',
+      params: { target, method: 'getShared', args: [] },
+    })) as { result: string };
+    const disclosed = first.result;
+
+    // A later failed request mentions the same object. Rolling that request
+    // back must not revoke a name the client was legitimately given.
+    failNext = true;
+    const failed = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'send',
+      params: { target, method: 'getShared', args: [] },
+    })) as { error?: unknown };
+    expect(failed.error).toBeDefined();
+
+    failNext = false;
+    const after = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'send',
+      params: { target: disclosed, method: 'stillThere', args: [] },
+    })) as { result?: unknown; error?: unknown };
+    expect(after.error).toBeUndefined();
+  });
+
+  it('reuses the id a rolled-back name held, leaving no gap', async () => {
+    let failNext = true;
+    const { bridge } = buildBridge({
+      redeem: redeemFake,
+      invoke: async (): Promise<unknown> =>
+        failNext
+          ? { ref: makeFake('discarded'), bad: Number.NaN }
+          : makeFake('kept'),
+    });
+    const target = await primeTarget(bridge);
+
+    await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'send',
+      params: { target, method: 'fails', args: [] },
+    });
+    failNext = false;
+    const ok = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'send',
+      params: { target, method: 'works', args: [] },
+    })) as { result: string };
+
+    // The discarded name was never disclosed, so its id is free to reuse.
+    expect(ok.result).toBe('@@j2');
+  });
+
+  it('still registers names for a reply that succeeds', async () => {
+    const { bridge } = buildBridge({
+      redeem: redeemFake,
+      invoke: async (): Promise<unknown> => makeFake('handed over'),
+    });
+    const target = await primeTarget(bridge);
+
+    const response = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'send',
+      params: { target, method: 'getRef', args: [] },
+    })) as { result: string };
+    expect(response.result).toBe('@@j2');
+
+    const reuse = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'send',
+      params: { target: response.result, method: 'usable', args: [] },
+    })) as { error?: unknown };
+    expect(reuse.error).toBeUndefined();
+  });
+});
