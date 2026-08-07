@@ -143,8 +143,10 @@ function isThenable(value: unknown): boolean {
  *
  * The result is a JSON-safe tree ready for `JSON.stringify`.
  *
- * @throws If the tree contains an unsettled promise, which would otherwise
- * serialize to `{}` and reach the client as a silently wrong success.
+ * @throws If the tree contains a value with no JSON form that
+ * `JSON.stringify` would nonetheless accept — an unsettled promise (which
+ * becomes `{}`) or a non-finite number (which becomes `null`) — since either
+ * would reach the client as a silently wrong success.
  *
  * @param value - The value to walk.
  * @param isRemotable - Predicate identifying a value that should be
@@ -175,6 +177,22 @@ export function substituteRemotables(
     throw new BridgeRpcError(
       JSON_RPC_ERROR.INTERNAL_ERROR,
       'result contains an unsettled promise, which has no JSON form',
+    );
+  }
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    // JSON has no way to write `NaN` or `±Infinity`, and `JSON.stringify`
+    // does not complain — it emits `null`. That is indistinguishable from
+    // the `null` a void method legitimately produces (`successResponse`
+    // normalizes `undefined` to `null`), so the client cannot tell a missing
+    // value from a real one. Same reasoning as the promise case above:
+    // silently wrong is worse than an explicit failure.
+    //
+    // `-0` is deliberately allowed through. It serializes to `0`, which is
+    // a numerically equal JSON number rather than a value replaced by an
+    // unrelated one.
+    throw new BridgeRpcError(
+      JSON_RPC_ERROR.INTERNAL_ERROR,
+      `result contains ${String(value)}, which has no JSON form`,
     );
   }
   if (typeof value === 'object' && value !== null) {
