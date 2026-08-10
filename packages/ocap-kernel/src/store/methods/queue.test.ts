@@ -117,6 +117,26 @@ describe('queue store methods', () => {
       expect(mockRunQueue.enqueue).toHaveBeenNthCalledWith(1, message1);
       expect(mockRunQueue.enqueue).toHaveBeenNthCalledWith(2, message2);
     });
+
+    it('resolves an invalidated cache from the database before incrementing', () => {
+      // A negative cache means "length unknown, re-read from the DB".
+      // Incrementing it blindly would yield 0 for a queue that already
+      // holds an item, and since 0 is not negative the stale value would
+      // never be re-read — stranding queued items and losing the run
+      // loop's wakeup.
+      const message: RunQueueItem = {
+        type: 'message',
+        data: { some: 'data' },
+      } as unknown as RunQueueItem;
+      context.runQueueLengthCache = -1;
+      mockKV.set('queue.run.head', '38');
+      mockKV.set('queue.run.tail', '37');
+
+      queueMethods.enqueueRun(message);
+
+      expect(context.runQueueLengthCache).toBe(2);
+      expect(queueMethods.runQueueLength()).toBe(2);
+    });
   });
 
   describe('dequeueRun', () => {
@@ -171,6 +191,21 @@ describe('queue store methods', () => {
 
       expect(queueMethods.dequeueRun()).toBeUndefined();
       expect(context.runQueueLengthCache).toBe(0);
+    });
+
+    it('resolves an invalidated cache from the database before decrementing', () => {
+      const message: RunQueueItem = {
+        type: 'message',
+        data: { some: 'data' },
+      } as unknown as RunQueueItem;
+      mockRunQueue.dequeue.mockReturnValue(message);
+      context.runQueueLengthCache = -1;
+      mockKV.set('queue.run.head', '39');
+      mockKV.set('queue.run.tail', '37');
+
+      expect(queueMethods.dequeueRun()).toStrictEqual(message);
+
+      expect(context.runQueueLengthCache).toBe(1);
     });
   });
 

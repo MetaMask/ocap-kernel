@@ -65,6 +65,23 @@ describe('crank methods', () => {
       expect(kdb.createSavepoint).toHaveBeenCalledWith('t1');
     });
 
+    it('does not record a savepoint the database refused', () => {
+      context.inCrank = true;
+      vi.mocked(kdb.createSavepoint).mockImplementationOnce(() => {
+        throw new Error('database is gone');
+      });
+
+      expect(() => crankMethods.createCrankSavepoint('start')).toThrow(
+        'database is gone',
+      );
+
+      expect(context.savepoints).toStrictEqual([]);
+      // Otherwise `endCrank` releases a savepoint that never existed, and that
+      // error replaces whatever really went wrong.
+      crankMethods.endCrank();
+      expect(kdb.releaseSavepoint).not.toHaveBeenCalled();
+    });
+
     it('should throw when not in a crank', () => {
       expect(() => crankMethods.createCrankSavepoint('test')).toThrow(
         'createCrankSavepoint outside of crank',
@@ -73,6 +90,24 @@ describe('crank methods', () => {
   });
 
   describe('rollbackCrank', () => {
+    it('forgets the savepoint even if the database rollback fails', () => {
+      context.inCrank = true;
+      context.savepoints = ['start'];
+      vi.mocked(kdb.rollbackSavepoint).mockImplementationOnce(() => {
+        throw new Error('database is gone');
+      });
+
+      expect(() => crankMethods.rollbackCrank('start')).toThrow(
+        'database is gone',
+      );
+
+      // Still listed, `endCrank` would release it — committing the crank this
+      // rollback was abandoning.
+      expect(context.savepoints).toStrictEqual([]);
+      crankMethods.endCrank();
+      expect(kdb.releaseSavepoint).not.toHaveBeenCalled();
+    });
+
     it('should rollback to specified savepoint', () => {
       context.inCrank = true;
       context.savepoints = ['first', 'second', 'third'];
@@ -157,6 +192,19 @@ describe('crank methods', () => {
       expect(() => crankMethods.endCrank()).toThrow(
         'endCrank outside of crank',
       );
+    });
+
+    it('settles the crank even if releasing savepoints fails', async () => {
+      crankMethods.startCrank();
+      context.savepoints = ['test'];
+      const waiter = crankMethods.waitForCrank();
+      vi.mocked(kdb.releaseSavepoint).mockImplementationOnce(() => {
+        throw new Error('database is gone');
+      });
+      expect(() => crankMethods.endCrank()).toThrow('database is gone');
+      expect(context.inCrank).toBe(false);
+      expect(context.resolveCrank).toBeUndefined();
+      expect(await waiter).toBeUndefined();
     });
   });
 

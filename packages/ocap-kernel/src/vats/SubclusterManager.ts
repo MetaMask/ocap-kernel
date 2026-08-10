@@ -116,6 +116,9 @@ export class SubclusterManager {
     { isSystem = false }: { isSystem?: boolean } = {},
   ): Promise<SubclusterLaunchResult> {
     await this.#kernelQueue.waitForCrank();
+    // It would fail at the bootstrap message anyway, but only refusing here fails
+    // before spawning a worker per vat, which the catch below leaks.
+    this.#kernelQueue.assertRunLoopAlive('launch a subcluster');
     isClusterConfig(config) || Fail`invalid cluster config`;
     if (!config.vats[config.bootstrap]) {
       Fail`invalid bootstrap vat name ${config.bootstrap}`;

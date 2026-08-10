@@ -1,4 +1,5 @@
 import { E } from '@endo/eventual-send';
+import type { ExpectedKernelErrorCode } from '@metamask/kernel-errors';
 import type { Logger } from '@metamask/logger';
 
 import type { KernelQueue } from './KernelQueue.ts';
@@ -8,6 +9,14 @@ import type { KRef, KernelMessage } from './types.ts';
 import { assert } from './utils/assert.ts';
 
 export type KernelService = {
+  /**
+   * The service's name. For services registered with
+   * `registerKernelServiceObject` this is the key vats name in their
+   * cluster config's `services` list, and it is unique. For objects
+   * registered with `registerAnonymousKernelObject` it is only a
+   * diagnostic label: those objects are deliberately absent from the
+   * name index and need not be unique.
+   */
   name: string;
   kref: KRef;
   service: object;
@@ -104,6 +113,108 @@ export class KernelServiceManager {
   }
 
   /**
+   * Register a kernel-hosted object reachable *only* by reference.
+   *
+   * Unlike `registerKernelServiceObject`, this enters the object in the
+   * by-kref routing table but deliberately not in the name index, so it
+   * has no name in the global service namespace and cannot be requested
+   * via a cluster config's `services` list. The only way to obtain one
+   * is to be handed the reference, which is what makes it suitable for
+   * per-session objects such as an accepted IO connection: authority is
+   * conveyed by an unforgeable reference rather than by a string that
+   * anything able to name it could use.
+   *
+   * The returned kref is meant to be passed to `kslot()` so a kernel
+   * service method can return the object to a vat, which receives it as
+   * an ordinary Presence.
+   *
+   * The object is pinned, so it stays alive until
+   * `releaseAnonymousKernelObject` is called; the registrar owns that
+   * lifetime.
+   *
+   * @param service - The object to host.
+   * @param label - A diagnostic label. Need not be unique; it is never
+   * used for lookup.
+   * @returns The kref of the newly hosted object.
+   */
+  registerAnonymousKernelObject(service: object, label: string): KRef {
+    const kref = this.#kernelStore.initKernelObject('kernel');
+    this.#kernelStore.pinObject(kref);
+    // Recorded persistently so `releaseAbandonedAnonymousKernelObjects` can
+    // find it after a restart. The routing entry below is in-memory only,
+    // and an anonymous object has no name to be re-registered under, so one
+    // that outlives its incarnation is unreachable yet still pinned.
+    this.#kernelStore.addAnonymousKernelObject(kref);
+    this.#kernelServicesByObject.set(kref, {
+      name: label,
+      kref,
+      service,
+      systemOnly: false,
+    });
+    return kref;
+  }
+
+  /**
+   * Discard anonymous kernel objects left behind by a previous incarnation.
+   *
+   * These exist to host things that cannot outlive the process — an accepted
+   * socket connection, say — so any that survived a restart are garbage, and
+   * harmful if left: still pinned, so they accumulate with every restart.
+   *
+   * Note what this does *not* guarantee. The kernel object is deleted only
+   * once nothing references it, which with the current `(1, 1)` refcount
+   * baseline (see #1006) is never; a survivor therefore keeps its `'kernel'`
+   * owner, and a delivery to it still routes to `invokeKernelService`. That
+   * case is made survivable there, by rejecting the caller's promise rather
+   * than throwing, and not here.
+   *
+   * Runs before the run queue starts, so the unpinning is complete before
+   * anything can address one of these krefs.
+   *
+   * @returns The number of objects discarded.
+   */
+  releaseAbandonedAnonymousKernelObjects(): number {
+    const abandoned = this.#kernelStore
+      .getAnonymousKernelObjects()
+      .filter((kref) => !this.#kernelServicesByObject.has(kref));
+    for (const kref of abandoned) {
+      this.#kernelStore.unpinObject(kref);
+      const { reachable, recognizable } =
+        this.#kernelStore.getObjectRefCount(kref);
+      if (reachable === 0 && recognizable === 0) {
+        this.#kernelStore.deleteKernelObject(kref);
+      }
+      this.#kernelStore.removeAnonymousKernelObject(kref);
+    }
+    return abandoned.length;
+  }
+
+  /**
+   * Release an object registered with `registerAnonymousKernelObject`,
+   * unpinning it and removing it from the routing table. Idempotent, and
+   * safe to call for a kref that was never registered.
+   *
+   * The kernel object itself is deleted here once nothing references it,
+   * rather than being left to `collectGarbage`, which skips kernel-owned
+   * objects. With the current refcount baseline this branch does not fire;
+   * it is the correct place for the deletion once that changes (see #1006).
+   *
+   * @param kref - The kref of the object to release.
+   */
+  releaseAnonymousKernelObject(kref: KRef): void {
+    if (!this.#kernelServicesByObject.delete(kref)) {
+      return;
+    }
+    this.#kernelStore.unpinObject(kref);
+    const { reachable, recognizable } =
+      this.#kernelStore.getObjectRefCount(kref);
+    if (reachable === 0 && recognizable === 0) {
+      this.#kernelStore.deleteKernelObject(kref);
+    }
+    this.#kernelStore.removeAnonymousKernelObject(kref);
+  }
+
+  /**
    * Get a kernel service by name.
    *
    * @param name - The name of the service.
@@ -148,7 +259,25 @@ export class KernelServiceManager {
   invokeKernelService(target: KRef, message: KernelMessage): void {
     const kernelService = this.#kernelServicesByObject.get(target);
     if (!kernelService) {
-      throw Error(`No registered service for ${target}`);
+      // Reachable, and not necessarily a kernel bug: an anonymous kernel
+      // object hosts something that cannot outlive the process, such as an
+      // accepted socket connection. A vat holding one across a restart, or a
+      // message to one still sitting in the run queue from the previous
+      // incarnation, arrives here with nothing registered.
+      //
+      // Rejecting rather than throwing is the point. A throw escapes the
+      // crank and takes the run loop with it, so one unreachable reference
+      // becomes a dead kernel — and the sweep in `Kernel.#init` cannot
+      // prevent that on its own, since the object survives with its `kernel`
+      // owner intact whenever a vat import or queued message still
+      // references it. This mirrors what `KernelRouter` already does for a
+      // delivery whose endpoint has vanished.
+      this.#failMessage(
+        message.result,
+        'ENDPOINT_UNREACHABLE',
+        `No registered service for ${target}`,
+      );
+      return;
     }
     const { methargs, result } = message;
     const [method, args] = kunser(methargs) as [string, unknown[]];
@@ -176,27 +305,36 @@ export class KernelServiceManager {
           return undefined;
         })
         .catch((problem: unknown) => {
-          if (result) {
-            const detail =
-              problem instanceof Error ? problem.message : String(problem);
-            this.#kernelQueue.resolvePromises('kernel', [
-              [result, true, makeKernelError('DELIVERY_FAILED', detail)],
-            ]);
-          } else {
-            this.#logger?.error('Error in kernel service method:', problem);
-          }
+          this.#failMessage(result, 'DELIVERY_FAILED', problem);
         });
     } catch (syncError) {
       // Handle synchronous errors thrown before returning a Promise
-      if (result) {
-        const detail =
-          syncError instanceof Error ? syncError.message : String(syncError);
-        this.#kernelQueue.resolvePromises('kernel', [
-          [result, true, makeKernelError('DELIVERY_FAILED', detail)],
-        ]);
-      } else {
-        this.#logger?.error('Error in kernel service method:', syncError);
-      }
+      this.#failMessage(result, 'DELIVERY_FAILED', syncError);
+    }
+  }
+
+  /**
+   * Report a failed kernel service message by rejecting the caller's result
+   * promise. A message sent with no result promise has nobody to report to,
+   * so the problem is logged instead.
+   *
+   * @param result - The kref of the message's result promise, if it has one.
+   * @param code - The kernel error code to report to the caller.
+   * @param problem - The error or description of what went wrong.
+   */
+  #failMessage(
+    result: KRef | null | undefined,
+    code: ExpectedKernelErrorCode,
+    problem: unknown,
+  ): void {
+    if (result) {
+      const detail =
+        problem instanceof Error ? problem.message : String(problem);
+      this.#kernelQueue.resolvePromises('kernel', [
+        [result, true, makeKernelError(code, detail)],
+      ]);
+    } else {
+      this.#logger?.error('Error in kernel service method:', problem);
     }
   }
 }

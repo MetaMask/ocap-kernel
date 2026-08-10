@@ -765,6 +765,34 @@ const RemoteCommsConnectedStruct = object({
   listenAddresses: array(string()),
 });
 
+/**
+ * Whether the kernel is capable of processing its run queue. `idle` means the
+ * run loop was never started, not that it has nothing to do — a loop parked on
+ * an empty queue reports `running`. `failed` means nothing will ever be
+ * processed again and the kernel must be restarted.
+ */
+// The arms are `type()`, not `object()`, so a client shipped against them
+// tolerates a newer kernel adding a field to an arm. Note the limit of that:
+// a newer kernel adding a whole new *state* is rejected by the union either
+// way, so adding an arm here is a breaking wire change for older clients.
+export const RunLoopStatusStruct = union([
+  type({ state: literal('idle') }),
+  type({ state: literal('running') }),
+  // Two strings because one cannot be both: `error` is the message, `detail` the
+  // cause chain. When a crank dies and its rollback then fails, the message names
+  // the rollback and only the chain names what killed the kernel.
+  type({ state: literal('failed'), error: string(), detail: string() }),
+]);
+
+export type RunLoopStatus = Infer<typeof RunLoopStatusStruct>;
+
+/**
+ * Notified when the kernel's run loop dies. Should not be async: the kernel is
+ * reporting a failure it cannot recover from, so there is nothing to await. An
+ * async handler's rejection is logged rather than awaited.
+ */
+export type OnRunLoopFailure = (error: Error) => void;
+
 export const KernelStatusStruct = type({
   subclusters: array(SubclusterStruct),
   vats: array(
@@ -774,6 +802,15 @@ export const KernelStatusStruct = type({
       subclusterId: SubclusterIdStruct,
     }),
   ),
+  // Required, in the type as well as on the wire. `exactOptional` would make the
+  // type say "may be absent" while validation still demanded the key, since
+  // `exactOptional` only permits an absent key inside `object()` and this is a
+  // `type()`. `optional` would agree with the type but cannot be used: it widens
+  // the inferred property to `| undefined`, and `KernelStatus` is an RPC result,
+  // so it must satisfy `Json`. Required is the only self-consistent option — at
+  // the cost that a reply from a kernel predating this field fails validation
+  // outright, which `remoteComms` already implies for older kernels too.
+  runLoop: RunLoopStatusStruct,
   remoteComms: exactOptional(
     union([
       RemoteCommsDisconnectedStruct,

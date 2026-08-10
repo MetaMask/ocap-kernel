@@ -8,7 +8,7 @@ export type {
   VatEndowments,
 } from './vats/endowments.ts';
 export { initTransport } from './remotes/platform/transport.ts';
-export type { IOChannel, IOChannelFactory } from './io/types.ts';
+export type { IOChannel, IOListener, IOListenerFactory } from './io/types.ts';
 export type {
   Baggage,
   ClusterConfig,
@@ -22,6 +22,8 @@ export type {
   PlatformServices,
   VatConfig,
   KernelStatus,
+  OnRunLoopFailure,
+  RunLoopStatus,
   Subcluster,
   SubclusterId,
   SubclusterLaunchResult,
@@ -52,6 +54,7 @@ export {
   ClusterConfigStruct,
   CapDataStruct,
   KernelStatusStruct,
+  RunLoopStatusStruct,
   SubclusterStruct,
 } from './types.ts';
 export { AllowedGlobalNameStruct } from './vats/endowments.ts';

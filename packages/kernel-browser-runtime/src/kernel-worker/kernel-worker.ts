@@ -64,6 +64,20 @@ async function main(): Promise<void> {
   const kernelP = Kernel.make(platformServicesClient, kernelDatabase, {
     resetStorage,
     systemSubclusters,
+    // Log and stay up, deliberately. `self.close()` would match what the daemon
+    // does, but here it would remove the only diagnostic without buying any
+    // recovery: nothing respawns this worker, the vat iframes belong to the
+    // offscreen document and would outlive it as orphans, and the panel keeps
+    // its last successful status when polling fails — so it would go on showing
+    // a healthy kernel forever. Staying up is what lets `getStatus` report
+    // `runLoop: failed` and the panel say so. Reviving the browser kernel means
+    // teardown and respawn driven from the offscreen document.
+    onRunLoopFailure: (error) => {
+      logger.error(
+        'Kernel run loop died; this worker must be reloaded.',
+        error,
+      );
+    },
   });
 
   const handlerP = kernelP.then((kernel) => {

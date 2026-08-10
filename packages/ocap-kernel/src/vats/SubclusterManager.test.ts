@@ -74,6 +74,7 @@ describe('SubclusterManager', () => {
     mockKernelQueue = {
       waitForCrank: vi.fn().mockResolvedValue(undefined),
       resolvePromises: vi.fn(),
+      assertRunLoopAlive: vi.fn(),
     } as unknown as Mocked<KernelQueue>;
 
     mockVatManager = {
@@ -134,6 +135,21 @@ describe('SubclusterManager', () => {
         bootstrapResult: { body: '{"result":"ok"}', slots: [] },
         vatRootKrefs: { testVat: 'ko1' },
       });
+    });
+
+    // The launch fails at the bootstrap message either way; only refusing up
+    // front keeps it from leaking a spawned worker per vat in the config.
+    it('refuses to launch when the run loop has died', async () => {
+      vi.mocked(mockKernelQueue.assertRunLoopAlive).mockImplementation(() => {
+        throw new Error('Kernel run loop died; cannot launch a subcluster');
+      });
+
+      await expect(
+        subclusterManager.launchSubcluster(createMockClusterConfig()),
+      ).rejects.toThrow('Kernel run loop died; cannot launch a subcluster');
+
+      expect(mockVatManager.launchVat).not.toHaveBeenCalled();
+      expect(mockKernelStore.addSubcluster).not.toHaveBeenCalled();
     });
 
     it('launches subcluster with multiple vats', async () => {
