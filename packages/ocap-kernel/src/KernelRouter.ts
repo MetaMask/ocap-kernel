@@ -503,8 +503,11 @@ export class KernelRouter {
       // A vat is local and reliable, so a refusal means it is broken. Undo the
       // teardown rather than commit it: leaving the two disagreeing would have
       // the vat mint fresh krefs for objects the kernel thinks it let go of.
-      // Aborting restores the entries and the action; terminating the vat is
-      // what stops that restored action from being retried forever.
+      // Aborting restores the c-list entries, and the action too — but only
+      // because `rollbackCrank` re-provides the cached GC action set, not as a
+      // property of the database rollback. Terminating the vat is what then
+      // drains the restored action: `shouldProcessAction` keeps it only while
+      // the vat has a c-list entry for the kref, which cleanup removes.
       this.#logger?.error(
         `Delivery of ${type} to ${endpointId} failed; rolling back the kernel's release of ${JSON.stringify(live)} and terminating it:`,
         error,

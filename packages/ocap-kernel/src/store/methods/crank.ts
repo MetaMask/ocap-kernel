@@ -66,6 +66,19 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
         // the database on next access, since the rollback may have restored
         // dequeued items.
         ctx.runQueueLengthCache = -1;
+        // Same staleness, worse consequence: a cached value reads from its
+        // closure and only writes through to kv, so one this crank consumed
+        // stays consumed and the next `set` persists that. `processGCActionSet`
+        // takes an action out of the set before delivering it, so an action not
+        // restored here is lost rather than retried.
+        ctx.refreshCachedValues();
+        // Nothing rolls back RAM. These krefs are collection candidates only
+        // because this crank decremented them, and that is precisely what was
+        // just undone. Left in place, `collectGarbage` throws on a later crank
+        // for any promise this one created — killing the run loop over work that
+        // no longer exists. Correct only while every rollback is to the crank's
+        // own start, which is the only savepoint any caller uses.
+        ctx.maybeFreeKrefs.clear();
         return;
       }
     }

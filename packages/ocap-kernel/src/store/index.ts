@@ -88,7 +88,7 @@ import { getRevocationMethods } from './methods/revocation.ts';
 import { getSubclusterMethods } from './methods/subclusters.ts';
 import { getTranslators } from './methods/translators.ts';
 import { getVatMethods } from './methods/vat.ts';
-import type { StoreContext } from './types.ts';
+import type { StoreContext, StoredValue } from './types.ts';
 
 /**
  * Create a new KernelStore object wrapped around a raw kernel database. The
@@ -114,6 +114,48 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
 
   const { provideCachedStoredValue, provideStoredQueue } = getBaseMethods(kv);
 
+  /**
+   * Every cached stored value the context holds, as `field: [key, initial]`.
+   * Declared once so that initialization and `refreshCachedValues` cannot
+   * disagree about which values exist: adding one here does both.
+   */
+  const CACHED_VALUES = {
+    /** Counter for allocating kernel object IDs */
+    nextObjectId: ['nextObjectId', '1'],
+    /** Counter for allocating kernel promise IDs */
+    nextPromiseId: ['nextPromiseId', '1'],
+    /** Counter for allocating VatIDs */
+    nextVatId: ['nextVatId', '1'],
+    /** Counter for allocating RemoteIDs */
+    nextRemoteId: ['nextRemoteId', '1'],
+    // Garbage collection
+    gcActions: ['gcActions', '[]'],
+    reapQueue: ['reapQueue', '[]'],
+    terminatedVats: ['vats.terminated', '[]'],
+    // Subclusters
+    subclusters: ['subclusters', '[]'],
+    nextSubclusterId: ['nextSubclusterId', '1'],
+    vatToSubclusterMap: ['vatToSubclusterMap', '{}'],
+  } as const satisfies Record<string, readonly [key: string, init: string]>;
+
+  /**
+   * Provide a fresh stored value for each of {@link CACHED_VALUES}, reading its
+   * current setting out of the database.
+   *
+   * @returns The stored values, keyed by the context field that holds each.
+   */
+  function provideCachedValues(): Record<
+    keyof typeof CACHED_VALUES,
+    StoredValue
+  > {
+    return Object.fromEntries(
+      Object.entries(CACHED_VALUES).map(([field, [key, init]]) => [
+        field,
+        provideCachedStoredValue(key, init),
+      ]),
+    ) as Record<keyof typeof CACHED_VALUES, StoredValue>;
+  }
+
   const context: StoreContext = {
     kv,
     /** The kernel's run queue. */
@@ -124,14 +166,16 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     refreshRunQueue: () => {
       context.runQueue = provideStoredQueue('run', true);
     },
-    /** Counter for allocating kernel object IDs */
-    nextObjectId: provideCachedStoredValue('nextObjectId', '1'),
-    /** Counter for allocating kernel promise IDs */
-    nextPromiseId: provideCachedStoredValue('nextPromiseId', '1'),
-    /** Counter for allocating VatIDs */
-    nextVatId: provideCachedStoredValue('nextVatId', '1'),
-    /** Counter for allocating RemoteIDs */
-    nextRemoteId: provideCachedStoredValue('nextRemoteId', '1'),
+    ...provideCachedValues(),
+    /**
+     * Re-read every cached stored value from the database. Each one closes over
+     * the last value written through it (see `provideCachedStoredValue`), so
+     * reverting the database alone is not enough: the closure would still hold
+     * the abandoned value and the next `set` would write it straight back.
+     */
+    refreshCachedValues: () => {
+      Object.assign(context, provideCachedValues());
+    },
     // As refcounts are decremented, we accumulate a set of krefs for which
     // action might need to be taken:
     //   * promises which are now resolved and unreferenced can be deleted
@@ -143,17 +187,9 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     // the change, else removals might be lost (not performed during the next
     // replay).
     maybeFreeKrefs: new Set<KRef>(),
-    // Garbage collection
-    gcActions: provideCachedStoredValue('gcActions', '[]'),
-    reapQueue: provideCachedStoredValue('reapQueue', '[]'),
-    terminatedVats: provideCachedStoredValue('vats.terminated', '[]'),
     inCrank: false,
     savepoints: [],
     crankBuffer: [],
-    // Subclusters
-    subclusters: provideCachedStoredValue('subclusters', '[]'),
-    nextSubclusterId: provideCachedStoredValue('nextSubclusterId', '1'),
-    vatToSubclusterMap: provideCachedStoredValue('vatToSubclusterMap', '{}'),
     refCountAuditingEnabled: false,
     // Logging
     logger: logger?.subLogger({ tags: ['kernel-store'] }),
@@ -213,23 +249,8 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     }));
     kdb.clear();
     context.maybeFreeKrefs.clear();
-    context.runQueue = provideStoredQueue('run', true);
-    context.gcActions = provideCachedStoredValue('gcActions', '[]');
-    context.reapQueue = provideCachedStoredValue('reapQueue', '[]');
-    context.terminatedVats = provideCachedStoredValue('vats.terminated', '[]');
-    context.nextObjectId = provideCachedStoredValue('nextObjectId', '1');
-    context.nextPromiseId = provideCachedStoredValue('nextPromiseId', '1');
-    context.nextVatId = provideCachedStoredValue('nextVatId', '1');
-    context.nextRemoteId = provideCachedStoredValue('nextRemoteId', '1');
-    context.subclusters = provideCachedStoredValue('subclusters', '[]');
-    context.nextSubclusterId = provideCachedStoredValue(
-      'nextSubclusterId',
-      '1',
-    );
-    context.vatToSubclusterMap = provideCachedStoredValue(
-      'vatToSubclusterMap',
-      '{}',
-    );
+    context.refreshRunQueue();
+    context.refreshCachedValues();
     crank.releaseAllSavepoints();
     context.crankBuffer.length = 0;
     preservedState?.forEach(({ key, value }) => {
