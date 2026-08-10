@@ -11,6 +11,7 @@
 import type { JsonRpcId, JsonRpcRequest, JsonRpcResponse } from './json-rpc.ts';
 import {
   JSON_RPC_ERROR,
+  MARKER_PATTERN,
   MARKER_PREFIX,
   BridgeRpcError,
   expandMarkers,
@@ -282,11 +283,11 @@ function requireSendParams(params: unknown): {
       'params.target must be a string',
     );
   }
-  const match = /^@@([A-Za-z0-9]+)$/u.exec(bag.target);
+  const match = MARKER_PATTERN.exec(bag.target);
   if (!match) {
     throw new BridgeRpcError(
       JSON_RPC_ERROR.INVALID_PARAMS,
-      'params.target must be a marker string like "@@j1"',
+      `params.target must be a marker string like "${MARKER_PREFIX}j1"`,
     );
   }
   if (typeof bag.method !== 'string') {
