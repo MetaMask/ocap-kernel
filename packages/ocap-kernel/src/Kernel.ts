@@ -229,6 +229,7 @@ export class Kernel {
       this.#kernelServiceManager.invokeKernelService.bind(
         this.#kernelServiceManager,
       ),
+      this.#vatManager.performVatRestart.bind(this.#vatManager),
       this.#logger,
     );
 
