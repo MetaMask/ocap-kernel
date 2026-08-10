@@ -2,9 +2,9 @@ import { Logger } from '@metamask/logger';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { IOManager } from './IOManager.ts';
-import type { IOChannel, IOChannelFactory } from './types.ts';
+import type { IOChannel, IOListener, IOListenerFactory } from './types.ts';
 import type { KernelService } from '../KernelServiceManager.ts';
-import type { IOConfig } from '../types.ts';
+import type { IOConfig, KRef } from '../types.ts';
 
 const makeChannel = (): IOChannel => ({
   read: vi.fn().mockResolvedValue('data'),
@@ -12,43 +12,61 @@ const makeChannel = (): IOChannel => ({
   close: vi.fn().mockResolvedValue(undefined),
 });
 
+const makeListener = (): IOListener => ({
+  accept: vi.fn().mockImplementation(async () => makeChannel()),
+  close: vi.fn().mockResolvedValue(undefined),
+});
+
+/** The vat-facing shape of a listener service, for driving it in tests. */
+type ListenerFacet = { accept: () => Promise<unknown> };
+
 describe('IOManager', () => {
-  let factory: IOChannelFactory;
+  let factory: IOListenerFactory;
   let registerService: ReturnType<typeof vi.fn>;
   let unregisterService: ReturnType<typeof vi.fn>;
+  let registerAnonymous: ReturnType<typeof vi.fn>;
+  let releaseAnonymous: ReturnType<typeof vi.fn>;
   let logger: Logger;
   let manager: IOManager;
-  let channels: IOChannel[];
+  let listeners: IOListener[];
+  let registeredServices: Map<string, ListenerFacet>;
+  let nextAnonymousId: number;
 
   beforeEach(() => {
-    channels = [];
-    factory = vi.fn(async () => {
-      const ch = makeChannel();
-      channels.push(ch);
-      return ch;
-    }) as unknown as IOChannelFactory;
+    listeners = [];
+    registeredServices = new Map();
+    nextAnonymousId = 0;
 
-    registerService = vi.fn(
-      (name: string): KernelService => ({
-        name,
-        kref: `ko${name}`,
-        service: {},
-        systemOnly: false,
-      }),
-    );
+    factory = vi.fn(async () => {
+      const listener = makeListener();
+      listeners.push(listener);
+      return listener;
+    }) as unknown as IOListenerFactory;
+
+    registerService = vi.fn((name: string, service: object): KernelService => {
+      registeredServices.set(name, service as unknown as ListenerFacet);
+      return { name, kref: `ko${name}`, service, systemOnly: false };
+    });
     unregisterService = vi.fn();
+    registerAnonymous = vi.fn((): KRef => {
+      nextAnonymousId += 1;
+      return `ko${900 + nextAnonymousId}` as KRef;
+    });
+    releaseAnonymous = vi.fn();
     logger = new Logger('test');
 
     manager = new IOManager({
       factory,
       registerService,
       unregisterService,
+      registerAnonymous,
+      releaseAnonymous,
       logger,
     });
   });
 
   describe('createChannels', () => {
-    it('creates channels and registers services', async () => {
+    it('creates listeners and registers services', async () => {
       const ioConfig: Record<string, IOConfig> = {
         repl: { type: 'socket', path: '/tmp/repl.sock' } as IOConfig,
       };
@@ -62,7 +80,7 @@ describe('IOManager', () => {
       );
     });
 
-    it('creates multiple channels', async () => {
+    it('creates multiple listeners', async () => {
       const ioConfig: Record<string, IOConfig> = {
         input: { type: 'socket', path: '/tmp/in.sock' } as IOConfig,
         output: { type: 'socket', path: '/tmp/out.sock' } as IOConfig,
@@ -74,21 +92,36 @@ describe('IOManager', () => {
       expect(registerService).toHaveBeenCalledTimes(2);
     });
 
+    it('hosts connections accepted through the registered service', async () => {
+      await manager.createChannels('s1', {
+        repl: { type: 'socket', path: '/tmp/repl.sock' } as IOConfig,
+      });
+
+      await registeredServices.get('io:s1:repl')?.accept();
+
+      expect(registerAnonymous).toHaveBeenCalledWith(
+        expect.any(Object),
+        'io:s1:repl:c1',
+      );
+    });
+
     it('cleans up on factory failure', async () => {
-      const successChannel = makeChannel();
+      const successListener = makeListener();
       let callCount = 0;
       const failingFactory = vi.fn(async () => {
         callCount += 1;
         if (callCount === 2) {
           throw new Error('factory error');
         }
-        return successChannel;
-      }) as unknown as IOChannelFactory;
+        return successListener;
+      }) as unknown as IOListenerFactory;
 
       const mgr = new IOManager({
         factory: failingFactory,
         registerService,
         unregisterService,
+        registerAnonymous,
+        releaseAnonymous,
         logger,
       });
 
@@ -101,20 +134,52 @@ describe('IOManager', () => {
         'factory error',
       );
 
-      expect(successChannel.close).toHaveBeenCalledOnce();
+      expect(successListener.close).toHaveBeenCalledOnce();
       expect(unregisterService).toHaveBeenCalledWith('io:s1:first');
     });
 
+    it('releases already-accepted connections on factory failure', async () => {
+      let callCount = 0;
+      const failingFactory = vi.fn(async () => {
+        callCount += 1;
+        if (callCount === 2) {
+          // Accept a connection on the first listener before the second
+          // listener's creation blows up, so rollback has something to undo.
+          await registeredServices.get('io:s1:first')?.accept();
+          throw new Error('factory error');
+        }
+        return makeListener();
+      }) as unknown as IOListenerFactory;
+
+      const mgr = new IOManager({
+        factory: failingFactory,
+        registerService,
+        unregisterService,
+        registerAnonymous,
+        releaseAnonymous,
+        logger,
+      });
+
+      await expect(
+        mgr.createChannels('s1', {
+          first: { type: 'socket', path: '/tmp/a.sock' } as IOConfig,
+          second: { type: 'socket', path: '/tmp/b.sock' } as IOConfig,
+        }),
+      ).rejects.toThrow('factory error');
+
+      expect(releaseAnonymous).toHaveBeenCalledWith('ko901');
+    });
+
     it('does not mask factory error when unregister fails during rollback', async () => {
-      const successChannel = makeChannel();
+      const successListener = makeListener();
       let callCount = 0;
       const failingFactory = vi.fn(async () => {
         callCount += 1;
         if (callCount === 2) {
           throw new Error('factory error');
         }
-        return successChannel;
-      }) as unknown as IOChannelFactory;
+        return successListener;
+      }) as unknown as IOListenerFactory;
 
       const failingUnregister = vi.fn(() => {
         throw new Error('unregister boom');
@@ -125,6 +190,8 @@ describe('IOManager', () => {
         factory: failingFactory,
         registerService,
         unregisterService: failingUnregister,
+        registerAnonymous,
+        releaseAnonymous,
         logger,
       });
 
@@ -142,12 +209,12 @@ describe('IOManager', () => {
         'Error unregistering IO service "io:s1:first":',
         expect.any(Error),
       );
-      expect(successChannel.close).toHaveBeenCalledOnce();
+      expect(successListener.close).toHaveBeenCalledOnce();
     });
   });
 
   describe('destroyChannels', () => {
-    it('closes channels and unregisters services', async () => {
+    it('closes listeners and unregisters services', async () => {
       const ioConfig: Record<string, IOConfig> = {
         repl: { type: 'socket', path: '/tmp/repl.sock' } as IOConfig,
       };
@@ -155,8 +222,22 @@ describe('IOManager', () => {
       await manager.createChannels('s1', ioConfig);
       await manager.destroyChannels('s1');
 
-      expect(channels[0]?.close).toHaveBeenCalledOnce();
+      expect(listeners[0]?.close).toHaveBeenCalledOnce();
       expect(unregisterService).toHaveBeenCalledWith('io:s1:repl');
+    });
+
+    it('releases connections still accepted from the listener', async () => {
+      await manager.createChannels('s1', {
+        repl: { type: 'socket', path: '/tmp/repl.sock' } as IOConfig,
+      });
+      const service = registeredServices.get('io:s1:repl');
+      await service?.accept();
+      await service?.accept();
+
+      await manager.destroyChannels('s1');
+
+      expect(releaseAnonymous).toHaveBeenCalledWith('ko901');
+      expect(releaseAnonymous).toHaveBeenCalledWith('ko902');
     });
 
     it('is idempotent for unknown subcluster', async () => {
@@ -173,6 +254,8 @@ describe('IOManager', () => {
         factory,
         registerService,
         unregisterService: failingUnregister,
+        registerAnonymous,
+        releaseAnonymous,
         logger,
       });
 
@@ -185,25 +268,27 @@ describe('IOManager', () => {
         'Error unregistering IO service "io:s1:ch":',
         expect.any(Error),
       );
-      // Channel should still be closed despite unregister failure
-      expect(channels[0]?.close).toHaveBeenCalledOnce();
+      // Listener should still be closed despite unregister failure
+      expect(listeners[0]?.close).toHaveBeenCalledOnce();
     });
 
     it('handles close errors gracefully', async () => {
-      const errorChannel = makeChannel();
-      (errorChannel.close as ReturnType<typeof vi.fn>).mockRejectedValue(
+      const errorListener = makeListener();
+      (errorListener.close as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('close failed'),
       );
 
       const errorFactory = vi.fn(
-        async () => errorChannel,
-      ) as unknown as IOChannelFactory;
+        async () => errorListener,
+      ) as unknown as IOListenerFactory;
       const errorSpy = vi.spyOn(logger, 'error');
 
       const mgr = new IOManager({
         factory: errorFactory,
         registerService,
         unregisterService,
+        registerAnonymous,
+        releaseAnonymous,
         logger,
       });
 
@@ -213,14 +298,14 @@ describe('IOManager', () => {
       await mgr.destroyChannels('s1');
 
       expect(errorSpy).toHaveBeenCalledWith(
-        'Error closing IO channel "ch":',
+        'Error closing IO listener "ch":',
         expect.any(Error),
       );
     });
   });
 
   describe('destroyAllChannels', () => {
-    it('destroys channels for all subclusters', async () => {
+    it('destroys listeners for all subclusters', async () => {
       await manager.createChannels('s1', {
         a: { type: 'socket', path: '/tmp/a.sock' } as IOConfig,
       });
@@ -230,13 +315,13 @@ describe('IOManager', () => {
 
       await manager.destroyAllChannels();
 
-      expect(channels[0]?.close).toHaveBeenCalledOnce();
-      expect(channels[1]?.close).toHaveBeenCalledOnce();
+      expect(listeners[0]?.close).toHaveBeenCalledOnce();
+      expect(listeners[1]?.close).toHaveBeenCalledOnce();
       expect(unregisterService).toHaveBeenCalledWith('io:s1:a');
       expect(unregisterService).toHaveBeenCalledWith('io:s2:b');
     });
 
-    it('is safe to call when no channels exist', async () => {
+    it('is safe to call when no listeners exist', async () => {
       expect(await manager.destroyAllChannels()).toBeUndefined();
     });
   });

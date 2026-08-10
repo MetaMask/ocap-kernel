@@ -87,6 +87,18 @@ export function jsonSchemaToStruct(schema: JsonSchema): Struct<unknown> {
       }
       return looseObjectStruct(schema);
     }
+    case 'interface': {
+      // An interface reference: at runtime the value is an object (possibly
+      // an exo, remotable, or presence). We can't introspect its methods
+      // here — that's the receiver's responsibility on invocation. Validate
+      // that it's a non-null object and pass through.
+      return define('JsonSchemaInterface', (value) => {
+        if (typeof value !== 'object' || value === null) {
+          return 'Expected an object reference';
+        }
+        return true;
+      }) as Struct<unknown>;
+    }
     default: {
       const _never: never = schema;
       throw new TypeError(`Unsupported JSON schema: ${String(_never)}`);

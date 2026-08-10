@@ -3,13 +3,13 @@ import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { Logger } from '@metamask/logger';
 import { Kernel } from '@metamask/ocap-kernel';
 import type {
-  IOChannelFactory,
+  IOListenerFactory,
   OnRunLoopFailure,
   SystemSubclusterConfig,
 } from '@metamask/ocap-kernel';
 
 import { NodejsPlatformServices } from './PlatformServices.ts';
-import { makeIOChannelFactory } from '../io/index.ts';
+import { makeIOListenerFactory } from '../io/index.ts';
 
 /**
  * Result of {@link makeKernel}.
@@ -28,7 +28,7 @@ export type MakeKernelResult = {
  * @param options.dbFilename - The filename of the SQLite database file.
  * @param options.logger - The logger to use for the kernel.
  * @param options.keySeed - Optional seed for libp2p key generation.
- * @param options.ioChannelFactory - Optional factory for creating IO channels.
+ * @param options.ioListenerFactory - Optional factory for creating IO listeners.
  * @param options.systemSubclusters - Optional system subcluster configurations.
  * @param options.onRunLoopFailure - Optional handler called if the kernel's run
  * loop dies, after which the kernel must be restarted.
@@ -40,7 +40,7 @@ export async function makeKernel({
   dbFilename,
   logger,
   keySeed,
-  ioChannelFactory,
+  ioListenerFactory,
   systemSubclusters,
   onRunLoopFailure,
 }: {
@@ -49,7 +49,7 @@ export async function makeKernel({
   dbFilename?: string;
   logger?: Logger;
   keySeed?: string | undefined;
-  ioChannelFactory?: IOChannelFactory;
+  ioListenerFactory?: IOListenerFactory;
   systemSubclusters?: SystemSubclusterConfig[];
   onRunLoopFailure?: OnRunLoopFailure;
 }): Promise<MakeKernelResult> {
@@ -67,7 +67,7 @@ export async function makeKernel({
     resetStorage,
     logger: rootLogger.subLogger({ tags: ['kernel'] }),
     keySeed,
-    ioChannelFactory: ioChannelFactory ?? makeIOChannelFactory(),
+    ioListenerFactory: ioListenerFactory ?? makeIOListenerFactory(),
     ...(systemSubclusters ? { systemSubclusters } : {}),
     ...(onRunLoopFailure ? { onRunLoopFailure } : {}),
   });

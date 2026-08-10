@@ -4,7 +4,7 @@ import { isCapData } from '@metamask/kernel-utils';
 import { Logger } from '@metamask/logger';
 
 import { IOManager } from './io/IOManager.ts';
-import type { IOChannelFactory } from './io/types.ts';
+import type { IOListenerFactory } from './io/types.ts';
 import { makeKernelFacet } from './kernel-facet.ts';
 import type { KernelFacet } from './kernel-facet.ts';
 import { KernelQueue } from './KernelQueue.ts';
@@ -106,7 +106,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
-   * @param options.ioChannelFactory - Optional factory for creating IO channels.
+   * @param options.ioListenerFactory - Optional factory for creating IO listeners.
    * @param options.allowedGlobalNames - Optional list of allowed global names for vat endowments.
    * @param options.onRunLoopFailure - Optional handler called if the run loop dies.
    */
@@ -119,7 +119,7 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
-      ioChannelFactory?: IOChannelFactory;
+      ioListenerFactory?: IOListenerFactory;
       allowedGlobalNames?: AllowedGlobalName[];
       onRunLoopFailure?: OnRunLoopFailure;
     } = {},
@@ -176,15 +176,23 @@ export class Kernel {
       logger: this.#logger.subLogger({ tags: ['KernelServiceManager'] }),
     });
 
-    if (options.ioChannelFactory) {
+    if (options.ioListenerFactory) {
       this.#ioManager = new IOManager({
-        factory: options.ioChannelFactory,
+        factory: options.ioListenerFactory,
         registerService:
           this.#kernelServiceManager.registerKernelServiceObject.bind(
             this.#kernelServiceManager,
           ),
         unregisterService:
           this.#kernelServiceManager.unregisterKernelServiceObject.bind(
+            this.#kernelServiceManager,
+          ),
+        registerAnonymous:
+          this.#kernelServiceManager.registerAnonymousKernelObject.bind(
+            this.#kernelServiceManager,
+          ),
+        releaseAnonymous:
+          this.#kernelServiceManager.releaseAnonymousKernelObject.bind(
             this.#kernelServiceManager,
           ),
         logger: this.#logger.subLogger({ tags: ['IOManager'] }),
@@ -237,7 +245,7 @@ export class Kernel {
    * @param options.logger - Optional logger for error and diagnostic output.
    * @param options.keySeed - Optional seed for libp2p key generation.
    * @param options.mnemonic - Optional BIP39 mnemonic for deriving the kernel identity.
-   * @param options.ioChannelFactory - Optional factory for creating IO channels.
+   * @param options.ioListenerFactory - Optional factory for creating IO listeners.
    * @param options.systemSubclusters - Optional array of system subcluster configurations.
    * @param options.allowedGlobalNames - Optional list of allowed global names for vat endowments. When set, only these names from the `VatSupervisor`'s configured endowments (see `createDefaultEndowments`) are available to vats.
    * @param options.onRunLoopFailure - Optional handler called if the run loop dies. The kernel must be restarted after that, so an embedder that outlives it (e.g. a daemon) should use this to terminate or restart.
@@ -251,7 +259,7 @@ export class Kernel {
       logger?: Logger;
       keySeed?: string | undefined;
       mnemonic?: string | undefined;
-      ioChannelFactory?: IOChannelFactory;
+      ioListenerFactory?: IOListenerFactory;
       systemSubclusters?: SystemSubclusterConfig[];
       allowedGlobalNames?: AllowedGlobalName[];
       onRunLoopFailure?: OnRunLoopFailure;
@@ -285,6 +293,26 @@ export class Kernel {
     // Ideally, orphaned messages would be purged before the queue starts, but
     // the run queue has no selective removal capability.
     this.provideFacet();
+
+    // Discard anonymous kernel objects from a previous incarnation. They
+    // host things that cannot outlive the process — an accepted socket
+    // connection, say — and unlike a named service there is no name to
+    // re-register one under, so a survivor is unreachable but still pinned,
+    // accumulating with every restart.
+    //
+    // This unpins; it does not by itself make a delivery to a survivor safe,
+    // because the object outlives the sweep whenever a vat import or queued
+    // message still references it. `invokeKernelService` is what makes that
+    // case survivable, by rejecting the caller instead of throwing. Swept
+    // before the queue starts regardless, so the unreachable objects are gone
+    // before anything can address them.
+    const abandoned =
+      this.#kernelServiceManager.releaseAbandonedAnonymousKernelObjects();
+    if (abandoned > 0) {
+      this.#logger.info(
+        `Released ${abandoned} anonymous kernel object(s) abandoned by a previous incarnation`,
+      );
+    }
 
     // Restore persisted system subclusters and delete ones that no
     // longer have a config, to ensure that orphaned vats aren't started

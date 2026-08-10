@@ -334,6 +334,35 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     deleteKernelServiceKref(name: string): void {
       kv.delete(`kernelService.${name}`);
     },
+
+    // Anonymous kernel-hosted objects
+    //
+    // Recorded so they can be swept at kernel init. Unlike a named service,
+    // an anonymous object has no name to be re-registered under on boot, so
+    // one surviving a restart is unreachable but still pinned — and a
+    // delivery to it would find nothing registered and kill the run loop.
+    // They are used for things like accepted IO connections, which cannot
+    // outlive the process anyway.
+    getAnonymousKernelObjects(): KRef[] {
+      const raw = kv.get('anonymousKernelObjects');
+      return raw ? (raw.split(',') as KRef[]) : [];
+    },
+    addAnonymousKernelObject(kref: KRef): void {
+      const krefs = new Set(this.getAnonymousKernelObjects());
+      krefs.add(kref);
+      kv.set('anonymousKernelObjects', [...krefs].sort().join(','));
+    },
+    removeAnonymousKernelObject(kref: KRef): void {
+      const krefs = new Set(this.getAnonymousKernelObjects());
+      if (!krefs.delete(kref)) {
+        return;
+      }
+      if (krefs.size === 0) {
+        kv.delete('anonymousKernelObjects');
+      } else {
+        kv.set('anonymousKernelObjects', [...krefs].sort().join(','));
+      }
+    },
   });
 }
 
