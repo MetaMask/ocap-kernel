@@ -1,7 +1,6 @@
 export type {
   Capability,
   CapabilityRecord,
-  CapabilitySchema,
   CapabilitySpec,
 } from './types/capability.ts';
 export type { TaskArgs } from './types/task.ts';

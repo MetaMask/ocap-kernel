@@ -3,7 +3,6 @@ import type { StreamCloseEvent } from '@libp2p/interface';
 import {
   InvalidDataLengthError,
   InvalidDataLengthLengthError,
-  UnexpectedEOFError,
 } from '@libp2p/utils';
 import {
   AbortError,
@@ -176,6 +175,7 @@ export async function initTransport(
     logger,
     signal,
     maxRetryAttempts,
+    maxMessageSizeBytes,
     directTransports,
     allowedWsHosts,
   });
@@ -492,13 +492,6 @@ export async function initTransport(
             handleConnectionLoss(channel.peerId);
             logger.log(`closed channel to ${channel.peerId}`);
             throw sizeError;
-          }
-          if (problem instanceof UnexpectedEOFError) {
-            // Peer closed while we were waiting for the next message (or
-            // partway through one). Treat as graceful stream end — there is
-            // no in-flight kernel-level operation to recover.
-            logger.log(`${channel.peerId}:: stream ended`);
-            break;
           }
           if (problem instanceof StreamResetError) {
             // Remote-initiated stream reset: treat as connection loss and

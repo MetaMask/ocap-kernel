@@ -343,4 +343,42 @@ describe('makeIOListenerService', () => {
 
     expect(underlying.close).toHaveBeenCalledOnce();
   });
+
+  it('stops hosting outstanding connections when the listener closes', async () => {
+    const host = makeHost();
+    const listener = makeIOListenerService(
+      'io:s1:repl',
+      makeListener([makeChannel(), makeChannel()]),
+      makeConfig(),
+      host,
+    ) as ListenerFacet;
+
+    await listener.accept();
+    await listener.accept();
+    // Neither connection was closed by its holder; closing the listener
+    // must still release them, or their krefs stay pinned for the life of
+    // the subcluster.
+    await listener.close();
+
+    expect(host.released).toStrictEqual(['ko1', 'ko2']);
+  });
+
+  it('does not release a connection twice when it was already closed', async () => {
+    const host = makeHost();
+    const listener = makeIOListenerService(
+      'io:s1:repl',
+      makeListener([makeChannel(), makeChannel()]),
+      makeConfig(),
+      host,
+    ) as ListenerFacet;
+
+    await listener.accept();
+    await listener.accept();
+    const first = host.registered[0]?.connection as unknown as ConnectionFacet;
+    await first.close();
+
+    await listener.close();
+
+    expect(host.released).toStrictEqual(['ko1', 'ko2']);
+  });
 });

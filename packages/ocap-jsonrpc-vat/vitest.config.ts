@@ -10,7 +10,7 @@ export default defineConfig((args) => {
     defaultConfig,
     defineProject({
       test: {
-        name: 'llm-mediator-vat',
+        name: 'ocap-jsonrpc-vat',
         setupFiles: [
           fileURLToPath(
             import.meta.resolve('@ocap/repo-tools/test-utils/mock-endoify'),

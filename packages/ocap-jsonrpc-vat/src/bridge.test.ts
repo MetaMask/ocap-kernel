@@ -73,6 +73,44 @@ describe('dispatch: request validation', () => {
     });
   });
 
+  it('rejects a request with no id rather than treating it as a notification', async () => {
+    const { bridge } = buildBridge();
+    const response = await bridge.dispatch({
+      jsonrpc: '2.0',
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
+    });
+
+    // Every line in gets exactly one line back. Serving notifications
+    // would make some lines answerable and others not, which desynchronizes
+    // a persistent line-delimited stream for good.
+    expect(response).toStrictEqual({
+      jsonrpc: '2.0',
+      id: null,
+      error: {
+        code: JSON_RPC_ERROR.INVALID_REQUEST,
+        message: 'not a well-formed JSON-RPC 2.0 request',
+      },
+    });
+  });
+
+  it('accepts an explicit null id', async () => {
+    const { bridge } = buildBridge({ redeem: async () => makeFake('alpha') });
+    const response = await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: null,
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
+    });
+
+    // A null id is legal in a request; only an absent one is a notification.
+    expect(response).toStrictEqual({
+      jsonrpc: '2.0',
+      id: null,
+      result: '@@j1',
+    });
+  });
+
   it('rejects an unknown method', async () => {
     const { bridge } = buildBridge();
     const response = await bridge.dispatch({
@@ -338,6 +376,60 @@ describe('send', () => {
       },
     });
   });
+
+  it('reports a void result as null so the response survives encoding', async () => {
+    const alpha = makeFake('alpha');
+    const { bridge } = buildBridge({
+      redeem: async () => alpha,
+      invoke: async () => undefined,
+    });
+    await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'redeemURL',
+      params: { url: 'ocap:alpha' },
+    });
+    const response = await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'send',
+      params: { target: '@@j1', method: 'doNothing', args: [] },
+    });
+
+    // `undefined` would be dropped by JSON.stringify, leaving a response
+    // with neither `result` nor `error` — valid as neither outcome.
+    expect(response).toStrictEqual({ jsonrpc: '2.0', id: 2, result: null });
+    expect(JSON.parse(JSON.stringify(response))).toHaveProperty('result', null);
+  });
+
+  it.each([
+    ['false', false],
+    ['zero', 0],
+    ['empty string', ''],
+  ])(
+    'preserves a falsy %s result rather than nulling it',
+    async (_l, value) => {
+      const alpha = makeFake('alpha');
+      const { bridge } = buildBridge({
+        redeem: async () => alpha,
+        invoke: async () => value,
+      });
+      await bridge.dispatch({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'redeemURL',
+        params: { url: 'ocap:alpha' },
+      });
+      const response = await bridge.dispatch({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'send',
+        params: { target: '@@j1', method: 'give', args: [] },
+      });
+
+      expect(response).toStrictEqual({ jsonrpc: '2.0', id: 2, result: value });
+    },
+  );
 });
 
 describe('resetSession', () => {
@@ -418,5 +510,162 @@ describe('resetSession', () => {
       params: { url: 'ocap:gamma' },
     })) as { result?: unknown };
     expect(second.result).toBe('@@j1');
+  });
+});
+
+describe('dispatch: name disclosure is atomic', () => {
+  const redeemFake = async (): Promise<unknown> => makeFake('root');
+
+  /**
+   * Redeem a URL so the connection has a usable target, returning its name.
+   *
+   * @param bridge - The bridge to prime.
+   * @returns The marker string naming the redeemed object.
+   */
+  async function primeTarget(
+    bridge: ReturnType<typeof makeBridge>,
+  ): Promise<string> {
+    const response = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 'prime',
+      method: 'redeemURL',
+      params: { url: 'ocap://root' },
+    })) as { result: string };
+    return response.result;
+  }
+
+  it.each([
+    [
+      'a non-finite number',
+      (): unknown => ({ ref: makeFake('leaked'), bad: Number.NaN }),
+    ],
+    [
+      'an unsettled promise',
+      (): unknown => ({
+        ref: makeFake('leaked'),
+        bad: new Promise(() => undefined),
+      }),
+    ],
+    ['a bigint', (): unknown => ({ ref: makeFake('leaked'), bad: 1n })],
+  ])(
+    'discards names minted for a reply rejected over %s',
+    async (_label, makeResult) => {
+      const { bridge } = buildBridge({
+        redeem: redeemFake,
+        invoke: async (): Promise<unknown> => makeResult(),
+      });
+      const target = await primeTarget(bridge);
+
+      const failed = (await bridge.dispatch({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'send',
+        params: { target, method: 'getRef', args: [] },
+      })) as { error?: { code: number } };
+      expect(failed.error).toBeDefined();
+
+      // The walk minted a name for `ref` before hitting the bad value. Names
+      // are sequential, so guessing it takes no work — it must not resolve.
+      const probe = (await bridge.dispatch({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'send',
+        params: { target: '@@j2', method: 'anything', args: [] },
+      })) as { error?: { code: number; message: string } };
+      expect(probe.error?.code).toBe(JSON_RPC_ERROR.INVALID_PARAMS);
+      expect(probe.error?.message).toMatch(/not a known reference/u);
+    },
+  );
+
+  it('keeps a name already disclosed by an earlier successful reply', async () => {
+    const shared = makeFake('shared');
+    let failNext = false;
+    const { bridge } = buildBridge({
+      redeem: redeemFake,
+      invoke: async (): Promise<unknown> =>
+        failNext ? { ref: shared, bad: Number.NaN } : shared,
+    });
+    const target = await primeTarget(bridge);
+
+    const first = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'send',
+      params: { target, method: 'getShared', args: [] },
+    })) as { result: string };
+    const disclosed = first.result;
+
+    // A later failed request mentions the same object. Rolling that request
+    // back must not revoke a name the client was legitimately given.
+    failNext = true;
+    const failed = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'send',
+      params: { target, method: 'getShared', args: [] },
+    })) as { error?: unknown };
+    expect(failed.error).toBeDefined();
+
+    failNext = false;
+    const after = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'send',
+      params: { target: disclosed, method: 'stillThere', args: [] },
+    })) as { result?: unknown; error?: unknown };
+    expect(after.error).toBeUndefined();
+  });
+
+  it('reuses the id a rolled-back name held, leaving no gap', async () => {
+    let failNext = true;
+    const { bridge } = buildBridge({
+      redeem: redeemFake,
+      invoke: async (): Promise<unknown> =>
+        failNext
+          ? { ref: makeFake('discarded'), bad: Number.NaN }
+          : makeFake('kept'),
+    });
+    const target = await primeTarget(bridge);
+
+    await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'send',
+      params: { target, method: 'fails', args: [] },
+    });
+    failNext = false;
+    const ok = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'send',
+      params: { target, method: 'works', args: [] },
+    })) as { result: string };
+
+    // The discarded name was never disclosed, so its id is free to reuse.
+    expect(ok.result).toBe('@@j2');
+  });
+
+  it('still registers names for a reply that succeeds', async () => {
+    const { bridge } = buildBridge({
+      redeem: redeemFake,
+      invoke: async (): Promise<unknown> => makeFake('handed over'),
+    });
+    const target = await primeTarget(bridge);
+
+    const response = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'send',
+      params: { target, method: 'getRef', args: [] },
+    })) as { result: string };
+    expect(response.result).toBe('@@j2');
+
+    const reuse = (await bridge.dispatch({
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'send',
+      params: { target: response.result, method: 'usable', args: [] },
+    })) as { error?: unknown };
+    expect(reuse.error).toBeUndefined();
   });
 });

@@ -11,6 +11,7 @@
 import type { JsonRpcId, JsonRpcRequest, JsonRpcResponse } from './json-rpc.ts';
 import {
   JSON_RPC_ERROR,
+  MARKER_PATTERN,
   MARKER_PREFIX,
   BridgeRpcError,
   expandMarkers,
@@ -79,22 +80,55 @@ export function makeBridge(hooks: BridgeHooks): Bridge {
    */
   const where = (): string => hooks.label ?? 'this connection';
 
+  /**
+   * Names minted while handling the current request and not yet disclosed to
+   * the client. A name only becomes usable once the client has actually been
+   * sent a reply carrying it; see `dispatch`.
+   */
+  let stagedNames: string[] = [];
+
+  /** `nextObjId` as of the start of the current request, for rollback. */
+  let objIdBeforeRequest = 0;
+
   const resetSession = (): void => {
     nameToObj = new Map();
     objToName = new Map();
     nextObjId = 0;
+    stagedNames = [];
+    objIdBeforeRequest = 0;
   };
 
   const assignName = (obj: unknown): string => {
     const existing = objToName.get(obj);
     if (existing !== undefined) {
+      // Already disclosed by an earlier reply, so it is not this request's to
+      // stage — and must survive if this request is rolled back.
       return existing;
     }
     nextObjId += 1;
     const name = `j${nextObjId}`;
     nameToObj.set(name, obj);
     objToName.set(obj, name);
+    stagedNames.push(name);
     return name;
+  };
+
+  /**
+   * Discard the names minted for the current request, so a reply the client
+   * never received leaves no reachable reference behind.
+   *
+   * `nextObjId` is rewound too. Reusing an id is safe precisely because a
+   * rolled-back name was never disclosed: no client can be holding it.
+   */
+  const rollbackNames = (): void => {
+    for (const name of stagedNames) {
+      if (nameToObj.has(name)) {
+        objToName.delete(nameToObj.get(name));
+        nameToObj.delete(name);
+      }
+    }
+    nextObjId = objIdBeforeRequest;
+    stagedNames = [];
   };
 
   const resolveName = (name: string): unknown => nameToObj.get(name);
@@ -126,7 +160,7 @@ export function makeBridge(hooks: BridgeHooks): Bridge {
     return substituteRemotables(result, hooks.isRemotable, assignName);
   };
 
-  const dispatch = async (request: unknown): Promise<JsonRpcResponse> => {
+  const handleRequest = async (request: unknown): Promise<JsonRpcResponse> => {
     const id = extractId(request);
     if (!isJsonRpcRequest(request)) {
       return errorResponse(
@@ -162,6 +196,38 @@ export function makeBridge(hooks: BridgeHooks): Bridge {
         message,
       );
     }
+  };
+
+  const dispatch = async (request: unknown): Promise<JsonRpcResponse> => {
+    objIdBeforeRequest = nextObjId;
+    stagedNames = [];
+    const response = await handleRequest(request);
+    if ('error' in response) {
+      // The client is being told the call failed, so it must not come away
+      // able to reach references the result walk minted before giving up.
+      // Names are sequential, so an undisclosed one is trivially guessable.
+      rollbackNames();
+      return response;
+    }
+    try {
+      // A name becomes reachable only for a reply that can actually be sent.
+      // `JSON.stringify` still throws on values the walkers do not screen —
+      // a bigint, or a circular structure — and that failure has to roll the
+      // names back as well, which is why encodability is settled here rather
+      // than left to whoever writes the reply. Costs one extra encode per
+      // request, which is worth it to keep the two decisions in one place.
+      JSON.stringify(response);
+    } catch (error) {
+      rollbackNames();
+      return errorResponse(
+        response.id,
+        JSON_RPC_ERROR.INTERNAL_ERROR,
+        'result could not be encoded as JSON',
+        error instanceof Error ? error.message : String(error),
+      );
+    }
+    stagedNames = [];
+    return response;
   };
 
   return { dispatch, resetSession };
@@ -217,11 +283,11 @@ function requireSendParams(params: unknown): {
       'params.target must be a string',
     );
   }
-  const match = /^@@([A-Za-z0-9]+)$/u.exec(bag.target);
+  const match = MARKER_PATTERN.exec(bag.target);
   if (!match) {
     throw new BridgeRpcError(
       JSON_RPC_ERROR.INVALID_PARAMS,
-      'params.target must be a marker string like "@@j1"',
+      `params.target must be a marker string like "${MARKER_PREFIX}j1"`,
     );
   }
   if (typeof bag.method !== 'string') {
@@ -261,11 +327,20 @@ function isJsonRpcRequest(value: unknown): value is JsonRpcRequest {
   if (bag.jsonrpc !== '2.0' || typeof bag.method !== 'string') {
     return false;
   }
+  // An `id` is required: a missing one denotes a JSON-RPC notification,
+  // which this vat does not serve. Every line in gets exactly one line
+  // back, and that invariant is what keeps a persistent line-delimited
+  // stream in step — an unanswered request or an unexpected extra reply
+  // desynchronizes it permanently, with the client reading each answer as
+  // the response to some later request. Notifications would also be
+  // pointless here, since both methods exist to return a value.
+  //
+  // Rejecting also makes the predicate honest: `JsonRpcRequest.id` is
+  // `JsonRpcId`, which does not include `undefined`.
   if (
     bag.id !== null &&
     typeof bag.id !== 'number' &&
-    typeof bag.id !== 'string' &&
-    bag.id !== undefined
+    typeof bag.id !== 'string'
   ) {
     return false;
   }
@@ -293,12 +368,18 @@ function extractId(value: unknown): JsonRpcId {
 /**
  * Build a JSON-RPC success response.
  *
+ * A void method yields `undefined`, which `JSON.stringify` drops entirely —
+ * producing a response carrying neither `result` nor `error`, which is
+ * well-formed as neither outcome under JSON-RPC 2.0. Normalizing to `null`
+ * keeps the success shape intact. Only `undefined` is substituted, so
+ * falsy results like `0`, `''`, and `false` are reported as they are.
+ *
  * @param id - The request id to echo.
  * @param result - The result payload.
  * @returns The response envelope.
  */
 function successResponse(id: JsonRpcId, result: unknown): JsonRpcResponse {
-  return { jsonrpc: '2.0', id, result };
+  return { jsonrpc: '2.0', id, result: result ?? null };
 }
 
 /**

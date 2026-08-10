@@ -1,24 +1,8 @@
-import type { ExtractRecordKeys } from '../types/capability.ts';
-import type {
-  CapabilityRecord,
-  CapabilitySpec,
-  CapabilitySchema,
-  Capability,
-} from '../types.ts';
+import type { MethodSchema } from '@metamask/kernel-utils';
 
-/**
- * Create a capability specification.
- *
- * @param func - The function to create a capability specification for
- * @param schema - The schema for the capability
- * @returns A capability specification
- */
-export const capability = <Args extends Record<string, unknown>, Return = null>(
-  func: Capability<Args, Return>,
-  schema: CapabilitySchema<ExtractRecordKeys<Args>>,
-): CapabilitySpec<Args, Return> => ({ func, schema });
+import type { CapabilityRecord, CapabilitySpec } from '../types.ts';
 
-type SchemaEntry = [string, { schema: CapabilitySchema<string> }];
+type SchemaEntry = [string, { schema: MethodSchema }];
 /**
  * Extract only the serializable schemas from the capabilities
  *

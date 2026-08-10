@@ -60,6 +60,8 @@ export class ConnectionFactory {
 
   readonly #maxRetryAttempts: number;
 
+  readonly #maxDataLength: number;
+
   readonly #directTransports: DirectTransport[];
 
   readonly #allowedWsHosts: string[];
@@ -88,6 +90,7 @@ export class ConnectionFactory {
    * @param options.logger - The logger to use for the libp2p node.
    * @param options.signal - The signal to use for the libp2p node.
    * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+   * @param options.maxMessageSizeBytes - Maximum inbound message size in bytes, used as `maxDataLength` on every `lpStream`. Defaults to 1 MB.
    * @param options.directTransports - Optional direct transports (e.g. QUIC, TCP) with listen addresses.
    * @param options.allowedWsHosts - Hostnames/IPs allowed for plain ws:// connections beyond private ranges.
    */
@@ -98,6 +101,8 @@ export class ConnectionFactory {
     this.#logger = options.logger;
     this.#signal = options.signal;
     this.#maxRetryAttempts = options.maxRetryAttempts ?? 0;
+    this.#maxDataLength =
+      options.maxMessageSizeBytes ?? DEFAULT_MAX_MESSAGE_SIZE_BYTES;
     this.#directTransports = options.directTransports ?? [];
     const explicitHosts = options.allowedWsHosts ?? [];
     const relayHosts: string[] = [];
@@ -138,6 +143,7 @@ export class ConnectionFactory {
    * @param options.logger - The logger to use for the libp2p node.
    * @param options.signal - The signal to use for the libp2p node.
    * @param options.maxRetryAttempts - Maximum number of reconnection attempts. 0 = infinite (default).
+   * @param options.maxMessageSizeBytes - Maximum inbound message size in bytes, used as `maxDataLength` on every `lpStream`. Defaults to 1 MB.
    * @param options.directTransports - Optional direct transports (e.g. QUIC, TCP) with listen addresses.
    * @param options.allowedWsHosts - Hostnames/IPs allowed for plain ws:// connections beyond private ranges.
    * @returns A promise for the new ConnectionFactory instance.
@@ -219,7 +225,7 @@ export class ConnectionFactory {
     // Set up inbound handler
     await this.#libp2p.handle('whatever', async (stream, connection) => {
       const msgStream = lpStream(stream, {
-        maxDataLength: DEFAULT_MAX_MESSAGE_SIZE_BYTES,
+        maxDataLength: this.#maxDataLength,
       });
       const remotePeerId = connection.remotePeer.toString();
       const connType = connection.direct ? 'direct' : 'relayed';
@@ -405,7 +411,7 @@ export class ConnectionFactory {
           `successfully connected to ${peerId} via ${addressString}`,
         );
         const msgStream = lpStream(stream, {
-          maxDataLength: DEFAULT_MAX_MESSAGE_SIZE_BYTES,
+          maxDataLength: this.#maxDataLength,
         });
         const channel: Channel = { msgStream, stream, peerId };
         this.#logger.log(`opened channel to ${peerId}`);

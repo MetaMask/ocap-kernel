@@ -25,7 +25,7 @@ type PendingAcceptor = {
  * because the peer went away or because `close()` was called.
  * @returns The channel for this connection.
  */
-function makeConnectionChannel(
+export function makeConnectionChannel(
   name: string,
   socket: net.Socket,
   onClosed: () => void,
@@ -66,6 +66,15 @@ function makeConnectionChannel(
    * @param data - The raw data from the socket.
    */
   function handleData(data: Buffer): void {
+    if (ended || closed) {
+      // Node can still emit 'data' after `socket.destroy()`. Accepting a
+      // late chunk would refill the queue that `close()` just cleared, and
+      // a subsequent `read()` would hand it out even though EOF has already
+      // been reported. Data that arrived *before* the end is unaffected: it
+      // is already queued and stays readable, which is what a peer-initiated
+      // end owes its reader.
+      return;
+    }
     buffer += decoder.write(data);
     let newlineIndex = buffer.indexOf('\n');
     while (newlineIndex !== -1) {
@@ -77,20 +86,24 @@ function makeConnectionChannel(
   }
 
   /**
-   * Handle the peer going away. Flushes any trailing partial line, then
-   * reports EOF. Unlike a shared channel, there is no ambiguity about
-   * whose session ended: this channel serves exactly one peer, so the
-   * end of the socket is the end of the channel.
+   * Handle the channel finishing, from either end. Unlike a shared channel
+   * there is no ambiguity about whose session ended: this channel serves
+   * exactly one peer, so the end of the socket is the end of the channel.
+   *
+   * A trailing partial line is flushed only when the peer ended things,
+   * because that data arrived before the peer went away. When the holder
+   * called `close()` it is discarded instead — EOF has already been
+   * reported, and handing data over afterwards would contradict it.
    */
   function handleEnd(): void {
     if (ended) {
       return;
     }
     ended = true;
-    buffer += decoder.end();
-    if (buffer.length > 0) {
-      deliverLine(buffer);
-      buffer = '';
+    const trailing = buffer + decoder.end();
+    buffer = '';
+    if (!closed && trailing.length > 0) {
+      deliverLine(trailing);
     }
     deliverEOF();
     onClosed();
@@ -135,6 +148,13 @@ function makeConnectionChannel(
         return;
       }
       closed = true;
+      // Drop lines already queued: the holder is done reading, so nothing
+      // buffered may surface from a later read() once EOF is reported.
+      // `handleEnd` discards the trailing fragment for the same reason,
+      // keyed on `closed`. Deliberately not setting `ended` here — that
+      // would make `handleEnd` return early and skip `onClosed`, leaving
+      // this channel registered with the listener for good.
+      lineQueue.length = 0;
       deliverEOF();
       socket.destroy();
       // `close` on the socket will fire handleEnd, but call it directly so

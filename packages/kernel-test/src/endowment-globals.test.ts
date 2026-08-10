@@ -205,13 +205,16 @@ describe('global endowments', () => {
 
   describe('kernel-level allowedGlobalNames restriction', () => {
     it('throws when a vat requests a global excluded by the kernel', async () => {
-      // Kernel only allows TextEncoder/TextDecoder — vat also requests URL
+      // Kernel only allows TextEncoder/TextDecoder — vat also requests URL.
       await expect(
         setup({
           globals: ['TextEncoder', 'TextDecoder', 'URL'],
           allowedGlobalNames: ['TextEncoder', 'TextDecoder'],
         }),
-      ).rejects.toThrow('unknown global "URL"');
+      ).rejects.toMatchObject({
+        message: expect.stringMatching(/^Failed to launch vat \S+ \(main\)$/u),
+        cause: { message: expect.stringContaining('unknown global "URL"') },
+      });
     });
 
     it('initializes when all vat globals are within allowedGlobalNames', async () => {
@@ -245,7 +248,12 @@ describe('global endowments', () => {
           globals: ['TextEncoder'],
           allowedGlobalNames: [],
         }),
-      ).rejects.toThrow('unknown global "TextEncoder"');
+      ).rejects.toMatchObject({
+        message: expect.stringMatching(/^Failed to launch vat \S+ \(main\)$/u),
+        cause: {
+          message: expect.stringContaining('unknown global "TextEncoder"'),
+        },
+      });
     });
 
     it('rejects unknown names in allowedGlobalNames at the RPC boundary', async () => {
@@ -263,7 +271,10 @@ describe('global endowments', () => {
             'NotARealGlobal' as AllowedGlobalName,
           ],
         }),
-      ).rejects.toThrow(/Invalid params/u);
+      ).rejects.toMatchObject({
+        message: expect.stringMatching(/^Failed to launch vat \S+ \(main\)$/u),
+        cause: { message: expect.stringMatching(/Invalid params/u) },
+      });
     });
   });
 });

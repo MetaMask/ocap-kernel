@@ -1,11 +1,15 @@
 import type { IOChannel, IOListener } from '@metamask/ocap-kernel';
+import { EventEmitter } from 'node:events';
 import fs from 'node:fs/promises';
 import * as net from 'node:net';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 
-import { makeSocketIOListener } from './socket-listener.ts';
+import {
+  makeConnectionChannel,
+  makeSocketIOListener,
+} from './socket-listener.ts';
 
 function tempSocketPath(): string {
   return path.join(
@@ -310,6 +314,30 @@ describe('makeSocketIOListener', () => {
       expect(await channel.read()).toBeNull();
     });
 
+    it('discards buffered data on close rather than delivering it after EOF', async () => {
+      const socketPath = tempSocketPath();
+      const listener = await makeTracked(socketPath);
+
+      const client = await connectTracked(socketPath);
+      const channel = (await listener.accept()) as IOChannel;
+
+      // A complete line plus a trailing fragment with no newline.
+      await writeLine(client, 'buffered');
+      await new Promise<void>((resolve, reject) => {
+        client.write('partial-no-newline', (error) =>
+          error ? reject(error) : resolve(),
+        );
+      });
+      await settle();
+
+      await channel.close();
+
+      // Closing means the holder is done reading. Neither the queued line
+      // nor the trailing fragment may surface after EOF was signalled.
+      expect(await channel.read()).toBeNull();
+      expect(await channel.read()).toBeNull();
+    });
+
     it('throws on write after the channel is closed', async () => {
       const socketPath = tempSocketPath();
       const listener = await makeTracked(socketPath);
@@ -397,5 +425,108 @@ describe('makeSocketIOListener', () => {
     await makeTracked(socketPath);
 
     expect(await fileExists(socketPath)).toBe(true);
+  });
+});
+
+describe('makeConnectionChannel', () => {
+  /**
+   * A minimal stand-in for a connected socket: enough of the surface for
+   * the channel to attach handlers, and emitters so a test can drive the
+   * peer side directly.
+   *
+   * @returns The fake socket.
+   */
+  function makeFakeSocket(): net.Socket {
+    const emitter = new EventEmitter();
+    return Object.assign(emitter, {
+      destroy: () => undefined,
+      write: () => true,
+    }) as unknown as net.Socket;
+  }
+
+  it('reports the connection closed when the holder closes it', async () => {
+    const onClosed = vi.fn();
+    const channel = makeConnectionChannel('c1', makeFakeSocket(), onClosed);
+
+    await channel.close();
+
+    // Without this the listener keeps the channel registered forever, so a
+    // long-lived listener accumulates every session it ever served.
+    expect(onClosed).toHaveBeenCalledOnce();
+  });
+
+  it('reports the connection closed when the peer ends it', () => {
+    const onClosed = vi.fn();
+    const socket = makeFakeSocket();
+    makeConnectionChannel('c1', socket, onClosed);
+
+    socket.emit('end');
+
+    expect(onClosed).toHaveBeenCalledOnce();
+  });
+
+  it('reports closed only once across peer end and holder close', async () => {
+    const onClosed = vi.fn();
+    const socket = makeFakeSocket();
+    const channel = makeConnectionChannel('c1', socket, onClosed);
+
+    socket.emit('end');
+    await channel.close();
+    socket.emit('close');
+
+    expect(onClosed).toHaveBeenCalledOnce();
+  });
+
+  it('flushes a trailing partial line when the peer ends', async () => {
+    const channel = makeConnectionChannel(
+      'c1',
+      (() => {
+        const peer = makeFakeSocket();
+        setImmediate(() => {
+          peer.emit('data', Buffer.from('no-newline-here'));
+          peer.emit('end');
+        });
+        return peer;
+      })(),
+      vi.fn(),
+    );
+
+    // Data that arrived before the peer went away is still owed to the reader.
+    expect(await channel.read()).toBe('no-newline-here');
+    expect(await channel.read()).toBeNull();
+  });
+
+  it('ignores data that arrives after close', async () => {
+    const socket = makeFakeSocket();
+    const channel = makeConnectionChannel('c1', socket, () => undefined);
+
+    await channel.close();
+    // Node can still emit 'data' after destroy(); a late chunk must not
+    // refill the queue that close() cleared.
+    socket.emit('data', Buffer.from('too-late\n'));
+
+    expect(await channel.read()).toBeNull();
+  });
+
+  it('still delivers data that arrived before a peer end', async () => {
+    const socket = makeFakeSocket();
+    const channel = makeConnectionChannel('c1', socket, () => undefined);
+
+    socket.emit('data', Buffer.from('in-time\n'));
+    socket.emit('end');
+    socket.emit('data', Buffer.from('too-late\n'));
+
+    expect(await channel.read()).toBe('in-time');
+    expect(await channel.read()).toBeNull();
+  });
+
+  it('discards a trailing partial line when the holder closes', async () => {
+    const socket = makeFakeSocket();
+    const channel = makeConnectionChannel('c1', socket, vi.fn());
+
+    socket.emit('data', Buffer.from('no-newline-here'));
+    await channel.close();
+
+    expect(await channel.read()).toBeNull();
   });
 });

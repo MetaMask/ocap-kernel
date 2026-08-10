@@ -9,8 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add an `interface` variant to `JsonSchema` — `{ type: 'interface', description?, methods }` — describing an object whose methods can be invoked, so a method that returns an object reference can declare that object's API inline and a client need not make a second round-trip to discover it. The `methods` field is recursive, so a returned interface can itself return interfaces. The variant describes an _interface_; whether the reference to the object is unforgeable is a property of the reference plumbing, not of the description ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
+- Add a `./described` export with a combinator namespace `S` (`S.string`/`S.number`/`S.boolean`/`S.arrayOf`/`S.record`/`S.object`/`S.nothing` leaves, plus `S.arg`/`S.method`/`S.interface`) that authors an `@endo/patterns` interface guard and a matching `MethodSchema` from a single source, so a discoverable exo's enforced shape and its `__getDescription__` hint cannot drift ([#958](https://github.com/MetaMask/ocap-kernel/pull/958))
+- Add an optional `required` field to `MethodSchema` (mirroring `required` on object `JsonSchema`) naming which arguments are required, and a `{ required }` option on `methodArgsToStruct` that validates unlisted arguments as optional, so a method's argument schema can faithfully represent the optional trailing arguments its guard already allows ([#958](https://github.com/MetaMask/ocap-kernel/pull/958))
 - Add `getLibp2pRelayHome()` to the `./nodejs` exports, returning the libp2p relay's bookkeeping directory (default `~/.libp2p-relay`, overridable via `$LIBP2P_RELAY_HOME`) — kept separate from `$OCAP_HOME` so one relay can serve daemons with different OCAP_HOMEs ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 - `startRelay()` accepts an optional `publicIp` that is fed to libp2p's `appendAnnounce`, so a relay running on a NAT-backed host can announce its publicly-reachable IPv4 alongside its bound NIC addresses ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
+- Add `replaceNodeEnvPlugin` to the `./vite-plugins` exports, a Rolldown transform plugin that inlines `process.env.NODE_ENV` as a string literal (configurable via `{ value }`, defaulting to `'production'`) in any module referencing it — used by `bundleVat` in place of a build-config `define`, so vats that pull in libraries like immer resolve the reference at bundle time ([#967](https://github.com/MetaMask/ocap-kernel/pull/967))
 
 ## [0.5.0]
 

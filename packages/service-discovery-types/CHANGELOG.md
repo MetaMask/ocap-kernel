@@ -14,4 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - JSON-serializable API schema vocabulary: `TypeSpec`, `ObjectSpec`, `MethodSpec`, `RemotableSpec`
   - One-way `MethodSchema` → `RemotableSpec` converter (`methodsToRemotableSpec`, `methodSchemaToMethodSpec`) for bridging existing discoverable-exo schemas into the new format
 
+### Changed
+
+- Add `interfaceJsonSchemaToRemotableSpec`, and teach the `JsonSchema` converter to translate the new `interface` variant to a `RemotableSpec`, so `remotable` is no longer among the kinds `JsonSchema` cannot express ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
+- `methodSchemaToMethodSpec` marks any parameter absent from the source `MethodSchema.required` as `optional` on its emitted `ValueSpec`, instead of treating every parameter as required ([#958](https://github.com/MetaMask/ocap-kernel/pull/958))
+
 [Unreleased]: https://github.com/MetaMask/ocap-kernel/

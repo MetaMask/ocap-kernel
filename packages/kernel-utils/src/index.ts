@@ -2,6 +2,14 @@ export { prettifySmallcaps } from './prettify-smallcaps.ts';
 export { makeDefaultInterface, makeDefaultExo } from './exo.ts';
 export { GET_DESCRIPTION, makeDiscoverableExo } from './discoverable.ts';
 export type { DiscoverableExo } from './discoverable.ts';
+export { S } from './described.ts';
+export type {
+  Described,
+  DescribedReturn,
+  NamedArg,
+  DescribedMethod,
+  DescribedInterface,
+} from './described.ts';
 export type { JsonSchema, MethodSchema } from './schema.ts';
 export {
   jsonSchemaToStruct,

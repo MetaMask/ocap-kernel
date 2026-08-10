@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add `IOListener`, an endpoint peers connect to that yields one `IOChannel` per connection via `accept()`, replacing the previous one-client-at-a-time channel. Each accepted connection is a distinct object, so holding one conveys no way to reach another, and `direction` is enforced per connection. `accept()` resolves `null` once the listener is closed so an accept loop can terminate rather than hang ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
+- Anonymous kernel-hosted objects are recorded persistently and swept at kernel init, so one abandoned by a previous incarnation is not left pinned forever, accumulating with every restart — an anonymous object has no name to be re-registered under on boot, unlike a named service. The sweep unpins but cannot delete an object a vat import or queued message still references, so it does not by itself make a delivery to a survivor safe; the `invokeKernelService` fix below is what does ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
+- Add `KernelServiceManager.registerAnonymousKernelObject()` / `releaseAnonymousKernelObject()`, which make a kernel-hosted object routable by kref without entering it in the service-name index, so it has no name in the global service namespace and cannot be requested via a cluster config's `services` list. Used to host accepted IO connections, whose authority comes from holding the reference ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
+- Report run loop health in `KernelStatus.runLoop` (`{ state: 'idle' | 'running' }` or `{ state: 'failed', error, detail }`), exporting `RunLoopStatus`, `RunLoopStatusStruct`, and `OnRunLoopFailure` ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - `idle` means never started; a loop parked on an empty queue reports `running`
+  - `error` is the failure's message and `detail` its whole cause chain, because only strings cross the wire: when a crank dies and its rollback then fails, the message names the rollback and only the chain names what killed the kernel
+  - **BREAKING:** `runLoop` is required, so `KernelStatus` gains a mandatory property and a `getStatus` reply from a kernel built before this field fails result validation outright. It cannot be made optional: `exactOptional` would leave the type and the validator disagreeing inside a `type()`, and `optional` widens the property to `| undefined`, which an RPC result may not be
+- Add `onRunLoopFailure` to `Kernel.make` options, called with the error that killed the run loop so an embedder that outlives the kernel can exit or restart ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
 - Add `fetch`, `Request`, `Headers`, and `Response` to available vat endowments ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
   - Add `VatConfig.network: { allowedHosts: string[] }`; requesting `'fetch'` without it rejects `initVat`
 - Integrate Snaps attenuated endowment factories into vat globals ([#937](https://github.com/MetaMask/ocap-kernel/pull/937))
@@ -22,9 +30,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Accept optional `allowedGlobals` on `VatSupervisor` for custom allowlists
   - Log a warning when a vat requests an unknown global
 - Export `OcapURLIssuerService` and `OcapURLRedemptionService` types so vats can type the corresponding kernel-service endowments ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
+- Reference-marker sigil (`@@NAME`) at the `queueMessage` RPC boundary lets JSON-RPC callers name a live kernel object as a call argument ([#984](https://github.com/MetaMask/ocap-kernel/pull/984))
+  - Anywhere in the args tree, a string of the form `@@NAME` (NAME is one or more alphanumeric characters, currently a well-formed kref) is expanded to a `kslot` standin so `kser` encodes it as a real CapData slot in the dispatched message
+  - Purely an RPC-boundary concern: internal callers of `Kernel.queueMessage` are unaffected
+  - Caveat: a legitimate string argument that begins with `@@` followed by alphanumerics will be misinterpreted as a marker; wrap such literals inside an object
 
 ### Changed
 
+- **BREAKING:** `Kernel.make`'s `ioChannelFactory` option is now `ioListenerFactory`, and the exported `IOChannelFactory` type is replaced by `IOListener` and `IOListenerFactory`. A cluster config's `io` entries now create listeners; vats call `accept()` to obtain a channel instead of reading and writing the endowment directly ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
+- Attribute a failed subcluster vat launch to the specific vat by kernel id and `ClusterConfig` name (e.g. `Failed to launch vat v3 (bob)`), preserving the original error as the `cause` ([#975](https://github.com/MetaMask/ocap-kernel/pull/975))
 - **BREAKING:** Remove `VatConfig.platformConfig.fetch` — migrate to `globals: ['fetch', ...]` + `network.allowedHosts` ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
 - **BREAKING:** `MakeAllowedGlobals` now takes a `{ logger }` options bag ([#942](https://github.com/MetaMask/ocap-kernel/pull/942))
 - **BREAKING:** Type `VatConfig.globals` and `Kernel.make`'s `allowedGlobalNames` as `AllowedGlobalName[]` (a literal union) instead of `string[]`; unknown names are now rejected at the `initVat` RPC boundary ([#941](https://github.com/MetaMask/ocap-kernel/pull/941))
@@ -33,6 +47,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- A message delivered to a kernel-owned kref with no registered service now rejects the caller with `ENDPOINT_UNREACHABLE` instead of throwing, which escaped the crank and killed the run loop — turning one unreachable reference into a dead kernel ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
+  - Reachable without any kernel bug: an anonymous kernel object hosts something that cannot outlive the process, such as an accepted socket connection, so a vat holding one across a restart or a message to one still queued from the previous incarnation lands here. Kernel objects are born with a `(1, 1)` refcount, so the init sweep cannot delete such an object and its `kernel` owner survives (see [#1006](https://github.com/MetaMask/ocap-kernel/issues/1006))
+  - Matches what `KernelRouter` already does for a delivery whose endpoint has vanished. A message sent with no result promise has nobody to report to, so it is logged instead
+- The kernel run queue no longer strands messages, going quiet with no error, no log, and no crash. `runQueueLengthCache` uses a negative value to mean "unknown, re-read from the database", but `enqueueRun`/`dequeueRun` adjusted it arithmetically without materializing it first — so an enqueue while the cache held `-1` produced `0` for a queue that actually held an item, and because `0` is not negative it was never re-read again. The run loop then saw an empty queue, went to sleep, and stranded everything behind it. Two paths reach that `-1`: kernel startup, and `rollbackCrank`, which invalidates the cache because a rollback may have restored dequeued items. The rollback path is the more likely of the two in practice, since a rollback is normally followed immediately by enqueueing an error or termination message. The run loop is also now woken by any non-empty queue rather than only by the empty-to-one transition, so a drifted count cannot silently lose the wakeup either ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
+- Stop reporting a healthy kernel after the run loop dies ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - The error was logged and swallowed, so `getStatus` kept returning its healthy-looking record while nothing on the run queue was processed and every `queueMessage` hung forever. Results in flight now reject with the killing error as their `cause`, later calls reject immediately, and `getStatus` answers without waiting on a crank that may never end
+- Roll back the crank the run loop died in instead of committing it, so a restart resumes from a consistent boundary ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - Because the killing item is no longer consumed, a restart re-dequeues it; an item that reliably kills a crank needs `clearState`/`reset` rather than a restart
+  - Store state only — a crank that had already flushed its buffer settled JS-side subscriptions irreversibly
+- Refuse inbound remote deliveries once the run loop is dead, rolling back without acknowledging them, so the peer retries and gives up instead of waiting on a kernel that will never deliver ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - Covers `bringOutYourDead` as well as `message` and `notify`: a reap is queue work too, consumed only by the run loop. The remaining GC arms need no guard, since they only touch refcounts
+- Refuse `launchSubcluster` once the run loop is dead ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - The bootstrap message can't be queued either way, but the launch reached that point having already spawned a vat worker per entry in the config, none of which its cleanup path tears down
+- Keep crank bookkeeping consistent when the database misbehaves: `endCrank` settles its `waitForCrank` waiters even if releasing savepoints throws (previously stranding `getStatus`, `stop`, `reset`, `clearStorage`, and the `VatManager`/`SubclusterManager` waiters), `rollbackCrank` forgets its savepoint even if the rollback throws (which otherwise had `endCrank` commit the crank being abandoned), and `createCrankSavepoint` records a name only once the database created it ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+- Report the database error when an aborted crank cannot be rolled back, instead of a spurious "no such savepoint" ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
+  - The abort path recorded the rollback only after it succeeded, so a throwing rollback had the run loop try again against the savepoint `rollbackCrank` had already discarded. The second attempt's "no such savepoint" then became the reported cause of death — and since only `error.message` crosses the wire, the real failure reached neither `getStatus` nor the daemon log
+- Reject the run loop's promise with the same `Error` its status reports, rather than re-throwing a non-`Error` for the embedder to normalize a second time ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
 - Deserialize CapData rejections in `Kernel.queueMessage` so vat errors surface as plain `Error` objects to all callers ([#928](https://github.com/MetaMask/ocap-kernel/pull/928))
 - Detect peer restart across receiver state loss so the receiving kernel no longer silently drops a restarted peer's `seq=1` messages ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))
   - Persist the peer's last-observed incarnation and compare it on every successful handshake; on a detected restart, clear the peer's c-list contributions and reject the promises it was deciding before the new incarnation reuses any erefs
@@ -41,6 +72,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Regenerate `incarnationId` when `resetStorage=true` clears the rest of kernel state, completing the #948 peer-restart detection on browser/extension kernel reloads ([#950](https://github.com/MetaMask/ocap-kernel/pull/950))
   - The previous except-list preserved `incarnationId` across `resetStorage` wipes, so a restarted sender signalled the same incarnation it had before the wipe and the matching receiver's handshake decided "no restart" — leaving stale `highestReceivedSeq` in place and silently dropping the sender's fresh `seq=1` messages
 - Register a new vat with its subcluster before awaiting `runVat`, so a garbage-collection pass during bundle load cannot delete the still-empty subcluster out from under the in-progress vat creation ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
+- Use length-prefixed framing for remote messages so payloads larger than the underlying transport's per-frame cutoff (e.g. `@libp2p/webrtc`'s 16 KB datachannel limit) are reassembled correctly on the receiver ([#957](https://github.com/MetaMask/ocap-kernel/pull/957))
+  - Replace `byteStream` with `lpStream` on every remote channel; the byte-oriented stream did not preserve `write()` boundaries, so any message the transport split into multiple frames was parsed from the first frame only, silently dropped without acknowledgement, and the sender retried until giving up after `MAX_RETRIES`
+  - Surface receiver-side framing-cap violations (`InvalidDataLengthError`, `InvalidDataLengthLengthError`) as `ResourceLimitError` with `limitType: 'messageSize'` so size errors look the same whether they tripped on the sender's `validateMessageSize` or the receiver's framing decoder
+- Restore IO channels for persisted subclusters at kernel init so re-incarnated vats find their IOService references live ([#963](https://github.com/MetaMask/ocap-kernel/pull/963))
+  - `SubclusterManager.restorePersistedIOChannels()` walks every persisted subcluster, finds those whose config declares `io`, and re-creates the channels via `IOManager` before `initializeAllVats` runs
+  - Without this, any vat that opened an IO channel via `launchSubcluster` lost its channel across `daemon stop` / `daemon start` and silently held a dead IOService reference
 
 ## [0.7.0]
 

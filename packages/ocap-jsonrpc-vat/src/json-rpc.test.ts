@@ -102,6 +102,49 @@ describe('substituteRemotables', () => {
     });
   });
 
+  it.each([
+    ['a bare promise', (): unknown => new Promise(() => undefined)],
+    [
+      'a nested promise',
+      (): unknown => ({ inner: new Promise(() => undefined) }),
+    ],
+    ['a promise in an array', (): unknown => [new Promise(() => undefined)]],
+    ['a foreign thenable', (): unknown => ({ then: () => undefined })],
+  ])('refuses to serialize %s', (_label, make) => {
+    const assign = (): string => 'j1';
+    // A promise has no own enumerable properties, so walking it would yield
+    // `{}` and JSON.stringify would accept that — the client would receive a
+    // success response with the value silently gone.
+    expect(() => substituteRemotables(make(), isFakeRemotable, assign)).toThrow(
+      /unsettled promise/u,
+    );
+  });
+
+  it.each([
+    ['NaN', (): unknown => Number.NaN, /NaN/u],
+    ['Infinity', (): unknown => Number.POSITIVE_INFINITY, /Infinity/u],
+    ['-Infinity', (): unknown => Number.NEGATIVE_INFINITY, /-Infinity/u],
+    ['a nested NaN', (): unknown => ({ ratio: Number.NaN }), /NaN/u],
+    [
+      'an Infinity in an array',
+      (): unknown => [Number.POSITIVE_INFINITY],
+      /Infinity/u,
+    ],
+  ])('rejects %s rather than emitting null', (_label, make, pattern) => {
+    const assign = (): string => 'j1';
+    // JSON.stringify turns a non-finite number into `null`, which is exactly
+    // what a void method produces — so the client cannot tell a missing value
+    // from a real one.
+    expect(() => substituteRemotables(make(), isFakeRemotable, assign)).toThrow(
+      pattern,
+    );
+  });
+
+  it('leaves -0 alone, since it serializes to a numerically equal 0', () => {
+    const assign = (): string => 'unused';
+    expect(substituteRemotables(-0, isFakeRemotable, assign)).toBe(-0);
+  });
+
   it('leaves primitives and non-remotable objects alone', () => {
     const assign = (): string => 'unused';
     expect(substituteRemotables(42, isFakeRemotable, assign)).toBe(42);

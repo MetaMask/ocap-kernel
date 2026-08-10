@@ -11,6 +11,7 @@ describe('index', () => {
       'DEFAULT_MAX_RETRY_ATTEMPTS',
       'EmptyJsonArray',
       'GET_DESCRIPTION',
+      'S',
       'abortableDelay',
       'calculateReconnectionBackoff',
       'delay',
