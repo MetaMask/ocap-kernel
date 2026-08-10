@@ -31,13 +31,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Log a warning when a vat requests an unknown global
 - Export `OcapURLIssuerService` and `OcapURLRedemptionService` types so vats can type the corresponding kernel-service endowments ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 - Reference-marker sigil (`@@NAME`) at the `queueMessage` RPC boundary lets JSON-RPC callers name a live kernel object as a call argument ([#984](https://github.com/MetaMask/ocap-kernel/pull/984))
-
   - Anywhere in the args tree, a string of the form `@@NAME` (NAME is one or more alphanumeric characters, currently a well-formed kref) is expanded to a `kslot` standin so `kser` encodes it as a real CapData slot in the dispatched message
   - Purely an RPC-boundary concern: internal callers of `Kernel.queueMessage` are unaffected
   - Caveat: a legitimate string argument that begins with `@@` followed by alphanumerics will be misinterpreted as a marker; wrap such literals inside an object
-
 - Reference-count auditing: `auditRefCounts`, `recomputeRefCounts`, `formatRefCountViolations`, `assertRefCountsIfAuditing`, and `setRefCountAuditing` on the kernel store, plus a `Kernel.make` option `auditRefCounts` that verifies every kref's counts against the references the kernel actually holds at the end of each crank ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
-  - Reports drift in both directions: counts too low (a live capability can be collected) and counts too high with no holder (a leak)
+  - Reports drift in both directions: counts too low (a live capability can be collected) and counts too high with no holder (an orphaned count). It compares counts against the holders it finds, so a holder that should have been torn down but wasn't justifies its own count and is not detectable this way
   - Exports the `RefCountViolation` type, a union over `kind: 'mismatch' | 'dangling'`
 - Add `setReachableFlag` to the kernel store, the counterpart to `clearReachableFlag` ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
 - Add `orphanKernelObject` to the kernel store, which drops an object's owner mapping and hands it to the collector ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
@@ -91,7 +89,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release a queued notification's reference before the paths that decide there is nothing to deliver, and stop decrementing references on promises retired alongside it that nobody had taken ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
 - Transfer, rather than duplicate, the references a message carries when it is queued on an unresolved promise and later re-enqueued on resolution ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
 - Fix the stale `cle.`/`clk.` key prefixes in `getPromisesByDecider` and `deleteEndpoint`, which no longer matched the `${endpointId}.c.` c-list layout ([#1010](https://github.com/MetaMask/ocap-kernel/pull/1010))
-
   - `getPromisesByDecider` matched nothing, so promises a terminating vat or restarting peer was deciding were never rejected
 - Deserialize CapData rejections in `Kernel.queueMessage` so vat errors surface as plain `Error` objects to all callers ([#928](https://github.com/MetaMask/ocap-kernel/pull/928))
 - Detect peer restart across receiver state loss so the receiving kernel no longer silently drops a restarted peer's `seq=1` messages ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))
