@@ -149,10 +149,7 @@ export class SubclusterManager {
       try {
         const vatIds = this.#kernelStore.getSubclusterVats(subclusterId);
         for (const vatId of vatIds.reverse()) {
-          if (this.#vatManager.hasVat(vatId)) {
-            await this.#vatManager.terminateVat(vatId);
-            this.#vatManager.collectGarbage();
-          }
+          await this.#terminateVatQuietly(vatId);
         }
       } catch (vatCleanupError) {
         this.#logger.error(
@@ -172,6 +169,34 @@ export class SubclusterManager {
       }
       this.#kernelStore.deleteSubcluster(subclusterId);
       throw error;
+    }
+  }
+
+  /**
+   * Terminate one vat as part of cleanup, absorbing any failure.
+   *
+   * Teardown of a single vat must not strand its siblings: a caller cleaning
+   * up several vats keeps going after one of them fails to die, and reports
+   * the failure rather than propagating it over whatever error prompted the
+   * cleanup in the first place.
+   *
+   * A vat that never reached `#vats` is skipped. That covers a vat whose
+   * launch failed before it was registered, whose worker this cannot reach.
+   *
+   * @param vatId - The id of the vat to terminate.
+   */
+  async #terminateVatQuietly(vatId: VatId): Promise<void> {
+    if (!this.#vatManager.hasVat(vatId)) {
+      return;
+    }
+    try {
+      await this.#vatManager.terminateVat(vatId);
+      this.#vatManager.collectGarbage();
+    } catch (error) {
+      this.#logger.error(
+        `Error terminating vat ${vatId} during cleanup:`,
+        error,
+      );
     }
   }
 

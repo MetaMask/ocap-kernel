@@ -241,6 +241,39 @@ describe('SubclusterManager', () => {
       expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
     });
 
+    it('terminates the remaining vats when one of them fails to terminate', async () => {
+      const config: ClusterConfig = {
+        bootstrap: 'alice',
+        vats: {
+          alice: { sourceSpec: 'alice.js' },
+          bob: { sourceSpec: 'bob.js' },
+          carol: { sourceSpec: 'carol.js' },
+        },
+      };
+      mockVatManager.launchVat
+        .mockResolvedValueOnce('ko1' as KRef)
+        .mockResolvedValueOnce('ko2' as KRef)
+        .mockRejectedValueOnce(new Error('carol exploded'));
+      mockKernelStore.getSubclusterVats.mockReturnValue([
+        'v1',
+        'v2',
+      ] as VatId[]);
+      (mockVatManager.hasVat as ReturnType<typeof vi.fn>).mockReturnValue(true);
+      // Cleanup runs in reverse, so bob (v2) is terminated first and dies badly.
+      mockVatManager.terminateVat.mockRejectedValueOnce(
+        new Error('bob will not die'),
+      );
+
+      await expect(subclusterManager.launchSubcluster(config)).rejects.toThrow(
+        'carol exploded',
+      );
+
+      // alice is still torn down despite bob's failure, and the record is gone.
+      expect(mockVatManager.terminateVat).toHaveBeenCalledWith('v2');
+      expect(mockVatManager.terminateVat).toHaveBeenCalledWith('v1');
+      expect(mockKernelStore.deleteSubcluster).toHaveBeenCalledWith('s1');
+    });
+
     it('includes unrestricted kernel services when specified', async () => {
       const config: ClusterConfig = {
         bootstrap: 'testVat',
