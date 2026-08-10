@@ -161,12 +161,11 @@ export class KernelServiceManager {
    * socket connection, say — so any that survived a restart are garbage, and
    * harmful if left: still pinned, so they accumulate with every restart.
    *
-   * Note what this does *not* guarantee. The kernel object is deleted only
-   * once nothing references it, which with the current `(1, 1)` refcount
-   * baseline (see #1006) is never; a survivor therefore keeps its `'kernel'`
-   * owner, and a delivery to it still routes to `invokeKernelService`. That
-   * case is made survivable there, by rejecting the caller's promise rather
-   * than throwing, and not here.
+   * Note what this does *not* guarantee. `collectGarbage` skips objects the
+   * kernel itself owns, so unpinning one does not delete it; a survivor keeps
+   * its `'kernel'` owner, and a delivery to it still routes to
+   * `invokeKernelService`. That case is made survivable there, by rejecting the
+   * caller's promise rather than throwing, and not here.
    *
    * Runs before the run queue starts, so the unpinning is complete before
    * anything can address one of these krefs.

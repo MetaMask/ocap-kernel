@@ -36,7 +36,12 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
     // first would leave `endCrank` trying to release a savepoint that was never
     // created, and that error would replace whatever really went wrong.
     kdb.createSavepoint(`t${ordinal}`);
-    ctx.savepoints.push(name);
+    // Copied, not referenced: `maybeFreeKrefs` is mutated in place from here on,
+    // and this is the "before" a rollback restores.
+    ctx.savepoints.push({
+      name,
+      maybeFreeKrefs: new Set(ctx.maybeFreeKrefs),
+    });
   }
 
   /**
@@ -48,7 +53,8 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
     ctx.inCrank || Fail`rollbackCrank outside of crank`;
     ctx.crankBuffer.length = 0; // Discard buffered outputs
     for (const ordinal of ctx.savepoints.keys()) {
-      if (ctx.savepoints[ordinal] === savepoint) {
+      const restored = ctx.savepoints[ordinal];
+      if (restored?.name === savepoint) {
         try {
           kdb.rollbackSavepoint(`t${ordinal}`);
         } finally {
@@ -72,13 +78,18 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
         // takes an action out of the set before delivering it, so an action not
         // restored here is lost rather than retried.
         ctx.refreshCachedValues();
-        // Nothing rolls back RAM. These krefs are collection candidates only
-        // because this crank decremented them, and that is precisely what was
-        // just undone. Left in place, `collectGarbage` throws on a later crank
-        // for any promise this one created — killing the run loop over work that
-        // no longer exists. Correct only while every rollback is to the crank's
-        // own start, which is the only savepoint any caller uses.
+        // Nothing rolls back RAM. Krefs this crank added are collection
+        // candidates only because of decrements that were just undone; left in
+        // place, `collectGarbage` throws on a later crank for any promise this
+        // one created, killing the run loop over work that no longer exists.
+        // Restored rather than cleared, because the set is not per-crank: it is
+        // emptied only by `collectGarbage`, so anything added while the run loop
+        // was idle — `terminateVat` unpinning a root, say — is still owed a
+        // collection and must survive an unrelated crank's rollback.
         ctx.maybeFreeKrefs.clear();
+        for (const kref of restored.maybeFreeKrefs) {
+          ctx.maybeFreeKrefs.add(kref);
+        }
         return;
       }
     }
