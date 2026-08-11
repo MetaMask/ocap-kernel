@@ -32,6 +32,7 @@
     { "path": "./packages/llm-bridge" },
     { "path": "./packages/logger" },
     { "path": "./packages/nodejs-test-workers" },
+    { "path": "./packages/ocap-jsonrpc-vat" },
     { "path": "./packages/ocap-kernel" },
     { "path": "./packages/omnium-gatherum" },
     { "path": "./packages/remote-iterables" },
