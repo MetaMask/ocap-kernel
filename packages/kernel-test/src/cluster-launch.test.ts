@@ -12,7 +12,10 @@ import {
   makeTestLogger,
 } from './utils.ts';
 
-describe('cluster initialization', { timeout: 4_000 }, () => {
+// No per-suite timeout override: the package's 30s default covers the kernel
+// construction each test does in `beforeEach`, which is slow enough on a
+// loaded CI runner to blow a tighter budget.
+describe('cluster initialization', () => {
   let logger: Logger;
   let entries: LogEntry[];
   let kernel: Kernel;
@@ -125,7 +128,7 @@ describe('cluster initialization', { timeout: 4_000 }, () => {
   });
 });
 
-describe('peer rejection propagation', { timeout: 10_000 }, () => {
+describe('peer rejection propagation', () => {
   let logger: Logger;
   let entries: LogEntry[];
   let kernel: Kernel;
