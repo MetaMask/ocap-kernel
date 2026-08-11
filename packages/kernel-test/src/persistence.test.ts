@@ -96,10 +96,15 @@ describe('persistent storage', { timeout: 20_000 }, () => {
       false,
       logger.logger.subLogger({ tags: ['test'] }),
     );
-    const result1 = await runTestVats(kernel1, multiVatCluster);
-    expect(result1).toBe('Coordinator initialized with 2 workers');
+    // Capture rootKref directly: concurrent vat launch means the coordinator
+    // may not be assigned ko4, so we cannot use a hardcoded ref here.
+    const { bootstrapResult: launch1Result, rootKref: coordinatorRoot } =
+      await kernel1.launchSubcluster(multiVatCluster);
     await waitUntilQuiescent();
-    const workResult1 = await runResume(kernel1, v1Root);
+    expect(kunser(launch1Result as CapData<string>)).toBe(
+      'Coordinator initialized with 2 workers',
+    );
+    const workResult1 = await runResume(kernel1, coordinatorRoot);
     expect(workResult1).toBe('Work completed: Worker1(1), Worker2(1)');
     await waitUntilQuiescent();
     await kernel1.stop();
@@ -110,7 +115,8 @@ describe('persistent storage', { timeout: 20_000 }, () => {
       logger.logger.subLogger({ tags: ['test'] }),
     );
     await new Promise((resolve) => setTimeout(resolve, 1000));
-    const workResult2 = await runResume(kernel2, v1Root);
+    // coordinatorRoot (ko<N>) is stable across kernel restarts.
+    const workResult2 = await runResume(kernel2, coordinatorRoot);
     expect(workResult2).toBe('Work completed: Worker1(2), Worker2(2)');
     await kernel2.stop();
   });

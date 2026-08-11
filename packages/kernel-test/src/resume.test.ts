@@ -1,6 +1,7 @@
+import type { CapData } from '@endo/marshal';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
-import type { KRef } from '@metamask/ocap-kernel';
+import { kunser } from '@metamask/ocap-kernel';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -8,7 +9,6 @@ import {
   makeKernel,
   makeTestLogger,
   runResume,
-  runTestVats,
   sortLogs,
   extractTestLogs,
 } from './utils.ts';
@@ -100,11 +100,6 @@ const reference = sortLogs([
   ...carolResumeReference,
 ]);
 
-// Vat root objects start with ko4 due to the kernel facet and other kernel service objects being created before any vats.
-const v1Root: KRef = 'ko4';
-const v2Root: KRef = 'ko5';
-const v3Root: KRef = 'ko6';
-
 describe('restarting vats', async () => {
   it('exercise restart vats individually', async () => {
     const kernelDatabase = await makeSQLKernelDatabase({
@@ -112,9 +107,15 @@ describe('restarting vats', async () => {
     });
     const { logger, entries } = makeTestLogger();
     const kernel = await makeKernel(kernelDatabase, true, logger);
-    const bootstrapResult = await runTestVats(kernel, testSubcluster);
-    expect(bootstrapResult).toBe('bootstrap Alice');
+    // Use launchSubcluster directly to get vatRootKrefs: concurrent vat launch
+    // means ko<N> assignment order depends on worker startup speed.
+    const { bootstrapResult, vatRootKrefs } =
+      await kernel.launchSubcluster(testSubcluster);
     await waitUntilQuiescent();
+    expect(kunser(bootstrapResult as CapData<string>)).toBe('bootstrap Alice');
+    const v1Root = vatRootKrefs.alice;
+    const v2Root = vatRootKrefs.bob;
+    const v3Root = vatRootKrefs.carol;
     await kernel.restartVat('v1');
     await kernel.restartVat('v2');
     await kernel.restartVat('v3');
@@ -136,9 +137,15 @@ describe('restarting vats', async () => {
     });
     const { logger: logger1, entries: entries1 } = makeTestLogger();
     const kernel1 = await makeKernel(kernelDatabase, true, logger1);
-    const bootstrapResult = await runTestVats(kernel1, testSubcluster);
-    expect(bootstrapResult).toBe('bootstrap Alice');
+    // Capture vatRootKrefs from first kernel: ko<N> refs are stable across
+    // kernel restarts because they are persisted in the kernel store.
+    const { bootstrapResult, vatRootKrefs } =
+      await kernel1.launchSubcluster(testSubcluster);
     await waitUntilQuiescent();
+    expect(kunser(bootstrapResult as CapData<string>)).toBe('bootstrap Alice');
+    const v1Root = vatRootKrefs.alice;
+    const v2Root = vatRootKrefs.bob;
+    const v3Root = vatRootKrefs.carol;
     const { logger: logger2, entries: entries2 } = makeTestLogger();
     const kernel2 = await makeKernel(kernelDatabase, false, logger2);
     await new Promise((resolve) => setTimeout(resolve, 1000));

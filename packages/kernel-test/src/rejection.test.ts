@@ -31,7 +31,7 @@ describe('rejection', () => {
     });
     expect(vat).toBeDefined();
     const vats = kernel.getVatIds();
-    expect(vats).toStrictEqual(vatIds);
+    expect([...vats].sort()).toStrictEqual([...vatIds].sort());
 
     await waitUntilQuiescent();
     const vatLogs = vatIds.map((vatId) => extractTestLogs(entries, vatId));

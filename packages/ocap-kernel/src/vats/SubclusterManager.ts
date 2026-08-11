@@ -5,7 +5,7 @@ import { Logger } from '@metamask/logger';
 import type { IOManager } from '../io/IOManager.ts';
 import type { KernelQueue } from '../KernelQueue.ts';
 import type { VatManager } from './VatManager.ts';
-import { kslot, kunser } from '../liveslots/kernel-marshal.ts';
+import { kslot, kunser, makeKernelError } from '../liveslots/kernel-marshal.ts';
 import type { SlotValue } from '../liveslots/kernel-marshal.ts';
 import type { KernelStore } from '../store/index.ts';
 import type {
@@ -138,14 +138,25 @@ export class SubclusterManager {
       }
 
       this.#validateServices(config, isSystem);
-      const { rootKref, bootstrapResult } = await this.#launchVatsForSubcluster(
-        subclusterId,
-        config,
-      );
-      return { subclusterId, rootKref, bootstrapResult };
+      const { rootKref, bootstrapResult, vatRootKrefs } =
+        await this.#launchVatsForSubcluster(subclusterId, config);
+      return { subclusterId, rootKref, bootstrapResult, vatRootKrefs };
     } catch (error) {
-      // Roll back IO channels and persisted subcluster on failure.
-      // Cleanup is best-effort — errors must not mask the original failure.
+      // Roll back: terminate any vats that launched successfully, then clean
+      // up IO channels and the persisted subcluster record.
+      // Each step is best-effort — cleanup errors must not mask the original
+      // failure.
+      try {
+        const vatIds = this.#kernelStore.getSubclusterVats(subclusterId);
+        for (const vatId of vatIds.reverse()) {
+          await this.#terminateVatQuietly(vatId);
+        }
+      } catch (vatCleanupError) {
+        this.#logger.error(
+          'Error during vat cleanup on failed launch:',
+          vatCleanupError,
+        );
+      }
       try {
         if (this.#ioManager) {
           await this.#ioManager.destroyChannels(subclusterId);
@@ -158,6 +169,34 @@ export class SubclusterManager {
       }
       this.#kernelStore.deleteSubcluster(subclusterId);
       throw error;
+    }
+  }
+
+  /**
+   * Terminate one vat as part of cleanup, absorbing any failure.
+   *
+   * Teardown of a single vat must not strand its siblings: a caller cleaning
+   * up several vats keeps going after one of them fails to die, and reports
+   * the failure rather than propagating it over whatever error prompted the
+   * cleanup in the first place.
+   *
+   * A vat that never reached `#vats` is skipped. That covers a vat whose
+   * launch failed before it was registered, whose worker this cannot reach.
+   *
+   * @param vatId - The id of the vat to terminate.
+   */
+  async #terminateVatQuietly(vatId: VatId): Promise<void> {
+    if (!this.#vatManager.hasVat(vatId)) {
+      return;
+    }
+    try {
+      await this.#vatManager.terminateVat(vatId);
+      this.#vatManager.collectGarbage();
+    } catch (error) {
+      this.#logger.error(
+        `Error terminating vat ${vatId} during cleanup:`,
+        error,
+      );
     }
   }
 
@@ -304,18 +343,10 @@ export class SubclusterManager {
   ): Promise<{
     rootKref: KRef;
     bootstrapResult: CapData<KRef> | undefined;
+    vatRootKrefs: Record<string, KRef>;
   }> {
-    const rootIds: Record<string, KRef> = {};
-    const roots: Record<string, SlotValue> = {};
-    for (const [vatName, vatConfig] of Object.entries(config.vats)) {
-      const rootRef = await this.#vatManager.launchVat(
-        vatConfig,
-        vatName,
-        subclusterId,
-      );
-      rootIds[vatName] = rootRef;
-      roots[vatName] = kslot(rootRef, 'vatRoot');
-    }
+    const vatEntries = Object.entries(config.vats);
+
     const services: Record<string, SlotValue> = {};
     const ioNames = config.io
       ? new Set(Object.keys(config.io))
@@ -337,12 +368,67 @@ export class SubclusterManager {
         throw Error(`no registered kernel service '${lookupName}'`);
       }
     }
-    const rootKref = rootIds[config.bootstrap];
-    if (!rootKref) {
-      throw new Error(
-        `Bootstrap vat "${config.bootstrap}" not found in rootIds`,
-      );
+
+    // Launch all vats concurrently. getNextVatId() runs synchronously before
+    // each launchVat's first await, so vat-ID allocation order is deterministic.
+    const launchResults = await Promise.allSettled(
+      vatEntries.map(async ([vatName, vatConfig]) =>
+        this.#vatManager.launchVat(vatConfig, vatName, subclusterId),
+      ),
+    );
+
+    // If the bootstrap vat itself failed to launch, throw immediately.
+    const bootstrapIdx = vatEntries.findIndex(
+      ([name]) => name === config.bootstrap,
+    );
+    // bootstrapIdx is guaranteed ≥ 0 because launchSubcluster validates that
+    // config.vats[config.bootstrap] exists. The undefined guard satisfies tsc.
+    const bootstrapLaunchResult = launchResults[bootstrapIdx];
+    if (bootstrapLaunchResult === undefined) {
+      throw Fail`no launch result for bootstrap vat '${config.bootstrap}'`;
     }
+    if (bootstrapLaunchResult.status === 'rejected') {
+      throw bootstrapLaunchResult.reason;
+    }
+    const rootKref = bootstrapLaunchResult.value;
+
+    // Build the roots map. Succeeded vats receive real ko<N> refs; failed peer
+    // vats receive an immediately-rejected kernel promise so bootstrap can
+    // observe the failure via E(roots.peer).method() pipelining.
+    const rootsEntries: [string, SlotValue][] = [];
+    const vatRootKrefsEntries: [string, KRef][] = [];
+    let firstPeerFailure: Error | undefined;
+    for (let i = 0; i < vatEntries.length; i++) {
+      const vatEntry = vatEntries[i];
+      const result = launchResults[i];
+      if (vatEntry === undefined || result === undefined) {
+        throw Fail`missing entry at index ${i}`;
+      }
+      const [vatName] = vatEntry;
+      // Reject vat names that shadow Object.prototype built-ins (__proto__,
+      // constructor, etc.) before using them as property keys.
+      !(vatName in Object.prototype) || Fail`invalid vat name '${vatName}'`;
+      if (result.status === 'fulfilled') {
+        rootsEntries.push([vatName, kslot(result.value, 'vatRoot')]);
+        vatRootKrefsEntries.push([vatName, result.value]);
+      } else {
+        // launchVat always wraps failures in new Error(...), so reason is an Error
+        const peerError =
+          result.reason instanceof Error
+            ? result.reason
+            : new Error(String(result.reason));
+        firstPeerFailure ??= peerError;
+        const [kpid] = this.#kernelStore.initKernelPromise();
+        this.#kernelStore.setPromiseDecider(kpid, 'kernel');
+        this.#kernelQueue.resolvePromises('kernel', [
+          [kpid, true, makeKernelError('VAT_TERMINATED', peerError.message)],
+        ]);
+        rootsEntries.push([vatName, kslot(kpid)]);
+      }
+    }
+    const roots = Object.fromEntries(rootsEntries);
+    const vatRootKrefs = Object.fromEntries(vatRootKrefsEntries);
+
     const bootstrapResult = await this.#queueMessage(rootKref, 'bootstrap', [
       roots,
       services,
@@ -351,7 +437,14 @@ export class SubclusterManager {
     if (unserialized instanceof Error) {
       throw unserialized;
     }
-    return { rootKref, bootstrapResult };
+
+    // If any peer vats failed to launch, propagate after bootstrap has had a
+    // chance to observe and handle the failures.
+    if (firstPeerFailure !== undefined) {
+      throw firstPeerFailure;
+    }
+
+    return { rootKref, bootstrapResult, vatRootKrefs };
   }
 
   /**

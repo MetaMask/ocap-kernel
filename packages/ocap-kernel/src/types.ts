@@ -746,6 +746,8 @@ export type SubclusterLaunchResult = {
   rootKref: KRef;
   /** The CapData result of calling bootstrap() on the root object, if any. */
   bootstrapResult: CapData<KRef> | undefined;
+  /** Map from vat name to root kref for all successfully launched vats. */
+  vatRootKrefs: Record<string, KRef>;
 };
 
 const RemoteCommsDisconnectedStruct = object({

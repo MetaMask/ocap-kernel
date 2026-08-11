@@ -76,6 +76,8 @@ const mocks = vi.hoisted(() => {
     }
 
     waitForCrank = vi.fn().mockResolvedValue(undefined);
+
+    resolvePromises = vi.fn();
   }
 
   class RemoteManager {
@@ -341,6 +343,7 @@ describe('Kernel', () => {
         subclusterId: 's1',
         bootstrapResult: { body: '{"result":"ok"}', slots: [] },
         rootKref: expect.stringMatching(/^ko\d+$/u),
+        vatRootKrefs: { alice: expect.stringMatching(/^ko\d+$/u) },
       });
     });
   });
