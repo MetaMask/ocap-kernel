@@ -1,0 +1,90 @@
+{
+  "id": "ocapTools",
+  "name": "OCAP Tools",
+  "description": "Service discovery and product-orchestration tools for an OCAP kernel daemon. Find and consume services via a service matcher plus the contact protocol defined in @metamask/service-discovery-types, and keep demo bookkeeping (artifacts, wallet, phase announcements) that posts to demo-display so the audience-facing dashboard updates in real time.",
+  "contracts": {
+    "tools": [
+      "discovery_redeem_matcher",
+      "discovery_find_services",
+      "discovery_list_tracked",
+      "service_get_description",
+      "service_initiate_contact",
+      "service_call",
+      "demo_announce",
+      "demo_record_artifact",
+      "demo_get_artifact",
+      "demo_wallet_balance",
+      "demo_wallet_credit",
+      "demo_wallet_withdraw",
+      "demo_phase_started",
+      "demo_service_completed"
+    ]
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "ocapHome": {
+        "type": "string",
+        "description": "OCAP home directory of the daemon this plugin targets. The ocap-jsonrpc-vat socket is expected at <ocapHome>/ocap-jsonrpc.sock. Ignored if socketPath is set. Default: ~/.ocap-consumer."
+      },
+      "socketPath": {
+        "type": "string",
+        "description": "Absolute filesystem path of the ocap-jsonrpc-vat Unix socket. Overrides ocapHome when set."
+      },
+      "timeoutMs": {
+        "type": "number",
+        "description": "Timeout for daemon calls in ms (default: 60000)."
+      },
+      "displayUrl": {
+        "type": "string",
+        "description": "Base URL of the demo-display server (e.g. http://127.0.0.1:7777). Discovery posts service.discovered events so the marketplace pane only shows providers the agent has actually queried; the orchestration tools post artifact, phase, and wallet events."
+      },
+      "matcherUrl": {
+        "type": "string",
+        "description": "OCAP URL for the service matcher (e.g., ocap:abc123@12D3KooW...,/ip4/...). Redeemed eagerly at register time when set."
+      },
+      "walletUrl": {
+        "type": "string",
+        "description": "OCAP URL of the wallet vat's public facet. Optional; when unset the plugin reads <ocapHome>/wallet-url.env, which start-wallet.sh writes on every launch."
+      },
+      "walletInitialBalanceUsd": {
+        "type": "number",
+        "description": "Wallet balance to seed at register time so each rehearsal starts from a known amount. Default 10000."
+      },
+      "resetState": {
+        "type": "boolean",
+        "description": "Clear all plugin state on each register() call (default: false)."
+      }
+    }
+  },
+  "uiHints": {
+    "ocapHome": {
+      "label": "OCAP home",
+      "placeholder": "~/.ocap-consumer"
+    },
+    "matcherUrl": {
+      "label": "Matcher OCAP URL",
+      "placeholder": "ocap:abc123@12D3KooW...,/ip4/..."
+    },
+    "walletUrl": {
+      "label": "Wallet OCAP URL",
+      "placeholder": "(auto-discovered from wallet-url.env)"
+    },
+    "walletInitialBalanceUsd": {
+      "label": "Initial wallet balance (USD)",
+      "placeholder": "10000"
+    },
+    "displayUrl": {
+      "label": "Demo display URL",
+      "placeholder": "http://127.0.0.1:7777"
+    },
+    "timeoutMs": {
+      "label": "Timeout (ms)",
+      "placeholder": "60000"
+    },
+    "resetState": {
+      "label": "Reset State on Register",
+      "placeholder": "false"
+    }
+  }
+}

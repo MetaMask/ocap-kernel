@@ -10,7 +10,7 @@
     "../../vitest.config.ts",
     "./src",
     "./test",
-    "./openclaw-plugin-discovery",
+    "./openclaw-plugin-ocap-tools",
     "./openclaw-plugin-metamask",
     "./vite.config.ts",
     "./vitest.config.ts"

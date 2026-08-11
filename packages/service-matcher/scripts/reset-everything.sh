@@ -11,14 +11,14 @@
 #   - bring the consumer daemon back up with --local-relay;
 #   - launch a fresh wallet subcluster inside the consumer daemon
 #     (start-wallet.sh) — the purge above wiped the previous one,
-#     and the openclaw demo plugin's auto-discovery would otherwise
+#     and the openclaw ocapTools plugin's auto-discovery would otherwise
 #     pick up the fossilised `wallet-url.env` and try to redeem a
 #     dead kref;
 #   - launch a fresh ocap-jsonrpc-vat subcluster inside the consumer
-#     daemon (start-ocap-jsonrpc-vat.sh) — the openclaw plugins on
-#     this VPS reach the kernel through it, so its socket must exist
+#     daemon (start-ocap-jsonrpc-vat.sh) — the openclaw plugin on
+#     this VPS reaches the kernel through it, so its socket must exist
 #     before the gateway restart;
-#   - update the openclaw discovery plugin's matcherUrl config and
+#   - update the openclaw ocapTools plugin's matcherUrl config and
 #     restart the gateway so the new URL takes effect.
 #
 # For routine restarts (URL stays, registry stays) just run
@@ -159,7 +159,7 @@ node "$OCAP_BIN" --home "$CONSUMER_HOME" daemon start --local-relay >&2
 # The consumer daemon just came up empty (step 4-5 purged its state).
 # start-wallet.sh detects no existing wallet subcluster and launches
 # one, writing the new OCAP URL to $CONSUMER_HOME/wallet-url.env for
-# the openclaw demo plugin to auto-discover. Must run BEFORE the
+# the openclaw ocapTools plugin to auto-discover. Must run BEFORE the
 # gateway restart so the plugin's register() sees the live URL.
 info "Launching fresh wallet subcluster..."
 "$REPO_ROOT/packages/orchestration-demo-vats/scripts/start-wallet.sh" \
@@ -168,7 +168,7 @@ info "Launching fresh wallet subcluster..."
 # ---------------------------------------------------------------------------
 # 7b. Launch a fresh ocap-jsonrpc-vat subcluster.
 # ---------------------------------------------------------------------------
-# The openclaw plugins on this VPS reach kernel objects through the
+# The openclaw plugin on this VPS reaches kernel objects through the
 # vat's Unix socket, so its subcluster must exist before the gateway
 # restart. Also lives in the consumer daemon.
 info "Launching fresh ocap-jsonrpc-vat subcluster..."
@@ -180,8 +180,8 @@ info "Launching fresh ocap-jsonrpc-vat subcluster..."
 # 9-10. Update the openclaw plugin config and restart the gateway.
 # ---------------------------------------------------------------------------
 
-info "Setting openclaw discovery plugin matcherUrl..."
-openclaw config set 'plugins.entries.discovery.config.matcherUrl' "$MATCHER_URL"
+info "Setting openclaw ocapTools plugin matcherUrl..."
+openclaw config set 'plugins.entries.ocapTools.config.matcherUrl' "$MATCHER_URL"
 
 info "Restarting openclaw gateway..."
 openclaw gateway restart

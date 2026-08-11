@@ -1,0 +1,14 @@
+{
+  "name": "@openclaw/ocap-tools",
+  "version": "2026.5.29",
+  "description": "OCAP tools plugin: find and consume services via a service matcher plus the contact protocol, and keep product-orchestration bookkeeping (artifacts, wallet, phase announcements).",
+  "type": "module",
+  "openclaw": {
+    "extensions": [
+      "./index.ts"
+    ]
+  },
+  "dependencies": {
+    "@metamask/superstruct": "^3.2.1"
+  }
+}

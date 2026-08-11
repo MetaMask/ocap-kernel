@@ -48,15 +48,20 @@ if the URL doesn't resolve or remote comms are down.
 
 ## Openclaw plugin config
 
-For each of the three plugins in `~/.openclaw/openclaw.json` under
-`plugins.entries` (`discovery`, `metamask`, `demo`):
+For each plugin in `~/.openclaw/openclaw.json` under `plugins.entries`
+(`ocapTools`, and `metamask` if it is still installed):
 
 - **Remove** `ocapCliPath`. The plugin's config schema no longer
   accepts it — leaving it in will fail plugin registration.
-- **Add or change** `ocapHome` to `~/.ocap-consumer`. All three
-  plugins point at the same consumer-daemon socket.
+- **Add or change** `ocapHome` to `~/.ocap-consumer`. Both point at the
+  same consumer-daemon socket.
 
 Alternatively set `socketPath` explicitly per plugin.
+
+Note: `discovery` and `demo` were unified into a single `ocapTools`
+plugin, so a config left over from before carries stale
+`plugins.entries.discovery` / `plugins.entries.demo` blocks. They are
+harmless but dead; `openclaw config unset` them to avoid confusion.
 
 Example diff:
 

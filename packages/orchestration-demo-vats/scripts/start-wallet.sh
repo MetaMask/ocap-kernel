@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Start (or reuse) the orchestration-demo wallet vat as a subcluster
 # inside the consumer daemon (~/.ocap-consumer by default). The
-# demo's openclaw plugin redeems the wallet's OCAP URL to invoke
+# openclaw ocapTools plugin redeems the wallet's OCAP URL to invoke
 # balance / deposit / withdraw against a real vat-hosted balance,
 # replacing the plugin's earlier process-local mock.
 #
@@ -66,10 +66,10 @@ OCAP_BIN="$REPO_ROOT/packages/kernel-cli/dist/app.mjs"
 WALLET_BUNDLE="$PKG_DIR/src/wallet/index.bundle"
 
 # The wallet vat lives inside the consumer daemon on the VPS — same
-# daemon the openclaw discovery plugin already talks to. Keeping
-# them co-resident avoids adding a fourth daemon home and lets the
-# demo plugin reach the wallet through the same relay-facing
-# transport the discovery plugin already uses.
+# daemon the openclaw ocapTools plugin already talks to. Keeping them
+# co-resident avoids adding a fourth daemon home and lets the wallet
+# be reached over the same relay-facing transport the plugin's
+# discovery tools already use.
 CONSUMER_HOME="${OCAP_CONSUMER_HOME:-${HOME}/.ocap-consumer}"
 
 if [[ ! -f "$OCAP_BIN" ]]; then

@@ -165,18 +165,15 @@ Remove any pre-existing matcher URL from openclaw's config (safe on
 a fresh system; per-run setup sets a fresh URL in step 5):
 
 ```csh
-openclaw config unset 'plugins.entries.discovery.config.matcherUrl'
+openclaw config unset 'plugins.entries.ocapTools.config.matcherUrl'
 ```
 
-Install the openclaw plugins:
+Install the openclaw plugin:
 
 ```csh
 openclaw plugins install --link \
-  ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery
-openclaw plugins install --link \
-  ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-demo
-openclaw plugins enable discovery
-openclaw plugins enable demo
+  ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-ocap-tools
+openclaw plugins enable ocapTools
 ```
 
 Inspect the existing `plugins.allow` and `tools.allow` lists; do
@@ -189,13 +186,12 @@ openclaw config get plugins.allow
 openclaw config get tools.allow
 ```
 
-`plugins.allow` must include both `discovery` and `demo`. If either
-is missing, add it (preserve any other entries already present),
-e.g.:
+`plugins.allow` must include `ocapTools`. If it is missing, add it
+(preserve any other entries already present), e.g.:
 
 ```csh
 openclaw config set plugins.allow \
-  '["discovery", "demo", "anthropic", "google", "memory-core"]'
+  '["ocapTools", "anthropic", "google", "memory-core"]'
 ```
 
 `tools.allow` must include the twelve tool names below. If any are
@@ -234,32 +230,22 @@ openclaw plugins disable metamask
 openclaw config set gateway.http.endpoints.chatCompletions.enabled true
 ```
 
-Set the discovery plugin's static config — these never change across
-runs (the dynamic `matcherUrl` is handled by the per-run sequence):
+Set the plugin's static config — these never change across runs (the
+dynamic `matcherUrl` is handled by the per-run sequence). Both
+toolsets share one `ocapHome`, which is the point of having a single
+plugin: one socket connection to the consumer daemon.
 
 ```csh
-openclaw config set 'plugins.entries.discovery.config.ocapHome' \
+openclaw config set 'plugins.entries.ocapTools.config.ocapHome' \
   "$HOME/.ocap-consumer"
-openclaw config set 'plugins.entries.discovery.config.ocapCliPath' \
-  "$HOME/GitRepos/ocap-kernel/packages/kernel-cli/dist/app.mjs"
-openclaw config set 'plugins.entries.discovery.config.displayUrl' \
+openclaw config set 'plugins.entries.ocapTools.config.displayUrl' \
   'http://127.0.0.1:7777'
 ```
 
-Set the demo plugin's static config — same shape as discovery. The
-plugin auto-discovers `walletUrl` by reading
-`<ocapHome>/wallet-url.env` (the file `start-wallet.sh` writes on
-every launch), so it does not need to be configured explicitly.
-Only set `walletUrl` here if you want to override the auto-discovery
-and point the plugin at a wallet other than the one
-`start-wallet.sh` most recently published.
-
-```csh
-openclaw config set 'plugins.entries.demo.config.ocapCliPath' \
-  "$HOME/GitRepos/ocap-kernel/packages/kernel-cli/dist/app.mjs"
-openclaw config set 'plugins.entries.demo.config.ocapHome' \
-  "$HOME/.ocap-consumer"
-```
+`walletUrl` needs no explicit setting: the plugin auto-discovers it by
+reading `<ocapHome>/wallet-url.env` (the file `start-wallet.sh` writes
+on every launch). Set it only to override that and point at a wallet
+other than the one `start-wallet.sh` most recently published.
 
 Write the demo-display config so its ttyd-iframe URL is wired up
 automatically and step 5 no longer needs an env-var override:
@@ -279,9 +265,9 @@ install of the same slug blocks the re-install otherwise:
 ```csh
 cd ~/GitRepos/ocap-kernel
 openclaw skills install --force \
-  ./packages/agentmask/openclaw-plugin-discovery/skills/discovery
+  ./packages/agentmask/openclaw-plugin-ocap-tools/skills/discovery
 openclaw skills install --force \
-  ./packages/agentmask/openclaw-plugin-demo/skills/product-orchestration
+  ./packages/agentmask/openclaw-plugin-ocap-tools/skills/product-orchestration
 ```
 
 `--force` is what makes a re-install overwrite the workspace copy
@@ -404,8 +390,8 @@ rebuilds.
 
 | If this changed                                                                 | Run, before `## Per-run setup sequence`                                                                                                                                                           |
 | ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `packages/agentmask/openclaw-plugin-demo/skills/product-orchestration/SKILL.md` | (VPS) `openclaw skills install --force ./packages/agentmask/openclaw-plugin-demo/skills/product-orchestration`                                                                                    |
-| `packages/agentmask/openclaw-plugin-discovery/skills/discovery/SKILL.md`        | (VPS) `openclaw skills install --force ./packages/agentmask/openclaw-plugin-discovery/skills/discovery`                                                                                           |
+| `packages/agentmask/openclaw-plugin-ocap-tools/skills/product-orchestration/SKILL.md` | (VPS) `openclaw skills install --force ./packages/agentmask/openclaw-plugin-ocap-tools/skills/product-orchestration`                                                                                    |
+| `packages/agentmask/openclaw-plugin-ocap-tools/skills/discovery/SKILL.md`        | (VPS) `openclaw skills install --force ./packages/agentmask/openclaw-plugin-ocap-tools/skills/discovery`                                                                                           |
 | `packages/agentmask/openclaw-plugin-{demo,discovery}/openclaw.plugin.json`      | (VPS) `openclaw gateway restart` — per-run step 6 handles this anyway, but if you're testing the manifest change in isolation, force a restart now                                                |
 | `packages/demo-display/**`                                                      | (VPS) `yarn workspace @ocap/demo-display build` — per-run step 5 re-launches the server which serves the new build                                                                                |
 | `packages/orchestration-demo-vats/**`                                           | (Laptop) nothing — `start-services.sh` rebuilds + re-bundles + re-registers in per-run step 7                                                                                                     |
@@ -715,12 +701,12 @@ In `vps-ctl`:
 
 ```csh
 source ~/.ocap/matcher-urls.env
-openclaw config set 'plugins.entries.discovery.config.matcherUrl' \
+openclaw config set 'plugins.entries.ocapTools.config.matcherUrl' \
   "$MATCHER_OCAP_URL"
 openclaw gateway restart
 ```
 
-The static configs (`ocapHome`, `ocapCliPath`, `displayUrl`) are
+The static configs (`ocapHome`, `displayUrl`) are
 written once during one-time setup; nothing per-run touches them.
 
 ### Step 7: Laptop services daemon
@@ -909,12 +895,12 @@ cheap.
 
 - **`start-services.sh` fails with "All N registration(s) failed for matcher ..."** — the matcher's LLM bridge can't reach the openclaw gateway, or the gateway returns HTTP 500. The most common cause after a fresh openclaw upgrade is `OPENCLAW_AGENT_MODEL` defaulting to `openclaw`, which no longer maps to a configured agent. Set `OPENCLAW_AGENT_MODEL=openclaw/<agentId>` (e.g., `openclaw/main` — `<agentId>` is the name of a directory under `~/.openclaw/agents/`) and restart the matcher. The underlying gateway error is visible in `~/.ocap/matcher-llm-bridge.log`; the gateway's own logs aren't easy to find.
 
-- **`openclaw plugins install ...` fails with "Failed to pre-redeem matcher URL" / "Remote comms not initialized"** — `~/.openclaw/openclaw.json` carries a stale `plugins.entries.discovery.config.matcherUrl` from a prior session. The plugin's `register()` tries to redeem it at install time, before the matcher daemon and consumer daemon (and remote comms) are up. Unset the stale URL and reinstall:
+- **`openclaw plugins install ...` fails with "Failed to pre-redeem matcher URL" / "Remote comms not initialized"** — `~/.openclaw/openclaw.json` carries a stale `plugins.entries.ocapTools.config.matcherUrl` from a prior session. The plugin's `register()` tries to redeem it at install time, before the matcher daemon and consumer daemon (and remote comms) are up. Unset the stale URL and reinstall:
 
   ```csh
-  openclaw config unset 'plugins.entries.discovery.config.matcherUrl'
+  openclaw config unset 'plugins.entries.ocapTools.config.matcherUrl'
   openclaw plugins install --link \
-    ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-discovery
+    ~/GitRepos/ocap-kernel/packages/agentmask/openclaw-plugin-ocap-tools
   ```
 
 - **Marketplace shows duplicate providers** — the matcher has no liveness detection in V0. Run `./packages/service-matcher/scripts/clear-matcher-registry.sh` between rehearsals to wipe stale registrations without changing the URL, then re-run step 7 on the laptop.

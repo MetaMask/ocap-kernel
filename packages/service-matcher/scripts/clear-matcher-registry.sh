@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Clear the running matcher's service registry without touching the
 # kernel database, so the matcher's OCAP URL stays valid and every
-# downstream consumer (openclaw discovery plugin, .metamaskrc, the
+# downstream consumer (openclaw ocapTools plugin, .metamaskrc, the
 # demo-display, the cast list, the SSH tunnel) keeps working unchanged.
 #
 # Intended for the pre-demo "wipe the slate" workflow: kill stale

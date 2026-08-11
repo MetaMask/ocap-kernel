@@ -23,11 +23,11 @@
 #   2b. start-wallet.sh    (launch or reuse the wallet vat subcluster
 #                           inside the consumer daemon; publishes the
 #                           wallet OCAP URL to ~/.ocap-consumer/
-#                           wallet-url.env so the openclaw demo plugin
-#                           can redeem it at register())
+#                           wallet-url.env so the openclaw ocapTools
+#                           plugin can redeem it at register())
 #   3. openclaw gateway    (restart so plugin state resets, including
-#                           the discovery plugin's tracked-services
-#                           cache and the demo plugin's wallet
+#                           the ocapTools plugin's tracked-services
+#                           cache and its wallet
 #                           Presence — must run AFTER start-wallet.sh
 #                           so the plugin's pre-redeem sees a live
 #                           wallet URL)
@@ -89,7 +89,7 @@ node "$OCAP_BIN" --home "$CONSUMER_HOME" daemon start --local-relay >&2 \
   || fail "consumer daemon start failed"
 
 info "Step 2a: relaunching the ocap-jsonrpc-vat subcluster (fresh)..."
-# The vat lives in the consumer daemon so the openclaw plugins on
+# The vat lives in the consumer daemon so the openclaw plugin on
 # this VPS can reach the kernel over a persistent JSON-RPC socket
 # instead of shell-execing the ocap CLI. Force-reset on every
 # rehearsal so the vat's in-memory `@@j<n>` name counter starts at

@@ -17,7 +17,8 @@ change.
 > vat inside the consumer daemon; the demo plugin talks to it via
 > `demo_wallet_withdraw` / `demo_wallet_credit` / `demo_wallet_balance`
 > (see `packages/orchestration-demo-vats/src/wallet/index.ts` and
-> `packages/agentmask/openclaw-plugin-demo/tools/`). The
+> `packages/agentmask/openclaw-plugin-ocap-tools/orchestration/tools/`).
+> The
 > `demo_wallet_charge` tool referenced below has been retired —
 > withdrawal is the charge. Section 1 ("V0") describes the state
 > that existed before Phase 2-5 of the rework and is preserved as
@@ -36,9 +37,10 @@ auth }` random-nonce shape with a real cryptographic proof, but
 ## 1. What we have today (V0)
 
 The "wallet" in the current demo is a JavaScript number living in
-the openclaw demo plugin's process memory
-(`packages/agentmask/openclaw-plugin-demo/state.ts`). Three tools
-mediate access:
+the openclaw plugin's process memory (then
+`openclaw-plugin-demo/state.ts`, now
+`packages/agentmask/openclaw-plugin-ocap-tools/orchestration/state.ts`
+after the plugins were unified). Three tools mediate access:
 
 - `demo_wallet_balance` — read the current balance.
 - `demo_wallet_charge` — deduct an amount. The agent calls this
