@@ -257,26 +257,39 @@ describe('Garbage Collection', () => {
      * Give an importer a chance to notice a dropped object and tell the kernel,
      * then keep cranking until the resulting GC actions have all been consumed.
      *
+     * Waits for `done` as well as for an empty action set, because an empty set
+     * is also what "the vat has not told us anything yet" looks like. A vat
+     * reports a dropped import only once the engine has actually collected it,
+     * and `gcAndFinalize` can only provoke that, not guarantee it on the first
+     * try — so a round that reports nothing has to be retried rather than read
+     * as the end of the story. Reaped afresh each round for the same reason:
+     * the report rides on a `bringOutYourDead`.
+     *
      * @param vatId - The vat to reap.
      * @param rootKRef - That vat's root, to poke with cranks afterwards.
+     * @param done - The outcome being waited for.
      */
-    async function reapAndSettle(vatId: VatId, rootKRef: KRef): Promise<void> {
-      kernel.reapVats((id) => id === vatId);
-      // BOYD has to reach the vat, the vat has to answer, and the kernel has to
-      // act on the answer — but a round can queue more work, so loop until the
-      // queue is actually empty rather than guessing at a crank count.
+    async function reapAndSettle(
+      vatId: VatId,
+      rootKRef: KRef,
+      done: () => boolean,
+    ): Promise<void> {
       const maxRounds = 10;
       for (let round = 0; round < maxRounds; round++) {
+        kernel.reapVats((id) => id === vatId);
+        // BOYD has to reach the vat, the vat has to answer, and the kernel has
+        // to act on the answer — but a round can queue more work, so loop until
+        // the queue is actually empty rather than guessing at a crank count.
         await kernel.queueMessage(rootKRef, 'noop', []);
         await waitUntilQuiescent(500);
-        if ([...kernelStore.getGCActions()].length === 0) {
+        if ([...kernelStore.getGCActions()].length === 0 && done()) {
           return;
         }
       }
       throw Error(
-        `GC actions still pending after ${maxRounds} rounds: ${[
-          ...kernelStore.getGCActions(),
-        ].join(', ')}`,
+        `GC did not settle after ${maxRounds} rounds; actions pending: ${
+          [...kernelStore.getGCActions()].join(', ') || '(none)'
+        }`,
       );
     }
 
@@ -311,7 +324,11 @@ describe('Garbage Collection', () => {
       await kernel.queueMessage(importerKRef, 'makeWeak', [objectId]);
       await kernel.queueMessage(importerKRef, 'forgetImport', []);
       await waitUntilQuiescent();
-      await reapAndSettle(importerVatId, importerKRef);
+      await reapAndSettle(
+        importerVatId,
+        importerKRef,
+        () => !kernelStore.getImporters(sharedKRef).includes(importerVatId),
+      );
 
       // The exporter must not have been told to drop it: the second importer
       // legitimately still holds it
@@ -344,7 +361,11 @@ describe('Garbage Collection', () => {
       await kernel.queueMessage(secondImporterKRef, 'makeWeak', [objectId]);
       await kernel.queueMessage(secondImporterKRef, 'forgetImport', []);
       await waitUntilQuiescent();
-      await reapAndSettle(secondImporterVatId, secondImporterKRef);
+      await reapAndSettle(
+        secondImporterVatId,
+        secondImporterKRef,
+        () => kernelStore.getImporters(sharedKRef).length === 0,
+      );
 
       expect(kernelStore.getImporters(sharedKRef)).toStrictEqual([]);
       // Only the createObject result's stored value still names it
