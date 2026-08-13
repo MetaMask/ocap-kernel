@@ -2,7 +2,7 @@ import { Fail, q } from '@endo/errors';
 import { makePromiseKit } from '@endo/promise-kit';
 import type { KernelDatabase } from '@metamask/kernel-store';
 
-import type { CrankBufferItem, StoreContext } from '../types.ts';
+import type { CrankBufferItem, Savepoint, StoreContext } from '../types.ts';
 
 /**
  * Get the crank methods.
@@ -72,10 +72,10 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
           // and these caches are at least as stale. Rethrowing ahead of this
           // would leave the dying crank holding the GC action it consumed and
           // the freed krefs it was about to collect.
-          revertStateBeneathRollback(error);
+          revertStateBeneathRollback(restored, error);
           throw error;
         }
-        revertStateBeneathRollback();
+        revertStateBeneathRollback(restored);
         return;
       }
     }
@@ -86,11 +86,16 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
    * Revert what a database rollback cannot reach: the in-memory caches built
    * over the abandoned crank's writes.
    *
+   * @param restored - The savepoint being rolled back to, whose snapshot of
+   * `maybeFreeKrefs` is the "before" this restores.
    * @param rollbackError - The error the rollback threw, if it threw. Kept as
    * the `cause` should reverting fail too, since it is the root cause an
    * operator needs.
    */
-  function revertStateBeneathRollback(rollbackError?: unknown): void {
+  function revertStateBeneathRollback(
+    restored: Savepoint,
+    rollbackError?: unknown,
+  ): void {
     try {
       // Recreate the run queue so its cached head/tail are re-read from the
       // database, and invalidate the length cache, since the rollback may have
@@ -103,13 +108,19 @@ export function getCrankMethods(ctx: StoreContext, kdb: KernelDatabase) {
       // action out of the set before delivering it, so an action not restored
       // here is lost rather than retried.
       ctx.refreshCachedValues();
-      // Nothing rolls back RAM. These krefs are collection candidates only
-      // because this crank decremented them, and that is precisely what was just
-      // undone. Left in place, `collectGarbage` throws on a later crank for any
-      // promise this one created — killing the run loop over work that no longer
-      // exists. Correct only while every rollback discards the whole delivery,
-      // which is all any caller asks for.
+      // Nothing rolls back RAM. Krefs this crank added are collection
+      // candidates only because of decrements that were just undone; left in
+      // place, `collectGarbage` throws on a later crank for any promise this one
+      // created, killing the run loop over work that no longer exists.
+      // Restored to the savepoint's snapshot rather than cleared, because the
+      // set is not per-crank: only `collectGarbage` empties it, so a candidate
+      // added while the run loop was idle — `terminateVat` unpinning a root is
+      // the real path — is still owed a collection and must survive an
+      // unrelated crank's rollback.
       ctx.maybeFreeKrefs.clear();
+      for (const kref of restored.maybeFreeKrefs) {
+        ctx.maybeFreeKrefs.add(kref);
+      }
     } catch (revertError) {
       if (rollbackError === undefined) {
         throw revertError;
