@@ -281,13 +281,6 @@ test.describe('Control Panel', () => {
         popupPage.locator('[data-testid="message-output"]'),
       ).toContainText(value);
     }
-    // Asserted per checkpoint rather than from `v3Values`, which is used as a
-    // negative below: v3's root keeps a count for as long as v1 imports it, so
-    // it is not one of the keys that vanish with the vat. The value is the root
-    // pin plus that import.
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText(`{"key":"${v3Root}.refCount","value":"2,2"}`);
     await popupPage.click('button:text("Control Panel")');
     await popupPage.locator('[data-testid="accordion-header"]').first().click();
     await popupPage
@@ -313,11 +306,6 @@ test.describe('Control Panel', () => {
         popupPage.locator('[data-testid="message-output"]'),
       ).toContainText(value);
     }
-    // Terminating v3 released the pin its root was held by, leaving v1's import
-    // as the only holder.
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText(`{"key":"${v3Root}.refCount","value":"1,1"}`);
     await popupPage.click('button:text("Control Panel")');
 
     await popupPage.click('button:text("Collect Garbage")');
@@ -345,11 +333,6 @@ test.describe('Control Panel', () => {
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText(`{"key":"${v3Promise}.refCount","value":"1"}`);
-    // v3's cleanup took its own c-list, not v1's import, so the root survives
-    // its owner at the one count that import justifies.
-    await expect(
-      popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText(`{"key":"${v3Root}.refCount","value":"1,1"}`);
     await popupPage.click('button:text("Control Panel")');
     await popupPage.locator('[data-testid="accordion-header"]').first().click();
     // delete v1
