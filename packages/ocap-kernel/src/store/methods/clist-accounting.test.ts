@@ -216,6 +216,26 @@ describe('c-list reference accounting', () => {
       expect(kernelStore.auditRefCounts()).toStrictEqual([]);
     });
 
+    it('tolerates an importer entry that outlives the object it names', () => {
+      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+      kernelStore.translateRefKtoE('v3', kref, true);
+      // v3 has let go of the object but can still recognize the name
+      kernelStore.clearReachableFlag('v3', kref);
+      kernelStore.markVatAsTerminated('v1');
+      kernelStore.cleanupTerminatedVat('v1');
+
+      kernelStore.collectGarbage();
+
+      // The collector deletes the object and queues the retirement together, so
+      // v3's entry names a kref the kernel has already dropped until that action
+      // is delivered. Counting it as a holder fails the end-of-crank audit on a
+      // state the collector itself just created, which kills the run loop.
+      expect([...kernelStore.getGCActions()]).toStrictEqual([
+        `v3 retireImport ${kref}`,
+      ]);
+      expect(kernelStore.auditRefCounts()).toStrictEqual([]);
+    });
+
     it('leaves a live vat that shares the object untouched', () => {
       const kref = kernelStore.exportFromEndpoint('v2', 'o+1');
       kernelStore.translateRefKtoE('v1', kref, true);
