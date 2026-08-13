@@ -40,6 +40,88 @@ test.describe('Control Panel', () => {
     ).toContainText('Subcluster launched');
   }
 
+  /**
+   * Read the Database Inspector's kv dump.
+   *
+   * @returns Every key/value pair it is showing.
+   */
+  async function readKvDump(): Promise<{ key: string; value: string }[]> {
+    const text =
+      (await popupPage
+        .locator('[data-testid="message-output"]')
+        .textContent()) ?? '';
+    const rows =
+      /\{"key":"(?<key>[^"]+)","value":"(?<value>(?:[^"\\]|\\.)*)"\}/gu;
+    return [...text.matchAll(rows)].map((match) => ({
+      key: match.groups?.key ?? '',
+      value: match.groups?.value ?? '',
+    }));
+  }
+
+  /**
+   * Find the kref of a vat's root object.
+   *
+   * Derived rather than hardcoded: subcluster vats are launched in parallel, so
+   * each vat's root is exported whenever its own launch finishes, and which of
+   * `ko5`/`ko6` belongs to Bob and which to Carol changes between runs. The vat
+   * ids themselves are stable, being handed out in config order.
+   *
+   * @param dump - The kv pairs to search.
+   * @param vatId - The vat whose root is wanted.
+   * @returns Its root object's kref.
+   */
+  function rootKrefOf(
+    dump: { key: string; value: string }[],
+    vatId: string,
+  ): string {
+    const owned = dump.find(
+      ({ key, value }) => key.endsWith('.owner') && value === vatId,
+    );
+    expect(owned, `no object owned by ${vatId}`).toBeDefined();
+    return (owned as { key: string }).key.replace('.owner', '');
+  }
+
+  /**
+   * Find the kref of the promise a vat is the subject of, by its c-list entry.
+   *
+   * Unstable for the same reason as the roots: `kp3` and `kp4` are allocated as
+   * the bootstrap's calls to Bob and Carol are answered.
+   *
+   * @param dump - The kv pairs to search.
+   * @param vatId - The vat whose promise is wanted.
+   * @returns The promise's kref.
+   */
+  function promiseKrefOf(
+    dump: { key: string; value: string }[],
+    vatId: string,
+  ): string {
+    const entry = dump.find(({ key }) => key.startsWith(`${vatId}.c.kp`));
+    expect(entry, `no promise in ${vatId}'s c-list`).toBeDefined();
+    return (entry as { key: string }).key.slice(`${vatId}.c.`.length);
+  }
+
+  /**
+   * Find the eref a vat knows a kref by.
+   *
+   * Needed in full rather than by prefix: a c-list entry's reverse direction is
+   * keyed by eref and valued by kref, so matching on the kref alone would also
+   * hit the owning vat's own entry for the same object.
+   *
+   * @param dump - The kv pairs to search.
+   * @param vatId - The vat whose c-list to read.
+   * @param kref - The kref it holds.
+   * @returns The eref, e.g. `o-1`.
+   */
+  function erefOf(
+    dump: { key: string; value: string }[],
+    vatId: string,
+    kref: string,
+  ): string {
+    const entry = dump.find(({ key }) => key === `${vatId}.c.${kref}`);
+    expect(entry, `${vatId} has no c-list entry for ${kref}`).toBeDefined();
+    return (entry as { value: string }).value.replace(/^R /u, '');
+  }
+
   test('should load popup with kernel panel', async () => {
     await expect(
       popupPage.locator('button:text("Control Panel")'),
@@ -157,26 +239,36 @@ test.describe('Control Panel', () => {
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('{"key":"vats.terminated","value":"[]"}');
+    const dump = await readKvDump();
+    const v2Root = rootKrefOf(dump, 'v2');
+    const v3Root = rootKrefOf(dump, 'v3');
+    const v2Promise = promiseKrefOf(dump, 'v2');
+    const v3Promise = promiseKrefOf(dump, 'v3');
     const v3Values = [
       '{"key":"e.nextPromiseId.v3","value":"2"}',
       '{"key":"e.nextObjectId.v3","value":"1"}',
-      '{"key":"ko6.owner","value":"v3"}',
-      '{"key":"v3.c.ko6","value":"R o+0"}',
-      '{"key":"v3.c.o+0","value":"ko6"}',
-      '{"key":"v3.c.kp4","value":"R p-1"}',
-      '{"key":"v3.c.p-1","value":"kp4"}',
-      '{"key":"ko6.refCount","value":"1,1"}',
-      '{"key":"kp4.refCount","value":"2"}',
+      `{"key":"${v3Root}.owner","value":"v3"}`,
+      `{"key":"v3.c.${v3Root}","value":"R o+0"}`,
+      `{"key":"v3.c.o+0","value":"${v3Root}"}`,
+      `{"key":"v3.c.${v3Promise}","value":"R p-1"}`,
+      `{"key":"v3.c.p-1","value":"${v3Promise}"}`,
+      `{"key":"${v3Root}.refCount","value":"1,1"}`,
+      `{"key":"${v3Promise}.refCount","value":"2"}`,
     ];
+    // Derived too: v1 imports the two roots as the bootstrap's calls are
+    // answered, so which of `o-1`/`o-2` names which root varies with the same
+    // launch ordering the krefs do.
+    const v2Eref = erefOf(dump, 'v1', v2Root);
+    const v3Eref = erefOf(dump, 'v1', v3Root);
     const v1koValues = [
-      '{"key":"v1.c.ko5","value":"R o-1"}',
-      '{"key":"v1.c.o-1","value":"ko5"}',
-      '{"key":"v1.c.ko6","value":"R o-2"}',
-      '{"key":"v1.c.o-2","value":"ko6"}',
+      `{"key":"v1.c.${v2Root}","value":"R ${v2Eref}"}`,
+      `{"key":"v1.c.${v2Eref}","value":"${v2Root}"}`,
+      `{"key":"v1.c.${v3Root}","value":"R ${v3Eref}"}`,
+      `{"key":"v1.c.${v3Eref}","value":"${v3Root}"}`,
     ];
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('{"key":"kp3.refCount","value":"2"}');
+    ).toContainText(`{"key":"${v2Promise}.refCount","value":"2"}`);
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
     ).toContainText('{"key":"vatConfig.v3","value"');
@@ -241,7 +333,7 @@ test.describe('Control Panel', () => {
     // kp4 reference dropped to 1
     await expect(
       popupPage.locator('[data-testid="message-output"]'),
-    ).toContainText('{"key":"kp4.refCount","value":"1"}');
+    ).toContainText(`{"key":"${v3Promise}.refCount","value":"1"}`);
     await popupPage.click('button:text("Control Panel")');
     await popupPage.locator('[data-testid="accordion-header"]').first().click();
     // delete v1
