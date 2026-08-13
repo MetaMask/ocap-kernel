@@ -374,7 +374,7 @@ export function getRefCountAuditMethods(ctx: StoreContext) {
    * via the `auditRefCounts` option, and run at the end of every crank.
    */
   function assertRefCountsIfAuditing(): void {
-    if (!ctx.refCountAuditingEnabled) {
+    if (!ctx.auditRefCounts) {
       return;
     }
     const violations = auditRefCounts();
@@ -393,7 +393,7 @@ export function getRefCountAuditMethods(ctx: StoreContext) {
    * @param enabled - Whether to audit after every crank.
    */
   function setRefCountAuditing(enabled: boolean): void {
-    ctx.refCountAuditingEnabled = enabled;
+    ctx.auditRefCounts = enabled;
   }
 
   return {
