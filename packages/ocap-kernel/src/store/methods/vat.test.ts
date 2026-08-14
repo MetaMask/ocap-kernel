@@ -600,6 +600,10 @@ describe('vat store methods', () => {
       expect(mockKV.has(`slot.${endpointId}.ko42`)).toBe(false);
       expect(mockKV.has(`slot.${endpointId}.ro+7`)).toBe(false);
       expect(mockDecrementRefCount).not.toHaveBeenCalled();
+      // Queued for GC even though the new owner keeps the kref: tearing our
+      // pair down may have been what took its last reference, and the new
+      // owner's accounting decides the outcome.
+      expect(mockMaybeFreeKrefs.add).toHaveBeenCalledWith('ko42');
     });
 
     it('preserves our exports to the peer (import-direction entries)', () => {

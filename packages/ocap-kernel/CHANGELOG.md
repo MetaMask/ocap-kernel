@@ -38,9 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Caveat: a legitimate string argument that begins with `@@` followed by alphanumerics will be misinterpreted as a marker; wrap such literals inside an object
 
 - Reference-count auditing: `auditRefCounts`, `recomputeRefCounts`, `formatRefCountViolations`, `assertRefCountsIfAuditing`, and `setRefCountAuditing` on the kernel store, plus a `Kernel.make` option `auditRefCounts` that verifies every kref's counts against the references the kernel actually holds at the end of each crank ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
-  - Reports drift in both directions: counts too low (a live capability can be collected) and counts too high with no holder (a leak)
+  - Reports drift in both directions: counts too low (a live capability can be collected) and counts too high (a leak)
+  - Only references visible in the kernel's own state are checkable, so a holder that keeps a kref outside them has to take a pin to be counted at all
+  - `recomputeRefCounts` is a repair tool for a drifted store, offered to embedders and never run automatically: opening an existing store does not migrate it
   - Exports the `RefCountViolation` type
 - Add `setReachableFlag` to the kernel store, the counterpart to `clearReachableFlag` ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
+- Add `getOcapURLObjects` and `retainForOcapURL` to the kernel store, and `VatManager.releaseVatRootPin` ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
 
 ### Changed
 
@@ -55,7 +58,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - A message delivered to a kernel-owned kref with no registered service now rejects the caller with `ENDPOINT_UNREACHABLE` instead of throwing, which escaped the crank and killed the run loop — turning one unreachable reference into a dead kernel ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
-  - Reachable without any kernel bug: an anonymous kernel object hosts something that cannot outlive the process, such as an accepted socket connection, so a vat holding one across a restart or a message to one still queued from the previous incarnation lands here. Kernel objects are born with a `(1, 1)` refcount, so the init sweep cannot delete such an object and its `kernel` owner survives (see [#1006](https://github.com/MetaMask/ocap-kernel/issues/1006))
+  - Reachable without any kernel bug: an anonymous kernel object hosts something that cannot outlive the process, such as an accepted socket connection, so a vat holding one across a restart or a message to one still queued from the previous incarnation lands here. That surviving reference is exactly what stops the init sweep deleting the object, so its `kernel` owner survives with it
   - Matches what `KernelRouter` already does for a delivery whose endpoint has vanished. A message sent with no result promise has nobody to report to, so it is logged instead
 - The kernel run queue no longer strands messages, going quiet with no error, no log, and no crash. `runQueueLengthCache` uses a negative value to mean "unknown, re-read from the database", but `enqueueRun`/`dequeueRun` adjusted it arithmetically without materializing it first — so an enqueue while the cache held `-1` produced `0` for a queue that actually held an item, and because `0` is not negative it was never re-read again. The run loop then saw an empty queue, went to sleep, and stranded everything behind it. Two paths reach that `-1`: kernel startup, and `rollbackCrank`, which invalidates the cache because a rollback may have restored dequeued items. The rollback path is the more likely of the two in practice, since a rollback is normally followed immediately by enqueueing an error or termination message. The run loop is also now woken by any non-empty queue rather than only by the empty-to-one transition, so a drifted count cannot silently lose the wakeup either ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
 - Stop reporting a healthy kernel after the run loop dies ([#1005](https://github.com/MetaMask/ocap-kernel/pull/1005))
@@ -84,8 +87,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Release a queued notification's reference before the paths that decide there is nothing to deliver, and stop decrementing references on promises retired alongside it that nobody had taken ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
 - Transfer, rather than duplicate, the references a message carries when it is queued on an unresolved promise and later re-enqueued on resolution ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
 - Fix the stale `cle.`/`clk.` key prefixes in `getPromisesByDecider` and `deleteEndpoint`, which no longer matched the `${endpointId}.c.` c-list layout ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
-
   - `getPromisesByDecider` matched nothing, so promises a terminating vat or restarting peer was deciding were never rejected
+- Issuing an ocap URL now retains its target, so the URL stays redeemable ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
+  - A URL carries its kref inside an encrypted bearer token and nothing else, so the kernel cannot see from its own state that a holder exists. Under the old `(1, 1)` birth baseline nothing exported was ever collectable and this went unnoticed; at `(0, 0)` the target is collected as soon as the message that carried it to the issuer is delivered, and the URL names a dead capability
+  - One pin per kref however many URLs name it, and no release: the token is persistent and unexpiring, so `revoke` is the way to kill the capability
+  - Issuing a URL for a kref the kernel has already deleted is now refused rather than resurrecting its counts
+- Refuse to import a kref the kernel has deleted into an endpoint's c-list ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
+  - `getObjectRefCount` reads a missing entry as `(0, 0)`, so the new entry's own increment wrote it back and resurrected a live-looking object with no owner — deliverable to by nobody, and endorsed by the audit, since the entry is a legitimate holder for exactly the count it finds
+- Release a vat's root pin when a subcluster is deleted without its vats having run ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
+
+  - `deleteSubcluster` bypasses `stopVat`, so nothing released the pin `launchVat` took in the incarnation that did run them, leaving the root's count permanently above zero and `pinnedObjects` naming a vat that no longer exists
 
 - Deserialize CapData rejections in `Kernel.queueMessage` so vat errors surface as plain `Error` objects to all callers ([#928](https://github.com/MetaMask/ocap-kernel/pull/928))
 - Detect peer restart across receiver state loss so the receiving kernel no longer silently drops a restarted peer's `seq=1` messages ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))

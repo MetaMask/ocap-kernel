@@ -83,6 +83,7 @@ describe('SubclusterManager', () => {
       collectGarbage: vi.fn(),
       terminateAllVats: vi.fn().mockResolvedValue(undefined),
       hasVat: vi.fn().mockReturnValue(false),
+      releaseVatRootPin: vi.fn(),
     } as unknown as Mocked<VatManager>;
 
     mockGetKernelService = vi.fn().mockReturnValue(undefined) as unknown as (
@@ -768,6 +769,11 @@ describe('SubclusterManager', () => {
       expect(
         mockKernelStore.deleteSystemSubclusterMapping,
       ).toHaveBeenCalledWith('orphan');
+      // These vats never ran here, so nothing else releases the root pin the
+      // incarnation that did run them took.
+      for (const vatId of Object.values(subcluster.vats)) {
+        expect(mockVatManager.releaseVatRootPin).toHaveBeenCalledWith(vatId);
+      }
     });
 
     it('restores valid persisted system subclusters', () => {

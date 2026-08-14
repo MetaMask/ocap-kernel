@@ -192,12 +192,8 @@ export class VatManager {
       terminationError = new VatDeletedError(vatId);
     }
     if (terminating) {
-      // Release the pin `launchVat` took, so the root can be collected once
-      // its importers let go. A restart keeps it: the same root comes back.
-      const rootRef = this.#kernelStore.getRootObject(vatId);
-      if (rootRef) {
-        this.#kernelStore.unpinObject(rootRef);
-      }
+      // A restart keeps the pin: the same root comes back.
+      this.releaseVatRootPin(vatId);
     }
     await this.#platformServices
       .terminate(vatId, terminationError)
@@ -299,7 +295,26 @@ export class VatManager {
   }
 
   /**
-   * Pin a vat root.
+   * Release the pin `launchVat` took on a vat's root, so the root can be
+   * collected once its importers let go.
+   *
+   * For paths that end a vat's life. Tolerant of a root that is already gone,
+   * since a vat can be torn down after the kernel has lost track of it.
+   *
+   * @param vatId - The ID of the vat whose life is ending.
+   */
+  releaseVatRootPin(vatId: VatId): void {
+    const rootRef = this.#kernelStore.getRootObject(vatId);
+    if (rootRef) {
+      this.#kernelStore.unpinObject(rootRef);
+    }
+  }
+
+  /**
+   * Pin a vat root, on behalf of an embedder that wants to keep it addressable.
+   *
+   * Pins are counted, and `launchVat` already holds one for the vat's lifetime,
+   * so this adds to that rather than replacing it.
    *
    * @param vatId - The ID of the vat.
    * @returns The KRef of the vat root.
@@ -314,7 +329,10 @@ export class VatManager {
   }
 
   /**
-   * Unpin a vat root.
+   * Release one embedder pin on a vat root.
+   *
+   * Removes a single pin, so a root still pinned for its vat's lifetime stays
+   * addressable: this does not make it collectable while the vat lives.
    *
    * @param vatId - The ID of the vat.
    */

@@ -176,6 +176,7 @@ export class Kernel {
 
     this.#ocapURLManager = new OcapURLManager({
       remoteManager: this.#remoteManager,
+      kernelStore: this.#kernelStore,
     });
 
     this.#kernelServiceManager = new KernelServiceManager({

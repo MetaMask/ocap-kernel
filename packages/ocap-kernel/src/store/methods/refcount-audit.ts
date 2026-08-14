@@ -59,6 +59,12 @@ const REFCOUNT_KEY = /^(k[op]\d+)\.refCount$/u;
  * where the cache has drifted, in either direction. Counts that are too low
  * let a live capability be collected; counts that are too high leak it.
  *
+ * Only references the kernel can see in its own state are checkable, so a
+ * holder that keeps a kref outside them is invisible here and the audit will
+ * pronounce its target unreferenced. Anything of that shape has to take a pin
+ * to be counted at all — see `retainForOcapURL`, where an issued URL's
+ * encrypted kref does exactly that.
+ *
  * @param ctx - The store context.
  * @returns The reference count audit methods.
  */
@@ -287,10 +293,16 @@ export function getRefCountAuditMethods(ctx: StoreContext) {
   /**
    * Overwrite stored reference counts with the counts implied by ground truth.
    *
-   * This is how a store written under the pre-fix accounting is brought onto
-   * the current scheme: the references themselves are authoritative, so the
-   * counts can simply be rebuilt from them. Krefs that are referenced but have
-   * already been deleted cannot be repaired this way and are reported instead.
+   * A repair tool for a store whose counts have drifted, offered to embedders
+   * and never run automatically: nothing calls it, and opening an existing
+   * store does not migrate it. Krefs that are referenced but have already been
+   * deleted cannot be repaired this way and are reported instead.
+   *
+   * Ground truth here means the references the kernel can see in its own
+   * state. A holder the store cannot see — an issued ocap URL names its target
+   * only inside an encrypted bearer token — is not among them, which is why
+   * such a target is pinned when the URL is issued rather than left for this to
+   * infer.
    *
    * @returns The violations that were corrected and those that could not be.
    */

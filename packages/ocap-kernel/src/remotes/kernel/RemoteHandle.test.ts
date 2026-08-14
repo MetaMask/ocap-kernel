@@ -660,7 +660,12 @@ describe('RemoteHandle', () => {
     const remote = makeRemote();
     const mockOcapURL = 'as if it was a URL';
     const mockReplyKey = 'replyKey';
-    const replyKRef = 'ko100';
+    // A URL only ever names an object the kernel still has, so redeem one that
+    // exists: importing a deleted kref is refused outright.
+    const replyKRef = mockKernelStore.initKernelObject('kernel');
+    vi.spyOn(mockRemoteComms, 'redeemLocalOcapURL').mockResolvedValue(
+      replyKRef,
+    );
     const replyRRef = 'ro+1';
     // Include seq for incoming message
     const request = JSON.stringify({

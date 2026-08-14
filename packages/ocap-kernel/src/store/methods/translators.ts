@@ -22,6 +22,7 @@ import type {
 import type { StoreContext } from '../types.ts';
 import { getCListMethods } from './clist.ts';
 import { getReachableMethods } from './reachable.ts';
+import { getRefCountMethods } from './refcount.ts';
 import { getVatMethods } from './vat.ts';
 import { Fail, assert } from '../../utils/assert.ts';
 
@@ -37,6 +38,7 @@ import { Fail, assert } from '../../utils/assert.ts';
 export function getTranslators(ctx: StoreContext) {
   const { krefToEref, erefToKref, allocateErefForKref } = getCListMethods(ctx);
   const { setReachableFlag } = getReachableMethods(ctx);
+  const { kernelRefExists } = getRefCountMethods(ctx);
   const { exportFromEndpoint } = getVatMethods(ctx);
 
   /**
@@ -76,6 +78,15 @@ export function getTranslators(ctx: StoreContext) {
     let eref = krefToEref(endpointId, kref);
     if (!eref) {
       if (importIfNeeded) {
+        // A kref the kernel has already deleted must not acquire a new c-list
+        // entry. `getObjectRefCount` reads a missing row as `(0, 0)`, so the
+        // entry's own increment would write it back and resurrect a
+        // live-looking object that nobody owns — one the audit then endorses,
+        // since the entry is a legitimate holder for exactly the count it
+        // finds. Reached by redeeming an ocap URL issued for an object that
+        // has since been collected.
+        kernelRefExists(kref) ||
+          Fail`cannot import deleted kref ${kref} into ${endpointId}`;
         eref = allocateErefForKref(endpointId, kref);
       } else {
         throw Fail`unmapped kref ${kref} endpoint=${endpointId}`;

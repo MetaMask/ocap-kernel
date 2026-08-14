@@ -71,6 +71,11 @@ export function getRefCountMethods(ctx: StoreContext) {
    * have only a "reachable" count, whereas objects track both "reachable"
    * and "recognizable" counts.
    *
+   * Every rule below has a mirror in `computeExpectedRefCounts`
+   * (`refcount-audit.ts`), which recomputes these counts from the references
+   * themselves; the two have to change together or the audit starts reporting
+   * violations against correct accounting.
+   *
    * @param kref - The kernel slot whose refcount is to be incremented.
    * @param tag - The tag of the kernel slot.
    * @param options - Options for the increment.

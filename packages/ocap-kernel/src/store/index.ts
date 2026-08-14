@@ -65,6 +65,7 @@
  *   kernelService.${serviceName} = ${koid}   // kref of kernel service object ${serviceName}
  */
 
+import { Fail } from '@endo/errors';
 import type { KernelDatabase, KVStore, VatStore } from '@metamask/kernel-store';
 import { Logger } from '@metamask/logger';
 
@@ -367,6 +368,36 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
       } else {
         kv.set('anonymousKernelObjects', [...krefs].sort().join(','));
       }
+    },
+
+    // Objects named by an issued ocap URL
+    //
+    // An ocap URL is a durable bearer token: it carries an encrypted kref and
+    // nothing else, so the kernel cannot discover from its own state that a
+    // holder exists. Retaining the target is therefore the only thing keeping
+    // the URL redeemable, and it has to outlive every other reference — the
+    // token is persistent, unexpiring, and may be redeemed by a peer that was
+    // not running when it was issued. `revoke` is the way to kill the
+    // capability; there is deliberately no release here.
+    getOcapURLObjects(): KRef[] {
+      const raw = kv.get('ocapURLObjects');
+      return raw ? (raw.split(',') as KRef[]) : [];
+    },
+    retainForOcapURL(kref: KRef): void {
+      // Refuse to mint a token for something already collected: the pin would
+      // resurrect a `(1, 1)` row for an object with no owner, and the URL would
+      // name a capability that can never be delivered to.
+      this.kernelRefExists(kref) ||
+        Fail`cannot issue an ocap URL for deleted kref ${kref}`;
+      const krefs = new Set(this.getOcapURLObjects());
+      // One pin per kref, however many URLs name it: pins are a multiset, and
+      // a second pin here would be one nothing could ever release.
+      if (krefs.has(kref)) {
+        return;
+      }
+      krefs.add(kref);
+      kv.set('ocapURLObjects', [...krefs].sort().join(','));
+      this.pinObject(kref);
     },
   });
 }

@@ -15,6 +15,7 @@ import type {
 import type { StoreContext } from '../types.ts';
 import * as clistModule from './clist.ts';
 import * as reachableModule from './reachable.ts';
+import * as refCountModule from './refcount.ts';
 import { getTranslators } from './translators.ts';
 import * as vatModule from './vat.ts';
 
@@ -24,10 +25,12 @@ describe('getTranslators', () => {
   const mockAllocateErefForKref = vi.fn();
   const mockExportFromEndpoint = vi.fn();
   const mockSetReachableFlag = vi.fn();
+  const mockKernelRefExists = vi.fn();
   const mockCtx = {} as StoreContext;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockKernelRefExists.mockReturnValue(true);
 
     vi.spyOn(clistModule, 'getCListMethods').mockReturnValue({
       krefToEref: mockKrefToEref,
@@ -38,6 +41,10 @@ describe('getTranslators', () => {
     vi.spyOn(reachableModule, 'getReachableMethods').mockReturnValue({
       setReachableFlag: mockSetReachableFlag,
     } as unknown as ReturnType<typeof reachableModule.getReachableMethods>);
+
+    vi.spyOn(refCountModule, 'getRefCountMethods').mockReturnValue({
+      kernelRefExists: mockKernelRefExists,
+    } as unknown as ReturnType<typeof refCountModule.getRefCountMethods>);
 
     vi.spyOn(vatModule, 'getVatMethods').mockReturnValue({
       exportFromEndpoint: mockExportFromEndpoint,
@@ -68,6 +75,18 @@ describe('getTranslators', () => {
       expect(mockKrefToEref).toHaveBeenCalledWith(vatId, kref);
       expect(mockAllocateErefForKref).toHaveBeenCalledWith(vatId, kref);
       expect(result).toStrictEqual(expectedEref);
+    });
+
+    it('refuses to import a kref the kernel has deleted', () => {
+      const vatId: VatId = 'v1';
+      const kref: KRef = 'ko1' as KRef;
+      mockKrefToEref.mockReturnValue(null);
+      mockKernelRefExists.mockReturnValue(false);
+      const { translateRefKtoE } = getTranslators(mockCtx);
+      expect(() => translateRefKtoE(vatId, kref, true)).toThrow(
+        `cannot import deleted kref "${kref}" into "${vatId}"`,
+      );
+      expect(mockAllocateErefForKref).not.toHaveBeenCalled();
     });
 
     it('throws error when not found and importIfNeeded is false', () => {
