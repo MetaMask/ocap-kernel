@@ -192,6 +192,7 @@ describe('kernel store', () => {
         'translateRefEtoK',
         'translateRefKtoE',
         'translateSyscallVtoK',
+        'undoOcapURLRetention',
         'unpinObject',
         'waitForCrank',
       ]);
@@ -363,6 +364,62 @@ describe('kernel store', () => {
       // Verify C-list entry existence
       expect(ks.hasCListEntry('r7', ko42)).toBe(true);
       expect(ks.hasCListEntry('v2', ko42)).toBe(false); // We forgot this one
+    });
+  });
+
+  describe('ocap URL retention', () => {
+    it('pins the target and records it', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+
+      expect(ks.retainForOcapURL(kref)).toBe(true);
+      expect(ks.isObjectPinned(kref)).toBe(true);
+      expect(ks.getOcapURLObjects()).toStrictEqual([kref]);
+    });
+
+    it('reports that a second URL for the same target took no pin', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+      ks.retainForOcapURL(kref);
+
+      expect(ks.retainForOcapURL(kref)).toBe(false);
+      expect(ks.getPinnedObjects()).toStrictEqual([kref]);
+    });
+
+    it('refuses to retain a kref the kernel has deleted', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+
+      expect(() => ks.retainForOcapURL('ko99')).toThrow(
+        'cannot issue an ocap URL for deleted kref "ko99"',
+      );
+    });
+
+    it('undoing the last retention clears the record entirely', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+      const otherKref = ks.initKernelObject('v1');
+      ks.retainForOcapURL(kref);
+      ks.retainForOcapURL(otherKref);
+
+      ks.undoOcapURLRetention(kref);
+      expect(ks.isObjectPinned(kref)).toBe(false);
+      expect(ks.getOcapURLObjects()).toStrictEqual([otherKref]);
+
+      ks.undoOcapURLRetention(otherKref);
+      expect(ks.getOcapURLObjects()).toStrictEqual([]);
+      expect(
+        mockKernelDatabase.kernelKVStore.get('ocapURLObjects'),
+      ).toBeUndefined();
+    });
+
+    it('undoing a retention that was never taken leaves the pin alone', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+      ks.pinObject(kref);
+
+      ks.undoOcapURLRetention(kref);
+
+      expect(ks.isObjectPinned(kref)).toBe(true);
     });
   });
 

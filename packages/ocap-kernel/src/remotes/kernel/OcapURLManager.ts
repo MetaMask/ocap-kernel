@@ -127,9 +127,22 @@ export class OcapURLManager {
   async issueOcapURL(kref: KRef): Promise<string> {
     const identity = this.#remoteManager.getRemoteIdentity();
     // Before minting the token, not after: the URL is unretractable once it
-    // exists, so the target must already be retained. See `retainForOcapURL`.
-    this.#kernelStore.retainForOcapURL(kref);
-    return identity.issueOcapURL(kref);
+    // exists, so the target must already be retained. Minting also awaits, and
+    // a collection crank can run in that window. See `retainForOcapURL`.
+    const retained = this.#kernelStore.retainForOcapURL(kref);
+    try {
+      return await identity.issueOcapURL(kref);
+    } catch (error) {
+      // Nothing else undoes this. A rejected kernel-service call is reported to
+      // the caller rather than thrown out of the crank, so the crank commits
+      // and the pin outlives the kernel that took it, naming a URL that never
+      // existed. Only the pin this call took: a kref some live URL already
+      // names keeps the pin that URL depends on.
+      if (retained) {
+        this.#kernelStore.undoOcapURLRetention(kref);
+      }
+      throw error;
+    }
   }
 
   /**

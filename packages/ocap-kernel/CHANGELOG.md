@@ -92,6 +92,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A URL carries its kref inside an encrypted bearer token and nothing else, so the kernel cannot see from its own state that a holder exists. Under the old `(1, 1)` birth baseline nothing exported was ever collectable and this went unnoticed; at `(0, 0)` the target is collected as soon as the message that carried it to the issuer is delivered, and the URL names a dead capability
   - One pin per kref however many URLs name it, and no release: the token is persistent and unexpiring, so `revoke` is the way to kill the capability
   - Issuing a URL for a kref the kernel has already deleted is now refused rather than resurrecting its counts
+  - The retention is taken before the token is minted, since minting awaits and a collection crank can run in that window; it is released again if minting fails, and only when that call was the one that took it
 - Refuse to import a kref the kernel has deleted into an endpoint's c-list ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
   - `getObjectRefCount` reads a missing entry as `(0, 0)`, so the new entry's own increment wrote it back and resurrected a live-looking object with no owner — deliverable to by nobody, and endorsed by the audit, since the entry is a legitimate holder for exactly the count it finds
 - Release a vat's root pin when a subcluster is deleted without its vats having run ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))

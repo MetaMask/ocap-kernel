@@ -378,12 +378,13 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     // the URL redeemable, and it has to outlive every other reference — the
     // token is persistent, unexpiring, and may be redeemed by a peer that was
     // not running when it was issued. `revoke` is the way to kill the
-    // capability; there is deliberately no release here.
+    // capability; `undoOcapURLRetention` is not a release, only an unwind of a
+    // retention whose URL was never minted.
     getOcapURLObjects(): KRef[] {
       const raw = kv.get('ocapURLObjects');
       return raw ? (raw.split(',') as KRef[]) : [];
     },
-    retainForOcapURL(kref: KRef): void {
+    retainForOcapURL(kref: KRef): boolean {
       // Refuse to mint a token for something already collected: the pin would
       // resurrect a `(1, 1)` row for an object with no owner, and the URL would
       // name a capability that can never be delivered to.
@@ -393,11 +394,24 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
       // One pin per kref, however many URLs name it: pins are a multiset, and
       // a second pin here would be one nothing could ever release.
       if (krefs.has(kref)) {
-        return;
+        return false;
       }
       krefs.add(kref);
       kv.set('ocapURLObjects', [...krefs].sort().join(','));
       this.pinObject(kref);
+      return true;
+    },
+    undoOcapURLRetention(kref: KRef): void {
+      const krefs = new Set(this.getOcapURLObjects());
+      if (!krefs.delete(kref)) {
+        return;
+      }
+      if (krefs.size === 0) {
+        kv.delete('ocapURLObjects');
+      } else {
+        kv.set('ocapURLObjects', [...krefs].sort().join(','));
+      }
+      this.unpinObject(kref);
     },
   });
 }

@@ -130,6 +130,39 @@ describe('OcapURLManager', () => {
       });
     });
 
+    it('releases the retention when minting the URL fails', async () => {
+      // No URL exists to depend on the pin, and nothing else would ever release
+      // it: the rejection is reported to the caller, not thrown out of a crank.
+      vi.spyOn(mockRemoteComms, 'issueOcapURL').mockRejectedValue(
+        new Error('Issue failed'),
+      );
+
+      await expect(ocapURLManager.issueOcapURL(objectKRef)).rejects.toThrow(
+        'Issue failed',
+      );
+
+      expect(mockKernelStore.isObjectPinned(objectKRef)).toBe(false);
+      expect(mockKernelStore.getOcapURLObjects()).toStrictEqual([]);
+      expect(mockKernelStore.getObjectRefCount(objectKRef)).toStrictEqual({
+        reachable: 0,
+        recognizable: 0,
+      });
+    });
+
+    it('keeps the retention a URL already issued depends on', async () => {
+      await ocapURLManager.issueOcapURL(objectKRef);
+      vi.spyOn(mockRemoteComms, 'issueOcapURL').mockRejectedValue(
+        new Error('Issue failed'),
+      );
+
+      await expect(ocapURLManager.issueOcapURL(objectKRef)).rejects.toThrow(
+        'Issue failed',
+      );
+
+      expect(mockKernelStore.isObjectPinned(objectKRef)).toBe(true);
+      expect(mockKernelStore.getOcapURLObjects()).toStrictEqual([objectKRef]);
+    });
+
     it('refuses to issue a URL for a kref the kernel has deleted', async () => {
       mockKernelStore.deleteKernelObject(objectKRef);
 
