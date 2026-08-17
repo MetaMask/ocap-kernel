@@ -32,18 +32,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Log a warning when a vat requests an unknown global
 - Export `OcapURLIssuerService` and `OcapURLRedemptionService` types so vats can type the corresponding kernel-service endowments ([#952](https://github.com/MetaMask/ocap-kernel/pull/952))
 - Reference-marker sigil (`@@NAME`) at the `queueMessage` RPC boundary lets JSON-RPC callers name a live kernel object as a call argument ([#984](https://github.com/MetaMask/ocap-kernel/pull/984))
-
   - Anywhere in the args tree, a string of the form `@@NAME` (NAME is one or more alphanumeric characters, currently a well-formed kref) is expanded to a `kslot` standin so `kser` encodes it as a real CapData slot in the dispatched message
   - Purely an RPC-boundary concern: internal callers of `Kernel.queueMessage` are unaffected
   - Caveat: a legitimate string argument that begins with `@@` followed by alphanumerics will be misinterpreted as a marker; wrap such literals inside an object
-
 - Reference-count auditing: `auditRefCounts`, `recomputeRefCounts`, `formatRefCountViolations`, `assertRefCountsIfAuditing`, and `setRefCountAuditing` on the kernel store, plus a `Kernel.make` option `auditRefCounts` that verifies every kref's counts against the references the kernel actually holds at the end of each crank ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
-  - Reports drift in both directions: counts too low (a live capability can be collected) and counts too high (a leak)
+  - Reports drift in both directions: counts too low, which lets a live capability be collected, and counts too high, which keeps a dead one alive. A holder that should have been torn down but wasn't is not detectable this way, since it justifies its own count
   - Only references visible in the kernel's own state are checkable, so a holder that keeps a kref outside them has to take a pin to be counted at all
-  - `recomputeRefCounts` is a repair tool for a drifted store, offered to embedders and never run automatically: opening an existing store does not migrate it
+  - `recomputeRefCounts` is a repair tool for a drifted store, offered to embedders and never run automatically: opening an existing store does not migrate it. Reach it by calling `makeKernelStore` over the kernel's own database
   - Exports the `RefCountViolation` type
 - Add `setReachableFlag` to the kernel store, the counterpart to `clearReachableFlag` ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
-- Add `getOcapURLObjects` and `retainForOcapURL` to the kernel store, and `VatManager.releaseVatRootPin` ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
+- Add `getOcapURLObjects`, `retainForOcapURL` and `undoOcapURLRetention` to the kernel store, and `VatManager.releaseVatRootPin` ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
 
 ### Changed
 
@@ -54,6 +52,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **BREAKING:** Type `VatConfig.globals` and `Kernel.make`'s `allowedGlobalNames` as `AllowedGlobalName[]` (a literal union) instead of `string[]`; unknown names are now rejected at the `initVat` RPC boundary ([#941](https://github.com/MetaMask/ocap-kernel/pull/941))
   - Exports: `AllowedGlobalName`, `AllowedGlobalNameStruct`, `MakeAllowedGlobals`, `VatEndowmentsStruct`
 - Bound relay hints in OCAP URLs to a maximum of 3 and cap the relay pool at 20 entries with eviction of oldest non-bootstrap relays ([#929](https://github.com/MetaMask/ocap-kernel/pull/929))
+- **BREAKING:** Rename `krefsToExistingErefs` to `krefsToErefs`, which now throws on an unmapped kref instead of silently dropping it ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
 
 ### Fixed
 
@@ -78,7 +77,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `initKernelObject` now births objects at `(0, 0)` instead of `(1, 1)`. The old constant made the arithmetic come out right for exactly one importer, masking the missing increment; with two importers a live capability could be dropped and retired out from under a holder
   - Removes the owner-side baseline decrements in `cleanupTerminatedVat` and `forgetEndpointImports`, which double-claimed the same unit an importer's drop also spent — the source of `"koNN" underflow -1,0` escaping mid-cleanup and leaving a vat half-cleaned
   - `translateRefKtoE` now re-establishes reachability, so a vat handed an object it previously dropped is counted as holding it live again
-  - Renames `krefsToExistingErefs` to `krefsToErefs`, which now throws on an unmapped kref instead of silently dropping it
+  - **A store written by an earlier version must be reset.** There is no migration: every object in it is still at `(1, 1)` and no vat root is pinned, so the second importer's `dropImports` underflows mid-crank and the last importer's drop can retire a live vat's root. `recomputeRefCounts` can rebuild the counts, but not the root pins, so it is a diagnostic rather than an upgrade path
 - Pin vat root objects for the lifetime of their vat, and release the pin on termination ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
   - A root is addressable while its vat lives whether or not anyone imports it; the old `(1, 1)` birth baseline was standing in for this
 - Garbage-collection action delivery now moves the kernel's own c-list: `dropExports` clears the owner's reachable flag and `retireExports`/`retireImports` tear the entry down ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
@@ -96,9 +95,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Refuse to import a kref the kernel has deleted into an endpoint's c-list ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
   - `getObjectRefCount` reads a missing entry as `(0, 0)`, so the new entry's own increment wrote it back and resurrected a live-looking object with no owner — deliverable to by nobody, and endorsed by the audit, since the entry is a legitimate holder for exactly the count it finds
 - Release a vat's root pin when a subcluster is deleted without its vats having run ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
-
   - `deleteSubcluster` bypasses `stopVat`, so nothing released the pin `launchVat` took in the incarnation that did run them, leaving the root's count permanently above zero and `pinnedObjects` naming a vat that no longer exists
-
 - Deserialize CapData rejections in `Kernel.queueMessage` so vat errors surface as plain `Error` objects to all callers ([#928](https://github.com/MetaMask/ocap-kernel/pull/928))
 - Detect peer restart across receiver state loss so the receiving kernel no longer silently drops a restarted peer's `seq=1` messages ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))
   - Persist the peer's last-observed incarnation and compare it on every successful handshake; on a detected restart, clear the peer's c-list contributions and reject the promises it was deciding before the new incarnation reuses any erefs

@@ -64,7 +64,7 @@ export type { KernelFacet } from './kernel-facet.ts';
 export { makeKernelFacet } from './kernel-facet.ts';
 export type { PingVatResult } from './rpc/index.ts';
 export { makeKernelStore } from './store/index.ts';
-export type { KernelStore } from './store/index.ts';
+export type { KernelStore, RefCountViolation } from './store/index.ts';
 export { parseRef } from './store/utils/parse-ref.ts';
 export {
   generateMnemonic,
