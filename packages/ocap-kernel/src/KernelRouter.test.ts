@@ -675,6 +675,107 @@ describe('KernelRouter', () => {
       });
     });
 
+    describe('an endpoint named by persisted state that is not running', () => {
+      // A vat is addressable without being live: boot skips one whose code can
+      // no longer be loaded (`VatManager.#restoreVat`), and a terminated vat's
+      // ownership entries outlive it until cleanup. Its c-lists and reachable
+      // flags stay in the store, so the kernel goes on addressing it — and
+      // unlike a send, none of these deliveries has a caller to reject.
+      const endpointId = 'v2';
+
+      beforeEach(() => {
+        (getEndpoint as unknown as MockInstance).mockImplementation(
+          (requested: EndpointId) => {
+            if (requested === endpointId) {
+              throw new Error(`Vat not found: ${requested}`);
+            }
+            return endpointHandle;
+          },
+        );
+      });
+
+      /**
+       * Set up a notify whose promise is resolved and still in the endpoint's
+       * c-list, so delivery is reached rather than short-circuited.
+       *
+       * @returns The notify item to deliver.
+       */
+      const makeLiveNotify = (): RunQueueItemNotify => {
+        const kpid = 'kp123';
+        (
+          kernelStore.getKernelPromise as unknown as MockInstance
+        ).mockReturnValue({
+          state: 'fulfilled',
+          value: { body: JSON.stringify({ value: 'v' }), slots: [] },
+        });
+        (kernelStore.krefToEref as unknown as MockInstance).mockReturnValue(
+          'p+123',
+        );
+        (
+          kernelStore.getKpidsToRetire as unknown as MockInstance
+        ).mockReturnValue([kpid]);
+        return { type: 'notify', endpointId, kpid };
+      };
+
+      it.each([
+        [
+          'notify',
+          (): RunQueueItem => makeLiveNotify(),
+          'deliverNotify' as const,
+        ],
+        [
+          'dropExports',
+          (): RunQueueItem => ({
+            type: 'dropExports' as GCRunQueueType,
+            endpointId,
+            krefs: ['ko1'],
+          }),
+          'deliverDropExports' as const,
+        ],
+        [
+          'bringOutYourDead',
+          (): RunQueueItem => ({ type: 'bringOutYourDead', endpointId }),
+          'deliverBringOutYourDead' as const,
+        ],
+      ])(
+        'skips a %s addressed to it instead of throwing out of the crank',
+        async (_what, makeItem, deliverMethod) => {
+          // Throwing here would escape the crank and kill the run loop for
+          // good — and because the crank is rolled back, the same item is
+          // re-dequeued on the next boot and kills that one too.
+          const result = await kernelRouter.deliver(makeItem());
+
+          expect(result).toStrictEqual({ didDelivery: endpointId });
+          expect(
+            endpointHandle[deliverMethod as keyof EndpointHandle],
+          ).not.toHaveBeenCalled();
+        },
+      );
+
+      it('still releases the notify’s own reference when it is skipped', async () => {
+        const notifyItem = makeLiveNotify();
+
+        await kernelRouter.deliver(notifyItem);
+
+        // `enqueueNotify` took a reference for this item; an endpoint that is
+        // not there to be told is no reason to hold it forever.
+        expect(kernelStore.decrementRefCount).toHaveBeenCalledWith(
+          notifyItem.kpid,
+          'deliver|notify',
+        );
+      });
+
+      it('still delivers to endpoints that are running', async () => {
+        const result = await kernelRouter.deliver({
+          type: 'bringOutYourDead',
+          endpointId: 'v1',
+        });
+
+        expect(endpointHandle.deliverBringOutYourDead).toHaveBeenCalled();
+        expect(result).toStrictEqual({ didDelivery: 'v1' });
+      });
+    });
+
     it('throws on unknown run queue item type', async () => {
       // @ts-expect-error - deliberately using an invalid type
       const invalidItem: RunQueueItem = { type: 'invalid' };

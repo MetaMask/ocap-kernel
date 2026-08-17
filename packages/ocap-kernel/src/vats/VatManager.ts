@@ -21,6 +21,24 @@ import type { AllowedGlobalName } from './endowments.ts';
 import { VatHandle } from './VatHandle.ts';
 import type { PingVatResult } from '../rpc/index.ts';
 
+/**
+ * Describe where a vat's code comes from, for diagnostics. A vat that cannot be
+ * restored is almost always a vat whose code has become unreachable, so the
+ * spec that names that code is the actionable part of the report.
+ *
+ * @param vatConfig - The vat's configuration.
+ * @returns A human-readable description of the vat's code source.
+ */
+function describeVatSource(vatConfig: VatConfig): string {
+  if ('bundleSpec' in vatConfig) {
+    return `bundleSpec ${vatConfig.bundleSpec}`;
+  }
+  if ('sourceSpec' in vatConfig) {
+    return `sourceSpec ${vatConfig.sourceSpec}`;
+  }
+  return `bundleName ${vatConfig.bundleName}`;
+}
+
 type VatManagerOptions = {
   platformServices: PlatformServices;
   kernelStore: KernelStore;
@@ -86,9 +104,61 @@ export class VatManager {
   async initializeAllVats(): Promise<void> {
     const starts: Promise<void>[] = [];
     for (const { vatID, vatConfig } of this.#kernelStore.getAllVatRecords()) {
-      starts.push(this.runVat(vatID, vatConfig));
+      starts.push(this.#restoreVat(vatID, vatConfig));
     }
     await Promise.all(starts);
+  }
+
+  /**
+   * Restore one persisted vat, tolerating a vat that can no longer be run.
+   *
+   * A vat outlives the code it was launched from: a bundle can be rebuilt to a
+   * new path, pruned, or recorded as an absolute path that did not survive
+   * relocation. Restoring every vat in one `Promise.all` made a single such vat
+   * reject the whole boot, so one unreachable bundle left the entire kernel —
+   * every other subcluster included — unbootable. Here the failure is confined
+   * to the vat that owns it: the vat is skipped and the rest of the kernel comes
+   * up.
+   *
+   * The vat's persisted record is kept, not pruned, so a vat whose code becomes
+   * reachable again is restored by a later boot. Whether an unrestorable vat
+   * should instead take its subcluster down with it is a lifecycle-policy
+   * question (see #979); this method only declines to lose the healthy vats.
+   *
+   * @param vatId - The ID of the vat to restore.
+   * @param vatConfig - Its configuration.
+   */
+  async #restoreVat(vatId: VatId, vatConfig: VatConfig): Promise<void> {
+    try {
+      await this.runVat(vatId, vatConfig);
+    } catch (error) {
+      // The worker may well be alive even though the vat is not: `runVat`
+      // reaches `VatHandle.make` only once `launch` has resolved, and it is the
+      // `initVat` delivery inside `make` that fails when a vat's code cannot be
+      // loaded. A worker left running that way is the wedged process this whole
+      // failure mode is known by, so reap it before moving on. Failure to
+      // terminate is expected when `launch` itself was what failed — there is no
+      // worker to reap — so it is reported at debug level only.
+      await this.#platformServices.terminate(vatId).catch((terminateError) => {
+        this.#logger.debug(
+          `No worker to reap for unrestorable vat ${vatId}`,
+          terminateError,
+        );
+      });
+      // `getVatSubcluster` fails rather than returning undefined for a vat with
+      // no subcluster, and a diagnostic is no place to acquire a second way to
+      // fail.
+      let subclusterId: SubclusterId | 'none';
+      try {
+        subclusterId = this.#kernelStore.getVatSubcluster(vatId);
+      } catch {
+        subclusterId = 'none';
+      }
+      this.#logger.error(
+        `Cannot restore vat ${vatId} of subcluster ${subclusterId} (${describeVatSource(vatConfig)}); skipping it. Its state is retained, so it returns if its code becomes reachable again.`,
+        error,
+      );
+    }
   }
 
   /**
@@ -196,12 +266,25 @@ export class VatManager {
   /**
    * Terminate a vat with extreme prejudice.
    *
+   * Terminates a persisted vat that is not running as readily as one that is.
+   * A vat skipped at boot because its code could not be loaded (`#restoreVat`)
+   * has no worker to stop, but its records must still be retirable — otherwise
+   * the only way to be rid of one would be to discard the whole store, and
+   * `SubclusterManager.terminateSubcluster`, which walks persisted membership,
+   * would strand every subcluster containing one.
+   *
    * @param vatId - The ID of the vat.
    * @param reason - If the vat is being terminated, the reason for the termination.
    */
   async terminateVat(vatId: VatId, reason?: CapData<KRef>): Promise<void> {
     await this.#kernelQueue.waitForCrank();
-    await this.stopVat(vatId, true, reason);
+    if (this.hasVat(vatId)) {
+      await this.stopVat(vatId, true, reason);
+    } else if (!this.#kernelStore.isVatActive(vatId)) {
+      // Not running *and* not persisted: this vat is simply unknown, and
+      // saying so beats silently retiring records that were never there.
+      throw new VatNotFoundError(vatId);
+    }
     // Mark for deletion (which will happen later, in vat-cleanup events)
     this.#kernelStore.markVatAsTerminated(vatId);
   }
