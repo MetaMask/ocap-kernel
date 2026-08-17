@@ -309,11 +309,12 @@ describe('Kernel', () => {
 
       const kernel2 = await Kernel.make(mockPlatformServices, db);
 
-      // Booting at all is the claim: today the rejection propagates out of
-      // `initializeAllVats`, so `Kernel.make` rejects and the daemon dies
-      // during init. The unrestorable vat's own fate is left unasserted —
-      // quarantine vs. prune vs. subcluster teardown is #979's to decide.
-      expect(kernel2.getVatIds()).toContain('v1');
+      // Booting at all is the claim: the rejection used to propagate out of
+      // `initializeAllVats`, so `Kernel.make` rejected and the daemon died
+      // during init. The healthy vat comes up and the unrestorable one does
+      // not; whether it should instead take its own subcluster down with it is
+      // #979's to decide.
+      expect(kernel2.getVatIds()).toStrictEqual(['v1']);
     });
 
     it('names the unrestorable vat and its bundle when booting past it', async () => {
@@ -341,17 +342,16 @@ describe('Kernel', () => {
 
       await Kernel.make(mockPlatformServices, db, { logger });
 
-      // Severity is the remedy's to choose; being told which vat and which
-      // bundle is not. Skipping a persisted vat silently would trade an
-      // unbootable kernel for a kernel that is quietly missing a vat.
-      const logged = entries
-        .filter(({ level }) => level === 'warn' || level === 'error')
-        .map(({ message, data }) =>
-          [message, ...(data ?? [])].map(String).join(' '),
-        )
-        .join('\n');
-      expect(logged).toContain(MISSING_BUNDLE);
-      expect(logged).toContain('v2');
+      // Skipping a persisted vat silently would trade an unbootable kernel for
+      // a kernel that is quietly missing a vat. One entry has to carry both the
+      // vat and its bundle — satisfying this by logging them from two unrelated
+      // places would tell an operator nothing.
+      const reported = entries.filter(
+        ({ level, message }) =>
+          level === 'error' && String(message).includes('v2'),
+      );
+      expect(reported).toHaveLength(1);
+      expect(String(reported[0]?.message)).toContain(MISSING_BUNDLE);
     });
   });
 

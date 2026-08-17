@@ -145,14 +145,17 @@ export class VatManager {
           terminateError,
         );
       });
-      let subclusterId;
+      // `getVatSubcluster` fails rather than returning undefined for a vat with
+      // no subcluster, and a diagnostic is no place to acquire a second way to
+      // fail.
+      let subclusterId: SubclusterId | 'none';
       try {
         subclusterId = this.#kernelStore.getVatSubcluster(vatId);
       } catch {
         subclusterId = 'none';
       }
       this.#logger.error(
-        `Cannot restore vat ${vatId} of subcluster ${subclusterId} (${describeVatSource(vatConfig)}); skipping it. The kernel is running without that vat; its state is retained, so it will be restored if its code becomes reachable again.`,
+        `Cannot restore vat ${vatId} of subcluster ${subclusterId} (${describeVatSource(vatConfig)}); skipping it. Its state is retained, so it returns if its code becomes reachable again.`,
         error,
       );
     }
@@ -263,12 +266,25 @@ export class VatManager {
   /**
    * Terminate a vat with extreme prejudice.
    *
+   * Terminates a persisted vat that is not running as readily as one that is.
+   * A vat skipped at boot because its code could not be loaded (`#restoreVat`)
+   * has no worker to stop, but its records must still be retirable — otherwise
+   * the only way to be rid of one would be to discard the whole store, and
+   * `SubclusterManager.terminateSubcluster`, which walks persisted membership,
+   * would strand every subcluster containing one.
+   *
    * @param vatId - The ID of the vat.
    * @param reason - If the vat is being terminated, the reason for the termination.
    */
   async terminateVat(vatId: VatId, reason?: CapData<KRef>): Promise<void> {
     await this.#kernelQueue.waitForCrank();
-    await this.stopVat(vatId, true, reason);
+    if (this.hasVat(vatId)) {
+      await this.stopVat(vatId, true, reason);
+    } else if (!this.#kernelStore.isVatActive(vatId)) {
+      // Not running *and* not persisted: this vat is simply unknown, and
+      // saying so beats silently retiring records that were never there.
+      throw new VatNotFoundError(vatId);
+    }
     // Mark for deletion (which will happen later, in vat-cleanup events)
     this.#kernelStore.markVatAsTerminated(vatId);
   }

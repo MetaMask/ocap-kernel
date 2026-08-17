@@ -341,6 +341,46 @@ export class KernelRouter {
   }
 
   /**
+   * Look up an endpoint for a housekeeping delivery — a notify, a GC action, or
+   * a reap — tolerating one that is not running.
+   *
+   * An endpoint can be named by persisted state without being live. A vat whose
+   * code can no longer be loaded is skipped at boot rather than taking the whole
+   * kernel down with it (`VatManager.#restoreVat`), and a terminated vat's
+   * ownership entries outlive it until cleanup gets to them. Either way its
+   * c-lists and reachable flags are still in the store, so the kernel goes on
+   * addressing it.
+   *
+   * Unlike a `send`, these deliveries have no caller to reject: nobody is
+   * waiting on a `dropExport`. Throwing here instead escapes the crank and kills
+   * the run loop for good — and since the crank is rolled back, the same item is
+   * re-dequeued on the next boot and kills that one too. An endpoint that isn't
+   * there is something to skip, not a kernel fault.
+   *
+   * @param endpointId - The endpoint the item is addressed to.
+   * @param what - What was being delivered, for the log.
+   * @returns The endpoint's handle, or undefined if it is not running.
+   */
+  #getEndpointIfRunning(
+    endpointId: EndpointId,
+    what: string,
+  ): EndpointHandle | undefined {
+    try {
+      return this.#getEndpoint(endpointId);
+    } catch (error) {
+      // Deliberately broad: `#getEndpoint` reports a missing vat and a missing
+      // remote as different error types, and neither is worth killing the
+      // kernel over. Logged with the error so a genuinely unexpected one is
+      // visible rather than silently swallowed.
+      this.#logger?.log(
+        `@@@@ skipped ${what} for endpoint ${endpointId}, which is not running:`,
+        error,
+      );
+      return undefined;
+    }
+  }
+
+  /**
    * Deliver a 'notify' run queue item.
    *
    * @param item - The notify item to deliver.
@@ -390,8 +430,13 @@ export class KernelRouter {
         this.#kernelStore.decrementRefCount(toResolve, 'deliver|notify|slot');
       }
     }
-    const endpoint = this.#getEndpoint(endpointId);
-    const crankResult = await endpoint.deliverNotify(resolutions);
+    const endpoint = this.#getEndpointIfRunning(endpointId, `notify ${kpid}`);
+    // Skipping only the delivery, not the bookkeeping below: the notify holds a
+    // reference of its own (`KernelQueue.enqueueNotify`), and an endpoint that
+    // is not there to be told is no reason to keep it forever.
+    const crankResult = endpoint
+      ? await endpoint.deliverNotify(resolutions)
+      : { didDelivery: endpointId };
     // Decrement reference count for processed 'notify' item
     this.#kernelStore.decrementRefCount(kpid, 'deliver|notify');
     return crankResult;
@@ -408,7 +453,10 @@ export class KernelRouter {
     this.#logger?.log(
       `@@@@ deliver ${endpointId} ${type} ${JSON.stringify(krefs)}`,
     );
-    const endpoint = this.#getEndpoint(endpointId);
+    const endpoint = this.#getEndpointIfRunning(endpointId, type);
+    if (!endpoint) {
+      return { didDelivery: endpointId };
+    }
     const erefs = this.#kernelStore.krefsToExistingErefs(endpointId, krefs);
     const method =
       `deliver${(type[0] as string).toUpperCase()}${type.slice(1)}` as
@@ -430,7 +478,10 @@ export class KernelRouter {
   ): Promise<CrankResult | undefined> {
     const { endpointId } = item;
     this.#logger?.log(`@@@@ deliver ${endpointId} bringOutYourDead`);
-    const endpoint = this.#getEndpoint(endpointId);
+    const endpoint = this.#getEndpointIfRunning(endpointId, 'bringOutYourDead');
+    if (!endpoint) {
+      return { didDelivery: endpointId };
+    }
     const crankResult = await endpoint.deliverBringOutYourDead();
     return crankResult;
   }

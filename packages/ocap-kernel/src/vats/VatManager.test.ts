@@ -69,6 +69,7 @@ describe('VatManager', () => {
         })(),
       ),
       getVatSubcluster: vi.fn().mockReturnValue('s1'),
+      isVatActive: vi.fn().mockReturnValue(true),
       markVatAsTerminated: vi.fn(),
       getRootObject: vi.fn().mockReturnValue('ko1'),
       pinObject: vi.fn(),
@@ -224,6 +225,53 @@ describe('VatManager', () => {
         // once `launch` has resolved — and a worker nobody owns is the wedged
         // process this failure mode is known by.
         expect(mockPlatformServices.terminate).toHaveBeenCalledWith('v2');
+        // Only that one: reaping the healthy vat's worker would leave the
+        // kernel holding a `VatHandle` for a vat whose worker is dead.
+        expect(mockPlatformServices.terminate).toHaveBeenCalledTimes(1);
+      });
+
+      it('confines each failure to its own vat when several cannot be restored', async () => {
+        // The case that cannot be satisfied by catching around the whole batch:
+        // each unrestorable vat has to be reaped and reported on its own, and
+        // the healthy one still has to come up.
+        mockKernelStore.getAllVatRecords.mockReturnValue(
+          (function* () {
+            yield { vatID: 'v1' as VatId, vatConfig: createMockVatConfig() };
+            yield {
+              vatID: 'v2' as VatId,
+              vatConfig: { bundleSpec: MISSING_BUNDLE },
+            };
+            yield {
+              vatID: 'v3' as VatId,
+              vatConfig: { bundleSpec: 'file:///bundles/also-gone.bundle' },
+            };
+          })(),
+        );
+        mockPlatformServices.launch.mockImplementation(async (vatId) => {
+          if (vatId === 'v2' || vatId === 'v3') {
+            throw new Error(`ENOENT: no such file or directory`);
+          }
+          return { end: vi.fn() } as unknown as DuplexStream<
+            JsonRpcMessage,
+            JsonRpcMessage
+          >;
+        });
+        const logErrorSpy = vi.spyOn(mockLogger, 'error');
+
+        await vatManager.initializeAllVats();
+
+        expect(vatManager.getVatIds()).toStrictEqual(['v1']);
+        expect(mockPlatformServices.terminate).toHaveBeenCalledWith('v2');
+        expect(mockPlatformServices.terminate).toHaveBeenCalledWith('v3');
+        const reported = logErrorSpy.mock.calls.map(([message]) =>
+          String(message),
+        );
+        expect(reported.filter((line) => line.includes('vat v2'))).toHaveLength(
+          1,
+        );
+        expect(reported.filter((line) => line.includes('vat v3'))).toHaveLength(
+          1,
+        );
       });
 
       it('boots even when the leftover worker cannot be reaped', async () => {
@@ -463,6 +511,25 @@ describe('VatManager', () => {
         'v1',
         expect.objectContaining({ message: 'Vat termination: Custom reason' }),
       );
+    });
+
+    it('retires a persisted vat that is not running', async () => {
+      // A vat skipped at boot has no worker to stop, but must still be
+      // retirable — otherwise the only way to be rid of one is to discard the
+      // whole store, and terminating its subcluster strands half-done.
+      await vatManager.terminateVat('v2');
+
+      expect(mockPlatformServices.terminate).not.toHaveBeenCalled();
+      expect(mockKernelStore.markVatAsTerminated).toHaveBeenCalledWith('v2');
+    });
+
+    it('throws for a vat that is neither running nor persisted', async () => {
+      mockKernelStore.isVatActive.mockReturnValue(false);
+
+      await expect(vatManager.terminateVat('v9')).rejects.toThrow(
+        VatNotFoundError,
+      );
+      expect(mockKernelStore.markVatAsTerminated).not.toHaveBeenCalled();
     });
   });
 
