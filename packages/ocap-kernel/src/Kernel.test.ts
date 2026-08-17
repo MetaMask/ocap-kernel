@@ -2,6 +2,7 @@ import { VatNotFoundError } from '@metamask/kernel-errors';
 import type { KernelDatabase } from '@metamask/kernel-store';
 import type { JsonRpcMessage } from '@metamask/kernel-utils';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
+import type { LogEntry } from '@metamask/logger';
 import { Logger } from '@metamask/logger';
 import type { DuplexStream } from '@metamask/streams';
 import type { Mocked, MockInstance } from 'vitest';
@@ -317,7 +318,16 @@ describe('Kernel', () => {
 
     it('names the unrestorable vat and its bundle when booting past it', async () => {
       const db = makeMapKernelDatabase();
-      const logger = new Logger('test');
+      // Capture through a transport rather than by spying on the logger's
+      // methods. `subLogger` builds a *fresh* `Logger` that shares its parent's
+      // transports, so a sub-logger's output never passes through the parent's
+      // methods — and every kernel component, the vat manager included, logs
+      // through one.
+      const entries: LogEntry[] = [];
+      const logger = new Logger({
+        tags: ['test'],
+        transports: [(entry) => entries.push(entry)],
+      });
       const kernel1 = await Kernel.make(mockPlatformServices, db, { logger });
       await kernel1.launchSubcluster(
         makeBundleVatClusterConfig(HEALTHY_BUNDLE),
@@ -327,16 +337,18 @@ describe('Kernel', () => {
       );
 
       launchWorkerMock.mockImplementation(makeMissingBundleLaunch());
-      const logWarnSpy = vi.spyOn(logger, 'warn');
-      const logErrorSpy = vi.spyOn(logger, 'error');
+      entries.length = 0;
 
       await Kernel.make(mockPlatformServices, db, { logger });
 
       // Severity is the remedy's to choose; being told which vat and which
       // bundle is not. Skipping a persisted vat silently would trade an
       // unbootable kernel for a kernel that is quietly missing a vat.
-      const logged = [...logWarnSpy.mock.calls, ...logErrorSpy.mock.calls]
-        .map((call) => call.map(String).join(' '))
+      const logged = entries
+        .filter(({ level }) => level === 'warn' || level === 'error')
+        .map(({ message, data }) =>
+          [message, ...(data ?? [])].map(String).join(' '),
+        )
         .join('\n');
       expect(logged).toContain(MISSING_BUNDLE);
       expect(logged).toContain('v2');

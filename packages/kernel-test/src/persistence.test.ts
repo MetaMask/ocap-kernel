@@ -2,7 +2,8 @@ import type { CapData } from '@endo/marshal';
 import { makeSQLKernelDatabase } from '@metamask/kernel-store/sqlite/nodejs';
 import { waitUntilQuiescent } from '@metamask/kernel-utils';
 import { kunser } from '@metamask/ocap-kernel';
-import { unlink } from 'node:fs/promises';
+import { copyFile, unlink } from 'node:fs/promises';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 
 import {
@@ -45,6 +46,62 @@ describe('persistent storage', { timeout: 20_000 }, () => {
       },
     },
   };
+
+  it('boots past a vat whose bundle vanished between incarnations', async () => {
+    // A vat outlives the code it was launched from: a bundle gets rebuilt to a
+    // new path, pruned, or recorded as an absolute path that did not survive
+    // relocation. Copy a bundle so this test owns one it can take away.
+    // Alongside the database, in the current directory (`pathToFileURL`
+    // absolutizes it for the vat's `bundleSpec`).
+    const doomedBundlePath = `./doomed-vat-${Date.now()}-${Math.random()}.bundle`;
+    await copyFile(
+      fileURLToPath(getBundleSpec('persistence-counter-vat')),
+      doomedBundlePath,
+    );
+    const database1 = await makeSQLKernelDatabase({ dbFilename: databasePath });
+    const kernel1 = await makeKernel(
+      database1,
+      false,
+      logger.logger.subLogger({ tags: ['test'] }),
+    );
+    // Two subclusters, one vat each. The keeper's bundle stays where it is; the
+    // doomed one's does not.
+    const { rootKref: keeperRoot } =
+      await kernel1.launchSubcluster(testSubcluster);
+    await waitUntilQuiescent();
+    await kernel1.launchSubcluster({
+      bootstrap: 'counter',
+      vats: {
+        counter: {
+          bundleSpec: pathToFileURL(doomedBundlePath).toString(),
+          parameters: { name: 'Doomed' },
+        },
+      },
+    });
+    await waitUntilQuiescent();
+    await kernel1.stop();
+
+    await unlink(doomedBundlePath);
+
+    const database2 = await makeSQLKernelDatabase({ dbFilename: databasePath });
+    const kernel2 = await makeKernel(
+      database2,
+      false,
+      logger.logger.subLogger({ tags: ['test'] }),
+    );
+    await new Promise((resolveWait) => setTimeout(resolveWait, 1000));
+
+    // Booting at all is the claim. The doomed vat's bundle is fetched inside its
+    // own worker, so the failure arrives mid-boot from a worker that is already
+    // running; restoring every vat as one unit turned that into a kernel nobody
+    // could start.
+    expect(kernel2.getVatIds()).toStrictEqual(['v1']);
+    // The keeper is untouched by its neighbour's loss, state and all.
+    expect(await runResume(kernel2, keeperRoot)).toBe(
+      'Counter incremented to: 2',
+    );
+    await kernel2.stop();
+  });
 
   it('maintains state across kernel restarts', async () => {
     const database1 = await makeSQLKernelDatabase({ dbFilename: databasePath });
