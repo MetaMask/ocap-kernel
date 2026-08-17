@@ -12,7 +12,11 @@ import type { AllowedGlobalName, KRef, VatId } from '@metamask/ocap-kernel';
 import { getWorkerFile } from '@ocap/nodejs-test-workers';
 import { describe, expect, it } from 'vitest';
 
-import { extractTestLogs, getBundleSpec } from './utils.ts';
+import {
+  extractTestLogs,
+  getBundleSpec,
+  makeAuditedKernelOptions,
+} from './utils.ts';
 
 describe('global endowments', () => {
   const vatId: VatId = 'v1';
@@ -38,6 +42,7 @@ describe('global endowments', () => {
       resetStorage: true,
       logger,
       allowedGlobalNames,
+      ...makeAuditedKernelOptions(),
     });
 
     await kernel.launchSubcluster({
