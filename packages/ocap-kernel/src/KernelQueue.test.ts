@@ -771,7 +771,7 @@ describe('KernelQueue', () => {
       const resolution: VatOneResolution = [
         kpid,
         false,
-        { body: 'resolved value', slots: [] } as CapData<KRef>,
+        { body: 'resolved value', slots: ['ko1'] } as CapData<KRef>,
       ];
       (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
         {
@@ -782,6 +782,9 @@ describe('KernelQueue', () => {
       expect(() =>
         kernelQueue.resolvePromises(endpointId, [resolution]),
       ).toThrow('"kp123" was already resolved');
+      // A refused resolve charges nothing, so it leaves nothing behind for the
+      // refcount audit to find with no holder.
+      expect(kernelStore.incrementRefCount).not.toHaveBeenCalled();
     });
 
     it('throws error if the resolver is not the decider', () => {
@@ -791,7 +794,7 @@ describe('KernelQueue', () => {
       const resolution: VatOneResolution = [
         kpid,
         false,
-        { body: 'resolved value', slots: [] } as CapData<KRef>,
+        { body: 'resolved value', slots: ['ko1'] } as CapData<KRef>,
       ];
       (kernelStore.getKernelPromise as unknown as MockInstance).mockReturnValue(
         {
@@ -804,6 +807,7 @@ describe('KernelQueue', () => {
       ).toThrow(
         '"v1" not permitted to resolve "kp123" because "its decider is v2"',
       );
+      expect(kernelStore.incrementRefCount).not.toHaveBeenCalled();
     });
   });
 
