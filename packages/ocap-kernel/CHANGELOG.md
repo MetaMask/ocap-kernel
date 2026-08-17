@@ -48,14 +48,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- A persisted vat whose code can no longer be loaded no longer makes the whole kernel unbootable ([#964](https://github.com/MetaMask/ocap-kernel/issues/964))
+- A persisted vat whose code can no longer be loaded no longer makes the whole kernel unbootable ([#1025](https://github.com/MetaMask/ocap-kernel/pull/1025))
   - A vat outlives the code it was launched from: a bundle can be rebuilt to a new path, pruned, or recorded as an absolute path that did not survive relocation. Boot restored every persisted vat in one `Promise.all`, so one such vat rejected `Kernel.make` outright and every other subcluster was lost with it. Under the daemon that surfaced only as a startup timeout
   - The failure is now confined to the vat that owns it: that vat is skipped, its leftover worker is reaped (a bundle is fetched inside the worker, so the worker is live by the time the load fails — one left running is the wedged process this failure mode is known by), and an error naming the vat, its subcluster, and its code source is logged. The rest of the kernel boots
   - The skipped vat's persisted record is kept rather than pruned, so a vat whose code becomes reachable again is restored by a later boot, resuming from the durable state it left off with. Whether an unrestorable vat should instead take its subcluster down with it is left to the subcluster lifecycle ([#979](https://github.com/MetaMask/ocap-kernel/issues/979))
-- A `notify`, GC action, or `bringOutYourDead` addressed to an endpoint that is not running is skipped instead of killing the run loop
+- A `notify`, GC action, or `bringOutYourDead` addressed to an endpoint that is not running is skipped instead of killing the run loop ([#1025](https://github.com/MetaMask/ocap-kernel/pull/1025))
   - These deliveries looked up their endpoint unguarded, so an endpoint named by persisted state but absent from the running kernel threw `VatNotFoundError` from inside the crank, which killed the run loop permanently. Because the crank was rolled back, the item was re-dequeued on the next boot and killed that one too. Reachable whenever ownership entries outlive their vat — a terminated vat awaiting cleanup, or a vat skipped at boot per the entry above
   - Unlike a `send`, none of these has a caller to reject; `send` already tolerated a vanished endpoint by rejecting the caller with `ENDPOINT_UNREACHABLE`. A skipped `notify` still releases the reference it was holding
-- `terminateVat` now retires a vat that is persisted but not running, instead of throwing `VatNotFoundError`
+- `terminateVat` now retires a vat that is persisted but not running, instead of throwing `VatNotFoundError` ([#1025](https://github.com/MetaMask/ocap-kernel/pull/1025))
   - Such a vat could not be terminated, and `terminateSubcluster` — which walks persisted membership — rejected part-way through, after deleting the system-subcluster mapping and before removing the subcluster record. A subcluster containing one could not be torn down at all
   - A vat that is neither running nor persisted still throws
 - A message delivered to a kernel-owned kref with no registered service now rejects the caller with `ENDPOINT_UNREACHABLE` instead of throwing, which escaped the crank and killed the run loop — turning one unreachable reference into a dead kernel ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
