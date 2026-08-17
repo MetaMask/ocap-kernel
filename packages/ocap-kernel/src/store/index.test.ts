@@ -116,6 +116,7 @@ describe('kernel store', () => {
         'getRelayEntries',
         'getRemoteIdentityValue',
         'getRemoteIdentityValueRequired',
+        'getRemoteIds',
         'getRemoteInfo',
         'getRemoteSeqState',
         'getRootObject',
