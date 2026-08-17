@@ -1,3 +1,4 @@
+import { makePromiseKit } from '@endo/promise-kit';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
@@ -119,14 +120,17 @@ describe('OcapURLManager', () => {
       expect(mockKernelStore.kernelRefExists(objectKRef)).toBe(true);
     });
 
-    it('retains a target named by several URLs only once', async () => {
+    it('retains a target once per URL naming it', async () => {
       await ocapURLManager.issueOcapURL(objectKRef);
       await ocapURLManager.issueOcapURL(objectKRef);
 
-      expect(mockKernelStore.getPinnedObjects()).toStrictEqual([objectKRef]);
+      expect(mockKernelStore.getPinnedObjects()).toStrictEqual([
+        objectKRef,
+        objectKRef,
+      ]);
       expect(mockKernelStore.getObjectRefCount(objectKRef)).toStrictEqual({
-        reachable: 1,
-        recognizable: 1,
+        reachable: 2,
+        recognizable: 2,
       });
     });
 
@@ -161,6 +165,29 @@ describe('OcapURLManager', () => {
 
       expect(mockKernelStore.isObjectPinned(objectKRef)).toBe(true);
       expect(mockKernelStore.getOcapURLObjects()).toStrictEqual([objectKRef]);
+    });
+
+    it('keeps the retention of a URL minted while a failing issuance was in flight', async () => {
+      // Minting awaits, so a second issuance for the same target can run to
+      // completion inside the first's window. The first's failure may only
+      // release its own retention, not the one the second's live URL needs.
+      const firstMint = makePromiseKit<string>();
+      vi.spyOn(mockRemoteComms, 'issueOcapURL')
+        .mockImplementationOnce(async () => await firstMint.promise)
+        .mockImplementationOnce(async () => 'ocap:def456@local-peer-id');
+
+      const failing = ocapURLManager.issueOcapURL(objectKRef);
+      const url = await ocapURLManager.issueOcapURL(objectKRef);
+      firstMint.reject(new Error('Issue failed'));
+
+      await expect(failing).rejects.toThrow('Issue failed');
+      expect(url).toBe('ocap:def456@local-peer-id');
+      expect(mockKernelStore.isObjectPinned(objectKRef)).toBe(true);
+      expect(mockKernelStore.getOcapURLObjects()).toStrictEqual([objectKRef]);
+      expect(mockKernelStore.getObjectRefCount(objectKRef)).toStrictEqual({
+        reachable: 1,
+        recognizable: 1,
+      });
     });
 
     it('refuses to issue a URL for a kref the kernel has deleted', async () => {

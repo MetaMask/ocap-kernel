@@ -372,18 +372,41 @@ describe('kernel store', () => {
       const ks = makeKernelStore(mockKernelDatabase);
       const kref = ks.initKernelObject('v1');
 
-      expect(ks.retainForOcapURL(kref)).toBe(true);
+      ks.retainForOcapURL(kref);
+
       expect(ks.isObjectPinned(kref)).toBe(true);
       expect(ks.getOcapURLObjects()).toStrictEqual([kref]);
     });
 
-    it('reports that a second URL for the same target took no pin', () => {
+    it('takes a retention of its own for each URL naming the same target', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+
+      ks.retainForOcapURL(kref);
+      ks.retainForOcapURL(kref);
+
+      expect(ks.getOcapURLObjects()).toStrictEqual([kref, kref]);
+      expect(ks.getPinnedObjects()).toStrictEqual([kref, kref]);
+      expect(ks.getObjectRefCount(kref)).toStrictEqual({
+        reachable: 2,
+        recognizable: 2,
+      });
+    });
+
+    it('undoes one retention of a target that several URLs name', () => {
       const ks = makeKernelStore(mockKernelDatabase);
       const kref = ks.initKernelObject('v1');
       ks.retainForOcapURL(kref);
+      ks.retainForOcapURL(kref);
 
-      expect(ks.retainForOcapURL(kref)).toBe(false);
-      expect(ks.getPinnedObjects()).toStrictEqual([kref]);
+      ks.undoOcapURLRetention(kref);
+
+      expect(ks.getOcapURLObjects()).toStrictEqual([kref]);
+      expect(ks.isObjectPinned(kref)).toBe(true);
+      expect(ks.getObjectRefCount(kref)).toStrictEqual({
+        reachable: 1,
+        recognizable: 1,
+      });
     });
 
     it('refuses to retain a kref the kernel has deleted', () => {

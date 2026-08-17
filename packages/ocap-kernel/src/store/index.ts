@@ -380,36 +380,39 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     // not running when it was issued. `revoke` is the way to kill the
     // capability; `undoOcapURLRetention` is not a release, only an unwind of a
     // retention whose URL was never minted.
+    //
+    // The ledger is a multiset, one entry and one pin per issuance, because
+    // issuances for the same kref overlap: minting awaits, so a second `issue`
+    // can run to completion while the first is still in flight. Deduplicating
+    // by kref would leave the second issuance holding no retention of its own
+    // and the first free to unwind, on failure, the one the second's live URL
+    // depends on.
     getOcapURLObjects(): KRef[] {
       const raw = kv.get('ocapURLObjects');
       return raw ? (raw.split(',') as KRef[]) : [];
     },
-    retainForOcapURL(kref: KRef): boolean {
+    retainForOcapURL(kref: KRef): void {
       // Refuse to mint a token for something already collected: the pin would
       // resurrect a `(1, 1)` row for an object with no owner, and the URL would
       // name a capability that can never be delivered to.
       this.kernelRefExists(kref) ||
         Fail`cannot issue an ocap URL for deleted kref ${kref}`;
-      const krefs = new Set(this.getOcapURLObjects());
-      // One pin per kref, however many URLs name it: pins are a multiset, and
-      // a second pin here would be one nothing could ever release.
-      if (krefs.has(kref)) {
-        return false;
-      }
-      krefs.add(kref);
-      kv.set('ocapURLObjects', [...krefs].sort().join(','));
+      const krefs = this.getOcapURLObjects();
+      krefs.push(kref);
+      kv.set('ocapURLObjects', krefs.sort().join(','));
       this.pinObject(kref);
-      return true;
     },
     undoOcapURLRetention(kref: KRef): void {
-      const krefs = new Set(this.getOcapURLObjects());
-      if (!krefs.delete(kref)) {
+      const krefs = this.getOcapURLObjects();
+      const index = krefs.indexOf(kref);
+      if (index === -1) {
         return;
       }
-      if (krefs.size === 0) {
+      krefs.splice(index, 1);
+      if (krefs.length === 0) {
         kv.delete('ocapURLObjects');
       } else {
-        kv.set('ocapURLObjects', [...krefs].sort().join(','));
+        kv.set('ocapURLObjects', krefs.join(','));
       }
       this.unpinObject(kref);
     },
