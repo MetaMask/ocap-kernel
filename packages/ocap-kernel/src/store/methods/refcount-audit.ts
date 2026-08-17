@@ -1,7 +1,6 @@
 import type { CapData } from '@endo/marshal';
 
 import { getBaseMethods } from './base.ts';
-import { getObjectMethods } from './object.ts';
 import { getPinMethods } from './pinned.ts';
 import type { KRef, KernelMessage, RunQueueItem } from '../../types.ts';
 import type { StoreContext } from '../types.ts';
@@ -71,7 +70,6 @@ const REFCOUNT_KEY = /^(k[op]\d+)\.refCount$/u;
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getRefCountAuditMethods(ctx: StoreContext) {
   const { getPrefixedKeys, refCountKey } = getBaseMethods(ctx.kv);
-  const { getObjectRefCount } = getObjectMethods(ctx);
   const { getPinnedObjects } = getPinMethods(ctx);
 
   /**
@@ -275,9 +273,12 @@ export function getRefCountAuditMethods(ctx: StoreContext) {
         }
         continue;
       }
-      const storedText = isPromiseRef(kref)
-        ? raw
-        : renderCounts(kref, getObjectRefCount(kref));
+      // The raw row, not `getObjectRefCount`: that `Fail`s on `reachable >
+      // recognizable`, which is one of the drifts this exists to report, and
+      // would take the whole sweep down with it. Objects store the same
+      // `"reachable,recognizable"` encoding `renderCounts` produces, so a
+      // malformed row is reported as it stands.
+      const storedText = raw;
       if (storedText !== expectedText) {
         violations.push({
           kref,

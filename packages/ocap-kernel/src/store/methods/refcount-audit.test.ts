@@ -1,3 +1,4 @@
+import type { KernelDatabase } from '@metamask/kernel-store';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
@@ -5,6 +6,7 @@ import type { KRef, VatConfig, VatId } from '../../types.ts';
 import { makeKernelStore } from '../index.ts';
 
 describe('reference count audit', () => {
+  let kernelDatabase: KernelDatabase;
   let kernelStore: ReturnType<typeof makeKernelStore>;
 
   /**
@@ -20,7 +22,8 @@ describe('reference count audit', () => {
   }
 
   beforeEach(() => {
-    kernelStore = makeKernelStore(makeMapKernelDatabase());
+    kernelDatabase = makeMapKernelDatabase();
+    kernelStore = makeKernelStore(kernelDatabase);
     kernelStore.markInitialized();
     givenVats('v1', 'v2', 'v3');
   });
@@ -146,6 +149,29 @@ describe('reference count audit', () => {
         {
           kref,
           stored: '(deleted)',
+          expected: '1,1',
+          holders: ['v2 c-list import o-1'],
+        },
+      ]);
+    });
+
+    it.each([
+      { what: 'more reachable than recognizable', row: '3,1' },
+      { what: 'not a pair of numbers', row: 'NaN,0' },
+      { what: 'a promise count on an object', row: '1' },
+    ])('reports a row that is $what', ({ row }) => {
+      const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+      kernelStore.translateRefKtoE('v2', kref, true);
+      // Written past the store's own guards, as a store drifted by an earlier
+      // kernel would arrive: `getObjectRefCount` throws on all three, so
+      // reading the row through it would take the whole sweep down with the
+      // one violation it exists to report.
+      kernelDatabase.kernelKVStore.set(`${kref}.refCount`, row);
+
+      expect(kernelStore.auditRefCounts()).toStrictEqual([
+        {
+          kref,
+          stored: row,
           expected: '1,1',
           holders: ['v2 c-list import o-1'],
         },
