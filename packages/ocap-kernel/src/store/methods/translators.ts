@@ -79,12 +79,11 @@ export function getTranslators(ctx: StoreContext) {
     if (!eref) {
       if (importIfNeeded) {
         // A kref the kernel has already deleted must not acquire a new c-list
-        // entry. `getObjectRefCount` reads a missing row as `(0, 0)`, so the
-        // entry's own increment would write it back and resurrect a
-        // live-looking object that nobody owns — one the audit then endorses,
-        // since the entry is a legitimate holder for exactly the count it
-        // finds. Reached by redeeming an ocap URL issued for an object that
-        // has since been collected.
+        // entry: the entry would be a legitimate holder for the resurrected
+        // count, so even the audit would endorse it. `incrementRefCount`
+        // refuses that increment too; checking here refuses before an eref is
+        // allocated, and says what was attempted. Reached by redeeming an ocap
+        // URL issued for an object that has since been collected.
         kernelRefExists(kref) ||
           Fail`cannot import deleted kref ${kref} into ${endpointId}`;
         eref = allocateErefForKref(endpointId, kref);

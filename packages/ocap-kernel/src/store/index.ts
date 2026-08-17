@@ -392,9 +392,9 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
       return raw ? (raw.split(',') as KRef[]) : [];
     },
     retainForOcapURL(kref: KRef): void {
-      // Refuse to mint a token for something already collected: the pin would
-      // resurrect a `(1, 1)` row for an object with no owner, and the URL would
-      // name a capability that can never be delivered to.
+      // Refuse to mint a token for something already collected: the URL would
+      // name a capability that can never be delivered to. The pin's increment
+      // refuses it too, but only after the ledger entry has been written.
       this.kernelRefExists(kref) ||
         Fail`cannot issue an ocap URL for deleted kref ${kref}`;
       const krefs = this.getOcapURLObjects();

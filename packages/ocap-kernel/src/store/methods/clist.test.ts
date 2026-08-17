@@ -19,6 +19,12 @@ describe('clist-methods', () => {
     kv.set('e.nextPromiseId.r1', '1');
     kv.set('e.nextObjectId.r1', '1');
 
+    // The objects these tests map, as `initKernelObject` leaves them: an entry
+    // may not be added for a kref the kernel has no record of, since taking a
+    // reference to one would resurrect it.
+    kv.set('ko1.refCount', '0,0');
+    kv.set('ko2.refCount', '0,0');
+
     // Create the store with mocked dependencies
     clistMethods = getCListMethods({
       kv,
@@ -66,7 +72,7 @@ describe('clist-methods', () => {
     it('takes no reference for an object export', () => {
       clistMethods.addCListEntry('v1', 'ko1', 'o+1');
 
-      expect(kv.get('ko1.refCount')).toBeUndefined();
+      expect(kv.get('ko1.refCount')).toBe('0,0');
     });
 
     it.each(['p-1', 'p+1'] as ERef[])(

@@ -81,6 +81,7 @@ export function getRefCountMethods(ctx: StoreContext) {
    * @param options - Options for the increment.
    * @param options.isExport - True if the reference comes from a clist export, which counts for promises but not objects.
    * @param options.onlyRecognizable - True if the reference provides only recognition, not reachability.
+   * @throws if `kref` names an object the kernel has already deleted.
    */
   function incrementRefCount(
     kref: KRef,
@@ -104,6 +105,14 @@ export function getRefCountMethods(ctx: StoreContext) {
     if (isExport) {
       return;
     }
+
+    // A missing row reads as `(0, 0)`, so incrementing one writes it back and
+    // resurrects a live-looking object that nobody owns and nobody can be
+    // delivered to. `decrementRefCount` tolerates the same missing row because
+    // releasing a reference to something already gone is ordinary teardown;
+    // taking one is always a bug, so this refuses rather than returns.
+    kernelRefExists(kref) ||
+      Fail`incrementRefCount on deleted kref ${kref} (${tag})`;
 
     const counts = getObjectRefCount(kref);
     if (!onlyRecognizable) {
