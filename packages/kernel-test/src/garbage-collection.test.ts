@@ -254,17 +254,30 @@ describe('Garbage Collection', () => {
     });
 
     /**
-     * Give an importer a chance to notice a dropped object and tell the kernel.
+     * Give an importer a chance to notice a dropped object and tell the kernel,
+     * then keep cranking until the resulting GC actions have all been consumed.
      *
      * @param vatId - The vat to reap.
      * @param rootKRef - That vat's root, to poke with cranks afterwards.
      */
     async function reapAndSettle(vatId: VatId, rootKRef: KRef): Promise<void> {
       kernel.reapVats((id) => id === vatId);
-      for (let i = 0; i < 3; i++) {
+      // BOYD has to reach the vat, the vat has to answer, and the kernel has to
+      // act on the answer — but a round can queue more work, so loop until the
+      // queue is actually empty rather than guessing at a crank count.
+      const maxRounds = 10;
+      for (let round = 0; round < maxRounds; round++) {
         await kernel.queueMessage(rootKRef, 'noop', []);
         await waitUntilQuiescent(500);
+        if ([...kernelStore.getGCActions()].length === 0) {
+          return;
+        }
       }
+      throw Error(
+        `GC actions still pending after ${maxRounds} rounds: ${[
+          ...kernelStore.getGCActions(),
+        ].join(', ')}`,
+      );
     }
 
     it('survives until both importers let go', async () => {

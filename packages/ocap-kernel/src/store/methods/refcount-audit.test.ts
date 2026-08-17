@@ -1,3 +1,4 @@
+import type { KernelDatabase } from '@metamask/kernel-store';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
@@ -6,6 +7,7 @@ import { makeKernelStore } from '../index.ts';
 
 describe('reference count audit', () => {
   let kernelStore: ReturnType<typeof makeKernelStore>;
+  let kdb: KernelDatabase;
 
   /**
    * Register and initialize an endpoint so it can hold c-list entries.
@@ -19,8 +21,35 @@ describe('reference count audit', () => {
     }
   }
 
+  /**
+   * Overwrite a kref's stored count, going around the store's own arithmetic so
+   * that drift can be introduced in either direction regardless of what the
+   * current count happens to be.
+   *
+   * @param kref - The kref whose count to overwrite.
+   * @param counts - The count text, in the store's encoding.
+   */
+  function setStoredCount(kref: KRef, counts: string): void {
+    kdb.kernelKVStore.set(`${kref}.refCount`, counts);
+  }
+
+  /**
+   * Shift every component of a count by the same amount.
+   *
+   * @param counts - The count text, in the store's encoding.
+   * @param delta - How far to shift each component.
+   * @returns The shifted count text.
+   */
+  function shift(counts: string, delta: number): string {
+    return counts
+      .split(',')
+      .map((part) => `${Number(part) + delta}`)
+      .join(',');
+  }
+
   beforeEach(() => {
-    kernelStore = makeKernelStore(makeMapKernelDatabase());
+    kdb = makeMapKernelDatabase();
+    kernelStore = makeKernelStore(kdb);
     kernelStore.markInitialized();
     givenVats('v1', 'v2', 'v3');
   });
@@ -93,6 +122,14 @@ describe('reference count audit', () => {
       expect(kernelStore.auditRefCounts()).toStrictEqual([]);
     });
 
+    it('holds for a queued notification', () => {
+      const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
+      kernelStore.enqueueRun({ type: 'notify', endpointId: 'v2', kpid });
+      kernelStore.incrementRefCount(kpid, 'notify');
+
+      expect(kernelStore.auditRefCounts()).toStrictEqual([]);
+    });
+
     it('holds for an unsettled promise with importers', () => {
       const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
       kernelStore.translateRefKtoE('v2', kpid, true);
@@ -120,6 +157,7 @@ describe('reference count audit', () => {
 
       expect(kernelStore.auditRefCounts()).toStrictEqual([
         {
+          kind: 'mismatch',
           kref,
           stored: '0,0',
           expected: '1,1',
@@ -133,7 +171,7 @@ describe('reference count audit', () => {
       kernelStore.setObjectRefCount(kref, { reachable: 1, recognizable: 1 });
 
       expect(kernelStore.auditRefCounts()).toStrictEqual([
-        { kref, stored: '1,1', expected: '0,0', holders: [] },
+        { kind: 'mismatch', kref, stored: '1,1', expected: '0,0', holders: [] },
       ]);
     });
 
@@ -144,8 +182,8 @@ describe('reference count audit', () => {
 
       expect(kernelStore.auditRefCounts()).toStrictEqual([
         {
+          kind: 'dangling',
           kref,
-          stored: '(deleted)',
           expected: '1,1',
           holders: ['v2 c-list import o-1'],
         },
@@ -160,6 +198,166 @@ describe('reference count audit', () => {
         recognizable: 0,
       });
       expect(kernelStore.auditRefCounts()).toStrictEqual([]);
+    });
+  });
+
+  // The clean-audit cases above prove each rule agrees with whatever the store
+  // did, which stays true if a rule and the code it mirrors are wrong by the
+  // same constant. These pin each credit source to a literal count and holder
+  // label, and check drift in both directions: too low collects a live
+  // capability, too high leaks it.
+  describe('each credit source, on its own', () => {
+    const sources: {
+      what: string;
+      hold: () => KRef;
+      expected: string;
+      holders: string[];
+    }[] = [
+      {
+        what: 'an object import a vat still reaches',
+        hold: () => {
+          const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+          kernelStore.translateRefKtoE('v2', kref, true);
+          return kref;
+        },
+        expected: '1,1',
+        holders: ['v2 c-list import o-1'],
+      },
+      {
+        what: 'an object import a vat has dropped but not retired',
+        hold: () => {
+          const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+          kernelStore.translateRefKtoE('v2', kref, true);
+          kernelStore.clearReachableFlag('v2', kref);
+          return kref;
+        },
+        expected: '0,1',
+        holders: ['v2 c-list import o-1'],
+      },
+      {
+        what: 'a pinned object',
+        hold: () => {
+          const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+          kernelStore.pinObject(kref);
+          return kref;
+        },
+        expected: '1,1',
+        holders: ['pin'],
+      },
+      {
+        what: "a run-queue send's target and slot",
+        hold: () => {
+          const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+          kernelStore.enqueueRun({
+            type: 'send',
+            target: kref,
+            message: { methargs: { body: '#[]', slots: [kref] }, result: null },
+          });
+          kernelStore.incrementRefCount(kref, 'queue|target');
+          kernelStore.incrementRefCount(kref, 'queue|slot');
+          return kref;
+        },
+        expected: '2,2',
+        holders: ['run queue #1 send target', 'run queue #1 send slot'],
+      },
+      {
+        what: "a run-queue send's result promise",
+        hold: () => {
+          const target = kernelStore.exportFromEndpoint('v1', 'o+1');
+          const kpid = kernelStore.initKernelPromise()[0];
+          kernelStore.enqueueRun({
+            type: 'send',
+            target,
+            message: { methargs: { body: '#[]', slots: [] }, result: kpid },
+          });
+          kernelStore.incrementRefCount(target, 'queue|target');
+          kernelStore.incrementRefCount(kpid, 'queue|result');
+          return kpid;
+        },
+        expected: '2',
+        holders: ['unsettled promise', 'run queue #1 send result'],
+      },
+      {
+        what: 'a queued notification',
+        hold: () => {
+          const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
+          kernelStore.enqueueRun({ type: 'notify', endpointId: 'v2', kpid });
+          kernelStore.incrementRefCount(kpid, 'notify');
+          return kpid;
+        },
+        expected: '3',
+        holders: [
+          'unsettled promise',
+          'run queue #1 notify',
+          'v1 c-list export p+1',
+        ],
+      },
+      {
+        // `enqueuePromiseMessage` takes the references itself, which is the
+        // point of the transfer-don't-duplicate fix; incrementing here too
+        // would be the double-count it exists to prevent.
+        what: 'a message parked on an unresolved promise',
+        hold: () => {
+          const target = kernelStore.exportFromEndpoint('v1', 'o+1');
+          const kpid = kernelStore.initKernelPromise()[0];
+          kernelStore.enqueuePromiseMessage(kpid, {
+            methargs: { body: '#[]', slots: [target] },
+            result: null,
+          });
+          return kpid;
+        },
+        expected: '2',
+        holders: ['unsettled promise', 'kp1 queue #1 target'],
+      },
+      {
+        what: 'a promise nobody has settled yet',
+        hold: () => kernelStore.initKernelPromise()[0],
+        expected: '1',
+        holders: ['unsettled promise'],
+      },
+      {
+        what: "a settled promise's resolution slot",
+        hold: () => {
+          const koid = kernelStore.exportFromEndpoint('v1', 'o+1');
+          const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
+          kernelStore.incrementRefCount(koid, 'resolve|slot');
+          kernelStore.resolveKernelPromise(kpid, false, {
+            body: '#"$0"',
+            slots: [koid],
+          });
+          return koid;
+        },
+        expected: '1,1',
+        holders: ['kp1 resolution slot'],
+      },
+      {
+        what: "a promise's own c-list entries",
+        hold: () => {
+          const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
+          kernelStore.translateRefKtoE('v2', kpid, true);
+          return kpid;
+        },
+        expected: '3',
+        holders: [
+          'unsettled promise',
+          'v1 c-list export p+1',
+          'v2 c-list import p-1',
+        ],
+      },
+    ];
+
+    it.each(sources)('credits $what exactly', ({ hold, expected, holders }) => {
+      const kref = hold();
+
+      expect(kernelStore.auditRefCounts()).toStrictEqual([]);
+
+      for (const delta of [1, -1]) {
+        const stored = shift(expected, delta);
+        setStoredCount(kref, stored);
+        expect(kernelStore.auditRefCounts()).toStrictEqual([
+          { kind: 'mismatch', kref, stored, expected, holders },
+        ]);
+      }
     });
   });
 
@@ -204,6 +402,7 @@ describe('reference count audit', () => {
 
       expect(corrected).toStrictEqual([
         {
+          kind: 'mismatch',
           kref,
           stored: '1,1',
           expected: '2,2',
@@ -228,6 +427,34 @@ describe('reference count audit', () => {
       expect(corrected).toStrictEqual([]);
       expect(unfixable).toHaveLength(1);
       expect(unfixable[0]?.kref).toBe(kref);
+    });
+
+    it('rebuilds a promise count', () => {
+      const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
+      kernelStore.translateRefKtoE('v2', kpid, true);
+      // A promise has one undifferentiated count, so its repair goes down a
+      // different path from an object's pair.
+      kernelStore.incrementRefCount(kpid, 'phantom');
+      kernelStore.incrementRefCount(kpid, 'phantom');
+
+      const { corrected, unfixable } = kernelStore.recomputeRefCounts();
+
+      expect(corrected).toStrictEqual([
+        {
+          kind: 'mismatch',
+          kref: kpid,
+          stored: '5',
+          expected: '3',
+          holders: [
+            'unsettled promise',
+            'v1 c-list export p+1',
+            'v2 c-list import p-1',
+          ],
+        },
+      ]);
+      expect(unfixable).toStrictEqual([]);
+      expect(kernelStore.getRefCount(kpid)).toBe(3);
+      expect(kernelStore.auditRefCounts()).toStrictEqual([]);
     });
 
     it('queues krefs it zeroes for collection', () => {

@@ -33,7 +33,8 @@ export function getCListMethods(ctx: StoreContext) {
    * {@link deleteCListEntry}. An import is born recognizing but not reaching:
    * reachability is `setReachableFlag`'s job, when the reference is handed
    * over. An export takes no count for an object — the owner is not one of its
-   * own referrers — and is born flagged.
+   * own referrers — and is born flagged. For a promise both directions count;
+   * only objects exempt the owner.
    *
    * @param endpointId - The endpoint whose c-list is to be added to.
    * @param kref - The KRef.
@@ -146,10 +147,9 @@ export function getCListMethods(ctx: StoreContext) {
    * Look up the ERefs that an endpoint's c-list maps a list of KRefs to,
    * without allocating entries or disturbing reachability.
    *
-   * Every kref must already be mapped. Garbage collection is the only caller
-   * and has already established that each kref has an entry, so a missing one
-   * means the two disagree — worth hearing about rather than silently dropping
-   * the notification.
+   * Every kref must already be mapped: a missing entry means the caller's list
+   * of krefs and the c-list disagree, which is worth hearing about rather than
+   * silently dropping the one that got away.
    *
    * @param endpointId - The endpoint in question.
    * @param krefs - The KRefs to look up.
