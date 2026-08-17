@@ -3,6 +3,7 @@ import type { MockInstance } from 'vitest';
 
 import { KernelQueue } from './KernelQueue.ts';
 import { KernelRouter } from './KernelRouter.ts';
+import { kser, kslot } from './liveslots/kernel-marshal.ts';
 import type { KernelStore } from './store/index.ts';
 import type {
   KernelMessage,
@@ -317,6 +318,37 @@ describe('KernelRouter', () => {
         ]);
       });
 
+      it('charges the queued target, not the object a fulfilled promise routes to', async () => {
+        // The one delivery where the two differ: the message was queued against
+        // the promise, so the promise is what `enqueueSend` charged, while the
+        // object it fulfilled to is held by the resolution instead.
+        const target = 'kp123';
+        const routedTarget = 'ko99';
+        (
+          kernelStore.getKernelPromise as unknown as MockInstance
+        ).mockReturnValueOnce({
+          state: 'fulfilled',
+          value: kser(kslot(routedTarget)),
+        });
+        (kernelStore.getOwner as unknown as MockInstance).mockReturnValueOnce(
+          'v1',
+        );
+        const message: KernelMessage = {
+          methargs: { body: 'method args', slots: [] },
+          result: null,
+        };
+
+        await kernelRouter.deliver({ type: 'send', target, message });
+
+        expect(endpointHandle.deliverMessage).toHaveBeenCalledWith(
+          `translated-${routedTarget}`,
+          message,
+        );
+        expect(
+          (kernelStore.decrementRefCount as unknown as MockInstance).mock.calls,
+        ).toStrictEqual([[target, 'deliver|send|target']]);
+      });
+
       it('splats message when promise resolves to a non-object', async () => {
         // Setup a fulfilled promise that doesn't resolve to an object
         const promiseId = 'kp123';
@@ -580,6 +612,11 @@ describe('KernelRouter', () => {
         // Verify no notification was delivered to the vat
         expect(endpointHandle.deliverNotify).not.toHaveBeenCalled();
         expect(result).toStrictEqual({ didDelivery: endpointId });
+        // The notification's own reference is released on the way out, not
+        // stranded by the early return.
+        expect(
+          (kernelStore.decrementRefCount as unknown as MockInstance).mock.calls,
+        ).toStrictEqual([[kpid, 'deliver|notify']]);
       });
 
       it('returns didDelivery when no kpids to retire', async () => {
@@ -618,6 +655,36 @@ describe('KernelRouter', () => {
         // Verify no notification was delivered to the vat
         expect(endpointHandle.deliverNotify).not.toHaveBeenCalled();
         expect(result).toStrictEqual({ didDelivery: endpointId });
+        expect(
+          (kernelStore.decrementRefCount as unknown as MockInstance).mock.calls,
+        ).toStrictEqual([[kpid, 'deliver|notify']]);
+      });
+
+      it('releases only the notified promise when others are retired with it', async () => {
+        const endpointId = 'v1';
+        const kpid = 'kp123';
+        const alsoRetired = 'kp456';
+        const resolved = {
+          state: 'fulfilled',
+          value: { body: JSON.stringify({ value: 'resolved' }), slots: [] },
+        };
+        (kernelStore.getKernelPromise as unknown as MockInstance)
+          .mockReturnValueOnce(resolved)
+          .mockReturnValue(resolved);
+        (kernelStore.krefToEref as unknown as MockInstance).mockReturnValueOnce(
+          'p+123',
+        );
+        (
+          kernelStore.getKpidsToRetire as unknown as MockInstance
+        ).mockReturnValueOnce([kpid, alsoRetired]);
+
+        await kernelRouter.deliver({ type: 'notify', endpointId, kpid });
+
+        // Only `enqueueNotify` charges a notification, and only for its own
+        // kpid, so the promises settled alongside it are nobody's to release.
+        expect(
+          (kernelStore.decrementRefCount as unknown as MockInstance).mock.calls,
+        ).toStrictEqual([[kpid, 'deliver|notify']]);
       });
 
       it('throws if notification is for an unresolved promise', async () => {
