@@ -25,17 +25,19 @@
  * Queues
  *   queue.${queueName}.head = NN             // queue head index
  *   queue.${queueName}.tail = NN             // queue tail index
- *   queue.${queueName}.${NN} = JSON(CAPDATA) // queue entry #NN
+ *   queue.${queueName}.${NN} = JSON(ITEM)    // queue entry #NN: a RunQueueItem
+ *                                            // on `run`, a KernelMessage on a
+ *                                            // ${kpid} queue
  *
  * Kernel objects
- *   ${koid}.refCount = NN                    // reference count
- *   ${koid}.owner = ${vatid}                 // owner (where the object is)
+ *   ${koid}.refCount = NN,NN                 // reachable,recognizable counts
+ *   ${koid}.owner = ${endid} | kernel        // owner (where the object is)
  *
  * Kernel promises
  *   ${kpid}.refCount = NN                    // reference count
  *   ${kpid}.state = unresolved | fulfilled | rejected  // current state of settlement
  *   ${kpid}.subscribers = JSON([${endid}])   // array of who is waiting for settlement
- *   ${kpid}.decider = ${endid}               // who decides on settlement
+ *   ${kpid}.decider = ${endid} | kernel      // who decides on settlement
  *   ${kpid}.value = JSON(CAPDATA)            // value settled to, if settled
  *
  * C-lists (both directions share one prefix; see `getCListPrefix`)
@@ -59,10 +61,10 @@
  *   initialized = true                       // if set, indicates the store has been initialized
  *   nextVatId = NN                           // allocation counter for vat IDs
  *   nextRemoteId = NN                        // allocation counter for remote IDs
- *   k.nextObjectId = NN                      // allocation counter for object KRefs
- *   k.nextPromiseId = NN                     // allocation counter for promise KRefs
- *   pinned.${koid} = NN                      // number of pins held on ${koid}
- *   ocapURLObjects.${koid} = NN              // number of ocap URLs naming ${koid}
+ *   nextObjectId = NN                        // allocation counter for object KRefs
+ *   nextPromiseId = NN                       // allocation counter for promise KRefs
+ *   pinned.${kref} = NN                      // number of pins held on ${kref}
+ *   ocapURLObjects.${kref} = NN              // number of ocap URLs naming ${kref}
  *   kernelService.${serviceName} = ${koid}   // kref of kernel service object ${serviceName}
  */
 

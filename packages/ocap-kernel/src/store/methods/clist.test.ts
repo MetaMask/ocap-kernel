@@ -24,6 +24,7 @@ describe('clist-methods', () => {
     // reference to one would resurrect it.
     kv.set('ko1.refCount', '0,0');
     kv.set('ko2.refCount', '0,0');
+    kv.set('kp1.refCount', '0');
 
     // Create the store with mocked dependencies
     clistMethods = getCListMethods({

@@ -36,7 +36,7 @@ export function getVatMethods(ctx: StoreContext) {
   const { kv } = ctx;
   const { getPrefixedKeys, getSlotKey, getCListPrefix, getOwnerKey } =
     getBaseMethods(ctx.kv);
-  const { deleteCListEntry } = getCListMethods(ctx);
+  const { deleteCListEntry, forgetKref } = getCListMethods(ctx);
   const { getReachableAndVatSlot } = getReachableMethods(ctx);
   const { initKernelPromise, setPromiseDecider, addPromiseSubscriber } =
     getPromiseMethods(ctx);
@@ -46,10 +46,30 @@ export function getVatMethods(ctx: StoreContext) {
   /**
    * Delete all persistent state associated with an endpoint.
    *
+   * Each surviving c-list entry is torn down rather than merely deleted: an
+   * entry is a reference, so dropping the key without releasing its count
+   * leaves the target held by a holder that no longer exists — pinned alive
+   * forever, and reported by the audit as a count nothing accounts for.
+   * `cleanupTerminatedVat` has already emptied the c-list by the time it calls
+   * this, so in practice there is nothing here to release; a caller that has
+   * not done that work first depends on this.
+   *
    * @param endpointId - The endpoint whose state is to be deleted.
    */
   function deleteEndpoint(endpointId: EndpointId): void {
-    for (const key of getPrefixedKeys(getCListPrefix(endpointId))) {
+    const prefix = getCListPrefix(endpointId);
+    // Snapshot the keys: forgetKref deletes both halves of a pair, so mutating
+    // while walking the live key sequence would step over entries.
+    for (const key of [...getPrefixedKeys(prefix)]) {
+      const ref = key.slice(prefix.length);
+      // The kref-keyed half of each pair, which is the half that names the
+      // reference to release. The eref-keyed half goes with it.
+      if (parseRef(ref).context === 'kernel') {
+        forgetKref(endpointId, ref as KRef);
+      }
+    }
+    // Any half-pair left over has no kref side to release through.
+    for (const key of getPrefixedKeys(prefix)) {
       kv.delete(key);
     }
     kv.delete(`e.nextObjectId.${endpointId}`);

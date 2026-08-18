@@ -214,6 +214,17 @@ describe('refcount-methods', () => {
       expect(kv.get(baseStore.refCountKey(kref))).toBeUndefined();
     });
 
+    it('refuses to resurrect a promise the kernel has deleted', () => {
+      const kref: KRef = 'kp99';
+
+      expect(() => refCountMethods.incrementRefCount(kref, 'test')).toThrow(
+        'incrementRefCount on deleted kref "kp99" ("test")',
+      );
+      // A written-back `NaN` would read as existing and never reach zero, so
+      // the promise could never be collected.
+      expect(kv.get(baseStore.refCountKey(kref))).toBeUndefined();
+    });
+
     it('increments an object that exists', () => {
       const kref: KRef = 'ko1';
       kv.set(baseStore.refCountKey(kref), '0,0');

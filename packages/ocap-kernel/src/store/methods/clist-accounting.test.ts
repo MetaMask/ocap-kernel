@@ -34,6 +34,23 @@ describe('c-list reference accounting', () => {
     givenVats('v1', 'v2', 'v3');
   });
 
+  it('releases an endpoint c-list entry rather than dropping it', () => {
+    kernelStore.initEndpoint('r1');
+    const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
+    kernelStore.translateRefKtoE('r1', kref, true);
+
+    kernelStore.deleteEndpoint('r1');
+
+    // A bare key delete would leave the count behind, pinning the object alive
+    // on the strength of a holder that no longer exists.
+    expect(kernelStore.getObjectRefCount(kref)).toStrictEqual({
+      reachable: 0,
+      recognizable: 0,
+    });
+    expect(kernelStore.krefToEref('r1', kref)).toBeUndefined();
+    expect(kernelStore.auditRefCounts()).toStrictEqual([]);
+  });
+
   it('counts each importer separately', () => {
     const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
 

@@ -91,6 +91,7 @@ describe('vat store methods', () => {
 
   // Mock method implementations
   const mockDeleteCListEntry = vi.fn();
+  const mockForgetKref = vi.fn();
   const mockGetKernelPromise = vi.fn();
   const mockGetReachableAndVatSlot = vi.fn();
   const mockDecrementRefCount = vi.fn();
@@ -126,6 +127,7 @@ describe('vat store methods', () => {
     (clistModule.getCListMethods as ReturnType<typeof vi.fn>).mockReturnValue({
       deleteCListEntry: mockDeleteCListEntry,
       addCListEntry: mockAddCListEntry,
+      forgetKref: mockForgetKref,
     });
 
     (
@@ -294,6 +296,11 @@ describe('vat store methods', () => {
       expect(mockKV.has(`e.nextPromiseId.${endpointId}`)).toBe(false);
 
       expect(mockGetPrefixedKeys).toHaveBeenCalledWith(`${endpointId}.c.`);
+      // The kref-keyed half goes through the c-list teardown, so the entry's
+      // reference is released rather than dropped along with the key. The
+      // eref-keyed half of that pair goes with it; `p+1` here has no kref side
+      // to release through, so it is deleted outright.
+      expect(mockForgetKref.mock.calls).toStrictEqual([[endpointId, 'ko1']]);
     });
 
     it('does nothing if endpoint has no associated keys', () => {

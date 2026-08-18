@@ -253,6 +253,11 @@ test.describe('Control Panel', () => {
       `{"key":"v3.c.${v3Promise}","value":"R p-1"}`,
       `{"key":"v3.c.p-1","value":"${v3Promise}"}`,
       `{"key":"${v3Promise}.refCount","value":"2"}`,
+      // A root is pinned once for its vat's lifetime, by `launchVat`. Asserted
+      // here because nothing else can: a pin is the audit's own ground truth,
+      // so a root that lost its pin agrees with its refcount and the audit
+      // stays silent — while the last importer's drop can retire it.
+      `{"key":"pinned.${v3Root}","value":"1"}`,
     ];
     // Derived too: v1 imports the two roots as the bootstrap's calls are
     // answered, so which of `o-1`/`o-2` names which root varies with the same

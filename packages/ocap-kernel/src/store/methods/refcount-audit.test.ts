@@ -116,6 +116,29 @@ describe('reference count audit', () => {
       expect(kernelStore.auditRefCounts()).toStrictEqual([]);
     });
 
+    it('reports a settled promise that lost its value instead of throwing', () => {
+      const koid = kernelStore.exportFromEndpoint('v1', 'o+1');
+      const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
+      kernelStore.incrementRefCount(koid, 'resolve|slot');
+      kernelStore.resolveKernelPromise(kpid, false, {
+        body: '#"$0"',
+        slots: [koid],
+      });
+      // `gc.ts` and `getKpidsToRetire` both allow this state, so the audit has
+      // to survive it: the slot's holder is gone, which is drift to report, not
+      // a reason to take the whole sweep down.
+      kernelDatabase.kernelKVStore.delete(`${kpid}.value`);
+
+      expect(kernelStore.auditRefCounts()).toStrictEqual([
+        {
+          kref: koid,
+          stored: '1,1',
+          expected: '0,0',
+          holders: [],
+        },
+      ]);
+    });
+
     it('reports counts that are too low', () => {
       const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
       kernelStore.translateRefKtoE('v2', kref, true);

@@ -92,11 +92,34 @@ export function getRefCountAuditMethods(ctx: StoreContext) {
   }
 
   /**
+   * Read the slots a settled promise's resolution value carries, tolerating a
+   * value that is missing or unreadable.
+   *
+   * @param kpid - The settled promise.
+   * @returns Its resolution slots, or none if the value cannot be read.
+   */
+  function readResolutionSlots(kpid: KRef): KRef[] {
+    const raw = ctx.kv.get(`${kpid}.value`);
+    if (raw === undefined) {
+      return [];
+    }
+    try {
+      return (JSON.parse(raw) as CapData<KRef>).slots;
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Walk the whole store and total up, for every kref, the references the
    * kernel is holding to it.
    *
    * The credits below mirror `incrementRefCount` case for case; when that
-   * function's rules change, these have to change with it.
+   * function's rules change, these have to change with it. Two of the rules
+   * mirrored here live elsewhere: the unsettled-promise unit is written
+   * directly by `initKernelPromise`, and an object import's reachable half is
+   * carried by `setReachableFlag`/`clearReachableFlag`, which is why this reads
+   * each import entry's flag rather than assuming it.
    *
    * @returns A tally per kref that anything refers to.
    */
@@ -208,10 +231,14 @@ export function getRefCountAuditMethods(ctx: StoreContext) {
           // The unit `initKernelPromise` mints, released when the promise settles.
           credit(kpid, 'unsettled promise');
         } else {
-          const value = JSON.parse(
-            ctx.kv.getRequired(`${kpid}.value`),
-          ) as CapData<KRef>;
-          for (const slot of value.slots) {
+          // A settled promise's stored value is what holds its resolution
+          // slots. Read it the way the rest of the kernel does — `gc.ts` and
+          // `getKpidsToRetire` both allow a settled promise to have lost its
+          // value — rather than requiring it: this exists to report drift, not
+          // to die on it, and `getRequired` here would take the whole sweep
+          // down over one row. With nothing to credit, whatever those slots
+          // still hold is reported as a count too high, which is what it is.
+          for (const slot of readResolutionSlots(kpid)) {
             credit(slot, `${kpid} resolution slot`);
           }
         }

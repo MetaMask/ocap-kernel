@@ -74,14 +74,17 @@ export function getRefCountMethods(ctx: StoreContext) {
    * Every rule below has a mirror in `computeExpectedRefCounts`
    * (`refcount-audit.ts`), which recomputes these counts from the references
    * themselves; the two have to change together or the audit starts reporting
-   * violations against correct accounting.
+   * violations against correct accounting. Two rules the audit mirrors do not
+   * live here, and move with it too: `initKernelPromise` writes an unsettled
+   * promise's first unit directly, and `setReachableFlag`/`clearReachableFlag`
+   * carry the reachable half of an object import on their own.
    *
    * @param kref - The kernel slot whose refcount is to be incremented.
    * @param tag - The tag of the kernel slot.
    * @param options - Options for the increment.
    * @param options.isExport - True if the reference comes from a clist export, which counts for promises but not objects.
    * @param options.onlyRecognizable - True if the reference provides only recognition, not reachability.
-   * @throws if `kref` names an object the kernel has already deleted.
+   * @throws if `kref` names an object or promise the kernel has already deleted.
    */
   function incrementRefCount(
     kref: KRef,
@@ -94,25 +97,31 @@ export function getRefCountMethods(ctx: StoreContext) {
     kref || Fail`incrementRefCount called with empty kref`;
 
     const { isPromise } = parseRef(kref);
+
+    // If `isExport` the reference comes from a clist export, which counts for
+    // promises but not objects. An object export changes no count, so it needs
+    // no row to change.
+    if (!isPromise && isExport) {
+      return;
+    }
+
+    // Everything past here reads a row and writes it back, so a row that is not
+    // there gets resurrected: a missing object row reads as `(0, 0)` and becomes
+    // a live-looking object that nobody owns and nobody can be delivered to,
+    // and a missing promise row reads as `NaN`, which no decrement can bring to
+    // zero, so the promise can never be collected. `decrementRefCount` tolerates
+    // a missing object row because releasing a reference to something already
+    // gone is ordinary teardown; taking one is always a bug, so this refuses
+    // rather than returns.
+    kernelRefExists(kref) ||
+      Fail`incrementRefCount on deleted kref ${kref} (${tag})`;
+
     if (isPromise) {
       const refCount = Number(ctx.kv.get(refCountKey(kref))) + 1;
       ctx.logger?.debug('++', refCountKey(kref), refCount, tag);
       ctx.kv.set(refCountKey(kref), `${refCount}`);
       return;
     }
-
-    // If `isExport` the reference comes from a clist export, which counts for promises but not objects
-    if (isExport) {
-      return;
-    }
-
-    // A missing row reads as `(0, 0)`, so incrementing one writes it back and
-    // resurrects a live-looking object that nobody owns and nobody can be
-    // delivered to. `decrementRefCount` tolerates the same missing row because
-    // releasing a reference to something already gone is ordinary teardown;
-    // taking one is always a bug, so this refuses rather than returns.
-    kernelRefExists(kref) ||
-      Fail`incrementRefCount on deleted kref ${kref} (${tag})`;
 
     const counts = getObjectRefCount(kref);
     if (!onlyRecognizable) {

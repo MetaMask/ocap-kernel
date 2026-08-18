@@ -56,6 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bound relay hints in OCAP URLs to a maximum of 3 and cap the relay pool at 20 entries with eviction of oldest non-bootstrap relays ([#929](https://github.com/MetaMask/ocap-kernel/pull/929))
 - **BREAKING:** Rename `krefsToExistingErefs` to `krefsToErefs`, which now throws on an unmapped kref instead of silently dropping it ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
 - **BREAKING:** `getPinnedObjects` now names each pinned object once, however many pins it holds; `getPinCount` gives the number of pins ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
+- **BREAKING:** `incrementRefCount` now throws on a kref the kernel has already deleted, rather than writing a resurrected row ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
+  - A missing object row read as `(0, 0)` and was written back as a live-looking object with no owner; a missing promise row read as `NaN`, which no decrement can bring to zero, so the promise could never be collected. `decrementRefCount` still tolerates a missing object row, since releasing a reference to something already gone is ordinary teardown
 
 ### Fixed
 
@@ -80,7 +82,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `initKernelObject` now births objects at `(0, 0)` instead of `(1, 1)`. The old constant made the arithmetic come out right for exactly one importer, masking the missing increment; with two importers a live capability could be dropped and retired out from under a holder
   - Removes the owner-side baseline decrements in `cleanupTerminatedVat` and `forgetEndpointImports`, which double-claimed the same unit an importer's drop also spent — the source of `"koNN" underflow -1,0` escaping mid-cleanup and leaving a vat half-cleaned
   - `translateRefKtoE` now re-establishes reachability, so a vat handed an object it previously dropped is counted as holding it live again
-  - **A store written by an earlier version must be reset.** There is no migration: every object in it is still at `(1, 1)` and no vat root is pinned, so the second importer's `dropImports` underflows mid-crank and the last importer's drop can retire a live vat's root. `recomputeRefCounts` can rebuild the counts, but not the root pins, so it is a diagnostic rather than an upgrade path
+  - **A store written by an earlier version must be reset.** There is no migration: every object in it is still at `(1, 1)` and no vat root is pinned, so the second importer's `dropImports` underflows mid-crank and the last importer's drop can retire a live vat's root. Pins also moved from a single `pinnedObjects` row to a count per object at `pinned.${kref}`, and the old row is no longer read by anything — so every pin in such a store is silently lost on open while the refcount unit each one took remains. `recomputeRefCounts` can rebuild the counts, but not the pins, so it is a diagnostic rather than an upgrade path
 - Pin vat root objects for the lifetime of their vat, and release the pin on termination ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
   - A root is addressable while its vat lives whether or not anyone imports it; the old `(1, 1)` birth baseline was standing in for this
 - Garbage-collection action delivery now moves the kernel's own c-list: `dropExports` clears the owner's reachable flag and `retireExports`/`retireImports` tear the entry down ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
@@ -92,7 +94,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `getPromisesByDecider` matched nothing, so promises a terminating vat or restarting peer was deciding were never rejected
 - Issuing an ocap URL now retains its target, so the URL stays redeemable ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
   - A URL carries its kref inside an encrypted bearer token and nothing else, so the kernel cannot see from its own state that a holder exists. Under the old `(1, 1)` birth baseline nothing exported was ever collectable and this went unnoticed; at `(0, 0)` the target is collected as soon as the message that carried it to the issuer is delivered, and the URL names a dead capability
-  - One pin for as long as any URL names the target, and no release: the token is persistent and unexpiring, so revocation is what kills the capability — though it only stops deliveries, and leaves the target retained
+  - One pin for as long as any URL names the target, and nothing releases it automatically: the token is persistent and unexpiring, so revocation is what kills the capability — though it only stops deliveries, and leaves the target retained. `releaseOcapURLRetentions` drops a target's retention for a caller that is disavowing every URL naming it
   - Issuing a URL for a kref the kernel has already deleted is now refused rather than resurrecting its counts
   - The retention is taken before the token is minted, since minting awaits and a collection crank can run in that window, and unwound again if minting fails. A failed issuance never disturbs the retention a URL minted for the same target alongside it depends on
 - Refuse to import a kref the kernel has deleted into an endpoint's c-list ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))

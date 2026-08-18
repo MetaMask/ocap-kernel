@@ -331,8 +331,11 @@ export class VatManager {
   /**
    * Release one embedder pin on a vat root.
    *
-   * Removes a single pin, so a root still pinned for its vat's lifetime stays
-   * addressable: this does not make it collectable while the vat lives.
+   * Removes a single pin, and pins are fungible: this is only safe to call
+   * against a pin `pinVatRoot` took. Called without one, it spends the pin
+   * `launchVat` holds for the vat's lifetime, and the root becomes collectable
+   * while the vat is still running — silently, since `unpinObject` tolerates a
+   * count that has already reached zero.
    *
    * @param vatId - The ID of the vat.
    */

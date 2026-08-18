@@ -30,10 +30,11 @@ export function getCListMethods(ctx: StoreContext) {
    * kernel.
    *
    * The entry is itself a reference, so creating one takes a count, mirroring
-   * {@link deleteCListEntry}. An import is born recognizing but not reaching:
-   * reachability is `setReachableFlag`'s job, when the reference is handed
-   * over. An export takes no count for an object — the owner is not one of its
-   * own referrers — and is born flagged.
+   * {@link deleteCListEntry}. An object import is born recognizing but not
+   * reaching: reachability is `setReachableFlag`'s job, when the reference is
+   * handed over. An object export takes no count — the owner is not one of its
+   * own referrers — and is born flagged. A promise entry takes a full count
+   * whichever direction it faces, since a promise has only the one count.
    *
    * @param endpointId - The endpoint whose c-list is to be added to.
    * @param kref - The KRef.
