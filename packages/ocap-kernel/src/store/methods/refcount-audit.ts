@@ -104,7 +104,14 @@ export function getRefCountAuditMethods(ctx: StoreContext) {
       return [];
     }
     try {
-      return (JSON.parse(raw) as CapData<KRef>).slots;
+      // `Array.isArray` rather than a cast asserting `slots` is there: a row
+      // that parses but carries no slots array would otherwise return
+      // `undefined` for the caller to iterate, throwing outside this `try` —
+      // the very crash this exists to prevent — and a row whose `slots` is a
+      // string would be iterated character by character, crediting krefs that
+      // were never there. A wrong audit is worse than a loud one.
+      const { slots } = JSON.parse(raw) as Partial<CapData<KRef>>;
+      return Array.isArray(slots) ? slots : [];
     } catch {
       return [];
     }

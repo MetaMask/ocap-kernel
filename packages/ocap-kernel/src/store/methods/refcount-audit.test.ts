@@ -1,4 +1,4 @@
-import type { KernelDatabase } from '@metamask/kernel-store';
+import type { KernelDatabase, KVStore } from '@metamask/kernel-store';
 import { describe, it, expect, beforeEach } from 'vitest';
 
 import { makeMapKernelDatabase } from '../../../test/storage.ts';
@@ -8,6 +8,27 @@ import { makeKernelStore } from '../index.ts';
 describe('reference count audit', () => {
   let kernelDatabase: KernelDatabase;
   let kernelStore: ReturnType<typeof makeKernelStore>;
+
+  /**
+   * The raw KV store, for writing rows the store's own methods never would.
+   * Read through a function because the cases below are built before
+   * `beforeEach` has made a database.
+   *
+   * @returns The KV store the running test is using.
+   */
+  const kv = (): KVStore => kernelDatabase.kernelKVStore;
+
+  /**
+   * Corrupt a row by overwriting it with a value the store would not produce.
+   *
+   * @param value - The raw value to write.
+   * @returns A function that writes it at a given key.
+   */
+  const setValue =
+    (value: string) =>
+    (key: string): void => {
+      kv().set(key, value);
+    };
 
   /**
    * Register and initialize an endpoint so it can hold c-list entries.
@@ -116,28 +137,51 @@ describe('reference count audit', () => {
       expect(kernelStore.auditRefCounts()).toStrictEqual([]);
     });
 
-    it('reports a settled promise that lost its value instead of throwing', () => {
-      const koid = kernelStore.exportFromEndpoint('v1', 'o+1');
-      const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
-      kernelStore.incrementRefCount(koid, 'resolve|slot');
-      kernelStore.resolveKernelPromise(kpid, false, {
-        body: '#"$0"',
-        slots: [koid],
-      });
-      // `gc.ts` and `getKpidsToRetire` both allow this state, so the audit has
-      // to survive it: the slot's holder is gone, which is drift to report, not
-      // a reason to take the whole sweep down.
-      kernelDatabase.kernelKVStore.delete(`${kpid}.value`);
+    // `gc.ts` and `getKpidsToRetire` both tolerate a settled promise whose
+    // value cannot be read, so the audit has to: the slot's holder is gone,
+    // which is drift to report, not a reason to take the whole sweep down. A
+    // `slots` that parses but is not an array is the dangerous one — iterating
+    // a string would credit krefs that were never there, and a wrong audit is
+    // worse than a loud one.
+    it.each([
+      {
+        what: 'no value row at all',
+        corrupt: (key: string) => kv().delete(key),
+      },
+      { what: 'a value that is not JSON', corrupt: setValue('{') },
+      { what: 'a value of null', corrupt: setValue('null') },
+      { what: 'a value that is not an object', corrupt: setValue('"gone"') },
+      {
+        what: 'an object carrying no slots',
+        corrupt: setValue('{"body":"#null"}'),
+      },
+      {
+        what: 'a slots that is a string',
+        corrupt: setValue('{"body":"#null","slots":"ko1"}'),
+      },
+    ])(
+      'reports a settled promise with $what rather than throwing',
+      ({ corrupt }) => {
+        const koid = kernelStore.exportFromEndpoint('v1', 'o+1');
+        const kpid = kernelStore.exportFromEndpoint('v1', 'p+1');
+        kernelStore.incrementRefCount(koid, 'resolve|slot');
+        kernelStore.resolveKernelPromise(kpid, false, {
+          body: '#"$0"',
+          slots: [koid],
+        });
 
-      expect(kernelStore.auditRefCounts()).toStrictEqual([
-        {
-          kref: koid,
-          stored: '1,1',
-          expected: '0,0',
-          holders: [],
-        },
-      ]);
-    });
+        corrupt(`${kpid}.value`);
+
+        expect(kernelStore.auditRefCounts()).toStrictEqual([
+          {
+            kref: koid,
+            stored: '1,1',
+            expected: '0,0',
+            holders: [],
+          },
+        ]);
+      },
+    );
 
     it('reports counts that are too low', () => {
       const kref = kernelStore.exportFromEndpoint('v1', 'o+1');
