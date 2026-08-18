@@ -253,11 +253,6 @@ test.describe('Control Panel', () => {
       `{"key":"v3.c.${v3Promise}","value":"R p-1"}`,
       `{"key":"v3.c.p-1","value":"${v3Promise}"}`,
       `{"key":"${v3Promise}.refCount","value":"2"}`,
-      // A root is pinned once for its vat's lifetime, by `launchVat`. Asserted
-      // here because nothing else can: a pin is the audit's own ground truth,
-      // so a root that lost its pin agrees with its refcount and the audit
-      // stays silent — while the last importer's drop can retire it.
-      `{"key":"pinned.${v3Root}","value":"1"}`,
     ];
     // Derived too: v1 imports the two roots as the bootstrap's calls are
     // answered, so which of `o-1`/`o-2` names which root varies with the same
@@ -282,6 +277,21 @@ test.describe('Control Panel', () => {
       ).toContainText(value);
     }
     for (const value of v1koValues) {
+      await expect(
+        popupPage.locator('[data-testid="message-output"]'),
+      ).toContainText(value);
+    }
+    // A live vat's root is pinned once, by `launchVat`, and its count is that
+    // pin plus v1's import. Both are asserted only while v3 is alive, since
+    // terminating it releases the pin — which is the point of the pair of
+    // assertions after the termination below. Worth asserting at all because a
+    // pin is the audit's own ground truth: a root that lost its pin agrees with
+    // its own refcount, so the audit stays silent while the last importer's
+    // drop can retire a live vat's root.
+    for (const value of [
+      `{"key":"pinned.${v3Root}","value":"1"}`,
+      `{"key":"${v3Root}.refCount","value":"2,2"}`,
+    ]) {
       await expect(
         popupPage.locator('[data-testid="message-output"]'),
       ).toContainText(value);
@@ -311,6 +321,14 @@ test.describe('Control Panel', () => {
         popupPage.locator('[data-testid="message-output"]'),
       ).toContainText(value);
     }
+    // Terminating the vat released the pin its launch took, leaving the root
+    // held only by v1's import — so it can now be collected once v1 lets go.
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).not.toContainText(`{"key":"pinned.${v3Root}"`);
+    await expect(
+      popupPage.locator('[data-testid="message-output"]'),
+    ).toContainText(`{"key":"${v3Root}.refCount","value":"1,1"}`);
     await popupPage.click('button:text("Control Panel")');
 
     await popupPage.click('button:text("Collect Garbage")');
