@@ -41,7 +41,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `recomputeRefCounts` is a repair tool for a drifted store, offered to embedders and never run automatically: opening an existing store does not migrate it. Reach it by calling `makeKernelStore` over the kernel's own database
   - Exports the `RefCountViolation` type
 - Add `setReachableFlag` to the kernel store, the counterpart to `clearReachableFlag` ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
-- Add `getOcapURLObjects`, `retainForOcapURL` and `undoOcapURLRetention` to the kernel store, and `VatManager.releaseVatRootPin` ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
+- Add `getOcapURLObjects`, `getOcapURLIssuanceCount`, `retainForOcapURL`, `undoOcapURLRetention` and `releaseOcapURLRetentions` to the kernel store, and `VatManager.releaseVatRootPin` ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
+  - The two ways a retention ends are separate operations: `undoOcapURLRetention` unwinds one issuance whose URL was never minted, and `releaseOcapURLRetentions` drops a target's whole retention, for disavowing every URL naming it at once
+- Add `getPinCount` to the kernel store, which reports how many pins are held on an object ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
 
 ### Changed
 
@@ -53,6 +55,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Exports: `AllowedGlobalName`, `AllowedGlobalNameStruct`, `MakeAllowedGlobals`, `VatEndowmentsStruct`
 - Bound relay hints in OCAP URLs to a maximum of 3 and cap the relay pool at 20 entries with eviction of oldest non-bootstrap relays ([#929](https://github.com/MetaMask/ocap-kernel/pull/929))
 - **BREAKING:** Rename `krefsToExistingErefs` to `krefsToErefs`, which now throws on an unmapped kref instead of silently dropping it ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
+- **BREAKING:** `getPinnedObjects` now names each pinned object once, however many pins it holds; `getPinCount` gives the number of pins ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
+  - Pins and ocap URL retentions are each stored as a count per object (`pinned.${koid}`, `ocapURLObjects.${koid}`) rather than in one row listing every pin, so taking or spending one is a single write regardless of how many others there are. What an ocap URL retains is chosen by whoever holds a URL, so neither list is bounded by anything the kernel controls. Covered by the reset above: the old `pinnedObjects` row is not read
 
 ### Fixed
 
@@ -89,13 +93,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `getPromisesByDecider` matched nothing, so promises a terminating vat or restarting peer was deciding were never rejected
 - Issuing an ocap URL now retains its target, so the URL stays redeemable ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
   - A URL carries its kref inside an encrypted bearer token and nothing else, so the kernel cannot see from its own state that a holder exists. Under the old `(1, 1)` birth baseline nothing exported was ever collectable and this went unnoticed; at `(0, 0)` the target is collected as soon as the message that carried it to the issuer is delivered, and the URL names a dead capability
-  - One pin per URL, and no release: the token is persistent and unexpiring, so `revoke` is the way to kill the capability
+  - One pin for as long as any URL names the target, and no release: the token is persistent and unexpiring, so revocation is what kills the capability — though it only stops deliveries, and leaves the target retained
   - Issuing a URL for a kref the kernel has already deleted is now refused rather than resurrecting its counts
-  - The retention is taken before the token is minted, since minting awaits and a collection crank can run in that window, and released again if minting fails. It is a retention per issuance rather than per kref because that window lets issuances for the same target overlap: sharing one would let a failed mint release the retention a URL minted alongside it depends on
+  - The retention is taken before the token is minted, since minting awaits and a collection crank can run in that window, and unwound again if minting fails. The store counts issuances per target rather than sharing one retention between them, because that window lets issuances for the same target overlap: sharing one would let a failed mint release the retention a URL minted alongside it depends on
 - Refuse to import a kref the kernel has deleted into an endpoint's c-list ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
   - `getObjectRefCount` reads a missing entry as `(0, 0)`, so the new entry's own increment wrote it back and resurrected a live-looking object with no owner — deliverable to by nobody, and endorsed by the audit, since the entry is a legitimate holder for exactly the count it finds
 - Release a vat's root pin when a subcluster is deleted without its vats having run ([#1020](https://github.com/MetaMask/ocap-kernel/pull/1020))
-  - `deleteSubcluster` bypasses `stopVat`, so nothing released the pin `launchVat` took in the incarnation that did run them, leaving the root's count permanently above zero and `pinnedObjects` naming a vat that no longer exists
+  - `deleteSubcluster` bypasses `stopVat`, so nothing released the pin `launchVat` took in the incarnation that did run them, leaving the root's count permanently above zero and a pin outstanding on a vat that no longer exists
 - Deserialize CapData rejections in `Kernel.queueMessage` so vat errors surface as plain `Error` objects to all callers ([#928](https://github.com/MetaMask/ocap-kernel/pull/928))
 - Detect peer restart across receiver state loss so the receiving kernel no longer silently drops a restarted peer's `seq=1` messages ([#948](https://github.com/MetaMask/ocap-kernel/pull/948))
   - Persist the peer's last-observed incarnation and compare it on every successful handshake; on a detected restart, clear the peer's c-list contributions and reject the promises it was deciding before the new incarnation reuses any erefs

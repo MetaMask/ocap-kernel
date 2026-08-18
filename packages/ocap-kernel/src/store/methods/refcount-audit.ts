@@ -70,7 +70,7 @@ const REFCOUNT_KEY = /^(k[op]\d+)\.refCount$/u;
 // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
 export function getRefCountAuditMethods(ctx: StoreContext) {
   const { getPrefixedKeys, refCountKey } = getBaseMethods(ctx.kv);
-  const { getPinnedObjects } = getPinMethods(ctx);
+  const { getPinCount, getPinnedObjects } = getPinMethods(ctx);
 
   /**
    * Render a tally the way the store encodes it, so expected and stored values
@@ -219,7 +219,11 @@ export function getRefCountAuditMethods(ctx: StoreContext) {
     }
 
     for (const kref of getPinnedObjects()) {
-      credit(kref, 'pin');
+      // One unit per pin: each `pinObject` call increments once, and the
+      // object's count is how many of those calls are outstanding.
+      for (let pins = getPinCount(kref); pins > 0; pins -= 1) {
+        credit(kref, 'pin');
+      }
     }
 
     return tallies;

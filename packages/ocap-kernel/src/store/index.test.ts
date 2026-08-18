@@ -103,10 +103,12 @@ describe('kernel store', () => {
         'getNextRemoteId',
         'getNextVatId',
         'getObjectRefCount',
+        'getOcapURLIssuanceCount',
         'getOcapURLObjects',
         'getOwner',
         'getPeerIncarnation',
         'getPendingMessage',
+        'getPinCount',
         'getPinnedObjects',
         'getPromisesByDecider',
         'getQueueLength',
@@ -155,6 +157,7 @@ describe('kernel store', () => {
         'recomputeRefCounts',
         'recordLastActiveTime',
         'releaseAllSavepoints',
+        'releaseOcapURLRetentions',
         'releaseSavepoint',
         'removeAnonymousKernelObject',
         'removeVatFromSubcluster',
@@ -378,18 +381,19 @@ describe('kernel store', () => {
       expect(ks.getOcapURLObjects()).toStrictEqual([kref]);
     });
 
-    it('takes a retention of its own for each URL naming the same target', () => {
+    it('counts an issuance for each URL naming the same target, and pins it once', () => {
       const ks = makeKernelStore(mockKernelDatabase);
       const kref = ks.initKernelObject('v1');
 
       ks.retainForOcapURL(kref);
       ks.retainForOcapURL(kref);
 
-      expect(ks.getOcapURLObjects()).toStrictEqual([kref, kref]);
-      expect(ks.getPinnedObjects()).toStrictEqual([kref, kref]);
+      expect(ks.getOcapURLObjects()).toStrictEqual([kref]);
+      expect(ks.getOcapURLIssuanceCount(kref)).toBe(2);
+      expect(ks.getPinCount(kref)).toBe(1);
       expect(ks.getObjectRefCount(kref)).toStrictEqual({
-        reachable: 2,
-        recognizable: 2,
+        reachable: 1,
+        recognizable: 1,
       });
     });
 
@@ -401,7 +405,7 @@ describe('kernel store', () => {
 
       ks.undoOcapURLRetention(kref);
 
-      expect(ks.getOcapURLObjects()).toStrictEqual([kref]);
+      expect(ks.getOcapURLIssuanceCount(kref)).toBe(1);
       expect(ks.isObjectPinned(kref)).toBe(true);
       expect(ks.getObjectRefCount(kref)).toStrictEqual({
         reachable: 1,
@@ -415,6 +419,7 @@ describe('kernel store', () => {
       expect(() => ks.retainForOcapURL('ko99')).toThrow(
         'cannot issue an ocap URL for deleted kref "ko99"',
       );
+      expect(ks.getOcapURLObjects()).toStrictEqual([]);
     });
 
     it('undoing the last retention clears the record entirely', () => {
@@ -431,7 +436,7 @@ describe('kernel store', () => {
       ks.undoOcapURLRetention(otherKref);
       expect(ks.getOcapURLObjects()).toStrictEqual([]);
       expect(
-        mockKernelDatabase.kernelKVStore.get('ocapURLObjects'),
+        mockKernelDatabase.kernelKVStore.get(`ocapURLObjects.${otherKref}`),
       ).toBeUndefined();
     });
 
@@ -443,6 +448,44 @@ describe('kernel store', () => {
       ks.undoOcapURLRetention(kref);
 
       expect(ks.isObjectPinned(kref)).toBe(true);
+    });
+
+    it('releases every retention of a target at once', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+      ks.retainForOcapURL(kref);
+      ks.retainForOcapURL(kref);
+      ks.retainForOcapURL(kref);
+
+      ks.releaseOcapURLRetentions(kref);
+
+      expect(ks.getOcapURLObjects()).toStrictEqual([]);
+      expect(ks.isObjectPinned(kref)).toBe(false);
+      expect(ks.getObjectRefCount(kref)).toStrictEqual({
+        reachable: 0,
+        recognizable: 0,
+      });
+    });
+
+    it('releasing retentions of a target that has none leaves other pins alone', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+      ks.pinObject(kref);
+
+      ks.releaseOcapURLRetentions(kref);
+
+      expect(ks.isObjectPinned(kref)).toBe(true);
+    });
+
+    it('does not mistake the ocap URL cipher key for a retained object', () => {
+      const ks = makeKernelStore(mockKernelDatabase);
+      const kref = ks.initKernelObject('v1');
+      // `ocapURLKey` is a neighbour of the retention keys in key order, and
+      // holds the key the tokens are encrypted with rather than a kref.
+      mockKernelDatabase.kernelKVStore.set('ocapURLKey', 'some-cipher-key');
+      ks.retainForOcapURL(kref);
+
+      expect(ks.getOcapURLObjects()).toStrictEqual([kref]);
     });
   });
 

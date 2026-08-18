@@ -61,7 +61,8 @@
  *   nextRemoteId = NN                        // allocation counter for remote IDs
  *   k.nextObjectId = NN                      // allocation counter for object KRefs
  *   k.nextPromiseId = NN                     // allocation counter for promise KRefs
- *   pinnedObjects = ${kref}[,${kref}]*       // pinned object list
+ *   pinned.${koid} = NN                      // number of pins held on ${koid}
+ *   ocapURLObjects.${koid} = NN              // number of ocap URLs naming ${koid}
  *   kernelService.${serviceName} = ${koid}   // kref of kernel service object ${serviceName}
  */
 
@@ -92,6 +93,14 @@ import { getVatMethods } from './methods/vat.ts';
 import type { StoreContext } from './types.ts';
 
 /**
+ * The prefix shared by the issuance count of every object an ocap URL names,
+ * for iterating over them. A count per object, rather than one row listing
+ * every issuance, because the number of URLs a kernel hands out is bounded by
+ * nothing the kernel controls.
+ */
+const OCAP_URL_PREFIX = 'ocapURLObjects.';
+
+/**
  * Create a new KernelStore object wrapped around a raw kernel database. The
  * resulting object provides a variety of operations for accessing various
  * kernel-relevent persistent data structure abstractions on their own terms,
@@ -113,7 +122,8 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
   /** KV store in which all the kernel's own state is kept. */
   const kv: KVStore = kdb.kernelKVStore;
 
-  const { provideCachedStoredValue, provideStoredQueue } = getBaseMethods(kv);
+  const { getPrefixedKeys, provideCachedStoredValue, provideStoredQueue } =
+    getBaseMethods(kv);
 
   const context: StoreContext = {
     kv,
@@ -377,44 +387,59 @@ export function makeKernelStore(kdb: KernelDatabase, logger?: Logger) {
     // holder exists. Retaining the target is therefore the only thing keeping
     // the URL redeemable, and it has to outlive every other reference — the
     // token is persistent, unexpiring, and may be redeemed by a peer that was
-    // not running when it was issued. `revoke` is the way to kill the
-    // capability; `undoOcapURLRetention` is not a release, only an unwind of a
-    // retention whose URL was never minted.
+    // not running when it was issued.
     //
-    // The ledger is a multiset, one entry and one pin per issuance, because
-    // issuances for the same kref overlap: minting awaits, so a second `issue`
-    // can run to completion while the first is still in flight. Deduplicating
-    // by kref would leave the second issuance holding no retention of its own
-    // and the first free to unwind, on failure, the one the second's live URL
-    // depends on.
+    // The ledger counts, per target, how many URLs name it, and holds one pin
+    // for as long as that count is nonzero. Counting is what makes overlapping
+    // issuances safe: minting awaits, so a second `issue` for the same target
+    // can run to completion while the first is still in flight, and the first's
+    // failure must then unwind its own issuance without disturbing the
+    // retention the second's live URL depends on.
+    //
+    // Ending a retention comes in two kinds, so it comes in two methods.
+    // `undoOcapURLRetention` unwinds one issuance whose URL was never minted
+    // and leaves the others standing; `releaseOcapURLRetentions` drops the
+    // target's whole retention at once, for disavowing every URL naming it.
+    // Revocation is neither: it writes only the revoked flag, so a revoked
+    // object's URLs stay retained, redeemable, and undeliverable.
     getOcapURLObjects(): KRef[] {
-      const raw = kv.get('ocapURLObjects');
-      return raw ? (raw.split(',') as KRef[]) : [];
+      return [...getPrefixedKeys(OCAP_URL_PREFIX)].map(
+        (key) => key.slice(OCAP_URL_PREFIX.length) as KRef,
+      );
+    },
+    getOcapURLIssuanceCount(kref: KRef): number {
+      return Number(kv.get(`${OCAP_URL_PREFIX}${kref}`) ?? 0);
     },
     retainForOcapURL(kref: KRef): void {
       // Refuse to mint a token for something already collected: the URL would
-      // name a capability that can never be delivered to. The pin's increment
-      // refuses it too, but only after the ledger entry has been written.
+      // name a capability that can never be delivered to. Refusing here names
+      // what was attempted, and does it before anything has been written.
       this.kernelRefExists(kref) ||
         Fail`cannot issue an ocap URL for deleted kref ${kref}`;
-      const krefs = this.getOcapURLObjects();
-      krefs.push(kref);
-      kv.set('ocapURLObjects', krefs.sort().join(','));
-      this.pinObject(kref);
+      const issuances = this.getOcapURLIssuanceCount(kref);
+      if (issuances === 0) {
+        this.pinObject(kref);
+      }
+      kv.set(`${OCAP_URL_PREFIX}${kref}`, `${issuances + 1}`);
     },
     undoOcapURLRetention(kref: KRef): void {
-      const krefs = this.getOcapURLObjects();
-      const index = krefs.indexOf(kref);
-      if (index === -1) {
+      const issuances = this.getOcapURLIssuanceCount(kref);
+      if (issuances > 1) {
+        kv.set(`${OCAP_URL_PREFIX}${kref}`, `${issuances - 1}`);
         return;
       }
-      krefs.splice(index, 1);
-      if (krefs.length === 0) {
-        kv.delete('ocapURLObjects');
-      } else {
-        kv.set('ocapURLObjects', krefs.join(','));
+      // The last issuance, or none at all: either way, what is left of the
+      // retention is exactly what a release drops.
+      this.releaseOcapURLRetentions(kref);
+    },
+    releaseOcapURLRetentions(kref: KRef): void {
+      if (this.getOcapURLIssuanceCount(kref) === 0) {
+        return;
       }
+      // Spend the pin before forgetting the retention, so a failure to release
+      // it leaves a ledger that still says the retention is held.
       this.unpinObject(kref);
+      kv.delete(`${OCAP_URL_PREFIX}${kref}`);
     },
   });
 }

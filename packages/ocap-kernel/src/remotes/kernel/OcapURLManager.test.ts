@@ -120,17 +120,15 @@ describe('OcapURLManager', () => {
       expect(mockKernelStore.kernelRefExists(objectKRef)).toBe(true);
     });
 
-    it('retains a target once per URL naming it', async () => {
+    it('counts a retention per URL naming the target, on the one pin', async () => {
       await ocapURLManager.issueOcapURL(objectKRef);
       await ocapURLManager.issueOcapURL(objectKRef);
 
-      expect(mockKernelStore.getPinnedObjects()).toStrictEqual([
-        objectKRef,
-        objectKRef,
-      ]);
+      expect(mockKernelStore.getOcapURLIssuanceCount(objectKRef)).toBe(2);
+      expect(mockKernelStore.getPinnedObjects()).toStrictEqual([objectKRef]);
       expect(mockKernelStore.getObjectRefCount(objectKRef)).toStrictEqual({
-        reachable: 2,
-        recognizable: 2,
+        reachable: 1,
+        recognizable: 1,
       });
     });
 
