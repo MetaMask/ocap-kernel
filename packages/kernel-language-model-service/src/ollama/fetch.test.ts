@@ -45,6 +45,7 @@ describe('makeHostRestrictedFetch', () => {
 
         expect(global.fetch).toHaveBeenCalledWith(url, {
           redirect: 'manual',
+          integrity: '',
           headers: expect.any(Headers),
         });
       },
@@ -100,6 +101,7 @@ describe('makeHostRestrictedFetch', () => {
       expect(global.fetch).toHaveBeenCalledWith(mockUrl, {
         ...options,
         redirect: 'manual',
+        integrity: '',
         headers: expect.any(Headers),
       });
     });

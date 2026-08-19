@@ -83,6 +83,15 @@ const redirectTo =
     response.end('redirecting');
   };
 
+// Digests of `landed`, the body a chain here ends on, and of `redirecting`, the
+// body of the hops on the way — a digest of the resource is what a caller
+// writes, and a digest of a hop is what checking the wrong body would want.
+const LANDED_SHA256 = 'sha256-eO4Sxl1Ae6BpTfkQxrgVk4v2EZ9yiL1yCkjJjhGvV7w=';
+const LANDED_SHA512 =
+  'sha512-/WP9o53KurTHJ4rql4UaN6JkP9KbZN0hjdcXgkhQUJRrZZJ3YGPrVXQZItUilpNBzTYdAX1qONrclS0/J0JW2A==';
+const REDIRECTING_SHA256 =
+  'sha256-etTf+nmjsDY8FN+ggw4Pdq7I90HT0Yr84x9CY6XgiLY=';
+
 // Allows `localhost` only, so `127.0.0.1` is a forbidden host on the same
 // loopback interface.
 const allowLocalhost: FetchGuard = async (url: URL) => {
@@ -972,9 +981,9 @@ describe('makeGuardedFetch', () => {
       expect((hopInit.headers as Headers).get('authorization')).toBeNull();
     });
 
-    it('carries a Request’s integrity to the hop, where it is still enforced', async () => {
+    it('withholds a Request’s integrity from every request it sends', async () => {
       const baseFetch = scriptFetch(
-        new Response('', {
+        new Response('redirecting', {
           status: 307,
           headers: { location: 'http://localhost/landed' },
         }),
@@ -982,11 +991,16 @@ describe('makeGuardedFetch', () => {
       );
       const guarded = makeGuardedFetch({ baseFetch, guard: allowLocalhost });
 
+      // A digest of the resource, which `fetch` would check against each hop.
       await guarded(
-        new Request('http://localhost/start', { integrity: 'sha256-abc' }),
+        new Request('http://localhost/start', { integrity: LANDED_SHA256 }),
       );
 
-      expect(baseFetch.mock.calls[1]?.[1]?.integrity).toBe('sha256-abc');
+      // An empty string, not an absent member: a `Request`'s own integrity
+      // stands behind an init that does not name one.
+      expect(
+        baseFetch.mock.calls.map(([, init]) => init?.integrity),
+      ).toStrictEqual(['', '']);
     });
 
     it('shows the guard the headers it will send, not ones changed since', async () => {
@@ -1290,6 +1304,114 @@ describe('makeGuardedFetch', () => {
       // travelled, which is the price of the response staying readable at all.
       expect(response.redirected).toBe(false);
       expect(await response.text()).toBe('landed');
+    });
+  });
+
+  describe('an integrity the chain as a whole answers for', () => {
+    it.each([
+      ['sha256', LANDED_SHA256],
+      ['sha512', LANDED_SHA512],
+    ])(
+      'accepts a %s digest of the resource it ends on',
+      async (_algorithm, integrity) => {
+        const { start: first, destination: second } = await startRedirect();
+        const guarded = guardedLoopback();
+
+        const response = await guarded(`http://localhost:${first.port}/start`, {
+          integrity,
+        });
+
+        // `fetch` handed the same digest would have compared it to the 302's body
+        // and failed. Checked here against the body the chain ended on, which is
+        // still there to be read.
+        expect(response.url).toBe(`http://localhost:${second.port}/landed`);
+        expect(response.bodyUsed).toBe(false);
+        expect(await response.text()).toBe('landed');
+      },
+    );
+
+    it('accepts a digest carried on a Request', async () => {
+      const { start: first } = await startRedirect();
+      const guarded = guardedLoopback();
+
+      const response = await guarded(
+        new Request(`http://localhost:${first.port}/start`, {
+          integrity: LANDED_SHA256,
+        }),
+      );
+
+      expect(await response.text()).toBe('landed');
+    });
+
+    it('refuses a digest of a hop rather than of the resource', async () => {
+      const { start: first, destination: second } = await startRedirect();
+      const guarded = guardedLoopback();
+
+      await expect(
+        guarded(`http://localhost:${first.port}/start`, {
+          integrity: REDIRECTING_SHA256,
+        }),
+      ).rejects.toThrow(
+        `Fetch of http://localhost:${second.port}/landed does not match the requested integrity \`${REDIRECTING_SHA256}\`.`,
+      );
+    });
+
+    it('checks a request that took no redirect at all', async () => {
+      const server = await startServer();
+      const guarded = guardedLoopback();
+
+      await expect(
+        guarded(`http://localhost:${server.port}/direct`, {
+          integrity: REDIRECTING_SHA256,
+        }),
+      ).rejects.toThrow(/does not match the requested integrity/u);
+    });
+
+    it('holds a manual redirect to the digest, as fetch does', async () => {
+      const { start: first } = await startRedirect();
+      const guarded = guardedLoopback();
+
+      // The caller asked for the 3xx, so the 3xx is the body the digest has to
+      // answer for — and a digest of the resource cannot.
+      await expect(
+        guarded(`http://localhost:${first.port}/start`, {
+          integrity: LANDED_SHA256,
+          redirect: 'manual',
+        }),
+      ).rejects.toThrow(/does not match the requested integrity/u);
+
+      const response = await guarded(`http://localhost:${first.port}/start`, {
+        integrity: REDIRECTING_SHA256,
+        redirect: 'manual',
+      });
+
+      expect(response.status).toBe(302);
+    });
+
+    it('refuses metadata naming no algorithm it can check, which fetch would ignore', async () => {
+      const server = await startServer();
+      const guarded = guardedLoopback();
+
+      await expect(
+        guarded(`http://localhost:${server.port}/direct`, {
+          integrity: 'md5-1B2M2Y8AsgTpgAmY7PhCfg==',
+        }),
+      ).rejects.toThrow(/names no hash algorithm a guarded fetch can check/u);
+    });
+
+    it('refuses a response with no body to check the digest against', async () => {
+      const server = await startServer();
+      server.respondWith((_request, response) => {
+        response.writeHead(204);
+        response.end();
+      });
+      const guarded = guardedLoopback();
+
+      await expect(
+        guarded(`http://localhost:${server.port}/nothing`, {
+          integrity: LANDED_SHA256,
+        }),
+      ).rejects.toThrow(/carries no body to check it against/u);
     });
   });
 });

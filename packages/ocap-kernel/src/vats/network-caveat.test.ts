@@ -76,6 +76,8 @@ describe('makeCaveatedFetch', () => {
     expect(caveat).toHaveBeenCalledWith(new URL('https://example.test/path'));
     expect(baseFetch).toHaveBeenCalledWith('https://example.test/path', {
       redirect: 'manual',
+      // Withheld from every request and checked against the final body instead.
+      integrity: '',
       headers: expect.any(Headers),
     });
     expect(result).toBe(mockResponse);
@@ -106,6 +108,7 @@ describe('makeCaveatedFetch', () => {
     expect(baseFetch).toHaveBeenCalledWith('https://example.test/path', {
       ...init,
       redirect: 'manual',
+      integrity: '',
       headers: expect.any(Headers),
     });
   });
@@ -117,6 +120,7 @@ describe('makeCaveatedFetch', () => {
 
     expect(baseFetch).toHaveBeenCalledWith('https://example.test/path', {
       redirect: 'manual',
+      integrity: '',
       headers: expect.any(Headers),
     });
   });
@@ -232,6 +236,7 @@ describe('makeCaveatedFetch', () => {
           headers: expect.any(Headers),
           signal: null,
           redirect: 'manual',
+          integrity: '',
         },
       );
     });

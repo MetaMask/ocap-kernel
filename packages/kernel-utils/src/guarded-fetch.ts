@@ -1,5 +1,9 @@
 import { resolveFetchInput } from './fetch-input.ts';
 import type { ResolvedFetchInput } from './fetch-input.ts';
+import {
+  bytesMatchIntegrity,
+  parseIntegrityMetadata,
+} from './subresource-integrity.ts';
 
 /**
  * Run before every request a guarded `fetch` makes — the caller's and each
@@ -90,6 +94,64 @@ const discardBody = async (response: Response): Promise<void> => {
 };
 
 /**
+ * Check a response body against the digest the caller asked for.
+ *
+ * `fetch` is not left to do this. It checks an `integrity` against the body of
+ * the one request it was given, and a request here is a single hop, so a digest
+ * of the resource would be compared to each 3xx body along the way and no chain
+ * longer than one hop could succeed. The digest is withheld from `baseFetch` and
+ * spent here instead, on the body actually handed back — which is where the
+ * spec spends it too, after the chain has been walked.
+ *
+ * Stricter than `fetch` in one respect: metadata naming no algorithm SRI is
+ * defined over is refused rather than ignored, because a caller that asked for a
+ * digest and had none checked is worse off than one that asked for nothing.
+ *
+ * @param options - An options bag.
+ * @param options.response - The response about to be handed back.
+ * @param options.url - Where it came from, for the error messages.
+ * @param options.integrity - The caller's integrity metadata; `''` for none.
+ */
+const checkIntegrity = async ({
+  response,
+  url,
+  integrity,
+}: {
+  response: Response;
+  url: URL;
+  integrity: string;
+}): Promise<void> => {
+  if (integrity === '') {
+    return;
+  }
+  const check = parseIntegrityMetadata(integrity);
+  if (!check) {
+    await discardBody(response);
+    throw new Error(
+      `Fetch of ${url.href} requested integrity \`${integrity}\`, which names no hash algorithm a guarded fetch can check. Use sha256, sha384 or sha512.`,
+    );
+  }
+  // No bytes is no match, as it is none to `fetch`: a 204, a 304 and an answer
+  // to a HEAD carry no body, and the digest names one.
+  if (!response.body) {
+    throw new Error(
+      `Fetch of ${url.href} requested integrity \`${integrity}\`, but the response carries no body to check it against.`,
+    );
+  }
+  // Read from a clone, because a body can be read once and these bytes are the
+  // caller's. Cloning tees the stream, so what is checked is what is handed
+  // back — at the cost of holding the body in memory, which is what checking a
+  // digest costs however it is done, `fetch` included.
+  const bytes = new Uint8Array(await response.clone().arrayBuffer());
+  if (!(await bytesMatchIntegrity(bytes, check))) {
+    await discardBody(response);
+    throw new Error(
+      `Fetch of ${url.href} does not match the requested integrity \`${integrity}\`.`,
+    );
+  }
+};
+
+/**
  * Each hop is a separate `fetch` that saw no redirect of its own, so the last
  * one reports `redirected: false` for a chain the caller did travel. A proxy
  * rather than a defined property because the response may be frozen — the vat
@@ -138,6 +200,10 @@ const asRedirected = (response: Response): Response =>
  * `redirect: 'follow'` is therefore overridden and `baseFetch` is always called
  * with `'manual'`; `'manual'` and `'error'` ask for less than the guarded walk
  * and are obeyed.
+ *
+ * Walking the chain here also takes `integrity` out of `fetch`'s hands, since a
+ * digest of the resource would otherwise be checked against a hop; see
+ * {@link checkIntegrity}.
  *
  * @param options - An options bag.
  * @param options.baseFetch - The `fetch` to make requests with.
@@ -222,13 +288,11 @@ export const makeGuardedFetch = ({
     if (request) {
       // A hop is built from the init alone, so what arrived on the `Request`
       // has to be copied across or it is silently dropped from the second hop
-      // onward. `integrity` is the one with teeth: an unenforced digest is
-      // worse than none.
+      // onward. `integrity` is the exception, withheld from every hop below.
       // Not `cache`: this package compiles against undici's `RequestInit`,
       // which has no such field because undici ignores cache mode. A hop in a
       // browser realm therefore reverts to the default.
       init.credentials ??= request.credentials;
-      init.integrity ??= request.integrity;
       init.keepalive ??= request.keepalive;
       init.mode ??= request.mode;
       init.referrer ??= request.referrer;
@@ -251,6 +315,14 @@ export const makeGuardedFetch = ({
     const requested = init.redirect ?? request?.redirect ?? 'follow';
     init.redirect = 'manual';
 
+    // Taken off the request and checked by {@link checkIntegrity} instead, on
+    // whichever response is handed back. Read from the `Request` too, since
+    // either can carry it, and overridden with `''` rather than deleted: to
+    // `fetch` only an empty string means "no digest", and an absent init member
+    // leaves a `Request`'s own integrity standing.
+    const integrity = init.integrity ?? request?.integrity ?? '';
+    init.integrity = '';
+
     await guard(url);
     let response = await requestOnce(resolved, init);
 
@@ -262,6 +334,10 @@ export const makeGuardedFetch = ({
       // the mode turns on the status alone, so `error` fails a redirect that
       // names nowhere to go rather than passing it off as an ordinary response.
       if (requested === 'manual') {
+        // The caller asked for the 3xx itself, so the 3xx is the body a digest
+        // has to answer for — as it is to `fetch`, which fails a manual
+        // redirect carrying an `integrity` for the same reason.
+        await checkIntegrity({ response, url: currentUrl, integrity });
         return response;
       }
       if (requested === 'error') {
@@ -342,6 +418,7 @@ export const makeGuardedFetch = ({
       currentUrl = nextResolved.url;
     }
 
+    await checkIntegrity({ response, url: currentUrl, integrity });
     return redirects === 0 ? response : asRedirected(response);
   };
   return harden(guardedFetch);

@@ -74,6 +74,14 @@ export async function buildRootObject(vatPowers: TestPowers) {
         tlog(`error: ${String(error)}`);
       }
     },
+    fetchWithIntegrity: async (url: string, integrity: string) => {
+      try {
+        const response = await fetch(url, { integrity });
+        tlog(`body: ${await response.text()}`);
+      } catch (error) {
+        tlog(`error: ${String(error)}`);
+      }
+    },
     fetchWithSpoofedRequest: async (decoyUrl: string, targetUrl: string) => {
       /**
        * A `Request` whose `url` getter lies while its internal slot — the one
