@@ -48,11 +48,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **SECURITY:** A vat's `fetch` can no longer reach a host outside its `network.allowedHosts`. The allowlist was checked against one resolution of the vat's input while `fetch` resolved it again (CWE-367), and a redirect from an allowed host to a forbidden one was followed unchecked ([#1026](https://github.com/MetaMask/ocap-kernel/pull/1026))
-  - A vat's `redirect: 'follow'`, in `init` or on a `Request`, no longer reaches the hop unchecked; `manual` and `error` behave as asked. A `dispatcher` in `init` is rejected
-  - A redirect that keeps the request body now fails when that body cannot be sent again, which includes any `Request` carrying one — pass the body via `init` instead
-  - A vat hosted in a browser can no longer follow a redirect at all: the runtime hides the target of a manual redirect, so the hop cannot be checked and the fetch fails instead
-  - An `integrity` a vat asks for is checked against the body the chain ends on rather than by `fetch`, which sees one hop at a time and would hold the digest against a redirect body
 - A message delivered to a kernel-owned kref with no registered service now rejects the caller with `ENDPOINT_UNREACHABLE` instead of throwing, which escaped the crank and killed the run loop — turning one unreachable reference into a dead kernel ([#1007](https://github.com/MetaMask/ocap-kernel/pull/1007))
   - Reachable without any kernel bug: an anonymous kernel object hosts something that cannot outlive the process, such as an accepted socket connection, so a vat holding one across a restart or a message to one still queued from the previous incarnation lands here. Kernel objects are born with a `(1, 1)` refcount, so the init sweep cannot delete such an object and its `kernel` owner survives (see [#1006](https://github.com/MetaMask/ocap-kernel/issues/1006))
   - Matches what `KernelRouter` already does for a delivery whose endpoint has vanished. A message sent with no result promise has nobody to report to, so it is logged instead
@@ -84,6 +79,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Restore IO channels for persisted subclusters at kernel init so re-incarnated vats find their IOService references live ([#963](https://github.com/MetaMask/ocap-kernel/pull/963))
   - `SubclusterManager.restorePersistedIOChannels()` walks every persisted subcluster, finds those whose config declares `io`, and re-creates the channels via `IOManager` before `initializeAllVats` runs
   - Without this, any vat that opened an IO channel via `launchSubcluster` lost its channel across `daemon stop` / `daemon start` and silently held a dead IOService reference
+
+### Security
+
+- A vat's `fetch` can no longer reach a host outside its `network.allowedHosts`. The allowlist was checked against one resolution of the vat's input while `fetch` resolved it again (CWE-367), and a redirect from an allowed host to a forbidden one was followed unchecked ([#1026](https://github.com/MetaMask/ocap-kernel/pull/1026))
+  - A vat's `redirect: 'follow'`, in `init` or on a `Request`, no longer reaches the hop unchecked; `manual` and `error` behave as asked. A `dispatcher` in `init` is rejected
+  - A redirect that keeps the request body now fails when that body cannot be sent again, which includes any `Request` carrying one — pass the body via `init` instead
+  - A vat hosted in a browser can no longer follow a redirect at all: the runtime hides the target of a manual redirect, so the hop cannot be checked and the fetch fails instead
+  - An `integrity` a vat asks for is checked against the body the chain ends on rather than by `fetch`, which sees one hop at a time and would hold the digest against a redirect body
 
 ## [0.7.0]
 
