@@ -43,6 +43,63 @@ export async function buildRootObject(vatPowers: TestPowers) {
         throw error;
       }
     },
+    // The CWE-367 escape from #7557: an input that names the allowed host on
+    // the caveat's read and a forbidden one on fetch's.
+    fetchWithTwoFacedUrl: async (decoyUrl: string, targetUrl: string) => {
+      let reads = 0;
+      const twoFaced = {
+        toString: () => {
+          reads += 1;
+          return reads === 1 ? decoyUrl : targetUrl;
+        },
+      };
+      try {
+        const response = await fetch(twoFaced as unknown as RequestInfo);
+        tlog(`fetched: ${response.headers.get('x-fetched-url')}`);
+      } catch (error) {
+        tlog(`error: ${String(error)}`);
+      }
+      tlog(`reads: ${reads}`);
+    },
+    fetchFollowingRedirect: async (url: string) => {
+      try {
+        const response = await fetch(url);
+        tlog(`fetched: ${response.headers.get('x-fetched-url')}`);
+        tlog(`redirect mode: ${response.headers.get('x-redirect-mode')}`);
+        tlog(`redirected: ${String(response.redirected)}`);
+        // Read through the hardened response wrapper the endowment returns,
+        // which is not the plain `Response` the unit tests exercise.
+        tlog(`body: ${await response.text()}`);
+      } catch (error) {
+        tlog(`error: ${String(error)}`);
+      }
+    },
+    fetchWithIntegrity: async (url: string, integrity: string) => {
+      try {
+        const response = await fetch(url, { integrity });
+        tlog(`body: ${await response.text()}`);
+      } catch (error) {
+        tlog(`error: ${String(error)}`);
+      }
+    },
+    fetchWithSpoofedRequest: async (decoyUrl: string, targetUrl: string) => {
+      /**
+       * A `Request` whose `url` getter lies while its internal slot — the one
+       * `fetch` reads — holds the forbidden host.
+       */
+      class SpoofedRequest extends Request {
+        /** @returns The decoy URL, not the URL this request was built with. */
+        override get url(): string {
+          return decoyUrl;
+        }
+      }
+      try {
+        const response = await fetch(new SpoofedRequest(targetUrl));
+        tlog(`fetched: ${response.headers.get('x-fetched-url')}`);
+      } catch (error) {
+        tlog(`error: ${String(error)}`);
+      }
+    },
   });
 
   return root;
