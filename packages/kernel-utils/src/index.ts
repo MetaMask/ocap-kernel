@@ -16,6 +16,8 @@ export {
   methodArgsToStruct,
 } from './json-schema-to-struct.ts';
 export { fetchValidatedJson } from './fetchValidatedJson.ts';
+export { resolveFetchInput } from './fetch-input.ts';
+export type { FetchInput, ResolvedFetchInput } from './fetch-input.ts';
 export { abortableDelay, delay, ifDefined, makeCounter } from './misc.ts';
 export { stringify } from './stringify.ts';
 export { installWakeDetector } from './wake-detector.ts';

@@ -34,6 +34,7 @@ describe('index', () => {
       'mergeDisjointRecords',
       'methodArgsToStruct',
       'prettifySmallcaps',
+      'resolveFetchInput',
       'retry',
       'retryWithBackoff',
       'stringify',

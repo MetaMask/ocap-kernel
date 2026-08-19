@@ -1,4 +1,5 @@
 import '@ocap/repo-tools/test-utils/mock-endoify';
+import { makeTwoFacedFetchInput } from '@ocap/repo-tools/test-utils/fetch-input';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { makeHostRestrictedFetch } from './fetch.ts';
@@ -101,7 +102,51 @@ describe('makeHostRestrictedFetch', () => {
 
       await restrictedFetch(request);
 
-      expect(global.fetch).toHaveBeenCalledWith(request);
+      // Forwarded as an equivalent copy, never the caller's own.
+      const [forwarded] = (global.fetch as ReturnType<typeof vi.fn>).mock
+        .calls[0] as [Request];
+      expect(forwarded).toBeInstanceOf(Request);
+      expect(forwarded).not.toBe(request);
+      expect(forwarded.url).toBe(mockUrl);
+    });
+  });
+
+  describe('input that resolves differently on each read', () => {
+    it('throws rather than quietly fetching whichever URL was shown first', async () => {
+      await expect(
+        restrictedFetch(
+          makeTwoFacedFetchInput(mockUrl, 'http://malicious.com/exfil').input,
+        ),
+      ).rejects.toThrow('resolved to a different URL when read again');
+
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('still host-checks a stringifier that resolves consistently', async () => {
+      await expect(
+        restrictedFetch(
+          makeTwoFacedFetchInput(
+            'http://malicious.com/exfil',
+            'http://malicious.com/exfil',
+          ).input,
+        ),
+      ).rejects.toThrow('Invalid host: malicious.com');
+
+      expect(global.fetch).not.toHaveBeenCalled();
+    });
+
+    it('throws for a Request subclass that overrides its url getter', async () => {
+      class SpoofedRequest extends Request {
+        override get url(): string {
+          return mockUrl;
+        }
+      }
+
+      await expect(
+        restrictedFetch(new SpoofedRequest('http://malicious.com/exfil')),
+      ).rejects.toThrow('Invalid host: malicious.com');
+
+      expect(global.fetch).not.toHaveBeenCalled();
     });
   });
 

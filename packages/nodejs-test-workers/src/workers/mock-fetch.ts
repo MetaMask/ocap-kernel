@@ -10,9 +10,27 @@ let logger = new Logger(LOG_TAG);
 // The Snaps network factory reads `globalThis.fetch` at call time, so stub
 // it before the supervisor is constructed. Endoify hardens intrinsics but
 // not `globalThis.fetch`, so the override sticks.
+// Read a `Request`'s URL the way a real `fetch` does, without `new Request()`,
+// which would consume the caller's body as a side effect. Deliberately
+// unbound: applied to whichever `Request` this fetch is handed.
+// eslint-disable-next-line @typescript-eslint/unbound-method
+const getRequestUrl = Object.getOwnPropertyDescriptor(
+  Object.getPrototypeOf(new Request('http://x.test')) as Request,
+  'url',
+)?.get as (this: Request) => string;
+
 globalThis.fetch = async (input) => {
-  logger.debug('fetch', input);
-  return new Response('Hello, world!');
+  // Resolved independently of the code under test, so an input that resolves
+  // differently on a second read shows up here as a mismatch. Logged as a
+  // string because a `Request` crosses the log stream as `{}`.
+  const target =
+    input instanceof Request ? getRequestUrl.call(input) : String(input);
+  logger.debug('fetch', target);
+  // Report the target back in a header too, so a test can assert that the URL
+  // reached by fetch is the one the caveat approved.
+  return new Response('Hello, world!', {
+    headers: { 'x-fetched-url': target },
+  });
 };
 
 main().catch((reason) => logger.error('main exited with error', reason));

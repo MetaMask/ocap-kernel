@@ -1,16 +1,13 @@
+import { resolveFetchInput } from '@metamask/kernel-utils';
+
 export type FetchCapability = typeof fetch;
 
-type FetchCaveat = (...args: Parameters<FetchCapability>) => Promise<void>;
-
 /**
- * Resolve the target URL from a fetch input argument. Accepts the same input
- * shapes as `fetch` itself (string, URL, or Request).
- *
- * @param arg - The input to resolve.
- * @returns The resolved URL.
+ * A gate run before every fetch. It receives the URL that `fetch` will
+ * actually request — never the caller's raw input — so that it cannot be
+ * fooled into approving one URL while another is requested.
  */
-export const resolveUrl = (arg: Parameters<typeof fetch>[0]): URL =>
-  new URL(arg instanceof Request ? arg.url : arg);
+type FetchCaveat = (url: URL, init?: RequestInit) => Promise<void>;
 
 /**
  * Build a caveat that rejects fetches whose hostname is not in
@@ -28,8 +25,7 @@ export const resolveUrl = (arg: Parameters<typeof fetch>[0]): URL =>
  * @returns A caveat that restricts fetch to the allowed hostnames.
  */
 export const makeHostCaveat = (allowedHosts: string[]): FetchCaveat => {
-  return harden(async (...args: Parameters<typeof fetch>) => {
-    const { hostname, protocol } = resolveUrl(args[0]);
+  return harden(async ({ hostname, protocol }: URL) => {
     if (protocol === 'file:') {
       throw new Error(
         `fetch cannot target file:// URLs. Use the fs platform capability ` +
@@ -47,6 +43,10 @@ export const makeHostCaveat = (allowedHosts: string[]): FetchCaveat => {
  * throw to reject the request; a throw prevents the underlying fetch from
  * being invoked.
  *
+ * The caller's input is resolved to a URL exactly once and replaced with a
+ * stand-in that resolves to nothing else, so the URL the caveat approves is
+ * the URL `baseFetch` requests.
+ *
  * @param baseFetch - The fetch capability to wrap.
  * @param caveat - The caveat to apply before each call.
  * @returns A fetch capability gated by the caveat.
@@ -56,7 +56,9 @@ export const makeCaveatedFetch = (
   caveat: FetchCaveat,
 ): FetchCapability => {
   return harden(async (...args: Parameters<FetchCapability>) => {
-    await caveat(...args);
-    return await baseFetch(...args);
+    const [rawInput, ...rest] = args;
+    const { url, input } = resolveFetchInput(rawInput);
+    await caveat(url, ...rest);
+    return await baseFetch(input, ...rest);
   });
 };

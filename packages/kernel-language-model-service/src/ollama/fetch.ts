@@ -10,8 +10,14 @@
  * use the fetch function from global scope to make requests to other hosts.
  */
 
+import { resolveFetchInput } from '@metamask/kernel-utils';
+
 /**
  * Creates a fetch function that only allows requests to the specified origins.
+ *
+ * The caller's input is resolved to a URL exactly once and replaced with a
+ * stand-in that resolves to nothing else, so the URL checked against
+ * `allowedHosts` is the URL `baseFetch` requests.
  *
  * @param allowedHosts - The hosts to allow requests from.
  * @param baseFetch - The fetch function to use as a base. Defaults to the global fetch function.
@@ -22,16 +28,17 @@ export const makeHostRestrictedFetch = (
   baseFetch: typeof fetch = globalThis.fetch,
 ): typeof fetch => {
   const restrictedFetch = async (
-    ...[url, ...args]: Parameters<typeof fetch>
+    ...[rawInput, ...args]: Parameters<typeof fetch>
   ): ReturnType<typeof fetch> => {
-    const { host } = new URL(url instanceof Request ? url.url : url);
+    const { url, input } = resolveFetchInput(rawInput);
+    const { host } = url;
     if (!allowedHosts.includes(host)) {
       throw new Error(
         `Invalid host: ${host}, expected: ${allowedHosts.join(', ')}`,
-        { cause: { url } },
+        { cause: { url: url.href } },
       );
     }
-    const response = await baseFetch(url, ...args);
+    const response = await baseFetch(input, ...args);
     return response;
   };
   return harden(restrictedFetch);

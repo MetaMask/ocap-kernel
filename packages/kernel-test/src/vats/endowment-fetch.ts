@@ -43,6 +43,43 @@ export async function buildRootObject(vatPowers: TestPowers) {
         throw error;
       }
     },
+    // Attempt the CWE-367 escape from the HackerOne report: hand `fetch` an
+    // input that names an allowlisted host on its first read and a forbidden
+    // one thereafter, hoping the caveat validates the former while the
+    // network reaches the latter.
+    fetchWithTwoFacedUrl: async (decoyUrl: string, targetUrl: string) => {
+      let reads = 0;
+      const twoFaced = {
+        toString: () => {
+          reads += 1;
+          return reads === 1 ? decoyUrl : targetUrl;
+        },
+      };
+      try {
+        const response = await fetch(twoFaced as unknown as RequestInfo);
+        tlog(`fetched: ${response.headers.get('x-fetched-url')}`);
+      } catch (error) {
+        tlog(`error: ${String(error)}`);
+      }
+      tlog(`reads: ${reads}`);
+    },
+    // The same escape via a `Request` subclass whose `url` getter lies, while
+    // its internal slot — the one `fetch` reads — holds the forbidden host.
+    fetchWithSpoofedRequest: async (decoyUrl: string, targetUrl: string) => {
+      /** A `Request` whose reported URL differs from its internal one. */
+      class SpoofedRequest extends Request {
+        /** @returns The decoy URL, not the URL this request was built with. */
+        override get url(): string {
+          return decoyUrl;
+        }
+      }
+      try {
+        const response = await fetch(new SpoofedRequest(targetUrl));
+        tlog(`fetched: ${response.headers.get('x-fetched-url')}`);
+      } catch (error) {
+        tlog(`error: ${String(error)}`);
+      }
+    },
   });
 
   return root;
