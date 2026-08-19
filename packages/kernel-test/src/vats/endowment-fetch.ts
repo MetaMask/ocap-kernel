@@ -63,6 +63,20 @@ export async function buildRootObject(vatPowers: TestPowers) {
       }
       tlog(`reads: ${reads}`);
     },
+    // A redirect used to let the server name a host the vat was never granted.
+    fetchFollowingRedirect: async (url: string) => {
+      try {
+        const response = await fetch(url);
+        tlog(`fetched: ${response.headers.get('x-fetched-url')}`);
+        tlog(`redirect mode: ${response.headers.get('x-redirect-mode')}`);
+        tlog(`redirected: ${String(response.redirected)}`);
+        // Read through the hardened response wrapper the endowment returns,
+        // which is not the plain `Response` the unit tests exercise.
+        tlog(`body: ${await response.text()}`);
+      } catch (error) {
+        tlog(`error: ${String(error)}`);
+      }
+    },
     // The same escape via a `Request` subclass whose `url` getter lies, while
     // its internal slot — the one `fetch` reads — holds the forbidden host.
     fetchWithSpoofedRequest: async (decoyUrl: string, targetUrl: string) => {

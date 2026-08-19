@@ -123,4 +123,58 @@ describe('endowments', () => {
       `error: Error: Invalid host: ${badHost}`,
     ]);
   });
+
+  // A redirect used to be a second chance to name a host the vat was never
+  // granted, the caveat having seen only the pre-flight URL.
+  it('confines a vat whose allowed host redirects it elsewhere', async () => {
+    const vatId: VatId = 'v1';
+    const v1Root: KRef = 'ko4';
+    const { logger, entries } = makeTestLogger();
+    const database = await makeSQLKernelDatabase({});
+    const kernel = await makeKernel(
+      database,
+      true,
+      logger,
+      getWorkerFile('mock-fetch'),
+    );
+    const goodHost = 'good-url.test';
+    const badHost = 'bad-url.test';
+    await kernel.launchSubcluster({
+      bootstrap: 'main',
+      vats: {
+        main: {
+          bundleSpec: getBundleSpec('endowment-fetch'),
+          parameters: {},
+          globals: ['fetch', 'Request', 'Headers', 'Response'],
+          network: { allowedHosts: [goodHost] },
+        },
+      },
+    });
+    await waitUntilQuiescent();
+
+    const redirectFrom = (target: string): string =>
+      `https://${goodHost}/start?redirectTo=${encodeURIComponent(target)}`;
+
+    await kernel.queueMessage(v1Root, 'fetchFollowingRedirect', [
+      redirectFrom(`https://${badHost}/exfil?srp=stolen`),
+    ]);
+    await waitUntilQuiescent();
+
+    await kernel.queueMessage(v1Root, 'fetchFollowingRedirect', [
+      redirectFrom(`https://${goodHost}/landed`),
+    ]);
+    await waitUntilQuiescent();
+
+    expect(extractTestLogs(entries, vatId)).toStrictEqual([
+      'buildRootObject',
+      'bootstrap',
+      `error: Error: Invalid host: ${badHost}`,
+      `fetched: https://${goodHost}/landed`,
+      // Overridden all the way through the Snaps endowment, which rebuilds the
+      // init before calling the real fetch.
+      'redirect mode: manual',
+      'redirected: true',
+      'body: Hello, world!',
+    ]);
+  });
 });

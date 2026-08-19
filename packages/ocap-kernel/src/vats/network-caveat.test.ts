@@ -54,8 +54,15 @@ describe('makeCaveatedFetch', () => {
     const caveated = makeCaveatedFetch(baseFetch, caveat);
     const result = await caveated('https://example.test/path');
 
-    expect(caveat).toHaveBeenCalledWith(new URL('https://example.test/path'));
-    expect(baseFetch).toHaveBeenCalledWith('https://example.test/path');
+    const forwarded = { redirect: 'manual', headers: expect.any(Headers) };
+    expect(caveat).toHaveBeenCalledWith(
+      new URL('https://example.test/path'),
+      forwarded,
+    );
+    expect(baseFetch).toHaveBeenCalledWith(
+      'https://example.test/path',
+      forwarded,
+    );
     expect(result).toBe(mockResponse);
   });
 
@@ -78,11 +85,20 @@ describe('makeCaveatedFetch', () => {
     const init = { method: 'POST', body: 'data' };
     await caveated('https://example.test/path', init);
 
+    // One snapshot of the caller's `init`, shared by the caveat and `fetch`.
+    const forwarded = {
+      ...init,
+      redirect: 'manual',
+      headers: expect.any(Headers),
+    };
     expect(caveat).toHaveBeenCalledWith(
       new URL('https://example.test/path'),
-      init,
+      forwarded,
     );
-    expect(baseFetch).toHaveBeenCalledWith('https://example.test/path', init);
+    expect(baseFetch).toHaveBeenCalledWith(
+      'https://example.test/path',
+      forwarded,
+    );
   });
 
   it('forwards a URL object as its href', async () => {
@@ -94,7 +110,10 @@ describe('makeCaveatedFetch', () => {
 
     await caveated(new URL('https://example.test/path'));
 
-    expect(baseFetch).toHaveBeenCalledWith('https://example.test/path');
+    expect(baseFetch).toHaveBeenCalledWith('https://example.test/path', {
+      redirect: 'manual',
+      headers: expect.any(Headers),
+    });
   });
 
   it('forwards a copy of a Request, never the vat’s own', async () => {
@@ -194,6 +213,126 @@ describe('makeCaveatedFetch', () => {
         ),
       ).rejects.toThrow('resolved to a different URL when read again');
       expect(baseFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('redirects', () => {
+    const redirectTo = (location: string, status = 302): Response =>
+      new Response('', { status, headers: { location } });
+
+    it('refuses a hop out of the allowlist, and never requests it', async () => {
+      const baseFetch = vi
+        .fn()
+        .mockResolvedValueOnce(
+          redirectTo('http://169.254.169.254/latest/meta-data/'),
+        )
+        .mockResolvedValue(new Response('credentials'));
+      const caveated = makeCaveatedFetch(
+        baseFetch,
+        makeHostCaveat(['example.test']),
+      );
+
+      await expect(caveated('https://example.test/start')).rejects.toThrow(
+        'Invalid host: 169.254.169.254',
+      );
+      expect(baseFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('follows a hop that stays inside the allowlist', async () => {
+      const baseFetch = vi
+        .fn()
+        .mockResolvedValueOnce(redirectTo('https://example.test/landed'))
+        .mockResolvedValue(new Response('landed'));
+      const caveated = makeCaveatedFetch(
+        baseFetch,
+        makeHostCaveat(['example.test']),
+      );
+
+      const response = await caveated('https://example.test/start');
+
+      expect(await response.text()).toBe('landed');
+      expect(response.redirected).toBe(true);
+      expect(baseFetch).toHaveBeenNthCalledWith(
+        2,
+        'https://example.test/landed',
+        {
+          method: 'GET',
+          body: null,
+          headers: expect.any(Headers),
+          signal: null,
+          redirect: 'manual',
+        },
+      );
+    });
+
+    it('refuses a hop to a file: URL by naming the scheme', async () => {
+      const baseFetch = vi
+        .fn()
+        .mockResolvedValueOnce(redirectTo('file:///etc/passwd'));
+      const caveated = makeCaveatedFetch(
+        baseFetch,
+        makeHostCaveat(['example.test']),
+      );
+
+      await expect(caveated('https://example.test/start')).rejects.toThrow(
+        /redirected to a file: URL, which a guarded fetch will not follow/u,
+      );
+      expect(baseFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('checks the hop even when the vat asks fetch to follow', async () => {
+      const baseFetch = vi
+        .fn()
+        .mockResolvedValueOnce(redirectTo('https://evil.test/exfil'))
+        .mockResolvedValue(new Response('exfiltrated'));
+      const caveated = makeCaveatedFetch(
+        baseFetch,
+        makeHostCaveat(['example.test']),
+      );
+
+      await expect(
+        caveated('https://example.test/start', { redirect: 'follow' }),
+      ).rejects.toThrow('Invalid host: evil.test');
+      expect(baseFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(['manual', 'error'] as const)(
+      'leaves the forbidden host uncontacted when the vat asks for redirect: %s',
+      async (redirect) => {
+        const baseFetch = vi
+          .fn()
+          .mockResolvedValueOnce(redirectTo('https://evil.test/exfil'))
+          .mockResolvedValue(new Response('exfiltrated'));
+        const caveated = makeCaveatedFetch(
+          baseFetch,
+          makeHostCaveat(['example.test']),
+        );
+
+        // A vat asking for less than `follow` is obeyed, which cannot reach
+        // further than the guarded walk would have.
+        await caveated('https://example.test/start', { redirect }).catch(
+          () => undefined,
+        );
+        expect(baseFetch).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it('checks the hop even when the vat’s Request asks fetch to follow', async () => {
+      const baseFetch = vi
+        .fn()
+        .mockResolvedValueOnce(redirectTo('https://evil.test/exfil'))
+        .mockResolvedValue(new Response('exfiltrated'));
+      const caveated = makeCaveatedFetch(
+        baseFetch,
+        makeHostCaveat(['example.test']),
+      );
+
+      await expect(
+        caveated(
+          new Request('https://example.test/start', { redirect: 'follow' }),
+        ),
+      ).rejects.toThrow('Invalid host: evil.test');
+      expect(baseFetch).toHaveBeenCalledTimes(1);
     });
   });
 

@@ -1,13 +1,10 @@
-import { resolveFetchInput } from '@metamask/kernel-utils';
+import { makeGuardedFetch } from '@metamask/kernel-utils';
+import type { FetchGuard } from '@metamask/kernel-utils';
 
 export type FetchCapability = typeof fetch;
 
-/**
- * A gate run before every fetch. It receives the URL that `fetch` will
- * actually request — never the caller's raw input — so that it cannot be
- * fooled into approving one URL while another is requested.
- */
-type FetchCaveat = (url: URL, init?: RequestInit) => Promise<void>;
+/** A vat-facing name for {@link FetchGuard}. */
+type FetchCaveat = FetchGuard;
 
 /**
  * Build a caveat that rejects fetches whose hostname is not in
@@ -39,26 +36,15 @@ export const makeHostCaveat = (allowedHosts: string[]): FetchCaveat => {
 };
 
 /**
- * Wrap a fetch capability so a caveat runs before every call. The caveat may
- * throw to reject the request; a throw prevents the underlying fetch from
- * being invoked.
- *
- * The caller's input is resolved to a URL exactly once and replaced with a
- * stand-in that resolves to nothing else, so the URL the caveat approves is
- * the URL `baseFetch` requests.
+ * Wrap a fetch capability so a caveat runs before every request it makes,
+ * rejecting the fetch if it throws. See {@link makeGuardedFetch}, which
+ * resolves the input once and re-runs the caveat on every redirect hop.
  *
  * @param baseFetch - The fetch capability to wrap.
- * @param caveat - The caveat to apply before each call.
+ * @param caveat - The caveat to apply before each request.
  * @returns A fetch capability gated by the caveat.
  */
 export const makeCaveatedFetch = (
   baseFetch: FetchCapability,
   caveat: FetchCaveat,
-): FetchCapability => {
-  return harden(async (...args: Parameters<FetchCapability>) => {
-    const [rawInput, ...rest] = args;
-    const { url, input } = resolveFetchInput(rawInput);
-    await caveat(url, ...rest);
-    return await baseFetch(input, ...rest);
-  });
-};
+): FetchCapability => makeGuardedFetch({ baseFetch, guard: caveat });

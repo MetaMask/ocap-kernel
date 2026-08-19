@@ -21,7 +21,7 @@ describe('makeHostRestrictedFetch', () => {
   beforeEach(() => {
     hardenSpy = vi.spyOn(global, 'harden');
     originalFetch = global.fetch;
-    vi.spyOn(global, 'fetch').mockImplementation(vi.fn());
+    vi.spyOn(global, 'fetch').mockResolvedValue(new Response('ok'));
     restrictedFetch = makeHostRestrictedFetch([mockHost]);
   });
 
@@ -43,7 +43,10 @@ describe('makeHostRestrictedFetch', () => {
 
         await restrictedFetch(url);
 
-        expect(global.fetch).toHaveBeenCalledWith(url);
+        expect(global.fetch).toHaveBeenCalledWith(url, {
+          redirect: 'manual',
+          headers: expect.any(Headers),
+        });
       },
     );
 
@@ -94,7 +97,11 @@ describe('makeHostRestrictedFetch', () => {
 
       await restrictedFetch(mockUrl, options);
 
-      expect(global.fetch).toHaveBeenCalledWith(mockUrl, options);
+      expect(global.fetch).toHaveBeenCalledWith(mockUrl, {
+        ...options,
+        redirect: 'manual',
+        headers: expect.any(Headers),
+      });
     });
 
     it('should handle Request objects correctly', async () => {
@@ -147,6 +154,44 @@ describe('makeHostRestrictedFetch', () => {
       ).rejects.toThrow('Invalid host: malicious.com');
 
       expect(global.fetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('redirects', () => {
+    const redirectTo = (location: string): Response =>
+      new Response('', { status: 302, headers: { location } });
+
+    it('throws for a hop to a host outside the allowlist, and never requests it', async () => {
+      (global.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(redirectTo('http://malicious.com/exfil'))
+        .mockResolvedValue(new Response('exfiltrated'));
+
+      await expect(restrictedFetch(mockUrl)).rejects.toThrow(
+        'Invalid host: malicious.com, expected: localhost:8080',
+      );
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('throws for a hop to another port on the allowed hostname', async () => {
+      (global.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(redirectTo('http://localhost:11434/api/chat'))
+        .mockResolvedValue(new Response('exfiltrated'));
+
+      await expect(restrictedFetch(mockUrl)).rejects.toThrow(
+        'Invalid host: localhost:11434',
+      );
+      expect(global.fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('follows a hop that stays on the allowed host', async () => {
+      (global.fetch as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(redirectTo(`http://${mockHost}/api/moved`))
+        .mockResolvedValue(new Response('landed'));
+
+      const response = await restrictedFetch(mockUrl);
+
+      expect(await response.text()).toBe('landed');
+      expect(response.redirected).toBe(true);
     });
   });
 

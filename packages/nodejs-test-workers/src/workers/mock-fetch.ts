@@ -19,17 +19,30 @@ const getRequestUrl = Object.getOwnPropertyDescriptor(
   'url',
 )?.get as (this: Request) => string;
 
-globalThis.fetch = async (input) => {
+globalThis.fetch = async (input, init) => {
   // Resolved independently of the code under test, so an input that resolves
   // differently on a second read shows up here as a mismatch. Logged as a
   // string because a `Request` crosses the log stream as `{}`.
   const target =
     input instanceof Request ? getRequestUrl.call(input) : String(input);
   logger.debug('fetch', target);
+  // A `redirectTo` query names where this request is to be answered with a
+  // redirect, so a test can drive a per-hop redirect check.
+  const redirectTo = new URL(target).searchParams.get('redirectTo');
+  if (redirectTo) {
+    return new Response('', {
+      status: 302,
+      headers: { location: redirectTo },
+    });
+  }
   // Report the target back in a header too, so a test can assert that the URL
-  // reached by fetch is the one the caveat approved.
+  // reached by fetch is the one the caveat approved, and the redirect mode it
+  // was asked for, which has to survive the Snaps endowment wrapping this.
   return new Response('Hello, world!', {
-    headers: { 'x-fetched-url': target },
+    headers: {
+      'x-fetched-url': target,
+      'x-redirect-mode': String(init?.redirect),
+    },
   });
 };
 

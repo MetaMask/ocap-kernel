@@ -10,36 +10,30 @@
  * use the fetch function from global scope to make requests to other hosts.
  */
 
-import { resolveFetchInput } from '@metamask/kernel-utils';
+import { makeGuardedFetch } from '@metamask/kernel-utils';
 
 /**
- * Creates a fetch function that only allows requests to the specified origins.
+ * Creates a fetch function that only allows requests to the specified hosts.
+ * Matching is against `URL.host`, so the port is significant and the scheme is
+ * not. See {@link makeGuardedFetch}, which resolves the input once and re-runs
+ * the check on every redirect hop.
  *
- * The caller's input is resolved to a URL exactly once and replaced with a
- * stand-in that resolves to nothing else, so the URL checked against
- * `allowedHosts` is the URL `baseFetch` requests.
- *
- * @param allowedHosts - The hosts to allow requests from.
+ * @param allowedHosts - The hosts to allow requests to.
  * @param baseFetch - The fetch function to use as a base. Defaults to the global fetch function.
  * @returns A fetch function that only allows requests to the specified hosts.
  */
 export const makeHostRestrictedFetch = (
   allowedHosts: string[],
   baseFetch: typeof fetch = globalThis.fetch,
-): typeof fetch => {
-  const restrictedFetch = async (
-    ...[rawInput, ...args]: Parameters<typeof fetch>
-  ): ReturnType<typeof fetch> => {
-    const { url, input } = resolveFetchInput(rawInput);
-    const { host } = url;
-    if (!allowedHosts.includes(host)) {
-      throw new Error(
-        `Invalid host: ${host}, expected: ${allowedHosts.join(', ')}`,
-        { cause: { url: url.href } },
-      );
-    }
-    const response = await baseFetch(input, ...args);
-    return response;
-  };
-  return harden(restrictedFetch);
-};
+): typeof fetch =>
+  makeGuardedFetch({
+    baseFetch,
+    guard: async ({ host, href }) => {
+      if (!allowedHosts.includes(host)) {
+        throw new Error(
+          `Invalid host: ${host}, expected: ${allowedHosts.join(', ')}`,
+          { cause: { url: href } },
+        );
+      }
+    },
+  });
